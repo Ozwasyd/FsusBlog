@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="/api/Article/rss" />
+    <title>Loading...</title>
+    
+    <style>
+      #global-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background-color: #ffffff; /* 纯白背景 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        /* 为 App.vue 中的透明度变化提供平滑过渡 */
+        transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
+      }
+
+      .loader-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+
+      /* 等宽、极细、宽字距的灰色文字 */
+      .loader-text {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.3em;
+        color: #a1a1aa; /* 对应 Tailwind 的 zinc-400 */
+        text-transform: uppercase;
+        animation: pulse-text 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      /* 进度条轨道：极浅的灰色 */
+      .loader-bar-container {
+        width: 64px;
+        height: 1px;
+        background-color: #f4f4f5; /* 对应 zinc-100 */
+        overflow: hidden;
+        position: relative;
+      }
+
+      /* 进度条滑块：极具重量感的纯黑 */
+      .loader-bar {
+        position: absolute;
+        inset: 0;
+        background-color: #09090b; /* 对应 zinc-950 */
+        animation: slide-bar 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      @keyframes pulse-text {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
+
+      @keyframes slide-bar {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+    </style>
+  </head>
+  <body>
+    
+    <div id="global-loader">
+      <div class="loader-content">
+        <span class="loader-text">Initializing</span>
+        <div class="loader-bar-container">
+          <div class="loader-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

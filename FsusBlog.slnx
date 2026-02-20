@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="docker-compose.dcproj">
+    <Build />
+  </Project>
+  <Project Path="FsusBlog.Client/FsusBlog.Client.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="FsusBlog.Server/FsusBlog.Server.csproj" />
+</Solution>

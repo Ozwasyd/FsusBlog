@@ -1,0 +1,55 @@
+services:
+  # 后端 API 服务
+  # 逻辑自洽：这里的 Key 必须与 VS 项目名小写一致，防止 VS 报错找不到服务
+  fsusblog.server:
+    build:
+      # 性能最大化：上下文必须为解决方案根目录
+      context: .
+      dockerfile: FsusBlog.Server/Dockerfile
+    # 容器运行时名称，方便 OpenResty 或 Nginx 内部调用
+    container_name: fsus-api
+    image: ${DOCKER_REGISTRY-}fsusblogserver
+    restart: always
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      # 数据库连接：由外部 .env 驱动
+      - ConnectionStrings__DefaultConnection=Host=${EXTERNAL_DB_HOST};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}
+      - ConnectionStrings__Redis=${EXTERNAL_REDIS_HOST}:6379,password=${REDIS_PASSWORD},abortConnect=false,connectTimeout=10000
+      # Redis 连接：逻辑自洽修正，前缀对齐 appsettings.json 中的 RedisOptions 节点
+      # 增加 abortConnect=false 提高容器启动时的鲁棒性
+      - RedisOptions__Configuration=${EXTERNAL_REDIS_HOST}:6379,password=${REDIS_PASSWORD},abortConnect=false,connectTimeout=10000
+      # CORS 配置：支持逗号分隔的动态域名字符串
+      - CORS_ALLOWED_HOSTS=${CORS_ALLOWED_HOSTS}
+      # 映射 SEO 基础地址
+      - Seo__BaseUrl=${SITE_BASEURL}
+    networks:
+      - fsus-app-network
+      - fsus-infra-network
+    volumes:
+      # 逻辑自洽：将宿主机的存储目录挂载到容器的 wwwroot 路径
+      - ./data/fsusuploads:/app/wwwroot/uploads
+
+  # 前端 UI 服务
+  fsusblog.client:
+    build:
+      context: ./FsusBlog.Client
+      dockerfile: Dockerfile
+    container_name: fsus-ui
+    image: ${DOCKER_REGISTRY-}fsusblogclient
+    restart: always
+    depends_on:
+      - fsusblog.server
+    networks:
+      - fsus-app-network
+      # 逻辑自洽：必须加入基础设施网络，OpenResty 网关才能通过主机名找到此容器
+      - fsus-infra-network
+
+# 网络定义
+networks:
+  # 应用内部私有网络
+  fsus-app-network:
+    driver: bridge
+  # 外部基础设施网络（包含网关、数据库、Redis）
+  fsus-infra-network:
+    external: true
+

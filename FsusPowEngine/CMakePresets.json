@@ -1,0 +1,32 @@
+﻿{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "Wasm-Release-SIMD",
+      "displayName": "Wasm SIMD Release (iPhone 12+, Modern PC)",
+      "description": "启用 SIMD128 指令集的极致性能构建",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/wasm-simd",
+      "cacheVariables": {
+        "WASM_SIMD": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "C:/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+        "CMAKE_MAKE_PROGRAM": "ninja"
+      }
+    },
+    {
+      "name": "Wasm-Release-Basic",
+      "displayName": "Wasm Basic Release (Older Devices)",
+      "description": "不带 SIMD 的兼容性构建，用于旧款手机",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/wasm-basic",
+      "cacheVariables": {
+        "WASM_SIMD": "OFF",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "C:/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+        "CMAKE_MAKE_PROGRAM": "ninja"
+      }
+    }
+  ]
+}
+

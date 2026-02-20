@@ -1,0 +1,62 @@
+﻿using IP2Location;
+using Microsoft.Extensions.ObjectPool;
+
+namespace FsusBlog.Server.Infrastructure.Helpers;
+
+/// <summary>
+/// IP2Location 实例池化策略
+/// 优化点：避免非线程安全冲突，消除重复打开 BIN 文件的磁盘 IO 开销
+/// </summary>
+public class IP2LocationPooledObjectPolicy : IPooledObjectPolicy<Component>
+{
+    private readonly string _dbPath;
+    private readonly ILogger<IP2LocationPooledObjectPolicy> _logger;
+
+    /// <summary>
+    /// 初始化策略
+    /// </summary>
+    /// <param name="dbPath">IP2Location BIN 数据库的物理路径</param>
+    /// <param name="logger">日志组件</param>
+    public IP2LocationPooledObjectPolicy(string dbPath, ILogger<IP2LocationPooledObjectPolicy> logger)
+    {
+        _dbPath = dbPath;
+        _logger = logger;
+
+        // 🛡️ 启动防御：如果数据库文件丢失，直接阻断启动，防止后续统计业务崩溃
+        if (!File.Exists(_dbPath))
+        {
+            _logger.LogCritical("严重错误：IP2Location 数据库文件缺失 | 路径: {Path}", _dbPath);
+            throw new FileNotFoundException("IP2Location BIN file not found.", _dbPath);
+        }
+    }
+
+    /// <summary>
+    /// 池化对象创建逻辑
+    /// </summary>
+    public Component Create()
+    {
+        try
+        {
+            var component = new Component();
+
+            // 🚀 核心优化：在对象进入池之前就打开数据库
+            // 使得后续所有的解析操作都是 O(1) 或 O(log n) 的内存操作
+            component.Open(_dbPath);
+
+            _logger.LogDebug("已成功初始化并预热一个新的 IP2Location 实例");
+            return component;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "初始化 IP2Location 实例失败，请检查文件权限或格式");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// 对象归还逻辑
+    /// </summary>
+    public bool Return(Component obj) =>
+        // 只要对象不为空，则认为可继续复用
+        obj != null;
+}

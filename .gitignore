@@ -1,0 +1,83 @@
+# ==========================================
+# 1. 逻辑自洽：通用规则与 IDE
+# ==========================================
+.vs/
+.vscode/
+.github/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.DS_Store
+Thumbs.db
+
+# 排除根目录下的环境变量（包含敏感密钥）
+.env
+# 排除根目录下的启动设置
+launchSettings.json
+
+# 逻辑自洽：从截图看，根目录出现了编译产生的 bin 和 obj 文件夹
+/bin/
+/obj/
+/data/
+
+# ==========================================
+# 2. FsusBlog.Client (Vue 3 / Vite)
+# ==========================================
+FsusBlog.Client/node_modules/
+FsusBlog.Client/dist/
+
+# 逻辑自洽：排除本地生成的 Docker 镜像压缩包
+*.tar
+FsusBlog.Client/*.tar
+
+# 安全性保障：排除开发环境特定配置
+FsusBlog.Client/.env.development
+FsusBlog.Client/.env.local
+FsusBlog.Client/npm-debug.log*
+
+# 性能最大化：排除自动导入插件生成的类型声明文件（由 Unplugin 生成）
+FsusBlog.Client/auto-imports.d.ts
+FsusBlog.Client/components.d.ts
+
+# ==========================================
+# 3. FsusBlog.Server (ASP.NET Core 10)
+# ==========================================
+FsusBlog.Server/[Bb]in/
+FsusBlog.Server/[Oo]bj/
+
+# 安全性保障：排除包含敏感数据库配置的文件
+FsusBlog.Server/appsettings.Development.json
+FsusBlog.Server/publish/
+
+# 逻辑自洽：根据企划书，系统使用 Lucene.NET 检索 [cite: 8, 29]
+# 必须排除本地生成的索引文件，防止污染仓库
+FsusBlog.Server/wwwroot/index/
+*.index
+
+# 逻辑自洽：系统集成 Serilog 异步日志 
+# 排除所有按天滚动的日志文件
+FsusBlog.Server/logs/
+*.log
+
+# ==========================================
+# 4. FsusPowEngine (CMake / C++ / EMSDK)
+# ==========================================
+# 性能最大化：排除所有 CMake 构建产物
+FsusPowEngine/build/
+FsusPowEngine/out/
+FsusPowEngine/bin/
+FsusPowEngine/CMakeFiles/
+FsusPowEngine/CMakeCache.txt
+FsusPowEngine/*.cmake
+
+# 排除 EMSDK 相关（如果 SDK 在项目内） [cite: 11]
+FsusPowEngine/.emsdk/
+
+# ==========================================
+# 5. 跨项目依赖与临时文件
+# ==========================================
+# 如果 FsusPowEngine 的 wasm 产物拷贝到了 Client 的 public 下 [cite: 11, 35]
+# 建议通过 Git 管理源码而非 .wasm 编译结果
+FsusBlog.Client/public/wasm/*.wasm
+FsusBlog.Client/public/wasm/*.js

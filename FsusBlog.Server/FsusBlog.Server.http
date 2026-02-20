@@ -1,0 +1,6 @@
+@FsusBlog.Server_HostAddress = http://localhost:5173
+
+GET {{FsusBlog.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

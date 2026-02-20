@@ -1,0 +1,17 @@
+services:
+  fsusblog.server:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+    ports:
+      - "5000:8080"
+
+  fsusblog.client:
+    environment:
+      - NODE_ENV=development
+
+networks:
+  fsus-app-network:
+    driver: bridge
+  fsus-infra-network:
+    external: true

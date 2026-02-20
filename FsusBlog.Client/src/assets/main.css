@@ -1,0 +1,72 @@
+/* src/assets/main.css */
+@import "tailwindcss";
+@import '@/assets/styles/error.css';
+
+/* 在 v4 中，所有的配置（颜色、字体、断点）
+  直接在 CSS 的 @theme 块中定义，而不是在 JS 文件里！
+*/
+@theme {
+  /* 🌟 定义 Google Sans 字体栈 */
+  --font-sans: "Google Sans", 'Noto Sans SC' , 'Noto Sans TC', 'Noto Sans JP', "ui-sans-serif", "system-ui", "sans-serif";
+
+  /* 🌟 定义黑白灰单色调扩展（如果系统默认的 zinc 不够用） */
+  --color-brand-black: #050505;
+  
+  --color-primary: #3b82f6; /* 自定义颜色 */
+  --color-admin-bg: #f8fafc;
+}
+
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+  /* 解决 iOS 橡皮筋效果露底的问题 */
+  position: relative;
+}
+
+/* 确保所有元素在计算宽度时包含边框和内边距 */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* 全局样式 */
+body {
+  @apply antialiased text-gray-900;
+}
+
+@layer base {
+/* 修复大小标题不显示：手动注入尺寸 */
+  .prose :where(h1):not(:where([class~="not-prose"] *)) {
+    @apply text-3xl font-bold mb-10 text-zinc-950 tracking-tight;
+  }
+  .prose :where(h2):not(:where([class~="not-prose"] *)) {
+    /* 增加 H2 下划线增加结构感 */
+    @apply text-2xl font-bold mt-16 mb-6 text-zinc-950 tracking-tight border-b border-zinc-100 pb-3;
+  }
+  .prose :where(h3):not(:where([class~="not-prose"] *)) {
+    @apply text-xl font-bold mt-10 mb-4 text-zinc-950;
+  }
+  
+  /* 正文间距与行高优化 */
+  .prose :where(p):not(:where([class~="not-prose"] *)) {
+    @apply leading-8 mb-6 text-zinc-600;
+  }
+
+  .prose {
+    /* 解决 Windows 1080p 字体发虚的核心逻辑 */
+    @apply subpixel-antialiased;
+    max-width: none;
+  }
+  
+  @media (-webkit-min-device-pixel-ratio: 1) and (-webkit-max-device-pixel-ratio: 1.5) {
+    html {
+      /* 强制恢复 ClearType，不要使用灰度平滑 */
+      -webkit-font-smoothing: subpixel-antialiased;
+      -moz-osx-font-smoothing: auto;
+    }
+
+    /* 针对中文分类名这种小而重的文字，关闭某些复杂的渲染引擎特性以求清晰 */
+    .font-sans {
+      text-rendering: optimizeSpeed; 
+    }
+  }
+}
