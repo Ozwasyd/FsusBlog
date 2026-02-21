@@ -1,0 +1,38 @@
+# FsusBlog 开发环境覆盖配置 (修复日期: 2026-02-20)
+# 逻辑自洽说明: 确保客户端被正确纳入 fsus-infra-network 内部网络
+services:
+  # 后端 API 调试配置
+  fsusblog.server:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=1
+    volumes:
+      - ./FsusBlog.Server:/app
+      - ~/.aspnet/https:/https:ro
+    working_dir: /app
+    command: ["dotnet", "watch", "run", "--project", "FsusBlog.Server.csproj", "--urls", "http://+:8080"]
+    ports:
+      - "5173:8080"
+    # 主文件中已有 networks，继承配置即可
+    networks:
+      # 核心修复：确保该开发模式下的容器强制加入同一网络
+      - fsus-infra-network
+
+  # 前端 UI 调试配置
+  fsusblog.client:
+    build:
+      context: .
+      dockerfile: FsusBlog.Client/Dockerfile
+      target: build-stage
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true 
+    volumes:
+      - ./FsusBlog.Client:/app
+      - /app/node_modules
+    working_dir: /app
+    ports:
+      - "3000:3000" # 开发阶段暴漏出来以供宿主机直接跳过Nginx直连调试
+    networks:
+      # 核心修复：确保该开发模式下的容器强制加入同一网络，以便 Nginx 127.0.0.11 DNS 可以发现它
+      - fsus-infra-network

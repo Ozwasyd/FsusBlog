@@ -63,35 +63,47 @@ export function useNotification() {
         return newPow;
     };
 
-    const handleReauthAndRestart = async () => {
-        if (currentMode.value !== 'guest' || userStore.isLoggedIn) return;
+    // 核心修复(2026-02-21): 接收异常原因，处理缓存恢复引发的前后端状态脱节
+    const handleReauthAndRestart = async (reason?: string) => {
+        if (userStore.isLoggedIn) {
+            // 逻辑自洽：如果前端认为已登录，但后端明确告知缺少 PoW/Access Denied
+            // 证明后端的 Token 已过期或丢失。此时必须主动清除假登录态，降级为游客连接。
+            if (reason?.includes('PoW credentials missing') || reason?.includes('Access Denied')) {
+                console.warn("[SignalR] Token rejected or expired. Syncing local state and downgrading to guest...");
+                userStore.setUserInfo(null); 
+            } else {
+                // 如果是已登录用户且是其他网络错误，交由 SignalR 原生机制自动重连
+                return;
+            }
+        } else if (currentMode.value !== 'guest') {
+            return;
+        }
 
-        // 安全性保障核心修正：增加 5 秒冷却期。
-        // 如果后端彻底决绝了凭证（如时钟严重不同步），这能防止浏览器陷入算力无限死循环并拖垮服务器。
         const now = Date.now();
         if (now - lastReauthTime < 5000) {
-            console.warn("[SignalR] Re-auth too frequent, aborting to prevent infinite loop.");
+            console.warn(" Re-auth too frequent, aborting to prevent infinite loop.");
             return;
         }
         lastReauthTime = now;
 
-        // 性能最大化：如果 Worker 正在忙于其他计算（如发表评论），稍后重试
         if (isCalculating.value) {
-            console.log("[SignalR] Worker busy, rescheduling re-auth...");
+            console.log(" Worker busy, rescheduling re-auth...");
             setTimeout(() => {
-                lastReauthTime = 0; // 重置冷却使之能正常运行
-                handleReauthAndRestart();
+                lastReauthTime = 0;
+                handleReauthAndRestart(reason);
             }, 2000);
             return;
         }
 
         try {
-            console.log("[SignalR] Connection invalidated. Re-calculating PoW...");
+            console.log(" Connection invalidated. Re-calculating PoW...");
             sessionStorage.removeItem(POW_STORAGE_KEY);
             const pow = await getOrRefreshPow();
             await notificationService.start('', pow);
+            // 确保模式修正
+            currentMode.value = 'guest';
         } catch (err) {
-            console.error('[SignalR] Restart with new PoW failed', err);
+            console.error(' Restart with new PoW failed', err);
         }
     };
 
@@ -106,7 +118,6 @@ export function useNotification() {
             if (notificationService.isConnected()) await notificationService.stop();
             currentMode.value = targetMode;
 
-            // 逻辑自洽：采用单例回调，移除原有的 window.addEventListener 导致的幽灵请求现象
             notificationService.onRequestNewPow = handleReauthAndRestart;
 
             notificationService.onGlobalNotice = (data: GlobalNoticePayload) => {
@@ -138,20 +149,27 @@ export function useNotification() {
             notificationService.onCommentRemoved = (data: CommentRemovedPayload) => {
                 window.dispatchEvent(new CustomEvent('signalr:comment-removed', { detail: data }));
             };
+
             notificationService.onUserStatusChanged = async (data: UserStatusPayload) => {
-                if (data.status === 1) {
-                    userStore.updateStatus(data.status, data.reason);
-                    toast.error(`账户管控通知：${data.reason || '您的账号已被限制操作'}`, 10000);
-                } else if (data.status === 0) {
-                    userStore.updateStatus(0, null);
-                    toast.success('账户通知：您的账号已恢复正常使用');
+                const oldStatus = userStore.userInfo?.status;
+                const newStatus = Number(data.status);
+
+                const isStatusChanged = oldStatus !== undefined && Number(oldStatus) !== newStatus;
+
+                userStore.updateStatus(newStatus, data.reason);
+
+                if (isStatusChanged) {
+                    if (newStatus === 1) {
+                        toast.error(`账户管控通知：${data.reason || '您的账号已被限制操作'}`, 10000);
+                    } else if (newStatus === 0) {
+                        toast.success('账户通知：您的账号已恢复正常使用');
+                    }
                 }
             };
+
             notificationService.onUnreadUpdate = (count: number) => { unreadCount.value = count; };
 
             if (isLogged) {
-                // 必须在此传入真实的 JWT Token！传入空字符串会导致后端身份识别回退至访客模式，
-                // 从而引发无谓的 PoW 校验和 Access Denied！
                 const token = (userStore as any).token || localStorage.getItem('token') || '';
                 await notificationService.start(token);
             } else {

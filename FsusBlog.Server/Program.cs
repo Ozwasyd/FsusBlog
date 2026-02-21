@@ -197,14 +197,11 @@ app.UseMiddleware<VisitLogMiddleware>();
 
 app.MapControllers();
 
-// 7. 路径一致性：映射路径必须与 Nginx 代理配置中的 /hub/ 保持严格一致
-app.MapHub<NotificationHub>("/hub/notifications");
+// 7. 路径一致性：映射路径必须与 Nginx 代理配置中的 /hubs/ 保持严格一致 (修复日期: 2026-02-20)
+app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapMessageEndpoints();
 
-// 逻辑自洽：前后端分离模式下 404 回退由前端网关 try_files 处理，API 层不再映射 index.html
-// app.MapFallbackToFile("/index.html"); 
-
-// 6. 数据库与系统初始化
+// 8. 数据库与系统初始化
 try
 {
     using var scope = app.Services.CreateScope();

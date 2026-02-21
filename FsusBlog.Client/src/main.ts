@@ -6,6 +6,9 @@ import { createHead } from '@vueuse/head'
 // 引入根组件
 import App from './App.vue'
 
+// 导入持久化插件
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
+
 // 引入路由
 import router from './router'
 
@@ -48,6 +51,7 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 const head = createHead()
 app.use(head)
 
+pinia.use(piniaPluginPersistedstate)
 // 挂载插件
 app.use(pinia)
 app.use(router)

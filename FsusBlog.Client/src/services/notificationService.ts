@@ -43,14 +43,12 @@ class NotificationService {
 
     public onReconnected?: (connectionId?: string) => void;
 
-    // 逻辑自洽：使用类属性回调替代 DOM 广播事件，彻底杜绝 Vue 组件多次销毁挂载导致的内存泄漏
-    public onRequestNewPow?: () => void;
+    // 核心修复(2026-02-21): 增加 reason 参数，传递异常上下文
+    public onRequestNewPow?: (reason?: string) => void;
 
     private buildFullUrl(baseUrl: string, params?: PowParams): string {
         if (!params) return baseUrl;
 
-        // 逻辑自洽防范：同时传入缩写与标准头格式的 Query 参数
-        // 确保后端 SignalRPoWFilter 无论怎么取值（精确匹配或 Header 映射）都能命中
         const queryObj: Record<string, string> = {
             nonce: params.nonce, salt: params.salt, fp: params.fp,
             signature: params.signature, difficulty: params.difficulty.toString(),
@@ -76,7 +74,6 @@ class NotificationService {
         this.connection = new signalR.HubConnectionBuilder()
             .withUrl(fullUrl, {
                 accessTokenFactory: () => this.currentToken || "",
-                // 性能最大化：为可能存在的降级请求（如 LongPolling 或初始的 Negotiate 握手）附加真实的 Header
                 headers: powParams ? {
                     "X-PoW-Nonce": powParams.nonce,
                     "X-PoW-Salt": powParams.salt,
@@ -88,15 +85,11 @@ class NotificationService {
             })
             .withAutomaticReconnect({
                 nextRetryDelayInMilliseconds: retryContext => {
-                    // 逻辑自洽：访客模式下，Nonce 是一次性的
-                    // 如果连接断开，自动重连必将触发后端的重放攻击检测
-                    // 因此，如果是访客（没有 token），我们在第一次重连尝试前就强制中断
                     if (!this.currentToken) {
-                        console.warn("[SignalR] Guest connection lost. Automatic reconnect aborted for new PoW.");
-                        this.onRequestNewPow?.();
-                        return null; // 返回 null 立即停止重连循环
+                        console.warn(" Guest connection lost. Automatic reconnect aborted for new PoW.");
+                        this.onRequestNewPow?.(retryContext.retryReason?.message);
+                        return null;
                     }
-
                     if (retryContext.previousRetryCount > 10) return null;
                     return Math.min(retryContext.previousRetryCount * 2000, 30000);
                 }
@@ -104,18 +97,17 @@ class NotificationService {
             .configureLogging(signalR.LogLevel.Warning)
             .build();
 
-        // 处理手动重连期间可能出现的凭证异常
+        // 将 403 和 账号受限 等纳入重连捕获池，并透传 message
         this.connection.onclose(async (error) => {
-            if (error?.message.includes("Access Denied") || error?.message.includes("PoW credentials missing")) {
-                this.onRequestNewPow?.();
+            if (error?.message.includes("Access Denied") || error?.message.includes("PoW credentials missing") || error?.message.includes("403") || error?.message.includes("账号受限")) {
+                this.onRequestNewPow?.(error.message);
             }
         });
 
-        // 捕获重连中的状态
         this.connection.onreconnecting((error) => {
-            if (error?.message.includes("Access Denied")) {
-                console.error("[SignalR] Reconnect credential invalid.");
-                this.onRequestNewPow?.();
+            if (error?.message.includes("Access Denied") || error?.message.includes("403") || error?.message.includes("账号受限")) {
+                console.error(" Reconnect credential invalid.");
+                this.onRequestNewPow?.(error.message);
             }
         });
 
@@ -123,7 +115,6 @@ class NotificationService {
             this.onReconnected?.(connectionId);
         });
 
-        // 绑定信令通道
         this.connection.on("ReceiveNotice", (data: NoticePayload) => this.onUnreadUpdate?.(data.unreadCount));
         this.connection.on("ReceiveGlobalNotice", (data: GlobalNoticePayload) => this.onGlobalNotice?.(data));
         this.connection.on("UpdateUnreadCount", (count: number) => this.onUnreadUpdate?.(count));
@@ -137,8 +128,9 @@ class NotificationService {
         try {
             await this.connection.start();
         } catch (err: any) {
-            if (err.message?.includes("Access Denied") || err.message?.includes("PoW credentials missing")) {
-                this.onRequestNewPow?.();
+            // 如果 start 失败时遭遇了 403 阻断，平滑处理并透传异常原因
+            if (err.message?.includes("Access Denied") || err.message?.includes("PoW credentials missing") || err.message?.includes("403") || err.message?.includes("账号受限")) {
+                this.onRequestNewPow?.(err.message);
             }
             this.connection = null;
             throw err;
@@ -150,7 +142,7 @@ class NotificationService {
             try {
                 await this.connection.stop();
             } catch (e) {
-                console.warn("[SignalR] Stop warning:", e);
+                console.warn(" Stop warning:", e);
             } finally {
                 this.connection = null;
             }

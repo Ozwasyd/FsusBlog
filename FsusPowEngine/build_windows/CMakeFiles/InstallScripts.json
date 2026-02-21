@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"F:/Projects/FsusBlog/FsusPowEngine/build_windows/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

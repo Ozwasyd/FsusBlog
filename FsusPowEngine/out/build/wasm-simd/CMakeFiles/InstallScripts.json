@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"F:/Projects/FsusBlog/FsusPowEngine/out/build/wasm-simd/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

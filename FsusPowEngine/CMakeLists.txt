@@ -12,10 +12,15 @@ set(SOURCES
     src/main.cpp
 )
 
-# 3. 创建执行目标
-add_executable(FsusPowEngine ${SOURCES})
+# 3. 创建编译目标 (根据编译环境动态切换)
+# 逻辑自洽：前端 WASM 需要可执行目标，后端 C# 需要共享动态链接库
+if(EMSCRIPTEN)
+    add_executable(FsusPowEngine ${SOURCES})
+else()
+    add_library(FsusPowEngine SHARED ${SOURCES})
+endif()
 
-# 4. 包含 PicoSHA2 所在的 include 文件夹
+# 4. 包含 PicoSHA2 所在的 include 文件夹 (双端通用)
 target_include_directories(FsusPowEngine PRIVATE 
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
@@ -70,6 +75,14 @@ if(EMSCRIPTEN)
     # target_link_options(FsusPowEngine PRIVATE "-g4" "--source-map-base" "./")
 
 else()
-    # 非 Emscripten 环境逻辑
-    message(WARNING "Current toolchain is NOT Emscripten. IntelliSense might show errors for emscripten/bind.h")
+    # 6. 非 Emscripten 环境逻辑 (配置供 C# 调用的 Native DLL/SO)
+    message(STATUS "Configuring for Native Shared Library (C# Backend)")
+
+    # 性能最大化：针对 Intel Xeon E5-2686 v4 开启 AVX2 与最高级别浮点优化
+    if(MSVC)
+        target_compile_options(FsusPowEngine PRIVATE /O2 /fp:fast /arch:AVX2)
+    else()
+        target_compile_options(FsusPowEngine PRIVATE -O3 -ffast-math -mavx2)
+    endif()
+
 endif()

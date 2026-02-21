@@ -1,12 +1,12 @@
+# FsusBlog 基础编排配置 (修订日期: 2026-02-21)
+# 修正说明：将绑定挂载升级为具名卷，确保在无 root 权限的部署环境下依然能正确处理非 root 用户的目录权限。
+
 services:
-  # 后端 API 服务
-  # 逻辑自洽：这里的 Key 必须与 VS 项目名小写一致，防止 VS 报错找不到服务
+  # 1. 业务核心：后端 API
   fsusblog.server:
     build:
-      # 性能最大化：上下文必须为解决方案根目录
       context: .
       dockerfile: FsusBlog.Server/Dockerfile
-    # 容器运行时名称，方便 OpenResty 或 Nginx 内部调用
     container_name: fsus-api
     image: ${DOCKER_REGISTRY-}fsusblogserver
     restart: always
@@ -15,8 +15,7 @@ services:
       # 数据库连接：由外部 .env 驱动
       - ConnectionStrings__DefaultConnection=Host=${EXTERNAL_DB_HOST};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}
       - ConnectionStrings__Redis=${EXTERNAL_REDIS_HOST}:6379,password=${REDIS_PASSWORD},abortConnect=false,connectTimeout=10000
-      # Redis 连接：逻辑自洽修正，前缀对齐 appsettings.json 中的 RedisOptions 节点
-      # 增加 abortConnect=false 提高容器启动时的鲁棒性
+      # Redis 连接：前缀对齐 appsettings.json 中的 RedisOptions 节点
       - RedisOptions__Configuration=${EXTERNAL_REDIS_HOST}:6379,password=${REDIS_PASSWORD},abortConnect=false,connectTimeout=10000
       # CORS 配置：支持逗号分隔的动态域名字符串
       - CORS_ALLOWED_HOSTS=${CORS_ALLOWED_HOSTS}
@@ -26,30 +25,29 @@ services:
       - fsus-app-network
       - fsus-infra-network
     volumes:
-      # 逻辑自洽：将宿主机的存储目录挂载到容器的 wwwroot 路径
-      - ./data/fsusuploads:/app/wwwroot/uploads
+      # 核心修复(2026-02-21)：使用具名卷替代物理路径挂载，解决 LuceneIndex 权限拒绝问题
+      - fsus-uploads:/app/wwwroot/uploads
+      - fsus-luceneindex:/app/LuceneIndex
 
-  # 前端 UI 服务
+  # 2. 业务核心：前端 UI (内置 Nginx 安全保障)
   fsusblog.client:
     build:
-      context: ./FsusBlog.Client
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: FsusBlog.Client/Dockerfile
     container_name: fsus-ui
     image: ${DOCKER_REGISTRY-}fsusblogclient
     restart: always
-    depends_on:
-      - fsusblog.server
     networks:
       - fsus-app-network
-      # 逻辑自洽：必须加入基础设施网络，OpenResty 网关才能通过主机名找到此容器
       - fsus-infra-network
 
-# 网络定义
 networks:
-  # 应用内部私有网络
   fsus-app-network:
     driver: bridge
-  # 外部基础设施网络（包含网关、数据库、Redis）
   fsus-infra-network:
-    external: true
+    external: true # 假设基础设施网络（DB/Redis）已存在，符合生产环境安全性要求
 
+# 定义具名卷，确保持久化数据由 Docker 引擎统一管理权限映射
+volumes:
+  fsus-uploads:
+  fsus-luceneindex:

@@ -1,33 +1,40 @@
-﻿#include <emscripten/bind.h>
-#include <cstring>
+﻿#include <cstring>
 #include <vector>
 #include <string>
 #include <algorithm> // for std::copy
+#include <cstdint>
 
 // 引入 Picosha2 头文件 (请确保项目目录包含 include/picosha2.h)
 #include "include/picosha2.h" 
+
+#ifdef __EMSCRIPTEN__
+    // 仅在 WASM 编译环境下引入 Emscripten 绑定
+#include <emscripten/bind.h>
+using namespace emscripten;
 
 // 仅在 SIMD 模式下引入 WASM Intrinsic 头文件
 #ifdef __wasm_simd128__
 #include <wasm_simd128.h>
 #endif
-
-using namespace emscripten;
+#else
+    // 仅在本地后端编译环境下引入 AVX2 Intrinsic 头文件
+#include <immintrin.h>
+#endif
 
 // ==========================================
-// 🛡️ 通用辅助逻辑层
+// 通用辅助逻辑层
 // ==========================================
 
 /**
  * 快速 Nonce 自增逻辑 (通用优化版)
  * 处理数字自增及进位导致的缓冲区扩展
- * * @param buffer 缓冲区引用
+ * @param buffer 缓冲区引用
  * @param nonce_start Nonce 在 buffer 中的起始索引
  * @param suffix_start 后缀 (:Fp) 起始索引的引用 (进位时会更新)
  * @param max_size 缓冲区最大允许容量 (安全熔断)
  * @return true 成功, false 溢出/错误
  */
-inline bool increment_nonce(std::vector<char>& buffer, size_t nonce_start, size_t& suffix_start, size_t max_size) {
+static inline bool increment_nonce(std::vector<char>& buffer, size_t nonce_start, size_t& suffix_start, size_t max_size) {
     // 1. 常规路径：从 Nonce 个位开始倒序尝试自增
     // Nonce 范围: [nonce_start, suffix_start)
     for (int i = (int)suffix_start - 1; i >= (int)nonce_start; --i) {
@@ -67,7 +74,7 @@ inline bool increment_nonce(std::vector<char>& buffer, size_t nonce_start, size_
         buffer[buffer.size() - 1 - i] = buffer[buffer.size() - 2 - i];
     }
 
-    // 🌟 核心修正点：
+    // 核心修正点：
     // 腾出的空位正是原来的 suffix_start (现在是 Nonce 的最后一位)
     // 原来的 suffix_start+1 现在存放的是被移过去的冒号 ':'
     // 此时: 10...0:Fp
@@ -79,17 +86,20 @@ inline bool increment_nonce(std::vector<char>& buffer, size_t nonce_start, size_
     return true;
 }
 
+#ifdef __EMSCRIPTEN__
 // ==========================================
-// ⚡ 路径 A: SIMD 加速实现
+// WebAssembly 前端导出部分
+// ==========================================
+
+// 路径 A: SIMD 加速实现
 // 编译条件: CMake 开启 -msimd128
-// ==========================================
 #ifdef __wasm_simd128__
 
 /**
  * SIMD 优化的哈希检查
  * 利用 v128 寄存器一次并行检查 16 字节
  */
-inline bool check_hash_simd(const unsigned char* hash, int difficulty) {
+static inline bool check_hash_simd(const unsigned char* hash, int difficulty) {
     // 1. 快速检查 (以 16 字节为单位)
     // difficulty 是半字节数 (nibbles)。32 nibbles = 128 bits = 16 bytes
     int full_128bit_blocks = difficulty / 32;
@@ -126,7 +136,7 @@ inline bool check_hash_simd(const unsigned char* hash, int difficulty) {
     return true;
 }
 
-std::string solve_pow_simd(std::string salt, std::string browserFp, int difficulty) {
+static std::string solve_pow_simd(std::string salt, std::string browserFp, int difficulty) {
     // 内存对齐的哈希缓冲区 (SIMD 加载必须对齐 16 字节，否则崩溃)
     alignas(16) unsigned char hash[32];
 
@@ -163,12 +173,10 @@ std::string solve_pow_simd(std::string salt, std::string browserFp, int difficul
 
 #else 
 
-// ==========================================
-// 🐢 路径 B: 标量极致优化实现 (Fallback)
+// 路径 B: 标量极致优化实现 (Fallback)
 // 编译条件: 未开启 -msimd128
-// ==========================================
 
-inline bool check_hash_scalar(const unsigned char* hash, int difficulty) {
+static inline bool check_hash_scalar(const unsigned char* hash, int difficulty) {
     // 1. 完整字节检查
     int full_bytes = difficulty / 2;
     for (int i = 0; i < full_bytes; ++i) {
@@ -182,7 +190,7 @@ inline bool check_hash_scalar(const unsigned char* hash, int difficulty) {
     return true;
 }
 
-std::string solve_pow_scalar(std::string salt, std::string browserFp, int difficulty) {
+static std::string solve_pow_scalar(std::string salt, std::string browserFp, int difficulty) {
     unsigned char hash[32];
 
     std::vector<char> buffer;
@@ -217,11 +225,8 @@ std::string solve_pow_scalar(std::string salt, std::string browserFp, int diffic
 
 #endif // End of Path Selection
 
-// ==========================================
-// 🚀 统一入口 (双路径分发代理)
-// ==========================================
-
-std::string solve_pow(std::string salt, std::string browserFp, int difficulty) {
+// 统一入口 (双路径分发代理)
+static std::string solve_pow(std::string salt, std::string browserFp, int difficulty) {
     // 1. 参数防御 (Input Validation)
     if (salt.length() > 256 || browserFp.length() > 512) return "error_input_too_long";
     if (difficulty <= 0 || difficulty > 64) return "0";
@@ -239,3 +244,63 @@ std::string solve_pow(std::string salt, std::string browserFp, int difficulty) {
 EMSCRIPTEN_BINDINGS(pow_module) {
     function("solve_pow", &solve_pow);
 }
+
+#else
+// ==========================================
+// Native DLL/SO 导出接口 (供 C# 后端调用)
+// 适用于 Intel Xeon E5-2686 v4 (AVX2 支持)
+// ==========================================
+
+/**
+ * AVX2 极致优化：使用 256位 寄存器执行零值校验
+ */
+static inline bool check_hash_avx2(const unsigned char* hash, int difficulty) {
+    int full_bytes = difficulty / 2;
+
+    __m256i v_hash = _mm256_load_si256(reinterpret_cast<const __m256i*>(hash));
+    __m256i v_zero = _mm256_setzero_si256();
+    __m256i v_cmp = _mm256_cmpeq_epi8(v_hash, v_zero);
+
+    uint32_t mask = static_cast<uint32_t>(_mm256_movemask_epi8(v_cmp));
+
+    if (full_bytes > 0) {
+        // 安全性保障：防止 full_bytes == 32 时的左移未定义行为 (UB)
+        uint32_t target_mask = (full_bytes >= 32) ? 0xFFFFFFFF : ((1U << full_bytes) - 1);
+        if ((mask & target_mask) != target_mask) {
+            return false;
+        }
+    }
+
+    if (difficulty % 2 != 0) {
+        if ((hash[full_bytes] & 0xF0) != 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+extern "C" {
+#ifdef _WIN32
+    __declspec(dllexport)
+#else
+    __attribute__((visibility("default")))
+#endif
+        bool verify_pow_workload(const uint8_t* data, int32_t length, int32_t difficulty) {
+        // 1. 安全性保障: 参数防御
+        if (!data || length <= 0 || difficulty < 0 || difficulty > 64) {
+            return false;
+        }
+
+        // 2. 内存对齐要求：AVX2 寄存器加载要求 32 字节边界对齐
+        alignas(32) unsigned char hash[32];
+
+        // 3. 逻辑自洽: 不揣测未知代码，复用现有的 picosha2 算法进行纯计算
+        picosha2::hash256(data, data + length, hash, hash + 32);
+
+        // 4. 性能最大化: 调用 AVX2 高速比对逻辑
+        return check_hash_avx2(hash, difficulty);
+    }
+}
+
+#endif // __EMSCRIPTEN__

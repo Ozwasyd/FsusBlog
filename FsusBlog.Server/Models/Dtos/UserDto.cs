@@ -138,7 +138,7 @@ public class AdminChangeStatusDto : IPowRequest
     /// <summary>
     /// 封禁理由 (当 Status 为 1 时必填或选填)
     /// </summary>
-    public required string Reason { get; set; }
+    public string? Reason { get; set; }
 
     // PoW 字段
     public required string PowSalt { get; set; }

@@ -11,8 +11,6 @@
 .DS_Store
 Thumbs.db
 
-# 排除根目录下的环境变量（包含敏感密钥）
-.env
 # 排除根目录下的启动设置
 launchSettings.json
 
@@ -20,6 +18,15 @@ launchSettings.json
 /bin/
 /obj/
 /data/
+
+# --- 核心安全保障：环境变量隔离 (2026-02-21) ---
+# 排除所有真实的敏感环境变量文件
+.env
+.env.production
+.env.local
+.env.*.local
+# 逻辑自洽：强行允许提交环境变量模板，作为生产环境的配置参考
+!.env.production-template
 
 # ==========================================
 # 2. FsusBlog.Client (Vue 3 / Vite)
@@ -46,11 +53,12 @@ FsusBlog.Client/components.d.ts
 FsusBlog.Server/[Bb]in/
 FsusBlog.Server/[Oo]bj/
 
-# 安全性保障：排除包含敏感数据库配置的文件
+# 安全性保障：排除包含本地开发敏感数据库配置的文件
+# 注意：appsettings.json 和 appsettings.Production.json 必须提交到 Git 以供 Docker 构建
 FsusBlog.Server/appsettings.Development.json
 FsusBlog.Server/publish/
 
-# 逻辑自洽：根据企划书，系统使用 Lucene.NET 检索 [cite: 8, 29]
+# 逻辑自洽：根据企划书，系统使用 Lucene.NET 检索
 # 必须排除本地生成的索引文件，防止污染仓库
 FsusBlog.Server/wwwroot/index/
 *.index
@@ -59,25 +67,3 @@ FsusBlog.Server/wwwroot/index/
 # 排除所有按天滚动的日志文件
 FsusBlog.Server/logs/
 *.log
-
-# ==========================================
-# 4. FsusPowEngine (CMake / C++ / EMSDK)
-# ==========================================
-# 性能最大化：排除所有 CMake 构建产物
-FsusPowEngine/build/
-FsusPowEngine/out/
-FsusPowEngine/bin/
-FsusPowEngine/CMakeFiles/
-FsusPowEngine/CMakeCache.txt
-FsusPowEngine/*.cmake
-
-# 排除 EMSDK 相关（如果 SDK 在项目内） [cite: 11]
-FsusPowEngine/.emsdk/
-
-# ==========================================
-# 5. 跨项目依赖与临时文件
-# ==========================================
-# 如果 FsusPowEngine 的 wasm 产物拷贝到了 Client 的 public 下 [cite: 11, 35]
-# 建议通过 Git 管理源码而非 .wasm 编译结果
-FsusBlog.Client/public/wasm/*.wasm
-FsusBlog.Client/public/wasm/*.js
