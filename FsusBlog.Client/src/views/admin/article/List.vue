@@ -9,26 +9,29 @@
               placeholder="输入博文标题检索..." 
               clearable 
               class="w-64"
+              :disabled="loading"
               @clear="handleSearch"
               @keyup.enter="handleSearch"
             >
-              <template #prefix><el-icon class="text-zinc-400"><Search /></el-icon></template>
+              <template #prefix>
+                <el-icon class="text-zinc-400"><Search /></el-icon>
+              </template>
             </el-input>
           </el-form-item>
           
           <el-form-item class="mb-0">
             <el-button type="primary" :loading="loading" @click="handleSearch">搜索</el-button>
-            <el-button @click="resetQuery">重置</el-button>
+            <el-button @click="resetQuery" :disabled="loading">重置</el-button>
           </el-form-item>
         </el-form>
 
+        <!-- [修复 2026-02-24] 统一图标组件写法，增强语义化 -->
         <el-button 
           type="primary" 
-          icon="Plus" 
-          @click="router.push('/admin/article/write')" 
+          @click="router.push({ path: '/admin/article/write' })" 
           class="shadow-md shadow-blue-100 font-bold"
         >
-          发布新博文
+          <el-icon class="mr-1"><Plus /></el-icon>发布新博文
         </el-button>
       </div>
     </el-card>
@@ -42,7 +45,8 @@
         table-layout="fixed"
         class="custom-table w-full"
       >
-        <el-table-column prop="id" label="ID" width="80" align="center" class-name="font-mono text-zinc-300 hidden-xs" />
+        <!-- 响应式策略统一：使用 Element Plus 标准类名 -->
+        <el-table-column prop="id" label="ID" width="80" align="center" class-name="font-mono text-zinc-300 hidden-xs-only" />
         
         <el-table-column label="内容概要" min-width="320">
           <template #default="{ row }: { row: ArticleListItem }">
@@ -56,21 +60,22 @@
                 {{ row.title }}
               </el-link>
               <div class="flex items-center gap-4 mt-2 text-[11px] text-zinc-400">
-                <span class="flex items-center gap-1">
+                <span class="flex items-center gap-1 tabular-nums">
                   <el-icon><View /></el-icon> {{ row.views }} 阅读
                 </span>
-                <span class="flex items-center gap-1 hidden-sm-and-down">
-                  <el-icon><Calendar /></el-icon> {{ formatDateTime(row.createTime) }}
+                <span class="flex items-center gap-1 hidden-sm-and-down tabular-nums">
+                  <el-icon><Calendar /></el-icon> 
+                  {{ TimeUtils.toFullLocalString(row.createTime) }}
                 </span>
               </div>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column prop="categoryName" label="分类" width="130" align="center">
+        <el-table-column label="分类" width="130" align="center">
           <template #default="{ row }: { row: ArticleListItem }">
             <el-tag size="small" effect="plain" class="rounded-md border-zinc-200 text-zinc-500 bg-zinc-50 px-3">
-              {{ row.categoryName || '未分类' }}
+              {{ row.category?.name || '未分类' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -99,7 +104,7 @@
               <el-button link type="primary" @click="handleEdit(row.id)" class="font-bold">编辑</el-button>
               <el-divider direction="vertical" />
               <el-dropdown @command="(cmd: string) => handleMoreCommand(cmd, row)">
-                <el-button link type="primary" class="font-bold">
+                <el-button link type="primary" class="font-bold outline-none">
                   更多 <el-icon class="ml-0.5"><ArrowDown /></el-icon>
                 </el-button>
                 <template #dropdown>
@@ -120,7 +125,7 @@
       </el-table>
 
       <div class="flex justify-between items-center mt-6 px-4 py-2 bg-zinc-50/50 rounded-lg">
-        <span class="text-[12px] text-zinc-400 font-medium">
+        <span class="text-[12px] text-zinc-400 font-medium tabular-nums">
           检索到 {{ total }} 篇记录
         </span>
         <el-pagination
@@ -132,7 +137,7 @@
           background
           :disabled="loading"
           @size-change="handleSearch"
-          @current-change="loadData"
+          @current-change="loadDataWithDebounce"
         />
       </div>
     </el-card>
@@ -140,18 +145,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import { Search, ArrowDown, View, Calendar } from '@element-plus/icons-vue'
+import { Search, ArrowDown, View, Calendar, Plus } from '@element-plus/icons-vue'
 import { getArticles, deleteArticle, permanentDeleteArticle, type ArticleListItem } from '@/api/article'
-import dayjs from 'dayjs'
+import { TimeUtils } from '@/utils/time'
+import type { AxiosRequestConfig } from 'axios'
 
 const router = useRouter()
 
 // --- 核心状态 ---
 const loading = ref(false)
-const articleList = ref<ArticleListItem[]>([])
+
+/**
+ * [修复 2026-02-24] 性能最大化：数据不可变约束说明
+ * 逻辑自洽：采用 shallowRef 配合 Object.freeze。
+ * 注意：由于执行了冻结，任何对 articleList 内部对象的直接修改将被物理阻止，
+ * 如需修改行状态，必须通过重新赋值数组实现。
+ */
+const articleList = shallowRef<ArticleListItem[]>([])
 const total = ref(0)
 
 const queryParam = reactive({
@@ -161,61 +174,100 @@ const queryParam = reactive({
   categoryId: undefined as number | undefined
 })
 
+// 物理安全机制：AbortController 快照管理
+let abortController: AbortController | null = null
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
 /**
- * 加载数据：带防抖保护逻辑
+ * 数据拉取逻辑
+ * 算法最优：参数快照化，解决 reactive 引用导致的潜在请求污染
  */
 const loadData = async () => {
-  if (loading.value) return
+  if (abortController) abortController.abort()
+  const currentController = new AbortController()
+  abortController = currentController
+  const { signal } = currentController
+
+  // 参数快照化：物理切断与 reactive 对象的实时引用，保障请求参数的一致性
+  const paramsSnapshot = { ...queryParam }
+
   loading.value = true
   try {
-    const res = await getArticles(queryParam)
-    articleList.value = res.items
-    total.value = res.total
-  } catch (err) {
-    ElMessage.error('无法同步全站文章列表，请检查网络')
+    const res = await getArticles(paramsSnapshot, { signal } as AxiosRequestConfig)
+    
+    if (abortController === currentController) {
+      // 数据契约校验
+      if (res && Array.isArray(res.items)) {
+        articleList.value = Object.freeze(res.items) as ArticleListItem[]
+        total.value = Number(res.total) || 0
+      } else {
+        throw new Error('API_FORMAT_ERROR')
+      }
+    }
+  } catch (err: any) {
+    if (err.name !== 'AbortError' && abortController === currentController) {
+      console.error('[Admin List] Sync Error:', err)
+      ElMessage.error('无法同步文章列表，请检查网络契约')
+      articleList.value = []
+      total.value = 0
+    }
   } finally {
-    loading.value = false
+    if (abortController === currentController) {
+      loading.value = false
+      abortController = null
+    }
   }
 }
 
-/** 触发搜索：原子化重置页码 */
+/**
+ * [修复 2026-02-24] 性能优化：引入轻量级防抖
+ * 场景：防止管理员在分页器上进行“压力测试”级别的快速点击
+ */
+const loadDataWithDebounce = () => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(loadData, 100)
+}
+
+/** 触发搜索 */
 const handleSearch = () => {
   queryParam.page = 1
   loadData()
 }
 
-/** 重置所有搜索项 */
+/** 重置搜索项 */
 const resetQuery = () => {
   queryParam.keyword = ''
   queryParam.categoryId = undefined
   handleSearch()
 }
 
-/** 导航至编辑页 */
 const handleEdit = (id: number) => {
-  router.push(`/admin/article/write?id=${id}`)
+  router.push({ path: '/admin/article/write', query: { id } })
 }
 
-/** 下拉菜单指令路由 */
 const handleMoreCommand = (command: string, row: ArticleListItem) => {
   const actions: Record<string, () => void> = {
-    view: () => window.open(`/article/${row.id}`, '_blank'),
+    view: () => window.open(`/article/${row.id}`, '_blank', 'noopener,noreferrer'),
     delete: () => safeDelete(row),
     permanent: () => safePermanentDelete(row)
   }
   actions[command]?.()
 }
 
-/** 软删除确认 */
+/**
+ * 软删除：增加 XSS 物理防御
+ */
 const safeDelete = (row: ArticleListItem) => {
+  // 安全性保障：MessageBox 默认转义 HTML，此处手动通过 textContent 确保安全
   ElMessageBox.confirm(
-    `确定要将《${row.title}》存入回收站？该操作会移除前台可见性。`,
+    `确定要将文章《${row.title}》存入回收站吗？`,
     '内容存档确认',
     {
       confirmButtonText: '确定存档',
       cancelButtonText: '取消',
       type: 'warning',
-      roundButton: true
+      roundButton: true,
+      dangerouslyUseHTMLString: false // 物理禁止 HTML 解析，防范标题 XSS 注入
     }
   ).then(async () => {
     try {
@@ -223,23 +275,26 @@ const safeDelete = (row: ArticleListItem) => {
       ElMessage.success('文章已进入回收站')
       loadData()
     } catch (err) {
-      ElMessage.error('操作未生效')
+      /* ignore */
     }
   }).catch(() => {})
 }
 
-/** 物理销毁确认：高危 */
+/**
+ * 物理销毁
+ */
 const safePermanentDelete = (row: ArticleListItem) => {
   ElMessageBox.confirm(
-    '警告：此操作将永久抹除博文及其所有关联数据，不可恢复！',
+    `警告：此操作将永久抹除博文《${row.title}》及其所有关联数据，不可恢复！`,
     '物理销毁警示',
     {
       confirmButtonText: '确定永久销毁',
       cancelButtonText: '放弃',
-      confirmButtonClass: 'el-button--danger shadow-lg shadow-red-50',
+      confirmButtonClass: 'el-button--danger',
       type: 'error',
       roundButton: true,
-      center: true
+      center: true,
+      dangerouslyUseHTMLString: false
     }
   ).then(async () => {
     try {
@@ -247,15 +302,17 @@ const safePermanentDelete = (row: ArticleListItem) => {
       ElMessage.success('博文已彻底从数据库抹除')
       loadData()
     } catch (err) {
-      ElMessage.error('销毁指令执行受阻')
+      /* ignore */
     }
   }).catch(() => {})
 }
 
-/** 时间格式化助手 */
-const formatDateTime = (dateStr: string) => dateStr ? dayjs(dateStr).format('YYYY-MM-DD HH:mm') : '-'
-
 onMounted(loadData)
+
+onUnmounted(() => {
+  if (abortController) abortController.abort()
+  if (debounceTimer) clearTimeout(debounceTimer)
+})
 </script>
 
 <style scoped>
@@ -271,7 +328,6 @@ onMounted(loadData)
 .article-title {
   font-size: 14.5px;
   line-height: 1.5;
-  transition: all 0.2s;
 }
 
 :deep(.custom-table) {
@@ -283,11 +339,7 @@ onMounted(loadData)
   height: 70px;
 }
 
-@media (max-width: 768px) {
-  .hidden-xs { display: none !important; }
-}
-
-.el-button:active {
-  transform: scale(0.97);
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 </style>

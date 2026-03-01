@@ -19,6 +19,7 @@
     <PackageJsonDependenciesTailwindcssVite Condition="$(PackageJsonDependenciesTailwindcssVite) == ''">^4.1.18</PackageJsonDependenciesTailwindcssVite>
     <PackageJsonDependenciesVueuseHead Condition="$(PackageJsonDependenciesVueuseHead) == ''">^2.0.0</PackageJsonDependenciesVueuseHead>
     <PackageJsonDependenciesAxios Condition="$(PackageJsonDependenciesAxios) == ''">^1.13.5</PackageJsonDependenciesAxios>
+    <PackageJsonDependenciesDompurify Condition="$(PackageJsonDependenciesDompurify) == ''">^3.3.1</PackageJsonDependenciesDompurify>
     <PackageJsonDependenciesEcharts Condition="$(PackageJsonDependenciesEcharts) == ''">^6.0.0</PackageJsonDependenciesEcharts>
     <PackageJsonDependenciesElementPlus Condition="$(PackageJsonDependenciesElementPlus) == ''">^2.13.2</PackageJsonDependenciesElementPlus>
     <PackageJsonDependenciesMarkdownIt Condition="$(PackageJsonDependenciesMarkdownIt) == ''">^14.1.1</PackageJsonDependenciesMarkdownIt>

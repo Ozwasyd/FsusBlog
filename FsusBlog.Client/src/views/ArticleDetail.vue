@@ -1,7 +1,8 @@
 <template>
   <div class="max-w-3xl mx-auto px-6 sm:px-8 min-h-screen">
 
-    <div v-if="loading" class="animate-pulse space-y-8 py-8">
+    <!-- 骨架屏 -->
+    <div v-if="loading" class="animate-pulse space-y-8 py-8" aria-hidden="true">
       <div class="h-8 sm:h-12 bg-zinc-100 w-full sm:w-4/5"></div>
       <div class="flex gap-4">
         <div class="h-4 bg-zinc-100 w-20 sm:w-24"></div>
@@ -10,6 +11,18 @@
       <div class="space-y-4 pt-8 sm:pt-12">
         <div v-for="i in 6" :key="i" class="h-4 bg-zinc-100 w-full"></div>
       </div>
+    </div>
+
+    <!-- 状态区分：明确分离加载异常与文章不存在 -->
+    <div v-else-if="isError" class="py-32 text-center grow flex flex-col items-center justify-center">
+      <p class="text-sm font-medium tracking-widest uppercase text-zinc-400 mb-6">数据加载异常，请稍后重试。</p>
+      <button 
+        type="button"
+        @click="loadArticle(false)"
+        class="text-[11px] font-bold tracking-[0.2em] uppercase text-zinc-950 border-b border-zinc-950 pb-0.5 hover:text-zinc-500 hover:border-zinc-500 transition-all outline-none"
+      >
+        重载页面
+      </button>
     </div>
 
     <article v-else-if="article" class="animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -25,7 +38,7 @@
           <time :datetime="article.createTime" :title="TimeUtils.toFullLocalString(article.createTime)">
             {{ TimeUtils.toSmartTime(article.createTime) }}
           </time>
-          <span class="text-zinc-300 font-light">/</span>
+          <span class="text-zinc-300 font-light" aria-hidden="true">/</span>
 
           <router-link v-if="article.category" :to="`/category/${article.category.id}`"
             class="text-zinc-500 hover:text-zinc-950 transition-colors">
@@ -33,22 +46,17 @@
           </router-link>
           <span v-else class="text-zinc-500">未分类</span>
 
-          <span class="text-zinc-300 font-light">/</span>
+          <span class="text-zinc-300 font-light" aria-hidden="true">/</span>
           <span>{{ article.views }} 浏览</span>
         </div>
       </header>
 
-      <div ref="articleContentRef"
-        class="prose prose-zinc prose-base sm:prose-lg max-w-none subpixel-antialiased
-                  prose-headings:text-zinc-950 prose-headings:font-bold prose-headings:tracking-tighter
-                  prose-p:text-zinc-800 prose-p:leading-relaxed prose-p:tracking-[0.01em]
-                  prose-li:text-zinc-800 prose-li:leading-relaxed
-                  prose-a:text-zinc-950 prose-a:underline prose-a:underline-offset-4 hover:prose-a:opacity-60 transition-all
-                  prose-blockquote:border-l-zinc-200 prose-blockquote:font-normal prose-blockquote:text-zinc-500 prose-blockquote:not-italic prose-blockquote:pl-8
-                  prose-strong:text-zinc-950 prose-strong:font-bold
-                  prose-hr:border-zinc-100
-                  prose-img:rounded-md prose-img:mx-auto prose-img:shadow-sm prose-img:border prose-img:border-zinc-100" v-html="renderedContent">
-      </div>
+      <!-- [修复 2026-02-24] 架构演进：使用独立的渲染引擎组件，剥离渲染脏活 -->
+      <MarkdownRenderer 
+        ref="articleRendererRef"
+        :content="article.content" 
+        @render-complete="handleRenderComplete"
+      />
 
       <footer class="mt-12 sm:mt-24 pt-8 sm:pt-10 border-t border-zinc-100">
         <div class="flex flex-wrap gap-3 sm:gap-4">
@@ -66,16 +74,24 @@
         </h3>
 
         <div v-if="userStore.isLoggedIn" class="mb-12">
-          <textarea v-model="commentContent" rows="3" :placeholder="userStore.isBanned ? '您已被封禁，仅限阅读。' : '在此写出你的评论。'"
+          <textarea v-model="commentContent" rows="3" 
+            aria-label="发表评论"
+            :placeholder="userStore.isBanned ? '您已被封禁，仅限阅读。' : '在此写出你的评论 (Ctrl + Enter 发送)'"
             class="w-full bg-transparent border border-zinc-100 focus:border-zinc-950 rounded-none p-4 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none transition-colors resize-none appearance-none"
             :class="{ 'opacity-50 cursor-not-allowed': userStore.isBanned }"
-            :disabled="submittingComment || isCalculating || userStore.isBanned"></textarea>
+            :disabled="submittingComment || powProvider.isCalculating.value || userStore.isBanned"
+            @keydown.ctrl.enter="submitComment"
+            @keydown.meta.enter="submitComment"
+          ></textarea>
           <div class="mt-3 flex justify-end">
-            <button @click="() => submitComment()"
-              :disabled="!commentContent.trim() || submittingComment || isCalculating || userStore.isBanned"
+            <button 
+              type="button"
+              @click="submitComment"
+              :disabled="!commentContent.trim() || submittingComment || powProvider.isCalculating.value || userStore.isBanned"
+              :aria-disabled="!commentContent.trim() || submittingComment || powProvider.isCalculating.value || userStore.isBanned"
               class="w-full sm:w-auto text-xs font-bold tracking-[0.2em] uppercase px-8 py-3 bg-zinc-950 text-white hover:opacity-80 disabled:opacity-30 transition-all">
               <template v-if="userStore.isBanned">账号已封禁</template>
-              <template v-else-if="isCalculating">安全校验...</template>
+              <template v-else-if="powProvider.isCalculating.value">安全校验...</template>
               <template v-else-if="submittingComment">发送中...</template>
               <template v-else>发送</template>
             </button>
@@ -84,25 +100,27 @@
 
         <div v-else class="mb-12 py-8 bg-white flex items-center justify-center border border-zinc-100">
           <p class="text-xs sm:text-sm font-medium tracking-widest uppercase text-zinc-400">
-            请 <router-link to="/login" class="text-zinc-950 underline underline-offset-4 font-bold">登录</router-link>
+            请 <router-link :to="{ path: '/login', query: { redirect: route.fullPath } }" class="text-zinc-950 underline underline-offset-4 font-bold">登录</router-link>
             后发表评论
           </p>
         </div>
 
-        <TransitionGroup name="list-fade-up" tag="div" class="space-y-8">
+        <!-- 为评论列表注入 aria-live 播报新评论 -->
+        <TransitionGroup name="list-fade-up" tag="div" class="space-y-8" aria-live="polite">
           <div v-for="comment in comments" :key="comment.id" class="group border-b border-zinc-100 pb-8 last:border-0">
             <div class="flex items-center justify-between gap-3 mb-3">
               <div class="flex items-center gap-3">
                 <span class="text-sm font-bold text-zinc-950 truncate">{{ comment.userName }}</span>
 
                 <button
-                  v-if="userStore.userInfo?.role === 'admin' || (userStore.isLoggedIn && String(comment.userName) === String(userStore.userInfo?.username))"
+                  v-if="userStore.isAdmin || (userStore.isLoggedIn && String(comment.userName) === String(userStore.userInfo?.username))"
                   @click="handleCommentDelete(String(comment.id))"
-                  class="text-[9px] font-bold text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all uppercase tracking-widest">
+                  aria-label="删除评论"
+                  class="text-[9px] font-bold text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all uppercase tracking-widest outline-none">
                   [删除]
                 </button>
               </div>
-              <span class="text-[10px] font-mono text-zinc-400 shrink-0"
+              <span class="text-[10px] font-mono text-zinc-400 shrink-0 tabular-nums"
                 :title="TimeUtils.toFullLocalString(comment.createTime)">
                 {{ TimeUtils.toRelative(comment.createTime) }}
               </span>
@@ -113,9 +131,10 @@
           </div>
         </TransitionGroup>
 
+        <!-- 触底加载触发器 -->
         <div ref="loadMoreTrigger" class="h-32 flex flex-col items-center justify-center">
           <Transition name="state-fade" mode="out-in">
-            <div v-if="loadingComments" key="loading" class="flex flex-col items-center gap-3">
+            <div v-if="loadingComments" key="loading" class="flex flex-col items-center gap-3" role="status">
               <span class="text-[10px] font-bold tracking-[0.2em] text-zinc-400 uppercase animate-pulse">加载中</span>
               <div class="w-10 h-px bg-zinc-100 overflow-hidden relative">
                 <div class="absolute inset-0 bg-zinc-950/20 animate-loading-bar"></div>
@@ -133,41 +152,55 @@
     <div v-else class="py-32 text-center grow flex flex-col items-center justify-center">
       <p class="text-sm font-medium tracking-widest uppercase text-zinc-400 mb-6">文章未找到。</p>
       <router-link to="/"
-        class="text-[11px] font-bold tracking-[0.2em] uppercase text-zinc-950 border-b border-zinc-950 pb-0.5">
+        class="text-[11px] font-bold tracking-[0.2em] uppercase text-zinc-950 border-b border-zinc-950 pb-0.5 outline-none">
         回到主页
       </router-link>
     </div>
 
+    <!-- 统一层级协调 -->
     <ConfirmModal v-model:visible="modalState.visible" :title="modalState.title" :content="modalState.content"
       @confirm="modalState.onConfirm" @cancel="modalState.onCancel" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getArticleById, type ArticleDetail } from '@/api/article'
 import { getComments, createComment, deleteComment, type CommentItem } from '@/api/comment'
 import { useUserStore } from '@/store/user'
-import MarkdownIt from 'markdown-it'
-import { createHighlighter } from 'shiki'
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue' 
 import { toast } from '@/utils/toast'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import { TimeUtils } from '@/utils/time'
-import { getPowChallenge } from '@/api/auth'
-import { getBrowserFp } from '@/utils/fingerprint'
 import { usePow } from '@/composables/usePow'
+import { validateCommentContent } from '@/utils/contentFilter'
+
+// 信令常量定义
+const SIGNALS = {
+  CREATED: 'signalr:article-created',
+  UPDATED: 'signalr:article-updated',
+  DELETED: 'signalr:article-deleted',
+  RESTORED: 'signalr:article-restored',
+  RECONNECTED: 'signalr:reconnected',
+  COMMENT_ADD: 'signalr:comment-added',
+  COMMENT_DEL: 'signalr:comment-removed'
+} as const;
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const powProvider = usePow()
 
 const article = ref<ArticleDetail | null>(null)
 const loading = ref(true)
-const renderedContent = ref('')
-const articleContentRef = ref<HTMLElement | null>(null)
+const isError = ref(false)
 
-const comments = ref<CommentItem[]>([])
+// [修复 2026-02-24] 引用 MarkdownRenderer 实例
+const articleRendererRef = ref<InstanceType<typeof MarkdownRenderer> | null>(null)
+
+// 性能最大化：评论列表采用 shallowRef 提升大列表 Diff 性能
+const comments = shallowRef<CommentItem[]>([])
 const nextCursor = ref<string | null>(null)
 const hasMore = ref(true)
 const loadingComments = ref(false)
@@ -176,12 +209,14 @@ const loadMoreTrigger = ref<HTMLElement | null>(null)
 const commentContent = ref('')
 const submittingComment = ref(false)
 
-const lastEventTime = ref<number>(0)
-const debounceTimers = new Map<string, any>()
+// 物理安全与竞态控制
+let isMounted = false
+let abortController: AbortController | null = null
+let commentAbortController: AbortController | null = null
 
-const { calculate, isCalculating } = usePow()
+const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
-// 核心：模态框调度中心状态
+// 模态框调度中心
 const modalState = ref({
   visible: false,
   title: '',
@@ -201,10 +236,16 @@ const triggerModal = (config: { title: string, content: string, onConfirm: () =>
 }
 
 let observer: IntersectionObserver | null = null
-let highlighterInstance: any = null
 
+// ==========================================
+// 1. 核心加载与同步机制
+// ==========================================
+
+/**
+ * [修复 2026-02-24] 算法最优：适配组件化架构的平滑滚动锚点校准
+ */
 const runSmoothUpdate = async (updateAction: () => Promise<void>) => {
-  const container = articleContentRef.value;
+  const container = articleRendererRef.value?.rootEl;
   if (!container || !article.value) {
     await updateAction();
     return;
@@ -212,6 +253,7 @@ const runSmoothUpdate = async (updateAction: () => Promise<void>) => {
   const children = Array.from(container.children);
   let anchorIndex = -1;
   let anchorOffset = 0;
+  
   const foundAnchor = children.find((el, index) => {
     const rect = el.getBoundingClientRect();
     if (rect.top >= 0) {
@@ -221,31 +263,50 @@ const runSmoothUpdate = async (updateAction: () => Promise<void>) => {
     }
     return false;
   });
+  
   await updateAction();
+  
   if (foundAnchor && anchorIndex !== -1) {
     await nextTick();
-    const freshContainer = articleContentRef.value;
-    if (freshContainer) {
-      const targetElement = freshContainer.children[anchorIndex] as HTMLElement | undefined;
+    const freshContainer = articleRendererRef.value?.rootEl;
+    if (freshContainer && freshContainer.children.length > anchorIndex) {
+      const targetElement = freshContainer.children[anchorIndex] as HTMLElement;
       if (targetElement) {
         const newRect = targetElement.getBoundingClientRect();
         const diff = newRect.top - anchorOffset;
         window.scrollBy(0, diff);
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' }); 
       }
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' }); 
     }
   }
 }
 
+/**
+ * [修复 2026-02-24] P0 修复：引入物理中断快照与状态强制闭环
+ */
 const loadArticle = async (silent = false) => {
   const id = Number(route.params.id)
   if (isNaN(id)) return
-  if (!silent) loading.value = true
+
+  if (abortController) abortController.abort()
+  const currentController = new AbortController()
+  abortController = currentController
+  const currentSignal = currentController.signal
+
+  if (!silent) {
+    loading.value = true
+    isError.value = false
+  }
+
   const action = async () => {
     try {
-      const res = await getArticleById(id)
-      if (res) {
+      const res = await getArticleById(id, { signal: currentSignal })
+      if (isMounted && !currentSignal.aborted && res) {
         article.value = res
-        await renderMarkdown(res.content)
+        // 渲染职责已完全移交给子组件
         if (!silent) {
           comments.value = []
           nextCursor.value = null
@@ -253,41 +314,57 @@ const loadArticle = async (silent = false) => {
           await loadMoreComments()
         }
       }
-    } catch (error) {
-      console.error("文章加载失败:", error)
+    } catch (error: any) {
+      if (error.name !== 'AbortError' && isMounted && !currentSignal.aborted) {
+        console.error("[Article] Load failed:", error)
+        isError.value = true
+      }
     }
   };
+
   if (silent) {
     await runSmoothUpdate(action);
   } else {
     await action();
-    loading.value = false;
-    await nextTick();
-    initObserver();
+    if (isMounted && !currentSignal.aborted) {
+      await nextTick();
+      initObserver();
+    }
   }
+  
+  if (abortController === currentController) {
+      if (isMounted && !silent) loading.value = false;
+      abortController = null;
+  }
+}
+
+const handleRenderComplete = () => {
+  // 渲染完成后的钩子，可用于精准高度计算
 }
 
 const handleRemoteArticleUpdated = (e: Event) => {
   const data = (e as CustomEvent).detail;
+  if (!data || typeof data !== 'object' || !('articleId' in data) || !article.value) return;
+  
   const articleId = String(data.articleId);
-  const eventTimestamp = new Date(data.eventTime).getTime();
-
-  if (!article.value || articleId !== String(article.value.id)) return;
-  if (eventTimestamp <= lastEventTime.value) return;
-  lastEventTime.value = eventTimestamp;
+  if (articleId !== String(article.value.id)) return;
 
   if (debounceTimers.has(articleId)) clearTimeout(debounceTimers.get(articleId));
   const timer = setTimeout(async () => {
-    await loadArticle(true);
-    toast.success('内容已实时同步');
+    if (isMounted) {
+      await loadArticle(true);
+      toast.info('内容已实时同步'); 
+    }
     debounceTimers.delete(articleId);
   }, 500);
   debounceTimers.set(articleId, timer);
 }
 
 const handleRemoteArticleDeleted = (e: Event) => {
-  const { articleId } = (e as CustomEvent).detail;
-  const targetId = String(articleId);
+  const data = (e as CustomEvent).detail;
+  if (!data || typeof data !== 'object' || !('articleId' in data)) return;
+  
+  const targetId = String(data.articleId);
   if (article.value && targetId === String(article.value.id)) {
     if (debounceTimers.has(targetId)) {
       clearTimeout(debounceTimers.get(targetId));
@@ -297,125 +374,125 @@ const handleRemoteArticleDeleted = (e: Event) => {
 
     triggerModal({
       title: '文章已被删除',
-      content: '该文章内容已被移除，正在为您返回首页。',
-      onConfirm: () => { router.replace('/') },
-      onCancel: () => { router.replace('/') }
+      content: '该文章内容已被作者移除，正在为您返回首页。',
+      onConfirm: () => { 
+        modalState.value.visible = false;
+        router.replace('/'); 
+      },
+      onCancel: () => { 
+        modalState.value.visible = false;
+        router.replace('/'); 
+      }
     });
   }
 }
 
 const handleSignalRReconnected = () => {
-  if (article.value) loadArticle(true);
+  if (isMounted && article.value) loadArticle(true);
 }
 
-const renderMarkdown = async (content: string) => {
-  const md = new MarkdownIt({ html: true, linkify: true, typographer: true })
-  if (!highlighterInstance) {
-    highlighterInstance = await createHighlighter({
-      themes: ['vitesse-light'],
-      langs: ['csharp', 'typescript', 'javascript', 'sql', 'bash', 'json', 'html', 'css', 'markdown']
-    })
-  }
-  md.options.highlight = (code, lang) => {
-    return highlighterInstance.codeToHtml(code, {
-      lang: lang || 'text',
-      theme: 'vitesse-light'
-    })
-  }
-  renderedContent.value = md.render(content || '')
-}
+// ==========================================
+// 2. 评论交互引擎
+// ==========================================
 
 const loadMoreComments = async () => {
   if (loadingComments.value || !hasMore.value || !article.value) return
+  
+  if (commentAbortController) commentAbortController.abort()
+  const currentController = new AbortController()
+  commentAbortController = currentController
+  const currentSignal = currentController.signal
+
   loadingComments.value = true
   try {
-    const res = await getComments(article.value.id, nextCursor.value, 10)
-    if (res.data && res.data.length > 0) {
-      const uniqueNewComments = res.data.filter(
-        newItem => !comments.value.some(existing => String(existing.id) === String(newItem.id))
-      )
-      comments.value.push(...uniqueNewComments)
-      nextCursor.value = res.nextCursor ? String(res.nextCursor) : null
-      hasMore.value = res.hasMore
-    } else {
-      hasMore.value = false
+    const res = await getComments(article.value.id, nextCursor.value, 10, { signal: currentSignal })
+    if (isMounted && !currentSignal.aborted) {
+      if (res.data && res.data.length > 0) {
+        // [修复 2026-02-24] 算法最优：O(1) 物理索引去重
+        const existingIds = new Set(comments.value.map(c => String(c.id)));
+        const uniqueNewComments = res.data.filter(newItem => !existingIds.has(String(newItem.id)));
+        
+        comments.value = [...comments.value, ...uniqueNewComments]
+        nextCursor.value = res.nextCursor ? String(res.nextCursor) : null
+        hasMore.value = res.hasMore
+      } else {
+        hasMore.value = false
+      }
     }
-  } catch (error) {
-    console.error("Comments loading failed:", error)
+  } catch (error: any) {
+    if (error.name !== 'AbortError' && isMounted && !currentSignal.aborted) {
+      console.error("[Comments] Load failed:", error)
+    }
   } finally {
-    await new Promise(resolve => setTimeout(resolve, 100))
-    loadingComments.value = false
+    if (commentAbortController === currentController) {
+      commentAbortController = null
+      if (isMounted && !currentSignal.aborted) loadingComments.value = false
+    }
   }
 }
 
 /**
- * 带 PoW 的评论提交
+ * 带物理中断支持的评论提交
  */
-const submitComment = async (retryCount = 0) => {
-  // 基础校验
+const submitComment = async () => {
   if (!commentContent.value.trim() || !article.value) return
 
-  // 防止重复提交
-  if (submittingComment.value || isCalculating.value) return
+  const checkResult = validateCommentContent(commentContent.value);
+  if (!checkResult.isValid) {
+      toast.error(checkResult.message);
+      return;
+  }
 
+  if (submittingComment.value || powProvider.isCalculating.value) return
   submittingComment.value = true
 
+  if (commentAbortController) commentAbortController.abort();
+  const currentController = new AbortController()
+  commentAbortController = currentController
+  const currentSignal = currentController.signal
+
   try {
-    // 1. 获取挑战包 (Action: 'comment')
-    const challengeRes = await getPowChallenge({ action: 'comment' });
-    const { salt, difficulty, timestamp, signature } = challengeRes as any;
-
-    // 2. 算力求解 (Worker)
-    const fp = getBrowserFp();
-    const { nonce } = await calculate(salt, fp, difficulty);
-
-    // 3. 提交评论 (带上 PoW 凭证)
     await createComment({
       articleId: article.value.id,
-      content: commentContent.value,
-      // PoW 字段
-      powSalt: salt,
-      powNonce: nonce,
-      powTimestamp: timestamp,
-      difficulty: difficulty,
-      powSignature: signature,
-      browserFp: fp
-    })
+      content: commentContent.value
+    }, { signal: currentSignal })
 
-    toast.success('发送成功')
-    commentContent.value = '' // 清空输入框
-
-  } catch (error: any) {
-    console.error("Submit failed:", error)
-
-    // 处理 403 难度提升重试
-    if (error.response?.status === 403 && retryCount < 1) {
-      toast.info("评论区繁忙，正在提升算力重试...");
-      submittingComment.value = false; // 先释放锁，递归调用会重新上锁
-      await submitComment(retryCount + 1);
-      return;
+    if (!currentSignal.aborted) {
+      toast.success('发送成功')
+      commentContent.value = ''
     }
 
-    // 其他错误提示
-    toast.error(error.response?.data?.message || '评论发布失败');
+  } catch (error: any) {
+    if (error.name !== 'AbortError') {
+      console.error("[Comment] Submit failed:", error)
+      toast.error(error.response?.data?.message || '评论发布失败');
+    }
   } finally {
-    submittingComment.value = false
+    if (commentAbortController === currentController) {
+      commentAbortController = null
+      if (isMounted && !currentSignal.aborted) submittingComment.value = false
+    }
   }
 }
 
 const handleRemoteAdd = (e: Event) => {
-  const { articleId, comment } = (e as CustomEvent).detail;
-  if (!comment || !comment.id) return;
-  if (article.value && String(articleId) === String(article.value.id)) {
-    const exists = comments.value.some(c => String(c.id) === String(comment.id));
+  const data = (e as CustomEvent).detail;
+  if (!data || typeof data !== 'object' || !('comment' in data) || !data.comment?.id) return;
+  
+  if (article.value && String(data.articleId) === String(article.value.id)) {
+    const exists = comments.value.some(c => String(c.id) === String(data.comment.id));
     if (!exists) {
-      comments.value.unshift(comment);
+      comments.value = [data.comment, ...comments.value]
+      // 物理上限截断：防止内存溢出
+      if (comments.value.length > 500) comments.value = comments.value.slice(0, 500);
     }
   }
 };
 
 const handleRemoteDelete = (e: Event) => {
   const data = (e as CustomEvent).detail;
+  if (!data || typeof data !== 'object' || !('articleId' in data)) return;
+  
   if (article.value && String(data.articleId) === String(article.value.id)) {
     const targetIdStr = String(data.commentId);
     comments.value = comments.value.filter(c => String(c.id) !== targetIdStr);
@@ -424,7 +501,7 @@ const handleRemoteDelete = (e: Event) => {
 
 const handleCommentDelete = (id: string) => {
   const targetId = String(id);
-  const isAdmin = userStore.userInfo?.role === 'admin';
+  const isAdmin = userStore.isAdmin; 
 
   triggerModal({
     title: isAdmin ? '管理员操作' : '删除评论',
@@ -445,105 +522,55 @@ const handleCommentDelete = (id: string) => {
 
 const initObserver = () => {
   if (!loadMoreTrigger.value) return
+  if (observer) observer.disconnect() 
+  
   observer = new IntersectionObserver(([entry]) => {
     if (entry?.isIntersecting && hasMore.value && !loadingComments.value) {
       loadMoreComments()
     }
-  }, { rootMargin: '880px' })
+  }, { rootMargin: '400px' }) 
+  
   observer.observe(loadMoreTrigger.value)
 }
 
 onMounted(() => {
+  isMounted = true;
   loadArticle();
-  window.addEventListener('signalr:comment-added', handleRemoteAdd);
-  window.addEventListener('signalr:comment-removed', handleRemoteDelete);
-  window.addEventListener('signalr:article-updated', handleRemoteArticleUpdated);
-  window.addEventListener('signalr:article-restored', handleRemoteArticleUpdated);
-  window.addEventListener('signalr:article-deleted', handleRemoteArticleDeleted);
-  window.addEventListener('signalr:reconnected', handleSignalRReconnected);
+  powProvider.prewarm(); 
+  
+  window.addEventListener(SIGNALS.COMMENT_ADD, handleRemoteAdd);
+  window.addEventListener(SIGNALS.COMMENT_DEL, handleRemoteDelete);
+  window.addEventListener(SIGNALS.UPDATED, handleRemoteArticleUpdated);
+  window.addEventListener(SIGNALS.RESTORED, handleRemoteArticleUpdated);
+  window.addEventListener(SIGNALS.DELETED, handleRemoteArticleDeleted);
+  window.addEventListener(SIGNALS.RECONNECTED, handleSignalRReconnected);
 });
 
 onUnmounted(() => {
+  isMounted = false;
   if (observer) observer.disconnect();
+  
   debounceTimers.forEach(timer => clearTimeout(timer));
   debounceTimers.clear();
-  window.removeEventListener('signalr:comment-added', handleRemoteAdd);
-  window.removeEventListener('signalr:comment-removed', handleRemoteDelete);
-  window.removeEventListener('signalr:article-updated', handleRemoteArticleUpdated);
-  window.removeEventListener('signalr:article-restored', handleRemoteArticleUpdated);
-  window.removeEventListener('signalr:article-deleted', handleRemoteArticleDeleted);
-  window.removeEventListener('signalr:reconnected', handleSignalRReconnected);
+  
+  if (abortController) abortController.abort();
+  if (commentAbortController) commentAbortController.abort();
+  
+  window.removeEventListener(SIGNALS.COMMENT_ADD, handleRemoteAdd);
+  window.removeEventListener(SIGNALS.COMMENT_DEL, handleRemoteDelete);
+  window.removeEventListener(SIGNALS.UPDATED, handleRemoteArticleUpdated);
+  window.removeEventListener(SIGNALS.RESTORED, handleRemoteArticleUpdated);
+  window.removeEventListener(SIGNALS.DELETED, handleRemoteArticleDeleted);
+  window.removeEventListener(SIGNALS.RECONNECTED, handleSignalRReconnected);
 });
 </script>
 
-<style>
+<style scoped>
 @reference "@/assets/main.css";
 
-/* Shiki 代码块：无边界融入设计 */
-.shiki {
-  padding: 1.5rem !important;
-  margin: 2rem 0 !important;
-  background-color: #fbfbfb !important;
-  border: 1px solid rgba(24, 24, 27, 0.05) !important;
-  border-radius: 2px;
-  font-size: 0.85rem;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  line-height: 1.7;
-  overflow-x: auto;
-}
-
-.prose :not(pre)>code {
-  background-color: #f4f4f5 !important;
-  color: #18181b !important;
-  padding: 0.2rem 0.4rem !important;
-  border-radius: 2px !important;
-  font-weight: 500 !important;
-}
-
-.prose blockquote {
-  border-left-width: 2px !important;
-  border-left-color: #e4e4e7 !important;
-  background-color: transparent !important;
-  font-style: normal !important;
-  margin: 2.5rem 0 !important;
-  padding-left: 2rem !important;
-  line-height: 1.8 !important;
-  letter-spacing: 0.025em !important;
-}
-
-.prose blockquote p {
-  margin: 0 !important;
-}
-
-.prose ul,
-.prose ol {
-  padding-left: 1.25rem;
-}
-
-.prose li::marker {
-  color: #d4d4d8;
-}
-
-.prose img {
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-  max-width: 100%;
-  max-height: 75vh;
-  object-fit: contain;
-  background-color: #fff;
-  margin-top: 2rem;
-  margin-bottom: 2rem;
-}
-
 @keyframes loading-bar {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(100%);
-  }
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .animate-loading-bar {

@@ -1,14 +1,15 @@
-# FsusBlog 基础编排配置 (修订日期: 2026-02-21)
-# 修正说明：将绑定挂载升级为具名卷，确保在无 root 权限的部署环境下依然能正确处理非 root 用户的目录权限。
+# FsusBlog 基础编排配置 (修订日期: 2026-03-01)
+# 修正说明：架构演进为极简主义单容器部署，Kestrel 直接接管前端静态资产，彻底剥离 Nginx。
 
 services:
-  # 1. 业务核心：后端 API
+  # 1. 业务核心：融合后的前后端全栈应用 (Kestrel 托管)
   fsusblog.server:
     build:
       context: .
       dockerfile: FsusBlog.Server/Dockerfile
-    container_name: fsus-api
-    image: ${DOCKER_REGISTRY-}fsusblogserver
+    # [修改日期 2026-03-01] 逻辑自洽：容器重命名为 fsus-app，因为它现在同时包含了 UI 和 API
+    container_name: fsus-app
+    image: ${DOCKER_REGISTRY-}fsusblogapp
     restart: always
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
@@ -28,18 +29,15 @@ services:
       # 核心修复(2026-02-21)：使用具名卷替代物理路径挂载，解决 LuceneIndex 权限拒绝问题
       - fsus-uploads:/app/wwwroot/uploads
       - fsus-luceneindex:/app/LuceneIndex
+    #[修改日期 2026-03-01] 
+    # 物理对接：暴露出 Kestrel 的默认 8080 端口，供宿主机的 OpenResty/Nginx 网关直接反向代理
+    ports:
+      - "8080:8080"
 
-  # 2. 业务核心：前端 UI (内置 Nginx 安全保障)
-  fsusblog.client:
-    build:
-      context: .
-      dockerfile: FsusBlog.Client/Dockerfile
-    container_name: fsus-ui
-    image: ${DOCKER_REGISTRY-}fsusblogclient
-    restart: always
-    networks:
-      - fsus-app-network
-      - fsus-infra-network
+  # =========================================================================
+  # [修改日期 2026-03-01]
+  # 物理剔除：原 fsusblog.client (Nginx) 服务已被完全移除，节约至少 50MB 基础内存。
+  # =========================================================================
 
 networks:
   fsus-app-network:

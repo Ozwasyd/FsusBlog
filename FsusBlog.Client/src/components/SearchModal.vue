@@ -1,14 +1,19 @@
 <template>
   <Teleport to="body">
-    <transition name="search-transition">
+    <transition name="search-transition" @after-leave="handleAfterLeave">
       <div 
         v-if="visible" 
+        id="search-modal-overlay"
         class="fixed inset-0 z-300 flex items-start justify-center pt-20 sm:pt-32 px-6 overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="search-label"
       >
-        <div class="absolute inset-0 bg-white/90 backdrop-blur-xl touch-none" @click="close"></div>
+        <!-- 背景遮罩：使用 .self 修饰符确保仅点击背景触发关闭，防止子元素点击穿透 -->
+        <div 
+          class="absolute inset-0 bg-white/90 backdrop-blur-xl touch-none" 
+          @click.self="close"
+        ></div>
 
         <div class="relative w-full max-w-2xl animate-in fade-in zoom-in-95 duration-300">
           
@@ -26,10 +31,11 @@
               autocomplete="off"
             />
             <div class="absolute right-0 bottom-5 flex items-center gap-4">
-              <span v-if="isCalculating" class="text-[10px] font-bold text-zinc-400 animate-pulse uppercase tracking-widest">安全校验中...</span>
+              <!-- 逻辑自洽：由后端拦截器执行 PoW，此处仅通过 powProvider 监听计算状态 -->
+              <span v-if="powProvider.isCalculating.value" class="text-[10px] font-bold text-zinc-400 animate-pulse uppercase tracking-widest">安全校验中...</span>
               <span v-else-if="loading" class="text-[10px] font-bold text-zinc-400 animate-pulse uppercase tracking-widest">搜索中...</span>
               
-              <span v-if="keyword && !loading && !isCalculating" class="hidden sm:block text-[10px] font-bold text-zinc-300 uppercase tracking-widest">Enter 全选</span>
+              <span v-if="keyword && !loading && !powProvider.isCalculating.value" class="hidden sm:block text-[10px] font-bold text-zinc-300 uppercase tracking-widest">Enter 全选</span>
               <button v-if="keyword" @click="clearSearch" class="text-[10px] font-bold text-zinc-300 hover:text-zinc-950 uppercase tracking-widest transition-colors">Clear</button>
             </div>
           </div>
@@ -37,9 +43,11 @@
           <div class="mt-10 max-h-[60vh] overflow-y-auto no-scrollbar pb-12">
             <transition-group name="list-fade-up">
               <div v-for="item in results" :key="item.id" class="group mb-8 last:mb-0">
-                <router-link :to="`/article/${item.id}`" @click="close" class="block">
+                <router-link :to="{ name: 'ArticleDetail', params: { id: item.id } }" @click="close" class="block">
                   <div class="flex items-center gap-4 mb-2">
-                    <span class="text-[10px] font-mono text-zinc-300 uppercase shrink-0">{{ formatDate(item.createTime) }}</span>
+                    <span class="text-[10px] font-mono text-zinc-300 uppercase shrink-0">
+                      {{ TimeUtils.toSmartTime(item.createTime) }}
+                    </span>
                     <div class="h-px grow bg-zinc-50 group-hover:bg-zinc-200 transition-colors"></div>
                   </div>
                   <h3 
@@ -50,7 +58,7 @@
               </div>
             </transition-group>
 
-            <div v-if="keyword && !loading && !isCalculating && results.length === 0" class="py-10 animate-in fade-in duration-500">
+            <div v-if="keyword && !loading && !powProvider.isCalculating.value && results.length === 0" class="py-10 animate-in fade-in duration-500">
               <p class="text-[11px] font-mono text-zinc-300 uppercase tracking-[0.2em]">没有匹配到相关内容。</p>
             </div>
             
@@ -67,145 +75,164 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onUnmounted } from 'vue'
+import { ref, watch, nextTick, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { searchArticles, type ArticleListItem } from '@/api/article'
-import { getPowChallenge } from '@/api/auth'
-import { getBrowserFp } from '@/utils/fingerprint'
+import { useSiteStore } from '@/store/site'
 import { usePow } from '@/composables/usePow'
+import { TimeUtils } from '@/utils/time'
 
 const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits(['update:visible'])
 
 const router = useRouter()
-const { calculate, isCalculating, prewarm } = usePow()
+const siteStore = useSiteStore()
+const powProvider = usePow()
 
 const keyword = ref('')
 const results = ref<ArticleListItem[]>([])
 const loading = ref(false)
 const searchInput = ref<HTMLInputElement | null>(null)
 
-let timer: any = null
+// 算法最优：建立局部引用快照，彻底隔离并发竞态
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let clearTimer: ReturnType<typeof setTimeout> | null = null
+let abortController: AbortController | null = null
+
+// [修复 2026-02-23] 聚焦还原机制：保存打开前的活动元素
+let previousActiveElement: HTMLElement | null = null
+
+// 静态 HTML 转义映射表
+const HTML_ESCAPE_MAP: Record<string, string> = {
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#47;', '`': '&#96;'
+}
+
+/**
+ * [修复 2026-02-23] 性能最大化：预计算高亮正则
+ * 逻辑自洽：仅在关键词变更时重建正则，消除 render 阶段的热路径开销
+ */
+const highlightRegex = computed(() => {
+  const q = keyword.value.trim()
+  if (!q) return null
+  try {
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`(${escaped})`, 'gi')
+  } catch (e) {
+    return null
+  }
+})
 
 const close = () => emit('update:visible', false)
 
 const clearSearch = () => {
   keyword.value = ''
   results.value = []
-}
-
-/**
- * 核心检索流水线：挑战获取 -> 算力求解 -> 加固请求
- * 安全性保障：针对 403 错误实现递归算力重试
- */
-const performSearch = async (keywordStr: string, retryCount = 0): Promise<ArticleListItem[]> => {
-  try {
-    // 1. 获取 PoW 挑战
-    const challengeRes = await getPowChallenge({ action: 'search' });
-    const { salt, difficulty, timestamp, signature } = challengeRes as any;
-
-    // 2. 算力求解 (利用 Worker 独立线程)
-    const fp = getBrowserFp();
-    const { nonce } = await calculate(salt, fp, difficulty);
-
-    // 3. 执行加固后的检索请求
-    const res = await searchArticles({
-      keyword: keywordStr,
-      powSalt: salt,
-      powNonce: nonce,
-      powTimestamp: timestamp,
-      difficulty: difficulty,
-      powSignature: signature,
-      browserFp: fp
-    });
-
-    const rawData = (res as any).data ?? res;
-    return Array.isArray(rawData) ? rawData : [];
-  } catch (err: any) {
-    // 处理难度熔断升级逻辑
-    if (err.response?.status === 403 && retryCount < 1) {
-      console.warn("[Search PoW] 难度提升，正在重试...");
-      return performSearch(keywordStr, retryCount + 1);
-    }
-    throw err;
+  if (abortController) {
+    abortController.abort()
+    abortController = null
   }
 }
 
 /**
- * 调度中心：处理防抖与竞态检查
+ * [修复 2026-02-23] 动画回调：在退出动画结束后清理状态
+ */
+const handleAfterLeave = () => {
+  clearSearch()
+}
+
+/**
+ * 调度中心：处理防抖与物理中断
  */
 const handleInput = () => {
-  if (timer) clearTimeout(timer)
-  const currentTrimmed = keyword.value.trim()
+  if (debounceTimer) clearTimeout(debounceTimer)
   
-  if (!currentTrimmed) {
+  const currentKeyword = keyword.value.trim()
+  if (!currentKeyword) {
     results.value = []
     loading.value = false
+    if (abortController) abortController.abort()
     return
   }
   
-  timer = setTimeout(async () => {
+  debounceTimer = setTimeout(async () => {
+    // [修复 2026-02-23] 竞态防护：物理中断旧请求并建立闭包快照
+    if (abortController) abortController.abort()
+    abortController = new AbortController()
+    const currentSignal = abortController.signal
+
     loading.value = true
     try {
-      const list = await performSearch(currentTrimmed)
+      // 逻辑自洽：不再手动调用 PoW 握手，透传标记给底层拦截器
+      const res = await searchArticles(
+        { keyword: currentKeyword }, 
+        { signal: currentSignal }
+      )
       
-      // 竞态检查：确保请求返回时用户未更改关键词
-      if (keyword.value.trim() !== currentTrimmed) return
-
-      results.value = list.slice(0, 5)
-    } catch (err) {
-      console.error('[Search Fail]', err)
-      results.value = []
+      // 竞态校验：仅在信号未取消且仍为当前控制器时写入
+      if (!currentSignal.aborted) {
+        const rawData = (res as any).data ?? res
+        results.value = Array.isArray(rawData) ? rawData.slice(0, 5) : []
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError' && !currentSignal.aborted) {
+        console.error('[Search Fail]', err)
+        results.value = []
+      }
     } finally {
-      loading.value = false
+      if (!currentSignal.aborted) {
+        loading.value = false
+        abortController = null
+      }
     }
-  }, 400) // 考虑到算力开销，防抖时间微调至 400ms 减少无效计算
+  }, 400) 
 }
 
 const handleFullSearch = () => {
-  if (!keyword.value.trim() || isCalculating.value) return
-  router.push({ path: '/search', query: { q: keyword.value.trim() } })
+  const q = keyword.value.trim()
+  if (!q || powProvider.isCalculating.value) return
+  router.push({ path: '/search', query: { q } })
   close()
 }
 
 /**
- * XSS 安全高亮逻辑
+ * [修复 2026-02-23] XSS 安全高亮模型
+ * 逻辑自洽：先执行严格的白名单字符替换，再注入高亮标签
  */
 const safeHighlight = (text: string) => {
   if (!text) return ''
-  let sanitized = text.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  // 物理级转义
+  const sanitized = text.replace(/[&<>"'`\/]/g, m => HTML_ESCAPE_MAP[m] ?? m)
   
-  const query = keyword.value.trim()
-  if (!query) return sanitized
+  const regex = highlightRegex.value
+  if (!regex) return sanitized
 
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const regex = new RegExp(`(${escaped})`, 'gi')
+  // 算法最优：利用捕获组保持原始大小写，并注入 mark 标签
   return sanitized.replace(regex, '<mark class="bg-zinc-100 text-zinc-950 px-0.5">$1</mark>')
 }
 
-const formatDate = (date: string) => {
-  const d = new Date(date)
-  return `${d.getMonth() + 1}/${d.getDate()}`
-}
-
 /**
- * 监听器：处理焦点与滚动锁定
+ * 监听器：处理 A11y 聚焦管理与滚动锁
+ * [修复 2026-02-23] 物理还原：关闭时将焦点还给触发元素
  */
 watch(() => props.visible, (newVal) => {
   if (newVal) {
-    // 预热 WASM 引擎，性能最大化
-    prewarm()
+    powProvider.prewarm()
+    previousActiveElement = document.activeElement as HTMLElement
     nextTick(() => searchInput.value?.focus())
-    document.body.style.setProperty('overflow', 'hidden')
+    siteStore.lockScroll()
   } else {
-    document.body.style.removeProperty('overflow')
-    setTimeout(clearSearch, 400)
+    siteStore.unlockScroll()
+    if (previousActiveElement) {
+        nextTick(() => previousActiveElement?.focus())
+    }
   }
 })
 
 onUnmounted(() => {
-  if (timer) clearTimeout(timer)
-  document.body.style.removeProperty('overflow')
+  if (debounceTimer) clearTimeout(debounceTimer)
+  if (clearTimer) clearTimeout(clearTimer)
+  if (abortController) abortController.abort()
+  siteStore.forceUnlockScroll()
 })
 </script>
 
@@ -227,4 +254,9 @@ onUnmounted(() => {
 
 .list-fade-up-enter-active { transition: all 0.4s ease-out; }
 .list-fade-up-enter-from { opacity: 0; transform: translateY(10px); }
+
+.wrap-break-word {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
 </style>

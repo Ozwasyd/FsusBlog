@@ -1,10 +1,13 @@
-﻿using FsusBlog.Server.Infrastructure.Helpers.Initializer;
-using FsusBlog.Server.Infrastructure.SignalR;
+﻿using FsusBlog.Server.Infrastructure.Filters;
 using Microsoft.AspNetCore.SignalR;
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Helpers.Initializer;
 
+/// <summary>
+/// SignalR 初始化器
+/// 修复日期: 2026-02-23 (修正DI容器注入Bug，采用舱壁模式隔离Redis连接，注入极速用户ID解析器)
+/// </summary>
 public static class SignalRInitializer
 {
     public static void AddSignalR(this IServiceCollection services, IConfiguration configuration)
@@ -22,6 +25,10 @@ public static class SignalRInitializer
         redisOptions.ConnectTimeout = 5000;           // 针对单机环境优化连接超时
         redisOptions.SyncTimeout = 5000;
 
+        // 性能与稳定性加固：为 Pub/Sub 专属连接配置更优的保活机制。
+        // 默认 60 秒，改为 30 秒，有效防止各种云服务商的 NAT 防火墙因长时间无数据而静默丢弃 TCP 连接。
+        redisOptions.KeepAlive = 30;
+
         services.AddSignalR(hubOptions =>
         {
             // 高性能设置：增加单个消息的最大长度限制
@@ -30,11 +37,14 @@ public static class SignalRInitializer
             hubOptions.EnableDetailedErrors = false; // 生产环境关闭详细错误以提升安全和性能
             hubOptions.AddFilter<SignalRPoWFilter>();
         })
-            .AddStackExchangeRedis(options =>
-            {
-                options.Configuration = redisOptions;
-                options.Configuration.ChannelPrefix = RedisChannel.Literal("Site_Notice_Pipe");
+        .AddStackExchangeRedis(options =>
+        {
+            options.Configuration = redisOptions;
+            options.Configuration.ChannelPrefix = RedisChannel.Literal("Site_Notice_Pipe");
+        });
 
-            });
+        // 极限性能优化：注册极速版的用户 ID 解析器
+        // 覆盖 SignalR 默认的 DefaultUserIdProvider，消除内部不必要的校验和转换开销
+        services.AddSingleton<IUserIdProvider, FastUserIdProvider>();
     }
 }

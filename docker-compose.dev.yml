@@ -1,5 +1,6 @@
-# FsusBlog 开发环境覆盖配置 (修复日期: 2026-02-20)
-# 逻辑自洽说明: 确保客户端被正确纳入 fsus-infra-network 内部网络
+# FsusBlog 开发环境覆盖配置 (修订日期: 2026-03-01)
+# 逻辑自洽说明: 贯彻极简主义，彻底剥离开发环境的前端容器负担。
+# 前端将在宿主机原生运行实现毫秒级 HMR，后端在此处由 dotnet watch 启动专注于 API 调试。
 services:
   # 后端 API 调试配置
   fsusblog.server:
@@ -12,27 +13,17 @@ services:
     working_dir: /app
     command: ["dotnet", "watch", "run", "--project", "FsusBlog.Server.csproj", "--urls", "http://+:8080"]
     ports:
+      # 宿主机通过 localhost:5173 直连后端的 8080 端口
       - "5173:8080"
     # 主文件中已有 networks，继承配置即可
     networks:
       # 核心修复：确保该开发模式下的容器强制加入同一网络
       - fsus-infra-network
 
-  # 前端 UI 调试配置
-  fsusblog.client:
-    build:
-      context: .
-      dockerfile: FsusBlog.Client/Dockerfile
-      target: build-stage
-    environment:
-      - NODE_ENV=development
-      - CHOKIDAR_USEPOLLING=true 
-    volumes:
-      - ./FsusBlog.Client:/app
-      - /app/node_modules
-    working_dir: /app
-    ports:
-      - "3000:3000" # 开发阶段暴漏出来以供宿主机直接跳过Nginx直连调试
-    networks:
-      # 核心修复：确保该开发模式下的容器强制加入同一网络，以便 Nginx 127.0.0.11 DNS 可以发现它
-      - fsus-infra-network
+  # =========================================================================
+  #[修改日期 2026-03-01]
+  # 物理剔除：原 fsusblog.client (前端 UI 调试容器) 已被完全移除。
+  # 修改理由：
+  # 1. 避免寻找已删除的 FsusBlog.Client/Dockerfile 导致引擎崩溃。
+  # 2. 彻底消灭 WSL2/Docker 的跨文件系统 I/O 损耗，节约数 GB 开发内存。
+  # =========================================================================

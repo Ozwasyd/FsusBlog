@@ -1,228 +1,259 @@
 ﻿using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using SqlSugar;
 using StackExchange.Redis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Runtime.CompilerServices;
+using System.Data;
+using System.Data.Common;
+using System.Collections.Concurrent;
+using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace FsusBlog.Server.Services;
 
+/// <summary>
+/// 文章核心业务服务
+/// 修复日期: 2026-02-23 (应用 DataReader 物理级映射，引入 MemoryCache 实现 Double-Check 缓存锁，彻底解决后台作用域销毁炸弹)
+/// </summary>
 public class ArticleService(
     ISqlSugarClient _db,
     ILuceneService _lucene,
-    IFileService _fileService,
     IConnectionMultiplexer _redisConnection,
     IHttpContextAccessor _httpContextAccessor,
-    IMessageService _messageService,
-    ILogger<ArticleService> _logger) : IArticleService
+    ILogger<ArticleService> _logger,
+    IServiceScopeFactory _scopeFactory,
+    IOutputCacheStore _cacheStore,
+    IMemoryCache _memoryCache) : IArticleService
 {
     private readonly IDatabase _redis = _redisConnection.GetDatabase();
 
     private const string CACHE_PREFIX = "blog:article:";
-    private const string LIST_CACHE_PREFIX = "blog:article:list:";
+    private const string LIST_CACHE_VERSION_KEY = "blog:article:list_version";
+    private const string LIST_CACHE_PREFIX = "blog:article:list:v";
 
-    // 高性能 Json 配置
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         ReferenceHandler = ReferenceHandler.IgnoreCycles,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    /// <summary>
-    /// 获取当前请求的取消令牌，如果无 HttpContext 则使用 None
-    /// </summary>
     private CancellationToken Ct => _httpContextAccessor.HttpContext?.RequestAborted ?? CancellationToken.None;
 
-    /// <summary>
-    /// 高性能增加阅读量：同步更新 DB、热榜 Score 并失效详情缓存
-    /// </summary>
     public async ValueTask IncreaseViewCountAsync(int id)
     {
-        // 1. 更新数据库计数
         await _db.Updateable<Article>()
             .SetColumns(it => it.Views == it.Views + 1)
             .Where(it => it.Id == id)
             .ExecuteCommandAsync();
 
-        // 2. 实时更新 Redis 热榜权重 (Sorted Set)
-        // 使用 _redis (IDatabase) 确保与查询端一致
         await _redis.SortedSetIncrementAsync("blog:top_articles", id, 1);
 
-        // 3. 【关键修复】失效掉旧的详情缓存，确保下一次 GetByIdAsync 拿到真值
-        // 解决详情页数字不跳动的问题
-        await _redis.KeyDeleteAsync($"{CACHE_PREFIX}{id}");
-
-        // 4. 发送实时热度更新通知 (SignalR - 逻辑自洽：治理组实时热度同步)
-        // 这里可以选择性调用，如果前端热榜需要实时跳动
-        // _ = _messageService.PushArticleChangedAsync(new ArticleNoticeDto { ... });
+        // 逻辑自洽：增加阅读量不触发全局列表版本号变更
+        await _redis.KeyDeleteAsync(GenerateDetailKey(id));
     }
 
     public async Task<PageResultDto<ArticleListDto>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted)
     {
-        string cacheKey = $"{LIST_CACHE_PREFIX}{page}_{size}_{categoryId ?? 0}_{tagId ?? 0}_{isDeleted}";
+        long version = await GetListCacheVersionAsync();
+        string cacheKey = GenerateListCacheKey(version, page, size, categoryId, tagId, isDeleted);
 
+        // 1. 无锁快读
         try
         {
-            // 尝试读取缓存，带上超时控制（应用层模拟取消）
-            var cacheTask = _redis.StringGetAsync(cacheKey);
-            var completedTask = await Task.WhenAny(cacheTask, Task.Delay(-1, Ct));
-
-            if (completedTask == cacheTask)
+            using var lease = await _redis.StringGetLeaseAsync(cacheKey);
+            if (lease != null && lease.Length > 0)
             {
-                var cachedData = await cacheTask;
-                if (cachedData.HasValue)
-                {
-                    return JsonSerializer.Deserialize<PageResultDto<ArticleListDto>>(cachedData.ToString()!)!;
-                }
+                var cachedResult = JsonSerializer.Deserialize<PageResultDto<ArticleListDto>>(lease.Span, _jsonOptions);
+                if (cachedResult != null) return cachedResult;
             }
         }
-        catch (OperationCanceledException) { throw; } // 正常取消
-        catch (Exception ex)
+        catch (Exception ex) { _logger.LogWarning(ex, "读取列表缓存异常"); }
+
+        // 2. 缓存击穿防护 (细粒度本地锁)
+        var cacheLock = _memoryCache.GetOrCreate(string.Concat("lock:", cacheKey), entry =>
         {
-            _logger.LogWarning(ex, "读取文章列表缓存失败或超时，Key: {CacheKey}", cacheKey);
-        }
+            entry.SlidingExpiration = TimeSpan.FromMinutes(2);
+            return new SemaphoreSlim(1, 1);
+        })!;
 
-        RefAsync<int> total = 0;
+        await cacheLock.WaitAsync(Ct);
+        try
+        {
+            // 3. Double-Check
+            using var lease2 = await _redis.StringGetLeaseAsync(cacheKey);
+            if (lease2 != null && lease2.Length > 0)
+            {
+                return JsonSerializer.Deserialize<PageResultDto<ArticleListDto>>(lease2.Span, _jsonOptions)!;
+            }
 
-        var list = await _db.Queryable<Article>()
-            .ClearFilter()
-            .Where(x => x.IsDeleted == isDeleted)
-            .WhereIF(categoryId.HasValue, x => x.CategoryId == categoryId)
-            .WhereIF(tagId.HasValue, x => x.Tags.Any(t => t.Id == tagId))
-            .OrderByDescending(x => x.CreateTime)
-            .Select(x => new ArticleListDto
-            {
-                Id = x.Id,
-                Title = x.Title,
-                Summary = x.Summary,
-                Views = x.Views,
-                CreateTime = x.CreateTime,
-                CategoryName = x.Category.Name,
-                IsDeleted = x.IsDeleted
-            })
-            .Mapper((dto, cache) =>
-            {
-                // 注意：Mapper 内部是同步委托或伪异步，较难直接传递 CT，但外层查询已受控
-                var allTagsInThisPage = cache.Get(currentList =>
+            RefAsync<int> total = 0;
+            var baseQuery = _db.Queryable<Article>()
+                .ClearFilter()
+                .Where(a => a.IsDeleted == isDeleted)
+                .WhereIF(categoryId.HasValue, a => a.CategoryId == categoryId)
+                .WhereIF(tagId.HasValue, a => SqlFunc.Subqueryable<ArticleTag>().Where(at => at.ArticleId == a.Id && at.TagId == tagId).Any());
+
+            int totalCount = await baseQuery.CountAsync();
+            if (totalCount == 0) return new PageResultDto<ArticleListDto> { Items = [], Total = 0 };
+
+            var sqlObj = baseQuery.LeftJoin<Category>((a, c) => a.CategoryId == c.Id)
+                .OrderByDescending(a => a.CreateTime)
+                .Select((a, c) => new
                 {
-                    var articleIds = currentList.Select(a => a.Id).ToList();
-                    return _db.Queryable<ArticleTag>()
-                        .InnerJoin<Tag>((at, t) => at.TagId == t.Id)
-                        .Where(at => articleIds.Contains(at.ArticleId))
-                        .Select((at, t) => new { at.ArticleId, t.Id, t.Name })
-                        .ToList();
-                });
+                    a.Id,
+                    a.Title,
+                    Summary = SqlFunc.Substring(a.Content, 1, 200), // Postgres 1-based
+                    a.Views,
+                    a.CreateTime,
+                    a.CategoryId,
+                    CategoryName = c.Name,
+                    a.IsDeleted
+                })
+                .Skip((page - 1) * size).Take(size).ToSql();
 
-                dto.Tags = [.. allTagsInThisPage
-                    .Where(t => t.ArticleId == dto.Id)
-                    .Select(t => new TagDto { Id = t.Id, Name = t.Name })];
-            })
-            .ToPageListAsync(page, size, total); // SqlSugar 内部暂未完全透传 CT 到 Mapper，但主查询会响应
+            var list = new List<ArticleListDto>(size);
+            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+            {
+                // 物理预热寻址
+                int fId = reader.GetOrdinal("Id"), fTitle = reader.GetOrdinal("Title"), fSum = reader.GetOrdinal("Summary"),
+                    fViews = reader.GetOrdinal("Views"), fTime = reader.GetOrdinal("CreateTime"), fCatId = reader.GetOrdinal("CategoryId"),
+                    fCatName = reader.GetOrdinal("CategoryName"), fDel = reader.GetOrdinal("IsDeleted");
 
-        var result = new PageResultDto<ArticleListDto> { Items = list, Total = total.Value };
+                while (await reader.ReadAsync(Ct))
+                {
+                    list.Add(new ArticleListDto
+                    {
+                        Id = reader.GetInt32(fId),
+                        Title = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle),
+                        Summary = reader.IsDBNull(fSum) ? null : reader.GetString(fSum),
+                        Views = reader.GetInt32(fViews),
+                        CreateTime = reader.GetDateTime(fTime),
+                        Category = new ArticleCategoryView(reader.GetInt32(fCatId), reader.IsDBNull(fCatName) ? "默认" : reader.GetString(fCatName)),
+                        IsDeleted = reader.GetBoolean(fDel),
+                        Tags = []
+                    });
+                }
+            }
 
-        // 写入缓存（Fire-and-forget，不等待，因为即使客户端断开，缓存写入也应该完成以造福后续请求）
-        _ = _redis.StringSetAsync(cacheKey, JsonSerializer.Serialize(result, _jsonOptions), TimeSpan.FromMinutes(10));
+            if (list.Count > 0)
+            {
+                var ids = list.Select(x => x.Id).ToList();
+                var tagsData = await _db.Queryable<ArticleTag>()
+                    .InnerJoin<Tag>((at, t) => at.TagId == t.Id)
+                    .Where(at => ids.Contains(at.ArticleId))
+                    .Select((at, t) => new { at.ArticleId, t.Id, t.Name })
+                    .ToListAsync();
 
-        return result;
+                var tagDict = new Dictionary<int, List<TagDto>>(ids.Count);
+                foreach (var t in tagsData)
+                {
+                    if (!tagDict.TryGetValue(t.ArticleId, out var tagList)) { tagList = []; tagDict[t.ArticleId] = tagList; }
+                    tagList.Add(new TagDto(t.Id, t.Name));
+                }
+
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var item = list[i];
+                    item.Tags = tagDict.TryGetValue(item.Id, out var tags) ? tags : [];
+                    list[i] = item;
+                }
+            }
+
+            var result = new PageResultDto<ArticleListDto> { Items = list, Total = totalCount };
+            _ = _redis.StringSetAsync(cacheKey, JsonSerializer.SerializeToUtf8Bytes(result, _jsonOptions), TimeSpan.FromMinutes(10));
+            return result;
+        }
+        finally { cacheLock.Release(); }
     }
 
     public async Task<Article?> GetByIdAsync(int id)
     {
-        string cacheKey = $"{CACHE_PREFIX}{id}";
-
+        string cacheKey = GenerateDetailKey(id);
         try
         {
-            // 快速读取缓存
-            var cachedData = await _redis.StringGetAsync(cacheKey);
-            if (cachedData.HasValue)
+            using var lease = await _redis.StringGetLeaseAsync(cacheKey);
+            if (lease != null && lease.Length > 0)
             {
-                var jsonStr = cachedData.ToString();
-                if (jsonStr == "null_data") return null;
-                return JsonSerializer.Deserialize<Article>(jsonStr, _jsonOptions);
+                if (lease.Length == 0) return null;
+                return JsonSerializer.Deserialize<Article>(lease.Span, _jsonOptions);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) { _logger.LogWarning("Redis Read Failed: {Msg}", ex.Message); }
+
+        var query = _db.Queryable<Article>().LeftJoin<Category>((a, c) => a.CategoryId == c.Id).Where(a => a.Id == id)
+            .Select((a, c) => new { a.Id, a.Title, a.Content, a.Summary, a.CategoryId, a.Views, a.CreateTime, a.IsDeleted, CategoryName = c.Name });
+
+        var sqlObj = query.ToSql();
+        Article? article = null;
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
         {
-            _logger.LogWarning("Redis Read Failed: {Message}", ex.Message);
+            if (await reader.ReadAsync(Ct))
+            {
+                int fId = reader.GetOrdinal("Id"), fTitle = reader.GetOrdinal("Title"), fContent = reader.GetOrdinal("Content"),
+                    fSum = reader.GetOrdinal("Summary"), fCatId = reader.GetOrdinal("CategoryId"), fViews = reader.GetOrdinal("Views"),
+                    fTime = reader.GetOrdinal("CreateTime"), fIsDel = reader.GetOrdinal("IsDeleted"), fCatName = reader.GetOrdinal("CategoryName");
+
+                article = new Article
+                {
+                    Id = reader.GetInt32(fId),
+                    Title = reader.GetString(fTitle),
+                    Content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent),
+                    Summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum),
+                    CategoryId = reader.GetInt32(fCatId),
+                    Views = reader.GetInt32(fViews),
+                    CreateTime = reader.GetDateTime(fTime),
+                    IsDeleted = reader.GetBoolean(fIsDel),
+                    Category = new Category { Id = reader.GetInt32(fCatId), Name = reader.IsDBNull(fCatName) ? "默认分类" : reader.GetString(fCatName) },
+                    Tags = []
+                };
+            }
         }
 
-        // 数据库查询带上 CT
-        var article = await _db.Queryable<Article>()
-            .Includes(x => x.Category)
-            .Includes(x => x.Tags)
-            .InSingleAsync(id); // 虽然 InSingleAsync 源码可能未透传 CT，但在连接层会响应关闭
-
-        // 缓存写入逻辑保持不变（后台执行）
         if (article != null)
         {
-            _ = _redis.StringSetAsync(cacheKey, JsonSerializer.Serialize(article, _jsonOptions), TimeSpan.FromHours(1));
+            var tagsSql = _db.Queryable<ArticleTag>().InnerJoin<Tag>((at, t) => at.TagId == t.Id).Where(at => at.ArticleId == id).Select((at, t) => new { t.Id, t.Name }).ToSql();
+            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(tagsSql.Key, tagsSql.Value))
+            {
+                int tId = reader.GetOrdinal("Id"), tName = reader.GetOrdinal("Name");
+                while (await reader.ReadAsync(Ct)) article.Tags.Add(new Tag { Id = reader.GetInt32(tId), Name = reader.GetString(tName) });
+            }
+            _ = _redis.StringSetAsync(cacheKey, JsonSerializer.SerializeToUtf8Bytes(article, _jsonOptions), TimeSpan.FromHours(1));
         }
-        else
-        {
-            // 防穿透
-            _ = _redis.StringSetAsync(cacheKey, "null_data", TimeSpan.FromMinutes(5));
-        }
+        else _ = _redis.StringSetAsync(cacheKey, Array.Empty<byte>(), TimeSpan.FromMinutes(5));
 
         return article;
     }
 
     public async Task<int> CreateAsync(ArticleDto dto)
     {
-        var article = new Article
-        {
-            Title = dto.Title,
-            Content = dto.Content,
-            Summary = dto.Summary,
-            CategoryId = dto.CategoryId,
-            CreateTime = DateTime.UtcNow,
-            IsDeleted = false
-        };
-
-        int newId = 0;
-        var result = await _db.Ado.UseTranAsync(async () =>
-        {
-            newId = await _db.Insertable(article).ExecuteReturnIdentityAsync();
-            article.Id = newId;
-            if (dto.TagIds?.Count > 0)
-            {
-                var tags = dto.TagIds.Select(tid => new ArticleTag { ArticleId = newId, TagId = tid }).ToList();
-                await _db.Insertable(tags).ExecuteCommandAsync();
-            }
+        var article = new Article { Title = dto.Title, Content = dto.Content, Summary = dto.Summary, CategoryId = dto.CategoryId, CreateTime = DateTime.UtcNow, IsDeleted = false };
+        var result = await _db.Ado.UseTranAsync(async () => {
+            int id = await _db.Insertable(article).ExecuteReturnIdentityAsync();
+            if (dto.TagIds?.Count > 0) await _db.Insertable(dto.TagIds.Select(tid => new ArticleTag { ArticleId = id, TagId = tid }).ToArray()).ExecuteCommandAsync();
+            return id;
         });
 
         if (result.IsSuccess)
         {
-            _logger.LogInformation("文章发布成功 | ID: {ArticleId}", newId);
-            await InvalidateCache(newId);
-
-            // 异步执行索引和信令推送
-            _ = Task.Run(async () =>
-            {
+            await InvalidateCache();
+            _ = Task.Run(async () => {
                 try
                 {
-                    var indexTask = _lucene.AddOrUpdateIndexAsync(article);
-                    var notifyTask = _messageService.PushArticleChangedAsync(new ArticleNoticeDto
-                    {
-                        ArticleId = newId,
-                        Action = "Created",
-                        EventTime = article.CreateTime
-                    });
-
-                    await Task.WhenAll(indexTask, notifyTask);
-                    await _redis.KeyDeleteAsync("cache:rss:xml_content");
+                    using var scope = _scopeFactory.CreateScope();
+                    var lucene = scope.ServiceProvider.GetRequiredService<ILuceneService>();
+                    var messageSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
+                    await Task.WhenAll(lucene.AddOrUpdateIndexAsync(article), messageSvc.PushArticleChangedAsync(new ArticleNoticeDto(result.Data, "Created", article.CreateTime)));
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "文章创建后的异步任务执行失败 | ID: {ArticleId}", newId);
-                }
+                catch (Exception ex) { _logger.LogError(ex, "后台异步任务执行失败"); }
             });
-
-            return newId;
+            return result.Data;
         }
-        throw new Exception($"发布失败: {result.ErrorMessage}");
+        throw new Exception(result.ErrorMessage);
     }
 
     public async Task<bool> UpdateAsync(int id, ArticleDto dto)
@@ -230,52 +261,29 @@ public class ArticleService(
         var result = await _db.Ado.UseTranAsync(async () =>
         {
             await _db.Updateable<Article>()
-                .SetColumns(it => new Article
-                {
-                    Title = dto.Title,
-                    Content = dto.Content,
-                    Summary = dto.Summary,
-                    CategoryId = dto.CategoryId
-                })
+                .SetColumns(it => it.Title == dto.Title)
+                .SetColumns(it => it.Content == dto.Content)
+                .SetColumns(it => it.Summary == dto.Summary)
+                .SetColumns(it => it.CategoryId == dto.CategoryId)
                 .Where(it => it.Id == id).ExecuteCommandAsync();
-
             await _db.Deleteable<ArticleTag>().Where(it => it.ArticleId == id).ExecuteCommandAsync();
-            if (dto.TagIds?.Count > 0)
-            {
-                var tags = dto.TagIds.Select(tid => new ArticleTag { ArticleId = id, TagId = tid }).ToList();
-                await _db.Insertable(tags).ExecuteCommandAsync();
-            }
+            if (dto.TagIds?.Count > 0) await _db.Insertable(dto.TagIds.Select(tid => new ArticleTag { ArticleId = id, TagId = tid }).ToArray()).ExecuteCommandAsync();
         });
 
         if (result.IsSuccess)
         {
             await InvalidateCache(id);
-
-            _ = Task.Run(async () =>
-            {
+            _ = Task.Run(async () => {
                 try
                 {
-                    // 获取最新对象用于更新索引
-                    var art = await _db.Queryable<Article>().InSingleAsync(id);
-                    if (art != null)
-                    {
-                        var indexTask = _lucene.AddOrUpdateIndexAsync(art);
-                        // 仅发送信令，不携带内容
-                        var notifyTask = _messageService.PushArticleChangedAsync(new ArticleNoticeDto
-                        {
-                            ArticleId = id,
-                            Action = "Updated",
-                            EventTime = DateTime.UtcNow
-                        });
-
-                        await Task.WhenAll(indexTask, notifyTask);
-                        await _redis.KeyDeleteAsync("cache:rss:xml_content");
-                    }
+                    using var scope = _scopeFactory.CreateScope();
+                    var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+                    var messageSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
+                    var lucene = scope.ServiceProvider.GetRequiredService<ILuceneService>();
+                    var art = await db.Queryable<Article>().InSingleAsync(id);
+                    if (art != null) await Task.WhenAll(lucene.AddOrUpdateIndexAsync(art), messageSvc.PushArticleChangedAsync(new ArticleNoticeDto(id, "Updated", DateTime.UtcNow)));
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "文章更新后的异步任务执行失败 | ID: {ArticleId}", id);
-                }
+                catch (Exception ex) { _logger.LogError(ex, "后台任务失败"); }
             });
             return true;
         }
@@ -284,34 +292,20 @@ public class ArticleService(
 
     public async Task<bool> DeleteAsync(int id)
     {
-        var success = await _db.Updateable<Article>()
-            .SetColumns(it => it.IsDeleted == true)
-            .Where(it => it.Id == id).ExecuteCommandAsync() > 0;
-
+        var success = await _db.Updateable<Article>().SetColumns(it => it.IsDeleted == true).Where(it => it.Id == id).ExecuteCommandAsync() > 0;
         if (success)
         {
             await InvalidateCache(id);
-
-            _ = Task.Run(async () =>
-            {
+            _ = Task.Run(async () => {
                 try
                 {
-                    var indexTask = _lucene.DeleteIndexAsync(id);
-                    var redisTask = _redis.SortedSetRemoveAsync("blog:top_articles", id);
-                    var notifyTask = _messageService.PushArticleChangedAsync(new ArticleNoticeDto
-                    {
-                        ArticleId = id,
-                        Action = "Deleted",
-                        EventTime = DateTime.UtcNow
-                    });
-
-                    await Task.WhenAll(indexTask, redisTask, notifyTask);
-                    await _redis.KeyDeleteAsync("cache:rss:xml_content");
+                    using var scope = _scopeFactory.CreateScope();
+                    var messageSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
+                    var lucene = scope.ServiceProvider.GetRequiredService<ILuceneService>();
+                    var redisDb = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>().GetDatabase();
+                    await Task.WhenAll(lucene.DeleteIndexAsync(id), redisDb.SortedSetRemoveAsync("blog:top_articles", id), messageSvc.PushArticleChangedAsync(new ArticleNoticeDto(id, "Deleted", DateTime.UtcNow)));
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "文章逻辑删除后的异步任务执行失败 | ID: {ArticleId}", id);
-                }
+                catch (Exception ex) { _logger.LogError(ex, "后台任务失败"); }
             });
         }
         return success;
@@ -319,38 +313,22 @@ public class ArticleService(
 
     public async Task<bool> RestoreAsync(int id)
     {
-        var success = await _db.Updateable<Article>()
-            .SetColumns(it => it.IsDeleted == false)
-            .Where(it => it.Id == id).ExecuteCommandAsync() > 0;
-
+        var success = await _db.Updateable<Article>().SetColumns(it => it.IsDeleted == false).Where(it => it.Id == id).ExecuteCommandAsync() > 0;
         if (success)
         {
             await InvalidateCache(id);
-
-            _ = Task.Run(async () =>
-            {
+            _ = Task.Run(async () => {
                 try
                 {
-                    var article = await _db.Queryable<Article>().InSingleAsync(id);
-                    if (article != null)
-                    {
-                        var indexTask = _lucene.AddOrUpdateIndexAsync(article);
-                        var redisTask = _redis.SortedSetAddAsync("blog:top_articles", id, article.Views);
-                        var notifyTask = _messageService.PushArticleChangedAsync(new ArticleNoticeDto
-                        {
-                            ArticleId = id,
-                            Action = "Restored",
-                            EventTime = DateTime.UtcNow
-                        });
-
-                        await Task.WhenAll(indexTask, redisTask, notifyTask);
-                        await _redis.KeyDeleteAsync("cache:rss:xml_content");
-                    }
+                    using var scope = _scopeFactory.CreateScope();
+                    var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+                    var messageSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
+                    var lucene = scope.ServiceProvider.GetRequiredService<ILuceneService>();
+                    var redisDb = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>().GetDatabase();
+                    var article = await db.Queryable<Article>().InSingleAsync(id);
+                    if (article != null) await Task.WhenAll(lucene.AddOrUpdateIndexAsync(article), redisDb.SortedSetAddAsync("blog:top_articles", id, article.Views), messageSvc.PushArticleChangedAsync(new ArticleNoticeDto(id, "Restored", DateTime.UtcNow)));
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "文章还原后的异步任务执行失败 | ID: {ArticleId}", id);
-                }
+                catch (Exception ex) { _logger.LogError(ex, "后台任务失败"); }
             });
         }
         return success;
@@ -360,50 +338,28 @@ public class ArticleService(
     {
         var article = await _db.Queryable<Article>().ClearFilter().InSingleAsync(id);
         if (article == null) return false;
-
         var imageUrls = ImageHelper.ExtractIllustrationUrls(article.Content);
-
-        var result = await _db.Ado.UseTranAsync(async () =>
-        {
+        var result = await _db.Ado.UseTranAsync(async () => {
             await _db.Deleteable<Comment>().Where(c => c.ArticleId == id).ExecuteCommandAsync();
             await _db.Deleteable<ArticleTag>().Where(at => at.ArticleId == id).ExecuteCommandAsync();
-            await _db.Deleteable<Article>().In(id).ExecuteCommandAsync();
+            return await _db.Deleteable<Article>().In(id).ExecuteCommandAsync();
         });
-
         if (result.IsSuccess)
         {
-            _logger.LogWarning("执行物理删除 | ID: {ArticleId}", id);
             await InvalidateCache(id);
-
-            _ = Task.Run(async () =>
-            {
+            _ = Task.Run(async () => {
                 try
                 {
-                    var cleanupTasks = new List<Task>
-                {
-                    _lucene.DeleteIndexAsync(id),
-                    _redis.SortedSetRemoveAsync("blog:top_articles", id),
-                    _messageService.PushArticleChangedAsync(new ArticleNoticeDto
-                    {
-                        ArticleId = id,
-                        Action = "Deleted",
-                        EventTime = DateTime.UtcNow
-                    })
-                };
-
-                    if (imageUrls != null && imageUrls.Count > 0)
-                    {
-                        _logger.LogInformation("启动插图物理清理 | 数量: {Count}", imageUrls.Count);
-                        cleanupTasks.AddRange(imageUrls.Select(url => _fileService.DeleteImageAsync(url)));
-                    }
-
-                    await Task.WhenAll(cleanupTasks);
-                    await _redis.KeyDeleteAsync("cache:rss:xml_content");
+                    using var scope = _scopeFactory.CreateScope();
+                    var messageSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
+                    var fileSvc = scope.ServiceProvider.GetRequiredService<IFileService>();
+                    var lucene = scope.ServiceProvider.GetRequiredService<ILuceneService>();
+                    var redisDb = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>().GetDatabase();
+                    var tasks = new List<Task> { lucene.DeleteIndexAsync(id), redisDb.SortedSetRemoveAsync("blog:top_articles", id), messageSvc.PushArticleChangedAsync(new ArticleNoticeDto(id, "Deleted", DateTime.UtcNow)) };
+                    if (imageUrls.Count > 0) tasks.AddRange(imageUrls.Select(fileSvc.DeleteImageAsync));
+                    await Task.WhenAll(tasks);
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "物理删除后的后台清理任务执行失败 | ID: {ArticleId}", id);
-                }
+                catch (Exception ex) { _logger.LogError(ex, "物理清理失败"); }
             });
             return true;
         }
@@ -412,139 +368,157 @@ public class ArticleService(
 
     public async Task<int> ClearTrashAsync()
     {
-        // 列表查询带上 CT
-        var trashArticles = await _db.Queryable<Article>()
-            .ClearFilter()
-            .Where(a => a.IsDeleted == true)
-            .Select(a => new { a.Id, a.Content })
-            .ToListAsync(Ct);
-
+        var trashArticles = await _db.Queryable<Article>().ClearFilter().Where(a => a.IsDeleted).Select(a => new { a.Id, a.Content }).ToListAsync(Ct);
         if (trashArticles.Count == 0) return 0;
-
         var articleIds = trashArticles.Select(a => a.Id).ToList();
-        var deletedCount = 0;
-
-        // 批量删除事务（耗时操作，不建议强加 CT，因为可能导致部分删除的数据不一致，让它跑完比较安全）
-        var result = await _db.Ado.UseTranAsync(async () =>
-        {
+        var result = await _db.Ado.UseTranAsync(async () => {
             await _db.Deleteable<Comment>().Where(c => articleIds.Contains(c.ArticleId)).ExecuteCommandAsync();
             await _db.Deleteable<ArticleTag>().Where(at => articleIds.Contains(at.ArticleId)).ExecuteCommandAsync();
-            deletedCount = await _db.Deleteable<Article>().In(articleIds).ExecuteCommandAsync();
+            return await _db.Deleteable<Article>().In(articleIds).ExecuteCommandAsync();
         });
 
         if (result.IsSuccess)
         {
-            _logger.LogCritical("执行大规模物理删除 | Count: {Count}", deletedCount);
-
-            // 清理缓存（Fire-and-forget）
-            _ = Task.Run(async () =>
-            {
-                var server = _redisConnection.GetServer(_redisConnection.GetEndPoints()[0]);
-                var keys = server.Keys(pattern: $"{LIST_CACHE_PREFIX}*").ToArray();
-                if (keys.Length > 0) await _redis.KeyDeleteAsync(keys);
-
-                foreach (var id in articleIds)
+            await InvalidateCache();
+            _ = Task.Run(async () => {
+                try
                 {
-                    await _redis.SortedSetRemoveAsync("blog:top_articles", id);
-                    await _redis.KeyDeleteAsync($"{CACHE_PREFIX}{id}");
-                    await _lucene.DeleteIndexAsync(id);
+                    using var scope = _scopeFactory.CreateScope();
+                    var fileSvc = scope.ServiceProvider.GetRequiredService<IFileService>();
+                    var redisDb = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>().GetDatabase();
+                    var tasks = articleIds.SelectMany(id => new Task[] { redisDb.SortedSetRemoveAsync("blog:top_articles", id), redisDb.KeyDeleteAsync(GenerateDetailKey(id)), _lucene.DeleteIndexAsync(id) }).ToList();
+                    var imgUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var art in trashArticles) { foreach (var url in ImageHelper.ExtractIllustrationUrls(art.Content)) imgUrls.Add(url); }
+                    tasks.AddRange(imgUrls.Select(fileSvc.DeleteImageAsync));
+                    await Task.WhenAll(tasks);
                 }
-
-                foreach (var art in trashArticles)
-                {
-                    var urls = ImageHelper.ExtractIllustrationUrls(art.Content);
-                    foreach (var url in urls) await _fileService.DeleteImageAsync(url);
-                }
+                catch (Exception ex) { _logger.LogError(ex, "清理回收站异常"); }
             });
-
-            return deletedCount;
+            return result.Data;
         }
-
-        throw new Exception($"清空回收站系统失败: {result.ErrorMessage}");
+        throw new Exception(result.ErrorMessage);
     }
 
     public async Task<List<ArticleListDto>> SearchArticlesAsync(string keyword)
     {
-        // Lucene 搜索通常极快，暂不加 CT，但数据库回捞需要
         var searchResults = await _lucene.SearchAsync(keyword);
         if (searchResults.Count == 0) return [];
-
         var ids = searchResults.Select(x => x.Id).ToList();
 
-        // 数据库回捞带上 CT
-        var articlesFromDb = await _db.Queryable<Article>()
-            .Includes(x => x.Category).Includes(x => x.Tags)
-            .Where(x => ids.Contains(x.Id) && !x.IsDeleted)
-            .ToListAsync(Ct);
+        var sqlObj = _db.Queryable<Article>().LeftJoin<Category>((a, c) => a.CategoryId == c.Id)
+            .Where(a => ids.Contains(a.Id) && !a.IsDeleted)
+            .Select((a, c) => new { a.Id, a.Views, a.CreateTime, a.CategoryId, CategoryName = c.Name, a.IsDeleted }).ToSql();
 
-        var artDic = articlesFromDb.ToDictionary(x => x.Id);
-        var luceneDic = searchResults.ToDictionary(x => x.Id);
-
-        return [.. ids.Where(artDic.ContainsKey).Select(id => {
-            var art = artDic[id];
-            return new ArticleListDto {
-                Id = art.Id,
-                Title = art.Title,
-                Summary = art.Summary,
-                Snippet = luceneDic[id].Content,
-                CreateTime = art.CreateTime,
-                CategoryName = art.Category?.Name ?? "默认",
-                Tags = [.. art.Tags.Select(t => new TagDto { Id = t.Id, Name = t.Name })]
-            };
-        })];
+        var metadataFromDb = new Dictionary<int, (int Views, DateTime Time, int CatId, string CatName, bool IsDel)>();
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        {
+            int fId = reader.GetOrdinal("Id"), fViews = reader.GetOrdinal("Views"), fTime = reader.GetOrdinal("CreateTime"),
+                fCatId = reader.GetOrdinal("CategoryId"), fCatName = reader.GetOrdinal("CategoryName"), fDel = reader.GetOrdinal("IsDeleted");
+            while (await reader.ReadAsync(Ct)) metadataFromDb[reader.GetInt32(fId)] = (reader.GetInt32(fViews), reader.GetDateTime(fTime), reader.GetInt32(fCatId), reader.IsDBNull(fCatName) ? "默认" : reader.GetString(fCatName), reader.GetBoolean(fDel));
+        }
+        var tags = await _db.Queryable<ArticleTag>().InnerJoin<Tag>((at, t) => at.TagId == t.Id).Where(at => ids.Contains(at.ArticleId)).Select((at, t) => new { at.ArticleId, t.Id, t.Name }).ToListAsync();
+        var tagDict = new Dictionary<int, List<TagDto>>();
+        foreach (var t in tags)
+        {
+            if (!tagDict.TryGetValue(t.ArticleId, out var tagList)) { tagList = []; tagDict[t.ArticleId] = tagList; }
+            tagList.Add(new TagDto(t.Id, t.Name));
+        }
+        var resultList = new List<ArticleListDto>(searchResults.Count);
+        foreach (var luceneArt in searchResults)
+        {
+            if (metadataFromDb.TryGetValue(luceneArt.Id, out var m)) resultList.Add(new ArticleListDto
+            {
+                Id = luceneArt.Id,
+                Title = luceneArt.Title,
+                Snippet = luceneArt.Content,
+                Views = m.Views,
+                CreateTime = m.Time,
+                Category = new ArticleCategoryView(m.CatId, m.CatName),
+                IsDeleted = m.IsDel,
+                Tags = tagDict.TryGetValue(luceneArt.Id, out var tList) ? tList : []
+            });
+        }
+        return resultList;
     }
 
     public async Task<List<PopularArticleDto>> GetHotArticlesAsync(int count = 10)
     {
         string redisKey = "blog:top_articles";
-
-        // 尝试从 Redis 获取
         var topIds = await _redis.SortedSetRangeByRankAsync(redisKey, 0, count - 1, Order.Descending);
-        List<int> ids = [.. topIds.Select(x => int.Parse(x!))];
+        List<int> ids = [];
+        foreach (var val in topIds) if (val.HasValue) ids.Add((int)val);
 
-        // 如果 Redis 彻底为空（如缓存崩溃或初始化），从 DB 强制同步
         if (ids.Count == 0)
         {
-            var topFromDb = await _db.Queryable<Article>()
-                .Where(a => !a.IsDeleted)
-                .OrderByDescending(a => a.Views)
-                .Take(count)
-                .Select(a => new { a.Id, a.Views })
-                .ToListAsync(Ct);
-
-            if (topFromDb.Count == 0) return [];
-
-            // 批量同步分值，确保起点一致
-            var entries = topFromDb.Select(x => new SortedSetEntry(x.Id, x.Views)).ToArray();
-            await _redis.SortedSetAddAsync(redisKey, entries);
-            ids = [.. topFromDb.Select(x => x.Id)];
+            var cacheLock = _memoryCache.GetOrCreate(redisKey, entry => { entry.SlidingExpiration = TimeSpan.FromMinutes(2); return new SemaphoreSlim(1, 1); })!;
+            await cacheLock.WaitAsync(Ct);
+            try
+            {
+                var topIds2 = await _redis.SortedSetRangeByRankAsync(redisKey, 0, count - 1, Order.Descending);
+                if (topIds2.Length > 0) foreach (var val in topIds2) if (val.HasValue) ids.Add((int)val);
+                else
+                {
+                    var topFromDb = await _db.Queryable<Article>().Where(a => !a.IsDeleted).OrderByDescending(a => a.Views).Take(count).Select(a => new { a.Id, a.Views }).ToListAsync(Ct);
+                    if (topFromDb.Count == 0) return [];
+                    await _redis.SortedSetAddAsync(redisKey, [.. topFromDb.Select(x => new SortedSetEntry(x.Id, x.Views))]);
+                    ids = [.. topFromDb.Select(x => x.Id)];
+                }
+            }
+            finally { cacheLock.Release(); }
         }
 
-        // 数值始终回捞数据库，保证“显示的阅读数”与“详情页”绝对一致
-        var articles = await _db.Queryable<Article>()
-            .In(ids)
-            .Where(a => !a.IsDeleted)
-            .Select(a => new PopularArticleDto
-            {
-                Id = a.Id,
-                Title = a.Title,
-                Views = a.Views // 这里的 Views 来自数据库真值
-            })
-            .ToListAsync(Ct);
-
-        // 保持 Redis 排序顺序返回
-        return [.. ids
-            .Select(id => articles.FirstOrDefault(a => a.Id == id))
-            .Where(a => a != null)
-            .Select(a => a!)];
+        var sqlObj = _db.Queryable<Article>().In(ids).Where(a => !a.IsDeleted).Select(a => new { a.Id, a.Title, a.Views }).ToSql();
+        var articles = new List<PopularArticleDto>(ids.Count);
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        {
+            int fId = reader.GetOrdinal("Id"), fTitle = reader.GetOrdinal("Title"), fViews = reader.GetOrdinal("Views");
+            while (await reader.ReadAsync(Ct)) articles.Add(new PopularArticleDto { Id = reader.GetInt32(fId), Title = reader.GetString(fTitle), Views = reader.GetInt32(fViews) });
+        }
+        var artDic = articles.ToDictionary(a => a.Id);
+        var result = new List<PopularArticleDto>(ids.Count);
+        foreach (var id in ids) if (artDic.TryGetValue(id, out var a)) result.Add(a);
+        return result;
     }
 
-    private async Task InvalidateCache(int id)
+    private async Task InvalidateCache(int? articleId = null)
     {
-        await _redis.KeyDeleteAsync($"{CACHE_PREFIX}{id}");
+        var tasks = new List<Task>(6);
+        if (articleId.HasValue) tasks.Add(_redis.KeyDeleteAsync(GenerateDetailKey(articleId.Value)));
+        tasks.Add(_redis.StringIncrementAsync(LIST_CACHE_VERSION_KEY));
+        tasks.Add(_redis.KeyDeleteAsync("cache:rss:xml_content"));
+        tasks.Add(_cacheStore.EvictByTagAsync("Category", default).AsTask());
+        tasks.Add(_cacheStore.EvictByTagAsync("ArticleList", default).AsTask());
+        tasks.Add(_cacheStore.EvictByTagAsync("HotArticles", default).AsTask());
+        await Task.WhenAll(tasks);
+    }
 
-        var server = _redisConnection.GetServer(_redisConnection.GetEndPoints()[0]);
-        var keys = server.Keys(pattern: $"{LIST_CACHE_PREFIX}*").ToArray();
-        if (keys.Length > 0) await _redis.KeyDeleteAsync(keys);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string GenerateDetailKey(int id) => string.Create(CACHE_PREFIX.Length + DigitCount.GetDigitCount(id), id, (span, val) =>
+    {
+        CACHE_PREFIX.AsSpan().CopyTo(span); val.TryFormat(span[CACHE_PREFIX.Length..], out _);
+    });
+
+    private async ValueTask<long> GetListCacheVersionAsync()
+    {
+        var ver = await _redis.StringGetAsync(LIST_CACHE_VERSION_KEY);
+        return ver.HasValue ? (long)ver : 0;
+    }
+
+    private static string GenerateListCacheKey(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted)
+    {
+        int vLen = DigitCount.GetDigitCount(version), pLen = DigitCount.GetDigitCount(page), sLen = DigitCount.GetDigitCount(size),
+            cLen = DigitCount.GetDigitCount(categoryId ?? 0), tLen = DigitCount.GetDigitCount(tagId ?? 0);
+        int totalLen = LIST_CACHE_PREFIX.Length + vLen + 1 + pLen + 1 + sLen + 1 + cLen + 1 + tLen + 2;
+
+        return string.Create(totalLen, (version, page, size, categoryId, tagId, isDeleted), (span, state) =>
+        {
+            LIST_CACHE_PREFIX.AsSpan().CopyTo(span); int cur = LIST_CACHE_PREFIX.Length;
+            state.version.TryFormat(span[cur..], out int w); cur += w; span[cur++] = ':';
+            state.page.TryFormat(span[cur..], out w); cur += w; span[cur++] = '_';
+            state.size.TryFormat(span[cur..], out w); cur += w; span[cur++] = '_';
+            (state.categoryId ?? 0).TryFormat(span[cur..], out w); cur += w; span[cur++] = '_';
+            (state.tagId ?? 0).TryFormat(span[cur..], out w); cur += w; span[cur++] = '_';
+            span[cur] = state.isDeleted ? '1' : '0';
+        });
     }
 }

@@ -1,26 +1,44 @@
 ﻿using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.SignalR;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Modules;
+using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Services.SignalR;
+using FsusBlog.Server.Services.VistitLog;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.ObjectPool;
 using Serilog;
 using SqlSugar;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. 日志 (保持不变)
+// =================================================================================
+// 性能最大化配置 (修复日期: 2026-02-22)
+// 动态倍增线程池下限，解决 StackExchange.Redis 瞬间高并发下的饥饿超时问题
+// =================================================================================
+int workerThreads, iocpThreads;
+ThreadPool.GetMinThreads(out workerThreads, out iocpThreads);
+
+int minThreadsBasedOnCpu = Environment.ProcessorCount * 50;
+int targetMinThreads = Math.Max(minThreadsBasedOnCpu, workerThreads);
+ThreadPool.SetMinThreads(targetMinThreads, targetMinThreads);
+
+// 1. 日志
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
@@ -29,27 +47,19 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 // 2. 基础网络 (针对多层代理进行安全加固)
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
-    // 逻辑自洽：识别由 OpenResty 和 Nginx 传递的 X-Forwarded-For 和 X-Forwarded-Proto
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-
-    // 安全性保障：在 Docker 内部桥接网络中，清除已知代理和网络限制以信任网关分发的 Header
-    // 确保 ShieldMiddleware 和 PoW 逻辑能拿到真实的访客公网 IP
     options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
 });
 
-// 1. 读取逗号分隔的字符串
+// 解析并统一存储 CORS 列表 (清除原有的重复代码)
 var originsString = builder.Configuration["CORS_ALLOWED_HOSTS"];
-
-// 2. 将字符串转换为数组，并过滤掉空值
-var origins = originsString?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-              ?? [];
+var origins = originsString?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [];
 
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        // 逻辑自洽：自动应用来自环境变量或 JSON 的域名列表
         policy.WithOrigins(origins)
           .AllowAnyHeader()
           .AllowAnyMethod()
@@ -60,24 +70,22 @@ builder.Services.AddCors(options =>
 // 3. 核心服务注册
 builder.Services.AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
+builder.Services.AddOutputCache();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddEndpointsApiExplorer();
 
-// 扩展件
 builder.Services.AddRedis(builder.Configuration);
 builder.Services.AddSqlSugar();
 builder.Services.AddJwtAuthentication(builder.Configuration);
-
-// SignalR 加固配置
 builder.Services.AddSignalR(builder.Configuration);
 
-// 注册自适应 PoW 治理器
-builder.Services.AddSingleton<AdaptivePowGovernor>();
+builder.Services.AddPowServices();
 
-// 注册 PoW 服务
-builder.Services.AddSingleton<IPowService, RedisPowService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<CrawlerDetectorService>();
+builder.Services.AddHostedService<CrawlerUpdateWorker>();
 
-// 业务服务 (保持不变)
 builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<ISystemService, SystemService>();
 builder.Services.AddScoped<IArticleService, ArticleService>();
@@ -89,18 +97,22 @@ builder.Services.AddScoped<IMessageService, SignalRMessageService>();
 builder.Services.AddSingleton<IBlacklistService, BlacklistService>();
 builder.Services.AddSingleton<IUserIdProvider, SnowflakeUserIdProvider>();
 
-// Lucene (针对 Linux 容器路径进行适配)
+builder.Services.AddSingleton<VisitLogChannel>();
+builder.Services.AddHostedService<VisitLogProcessorService>();
+builder.Services.AddHostedService<LogCleanupService>();
+builder.Services.AddSingleton<IContentFilterService, ContentFilterService>();
+
+// Lucene 配置
 var lucenePath = Path.Combine(AppContext.BaseDirectory, "LuceneIndex");
 builder.Services.AddSingleton<ILuceneContext>(new LuceneContext(lucenePath));
 builder.Services.AddSingleton<ILuceneService, LuceneService>();
 builder.Services.TryAddSingleton<ObjectPoolProvider, DefaultObjectPoolProvider>();
+
 builder.Services.AddSingleton(sp =>
 {
     var env = sp.GetRequiredService<IWebHostEnvironment>();
     var logger = sp.GetRequiredService<ILogger<IP2LocationPooledObjectPolicy>>();
 
-    // 根据调试反馈，文件实际存在于 resources (复数) 文件夹中
-    // 性能最大化：优先匹配系统已确认存在的物理路径
     string baseDir = AppContext.BaseDirectory;
     string[] potentialPaths = {
         Path.Combine(baseDir, "wwwroot", "resources", "IP2LOCATION.BIN"),
@@ -112,7 +124,6 @@ builder.Services.AddSingleton(sp =>
 
     if (string.IsNullOrEmpty(binPath))
     {
-        // 安全性保障：若所有路径均失效，输出详细的扫描结果以供二次审计
         var allFiles = Directory.GetFiles(baseDir, "IP2LOCATION.BIN", SearchOption.AllDirectories);
         throw new FileNotFoundException($"[严重] 找不到数据库文件。已尝试路径: {string.Join(", ", potentialPaths)}。 实际发现于: {string.Join(", ", allFiles)}");
     }
@@ -121,14 +132,13 @@ builder.Services.AddSingleton(sp =>
     return sp.GetRequiredService<ObjectPoolProvider>().Create(policy);
 });
 
-// 4. 分区限流 (基于真实 IP 进行防御)
+// 4. 分区限流
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
     options.AddPolicy("fixed_ip", httpContext =>
     {
-        // 性能最大化：此处获取的 IP 已由 ForwardedHeaders 完成修正
         string clientIp = httpContext.GetClientIp();
 
         if (httpContext.User.IsInRole("admin") || clientIp == "127.0.0.1" || clientIp == "::1")
@@ -149,75 +159,91 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddScoped<CacheInitializer>();
 
+// 核心修复：统一 Minimal API 的序列化策略，确保与 Controller 行为一致
+builder.Services.ConfigureHttpJsonOptions(options => {
+    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    options.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+});
+
 var app = builder.Build();
 
 // ==============================================================================
 // 5. 中间件管道 (Order is CRITICAL)
 // ==============================================================================
 
-// 1. IP 修正 (必须置于首位以确保后续安全中间件获取正确客户端 IP)
 app.UseForwardedHeaders();
 
-// 2. 零容忍防御盾 (最前置过滤黑名单)
+// 核心：这里只加载了 ShieldMiddleware，因此 CrawlerAuthMiddleware 属于死代码
 app.UseMiddleware<ShieldMiddleware>();
 
-// 3. 异常兜底
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
-// 静态剥离逻辑：方案二下静态资源由 Nginx 处理，此处仅作资源目录支持
-app.UseStaticFiles();
+//[修改日期 2026-03-01]
+// 修改理由：物理接管前端静态资源，实现零 I/O 损耗单容器托管。
+// 安全性保障：显式注册 application/wasm MIME 类型，防止 Kestrel 拦截 PoW 引擎下载。
+app.UseDefaultFiles(); // 必须在 UseStaticFiles 之前，用于默认指向 index.html
+
+var provider = new FileExtensionContentTypeProvider();
+provider.Mappings[".wasm"] = "application/wasm";
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = provider,
+    OnPrepareResponse = ctx =>
+    {
+        // 性能最大化：为前端的 js/css/wasm 静态资产设置长达 1 年的强缓存
+        if (ctx.File.Name.EndsWith(".js") || ctx.File.Name.EndsWith(".css") || ctx.File.Name.EndsWith(".wasm"))
+        {
+            ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=31536000,immutable");
+        }
+    }
+});
 
 app.UseRouting();
+app.UseOutputCache();
 
-// 4. CORS (跨域配置)
-// 直接从环境变量或配置中获取逗号分隔的字符串
-var allowedOriginsString = builder.Configuration["CORS_ALLOWED_HOSTS"] ?? "";
-
-// 将字符串拆分为数组，并过滤掉空项
-var allowedOrigins = allowedOriginsString
-    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-if (allowedOrigins.Length > 0)
+if (origins.Length > 0)
 {
-    app.UseCors(policy => policy
-        .WithOrigins(allowedOrigins)
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        .AllowCredentials());
+    app.UseCors(); // 利用前面统一注册好的 Default Policy
 }
 
-// 5. 安全过滤与授权
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<BannedUserFilter>();
 app.UseAuthorization();
-
-// 6. 访问审计
 app.UseMiddleware<VisitLogMiddleware>();
 
 app.MapControllers();
-
-// 7. 路径一致性：映射路径必须与 Nginx 代理配置中的 /hubs/ 保持严格一致 (修复日期: 2026-02-20)
 app.MapHub<NotificationHub>("/hubs/notifications");
-app.MapMessageEndpoints();
 
-// 8. 数据库与系统初始化
+// 6. 最小API挂载注册
+app.MapMessageEndpoints();
+app.MapArticleEndpoints();
+app.MapAuthEndpoints();
+app.MapCategoryEndpoints();
+app.MapCommentEndpoints();
+app.MapSystemEndpoints(); 
+app.MapTagEndpoints();
+
+// [修改日期 2026-03-01]
+// 修改理由：SPA 路由防丢。如果请求没有命中上面的任何 API 或文件，统统回退到前端入口，交由 Vue Router 处理 404 和页面路由。
+app.MapFallbackToFile("index.html");
+
+// 7. 数据库与系统初始化
 try
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
     db.DbMaintenance.CreateDatabase();
 
-    // 自动同步实体结构
     var types = Assembly.GetExecutingAssembly().GetTypes()
         .Where(t => t.GetCustomAttribute<SugarTable>() != null).ToArray();
     db.CodeFirst.InitTables(types);
 
-    // 初始化系统配置与热数据缓存
     var initializer = scope.ServiceProvider.GetRequiredService<CacheInitializer>();
     await initializer.InitializeAsync();
 
-    Console.WriteLine("System Ready (API Engine Mode).");
+    Console.WriteLine("Hello,world.System Ready (API Engine Mode).");
 }
 catch (Exception ex)
 {

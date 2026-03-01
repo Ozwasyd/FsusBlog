@@ -53,7 +53,6 @@ build CMakeFiles/FsusPowEngine.dir/src/main.cpp.o: CXX_COMPILER__FsusPowEngine_u
   CONFIG = Release
   DEP_FILE = CMakeFiles\FsusPowEngine.dir\src\main.cpp.o.d
   FLAGS = -O3 -DNDEBUG -std=gnu++20 -msimd128
-  INCLUDES = -IF:/Projects/FsusBlog/FsusPowEngine/include
   OBJECT_DIR = CMakeFiles\FsusPowEngine.dir
   OBJECT_FILE_DIR = CMakeFiles\FsusPowEngine.dir\src
 

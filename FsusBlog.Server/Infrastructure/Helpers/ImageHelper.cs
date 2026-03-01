@@ -1,9 +1,12 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Buffers;
+using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 
 namespace FsusBlog.Server.Helpers;
 
 /// <summary>
 /// 博客插图辅助工具：负责从 Markdown 或 HTML 正文中精准提取资源引用
+/// 修复日期: 2026-02-23 (引入 EnumerateMatches 流式解析，短路求值消灭 O(N) 扫描，利用 Span 与 string.Create 实现全流程极低分配)
 /// </summary>
 public static partial class ImageHelper
 {
@@ -14,32 +17,105 @@ public static partial class ImageHelper
     private static partial Regex IllustrationRegex();
 
     /// <summary>
-    /// 匹配 Markdown 常用标记的正则 (预编译)
+    /// 匹配 Markdown 常用标记的正则 (源生成器预编译)
     /// 用于将 Markdown 转换为纯文本摘要
-    /// 匹配范围：链接、图片、标题符、粗体、斜体、代码块、引用、分割线
+    /// 注：移除了无意义的 RegexOptions.Compiled，消除编译器警告
     /// </summary>
-    [GeneratedRegex(@"!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|<.*?>|#+|\*|_|`|>|---|\n", RegexOptions.Compiled)]
+    [GeneratedRegex(@"!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|<.*?>|#+|\*|_|`|>|---|\n")]
     private static partial Regex MarkdownStripRegex();
 
     /// <summary>
-    /// 高性能 Markdown 内容清除器
+    /// 高性能 Markdown 内容清除器 (物理级 O(maxLength) 优化)
     /// </summary>
-    /// <param name="content">原始 Markdown 内容</param>
-    /// <param name="maxLength">截取的最大长度</param>
-    /// <returns>清洗后的纯文本</returns>
     public static string StripMarkdown(string content, int maxLength)
     {
-        if (string.IsNullOrWhiteSpace(content)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(content) || maxLength <= 0) return string.Empty;
 
-        // 1. 使用预编译正则移除所有标记
-        string plainText = MarkdownStripRegex().Replace(content, " ");
+        var span = content.AsSpan();
 
-        // 2. 清理多余空格并截断
-        plainText = plainText.Replace("  ", " ").Trim();
+        // 缓冲区的最大长度不可能超过原文长度或需要的最大截断长度
+        int rentLength = Math.Min(maxLength, content.Length);
+        char[] buffer = ArrayPool<char>.Shared.Rent(rentLength);
 
-        return plainText.Length > maxLength
-            ? plainText[..maxLength]
-            : plainText;
+        try
+        {
+            int bufferIndex = 0;
+            int lastMatchEnd = 0;
+
+            // 核心优化 1：流式扫描。EnumerateMatches 是极其廉价的 ref struct
+            foreach (var match in MarkdownStripRegex().EnumerateMatches(span))
+            {
+                // 核心优化 2：短路求值。如果摘要已达到 maxLength，立即停止后续几十 KB 正文的正则扫描！
+                if (bufferIndex >= maxLength) break;
+
+                // 提取两个正则匹配项之间的正常文本
+                ReadOnlySpan<char> textBetween = span[lastMatchEnd..match.Index];
+                AppendAndCollapseSpaces(textBetween, buffer, ref bufferIndex, maxLength);
+
+                if (bufferIndex >= maxLength) break;
+
+                // 模拟原逻辑 `.Replace(content, " ")`，为被正则剔除的部分补上一个空格
+                // 同时模拟 `.Replace("  ", " ")` 确保它不会形成连续空格
+                if (bufferIndex > 0 && buffer[bufferIndex - 1] != ' ')
+                {
+                    buffer[bufferIndex++] = ' ';
+                }
+
+                lastMatchEnd = match.Index + match.Length;
+            }
+
+            // 追加最后一个匹配项之后的尾部文本（如果还没达到 maxLength）
+            if (bufferIndex < maxLength && lastMatchEnd < span.Length)
+            {
+                ReadOnlySpan<char> textAfter = span[lastMatchEnd..];
+                AppendAndCollapseSpaces(textAfter, buffer, ref bufferIndex, maxLength);
+            }
+
+            // 清理尾部多余的空格
+            while (bufferIndex > 0 && buffer[bufferIndex - 1] == ' ')
+            {
+                bufferIndex--;
+            }
+
+            // 清理头部多余的空格
+            int startIndex = 0;
+            while (startIndex < bufferIndex && buffer[startIndex] == ' ')
+            {
+                startIndex++;
+            }
+
+            return new string(buffer, startIndex, bufferIndex - startIndex);
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer);
+        }
+    }
+
+    /// <summary>
+    /// 内联辅助方法：将源文本追加到缓冲区，并实时将所有类型连续的空白字符折叠为单个标准空格
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AppendAndCollapseSpaces(ReadOnlySpan<char> source, char[] buffer, ref int bufferIndex, int maxLength)
+    {
+        for (int i = 0; i < source.Length; i++)
+        {
+            if (bufferIndex >= maxLength) break;
+
+            char c = source[i];
+            if (char.IsWhiteSpace(c))
+            {
+                // 仅当上一个字符不是空格时，才写入空格，实现原地连续空格折叠
+                if (bufferIndex > 0 && buffer[bufferIndex - 1] != ' ')
+                {
+                    buffer[bufferIndex++] = ' ';
+                }
+            }
+            else
+            {
+                buffer[bufferIndex++] = c;
+            }
+        }
     }
 
     public static List<string> ExtractIllustrationUrls(string content)
@@ -47,26 +123,50 @@ public static partial class ImageHelper
         if (string.IsNullOrWhiteSpace(content)) return [];
 
         var uniquePhysicalPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var matches = IllustrationRegex().Matches(content);
+        var span = content.AsSpan();
 
-        foreach (Match match in matches)
+        foreach (var match in IllustrationRegex().EnumerateMatches(span))
         {
-            var webPath = match.Value.Trim();
-            if (!string.IsNullOrEmpty(webPath))
+            // 彻底消灭原有的 match.Value 分配
+            var matchSpan = span.Slice(match.Index, match.Length).Trim();
+            if (matchSpan.IsEmpty) continue;
+
+            var relativeSpan = matchSpan.TrimStart('/');
+
+            // 终极优化：一次性计算长度并使用 string.Create 绕过 Path.Combine 的冗余分配
+            int len = "wwwroot".Length + 1 + relativeSpan.Length;
+            string physicalPath = string.Create(len, relativeSpan, (dst, rel) =>
             {
-                var relativePath = webPath.TrimStart('/');
-                var physicalPath = Path.Combine("wwwroot", relativePath);
-                uniquePhysicalPaths.Add(physicalPath);
-            }
+                "wwwroot".AsSpan().CopyTo(dst);
+                dst["wwwroot".Length] = Path.DirectorySeparatorChar;
+
+                // 将 URL 中的 '/' 转换为当前系统对应的物理路径分隔符
+                for (int i = 0; i < rel.Length; i++)
+                {
+                    dst["wwwroot".Length + 1 + i] = rel[i] == '/' ? Path.DirectorySeparatorChar : rel[i];
+                }
+            });
+
+            uniquePhysicalPaths.Add(physicalPath);
         }
 
+        // 使用 C# 12 集合表达式返回
         return [.. uniquePhysicalPaths];
     }
 
     public static string? GetFirstIllustration(string content)
     {
         if (string.IsNullOrWhiteSpace(content)) return null;
-        var match = IllustrationRegex().Match(content);
-        return match.Success ? match.Value : null;
+
+        // 核心优化：使用 EnumerateMatches 替代 Match。
+        // 如果没有匹配项，它的开销为绝对的 0（没有实例化任何 Match 对象体系）。
+        var enumerator = IllustrationRegex().EnumerateMatches(content.AsSpan());
+        if (enumerator.MoveNext())
+        {
+            var match = enumerator.Current;
+            return content.AsSpan().Slice(match.Index, match.Length).ToString();
+        }
+
+        return null;
     }
 }

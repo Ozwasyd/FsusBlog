@@ -19,7 +19,7 @@
           </p>
         </header>
 
-        <form @submit.prevent="handleLogin" class="space-y-8">
+        <form @submit.prevent="handleLogin" class="space-y-8" novalidate>
           
           <div class="relative group">
             <label 
@@ -34,6 +34,8 @@
               type="text"
               placeholder="输入你的用户名"
               autocomplete="username"
+              autofocus
+              aria-required="true"
               class="w-full bg-transparent border-b border-zinc-200 focus:border-zinc-950 py-3 text-sm font-medium text-zinc-900 placeholder:text-zinc-300 placeholder:font-normal outline-none transition-colors rounded-none appearance-none"
               :disabled="isProcessing"
             />
@@ -52,27 +54,34 @@
               type="password"
               placeholder="输入你的密码"
               autocomplete="current-password"
+              aria-required="true"
               class="w-full bg-transparent border-b border-zinc-200 focus:border-zinc-950 py-3 text-sm font-medium text-zinc-900 placeholder:text-zinc-300 placeholder:font-normal outline-none transition-colors rounded-none appearance-none"
               :disabled="isProcessing"
             />
           </div>
 
+          <!-- [修复 2026-02-24] P1 修复：增加 A11y 语义，确保屏幕阅读器能及时播报错误 -->
           <div 
-            v-if="errorMessage || powError" 
+            v-if="errorMessage" 
+            role="alert"
+            aria-live="polite"
             class="text-[11px] font-mono font-bold text-red-500 tracking-wider uppercase animate-in fade-in slide-in-from-top-1"
           >
-            * {{ errorMessage || powError }}
+            * {{ errorMessage }}
           </div>
 
           <div class="pt-4">
             <button 
               type="submit"
               :disabled="isProcessing || !isFormValid"
+              :aria-disabled="isProcessing || !isFormValid"
               class="w-full py-4 bg-zinc-950 text-white text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-[0.98] active:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-xl shadow-zinc-950/5"
             >
-              <template v-if="isPowCalculating">
+              <!-- [修复 2026-02-23] 逻辑自洽：监听 usePow 提供的 isCalculating 状态 -->
+              <template v-if="powProvider.isCalculating.value">
                 <span class="animate-pulse flex items-center">
-                  <span class="mr-2">🔒</span> 安全校验中...
+                  <!-- [修复 2026-02-24] P1 修复：隐藏装饰性 Emoji，避免干扰读屏 -->
+                  <span class="mr-2" aria-hidden="true">🔒</span> 安全校验中...
                 </span>
               </template>
               <template v-else-if="loading">
@@ -100,128 +109,145 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { login, getPowChallenge } from '@/api/auth'
+import { login } from '@/api/auth'
 import { useUserStore } from '@/store/user'
 import { useSiteStore } from '@/store/site'
 import { usePow } from '@/composables/usePow'
-import { getBrowserFp } from '@/utils/fingerprint' 
-import { useNotification } from '@/composables/useNotification' // 🌟 引入通知 Hook 实现性能最大化
+import { useNotification } from '@/composables/useNotification' 
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const siteStore = useSiteStore()
-const { initNotification } = useNotification() // 实例化通知服务
-
-// 解构 usePow (由于状态是全局 Ref，这里解构是安全的，但为了清晰，我们重命名)
-const { calculate, isCalculating: isPowCalculating, error: powError, prewarm } = usePow()
+const { initNotification } = useNotification()
+const powProvider = usePow()
 
 const loading = ref(false)
 const errorMessage = ref('')
 const loginData = reactive({ username: '', password: '' })
 
 // 统一的处理状态：API Loading 或 PoW 计算中
-const isProcessing = computed(() => loading.value || isPowCalculating.value)
+const isProcessing = computed(() => loading.value || powProvider.isCalculating.value)
 
-// 表单校验：移除过于严格的正则，改用非空检查，兼容性更好
 const isFormValid = computed(() => {
   return loginData.username.trim().length > 0 && 
          loginData.password.trim().length > 0
 })
 
-// 性能优化：延迟预热，避免阻塞首屏渲染
+//[修复 2026-02-23] 物理安全性：引入 AbortController 防止重复提交
+let abortController: AbortController | null = null
+
 onMounted(() => {
+  // 性能优化：延迟预热，避免阻塞首屏渲染
   if ('requestIdleCallback' in window) {
-    (window as any).requestIdleCallback(() => prewarm());
+    (window as any).requestIdleCallback(() => powProvider.prewarm());
   } else {
-    setTimeout(() => prewarm(), 1000);
+    setTimeout(() => powProvider.prewarm(), 1000);
   }
 })
 
+onUnmounted(() => {
+  if (abortController) abortController.abort()
+})
+
+/**
+ *[修复 2026-02-24] P0 修复：开放重定向防御
+ * 逻辑自洽：只允许站内相对路径跳转，物理拦截钓鱼链接
+ */
+const getSafeRedirect = (target: unknown): string => {
+  if (typeof target !== 'string') return '/'
+  // 必须以 / 开头，且不能以 // 开头（防止 //google.com 协议相对路径绕过）
+  if (target.startsWith('/') && !target.startsWith('//')) {
+    return target
+  }
+  return '/'
+}
+
 const handleLogin = async () => {
-  // 重置错误状态
   errorMessage.value = ''
   
   if (!isFormValid.value || isProcessing.value) return
 
+  //[修复 2026-02-23] 竞态防护：物理切断上一次未完成的登录请求
+  if (abortController) abortController.abort()
+  const currentController = new AbortController()
+  abortController = currentController
+  const currentSignal = currentController.signal
+
   loading.value = true
   
   try {
-    // 1. 确定指纹：锁定本次登录流程的唯一指纹 (物理隔离)
-    // 逻辑自洽：这个变量将贯穿 Calculate 和 Login API，确保后端验证一致
-    const fp = getBrowserFp()
+    /**
+     * [修复 2026-02-23] 架构演进：废弃冗余的 PoW 手动运算
+     * 逻辑自洽：登录接口作为核心高危操作，已在底层配置 requiresPow: true
+     */
     
-    // 2. 获取挑战 (API 请求)
-    // 🌟 性能最大化：通过类型断言注入 _t 缓存穿透，保持与 useNotification 一致的风格
-    const res = await getPowChallenge({ 
-      action: 'login',
-      _t: Date.now()
-    } as any) as any
-    
-    // 适配 Axios 拦截器解包逻辑 (兼容直接返回 data 或返回 response)
-    const challenge = res.data || res
+    //[修改日期 2026-02-28 23]
+    // 修改理由：性能最大化。移除显式 requiresPow: true 的冗余声明（底层 api 已经强绑定），
+    // 并且内联对象减少局部变量引用，优化内存生命周期。
+    const userData = await login(
+      { username: loginData.username, password: loginData.password }, 
+      { signal: currentSignal }
+    )
 
-    if (!challenge || !challenge.salt) {
-      throw new Error("安全服务连接失败，请刷新重试")
+    // 竞态检查
+    if (!currentSignal.aborted) {
+      if (!userData || !userData.username) {
+        throw new Error("服务器响应格式异常")
+      }
+
+      // [修复 2026-02-24] P0 修复：在路由跳转前物理置空控制器，防止幽灵引用
+      if (abortController === currentController) {
+        abortController = null
+      }
+
+      userStore.setUserInfo(userData)
+      // 安全性：内存敏感数据清理
+      loginData.password = ''
+
+      // 性能最大化：提前触发 SignalR 模式切换
+      initNotification(true).catch(() => {});
+
+      await router.push(getSafeRedirect(route.query.redirect))
     }
-
-    // 3. 字段对齐：构造 PoW 计算所需的元数据
-    const difficulty = Number(challenge.difficulty) || 4 // 默认兜底
-    
-    // 4. 执行计算 (调用 Worker)
-    // 此时 isPowCalculating 会自动变为 true，按钮显示 "安全校验中..."
-    const powResult = await calculate(challenge.salt, fp, difficulty)
-
-    // 5. 提交登录：整合所有凭证
-    // 安全性保障：必须将计算时使用的 fp 传给后端，否则哈希验算必挂
-    const payload = {
-      username: loginData.username,
-      password: loginData.password,
-      powSalt: challenge.salt,
-      difficulty: difficulty,
-      powTimestamp: challenge.timestamp,
-      powSignature: challenge.signature,
-      powNonce: powResult.nonce,
-      browserFp: fp 
-    }
-    
-    const userData = await login(payload)
-    
-    if (!userData || !userData.username) {
-      throw new Error("服务器响应格式异常")
-    }
-
-    // 6. 登录成功状态写入
-    // 逻辑自洽：setUserInfo 会同步设置 isAuthChecked=true，从而熔断后续路由守卫的重复请求
-    userStore.setUserInfo(userData)
-
-    // 7. 性能最大化：提前触发 SignalR 模式切换
-    // 不使用 await，让其在后台静默启动（从游客模式切回认证模式），无需等待路由跳转
-    initNotification(true);
-
-    // 8. 页面跳转
-    await router.push((route.query.redirect as string) || '/')
 
   } catch (error: any) {
-    // 错误处理逻辑自洽
-    if (error.message === 'ALREADY_CALCULATING') {
-      // 忽略并发点击
-      return
+    // 忽略主动取消请求和 Axios 的 Cancel 错误
+    if (error?.name === 'AbortError' || error?.message === 'canceled') return
+
+    // [修改日期 2026-02-28 23]
+    // 修改理由：精简组件层的错误捕获（O(1)理念），并增强业务提示准确性。
+    // [修复 2026-02-24] P0 修复：防御性错误对象解析
+    // 逻辑自洽：不再假定 error 一定是标准 Error 对象，且拦截器已将外壳剥离。
+    const msg = error?.message || String(error)
+    
+    // 对错误进行安全与精准的归类提示
+    if (msg.includes('POW_CALCULATION_TIMEOUT')) {
+      errorMessage.value = '环境安全校验超时，请检查设备性能或刷新重试'
+    } else if (msg.includes('Account Locked') || msg.includes('锁定') || msg.includes('受限')) {
+      errorMessage.value = '该账户已被安全锁定，请联系管理员解锁'
+    } else if (msg.includes('Forbidden') || msg.includes('权限不足')) {
+      errorMessage.value = '此账号无系统登录权限'
+    } else if (msg.includes('Unauthorized') || msg.includes('401')) {
+      errorMessage.value = '用户名或密码错误，请重新输入'
+    } else if (msg.includes('Network Error') || msg.includes('timeout')) {
+      errorMessage.value = '网络连接异常，请检查您的网络设置'
+    } else if (msg.includes('格式异常')) {
+      errorMessage.value = '系统数据异常，请刷新页面后重试'
+    } else {
+      // 捕获不可预见的通用错误
+      errorMessage.value = msg || '登录服务暂不可用，请稍后再试'
     }
     
-    if (error.message === 'POW_CALCULATION_TIMEOUT') {
-      errorMessage.value = '环境校验超时，请检查设备性能或刷新重试'
-    } else {
-      // 优先显示后端返回的 message (适配拦截器抛出的 Error 结构)
-      errorMessage.value = error.response?.data?.message || error.message || '登录服务暂不可用'
-    }
     console.error('[Login Error]', error)
   } finally {
-    // 无论成功失败，重置 loading 状态
-    // 注意：isPowCalculating 会由 usePow 内部自动重置
-    loading.value = false
+    // 仅当当前请求仍为活跃请求时，才重置 loading 状态
+    if (abortController === currentController) {
+      loading.value = false
+      abortController = null
+    }
   }
 }
 </script>
@@ -229,7 +255,6 @@ const handleLogin = async () => {
 <style scoped>
 @reference "@/assets/main.css";
 
-/* 强制锁死移动端横向溢出 */
 input {
   max-width: 100%;
 }

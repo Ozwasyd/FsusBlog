@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios';
 import api from './index'
 
 /** 1. 热门文章 DTO */
@@ -39,12 +40,24 @@ export interface SiteStats {
   regionDistributions: RegionDistributionDto[]
 }
 
+/**
+ * [修复 2026-02-23] 逻辑自洽：所有方法增加可选的 config 参数以支持 AbortSignal 物理中断
+ */
+
 /** * 获取后台汇总统计数据 
  * GET /api/Stats
+ * 算法最优：透传 config 确保管理员快速刷新仪表盘时，过期的聚合查询能被物理中断
  */
-export const getSiteStats = () => api.get<SiteStats>('/Stats')
+export const getSiteStats = (config?: AxiosRequestConfig) => 
+  api.get<SiteStats>('/Stats', config)
 
 /** * 一键清空回收站 
  * DELETE /api/Stats/clear-trash
+ * 安全性保障：清空回收站属于不可逆的物理删除操作，强制接入 PoW 算力校验
+ * 物理隔离针对敏感管理接口的自动化探测或误操作攻击。
  */
-export const clearTrash = () => api.delete<string>('/Stats/clear-trash')
+export const clearTrash = (config?: AxiosRequestConfig) => 
+  api.delete<string>('/Stats/clear-trash', {
+    ...config,
+    requiresPow: true
+  } as AxiosRequestConfig)

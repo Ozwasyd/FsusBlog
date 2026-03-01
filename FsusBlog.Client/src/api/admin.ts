@@ -1,4 +1,5 @@
-import api from './index'
+import type { AxiosRequestConfig } from 'axios'
+import api from '@/api/index'
 
 // ================= 类型定义 =================
 
@@ -71,30 +72,49 @@ export interface AdminResetPwdDto extends PowBaseDto {
 // ================= API 方法定义 =================
 
 /**
+ * [修复 2026-02-23] 逻辑自洽：所有方法增加可选的 config 参数以支持 AbortSignal 物理中断
+ */
+
+/**
  * 获取用户列表
  * 逻辑：自动解包 ApiResponse，返回 PageResult
  */
-export const getAdminUserList = async (params: UserQueryDto): Promise<PageResult<UserListItem>> => {
-  // 使用 <any> 跳过 TS 推断，因为我们要手动处理 ApiResponse
-  const res = await api.get<any>('/admin/users', { params })
+export const getAdminUserList = async (
+  params: UserQueryDto, 
+  config?: AxiosRequestConfig
+): Promise<PageResult<UserListItem>> => {
+  // 性能最大化：利用解构合并参数，确保上游的 signal 能穿透到底层
+  const res = await api.get<any>('/admin/users', { ...config, params })
   
-  // 核心修正：参考 auth.ts 的 login 逻辑，提取 data 节点
-  // 如果 res.data 存在，说明它是 ApiResponse；否则可能是拦截器已经解包
+  // 核心修正：参考 auth.ts 的逻辑进行健壮性解包
   return (res.data || res) as PageResult<UserListItem>
 }
 
 /**
  * 封禁/解封用户
- * 逻辑：返回 ApiResponse 的 message 或抛出错误
+ * 安全性保障：标记为 requiresPow，拦截器将自动处理算力注入
  */
-export const adminChangeStatus = async (data: AdminChangeStatusDto) => {
-  return api.put('/admin/users/status', data)
+export const adminChangeStatus = async (
+  data: AdminChangeStatusDto, 
+  config?: AxiosRequestConfig
+) => {
+  // 逻辑自洽：对于高危写操作，强制通过拦截器注入 Header 级的 PoW 证明
+  return api.put('/admin/users/status', data, { 
+    ...config, 
+    requiresPow: true 
+  } as AxiosRequestConfig)
 }
 
 /**
  * 强制重置密码
- * 逻辑：返回 ApiResponse 的 message 或抛出错误
+ * 安全性保障：强制算力校验，防止针对管理员 Token 泄露后的暴力改密攻击
  */
-export const adminResetPassword = async (data: AdminResetPwdDto) => {
-  return api.post('/admin/users/reset-pwd', data)
+export const adminResetPassword = async (
+  data: AdminResetPwdDto, 
+  config?: AxiosRequestConfig
+) => {
+  return api.post('/admin/users/reset-pwd', data, { 
+    ...config, 
+    requiresPow: true 
+  } as AxiosRequestConfig)
 }

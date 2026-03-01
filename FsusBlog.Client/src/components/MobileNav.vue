@@ -1,9 +1,13 @@
 <template>
+  <!-- 触发按钮 -->
   <button 
+    id="mobile-menu-trigger"
+    type="button"
     @click="toggleMenu" 
-    class="fixed top-5 right-6 z-250 w-12 h-12 flex flex-col items-center justify-center gap-1.5 sm:hidden transition-all active:scale-90 select-none"
+    class="fixed top-5 right-6 z-250 w-12 h-12 flex flex-col items-center justify-center gap-1.5 sm:hidden transition-all active:scale-90 select-none outline-none"
     :aria-expanded="isOpen"
-    aria-label="Toggle Menu"
+    aria-controls="mobile-menu-overlay"
+    aria-label="切换菜单"
   >
     <div 
       class="w-6 h-0.5 bg-zinc-950 transition-all duration-300 origin-center" 
@@ -19,16 +23,20 @@
     ></div>
   </button>
 
-  <SearchModal v-model:visible="isSearchOpen" />
+  <SearchModal v-model:visible="isSearchVisible" />
 
   <Teleport to="body">
     <transition name="menu-fade">
       <div 
         v-if="isOpen" 
+        id="mobile-menu-overlay"
+        role="dialog"
+        aria-modal="true"
         class="fixed inset-0 z-200 bg-white flex flex-col overflow-hidden touch-none overscroll-none"
       >
-        <div class="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
-          <span class="text-[30vw] font-black text-zinc-50 tracking-tighter leading-none uppercase">
+        <!-- 背景装饰 -->
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden opacity-5">
+          <span class="text-[30vw] font-black text-zinc-900 tracking-tighter leading-none uppercase">
             菜单
           </span>
         </div>
@@ -36,8 +44,10 @@
         <nav class="relative grow flex flex-col justify-center px-10 sm:px-12 space-y-6">
           <div class="overflow-hidden">
             <button 
+              type="button"
               @click="openSearch"
-              class="inline-block text-5xl font-black tracking-tighter text-zinc-950 hover:text-zinc-400 transition-colors animate-in slide-in-from-bottom-full duration-700"
+              class="inline-block text-5xl font-black tracking-tighter text-zinc-950 hover:text-zinc-400 transition-colors animate-mobile-nav-in"
+              style="--stagger: 0"
             >
               搜索
             </button>
@@ -45,14 +55,15 @@
 
           <div 
             v-for="(link, index) in navLinks" 
-            :key="link.path"
+            :key="link.routeName"
             class="overflow-hidden"
           >
+            <!-- [修复 2026-02-23] 逻辑自洽：使用 routeName 作为 Key，修复 TS 2339 错误 -->
             <router-link 
-              :to="link.path" 
+              :to="{ name: link.routeName }" 
               @click="closeMenu"
-              class="inline-block text-5xl font-black tracking-tighter text-zinc-950 hover:text-zinc-400 transition-colors animate-in slide-in-from-bottom-full duration-700"
-              :style="{ animationDelay: `${(index + 1) * 80}ms` }"
+              class="inline-block text-5xl font-black tracking-tighter text-zinc-950 hover:text-zinc-400 transition-colors animate-mobile-nav-in"
+              :style="{ '--stagger': index + 1 }"
             >
               {{ link.name }}
             </router-link>
@@ -65,12 +76,12 @@
               {{ siteStore.siteInfo.title }} &copy; 2026
             </p>
             <p class="text-[9px] font-medium text-zinc-400 uppercase tracking-widest leading-relaxed max-w-50">
-              {{ siteStore.siteInfo.description || '记录技术与生活' }}
+              {{ siteStore.siteInfo.description }}
             </p>
           </div>
           
           <span class="text-[9px] font-mono text-zinc-200 uppercase tracking-[0.4em] rotate-180 [writing-mode:vertical-lr] hidden xs:block">
-            保持最小化
+            最小化
           </span>
         </footer>
       </div>
@@ -79,87 +90,110 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
+import { ref, watch, onUnmounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { useSiteStore } from '@/store/site'
 import SearchModal from '@/components/SearchModal.vue'
 
+const route = useRoute()
 const userStore = useUserStore()
 const siteStore = useSiteStore()
 
 const isOpen = ref(false)
-const isSearchOpen = ref(false)
 
 /**
- * 🌟 核心优化：动态计算导航链接
- * 根据登录状态和权限实时切换“账户/控制板/登录”
+ * [修复 2026-02-23] 状态变更动作收敛
+ */
+const isSearchVisible = computed({
+  get: () => siteStore.isMobileSearchOpen,
+  set: (val) => siteStore.setMobileSearchVisible(val)
+})
+
+/**
+ * [修复 2026-02-23] 导航数据构造：使用 routeName 确保类型安全
  */
 const navLinks = computed(() => {
-  const baseLinks = [
-    { name: '首页', path: '/' },
-    { name: '归档', path: '/archive' },
-    { name: '关于', path: '/about' },
+  const base = [
+    { name: '首页', routeName: 'Home' },
+    { name: '归档', routeName: 'Archive' },
+    { name: '关于', routeName: 'About' },
   ]
 
   if (userStore.isLoggedIn) {
-    baseLinks.push({ 
+    base.push({ 
       name: userStore.isAdmin ? '控制板' : '账户', 
-      path: userStore.isAdmin ? '/admin' : '/user/profile' 
+      routeName: userStore.isAdmin ? 'AdminDashboard' : 'UserProfile' 
     })
   } else {
-    baseLinks.push({ name: '登录', path: '/login' })
+    base.push({ name: '登录', routeName: 'Login' })
   }
 
-  return baseLinks
+  return base
 })
 
 const toggleMenu = () => {
   isOpen.value = !isOpen.value
 }
 
-/**
- * 🌟 核心：关闭菜单并恢复 body 滚动
- */
 const closeMenu = () => {
   isOpen.value = false
-  document.body.style.overflow = ''
 }
 
 const openSearch = () => {
   isOpen.value = false 
-  isSearchOpen.value = true 
+  siteStore.setMobileSearchVisible(true) 
 }
 
-const handleExternalSearch = () => {
-  openSearch()
-}
-
-// 统一监听 BlogLayout 发出的搜索事件
-onMounted(() => {
-  window.addEventListener('toggle-mobile-search', handleExternalSearch)
-})
-
-/**
- * 🌟 滚动锁定管理
- * 监听菜单和搜索框状态，防止背景滚动
- */
-watch([isOpen, isSearchOpen], ([menuVal, searchVal]) => {
-  if (menuVal || searchVal) {
-    document.body.style.setProperty('overflow', 'hidden')
-  } else {
-    document.body.style.removeProperty('overflow')
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') {
+    if (isOpen.value) closeMenu()
+    if (siteStore.isMobileSearchOpen) siteStore.setMobileSearchVisible(false)
   }
+}
+
+watch(() => route.path, () => {
+  if (isOpen.value) closeMenu()
 })
+
+watch(
+  [isOpen, () => siteStore.isMobileSearchOpen], 
+  ([mOpen, sOpen]) => {
+    const shouldLock = mOpen || sOpen
+    if (shouldLock) {
+      siteStore.lockScroll()
+      window.addEventListener('keydown', handleKeyDown)
+    } else {
+      siteStore.unlockScroll()
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }
+)
 
 onUnmounted(() => {
-  window.removeEventListener('toggle-mobile-search', handleExternalSearch)
-  // 组件销毁前必须强制移除锁定，防止白屏或无法滚动
-  document.body.style.removeProperty('overflow')
+  siteStore.forceUnlockScroll()
+  window.removeEventListener('keydown', handleKeyDown)
 })
 </script>
 
 <style scoped>
 @reference "@/assets/main.css";
+
+.animate-mobile-nav-in {
+  animation: slide-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--stagger) * 80ms);
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 .menu-fade-enter-active,
 .menu-fade-leave-active {
@@ -171,8 +205,8 @@ onUnmounted(() => {
 }
 
 @media (max-width: 360px) {
-  nav button, nav a { @apply text-4xl; }
-  footer { @apply py-8 px-8; }
+  nav button, nav a { font-size: 2.25rem; line-height: 2.5rem; }
+  footer { padding: 2rem; }
 }
 
 nav a, nav button {

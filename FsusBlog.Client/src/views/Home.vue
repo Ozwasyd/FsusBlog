@@ -5,7 +5,7 @@
 
             <header class="mb-12 sm:mb-20">
                 <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-950">
-                    {{ siteStore.siteInfo.title }}<span class="text-zinc-400">.</span>
+                    {{ siteStore.isLoaded ? siteStore.siteInfo.title : '...' }}<span class="text-zinc-400">.</span>
                 </h1>
                 <p class="mt-4 text-sm sm:text-base text-zinc-500 max-w-xl leading-relaxed">
                     {{ siteStore.siteInfo.description }}
@@ -15,9 +15,9 @@
             <div class="flex flex-col gap-12 sm:gap-20">
 
                 <template v-if="loading">
-                    <div v-for="i in 3" :key="i" class="animate-pulse flex flex-col gap-4">
-                        <div class="h-4 bg-zinc-100 w-32 mb-2"></div>
-                        <div class="h-6 sm:h-8 bg-zinc-100 w-3/4"></div>
+                    <div v-for="i in 3" :key="i" class="animate-pulse flex flex-col gap-4" aria-hidden="true">
+                        <div class="h-3 bg-zinc-100 w-32 mb-2"></div>
+                        <div class="h-7 bg-zinc-100 w-3/4"></div>
                         <div class="space-y-3 mt-2">
                             <div class="h-4 bg-zinc-100 w-full"></div>
                             <div class="h-4 bg-zinc-100 w-5/6"></div>
@@ -25,12 +25,23 @@
                     </div>
                 </template>
 
+                <!-- [修复 2026-02-23] 状态暴露：明确区分失败与空状态 -->
+                <div v-else-if="isError" class="py-20 text-center">
+                    <p class="text-sm font-medium text-zinc-400 uppercase tracking-widest">
+                        数据加载异常
+                    </p>
+                    <button @click="loadArticles(true)" class="mt-4 text-xs font-bold underline hover:text-zinc-950 uppercase tracking-widest">
+                        重试
+                    </button>
+                </div>
+
                 <!-- 修复日期: 2026-02-20 -->
-                <!-- 安全性保障：使用可选链操作符，防止极端情况下 articles 变量本身损坏导致的渲染崩溃 -->
+                <!-- 安全性保障：使用可选链操作符 -->
                 <template v-else-if="articles?.length > 0">
-                    <ArticleCard v-for="article in articles"
+                    <ArticleCard v-for="(article, index) in articles"
                                  :key="article.id"
-                                 :article="article" />
+                                 :article="article"
+                                 :index="index" />
                 </template>
 
                 <div v-else class="py-20 text-center">
@@ -40,20 +51,22 @@
                 </div>
             </div>
 
-            <nav v-if="totalPages > 1" class="mt-20 pt-8 border-t border-zinc-100 flex justify-between items-center">
+            <nav v-if="totalPages > 1" 
+                 class="mt-20 pt-8 border-t border-zinc-100 flex justify-between items-center"
+                 aria-label="文章分页">
                 <button @click="handlePageChange(currentPage - 1)"
-                        :disabled="currentPage === 1"
-                        class="text-xs font-bold tracking-[0.2em] uppercase transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-zinc-400 hover:text-zinc-950 p-4 -ml-4">
+                        :disabled="currentPage === 1 || loading"
+                        class="text-xs font-bold tracking-[0.2em] uppercase transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-zinc-400 hover:text-zinc-950 p-4 -ml-4 outline-none focus-visible:ring-2 focus-visible:ring-zinc-950">
                     上一页
                 </button>
 
-                <span class="text-xs font-mono font-medium text-zinc-300">
+                <span class="text-xs font-mono font-medium text-zinc-300 tabular-nums">
                     {{ currentPage }} / {{ totalPages }}
                 </span>
 
                 <button @click="handlePageChange(currentPage + 1)"
-                        :disabled="currentPage === totalPages"
-                        class="text-xs font-bold tracking-[0.2em] uppercase transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-zinc-400 hover:text-zinc-950 p-4 -mr-4">
+                        :disabled="currentPage === totalPages || loading"
+                        class="text-xs font-bold tracking-[0.2em] uppercase transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-zinc-400 hover:text-zinc-950 p-4 -mr-4 outline-none focus-visible:ring-2 focus-visible:ring-zinc-950">
                     下一页
                 </button>
             </nav>
@@ -74,123 +87,169 @@
     import HotArticlesCard from '@/components/HotArticlesCard.vue'
     import ArticleCard from '@/components/ArticleCard.vue'
 
+    // [修复 2026-02-23] P2 修复：常量化信令事件名，防止硬编码拼写错误
+    const ARTICLE_SIGNALS = {
+        CREATED: 'signalr:article-created',
+        UPDATED: 'signalr:article-updated',
+        DELETED: 'signalr:article-deleted',
+        RESTORED: 'signalr:article-restored',
+        RECONNECTED: 'signalr:reconnected'
+    } as const;
+
     const siteStore = useSiteStore()
 
     const articles = ref<ArticleListItem[]>([])
     const loading = ref(true)
+    const isError = ref(false)
     const total = ref(0)
     const currentPage = ref(1)
     const pageSize = ref(10)
 
-    const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
+    // [修复 2026-02-23] P1 修复：逻辑自洽，确保 totalPages 至少为 1 以对齐导航逻辑
+    const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
-    // 安全性保障：记录最后一次信令处理时间，防止并发竞争导致的旧盖新
-    const lastEventTime = ref<number>(0)
-    // 性能最大化：列表级防抖调度器
-    let debounceTimer: any = null
+    // [修复 2026-02-23] 物理安全性：组件挂载状态锁
+    let isMounted = false;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    let abortController: AbortController | null = null
 
     /**
-     * 核心信令调度中心
-     * 用于合并短时间内的多个文章变动信号
+     * 核心加载逻辑
+     * [修复 2026-02-23] P0 修复：闭包快照隔离与物理控制器清理
      */
-    const dispatchListUpdate = (eventTime: string) => {
-        const eventTimestamp = new Date(eventTime).getTime();
-
-        // 并发校验：仅处理比当前已感知到的时间更晚的信号
-        if (eventTimestamp <= lastEventTime.value) return;
-        lastEventTime.value = eventTimestamp;
-
-        if (debounceTimer) clearTimeout(debounceTimer);
-
-        debounceTimer = setTimeout(() => {
-            console.log("[SignalR] 执行列表静默同步...");
-            loadArticles(false);
-            debounceTimer = null;
-        }, 500);
-    }
-
-    // 逻辑自洽：发布/还原同步
-    const handleRemoteArticleCreated = (e: Event) => {
-        const data = (e as CustomEvent).detail;
-        // 仅在用户位于第一页时触发重载，确保新文章即时出现
-        if (currentPage.value === 1) {
-            dispatchListUpdate(data.eventTime);
-        }
-    }
-
-    // 逻辑自洽：更新同步
-    const handleRemoteArticleUpdated = (e: Event) => {
-        const data = (e as CustomEvent).detail;
-        // 检查更新的文章是否在当前列表中
-        const exists = articles.value.some(a => a.id === Number(data.articleId));
-        if (exists) {
-            dispatchListUpdate(data.eventTime);
-        }
-    }
-
-    // 逻辑自洽：删除同步
-    const handleRemoteArticleDeleted = (e: Event) => {
-        const data = (e as CustomEvent).detail;
-        // 只要有删除信号，统一触发重载以确保分页和总数准确
-        dispatchListUpdate(data.eventTime);
-    }
-
-    // 逻辑自洽：断线重连同步
-    const handleSignalRReconnected = () => {
-        console.log("[SignalR] 列表重连成功，执行补偿同步...");
-        loadArticles(false);
-    }
-
     const loadArticles = async (showLoading = true) => {
-        if (showLoading) loading.value = true
+        // 1. 抢占中断：物理切断上一个未完成的任务
+        if (abortController) abortController.abort()
+        abortController = new AbortController()
+        const currentSignal = abortController.signal
+
+        if (showLoading) {
+            loading.value = true
+            isError.value = false
+        }
+        
         try {
             const res = await getArticles({
                 page: currentPage.value,
                 size: pageSize.value
-            })
+            }, { signal: currentSignal })
 
-            // 修复日期: 2026-02-20
-            // 逻辑自洽与安全性保障：容错处理，无论后端是否返回空值，前端都强制降级为安全空数组与 0
-            // 彻底解决 Cannot read properties of undefined (reading 'length') 渲染错误
-            articles.value = res?.items || []
-            total.value = res?.total || 0
+            // 2. 物理竞态校验：仅在组件存活且信号有效时执行状态变更
+            if (isMounted && !currentSignal.aborted) {
+                // 3. 数据契约校验：确保 API 返回格式正确
+                if (res && Array.isArray(res.items)) {
+                    articles.value = res.items
+                    total.value = Number(res.total) || 0
+                    isError.value = false
+                } else {
+                    throw new Error('Malformed API Response Structure')
+                }
+            }
 
-        } catch (error) {
-            console.error('Data loading error:', error)
-            // 异常处理兜底，避免保留脏数据
-            articles.value = []
-            total.value = 0
+        } catch (error: any) {
+            if (error.name === 'AbortError') return
+            
+            if (isMounted && !currentSignal.aborted) {
+                console.error('[Home] Data loading error:', error.message)
+                isError.value = true
+                articles.value = []
+                total.value = 0
+            }
         } finally {
-            loading.value = false
+            // [修复 2026-02-23] P0 修复：稳健的控制器引用置空逻辑
+            if (abortController?.signal === currentSignal) {
+                abortController = null
+            }
+            if (isMounted && !currentSignal.aborted) {
+                loading.value = false
+            }
         }
     }
 
+    /**
+     * 核心信令调度中心
+     * [修复 2026-02-23] P1 修复：引入挂载检查，防止卸载后的幽灵执行
+     */
+    const dispatchListUpdate = () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+
+        debounceTimer = setTimeout(() => {
+            if (isMounted) {
+                console.log("[SignalR] 执行列表静默同步...");
+                loadArticles(false);
+            }
+            debounceTimer = null;
+        }, 500);
+    }
+
+    // 发布/还原同步
+    const handleRemoteArticleCreated = () => {
+        if (currentPage.value === 1) dispatchListUpdate();
+    }
+
+    /**
+     * 更新同步
+     * [修复 2026-02-23] P0 修复：严格校验 data 存在性与 ID 类型对齐
+     */
+    const handleRemoteArticleUpdated = (e: Event) => {
+        const data = (e as CustomEvent).detail;
+        // 逻辑自洽：物理排除空数据，统一转化为字符串进行稳定比对
+        if (!data?.articleId) return;
+        
+        const targetId = String(data.articleId);
+        const exists = articles.value.some(a => String(a.id) === targetId);
+        if (exists) {
+            dispatchListUpdate();
+        }
+    }
+
+    // 删除同步
+    const handleRemoteArticleDeleted = () => {
+        dispatchListUpdate();
+    }
+
+    // 断线重连同步
+    const handleSignalRReconnected = () => {
+        if (isMounted) loadArticles(false);
+    }
+
     const handlePageChange = (page: number) => {
-        if (page < 1 || page > totalPages.value) return
+        if (page < 1 || page > totalPages.value || loading.value) return
         currentPage.value = page
         loadArticles()
         window.scrollTo({ top: 0, behavior: 'smooth' })
     }
 
     onMounted(() => {
+        isMounted = true;
         loadArticles();
-        window.addEventListener('signalr:article-created', handleRemoteArticleCreated);
-        window.addEventListener('signalr:article-updated', handleRemoteArticleUpdated);
-        window.addEventListener('signalr:article-deleted', handleRemoteArticleDeleted);
-        window.addEventListener('signalr:article-restored', handleRemoteArticleCreated);
-        window.addEventListener('signalr:reconnected', handleSignalRReconnected);
+        
+        // 物理注册：使用常量表进行信令绑定
+        window.addEventListener(ARTICLE_SIGNALS.CREATED, handleRemoteArticleCreated);
+        window.addEventListener(ARTICLE_SIGNALS.UPDATED, handleRemoteArticleUpdated);
+        window.addEventListener(ARTICLE_SIGNALS.DELETED, handleRemoteArticleDeleted);
+        window.addEventListener(ARTICLE_SIGNALS.RESTORED, handleRemoteArticleCreated);
+        window.addEventListener(ARTICLE_SIGNALS.RECONNECTED, handleSignalRReconnected);
     })
 
     onUnmounted(() => {
+        // [修复 2026-02-23] 逻辑自洽：物理清理
+        isMounted = false;
         if (debounceTimer) clearTimeout(debounceTimer);
-        window.removeEventListener('signalr:article-created', handleRemoteArticleCreated);
-        window.removeEventListener('signalr:article-updated', handleRemoteArticleUpdated);
-        window.removeEventListener('signalr:article-deleted', handleRemoteArticleDeleted);
-        window.removeEventListener('signalr:article-restored', handleRemoteArticleCreated);
-        window.removeEventListener('signalr:reconnected', handleSignalRReconnected);
+        if (abortController) abortController.abort();
+        
+        window.removeEventListener(ARTICLE_SIGNALS.CREATED, handleRemoteArticleCreated);
+        window.removeEventListener(ARTICLE_SIGNALS.UPDATED, handleRemoteArticleUpdated);
+        window.removeEventListener(ARTICLE_SIGNALS.DELETED, handleRemoteArticleDeleted);
+        window.removeEventListener(ARTICLE_SIGNALS.RESTORED, handleRemoteArticleCreated);
+        window.removeEventListener(ARTICLE_SIGNALS.RECONNECTED, handleSignalRReconnected);
     })
 </script>
 
 <style scoped>
     @reference "@/assets/main.css";
+    
+    button {
+        -webkit-tap-highlight-color: transparent;
+    }
 </style>

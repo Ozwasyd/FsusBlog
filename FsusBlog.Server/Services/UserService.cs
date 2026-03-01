@@ -1,15 +1,21 @@
 ﻿using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
 using SqlSugar;
 using StackExchange.Redis;
+using System.Data;
+using System.Data.Common;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+
 namespace FsusBlog.Server.Services;
 
 /// <summary>
-/// 用户服务
+/// 用户服务实现
+/// 修复日期: 2026-02-23 (修复 LoginAsync 中 SqlSugar 更新模式混用导致的异常，统一使用泛型表达式原子更新)
 /// </summary>
 public partial class UserService(
     ISqlSugarClient _db,
@@ -17,40 +23,40 @@ public partial class UserService(
     IJwtHelper _jwtHelper,
     IConnectionMultiplexer _redisMultiplexer,
     IBlacklistService _blacklistService,
-    IMessageService _messageService) : IUserService
+    IServiceScopeFactory _scopeFactory) : IUserService
 {
     private readonly IDatabase _redis = _redisMultiplexer.GetDatabase();
 
-    // 使用编译期生成的正则引擎 (需要 partial class)
-    [GeneratedRegex(@"^[\u4e00-\u9fa5a-zA-Z]+$")]
-    private static partial Regex UsernameRegex();
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string NormalizeUsername(string input)
+    {
+        var span = input.AsSpan().Trim();
+        if (span.IsEmpty) return string.Empty;
+        return string.Create(span.Length, span, (dst, src) => src.ToLowerInvariant(dst));
+    }
 
-    /// <summary>
-    /// 用户注册 (Success, Message)
-    /// </summary>
     public async Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto)
     {
         if (dto.Password != dto.ConfirmPassword)
             return (false, "两次输入的密码不一致");
 
-        // 2. 数据清洗与规范化：去除首尾空格并统一转小写
-        // PostgreSQL 大小写敏感，统一转小写可实现"逻辑上的大小写不敏感"
-        string normalizedUsername = dto.Username.Trim().ToLowerInvariant();
+        string normalizedUsername = NormalizeUsername(dto.Username);
+        if (normalizedUsername.Length == 0) return (false, "用户名不能为空");
 
-        // 3. 安全性保障：Service 层二次正则校验（防止绕过前端/DTO）
-        if (!UsernameRegex().IsMatch(normalizedUsername))
+        if (!FastCharValidator.IsOnlyChineseAndAlpha(normalizedUsername))
         {
             return (false, "用户名格式非法，仅允许中英文");
         }
 
-        // 业务层预检 (使用清洗后的用户名)
         if (await _db.Queryable<User>().AnyAsync(u => u.Username == normalizedUsername))
             return (false, "用户名已存在");
 
+        string passwordHash = await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(dto.Password));
+
         var newUser = new User
         {
-            Username = normalizedUsername, // 存入小写
-            Password = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+            Username = normalizedUsername,
+            Password = passwordHash,
             Role = "guest",
         };
 
@@ -62,60 +68,48 @@ public partial class UserService(
         }
         catch (Exception ex) when (ex.Message.Contains("23505") || ex.Message.Contains("Unique"))
         {
-            _logger.LogWarning("注册竞态冲突 | 用户名: {Username}", normalizedUsername);
+            LogRegistrationConflict(normalizedUsername);
             return (false, "用户名已被占用");
         }
     }
 
-    /// <summary>
-    /// 用户登录 (适配限制性治理企划)
-    /// </summary>
     public async Task<(bool Success, string Message, TokenResponseDto? Data, User? UserEntity)> LoginAsync(LoginDto dto, string clientIp)
     {
-        // 逻辑自洽：登录时也必须转小写，否则无法匹配到注册时存入的数据
-        string normalizedUsername = dto.Username.Trim().ToLowerInvariant();
+        string normalizedUsername = NormalizeUsername(dto.Username);
+        if (normalizedUsername.Length == 0) return (false, "用户名不能为空", null, null);
 
-        // 1. 获取用户信息
         var user = await _db.Queryable<User>().FirstAsync(u => u.Username == normalizedUsername);
 
-        // 2. 基础账号密码校验
-        if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.Password))
+        bool isPasswordValid = false;
+        if (user != null)
         {
-            _logger.LogWarning("登录验证未通过 | 用户名: {Username} | IP: {IP}", normalizedUsername, clientIp);
+            isPasswordValid = await Task.Run(() => BCrypt.Net.BCrypt.Verify(dto.Password, user.Password));
+        }
+
+        if (user == null || !isPasswordValid)
+        {
+            LogLoginFailure(normalizedUsername, clientIp);
             return (false, "用户名或密码错误", null, null);
         }
 
-        // 允许封禁用户登录。此处仅记录审计日志，不中断流程。
-        if (user.Status == 1)
-        {
-            _logger.LogInformation("封禁用户登录 | 用户名: {Username} | 状态: 只读受限", normalizedUsername);
-        }
+        if (user.Status == 1) LogBannedUserLogin(normalizedUsername);
 
-        // 签发双令牌
         var accessToken = _jwtHelper.GenerateAccessToken(user);
         var refreshToken = _jwtHelper.GenerateRefreshToken();
+        var now = DateTime.UtcNow;
 
-        // 更新审计信息与会话凭证
-        user.RefreshToken = refreshToken;
-        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
-        user.LastLoginTime = DateTime.UtcNow;
-        user.LastLoginIp = clientIp;
-
-        await _db.Updateable(user)
-            .UpdateColumns(it => new
-            {
-                it.RefreshToken,
-                it.RefreshTokenExpiryTime,
-                it.LastLoginTime,
-                it.LastLoginIp
-            })
+        // 核心修复：使用泛型 Updateable<User>() 而非 Updateable(user)
+        // 这样启用表达式更新模式，支持 SetColumns 原子操作
+        await _db.Updateable<User>()
+            .SetColumns(it => it.RefreshToken == refreshToken)
+            .SetColumns(it => it.RefreshTokenExpiryTime == now.AddDays(7))
+            .SetColumns(it => it.LastLoginTime == now)
+            .SetColumns(it => it.LastLoginIp == clientIp)
+            .Where(it => it.Id == user.Id)
             .ExecuteCommandAsync();
 
-        return (true, "登录成功", new TokenResponseDto
-        {
-            AccessToken = accessToken,
-            RefreshToken = refreshToken
-        }, user);
+        user.RefreshToken = refreshToken;
+        return (true, "登录成功", new TokenResponseDto(accessToken, refreshToken), user);
     }
 
     public async Task<User?> GetByIdAsync(int id) => await _db.Queryable<User>().InSingleAsync(id);
@@ -123,76 +117,67 @@ public partial class UserService(
     public async Task<User?> GetByUsernameAsync(string username)
     {
         if (string.IsNullOrWhiteSpace(username)) return null;
-        // 归一化查询
-        return await _db.Queryable<User>().FirstAsync(u => u.Username == username.Trim().ToLowerInvariant());
+        return await _db.Queryable<User>().FirstAsync(u => u.Username == NormalizeUsername(username));
     }
 
-    /// <summary>
-    /// 更改用户名 (Success, Message, Data)
-    /// </summary>
     public async Task<(bool Success, string Message, TokenResponseDto? Data)> UpdateUsernameAsync(int userId, string newUsername)
     {
-        // 1. 归一化处理
-        string normalizedUsername = newUsername.Trim().ToLowerInvariant();
+        string normalizedUsername = NormalizeUsername(newUsername);
+        if (normalizedUsername.Length == 0) return (false, "新用户名不能为空", null);
 
-        // 2. 正则校验
-        if (!UsernameRegex().IsMatch(normalizedUsername))
+        if (!FastCharValidator.IsOnlyChineseAndAlpha(normalizedUsername))
             return (false, "用户名格式非法，仅允许中英文", null);
 
         var user = await _db.Queryable<User>().InSingleAsync(userId);
         if (user == null) return (false, "用户不存在", null);
 
-        // 30天频率限制逻辑
-        if (user.LastUsernameUpdateTime.HasValue &&
-            (DateTime.UtcNow - user.LastUsernameUpdateTime.Value).TotalDays < 30)
+        if (user.LastUsernameUpdateTime.HasValue)
         {
-            var remain = Math.Ceiling(30 - (DateTime.UtcNow - user.LastUsernameUpdateTime.Value).TotalDays);
-            return (false, $"修改过于频繁，请在 {remain} 天后再试", null);
+            var elapsed = DateTime.UtcNow - user.LastUsernameUpdateTime.Value;
+            var limit = TimeSpan.FromDays(30);
+            if (elapsed < limit)
+            {
+                int remainDays = (limit - elapsed).Days + 1;
+                return (false, $"修改过于频繁，请在 {remainDays} 天后再试", null);
+            }
         }
 
-        // 查重时使用归一化后的名称
         if (await _db.Queryable<User>().AnyAsync(u => u.Username == normalizedUsername && u.Id != userId))
             return (false, "该用户名已被占用", null);
 
-        user.Username = normalizedUsername;
-        user.LastUsernameUpdateTime = DateTime.UtcNow;
-
-        var result = await _db.Updateable(user)
-            .UpdateColumns(u => new { u.Username, u.LastUsernameUpdateTime })
+        var now = DateTime.UtcNow;
+        await _db.Updateable<User>()
+            .SetColumns(u => u.Username == normalizedUsername)
+            .SetColumns(u => u.LastUsernameUpdateTime == now)
+            .Where(u => u.Id == userId)
             .ExecuteCommandAsync();
 
-        if (result > 0)
-        {
-            return (true, "修改成功", new TokenResponseDto
-            {
-                AccessToken = _jwtHelper.GenerateAccessToken(user),
-                RefreshToken = user.RefreshToken ?? ""
-            });
-        }
-
-        return (false, "修改失败", null);
+        user.Username = normalizedUsername;
+        return (true, "修改成功", new TokenResponseDto(_jwtHelper.GenerateAccessToken(user), user.RefreshToken ?? string.Empty));
     }
 
-    // ... UpdatePasswordAsync, RefreshTokenAsync, RevokeRefreshTokenAsync, GetAdminUserListAsync, AdminChangeStatusAsync, AdminResetPasswordAsync 保持原样 ...
-    // (由于篇幅限制且这些方法未改动逻辑，此处省略重复代码，请保留原有的实现)
     public async Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto)
     {
         if (dto.NewPassword != dto.ConfirmPassword)
             return (false, "两次输入的新密码不一致");
 
         var user = await _db.Queryable<User>().InSingleAsync(userId);
-        if (user == null || !BCrypt.Net.BCrypt.Verify(dto.OldPassword, user.Password))
+
+        bool isOldPasswordValid = false;
+        if (user != null)
+        {
+            isOldPasswordValid = await Task.Run(() => BCrypt.Net.BCrypt.Verify(dto.OldPassword, user.Password));
+        }
+
+        if (user == null || !isOldPasswordValid)
             return (false, "旧密码验证失败");
 
-        string newHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        string newHash = await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(dto.NewPassword));
 
         var success = await _db.Updateable<User>()
-            .SetColumns(u => new User
-            {
-                Password = newHash,
-                RefreshToken = null,
-                RefreshTokenExpiryTime = null
-            })
+            .SetColumns(u => u.Password == newHash)
+            .SetColumns(u => u.RefreshToken == null)
+            .SetColumns(u => u.RefreshTokenExpiryTime == null)
             .Where(u => u.Id == userId)
             .ExecuteCommandAsync() > 0;
 
@@ -205,61 +190,89 @@ public partial class UserService(
 
         if (user == null || user.RefreshTokenExpiryTime < DateTime.UtcNow)
         {
-            _logger.LogWarning("续期失败 | 刷新凭证已失效或不存在");
+            LogTokenRefreshFailure();
             return (false, null);
         }
 
         if (user.Status == 1)
         {
-            _logger.LogInformation("受限用户执行令牌续期 | 用户: {Username} | 状态: 只读模式", user.Username);
+            LogBannedUserTokenRefresh(user.Username);
         }
 
         var newAccessToken = _jwtHelper.GenerateAccessToken(user);
         var newRefreshToken = _jwtHelper.GenerateRefreshToken();
+        var expiry = DateTime.UtcNow.AddDays(7);
 
-        user.RefreshToken = newRefreshToken;
-        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
-
-        await _db.Updateable(user)
-            .UpdateColumns(it => new { it.RefreshToken, it.RefreshTokenExpiryTime })
+        await _db.Updateable<User>()
+            .SetColumns(it => it.RefreshToken == newRefreshToken)
+            .SetColumns(it => it.RefreshTokenExpiryTime == expiry)
+            .Where(it => it.Id == user.Id)
             .ExecuteCommandAsync();
 
-        return (true, new TokenResponseDto
-        {
-            AccessToken = newAccessToken,
-            RefreshToken = newRefreshToken
-        });
+        return (true, new TokenResponseDto(newAccessToken, newRefreshToken));
     }
 
     public async Task<bool> RevokeRefreshTokenAsync(string refreshToken)
     {
         if (string.IsNullOrWhiteSpace(refreshToken)) return false;
-
         return await _db.Updateable<User>()
-            .SetColumns(it => new User { RefreshToken = null, RefreshTokenExpiryTime = null })
+            .SetColumns(it => it.RefreshToken == null)
+            .SetColumns(it => it.RefreshTokenExpiryTime == null)
             .Where(it => it.RefreshToken == refreshToken)
             .ExecuteCommandAsync() > 0;
     }
 
     public async Task<PageResult<UserListDto>> GetAdminUserListAsync(UserQueryDto dto)
     {
-        RefAsync<int> total = 0;
-
-        var list = await _db.Queryable<User>()
+        var query = _db.Queryable<User>()
             .WhereIF(!string.IsNullOrWhiteSpace(dto.Keyword), u => u.Username.Contains(dto.Keyword!))
-            .WhereIF(dto.Status.HasValue, u => u.Status == dto.Status)
+            .WhereIF(dto.Status.HasValue, u => u.Status == dto.Status);
+
+        int total = await query.CountAsync();
+        if (total == 0) return new PageResult<UserListDto> { Total = 0, Items = [] };
+
+        var sqlObj = query
             .OrderByDescending(u => u.CreateTime)
-            .Select(u => new UserListDto
+            .Select(u => new
             {
-                Id = u.Id,
-                Username = u.Username,
-                Role = u.Role,
-                Status = u.Status,
-                CreateTime = u.CreateTime,
-                LastLoginIp = u.LastLoginIp,
-                LastLoginTime = u.LastLoginTime
+                u.Id,
+                u.Username,
+                u.Role,
+                u.Status,
+                u.CreateTime,
+                u.LastLoginIp,
+                u.LastLoginTime
             })
-            .ToPageListAsync(dto.Page, dto.PageSize, total);
+            .Skip((dto.Page - 1) * dto.PageSize)
+            .Take(dto.PageSize)
+            .ToSql();
+
+        var list = new List<UserListDto>(dto.PageSize);
+
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        {
+            int fId = reader.GetOrdinal("Id");
+            int fName = reader.GetOrdinal("Username");
+            int fRole = reader.GetOrdinal("Role");
+            int fStatus = reader.GetOrdinal("Status");
+            int fTime = reader.GetOrdinal("CreateTime");
+            int fIp = reader.GetOrdinal("LastLoginIp");
+            int fLastTime = reader.GetOrdinal("LastLoginTime");
+
+            while (await reader.ReadAsync())
+            {
+                list.Add(new UserListDto
+                {
+                    Id = reader.GetInt32(fId),
+                    Username = reader.GetString(fName),
+                    Role = reader.GetString(fRole),
+                    Status = reader.GetInt32(fStatus),
+                    CreateTime = reader.GetDateTime(fTime),
+                    LastLoginIp = reader.IsDBNull(fIp) ? null : reader.GetString(fIp),
+                    LastLoginTime = reader.IsDBNull(fLastTime) ? null : reader.GetDateTime(fLastTime)
+                });
+            }
+        }
 
         return new PageResult<UserListDto>
         {
@@ -274,27 +287,42 @@ public partial class UserService(
         if (user == null) return (false, "用户不存在");
         if (user.Role == "admin") return (false, "无法封禁管理员账号");
 
-        string? effectiveReason = dto.Status == 1
-            ? (string.IsNullOrWhiteSpace(dto.Reason) ? "违反社区规定" : dto.Reason)
-            : null;
+        string? effectiveReason = dto.Status == 1 ? (dto.Reason ?? "违反社区规定") : null;
 
         await _db.Updateable<User>()
-                .SetColumns(u => new User { Status = dto.Status, BanReason = effectiveReason })
+                .SetColumns(u => u.Status == dto.Status)
+                .SetColumns(u => u.BanReason == effectiveReason)
                 .Where(u => u.Id == dto.UserId)
                 .ExecuteCommandAsync();
 
         if (dto.Status == 1)
         {
             await _blacklistService.BanUserAsync(dto.UserId, effectiveReason!);
-            await _messageService.SendUserBannedNoticeAsync(dto.UserId, effectiveReason!);
+            _ = Task.Run(async () => {
+                try
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var msgSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
+                    await msgSvc.SendUserBannedNoticeAsync(dto.UserId, effectiveReason!);
+                }
+                catch (Exception ex) { LogBackgroundTaskError(ex); }
+            });
         }
         else
         {
             await _blacklistService.UnbanUserAsync(dto.UserId);
-            await _messageService.SendUserUnbannedNoticeAsync(dto.UserId);
+            _ = Task.Run(async () => {
+                try
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var msgSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
+                    await msgSvc.SendUserUnbannedNoticeAsync(dto.UserId);
+                }
+                catch (Exception ex) { LogBackgroundTaskError(ex); }
+            });
         }
 
-        return (true, dto.Status == 1 ? "用户已封禁（只读模式）" : "用户已解封并下发通知");
+        return (true, dto.Status == 1 ? "用户已封禁" : "用户已解封");
     }
 
     public async Task<(bool Success, string Message)> AdminResetPasswordAsync(AdminResetPwdDto dto)
@@ -302,19 +330,44 @@ public partial class UserService(
         var user = await _db.Queryable<User>().InSingleAsync(dto.UserId);
         if (user == null) return (false, "用户不存在");
 
-        string newHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        string newHash = await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(dto.NewPassword));
 
-        user.Password = newHash;
-        user.RefreshToken = null;
-        user.RefreshTokenExpiryTime = null;
-
-        await _db.Updateable(user)
-                 .UpdateColumns(u => new { u.Password, u.RefreshToken, u.RefreshTokenExpiryTime })
+        await _db.Updateable<User>()
+                 .SetColumns(u => u.Password == newHash)
+                 .SetColumns(u => u.RefreshToken == null)
+                 .SetColumns(u => u.RefreshTokenExpiryTime == null)
+                 .Where(u => u.Id == dto.UserId)
                  .ExecuteCommandAsync();
 
         await _redis.StringSetAsync($"blocked:user:{dto.UserId}", "pwd_reset", TimeSpan.FromMinutes(20));
-        await _messageService.PushUserStatusAsync(dto.UserId, 1, "管理员重置了您的密码，请重新登录");
+        _ = Task.Run(async () => {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var msgSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
+                await msgSvc.PushUserStatusAsync(dto.UserId, 1, "管理员重置了您的密码");
+            }
+            catch (Exception ex) { LogBackgroundTaskError(ex); }
+        });
 
-        return (true, "密码已重置，该用户已被强制登出");
+        return (true, "密码已重置，用户已强制登出");
     }
+
+    [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "注册竞态冲突 | 用户名: {Username}")]
+    private partial void LogRegistrationConflict(string username);
+
+    [LoggerMessage(EventId = 2, Level = LogLevel.Warning, Message = "登录验证未通过 | 用户名: {Username} | IP: {IpAddress}")]
+    private partial void LogLoginFailure(string username, string ipAddress);
+
+    [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "封禁用户登录 | 用户名: {Username}")]
+    private partial void LogBannedUserLogin(string username);
+
+    [LoggerMessage(EventId = 4, Level = LogLevel.Warning, Message = "续期失败 | 凭证失效")]
+    private partial void LogTokenRefreshFailure();
+
+    [LoggerMessage(EventId = 5, Level = LogLevel.Information, Message = "受限用户执行令牌续期 | 用户: {Username} | 状态: 只读模式")]
+    private partial void LogBannedUserTokenRefresh(string username);
+
+    [LoggerMessage(EventId = 6, Level = LogLevel.Error, Message = "后台异步消息推送失败")]
+    private partial void LogBackgroundTaskError(Exception ex);
 }

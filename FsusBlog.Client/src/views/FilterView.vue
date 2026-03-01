@@ -14,19 +14,19 @@
       </header>
 
       <div class="flex flex-col gap-12 sm:gap-20">
-        <template v-if="loadingArticles || isCalculating">
-          <div v-for="i in 3" :key="i" class="flex flex-col gap-4">
+        <template v-if="loadingArticles || powProvider.isCalculating.value">
+          <div v-for="i in 3" :key="i" class="flex flex-col gap-4" aria-hidden="true">
             <div class="flex gap-3">
               <div class="h-3 bg-zinc-50 w-24"></div>
               <div class="h-3 bg-zinc-50 w-16"></div>
             </div>
-            <div class="h-8 bg-zinc-50 w-3/4 rounded-sm" :class="{ 'animate-pulse bg-zinc-100': isCalculating }"></div>
+            <div class="h-8 bg-zinc-50 w-3/4 rounded-sm" :class="{ 'animate-pulse bg-zinc-100': powProvider.isCalculating.value }"></div>
             <div class="space-y-2.5 mt-1">
               <div class="h-4 bg-zinc-50 w-full"></div>
               <div class="h-4 bg-zinc-50 w-5/6"></div>
             </div>
           </div>
-          <p v-if="isCalculating" class="text-[9px] font-mono text-zinc-400 uppercase tracking-widest text-center animate-pulse">
+          <p v-if="powProvider.isCalculating.value" class="text-[9px] font-mono text-zinc-400 uppercase tracking-widest text-center animate-pulse">
             Security verifying...
           </p>
         </template>
@@ -38,7 +38,7 @@
               :key="article.id" 
               :article="article"
               :index="index"
-              :search-keyword="filterType === 'search' ? (route.query.q as string) : ''"
+              :search-keyword="filterType === 'search' ? String(route.query.q || '') : ''"
             />
           </TransitionGroup>
         </template>
@@ -47,20 +47,20 @@
           <p class="text-[10px] font-mono tracking-[0.4em] uppercase text-zinc-300 mb-8">
             {{ hasError ? '暂时无法加载内容' : '无相关内容' }}
           </p>
-          <router-link to="/" class="text-[10px] font-bold tracking-widest uppercase py-3 px-6 border border-zinc-100 hover:bg-zinc-950 hover:text-white transition-all">
+          <router-link :to="{ name: 'Home' }" class="text-[10px] font-bold tracking-widest uppercase py-3 px-6 border border-zinc-100 hover:bg-zinc-950 hover:text-white transition-all">
             返回首页
           </router-link>
         </div>
       </div>
 
       <nav v-if="totalPages > 1" class="mt-24 pt-12 border-t border-zinc-100 flex justify-between items-center select-none">
-        <button @click="handlePageChange(currentPage - 1)" :disabled="currentPage === 1" class="nav-btn">
+        <button @click="handlePageChange(currentPage - 1)" :disabled="currentPage === 1 || loadingArticles" class="nav-btn" :aria-disabled="currentPage === 1">
           ← <span class="hidden xs:inline ml-2">上一页</span>
         </button>
-        <span class="text-[10px] font-mono font-bold text-zinc-400 tracking-widest">
+        <span class="text-[10px] font-mono font-bold text-zinc-400 tracking-widest tabular-nums">
           {{ String(currentPage).padStart(2, '0') }} / {{ String(totalPages).padStart(2, '0') }}
         </span>
-        <button @click="handlePageChange(currentPage + 1)" :disabled="currentPage === totalPages" class="nav-btn">
+        <button @click="handlePageChange(currentPage + 1)" :disabled="currentPage === totalPages || loadingArticles" class="nav-btn" :aria-disabled="currentPage === totalPages">
           <span class="hidden xs:inline mr-2">下一页</span> →
         </button>
       </nav>
@@ -68,7 +68,7 @@
 
     <aside class="hidden lg:block lg:w-64 shrink-0">
       <div class="sticky top-32">
-        <router-link to="/" class="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400 hover:text-zinc-950 transition-colors flex items-center gap-3 group">
+        <router-link :to="{ name: 'Home' }" class="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400 hover:text-zinc-950 transition-colors flex items-center gap-3 group">
           <span class="group-hover:-translate-x-1 transition-transform duration-300">←</span> 回到主页
         </router-link>
       </div>
@@ -79,16 +79,23 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getArticles, searchArticles, type ArticleListItem, type ArticleListRes } from '@/api/article'
+import { getArticles, searchArticles, type ArticleListItem } from '@/api/article' // [修复 2026-02-23] 移除未使用的 ArticleListRes 导入
 import { getCategories } from '@/api/category'
 import { getTags } from '@/api/tag'
-import { getPowChallenge } from '@/api/auth'
-import { getBrowserFp } from '@/utils/fingerprint'
 import { usePow } from '@/composables/usePow'
 import ArticleCard from '@/components/ArticleCard.vue'
 
+// 信令常量定义
+const SIGNALS = {
+  CREATED: 'signalr:article-created',
+  UPDATED: 'signalr:article-updated',
+  DELETED: 'signalr:article-deleted',
+  RESTORED: 'signalr:article-restored',
+  RECONNECTED: 'signalr:reconnected'
+} as const;
+
 const route = useRoute()
-const { calculate, isCalculating, prewarm } = usePow()
+const powProvider = usePow()
 
 const filterType = ref<'category' | 'tag' | 'search'>('category')
 const filterId = ref<number>(0)
@@ -99,203 +106,195 @@ const loadingArticles = ref(true)
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
-// 新增：错误熔断锁，防止无限重试死循环
-const hasError = ref(false)
+const hasError = ref(false) // [修复 2026-02-23] 确认为 hasError 状态变量
 
 const labelText = computed(() => ({ category: '分类', tag: '标签', search: '搜索' }[filterType.value] || ''))
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
 
-const lastEventTime = ref<number>(0)
-let debounceTimer: any = null
+// 物理安全控制
+let isMounted = false;
+let abortController: AbortController | null = null
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 /**
- * 核心：受控搜索流水线
- * 包含：挑战获取、Worker求解、错误重试
+ * 载入元数据名称
  */
-const performSearch = async (keyword: string, retryCount = 0): Promise<ArticleListItem[]> => {
+const loadMetaName = async (signal: AbortSignal) => {
+  if (filterType.value === 'search') {
+    currentName.value = route.query.q ? `“${route.query.q}”` : '全站搜索'
+    loadingMeta.value = false
+    return
+  }
+
+  loadingMeta.value = true
   try {
-    // 1. 获取挑战包
-    const challengeRes = await getPowChallenge({ action: 'search' });
-    const { salt, difficulty, timestamp, signature } = challengeRes as any;
-
-    // 2. 算力求解 (安全性保障：利用独立线程 Worker 执行)
-    const fp = getBrowserFp();
-    const { nonce } = await calculate(salt, fp, difficulty);
-
-    // 3. 执行加固检索
-    const res = await searchArticles({
-      keyword,
-      powSalt: salt,
-      powNonce: nonce,
-      powTimestamp: timestamp,
-      difficulty: difficulty,
-      powSignature: signature,
-      browserFp: fp
-    });
-
-    // 处理不同的数据结构返回
-    const rawData = (res as any).data ?? res;
-    return Array.isArray(rawData) ? rawData : [];
-  } catch (err: any) {
-    // 逻辑自洽：处理后端 403 难度熔断升级
-    if (err.response?.status === 403 && retryCount < 1) {
-      console.warn("[PoW] 难度等级过时，正在提升算力尝试重试...");
-      return performSearch(keyword, retryCount + 1);
+    const fetchFn = filterType.value === 'category' ? getCategories : getTags
+    const list = await fetchFn({ signal })
+    
+    if (isMounted && !signal.aborted) {
+      const targetId = Number(route.params.id)
+      const match = list.find((item: any) => item.id === targetId)
+      currentName.value = match ? match.name : '未发现'
     }
-    throw err;
+  } catch (error: any) {
+    if (error.name !== 'AbortError' && isMounted && !signal.aborted) {
+      currentName.value = '加载失败'
+    }
+  } finally {
+    if (isMounted && !signal.aborted) loadingMeta.value = false
   }
 }
 
 /**
  * 核心加载逻辑
  */
-const loadArticles = async (showLoading = true) => {
-  // 核心修复：如果已发生错误，禁止再次触发加载，防止无限滚动死循环
-  if ((loadingArticles.value || hasError.value) && showLoading) return
-  
-  if (showLoading) loadingArticles.value = true
+const loadArticles = async (showLoading = true, signal: AbortSignal) => {
+  if (showLoading) {
+    loadingArticles.value = true
+    hasError.value = false // [修复 2026-02-23] 修正变量名为 hasError
+  }
+
   try {
     const isSearch = filterType.value === 'search'
-    const q = (route.query.q as string) || ''
+    const q = String(route.query.q || '').trim()
     
-    if (isSearch) {
-      if (!q.trim()) {
+    if (isSearch && !q) {
+      if (isMounted && !signal.aborted) {
         articles.value = []; total.value = 0;
-        return;
+        hasError.value = false;
       }
-      
-      const list = await performSearch(q);
-      
-      articles.value = list.length > pageSize.value 
-        ? list.slice((currentPage.value - 1) * pageSize.value, currentPage.value * pageSize.value)
-        : list
-      total.value = list.length
-      hasError.value = false
+      return;
+    }
+
+    let res: any;
+    if (isSearch) {
+      res = await searchArticles({ keyword: q }, { signal, requiresPow: true } as any)
     } else {
-      const res = await getArticles({ 
+      res = await getArticles({ 
         page: currentPage.value, 
         size: pageSize.value, 
         categoryId: filterType.value === 'category' ? filterId.value : undefined, 
         tagId: filterType.value === 'tag' ? filterId.value : undefined 
-      }) as ArticleListRes
+      }, { signal })
+    }
 
-      articles.value = res.items
-      total.value = res.total
+    if (isMounted && !signal.aborted) {
+      const items = res?.items || (Array.isArray(res) ? res : []);
+      const count = res?.total ?? items.length;
+      articles.value = items
+      total.value = count
       hasError.value = false
     }
-  } catch (error) {
-    console.error('[FilterView] Load Fail:', error);
-    // 核心修复：标记错误状态，物理阻断后续调用
-    hasError.value = true;
-    articles.value = []; 
-    total.value = 0;
+  } catch (error: any) {
+    if (error.name === 'AbortError') return
+    if (isMounted && !signal.aborted) {
+      console.error('[FilterView] Load Fail:', error.message);
+      hasError.value = true;
+      articles.value = []; total.value = 0;
+    }
   } finally {
-    loadingArticles.value = false
+    if (isMounted && !signal.aborted) loadingArticles.value = false
   }
 }
 
 /**
- * 静默同步调度中心
+ * 初始化调度
  */
-const dispatchSync = (eventTime: string) => {
-  const eventTimestamp = new Date(eventTime).getTime();
-  if (eventTimestamp <= lastEventTime.value) return;
-  lastEventTime.value = eventTimestamp;
-
-  if (debounceTimer) clearTimeout(debounceTimer);
-  
-  debounceTimer = setTimeout(() => {
-    // 静默更新不检查 hasError，允许尝试恢复
-    loadArticles(false);
-    debounceTimer = null;
-  }, 500);
-}
-
-const handleRemoteCreated = (e: Event) => {
-  const data = (e as CustomEvent).detail;
-  if (filterType.value === 'search' || currentPage.value === 1) {
-    dispatchSync(data.eventTime);
-  }
-}
-
-const handleRemoteUpdated = (e: Event) => {
-  const data = (e as CustomEvent).detail;
-  const exists = articles.value.some(a => a.id === Number(data.articleId));
-  if (exists || filterType.value === 'search') {
-    dispatchSync(data.eventTime);
-  }
-}
-
-const handleRemoteDeleted = (e: Event) => {
-  const data = (e as CustomEvent).detail;
-  dispatchSync(data.eventTime);
-}
-
-const handleReconnected = () => {
-  loadArticles(false);
-}
-
-const loadMetaName = async () => {
-  loadingMeta.value = true
-  try {
-    if (filterType.value === 'search') {
-      currentName.value = route.query.q ? `“${route.query.q}”` : '全站搜索'
-    } else {
-      const fetchFn = filterType.value === 'category' ? getCategories : getTags
-      const list = await fetchFn()
-      const match = list.find((item: any) => item.id === filterId.value)
-      currentName.value = match ? match.name : '未发现'
-    }
-  } catch (error) { currentName.value = '加载失败' }
-  finally { loadingMeta.value = false }
-}
-
 const init = async () => {
-  // 必须先设置为 false，否则 loadArticles 内部的防重入判断会直接拦截请求
-  hasError.value = false;
-  loadingArticles.value = false; 
+  if (abortController) abortController.abort()
+  abortController = new AbortController()
+  const currentSignal = abortController.signal
 
+  hasError.value = false; // [修复 2026-02-23] 修正变量名为 hasError
   if (route.query.q !== undefined) {
     filterType.value = 'search'; filterId.value = 0
-    prewarm();
+    powProvider.prewarm()
   } else {
     filterType.value = route.path.includes('/category') ? 'category' : 'tag'
     filterId.value = Number(route.params.id) || 0
   }
   currentPage.value = 1
-  articles.value = [] 
   
-  await Promise.all([loadMetaName(), loadArticles()])
+  try {
+    await Promise.allSettled([
+      loadMetaName(currentSignal),
+      loadArticles(true, currentSignal)
+    ])
+  } finally {
+    if (abortController?.signal === currentSignal) {
+      abortController = null
+    }
+  }
+}
+
+/**
+ * 静默同步
+ */
+const dispatchSync = () => {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    if (isMounted && abortController === null) {
+      const tempCtrl = new AbortController();
+      loadArticles(false, tempCtrl.signal);
+    }
+    debounceTimer = null;
+  }, 500);
+}
+
+const handleRemoteCreated = () => {
+  if (filterType.value === 'search' || currentPage.value === 1) dispatchSync();
+}
+
+const handleRemoteUpdated = (e: Event) => {
+  const data = (e as CustomEvent).detail;
+  if (!data || !('articleId' in data)) return;
+  
+  const targetId = String(data.articleId);
+  const exists = articles.value.some(a => String(a.id) === targetId);
+  if (exists || filterType.value === 'search') dispatchSync();
+}
+
+const handleReconnected = () => {
+  if (isMounted) {
+    const tempCtrl = new AbortController();
+    loadArticles(false, tempCtrl.signal);
+  }
 }
 
 const handlePageChange = (page: number) => {
-  if (page < 1 || page > totalPages.value) return
+  if (page < 1 || page > totalPages.value || loadingArticles.value) return
   currentPage.value = page
-  loadArticles()
+  
+  const tempCtrl = new AbortController();
+  loadArticles(true, tempCtrl.signal);
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-watch(() => [route.params.id, route.query.q], () => {
+watch([() => route.params.id, () => route.query.q], () => {
   init()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
 })
 
 onMounted(() => {
+  isMounted = true;
   init();
-  window.addEventListener('signalr:article-created', handleRemoteCreated);
-  window.addEventListener('signalr:article-updated', handleRemoteUpdated);
-  window.addEventListener('signalr:article-deleted', handleRemoteDeleted);
-  window.addEventListener('signalr:article-restored', handleRemoteCreated);
-  window.addEventListener('signalr:reconnected', handleReconnected);
+  
+  window.addEventListener(SIGNALS.CREATED, handleRemoteCreated);
+  window.addEventListener(SIGNALS.UPDATED, handleRemoteUpdated);
+  window.addEventListener(SIGNALS.DELETED, dispatchSync);
+  window.addEventListener(SIGNALS.RESTORED, handleRemoteCreated);
+  window.addEventListener(SIGNALS.RECONNECTED, handleReconnected);
 })
 
 onUnmounted(() => {
+  isMounted = false;
   if (debounceTimer) clearTimeout(debounceTimer);
-  window.removeEventListener('signalr:article-created', handleRemoteCreated);
-  window.removeEventListener('signalr:article-updated', handleRemoteUpdated);
-  window.removeEventListener('signalr:article-deleted', handleRemoteDeleted);
-  window.removeEventListener('signalr:article-restored', handleRemoteCreated);
-  window.removeEventListener('signalr:reconnected', handleReconnected);
+  if (abortController) abortController.abort();
+  
+  window.removeEventListener(SIGNALS.CREATED, handleRemoteCreated);
+  window.removeEventListener(SIGNALS.UPDATED, handleRemoteUpdated);
+  window.removeEventListener(SIGNALS.DELETED, dispatchSync);
+  window.removeEventListener(SIGNALS.RESTORED, handleRemoteCreated);
+  window.removeEventListener(SIGNALS.RECONNECTED, handleReconnected);
 })
 </script>
 
@@ -312,6 +311,6 @@ onUnmounted(() => {
 }
 
 .nav-btn {
-  @apply text-[10px] font-bold tracking-[0.2em] uppercase transition-all duration-300 disabled:opacity-10 text-zinc-400 hover:text-zinc-950 py-4;
+  @apply text-[10px] font-bold tracking-[0.2em] uppercase transition-all duration-300 disabled:opacity-10 text-zinc-400 hover:text-zinc-950 py-4 outline-none focus-visible:ring-1 focus-visible:ring-zinc-950;
 }
 </style>

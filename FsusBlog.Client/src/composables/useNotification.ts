@@ -20,8 +20,8 @@ const unreadCount: Ref<number> = ref(0);
 const currentMode = ref<'auth' | 'guest' | ''>('');
 const isInitializing = ref(false);
 
-// 安全性保障：提取至全局变量，防止因组件重复挂载导致冷却机制失效
 let lastReauthTime = 0;
+let memoryPowCache: CachedPow | null = null; 
 
 interface CachedPow {
     nonce: string;
@@ -38,72 +38,85 @@ export function useNotification() {
     const router = useRouter();
     const { calculate, prewarm, isCalculating } = usePow();
 
+    /**
+     * [修复 2026-02-24] 时间戳校验增强
+     * 逻辑自洽：增加 5 秒的网络时延容差，确保后端 300s 窗口不会因请求往返而失效
+     */
     const getOrRefreshPow = async (): Promise<CachedPow> => {
-        const now = Math.floor(Date.now() / 1000);
+        const nowInSeconds = Math.floor(Date.now() / 1000);
+
+        if (memoryPowCache && (nowInSeconds - memoryPowCache.timestamp < 275)) {
+            return memoryPowCache;
+        }
 
         try {
             const raw = sessionStorage.getItem(POW_STORAGE_KEY);
             if (raw) {
                 const cached = JSON.parse(raw) as CachedPow;
-                if (now - cached.timestamp < 280) {
+                if (nowInSeconds - cached.timestamp < 275) {
+                    memoryPowCache = cached;
                     return cached;
                 }
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) { 
+            sessionStorage.removeItem(POW_STORAGE_KEY);
+        }
 
         prewarm();
         const fp = getBrowserFp();
-        const challengeRes = await getPowChallenge({ action: 'signalr_connect' } as any) as any;
+        // 核心：增加缓存穿透参数，确保每次重试获取的都是最新挑战
+        const challengeRes = await getPowChallenge({ 
+            action: 'signalr_connect',
+            _t: Date.now() 
+        } as any) as any;
+        
         const { salt, difficulty, timestamp, signature } = challengeRes.data || challengeRes;
 
         const { nonce } = await calculate(salt, fp, difficulty);
         const newPow: CachedPow = { nonce, salt, fp, signature, difficulty, timestamp };
+        
+        memoryPowCache = newPow;
         sessionStorage.setItem(POW_STORAGE_KEY, JSON.stringify(newPow));
 
         return newPow;
     };
 
-    // 核心修复(2026-02-21): 接收异常原因，处理缓存恢复引发的前后端状态脱节
     const handleReauthAndRestart = async (reason?: string) => {
+        // [修复 2026-02-24] 异常语义扩展：包含后端传回的中文及具体错误描述
+        const isSecurityError = reason?.includes('PoW') || 
+                               reason?.includes('Access Denied') || 
+                               reason?.includes('403') ||
+                               reason?.includes('过期') ||
+                               reason?.includes('校验未通过');
+
         if (userStore.isLoggedIn) {
-            // 逻辑自洽：如果前端认为已登录，但后端明确告知缺少 PoW/Access Denied
-            // 证明后端的 Token 已过期或丢失。此时必须主动清除假登录态，降级为游客连接。
-            if (reason?.includes('PoW credentials missing') || reason?.includes('Access Denied')) {
-                console.warn("[SignalR] Token rejected or expired. Syncing local state and downgrading to guest...");
-                userStore.setUserInfo(null); 
+            if (isSecurityError) {
+                console.warn("[SignalR] Security validation failed for logged-in user. Syncing state...");
+                // 逻辑自洽：如果是已登录用户报 PoW 错误，可能是 Token 物理过期或被封禁，执行同步
+                await userStore.fetchUserInfo(true);
             } else {
-                // 如果是已登录用户且是其他网络错误，交由 SignalR 原生机制自动重连
                 return;
             }
-        } else if (currentMode.value !== 'guest') {
-            return;
         }
 
         const now = Date.now();
-        if (now - lastReauthTime < 5000) {
-            console.warn(" Re-auth too frequent, aborting to prevent infinite loop.");
-            return;
-        }
+        if (now - lastReauthTime < 5000) return;
         lastReauthTime = now;
 
         if (isCalculating.value) {
-            console.log(" Worker busy, rescheduling re-auth...");
-            setTimeout(() => {
-                lastReauthTime = 0;
-                handleReauthAndRestart(reason);
-            }, 2000);
+            setTimeout(() => handleReauthAndRestart(reason), 2000);
             return;
         }
 
         try {
-            console.log(" Connection invalidated. Re-calculating PoW...");
+            console.log("[SignalR] Security state invalidated. Refreshing PoW...");
+            memoryPowCache = null;
             sessionStorage.removeItem(POW_STORAGE_KEY);
             const pow = await getOrRefreshPow();
             await notificationService.start('', pow);
-            // 确保模式修正
             currentMode.value = 'guest';
         } catch (err) {
-            console.error(' Restart with new PoW failed', err);
+            console.error('[SignalR] Recovery failed', err);
         }
     };
 
@@ -153,7 +166,6 @@ export function useNotification() {
             notificationService.onUserStatusChanged = async (data: UserStatusPayload) => {
                 const oldStatus = userStore.userInfo?.status;
                 const newStatus = Number(data.status);
-
                 const isStatusChanged = oldStatus !== undefined && Number(oldStatus) !== newStatus;
 
                 userStore.updateStatus(newStatus, data.reason);

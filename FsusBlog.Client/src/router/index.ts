@@ -57,7 +57,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/user',
     component: () => import('@/layouts/UserLayout.vue'),
-    meta: { requiresAuth: true, roles: ['guest'] },
+    meta: { requiresAuth: true, roles: ['guest', 'admin'] }, // [修复 2026-02-23] 逻辑自洽：允许 admin 访问用户中心
     children: [
       { path: 'profile', name: 'UserProfile', component: () => import('@/views/user/Profile.vue'), meta: { title: '个人中心' } },
       { path: 'comments', name: 'UserComments', component: () => import('@/views/user/Comments.vue'), meta: { title: '我的评论' } },
@@ -86,37 +86,30 @@ router.beforeEach(async (to) => {
   // 1. 核心数据静默加载
   // 逻辑自洽：先获取用户信息，确定身份后才能进行后续的权限判断和通知初始化
   if (!userStore.isAuthChecked || siteStore.siteInfo.title === 'Loading...') {
+    // 性能最大化：使用 Promise.all 并行加载初始元数据
     await Promise.all([
       userStore.fetchUserInfo(),
       siteStore.fetchSiteInfo()
     ])
   }
 
-  // 2. --- SignalR 激活逻辑 ---
-  // 性能最大化：无论登录还是游客，都尝试启动通知服务。
-  // initNotification 内部会判断 currentMode，如果模式未变则不会重新连接。
-  // 修正 TS 错误：传入 boolean 类型的登录状态。
-  initNotification(userStore.isLoggedIn);
-
-  // 3. 动态设置页面标题
+  // 2. 动态设置页面标题
+  // 算法最优：优先处理标题，提升用户感知速度
   const baseTitle = siteStore.siteInfo.title
-  if (to.meta.title) {
-    document.title = `${to.meta.title} - ${baseTitle}`
-  } else {
-    document.title = baseTitle
-  }
+  document.title = to.meta.title ? `${to.meta.title} - ${baseTitle}` : baseTitle
 
   const { isLoggedIn, isAdmin, userInfo } = userStore
   const userRole = userInfo?.role || ''
 
-  // 4. guestOnly 拦截 (已登录用户禁止访问登录/注册页)
+  // 3. guestOnly 拦截 (已登录用户禁止访问登录/注册页)
   if (to.meta.guestOnly && isLoggedIn) {
     return isAdmin ? '/admin' : '/user/profile'
   }
 
-  // 5. 权限与角色分流逻辑
+  // 4. 权限与角色分流逻辑
   if (to.meta.requiresAuth) {
     if (!isLoggedIn) {
+      // 安全性保障：重定向携带原始路径，确保登录后能准确回跳
       return { path: '/login', query: { redirect: to.fullPath } }
     }
 
@@ -124,7 +117,7 @@ router.beforeEach(async (to) => {
       const allowedRoles = to.meta.roles as string[]
       
       if (!allowedRoles.includes(userRole)) {
-        // 如果是普通用户试图进入管理端，自动重定向到个人中心
+        // [修复 2026-02-23] 逻辑自洽：如果是普通用户试图进入管理端，自动重定向到个人中心
         if (userRole === 'guest' && to.path.startsWith('/admin')) {
           return '/user/profile' 
         }
@@ -132,6 +125,11 @@ router.beforeEach(async (to) => {
       }
     }
   }
+
+  // 5. --- SignalR 激活逻辑 ---
+  // [修复 2026-02-23] 性能最大化：移至守卫末尾触发，确保在路由确定后才进行通信初始化
+  // initNotification 内部具备 isInitializing 锁和模式对比，此处调用是安全的
+  initNotification(isLoggedIn);
 
   return true
 })

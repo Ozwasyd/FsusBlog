@@ -1,39 +1,51 @@
-﻿namespace FsusBlog.Server.Infrastructure.Security;
-
-using StackExchange.Redis;
-using System.Collections.Concurrent;
+﻿using StackExchange.Redis;
 using System.Runtime.CompilerServices;
+
+namespace FsusBlog.Server.Infrastructure.Security;
 
 /// <summary>
 /// 全局自适应 PoW 治理器 (The Governor) - High Performance Edition
-/// 核心职责：根据当前系统负载（CPU + RPS + Redis 压力）动态裁决 PoW 难度
+/// 修复日期: 2026-02-23 (废弃 ConcurrentDictionary 引入无锁环形缓存彻底解决 Count 性能瓶颈与缓存雪崩问题)
 /// </summary>
-public class AdaptivePowGovernor(IConnectionMultiplexer redis)
+public sealed class AdaptivePowGovernor
 {
-    private readonly IDatabase _redis = redis.GetDatabase();
+    private readonly IDatabase _redis;
 
     // ==========================================
     // 难度配置 (适配前端 SIMD 加速后的新基准)
     // ==========================================
-    // 前端优化后，Diff 4 耗时约 50ms，Diff 5 耗时约 200ms
-    // 因此我们需要拉高基准线，迫使攻击者消耗更多算力
-    private const int BASE_DIFFICULTY = 4;        // 静默期 (原3 -> 4)
-    private const int ELEVATED_DIFFICULTY = 5;    // 活跃期 (原4 -> 5)
-    private const int HIGH_LOAD_DIFFICULTY = 6;   // 拥堵期 (原5 -> 6, 此时前端耗时约 3s-5s，阻断效果极佳)
-    private const int WAR_MODE_DIFFICULTY = 7;    // 激战期 (原6 -> 7, 几乎不可解，作为熔断保护)
+    private const int BASE_DIFFICULTY = 4;        // 静默期
+    private const int ELEVATED_DIFFICULTY = 5;    // 活跃期
+    private const int HIGH_LOAD_DIFFICULTY = 6;   // 拥堵期
+    private const int WAR_MODE_DIFFICULTY = 7;    // 激战期
 
     // ==========================================
-    // 性能计数器 (原子操作)
+    // 性能计数器 (实例级原子操作)
     // ==========================================
-    private static int _currentRps; // 当前每秒请求数
-    private static long _lastTick = Environment.TickCount64;
+    private int _currentRps;
+    private long _lastTick = Environment.TickCount64;
 
     // ==========================================
-    // L1 本地缓存 (减少 Redis IO)
+    // 极限 L1 本地缓存 (无锁 Direct Mapped Cache)
     // ==========================================
-    // Key: IP, Value: (RiskScore, ExpireTime)
-    private readonly ConcurrentDictionary<string, (int Score, long ExpireAt)> _localRiskCache = new();
+    // 容量必须是 2 的整数次幂，以便使用极速的位与(&)操作代替取模(%)运算
+    private const int CACHE_SIZE = 8192;
+    private const int CACHE_MASK = CACHE_SIZE - 1;
+    private readonly RiskCacheEntry?[] _localRiskCache = new RiskCacheEntry?[CACHE_SIZE];
     private const int CACHE_DURATION_MS = 10000; // 本地缓存 10 秒
+
+    // 采用引用类型包装缓存节点，确保引用的原子级更新，防止多线程结构体撕裂 (Struct Tearing)
+    private sealed class RiskCacheEntry
+    {
+        public required string Ip { get; init; }
+        public required int Score { get; init; }
+        public required long ExpireAt { get; init; }
+    }
+
+    public AdaptivePowGovernor(IConnectionMultiplexer redis)
+    {
+        _redis = redis.GetDatabase();
+    }
 
     /// <summary>
     /// 获取当前全局建议难度
@@ -42,8 +54,6 @@ public class AdaptivePowGovernor(IConnectionMultiplexer redis)
     {
         get
         {
-            // 逻辑自洽：在获取难度时，顺便检查是否需要重置 RPS 窗口
-            // 防止因外部 Tick 调用失败导致 RPS 累积不归零
             TryResetWindow();
             return CalculateGlobalDifficulty();
         }
@@ -55,39 +65,53 @@ public class AdaptivePowGovernor(IConnectionMultiplexer redis)
     public async Task<int> GetDifficultyForIpAsync(string ip)
     {
         int globalDiff = CurrentGlobalDifficulty;
-
-        // 性能最大化：先查本地 L1 缓存
-        // 避免高频请求下 Redis 成为瓶颈
-        int riskScore = 0;
         long now = Environment.TickCount64;
 
-        if (_localRiskCache.TryGetValue(ip, out var cached) && now < cached.ExpireAt)
+        // 核心物理级优化：无锁环形缓存定位
+        // 彻底消灭 ConcurrentDictionary 的高昂开销与并发争用
+        int idx = ip.GetHashCode() & CACHE_MASK;
+        var cached = Volatile.Read(ref _localRiskCache[idx]);
+
+        int riskScore = 0;
+
+        if (cached != null && cached.Ip == ip && now < cached.ExpireAt)
         {
+            // 极速命中本地 L1 缓存
             riskScore = cached.Score;
         }
         else
         {
-            // 缓存未命中或已过期，查询 Redis (异步)
-            // 键名规则：security:risk_score:{ip}
-            var redisValue = await _redis.StringGetAsync($"security:risk_score:{ip}");
+            // 缓存未命中或哈希冲突被覆盖，查询 Redis
+            // 零分配优化：使用 string.Create 替代 $"..."
+            const string KeyPrefix = "security:risk_score:";
+            string redisKey = string.Create(KeyPrefix.Length + ip.Length, ip, (span, state) =>
+            {
+                KeyPrefix.AsSpan().CopyTo(span);
+                state.AsSpan().CopyTo(span[KeyPrefix.Length..]);
+            });
 
+            var redisValue = await _redis.StringGetAsync(redisKey);
+
+            // 底层 TryParse，直接拆箱
             if (redisValue.HasValue && redisValue.TryParse(out int val))
             {
                 riskScore = val;
             }
 
-            // 写入本地缓存 (即使是 0 分也缓存，防止缓存穿透)
-            _localRiskCache[ip] = (riskScore, now + CACHE_DURATION_MS);
-
-            // 简单的缓存清理策略：如果缓存太大，清空一次 (防止内存泄漏)
-            if (_localRiskCache.Count > 10000) _localRiskCache.Clear();
+            // 写入本地缓存 (原子级引用替换，自动淘汰旧数据，彻底免疫缓存雪崩)
+            var newEntry = new RiskCacheEntry
+            {
+                Ip = ip,
+                Score = riskScore,
+                ExpireAt = now + CACHE_DURATION_MS
+            };
+            Volatile.Write(ref _localRiskCache[idx], newEntry);
         }
 
         // 动态加权：风险分每增加 10 分，难度 +1
         if (riskScore > 0)
         {
             int penalty = riskScore / 10;
-            // 安全性保障：确保难度不超过 WAR_MODE
             return Math.Min(globalDiff + penalty, WAR_MODE_DIFFICULTY);
         }
 
@@ -115,8 +139,6 @@ public class AdaptivePowGovernor(IConnectionMultiplexer redis)
 
         if (now - last >= 1000)
         {
-            // 逻辑自洽：使用 CAS (Compare And Swap) 确保只有一个线程能重置计数器
-            // 避免多线程同时重置导致数据丢失
             if (Interlocked.CompareExchange(ref _lastTick, now, last) == last)
             {
                 Interlocked.Exchange(ref _currentRps, 0);
@@ -125,36 +147,27 @@ public class AdaptivePowGovernor(IConnectionMultiplexer redis)
     }
 
     /// <summary>
-    /// 后台重置任务 (保留作为 Backup)
+    /// 后台重置任务 (配合 PowLoadResetWorker)
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Tick()
     {
         TryResetWindow();
     }
 
     /// <summary>
-    /// 计算全局难度 (CPU + RPS 混合判定)
+    /// 计算全局难度 (基于 RPS 判定)
     /// </summary>
-    private static int CalculateGlobalDifficulty()
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int CalculateGlobalDifficulty()
     {
-        // 1. RPS 判定 (阈值根据前端优化后的吞吐量调整)
-        int rps = _currentRps;
+        // 性能微调：使用 Volatile 读取确保最新值，省去不必要的 Interlocked 锁开销
+        int rps = Volatile.Read(ref _currentRps);
 
-        // 激战模式：RPS > 1000 (通常是 DDoS 级别)
-        // 此时下发难度 7，前端哪怕用 SIMD 也需要跑很久，有效掐断连接
         if (rps > 1000) return WAR_MODE_DIFFICULTY;
-
-        // 拥堵模式：RPS > 300
-        // 下发难度 6 (前端 SIMD 耗时约 800ms-1.2s)，用户稍微转圈，攻击者成本剧增
         if (rps > 300) return HIGH_LOAD_DIFFICULTY;
-
-        // 活跃模式：RPS > 100
-        // 下发难度 5 (前端 SIMD 耗时约 200ms)，用户无感
         if (rps > 100) return ELEVATED_DIFFICULTY;
 
-        // 2. 简易 CPU 负载感知 (可选)
-        // 这里的逻辑保持现状，主要依赖 RPS
-
-        return BASE_DIFFICULTY; // 默认为 4
+        return BASE_DIFFICULTY;
     }
 }

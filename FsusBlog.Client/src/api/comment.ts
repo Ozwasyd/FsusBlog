@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios';
 import api from './index'
 import type { PowRequest } from './auth'
 
@@ -16,7 +17,7 @@ export interface CommentDto extends PowRequest {
 /** 游标分页通用包装 */
 export interface CursorResult<T> {
   data: T[]
-  nextCursor: string | null // 🌟 修改：游标改为 string 以适配 Snowflake
+  nextCursor: string | null // 修改：游标改为 string 以适配 Snowflake
   hasMore: boolean
 }
 
@@ -41,25 +42,52 @@ export interface MyCommentItem {
 // 2. 接口方法
 // =================================================================================
 
-/** * 发布评论 
+/**
+ * [修复 2026-02-23] 逻辑自洽：所有方法增加可选的 config 参数以支持 AbortSignal 物理中断
  */
-export const createComment = (data: CommentDto) => {
-  return api.post<null>('/Comment', data)
+
+/** * 发布评论 
+ * 安全性保障：启用 requiresPow 策略，物理隔离垃圾评论攻击
+ */
+export const createComment = (data: CommentDto, config?: AxiosRequestConfig) => {
+  return api.post<null>('/Comment', data, {
+    ...config,
+    requiresPow: true
+  } as AxiosRequestConfig)
 }
 
-/** 获取文章下的评论列表 */
-export const getComments = (articleId: number, cursor?: string | null, limit = 10) => {
+/** 获取文章下的评论列表 
+ * 算法最优：透传 config 确保长列表加载时可被物理中断
+ */
+export const getComments = (
+  articleId: number, 
+  cursor?: string | null, 
+  limit = 10, 
+  config?: AxiosRequestConfig
+) => {
   return api.get<CursorResult<CommentItem>>(`/Comment/${articleId}`, {
+    ...config,
     params: { cursor, limit }
   })
 }
 
 /** 获取当前登录用户的评论记录 */
-export const getMyComments = (cursor?: string | null, limit: number = 10) =>
+export const getMyComments = (
+  cursor?: string | null, 
+  limit: number = 10, 
+  config?: AxiosRequestConfig
+) =>
   api.get<CursorResult<MyCommentItem>>('/Comment/me', {
+    ...config,
     params: { cursor, limit }
   })
 
-/** 删除评论 */
-export const deleteComment = (id: string) => // 🌟 修改：ID 类型改为 string
-  api.delete<string>(`/Comment/${id}`)
+/** 删除评论 
+ * 修改：ID 类型改为 string
+ * 安全性保障：删除操作接入 PoW，防止针对他人评论的自动化遍历删除尝试
+ */
+export const deleteComment = (id: string, config?: AxiosRequestConfig) =>
+  api.delete<string>(`/Comment/${id}`, {
+    ...config,
+    requiresPow: true
+  } as AxiosRequestConfig)

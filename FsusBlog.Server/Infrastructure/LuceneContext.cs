@@ -7,7 +7,11 @@ using Lucene.Net.Util;
 
 namespace FsusBlog.Server.Infrastructure;
 
-public class LuceneContext : ILuceneContext
+/// <summary>
+/// Lucene 搜索上下文
+/// 修复日期: 2026-02-23 (增加 sealed 修饰符提供 JIT 虚方法消除优化)
+/// </summary>
+public sealed class LuceneContext : ILuceneContext
 {
     private readonly IndexWriter _writer;
     private readonly SearcherManager _searcherManager;
@@ -31,7 +35,7 @@ public class LuceneContext : ILuceneContext
 
         _writer = new IndexWriter(_directory, config);
 
-        // 2. 🌟 初始化 SearcherManager (近实时搜索的核心)
+        // 2. 初始化 SearcherManager (近实时搜索的核心)
         // 参数 true 表示在内存中实时刷新应用变更
         _searcherManager = new SearcherManager(_writer, true, null);
     }
@@ -50,7 +54,7 @@ public class LuceneContext : ILuceneContext
         lock (_syncLock)
         {
             _writer.Commit();
-            // 🌟 告诉管理器：索引已变，下次获取 Searcher 时请刷新
+            // 告诉管理器：索引已变，下次获取 Searcher 时请刷新
             _searcherManager.MaybeRefreshBlocking();
         }
     }
@@ -58,13 +62,13 @@ public class LuceneContext : ILuceneContext
     // --- 读取逻辑 ---
     public IndexSearcher GetSearcher()
     {
-        // 🌟 获取当前最新的有效 Searcher，由管理器维护引用计数
+        // 获取当前最新的有效 Searcher，由管理器维护引用计数
         return _searcherManager.Acquire();
     }
 
     public void ReleaseSearcher(IndexSearcher searcher)
     {
-        // 🌟 必须手动释放引用，否则会导致索引文件无法被删除/合并
+        // 必须手动释放引用，否则会导致索引文件无法被删除/合并
         _searcherManager.Release(searcher);
     }
 

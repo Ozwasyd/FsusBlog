@@ -1,16 +1,19 @@
 <template>
   <div class="dashboard-wrapper">
+    <!-- 顶部数据概览卡片 -->
     <el-row :gutter="20" class="mb-5">
       <el-col :xs="24" :sm="12" :lg="6" v-for="item in statCards" :key="item.label" class="mb-4">
         <el-card shadow="hover" class="border-none transition-all duration-300 hover:-translate-y-1">
           <div class="flex items-center gap-4">
             <div :class="['p-4 rounded-xl flex items-center justify-center shrink-0', item.bgClass]">
-              <el-icon size="26" :class="item.iconClass"><component :is="item.icon" /></el-icon>
+              <el-icon size="26" :class="item.iconClass">
+                <component :is="item.icon" />
+              </el-icon>
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-zinc-500 text-xs font-bold mb-1 uppercase tracking-wider">{{ item.label }}</p>
               <div class="flex items-baseline">
-                <span class="text-2xl font-bold text-zinc-800 tracking-tight">
+                <span class="text-2xl font-bold text-zinc-800 tracking-tight tabular-nums">
                   {{ stats[item.key as keyof SiteStats] ?? 0 }}
                 </span>
               </div>
@@ -20,6 +23,7 @@
       </el-col>
     </el-row>
 
+    <!-- 中部图表区域 -->
     <el-row :gutter="20" class="mb-5">
       <el-col :xs="24" :lg="8" class="mb-5">
         <el-card shadow="never" class="border-zinc-100">
@@ -42,6 +46,7 @@
       </el-col>
     </el-row>
 
+    <!-- 底部数据列表区域 -->
     <el-row :gutter="20">
       <el-col :xs="24" :lg="12" class="mb-5">
         <el-card header="热门文章排行" shadow="never" class="border-zinc-100 h-full">
@@ -53,7 +58,13 @@
                 </span>
               </template>
             </el-table-column>
-            <el-table-column prop="title" label="文章标题" min-width="200" show-overflow-tooltip />
+            <el-table-column label="文章标题" min-width="200" show-overflow-tooltip>
+              <template #default="{ row }">
+                <router-link :to="{ name: 'ArticleDetail', params: { id: String(row.id) } }" class="text-zinc-700 hover:text-blue-600 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded-sm">
+                  {{ row.title }}
+                </router-link>
+              </template>
+            </el-table-column>
             <el-table-column prop="views" label="阅读量" width="100" align="right">
               <template #default="{ row }">
                 <el-tag size="small" type="info" effect="plain" class="font-mono">
@@ -75,7 +86,7 @@
               <el-timeline-item
                 v-for="(comment, index) in stats.recentComments"
                 :key="index"
-                :timestamp="formatTime(comment.createTime)"
+                :timestamp="TimeUtils.toFullLocalString(comment.createTime)"
                 placement="top"
                 :type="index === 0 ? 'primary' : ''"
               >
@@ -83,7 +94,7 @@
                   <div class="flex items-center mb-1">
                     <span class="font-bold text-sm text-blue-600 tracking-wide">{{ comment.userName }}</span>
                   </div>
-                  <p class="text-zinc-600 text-sm leading-relaxed">{{ comment.content }}</p>
+                  <p class="text-zinc-600 text-sm leading-relaxed whitespace-pre-wrap word-break-all">{{ comment.content }}</p>
                 </div>
               </el-timeline-item>
             </el-timeline>
@@ -95,14 +106,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, shallowRef, onMounted, onUnmounted, nextTick } from 'vue'
 import { Document, ChatDotRound, View, Delete, InfoFilled } from '@element-plus/icons-vue'
 import { getSiteStats, type SiteStats } from '@/api/stats'
+import { TimeUtils } from '@/utils/time'
 import * as echarts from 'echarts'
-import dayjs from 'dayjs'
 
 const loading = ref(true)
-const stats = ref<SiteStats>({
+
+const stats = shallowRef<SiteStats>({
   totalArticles: 0,
   totalComments: 0,
   trashCount: 0,
@@ -116,7 +128,9 @@ const stats = ref<SiteStats>({
 
 const visitChartRef = ref<HTMLElement>()
 const regionChartRef = ref<HTMLElement>()
+
 let chartInstances: echarts.ECharts[] = []
+let abortController: AbortController | null = null
 
 const statCards = [
   { label: '文章总计', key: 'totalArticles', icon: Document, bgClass: 'bg-blue-50', iconClass: 'text-blue-600' },
@@ -126,24 +140,49 @@ const statCards = [
 ]
 
 const fetchData = async () => {
+  if (abortController) abortController.abort()
+  const currentController = new AbortController()
+  abortController = currentController
+  const { signal } = currentController
+
   loading.value = true
   try {
-    const res = await getSiteStats()
-    if (res) {
+    const res = await getSiteStats({ signal })
+    
+    if (abortController === currentController && res) {
       stats.value = res
       await nextTick()
       renderCharts()
     }
+  } catch (err: any) {
+    if (err.name !== 'AbortError' && abortController === currentController) {
+      console.error('[Dashboard] Sync failed:', err)
+    }
   } finally {
-    loading.value = false
+    if (abortController === currentController) {
+      loading.value = false
+      abortController = null
+    }
   }
 }
 
+/**
+ * 物理渲染引擎
+ * [修复 2026-02-24] 算法最优：引入极其严格的防御性容错模型
+ */
 const renderCharts = () => {
-  chartInstances.forEach(ins => ins.dispose())
+  // 1. 安全卸载旧实例
+  chartInstances.forEach(ins => {
+      try { ins.dispose(); } catch { /* ignore */ }
+  })
   chartInstances = []
 
-  if (visitChartRef.value) {
+  // 2. 物理节点探针防御
+  // 防止在极端异步场景下（如快速切换路由）DOM 已销毁但执行了 render
+  if (!visitChartRef.value || !regionChartRef.value) return;
+
+  try {
+    // 渲染饼图
     const vChart = echarts.init(visitChartRef.value)
     vChart.setOption({
       tooltip: { trigger: 'item' },
@@ -161,9 +200,8 @@ const renderCharts = () => {
       }]
     })
     chartInstances.push(vChart)
-  }
 
-  if (regionChartRef.value) {
+    // 渲染条形图
     const rChart = echarts.init(regionChartRef.value)
     const chartData = [...stats.value.regionDistributions].slice(0, 10)
     rChart.setOption({
@@ -189,18 +227,22 @@ const renderCharts = () => {
       }]
     })
     chartInstances.push(rChart)
+  } catch (renderError) {
+      console.warn('[Dashboard] Chart render aborted due to DOM anomaly:', renderError);
   }
 }
 
-let resizeTimer: any = null
+// 采用 RAF (requestAnimationFrame) 替代 setTimeout，获取最平滑的缩放性能
+let resizeTimer: number | null = null
 const handleResize = () => {
-  if (resizeTimer) clearTimeout(resizeTimer)
-  resizeTimer = setTimeout(() => {
-    chartInstances.forEach(ins => ins.resize())
-  }, 200)
+  if (resizeTimer) return
+  resizeTimer = requestAnimationFrame(() => {
+    chartInstances.forEach(ins => {
+        try { ins.resize(); } catch { /* ignore */ }
+    })
+    resizeTimer = null
+  })
 }
-
-const formatTime = (time: string) => dayjs(time).format('YYYY-MM-DD HH:mm')
 
 onMounted(() => {
   fetchData()
@@ -208,8 +250,16 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (abortController) abortController.abort()
+  if (resizeTimer) cancelAnimationFrame(resizeTimer)
   window.removeEventListener('resize', handleResize)
-  chartInstances.forEach(ins => ins.dispose())
+  
+  chartInstances.forEach(ins => {
+    try {
+      ins.dispose()
+    } catch (e) { /* ignore */ }
+  })
+  chartInstances = []
 })
 </script>
 
@@ -231,5 +281,10 @@ onUnmounted(() => {
   padding: 16px 20px;
   font-size: 14px;
   color: #374151;
+}
+
+.word-break-all {
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 </style>

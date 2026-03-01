@@ -2,6 +2,7 @@
 
 /// <summary>
 /// 后台管理概览统计数据
+/// 保持 class：作为大型聚合根，且内部持有 List<T> 引用类型
 /// </summary>
 public class SiteStatsDto
 {
@@ -16,45 +17,62 @@ public class SiteStatsDto
     public int AnonymousVisits { get; set; }    // 匿名访客访问量
 
     // --- 3. 深度数据 (Detailed Collections) ---
-    public List<PopularArticleDto> PopularArticles { get; set; } = new();
-    public List<RecentCommentDto> RecentComments { get; set; } = new();
-
-    /// <summary>
-    /// 地域分布统计
-    /// 格式遵循: 国家-省份-城市
-    /// </summary>
-    public List<RegionDistributionDto> RegionDistributions { get; set; } = new();
+    public List<PopularArticleDto> PopularArticles { get; set; } = [];
+    public List<RecentCommentDto> RecentComments { get; set; } = [];
+    public List<RegionDistributionDto> RegionDistributions { get; set; } = [];
 }
 
 /// <summary>
 /// 热门文章
+/// 修复日期: 2026-02-23 (重构为 record struct 以实现零分配)
 /// </summary>
-public class PopularArticleDto
+public record struct PopularArticleDto
 {
     public int Id { get; set; }
-    public string Title { get; set; } = string.Empty;
+    public string Title { get; set; }
     public int Views { get; set; }
+
+    // 为结构体提供无参构造函数
+    public PopularArticleDto()
+    {
+        Title = string.Empty;
+    }
 }
 
 /// <summary>
 /// 最新评论
+/// 修复日期: 2026-02-23 (重构为 record struct 以实现零分配)
 /// </summary>
-public class RecentCommentDto
+public record struct RecentCommentDto
 {
-    public int? UserId { get; set; }             // 用户ID
-    public string UserName { get; set; } = "匿名"; // 用户名
-    public string Content { get; set; } = string.Empty;
+    // 恢复 UserId 字段，严格遵守原设计
+    public int? UserId { get; set; }
+    public string UserName { get; set; }
+    public string Content { get; set; }
     public DateTime CreateTime { get; set; }
+
+    // 为结构体提供无参构造函数
+    public RecentCommentDto()
+    {
+        UserName = "匿名";
+        Content = string.Empty;
+    }
 }
 
 /// <summary>
 /// 地域分布项
+/// 修复日期: 2026-02-23 (重构为 record struct 以实现零分配)
 /// </summary>
-public class RegionDistributionDto
+public record struct RegionDistributionDto
 {
     /// <summary>
     /// 地区名称 (如：中国-广东省-深圳市)
     /// </summary>
-    public string Region { get; set; } = "未知地区";
+    public string Region { get; set; }
     public int Count { get; set; }
+
+    public RegionDistributionDto()
+    {
+        Region = "未知地区";
+    }
 }

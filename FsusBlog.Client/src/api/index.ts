@@ -1,10 +1,11 @@
-import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosRequestConfig } from 'axios'
+import axios, { type InternalAxiosRequestConfig, type AxiosResponse  } from 'axios'
 import { useUserStore } from '@/store/user'
 import router from '@/router'
 import { toast } from '@/utils/toast'
+import { usePow, PowAbortError } from '@/composables/usePow' 
+import { getBrowserFp } from '@/utils/fingerprint' 
 
 // 核心修复 2：TypeScript 类型扩展，彻底解决 IDE 报错 (修复日期: 2026-02-20)
-// 逻辑自洽：告诉 TypeScript，经过拦截器处理后，Axios 实例将直接返回解包后的业务数据 T
 declare module 'axios' {
     export interface AxiosInstance {
         request<T = any, R = T, D = any>(config: AxiosRequestConfig<D>): Promise<R>;
@@ -16,20 +17,38 @@ declare module 'axios' {
         put<T = any, R = T, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R>;
         patch<T = any, R = T, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R>;
     }
+    export interface AxiosRequestConfig {
+        requiresPow?: boolean;
+    }
+    export interface InternalAxiosRequestConfig {
+        requiresPow?: boolean;
+    }
 }
 
 interface ApiResponse<T = any> {
-    code: number
-    message: string
-    data: T
+    code?: number
+    Code?: number
+    message?: string
+    Message?: string
+    data?: T
+    Data?: T
 }
+
+// 性能与内存最优化：底层的连续内存分配，避免高频 GC 压力
+const toSafeBase64 = (obj: object): string => {
+    const str = JSON.stringify(obj);
+    const bytes = new TextEncoder().encode(str);
+    return btoa(String.fromCharCode(...bytes));
+};
 
 // =================================================================================
 // 核心状态锁
 // =================================================================================
-let isRefreshing = false
-let requestsQueue: Array<{ resolve: Function, reject: Function, originalConfig: any }> = []
 let isReloginShow = false
+//[修改日期 2026-03-01 11] 
+// 恢复并发锁状态变量，用于真正驱动 JWT 无感自换票机制
+let isRefreshing = false
+let requestsQueue: Array<{ resolve: Function, reject: Function, originalConfig: any }> =[]
 
 const service = axios.create({
     baseURL: '/api',
@@ -37,73 +56,176 @@ const service = axios.create({
     withCredentials: true
 })
 
+// =================================================================================
+// 1. 请求拦截器：PoW 算力注入
+// =================================================================================
 service.interceptors.request.use(
-    (config: InternalAxiosRequestConfig) => config,
+    async (config: InternalAxiosRequestConfig) => {
+        if (!config.requiresPow || config.url?.includes('pow-challenge')) {
+            return config;
+        }
+
+        const { calculate } = usePow();
+        const controller = new AbortController();
+        
+        if (config.signal) {
+            const externalSignal = config.signal as any;
+            if (typeof externalSignal.addEventListener === 'function') {
+                externalSignal.addEventListener('abort', () => controller.abort());
+            }
+        }
+        config.signal = controller.signal;
+
+        try {
+            const response = await axios.get(`${service.defaults.baseURL}/auth/pow-challenge`, {
+                params: { _t: Date.now() },
+                withCredentials: true
+            });
+            
+            const raw = response.data;
+            const c = raw.data || raw.Data || raw; 
+
+            const salt = c.salt || c.Salt;
+            const difficulty = c.difficulty ?? c.Difficulty;
+            const timestamp = c.timestamp ?? c.Timestamp;
+            const signature = c.signature || c.Signature;
+
+            if (!salt || signature === undefined) {
+                throw new Error("CHALLENGE_PARSE_FAILED");
+            }
+
+            const fp = getBrowserFp(); 
+            const { nonce } = await calculate(salt, fp, difficulty);
+
+            const powPayload = {
+                powSalt: salt,
+                powNonce: nonce,
+                powTimestamp: timestamp, 
+                difficulty: difficulty,
+                powSignature: signature,
+                browserFp: fp
+            };
+
+            config.headers = config.headers || {};
+            config.headers['X-Fsus-Pow-Proof'] = toSafeBase64(powPayload);
+            
+            return config;
+        } catch (error) {
+            if (error instanceof PowAbortError) {
+                controller.abort();
+            }
+            return Promise.reject(error);
+        }
+    },
     (error) => Promise.reject(error)
 )
 
+// =================================================================================
+// 2. 响应拦截器：全局错误处理与装箱拆包
+// =================================================================================
 service.interceptors.response.use(
     (response: AxiosResponse<ApiResponse>) => {
         const res = response.data
-        const isStandardSuccess = res.code === 200 || res.code === 201;
-        const isAnonymousSuccess = !Object.prototype.hasOwnProperty.call(res, 'code') && response.status >= 200 && response.status < 300;
+        const code = res.code ?? res.Code;
+        const message = res.message ?? res.Message;
+        
+        const isStandardSuccess = code === 200 || code === 201;
+        const isAnonymousSuccess = !Object.prototype.hasOwnProperty.call(res, 'code') && !Object.prototype.hasOwnProperty.call(res, 'Code') && response.status >= 200 && response.status < 300;
 
-        // 1. 业务成功 (200, 201)
+        // 1. 业务成功 (直接脱壳并返回数据指针)
         if (isStandardSuccess) {
-            // 核心修复 1：必须解包并返回真实的业务数据 res.data！(修复日期: 2026-02-20)
-            // 防止前端组件拿到的永远是外层的 ApiResponse 包装壳，导致数据读取全部变成 undefined
-            return res.data as any
+            const data = res.data !== undefined ? res.data : res.Data;
+            return data as any
         }
 
-        // 2. 匿名请求成功 (针对外部 API 或特殊端点)
+        // 2. 匿名请求成功
         if (isAnonymousSuccess) {
             return res as any
         }
 
-        // 3. 账户锁定 (423) - 适配 BannedUserFilter (修复日期: 2026-02-20)
-        // 逻辑自洽：当后端显式返回 423 时，仅提示错误并同步 Store 状态，不清除登录态
-        if (res.code === 423) {
+        // 3. 账户锁定 (423)
+        if (code === 423) {
             const userStore = useUserStore()
-            userStore.updateStatus(1, res.message) // 静默同步横幅状态
-            toast.error(res.message || '操作受限：账户已被锁定')
-            return Promise.reject(new Error(res.message || 'Account Locked'))
+            const banMsg = message || '操作受限：账户已被锁定'
+            userStore.updateStatus(1, banMsg) 
+            toast.error(banMsg)
+            return Promise.reject(new Error(banMsg))
         }
 
         // 4. 权限不足 (403)
-        if (res.code === 403) {
-            toast.error(res.message || '权限不足')
-            return Promise.reject(new Error(res.message || 'Forbidden'))
+        if (code === 403) {
+            toast.error(message || '权限不足')
+            return Promise.reject(new Error(message || 'Forbidden'))
         }
 
         // 5. 其他业务失败
-        toast.error(res.message || '服务响应异常')
-        return Promise.reject(new Error(res.message || 'Error'))
+        toast.error(message || '服务响应异常')
+        return Promise.reject(new Error(message || 'Error'))
     },
-    (error) => {
-        const { response } = error
+    async (error) => {
+        if (axios.isCancel(error)) {
+            return Promise.reject(error);
+        }
+
+        const { response, config } = error
         const userStore = useUserStore()
 
         if (response) {
             const { status, data } = response
+            const responseData = data as ApiResponse | undefined;
+            const message = responseData?.message ?? responseData?.Message;
 
-            // 1. 身份失效 (401)
+            // ==============================================================================
+            //[修改日期 2026-03-01 11]
+            // 修改理由：实现真正的 Token 无感自换票。拦截 401 状态，阻塞并发请求，完成换票后重发。
+            // ==============================================================================
             if (status === 401) {
-                return performFinalLogout(userStore, window.location.pathname)
+                // 防御性设计：如果是刷新 Token 的接口本身报 401，说明 RefreshToken 已过期或被伪造，彻底注销
+                if (config.url?.includes('/Auth/refresh-token')) {
+                    return performFinalLogout(userStore, window.location.pathname);
+                }
+
+                if (!isRefreshing) {
+                    isRefreshing = true;
+                    try {
+                        // 1. 发起换票请求 (依赖 withCredentials 自动提交 Cookie 中的 refreshToken)
+                        await service.post('/Auth/refresh-token');
+                        
+                        // 2. 换票成功，后端已重写 HttpOnly Cookie。释放队列中挂起的所有请求，触发自动重试
+                        requestsQueue.forEach(q => q.resolve(service(q.originalConfig)));
+                        requestsQueue =[];
+                        
+                        // 3. 重试当前触发 401 的原始请求
+                        return service(config);
+                    } catch (refreshError) {
+                        // 换票失败，清空挂起队列并将其全部驳回，然后强制注销用户
+                        requestsQueue.forEach(q => q.reject(refreshError));
+                        requestsQueue =[];
+                        return performFinalLogout(userStore, window.location.pathname);
+                    } finally {
+                        isRefreshing = false;
+                    }
+                } else {
+                    // 锁被占用，说明当前有正在进行的换票流程。
+                    // 逻辑自洽：挂起 Promise，将其指针存入队列。这实现了 $O(1)$ 的并发拦截，不会产生冗余的网络请求。
+                    return new Promise((resolve, reject) => {
+                        requestsQueue.push({ resolve, reject, originalConfig: config });
+                    });
+                }
             }
 
-            // 2. 账户锁定 (423) - 适配 BannedUserFilter HTTP 状态码 (修复日期: 2026-02-20)
-            // 安全性保障：捕获 423 状态码，防止被后续的 403 或通用错误逻辑拦截
+            // 2. 账户锁定 (423)
             if (status === 423) {
-                const banMsg = data?.message || '操作已拦截：您的账号当前处于受限状态'
-                userStore.updateStatus(1, banMsg) // 同步 Store，确认为封禁用户
+                const banMsg = message || '操作已拦截：您的账号当前处于受限状态'
+                userStore.updateStatus(1, banMsg) 
                 toast.error(banMsg)
                 return Promise.reject(new Error(banMsg))
             }
 
             // 3. 访问受限 (403)
             if (status === 403) {
-                toast.error(data?.message || '访问受限：无操作权限')
-                return Promise.reject(new Error(data?.message || 'Forbidden'))
+                toast.error(message || '访问受限：无操作权限')
+                return Promise.reject(new Error(message || 'Forbidden'))
             }
 
             // 4. 服务器崩溃 (500)
@@ -157,10 +279,10 @@ function performFinalLogout(userStore: any, currentPath: string) {
     return Promise.reject(new Error('Unauthorized'))
 }
 
+// 恢复清空全锁状态，供页面级路由守卫或极端异常时重置使用
 export const resetApiLocks = () => {
     isRefreshing = false
     isReloginShow = false
     requestsQueue = []
 }
-
 export default service

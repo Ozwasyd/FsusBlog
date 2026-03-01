@@ -2,19 +2,41 @@
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using SqlSugar;
+using System.Data.Common;
 
 namespace FsusBlog.Server.Services;
 
-public class CommentService(ISqlSugarClient _db, ILogger<CommentService> _logger, IMessageService _messageService) : ICommentService
+/// <summary>
+/// 评论核心服务
+/// 修复日期: 2026-02-23 
+/// </summary>
+public class CommentService(
+    ISqlSugarClient _db,
+    ILogger<CommentService> _logger,
+    IMessageService _messageService,
+    IServiceScopeFactory _scopeFactory) : ICommentService
 {
     /// <summary>
     /// 发表评论
     /// </summary>
     public async Task<bool> CreateCommentAsync(int userId, CommentDto dto)
     {
-        // 获取用户信息（用于推送显示用户名）
-        var user = await _db.Queryable<User>().InSingleAsync(userId);
-        if (user == null) return false;
+        var userQuery = _db.Queryable<User>()
+            .Where(u => u.Id == userId)
+            .Select(u => new { u.Username });
+
+        var sqlObj = userQuery.ToSql();
+        string? username = null;
+
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        {
+            if (await reader.ReadAsync())
+            {
+                username = reader.IsDBNull(0) ? "匿名用户" : reader.GetString(0);
+            }
+        }
+
+        if (username == null) return false;
 
         var comment = new Comment
         {
@@ -24,25 +46,21 @@ public class CommentService(ISqlSugarClient _db, ILogger<CommentService> _logger
             CreateTime = DateTime.UtcNow
         };
 
-        // 插入并获取 Snowflake ID
         long generatedId = await _db.Insertable(comment).ExecuteReturnSnowflakeIdAsync();
 
-        bool success = generatedId > 0;
-
-        if (success)
+        if (generatedId > 0)
         {
             comment.Id = generatedId;
 
-            // 构造符合协议的嵌套 DTO
             var notifyPayload = new CommentAddedNotifyDto
             {
                 ArticleId = dto.ArticleId,
                 Comment = new CommentPushDto
                 {
-                    Id = comment.Id.ToString(), // 统一转字符串防止精度丢失
+                    Id = comment.Id.ToString(),
                     Content = comment.Content,
                     CreateTime = comment.CreateTime,
-                    UserName = user.Username
+                    UserName = username
                 },
                 Time = DateTime.UtcNow
             };
@@ -50,45 +68,65 @@ public class CommentService(ISqlSugarClient _db, ILogger<CommentService> _logger
             await _messageService.PushCommentAddAsync(notifyPayload);
 
             _logger.LogInformation("评论发表成功并广播推送 | 文章: {ArticleId} | ID: {Id}", dto.ArticleId, comment.Id);
+            return true;
         }
 
-        return success;
+        return false;
     }
 
     /// <summary>
-    /// 游标分页获取文章评论 (高性能)
+    /// 游标分页获取文章评论 (Dapper 级物理映射)
     /// </summary>
-    public async Task<CursorResult<Comment>> GetCommentsByCursorAsync(int articleId, long? cursor, int limit)
+    public async Task<CursorResult<CommentQueryResultDto>> GetCommentsByCursorAsync(int articleId, long? cursor, int limit)
     {
-        // 逻辑：Id 倒序，查询小于当前游标的记录
-        var query = _db.Queryable<Comment>()
-            .Includes(c => c.User)
-            .Where(c => c.ArticleId == articleId);
-
-        if (cursor.HasValue && cursor > 0)
-        {
-            query = query.Where(c => c.Id < cursor.Value);
-        }
-
-        // 取 limit + 1 条，多出的一条作为 HasMore 的判定哨兵
-        var list = await query
+        var query = _db.Queryable<Comment, User>((c, u) => c.UserId == u.Id)
+            .Where(c => c.ArticleId == articleId)
+            .WhereIF(cursor.HasValue && cursor > 0, c => c.Id < cursor!.Value)
             .OrderByDescending(c => c.Id)
-            .Take(limit + 1)
-            .ToListAsync();
+            .Take(limit + 1) // 取 limit + 1 条作为 HasMore 哨兵
+            .Select((c, u) => new
+            {
+                c.Id,
+                c.Content,
+                c.CreateTime,
+                u.Username
+            });
+
+        var sqlObj = query.ToSql();
+        var list = new List<CommentQueryResultDto>(limit + 1);
+
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        {
+            int fId = reader.GetOrdinal("Id");
+            int fContent = reader.GetOrdinal("Content");
+            int fTime = reader.GetOrdinal("CreateTime");
+            int fName = reader.GetOrdinal("Username");
+
+            while (await reader.ReadAsync())
+            {
+                list.Add(new CommentQueryResultDto
+                {
+                    Id = reader.GetInt64(fId),
+                    Content = reader.GetString(fContent),
+                    CreateTime = reader.GetDateTime(fTime),
+                    UserName = reader.IsDBNull(fName) ? "匿名用户" : reader.GetString(fName)
+                });
+            }
+        }
 
         bool hasMore = list.Count > limit;
+        long? nextCursor = null;
+
         if (hasMore)
         {
-            list.RemoveAt(limit); // 移除判定哨兵
+            list.RemoveAt(limit);
+            nextCursor = list[^1].Id;
         }
 
-        // 确定下一个游标位置
-        long? nextCursor = hasMore ? list.LastOrDefault()?.Id : null;
-
-        return new CursorResult<Comment>
+        return new CursorResult<CommentQueryResultDto>
         {
             Data = list,
-            NextCursor = nextCursor, // 这里的 NextCursor 类型也需要在泛型类中改为 long?
+            NextCursor = nextCursor,
             HasMore = hasMore
         };
     }
@@ -98,33 +136,57 @@ public class CommentService(ISqlSugarClient _db, ILogger<CommentService> _logger
     /// </summary>
     public async Task<CursorResult<UserCommentDto>> GetUserCommentsAsync(int userId, long? cursor, int limit)
     {
-        var query = _db.Queryable<Comment, Article>(
-                (c, a) => c.ArticleId == a.Id
-            )
-            .Where((c, a) => c.UserId == userId && !a.IsDeleted) // 过滤已删除或回收站中的文章
-            .WhereIF(cursor.HasValue && cursor > 0, (c, a) => c.Id < cursor);
-
-        // 核心优化：投影查询，彻底隔离 Article.Content 这种超大文本字段
-        var list = await query
+        var query = _db.Queryable<Comment, Article>((c, a) => c.ArticleId == a.Id)
+            .Where((c, a) => c.UserId == userId && !a.IsDeleted)
+            .WhereIF(cursor.HasValue && cursor > 0, (c, a) => c.Id < cursor)
             .OrderByDescending((c, a) => c.Id)
             .Take(limit + 1)
-            .Select((c, a) => new UserCommentDto
+            .Select((c, a) => new
             {
-                Id = c.Id, // 这里的 UserCommentDto.Id 也建议改为 long
-                Content = c.Content,
-                CreateTime = c.CreateTime,
+                c.Id,
+                c.Content,
+                c.CreateTime,
                 ArticleId = a.Id,
                 ArticleTitle = a.Title
-            })
-            .ToListAsync();
+            });
+
+        var sqlObj = query.ToSql();
+        var list = new List<UserCommentDto>(limit + 1);
+
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        {
+            int fId = reader.GetOrdinal("Id");
+            int fContent = reader.GetOrdinal("Content");
+            int fTime = reader.GetOrdinal("CreateTime");
+            int fArtId = reader.GetOrdinal("ArticleId");
+            int fTitle = reader.GetOrdinal("ArticleTitle");
+
+            while (await reader.ReadAsync())
+            {
+                list.Add(new UserCommentDto
+                {
+                    Id = reader.GetInt64(fId),
+                    Content = reader.GetString(fContent),
+                    CreateTime = reader.GetDateTime(fTime),
+                    ArticleId = reader.GetInt32(fArtId),
+                    ArticleTitle = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle)
+                });
+            }
+        }
 
         bool hasMore = list.Count > limit;
-        if (hasMore) list.RemoveAt(limit);
+        long? nextCursor = null;
+
+        if (hasMore)
+        {
+            list.RemoveAt(limit);
+            nextCursor = list[^1].Id;
+        }
 
         return new CursorResult<UserCommentDto>
         {
             Data = list,
-            NextCursor = hasMore ? list.LastOrDefault()?.Id : null,
+            NextCursor = nextCursor,
             HasMore = hasMore
         };
     }
@@ -134,39 +196,61 @@ public class CommentService(ISqlSugarClient _db, ILogger<CommentService> _logger
     /// </summary>
     public async Task<bool> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason = "违反社区管理条例")
     {
-        // 包含 Article 导航属性以获取标题，用于通知元数据
-        var comment = await _db.Queryable<Comment>()
-            .Includes(c => c.Article)
-            .InSingleAsync(id);
+        var infoQuery = _db.Queryable<Comment, Article>((c, a) => c.ArticleId == a.Id)
+            .Where(c => c.Id == id)
+            .Select((c, a) => new
+            {
+                c.UserId,
+                c.ArticleId,
+                c.Content,
+                ArticleTitle = a.Title
+            });
 
-        if (comment == null) return false;
+        var sqlObj = infoQuery.ToSql();
 
-        // 权限熔断
-        if (comment.UserId != currentUserId && !isAdmin) return false;
+        int? targetUserId = null;
+        int articleId = 0;
+        string content = string.Empty;
+        string articleTitle = string.Empty;
 
-        // 准备通知所需的快照数据（必须在删除前提取）
-        int targetUserId = comment.UserId;
-        string articleTitle = comment.Article?.Title ?? "未知文章";
-        // 截取评论前20个字符作为摘要
-        string commentSnippet = comment.Content.Length > 20
-            ? comment.Content[..20]
-            : comment.Content;
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        {
+            if (await reader.ReadAsync())
+            {
+                targetUserId = reader.GetInt32(0);
+                articleId = reader.GetInt32(1);
+                content = reader.GetString(2);
+                articleTitle = reader.IsDBNull(3) ? "未知文章" : reader.GetString(3);
+            }
+        }
 
-        int articleId = comment.ArticleId;
+        if (targetUserId == null) return false;
+        if (targetUserId.Value != currentUserId && !isAdmin) return false;
 
-        // 原子执行删除
+        // 🌟 核心修复：直接使用 C# 8 切片语法，最干净且无编译错误的实现方式
+        string commentSnippet = content.Length > 20 ? content[..20] : content;
+
         var success = await _db.Deleteable<Comment>().In(id).ExecuteCommandAsync() > 0;
 
         if (success)
         {
-            //实时广播：让所有正在看文章的人 UI 同步移除该评论 (Snowflake ID)
             await _messageService.PushCommentRemoveAsync(articleId, id);
 
-            // 治理通知：仅当管理员删除他人评论时，发送私信通知原作者
-            if (isAdmin && currentUserId != targetUserId)
+            if (isAdmin && currentUserId != targetUserId.Value)
             {
-                // 采用异步触发，不阻塞 API 的最终响应，保障高性能
-                _ = _messageService.SendCommentDeletedNoticeAsync(targetUserId, articleTitle, commentSnippet, reason);
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        using var scope = _scopeFactory.CreateScope();
+                        var msgSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
+                        await msgSvc.SendCommentDeletedNoticeAsync(targetUserId.Value, articleTitle, commentSnippet, reason);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "后台异步发送评论删除通知失败");
+                    }
+                });
             }
 
             _logger.LogInformation("[治理审计] 管理员 {AdminId} 移除了用户 {TargetId} 的评论 | 理由: {Reason} | 评论ID: {Id}", currentUserId, targetUserId, reason, id);

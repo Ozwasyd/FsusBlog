@@ -32,7 +32,7 @@ public class Article
 
     // 摘要
     [SugarColumn(Length = 500, IsNullable = true)]
-    public string Summary { get; set; } = null!;
+    public string? Summary { get; set; }
 
     // 1. 分类 (多对一: Article -> Category)
     public int CategoryId { get; set; }

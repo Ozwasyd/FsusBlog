@@ -12,9 +12,9 @@ export interface CommentAddedPayload {
 export interface CommentRemovedPayload { articleId: number; commentId: string; time: string; }
 
 export interface MessageRevokedPayload {
-    messageId: string;
-    unreadCount: number;
-    time: string;
+  messageId: string;
+  unreadCount: number;
+  time: string;
 }
 
 export interface ArticleUpdatePayload {
@@ -24,14 +24,18 @@ export interface ArticleUpdatePayload {
 }
 
 export interface PowParams {
-    nonce: string; salt: string; fp: string; signature: string; difficulty: number; timestamp: number;
+    nonce: string; 
+    salt: string; 
+    fp: string; 
+    signature: string; 
+    difficulty: number; 
+    timestamp: number;
 }
 
 class NotificationService {
     private connection: signalR.HubConnection | null = null;
     private currentToken: string = "";
 
-    // 钩子定义
     public onUnreadUpdate?: (count: number) => void;
     public onGlobalNotice?: (data: GlobalNoticePayload) => void;
     public onUserStatusChanged?: (data: UserStatusPayload) => void;
@@ -42,26 +46,43 @@ class NotificationService {
     public onMessageRevoked?: (data: MessageRevokedPayload) => void;
 
     public onReconnected?: (connectionId?: string) => void;
-
-    // 核心修复(2026-02-21): 增加 reason 参数，传递异常上下文
     public onRequestNewPow?: (reason?: string) => void;
 
+    /**
+     * [修复 2026-02-24] 算法最优：UTF-8 安全的 Base64 编码
+     * 逻辑自洽：修正 TS 2345 错误，改用 forEach 确保索引访问的类型安全
+     */
+    private toSafeBase64(json: object): string {
+      const str = JSON.stringify(json);
+      const bytes = new TextEncoder().encode(str);
+      let binary = '';
+      
+      // 性能最大化：forEach 自动处理迭代，物理消除 bytes[i] 可能为 undefined 的类型风险
+      bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      
+      return btoa(binary);
+    }
+
+    /**
+     * 凭证封装逻辑
+     */
     private buildFullUrl(baseUrl: string, params?: PowParams): string {
         if (!params) return baseUrl;
 
-        const queryObj: Record<string, string> = {
-            nonce: params.nonce, salt: params.salt, fp: params.fp,
-            signature: params.signature, difficulty: params.difficulty.toString(),
-            timestamp: params.timestamp.toString(),
-            "X-PoW-Nonce": params.nonce,
-            "X-PoW-Salt": params.salt,
-            "X-PoW-Fp": params.fp,
-            "X-PoW-Signature": params.signature,
-            "X-PoW-Difficulty": params.difficulty.toString(),
-            "X-PoW-Timestamp": params.timestamp.toString()
+        // 严格匹配后端 VirtualPowRequest 的 [JsonPropertyName] 契约
+        const powProof = {
+            powNonce: params.nonce,
+            powSalt: params.salt,
+            browserFp: params.fp,
+            powSignature: params.signature,
+            difficulty: params.difficulty,
+            powTimestamp: params.timestamp
         };
-        const query = new URLSearchParams(queryObj).toString();
-        return `${baseUrl}?${query}`;
+
+        const proofBase64 = this.toSafeBase64(powProof);
+        return `${baseUrl}?pow=${encodeURIComponent(proofBase64)}`;
     }
 
     public async start(token: string, powParams?: PowParams): Promise<void> {
@@ -75,20 +96,21 @@ class NotificationService {
             .withUrl(fullUrl, {
                 accessTokenFactory: () => this.currentToken || "",
                 headers: powParams ? {
-                    "X-PoW-Nonce": powParams.nonce,
-                    "X-PoW-Salt": powParams.salt,
-                    "X-PoW-Fp": powParams.fp,
-                    "X-PoW-Signature": powParams.signature,
-                    "X-PoW-Difficulty": powParams.difficulty.toString(),
-                    "X-PoW-Timestamp": powParams.timestamp.toString()
+                    "X-Fsus-Pow-Proof": this.toSafeBase64({
+                        powNonce: powParams.nonce,
+                        powSalt: powParams.salt,
+                        browserFp: powParams.fp,
+                        powSignature: powParams.signature,
+                        difficulty: powParams.difficulty,
+                        powTimestamp: powParams.timestamp
+                    })
                 } : {}
             })
             .withAutomaticReconnect({
                 nextRetryDelayInMilliseconds: retryContext => {
-                    if (!this.currentToken) {
-                        console.warn(" Guest connection lost. Automatic reconnect aborted for new PoW.");
-                        this.onRequestNewPow?.(retryContext.retryReason?.message);
-                        return null;
+                    if (!this.currentToken && retryContext.previousRetryCount > 0) {
+                        this.onRequestNewPow?.("RECONNECT_POW_NEEDED");
+                        return null; 
                     }
                     if (retryContext.previousRetryCount > 10) return null;
                     return Math.min(retryContext.previousRetryCount * 2000, 30000);
@@ -97,19 +119,21 @@ class NotificationService {
             .configureLogging(signalR.LogLevel.Warning)
             .build();
 
-        // 将 403 和 账号受限 等纳入重连捕获池，并透传 message
-        this.connection.onclose(async (error) => {
-            if (error?.message.includes("Access Denied") || error?.message.includes("PoW credentials missing") || error?.message.includes("403") || error?.message.includes("账号受限")) {
-                this.onRequestNewPow?.(error.message);
-            }
-        });
+        const handleConnectionError = (error?: Error) => {
+            if (!error) return;
+            const isCritical = error instanceof signalR.HttpError && (error.statusCode === 401 || error.statusCode === 403);
+            const isPowProblem = error.message.includes("PoW") || 
+                               error.message.includes("安全校验") || 
+                               error.message.includes("凭证") ||
+                               error.message.includes("Access Denied");
 
-        this.connection.onreconnecting((error) => {
-            if (error?.message.includes("Access Denied") || error?.message.includes("403") || error?.message.includes("账号受限")) {
-                console.error(" Reconnect credential invalid.");
+            if (isCritical || isPowProblem) {
                 this.onRequestNewPow?.(error.message);
             }
-        });
+        };
+
+        this.connection.onclose(handleConnectionError);
+        this.connection.onreconnecting(handleConnectionError);
 
         this.connection.onreconnected((connectionId) => {
             this.onReconnected?.(connectionId);
@@ -128,10 +152,7 @@ class NotificationService {
         try {
             await this.connection.start();
         } catch (err: any) {
-            // 如果 start 失败时遭遇了 403 阻断，平滑处理并透传异常原因
-            if (err.message?.includes("Access Denied") || err.message?.includes("PoW credentials missing") || err.message?.includes("403") || err.message?.includes("账号受限")) {
-                this.onRequestNewPow?.(err.message);
-            }
+            handleConnectionError(err);
             this.connection = null;
             throw err;
         }
@@ -140,9 +161,18 @@ class NotificationService {
     public async stop(): Promise<void> {
         if (this.connection) {
             try {
+                this.connection.off("ReceiveNotice");
+                this.connection.off("ReceiveGlobalNotice");
+                this.connection.off("UpdateUnreadCount");
+                this.connection.off("OnUserStatusChanged");
+                this.connection.off("OnCommentAdded");
+                this.connection.off("OnCommentRemoved");
+                this.connection.off("OnMessageReceived");
+                this.connection.off("ReceiveArticleUpdate");
+                this.connection.off("OnMessageRevoked");
                 await this.connection.stop();
             } catch (e) {
-                console.warn(" Stop warning:", e);
+                console.warn(" SignalR Stop warning:", e);
             } finally {
                 this.connection = null;
             }

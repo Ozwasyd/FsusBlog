@@ -5,9 +5,10 @@ namespace FsusBlog.Server.Infrastructure.Helpers;
 
 /// <summary>
 /// IP2Location 实例池化策略
-/// 优化点：避免非线程安全冲突，消除重复打开 BIN 文件的磁盘 IO 开销
+/// 修复日期: 2026-02-23 (移除官方已废弃的 UseMemoryMappedFile 属性，保留 sealed 优化与池化预热逻辑)
+/// 优化点：避免非线程安全冲突，消除重复打开 BIN 文件的句柄申请与元数据解析开销
 /// </summary>
-public class IP2LocationPooledObjectPolicy : IPooledObjectPolicy<Component>
+public sealed class IP2LocationPooledObjectPolicy : IPooledObjectPolicy<Component>
 {
     private readonly string _dbPath;
     private readonly ILogger<IP2LocationPooledObjectPolicy> _logger;
@@ -22,7 +23,7 @@ public class IP2LocationPooledObjectPolicy : IPooledObjectPolicy<Component>
         _dbPath = dbPath;
         _logger = logger;
 
-        // 🛡️ 启动防御：如果数据库文件丢失，直接阻断启动，防止后续统计业务崩溃
+        // 启动防御：如果数据库文件丢失，直接阻断启动，防止后续统计业务崩溃
         if (!File.Exists(_dbPath))
         {
             _logger.LogCritical("严重错误：IP2Location 数据库文件缺失 | 路径: {Path}", _dbPath);
@@ -39,8 +40,8 @@ public class IP2LocationPooledObjectPolicy : IPooledObjectPolicy<Component>
         {
             var component = new Component();
 
-            // 🚀 核心优化：在对象进入池之前就打开数据库
-            // 使得后续所有的解析操作都是 O(1) 或 O(log n) 的内存操作
+            // 🚀 核心优化：在对象进入池之前就打开数据库并解析完文件头元数据
+            // 使得后续所有的 IP 解析操作都能跳过初始化步骤
             component.Open(_dbPath);
 
             _logger.LogDebug("已成功初始化并预热一个新的 IP2Location 实例");

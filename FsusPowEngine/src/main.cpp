@@ -1,126 +1,162 @@
 ﻿#include <cstring>
 #include <vector>
 #include <string>
-#include <algorithm> // for std::copy
 #include <cstdint>
-
-// 引入 Picosha2 头文件 (请确保项目目录包含 include/picosha2.h)
-#include "include/picosha2.h" 
-
-#ifdef __EMSCRIPTEN__
-    // 仅在 WASM 编译环境下引入 Emscripten 绑定
 #include <emscripten/bind.h>
-using namespace emscripten;
 
-// 仅在 SIMD 模式下引入 WASM Intrinsic 头文件
 #ifdef __wasm_simd128__
 #include <wasm_simd128.h>
 #endif
-#else
-    // 仅在本地后端编译环境下引入 AVX2 Intrinsic 头文件
-#include <immintrin.h>
-#endif
+
+using namespace emscripten;
+
+// 修复日期: 2026-02-22 (彻底移除后端 DLL 依赖，专职服务于前端 WebAssembly)
 
 // ==========================================
-// 通用辅助逻辑层
+// 硬核优化的原生 SHA-256 引擎
+// ==========================================
+#define BSWAP32(x) __builtin_bswap32(x)
+
+namespace fast_sha256 {
+    static const uint32_t K[64] = {
+        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    };
+
+#define ROTR(x, n) (((x) >> (n)) | ((x) << (32 - (n))))
+#define CH(x, y, z) (((x) & (y)) ^ (~(x) & (z)))
+#define MAJ(x, y, z) (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
+#define EP0(x) (ROTR(x, 2) ^ ROTR(x, 13) ^ ROTR(x, 22))
+#define EP1(x) (ROTR(x, 6) ^ ROTR(x, 11) ^ ROTR(x, 25))
+#define SIG0(x) (ROTR(x, 7) ^ ROTR(x, 18) ^ ((x) >> 3))
+#define SIG1(x) (ROTR(x, 17) ^ ROTR(x, 19) ^ ((x) >> 10))
+
+    static inline uint32_t load_be32(const uint8_t* p) {
+        uint32_t v;
+        std::memcpy(&v, p, 4);
+        return BSWAP32(v);
+    }
+
+    static inline void store_be32(uint8_t* p, uint32_t v) {
+        v = BSWAP32(v);
+        std::memcpy(p, &v, 4);
+    }
+
+    static void transform(uint32_t* state, const uint8_t* data) {
+        uint32_t a, b, c, d, e, f, g, h, i, j, t1, t2, m[64];
+
+        for (i = 0, j = 0; i < 16; ++i, j += 4)
+            m[i] = load_be32(&data[j]);
+        for (; i < 64; ++i)
+            m[i] = SIG1(m[i - 2]) + m[i - 7] + SIG0(m[i - 15]) + m[i - 16];
+
+        a = state[0]; b = state[1]; c = state[2]; d = state[3];
+        e = state[4]; f = state[5]; g = state[6]; h = state[7];
+
+        for (i = 0; i < 64; ++i) {
+            t1 = h + EP1(e) + CH(e, f, g) + K[i] + m[i];
+            t2 = EP0(a) + MAJ(a, b, c);
+            h = g; g = f; f = e; e = d + t1;
+            d = c; c = b; b = a; a = t1 + t2;
+        }
+
+        state[0] += a; state[1] += b; state[2] += c; state[3] += d;
+        state[4] += e; state[5] += f; state[6] += g; state[7] += h;
+    }
+
+    static void hash256(const uint8_t* data, size_t len, uint8_t* hash) {
+        uint32_t state[8] = {
+            0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+            0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+        };
+        uint8_t block[64];
+        size_t i = 0;
+
+        while (len >= 64) {
+            transform(state, data + i);
+            i += 64;
+            len -= 64;
+        }
+
+        std::memcpy(block, data + i, len);
+        block[len++] = 0x80;
+
+        if (len > 56) {
+            std::memset(block + len, 0, 64 - len);
+            transform(state, block);
+            std::memset(block, 0, 56);
+        }
+        else {
+            std::memset(block + len, 0, 56 - len);
+        }
+
+        uint64_t bit_len = (uint64_t)(i + len - 1) * 8;
+        block[56] = (bit_len >> 56) & 0xff;
+        block[57] = (bit_len >> 48) & 0xff;
+        block[58] = (bit_len >> 40) & 0xff;
+        block[59] = (bit_len >> 32) & 0xff;
+        block[60] = (bit_len >> 24) & 0xff;
+        block[61] = (bit_len >> 16) & 0xff;
+        block[62] = (bit_len >> 8) & 0xff;
+        block[63] = bit_len & 0xff;
+
+        transform(state, block);
+
+        for (i = 0; i < 8; ++i) {
+            store_be32(hash + i * 4, state[i]);
+        }
+    }
+}
+
+// ==========================================
+// 辅助逻辑与 WASM 导出
 // ==========================================
 
-/**
- * 快速 Nonce 自增逻辑 (通用优化版)
- * 处理数字自增及进位导致的缓冲区扩展
- * @param buffer 缓冲区引用
- * @param nonce_start Nonce 在 buffer 中的起始索引
- * @param suffix_start 后缀 (:Fp) 起始索引的引用 (进位时会更新)
- * @param max_size 缓冲区最大允许容量 (安全熔断)
- * @return true 成功, false 溢出/错误
- */
 static inline bool increment_nonce(std::vector<char>& buffer, size_t nonce_start, size_t& suffix_start, size_t max_size) {
-    // 1. 常规路径：从 Nonce 个位开始倒序尝试自增
-    // Nonce 范围: [nonce_start, suffix_start)
     for (int i = (int)suffix_start - 1; i >= (int)nonce_start; --i) {
         if (buffer[i] < '9') {
             buffer[i]++;
-            return true; // 仅数值变化，长度不变，无需内存搬移，极速返回
+            return true;
         }
         else {
-            buffer[i] = '0'; // 9 -> 0, 继续向高位进位
+            buffer[i] = '0';
         }
     }
 
-    // 2. 进位路径：处理位数增加 (例如 99 -> 100)
-    // 此时 buffer 范围内的 Nonce 区域已全变为 '0' (如 00)
-
-    // 安全熔断
     if (buffer.size() + 1 >= max_size) return false;
 
-    // 逻辑 A: 将首位改为 '1' (00 -> 10)
     buffer[nonce_start] = '1';
-
-    // 逻辑 B: 需要在 Nonce 末尾 (即 suffix_start 处) 插入一个 '0'
-    // 这意味着需要将后缀部分整体向后移动 1 位
-
-    // 获取当前后缀的长度 (包含 :)
     size_t suffix_len = buffer.size() - suffix_start;
-
-    // 扩展 buffer 大小 (可能会触发 realloc，但概率极低)
     buffer.resize(buffer.size() + 1);
 
-    // 手动搬移后缀数据 (从后向前搬移，避免覆盖)
-    // 原始后缀位置: [suffix_start ... old_end-1]
-    // 目标位置:     [suffix_start+1 ... new_end-1]
     for (size_t i = 0; i < suffix_len; ++i) {
-        // buffer.size() 已增加 1
-        // 将倒数第 (i+2) 个元素移到倒数第 (i+1) 个位置
         buffer[buffer.size() - 1 - i] = buffer[buffer.size() - 2 - i];
     }
 
-    // 核心修正点：
-    // 腾出的空位正是原来的 suffix_start (现在是 Nonce 的最后一位)
-    // 原来的 suffix_start+1 现在存放的是被移过去的冒号 ':'
-    // 此时: 10...0:Fp
     buffer[suffix_start] = '0';
-
-    // 更新后缀起始索引 (向后推一位)
     suffix_start++;
-
     return true;
 }
 
-#ifdef __EMSCRIPTEN__
-// ==========================================
-// WebAssembly 前端导出部分
-// ==========================================
-
-// 路径 A: SIMD 加速实现
-// 编译条件: CMake 开启 -msimd128
 #ifdef __wasm_simd128__
 
-/**
- * SIMD 优化的哈希检查
- * 利用 v128 寄存器一次并行检查 16 字节
- */
 static inline bool check_hash_simd(const unsigned char* hash, int difficulty) {
-    // 1. 快速检查 (以 16 字节为单位)
-    // difficulty 是半字节数 (nibbles)。32 nibbles = 128 bits = 16 bytes
     int full_128bit_blocks = difficulty / 32;
-
-    // 加载 128位 零向量
     const v128_t zero = wasm_i8x16_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
     for (int i = 0; i < full_128bit_blocks; ++i) {
-        // 加载哈希片段 (v128_load 要求地址对齐，solve_pow_simd 中已处理 alignas)
         v128_t val = wasm_v128_load(hash + (i * 16));
-
-        // 比较 val 是否全为 0。
-        // wasm_i8x16_eq 返回一个向量，相等的位置为 0xFF，不等为 0x00
-        // wasm_i8x16_bitmask 提取每个字节的最高位组成 16bit 掩码
-        // 如果全为 0，掩码应为 0xFFFF
         if (wasm_i8x16_bitmask(wasm_i8x16_eq(val, zero)) != 0xFFFF) {
             return false;
         }
     }
 
-    // 2. 剩余完整字节检查 (标量回退)
     int checked_bytes = full_128bit_blocks * 16;
     int full_bytes = difficulty / 2;
 
@@ -128,7 +164,6 @@ static inline bool check_hash_simd(const unsigned char* hash, int difficulty) {
         if (hash[i] != 0) return false;
     }
 
-    // 3. 半字节检查 (奇数难度)
     if (difficulty % 2 != 0) {
         if ((hash[full_bytes] & 0xF0) != 0) return false;
     }
@@ -137,14 +172,10 @@ static inline bool check_hash_simd(const unsigned char* hash, int difficulty) {
 }
 
 static std::string solve_pow_simd(std::string salt, std::string browserFp, int difficulty) {
-    // 内存对齐的哈希缓冲区 (SIMD 加载必须对齐 16 字节，否则崩溃)
     alignas(16) unsigned char hash[32];
-
-    // 初始化 Buffer，预留足够空间防止 resize
     std::vector<char> buffer;
     buffer.reserve(1024);
 
-    // 构建初始数据 Salt:0:Fp
     buffer.insert(buffer.end(), salt.begin(), salt.end());
     buffer.push_back(':');
     size_t nonce_start = buffer.size();
@@ -153,37 +184,23 @@ static std::string solve_pow_simd(std::string salt, std::string browserFp, int d
     buffer.push_back(':');
     buffer.insert(buffer.end(), browserFp.begin(), browserFp.end());
 
-    // 主循环
     while (true) {
-        // 计算哈希
-        picosha2::hash256(buffer.data(), buffer.data() + buffer.size(), hash, hash + 32);
-
-        // SIMD 检查
+        fast_sha256::hash256(reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size(), hash);
         if (check_hash_simd(hash, difficulty)) {
             return std::string(buffer.data() + nonce_start, suffix_start - nonce_start);
         }
-
-        // 自增 Nonce
-        if (!increment_nonce(buffer, nonce_start, suffix_start, 1024)) {
-            return "failed_overflow";
-        }
+        if (!increment_nonce(buffer, nonce_start, suffix_start, 1024)) return "failed_overflow";
     }
     return "failed";
 }
 
 #else 
 
-// 路径 B: 标量极致优化实现 (Fallback)
-// 编译条件: 未开启 -msimd128
-
 static inline bool check_hash_scalar(const unsigned char* hash, int difficulty) {
-    // 1. 完整字节检查
     int full_bytes = difficulty / 2;
     for (int i = 0; i < full_bytes; ++i) {
         if (hash[i] != 0) return false;
     }
-
-    // 2. 半字节检查
     if (difficulty % 2 != 0) {
         if ((hash[full_bytes] & 0xF0) != 0) return false;
     }
@@ -192,11 +209,9 @@ static inline bool check_hash_scalar(const unsigned char* hash, int difficulty) 
 
 static std::string solve_pow_scalar(std::string salt, std::string browserFp, int difficulty) {
     unsigned char hash[32];
-
     std::vector<char> buffer;
     buffer.reserve(1024);
 
-    // 构建初始数据
     buffer.insert(buffer.end(), salt.begin(), salt.end());
     buffer.push_back(':');
     size_t nonce_start = buffer.size();
@@ -205,34 +220,22 @@ static std::string solve_pow_scalar(std::string salt, std::string browserFp, int
     buffer.push_back(':');
     buffer.insert(buffer.end(), browserFp.begin(), browserFp.end());
 
-    // 主循环
     while (true) {
-        // 计算哈希
-        picosha2::hash256(buffer.data(), buffer.data() + buffer.size(), hash, hash + 32);
-
-        // 标量检查
+        fast_sha256::hash256(reinterpret_cast<const uint8_t*>(buffer.data()), buffer.size(), hash);
         if (check_hash_scalar(hash, difficulty)) {
             return std::string(buffer.data() + nonce_start, suffix_start - nonce_start);
         }
-
-        // 自增 Nonce
-        if (!increment_nonce(buffer, nonce_start, suffix_start, 1024)) {
-            return "failed_overflow";
-        }
+        if (!increment_nonce(buffer, nonce_start, suffix_start, 1024)) return "failed_overflow";
     }
     return "failed";
 }
 
-#endif // End of Path Selection
+#endif 
 
-// 统一入口 (双路径分发代理)
 static std::string solve_pow(std::string salt, std::string browserFp, int difficulty) {
-    // 1. 参数防御 (Input Validation)
     if (salt.length() > 256 || browserFp.length() > 512) return "error_input_too_long";
     if (difficulty <= 0 || difficulty > 64) return "0";
 
-    // 2. 宏编译分发
-    // 根据编译参数决定调用哪个内核，最大化减小 WASM 体积
 #ifdef __wasm_simd128__
     return solve_pow_simd(salt, browserFp, difficulty);
 #else
@@ -240,67 +243,6 @@ static std::string solve_pow(std::string salt, std::string browserFp, int diffic
 #endif
 }
 
-// Embind 导出定义
 EMSCRIPTEN_BINDINGS(pow_module) {
     function("solve_pow", &solve_pow);
 }
-
-#else
-// ==========================================
-// Native DLL/SO 导出接口 (供 C# 后端调用)
-// 适用于 Intel Xeon E5-2686 v4 (AVX2 支持)
-// ==========================================
-
-/**
- * AVX2 极致优化：使用 256位 寄存器执行零值校验
- */
-static inline bool check_hash_avx2(const unsigned char* hash, int difficulty) {
-    int full_bytes = difficulty / 2;
-
-    __m256i v_hash = _mm256_load_si256(reinterpret_cast<const __m256i*>(hash));
-    __m256i v_zero = _mm256_setzero_si256();
-    __m256i v_cmp = _mm256_cmpeq_epi8(v_hash, v_zero);
-
-    uint32_t mask = static_cast<uint32_t>(_mm256_movemask_epi8(v_cmp));
-
-    if (full_bytes > 0) {
-        // 安全性保障：防止 full_bytes == 32 时的左移未定义行为 (UB)
-        uint32_t target_mask = (full_bytes >= 32) ? 0xFFFFFFFF : ((1U << full_bytes) - 1);
-        if ((mask & target_mask) != target_mask) {
-            return false;
-        }
-    }
-
-    if (difficulty % 2 != 0) {
-        if ((hash[full_bytes] & 0xF0) != 0) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-extern "C" {
-#ifdef _WIN32
-    __declspec(dllexport)
-#else
-    __attribute__((visibility("default")))
-#endif
-        bool verify_pow_workload(const uint8_t* data, int32_t length, int32_t difficulty) {
-        // 1. 安全性保障: 参数防御
-        if (!data || length <= 0 || difficulty < 0 || difficulty > 64) {
-            return false;
-        }
-
-        // 2. 内存对齐要求：AVX2 寄存器加载要求 32 字节边界对齐
-        alignas(32) unsigned char hash[32];
-
-        // 3. 逻辑自洽: 不揣测未知代码，复用现有的 picosha2 算法进行纯计算
-        picosha2::hash256(data, data + length, hash, hash + 32);
-
-        // 4. 性能最大化: 调用 AVX2 高速比对逻辑
-        return check_hash_avx2(hash, difficulty);
-    }
-}
-
-#endif // __EMSCRIPTEN__

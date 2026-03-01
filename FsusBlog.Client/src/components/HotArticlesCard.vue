@@ -4,21 +4,30 @@
       热门文章
     </h2>
     
-    <div v-if="loading" class="space-y-6 animate-pulse">
-      <div v-for="i in 5" :key="i" class="flex gap-4">
+    <!-- [修复 2026-02-23] 逻辑自洽：对齐真实 DOM 结构 (ol > li)，消除 Hydration 成本 -->
+    <ol v-if="loading" class="space-y-6 animate-pulse" aria-busy="true">
+      <li v-for="i in CONFIG.MAX_ITEMS" :key="i" class="flex items-start gap-4">
         <div class="w-6 h-6 bg-zinc-100/80 mt-0.5"></div>
         <div class="flex-1 space-y-2.5 pt-1">
           <div class="h-3 bg-zinc-100/80 w-full"></div>
           <div class="h-3 bg-zinc-100/80 w-2/3"></div>
         </div>
-      </div>
+      </li>
+    </ol>
+
+    <!-- [修复 2026-02-23] 状态暴露：区分数据加载失败与空数据的 UI 呈现 -->
+    <div v-else-if="isError" class="text-sm text-zinc-400 py-4">
+      排行榜加载失败，请稍后重试
+    </div>
+    <div v-else-if="!hotArticles.length" class="text-sm text-zinc-400 py-4">
+      暂无热门文章
     </div>
 
     <ol v-else role="list" class="space-y-6">
       <li v-for="(article, index) in hotArticles" :key="article.id" class="group flex items-start gap-4">
         
         <span class="flex-none text-sm font-mono font-medium text-zinc-300 group-hover:text-zinc-950 transition-colors duration-300 w-6 pt-0.5">
-          0{{ index + 1 }}
+          {{ formatIndex(index) }}
         </span>
         
         <div class="flex-auto flex flex-col gap-1.5">
@@ -30,7 +39,8 @@
           </router-link>
           
           <p class="text-xs text-zinc-400 font-medium tracking-tight">
-            {{ article.views }} Views
+            <!-- [修复 2026-02-23] 格式化大数：例如 1234567 -> 1.2M -->
+            {{ formatViews(article.views) }} Views
           </p>
         </div>
 
@@ -43,82 +53,140 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { getHotArticles, type ArticleListItem } from '@/api/article'
 
+// [修复 2026-02-23] 收敛魔法数字 (Magic Number)
+const CONFIG = {
+  MAX_ITEMS: 5,
+  DEBOUNCE_MS: 500
+}
+
+// [修复 2026-02-23] 收敛隐式事件源，剔除 article-updated (不影响访问量排行)
+const SIGNAL_EVENTS = [
+  'signalr:article-created',
+  'signalr:article-deleted',
+  'signalr:article-restored',
+  'signalr:reconnected'
+] as const
+
 const hotArticles = ref<ArticleListItem[]>([])
 const loading = ref(true)
+const isError = ref(false)
 
-// 🌟 安全性保障：并发竞争校验
-const lastEventTime = ref<number>(0)
-// 🌟 性能最大化：防抖定时器
-let debounceTimer: any = null
+// 安全性保障：并发竞争校验
+// [修复 2026-02-23] 废弃不可靠的客户端时间戳解析，依托物理事件流顺序配合防抖
+let abortController: AbortController | null = null
+
+// 性能最大化：防抖定时器
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * 辅助方法：格式化与排序稳定保障
+ */
+const viewFormatter = new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' });
+const formatViews = (views: number) => viewFormatter.format(views);
+const formatIndex = (index: number) => (index + 1).toString().padStart(2, '0');
 
 /**
  * 核心加载逻辑 (逻辑自洽：支持静默更新)
  */
 const loadHotArticles = async (showLoading = true) => {
-  if (showLoading) loading.value = true
+  // 1. 物理中断旧请求
+  if (abortController) {
+    abortController.abort()
+  }
+  
+  abortController = new AbortController()
+  // 算法最优：建立闭包快照，解决 P0 级 finally 覆盖漏洞
+  const currentController = abortController 
+
+  if (showLoading) {
+    loading.value = true
+    isError.value = false
+  }
+
   try {
-    hotArticles.value = await getHotArticles(5)
-  } catch (error) {
-    console.error('[HotArticles] Sync failed:', error)
+    const res = await getHotArticles(CONFIG.MAX_ITEMS, { signal: currentController.signal })
+    
+    // 2. 状态覆盖免疫：只有当前存活的请求才能修改响应式数据
+    if (currentController === abortController) {
+      hotArticles.value = res
+      isError.value = false
+    }
+  } catch (error: any) {
+    if (error.name === 'AbortError') return
+    
+    if (currentController === abortController) {
+      console.error('[HotArticles] Sync failed:', error)
+      isError.value = true
+    }
   } finally {
-    loading.value = false
+    if (currentController === abortController) {
+      if (showLoading) loading.value = false
+      abortController = null
+    }
   }
 }
 
 /**
- * 🌟 热门列表防抖调度中心
+ * 热门列表防抖调度中心
+ * [修复 2026-02-23] 统一拦截所有信号与重连风暴
  */
-const dispatchHotUpdate = (eventTime: string) => {
-  const eventTimestamp = new Date(eventTime).getTime();
-  
-  // 并发校验：仅处理最新的信令
-  if (eventTimestamp <= lastEventTime.value) return;
-  lastEventTime.value = eventTimestamp;
-
-  if (debounceTimer) clearTimeout(debounceTimer);
+const dispatchHotUpdate = () => {
+  if (debounceTimer) clearTimeout(debounceTimer)
   
   debounceTimer = setTimeout(() => {
     console.log("[SignalR] 执行热门文章静默同步...");
-    loadHotArticles(false);
-    debounceTimer = null;
-  }, 500);
+    loadHotArticles(false)
+    debounceTimer = null
+  }, CONFIG.DEBOUNCE_MS)
 }
 
-// 🌟 逻辑自洽：信号拦截器
-const handleRemoteChange = (e: Event) => {
-  const data = (e as CustomEvent).detail;
-  // 无论是新增、更新还是删除，都可能影响热点排行，统一调度同步
-  dispatchHotUpdate(data.eventTime);
+// 逻辑自洽：信号拦截器
+const handleRemoteChange = (_e: Event) => {
+  dispatchHotUpdate();
 }
 
-// 🌟 断线重连同步
+// 断线重连同步
 const handleSignalRReconnected = () => {
-  loadHotArticles(false);
+  dispatchHotUpdate();
 }
 
 onMounted(() => {
   loadHotArticles();
   
-  // 注册信令监听
-  window.addEventListener('signalr:article-created', handleRemoteChange);
-  window.addEventListener('signalr:article-updated', handleRemoteChange);
-  window.addEventListener('signalr:article-deleted', handleRemoteChange);
-  window.addEventListener('signalr:article-restored', handleRemoteChange);
-  window.addEventListener('signalr:reconnected', handleSignalRReconnected);
+  // 集中化注册，解决隐式硬编码
+  SIGNAL_EVENTS.forEach(event => {
+    if (event === 'signalr:reconnected') {
+      window.addEventListener(event, handleSignalRReconnected)
+    } else {
+      window.addEventListener(event, handleRemoteChange)
+    }
+  })
 })
 
 onUnmounted(() => {
   // 安全性保障：清理防抖任务与监听器
-  if (debounceTimer) clearTimeout(debounceTimer);
+  if (abortController) abortController.abort()
+  if (debounceTimer) clearTimeout(debounceTimer)
   
-  window.removeEventListener('signalr:article-created', handleRemoteChange);
-  window.removeEventListener('signalr:article-updated', handleRemoteChange);
-  window.removeEventListener('signalr:article-deleted', handleRemoteChange);
-  window.removeEventListener('signalr:article-restored', handleRemoteChange);
-  window.removeEventListener('signalr:reconnected', handleSignalRReconnected);
+  SIGNAL_EVENTS.forEach(event => {
+    if (event === 'signalr:reconnected') {
+      window.removeEventListener(event, handleSignalRReconnected)
+    } else {
+      window.removeEventListener(event, handleRemoteChange)
+    }
+  })
 })
 </script>
 
 <style scoped>
 @reference "@/assets/main.css";
+
+/* 强制保持行高，消除大数跳变带来的布局闪烁 (CLS 优化) */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  min-height: 2.75rem; 
+}
 </style>

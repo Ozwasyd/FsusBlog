@@ -15,17 +15,29 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
+		<!--[修改日期 2026-03-01] 打破 VS 缓存屏障：将前端源码纳入 MSBuild 监控，保存前端代码即触发增量更新 -->
 	<ItemGroup>
-		<PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+		<UpToDateCheckInput Include="..\FsusBlog.Client\src\**\*" />
+		<UpToDateCheckInput Include="..\FsusBlog.Client\package.json" />
+		<UpToDateCheckInput Include="..\FsusBlog.Client\vite.config.ts" />
+		<UpToDateCheckInput Include="..\FsusBlog.Client\index.html" />
+	</ItemGroup>
+	
+	<!-- 核心修复 (修订日期: 2026-02-22)：使用 Content Include 批量匹配，确保发布时字典文件绝对不会遗漏 -->
+	<ItemGroup>
+		<Content Include="Dictionaries\*.txt">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
 		<PackageReference Include="IP2Location.IPGeolocation" Version="9.1.1" />
 		<PackageReference Include="Lucene.Net" Version="4.8.0-beta00017" />
 		<PackageReference Include="Lucene.Net.Analysis.SmartCn" Version="4.8.0-beta00017" />
 		<PackageReference Include="Lucene.Net.QueryParser" Version="4.8.0-beta00017" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.3" />
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.3" />
-		<PackageReference Include="Microsoft.AspNetCore.SpaProxy">
-			<Version>10.*-*</Version>
-		</PackageReference>
 		<PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.3">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -41,31 +53,6 @@
 		<Content Update="wwwroot\resources\IP2LOCATION.BIN">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
-
-		<None Update="NativeLibs\FsusPowEngine.dll">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<Link>FsusPowEngine.dll</Link>
-		</None>
-		<None Update="NativeLibs\libFsusPowEngine.so">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<Link>libFsusPowEngine.so</Link>
-		</None>
 	</ItemGroup>
-
-	<Target Name="BuildNativeEngineWindows" BeforeTargets="Build" Condition="'$(OS)' == 'Windows_NT' And '$(DOTNET_RUNNING_IN_CONTAINER)' != 'true'">
-		<PropertyGroup>
-			<VsCMakePath Condition="Exists('$(DevEnvDir)CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">$(DevEnvDir)CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</VsCMakePath>
-			<VsCMakePath Condition="'$(VsCMakePath)' == ''">cmake</VsCMakePath>
-		</PropertyGroup>
-
-		<Message Importance="high" Text="[FsusBlog Build] Detected Windows OS. Compiling FsusPowEngine with MSVC (AVX2)..." />
-
-		<MakeDir Directories="..\FsusPowEngine\build_windows" />
-
-		<Exec Command="&quot;$(VsCMakePath)&quot; -S ..\FsusPowEngine -B ..\FsusPowEngine\build_windows" />
-		<Exec Command="&quot;$(VsCMakePath)&quot; --build ..\FsusPowEngine\build_windows --config Release" />
-
-		<Copy SourceFiles="..\FsusPowEngine\build_windows\Release\FsusPowEngine.dll" DestinationFolder="$(OutDir)" ContinueOnError="false" />
-	</Target>
 
 </Project>

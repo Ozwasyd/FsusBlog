@@ -1,10 +1,11 @@
 <template>
   <div class="admin-layout-root el-admin-reset min-h-screen bg-zinc-50 flex overflow-hidden">
     
+    <!-- 移动端遮罩 -->
     <transition name="el-fade-in">
       <div 
-        v-if="isMobile && !isCollapse" 
-        class="fixed inset-0 bg-black/50 z-1000 backdrop-blur-sm"
+        v-if="shouldLockScroll" 
+        class="fixed inset-0 bg-black/50 z-1000 backdrop-blur-sm touch-none"
         @click="isCollapse = true"
       ></div>
     </transition>
@@ -84,7 +85,7 @@
       </el-scrollbar>
     </aside>
 
-    <main class="flex-1 flex flex-col min-w-0 h-screen">
+    <main class="flex-1 flex flex-col min-w-0 h-screen relative">
       <header class="h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-6 shrink-0 z-50">
         <div class="flex items-center gap-4 min-w-0">
           <el-icon 
@@ -109,7 +110,7 @@
           <div class="w-px h-4 bg-zinc-200 hidden sm:block"></div>
 
           <el-dropdown trigger="click" @command="handleCommand">
-            <div class="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-zinc-100 rounded-lg transition-all border border-transparent hover:border-zinc-200">
+            <div class="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-zinc-100 rounded-lg transition-all border border-transparent hover:border-zinc-200 outline-none">
               <el-avatar :size="26" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" />
               <span class="hidden xs:inline text-sm font-medium text-zinc-700">{{ userStore.userInfo?.username }}</span>
               <el-icon class="text-zinc-400"><ArrowDown /></el-icon>
@@ -145,6 +146,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
+import { useSiteStore } from '@/store/site'
 import { 
   Platform, DataLine, Document, FolderOpened, 
   CollectionTag, Setting, Expand, Fold, ArrowDown,
@@ -154,6 +156,7 @@ import {
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const siteStore = useSiteStore()
 
 const isCollapse = ref(false)
 const isMobile = ref(false)
@@ -161,15 +164,42 @@ const isMobile = ref(false)
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => (route.meta.title as string) || '控制板')
 
+// [修复 2026-02-24] 逻辑自洽：计算属性聚合滚动锁状态，消除 watch 分裂风险
+const shouldLockScroll = computed(() => isMobile.value && !isCollapse.value)
+
+let resizeTimer: number | null = null
+
+/**
+ * 响应式处理器
+ * [修复 2026-02-24] 性能最大化：引入 RAF 节流，避免高频 Resize 导致重绘卡顿
+ */
 const resizeHandler = () => {
-  const width = window.innerWidth
-  isMobile.value = width < 768
-  isCollapse.value = isMobile.value
+  if (resizeTimer) return
+  resizeTimer = requestAnimationFrame(() => {
+    const width = window.innerWidth
+    const wasMobile = isMobile.value
+    isMobile.value = width < 768
+    
+    // 逻辑自洽：仅在模式切换且变为桌面端时强制展开，避免干扰用户的主动收起操作
+    if (!isMobile.value && wasMobile) {
+      isCollapse.value = false;
+    } else if (isMobile.value && !wasMobile) {
+      isCollapse.value = true;
+    }
+    
+    resizeTimer = null
+  })
 }
 
-watch(isCollapse, (val) => {
-  if (isMobile.value) {
-    document.body.style.overflow = val ? '' : 'hidden'
+/**
+ * 滚动锁副作用管理
+ * [修复 2026-02-24] 架构一致性：统一监听聚合状态，单点控制
+ */
+watch(shouldLockScroll, (locked) => {
+  if (locked) {
+    siteStore.lockScroll()
+  } else {
+    siteStore.unlockScroll()
   }
 })
 
@@ -177,55 +207,68 @@ const handleMenuSelect = () => {
   if (isMobile.value) isCollapse.value = true
 }
 
-const handleCommand = (command: string) => {
+const handleCommand = async (command: string) => {
   if (command === 'logout') {
-    userStore.logout()
-    router.push('/login')
+    try {
+      await userStore.logout()
+    } catch (e) {
+      // [修复 2026-02-24] 日志记录：记录异常以便追溯，并执行兜底跳转
+      console.error('[Admin] Logout exception:', e)
+      router.push('/login')
+    }
+  } else if (command === 'profile') {
+    router.push('/user/profile')
   } else {
     router.push('/admin/settings')
   }
 }
 
-const openHome = () => window.open('/', '_blank')
+// [修复 2026-02-24] 安全性保障：添加 noopener,noreferrer 防止反向 Tabnabbing 攻击
+const openHome = () => window.open('/', '_blank', 'noopener,noreferrer')
 
 onMounted(() => {
-  resizeHandler()
+  // 手动触发一次以初始化状态
+  const width = window.innerWidth
+  isMobile.value = width < 768
+  isCollapse.value = isMobile.value // 初始状态强制对齐
+  
   window.addEventListener('resize', resizeHandler)
 })
 
 onUnmounted(() => {
+  if (resizeTimer) cancelAnimationFrame(resizeTimer)
   window.removeEventListener('resize', resizeHandler)
-  document.body.style.overflow = ''
+  siteStore.forceUnlockScroll()
 })
 </script>
 
 <style scoped>
 .el-admin-reset {
-  --el-font-family: var(--el-font-family-base);
-  background-color: #f5f7fa;
+  --el-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --el-color-primary: #409EFF;
 }
 
 .admin-sidebar {
   box-shadow: 2px 0 12px rgba(0, 0, 0, 0.05);
 }
 
-/* 🌟 菜单项激活时的背景色调整 */
+/* [修复 2026-02-24] 样式收敛：确保 Active 状态的优先级 */
 :deep(.el-menu-item.is-active) {
-  background-color: #409EFF !important;
+  background-color: var(--el-color-primary) !important;
+  color: #fff !important;
   border-radius: 4px;
   margin: 0 8px;
   width: calc(100% - 16px);
 }
 
-/* 🌟 悬浮态修正 */
 :deep(.el-menu-item:hover), :deep(.el-sub-menu__title:hover) {
-  background-color: rgba(255, 255, 255, 0.05) !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
   color: #fff !important;
 }
 
 .admin-content-box {
   background: #fff;
-  border-radius: 8px; /* 稍微圆润一点更现代 */
+  border-radius: 8px;
   padding: 24px;
   min-height: 100%;
   box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.02), 0 2px 12px 0 rgba(0, 0, 0, 0.04);
@@ -238,12 +281,15 @@ onUnmounted(() => {
   display: none;
 }
 
-/* 滚动条 */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #dcdfe6;
   border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }
 </style>

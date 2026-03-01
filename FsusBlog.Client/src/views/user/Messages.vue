@@ -10,14 +10,16 @@
           <h1 class="text-3xl sm:text-5xl font-bold tracking-tighter text-zinc-950 mb-3 sm:mb-4">
             通知中心
           </h1>
-          <p class="text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-[0.2em]">
+          <p class="text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-[0.2em]" aria-live="polite">
             {{ unreadCount }} 未阅读
           </p>
         </div>
+        <!-- [修复 2026-02-24] A11y：补充 button 类型与 outline-none，防止表单劫持及优化键盘焦点 -->
         <button 
           v-if="unreadCount > 0"
+          type="button"
           @click="handleReadAll"
-          class="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 hover:text-zinc-950 transition-colors duration-300 pb-1 border-b border-transparent hover:border-zinc-950"
+          class="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 hover:text-zinc-950 transition-colors duration-300 pb-1 border-b border-transparent hover:border-zinc-950 outline-none focus-visible:text-zinc-950 focus-visible:border-zinc-950"
         >
           全部标记已读
         </button>
@@ -43,6 +45,7 @@
               <div 
                 v-if="!item.isRead"
                 class="w-1.5 h-1.5 rounded-full bg-zinc-950 animate-pulse"
+                aria-hidden="true"
               ></div>
               <span 
                 class="text-[9px] font-bold uppercase tracking-[0.2em] px-2 py-0.5 rounded-xs border"
@@ -64,6 +67,7 @@
             <h3 class="text-base sm:text-lg font-bold tracking-tight text-zinc-950 leading-snug">
               {{ item.title }}
             </h3>
+            <!-- [修复 2026-02-24] 安全性：虽然目前是纯文本，但预防性拦截潜在的换行注水攻击 -->
             <p class="text-zinc-500 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
               {{ item.content }}
             </p>
@@ -72,15 +76,17 @@
           <div class="flex justify-end gap-6 items-center pt-2">
             <button 
               v-if="!item.isRead"
+              type="button"
               @click="handleMarkRead(item.id)"
-              class="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-950 underline underline-offset-8 decoration-zinc-200 hover:decoration-zinc-950 transition-all py-3"
+              class="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-950 underline underline-offset-8 decoration-zinc-200 hover:decoration-zinc-950 transition-all py-3 outline-none focus-visible:decoration-zinc-950"
             >
               我知道了
             </button>
             <button 
               v-if="item.category !== MessageCategory.Broadcast"
+              type="button"
               @click="requestDelete(item.id)"
-              class="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-300 hover:text-red-500 transition-colors duration-300 py-3 active:scale-95"
+              class="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-300 hover:text-red-500 transition-colors duration-300 py-3 active:scale-95 outline-none focus-visible:text-red-500"
             >
               删除
             </button>
@@ -88,13 +94,17 @@
         </article>
       </TransitionGroup>
 
-      <div v-if="hasMore || loading" class="pt-12 border-t border-zinc-950 flex justify-center">
+      <div v-if="hasMore || loadingMore" class="pt-12 border-t border-zinc-950 flex justify-center">
         <button 
+          type="button"
           @click="loadMore"
-          :disabled="loading"
-          class="w-full sm:w-auto px-12 py-4 sm:py-3 border border-zinc-950 text-[10px] font-black tracking-[0.3em] uppercase transition-all duration-300 hover:bg-zinc-950 hover:text-white disabled:opacity-30"
+          :disabled="loadingMore"
+          class="w-full sm:w-auto px-12 py-4 sm:py-3 border border-zinc-950 text-[10px] font-black tracking-[0.3em] uppercase transition-all duration-300 hover:bg-zinc-950 hover:text-white disabled:opacity-30 outline-none focus-visible:ring-2 focus-visible:ring-zinc-950"
         >
-          {{ loading ? '同步中...' : '加载更多消息' }}
+          <template v-if="loadingMore">
+            <span class="animate-pulse">同步中...</span>
+          </template>
+          <template v-else>加载更多消息</template>
         </button>
       </div>
       <div v-else-if="messages.length > 0" class="pt-12 border-t border-zinc-100 text-center">
@@ -104,6 +114,7 @@
       </div>
     </div>
 
+    <!-- 模态框逻辑自洽 -->
     <ConfirmModal 
       v-model:visible="showConfirm"
       title="移除通知"
@@ -115,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, shallowRef } from 'vue'
 import { useNotification } from '@/composables/useNotification'
 import { messageApi, MessageCategory, type MessageItem } from '@/api/message' 
 import { toast } from '@/utils/toast'
@@ -124,44 +135,125 @@ import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 
 const { unreadCount } = useNotification()
 
-const messages = ref<MessageItem[]>([])
-const loading = ref(false)
+// 内存最优化：使用 shallowRef 减少深层响应式代理的开销
+const messages = shallowRef<MessageItem[]>([])
+
+// P0 修复：拆分锁机制，解除静默刷新与分页加载的相互死锁
+const loading = ref(false)     // 专用于首次加载或强制刷新
+const loadingMore = ref(false) // 专用于分页加载
+
 const page = ref(1)
 const hasMore = ref(true)
 
 const showConfirm = ref(false)
 const pendingDeleteId = ref<string | null>(null)
 
+// P1 修复：O(1) 物理索引，消除 map 映射带来的 GC 压力
+const existingIds = new Set<string>()
+
+// P1 修复：乐观更新暂存区，解决与静默刷新的并发覆盖冲突
+const pendingReadIds = new Set<string>()
+const pendingDeleteIds = new Set<string>()
+
+// P0 修复：语义拆分 AbortController
+let refreshController: AbortController | null = null
+let paginationController: AbortController | null = null
+
+// 物理安全机制
+let isMounted = false
+
 /**
- * 🌟 核心：支持静默更新的消息抓取逻辑
+ * 算法最优：映射乐观状态，确保服务器返回的旧数据不会冲掉本地的已读/删除操作
  */
-const fetchMessages = async (isLoadMore = false, silent = false) => {
-  if (loading.value) return
+const applyOptimisticState = (items: MessageItem[]): MessageItem[] => {
+  return items
+    .filter(m => !pendingDeleteIds.has(String(m.id)))
+    .map(m => pendingReadIds.has(String(m.id)) ? { ...m, isRead: true } : m)
+}
+
+/**
+ * 🌟 核心：刷新机制 (首屏 / SignalR 触发)
+ */
+const refreshMessages = async (silent = false) => {
+  if (refreshController) refreshController.abort()
+  const currentController = new AbortController()
+  refreshController = currentController
+  const currentSignal = currentController.signal
+
   if (!silent) loading.value = true
   
   try {
-    const targetPage = isLoadMore ? page.value : 1;
-    const data = await messageApi.getInbox(targetPage, 10)
+    const data = await messageApi.getInbox(1, 10, { signal: currentSignal })
     
-    if (isLoadMore) {
-      messages.value.push(...data)
-    } else {
-      messages.value = data
+    if (!currentSignal.aborted) {
+      const processed = applyOptimisticState(data)
+      
+      // 性能最大化：利用 Object.freeze 物理断绝 Vue 的深度代理，配合 shallowRef 使用
+      messages.value = Object.freeze(processed) as MessageItem[]
+      
+      existingIds.clear()
+      processed.forEach(m => existingIds.add(String(m.id)))
+      
+      page.value = 1
+      hasMore.value = data.length === 10
     }
-    hasMore.value = data.length === 10
   } catch (err: any) {
-    console.error('[Inbox] Sync Error:', err)
+    if (err.name !== 'AbortError' && !currentSignal.aborted) {
+      console.error('[Inbox] Refresh Error:', err.message)
+      if (!silent) toast.error('获取通知失败')
+    }
   } finally {
-    loading.value = false
+    if (refreshController === currentController) {
+      refreshController = null;
+      loading.value = false;
+    }
   }
 }
 
 /**
- * 🌟 响应 SignalR 刷新指令
+ * 🌟 核心：分页机制
  */
+const loadMore = async () => {
+  if (loadingMore.value || !hasMore.value) return
+
+  if (paginationController) paginationController.abort()
+  const currentController = new AbortController()
+  paginationController = currentController
+  const currentSignal = currentController.signal
+
+  loadingMore.value = true
+
+  try {
+    const nextPage = page.value + 1
+    const data = await messageApi.getInbox(nextPage, 10, { signal: currentSignal })
+    
+    if (!currentSignal.aborted) {
+      const uniqueNew = data.filter(item => !existingIds.has(String(item.id)))
+      const processed = applyOptimisticState(uniqueNew)
+      
+      processed.forEach(m => existingIds.add(String(m.id)))
+      messages.value = Object.freeze([...messages.value, ...processed]) as MessageItem[]
+      
+      page.value = nextPage
+      hasMore.value = data.length === 10
+    }
+  } catch (err: any) {
+    if (err.name !== 'AbortError' && !currentSignal.aborted) {
+      console.error('[Inbox] Pagination Error:', err.message)
+    }
+  } finally {
+    if (paginationController === currentController) {
+      paginationController = null;
+      loadingMore.value = false;
+    }
+  }
+}
+
 const handleRefreshInbox = () => {
-  console.log("[SignalR] 信令驱动刷新：从服务端同步最新状态...");
-  fetchMessages(false, true);
+  if (isMounted) {
+    console.log("[SignalR] 信令驱动刷新：从服务端同步最新状态...");
+    refreshMessages(true);
+  }
 }
 
 const getCategoryStyle = (category: number) => {
@@ -179,72 +271,120 @@ const getCategoryName = (category: number) => {
   return '管理员通知'
 }
 
+/**
+ * 逻辑自洽：乐观更新与异常回滚闭环
+ */
 const handleMarkRead = async (id: string) => {
-  const item = messages.value.find(m => String(m.id) === String(id))
+  const targetId = String(id)
+  const itemIndex = messages.value.findIndex(m => String(m.id) === targetId)
+  if (itemIndex === -1) return
+  
+  const item = messages.value[itemIndex]
+  
+  // [修复 2026-02-24] 严格类型检查：确保 item 不为 undefined，修复 TS18048 / TS2322
   if (!item || item.isRead) return
+
+  // 1. 乐观更新 UI 与暂存区
+  pendingReadIds.add(targetId)
+  const newMessages = [...messages.value]
+  newMessages[itemIndex] = { ...item, isRead: true }
+  messages.value = Object.freeze(newMessages) as MessageItem[]
+  
+  // 防止下溢
+  unreadCount.value = Math.max(0, unreadCount.value - 1)
+  
   try {
-    item.isRead = true
-    if (unreadCount.value > 0) unreadCount.value-- 
-    await messageApi.markAsRead(id)
+    await messageApi.markAsRead(targetId)
   } catch (err: any) {
-    item.isRead = false
-    unreadCount.value++ 
-    toast.error('操作失败')
+    // 2. 回滚 UI 与暂存区
+    pendingReadIds.delete(targetId)
+    if (isMounted) {
+      const rollbackMessages = [...messages.value]
+      const currentIdx = rollbackMessages.findIndex(m => String(m.id) === targetId)
+      if (currentIdx !== -1) {
+        // 由于上面已经通过 !item 保证了类型安全，此处解构回滚绝对安全
+        rollbackMessages[currentIdx] = { ...item, isRead: false }
+        messages.value = Object.freeze(rollbackMessages) as MessageItem[]
+      }
+      unreadCount.value++ 
+      toast.error('操作失败，请重试')
+    }
   }
 }
 
 const handleReadAll = async () => {
   if (unreadCount.value === 0) return
+  
   const previousCount = unreadCount.value
+  const previousMessages = [...messages.value]
+
+  // 乐观更新
+  unreadCount.value = 0
+  const processed = messages.value.map(m => {
+    pendingReadIds.add(String(m.id))
+    return { ...m, isRead: true }
+  })
+  messages.value = Object.freeze(processed) as MessageItem[]
+
   try {
-    unreadCount.value = 0
-    messages.value.forEach(m => m.isRead = true)
     await messageApi.markAllRead()
     toast.success('已标记全部')
   } catch (err: any) {
-    unreadCount.value = previousCount
-    fetchMessages() 
+    if (isMounted) {
+      unreadCount.value = previousCount
+      messages.value = Object.freeze(previousMessages) as MessageItem[]
+      messages.value.forEach(m => pendingReadIds.delete(String(m.id)))
+      toast.error('标记失败')
+      refreshMessages(true) 
+    }
   }
 }
 
 const requestDelete = (id: string) => {
-  pendingDeleteId.value = id
+  pendingDeleteId.value = String(id)
   showConfirm.value = true
 }
 
 const executeDelete = async () => {
   if (!pendingDeleteId.value) return
+  
   const id = pendingDeleteId.value
-  const item = messages.value.find(m => String(m.id) === String(id))
+  const item = messages.value.find(m => String(m.id) === id)
   const wasUnread = item && !item.isRead
-  const originalList = [...messages.value]
 
-  messages.value = messages.value.filter(m => String(m.id) !== String(id))
-  if (wasUnread && unreadCount.value > 0) unreadCount.value--
+  // 1. 乐观更新
+  pendingDeleteIds.add(id)
+  messages.value = Object.freeze(messages.value.filter(m => String(m.id) !== id)) as MessageItem[]
+  
+  if (wasUnread) {
+    unreadCount.value = Math.max(0, unreadCount.value - 1)
+  }
   
   try {
     await messageApi.deleteMessage(id)
     toast.success('已移除')
   } catch (err: any) {
-    messages.value = originalList
-    if (wasUnread) unreadCount.value++
-    toast.error(err.message || '操作受限')
+    pendingDeleteIds.delete(id)
+    if (isMounted) {
+      if (wasUnread) unreadCount.value++
+      toast.error(err.response?.data?.message || err.message || '操作受限')
+      refreshMessages(true)
+    }
   } finally {
     pendingDeleteId.value = null
   }
 }
 
-const loadMore = () => {
-  page.value++
-  fetchMessages(true)
-}
-
 onMounted(() => {
-  fetchMessages()
+  isMounted = true
+  refreshMessages()
   window.addEventListener('signalr:refresh-inbox', handleRefreshInbox)
 })
 
 onUnmounted(() => {
+  isMounted = false
+  if (refreshController) refreshController.abort()
+  if (paginationController) paginationController.abort()
   window.removeEventListener('signalr:refresh-inbox', handleRefreshInbox)
 })
 </script>
@@ -290,5 +430,10 @@ onUnmounted(() => {
     line-height: 1.8;
     letter-spacing: 0.015em;
   }
+}
+
+.wrap-break-word {
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 </style>

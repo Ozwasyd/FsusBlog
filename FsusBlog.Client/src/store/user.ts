@@ -1,98 +1,124 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { resetApiLocks } from '@/api/index'
 import { getMe, logout as logoutApi, type UserInfo } from '@/api/auth'
+import { notificationService } from '@/services/notificationService' 
 
 export const useUserStore = defineStore('user', () => {
 
     // ================= 1. State =================
     const userInfo = ref<UserInfo | null>(null)
-    const isLoaded = ref(false)
-
-    /** * 鉴权状态锁
-     * 用于标记“是否已经执行过初始身份检查”。
-     * true = 已完成握手（无论结果是登录成功还是游客），避免 401 循环请求。
-     */
     const isAuthChecked = ref(false)
+    const isLoading = ref(false)
+    const isLoggingOut = ref(false) 
 
     let fetchPromise: Promise<void> | null = null
+    let abortController: AbortController | null = null
 
     // ================= 2. Getters =================
     const isLoggedIn = computed(() => !!userInfo.value)
-    const isAdmin = computed(() => userInfo.value?.role === 'admin')
+    
+    const isAdmin = computed(() => {
+        const adminRoles = ['admin', 'root', 'super_admin'];
+        return userInfo.value ? adminRoles.includes(userInfo.value.role) : false;
+    })
+    
     const isBanned = computed(() => userInfo.value?.status === 1)
 
     // ================= 3. Private Helpers =================
 
-    /**
-     * 核心状态清理 (代码复用)
-     */
     const clearLocalState = () => {
-        resetApiLocks()
+        if (abortController) {
+            abortController.abort()
+            abortController = null
+        }
         userInfo.value = null
-        isLoaded.value = false
         isAuthChecked.value = false
+        isLoading.value = false
         fetchPromise = null
+        
+        notificationService.stop(); 
+        sessionStorage.removeItem('signalr_guest_pow');
     }
 
     // ================= 4. Actions =================
 
-    // 核心修复：补充缺失的 setUserInfo 方法供登录组件手动注入状态 (修复日期: 2026-02-20)
-    // 逻辑自洽：同步更新 isLoaded 和 isAuthChecked 锁，防止冗余的 API 请求
     const setUserInfo = (info: UserInfo | null) => {
-        userInfo.value = info
-        if (info) {
-            isLoaded.value = true
-            isAuthChecked.value = true
-        } else {
+        if (!info) {
             clearLocalState()
+            return
         }
+        userInfo.value = info
+        isAuthChecked.value = true
     }
 
     /**
      * 同步当前用户信息
-     * 逻辑自洽：通过 force 参数解决刷新后持久化数据可能过期的问题
+     * [修复 2026-02-24] 判定增强：兼容拦截器包装过的 Unauthorized 错误，彻底解决 UI 卡死
      */
     const fetchUserInfo = async (force = false) => {
-        // 如果已经检查过且非强制刷新，则直接返回
         if (isAuthChecked.value && !force) return
+        
+        if (force && abortController) {
+            abortController.abort()
+            fetchPromise = null
+        }
+
         if (fetchPromise) return fetchPromise
+
+        abortController = new AbortController()
+        const currentController = abortController; 
+        isLoading.value = true
 
         fetchPromise = (async () => {
             try {
-                const res = await getMe()
-                userInfo.value = res
-                isLoaded.value = true
-            } catch (error) {
-                userInfo.value = null
-                isLoaded.value = false
+                const res = await getMe({ signal: currentController.signal })
+                
+                if (currentController === abortController) {
+                    userInfo.value = res
+                    isAuthChecked.value = true
+                }
+            } catch (error: any) {
+                if (error.name === 'AbortError') return;
+
+                // [核心修复] 物理级语义对齐：识别 401 状态或拦截器抛出的 Unauthorized 文本
+                const isUnauthed = error.response?.status === 401 || 
+                                   error.message === 'Unauthorized' || 
+                                   error.message?.includes('401');
+
+                if (isUnauthed) {
+                    userInfo.value = null;
+                    isAuthChecked.value = true; // 标记握手完成，身份确认：游客
+                } else {
+                    console.error('[UserStore] Auth handshake failed:', error.message);
+                    // 如果是 500 或网络错误，不设置 isAuthChecked，允许重试
+                }
             } finally {
-                fetchPromise = null
-                isAuthChecked.value = true
+                if (currentController === abortController) {
+                    fetchPromise = null;
+                    abortController = null;
+                    isLoading.value = false;
+                }
             }
         })()
 
         return fetchPromise
     }
 
-    /**
-     * 安全退出
-     */
     const logout = async () => {
+        if (isLoggingOut.value) return; 
+        isLoggingOut.value = true;
+
         try {
             await logoutApi()
         } catch (error) {
-            console.warn('后端返回：注销失败或已失效。')
+            console.warn('[UserStore] Logout partial failure.');
         } finally {
             clearLocalState()
+            isLoggingOut.value = false;
             window.location.href = '/'
         }
     }
 
-    /**
-     * 静默更新用户状态 (用于 SignalR 实时下发)
-     * 性能最大化：使用对象展开确保深度响应式生效
-     */
     const updateStatus = (status: number, reason: string | null) => {
         if (userInfo.value) {
             userInfo.value = {
@@ -105,12 +131,12 @@ export const useUserStore = defineStore('user', () => {
 
     return {
         userInfo,
-        isLoaded,
+        isLoading,
         isAuthChecked,
         isLoggedIn,
         isAdmin,
         isBanned,
-        setUserInfo, // 核心修复：必须导出该方法，否则外部组件调用时会报 is not a function (修复日期: 2026-02-20)
+        setUserInfo, 
         fetchUserInfo,
         logout,
         updateStatus
@@ -119,6 +145,7 @@ export const useUserStore = defineStore('user', () => {
     persist: {
         key: 'fsus_user_storage',
         storage: localStorage,
+        // [修复 2026-02-24] 允许持久化 isAuthChecked 以实现乐观 UI 渲染
         pick: ['userInfo', 'isAuthChecked']
     }
 })

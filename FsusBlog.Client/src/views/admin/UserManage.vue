@@ -1,16 +1,17 @@
 <template>
   <div class="user-manage-wrapper">
+    <!-- 头部操作面板 -->
     <el-card shadow="never" class="action-card mb-4 sm:mb-5 border-none rounded-xl">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-1">
         <div class="header-info">
           <h2 class="text-lg sm:text-xl font-bold text-zinc-800 tracking-tight flex items-center gap-2">
             用户管理
-            <el-tag size="small" type="info" effect="plain" class="rounded-full border-zinc-200 text-zinc-400">
+            <el-tag size="small" type="info" effect="plain" class="rounded-full border-zinc-200 text-zinc-400 tabular-nums">
               Total: {{ total }}
             </el-tag>
           </h2>
-          <p class="text-[11px] sm:text-[12px] text-zinc-400 mt-1 italic font-medium flex items-center gap-1">
-            高危操作受 PoW 算力盾保护
+          <p class="text-[11px] sm:text-[12px] text-zinc-400 mt-1 italic font-medium">
+            高危操作（封禁/重置密码）将触发强制算力校验
           </p>
         </div>
 
@@ -21,6 +22,7 @@
             clearable 
             class="w-24 flex-1 sm:flex-none"
             @change="handleSearch"
+            :disabled="loading"
           >
             <el-option label="正常" :value="0" />
             <el-option label="已封禁" :value="1" />
@@ -33,13 +35,14 @@
             @clear="handleSearch"
             @keyup.enter="handleSearch"
             class="w-full sm:w-48 lg:w-64 flex-2 sm:flex-none"
+            :disabled="loading"
           >
             <template #prefix>
               <el-icon class="text-zinc-400"><Search /></el-icon>
             </template>
           </el-input>
           
-          <el-button type="primary" icon="Search" @click="handleSearch" class="shadow-md shadow-blue-50">
+          <el-button type="primary" :icon="Search" @click="handleSearch" class="shadow-md shadow-blue-50" :loading="loading">
             查询
           </el-button>
         </div>
@@ -55,27 +58,27 @@
         style="width: 100%"
         class="user-table"
       >
-        <el-table-column prop="id" label="ID" min-width= 'max-content' align="center" class-name="font-mono text-zinc-300 hidden sm:table-cell" />
+        <el-table-column prop="id" label="ID" min-width="80" align="center" class-name="font-mono text-zinc-300 hidden-sm-and-down" />
         
-        <el-table-column label="用户" min-width="500">
-          <template ] #default="{ row }: { row: UserListItem }">
+        <el-table-column label="用户" min-width="220">
+          <template #default="{ row }: { row: UserListItem }">
             <div class="flex items-center gap-3 whitespace-nowrap overflow-visible">
               <el-avatar :size="32" class="bg-zinc-100 text-zinc-400 font-bold shrink-0">
                 {{ row.username.substring(0, 2).toUpperCase() }}
               </el-avatar>
               <div class="flex flex-col justify-center">
-                <div min-width= 'max-content' class="font-bold text-zinc-700 text-sm leading-tight">
+                <div class="font-bold text-zinc-700 text-sm leading-tight">
                   {{ row.username }}
                 </div>
-                <div min-width= 'max-content' class="text-[10px] text-zinc-400 font-mono mt-0.5">
-                  {{ row.createTime }} 注册
+                <div class="text-[10px] text-zinc-400 font-mono mt-0.5 tabular-nums">
+                  {{ TimeUtils.toFullLocalString(row.createTime) }} 注册
                 </div>
               </div>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column prop="role" label="角色" min-width= 'max-content' align="center">
+        <el-table-column prop="role" label="角色" width="80" align="center">
           <template #default="{ row }: { row: UserListItem }">
             <span class="text-[10px] font-black italic uppercase" :class="row.role==='admin'?'text-red-500':'text-zinc-400'">
                {{ row.role === 'admin' ? 'ADM' : 'USR' }}
@@ -83,10 +86,10 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="最后活动" width="160">
+        <el-table-column label="最后活动" width="160" class-name="hidden-md-and-down">
           <template #default="{ row }: { row: UserListItem }">
-            <div v-if="row.lastLoginTime" class="flex flex-col whitespace-nowrap">
-              <span class="text-[11px] text-zinc-600 font-mono">{{ row.lastLoginTime }}</span>
+            <div v-if="row.lastLoginTime" class="flex flex-col whitespace-nowrap tabular-nums">
+              <span class="text-[11px] text-zinc-600 font-mono">{{ TimeUtils.toFullLocalString(row.lastLoginTime) }}</span>
               <span class="text-[10px] text-zinc-300 font-mono flex items-center gap-1">
                 <el-icon class="text-[8px]"><Location /></el-icon> {{ row.lastLoginIp }}
               </span>
@@ -109,17 +112,17 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作选项" width="120" align="right" :fixed="isMobile ? false : 'right'">
+        <el-table-column label="操作" width="120" align="right" :fixed="isMobile ? false : 'right'">
           <template #default="{ row }: { row: UserListItem }">
             <div class="flex justify-end items-center gap-1 pr-1" v-if="row.role !== 'admin'">
-              <el-button link type="primary" icon="Key" @click="openResetDialog(row)" :disabled="isPowCalculating" size="small" />
+              <el-button link type="primary" :icon="Key" @click="openResetDialog(row)" :disabled="isProcessing" size="small" />
               <el-divider direction="vertical" class="mx-0.5" />
               <el-button 
                 link 
                 :type="row.status === 0 ? 'danger' : 'success'" 
                 :icon="row.status === 0 ? 'CircleClose' : 'CircleCheck'"
                 size="small"
-                :loading="processingId === row.id && isPowCalculating"
+                :loading="isProcessing && processingId === row.id"
                 @click="handleToggleStatus(row)"
               >
                 {{ row.status === 0 ? '封禁' : '解封' }}
@@ -166,7 +169,7 @@
           <el-form-item label="设置新登录密码" required>
             <el-input 
               v-model="resetDialog.form.newPassword" 
-              placeholder="请输入 6 位以上密码" 
+              placeholder="请输入 6 位以上密码，禁止使用空格" 
               show-password
               size="large"
             />
@@ -175,14 +178,14 @@
       </div>
       <template #footer>
         <div class="flex gap-3">
-          <el-button @click="resetDialog.visible = false" class="flex-1 rounded-xl">取消</el-button>
+          <el-button @click="resetDialog.visible = false" :disabled="isProcessing" class="flex-1 rounded-xl">取消</el-button>
           <el-button 
             type="danger" 
             class="flex-1 rounded-xl font-bold" 
-            :loading="isResetting && isPowCalculating" 
+            :loading="isProcessing" 
             @click="handleResetSubmit"
           >
-            {{ isResetting && isPowCalculating ? '验证中...' : '确认重置' }}
+            {{ powProvider.isCalculating.value ? '安全校验中...' : '确认重置' }}
           </el-button>
         </div>
       </template>
@@ -203,7 +206,13 @@
 
         <el-form label-position="top">
           <el-form-item label="封禁原因 (将公示给用户)">
-            <el-select v-model="banDialog.reason" placeholder="请选择或输入理由" allow-create filterable>
+            <el-select 
+              v-model="banDialog.reason" 
+              placeholder="请选择或输入理由" 
+              allow-create 
+              filterable
+              maxlength="100"
+            >
               <el-option v-for="item in banDialog.quickReasons" :key="item" :label="item" :value="item" />
             </el-select>
           </el-form-item>
@@ -211,14 +220,14 @@
       </div>
       <template #footer>
         <div class="flex gap-3">
-          <el-button @click="banDialog.visible = false" class="flex-1 rounded-xl">取消</el-button>
+          <el-button @click="banDialog.visible = false" :disabled="isProcessing" class="flex-1 rounded-xl">取消</el-button>
           <el-button 
             type="danger" 
             class="flex-1 rounded-xl font-bold" 
-            :loading="isPowCalculating && processingId === banDialog.targetUser?.id"
+            :loading="isProcessing"
             @click="handleBanSubmit"
           >
-            确认封禁
+            {{ powProvider.isCalculating.value ? '安全校验中...' : '确认封禁' }}
           </el-button>
         </div>
       </template>
@@ -227,24 +236,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed, shallowRef } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import { 
-  getAdminUserList, 
-  adminChangeStatus, 
-  adminResetPassword, 
-  type UserListItem, 
-  type UserQueryDto 
-} from '@/api/admin'
-import { getPowChallenge } from '@/api/auth'
+import { getAdminUserList, adminChangeStatus, adminResetPassword, type UserListItem, type UserQueryDto } from '@/api/admin'
 import { usePow } from '@/composables/usePow'
-
-// 导入所有必要图标，修复 [Vue warn]
-import { 
-  Search, 
-  Location,
-  WarningFilled 
-} from '@element-plus/icons-vue'
+import { TimeUtils } from '@/utils/time'
+import { Search, Location, WarningFilled, Key } from '@element-plus/icons-vue'
 
 // === 移动端响应式监测 ===
 const screenWidth = ref(window.innerWidth)
@@ -256,7 +253,7 @@ const isMobile = computed(() => screenWidth.value < 768)
 
 // === 状态定义 ===
 const loading = ref(false)
-const list = ref<UserListItem[]>([])
+const list = shallowRef<UserListItem[]>([])
 const total = ref(0)
 const queryParams = reactive<UserQueryDto>({
   page: 1,
@@ -265,17 +262,21 @@ const queryParams = reactive<UserQueryDto>({
   status: undefined
 })
 
-const { calculate, isCalculating: isPowCalculating, prewarm } = usePow()
+const powProvider = usePow()
 
-const processingId = ref<number | null>(null)
-const isResetting = ref(false)
+let loadController: AbortController | null = null
+let submitController: AbortController | null = null
+
+// [修复 2026-02-24] P1 修复：拆分锁粒度，防止解封操作与密码重置互锁
+const processingId = ref<number | null>(null) // 用于封禁/解封的行级锁
+const submitting = ref(false) // 通用提交锁
+
+const isProcessing = computed(() => submitting.value || powProvider.isCalculating.value)
 
 const resetDialog = reactive({
   visible: false,
   targetUser: null as UserListItem | null,
-  form: {
-    newPassword: ''
-  }
+  form: { newPassword: '' }
 })
 
 const banDialog = reactive({
@@ -287,18 +288,35 @@ const banDialog = reactive({
 
 // === 核心逻辑 ===
 onMounted(() => {
-  prewarm()
+  powProvider.prewarm()
   fetchData()
 })
 
+onUnmounted(() => {
+  if (loadController) loadController.abort()
+  if (submitController) submitController.abort()
+})
+
 const fetchData = async () => {
+  if (loadController) loadController.abort()
+  const currentController = new AbortController()
+  loadController = currentController
+  const { signal } = currentController
+  
   loading.value = true
   try {
-    const res = await getAdminUserList(queryParams)
-    list.value = res.items
-    total.value = res.total
+    const res = await getAdminUserList(queryParams, { signal })
+    if (loadController === currentController) {
+      list.value = res.items
+      total.value = res.total
+    }
+  } catch(err: any) {
+    if (err.name !== 'AbortError') console.error('[Admin Users] Load failed:', err)
   } finally {
-    loading.value = false
+    if (loadController === currentController) {
+      loading.value = false
+      loadController = null
+    }
   }
 }
 
@@ -308,106 +326,77 @@ const handleSearch = () => {
 }
 
 /**
- * 高危操作 PoW 校验
- */
-const executeWithPow = async (): Promise<any> => {
-  const browserFp = btoa(window.navigator.userAgent).substring(0, 16) + window.screen.width
-  const res = await getPowChallenge({ action: 'admin_sensitive' } as any) as any
-  
-  const challenge = {
-    powSalt: res.salt || res.Salt || res.powSalt,
-    powSignature: res.signature || res.Signature || res.powSignature,
-    difficulty: res.difficulty || res.Difficulty,
-    powTimestamp: res.timestamp || res.Timestamp || res.powTimestamp
-  }
-
-  const powResult = await calculate(challenge.powSalt, browserFp, challenge.difficulty)
-
-  return {
-    ...challenge,
-    powNonce: powResult.nonce,
-    browserFp
-  }
-}
-
-/**
- * 状态切换入口 (分流逻辑)
+ * 状态切换
  */
 const handleToggleStatus = async (row: UserListItem) => {
+  if (isProcessing.value) return
+
   if (row.status === 0) {
-    // 🌟 场景 A：执行封禁
-    // 不直接弹确认框，而是打开包含“理由选择”的对话框
     banDialog.targetUser = row
-    banDialog.reason = '' // 重置理由
+    banDialog.reason = ''
     banDialog.visible = true
   } else {
-    // 🌟 场景 B：执行解封
-    // 维持原有逻辑：直接弹出确认框并验证 PoW
     try {
-      await ElMessageBox.confirm(
-        `确定要为用户 "${row.username}" 解除封禁吗？恢复后该用户将重新获得访问权限。`,
-        '系统操作确认',
-        {
-          confirmButtonText: '确认并验证算力',
-          cancelButtonText: '取消',
-          type: 'info'
-        }
-      )
-
-      processingId.value = row.id 
-      const powData = await executeWithPow()
-
-      await adminChangeStatus({
-        userId: row.id,
-        status: 0, // 解封
-        ...powData
+      await ElMessageBox.confirm(`确定要为用户 "${row.username}" 解除封禁吗？`, '操作确认', {
+        confirmButtonText: '立即解封',
+        cancelButtonText: '取消',
+        type: 'info',
+        dangerouslyUseHTMLString: false
       })
 
-      ElMessage.success(`用户 ${row.username} 已成功解封`)
-      fetchData()
+      processingId.value = row.id 
+      submitting.value = true
+
+      if (submitController) submitController.abort()
+      const currentController = new AbortController()
+      submitController = currentController
+      const { signal } = currentController
+
+      await adminChangeStatus({ userId: row.id, status: 0 }, { signal })
+      
+      ElMessage.success(`用户 ${row.username} 已解封`)
+      await fetchData()
     } catch (err: any) {
-      if (err === 'cancel') return
-      ElMessage.error(err.message || '操作失败')
+      // [修复 2026-02-24] P1 修复：使用字符串比对，防止对象引用判定失败
+      if (String(err) !== 'cancel') ElMessage.error('操作失败')
     } finally {
       processingId.value = null
+      submitting.value = false
     }
   }
 }
 
 /**
- * 提交封禁请求
+ * 提交封禁
  */
 const handleBanSubmit = async () => {
-  if (!banDialog.targetUser) return
-  
-  // 理由必填校验 (UI 体验加固)
-  if (!banDialog.reason.trim()) {
-    ElMessage.warning('请选择或输入封禁理由，该理由将同步给被封禁用户')
-    return
+  if (!banDialog.targetUser || !banDialog.reason.trim()) {
+    return ElMessage.warning('请选择或输入封禁理由')
   }
 
   processingId.value = banDialog.targetUser.id
-  
-  try {
-    // 1. 验证 PoW 算力 (高危操作防护)
-    const powData = await executeWithPow()
+  submitting.value = true
 
-    // 2. 调用 API 同步后端 B4 权限元数据更新
+  if (submitController) submitController.abort()
+  const currentController = new AbortController()
+  submitController = currentController
+  const { signal } = currentController
+
+  try {
     await adminChangeStatus({
       userId: banDialog.targetUser.id,
-      status: 1, // 封禁状态
-      reason: banDialog.reason, // 携带理由透传
-      ...powData
-    })
+      status: 1,
+      reason: banDialog.reason,
+    }, { signal })
 
-    // 3. 成功后处理
-    ElMessage.success(`用户 ${banDialog.targetUser.username} 已被强制封禁`)
+    ElMessage.success(`用户 ${banDialog.targetUser.username} 已封禁`)
     banDialog.visible = false
-    fetchData() // 刷新列表状态
+    await fetchData() 
   } catch (err: any) {
-    ElMessage.error(err.message || '封禁操作执行异常')
+    if (err.name !== 'AbortError') ElMessage.error('封禁操作失败')
   } finally {
     processingId.value = null
+    submitting.value = false
   }
 }
 
@@ -418,27 +407,31 @@ const openResetDialog = (row: UserListItem) => {
 }
 
 const handleResetSubmit = async () => {
-  if (!resetDialog.form.newPassword || resetDialog.form.newPassword.length < 6) {
-    ElMessage.warning('密码安全性不足（需6位以上）')
-    return
+  const newPwd = resetDialog.form.newPassword.trim()
+  if (newPwd.length < 6) {
+    return ElMessage.warning('密码安全性不足（需6位以上）')
   }
-  
   if (!resetDialog.targetUser) return
 
-  isResetting.value = true
+  submitting.value = true
+  
+  if (submitController) submitController.abort()
+  const currentController = new AbortController()
+  submitController = currentController
+  const { signal } = currentController
+
   try {
-    const powData = await executeWithPow()
     await adminResetPassword({
       userId: resetDialog.targetUser.id,
-      newPassword: resetDialog.form.newPassword,
-      ...powData
-    })
+      newPassword: newPwd,
+    }, { signal })
+    
     ElMessage.success('密码重置成功')
     resetDialog.visible = false
   } catch (err: any) {
-    ElMessage.error(err.message || '操作失败')
+    if (err.name !== 'AbortError') ElMessage.error('操作失败')
   } finally {
-    isResetting.value = false
+    submitting.value = false
   }
 }
 </script>
@@ -452,17 +445,8 @@ const handleResetSubmit = async () => {
   -webkit-overflow-scrolling: touch;
 }
 
-:deep(.el-table__inner-wrapper::before) {
-  display: none;
-}
+:deep(.el-table__inner-wrapper::before) { display: none; }
 
-:deep(.el-tag--dark.el-tag--danger) {
-  background-color: #fecaca;
-  border-color: #fecaca;
-  color: #991b1b;
-}
-
-/* 分页页码样式微调 */
 .custom-pagination :deep(.el-pager li) {
   background-color: transparent;
   color: #71717a;
@@ -473,5 +457,14 @@ const handleResetSubmit = async () => {
   background-color: #3b82f6 !important;
   color: white !important;
   font-weight: 800;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.word-break-all {
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 </style>

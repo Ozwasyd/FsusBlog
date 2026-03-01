@@ -3,42 +3,89 @@ using global::FsusBlog.Server.Models.Dtos;
 
 namespace FsusBlog.Server.Services;
 
-public class FileService(IWebHostEnvironment _env, ILogger<FileService> _logger) : IFileService
+/// <summary>
+/// 博客插图辅助工具：负责物理文件的 I/O 操作
+/// 修复日期: 2026-02-23 (CISO级别安全修复：封堵 Path Traversal 任意文件删除漏洞，修正 WebRootPath 空引用炸弹，恢复 80KB 异步黄金缓冲区)
+/// </summary>
+public sealed partial class FileService : IFileService
 {
-    private readonly string[] _allowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
-    private readonly string _subFolder = Path.Combine("uploads", "illustration");
+    private readonly IWebHostEnvironment _env;
+    private readonly ILogger<FileService> _logger;
+
+    private static readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+    private readonly string _subFolder;
+
+    private readonly string _folderPath;
+    private readonly string _cleanSubFolderWeb;
+
+    // 核心防御：静态沙箱边界
+    private readonly string _sandboxAbsolutePath;
+
+    public FileService(IWebHostEnvironment env, ILogger<FileService> logger)
+    {
+        _env = env;
+        _logger = logger;
+        _subFolder = Path.Combine("uploads", "illustration");
+
+        // 边缘健壮性修复：兜底 WebRootPath，防止首次部署时 wwwroot 不存在导致的 NullReferenceException
+        string webRoot = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+
+        _folderPath = Path.Combine(webRoot, _subFolder);
+
+        // 初始化沙箱的绝对路径，并强制以分隔符结尾
+        // 防止类似于 /app/wwwroot/uploads_backup 被 /app/wwwroot/uploads 误判放行
+        string absPath = Path.GetFullPath(_folderPath);
+        _sandboxAbsolutePath = absPath.EndsWith(Path.DirectorySeparatorChar)
+            ? absPath
+            : absPath + Path.DirectorySeparatorChar;
+
+        _cleanSubFolderWeb = "/" + _subFolder.Trim('/', '\\').Replace('\\', '/');
+    }
 
     public async Task<FileUploadResult> UploadImageAsync(IFormFile file)
     {
-        // 性能最大化：快速失败原则
         if (file == null || file.Length == 0)
             return new FileUploadResult { Success = false, Message = "文件为空" };
 
-        // 校验扩展名
-        var extension = Path.GetExtension(file.FileName).ToLower();
-        if (!_allowedExtensions.Contains(extension))
-            return new FileUploadResult { Success = false, Message = "格式不支持" };
+        var fileNameSpan = file.FileName.AsSpan();
+        var extSpan = Path.GetExtension(fileNameSpan);
 
-        // 逻辑自洽：确保目录生成的稳定性
-        var folderPath = Path.Combine(_env.WebRootPath, _subFolder);
-        if (!Directory.Exists(folderPath))
+        bool isValidExt = false;
+        foreach (var allowedExt in _allowedExtensions)
         {
-            Directory.CreateDirectory(folderPath);
+            if (extSpan.Equals(allowedExt.AsSpan(), StringComparison.OrdinalIgnoreCase))
+            {
+                isValidExt = true;
+                break;
+            }
         }
 
-        // 生成唯一文件名 (N: 32位数字)
-        var fileName = $"{Guid.NewGuid():N}{extension}";
-        var filePath = Path.Combine(folderPath, fileName);
+        if (!isValidExt)
+            return new FileUploadResult { Success = false, Message = "格式不支持" };
 
-        // 路径安全性：标准化 Web 路径，防止双斜杠
-        var cleanSubFolder = _subFolder.Trim('/', '\\').Replace("\\", "/");
-        var relativeUrl = $"/{cleanSubFolder}/{fileName}";
+        if (!Directory.Exists(_folderPath))
+        {
+            Directory.CreateDirectory(_folderPath);
+        }
+
+        string fileName = $"{Guid.NewGuid():N}{extSpan}";
+        string filePath = Path.Combine(_folderPath, fileName);
+        string relativeUrl = $"{_cleanSubFolderWeb}/{fileName}";
 
         try
         {
-            // 性能优化：显式使用 FileStreamOptions 或异步模式
-            // 使用更高性能的缓冲区配置
-            using (var stream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true))
+            var options = new FileStreamOptions
+            {
+                Mode = FileMode.Create,
+                Access = FileAccess.Write,
+                Share = FileShare.None,
+                // 性能陷阱修复：80KB (81920) 黄金平衡点
+                // 完美贴合 CopyToAsync 默认切块，低于 LOH 阈值，最大化压榨磁盘异步吞吐量
+                BufferSize = 81920,
+                Options = FileOptions.Asynchronous
+            };
+
+            using (var stream = new FileStream(filePath, options))
             {
                 await file.CopyToAsync(stream);
             }
@@ -53,46 +100,90 @@ public class FileService(IWebHostEnvironment _env, ILogger<FileService> _logger)
         }
         catch (Exception ex)
         {
-            // 生产环境安全：记录具体路径以便于排查权限或磁盘满额问题
-            _logger.LogError(ex, "插图磁盘写入异常。目标路径: {FilePath}", filePath);
+            LogWriteError(ex, filePath);
             return new FileUploadResult { Success = false, Message = "写入失败" };
         }
     }
 
-    public async Task<bool> DeleteImageAsync(string imageUrl)
+    public Task<bool> DeleteImageAsync(string imageUrl)
     {
-        if (string.IsNullOrEmpty(imageUrl)) return false;
+        if (string.IsNullOrEmpty(imageUrl)) return Task.FromResult(false);
 
-        // 1. 路径提纯：去掉 Web 路径可能带有的前导斜杠
-        var sanitizedRelativePath = imageUrl.TrimStart('/').Replace('\\', '/');
-
-        // 2. 核心修正：锚定容器根目录
-        // 在 Docker Linux 环境下，Directory.GetCurrentDirectory() 通常指向 Dockerfile 中的 WORKDIR (即 /app)
-        // 这避开了 bin/Debug/net10.0 带来的路径偏移
         var baseDir = Directory.GetCurrentDirectory();
-        var filePath = Path.GetFullPath(Path.Combine(baseDir, sanitizedRelativePath));
 
-        return await Task.Run(() =>
+        int startIndex = 0;
+        while (startIndex < imageUrl.Length && imageUrl[startIndex] == '/')
+        {
+            startIndex++;
+        }
+        int length = imageUrl.Length - startIndex;
+
+        string rawFilePath = string.Create(baseDir.Length + 1 + length, (baseDir, imageUrl, startIndex, length), (dst, state) =>
+        {
+            state.baseDir.AsSpan().CopyTo(dst);
+            dst[state.baseDir.Length] = Path.DirectorySeparatorChar;
+
+            var rel = state.imageUrl.AsSpan(state.startIndex, state.length);
+            for (int i = 0; i < rel.Length; i++)
+            {
+                char c = rel[i];
+                dst[state.baseDir.Length + 1 + i] = (c == '/' || c == '\\')
+                    ? Path.DirectorySeparatorChar
+                    : c;
+            }
+        });
+
+        // 获取包含 ../ 运算后的最终绝对路径
+        string filePath = Path.GetFullPath(rawFilePath);
+
+        // 🌟 致命缺陷修复：沙箱逃逸防御 (Path Traversal 防护)
+        // 如果解析后的路径跳出了我们限定的插图目录，直接拦截！
+        if (!filePath.StartsWith(_sandboxAbsolutePath, StringComparison.OrdinalIgnoreCase))
+        {
+            LogSecurityWarning(filePath);
+            return Task.FromResult(false);
+        }
+
+        return Task.Run(() =>
         {
             try
             {
                 if (File.Exists(filePath))
                 {
                     File.Delete(filePath);
-                    _logger?.LogInformation("[Storage] 物理文件删除成功 | 路径: {FullPath}", filePath);
+                    LogDeleteSuccess(filePath);
                     return true;
                 }
                 else
                 {
-                    _logger?.LogWarning("[Storage] 文件不存在，跳过删除 | 尝试路径: {FullPath}", filePath);
+                    LogFileNotFound(filePath);
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "[Storage] 物理文件删除异常 | 目标路径: {FullPath}", filePath);
+                LogDeleteError(ex, filePath);
                 return false;
             }
         });
     }
+
+    // ==========================================
+    // 高性能日志源生成器 (Zero-Allocation Logging)
+    // ==========================================
+
+    [LoggerMessage(EventId = 1, Level = LogLevel.Error, Message = "插图磁盘写入异常。目标路径: {FilePath}")]
+    private partial void LogWriteError(Exception ex, string filePath);
+
+    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "[Storage] 物理文件删除成功 | 路径: {FullPath}")]
+    private partial void LogDeleteSuccess(string fullPath);
+
+    [LoggerMessage(EventId = 3, Level = LogLevel.Warning, Message = "[Storage] 文件不存在，跳过删除 | 尝试路径: {FullPath}")]
+    private partial void LogFileNotFound(string fullPath);
+
+    [LoggerMessage(EventId = 4, Level = LogLevel.Error, Message = "[Storage] 物理文件删除异常 | 目标路径: {FullPath}")]
+    private partial void LogDeleteError(Exception ex, string fullPath);
+
+    [LoggerMessage(EventId = 5, Level = LogLevel.Critical, Message = "🚨 [安全拦截] 探测到恶意的目录逃逸(Path Traversal)文件删除尝试 | 最终解析路径: {FullPath}")]
+    private partial void LogSecurityWarning(string fullPath);
 }

@@ -1,4 +1,4 @@
-// src/api/message.ts
+import type { AxiosRequestConfig } from 'axios'
 import service from '@/api/index' 
 
 /** * 消息分类常量 
@@ -40,6 +40,7 @@ export interface DirectMessageRequest extends BroadcastRequest {
 /**
  * 站内信模块 API 服务
  * 逻辑自洽：严格区分用户侧 (/v1/messages) 与 管理员侧 (/v1/admin/messages)
+ * 修复日期: 2026-02-23 (适配物理中断与高危操作 PoW 校验)
  */
 export const messageApi = {
     // =================================================================================
@@ -47,33 +48,32 @@ export const messageApi = {
     // =================================================================================
 
     /** * 获取分页收件箱 
-     * @param page 页码
-     * @param size 每页数量 (后端 Math.Clamp 限制最大 50)
+     * [修复 2026-02-23] 增加 config 支持物理中断，优化长列表加载体验
      */
-    getInbox(page: number, size: number) {
+    getInbox(page: number, size: number, config?: AxiosRequestConfig) {
         return service.get<MessageItem[]>('/v1/messages/inbox', {
+            ...config,
             params: { page, size }
         })
     },
 
     /** * 标记单条消息为已读 
-     * @param id 消息 ID (string | number)
      */
-    markAsRead(id: string | number) {
-        return service.post<void>(`/v1/messages/${id}/read`)
+    markAsRead(id: string | number, config?: AxiosRequestConfig) {
+        return service.post<void>(`/v1/messages/${id}/read`, {}, config)
     },
 
     /** * 将所有未读消息标记为已读 
+     * 逻辑自洽：在大规模消息标记时支持 Abort 操作
      */
-    markAllRead() {
-        return service.post<void>('/v1/messages/read-all')
+    markAllRead(config?: AxiosRequestConfig) {
+        return service.post<void>('/v1/messages/read-all', {}, config)
     },
     
     /** * 删除单条消息 (仅从用户个人收件箱移除)
-     * @param id 消息 ID
      */
-    deleteMessage(id: string | number) {
-        return service.delete<void>(`/v1/messages/${id}`)
+    deleteMessage(id: string | number, config?: AxiosRequestConfig) {
+        return service.delete<void>(`/v1/messages/${id}`, config)
     },
 
 
@@ -82,31 +82,42 @@ export const messageApi = {
     // =================================================================================
 
     /** * 管理员：发布全站公告 (实时广播)
+     * 安全性保障：发布全站消息属于极高危操作，强制要求 PoW 证明，
+     * 物理隔离针对广播接口的 CC 攻击或自动化灌水。
      */
-    adminPublishBroadcast(data: BroadcastRequest) {
-        return service.post<void>('/v1/admin/messages/broadcast', data)
+    adminPublishBroadcast(data: BroadcastRequest, config?: AxiosRequestConfig) {
+        return service.post<void>('/v1/admin/messages/broadcast', data, {
+            ...config,
+            requiresPow: true
+        } as AxiosRequestConfig)
     },
 
     /** * 管理员：向特定用户发送定向通知
+     * 安全性保障：防止自动化脚本利用此接口对特定用户进行私信骚扰
      */
-    adminSendDirect(data: DirectMessageRequest) {
-        return service.post<void>('/v1/admin/messages/direct', data)
+    adminSendDirect(data: DirectMessageRequest, config?: AxiosRequestConfig) {
+        return service.post<void>('/v1/admin/messages/direct', data, {
+            ...config,
+            requiresPow: true
+        } as AxiosRequestConfig)
     },
 
     /** * 管理员：获取全站消息分发历史记录 
-     * 用于审计及后续的撤回操作
      */
-    adminGetHistory(page: number, size: number) {
+    adminGetHistory(page: number, size: number, config?: AxiosRequestConfig) {
         return service.get<MessageItem[]>('/v1/admin/messages/history', {
+            ...config,
             params: { page, size }
         })
     },
 
     /** * 管理员：撤回/物理删除消息 
-     * 警告：该操作会从所有接收者的收件箱中物理抹除该消息
-     * @param id 消息 ID
+     * 安全性保障：撤回操作涉及全库索引变更，属于高成本操作，强制开启 PoW 校验
      */
-    adminRevokeMessage(id: string | number) {
-        return service.delete<void>(`/v1/admin/messages/${id}`)
+    adminRevokeMessage(id: string | number, config?: AxiosRequestConfig) {
+        return service.delete<void>(`/v1/admin/messages/${id}`, {
+            ...config,
+            requiresPow: true
+        } as AxiosRequestConfig)
     }
 }
