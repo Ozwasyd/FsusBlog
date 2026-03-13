@@ -25,16 +25,15 @@
       </button>
     </div>
 
-    <article v-else-if="article" class="animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <!-- [物理防线] 加入 overflow-anchor: none 彻底斩断浏览器由于异步渲染导致的自动向下滚动劫持！ -->
+    <article v-else-if="article" class="animate-in fade-in slide-in-from-bottom-4 duration-700" style="overflow-anchor: none;">
 
       <header class="mb-10 sm:mb-16 pb-8 sm:pb-12 border-b border-zinc-100">
-        <h1
-          class="text-2xl sm:text-4xl font-bold text-zinc-950 leading-tight sm:leading-snug mb-5 sm:mb-6 tracking-tight">
+        <h1 class="text-2xl sm:text-4xl font-bold text-zinc-950 leading-tight sm:leading-snug mb-5 sm:mb-6 tracking-tight">
           {{ article.title }}
         </h1>
 
-        <div
-          class="flex flex-wrap items-center gap-3 text-[10px] sm:text-xs font-mono font-medium tracking-wider text-zinc-400 uppercase">
+        <div class="flex flex-wrap items-center gap-3 text-[10px] sm:text-xs font-mono font-medium tracking-wider text-zinc-400 uppercase">
           <time :datetime="article.createTime" :title="TimeUtils.toFullLocalString(article.createTime)">
             {{ TimeUtils.toSmartTime(article.createTime) }}
           </time>
@@ -51,7 +50,6 @@
         </div>
       </header>
 
-      <!-- [修复 2026-02-24] 架构演进：使用独立的渲染引擎组件，剥离渲染脏活 -->
       <MarkdownRenderer 
         ref="articleRendererRef"
         :content="article.content" 
@@ -105,13 +103,12 @@
           </p>
         </div>
 
-        <!-- 为评论列表注入 aria-live 播报新评论 -->
-        <TransitionGroup name="list-fade-up" tag="div" class="space-y-8" aria-live="polite">
-          <div v-for="comment in comments" :key="comment.id" class="group border-b border-zinc-100 pb-8 last:border-0">
+        <!--[重构 2026-03-13] 剥离极耗性能的 TransitionGroup，引入基于切片的 O(1) 虚拟滚动容器 -->
+        <div ref="virtualListRef" class="space-y-8" :style="{ paddingTop: paddingTop + 'px', paddingBottom: paddingBottom + 'px' }" aria-live="polite">
+          <div v-for="comment in visibleComments" :key="comment.id" class="group border-b border-zinc-100 pb-8 last:border-0">
             <div class="flex items-center justify-between gap-3 mb-3">
               <div class="flex items-center gap-3">
                 <span class="text-sm font-bold text-zinc-950 truncate">{{ comment.userName }}</span>
-
                 <button
                   v-if="userStore.isAdmin || (userStore.isLoggedIn && String(comment.userName) === String(userStore.userInfo?.username))"
                   @click="handleCommentDelete(String(comment.id))"
@@ -129,10 +126,10 @@
               {{ comment.content }}
             </p>
           </div>
-        </TransitionGroup>
+        </div>
 
         <!-- 触底加载触发器 -->
-        <div ref="loadMoreTrigger" class="h-32 flex flex-col items-center justify-center">
+        <div ref="loadMoreTrigger" class="h-32 flex flex-col items-center justify-center mt-8">
           <Transition name="state-fade" mode="out-in">
             <div v-if="loadingComments" key="loading" class="flex flex-col items-center gap-3" role="status">
               <span class="text-[10px] font-bold tracking-[0.2em] text-zinc-400 uppercase animate-pulse">加载中</span>
@@ -142,7 +139,7 @@
             </div>
             <div v-else-if="!hasMore" key="end"
               class="text-[10px] font-mono text-zinc-300 uppercase tracking-widest px-4 text-center">
-              {{ comments.length > 0 ? '上面的评论已为最后一条评论。' : '无评论。' }}
+              {{ comments.length > 0 ? '上面的评论已为最后一条。' : '暂无评论。' }}
             </div>
           </Transition>
         </div>
@@ -164,7 +161,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, shallowRef } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getArticleById, type ArticleDetail } from '@/api/article'
 import { getComments, createComment, deleteComment, type CommentItem } from '@/api/comment'
@@ -196,10 +193,9 @@ const article = ref<ArticleDetail | null>(null)
 const loading = ref(true)
 const isError = ref(false)
 
-// [修复 2026-02-24] 引用 MarkdownRenderer 实例
 const articleRendererRef = ref<InstanceType<typeof MarkdownRenderer> | null>(null)
 
-// 性能最大化：评论列表采用 shallowRef 提升大列表 Diff 性能
+// 基础评论源列表
 const comments = shallowRef<CommentItem[]>([])
 const nextCursor = ref<string | null>(null)
 const hasMore = ref(true)
@@ -209,14 +205,74 @@ const loadMoreTrigger = ref<HTMLElement | null>(null)
 const commentContent = ref('')
 const submittingComment = ref(false)
 
+// ==========================================
+// 🚀 O(1) 虚拟滚动核心状态与引擎
+// ==========================================
+const virtualListRef = ref<HTMLElement | null>(null)
+const visibleComments = shallowRef<CommentItem[]>([])
+const paddingTop = ref(0)
+const paddingBottom = ref(0)
+const ITEM_HEIGHT = 120; // 预估单条评论基准高度
+const BUFFER_SIZE = 12; // 视口上下预渲染数量缓冲
+
+let scrollRAF: number | null = null;
+
+const handleVirtualScroll = () => {
+  if (scrollRAF !== null) return;
+  scrollRAF = requestAnimationFrame(() => {
+    updateVirtualScroll();
+    scrollRAF = null;
+  });
+};
+
+const updateVirtualScroll = () => {
+  const total = comments.value.length;
+  if (total === 0) {
+    visibleComments.value =[];
+    paddingTop.value = 0;
+    paddingBottom.value = 0;
+    return;
+  }
+
+  const scrollY = window.scrollY;
+  const winHeight = window.innerHeight;
+
+  let containerTop = 0;
+  if (virtualListRef.value) {
+    // 获取列表容器距离文档顶部绝对物理距离
+    containerTop = virtualListRef.value.getBoundingClientRect().top + scrollY;
+  }
+
+  let startIdx = 0;
+  if (scrollY > containerTop && containerTop !== 0) {
+    startIdx = Math.floor((scrollY - containerTop) / ITEM_HEIGHT) - BUFFER_SIZE;
+  }
+  startIdx = Math.max(0, startIdx);
+
+  let endIdx = startIdx + Math.ceil(winHeight / ITEM_HEIGHT) + (BUFFER_SIZE * 2);
+  endIdx = Math.min(total, endIdx);
+
+  // 切片渲染
+  visibleComments.value = comments.value.slice(startIdx, endIdx);
+  // 计算占位高度，确保系统原生滚动条长度完全真实
+  paddingTop.value = startIdx * ITEM_HEIGHT;
+  paddingBottom.value = (total - endIdx) * ITEM_HEIGHT;
+};
+
+// 监听源数组变化，同步重构渲染切片
+watch(comments, () => {
+  updateVirtualScroll();
+});
+
+// ==========================================
 // 物理安全与竞态控制
+// ==========================================
 let isMounted = false
 let abortController: AbortController | null = null
 let commentAbortController: AbortController | null = null
 
 const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
-// 模态框调度中心
 const modalState = ref({
   visible: false,
   title: '',
@@ -237,13 +293,6 @@ const triggerModal = (config: { title: string, content: string, onConfirm: () =>
 
 let observer: IntersectionObserver | null = null
 
-// ==========================================
-// 1. 核心加载与同步机制
-// ==========================================
-
-/**
- * [修复 2026-02-24] 算法最优：适配组件化架构的平滑滚动锚点校准
- */
 const runSmoothUpdate = async (updateAction: () => Promise<void>) => {
   const container = articleRendererRef.value?.rootEl;
   if (!container || !article.value) {
@@ -284,9 +333,6 @@ const runSmoothUpdate = async (updateAction: () => Promise<void>) => {
   }
 }
 
-/**
- * [修复 2026-02-24] P0 修复：引入物理中断快照与状态强制闭环
- */
 const loadArticle = async (silent = false) => {
   const id = Number(route.params.id)
   if (isNaN(id)) return
@@ -306,9 +352,8 @@ const loadArticle = async (silent = false) => {
       const res = await getArticleById(id, { signal: currentSignal })
       if (isMounted && !currentSignal.aborted && res) {
         article.value = res
-        // 渲染职责已完全移交给子组件
         if (!silent) {
-          comments.value = []
+          comments.value =[]
           nextCursor.value = null
           hasMore.value = true
           await loadMoreComments()
@@ -339,7 +384,8 @@ const loadArticle = async (silent = false) => {
 }
 
 const handleRenderComplete = () => {
-  // 渲染完成后的钩子，可用于精准高度计算
+  // 渲染完成，刷新一下高度缓存以防止切片错位
+  updateVirtualScroll();
 }
 
 const handleRemoteArticleUpdated = (e: Event) => {
@@ -408,7 +454,6 @@ const loadMoreComments = async () => {
     const res = await getComments(article.value.id, nextCursor.value, 10, { signal: currentSignal })
     if (isMounted && !currentSignal.aborted) {
       if (res.data && res.data.length > 0) {
-        // [修复 2026-02-24] 算法最优：O(1) 物理索引去重
         const existingIds = new Set(comments.value.map(c => String(c.id)));
         const uniqueNewComments = res.data.filter(newItem => !existingIds.has(String(newItem.id)));
         
@@ -431,9 +476,6 @@ const loadMoreComments = async () => {
   }
 }
 
-/**
- * 带物理中断支持的评论提交
- */
 const submitComment = async () => {
   if (!commentContent.value.trim() || !article.value) return
 
@@ -483,7 +525,6 @@ const handleRemoteAdd = (e: Event) => {
     const exists = comments.value.some(c => String(c.id) === String(data.comment.id));
     if (!exists) {
       comments.value = [data.comment, ...comments.value]
-      // 物理上限截断：防止内存溢出
       if (comments.value.length > 500) comments.value = comments.value.slice(0, 500);
     }
   }
@@ -538,6 +579,9 @@ onMounted(() => {
   loadArticle();
   powProvider.prewarm(); 
   
+  window.addEventListener('scroll', handleVirtualScroll, { passive: true });
+  window.addEventListener('resize', handleVirtualScroll, { passive: true });
+  
   window.addEventListener(SIGNALS.COMMENT_ADD, handleRemoteAdd);
   window.addEventListener(SIGNALS.COMMENT_DEL, handleRemoteDelete);
   window.addEventListener(SIGNALS.UPDATED, handleRemoteArticleUpdated);
@@ -549,6 +593,9 @@ onMounted(() => {
 onUnmounted(() => {
   isMounted = false;
   if (observer) observer.disconnect();
+  
+  window.removeEventListener('scroll', handleVirtualScroll);
+  window.removeEventListener('resize', handleVirtualScroll);
   
   debounceTimers.forEach(timer => clearTimeout(timer));
   debounceTimers.clear();
@@ -577,27 +624,12 @@ onUnmounted(() => {
   animation: loading-bar 1.5s infinite;
 }
 
-.list-fade-up-enter-active {
-  transition: opacity 0.4s ease, transform 0.4s ease;
+.state-fade-enter-active,
+.state-fade-leave-active {
+  transition: opacity 0.3s ease;
 }
-
-.list-fade-up-enter-from {
+.state-fade-enter-from,
+.state-fade-leave-to {
   opacity: 0;
-  transform: translateY(10px);
-}
-
-.list-fade-up-leave-active {
-  transition: all 0.5s ease;
-  position: absolute;
-  width: 100%;
-}
-
-.list-fade-up-leave-to {
-  opacity: 0;
-  transform: translateX(30px);
-}
-
-.list-fade-up-move {
-  transition: transform 0.5s ease;
 }
 </style>

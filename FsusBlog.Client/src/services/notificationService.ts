@@ -1,5 +1,4 @@
 import type { MessageItem } from "@/api/message";
-import * as signalR from "@microsoft/signalr";
 
 export interface NoticePayload { title: string; unreadCount: number; time: string; }
 export interface UserStatusPayload { status: number; reason: string | null; time: string; }
@@ -10,32 +9,27 @@ export interface CommentAddedPayload {
     time: string;
 }
 export interface CommentRemovedPayload { articleId: number; commentId: string; time: string; }
-
-export interface MessageRevokedPayload {
-  messageId: string;
-  unreadCount: number;
-  time: string;
-}
-
+export interface MessageRevokedPayload { messageId: string; unreadCount: number; time: string; }
 export interface ArticleUpdatePayload {
     articleId: number;
     action: 'Created' | 'Updated' | 'Deleted' | 'Restored';
     eventTime: string;
 }
-
 export interface PowParams {
-    nonce: string; 
-    salt: string; 
-    fp: string; 
-    signature: string; 
-    difficulty: number; 
-    timestamp: number;
+    nonce: string; salt: string; fp: string; signature: string; difficulty: number; timestamp: number;
 }
 
 class NotificationService {
-    private connection: signalR.HubConnection | null = null;
+    private abortController: AbortController | null = null;
+    private _isConnected: boolean = false;
     private currentToken: string = "";
+    private currentPow: PowParams | undefined;
+    
+    private retryCount: number = 0;
+    private maxRetries: number = 10;
+    private isReconnecting: boolean = false;
 
+    // 维持契约不变，对上层 Vue 业务零侵入
     public onUnreadUpdate?: (count: number) => void;
     public onGlobalNotice?: (data: GlobalNoticePayload) => void;
     public onUserStatusChanged?: (data: UserStatusPayload) => void;
@@ -48,139 +42,171 @@ class NotificationService {
     public onReconnected?: (connectionId?: string) => void;
     public onRequestNewPow?: (reason?: string) => void;
 
-    /**
-     * [修复 2026-02-24] 算法最优：UTF-8 安全的 Base64 编码
-     * 逻辑自洽：修正 TS 2345 错误，改用 forEach 确保索引访问的类型安全
-     */
     private toSafeBase64(json: object): string {
-      const str = JSON.stringify(json);
-      const bytes = new TextEncoder().encode(str);
-      let binary = '';
-      
-      // 性能最大化：forEach 自动处理迭代，物理消除 bytes[i] 可能为 undefined 的类型风险
-      bytes.forEach((byte) => {
-        binary += String.fromCharCode(byte);
-      });
-      
-      return btoa(binary);
-    }
-
-    /**
-     * 凭证封装逻辑
-     */
-    private buildFullUrl(baseUrl: string, params?: PowParams): string {
-        if (!params) return baseUrl;
-
-        // 严格匹配后端 VirtualPowRequest 的 [JsonPropertyName] 契约
-        const powProof = {
-            powNonce: params.nonce,
-            powSalt: params.salt,
-            browserFp: params.fp,
-            powSignature: params.signature,
-            difficulty: params.difficulty,
-            powTimestamp: params.timestamp
-        };
-
-        const proofBase64 = this.toSafeBase64(powProof);
-        return `${baseUrl}?pow=${encodeURIComponent(proofBase64)}`;
+        const str = JSON.stringify(json);
+        const bytes = new TextEncoder().encode(str);
+        let binary = '';
+        bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+        return btoa(binary);
     }
 
     public async start(token: string, powParams?: PowParams): Promise<void> {
-        if (this.connection) await this.stop();
-
         this.currentToken = token;
-        const baseUrl = "/hubs/notifications";
-        const fullUrl = this.buildFullUrl(baseUrl, powParams);
+        this.currentPow = powParams;
+        this.retryCount = 0;
+        await this.connect();
+    }
 
-        this.connection = new signalR.HubConnectionBuilder()
-            .withUrl(fullUrl, {
-                accessTokenFactory: () => this.currentToken || "",
-                headers: powParams ? {
-                    "X-Fsus-Pow-Proof": this.toSafeBase64({
-                        powNonce: powParams.nonce,
-                        powSalt: powParams.salt,
-                        browserFp: powParams.fp,
-                        powSignature: powParams.signature,
-                        difficulty: powParams.difficulty,
-                        powTimestamp: powParams.timestamp
-                    })
-                } : {}
-            })
-            .withAutomaticReconnect({
-                nextRetryDelayInMilliseconds: retryContext => {
-                    if (!this.currentToken && retryContext.previousRetryCount > 0) {
-                        this.onRequestNewPow?.("RECONNECT_POW_NEEDED");
-                        return null; 
-                    }
-                    if (retryContext.previousRetryCount > 10) return null;
-                    return Math.min(retryContext.previousRetryCount * 2000, 30000);
-                }
-            })
-            .configureLogging(signalR.LogLevel.Warning)
-            .build();
+    private async connect(): Promise<void> {
+        if (this.abortController) this.abortController.abort();
+        this.abortController = new AbortController();
 
-        const handleConnectionError = (error?: Error) => {
-            if (!error) return;
-            const isCritical = error instanceof signalR.HttpError && (error.statusCode === 401 || error.statusCode === 403);
-            const isPowProblem = error.message.includes("PoW") || 
-                               error.message.includes("安全校验") || 
-                               error.message.includes("凭证") ||
-                               error.message.includes("Access Denied");
-
-            if (isCritical || isPowProblem) {
-                this.onRequestNewPow?.(error.message);
-            }
+        const headers: Record<string, string> = {
+            'Accept': 'text/event-stream'
         };
 
-        this.connection.onclose(handleConnectionError);
-        this.connection.onreconnecting(handleConnectionError);
-
-        this.connection.onreconnected((connectionId) => {
-            this.onReconnected?.(connectionId);
-        });
-
-        this.connection.on("ReceiveNotice", (data: NoticePayload) => this.onUnreadUpdate?.(data.unreadCount));
-        this.connection.on("ReceiveGlobalNotice", (data: GlobalNoticePayload) => this.onGlobalNotice?.(data));
-        this.connection.on("UpdateUnreadCount", (count: number) => this.onUnreadUpdate?.(count));
-        this.connection.on("OnUserStatusChanged", (data: UserStatusPayload) => this.onUserStatusChanged?.(data));
-        this.connection.on("OnCommentAdded", (data: CommentAddedPayload) => this.onCommentAdded?.(data));
-        this.connection.on("OnCommentRemoved", (data: CommentRemovedPayload) => this.onCommentRemoved?.(data));
-        this.connection.on("OnMessageReceived", (data: MessageItem) => this.onMessageReceived?.(data));
-        this.connection.on("ReceiveArticleUpdate", (data: ArticleUpdatePayload) => this.onArticleUpdate?.(data));
-        this.connection.on("OnMessageRevoked", (data: MessageRevokedPayload) => this.onMessageRevoked?.(data));
+        if (this.currentToken) {
+            headers['Authorization'] = `Bearer ${this.currentToken}`;
+        }
+        
+        if (this.currentPow) {
+            headers['X-Fsus-Pow-Proof'] = this.toSafeBase64({
+                powNonce: this.currentPow.nonce,
+                powSalt: this.currentPow.salt,
+                browserFp: this.currentPow.fp,
+                powSignature: this.currentPow.signature,
+                difficulty: this.currentPow.difficulty,
+                powTimestamp: this.currentPow.timestamp
+            });
+        }
 
         try {
-            await this.connection.start();
+            const response = await fetch('/api/notifications/stream', {
+                method: 'GET',
+                headers,
+                signal: this.abortController.signal
+            });
+
+            if (!response.ok) {
+                const isCritical = response.status === 401 || response.status === 403;
+                if (isCritical) {
+                    this.onRequestNewPow?.(`HTTP ${response.status}: Access Denied or PoW Failed`);
+                    return;
+                }
+                throw new Error(`HTTP Error: ${response.status}`);
+            }
+
+            this._isConnected = true;
+            if (this.isReconnecting) {
+                this.isReconnecting = false;
+                this.onReconnected?.("sse-reconnected");
+            }
+
+            // 非阻塞后台流读取
+            this.readStream(response.body!.getReader()).catch(err => this.handleDisconnect(err));
+            
         } catch (err: any) {
-            handleConnectionError(err);
-            this.connection = null;
-            throw err;
+            if (err.name !== 'AbortError') {
+                this.handleDisconnect(err);
+                throw err; // 将首次连接错误向上抛出
+            }
         }
     }
 
-    public async stop(): Promise<void> {
-        if (this.connection) {
-            try {
-                this.connection.off("ReceiveNotice");
-                this.connection.off("ReceiveGlobalNotice");
-                this.connection.off("UpdateUnreadCount");
-                this.connection.off("OnUserStatusChanged");
-                this.connection.off("OnCommentAdded");
-                this.connection.off("OnCommentRemoved");
-                this.connection.off("OnMessageReceived");
-                this.connection.off("ReceiveArticleUpdate");
-                this.connection.off("OnMessageRevoked");
-                await this.connection.stop();
-            } catch (e) {
-                console.warn(" SignalR Stop warning:", e);
-            } finally {
-                this.connection = null;
+    private async readStream(reader: ReadableStreamDefaultReader<Uint8Array>) {
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                let boundary = buffer.indexOf('\n\n');
+
+                while (boundary !== -1) {
+                    const chunk = buffer.slice(0, boundary);
+                    buffer = buffer.slice(boundary + 2);
+                    this.processSseChunk(chunk);
+                    boundary = buffer.indexOf('\n\n');
+                }
             }
+        } finally {
+            reader.releaseLock();
+            this.handleDisconnect(new Error("Stream closed by server"));
+        }
+    }
+
+    private processSseChunk(chunk: string) {
+        const lines = chunk.split('\n');
+        let eventName = '';
+        let dataStr = '';
+
+        for (const line of lines) {
+            if (line.startsWith('event: ')) eventName = line.substring(7).trim();
+            else if (line.startsWith('data: ')) dataStr = line.substring(6).trim();
+        }
+
+        if (eventName === 'ping' || !eventName || !dataStr) return; // 拦截心跳包与空包
+
+        try {
+            const data = JSON.parse(dataStr);
+            this.dispatchEvent(eventName, data);
+        } catch (e) {
+            console.error('[SSE] Payload Parse Error', e);
+        }
+    }
+
+    private dispatchEvent(eventName: string, data: any) {
+        switch (eventName) {
+            case "ReceiveNotice": this.onUnreadUpdate?.(data.unreadCount); break;
+            case "ReceiveGlobalNotice": this.onGlobalNotice?.(data); break;
+            case "UpdateUnreadCount": this.onUnreadUpdate?.(data); break;
+            case "OnUserStatusChanged": this.onUserStatusChanged?.(data); break;
+            case "OnCommentAdded": this.onCommentAdded?.(data); break;
+            case "OnCommentRemoved": this.onCommentRemoved?.(data); break;
+            case "OnMessageReceived": this.onMessageReceived?.(data); break;
+            case "ReceiveArticleUpdate": this.onArticleUpdate?.(data); break;
+            case "OnMessageRevoked": this.onMessageRevoked?.(data); break;
+            case "DecrementUnreadCount": /* 后端如果单独推送空载荷，可配合业务进行弱一致性补偿 */ break;
+        }
+    }
+
+    private handleDisconnect(error: any) {
+        if (error.name === 'AbortError') return; // 主动停止不触发重连
+        this._isConnected = false;
+
+        if (!this.currentToken && this.retryCount > 0) {
+            this.onRequestNewPow?.("RECONNECT_POW_NEEDED");
+            return;
+        }
+
+        if (this.retryCount >= this.maxRetries) {
+            console.warn("[SSE] Max retries reached. Connection dead.");
+            return;
+        }
+
+        this.isReconnecting = true;
+        this.retryCount++;
+        const delay = Math.min(this.retryCount * 2000, 30000); // 指数退避算法最大 30s
+        
+        setTimeout(() => {
+            if (this.isReconnecting) this.connect().catch(() => {});
+        }, delay);
+    }
+
+    public async stop(): Promise<void> {
+        this.isReconnecting = false;
+        this._isConnected = false;
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
         }
     }
 
     public isConnected(): boolean {
-        return this.connection?.state === signalR.HubConnectionState.Connected;
+        return this._isConnected;
     }
 }
 

@@ -186,7 +186,7 @@ public partial class SystemService(
     public async Task UpdatePageContentAsync(PageContentDto dto)
     {
         string? slug = dto.Slug;
-        if (string.IsNullOrEmpty(slug)) return;
+        if (string.IsNullOrEmpty(slug)) throw new ArgumentException("页面标识符不能为空");
 
         LogPageUpdateAudit(slug);
 
@@ -204,12 +204,20 @@ public partial class SystemService(
             target[0] = char.ToUpperInvariant(target[0]);
         });
 
-        await _db.Storageable(new SystemConfig
+        // 1. 获取影响行数
+        int affectedRows = await _db.Storageable(new SystemConfig
         {
             Key = dbKey,
             Value = dto.Content ?? string.Empty
         }).ExecuteCommandAsync();
 
+        // 2. 物理防线：0 行受影响代表更新失败，直接抛出异常，阻断 200 OK 响应
+        if (affectedRows <= 0)
+        {
+            throw new Exception("数据物理落盘失败，请稍后重试。");
+        }
+
+        // 3. 落盘成功后，立即以 O(1) 物理驱逐旧缓存
         await _redis.KeyDeleteAsync(redisKey);
         LogPageUpdateSuccess(slug);
     }

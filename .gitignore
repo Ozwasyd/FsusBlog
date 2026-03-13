@@ -34,6 +34,10 @@ launchSettings.json
 FsusBlog.Client/node_modules/
 FsusBlog.Client/dist/
 
+# 逻辑自洽：截图显示前端使用了 .esproj，会生成 MSBuild 风格的编译目录
+FsusBlog.Client/[Bb]in/
+FsusBlog.Client/[Oo]bj/
+
 # 逻辑自洽：排除本地生成的 Docker 镜像压缩包
 *.tar
 FsusBlog.Client/*.tar
@@ -61,9 +65,20 @@ FsusBlog.Server/publish/
 # 逻辑自洽：根据企划书，系统使用 Lucene.NET 检索
 # 必须排除本地生成的索引文件，防止污染仓库
 FsusBlog.Server/wwwroot/index/
+FsusBlog.Server/LuceneIndex/
 *.index
 
 # 逻辑自洽：系统集成 Serilog 异步日志 
 # 排除所有按天滚动的日志文件
 FsusBlog.Server/logs/
 *.log
+
+# ==========================================
+# 4. FsusBlog PoW Engine (C++ / CMake WebAssembly)
+# ==========================================
+build_windows/
+out/
+CMakeCache.txt
+CMakeFiles/
+*.cmake
+Makefile

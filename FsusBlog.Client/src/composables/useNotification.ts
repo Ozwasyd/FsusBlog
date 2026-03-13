@@ -121,12 +121,17 @@ export function useNotification() {
     };
 
     const initNotification = async (isLogged: boolean): Promise<void> => {
-        if (isInitializing.value) return;
+        if (isInitializing.value) {
+            console.warn('[SSE] 启动请求被拦截：当前已在初始化队列中');
+            return;
+        }
+
         const targetMode = isLogged ? 'auth' : 'guest';
 
         if (notificationService.isConnected() && currentMode.value === targetMode) return;
         isInitializing.value = true;
 
+        console.log(`[SSE] 正在引擎点火, 目标模式: ${targetMode}`);
         try {
             if (notificationService.isConnected()) await notificationService.stop();
             currentMode.value = targetMode;
@@ -154,6 +159,8 @@ export function useNotification() {
                 window.dispatchEvent(new CustomEvent(eventName, { detail: data }));
             };
             notificationService.onReconnected = () => {
+                // [物理重构补偿] 断网重连后主动抛出刷新事件，由各个组件主动 Fetch 确保数据最终一致
+                window.dispatchEvent(new CustomEvent('signalr:refresh-inbox'));
                 window.dispatchEvent(new CustomEvent('signalr:reconnected'));
             };
             notificationService.onCommentAdded = (data: CommentAddedPayload) => {
@@ -189,6 +196,7 @@ export function useNotification() {
                 await notificationService.start('', pow);
             }
         } catch (err: any) {
+            console.error('[SSE] 致命物理断网/PoW生成崩溃:', err);
             currentMode.value = '';
         } finally {
             isInitializing.value = false;

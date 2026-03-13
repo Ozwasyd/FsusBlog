@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
 
-namespace FsusBlog.Server.Infrastructure.SignalR;
+namespace FsusBlog.Server.Infrastructure.Sse;
 
 /// <summary>
 /// 高性能用户标识提供者

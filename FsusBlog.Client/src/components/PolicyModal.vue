@@ -57,7 +57,8 @@
               <button type="button" @click="fetchData" class="mt-2 text-xs font-bold underline hover:text-zinc-950 outline-none focus-visible:ring-2 focus-visible:ring-zinc-950">重试</button>
             </div>
 
-            <div v-else class="zinc-doc font-sans selection:bg-zinc-950 selection:text-white" v-html="renderedContent"></div>
+            <!--[法务排版引擎] 引入严格缩进与有序编号体系 -->
+            <div v-else class="zinc-legal-doc font-sans selection:bg-zinc-950 selection:text-white" v-html="renderedContent"></div>
 
           </div>
 
@@ -112,7 +113,6 @@ const originalRender = md.renderer.rules.link_open || function(tokens, idx, opti
 };
 
 md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
-    // [修复 2026-02-23] 修复 TS 2532: 显式类型检查，确保索引访问安全
     const token = tokens[idx];
     if (token) {
         token.attrPush(['rel', 'noopener noreferrer']);
@@ -173,10 +173,6 @@ const fetchData = async () => {
   }
 }
 
-/**
- * [修复 2026-02-23] 修复 TS 18048: 显式验证元素存在性
- * 算法最优：通过逻辑与短路判断，物理保证 first 和 last 不为 undefined
- */
 const handleTabKey = (e: KeyboardEvent) => {
     if (e.key !== 'Tab' || !modalContainer.value) return;
 
@@ -187,7 +183,6 @@ const handleTabKey = (e: KeyboardEvent) => {
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
 
-    // 逻辑自洽：如果弹窗内没有可聚焦元素，或者索引失效，则不执行循环逻辑
     if (!first || !last) return;
 
     if (e.shiftKey) {
@@ -251,41 +246,124 @@ onUnmounted(() => {
   transform: translateY(10px) scale(0.98);
 }
 
-.zinc-doc :deep(h1),
-.zinc-doc :deep(h2),
-.zinc-doc :deep(h3) {
-  @apply font-bold text-zinc-950 tracking-tight mt-6 sm:mt-10 mb-4 flex items-baseline;
+/* =======================================================
+   法务公文级排版引擎 (Legal Document Typography)
+   核心要求：严谨、清晰的层级、紧凑但不拥挤、去除花哨装饰
+======================================================= */
+
+.zinc-legal-doc {
+  color: #27272a; /* zinc-800 */
+  font-size: 0.95rem; /* 法务文档字号通常偏小以容纳更多条款 */
+  line-height: 1.7; 
+  letter-spacing: 0.01em;
+  text-align: justify; /* 强制两端对齐，体现公文的严谨性 */
+  text-autospace: ideograph-alpha ideograph-numeric;
+  text-spacing-trim: space-all; 
 }
-.zinc-doc :deep(h1) { 
-  @apply text-xl sm:text-4xl border-b border-zinc-100 pb-4 sm:pb-6 mb-6; 
+
+/* 消除顶部元素的无意义边距 */
+.zinc-legal-doc :deep(*:first-child) { margin-top: 0 !important; }
+
+/* 1. 标题层级重构 (Headings) */
+.zinc-legal-doc :deep(h1),
+.zinc-legal-doc :deep(h2),
+.zinc-legal-doc :deep(h3),
+.zinc-legal-doc :deep(h4) {
+  color: #09090b; /* zinc-950 */
+  font-weight: 700;
+  text-indent: 0;
+  margin-bottom: 0.8em;
 }
-.zinc-doc :deep(h3) { 
-  @apply text-base sm:text-xl;
+
+/* 协议主标题 */
+.zinc-legal-doc :deep(h1) { 
+  font-size: 1.5em; 
+  margin-top: 2em; 
+  text-align: center;
+  border-bottom: 2px solid #18181b; /* 粗实线增加庄重感 */
+  padding-bottom: 0.5em;
+  margin-bottom: 1.5em;
 }
-.zinc-doc :deep(h3)::before {
-  content: '';
-  @apply inline-block w-1.5 h-1.5 sm:w-2 sm:h-2 bg-zinc-200 mr-2 sm:mr-3 rounded-full mb-0.5;
+
+/* 条款大类 (如：一、数据收集) */
+.zinc-legal-doc :deep(h2) { 
+  font-size: 1.15em; 
+  margin-top: 2.5em; 
+  border-bottom: 1px solid #e4e4e7; /* zinc-200 细实线分割 */
+  padding-bottom: 0.4em;
 }
-.zinc-doc :deep(*:first-child) { @apply mt-0; }
-.zinc-doc :deep(p) {
-  @apply text-[13px] sm:text-[15px] leading-relaxed sm:leading-7 text-zinc-600 mb-5 text-justify font-normal;
+
+/* 具体细则条款 */
+.zinc-legal-doc :deep(h3) { 
+  font-size: 1em; 
+  margin-top: 1.8em; 
 }
-.zinc-doc :deep(ul) { @apply ml-1 mb-6 space-y-2; }
-.zinc-doc :deep(li) {
-  @apply text-[12px] sm:text-[14px] text-zinc-600 pl-4 sm:pl-6 relative;
+
+/* 2. 段落节律 (Paragraphs) */
+.zinc-legal-doc :deep(p) {
+  margin-top: 0;
+  margin-bottom: 0.8em;
+  /* 法务公文通常不采用传统小说的首行缩进，而是使用左对齐配合段间距 */
+  text-indent: 0; 
 }
-.zinc-doc :deep(li)::before {
-  content: '—';
-  @apply absolute left-0 text-zinc-300 font-bold;
+
+/* 3. 有序编号体系 (Lists & Indentation) 
+   法务文档极其依赖清晰的缩进结构（如 1.1, 1.1.1）
+*/
+.zinc-legal-doc :deep(ol),
+.zinc-legal-doc :deep(ul) {
+  padding-left: 1.8em;
+  margin-top: 0.5em;
+  margin-bottom: 1.2em;
 }
-.zinc-doc :deep(strong) {
-  @apply font-bold text-zinc-950;
+
+.zinc-legal-doc :deep(li) {
+  margin-bottom: 0.4em;
+  padding-left: 0.2em;
 }
-.zinc-doc :deep(blockquote) {
-  @apply border-l-4 border-zinc-100 pl-4 sm:pl-6 py-2 my-6 text-zinc-500 italic text-[12px] sm:text-[14px];
+
+.zinc-legal-doc :deep(li p) {
+  margin-bottom: 0 !important;
+  margin-top: 0.2em;
 }
-.zinc-doc :deep(a) {
-  @apply text-zinc-950 font-medium underline decoration-zinc-200 underline-offset-4 decoration-1 hover:decoration-zinc-950 transition-all;
+
+/* 4. 关键信息强调 (Strong & Emphasis) */
+.zinc-legal-doc :deep(strong) {
+  font-weight: 700;
+  color: #000; /* 绝对黑，确保免责条款等醒目 */
+  background-color: #f4f4f5; /* zinc-100 极浅灰色底色，法务高亮特征 */
+  padding: 0 0.2em;
+  border-radius: 2px;
+}
+
+/* 5. 引用块 (Blockquotes - 常用于定义或免责声明) */
+.zinc-legal-doc :deep(blockquote) {
+  border-left: 3px solid #71717a; /* zinc-500 明确的垂直线表示补充或警告 */
+  margin: 1.5em 0 !important;
+  padding: 0.8em 1.2em !important;
+  color: #52525b !important; /* zinc-600 */
+  background-color: #fafafa !important; /* zinc-50 独立的视觉区块 */
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+.zinc-legal-doc :deep(blockquote p) {
+  margin-bottom: 0.5em;                
+}
+.zinc-legal-doc :deep(blockquote p:last-child) {
+  margin-bottom: 0; 
+}
+
+/* 6. 超链接 */
+.zinc-legal-doc :deep(a) {
+  color: #18181b;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: opacity 0.2s ease;
+}
+.zinc-legal-doc :deep(a:hover) {
+  opacity: 0.7;
 }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }

@@ -4,14 +4,13 @@ using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Middlewares;
-using FsusBlog.Server.Infrastructure.Security;
-using FsusBlog.Server.Infrastructure.SignalR;
+using FsusBlog.Server.Infrastructure.Sse;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Server.Services.SignalR;
+using FsusBlog.Server.Services.Sse;
 using FsusBlog.Server.Services.VistitLog;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.SignalR;
@@ -77,7 +76,10 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddRedis(builder.Configuration);
 builder.Services.AddSqlSugar();
 builder.Services.AddJwtAuthentication(builder.Configuration);
-builder.Services.AddSignalR(builder.Configuration);
+
+// [物理级替换] 移除 SignalR，挂载 SSE 底层支持
+builder.Services.AddSingleton<SseConnectionManager>();
+builder.Services.AddHostedService<SseHeartbeatService>();
 
 builder.Services.AddPowServices();
 
@@ -93,7 +95,7 @@ builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<IStatsService, StatsService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<MessageCacheService>();
-builder.Services.AddScoped<IMessageService, SignalRMessageService>();
+builder.Services.AddScoped<IMessageService, SseMessageService>();
 builder.Services.AddSingleton<IBlacklistService, BlacklistService>();
 builder.Services.AddSingleton<IUserIdProvider, SnowflakeUserIdProvider>();
 
@@ -114,11 +116,11 @@ builder.Services.AddSingleton(sp =>
     var logger = sp.GetRequiredService<ILogger<IP2LocationPooledObjectPolicy>>();
 
     string baseDir = AppContext.BaseDirectory;
-    string[] potentialPaths = {
+    string[] potentialPaths = [
         Path.Combine(baseDir, "wwwroot", "resources", "IP2LOCATION.BIN"),
         Path.Combine(baseDir, "resources", "IP2LOCATION.BIN"),
         Path.Combine(baseDir, "wwwroot", "resource", "IP2LOCATION.BIN")
-    };
+    ];
 
     string? binPath = potentialPaths.FirstOrDefault(File.Exists);
 
@@ -214,7 +216,6 @@ app.UseAuthorization();
 app.UseMiddleware<VisitLogMiddleware>();
 
 app.MapControllers();
-app.MapHub<NotificationHub>("/hubs/notifications");
 
 // 6. 最小API挂载注册
 app.MapMessageEndpoints();
@@ -224,6 +225,66 @@ app.MapCategoryEndpoints();
 app.MapCommentEndpoints();
 app.MapSystemEndpoints(); 
 app.MapTagEndpoints();
+
+// [极限物理重构] 接驳 Minimal API SSE 流式传输，自动承载 Token 与 PoW
+app.MapGet("/api/notifications/stream", StreamNotificationsAsync);
+
+async Task StreamNotificationsAsync(
+    HttpContext ctx,
+    SseConnectionManager manager,
+    CancellationToken ct)
+{
+    ctx.Response.Headers.Append("Content-Type", "text/event-stream");
+    ctx.Response.Headers.Append("Cache-Control", "no-cache");
+    ctx.Response.Headers.Append("Connection", "keep-alive");
+
+    // [物理破冰 1] 彻底打穿 Nginx / Caddy 的反向代理缓冲
+    ctx.Response.Headers.Append("X-Accel-Buffering", "no");
+
+    // [物理破冰 2] 强行瘫痪 ASP.NET Core 的 Gzip/Brotli 响应压缩与内部缓冲
+    var feature = ctx.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpResponseBodyFeature>();
+    feature?.DisableBuffering();
+
+    //[物理破冰 3] 强制立即下发 HTTP Headers，瞬间解开前端 Fetch Promise 等待
+    await ctx.Response.StartAsync(ct);
+
+    var userId = ctx.User.Identity?.IsAuthenticated == true
+        ? ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+        : null;
+
+    string connId = Guid.NewGuid().ToString();
+    var channel = System.Threading.Channels.Channel.CreateUnbounded<string>();
+
+    var groups = new List<string> { "ContentGovernanceGroup" };
+    if (!string.IsNullOrEmpty(userId)) groups.Add("AuthenticatedUsersGroup");
+
+    var client = new SseClient(connId, userId, channel.Writer, groups);
+    manager.AddClient(client);
+
+    using var registration = ct.Register(() => channel.Writer.TryComplete());
+
+    try
+    {
+        // 推送初始握手心跳，验证全链路贯通
+        await ctx.Response.WriteAsync("event: connected\ndata: {}\n\n", ct);
+        await ctx.Response.Body.FlushAsync(ct);
+
+        await foreach (var message in channel.Reader.ReadAllAsync(ct))
+        {
+            // 每次产生数据，直接零拷贝写入网卡并强制 Flush
+            await ctx.Response.WriteAsync(message, ct);
+            await ctx.Response.Body.FlushAsync(ct);
+        }
+    }
+    catch (OperationCanceledException)
+    {
+        // 客户端断开连接，优雅吞咽异常
+    }
+    finally
+    {
+        manager.RemoveClient(connId);
+    }
+}
 
 // [修改日期 2026-03-01]
 // 修改理由：SPA 路由防丢。如果请求没有命中上面的任何 API 或文件，统统回退到前端入口，交由 Vue Router 处理 404 和页面路由。

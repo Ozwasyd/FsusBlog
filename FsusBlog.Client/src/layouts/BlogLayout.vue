@@ -80,7 +80,7 @@
       <div class="max-w-3xl mx-auto px-6 sm:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         
         <div class="text-sm text-zinc-500 font-medium tracking-normal select-none">
-          &copy; 2026 {{ siteStore.siteInfo.author }}. All rights reserved.
+          &copy; {{ currentYear }} {{ siteStore.siteInfo.author }}. All rights reserved.
         </div>
         
         <div class="flex items-center gap-6 sm:gap-8 text-sm font-medium text-zinc-500">
@@ -110,6 +110,7 @@ const route = useRoute()
 const searchQuery = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)
 
+const currentYear = new Date().getFullYear()
 /**
  * 逻辑自洽：处理搜索跳转与异常捕获
  */

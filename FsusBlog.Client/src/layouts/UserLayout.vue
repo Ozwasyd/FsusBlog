@@ -131,7 +131,7 @@
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-10 sm:gap-8">
           <div class="space-y-3">
             <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-950">
-              {{ siteStore.siteInfo.title }} &copy; 2026
+              {{ siteStore.siteInfo.title }} &copy; {{ currentYear }}
             </p>
             <p class="text-[10px] text-zinc-400 leading-relaxed max-w-60">
               你的数据受到端到端加密保护。本站严格遵守《隐私政策》与《使用规范》。
@@ -184,6 +184,8 @@ const siteStore = useSiteStore()
 
 const showPolicy = ref(false)
 const policyType = ref<'privacy' | 'guidelines'>('guidelines')
+
+const currentYear = new Date().getFullYear()
 
 // [修复 2026-02-24] P0 修复：本地防抖锁，处理登出失败的边界情况
 const isLoggingOut = ref(false)

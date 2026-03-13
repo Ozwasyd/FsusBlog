@@ -14,7 +14,6 @@
     <PackageJsonDependenciesFontsourceNotoSansJp Condition="$(PackageJsonDependenciesFontsourceNotoSansJp) == ''">^5.2.9</PackageJsonDependenciesFontsourceNotoSansJp>
     <PackageJsonDependenciesFontsourceNotoSansSc Condition="$(PackageJsonDependenciesFontsourceNotoSansSc) == ''">^5.2.9</PackageJsonDependenciesFontsourceNotoSansSc>
     <PackageJsonDependenciesFontsourceNotoSansTc Condition="$(PackageJsonDependenciesFontsourceNotoSansTc) == ''">^5.2.9</PackageJsonDependenciesFontsourceNotoSansTc>
-    <PackageJsonDependenciesMicrosoftSignalr Condition="$(PackageJsonDependenciesMicrosoftSignalr) == ''">^10.0.0</PackageJsonDependenciesMicrosoftSignalr>
     <PackageJsonDependenciesTailwindcssTypography Condition="$(PackageJsonDependenciesTailwindcssTypography) == ''">^0.5.19</PackageJsonDependenciesTailwindcssTypography>
     <PackageJsonDependenciesTailwindcssVite Condition="$(PackageJsonDependenciesTailwindcssVite) == ''">^4.1.18</PackageJsonDependenciesTailwindcssVite>
     <PackageJsonDependenciesVueuseHead Condition="$(PackageJsonDependenciesVueuseHead) == ''">^2.0.0</PackageJsonDependenciesVueuseHead>
@@ -38,7 +37,7 @@
     <PackageJsonDevdependenciesVueTsconfig Condition="$(PackageJsonDevdependenciesVueTsconfig) == ''">^0.8.1</PackageJsonDevdependenciesVueTsconfig>
     <PackageJsonDevdependenciesEslint Condition="$(PackageJsonDevdependenciesEslint) == ''">^4.1.1</PackageJsonDevdependenciesEslint>
     <PackageJsonDevdependenciesSassEmbedded Condition="$(PackageJsonDevdependenciesSassEmbedded) == ''">^1.97.3</PackageJsonDevdependenciesSassEmbedded>
-    <PackageJsonDevdependenciesTypescript Condition="$(PackageJsonDevdependenciesTypescript) == ''">~5.9.3</PackageJsonDevdependenciesTypescript>
+    <PackageJsonDevdependenciesTypescriptNativePreview Condition="$(PackageJsonDevdependenciesTypescriptNativePreview) == ''">~5.9.3</PackageJsonDevdependenciesTypescriptNativePreview>
     <PackageJsonDevdependenciesUnpluginAutoImport Condition="$(PackageJsonDevdependenciesUnpluginAutoImport) == ''">^21.0.0</PackageJsonDevdependenciesUnpluginAutoImport>
     <PackageJsonDevdependenciesUnpluginVueComponents Condition="$(PackageJsonDevdependenciesUnpluginVueComponents) == ''">^31.0.0</PackageJsonDevdependenciesUnpluginVueComponents>
     <PackageJsonDevdependenciesVite Condition="$(PackageJsonDevdependenciesVite) == ''">^7.3.1</PackageJsonDevdependenciesVite>

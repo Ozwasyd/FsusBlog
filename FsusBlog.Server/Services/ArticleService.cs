@@ -1,20 +1,17 @@
-﻿// --- START OF FILE ArticleService.cs ---
-
-using FsusBlog.Server.Entities;
+﻿using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
-using SqlSugar;
-using StackExchange.Redis;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Runtime.CompilerServices;
-using System.Data;
-using System.Data.Common;
-using System.Collections.Concurrent;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.Extensions.Caching.Memory;
+using SqlSugar;
+using StackExchange.Redis;
+using System.Data;
+using System.Data.Common;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace FsusBlog.Server.Services;
 
@@ -42,6 +39,7 @@ public class ArticleService(
     private const string CACHE_PREFIX = "blog:article:";
     private const string LIST_CACHE_VERSION_KEY = "blog:article:list_version";
     private const string LIST_CACHE_PREFIX = "blog:article:list:v";
+    public const string CACHE_SITESTATS = "admin:dashboard:stats";
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -195,7 +193,7 @@ public class ArticleService(
         }
         catch (Exception ex) { _logger.LogWarning("Redis Read Failed: {Msg}", ex.Message); }
 
-        var query = _db.Queryable<Article>().LeftJoin<Category>((a, c) => a.CategoryId == c.Id).Where(a => a.Id == id)
+        var query = _db.Queryable<Article>().LeftJoin<Category>((a, c) => a.CategoryId == c.Id).Where(a => a.Id == id && a.IsDeleted == false)
             .Select((a, c) => new { a.Id, a.Title, a.Content, a.Summary, a.CategoryId, a.Views, a.CreateTime, a.IsDeleted, CategoryName = c.Name });
 
         var sqlObj = query.ToSql();
@@ -573,6 +571,7 @@ public class ArticleService(
         if (articleId.HasValue) tasks.Add(_redis.KeyDeleteAsync(GenerateDetailKey(articleId.Value)));
         tasks.Add(_redis.StringIncrementAsync(LIST_CACHE_VERSION_KEY));
         tasks.Add(_redis.KeyDeleteAsync("cache:rss:xml_content"));
+        tasks.Add(_redis.KeyDeleteAsync(CACHE_SITESTATS));
         tasks.Add(_cacheStore.EvictByTagAsync("Category", default).AsTask());
         tasks.Add(_cacheStore.EvictByTagAsync("ArticleList", default).AsTask());
         tasks.Add(_cacheStore.EvictByTagAsync("HotArticles", default).AsTask());
@@ -592,6 +591,7 @@ public class ArticleService(
 
         return content[..len];
     }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string GenerateDetailKey(int id) => string.Create(CACHE_PREFIX.Length + DigitCount.GetDigitCount(id), id, (span, val) =>
     {

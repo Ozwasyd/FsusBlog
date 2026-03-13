@@ -220,6 +220,7 @@ const handleUploadImg = async (files: File[], callback: (urls: string[]) => void
 
 /**
  * 初始化资源同步
+ *[修复 2026-03-13] 物理防线：处理 Axios 包装器穿透、数据类型隐式转换与 DTO 字段多态
  */
 const initData = async () => {
   if (initController) initController.abort()
@@ -228,31 +229,42 @@ const initData = async () => {
 
   pageLoading.value = true
   try {
+    // 拦截器已经完美脱壳，返回的直接是 CategoryItem[] 和 TagItem[]
     const [catRes, tagRes] = await Promise.all([
       getCategories({ signal } as AxiosRequestConfig), 
       getTags({ signal } as AxiosRequestConfig)
     ])
     
     if (!signal.aborted) {
-      categories.value = catRes
-      tags.value = tagRes
+      categories.value = catRes || []
+      tags.value = tagRes ||[]
 
       if (isEdit.value) {
         const id = Number(route.query.id)
+        // 拦截器保证了这里直接拿到纯净的 DTO
         const data = await getArticleById(id, { signal } as AxiosRequestConfig) as ArticleDetail
         
         if (data && !signal.aborted) {
-          articleForm.title = data.title
-          articleForm.content = data.content
-          articleForm.summary = data.summary
-          articleForm.categoryId = data.categoryId
-          articleForm.tagIds = data.tags?.map(t => t.id) || []
+          articleForm.title = data.title || ''
+          articleForm.content = data.content || ''
+          
+          // [物理真相修复 1] JSON里根本没有 summary 字段，使用短路兜底为空字符串
+          articleForm.summary = data.summary || ''
+          
+          // [物理真相修复 2] JSON里根本没有 categoryId，必须去深层对象 category.id 里挖！
+          articleForm.categoryId = data.category?.id ? Number(data.category.id) : undefined
+          
+          // 标签数组原本就是对的，正常映射
+          articleForm.tagIds = Array.isArray(data.tags) 
+            ? data.tags.map(t => Number(t.id)) 
+            :[]
         }
       }
     }
   } catch (err: any) {
     if (err.name !== 'AbortError') {
       ElMessage.error('无法同步远程配置资源')
+      console.error('[Write Init Error]', err)
     }
   } finally {
     if (initController?.signal === signal) {

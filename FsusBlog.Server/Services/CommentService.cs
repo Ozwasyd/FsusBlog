@@ -2,6 +2,7 @@
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using SqlSugar;
+using StackExchange.Redis;
 using System.Data.Common;
 
 namespace FsusBlog.Server.Services;
@@ -14,8 +15,11 @@ public class CommentService(
     ISqlSugarClient _db,
     ILogger<CommentService> _logger,
     IMessageService _messageService,
-    IServiceScopeFactory _scopeFactory) : ICommentService
+    IServiceScopeFactory _scopeFactory,
+    IConnectionMultiplexer _redisConnection) : ICommentService
 {
+    private readonly IDatabase _redis = _redisConnection.GetDatabase();
+
     /// <summary>
     /// 发表评论
     /// </summary>
@@ -50,6 +54,8 @@ public class CommentService(
 
         if (generatedId > 0)
         {
+            await _redis.KeyDeleteAsync("admin:dashboard:stats");
+
             comment.Id = generatedId;
 
             var notifyPayload = new CommentAddedNotifyDto
@@ -227,13 +233,15 @@ public class CommentService(
         if (targetUserId == null) return false;
         if (targetUserId.Value != currentUserId && !isAdmin) return false;
 
-        // 🌟 核心修复：直接使用 C# 8 切片语法，最干净且无编译错误的实现方式
+        // 核心修复：直接使用 C# 8 切片语法，最干净且无编译错误的实现方式
         string commentSnippet = content.Length > 20 ? content[..20] : content;
 
         var success = await _db.Deleteable<Comment>().In(id).ExecuteCommandAsync() > 0;
 
         if (success)
         {
+            await _redis.KeyDeleteAsync("admin:dashboard:stats");
+
             await _messageService.PushCommentRemoveAsync(articleId, id);
 
             if (isAdmin && currentUserId != targetUserId.Value)
