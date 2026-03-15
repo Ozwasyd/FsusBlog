@@ -110,5 +110,5 @@ jobs:
         with:
           name: audit-report
           path:
-            - reports
-            - AI_AUDIT_REPORT_CN.md
+             reports
+             AI_AUDIT_REPORT_CN.md
