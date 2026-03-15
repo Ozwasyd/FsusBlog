@@ -206,7 +206,7 @@ const commentContent = ref('')
 const submittingComment = ref(false)
 
 // ==========================================
-// 🚀 O(1) 虚拟滚动核心状态与引擎
+// O(1) 虚拟滚动核心状态与引擎
 // ==========================================
 const virtualListRef = ref<HTMLElement | null>(null)
 const visibleComments = shallowRef<CommentItem[]>([])

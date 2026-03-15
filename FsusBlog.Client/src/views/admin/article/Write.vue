@@ -248,13 +248,9 @@ const initData = async () => {
           articleForm.title = data.title || ''
           articleForm.content = data.content || ''
           
-          // [物理真相修复 1] JSON里根本没有 summary 字段，使用短路兜底为空字符串
           articleForm.summary = data.summary || ''
-          
-          // [物理真相修复 2] JSON里根本没有 categoryId，必须去深层对象 category.id 里挖！
           articleForm.categoryId = data.category?.id ? Number(data.category.id) : undefined
           
-          // 标签数组原本就是对的，正常映射
           articleForm.tagIds = Array.isArray(data.tags) 
             ? data.tags.map(t => Number(t.id)) 
             :[]

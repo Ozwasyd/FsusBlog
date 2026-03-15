@@ -11,10 +11,11 @@
     <PackageJsonDependenciesFingerprintjsFingerprintjs Condition="$(PackageJsonDependenciesFingerprintjsFingerprintjs) == ''">^5.0.1</PackageJsonDependenciesFingerprintjsFingerprintjs>
     <PackageJsonDependenciesFontsourceVariableNotoSansJp Condition="$(PackageJsonDependenciesFontsourceVariableNotoSansJp) == ''">^5.2.10</PackageJsonDependenciesFontsourceVariableNotoSansJp>
     <PackageJsonDependenciesFontsourceGoogleSans Condition="$(PackageJsonDependenciesFontsourceGoogleSans) == ''">^5.2.1</PackageJsonDependenciesFontsourceGoogleSans>
+    <PackageJsonDependenciesFontsourceJetbrainsMono Condition="$(PackageJsonDependenciesFontsourceJetbrainsMono) == ''">^5.2.8</PackageJsonDependenciesFontsourceJetbrainsMono>
     <PackageJsonDependenciesFontsourceNotoSansJp Condition="$(PackageJsonDependenciesFontsourceNotoSansJp) == ''">^5.2.9</PackageJsonDependenciesFontsourceNotoSansJp>
     <PackageJsonDependenciesFontsourceNotoSansSc Condition="$(PackageJsonDependenciesFontsourceNotoSansSc) == ''">^5.2.9</PackageJsonDependenciesFontsourceNotoSansSc>
     <PackageJsonDependenciesFontsourceNotoSansTc Condition="$(PackageJsonDependenciesFontsourceNotoSansTc) == ''">^5.2.9</PackageJsonDependenciesFontsourceNotoSansTc>
-    <PackageJsonDependenciesMicrosoftSignalr Condition="$(PackageJsonDependenciesMicrosoftSignalr) == ''">^10.0.0</PackageJsonDependenciesMicrosoftSignalr>
+    <PackageJsonDependenciesIktakahiroMarkdownItKatex Condition="$(PackageJsonDependenciesIktakahiroMarkdownItKatex) == ''">^4.0.1</PackageJsonDependenciesIktakahiroMarkdownItKatex>
     <PackageJsonDependenciesTailwindcssTypography Condition="$(PackageJsonDependenciesTailwindcssTypography) == ''">^0.5.19</PackageJsonDependenciesTailwindcssTypography>
     <PackageJsonDependenciesTailwindcssVite Condition="$(PackageJsonDependenciesTailwindcssVite) == ''">^4.1.18</PackageJsonDependenciesTailwindcssVite>
     <PackageJsonDependenciesVueuseHead Condition="$(PackageJsonDependenciesVueuseHead) == ''">^2.0.0</PackageJsonDependenciesVueuseHead>
@@ -22,6 +23,7 @@
     <PackageJsonDependenciesDompurify Condition="$(PackageJsonDependenciesDompurify) == ''">^3.3.1</PackageJsonDependenciesDompurify>
     <PackageJsonDependenciesEcharts Condition="$(PackageJsonDependenciesEcharts) == ''">^6.0.0</PackageJsonDependenciesEcharts>
     <PackageJsonDependenciesElementPlus Condition="$(PackageJsonDependenciesElementPlus) == ''">^2.13.2</PackageJsonDependenciesElementPlus>
+    <PackageJsonDependenciesKatex Condition="$(PackageJsonDependenciesKatex) == ''">^0.16.38</PackageJsonDependenciesKatex>
     <PackageJsonDependenciesMarkdownIt Condition="$(PackageJsonDependenciesMarkdownIt) == ''">^14.1.1</PackageJsonDependenciesMarkdownIt>
     <PackageJsonDependenciesMdEditorV3 Condition="$(PackageJsonDependenciesMdEditorV3) == ''">^6.3.1</PackageJsonDependenciesMdEditorV3>
     <PackageJsonDependenciesNprogress Condition="$(PackageJsonDependenciesNprogress) == ''">^0.2.0</PackageJsonDependenciesNprogress>

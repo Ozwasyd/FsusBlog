@@ -39,6 +39,10 @@ import '@fontsource/noto-sans-jp/400.css'
 import '@fontsource/noto-sans-jp/500.css'
 import '@fontsource/noto-sans-jp/700.css'
 
+// 代码块专属字体
+import '@fontsource/jetbrains-mono/400.css' // 常规体（代码主体）
+import '@fontsource/jetbrains-mono/500.css' // 中等字重（可选，部分主题可能会用到）
+import '@fontsource/jetbrains-mono/700.css' // 粗体（用于高亮关键字）
 
 const app = createApp(App)
 const pinia = createPinia()

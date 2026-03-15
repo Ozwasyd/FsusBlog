@@ -6,10 +6,10 @@
   直接在 CSS 的 @theme 块中定义，而不是在 JS 文件里！
 */
 @theme {
-  /* 🌟 定义 Google Sans 字体栈 */
+  /* 定义 Google Sans 字体栈 */
   --font-sans: "Google Sans", 'Noto Sans SC' , 'Noto Sans TC', 'Noto Sans JP', "ui-sans-serif", "system-ui", "sans-serif";
 
-  /* 🌟 定义黑白灰单色调扩展（如果系统默认的 zinc 不够用） */
+  /* 定义黑白灰单色调扩展（如果系统默认的 zinc 不够用） */
   --color-brand-black: #050505;
   
   --color-primary: #3b82f6; /* 自定义颜色 */

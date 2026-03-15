@@ -74,6 +74,7 @@ public static class ArticleEndpoints
                 Id = article.Id,
                 Title = article.Title,
                 Content = article.Content,
+                Summary = article.Summary,
                 Views = article.Views,
                 CreateTime = article.CreateTime,
                 Category = new ArticleCategoryView(article.CategoryId, article.Category?.Name ?? "默认"),

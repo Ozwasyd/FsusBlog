@@ -37,7 +37,7 @@
     <PackageJsonDevdependenciesVueTsconfig Condition="$(PackageJsonDevdependenciesVueTsconfig) == ''">^0.8.1</PackageJsonDevdependenciesVueTsconfig>
     <PackageJsonDevdependenciesEslint Condition="$(PackageJsonDevdependenciesEslint) == ''">^4.1.1</PackageJsonDevdependenciesEslint>
     <PackageJsonDevdependenciesSassEmbedded Condition="$(PackageJsonDevdependenciesSassEmbedded) == ''">^1.97.3</PackageJsonDevdependenciesSassEmbedded>
-    <PackageJsonDevdependenciesTypescriptNativePreview Condition="$(PackageJsonDevdependenciesTypescriptNativePreview) == ''">~5.9.3</PackageJsonDevdependenciesTypescriptNativePreview>
+    <PackageJsonDevdependenciesTypescript Condition="$(PackageJsonDevdependenciesTypescript) == ''">~5.9.3</PackageJsonDevdependenciesTypescript>
     <PackageJsonDevdependenciesUnpluginAutoImport Condition="$(PackageJsonDevdependenciesUnpluginAutoImport) == ''">^21.0.0</PackageJsonDevdependenciesUnpluginAutoImport>
     <PackageJsonDevdependenciesUnpluginVueComponents Condition="$(PackageJsonDevdependenciesUnpluginVueComponents) == ''">^31.0.0</PackageJsonDevdependenciesUnpluginVueComponents>
     <PackageJsonDevdependenciesVite Condition="$(PackageJsonDevdependenciesVite) == ''">^7.3.1</PackageJsonDevdependenciesVite>
