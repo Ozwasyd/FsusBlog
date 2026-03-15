@@ -1,0 +1,75 @@
+name: AI Bug Audit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install google-genai
+
+      - name: Run AI audit
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python << 'EOF'
+          import os
+          from google import genai
+
+          client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
+
+          PROMPT = """
+          Perform a READ ONLY bug audit.
+
+          Rules:
+          - Do not modify code
+          - Do not suggest refactoring
+          - Only detect bugs or risks
+
+          Focus on:
+          - logic errors
+          - race conditions
+          - resource leaks
+          - security issues
+          """
+
+          report = []
+
+          for root, dirs, files in os.walk("."):
+              for f in files:
+                  if f.endswith((".py",".js",".ts",".go",".rs",".java")):
+                      path = os.path.join(root,f)
+
+                      with open(path,"r",errors="ignore") as file:
+                          code=file.read()[:12000]
+
+                      prompt = PROMPT + "\nFile: " + path + "\n\nCode:\n" + code
+
+                      response = client.models.generate_content(
+                          model="gemini-3.1-pro",
+                          contents=prompt
+                      )
+
+                      report.append(f"# {path}\n"+response.text+"\n")
+
+          with open("BUG_REPORT.md","w") as f:
+              f.write("\n".join(report))
+          EOF
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bug-report
+          path: BUG_REPORT.md
