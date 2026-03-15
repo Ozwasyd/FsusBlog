@@ -11,26 +11,36 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
         with:
-          python-version: "3.11"
+          dotnet-version: 10.0.x
 
-      - name: Install static analyzers
+      - name: Install Python & tools
         run: |
-          pip install ruff bandit semgrep detect-secrets
-          pip install google-genai
+          pip install semgrep detect-secrets google-genai
+          curl -L https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64 -o osv
+          chmod +x osv
 
-      - name: Run static analysis
-        run: |
-          mkdir reports
+      - name: Run CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+      - name: CodeQL Analyze
+        uses: github/codeql-action/analyze@v3
 
-          ruff . > reports/ruff.txt || true
-          bandit -r . > reports/bandit.txt || true
-          semgrep scan --config auto > reports/semgrep.txt || true
-          detect-secrets scan > reports/secrets.txt || true
+      - name: Run Semgrep
+        run: semgrep scan --config auto > reports/semgrep.txt || true
 
-      - name: Run Gemini reasoning
+      - name: Run OSV Scanner
+        run: ./osv . > reports/dependencies.txt || true
+
+      - name: Run Detect Secrets
+        run: detect-secrets scan > reports/secrets.txt || true
+
+      - name: Run AI Reasoning (Gemini)
         env:
           GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
@@ -40,48 +50,51 @@ jobs:
 
           client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
 
+          # 汇总所有静态扫描结果
+          reports_dir = "reports"
           findings = ""
-          for f in os.listdir("reports"):
-              with open("reports/"+f) as file:
-                  findings += f"\n\n## {f}\n"+file.read()
+          for f in os.listdir(reports_dir):
+              with open(os.path.join(reports_dir, f), "r", errors="ignore") as file:
+                  findings += f"\n\n## {f}\n" + file.read()
 
           prompt = f"""
-          Perform a repository security and bug audit.
+你是一名资深 .NET 安全审计专家。
 
-          This is READ ONLY analysis.
+项目类型：C# / .NET 10
 
-          Goals:
-          - identify real bugs
-          - identify security risks
-          - remove false positives
-          - detect architectural flaws
+任务：
+- 分析逻辑漏洞、并发问题、资源泄漏、依赖漏洞、注入风险、安全问题
+- 利用联网漏洞数据库信息
+- 过滤误报
+- 结合跨文件调用图分析
+- 输出简体中文完整审计报告
 
-          Static analysis findings:
+静态分析结果：
+{findings}
 
-          {findings}
-
-          Produce a structured report with:
-
-          1. Critical vulnerabilities
-          2. Logic bugs
-          3. Concurrency issues
-          4. Security problems
-          5. Reliability risks
-          """
+请生成完整安全审计报告，结构如下：
+# 项目安全审计报告
+## 严重漏洞
+## 高风险问题
+## 中风险问题
+## 低风险问题
+## 架构风险
+## 修复建议
+"""
 
           response = client.models.generate_content(
-              model="gemini-3.1-pro-preview",
+              model="models/gemini-3.1-pro-preview",
               contents=prompt
           )
 
-          with open("AI_AUDIT_REPORT.md","w") as f:
+          with open("AI_AUDIT_REPORT_CN.md", "w", encoding="utf-8") as f:
               f.write(response.text)
           EOF
 
-      - name: Upload report
+      - name: Upload audit report
         uses: actions/upload-artifact@v4
         with:
           name: audit-report
-          path: |
-            reports
-            AI_AUDIT_REPORT.md
+          path:
+            - reports
+            - AI_AUDIT_REPORT_CN.md
