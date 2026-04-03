@@ -52,5 +52,8 @@ export default defineConfig(({ mode }) => {
             },
             allowedHosts: true
         },
+        worker: {
+            format: "es"
+        }
     }
 })
