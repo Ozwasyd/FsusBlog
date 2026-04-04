@@ -18,18 +18,19 @@ openresty/certs/
 **/bin/
 **/obj/
 **/publish/
+**/dist/
 **/logs/
 **/*.index
 
 **/node_modules/
-**/dist/
 */npm-debug.log
 **/auto-imports.d.ts
 **/components.d.ts
 
-FsusPowEngine/build/
-FsusPowEngine/build_windows/
-FsusBlog.Wasm/
+FsusBlog.Wasm/build/
+FsusBlog.Wasm/build_windows/
+FsusBlog.Client/src/wasm/dist/
+
 
 BenchmarkDotNet.Artifacts/
 **/BenchmarkDotNet.Artifacts/

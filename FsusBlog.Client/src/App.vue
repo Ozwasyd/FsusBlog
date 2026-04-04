@@ -1,17 +1,17 @@
 <script setup lang="ts">
     import { onMounted, computed, watch, onUnmounted, ref } from 'vue'
     import { RouterView } from 'vue-router'
-    import { ElConfigProvider } from 'element-plus'
-    import zhCn from 'element-plus/es/locale/lang/zh-cn'
     import { useHead } from '@vueuse/head'
 
     import { useUserStore } from '@/store/user'
     import { useSiteStore } from '@/store/site'
+    import { useArticleBinaryStore } from '@/store/article'
     import { useNotification } from '@/composables/useNotification'
     import { notificationService } from '@/services/notificationService'
 
     const userStore = useUserStore()
     const siteStore = useSiteStore()
+    const articleStore = useArticleBinaryStore()
     const { initNotification } = useNotification()
 
     // 核心修正 (2026-02-22)：全局意图状态锁
@@ -83,6 +83,25 @@
         window.removeEventListener('touchstart', triggerGlobalIntent);
     }
 
+    const onRootClick = (event: MouseEvent) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+            return;
+        }
+
+        const actionNode = target.closest('[data-aot-action]');
+        if (!(actionNode instanceof HTMLElement)) {
+            return;
+        }
+
+        const action = actionNode.dataset.aotAction;
+        if (!action) {
+            return;
+        }
+
+        articleStore.handleAotAction(action);
+    }
+
     onMounted(async () => {
         // [修复 2026-02-23] 状态信任修正：核心元数据加载
         const tasks: Promise<any>[] = [
@@ -130,8 +149,7 @@
 </script>
 
 <template>
-    <el-config-provider :locale="zhCn">
-        <div class="app-wrapper w-full min-h-screen flex flex-col overflow-x-hidden">
+        <div class="app-wrapper w-full min-h-screen flex flex-col overflow-x-hidden" @click="onRootClick">
             <!-- [修复 2026-02-23] 解决权限 UI 闪烁：增加 isAuthChecked 判定，确保握手后再渲染 -->
             <transition name="banner-slide">
                 <div v-if="userStore.isAuthChecked && userStore.isLoggedIn && userStore.isBanned"
@@ -151,7 +169,6 @@
                 </transition>
             </router-view>
         </div>
-    </el-config-provider>
 </template>
 
 <style>

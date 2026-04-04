@@ -17,8 +17,6 @@ import './assets/main.css'
 // Element Plus 样式
 import 'element-plus/dist/index.css'
 
-import * as ElementPlusIconsVue from '@element-plus/icons-vue'
-
 // 大部分语言
 import '@fontsource/google-sans/400.css'
 import '@fontsource/google-sans/500.css'
@@ -46,11 +44,6 @@ import '@fontsource/jetbrains-mono/700.css' // 粗体（用于高亮关键字）
 
 const app = createApp(App)
 const pinia = createPinia()
-
-// 注册 Element Plus 图标
-for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
-  app.component(key, component)
-}
 
 const head = createHead()
 app.use(head)

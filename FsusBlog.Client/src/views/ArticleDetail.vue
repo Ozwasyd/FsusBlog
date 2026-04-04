@@ -163,9 +163,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getArticleById, type ArticleDetail } from '@/api/article'
+import type { ArticleDetail } from '@/api/article'
 import { getComments, createComment, deleteComment, type CommentItem } from '@/api/comment'
 import { useUserStore } from '@/store/user'
+import { useArticleBinaryStore } from '@/store/article'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue' 
 import { toast } from '@/utils/toast'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
@@ -187,6 +188,7 @@ const SIGNALS = {
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const articleStore = useArticleBinaryStore()
 const powProvider = usePow()
 
 const article = ref<ArticleDetail | null>(null)
@@ -349,7 +351,7 @@ const loadArticle = async (silent = false) => {
 
   const action = async () => {
     try {
-      const res = await getArticleById(id, { signal: currentSignal })
+      const res = await articleStore.fetchArticleById(id, currentSignal)
       if (isMounted && !currentSignal.aborted && res) {
         article.value = res
         if (!silent) {

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FsusBlog.Core.Benchmarks")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b66d5d7b18e5d0f8a736f1933e9764f141724a4b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+47d09916ad6cc222849c739da337c0ec67cc1e1a")]
 [assembly: System.Reflection.AssemblyProductAttribute("FsusBlog.Core.Benchmarks")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FsusBlog.Core.Benchmarks")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -1,0 +1,52 @@
+﻿{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "wasm-simd-release",
+      "displayName": "Wasm SIMD Release (高性能 - iPhone 12+ / 现代设备)",
+      "description": "启用 SIMD128 指令集的极致性能构建，适合新设备",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/wasm-simd-release",
+      "cmakeExecutable": "emcmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "WASM_SIMD": "ON",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_MAKE_PROGRAM": "ninja"
+      }
+    },
+    {
+      "name": "wasm-basic-release",
+      "displayName": "Wasm Basic Release (兼容模式 - 旧设备)",
+      "description": "不启用 SIMD 的兼容性构建，适合较旧的手机和设备",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/wasm-basic-release",
+      "cmakeExecutable": "emcmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "WASM_SIMD": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_MAKE_PROGRAM": "ninja"
+      }
+    },
+    {
+      "name": "wasm-debug",
+      "displayName": "Wasm Debug (开发调试模式)",
+      "description": "带调试信息和断点支持的开发版本",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/wasm-debug",
+      "cmakeExecutable": "emcmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "WASM_SIMD": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_MAKE_PROGRAM": "ninja"
+      }
+    }
+  ]
+}

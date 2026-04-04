@@ -2,6 +2,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Models.Responses;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -32,9 +33,9 @@ public static class BinaryEndpoints
             }
 
             byte[] payload = PodBinaryCodec.EncodeArticlePage(result.Value);
-            byte[] frame = aeds.Encode(AedsFrameType.ArticleList, payload);
+            byte[] frame = AedsBinaryWriter.WriteFrame(aeds, AedsFrameType.ArticleList, payload);
             return TypedResults.File(frame, BinaryContentType);
-        }).RequireAuthorization();
+        }).AllowAnonymous();
 
         group.MapGet("/article/{id:int}", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
             int id,
@@ -50,9 +51,9 @@ public static class BinaryEndpoints
             }
 
             byte[] payload = PodBinaryCodec.EncodeArticleDetail(result.Value.Value);
-            byte[] frame = aeds.Encode(AedsFrameType.ArticleDetail, payload);
+            byte[] frame = AedsBinaryWriter.WriteFrame(aeds, AedsFrameType.ArticleDetail, payload);
             return TypedResults.File(frame, BinaryContentType);
-        }).RequireAuthorization();
+        }).AllowAnonymous();
 
         group.MapGet("/article/hot", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
             int? size,
@@ -71,7 +72,7 @@ public static class BinaryEndpoints
             }
 
             byte[] payload = PodBinaryCodec.EncodePopularArticles(result.Value);
-            byte[] frame = aeds.Encode(AedsFrameType.ArticleHot, payload);
+            byte[] frame = AedsBinaryWriter.WriteFrame(aeds, AedsFrameType.ArticleHot, payload);
             return TypedResults.File(frame, BinaryContentType);
         }).AllowAnonymous();
 
@@ -91,7 +92,7 @@ public static class BinaryEndpoints
             }
 
             byte[] payload = PodBinaryCodec.EncodeArticleSearch(result.Value);
-            byte[] frame = aeds.Encode(AedsFrameType.ArticleSearch, payload);
+            byte[] frame = AedsBinaryWriter.WriteFrame(aeds, AedsFrameType.ArticleSearch, payload);
             return TypedResults.File(frame, BinaryContentType);
         }).AllowAnonymous();
 

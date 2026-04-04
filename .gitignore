@@ -17,7 +17,15 @@ launchSettings.json
 # 逻辑自洽：从截图看，根目录出现了编译产生的 bin 和 obj 文件夹
 /bin/
 /obj/
+/publish/
+/dist/
 /data/
+**/bin/
+**/obj/
+**/publish/
+**/dist/
+**/out/
+**/node_modules/
 
 # --- 核心安全保障：环境变量隔离 (2026-02-21) ---
 # 排除所有真实的敏感环境变量文件
@@ -33,6 +41,7 @@ launchSettings.json
 # ==========================================
 FsusBlog.Client/node_modules/
 FsusBlog.Client/dist/
+FsusBlog.Client/src/wasm/dist/
 
 # 逻辑自洽：截图显示前端使用了 .esproj，会生成 MSBuild 风格的编译目录
 FsusBlog.Client/[Bb]in/
@@ -78,10 +87,14 @@ FsusBlog.Server/logs/
 # ==========================================
 build_windows/
 out/
+FsusBlog.Wasm/build/
+FsusBlog.Wasm/build_windows/
 CMakeCache.txt
 CMakeFiles/
 *.cmake
 Makefile
+*.wasm
+*.js
 
 # ==========================================
 # 5. 本地工具与性能产物
@@ -90,5 +103,5 @@ Makefile
 BenchmarkDotNet.Artifacts/
 FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/
 
-# 外部/实验性 Wasm 工作目录（不纳入主仓）
-FsusBlog.Wasm/
+PLANS.MD
+AGENTS.MD
