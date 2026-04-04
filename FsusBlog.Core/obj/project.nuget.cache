@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "f0LJ699wxJc=",
+  "success": true,
+  "projectFilePath": "/data/projects/FsusBlog/FsusBlog.Core/FsusBlog.Core.csproj",
+  "expectedPackageFiles": [
+    "/home/dev/.nuget/packages/microsoft.extensions.configuration.abstractions/10.0.0/microsoft.extensions.configuration.abstractions.10.0.0.nupkg.sha512",
+    "/home/dev/.nuget/packages/microsoft.extensions.dependencyinjection.abstractions/10.0.0/microsoft.extensions.dependencyinjection.abstractions.10.0.0.nupkg.sha512",
+    "/home/dev/.nuget/packages/microsoft.extensions.primitives/10.0.0/microsoft.extensions.primitives.10.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

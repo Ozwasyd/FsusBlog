@@ -29,6 +29,11 @@ openresty/certs/
 
 FsusPowEngine/build/
 FsusPowEngine/build_windows/
+FsusBlog.Wasm/
+
+BenchmarkDotNet.Artifacts/
+**/BenchmarkDotNet.Artifacts/
+.codex/
 
 data/
 /data/

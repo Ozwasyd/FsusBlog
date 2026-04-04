@@ -82,3 +82,13 @@ CMakeCache.txt
 CMakeFiles/
 *.cmake
 Makefile
+
+# ==========================================
+# 5. 本地工具与性能产物
+# ==========================================
+.codex/
+BenchmarkDotNet.Artifacts/
+FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/
+
+# 外部/实验性 Wasm 工作目录（不纳入主仓）
+FsusBlog.Wasm/

@@ -1,0 +1,1 @@
+/data/projects/FsusBlog/FsusBlog.Client/obj/Debug/FsusBlog.Client.esproj.CoreCompileInputs.cache

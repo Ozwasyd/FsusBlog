@@ -1,0 +1,46 @@
+using System.Runtime.InteropServices;
+using FsusBlog.Shared.Contracts.Envelopes;
+using FsusBlog.Shared.Contracts.Primitives;
+
+namespace FsusBlog.Shared.Contracts.Models;
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct PopularArticlePod
+{
+    public readonly int Id;
+    public readonly int Views;
+    public readonly Utf8Fixed256 Title;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct RecentCommentPod
+{
+    public readonly int UserId;
+    public readonly byte HasUserId;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
+    public readonly long CreateTimeUnixMs;
+    public readonly Utf8Fixed64 UserName;
+    public readonly Utf8SliceRef Content;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct RegionDistributionPod
+{
+    public readonly int Count;
+    public readonly Utf8Fixed128 Region;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct SiteStatsPod
+{
+    public readonly int TotalArticles;
+    public readonly int TotalComments;
+    public readonly int TrashCount;
+    public readonly int TotalVisits;
+    public readonly int RegisteredVisits;
+    public readonly int AnonymousVisits;
+    public readonly PodEnvelopeHeader PopularArticles;
+    public readonly PodEnvelopeHeader RecentComments;
+    public readonly PodEnvelopeHeader RegionDistributions;
+}

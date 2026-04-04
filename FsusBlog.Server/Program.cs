@@ -1,5 +1,9 @@
-﻿using FsusBlog.Server.Infrastructure;
+﻿using FsusBlog.Core.DependencyInjection;
+using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.CoreBridge.Cache;
+using FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
+using FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
@@ -7,6 +11,7 @@ using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Sse;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
@@ -23,6 +28,8 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+
+SetRuntimeOptimizationEnvironmentVariables();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -76,6 +83,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddRedis(builder.Configuration);
 builder.Services.AddSqlSugar();
 builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddFsusBlogCore(builder.Configuration);
 
 // [物理级替换] 移除 SignalR，挂载 SSE 底层支持
 builder.Services.AddSingleton<SseConnectionManager>();
@@ -89,11 +97,6 @@ builder.Services.AddSingleton<CrawlerDetectorService>();
 builder.Services.AddHostedService<CrawlerUpdateWorker>();
 
 builder.Services.AddScoped<IFileService, FileService>();
-builder.Services.AddScoped<ISystemService, SystemService>();
-builder.Services.AddScoped<IArticleService, ArticleService>();
-builder.Services.AddScoped<ICommentService, CommentService>();
-builder.Services.AddScoped<IStatsService, StatsService>();
-builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<MessageCacheService>();
 builder.Services.AddScoped<IMessageService, SseMessageService>();
 builder.Services.AddSingleton<IBlacklistService, BlacklistService>();
@@ -103,6 +106,27 @@ builder.Services.AddSingleton<VisitLogChannel>();
 builder.Services.AddHostedService<VisitLogProcessorService>();
 builder.Services.AddHostedService<LogCleanupService>();
 builder.Services.AddSingleton<IContentFilterService, ContentFilterService>();
+
+builder.Services.AddScoped<ArticleService>();
+builder.Services.AddScoped<CommentService>();
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<SystemService>();
+builder.Services.AddScoped<StatsService>();
+
+builder.Services.AddScoped<FsusBlog.Core.Services.Gateways.ILegacyArticleGateway, LegacyArticleGateway>();
+builder.Services.AddScoped<FsusBlog.Core.Services.Gateways.ILegacyCommentGateway, LegacyCommentGateway>();
+builder.Services.AddScoped<FsusBlog.Core.Services.Gateways.ILegacyUserGateway, LegacyUserGateway>();
+builder.Services.AddScoped<FsusBlog.Core.Services.Gateways.ILegacySystemGateway, LegacySystemGateway>();
+builder.Services.AddScoped<FsusBlog.Core.Services.Gateways.ILegacyStatsGateway, LegacyStatsGateway>();
+builder.Services.AddScoped<FsusBlog.Core.Cache.ILevel1CacheStore, MemoryLevel1CacheStore>();
+builder.Services.AddScoped<FsusBlog.Core.Cache.ILevel2CacheStore, RedisLevel2CacheStore>();
+builder.Services.AddScoped<FsusBlog.Core.Cache.ICacheManager, FsusBlog.Core.Cache.CacheManager>();
+
+builder.Services.AddScoped<IArticleService, ArticleServiceCoreAdapter>();
+builder.Services.AddScoped<ICommentService, CommentServiceCoreAdapter>();
+builder.Services.AddScoped<IUserService, UserServiceCoreAdapter>();
+builder.Services.AddScoped<ISystemService, SystemServiceCoreAdapter>();
+builder.Services.AddScoped<IStatsService, StatsServiceCoreAdapter>();
 
 // Lucene 配置
 var lucenePath = Path.Combine(AppContext.BaseDirectory, "LuceneIndex");
@@ -225,6 +249,7 @@ app.MapCategoryEndpoints();
 app.MapCommentEndpoints();
 app.MapSystemEndpoints(); 
 app.MapTagEndpoints();
+app.MapBinaryEndpoints();
 
 // [极限物理重构] 接驳 Minimal API SSE 流式传输，自动承载 Token 与 PoW
 app.MapGet("/api/notifications/stream", StreamNotificationsAsync);
@@ -313,3 +338,20 @@ catch (Exception ex)
 }
 
 app.Run();
+
+void SetRuntimeOptimizationEnvironmentVariables()
+{
+    SetIfMissing("DOTNET_ReadyToRun", "1");
+    SetIfMissing("DOTNET_TC_QuickJitForLoops", "1");
+    SetIfMissing("DOTNET_TieredPGO", "1");
+}
+
+static void SetIfMissing(string key, string value)
+{
+    if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(key)))
+    {
+        return;
+    }
+
+    Environment.SetEnvironmentVariable(key, value);
+}

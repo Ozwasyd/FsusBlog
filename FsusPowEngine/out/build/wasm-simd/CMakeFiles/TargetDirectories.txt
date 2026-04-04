@@ -1,3 +1,0 @@
-F:/Projects/FsusBlog/FsusPowEngine/out/build/wasm-simd/CMakeFiles/FsusPowEngine.dir
-F:/Projects/FsusBlog/FsusPowEngine/out/build/wasm-simd/CMakeFiles/edit_cache.dir
-F:/Projects/FsusBlog/FsusPowEngine/out/build/wasm-simd/CMakeFiles/rebuild_cache.dir

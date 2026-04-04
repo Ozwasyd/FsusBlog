@@ -28,7 +28,7 @@ public partial class StatsController( // 声明为 partial 以支持源生成器
         LogAdminAccess(User.GetUserName());
 
         // 2. 调用高性能并行统计服务
-        // 异常将由 GlobalExceptionMiddleware 捕获，此处无需 try-catch
+        // 异常由 GlobalExceptionMiddleware 捕获，此处不做本地异常分支
         var stats = await _statsService.GetAdminStatsAsync();
 
         // 3. 包装并返回 (直接返回，触发隐式转换，零分配)

@@ -39,7 +39,7 @@ RUN dotnet publish "./FsusBlog.Server.csproj" -c $BUILD_CONFIGURATION -o /app/pu
 # =========================================================================
 FROM emscripten/emsdk:latest AS wasm-build
 WORKDIR /engine
-COPY FsusPowEngine/ ./
+COPY FsusBlog.Wasm/ ./
 RUN mkdir build && cd build && \
     emcmake cmake .. -DWASM_SIMD=ON && \
     make

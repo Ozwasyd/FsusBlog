@@ -6,5 +6,8 @@
     <Build />
     <Deploy />
   </Project>
+  <Project Path="FsusBlog.Core.Benchmarks/FsusBlog.Core.Benchmarks.csproj" />
+  <Project Path="FsusBlog.Core/FsusBlog.Core.csproj" />
+  <Project Path="FsusBlog.Shared/FsusBlog.Shared.csproj" />
   <Project Path="FsusBlog.Server/FsusBlog.Server.csproj" />
 </Solution>
