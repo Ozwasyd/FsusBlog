@@ -10,6 +10,18 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.vite
+.cache
+.tmp
+.artifacts
+.emscripten-cache
+build-basic
+build-simd
+.output
+.nuxt
+.eslintcache
+coverage
+*.tsbuildinfo
 *.local
 
 # Editor directories and files
@@ -22,3 +34,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+*~
+*.tmp
+*.temp

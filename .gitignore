@@ -3,6 +3,7 @@
 # ==========================================
 .vs/
 .vscode/
+.idea/
 .github/
 *.user
 *.suo
@@ -10,6 +11,11 @@
 *.sln.docstates
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
 
 # 排除根目录下的启动设置
 launchSettings.json
@@ -26,6 +32,14 @@ launchSettings.json
 **/dist/
 **/out/
 **/node_modules/
+**/.cache/
+**/.tmp/
+**/tmp/
+**/temp/
+**/coverage/
+**/.eslintcache
+**/*.tsbuildinfo
+**/TestResults/
 
 # --- 核心安全保障：环境变量隔离 (2026-02-21) ---
 # 排除所有真实的敏感环境变量文件
@@ -41,7 +55,10 @@ launchSettings.json
 # ==========================================
 FsusBlog.Client/node_modules/
 FsusBlog.Client/dist/
+FsusBlog.Client/dist-ssr/
 FsusBlog.Client/src/wasm/dist/
+FsusBlog.Client/.vite/
+FsusBlog.Client/.cache/
 
 # 逻辑自洽：截图显示前端使用了 .esproj，会生成 MSBuild 风格的编译目录
 FsusBlog.Client/[Bb]in/
@@ -55,6 +72,9 @@ FsusBlog.Client/*.tar
 FsusBlog.Client/.env.development
 FsusBlog.Client/.env.local
 FsusBlog.Client/npm-debug.log*
+FsusBlog.Client/yarn-debug.log*
+FsusBlog.Client/yarn-error.log*
+FsusBlog.Client/pnpm-debug.log*
 
 # 性能最大化：排除自动导入插件生成的类型声明文件（由 Unplugin 生成）
 FsusBlog.Client/auto-imports.d.ts
@@ -81,6 +101,10 @@ FsusBlog.Server/LuceneIndex/
 # 排除所有按天滚动的日志文件
 FsusBlog.Server/logs/
 *.log
+*.pid
+*.seed
+*.out
+*.err
 
 # ==========================================
 # 4. FsusBlog PoW Engine (C++ / CMake WebAssembly)
@@ -89,12 +113,22 @@ build_windows/
 out/
 FsusBlog.Wasm/build/
 FsusBlog.Wasm/build_windows/
+FsusBlog.Client/wasm/pow/build/
+FsusBlog.Client/wasm/build/
+FsusBlog.Client/wasm/.cmake/
+FsusBlog.Client/wasm/build-basic/
+FsusBlog.Client/wasm/build-simd/
+FsusBlog.Client/wasm/.artifacts/
+FsusBlog.Client/wasm/.emscripten-cache/
+FsusBlog.Client/wasm/**/CMakeFiles/
+FsusBlog.Client/wasm/**/CMakeCache.txt
+FsusBlog.Client/wasm/**/cmake_install.cmake
+FsusBlog.Client/wasm/**/Makefile
+FsusBlog.Client/src/wasm/dist/
 CMakeCache.txt
 CMakeFiles/
 *.cmake
 Makefile
-*.wasm
-*.js
 
 # ==========================================
 # 5. 本地工具与性能产物
@@ -103,5 +137,12 @@ Makefile
 BenchmarkDotNet.Artifacts/
 FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/
 
-PLANS.MD
+# ==========================================
+# 6. Local Codex Working Memory (local only)
+# ==========================================
 AGENTS.MD
+PLANS.MD
+AOT_CACHE_TODO.md
+AOT_PUBLIC_TODO.md
+PUBLIC_AOT_SERVER_FIRST_TODO.md
+PUBLIC_AOT_TODO.md
