@@ -45,8 +45,32 @@ public partial class SystemController( // 声明为 partial 以支持源生成�
         }
 
         LogPageUpdate(dto.Slug);
-        await _systemService.UpdatePageContentAsync(dto);
+        var success = await _systemService.UpdatePageContentAsync(dto);
+        if (!success)
+        {
+            return StatusCode(500, ApiResponse.Fail("页面更新失败：数据库操作异常", 500));
+        }
+
         return ApiResponse.Success($"{dto.Slug} 页面内容已发布，全局缓存已刷新");
+    }
+
+    [HttpPost("page/refresh/{slug}")]
+    [RequiresPow]
+    public async Task<ActionResult<ApiResponse>> RefreshPageCache(string slug)
+    {
+        var slugSpan = slug.AsSpan();
+        if (slugSpan.IsEmpty || !FastCharValidator.IsAlphaNumericHyphen(slugSpan))
+        {
+            return BadRequest(ApiResponse.Fail("页面标识 (Slug) 格式非法，仅允许字母、数字和连字符"));
+        }
+
+        var success = await _systemService.RefreshPageCacheAsync(slug);
+        if (!success)
+        {
+            return StatusCode(500, ApiResponse.Fail("页面缓存刷新失败", 500));
+        }
+
+        return ApiResponse.Success($"{slug} 页面缓存已刷新");
     }
 
     // ==========================================

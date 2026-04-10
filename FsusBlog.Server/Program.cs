@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Middlewares;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Sse;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints;
@@ -53,7 +54,7 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 // 2. 基础网络 (针对多层代理进行安全加固)
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
     options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
 });
@@ -106,6 +107,9 @@ builder.Services.AddSingleton<VisitLogChannel>();
 builder.Services.AddHostedService<VisitLogProcessorService>();
 builder.Services.AddHostedService<LogCleanupService>();
 builder.Services.AddSingleton<IContentFilterService, ContentFilterService>();
+builder.Services.AddScoped<IPublicAotShellCache, PublicAotFileShellCache>();
+builder.Services.AddScoped<IPublicAotShellService, PublicAotShellService>();
+builder.Services.AddScoped<IPublicAotInvalidationService, PublicAotInvalidationService>();
 
 builder.Services.AddScoped<ArticleService>();
 builder.Services.AddScoped<CommentService>();
@@ -203,11 +207,7 @@ app.UseForwardedHeaders();
 app.UseMiddleware<ShieldMiddleware>();
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
-
-//[修改日期 2026-03-01]
-// 修改理由：物理接管前端静态资源，实现零 I/O 损耗单容器托管。
-// 安全性保障：显式注册 application/wasm MIME 类型，防止 Kestrel 拦截 PoW 引擎下载。
-app.UseDefaultFiles(); // 必须在 UseStaticFiles 之前，用于默认指向 index.html
+app.UseMiddleware<ApiBinaryResponseMiddleware>();
 
 var provider = new FileExtensionContentTypeProvider();
 provider.Mappings[".wasm"] = "application/wasm";
@@ -251,8 +251,11 @@ app.MapSystemEndpoints();
 app.MapTagEndpoints();
 app.MapBinaryEndpoints();
 
+app.MapGet("/", ServePublicHomeAsync).AllowAnonymous();
+
 // [极限物理重构] 接驳 Minimal API SSE 流式传输，自动承载 Token 与 PoW
 app.MapGet("/api/notifications/stream", StreamNotificationsAsync);
+app.MapFallback(ServeSpaFallbackAsync);
 
 async Task StreamNotificationsAsync(
     HttpContext ctx,
@@ -311,9 +314,56 @@ async Task StreamNotificationsAsync(
     }
 }
 
-// [修改日期 2026-03-01]
-// 修改理由：SPA 路由防丢。如果请求没有命中上面的任何 API 或文件，统统回退到前端入口，交由 Vue Router 处理 404 和页面路由。
-app.MapFallbackToFile("index.html");
+async Task<IResult> ServePublicHomeAsync(
+    HttpContext ctx,
+    IPublicAotShellService shellService,
+    IWebHostEnvironment env,
+    CancellationToken ct)
+{
+    return await ServePublicShellOrIndexAsync(ctx, shellService, env, ct);
+}
+
+async Task<IResult> ServeSpaFallbackAsync(
+    HttpContext ctx,
+    IPublicAotShellService shellService,
+    IWebHostEnvironment env,
+    CancellationToken ct)
+{
+    return await ServePublicShellOrIndexAsync(ctx, shellService, env, ct);
+}
+
+static async Task<IResult> ServePublicShellOrIndexAsync(
+    HttpContext ctx,
+    IPublicAotShellService shellService,
+    IWebHostEnvironment env,
+    CancellationToken ct)
+{
+    if (!HttpMethods.IsGet(ctx.Request.Method) && !HttpMethods.IsHead(ctx.Request.Method))
+    {
+        return Results.NotFound();
+    }
+
+    if (shellService.TryResolve(ctx, out _))
+    {
+        string? html = await shellService.RenderAsync(ctx, ct);
+        if (!string.IsNullOrEmpty(html))
+        {
+            string source = ctx.Items.TryGetValue(PublicAotShellService.PublicAotSourceContextKey, out object? sourceObj)
+                ? sourceObj?.ToString() ?? "unknown"
+                : "unknown";
+            ctx.Response.Headers["X-Fsus-Public-Aot-Source"] = source;
+            ctx.Response.Headers["X-Fsus-Public-Aot-Version"] = "v2";
+            return Results.Content(html, "text/html; charset=utf-8");
+        }
+    }
+
+    string indexPath = PublicSpaTemplateLocator.ResolveIndexTemplatePath(env);
+    ctx.Response.Headers["X-Fsus-Public-Aot-Source"] = "spa-index";
+    ctx.Response.Headers["X-Fsus-Public-Aot-Version"] = "v2";
+    return string.IsNullOrWhiteSpace(indexPath)
+        ? Results.Content(PublicSpaTemplateLocator.BuildFallbackIndexHtml(), "text/html; charset=utf-8")
+        : Results.File(indexPath, contentType: "text/html; charset=utf-8");
+}
 
 // 7. 数据库与系统初始化
 try

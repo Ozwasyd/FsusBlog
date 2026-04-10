@@ -19,7 +19,7 @@ public class SysMessage
     [SugarColumn(IsPrimaryKey = true)]
     public long Id { get; init; }
 
-    public string Title { get; init; }
+    public string Title { get; init; } = string.Empty;
 
     [SugarColumn(ColumnDataType = "text")]
     public string Content { get; init; } = null!;

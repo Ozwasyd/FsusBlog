@@ -26,17 +26,28 @@ public partial class UserService(
     IServiceScopeFactory _scopeFactory) : IUserService
 {
     private readonly IDatabase _redis = _redisMultiplexer.GetDatabase();
+    private const int MaxUsernameLength = 32;
+    private const int MinPasswordLength = 8;
+    private const int MaxPasswordLength = 128;
+    private const int MaxAdminPageSize = 200;
+    private const int MaxIpLength = 64;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string NormalizeUsername(string input)
     {
         var span = input.AsSpan().Trim();
         if (span.IsEmpty) return string.Empty;
-        return string.Create(span.Length, span, (dst, src) => src.ToLowerInvariant(dst));
+        if (span.Length > MaxUsernameLength) span = span[..MaxUsernameLength];
+        return string.Create(span.Length, span, static (dst, src) => src.ToLowerInvariant(dst));
     }
 
     public async Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto)
     {
+        if (!IsPasswordLengthValid(dto.Password))
+        {
+            return (false, "密码长度必须在 8-128 位之间");
+        }
+
         if (dto.Password != dto.ConfirmPassword)
             return (false, "两次输入的密码不一致");
 
@@ -51,7 +62,7 @@ public partial class UserService(
         if (await _db.Queryable<User>().AnyAsync(u => u.Username == normalizedUsername))
             return (false, "用户名已存在");
 
-        string passwordHash = await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(dto.Password));
+        string passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
         var newUser = new User
         {
@@ -75,6 +86,7 @@ public partial class UserService(
 
     public async Task<(bool Success, string Message, TokenResponseDto? Data, User? UserEntity)> LoginAsync(LoginDto dto, string clientIp)
     {
+        clientIp = NormalizeClientIp(clientIp);
         string normalizedUsername = NormalizeUsername(dto.Username);
         if (normalizedUsername.Length == 0) return (false, "用户名不能为空", null, null);
 
@@ -83,7 +95,7 @@ public partial class UserService(
         bool isPasswordValid = false;
         if (user != null)
         {
-            isPasswordValid = await Task.Run(() => BCrypt.Net.BCrypt.Verify(dto.Password, user.Password));
+            isPasswordValid = BCrypt.Net.BCrypt.Verify(dto.Password, user.Password);
         }
 
         if (user == null || !isPasswordValid)
@@ -158,6 +170,11 @@ public partial class UserService(
 
     public async Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto)
     {
+        if (!IsPasswordLengthValid(dto.NewPassword))
+        {
+            return (false, "新密码长度必须在 8-128 位之间");
+        }
+
         if (dto.NewPassword != dto.ConfirmPassword)
             return (false, "两次输入的新密码不一致");
 
@@ -166,13 +183,13 @@ public partial class UserService(
         bool isOldPasswordValid = false;
         if (user != null)
         {
-            isOldPasswordValid = await Task.Run(() => BCrypt.Net.BCrypt.Verify(dto.OldPassword, user.Password));
+            isOldPasswordValid = BCrypt.Net.BCrypt.Verify(dto.OldPassword, user.Password);
         }
 
         if (user == null || !isOldPasswordValid)
             return (false, "旧密码验证失败");
 
-        string newHash = await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(dto.NewPassword));
+        string newHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
 
         var success = await _db.Updateable<User>()
             .SetColumns(u => u.Password == newHash)
@@ -224,6 +241,14 @@ public partial class UserService(
 
     public async Task<PageResult<UserListDto>> GetAdminUserListAsync(UserQueryDto dto)
     {
+        var page = dto.Page < 1 ? 1 : dto.Page;
+        var pageSize = dto.PageSize switch
+        {
+            < 1 => 20,
+            > MaxAdminPageSize => MaxAdminPageSize,
+            _ => dto.PageSize
+        };
+
         var query = _db.Queryable<User>()
             .WhereIF(!string.IsNullOrWhiteSpace(dto.Keyword), u => u.Username.Contains(dto.Keyword!))
             .WhereIF(dto.Status.HasValue, u => u.Status == dto.Status);
@@ -243,11 +268,11 @@ public partial class UserService(
                 u.LastLoginIp,
                 u.LastLoginTime
             })
-            .Skip((dto.Page - 1) * dto.PageSize)
-            .Take(dto.PageSize)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToSql();
 
-        var list = new List<UserListDto>(dto.PageSize);
+        var list = new List<UserListDto>(pageSize);
 
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
         {
@@ -298,28 +323,12 @@ public partial class UserService(
         if (dto.Status == 1)
         {
             await _blacklistService.BanUserAsync(dto.UserId, effectiveReason!);
-            _ = Task.Run(async () => {
-                try
-                {
-                    using var scope = _scopeFactory.CreateScope();
-                    var msgSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
-                    await msgSvc.SendUserBannedNoticeAsync(dto.UserId, effectiveReason!);
-                }
-                catch (Exception ex) { LogBackgroundTaskError(ex); }
-            });
+            _ = NotifyUserBannedAsync(dto.UserId, effectiveReason!);
         }
         else
         {
             await _blacklistService.UnbanUserAsync(dto.UserId);
-            _ = Task.Run(async () => {
-                try
-                {
-                    using var scope = _scopeFactory.CreateScope();
-                    var msgSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
-                    await msgSvc.SendUserUnbannedNoticeAsync(dto.UserId);
-                }
-                catch (Exception ex) { LogBackgroundTaskError(ex); }
-            });
+            _ = NotifyUserUnbannedAsync(dto.UserId);
         }
 
         return (true, dto.Status == 1 ? "用户已封禁" : "用户已解封");
@@ -329,8 +338,9 @@ public partial class UserService(
     {
         var user = await _db.Queryable<User>().InSingleAsync(dto.UserId);
         if (user == null) return (false, "用户不存在");
+        if (!IsPasswordLengthValid(dto.NewPassword)) return (false, "新密码长度必须在 8-128 位之间");
 
-        string newHash = await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(dto.NewPassword));
+        string newHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
 
         await _db.Updateable<User>()
                  .SetColumns(u => u.Password == newHash)
@@ -340,17 +350,51 @@ public partial class UserService(
                  .ExecuteCommandAsync();
 
         await _redis.StringSetAsync($"blocked:user:{dto.UserId}", "pwd_reset", TimeSpan.FromMinutes(20));
-        _ = Task.Run(async () => {
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var msgSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
-                await msgSvc.PushUserStatusAsync(dto.UserId, 1, "管理员重置了您的密码");
-            }
-            catch (Exception ex) { LogBackgroundTaskError(ex); }
-        });
+        _ = NotifyPasswordResetAsync(dto.UserId);
 
         return (true, "密码已重置，用户已强制登出");
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsPasswordLengthValid(string? password)
+    {
+        if (string.IsNullOrEmpty(password)) return false;
+        return password.Length is >= MinPasswordLength and <= MaxPasswordLength;
+    }
+
+    private Task NotifyUserBannedAsync(int userId, string reason)
+        => ExecuteNotificationAsync(static (svc, uid, payload) => svc.SendUserBannedNoticeAsync(uid, payload), userId, reason);
+
+    private Task NotifyUserUnbannedAsync(int userId)
+        => ExecuteNotificationAsync(static (svc, uid, _) => svc.SendUserUnbannedNoticeAsync(uid), userId, string.Empty);
+
+    private Task NotifyPasswordResetAsync(int userId)
+        => ExecuteNotificationAsync(static (svc, uid, payload) => svc.PushUserStatusAsync(uid, 1, payload), userId, "管理员重置了您的密码");
+
+    private async Task ExecuteNotificationAsync(Func<IMessageService, int, string, Task> sender, int userId, string payload)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var msgSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
+            await sender(msgSvc, userId, payload);
+        }
+        catch (Exception ex)
+        {
+            LogBackgroundTaskError(ex);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string NormalizeClientIp(string? ip)
+    {
+        if (string.IsNullOrWhiteSpace(ip))
+        {
+            return string.Empty;
+        }
+
+        var value = ip.Trim();
+        return value.Length > MaxIpLength ? value[..MaxIpLength] : value;
     }
 
     [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "注册竞态冲突 | 用户名: {Username}")]

@@ -65,8 +65,14 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
             return [];
         }
 
-        var list = new List<ArticleListDto>(result.Value.Count);
-        foreach (var item in result.Value)
+        var value = result.Value;
+        if (value is null)
+        {
+            return [];
+        }
+
+        var list = new List<ArticleListDto>(value.Count);
+        foreach (var item in value)
         {
             list.Add(ToArticleListDto(item));
         }
@@ -82,8 +88,14 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
             return [];
         }
 
-        var list = new List<PopularArticleDto>(result.Value.Count);
-        foreach (var item in result.Value)
+        var value = result.Value;
+        if (value is null)
+        {
+            return [];
+        }
+
+        var list = new List<PopularArticleDto>(value.Count);
+        foreach (var item in value)
         {
             list.Add(new PopularArticleDto { Id = item.Id, Title = item.Title, Views = item.Views });
         }

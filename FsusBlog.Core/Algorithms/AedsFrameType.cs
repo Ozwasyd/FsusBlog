@@ -9,5 +9,7 @@ public enum AedsFrameType : ushort
     ArticleSearch = 4,
     CommentArticleCursor = 5,
     CommentUserCursor = 6,
-    AdminStats = 7
+    AdminStats = 7,
+    ApiEnvelope = 250,
+    ApiError = 251
 }

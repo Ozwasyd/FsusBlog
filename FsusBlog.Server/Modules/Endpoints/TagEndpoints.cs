@@ -1,5 +1,5 @@
 ﻿using FsusBlog.Server.Entities;
-using FsusBlog.Server.Models.Dtos; // 引用统一的 DTO
+using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Server.Models.Responses;
 using Microsoft.AspNetCore.OutputCaching;
 using SqlSugar;

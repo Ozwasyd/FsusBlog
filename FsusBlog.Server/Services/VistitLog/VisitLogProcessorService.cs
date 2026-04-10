@@ -37,6 +37,9 @@ public class VisitLogChannel
 
 public class VisitLogProcessorService : BackgroundService
 {
+    private const int BatchSize = 500;
+    private const int MaxIpLength = 64;
+
     private readonly VisitLogChannel _channel;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<VisitLogProcessorService> _logger;
@@ -56,7 +59,7 @@ public class VisitLogProcessorService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var batch = new List<VisitLog>(500);
+        var batch = new List<VisitLog>(BatchSize);
 
         try
         {
@@ -64,14 +67,14 @@ public class VisitLogProcessorService : BackgroundService
             {
                 if (await _channel.Reader.WaitToReadAsync(stoppingToken))
                 {
-                    while (batch.Count < 500 && _channel.Reader.TryRead(out var msg))
+                    while (batch.Count < BatchSize && _channel.Reader.TryRead(out var msg))
                     {
                         ProcessSingleMessage(msg, batch);
                     }
 
                     if (batch.Count > 0)
                     {
-                        await FlushBatchAsync(batch, CancellationToken.None);
+                        await FlushBatchAsync(batch, stoppingToken);
                     }
                 }
             }
@@ -105,12 +108,18 @@ public class VisitLogProcessorService : BackgroundService
 
     private void ProcessSingleMessage(VisitLogMessage msg, List<VisitLog> batch)
     {
+        if (string.IsNullOrWhiteSpace(msg.IP))
+        {
+            return;
+        }
+
+        var ip = msg.IP.Length > MaxIpLength ? msg.IP[..MaxIpLength] : msg.IP;
         var ipObj = _ipPool.Get();
         string region;
         try
         {
             // 注：IP2Location 的 BIN 内存模式查询耗时在 1 纳秒级，属于纯 CPU 寻址，不会引起 I/O 消费雪崩
-            var res = ipObj.IPQuery(msg.IP);
+            var res = ipObj.IPQuery(ip);
             region = CreateRegionString(res);
         }
         finally
@@ -120,7 +129,7 @@ public class VisitLogProcessorService : BackgroundService
 
         batch.Add(new VisitLog
         {
-            IP = msg.IP,
+            IP = ip,
             UserId = msg.UserId,
             Region = region,
             CreateTime = msg.CreateTime

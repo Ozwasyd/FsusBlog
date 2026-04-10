@@ -76,19 +76,27 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         }
         _lastReloadTimes[e.Name] = DateTime.UtcNow;
 
-        Task.Run(() =>
+        ThreadPool.UnsafeQueueUserWorkItem(static state =>
         {
-            if (e.Name.Equals("SensitiveWords.txt", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogInformation("检测到政治红线词库变动，准备自动热重载...");
-                ReloadSensitiveWords();
-            }
-            else if (e.Name.Equals("AdWords.txt", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogInformation("检测到动态广告词库变动，准备自动热重载...");
-                ReloadAdWords();
-            }
-        });
+            var (self, fileName) = ((ContentFilterService, string))state!;
+            self.ReloadFromWatcher(fileName);
+        }, (this, e.Name));
+    }
+
+    private void ReloadFromWatcher(string fileName)
+    {
+        if (fileName.Equals("SensitiveWords.txt", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation("检测到政治红线词库变动，准备自动热重载...");
+            ReloadSensitiveWords();
+            return;
+        }
+
+        if (fileName.Equals("AdWords.txt", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation("检测到动态广告词库变动，准备自动热重载...");
+            ReloadAdWords();
+        }
     }
 
     public (bool isValid, string message) ValidateContent(string text)
@@ -133,7 +141,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         ReloadAdWords();
     }
 
-    private static string[] ReadAllLinesWithRetry(string path)
+    private string[] ReadAllLinesWithRetry(string path)
     {
         for (int i = 0; i < 5; i++)
         {
@@ -154,7 +162,8 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
                 Thread.Sleep(100);
             }
         }
-        throw new IOException($"无法在5次重试后读取文件: {path}");
+        _logger.LogWarning("词库文件读取失败，已降级为空词库 | Path: {Path}", path);
+        return [];
     }
 
     private void ReloadSensitiveWords()

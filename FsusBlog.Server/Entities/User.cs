@@ -13,10 +13,10 @@ public class User
     public int Id { get; set; }
 
     [SugarColumn(Length = 50)]
-    public string Username { get; set; }
+    public string Username { get; set; } = string.Empty;
 
     [SugarColumn(Length = 100)]
-    public string Password { get; set; } // 实际生产中请存 Hash
+    public string Password { get; set; } = string.Empty; // 实际生产中请存 Hash
 
     [SugarColumn(Length = 20)]
     public string Role { get; set; } = "guest"; // "admin" or "guest"
@@ -71,4 +71,3 @@ public class User
     [SugarColumn(IsNullable = true)]
     public DateTime? LastLoginTime { get; set; }
 }
-

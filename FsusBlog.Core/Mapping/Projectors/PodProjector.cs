@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Runtime.InteropServices;
 using FsusBlog.Core.Mapping.Codecs;
 using FsusBlog.Shared.Contracts.Envelopes;
@@ -20,7 +21,7 @@ public static class PodProjector
         bool? isDeleted,
         out byte[] payload)
     {
-        List<byte> bytes = [];
+        var bytes = new ArrayBufferWriter<byte>(256);
         Utf8SliceRef summarySlice = PodUtf8Codec.AppendSlice(summary, bytes);
         Utf8SliceRef snippetSlice = PodUtf8Codec.AppendSlice(snippet, bytes);
 
@@ -38,7 +39,7 @@ public static class PodProjector
             Reserved = 0
         };
 
-        payload = [.. bytes];
+        payload = bytes.WrittenMemory.ToArray();
         return Cast<MutableArticleListItemPod, ArticleListItemPod>(tmp);
     }
 
@@ -53,7 +54,7 @@ public static class PodProjector
         string? summary,
         out byte[] payload)
     {
-        List<byte> bytes = [];
+        var bytes = new ArrayBufferWriter<byte>(512);
         Utf8SliceRef summarySlice = PodUtf8Codec.AppendSlice(summary, bytes);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
 
@@ -68,7 +69,7 @@ public static class PodProjector
             Content = contentSlice
         };
 
-        payload = [.. bytes];
+        payload = bytes.WrittenMemory.ToArray();
         return Cast<MutableArticleDetailPod, ArticleDetailPod>(tmp);
     }
 
@@ -85,7 +86,7 @@ public static class PodProjector
 
     public static CommentItemPod ProjectCommentItem(long id, DateTime createTime, string userName, string content, out byte[] payload)
     {
-        List<byte> bytes = [];
+        var bytes = new ArrayBufferWriter<byte>(256);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
 
         MutableCommentItemPod tmp = new()
@@ -96,13 +97,13 @@ public static class PodProjector
             Content = contentSlice
         };
 
-        payload = [.. bytes];
+        payload = bytes.WrittenMemory.ToArray();
         return Cast<MutableCommentItemPod, CommentItemPod>(tmp);
     }
 
     public static UserCommentPod ProjectUserComment(long id, int articleId, DateTime createTime, string content, string articleTitle, out byte[] payload)
     {
-        List<byte> bytes = [];
+        var bytes = new ArrayBufferWriter<byte>(256);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
 
         MutableUserCommentPod tmp = new()
@@ -114,13 +115,13 @@ public static class PodProjector
             ArticleTitle = PodUtf8Codec.ToFixed256(articleTitle)
         };
 
-        payload = [.. bytes];
+        payload = bytes.WrittenMemory.ToArray();
         return Cast<MutableUserCommentPod, UserCommentPod>(tmp);
     }
 
     public static RecentCommentPod ProjectRecentComment(int? userId, DateTime createTime, string userName, string content, out byte[] payload)
     {
-        List<byte> bytes = [];
+        var bytes = new ArrayBufferWriter<byte>(256);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
 
         MutableRecentCommentPod tmp = new()
@@ -134,7 +135,7 @@ public static class PodProjector
             Content = contentSlice
         };
 
-        payload = [.. bytes];
+        payload = bytes.WrittenMemory.ToArray();
         return Cast<MutableRecentCommentPod, RecentCommentPod>(tmp);
     }
 

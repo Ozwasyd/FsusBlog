@@ -11,6 +11,9 @@ namespace FsusBlog.Server.Services.Security;
 /// </summary>
 public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMemoryCache cache)
 {
+    private const int MaxCidrRangesPerProvider = 8192;
+    private const int MaxUserAgentLength = 512;
+    private const int MaxIpStringLength = 64;
     private readonly SemaphoreSlim _dnsSemaphore = new(50);
 
     // 核心性能优化：使用 volatile 保证后台更新时的原子性指针切换，查询侧达到绝对的“无锁零争用”
@@ -22,8 +25,8 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
     /// </summary>
     public void UpdateCidrLists(List<string> googleRanges, List<string> bingRanges)
     {
-        _googleTree = BuildTree(googleRanges);
-        _bingTree = BuildTree(bingRanges);
+        _googleTree = BuildTree(googleRanges, MaxCidrRangesPerProvider);
+        _bingTree = BuildTree(bingRanges, MaxCidrRangesPerProvider);
         logger.LogInformation("爬虫白名单前缀树构建完毕: Google {GCount} 段, Bing {BCount} 段", googleRanges.Count, bingRanges.Count);
     }
 
@@ -32,6 +35,21 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
     /// </summary>
     public async Task<bool> IsVerifiedCrawlerAsync(string ipStr, string userAgent)
     {
+        if (string.IsNullOrWhiteSpace(ipStr) || string.IsNullOrWhiteSpace(userAgent))
+        {
+            return false;
+        }
+
+        if (ipStr.Length > MaxIpStringLength)
+        {
+            return false;
+        }
+
+        if (userAgent.Length > MaxUserAgentLength)
+        {
+            userAgent = userAgent[..MaxUserAgentLength];
+        }
+
         if (!IPAddress.TryParse(ipStr, out var ip)) return false;
 
         // 统一归一化：将可能被框架映射为 IPv6 的 IPv4 地址还原，防止位运算错位
@@ -57,13 +75,22 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
         return false;
     }
 
-    private static IpRadixTree BuildTree(List<string> ranges)
+    private static IpRadixTree BuildTree(List<string> ranges, int maxCount)
     {
         var tree = new IpRadixTree();
-        foreach (var range in ranges)
+        for (int i = 0; i < ranges.Count && i < maxCount; i++)
         {
-            var parts = range.Split('/');
-            if (parts.Length == 2 && IPAddress.TryParse(parts[0], out var ip) && int.TryParse(parts[1], out var len))
+            var range = ranges[i].AsSpan().Trim();
+            var slashIndex = range.IndexOf('/');
+            if (slashIndex <= 0 || slashIndex == range.Length - 1)
+            {
+                continue;
+            }
+
+            var ipSpan = range[..slashIndex];
+            var lenSpan = range[(slashIndex + 1)..];
+
+            if (IPAddress.TryParse(ipSpan, out var ip) && int.TryParse(lenSpan, out var len))
             {
                 tree.Add(ip, len);
             }

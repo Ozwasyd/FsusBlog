@@ -1,6 +1,8 @@
 import type { AxiosRequestConfig } from 'axios';
 import api from './index'
 import type { PowRequest } from './auth'
+import { FrameType } from '@wasm/protocol/frame';
+import { requestBinaryOnly } from '@/services/binaryTransport';
 
 // =================================================================================
 // 1. 类型定义 (DTOs)
@@ -65,10 +67,16 @@ export const getComments = (
   limit = 10, 
   config?: AxiosRequestConfig
 ) => {
-  return api.get<CursorResult<CommentItem>>(`/Comment/${articleId}`, {
-    ...config,
-    params: { cursor, limit }
-  })
+  const search = new URLSearchParams();
+  if (cursor) search.set('cursor', cursor);
+  search.set('limit', String(limit));
+
+  return requestBinaryOnly<CursorResult<CommentItem>>({
+    binaryUrl: `/api/binary/comment/${articleId}?${search.toString()}`,
+    frameType: FrameType.CommentArticleCursor,
+    renderHtml: false,
+    signal: config?.signal as AbortSignal | undefined
+  });
 }
 
 /** 获取当前登录用户的评论记录 */
@@ -77,9 +85,14 @@ export const getMyComments = (
   limit: number = 10, 
   config?: AxiosRequestConfig
 ) =>
-  api.get<CursorResult<MyCommentItem>>('/Comment/me', {
-    ...config,
-    params: { cursor, limit }
+  requestBinaryOnly<CursorResult<MyCommentItem>>({
+    binaryUrl: `/api/binary/comment/me?${new URLSearchParams({
+      ...(cursor ? { cursor } : {}),
+      limit: String(limit)
+    }).toString()}`,
+    frameType: FrameType.CommentUserCursor,
+    renderHtml: false,
+    signal: config?.signal as AbortSignal | undefined
   })
 
 /** 删除评论 

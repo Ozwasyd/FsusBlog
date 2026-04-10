@@ -1,8 +1,7 @@
 ﻿using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Responses;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.SignalR;
 
 namespace FsusBlog.Server.Infrastructure.Filters;
@@ -25,7 +24,13 @@ public class SignalRPoWFilter(
     // 拦截连接建立 (核心防御逻辑)
     public async Task OnConnectedAsync(HubLifetimeContext context, Func<HubLifetimeContext, Task> next)
     {
-        var http = context.Context.GetHttpContext() ?? throw new HubException("无法在缺少 HttpContext 的情况下处理连接。");
+        var http = context.Context.GetHttpContext();
+        if (http == null)
+        {
+            logger.LogWarning("SignalR PoW 校验失败：缺少 HttpContext");
+            context.Context.Abort();
+            return;
+        }
 
         // 1. 已登录用户直接放行 (JWT 校验已由框架层完成)
         if (context.Context.User?.Identity?.IsAuthenticated == true)
@@ -40,13 +45,13 @@ public class SignalRPoWFilter(
 
         if (validationResult != null)
         {
-            // 如果验证失败，提取错误信息并抛出 HubException
-            if (validationResult is ObjectResult objectResult && objectResult.Value is ApiResponse apiResponse)
+            if (validationResult is IStatusCodeActionResult status)
             {
-                throw new HubException(apiResponse.Message);
+                logger.LogWarning("SignalR PoW 拒绝连接 | StatusCode: {StatusCode}", status.StatusCode);
             }
-            // 兜底异常
-            throw new HubException("安全验证失败，连接被拒绝。");
+
+            context.Context.Abort();
+            return;
         }
 
         // 3. 校验通过，放行连接

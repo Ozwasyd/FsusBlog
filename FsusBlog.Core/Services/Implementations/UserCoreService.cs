@@ -1,6 +1,7 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Core.Services.Gateways;
+using FsusBlog.Shared.Contracts.AuthSystem;
 
 namespace FsusBlog.Core.Services.Implementations;
 
@@ -14,46 +15,46 @@ public sealed class UserCoreService(ILegacyUserGateway gateway) : IUserCoreServi
             : Result.Failure(ErrorCode.Validation, result.Message);
     }
 
-    public async Task<Result<object>> LoginAsync(string username, string password, string clientIp)
+    public async Task<Result<AuthLoginResultContract>> LoginAsync(string username, string password, string clientIp)
     {
         var result = await gateway.LoginAsync(username, password, clientIp);
-        return result.Success && result.Data is not null && result.UserEntity is not null
-            ? Result<object>.Success((result.Data, result.UserEntity))
-            : Result<object>.Failure(ErrorCode.Unauthorized, result.Message);
+        return result.Success && result.Data.HasValue
+            ? Result<AuthLoginResultContract>.Success(result.Data.Value)
+            : Result<AuthLoginResultContract>.Failure(ErrorCode.Unauthorized, result.Message);
     }
 
-    public async Task<Result<object?>> GetByIdAsync(int id)
+    public async Task<Result<UserSnapshotContract?>> GetByIdAsync(int id)
     {
         if (id <= 0)
         {
-            return Result<object?>.Failure(ErrorCode.Validation, "用户ID非法");
+            return Result<UserSnapshotContract?>.Failure(ErrorCode.Validation, "用户ID非法");
         }
 
         var user = await gateway.GetByIdAsync(id);
-        return user is null
-            ? Result<object?>.Failure(ErrorCode.NotFound, "用户不存在")
-            : Result<object?>.Success(user);
+        return user.HasValue
+            ? Result<UserSnapshotContract?>.Success(user.Value)
+            : Result<UserSnapshotContract?>.Failure(ErrorCode.NotFound, "用户不存在");
     }
 
-    public async Task<Result<object?>> GetByUsernameAsync(string username)
+    public async Task<Result<UserSnapshotContract?>> GetByUsernameAsync(string username)
     {
         if (string.IsNullOrWhiteSpace(username))
         {
-            return Result<object?>.Failure(ErrorCode.Validation, "用户名不能为空");
+            return Result<UserSnapshotContract?>.Failure(ErrorCode.Validation, "用户名不能为空");
         }
 
         var user = await gateway.GetByUsernameAsync(username);
-        return user is null
-            ? Result<object?>.Failure(ErrorCode.NotFound, "用户不存在")
-            : Result<object?>.Success(user);
+        return user.HasValue
+            ? Result<UserSnapshotContract?>.Success(user.Value)
+            : Result<UserSnapshotContract?>.Failure(ErrorCode.NotFound, "用户不存在");
     }
 
-    public async Task<Result<object>> UpdateUsernameAsync(int userId, string newUsername)
+    public async Task<Result<TokenPairContract>> UpdateUsernameAsync(int userId, string newUsername)
     {
         var result = await gateway.UpdateUsernameAsync(userId, newUsername);
-        return result.Success && result.Data is not null
-            ? Result<object>.Success(result.Data)
-            : Result<object>.Failure(ErrorCode.Validation, result.Message);
+        return result.Success && result.Data.HasValue
+            ? Result<TokenPairContract>.Success(result.Data.Value)
+            : Result<TokenPairContract>.Failure(ErrorCode.Validation, result.Message);
     }
 
     public async Task<Result> UpdatePasswordAsync(int userId, string oldPassword, string newPassword, string confirmPassword)
@@ -64,12 +65,12 @@ public sealed class UserCoreService(ILegacyUserGateway gateway) : IUserCoreServi
             : Result.Failure(ErrorCode.Validation, result.Message);
     }
 
-    public async Task<Result<object>> RefreshTokenAsync(string refreshToken)
+    public async Task<Result<TokenPairContract>> RefreshTokenAsync(string refreshToken)
     {
         var result = await gateway.RefreshTokenAsync(refreshToken);
-        return result.Success && result.Data is not null
-            ? Result<object>.Success(result.Data)
-            : Result<object>.Failure(ErrorCode.Unauthorized, "令牌刷新失败");
+        return result.Success && result.Data.HasValue
+            ? Result<TokenPairContract>.Success(result.Data.Value)
+            : Result<TokenPairContract>.Failure(ErrorCode.Unauthorized, "令牌刷新失败");
     }
 
     public async Task<Result> RevokeRefreshTokenAsync(string refreshToken)
@@ -79,14 +80,14 @@ public sealed class UserCoreService(ILegacyUserGateway gateway) : IUserCoreServi
             : Result.Failure(ErrorCode.NotFound, "RefreshToken 不存在");
     }
 
-    public async Task<Result<object>> GetAdminUserListAsync(int page, int pageSize, string? keyword, int? status)
+    public async Task<Result<AdminUserPageContract>> GetAdminUserListAsync(int page, int pageSize, string? keyword, int? status)
     {
         if (page <= 0 || pageSize <= 0)
         {
-            return Result<object>.Failure(ErrorCode.Validation, "分页参数非法");
+            return Result<AdminUserPageContract>.Failure(ErrorCode.Validation, "分页参数非法");
         }
 
-        return Result<object>.Success(await gateway.GetAdminUserListAsync(page, pageSize, keyword, status));
+        return Result<AdminUserPageContract>.Success(await gateway.GetAdminUserListAsync(page, pageSize, keyword, status));
     }
 
     public async Task<Result> AdminChangeStatusAsync(int userId, int status, string? reason)

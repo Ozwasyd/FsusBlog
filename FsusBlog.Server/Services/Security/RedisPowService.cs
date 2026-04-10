@@ -16,8 +16,10 @@ namespace FsusBlog.Server.Services;
 /// </summary>
 public class RedisPowService : IPowService
 {
+    private static long _lastFallbackWarningTicks;
     private readonly IDatabase _redis;
     private readonly byte[] _cachedPowKey;
+    private readonly bool _isFallbackKey;
     private readonly ILogger<RedisPowService> _logger;
     private readonly AdaptivePowGovernor _governor;
 
@@ -33,13 +35,26 @@ public class RedisPowService : IPowService
 
         string? secretKey = config["Jwt:SecretKey"];
         if (string.IsNullOrEmpty(secretKey))
-            throw new ArgumentException("POW SecretKey (Jwt:SecretKey) is missing");
-
-        _cachedPowKey = SHA256.HashData(Encoding.UTF8.GetBytes(secretKey));
+        {
+            _isFallbackKey = true;
+            var fallback = string.Concat("FsusBlog:Pow:Fallback:", Environment.MachineName, ":", AppContext.BaseDirectory);
+            _cachedPowKey = SHA256.HashData(Encoding.UTF8.GetBytes(fallback));
+            _logger.LogCritical("POW SecretKey 缺失，已启用降级密钥。请立即配置 Jwt:SecretKey。");
+        }
+        else
+        {
+            _isFallbackKey = false;
+            _cachedPowKey = SHA256.HashData(Encoding.UTF8.GetBytes(secretKey));
+        }
     }
 
     public async Task<bool> VerifyAsync(IPowRequest req, string clientIp)
     {
+        if (_isFallbackKey)
+        {
+            LogFallbackModeThrottled();
+        }
+
         // 1. 签名校验 (防重放与篡改)
         if (!BasicValidate(req, clientIp))
         {
@@ -51,6 +66,19 @@ public class RedisPowService : IPowService
         if (!CheckWorkloadWithSpan(req)) return false;
 
         return true;
+    }
+
+    private void LogFallbackModeThrottled()
+    {
+        long now = DateTime.UtcNow.Ticks;
+        long last = Interlocked.Read(ref _lastFallbackWarningTicks);
+        if (now - last < TimeSpan.FromMinutes(5).Ticks)
+        {
+            return;
+        }
+
+        Interlocked.Exchange(ref _lastFallbackWarningTicks, now);
+        _logger.LogWarning("POW 当前运行在降级密钥模式。");
     }
 
     public async Task<PowChallenge> GenerateChallengeAsync(string clientIp)

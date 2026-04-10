@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -33,6 +34,21 @@ public static class PodUtf8Codec
             byte[] buffer = new byte[byteCount];
             _ = Utf8.GetBytes(text, buffer);
             payload.AddRange(buffer);
+        }
+
+        return CreateSlice(offset, byteCount);
+    }
+
+    public static Utf8SliceRef AppendSlice(string? value, ArrayBufferWriter<byte> payload)
+    {
+        string text = value ?? string.Empty;
+        int offset = payload.WrittenCount;
+        int byteCount = Utf8.GetByteCount(text);
+        if (byteCount > 0)
+        {
+            Span<byte> span = payload.GetSpan(byteCount);
+            int written = Utf8.GetBytes(text.AsSpan(), span);
+            payload.Advance(written);
         }
 
         return CreateSlice(offset, byteCount);

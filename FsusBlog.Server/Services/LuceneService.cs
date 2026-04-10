@@ -17,6 +17,7 @@ namespace FsusBlog.Server.Services;
 public partial class LuceneService(ILuceneContext context, ILogger<LuceneService> logger) : ILuceneService
 {
     private const LuceneVersion _version = LuceneVersion.LUCENE_48;
+    private const int MaxKeywordLength = 128;
     private static readonly string[] SearchFields = ["Title", "Content"];
 
     // 核心性能优化：Analyzer 全局单例复用
@@ -35,38 +36,43 @@ public partial class LuceneService(ILuceneContext context, ILogger<LuceneService
     [GeneratedRegex(@"\s+")]
     private static partial Regex WhiteSpaceRegex();
 
-    public async Task BuildIndexAsync(List<Article> articles)
+    public Task BuildIndexAsync(List<Article> articles)
     {
+        if (articles.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+
         LogBuildIndexStart(articles.Count);
 
-        await Task.Run(() =>
+        try
         {
-            try
+            context.ExecuteWrite(writer =>
             {
-                context.ExecuteWrite(writer =>
+                writer.DeleteAll();
+                foreach (var article in articles)
                 {
-                    writer.DeleteAll();
-                    foreach (var article in articles)
-                    {
-                        writer.AddDocument(MapArticleToDocument(article));
-                    }
-                    writer.Commit();
-                });
+                    writer.AddDocument(MapArticleToDocument(article));
+                }
+                writer.Commit();
+            });
 
-                context.SaveChanges();
-                LogBuildIndexSuccess();
-            }
-            catch (Exception ex)
-            {
-                LogBuildIndexError(ex);
-                throw;
-            }
-        });
+            context.SaveChanges();
+            LogBuildIndexSuccess();
+        }
+        catch (Exception ex)
+        {
+            LogBuildIndexError(ex);
+        }
+
+        return Task.CompletedTask;
     }
 
     public Task<List<Article>> SearchAsync(string keyword)
     {
         if (string.IsNullOrWhiteSpace(keyword)) return Task.FromResult(new List<Article>());
+        keyword = NormalizeKeyword(keyword);
+        if (keyword.Length == 0) return Task.FromResult(new List<Article>());
 
         var result = new List<Article>();
         IndexSearcher? searcher = null;
@@ -91,9 +97,14 @@ public partial class LuceneService(ILuceneContext context, ILogger<LuceneService
                 var doc = searcher.Doc(hit.Doc);
                 var rawContent = doc.Get("Content") ?? ""; // 从索引中直接获取原文
 
+                if (!int.TryParse(doc.Get("Id"), out var articleId))
+                {
+                    continue;
+                }
+
                 result.Add(new Article
                 {
-                    Id = int.Parse(doc.Get("Id")),
+                    Id = articleId,
                     Title = doc.Get("Title"),
                     // 内部直接生成摘要，对外透明
                     Content = GetPlainSnippet(rawContent, keyword)
@@ -115,45 +126,84 @@ public partial class LuceneService(ILuceneContext context, ILogger<LuceneService
         return Task.FromResult(result);
     }
 
-    public async Task AddOrUpdateIndexAsync(Article article)
+    private static string NormalizeKeyword(string keyword)
     {
-        await Task.Run(() =>
+        ReadOnlySpan<char> source = keyword.Trim();
+        if (source.Length == 0) return string.Empty;
+
+        Span<char> buffer = source.Length <= 256 ? stackalloc char[source.Length] : new char[source.Length];
+        int write = 0;
+        bool previousSpace = false;
+
+        for (int i = 0; i < source.Length; i++)
         {
-            try
+            var current = source[i];
+            if (char.IsControl(current))
             {
-                context.ExecuteWrite(writer =>
+                continue;
+            }
+
+            if (char.IsWhiteSpace(current))
+            {
+                if (previousSpace)
                 {
-                    writer.UpdateDocument(
-                        new Term("Id", article.Id.ToString()),
-                        MapArticleToDocument(article)
-                    );
-                });
-                context.SaveChanges();
+                    continue;
+                }
+
+                buffer[write++] = ' ';
+                previousSpace = true;
+                continue;
             }
-            catch (Exception ex)
-            {
-                LogUpdateIndexError(ex, article.Id);
-            }
-        });
+
+            previousSpace = false;
+            buffer[write++] = current;
+        }
+
+        if (write == 0) return string.Empty;
+
+        var normalized = new string(buffer[..write]);
+        return normalized.Length > MaxKeywordLength ? normalized[..MaxKeywordLength] : normalized;
     }
 
-    public async Task DeleteIndexAsync(int id)
+    public Task AddOrUpdateIndexAsync(Article article)
     {
-        await Task.Run(() =>
+        try
         {
-            try
+            context.ExecuteWrite(writer =>
             {
-                context.ExecuteWrite(writer =>
-                {
-                    writer.DeleteDocuments(new Term("Id", id.ToString()));
-                });
-                context.SaveChanges();
-            }
-            catch (Exception ex)
+                writer.UpdateDocument(
+                    new Term("Id", article.Id.ToString()),
+                    MapArticleToDocument(article)
+                );
+            });
+
+            context.SaveChanges();
+        }
+        catch (Exception ex)
+        {
+            LogUpdateIndexError(ex, article.Id);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteIndexAsync(int id)
+    {
+        try
+        {
+            context.ExecuteWrite(writer =>
             {
-                LogDeleteIndexError(ex, id);
-            }
-        });
+                writer.DeleteDocuments(new Term("Id", id.ToString()));
+            });
+
+            context.SaveChanges();
+        }
+        catch (Exception ex)
+        {
+            LogDeleteIndexError(ex, id);
+        }
+
+        return Task.CompletedTask;
     }
 
     private static Document MapArticleToDocument(Article article)

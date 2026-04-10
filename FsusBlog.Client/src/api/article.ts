@@ -1,5 +1,8 @@
 import type { AxiosRequestConfig } from 'axios';
 import api from './index'
+import { FrameType } from '@wasm/protocol/frame';
+import { requestBinaryOnly } from '@/services/binaryTransport';
+import type { PublicAotShellBundleContract } from '@/helpers/publicAotBundle';
 
 // ================= 基础类型 =================
 
@@ -57,6 +60,15 @@ export interface SearchArticlesParams {
   keyword: string
 }
 
+export interface ArticleWriteRequest {
+  title: string
+  content: string
+  summary: string
+  categoryId: number | undefined
+  tagIds: number[]
+  aotBundle?: PublicAotShellBundleContract | null
+}
+
 // ================= API 方法 =================
 
 /**
@@ -68,12 +80,41 @@ export const getArticles = (
   params: { page?: number; size?: number; categoryId?: number; tagId?: number },
   config?: AxiosRequestConfig
 ) => {
-  return api.get<ArticleListRes>('/Article', { ...config, params })
+  const normalized = {
+    page: params.page ?? 1,
+    size: params.size ?? 10,
+    categoryId: params.categoryId,
+    tagId: params.tagId,
+    isDeleted: false
+  };
+
+  const search = new URLSearchParams();
+  search.set('page', String(normalized.page));
+  search.set('size', String(normalized.size));
+  search.set('isDeleted', String(normalized.isDeleted));
+  if (normalized.categoryId !== undefined) search.set('categoryId', String(normalized.categoryId));
+  if (normalized.tagId !== undefined) search.set('tagId', String(normalized.tagId));
+
+  return requestBinaryOnly<ArticleListRes>({
+    binaryUrl: `/api/binary/article?${search.toString()}`,
+    frameType: FrameType.ArticleList,
+    renderHtml: true,
+    renderContext: {
+      currentPage: normalized.page,
+      pageSize: normalized.size
+    },
+    signal: config?.signal as AbortSignal | undefined
+  });
 }
 
 /** 获取详情 */
 export const getArticleById = (id: number, config?: AxiosRequestConfig) => {
-  return api.get<ArticleDetail>(`/Article/${id}`, config)
+  return requestBinaryOnly<ArticleDetail>({
+    binaryUrl: `/api/binary/article/${id}`,
+    frameType: FrameType.ArticleDetail,
+    renderHtml: true,
+    signal: config?.signal as AbortSignal | undefined
+  });
 }
 
 /** 
@@ -82,19 +123,22 @@ export const getArticleById = (id: number, config?: AxiosRequestConfig) => {
  * 拦截器将自动计算算力并将证明注入 X-Fsus-Pow-Proof 请求头。
  */
 export const searchArticles = (params: SearchArticlesParams, config?: AxiosRequestConfig) => {
-  return api.get<ArticleListItem[]>('/Article/search', { 
-    ...config, 
-    params, 
-    requiresPow: true 
-  } as AxiosRequestConfig)
+  const search = new URLSearchParams();
+  search.set('keyword', params.keyword);
+  return requestBinaryOnly<ArticleListItem[]>({
+    binaryUrl: `/api/binary/article/search?${search.toString()}`,
+    frameType: FrameType.ArticleSearch,
+    signal: config?.signal as AbortSignal | undefined
+  });
 }
 
 /** 热门排行 */
 export const getHotArticles = (size = 10, config?: AxiosRequestConfig) => {
-  return api.get<ArticleListItem[]>('/Article/hot', { 
-    ...config, 
-    params: { size } 
-  })
+  return requestBinaryOnly<ArticleListItem[]>({
+    binaryUrl: `/api/binary/article/hot?size=${size}`,
+    frameType: FrameType.ArticleHot,
+    signal: config?.signal as AbortSignal | undefined
+  });
 }
 
 // ================= 管理端 =================
@@ -103,7 +147,7 @@ export const getHotArticles = (size = 10, config?: AxiosRequestConfig) => {
  * 创建文章
  * [修复 2026-02-23] 安全性保障：强制算力校验，防止自动化垃圾投稿攻击
  */
-export const createArticle = (data: any, config?: AxiosRequestConfig) => 
+export const createArticle = (data: ArticleWriteRequest, config?: AxiosRequestConfig) => 
   api.post<{ id: number }>('/Article', data, { 
     ...config, 
     requiresPow: true 
@@ -112,10 +156,20 @@ export const createArticle = (data: any, config?: AxiosRequestConfig) =>
 /** 
  * 更新文章
  */
-export const updateArticle = (id: number, data: any, config?: AxiosRequestConfig) => 
+export const updateArticle = (id: number, data: ArticleWriteRequest, config?: AxiosRequestConfig) => 
   api.put<{ id: number }>(`/Article/${id}`, data, { 
     ...config, 
     requiresPow: true 
+  } as AxiosRequestConfig)
+
+export const uploadArticleAotBundle = (
+  id: number,
+  bundle: PublicAotShellBundleContract,
+  config?: AxiosRequestConfig
+) =>
+  api.post(`/Article/${id}/aot-bundle`, bundle, {
+    ...config,
+    requiresPow: true
   } as AxiosRequestConfig)
 
 export const deleteArticle = (id: number, config?: AxiosRequestConfig) => 

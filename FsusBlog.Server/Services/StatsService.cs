@@ -73,12 +73,10 @@ public partial class StatsService(
 
             while (await reader.ReadAsync())
             {
-                popularArticles.Add(new PopularArticleDto
-                {
-                    Id = reader.GetInt32(fId),
-                    Title = reader.GetString(fTitle),
-                    Views = reader.GetInt32(fViews)
-                });
+                popularArticles.Add(new PopularArticleDto(
+                    reader.GetInt32(fId),
+                    reader.GetString(fTitle),
+                    reader.GetInt32(fViews)));
             }
         }
 
@@ -107,13 +105,11 @@ public partial class StatsService(
 
             while (await reader.ReadAsync())
             {
-                recentComments.Add(new RecentCommentDto
-                {
-                    UserId = reader.IsDBNull(fUserId) ? 0 : reader.GetInt32(fUserId),
-                    UserName = reader.IsDBNull(fUserName) ? "匿名访客" : reader.GetString(fUserName),
-                    Content = reader.GetString(fContent),
-                    CreateTime = reader.GetDateTime(fTime)
-                });
+                recentComments.Add(new RecentCommentDto(
+                    reader.IsDBNull(fUserId) ? 0 : reader.GetInt32(fUserId),
+                    reader.IsDBNull(fUserName) ? "匿名访客" : reader.GetString(fUserName),
+                    reader.GetString(fContent),
+                    reader.GetDateTime(fTime)));
             }
         }
 
@@ -161,12 +157,9 @@ public partial class StatsService(
 
             while (await reader.ReadAsync())
             {
-                regionDistributions.Add(new RegionDistributionDto
-                {
-                    Region = reader.GetString(fRegion),
-                    // COUNT 也是 Int64，需强转
-                    Count = (int)reader.GetInt64(fCount)
-                });
+                regionDistributions.Add(new RegionDistributionDto(
+                    reader.GetString(fRegion),
+                    (int)reader.GetInt64(fCount)));
             }
         }
 
@@ -184,19 +177,16 @@ public partial class StatsService(
             TotalVisits = registeredVisits + anonymousVisits
         };
 
-        // 4. 【异步回填】
-        _ = Task.Run(async () =>
+        // 4. 【缓存回填】同步调度，避免 Task.Run 游离任务导致不可控并发与异常黑洞
+        try
         {
-            try
-            {
-                var bytes = JsonSerializer.SerializeToUtf8Bytes(result, _jsonOptions);
-                await _cache.StringSetAsync(CACHE_KEY, bytes, TimeSpan.FromMinutes(10));
-            }
-            catch (Exception ex)
-            {
-                LogCacheWriteError(ex);
-            }
-        });
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(result, _jsonOptions);
+            await _cache.StringSetAsync(CACHE_KEY, bytes, TimeSpan.FromMinutes(10));
+        }
+        catch (Exception ex)
+        {
+            LogCacheWriteError(ex);
+        }
 
         return result;
     }

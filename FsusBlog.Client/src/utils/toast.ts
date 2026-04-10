@@ -1,5 +1,6 @@
-import { createVNode, render, type VNode } from 'vue'
-import ToastComponent from '@/components/ui/Toast.vue'
+import { createVNode, defineAsyncComponent, render, type VNode } from 'vue'
+
+const ToastComponent = defineAsyncComponent(() => import('@/components/ui/Toast.vue'))
 
 export interface ToastOptions {
   message: string

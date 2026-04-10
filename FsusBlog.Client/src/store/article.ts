@@ -1,76 +1,42 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { binaryRequest } from '@/api/binaryApiClient';
 import { getArticleById, type ArticleDetail } from '@/api/article';
 
-interface DecodeResponse {
-  requestId: number;
-  ok: boolean;
-  article?: ArticleDetail;
-  error?: string;
-}
+const STORAGE_KEY = 'fsus.transport.binary';
 
-let workerSingleton: Worker | null = null;
-let requestSeq = 0;
-
-function getWorker(): Worker {
-  if (!workerSingleton) {
-    workerSingleton = new Worker(new URL('../workers/wasmDecode.worker.ts', import.meta.url), { type: 'module' });
+function readBinaryFlag(): boolean {
+  if (typeof localStorage === 'undefined') {
+    return true;
   }
 
-  return workerSingleton;
+  return localStorage.getItem(STORAGE_KEY) !== '0';
 }
 
-function decodeArticleByWorker(buffer: ArrayBuffer): Promise<ArticleDetail> {
-  const worker = getWorker();
-  requestSeq += 1;
-  const requestId = requestSeq;
+function writeBinaryFlag(enabled: boolean): void {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
 
-  return new Promise<ArticleDetail>((resolve, reject) => {
-    const listener = (event: MessageEvent<DecodeResponse>) => {
-      const message = event.data;
-      if (message.requestId !== requestId) {
-        return;
-      }
-
-      worker.removeEventListener('message', listener);
-      if (!message.ok || !message.article) {
-        reject(new Error(message.error ?? 'worker_decode_failed'));
-        return;
-      }
-
-      resolve(message.article);
-    };
-
-    worker.addEventListener('message', listener);
-    worker.postMessage({ requestId, buffer }, [buffer]);
-  });
+  localStorage.setItem(STORAGE_KEY, enabled ? '1' : '0');
 }
 
 export const useArticleBinaryStore = defineStore('article-binary', () => {
-  const useBinary = ref(true);
+  const useBinary = ref(readBinaryFlag());
 
   const fetchArticleById = async (id: number, signal?: AbortSignal): Promise<ArticleDetail> => {
-    if (useBinary.value) {
-      try {
-        const buffer = await binaryRequest(`/api/binary/article/${id}`, { signal });
-        return await decodeArticleByWorker(buffer);
-      } catch {
-        useBinary.value = false;
-      }
-    }
-
     return await getArticleById(id, signal ? { signal } : undefined);
   };
 
   const handleAotAction = (action: string): void => {
     if (action === 'force-json') {
       useBinary.value = false;
+      writeBinaryFlag(false);
       return;
     }
 
     if (action === 'force-binary') {
       useBinary.value = true;
+      writeBinaryFlag(true);
     }
   };
 

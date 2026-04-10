@@ -15,6 +15,9 @@ public class LogCleanupService(
     IServiceProvider _serviceProvider,
     ILogger<LogCleanupService> _logger) : BackgroundService
 {
+    private const int ChunkSize = 5000;
+    private const int MaxChunksPerCycle = 200;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("【系统】日志清理任务初始化完成。策略：保留30天内数据。");
@@ -34,13 +37,14 @@ public class LogCleanupService(
                 _logger.LogDebug("执行计划启动：寻找 {ExpireDate} 之前的日志...", expireDate);
 
                 int totalDeleted = 0;
-                while (!stoppingToken.IsCancellationRequested)
+                int processedChunks = 0;
+                while (!stoppingToken.IsCancellationRequested && processedChunks < MaxChunksPerCycle)
                 {
                     // 1. 分块查出要删除的主键 ID
                     var ids = await db.Queryable<VisitLog>()
                         .Where(it => it.CreateTime < expireDate)
                         .Select(it => it.Id)
-                        .Take(5000)
+                        .Take(ChunkSize)
                         .ToListAsync(stoppingToken);
 
                     if (ids.Count == 0) break; // 已清理完毕
@@ -51,6 +55,7 @@ public class LogCleanupService(
                         .ExecuteCommandAsync(stoppingToken);
 
                     totalDeleted += deletedCount;
+                    processedChunks++;
 
                     // 3. 微睡眠让步：给 PostgreSQL 的 Autovacuum 进程清理死元组的时间，防止表膨胀
                     await Task.Delay(50, stoppingToken);

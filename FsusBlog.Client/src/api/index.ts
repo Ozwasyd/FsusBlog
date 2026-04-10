@@ -4,6 +4,7 @@ import router from '@/router'
 import { toast } from '@/utils/toast'
 import { usePow, PowAbortError } from '@/composables/usePow' 
 import { getBrowserFp } from '@/utils/fingerprint' 
+import { decodeBinaryEnvelope } from './binaryEnvelope'
 
 // 核心修复 2：TypeScript 类型扩展，彻底解决 IDE 报错 (修复日期: 2026-02-20)
 declare module 'axios' {
@@ -34,11 +35,51 @@ interface ApiResponse<T = any> {
     Data?: T
 }
 
-// 性能与内存最优化：底层的连续内存分配，避免高频 GC 压力
+function toArrayBuffer(data: unknown): ArrayBuffer | null {
+    if (data instanceof ArrayBuffer) {
+        return data;
+    }
+    if (ArrayBuffer.isView(data)) {
+        return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    }
+    return null;
+}
+
+function decodeApiBody(data: unknown): ApiResponse {
+    const buffer = toArrayBuffer(data);
+    if (!buffer) {
+        return (data ?? {}) as ApiResponse;
+    }
+
+    const envelope = decodeBinaryEnvelope(buffer);
+    if (envelope.bodyJson && typeof envelope.bodyJson === 'object') {
+        return envelope.bodyJson as ApiResponse;
+    }
+
+    if (envelope.bodyText.length > 0) {
+        return { code: envelope.statusCode, message: envelope.bodyText };
+    }
+
+    return { code: envelope.statusCode };
+}
+
+const utf8Encoder = new TextEncoder();
+const BASE64_ENCODE_CHUNK = 0x8000;
+
+// 性能与稳定性优化：避免对大 Uint8Array 使用展开运算符导致栈抖动。
+const toBinaryString = (bytes: Uint8Array): string => {
+    let result = '';
+    for (let i = 0; i < bytes.length; i += BASE64_ENCODE_CHUNK) {
+        const chunk = bytes.subarray(i, i + BASE64_ENCODE_CHUNK);
+        result += String.fromCharCode(...chunk);
+    }
+    return result;
+};
+
 const toSafeBase64 = (obj: object): string => {
     const str = JSON.stringify(obj);
-    const bytes = new TextEncoder().encode(str);
-    return btoa(String.fromCharCode(...bytes));
+    const bytes = utf8Encoder.encode(str);
+    return btoa(toBinaryString(bytes));
 };
 
 // =================================================================================
@@ -53,7 +94,8 @@ let requestsQueue: Array<{ resolve: Function, reject: Function, originalConfig: 
 const service = axios.create({
     baseURL: '/api',
     timeout: 10000,
-    withCredentials: true
+    withCredentials: true,
+    responseType: 'arraybuffer'
 })
 
 // =================================================================================
@@ -77,12 +119,12 @@ service.interceptors.request.use(
         config.signal = controller.signal;
 
         try {
-            const response = await axios.get(`${service.defaults.baseURL}/auth/pow-challenge`, {
+            const challenge = await service.get<any>('/Auth/pow-challenge', {
                 params: { _t: Date.now() },
                 withCredentials: true
             });
             
-            const raw = response.data;
+            const raw = challenge;
             const c = raw.data || raw.Data || raw; 
 
             const salt = c.salt || c.Salt;
@@ -124,8 +166,8 @@ service.interceptors.request.use(
 // 2. 响应拦截器：全局错误处理与装箱拆包
 // =================================================================================
 service.interceptors.response.use(
-    (response: AxiosResponse<ApiResponse>) => {
-        const res = response.data
+    (response: AxiosResponse<ArrayBuffer | ApiResponse>) => {
+        const res = decodeApiBody(response.data)
         const code = res.code ?? res.Code;
         const message = res.message ?? res.Message;
         
@@ -172,7 +214,7 @@ service.interceptors.response.use(
 
         if (response) {
             const { status, data } = response
-            const responseData = data as ApiResponse | undefined;
+            const responseData = decodeApiBody(data) as ApiResponse | undefined;
             const message = responseData?.message ?? responseData?.Message;
 
             // ==============================================================================

@@ -1,0 +1,6 @@
+import '@fontsource/google-sans/400.css'
+import '@fontsource/google-sans/500.css'
+import '@fontsource/google-sans/700.css'
+
+import '@fontsource/noto-sans-sc/400.css'
+import '@fontsource/noto-sans-sc/500.css'

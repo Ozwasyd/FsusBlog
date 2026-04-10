@@ -2,7 +2,7 @@
   <Transition name="toast-slide" @after-leave="handleAfterLeave">
     <div 
       v-if="visible" 
-      class="w-full flex justify-center subpixel-antialiased pointer-events-none mt-6 sm:mt-10"
+      class="ui-toast w-full flex justify-center subpixel-antialiased pointer-events-none mt-6 sm:mt-10"
       :role="type === 'error' ? 'alert' : 'status'"
       :aria-live="type === 'error' ? 'assertive' : 'polite'"
       aria-atomic="true"
@@ -13,6 +13,7 @@
         @keydown.enter.space.prevent="handleClick"
         :tabindex="onClick ? 0 : -1"
         :class="[
+          'ui-toast-card',
           'flex items-center gap-4 px-6 py-4 bg-zinc-950 text-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] border border-zinc-800/50 max-w-sm w-full mx-4 sm:w-auto sm:min-w-[18rem] transition-all outline-none',
           onClick ? 'pointer-events-auto cursor-pointer hover:bg-zinc-900 active:scale-95 focus-visible:ring-2 focus-visible:ring-zinc-400' : 'pointer-events-none'
         ]"

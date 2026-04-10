@@ -144,28 +144,23 @@ public sealed partial class FileService : IFileService
             return Task.FromResult(false);
         }
 
-        return Task.Run(() =>
+        try
         {
-            try
+            if (File.Exists(filePath))
             {
-                if (File.Exists(filePath))
-                {
-                    File.Delete(filePath);
-                    LogDeleteSuccess(filePath);
-                    return true;
-                }
-                else
-                {
-                    LogFileNotFound(filePath);
-                    return false;
-                }
+                File.Delete(filePath);
+                LogDeleteSuccess(filePath);
+                return Task.FromResult(true);
             }
-            catch (Exception ex)
-            {
-                LogDeleteError(ex, filePath);
-                return false;
-            }
-        });
+
+            LogFileNotFound(filePath);
+            return Task.FromResult(false);
+        }
+        catch (Exception ex)
+        {
+            LogDeleteError(ex, filePath);
+            return Task.FromResult(false);
+        }
     }
 
     // ==========================================

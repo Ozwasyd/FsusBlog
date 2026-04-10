@@ -1,11 +1,13 @@
 using FsusBlog.Core.Common;
+using FsusBlog.Shared.Contracts.AuthSystem;
 
 namespace FsusBlog.Core.Services.Abstractions;
 
 public interface ISystemCoreService
 {
-    Task<Result<object>> GetSeoConfigAsync();
-    Task<Result> UpdateSeoConfigAsync(object dto);
-    Task<Result<object>> GetPageContentAsync(string slug);
-    Task<Result> UpdatePageContentAsync(object dto);
+    Task<Result<SeoConfigContract>> GetSeoConfigAsync();
+    Task<Result> UpdateSeoConfigAsync(SeoConfigContract dto);
+    Task<Result<PageContentContract>> GetPageContentAsync(string slug);
+    Task<Result> UpdatePageContentAsync(PageContentContract dto);
+    Task<Result> RefreshPageCacheAsync(string slug);
 }

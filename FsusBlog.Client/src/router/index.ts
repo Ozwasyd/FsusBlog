@@ -1,11 +1,24 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-import NProgress from 'nprogress'
-import 'nprogress/nprogress.css'
 import { useUserStore } from '@/store/user'
 import { useSiteStore } from '@/store/site' 
-import { useNotification } from '@/composables/useNotification'
+import { hasServerAotShell } from '@/bootstrap/publicShellPrimitives'
 
-NProgress.configure({ showSpinner: false })
+type ProgressModule = typeof import('nprogress')
+let progressModulePromise: Promise<ProgressModule['default']> | null = null
+
+function loadProgressBar(): Promise<ProgressModule['default']> {
+  if (!progressModulePromise) {
+    progressModulePromise = Promise.all([
+      import('nprogress'),
+      import('nprogress/nprogress.css')
+    ]).then(([module]) => {
+      module.default.configure({ showSpinner: false })
+      return module.default
+    })
+  }
+
+  return progressModulePromise
+}
 
 const routes: RouteRecordRaw[] = [
   // --- 前台公共路由 ---
@@ -13,12 +26,12 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     component: () => import('@/layouts/BlogLayout.vue'),
     children: [
-      { path: '', name: 'Home', component: () => import('@/views/Home.vue'), meta: { title: '首页' } },
-      { path: 'article/:id', name: 'ArticleDetail', component: () => import('@/views/ArticleDetail.vue'), meta: { title: '文章详情' } },
-      { path: 'archive', name: 'Archive', component: () => import('@/views/Archive.vue'), meta: { title: '归档' } },
-      { path: 'about', name: 'About', component: () => import('@/views/About.vue'), meta: { title: '关于我' } },
-      { path: '/category/:id', name: 'Category', component: () => import('@/views/FilterView.vue'), meta: { requiresAuth: false }},
-      { path: '/tag/:id', name: 'Tag',component: () => import('@/views/FilterView.vue'), meta: { requiresAuth: false }},
+      { path: '', name: 'Home', component: () => import('@/views/Home.vue'), meta: { title: '首页', seoShell: true } },
+      { path: 'article/:id', name: 'ArticleDetail', component: () => import('@/views/ArticleDetail.vue'), meta: { title: '文章详情', seoShell: true } },
+      { path: 'archive', name: 'Archive', component: () => import('@/views/Archive.vue'), meta: { title: '归档', seoShell: true } },
+      { path: 'about', name: 'About', component: () => import('@/views/About.vue'), meta: { title: '关于我', seoShell: true } },
+      { path: '/category/:id', name: 'Category', component: () => import('@/views/FilterView.vue'), meta: { requiresAuth: false, seoShell: true }},
+      { path: '/tag/:id', name: 'Tag',component: () => import('@/views/FilterView.vue'), meta: { requiresAuth: false, seoShell: true }},
       { path: '/search', name: 'Search', component: () => import('@/views/FilterView.vue'), meta: { title: '搜索结果', requiresAuth: false }}
     ]
   },
@@ -77,15 +90,17 @@ const router = createRouter({
 
 // ================= 路由守卫 =================
 router.beforeEach(async (to) => {
-  NProgress.start()
+  const progress = await loadProgressBar()
+  progress.start()
   
   const userStore = useUserStore()
   const siteStore = useSiteStore()
-  const { initNotification } = useNotification()
+  const shouldDeferPublicBootstrap =
+    Boolean(to.meta.seoShell) && hasServerAotShell(document.getElementById('app'))
 
   // 1. 核心数据静默加载
-  // 逻辑自洽：先获取用户信息，确定身份后才能进行后续的权限判断和通知初始化
-  if (!userStore.isAuthChecked || siteStore.siteInfo.title === 'Loading...') {
+  // 逻辑自洽：先获取用户信息，确定身份后才能进行后续的权限判断
+  if (!shouldDeferPublicBootstrap && (!userStore.isAuthChecked || siteStore.siteInfo.title === 'Loading...')) {
     // 性能最大化：使用 Promise.all 并行加载初始元数据
     await Promise.all([
       userStore.fetchUserInfo(),
@@ -95,8 +110,10 @@ router.beforeEach(async (to) => {
 
   // 2. 动态设置页面标题
   // 算法最优：优先处理标题，提升用户感知速度
-  const baseTitle = siteStore.siteInfo.title
-  document.title = to.meta.title ? `${to.meta.title} - ${baseTitle}` : baseTitle
+  if (!shouldDeferPublicBootstrap || siteStore.isLoaded) {
+    const baseTitle = siteStore.siteInfo.title
+    document.title = to.meta.title ? `${to.meta.title} - ${baseTitle}` : baseTitle
+  }
 
   const { isLoggedIn, isAdmin, userInfo } = userStore
   const userRole = userInfo?.role || ''
@@ -126,14 +143,13 @@ router.beforeEach(async (to) => {
     }
   }
 
-  // 5. --- SignalR 激活逻辑 ---
-  // [修复 2026-02-23] 性能最大化：移至守卫末尾触发，确保在路由确定后才进行通信初始化
-  // initNotification 内部具备 isInitializing 锁和模式对比，此处调用是安全的
-  initNotification(isLoggedIn);
-
   return true
 })
 
-router.afterEach(() => { NProgress.done() })
+router.afterEach(() => {
+  void loadProgressBar().then((progress) => {
+    progress.done()
+  })
+})
 
 export default router

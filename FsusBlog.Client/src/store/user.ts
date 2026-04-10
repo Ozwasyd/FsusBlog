@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getMe, logout as logoutApi, type UserInfo } from '@/api/auth'
-import { notificationService } from '@/services/notificationService' 
 
 export const useUserStore = defineStore('user', () => {
 
@@ -36,7 +35,7 @@ export const useUserStore = defineStore('user', () => {
         isLoading.value = false
         fetchPromise = null
         
-        notificationService.stop(); 
+        void import('@/services/notificationService').then(({ notificationService }) => notificationService.stop())
         sessionStorage.removeItem('signalr_guest_pow');
     }
 

@@ -1,9 +1,11 @@
 ﻿using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -25,6 +27,7 @@ namespace FsusBlog.Server.Modules.Controllers;
 [Authorize(Roles = "admin")]
 public partial class ArticleController(
     IArticleService _articleService,
+    IPublicAotShellService _publicAotShellService,
     IConnectionMultiplexer _redisConnection,
     ISqlSugarClient _db,
     ILogger<ArticleController> _logger) : ControllerBase
@@ -37,6 +40,13 @@ public partial class ArticleController(
     public async Task<ActionResult<ApiResponse<ArticleMutationResponseDto>>> Create([FromBody] ArticleDto dto)
     {
         int id = await _articleService.CreateAsync(dto);
+        if (id <= 0)
+        {
+            return StatusCode(500, ApiResponse.Fail("发布失败：数据库操作异常", 500));
+        }
+
+        await TryStorePublicAotShellAsync(dto.AotBundle, id, "create");
+
         // 直接返回在 Models.Dtos 中定义的公开结构体
         return ApiResponse<ArticleMutationResponseDto>.Success(new ArticleMutationResponseDto(id), "博文发布成功");
     }
@@ -46,16 +56,30 @@ public partial class ArticleController(
     public async Task<ActionResult<ApiResponse<ArticleMutationResponseDto>>> Update(int id, [FromBody] ArticleDto dto)
     {
         var success = await _articleService.UpdateAsync(id, dto);
-        if (success) return ApiResponse<ArticleMutationResponseDto>.Success(new ArticleMutationResponseDto(id), "博文更新成功");
+        if (success)
+        {
+            await TryStorePublicAotShellAsync(dto.AotBundle, id, "update");
+            return ApiResponse<ArticleMutationResponseDto>.Success(new ArticleMutationResponseDto(id), "博文更新成功");
+        }
 
         return StatusCode(500, ApiResponse.Fail("更新失败：数据库操作异常", 500));
+    }
+
+    [HttpPost("{id}/aot-bundle")]
+    [RequiresPow]
+    public async Task<ActionResult<ApiResponse>> StoreAotBundle(int id, [FromBody] PublicAotShellBundleContract bundle)
+    {
+        await TryStorePublicAotShellAsync(bundle, id, "store-bundle");
+        return ApiResponse.Success("公开页缓存已同步");
     }
 
     [HttpDelete("{id}")]
     public async Task<ActionResult<ApiResponse>> Delete(int id)
     {
         if (await _articleService.DeleteAsync(id))
+        {
             return ApiResponse.Success("文章已移至回收站");
+        }
 
         return NotFound(ApiResponse.Fail("未找到对应文章", 404));
     }
@@ -64,7 +88,9 @@ public partial class ArticleController(
     public async Task<ActionResult<ApiResponse>> PermanentDelete(int id)
     {
         if (await _articleService.PermanentlyDeleteArticleAsync(id))
+        {
             return ApiResponse.Success("文章及关联资源已彻底抹除");
+        }
 
         return NotFound(ApiResponse.Fail("操作失败：资源不存在", 404));
     }
@@ -74,6 +100,11 @@ public partial class ArticleController(
     public async Task<ActionResult<ApiResponse<TrashClearResponseDto>>> ClearTrash()
     {
         int count = await _articleService.ClearTrashAsync();
+        if (count < 0)
+        {
+            return StatusCode(500, ApiResponse.Fail("清空回收站失败：数据库操作异常", 500));
+        }
+
         LogClearTrash(count);
         return ApiResponse<TrashClearResponseDto>.Success(new TrashClearResponseDto(count), "回收站已清空");
     }
@@ -82,7 +113,9 @@ public partial class ArticleController(
     public async Task<ActionResult<ApiResponse>> Restore(int id)
     {
         if (await _articleService.RestoreAsync(id))
+        {
             return ApiResponse.Success("文章已恢复发布");
+        }
 
         return NotFound(ApiResponse.Fail("恢复失败：资源不存在", 404));
     }
@@ -183,4 +216,35 @@ public partial class ArticleController(
 
     [LoggerMessage(EventId = 1, Level = LogLevel.Critical, Message = "执行清空回收站操作 | 被销毁文章数: {Count}")]
     private partial void LogClearTrash(int count);
+
+    private async Task TryStorePublicAotShellAsync(PublicAotShellBundleContract? bundle, int articleId, string operation)
+    {
+        if (bundle is null || bundle.Entries is null || bundle.Entries.Count == 0)
+        {
+            return;
+        }
+
+        var normalized = bundle with
+        {
+            Entries = [
+                .. bundle.Entries.Select(entry =>
+                    entry.PageId == PublicPageId.ArticleDetail
+                        ? entry with { ArticleId = articleId }
+                        : entry)
+            ],
+            GeneratedAtUtc = DateTimeOffset.UtcNow
+        };
+
+        var result = await _publicAotShellService.StoreAsync(normalized);
+        if (!result.IsSuccess)
+        {
+            _logger.LogWarning(
+                "AOT 缓存写入失败 | Operation={Operation} | ArticleId={ArticleId} | Code={Code} | Message={Message}",
+                operation,
+                articleId,
+                result.Error.Code,
+                result.Error.Message);
+        }
+    }
+
 }

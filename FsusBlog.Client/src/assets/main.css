@@ -1,4 +1,5 @@
 /* src/assets/main.css */
+@import '@/assets/critical-public.css';
 @import "tailwindcss";
 @import '@/assets/styles/error.css';
 
@@ -6,8 +7,9 @@
   直接在 CSS 的 @theme 块中定义，而不是在 JS 文件里！
 */
 @theme {
-  /* 定义 Google Sans 字体栈 */
+  /* 视觉一致性优先：统一跨平台 WebFont 字体栈 */
   --font-sans: "Google Sans", 'Noto Sans SC' , 'Noto Sans TC', 'Noto Sans JP', "ui-sans-serif", "system-ui", "sans-serif";
+  --font-mono: "JetBrains Mono", "ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", monospace;
 
   /* 定义黑白灰单色调扩展（如果系统默认的 zinc 不够用） */
   --color-brand-black: #050505;
@@ -31,6 +33,31 @@ html, body {
 /* 全局样式 */
 body {
   @apply antialiased text-gray-900;
+  font-synthesis-weight: none;
+  text-rendering: optimizeLegibility;
+}
+
+body[data-fsus-public-first-paint="true"] {
+  overflow-y: scroll;
+}
+
+body[data-fsus-public-first-paint="true"] .animate-in,
+body[data-fsus-public-first-paint="true"] .animate-fade-in,
+body[data-fsus-public-first-paint="true"] .list-fade-up-enter-active,
+body[data-fsus-public-first-paint="true"] .state-fade-enter-active,
+body[data-fsus-public-first-paint="true"] .state-fade-leave-active,
+body[data-fsus-public-first-paint="true"] .page-fade-enter-active,
+body[data-fsus-public-first-paint="true"] .page-fade-leave-active {
+  animation: none !important;
+  transition: none !important;
+}
+
+body[data-fsus-public-first-paint="true"] .ui-article-card,
+body[data-fsus-public-first-paint="true"] .ui-article-summary,
+body[data-fsus-public-first-paint="true"] .ui-article-title,
+body[data-fsus-public-first-paint="true"] .aot-host,
+body[data-fsus-public-first-paint="true"] .aot-host * {
+  content-visibility: visible;
 }
 
 @layer base {
@@ -69,4 +96,68 @@ body {
       text-rendering: optimizeSpeed; 
     }
   }
+}
+
+.ui-button,
+.ui-tag,
+.ui-empty,
+.ui-article-card,
+.ui-pagination,
+.ui-toast,
+.ui-toast-card {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.animate-fade-in {
+  --stagger-delay: 0.05s;
+  animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(min(var(--index, 0), 20) * var(--stagger-delay));
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+
+.highlight-mark {
+  background-color: #f4f4f5;
+  color: #09090b;
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: 600;
+  box-shadow: 0 0 0 1px rgba(228, 228, 231, 0.5);
+}
+
+.public-aside-placeholder {
+  min-height: 18rem;
+}
+
+.mono-link {
+  color: rgb(113 113 122);
+  transition: color 0.2s;
+  outline: none;
+}
+
+.mono-link:hover,
+.mono-link:focus-visible,
+.active-link {
+  color: rgb(9 9 11);
+}
+
+.active-link {
+  font-weight: 700;
+}
+
+.public-shell-search {
+  min-width: 3rem;
 }

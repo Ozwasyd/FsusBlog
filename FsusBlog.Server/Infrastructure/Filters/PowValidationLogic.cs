@@ -64,32 +64,15 @@ internal static partial class PowValidationLogic
 
             if (!isValid)
             {
-                // 启动智能探针：构建嫌疑 IP 池
-                var probeIps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-                // 嫌疑 1：原始物理连接 IP (绕过任何 X-Forwarded-For 逻辑)
                 var rawIp = httpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString();
-                if (!string.IsNullOrEmpty(rawIp)) probeIps.Add(rawIp);
-
-                // 嫌疑 2：尝试提取当前 IP 的网桥网关 (172.19.0.5 -> 172.19.0.1)
                 int lastDot = clientIp.LastIndexOf('.');
-                if (lastDot > 0) probeIps.Add(clientIp.Substring(0, lastDot) + ".1");
+                string? gatewayIp = lastDot > 0 ? string.Concat(clientIp.AsSpan(0, lastDot + 1), "1") : null;
 
-                // 嫌疑 3：常见的容器平台内部网关
-                probeIps.Add("127.0.0.1");
-                probeIps.Add("172.17.0.1");
-                probeIps.Add("172.18.0.1");
-
-                foreach (var testIp in probeIps)
-                {
-                    if (testIp == clientIp) continue;
-                    if (await powService.VerifyAsync(powRequest, testIp))
-                    {
-                        isValid = true;
-                        LogProxyDriftCorrected(logger, testIp, clientIp);
-                        break;
-                    }
-                }
+                isValid = await TryProbeCandidateAsync(powService, powRequest, clientIp, rawIp, logger)
+                          || await TryProbeCandidateAsync(powService, powRequest, clientIp, gatewayIp, logger)
+                          || await TryProbeCandidateAsync(powService, powRequest, clientIp, "127.0.0.1", logger)
+                          || await TryProbeCandidateAsync(powService, powRequest, clientIp, "172.17.0.1", logger)
+                          || await TryProbeCandidateAsync(powService, powRequest, clientIp, "172.18.0.1", logger);
             }
 
             if (!isValid)
@@ -115,4 +98,25 @@ internal static partial class PowValidationLogic
 
     [LoggerMessage(EventId = 102, Level = LogLevel.Information, Message = "PoW 代理穿透修正成功 | 原始 IP: {RealIp} | 退化 IP: {ProxyIp}")]
     private static partial void LogProxyDriftCorrected(ILogger logger, string realIp, string proxyIp);
+
+    private static async Task<bool> TryProbeCandidateAsync(
+        IPowService powService,
+        IPowRequest powRequest,
+        string currentIp,
+        string? candidateIp,
+        ILogger logger)
+    {
+        if (string.IsNullOrWhiteSpace(candidateIp) || string.Equals(candidateIp, currentIp, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!await powService.VerifyAsync(powRequest, candidateIp))
+        {
+            return false;
+        }
+
+        LogProxyDriftCorrected(logger, candidateIp, currentIp);
+        return true;
+    }
 }

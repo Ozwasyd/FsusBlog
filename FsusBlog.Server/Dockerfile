@@ -25,6 +25,8 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["FsusBlog.Server/FsusBlog.Server.csproj", "FsusBlog.Server/"]
+COPY ["FsusBlog.Core/FsusBlog.Core.csproj", "FsusBlog.Core/"]
+COPY ["FsusBlog.Shared/FsusBlog.Shared.csproj", "FsusBlog.Shared/"]
 RUN dotnet restore "./FsusBlog.Server/FsusBlog.Server.csproj"
 COPY . .
 WORKDIR "/src/FsusBlog.Server"
@@ -32,20 +34,17 @@ RUN dotnet build "./FsusBlog.Server.csproj" -c $BUILD_CONFIGURATION -o /app/buil
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./FsusBlog.Server.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./FsusBlog.Server.csproj" \
+    -c $BUILD_CONFIGURATION \
+    -o /app/publish \
+    /p:UseAppHost=false \
+    /p:TieredPGO=true \
+    /p:TieredCompilation=true \
+    /p:PublishReadyToRun=true \
+    /p:ReadyToRunUseCrossgen2=true
 
 # =========================================================================
-# 阶段 3：WASM 引擎编译 (C++20 -> WASM)
-# =========================================================================
-FROM emscripten/emsdk:latest AS wasm-build
-WORKDIR /engine
-COPY FsusBlog.Wasm/ ./
-RUN mkdir build && cd build && \
-    emcmake cmake .. -DWASM_SIMD=ON && \
-    make
-
-# =========================================================================
-# 阶段 4：前端 Vue 构建 (注入 WASM)
+# 阶段 3：前端 Vue 构建 (注入预编译 WASM)
 # =========================================================================
 FROM node:20-alpine AS frontend-build
 WORKDIR /app
@@ -54,13 +53,12 @@ RUN npm config set registry https://registry.npmmirror.com && \
     npm ci --no-audit --progress=false
 
 COPY FsusBlog.Client/ ./
-# 注入 PoW 安全产物
-COPY --from=wasm-build /engine/build/fsus_pow_simd.js ./public/wasm/
-COPY --from=wasm-build /engine/build/fsus_pow_simd.wasm ./public/wasm/
+# 注入 Wasm 安全产物 (PoW + AEDS 解码)
+COPY FsusBlog.Client/public/wasm/ ./public/wasm/
 RUN npm run build
 
 # =========================================================================
-# 阶段 5：终极生成镜像 (融合前后端)
+# 阶段 4：终极生成镜像 (融合前后端)
 # =========================================================================
 FROM base AS final
 WORKDIR /app

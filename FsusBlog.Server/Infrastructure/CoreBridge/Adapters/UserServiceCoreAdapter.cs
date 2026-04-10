@@ -3,6 +3,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
+using FsusBlog.Shared.Contracts.AuthSystem;
 
 namespace FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 
@@ -22,30 +23,31 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
             return (false, result.Error.Message, null, null);
         }
 
-        return result.Value is ValueTuple<object, object> payload
-               && payload.Item1 is TokenResponseDto token
-               && payload.Item2 is User user
-            ? (true, "登录成功", token, user)
-            : (false, "登录失败", null, null);
+        var token = new TokenResponseDto(result.Value.Token.AccessToken, result.Value.Token.RefreshToken);
+        return (true, "登录成功", token, ToUserEntity(result.Value.User));
     }
 
     public async Task<User?> GetByIdAsync(int id)
     {
         var result = await core.GetByIdAsync(id);
-        return result.IsSuccess ? result.Value as User : null;
+        return result.IsSuccess && result.Value.HasValue
+            ? ToUserEntity(result.Value.Value)
+            : null;
     }
 
     public async Task<User?> GetByUsernameAsync(string username)
     {
         var result = await core.GetByUsernameAsync(username);
-        return result.IsSuccess ? result.Value as User : null;
+        return result.IsSuccess && result.Value.HasValue
+            ? ToUserEntity(result.Value.Value)
+            : null;
     }
 
     public async Task<(bool Success, string Message, TokenResponseDto? Data)> UpdateUsernameAsync(int userId, string newUsername)
     {
         var result = await core.UpdateUsernameAsync(userId, newUsername);
-        return result.IsSuccess && result.Value is TokenResponseDto token
-            ? (true, "用户名更新成功", token)
+        return result.IsSuccess
+            ? (true, "用户名更新成功", new TokenResponseDto(result.Value.AccessToken, result.Value.RefreshToken))
             : (false, result.Error.Message, null);
     }
 
@@ -58,8 +60,8 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
     public async Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken)
     {
         var result = await core.RefreshTokenAsync(refreshToken);
-        return result.IsSuccess && result.Value is TokenResponseDto token
-            ? (true, token)
+        return result.IsSuccess
+            ? (true, new TokenResponseDto(result.Value.AccessToken, result.Value.RefreshToken))
             : (false, null);
     }
 
@@ -69,9 +71,32 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
     public async Task<PageResult<UserListDto>> GetAdminUserListAsync(UserQueryDto dto)
     {
         var result = await core.GetAdminUserListAsync(dto.Page, dto.PageSize, dto.Keyword, dto.Status);
-        return result.IsSuccess && result.Value is PageResult<UserListDto> data
-            ? data
-            : new PageResult<UserListDto> { Total = 0, Items = [] };
+        if (!result.IsSuccess)
+        {
+            return new PageResult<UserListDto> { Total = 0, Items = [] };
+        }
+
+        var page = result.Value;
+        if (page is null)
+        {
+            return new PageResult<UserListDto> { Total = 0, Items = [] };
+        }
+
+        var items = new List<UserListDto>(page.Items.Count);
+        for (int i = 0; i < page.Items.Count; i++)
+        {
+            var item = page.Items[i];
+            items.Add(new UserListDto(
+                item.Id,
+                item.Username,
+                item.Role,
+                item.Status,
+                item.CreateTime,
+                item.LastLoginIp,
+                item.LastLoginTime));
+        }
+
+        return new PageResult<UserListDto> { Total = page.Total, Items = items };
     }
 
     public async Task<(bool Success, string Message)> AdminChangeStatusAsync(AdminChangeStatusDto dto)
@@ -85,4 +110,16 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
         var result = await core.AdminResetPasswordAsync(dto.UserId, dto.NewPassword);
         return result.IsSuccess ? (true, "密码重置成功") : (false, result.Error.Message);
     }
+
+    private static User ToUserEntity(UserSnapshotContract snapshot)
+        => new()
+        {
+            Id = snapshot.Id,
+            Username = snapshot.Username,
+            Role = snapshot.Role,
+            Status = snapshot.Status,
+            CreateTime = snapshot.CreateTime,
+            LastLoginIp = snapshot.LastLoginIp,
+            LastLoginTime = snapshot.LastLoginTime
+        };
 }

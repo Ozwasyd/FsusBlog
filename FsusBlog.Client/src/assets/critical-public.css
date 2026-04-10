@@ -1,0 +1,32 @@
+@import '@/assets/markdown.css';
+
+/* 公开页首访共用的布局基线 */
+#fsus-aot-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  color: #09090b;
+  font-family: var(--font-sans, "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif);
+  -webkit-font-smoothing: subpixel-antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#fsus-aot-shell,
+#fsus-aot-shell * {
+  box-sizing: border-box;
+}
+
+#fsus-aot-shell[data-public-hydration-kind="Home"],
+#fsus-aot-shell[data-public-hydration-kind="ArticleDetail"] {
+  width: 100%;
+}
+
+#fsus-aot-shell .public-page-shell,
+#fsus-aot-shell .public-article-shell {
+  width: 100%;
+}
+
+#fsus-aot-shell .public-article-shell {
+  overflow-anchor: none;
+}

@@ -1,5 +1,6 @@
 ﻿using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using SqlSugar;
@@ -18,7 +19,8 @@ namespace FsusBlog.Server.Services;
 public partial class SystemService(
         ISqlSugarClient _db,
         IConnectionMultiplexer _redisConnection,
-        ILogger<SystemService> _logger) : ISystemService
+        ILogger<SystemService> _logger,
+        IPublicAotInvalidationService _publicAotInvalidationService) : ISystemService
 {
     private readonly IDatabase _redis = _redisConnection.GetDatabase();
 
@@ -32,6 +34,8 @@ public partial class SystemService(
     private const string CACHE_KEY_PAGE_PREFIX = "Page_";
     private const string CACHE_KEY_SEO = "sys:config:seo";
     private const string CACHE_KEY_PAGE = "sys:page:";
+    private const int MaxSlugLength = 64;
+    private const int MaxPageContentLength = 200_000;
 
     // 内部私有结构体：用于列表数据的极速回捞
     private readonly record struct ConfigItem(string Key, string Value);
@@ -46,17 +50,10 @@ public partial class SystemService(
 
     public async Task<SeoConfigDto> GetSeoConfigAsync()
     {
-        try
+        var cachedSeo = await TryReadRedisCacheAsync<SeoConfigDto>(CACHE_KEY_SEO);
+        if (cachedSeo.Hit)
         {
-            using var lease = await _redis.StringGetLeaseAsync(CACHE_KEY_SEO);
-            if (lease != null && lease.Length > 0)
-            {
-                return JsonSerializer.Deserialize<SeoConfigDto>(lease.Span, _jsonOptions);
-            }
-        }
-        catch (Exception ex)
-        {
-            LogSeoCacheReadError(ex);
+            return cachedSeo.Value;
         }
 
         // 对于多行数据读取，保持 DataReader 物理映射以避免 List<SystemConfig> 实体分配
@@ -65,7 +62,7 @@ public partial class SystemService(
             .Select(c => new { c.Key, c.Value });
 
         var sqlObj = query.ToSql();
-        var configs = new List<ConfigItem>();
+        var configs = new List<ConfigItem>(8);
 
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
         {
@@ -91,18 +88,15 @@ public partial class SystemService(
             BaseUrl = GetValue(configs, Key_BaseUrl, "https://fsus.blog")
         };
 
-        _ = Task.Run(async () =>
+        try
         {
-            try
-            {
-                var bytes = JsonSerializer.SerializeToUtf8Bytes(dto, _jsonOptions);
-                await _redis.StringSetAsync(CACHE_KEY_SEO, bytes, TimeSpan.FromHours(24));
-            }
-            catch (Exception ex)
-            {
-                LogSeoCacheWriteError(ex);
-            }
-        });
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(dto, _jsonOptions);
+            await _redis.StringSetAsync(CACHE_KEY_SEO, bytes, TimeSpan.FromHours(24));
+        }
+        catch (Exception ex)
+        {
+            LogSeoCacheWriteError(ex);
+        }
 
         return dto;
     }
@@ -123,6 +117,7 @@ public partial class SystemService(
 
         await _db.Storageable(configs).ExecuteCommandAsync();
         await _redis.KeyDeleteAsync(CACHE_KEY_SEO);
+        await InvalidateSeoPublicAotAsync("update-seo");
         LogSeoUpdateSuccess();
     }
 
@@ -130,26 +125,20 @@ public partial class SystemService(
 
     public async Task<PageContentDto> GetPageContentAsync(string slug)
     {
-        if (string.IsNullOrWhiteSpace(slug)) return new PageContentDto();
+        slug = NormalizeSlug(slug);
+        if (slug.Length == 0) return new PageContentDto();
 
         string redisKey = string.Create(CACHE_KEY_PAGE_PREFIX.Length + slug.Length, slug, (span, s) =>
         {
             CACHE_KEY_PAGE_PREFIX.AsSpan().CopyTo(span);
-            s.AsSpan().ToLowerInvariant(span[CACHE_KEY_PAGE_PREFIX.Length..]);
+            s.AsSpan().CopyTo(span[CACHE_KEY_PAGE_PREFIX.Length..]);
         });
 
-        try
+        var cachedPage = await TryReadStringCacheAsync(redisKey);
+        if (cachedPage.Hit)
         {
-            var cachedValue = await _redis.StringGetAsync(redisKey);
-            if (cachedValue.HasValue)
-            {
-                _ = _redis.KeyExpireAsync(redisKey, TimeSpan.FromHours(24));
-                return new PageContentDto { Slug = slug, Content = cachedValue.ToString() };
-            }
-        }
-        catch (Exception ex)
-        {
-            LogPageCacheReadError(ex, slug);
+            _ = _redis.KeyExpireAsync(redisKey, TimeSpan.FromHours(24));
+            return new PageContentDto { Slug = slug, Content = cachedPage.Value ?? string.Empty };
         }
 
         string dbKey = string.Create(CACHE_KEY_PAGE.Length + slug.Length, slug, (span, s) =>
@@ -168,32 +157,29 @@ public partial class SystemService(
             .Select(it => it.Value)
             .FirstAsync() ?? "页面内容正在准备中，请稍后再试。";
 
-        _ = Task.Run(async () =>
+        try
         {
-            try
-            {
-                await _redis.StringSetAsync(redisKey, content, TimeSpan.FromHours(24));
-            }
-            catch (Exception ex)
-            {
-                LogPageCacheWriteError(ex, slug);
-            }
-        });
+            await _redis.StringSetAsync(redisKey, content, TimeSpan.FromHours(24));
+        }
+        catch (Exception ex)
+        {
+            LogPageCacheWriteError(ex, slug);
+        }
 
         return new PageContentDto { Slug = slug, Content = content };
     }
 
-    public async Task UpdatePageContentAsync(PageContentDto dto)
+    public async Task<bool> UpdatePageContentAsync(PageContentDto dto)
     {
-        string? slug = dto.Slug;
-        if (string.IsNullOrEmpty(slug)) throw new ArgumentException("页面标识符不能为空");
+        var slug = NormalizeSlug(dto.Slug);
+        if (slug.Length == 0) return false;
 
         LogPageUpdateAudit(slug);
 
         string redisKey = string.Create(CACHE_KEY_PAGE_PREFIX.Length + slug.Length, slug, (span, s) =>
         {
             CACHE_KEY_PAGE_PREFIX.AsSpan().CopyTo(span);
-            s.AsSpan().ToLowerInvariant(span[CACHE_KEY_PAGE_PREFIX.Length..]);
+            s.AsSpan().CopyTo(span[CACHE_KEY_PAGE_PREFIX.Length..]);
         });
 
         string dbKey = string.Create(CACHE_KEY_PAGE.Length + slug.Length, slug, (span, s) =>
@@ -208,18 +194,36 @@ public partial class SystemService(
         int affectedRows = await _db.Storageable(new SystemConfig
         {
             Key = dbKey,
-            Value = dto.Content ?? string.Empty
+            Value = NormalizePageContent(dto.Content)
         }).ExecuteCommandAsync();
 
         // 2. 物理防线：0 行受影响代表更新失败，直接抛出异常，阻断 200 OK 响应
-        if (affectedRows <= 0)
-        {
-            throw new Exception("数据物理落盘失败，请稍后重试。");
-        }
+        if (affectedRows <= 0) return false;
 
         // 3. 落盘成功后，立即以 O(1) 物理驱逐旧缓存
         await _redis.KeyDeleteAsync(redisKey);
+        await InvalidatePagePublicAotAsync(slug, $"update-page:{slug}");
         LogPageUpdateSuccess(slug);
+        return true;
+    }
+
+    public async Task<bool> RefreshPageCacheAsync(string slug)
+    {
+        slug = NormalizeSlug(slug);
+        if (slug.Length == 0)
+        {
+            return false;
+        }
+
+        string redisKey = string.Create(CACHE_KEY_PAGE_PREFIX.Length + slug.Length, slug, (span, s) =>
+        {
+            CACHE_KEY_PAGE_PREFIX.AsSpan().CopyTo(span);
+            s.AsSpan().CopyTo(span[CACHE_KEY_PAGE_PREFIX.Length..]);
+        });
+
+        await _redis.KeyDeleteAsync(redisKey);
+        await InvalidatePagePublicAotAsync(slug, $"refresh-page:{slug}");
+        return true;
     }
 
     /// <summary>
@@ -237,6 +241,96 @@ public partial class SystemService(
             }
         }
         return defaultValue;
+    }
+
+    private static string NormalizeSlug(string? slug)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            return string.Empty;
+        }
+
+        var value = slug.Trim().ToLowerInvariant();
+        if (value.Length > MaxSlugLength)
+        {
+            value = value[..MaxSlugLength];
+        }
+
+        return value;
+    }
+
+    private static string NormalizePageContent(string? content)
+    {
+        if (string.IsNullOrEmpty(content))
+        {
+            return string.Empty;
+        }
+
+        return content.Length > MaxPageContentLength ? content[..MaxPageContentLength] : content;
+    }
+
+    private async Task<(bool Hit, T? Value)> TryReadRedisCacheAsync<T>(string cacheKey)
+    {
+        try
+        {
+            using var lease = await _redis.StringGetLeaseAsync(cacheKey);
+            if (lease == null || lease.Length <= 0)
+            {
+                return (false, default);
+            }
+
+            return (true, JsonSerializer.Deserialize<T>(lease.Span, _jsonOptions));
+        }
+        catch (Exception ex)
+        {
+            LogSeoCacheReadError(ex);
+            return (false, default);
+        }
+    }
+
+    private async Task<(bool Hit, string? Value)> TryReadStringCacheAsync(string cacheKey)
+    {
+        try
+        {
+            var cachedValue = await _redis.StringGetAsync(cacheKey);
+            return cachedValue.HasValue
+                ? (true, cachedValue.ToString())
+                : (false, null);
+        }
+        catch (Exception ex)
+        {
+            LogPageCacheReadError(ex, cacheKey);
+            return (false, null);
+        }
+    }
+
+    private async Task InvalidateSeoPublicAotAsync(string operation)
+    {
+        try
+        {
+            await _publicAotInvalidationService.InvalidateSeoAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "公开页 AOT 缓存失效失败 | Operation={Operation}", operation);
+        }
+    }
+
+    private async Task InvalidatePagePublicAotAsync(string slug, string operation)
+    {
+        if (!string.Equals(slug, "about", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        try
+        {
+            await _publicAotInvalidationService.InvalidateAboutAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "公开页 AOT 页面缓存失效失败 | Operation={Operation}", operation);
+        }
     }
 
     // ====================================================================

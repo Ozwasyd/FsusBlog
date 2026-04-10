@@ -11,7 +11,7 @@ public class Category
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)] //主键配置（自增）
     public int Id { get; set; }
 
-    public string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
 
     // 数据库表中没有 "Articles" 这一列
     [SugarColumn(IsIgnore = true)]
@@ -27,7 +27,7 @@ public class Tag
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)] //主键配置（自增）
     public int Id { get; set; }
 
-    public string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
 
     //如上
     [SugarColumn(IsIgnore = true)]

@@ -1,5 +1,7 @@
 import type { AxiosRequestConfig } from 'axios';
 import api from './index'
+import { FrameType } from '@wasm/protocol/frame';
+import { requestBinaryOnly } from '@/services/binaryTransport';
 
 /** 1. 热门文章 DTO */
 export interface PopularArticleDto {
@@ -49,7 +51,11 @@ export interface SiteStats {
  * 算法最优：透传 config 确保管理员快速刷新仪表盘时，过期的聚合查询能被物理中断
  */
 export const getSiteStats = (config?: AxiosRequestConfig) => 
-  api.get<SiteStats>('/Stats', config)
+  requestBinaryOnly<SiteStats>({
+    binaryUrl: '/api/binary/stats',
+    frameType: FrameType.AdminStats,
+    signal: config?.signal as AbortSignal | undefined
+  })
 
 /** * 一键清空回收站 
  * DELETE /api/Stats/clear-trash

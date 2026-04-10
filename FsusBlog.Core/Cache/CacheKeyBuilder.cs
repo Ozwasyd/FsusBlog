@@ -1,8 +1,11 @@
+using FsusBlog.Shared.Contracts.Outputs;
+
 namespace FsusBlog.Core.Cache;
 
 public static class CacheKeyBuilder
 {
     private const string Prefix = "pod:v1:";
+    private const string PublicAotPrefix = "public:aot:v2:";
 
     public static string ArticleList(int page, int size, int? categoryId, int? tagId, bool isDeleted)
         => string.Concat(Prefix, "article:list:", page.ToString(), ":", size.ToString(), ":", categoryId?.ToString() ?? "0", ":", tagId?.ToString() ?? "0", ":", isDeleted ? "1" : "0");
@@ -20,4 +23,10 @@ public static class CacheKeyBuilder
         => string.Concat(Prefix, "comment:user:", userId.ToString(), ":", cursor?.ToString() ?? "0", ":", limit.ToString());
 
     public static string AdminStats() => string.Concat(Prefix, "stats:admin");
+
+    public static string PublicAotShell(PublicPageId pageId, string routeKey)
+        => string.Concat(PublicAotPrefix, ((int)pageId).ToString(), ":", routeKey);
+
+    public static string PublicAotDocument(PublicPageId pageId, string routeKey)
+        => string.Concat(PublicAotPrefix, "doc:", ((int)pageId).ToString(), ":", routeKey);
 }

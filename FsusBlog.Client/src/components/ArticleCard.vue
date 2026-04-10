@@ -1,63 +1,62 @@
 <template>
     <article 
-        class="group flex flex-col items-start gap-3 sm:gap-4 subpixel-antialiased animate-fade-in"
+        :class="themeTokens.articleList.card"
         :style="articleStyle"
         itemscope 
         itemtype="https://schema.org/BlogPosting"
     >
         <!-- SEO 元数据：隐藏字段 -->
-        <meta itemprop="author" :content="article.category?.name || 'Fsu'" />
-        <meta itemprop="datePublished" :content="article.createTime" />
+        <meta itemprop="author" :content="view.meta.categoryName || 'Fsu'" />
+        <meta itemprop="datePublished" :content="view.meta.isoTime" />
 
-        <div class="flex flex-wrap items-center gap-3 text-[11px] sm:text-xs font-mono font-medium tracking-wider text-zinc-400 uppercase">
-            <time :datetime="article.createTime"
+        <div :class="themeTokens.articleList.metaRow">
+            <time :datetime="view.meta.isoTime"
                   :title="fullTime"
                   itemprop="dateCreated"
                   class="tabular-nums">
                 {{ displayTime }}
             </time>
 
-            <span class="text-zinc-300 font-light" aria-hidden="true">/</span>
-            <span class="text-zinc-600" itemprop="articleSection">
+            <span :class="themeTokens.articleList.metaSeparator" aria-hidden="true">/</span>
+            <span :class="themeTokens.articleList.metaCategory" itemprop="articleSection">
                 {{ categoryName }}
             </span>
 
             <template v-if="displayTags.length">
-                <span class="text-zinc-300 font-light hidden sm:inline" aria-hidden="true">/</span>
-                <span v-for="tag in displayTags" :key="tag.id" class="hidden sm:inline">
-                    #{{ tag.name }}
-                </span>
+                <span :class="`${themeTokens.articleList.metaSeparator} hidden sm:inline`" aria-hidden="true">/</span>
+                <UiTag v-for="tag in displayTags" :key="tag.label" :contract="tag" />
             </template>
         </div>
 
-        <h2 class="text-xl sm:text-2xl font-bold text-zinc-950 group-hover:text-zinc-500 transition-colors duration-300 leading-snug"
+        <h2 :class="themeTokens.articleList.title"
             itemprop="headline">
-            <router-link :to="articleLink" class="block">
+            <component :is="linkComponent" v-bind="titleLinkProps" :class="themeTokens.articleList.titleLink">
                 <!-- 性能优化: 绑定预计算的高亮内容 -->
                 <span v-html="highlightedTitle"></span>
-            </router-link>
+            </component>
         </h2>
 
-        <p class="text-sm sm:text-base text-zinc-600 leading-relaxed sm:leading-loose line-clamp-3"
+        <p :class="themeTokens.articleList.summary"
            itemprop="description">
             <span v-html="highlightedSummary"></span>
         </p>
 
-        <router-link :to="articleLink"
+        <component :is="linkComponent"
+                     v-bind="readLinkProps"
                      aria-label="阅读全文"
-                     class="mt-2 text-[11px] sm:text-xs font-bold tracking-[0.2em] uppercase text-zinc-950 hover:text-zinc-500 transition-colors flex items-center gap-2 py-2 -ml-0.5">
+                     :class="themeTokens.articleList.readLink">
             阅读<span aria-hidden="true">→</span>
-        </router-link>
+        </component>
     </article>
 </template>
 
 <script setup lang="ts">
     import { computed } from 'vue'
-    import type { ArticleListItem } from '@/api/article'
-    import { TimeUtils } from '@/utils/time'
+    import { RouterLink } from 'vue-router'
+    import type { ArticleListCardViewContract } from '@/view-contracts/articleList'
+    import { themeTokens } from '@/ui-tokens/themeTokens'
+    import UiTag from '@/ui-adapters/element-plus/UiTag.vue'
 
-    // 常量定义
-    const DEFAULT_CATEGORY = '通用类';
     const MAX_TAGS_DISPLAY = 5;
 
     // 性能优化: 将静态映射表移出 setup 以节省内存
@@ -72,24 +71,34 @@
     }
 
     const props = defineProps<{
-        article: ArticleListItem;
+        view: ArticleListCardViewContract;
         searchKeyword?: string;
         index?: number;
+        linkMode?: 'router' | 'anchor';
     }>()
 
     // ==========================================
     // 1. 基础数据计算 (解决模板热路径调用问题)
     // ==========================================
 
-    const displayTime = computed(() => TimeUtils.toSmartTime(props.article.createTime));
-    const fullTime = computed(() => TimeUtils.toFullLocalString(props.article.createTime));
-    const categoryName = computed(() => props.article.category?.name || DEFAULT_CATEGORY);
-    const displayTags = computed(() => props.article.tags?.slice(0, MAX_TAGS_DISPLAY) || []);
+    const displayTime = computed(() => props.view.meta.displayTime);
+    const fullTime = computed(() => props.view.meta.fullTime);
+    const categoryName = computed(() => props.view.meta.categoryName);
+    const displayTags = computed(() => props.view.tags?.slice(0, MAX_TAGS_DISPLAY) || []);
 
     const articleLink = computed(() => ({
         name: 'ArticleDetail',
-        params: { id: props.article.id }
+        params: { id: props.view.id }
     }));
+
+    const articleHref = computed(() => props.view.href || `/article/${props.view.id}`);
+    const linkComponent = computed(() => props.linkMode === 'anchor' ? 'a' : RouterLink);
+    const titleLinkProps = computed(() => props.linkMode === 'anchor'
+        ? { href: articleHref.value, 'data-public-link': 'article' }
+        : { to: articleLink.value });
+    const readLinkProps = computed(() => props.linkMode === 'anchor'
+        ? { href: articleHref.value, 'data-public-link': 'article' }
+        : { to: articleLink.value });
 
     const articleStyle = computed(() => ({
         '--index': props.index ?? 0
@@ -128,8 +137,8 @@
     }
 
     // 预计算高亮结果，缓存至计算属性
-    const highlightedTitle = computed(() => performHighlight(props.article.title));
-    const highlightedSummary = computed(() => performHighlight(props.article.snippet || props.article.summary || ''));
+    const highlightedTitle = computed(() => performHighlight(props.view.title));
+    const highlightedSummary = computed(() => performHighlight(props.view.summary));
 
 </script>
 

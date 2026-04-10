@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -23,13 +24,22 @@ public partial class AuthController(
 {
     [Authorize(Roles = "admin")]
     [HttpGet("{id}")]
-    public async Task<ActionResult<ApiResponse<LoginResponseDto>>> GetUserInfo(int id)
+    public async Task<ActionResult<ApiResponse<UserInfoDto>>> GetUserInfo(int id)
     {
         var user = await _userService.GetByIdAsync(id);
         if (user == null) return NotFound(ApiResponse.Fail("未找到该用户", 404));
 
-        // 核心优化：返回强类型 DTO，避免匿名对象
-        return ApiResponse<LoginResponseDto>.Success(new LoginResponseDto(user.Id, user.Username, user.Role));
+        return ApiResponse<UserInfoDto>.Success(new UserInfoDto(user.Id, user.Username, user.Role, user.Status, user.BanReason));
+    }
+
+    [Authorize(Roles = "admin")]
+    [HttpGet("find/{username}")]
+    public async Task<ActionResult<ApiResponse<UserInfoDto>>> FindUserByName(string username)
+    {
+        var user = await _userService.GetByUsernameAsync(username);
+        if (user == null) return NotFound(ApiResponse.Fail("未找到该用户", 404));
+
+        return ApiResponse<UserInfoDto>.Success(new UserInfoDto(user.Id, user.Username, user.Role, user.Status, user.BanReason));
     }
 
     [EnableRateLimiting("fixed_ip")]

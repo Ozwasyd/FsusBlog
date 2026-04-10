@@ -1,6 +1,7 @@
 ﻿using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using Microsoft.AspNetCore.OutputCaching;
@@ -32,8 +33,17 @@ public class ArticleService(
     ILogger<ArticleService> _logger,
     IServiceScopeFactory _scopeFactory,
     IOutputCacheStore _cacheStore,
-    IMemoryCache _memoryCache) : IArticleService
+    IMemoryCache _memoryCache,
+    IPublicAotInvalidationService _publicAotInvalidationService) : IArticleService
 {
+    private const int MaxPageSize = 100;
+    private const int MaxSearchKeywordLength = 128;
+    private const int MaxHotArticlesCount = 100;
+    private const int MaxTitleLength = 256;
+    private const int MaxSummaryLength = 512;
+    private const int MaxContentLength = 200_000;
+    private const int MaxTagIds = 32;
+
     private readonly IDatabase _redis = _redisConnection.GetDatabase();
 
     private const string CACHE_PREFIX = "blog:article:";
@@ -64,20 +74,23 @@ public class ArticleService(
 
     public async Task<PageResultDto<ArticleListDto>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted)
     {
+        page = page < 1 ? 1 : page;
+        size = size switch
+        {
+            < 1 => 10,
+            > MaxPageSize => MaxPageSize,
+            _ => size
+        };
+
         long version = await GetListCacheVersionAsync();
         string cacheKey = GenerateListCacheKey(version, page, size, categoryId, tagId, isDeleted);
 
         // 1. 无锁快读
-        try
+        var cacheHit = await TryReadRedisCacheAsync<PageResultDto<ArticleListDto>>(cacheKey);
+        if (cacheHit.Hit && cacheHit.Value != null)
         {
-            using var lease = await _redis.StringGetLeaseAsync(cacheKey);
-            if (lease != null && lease.Length > 0)
-            {
-                var cachedResult = JsonSerializer.Deserialize<PageResultDto<ArticleListDto>>(lease.Span, _jsonOptions);
-                if (cachedResult != null) return cachedResult;
-            }
+            return cacheHit.Value;
         }
-        catch (Exception ex) { _logger.LogWarning(ex, "读取列表缓存异常"); }
 
         // 2. 缓存击穿防护 (细粒度本地锁)
         //[修改日期 2026-03-01] 物理级防泄漏：加入驱逐回调，确保 IDisposable 的底层内核句柄被立即归还
@@ -150,7 +163,12 @@ public class ArticleService(
 
             if (list.Count > 0)
             {
-                var ids = list.Select(x => x.Id).ToList();
+                var ids = new List<int>(list.Count);
+                for (int i = 0; i < list.Count; i++)
+                {
+                    ids.Add(list[i].Id);
+                }
+
                 var tagsData = await _db.Queryable<ArticleTag>()
                     .InnerJoin<Tag>((at, t) => at.TagId == t.Id)
                     .Where(at => ids.Contains(at.ArticleId))
@@ -182,16 +200,11 @@ public class ArticleService(
     public async Task<Article?> GetByIdAsync(int id)
     {
         string cacheKey = GenerateDetailKey(id);
-        try
+        var detailCache = await TryReadRedisCacheAsync<Article>(cacheKey);
+        if (detailCache.Hit)
         {
-            using var lease = await _redis.StringGetLeaseAsync(cacheKey);
-            if (lease != null && lease.Length > 0)
-            {
-                if (lease.Length == 0) return null;
-                return JsonSerializer.Deserialize<Article>(lease.Span, _jsonOptions);
-            }
+            return detailCache.Value;
         }
-        catch (Exception ex) { _logger.LogWarning("Redis Read Failed: {Msg}", ex.Message); }
 
         var query = _db.Queryable<Article>().LeftJoin<Category>((a, c) => a.CategoryId == c.Id).Where(a => a.Id == id && a.IsDeleted == false)
             .Select((a, c) => new { a.Id, a.Title, a.Content, a.Summary, a.CategoryId, a.Views, a.CreateTime, a.IsDeleted, CategoryName = c.Name });
@@ -239,18 +252,26 @@ public class ArticleService(
 
     public async Task<int> CreateAsync(ArticleDto dto)
     {
-        var safeSummary = string.IsNullOrWhiteSpace(dto.Summary) ? GenerateSafeSummary(dto.Content) : dto.Summary;
-        var article = new Article { Title = dto.Title, Content = dto.Content, Summary = safeSummary, CategoryId = dto.CategoryId, CreateTime = DateTime.UtcNow, IsDeleted = false };
+        var title = NormalizeText(dto.Title, MaxTitleLength);
+        var content = NormalizeText(dto.Content, MaxContentLength);
+        var summary = NormalizeText(dto.Summary, MaxSummaryLength);
+        var tagIds = NormalizeTagIds(dto.TagIds);
+        var safeSummary = string.IsNullOrWhiteSpace(summary) ? GenerateSafeSummary(content) : summary;
+        var article = new Article { Title = title, Content = content, Summary = safeSummary, CategoryId = dto.CategoryId, CreateTime = DateTime.UtcNow, IsDeleted = false };
 
         var result = await _db.Ado.UseTranAsync(async () => {
             int id = await _db.Insertable(article).ExecuteReturnIdentityAsync();
-            if (dto.TagIds?.Count > 0) await _db.Insertable(dto.TagIds.Select(tid => new ArticleTag { ArticleId = id, TagId = tid }).ToArray()).ExecuteCommandAsync();
+            if (tagIds.Count > 0)
+            {
+                await _db.Insertable(BuildArticleTags(id, tagIds)).ExecuteCommandAsync();
+            }
             return id;
         });
 
         if (result.IsSuccess)
         {
             await InvalidateCache();
+            await InvalidatePublicAotAsync(null, [dto.CategoryId], tagIds, "create");
 
             //[修改日期 2026-03-01]
             // 物理真相：阻断 Fire-and-Forget。采用同步 Await 保障强一致性与停机期间的物理防损。
@@ -269,28 +290,47 @@ public class ArticleService(
 
             return result.Data;
         }
-        throw new Exception(result.ErrorMessage);
+        _logger.LogError("创建文章失败 | DbError: {Error}", result.ErrorMessage);
+        return 0;
     }
 
     public async Task<bool> UpdateAsync(int id, ArticleDto dto)
     {
-        var safeSummary = string.IsNullOrWhiteSpace(dto.Summary) ? GenerateSafeSummary(dto.Content) : dto.Summary;
+        var originalCategoryId = await _db.Queryable<Article>()
+            .ClearFilter()
+            .Where(it => it.Id == id)
+            .Select(it => it.CategoryId)
+            .FirstAsync();
+        var originalTagIds = await LoadArticleTagIdsAsync(id);
+        var title = NormalizeText(dto.Title, MaxTitleLength);
+        var content = NormalizeText(dto.Content, MaxContentLength);
+        var summary = NormalizeText(dto.Summary, MaxSummaryLength);
+        var tagIds = NormalizeTagIds(dto.TagIds);
+        var safeSummary = string.IsNullOrWhiteSpace(summary) ? GenerateSafeSummary(content) : summary;
 
         var result = await _db.Ado.UseTranAsync(async () =>
         {
             await _db.Updateable<Article>()
-                .SetColumns(it => it.Title == dto.Title)
-                .SetColumns(it => it.Content == dto.Content)
+                .SetColumns(it => it.Title == title)
+                .SetColumns(it => it.Content == content)
                 .SetColumns(it => it.Summary == safeSummary)
                 .SetColumns(it => it.CategoryId == dto.CategoryId)
                 .Where(it => it.Id == id).ExecuteCommandAsync();
             await _db.Deleteable<ArticleTag>().Where(it => it.ArticleId == id).ExecuteCommandAsync();
-            if (dto.TagIds?.Count > 0) await _db.Insertable(dto.TagIds.Select(tid => new ArticleTag { ArticleId = id, TagId = tid }).ToArray()).ExecuteCommandAsync();
+            if (tagIds.Count > 0)
+            {
+                await _db.Insertable(BuildArticleTags(id, tagIds)).ExecuteCommandAsync();
+            }
         });
 
         if (result.IsSuccess)
         {
             await InvalidateCache(id);
+            await InvalidatePublicAotAsync(
+                id,
+                MergeIds([originalCategoryId], [dto.CategoryId]),
+                MergeIds(originalTagIds, tagIds),
+                "update");
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -308,10 +348,12 @@ public class ArticleService(
 
     public async Task<bool> DeleteAsync(int id)
     {
+        var state = await LoadArticleAotStateAsync(id);
         var success = await _db.Updateable<Article>().SetColumns(it => it.IsDeleted == true).Where(it => it.Id == id).ExecuteCommandAsync() > 0;
         if (success)
         {
             await InvalidateCache(id);
+            await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "delete");
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -331,10 +373,12 @@ public class ArticleService(
 
     public async Task<bool> RestoreAsync(int id)
     {
+        var state = await LoadArticleAotStateAsync(id);
         var success = await _db.Updateable<Article>().SetColumns(it => it.IsDeleted == false).Where(it => it.Id == id).ExecuteCommandAsync() > 0;
         if (success)
         {
             await InvalidateCache(id);
+            await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "restore");
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -358,6 +402,7 @@ public class ArticleService(
     {
         var article = await _db.Queryable<Article>().ClearFilter().InSingleAsync(id);
         if (article == null) return false;
+        var tagIds = await LoadArticleTagIdsAsync(id);
         var imageUrls = ImageHelper.ExtractIllustrationUrls(article.Content);
 
         var result = await _db.Ado.UseTranAsync(async () => {
@@ -369,6 +414,7 @@ public class ArticleService(
         if (result.IsSuccess)
         {
             await InvalidateCache(id);
+            await InvalidatePublicAotAsync(id, [article.CategoryId], tagIds, "permanent-delete");
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -401,10 +447,16 @@ public class ArticleService(
 
     public async Task<int> ClearTrashAsync()
     {
-        var trashArticles = await _db.Queryable<Article>().ClearFilter().Where(a => a.IsDeleted).Select(a => new { a.Id, a.Content }).ToListAsync(Ct);
+        var trashArticles = await _db.Queryable<Article>()
+            .ClearFilter()
+            .Where(a => a.IsDeleted)
+            .Select(a => new { a.Id, a.Content, a.CategoryId })
+            .ToListAsync(Ct);
         if (trashArticles.Count == 0) return 0;
 
         var articleIds = trashArticles.Select(a => a.Id).ToList();
+        var categoryIds = trashArticles.Select(a => a.CategoryId).Distinct().ToList();
+        var tagIds = articleIds.Count == 0 ? [] : await LoadArticleTagIdsAsync(articleIds);
 
         var result = await _db.Ado.UseTranAsync(async () => {
             //[修改日期 2026-03-01] 
@@ -422,17 +474,21 @@ public class ArticleService(
         if (result.IsSuccess)
         {
             await InvalidateCache();
+            await InvalidatePublicAotBatchAsync(articleIds, categoryIds, tagIds, "clear-trash");
             try
             {
                 using var scope = _scopeFactory.CreateScope();
                 var fileSvc = scope.ServiceProvider.GetRequiredService<IFileService>();
                 var redisDb = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>().GetDatabase();
 
-                var tasks = articleIds.SelectMany(id => new Task[] {
-                    redisDb.SortedSetRemoveAsync("blog:top_articles", id),
-                    redisDb.KeyDeleteAsync(GenerateDetailKey(id)),
-                    _lucene.DeleteIndexAsync(id)
-                }).ToList();
+                var tasks = new List<Task>(articleIds.Count * 3);
+                for (int i = 0; i < articleIds.Count; i++)
+                {
+                    int id = articleIds[i];
+                    tasks.Add(redisDb.SortedSetRemoveAsync("blog:top_articles", id));
+                    tasks.Add(redisDb.KeyDeleteAsync(GenerateDetailKey(id)));
+                    tasks.Add(_lucene.DeleteIndexAsync(id));
+                }
                 await Task.WhenAll(tasks);
 
                 var imgUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -450,17 +506,34 @@ public class ArticleService(
             catch (Exception ex) { _logger.LogError(ex, "清理回收站异常"); }
             return result.Data;
         }
-        throw new Exception(result.ErrorMessage);
+        _logger.LogError("清空回收站失败 | DbError: {Error}", result.ErrorMessage);
+        return -1;
     }
 
     public async Task<List<ArticleListDto>> SearchArticlesAsync(string keyword)
     {
+        if (string.IsNullOrWhiteSpace(keyword))
+        {
+            return [];
+        }
+
+        keyword = keyword.Trim();
+        if (keyword.Length > MaxSearchKeywordLength)
+        {
+            keyword = keyword[..MaxSearchKeywordLength];
+        }
+
         var searchResults = await _lucene.SearchAsync(keyword);
         if (searchResults.Count == 0) return [];
 
         //[修改日期 2026-03-01] 
         // 物理阀门：切断 AST 内存爆破隐患。如果 Lucene 返回了 5000 个相关结果，强行只取前 200 个进行回表。
-        var ids = searchResults.Take(200).Select(x => x.Id).ToList();
+        int boundedCount = Math.Min(searchResults.Count, 200);
+        var ids = new List<int>(boundedCount);
+        for (int i = 0; i < boundedCount; i++)
+        {
+            ids.Add(searchResults[i].Id);
+        }
 
         // 重新拉取 a.Summary，确保在搜索未命中正文时，前端有原生摘要可用作降级呈现 (Fallback)。
         var sqlObj = _db.Queryable<Article>().LeftJoin<Category>((a, c) => a.CategoryId == c.Id)
@@ -487,19 +560,24 @@ public class ArticleService(
         }
 
         var tags = await _db.Queryable<ArticleTag>().InnerJoin<Tag>((at, t) => at.TagId == t.Id).Where(at => ids.Contains(at.ArticleId)).Select((at, t) => new { at.ArticleId, t.Id, t.Name }).ToListAsync();
-        var tagDict = new Dictionary<int, List<TagDto>>();
+        var tagDict = new Dictionary<int, List<TagDto>>(ids.Count);
         foreach (var t in tags)
         {
             if (!tagDict.TryGetValue(t.ArticleId, out var tagList)) { tagList = []; tagDict[t.ArticleId] = tagList; }
             tagList.Add(new TagDto(t.Id, t.Name));
         }
 
+        var luceneMap = new Dictionary<int, Article>(searchResults.Count);
+        for (int i = 0; i < searchResults.Count; i++)
+        {
+            var item = searchResults[i];
+            luceneMap[item.Id] = item;
+        }
         var resultList = new List<ArticleListDto>(ids.Count);
         // 注意：只遍历被限制数量的 ids，与上面对齐
         foreach (var id in ids)
         {
-            var luceneArt = searchResults.First(x => x.Id == id);
-            if (metadataFromDb.TryGetValue(id, out var m))
+            if (metadataFromDb.TryGetValue(id, out var m) && luceneMap.TryGetValue(id, out var luceneArt))
             {
                 resultList.Add(new ArticleListDto
                 {
@@ -521,9 +599,16 @@ public class ArticleService(
 
     public async Task<List<PopularArticleDto>> GetHotArticlesAsync(int count = 10)
     {
+        count = count switch
+        {
+            < 1 => 10,
+            > MaxHotArticlesCount => MaxHotArticlesCount,
+            _ => count
+        };
+
         string redisKey = "blog:top_articles";
         var topIds = await _redis.SortedSetRangeByRankAsync(redisKey, 0, count - 1, Order.Descending);
-        List<int> ids = [];
+        List<int> ids = new(topIds.Length);
         foreach (var val in topIds) if (val.HasValue) ids.Add((int)val);
 
         if (ids.Count == 0)
@@ -543,8 +628,15 @@ public class ArticleService(
                 {
                     var topFromDb = await _db.Queryable<Article>().Where(a => !a.IsDeleted).OrderByDescending(a => a.Views).Take(count).Select(a => new { a.Id, a.Views }).ToListAsync(Ct);
                     if (topFromDb.Count == 0) return [];
-                    await _redis.SortedSetAddAsync(redisKey, [.. topFromDb.Select(x => new SortedSetEntry(x.Id, x.Views))]);
-                    ids = [.. topFromDb.Select(x => x.Id)];
+                    var entries = new SortedSetEntry[topFromDb.Count];
+                    ids = new List<int>(topFromDb.Count);
+                    for (int i = 0; i < topFromDb.Count; i++)
+                    {
+                        entries[i] = new SortedSetEntry(topFromDb[i].Id, topFromDb[i].Views);
+                        ids.Add(topFromDb[i].Id);
+                    }
+
+                    await _redis.SortedSetAddAsync(redisKey, entries);
                 }
             }
             finally { cacheLock.Release(); }
@@ -567,7 +659,7 @@ public class ArticleService(
     {
         // 极简注：个人博客场景下，写少读多。保留 LIST_CACHE_VERSION_KEY 可实现 O(1) 级的列表精确失效。
         // 在发版极低频的写入场景下，瞬间击穿并不会造成“雪崩”（因为后端配置了 SemaphoreSlim 防护），这是工程学中的架构权衡。
-        var tasks = new List<Task>(6);
+        var tasks = new List<Task>(7);
         if (articleId.HasValue) tasks.Add(_redis.KeyDeleteAsync(GenerateDetailKey(articleId.Value)));
         tasks.Add(_redis.StringIncrementAsync(LIST_CACHE_VERSION_KEY));
         tasks.Add(_redis.KeyDeleteAsync("cache:rss:xml_content"));
@@ -576,6 +668,122 @@ public class ArticleService(
         tasks.Add(_cacheStore.EvictByTagAsync("ArticleList", default).AsTask());
         tasks.Add(_cacheStore.EvictByTagAsync("HotArticles", default).AsTask());
         await Task.WhenAll(tasks);
+    }
+
+    private async Task InvalidatePublicAotAsync(int? articleId, IEnumerable<int>? categoryIds, IEnumerable<int>? tagIds, string operation)
+    {
+        try
+        {
+            await _publicAotInvalidationService.InvalidateArticleMutationAsync(articleId, categoryIds, tagIds, Ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "公开页 AOT 缓存失效失败 | Operation={Operation}", operation);
+        }
+    }
+
+    private async Task InvalidatePublicAotBatchAsync(IEnumerable<int> articleIds, IEnumerable<int>? categoryIds, IEnumerable<int>? tagIds, string operation)
+    {
+        try
+        {
+            await _publicAotInvalidationService.InvalidateArticleMutationBatchAsync(articleIds, categoryIds, tagIds, Ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "公开页 AOT 批量缓存失效失败 | Operation={Operation}", operation);
+        }
+    }
+
+    private async Task<List<int>> LoadArticleTagIdsAsync(int articleId)
+    {
+        return await _db.Queryable<ArticleTag>()
+            .Where(it => it.ArticleId == articleId)
+            .Select(it => it.TagId)
+            .ToListAsync(Ct);
+    }
+
+    private async Task<List<int>> LoadArticleTagIdsAsync(List<int> articleIds)
+    {
+        return await _db.Queryable<ArticleTag>()
+            .Where(it => articleIds.Contains(it.ArticleId))
+            .Select(it => it.TagId)
+            .Distinct()
+            .ToListAsync(Ct);
+    }
+
+    private async Task<(List<int> CategoryIds, List<int> TagIds)> LoadArticleAotStateAsync(int articleId)
+    {
+        var categoryId = await _db.Queryable<Article>()
+            .ClearFilter()
+            .Where(it => it.Id == articleId)
+            .Select(it => it.CategoryId)
+            .FirstAsync();
+
+        return ([categoryId], await LoadArticleTagIdsAsync(articleId));
+    }
+
+    private static List<int> MergeIds(IEnumerable<int> left, IEnumerable<int> right)
+    {
+        var merged = new HashSet<int>();
+        foreach (int value in left)
+        {
+            if (value > 0)
+            {
+                merged.Add(value);
+            }
+        }
+
+        foreach (int value in right)
+        {
+            if (value > 0)
+            {
+                merged.Add(value);
+            }
+        }
+
+        return [.. merged];
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string NormalizeText(string? value, int maxLen)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        var trimmed = value.Trim();
+        return trimmed.Length > maxLen ? trimmed[..maxLen] : trimmed;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static List<int> NormalizeTagIds(List<int>? tagIds)
+    {
+        if (tagIds == null || tagIds.Count == 0)
+        {
+            return [];
+        }
+
+        var result = new List<int>(Math.Min(tagIds.Count, MaxTagIds));
+        var set = new HashSet<int>();
+        for (int i = 0; i < tagIds.Count && result.Count < MaxTagIds; i++)
+        {
+            var id = tagIds[i];
+            if (set.Add(id))
+            {
+                result.Add(id);
+            }
+        }
+
+        return result;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static List<ArticleTag> BuildArticleTags(int articleId, List<int> tagIds)
+    {
+        var items = new List<ArticleTag>(tagIds.Count);
+        for (int i = 0; i < tagIds.Count; i++)
+        {
+            items.Add(new ArticleTag { ArticleId = articleId, TagId = tagIds[i] });
+        }
+
+        return items;
     }
 
     // [修改日期 2026-03-01] 
@@ -602,6 +810,30 @@ public class ArticleService(
     {
         var ver = await _redis.StringGetAsync(LIST_CACHE_VERSION_KEY);
         return ver.HasValue ? (long)ver : 0;
+    }
+
+    private async Task<(bool Hit, T? Value)> TryReadRedisCacheAsync<T>(string cacheKey)
+    {
+        try
+        {
+            using var lease = await _redis.StringGetLeaseAsync(cacheKey);
+            if (lease == null)
+            {
+                return (false, default);
+            }
+
+            if (lease.Length == 0)
+            {
+                return (true, default);
+            }
+
+            return (true, JsonSerializer.Deserialize<T>(lease.Span, _jsonOptions));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "读取缓存异常 | Key: {Key}", cacheKey);
+            return (false, default);
+        }
     }
 
     private static string GenerateListCacheKey(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted)

@@ -30,7 +30,7 @@
       <el-table 
         v-loading="loading" 
         :data="list" 
-        :row-key="(row: TagItem) => row.id"
+        :row-key="getTagRowKey"
         stripe 
         class="tag-table w-full"
       >
@@ -92,7 +92,7 @@
     <!-- 对话框 -->
     <el-dialog 
       v-model="dialogVisible" 
-      :title="editingId ? '安全重命名' : '新增标签词'" 
+      :title="dialogTitle" 
       width="380px"
       append-to-body
       destroy-on-close
@@ -132,7 +132,7 @@
             :loading="isProcessing" 
             @click="submitForm"
           >
-            {{ powProvider.isCalculating.value ? '安全计算中...' : '保存变更' }}
+            {{ submitButtonText }}
           </el-button>
         </div>
       </template>
@@ -141,169 +141,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, shallowRef, onUnmounted } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
+import { type TagItem } from '@/api/tag'
 import { InfoFilled, Plus } from '@element-plus/icons-vue'
-import { getTags, createTag, updateTag, deleteTag, type TagItem } from '@/api/tag'
-import { usePow } from '@/composables/usePow'
-import type { AxiosRequestConfig } from 'axios'
+import { useAdminTagManage } from '@/composables/useAdminTagManage'
 
-const list = shallowRef<TagItem[]>([])
-const loading = ref(false)
-const dialogVisible = ref(false)
-const submitting = ref(false)
-const editingId = ref<number | null>(null)
-const formRef = ref<FormInstance>()
-const powProvider = usePow()
+const {
+  list,
+  loading,
+  dialogVisible,
+  dialogTitle,
+  submitButtonText,
+  formRef,
+  isProcessing,
+  form,
+  rules,
+  openDialog,
+  submitForm,
+  handleDelete
+} = useAdminTagManage()
 
-const isProcessing = computed(() => submitting.value || powProvider.isCalculating.value)
-
-// 物理中断控制器
-let loadController: AbortController | null = null
-let submitController: AbortController | null = null
-
-const form = reactive({ name: '' })
-const rules = {
-  name: [
-    { required: true, message: '请输入标签名', trigger: 'blur' },
-    { min: 1, max: 20, message: '长度需在 1 到 20 字符之间', trigger: 'change' },
-    // [修复 2026-02-24] P1 修复：收紧正则，物理剔除控制字符
-    { pattern: /^[^\p{C}<>"'`]+$/u, message: '禁止使用控制字符与 HTML 敏感字符', trigger: 'blur' }
-  ]
-}
-
-/**
- * 列表加载与中断管理
- */
-const loadData = async () => {
-  if (loadController) loadController.abort()
-  const currentController = new AbortController()
-  loadController = currentController
-  const { signal } = currentController
-  
-  loading.value = true
-  try {
-    const data = await getTags({ signal } as AxiosRequestConfig)
-    if (loadController === currentController) {
-      list.value = Array.isArray(data) ? data : []
-    }
-  } catch (err: any) {
-    if (err.name !== 'AbortError' && loadController === currentController) {
-      ElMessage.error('标签列表同步失败')
-      list.value = []
-    }
-  } finally {
-    if (loadController === currentController) {
-      loading.value = false
-      loadController = null
-    }
-  }
-}
-
-const openDialog = (row?: TagItem) => {
-  editingId.value = row?.id || null
-  form.name = row?.name || ''
-  dialogVisible.value = true
-}
-
-/**
- * 表单提交 (Promise 风格)
- * [修复 2026-02-24] P0 修复：引入物理中断控制
- */
-const submitForm = async () => {
-  if (!formRef.value || isProcessing.value) return
-  
-  try {
-    await formRef.value.validate()
-    
-    const cleanName = form.name.trim()
-    if (!cleanName) return
-
-    // 竞态防护
-    if (submitController) submitController.abort()
-    const currentController = new AbortController()
-    submitController = currentController
-    const { signal } = currentController
-    
-    submitting.value = true
-    const config = { signal } as AxiosRequestConfig
-
-    if (editingId.value) {
-      await updateTag(editingId.value, cleanName, config)
-      ElMessage.success('标签已重命名')
-    } else {
-      await createTag(cleanName, config)
-      ElMessage.success('标签创建成功')
-    }
-    
-    if (submitController === currentController) {
-      dialogVisible.value = false
-      // 仅在非中断时刷新
-      await loadData()
-    }
-  } catch (err: any) {
-    if (err.name !== 'AbortError') {
-      console.error('[Tag] Submit failed:', err)
-    }
-  } finally {
-    // 无论如何，只要不是被抢占，都应释放锁
-    submitting.value = false
-    submitController = null
-  }
-}
-
-/**
- * 安全销毁逻辑
- * [修复 2026-02-24] P1 修复：引入物理中断控制
- */
-const handleDelete = (row: TagItem) => {
-  ElMessageBox.confirm(
-    `您正在销毁索引词。标签「${row.name}」将被永久移除。`, 
-    '安全警告', 
-    {
-      confirmButtonText: '确定销毁',
-      cancelButtonText: '取消',
-      type: 'error',
-      confirmButtonClass: 'el-button--danger',
-      roundButton: true,
-      dangerouslyUseHTMLString: false
-    }
-  ).then(async () => {
-    if (isProcessing.value) return
-
-    if (submitController) submitController.abort()
-    const currentController = new AbortController()
-    submitController = currentController
-    const { signal } = currentController
-    
-    submitting.value = true
-    try {
-      await deleteTag(row.id, { signal } as AxiosRequestConfig)
-      
-      if (submitController === currentController) {
-        ElMessage.success('数据已彻底移除')
-        await loadData()
-      }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        console.error('[Tag] Delete failed:', err)
-      }
-    } finally {
-      submitting.value = false
-      submitController = null
-    }
-  }).catch(() => {})
-}
-
-onMounted(() => {
-  loadData()
-  powProvider.prewarm()
-})
-
-onUnmounted(() => {
-  if (loadController) loadController.abort()
-  if (submitController) submitController.abort()
-})
+const getTagRowKey = (row: TagItem): string => row.id
 </script>
 
 <style scoped>

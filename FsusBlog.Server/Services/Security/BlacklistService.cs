@@ -11,13 +11,14 @@ public class BlacklistService(
 {
     private readonly IDatabase _redis = redis.GetDatabase();
     private const string BlacklistKey = "sys:user:blacklist";
+    private const int MaxBanReasonLength = 256;
 
     /// <summary>
     /// 将用户加入黑名单
     /// </summary>
     public async Task BanUserAsync(int userId, string? reason)
     {
-        string finalReason = string.IsNullOrWhiteSpace(reason) ? "账号异常，已被系统封禁" : reason;
+        var finalReason = NormalizeReason(reason);
         await _redis.HashSetAsync(BlacklistKey, userId, finalReason);
     }
 
@@ -45,5 +46,16 @@ public class BlacklistService(
     public async Task<bool> IsBannedAsync(int userId)
     {
         return await _redis.HashExistsAsync(BlacklistKey, userId);
+    }
+
+    private static string NormalizeReason(string? reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return "账号异常，已被系统封禁";
+        }
+
+        var value = reason.Trim();
+        return value.Length > MaxBanReasonLength ? value[..MaxBanReasonLength] : value;
     }
 }

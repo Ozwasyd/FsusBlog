@@ -45,7 +45,7 @@ public sealed class SseConnectionManager
     public void SendToUsers(IEnumerable<string> userIds, string eventName, object data)
     {
         var message = FormatSseEvent(eventName, data);
-        var set = userIds.ToHashSet();
+        IReadOnlySet<string> set = userIds as IReadOnlySet<string> ?? userIds.ToHashSet();
         foreach (var client in _clients.Values)
         {
             if (client.UserId != null && set.Contains(client.UserId)) client.Writer.TryWrite(message);

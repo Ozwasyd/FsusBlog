@@ -11,7 +11,7 @@ namespace FsusBlog.Server.Services;
 /// 评论核心服务
 /// 修复日期: 2026-02-23 
 /// </summary>
-public class CommentService(
+public partial class CommentService(
     ISqlSugarClient _db,
     ILogger<CommentService> _logger,
     IMessageService _messageService,
@@ -19,12 +19,26 @@ public class CommentService(
     IConnectionMultiplexer _redisConnection) : ICommentService
 {
     private readonly IDatabase _redis = _redisConnection.GetDatabase();
+    private const string StatsCacheKey = "admin:dashboard:stats";
+    private const int MaxCommentLength = 4000;
+    private const int MaxCursorLimit = 100;
 
     /// <summary>
     /// 发表评论
     /// </summary>
     public async Task<bool> CreateCommentAsync(int userId, CommentDto dto)
     {
+        if (dto.ArticleId <= 0)
+        {
+            return false;
+        }
+
+        var normalizedContent = NormalizeCommentContent(dto.Content);
+        if (normalizedContent.Length == 0)
+        {
+            return false;
+        }
+
         var userQuery = _db.Queryable<User>()
             .Where(u => u.Id == userId)
             .Select(u => new { u.Username });
@@ -45,7 +59,7 @@ public class CommentService(
         var comment = new Comment
         {
             ArticleId = dto.ArticleId,
-            Content = dto.Content,
+            Content = normalizedContent,
             UserId = userId,
             CreateTime = DateTime.UtcNow
         };
@@ -54,7 +68,7 @@ public class CommentService(
 
         if (generatedId > 0)
         {
-            await _redis.KeyDeleteAsync("admin:dashboard:stats");
+            await _redis.KeyDeleteAsync(StatsCacheKey);
 
             comment.Id = generatedId;
 
@@ -85,6 +99,13 @@ public class CommentService(
     /// </summary>
     public async Task<CursorResult<CommentQueryResultDto>> GetCommentsByCursorAsync(int articleId, long? cursor, int limit)
     {
+        if (articleId <= 0)
+        {
+            return new CursorResult<CommentQueryResultDto> { Data = [], NextCursor = null, HasMore = false };
+        }
+
+        limit = NormalizeLimit(limit);
+
         var query = _db.Queryable<Comment, User>((c, u) => c.UserId == u.Id)
             .Where(c => c.ArticleId == articleId)
             .WhereIF(cursor.HasValue && cursor > 0, c => c.Id < cursor!.Value)
@@ -120,21 +141,7 @@ public class CommentService(
             }
         }
 
-        bool hasMore = list.Count > limit;
-        long? nextCursor = null;
-
-        if (hasMore)
-        {
-            list.RemoveAt(limit);
-            nextCursor = list[^1].Id;
-        }
-
-        return new CursorResult<CommentQueryResultDto>
-        {
-            Data = list,
-            NextCursor = nextCursor,
-            HasMore = hasMore
-        };
+        return BuildCursorResult(list, limit, static item => item.Id);
     }
 
     /// <summary>
@@ -142,6 +149,13 @@ public class CommentService(
     /// </summary>
     public async Task<CursorResult<UserCommentDto>> GetUserCommentsAsync(int userId, long? cursor, int limit)
     {
+        if (userId <= 0)
+        {
+            return new CursorResult<UserCommentDto> { Data = [], NextCursor = null, HasMore = false };
+        }
+
+        limit = NormalizeLimit(limit);
+
         var query = _db.Queryable<Comment, Article>((c, a) => c.ArticleId == a.Id)
             .Where((c, a) => c.UserId == userId && !a.IsDeleted)
             .WhereIF(cursor.HasValue && cursor > 0, (c, a) => c.Id < cursor)
@@ -180,21 +194,7 @@ public class CommentService(
             }
         }
 
-        bool hasMore = list.Count > limit;
-        long? nextCursor = null;
-
-        if (hasMore)
-        {
-            list.RemoveAt(limit);
-            nextCursor = list[^1].Id;
-        }
-
-        return new CursorResult<UserCommentDto>
-        {
-            Data = list,
-            NextCursor = nextCursor,
-            HasMore = hasMore
-        };
+        return BuildCursorResult(list, limit, static item => item.Id);
     }
 
     /// <summary>
@@ -240,25 +240,13 @@ public class CommentService(
 
         if (success)
         {
-            await _redis.KeyDeleteAsync("admin:dashboard:stats");
+            await _redis.KeyDeleteAsync(StatsCacheKey);
 
             await _messageService.PushCommentRemoveAsync(articleId, id);
 
             if (isAdmin && currentUserId != targetUserId.Value)
             {
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        using var scope = _scopeFactory.CreateScope();
-                        var msgSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
-                        await msgSvc.SendCommentDeletedNoticeAsync(targetUserId.Value, articleTitle, commentSnippet, reason);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "后台异步发送评论删除通知失败");
-                    }
-                });
+                _ = NotifyDeletionAsync(targetUserId.Value, articleTitle, commentSnippet, reason);
             }
 
             _logger.LogInformation("[治理审计] 管理员 {AdminId} 移除了用户 {TargetId} 的评论 | 理由: {Reason} | 评论ID: {Id}", currentUserId, targetUserId, reason, id);
@@ -266,4 +254,57 @@ public class CommentService(
 
         return success;
     }
+
+    private int NormalizeLimit(int limit) => limit switch
+    {
+        < 1 => 20,
+        > MaxCursorLimit => MaxCursorLimit,
+        _ => limit
+    };
+
+    private static string NormalizeCommentContent(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = content.Trim();
+        return trimmed.Length > MaxCommentLength ? trimmed[..MaxCommentLength] : trimmed;
+    }
+
+    private async Task NotifyDeletionAsync(int userId, string articleTitle, string commentSnippet, string reason)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var msgSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
+            await msgSvc.SendCommentDeletedNoticeAsync(userId, articleTitle, commentSnippet, reason);
+        }
+        catch (Exception ex)
+        {
+            LogNotifyDeletionFailed(ex);
+        }
+    }
+
+    private static CursorResult<T> BuildCursorResult<T>(List<T> list, int limit, Func<T, long> idSelector)
+    {
+        bool hasMore = list.Count > limit;
+        string? nextCursor = null;
+        if (hasMore)
+        {
+            list.RemoveAt(limit);
+            nextCursor = idSelector(list[^1]).ToString();
+        }
+
+        return new CursorResult<T>
+        {
+            Data = list,
+            NextCursor = nextCursor,
+            HasMore = hasMore
+        };
+    }
+
+    [LoggerMessage(EventId = 1, Level = LogLevel.Error, Message = "后台异步发送评论删除通知失败")]
+    private partial void LogNotifyDeletionFailed(Exception ex);
 }

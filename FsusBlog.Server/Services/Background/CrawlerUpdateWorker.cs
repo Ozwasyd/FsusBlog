@@ -1,4 +1,5 @@
 ﻿using FsusBlog.Server.Services.Security;
+using System.Net;
 using System.Text.Json;
 
 namespace FsusBlog.Server.Services.Background;
@@ -12,6 +13,8 @@ public class CrawlerUpdateWorker(
     IHttpClientFactory _httpClientFactory,
     ILogger<CrawlerUpdateWorker> _logger) : BackgroundService
 {
+    private const int MaxCidrsPerProvider = 8192;
+
     // Google 官方 IP 库地址
     private const string GoogleIpUrl = "https://developers.google.com/static/search/apis/ipranges/googlebot.json";
     // Bing 官方 IP 库地址
@@ -19,7 +22,8 @@ public class CrawlerUpdateWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        while (!stoppingToken.IsCancellationRequested)
+        using var timer = new PeriodicTimer(TimeSpan.FromHours(24));
+        do
         {
             try
             {
@@ -47,37 +51,73 @@ public class CrawlerUpdateWorker(
                 // 3. 更新原子快照
                 detector.UpdateCidrLists(googleCidrs, bingCidrs);
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "同步搜索引擎 IP 库失败，将使用旧缓存或空列表。");
             }
-
-            // 每天更新一次 (24小时)
-            await Task.Delay(TimeSpan.FromHours(24), stoppingToken);
-        }
+        } while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
     private static List<string> ParseGoogleJson(string json)
     {
-        var list = new List<string>();
+        var list = new List<string>(512);
         using var doc = JsonDocument.Parse(json);
-        foreach (var item in doc.RootElement.GetProperty("prefixes").EnumerateArray())
+        if (!doc.RootElement.TryGetProperty("prefixes", out var prefixes) || prefixes.ValueKind != JsonValueKind.Array)
         {
-            if (item.TryGetProperty("ipv4Prefix", out var v4)) list.Add(v4.GetString()!);
-            else if (item.TryGetProperty("ipv6Prefix", out var v6)) list.Add(v6.GetString()!);
+            return list;
+        }
+
+        foreach (var item in prefixes.EnumerateArray())
+        {
+            if (TryReadCidr(item, "ipv4Prefix", out var v4)) list.Add(v4);
+            else if (TryReadCidr(item, "ipv6Prefix", out var v6)) list.Add(v6);
+            if (list.Count >= MaxCidrsPerProvider) break;
         }
         return list;
     }
 
     private static List<string> ParseBingJson(string json)
     {
-        var list = new List<string>();
+        var list = new List<string>(512);
         using var doc = JsonDocument.Parse(json);
-        foreach (var item in doc.RootElement.GetProperty("prefixes").EnumerateArray())
+        if (!doc.RootElement.TryGetProperty("prefixes", out var prefixes) || prefixes.ValueKind != JsonValueKind.Array)
         {
-            if (item.TryGetProperty("ipv4Prefix", out var v4)) list.Add(v4.GetString()!);
-            else if (item.TryGetProperty("ipv6Prefix", out var v6)) list.Add(v6.GetString()!);
+            return list;
+        }
+
+        foreach (var item in prefixes.EnumerateArray())
+        {
+            if (TryReadCidr(item, "ipv4Prefix", out var v4)) list.Add(v4);
+            else if (TryReadCidr(item, "ipv6Prefix", out var v6)) list.Add(v6);
+            if (list.Count >= MaxCidrsPerProvider) break;
         }
         return list;
+    }
+
+    private static bool TryReadCidr(JsonElement item, string propertyName, out string cidr)
+    {
+        cidr = string.Empty;
+        if (!item.TryGetProperty(propertyName, out var node))
+        {
+            return false;
+        }
+
+        var raw = node.GetString();
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return false;
+        }
+
+        if (!IPNetwork.TryParse(raw, out _))
+        {
+            return false;
+        }
+
+        cidr = raw;
+        return true;
     }
 }

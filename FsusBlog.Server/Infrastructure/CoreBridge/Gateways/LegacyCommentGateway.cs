@@ -52,7 +52,7 @@ public sealed class LegacyCommentGateway(CommentService legacy, ICacheManager ca
             data.Add(new CommentQueryCoreModel(pod, item.Id, item.Content, item.CreateTime, item.UserName));
         }
 
-        return new CoreCursorResult<CommentQueryCoreModel>(data, source.NextCursor, source.HasMore);
+        return new CoreCursorResult<CommentQueryCoreModel>(data, ParseNextCursor(source.NextCursor), source.HasMore);
     }
 
     private async Task<CoreCursorResult<UserCommentCoreModel>> LoadUserCommentsAsync(int userId, long? cursor, int limit)
@@ -66,6 +66,16 @@ public sealed class LegacyCommentGateway(CommentService legacy, ICacheManager ca
             data.Add(new UserCommentCoreModel(pod, item.Id, item.Content, item.CreateTime, item.ArticleId, item.ArticleTitle));
         }
 
-        return new CoreCursorResult<UserCommentCoreModel>(data, source.NextCursor, source.HasMore);
+        return new CoreCursorResult<UserCommentCoreModel>(data, ParseNextCursor(source.NextCursor), source.HasMore);
+    }
+
+    private static long? ParseNextCursor(string? nextCursor)
+    {
+        if (string.IsNullOrWhiteSpace(nextCursor))
+        {
+            return null;
+        }
+
+        return long.TryParse(nextCursor, out long value) ? value : null;
     }
 }

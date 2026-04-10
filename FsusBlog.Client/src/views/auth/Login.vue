@@ -77,19 +77,11 @@
               :aria-disabled="isProcessing || !isFormValid"
               class="w-full py-4 bg-zinc-950 text-white text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-[0.98] active:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-xl shadow-zinc-950/5"
             >
-              <!-- [修复 2026-02-23] 逻辑自洽：监听 usePow 提供的 isCalculating 状态 -->
-              <template v-if="powProvider.isCalculating.value">
-                <span class="animate-pulse flex items-center">
-                  <!-- [修复 2026-02-24] P1 修复：隐藏装饰性 Emoji，避免干扰读屏 -->
-                  <span class="mr-2" aria-hidden="true">🔒</span> 安全校验中...
-                </span>
-              </template>
-              <template v-else-if="loading">
-                <span class="animate-pulse">登录中...</span>
-              </template>
-              <template v-else>
-                进行 <span class="text-zinc-500">→</span>
-              </template>
+              <span :class="submitButtonPulseClass">
+                <span v-if="showSubmitLockIcon" class="mr-2" aria-hidden="true">🔒</span>
+                {{ submitButtonText }}
+                <span v-if="showSubmitArrow" class="text-zinc-500">→</span>
+              </span>
             </button>
           </div>
         </form>
@@ -109,147 +101,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { login } from '@/api/auth'
-import { useUserStore } from '@/store/user'
-import { useSiteStore } from '@/store/site'
-import { usePow } from '@/composables/usePow'
-import { useNotification } from '@/composables/useNotification' 
+import { useAuthLogin } from '@/composables/useAuthLogin'
 
-const router = useRouter()
-const route = useRoute()
-const userStore = useUserStore()
-const siteStore = useSiteStore()
-const { initNotification } = useNotification()
-const powProvider = usePow()
-
-const loading = ref(false)
-const errorMessage = ref('')
-const loginData = reactive({ username: '', password: '' })
-
-// 统一的处理状态：API Loading 或 PoW 计算中
-const isProcessing = computed(() => loading.value || powProvider.isCalculating.value)
-
-const isFormValid = computed(() => {
-  return loginData.username.trim().length > 0 && 
-         loginData.password.trim().length > 0
-})
-
-//[修复 2026-02-23] 物理安全性：引入 AbortController 防止重复提交
-let abortController: AbortController | null = null
-
-onMounted(() => {
-  // 性能优化：延迟预热，避免阻塞首屏渲染
-  if ('requestIdleCallback' in window) {
-    (window as any).requestIdleCallback(() => powProvider.prewarm());
-  } else {
-    setTimeout(() => powProvider.prewarm(), 1000);
-  }
-})
-
-onUnmounted(() => {
-  if (abortController) abortController.abort()
-})
-
-/**
- *[修复 2026-02-24] P0 修复：开放重定向防御
- * 逻辑自洽：只允许站内相对路径跳转，物理拦截钓鱼链接
- */
-const getSafeRedirect = (target: unknown): string => {
-  if (typeof target !== 'string') return '/'
-  // 必须以 / 开头，且不能以 // 开头（防止 //google.com 协议相对路径绕过）
-  if (target.startsWith('/') && !target.startsWith('//')) {
-    return target
-  }
-  return '/'
-}
-
-const handleLogin = async () => {
-  errorMessage.value = ''
-  
-  if (!isFormValid.value || isProcessing.value) return
-
-  //[修复 2026-02-23] 竞态防护：物理切断上一次未完成的登录请求
-  if (abortController) abortController.abort()
-  const currentController = new AbortController()
-  abortController = currentController
-  const currentSignal = currentController.signal
-
-  loading.value = true
-  
-  try {
-    /**
-     * [修复 2026-02-23] 架构演进：废弃冗余的 PoW 手动运算
-     * 逻辑自洽：登录接口作为核心高危操作，已在底层配置 requiresPow: true
-     */
-    
-    //[修改日期 2026-02-28 23]
-    // 修改理由：性能最大化。移除显式 requiresPow: true 的冗余声明（底层 api 已经强绑定），
-    // 并且内联对象减少局部变量引用，优化内存生命周期。
-    const userData = await login(
-      { username: loginData.username, password: loginData.password }, 
-      { signal: currentSignal }
-    )
-
-    // 竞态检查
-    if (!currentSignal.aborted) {
-      if (!userData || !userData.username) {
-        throw new Error("服务器响应格式异常")
-      }
-
-      // [修复 2026-02-24] P0 修复：在路由跳转前物理置空控制器，防止幽灵引用
-      if (abortController === currentController) {
-        abortController = null
-      }
-
-      userStore.setUserInfo(userData)
-      // 安全性：内存敏感数据清理
-      loginData.password = ''
-
-      // 性能最大化：提前触发 SignalR 模式切换
-      initNotification(true).catch(() => {});
-
-      await router.push(getSafeRedirect(route.query.redirect))
-    }
-
-  } catch (error: any) {
-    // 忽略主动取消请求和 Axios 的 Cancel 错误
-    if (error?.name === 'AbortError' || error?.message === 'canceled') return
-
-    // [修改日期 2026-02-28 23]
-    // 修改理由：精简组件层的错误捕获（O(1)理念），并增强业务提示准确性。
-    // [修复 2026-02-24] P0 修复：防御性错误对象解析
-    // 逻辑自洽：不再假定 error 一定是标准 Error 对象，且拦截器已将外壳剥离。
-    const msg = error?.message || String(error)
-    
-    // 对错误进行安全与精准的归类提示
-    if (msg.includes('POW_CALCULATION_TIMEOUT')) {
-      errorMessage.value = '环境安全校验超时，请检查设备性能或刷新重试'
-    } else if (msg.includes('Account Locked') || msg.includes('锁定') || msg.includes('受限')) {
-      errorMessage.value = '该账户已被安全锁定，请联系管理员解锁'
-    } else if (msg.includes('Forbidden') || msg.includes('权限不足')) {
-      errorMessage.value = '此账号无系统登录权限'
-    } else if (msg.includes('Unauthorized') || msg.includes('401')) {
-      errorMessage.value = '用户名或密码错误，请重新输入'
-    } else if (msg.includes('Network Error') || msg.includes('timeout')) {
-      errorMessage.value = '网络连接异常，请检查您的网络设置'
-    } else if (msg.includes('格式异常')) {
-      errorMessage.value = '系统数据异常，请刷新页面后重试'
-    } else {
-      // 捕获不可预见的通用错误
-      errorMessage.value = msg || '登录服务暂不可用，请稍后再试'
-    }
-    
-    console.error('[Login Error]', error)
-  } finally {
-    // 仅当当前请求仍为活跃请求时，才重置 loading 状态
-    if (abortController === currentController) {
-      loading.value = false
-      abortController = null
-    }
-  }
-}
+const {
+  siteStore,
+  errorMessage,
+  loginData,
+  isProcessing,
+  isFormValid,
+  submitButtonText,
+  submitButtonPulseClass,
+  showSubmitLockIcon,
+  showSubmitArrow,
+  handleLogin
+} = useAuthLogin()
 </script>
 
 <style scoped>

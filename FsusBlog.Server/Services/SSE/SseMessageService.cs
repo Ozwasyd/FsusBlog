@@ -18,6 +18,9 @@ public sealed class SseMessageService(
     SseConnectionManager sseManager,
     IConnectionMultiplexer redis) : IMessageService
 {
+    private const int DefaultPageSize = 20;
+    private const int MaxPageSize = 100;
+
     public async Task SendPrivateNoticeAsync(long userId, string title, string content)
     {
         await SendNoticeInternalAsync(userId, title, content, MessageCategory.Transactional, "提醒");
@@ -56,6 +59,9 @@ public sealed class SseMessageService(
 
     public async Task<List<MessageInboxDto>> GetInboxAsync(long userId, int pageIndex, int pageSize)
     {
+        pageIndex = pageIndex < 1 ? 1 : pageIndex;
+        pageSize = NormalizePageSize(pageSize);
+
         var query = db.Queryable<SysMessage>()
             .LeftJoin<SysUserMessage>((m, rel) => m.Id == rel.MessageId && rel.UserId == userId)
             .Where((m, rel) => (m.Category == MessageCategory.Broadcast) || (rel.UserId == userId))
@@ -104,19 +110,25 @@ public sealed class SseMessageService(
         sseManager.SendToUser(userId.ToString(), "UpdateUnreadCount", 0);
     }
 
-    public async Task PushUserStatusAsync(long userId, int status, string? reason)
+    public Task PushUserStatusAsync(long userId, int status, string? reason)
     {
         var payload = new UserStatusPayload(status, reason, DateTime.UtcNow);
         sseManager.SendToUser(userId.ToString(), "OnUserStatusChanged", payload);
+        return Task.CompletedTask;
     }
 
-    public async Task PushCommentRemoveAsync(int articleId, long commentId)
+    public Task PushCommentRemoveAsync(int articleId, long commentId)
     {
         var payload = new CommentRemovedPayload(articleId, commentId.ToString(), DateTime.UtcNow);
         sseManager.SendToGroup("ContentGovernanceGroup", "OnCommentRemoved", payload);
+        return Task.CompletedTask;
     }
 
-    public async Task PushCommentAddAsync(CommentAddedNotifyDto payload) => sseManager.SendToGroup("ContentGovernanceGroup", "OnCommentAdded", payload);
+    public Task PushCommentAddAsync(CommentAddedNotifyDto payload)
+    {
+        sseManager.SendToGroup("ContentGovernanceGroup", "OnCommentAdded", payload);
+        return Task.CompletedTask;
+    }
 
     public async Task SendCommentDeletedNoticeAsync(int targetUserId, string articleTitle, string commentSnippet, string reason)
     {
@@ -144,13 +156,11 @@ public sealed class SseMessageService(
         if (messageInfo == null) return;
         bool successInDb = false;
 
-        await db.Ado.BeginTranAsync();
-        try
+        var successTx = await ExecuteInTransactionAsync(async () =>
         {
             successInDb = await db.Deleteable<SysUserMessage>().Where(it => it.UserId == userId && it.MessageId == messageId).ExecuteCommandAsync() > 0;
-            await db.Ado.CommitTranAsync();
-        }
-        catch { await db.Ado.RollbackTranAsync(); throw; }
+        });
+        if (!successTx) return;
 
         if (successInDb && !messageInfo.IsRead)
         {
@@ -163,6 +173,9 @@ public sealed class SseMessageService(
 
     public async Task<List<MessageInboxDto>> GetAdminSentMessagesAsync(int pageIndex, int pageSize)
     {
+        pageIndex = pageIndex < 1 ? 1 : pageIndex;
+        pageSize = NormalizePageSize(pageSize);
+
         var query = db.Queryable<SysMessage>().Where(m => m.Category != MessageCategory.SystemTask).OrderByDescending(m => m.CreateTime)
             .Select(m => new { m.Id, m.Title, m.Content, m.Category, m.CreateTime });
 
@@ -188,15 +201,13 @@ public sealed class SseMessageService(
         var messageIdStr = messageId.ToString();
         List<long> targetUserIds = [];
 
-        await db.Ado.BeginTranAsync();
-        try
+        var successTx = await ExecuteInTransactionAsync(async () =>
         {
             if (msg.Category != MessageCategory.Broadcast) targetUserIds = await db.Queryable<SysUserMessage>().Where(it => it.MessageId == messageId && it.IsRead == false).Select(it => it.UserId).ToListAsync();
             await db.Deleteable<SysUserMessage>().Where(it => it.MessageId == messageId).ExecuteCommandAsync();
             await db.Deleteable<SysMessage>().In(messageId).ExecuteCommandAsync();
-            await db.Ado.CommitTranAsync();
-        }
-        catch { await db.Ado.RollbackTranAsync(); throw; }
+        });
+        if (!successTx) return;
 
         if (targetUserIds.Count > 0)
         {
@@ -215,21 +226,24 @@ public sealed class SseMessageService(
         if (msg.Category == MessageCategory.Broadcast) sseManager.SendToGroup("AuthenticatedUsersGroup", "OnMessageRevoked", new MessageRevokedPayload(messageIdStr));
     }
 
-    public async Task PushArticleChangedAsync(ArticleNoticeDto payload) => sseManager.SendToGroup("ContentGovernanceGroup", "ReceiveArticleUpdate", payload);
+    public Task PushArticleChangedAsync(ArticleNoticeDto payload)
+    {
+        sseManager.SendToGroup("ContentGovernanceGroup", "ReceiveArticleUpdate", payload);
+        return Task.CompletedTask;
+    }
 
     private async Task SendNoticeInternalAsync(long userId, string title, string content, MessageCategory category, string categoryName)
     {
-        await db.Ado.BeginTranAsync();
-        long msgId; DateTime createTime;
-        try
+        long msgId = 0;
+        DateTime createTime = DateTime.UtcNow;
+        var successTx = await ExecuteInTransactionAsync(async () =>
         {
             var msg = new SysMessage { Title = title, Content = content, Category = category, CreateTime = DateTime.UtcNow };
             msgId = await db.Insertable(msg).ExecuteReturnSnowflakeIdAsync();
             createTime = msg.CreateTime;
             await db.Insertable(new SysUserMessage { UserId = userId, MessageId = msgId, IsRead = false }).ExecuteCommandAsync();
-            await db.Ado.CommitTranAsync();
-        }
-        catch { await db.Ado.RollbackTranAsync(); throw; }
+        });
+        if (!successTx) return;
 
         await cache.IncrementUnreadAsync(userId);
         var unreadCount = await cache.GetUnreadCountAsync(userId);
@@ -244,4 +258,27 @@ public sealed class SseMessageService(
         await SendNoticeInternalAsync(userId, title, content, MessageCategory.SystemTask, "系统");
         sseManager.SendToUser(userId.ToString(), "OnUserStatusChanged", new UserStatusPayload(status, reason, DateTime.UtcNow));
     }
+
+    private async Task<bool> ExecuteInTransactionAsync(Func<Task> action)
+    {
+        await db.Ado.BeginTranAsync();
+        try
+        {
+            await action();
+            await db.Ado.CommitTranAsync();
+            return true;
+        }
+        catch
+        {
+            await db.Ado.RollbackTranAsync();
+            return false;
+        }
+    }
+
+    private static int NormalizePageSize(int pageSize) => pageSize switch
+    {
+        < 1 => DefaultPageSize,
+        > MaxPageSize => MaxPageSize,
+        _ => pageSize
+    };
 }

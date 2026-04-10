@@ -35,7 +35,8 @@ export function usePow() {
       const newWorker = new Worker(
         new URL('../workers/pow.worker.ts', import.meta.url),
         {
-          name: 'FsusPowWorker'
+          name: 'FsusPowWorker',
+          type: 'module'
         }
       );
 

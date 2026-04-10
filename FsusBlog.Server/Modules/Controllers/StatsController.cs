@@ -1,6 +1,6 @@
 ﻿using FsusBlog.Server.Infrastructure.Helpers; // 引入扩展方法
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Dtos; // 确保引用了 SiteStatsDto
+using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Server.Models.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

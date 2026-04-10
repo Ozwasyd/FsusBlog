@@ -27,7 +27,7 @@ public sealed class CommentServiceCoreAdapter(ICommentCoreService core) : IComme
         return new CursorResult<CommentQueryResultDto>
         {
             Data = data,
-            NextCursor = result.Value.NextCursor,
+            NextCursor = result.Value.NextCursor?.ToString(),
             HasMore = result.Value.HasMore
         };
     }
@@ -56,7 +56,7 @@ public sealed class CommentServiceCoreAdapter(ICommentCoreService core) : IComme
         return new CursorResult<UserCommentDto>
         {
             Data = data,
-            NextCursor = result.Value.NextCursor,
+            NextCursor = result.Value.NextCursor?.ToString(),
             HasMore = result.Value.HasMore
         };
     }

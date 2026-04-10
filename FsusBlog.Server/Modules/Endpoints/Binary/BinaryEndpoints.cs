@@ -18,23 +18,25 @@ public static class BinaryEndpoints
         var group = app.MapGroup("api/binary").WithTags("Binary-POD");
 
         group.MapGet("/article", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
-            int page,
-            int size,
+            int? page,
+            int? size,
             int? categoryId,
             int? tagId,
-            bool isDeleted,
+            bool? isDeleted,
+            HttpContext httpContext,
             IArticleCoreService core,
             IAedsEncoder aeds) =>
         {
-            var result = await core.GetPageListAsync(page, size, categoryId, tagId, isDeleted);
-            if (!result.IsSuccess)
+            int pageValue = Math.Max(page ?? 1, 1);
+            int sizeValue = Math.Clamp(size ?? 10, 1, 100);
+            bool deleted = isDeleted ?? false;
+            if (deleted && (httpContext.User.Identity?.IsAuthenticated != true || !httpContext.User.IsInRole("admin")))
             {
-                return ToErrorResult(result.Error);
+                return ToErrorResult(new ErrorDetail(ErrorCode.Forbidden, "权限不足"));
             }
 
-            byte[] payload = PodBinaryCodec.EncodeArticlePage(result.Value);
-            byte[] frame = AedsBinaryWriter.WriteFrame(aeds, AedsFrameType.ArticleList, payload);
-            return TypedResults.File(frame, BinaryContentType);
+            var result = await core.GetPageListAsync(pageValue, sizeValue, categoryId, tagId, deleted);
+            return ToBinaryResult(result, aeds, AedsFrameType.ArticleList, static value => PodBinaryCodec.EncodeArticlePage(value));
         }).AllowAnonymous();
 
         group.MapGet("/article/{id:int}", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
@@ -50,9 +52,7 @@ public static class BinaryEndpoints
                     : result.Error);
             }
 
-            byte[] payload = PodBinaryCodec.EncodeArticleDetail(result.Value.Value);
-            byte[] frame = AedsBinaryWriter.WriteFrame(aeds, AedsFrameType.ArticleDetail, payload);
-            return TypedResults.File(frame, BinaryContentType);
+            return ToBinaryFrame(aeds, AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(result.Value.Value));
         }).AllowAnonymous();
 
         group.MapGet("/article/hot", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
@@ -62,18 +62,12 @@ public static class BinaryEndpoints
         {
             int count = Math.Clamp(size ?? 10, 1, 50);
             var result = await core.GetHotArticlesAsync(count);
-            if (!result.IsSuccess)
-            {
-                return ToErrorResult(result.Error);
-            }
-            if (result.Value is null)
-            {
-                return ToErrorResult(new ErrorDetail(ErrorCode.InfraFailure, "热门文章数据为空"));
-            }
-
-            byte[] payload = PodBinaryCodec.EncodePopularArticles(result.Value);
-            byte[] frame = AedsBinaryWriter.WriteFrame(aeds, AedsFrameType.ArticleHot, payload);
-            return TypedResults.File(frame, BinaryContentType);
+            return ToBinaryResult(
+                result,
+                aeds,
+                AedsFrameType.ArticleHot,
+                static value => PodBinaryCodec.EncodePopularArticles(value),
+                "热门文章数据为空");
         }).AllowAnonymous();
 
         group.MapGet("/article/search", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
@@ -81,19 +75,18 @@ public static class BinaryEndpoints
             IArticleCoreService core,
             IAedsEncoder aeds) =>
         {
-            var result = await core.SearchArticlesAsync(keyword);
-            if (!result.IsSuccess)
+            if (string.IsNullOrWhiteSpace(keyword))
             {
-                return ToErrorResult(result.Error);
-            }
-            if (result.Value is null)
-            {
-                return ToErrorResult(new ErrorDetail(ErrorCode.InfraFailure, "搜索数据为空"));
+                return ToErrorResult(new ErrorDetail(ErrorCode.Validation, "搜索关键词不能为空"));
             }
 
-            byte[] payload = PodBinaryCodec.EncodeArticleSearch(result.Value);
-            byte[] frame = AedsBinaryWriter.WriteFrame(aeds, AedsFrameType.ArticleSearch, payload);
-            return TypedResults.File(frame, BinaryContentType);
+            var result = await core.SearchArticlesAsync(keyword);
+            return ToBinaryResult(
+                result,
+                aeds,
+                AedsFrameType.ArticleSearch,
+                static value => PodBinaryCodec.EncodeArticleSearch(value),
+                "搜索数据为空");
         }).AllowAnonymous();
 
         group.MapGet("/comment/{articleId:int}", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
@@ -105,14 +98,7 @@ public static class BinaryEndpoints
         {
             int actualLimit = Math.Clamp(limit ?? 10, 5, 50);
             var result = await core.GetCommentsByCursorAsync(articleId, cursor, actualLimit);
-            if (!result.IsSuccess)
-            {
-                return ToErrorResult(result.Error);
-            }
-
-            byte[] payload = PodBinaryCodec.EncodeCommentCursor(result.Value);
-            byte[] frame = aeds.Encode(AedsFrameType.CommentArticleCursor, payload);
-            return TypedResults.File(frame, BinaryContentType);
+            return ToBinaryResult(result, aeds, AedsFrameType.CommentArticleCursor, static value => PodBinaryCodec.EncodeCommentCursor(value));
         }).AllowAnonymous();
 
         group.MapGet("/comment/me", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
@@ -130,30 +116,56 @@ public static class BinaryEndpoints
 
             int actualLimit = Math.Clamp(limit ?? 10, 5, 50);
             var result = await core.GetUserCommentsAsync(userId, cursor, actualLimit);
-            if (!result.IsSuccess)
-            {
-                return ToErrorResult(result.Error);
-            }
-
-            byte[] payload = PodBinaryCodec.EncodeUserCommentCursor(result.Value);
-            byte[] frame = aeds.Encode(AedsFrameType.CommentUserCursor, payload);
-            return TypedResults.File(frame, BinaryContentType);
-        }).RequireAuthorization();
+            return ToBinaryResult(result, aeds, AedsFrameType.CommentUserCursor, static value => PodBinaryCodec.EncodeUserCommentCursor(value));
+        }).AllowAnonymous();
 
         group.MapGet("/stats", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
+            HttpContext httpContext,
             IStatsCoreService core,
             IAedsEncoder aeds) =>
         {
-            var result = await core.GetAdminStatsAsync();
-            if (!result.IsSuccess)
+            if (httpContext.User.Identity?.IsAuthenticated != true)
             {
-                return ToErrorResult(result.Error);
+                return ToErrorResult(new ErrorDetail(ErrorCode.Unauthorized, "未登录"));
             }
 
-            byte[] payload = PodBinaryCodec.EncodeSiteStats(result.Value);
-            byte[] frame = aeds.Encode(AedsFrameType.AdminStats, payload);
-            return TypedResults.File(frame, BinaryContentType);
-        }).RequireAuthorization();
+            if (!httpContext.User.IsInRole("admin"))
+            {
+                return ToErrorResult(new ErrorDetail(ErrorCode.Forbidden, "权限不足"));
+            }
+
+            var result = await core.GetAdminStatsAsync();
+            return ToBinaryResult(result, aeds, AedsFrameType.AdminStats, static value => PodBinaryCodec.EncodeSiteStats(value));
+        }).AllowAnonymous();
+    }
+
+    private static Results<FileContentHttpResult, JsonHttpResult<ApiResponse>> ToBinaryResult<T>(
+        in Result<T> result,
+        IAedsEncoder aeds,
+        AedsFrameType frameType,
+        Func<T, byte[]> encodePayload,
+        string? nullValueMessage = null)
+    {
+        if (!result.IsSuccess)
+        {
+            return ToErrorResult(result.Error);
+        }
+
+        if (result.Value is null)
+        {
+            return ToErrorResult(new ErrorDetail(ErrorCode.InfraFailure, nullValueMessage ?? "二进制载荷为空"));
+        }
+
+        return ToBinaryFrame(aeds, frameType, encodePayload(result.Value));
+    }
+
+    private static Results<FileContentHttpResult, JsonHttpResult<ApiResponse>> ToBinaryFrame(
+        IAedsEncoder aeds,
+        AedsFrameType frameType,
+        byte[] payload)
+    {
+        byte[] frame = AedsBinaryWriter.WriteFrame(aeds, frameType, payload);
+        return TypedResults.File(frame, BinaryContentType);
     }
 
     private static JsonHttpResult<ApiResponse> ToErrorResult(in ErrorDetail error)

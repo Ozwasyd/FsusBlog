@@ -82,8 +82,9 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted, nextTick } from 'vue'
 import { getPageData } from '@/api/system'
+import DOMPurify from 'dompurify'
+import { renderMarkdownDocument } from '@/services/markdownRenderHost'
 import { useSiteStore } from '@/store/site'
-import MarkdownIt from 'markdown-it'
 
 const props = defineProps<{ 
   visible: boolean,
@@ -93,33 +94,13 @@ const props = defineProps<{
 const emit = defineEmits<{ (e: 'update:visible', value: boolean): void }>()
 
 const siteStore = useSiteStore()
-
-// 性能最大化：单例实例化解析引擎
-const md = new MarkdownIt({ 
-  html: false, 
-  breaks: true, 
-  linkify: true 
-});
-
-/**
- * 安全策略插件
- */
-md.validateLink = (url: string) => {
-    return /^(https?|mailto|tel):/i.test(url);
-};
-
-const originalRender = md.renderer.rules.link_open || function(tokens, idx, options, _env, self) {
-    return self.renderToken(tokens, idx, options);
-};
-
-md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
-    const token = tokens[idx];
-    if (token) {
-        token.attrPush(['rel', 'noopener noreferrer']);
-        token.attrPush(['target', '_blank']);
-    }
-    return originalRender(tokens, idx, options, env, self);
-};
+const SANITIZE_OPTIONS = {
+  USE_PROFILES: { html: true, mathMl: true },
+  FORBID_TAGS: ['script', 'svg', 'form', 'object', 'embed', 'iframe'],
+  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+  ADD_ATTR: ['loading', 'decoding', 'referrerpolicy', 'target', 'rel'],
+  ALLOWED_URI_REGEXP: /^(?:https?|mailto|tel):/i
+} as const
 
 const titleMap: Record<string, string> = {
   privacy: '隐私政策',
@@ -156,7 +137,13 @@ const fetchData = async () => {
     if (!currentSignal.aborted) {
       const rawContent = (res as any)?.data?.content || (res as any)?.content || ''
       if (rawContent) {
-        renderedContent.value = md.render(rawContent)
+        const result = await renderMarkdownDocument({
+          source: rawContent,
+          mode: 'about',
+          allowLatex: true,
+          allowMermaid: true
+        })
+        renderedContent.value = DOMPurify.sanitize(result.html, SANITIZE_OPTIONS)
         loadedType.value = props.type
       } else {
         renderedContent.value = `<p class="text-zinc-400">暂未配置${titleMap[props.type]}。</p>`

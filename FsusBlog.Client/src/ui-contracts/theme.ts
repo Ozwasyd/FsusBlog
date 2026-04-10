@@ -1,0 +1,58 @@
+export type ThemeTokenContract = Readonly<{
+  articleList: Readonly<{
+    container: string;
+    card: string;
+    metaRow: string;
+    metaSeparator: string;
+    metaCategory: string;
+    title: string;
+    titleLink: string;
+    summary: string;
+    readLink: string;
+    pagination: string;
+    paginationButton: string;
+    paginationButtonDisabled: string;
+    paginationIndicator: string;
+  }>;
+  articleDetail: Readonly<{
+    header: string;
+    title: string;
+    metaRow: string;
+    metaSeparator: string;
+    categoryLink: string;
+    categoryText: string;
+    footer: string;
+    tagList: string;
+    tagLink: string;
+  }>;
+  userComments: Readonly<{
+    list: string;
+    item: string;
+    itemHeader: string;
+    articleLabel: string;
+    articleLink: string;
+    time: string;
+    content: string;
+    deleteAction: string;
+    footer: string;
+    loadMoreButton: string;
+    endHint: string;
+  }>;
+  dashboard: Readonly<{
+    statGrid: string;
+    statCard: string;
+    statIconWrap: string;
+    statLabel: string;
+    statValue: string;
+  }>;
+  primitives: Readonly<{
+    tagGhost: string;
+    emptyRoot: string;
+    emptyTitle: string;
+    emptyBody: string;
+    buttonPlain: string;
+    buttonQuiet: string;
+    buttonPrimary: string;
+    buttonDisabled: string;
+  }>;
+}>;
