@@ -1,4 +1,5 @@
 import type { SiteStats } from '@/api/stats';
+import { AppErrorCode, createAppError } from '@/utils/appError';
 import { BinaryReader, readByte, readFixedUtf8, readInt32, readInt64Number, readSliceRef, readSliceText } from './reader';
 import { POPULAR_ARTICLE_POD_SIZE, RECENT_COMMENT_POD_SIZE, REGION_DISTRIBUTION_POD_SIZE, SITE_STATS_POD_SIZE } from './types';
 
@@ -7,7 +8,7 @@ export function mapSiteStatsFromPodPayload(payload: Uint8Array): SiteStats {
   const pod = reader.readSpan(SITE_STATS_POD_SIZE);
 
   const popularCount = reader.readInt32();
-  if (popularCount < 0) throw new Error('site_stats_popular_count_invalid');
+  if (popularCount < 0) throw createAppError(AppErrorCode.ProtocolFailure, 'site_stats_popular_count_invalid');
   const popularArticles = [];
   for (let i = 0; i < popularCount; i++) {
     const itemPod = reader.readSpan(POPULAR_ARTICLE_POD_SIZE);
@@ -19,7 +20,7 @@ export function mapSiteStatsFromPodPayload(payload: Uint8Array): SiteStats {
   }
 
   const recentCount = reader.readInt32();
-  if (recentCount < 0) throw new Error('site_stats_recent_count_invalid');
+  if (recentCount < 0) throw createAppError(AppErrorCode.ProtocolFailure, 'site_stats_recent_count_invalid');
   const recentComments = [];
   for (let i = 0; i < recentCount; i++) {
     const itemPod = reader.readSpan(RECENT_COMMENT_POD_SIZE);
@@ -33,7 +34,7 @@ export function mapSiteStatsFromPodPayload(payload: Uint8Array): SiteStats {
   }
 
   const regionCount = reader.readInt32();
-  if (regionCount < 0) throw new Error('site_stats_region_count_invalid');
+  if (regionCount < 0) throw createAppError(AppErrorCode.ProtocolFailure, 'site_stats_region_count_invalid');
   const regionDistributions = [];
   for (let i = 0; i < regionCount; i++) {
     const itemPod = reader.readSpan(REGION_DISTRIBUTION_POD_SIZE);

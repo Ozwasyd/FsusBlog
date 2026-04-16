@@ -1,8 +1,10 @@
+import { appErrorFromStatus, err, ok, type AppResult, unwrapResult } from '@/utils/appError'
+
 export interface JsonRequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
 }
 
-export async function jsonRequest<T>(url: string, options?: JsonRequestOptions): Promise<T> {
+export async function jsonRequestResult<T>(url: string, options?: JsonRequestOptions): Promise<AppResult<T>> {
   const requestInit: RequestInit = {
     credentials: 'include',
     ...options,
@@ -16,8 +18,12 @@ export async function jsonRequest<T>(url: string, options?: JsonRequestOptions):
 
   const response = await fetch(url, requestInit);
   if (!response.ok) {
-    throw new Error(`JSON request failed: ${response.status}`);
+    return err(appErrorFromStatus(response.status, `JSON request failed: ${response.status}`));
   }
 
-  return await response.json() as T;
+  return ok(await response.json() as T);
+}
+
+export async function jsonRequest<T>(url: string, options?: JsonRequestOptions): Promise<T> {
+  return unwrapResult(await jsonRequestResult<T>(url, options))
 }

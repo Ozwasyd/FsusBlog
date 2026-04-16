@@ -1,8 +1,9 @@
 ﻿cmake_minimum_required(VERSION 3.10)
 project(FsusPowEngine CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 # 逻辑自洽：本工程现已转为纯粹的 WebAssembly 前端项目
 if(NOT EMSCRIPTEN)
@@ -14,6 +15,12 @@ add_executable(FsusPowEngine ${SOURCES})
 
 # 显式包含 Emscripten 系统头文件
 target_include_directories(FsusPowEngine SYSTEM PRIVATE ${EMSCRIPTEN_SYSROOT}/include)
+
+target_compile_options(FsusPowEngine PRIVATE
+    "-O3"
+    "-fno-exceptions"
+    "-fvisibility=hidden"
+)
 
 set_target_properties(FsusPowEngine PROPERTIES
     OUTPUT_NAME "fsus_pow"

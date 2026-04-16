@@ -7,18 +7,20 @@
 #include <cstring>
 #include <cstdio>
 #include <string>
+#include <vector>
 
 namespace {
 
-std::array<char, 128> g_error{};
-std::uint32_t g_payload_ptr = 0;
-std::uint32_t g_payload_len = 0;
-std::uint16_t g_frame_type = 0;
-std::string g_last_html{};
+thread_local std::array<char, 128> g_error{};
+thread_local std::vector<std::uint8_t> g_payload_storage{};
+thread_local std::uint32_t g_payload_len = 0;
+thread_local std::uint16_t g_frame_type = 0;
+thread_local std::uint8_t g_error_code = 0;
+thread_local std::string g_last_html{};
 constexpr std::size_t kArticleListPodSize = 424u;
 constexpr std::size_t kTagPodSize = 132u;
 constexpr std::size_t kCommentItemPodSize = 88u;
-constexpr std::size_t kUserCommentPodSize = 284u;
+constexpr std::size_t kUserCommentPodSize = 356u;
 constexpr std::size_t kSiteStatsPodSize = 72u;
 constexpr std::size_t kPopularArticlePodSize = 264u;
 constexpr std::size_t kRecentCommentPodSize = 88u;
@@ -557,33 +559,43 @@ extern "C" {
 int decode_aeds(const std::uint8_t* data, int len) {
   if (data == nullptr || len <= 0) {
     set_error("invalid_input");
-    g_payload_ptr = 0;
+    g_payload_storage.clear();
     g_payload_len = 0;
     g_frame_type = 0;
+    g_error_code = static_cast<std::uint8_t>(fsusblog::aeds::ErrorCode::InvalidInput);
     return 0;
   }
 
   const fsusblog::aeds::DecodeResult result = fsusblog::aeds::decode_frame(data, static_cast<std::size_t>(len));
   if (!result.ok) {
+    g_error_code = static_cast<std::uint8_t>(result.error_code);
     set_error(result.error);
-    g_payload_ptr = 0;
+    g_payload_storage.clear();
     g_payload_len = 0;
     g_frame_type = 0;
     return 0;
   }
 
+  g_error_code = static_cast<std::uint8_t>(fsusblog::aeds::ErrorCode::None);
   set_error(nullptr);
-  g_payload_ptr = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(result.payload_ptr));
+  g_payload_storage.assign(result.payload_ptr, result.payload_ptr + result.payload_len);
   g_payload_len = result.payload_len;
   g_frame_type = result.frame_type;
   return 1;
 }
 
-std::uint32_t get_last_payload_ptr() { return g_payload_ptr; }
+std::uint32_t get_last_payload_ptr() {
+  if (g_payload_storage.empty()) {
+    return 0;
+  }
+
+  return static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(g_payload_storage.data()));
+}
 std::uint32_t get_last_payload_len() { return g_payload_len; }
 std::uint16_t get_last_frame_type() { return g_frame_type; }
 const char* get_last_error_ptr() { return g_error.data(); }
 int get_last_error_len() { return static_cast<int>(std::strlen(g_error.data())); }
+std::uint8_t get_last_error_code() { return g_error_code; }
 std::uint32_t alloc_buffer(int size) {
   if (size <= 0) {
     return 0;

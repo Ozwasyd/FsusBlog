@@ -1,14 +1,11 @@
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from './protocol/frame';
 import { AEDS_MODULE_URL, AEDS_WASM_URL } from './runtime/assets';
 import { loadEmscriptenModule } from './runtime/emscripten';
+import { AppErrorCode, createAppError } from '@/utils/appError';
 
 interface AedsWasmExports {
   memory: WebAssembly.Memory;
   decode_aeds(ptr: number, len: number): number;
-  render_view(frameType: number, payloadPtr: number, payloadLen: number): number;
-  get_last_html_ptr(): number;
-  get_last_html_len(): number;
-  handle_event(actionId: number, value: number): number;
   get_last_payload_ptr(): number;
   get_last_payload_len(): number;
   get_last_frame_type(): number;
@@ -33,24 +30,19 @@ function pickExport<T>(raw: Record<string, unknown>, name: string): T {
     return underscored as T;
   }
 
-  throw new Error(`wasm_export_missing:${name}`);
+  throw createAppError(AppErrorCode.InvariantViolation, `wasm_export_missing:${name}`);
 }
 
 export interface DecodeResultView {
   ok: boolean;
   frameType: FrameType;
   payloadView: Uint8Array;
-  renderedHtml?: string;
   error?: string;
 }
 
 type AedsModuleInstance = {
   HEAPU8: Uint8Array;
   _decode_aeds: (ptr: number, len: number) => number;
-  _render_view: (frameType: number, payloadPtr: number, payloadLen: number) => number;
-  _get_last_html_ptr: () => number;
-  _get_last_html_len: () => number;
-  _handle_event: (actionId: number, value: number) => number;
   _get_last_payload_ptr: () => number;
   _get_last_payload_len: () => number;
   _get_last_frame_type: () => number;
@@ -130,10 +122,6 @@ export async function initWasm(wasmUrl = AEDS_WASM_URL): Promise<boolean> {
       exportsRef = {
         memory: getModuleMemory(instance),
         decode_aeds: pickExport<(ptr: number, len: number) => number>(raw, 'decode_aeds'),
-        render_view: pickExport<(frameType: number, payloadPtr: number, payloadLen: number) => number>(raw, 'render_view'),
-        get_last_html_ptr: pickExport<() => number>(raw, 'get_last_html_ptr'),
-        get_last_html_len: pickExport<() => number>(raw, 'get_last_html_len'),
-        handle_event: pickExport<(actionId: number, value: number) => number>(raw, 'handle_event'),
         get_last_payload_ptr: pickExport<() => number>(raw, 'get_last_payload_ptr'),
         get_last_payload_len: pickExport<() => number>(raw, 'get_last_payload_len'),
         get_last_frame_type: pickExport<() => number>(raw, 'get_last_frame_type'),
@@ -155,7 +143,7 @@ export async function initWasm(wasmUrl = AEDS_WASM_URL): Promise<boolean> {
   return ready;
 }
 
-export function decode(buffer: ArrayBuffer, withRender = false): DecodeResultView {
+export function decode(buffer: ArrayBuffer): DecodeResultView {
   const input = new Uint8Array(buffer);
   if (!exportsRef) {
     return decodeWithHeaderFallback(input);
@@ -187,34 +175,8 @@ export function decode(buffer: ArrayBuffer, withRender = false): DecodeResultVie
     }
 
     const payload = new Uint8Array(exportsRef.memory.buffer, payloadPtr, payloadLen);
-    let renderedHtml: string | undefined;
-    if (withRender && exportsRef.render_view(frameType, payloadPtr, payloadLen) === 1) {
-      const htmlPtr = exportsRef.get_last_html_ptr();
-      const htmlLen = exportsRef.get_last_html_len();
-      renderedHtml = readCString(exportsRef.memory, htmlPtr, htmlLen);
-    }
-
-    return { ok: true, frameType, payloadView: new Uint8Array(payload), renderedHtml, error: undefined };
+    return { ok: true, frameType, payloadView: new Uint8Array(payload), error: undefined };
   } finally {
     exportsRef.free_buffer(ptr);
   }
-}
-
-export function handleAotEvent(actionId: number, value = 0): string | null {
-  if (!exportsRef) {
-    return null;
-  }
-
-  const ok = exportsRef.handle_event(actionId, value);
-  if (ok !== 1) {
-    return null;
-  }
-
-  const htmlPtr = exportsRef.get_last_html_ptr();
-  const htmlLen = exportsRef.get_last_html_len();
-  if (htmlPtr <= 0 || htmlLen <= 0) {
-    return null;
-  }
-
-  return readCString(exportsRef.memory, htmlPtr, htmlLen);
 }

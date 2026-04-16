@@ -1,4 +1,5 @@
 import { initPowModule, type PowEngineKind } from '@wasm/pow';
+import { AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/appError';
 
 /**
  * FsusPow Engine - Worker
@@ -28,7 +29,7 @@ const getEngine = async () => {
 
         const resolvedModule = await modulePromise;
         if (!resolvedModule) {
-            throw new Error("FACTORY_MISSING: Glue code did not export createPowModule");
+            throw createAppError(AppErrorCode.InfraFailure, "FACTORY_MISSING: Glue code did not export createPowModule");
         }
         console.log(`[Worker] WASM Module (${engineType}) initialized successfully`);
 
@@ -85,7 +86,7 @@ ctx.onmessage = async (e: MessageEvent) => {
         const engine = await getEngine();
         
         if (typeof engine.solve_pow !== 'function') {
-            throw new Error("WASM_METHOD_NOT_FOUND");
+            throw createAppError(AppErrorCode.InvariantViolation, "WASM_METHOD_NOT_FOUND");
         }
 
         const diffNum = Number(difficulty) || 4;
@@ -98,7 +99,7 @@ ctx.onmessage = async (e: MessageEvent) => {
             nonce = String(rawResult);
         } catch (wasmError: any) {
             console.error(`[Worker] WASM Runtime Crash:`, wasmError);
-            throw new Error(`WASM_CRASH: ${wasmError.message}`);
+            throw createAppError(AppErrorCode.InfraFailure, `WASM_CRASH: ${wasmError.message}`);
         }
         
         const duration = performance.now() - startTime;
@@ -113,9 +114,10 @@ ctx.onmessage = async (e: MessageEvent) => {
         });
 
     } catch (err: any) {
+        const normalized = isAppError(err) ? err : toAppError(err, 'UNKNOWN_CALC_ERROR');
         ctx.postMessage({ 
             success: false, 
-            error: err.message || 'UNKNOWN_CALC_ERROR',
+            error: normalized.message || 'UNKNOWN_CALC_ERROR',
             type: 'CALC_ERROR' 
         });
     }

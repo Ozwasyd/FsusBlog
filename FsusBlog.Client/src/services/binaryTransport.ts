@@ -1,5 +1,6 @@
 import { BinaryRequestError, binaryRequest } from '@/api/binaryApiClient';
 import { decodeBinaryEnvelope } from '@/api/binaryEnvelope';
+import { AppError, AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/appError';
 import { FrameType } from '@wasm/protocol/frame';
 
 
@@ -9,14 +10,8 @@ type DecodeWorkerResponse = {
   ok: boolean;
   frameType?: number;
   data?: unknown;
-  renderedHtml?: string;
   errorCode?: string;
   error?: string;
-};
-
-type DecodeWorkerError = {
-  code?: string;
-  message: string;
 };
 
 type BinaryDecodeRequest = {
@@ -24,8 +19,6 @@ type BinaryDecodeRequest = {
   requestId: number;
   buffer: ArrayBuffer;
   expectedFrameType: FrameType;
-  renderHtml?: boolean;
-  renderContext?: Record<string, number | string | boolean | null | undefined>;
 };
 
 export type TransportFailureKind = 'binary_disabled' | 'auth_failed' | 'forbidden' | 'network' | 'decode_failed';
@@ -33,7 +26,56 @@ export type TransportFailureKind = 'binary_disabled' | 'auth_failed' | 'forbidde
 export type TransportFailure = {
   kind: TransportFailureKind;
   message: string;
+  traceId?: string;
 };
+
+function transportFailureToCode(kind: TransportFailureKind): AppErrorCode {
+  switch (kind) {
+    case 'auth_failed':
+      return AppErrorCode.Unauthorized;
+    case 'forbidden':
+      return AppErrorCode.Forbidden;
+    case 'decode_failed':
+      return AppErrorCode.ProtocolFailure;
+    case 'binary_disabled':
+    case 'network':
+    default:
+      return AppErrorCode.InfraFailure;
+  }
+}
+
+function workerErrorToCode(code?: string, message?: string): AppErrorCode {
+  if (code === 'wasm_init_failed') {
+    return AppErrorCode.InfraFailure;
+  }
+
+  if (
+    code === 'decode_failed'
+    || code === 'frame_type_unexpected'
+    || code === 'crc_failed'
+    || code === 'payload_out_of_range'
+    || code === 'schema_mismatch'
+    || code === 'pod_parse_failed'
+    || message?.includes('decode')
+    || message?.includes('frame')
+    || message?.includes('schema')
+    || message?.includes('payload')
+  ) {
+    return AppErrorCode.ProtocolFailure;
+  }
+
+  return AppErrorCode.Unknown;
+}
+
+export class BinaryTransportError extends AppError {
+  readonly kind: TransportFailureKind;
+
+  constructor(failure: TransportFailure) {
+    super(transportFailureToCode(failure.kind), failure.message, { traceId: failure.traceId });
+    this.name = 'BinaryTransportError';
+    this.kind = failure.kind;
+  }
+}
 
 type BinaryDecodeSuccess<T> = {
   ok: true;
@@ -70,12 +112,7 @@ function reportTransportEvent(name: string, detail: Record<string, unknown>): vo
   window.dispatchEvent(new CustomEvent(name, { detail }));
 }
 
-function decodeInWorker<T>(
-  buffer: ArrayBuffer,
-  expectedFrameType: FrameType,
-  renderHtml: boolean,
-  renderContext?: Record<string, number | string | boolean | null | undefined>
-): Promise<T> {
+function decodeInWorker<T>(buffer: ArrayBuffer, expectedFrameType: FrameType): Promise<T> {
   const worker = getWorker();
   requestSeq += 1;
   const requestId = requestSeq;
@@ -89,26 +126,18 @@ function decodeInWorker<T>(
 
       worker.removeEventListener('message', listener);
       if (!payload.ok) {
-        reject({
-          code: payload.errorCode,
-          message: payload.error ?? payload.errorCode ?? 'binary_decode_failed'
-        } satisfies DecodeWorkerError);
+        const message = payload.error ?? payload.errorCode ?? 'binary_decode_failed';
+        reject(createAppError(workerErrorToCode(payload.errorCode, message), message, {
+          details: payload.errorCode
+        }));
         return;
-      }
-
-      if (payload.renderedHtml && payload.renderedHtml.length > 0) {
-        reportTransportEvent('fsus:binary:rendered', {
-          frameType: payload.frameType,
-          htmlLength: payload.renderedHtml.length,
-          html: payload.renderedHtml
-        });
       }
 
       resolve(payload.data as T);
     };
 
     worker.addEventListener('message', listener);
-    const request: BinaryDecodeRequest = { v: 1, requestId, buffer, expectedFrameType, renderHtml, renderContext };
+    const request: BinaryDecodeRequest = { v: 1, requestId, buffer, expectedFrameType };
     worker.postMessage(request, [buffer]);
   });
 }
@@ -116,55 +145,65 @@ function decodeInWorker<T>(
 export async function loadBinaryAndDecode<T>(
   url: string,
   frameType: FrameType,
-  signal?: AbortSignal,
-  renderHtml = false,
-  renderContext?: Record<string, number | string | boolean | null | undefined>
+  requestOptions?: RequestInit & { requiresPow?: boolean },
+  signal?: AbortSignal
 ): Promise<T> {
   if (!isBinaryEnabled()) {
-    throw new Error('binary_disabled');
+    throw createAppError(AppErrorCode.InfraFailure, 'binary_disabled');
   }
 
-  const buffer = await binaryRequest(url, signal ? { signal } : undefined);
-  return await decodeInWorker<T>(buffer, frameType, renderHtml, renderContext);
+  const buffer = await binaryRequest(url, {
+    ...(requestOptions ?? {}),
+    ...(signal ? { signal } : {})
+  });
+  return await decodeInWorker<T>(buffer, frameType);
 }
 
 export async function loadBinaryAndDecodeSafe<T>(
   url: string,
   frameType: FrameType,
-  signal?: AbortSignal,
-  renderHtml = false,
-  renderContext?: Record<string, number | string | boolean | null | undefined>
+  requestOptions?: RequestInit & { requiresPow?: boolean },
+  signal?: AbortSignal
 ): Promise<BinaryDecodeResult<T>> {
-  return loadBinaryAndDecode<T>(url, frameType, signal, renderHtml, renderContext)
+  return loadBinaryAndDecode<T>(url, frameType, requestOptions, signal)
     .then((value) => ({ ok: true, value }))
     .catch((error: unknown) => {
-      const workerError = (error && typeof error === 'object' && 'message' in error)
-        ? (error as DecodeWorkerError)
-        : undefined;
       let envelopeMessage = '';
       if (error instanceof BinaryRequestError) {
         try {
           const envelope = decodeBinaryEnvelope(error.buffer);
-          const body = envelope.bodyJson as { message?: string; Message?: string } | null;
+          const body = envelope.bodyJson as { message?: string; Message?: string; traceId?: string; TraceId?: string } | null;
           envelopeMessage = body?.message ?? body?.Message ?? envelope.bodyText;
+          const envelopeTraceId = body?.traceId ?? body?.TraceId;
+          if (envelopeTraceId) {
+            return {
+              ok: false,
+              failure: {
+                kind: error.status === 401
+                  ? 'auth_failed'
+                  : error.status === 403
+                  ? 'forbidden'
+                  : 'network',
+                message: envelopeMessage || (error instanceof Error ? error.message : 'binary_transport_failed'),
+                traceId: envelopeTraceId
+              }
+            };
+          }
         } catch {
           envelopeMessage = '';
         }
       }
 
-      const message = (envelopeMessage || workerError?.message)
-        ?? (error instanceof Error ? error.message : 'binary_transport_failed');
-      const code = workerError?.code ?? '';
+      const normalizedError = toAppError(error, 'binary_transport_failed');
+      const message = envelopeMessage || normalizedError.message || 'binary_transport_failed';
+      const appCode = isAppError(error) ? error.code : normalizedError.code;
       const kind: TransportFailureKind = message.includes('disabled')
         ? 'binary_disabled'
         : error instanceof BinaryRequestError && error.status === 401
         ? 'auth_failed'
         : error instanceof BinaryRequestError && error.status === 403
         ? 'forbidden'
-        : code.includes('decode')
-          || code.includes('frame')
-          || code.includes('crc')
-          || code.includes('schema')
+        : appCode === AppErrorCode.ProtocolFailure
           || message.includes('decode')
           || message.includes('frame')
           || message.includes('schema')
@@ -180,27 +219,34 @@ export async function loadBinaryAndDecodeSafe<T>(
 export async function requestBinaryOnly<T>(options: {
   binaryUrl: string;
   frameType: FrameType;
+  requestOptions?: RequestInit & { requiresPow?: boolean };
   signal?: AbortSignal;
-  renderHtml?: boolean;
-  renderContext?: Record<string, number | string | boolean | null | undefined>;
 }): Promise<T> {
   const binaryResult = await loadBinaryAndDecodeSafe<T>(
     options.binaryUrl,
     options.frameType,
-    options.signal,
-    options.renderHtml === true,
-    options.renderContext
+    options.requestOptions,
+    options.signal
   );
   if (binaryResult.ok) {
     return binaryResult.value;
   }
 
-  const { kind, message } = binaryResult.failure;
+  const { kind, message, traceId } = binaryResult.failure;
   reportTransportEvent('fsus:binary:failure', {
     kind,
     message,
+    traceId,
     url: options.binaryUrl,
     frameType: options.frameType
   });
-  throw new Error(`binary_only_request_failed:${kind}:${message}`);
+  const error = new BinaryTransportError({ kind, message, traceId });
+  reportTransportEvent('fsus:binary:error', {
+    kind,
+    message,
+    traceId,
+    url: options.binaryUrl,
+    frameType: options.frameType
+  });
+  throw error;
 }

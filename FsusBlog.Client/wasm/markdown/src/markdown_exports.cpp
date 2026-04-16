@@ -1,5 +1,6 @@
 #include "markdown_contract.hpp"
 
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <emscripten/emscripten.h>
@@ -8,12 +9,29 @@
 
 namespace {
 
-std::string g_last_html;
-std::string g_last_error;
-std::string g_last_metadata_json;
-std::string g_last_features_json;
-std::string g_last_placeholders_json;
-std::string g_last_renderer_version;
+enum class ErrorCode : std::uint8_t {
+  None = 0,
+  InvalidInput = 1
+};
+
+thread_local std::string g_last_html;
+thread_local std::string g_last_error;
+thread_local ErrorCode g_last_error_code = ErrorCode::None;
+thread_local std::string g_last_metadata_json;
+thread_local std::string g_last_features_json;
+thread_local std::string g_last_placeholders_json;
+thread_local std::string g_last_renderer_version;
+
+const char* to_error_string(ErrorCode code) {
+  switch (code) {
+    case ErrorCode::None:
+      return "";
+    case ErrorCode::InvalidInput:
+      return "source_invalid";
+    default:
+      return "markdown_render_failed";
+  }
+}
 
 void append_json_string(std::string& out, std::string_view value) {
   out.push_back('"');
@@ -166,13 +184,16 @@ void set_success(const fsusblog::wasm::markdown::render_result& result) {
   g_last_placeholders_json = build_placeholders_json(result);
   g_last_renderer_version = std::string(fsusblog::wasm::markdown::renderer_version);
   g_last_error.clear();
+  g_last_error_code = ErrorCode::None;
 }
 
-void set_error(std::string_view error) {
+void set_error(ErrorCode code, std::string_view error) {
   g_last_html.clear();
   g_last_metadata_json.clear();
   g_last_features_json.clear();
   g_last_placeholders_json.clear();
+  g_last_renderer_version.clear();
+  g_last_error_code = code;
   g_last_error.assign(error.data(), error.size());
 }
 
@@ -208,7 +229,7 @@ void free_buffer(void* ptr) {
 EMSCRIPTEN_KEEPALIVE
 int markdown_render(const char* source_ptr, int source_len, int allow_html, int allow_latex, int allow_mermaid) {
   if (source_ptr == nullptr || source_len < 0) {
-    set_error("source_invalid");
+    set_error(ErrorCode::InvalidInput, to_error_string(ErrorCode::InvalidInput));
     return 0;
   }
 
@@ -289,6 +310,16 @@ int get_last_error_len() {
 }
 
 EMSCRIPTEN_KEEPALIVE
+int markdown_get_last_error_code() {
+  return static_cast<int>(g_last_error_code);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int get_last_error_code() {
+  return markdown_get_last_error_code();
+}
+
+EMSCRIPTEN_KEEPALIVE
 const char* markdown_get_last_features_ptr() {
   return ptr_or_empty(g_last_features_json);
 }
@@ -349,3 +380,13 @@ int get_last_renderer_version_len() {
 }
 
 } // extern "C"
+const char* to_error_string(ErrorCode code) {
+  switch (code) {
+    case ErrorCode::None:
+      return "";
+    case ErrorCode::InvalidInput:
+      return "source_invalid";
+    default:
+      return "markdown_render_failed";
+  }
+}

@@ -1,5 +1,8 @@
 import { loadEmscriptenModule } from './runtime/emscripten'
 import { resolveMarkdownAsset, type MarkdownAssetKind } from './runtime/assets'
+import { createSerializedExecutor } from './runtime/serialized'
+import { decodeUtf8, encodeUtf8 } from './runtime/utf8'
+import { AppErrorCode, createAppError } from '@/utils/appError'
 import {
   MARKDOWN_RENDERER_VERSION,
   buildMarkdownRenderResult,
@@ -23,6 +26,7 @@ type MarkdownModule = {
   _markdown_get_last_html_len?: () => number
   _markdown_get_last_error_ptr?: () => number
   _markdown_get_last_error_len?: () => number
+  _markdown_get_last_error_code?: () => number
   _markdown_get_last_features_ptr?: () => number
   _markdown_get_last_features_len?: () => number
   _markdown_get_last_placeholders_ptr?: () => number
@@ -40,6 +44,7 @@ type MarkdownModuleFactoryResult = MarkdownModule & Record<string, unknown>
 let runtimeModule: MarkdownModuleFactoryResult | null = null
 let runtimePromise: Promise<{ module: MarkdownModuleFactoryResult | null; engine: MarkdownRuntimeKind }> | null = null
 let runtimeEngine: MarkdownRuntimeKind = 'UNKNOWN'
+const withMarkdownRuntimeLock = createSerializedExecutor()
 
 function supportsSimdMarkdown(): boolean {
   try {
@@ -71,7 +76,19 @@ function pickExport<T>(raw: Record<string, unknown>, ...names: string[]): T {
     }
   }
 
-  throw new Error(`wasm_export_missing:${names[0] ?? 'unknown'}`)
+  throw createAppError(AppErrorCode.InvariantViolation, `wasm_export_missing:${names[0] ?? 'unknown'}`)
+}
+
+function mapMarkdownErrorCode(code: number, fallback: string): AppErrorCode {
+  switch (code) {
+    case 1:
+      return AppErrorCode.ProtocolFailure
+    default:
+      if (fallback.includes('source') || fallback.includes('input')) {
+        return AppErrorCode.ProtocolFailure
+      }
+      return AppErrorCode.InfraFailure
+  }
 }
 
 async function initMarkdownRuntimeModule(): Promise<{ module: MarkdownModuleFactoryResult | null; engine: MarkdownRuntimeKind }> {
@@ -102,6 +119,7 @@ async function initMarkdownRuntimeModule(): Promise<{ module: MarkdownModuleFact
         _markdown_get_last_html_len: pickExport<() => number>(raw, 'markdown_get_last_html_len', 'get_last_html_len'),
         _markdown_get_last_error_ptr: pickExport<() => number>(raw, 'markdown_get_last_error_ptr', 'get_last_error_ptr'),
         _markdown_get_last_error_len: pickExport<() => number>(raw, 'markdown_get_last_error_len', 'get_last_error_len'),
+        _markdown_get_last_error_code: pickExport<() => number>(raw, 'markdown_get_last_error_code', 'get_last_error_code'),
         _markdown_get_last_features_ptr: pickExport<() => number>(raw, 'markdown_get_last_features_ptr', 'get_last_features_ptr'),
         _markdown_get_last_features_len: pickExport<() => number>(raw, 'markdown_get_last_features_len', 'get_last_features_len'),
         _markdown_get_last_placeholders_ptr: pickExport<() => number>(raw, 'markdown_get_last_placeholders_ptr', 'get_last_placeholders_ptr'),
@@ -128,7 +146,7 @@ function readCString(memory: WebAssembly.Memory, ptr: number, len: number): stri
   }
 
   const view = new Uint8Array(memory.buffer, ptr, len)
-  return new TextDecoder().decode(view)
+  return decodeUtf8(view)
 }
 
 function resolveModuleMemory(module: MarkdownModuleFactoryResult): WebAssembly.Memory | null {
@@ -170,91 +188,93 @@ export async function renderMarkdownWithRuntime(request: MarkdownRenderRequest |
 export async function renderMarkdownResultWithRuntime(
   request: MarkdownRenderRequest | string
 ): Promise<MarkdownRuntimeRenderResult | null> {
-  const payload = typeof request === 'string' ? { source: request } : request
-  const source = normalizeMarkdownSource(payload.source)
-  const { module, engine } = await initMarkdownRuntimeModule()
+  return await withMarkdownRuntimeLock(async () => {
+    const payload = typeof request === 'string' ? { source: request } : request
+    const source = normalizeMarkdownSource(payload.source)
+    const { module, engine } = await initMarkdownRuntimeModule()
 
-  if (!module) {
-    return null
-  }
-
-  const encoder = new TextEncoder()
-  const bytes = encoder.encode(source)
-  const alloc = module._markdown_alloc_buffer
-  const free = module._markdown_free_buffer
-  const render = module._markdown_render
-  const getHtmlPtr = module._markdown_get_last_html_ptr
-  const getHtmlLen = module._markdown_get_last_html_len
-  const getErrorPtr = module._markdown_get_last_error_ptr
-  const getErrorLen = module._markdown_get_last_error_len
-  const getFeaturesPtr = module._markdown_get_last_features_ptr
-  const getFeaturesLen = module._markdown_get_last_features_len
-  const getPlaceholdersPtr = module._markdown_get_last_placeholders_ptr
-  const getPlaceholdersLen = module._markdown_get_last_placeholders_len
-  const getRendererVersionPtr = module._markdown_get_last_renderer_version_ptr
-  const getRendererVersionLen = module._markdown_get_last_renderer_version_len
-  const getMetadataPtr = module._markdown_get_last_metadata_ptr
-  const getMetadataLen = module._markdown_get_last_metadata_len
-
-  if (
-    !alloc || !free || !render || !getHtmlPtr || !getHtmlLen ||
-    !getErrorPtr || !getErrorLen || !getFeaturesPtr || !getFeaturesLen ||
-    !getPlaceholdersPtr || !getPlaceholdersLen || !getRendererVersionPtr || !getRendererVersionLen ||
-    !getMetadataPtr || !getMetadataLen
-  ) {
-    return null
-  }
-
-  const ptr = alloc(bytes.byteLength)
-  if (ptr <= 0) {
-    return null
-  }
-
-  try {
-    module.HEAPU8.set(bytes, ptr)
-    const ok = render(ptr, bytes.byteLength, payload.allowHtml ? 1 : 0, payload.allowLatex === false ? 0 : 1, payload.allowMermaid === false ? 0 : 1)
-    const memory = resolveModuleMemory(module)
-    if (!memory) {
+    if (!module) {
       return null
     }
-    if (ok !== 1) {
-      const error = readCString(memory, getErrorPtr(), getErrorLen())
-      if (error) {
-        throw new Error(`markdown_wasm_render_failed:${error}`)
+
+    const bytes = encodeUtf8(source)
+    const alloc = module._markdown_alloc_buffer
+    const free = module._markdown_free_buffer
+    const render = module._markdown_render
+    const getHtmlPtr = module._markdown_get_last_html_ptr
+    const getHtmlLen = module._markdown_get_last_html_len
+    const getErrorPtr = module._markdown_get_last_error_ptr
+    const getErrorLen = module._markdown_get_last_error_len
+    const getErrorCode = module._markdown_get_last_error_code
+    const getFeaturesPtr = module._markdown_get_last_features_ptr
+    const getFeaturesLen = module._markdown_get_last_features_len
+    const getPlaceholdersPtr = module._markdown_get_last_placeholders_ptr
+    const getPlaceholdersLen = module._markdown_get_last_placeholders_len
+    const getRendererVersionPtr = module._markdown_get_last_renderer_version_ptr
+    const getRendererVersionLen = module._markdown_get_last_renderer_version_len
+    const getMetadataPtr = module._markdown_get_last_metadata_ptr
+    const getMetadataLen = module._markdown_get_last_metadata_len
+
+    if (
+      !alloc || !free || !render || !getHtmlPtr || !getHtmlLen ||
+      !getErrorPtr || !getErrorLen || !getErrorCode || !getFeaturesPtr || !getFeaturesLen ||
+      !getPlaceholdersPtr || !getPlaceholdersLen || !getRendererVersionPtr || !getRendererVersionLen ||
+      !getMetadataPtr || !getMetadataLen
+    ) {
+      return null
+    }
+
+    const ptr = alloc(bytes.byteLength)
+    if (ptr <= 0) {
+      return null
+    }
+
+    try {
+      module.HEAPU8.set(bytes, ptr)
+      const ok = render(ptr, bytes.byteLength, payload.allowHtml ? 1 : 0, payload.allowLatex === false ? 0 : 1, payload.allowMermaid === false ? 0 : 1)
+      const memory = resolveModuleMemory(module)
+      if (!memory) {
+        return null
       }
-      return null
-    }
+      if (ok !== 1) {
+        const error = readCString(memory, getErrorPtr(), getErrorLen())
+        if (error) {
+          throw createAppError(mapMarkdownErrorCode(getErrorCode(), error), `markdown_wasm_render_failed:${error}`)
+        }
+        return null
+      }
 
-    const html = readCString(memory, getHtmlPtr(), getHtmlLen())
-    const features = readJson<MarkdownRenderResult['features']>(memory, getFeaturesPtr(), getFeaturesLen(), [])
-    const placeholders = readJson<MarkdownRenderPlaceholder[]>(memory, getPlaceholdersPtr(), getPlaceholdersLen(), [])
-    const rendererVersion = readCString(memory, getRendererVersionPtr(), getRendererVersionLen()) || MARKDOWN_RENDERER_VERSION
-    const metadata = readJson<MarkdownRenderMetadata>(memory, getMetadataPtr(), getMetadataLen(), {
-      mode: payload.mode ?? 'article',
-      baseUrl: payload.baseUrl ?? null,
-      allowHtml: !!payload.allowHtml,
-      allowLatex: payload.allowLatex !== false,
-      allowMermaid: payload.allowMermaid !== false,
-      sourceLength: source.length,
-      featureCount: features.length,
-      placeholderCount: placeholders.length,
-      rendererVersion
-    })
+      const html = readCString(memory, getHtmlPtr(), getHtmlLen())
+      const features = readJson<MarkdownRenderResult['features']>(memory, getFeaturesPtr(), getFeaturesLen(), [])
+      const placeholders = readJson<MarkdownRenderPlaceholder[]>(memory, getPlaceholdersPtr(), getPlaceholdersLen(), [])
+      const rendererVersion = readCString(memory, getRendererVersionPtr(), getRendererVersionLen()) || MARKDOWN_RENDERER_VERSION
+      const metadata = readJson<MarkdownRenderMetadata>(memory, getMetadataPtr(), getMetadataLen(), {
+        mode: payload.mode ?? 'article',
+        baseUrl: payload.baseUrl ?? null,
+        allowHtml: !!payload.allowHtml,
+        allowLatex: payload.allowLatex !== false,
+        allowMermaid: payload.allowMermaid !== false,
+        sourceLength: source.length,
+        featureCount: features.length,
+        placeholderCount: placeholders.length,
+        rendererVersion
+      })
 
-    return {
-      ...buildMarkdownRenderResult({
-        html,
-        source,
-        features,
-        placeholders,
-        rendererVersion,
-        metadata
-      }),
-      engine
+      return {
+        ...buildMarkdownRenderResult({
+          html,
+          source,
+          features,
+          placeholders,
+          rendererVersion,
+          metadata
+        }),
+        engine
+      }
+    } finally {
+      free(ptr)
     }
-  } finally {
-    free(ptr)
-  }
+  })
 }
 
 export { MARKDOWN_RENDERER_VERSION }

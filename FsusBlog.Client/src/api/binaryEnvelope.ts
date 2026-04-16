@@ -1,7 +1,7 @@
 import { decode } from '@wasm/aeds';
 import { FrameType } from '@wasm/protocol/frame';
-
-const UTF8_DECODER = new TextDecoder();
+import { AppErrorCode, createAppError, err, ok, type AppResult, unwrapResult } from '@/utils/appError';
+import { decodeUtf8 } from '@/utils/utf8';
 
 type BinaryEnvelope = {
   frameType: FrameType;
@@ -20,14 +20,14 @@ function readUInt16(view: DataView, offset: number): number {
   return view.getUint16(offset, true);
 }
 
-export function decodeBinaryEnvelope(buffer: ArrayBuffer): BinaryEnvelope {
+export function tryDecodeBinaryEnvelope(buffer: ArrayBuffer): AppResult<BinaryEnvelope> {
   const frame = decode(buffer, false);
   if (!frame.ok) {
-    throw new Error(frame.error ?? 'binary_frame_decode_failed');
+    return err(createAppError(AppErrorCode.ProtocolFailure, frame.error ?? 'binary_frame_decode_failed'));
   }
 
   if (frame.frameType !== FrameType.ApiEnvelope && frame.frameType !== FrameType.ApiError) {
-    throw new Error(`binary_frame_unsupported:${frame.frameType}`);
+    return err(createAppError(AppErrorCode.ProtocolFailure, `binary_frame_unsupported:${frame.frameType}`));
   }
 
   const payload = frame.payloadView;
@@ -35,7 +35,7 @@ export function decodeBinaryEnvelope(buffer: ArrayBuffer): BinaryEnvelope {
   let offset = 0;
 
   if (payload.byteLength < 10) {
-    throw new Error('binary_envelope_payload_too_short');
+    return err(createAppError(AppErrorCode.ProtocolFailure, 'binary_envelope_payload_too_short'));
   }
 
   const statusCode = readInt32(view, offset);
@@ -45,25 +45,25 @@ export function decodeBinaryEnvelope(buffer: ArrayBuffer): BinaryEnvelope {
   offset += 2;
 
   if (offset + contentTypeLength > payload.byteLength) {
-    throw new Error('binary_envelope_content_type_out_of_range');
+    return err(createAppError(AppErrorCode.ProtocolFailure, 'binary_envelope_content_type_out_of_range'));
   }
 
-  const contentType = UTF8_DECODER.decode(payload.subarray(offset, offset + contentTypeLength));
+  const contentType = decodeUtf8(payload.subarray(offset, offset + contentTypeLength));
   offset += contentTypeLength;
 
   if (offset + 4 > payload.byteLength) {
-    throw new Error('binary_envelope_body_length_missing');
+    return err(createAppError(AppErrorCode.ProtocolFailure, 'binary_envelope_body_length_missing'));
   }
 
   const bodyLength = readInt32(view, offset);
   offset += 4;
 
   if (bodyLength < 0 || offset + bodyLength > payload.byteLength) {
-    throw new Error('binary_envelope_body_out_of_range');
+    return err(createAppError(AppErrorCode.ProtocolFailure, 'binary_envelope_body_out_of_range'));
   }
 
   const bodyBytes = payload.subarray(offset, offset + bodyLength);
-  const bodyText = bodyBytes.length > 0 ? UTF8_DECODER.decode(bodyBytes) : '';
+  const bodyText = bodyBytes.length > 0 ? decodeUtf8(bodyBytes) : '';
 
   let bodyJson: unknown = null;
   if (bodyText.length > 0 && contentType.toLowerCase().includes('application/json')) {
@@ -74,12 +74,16 @@ export function decodeBinaryEnvelope(buffer: ArrayBuffer): BinaryEnvelope {
     }
   }
 
-  return {
+  return ok({
     frameType: frame.frameType,
     statusCode,
     contentType,
     bodyBytes,
     bodyText,
     bodyJson
-  };
+  });
+}
+
+export function decodeBinaryEnvelope(buffer: ArrayBuffer): BinaryEnvelope {
+  return unwrapResult(tryDecodeBinaryEnvelope(buffer));
 }

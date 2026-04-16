@@ -1,7 +1,10 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosResponse  } from 'axios'
 import { useUserStore } from '@/store/user'
-import router from '@/router'
-import { toast } from '@/utils/toast'
+import { useAppShellStore } from '@/store/appShell'
+import { dispatchSessionExpired } from '@/bootstrap/sessionExpiryBridge'
+import { showErrorToast } from '@/utils/errorPresentation'
+import { AppError, AppErrorCode, appErrorFromStatus, createAppError } from '@/utils/appError'
+import { encodeJsonToBase64 } from '@/utils/utf8'
 import { usePow, PowAbortError } from '@/composables/usePow' 
 import { getBrowserFp } from '@/utils/fingerprint' 
 import { decodeBinaryEnvelope } from './binaryEnvelope'
@@ -31,8 +34,31 @@ interface ApiResponse<T = any> {
     Code?: number
     message?: string
     Message?: string
+    traceId?: string
+    TraceId?: string
     data?: T
     Data?: T
+}
+
+export class HttpApiError extends AppError {
+    constructor(message: string, status?: number, traceId?: string) {
+        super(appErrorFromStatus(status ?? 500, message, { traceId }).code, message, { status, traceId })
+        this.name = 'HttpApiError'
+    }
+}
+
+function createHttpApiError(message: string, status?: number, traceId?: string): HttpApiError {
+    return new HttpApiError(message, status, traceId)
+}
+
+function rejectHttpApiError(message: string, status?: number, traceId?: string): Promise<never> {
+    return Promise.reject(createHttpApiError(message, status, traceId))
+}
+
+function toastAndRejectHttpApiError(message: string, status?: number, traceId?: string): Promise<never> {
+    const text = traceId && !message.includes(`[trace:${traceId}]`) ? `${message} [trace:${traceId}]` : message
+    showErrorToast(text, text)
+    return rejectHttpApiError(text, status, traceId)
 }
 
 function toArrayBuffer(data: unknown): ArrayBuffer | null {
@@ -63,24 +89,13 @@ function decodeApiBody(data: unknown): ApiResponse {
     return { code: envelope.statusCode };
 }
 
-const utf8Encoder = new TextEncoder();
-const BASE64_ENCODE_CHUNK = 0x8000;
-
-// 性能与稳定性优化：避免对大 Uint8Array 使用展开运算符导致栈抖动。
-const toBinaryString = (bytes: Uint8Array): string => {
-    let result = '';
-    for (let i = 0; i < bytes.length; i += BASE64_ENCODE_CHUNK) {
-        const chunk = bytes.subarray(i, i + BASE64_ENCODE_CHUNK);
-        result += String.fromCharCode(...chunk);
+function tryGetAppShellStore() {
+    try {
+        return useAppShellStore();
+    } catch {
+        return null;
     }
-    return result;
-};
-
-const toSafeBase64 = (obj: object): string => {
-    const str = JSON.stringify(obj);
-    const bytes = utf8Encoder.encode(str);
-    return btoa(toBinaryString(bytes));
-};
+}
 
 // =================================================================================
 // 核心状态锁
@@ -103,6 +118,9 @@ const service = axios.create({
 // =================================================================================
 service.interceptors.request.use(
     async (config: InternalAxiosRequestConfig) => {
+        config.headers = config.headers || {};
+        config.headers['X-Fsus-Device-Fp'] = getBrowserFp();
+
         if (!config.requiresPow || config.url?.includes('pow-challenge')) {
             return config;
         }
@@ -133,7 +151,7 @@ service.interceptors.request.use(
             const signature = c.signature || c.Signature;
 
             if (!salt || signature === undefined) {
-                throw new Error("CHALLENGE_PARSE_FAILED");
+                throw createAppError(AppErrorCode.ProtocolFailure, 'CHALLENGE_PARSE_FAILED');
             }
 
             const fp = getBrowserFp(); 
@@ -149,7 +167,7 @@ service.interceptors.request.use(
             };
 
             config.headers = config.headers || {};
-            config.headers['X-Fsus-Pow-Proof'] = toSafeBase64(powPayload);
+            config.headers['X-Fsus-Pow-Proof'] = encodeJsonToBase64(powPayload);
             
             return config;
         } catch (error) {
@@ -170,12 +188,19 @@ service.interceptors.response.use(
         const res = decodeApiBody(response.data)
         const code = res.code ?? res.Code;
         const message = res.message ?? res.Message;
-        
+        const appShellStore = tryGetAppShellStore();
+
         const isStandardSuccess = code === 200 || code === 201;
         const isAnonymousSuccess = !Object.prototype.hasOwnProperty.call(res, 'code') && !Object.prototype.hasOwnProperty.call(res, 'Code') && response.status >= 200 && response.status < 300;
 
         // 1. 业务成功 (直接脱壳并返回数据指针)
         if (isStandardSuccess) {
+            appShellStore?.markSessionActive();
+            if (message === 'RISK_MFA_REQUIRED') {
+                appShellStore?.setRiskPhase('elevated');
+            } else {
+                appShellStore?.setRiskPhase('normal');
+            }
             const data = res.data !== undefined ? res.data : res.Data;
             return data as any
         }
@@ -190,19 +215,16 @@ service.interceptors.response.use(
             const userStore = useUserStore()
             const banMsg = message || '操作受限：账户已被锁定'
             userStore.updateStatus(1, banMsg) 
-            toast.error(banMsg)
-            return Promise.reject(new Error(banMsg))
+            return toastAndRejectHttpApiError(banMsg, 423)
         }
 
         // 4. 权限不足 (403)
         if (code === 403) {
-            toast.error(message || '权限不足')
-            return Promise.reject(new Error(message || 'Forbidden'))
+            return toastAndRejectHttpApiError(message || '权限不足', 403)
         }
 
         // 5. 其他业务失败
-        toast.error(message || '服务响应异常')
-        return Promise.reject(new Error(message || 'Error'))
+        return toastAndRejectHttpApiError(message || '服务响应异常', code)
     },
     async (error) => {
         if (axios.isCancel(error)) {
@@ -216,22 +238,27 @@ service.interceptors.response.use(
             const { status, data } = response
             const responseData = decodeApiBody(data) as ApiResponse | undefined;
             const message = responseData?.message ?? responseData?.Message;
+            const traceId = responseData?.traceId ?? responseData?.TraceId;
 
             // ==============================================================================
             //[修改日期 2026-03-01 11]
             // 修改理由：实现真正的 Token 无感自换票。拦截 401 状态，阻塞并发请求，完成换票后重发。
             // ==============================================================================
             if (status === 401) {
+                const appShellStore = tryGetAppShellStore();
                 // 防御性设计：如果是刷新 Token 的接口本身报 401，说明 RefreshToken 已过期或被伪造，彻底注销
                 if (config.url?.includes('/Auth/refresh-token')) {
+                    appShellStore?.markSessionExpired();
                     return performFinalLogout(userStore, window.location.pathname);
                 }
 
                 if (!isRefreshing) {
                     isRefreshing = true;
+                    appShellStore?.markSessionRefreshing();
                     try {
                         // 1. 发起换票请求 (依赖 withCredentials 自动提交 Cookie 中的 refreshToken)
                         await service.post('/Auth/refresh-token');
+                        appShellStore?.markSessionActive();
                         
                         // 2. 换票成功，后端已重写 HttpOnly Cookie。释放队列中挂起的所有请求，触发自动重试
                         requestsQueue.forEach(q => q.resolve(service(q.originalConfig)));
@@ -241,6 +268,7 @@ service.interceptors.response.use(
                         return service(config);
                     } catch (refreshError) {
                         // 换票失败，清空挂起队列并将其全部驳回，然后强制注销用户
+                        appShellStore?.markSessionExpired();
                         requestsQueue.forEach(q => q.reject(refreshError));
                         requestsQueue =[];
                         return performFinalLogout(userStore, window.location.pathname);
@@ -260,28 +288,25 @@ service.interceptors.response.use(
             if (status === 423) {
                 const banMsg = message || '操作已拦截：您的账号当前处于受限状态'
                 userStore.updateStatus(1, banMsg) 
-                toast.error(banMsg)
-                return Promise.reject(new Error(banMsg))
+                return toastAndRejectHttpApiError(banMsg, 423, traceId)
             }
 
             // 3. 访问受限 (403)
             if (status === 403) {
-                toast.error(message || '访问受限：无操作权限')
-                return Promise.reject(new Error(message || 'Forbidden'))
+                return toastAndRejectHttpApiError(message || '访问受限：无操作权限', 403, traceId)
             }
 
             // 4. 服务器崩溃 (500)
             if (status === 500) {
-                toast.error('服务器内部错误，请稍后再试')
-                return Promise.reject(new Error('Internal Server Error'))
+                return toastAndRejectHttpApiError('服务器内部错误，请稍后再试', 500, traceId)
             }
         }
 
         // 网络中断或超时处理
         if (error.message.includes('timeout')) {
-            toast.error('请求超时，请检查网络连接')
+            showErrorToast('请求超时，请检查网络连接', '请求超时，请检查网络连接')
         } else if (!window.navigator.onLine) {
-            toast.error('网络已断开')
+            showErrorToast('网络已断开', '网络已断开')
         }
 
         return Promise.reject(error)
@@ -295,30 +320,25 @@ function performFinalLogout(userStore: any, currentPath: string) {
     const isAuthPage = currentPath.includes('/login') || currentPath.includes('/register')
     if (isAuthPage) {
         isReloginShow = false
-        return Promise.reject(new Error('Auth page 401'))
+        return rejectHttpApiError('Auth page 401', 401)
     }
 
     if (!isReloginShow) {
         isReloginShow = true
-        const requiresAuth = router.currentRoute.value.meta.requiresAuth
 
         if (userStore.isLoggedIn || userStore.userInfo?.role) {
-            toast.error('SESSION过期。请重新登录。')
+            showErrorToast('SESSION过期。请重新登录。', 'SESSION过期。请重新登录。')
             userStore.userInfo = null
             localStorage.removeItem('user_metadata')
-            router.push(`/login?redirect=${encodeURIComponent(currentPath)}`)
-                .finally(() => { setTimeout(() => { isReloginShow = false }, 1000) })
-        }
-        else if (requiresAuth) {
-            toast.info('需要验证。')
-            router.push(`/login?redirect=${encodeURIComponent(currentPath)}`)
-                .finally(() => { setTimeout(() => { isReloginShow = false }, 1000) })
+            dispatchSessionExpired({ currentPath })
+            setTimeout(() => { isReloginShow = false }, 1000)
         }
         else {
+            dispatchSessionExpired({ currentPath })
             isReloginShow = false
         }
     }
-    return Promise.reject(new Error('Unauthorized'))
+    return rejectHttpApiError('Unauthorized', 401)
 }
 
 // 恢复清空全锁状态，供页面级路由守卫或极端异常时重置使用

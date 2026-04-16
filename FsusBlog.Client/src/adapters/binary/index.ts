@@ -1,25 +1,30 @@
 import { FrameType } from '@wasm/protocol/frame';
+import { AppErrorCode, createAppError } from '@/utils/appError';
 import { mapArticleDetailFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload } from './articleAdapter';
-import { mapCommentCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from './commentAdapter';
+import { mapCommentCursorFromPodPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from './commentAdapter';
 import { mapSiteStatsFromPodPayload } from './statsAdapter';
+import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadStatusFromPayload } from './uploadAdapter';
+
+const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
+  [FrameType.ArticleList]: mapArticlePageFromPodPayload,
+  [FrameType.ArticleDetail]: mapArticleDetailFromPodPayload,
+  [FrameType.ArticleHot]: mapArticleHotFromPodPayload,
+  [FrameType.ArticleSearch]: mapArticleSearchFromPodPayload,
+  [FrameType.CommentArticleCursor]: mapCommentCursorFromPodPayload,
+  [FrameType.CommentUserCursor]: mapUserCommentCursorFromPodPayload,
+  [FrameType.CommentThreadReplyCursor]: mapThreadReplyCursorFromPodPayload,
+  [FrameType.AdminStats]: mapSiteStatsFromPodPayload,
+  [FrameType.UploadInit]: mapUploadInitFromPayload,
+  [FrameType.UploadStatus]: mapUploadStatusFromPayload,
+  [FrameType.UploadPartAck]: mapUploadPartAckFromPayload,
+  [FrameType.UploadComplete]: mapUploadCompleteFromPayload
+};
 
 export function mapFramePayloadToViewModel(frameType: FrameType, payload: Uint8Array): unknown {
-  switch (frameType) {
-    case FrameType.ArticleList:
-      return mapArticlePageFromPodPayload(payload);
-    case FrameType.ArticleDetail:
-      return mapArticleDetailFromPodPayload(payload);
-    case FrameType.ArticleHot:
-      return mapArticleHotFromPodPayload(payload);
-    case FrameType.ArticleSearch:
-      return mapArticleSearchFromPodPayload(payload);
-    case FrameType.CommentArticleCursor:
-      return mapCommentCursorFromPodPayload(payload);
-    case FrameType.CommentUserCursor:
-      return mapUserCommentCursorFromPodPayload(payload);
-    case FrameType.AdminStats:
-      return mapSiteStatsFromPodPayload(payload);
-    default:
-      throw new Error(`frame_type_unsupported:${frameType}`);
+  const mapper = framePayloadMappers[frameType];
+  if (!mapper) {
+    throw createAppError(AppErrorCode.ProtocolFailure, `frame_type_unsupported:${frameType}`);
   }
+
+  return mapper(payload);
 }
