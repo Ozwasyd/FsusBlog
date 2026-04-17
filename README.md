@@ -1,58 +1,237 @@
 # Fsu's Blog
 
-**极简主义（Minimalism）个人内容发布系统** 
+一个面向真实部署的高性能个人内容系统。  
+它不是“演示型博客模板”，而是把公开首屏、Binary 传输、AOT 输出、本地搜索、浏览器边缘缓存、安全链路和后台治理一起做进主链的单体全栈工程。
 
----
+## 项目定位
 
-## 项目愿景
+FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核心约束：
 
-Fsu's Blog 是一款基于个人需求定制的博客发布系统。它遵循**极简主义设计**，摒弃了冗余的视觉堆砌与繁杂的微服务网关层级，将重心放在**物理极限的响应速度**、**极低的系统资源占用**与**金融级的计算安全防御**上。
+- 公开页优先：首页、归档、分类、标签、文章详情优先保障首屏和可索引性。
+- 统一契约：同一业务对象在 JSON、Binary、AOT 三条读链保持同一语义。
+- 单体优先：减少跨服务跳转，把复杂度压在工程内部而不是部署拓扑上。
+- 安全前置：PoW、JWT、多会话、MFA、风控、注销、缓存治理都按基础设施能力建设。
+- 前端性能优先：浏览器本地搜索、Service Worker 边缘缓存、Wasm 渲染与解码进入正式主链。
 
-## 技术栈 (The Tech Stack)
+## 架构概览
 
-| 维度 | 技术选型 | 特性描述 |
-| :--- | :--- | :--- |
-| **前端** | Vue 3 + Vite | 组合式 API 架构，开发环境基于宿主机原生挂载，实现零延迟 HMR |
-| **后端 / 网关** | ASP.NET Core 10 | 单体全栈托管引擎 (Kestrel)，直接接管静态资产与 API，消灭反代网络损耗 |
-| **实时通信** | SignalR | 全双工推送文章状态、并发拦截与客户端行为管控 |
-| **安全防御** | **PoW (WASM + SIMD)** | 基于终端物理算力的分布式防御防线，抗撞库、防恶意爬虫 |
-| **持久化** | PostgreSQL + SqlSugar | 强一致性关系型存储，配合高性能、轻量级 ORM 引擎 |
-| **搜索引擎** | Lucene.NET | 本地化倒排索引检索，脱离重量级 ES 的 $O(1)$ 查询方案 |
-| **架构编排** | Docker 多阶段构建 | 跨域编译流（C++ -> Node.js -> .NET），输出单一的高密度轻量级镜像 |
+### 技术栈
 
-## 核心亮点
+- 前端：Vue 3、Vite、Pinia、Vue Router、Tailwind CSS、FsusUI
+- 后端：ASP.NET Core、SqlSugar、PostgreSQL、Redis
+- 共享契约：`FsusBlog.Shared`
+- 核心映射与二进制编码：`FsusBlog.Core`
+- 公开页能力：AOT shell、public hydration、Binary/POD 读链
+- 搜索：Lucene.NET 离线索引 + 客户端 Wasm 本地检索
+- 实时：SSE 增量事件流
+- 边缘缓存：Service Worker + 搜索索引增量更新
 
-### 1. 极致的单体融合架构 (Self-Contained Hosting)
-系统废弃了传统的 Nginx + Backend 双节点反向代理模式，从物理层面消除跨容器的网络跳跃与序列化损耗：
-* **单容器闭环**：前端 Vue 静态产物在 Docker 构建阶段被物理注入至 Kestrel 的 `wwwroot` 中，由 .NET 管道统一分发。
-* **高吞吐表现**：核心读写 API 结合对象池（ObjectPool）与内存锁，测试吞吐量可达 2800+ RPS，P95 延迟稳控在毫秒级。
-* **内存极度收敛**：得益于零分配（Zero-Allocation）算法与值类型模型（`struct`）的大量运用，千人并发压测场景下的服务端常驻内存（RSS）稳定在 200MB 以内。
+### 当前主链
 
-### 2. 动态自适应 PoW 边缘防御体系
-项目集成了一套阻断恶意自动化工具的物理防线（工作量证明）：
-* **计算引擎**：由 **C++20** 编写并编译为 **WebAssembly**，利用 **SIMD 指令集** 极限压榨客户端硬件。
-* **动态调控**：后端 `AdaptivePowGovernor` 根据服务器当前的 CPU 负载水位，实时自适应调整挑战的 Hash 难度。
-* **业务解耦**：前端基于 Axios 拦截器封装底层算力逻辑。在登录、注册及核心检索等高危接口上，业务层实现完全无感知的凭证自动补签与挂起重试。
+- 公开文章、列表、评论等高频读取链优先走 Binary/POD。
+- 管理端写接口、认证接口和部分通用业务接口继续走 JSON。
+- 搜索不再依赖服务端在线检索，客户端加载静态索引并本地排序。
+- 公开页首访优先走 AOT 命中；未命中则回到 SPA index，再由 hydration 接管。
 
-### 3. 高并发与数据库防御控制 (Defensive Engineering)
-* **MVCC 风暴规避**：针对 PostgreSQL 的多版本并发控制特性，在执行大批量物理清理（如回收站排空）时，采用 `Chunked Deletion`（分块删除）与微休眠退让策略，保障 WAL 预写日志稳定，防止底层磁盘 I/O 打满。
-* **大对象堆 (LOH) 防护**：采用 Write-Time 预计算理念，将文章摘要等高频文本截断前置于写入期；规避 Read-Time 实时运算导致的数 MB 内存强灌与高昂的 Gen 2 Full GC 开销。
-* **I/O 并发阀门**：面对涉及文件系统或外部对象存储的并发清理任务，引入 `Parallel.ForEachAsync` 滑动窗口，精准控制最大并发度（MaxDegreeOfParallelism），彻底阻断线程池饥饿与 SNAT 端口耗尽风险。
-
-### 4. 工业级监控流水线与优雅停机 (Graceful Shutdown)
-* **异步有界背压 (Backpressure)**：构建容量为 50,000 的 `BoundedChannel` 接收全站访问日志，将数据库落盘压力平滑卸载至后台守护线程（BackgroundService），实现 HTTP 主请求管道零阻塞。
-* **状态机物理保护**：在接收到容器滚动发版或重启的 `SIGTERM` 信号时，进程会主动锁定 Channel 上限并排空剩余数据落盘；涉及 Lucene 磁盘索引与 Redis 同步的操作实施强一致性同步阻塞，绝对防止物理文件损坏与内存状态丢失。
-
-### 5. 并发锁与 Token 无感续约
-* **双 Token 挂起防刷**：拦截器完整实现了 JWT 的短时效+长效无感换票。一旦捕获 401 凭证失效，迅速拉起并发排他锁，将同期所有异步请求压入队列挂起，待底层 Cookie 换票成功后进行 $O(1)$ 批量释放，保障网络宽带零浪费。
-
-## 项目结构 (Monorepo)
+### 仓库结构
 
 ```text
 /FsusBlog
-├── FsusBlog.Client/      # Vue 3 前端源码（发布时直接编入后端容器）
-├── FsusBlog.Server/      # ASP.NET Core 10 核心业务层与静态服务器
-├── FsusPowEngine/        # C++20 编写的底层安全引擎 (CMake)
-├── .env                  # 系统全局环境变量注册表
-└── .gitignore            # 跨栈多环境极简忽略配置
+├── FsusBlog.Client/      # Vue 前端、Wasm、Service Worker、公开页 hydration
+├── FsusBlog.Server/      # ASP.NET Core API、AOT、SSE、缓存、安全链路
+├── FsusBlog.Shared/      # 前后端共享契约与二进制协议模型
+├── FsusBlog.Core/        # Core 映射、POD 编解码、共享投影逻辑
+├── docker-compose.dev.yml
+└── README.md
 ```
+
+## 本地开发
+
+### 环境要求
+
+- .NET SDK 10
+- Node.js 20+
+- npm 10+
+- Docker / Docker Compose
+- PostgreSQL 与 Redis 通过 `docker-compose.dev.yml` 启动
+- 若需完整 Wasm 构建，需本机可用 Emscripten
+
+### FsusUI 依赖
+
+客户端组件库通过 GitHub Packages 分发，不再依赖仓库外本地路径。
+
+在安装前准备环境变量：
+
+```bash
+export GITHUB_PACKAGES_TOKEN=your_github_packages_token
+```
+
+客户端 `.npmrc` 已固定使用：
+
+- `@ozwasyd:registry=https://npm.pkg.github.com`
+- `//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}`
+
+### 启动方式
+
+1. 启动后端依赖与服务
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+2. 安装前端依赖并启动前端
+
+```bash
+cd FsusBlog.Client
+npm ci
+npm run dev:debug
+```
+
+3. 常用地址
+
+- 前端开发壳：`http://127.0.0.1:3000`
+- 后端 API / 公开壳：`http://127.0.0.1:5000`
+
+### Visual Studio 调试
+
+- 默认共享启动配置：`Debug / Client + Docker`
+- 次级共享启动配置：`Debug / Client + NativeServer`
+- 默认 `F5` 浏览器入口统一为 `http://127.0.0.1:3000`
+- `5000` 只承担后端 API、public AOT 与 C# 调试，不作为默认浏览器首页
+- `8080` 只属于 release 容器入口，不参与 Debug
+
+Visual Studio 调试建议：
+
+- `Client + Docker`：最接近真实开发主链，宿主机 Vite 提供 HMR，Docker 内后端固定监听 `5000`
+- `Client + NativeServer`：更适合本机 C# 断点和快速迭代，前端仍固定走 `3000`
+- 两套 Debug 启动都统一复用 `npm run dev:debug`，因此会先执行 `ensure:wasm`，不会绕过 wasm 最新性检查
+
+### 开发入口职责
+
+- `3000` 默认用于 Vite 开发，并允许公开页直接命中后端 public AOT 主链。
+- `5000` 固定为后端 API 与公开页实际服务入口。
+- 默认开发模式下，`3000` 会代理 `/`、`/archive`、`/article/:id`、`/about`、`/category/:id`、`/tag/:id` 这些公开页 HTML。
+- 如需强制纯 SPA 调试，可显式关闭：
+
+```bash
+VITE_PUBLIC_SHELL_PROXY=0 npm run dev -- --host 0.0.0.0 --port 3000
+```
+
+- 该开关只改变 dev HTML 入口，不改变 `/api`、`/hubs`、`/search/index*` 的代理主链。
+
+## 构建与验收
+
+### 最小构建
+
+```bash
+dotnet build FsusBlog.slnx -c Debug -warnaserror -v minimal
+cd FsusBlog.Client && npm run build:release
+```
+
+### 原生 Release 单文件发布
+
+```bash
+./tools/build-native.sh
+```
+
+默认产物目录：
+
+```text
+build/native/linux-musl-x64/release
+```
+
+发布目录同时包含：
+
+- `FsusBlog.Server` 单执行文件
+- `wwwroot/` 前端 release 产物
+- `FsusBlog.ClientRuntime/` Node SSR worker 运行时
+
+### Visual Studio Release Publish
+
+Visual Studio 默认发布入口应选择：
+
+- `Folder Publish`
+- Profile：`NativeReleaseLinuxMusl`
+
+该 profile 会：
+
+- 以 `linux-musl-x64` 执行 self-contained single-file publish
+- 在发布前自动执行 `cd FsusBlog.Client && npm run build:release`
+- 自动把 `dist/` 复制到发布目录 `wwwroot/`
+- 自动把 SSR worker 所需的客户端运行时复制到 `FsusBlog.ClientRuntime/`
+
+默认输出目录固定为：
+
+```text
+build/native/linux-musl-x64/release
+```
+
+### Docker Release 构建
+
+```bash
+docker compose build fsusblog.server
+```
+
+### 推荐回归
+
+```bash
+cd FsusBlog.Client && npm run check:aot
+cd FsusBlog.Client && npm run check:public-hydration
+cd FsusBlog.Client && npm run check:public-seo-smoke
+cd FsusBlog.Client && npm run check:binary-smoke
+cd FsusBlog.Client && npm run check:binary-smoke:auth
+```
+
+若只想单独跑 SPA 路由巡检，需要另起一个前端 dev 实例给 Playwright 使用：
+
+```bash
+cd FsusBlog.Client && npm run ensure:wasm
+cd FsusBlog.Client && npm run dev -- --host 127.0.0.1 --port 3100
+cd FsusBlog.Client && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 npm run check:spa:routes
+```
+
+该巡检现在会校验：
+
+- public 页面允许返回 `server-ssr`、`admin-upload` 或 `spa-fallback`
+- 非 public 页面必须返回普通 Vite SPA 开发壳
+- 高频路由跳转不允许出现动态导入失败
+
+### 完整客户端回归
+
+```bash
+cd FsusBlog.Client && npm run check:full-regression
+```
+
+`check:full-regression` 现在会自动：
+
+- 启动本地后端依赖与 Development 后端
+- 运行 AOT、Binary、Auth smoke
+- 临时拉起一个 127.0.0.1:3100 的 Vite dev 实例
+- 执行 Playwright SPA 路由巡检
+
+## 部署与运行说明
+
+- 原生 release 与 Docker release 都需要在构建阶段提供 `GITHUB_PACKAGES_TOKEN`。
+- Release Docker 会在容器内重建 wasm，再执行前端 release build，避免宿主机旧 `public/wasm` 污染最终镜像。
+- Redis 是唯一 L2 缓存后端，`IMemoryCache` 作为 L1。
+- 搜索索引、AOT 缓存、SSE 控制面、Binary 读链都属于正式运行时能力，不是实验分支。
+- 若启用完整 Wasm 能力，部署时需确保相应 `.wasm` 静态资源被正确发布并带上 `application/wasm`。
+
+## 工程约定
+
+- TypeScript 以当前**稳定 TS 主线**为准，不追逐未正式稳定的“TS6”表述。
+- C# 语言版本显式锁定到 **C# 14**，`Nullable` 与现代分析器保持开启。
+- Wasm 子模块统一使用 **C++23**；除明确的第三方边界外，默认走最小异常开销主链。
+- 业务失败优先走 **Result / ErrorCode** 语义，不依赖异常字符串驱动分支。
+- 异常只保留给 truly exceptional 场景：启动无法继续、第三方库不可恢复失败、编程错误与 invariant 被破坏。
+- 前端 `src/api`、`src/adapters`、`src/services`、`wasm/web` 的低层边界默认只允许 `AppError` 或 `Result<T>`，不再新增裸 `throw new Error(...)`。
+- 前端上层 composable / helper 可以继续 `try/catch`，但只能消费 `AppError` 或经 `toAppError()` 归一化后的错误。
+- C# 启动必要配置缺失仍属于允许异常；`MessageCenter` 这类运行期业务失败必须走 `Result/ErrorDetail`，不得再依赖异常分流。
+- Wasm 对 JS 暴露的兼容 ABI 可以继续保留 `get_last_error_ptr/get_last_error_len`，但内部错误语义必须优先以结构化 `ErrorCode` 驱动。
+
+- 不保留长期双栈兼容入口；历史 DTO、Legacy Gateway、旧 fallback 分支按主链切换后直接清理。
+- 页面消费层不应感知 JSON 和 Binary 的业务语义差异，只应感知传输格式差异。
+- 新读接口优先先定义 ReadModel，再分别投影到 JSON Response 和 POD Binary。
+- 新缓存逻辑必须进入统一 L1/L2 治理，不允许服务层散写裸 Redis key。
+
+FsusBlog 的目标不是“把博客跑起来”，而是把一套可维护、可验证、可持续演进的内容系统跑在更短、更稳、更一致的链路上。

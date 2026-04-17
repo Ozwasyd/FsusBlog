@@ -1,5 +1,5 @@
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus'
+import { type UploadRequestOptions } from '@ozwasyd/element-plus'
 import type { AxiosRequestConfig } from 'axios'
 import {
   deleteImage,
@@ -7,11 +7,17 @@ import {
   getSiteConfig,
   updatePageData,
   updateSiteConfig,
-  uploadImage,
-  type SiteConfig
+  type SeoConfigResponse
 } from '@/api/system'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { isAbortError } from '@/utils/errors'
+import { getKnownErrorInfo } from '@/utils/errorKinds'
+import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
+import { toast } from '@/utils/toast'
+import { useImageUploadPreferences } from '@/composables/useImageUploadPreferences'
+import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime'
+import { useImageUploadFlow } from '@/composables/useImageUploadFlow'
+import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 
 export function useAdminSettingsPage() {
   const baseURL = import.meta.env.VITE_API_BASE_URL || window.location.origin
@@ -21,6 +27,13 @@ export function useAdminSettingsPage() {
   const savingPage = ref(false)
   const pageLoading = ref(false)
   const imageLoading = ref(false)
+  const {
+    options: imageUploadOptions,
+    wasmOnlyMode,
+    setOptions: setImageUploadOptions,
+    setWasmOnlyMode: setImageUploadWasmOnlyMode
+  } = useImageUploadPreferences()
+  const imageUploadRuntime = useImageUploadRuntime()
 
   const siteForm = reactive({
     title: '',
@@ -33,12 +46,22 @@ export function useAdminSettingsPage() {
 
   const siteTask = useAbortableTask()
   const pageTask = useAbortableTask()
-  const uploadTask = useAbortableTask()
   const initialLoadTask = useAbortableTask()
+  const imageUploadFlow = useImageUploadFlow({
+    runtime: imageUploadRuntime,
+    getOptions: () => imageUploadOptions.value,
+    getWasmOnly: () => wasmOnlyMode.value,
+    notify: {
+      success: (message) => toast.success(message),
+      warning: (message) => showWarningToast(message, message),
+      error: (message) => showErrorToast(message, message)
+    }
+  })
 
   const previousOgImage = ref('')
   const currentSlug = ref('about')
   const pageContent = ref('')
+  const hasActivatedPagesTab = ref(false)
   const pageTargets = [
     { value: 'about', label: '关于我' },
     { value: 'privacy', label: '隐私政策' },
@@ -47,7 +70,7 @@ export function useAdminSettingsPage() {
 
   const buildSignalConfig = (signal: AbortSignal): AxiosRequestConfig => ({ signal })
 
-  const readStringField = (source: Record<string, unknown>, camel: keyof SiteConfig, pascal: string): string => {
+  const readStringField = (source: Record<string, unknown>, camel: keyof SeoConfigResponse, pascal: string): string => {
     const camelValue = source[camel]
     if (typeof camelValue === 'string') {
       return camelValue
@@ -57,7 +80,7 @@ export function useAdminSettingsPage() {
     return typeof pascalValue === 'string' ? pascalValue : ''
   }
 
-  const normalizeSiteConfig = (value: unknown): SiteConfig => {
+  const normalizeSiteConfig = (value: unknown): SeoConfigResponse => {
     if (!value || typeof value !== 'object') {
       return {
         title: '',
@@ -119,7 +142,7 @@ export function useAdminSettingsPage() {
       if (siteForm.baseUrl) {
         siteForm.baseUrl = siteForm.baseUrl.trim().replace(/\/+$/, '')
         if (!validateBaseUrl(siteForm.baseUrl)) {
-          throw new Error('BASEURL_PROTOCOL_INVALID')
+          throw createAppError(AppErrorCode.Validation, 'BASEURL_PROTOCOL_INVALID')
         }
       }
 
@@ -128,57 +151,84 @@ export function useAdminSettingsPage() {
     } catch (error: unknown) {
       if (!isAbortError(error)) {
         siteForm.ogImage = previousOgImage.value
-        const message = error instanceof Error ? error.message : ''
+        const normalized = toAppError(error, '配置同步失败，已回退状态')
+        const message = getKnownErrorInfo(normalized).message
         const errorMsg = message === 'BASEURL_PROTOCOL_INVALID' ? '站点URL协议不合法' : '配置同步失败，已回退状态'
-        ElMessage.warning(errorMsg)
-        throw error
+        showWarningToast(normalized, errorMsg)
+        throw normalized
       }
     }
   }
 
   const handleImageAction = async (options: UploadRequestOptions): Promise<void> => {
+    const file = options.file as File
     imageLoading.value = true
     previousOgImage.value = siteForm.ogImage
-
     try {
-      await uploadTask.run(async (signal) => {
-        const file = options.file as File
-        const data = await uploadImage(file, buildSignalConfig(signal))
-        siteForm.ogImage = data.relativeUrl || data.url
-        await nextTick()
-        await syncSeoConfig()
-        ElMessage.success('配置图已更新')
+      await imageUploadFlow.startUpload({
+        files: [file],
+        messages: {
+          uploadFailed: '配置图上传失败，可继续恢复',
+          uploadSucceeded: '配置图已更新'
+        },
+        onSuccess: async ([url]) => {
+          siteForm.ogImage = url
+          await nextTick()
+          await syncSeoConfig()
+        },
+        onError: (message, error) => {
+          if (!isAbortError(error)) {
+            console.error('[Settings] Upload failed:', error)
+            siteForm.ogImage = previousOgImage.value
+            showErrorToast(error, message)
+          }
+        }
       })
-    } catch (error: unknown) {
-      if (!isAbortError(error)) {
-        console.error('[Settings] Upload failed:', error)
-        siteForm.ogImage = previousOgImage.value
-      }
+    } finally {
+      imageLoading.value = false
+    }
+  }
+
+  const resumeImageUpload = async (): Promise<void> => {
+    imageLoading.value = true
+    previousOgImage.value = siteForm.ogImage
+    try {
+      await imageUploadFlow.resumeUpload({
+        messages: {
+          resumeMissing: '没有可恢复的上传任务',
+          resumeFailed: '恢复上传失败',
+          uploadSucceeded: '配置图恢复上传成功'
+        },
+        onSuccess: async ([url]) => {
+          siteForm.ogImage = url
+          await nextTick()
+          await syncSeoConfig()
+        },
+        onError: (message, error) => {
+          if (!isAbortError(error)) {
+            console.error('[Settings] Resume upload failed:', error)
+            siteForm.ogImage = previousOgImage.value
+            showErrorToast(error, message)
+          }
+        }
+      })
     } finally {
       imageLoading.value = false
     }
   }
 
   const handleImageRemove = async (): Promise<void> => {
+    imageLoading.value = true
+    previousOgImage.value = siteForm.ogImage
+
     try {
-      await ElMessageBox.confirm('彻底删除物理资源并重置封面吗？', '确认', {
-        type: 'error',
-        confirmButtonClass: 'el-button--danger',
-        dangerouslyUseHTMLString: false
-      })
-
-      imageLoading.value = true
-      previousOgImage.value = siteForm.ogImage
-
       if (siteForm.ogImage) {
         await deleteImage(siteForm.ogImage)
       }
       siteForm.ogImage = ''
 
       await syncSeoConfig()
-      ElMessage.success('已物理重置')
-    } catch {
-      // ignored
+      toast.success('已物理重置')
     } finally {
       imageLoading.value = false
     }
@@ -186,11 +236,11 @@ export function useAdminSettingsPage() {
 
   const saveSiteConfig = async (): Promise<void> => {
     if (!siteForm.title.trim()) {
-      ElMessage.warning('标题不可为空')
+      showWarningToast('标题不可为空', '标题不可为空')
       return
     }
     if (!siteForm.baseUrl.trim() || !validateBaseUrl(siteForm.baseUrl)) {
-      ElMessage.warning('请提供合法的站点基础 URL (http/https)')
+      showWarningToast('请提供合法的站点基础 URL (http/https)', '请提供合法的站点基础 URL (http/https)')
       return
     }
 
@@ -199,7 +249,7 @@ export function useAdminSettingsPage() {
       await siteTask.run(async (signal) => {
         await syncSeoConfig(signal)
         if (!signal.aborted) {
-          ElMessage.success('SEO 配置同步成功')
+          toast.success('SEO 配置同步成功')
         }
       })
     } finally {
@@ -251,20 +301,30 @@ export function useAdminSettingsPage() {
 
   const savePageContent = async (): Promise<void> => {
     try {
-      await ElMessageBox.confirm('确定要发布页面更新吗？', '同步确认', { type: 'warning' })
       savingPage.value = true
       await updatePageData({ slug: currentSlug.value, content: pageContent.value })
-      ElMessage.success('发布同步成功')
-    } catch {
-      // ignored
+      toast.success('发布同步成功')
     } finally {
       savingPage.value = false
     }
   }
 
-  watch(currentSlug, (value) => {
-    void loadPage(value)
+  watch(activeTab, (value) => {
+    if (value !== 'pages') {
+      return
+    }
+
+    hasActivatedPagesTab.value = true
+    void loadPage(currentSlug.value)
   }, { immediate: true })
+
+  watch(currentSlug, (value) => {
+    if (!hasActivatedPagesTab.value || activeTab.value !== 'pages') {
+      return
+    }
+
+    void loadPage(value)
+  })
 
   onMounted(() => {
     void loadSiteConfig()
@@ -273,8 +333,8 @@ export function useAdminSettingsPage() {
   onUnmounted(() => {
     siteTask.cancel()
     pageTask.cancel()
-    uploadTask.cancel()
     initialLoadTask.cancel()
+    imageUploadFlow.cancel()
     pageContent.value = ''
   })
 
@@ -293,6 +353,12 @@ export function useAdminSettingsPage() {
     computedKeywords,
     siteSubmitText,
     pageSubmitText,
+    imageUploadOptions,
+    imageUploadWasmOnlyMode: wasmOnlyMode,
+    setImageUploadWasmOnlyMode,
+    setImageUploadOptions,
+    imageUploadRuntime,
+    resumeImageUpload,
     sanitizeKeywords,
     handleImageAction,
     handleImageRemove,

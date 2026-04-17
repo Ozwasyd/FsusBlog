@@ -38,20 +38,25 @@ public sealed class IP2LocationPooledObjectPolicy : IPooledObjectPolicy<Componen
     {
         try
         {
-            var component = new Component();
-
-            // 🚀 核心优化：在对象进入池之前就打开数据库并解析完文件头元数据
-            // 使得后续所有的 IP 解析操作都能跳过初始化步骤
-            component.Open(_dbPath);
-
-            _logger.LogDebug("已成功初始化并预热一个新的 IP2Location 实例");
-            return component;
+            return CreateCore();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "初始化 IP2Location 实例失败，请检查文件权限或格式");
-            throw;
+            _logger.LogError(ex, "初始化 IP2Location 实例失败 | 路径: {Path}", _dbPath);
+            throw new InvalidOperationException("初始化 IP2Location 实例失败。对象池无法创建可复用实例。", ex);
         }
+    }
+
+    private Component CreateCore()
+    {
+        var component = new Component();
+
+        // 🚀 核心优化：在对象进入池之前就打开数据库并解析完文件头元数据
+        // 使得后续所有的 IP 解析操作都能跳过初始化步骤
+        component.Open(_dbPath);
+
+        _logger.LogDebug("已成功初始化并预热一个新的 IP2Location 实例");
+        return component;
     }
 
     /// <summary>

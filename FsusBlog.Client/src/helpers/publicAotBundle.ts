@@ -1,4 +1,4 @@
-import type { ArticleListRes, Tag } from '@/api/article';
+import { getArticles, type PageResponse, type ArticleListItemResponse, type Tag } from '@/api/article';
 import {
   PUBLIC_RENDERER_VERSION,
   renderPublicAboutBundle,
@@ -14,6 +14,7 @@ import {
 import { createArticleDetailPageViewContract } from '@/view-contracts/articleDetail';
 import { createArticleListViewContract } from '@/view-contracts/articleList';
 import { renderPublicMarkdownHtml } from '@/helpers/publicMarkdown';
+import { AppErrorCode, createAppError } from '@/utils/appError';
 
 export type PublicAotShellPageId = 1 | 2 | 3 | 4 | 5;
 
@@ -40,6 +41,7 @@ export interface ArticleDetailPublicAotBundleOptions {
   title: string;
   content: string;
   summary: string;
+  authorName?: string | null;
   createTime?: string;
   categoryId?: number | null;
   categoryName?: string | null;
@@ -84,9 +86,19 @@ export interface FilterPublicAotBundleOptions {
   title?: string;
 }
 
+function buildReadingMetrics(content: string | null | undefined): { wordCount: number; estimatedReadingMinutes: number; showReadingNotice: boolean } {
+  const normalized = (content ?? '').replace(/\s+/g, '');
+  const wordCount = normalized.length;
+  return {
+    wordCount,
+    estimatedReadingMinutes: Math.max(1, Math.ceil(wordCount / 300)),
+    showReadingNotice: wordCount > 5000
+  };
+}
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
-    throw new Error(message);
+    throw createAppError(AppErrorCode.InvariantViolation, message);
   }
 }
 
@@ -143,7 +155,7 @@ function validatePublicAotShellEntry(entry: PublicAotShellEntryContract): void {
 
   const validator = entryValidators[entry.pageId];
   if (!validator) {
-    throw new Error(`Unsupported public AOT pageId: ${String(entry.pageId)}`);
+    throw createAppError(AppErrorCode.InvariantViolation, `Unsupported public AOT pageId: ${String(entry.pageId)}`);
   }
 
   validator(entry, bootstrap, hydration);
@@ -199,17 +211,6 @@ const entryValidators: Partial<Record<PublicAotShellPageId, EntryValidator>> = {
     assert(!entry.islandsJson, 'filter bundle should not carry islandsJson');
   },
   4: (entry, bootstrap, hydration) => {
-    assert(entry.articleId == null, 'about bundle should not carry articleId');
-    assert(entry.routeKey === 'about', 'about bundle routeKey mismatch');
-    assertStringField(bootstrap, 'kind', 'About', 'bootstrapJson');
-    assertStringField(bootstrap, 'pageKind', 'About', 'bootstrapJson');
-    assertStringField(bootstrap, 'routeKey', 'about', 'bootstrapJson');
-    assertStringField(hydration, 'pageKind', 'About', 'hydrationPropsJson');
-    assertStringField(hydration, 'routeKey', 'about', 'hydrationPropsJson');
-    assertOptionalNullish(hydration, 'articleId', 'hydrationPropsJson');
-    assert(!entry.islandsJson, 'about bundle should not carry islandsJson');
-  },
-  5: (entry, bootstrap, hydration) => {
     assert(entry.articleId == null, 'archive bundle should not carry articleId');
     assert(entry.routeKey === 'archive', 'archive bundle routeKey mismatch');
     assertStringField(bootstrap, 'kind', 'Archive', 'bootstrapJson');
@@ -219,6 +220,17 @@ const entryValidators: Partial<Record<PublicAotShellPageId, EntryValidator>> = {
     assertStringField(hydration, 'routeKey', 'archive', 'hydrationPropsJson');
     assertOptionalNullish(hydration, 'articleId', 'hydrationPropsJson');
     assert(!entry.islandsJson, 'archive bundle should not carry islandsJson');
+  },
+  5: (entry, bootstrap, hydration) => {
+    assert(entry.articleId == null, 'about bundle should not carry articleId');
+    assert(entry.routeKey === 'about', 'about bundle routeKey mismatch');
+    assertStringField(bootstrap, 'kind', 'About', 'bootstrapJson');
+    assertStringField(bootstrap, 'pageKind', 'About', 'bootstrapJson');
+    assertStringField(bootstrap, 'routeKey', 'about', 'bootstrapJson');
+    assertStringField(hydration, 'pageKind', 'About', 'hydrationPropsJson');
+    assertStringField(hydration, 'routeKey', 'about', 'hydrationPropsJson');
+    assertOptionalNullish(hydration, 'articleId', 'hydrationPropsJson');
+    assert(!entry.islandsJson, 'about bundle should not carry islandsJson');
   }
 };
 
@@ -245,7 +257,8 @@ function createArticleDetailBootstrap(options: ArticleDetailPublicAotBundleOptio
       category: options.categoryName?.trim() || '未分类',
       tags: (options.tags ?? []).map((tag) => tag.name)
     },
-    commentsPlaceholder: '评论将在 SPA 接管后加载'
+    commentsPlaceholder: '评论将在 SPA 接管后加载',
+    authorName: options.authorName?.trim() || options.siteTitle?.trim() || 'Fsu'
   });
 }
 
@@ -261,6 +274,7 @@ async function createArticleDetailHydrationPayload(
       content: options.content,
       summary: options.summary,
       views: 0,
+      ...buildReadingMetrics(options.content),
       createTime: options.createTime ?? new Date().toISOString(),
       category: options.categoryId
         ? {
@@ -290,6 +304,7 @@ async function createArticleDetailHydrationPayload(
     articleId: options.articleId ?? '{{articleId}}',
     rendererVersion: PUBLIC_RENDERER_VERSION,
     title: options.title,
+    authorName: options.authorName?.trim() || options.siteTitle?.trim() || 'Fsu',
     baseUrl: options.baseUrl ?? null,
     siteTitle: options.siteTitle ?? null,
     siteDescription: options.siteDescription ?? null,
@@ -334,18 +349,15 @@ export async function buildHomePublicAotEntry(options: {
   baseUrl?: string;
   page?: number;
   size?: number;
-  response?: ArticleListRes;
+  response?: PageResponse<ArticleListItemResponse>;
 } = {}): Promise<PublicAotShellEntryContract> {
   const page = options.page ?? 1;
   const size = options.size ?? 10;
   assert(Number.isInteger(page) && page > 0, 'home page must be a positive integer');
   assert(Number.isInteger(size) && size > 0, 'home size must be a positive integer');
-  const response: ArticleListRes =
+  const response: PageResponse<ArticleListItemResponse> =
     options.response ??
-    (await (async () => {
-      const { getArticles } = await import('@/api/article');
-      return await getArticles({ page, size });
-    })());
+    (await getArticles({ page, size }));
 
   const view = createArticleListViewContract(response, {
     currentPage: page,
@@ -410,7 +422,7 @@ export async function buildAboutPublicAotEntry(options: AboutPublicAotBundleOpti
 
   const rendered = await renderPublicAboutBundle(hydrationPayload);
   return {
-    pageId: 4,
+    pageId: 5,
     routeKey: 'about',
     html: rendered.html,
     bootstrapJson: JSON.stringify({
@@ -445,7 +457,7 @@ export async function buildArchivePublicAotEntry(options: ArchivePublicAotBundle
   };
   const rendered = await renderPublicArchiveBundle(hydrationPayload);
   return {
-    pageId: 5,
+    pageId: 4,
     routeKey: 'archive',
     html: rendered.html,
     bootstrapJson: JSON.stringify({
@@ -509,7 +521,7 @@ export async function buildFilterPublicAotEntry(options: FilterPublicAotBundleOp
 export async function buildPublicHydrationBundle(
   options: ArticleDetailPublicAotBundleOptions & {
     includeHome?: boolean;
-    homeResponse?: ArticleListRes;
+    homeResponse?: PageResponse<ArticleListItemResponse>;
     homePage?: number;
     homeSize?: number;
     includeAbout?: boolean;

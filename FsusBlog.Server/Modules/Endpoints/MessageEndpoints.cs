@@ -1,126 +1,142 @@
-﻿using FsusBlog.Server.Infrastructure.Filters;
-using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models;
-using FsusBlog.Server.Models.Dtos;
-using FsusBlog.Server.Models.Responses;
-using Microsoft.AspNetCore.Http.HttpResults;
+using FsusBlog.Server.Models.Requests;
+using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Modules.Endpoints;
 
-/// <summary>
-/// 消息中心端点 (Minimal API)
-/// 修复日期: 2026-02-23 (使用完整的 Results<T> 联合类型以实现零分配和精确元数据)
-/// </summary>
 public static class MessageEndpoints
 {
     public static IEndpointRouteBuilder MapMessageEndpoints(this IEndpointRouteBuilder app)
     {
-        // --- 1. 用户收件箱接口 (Base Path: /api/v1/messages) ---
         var userGroup = app.MapGroup("/api/v1/messages").RequireAuthorization();
 
-        // 获取收件箱
-        userGroup.MapGet("/inbox", static async (
+        userGroup.MapGet("/conversations", static async Task<IResult> (
             int page,
             int size,
-            IMessageService svc,
+            string? filter,
+            IMessageQueryService query,
             CurrentUser user) =>
         {
-            var pageSize = Math.Clamp(size, 1, 50);
-            var pageNum = Math.Max(1, page);
-
-            var data = await svc.GetInboxAsync(user.Id, pageNum, pageSize);
-            return TypedResults.Ok(ApiResponse<List<MessageInboxDto>>.Success(data));
+            int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 50);
+            int pageNum = Math.Max(1, page);
+            var data = await query.GetUserConversationsAsync(checked((int)user.Id), pageNum, pageSize, filter);
+            return ApiResults.Ok(data);
         });
 
-        // 删除消息
-        userGroup.MapDelete("/{id:long}", static async (
+        userGroup.MapGet("/conversations/{id:long}", static async Task<IResult> (
             long id,
-            IMessageService svc,
+            IMessageQueryService query,
             CurrentUser user) =>
         {
-            await svc.DeleteMessageAsync(user.Id, id);
-            return TypedResults.Ok(ApiResponse.Success("消息已从收件箱移除"));
+            var detail = await query.GetUserConversationDetailAsync(checked((int)user.Id), id);
+            return detail is null ? ApiResults.NotFound("会话不存在") : ApiResults.Ok(detail);
         });
 
-        // 标记单条已读
-        userGroup.MapPost("/{id:long}/read", static async (
+        userGroup.MapPost("/conversations", static async Task<IResult> (
+            CreateConversationRequest req,
+            IMessageCommandService command,
+            CurrentUser user) =>
+        {
+            var result = await command.CreateUserTicketAsync(checked((int)user.Id), req.Subject, req.Body);
+            return ApiResults.FromResult(result);
+        }).AddEndpointFilter<RequiresPowFilter>();
+
+        userGroup.MapPost("/conversations/{id:long}/reply", static async Task<IResult> (
             long id,
-            IMessageService svc,
+            ReplyConversationRequest req,
+            IMessageCommandService command,
             CurrentUser user) =>
         {
-            await svc.MarkAsReadAsync(user.Id, id);
-            return TypedResults.Ok(ApiResponse.Success("已读"));
-        });
+            var result = await command.ReplyAsUserAsync(checked((int)user.Id), id, req.Body);
+            return ApiResults.FromResult(result);
+        }).AddEndpointFilter<RequiresPowFilter>();
 
-        // 全部标记为已读
-        userGroup.MapPost("/read-all", static async (
-            IMessageService svc,
+        userGroup.MapPost("/conversations/{id:long}/read", static async Task<IResult> (
+            long id,
+            IMessageCommandService command,
             CurrentUser user) =>
         {
-            await svc.MarkAllAsReadAsync(user.Id);
-            return TypedResults.Ok(ApiResponse.Success("已清空未读"));
+            var result = await command.MarkConversationReadAsync(checked((int)user.Id), id);
+            return ApiResults.FromResult(result, "ok");
         });
 
-        // --- 2. 管理员消息管理接口 (Base Path: /api/v1/admin/messages) ---
         var adminGroup = app.MapGroup("/api/v1/admin/messages")
             .RequireAuthorization(policy => policy.RequireRole("admin"));
 
-        // 发布全站公告
-        // 核心修复：显式声明完整的、无别名的返回类型
-        adminGroup.MapPost("/broadcast", static async Task<Results<Ok<ApiResponse>, BadRequest<ApiResponse>>> (
-            BroadcastRequest req,
-            IMessageService svc) =>
-        {
-            if (string.IsNullOrWhiteSpace(req.Title))
-                return TypedResults.BadRequest(ApiResponse.Fail("标题不能为空"));
-
-            await svc.PublishGlobalNoticeAsync(req.Title, req.Content);
-            return TypedResults.Ok(ApiResponse.Success("全站公告已实时分发"));
-        })
-        .AddEndpointFilter<RequiresPowFilter>();
-
-        // 发送点对点私信
-        // 核心修复：显式声明完整的、无别名的返回类型
-        adminGroup.MapPost("/direct", static async Task<Results<Ok<ApiResponse>, BadRequest<ApiResponse>>> (
-            AdminDirectMessageRequest req,
-            IMessageService svc) =>
-        {
-            if (req.TargetUserId <= 0)
-                return TypedResults.BadRequest(ApiResponse.Fail("无效的目标用户"));
-            if (string.IsNullOrWhiteSpace(req.Title))
-                return TypedResults.BadRequest(ApiResponse.Fail("标题不能为空"));
-
-            await svc.SendPrivateNoticeAsync(req.TargetUserId, req.Title, req.Content);
-            return TypedResults.Ok(ApiResponse.Success("私信已送达"));
-        })
-        .AddEndpointFilter<RequiresPowFilter>();
-
-        // 获取发送历史记录
-        adminGroup.MapGet("/history", static async (
+        adminGroup.MapGet("/conversations", static async Task<IResult> (
             int page,
             int size,
-            IMessageService svc) =>
+            string? filter,
+            IMessageQueryService query) =>
         {
-            var pageSize = Math.Clamp(size, 1, 50);
-            var data = await svc.GetAdminSentMessagesAsync(page, pageSize);
-            return TypedResults.Ok(ApiResponse<List<MessageInboxDto>>.Success(data));
+            int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 100);
+            int pageNum = Math.Max(1, page);
+            var data = await query.GetAdminConversationsAsync(pageNum, pageSize, filter);
+            return ApiResults.Ok(data);
         });
 
-        // 管理员物理撤回（删除）
-        adminGroup.MapDelete("/{id:long}", static async (
+        adminGroup.MapGet("/conversations/{id:long}", static async Task<IResult> (
             long id,
-            IMessageService svc) =>
+            IMessageQueryService query) =>
         {
-            await svc.RevokeMessageAsync(id);
-            return TypedResults.Ok(ApiResponse.Success("消息已成功撤回并从全端移除"));
-        })
-        .AddEndpointFilter<RequiresPowFilter>();
+            var detail = await query.GetAdminConversationDetailAsync(id);
+            return detail is null ? ApiResults.NotFound("会话不存在") : ApiResults.Ok(detail);
+        });
+
+        adminGroup.MapPost("/conversations/{id:long}/reply", static async Task<IResult> (
+            long id,
+            ReplyConversationRequest req,
+            IMessageCommandService command,
+            CurrentUser user) =>
+        {
+            var result = await command.ReplyAsAdminAsync(id, req.Body, checked((int)user.Id));
+            return ApiResults.FromResult(result);
+        }).AddEndpointFilter<RequiresPowFilter>();
+
+        adminGroup.MapPost("/conversations/{id:long}/status", static async Task<IResult> (
+            long id,
+            AdminConversationStatusRequest req,
+            IMessageCommandService command,
+            CurrentUser user) =>
+        {
+            if (!TryParseStatus(req.Status, out ConversationStatusValue status))
+            {
+                return ApiResults.BadRequest("无效状态，仅支持 open/pending/closed");
+            }
+
+            var result = await command.UpdateConversationStatusAsync(id, status, checked((int)user.Id));
+            return ApiResults.FromResult(result, "ok");
+        }).AddEndpointFilter<RequiresPowFilter>();
+
+        adminGroup.MapPost("/system-send", static async Task<IResult> (
+            SendSystemMessageRequest req,
+            IMessageCommandService command,
+            CurrentUser user) =>
+        {
+            var result = await command.SendSystemMessageAsync(req.Subject, req.Body, req.TargetUserId, checked((int)user.Id));
+            return ApiResults.FromResult(result);
+        }).AddEndpointFilter<RequiresPowFilter>();
 
         return app;
     }
-}
 
-// 契约定义保持不变
-public record BroadcastRequest(string Title, string Content);
-public record AdminDirectMessageRequest(long TargetUserId, string Title, string Content);
+    private static bool TryParseStatus(string? raw, out ConversationStatusValue status)
+    {
+        status = ConversationStatusValue.Open;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return false;
+        }
+
+        return raw.Trim().ToLowerInvariant() switch
+        {
+            "open" => true,
+            "pending" => (status = ConversationStatusValue.Pending) == ConversationStatusValue.Pending,
+            "closed" => (status = ConversationStatusValue.Closed) == ConversationStatusValue.Closed,
+            _ => false
+        };
+    }
+}

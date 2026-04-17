@@ -1,3 +1,5 @@
+import { AppErrorCode, createAppError } from '@/utils/appError'
+
 export type PublicPageId = 'home' | 'article-detail' | 'filter' | 'archive' | 'about';
 
 export type PublicPageDescriptor = Readonly<{
@@ -5,8 +7,6 @@ export type PublicPageDescriptor = Readonly<{
   routeNames: readonly string[];
   canonicalSlug: string;
   seoEligible: boolean;
-  aotShellReady: boolean;
-  deferSpaBoot: boolean;
 }>;
 
 export const PUBLIC_PAGE_REGISTRY: readonly PublicPageDescriptor[] = Object.freeze([
@@ -14,49 +14,39 @@ export const PUBLIC_PAGE_REGISTRY: readonly PublicPageDescriptor[] = Object.free
     id: 'home',
     routeNames: ['Home'],
     canonicalSlug: 'home',
-    seoEligible: true,
-    aotShellReady: true,
-    deferSpaBoot: true
+    seoEligible: true
   },
   {
     id: 'article-detail',
     routeNames: ['ArticleDetail'],
     canonicalSlug: 'article',
-    seoEligible: true,
-    aotShellReady: true,
-    deferSpaBoot: true
+    seoEligible: true
   },
   {
     id: 'filter',
     routeNames: ['Category', 'Tag'],
     canonicalSlug: 'filter',
-    seoEligible: true,
-    aotShellReady: true,
-    deferSpaBoot: true
+    seoEligible: true
   },
   {
     id: 'archive',
     routeNames: ['Archive'],
     canonicalSlug: 'archive',
-    seoEligible: true,
-    aotShellReady: true,
-    deferSpaBoot: true
+    seoEligible: true
   },
   // About is part of the server-first public SEO/AOT scope.
   {
     id: 'about',
     routeNames: ['About'],
     canonicalSlug: 'about',
-    seoEligible: true,
-    aotShellReady: true,
-    deferSpaBoot: true
+    seoEligible: true
   }
 ]);
 
 export function getPublicPageDescriptor(id: PublicPageId): PublicPageDescriptor {
   const descriptor = PUBLIC_PAGE_REGISTRY.find((page) => page.id === id);
   if (!descriptor) {
-    throw new Error(`Unknown public page id: ${id}`);
+    throw createAppError(AppErrorCode.InvariantViolation, `Unknown public page id: ${id}`);
   }
 
   return descriptor;

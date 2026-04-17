@@ -12,7 +12,15 @@ const roots = [
 
 const singleFiles = [
   'src/utils/wasmImageCodec.ts',
-  'src/workers/pow.worker.ts'
+  'src/workers/pow.worker.ts',
+  'src/composables/useAuthLogin.ts',
+  'src/composables/useMfaActionFlow.ts',
+  'src/composables/useAdminSettingsPage.ts',
+  'src/composables/useHomeView.ts',
+  'src/composables/useImageUploadRuntime.ts',
+  'src/helpers/publicAotBundle.ts',
+  'src/utils/imageCompression.ts',
+  'src/view-contracts/publicPages.ts'
 ]
 
 const allowList = new Set([
