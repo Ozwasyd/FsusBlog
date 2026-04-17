@@ -16,6 +16,7 @@
     "check:image-codec-wasm-runtime": "node ./scripts/check-image-codec-wasm-runtime.mjs",
     "check:modern-standards": "node ./scripts/check-modern-standards.mjs",
     "check:result-boundaries": "node ./scripts/check-result-boundaries.mjs",
+    "check:error-code-alignment": "node ./scripts/check-error-code-alignment.mjs",
     "check:security-consistency": "node ./scripts/check-security-consistency.mjs",
     "check:server-try-catch": "node ./scripts/check-server-try-catch.mjs",
     "check:sse-runtime": "node ./scripts/check-sse-runtime.mjs",

@@ -1,5 +1,7 @@
-using System.Text;
+using System.Buffers;
+using System.Text.Json;
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Binary;
 
 namespace FsusBlog.Server.Infrastructure.Middlewares;
@@ -44,23 +46,59 @@ public sealed class ApiBinaryResponseMiddleware
                 return;
             }
 
-            byte[] rawBody = capture.ToArray();
+            ReadOnlySpan<byte> rawBody = default;
+            byte[]? ownedBody = null;
+            if (capture.Length > 0)
+            {
+                if (capture.TryGetBuffer(out ArraySegment<byte> buffer))
+                {
+                    rawBody = buffer.AsSpan(0, checked((int)capture.Length));
+                }
+                else
+                {
+                    ownedBody = capture.ToArray();
+                    rawBody = ownedBody;
+                }
+            }
+
             if (rawBody.Length == 0 && context.Response.StatusCode >= 400)
             {
-                rawBody = BuildSyntheticErrorBody(context.Response.StatusCode);
+                ownedBody = BuildSyntheticErrorBody(context.Response.StatusCode);
+                rawBody = ownedBody;
                 contentType = "application/json; charset=utf-8";
             }
 
-            byte[] payload = ApiBinaryEnvelopeCodec.EncodeEnvelopePayload(context.Response.StatusCode, contentType, rawBody);
-            AedsFrameType frameType = context.Response.StatusCode >= 400 ? AedsFrameType.ApiError : AedsFrameType.ApiEnvelope;
-            byte[] frame = AedsBinaryWriter.WriteFrame(encoder, frameType, payload);
+            int envelopeStatusCode = context.Response.StatusCode;
+            var payloadWriter = new ArrayBufferWriter<byte>(Math.Max(rawBody.Length + 64, 256));
+            Result envelopeResult = ApiBinaryEnvelopeCodec.TryWriteEnvelopePayload(envelopeStatusCode, contentType, rawBody, payloadWriter);
+            AedsFrameType frameType = envelopeStatusCode >= 400 ? AedsFrameType.ApiError : AedsFrameType.ApiEnvelope;
+
+            if (!envelopeResult.IsSuccess)
+            {
+                payloadWriter = new ArrayBufferWriter<byte>(256);
+                envelopeStatusCode = StatusCodes.Status500InternalServerError;
+                byte[] errorBody = BuildSyntheticErrorBody(envelopeStatusCode, envelopeResult.Error.Message);
+                Result fallbackResult = ApiBinaryEnvelopeCodec.TryWriteEnvelopePayload(
+                    envelopeStatusCode,
+                    "application/json; charset=utf-8",
+                    errorBody,
+                    payloadWriter);
+                if (!fallbackResult.IsSuccess)
+                {
+                    throw new InvalidOperationException("binary_envelope_fallback_failed");
+                }
+
+                frameType = AedsFrameType.ApiError;
+            }
 
             context.Response.Body = originalBody;
+            context.Response.StatusCode = envelopeStatusCode;
             context.Response.ContentType = "application/octet-stream";
-            context.Response.Headers.ContentLength = frame.Length;
+            context.Response.ContentLength = AedsFrameHeader.Size + payloadWriter.WrittenCount;
             context.Response.Headers["X-Fsus-Frame-Version"] = "1";
 
-            await context.Response.Body.WriteAsync(frame, context.RequestAborted);
+            encoder.WriteFrame(frameType, payloadWriter.WrittenSpan, context.Response.BodyWriter);
+            await context.Response.BodyWriter.FlushAsync(context.RequestAborted);
         }
         finally
         {
@@ -95,9 +133,9 @@ public sealed class ApiBinaryResponseMiddleware
             || contentType.StartsWith("application/grpc", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static byte[] BuildSyntheticErrorBody(int statusCode)
+    private static byte[] BuildSyntheticErrorBody(int statusCode, string? message = null)
     {
-        string json = $"{{\"code\":{statusCode},\"message\":\"HTTP {statusCode}\"}}";
-        return Encoding.UTF8.GetBytes(json);
+        string safeMessage = string.IsNullOrWhiteSpace(message) ? $"HTTP {statusCode}" : message;
+        return JsonSerializer.SerializeToUtf8Bytes(new { code = statusCode, message = safeMessage });
     }
 }

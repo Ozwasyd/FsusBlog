@@ -1,8 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getMe, logout as logoutApi, type UserInfo } from '@/api/auth'
+import { sseRuntime } from '@/services/sseRuntime'
+import { useSseStore } from '@/store/sse'
+import { isAbortError } from '@/utils/errors'
+import { getKnownErrorInfo, isAuthFailureError } from '@/utils/errorKinds'
 
 export const useUserStore = defineStore('user', () => {
+    const sseStore = useSseStore()
 
     // ================= 1. State =================
     const userInfo = ref<UserInfo | null>(null)
@@ -22,6 +27,7 @@ export const useUserStore = defineStore('user', () => {
     })
     
     const isBanned = computed(() => userInfo.value?.status === 1)
+    const isDeleted = computed(() => userInfo.value?.status === 2)
 
     // ================= 3. Private Helpers =================
 
@@ -34,9 +40,12 @@ export const useUserStore = defineStore('user', () => {
         isAuthChecked.value = false
         isLoading.value = false
         fetchPromise = null
-        
-        void import('@/services/notificationService').then(({ notificationService }) => notificationService.stop())
-        sessionStorage.removeItem('signalr_guest_pow');
+
+        sseStore.dispose()
+        sseStore.resetCursor()
+        sseStore.setStatus('stopped')
+        void sseRuntime.stop(true)
+        sessionStorage.removeItem('sse_guest_pow');
     }
 
     // ================= 4. Actions =================
@@ -50,10 +59,6 @@ export const useUserStore = defineStore('user', () => {
         isAuthChecked.value = true
     }
 
-    /**
-     * 同步当前用户信息
-     * [修复 2026-02-24] 判定增强：兼容拦截器包装过的 Unauthorized 错误，彻底解决 UI 卡死
-     */
     const fetchUserInfo = async (force = false) => {
         if (isAuthChecked.value && !force) return
         
@@ -76,19 +81,15 @@ export const useUserStore = defineStore('user', () => {
                     userInfo.value = res
                     isAuthChecked.value = true
                 }
-            } catch (error: any) {
-                if (error.name === 'AbortError') return;
+            } catch (error: unknown) {
+                if (isAbortError(error)) return;
 
-                // [核心修复] 物理级语义对齐：识别 401 状态或拦截器抛出的 Unauthorized 文本
-                const isUnauthed = error.response?.status === 401 || 
-                                   error.message === 'Unauthorized' || 
-                                   error.message?.includes('401');
-
-                if (isUnauthed) {
+                if (isAuthFailureError(error)) {
                     userInfo.value = null;
                     isAuthChecked.value = true; // 标记握手完成，身份确认：游客
                 } else {
-                    console.error('[UserStore] Auth handshake failed:', error.message);
+                    const info = getKnownErrorInfo(error, 'auth_handshake_failed')
+                    console.error('[UserStore] Auth handshake failed:', info.message);
                     // 如果是 500 或网络错误，不设置 isAuthChecked，允许重试
                 }
             } finally {
@@ -135,6 +136,7 @@ export const useUserStore = defineStore('user', () => {
         isLoggedIn,
         isAdmin,
         isBanned,
+        isDeleted,
         setUserInfo, 
         fetchUserInfo,
         logout,

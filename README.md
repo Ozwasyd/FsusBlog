@@ -226,8 +226,11 @@ cd FsusBlog.Client && npm run check:full-regression
 - 异常只保留给 truly exceptional 场景：启动无法继续、第三方库不可恢复失败、编程错误与 invariant 被破坏。
 - 前端 `src/api`、`src/adapters`、`src/services`、`wasm/web` 的低层边界默认只允许 `AppError` 或 `Result<T>`，不再新增裸 `throw new Error(...)`。
 - 前端上层 composable / helper 可以继续 `try/catch`，但只能消费 `AppError` 或经 `toAppError()` 归一化后的错误。
+- 前端认证、静默续签、SSE 运行期逻辑不得再依赖异常消息字符串分流；关键路径统一基于 `AppErrorCode` 或已归一化的 failure code。
 - C# 启动必要配置缺失仍属于允许异常；`MessageCenter` 这类运行期业务失败必须走 `Result/ErrorDetail`，不得再依赖异常分流。
+- C# 可恢复基础设施失败不得再通过异常表达；仅启动必要配置缺失、进程无法继续、invariant 破坏与不可下沉的第三方边界允许保留异常。
 - Wasm 对 JS 暴露的兼容 ABI 可以继续保留 `get_last_error_ptr/get_last_error_len`，但内部错误语义必须优先以结构化 `ErrorCode` 驱动。
+- 最终允许保留裸 `throw new Error(...)` 的前端白名单固定只剩 `src/bootstrap/fullApp.ts` 与 `src/public-renderers/hydrationIdentityGuard.ts`；新增例外必须同时修改守卫与文档。
 
 - 不保留长期双栈兼容入口；历史 DTO、Legacy Gateway、旧 fallback 分支按主链切换后直接清理。
 - 页面消费层不应感知 JSON 和 Binary 的业务语义差异，只应感知传输格式差异。

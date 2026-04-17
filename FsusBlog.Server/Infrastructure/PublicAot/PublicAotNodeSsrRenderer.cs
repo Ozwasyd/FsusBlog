@@ -29,14 +29,15 @@ public sealed class PublicAotNodeSsrRenderer(
             return Result<PublicAotSsrRenderResult>.Failure(clientRoot.Error);
         }
 
-        return await BoundaryExecutor.ExecuteResultAsync(
+        return await BoundaryExecutor.ExecuteValueAsync(
             () => RenderCoreAsync(clientRoot.Value!, kind, hydrationPropsJson, cancellationToken),
-            MapRenderException,
+            ex => Result<PublicAotSsrRenderResult>.Failure(MapRenderException(ex)),
             _logger,
-            $"public-aot-ssr:{kind}");
+            $"public-aot-ssr:{kind}",
+            LogLevel.Error);
     }
 
-    private async Task<PublicAotSsrRenderResult> RenderCoreAsync(
+    private async Task<Result<PublicAotSsrRenderResult>> RenderCoreAsync(
         string clientRoot,
         PublicPageKind kind,
         string hydrationPropsJson,
@@ -62,7 +63,7 @@ public sealed class PublicAotNodeSsrRenderer(
         using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
         if (!process.Start())
         {
-            throw new InvalidOperationException("failed to start public AOT SSR worker process");
+            return Result<PublicAotSsrRenderResult>.Failure(ErrorCode.InfraFailure, "failed to start public AOT SSR worker process");
         }
 
         string stdinPayload = JsonSerializer.Serialize(request, JsonOptions);
@@ -83,27 +84,34 @@ public sealed class PublicAotNodeSsrRenderer(
                 "Public AOT SSR worker exited with code {ExitCode}. stderr={Stderr}",
                 process.ExitCode,
                 string.IsNullOrWhiteSpace(stderr) ? "<empty>" : stderr);
-            throw new InvalidOperationException($"public AOT SSR worker failed with exit code {process.ExitCode}");
+            return Result<PublicAotSsrRenderResult>.Failure(
+                ErrorCode.InfraFailure,
+                $"public AOT SSR worker failed with exit code {process.ExitCode}");
         }
 
+        return ParseWorkerResponse(stdout);
+    }
+
+    private Result<PublicAotSsrRenderResult> ParseWorkerResponse(string stdout)
+    {
         try
         {
             PublicAotSsrWorkerResponse? response = JsonSerializer.Deserialize<PublicAotSsrWorkerResponse>(stdout, JsonOptions);
             if (response is null || string.IsNullOrWhiteSpace(response.Html))
             {
-                throw new InvalidOperationException("public AOT SSR worker returned empty html");
+                return Result<PublicAotSsrRenderResult>.Failure(ErrorCode.InfraFailure, "public AOT SSR worker returned empty html");
             }
 
-            return new PublicAotSsrRenderResult(
+            return Result<PublicAotSsrRenderResult>.Success(new PublicAotSsrRenderResult(
                 response.Html,
                 string.IsNullOrWhiteSpace(response.RendererVersion)
                     ? PublicAotShellService.PublicRendererVersion
-                    : response.RendererVersion);
+                    : response.RendererVersion));
         }
         catch (JsonException ex)
         {
             _logger.LogError(ex, "Public AOT SSR worker returned invalid JSON. stdout={Stdout}", stdout);
-            throw new InvalidOperationException("public_aot_ssr_invalid_json", ex);
+            return Result<PublicAotSsrRenderResult>.Failure(ErrorCode.InfraFailure, "public_aot_ssr_invalid_json");
         }
     }
 
