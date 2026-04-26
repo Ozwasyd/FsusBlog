@@ -1,5 +1,5 @@
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
+import { type FormInstance } from '@ozwasyd/element-plus'
 import type { AxiosRequestConfig } from 'axios'
 import {
   createCategory,
@@ -8,9 +8,10 @@ import {
   updateCategory,
   type CategoryItem
 } from '@/api/category'
-import { useAbortableTask } from '@/composables/useAbortableTask'
 import { usePow } from '@/composables/usePow'
-import { getErrorMessage, isAbortError } from '@/utils/errors'
+import { useMutationFlow } from '@/composables/useMutationFlow'
+import { useViewTask } from '@/composables/useViewTask'
+import { showWarningToast } from '@/utils/errorPresentation'
 
 export function useAdminCategoryManage() {
   const powProvider = usePow()
@@ -22,8 +23,8 @@ export function useAdminCategoryManage() {
   const editingId = ref<number | null>(null)
   const formRef = ref<FormInstance>()
 
-  const loadTask = useAbortableTask()
-  const submitTask = useAbortableTask()
+  const loadTask = useViewTask()
+  const mutation = useMutationFlow()
 
   const isProcessing = computed(() => submitting.value || powProvider.isCalculating.value)
   const dialogTitle = computed(() => (editingId.value ? '修改分类属性' : '创建全站分类'))
@@ -40,25 +41,23 @@ export function useAdminCategoryManage() {
     ]
   }
 
-  const loadData = async (): Promise<void> => {
-    loading.value = true
-    try {
-      await loadTask.run(async (signal) => {
-        const config: AxiosRequestConfig = { signal }
-        const data = await getCategories(config)
-        list.value = Array.isArray(data) ? data : []
-      })
-    } catch (error: unknown) {
-      if (isAbortError(error)) {
-        return
+  const loadData = async (): Promise<boolean> => {
+    const data = await loadTask.run(async (signal) => {
+      const config: AxiosRequestConfig = { signal }
+      return await getCategories(config)
+    }, {
+      fallbackMessage: '无法同步全站分类数据',
+      onError: (error) => {
+        console.error('[Admin Category] Load failed:', error)
+        list.value = []
       }
+    })
 
-      console.error('[Admin Category] Load failed:', error)
-      ElMessage.error(getErrorMessage(error, '无法同步全站分类数据'))
-      list.value = []
-    } finally {
-      loading.value = false
+    if (data) {
+      list.value = Array.isArray(data) ? data : []
     }
+
+    return data !== undefined
   }
 
   const openDialog = (row?: CategoryItem): void => {
@@ -81,23 +80,24 @@ export function useAdminCategoryManage() {
       }
 
       submitting.value = true
-      await submitTask.run(async (signal) => {
+      await mutation.run(async (signal) => {
         const config: AxiosRequestConfig = { signal }
         if (editingId.value) {
           await updateCategory(editingId.value, cleanName, config)
-          ElMessage.success('分类元数据更新成功')
         } else {
           await createCategory(cleanName, config)
-          ElMessage.success('全站新分类已同步')
         }
-
-        dialogVisible.value = false
-        await loadData()
+      }, {
+        fallbackMessage: editingId.value ? '更新分类失败' : '创建分类失败',
+        successMessage: editingId.value ? '分类元数据更新成功' : '全站新分类已同步',
+        postSuccessWarningMessage: '分类已保存，但列表同步失败，请稍后刷新',
+        onSuccess: async () => {
+          dialogVisible.value = false
+          return await loadData()
+        }
       })
     } catch (error: unknown) {
-      if (!isAbortError(error)) {
-        console.error('[Category] Submit failed:', error)
-      }
+      console.error('[Category] Submit failed:', error)
     } finally {
       submitting.value = false
     }
@@ -105,39 +105,36 @@ export function useAdminCategoryManage() {
 
   const handleDelete = (row: CategoryItem): void => {
     if (row.articleCount > 0) {
-      ElMessage.warning(`分类「${row.name}」正被 ${row.articleCount} 篇文章占用，禁止删除。`)
+      showWarningToast(`分类「${row.name}」正被 ${row.articleCount} 篇文章占用，禁止删除。`)
       return
     }
 
-    void ElMessageBox.confirm(`确定要永久移除分类「${row.name}」吗？该操作无法撤销。`, '危险操作警告', {
-      confirmButtonText: '确定移除',
-      cancelButtonText: '取消',
-      type: 'warning',
-      confirmButtonClass: 'el-button--danger',
-      roundButton: true,
-      dangerouslyUseHTMLString: false
-    }).then(async () => {
+    void (async () => {
       if (isProcessing.value) {
         return
       }
 
       submitting.value = true
       try {
-        await submitTask.run(async (signal) => {
+        await mutation.confirmThenRun({
+          message: `确定要永久移除分类「${row.name}」吗？该操作无法撤销。`,
+          title: '危险操作警告',
+          confirmButtonText: '确定移除',
+          type: 'warning',
+          confirmButtonClass: 'el-button--danger'
+        }, async (signal) => {
           const config: AxiosRequestConfig = { signal }
           await deleteCategory(row.id, config)
-          ElMessage.success('数据已彻底移除')
-          await loadData()
+        }, {
+          fallbackMessage: '删除分类失败',
+          successMessage: '数据已彻底移除',
+          postSuccessWarningMessage: '分类已删除，但列表同步失败，请稍后刷新',
+          onSuccess: loadData
         })
-      } catch (error: unknown) {
-        if (!isAbortError(error)) {
-          console.error('[Category] Delete failed:', error)
-          ElMessage.error(getErrorMessage(error, '删除分类失败'))
-        }
       } finally {
         submitting.value = false
       }
-    }).catch(() => undefined)
+    })()
   }
 
   onMounted(() => {

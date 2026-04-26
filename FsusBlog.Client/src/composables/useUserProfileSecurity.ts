@@ -1,7 +1,27 @@
-import { computed, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import type { FormInstance } from 'element-plus'
+import { ElMessageBox } from '@ozwasyd/element-plus'
 import type { AxiosRequestConfig } from 'axios'
-import { updatePassword, updateUsername, type UpdatePasswordDto, type UpdateUsernameDto } from '@/api/auth'
+import {
+  deleteAccount,
+  disableMfa,
+  getMfaProfile,
+  listSessions,
+  regenerateMfaRecoveryCodes,
+  revokeOtherSessions,
+  revokeSession,
+  startMfaSetup,
+  updatePassword,
+  updateUsername,
+  verifyMfaSetup,
+  type DeleteAccountRequest,
+  type MfaProfile,
+  type MfaSetupStart,
+  type MfaSetupVerify,
+  type UpdatePasswordDto,
+  type UpdateUsernameDto,
+  type UserSessionSummary
+} from '@/api/auth'
 import { usePow } from '@/composables/usePow'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { useUserStore } from '@/store/user'
@@ -9,11 +29,46 @@ import { validateUsername } from '@/utils/contentFilter'
 import { toast } from '@/utils/toast'
 import { getErrorMessage, isAbortError } from '@/utils/errors'
 
-type ProfileModalConfig = Readonly<{
-  title: string
-  content: string
-  onConfirm: () => void
-}>
+type MfaPromptState = {
+  visible: boolean
+  loading: boolean
+  errorMessage: string
+}
+
+type MfaSetupState = {
+  visible: boolean
+  loading: boolean
+  secret: string
+  otpAuthUrl: string
+  setupCode: string
+  recoveryCodes: string[]
+  errorMessage: string
+}
+
+type MfaCredentialState = {
+  visible: boolean
+  loading: boolean
+  errorMessage: string
+  mode: 'disable' | 'regenerate'
+}
+
+type SessionState = {
+  loading: boolean
+  list: UserSessionSummary[]
+}
+
+type DeleteAccountState = {
+  loading: boolean
+  visible: boolean
+  form: {
+    password: string
+    confirmText: string
+    code: string
+    recoveryCode: string
+  }
+}
+
+const DELETE_CONFIRM_TEXT = 'DELETE'
 
 export function useUserProfileSecurity() {
   const userStore = useUserStore()
@@ -26,6 +81,9 @@ export function useUserProfileSecurity() {
 
   const usernameTask = useAbortableTask()
   const passwordTask = useAbortableTask()
+  const sessionTask = useAbortableTask()
+  const mfaTask = useAbortableTask()
+  const deleteTask = useAbortableTask()
 
   const usernameForm = reactive<UpdateUsernameDto>({
     newUsername: userStore.userInfo?.username || ''
@@ -37,11 +95,49 @@ export function useUserProfileSecurity() {
     confirmPassword: ''
   })
 
-  const modalState = reactive({
+  const mfaPrompt = reactive<MfaPromptState>({
     visible: false,
-    title: '',
-    content: '',
-    onConfirm: () => {}
+    loading: false,
+    errorMessage: ''
+  })
+
+  const mfaProfile = reactive<MfaProfile & { loading: boolean }>({
+    enabled: false,
+    verifiedAt: null,
+    loading: false
+  })
+
+  const mfaSetupState = reactive<MfaSetupState>({
+    visible: false,
+    loading: false,
+    secret: '',
+    otpAuthUrl: '',
+    setupCode: '',
+    recoveryCodes: [],
+    errorMessage: ''
+  })
+
+  const mfaCredentialState = reactive<MfaCredentialState>({
+    visible: false,
+    loading: false,
+    errorMessage: '',
+    mode: 'disable'
+  })
+
+  const sessionState = reactive<SessionState>({
+    loading: false,
+    list: []
+  })
+
+  const deleteAccountState = reactive<DeleteAccountState>({
+    loading: false,
+    visible: false,
+    form: {
+      password: '',
+      confirmText: '',
+      code: '',
+      recoveryCode: ''
+    }
   })
 
   const isUserBanned = computed(() => userStore.isBanned)
@@ -53,7 +149,7 @@ export function useUserProfileSecurity() {
   const usernameSubmitText = computed(() => (loadingName.value ? '处理中...' : '保存更改'))
   const passwordSubmitText = computed(() => {
     if (isCalculating.value) {
-      return '🔒 安全计算中...'
+      return '安全计算中...'
     }
     if (loadingPwd.value) {
       return '提交中...'
@@ -67,16 +163,14 @@ export function useUserProfileSecurity() {
   const showPasswordSubmitButton = computed(() => !isUserBanned.value)
   const usernameBannedText = '账号受限：暂无法修改资料'
   const passwordBannedText = '账号受限：安全设置已锁定'
-
-  const triggerModal = (config: ProfileModalConfig): void => {
-    modalState.title = config.title
-    modalState.content = config.content
-    modalState.onConfirm = () => {
-      config.onConfirm()
-      modalState.visible = false
-    }
-    modalState.visible = true
-  }
+  const mfaCredentialTitle = computed(() =>
+    mfaCredentialState.mode === 'disable' ? '关闭 MFA' : '重新生成恢复码'
+  )
+  const mfaCredentialDescription = computed(() =>
+    mfaCredentialState.mode === 'disable'
+      ? '请输入当前密码和验证码，确认关闭多因素认证。'
+      : '请输入当前密码和验证码，重新生成恢复码。'
+  )
 
   let usernameRegex: RegExp
   try {
@@ -94,7 +188,7 @@ export function useUserProfileSecurity() {
     oldPassword: [{ required: true, message: '请填写当前密码', trigger: 'blur' }],
     newPassword: [
       { required: true, message: '请填写新密码', trigger: 'blur' },
-      { min: 6, message: '密码长度至少 6 位', trigger: 'blur' }
+      { min: 8, message: '密码长度至少 8 位', trigger: 'blur' }
     ],
     confirmPassword: [
       { required: true, message: '请再次确认密码', trigger: 'blur' },
@@ -111,7 +205,43 @@ export function useUserProfileSecurity() {
     ]
   }
 
-  let logoutTimer: ReturnType<typeof setTimeout> | null = null
+  const buildSignalConfig = (signal: AbortSignal) =>
+    ({
+      signal,
+      requiresPow: true
+    } satisfies AxiosRequestConfig)
+
+  const reloadMfaProfile = async (): Promise<void> => {
+    mfaProfile.loading = true
+    try {
+      const profile = await mfaTask.run(async (signal) => await getMfaProfile({ signal }))
+      if (!profile) {
+        return
+      }
+      mfaProfile.enabled = profile.enabled
+      mfaProfile.verifiedAt = profile.verifiedAt
+    } catch (error) {
+      if (!isAbortError(error)) {
+        toast.error(getErrorMessage(error, 'MFA 状态加载失败'))
+      }
+    } finally {
+      mfaProfile.loading = false
+    }
+  }
+
+  const reloadSessions = async (): Promise<void> => {
+    sessionState.loading = true
+    try {
+      const sessions = await sessionTask.run(async (signal) => await listSessions({ signal }))
+      sessionState.list = sessions ?? []
+    } catch (error) {
+      if (!isAbortError(error)) {
+        toast.error(getErrorMessage(error, '设备会话加载失败'))
+      }
+    } finally {
+      sessionState.loading = false
+    }
+  }
 
   const handleUpdateUsername = async (): Promise<void> => {
     const nameCheck = validateUsername(usernameForm.newUsername)
@@ -147,13 +277,14 @@ export function useUserProfileSecurity() {
     try {
       await usernameFormRef.value.validate()
       const safeName = usernameForm.newUsername.replace(/["<>]/g, '')
-      triggerModal({
-        title: '修改身份识别',
-        content: `确定将用户名修改为 "${safeName}" 吗？这可能会影响您的展示名称。`,
-        onConfirm: () => { void handleUpdateUsername() }
-      })
+      await ElMessageBox.confirm(
+        `确定将用户名修改为 "${safeName}" 吗？这可能会影响您的展示名称。`,
+        '修改身份识别',
+        { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' }
+      )
+      void handleUpdateUsername()
     } catch {
-      // ElementPlus shows validation message.
+      // noop
     }
   }
 
@@ -171,14 +302,7 @@ export function useUserProfileSecurity() {
           confirmPassword: passwordForm.confirmPassword
         }
 
-        await updatePassword(
-          payload,
-          {
-            signal,
-            requiresPow: true
-          } satisfies AxiosRequestConfig
-        )
-
+        await updatePassword(payload, buildSignalConfig(signal))
         if (signal.aborted) {
           return
         }
@@ -188,24 +312,11 @@ export function useUserProfileSecurity() {
         passwordForm.confirmPassword = ''
 
         toast.success('密码已重置，请重新登录')
-        if (logoutTimer) {
-          clearTimeout(logoutTimer)
-        }
-
-        logoutTimer = setTimeout(async () => {
-          await userStore.logout()
-        }, 2000)
+        await userStore.logout()
       })
     } catch (error: unknown) {
-      if (isAbortError(error)) {
-        return
-      }
-
-      const message = getErrorMessage(error, '密码修改失败')
-      if (message.includes('POW_CALCULATION_TIMEOUT')) {
-        toast.error('安全环境响应超时，请刷新页面重试')
-      } else {
-        toast.error(message || '密码修改失败')
+      if (!isAbortError(error)) {
+        toast.error(getErrorMessage(error, '密码修改失败'))
       }
     } finally {
       loadingPwd.value = false
@@ -219,23 +330,213 @@ export function useUserProfileSecurity() {
 
     try {
       await passwordFormRef.value.validate()
-      triggerModal({
-        title: '更新安全凭证',
-        content: '确定要重置您的登录密码吗？更新成功后，系统将要求您重新登录。',
-        onConfirm: () => { void handleUpdatePassword() }
-      })
+      await ElMessageBox.confirm(
+        '确定要重置您的登录密码吗？更新成功后，系统将要求您重新登录。',
+        '更新安全凭证',
+        { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' }
+      )
+      void handleUpdatePassword()
     } catch {
-      // ElementPlus shows validation message.
+      // noop
     }
   }
+
+  const closeMfaPrompt = (_reason: unknown = null): void => {
+    mfaPrompt.visible = false
+    mfaPrompt.loading = false
+    mfaPrompt.errorMessage = ''
+  }
+
+  const submitMfaPrompt = async (payload: { code?: string; recoveryCode?: string }): Promise<void> => {
+    if (!mfaPrompt.visible) {
+      return
+    }
+
+    mfaPrompt.loading = true
+    mfaPrompt.errorMessage = ''
+    try {
+      // 当前页面未使用独立 challenge 流，保留占位以兼容现有弹窗结构。
+      if (!payload.code && !payload.recoveryCode) {
+        mfaPrompt.errorMessage = '请输入验证码或恢复码'
+      }
+    } finally {
+      mfaPrompt.loading = false
+    }
+  }
+
+  const startMfaSetupFlow = async (): Promise<void> => {
+    mfaSetupState.visible = true
+    mfaSetupState.loading = true
+    mfaSetupState.errorMessage = ''
+    mfaSetupState.recoveryCodes = []
+    mfaSetupState.setupCode = ''
+    try {
+      const result = await mfaTask.run(async (signal) => await startMfaSetup({ signal }))
+      const payload = result as MfaSetupStart
+      mfaSetupState.secret = payload.secret
+      mfaSetupState.otpAuthUrl = payload.otpAuthUrl
+    } catch (error) {
+      mfaSetupState.errorMessage = getErrorMessage(error, 'MFA 初始化失败')
+    } finally {
+      mfaSetupState.loading = false
+    }
+  }
+
+  const completeMfaSetupFlow = async (): Promise<void> => {
+    if (!mfaSetupState.setupCode.trim()) {
+      return
+    }
+
+    mfaSetupState.loading = true
+    mfaSetupState.errorMessage = ''
+    try {
+      const result = await mfaTask.run(
+        async (signal) => await verifyMfaSetup(mfaSetupState.setupCode.trim(), { signal })
+      )
+      const payload = result as MfaSetupVerify
+      mfaSetupState.recoveryCodes = payload.recoveryCodes
+      await reloadMfaProfile()
+      toast.success('MFA 已启用')
+    } catch (error) {
+      mfaSetupState.errorMessage = getErrorMessage(error, 'MFA 验证失败')
+    } finally {
+      mfaSetupState.loading = false
+    }
+  }
+
+  const openDisableMfaModal = (): void => {
+    mfaCredentialState.mode = 'disable'
+    mfaCredentialState.visible = true
+    mfaCredentialState.errorMessage = ''
+  }
+
+  const openRegenerateRecoveryCodesModal = (): void => {
+    mfaCredentialState.mode = 'regenerate'
+    mfaCredentialState.visible = true
+    mfaCredentialState.errorMessage = ''
+  }
+
+  const closeMfaCredentialModal = (): void => {
+    mfaCredentialState.visible = false
+    mfaCredentialState.loading = false
+    mfaCredentialState.errorMessage = ''
+  }
+
+  const submitMfaCredential = async (payload: { password: string; code?: string; recoveryCode?: string }): Promise<void> => {
+    mfaCredentialState.loading = true
+    mfaCredentialState.errorMessage = ''
+    try {
+      if (mfaCredentialState.mode === 'disable') {
+        await mfaTask.run(async (signal) =>
+          await disableMfa(
+            { password: payload.password, code: payload.code, recoveryCode: payload.recoveryCode },
+            buildSignalConfig(signal)
+          )
+        )
+        toast.success('MFA 已关闭')
+      } else {
+        const result = await mfaTask.run(async (signal) =>
+          await regenerateMfaRecoveryCodes(
+            { password: payload.password, code: payload.code, recoveryCode: payload.recoveryCode },
+            buildSignalConfig(signal)
+          )
+        )
+        const response = result as MfaSetupVerify
+        await ElMessageBox.alert(response.recoveryCodes.join('\n'), '新的恢复码（仅显示一次）', {
+          confirmButtonText: '我已记录'
+        })
+        toast.success('恢复码已更新')
+      }
+
+      closeMfaCredentialModal()
+      await reloadMfaProfile()
+    } catch (error) {
+      mfaCredentialState.errorMessage = getErrorMessage(error, 'MFA 操作失败')
+    } finally {
+      mfaCredentialState.loading = false
+    }
+  }
+
+  const revokeSessionDevice = async (sessionId: string): Promise<void> => {
+    try {
+      await sessionTask.run(async (signal) => await revokeSession(sessionId, { signal }))
+      toast.success('设备已下线')
+      await reloadSessions()
+    } catch (error) {
+      if (!isAbortError(error)) {
+        toast.error(getErrorMessage(error, '设备下线失败'))
+      }
+    }
+  }
+
+  const revokeOtherSessionDevices = async (): Promise<void> => {
+    try {
+      await sessionTask.run(async (signal) => await revokeOtherSessions({ signal }))
+      toast.success('其他设备已下线')
+      await reloadSessions()
+    } catch (error) {
+      if (!isAbortError(error)) {
+        toast.error(getErrorMessage(error, '批量下线失败'))
+      }
+    }
+  }
+
+  const openDeleteAccountDialog = async (): Promise<void> => {
+    deleteAccountState.visible = true
+    deleteAccountState.form.password = ''
+    deleteAccountState.form.confirmText = ''
+    deleteAccountState.form.code = ''
+    deleteAccountState.form.recoveryCode = ''
+  }
+
+  const submitDeleteAccount = async (): Promise<void> => {
+    if (deleteAccountState.loading) {
+      return
+    }
+
+    const payload: DeleteAccountRequest = {
+      password: deleteAccountState.form.password.trim(),
+      confirmText: deleteAccountState.form.confirmText.trim(),
+      code: deleteAccountState.form.code.trim() || undefined,
+      recoveryCode: deleteAccountState.form.recoveryCode.trim() || undefined
+    }
+
+    if (!payload.password) {
+      toast.error('请输入当前密码')
+      return
+    }
+
+    if (payload.confirmText !== DELETE_CONFIRM_TEXT) {
+      toast.error(`请输入 ${DELETE_CONFIRM_TEXT} 作为确认文本`)
+      return
+    }
+
+    deleteAccountState.loading = true
+    try {
+      await deleteTask.run(async (signal) => await deleteAccount(payload, buildSignalConfig(signal)))
+      toast.success('账户已注销')
+      deleteAccountState.visible = false
+      await userStore.logout()
+    } catch (error) {
+      if (!isAbortError(error)) {
+        toast.error(getErrorMessage(error, '账户注销失败'))
+      }
+    } finally {
+      deleteAccountState.loading = false
+    }
+  }
+
+  onMounted(() => {
+    void reloadMfaProfile()
+    void reloadSessions()
+  })
 
   onUnmounted(() => {
     usernameTask.cancel()
     passwordTask.cancel()
-    if (logoutTimer) {
-      clearTimeout(logoutTimer)
-      logoutTimer = null
-    }
+    sessionTask.cancel()
+    mfaTask.cancel()
+    deleteTask.cancel()
   })
 
   return {
@@ -252,14 +553,33 @@ export function useUserProfileSecurity() {
     usernameBannedText,
     passwordBannedText,
     loadingName,
-    loadingPwd,
     usernameFormRef,
     passwordFormRef,
     usernameForm,
     passwordForm,
-    modalState,
+    mfaPrompt,
+    mfaProfile,
+    mfaSetupState,
+    mfaCredentialState,
+    mfaCredentialTitle,
+    mfaCredentialDescription,
+    sessionState,
+    deleteAccountState,
+    deleteConfirmText: DELETE_CONFIRM_TEXT,
     rules,
     requestUpdateUsername,
-    requestUpdatePassword
+    requestUpdatePassword,
+    submitMfaPrompt,
+    closeMfaPrompt,
+    startMfaSetupFlow,
+    completeMfaSetupFlow,
+    openDisableMfaModal,
+    openRegenerateRecoveryCodesModal,
+    closeMfaCredentialModal,
+    submitMfaCredential,
+    revokeSessionDevice,
+    revokeOtherSessionDevices,
+    openDeleteAccountDialog,
+    submitDeleteAccount
   }
 }

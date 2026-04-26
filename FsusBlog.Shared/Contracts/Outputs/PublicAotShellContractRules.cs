@@ -61,22 +61,30 @@ public static class PublicAotShellContractRules
         normalizedRouteKey = NormalizeRouteKey(entry.PageId, entry.RouteKey, entry.ArticleId);
         normalizedHtml = NormalizeHtml(entry.Html, entry.ArticleId);
 
-        if (!TryValidateBootstrapJson(entry, normalizedRouteKey, out error))
+        if (!PublicAotEntryJsonView.TryCreate(entry, out PublicAotEntryJsonView? jsonView, out error))
         {
             return false;
         }
 
-        if (!TryValidateHydrationPropsJson(entry, normalizedRouteKey, out error))
+        using PublicAotEntryJsonView view = jsonView!;
         {
-            return false;
-        }
+            if (!TryValidateBootstrapJson(entry, normalizedRouteKey, view, out error))
+            {
+                return false;
+            }
 
-        if (!TryValidateIslandsJson(entry, out error))
-        {
-            return false;
-        }
+            if (!TryValidateHydrationPropsJson(entry, normalizedRouteKey, view, out error))
+            {
+                return false;
+            }
 
-        return true;
+            if (!TryValidateIslandsJson(entry, view, out error))
+            {
+                return false;
+            }
+
+            return true;
+        }
     }
 
     public static string NormalizeRouteKey(PublicPageId pageId, string routeKey, int? articleId)
@@ -106,160 +114,140 @@ public static class PublicAotShellContractRules
         return html.Replace("{{articleId}}", articleId.Value.ToString(), StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool TryValidateBootstrapJson(PublicAotShellEntryContract entry, string normalizedRouteKey, out string error)
+    private static bool TryValidateBootstrapJson(PublicAotShellEntryContract entry, string normalizedRouteKey, PublicAotEntryJsonView jsonView, out string error)
     {
         error = string.Empty;
-
-        try
+        JsonElement root = jsonView.Bootstrap;
+        if (root.TryGetProperty("kind", out JsonElement kindElement) &&
+            !kindElement.ValueKind.Equals(JsonValueKind.String))
         {
-            using JsonDocument document = JsonDocument.Parse(entry.BootstrapJson!);
-            JsonElement root = document.RootElement;
-            if (root.TryGetProperty("kind", out JsonElement kindElement) &&
-                !kindElement.ValueKind.Equals(JsonValueKind.String))
-            {
-                error = "AOT bootstrap.kind 非法";
-                return false;
-            }
-
-            string? kind = root.TryGetProperty("kind", out JsonElement kindValue) ? kindValue.GetString() : null;
-            string? pageKind = root.TryGetProperty("pageKind", out JsonElement pageKindValue) ? pageKindValue.GetString() : null;
-            string? routeKey = root.TryGetProperty("routeKey", out JsonElement routeKeyValue) ? routeKeyValue.GetString() : null;
-            string? rendererVersion = root.TryGetProperty("rendererVersion", out JsonElement rendererVersionValue) ? rendererVersionValue.GetString() : null;
-
-            string expectedPageKind = entry.PageId.ToString();
-            if (!string.IsNullOrWhiteSpace(kind) && !string.Equals(kind, expectedPageKind, StringComparison.Ordinal))
-            {
-                error = $"AOT bootstrap.kind 与页面类型不一致，应为 {expectedPageKind}";
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(pageKind) && !string.Equals(pageKind, expectedPageKind, StringComparison.Ordinal))
-            {
-                error = $"AOT bootstrap.pageKind 与页面类型不一致，应为 {expectedPageKind}";
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(routeKey) && !string.Equals(routeKey, normalizedRouteKey, StringComparison.Ordinal))
-            {
-                error = $"AOT bootstrap.routeKey 与页面路由不一致，应为 {normalizedRouteKey}";
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(rendererVersion) &&
-                !string.Equals(rendererVersion, entry.RendererVersion, StringComparison.Ordinal))
-            {
-                error = "AOT bootstrap.rendererVersion 与 entry 不一致";
-                return false;
-            }
-
-            if (entry.PageId == PublicPageId.ArticleDetail)
-            {
-                if (!root.TryGetProperty("article", out JsonElement article) || article.ValueKind != JsonValueKind.Object)
-                {
-                    error = "AOT bootstrap.article 缺失";
-                    return false;
-                }
-
-                if (!article.TryGetProperty("id", out JsonElement articleIdElement) ||
-                    !TryGetInt32(articleIdElement, out int articleId) ||
-                    articleId != entry.ArticleId)
-                {
-                    error = "AOT bootstrap.article.id 与 entry.articleId 不一致";
-                    return false;
-                }
-
-                if (!root.TryGetProperty("commentsPlaceholder", out JsonElement placeholder) ||
-                    placeholder.ValueKind != JsonValueKind.String ||
-                    string.IsNullOrWhiteSpace(placeholder.GetString()))
-                {
-                    error = "AOT bootstrap.commentsPlaceholder 缺失";
-                    return false;
-                }
-            }
-
-            return true;
-        }
-        catch (JsonException)
-        {
-            error = "AOT bootstrap 不是合法 JSON";
+            error = "AOT bootstrap.kind 非法";
             return false;
         }
+
+        string? kind = root.TryGetProperty("kind", out JsonElement kindValue) ? kindValue.GetString() : null;
+        string? pageKind = root.TryGetProperty("pageKind", out JsonElement pageKindValue) ? pageKindValue.GetString() : null;
+        string? routeKey = root.TryGetProperty("routeKey", out JsonElement routeKeyValue) ? routeKeyValue.GetString() : null;
+        string? rendererVersion = root.TryGetProperty("rendererVersion", out JsonElement rendererVersionValue) ? rendererVersionValue.GetString() : null;
+
+        string expectedPageKind = entry.PageId.ToString();
+        if (!string.IsNullOrWhiteSpace(kind) && !string.Equals(kind, expectedPageKind, StringComparison.Ordinal))
+        {
+            error = $"AOT bootstrap.kind 与页面类型不一致，应为 {expectedPageKind}";
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(pageKind) && !string.Equals(pageKind, expectedPageKind, StringComparison.Ordinal))
+        {
+            error = $"AOT bootstrap.pageKind 与页面类型不一致，应为 {expectedPageKind}";
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(routeKey) && !string.Equals(routeKey, normalizedRouteKey, StringComparison.Ordinal))
+        {
+            error = $"AOT bootstrap.routeKey 与页面路由不一致，应为 {normalizedRouteKey}";
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(rendererVersion) &&
+            !string.Equals(rendererVersion, entry.RendererVersion, StringComparison.Ordinal))
+        {
+            error = "AOT bootstrap.rendererVersion 与 entry 不一致";
+            return false;
+        }
+
+        if (entry.PageId == PublicPageId.ArticleDetail)
+        {
+            if (!root.TryGetProperty("article", out JsonElement article) || article.ValueKind != JsonValueKind.Object)
+            {
+                error = "AOT bootstrap.article 缺失";
+                return false;
+            }
+
+            if (!article.TryGetProperty("id", out JsonElement articleIdElement) ||
+                !TryGetInt32(articleIdElement, out int articleId) ||
+                articleId != entry.ArticleId)
+            {
+                error = "AOT bootstrap.article.id 与 entry.articleId 不一致";
+                return false;
+            }
+
+            if (!root.TryGetProperty("commentsPlaceholder", out JsonElement placeholder) ||
+                placeholder.ValueKind != JsonValueKind.String ||
+                string.IsNullOrWhiteSpace(placeholder.GetString()))
+            {
+                error = "AOT bootstrap.commentsPlaceholder 缺失";
+                return false;
+            }
+        }
+
+        return true;
     }
 
-    private static bool TryValidateHydrationPropsJson(PublicAotShellEntryContract entry, string normalizedRouteKey, out string error)
+    private static bool TryValidateHydrationPropsJson(PublicAotShellEntryContract entry, string normalizedRouteKey, PublicAotEntryJsonView jsonView, out string error)
     {
         error = string.Empty;
+        JsonElement root = jsonView.Hydration;
+        string? pageKind = root.TryGetProperty("pageKind", out JsonElement pageKindValue) ? pageKindValue.GetString() : null;
+        string? routeKey = root.TryGetProperty("routeKey", out JsonElement routeKeyValue) ? routeKeyValue.GetString() : null;
+        string? rendererVersion = root.TryGetProperty("rendererVersion", out JsonElement rendererVersionValue) ? rendererVersionValue.GetString() : null;
 
-        try
+        string expectedPageKind = entry.PageId.ToString();
+        if (!string.Equals(pageKind, expectedPageKind, StringComparison.Ordinal))
         {
-            using JsonDocument document = JsonDocument.Parse(entry.HydrationPropsJson!);
-            JsonElement root = document.RootElement;
-            string? pageKind = root.TryGetProperty("pageKind", out JsonElement pageKindValue) ? pageKindValue.GetString() : null;
-            string? routeKey = root.TryGetProperty("routeKey", out JsonElement routeKeyValue) ? routeKeyValue.GetString() : null;
-            string? rendererVersion = root.TryGetProperty("rendererVersion", out JsonElement rendererVersionValue) ? rendererVersionValue.GetString() : null;
-
-            string expectedPageKind = entry.PageId.ToString();
-            if (!string.Equals(pageKind, expectedPageKind, StringComparison.Ordinal))
-            {
-                error = $"AOT hydration.pageKind 与页面类型不一致，应为 {expectedPageKind}";
-                return false;
-            }
-
-            if (!string.Equals(routeKey, normalizedRouteKey, StringComparison.Ordinal))
-            {
-                error = $"AOT hydration.routeKey 与页面路由不一致，应为 {normalizedRouteKey}";
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(rendererVersion) &&
-                !string.Equals(rendererVersion, entry.RendererVersion, StringComparison.Ordinal))
-            {
-                error = "AOT hydration.rendererVersion 与 entry 不一致";
-                return false;
-            }
-
-            if (entry.PageId == PublicPageId.ArticleDetail)
-            {
-                if (!root.TryGetProperty("articleId", out JsonElement articleIdElement) ||
-                    !TryGetInt32(articleIdElement, out int articleId) ||
-                    articleId != entry.ArticleId)
-                {
-                    error = "AOT hydration.articleId 与 entry.articleId 不一致";
-                    return false;
-                }
-
-                if (!root.TryGetProperty("commentsIsland", out JsonElement commentsIsland) ||
-                    commentsIsland.ValueKind != JsonValueKind.Object)
-                {
-                    error = "AOT hydration.commentsIsland 缺失";
-                    return false;
-                }
-
-                if (!commentsIsland.TryGetProperty("articleId", out JsonElement islandArticleIdElement) ||
-                    !TryGetInt32(islandArticleIdElement, out int islandArticleId) ||
-                    islandArticleId != entry.ArticleId)
-                {
-                    error = "AOT hydration.commentsIsland.articleId 与 entry.articleId 不一致";
-                    return false;
-                }
-            }
-
-            return true;
-        }
-        catch (JsonException)
-        {
-            error = "AOT hydration props 不是合法 JSON";
+            error = $"AOT hydration.pageKind 与页面类型不一致，应为 {expectedPageKind}";
             return false;
         }
+
+        if (!string.Equals(routeKey, normalizedRouteKey, StringComparison.Ordinal))
+        {
+            error = $"AOT hydration.routeKey 与页面路由不一致，应为 {normalizedRouteKey}";
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(rendererVersion) &&
+            !string.Equals(rendererVersion, entry.RendererVersion, StringComparison.Ordinal))
+        {
+            error = "AOT hydration.rendererVersion 与 entry 不一致";
+            return false;
+        }
+
+        if (entry.PageId == PublicPageId.ArticleDetail)
+        {
+            if (!root.TryGetProperty("articleId", out JsonElement articleIdElement) ||
+                !TryGetInt32(articleIdElement, out int articleId) ||
+                articleId != entry.ArticleId)
+            {
+                error = "AOT hydration.articleId 与 entry.articleId 不一致";
+                return false;
+            }
+
+            if (!root.TryGetProperty("commentsIsland", out JsonElement commentsIsland) ||
+                commentsIsland.ValueKind != JsonValueKind.Object)
+            {
+                error = "AOT hydration.commentsIsland 缺失";
+                return false;
+            }
+
+            if (!commentsIsland.TryGetProperty("articleId", out JsonElement islandArticleIdElement) ||
+                !TryGetInt32(islandArticleIdElement, out int islandArticleId) ||
+                islandArticleId != entry.ArticleId)
+            {
+                error = "AOT hydration.commentsIsland.articleId 与 entry.articleId 不一致";
+                return false;
+            }
+        }
+
+        return true;
     }
 
-    private static bool TryValidateIslandsJson(PublicAotShellEntryContract entry, out string error)
+    private static bool TryValidateIslandsJson(PublicAotShellEntryContract entry, PublicAotEntryJsonView jsonView, out string error)
     {
         error = string.Empty;
 
         if (entry.PageId != PublicPageId.ArticleDetail)
         {
-            if (!string.IsNullOrWhiteSpace(entry.IslandsJson))
+            if (jsonView.HasIslands)
             {
                 error = "非文章详情页不应携带 islands";
                 return false;
@@ -268,37 +256,28 @@ public static class PublicAotShellContractRules
             return true;
         }
 
-        if (string.IsNullOrWhiteSpace(entry.IslandsJson))
+        if (!jsonView.HasIslands)
         {
             error = "文章详情页 islands 缺失";
             return false;
         }
 
-        try
+        JsonElement root = jsonView.Islands;
+        if (!root.TryGetProperty("comments", out JsonElement comments) || comments.ValueKind != JsonValueKind.Object)
         {
-            using JsonDocument document = JsonDocument.Parse(entry.IslandsJson!);
-            JsonElement root = document.RootElement;
-            if (!root.TryGetProperty("comments", out JsonElement comments) || comments.ValueKind != JsonValueKind.Object)
-            {
-                error = "AOT islands.comments 缺失";
-                return false;
-            }
-
-            if (!comments.TryGetProperty("articleId", out JsonElement articleIdElement) ||
-                !TryGetInt32(articleIdElement, out int articleId) ||
-                articleId != entry.ArticleId)
-            {
-                error = "AOT islands.comments.articleId 与 entry.articleId 不一致";
-                return false;
-            }
-
-            return true;
-        }
-        catch (JsonException)
-        {
-            error = "AOT islands 不是合法 JSON";
+            error = "AOT islands.comments 缺失";
             return false;
         }
+
+        if (!comments.TryGetProperty("articleId", out JsonElement articleIdElement) ||
+            !TryGetInt32(articleIdElement, out int articleId) ||
+            articleId != entry.ArticleId)
+        {
+            error = "AOT islands.comments.articleId 与 entry.articleId 不一致";
+            return false;
+        }
+
+        return true;
     }
 
     private static bool TryGetInt32(JsonElement element, out int value)

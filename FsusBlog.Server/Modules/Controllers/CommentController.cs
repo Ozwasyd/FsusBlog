@@ -1,9 +1,11 @@
-﻿using FsusBlog.Server.Infrastructure.Filters;
+﻿using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
-using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
+using FsusBlog.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -17,7 +19,7 @@ namespace FsusBlog.Server.Modules.Controllers;
 [Route("api/[controller]")]
 [ApiController]
 public partial class CommentController( // partial for logger
-    ICommentService _commentService,
+    CommentService _commentService,
     ILogger<CommentController> _logger) : ControllerBase
 {
     [Authorize]
@@ -30,15 +32,20 @@ public partial class CommentController( // partial for logger
         int userId = User.GetUserId();
         if (userId == 0)
         {
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Comment,
+                AuditTypeCatalog.Security,
+                new KeyValuePair<string, object?>("AuditAction", "comment.create.blocked"),
+                new KeyValuePair<string, object?>("ClientIp", HttpContext.GetClientIp()));
             LogUnauthorizedComment(HttpContext.GetClientIp());
-            return Unauthorized(ApiResponse.Fail("未授权的访问，请重新登录", 401));
+            return ControllerResults.Unauthorized("未授权的访问，请重新登录", HttpContext.TraceIdentifier);
         }
 
         var success = await _commentService.CreateCommentAsync(userId, dto);
 
         return success
             ? ApiResponse.Success("评论成功")
-            : BadRequest(ApiResponse.Fail("发布失败：可能文章已关闭评论或数据异常", 400));
+            : ControllerResults.BadRequest("发布失败：可能文章已关闭评论或数据异常", HttpContext.TraceIdentifier);
     }
 
     /// <summary>
@@ -60,8 +67,14 @@ public partial class CommentController( // partial for logger
             return ApiResponse.Success("评论已删除");
         }
 
+        using var _ = AuditLogScope.Push(
+            AuditSourceCatalog.Comment,
+            AuditTypeCatalog.Security,
+            new KeyValuePair<string, object?>("AuditAction", "comment.delete.blocked"),
+            new KeyValuePair<string, object?>("CommentId", id),
+            new KeyValuePair<string, object?>("OperatorUserId", userId));
         LogDeleteFailed(id, userId);
-        return StatusCode(403, ApiResponse.Fail("未找到该评论或无权删除", 403));
+        return ControllerResults.Forbidden("未找到该评论或无权删除", HttpContext.TraceIdentifier);
     }
 
     // ==========================================

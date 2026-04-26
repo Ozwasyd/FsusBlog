@@ -4,21 +4,29 @@
 services:
   # 后端 API 调试配置
   fsusblog.server:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - DOTNET_USE_POLLING_FILE_WATCHER=1
+      - DOTNET_WATCH_SUPPRESS_BROWSER_REFRESH=1
+      - HOME=/tmp/fsusblog-dev
+      - DOTNET_CLI_HOME=/tmp/fsusblog-dev
+      - NUGET_PACKAGES=/tmp/fsusblog-dev/.nuget/packages
+      - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev
+      - ConnectionStrings__Redis=host.docker.internal:6379,abortConnect=false,connectTimeout=10000
+      - RedisOptions__Configuration=host.docker.internal:6379,abortConnect=false,connectTimeout=10000
+      - CORS_ALLOWED_HOSTS=http://localhost:3000,http://127.0.0.1:3000
+      - Seo__BaseUrl=http://127.0.0.1:3000
     volumes:
-      - ./FsusBlog.Server:/app
+      - ./:/workspace
       - ~/.aspnet/https:/https:ro
-    working_dir: /app
-    command: ["dotnet", "watch", "run", "--project", "FsusBlog.Server.csproj", "--urls", "http://+:8080"]
+    working_dir: /workspace/FsusBlog.Server
+    command: ["dotnet", "watch", "--non-interactive", "run", "--project", "FsusBlog.Server.csproj", "--urls", "http://0.0.0.0:5000"]
+    extra_hosts:
+      - host.docker.internal:host-gateway
     ports:
-      # 宿主机通过 localhost:5173 直连后端的 8080 端口
-      - "5173:8080"
-    # 主文件中已有 networks，继承配置即可
-    networks:
-      # 核心修复：确保该开发模式下的容器强制加入同一网络
-      - fsus-infra-network
+      - "5000:5000"
 
   # =========================================================================
   #[修改日期 2026-03-01]

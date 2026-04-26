@@ -7,4 +7,3 @@ export * from './filterView';
 export * from './publicPages';
 export * from './aboutPage';
 export * from './userMessages';
-export * from './adminMessageManage';

@@ -4,5 +4,7 @@ namespace FsusBlog.Server.Interfaces;
 
 public interface IStatsService
 {
-    Task<SiteStatsDto> GetAdminStatsAsync();
+    Task<AdminStatsOverviewDto> GetAdminStatsOverviewAsync();
+    Task<List<RecentCommentStatItemDto>> GetAdminRecentCommentsAsync();
+    Task<List<RegionStatItemDto>> GetAdminRegionStatsAsync();
 }

@@ -1,207 +1,294 @@
-import { ref, type Ref } from 'vue';
-import { useRouter } from 'vue-router';
-import {
-    notificationService,
-    type GlobalNoticePayload,
-    type UserStatusPayload,
-    type CommentRemovedPayload,
-    type CommentAddedPayload,
-    type ArticleUpdatePayload,
-    type MessageRevokedPayload
-} from '@/services/notificationService';
-import { toast } from '@/utils/toast';
-import { useUserStore } from '@/store/user';
-import { type MessageItem } from '@/api/message';
-import { getPowChallenge } from '@/api/auth';
-import { getBrowserFp } from '@/utils/fingerprint';
-import { usePow } from '@/composables/usePow';
+import { ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useRouter } from 'vue-router'
+import { getPowChallenge } from '@/api/auth'
+import { usePow } from '@/composables/usePow'
+import { invalidateSearchIndexMemory } from '@/services/localSearch'
+import { forwardCacheControlPayload, forwardSearchIndexUpdate, postSwControlMessage } from '@/services/serviceWorkerRuntime'
+import { sseRuntime } from '@/services/sseRuntime'
+import { SseEventType, SseFailureCodes, type ArticleUpdatePayload, type CacheControlPayload, type PowParams, type SearchIndexUpdatePayload, type SseEventV2, type SseFailureCode, type UserStatusPayload } from '@/services/sseTypes'
+import { useSseStore } from '@/store/sse'
+import { useUserStore } from '@/store/user'
+import { getBrowserFp } from '@/utils/fingerprint'
+import { showErrorToast } from '@/utils/errorPresentation'
+import { toast } from '@/utils/toast'
 
-const unreadCount: Ref<number> = ref(0);
-const currentMode = ref<'auth' | 'guest' | ''>('');
-const isInitializing = ref(false);
+const currentMode = ref<'auth' | 'guest' | ''>('')
+const isInitializing = ref(false)
 
-let lastReauthTime = 0;
-let memoryPowCache: CachedPow | null = null; 
+let lastReauthTime = 0
+let memoryPowCache: PowParams | null = null
+let bindingsInitialized = false
+let reauthRetryTimer: ReturnType<typeof setTimeout> | null = null
+let initNotificationPromise: Promise<void> | null = null
+let pendingInitMode: 'auth' | 'guest' | '' = ''
 
-interface CachedPow {
-    nonce: string;
-    salt: string;
-    fp: string;
-    signature: string;
-    difficulty: number;
-    timestamp: number;
+const POW_STORAGE_KEY = 'sse_guest_pow'
+
+function clearReauthRetryTimer(): void {
+    if (!reauthRetryTimer) {
+        return
+    }
+
+    clearTimeout(reauthRetryTimer)
+    reauthRetryTimer = null
 }
-const POW_STORAGE_KEY = 'signalr_guest_pow';
+
+function disposeNotificationBindings(): void {
+    clearReauthRetryTimer()
+    sseRuntime.onEvent = undefined
+    sseRuntime.onCursorChange = undefined
+    sseRuntime.onStatusChange = undefined
+    sseRuntime.onDuplicateEvent = undefined
+    sseRuntime.onProtocolError = undefined
+    sseRuntime.onHandshakeFailure = undefined
+    sseRuntime.onReconnectSuccess = undefined
+    bindingsInitialized = false
+}
 
 export function useNotification() {
-    const userStore = useUserStore();
-    const router = useRouter();
-    const { calculate, prewarm, isCalculating } = usePow();
+    const userStore = useUserStore()
+    const sseStore = useSseStore()
+    const { unreadCount } = storeToRefs(sseStore)
+    const router = useRouter()
+    const { calculate, prewarm, isCalculating } = usePow()
 
-    /**
-     * [修复 2026-02-24] 时间戳校验增强
-     * 逻辑自洽：增加 5 秒的网络时延容差，确保后端 300s 窗口不会因请求往返而失效
-     */
-    const getOrRefreshPow = async (): Promise<CachedPow> => {
-        const nowInSeconds = Math.floor(Date.now() / 1000);
+    const getOrRefreshPow = async (): Promise<PowParams> => {
+        const nowInSeconds = Math.floor(Date.now() / 1000)
 
-        if (memoryPowCache && (nowInSeconds - memoryPowCache.timestamp < 275)) {
-            return memoryPowCache;
+        if (memoryPowCache && nowInSeconds - memoryPowCache.timestamp < 275) {
+            return memoryPowCache
         }
 
         try {
-            const raw = sessionStorage.getItem(POW_STORAGE_KEY);
+            const raw = sessionStorage.getItem(POW_STORAGE_KEY)
             if (raw) {
-                const cached = JSON.parse(raw) as CachedPow;
+                const cached = JSON.parse(raw) as PowParams
                 if (nowInSeconds - cached.timestamp < 275) {
-                    memoryPowCache = cached;
-                    return cached;
+                    memoryPowCache = cached
+                    return cached
                 }
             }
-        } catch (e) { 
-            sessionStorage.removeItem(POW_STORAGE_KEY);
+        } catch {
+            sessionStorage.removeItem(POW_STORAGE_KEY)
         }
 
-        prewarm();
-        const fp = getBrowserFp();
-        // 核心：增加缓存穿透参数，确保每次重试获取的都是最新挑战
-        const challengeRes = await getPowChallenge({ 
-            action: 'signalr_connect',
-            _t: Date.now() 
-        } as any) as any;
-        
-        const { salt, difficulty, timestamp, signature } = challengeRes.data || challengeRes;
+        prewarm()
+        const fp = getBrowserFp()
+        const challengeRes = await getPowChallenge({
+            params: { _t: Date.now() }
+        } as never) as never
 
-        const { nonce } = await calculate(salt, fp, difficulty);
-        const newPow: CachedPow = { nonce, salt, fp, signature, difficulty, timestamp };
-        
-        memoryPowCache = newPow;
-        sessionStorage.setItem(POW_STORAGE_KEY, JSON.stringify(newPow));
+        const { salt, difficulty, timestamp, signature } = challengeRes.data || challengeRes
+        const { nonce } = await calculate(salt, fp, difficulty)
+        const pow: PowParams = { nonce, salt, fp, signature, difficulty, timestamp }
 
-        return newPow;
-    };
+        memoryPowCache = pow
+        sessionStorage.setItem(POW_STORAGE_KEY, JSON.stringify(pow))
 
-    const handleReauthAndRestart = async (reason?: string) => {
-        // [修复 2026-02-24] 异常语义扩展：包含后端传回的中文及具体错误描述
-        const isSecurityError = reason?.includes('PoW') || 
-                               reason?.includes('Access Denied') || 
-                               reason?.includes('403') ||
-                               reason?.includes('过期') ||
-                               reason?.includes('校验未通过');
+        return pow
+    }
 
-        if (userStore.isLoggedIn) {
-            if (isSecurityError) {
-                console.warn("[SignalR] Security validation failed for logged-in user. Syncing state...");
-                // 逻辑自洽：如果是已登录用户报 PoW 错误，可能是 Token 物理过期或被封禁，执行同步
-                await userStore.fetchUserInfo(true);
-            } else {
-                return;
+    const handleUserStatusChange = (data: UserStatusPayload): void => {
+        const oldStatus = userStore.userInfo?.status
+        const newStatus = Number(data.status)
+        const isStatusChanged = oldStatus !== undefined && Number(oldStatus) !== newStatus
+
+        userStore.updateStatus(newStatus, data.reason)
+
+        if (!isStatusChanged) {
+            return
+        }
+
+        if (newStatus === 1) {
+            showErrorToast(`账户管控通知：${data.reason || '您的账号已被限制操作'}`, '账户管控通知：您的账号已被限制操作', 10000)
+            return
+        }
+
+        if (newStatus === 0) {
+            toast.success('账户通知：您的账号已恢复正常使用')
+        }
+    }
+
+    const handleIncomingEvent = (event: SseEventV2): void => {
+        sseStore.consumeEvent(event)
+
+        if (event.type === SseEventType.GlobalNoticePublished) {
+            const payload = event.payload as { title: string }
+            toast.info(`公告：${payload.title}`, 8000)
+            return
+        }
+
+        if (event.type === SseEventType.ArticleChanged) {
+            const payload = event.payload as ArticleUpdatePayload
+            postSwControlMessage({ type: 'shell.invalidate', scope: 'content' })
+            if (payload.action === 'Created') {
+                toast.article('发现新文章，点击阅读', () => {
+                    void router.push(`/article/${payload.articleId}`)
+                })
+            }
+            return
+        }
+
+        if (event.type === SseEventType.CacheControl) {
+            forwardCacheControlPayload(event.payload as CacheControlPayload)
+            return
+        }
+
+        if (event.type === SseEventType.SearchIndexUpdated) {
+            invalidateSearchIndexMemory()
+            forwardSearchIndexUpdate(event.payload as SearchIndexUpdatePayload)
+            return
+        }
+
+        if (event.type === SseEventType.UserStatusChanged) {
+            handleUserStatusChange(event.payload as UserStatusPayload)
+        }
+    }
+
+    const handleReauthAndRestart = async (failureCode: SseFailureCode): Promise<void> => {
+        if (failureCode === SseFailureCodes.ProtocolMismatch) {
+            return
+        }
+
+        const now = Date.now()
+        if (now - lastReauthTime < 5000) {
+            return
+        }
+        lastReauthTime = now
+
+        if (failureCode === SseFailureCodes.AuthFailed && userStore.isLoggedIn) {
+            await userStore.fetchUserInfo(true)
+
+            if (userStore.isLoggedIn) {
+                await sseRuntime.start(undefined, sseStore.runtime.cursor)
+                currentMode.value = 'auth'
+                return
             }
         }
-
-        const now = Date.now();
-        if (now - lastReauthTime < 5000) return;
-        lastReauthTime = now;
 
         if (isCalculating.value) {
-            setTimeout(() => handleReauthAndRestart(reason), 2000);
-            return;
+            clearReauthRetryTimer()
+            reauthRetryTimer = setTimeout(() => {
+                reauthRetryTimer = null
+                void handleReauthAndRestart(failureCode)
+            }, 2000)
+            return
         }
 
         try {
-            console.log("[SignalR] Security state invalidated. Refreshing PoW...");
-            memoryPowCache = null;
-            sessionStorage.removeItem(POW_STORAGE_KEY);
-            const pow = await getOrRefreshPow();
-            await notificationService.start('', pow);
-            currentMode.value = 'guest';
-        } catch (err) {
-            console.error('[SignalR] Recovery failed', err);
+            memoryPowCache = null
+            sessionStorage.removeItem(POW_STORAGE_KEY)
+            const pow = await getOrRefreshPow()
+            await sseRuntime.start(pow, sseStore.runtime.cursor)
+            currentMode.value = 'guest'
+        } catch (error) {
+            console.error('[SSE] 恢复访客流失败:', error)
         }
-    };
+    }
+
+    const ensureBindings = (): void => {
+        if (bindingsInitialized) {
+            clearReauthRetryTimer()
+        }
+
+        bindingsInitialized = true
+
+        sseRuntime.onEvent = handleIncomingEvent
+        sseRuntime.onCursorChange = (cursor) => {
+            sseStore.syncCursor(cursor)
+        }
+        sseRuntime.onStatusChange = (status, retryCount) => {
+            sseStore.setStatus(status, retryCount)
+        }
+        sseRuntime.onDuplicateEvent = () => {
+            sseStore.recordDuplicateEvent()
+        }
+        sseRuntime.onProtocolError = (reason) => {
+            console.warn('[SSE] protocol_error', reason)
+            sseStore.recordProtocolError()
+        }
+        sseRuntime.onHandshakeFailure = (code) => {
+            sseStore.recordHandshakeFailure(code)
+            void handleReauthAndRestart(code)
+        }
+        sseRuntime.onReconnectSuccess = (replayMissed) => {
+            sseStore.recordReconnect(replayMissed)
+        }
+    }
+
+    const stopNotification = async (clearCursor = false): Promise<void> => {
+        clearReauthRetryTimer()
+        pendingInitMode = ''
+        initNotificationPromise = null
+        await sseRuntime.stop(clearCursor)
+        disposeNotificationBindings()
+        currentMode.value = ''
+        isInitializing.value = false
+    }
 
     const initNotification = async (isLogged: boolean): Promise<void> => {
-        if (isInitializing.value) {
-            console.warn('[SSE] 启动请求被拦截：当前已在初始化队列中');
-            return;
+        const targetMode = isLogged ? 'auth' : 'guest'
+        if (sseRuntime.isConnected() && currentMode.value === targetMode) {
+            return
         }
 
-        const targetMode = isLogged ? 'auth' : 'guest';
+        if (initNotificationPromise) {
+            pendingInitMode = targetMode
+            await initNotificationPromise
 
-        if (notificationService.isConnected() && currentMode.value === targetMode) return;
-        isInitializing.value = true;
-
-        console.log(`[SSE] 正在引擎点火, 目标模式: ${targetMode}`);
-        try {
-            if (notificationService.isConnected()) await notificationService.stop();
-            currentMode.value = targetMode;
-
-            notificationService.onRequestNewPow = handleReauthAndRestart;
-
-            notificationService.onGlobalNotice = (data: GlobalNoticePayload) => {
-                toast.info(`公告：${data.title}`, 8000);
-                window.dispatchEvent(new CustomEvent('signalr:refresh-inbox'));
-            };
-            notificationService.onMessageReceived = (_data: MessageItem) => {
-                window.dispatchEvent(new CustomEvent('signalr:refresh-inbox'));
-            };
-            notificationService.onMessageRevoked = (data: MessageRevokedPayload) => {
-                unreadCount.value = data.unreadCount;
-                window.dispatchEvent(new CustomEvent('signalr:refresh-inbox'));
-            };
-            notificationService.onArticleUpdate = (data: ArticleUpdatePayload) => {
-                if (data.action === 'Created') {
-                    toast.article(`发现新文章，点击阅读`, () => {
-                        router.push(`/article/${data.articleId}`);
-                    });
-                }
-                const eventName = `signalr:article-${data.action.toLowerCase()}`;
-                window.dispatchEvent(new CustomEvent(eventName, { detail: data }));
-            };
-            notificationService.onReconnected = () => {
-                // [物理重构补偿] 断网重连后主动抛出刷新事件，由各个组件主动 Fetch 确保数据最终一致
-                window.dispatchEvent(new CustomEvent('signalr:refresh-inbox'));
-                window.dispatchEvent(new CustomEvent('signalr:reconnected'));
-            };
-            notificationService.onCommentAdded = (data: CommentAddedPayload) => {
-                window.dispatchEvent(new CustomEvent('signalr:comment-added', { detail: data }));
-            };
-            notificationService.onCommentRemoved = (data: CommentRemovedPayload) => {
-                window.dispatchEvent(new CustomEvent('signalr:comment-removed', { detail: data }));
-            };
-
-            notificationService.onUserStatusChanged = async (data: UserStatusPayload) => {
-                const oldStatus = userStore.userInfo?.status;
-                const newStatus = Number(data.status);
-                const isStatusChanged = oldStatus !== undefined && Number(oldStatus) !== newStatus;
-
-                userStore.updateStatus(newStatus, data.reason);
-
-                if (isStatusChanged) {
-                    if (newStatus === 1) {
-                        toast.error(`账户管控通知：${data.reason || '您的账号已被限制操作'}`, 10000);
-                    } else if (newStatus === 0) {
-                        toast.success('账户通知：您的账号已恢复正常使用');
-                    }
-                }
-            };
-
-            notificationService.onUnreadUpdate = (count: number) => { unreadCount.value = count; };
-
-            if (isLogged) {
-                const token = (userStore as any).token || localStorage.getItem('token') || '';
-                await notificationService.start(token);
-            } else {
-                const pow = await getOrRefreshPow();
-                await notificationService.start('', pow);
+            if (!pendingInitMode
+                || (sseRuntime.isConnected() && currentMode.value === pendingInitMode)
+                || pendingInitMode === currentMode.value) {
+                return
             }
-        } catch (err: any) {
-            console.error('[SSE] 致命物理断网/PoW生成崩溃:', err);
-            currentMode.value = '';
-        } finally {
-            isInitializing.value = false;
         }
-    };
 
-    return { unreadCount, initNotification };
+        const runInitialization = async (mode: 'auth' | 'guest'): Promise<void> => {
+            isInitializing.value = true
+            clearReauthRetryTimer()
+            ensureBindings()
+
+            try {
+                if (sseRuntime.isConnected()) {
+                    await sseRuntime.stop()
+                }
+
+                currentMode.value = mode
+                if (mode === 'auth') {
+                    await sseRuntime.start(undefined, sseStore.runtime.cursor)
+                } else {
+                    const pow = await getOrRefreshPow()
+                    await sseRuntime.start(pow, sseStore.runtime.cursor)
+                }
+            } catch (error) {
+                console.error('[SSE] 初始化失败:', error)
+                currentMode.value = ''
+            } finally {
+                isInitializing.value = false
+            }
+        }
+
+        pendingInitMode = targetMode
+        initNotificationPromise = (async () => {
+            while (pendingInitMode) {
+                const nextMode = pendingInitMode
+                pendingInitMode = ''
+
+                if (nextMode === currentMode.value && sseRuntime.isConnected()) {
+                    continue
+                }
+
+                await runInitialization(nextMode)
+            }
+        })()
+
+        try {
+            await initNotificationPromise
+        } finally {
+            initNotificationPromise = null
+        }
+    }
+
+    return { unreadCount, initNotification, stopNotification }
 }

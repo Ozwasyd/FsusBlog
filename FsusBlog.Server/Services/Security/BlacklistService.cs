@@ -1,17 +1,16 @@
 ﻿using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
 using SqlSugar;
-using StackExchange.Redis;
 
 namespace FsusBlog.Server.Services.Security;
 
 public class BlacklistService(
-    IConnectionMultiplexer redis,
+    IUnifiedCache cache,
     ISqlSugarClient db) : IBlacklistService
 {
-    private readonly IDatabase _redis = redis.GetDatabase();
-    private const string BlacklistKey = "sys:user:blacklist";
     private const int MaxBanReasonLength = 256;
+    private const string BanReasonCode = "manual_ban";
 
     /// <summary>
     /// 将用户加入黑名单
@@ -19,7 +18,7 @@ public class BlacklistService(
     public async Task BanUserAsync(int userId, string? reason)
     {
         var finalReason = NormalizeReason(reason);
-        await _redis.HashSetAsync(BlacklistKey, userId, finalReason);
+        await cache.SetStringAsync(CachePolicyId.SecurityBlacklistUser, userId.ToString(), finalReason, TimeSpan.FromDays(7));
     }
 
     /// <summary>
@@ -35,17 +34,18 @@ public class BlacklistService(
             .ExecuteCommandAsync();
 
         // 2. 移除缓存
-        await _redis.HashDeleteAsync(BlacklistKey, userId);
+        await cache.RemoveAsync(CachePolicyId.SecurityBlacklistUser, userId.ToString());
     }
 
-    public async Task<string?> GetBanReasonAsync(int userId)
+    public async Task<BanStateSnapshot> GetBanStateAsync(int userId)
     {
-        return await _redis.HashGetAsync(BlacklistKey, userId);
-    }
+        string? reason = await cache.GetStringAsync(CachePolicyId.SecurityBlacklistUser, userId.ToString());
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return new BanStateSnapshot(false, null, null);
+        }
 
-    public async Task<bool> IsBannedAsync(int userId)
-    {
-        return await _redis.HashExistsAsync(BlacklistKey, userId);
+        return new BanStateSnapshot(true, BanReasonCode, reason);
     }
 
     private static string NormalizeReason(string? reason)

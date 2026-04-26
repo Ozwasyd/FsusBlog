@@ -43,10 +43,10 @@ public readonly struct ArticleListItemPod
     public readonly ArticleCategoryViewPod Category;
     public readonly Utf8Fixed256 Title;
     public readonly Utf8SliceRef Summary;
-    public readonly Utf8SliceRef Snippet;
     public readonly byte IsDeleted;
     public readonly byte HasIsDeleted;
-    public readonly ushort Reserved;
+    public readonly ushort Reserved0;
+    public readonly uint Reserved1;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -55,6 +55,7 @@ public readonly struct ArticleDetailPod
     public readonly int Id;
     public readonly int Views;
     public readonly long CreateTimeUnixMs;
+    public readonly int Reserved0;
     public readonly ArticleCategoryViewPod Category;
     public readonly Utf8Fixed256 Title;
     public readonly Utf8SliceRef Summary;

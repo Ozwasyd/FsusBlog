@@ -9,7 +9,8 @@ public readonly record struct UserSnapshotContract(
     int Status,
     DateTime CreateTime,
     string? LastLoginIp,
-    DateTime? LastLoginTime);
+    DateTime? LastLoginTime,
+    DateTime? DeletedAt);
 
 public readonly record struct AuthLoginResultContract(
     TokenPairContract Token,
@@ -22,7 +23,8 @@ public readonly record struct UserListItemContract(
     int Status,
     DateTime CreateTime,
     string? LastLoginIp,
-    DateTime? LastLoginTime);
+    DateTime? LastLoginTime,
+    DateTime? DeletedAt);
 
 public sealed record class AdminUserPageContract
 {

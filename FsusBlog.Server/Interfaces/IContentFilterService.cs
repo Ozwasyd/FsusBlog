@@ -1,7 +1,9 @@
 ﻿namespace FsusBlog.Server.Interfaces;
 
+public readonly record struct ContentValidationResult(bool IsValid, string ReasonCode, string Message);
+
 public interface IContentFilterService
 {
-    (bool isValid, string message) ValidateContent(string text);
+    ContentValidationResult ValidateContent(string text);
     void ReloadKeywords();
 }

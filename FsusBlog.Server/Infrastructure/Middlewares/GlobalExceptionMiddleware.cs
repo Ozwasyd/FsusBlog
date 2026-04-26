@@ -1,4 +1,7 @@
-﻿using FsusBlog.Server.Models.Responses;
+﻿using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Server.Models.Responses;
+using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -13,7 +16,6 @@ public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<Gl
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
@@ -47,16 +49,17 @@ public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<Gl
         }
 
         // 4. 【状态码映射】
-        int statusCode = ex switch
+        ErrorDetail error = ex switch
         {
-            ArgumentException => (int)HttpStatusCode.BadRequest,        // 400
-            UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized, // 401
-            KeyNotFoundException => (int)HttpStatusCode.NotFound,       // 404
-            NotImplementedException => (int)HttpStatusCode.NotImplemented, // 501
-            // 如果你有自定义业务异常，请在这里添加，例如：
-            // BusinessException => (int)HttpStatusCode.BadRequest, 
-            _ => (int)HttpStatusCode.InternalServerError                // 500
+            ArgumentException => ErrorDetail.Create(ErrorCode.Validation, ex.Message),
+            UnauthorizedAccessException => ErrorDetail.Create(ErrorCode.Unauthorized, ex.Message),
+            KeyNotFoundException => ErrorDetail.Create(ErrorCode.NotFound, ex.Message),
+            NotImplementedException => ErrorDetail.Create(ErrorCode.InfraFailure, ex.Message),
+            _ => ErrorDetail.Create(ErrorCode.InfraFailure, ex.Message)
         };
+        int statusCode = error.Code == ErrorCode.InfraFailure && ex is NotImplementedException
+            ? (int)HttpStatusCode.NotImplemented
+            : ApiResults.MapStatusCode(error);
 
         string path = context.Request.Path.Value ?? string.Empty;
 
@@ -86,10 +89,10 @@ public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<Gl
         else
         {
             // 4xx 错误或开发环境下，直接显示真实错误信息
-            errorMsg = ex.Message;
+            errorMsg = error.Message;
         }
 
-        var response = ApiResponse.Fail(errorMsg, statusCode);
+        var response = ApiResponse.Fail(errorMsg, statusCode, Activity.Current?.Id);
 
         // 8. 直接序列化到 Response.Body 流
         // 核心优化：传入 RequestAborted，一旦发生异常后客户端断开连接，立即切断序列化消耗

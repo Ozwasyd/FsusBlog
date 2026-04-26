@@ -1,0 +1,53 @@
+/* src/assets/public-shell-critical.css */
+
+/* 公开页首访共用的布局基线（首屏关键路径） */
+#fsus-aot-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--fsus-page-bg, #ffffff);
+  color: var(--fsus-text-primary, #09090b);
+  font-family: var(--font-sans, "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif);
+  -webkit-font-smoothing: subpixel-antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#fsus-aot-shell,
+#fsus-aot-shell * {
+  box-sizing: border-box;
+}
+
+#fsus-aot-shell[data-public-hydration-kind="Home"],
+#fsus-aot-shell[data-public-hydration-kind="ArticleDetail"] {
+  width: 100%;
+}
+
+#fsus-aot-shell .public-page-shell,
+#fsus-aot-shell .public-article-shell {
+  width: 100%;
+}
+
+#fsus-aot-shell .public-article-shell {
+  overflow-anchor: none;
+}
+
+/* 首屏接管稳定层：约束 header/main/footer 的最小尺寸，避免整页下推造成 CLS。 */
+#top > header > .max-w-3xl,
+#fsus-aot-shell > header > .max-w-3xl {
+  min-height: 3.25rem;
+}
+
+#top > main,
+#fsus-aot-shell > main {
+  min-height: 55vh;
+}
+
+#top > footer,
+#fsus-aot-shell > footer {
+  min-height: 6.5rem;
+}
+
+html.dark #fsus-aot-shell {
+  background: var(--fsus-page-bg, #09090b);
+  color: var(--fsus-text-primary, #fafafa);
+}

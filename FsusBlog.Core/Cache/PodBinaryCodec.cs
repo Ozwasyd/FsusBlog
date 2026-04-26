@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Codecs;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
@@ -28,11 +29,17 @@ public static partial class PodBinaryCodec
             item.Category.Name,
             item.Title,
             item.Summary,
-            item.Snippet,
             item.IsDeleted,
-            out byte[] payload);
+            out ReadOnlyMemory<byte> payload);
 
-        writer.WriteBytes(payload);
+        writer.WriteBytes(payload.Span);
+    }
+
+    private static byte[] EncodeToArray(int initialCapacity, Action<IBufferWriter<byte>> write)
+    {
+        using var writer = new PooledByteBufferWriter(initialCapacity);
+        write(writer);
+        return writer.ToArray();
     }
 
     private static bool TryReadArticleListItem(ref BinaryPodReader reader, out ArticleListCoreModel item)
@@ -61,11 +68,9 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        byte[] payload = payloadSpan.ToArray();
         string title = PodUtf8Codec.FromFixed256(pod.Title);
         string categoryName = PodUtf8Codec.FromFixed128(pod.Category.Name);
-        string summary = PodProjector.ReadSlice(pod.Summary, payload);
-        string snippet = PodProjector.ReadSlice(pod.Snippet, payload);
+        string summary = PodProjector.ReadSlice(pod.Summary, payloadSpan);
         DateTime createTime = PodTimeCodec.FromUnixMs(pod.CreateTimeUnixMs);
         bool? isDeleted = pod.HasIsDeleted == 1 ? pod.IsDeleted == 1 : null;
 
@@ -74,7 +79,7 @@ public static partial class PodBinaryCodec
             pod.Id,
             title,
             summary,
-            snippet,
+            null,
             pod.Views,
             createTime,
             new ArticleCategoryCoreModel(pod.Category.Id, categoryName),
@@ -161,11 +166,11 @@ public static partial class PodBinaryCodec
 
     private struct BinaryPodWriter
     {
-        private ArrayBufferWriter<byte> _writer;
+        private readonly IBufferWriter<byte> _writer;
 
-        public BinaryPodWriter()
+        public BinaryPodWriter(IBufferWriter<byte> writer)
         {
-            _writer = new ArrayBufferWriter<byte>(1024);
+            _writer = writer;
         }
 
         public void WriteInt32(int value)
@@ -206,6 +211,5 @@ public static partial class PodBinaryCodec
             _writer.Advance(size);
         }
 
-        public byte[] ToArray() => _writer.WrittenMemory.ToArray();
     }
 }

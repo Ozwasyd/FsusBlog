@@ -70,6 +70,7 @@ std::string feature_name(fsusblog::wasm::markdown::feature value) {
     case feature::image: return "image";
     case feature::heading: return "heading";
     case feature::link: return "link";
+    case feature::emphasis: return "emphasis";
   }
 
   return "unknown";

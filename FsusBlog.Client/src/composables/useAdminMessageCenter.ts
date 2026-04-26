@@ -1,207 +1,295 @@
-import { computed, onMounted, onUnmounted, reactive, ref, shallowRef } from 'vue'
-import { ElMessage, type FormInstance } from 'element-plus'
-import type { AxiosRequestConfig } from 'axios'
-import { messageApi, type BroadcastRequest, type MessageItem } from '@/api/message'
-import { useAbortableTask } from '@/composables/useAbortableTask'
-import { usePow } from '@/composables/usePow'
-import { getErrorMessage, isAbortError } from '@/utils/errors'
-import { createAdminMessageManageViewContract, type AdminMessageManageViewContract } from '@/view-contracts/adminMessageManage'
+import { computed, onMounted, ref, shallowRef, watch } from 'vue'
+import {
+  messageApi,
+  type ConversationDetailResponse,
+  type ConversationFilter,
+  type ConversationListItemResponse,
+  type ConversationMessagePreviewResponse
+} from '@/api/message'
+import { useSseStore } from '@/store/sse'
+import type { SseInboxRenderPatch } from '@/services/sseTypes'
+import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
+import { toast } from '@/utils/toast'
 
-const HISTORY_PAGE_SIZE = 15
+const PAGE_SIZE = 30
 
-export function useAdminMessageCenter() {
-  const formRef = ref<FormInstance>()
-  const powProvider = usePow()
+const toMessagePreview = (message: ConversationDetailResponse['messages'][number]): ConversationMessagePreviewResponse => ({
+  senderType: message.senderType,
+  senderName: message.senderName,
+  bodyPreview: message.body.length <= 96 ? message.body : `${message.body.slice(0, 96)}...`,
+  createdAt: message.createdAt
+})
 
-  const submitting = ref(false)
-  const loadingHistory = ref(false)
-  const lastBroadcastTime = ref(0)
-  const currentTime = ref(Date.now())
+const toConversationListItem = (detail: ConversationDetailResponse): ConversationListItemResponse => {
+  const lastMessage = detail.messages[detail.messages.length - 1] ?? null
+  return {
+    conversationId: detail.conversationId,
+    subject: detail.subject,
+    status: detail.status,
+    isSystemSource: detail.isSystemSource,
+    canReply: detail.canReply,
+    unreadCount: detail.unreadCount,
+    lastMessageAt: detail.lastMessageAt,
+    updatedAt: detail.lastMessageAt,
+    lastMessage: lastMessage ? toMessagePreview(lastMessage) : null
+  }
+}
 
-  const broadcastCooldown = computed(() => {
-    if (lastBroadcastTime.value === 0) {
-      return 0
-    }
+const resetDetailState = (detailRef: { value: ConversationDetailResponse | null }, selectionRef: { value: string }, conversationsRef: { value: ConversationListItemResponse[] }, replyRef: { value: string }) => {
+  detailRef.value = null
+  selectionRef.value = ''
+  conversationsRef.value = []
+  replyRef.value = ''
+}
 
-    const remaining = Math.ceil((lastBroadcastTime.value + 10000 - currentTime.value) / 1000)
-    return remaining > 0 ? remaining : 0
-  })
+export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
+  const sseStore = useSseStore()
 
-  const isProcessing = computed(() => submitting.value || powProvider.isCalculating.value)
+  const loading = ref(false)
+  const loadingDetail = ref(false)
+  const processing = ref(false)
 
-  const sendType = ref<'broadcast' | 'direct'>('broadcast')
-  const isBroadcastMode = computed(() => sendType.value === 'broadcast')
-  const isDirectMode = computed(() => sendType.value === 'direct')
-  const history = shallowRef<MessageItem[]>([])
-  const isSubmitDisabled = computed(
-    () => isBroadcastMode.value && broadcastCooldown.value > 0
+  const filter = ref<ConversationFilter>('open')
+  const conversations = shallowRef<ConversationListItemResponse[]>([])
+  const selectedConversationId = ref<string>('')
+  const detail = shallowRef<ConversationDetailResponse | null>(null)
+  const replyBody = ref('')
+
+  const systemTargetUserId = ref('')
+  const systemSubject = ref('')
+  const systemBody = ref('')
+
+  const selectedConversation = computed(() =>
+    conversations.value.find((it) => it.conversationId === selectedConversationId.value) ?? null
   )
-  const messageView = computed<AdminMessageManageViewContract>(() =>
-    createAdminMessageManageViewContract({
-      sendType: sendType.value,
-      targetUserId: form.targetUserId,
-      title: form.title,
-      content: form.content,
-      broadcastCooldown: broadcastCooldown.value,
-      isPowCalculating: powProvider.isCalculating.value,
-      isProcessing: isProcessing.value,
-      loadingHistory: loadingHistory.value,
-      history: history.value
-    })
+
+  const loadConversations = async (silent = false): Promise<boolean> => {
+    if (!isEnabled()) {
+      resetDetailState(detail, selectedConversationId, conversations, replyBody)
+      return true
+    }
+
+    if (!silent) loading.value = true
+    try {
+      const data = await messageApi.adminGetConversations(1, PAGE_SIZE, filter.value)
+      conversations.value = [...(data.items || [])]
+      if (!selectedConversationId.value && conversations.value.length > 0) {
+        selectedConversationId.value = conversations.value[0]!.conversationId
+      }
+      if (selectedConversationId.value) {
+        const exists = conversations.value.some((it) => it.conversationId === selectedConversationId.value)
+        if (!exists) {
+          selectedConversationId.value = conversations.value[0]?.conversationId ?? ''
+        }
+      }
+    } catch (error) {
+      if (!silent) showErrorToast(error, '管理员会话列表加载失败')
+      return false
+    } finally {
+      loading.value = false
+    }
+
+    return true
+  }
+
+  const loadDetail = async (conversationId: string, silent = false): Promise<boolean> => {
+    if (!isEnabled()) {
+      detail.value = null
+      return true
+    }
+
+    if (!conversationId) {
+      detail.value = null
+      return true
+    }
+    loadingDetail.value = true
+    try {
+      detail.value = await messageApi.adminGetConversationDetail(conversationId)
+    } catch (error) {
+      if (!silent) {
+        showErrorToast(error, '会话详情加载失败')
+      }
+      return false
+    } finally {
+      loadingDetail.value = false
+    }
+
+    return true
+  }
+
+  const selectConversation = async (conversationId: string): Promise<void> => {
+    selectedConversationId.value = conversationId
+    await loadDetail(conversationId)
+  }
+
+  const reply = async (): Promise<void> => {
+    if (!selectedConversationId.value || !replyBody.value.trim() || processing.value) return
+    processing.value = true
+    try {
+      const message = await messageApi.adminReplyConversation(selectedConversationId.value, { body: replyBody.value })
+      replyBody.value = ''
+      if (detail.value && detail.value.conversationId === selectedConversationId.value) {
+        detail.value = {
+          ...detail.value,
+          messages: [...detail.value.messages, message],
+          lastMessageAt: message.createdAt
+        }
+      }
+      const listSynced = await loadConversations(true)
+      toast.success('回复已发送')
+      if (!listSynced) {
+        showWarningToast('回复已发送，但会话列表同步失败，请稍后刷新', '回复已发送，但会话列表同步失败，请稍后刷新')
+      }
+    } catch (error) {
+      showErrorToast(error, '发送回复失败')
+    } finally {
+      processing.value = false
+    }
+  }
+
+  const updateStatus = async (status: 'open' | 'pending' | 'closed'): Promise<void> => {
+    if (!selectedConversationId.value || processing.value) return
+    processing.value = true
+    try {
+      await messageApi.adminUpdateConversationStatus(selectedConversationId.value, { status })
+      const nextStatus = status === 'open' ? 0 : status === 'pending' ? 1 : 2
+      if (detail.value && detail.value.conversationId === selectedConversationId.value) {
+        detail.value = {
+          ...detail.value,
+          status: nextStatus
+        }
+      }
+      const currentList = conversations.value.slice()
+      const index = currentList.findIndex((it) => it.conversationId === selectedConversationId.value)
+      if (index >= 0) {
+        currentList[index] = {
+          ...currentList[index]!,
+          status: nextStatus
+        }
+        conversations.value = currentList
+      }
+      const listSynced = await loadConversations(true)
+      const detailSynced = await loadDetail(selectedConversationId.value, true)
+      toast.success('状态已更新')
+      if (!listSynced || !detailSynced) {
+        showWarningToast('状态已更新，但列表或详情同步失败，请稍后刷新', '状态已更新，但列表或详情同步失败，请稍后刷新')
+      }
+    } catch (error) {
+      showErrorToast(error, '状态更新失败')
+    } finally {
+      processing.value = false
+    }
+  }
+
+  const sendSystemMessage = async (): Promise<void> => {
+    if (!systemTargetUserId.value.trim() || !systemBody.value.trim() || processing.value) return
+
+    const parsedTargetUserId = Number(systemTargetUserId.value.trim())
+    if (!Number.isInteger(parsedTargetUserId) || parsedTargetUserId <= 0) {
+      showErrorToast('请输入有效的用户 ID', '请输入有效的用户 ID')
+      return
+    }
+
+    processing.value = true
+    try {
+      const created = await messageApi.adminSendSystemMessage({
+        targetUserId: parsedTargetUserId,
+        subject: systemSubject.value || '系统通知',
+        body: systemBody.value
+      })
+      systemTargetUserId.value = ''
+      systemSubject.value = ''
+      systemBody.value = ''
+      const list = conversations.value.slice()
+      list.unshift(toConversationListItem(created))
+      conversations.value = list
+      const listSynced = await loadConversations(true)
+      toast.success('系统消息已发送')
+      if (!listSynced) {
+        showWarningToast('系统消息已发送，但会话列表同步失败，请稍后刷新', '系统消息已发送，但会话列表同步失败，请稍后刷新')
+      }
+    } catch (error) {
+      showErrorToast(error, '系统消息发送失败')
+    } finally {
+      processing.value = false
+    }
+  }
+
+  const consumePatches = (patches: readonly SseInboxRenderPatch[]): void => {
+    let requiresRefresh = false
+    for (const patch of patches) {
+      if (patch.kind === 'conversation-upsert' || patch.kind === 'message-append' || patch.kind === 'conversation-closed') {
+        requiresRefresh = true
+      }
+    }
+
+    if (requiresRefresh) {
+      void loadConversations(true)
+      if (selectedConversationId.value) {
+        void loadDetail(selectedConversationId.value)
+      }
+    }
+  }
+
+  watch(
+    () => filter.value,
+    () => {
+      if (!isEnabled()) {
+        return
+      }
+      void loadConversations()
+    }
   )
 
-  const form = reactive({
-    targetUserId: '',
-    title: '',
-    content: ''
-  })
-
-  const historyTask = useAbortableTask()
-  const submitTask = useAbortableTask()
-  let cooldownTimer: ReturnType<typeof setInterval> | null = null
-
-  const buildSignalConfig = (signal: AbortSignal): AxiosRequestConfig => ({ signal })
-  const isCancelError = (error: unknown): boolean => error === 'cancel'
-  const clearComposeForm = (): void => {
-    form.title = ''
-    form.content = ''
-    form.targetUserId = ''
-    formRef.value?.resetFields()
-  }
-
-  const rules = {
-    targetUserId: [
-      { required: true, message: '必须指定接收者', trigger: 'blur' },
-      { pattern: /^\d+$/, message: 'UID必须为纯数字', trigger: 'blur' }
-    ],
-    title: [
-      { required: true, message: '标题不能为空', trigger: 'blur' },
-      { pattern: /^[^<|>|'|"]+$/, message: '禁止包含 HTML 标签', trigger: 'blur' }
-    ],
-    content: [
-      { required: true, message: '内容不能为空', trigger: 'blur' },
-      { max: 2000, message: '内容长度不得超过 2000 字符', trigger: 'blur' }
-    ]
-  }
-
-  const fetchHistory = async (): Promise<void> => {
-    loadingHistory.value = true
-    try {
-      await historyTask.run(async (signal) => {
-        const res = await messageApi.adminGetHistory(1, HISTORY_PAGE_SIZE, buildSignalConfig(signal))
-        history.value = Array.isArray(res) ? res : []
-      })
-    } catch (error: unknown) {
-      if (!isAbortError(error)) {
-        console.error('[Admin Message] Sync failed:', error)
+  watch(
+    () => sseStore.inboxRevision,
+    () => {
+      if (!isEnabled()) {
+        return
       }
-    } finally {
-      loadingHistory.value = false
+      consumePatches(sseStore.inboxBatch)
     }
-  }
+  )
 
-  const handleRevoke = async (id: string): Promise<void> => {
-    if (isProcessing.value) {
+  watch(
+    () => isEnabled(),
+    (enabled) => {
+      if (enabled) {
+        void loadConversations()
+        return
+      }
+
+      resetDetailState(detail, selectedConversationId, conversations, replyBody)
+    }
+  )
+
+  onMounted(async () => {
+    if (!isEnabled()) {
       return
     }
 
-    submitting.value = true
-    try {
-      await submitTask.run(async (signal) => {
-        await messageApi.adminRevokeMessage(id, buildSignalConfig(signal))
-        if (!signal.aborted) {
-          ElMessage.success('消息已彻底从全网撤回')
-          await fetchHistory()
-        }
-      })
-    } catch (error: unknown) {
-      if (!isAbortError(error)) {
-        console.error('[Admin Message] Revoke Error:', error)
-      }
-    } finally {
-      submitting.value = false
-    }
-  }
-
-  const submitForm = async (): Promise<void> => {
-    if (!formRef.value || isProcessing.value) {
-      return
-    }
-    if (isSubmitDisabled.value) {
-      return
-    }
-
-    try {
-      await formRef.value.validate()
-      submitting.value = true
-
-      await submitTask.run(async (signal) => {
-        const payload: BroadcastRequest = {
-          title: form.title.trim(),
-          content: form.content.trim()
-        }
-
-        const config = buildSignalConfig(signal)
-
-        if (isBroadcastMode.value) {
-          await messageApi.adminPublishBroadcast(payload, config)
-          lastBroadcastTime.value = Date.now()
-        } else {
-          await messageApi.adminSendDirect(
-            {
-              ...payload,
-              targetUserId: form.targetUserId
-            },
-            config
-          )
-        }
-
-        ElMessage.success('指令执行成功')
-        clearComposeForm()
-        await fetchHistory()
-      })
-    } catch (error: unknown) {
-      if (!isAbortError(error) && !isCancelError(error)) {
-        console.error('[Admin Message] Distribution Error:', getErrorMessage(error, 'unknown'))
-      }
-    } finally {
-      submitting.value = false
-    }
-  }
-
-  onMounted(() => {
-    void fetchHistory()
-    powProvider.prewarm()
-    cooldownTimer = setInterval(() => {
-      currentTime.value = Date.now()
-    }, 1000)
-  })
-
-  onUnmounted(() => {
-    historyTask.cancel()
-    submitTask.cancel()
-    if (cooldownTimer) {
-      clearInterval(cooldownTimer)
-      cooldownTimer = null
+    await loadConversations()
+    if (selectedConversationId.value) {
+      await loadDetail(selectedConversationId.value)
     }
   })
 
   return {
-    formRef,
-    powProvider,
-    loadingHistory,
-    isProcessing,
-    isBroadcastMode,
-    isDirectMode,
-    broadcastCooldown,
-    isSubmitDisabled,
-    messageView,
-    sendType,
-    history,
-    form,
-    rules,
-    fetchHistory,
-    handleRevoke,
-    submitForm
+    loading,
+    loadingDetail,
+    processing,
+    filter,
+    conversations,
+    selectedConversationId,
+    selectedConversation,
+    detail,
+    replyBody,
+    systemTargetUserId,
+    systemSubject,
+    systemBody,
+    selectConversation,
+    reply,
+    updateStatus,
+    sendSystemMessage
   }
 }

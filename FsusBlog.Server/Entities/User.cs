@@ -12,7 +12,7 @@ public class User
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
     public int Id { get; set; }
 
-    [SugarColumn(Length = 50)]
+    [SugarColumn(Length = 64)]
     public string Username { get; set; } = string.Empty;
 
     [SugarColumn(Length = 100)]
@@ -42,7 +42,7 @@ public class User
     // ====== 管理字段 ======
 
     /// <summary>
-    /// 账号状态 (0:正常 1:封禁受限)
+    /// 账号状态 (0:正常 1:封禁受限 2:已注销)
     /// </summary>
     [SugarColumn(DefaultValue = "0")]
     public int Status { get; set; }
@@ -70,4 +70,46 @@ public class User
     /// </summary>
     [SugarColumn(IsNullable = true)]
     public DateTime? LastLoginTime { get; set; }
+
+    /// <summary>
+    /// 是否启用 TOTP MFA
+    /// </summary>
+    [SugarColumn(DefaultValue = "false")]
+    public bool MfaEnabled { get; set; }
+
+    /// <summary>
+    /// 受保护存储的 TOTP secret
+    /// </summary>
+    [SugarColumn(IsNullable = true, ColumnDataType = "text")]
+    public string? MfaSecretEncrypted { get; set; }
+
+    /// <summary>
+    /// 最近一次 MFA 绑定完成时间
+    /// </summary>
+    [SugarColumn(IsNullable = true)]
+    public DateTime? MfaVerifiedAt { get; set; }
+
+    /// <summary>
+    /// 恢复码哈希集合（换行分隔）
+    /// </summary>
+    [SugarColumn(IsNullable = true, ColumnDataType = "text")]
+    public string? MfaRecoveryCodesHash { get; set; }
+
+    /// <summary>
+    /// 风险标记位
+    /// </summary>
+    [SugarColumn(DefaultValue = "0")]
+    public int RiskFlags { get; set; }
+
+    /// <summary>
+    /// 注销时间
+    /// </summary>
+    [SugarColumn(IsNullable = true, ColumnName = "deleted_at")]
+    public DateTime? DeletedAt { get; set; }
+
+    /// <summary>
+    /// 注销原因
+    /// </summary>
+    [SugarColumn(IsNullable = true, Length = 256, ColumnName = "deleted_reason")]
+    public string? DeletedReason { get; set; }
 }

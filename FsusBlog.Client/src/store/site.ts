@@ -1,15 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref, shallowRef } from 'vue'
-import { getSiteConfig, type SiteConfig } from '@/api/system'
+import { getSiteConfig, type SeoConfigPublic } from '@/api/system'
 
 export const useSiteStore = defineStore('site', () => {
   // ================= State =================
-  const siteInfo = shallowRef<SiteConfig>({
+  const siteInfo = shallowRef<SeoConfigPublic>({
     title: "Fsu's Blog",
     description: "极简主义个人内容发布系统",
     keywords: "Minimalism, Blog, Fsu",
     author: "Fsu",
-    ogImage: ""
+    ogImage: "",
+    baseUrl: window.location.origin
   })
 
   const isLoaded = ref(false)

@@ -4,24 +4,19 @@ import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
-import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
 function resolveManualChunk(id: string): string | undefined {
     if (!id.includes('node_modules')) {
         if (
             id.includes('/src/views/admin/') ||
-            id.includes('/src/layouts/AdminLayout.vue') ||
-            id.includes('/src/components/admin/') ||
-            id.includes('/src/composables/useAdmin')
-        ) {
-            return 'route-admin'
-        }
-        if (
             id.includes('/src/views/user/') ||
-            id.includes('/src/layouts/UserLayout.vue') ||
-            id.includes('/src/components/user/')
+            id.includes('/src/layouts/AccountLayout.vue') ||
+            id.includes('/src/components/admin/') ||
+            id.includes('/src/components/user/') ||
+            id.includes('/src/composables/useAdmin') ||
+            id.includes('/src/layouts/accountNav.ts')
         ) {
-            return 'route-user'
+            return 'route-account'
         }
         if (id.includes('/src/views/auth/')) {
             return 'route-auth'
@@ -29,13 +24,23 @@ function resolveManualChunk(id: string): string | undefined {
         if (id.includes('/src/bootstrap/publicShellPrimitives.ts') || id.includes('/src/bootstrap/entry.ts')) {
             return 'entry-runtime'
         }
+        if (
+            id.includes('/src/bootstrap/publicShell.ts') ||
+            id.includes('/src/bootstrap/publicHydrationBootstrap.ts') ||
+            id.includes('/src/public-renderers/')
+        ) {
+            return 'public-page-runtime'
+        }
         if (id.includes('/src/bootstrap/fullApp.ts') || id.includes('/src/router/') || id.includes('/src/App.vue')) {
             return 'full-app-core'
         }
         return undefined
     }
 
-    if (id.includes('/node_modules/element-plus/') || id.includes('/node_modules/@element-plus/')) {
+    if (
+        id.includes('/node_modules/@ozwasyd/element-plus/') ||
+        id.includes('/node_modules/@element-plus/')
+    ) {
         return 'vendor-element-plus'
     }
     if (id.includes('/node_modules/echarts/')) {
@@ -54,10 +59,7 @@ function resolveManualChunk(id: string): string | undefined {
     ) {
         return 'vendor-runtime'
     }
-    if (id.includes('/node_modules/dompurify/')) {
-        return 'vendor-sanitize'
-    }
-    if (id.includes('/node_modules/@vueuse/head/')) {
+    if (id.includes('/node_modules/@unhead/')) {
         return 'vendor-vueuse'
     }
     if (id.includes('/node_modules/vue/')) {
@@ -67,15 +69,44 @@ function resolveManualChunk(id: string): string | undefined {
     return undefined
 }
 
+function shouldIgnoreBuildWarning(warning: { message?: string; id?: string }): boolean {
+    return Boolean(
+        warning.message?.includes('new URL("ep_wasm.wasm",import.meta.url)') &&
+        warning.id?.includes('/node_modules/@ozwasyd/element-plus/')
+    )
+}
+
+function patchFsusUiWasmUrl() {
+    return {
+        name: 'patch-fsusui-wasm-url',
+        enforce: 'pre' as const,
+        transform(code: string, id: string) {
+            if (
+                !id.includes('/node_modules/@ozwasyd/element-plus/') ||
+                !code.includes('new URL("ep_wasm.wasm",import.meta.url)')
+            ) {
+                return null
+            }
+
+            return code.replace(
+                'new URL("ep_wasm.wasm",import.meta.url)',
+                'new URL(/* @vite-ignore */ "ep_wasm.wasm", import.meta.url)'
+            )
+        }
+    }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd())
-    const enablePublicShellProxy =
-        env.VITE_PUBLIC_SHELL_PROXY === '1' ||
-        env.VITE_PUBLIC_SHELL_PROXY?.toLowerCase() === 'true'
+    const apiBaseUrl = env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:5000'
+    const hasProxyFlag = typeof env.VITE_PUBLIC_SHELL_PROXY === 'string' && env.VITE_PUBLIC_SHELL_PROXY.trim().length > 0
+    const enablePublicShellProxy = hasProxyFlag
+        ? env.VITE_PUBLIC_SHELL_PROXY === '1' || env.VITE_PUBLIC_SHELL_PROXY?.toLowerCase() === 'true'
+        : true
 
     const publicSeoProxy = {
-        target: env.VITE_API_BASE_URL,
+        target: apiBaseUrl,
         changeOrigin: false,
         configure: (proxy: any) => {
             proxy.on('proxyReq', (proxyReq: any, req: any) => {
@@ -88,21 +119,74 @@ export default defineConfig(({ mode }) => {
         }
     }
 
+    const publicRouteProxy = enablePublicShellProxy
+        ? {
+            '^/$': publicSeoProxy,
+            '^/about/?$': publicSeoProxy,
+            '^/archive/?$': publicSeoProxy,
+            '^/article/\\d+/?$': publicSeoProxy,
+            '^/category/\\d+/?$': publicSeoProxy,
+            '^/tag/\\d+/?$': publicSeoProxy,
+        }
+        : {}
+
+    const sharedApiProxy = {
+        '/api': {
+            target: apiBaseUrl,
+            changeOrigin: true,
+        },
+        '/hubs': {
+            target: apiBaseUrl,
+            ws: true,
+            changeOrigin: true
+        },
+        '^/search/index\\.bin$': {
+            target: apiBaseUrl,
+            changeOrigin: true
+        },
+        '^/search/index\\.manifest\\.json$': {
+            target: apiBaseUrl,
+            changeOrigin: true
+        },
+        '^/search/index\\.(?:core|recent|archive|body)\\.[0-9a-f]{16}\\.bin$': {
+            target: apiBaseUrl,
+            changeOrigin: true
+        },
+        '^/search/patches/.*$': {
+            target: apiBaseUrl,
+            changeOrigin: true
+        }
+    }
+
     return {
         plugins: [
+            patchFsusUiWasmUrl(),
             tailwindcss(),
             vue(),
             AutoImport({
-                resolvers: [ElementPlusResolver()],
+                resolvers: [
+                    (name) => {
+                        if (name.match(/^El[A-Z]/)) {
+                            return { name, from: '@ozwasyd/element-plus' }
+                        }
+                    }
+                ],
             }),
             Components({
-                resolvers: [ElementPlusResolver()],
+                resolvers: [
+                    (name) => {
+                        if (name.match(/^El[A-Z]/)) {
+                            return { name, from: '@ozwasyd/element-plus' }
+                        }
+                    }
+                ],
             }),
         ],
         resolve: {
             alias: {
                 '@': fileURLToPath(new URL('./src', import.meta.url)),
-                '@wasm': fileURLToPath(new URL('./wasm/web', import.meta.url))
+                '@wasm': fileURLToPath(new URL('./wasm/web', import.meta.url)),
+                'element-plus': '@ozwasyd/element-plus',
             }
         },
         build: {
@@ -114,6 +198,13 @@ export default defineConfig(({ mode }) => {
             // 针对大型项目优化块大小
             chunkSizeWarningLimit: 1000,
             rollupOptions: {
+                onwarn(warning, warn) {
+                    if (shouldIgnoreBuildWarning(warning)) {
+                        return
+                    }
+
+                    warn(warning)
+                },
                 output: {
                     manualChunks(id) {
                         return resolveManualChunk(id)
@@ -127,27 +218,21 @@ export default defineConfig(({ mode }) => {
             proxy: {
                 ...(enablePublicShellProxy
                     ? {
-                        '^/assets/.*': publicSeoProxy,
-                        '^/$': publicSeoProxy,
-                        '^/about/?$': publicSeoProxy,
-                        '^/archive/?$': publicSeoProxy,
-                        '^/article/\\d+/?$': publicSeoProxy,
-                        '^/category/\\d+/?$': publicSeoProxy,
-                        '^/tag/\\d+/?$': publicSeoProxy,
+                        '^/assets/.*': publicSeoProxy
                     }
                     : {}),
-                // 匹配所有以 /api 开头的请求
-                '/api': {
-                    target: env.VITE_API_BASE_URL, // 转发到的目标端口（来自 .env 文件）
-                    changeOrigin: true,
-                },
-                '/hubs': {
-                    target: env.VITE_API_BASE_URL,
-                    ws: true, // 开启 WebSocket 代理支持
-                    changeOrigin: true
-                }
+                ...publicRouteProxy,
+                ...sharedApiProxy
             },
             allowedHosts: true
+        },
+        preview: {
+            host: '0.0.0.0',
+            port: 8080,
+            proxy: {
+                ...publicRouteProxy,
+                ...sharedApiProxy
+            }
         },
         worker: {
             format: "es"

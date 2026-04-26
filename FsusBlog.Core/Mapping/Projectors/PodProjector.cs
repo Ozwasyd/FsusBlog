@@ -17,13 +17,11 @@ public static class PodProjector
         string categoryName,
         string title,
         string? summary,
-        string? snippet,
         bool? isDeleted,
-        out byte[] payload)
+        out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(256);
         Utf8SliceRef summarySlice = PodUtf8Codec.AppendSlice(summary, bytes);
-        Utf8SliceRef snippetSlice = PodUtf8Codec.AppendSlice(snippet, bytes);
 
         MutableArticleListItemPod tmp = new()
         {
@@ -33,13 +31,13 @@ public static class PodProjector
             Category = ProjectCategoryView(categoryId, categoryName),
             Title = PodUtf8Codec.ToFixed256(title),
             Summary = summarySlice,
-            Snippet = snippetSlice,
             IsDeleted = isDeleted == true ? (byte)1 : (byte)0,
             HasIsDeleted = isDeleted.HasValue ? (byte)1 : (byte)0,
-            Reserved = 0
+            Reserved0 = 0,
+            Reserved1 = 0
         };
 
-        payload = bytes.WrittenMemory.ToArray();
+        payload = bytes.WrittenMemory;
         return Cast<MutableArticleListItemPod, ArticleListItemPod>(tmp);
     }
 
@@ -52,7 +50,7 @@ public static class PodProjector
         string title,
         string content,
         string? summary,
-        out byte[] payload)
+        out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(512);
         Utf8SliceRef summarySlice = PodUtf8Codec.AppendSlice(summary, bytes);
@@ -63,13 +61,14 @@ public static class PodProjector
             Id = id,
             Views = views,
             CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
+            Reserved0 = 0,
             Category = ProjectCategoryView(categoryId, categoryName),
             Title = PodUtf8Codec.ToFixed256(title),
             Summary = summarySlice,
             Content = contentSlice
         };
 
-        payload = bytes.WrittenMemory.ToArray();
+        payload = bytes.WrittenMemory;
         return Cast<MutableArticleDetailPod, ArticleDetailPod>(tmp);
     }
 
@@ -84,7 +83,7 @@ public static class PodProjector
             Title = PodUtf8Codec.ToFixed256(title)
         });
 
-    public static CommentItemPod ProjectCommentItem(long id, DateTime createTime, string userName, string content, out byte[] payload)
+    public static CommentItemPod ProjectCommentItem(long id, DateTime createTime, string userName, string content, out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(256);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
@@ -97,11 +96,19 @@ public static class PodProjector
             Content = contentSlice
         };
 
-        payload = bytes.WrittenMemory.ToArray();
+        payload = bytes.WrittenMemory;
         return Cast<MutableCommentItemPod, CommentItemPod>(tmp);
     }
 
-    public static UserCommentPod ProjectUserComment(long id, int articleId, DateTime createTime, string content, string articleTitle, out byte[] payload)
+    public static UserCommentPod ProjectUserComment(
+        long id,
+        int articleId,
+        DateTime createTime,
+        string content,
+        string articleTitle,
+        long? rootId,
+        string? replyToUserName,
+        out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(256);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
@@ -112,14 +119,122 @@ public static class PodProjector
             ArticleId = articleId,
             CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
             Content = contentSlice,
-            ArticleTitle = PodUtf8Codec.ToFixed256(articleTitle)
+            ArticleTitle = PodUtf8Codec.ToFixed256(articleTitle),
+            RootId = rootId ?? 0,
+            ReplyToUserName = PodUtf8Codec.ToFixed64(replyToUserName)
         };
 
-        payload = bytes.WrittenMemory.ToArray();
+        payload = bytes.WrittenMemory;
         return Cast<MutableUserCommentPod, UserCommentPod>(tmp);
     }
 
-    public static RecentCommentPod ProjectRecentComment(int? userId, DateTime createTime, string userName, string content, out byte[] payload)
+    public static CommentThreadItemPod ProjectCommentThreadItem(
+        long id,
+        long rootId,
+        bool isDeleted,
+        DateTime createTime,
+        string userName,
+        string content,
+        int replyCount,
+        bool hasMoreReplies,
+        int previewReplyCount,
+        out ReadOnlyMemory<byte> payload)
+    {
+        var bytes = new ArrayBufferWriter<byte>(256);
+        Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
+
+        MutableCommentThreadItemPod tmp = new()
+        {
+            Id = id,
+            ParentId = 0,
+            RootId = rootId,
+            ReplyToUserId = 0,
+            ReplyToCommentId = 0,
+            Depth = 0,
+            IsDeleted = isDeleted ? (byte)1 : (byte)0,
+            HasReplyToUserId = 0,
+            Reserved = 0,
+            CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
+            UserName = PodUtf8Codec.ToFixed64(userName),
+            ReplyToUserName = default,
+            Content = contentSlice,
+            ReplyCount = replyCount,
+            HasMoreReplies = hasMoreReplies ? (byte)1 : (byte)0,
+            PreviewReplyCount = (byte)Math.Clamp(previewReplyCount, 0, 255),
+            Reserved2 = 0
+        };
+
+        payload = bytes.WrittenMemory;
+        return Cast<MutableCommentThreadItemPod, CommentThreadItemPod>(tmp);
+    }
+
+    public static CommentReplyItemPod ProjectCommentReplyItem(
+        long id,
+        long? parentId,
+        long rootId,
+        int? replyToUserId,
+        long? replyToCommentId,
+        int depth,
+        bool isDeleted,
+        DateTime createTime,
+        string userName,
+        string? replyToUserName,
+        string content,
+        out ReadOnlyMemory<byte> payload)
+    {
+        var bytes = new ArrayBufferWriter<byte>(256);
+        Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
+
+        MutableCommentReplyItemPod tmp = new()
+        {
+            Id = id,
+            ParentId = parentId ?? 0,
+            RootId = rootId,
+            ReplyToUserId = replyToUserId ?? 0,
+            ReplyToCommentId = replyToCommentId ?? 0,
+            Depth = depth,
+            IsDeleted = isDeleted ? (byte)1 : (byte)0,
+            HasReplyToUserId = replyToUserId.HasValue ? (byte)1 : (byte)0,
+            Reserved = 0,
+            CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
+            UserName = PodUtf8Codec.ToFixed64(userName),
+            ReplyToUserName = PodUtf8Codec.ToFixed64(replyToUserName ?? string.Empty),
+            Content = contentSlice
+        };
+
+        payload = bytes.WrittenMemory;
+        return Cast<MutableCommentReplyItemPod, CommentReplyItemPod>(tmp);
+    }
+
+    public static CommentReplyPreviewItemPod ProjectCommentReplyPreviewItem(
+        long id,
+        bool isDeleted,
+        DateTime createTime,
+        string userName,
+        string? replyToUserName,
+        string content,
+        out ReadOnlyMemory<byte> payload)
+    {
+        var bytes = new ArrayBufferWriter<byte>(192);
+        Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
+
+        MutableCommentReplyPreviewItemPod tmp = new()
+        {
+            Id = id,
+            IsDeleted = isDeleted ? (byte)1 : (byte)0,
+            Reserved0 = 0,
+            Reserved1 = 0,
+            CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
+            UserName = PodUtf8Codec.ToFixed64(userName),
+            ReplyToUserName = PodUtf8Codec.ToFixed64(replyToUserName ?? string.Empty),
+            Content = contentSlice
+        };
+
+        payload = bytes.WrittenMemory;
+        return Cast<MutableCommentReplyPreviewItemPod, CommentReplyPreviewItemPod>(tmp);
+    }
+
+    public static RecentCommentPod ProjectRecentComment(int? userId, DateTime createTime, string userName, string content, out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(256);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
@@ -135,7 +250,7 @@ public static class PodProjector
             Content = contentSlice
         };
 
-        payload = bytes.WrittenMemory.ToArray();
+        payload = bytes.WrittenMemory;
         return Cast<MutableRecentCommentPod, RecentCommentPod>(tmp);
     }
 
@@ -173,6 +288,8 @@ public static class PodProjector
         return Cast<MutableSiteStatsPod, SiteStatsPod>(tmp);
     }
 
+    public static string ReadSlice(in Utf8SliceRef slice, ReadOnlySpan<byte> payload) => PodUtf8Codec.ReadSlice(slice, payload);
+
     public static string ReadSlice(in Utf8SliceRef slice, byte[] payload) => PodUtf8Codec.ReadSlice(slice, payload);
 
     private static ArticleCategoryViewPod ProjectCategoryView(int id, string name)
@@ -209,10 +326,10 @@ public static class PodProjector
         public ArticleCategoryViewPod Category;
         public Utf8Fixed256 Title;
         public Utf8SliceRef Summary;
-        public Utf8SliceRef Snippet;
         public byte IsDeleted;
         public byte HasIsDeleted;
-        public ushort Reserved;
+        public ushort Reserved0;
+        public uint Reserved1;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -221,6 +338,10 @@ public static class PodProjector
         public int Id;
         public int Views;
         public long CreateTimeUnixMs;
+        public byte Reserved0;
+        public byte Reserved1;
+        public byte Reserved2;
+        public byte Reserved3;
         public ArticleCategoryViewPod Category;
         public Utf8Fixed256 Title;
         public Utf8SliceRef Summary;
@@ -252,6 +373,61 @@ public static class PodProjector
         public long CreateTimeUnixMs;
         public Utf8SliceRef Content;
         public Utf8Fixed256 ArticleTitle;
+        public long RootId;
+        public Utf8Fixed64 ReplyToUserName;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableCommentThreadItemPod
+    {
+        public long Id;
+        public long ParentId;
+        public long RootId;
+        public int ReplyToUserId;
+        public long ReplyToCommentId;
+        public int Depth;
+        public byte IsDeleted;
+        public byte HasReplyToUserId;
+        public ushort Reserved;
+        public long CreateTimeUnixMs;
+        public Utf8Fixed64 UserName;
+        public Utf8Fixed64 ReplyToUserName;
+        public Utf8SliceRef Content;
+        public int ReplyCount;
+        public byte HasMoreReplies;
+        public byte PreviewReplyCount;
+        public ushort Reserved2;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableCommentReplyItemPod
+    {
+        public long Id;
+        public long ParentId;
+        public long RootId;
+        public int ReplyToUserId;
+        public long ReplyToCommentId;
+        public int Depth;
+        public byte IsDeleted;
+        public byte HasReplyToUserId;
+        public ushort Reserved;
+        public long CreateTimeUnixMs;
+        public Utf8Fixed64 UserName;
+        public Utf8Fixed64 ReplyToUserName;
+        public Utf8SliceRef Content;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableCommentReplyPreviewItemPod
+    {
+        public long Id;
+        public byte IsDeleted;
+        public byte Reserved0;
+        public ushort Reserved1;
+        public long CreateTimeUnixMs;
+        public Utf8Fixed64 UserName;
+        public Utf8Fixed64 ReplyToUserName;
+        public Utf8SliceRef Content;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

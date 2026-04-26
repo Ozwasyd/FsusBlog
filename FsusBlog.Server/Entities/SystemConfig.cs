@@ -9,10 +9,10 @@ namespace FsusBlog.Server.Entities
     public class SystemConfig
     {
         // 系统配置的字段是易变且不确定的，用 Key-Value。
-        [SugarColumn(IsPrimaryKey = true)]
+        [SugarColumn(IsPrimaryKey = true, Length = 64)]
         public string Key { get; set; } = null!;
 
-        [SugarColumn(ColumnDataType = "text")]
+        [SugarColumn(Length = 512)]
         public string Value { get; set; } = null!;
     }
 }

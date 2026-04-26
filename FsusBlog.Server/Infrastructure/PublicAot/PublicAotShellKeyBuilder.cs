@@ -6,25 +6,21 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 internal static class PublicAotShellKeyBuilder
 {
-    internal static PublicPageId ToPageId(PublicPageKind kind) => kind switch
-    {
-        PublicPageKind.Home => PublicPageId.Home,
-        PublicPageKind.ArticleDetail => PublicPageId.ArticleDetail,
-        PublicPageKind.Filter => PublicPageId.Filter,
-        PublicPageKind.About => PublicPageId.About,
-        PublicPageKind.Archive => PublicPageId.Archive,
-        _ => PublicPageId.Home
-    };
+    internal static PublicPageId ToPageId(PublicPageKind kind)
+        => PublicAotPageCatalog.GetRequired(kind).PageId;
 
     internal static string BuildRouteKey(HttpContext context, PublicPageKind kind)
     {
         string path = context.Request.Path.Value?.TrimEnd('/') ?? string.Empty;
+        PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(kind);
+
+        if (!string.IsNullOrWhiteSpace(descriptor.FixedRouteKey))
+        {
+            return descriptor.FixedRouteKey;
+        }
 
         return kind switch
         {
-            PublicPageKind.Home => "home",
-            PublicPageKind.About => "about",
-            PublicPageKind.Archive => "archive",
             PublicPageKind.ArticleDetail when TryResolvePathId(context, "/article/", out int id) => $"article:{id}",
             PublicPageKind.Filter => BuildFilterRouteKey(path, context),
             _ => path
@@ -69,13 +65,10 @@ internal static class PublicAotShellKeyBuilder
             resolved = resolved.Replace("{{articleId}}", articleId.Value.ToString(), StringComparison.OrdinalIgnoreCase);
         }
 
-        return pageId switch
-        {
-            PublicPageId.Home => "home",
-            PublicPageId.About => "about",
-            PublicPageId.Archive => "archive",
-            _ => resolved
-        };
+        PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(pageId);
+        return string.IsNullOrWhiteSpace(descriptor.FixedRouteKey)
+            ? resolved
+            : descriptor.FixedRouteKey;
     }
 
     private static string NormalizeHtml(string html, int? articleId)

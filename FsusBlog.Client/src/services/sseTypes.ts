@@ -103,7 +103,15 @@ export enum SseEventType {
   InboxConversationClosed = 15
 }
 
-export type SseFailureCode = 'auth_failed' | 'pow_failed' | 'protocol_mismatch' | 'network_error' | 'server_error'
+export const SseFailureCodes = {
+  AuthFailed: 'auth_failed',
+  PowFailed: 'pow_failed',
+  ProtocolMismatch: 'protocol_mismatch',
+  NetworkError: 'network_error',
+  ServerError: 'server_error'
+} as const
+
+export type SseFailureCode = typeof SseFailureCodes[keyof typeof SseFailureCodes]
 
 export interface SseEventV2<TPayload = unknown> {
   id: number

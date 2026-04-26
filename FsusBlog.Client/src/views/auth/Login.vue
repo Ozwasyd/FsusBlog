@@ -1,101 +1,174 @@
 <template>
-  <div class="min-h-screen flex flex-col bg-white subpixel-antialiased w-full overflow-x-hidden">
-    
-    <nav class="h-16 sm:h-20 flex items-center px-6 sm:px-8 shrink-0">
-      <router-link to="/" class="text-xl font-bold tracking-tight text-zinc-950 hover:text-zinc-500 transition-colors duration-300">
+  <div class="min-h-screen w-full overflow-x-hidden bg-[#F7F7F8] text-[#0F0F11] subpixel-antialiased dark:bg-[#0F0F11] dark:text-[#FCFCFC]">
+    <nav class="mx-auto flex h-16 w-full max-w-6xl items-center px-5 sm:h-20 sm:px-8">
+      <router-link
+        to="/"
+        class="rounded-[8px] text-lg font-bold text-[#0F0F11] transition-colors hover:text-[#2A599C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8] dark:text-[#FCFCFC] dark:hover:text-[#7EA7E0] dark:focus-visible:ring-[#7EA7E0] dark:focus-visible:ring-offset-[#0F0F11]"
+      >
         {{ siteStore.siteInfo.title }}
       </router-link>
     </nav>
 
-    <main class="grow flex items-center justify-center px-6 pb-20 sm:pb-32">
-      <div class="w-full max-w-sm animate-in fade-in slide-in-from-bottom-4 duration-700">
-        
-        <header class="mb-10 sm:mb-12">
-          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950">
+    <main class="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-start px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16">
+      <section
+        class="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700"
+        aria-labelledby="login-title"
+      >
+        <header class="mb-8 sm:mb-10">
+          <h1 id="login-title" class="text-3xl font-extrabold leading-tight text-[#0F0F11] sm:text-4xl dark:text-[#FCFCFC]">
             登录
           </h1>
-          <p class="mt-3 text-[13px] sm:text-sm text-zinc-500 leading-relaxed">
+          <p class="mt-3 max-w-sm text-sm leading-7 text-[#52525B] dark:text-[#A1A1AA]">
             欢迎回来，请验证你的身份信息以继续。
           </p>
         </header>
 
-        <form @submit.prevent="handleLogin" class="space-y-8" novalidate>
-          
+        <form v-if="!requiresMfa" class="space-y-6" novalidate @submit.prevent="handleLogin">
           <div class="relative group">
-            <label 
-              for="username" 
-              class="block text-[10px] font-bold tracking-[0.2em] text-zinc-400 uppercase mb-2"
-            >
+            <label for="username" class="mb-2 block text-xs font-semibold text-[#52525B] dark:text-[#A1A1AA]">
               用户名
             </label>
-            <input 
+            <input
               id="username"
-              v-model="loginData.username" 
+              v-model="loginData.username"
+              name="username"
               type="text"
               placeholder="输入你的用户名"
               autocomplete="username"
               autofocus
               aria-required="true"
-              class="w-full bg-transparent border-b border-zinc-200 focus:border-zinc-950 py-3 text-sm font-medium text-zinc-900 placeholder:text-zinc-300 placeholder:font-normal outline-none transition-colors rounded-none appearance-none"
+              class="w-full rounded-[8px] border border-[#E4E4E7] bg-[#FCFCFC] px-4 py-3 text-sm font-medium text-[#18181B] outline-none transition-colors placeholder:text-[#A1A1AA] focus:border-[#2A599C] focus:ring-1 focus:ring-[#2A599C] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#27272A] dark:bg-[#18181B] dark:text-[#FCFCFC] dark:placeholder:text-[#71717A] dark:focus:border-[#7EA7E0] dark:focus:ring-[#7EA7E0]"
               :disabled="isProcessing"
             />
           </div>
 
           <div class="relative group">
-            <label 
-              for="password" 
-              class="block text-[10px] font-bold tracking-[0.2em] text-zinc-400 uppercase mb-2"
-            >
+            <label for="password" class="mb-2 block text-xs font-semibold text-[#52525B] dark:text-[#A1A1AA]">
               密码
             </label>
-            <input 
+            <input
               id="password"
-              v-model="loginData.password" 
+              v-model="loginData.password"
+              name="password"
               type="password"
               placeholder="输入你的密码"
               autocomplete="current-password"
               aria-required="true"
-              class="w-full bg-transparent border-b border-zinc-200 focus:border-zinc-950 py-3 text-sm font-medium text-zinc-900 placeholder:text-zinc-300 placeholder:font-normal outline-none transition-colors rounded-none appearance-none"
+              :aria-invalid="Boolean(errorMessage)"
+              aria-describedby="login-error"
+              class="w-full rounded-[8px] border border-[#E4E4E7] bg-[#FCFCFC] px-4 py-3 text-sm font-medium text-[#18181B] outline-none transition-colors placeholder:text-[#A1A1AA] focus:border-[#2A599C] focus:ring-1 focus:ring-[#2A599C] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#27272A] dark:bg-[#18181B] dark:text-[#FCFCFC] dark:placeholder:text-[#71717A] dark:focus:border-[#7EA7E0] dark:focus:ring-[#7EA7E0]"
               :disabled="isProcessing"
             />
           </div>
 
-          <!-- [修复 2026-02-24] P1 修复：增加 A11y 语义，确保屏幕阅读器能及时播报错误 -->
-          <div 
-            v-if="errorMessage" 
+          <label for="remember-me" class="flex min-h-11 cursor-pointer select-none items-center gap-3 text-sm font-medium text-[#52525B] dark:text-[#A1A1AA]">
+            <input
+              id="remember-me"
+              v-model="rememberMe"
+              name="rememberMe"
+              type="checkbox"
+              class="h-4 w-4 rounded-[6px] border-[#D4D4D8] text-[#0F0F11] focus:ring-2 focus:ring-[#2A599C] focus:ring-offset-2 focus:ring-offset-[#F7F7F8] dark:border-[#3F3F46] dark:bg-[#18181B] dark:focus:ring-[#7EA7E0] dark:focus:ring-offset-[#0F0F11]"
+              :disabled="isProcessing"
+            />
+            <span>记住我</span>
+          </label>
+
+          <div
+            v-if="errorMessage"
+            id="login-error"
             role="alert"
             aria-live="polite"
-            class="text-[11px] font-mono font-bold text-red-500 tracking-wider uppercase animate-in fade-in slide-in-from-top-1"
+            class="rounded-[8px] border border-[#FAD1D1] bg-[#FFF7F7] px-4 py-3 text-sm font-semibold text-[#E5484D] animate-in fade-in slide-in-from-top-1 dark:border-[#7F1D1D] dark:bg-[#2A1212]"
           >
-            * {{ errorMessage }}
+            {{ errorMessage }}
           </div>
 
           <div class="pt-4">
-            <button 
+            <button
               type="submit"
               :disabled="isProcessing || !isFormValid"
               :aria-disabled="isProcessing || !isFormValid"
-              class="w-full py-4 bg-zinc-950 text-white text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-[0.98] active:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-xl shadow-zinc-950/5"
+              class="flex w-full items-center justify-center rounded-[8px] bg-[#0F0F11] px-5 py-4 text-sm font-bold text-white shadow-[0_32px_64px_rgba(0,0,0,0.08)] transition-all duration-300 hover:bg-[#2A599C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#FCFCFC] dark:text-[#0F0F11] dark:hover:bg-[#7EA7E0] dark:focus-visible:ring-[#7EA7E0] dark:focus-visible:ring-offset-[#0F0F11]"
             >
               <span :class="submitButtonPulseClass">
-                <span v-if="showSubmitLockIcon" class="mr-2" aria-hidden="true">🔒</span>
                 {{ submitButtonText }}
-                <span v-if="showSubmitArrow" class="text-zinc-500">→</span>
               </span>
             </button>
           </div>
         </form>
 
-        <footer class="mt-12 flex justify-between items-center border-t border-zinc-100 pt-8">
-          <router-link to="/register" class="text-[10px] font-bold tracking-widest uppercase text-zinc-400 hover:text-zinc-950 transition-colors py-2 px-1">
+        <form v-else class="space-y-6" novalidate aria-labelledby="mfa-title" @submit.prevent="handleMfaVerify">
+          <div id="mfa-title" class="rounded-[24px] border border-[#E4E4E7] bg-[#FCFCFC]/80 px-5 py-4 text-sm leading-7 text-[#52525B] shadow-[0_32px_64px_rgba(0,0,0,0.04)] backdrop-blur-xl dark:border-[#27272A] dark:bg-[#18181B]/80 dark:text-[#A1A1AA]">
+            需要进行多因素验证。请输入 Google Authenticator 验证码，或使用恢复码。
+          </div>
+
+          <div class="relative group">
+            <label for="mfa-code" class="mb-2 block text-xs font-semibold text-[#52525B] dark:text-[#A1A1AA]">
+              MFA 验证码
+            </label>
+            <input
+              id="mfa-code"
+              v-model="mfaCode"
+              name="mfaCode"
+              type="text"
+              inputmode="numeric"
+              placeholder="6位验证码"
+              autocomplete="one-time-code"
+              :aria-invalid="Boolean(errorMessage)"
+              aria-describedby="mfa-error"
+              class="w-full rounded-[8px] border border-[#E4E4E7] bg-[#FCFCFC] px-4 py-3 text-sm font-medium text-[#18181B] outline-none transition-colors placeholder:text-[#A1A1AA] focus:border-[#2A599C] focus:ring-1 focus:ring-[#2A599C] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#27272A] dark:bg-[#18181B] dark:text-[#FCFCFC] dark:placeholder:text-[#71717A] dark:focus:border-[#7EA7E0] dark:focus:ring-[#7EA7E0]"
+              :disabled="isProcessing"
+            />
+          </div>
+
+          <div class="relative group">
+            <label for="mfa-recovery" class="mb-2 block text-xs font-semibold text-[#52525B] dark:text-[#A1A1AA]">
+              恢复码（可选）
+            </label>
+            <input
+              id="mfa-recovery"
+              v-model="mfaRecoveryCode"
+              name="mfaRecoveryCode"
+              type="text"
+              placeholder="恢复码"
+              autocomplete="one-time-code"
+              :aria-invalid="Boolean(errorMessage)"
+              aria-describedby="mfa-error"
+              class="w-full rounded-[8px] border border-[#E4E4E7] bg-[#FCFCFC] px-4 py-3 text-sm font-medium text-[#18181B] outline-none transition-colors placeholder:text-[#A1A1AA] focus:border-[#2A599C] focus:ring-1 focus:ring-[#2A599C] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#27272A] dark:bg-[#18181B] dark:text-[#FCFCFC] dark:placeholder:text-[#71717A] dark:focus:border-[#7EA7E0] dark:focus:ring-[#7EA7E0]"
+              :disabled="isProcessing"
+            />
+          </div>
+
+          <div
+            v-if="errorMessage"
+            id="mfa-error"
+            role="alert"
+            aria-live="polite"
+            class="rounded-[8px] border border-[#FAD1D1] bg-[#FFF7F7] px-4 py-3 text-sm font-semibold text-[#E5484D] dark:border-[#7F1D1D] dark:bg-[#2A1212]"
+          >
+            {{ errorMessage }}
+          </div>
+
+          <div class="pt-4">
+            <button
+              type="submit"
+              :disabled="isProcessing"
+              class="flex w-full items-center justify-center rounded-[8px] bg-[#0F0F11] px-5 py-4 text-sm font-bold text-white shadow-[0_32px_64px_rgba(0,0,0,0.08)] transition-all duration-300 hover:bg-[#2A599C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#FCFCFC] dark:text-[#0F0F11] dark:hover:bg-[#7EA7E0] dark:focus-visible:ring-[#7EA7E0] dark:focus-visible:ring-offset-[#0F0F11]"
+            >
+              完成验证
+            </button>
+          </div>
+        </form>
+
+        <footer class="mt-10 flex items-center justify-between border-t border-[#E4E4E7] pt-6 dark:border-[#27272A]">
+          <router-link to="/register" class="rounded-[8px] px-1 py-2 text-sm font-semibold text-[#8E8E93] transition-colors hover:text-[#2A599C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8] dark:text-[#A1A1AA] dark:hover:text-[#7EA7E0] dark:focus-visible:ring-[#7EA7E0] dark:focus-visible:ring-offset-[#0F0F11]">
             注册
           </router-link>
-          <router-link to="/" class="text-[10px] font-bold tracking-widest uppercase text-zinc-400 hover:text-zinc-950 transition-colors py-2 px-1">
+          <router-link to="/" class="rounded-[8px] px-1 py-2 text-sm font-semibold text-[#8E8E93] transition-colors hover:text-[#2A599C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8] dark:text-[#A1A1AA] dark:hover:text-[#7EA7E0] dark:focus-visible:ring-[#7EA7E0] dark:focus-visible:ring-offset-[#0F0F11]">
             取消
           </router-link>
         </footer>
-
-      </div>
+      </section>
     </main>
   </div>
 </template>
@@ -107,13 +180,16 @@ const {
   siteStore,
   errorMessage,
   loginData,
+  rememberMe,
   isProcessing,
   isFormValid,
   submitButtonText,
   submitButtonPulseClass,
-  showSubmitLockIcon,
-  showSubmitArrow,
-  handleLogin
+  handleLogin,
+  handleMfaVerify,
+  requiresMfa,
+  mfaCode,
+  mfaRecoveryCode
 } = useAuthLogin()
 </script>
 
@@ -124,13 +200,12 @@ input {
   max-width: 100%;
 }
 
-/* 覆盖浏览器默认的自动填充样式，保持设计一致性 */
 input:-webkit-autofill,
 input:-webkit-autofill:hover, 
 input:-webkit-autofill:focus, 
 input:-webkit-autofill:active{
-    -webkit-box-shadow: 0 0 0 30px white inset !important;
-    -webkit-text-fill-color: #18181b !important;
-    transition: background-color 5000s ease-in-out 0s;
+  -webkit-box-shadow: 0 0 0 30px #fcfcfc inset !important;
+  -webkit-text-fill-color: #18181b !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 </style>

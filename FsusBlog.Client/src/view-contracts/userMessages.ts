@@ -57,28 +57,21 @@ export type UserMessagesPageViewContract = Readonly<{
 }>
 
 export const userMessagesTokens = {
-  categoryBroadcast: 'bg-zinc-950 text-white border-zinc-950',
-  categoryDefault: 'bg-white text-zinc-400 border-zinc-200',
-  unreadDot: 'w-1.5 h-1.5 rounded-full bg-zinc-950 animate-pulse'
+  categoryBroadcast: 'bg-[#0F0F11] text-white border-[#0F0F11]',
+  categoryDefault: 'bg-white text-[#A1A1AA] border-[#E4E4E7]',
+  unreadDot: 'w-1.5 h-1.5 rounded-full bg-[#0F0F11] animate-pulse'
 } as const
 
-function toCategoryContract(category: MessageItem['category']): UserMessageCategoryContract {
-  if (category === 1) {
+function toCategoryContract(isSystemSource: boolean): UserMessageCategoryContract {
+  if (isSystemSource) {
     return {
-      label: '公告',
+      label: '系统',
       badgeClassName: userMessagesTokens.categoryBroadcast
     }
   }
 
-  if (category === 2) {
-    return {
-      label: '系统',
-      badgeClassName: userMessagesTokens.categoryDefault
-    }
-  }
-
   return {
-    label: '管理员通知',
+    label: '会话',
     badgeClassName: userMessagesTokens.categoryDefault
   }
 }
@@ -92,19 +85,23 @@ function toTimeContract(createTime: string): UserMessageTimeContract {
 }
 
 export function createUserMessageItemViewContract(message: MessageItem): UserMessageItemViewContract {
+  const subject = message.subject ?? ''
+  const preview = message.lastMessage?.bodyPreview ?? ''
+  const unread = Number(message.unreadCount ?? 0) > 0
+
   return {
-    id: String(message.id),
-    category: toCategoryContract(message.category),
-    time: toTimeContract(message.createTime),
+    id: String(message.conversationId ?? ''),
+    category: toCategoryContract(Boolean(message.isSystemSource)),
+    time: toTimeContract(message.lastMessageAt),
     preview: {
-      title: message.title,
-      content: message.content
+      title: subject,
+      content: preview
     },
     actions: {
-      canMarkRead: !message.isRead,
-      canDelete: message.category !== 1
+      canMarkRead: unread,
+      canDelete: false
     },
-    isRead: message.isRead
+    isRead: !unread
   }
 }
 

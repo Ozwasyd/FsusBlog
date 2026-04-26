@@ -3,31 +3,23 @@ export type UiActionContract = Readonly<{
   value?: number;
 }>;
 
-export type ButtonVariant = 'plain' | 'quiet' | 'primary';
-
-export type ButtonContract = Readonly<{
-  label: string;
-  variant: ButtonVariant;
-  disabled?: boolean;
-  ariaLabel?: string;
-  href?: string;
-  action?: UiActionContract;
-}>;
-
-export type TagContract = Readonly<{
-  label: string;
-  hiddenOnMobile?: boolean;
-}>;
-
-export type EmptyStateContract = Readonly<{
-  title: string;
-  body?: string;
-  action?: ButtonContract;
-}>;
+export type ButtonVariant = 'plain' | 'quiet' | 'primary' | 'secondary';
+export type ButtonSize = 'sm' | 'md' | 'lg';
+export type ButtonTone = 'neutral' | 'danger';
+export type TagVariant = 'ghost' | 'badge' | 'status';
+export type TagTone = 'neutral' | 'info' | 'success' | 'danger' | 'warning';
 
 export type PaginationContract = Readonly<{
-  previous: ButtonContract;
-  next: ButtonContract;
+  previous: Readonly<{
+    label: string;
+    disabled?: boolean;
+    action?: UiActionContract;
+  }>;
+  next: Readonly<{
+    label: string;
+    disabled?: boolean;
+    action?: UiActionContract;
+  }>;
   indicator: string;
 }>;
 

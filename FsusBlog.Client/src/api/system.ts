@@ -1,11 +1,7 @@
 import type { AxiosRequestConfig } from 'axios'
 import api from './index'
 
-/**
- * 对应后端的 SeoConfigDto
- * 这里我们稍微改个名叫 SiteConfig，因为它其实包含了整个站点的基础信息
- */
-export interface SiteConfig {
+export interface SeoConfigPublic {
   title: string       // 网站标题 (例如: "Fsu's Blog")
   description: string // 网站描述 (Meta Description)
   keywords: string    // 关键词
@@ -14,12 +10,23 @@ export interface SiteConfig {
   baseUrl : string    // URL
 }
 
-/**
- * 动态页面内容 (用于 关于、隐私政策 等)
- */
-export interface PageData {
+export interface SeoConfigAdmin {
+  title: string
+  description: string
+  keywords: string
+  author: string
+  ogImage: string
+  baseUrl: string
+}
+
+export interface PageContentPublic {
   slug: string        // 页面唯一标识 (例如: 'about' 或 'privacy')
   content: string     // Markdown 格式的内容文本
+}
+
+export interface PageContentAdmin {
+  slug: string
+  content: string
 }
 
 /**
@@ -28,44 +35,50 @@ export interface PageData {
  */
 
 // 站点 SEO 配置
-export const getSiteConfig = (config?: AxiosRequestConfig) => 
-  api.get<SiteConfig>('/System/seo', config)
+export const getSiteConfig = (config?: AxiosRequestConfig) =>
+  api.get<SeoConfigPublic>('/System/seo', config)
+
+export const getAdminSiteConfig = (config?: AxiosRequestConfig) =>
+  api.get<SeoConfigAdmin>('/System/admin/seo', config)
 
 /**
  * 更新站点配置
  * 安全性保障：接入 PoW 算力校验，物理隔离针对全站元数据的恶意篡改尝试
  */
-export const updateSiteConfig = (data: SiteConfig, config?: AxiosRequestConfig) => 
-  api.put('/System/seo', data, { 
-    ...config, 
-    requiresPow: true 
+export const updateSiteConfig = (data: SeoConfigAdmin, config?: AxiosRequestConfig) =>
+  api.put('/System/seo', data, {
+    ...config,
+    requiresPow: true
   } as AxiosRequestConfig)
 
 // ================= 动态页面管理 =================
 
 // 动态页面内容
-export const getPageData = (slug: string, config?: AxiosRequestConfig) => 
-  api.get<PageData>(`/System/page/${slug}`, config)
+export const getPageData = (slug: string, config?: AxiosRequestConfig) =>
+  api.get<PageContentPublic>(`/System/page/${slug}`, config)
+
+export const getAdminPageData = (slug: string, config?: AxiosRequestConfig) =>
+  api.get<PageContentAdmin>(`/System/admin/page/${slug}`, config)
 
 /**
  * 更新动态页面
  * 安全性保障：防止自动化脚本利用管理权限进行大规模的 SEO 垃圾信息注入
  */
-export const updatePageData = (data: PageData, config?: AxiosRequestConfig) => 
-  api.put('/System/page', data, { 
-    ...config, 
-    requiresPow: true 
+export const updatePageData = (data: PageContentAdmin, config?: AxiosRequestConfig) =>
+  api.put('/System/page', data, {
+    ...config,
+    requiresPow: true
   } as AxiosRequestConfig)
 
-/** 
+/**
  * 手动重置页面缓存 (可选)
  * 用于在不修改内容的情况下强制更新 Redis 状态
  * 算法最优：此操作触发后端缓存重载，属于资源消耗型操作，建议接入 PoW 保护
  */
 export const resetPageCache = (slug: string, config?: AxiosRequestConfig) => {
-  return api.post(`/System/page/refresh/${slug}`, {}, { 
-    ...config, 
-    requiresPow: true 
+  return api.post(`/System/page/refresh/${slug}`, {}, {
+    ...config,
+    requiresPow: true
   } as AxiosRequestConfig)
 }
 
@@ -78,9 +91,9 @@ export const resetPageCache = (slug: string, config?: AxiosRequestConfig) => {
 export const uploadImage = (file: File, config?: AxiosRequestConfig) => {
   const fd = new FormData()
   fd.append('file', file)
-  return api.post<{ url: string; relativeUrl: string }>('/File/upload', fd, { 
-    ...config, 
-    requiresPow: true 
+  return api.post<{ url: string; relativeUrl: string }>('/File/upload', fd, {
+    ...config,
+    requiresPow: true
   } as AxiosRequestConfig)
 }
 
@@ -88,9 +101,9 @@ export const uploadImage = (file: File, config?: AxiosRequestConfig) => {
  * 删除文件
  * 安全性保障：物理删除操作接入 PoW 保护，杜绝自动化脚本批量抹除服务器资源
  */
-export const deleteImage = (url: string, config?: AxiosRequestConfig) => 
-  api.delete('/File/delete', { 
-    ...config, 
+export const deleteImage = (url: string, config?: AxiosRequestConfig) =>
+  api.delete('/File/delete', {
+    ...config,
     params: { url },
     requiresPow: true
   } as AxiosRequestConfig)

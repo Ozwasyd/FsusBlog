@@ -30,6 +30,10 @@ public static class PodSizeCatalog
 
     public static readonly int CommentItemPod = PodContractValidation.SizeOf<CommentItemPod>();
     public static readonly int UserCommentPod = PodContractValidation.SizeOf<UserCommentPod>();
+    public static readonly int CommentThreadItemPod = PodContractValidation.SizeOf<CommentThreadItemPod>();
+    public static readonly int CommentReplyItemPod = PodContractValidation.SizeOf<CommentReplyItemPod>();
+    public static readonly int CommentThreadCursorPod = PodContractValidation.SizeOf<CommentThreadCursorPod>();
+    public static readonly int CommentReplyCursorPod = PodContractValidation.SizeOf<CommentReplyCursorPod>();
 
     public static readonly int MessageInboxPod = PodContractValidation.SizeOf<MessageInboxPod>();
     public static readonly int CommentPushPod = PodContractValidation.SizeOf<CommentPushPod>();

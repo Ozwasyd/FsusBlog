@@ -1,0 +1,201 @@
+#!/usr/bin/env node
+
+import { TextDecoder } from 'node:util';
+import {
+  authJson,
+  baseUrl,
+  buildPowHeaders,
+  loginWithPow,
+  requestTimeoutMs
+} from '../../support/auth-helpers.mjs';
+
+const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
+const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!';
+const deviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'upload-resilience-node';
+const decoder = new TextDecoder();
+const pngSample = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==',
+  'base64'
+);
+const tinySample = Buffer.from([0x00]);
+
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+function decodeBinaryJsonFrame(buffer) {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.byteLength < 24) {
+    throw new Error('upload frame too short');
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const frameType = view.getUint16(6, true);
+  const payloadLength = view.getUint32(12, true);
+  const payload = bytes.subarray(24, 24 + payloadLength);
+  const payloadJson = payload.byteLength > 0 ? JSON.parse(decoder.decode(payload)) : null;
+  return { frameType, payloadJson };
+}
+
+async function fetchBinaryFrame(path, cookieHeader, expectedFrameType) {
+  const powHeaders = await buildPowHeaders(deviceFingerprint, requestTimeoutMs);
+  const response = await fetch(`${baseUrl}${path}`, {
+    headers: {
+      Accept: 'application/octet-stream',
+      Cookie: cookieHeader,
+      ...powHeaders
+    }
+  });
+  assert(response.ok, `binary request failed: ${path} -> ${response.status}`);
+  const frame = decodeBinaryJsonFrame(await response.arrayBuffer());
+  assert(frame.frameType === expectedFrameType, `${path} should use frame ${expectedFrameType}, got ${frame.frameType}`);
+  return frame.payloadJson;
+}
+
+async function uploadPart(uploadId, session, partNumber, offset, payload, expectOk = true) {
+  const form = new FormData();
+  form.append('file', new Blob([payload], { type: 'image/png' }), `${uploadId}-${partNumber}.part`);
+  form.append('partNumber', String(partNumber));
+  form.append('offset', String(offset));
+  const powHeaders = await buildPowHeaders(deviceFingerprint, requestTimeoutMs);
+  const response = await fetch(`${baseUrl}/api/File/upload/${uploadId}/part`, {
+    method: 'PUT',
+    headers: {
+      Cookie: session.cookieHeader,
+      ...powHeaders
+    },
+    body: form
+  });
+  assert(expectOk ? response.ok : !response.ok, `upload part expectation failed: part=${partNumber} offset=${offset} status=${response.status}`);
+  return response;
+}
+
+async function main() {
+  const session = await loginWithPow(adminName, adminPassword, false, deviceFingerprint, requestTimeoutMs);
+  const invalidMime = await authJson('/api/File/upload/init', {
+    method: 'POST',
+    cookieHeader: session.cookieHeader,
+    deviceFingerprint,
+    requiresPow: true,
+    body: {
+      fileName: '../invalid<script>.exe',
+      mimeType: 'application/x-msdownload',
+      targetFormat: 'png',
+      totalBytes: pngSample.length,
+      chunkSize: pngSample.length
+    }
+  });
+  assert(!invalidMime.response.ok, 'invalid mime upload init must fail');
+
+  const init = await authJson('/api/File/upload/init', {
+    method: 'POST',
+    cookieHeader: session.cookieHeader,
+    deviceFingerprint,
+    requiresPow: true,
+    body: {
+      fileName: 'resilience-check.png',
+      mimeType: 'image/png',
+      targetFormat: 'png',
+      totalBytes: pngSample.length,
+      chunkSize: pngSample.length
+    }
+  });
+  assert(init.response.ok, `upload init failed: ${init.response.status}`);
+  const initData = init.payload?.data ?? init.payload;
+  const uploadId = initData?.uploadId;
+  assert(typeof uploadId === 'string' && uploadId.length > 0, 'upload init missing uploadId');
+
+  await uploadPart(uploadId, session, 0, 0, pngSample, true);
+  await uploadPart(uploadId, session, 0, 0, pngSample, true);
+  await uploadPart(uploadId, session, 1, pngSample.length + 16, pngSample, false);
+
+  const jsonStatus = await authJson(`/api/File/upload/${uploadId}/status`, {
+    method: 'GET',
+    cookieHeader: session.cookieHeader,
+    deviceFingerprint,
+    requiresPow: true
+  });
+  assert(jsonStatus.response.ok, `json upload status failed: ${jsonStatus.response.status}`);
+  const statusData = jsonStatus.payload?.data ?? jsonStatus.payload;
+  assert(statusData.uploadedPartCount >= 1, 'upload status should report uploaded part count');
+
+  const binaryStatus = await fetchBinaryFrame(`/api/binary/upload/${uploadId}/status`, session.cookieHeader, 21);
+  assert(binaryStatus.uploadId === uploadId, 'binary upload status should return matching uploadId');
+
+  const binaryPartMap = await fetchBinaryFrame(`/api/binary/upload/${uploadId}/status/parts`, session.cookieHeader, 24);
+  assert(Array.isArray(binaryPartMap.uploadedRanges) && binaryPartMap.uploadedRanges.length > 0, 'binary upload part map should include uploaded ranges');
+
+  const abort = await authJson(`/api/File/upload/${uploadId}`, {
+    method: 'DELETE',
+    cookieHeader: session.cookieHeader,
+    deviceFingerprint,
+    requiresPow: true
+  });
+  assert(abort.response.ok, `abort upload failed: ${abort.response.status}`);
+
+  const afterAbort = await authJson(`/api/File/upload/${uploadId}/status`, {
+    method: 'GET',
+    cookieHeader: session.cookieHeader,
+    deviceFingerprint,
+    requiresPow: true
+  });
+  assert(!afterAbort.response.ok, 'aborted upload status should no longer be retrievable');
+
+  const secondInit = await authJson('/api/File/upload/init', {
+    method: 'POST',
+    cookieHeader: session.cookieHeader,
+    deviceFingerprint,
+    requiresPow: true,
+    body: {
+      fileName: 'resilience-check-2.png',
+      mimeType: 'image/png',
+      targetFormat: 'png',
+      totalBytes: pngSample.length,
+      chunkSize: pngSample.length
+    }
+  });
+  assert(secondInit.response.ok, `second upload init failed: ${secondInit.response.status}`);
+  const secondUploadId = (secondInit.payload?.data ?? secondInit.payload)?.uploadId;
+  assert(typeof secondUploadId === 'string' && secondUploadId.length > 0, 'second upload init missing uploadId');
+
+  const cleanupSecond = await authJson(`/api/File/upload/${secondUploadId}`, {
+    method: 'DELETE',
+    cookieHeader: session.cookieHeader,
+    deviceFingerprint,
+    requiresPow: true
+  });
+  assert(cleanupSecond.response.ok, `second upload cleanup failed: ${cleanupSecond.response.status}`);
+
+  const tinyInit = await authJson('/api/File/upload/init', {
+    method: 'POST',
+    cookieHeader: session.cookieHeader,
+    deviceFingerprint,
+    requiresPow: true,
+    body: {
+      fileName: 'tiny-boundary.png',
+      mimeType: 'image/png',
+      targetFormat: 'png',
+      totalBytes: tinySample.length,
+      chunkSize: tinySample.length
+    }
+  });
+  assert(tinyInit.response.ok, `tiny upload init failed: ${tinyInit.response.status}`);
+  const tinyUploadId = (tinyInit.payload?.data ?? tinyInit.payload)?.uploadId;
+  assert(typeof tinyUploadId === 'string' && tinyUploadId.length > 0, 'tiny upload init missing uploadId');
+  await uploadPart(tinyUploadId, session, 0, 0, tinySample, true);
+  const cleanupTiny = await authJson(`/api/File/upload/${tinyUploadId}`, {
+    method: 'DELETE',
+    cookieHeader: session.cookieHeader,
+    deviceFingerprint,
+    requiresPow: true
+  });
+  assert(cleanupTiny.response.ok, `tiny upload cleanup failed: ${cleanupTiny.response.status}`);
+
+  console.log(`[check-upload-resilience] ok | base=${baseUrl}`);
+}
+
+main().catch((error) => {
+  console.error('[check-upload-resilience] fatal:', error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});

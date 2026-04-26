@@ -1,4 +1,5 @@
 import { ref, shallowRef, triggerRef } from 'vue';
+import { AppErrorCode, createAppError } from '@/utils/appError';
 
 export interface PowResult {
   nonce: string;
@@ -13,6 +14,9 @@ export class PowAbortError extends Error {
   }
 }
 
+const createPowRuntimeError = (message: string, details: string, code: AppErrorCode = AppErrorCode.InfraFailure) =>
+  createAppError(code, message, { details })
+
 // ==========================================
 // 全局单例状态管理
 // ==========================================
@@ -21,8 +25,15 @@ const globalWorker = shallowRef<Worker | null>(null);
 const isCalculating = ref(false);
 const globalError = ref<string | null>(null);
 
-let currentReject: ((reason?: any) => void) | null = null;
-let currentTimer: ReturnType<typeof setTimeout> | null = null;
+type PowRunState = {
+  runId: number
+  worker: Worker
+  reject: (reason?: any) => void
+  timerId: ReturnType<typeof setTimeout> | null
+}
+
+let currentRunId = 0;
+let activeRun: PowRunState | null = null;
 
 export function usePow() {
   /**
@@ -42,9 +53,9 @@ export function usePow() {
 
       globalWorker.value = newWorker;
       return newWorker;
-    } catch (err) {
+    } catch {
       globalError.value = "WORKER_INIT_FAILED";
-      throw err;
+      throw createPowRuntimeError('pow_worker_init_failed', 'worker_init_failed');
     }
   };
 
@@ -52,29 +63,77 @@ export function usePow() {
    * 物理硬杀 (唯一有效的抢占手段)
    * 逻辑自洽：直接销毁物理线程，释放 CPU 资源
    */
-  const terminate = (reason: string = "TERMINATED_BY_USER") => {
-    // 1. 清理定时器
-    if (currentTimer) {
-      clearTimeout(currentTimer);
-      currentTimer = null;
+  const destroyWorker = (worker: Worker | null) => {
+    if (!worker) {
+      return;
     }
 
-    // 2. 拒绝挂起的 Promise (使用特定异常类型，避免上游崩溃)
-    if (currentReject) {
-        currentReject(new PowAbortError(reason));
-        currentReject = null;
-    }
+    worker.onmessage = null;
+    worker.onerror = null;
+    worker.terminate();
 
-    // 3. 物理销毁线程
-    if (globalWorker.value) {
-      globalWorker.value.terminate();
+    if (globalWorker.value === worker) {
       globalWorker.value = null;
+      triggerRef(globalWorker);
+    }
+  };
+
+  const mapTerminationReason = (reason: string) => {
+    if (reason === 'POW_CALCULATION_TIMEOUT') {
+      return createPowRuntimeError('pow_calculation_timeout', 'pow_calculation_timeout', AppErrorCode.Timeout);
     }
 
-    // 4. 重置状态
+    if (reason === 'WORKER_THREAD_CRASHED') {
+      return createPowRuntimeError('pow_worker_thread_crashed', 'pow_worker_thread_crashed');
+    }
+
+    return new PowAbortError(reason);
+  };
+
+  const completeRun = (
+    runId: number,
+    worker: Worker,
+    action: () => void
+  ) => {
+    const current = activeRun;
+    if (!current || current.runId !== runId || current.worker !== worker) {
+      return;
+    }
+
+    if (current.timerId) {
+      clearTimeout(current.timerId);
+      current.timerId = null;
+    }
+
+    worker.onmessage = null;
+    worker.onerror = null;
+    activeRun = null;
     isCalculating.value = false;
-    globalError.value = null;
-    triggerRef(globalWorker);
+    action();
+  };
+
+  const terminate = (reason: string = "TERMINATED_BY_USER", targetRunId?: number) => {
+    const current = activeRun;
+    if (current && (targetRunId === undefined || current.runId === targetRunId)) {
+      if (current.timerId) {
+        clearTimeout(current.timerId);
+        current.timerId = null;
+      }
+
+      activeRun = null;
+      isCalculating.value = false;
+      globalError.value = null;
+      const rejectPending = current.reject;
+      destroyWorker(current.worker);
+      rejectPending(mapTerminationReason(reason));
+      return;
+    }
+
+    if (targetRunId === undefined) {
+      destroyWorker(globalWorker.value);
+      isCalculating.value = false;
+      globalError.value = null;
+    }
   };
 
   /**
@@ -92,33 +151,26 @@ export function usePow() {
     // 如果当前有任务在跑，不要幻想能软中断它，直接杀掉重建，这是性能损耗最小的路径
     if (isCalculating.value) {
       console.warn('[usePow] 触发物理抢占：终止陈旧 PoW 任务');
-      terminate("PREEMPTED_BY_NEW_TASK");
+      terminate("PREEMPTED_BY_NEW_TASK", activeRun?.runId);
     }
 
     isCalculating.value = true;
     globalError.value = null;
     const currentWorker = initWorker();
+    const runId = ++currentRunId;
 
     return new Promise((resolve, reject) => {
-      currentReject = reject;
-
-      // 超时兜底
-      currentTimer = setTimeout(() => {
-        terminate("POW_CALCULATION_TIMEOUT");
-      }, timeout);
-
-      const cleanup = () => {
-        if (currentTimer) {
-            clearTimeout(currentTimer);
-            currentTimer = null;
-        }
-        if (currentWorker) {
-            currentWorker.onmessage = null;
-            currentWorker.onerror = null;
-        }
-        isCalculating.value = false;
-        currentReject = null;
+      const runState: PowRunState = {
+        runId,
+        worker: currentWorker,
+        reject,
+        timerId: null
       };
+      activeRun = runState;
+
+      runState.timerId = setTimeout(() => {
+        terminate("POW_CALCULATION_TIMEOUT", runId);
+      }, timeout);
 
       currentWorker.onmessage = (e: MessageEvent) => {
         const { success, nonce, duration, error: workerError, type } = e.data;
@@ -126,28 +178,35 @@ export function usePow() {
         // 严格类型校验
         if (type === 'PONG' || type === 'PREWARM_DONE') return;
 
-        cleanup();
-
         if (success) {
-          resolve({ nonce, duration });
+          completeRun(runId, currentWorker, () => resolve({ nonce, duration }));
         } else {
           const msg = workerError || "WASM_RUNTIME_ERROR";
-          globalError.value = msg;
-          reject(new Error(msg));
+          completeRun(runId, currentWorker, () => {
+            globalError.value = msg;
+            reject(createPowRuntimeError('pow_runtime_failed', msg));
+          });
         }
       };
 
       currentWorker.onerror = (_err: ErrorEvent) => {
-        cleanup();
-        terminate("WORKER_THREAD_CRASHED");
+        if (!activeRun || activeRun.runId !== runId || activeRun.worker !== currentWorker) {
+          return;
+        }
+
+        terminate("WORKER_THREAD_CRASHED", runId);
       };
 
-      currentWorker.postMessage({
-        salt: String(salt),        
-        browserFp: String(browserFp),
-        difficulty: Number(difficulty),
-        type: 'CALC'
-      });
+      try {
+        currentWorker.postMessage({
+          salt: String(salt),
+          browserFp: String(browserFp),
+          difficulty: Number(difficulty),
+          type: 'CALC'
+        });
+      } catch {
+        terminate("WORKER_THREAD_CRASHED", runId);
+      }
     });
   };
 

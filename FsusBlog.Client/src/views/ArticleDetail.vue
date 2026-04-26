@@ -1,108 +1,119 @@
 <template>
-  <div>
-    <ArticleDetailLoadingState v-if="loading" />
+  <ArticleDetailLoadingState v-if="loading" />
 
-    <ArticleDetailErrorState
-      v-else-if="isError"
-      :view="articleDetailStates.errorState"
-      @retry="loadArticle(false)"
-    />
+  <ArticleDetailErrorState
+    v-else-if="isError"
+    :view="articleDetailStates.errorState"
+    @retry="loadArticle(false)"
+  />
 
-    <ArticleDetailStaticShell
-      v-else-if="article"
-      :view="articleView"
-      :article-id="articleView.id"
-      :comments-heading="detailView.comments.headingText"
-      :comments-placeholder-title="detailView.comments.placeholderTitle"
-      :comments-placeholder-body="detailView.comments.placeholderBody"
-      :comments-placeholder-hint="detailView.comments.placeholderHint"
-    >
-      <template #header>
-        <ArticleDetailHeader :view="articleView" />
-      </template>
+  <ArticleDetailStaticShell
+    v-else-if="article"
+    :view="articleView"
+    :article-id="articleView.id"
+    :author-name="articleAuthorName"
+    :description="articleSummary"
+    :canonical-url="articleCanonicalUrl || undefined"
+    :comments-heading="detailView.comments.headingText"
+    :comments-placeholder-title="detailView.comments.placeholderTitle"
+    :comments-placeholder-body="detailView.comments.placeholderBody"
+    :comments-placeholder-hint="detailView.comments.placeholderHint"
+  >
+    <template #header>
+      <ArticleDetailHeader :view="articleView" />
+    </template>
 
-      <template #body>
-        <ArticleDetailBody>
-          <AotHost
-            v-if="aotRenderedHtml"
-            class="aot-rendered-content"
-            :html="aotRenderedHtml"
-          />
-          <MarkdownRenderer
-            v-else
-            ref="articleRendererRef"
-            :content="detailView.body.content"
-            @render-complete="handleRenderComplete"
-          />
-        </ArticleDetailBody>
-      </template>
-
-      <template #footer>
-        <ArticleDetailTagsFooter :view="articleView" />
-      </template>
-
-      <template #comments>
-        <ArticleDetailCommentsPlaceholder
-          v-if="!spaReady"
-          :title="detailView.comments.placeholderTitle"
-          :body="detailView.comments.placeholderBody"
-          :hint="detailView.comments.placeholderHint"
+    <template #body>
+      <ArticleDetailBody>
+        <ArticleReadingNotice
+          :visible="detailView.body.notice.visible"
+          :label="detailView.body.notice.label"
         />
-        <template v-else>
-          <ArticleCommentComposer
-            v-model="commentContent"
-            :is-logged-in="userStore.isLoggedIn"
-            :is-banned="userStore.isBanned"
-            :is-pow-calculating="powProvider.isCalculating.value"
-            :is-submitting="submittingComment"
-            :redirect-path="route.fullPath"
-            @submit="submitComment"
-          />
+        <div
+          v-if="!hasBodyContent"
+          class="rounded-[var(--fsus-radius-xl)] border border-dashed border-[#E4E4E7] bg-[#FCFCFC]/80 px-5 py-5 text-sm leading-7 text-[#8E8E93] dark:border-[#27272A] dark:bg-[#18181B]/70 dark:text-[#D4D4D8]"
+          aria-label="文章正文为空"
+        >
+          这篇文章目前还没有正文内容，首页显示的是摘要，不是正文。
+        </div>
+        <MarkdownRenderer
+          v-else
+          ref="articleRendererRef"
+          :content="detailView.body.content"
+          @render-complete="handleRenderComplete"
+        />
+      </ArticleDetailBody>
+    </template>
 
-          <!--[重构 2026-03-13] 剥离极耗性能的 TransitionGroup，引入基于切片的 O(1) 虚拟滚动容器 -->
-          <div ref="virtualListRef" class="space-y-8" :style="virtualListStyle" aria-live="polite">
-            <ArticleCommentsVirtualList
-              :comments="visibleComments"
-              :is-admin="userStore.isAdmin"
-              :is-logged-in="userStore.isLoggedIn"
-              :current-username="userStore.userInfo?.username ?? null"
-              @delete="handleCommentDelete"
-            />
-          </div>
+    <template #footer>
+      <ArticleDetailTagsFooter :view="articleView" />
+    </template>
 
-          <!-- 触底加载触发器 -->
-          <div ref="loadMoreTrigger" class="h-32 flex flex-col items-center justify-center mt-8">
-            <Transition name="state-fade" mode="out-in">
-              <div v-if="loadingComments" key="loading" class="flex flex-col items-center gap-3" role="status">
-                <span class="text-[10px] font-bold tracking-[0.2em] text-zinc-400 uppercase animate-pulse">{{ detailView.comments.loadingText }}</span>
-                <div class="w-10 h-px bg-zinc-100 overflow-hidden relative">
-                  <div class="absolute inset-0 bg-zinc-950/20 animate-loading-bar"></div>
-                </div>
+    <template #comments>
+      <ArticleDetailCommentsPlaceholder
+        v-if="!spaReady"
+        :title="detailView.comments.placeholderTitle"
+        :body="detailView.comments.placeholderBody"
+        :hint="detailView.comments.placeholderHint"
+      />
+      <template v-else>
+        <ArticleCommentComposer
+          v-model="commentContent"
+          :is-logged-in="userStore.isLoggedIn"
+          :is-banned="userStore.isBanned"
+          :is-pow-calculating="powProvider.isCalculating.value"
+          :is-submitting="submittingComment"
+          :redirect-path="route.fullPath"
+          :reply-target="replyTarget"
+          @submit="submitComment"
+          @cancel-reply="clearReplyTarget"
+        />
+
+        <ArticleCommentsVirtualList
+          class="space-y-8"
+          aria-live="polite"
+          :threads="threads"
+          :is-admin="userStore.isAdmin"
+          :is-logged-in="userStore.isLoggedIn"
+          :current-username="userStore.userInfo?.username ?? null"
+          :loading-replies="loadingReplies"
+          @delete="handleCommentDelete"
+          @reply="setReplyTarget"
+          @load-more-replies="loadMoreReplies"
+        />
+
+        <div ref="loadMoreTrigger" class="h-32 flex flex-col items-center justify-center mt-8">
+          <Transition name="state-fade" mode="out-in">
+            <div v-if="loadingComments" key="loading" class="flex flex-col items-center gap-5" role="status">
+              <span class="text-[10px] font-bold text-[#A1A1AA] uppercase animate-pulse">{{ detailView.comments.loadingText }}</span>
+              <div class="w-10 h-px bg-[#F4F4F5] overflow-hidden relative">
+                <div class="absolute inset-0 bg-[#0F0F11]/20 animate-loading-bar"></div>
               </div>
-              <div v-else-if="!hasMore" key="end"
-                class="text-[10px] font-mono text-zinc-300 uppercase tracking-widest px-4 text-center">
-                {{ detailView.comments.endText }}
-              </div>
-            </Transition>
-          </div>
-        </template>
+            </div>
+            <div
+              v-else-if="!hasMore"
+              key="end"
+              class="text-[10px] font-mono text-[#D4D4D8] uppercase px-4"
+            >
+              {{ detailView.comments.endText }}
+            </div>
+          </Transition>
+        </div>
       </template>
-    </ArticleDetailStaticShell>
+    </template>
+  </ArticleDetailStaticShell>
 
-    <ArticleDetailNotFoundState
-      v-else
-      :view="articleDetailStates.notFoundState"
-    />
-
-    <!-- 统一层级协调 -->
-    <ConfirmModal v-model:visible="modalState.visible" :title="modalState.title" :content="modalState.content"
-      @confirm="modalState.onConfirm" @cancel="modalState.onCancel" />
-  </div>
+  <ArticleDetailNotFoundState
+    v-else
+    :view="articleDetailStates.notFoundState"
+  />
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue' 
 import ArticleDetailHeader from '@/components/article/ArticleDetailHeader.vue'
+import ArticleReadingNotice from '@/components/article/ArticleReadingNotice.vue'
 import ArticleDetailTagsFooter from '@/components/article/ArticleDetailTagsFooter.vue'
 import ArticleDetailBody from '@/components/public/ArticleDetailBody.vue'
 import ArticleDetailStaticShell from '@/components/public/ArticleDetailStaticShell.vue'
@@ -111,10 +122,13 @@ import ArticleCommentsVirtualList from '@/components/article/ArticleCommentsVirt
 import ArticleDetailLoadingState from '@/components/article/ArticleDetailLoadingState.vue'
 import ArticleDetailErrorState from '@/components/article/ArticleDetailErrorState.vue'
 import ArticleDetailNotFoundState from '@/components/article/ArticleDetailNotFoundState.vue'
-import ConfirmModal from '@/components/ui/ConfirmModal.vue'
-import AotHost from '@/components/AotHost.vue'
 import { useArticleDetailView } from '@/composables/useArticleDetailView'
+import { useSiteStore } from '@/store/site'
+import { useHead } from '@unhead/vue'
+import { buildArticleStructuredData } from '@/utils/articleStructuredData'
 import { articleDetailStates } from '@/view-contracts/articleDetail'
+
+const siteStore = useSiteStore()
 
 const {
   route,
@@ -124,25 +138,81 @@ const {
   articleView,
   loading,
   isError,
-  aotRenderedHtml,
   articleRendererRef,
   commentContent,
   submittingComment,
-  comments,
-  visibleComments,
+  threads,
   hasMore,
   loadingComments,
+  loadingReplies,
   loadMoreTrigger,
-  virtualListRef,
+  replyTarget,
+  setReplyTarget,
+  clearReplyTarget,
+  loadMoreReplies,
   loadArticle,
   handleRenderComplete,
   submitComment,
   handleCommentDelete,
-  modalState,
+
   detailView,
-  virtualListStyle,
   spaReady
 } = useArticleDetailView()
+
+const articleAuthorName = computed(() => {
+  const author = siteStore.siteInfo.author?.trim()
+  if (author) {
+    return author
+  }
+
+  return siteStore.siteInfo.title?.trim() || 'Fsu'
+})
+
+const articleSummary = computed(() => {
+  if (!article.value) {
+    return ''
+  }
+
+  return article.value.summary?.trim() || article.value.title
+})
+
+const hasBodyContent = computed(() => detailView.value.body.content.trim().length > 0)
+
+const articleCanonicalUrl = computed(() => {
+  const articleId = article.value?.id
+  if (!articleId) {
+    return null
+  }
+
+  if (typeof window === 'undefined') {
+    return `/article/${articleId}`
+  }
+
+  return `${window.location.origin}/article/${articleId}`
+})
+
+const articleStructuredData = computed(() => {
+  if (!article.value) {
+    return ''
+  }
+
+  return buildArticleStructuredData({
+    id: article.value.id,
+    title: article.value.title,
+    summary: articleSummary.value,
+    articleBody: detailView.value.body.content,
+    publishedTime: article.value.createTime,
+    authorName: articleAuthorName.value,
+    categoryName: article.value.category?.name,
+    canonicalUrl: articleCanonicalUrl.value
+  })
+})
+
+useHead(computed(() => ({
+  script: articleStructuredData.value
+    ? [{ type: 'application/ld+json', children: articleStructuredData.value }]
+    : []
+})))
 </script>
 
 <style scoped>

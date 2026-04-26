@@ -1,70 +1,77 @@
 <template>
-  <div class="article-list-wrapper">
-    <el-card shadow="never" class="filter-card border-none mb-4 rounded-xl shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-4">
+  <div class="account-page article-list-wrapper w-full">
+    <header class="account-page-header account-page-header--compact">
+      <div class="account-page-eyebrow">管理</div>
+      <h1 class="account-page-title">文章管理</h1>
+      <p class="account-page-description">
+        搜索、预览和维护已发布文章。常用写作入口保留在当前页，便于从列表直接进入编辑流程。
+      </p>
+    </header>
+
+    <section class="admin-filter-bar mb-6" aria-label="文章筛选与创建">
+      <div class="flex flex-wrap items-center justify-between gap-6">
         <el-form :inline="true" :model="queryParam" @submit.prevent="handleSearch" class="search-form-inline">
           <el-form-item class="mb-0">
-            <el-input 
-              v-model="queryParam.keyword" 
-              placeholder="输入博文标题检索..." 
-              clearable 
+            <el-input
+              v-model="queryParam.keyword"
+              name="articleKeyword"
+              aria-label="搜索文章标题"
+              placeholder="输入博文标题检索..."
+              clearable
               class="w-64"
               :disabled="isBusy"
               @clear="handleSearch"
               @keyup.enter="handleSearch"
             >
               <template #prefix>
-                <el-icon class="text-zinc-400"><Search /></el-icon>
+                <el-icon class="text-[#A1A1AA]"><Search /></el-icon>
               </template>
             </el-input>
           </el-form-item>
-          
+
           <el-form-item class="mb-0">
             <el-button type="primary" :loading="isBusy" @click="handleSearch">搜索</el-button>
             <el-button @click="resetQuery" :disabled="isBusy">重置</el-button>
           </el-form-item>
         </el-form>
 
-        <!-- [修复 2026-02-24] 统一图标组件写法，增强语义化 -->
-        <el-button 
-          type="primary" 
-          @click="goToWriteArticle" 
-          class="shadow-md shadow-blue-100 font-bold"
+        <el-button
+          type="primary"
+          @click="goToWriteArticle"
+          class="shadow-[0_32px_64px_rgba(0,0,0,0.08)] font-bold"
         >
           <el-icon class="mr-1"><Plus /></el-icon>发布新博文
         </el-button>
       </div>
-    </el-card>
+    </section>
 
-    <el-card shadow="never" class="list-card border-none rounded-xl shadow-sm overflow-hidden">
-      <el-table 
-        v-loading="loading" 
-        :data="articleListView" 
+    <section class="admin-table-panel">
+      <el-table
+        v-loading="loading"
+        :data="articleListView"
         :row-key="getArticleRowKey"
-        stripe 
+        stripe
         table-layout="fixed"
         class="custom-table w-full"
       >
-        <!-- 响应式策略统一：使用 Element Plus 标准类名 -->
-        <el-table-column prop="id" label="ID" width="80" align="center" class-name="font-mono text-zinc-300 hidden-xs-only" />
-        
+        <el-table-column prop="id" label="ID" width="80" align="center" class-name="font-mono text-[#D4D4D8] hidden-xs-only" />
+
         <el-table-column label="内容概要" min-width="320">
           <template #default="{ row }: { row: ArticleListViewItem }">
             <div class="flex flex-col py-1">
-              <el-link 
-                type="primary" 
-                class="article-title font-bold text-zinc-800 tracking-tight" 
-                underline="never" 
+              <el-link
+                type="primary"
+                class="article-title font-bold text-[#27272A] no-underline hover:no-underline"
                 @click="handleEdit(row.id)"
               >
                 {{ row.title }}
               </el-link>
-              <div class="flex items-center gap-4 mt-2 text-[11px] text-zinc-400">
+              <div class="flex items-center gap-6 mt-2 text-[11px] text-[#A1A1AA]">
                 <span class="flex items-center gap-1 tabular-nums">
                   <el-icon><View /></el-icon> {{ row.views }} 阅读
                 </span>
                 <span class="flex items-center gap-1 hidden-sm-and-down tabular-nums">
-                  <el-icon><Calendar /></el-icon> 
+                  <el-icon><Calendar /></el-icon>
                   {{ row.createdAtText }}
                 </span>
               </div>
@@ -74,7 +81,7 @@
 
         <el-table-column label="分类" width="130" align="center">
           <template #default="{ row }: { row: ArticleListViewItem }">
-            <el-tag size="small" effect="plain" class="rounded-md border-zinc-200 text-zinc-500 bg-zinc-50 px-3">
+            <el-tag size="small" effect="plain" class="rounded-[8px] border-[#E4E4E7] text-[#8E8E93] bg-[#FCFCFC] px-3">
               {{ row.categoryName }}
             </el-tag>
           </template>
@@ -83,14 +90,14 @@
         <el-table-column label="标签" min-width="180" class-name="hidden-sm-and-down">
           <template #default="{ row }: { row: ArticleListViewItem }">
             <div class="flex flex-wrap gap-1.5">
-              <el-tag 
-                v-for="tag in row.tags" 
-                :key="tag.id" 
-                size="small" 
-                type="info" 
+              <el-tag
+                v-for="tag in row.tags"
+                :key="tag.id"
+                size="small"
+                type="info"
                 effect="light"
                 disable-transitions
-                class="rounded-full border-none px-2.5 text-[11px] bg-zinc-100 text-zinc-500"
+                class="rounded-[var(--fsus-radius-full)]  px-2.5 text-[11px] bg-[#F4F4F5] text-[#8E8E93]"
               >
                 {{ tag.name }}
               </el-tag>
@@ -124,8 +131,8 @@
         </template>
       </el-table>
 
-      <div class="flex justify-between items-center mt-6 px-4 py-2 bg-zinc-50/50 rounded-lg">
-        <span class="text-[12px] text-zinc-400 font-medium tabular-nums">
+      <div class="admin-table-footer">
+        <span class="text-[12px] text-[#A1A1AA] font-medium tabular-nums">
           {{ totalText }}
         </span>
         <el-pagination
@@ -140,16 +147,16 @@
           @current-change="loadDataWithDebounce"
         />
       </div>
-    </el-card>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { Search, ArrowDown, View, Calendar, Plus } from '@element-plus/icons-vue'
-import { type ArticleListItem } from '@/api/article'
+import { type ArticleListItemResponse } from '@/api/article'
 import { useAdminArticleList } from '@/composables/useAdminArticleList'
 
-type ArticleListViewItem = ArticleListItem & {
+type ArticleListViewItem = ArticleListItemResponse & {
   createdAtText: string
   categoryName: string
 }
@@ -170,13 +177,14 @@ const {
 } = useAdminArticleList()
 
 const getArticleRowKey = (row: ArticleListViewItem): string => row.id
-const goToWriteArticle = (): Promise<void> => router.push({ path: '/admin/article/write' })
+const goToWriteArticle = (): Promise<void> => router.push({ path: '/user/manage/article/write' })
 const handleViewArticle = (row: ArticleListViewItem): Promise<void> => handleMoreCommand('view', row)
 const handleMoveToTrash = (row: ArticleListViewItem): Promise<void> => handleMoreCommand('delete', row)
 const handlePermanentRemove = (row: ArticleListViewItem): Promise<void> => handleMoreCommand('permanent', row)
 </script>
 
 <style scoped>
+
 .article-list-wrapper {
   animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -193,7 +201,7 @@ const handlePermanentRemove = (row: ArticleListViewItem): Promise<void> => handl
 
 :deep(.custom-table) {
   --el-table-header-bg-color: #fcfcfc;
-  --el-table-header-text-color: #475569;
+  --el-table-header-text-color: #8E8E93;
 }
 
 :deep(.el-table__row) {

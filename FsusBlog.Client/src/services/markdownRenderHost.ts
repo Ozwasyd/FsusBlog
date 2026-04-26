@@ -10,6 +10,7 @@ import {
 } from '@wasm/markdown'
 import { MARKDOWN_RENDERER_VERSION, renderMarkdownResultWithRuntime } from '@wasm/markdown-runtime'
 import { trustRendererHtml, type TrustedHtml } from '@/utils/trustedHtml'
+import { emitTelemetry } from '@/services/telemetryService'
 
 export type { MarkdownRenderRequest, MarkdownRenderResult } from '@wasm/markdown'
 export type TrustedMarkdownRenderResult = Omit<MarkdownRenderResult, 'html'> & { html: TrustedHtml }
@@ -41,7 +42,9 @@ export async function renderMarkdownDocument(request: MarkdownRenderRequest | st
 
     throw createAppError(AppErrorCode.InfraFailure, 'markdown_wasm_runtime_unavailable')
   } catch (error) {
-    console.error('[MarkdownRenderHost] render failed:', error)
+    emitTelemetry('markdown_render_failed', {
+      error: error instanceof Error ? error.message : String(error)
+    }, 'error')
     return buildMarkdownRenderResult({
       html: trustRendererHtml([
         `<div class="${MARKDOWN_RENDERER_SURFACE_CLASSES.root} ${MARKDOWN_RENDERER_SURFACE_CLASSES.error}">`,

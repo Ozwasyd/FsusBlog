@@ -3,7 +3,7 @@ import { AppErrorCode, createAppError } from '@/utils/appError';
 import { mapArticleDetailFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload } from './articleAdapter';
 import { mapCommentCursorFromPodPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from './commentAdapter';
 import { mapSiteStatsFromPodPayload } from './statsAdapter';
-import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadStatusFromPayload } from './uploadAdapter';
+import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from './uploadAdapter';
 
 const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.ArticleList]: mapArticlePageFromPodPayload,
@@ -17,7 +17,8 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.UploadInit]: mapUploadInitFromPayload,
   [FrameType.UploadStatus]: mapUploadStatusFromPayload,
   [FrameType.UploadPartAck]: mapUploadPartAckFromPayload,
-  [FrameType.UploadComplete]: mapUploadCompleteFromPayload
+  [FrameType.UploadComplete]: mapUploadCompleteFromPayload,
+  [FrameType.UploadPartMap]: mapUploadPartMapFromPayload
 };
 
 export function mapFramePayloadToViewModel(frameType: FrameType, payload: Uint8Array): unknown {

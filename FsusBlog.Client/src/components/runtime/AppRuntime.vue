@@ -1,15 +1,12 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue'
-import { useUserStore } from '@/store/user'
-import { useSiteStore } from '@/store/site'
 import { useNotification } from '@/composables/useNotification'
-import { notificationService } from '@/services/notificationService'
+import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { markStartup, measureStartup } from '@/bootstrap/startupProfiler'
 import { isPublicSeoPath } from '@/bootstrap/publicShellPrimitives'
 
-const userStore = useUserStore()
-const siteStore = useSiteStore()
-const { initNotification } = useNotification()
+const { userStore, ensureSiteInfo, ensureUserInfo, syncAuthPhase } = useSessionBootstrap()
+const { initNotification, stopNotification } = useNotification()
 
 type IdleWindow = Window & {
   requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
@@ -25,7 +22,6 @@ const GUEST_INTENT_FALLBACK_MS = 5000
 const GUEST_INTENT_PUBLIC_FALLBACK_MS = 12000
 const AUTH_BOOTSTRAP_PUBLIC_IDLE_TIMEOUT_MS = 3600
 const NOTIFICATION_PUBLIC_IDLE_TIMEOUT_MS = 5200
-const POW_PREWARM_PUBLIC_IDLE_TIMEOUT_MS = 5200
 const WASM_PREWARM_PUBLIC_IDLE_TIMEOUT_MS = 6500
 
 function isPublicRouteNow(): boolean {
@@ -132,10 +128,11 @@ function bootstrapAuthAndSiteState(): Promise<void> {
 
   authBootstrapPromise = (async () => {
     markStartup('runtime-bootstrap:start')
-    const siteTask = siteStore.fetchSiteInfo()
-    const userTask = userStore.fetchUserInfo()
+    const siteTask = ensureSiteInfo()
+    const userTask = ensureUserInfo()
 
     await Promise.allSettled([userTask])
+    syncAuthPhase()
 
     if (userStore.isLoggedIn) {
       requestNotificationInit(true, '[AppRuntime] 用户连接失败')
@@ -161,19 +158,14 @@ onMounted(() => {
       .catch(() => {})
   }, isPublicRouteNow() ? WASM_PREWARM_PUBLIC_IDLE_TIMEOUT_MS : 3000)
 
-  runOnIdle(() => {
-    void import('@/composables/usePow')
-      .then(({ usePow }) => {
-        usePow().prewarm()
-      })
-      .catch(() => {})
-  }, isPublicRouteNow() ? POW_PREWARM_PUBLIC_IDLE_TIMEOUT_MS : 2200)
-
-  if (isPublicRouteNow()) {
+  if (!isPublicRouteNow()) {
     runOnIdle(() => {
-      void bootstrapAuthAndSiteState()
-    }, AUTH_BOOTSTRAP_PUBLIC_IDLE_TIMEOUT_MS)
-    return
+      void import('@/composables/usePow')
+        .then(({ usePow }) => {
+          usePow().prewarm()
+        })
+        .catch(() => {})
+    }, 2200)
   }
 
   runAfterFirstPaint(() => {
@@ -183,7 +175,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   removeIntentListeners()
-  void notificationService.stop()
+  void stopNotification()
 })
 </script>
 

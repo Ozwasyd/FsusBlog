@@ -93,7 +93,8 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
                 item.Status,
                 item.CreateTime,
                 item.LastLoginIp,
-                item.LastLoginTime));
+                item.LastLoginTime,
+                item.DeletedAt));
         }
 
         return new PageResult<UserListDto> { Total = page.Total, Items = items };
@@ -120,6 +121,7 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
             Status = snapshot.Status,
             CreateTime = snapshot.CreateTime,
             LastLoginIp = snapshot.LastLoginIp,
-            LastLoginTime = snapshot.LastLoginTime
+            LastLoginTime = snapshot.LastLoginTime,
+            DeletedAt = snapshot.DeletedAt
         };
 }

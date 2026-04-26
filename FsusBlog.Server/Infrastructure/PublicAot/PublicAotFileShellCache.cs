@@ -1,6 +1,10 @@
+using System.Buffers;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using FsusBlog.Server.Infrastructure.Execution;
+using Microsoft.Extensions.Logging.Abstractions;
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -10,59 +14,35 @@ public sealed class PublicAotFileShellCache(
     IConnectionMultiplexer redis,
     ILogger<PublicAotFileShellCache> logger) : IPublicAotShellCache
 {
-    private const string RegistryKey = "public:aot:v2:registry";
     private const string InvalidationChannel = "public:aot:v2:invalidate";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly IDatabase _db = redis.GetDatabase();
     private readonly string _cacheRoot = ResolveCacheRoot(env);
 
-    public Task<(bool Hit, string Value)> TryGetAsync(string cacheKey, CancellationToken cancellationToken = default)
+    public Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!TryReadValidEntry(cacheKey, out var cachedValue))
         {
-            return Task.FromResult((false, string.Empty));
+            return Task.FromResult<PublicAotCacheEntry?>(null);
         }
 
-        return Task.FromResult((true, cachedValue));
+        return Task.FromResult<PublicAotCacheEntry?>(cachedValue);
     }
 
-    public async Task<string> GetOrCreateAsync(
-        string cacheKey,
-        Func<CancellationToken, Task<string>> factory,
-        TimeSpan ttl,
-        CancellationToken cancellationToken = default)
-    {
-        if (TryReadValidEntry(cacheKey, out var cachedValue))
-        {
-            return cachedValue;
-        }
-
-        string value = await factory(cancellationToken);
-        await SetAsync(cacheKey, value, ttl, cancellationToken);
-        return value;
-    }
-
-    public async Task SetAsync(string cacheKey, string value, TimeSpan ttl, CancellationToken cancellationToken = default)
+    public async Task SetAsync(PublicAotCacheEntry entry, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var entry = new PublicAotFileEntry
-        {
-            CacheKey = cacheKey,
-            ExpiresAtUtc = DateTimeOffset.UtcNow.Add(ttl),
-            Value = value
-        };
-
-        string targetPath = GetEntryPath(cacheKey);
+        string targetPath = GetEntryPath(entry.CacheKey);
         string directory = Path.GetDirectoryName(targetPath)!;
         Directory.CreateDirectory(directory);
 
-        string payload = JsonSerializer.Serialize(entry, JsonOptions);
         string tempPath = Path.Combine(directory, $"{Path.GetFileName(targetPath)}.{Guid.NewGuid():N}.tmp");
-        await File.WriteAllTextAsync(tempPath, payload, Encoding.UTF8, cancellationToken);
+        byte[] payload = SerializeEntryBytes(entry);
+        await File.WriteAllBytesAsync(tempPath, payload, cancellationToken);
         File.Move(tempPath, targetPath, overwrite: true);
 
-        await RegisterKeyAsync(cacheKey).ConfigureAwait(false);
+        await RegisterKeyAsync(entry.CacheKey).ConfigureAwait(false);
     }
 
     public async Task RemoveAsync(string cacheKey, CancellationToken cancellationToken = default)
@@ -86,25 +66,34 @@ public sealed class PublicAotFileShellCache(
             return;
         }
 
-        RedisValue[] keys = await SafeSetMembersAsync().ConfigureAwait(false);
+        string registryKey = ResolveRegistryKey(prefix, out bool requiresPrefixFilter);
+        RedisValue[] keys = await SafeSetMembersAsync(registryKey).ConfigureAwait(false);
         if (keys.Length == 0)
         {
-            foreach (string file in EnumerateEntryFiles())
+            if (!string.Equals(registryKey, PublicAotCacheRegistry.GlobalRegistryKey, StringComparison.Ordinal))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (!TryReadEntry(file, out var entry) || entry is null)
-                {
-                    continue;
-                }
-
-                if (!entry.CacheKey.StartsWith(prefix, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                File.Delete(file);
+                keys = await SafeSetMembersAsync(PublicAotCacheRegistry.GlobalRegistryKey).ConfigureAwait(false);
             }
-            return;
+
+            if (keys.Length == 0)
+            {
+                foreach (string file in EnumerateEntryFiles())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!TryReadEntry(file, out var entry) || entry is null)
+                    {
+                        continue;
+                    }
+
+                    if (!entry.CacheKey.StartsWith(prefix, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    File.Delete(file);
+                }
+                return;
+            }
         }
 
         foreach (RedisValue key in keys)
@@ -116,7 +105,7 @@ public sealed class PublicAotFileShellCache(
             }
 
             string cacheKey = key.ToString();
-            if (!cacheKey.StartsWith(prefix, StringComparison.Ordinal))
+            if (requiresPrefixFilter && !cacheKey.StartsWith(prefix, StringComparison.Ordinal))
             {
                 continue;
             }
@@ -137,21 +126,24 @@ public sealed class PublicAotFileShellCache(
             }
         }
 
-        try
-        {
-            _ = await _db.KeyDeleteAsync(RegistryKey).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to clear Redis AOT registry key.");
-        }
+        await BoundaryExecutor.ExecuteAsync(
+            async () =>
+            {
+                RedisKey[] registryKeys = [.. PublicAotCacheRegistry.GetAllKnownRegistryKeys().Select(static key => (RedisKey)key)];
+                if (registryKeys.Length > 0)
+                {
+                    _ = await _db.KeyDeleteAsync(registryKeys).ConfigureAwait(false);
+                }
+            },
+            logger,
+            "public-aot-clear-registry");
 
         await PublishInvalidationAsync("all").ConfigureAwait(false);
     }
 
-    private bool TryReadValidEntry(string cacheKey, out string value)
+    private bool TryReadValidEntry(string cacheKey, out PublicAotCacheEntry? value)
     {
-        value = string.Empty;
+        value = null;
         string path = GetEntryPath(cacheKey);
         if (!TryReadEntry(path, out var entry) || entry is null)
         {
@@ -165,23 +157,24 @@ public sealed class PublicAotFileShellCache(
 
         if (entry.ExpiresAtUtc <= DateTimeOffset.UtcNow)
         {
-            try
-            {
-                File.Delete(path);
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug(ex, "Failed to remove expired public AOT cache file: {Path}", path);
-            }
+            BoundaryExecutor.ExecuteAsync(
+                () =>
+                {
+                    File.Delete(path);
+                    return Task.CompletedTask;
+                },
+                logger,
+                $"public-aot-delete-expired:{path}",
+                LogLevel.Debug).GetAwaiter().GetResult();
 
             return false;
         }
 
-        value = entry.Value ?? string.Empty;
+        value = entry;
         return true;
     }
 
-    private static bool TryReadEntry(string path, out PublicAotFileEntry? entry)
+    private static bool TryReadEntry(string path, out PublicAotCacheEntry? entry)
     {
         entry = null;
         if (!File.Exists(path))
@@ -189,17 +182,24 @@ public sealed class PublicAotFileShellCache(
             return false;
         }
 
-        try
-        {
-            string raw = File.ReadAllText(path, Encoding.UTF8);
-            entry = JsonSerializer.Deserialize<PublicAotFileEntry>(raw, JsonOptions);
-            return entry is not null;
-        }
-        catch
-        {
-            return false;
-        }
+        entry = BoundaryExecutor.ExecuteValueAsync(
+            () =>
+            {
+                byte[] raw = File.ReadAllBytes(path);
+                return Task.FromResult(DeserializeEntryBytes(raw));
+            },
+            _ => null,
+            NullLogger<PublicAotFileShellCache>.Instance,
+            $"public-aot-read-entry:{path}",
+            LogLevel.Debug).GetAwaiter().GetResult();
+        return entry is not null;
     }
+
+    internal static byte[] SerializeEntryBytes(PublicAotCacheEntry entry)
+        => JsonSerializer.SerializeToUtf8Bytes(entry, JsonOptions);
+
+    internal static PublicAotCacheEntry? DeserializeEntryBytes(ReadOnlySpan<byte> payload)
+        => JsonSerializer.Deserialize<PublicAotCacheEntry>(payload, JsonOptions);
 
     private static string ResolveCacheRoot(IWebHostEnvironment env)
     {
@@ -228,66 +228,105 @@ public sealed class PublicAotFileShellCache(
 
     private static string ToHash(string input)
     {
-        byte[] bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        return Convert.ToHexString(bytes).ToLowerInvariant();
-    }
+        int byteCount = Encoding.UTF8.GetByteCount(input);
+        Span<byte> hash = stackalloc byte[32];
 
-    private async Task<RedisValue[]> SafeSetMembersAsync()
-    {
+        if (byteCount <= 256)
+        {
+            Span<byte> utf8 = stackalloc byte[byteCount];
+            Encoding.UTF8.GetBytes(input.AsSpan(), utf8);
+            SHA256.HashData(utf8, hash);
+            return Convert.ToHexStringLower(hash);
+        }
+
+        byte[] rented = ArrayPool<byte>.Shared.Rent(byteCount);
         try
         {
-            return await _db.SetMembersAsync(RegistryKey).ConfigureAwait(false);
+            int written = Encoding.UTF8.GetBytes(input.AsSpan(), rented);
+            SHA256.HashData(rented.AsSpan(0, written), hash);
+            return Convert.ToHexStringLower(hash);
         }
-        catch (Exception ex)
+        finally
         {
-            logger.LogWarning(ex, "Failed to read Redis AOT registry members.");
-            return [];
+            ArrayPool<byte>.Shared.Return(rented, clearArray: true);
         }
+    }
+
+    internal static string ToHashForTests(string input) => ToHash(input);
+
+    private async Task<RedisValue[]> SafeSetMembersAsync(string registryKey)
+    {
+        return await BoundaryExecutor.ExecuteValueAsync(
+            () => _db.SetMembersAsync(registryKey),
+            _ => [],
+            logger,
+            $"public-aot-read-registry:{registryKey}");
     }
 
     private async Task RegisterKeyAsync(string cacheKey)
     {
-        try
+        if (PublicAotCacheRegistry.TryParseCacheKey(cacheKey, out PublicPageId pageId, out string routeKey))
         {
-            _ = await _db.SetAddAsync(RegistryKey, cacheKey).ConfigureAwait(false);
+            foreach (string registryKey in PublicAotCacheRegistry.GetRegistryKeys(pageId, routeKey))
+            {
+                await BoundaryExecutor.ExecuteAsync(
+                    async () => _ = await _db.SetAddAsync(registryKey, cacheKey).ConfigureAwait(false),
+                    logger,
+                    $"public-aot-register:{registryKey}:{cacheKey}");
+            }
+
+            return;
         }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to register public AOT key in Redis index: {CacheKey}", cacheKey);
-        }
+
+        await BoundaryExecutor.ExecuteAsync(
+            async () => _ = await _db.SetAddAsync(PublicAotCacheRegistry.GlobalRegistryKey, cacheKey).ConfigureAwait(false),
+            logger,
+            $"public-aot-register:{cacheKey}");
     }
 
     private async Task UnregisterKeyAsync(string cacheKey)
     {
-        try
+        if (PublicAotCacheRegistry.TryParseCacheKey(cacheKey, out PublicPageId pageId, out string routeKey))
         {
-            _ = await _db.SetRemoveAsync(RegistryKey, cacheKey).ConfigureAwait(false);
+            foreach (string registryKey in PublicAotCacheRegistry.GetRegistryKeys(pageId, routeKey))
+            {
+                await BoundaryExecutor.ExecuteAsync(
+                    async () => _ = await _db.SetRemoveAsync(registryKey, cacheKey).ConfigureAwait(false),
+                    logger,
+                    $"public-aot-unregister:{registryKey}:{cacheKey}");
+            }
+
+            return;
         }
-        catch (Exception ex)
+
+        await BoundaryExecutor.ExecuteAsync(
+            async () => _ = await _db.SetRemoveAsync(PublicAotCacheRegistry.GlobalRegistryKey, cacheKey).ConfigureAwait(false),
+            logger,
+            $"public-aot-unregister:{cacheKey}");
+    }
+
+    private static string ResolveRegistryKey(string prefix, out bool requiresPrefixFilter)
+    {
+        if (PublicAotCacheRegistry.TryResolveRegistryScope(prefix, out string registryKey, out requiresPrefixFilter))
         {
-            logger.LogWarning(ex, "Failed to unregister public AOT key in Redis index: {CacheKey}", cacheKey);
+            return registryKey;
         }
+
+        requiresPrefixFilter = true;
+        return PublicAotCacheRegistry.GlobalRegistryKey;
     }
 
     private async Task PublishInvalidationAsync(string cacheKey)
     {
-        try
-        {
-            var channel = await redis.GetSubscriber()
-                .PublishAsync(RedisChannel.Literal(InvalidationChannel), cacheKey)
-                .ConfigureAwait(false);
-            _ = channel;
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex, "Failed to publish public AOT invalidation event: {CacheKey}", cacheKey);
-        }
-    }
-
-    private sealed class PublicAotFileEntry
-    {
-        public string CacheKey { get; init; } = string.Empty;
-        public DateTimeOffset ExpiresAtUtc { get; init; }
-        public string Value { get; init; } = string.Empty;
+        await BoundaryExecutor.ExecuteAsync(
+            async () =>
+            {
+                _ = await redis.GetSubscriber()
+                    .PublishAsync(RedisChannel.Literal(InvalidationChannel), cacheKey)
+                    .ConfigureAwait(false);
+            },
+            logger,
+            $"public-aot-publish:{cacheKey}",
+            LogLevel.Debug);
     }
 }

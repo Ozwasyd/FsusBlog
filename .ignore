@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+**/TestResults/
+**/coverage/
+**/*.trx
+**/*.coverage
+**/*.coveragexml
+FsusBlog.Server.Tests/.artifacts/
+FsusBlog.Server.Tests/.tmp/

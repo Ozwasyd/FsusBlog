@@ -1,37 +1,37 @@
 @layer components {
   /* 错误页面容器 */
   .error-page-container {
-    @apply min-h-[80vh] flex items-center justify-center bg-white p-6;
+    @apply min-h-[80vh] flex items-center justify-center bg-[var(--fsus-panel-bg)] p-8;
   }
 
   /* 内容包装器 */
   .error-content-wrapper {
-    @apply flex flex-col items-center text-center;
+    @apply flex flex-col items-center ;
   }
 
   /* 巨大的错误代码数字 */
   .error-code-display {
-    @apply text-9xl sm:text-[12rem] font-black tracking-tighter text-slate-900 leading-none mb-4;
+    @apply text-9xl sm:text-[12rem] font-black tracking-tighter text-[#0F0F11] dark:text-[#FCFCFC] leading-none mb-6;
   }
 
   /* 极简装饰线 */
   .error-divider-line {
-    @apply w-12 h-1 bg-slate-900 mb-10;
+    @apply w-12 h-1 bg-[#0F0F11] dark:bg-[#FCFCFC] mb-12;
   }
 
   /* 错误标题 */
   .error-text-title {
-    @apply text-xs font-black tracking-[0.3em] uppercase mb-4 text-slate-900;
+    @apply text-xs font-black tracking-[0.3em] uppercase mb-6 text-[#0F0F11] dark:text-[#FCFCFC];
   }
 
   /* 错误描述文本 */
   .error-text-desc {
-    @apply text-sm text-slate-400 max-w-[320px] leading-relaxed mb-12;
+    @apply text-sm text-[#A1A1AA] max-w-[320px] leading-relaxed mb-16;
   }
 
   /* 古典极简按钮 (也可作为全局通用按钮) */
   .btn-minimal-outline {
-    @apply px-10 py-4 border border-slate-900 text-[10px] font-black tracking-[0.2em] 
-           uppercase transition-all hover:bg-slate-900 hover:text-white inline-block;
+    @apply px-10 py-5 border border-[#0F0F11] dark:border-[#FCFCFC] text-[10px] font-black tracking-[0.2em]
+           uppercase transition-colors hover:bg-[#0F0F11] hover:text-white dark:hover:bg-[#FCFCFC] dark:hover:text-[#0F0F11] inline-block;
   }
 }

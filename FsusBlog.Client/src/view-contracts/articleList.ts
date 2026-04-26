@@ -1,5 +1,5 @@
-import type { ArticleListItem, ArticleListRes } from '@/api/article';
-import type { CardContract, EmptyStateContract, PaginationContract, TagContract } from '@/ui-contracts/primitives';
+import type { ArticleListItemResponse, PageResponse } from '@/api/article';
+import type { CardContract, PaginationContract } from '@/ui-contracts/primitives';
 import { TimeUtils } from '@/utils/time';
 
 const DEFAULT_CATEGORY = '通用类';
@@ -17,14 +17,24 @@ export type ArticleListCardViewContract = Readonly<{
     fullTime: string;
     categoryName: string;
   }>;
-  tags: readonly TagContract[];
+  tags: readonly ArticleTagViewContract[];
+}>;
+
+export type ArticleTagViewContract = Readonly<{
+  label: string;
+  hiddenOnMobile?: boolean;
+}>;
+
+export type ArticleListEmptyStateViewContract = Readonly<{
+  title: string;
+  body?: string;
 }>;
 
 export type ArticleListViewContract = Readonly<{
   items: readonly ArticleListCardViewContract[];
   pagination: PaginationContract;
   showPagination: boolean;
-  emptyState: EmptyStateContract;
+  emptyState: ArticleListEmptyStateViewContract;
   searchKeyword: string;
 }>;
 
@@ -32,7 +42,7 @@ function toArticleHref(id: number): string {
   return `/article/${id}`;
 }
 
-function toTagContract(name: string): TagContract {
+function toArticleTagView(name: string): ArticleTagViewContract {
   return {
     label: `#${name}`,
     hiddenOnMobile: true
@@ -40,7 +50,7 @@ function toTagContract(name: string): TagContract {
 }
 
 export function createArticleListCardViewContract(
-  article: ArticleListItem,
+  article: ArticleListItemResponse,
   index = 0
 ): ArticleListCardViewContract {
   return {
@@ -51,19 +61,19 @@ export function createArticleListCardViewContract(
     id: article.id,
     href: toArticleHref(article.id),
     title: article.title,
-    summary: article.snippet || article.summary || '',
+    summary: article.summary || '',
     meta: {
       isoTime: article.createTime,
       displayTime: TimeUtils.toSmartTime(article.createTime),
       fullTime: TimeUtils.toFullLocalString(article.createTime),
       categoryName: article.category?.name || DEFAULT_CATEGORY
     },
-    tags: (article.tags || []).slice(0, MAX_TAGS_DISPLAY).map((tag) => toTagContract(tag.name))
+    tags: (article.tags || []).slice(0, MAX_TAGS_DISPLAY).map((tag) => toArticleTagView(tag.name))
   };
 }
 
 export function createArticleListViewContract(
-  response: ArticleListRes,
+  response: PageResponse<ArticleListItemResponse>,
   options: { currentPage: number; pageSize: number; searchKeyword?: string }
 ): ArticleListViewContract {
   const total = Number(response.total) || 0;
@@ -76,13 +86,11 @@ export function createArticleListViewContract(
     pagination: {
       previous: {
         label: '上一页',
-        variant: 'quiet',
         disabled: currentPage <= 1,
         action: { action: 'page-prev' }
       },
       next: {
         label: '下一页',
-        variant: 'quiet',
         disabled: currentPage >= totalPages,
         action: { action: 'page-next' }
       },

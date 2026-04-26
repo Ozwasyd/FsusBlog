@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Models.ReadModels;
@@ -17,6 +18,7 @@ public sealed partial class PublicAotShellService(
     IConfiguration configuration,
     IArticleService articleService,
     ISystemService systemService,
+    IDbConcurrencyGate dbConcurrencyGate,
     IPublicAotShellCache cache,
     IPublicAotCacheWriter cacheWriter,
     IPublicAotBackfillScheduler backfillScheduler,
@@ -31,7 +33,7 @@ public sealed partial class PublicAotShellService(
 
     private delegate string HydrationPropsBuilder(JsonElement root, string siteTitle, string siteDescription);
 
-    internal const string PublicRendererVersion = "public-vue-renderer@2026-04-06-2";
+    internal const string PublicRendererVersion = "public-vue-renderer@2026-04-19-1";
     internal static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -41,6 +43,7 @@ public sealed partial class PublicAotShellService(
     private readonly IWebHostEnvironment _env = env;
     private readonly IArticleService _articleService = articleService;
     private readonly ISystemService _systemService = systemService;
+    private readonly IDbConcurrencyGate _dbConcurrencyGate = dbConcurrencyGate;
     private readonly IPublicAotShellCache _cache = cache;
     private readonly IPublicAotCacheWriter _cacheWriter = cacheWriter;
     private readonly IPublicAotBackfillScheduler _backfillScheduler = backfillScheduler;
@@ -101,13 +104,14 @@ public sealed partial class PublicAotShellService(
         string routeKey = PublicAotShellKeyBuilder.BuildRouteKey(context, kind);
         PublicPageId pageId = PublicAotShellKeyBuilder.ToPageId(kind);
         string documentCacheKey = CacheKeyBuilder.PublicAotDocument(pageId, routeKey);
+        string frontendAssetVersion = await ReadFrontendAssetVersionAsync(cancellationToken);
         PublicAotCacheEntry? entry = await _cache.TryGetEntryAsync(documentCacheKey, cancellationToken);
-        if (IsRenderableCacheEntry(entry))
+        if (IsRenderableCacheEntry(entry, frontendAssetVersion))
         {
             context.Items[PublicAotSourceContextKey] = entry!.Source.ToHeaderValue();
             context.Items[PublicAotVersionContextKey] = entry.RendererVersion;
             context.Items[PublicAotBackfillContextKey] = "none";
-            return entry.Value;
+            return EnsureDevSpaBoot(EnsureDevCssDirectLinks(entry.Value, context), context);
         }
 
         if (entry is not null)
@@ -123,8 +127,8 @@ public sealed partial class PublicAotShellService(
             documentCacheKey));
         context.Items[PublicAotSourceContextKey] = "spa-fallback";
         context.Items[PublicAotVersionContextKey] = PublicRendererVersion;
-        context.Items[PublicAotBackfillContextKey] = queued ? "queued" : "pending";
-        _logger.LogInformation("Public AOT cache miss -> SPA fallback ({QueueStatus}): {Kind} {RouteKey}", queued ? "queued" : "pending", kind, routeKey);
+        context.Items[PublicAotBackfillContextKey] = queued ? "queued" : "dropped";
+        _logger.LogInformation("Public AOT cache miss -> SPA fallback ({QueueStatus}): {Kind} {RouteKey}", queued ? "queued" : "dropped", kind, routeKey);
         return string.Empty;
     }
 
@@ -136,6 +140,7 @@ public sealed partial class PublicAotShellService(
         }
 
         string template = await ReadIndexTemplateAsync(cancellationToken);
+        string frontendAssetVersion = await ReadFrontendAssetVersionAsync(cancellationToken);
         var preparedEntries = new List<(PublicPageId PageId, string RouteKey, string Html, string RendererVersion)>(bundle.Entries.Count);
 
         foreach (var entry in bundle.Entries)
@@ -159,6 +164,7 @@ public sealed partial class PublicAotShellService(
                 entry.PageId,
                 entry.RouteKey,
                 entry.RendererVersion,
+                frontendAssetVersion,
                 entry.Html,
                 PublicAotWriteSource.AdminUpload,
                 bundle.GeneratedAtUtc,
@@ -177,7 +183,15 @@ public sealed partial class PublicAotShellService(
             ? QueryString.Empty
             : new QueryString(request.QueryString);
 
-        Result<(string Html, string RendererVersion)> document = await BuildServerBackfillDocumentAsync(context, request.Kind, cancellationToken);
+        Result<(string Html, string RendererVersion)> document = await _dbConcurrencyGate.ExecuteAsync(
+            "public-aot-backfill",
+            gateCt => BuildServerBackfillDocumentAsync(context, request.Kind, gateCt),
+            _ =>
+            {
+                _logger.LogWarning("db-gate-timeout public-aot-backfill {Kind} {RouteKey}", request.Kind, request.RouteKey);
+                return Task.FromResult(Result<(string Html, string RendererVersion)>.Failure(ErrorCode.InfraFailure, "db-gate-timeout"));
+            },
+            cancellationToken);
         if (document.IsFailure)
         {
             _logger.LogWarning(
@@ -189,12 +203,14 @@ public sealed partial class PublicAotShellService(
         }
 
         (string html, string rendererVersion) = document.Value;
+        string frontendAssetVersion = await ReadFrontendAssetVersionAsync(cancellationToken);
         PublicPageId pageId = PublicAotPageCatalog.GetRequired(request.Kind).PageId;
         await _cacheWriter.WriteAsync(
             request.CacheKey,
             pageId,
             request.RouteKey,
             rendererVersion,
+            frontendAssetVersion,
             html,
             PublicAotWriteSource.ServerSsrBackfill,
             DateTimeOffset.UtcNow,
@@ -234,7 +250,7 @@ public sealed partial class PublicAotShellService(
         PublicAotSsrRenderResult rendered = renderResult.Value;
         string rawTemplate = await ReadIndexTemplateAsync(cancellationToken);
         rawTemplate = EnsureCriticalPublicCssLink(rawTemplate);
-        rawTemplate = EnsureDevCssDirectLinks(rawTemplate);
+        rawTemplate = EnsureDevCssDirectLinks(rawTemplate, context);
         rawTemplate = EnsureSupplementaryStylesheetLink(rawTemplate);
         string template = PublicAotDocumentComposer.PreparePublicDocumentTemplate(rawTemplate);
         string wrappedShell = PublicAotDocumentComposer.EnsureShellRoot(rendered.Html, kind);
@@ -254,7 +270,7 @@ public sealed partial class PublicAotShellService(
             rendered.RendererVersion));
     }
 
-    private static bool IsRenderableCacheEntry(PublicAotCacheEntry? entry)
+    internal static bool IsRenderableCacheEntry(PublicAotCacheEntry? entry, string frontendAssetVersion)
     {
         if (entry is null || string.IsNullOrWhiteSpace(entry.Value))
         {
@@ -266,13 +282,24 @@ public sealed partial class PublicAotShellService(
             return false;
         }
 
-        return string.Equals(entry.RendererVersion, PublicRendererVersion, StringComparison.Ordinal);
+        if (string.IsNullOrWhiteSpace(entry.FrontendAssetVersion))
+        {
+            return false;
+        }
+
+        return string.Equals(entry.RendererVersion, PublicRendererVersion, StringComparison.Ordinal)
+            && string.Equals(entry.FrontendAssetVersion, frontendAssetVersion, StringComparison.Ordinal);
     }
 
     private string EnsureCriticalPublicCssLink(string template)
     {
         const string marker = "<link rel=\"stylesheet\" href=\"/src/assets/public-page.css\" data-fsus-style=\"public-page\" />";
-        string criticalHref = ResolveCriticalStylesheetHref() ?? "/src/assets/public-shell-critical.css";
+        string? criticalHref = ResolveCriticalStylesheetHref();
+        if (string.IsNullOrWhiteSpace(criticalHref))
+        {
+            return template;
+        }
+
         string link = $"""<link rel="stylesheet" href="{criticalHref}" data-fsus-style="public-shell-critical" />""";
 
         if (template.Contains(link, StringComparison.Ordinal))
@@ -374,9 +401,6 @@ public sealed partial class PublicAotShellService(
                     articleResponse.Summary,
                     articleResponse.Content,
                     articleResponse.Views,
-                    articleResponse.WordCount,
-                    articleResponse.EstimatedReadingMinutes,
-                    articleResponse.ShowReadingNotice,
                     articleResponse.CreateTime,
                     Category = new
                     {
@@ -390,7 +414,6 @@ public sealed partial class PublicAotShellService(
 
         SeoConfigReadModel seo = await _systemService.GetSeoConfigAsync();
         payload["authorName"] = seo.Author;
-        payload["commentsPlaceholder"] = "评论将在 SPA 接管后加载";
     }
 
     private async Task PopulateFilterBootstrapPayloadAsync(
@@ -493,24 +516,30 @@ public sealed partial class PublicAotShellService(
 
     private static PublicPageKind ResolveKind(PathString path, IQueryCollection query)
     {
-        var value = path.Value?.TrimEnd('/') ?? string.Empty;
-        if (string.IsNullOrEmpty(value) || value == "/")
+        string? value = path.Value;
+        if (string.IsNullOrEmpty(value))
         {
             return PublicPageKind.Home;
         }
 
-        if (value.StartsWith("/article/", StringComparison.OrdinalIgnoreCase))
+        ReadOnlySpan<char> normalizedPath = value.AsSpan().TrimEnd('/');
+        if (normalizedPath.IsEmpty || normalizedPath.SequenceEqual("/"))
+        {
+            return PublicPageKind.Home;
+        }
+
+        if (normalizedPath.StartsWith("/article/", StringComparison.OrdinalIgnoreCase))
         {
             return PublicPageKind.ArticleDetail;
         }
 
-        if (value.StartsWith("/category/", StringComparison.OrdinalIgnoreCase) ||
-            value.StartsWith("/tag/", StringComparison.OrdinalIgnoreCase))
+        if (normalizedPath.StartsWith("/category/", StringComparison.OrdinalIgnoreCase) ||
+            normalizedPath.StartsWith("/tag/", StringComparison.OrdinalIgnoreCase))
         {
             return PublicPageKind.Filter;
         }
 
-        if (PublicAotPageCatalog.TryGetByStaticPath(value, out PublicAotPageDescriptor? descriptor))
+        if (PublicAotPageCatalog.TryGetByStaticPath(normalizedPath, out PublicAotPageDescriptor? descriptor))
         {
             return descriptor.Kind;
         }
@@ -529,6 +558,11 @@ public sealed partial class PublicAotShellService(
     private async Task<string> ReadIndexTemplateAsync(CancellationToken cancellationToken)
     {
         return await PublicSpaTemplateLocator.ReadIndexTemplateAsync(_env, cancellationToken);
+    }
+
+    private async Task<string> ReadFrontendAssetVersionAsync(CancellationToken cancellationToken)
+    {
+        return await PublicSpaTemplateLocator.ReadFrontendAssetVersionAsync(_env, cancellationToken);
     }
 
     private static bool TryResolvePathId(HttpContext context, string prefix, out int id)
@@ -669,15 +703,16 @@ public sealed partial class PublicAotShellService(
             : string.Concat(normalized.AsSpan(0, 160), "...");
     }
 
-    private string EnsureDevCssDirectLinks(string template)
+    private string EnsureDevCssDirectLinks(string template, HttpContext? context = null)
     {
-        if (!_env.IsDevelopment())
-        {
-            return template;
-        }
-
-        string publicPageHref = ResolveSupplementaryStylesheetHref() ?? "/src/assets/public-page.css?direct";
-        string publicShellCriticalHref = ResolveCriticalStylesheetHref() ?? "/src/assets/public-shell-critical.css";
+        bool isDevelopment = _env.IsDevelopment();
+        bool preferSourceCss = isDevelopment && ShouldPreferSourceCss(context);
+        string publicPageHref = preferSourceCss
+            ? "/src/assets/public-page.css?direct"
+            : ResolveSupplementaryStylesheetHref() ?? (isDevelopment ? "/src/assets/public-page.css?direct" : "/assets/public-page.css");
+        string publicShellCriticalHref = preferSourceCss
+            ? "/src/assets/public-shell-critical.css"
+            : ResolveCriticalStylesheetHref() ?? (isDevelopment ? "/src/assets/public-shell-critical.css" : "/assets/public-shell-critical.css");
 
         const string linkPattern = "<link\\b[^>]*\\brel\\s*=\\s*([\"'])stylesheet\\1[^>]*>";
         string rewritten = Regex.Replace(
@@ -706,13 +741,30 @@ public sealed partial class PublicAotShellService(
                     }
                     else
                     {
-                        normalizedHref = EnsureDirectQueryFlag(href);
+                        normalizedHref = isDevelopment ? EnsureDirectQueryFlag(href) : href;
                     }
                 }
                 else if (IsBuiltAssetCssHref(href))
                 {
-                    // Keep backend-served built assets in dev so pure ASP.NET smoke runs do not depend on Vite src routes.
-                    normalizedHref = href;
+                    if (preferSourceCss)
+                    {
+                        if (href.Contains("entry-runtime-", StringComparison.OrdinalIgnoreCase)
+                            || href.Contains("full-app-core-", StringComparison.OrdinalIgnoreCase)
+                            || href.Contains("vendor-progress-", StringComparison.OrdinalIgnoreCase))
+                        {
+                            normalizedHref = publicShellCriticalHref;
+                        }
+                        else if (href.Contains("public-page-", StringComparison.OrdinalIgnoreCase)
+                            || href.Contains("index-", StringComparison.OrdinalIgnoreCase)
+                            || href.Contains("main-", StringComparison.OrdinalIgnoreCase))
+                        {
+                            normalizedHref = publicPageHref;
+                        }
+                    }
+                    else
+                    {
+                        normalizedHref = href;
+                    }
                 }
 
                 return TryReplaceAttributeValue(linkTag, "href", normalizedHref, out string replacedTag)
@@ -722,7 +774,11 @@ public sealed partial class PublicAotShellService(
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         string criticalHref = publicShellCriticalHref;
-        if (!rewritten.Contains($"href=\"{criticalHref}\"", StringComparison.Ordinal))
+        bool hasBuiltCriticalCss =
+            rewritten.Contains("href=\"/assets/entry-runtime-", StringComparison.Ordinal)
+            || rewritten.Contains("href=\"/assets/full-app-core-", StringComparison.Ordinal)
+            || rewritten.Contains("href=\"/assets/vendor-progress-", StringComparison.Ordinal);
+        if (!hasBuiltCriticalCss && !rewritten.Contains($"href=\"{criticalHref}\"", StringComparison.Ordinal))
         {
             const string headClose = "</head>";
             string criticalTag = $"""<link rel="stylesheet" href="{criticalHref}" data-fsus-style="public-shell-critical" />""";
@@ -734,22 +790,61 @@ public sealed partial class PublicAotShellService(
         return rewritten;
     }
 
-    private string EnsureSupplementaryStylesheetLink(string template)
+    private static bool ShouldPreferSourceCss(HttpContext? context)
     {
-        const string linkPattern = "<link\\b[^>]*\\brel\\s*=\\s*([\"'])stylesheet\\1[^>]*>";
-        MatchCollection matches = Regex.Matches(template, linkPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        if (matches.Count >= 2)
+        if (context is null)
         {
-            return template;
+            return false;
         }
 
+        string forwardedHost = context.Request.Headers["X-Forwarded-Host"].ToString();
+        string host = string.IsNullOrWhiteSpace(forwardedHost)
+            ? context.Request.Host.Value ?? string.Empty
+            : forwardedHost;
+
+        return host.Contains(":3000", StringComparison.Ordinal);
+    }
+
+    private string EnsureDevSpaBoot(string html, HttpContext? context)
+    {
+        if (!_env.IsDevelopment() || !ShouldPreferSourceCss(context))
+        {
+            return html;
+        }
+
+        const string devEntry = "/src/bootstrap/entry.ts";
+
+        string rewritten = Regex.Replace(
+            html,
+            "data-fsus-spa-entry=\"[^\"]+\"",
+            $"data-fsus-spa-entry=\"{devEntry}\"",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        rewritten = Regex.Replace(
+            rewritten,
+            "const entrySrc = \\\"[^\\\"]+\\\";",
+            $"const entrySrc = \"{devEntry}\";",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        return rewritten;
+    }
+
+    private string EnsureSupplementaryStylesheetLink(string template)
+    {
         string? supplementalHref = ResolveSupplementaryStylesheetHref();
         if (string.IsNullOrWhiteSpace(supplementalHref))
         {
             return template;
         }
 
-        if (template.Contains($"href=\"{supplementalHref}\"", StringComparison.Ordinal))
+        bool hasSupplementalStylesheet =
+            template.Contains("data-fsus-style=\"public-supplemental\"", StringComparison.Ordinal)
+            || template.Contains($"href=\"{supplementalHref}\"", StringComparison.Ordinal)
+            || template.Contains("href=\"/src/assets/public-page.css", StringComparison.Ordinal)
+            || template.Contains("href=\"/assets/public-page-", StringComparison.Ordinal)
+            || template.Contains("href=\"/assets/index-", StringComparison.Ordinal)
+            || template.Contains("href=\"/assets/main-", StringComparison.Ordinal);
+        if (hasSupplementalStylesheet)
         {
             return template;
         }
@@ -763,11 +858,6 @@ public sealed partial class PublicAotShellService(
 
     private string? ResolveSupplementaryStylesheetHref()
     {
-        string webRoot = string.IsNullOrWhiteSpace(_env.WebRootPath)
-            ? Path.Combine(_env.ContentRootPath, "wwwroot")
-            : _env.WebRootPath;
-        string assetsRoot = Path.Combine(webRoot, "assets");
-
         static string? PickByPrefix(string[] files, string prefix)
         {
             return files
@@ -777,8 +867,13 @@ public sealed partial class PublicAotShellService(
                 .FirstOrDefault();
         }
 
-        if (Directory.Exists(assetsRoot))
+        foreach (string assetsRoot in EnumerateCandidateAssetRoots())
         {
+            if (!Directory.Exists(assetsRoot))
+            {
+                continue;
+            }
+
             string[] files = Directory.GetFiles(assetsRoot, "*.css", SearchOption.TopDirectoryOnly);
             string? match = PickByPrefix(files, "public-page-")
                 ?? PickByPrefix(files, "index-")
@@ -797,12 +892,13 @@ public sealed partial class PublicAotShellService(
 
     private string? ResolveCriticalStylesheetHref()
     {
-        string webRoot = string.IsNullOrWhiteSpace(_env.WebRootPath)
-            ? Path.Combine(_env.ContentRootPath, "wwwroot")
-            : _env.WebRootPath;
-        string assetsRoot = Path.Combine(webRoot, "assets");
-        if (Directory.Exists(assetsRoot))
+        foreach (string assetsRoot in EnumerateCandidateAssetRoots())
         {
+            if (!Directory.Exists(assetsRoot))
+            {
+                continue;
+            }
+
             static string? PickByPrefix(string[] files, string prefix)
             {
                 return files
@@ -823,6 +919,21 @@ public sealed partial class PublicAotShellService(
         }
 
         return _env.IsDevelopment() ? "/src/assets/public-shell-critical.css" : null;
+    }
+
+    private IEnumerable<string> EnumerateCandidateAssetRoots()
+    {
+        string webRoot = string.IsNullOrWhiteSpace(_env.WebRootPath)
+            ? Path.Combine(_env.ContentRootPath, "wwwroot")
+            : _env.WebRootPath;
+        string contentRoot = _env.ContentRootPath;
+        string contentRootParent = Path.GetFullPath(Path.Combine(contentRoot, ".."));
+        string appBaseParent = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
+
+        yield return Path.Combine(webRoot, "assets");
+        yield return Path.Combine(contentRoot, "FsusBlog.Client", "dist", "assets");
+        yield return Path.Combine(contentRootParent, "FsusBlog.Client", "dist", "assets");
+        yield return Path.Combine(appBaseParent, "FsusBlog.Client", "dist", "assets");
     }
 
     private static bool IsSrcAssetCssHref(string href)

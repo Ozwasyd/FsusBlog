@@ -1,31 +1,29 @@
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Abstractions;
-using FsusBlog.Server.Entities;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Models.Requests;
 
 namespace FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 
 public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArticleService
 {
-    public async Task<PageResultDto<ArticleListDto>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted = false)
+    public async Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted = false)
     {
         var result = await core.GetPageListAsync(page, size, categoryId, tagId, isDeleted);
         if (!result.IsSuccess)
         {
-            return new PageResultDto<ArticleListDto> { Items = [], Total = 0 };
+            return new ArticleListPageReadModel { Items = [], Total = 0 };
         }
 
-        var dtoItems = new List<ArticleListDto>(result.Value.Items.Count);
-        foreach (var item in result.Value.Items)
+        return new ArticleListPageReadModel
         {
-            dtoItems.Add(ToArticleListDto(item));
-        }
-
-        return new PageResultDto<ArticleListDto> { Items = dtoItems, Total = result.Value.Total };
+            Items = result.Value.Items.Select(ToArticleListReadModel).ToList(),
+            Total = result.Value.Total
+        };
     }
 
-    public async Task<Article?> GetByIdAsync(int id)
+    public async Task<ArticleDetailReadModel?> GetByIdAsync(int id)
     {
         var result = await core.GetByIdAsync(id);
         if (!result.IsSuccess || result.Value is null)
@@ -33,16 +31,16 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
             return null;
         }
 
-        return ToArticleEntity(result.Value.Value);
+        return ToArticleDetailReadModel(result.Value.Value);
     }
 
-    public async Task<int> CreateAsync(ArticleDto dto)
+    public async Task<int> CreateAsync(CreateArticleRequest dto)
     {
         var result = await core.CreateAsync(dto.Title, dto.Content, dto.Summary, dto.CategoryId, dto.TagIds);
         return result.IsSuccess && result.Value > 0 ? result.Value : 0;
     }
 
-    public async Task<bool> UpdateAsync(int id, ArticleDto dto)
+    public async Task<bool> UpdateAsync(int id, UpdateArticleRequest dto)
         => (await core.UpdateAsync(id, dto.Title, dto.Content, dto.Summary, dto.CategoryId, dto.TagIds)).IsSuccess;
 
     public async Task<bool> DeleteAsync(int id) => (await core.DeleteAsync(id)).IsSuccess;
@@ -57,57 +55,33 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
         return result.IsSuccess ? result.Value : 0;
     }
 
-    public async Task<List<ArticleListDto>> SearchArticlesAsync(string keyword)
+    public async Task<List<ArticleListItemReadModel>> SearchArticlesAsync(string keyword)
     {
         var result = await core.SearchArticlesAsync(keyword);
-        if (!result.IsSuccess)
+        if (!result.IsSuccess || result.Value is null)
         {
             return [];
         }
 
-        var value = result.Value;
-        if (value is null)
-        {
-            return [];
-        }
-
-        var list = new List<ArticleListDto>(value.Count);
-        foreach (var item in value)
-        {
-            list.Add(ToArticleListDto(item));
-        }
-
-        return list;
+        return result.Value.Select(ToArticleListReadModel).ToList();
     }
 
-    public async Task<List<PopularArticleDto>> GetHotArticlesAsync(int count = 10)
+    public async Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync(int count = 10)
     {
         var result = await core.GetHotArticlesAsync(count);
-        if (!result.IsSuccess)
+        if (!result.IsSuccess || result.Value is null)
         {
             return [];
         }
 
-        var value = result.Value;
-        if (value is null)
-        {
-            return [];
-        }
-
-        var list = new List<PopularArticleDto>(value.Count);
-        foreach (var item in value)
-        {
-            list.Add(new PopularArticleDto { Id = item.Id, Title = item.Title, Views = item.Views });
-        }
-
-        return list;
+        return result.Value.Select(item => new PopularArticleSummaryDto(item.Id, item.Title, item.Views)).ToList();
     }
 
     public async ValueTask IncreaseViewCountAsync(int id) => _ = await core.IncreaseViewCountAsync(id);
 
-    private static ArticleListDto ToArticleListDto(ArticleListCoreModel model)
+    private static ArticleListItemReadModel ToArticleListReadModel(ArticleListCoreModel model)
     {
-        return new ArticleListDto
+        return new ArticleListItemReadModel
         {
             Id = model.Id,
             Title = model.Title,
@@ -115,26 +89,30 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
             Snippet = model.Snippet,
             Views = model.Views,
             CreateTime = model.CreateTime,
-            Category = new ArticleCategoryView(model.Category.Id, model.Category.Name),
-            Tags = model.Tags.Select(t => new TagDto(t.Id, t.Name)).ToList(),
+            CategoryId = model.Category.Id,
+            CategoryName = model.Category.Name,
+            Tags = model.Tags.Select(t => new TagReadModel { Id = t.Id, Name = t.Name }).ToList(),
             IsDeleted = model.IsDeleted
         };
     }
 
-    private static Article ToArticleEntity(ArticleDetailCoreModel model)
+    private static ArticleDetailReadModel ToArticleDetailReadModel(ArticleDetailCoreModel model)
     {
-        return new Article
+        return new ArticleDetailReadModel
         {
             Id = model.Id,
             Title = model.Title,
             Content = model.Content,
             Summary = model.Summary,
             Views = model.Views,
+            WordCount = model.WordCount,
+            EstimatedReadingMinutes = model.EstimatedReadingMinutes,
+            ShowReadingNotice = model.ShowReadingNotice,
             CreateTime = model.CreateTime,
             CategoryId = model.CategoryId,
-            IsDeleted = model.IsDeleted,
-            Category = new Category { Id = model.Category.Id, Name = model.Category.Name },
-            Tags = model.Tags.Select(t => new Tag { Id = t.Id, Name = t.Name }).ToList()
+            CategoryName = model.Category.Name,
+            Tags = model.Tags.Select(t => new TagReadModel { Id = t.Id, Name = t.Name }).ToList(),
+            IsDeleted = model.IsDeleted
         };
     }
 }

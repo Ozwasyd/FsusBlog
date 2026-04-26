@@ -1,4 +1,4 @@
-import type { ArticleDetail, ArticleListItem, Tag } from '@/api/article'
+import type { ArticleDetailResponse, ArticleListItemResponse, Tag } from '@/api/article'
 
 export type PublicAotBootstrapKind = 'Home' | 'About' | 'Archive' | 'ArticleDetail' | 'Filter'
 
@@ -75,6 +75,16 @@ const BOOTSTRAP_SCRIPT_ID = 'fsus-aot-bootstrap'
 let cachedBootstrap: PublicAotBootstrapPayload | null | undefined
 let bootstrapConsumed = false
 
+function decodeHtmlEntities(raw: string): string {
+  return raw
+    .replaceAll('&quot;', '"')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&')
+    .replaceAll('&#39;', '\'')
+    .replaceAll('&#x2F;', '/')
+}
+
 function normalizePathname(pathname: string | null | undefined): string {
   if (!pathname || pathname === '/') {
     return '/'
@@ -106,7 +116,7 @@ function readBootstrap(): PublicAotBootstrapPayload | null {
   }
 
   try {
-    const parsed = JSON.parse(raw) as PublicAotBootstrapPayload
+    const parsed = JSON.parse(decodeHtmlEntities(raw)) as PublicAotBootstrapPayload
     cachedBootstrap = parsed && typeof parsed === 'object' ? parsed : null
   } catch {
     cachedBootstrap = null
@@ -162,12 +172,11 @@ function normalizeTagList(tags: readonly string[] | null | undefined): Tag[] {
     : []
 }
 
-export function toBootstrapArticleListItem(article: BootstrapArticleSummary): ArticleListItem {
+export function toBootstrapArticleListItem(article: BootstrapArticleSummary): ArticleListItemResponse {
   return {
     id: article.id,
     title: article.title,
     summary: article.summary ?? '',
-    snippet: article.snippet ?? '',
     views: Number(article.views) || 0,
     createTime: article.createTime,
     category: {
@@ -182,12 +191,11 @@ export function toBootstrapArchiveArticleListItem(article: {
   id: number
   title: string
   createTime: string
-}): ArticleListItem {
+}): ArticleListItemResponse {
   return {
     id: article.id,
     title: article.title,
     summary: '',
-    snippet: '',
     views: 0,
     createTime: article.createTime,
     category: {
@@ -198,13 +206,12 @@ export function toBootstrapArchiveArticleListItem(article: {
   }
 }
 
-export function toBootstrapArticleDetail(article: BootstrapArticleSummary): ArticleDetail {
+export function toBootstrapArticleDetail(article: BootstrapArticleSummary): ArticleDetailResponse {
   return {
     id: article.id,
     title: article.title,
     content: article.content ?? '',
     summary: article.summary ?? '',
-    categoryId: 0,
     views: Number(article.views) || 0,
     createTime: article.createTime,
     category: article.category?.trim()

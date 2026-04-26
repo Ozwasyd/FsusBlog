@@ -20,16 +20,15 @@ const isAbortOrCanceledError = (error: unknown): boolean => {
 const getErrorText = (error: unknown): string => {
   const normalized = toAppError(error, '登录服务暂不可用，请稍后再试')
 
-  if (normalized.message.includes('POW_CALCULATION_TIMEOUT')) {
-    return '环境安全校验超时，请检查设备性能或刷新重试'
-  }
-
   switch (normalized.code) {
     case AppErrorCode.Unauthorized:
       return '用户名或密码错误，请重新输入'
     case AppErrorCode.Forbidden:
       return '此账号无系统登录权限'
     case AppErrorCode.Timeout:
+      if (normalized.details === 'pow_calculation_timeout' || normalized.message === 'pow_calculation_timeout') {
+        return '环境安全校验超时，请检查设备性能或刷新重试'
+      }
       return '网络连接异常，请检查您的网络设置'
     case AppErrorCode.ProtocolFailure:
       if (normalized.message === 'login_response_invalid') {
@@ -74,6 +73,8 @@ export function useAuthLogin() {
   const requiresMfa = ref(false)
   const rememberMe = ref(true)
   const loginData = reactive({ username: '', password: '', rememberMe: true })
+  let loginSubmitting = false
+  let verifySubmitting = false
 
   const isCalculating = computed(() => powProvider.isCalculating.value)
   const isProcessing = computed(() => loading.value || isCalculating.value)
@@ -106,10 +107,11 @@ export function useAuthLogin() {
   const handleLogin = async (): Promise<void> => {
     errorMessage.value = ''
 
-    if (!isFormValid.value || isProcessing.value) {
+    if (!isFormValid.value || isProcessing.value || loginSubmitting) {
       return
     }
 
+    loginSubmitting = true
     try {
       const userData = await loginTask.run(async (signal) =>
         await login(
@@ -123,12 +125,12 @@ export function useAuthLogin() {
         return
       }
 
-      if (!userData || !userData.username) {
+      if (!userData?.user?.username) {
         throw createAppError(AppErrorCode.ProtocolFailure, 'login_response_invalid')
       }
 
-      if (userData.mfaRequired && userData.challengeToken) {
-        setRiskPhase(userData.riskMfaRequired ? 'elevated' : 'normal')
+      if (userData.authPhase === 'mfa_required' && userData.challengeToken) {
+        setRiskPhase(userData.mfaMode === 'risk' ? 'elevated' : 'normal')
         requiresMfa.value = true
         mfaChallengeToken.value = userData.challengeToken
         loginData.rememberMe = rememberMe.value
@@ -151,20 +153,23 @@ export function useAuthLogin() {
       }
 
       const msg = getErrorText(error)
+      const normalized = toAppError(error, msg)
 
-      if (msg.includes('Account Locked') || msg.includes('锁定') || msg.includes('受限')) {
+      if (normalized.status === 423) {
         errorMessage.value = '该账户已被安全锁定，请联系管理员解锁'
       } else {
         errorMessage.value = msg || '登录服务暂不可用，请稍后再试'
       }
 
       console.error('[Login Error]', error)
+    } finally {
+      loginSubmitting = false
     }
   }
 
   const handleMfaVerify = async (): Promise<void> => {
     errorMessage.value = ''
-    if (!requiresMfa.value || !mfaChallengeToken.value) {
+    if (!requiresMfa.value || !mfaChallengeToken.value || verifySubmitting) {
       return
     }
 
@@ -173,6 +178,7 @@ export function useAuthLogin() {
       return
     }
 
+    verifySubmitting = true
     try {
       const result = await verifyTask.run(
         async () =>
@@ -206,6 +212,8 @@ export function useAuthLogin() {
     } catch (error: unknown) {
       const normalized = toAppError(error, '验证码无效，请重试')
       errorMessage.value = normalized.message === 'INVALID_TOTP' ? '验证码无效，请重试' : getErrorText(normalized)
+    } finally {
+      verifySubmitting = false
     }
   }
 

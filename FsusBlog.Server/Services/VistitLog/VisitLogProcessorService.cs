@@ -1,17 +1,13 @@
 ﻿using System.Threading.Channels;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Execution;
 using IP2Location;
 using Microsoft.Extensions.ObjectPool;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.VistitLog;
 
-public class VisitLogMessage
-{
-    public string IP { get; set; } = string.Empty;
-    public int? UserId { get; set; }
-    public DateTime CreateTime { get; set; }
-}
+public readonly record struct VisitLogMessage(string IP, int? UserId, DateTime CreateTime);
 
 public class VisitLogChannel
 {
@@ -60,53 +56,74 @@ public class VisitLogProcessorService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var batch = new List<VisitLog>(BatchSize);
-
-        try
-        {
-            while (!stoppingToken.IsCancellationRequested)
+        await BackgroundTaskExecutor.RunAsync(
+            async token =>
             {
-                if (await _channel.Reader.WaitToReadAsync(stoppingToken))
+                while (!token.IsCancellationRequested)
                 {
-                    while (batch.Count < BatchSize && _channel.Reader.TryRead(out var msg))
+                    if (await _channel.Reader.WaitToReadAsync(token))
                     {
-                        ProcessSingleMessage(msg, batch);
-                    }
+                        while (batch.Count < BatchSize && _channel.Reader.TryRead(out var msg))
+                        {
+                            TryProcessSingleMessage(msg, batch);
+                        }
 
-                    if (batch.Count > 0)
-                    {
-                        await FlushBatchAsync(batch, stoppingToken);
+                        if (batch.Count > 0)
+                        {
+                            await FlushBatchAsync(batch, token);
+                        }
                     }
                 }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogWarning("日志批量处理器收到停机信号，准备执行最后一次数据抢救落盘...");
-        }
-        finally
-        {
-            // [架构重构 2026-03-01] 吸收审查建议：阻断停机死锁与连接池熔断
-            // 1. 快照当前堆积量，防止前台中间件继续压入导致 while(TryRead) 无限死循环
-            int pendingCount = _channel.Reader.Count;
-            int processed = 0;
-
-            while (processed < pendingCount && _channel.Reader.TryRead(out var msg))
+            },
+            _logger,
+            "visit-log-processor",
+            stoppingToken,
+            onCancelled: () =>
             {
-                ProcessSingleMessage(msg, batch);
-                processed++;
-            }
-
-            if (batch.Count > 0)
+                _logger.LogWarning("日志批量处理器收到停机信号，准备执行最后一次数据抢救落盘...");
+                return Task.CompletedTask;
+            },
+            onFinally: async () =>
             {
-                // 2. 快速失败熔断：给予数据库最后 3 秒的宽限期，超时立刻丢弃，绝不阻碍宿主机关闭进程
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-                await FlushBatchAsync(batch, cts.Token);
-                _logger.LogInformation("已抢救持久化系统停机前遗留的 {Count} 条访问记录。", batch.Count);
-            }
+                int pendingCount = _channel.Reader.Count;
+                int processed = 0;
+
+                while (processed < pendingCount && _channel.Reader.TryRead(out var msg))
+                {
+                    TryProcessSingleMessage(msg, batch);
+                    processed++;
+                }
+
+                if (batch.Count > 0)
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                    int rescuedCount = batch.Count;
+                    try
+                    {
+                        await FlushBatchAsync(batch, cts.Token);
+                        _logger.LogInformation("已抢救持久化系统停机前遗留的 {Count} 条访问记录。", rescuedCount);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "停机抢救访问日志时发生未预期异常，已降级忽略剩余批次。");
+                    }
+                }
+            });
+    }
+
+    private void TryProcessSingleMessage(VisitLogMessage msg, List<VisitLog> batch)
+    {
+        try
+        {
+            ProcessSingleMessageCore(msg, batch);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "处理单条访问日志消息失败，已跳过该条消息。");
         }
     }
 
-    private void ProcessSingleMessage(VisitLogMessage msg, List<VisitLog> batch)
+    private void ProcessSingleMessageCore(VisitLogMessage msg, List<VisitLog> batch)
     {
         if (string.IsNullOrWhiteSpace(msg.IP))
         {
@@ -114,17 +131,28 @@ public class VisitLogProcessorService : BackgroundService
         }
 
         var ip = msg.IP.Length > MaxIpLength ? msg.IP[..MaxIpLength] : msg.IP;
-        var ipObj = _ipPool.Get();
+        Component? ipObj = null;
         string region;
         try
         {
+            ipObj = _ipPool.Get();
             // 注：IP2Location 的 BIN 内存模式查询耗时在 1 纳秒级，属于纯 CPU 寻址，不会引起 I/O 消费雪崩
             var res = ipObj.IPQuery(ip);
             region = CreateRegionString(res);
         }
         finally
         {
-            _ipPool.Return(ipObj);
+            if (ipObj is not null)
+            {
+                try
+                {
+                    _ipPool.Return(ipObj);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "归还 IP2Location 对象到对象池失败。");
+                }
+            }
         }
 
         batch.Add(new VisitLog
@@ -140,7 +168,7 @@ public class VisitLogProcessorService : BackgroundService
     {
         try
         {
-            using var scope = _serviceProvider.CreateScope();
+            await using var scope = _serviceProvider.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
             await db.Insertable(batch).ExecuteCommandAsync(token);
         }

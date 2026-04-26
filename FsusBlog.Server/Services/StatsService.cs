@@ -1,11 +1,11 @@
 ﻿using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using SqlSugar;
-using StackExchange.Redis;
 using System.Data;
 using System.Data.Common;
-using System.Text.Json;
 
 namespace FsusBlog.Server.Services;
 
@@ -15,55 +15,71 @@ namespace FsusBlog.Server.Services;
 /// </summary>
 public partial class StatsService(
     ISqlSugarClient _db,
-    IConnectionMultiplexer _redis,
+    IUnifiedCache _cache,
+    ICacheMissCoordinator _cacheMissCoordinator,
+    IDbConcurrencyGate _dbConcurrencyGate,
     ILogger<StatsService> _logger) : IStatsService
 {
-    private readonly IDatabase _cache = _redis.GetDatabase();
-    private const string CACHE_KEY = "admin:dashboard:stats";
-
-    private static readonly JsonSerializerOptions _jsonOptions = new()
+    public async Task<AdminStatsOverviewDto> GetAdminStatsOverviewAsync()
     {
-        PropertyNameCaseInsensitive = true,
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-    };
+        return await _cacheMissCoordinator.CoordinateAsync(
+                CachePolicyId.AdminStats,
+                "main",
+                ct => BoundaryExecutor.ExecuteValueAsync(
+                    () => _cache.TryGetJsonAsync<AdminStatsOverviewDto>(CachePolicyId.AdminStats, "main", ct),
+                    _ => new CacheReadResult<AdminStatsOverviewDto>(false, default),
+                    _logger,
+                    "stats-cache-read",
+                    LogLevel.Warning),
+                async ct => await _dbConcurrencyGate.ExecuteAsync(
+                    "admin-stats",
+                    async gateCt =>
+                    {
+                        AdminStatsOverviewDto result = await LoadAdminStatsOverviewFromDbAsync(gateCt);
+                        await BoundaryExecutor.ExecuteAsync(
+                            () => _cache.SetJsonAsync(CachePolicyId.AdminStats, "main", result, gateCt),
+                            _logger,
+                            "stats-cache-write",
+                            LogLevel.Error);
+                        return result;
+                    },
+                    async gateCt =>
+                    {
+                        CacheReadResult<AdminStatsOverviewDto> retry = await _cache.TryGetJsonAsync<AdminStatsOverviewDto>(CachePolicyId.AdminStats, "main", gateCt);
+                        if (retry.Hit && retry.Value is not null)
+                        {
+                            return retry.Value;
+                        }
 
-    public async Task<SiteStatsDto> GetAdminStatsAsync()
+                        throw new TimeoutException("db-gate-timeout:admin-stats");
+                    },
+                    ct),
+                "admin-stats")
+            .ConfigureAwait(false)
+            ?? new AdminStatsOverviewDto();
+    }
+
+    public async Task<List<RecentCommentStatItemDto>> GetAdminRecentCommentsAsync()
+        => await LoadRecentCommentsAsync(CancellationToken.None);
+
+    public async Task<List<RegionStatItemDto>> GetAdminRegionStatsAsync()
+        => await LoadRegionStatsAsync(CancellationToken.None);
+
+    private async Task<AdminStatsOverviewDto> LoadAdminStatsOverviewFromDbAsync(CancellationToken cancellationToken)
     {
-        // 1. 【缓存层】零分配读取
-        try
-        {
-            using var lease = await _cache.StringGetLeaseAsync(CACHE_KEY);
-            if (lease != null && lease.Length > 0)
-            {
-                var cachedValue = JsonSerializer.Deserialize<SiteStatsDto>(lease.Span, _jsonOptions);
-                if (cachedValue != null) return cachedValue;
-            }
-        }
-        catch (Exception ex)
-        {
-            LogCacheReadError(ex);
-        }
-
-        // 2. 执行数据库统计
-        // 核心优化：直接复用注入的 _db 实例，避免 CopyNew() 申请独立物理连接
         LogStatsCalculationStarted();
 
-        // --- 维度 1: 内容计数 ---
-        var totalArticles = await _db.Queryable<Article>().CountAsync();
-        var totalComments = await _db.Queryable<Comment>().CountAsync();
-        var trashCount = await _db.Queryable<Article>()
-            .ClearFilter()
-            .Where(a => a.IsDeleted)
-            .CountAsync();
+        int totalArticles = await _db.Queryable<Article>().CountAsync();
+        int trashCount = await _db.Queryable<Article>().Where(a => a.IsDeleted).CountAsync();
+        int totalComments = await _db.Queryable<Comment>().CountAsync();
 
-        // --- 维度 2: 排行榜 (物理映射 PopularArticleDto) ---
         var popularQuery = _db.Queryable<Article>()
             .OrderByDescending(a => a.Views)
             .Take(5)
             .Select(a => new { a.Id, a.Title, a.Views });
 
         var popularSql = popularQuery.ToSql();
-        var popularArticles = new List<PopularArticleDto>(5);
+        var popularArticles = new List<PopularArticleStatItemDto>(5);
 
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(popularSql.Key, popularSql.Value))
         {
@@ -71,49 +87,15 @@ public partial class StatsService(
             int fTitle = reader.GetOrdinal("Title");
             int fViews = reader.GetOrdinal("Views");
 
-            while (await reader.ReadAsync())
+            while (await reader.ReadAsync(cancellationToken))
             {
-                popularArticles.Add(new PopularArticleDto(
+                popularArticles.Add(new PopularArticleStatItemDto(
                     reader.GetInt32(fId),
                     reader.GetString(fTitle),
                     reader.GetInt32(fViews)));
             }
         }
 
-        // --- 维度 2: 最新评论 (物理映射 RecentCommentDto) ---
-        var recentQuery = _db.Queryable<Comment>()
-            .LeftJoin<User>((c, u) => c.UserId == u.Id)
-            .OrderByDescending(c => c.CreateTime)
-            .Take(5)
-            .Select((c, u) => new
-            {
-                u.Id,
-                u.Username,
-                c.Content,
-                c.CreateTime
-            });
-
-        var recentSql = recentQuery.ToSql();
-        var recentComments = new List<RecentCommentDto>(5);
-
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(recentSql.Key, recentSql.Value))
-        {
-            int fUserId = reader.GetOrdinal("Id");
-            int fUserName = reader.GetOrdinal("Username");
-            int fContent = reader.GetOrdinal("Content");
-            int fTime = reader.GetOrdinal("CreateTime");
-
-            while (await reader.ReadAsync())
-            {
-                recentComments.Add(new RecentCommentDto(
-                    reader.IsDBNull(fUserId) ? 0 : reader.GetInt32(fUserId),
-                    reader.IsDBNull(fUserName) ? "匿名访客" : reader.GetString(fUserName),
-                    reader.GetString(fContent),
-                    reader.GetDateTime(fTime)));
-            }
-        }
-
-        // --- 维度 3: 访客统计 (聚合查询) ---
         var visitStatsQuery = _db.Queryable<VisitLog>()
             .Select(v => new
             {
@@ -127,15 +109,65 @@ public partial class StatsService(
 
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(visitStatsSql.Key, visitStatsSql.Value))
         {
-            if (await reader.ReadAsync())
+            if (await reader.ReadAsync(cancellationToken))
             {
-                // 核心优化：彻底消灭装箱刺客。Postgres SUM 返回 Int64。
                 registeredVisits = reader.IsDBNull(0) ? 0 : (int)reader.GetInt64(0);
                 anonymousVisits = reader.IsDBNull(1) ? 0 : (int)reader.GetInt64(1);
             }
         }
 
-        // --- 维度 3: 地域分布 (物理映射 RegionDistributionDto) ---
+        return new AdminStatsOverviewDto
+        {
+            Summary = new StatsSummaryDto
+            {
+                TotalArticles = totalArticles,
+                TotalComments = totalComments,
+                TrashCount = trashCount,
+                RegisteredVisits = registeredVisits,
+                AnonymousVisits = anonymousVisits,
+                TotalVisits = registeredVisits + anonymousVisits
+            },
+            PopularArticles = popularArticles,
+        };
+    }
+
+    private async Task<List<RecentCommentStatItemDto>> LoadRecentCommentsAsync(CancellationToken cancellationToken)
+    {
+        var recentQuery = _db.Queryable<Comment>()
+            .LeftJoin<User>((c, u) => c.UserId == u.Id)
+            .OrderByDescending(c => c.CreateTime)
+            .Take(5)
+            .Select((c, u) => new
+            {
+                u.Id,
+                u.Username,
+                c.Content,
+                c.CreateTime
+            });
+
+        var recentSql = recentQuery.ToSql();
+        var recentComments = new List<RecentCommentStatItemDto>(5);
+
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(recentSql.Key, recentSql.Value);
+        int fUserId = reader.GetOrdinal("Id");
+        int fUserName = reader.GetOrdinal("Username");
+        int fContent = reader.GetOrdinal("Content");
+        int fTime = reader.GetOrdinal("CreateTime");
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            recentComments.Add(new RecentCommentStatItemDto(
+                reader.IsDBNull(fUserId) ? null : reader.GetInt32(fUserId),
+                reader.IsDBNull(fUserName) ? "匿名访客" : reader.GetString(fUserName),
+                reader.GetString(fContent),
+                reader.GetDateTime(fTime)));
+        }
+
+        return recentComments;
+    }
+
+    private async Task<List<RegionStatItemDto>> LoadRegionStatsAsync(CancellationToken cancellationToken)
+    {
         var regionQuery = _db.Queryable<VisitLog>()
             .GroupBy(v => v.Region)
             .Select(v => new
@@ -143,52 +175,24 @@ public partial class StatsService(
                 Region = SqlFunc.IsNull(v.Region, "未知地区"),
                 Count = SqlFunc.AggregateCount(v.Id)
             })
-            // 核心修复：Select 之后上下文已变，直接对投影后的 Count 属性排序
             .OrderByDescending(v => v.Count)
             .Take(10);
 
         var regionSql = regionQuery.ToSql();
-        var regionDistributions = new List<RegionDistributionDto>(10);
+        var regionDistributions = new List<RegionStatItemDto>(10);
 
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(regionSql.Key, regionSql.Value))
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(regionSql.Key, regionSql.Value);
+        int fRegion = reader.GetOrdinal("Region");
+        int fCount = reader.GetOrdinal("Count");
+
+        while (await reader.ReadAsync(cancellationToken))
         {
-            int fRegion = reader.GetOrdinal("Region");
-            int fCount = reader.GetOrdinal("Count");
-
-            while (await reader.ReadAsync())
-            {
-                regionDistributions.Add(new RegionDistributionDto(
-                    reader.GetString(fRegion),
-                    (int)reader.GetInt64(fCount)));
-            }
+            regionDistributions.Add(new RegionStatItemDto(
+                reader.GetString(fRegion),
+                (int)reader.GetInt64(fCount)));
         }
 
-        // 3. 【结果组装】
-        var result = new SiteStatsDto
-        {
-            TotalArticles = totalArticles,
-            TotalComments = totalComments,
-            TrashCount = trashCount,
-            PopularArticles = popularArticles,
-            RecentComments = recentComments,
-            RegionDistributions = regionDistributions,
-            RegisteredVisits = registeredVisits,
-            AnonymousVisits = anonymousVisits,
-            TotalVisits = registeredVisits + anonymousVisits
-        };
-
-        // 4. 【缓存回填】同步调度，避免 Task.Run 游离任务导致不可控并发与异常黑洞
-        try
-        {
-            var bytes = JsonSerializer.SerializeToUtf8Bytes(result, _jsonOptions);
-            await _cache.StringSetAsync(CACHE_KEY, bytes, TimeSpan.FromMinutes(10));
-        }
-        catch (Exception ex)
-        {
-            LogCacheWriteError(ex);
-        }
-
-        return result;
+        return regionDistributions;
     }
 
     // ==========================================

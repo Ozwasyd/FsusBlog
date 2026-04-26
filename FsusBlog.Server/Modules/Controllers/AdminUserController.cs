@@ -1,5 +1,7 @@
-﻿using FsusBlog.Server.Infrastructure.Filters;
+﻿using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
@@ -16,7 +18,8 @@ namespace FsusBlog.Server.Modules.Controllers;
 [Route("api/admin/users")]
 [Authorize(Roles = "admin")]
 public class AdminUserController(
-    IUserService _userService) : ControllerBase
+    IUserService _userService,
+    ILogger<AdminUserController> _logger) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<ApiResponse<PageResult<UserListDto>>>> GetList([FromQuery] UserQueryDto query)
@@ -37,18 +40,25 @@ public class AdminUserController(
     [RequiresPow]
     public async Task<ActionResult<ApiResponse>> ChangeStatus([FromBody] AdminChangeStatusDto dto)
     {
-
         var (success, message) = await _userService.AdminChangeStatusAsync(dto);
 
         if (success)
         {
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.User,
+                AuditTypeCatalog.Audit,
+                new KeyValuePair<string, object?>("AuditAction", dto.Status == 1 ? "user.ban" : "user.unban"),
+                new KeyValuePair<string, object?>("TargetUserId", dto.UserId),
+                new KeyValuePair<string, object?>("TargetStatus", dto.Status),
+                new KeyValuePair<string, object?>("BanReason", dto.Reason));
+            _logger.LogInformation("管理员执行用户状态变更 | TargetUserId: {UserId} | Status: {Status}", dto.UserId, dto.Status);
             // 成功路径：直接返回，零分配
             return ApiResponse.Success(message);
         }
 
         // 业务逻辑失败（如：用户不存在、尝试封禁管理员等）
         // 失败路径属于冷路径，保留 BadRequest 以明确返回 400 状态码
-        return BadRequest(ApiResponse.Fail(message));
+        return ControllerResults.BadRequest(message, HttpContext.TraceIdentifier);
     }
 
     /// <summary>
@@ -60,9 +70,19 @@ public class AdminUserController(
     {
         var (success, message) = await _userService.AdminResetPasswordAsync(dto);
 
+        if (success)
+        {
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.User,
+                AuditTypeCatalog.Security,
+                new KeyValuePair<string, object?>("AuditAction", "user.password.reset"),
+                new KeyValuePair<string, object?>("TargetUserId", dto.UserId));
+            _logger.LogWarning("管理员重置用户密码 | TargetUserId: {UserId}", dto.UserId);
+        }
+
         // 成功路径零分配，失败路径按规范返回 400
         return success
             ? ApiResponse.Success(message)
-            : BadRequest(ApiResponse.Fail(message));
+            : ControllerResults.BadRequest(message, HttpContext.TraceIdentifier);
     }
 }

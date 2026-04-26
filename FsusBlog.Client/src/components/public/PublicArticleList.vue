@@ -3,6 +3,7 @@
     <article
       v-for="item in items"
       :key="item.id"
+      v-memo="[item.id, item.title, item.summary, item.meta.displayTime, item.meta.categoryName]"
       :class="themeTokens.articleList.card"
       :style="{ '--index': item.card.index ?? 0 }"
     >
@@ -12,16 +13,17 @@
         </time>
         <span :class="themeTokens.articleList.metaSeparator" aria-hidden="true">/</span>
         <span :class="themeTokens.articleList.metaCategory">{{ item.meta.categoryName }}</span>
-        <template v-if="item.tags.length">
-          <span :class="`${themeTokens.articleList.metaSeparator} hidden sm:inline`" aria-hidden="true">/</span>
-          <span
-            v-for="tag in item.tags"
-            :key="tag.label"
-            :class="themeTokens.primitives.tagGhost"
-          >
-            {{ tag.label }}
-          </span>
-        </template>
+        <span
+          v-if="item.tags.length"
+          :class="`${themeTokens.articleList.metaSeparator} hidden sm:inline`"
+          aria-hidden="true"
+        >/</span>
+        <UiTag
+          v-for="tag in item.tags"
+          :key="tag.label"
+          :label="tag.label"
+          :hidden-on-mobile="tag.hiddenOnMobile"
+        />
       </div>
 
       <h2 :class="themeTokens.articleList.title">
@@ -73,6 +75,7 @@
 </template>
 
 <script setup lang="ts">
+import { UiTag } from '@/components/ui';
 import { themeTokens } from '@/ui-tokens/themeTokens';
 import type { ArticleListCardViewContract } from '@/view-contracts/articleList';
 import type { PaginationContract } from '@/ui-contracts/primitives';

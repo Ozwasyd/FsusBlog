@@ -2,22 +2,31 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
+using FsusBlog.Server.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
+using System.Text.Json;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
 public static class BinaryEndpoints
 {
-    private const string BinaryContentType = "application/octet-stream";
+    private static readonly JsonSerializerOptions UploadJsonOptions = new(JsonSerializerDefaults.Web);
 
     public static void MapBinaryEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("api/binary").WithTags("Binary-POD");
+        Int64CursorCodec cursorCodec = Int64CursorCodec.Instance;
 
-        group.MapGet("/article", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
+        group.MapGet("/article", static async Task<Results<BinaryFrameResult, JsonHttpResult<ApiResponse>>> (
             int? page,
             int? size,
             int? categoryId,
@@ -32,159 +41,238 @@ public static class BinaryEndpoints
             bool deleted = isDeleted ?? false;
             if (deleted && (httpContext.User.Identity?.IsAuthenticated != true || !httpContext.User.IsInRole("admin")))
             {
-                return ToErrorResult(new ErrorDetail(ErrorCode.Forbidden, "权限不足"));
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "权限不足"));
             }
 
             var result = await core.GetPageListAsync(pageValue, sizeValue, categoryId, tagId, deleted);
-            return ToBinaryResult(result, aeds, AedsFrameType.ArticleList, static value => PodBinaryCodec.EncodeArticlePage(value));
+            return BinaryResults.FromResult(result, aeds, AedsFrameType.ArticleList, static (value, writer) => PodBinaryCodec.WriteArticlePage(value, writer));
         }).AllowAnonymous();
 
-        group.MapGet("/article/{id:int}", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
+        group.MapGet("/article/{id:int}", static async Task<Results<BinaryFrameResult, JsonHttpResult<ApiResponse>>> (
             int id,
+            HttpContext httpContext,
             IArticleCoreService core,
+            IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
             var result = await core.GetByIdAsync(id);
             if (!result.IsSuccess || result.Value is null)
             {
-                return ToErrorResult(result.Error.Code == ErrorCode.None
-                    ? new ErrorDetail(ErrorCode.NotFound, "文章不存在")
+                return BinaryResults.FromError(result.Error.Code == ErrorCode.None
+                    ? ErrorDetail.Create(ErrorCode.NotFound, "文章不存在")
                     : result.Error);
             }
 
-            return ToBinaryFrame(aeds, AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(result.Value.Value));
+            var detail = result.Value.Value;
+            string identity = BuildArticleViewerIdentity(httpContext, id);
+            if (await cache.TryAcquireLeaseAsync(CachePolicyId.ArticleViewLock, identity, "1", TimeSpan.FromHours(1)))
+            {
+                await core.IncreaseViewCountAsync(id);
+                detail = detail with { Views = detail.Views + 1 };
+            }
+
+            return BinaryResults.Frame(aeds, AedsFrameType.ArticleDetail, writer => PodBinaryCodec.WriteArticleDetail(detail, writer));
         }).AllowAnonymous();
 
-        group.MapGet("/article/hot", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
+        group.MapGet("/article/hot", static async Task<Results<BinaryFrameResult, JsonHttpResult<ApiResponse>>> (
             int? size,
             IArticleCoreService core,
             IAedsEncoder aeds) =>
         {
             int count = Math.Clamp(size ?? 10, 1, 50);
             var result = await core.GetHotArticlesAsync(count);
-            return ToBinaryResult(
+            return BinaryResults.FromResult(
                 result,
                 aeds,
                 AedsFrameType.ArticleHot,
-                static value => PodBinaryCodec.EncodePopularArticles(value),
+                static (value, writer) => PodBinaryCodec.WritePopularArticles(value, writer),
                 "热门文章数据为空");
         }).AllowAnonymous();
 
-        group.MapGet("/article/search", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
-            string keyword,
-            IArticleCoreService core,
+        group.MapGet("/comment/{articleId:int}", async Task<Results<BinaryFrameResult, JsonHttpResult<ApiResponse>>> (
+            int articleId,
+            HttpContext httpContext,
+            CommentService commentService,
             IAedsEncoder aeds) =>
         {
-            if (string.IsNullOrWhiteSpace(keyword))
+            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.Threads, cursorCodec);
+            if (!bind.IsSuccess)
             {
-                return ToErrorResult(new ErrorDetail(ErrorCode.Validation, "搜索关键词不能为空"));
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"));
             }
 
-            var result = await core.SearchArticlesAsync(keyword);
-            return ToBinaryResult(
-                result,
-                aeds,
-                AedsFrameType.ArticleSearch,
-                static value => PodBinaryCodec.EncodeArticleSearch(value),
-                "搜索数据为空");
+            var result = await commentService.GetCommentThreadsByCursorAsync(articleId, bind.Request);
+            return BinaryResults.Frame(aeds, AedsFrameType.CommentArticleCursor, writer => PodBinaryCodec.WriteCommentThreadCursor(result, writer));
         }).AllowAnonymous();
 
-        group.MapGet("/comment/{articleId:int}", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
+        group.MapGet("/comment/{articleId:int}/thread/{rootId:long}", async Task<Results<BinaryFrameResult, JsonHttpResult<ApiResponse>>> (
             int articleId,
-            long? cursor,
-            int? limit,
-            ICommentCoreService core,
+            long rootId,
+            HttpContext httpContext,
+            CommentService commentService,
             IAedsEncoder aeds) =>
         {
-            int actualLimit = Math.Clamp(limit ?? 10, 5, 50);
-            var result = await core.GetCommentsByCursorAsync(articleId, cursor, actualLimit);
-            return ToBinaryResult(result, aeds, AedsFrameType.CommentArticleCursor, static value => PodBinaryCodec.EncodeCommentCursor(value));
+            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.Replies, cursorCodec);
+            if (!bind.IsSuccess)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"));
+            }
+
+            var result = await commentService.GetThreadRepliesByCursorAsync(articleId, rootId, bind.Request);
+            return BinaryResults.Frame(aeds, AedsFrameType.CommentThreadReplyCursor, writer => PodBinaryCodec.WriteCommentReplyCursor(rootId, result, writer));
         }).AllowAnonymous();
 
-        group.MapGet("/comment/me", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
+        group.MapGet("/comment/me", async Task<Results<BinaryFrameResult, JsonHttpResult<ApiResponse>>> (
             HttpContext httpContext,
-            long? cursor,
-            int? limit,
             ICommentCoreService core,
             IAedsEncoder aeds) =>
         {
             int userId = httpContext.User.GetUserId();
             if (userId <= 0)
             {
-                return ToErrorResult(new ErrorDetail(ErrorCode.Unauthorized, "未找到用户信息"));
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "未找到用户信息"));
             }
 
-            int actualLimit = Math.Clamp(limit ?? 10, 5, 50);
-            var result = await core.GetUserCommentsAsync(userId, cursor, actualLimit);
-            return ToBinaryResult(result, aeds, AedsFrameType.CommentUserCursor, static value => PodBinaryCodec.EncodeUserCommentCursor(value));
-        }).AllowAnonymous();
+            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.UserComments, cursorCodec);
+            if (!bind.IsSuccess)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"));
+            }
 
-        group.MapGet("/stats", static async Task<Results<FileContentHttpResult, JsonHttpResult<ApiResponse>>> (
-            HttpContext httpContext,
+            var result = await core.GetUserCommentsAsync(userId, bind.Request.Cursor, bind.Request.Limit);
+            return BinaryResults.FromResult(result, aeds, AedsFrameType.CommentUserCursor, static (value, writer) => PodBinaryCodec.WriteUserCommentCursor(value, writer));
+        }).RequireAuthorization();
+
+        group.MapGet("/stats", static async Task<Results<BinaryFrameResult, JsonHttpResult<ApiResponse>>> (
             IStatsCoreService core,
             IAedsEncoder aeds) =>
         {
-            if (httpContext.User.Identity?.IsAuthenticated != true)
-            {
-                return ToErrorResult(new ErrorDetail(ErrorCode.Unauthorized, "未登录"));
-            }
-
-            if (!httpContext.User.IsInRole("admin"))
-            {
-                return ToErrorResult(new ErrorDetail(ErrorCode.Forbidden, "权限不足"));
-            }
-
             var result = await core.GetAdminStatsAsync();
-            return ToBinaryResult(result, aeds, AedsFrameType.AdminStats, static value => PodBinaryCodec.EncodeSiteStats(value));
-        }).AllowAnonymous();
+            return BinaryResults.FromResult(result, aeds, AedsFrameType.AdminStats, static (value, writer) => PodBinaryCodec.WriteSiteStats(value, writer));
+        }).RequireAuthorization(policy => policy.RequireRole("admin"));
+
+        var uploadGroup = group.MapGroup("/upload")
+            .RequireAuthorization(policy => policy.RequireRole("admin"))
+            .AddEndpointFilter<RequiresPowFilter>();
+
+        uploadGroup.MapPost("/init", static async Task<Results<BinaryFrameResult, JsonHttpResult<ApiResponse>>> (
+            UploadInitRequestDto dto,
+            IFileService fileService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await fileService.InitUploadSessionAsync(dto, cancellationToken);
+            return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadInit, static value => JsonSerializer.SerializeToUtf8Bytes(value, UploadJsonOptions));
+        });
+
+        uploadGroup.MapGet("/{uploadId}/status", static async Task<Results<BinaryFrameResult, JsonHttpResult<ApiResponse>>> (
+            string uploadId,
+            IFileService fileService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await fileService.GetUploadStatusAsync(uploadId, cancellationToken);
+            return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadStatus, static value => JsonSerializer.SerializeToUtf8Bytes(value, UploadJsonOptions));
+        });
+
+        uploadGroup.MapGet("/{uploadId}/status/parts", static async Task<Results<BinaryFrameResult, JsonHttpResult<ApiResponse>>> (
+            string uploadId,
+            IFileService fileService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await fileService.GetUploadPartMapAsync(uploadId, cancellationToken);
+            return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadPartMap, static value => JsonSerializer.SerializeToUtf8Bytes(value, UploadJsonOptions));
+        });
+
+        uploadGroup.MapPut("/{uploadId}/part", static async Task<Results<BinaryFrameResult, JsonHttpResult<ApiResponse>>> (
+            string uploadId,
+            HttpContext httpContext,
+            IFileService fileService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            IFormCollection form = await httpContext.Request.ReadFormAsync(cancellationToken);
+            IFormFile? file = form.Files.GetFile("file");
+            if (file is null)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片为空"));
+            }
+
+            if (!int.TryParse(form["partNumber"], out int partNumber))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分片索引非法"));
+            }
+
+            if (!long.TryParse(form["offset"], out long offset))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分片偏移非法"));
+            }
+
+            string? payloadHash = form["payloadHash"].FirstOrDefault();
+            var result = await fileService.UploadPartAsync(uploadId, partNumber, offset, file, payloadHash, cancellationToken);
+            return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadPartAck, static value => JsonSerializer.SerializeToUtf8Bytes(value, UploadJsonOptions));
+        })
+        .DisableAntiforgery();
+
+        uploadGroup.MapPost("/{uploadId}/complete", static async Task<Results<BinaryFrameResult, JsonHttpResult<ApiResponse>>> (
+            string uploadId,
+            UploadCompleteRequestDto dto,
+            IFileService fileService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await fileService.CompleteUploadAsync(uploadId, dto.Sha256, cancellationToken);
+            return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadComplete, static value => JsonSerializer.SerializeToUtf8Bytes(value, UploadJsonOptions));
+        });
+
+        uploadGroup.MapDelete("/{uploadId}", static async Task<Results<BinaryFrameResult, JsonHttpResult<ApiResponse>>> (
+            string uploadId,
+            IFileService fileService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await fileService.AbortUploadAsync(uploadId, cancellationToken);
+            return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadStatus, _ => JsonSerializer.SerializeToUtf8Bytes(new UploadStatusDto
+            {
+                UploadId = uploadId,
+                Status = "aborted",
+                TotalBytes = 0,
+                UploadedBytes = 0,
+                ChunkSize = 0,
+                TotalParts = 0,
+                UploadedPartCount = 0,
+                NextPartHint = 0,
+                ExpiresAt = DateTime.UtcNow
+            }, UploadJsonOptions));
+        });
     }
 
-    private static Results<FileContentHttpResult, JsonHttpResult<ApiResponse>> ToBinaryResult<T>(
-        in Result<T> result,
-        IAedsEncoder aeds,
-        AedsFrameType frameType,
-        Func<T, byte[]> encodePayload,
-        string? nullValueMessage = null)
+    private static string BuildArticleViewerIdentity(HttpContext context, int articleId)
     {
-        if (!result.IsSuccess)
+        string? deviceFingerprint = GetDeviceFingerprint(context);
+        if (!string.IsNullOrWhiteSpace(deviceFingerprint))
         {
-            return ToErrorResult(result.Error);
+            return $"article:{articleId}:viewer:fp:{deviceFingerprint}";
         }
 
-        if (result.Value is null)
+        return $"article:{articleId}:viewer:ip:{context.GetClientIp()}";
+    }
+
+    private static string? GetDeviceFingerprint(HttpContext context)
+    {
+        if (!context.Request.Headers.TryGetValue("X-Fsus-Device-Fp", out var raw))
         {
-            return ToErrorResult(new ErrorDetail(ErrorCode.InfraFailure, nullValueMessage ?? "二进制载荷为空"));
+            return null;
         }
 
-        return ToBinaryFrame(aeds, frameType, encodePayload(result.Value));
-    }
-
-    private static Results<FileContentHttpResult, JsonHttpResult<ApiResponse>> ToBinaryFrame(
-        IAedsEncoder aeds,
-        AedsFrameType frameType,
-        byte[] payload)
-    {
-        byte[] frame = AedsBinaryWriter.WriteFrame(aeds, frameType, payload);
-        return TypedResults.File(frame, BinaryContentType);
-    }
-
-    private static JsonHttpResult<ApiResponse> ToErrorResult(in ErrorDetail error)
-    {
-        int statusCode = error.Code switch
+        string? value = raw.ToString();
+        if (string.IsNullOrWhiteSpace(value))
         {
-            ErrorCode.Validation => 400,
-            ErrorCode.Unauthorized => 401,
-            ErrorCode.Forbidden => 403,
-            ErrorCode.NotFound => 404,
-            ErrorCode.Conflict => 409,
-            ErrorCode.InfraFailure => 500,
-            _ => 500
-        };
+            return null;
+        }
 
-        string message = string.IsNullOrWhiteSpace(error.Message)
-            ? "请求失败"
-            : error.Message;
-
-        return TypedResults.Json(ApiResponse.Fail(message, statusCode), statusCode: statusCode);
+        return value.Length <= 128 ? value : value[..128];
     }
+
 }

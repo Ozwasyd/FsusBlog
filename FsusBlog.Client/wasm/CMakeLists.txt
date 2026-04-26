@@ -16,11 +16,20 @@ file(MAKE_DIRECTORY "${FSUSBLOG_WASM_OUTPUT_DIR}")
 
 add_subdirectory(pow)
 add_subdirectory(aeds)
+add_subdirectory(search)
 
 option(FSUSBLOG_WASM_MARKDOWN_ENABLE "Build the markdown wasm module" ON)
 if(FSUSBLOG_WASM_MARKDOWN_ENABLE)
   add_subdirectory(
     "${CMAKE_CURRENT_SOURCE_DIR}/markdown"
     "${CMAKE_CURRENT_BINARY_DIR}/markdown"
+  )
+endif()
+
+option(FSUSBLOG_WASM_IMAGE_CODEC_ENABLE "Build the image codec wasm module" ON)
+if(FSUSBLOG_WASM_IMAGE_CODEC_ENABLE)
+  add_subdirectory(
+    "${CMAKE_CURRENT_SOURCE_DIR}/image_codec"
+    "${CMAKE_CURRENT_BINARY_DIR}/image_codec"
   )
 endif()

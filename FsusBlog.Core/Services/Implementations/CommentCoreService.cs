@@ -5,7 +5,7 @@ using FsusBlog.Core.Services.Gateways;
 
 namespace FsusBlog.Core.Services.Implementations;
 
-public sealed class CommentCoreService(ILegacyCommentGateway gateway) : ICommentCoreService
+public sealed class CommentCoreService(ICommentCoreGateway gateway) : ICommentCoreService
 {
     public async Task<Result> CreateCommentAsync(int userId, int articleId, string content)
     {

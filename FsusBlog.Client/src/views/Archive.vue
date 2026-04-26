@@ -1,37 +1,29 @@
 <template>
-  <div class="max-w-3xl mx-auto px-6 sm:px-8 min-h-screen">
-    <div v-if="loading && !shouldDelayLoadingSkeleton" class="space-y-12 animate-pulse pl-8 sm:pl-10" aria-hidden="true">
+  <section class="fsus-page-shell max-w-3xl mx-auto px-5 sm:px-8 min-h-screen">
+    <div v-if="loading" class="space-y-10 sm:space-y-12 animate-pulse pl-5 sm:pl-10" aria-hidden="true">
       <div v-for="i in 3" :key="i" class="space-y-6">
-        <div class="h-6 bg-zinc-100 w-16"></div>
-        <div class="space-y-4 border-l border-zinc-100 pl-6">
-          <div v-for="j in 3" :key="j" class="h-4 bg-zinc-50 w-full"></div>
+        <div class="h-6 bg-[#F4F4F5] w-16"></div>
+        <div class="space-y-4 border-l border-[#F4F4F5] pl-6">
+          <div v-for="j in 3" :key="j" class="h-4 bg-[#FCFCFC] w-full"></div>
         </div>
       </div>
     </div>
 
-    <AotHost
-      v-else-if="shouldRenderAotHtml"
-      class="aot-archive-page"
-      :html="aotRenderedHtml"
-    />
-
     <div v-else class="relative pb-24">
-      <header class="mb-12 sm:mb-16 pb-8 sm:pb-12 border-b border-zinc-100">
-        <h1 class="text-3xl sm:text-5xl font-bold text-zinc-950 leading-tight sm:leading-snug mb-6">
+      <header class="mb-12 sm:mb-16 pb-8 sm:pb-12 border-b border-[#F4F4F5]">
+        <h1 class="text-3xl sm:text-5xl font-bold text-[#0F0F11] leading-tight sm:leading-snug mb-6">
           归档
         </h1>
-        <div class="flex items-center gap-3 text-[11px] sm:text-xs font-mono font-medium tracking-wider text-zinc-400 uppercase">
+        <div class="flex items-center gap-5 text-[11px] sm:text-xs font-mono font-medium text-[#A1A1AA] uppercase">
           <span>目前发布</span>
-          <span class="text-zinc-300 font-light" aria-hidden="true">/</span>
-          <span class="text-zinc-950 font-bold tabular-nums">{{ archiveView.total }}</span>
+          <span class="text-[#D4D4D8] font-light" aria-hidden="true">/</span>
+          <span class="text-[#0F0F11] font-bold tabular-nums">{{ archiveView.total }}</span>
         </div>
       </header>
       
-      <!-- 物理时间线 -->
-      <div v-if="archiveView.yearGroups.length > 0" class="absolute left-4.5 top-3 bottom-0 w-px bg-zinc-200 z-0"></div>
+      <div v-if="archiveView.yearGroups.length > 0" class="absolute left-4.5 top-5 bottom-0 w-px bg-[#E4E4E7] z-0"></div>
 
-      <div class="space-y-20">
-        <!-- [修复 2026-02-23] 逻辑自洽：直接遍历预排好序的渲染专用数组 -->
+      <div class="space-y-14 sm:space-y-16">
         <section 
           v-for="(yearGroup, yearIndex) in archiveView.yearGroups" 
           :key="yearGroup.year" 
@@ -39,25 +31,24 @@
           :style="getYearSectionStyle(yearIndex)"
         >
           
-          <!-- 年份标题 -->
-          <div class="sticky top-20 z-10 bg-white py-3 mb-10 flex items-center">
-            <div class="absolute left-0 w-9 h-9 bg-white flex items-center justify-center">
-                <div class="w-2.5 h-2.5 rounded-full bg-zinc-950 ring-4 ring-white"></div>
+          <div class="sticky top-20 z-10 bg-[var(--fsus-panel-bg)] py-3 mb-8 sm:mb-10 flex items-center">
+            <div class="absolute left-0 w-9 h-9 bg-[var(--fsus-panel-bg)] flex items-center justify-center">
+                <div class="w-2.5 h-2.5 rounded-full bg-[#0F0F11] ring-4 ring-white"></div>
             </div>
-            <h2 class="text-3xl sm:text-4xl font-bold text-zinc-950 pl-12 font-mono tracking-tighter">
+            <h2 class="text-2xl sm:text-4xl font-bold text-[#0F0F11] pl-10 sm:pl-12 font-mono">
               {{ yearGroup.year }}
             </h2>
           </div>
 
-          <div class="space-y-14 pl-12">
+          <div class="space-y-10 sm:space-y-12 pl-8 sm:pl-12">
             <div 
               v-for="monthGroup in yearGroup.months" 
               :key="monthGroup.month"
               class="relative"
             >
-              <h3 class="text-xs font-black tracking-[0.3em] text-zinc-400 uppercase mb-6 flex items-center gap-4">
+              <h3 class="text-xs font-black text-[#A1A1AA] uppercase mb-6 flex items-center gap-6">
                 {{ monthGroup.monthLabel }}
-                <span class="h-px grow bg-zinc-100/80" aria-hidden="true"></span>
+                <span class="h-px grow bg-[#F4F4F5]/80" aria-hidden="true"></span>
               </h3>
 
               <div class="space-y-6">
@@ -70,15 +61,15 @@
                     :to="article.route"
                     class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-6 group py-1 sm:py-0 outline-none"
                   >
-                    <time 
+                    <time
                       :datetime="article.createTime"
                       :title="article.fullLocalTimeText"
-                      class="flex-none text-xs sm:text-sm font-mono text-zinc-400 group-hover:text-zinc-950 transition-colors w-12 tabular-nums"
+                      class="flex-none text-xs sm:text-sm font-mono text-[#A1A1AA] group-hover:text-[#2A599C] transition-colors w-12 tabular-nums"
                     >
                       {{ article.dayText }}
                     </time>
                     
-                    <span class="text-base sm:text-lg font-medium text-zinc-600 group-hover:text-zinc-950 transition-colors leading-snug border-b border-transparent group-hover:border-zinc-950 pb-0.5">
+                    <span class="safe-inline-wrap text-base sm:text-lg font-medium text-[#71717A] group-hover:text-[#2A599C] transition-colors leading-snug border-b border-transparent group-hover:border-[#2A599C] pb-0.5">
                       {{ article.title }}
                     </span>
                   </router-link>
@@ -89,19 +80,19 @@
         </section>
       </div>
 
-      <div v-if="archiveView.yearGroups.length === 0" class="py-32 text-center">
-        <p class="text-[11px] font-mono text-zinc-300 uppercase tracking-widest">
+      <div v-if="archiveView.yearGroups.length === 0" class="py-24 sm:py-32">
+        <p class="text-[11px] font-mono text-[#D4D4D8] uppercase">
            {{ archiveView.emptyState.title }}
         </p>
       </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import AotHost from '@/components/AotHost.vue'
 import { useArchiveView } from '@/composables/useArchiveView'
-const { loading, archiveView, aotRenderedHtml, shouldRenderAotHtml, shouldDelayLoadingSkeleton } = useArchiveView()
+
+const { loading, archiveView } = useArchiveView()
 const getYearSectionStyle = (yearIndex: number) => ({ '--stagger': yearIndex })
 </script>
 

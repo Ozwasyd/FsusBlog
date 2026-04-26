@@ -1,24 +1,24 @@
 <template>
   <div 
     id="top" 
-    class="font-sans min-h-screen flex flex-col bg-white text-zinc-950 subpixel-antialiased [text-rendering:optimizeLegibility] selection:bg-zinc-950 selection:text-white"
+    class="font-sans min-h-screen flex flex-col bg-[var(--fsus-panel-bg)] text-[#0F0F11] subpixel-antialiased [text-rendering:optimizeLegibility] selection:bg-[#0F0F11] selection:text-white dark:bg-[#0F0F11] dark:text-[#FCFCFC] dark:selection:bg-[#F4F4F5] dark:selection:text-[#0F0F11]"
   >
     <MobileNav />
-    
+
     <header class="w-full pt-12 pb-8 sm:pt-20 sm:pb-10">
       <div class="max-w-3xl mx-auto px-6 sm:px-8 flex flex-col sm:flex-row sm:items-baseline justify-between gap-6 sm:gap-8">
-        
-        <div class="shrink-0">
-          <router-link to="/" class="text-2xl sm:text-3xl font-bold tracking-tight hover:opacity-60 transition-opacity outline-none focus-visible:opacity-60">
-            {{ siteStore.isLoaded ? siteStore.siteInfo.title : '...' }}<span class="text-zinc-400">.</span>
-          </router-link>
-        </div>
+        <router-link
+          to="/"
+          class="shrink-0 inline-block rounded-[8px] text-2xl sm:text-3xl font-bold transition-opacity hover:opacity-60 outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0F0F11]"
+        >
+          {{ siteStore.siteInfo.title || "Fsu's Blog" }}<span class="fsus-punctuation-motif"></span>
+        </router-link>
 
         <nav class="flex flex-wrap items-center gap-6 sm:gap-8 text-sm font-medium" aria-label="主导航">
           <router-link to="/" class="mono-link" exact-active-class="active-link">首页</router-link>
           <router-link to="/archive" class="mono-link" active-class="active-link">归档</router-link>
           <router-link to="/about" class="mono-link" active-class="active-link">关于</router-link>
-          
+
           <button 
             type="button"
             @click="siteStore.setMobileSearchVisible(true)" 
@@ -28,42 +28,27 @@
             搜索
           </button>
 
-          <div class="hidden sm:flex items-center group border-b border-zinc-100 focus-within:border-zinc-950 transition-colors duration-300">
-            <input 
-              v-model.trim="searchQuery"
-              type="text" 
-              placeholder="搜索 (Ctrl+K)" 
-              class="bg-transparent border-none p-0 focus:ring-0 focus:outline-none text-sm w-12 focus:w-28 transition-all duration-500 placeholder:text-zinc-300 text-zinc-500 focus:text-zinc-950 pb-0.5"
-              @keyup.enter="handleSearch"
-              @keyup.esc="searchQuery = ''"
-              ref="searchInput"
-              aria-label="搜索内容"
-            />
-          </div>
+          <input
+            v-model.trim="searchQuery"
+            ref="searchInput"
+            type="text"
+            placeholder="搜索 (Ctrl+K)"
+            class="hidden sm:block bg-transparent border-x-0 border-t-0 border-b border-[#F4F4F5] p-0 pb-0.5 text-sm w-12 focus:w-28 transition-[width,border-color,color] duration-500 focus:ring-0 focus:outline-none placeholder:text-[#D4D4D8] text-[#8E8E93] focus:text-[#0F0F11] focus:border-[#2A599C] dark:border-[#27272A] dark:placeholder:text-[#71717A] dark:text-[#A1A1AA] dark:focus:text-[#F4F4F5] dark:focus:border-[#2A599C]"
+            @keyup.enter="handleSearch"
+            @keyup.esc="searchQuery = ''"
+            aria-label="搜索内容"
+          />
 
-          <span class="text-zinc-300 font-light" aria-hidden="true">/</span>
+          <ThemeModeToggle class="hidden sm:inline-flex" />
 
-          <!-- 
-            [修复 2026-02-24] 乐观 UI 策略：
-            不再使用 isAuthChecked 阻塞渲染。如果本地有 userInfo，直接显示入口。
-            如果后端握手返回 401，userInfo 会被自动置空，视图随之优雅切换。
-          -->
-          <template v-if="userStore.isLoggedIn">
-            <router-link 
-              :to="{ name: userStore.isAdmin ? 'AdminDashboard' : 'UserProfile' }" 
-              class="mono-link"
-              active-class="active-link"
-            >
-              {{ userStore.isAdmin ? '控制板' : '账户' }}
-            </router-link>
-          </template>
-          <template v-else-if="userStore.isAuthChecked">
-            <router-link to="/login" class="mono-link" active-class="active-link">登录</router-link>
-          </template>
-          <template v-else>
-            <!-- 正在握手时的极简占位 -->
-            <span class="text-zinc-300 animate-pulse font-mono text-[10px]">AUTH</span>
-          </template>
+          <span class="text-[#D4D4D8] font-light dark:text-[#3F3F46]" aria-hidden="true">/</span>
+          <router-link
+            :to="authDestination"
+            class="mono-link inline-flex items-center justify-start min-w-[3.75rem]"
+            active-class="active-link"
+          >
+            {{ authLabel }}
+          </router-link>
         </nav>
       </div>
     </header>
@@ -76,16 +61,16 @@
       </router-view>
     </main>
 
-    <footer class="w-full pb-12 pt-8 sm:pb-16 border-t border-zinc-100">
+    <footer class="w-full pb-12 pt-8 sm:pb-16 border-t border-[#F4F4F5] dark:border-[#18181B]">
       <div class="max-w-3xl mx-auto px-6 sm:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         
-        <div class="text-sm text-zinc-500 font-medium tracking-normal select-none">
+        <div class="text-sm text-[#8E8E93] dark:text-[#A1A1AA] font-medium tracking-normal select-none">
           &copy; {{ currentYear }} {{ siteStore.siteInfo.author }}. All rights reserved.
         </div>
         
-        <div class="flex items-center gap-6 sm:gap-8 text-sm font-medium text-zinc-500">
-          <a href="/api/Article/rss" class="hover:text-zinc-950 transition-colors">RSS</a>
-          <a href="#top" class="hover:text-zinc-950 transition-colors flex items-center gap-2 group">
+        <div class="flex items-center gap-6 sm:gap-8 text-sm font-medium text-[#8E8E93] dark:text-[#A1A1AA]">
+          <a href="/api/Article/rss" class="rounded-[8px] hover:text-[#2A599C] dark:hover:text-[#F4F4F5] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C]">RSS</a>
+          <a href="#top" class="rounded-[8px] hover:text-[#2A599C] dark:hover:text-[#F4F4F5] transition-colors flex items-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C]">
             <span>回到顶部</span>
             <span class="group-hover:-translate-y-0.5 transition-transform" aria-hidden="true">↑</span>
           </a>
@@ -96,14 +81,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { useSiteStore } from '@/store/site'
 import MobileNav from '@/components/MobileNav.vue'
+import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
+import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 
 const userStore = useUserStore()
-const siteStore = useSiteStore()
+const { siteStore, ensureSiteInfo } = useSessionBootstrap()
 const router = useRouter()
 const route = useRoute()
 
@@ -111,6 +97,18 @@ const searchQuery = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)
 
 const currentYear = new Date().getFullYear()
+const authDestination = computed(() =>
+  userStore.isLoggedIn
+    ? { name: userStore.isAdmin ? 'ManageDashboard' : 'UserProfile' }
+    : '/login'
+)
+const authLabel = computed(() => {
+  if (!userStore.isLoggedIn) {
+    return '登录'
+  }
+
+  return userStore.isAdmin ? '控制板' : '账户'
+})
 /**
  * 逻辑自洽：处理搜索跳转与异常捕获
  */
@@ -149,6 +147,7 @@ watch(() => route.query.q, (newQ) => {
 }, { immediate: true })
 
 onMounted(() => {
+  void ensureSiteInfo()
   window.addEventListener('keydown', handleGlobalKeyDown)
 })
 
@@ -160,19 +159,16 @@ onUnmounted(() => {
 <style scoped>
 @reference "@/assets/main.css";
 
-.font-sans { letter-spacing: 0.01em; }
-
 .mono-link {
-  @apply text-zinc-500 transition-colors duration-200 outline-none focus-visible:text-zinc-950;
+  @apply rounded-[8px] text-[#8E8E93] dark:text-[#A1A1AA] transition-colors duration-200 outline-none focus-visible:text-[#2A599C] dark:focus-visible:text-[#F4F4F5] focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0F0F11];
 }
 
 .mono-link:hover {
-  @apply text-zinc-950;
+  @apply text-[#2A599C] dark:text-[#F4F4F5];
 }
 
-/* 激活态样式收敛 */
 .active-link {
-  @apply text-zinc-950 font-bold;
+  @apply text-[#2A599C] dark:text-[#F4F4F5] font-bold;
 }
 
 :global(html) {

@@ -1,9 +1,13 @@
-﻿using FsusBlog.Server.Infrastructure.Filters;
+﻿using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,26 +24,28 @@ namespace FsusBlog.Server.Modules.Controllers;
 public partial class AuthController(
     IUserService _userService,
     ILogger<AuthController> _logger,
-    IWebHostEnvironment _env) : ControllerBase
+    IWebHostEnvironment _env,
+    IMfaChallengeService _mfaChallengeService,
+    AuthCookieService _authCookieService) : ControllerBase
 {
     [Authorize(Roles = "admin")]
     [HttpGet("{id}")]
-    public async Task<ActionResult<ApiResponse<UserInfoDto>>> GetUserInfo(int id)
+    public async Task<ActionResult<ApiResponse<CurrentUserSnapshotDto>>> GetUserInfo(int id)
     {
         var user = await _userService.GetByIdAsync(id);
-        if (user == null) return NotFound(ApiResponse.Fail("未找到该用户", 404));
+        if (user == null) return ControllerResults.NotFound<CurrentUserSnapshotDto>("未找到该用户", HttpContext.TraceIdentifier);
 
-        return ApiResponse<UserInfoDto>.Success(new UserInfoDto(user.Id, user.Username, user.Role, user.Status, user.BanReason));
+        return ApiResponse<CurrentUserSnapshotDto>.Success(new CurrentUserSnapshotDto(user.Id, user.Username, user.Role, user.Status, user.BanReason, user.DeletedAt));
     }
 
     [Authorize(Roles = "admin")]
     [HttpGet("find/{username}")]
-    public async Task<ActionResult<ApiResponse<UserInfoDto>>> FindUserByName(string username)
+    public async Task<ActionResult<ApiResponse<CurrentUserSnapshotDto>>> FindUserByName(string username)
     {
         var user = await _userService.GetByUsernameAsync(username);
-        if (user == null) return NotFound(ApiResponse.Fail("未找到该用户", 404));
+        if (user == null) return ControllerResults.NotFound<CurrentUserSnapshotDto>("未找到该用户", HttpContext.TraceIdentifier);
 
-        return ApiResponse<UserInfoDto>.Success(new UserInfoDto(user.Id, user.Username, user.Role, user.Status, user.BanReason));
+        return ApiResponse<CurrentUserSnapshotDto>.Success(new CurrentUserSnapshotDto(user.Id, user.Username, user.Role, user.Status, user.BanReason, user.DeletedAt));
     }
 
     [EnableRateLimiting("fixed_ip")]
@@ -49,11 +55,21 @@ public partial class AuthController(
     public async Task<ActionResult<ApiResponse>> UpdateUsername([FromBody] UpdateUsernameDto dto)
     {
         var userId = User.GetUserId();
+        var userForMfaCheck = await _userService.GetByIdAsync(userId);
+        if (userForMfaCheck != null && userForMfaCheck.MfaEnabled)
+        {
+            if (!TryReadMfaProof(out var proofToken) || !await _mfaChallengeService.ValidateAndConsumeProofTokenAsync(userId, "update-username", proofToken))
+            {
+                return ControllerResults.Status(StatusCodes.Status428PreconditionRequired, "MFA_REQUIRED", HttpContext.TraceIdentifier);
+            }
+        }
+
         var (success, message, newToken) = await _userService.UpdateUsernameAsync(userId, dto.NewUsername);
 
-        if (!success || newToken == null) return BadRequest(ApiResponse.Fail(message));
+        if (!success || newToken == null) return ControllerResults.BadRequest(message, HttpContext.TraceIdentifier);
 
-        SetTokenCookies(newToken.Value.AccessToken, newToken.Value.RefreshToken);
+        var user = await _userService.GetByIdAsync(userId);
+        _authCookieService.SetTokenCookies(HttpContext, _env, newToken.Value.AccessToken, newToken.Value.RefreshToken, user?.RefreshTokenExpiryTime ?? DateTime.UtcNow.AddDays(7));
 
         return ApiResponse.Success("用户名修改成功");
     }
@@ -66,41 +82,45 @@ public partial class AuthController(
     {
         var userId = User.GetUserId();
         string clientIp = HttpContext.GetClientIp();
+        var userForMfaCheck = await _userService.GetByIdAsync(userId);
+        if (userForMfaCheck != null && userForMfaCheck.MfaEnabled)
+        {
+            if (!TryReadMfaProof(out var proofToken) || !await _mfaChallengeService.ValidateAndConsumeProofTokenAsync(userId, "update-password", proofToken))
+            {
+                return ControllerResults.Status(StatusCodes.Status428PreconditionRequired, "MFA_REQUIRED", HttpContext.TraceIdentifier);
+            }
+        }
 
         var (success, message) = await _userService.UpdatePasswordAsync(userId, dto);
-        if (!success) return BadRequest(ApiResponse.Fail(message));
+        if (!success) return ControllerResults.BadRequest(message, HttpContext.TraceIdentifier);
 
-        ClearTokenCookies();
+        _authCookieService.ClearTokenCookies(HttpContext);
+        using var _ = AuditLogScope.Push(
+            AuditSourceCatalog.Auth,
+            AuditTypeCatalog.Security,
+            new KeyValuePair<string, object?>("AuditAction", "password.update"),
+            new KeyValuePair<string, object?>("UserId", userId),
+            new KeyValuePair<string, object?>("ClientIp", clientIp));
         LogPasswordReset(userId, clientIp);
         return ApiResponse.Success("密码修改成功，请重新登录");
     }
 
-    private void SetTokenCookies(string access, string refresh)
+    private bool TryReadMfaProof(out string proofToken)
     {
-        var isProd = !_env.IsDevelopment();
-        var baseOptions = new CookieOptions
+        proofToken = string.Empty;
+        if (!Request.Headers.TryGetValue("X-Fsus-Mfa-Proof", out var values))
         {
-            HttpOnly = true,
-            Secure = isProd,
-            SameSite = SameSiteMode.Strict,
-            Path = "/"
-        };
+            return false;
+        }
 
-        Response.Cookies.Append("AccessToken", access, new CookieOptions(baseOptions)
+        string? token = values.ToString();
+        if (string.IsNullOrWhiteSpace(token))
         {
-            Expires = DateTime.UtcNow.AddMinutes(15)
-        });
+            return false;
+        }
 
-        Response.Cookies.Append("RefreshToken", refresh, new CookieOptions(baseOptions)
-        {
-            Expires = DateTime.UtcNow.AddDays(7)
-        });
-    }
-
-    private void ClearTokenCookies()
-    {
-        Response.Cookies.Delete("AccessToken");
-        Response.Cookies.Delete("RefreshToken");
+        proofToken = token;
+        return true;
     }
 
     [LoggerMessage(

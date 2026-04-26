@@ -1,4 +1,7 @@
 ﻿using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Server.Models.Responses;
 using Microsoft.AspNetCore.OutputCaching;
@@ -13,12 +16,10 @@ namespace FsusBlog.Server.Modules.Endpoints;
 /// </summary>
 public static class CategoryEndpoints
 {
-    private const string CacheTag = "Category";
-
     public static void MapCategoryEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("api/Category")
-            .WithTags(CacheTag);
+            .WithTags(CacheTag.Category.ToOutputCacheTag());
 
         // GET /api/Category
         group.MapGet("/", async (ISqlSugarClient db) =>
@@ -38,7 +39,7 @@ public static class CategoryEndpoints
                 });
 
             var sqlObj = query.ToSql();
-            var result = new List<CategoryDto>();
+            var result = new List<CategoryListItemResponse>();
 
             // 核心物理优化：直接操作底层的 DbDataReader
             using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
@@ -51,18 +52,15 @@ public static class CategoryEndpoints
 
                 while (await reader.ReadAsync())
                 {
-                    result.Add(new CategoryDto
-                    {
-                        Id = reader.GetInt32(fId),
-                        Name = reader.IsDBNull(fName) ? string.Empty : reader.GetString(fName),
-                        // 彻底修复装箱：强制使用 GetInt64 读取 8 字节整数，再进行栈上强转。
-                        ArticleCount = (int)reader.GetInt64(fCount)
-                    });
+                    result.Add(ArticleProjection.ToCategoryResponse(
+                        reader.GetInt32(fId),
+                        reader.IsDBNull(fName) ? string.Empty : reader.GetString(fName),
+                        (int)reader.GetInt64(fCount)));
                 }
             }
 
-            return TypedResults.Ok(ApiResponse<List<CategoryDto>>.Success(result));
+            return ApiResults.Ok(result);
         })
-        .CacheOutput(p => p.Expire(TimeSpan.FromMinutes(5)).Tag(CacheTag));
+        .CacheOutput(HttpCachePolicyCatalog.ApplyCategoryList);
     }
 }

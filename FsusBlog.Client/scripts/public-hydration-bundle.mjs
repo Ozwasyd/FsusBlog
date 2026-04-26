@@ -12,45 +12,45 @@ dayjs.extend(timezone)
 dayjs.extend(relativeTime)
 dayjs.locale('zh-cn')
 
-export const PUBLIC_RENDERER_VERSION = 'public-vue-renderer@2026-04-06-2'
+export const PUBLIC_RENDERER_VERSION = 'public-vue-renderer@2026-04-19-1'
 const MARKDOWN_RENDERER_VERSION = 'markdown-wasm-contract@2026-04-06-3'
 const MARKDOWN_SURFACE_ROOT = 'markdown-body prose prose-zinc max-w-none subpixel-antialiased'
 const MARKDOWN_SURFACE_BODY = 'markdown-renderer__body'
 
 const themeTokens = {
   articleList: {
-    container: 'flex flex-col gap-12 sm:gap-20',
-    card: 'ui-article-card group flex flex-col items-start gap-3 sm:gap-4 subpixel-antialiased',
-    metaRow: 'ui-article-meta min-h-5 flex flex-wrap items-center gap-3 text-[11px] sm:text-xs font-mono font-medium tracking-wider text-zinc-400 uppercase',
-    metaSeparator: 'ui-article-meta-separator text-zinc-300 font-light',
-    metaCategory: 'ui-article-category text-zinc-600',
-    title: 'ui-article-title min-h-[3.5rem] sm:min-h-[4.25rem] text-xl sm:text-2xl font-bold text-zinc-950 group-hover:text-zinc-500 transition-colors duration-300 leading-snug',
-    titleLink: 'block',
-    summary: 'ui-article-summary min-h-[4.5rem] sm:min-h-[5.75rem] text-sm sm:text-base text-zinc-600 leading-relaxed sm:leading-loose line-clamp-3',
-    readLink: 'ui-article-link mt-2 text-[11px] sm:text-xs font-bold tracking-[0.2em] uppercase text-zinc-950 hover:text-zinc-500 transition-colors flex items-center gap-2 py-2 -ml-0.5',
-    pagination: 'ui-pagination mt-20 pt-8 border-t border-zinc-100 flex justify-between items-center',
-    paginationButton: 'text-xs font-bold tracking-[0.2em] uppercase transition-colors text-zinc-400 hover:text-zinc-950 p-4 outline-none focus-visible:ring-2 focus-visible:ring-zinc-950',
+    container: 'flex flex-col gap-10 sm:gap-14 lg:gap-16',
+    card: 'ui-article-card group flex flex-col items-start gap-5 sm:gap-6 subpixel-antialiased',
+    metaRow: 'ui-article-meta min-h-5 flex flex-wrap items-center gap-5 text-[11px] sm:text-xs font-mono font-medium text-[#A1A1AA] uppercase dark:text-[#A1A1AA]',
+    metaSeparator: 'ui-article-meta-separator text-[#D4D4D8] font-light dark:text-[#3F3F46]',
+    metaCategory: 'ui-article-category text-[#71717A] dark:text-[#A1A1AA]',
+    title: 'ui-article-title min-h-[3.5rem] sm:min-h-[4.25rem] text-xl sm:text-2xl font-bold text-[#0F0F11] dark:text-[#FCFCFC] group-hover:text-[#2A599C] dark:group-hover:text-[#F4F4F5] transition-colors duration-300 leading-snug safe-inline-wrap',
+    titleLink: 'block rounded-[8px] outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0F0F11] safe-inline-wrap',
+    summary: 'ui-article-summary min-h-[4.5rem] sm:min-h-[5.75rem] text-sm sm:text-base text-[#71717A] dark:text-[#D4D4D8] leading-relaxed sm:leading-loose line-clamp-3',
+    readLink: 'ui-article-link mt-2 rounded-[8px] text-[11px] sm:text-xs font-bold uppercase text-[#0F0F11] dark:text-[#F4F4F5] hover:text-[#2A599C] dark:hover:text-[#D4D4D8] transition-colors flex items-center gap-2 py-2 -ml-0.5 outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0F0F11]',
+    pagination: 'ui-pagination mt-16 sm:mt-20 pt-8 border-t border-[#F4F4F5] dark:border-[#27272A] flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4',
+    paginationButton: 'rounded-[8px] text-xs font-bold uppercase transition-colors text-[#A1A1AA] dark:text-[#A1A1AA] hover:text-[#2A599C] dark:hover:text-[#F4F4F5] px-4 py-4 sm:p-6 min-h-11 outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C]',
     paginationButtonDisabled: 'opacity-30 cursor-not-allowed',
-    paginationIndicator: 'text-xs font-mono font-medium text-zinc-300 tabular-nums'
+    paginationIndicator: 'text-xs font-mono font-medium text-[#D4D4D8] dark:text-[#71717A] tabular-nums'
   },
   articleDetail: {
-    header: 'mb-10 sm:mb-16 pb-8 sm:pb-12 border-b border-zinc-100',
-    title: 'text-2xl sm:text-4xl font-bold text-zinc-950 leading-tight sm:leading-snug mb-5 sm:mb-6 tracking-tight',
-    metaRow: 'flex flex-wrap items-center gap-3 text-[10px] sm:text-xs font-mono font-medium tracking-wider text-zinc-400 uppercase',
-    metaSeparator: 'text-zinc-300 font-light',
-    categoryLink: 'text-zinc-500 hover:text-zinc-950 transition-colors',
-    categoryText: 'text-zinc-500',
-    tagList: 'flex flex-wrap gap-3 sm:gap-4',
-    tagLink: 'text-[11px] sm:text-sm font-medium text-zinc-400 hover:text-zinc-950 transition-colors px-0 py-1.5 sm:p-0',
-    commentsRoot: 'mt-16 sm:mt-24 pt-12 border-t border-zinc-950/5 pb-24',
-    commentsHeading: 'text-[10px] sm:text-xs font-bold tracking-[0.2em] text-zinc-400 uppercase mb-8',
-    commentsPlaceholderRoot: 'min-h-[11rem] rounded-3xl border border-dashed border-zinc-100 bg-zinc-50/60 px-6 py-8 sm:px-8 sm:py-10',
-    commentsPlaceholderTitle: 'text-sm sm:text-base font-bold text-zinc-950',
-    commentsPlaceholderBody: 'mt-2 text-sm sm:text-base text-zinc-500 leading-relaxed',
-    commentsPlaceholderHint: 'mt-4 text-[10px] sm:text-xs font-mono uppercase tracking-[0.2em] text-zinc-400'
+    header: 'mb-10 sm:mb-16 pb-8 sm:pb-12 border-b border-[#F4F4F5] dark:border-[#27272A]',
+    title: 'text-2xl sm:text-4xl font-bold text-[#0F0F11] dark:text-[#FCFCFC] leading-tight sm:leading-snug mb-5 sm:mb-6',
+    metaRow: 'flex flex-wrap items-center gap-5 text-[10px] sm:text-xs font-mono font-medium text-[#A1A1AA] dark:text-[#A1A1AA] uppercase',
+    metaSeparator: 'text-[#D4D4D8] dark:text-[#3F3F46] font-light',
+    categoryLink: 'rounded-[8px] text-[#71717A] dark:text-[#A1A1AA] hover:text-[#2A599C] dark:hover:text-[#F4F4F5] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C]',
+    categoryText: 'text-[#71717A] dark:text-[#A1A1AA]',
+    tagList: 'flex flex-wrap gap-5 sm:gap-6',
+    tagLink: 'rounded-[8px] text-[11px] sm:text-sm font-medium text-[#A1A1AA] dark:text-[#A1A1AA] hover:text-[#2A599C] dark:hover:text-[#F4F4F5] transition-colors px-0 py-1.5 sm:p-0 outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C]',
+    commentsRoot: 'mt-16 sm:mt-24 pt-12 border-t border-[#0F0F11]/5 dark:border-[#F4F4F5]/8 pb-24',
+    commentsHeading: 'text-[10px] sm:text-xs font-bold text-[#A1A1AA] dark:text-[#A1A1AA] uppercase mb-8',
+    commentsPlaceholderRoot: 'min-h-[5.5rem] rounded-[var(--fsus-radius-xl)] border border-dashed border-[#F4F4F5] dark:border-[#27272A] bg-[#FCFCFC]/60 dark:bg-[#18181B]/70 px-5 py-5 sm:px-6 sm:py-6',
+    commentsPlaceholderTitle: 'text-sm sm:text-base font-bold text-[#0F0F11] dark:text-[#FCFCFC]',
+    commentsPlaceholderBody: 'mt-1.5 text-sm sm:text-base text-[#71717A] dark:text-[#D4D4D8] leading-relaxed',
+    commentsPlaceholderHint: 'mt-2 text-[10px] sm:text-xs font-mono uppercase text-[#A1A1AA] dark:text-[#A1A1AA]'
   },
   primitives: {
-    tagGhost: 'ui-tag ui-tag--ghost hidden sm:inline text-[11px] sm:text-xs font-mono font-medium tracking-wider text-zinc-400 uppercase'
+    tagGhost: 'ui-tag inline-flex min-w-0 items-center rounded-[999px] font-mono font-medium uppercase tracking-normal text-[11px] sm:text-xs border-[#E4E4E7] text-[#A1A1AA] dark:border-[#27272A] dark:text-[#A1A1AA] hidden sm:inline-flex'
   }
 }
 
@@ -154,9 +154,9 @@ function createArticleDetailPageViewContract(article, commentCount, hasMore) {
       headingText,
       loadingText: '加载中',
       endText: commentCount > 0 ? '上面的评论已为最后一条。' : '暂无评论。',
-      placeholderTitle: '评论流正在接管中',
-      placeholderBody: 'AOT 会先直出正文与评论占位，Vue SPA 接管后会自动插入真实评论流。',
-      placeholderHint: '这里预留真实评论列表容器，避免首屏与接管后的布局跳变。'
+      placeholderTitle: '暂无评论',
+      placeholderBody: '',
+      placeholderHint: ''
     },
     errorState: {
       title: '数据加载异常，请稍后重试。',
@@ -334,13 +334,13 @@ async function renderPublicMarkdownHtml(request) {
 function renderArticleList(items) {
   const cards = items.map((item) => {
     const tags = item.tags.length
-      ? `<span class="${themeTokens.articleList.metaSeparator} hidden sm:inline" aria-hidden="true">/</span>${item.tags.map((tag) => `<span class="${themeTokens.primitives.tagGhost}">${escapeHtml(tag.label)}</span>`).join('')}`
-      : ''
+      ? `<span class="${themeTokens.articleList.metaSeparator} hidden sm:inline" aria-hidden="true">/</span><!--[-->${item.tags.map((tag) => `<span class="${themeTokens.primitives.tagGhost}">${escapeHtml(tag.label)}</span>`).join('')}<!--]-->`
+      : '<!----><!--[--><!--]-->'
 
-    return `<article class="${themeTokens.articleList.card}" style="--index:${item.card.index ?? 0};"><div class="${themeTokens.articleList.metaRow}"><time datetime="${escapeAttribute(item.meta.isoTime)}" title="${escapeAttribute(item.meta.fullTime)}" class="tabular-nums">${escapeHtml(item.meta.displayTime)}</time><span class="${themeTokens.articleList.metaSeparator}" aria-hidden="true">/</span><span class="${themeTokens.articleList.metaCategory}">${escapeHtml(item.meta.categoryName)}</span>${tags}</div><h2 class="${themeTokens.articleList.title}"><a href="${escapeAttribute(item.href)}" class="${themeTokens.articleList.titleLink}" data-public-link="article">${escapeHtml(item.title)}</a></h2><p class="${themeTokens.articleList.summary}">${escapeHtml(item.summary)}</p><a href="${escapeAttribute(item.href)}" class="${themeTokens.articleList.readLink}" aria-label="阅读全文" data-public-link="article">阅读<span aria-hidden="true">→</span></a></article>`
+    return `<article class="${themeTokens.articleList.card}" style="--index:${item.card.index ?? 0};"><div class="${themeTokens.articleList.metaRow}"><time datetime="${escapeAttribute(item.meta.isoTime)}" title="${escapeAttribute(item.meta.fullTime)}" class="tabular-nums">${escapeHtml(item.meta.displayTime)}</time><span class="${themeTokens.articleList.metaSeparator}" aria-hidden="true">/</span><span class="${themeTokens.articleList.metaCategory}">${escapeHtml(item.meta.categoryName)}</span>${tags}</div><h2 class="${themeTokens.articleList.title}"><a href="${escapeAttribute(item.href)}" class="${themeTokens.articleList.titleLink}" data-public-link="article">${escapeHtml(item.title)}</a></h2><p class="${themeTokens.articleList.summary}">${escapeHtml(item.summary)}</p><a href="${escapeAttribute(item.href)}" class="${themeTokens.articleList.readLink}" aria-label="阅读全文" data-public-link="article"> 阅读<span aria-hidden="true">→</span></a></article>`
   }).join('')
 
-  return `<div class="${themeTokens.articleList.container}">${cards}</div>`
+  return `<div class="${themeTokens.articleList.container}"><!--[-->${cards}<!--]--></div>`
 }
 
 function renderPagination(view) {
@@ -356,31 +356,30 @@ function renderPagination(view) {
   return `<nav class="${themeTokens.articleList.pagination}" aria-label="文章分页"><button class="${themeTokens.articleList.paginationButton} -ml-4${previousDisabled}"${previousAttr} data-aot-action="page-prev">${escapeHtml(view.pagination.previous.label)}</button><span class="${themeTokens.articleList.paginationIndicator}">${escapeHtml(view.pagination.indicator)}</span><button class="${themeTokens.articleList.paginationButton} -mr-4${nextDisabled}"${nextAttr} data-aot-action="page-next">${escapeHtml(view.pagination.next.label)}</button></nav>`
 }
 
+function renderThemeModeToggle() {
+  const inactiveClass = 'rounded-full px-2.5 py-1.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 dark:focus-visible:ring-[#7EA7E0] dark:focus-visible:ring-offset-[#0F0F11] text-[#8E8E93] hover:text-[#0F0F11] dark:text-[#A1A1AA] dark:hover:text-[#FCFCFC]'
+  return `<div class="theme-mode-toggle inline-flex items-center rounded-full border border-[#E4E4E7] bg-[var(--fsus-panel-bg)]/80 p-1 text-[10px] font-bold shadow-[0_8px_24px_-20px_rgba(9,9,11,0.45)] backdrop-blur-sm transition-colors dark:border-[#27272A] dark:bg-[#0F0F11]/80 hidden sm:inline-flex" role="group" aria-label="主题模式"><!--[--><button type="button" data-fsus-theme-mode="light" aria-pressed="false" class="${inactiveClass}">浅</button><button type="button" data-fsus-theme-mode="dark" aria-pressed="false" class="${inactiveClass}">暗</button><button type="button" data-fsus-theme-mode="system" aria-pressed="false" class="${inactiveClass}">系统</button><!--]--></div>`
+}
+
 function renderPublicHomeHtml(payload) {
   const siteTitleText = payload.siteTitle?.trim() || 'Fsus'
   const siteDescriptionText = payload.siteDescription?.trim() || '以极简形式呈现内容与思考。'
   const currentYear = new Date().getFullYear()
-  return `<div id="fsus-aot-shell" data-public-hydration-kind="Home" class="font-sans min-h-screen flex flex-col bg-white text-zinc-950 subpixel-antialiased [text-rendering:optimizeLegibility] selection:bg-zinc-950 selection:text-white"><header class="w-full pt-12 pb-8 sm:pt-20 sm:pb-10"><div class="max-w-3xl mx-auto px-6 sm:px-8 flex flex-col sm:flex-row sm:items-baseline justify-between gap-6 sm:gap-8"><div class="shrink-0"><a href="/" class="text-2xl sm:text-3xl font-bold tracking-tight hover:opacity-60 transition-opacity outline-none focus-visible:opacity-60">${escapeHtml(siteTitleText)}<span class="text-zinc-400">.</span></a></div><nav class="flex flex-wrap items-center gap-6 sm:gap-8 text-sm font-medium" aria-label="主导航"><a href="/" class="mono-link active-link">首页</a><a href="/archive" class="mono-link">归档</a><a href="/about" class="mono-link">关于</a><form action="/search" method="get" class="hidden sm:flex items-center group border-b border-zinc-100 focus-within:border-zinc-950 transition-colors duration-300"><input type="text" name="q" placeholder="搜索" class="public-shell-search bg-transparent border-none p-0 focus:ring-0 focus:outline-none text-sm w-12 focus:w-28 transition-all duration-500 placeholder:text-zinc-300 text-zinc-500 focus:text-zinc-950 pb-0.5" aria-label="搜索内容"></form><span class="text-zinc-300 font-light" aria-hidden="true">/</span><a href="/login" class="mono-link">登录</a></nav></div></header><main class="grow max-w-3xl mx-auto w-full px-6 sm:px-8 pt-4 pb-24 sm:pb-32"><div class="flex flex-col lg:flex-row gap-12 lg:gap-24"><div class="grow lg:w-2/3"><header class="mb-12 sm:mb-20"><h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-950">${escapeHtml(siteTitleText)}<span class="text-zinc-400">.</span></h1><p class="mt-4 text-sm sm:text-base text-zinc-500 max-w-xl leading-relaxed">${escapeHtml(siteDescriptionText)}</p></header>${renderArticleList(payload.view.items)}${renderPagination(payload.view)}</div><aside class="hidden lg:block lg:w-80 shrink-0 space-y-16 pt-8 lg:pt-0"><section class="public-aside-placeholder rounded-3xl border border-zinc-100 bg-zinc-50/60 px-6 py-8" aria-hidden="true"><h2 class="text-xs font-bold tracking-[0.2em] text-zinc-400 uppercase mb-8">热门文章</h2><div class="space-y-6"><div class="flex items-start gap-4"><div class="w-6 text-sm font-mono text-zinc-200">01</div><div class="flex-1 space-y-2 pt-0.5"><div class="h-3 rounded-sm bg-zinc-100"></div><div class="h-3 w-2/3 rounded-sm bg-zinc-100/90"></div></div></div><div class="flex items-start gap-4"><div class="w-6 text-sm font-mono text-zinc-200">02</div><div class="flex-1 space-y-2 pt-0.5"><div class="h-3 rounded-sm bg-zinc-100"></div><div class="h-3 w-2/3 rounded-sm bg-zinc-100/90"></div></div></div><div class="flex items-start gap-4"><div class="w-6 text-sm font-mono text-zinc-200">03</div><div class="flex-1 space-y-2 pt-0.5"><div class="h-3 rounded-sm bg-zinc-100"></div><div class="h-3 w-2/3 rounded-sm bg-zinc-100/90"></div></div></div><div class="flex items-start gap-4"><div class="w-6 text-sm font-mono text-zinc-200">04</div><div class="flex-1 space-y-2 pt-0.5"><div class="h-3 rounded-sm bg-zinc-100"></div><div class="h-3 w-2/3 rounded-sm bg-zinc-100/90"></div></div></div><div class="flex items-start gap-4"><div class="w-6 text-sm font-mono text-zinc-200">05</div><div class="flex-1 space-y-2 pt-0.5"><div class="h-3 rounded-sm bg-zinc-100"></div><div class="h-3 w-2/3 rounded-sm bg-zinc-100/90"></div></div></div></div></section></aside></div></main><footer class="w-full pb-12 pt-8 sm:pb-16 border-t border-zinc-100"><div class="max-w-3xl mx-auto px-6 sm:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6"><div class="text-sm text-zinc-500 font-medium tracking-normal select-none">&copy; ${currentYear} ${escapeHtml(siteTitleText)}. All rights reserved.</div><div class="flex items-center gap-6 sm:gap-8 text-sm font-medium text-zinc-500"><a href="/api/Article/rss" class="hover:text-zinc-950 transition-colors">RSS</a><a href="#top" class="hover:text-zinc-950 transition-colors flex items-center gap-2 group"><span>回到顶部</span><span class="group-hover:-translate-y-0.5 transition-transform" aria-hidden="true">↑</span></a></div></div></footer></div>`
+  return `<div id="fsus-aot-shell" data-public-hydration-kind="Home" class="font-sans min-h-screen flex flex-col bg-[var(--fsus-panel-bg)] text-[#0F0F11] subpixel-antialiased [text-rendering:optimizeLegibility] selection:bg-[#0F0F11] selection:text-white dark:bg-[#0F0F11] dark:text-[#FCFCFC] dark:selection:bg-[#F4F4F5] dark:selection:text-[#0F0F11]"><header class="w-full max-w-3xl mx-auto px-6 sm:px-8 pt-12 pb-8 sm:pt-20 sm:pb-10 flex flex-col sm:flex-row sm:items-baseline justify-between gap-6 sm:gap-8"><a href="/" class="shrink-0 rounded-[8px] text-2xl sm:text-3xl font-bold hover:opacity-60 transition-opacity outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C]">${escapeHtml(siteTitleText)}<span class="text-[#A1A1AA]">.</span></a><nav class="flex flex-wrap items-center gap-6 sm:gap-8 text-sm font-medium" aria-label="主导航"><a href="/" class="mono-link active-link">首页</a><a href="/archive" class="mono-link">归档</a><a href="/about" class="mono-link">关于</a><form action="/search" method="get" class="hidden sm:flex items-center group border-b border-[#F4F4F5] dark:border-[#27272A] focus-within:border-[#2A599C] transition-colors duration-300"><input type="text" name="q" placeholder="搜索" class="public-shell-search bg-transparent border-none p-0 focus:ring-0 focus:outline-none text-sm w-12 focus:w-28 transition-all duration-500 placeholder:text-[#D4D4D8] text-[#8E8E93] dark:placeholder:text-[#71717A] dark:text-[#A1A1AA] focus:text-[#0F0F11] dark:focus:text-[#F4F4F5] pb-0.5" aria-label="搜索内容"></form>${renderThemeModeToggle()}<span class="text-[#D4D4D8] font-light dark:text-[#3F3F46]" aria-hidden="true">/</span><a href="/login" class="mono-link">登录</a></nav></header><main class="fsus-page-shell grow max-w-3xl mx-auto w-full px-5 sm:px-8 pt-4 pb-20 sm:pb-32"><div id="fsus-home-feed-layout" class="flex flex-col lg:flex-row gap-10 lg:gap-16 xl:gap-20"><div id="fsus-home-main-column" class="grow lg:w-2/3"><header class="mb-12 sm:mb-20"><h1 class="text-3xl sm:text-4xl font-bold text-[#0F0F11] dark:text-[#F4F4F5]">${escapeHtml(siteTitleText)}<span class="text-[#A1A1AA]">.</span></h1><p class="mt-4 text-sm sm:text-base text-[#8E8E93] dark:text-[#A1A1AA] max-w-xl leading-relaxed">${escapeHtml(siteDescriptionText)}</p></header><!--[-->${renderArticleList(payload.view.items)}${renderPagination(payload.view)}<!--]--></div><aside id="fsus-home-hot-articles-slot" class="hidden lg:block lg:w-80 shrink-0 pt-8 lg:pt-0" aria-label="热门文章"><div id="fsus-home-hot-articles-slot-content" class="min-h-[18rem]"></div></aside></div></main><footer class="w-full max-w-3xl mx-auto px-6 sm:px-8 pb-12 pt-8 sm:pb-16 border-t border-[#F4F4F5] dark:border-[#18181B] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6"><div class="text-sm text-[#8E8E93] dark:text-[#A1A1AA] font-medium tracking-normal select-none"> © ${currentYear} ${escapeHtml(siteTitleText)}. All rights reserved. </div><div class="flex items-center gap-6 sm:gap-8 text-sm font-medium text-[#8E8E93] dark:text-[#A1A1AA]"><a href="/api/Article/rss" class="rounded-[8px] hover:text-[#2A599C] dark:hover:text-[#F4F4F5] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C]">RSS</a><a href="#top" class="rounded-[8px] hover:text-[#2A599C] dark:hover:text-[#F4F4F5] transition-colors flex items-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C]"><span>回到顶部</span><span class="group-hover:-translate-y-0.5 transition-transform" aria-hidden="true">↑</span></a></div></footer></div>`
 }
 
 function renderPublicArticleDetailHtml(payload) {
   const siteTitleText = payload.siteTitle?.trim() || 'Fsus'
   const currentYear = new Date().getFullYear()
-  const commentsIsland = payload.commentsIsland ?? {
-    articleId: payload.articleId,
-    placeholderTitle: payload.detailView.comments.placeholderTitle,
-    placeholderBody: payload.detailView.comments.placeholderBody,
-    placeholderHint: payload.detailView.comments.placeholderHint
-  }
   const tags = payload.detailView.header.tags.length > 0
     ? `<footer class="mt-12 sm:mt-24 pt-8 sm:pt-10 border-t border-zinc-100"><div class="${themeTokens.articleDetail.tagList}">${payload.detailView.header.tags.map((tag) => `<a href="/tag/${escapeAttribute(tag.label.replace(/^#/, ''))}" class="${themeTokens.articleDetail.tagLink}" data-public-link="filter">${escapeHtml(tag.label)}</a>`).join('')}</div></footer>`
     : ''
   const category = payload.detailView.header.meta.categoryHref
     ? `<a href="${escapeAttribute(payload.detailView.header.meta.categoryHref)}" class="${themeTokens.articleDetail.categoryLink}" data-public-link="filter">${escapeHtml(payload.detailView.header.meta.categoryName)}</a>`
     : `<span class="${themeTokens.articleDetail.categoryText}">${escapeHtml(payload.detailView.header.meta.categoryName)}</span>`
-  const commentsLoading = '<div class="mt-4 inline-flex items-center gap-2 text-zinc-400" aria-hidden="true"><span class="h-1.5 w-1.5 rounded-full bg-zinc-300 animate-pulse"></span><span class="h-1.5 w-1.5 rounded-full bg-zinc-300 animate-pulse [animation-delay:120ms]"></span><span class="h-1.5 w-1.5 rounded-full bg-zinc-300 animate-pulse [animation-delay:240ms]"></span></div>'
+  const commentsActivator = `<section id="fsus-comments-island" data-article-id="${escapeAttribute(String(payload.articleId ?? 0))}" class="mt-16 sm:mt-24 pt-12 border-t border-zinc-950/5 pb-24 min-h-[11rem] sm:min-h-[13rem]" aria-label="评论"><div id="fsus-comments-island-content" class="min-h-[7rem] sm:min-h-[8rem]"></div></section>`
 
-  return `<div id="fsus-aot-shell" data-public-hydration-kind="ArticleDetail" class="font-sans min-h-screen flex flex-col bg-white text-zinc-950 subpixel-antialiased [text-rendering:optimizeLegibility] selection:bg-zinc-950 selection:text-white"><header class="w-full pt-12 pb-8 sm:pt-20 sm:pb-10"><div class="max-w-3xl mx-auto px-6 sm:px-8 flex flex-col sm:flex-row sm:items-baseline justify-between gap-6 sm:gap-8"><div class="shrink-0"><a href="/" class="text-2xl sm:text-3xl font-bold tracking-tight hover:opacity-60 transition-opacity outline-none focus-visible:opacity-60">${escapeHtml(siteTitleText)}<span class="text-zinc-400">.</span></a></div><nav class="flex flex-wrap items-center gap-6 sm:gap-8 text-sm font-medium" aria-label="主导航"><a href="/" class="mono-link">首页</a><a href="/archive" class="mono-link">归档</a><a href="/about" class="mono-link">关于</a><form action="/search" method="get" class="hidden sm:flex items-center group border-b border-zinc-100 focus-within:border-zinc-950 transition-colors duration-300"><input type="text" name="q" placeholder="搜索" class="public-shell-search bg-transparent border-none p-0 focus:ring-0 focus:outline-none text-sm w-12 focus:w-28 transition-all duration-500 placeholder:text-zinc-300 text-zinc-500 focus:text-zinc-950 pb-0.5" aria-label="搜索内容"></form><span class="text-zinc-300 font-light" aria-hidden="true">/</span><a href="/login" class="mono-link">登录</a></nav></div></header><main class="grow max-w-3xl mx-auto w-full px-6 sm:px-8 pt-4 pb-24 sm:pb-32"><div class="max-w-3xl mx-auto min-h-screen"><article style="overflow-anchor: none;"><header class="${themeTokens.articleDetail.header}"><h1 class="${themeTokens.articleDetail.title}">${escapeHtml(payload.detailView.header.title)}</h1><div class="${themeTokens.articleDetail.metaRow}"><time datetime="${escapeAttribute(payload.detailView.header.meta.isoTime)}" title="${escapeAttribute(payload.detailView.header.meta.fullTime)}">${escapeHtml(payload.detailView.header.meta.displayTime)}</time><span class="${themeTokens.articleDetail.metaSeparator}" aria-hidden="true">/</span>${category}<span class="${themeTokens.articleDetail.metaSeparator}" aria-hidden="true">/</span><span>${escapeHtml(payload.detailView.header.viewsText)}</span></div></header><div class="markdown-body prose prose-zinc max-w-none subpixel-antialiased whitespace-pre-wrap"><div class="${MARKDOWN_SURFACE_ROOT} ${MARKDOWN_SURFACE_BODY}" role="article" aria-live="polite" data-markdown-renderer="wasm">${payload.detailView.body.content}</div></div>${tags}<section id="fsus-comments-island" class="${themeTokens.articleDetail.commentsRoot}" data-article-id="${escapeAttribute(String(commentsIsland.articleId ?? payload.articleId ?? 0))}"><h3 class="${themeTokens.articleDetail.commentsHeading}">${escapeHtml(payload.detailView.comments.headingText)}</h3><div class="${themeTokens.articleDetail.commentsPlaceholderRoot}"><p class="${themeTokens.articleDetail.commentsPlaceholderTitle}">${escapeHtml(commentsIsland.placeholderTitle)}</p><p class="${themeTokens.articleDetail.commentsPlaceholderBody}">${escapeHtml(commentsIsland.placeholderBody)}</p>${commentsLoading}<p class="${themeTokens.articleDetail.commentsPlaceholderHint}">${escapeHtml(commentsIsland.placeholderHint)}</p></div></section></article></div></main><footer class="w-full pb-12 pt-8 sm:pb-16 border-t border-zinc-100"><div class="max-w-3xl mx-auto px-6 sm:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6"><div class="text-sm text-zinc-500 font-medium tracking-normal select-none">&copy; ${currentYear} ${escapeHtml(siteTitleText)}. All rights reserved.</div><div class="flex items-center gap-6 sm:gap-8 text-sm font-medium text-zinc-500"><a href="/api/Article/rss" class="hover:text-zinc-950 transition-colors">RSS</a><a href="#top" class="hover:text-zinc-950 transition-colors flex items-center gap-2 group"><span>回到顶部</span><span class="group-hover:-translate-y-0.5 transition-transform" aria-hidden="true">↑</span></a></div></div></footer></div>`
+  return `<div id="fsus-aot-shell" data-public-hydration-kind="ArticleDetail" class="font-sans min-h-screen flex flex-col bg-[var(--fsus-panel-bg)] text-[#0F0F11] subpixel-antialiased [text-rendering:optimizeLegibility] selection:bg-[#0F0F11] selection:text-white dark:bg-[#0F0F11] dark:text-[#FCFCFC] dark:selection:bg-[#F4F4F5] dark:selection:text-[#0F0F11]"><header class="w-full pt-12 pb-8 sm:pt-20 sm:pb-10"><div class="max-w-3xl mx-auto px-6 sm:px-8 flex flex-col sm:flex-row sm:items-baseline justify-between gap-6 sm:gap-8"><div class="shrink-0"><a href="/" class="text-2xl sm:text-3xl font-bold tracking-tight hover:opacity-60 transition-opacity outline-none focus-visible:opacity-60">${escapeHtml(siteTitleText)}<span class="text-[#A1A1AA]">.</span></a></div><nav class="flex flex-wrap items-center gap-6 sm:gap-8 text-sm font-medium" aria-label="主导航"><a href="/" class="mono-link">首页</a><a href="/archive" class="mono-link">归档</a><a href="/about" class="mono-link">关于</a><form action="/search" method="get" class="hidden sm:flex items-center group border-b border-[#F4F4F5] dark:border-[#27272A] focus-within:border-[#0F0F11] dark:focus-within:border-[#F4F4F5] transition-colors duration-300"><input type="text" name="q" placeholder="搜索" class="public-shell-search bg-transparent border-none p-0 focus:ring-0 focus:outline-none text-sm w-12 focus:w-28 transition-all duration-500 placeholder:text-[#D4D4D8] text-[#8E8E93] dark:placeholder:text-[#71717A] dark:text-[#A1A1AA] focus:text-[#0F0F11] dark:focus:text-[#F4F4F5] pb-0.5" aria-label="搜索内容"></form>${renderThemeModeToggle()}<span class="text-[#D4D4D8] font-light dark:text-[#3F3F46]" aria-hidden="true">/</span><a href="/login" class="mono-link">登录</a></nav></div></header><main class="grow max-w-3xl mx-auto w-full px-6 sm:px-8 pt-4 pb-24 sm:pb-32"><div class="max-w-3xl mx-auto min-h-screen"><article style="overflow-anchor: none;"><header class="${themeTokens.articleDetail.header}"><h1 class="${themeTokens.articleDetail.title}">${escapeHtml(payload.detailView.header.title)}</h1><div class="${themeTokens.articleDetail.metaRow}"><time datetime="${escapeAttribute(payload.detailView.header.meta.isoTime)}" title="${escapeAttribute(payload.detailView.header.meta.fullTime)}">${escapeHtml(payload.detailView.header.meta.displayTime)}</time><span class="${themeTokens.articleDetail.metaSeparator}" aria-hidden="true">/</span>${category}<span class="${themeTokens.articleDetail.metaSeparator}" aria-hidden="true">/</span><span>${escapeHtml(payload.detailView.header.viewsText)}</span></div></header><div class="markdown-body prose prose-zinc max-w-none subpixel-antialiased whitespace-pre-wrap"><div class="${MARKDOWN_SURFACE_ROOT} ${MARKDOWN_SURFACE_BODY}" role="article" aria-live="polite" data-markdown-renderer="wasm">${payload.detailView.body.content}</div></div>${tags}${commentsActivator}</article></div></main><footer class="w-full pb-12 pt-8 sm:pb-16 border-t border-[#F4F4F5] dark:border-[#18181B]"><div class="max-w-3xl mx-auto px-6 sm:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6"><div class="text-sm text-[#8E8E93] dark:text-[#A1A1AA] font-medium tracking-normal select-none">&copy; ${currentYear} ${escapeHtml(siteTitleText)}. All rights reserved.</div><div class="flex items-center gap-6 sm:gap-8 text-sm font-medium text-[#8E8E93] dark:text-[#A1A1AA]"><a href="/api/Article/rss" class="hover:text-[#0F0F11] dark:hover:text-[#F4F4F5] transition-colors">RSS</a><a href="#top" class="hover:text-[#0F0F11] dark:hover:text-[#F4F4F5] transition-colors flex items-center gap-2 group"><span>回到顶部</span><span class="group-hover:-translate-y-0.5 transition-transform" aria-hidden="true">↑</span></a></div></div></footer></div>`
 }
 
 function formatPublicDate(input) {
@@ -456,8 +455,7 @@ function createArticleDetailBootstrap(options) {
       createTime: options.createTime ?? new Date().toISOString(),
       category: options.categoryName?.trim() || '未分类',
       tags: (options.tags ?? []).map((tag) => tag.name)
-    },
-    commentsPlaceholder: '评论将在 SPA 接管后加载'
+    }
   })
 }
 
@@ -504,12 +502,6 @@ async function createArticleDetailHydrationPayload(options) {
       body: {
         content: markdownHtml
       }
-    },
-    commentsIsland: {
-      articleId: options.articleId ?? '{{articleId}}',
-      placeholderTitle: detailView.comments.placeholderTitle,
-      placeholderBody: detailView.comments.placeholderBody,
-      placeholderHint: detailView.comments.placeholderHint
     }
   }
 }
@@ -524,7 +516,7 @@ async function buildArticleDetailPublicAotEntry(options) {
     bootstrapJson: createArticleDetailBootstrap(options),
     hydrationPropsJson: JSON.stringify(hydrationPayload),
     rendererVersion: PUBLIC_RENDERER_VERSION,
-    islandsJson: JSON.stringify({ comments: hydrationPayload.commentsIsland }),
+    islandsJson: null,
     title: options.title,
     baseUrl: options.baseUrl ?? null
   }
@@ -597,7 +589,7 @@ async function buildAboutPublicAotEntry(options = {}) {
   }
 
   return {
-    pageId: 4,
+    pageId: 5,
     routeKey: 'about',
     html: renderPublicAboutHtml(hydrationPayload),
     bootstrapJson: JSON.stringify({
@@ -633,7 +625,7 @@ async function buildArchivePublicAotEntry(options = {}) {
   }
 
   return {
-    pageId: 5,
+    pageId: 4,
     routeKey: 'archive',
     html: renderPublicArchiveHtml(hydrationPayload),
     bootstrapJson: JSON.stringify({
@@ -775,14 +767,7 @@ const entryValidators = {
     assertStringField(hydration, 'pageKind', 'ArticleDetail', 'hydrationPropsJson')
     assertStringField(hydration, 'routeKey', expectedRouteKey, 'hydrationPropsJson')
     assertNumberField(hydration, 'articleId', articleId, 'hydrationPropsJson')
-
-    const commentsIsland = asRecord(hydration.commentsIsland, 'hydrationPropsJson.commentsIsland')
-    assertNumberField(commentsIsland, 'articleId', articleId, 'hydrationPropsJson.commentsIsland')
-
-    assert(entry.islandsJson, 'article detail bundle requires islandsJson')
-    const islands = parseJsonRecord(entry.islandsJson, 'islandsJson')
-    const comments = asRecord(islands.comments, 'islandsJson.comments')
-    assertNumberField(comments, 'articleId', articleId, 'islandsJson.comments')
+    assert(!entry.islandsJson, 'article detail bundle should not carry islandsJson')
   },
   3: (entry, bootstrap, hydration) => {
     assert(entry.articleId == null, 'filter bundle should not carry articleId')
@@ -795,17 +780,6 @@ const entryValidators = {
     assert(!entry.islandsJson, 'filter bundle should not carry islandsJson')
   },
   4: (entry, bootstrap, hydration) => {
-    assert(entry.articleId == null, 'about bundle should not carry articleId')
-    assert(entry.routeKey === 'about', 'about bundle routeKey mismatch')
-    assertStringField(bootstrap, 'kind', 'About', 'bootstrapJson')
-    assertStringField(bootstrap, 'pageKind', 'About', 'bootstrapJson')
-    assertStringField(bootstrap, 'routeKey', 'about', 'bootstrapJson')
-    assertStringField(hydration, 'pageKind', 'About', 'hydrationPropsJson')
-    assertStringField(hydration, 'routeKey', 'about', 'hydrationPropsJson')
-    assertOptionalNullish(hydration, 'articleId', 'hydrationPropsJson')
-    assert(!entry.islandsJson, 'about bundle should not carry islandsJson')
-  },
-  5: (entry, bootstrap, hydration) => {
     assert(entry.articleId == null, 'archive bundle should not carry articleId')
     assert(entry.routeKey === 'archive', 'archive bundle routeKey mismatch')
     assertStringField(bootstrap, 'kind', 'Archive', 'bootstrapJson')
@@ -815,6 +789,17 @@ const entryValidators = {
     assertStringField(hydration, 'routeKey', 'archive', 'hydrationPropsJson')
     assertOptionalNullish(hydration, 'articleId', 'hydrationPropsJson')
     assert(!entry.islandsJson, 'archive bundle should not carry islandsJson')
+  },
+  5: (entry, bootstrap, hydration) => {
+    assert(entry.articleId == null, 'about bundle should not carry articleId')
+    assert(entry.routeKey === 'about', 'about bundle routeKey mismatch')
+    assertStringField(bootstrap, 'kind', 'About', 'bootstrapJson')
+    assertStringField(bootstrap, 'pageKind', 'About', 'bootstrapJson')
+    assertStringField(bootstrap, 'routeKey', 'about', 'bootstrapJson')
+    assertStringField(hydration, 'pageKind', 'About', 'hydrationPropsJson')
+    assertStringField(hydration, 'routeKey', 'about', 'hydrationPropsJson')
+    assertOptionalNullish(hydration, 'articleId', 'hydrationPropsJson')
+    assert(!entry.islandsJson, 'about bundle should not carry islandsJson')
   }
 }
 

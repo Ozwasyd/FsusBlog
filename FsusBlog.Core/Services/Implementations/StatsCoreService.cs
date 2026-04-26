@@ -5,7 +5,7 @@ using FsusBlog.Core.Services.Gateways;
 
 namespace FsusBlog.Core.Services.Implementations;
 
-public sealed class StatsCoreService(ILegacyStatsGateway gateway) : IStatsCoreService
+public sealed class StatsCoreService(IStatsCoreGateway gateway) : IStatsCoreService
 {
     public async Task<Result<SiteStatsCoreModel>> GetAdminStatsAsync() => Result<SiteStatsCoreModel>.Success(await gateway.GetAdminStatsAsync());
 }

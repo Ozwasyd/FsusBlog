@@ -21,7 +21,7 @@ public class JwtSettings
 // 2. 服务接口
 public interface IJwtHelper
 {
-    string GenerateAccessToken(User user);
+    string GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false);
     string GenerateRefreshToken();
 }
 
@@ -51,15 +51,20 @@ public class JwtHelper : IJwtHelper
             SecurityAlgorithms.HmacSha256Signature);
     }
 
-    public string GenerateAccessToken(User user)
+    public string GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false)
     {
         // 核心优化 3：使用数组代替 List<Claim>，省去底层 List 对象的分配开销
-        var claims = new Claim[]
+        var claims = new List<Claim>(5)
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.Username ?? "Unknown"),
             new(ClaimTypes.Role, user.Role ?? "guest")
         };
+        if (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            claims.Add(new Claim("sid", sessionId));
+        }
+        claims.Add(new Claim("mfa", mfaVerified ? "1" : "0"));
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
@@ -167,7 +172,11 @@ public static class JwtServiceExtensions
             {
                 OnMessageReceived = context =>
                 {
-                    if (context.Request.Cookies.TryGetValue("AccessToken", out var token))
+                    if (context.Request.Cookies.TryGetValue("__Host-AccessToken", out var hostToken))
+                    {
+                        context.Token = hostToken;
+                    }
+                    else if (context.Request.Cookies.TryGetValue("AccessToken", out var token))
                     {
                         context.Token = token;
                     }

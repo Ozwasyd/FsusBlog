@@ -1,11 +1,11 @@
 <template>
-  <div class="max-w-3xl mx-auto w-full py-10 sm:py-16 px-6 sm:px-8">
-    
-    <header class="mb-12 sm:mb-20">
-      <div class="text-[9px] sm:text-[10px] font-bold tracking-[0.3em] text-zinc-400 uppercase mb-4">交互</div>
-      <h1 class="text-3xl sm:text-5xl font-bold tracking-tighter text-zinc-950 mb-6 sm:mb-8">
-        我的评论
-      </h1>
+  <section class="account-page">
+    <header class="account-page-header">
+      <div class="account-page-eyebrow">交互</div>
+      <h1 class="account-page-title">我的评论</h1>
+      <p class="account-page-description">
+        查看你在站内留下的历史互动，并在需要时移除不再保留的评论内容。
+      </p>
     </header>
 
     <UserCommentsErrorState v-if="isError" @retry="fetchComments" />
@@ -23,21 +23,11 @@
       @delete="onDelete"
       @load-more="fetchComments"
     />
-
-    <!-- 模态框统一调用 -->
-    <ConfirmModal 
-      v-model:visible="showConfirm"
-      title="删除评论"
-      content="确定要永久移除这条评论吗？此操作无法撤销。"
-      @confirm="executeDelete"
-    />
-
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
 import { useUserCommentsPage } from '@/composables/useUserCommentsPage'
-import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import UserCommentsErrorState from '@/components/user/UserCommentsErrorState.vue'
 import UserCommentsEmptyState from '@/components/user/UserCommentsEmptyState.vue'
 import UserCommentsList from '@/components/user/UserCommentsList.vue'
@@ -50,10 +40,8 @@ const {
   loadMoreButtonText,
   endHintText,
   isError,
-  showConfirm,
   fetchComments,
-  onDelete,
-  executeDelete
+  onDelete
 } =
   useUserCommentsPage()
 </script>

@@ -1,6 +1,23 @@
-import type { ArticleDetail } from '@/api/article';
-import type { TagContract } from '@/ui-contracts/primitives';
+import type { ArticleDetailResponse } from '@/api/article';
 import { TimeUtils } from '@/utils/time';
+
+const READING_CHARS_PER_MINUTE = 300;
+const LONG_READ_THRESHOLD = 5_000;
+
+function buildReadingNotice(content: string): { visible: boolean; label: string } {
+  const normalized = content.replace(/\s+/g, '');
+  const wordCount = normalized.length;
+  const estimatedReadingMinutes = Math.max(1, Math.ceil(wordCount / READING_CHARS_PER_MINUTE));
+
+  return {
+    visible: wordCount > LONG_READ_THRESHOLD,
+    label: `长文预警：全文约 ${wordCount.toLocaleString('zh-CN')} 字，预计阅读 ${estimatedReadingMinutes} 分钟`
+  };
+}
+
+export type ArticleTagViewContract = Readonly<{
+  label: string;
+}>;
 
 export type ArticleDetailHeaderViewContract = Readonly<{
   id: number;
@@ -13,11 +30,15 @@ export type ArticleDetailHeaderViewContract = Readonly<{
     categoryName: string;
     categoryHref?: string;
   }>;
-  tags: readonly TagContract[];
+  tags: readonly ArticleTagViewContract[];
 }>;
 
 export type ArticleDetailBodyViewContract = Readonly<{
   content: string;
+  notice: Readonly<{
+    visible: boolean;
+    label: string;
+  }>;
 }>;
 
 export type ArticleDetailCommentsViewContract = Readonly<{
@@ -77,22 +98,26 @@ export const emptyArticleDetailHeaderView: ArticleDetailHeaderViewContract = {
 export const emptyArticleDetailPageView: ArticleDetailPageViewContract = {
   header: emptyArticleDetailHeaderView,
   body: {
-    content: ''
+    content: '',
+    notice: {
+      visible: false,
+      label: ''
+    }
   },
   comments: {
     title: '评论',
     headingText: '评论',
     loadingText: '加载中',
     endText: '暂无评论。',
-    placeholderTitle: '评论流正在接管中',
-    placeholderBody: 'AOT 会先直出正文与评论占位，Vue SPA 接管后会自动插入真实评论流。',
-    placeholderHint: '这里预留真实评论列表容器，避免首屏与接管后的布局跳变。'
+    placeholderTitle: '暂无评论',
+    placeholderBody: '',
+    placeholderHint: ''
   },
   errorState: articleDetailStates.errorState,
   notFoundState: articleDetailStates.notFoundState
 };
 
-export function createArticleDetailHeaderViewContract(article: ArticleDetail): ArticleDetailHeaderViewContract {
+export function createArticleDetailHeaderViewContract(article: ArticleDetailResponse): ArticleDetailHeaderViewContract {
   return {
     id: article.id,
     title: article.title,
@@ -111,7 +136,7 @@ export function createArticleDetailHeaderViewContract(article: ArticleDetail): A
 }
 
 export function createArticleDetailPageViewContract(
-  article: ArticleDetail,
+  article: ArticleDetailResponse,
   commentCount: number,
   hasMore: boolean
 ): ArticleDetailPageViewContract {
@@ -120,16 +145,17 @@ export function createArticleDetailPageViewContract(
   return {
     header: createArticleDetailHeaderViewContract(article),
     body: {
-      content: article.content
+      content: article.content,
+      notice: buildReadingNotice(article.content)
     },
     comments: {
       title: '评论',
       headingText,
       loadingText: '加载中',
       endText: commentCount > 0 ? '上面的评论已为最后一条。' : '暂无评论。',
-      placeholderTitle: '评论流正在接管中',
-      placeholderBody: 'AOT 会先直出正文与评论占位，Vue SPA 接管后会自动插入真实评论流。',
-      placeholderHint: '这里预留真实评论列表容器，避免首屏与接管后的布局跳变。'
+      placeholderTitle: '暂无评论',
+      placeholderBody: '',
+      placeholderHint: ''
     },
     errorState: articleDetailStates.errorState,
     notFoundState: articleDetailStates.notFoundState

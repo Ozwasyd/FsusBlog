@@ -2,17 +2,51 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light" />
+    <script>
+      (() => {
+        const storageKey = 'fsus:theme-mode';
+        const validModes = new Set(['light', 'dark', 'system']);
+        const root = document.documentElement;
+        let mode = 'system';
+
+        try {
+          const stored = window.localStorage.getItem(storageKey);
+          if (stored && validModes.has(stored)) {
+            mode = stored;
+          }
+        } catch {
+        }
+
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const resolvedTheme = mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode;
+        root.classList.toggle('dark', resolvedTheme === 'dark');
+        root.dataset.theme = resolvedTheme;
+        root.dataset.themeMode = mode;
+        root.style.colorScheme = resolvedTheme;
+      })();
+    </script>
     <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="/api/Article/rss" />
-    <link rel="stylesheet" href="/src/assets/critical-fonts.css" data-fsus-style="fonts-critical" />
-    <link rel="stylesheet" href="/src/assets/critical-public.css" data-fsus-style="public-critical" />
-    <link rel="stylesheet" href="/src/assets/main.css" data-fsus-style="app-main" />
+    <link rel="stylesheet" href="/src/assets/public-shell-critical.css" data-fsus-style="public-shell-critical" />
+    <link rel="stylesheet" href="/src/assets/public-page.css" data-fsus-style="public-page" />
     <title>Loading...</title>
     
     <style>
       /* Inline baseline for AOT first paint when external CSS is delayed. */
+      html,
+      body {
+        background: #ffffff;
+        color: #09090b;
+      }
+
+      html.dark,
+      html.dark body {
+        background: #09090b;
+        color: #f4f4f5;
+      }
+
       #fsus-aot-shell {
         min-height: 100vh;
         display: flex;
@@ -36,6 +70,15 @@
         text-decoration: none;
       }
 
+      html.dark #fsus-aot-shell {
+        background: #09090b;
+        color: #f4f4f5;
+      }
+
+      html.dark #fsus-aot-shell a {
+        color: #d4d4d8;
+      }
+
       #fsus-aot-shell .mono-link,
       #fsus-aot-shell .active-link {
         font-size: 0.875rem;
@@ -46,10 +89,14 @@
         font-weight: 700;
       }
 
+      html.dark #fsus-aot-shell .active-link {
+        color: #fafafa;
+      }
+
       #fsus-aot-shell .ui-article-card {
         display: flex;
         flex-direction: column;
-        gap: 0.75rem;
+        gap: 1.25rem;
       }
 
       #fsus-aot-shell .ui-article-title {
@@ -65,6 +112,14 @@
         color: #52525b;
       }
 
+      html.dark #fsus-aot-shell .ui-article-title {
+        color: #fafafa;
+      }
+
+      html.dark #fsus-aot-shell .ui-article-summary {
+        color: #a1a1aa;
+      }
+
       #fsus-aot-shell .ui-pagination {
         display: flex;
         align-items: center;
@@ -72,6 +127,10 @@
         margin-top: 2rem;
         padding-top: 1rem;
         border-top: 1px solid #f4f4f5;
+      }
+
+      html.dark #fsus-aot-shell .ui-pagination {
+        border-top-color: #27272a;
       }
 
       #global-loader {
@@ -84,6 +143,10 @@
         justify-content: center;
         /* 为 App.vue 中的透明度变化提供平滑过渡 */
         transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
+      }
+
+      html.dark #global-loader {
+        background-color: #09090b;
       }
 
       #global-loader[hidden] {
@@ -108,6 +171,10 @@
         animation: pulse-text 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
       }
 
+      html.dark .loader-text {
+        color: #a1a1aa;
+      }
+
       /* 进度条轨道：极浅的灰色 */
       .loader-bar-container {
         width: 64px;
@@ -117,12 +184,20 @@
         position: relative;
       }
 
+      html.dark .loader-bar-container {
+        background-color: #27272a;
+      }
+
       /* 进度条滑块：极具重量感的纯黑 */
       .loader-bar {
         position: absolute;
         inset: 0;
         background-color: #09090b; /* 对应 zinc-950 */
         animation: slide-bar 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      html.dark .loader-bar {
+        background-color: #fafafa;
       }
 
       @keyframes pulse-text {

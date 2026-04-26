@@ -1,11 +1,13 @@
-import { enableFullAppRuntime, runtimePhase, runtimeReady } from '@/bootstrap/runtimeGate'
-import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap'
-import type { PublicHydrationPayload } from '@/public-renderers'
-import type { Router } from 'vue-router'
+import { readPublicHydrationPayload, replacePublicHydrationPayloadJson } from '@/bootstrap/publicHydrationBootstrap'
+import { hydratePublicPage, type PublicHydrationPayload } from '@/public-renderers'
 import {
   isPublicSeoPath,
   removeGlobalLoader
 } from '@/bootstrap/publicShellPrimitives'
+import { emitTelemetry } from '@/services/telemetryService'
+import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime'
+import { mountArticleCommentsIsland, unmountArticleCommentsIsland } from '@/public-renderers/commentsIsland'
+import { mountHomeHotArticlesIsland, unmountHomeHotArticlesIsland } from '@/public-renderers/homeHotArticlesIsland'
 
 function isModifiedEvent(event: MouseEvent): boolean {
   return event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
@@ -58,20 +60,20 @@ function dispatchAotAction(actionNode: HTMLElement): void {
 
 type CriticalStyleLink = {
   key: string
-  href: string
+  href: string | null
   marker: string
 }
 
 const CRITICAL_STYLE_FALLBACKS: CriticalStyleLink[] = [
   {
-    key: 'public-critical',
-    href: import.meta.env.DEV ? '/src/assets/critical-public.css?direct' : '/src/assets/critical-public.css',
-    marker: 'critical-public.css'
+    key: 'public-shell-critical',
+    href: import.meta.env.DEV ? '/src/assets/public-shell-critical.css?direct' : null,
+    marker: 'public-shell-critical.css'
   },
   {
-    key: 'app-main',
-    href: import.meta.env.DEV ? '/src/assets/main.css?direct' : '/src/assets/main.css',
-    marker: 'main.css'
+    key: 'public-page',
+    href: import.meta.env.DEV ? '/src/assets/public-page.css?direct' : null,
+    marker: 'public-page.css'
   }
 ]
 
@@ -135,6 +137,10 @@ function ensureFallbackStylesheets(): HTMLLinkElement[] {
       return byHref
     }
 
+    if (!candidate.href) {
+      return null
+    }
+
     const link = document.createElement('link')
     link.rel = 'stylesheet'
     link.href = candidate.href
@@ -142,7 +148,7 @@ function ensureFallbackStylesheets(): HTMLLinkElement[] {
     link.dataset.fsusInjected = 'bootstrap'
     head.appendChild(link)
     return link
-  })
+  }).filter((link): link is HTMLLinkElement => link instanceof HTMLLinkElement)
 
   return dedupeStylesheetLinks([...presentLinks, ...requiredLinks])
 }
@@ -183,15 +189,15 @@ function ensureEmergencyPublicShellStyle(): void {
   const style = document.createElement('style')
   style.id = styleId
   style.textContent = `
-#fsus-aot-shell{font-family:var(--font-sans,"Google Sans","Noto Sans SC","Noto Sans TC","Noto Sans JP",ui-sans-serif,system-ui,sans-serif);background:#fff;color:#09090b;line-height:1.6}
-#fsus-aot-shell a{color:#27272a;text-decoration:none}
+#fsus-aot-shell{font-family:var(--font-sans,"Google Sans","Noto Sans SC","Noto Sans TC","Noto Sans JP",ui-sans-serif,system-ui,sans-serif);background:var(--fsus-page-bg,#fff);color:var(--fsus-text-primary,#09090b);line-height:1.6}
+#fsus-aot-shell a{color:var(--fsus-text-secondary,#27272a);text-decoration:none}
 #fsus-aot-shell .mono-link,#fsus-aot-shell .active-link{font-size:.875rem}
-#fsus-aot-shell .active-link{color:#09090b;font-weight:700}
+#fsus-aot-shell .active-link{color:var(--fsus-text-primary,#09090b);font-weight:700}
 #fsus-aot-shell .ui-article-card{display:flex;flex-direction:column;gap:.75rem}
-#fsus-aot-shell .ui-article-title{font-size:1.35rem;line-height:1.3;font-weight:700;color:#09090b}
-#fsus-aot-shell .ui-article-summary{font-size:.96rem;line-height:1.75;color:#52525b}
-#fsus-aot-shell .ui-pagination{display:flex;align-items:center;justify-content:space-between;margin-top:2rem;padding-top:1rem;border-top:1px solid #f4f4f5}
-#fsus-aot-shell [data-aot-action="page-prev"],#fsus-aot-shell [data-aot-action="page-next"]{background:transparent;border:0;color:#52525b;font-size:.75rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+#fsus-aot-shell .ui-article-title{font-size:1.35rem;line-height:1.3;font-weight:700;color:var(--fsus-text-primary,#09090b)}
+#fsus-aot-shell .ui-article-summary{font-size:.96rem;line-height:1.75;color:var(--fsus-text-secondary,#52525b)}
+#fsus-aot-shell .ui-pagination{display:flex;align-items:center;justify-content:space-between;margin-top:2rem;padding-top:1rem;border-top:1px solid var(--fsus-panel-border,#f4f4f5)}
+#fsus-aot-shell [data-aot-action="page-prev"],#fsus-aot-shell [data-aot-action="page-next"]{background:transparent;border:0;color:var(--fsus-text-secondary,#52525b);font-size:.75rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
 `
   document.head.appendChild(style)
 }
@@ -214,121 +220,47 @@ export async function ensurePublicShellStylesReady(): Promise<void> {
   }
 }
 
-let bootPromise: Promise<Router> | null = null
-let fullAppModulePromise: Promise<typeof import('@/bootstrap/fullApp')> | null = null
 let preBootstrapNavigationBound = false
-let runtimeHintToast: { close: () => Promise<void>; setMessage: (message: string) => void } | null = null
+let popstateBound = false
 let hydratedPayload: PublicHydrationPayload | null = null
+let activeNavigationController: AbortController | null = null
+let activeNavigationToken = 0
+let hotArticlesIdleTask: number | null = null
+let commentsIdleTask: number | null = null
 
-function createPublicRuntimeToast(message: string): { close: () => Promise<void>; setMessage: (message: string) => void } {
-  const rootId = 'fsus-public-runtime-hint-root'
-  let root = document.getElementById(rootId)
-  if (!root) {
-    root = document.createElement('div')
-    root.id = rootId
-    root.className = 'fixed inset-x-0 top-0 z-[9999] pointer-events-none flex justify-center px-4 pt-2 sm:pt-3'
-    document.body.appendChild(root)
-  }
-
-  const container = document.createElement('div')
-  container.style.opacity = '0'
-  container.style.transition = 'opacity 160ms ease'
-  container.style.width = '54px'
-  container.style.height = '3px'
-  container.style.borderRadius = '999px'
-  container.style.background = 'rgba(113, 113, 122, 0.2)'
-  container.style.boxShadow = '0 0 0 1px rgba(113, 113, 122, 0.12)'
-  container.setAttribute('role', 'status')
-  container.setAttribute('aria-live', 'polite')
-  container.setAttribute('aria-atomic', 'true')
-  container.setAttribute('aria-label', message)
-
-  root.appendChild(container)
-
-  const showDelayMs = 220
-  const minVisibleMs = 420
-  const fadeOutMs = 160
-  const showTimer = window.setTimeout(() => {
-    requestAnimationFrame(() => {
-      container.style.opacity = '1'
-    })
-  }, showDelayMs)
-
-  let shownAt = 0
-  let open = true
-  const onShown = () => {
-    shownAt = Date.now()
-  }
-  const onTransitionEnd = (event: TransitionEvent) => {
-    if (event.propertyName === 'opacity' && container.style.opacity === '1') {
-      onShown()
-    }
-  }
-  container.addEventListener('transitionend', onTransitionEnd)
-
-  let destroyed = false
-  const destroy = () => {
-    if (destroyed) {
-      return
-    }
-    destroyed = true
-    container.removeEventListener('transitionend', onTransitionEnd)
-    window.clearTimeout(showTimer)
-    container.remove()
-    if (root && root.childElementCount === 0) {
-      root.remove()
-    }
-  }
-
-  return {
-    setMessage: (nextMessage: string) => {
-      container.setAttribute('aria-label', nextMessage)
-    },
-    close: async () => {
-      if (!open) {
-        return
-      }
-
-      open = false
-      window.clearTimeout(showTimer)
-      const elapsed = shownAt > 0 ? Date.now() - shownAt : 0
-      const waitMs = shownAt > 0 ? Math.max(0, minVisibleMs - elapsed) : 0
-      if (waitMs > 0) {
-        await new Promise((resolve) => window.setTimeout(resolve, waitMs))
-      }
-      container.style.opacity = '0'
-      await new Promise((resolve) => window.setTimeout(resolve, fadeOutMs))
-      destroy()
-    }
-  }
+type IdleWindow = Window & typeof globalThis & {
+  requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+  cancelIdleCallback?: (handle: number) => void
 }
 
-async function showPublicRuntimeHint(message = '正在切换到交互模式'): Promise<void> {
-  if (runtimeReady.value) {
-    return
+function scheduleIdleTask(task: () => void): number {
+  const idleWindow = window as IdleWindow
+  if (typeof idleWindow.requestIdleCallback === 'function') {
+    return idleWindow.requestIdleCallback(() => task(), { timeout: 800 })
   }
 
-  if (runtimeHintToast) {
-    runtimeHintToast.setMessage(message)
-    return
-  }
-  runtimeHintToast = createPublicRuntimeToast(message)
+  return window.setTimeout(task, 180)
 }
 
-function hidePublicRuntimeHint(): void {
-  const activeHint = runtimeHintToast
-  runtimeHintToast = null
-  if (!activeHint) {
+function clearIdleTask(taskId: number | null): void {
+  if (taskId === null) {
     return
   }
-  void activeHint.close()
+
+  const idleWindow = window as IdleWindow
+  if (typeof idleWindow.cancelIdleCallback === 'function') {
+    idleWindow.cancelIdleCallback(taskId)
+    return
+  }
+
+  window.clearTimeout(taskId)
 }
 
 function clearPublicFirstPaintFlag(): void {
   document.body.removeAttribute('data-fsus-public-first-paint')
 }
 
-function shouldUseDocumentNavigation(href: string): boolean {
+function isPublicMicroRoute(href: string): boolean {
   const target = new URL(href, window.location.origin)
   return isPublicSeoPath(target.pathname)
 }
@@ -385,32 +317,279 @@ function resolveShellActionNavigation(actionNode: HTMLElement): string | null {
   return target.toString()
 }
 
-async function bootFullAppForNavigation(targetHref?: string): Promise<void> {
-  if (!bootPromise) {
-    bootPromise = (async () => {
-      const { bootstrapFullApp } = await preloadFullAppModule()
-      return bootstrapFullApp({ deferRuntime: true, hydrate: true })
-    })()
-  }
+function clearDynamicIslands(): void {
+  clearIdleTask(hotArticlesIdleTask)
+  hotArticlesIdleTask = null
+  clearIdleTask(commentsIdleTask)
+  commentsIdleTask = null
+  unmountArticleCommentsIsland()
+  unmountHomeHotArticlesIsland()
+}
 
-  const router = await bootPromise
-  if (targetHref) {
-    const target = new URL(targetHref, window.location.origin)
-    const fullPath = `${target.pathname}${target.search}${target.hash}`
-    if (router.currentRoute.value.fullPath !== fullPath) {
-      await router.push(fullPath)
-    }
+function scheduleDynamicIslands(payload: PublicHydrationPayload | null): void {
+  clearIdleTask(hotArticlesIdleTask)
+  hotArticlesIdleTask = null
+  clearIdleTask(commentsIdleTask)
+  commentsIdleTask = null
 
-    requestAnimationFrame(() => {
-      clearPublicFirstPaintFlag()
-      hidePublicRuntimeHint()
-    })
+  if (!payload) {
     return
   }
 
-  requestAnimationFrame(() => {
-    clearPublicFirstPaintFlag()
-  })
+  if (payload.pageKind === 'Home') {
+    hotArticlesIdleTask = scheduleIdleTask(() => {
+      hotArticlesIdleTask = null
+      void mountHomeHotArticlesIsland(payload.routeKey)
+    })
+  }
+
+  if (payload.pageKind === 'ArticleDetail') {
+    commentsIdleTask = scheduleIdleTask(() => {
+      commentsIdleTask = null
+      void mountArticleCommentsIsland(payload.articleId)
+    })
+  }
+}
+
+function getCurrentShell(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('#app > #fsus-aot-shell')
+}
+
+function replaceJsonScript(id: string, rawJson: string | null): void {
+  const existing = document.getElementById(id)
+  if (!rawJson) {
+    existing?.remove()
+    return
+  }
+
+  const target = existing ?? (() => {
+    const created = document.createElement('script')
+    created.id = id
+    created.type = 'application/json'
+    document.body.appendChild(created)
+    return created
+  })()
+
+  target.textContent = rawJson
+}
+
+function syncShellAttributes(target: HTMLElement, source: HTMLElement): void {
+  for (const { name } of Array.from(target.attributes)) {
+    if (name === 'id') {
+      continue
+    }
+
+    if (!source.hasAttribute(name)) {
+      target.removeAttribute(name)
+    }
+  }
+
+  for (const { name, value } of Array.from(source.attributes)) {
+    if (name === 'id') {
+      continue
+    }
+    target.setAttribute(name, value)
+  }
+
+  target.removeAttribute('data-public-hydrated')
+}
+
+function importChildNodes(source: HTMLElement): Node[] {
+  return Array.from(source.childNodes).map((node) => document.importNode(node, true))
+}
+
+function syncMetaTagFromDocument(targetDocument: Document, selector: string): void {
+  const current = document.head.querySelector(selector)
+  const next = targetDocument.head.querySelector(selector)
+
+  if (!(next instanceof HTMLElement)) {
+    current?.remove()
+    return
+  }
+
+  const clone = document.importNode(next, true)
+  if (current) {
+    current.replaceWith(clone)
+    return
+  }
+
+  document.head.appendChild(clone)
+}
+
+function syncHeadFromDocument(targetDocument: Document): void {
+  if (targetDocument.title) {
+    document.title = targetDocument.title
+  }
+
+  syncMetaTagFromDocument(targetDocument, 'link[rel="canonical"]')
+  syncMetaTagFromDocument(targetDocument, 'meta[name="description"]')
+  syncMetaTagFromDocument(targetDocument, 'meta[property="og:title"]')
+  syncMetaTagFromDocument(targetDocument, 'meta[property="og:description"]')
+  syncMetaTagFromDocument(targetDocument, 'meta[property="og:type"]')
+  syncMetaTagFromDocument(targetDocument, 'meta[property="og:url"]')
+}
+
+function updateHistoryStateForCurrentScroll(): void {
+  const state = history.state && typeof history.state === 'object' ? history.state as Record<string, unknown> : {}
+  history.replaceState({
+    ...state,
+    __fsusPublicShell: true,
+    scrollX: window.scrollX,
+    scrollY: window.scrollY
+  }, '', window.location.href)
+}
+
+function getRestoreScrollPosition(state: unknown): { left: number; top: number } {
+  if (!state || typeof state !== 'object') {
+    return { left: 0, top: 0 }
+  }
+
+  const record = state as Record<string, unknown>
+  const left = Number(record.scrollX)
+  const top = Number(record.scrollY)
+  return {
+    left: Number.isFinite(left) ? Math.max(0, Math.trunc(left)) : 0,
+    top: Number.isFinite(top) ? Math.max(0, Math.trunc(top)) : 0
+  }
+}
+
+function readJsonTextById(doc: Document, id: string): string | null {
+  const text = doc.getElementById(id)?.textContent?.trim()
+  return text ? text : null
+}
+
+async function applyPublicNavigationDocument(
+  targetDocument: Document,
+  href: string,
+  historyMode: 'push' | 'replace' | 'none',
+  popState?: unknown
+): Promise<void> {
+  const targetShell = targetDocument.querySelector<HTMLElement>('#app > #fsus-aot-shell')
+  const currentShell = getCurrentShell()
+  const hydrationJson = readJsonTextById(targetDocument, 'fsus-aot-hydration-props')
+  if (!targetShell || !currentShell || !hydrationJson) {
+    throw new Error('invalid public shell document')
+  }
+
+  const payload = replacePublicHydrationPayloadJson(hydrationJson)
+  if (!payload) {
+    throw new Error('invalid public hydration payload')
+  }
+
+  clearDynamicIslands()
+  syncHeadFromDocument(targetDocument)
+  syncShellAttributes(currentShell, targetShell)
+  currentShell.replaceChildren(...importChildNodes(targetShell))
+
+  replaceJsonScript('fsus-aot-bootstrap', readJsonTextById(targetDocument, 'fsus-aot-bootstrap'))
+  replaceJsonScript('fsus-aot-islands', readJsonTextById(targetDocument, 'fsus-aot-islands'))
+
+  hydratedPayload = payload
+  await hydratePublicPage(payload)
+  scheduleDynamicIslands(payload)
+  clearPublicFirstPaintFlag()
+
+  if (historyMode === 'push') {
+    history.pushState({ __fsusPublicShell: true, scrollX: 0, scrollY: 0 }, '', href)
+    window.scrollTo({ left: 0, top: 0, behavior: 'auto' })
+  } else if (historyMode === 'replace') {
+    history.replaceState({ __fsusPublicShell: true, ...getRestoreScrollPosition(popState) }, '', href)
+    const { left, top } = getRestoreScrollPosition(popState)
+    window.scrollTo({ left, top, behavior: 'auto' })
+  }
+}
+
+async function navigateWithinPublicShell(
+  href: string,
+  options: {
+    historyMode?: 'push' | 'replace' | 'none'
+    popState?: unknown
+  } = {}
+): Promise<void> {
+  const target = new URL(href, window.location.origin)
+  const current = new URL(window.location.href)
+  if (target.pathname === current.pathname && target.search === current.search && target.hash === current.hash) {
+    return
+  }
+
+  if (!isPublicMicroRoute(target.toString())) {
+    navigateWithDocumentRequest(target.toString())
+    return
+  }
+
+  if ((options.historyMode ?? 'push') === 'push') {
+    updateHistoryStateForCurrentScroll()
+  }
+  activeNavigationController?.abort()
+  const controller = new AbortController()
+  activeNavigationController = controller
+  const navigationToken = ++activeNavigationToken
+
+  try {
+    const response = await fetch(target.toString(), {
+      headers: {
+        Accept: 'text/html,application/xhtml+xml',
+        'X-Fsus-Public-Navigation': '1'
+      },
+      credentials: 'same-origin',
+      signal: controller.signal
+    })
+
+    if (!response.ok) {
+      throw new Error(`public navigation failed: ${response.status}`)
+    }
+
+    const html = await response.text()
+    if (controller.signal.aborted || navigationToken !== activeNavigationToken) {
+      return
+    }
+
+    const nextDocument = new DOMParser().parseFromString(html, 'text/html')
+    await applyPublicNavigationDocument(
+      nextDocument,
+      target.toString(),
+      options.historyMode ?? 'push',
+      options.popState
+    )
+  } catch (error) {
+    if ((error as { name?: string } | null)?.name === 'AbortError') {
+      return
+    }
+
+    navigateWithDocumentRequest(target.toString())
+  } finally {
+    if (activeNavigationController === controller) {
+      activeNavigationController = null
+    }
+  }
+}
+
+async function handleShellAction(actionNode: HTMLElement, anchor: HTMLAnchorElement | null): Promise<void> {
+  const action = actionNode.dataset.aotAction ?? ''
+  if (!action) {
+    return
+  }
+
+  const actionHref = resolveShellActionNavigation(actionNode)
+  if (actionHref) {
+    dispatchAotAction(actionNode)
+    await navigateWithinPublicShell(actionHref)
+    return
+  }
+
+  if (action === 'activate-comments') {
+    dispatchAotAction(actionNode)
+    const articleId = hydratedPayload?.pageKind === 'ArticleDetail'
+      ? hydratedPayload.articleId
+      : Number(actionNode.dataset.aotValue ?? actionNode.dataset.aotId ?? '0')
+    await mountArticleCommentsIsland(articleId)
+    return
+  }
+
+  dispatchAotAction(actionNode)
+  if (anchor instanceof HTMLAnchorElement && isInternalAppLink(anchor) && isPublicMicroRoute(anchor.href)) {
+    await navigateWithinPublicShell(anchor.href)
+  }
 }
 
 function bindPreBootstrapNavigation(): void {
@@ -424,6 +603,16 @@ function bindPreBootstrapNavigation(): void {
       return
     }
 
+    const themeModeNode = event.target.closest('[data-fsus-theme-mode]')
+    if (themeModeNode instanceof HTMLElement) {
+      const nextMode = themeModeNode.dataset.fsusThemeMode
+      if (nextMode === 'light' || nextMode === 'dark' || nextMode === 'system') {
+        event.preventDefault()
+        setThemeMode(nextMode as ThemeMode)
+      }
+      return
+    }
+
     const actionNode = event.target.closest('[data-aot-action]')
     if (actionNode instanceof HTMLElement && !actionNode.hasAttribute('disabled')) {
       const anchor = actionNode.closest('a')
@@ -431,33 +620,12 @@ function bindPreBootstrapNavigation(): void {
       const actionHref = resolveShellActionNavigation(actionNode)
       if (actionHref) {
         event.preventDefault()
-        navigateWithDocumentRequest(actionHref)
-        return
-      }
-
-      if (anchor instanceof HTMLAnchorElement && isInternalAppLink(anchor) && shouldUseDocumentNavigation(anchor.href)) {
+        void navigateWithinPublicShell(actionHref)
         return
       }
 
       event.preventDefault()
-      if (!runtimeReady.value) {
-        runtimePhase.value = 'runtime-loading'
-        void showPublicRuntimeHint()
-      }
-      enableFullAppRuntime()
-
-      if (anchor instanceof HTMLAnchorElement && isInternalAppLink(anchor)) {
-        void bootFullAppForNavigation(anchor.href).finally(() => {
-          hidePublicRuntimeHint()
-        })
-        return
-      }
-
-      void bootFullAppForNavigation().then(() => {
-        dispatchAotAction(actionNode)
-      }).finally(() => {
-        hidePublicRuntimeHint()
-      })
+      void handleShellAction(actionNode, anchor instanceof HTMLAnchorElement ? anchor : null)
       return
     }
 
@@ -466,86 +634,53 @@ function bindPreBootstrapNavigation(): void {
       return
     }
 
-    if (shouldUseDocumentNavigation(anchor.href)) {
+    if (!isPublicMicroRoute(anchor.href)) {
       return
     }
 
     event.preventDefault()
-    if (!runtimeReady.value) {
-      runtimePhase.value = 'runtime-loading'
-      void showPublicRuntimeHint()
-    }
-    enableFullAppRuntime()
-    void bootFullAppForNavigation(anchor.href).finally(() => {
-      hidePublicRuntimeHint()
-    })
+    void navigateWithinPublicShell(anchor.href)
   }, { passive: false })
 }
 
-function preloadFullAppModule(): Promise<typeof import('@/bootstrap/fullApp')> {
-  if (!fullAppModulePromise) {
-    fullAppModulePromise = import('@/bootstrap/fullApp')
-  }
-
-  return fullAppModulePromise
-}
-
-function scheduleFullAppModuleWarmup(): void {
-  const idleWindow = window as Window & {
-    requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
-  }
-
-  const warmup = () => {
-    void preloadFullAppModule().catch(() => {})
-  }
-
-  if (typeof idleWindow.requestIdleCallback === 'function') {
-    idleWindow.requestIdleCallback(() => warmup(), { timeout: 2500 })
+function bindPopStateNavigation(): void {
+  if (popstateBound) {
     return
   }
 
-  window.setTimeout(warmup, 700)
-}
+  popstateBound = true
+  if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual'
+  }
 
-function hydratePublicShell(): Promise<void> {
-  return Promise.resolve().then(() => {
-    const payload = readPublicHydrationPayload()
-    if (!payload) {
+  window.addEventListener('popstate', (event) => {
+    if (!isPublicSeoPath(window.location.pathname)) {
       return
     }
-    hydratedPayload = payload
+
+    void navigateWithinPublicShell(window.location.href, {
+      historyMode: 'replace',
+      popState: event.state
+    })
   })
 }
 
-function scheduleAutoFullAppHydration(): void {
-  const idleWindow = window as Window & {
-    requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
-  }
-
-  const run = () => {
-    if (runtimeReady.value) {
-      return
-    }
-
-    runtimePhase.value = 'runtime-loading'
-    enableFullAppRuntime()
-    void bootFullAppForNavigation().finally(() => {
-      hidePublicRuntimeHint()
-    })
-  }
-
-  if (typeof idleWindow.requestIdleCallback === 'function') {
-    idleWindow.requestIdleCallback(() => run(), { timeout: 1800 })
+async function hydratePublicShell(): Promise<void> {
+  const payload = readPublicHydrationPayload()
+  if (!payload) {
     return
   }
 
-  window.setTimeout(run, 700)
+  hydratedPayload = payload
+  await hydratePublicPage(payload)
+  scheduleDynamicIslands(payload)
+  clearPublicFirstPaintFlag()
 }
 
 export async function bootstrapPublicShell(): Promise<void> {
+  ensureThemeRuntime()
   document.body.setAttribute('data-fsus-public-first-paint', 'true')
   const hydrateTask = hydratePublicShell()
-  scheduleFullAppModuleWarmup()
 
   await ensurePublicShellStylesReady()
   removeGlobalLoader()
@@ -553,11 +688,11 @@ export async function bootstrapPublicShell(): Promise<void> {
   try {
     await hydrateTask
   } catch (error) {
-    console.warn('[public-shell] hydration payload init failed, fallback to full-app boot', error)
+    emitTelemetry('public_shell_hydration_failed', {
+      error: error instanceof Error ? error.message : String(error)
+    }, 'warn')
   } finally {
-    // Always bind intent bridge and schedule background runtime load,
-    // even when hydration payload is malformed or temporarily missing.
     bindPreBootstrapNavigation()
-    scheduleAutoFullAppHydration()
+    bindPopStateNavigation()
   }
 }

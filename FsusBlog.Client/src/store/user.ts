@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getMe, logout as logoutApi, type UserInfo } from '@/api/auth'
+import { getMe, logout as logoutApi, type CurrentUserSnapshot } from '@/api/auth'
 import { sseRuntime } from '@/services/sseRuntime'
 import { useSseStore } from '@/store/sse'
 import { isAbortError } from '@/utils/errors'
@@ -10,7 +10,7 @@ export const useUserStore = defineStore('user', () => {
     const sseStore = useSseStore()
 
     // ================= 1. State =================
-    const userInfo = ref<UserInfo | null>(null)
+    const userInfo = ref<CurrentUserSnapshot | null>(null)
     const isAuthChecked = ref(false)
     const isLoading = ref(false)
     const isLoggingOut = ref(false) 
@@ -50,7 +50,7 @@ export const useUserStore = defineStore('user', () => {
 
     // ================= 4. Actions =================
 
-    const setUserInfo = (info: UserInfo | null) => {
+    const setUserInfo = (info: CurrentUserSnapshot | null) => {
         if (!info) {
             clearLocalState()
             return

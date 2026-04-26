@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.IO;
 using System.Text.Json;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
@@ -24,7 +25,7 @@ public sealed class ApiBinaryResponseMiddleware
         }
 
         Stream originalBody = context.Response.Body;
-        await using var capture = new MemoryStream();
+        await using var capture = new PooledCaptureStream();
         context.Response.Body = capture;
 
         try
@@ -33,33 +34,27 @@ public sealed class ApiBinaryResponseMiddleware
 
             if (context.Response.HasStarted)
             {
-                capture.Position = 0;
-                await capture.CopyToAsync(originalBody, context.RequestAborted);
+                if (capture.Length > 0)
+                {
+                    await originalBody.WriteAsync(capture.WrittenMemory, context.RequestAborted);
+                }
+
                 return;
             }
 
             string contentType = context.Response.ContentType ?? string.Empty;
             if (IsBinaryContentType(contentType) || IsStreamContentType(contentType))
             {
-                capture.Position = 0;
-                await capture.CopyToAsync(originalBody, context.RequestAborted);
+                if (capture.Length > 0)
+                {
+                    await originalBody.WriteAsync(capture.WrittenMemory, context.RequestAborted);
+                }
+
                 return;
             }
 
-            ReadOnlySpan<byte> rawBody = default;
             byte[]? ownedBody = null;
-            if (capture.Length > 0)
-            {
-                if (capture.TryGetBuffer(out ArraySegment<byte> buffer))
-                {
-                    rawBody = buffer.AsSpan(0, checked((int)capture.Length));
-                }
-                else
-                {
-                    ownedBody = capture.ToArray();
-                    rawBody = ownedBody;
-                }
-            }
+            ReadOnlyMemory<byte> rawBody = capture.WrittenMemory;
 
             if (rawBody.Length == 0 && context.Response.StatusCode >= 400)
             {
@@ -70,7 +65,7 @@ public sealed class ApiBinaryResponseMiddleware
 
             int envelopeStatusCode = context.Response.StatusCode;
             var payloadWriter = new ArrayBufferWriter<byte>(Math.Max(rawBody.Length + 64, 256));
-            Result envelopeResult = ApiBinaryEnvelopeCodec.TryWriteEnvelopePayload(envelopeStatusCode, contentType, rawBody, payloadWriter);
+            Result envelopeResult = ApiBinaryEnvelopeCodec.TryWriteEnvelopePayload(envelopeStatusCode, contentType, rawBody.Span, payloadWriter);
             AedsFrameType frameType = envelopeStatusCode >= 400 ? AedsFrameType.ApiError : AedsFrameType.ApiEnvelope;
 
             if (!envelopeResult.IsSuccess)
@@ -85,7 +80,11 @@ public sealed class ApiBinaryResponseMiddleware
                     payloadWriter);
                 if (!fallbackResult.IsSuccess)
                 {
-                    throw new InvalidOperationException("binary_envelope_fallback_failed");
+                    payloadWriter = new ArrayBufferWriter<byte>(256);
+                    payloadWriter.Write(ApiBinaryEnvelopeCodec.EncodeEnvelopePayload(
+                        envelopeStatusCode,
+                        "application/json; charset=utf-8",
+                        errorBody));
                 }
 
                 frameType = AedsFrameType.ApiError;
@@ -137,5 +136,83 @@ public sealed class ApiBinaryResponseMiddleware
     {
         string safeMessage = string.IsNullOrWhiteSpace(message) ? $"HTTP {statusCode}" : message;
         return JsonSerializer.SerializeToUtf8Bytes(new { code = statusCode, message = safeMessage });
+    }
+
+    private sealed class PooledCaptureStream : Stream
+    {
+        private readonly PooledByteBufferWriter _writer = new(1024);
+
+        public ReadOnlyMemory<byte> WrittenMemory => _writer.WrittenMemory;
+
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => _writer.WrittenCount;
+
+        public override long Position
+        {
+            get => _writer.WrittenCount;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            _writer.Write(buffer.AsSpan(offset, count));
+        }
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            _writer.Write(buffer);
+        }
+
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return Task.FromCanceled(cancellationToken);
+            }
+
+            _writer.Write(buffer.AsSpan(offset, count));
+            return Task.CompletedTask;
+        }
+
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return ValueTask.FromCanceled(cancellationToken);
+            }
+
+            _writer.Write(buffer.Span);
+            return ValueTask.CompletedTask;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _writer.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+
+        public override ValueTask DisposeAsync()
+        {
+            _writer.Dispose();
+            return base.DisposeAsync();
+        }
     }
 }

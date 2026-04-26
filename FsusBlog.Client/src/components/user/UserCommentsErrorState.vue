@@ -1,9 +1,9 @@
 <template>
-  <div class="py-20 border-t border-zinc-100 flex flex-col items-center">
-    <p class="text-[11px] font-bold tracking-[0.2em] text-zinc-400 uppercase text-center mb-4">加载失败</p>
+  <div class="py-20 border-t border-[#F4F4F5] flex flex-col items-center">
+    <p class="text-[11px] font-bold tracking-normal text-[#A1A1AA] uppercase mb-6">加载失败</p>
     <button
       type="button"
-      class="text-[10px] font-bold tracking-[0.2em] text-zinc-950 border-b border-zinc-950 pb-0.5 hover:text-zinc-500 hover:border-zinc-500 transition-all outline-none focus-visible:ring-2 focus-visible:ring-zinc-950"
+      class="text-[10px] font-bold tracking-normal text-[#0F0F11] border-b border-[#0F0F11] pb-0.5 hover:text-[#2A599C] hover:border-[#2A599C] transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C]"
       @click="$emit('retry')"
     >
       重试
@@ -16,4 +16,3 @@ defineEmits<{
   (e: 'retry'): void;
 }>();
 </script>
-

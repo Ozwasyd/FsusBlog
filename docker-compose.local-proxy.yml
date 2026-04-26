@@ -1,0 +1,19 @@
+services:
+  # 历史兼容链路：本地 Nginx 薄代理到 release upstream。
+  # 非标准开发/测试端口协议，不作为任何脚本或文档默认入口。
+  fsusblog.nginx-local:
+    image: nginx:1.27-alpine
+    container_name: fsus-nginx-local
+    restart: unless-stopped
+    volumes:
+      - ./deploy/local-release-nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8081:80"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    networks:
+      - fsus-infra-network
+
+networks:
+  fsus-infra-network:
+    external: true

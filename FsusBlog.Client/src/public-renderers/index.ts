@@ -7,6 +7,9 @@ export {
   renderPublicHomeBundle
 } from './renderPublicPage';
 export { hydratePublicPage } from './clientHydrate';
+export type { HydrationPerfMetrics } from './hydrationPerf';
+export type { HydrationIdentityGuard } from './hydrationIdentityGuard';
+export type { PublicPayloadNormalizer } from './publicPayloadNormalizer';
 export { getPublicAotPageDefinition, loadPublicAotPageComponent } from './registry';
 export { definePublicAotPage, type PublicAotPageDefinition } from './scaffold';
 export type {
@@ -16,5 +19,6 @@ export type {
   PublicFilterHydrationPayload,
   PublicHomeHydrationPayload,
   PublicHydrationPayload,
-  PublicPassiveHydrationPayload
+  PublicPassiveHydrationPayload,
+  PublicRenderMetadata
 } from './types';

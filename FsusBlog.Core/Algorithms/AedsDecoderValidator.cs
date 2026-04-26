@@ -34,7 +34,7 @@ public sealed class AedsDecoderValidator(IAedsEncoder encoder)
             return Result.Failure(ErrorCode.Validation, "AEDS payload size round-trip mismatch");
         }
 
-        if (!decoded.Value.Payload.AsSpan().SequenceEqual(payload))
+        if (!decoded.Value.Payload.Span.SequenceEqual(payload))
         {
             return Result.Failure(ErrorCode.Validation, "AEDS payload content round-trip mismatch");
         }

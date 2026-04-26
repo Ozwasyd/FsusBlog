@@ -1,4 +1,4 @@
-import type { ArticleListItem } from '@/api/article'
+import type { ArticleListItemResponse } from '@/api/article'
 import dayjs from 'dayjs'
 import { TimeUtils } from '@/utils/time'
 
@@ -36,7 +36,7 @@ export type ArchivePageViewContract = Readonly<{
   }>
 }>
 
-export function createArchiveArticleViewContract(article: ArticleListItem): ArchiveArticleViewContract | null {
+export function createArchiveArticleViewContract(article: ArticleListItemResponse): ArchiveArticleViewContract | null {
   const parsed = TimeUtils._parse(article.createTime)
   if (!parsed || !parsed.isValid()) {
     return null
@@ -58,7 +58,7 @@ export function createArchiveArticleViewContract(article: ArticleListItem): Arch
   }
 }
 
-export function createArchivePageViewContract(articles: ArticleListItem[], total: number): ArchivePageViewContract {
+export function createArchivePageViewContract(articles: ArticleListItemResponse[], total: number): ArchivePageViewContract {
   const yearMap = new Map<string, Map<string, ArchiveArticleViewContract[]>>()
 
   for (const article of articles) {

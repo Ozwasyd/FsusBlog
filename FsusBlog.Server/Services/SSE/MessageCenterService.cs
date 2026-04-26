@@ -1,6 +1,7 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Sse;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -212,7 +213,7 @@ public sealed class MessageCenterService(
             await db.Insertable(participant).ExecuteCommandAsync();
         });
 
-        if (!tran.IsSuccess)
+        if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-create-user-ticket"))
         {
             return Result<ConversationDetailResponse>.Failure(ErrorCode.InfraFailure, "创建会话失败");
         }
@@ -258,7 +259,7 @@ public sealed class MessageCenterService(
 
         long messageId = SnowFlakeSingle.Instance.NextId();
         DateTime now = DateTime.UtcNow;
-        await db.Ado.UseTranAsync(async () =>
+        var tran = await db.Ado.UseTranAsync(async () =>
         {
             await db.Insertable(new ConversationMessage
             {
@@ -286,6 +287,11 @@ public sealed class MessageCenterService(
                 .Where(it => it.ConversationId == conversationId && it.UserId == userId)
                 .ExecuteCommandAsync();
         });
+
+        if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-reply-user"))
+        {
+            return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
+        }
 
         var message = await BuildMessageResponseAsync(conversationId, messageId);
         if (message is null)
@@ -348,7 +354,7 @@ public sealed class MessageCenterService(
 
         long messageId = SnowFlakeSingle.Instance.NextId();
         DateTime now = DateTime.UtcNow;
-        await db.Ado.UseTranAsync(async () =>
+        var tran = await db.Ado.UseTranAsync(async () =>
         {
             await db.Insertable(new ConversationMessage
             {
@@ -374,6 +380,11 @@ public sealed class MessageCenterService(
                 .Where(it => it.ConversationId == conversationId)
                 .ExecuteCommandAsync();
         });
+
+        if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-reply-admin"))
+        {
+            return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
+        }
 
         var message = await BuildMessageResponseAsync(conversationId, messageId);
         if (message is null)
@@ -445,7 +456,7 @@ public sealed class MessageCenterService(
         long conversationId = SnowFlakeSingle.Instance.NextId();
         long messageId = SnowFlakeSingle.Instance.NextId();
         DateTime now = DateTime.UtcNow;
-        await db.Ado.UseTranAsync(async () =>
+        var tran = await db.Ado.UseTranAsync(async () =>
         {
             await db.Insertable(new MessageConversation
             {
@@ -480,6 +491,11 @@ public sealed class MessageCenterService(
                 UpdatedAt = now
             }).ExecuteCommandAsync();
         });
+
+        if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-send-system-message"))
+        {
+            return Result<ConversationDetailResponse>.Failure(ErrorCode.InfraFailure, "系统消息创建失败");
+        }
 
         int totalUnread = await RefreshUnreadCacheAsync(target);
         var detail = await GetUserConversationDetailAsync(target, conversationId);
@@ -593,7 +609,14 @@ public sealed class MessageCenterService(
                 UnreadCount = SqlFunc.AggregateSum(it.UnreadCount)
             })
             .ToListAsync();
-        return rows.ToDictionary(it => it.ConversationId, it => it.UnreadCount);
+        var unreadMap = new Dictionary<long, int>(rows.Count);
+        for (int i = 0; i < rows.Count; i++)
+        {
+            UnreadRow row = rows[i];
+            unreadMap[row.ConversationId] = row.UnreadCount;
+        }
+
+        return unreadMap;
     }
 
     private async Task<List<ConversationMessageResponse>> LoadConversationMessagesAsync(long conversationId)
@@ -605,28 +628,64 @@ public sealed class MessageCenterService(
         return await MapMessagesAsync(rows);
     }
 
-    private async Task<Dictionary<long, ConversationMessageResponse>> LoadLastMessageMapAsync(long[] conversationIds)
+    private async Task<Dictionary<long, ConversationMessagePreviewResponse>> LoadLastMessageMapAsync(long[] conversationIds)
     {
         if (conversationIds.Length == 0)
         {
             return [];
         }
 
-        var rows = await db.Queryable<ConversationMessage>()
+        var latestRows = await db.Queryable<ConversationMessage>()
             .Where(it => conversationIds.Contains(it.ConversationId) && !it.IsInternalNote)
-            .OrderByDescending(it => it.Id)
-            .ToListAsync();
-        var latestByConversation = new Dictionary<long, ConversationMessage>();
-        foreach (var row in rows)
-        {
-            if (!latestByConversation.ContainsKey(row.ConversationId))
+            .GroupBy(it => it.ConversationId)
+            .Select(it => new
             {
-                latestByConversation[row.ConversationId] = row;
+                it.ConversationId,
+                MessageId = SqlFunc.AggregateMax(it.Id)
+            })
+            .ToListAsync();
+        if (latestRows.Count == 0)
+        {
+            return [];
+        }
+
+        long[] messageIds = new long[latestRows.Count];
+        for (int i = 0; i < latestRows.Count; i++)
+        {
+            messageIds[i] = latestRows[i].MessageId;
+        }
+
+        var rows = await db.Queryable<ConversationMessage>()
+            .Where(it => messageIds.Contains(it.Id))
+            .ToListAsync();
+
+        var mapped = await MapMessagesAsync(rows);
+        var mappedByMessageId = new Dictionary<long, ConversationMessagePreviewResponse>(mapped.Count);
+        for (int i = 0; i < mapped.Count; i++)
+        {
+            ConversationMessageResponse item = mapped[i];
+            mappedByMessageId[long.Parse(item.MessageId)] = ToMessagePreview(item)!;
+        }
+
+        return BuildLatestMessageMap(
+            [.. latestRows.Select(static row => (row.ConversationId, row.MessageId))],
+            mappedByMessageId);
+    }
+
+    internal static Dictionary<long, ConversationMessagePreviewResponse> BuildLatestMessageMap(
+        IReadOnlyList<(long ConversationId, long MessageId)> latestRows,
+        IReadOnlyDictionary<long, ConversationMessagePreviewResponse> mappedByMessageId)
+    {
+        var latestByConversation = new Dictionary<long, ConversationMessagePreviewResponse>(latestRows.Count);
+        foreach ((long conversationId, long messageId) in latestRows)
+        {
+            if (mappedByMessageId.TryGetValue(messageId, out ConversationMessagePreviewResponse? response))
+            {
+                latestByConversation[conversationId] = response;
             }
         }
 
-        var mapped = await MapMessagesAsync(latestByConversation.Values.ToList());
-        return mapped.ToDictionary(it => long.Parse(it.ConversationId), it => it);
+        return latestByConversation;
     }
 
     private async Task<List<ConversationMessageResponse>> MapMessagesAsync(List<ConversationMessage> rows)
@@ -636,20 +695,41 @@ public sealed class MessageCenterService(
             return [];
         }
 
-        int[] senderIds = rows.Where(it => it.SenderId.HasValue).Select(it => it.SenderId!.Value).Distinct().ToArray();
-        Dictionary<int, string> userNames = [];
-        if (senderIds.Length > 0)
+        HashSet<int>? senderIdSet = null;
+        for (int i = 0; i < rows.Count; i++)
         {
-            userNames = (await db.Queryable<User>()
+            int? senderId = rows[i].SenderId;
+            if (senderId.HasValue)
+            {
+                (senderIdSet ??= new HashSet<int>()).Add(senderId.Value);
+            }
+        }
+
+        Dictionary<int, string> userNames = [];
+        if (senderIdSet is not null && senderIdSet.Count > 0)
+        {
+            int[] senderIds = [.. senderIdSet];
+            var senders = await db.Queryable<User>()
                 .Where(it => senderIds.Contains(it.Id))
                 .Select(it => new { it.Id, it.Username })
-                .ToListAsync())
-                .ToDictionary(it => it.Id, it => it.Username);
+                .ToListAsync();
+            userNames = new Dictionary<int, string>(senders.Count);
+            for (int i = 0; i < senders.Count; i++)
+            {
+                var sender = senders[i];
+                userNames[sender.Id] = sender.Username;
+            }
+        }
+
+        if (rows.Count > 1)
+        {
+            rows.Sort(static (left, right) => left.Id.CompareTo(right.Id));
         }
 
         var result = new List<ConversationMessageResponse>(rows.Count);
-        foreach (var row in rows.OrderBy(it => it.Id))
+        for (int i = 0; i < rows.Count; i++)
         {
+            var row = rows[i];
             result.Add(new ConversationMessageResponse
             {
                 MessageId = row.Id.ToString(),
@@ -713,7 +793,7 @@ public sealed class MessageCenterService(
             UnreadCount = detail.UnreadCount,
             LastMessageAt = detail.LastMessageAt,
             UpdatedAt = detail.LastMessageAt,
-            LastMessage = detail.Messages.LastOrDefault()
+            LastMessage = ToMessagePreview(detail.Messages.LastOrDefault())
         };
         await PublishConversationUpsertAsync(userId, summary, totalUnread);
     }
@@ -863,6 +943,22 @@ public sealed class MessageCenterService(
                 result.Error.Code,
                 result.Error.Message);
         }
+    }
+
+    private static ConversationMessagePreviewResponse? ToMessagePreview(ConversationMessageResponse? message)
+    {
+        if (message is null)
+        {
+            return null;
+        }
+
+        return new ConversationMessagePreviewResponse
+        {
+            SenderType = message.SenderType,
+            SenderName = message.SenderName,
+            BodyPreview = message.Body.Length <= 96 ? message.Body : $"{message.Body[..96]}...",
+            CreatedAt = message.CreatedAt
+        };
     }
 
     private Task LogNotificationFailureAsync(Result<ConversationDetailResponse> result, string operation, int userId)

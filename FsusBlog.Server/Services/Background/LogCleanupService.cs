@@ -1,4 +1,5 @@
 ﻿using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Execution;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Background;
@@ -21,62 +22,65 @@ public class LogCleanupService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("【系统】日志清理任务初始化完成。策略：保留30天内数据。");
-
-        // 使用物理级的周期计时器，O(1) 的内存分配
         using var timer = new PeriodicTimer(TimeSpan.FromDays(1));
-
-        try
-        {
-            // 启动时立即执行一次，随后交由定时器接管
-            do
+        await BackgroundTaskExecutor.RunLoopAsync(
+            async token =>
             {
-                using var scope = _serviceProvider.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
-                var expireDate = DateTime.UtcNow.AddDays(-30);
+                await CleanupOnceAsync(token);
+                return await timer.WaitForNextTickAsync(token);
+            },
+            _logger,
+            "log-cleanup-worker",
+            stoppingToken,
+            onCancelled: () =>
+            {
+                _logger.LogWarning("日志清理任务收到停机指令，正在优雅退出循环...");
+                return Task.CompletedTask;
+            },
+            onFaulted: ex =>
+            {
+                _logger.LogError(ex, "日志清理任务遭遇严重异常而中断。");
+                return Task.CompletedTask;
+            },
+            onFinally: () =>
+            {
+                _logger.LogInformation("【系统】日志清理任务已安全离线。");
+                return Task.CompletedTask;
+            });
+    }
 
-                _logger.LogDebug("执行计划启动：寻找 {ExpireDate} 之前的日志...", expireDate);
+    internal async Task CleanupOnceAsync(CancellationToken token)
+    {
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+        var expireDate = DateTime.UtcNow.AddDays(-30);
 
-                int totalDeleted = 0;
-                int processedChunks = 0;
-                while (!stoppingToken.IsCancellationRequested && processedChunks < MaxChunksPerCycle)
-                {
-                    // 1. 分块查出要删除的主键 ID
-                    var ids = await db.Queryable<VisitLog>()
-                        .Where(it => it.CreateTime < expireDate)
-                        .Select(it => it.Id)
-                        .Take(ChunkSize)
-                        .ToListAsync(stoppingToken);
+        _logger.LogDebug("执行计划启动：寻找 {ExpireDate} 之前的日志...", expireDate);
 
-                    if (ids.Count == 0) break; // 已清理完毕
-
-                    // 2. 根据 ID 批量删除
-                    var deletedCount = await db.Deleteable<VisitLog>()
-                        .In(ids)
-                        .ExecuteCommandAsync(stoppingToken);
-
-                    totalDeleted += deletedCount;
-                    processedChunks++;
-
-                    // 3. 微睡眠让步：给 PostgreSQL 的 Autovacuum 进程清理死元组的时间，防止表膨胀
-                    await Task.Delay(50, stoppingToken);
-                }
-
-                if (totalDeleted > 0)
-                {
-                    _logger.LogInformation("日志自动清理成功 | 累计分块删除: {Count} 条", totalDeleted);
-                }
-
-            } while (await timer.WaitForNextTickAsync(stoppingToken));
-        }
-        catch (OperationCanceledException)
+        int totalDeleted = 0;
+        int processedChunks = 0;
+        while (!token.IsCancellationRequested && processedChunks < MaxChunksPerCycle)
         {
-            _logger.LogWarning("日志清理任务收到停机指令，正在优雅退出循环...");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "日志清理任务遭遇严重异常而中断。");
+            var ids = await db.Queryable<VisitLog>()
+                .Where(it => it.CreateTime < expireDate)
+                .Select(it => it.Id)
+                .Take(ChunkSize)
+                .ToListAsync(token);
+
+            if (ids.Count == 0) break;
+
+            var deletedCount = await db.Deleteable<VisitLog>()
+                .In(ids)
+                .ExecuteCommandAsync(token);
+
+            totalDeleted += deletedCount;
+            processedChunks++;
+            await Task.Delay(50, token);
         }
 
-        _logger.LogInformation("【系统】日志清理任务已安全离线。");
+        if (totalDeleted > 0)
+        {
+            _logger.LogInformation("日志自动清理成功 | 累计分块删除: {Count} 条", totalDeleted);
+        }
     }
 }

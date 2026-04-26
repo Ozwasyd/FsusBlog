@@ -24,6 +24,12 @@ export type ThemeTokenContract = Readonly<{
     footer: string;
     tagList: string;
     tagLink: string;
+    commentsRoot: string;
+    commentsHeading: string;
+    commentsPlaceholderRoot: string;
+    commentsPlaceholderTitle: string;
+    commentsPlaceholderBody: string;
+    commentsPlaceholderHint: string;
   }>;
   userComments: Readonly<{
     list: string;
@@ -46,13 +52,20 @@ export type ThemeTokenContract = Readonly<{
     statValue: string;
   }>;
   primitives: Readonly<{
-    tagGhost: string;
+    buttonBase: string;
+    buttonSizes: Readonly<Record<'sm' | 'md' | 'lg', string>>;
+    buttonVariants: Readonly<Record<'plain' | 'quiet' | 'primary' | 'secondary', string>>;
+    buttonTones: Readonly<Record<'neutral' | 'danger', string>>;
     emptyRoot: string;
     emptyTitle: string;
     emptyBody: string;
-    buttonPlain: string;
-    buttonQuiet: string;
-    buttonPrimary: string;
     buttonDisabled: string;
+    tagBase: string;
+    tagVariants: Readonly<Record<'ghost' | 'badge' | 'status', string>>;
+    tagTones: Readonly<Record<'neutral' | 'info' | 'success' | 'danger' | 'warning', string>>;
+    surfacePanel: string;
+    dialogPanel: string;
+    metaText: string;
+    statusText: string;
   }>;
 }>;

@@ -1,16 +1,22 @@
 @import "katex/dist/katex.min.css";
 
 .markdown-body {
-  color: #27272a;
+  color: var(--fsus-reading-text);
   font-size: 1.05rem;
-  line-height: 1.8;
-  letter-spacing: 0.015em;
+  line-height: 1.9;
+  letter-spacing: 0.02em;
   text-align: justify;
   font-weight: 400;
   word-break: break-word;
   overflow-wrap: break-word;
   text-autospace: ideograph-alpha ideograph-numeric;
   text-spacing-trim: space-all;
+}
+
+.markdown-body p {
+  margin-bottom: 1.5em;
+  text-indent: 2.5em;
+  margin-top: 1em;
 }
 
 .markdown-body,
@@ -23,9 +29,9 @@
 }
 
 .markdown-renderer__error {
-  color: #b91c1c;
-  border: 1px solid #fee2e2;
-  background: #fff1f2;
+  color: var(--fsus-reading-error-text);
+  border: 1px solid var(--fsus-reading-error-border);
+  background: var(--fsus-reading-error-bg);
   border-radius: 1rem;
   padding: 1.5rem;
   margin: 1.5rem 0;
@@ -40,8 +46,8 @@
 .markdown-body .markdown-renderer__latex[data-latex-placeholder="true"],
 .markdown-renderer__placeholder,
 .markdown-renderer__latex[data-latex-placeholder="true"] {
-  border: 1px dashed #e4e4e7;
-  background: rgba(250, 250, 250, 0.6);
+  border: 1px dashed var(--fsus-reading-placeholder-border);
+  background: var(--fsus-reading-placeholder-bg);
   border-radius: 1.5rem;
   padding: 2rem;
   margin: 2rem 0;
@@ -84,7 +90,7 @@
 .markdown-body h4,
 .markdown-body h5,
 .markdown-body h6 {
-  color: #18181b;
+  color: var(--fsus-reading-heading);
   line-height: 1.5;
   text-indent: 0 !important;
 }
@@ -104,7 +110,7 @@
 .markdown-body h2 {
   font-size: 1.15em;
   font-weight: 500;
-  color: #27272a;
+  color: var(--fsus-reading-text);
   text-align: center;
   margin-top: 4em;
   margin-bottom: 2em;
@@ -125,7 +131,7 @@
 .markdown-body h6 {
   font-size: 1.05em;
   font-weight: 500;
-  color: #3f3f46;
+  color: var(--fsus-reading-subheading);
   text-align: left;
   margin-top: 2.5em;
   margin-bottom: 1em;
@@ -140,7 +146,7 @@
   border-left: none !important;
   margin: 2.5rem 3rem !important;
   padding: 0 !important;
-  color: #52525b !important;
+  color: var(--fsus-reading-quote) !important;
   font-size: 0.95em;
   font-weight: 300 !important;
   font-style: normal !important;
@@ -203,7 +209,7 @@
 }
 
 .markdown-body li::marker {
-  color: #a1a1aa;
+  color: var(--fsus-reading-marker);
 }
 
 .markdown-body a {
@@ -211,13 +217,13 @@
   color: inherit;
   text-decoration: underline;
   text-underline-offset: 4px;
-  text-decoration-color: #d4d4d8;
+  text-decoration-color: var(--fsus-reading-link-decoration);
   transition: all 0.2s ease;
 }
 
 .markdown-body a:hover {
-  text-decoration-color: var(--color-primary, #3b82f6);
-  color: var(--color-primary, #3b82f6);
+  text-decoration-color: var(--fsus-reading-link);
+  color: var(--fsus-reading-link);
 }
 
 .markdown-body img {
@@ -232,7 +238,7 @@
 
 .markdown-body hr {
   border: none;
-  border-top: 1px solid #f4f4f5;
+  border-top: 1px solid var(--fsus-reading-rule);
   margin: 3.5rem 20%;
 }
 
@@ -243,8 +249,8 @@
   contain-intrinsic-size: 200px;
   padding: 1.5rem !important;
   margin: 2rem 0 !important;
-  background-color: #fafafa !important;
-  border: 1px solid #f4f4f5 !important;
+  background-color: var(--fsus-reading-code-bg) !important;
+  border: 1px solid var(--fsus-reading-code-border) !important;
   border-radius: 8px;
   font-size: 0.85rem;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -265,9 +271,9 @@
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, var(--font-sans), monospace !important;
   font-weight: 500 !important;
   font-size: 0.85em;
-  background-color: #fafafa !important;
-  border: 1px solid #f4f4f5;
-  color: #18181b !important;
+  background-color: var(--fsus-reading-code-bg) !important;
+  border: 1px solid var(--fsus-reading-code-border);
+  color: var(--fsus-reading-code-text) !important;
   padding: 0.15em 0.4em !important;
   margin: 0 0.15em !important;
   border-radius: 4px !important;
@@ -296,7 +302,7 @@
 }
 
 .markdown-body table::-webkit-scrollbar-thumb {
-  background-color: #e4e4e7;
+  background-color: var(--fsus-panel-border-strong);
   border-radius: 3px;
 }
 
@@ -306,29 +312,29 @@
 
 .markdown-body thead {
   background-color: transparent;
-  border-bottom: 1px solid #d4d4d8;
+  border-bottom: 1px solid var(--fsus-panel-border-strong);
 }
 
 .markdown-body th {
   font-weight: 500;
-  color: #3f3f46;
+  color: var(--fsus-reading-subheading);
   padding: 1rem 1.25rem;
   text-align: left;
   white-space: nowrap;
 }
 
 .markdown-body tbody tr {
-  border-bottom: 1px solid #f4f4f5;
+  border-bottom: 1px solid var(--fsus-panel-border);
   transition: background-color 0.2s ease;
 }
 
 .markdown-body tbody tr:hover {
-  background-color: #fafafa;
+  background-color: var(--fsus-panel-bg-soft);
 }
 
 .markdown-body td {
   padding: 1rem 1.25rem;
-  color: #52525b;
+  color: var(--fsus-reading-quote);
   vertical-align: top;
   min-width: 120px;
 }
@@ -345,8 +351,8 @@
   white-space: normal;
   word-break: break-all;
   background-color: transparent !important;
-  border: 1px solid #e4e4e7;
-  color: #09090b !important;
+  border: 1px solid var(--fsus-reading-code-border);
+  color: var(--fsus-reading-code-text) !important;
 }
 
 .markdown-body td ul,
@@ -358,7 +364,7 @@
 .markdown-body .katex {
   font-size: 1.05em;
   text-indent: 0 !important;
-  color: #18181b;
+  color: var(--fsus-reading-heading);
 }
 
 .markdown-body .katex-display {
@@ -375,7 +381,7 @@
 }
 
 .markdown-body .katex-display::-webkit-scrollbar-thumb {
-  background-color: #e4e4e7;
+  background-color: var(--fsus-panel-border-strong);
   border-radius: 2px;
 }
 
@@ -387,7 +393,7 @@
   display: inline-flex;
   align-items: baseline;
   text-indent: 0 !important;
-  color: #18181b;
+  color: var(--fsus-reading-heading);
   background: transparent;
   border: none;
   padding: 0;
@@ -504,9 +510,9 @@
 .markdown-renderer__mermaid[data-mermaid-rendered="true"] {
   box-sizing: border-box;
   padding: 1rem 1.25rem;
-  border: 1px solid #f4f4f5;
+  border: 1px solid var(--fsus-reading-code-border);
   border-radius: 1.5rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.9));
+  background: var(--fsus-panel-bg-soft);
   box-shadow: 0 18px 40px -32px rgba(24, 24, 27, 0.3);
 }
 
@@ -520,15 +526,15 @@
 
 .markdown-body .markdown-renderer__mermaid[data-mermaid-rendered="true"] rect,
 .markdown-renderer__mermaid[data-mermaid-rendered="true"] rect {
-  fill: #fffdf8;
-  stroke: #d6d3d1;
+  fill: var(--fsus-reading-mermaid-node);
+  stroke: var(--fsus-reading-mermaid-node-stroke);
   stroke-width: 1.5;
   filter: drop-shadow(0 10px 18px rgba(24, 24, 27, 0.06));
 }
 
 .markdown-body .markdown-renderer__mermaid[data-mermaid-rendered="true"] line,
 .markdown-renderer__mermaid[data-mermaid-rendered="true"] line {
-  stroke: #78716c;
+  stroke: var(--fsus-reading-mermaid-line);
   stroke-width: 2.25;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -536,19 +542,19 @@
 
 .markdown-body .markdown-renderer__mermaid[data-mermaid-rendered="true"] marker path,
 .markdown-renderer__mermaid[data-mermaid-rendered="true"] marker path {
-  fill: #78716c;
+  fill: var(--fsus-reading-mermaid-line);
 }
 
 .markdown-body .markdown-renderer__mermaid[data-mermaid-rendered="true"] text,
 .markdown-renderer__mermaid[data-mermaid-rendered="true"] text {
-  fill: #1c1917;
+  fill: var(--fsus-reading-mermaid-text);
   font-size: 14px;
   font-weight: 600;
   line-height: 1.25;
   letter-spacing: 0.01em;
   text-rendering: geometricPrecision;
   paint-order: stroke fill;
-  stroke: rgba(255, 253, 248, 0.92);
+  stroke: var(--fsus-reading-mermaid-accent);
   stroke-width: 0.8px;
 }
 
@@ -581,16 +587,16 @@
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #a1a1aa;
+  color: var(--fsus-text-muted);
 }
 
 .markdown-renderer__placeholder-body {
-  color: #71717a;
+  color: var(--fsus-text-tertiary);
 }
 
 .markdown-renderer__placeholder-hint {
   margin-top: 1rem;
-  color: #a1a1aa;
+  color: var(--fsus-text-muted);
   font-size: 0.75rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;

@@ -1,4 +1,5 @@
-﻿using FsusBlog.Server.Infrastructure.Security;
+﻿using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Security;
 
 namespace FsusBlog.Server.Infrastructure;
 
@@ -18,39 +19,32 @@ public sealed partial class PowLoadResetWorker(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         LogHeartbeatStarted(Interval.TotalSeconds);
-
-        // 使用 PeriodicTimer 替代 Task.Delay，防止时间漂移与多余分配
-        using var timer = new PeriodicTimer(Interval);
-
-        try
-        {
-            // ConfigureAwait(false) 避免捕获同步上下文，对于后台任务是微小的性能优化
-            while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
+        await BackgroundTaskExecutor.RunAsync(
+            async token =>
             {
-                // 1. 驱动治理器重置 RPS 计数器
-                // 这是一个极快的 Interlocked 操作，无锁且安全
-                governor.Tick();
-
-                // 2. 调试日志 (源生成器配合 IsEnabled 实现绝对零开销)
-                if (logger.IsEnabled(LogLevel.Debug))
+                using var timer = new PeriodicTimer(Interval);
+                while (await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
                 {
-                    LogHeartbeatTick(governor.CurrentGlobalDifficulty);
+                    governor.Tick();
+                    if (logger.IsEnabled(LogLevel.Debug))
+                    {
+                        LogHeartbeatTick(governor.CurrentGlobalDifficulty);
+                    }
                 }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // 响应 stoppingToken，正常离线，无需处理
-        }
-        catch (Exception ex)
-        {
-            // 最后的防线：记录关键错误，防止后台服务静默崩溃
-            LogHeartbeatError(ex);
-        }
-        finally
-        {
-            LogHeartbeatStopped();
-        }
+            },
+            logger,
+            "pow-load-reset-worker",
+            stoppingToken,
+            onFaulted: ex =>
+            {
+                LogHeartbeatError(ex);
+                return Task.CompletedTask;
+            },
+            onFinally: () =>
+            {
+                LogHeartbeatStopped();
+                return Task.CompletedTask;
+            });
     }
 
     // ====================================================================

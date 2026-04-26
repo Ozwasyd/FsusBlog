@@ -1,6 +1,7 @@
-﻿using FsusBlog.Server.Infrastructure.Helpers;
+﻿using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.VistitLog;
-using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Middlewares;
 
@@ -12,7 +13,8 @@ namespace FsusBlog.Server.Infrastructure.Middlewares;
 public class VisitLogMiddleware(
     RequestDelegate _next,
     VisitLogChannel _channel,
-    IConnectionMultiplexer _redis)
+    IUnifiedCache _cache,
+    ILogger<VisitLogMiddleware> _logger)
 {
     public async Task InvokeAsync(HttpContext context)
     {
@@ -55,17 +57,22 @@ public class VisitLogMiddleware(
 
         var expiry = logType == "Article" ? TimeSpan.FromMinutes(10) : TimeSpan.FromMinutes(30);
 
-        IDatabase db = _redis.GetDatabase();
-        bool isNewVisit = await db.StringSetAsync(lockKey, "1", expiry, When.NotExists);
+        bool isNewVisit = await _cache.TryAcquireLeaseAsync(CachePolicyId.VisitLock, lockKey, "1", expiry);
 
         if (isNewVisit)
         {
-            _channel.TryWrite(new VisitLogMessage
-            {
-                IP = clientIp,
-                UserId = userId > 0 ? userId : null,
-                CreateTime = DateTime.UtcNow
-            });
+            _channel.TryWrite(new VisitLogMessage(
+                clientIp,
+                userId > 0 ? userId : null,
+                DateTime.UtcNow));
+
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Access,
+                AuditTypeCatalog.Access,
+                new KeyValuePair<string, object?>("AuditAction", "visit"),
+                new KeyValuePair<string, object?>("VisitCategory", logType),
+                new KeyValuePair<string, object?>("VisitLockKey", lockKey));
+            _logger.LogInformation("访问记录已采样 | Type: {LogType} | Path: {Path}", logType, pathValue);
         }
 
         await _next(context);

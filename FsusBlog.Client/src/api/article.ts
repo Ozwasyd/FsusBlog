@@ -6,21 +6,25 @@ import type { PublicAotShellBundleContract } from '@/helpers/publicAotBundle';
 
 // ================= 基础类型 =================
 
-/** 标签 DTO */
+/** 标签响应 */
 export interface Tag {
   id: number
   name: string
 }
 
+export interface PopularArticleSummaryResponse {
+  id: number
+  title: string
+  views: number
+}
+
 /** 
- * 文章列表项 (对应后端 ArticleListDto)
- * 修复日期: 2026-02-23 (对齐嵌套 category 结构)
+ * 文章列表项响应
  */
-export interface ArticleListItem {
+export interface ArticleListItemResponse {
   id: number;
   title: string;
   summary: string; 
-  snippet?: string;
   views: number;
   createTime: string; // 后端 UTC 字符串
   category: {
@@ -31,33 +35,26 @@ export interface ArticleListItem {
 }
 
 /** 
- * 文章详情 (对应后端 ArticleDetailDto)
- * 修复日期: 2026-02-23 (补全 categoryId 字段)
+ * 文章详情响应
  */
-export interface ArticleDetail {
+export interface ArticleDetailResponse {
   id: number;
   title: string;
   content: string;
   summary: string;
-  categoryId: number;
   views: number;
   createTime: string; // 后端 UTC 字符串
-  category?: { 
+  category: {
     id: number; 
     name: string; 
   };
   tags: Tag[];
 }
 
-/** 分页包裹对象 */
-export interface ArticleListRes {
-  items: ArticleListItem[]
+/** 分页响应 */
+export interface PageResponse<T> {
+  items: T[]
   total: number
-}
-
-/** 搜索请求参数 (合并业务关键字与 PoW 凭证) */
-export interface SearchArticlesParams {
-  keyword: string
 }
 
 export interface ArticleWriteRequest {
@@ -77,7 +74,7 @@ export interface ArticleWriteRequest {
 
 /** 获取文章列表 */
 export const getArticles = (
-  params: { page?: number; size?: number; categoryId?: number; tagId?: number },
+  params: { page?: number; size?: number; categoryId?: number; tagId?: number; isDeleted?: boolean },
   config?: AxiosRequestConfig
 ) => {
   const normalized = {
@@ -85,7 +82,7 @@ export const getArticles = (
     size: params.size ?? 10,
     categoryId: params.categoryId,
     tagId: params.tagId,
-    isDeleted: false
+    isDeleted: params.isDeleted ?? false
   };
 
   const search = new URLSearchParams();
@@ -95,46 +92,25 @@ export const getArticles = (
   if (normalized.categoryId !== undefined) search.set('categoryId', String(normalized.categoryId));
   if (normalized.tagId !== undefined) search.set('tagId', String(normalized.tagId));
 
-  return requestBinaryOnly<ArticleListRes>({
+  return requestBinaryOnly<PageResponse<ArticleListItemResponse>>({
     binaryUrl: `/api/binary/article?${search.toString()}`,
     frameType: FrameType.ArticleList,
-    renderHtml: true,
-    renderContext: {
-      currentPage: normalized.page,
-      pageSize: normalized.size
-    },
     signal: config?.signal as AbortSignal | undefined
   });
 }
 
 /** 获取详情 */
 export const getArticleById = (id: number, config?: AxiosRequestConfig) => {
-  return requestBinaryOnly<ArticleDetail>({
+  return requestBinaryOnly<ArticleDetailResponse>({
     binaryUrl: `/api/binary/article/${id}`,
     frameType: FrameType.ArticleDetail,
-    renderHtml: true,
-    signal: config?.signal as AbortSignal | undefined
-  });
-}
-
-/** 
- * 全站搜索接口 
- * [修复 2026-02-23] 安全性保障：启用 requiresPow 策略。
- * 拦截器将自动计算算力并将证明注入 X-Fsus-Pow-Proof 请求头。
- */
-export const searchArticles = (params: SearchArticlesParams, config?: AxiosRequestConfig) => {
-  const search = new URLSearchParams();
-  search.set('keyword', params.keyword);
-  return requestBinaryOnly<ArticleListItem[]>({
-    binaryUrl: `/api/binary/article/search?${search.toString()}`,
-    frameType: FrameType.ArticleSearch,
     signal: config?.signal as AbortSignal | undefined
   });
 }
 
 /** 热门排行 */
 export const getHotArticles = (size = 10, config?: AxiosRequestConfig) => {
-  return requestBinaryOnly<ArticleListItem[]>({
+  return requestBinaryOnly<PopularArticleSummaryResponse[]>({
     binaryUrl: `/api/binary/article/hot?size=${size}`,
     frameType: FrameType.ArticleHot,
     signal: config?.signal as AbortSignal | undefined
@@ -173,10 +149,19 @@ export const uploadArticleAotBundle = (
   } as AxiosRequestConfig)
 
 export const deleteArticle = (id: number, config?: AxiosRequestConfig) => 
-  api.delete(`/Article/${id}`, config)
+  api.delete(`/Article/${id}`, {
+    ...config,
+    requiresPow: true
+  } as AxiosRequestConfig)
 
 export const restoreArticle = (id: number, config?: AxiosRequestConfig) => 
-  api.put(`/Article/restore/${id}`, {}, config)
+  api.put(`/Article/restore/${id}`, {}, {
+    ...config,
+    requiresPow: true
+  } as AxiosRequestConfig)
 
 export const permanentDeleteArticle = (id: number, config?: AxiosRequestConfig) => 
-  api.delete(`/Article/permanent/${id}`, config)
+  api.delete(`/Article/permanent/${id}`, {
+    ...config,
+    requiresPow: true
+  } as AxiosRequestConfig)

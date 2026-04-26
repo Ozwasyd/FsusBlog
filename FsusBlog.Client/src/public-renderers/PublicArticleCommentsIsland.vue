@@ -1,29 +1,22 @@
 <template>
-  <section :class="themeTokens.articleDetail.commentsRoot">
-    <h3 :class="themeTokens.articleDetail.commentsHeading">{{ headingText }}</h3>
+  <section class="min-h-0" aria-live="polite">
+    <template v-if="!loading && !hasLoadError && comments.length > 0">
+      <h3 :class="themeTokens.articleDetail.commentsHeading">{{ headingText }}</h3>
 
-    <div v-if="loading" :class="themeTokens.articleDetail.commentsPlaceholderRoot">
-      <p :class="themeTokens.articleDetail.commentsPlaceholderTitle">评论加载中</p>
-      <p :class="themeTokens.articleDetail.commentsPlaceholderBody">正在静默激活评论岛。</p>
-    </div>
-
-    <div v-else-if="hasLoadError" :class="themeTokens.articleDetail.commentsPlaceholderRoot">
-      <p :class="themeTokens.articleDetail.commentsPlaceholderTitle">评论暂时不可用</p>
-      <p :class="themeTokens.articleDetail.commentsPlaceholderBody">评论岛激活失败，请稍后刷新重试。</p>
-    </div>
-
-    <div v-else-if="comments.length === 0" :class="themeTokens.articleDetail.commentsPlaceholderRoot">
-      <p :class="themeTokens.articleDetail.commentsPlaceholderTitle">暂无评论</p>
-      <p :class="themeTokens.articleDetail.commentsPlaceholderBody">第一条评论会在这里出现。</p>
-    </div>
-
-    <div v-else class="space-y-8" aria-live="polite">
-      <article v-for="comment in comments" :key="comment.id" class="border-t border-zinc-100 pt-6 first:border-t-0 first:pt-0">
-        <div class="flex items-center justify-between gap-4 mb-3">
-          <strong class="text-sm font-semibold text-zinc-900">{{ comment.userName }}</strong>
-          <time class="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400">{{ comment.createTime }}</time>
+      <div class="space-y-8">
+      <article v-for="comment in comments" :key="comment.id" class="border-t border-[#F4F4F5] pt-6 first:border-t-0 first:pt-0">
+        <div class="flex items-center justify-between gap-6 mb-3">
+          <strong class="text-sm font-semibold text-[#18181B]">{{ comment.userName }}</strong>
+          <time class="text-[10px] font-mono uppercase text-[#A1A1AA]">{{ comment.createTime }}</time>
         </div>
-        <p class="text-sm leading-relaxed whitespace-pre-wrap text-zinc-700">{{ comment.content }}</p>
+        <p class="text-sm leading-relaxed whitespace-pre-wrap text-[#3F3F46]">{{ comment.content }}</p>
+        <div v-if="comment.repliesPreview.length > 0" class="mt-3 border-l border-[#E4E4E7] pl-3 space-y-2">
+          <div v-for="reply in comment.repliesPreview" :key="reply.id" class="text-sm text-[#71717A]">
+            <strong class="text-[#27272A]">{{ reply.userName }}</strong>
+            <span v-if="reply.replyToUserName"> 回复 @{{ reply.replyToUserName }}</span>
+            ：{{ reply.content }}
+          </div>
+        </div>
       </article>
 
       <button
@@ -35,18 +28,19 @@
       >
         {{ loadingMore ? '加载中' : '加载更多' }}
       </button>
-    </div>
+      </div>
+    </template>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { getComments, type CommentItem } from '@/api/comment';
+import { getComments, type CommentThreadItem } from '@/api/comment';
 import { themeTokens } from '@/ui-tokens/themeTokens';
 
 const props = defineProps<{ articleId: number | string }>();
 
-const comments = ref<CommentItem[]>([]);
+const comments = ref<CommentThreadItem[]>([]);
 const cursor = ref<string | null>(null);
 const hasMore = ref(false);
 const loading = ref(true);

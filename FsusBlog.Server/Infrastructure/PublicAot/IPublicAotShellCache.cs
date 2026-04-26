@@ -2,15 +2,9 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 public interface IPublicAotShellCache
 {
-    Task<(bool Hit, string Value)> TryGetAsync(string cacheKey, CancellationToken cancellationToken = default);
+    Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default);
 
-    Task<string> GetOrCreateAsync(
-        string cacheKey,
-        Func<CancellationToken, Task<string>> factory,
-        TimeSpan ttl,
-        CancellationToken cancellationToken = default);
-
-    Task SetAsync(string cacheKey, string value, TimeSpan ttl, CancellationToken cancellationToken = default);
+    Task SetAsync(PublicAotCacheEntry entry, CancellationToken cancellationToken = default);
 
     Task RemoveAsync(string cacheKey, CancellationToken cancellationToken = default);
 

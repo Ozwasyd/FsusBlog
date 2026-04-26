@@ -1,4 +1,7 @@
-﻿namespace FsusBlog.Server.Infrastructure.Helpers.Security;
+﻿using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Execution;
+
+namespace FsusBlog.Server.Infrastructure.Helpers.Security;
 
 /// <summary>
 /// 文本归一化预处理器 (最终物理优化版)
@@ -10,6 +13,8 @@ public static class TextNormalizer
     // 终极优化：创建一个覆盖所有 char 范围的数组作为直接查找表 (Look-Up Table)。
     // 这将消耗 128KB 内存 (65536 * 2 bytes)，但会将繁简转换的性能提升到物理极限。
     private static readonly char[] _charMap;
+    private static readonly Lock _initLock = new();
+    private static int _openCcLoaded;
 
     // 静态构造函数，在服务启动时只执行一次，负责构建这个巨大的查找表
     static TextNormalizer()
@@ -22,60 +27,101 @@ public static class TextNormalizer
             _charMap[i] = (char)i;
         }
 
-        // 第二步：加载 OpenCC 超级字典，覆盖默认映射
-        LoadOpenCcSuperDictionary();
-
-        // 第三步：加载全角/半角和大小写转换，覆盖默认映射
+        // 仅保留基础 ASCII 归一化。OpenCC 词典在显式初始化阶段加载，避免静态构造吞异常。
         ApplyAsciiNormalization();
     }
 
-    private static void LoadOpenCcSuperDictionary()
+    public static Result Initialize(ILogger logger)
     {
-        try
+        if (Volatile.Read(ref _openCcLoaded) == 1)
         {
-            string baseDirectory = AppContext.BaseDirectory;
-            string dictDirectory = Path.Combine(baseDirectory, "Dictionaries");
-
-            // 严格按照 OpenCC 的转换链顺序加载，确保映射的优先级正确
-            LoadOpenCcFile(Path.Combine(dictDirectory, "TWVariants.txt"));
-            LoadOpenCcFile(Path.Combine(dictDirectory, "TWPhrases.txt"));
-            LoadOpenCcFile(Path.Combine(dictDirectory, "TSCharacters.txt"));
+            return Result.Success();
         }
-        catch (Exception ex)
+
+        lock (_initLock)
         {
-            Console.WriteLine($"[FATAL] Failed to load OpenCC super dictionary: {ex.Message}");
+            if (_openCcLoaded == 1)
+            {
+                return Result.Success();
+            }
+
+            var result = LoadOpenCcSuperDictionary(logger);
+            if (result.IsSuccess)
+            {
+                Volatile.Write(ref _openCcLoaded, 1);
+            }
+
+            return result;
         }
     }
 
-    private static void LoadOpenCcFile(string path)
+    private static Result LoadOpenCcSuperDictionary(ILogger logger)
+    {
+        string baseDirectory = AppContext.BaseDirectory;
+        string dictDirectory = Path.Combine(baseDirectory, "Dictionaries");
+
+        var variantsResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TWVariants.txt"), logger);
+        if (variantsResult.IsFailure)
+        {
+            return variantsResult;
+        }
+
+        var phrasesResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TWPhrases.txt"), logger);
+        if (phrasesResult.IsFailure)
+        {
+            return phrasesResult;
+        }
+
+        var charactersResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TSCharacters.txt"), logger);
+        return charactersResult;
+    }
+
+    private static Result LoadOpenCcFile(string path, ILogger logger)
     {
         if (!File.Exists(path))
         {
-            Console.WriteLine($"[WARN] OpenCC dictionary file not found, skipping: {path}");
-            return;
+            logger.LogWarning("OpenCC dictionary file not found, skipping: {Path}", path);
+            return Result.Success();
         }
 
-        var lines = File.ReadAllLines(path);
-        foreach (var line in lines)
-        {
-            if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#")) continue;
-
-            var parts = line.Split('\t');
-            if (parts.Length != 2) continue;
-
-            string key = parts[0];
-            string value = parts[1];
-
-            if (key.Length == value.Length)
+        return BoundaryExecutor.Execute(
+            () =>
             {
-                for (int i = 0; i < key.Length; i++)
+                foreach (var line in File.ReadLines(path))
                 {
-                    // 使用 char 值作为索引，直接覆盖
-                    // TryAdd 的逻辑在这里通过加载顺序来保证
-                    _charMap[key[i]] = value[i];
+                    if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#"))
+                    {
+                        continue;
+                    }
+
+                    var parts = line.Split('\t');
+                    if (parts.Length != 2)
+                    {
+                        continue;
+                    }
+
+                    string key = parts[0];
+                    string value = parts[1];
+
+                    if (key.Length == value.Length)
+                    {
+                        for (int i = 0; i < key.Length; i++)
+                        {
+                            // 使用 char 值作为索引，直接覆盖
+                            // TryAdd 的逻辑在这里通过加载顺序来保证
+                            _charMap[key[i]] = value[i];
+                        }
+                    }
                 }
-            }
-        }
+            },
+            ex => ErrorDetail.Create(
+                ErrorCode.InfraFailure,
+                $"加载 OpenCC 词典失败: {Path.GetFileName(path)}",
+                path,
+                ex.Message),
+            logger,
+            $"TextNormalizer.LoadOpenCcFile[{Path.GetFileName(path)}]",
+            LogLevel.Warning);
     }
 
     private static void ApplyAsciiNormalization()

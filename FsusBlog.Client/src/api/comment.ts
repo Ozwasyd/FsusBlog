@@ -14,30 +14,64 @@ import { requestBinaryOnly } from '@/services/binaryTransport';
 export interface CommentDto extends PowRequest {
   articleId: number
   content: string
+  parentId?: string | null
+  rootId?: string | null
+  replyToCommentId?: string | null
+  replyToUserId?: number | null
 }
 
-/** 游标分页通用包装 */
-export interface CursorResult<T> {
+/** 游标响应包装 */
+export interface CursorResponse<T> {
   data: T[]
   nextCursor: string | null // 修改：游标改为 string 以适配 Snowflake
   hasMore: boolean
 }
 
 /** 文章详情页显示的评论项 */
-export interface CommentItem {
+export interface CommentReplyItem {
   id: string // Snowflake ID 必须使用 string
   content: string
   createTime: string
   userName: string
+  replyToUserId?: number | null
+  replyToUserName?: string | null
+  parentId?: string | null
+  rootId: string
+  replyToCommentId?: string | null
+  depth: number
+  isDeleted: boolean
+}
+
+export interface CommentThreadItem {
+  id: string
+  content: string
+  createTime: string
+  userName: string
+  rootId: string
+  isDeleted: boolean
+  replyCount: number
+  hasMoreReplies: boolean
+  repliesPreview: CommentReplyPreviewItem[]
+}
+
+export interface CommentReplyPreviewItem {
+  id: string
+  content: string
+  createTime: string
+  userName: string
+  replyToUserName?: string | null
+  isDeleted: boolean
 }
 
 /** 个人中心显示的评论项 (包含文章信息) */
-export interface MyCommentItem {
+export interface UserCommentResponse {
   id: string // Snowflake ID 必须使用 string
   content: string
   createTime: string
   articleId: number
   articleTitle: string 
+  rootId?: string | null
+  replyToUserName?: string | null
 }
 
 // =================================================================================
@@ -71,10 +105,26 @@ export const getComments = (
   if (cursor) search.set('cursor', cursor);
   search.set('limit', String(limit));
 
-  return requestBinaryOnly<CursorResult<CommentItem>>({
+  return requestBinaryOnly<CursorResponse<CommentThreadItem>>({
     binaryUrl: `/api/binary/comment/${articleId}?${search.toString()}`,
     frameType: FrameType.CommentArticleCursor,
-    renderHtml: false,
+    signal: config?.signal as AbortSignal | undefined
+  });
+}
+
+export const getThreadReplies = (
+  articleId: number,
+  rootId: string,
+  cursor?: string | null,
+  limit = 20,
+  config?: AxiosRequestConfig
+) => {
+  const search = new URLSearchParams();
+  if (cursor) search.set('cursor', cursor);
+  search.set('limit', String(limit));
+  return requestBinaryOnly<CursorResponse<CommentReplyItem>>({
+    binaryUrl: `/api/binary/comment/${articleId}/thread/${rootId}?${search.toString()}`,
+    frameType: FrameType.CommentThreadReplyCursor,
     signal: config?.signal as AbortSignal | undefined
   });
 }
@@ -85,13 +135,12 @@ export const getMyComments = (
   limit: number = 10, 
   config?: AxiosRequestConfig
 ) =>
-  requestBinaryOnly<CursorResult<MyCommentItem>>({
+  requestBinaryOnly<CursorResponse<UserCommentResponse>>({
     binaryUrl: `/api/binary/comment/me?${new URLSearchParams({
       ...(cursor ? { cursor } : {}),
       limit: String(limit)
     }).toString()}`,
     frameType: FrameType.CommentUserCursor,
-    renderHtml: false,
     signal: config?.signal as AbortSignal | undefined
   })
 
@@ -100,7 +149,7 @@ export const getMyComments = (
  * 安全性保障：删除操作接入 PoW，防止针对他人评论的自动化遍历删除尝试
  */
 export const deleteComment = (id: string, config?: AxiosRequestConfig) =>
-  api.delete<string>(`/Comment/${id}`, {
+  api.delete<void>(`/Comment/${id}`, {
     ...config,
     requiresPow: true
   } as AxiosRequestConfig)

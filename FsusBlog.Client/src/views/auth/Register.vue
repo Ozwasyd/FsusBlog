@@ -1,165 +1,188 @@
 <template>
-  <div class="min-h-screen flex flex-col bg-white subpixel-antialiased w-full overflow-x-hidden">
-    
-    <nav class="h-16 sm:h-20 flex items-center px-6 sm:px-8 shrink-0">
-      <router-link to="/" class="text-lg sm:text-xl font-bold tracking-tight text-zinc-950 hover:text-zinc-500 transition-colors duration-300">
+  <div class="min-h-screen w-full overflow-x-hidden bg-[#F7F7F8] text-[#0F0F11] subpixel-antialiased dark:bg-[#0F0F11] dark:text-[#FCFCFC]">
+    <nav class="mx-auto flex h-16 w-full max-w-6xl items-center px-5 sm:h-20 sm:px-8">
+      <router-link
+        to="/"
+        class="rounded-[8px] text-lg font-bold text-[#0F0F11] transition-colors hover:text-[#2A599C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8] dark:text-[#FCFCFC] dark:hover:text-[#7EA7E0] dark:focus-visible:ring-[#7EA7E0] dark:focus-visible:ring-offset-[#0F0F11]"
+      >
         {{ siteStore.siteInfo.title }}
       </router-link>
     </nav>
 
-    <main class="grow flex items-center justify-center px-6 pb-20 sm:pb-32">
-      <div class="w-full max-w-sm animate-in fade-in slide-in-from-bottom-4 duration-700">
-        
-        <header class="mb-10 sm:mb-12">
-          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950">
+    <main class="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-start px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16">
+      <section
+        class="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700"
+        aria-labelledby="register-title"
+      >
+        <header class="mb-8 sm:mb-10">
+          <h1 id="register-title" class="text-3xl font-extrabold leading-tight text-[#0F0F11] sm:text-4xl dark:text-[#FCFCFC]">
             注册账户
           </h1>
+          <p class="mt-3 max-w-sm text-sm leading-7 text-[#52525B] dark:text-[#A1A1AA]">
+            创建账户后即可参与评论与站内互动。
+          </p>
         </header>
 
-        <form @submit.prevent="handleRegister" class="space-y-7" novalidate>
-          
+        <form class="space-y-6" novalidate @submit.prevent="handleRegister">
           <div class="relative group">
-            <label 
+            <label
               for="username"
-              class="block text-[10px] font-bold tracking-[0.2em] uppercase mb-2 transition-colors"
+              class="mb-2 block text-xs font-semibold transition-colors"
               :class="usernameLabelClass"
             >
               用户名
             </label>
-            <input 
+            <input
               id="username"
               v-model="registerData.username"
+              name="username"
               type="text"
               placeholder="3-20位中英文字符"
-              class="w-full bg-transparent border-b py-3 text-sm font-medium text-zinc-900 placeholder:text-zinc-300 outline-none transition-colors rounded-none appearance-none"
+              class="w-full rounded-[8px] border bg-[#FCFCFC] px-4 py-3 text-sm font-medium text-[#18181B] outline-none transition-colors placeholder:text-[#A1A1AA] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#18181B] dark:text-[#FCFCFC] dark:placeholder:text-[#71717A]"
               :class="usernameInputClass"
               :disabled="isProcessing"
               required
               aria-required="true"
+              :aria-invalid="Boolean(usernameHint)"
+              aria-describedby="username-hint"
+              autocomplete="username"
               autofocus
             />
-            <!--[修改日期 2026-03-01] 实时校验反馈，利用绝对定位嵌入 form 的 gap 缝隙中，零布局抖动 -->
-            <p v-if="usernameHint" class="absolute -bottom-5 left-0 text-[10px] font-bold tracking-wider text-red-500 animate-in fade-in slide-in-from-top-1">
+            <p
+              v-if="usernameHint"
+              id="username-hint"
+              aria-live="polite"
+              class="mt-2 text-xs font-semibold text-[#E5484D] animate-in fade-in slide-in-from-top-1"
+            >
               {{ usernameHint }}
             </p>
           </div>
 
           <div class="relative group">
-            <label 
+            <label
               for="password"
-              class="block text-[10px] font-bold tracking-[0.2em] uppercase mb-2 transition-colors"
+              class="mb-2 block text-xs font-semibold transition-colors"
               :class="passwordLabelClass"
             >
               密码
             </label>
-            <input 
+            <input
               id="password"
               v-model="registerData.password"
+              name="password"
               type="password"
               placeholder="最少六个字符"
-              class="w-full bg-transparent border-b py-3 text-sm font-medium text-zinc-900 placeholder:text-zinc-300 outline-none transition-colors rounded-none appearance-none"
+              class="w-full rounded-[8px] border bg-[#FCFCFC] px-4 py-3 text-sm font-medium text-[#18181B] outline-none transition-colors placeholder:text-[#A1A1AA] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#18181B] dark:text-[#FCFCFC] dark:placeholder:text-[#71717A]"
               :class="passwordInputClass"
               :disabled="isProcessing"
               required
               aria-required="true"
+              :aria-invalid="Boolean(passwordHint)"
+              aria-describedby="password-hint"
               autocomplete="new-password"
             />
-            <p v-if="passwordHint" class="absolute -bottom-5 left-0 text-[10px] font-bold tracking-wider text-red-500 animate-in fade-in slide-in-from-top-1">
+            <p
+              v-if="passwordHint"
+              id="password-hint"
+              aria-live="polite"
+              class="mt-2 text-xs font-semibold text-[#E5484D] animate-in fade-in slide-in-from-top-1"
+            >
               {{ passwordHint }}
             </p>
           </div>
 
           <div class="relative group">
-            <label 
+            <label
               for="confirm-password"
-              class="block text-[10px] font-bold tracking-[0.2em] uppercase mb-2 transition-colors"
+              class="mb-2 block text-xs font-semibold transition-colors"
               :class="confirmPasswordLabelClass"
             >
               确认密码
             </label>
-            <input 
+            <input
               id="confirm-password"
               v-model="registerData.confirmPassword"
+              name="confirmPassword"
               type="password"
               placeholder="再次输入你的密码"
-              class="w-full bg-transparent border-b py-3 text-sm font-medium text-zinc-900 placeholder:text-zinc-300 outline-none transition-colors rounded-none appearance-none"
+              class="w-full rounded-[8px] border bg-[#FCFCFC] px-4 py-3 text-sm font-medium text-[#18181B] outline-none transition-colors placeholder:text-[#A1A1AA] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#18181B] dark:text-[#FCFCFC] dark:placeholder:text-[#71717A]"
               :class="confirmPasswordInputClass"
               :disabled="isProcessing"
               required
               aria-required="true"
+              :aria-invalid="Boolean(confirmPasswordHint)"
+              aria-describedby="confirm-password-hint"
               autocomplete="new-password"
             />
-            <p v-if="confirmPasswordHint" class="absolute -bottom-5 left-0 text-[10px] font-bold tracking-wider text-red-500 animate-in fade-in slide-in-from-top-1">
+            <p
+              v-if="confirmPasswordHint"
+              id="confirm-password-hint"
+              aria-live="polite"
+              class="mt-2 text-xs font-semibold text-[#E5484D] animate-in fade-in slide-in-from-top-1"
+            >
               {{ confirmPasswordHint }}
             </p>
           </div>
 
-          <div class="flex items-start pt-2">
-            <div class="flex items-center h-5">
-              <input 
-                id="agreement" 
-                type="checkbox" 
-                v-model="isAgreed"
-                :disabled="isProcessing"
-                class="w-4 h-4 shrink-0 border border-zinc-300 rounded-none bg-transparent checked:bg-zinc-950 checked:border-zinc-950 focus:ring-0 cursor-pointer transition-all appearance-none relative checked:after:content-['✓'] checked:after:text-white checked:after:text-[10px] checked:after:absolute checked:after:left-0.5 checked:after:-top-px"
-                aria-required="true"
-              />
-            </div>
-            <div class="ml-3 text-[10px] sm:text-[11px] leading-5">
-              <label for="agreement" class="font-bold text-zinc-400 uppercase tracking-widest cursor-pointer select-none">
-                我已阅读并同意 
-                <span 
-                  @click.prevent="handleGuidelinesActivator"
-                  class="text-zinc-950 border-b border-zinc-950 hover:bg-zinc-950 hover:text-white transition-all ml-1 pb-0.5 outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2"
-                  role="button"
-                  tabindex="0"
-                  @keydown.prevent="handleGuidelinesActivator"
-                >
-                  平台使用规范
-                </span>
-              </label>
-            </div>
-          </div>
+          <label for="agreement" class="flex cursor-pointer select-none items-start gap-3 pt-1 text-sm leading-6 text-[#52525B] dark:text-[#A1A1AA]">
+            <input
+              id="agreement"
+              v-model="isAgreed"
+              name="agreement"
+              type="checkbox"
+              :disabled="isProcessing"
+              class="mt-1 h-4 w-4 shrink-0 rounded-[6px] border-[#D4D4D8] text-[#0F0F11] focus:ring-2 focus:ring-[#2A599C] focus:ring-offset-2 focus:ring-offset-[#F7F7F8] dark:border-[#3F3F46] dark:bg-[#18181B] dark:focus:ring-[#7EA7E0] dark:focus:ring-offset-[#0F0F11]"
+              aria-required="true"
+            />
+            <span>
+              我已阅读并同意
+              <button
+                type="button"
+                class="ml-1 rounded-[6px] border-b border-[#2A599C] pb-0.5 font-semibold text-[#2A599C] outline-none transition-colors hover:text-[#0F0F11] focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8] dark:text-[#7EA7E0] dark:hover:text-[#FCFCFC] dark:focus-visible:ring-[#7EA7E0] dark:focus-visible:ring-offset-[#0F0F11]"
+                @click="handleGuidelinesActivator"
+              >
+                平台使用规范
+              </button>
+            </span>
+          </label>
 
-          <!-- 移除了原有的 margin 以匹配新的间距 -->
-          <div 
-            v-if="localError" 
+          <div
+            v-if="localError"
+            id="register-error"
             role="alert"
             aria-live="polite"
-            class="text-[11px] font-mono font-bold text-red-500 tracking-wider uppercase animate-in fade-in"
+            class="rounded-[8px] border border-[#FAD1D1] bg-[#FFF7F7] px-4 py-3 text-sm font-semibold text-[#E5484D] animate-in fade-in dark:border-[#7F1D1D] dark:bg-[#2A1212]"
           >
-            * {{ localError }}
+            {{ localError }}
           </div>
 
           <div class="pt-4">
-            <button 
+            <button
               type="submit"
               :disabled="isProcessing || !isFormValid"
               :aria-disabled="isProcessing || !isFormValid"
-              class="w-full py-4 bg-zinc-950 text-white text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-[0.98] active:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-xl shadow-zinc-950/5"
+              aria-describedby="register-error"
+              class="flex w-full items-center justify-center rounded-[8px] bg-[#0F0F11] px-5 py-4 text-sm font-bold text-white shadow-[0_32px_64px_rgba(0,0,0,0.08)] transition-all duration-300 hover:bg-[#2A599C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#FCFCFC] dark:text-[#0F0F11] dark:hover:bg-[#7EA7E0] dark:focus-visible:ring-[#7EA7E0] dark:focus-visible:ring-offset-[#0F0F11]"
             >
               <span :class="submitButtonPulseClass">
-                <span v-if="showSubmitLockIcon" class="mr-2" aria-hidden="true">🔒</span>
                 {{ submitButtonText }}
-                <span v-if="showSubmitArrow" class="text-zinc-500 ml-1" aria-hidden="true">→</span>
               </span>
             </button>
           </div>
         </form>
 
-        <footer class="mt-12 flex justify-between items-center border-t border-zinc-100 pt-8">
+        <footer class="mt-10 flex items-center justify-between border-t border-[#E4E4E7] pt-6 dark:border-[#27272A]">
           <div class="flex flex-col gap-1">
-            <span class="text-[9px] text-zinc-300 uppercase tracking-widest font-bold">已有账号?</span>
-            <router-link to="/login" class="text-[10px] font-bold tracking-widest uppercase text-zinc-400 hover:text-zinc-950 transition-colors py-1">
+            <span class="text-xs font-medium text-[#A1A1AA] dark:text-[#71717A]">已有账号？</span>
+            <router-link to="/login" class="rounded-[8px] py-1 text-sm font-semibold text-[#8E8E93] transition-colors hover:text-[#2A599C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8] dark:text-[#A1A1AA] dark:hover:text-[#7EA7E0] dark:focus-visible:ring-[#7EA7E0] dark:focus-visible:ring-offset-[#0F0F11]">
               现在登录
             </router-link>
           </div>
-          <router-link to="/" class="text-[10px] font-bold tracking-widest uppercase text-zinc-400 hover:text-zinc-950 transition-colors py-2 px-1">
+          <router-link to="/" class="rounded-[8px] px-1 py-2 text-sm font-semibold text-[#8E8E93] transition-colors hover:text-[#2A599C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8] dark:text-[#A1A1AA] dark:hover:text-[#7EA7E0] dark:focus-visible:ring-[#7EA7E0] dark:focus-visible:ring-offset-[#0F0F11]">
             回到主页
           </router-link>
         </footer>
-
-      </div>
+      </section>
     </main>
 
     <PolicyModal v-model:visible="showGuidelines" type="guidelines" />
@@ -189,8 +212,6 @@ const {
   isFormValid,
   submitButtonText,
   submitButtonPulseClass,
-  showSubmitLockIcon,
-  showSubmitArrow,
   handleGuidelinesActivator,
   handleRegister
 } = useAuthRegister()
@@ -203,8 +224,8 @@ input:-webkit-autofill,
 input:-webkit-autofill:hover, 
 input:-webkit-autofill:focus, 
 input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 30px white inset !important;
-    -webkit-text-fill-color: #18181b !important;
-    transition: background-color 5000s ease-in-out 0s;
+  -webkit-box-shadow: 0 0 0 30px #fcfcfc inset !important;
+  -webkit-text-fill-color: #18181b !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 </style>

@@ -1,5 +1,13 @@
 <template>
-  <div class="user-manage-wrapper">
+  <div class="account-page">
+    <header class="account-page-header">
+      <div class="account-page-eyebrow">管理</div>
+      <h1 class="account-page-title">用户管理</h1>
+      <p class="account-page-description">
+        筛选账户、查看状态并执行封禁、解封与密码重置等高风险操作。
+      </p>
+    </header>
+
     <UserManageHeader
       :total="total"
       :keyword="queryParams.keyword"

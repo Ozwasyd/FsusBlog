@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { getArticleById, type ArticleDetail } from '@/api/article';
+import { getArticleById, type ArticleDetailResponse } from '@/api/article';
 
 const STORAGE_KEY = 'fsus.transport.binary';
 
@@ -23,26 +23,12 @@ function writeBinaryFlag(enabled: boolean): void {
 export const useArticleBinaryStore = defineStore('article-binary', () => {
   const useBinary = ref(readBinaryFlag());
 
-  const fetchArticleById = async (id: number, signal?: AbortSignal): Promise<ArticleDetail> => {
+  const fetchArticleById = async (id: number, signal?: AbortSignal): Promise<ArticleDetailResponse> => {
     return await getArticleById(id, signal ? { signal } : undefined);
-  };
-
-  const handleAotAction = (action: string): void => {
-    if (action === 'force-json') {
-      useBinary.value = false;
-      writeBinaryFlag(false);
-      return;
-    }
-
-    if (action === 'force-binary') {
-      useBinary.value = true;
-      writeBinaryFlag(true);
-    }
   };
 
   return {
     useBinary,
-    fetchArticleById,
-    handleAotAction
+    fetchArticleById
   };
 });

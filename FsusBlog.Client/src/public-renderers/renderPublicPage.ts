@@ -9,7 +9,7 @@ import type {
 } from './types';
 import { loadPublicAotPageComponent } from './registry';
 
-export const PUBLIC_RENDERER_VERSION = 'public-vue-renderer@2026-04-06-2';
+export const PUBLIC_RENDERER_VERSION = 'public-vue-renderer@2026-04-19-1';
 
 export type RenderedPublicHydrationBundle = Readonly<{
   html: string;
@@ -61,7 +61,7 @@ export async function renderPublicHomeBundle(payload: PublicHomeHydrationPayload
 }
 
 export async function renderPublicArticleDetailBundle(payload: PublicArticleDetailHydrationPayload): Promise<RenderedPublicHydrationBundle> {
-  return await renderPublicBundle(payload, JSON.stringify({ comments: payload.commentsIsland }));
+  return await renderPublicBundle(payload);
 }
 
 export async function renderPublicAboutBundle(payload: PublicPassiveHydrationPayload): Promise<RenderedPublicHydrationBundle> {

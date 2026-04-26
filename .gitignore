@@ -1,10 +1,7 @@
-# ==========================================
-# 1. 逻辑自洽：通用规则与 IDE
-# ==========================================
+# Workspace / IDE
 .vs/
 .vscode/
 .idea/
-.github/
 *.user
 *.suo
 *.userosscache
@@ -16,22 +13,28 @@ Thumbs.db
 *~
 *.tmp
 *.temp
+*.orig
+*.rej
 
-# 排除根目录下的启动设置
-launchSettings.json
-
-# 逻辑自洽：从截图看，根目录出现了编译产生的 bin 和 obj 文件夹
+# Common build outputs
 /bin/
 /obj/
+/obj\\*/
 /publish/
 /dist/
+/out/
+/build/*
+!/build/artifacts/
+/build/artifacts/*
+!/build/artifacts/wasm-release/
+!/build/artifacts/wasm-release/**
 /data/
 **/bin/
 **/obj/
+**/obj\\*/
 **/publish/
 **/dist/
 **/out/
-**/node_modules/
 **/.cache/
 **/.tmp/
 **/tmp/
@@ -40,109 +43,127 @@ launchSettings.json
 **/.eslintcache
 **/*.tsbuildinfo
 **/TestResults/
+*.trx
+*.coverage
+*.coveragexml
+*.received.*
+*.snap
+*.db
+*.sqlite
+*.sqlite3
 
-# --- 核心安全保障：环境变量隔离 (2026-02-21) ---
-# 排除所有真实的敏感环境变量文件
+# Dependencies
+**/node_modules/
+
+# Secrets / local config
 .env
-.env.production
 .env.local
 .env.*.local
-# 逻辑自洽：强行允许提交环境变量模板，作为生产环境的配置参考
+.env.production
 !.env.production-template
-
-# ==========================================
-# 2. FsusBlog.Client (Vue 3 / Vite)
-# ==========================================
-FsusBlog.Client/node_modules/
-FsusBlog.Client/dist/
-FsusBlog.Client/dist-ssr/
-FsusBlog.Client/src/wasm/dist/
-FsusBlog.Client/.vite/
-FsusBlog.Client/.cache/
-
-# 逻辑自洽：截图显示前端使用了 .esproj，会生成 MSBuild 风格的编译目录
-FsusBlog.Client/[Bb]in/
-FsusBlog.Client/[Oo]bj/
-
-# 逻辑自洽：排除本地生成的 Docker 镜像压缩包
-*.tar
-FsusBlog.Client/*.tar
-
-# 安全性保障：排除开发环境特定配置
-FsusBlog.Client/.env.development
-FsusBlog.Client/.env.local
-FsusBlog.Client/npm-debug.log*
-FsusBlog.Client/yarn-debug.log*
-FsusBlog.Client/yarn-error.log*
-FsusBlog.Client/pnpm-debug.log*
-
-# 性能最大化：排除自动导入插件生成的类型声明文件（由 Unplugin 生成）
-FsusBlog.Client/auto-imports.d.ts
-FsusBlog.Client/components.d.ts
-
-# ==========================================
-# 3. FsusBlog.Server (ASP.NET Core 10)
-# ==========================================
-FsusBlog.Server/[Bb]in/
-FsusBlog.Server/[Oo]bj/
-
-# 安全性保障：排除包含本地开发敏感数据库配置的文件
-# 注意：appsettings.json 和 appsettings.Production.json 必须提交到 Git 以供 Docker 构建
+launchSettings.json
+!FsusBlog.Server/Properties/launchSettings.json
+!Properties/launchSettings.json
 FsusBlog.Server/appsettings.Development.json
-FsusBlog.Server/publish/
 
-# 逻辑自洽：根据企划书，系统使用 Lucene.NET 检索
-# 必须排除本地生成的索引文件，防止污染仓库
-FsusBlog.Server/wwwroot/index/
-FsusBlog.Server/LuceneIndex/
-*.index
-
-# 逻辑自洽：系统集成 Serilog 异步日志 
-# 排除所有按天滚动的日志文件
-FsusBlog.Server/logs/
+# Logs / runtime artifacts
+FsusBlog.Server/[Ll]ogs/
 *.log
 *.pid
 *.seed
 *.out
 *.err
+.frontend-dev.log
+.frontend-dev.pid
+.vite-dev.log
+.vite-dev.pid
+.server-debug.log
+.full-regression-server.log
 
-# ==========================================
-# 4. FsusBlog PoW Engine (C++ / CMake WebAssembly)
-# ==========================================
+# Frontend local outputs
+FsusBlog.Client/.vite/
+FsusBlog.Client/.cache/
+FsusBlog.Client/dist/
+FsusBlog.Client/dist-ssr/
+FsusBlog.Client/[Bb]in/
+FsusBlog.Client/[Oo]bj/
+FsusBlog.Client/auto-imports.d.ts
+FsusBlog.Client/components.d.ts
+FsusBlog.Client/npm-debug.log*
+FsusBlog.Client/yarn-debug.log*
+FsusBlog.Client/yarn-error.log*
+FsusBlog.Client/pnpm-debug.log*
+FsusBlog.Client/.playwright-fixtures.json
+FsusBlog.Client/playwright-report/
+FsusBlog.Client/test-results/
+FsusBlog.Client/tmp-*.mjs
+
+# Server local outputs
+FsusBlog.Server/[Bb]in/
+FsusBlog.Server/[Oo]bj/
+FsusBlog.Server.Tests/.artifacts/
+FsusBlog.Server.Tests/.tmp/
+
+# Accidental publish / build spillover in repo root
+wwwroot/
+wwwroot*/
+FsusBlog.ClientRuntime/
+FsusBlog.ClientRuntime*
+bin/
+obj/
+obj\\*/
+.stale-build-artifacts/
+.local-docker-assets/
+
+# Local stale directories caused by container/root-owned builds
+**/.bin.stale-root-*/
+**/.obj.stale-root-*/
+**/.Debug.container-root-*/
+
+# Search / content caches
+FsusBlog.Server/wwwroot/index/
+FsusBlog.Server/wwwroot/aot-cache/
+FsusBlog.Server/LuceneIndex/
+*.index
+
+# WASM / CMake / emsdk artifacts
 build_windows/
-out/
 FsusBlog.Wasm/build/
 FsusBlog.Wasm/build_windows/
-FsusBlog.Client/wasm/pow/build/
+FsusBlog.Client/src/wasm/dist/
 FsusBlog.Client/wasm/build/
-FsusBlog.Client/wasm/.cmake/
+FsusBlog.Client/wasm/pow/build/
 FsusBlog.Client/wasm/build-basic/
 FsusBlog.Client/wasm/build-simd/
+FsusBlog.Client/wasm/.cmake/
 FsusBlog.Client/wasm/.artifacts/
 FsusBlog.Client/wasm/.emscripten-cache/
 FsusBlog.Client/wasm/**/CMakeFiles/
 FsusBlog.Client/wasm/**/CMakeCache.txt
 FsusBlog.Client/wasm/**/cmake_install.cmake
+FsusBlog.Client/wasm/**/compile_commands.json
 FsusBlog.Client/wasm/**/Makefile
-FsusBlog.Client/src/wasm/dist/
-CMakeCache.txt
-CMakeFiles/
-*.cmake
-Makefile
+FsusBlog.Client/wasm/**/build.ninja
+FsusBlog.Client/wasm/**/rules.ninja
+FsusBlog.Client/wasm/**/.ninja_*
+FsusBlog.Client/wasm/**/*.rsp
+FsusBlog.Client/wasm/**/*.o
+FsusBlog.Client/wasm/**/*.a
 
-# ==========================================
-# 5. 本地工具与性能产物
-# ==========================================
-.codex/
+# Benchmark / profiling
 BenchmarkDotNet.Artifacts/
 FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/
 
-# ==========================================
-# 6. Local Codex Working Memory (local only)
-# ==========================================
+# Local-only agent / planning / scratch files
+.codex/
+.agents/
+.memory/
 AGENTS.MD
 PLANS.MD
 AOT_CACHE_TODO.md
 AOT_PUBLIC_TODO.md
 PUBLIC_AOT_SERVER_FIRST_TODO.md
 PUBLIC_AOT_TODO.md
+tasks
+B
+FsusBlog.Client/B

@@ -31,9 +31,24 @@ public static class PodUtf8Codec
         int byteCount = Utf8.GetByteCount(text);
         if (byteCount > 0)
         {
-            byte[] buffer = new byte[byteCount];
-            _ = Utf8.GetBytes(text, buffer);
-            payload.AddRange(buffer);
+            payload.EnsureCapacity(offset + byteCount);
+            CollectionsMarshal.SetCount(payload, offset + byteCount);
+
+            try
+            {
+                Span<byte> span = CollectionsMarshal.AsSpan(payload).Slice(offset, byteCount);
+                int written = Utf8.GetBytes(text.AsSpan(), span);
+                if (written != byteCount)
+                {
+                    CollectionsMarshal.SetCount(payload, offset + written);
+                    byteCount = written;
+                }
+            }
+            catch
+            {
+                CollectionsMarshal.SetCount(payload, offset);
+                throw;
+            }
         }
 
         return CreateSlice(offset, byteCount);
@@ -54,7 +69,7 @@ public static class PodUtf8Codec
         return CreateSlice(offset, byteCount);
     }
 
-    public static string ReadSlice(in Utf8SliceRef slice, byte[] payload)
+    public static string ReadSlice(in Utf8SliceRef slice, ReadOnlySpan<byte> payload)
     {
         if (slice.Length <= 0 || payload.Length == 0)
         {
@@ -66,7 +81,12 @@ public static class PodUtf8Codec
             return string.Empty;
         }
 
-        return Utf8.GetString(payload, slice.Offset, slice.Length);
+        return Utf8.GetString(payload.Slice(slice.Offset, slice.Length));
+    }
+
+    public static string ReadSlice(in Utf8SliceRef slice, byte[] payload)
+    {
+        return ReadSlice(slice, payload.AsSpan());
     }
 
     private static T EncodeFixed<T>(string? value) where T : unmanaged

@@ -1,18 +1,17 @@
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import type { AxiosRequestConfig } from 'axios'
 import {
   getArticles,
   permanentDeleteArticle,
   restoreArticle,
-  type ArticleListItem
+  type ArticleListItemResponse
 } from '@/api/article'
-import { useAbortableTask } from '@/composables/useAbortableTask'
-import { getErrorMessage, isAbortError } from '@/utils/errors'
+import { useMutationFlow } from '@/composables/useMutationFlow'
+import { useViewTask } from '@/composables/useViewTask'
 import { TimeUtils } from '@/utils/time'
 
-type AdminTrashViewItem = ArticleListItem & {
+type AdminTrashViewItem = ArticleListItemResponse & {
   createdAtText: string
   categoryName: string
 }
@@ -23,7 +22,7 @@ export function useAdminArticleTrash() {
   const router = useRouter()
 
   const loading = ref(false)
-  const trashList = shallowRef<ArticleListItem[]>([])
+  const trashList = shallowRef<ArticleListItemResponse[]>([])
   const total = ref(0)
   const submittingIds = ref<Set<number>>(new Set())
 
@@ -33,8 +32,8 @@ export function useAdminArticleTrash() {
     isDeleted: true
   })
 
-  const loadTask = useAbortableTask()
-  const submitTask = useAbortableTask()
+  const loadTask = useViewTask()
+  const mutation = useMutationFlow()
   const trashListView = computed<AdminTrashViewItem[]>(() =>
     trashList.value.map((item) => ({
       ...item,
@@ -50,85 +49,76 @@ export function useAdminArticleTrash() {
   const loadData = async (): Promise<void> => {
     const paramsSnapshot = { ...queryParam }
 
-    loading.value = true
-    try {
-      await loadTask.run(async (signal) => {
-        const config: AxiosRequestConfig = { signal }
-        const response = await getArticles(paramsSnapshot, config)
-        trashList.value = Object.freeze(response?.items || []) as ArticleListItem[]
-        total.value = Number(response?.total) || 0
-      })
-    } catch (error: unknown) {
-      if (!isAbortError(error)) {
+    const response = await loadTask.run(async (signal) => {
+      const config: AxiosRequestConfig = { signal }
+      return await getArticles(paramsSnapshot, config)
+    }, {
+      fallbackMessage: '无法同步回收站数据',
+      onError: (error) => {
         console.error('[Admin Trash] Sync error:', error)
-        ElMessage.error('无法同步回收站数据')
       }
-    } finally {
-      loading.value = false
+    })
+
+    if (response) {
+      trashList.value = Object.freeze(response?.items || []) as ArticleListItemResponse[]
+      total.value = Number(response?.total) || 0
     }
   }
 
-  const handleRestore = (row: ArticleListItem): void => {
+  const handleRestore = (row: ArticleListItemResponse): void => {
     if (submittingIds.value.has(row.id)) {
       return
     }
 
-    void ElMessageBox.confirm(`确定要恢复文章《${row.title}》吗？`, '恢复确认', {
-      confirmButtonText: '立即恢复',
-      cancelButtonText: '取消',
-      type: 'success',
-      roundButton: true,
-      dangerouslyUseHTMLString: false
-    }).then(async () => {
+    void (async () => {
       submittingIds.value.add(row.id)
       try {
-        await submitTask.run(async (signal) => {
+        await mutation.confirmThenRun({
+          message: `确定要恢复文章《${row.title}》吗？`,
+          title: '恢复确认',
+          confirmButtonText: '立即恢复',
+          type: 'success'
+        }, async (signal) => {
           const config: AxiosRequestConfig = { signal }
           await restoreArticle(row.id, config)
-          ElMessage.success('文章已恢复')
-          await loadData()
+        }, {
+          fallbackMessage: '文章恢复失败',
+          successMessage: '文章已恢复',
+          onSuccess: loadData
         })
-      } catch (error: unknown) {
-        if (!isAbortError(error)) {
-          console.error('[Admin Trash] Restore error:', error)
-          ElMessage.error(getErrorMessage(error, '文章恢复失败'))
-        }
       } finally {
         submittingIds.value.delete(row.id)
       }
-    }).catch(() => undefined)
+    })()
   }
 
-  const handlePermanentDelete = (row: ArticleListItem): void => {
+  const handlePermanentDelete = (row: ArticleListItemResponse): void => {
     if (submittingIds.value.has(row.id)) {
       return
     }
 
-    void ElMessageBox.confirm(`确定要彻底抹除文章《${row.title}》吗？此操作不可逆。`, '物理销毁警示', {
-      confirmButtonText: '确定抹除',
-      cancelButtonText: '取消',
-      confirmButtonClass: 'el-button--danger',
-      type: 'error',
-      roundButton: true,
-      dangerouslyUseHTMLString: false
-    }).then(async () => {
+    void (async () => {
       submittingIds.value.add(row.id)
       try {
-        await submitTask.run(async (signal) => {
+        await mutation.confirmThenRun({
+          message: `确定要彻底抹除文章《${row.title}》吗？此操作不可逆。`,
+          title: '物理销毁警示',
+          confirmButtonText: '确定抹除',
+          type: 'error',
+          confirmButtonClass: 'el-button--danger'
+        }, async (signal) => {
           const config: AxiosRequestConfig = { signal }
           await permanentDeleteArticle(row.id, config)
-          ElMessage.warning('数据已彻底抹除')
-          await loadData()
+        }, {
+          fallbackMessage: '文章彻底抹除失败',
+          successMessage: '数据已彻底抹除',
+          successType: 'warning',
+          onSuccess: loadData
         })
-      } catch (error: unknown) {
-        if (!isAbortError(error)) {
-          console.error('[Admin Trash] Delete error:', error)
-          ElMessage.error(getErrorMessage(error, '文章彻底抹除失败'))
-        }
       } finally {
         submittingIds.value.delete(row.id)
       }
-    }).catch(() => undefined)
+    })()
   }
 
   onMounted(() => {
@@ -137,7 +127,7 @@ export function useAdminArticleTrash() {
 
   onUnmounted(() => {
     loadTask.cancel()
-    submitTask.cancel()
+    mutation.cancel()
   })
 
   return {

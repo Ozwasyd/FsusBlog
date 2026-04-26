@@ -10,8 +10,6 @@ public interface IPublicAotShellService
 
     Task<string?> RenderAsync(HttpContext context, CancellationToken cancellationToken = default);
 
-    Task<string> RenderIndexAsync(HttpContext context, PublicPageKind kind, CancellationToken cancellationToken = default);
-
     Task<Result> StoreAsync(PublicAotShellBundleContract bundle, CancellationToken cancellationToken = default);
 
     Task<Result> InvalidateAllAsync(CancellationToken cancellationToken = default);

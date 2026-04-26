@@ -22,12 +22,18 @@ public readonly record struct ApiResponse<T>
     /// </summary>
     public T? Data { get; }
 
+    /// <summary>
+    /// 诊断链路 ID，仅错误响应携带
+    /// </summary>
+    public string? TraceId { get; }
+
     // 私有构造函数，强制通过静态工厂方法创建
-    private ApiResponse(int code, string message, T? data)
+    private ApiResponse(int code, string message, T? data, string? traceId)
     {
         Code = code;
         Message = message;
         Data = data;
+        TraceId = traceId;
     }
 
     // ================== 静态辅助方法 (语法糖) ==================
@@ -37,7 +43,7 @@ public readonly record struct ApiResponse<T>
     /// </summary>
     public static ApiResponse<T> Success(T data, string message = "Success")
     {
-        return new ApiResponse<T>(200, message, data);
+        return new ApiResponse<T>(200, message, data, null);
     }
 
     /// <summary>
@@ -45,15 +51,15 @@ public readonly record struct ApiResponse<T>
     /// </summary>
     public static ApiResponse<T> Success(string message = "Success")
     {
-        return new ApiResponse<T>(200, message, default);
+        return new ApiResponse<T>(200, message, default, null);
     }
 
     /// <summary>
     /// 失败/错误
     /// </summary>
-    public static ApiResponse<T> Fail(string message, int code = 400)
+    public static ApiResponse<T> Fail(string message, int code = 400, string? traceId = null)
     {
-        return new ApiResponse<T>(code, message, default);
+        return new ApiResponse<T>(code, message, default, traceId);
     }
 }
 
@@ -65,21 +71,23 @@ public readonly record struct ApiResponse
 {
     public int Code { get; }
     public string Message { get; }
+    public string? TraceId { get; }
 
-    private ApiResponse(int code, string message)
+    private ApiResponse(int code, string message, string? traceId)
     {
         Code = code;
         Message = message;
+        TraceId = traceId;
     }
 
     public static ApiResponse Success(string message = "成功")
     {
-        return new ApiResponse(200, message);
+        return new ApiResponse(200, message, null);
     }
 
-    public static ApiResponse Fail(string message, int code = 400)
+    public static ApiResponse Fail(string message, int code = 400, string? traceId = null)
     {
-        return new ApiResponse(code, message);
+        return new ApiResponse(code, message, traceId);
     }
 
     // 核心优化：定义隐式转换运算符。
@@ -87,7 +95,9 @@ public readonly record struct ApiResponse
     // 编译器会自动执行这个无开销的转换，完美解决了 struct 不能继承的问题。
     public static implicit operator ApiResponse<object>(ApiResponse response)
     {
-        return ApiResponse<object>.Success(response.Message);
+        return response.Code == 200
+            ? ApiResponse<object>.Success(response.Message)
+            : ApiResponse<object>.Fail(response.Message, response.Code, response.TraceId);
     }
 
     // 如果需要，也可以定义失败的转换
@@ -95,6 +105,6 @@ public readonly record struct ApiResponse
     {
         return response.Code == 200
            ? ApiResponse<string>.Success(response.Message)
-           : ApiResponse<string>.Fail(response.Message, response.Code);
+           : ApiResponse<string>.Fail(response.Message, response.Code, response.TraceId);
     }
 }

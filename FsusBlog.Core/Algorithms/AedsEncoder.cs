@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using FsusBlog.Core.Common;
 
@@ -11,33 +12,27 @@ public sealed class AedsEncoder : IAedsEncoder
     {
         int totalLength = AedsFrameHeader.Size + payload.Length;
         var frame = new byte[totalLength];
-        Span<byte> header = frame.AsSpan(0, AedsFrameHeader.Size);
-
-        BinaryPrimitives.WriteUInt32LittleEndian(header[0..4], Magic);
-        BinaryPrimitives.WriteUInt16LittleEndian(header[4..6], version);
-        BinaryPrimitives.WriteUInt16LittleEndian(header[6..8], (ushort)frameType);
-        BinaryPrimitives.WriteUInt32LittleEndian(header[8..12], flags);
-        BinaryPrimitives.WriteUInt32LittleEndian(header[12..16], (uint)payload.Length);
-        BinaryPrimitives.WriteUInt32LittleEndian(header[16..20], 0u);
-
-        uint payloadCrc32 = Crc32.Compute(payload);
-        BinaryPrimitives.WriteUInt32LittleEndian(header[20..24], payloadCrc32);
-
-        uint headerCrc32 = Crc32.Compute(header);
-        BinaryPrimitives.WriteUInt32LittleEndian(header[16..20], headerCrc32);
-
-        payload.CopyTo(frame.AsSpan(AedsFrameHeader.Size));
+        EncodeInto(frameType, payload, version, flags, frame);
         return frame;
     }
 
-    public Result<AedsDecodeResult> TryDecode(ReadOnlySpan<byte> frame)
+    public void WriteFrame(AedsFrameType frameType, ReadOnlySpan<byte> payload, IBufferWriter<byte> destination, ushort version = 1, uint flags = 0)
     {
-        if (frame.Length < AedsFrameHeader.Size)
+        int totalLength = AedsFrameHeader.Size + payload.Length;
+        Span<byte> frame = destination.GetSpan(totalLength).Slice(0, totalLength);
+        EncodeInto(frameType, payload, version, flags, frame);
+        destination.Advance(totalLength);
+    }
+
+    public Result<AedsDecodeResult> TryDecode(ReadOnlyMemory<byte> frame)
+    {
+        ReadOnlySpan<byte> frameSpan = frame.Span;
+        if (frameSpan.Length < AedsFrameHeader.Size)
         {
             return Result<AedsDecodeResult>.Failure(ErrorCode.Validation, "AEDS frame too short");
         }
 
-        ReadOnlySpan<byte> header = frame[..AedsFrameHeader.Size];
+        ReadOnlySpan<byte> header = frameSpan[..AedsFrameHeader.Size];
         uint magic = BinaryPrimitives.ReadUInt32LittleEndian(header[0..4]);
         if (magic != Magic)
         {
@@ -56,7 +51,7 @@ public sealed class AedsEncoder : IAedsEncoder
             return Result<AedsDecodeResult>.Failure(ErrorCode.Validation, "AEDS frame type unsupported");
         }
 
-        if (payloadLength != (uint)(frame.Length - AedsFrameHeader.Size))
+        if (payloadLength != (uint)(frameSpan.Length - AedsFrameHeader.Size))
         {
             return Result<AedsDecodeResult>.Failure(ErrorCode.Validation, "AEDS payload length mismatch");
         }
@@ -70,17 +65,16 @@ public sealed class AedsEncoder : IAedsEncoder
             return Result<AedsDecodeResult>.Failure(ErrorCode.Validation, "AEDS header crc mismatch");
         }
 
-        ReadOnlySpan<byte> payloadSpan = frame[AedsFrameHeader.Size..];
+        ReadOnlySpan<byte> payloadSpan = frameSpan[AedsFrameHeader.Size..];
         uint computedPayloadCrc = Crc32.Compute(payloadSpan);
         if (computedPayloadCrc != payloadCrc32)
         {
             return Result<AedsDecodeResult>.Failure(ErrorCode.Validation, "AEDS payload crc mismatch");
         }
 
-        var payload = payloadSpan.ToArray();
         var typedFrame = (AedsFrameType)frameTypeRaw;
         var headerModel = new AedsFrameHeader(magic, version, frameTypeRaw, flags, payloadLength, headerCrc32, payloadCrc32);
-        return Result<AedsDecodeResult>.Success(new AedsDecodeResult(headerModel, payload, typedFrame));
+        return Result<AedsDecodeResult>.Success(new AedsDecodeResult(headerModel, frame[AedsFrameHeader.Size..], typedFrame));
     }
 
     private static class Crc32
@@ -115,5 +109,25 @@ public sealed class AedsEncoder : IAedsEncoder
 
             return table;
         }
+    }
+
+    private static void EncodeInto(AedsFrameType frameType, ReadOnlySpan<byte> payload, ushort version, uint flags, Span<byte> frame)
+    {
+        Span<byte> header = frame[..AedsFrameHeader.Size];
+
+        BinaryPrimitives.WriteUInt32LittleEndian(header[0..4], Magic);
+        BinaryPrimitives.WriteUInt16LittleEndian(header[4..6], version);
+        BinaryPrimitives.WriteUInt16LittleEndian(header[6..8], (ushort)frameType);
+        BinaryPrimitives.WriteUInt32LittleEndian(header[8..12], flags);
+        BinaryPrimitives.WriteUInt32LittleEndian(header[12..16], (uint)payload.Length);
+        BinaryPrimitives.WriteUInt32LittleEndian(header[16..20], 0u);
+
+        uint payloadCrc32 = Crc32.Compute(payload);
+        BinaryPrimitives.WriteUInt32LittleEndian(header[20..24], payloadCrc32);
+
+        payload.CopyTo(frame[AedsFrameHeader.Size..]);
+
+        uint headerCrc32 = Crc32.Compute(header);
+        BinaryPrimitives.WriteUInt32LittleEndian(header[16..20], headerCrc32);
     }
 }

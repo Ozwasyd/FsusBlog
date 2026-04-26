@@ -1,163 +1,422 @@
-﻿using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http.HttpResults;
-using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
 namespace FsusBlog.Server.Modules.Endpoints;
 
-/// <summary>
-/// 身份认证高频端点 (Minimal API)
-/// 修复日期: 2026-02-23 (严格使用 C# 标准联合返回类型)
-/// </summary>
 public static class AuthEndpoints
 {
-    // 性能优化：JwtSecurityTokenHandler 是线程安全的，全局复用
-    private static readonly JwtSecurityTokenHandler _jwtHandler = new();
-
     public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("api/Auth").WithTags("Auth-Core");
 
-        // 1. 获取 PoW 挑战
-        group.MapGet("pow-challenge", async (
-            HttpContext context,
-            IPowService powService) =>
+        group.MapGet("pow-challenge", async (HttpContext context, IPowService powService) =>
         {
-            var clientIp = context.GetClientIp();
+            string clientIp = context.GetClientIp();
             var challenge = await powService.GenerateChallengeAsync(clientIp);
             return TypedResults.Ok(challenge);
         })
         .RequireRateLimiting("fixed_ip")
         .AllowAnonymous();
 
-        // 2. 用户注册
-        group.MapPost("register", async Task<Results<Ok<ApiResponse>, BadRequest<ApiResponse>, JsonHttpResult<ApiResponse>>> (
+        group.MapPost("register", async Task<Results<Ok<ApiResponse>, BadRequest<ApiResponse>>> (
             RegisterDto dto,
-            IUserService userService,
-            HttpContext context) =>
+            IUserService userService) =>
         {
             var (success, message) = await userService.RegisterAsync(dto);
             return success
-                ? TypedResults.Ok(ApiResponse.Success("注册成功"))
-                : TypedResults.BadRequest(ApiResponse.Fail(message, 400));
+                ? ApiResults.Ok("注册成功")
+                : ApiResults.BadRequest(message, 400);
         })
         .RequireRateLimiting("fixed_ip")
         .AllowAnonymous()
         .AddEndpointFilter<RequiresPowFilter>();
 
-        // 3. 用户登录
-        group.MapPost("login", async Task<Results<Ok<ApiResponse<LoginResponseDto>>, BadRequest<ApiResponse>, JsonHttpResult<ApiResponse>>> (
+        group.MapPost("login", async Task<Results<Ok<ApiResponse<AuthLoginFlowDto>>, JsonHttpResult<ApiResponse>>> (
             LoginDto dto,
-            IUserService userService,
+            UserService userService,
+            IMfaChallengeService mfaChallengeService,
             IWebHostEnvironment env,
-            HttpContext context) =>
+            HttpContext context,
+            AuthCookieService authCookieService) =>
         {
             if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
-                return TypedResults.BadRequest(ApiResponse.Fail("用户名或密码不能为空"));
+            {
+                return ApiResults.Status(400, "用户名或密码不能为空");
+            }
 
             string clientIp = context.GetClientIp();
+            string? deviceFp = GetDeviceFingerprint(context);
+            string? userAgent = context.Request.Headers.UserAgent.ToString();
 
-            var (success, message, token, userEntity) = await userService.LoginAsync(dto, clientIp);
+            var check = await userService.ValidateCredentialsAsync(dto, clientIp);
+            if (!check.Success || check.User == null)
+            {
+                return ApiResults.Unauthorized(check.Message);
+            }
 
-            if (!success || token == null || userEntity == null)
-                return TypedResults.Json(ApiResponse.Fail(message, 401), statusCode: 401);
+            if (check.User.MfaEnabled)
+            {
+                var risk = await userService.EvaluateLoginRiskAsync(check.User.Id, clientIp, deviceFp, userAgent);
+                var ticket = await mfaChallengeService.CreateLoginChallengeAsync(
+                    check.User.Id,
+                    risk.RequiresMfa,
+                    dto.RememberMe);
 
-            var jwtToken = _jwtHandler.ReadJwtToken(token.Value.AccessToken);
-            var roleStr = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role || c.Type == "role")?.Value;
+                var flow = new AuthLoginFlowDto(
+                    new AuthIdentitySnapshotDto(check.User.Id, check.User.Username, check.User.Role),
+                    "mfa_required",
+                    risk.RequiresMfa ? "risk" : "standard",
+                    ticket.TicketId);
 
-            SetTokenCookies(context, env, token.Value.AccessToken, token.Value.RefreshToken);
+                return ApiResults.Ok(flow, "MFA_REQUIRED");
+            }
 
-            var responseDto = new LoginResponseDto(userEntity.Id, userEntity.Username, roleStr?.ToLowerInvariant() ?? "user");
-            return TypedResults.Ok(ApiResponse<LoginResponseDto>.Success(responseDto));
+            var login = await userService.CompleteLoginAsync(
+                check.User,
+                clientIp,
+                deviceFp,
+                userAgent,
+                mfaVerified: !check.User.MfaEnabled,
+                rememberMe: dto.RememberMe);
+            if (!login.Success || login.Data == null || login.UserEntity == null)
+            {
+                return ApiResults.Unauthorized(login.Message);
+            }
+
+            authCookieService.SetTokenCookies(context, env, login.Data.Value.AccessToken, login.Data.Value.RefreshToken, login.UserEntity.RefreshTokenExpiryTime ?? DateTime.UtcNow.AddDays(7));
+
+            var done = new AuthLoginFlowDto(
+                new AuthIdentitySnapshotDto(login.UserEntity.Id, login.UserEntity.Username, login.UserEntity.Role.ToLowerInvariant()),
+                "authenticated",
+                null,
+                null);
+            return ApiResults.Ok(done, "登录成功");
         })
         .RequireRateLimiting("fixed_ip")
         .AllowAnonymous()
         .AddEndpointFilter<RequiresPowFilter>();
 
-        // 4. 获取当前用户信息
-        group.MapGet("me", async Task<Results<Ok<ApiResponse<LoginResponseDto>>, NotFound<ApiResponse>>> (
+        group.MapGet("me", async Task<Results<Ok<ApiResponse<CurrentUserSnapshotDto>>, JsonHttpResult<ApiResponse>, NotFound<ApiResponse>>> (
             ClaimsPrincipal userPrincipal,
             IUserService userService) =>
         {
-            var userId = userPrincipal.GetUserId();
+            var userContext = EndpointUserContext.From(userPrincipal);
+            int userId = userContext.UserId;
             var user = await userService.GetByIdAsync(userId);
+            if (user == null) return ApiResults.NotFound("用户不存在");
+            if (user.Status == 2 || user.DeletedAt.HasValue)
+            {
+                return ApiResults.Unauthorized("账户已注销");
+            }
 
-            if (user == null) return TypedResults.NotFound(ApiResponse.Fail("用户不存在", 404));
-
-            var responseDto = new LoginResponseDto(user.Id, user.Username, user.Role);
-            return TypedResults.Ok(ApiResponse<LoginResponseDto>.Success(responseDto));
+            var responseDto = new CurrentUserSnapshotDto(user.Id, user.Username, user.Role, user.Status, user.BanReason, user.DeletedAt);
+            return ApiResults.Ok(responseDto);
         })
         .RequireAuthorization();
 
-        // 5. 刷新令牌
         group.MapPost("refresh-token", async Task<Results<Ok<ApiResponse>, JsonHttpResult<ApiResponse>>> (
             HttpContext context,
-            IUserService userService,
-            IWebHostEnvironment env) =>
+            UserService userService,
+            IWebHostEnvironment env,
+            AuthCookieService authCookieService) =>
         {
-            if (!context.Request.Cookies.TryGetValue("RefreshToken", out var oldRefreshToken) || string.IsNullOrEmpty(oldRefreshToken))
-                return TypedResults.Json(ApiResponse.Fail("会话已失效，请重新登录", 401), statusCode: 401);
-
-            var (success, newTokens) = await userService.RefreshTokenAsync(oldRefreshToken);
-
-            if (!success || newTokens == null)
+            string? oldRefreshToken = authCookieService.ReadRefreshToken(context);
+            if (string.IsNullOrEmpty(oldRefreshToken))
             {
-                ClearTokenCookies(context);
-                return TypedResults.Json(ApiResponse.Fail("刷新凭证已失效", 401), statusCode: 401);
+                return ApiResults.Unauthorized("会话已失效，请重新登录");
             }
 
-            SetTokenCookies(context, env, newTokens.Value.AccessToken, newTokens.Value.RefreshToken);
-            return TypedResults.Ok(ApiResponse.Success("Token 已刷新"));
+            string? sessionId = authCookieService.ReadSessionId(context);
+            var (success, newTokens) = await userService.RefreshTokenAsync(oldRefreshToken, sessionId);
+            if (!success || newTokens == null)
+            {
+                authCookieService.ClearTokenCookies(context);
+                return ApiResults.Unauthorized("刷新凭证已失效");
+            }
+
+            var session = await userService.GetSessionByRefreshTokenAsync(newTokens.Value.RefreshToken);
+            authCookieService.SetTokenCookies(
+                context,
+                env,
+                newTokens.Value.AccessToken,
+                newTokens.Value.RefreshToken,
+                session?.IdleExpiresAt ?? DateTime.UtcNow.AddDays(7));
+            return ApiResults.Ok("Token 已刷新");
         })
         .RequireRateLimiting("fixed_ip")
         .AllowAnonymous();
 
-        // 6. 退出登录
         group.MapPost("logout", async (
             HttpContext context,
-            IUserService userService) =>
+            UserService userService,
+            AuthCookieService authCookieService) =>
         {
-            if (context.Request.Cookies.TryGetValue("RefreshToken", out var refreshToken) && !string.IsNullOrEmpty(refreshToken))
+            string? refreshToken = authCookieService.ReadRefreshToken(context);
+            if (!string.IsNullOrEmpty(refreshToken))
             {
                 await userService.RevokeRefreshTokenAsync(refreshToken);
             }
 
-            ClearTokenCookies(context);
-            return TypedResults.Ok(ApiResponse.Success("安全退出成功"));
+            authCookieService.ClearTokenCookies(context);
+            return ApiResults.Ok("安全退出成功");
         })
         .RequireAuthorization();
+
+        group.MapPost("delete-account", async Task<IResult> (
+            HttpContext context,
+            UserService userService,
+            AuthCookieService authCookieService) =>
+        {
+            int userId = context.User.GetUserId();
+            var dto = await context.Request.ReadFromJsonAsync<DeleteAccountRequestDto>(context.RequestAborted);
+            if (dto == null)
+            {
+                return AuthErrorResults.InvalidRequest();
+            }
+
+            var result = await userService.DeleteAccountAsync(userId, dto);
+            if (!result.Success)
+            {
+                return ApiResults.Unprocessable(result.Message);
+            }
+
+            authCookieService.ClearTokenCookies(context);
+            return ApiResults.Ok(result.Message);
+        })
+        .RequireAuthorization()
+        .AddEndpointFilter<RequiresPowFilter>();
+
+        group.MapGet("sessions", async (ClaimsPrincipal user, UserService userService) =>
+        {
+            var userContext = EndpointUserContext.From(user);
+            var sessions = await userService.GetUserSessionsAsync(userContext.UserId, userContext.SessionId);
+            return ApiResults.Ok(sessions);
+        })
+        .RequireAuthorization();
+
+        group.MapPost("sessions/{id}/revoke", async Task<Results<Ok<ApiResponse>, NotFound<ApiResponse>>> (
+            ClaimsPrincipal user,
+            UserService userService,
+            string id) =>
+        {
+            var userContext = EndpointUserContext.From(user);
+            bool revoked = await userService.RevokeSessionAsync(userContext.UserId, id);
+            return revoked
+                ? ApiResults.Ok("会话已下线")
+                : ApiResults.NotFound("会话不存在");
+        })
+        .RequireAuthorization();
+
+        group.MapPost("sessions/revoke-others", async (ClaimsPrincipal user, UserService userService) =>
+        {
+            var userContext = EndpointUserContext.From(user);
+            int count = await userService.RevokeOtherSessionsAsync(userContext.UserId, userContext.SessionId);
+            return ApiResults.Ok($"已下线 {count} 个会话");
+        })
+        .RequireAuthorization();
+
+        group.MapPost("mfa/setup/start", async Task<IResult> (HttpContext context) =>
+        {
+            var userService = context.RequestServices.GetRequiredService<UserService>();
+            var systemService = context.RequestServices.GetRequiredService<ISystemService>();
+            int userId = context.User.GetUserId();
+            var site = await systemService.GetSeoConfigAsync();
+            string issuer = string.IsNullOrWhiteSpace(site.Title) ? "FsusBlog" : site.Title;
+            var result = await userService.StartMfaSetupAsync(userId, issuer);
+            return result.Success && result.Data != null
+                ? ApiResults.Ok(result.Data.Value, result.Message)
+                : ApiResults.BadRequest(result.Message);
+        }).RequireAuthorization();
+
+        group.MapGet("mfa/profile", async Task<IResult> (ClaimsPrincipal user, UserService userService) =>
+        {
+            int userId = user.GetUserId();
+            var profile = await userService.GetMfaProfileAsync(userId);
+            if (profile == null)
+            {
+                return ApiResults.NotFound("用户不存在");
+            }
+
+            return ApiResults.Ok(profile.Value);
+        }).RequireAuthorization();
+
+        group.MapPost("mfa/setup/verify", async Task<IResult> (HttpContext context) =>
+        {
+            var userService = context.RequestServices.GetRequiredService<UserService>();
+            int userId = context.User.GetUserId();
+            var dto = await context.Request.ReadFromJsonAsync<MfaSetupVerifyRequestDto>(context.RequestAborted);
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Code))
+            {
+                return AuthErrorResults.InvalidRequest();
+            }
+
+            var result = await userService.VerifyMfaSetupAsync(userId, dto.Code);
+            return result.Success && result.Data != null
+                ? ApiResults.Ok(result.Data, result.Message)
+                : ApiResults.Unprocessable(result.Message);
+        }).RequireAuthorization();
+
+        group.MapPost("mfa/disable", async Task<IResult> (HttpContext context) =>
+        {
+            var userService = context.RequestServices.GetRequiredService<UserService>();
+            int userId = context.User.GetUserId();
+            var dto = await context.Request.ReadFromJsonAsync<MfaDisableRequestDto>(context.RequestAborted);
+            if (dto == null)
+            {
+                return AuthErrorResults.InvalidRequest();
+            }
+
+            var result = await userService.DisableMfaAsync(userId, dto.Password, dto.Code, dto.RecoveryCode);
+            return result.Success
+                ? ApiResults.Ok(result.Message)
+                : ApiResults.Unprocessable(result.Message);
+        }).RequireAuthorization();
+
+        group.MapPost("mfa/recovery/regenerate", async Task<IResult> (HttpContext context) =>
+        {
+            var userService = context.RequestServices.GetRequiredService<UserService>();
+            int userId = context.User.GetUserId();
+            var dto = await context.Request.ReadFromJsonAsync<MfaDisableRequestDto>(context.RequestAborted);
+            if (dto == null)
+            {
+                return AuthErrorResults.InvalidRequest();
+            }
+
+            var result = await userService.RegenerateMfaRecoveryCodesAsync(userId, dto.Password, dto.Code, dto.RecoveryCode);
+            return result.Success && result.Data != null
+                ? ApiResults.Ok(result.Data, result.Message)
+                : ApiResults.Unprocessable(result.Message);
+        }).RequireAuthorization();
+
+        group.MapPost("mfa/challenge/start", async Task<IResult> (HttpContext context) =>
+        {
+            var userService = context.RequestServices.GetRequiredService<UserService>();
+            var challengeService = context.RequestServices.GetRequiredService<IMfaChallengeService>();
+            int userId = context.User.GetUserId();
+            var dto = await context.Request.ReadFromJsonAsync<MfaChallengeRequestDto>(context.RequestAborted);
+            string action = string.IsNullOrWhiteSpace(dto?.Action) ? "generic" : dto!.Action!;
+            var userEntity = await userService.GetByIdAsync(userId);
+            if (userEntity == null)
+            {
+                return AuthErrorResults.UserNotFound();
+            }
+
+            if (!userEntity.MfaEnabled)
+            {
+                string proofToken = await challengeService.CreateProofTokenAsync(userEntity.Id, action, TimeSpan.FromMinutes(5));
+                return ApiResults.Ok(new MfaChallengeResultDto(true, action, proofToken, null), "MFA_NOT_REQUIRED");
+            }
+
+            string? deviceFp = GetDeviceFingerprint(context);
+            var risk = await userService.EvaluateLoginRiskAsync(userId, context.GetClientIp(), deviceFp, context.Request.Headers.UserAgent.ToString());
+            var ticket = await challengeService.CreateActionChallengeAsync(userEntity.Id, action, risk.RequiresMfa);
+            return ApiResults.Ok(new MfaChallengeResultDto(false, action, ticket.TicketId, null), "MFA_CHALLENGE_CREATED");
+        }).RequireAuthorization();
+
+        group.MapPost("mfa/challenge", async Task<IResult> (HttpContext context) =>
+        {
+            var userService = context.RequestServices.GetRequiredService<UserService>();
+            var challengeService = context.RequestServices.GetRequiredService<IMfaChallengeService>();
+            var env = context.RequestServices.GetRequiredService<IWebHostEnvironment>();
+            var dto = await context.Request.ReadFromJsonAsync<MfaChallengeRequestDto>(context.RequestAborted);
+            if (dto == null || string.IsNullOrWhiteSpace(dto.ChallengeToken))
+            {
+                return AuthErrorResults.ChallengeRequired();
+            }
+
+            var ticket = await challengeService.GetChallengeAsync(dto.ChallengeToken);
+            if (ticket == null)
+            {
+                return AuthErrorResults.ChallengeExpired();
+            }
+
+            var userEntity = await userService.GetByIdAsync(ticket.UserId);
+            if (userEntity == null)
+            {
+                await challengeService.ConsumeChallengeAsync(ticket.TicketId);
+                return AuthErrorResults.UserNotFound("USER_NOT_FOUND");
+            }
+
+            bool verified = await userService.VerifyMfaOrRecoveryCodeAsync(userEntity, dto.Code, dto.RecoveryCode, persistRecoveryConsumption: true);
+            if (!verified)
+            {
+                return AuthErrorResults.InvalidTotp();
+            }
+
+            await challengeService.ConsumeChallengeAsync(ticket.TicketId);
+
+            if (ticket.Type == "login")
+            {
+                var login = await userService.CompleteLoginAsync(
+                    userEntity,
+                    context.GetClientIp(),
+                    GetDeviceFingerprint(context),
+                    context.Request.Headers.UserAgent.ToString(),
+                    mfaVerified: true,
+                    rememberMe: ticket.RememberMe);
+                if (!login.Success || login.Data == null || login.UserEntity == null)
+                {
+                    return ApiResults.Unauthorized("LOGIN_FINALIZE_FAILED");
+                }
+
+                var authCookieService = context.RequestServices.GetRequiredService<AuthCookieService>();
+                authCookieService.SetTokenCookies(context, env, login.Data.Value.AccessToken, login.Data.Value.RefreshToken, login.UserEntity.RefreshTokenExpiryTime ?? DateTime.UtcNow.AddDays(7));
+                return ApiResults.Ok(new MfaChallengeResultDto(
+                    true,
+                    "login",
+                    null,
+                    new AuthIdentitySnapshotDto(login.UserEntity.Id, login.UserEntity.Username, login.UserEntity.Role)
+                ), "MFA_VERIFIED");
+            }
+
+            string proofToken = await challengeService.CreateProofTokenAsync(ticket.UserId, ticket.Action, TimeSpan.FromMinutes(5));
+            return ApiResults.Ok(new MfaChallengeResultDto(true, ticket.Action, proofToken, null), "MFA_VERIFIED");
+        }).AllowAnonymous();
+
+        group.MapPost("admin/users/{id:int}/mfa/reset", async Task<Results<Ok<ApiResponse>, NotFound<ApiResponse>>> (
+            int id,
+            UserService userService,
+            ClaimsPrincipal principal) =>
+        {
+            if (!principal.IsInRole("admin"))
+            {
+                return ApiResults.NotFound("无权限");
+            }
+
+            var user = await userService.GetByIdAsync(id);
+            if (user == null)
+            {
+                return ApiResults.NotFound("用户不存在");
+            }
+
+            await userService.ResetMfaByAdminAsync(id);
+            return ApiResults.Ok("MFA 已重置");
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"));
     }
 
-    private static void SetTokenCookies(HttpContext context, IWebHostEnvironment env, string access, string refresh)
+    private static string? GetDeviceFingerprint(HttpContext context)
     {
-        var isProd = !env.IsDevelopment();
-        var baseOptions = new CookieOptions
+        if (!context.Request.Headers.TryGetValue("X-Fsus-Device-Fp", out var raw))
         {
-            HttpOnly = true,
-            Secure = isProd,
-            SameSite = SameSiteMode.Strict,
-            Path = "/"
-        };
-
-        context.Response.Cookies.Append("AccessToken", access, new CookieOptions(baseOptions)
+            return null;
+        }
+        string? value = raw.ToString();
+        if (string.IsNullOrWhiteSpace(value))
         {
-            Expires = DateTime.UtcNow.AddMinutes(15)
-        });
-
-        context.Response.Cookies.Append("RefreshToken", refresh, new CookieOptions(baseOptions)
-        {
-            Expires = DateTime.UtcNow.AddDays(7)
-        });
-    }
-
-    private static void ClearTokenCookies(HttpContext context)
-    {
-        context.Response.Cookies.Delete("AccessToken");
-        context.Response.Cookies.Delete("RefreshToken");
+            return null;
+        }
+        return value.Length <= 128 ? value : value[..128];
     }
 }

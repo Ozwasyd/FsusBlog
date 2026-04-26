@@ -1,11 +1,11 @@
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminChangeStatus, adminResetPassword, getAdminUserList, type UserListItem, type UserQueryDto } from '@/api/admin'
 import { usePow } from '@/composables/usePow'
-import { useAbortableTask } from '@/composables/useAbortableTask'
+import { useMutationFlow } from '@/composables/useMutationFlow'
+import { useViewTask } from '@/composables/useViewTask'
 import { useWindowEvents } from '@/composables/useWindowEvents'
-import { isAbortError } from '@/utils/errors'
 import { TimeUtils } from '@/utils/time'
+import { showWarningToast } from '@/utils/errorPresentation'
 
 export interface UserListViewItem extends UserListItem {
   initials: string
@@ -13,10 +13,11 @@ export interface UserListViewItem extends UserListItem {
   lastLoginText: string
   roleShort: 'ADM' | 'USR'
   roleClass: string
-  statusText: 'NORMAL' | 'BANNED'
+  statusText: 'NORMAL' | 'BANNED' | 'DELETED'
   statusClass: string
   statusDotClass: string
   isAdmin: boolean
+  isDeleted: boolean
 }
 
 export function useAdminUserManage() {
@@ -33,18 +34,20 @@ export function useAdminUserManage() {
   const listView = computed<UserListViewItem[]>(() =>
     list.value.map((item) => {
       const isAdmin = item.role === 'admin'
-      const isBanned = item.status !== 0
+      const isDeleted = item.status === 2
+      const isBanned = item.status === 1
       return {
         ...item,
         initials: item.username.substring(0, 2).toUpperCase(),
         createdAtText: TimeUtils.toFullLocalString(item.createTime),
         lastLoginText: item.lastLoginTime ? TimeUtils.toFullLocalString(item.lastLoginTime) : '--',
         roleShort: isAdmin ? 'ADM' : 'USR',
-        roleClass: isAdmin ? 'text-red-500' : 'text-zinc-400',
-        statusText: isBanned ? 'BANNED' : 'NORMAL',
-        statusClass: isBanned ? 'text-red-500' : 'text-emerald-600',
-        statusDotClass: isBanned ? 'bg-red-400' : 'bg-emerald-400',
-        isAdmin
+        roleClass: isAdmin ? 'text-red-500' : 'text-[#A1A1AA]',
+        statusText: isDeleted ? 'DELETED' : isBanned ? 'BANNED' : 'NORMAL',
+        statusClass: isDeleted ? 'text-[#A1A1AA]' : isBanned ? 'text-red-500' : 'text-emerald-600',
+        statusDotClass: isDeleted ? 'bg-[#D4D4D8]' : isBanned ? 'bg-red-400' : 'bg-emerald-400',
+        isAdmin,
+        isDeleted
       }
     })
   )
@@ -57,11 +60,10 @@ export function useAdminUserManage() {
   })
 
   const powProvider = usePow()
-  const loadTask = useAbortableTask()
-  const submitTask = useAbortableTask()
+  const loadTask = useViewTask()
+  const mutation = useMutationFlow()
 
   const buildSignalConfig = (signal: AbortSignal) => ({ signal })
-  const isCancelError = (error: unknown): boolean => String(error) === 'cancel'
 
   const processingId = ref<number | null>(null)
   const submitting = ref(false)
@@ -81,20 +83,25 @@ export function useAdminUserManage() {
     quickReasons: ['发布违规内容', '恶意刷屏/垃圾信息', '账号安全异常', '违反社区准则']
   })
 
-  const fetchData = async (): Promise<void> => {
-    loadTask.cancel()
-    loading.value = true
-    try {
-      const res = await loadTask.run(async (signal) => await getAdminUserList(queryParams, buildSignalConfig(signal)))
+  const fetchData = async (): Promise<boolean> => {
+    const res = await loadTask.run(
+      async (signal) => await getAdminUserList(queryParams, buildSignalConfig(signal)),
+      {
+        fallbackMessage: '用户列表加载失败',
+        onError: (error) => {
+        console.error('[Admin Users] Load failed:', error)
+          list.value = []
+          total.value = 0
+        }
+      }
+    )
+
+    if (res) {
       list.value = res.items
       total.value = res.total
-    } catch (error: unknown) {
-      if (!isAbortError(error)) {
-        console.error('[Admin Users] Load failed:', error)
-      }
-    } finally {
-      loading.value = false
     }
+
+    return res !== undefined
   }
 
   const onKeywordChange = (keyword: string): void => {
@@ -132,6 +139,11 @@ export function useAdminUserManage() {
       return
     }
 
+    if (row.status === 2) {
+      showWarningToast('已注销账户不可再变更状态')
+      return
+    }
+
     if (row.status === 0) {
       banDialog.targetUser = row
       banDialog.reason = ''
@@ -139,26 +151,23 @@ export function useAdminUserManage() {
       return
     }
 
+    processingId.value = row.id
+    submitting.value = true
+
     try {
-      await ElMessageBox.confirm(`确定要为用户 "${row.username}" 解除封禁吗？`, '操作确认', {
+      await mutation.confirmThenRun({
+        message: `确定要为用户 "${row.username}" 解除封禁吗？`,
+        title: '操作确认',
         confirmButtonText: '立即解封',
-        cancelButtonText: '取消',
-        type: 'info',
-        dangerouslyUseHTMLString: false
+        type: 'info'
+      }, async (signal) => {
+        await adminChangeStatus({ userId: row.id, status: 0 }, buildSignalConfig(signal))
+      }, {
+        fallbackMessage: '操作失败',
+        successMessage: `用户 ${row.username} 已解封`,
+        postSuccessWarningMessage: `用户 ${row.username} 已解封，但列表同步失败，请稍后刷新`,
+        onSuccess: fetchData
       })
-
-      processingId.value = row.id
-      submitting.value = true
-
-      submitTask.cancel()
-      await submitTask.run(async (signal) => await adminChangeStatus({ userId: row.id, status: 0 }, buildSignalConfig(signal)))
-
-      ElMessage.success(`用户 ${row.username} 已解封`)
-      await fetchData()
-    } catch (error: unknown) {
-      if (!isCancelError(error)) {
-        ElMessage.error('操作失败')
-      }
     } finally {
       processingId.value = null
       submitting.value = false
@@ -168,7 +177,7 @@ export function useAdminUserManage() {
   const handleBanSubmit = async (): Promise<void> => {
     const targetUser = banDialog.targetUser
     if (!targetUser || !banDialog.reason.trim()) {
-      ElMessage.warning('请选择或输入封禁理由')
+      showWarningToast('请选择或输入封禁理由')
       return
     }
 
@@ -176,8 +185,7 @@ export function useAdminUserManage() {
     submitting.value = true
 
     try {
-      submitTask.cancel()
-      await submitTask.run(async (signal) =>
+      await mutation.run(async (signal) =>
         await adminChangeStatus(
           {
             userId: targetUser.id,
@@ -186,15 +194,15 @@ export function useAdminUserManage() {
           },
           buildSignalConfig(signal)
         )
-      )
-
-      ElMessage.success(`用户 ${targetUser.username} 已封禁`)
-      banDialog.visible = false
-      await fetchData()
-    } catch (error: unknown) {
-      if (!isAbortError(error)) {
-        ElMessage.error('封禁操作失败')
-      }
+      , {
+        fallbackMessage: '封禁操作失败',
+        successMessage: `用户 ${targetUser.username} 已封禁`,
+        postSuccessWarningMessage: `用户 ${targetUser.username} 已封禁，但列表同步失败，请稍后刷新`,
+        onSuccess: async () => {
+          banDialog.visible = false
+          return await fetchData()
+        }
+      })
     } finally {
       processingId.value = null
       submitting.value = false
@@ -210,7 +218,7 @@ export function useAdminUserManage() {
   const handleResetSubmit = async (): Promise<void> => {
     const newPassword = resetDialog.form.newPassword.trim()
     if (newPassword.length < 6) {
-      ElMessage.warning('密码安全性不足（需6位以上）')
+      showWarningToast('密码安全性不足（需6位以上）')
       return
     }
 
@@ -222,8 +230,7 @@ export function useAdminUserManage() {
     submitting.value = true
 
     try {
-      submitTask.cancel()
-      await submitTask.run(async (signal) =>
+      await mutation.run(async (signal) =>
         await adminResetPassword(
           {
             userId: targetUser.id,
@@ -231,14 +238,13 @@ export function useAdminUserManage() {
           },
           buildSignalConfig(signal)
         )
-      )
-
-      ElMessage.success('密码重置成功')
-      resetDialog.visible = false
-    } catch (error: unknown) {
-      if (!isAbortError(error)) {
-        ElMessage.error('操作失败')
-      }
+      , {
+        fallbackMessage: '操作失败',
+        successMessage: '密码重置成功',
+        onSuccess: () => {
+          resetDialog.visible = false
+        }
+      })
     } finally {
       submitting.value = false
     }
@@ -258,12 +264,12 @@ export function useAdminUserManage() {
 
   onUnmounted(() => {
     loadTask.cancel()
-    submitTask.cancel()
+    mutation.cancel()
   })
 
   return {
     isMobile,
-    loading,
+    loading: loadTask.loading,
     list,
     listView,
     total,

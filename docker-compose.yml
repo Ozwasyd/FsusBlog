@@ -7,10 +7,16 @@ services:
     build:
       context: .
       dockerfile: FsusBlog.Server/Dockerfile
+      target: final
+      args:
+        GITHUB_PACKAGES_TOKEN: ${GITHUB_PACKAGES_TOKEN}
+      secrets:
+        - github_packages_token
     # [修改日期 2026-03-01] 逻辑自洽：容器重命名为 fsus-app，因为它现在同时包含了 UI 和 API
     container_name: fsus-app
     image: ${DOCKER_REGISTRY-}fsusblogapp
     restart: always
+    stop_grace_period: 30s
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       # 数据库连接：由外部 .env 驱动
@@ -26,9 +32,29 @@ services:
       - fsus-app-network
       - fsus-infra-network
     volumes:
-      # 核心修复(2026-02-21)：使用具名卷替代物理路径挂载，解决 LuceneIndex 权限拒绝问题
       - fsus-uploads:/app/wwwroot/uploads
-      - fsus-luceneindex:/app/LuceneIndex
+      - fsus-aot-cache:/app/wwwroot/aot-cache
+      - fsus-logs:/app/Logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health/live >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    # 资源限制按 2C/2G VPS 的实用中高压基线给出；更高规格可通过 compose override 覆盖。
+    deploy:
+      resources:
+        limits:
+          cpus: "2.00"
+          memory: 2048M
+        reservations:
+          cpus: "0.50"
+          memory: 512M
     #[修改日期 2026-03-01] 
     # 物理对接：暴露出 Kestrel 的默认 8080 端口，供宿主机的 OpenResty/Nginx 网关直接反向代理
     ports:
@@ -48,4 +74,9 @@ networks:
 # 定义具名卷，确保持久化数据由 Docker 引擎统一管理权限映射
 volumes:
   fsus-uploads:
-  fsus-luceneindex:
+  fsus-aot-cache:
+  fsus-logs:
+
+secrets:
+  github_packages_token:
+    environment: GITHUB_PACKAGES_TOKEN

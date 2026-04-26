@@ -1,8 +1,11 @@
-﻿using FsusBlog.Server.Infrastructure.Filters;
+﻿using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
+using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Models.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,10 +25,22 @@ public partial class SystemController( // 声明为 partial 以支持源生成�
 {
     // ================= 1. SEO 配置 (SEO Config) =================
 
+    [HttpGet("admin/seo")]
+    public async Task<ActionResult<ApiResponse<SeoConfigAdminDto>>> GetSeoConfigForAdmin()
+    {
+        var model = await _systemService.GetSeoConfigAsync();
+        return ApiResponse<SeoConfigAdminDto>.Success(SystemProjection.ToAdminDto(model));
+    }
+
     [HttpPut("seo")]
     [RequiresPow]
-    public async Task<ActionResult<ApiResponse>> UpdateSeoConfig([FromBody] SeoConfigDto dto)
+    public async Task<ActionResult<ApiResponse>> UpdateSeoConfig([FromBody] UpdateSeoConfigRequest dto)
     {
+        using var _ = AuditLogScope.Push(
+            AuditSourceCatalog.System,
+            AuditTypeCatalog.Audit,
+            new KeyValuePair<string, object?>("AuditAction", "seo.update"),
+            new KeyValuePair<string, object?>("AdminName", User.GetUserName()));
         LogSeoUpdate(User.GetUserName());
         await _systemService.UpdateSeoConfigAsync(dto);
         return ApiResponse.Success("SEO 配置已更新并同步至缓存");
@@ -33,22 +48,39 @@ public partial class SystemController( // 声明为 partial 以支持源生成�
 
     // ================= 2. 动态页面 (Page Content) =================
 
+    [HttpGet("admin/page/{slug}")]
+    public async Task<ActionResult<ApiResponse<PageContentAdminDto>>> GetPageForAdmin(string slug)
+    {
+        var page = await _systemService.GetPageContentAsync(slug);
+        if (page == null)
+        {
+            return ControllerResults.NotFound<PageContentAdminDto>("页面不存在", HttpContext.TraceIdentifier);
+        }
+
+        return ApiResponse<PageContentAdminDto>.Success(SystemProjection.ToAdminDto(page));
+    }
+
     [HttpPut("page")]
     [RequiresPow]
-    public async Task<ActionResult<ApiResponse>> UpdatePage([FromBody] PageContentDto dto)
+    public async Task<ActionResult<ApiResponse>> UpdatePage([FromBody] UpdatePageContentRequest dto)
     {
         // 核心安全优化：从源头确保存入数据库的 Slug 必须符合 URL 规范
         var slugSpan = dto.Slug.AsSpan();
         if (slugSpan.IsEmpty || !FastCharValidator.IsAlphaNumericHyphen(slugSpan))
         {
-            return BadRequest(ApiResponse.Fail("页面标识 (Slug) 格式非法，仅允许字母、数字和连字符"));
+            return ControllerResults.BadRequest("页面标识 (Slug) 格式非法，仅允许字母、数字和连字符", HttpContext.TraceIdentifier);
         }
 
+        using var _ = AuditLogScope.Push(
+            AuditSourceCatalog.System,
+            AuditTypeCatalog.Audit,
+            new KeyValuePair<string, object?>("AuditAction", "page.update"),
+            new KeyValuePair<string, object?>("Slug", dto.Slug));
         LogPageUpdate(dto.Slug);
         var success = await _systemService.UpdatePageContentAsync(dto);
         if (!success)
         {
-            return StatusCode(500, ApiResponse.Fail("页面更新失败：数据库操作异常", 500));
+            return ControllerResults.Status(500, "页面更新失败：数据库操作异常", HttpContext.TraceIdentifier);
         }
 
         return ApiResponse.Success($"{dto.Slug} 页面内容已发布，全局缓存已刷新");
@@ -61,13 +93,13 @@ public partial class SystemController( // 声明为 partial 以支持源生成�
         var slugSpan = slug.AsSpan();
         if (slugSpan.IsEmpty || !FastCharValidator.IsAlphaNumericHyphen(slugSpan))
         {
-            return BadRequest(ApiResponse.Fail("页面标识 (Slug) 格式非法，仅允许字母、数字和连字符"));
+            return ControllerResults.BadRequest("页面标识 (Slug) 格式非法，仅允许字母、数字和连字符", HttpContext.TraceIdentifier);
         }
 
         var success = await _systemService.RefreshPageCacheAsync(slug);
         if (!success)
         {
-            return StatusCode(500, ApiResponse.Fail("页面缓存刷新失败", 500));
+            return ControllerResults.Status(500, "页面缓存刷新失败", HttpContext.TraceIdentifier);
         }
 
         return ApiResponse.Success($"{slug} 页面缓存已刷新");

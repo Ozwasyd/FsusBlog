@@ -1,4 +1,5 @@
-﻿using FsusBlog.Server.Infrastructure.Helpers; // 引入扩展方法
+﻿using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Helpers; // 引入扩展方法
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Server.Models.Responses;
@@ -22,17 +23,34 @@ public partial class StatsController( // 声明为 partial 以支持源生成器
     /// 获取全站统计概览数据
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<SiteStatsDto>>> GetStats()
+    public async Task<ActionResult<ApiResponse<AdminStatsOverviewDto>>> GetStats()
     {
-        // 1. 记录审计日志：谁在访问数据大屏 (使用源生成器，零分配)
+        using var _ = AuditLogScope.Push(
+            AuditSourceCatalog.Admin,
+            AuditTypeCatalog.Audit,
+            new KeyValuePair<string, object?>("AuditAction", "stats.read"));
         LogAdminAccess(User.GetUserName());
 
         // 2. 调用高性能并行统计服务
         // 异常由 GlobalExceptionMiddleware 捕获，此处不做本地异常分支
-        var stats = await _statsService.GetAdminStatsAsync();
+        var stats = await _statsService.GetAdminStatsOverviewAsync();
 
         // 3. 包装并返回 (直接返回，触发隐式转换，零分配)
-        return ApiResponse<SiteStatsDto>.Success(stats, "数据统计已刷新");
+        return ApiResponse<AdminStatsOverviewDto>.Success(stats, "数据统计已刷新");
+    }
+
+    [HttpGet("recent-comments")]
+    public async Task<ActionResult<ApiResponse<List<RecentCommentStatItemDto>>>> GetRecentComments()
+    {
+        var items = await _statsService.GetAdminRecentCommentsAsync();
+        return ApiResponse<List<RecentCommentStatItemDto>>.Success(items);
+    }
+
+    [HttpGet("regions")]
+    public async Task<ActionResult<ApiResponse<List<RegionStatItemDto>>>> GetRegions()
+    {
+        var items = await _statsService.GetAdminRegionStatsAsync();
+        return ApiResponse<List<RegionStatItemDto>>.Success(items);
     }
 
     // ==========================================

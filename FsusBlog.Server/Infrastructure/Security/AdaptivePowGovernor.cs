@@ -1,4 +1,4 @@
-﻿using StackExchange.Redis;
+﻿using FsusBlog.Server.Infrastructure.Cache;
 using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Infrastructure.Security;
@@ -9,7 +9,7 @@ namespace FsusBlog.Server.Infrastructure.Security;
 /// </summary>
 public sealed class AdaptivePowGovernor
 {
-    private readonly IDatabase _redis;
+    private readonly IUnifiedCache _cache;
 
     // ==========================================
     // 难度配置 (适配前端 SIMD 加速后的新基准)
@@ -42,9 +42,9 @@ public sealed class AdaptivePowGovernor
         public required long ExpireAt { get; init; }
     }
 
-    public AdaptivePowGovernor(IConnectionMultiplexer redis)
+    public AdaptivePowGovernor(IUnifiedCache cache)
     {
-        _redis = redis.GetDatabase();
+        _cache = cache;
     }
 
     /// <summary>
@@ -81,19 +81,8 @@ public sealed class AdaptivePowGovernor
         }
         else
         {
-            // 缓存未命中或哈希冲突被覆盖，查询 Redis
-            // 零分配优化：使用 string.Create 替代 $"..."
-            const string KeyPrefix = "security:risk_score:";
-            string redisKey = string.Create(KeyPrefix.Length + ip.Length, ip, (span, state) =>
-            {
-                KeyPrefix.AsSpan().CopyTo(span);
-                state.AsSpan().CopyTo(span[KeyPrefix.Length..]);
-            });
-
-            var redisValue = await _redis.StringGetAsync(redisKey);
-
-            // 底层 TryParse，直接拆箱
-            if (redisValue.HasValue && redisValue.TryParse(out int val))
+            string? redisValue = await _cache.GetStringAsync(CachePolicyId.SecurityPowRisk, ip);
+            if (!string.IsNullOrWhiteSpace(redisValue) && int.TryParse(redisValue, out int val))
             {
                 riskScore = val;
             }

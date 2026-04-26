@@ -1,15 +1,18 @@
-import { nextTick, onMounted, onUnmounted, ref, shallowRef } from 'vue'
-import { getSiteStats } from '@/api/stats'
+import { nextTick, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { getRecentCommentStats, getRegionStats, getSiteStatsOverview } from '@/api/stats'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { usePagedListState } from '@/composables/usePagedListState'
+import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { useWindowEvents } from '@/composables/useWindowEvents'
 import { loadEchartsRuntime, type EChartsType } from '@/utils/echartsRuntime'
+import { isAuthFailureError } from '@/utils/errorKinds'
 import { isAbortError } from '@/utils/errors'
 import { createAdminDashboardViewContract, type AdminDashboardViewContract } from '@/view-contracts/adminStats'
 
 export function useAdminDashboard() {
   const { loading, beginLoading, endLoading } = usePagedListState()
   const statsTask = useAbortableTask()
+  const { userStore, appShellStore, ensureUserInfo, syncAuthPhase } = useSessionBootstrap()
 
   const visitChartRef = ref<HTMLElement>()
   const regionChartRef = ref<HTMLElement>()
@@ -29,8 +32,44 @@ export function useAdminDashboard() {
 
   let chartInstances: EChartsType[] = []
   let resizeTimer: number | null = null
+  let chartObserver: IntersectionObserver | null = null
+  let chartsInitialized = false
+  let chartDataReady = false
+  let hasFetched = false
+
+  const resetDashboardState = (): void => {
+    statsTask.cancel()
+    dashboardView.value = {
+      statCards: [],
+      popularArticles: [],
+      recentComments: [],
+      visitChart: {
+        registeredVisits: 0,
+        anonymousVisits: 0
+      },
+      regionChart: {
+        labels: [],
+        values: []
+      }
+    }
+    chartDataReady = false
+    chartsInitialized = false
+    disconnectChartObserver()
+    chartInstances.forEach((instance) => {
+      try {
+        instance.dispose()
+      } catch {
+        // ignore
+      }
+    })
+    chartInstances = []
+  }
 
   const renderCharts = async (): Promise<void> => {
+    if (chartsInitialized) {
+      return
+    }
+
     const echarts = await loadEchartsRuntime()
 
     chartInstances.forEach((instance) => {
@@ -108,24 +147,99 @@ export function useAdminDashboard() {
         ]
       })
       chartInstances.push(regionChart)
+      chartsInitialized = true
     } catch (error: unknown) {
       console.warn('[Dashboard] Chart render aborted due to DOM anomaly:', error)
     }
   }
 
+  const disconnectChartObserver = (): void => {
+    if (!chartObserver) {
+      return
+    }
+
+    chartObserver.disconnect()
+    chartObserver = null
+  }
+
+  const tryRenderCharts = async (): Promise<void> => {
+    if (!chartDataReady || chartsInitialized) {
+      return
+    }
+
+    if (!visitChartRef.value || !regionChartRef.value) {
+      return
+    }
+
+    await renderCharts()
+    disconnectChartObserver()
+  }
+
+  const observeChartVisibility = (): void => {
+    if (chartsInitialized || chartObserver || !chartDataReady) {
+      return
+    }
+
+    const targets = [visitChartRef.value, regionChartRef.value].filter((value): value is HTMLElement => Boolean(value))
+    if (!targets.length) {
+      return
+    }
+
+    if (typeof IntersectionObserver === 'undefined') {
+      void tryRenderCharts()
+      return
+    }
+
+    chartObserver = new IntersectionObserver((entries) => {
+      const hasVisibleTarget = entries.some((entry) => entry.isIntersecting)
+      if (hasVisibleTarget) {
+        void tryRenderCharts()
+      }
+    }, {
+      root: null,
+      threshold: 0.15
+    })
+
+    targets.forEach((target) => chartObserver?.observe(target))
+  }
+
   const fetchData = async (): Promise<void> => {
+    if (!userStore.isAuthChecked) {
+      await ensureUserInfo()
+      syncAuthPhase()
+    }
+
+    if (!userStore.isLoggedIn || !userStore.isAdmin || appShellStore.authPhase !== 'authenticated') {
+      hasFetched = false
+      resetDashboardState()
+      endLoading()
+      return
+    }
+
     beginLoading()
     try {
-      const response = await statsTask.run(async (signal) => await getSiteStats({ signal }))
+      const response = await statsTask.run(async (signal) => await getSiteStatsOverview({ signal }))
 
       if (response) {
-        dashboardView.value = createAdminDashboardViewContract(response)
+        const [recentCommentsResult, regionsResult] = await Promise.allSettled([
+          getRecentCommentStats(),
+          getRegionStats()
+        ])
+        dashboardView.value = createAdminDashboardViewContract(
+          response,
+          recentCommentsResult.status === 'fulfilled' ? (recentCommentsResult.value ?? []) : [],
+          regionsResult.status === 'fulfilled' ? (regionsResult.value ?? []) : []
+        )
+        chartDataReady = true
+        hasFetched = true
         await nextTick()
-        await renderCharts()
+        observeChartVisibility()
       }
     } catch (error: unknown) {
       if (!isAbortError(error)) {
-        console.error('[Dashboard] Sync failed:', error)
+        if (!isAuthFailureError(error)) {
+          console.error('[Dashboard] Sync failed:', error)
+        }
       }
     } finally {
       endLoading()
@@ -150,25 +264,28 @@ export function useAdminDashboard() {
 
   useWindowEvents([{ name: 'resize', handler: handleResize }])
 
-  onMounted(() => {
-    void fetchData()
-  })
+  watch(
+    () => [userStore.isAuthChecked, userStore.isLoggedIn, userStore.isAdmin, appShellStore.authPhase] as const,
+    ([isAuthChecked, isLoggedIn, isAdmin, authPhase]) => {
+      if (!isAuthChecked || !isLoggedIn || !isAdmin || authPhase !== 'authenticated') {
+        hasFetched = false
+        resetDashboardState()
+        return
+      }
+
+      if (!hasFetched) {
+        void fetchData()
+      }
+    },
+    { immediate: true }
+  )
 
   onUnmounted(() => {
-    statsTask.cancel()
+    resetDashboardState()
     if (resizeTimer) {
       cancelAnimationFrame(resizeTimer)
       resizeTimer = null
     }
-
-    chartInstances.forEach((instance) => {
-      try {
-        instance.dispose()
-      } catch {
-        // ignore
-      }
-    })
-    chartInstances = []
   })
 
   return {

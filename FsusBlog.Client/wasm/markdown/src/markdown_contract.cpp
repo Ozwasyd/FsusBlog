@@ -162,6 +162,169 @@ std::string resolve_url(std::string_view base_url, std::string_view input) {
   return escape_html(resolved);
 }
 
+std::string render_inline(std::string_view text, const render_request& request);
+
+bool is_word_char(char ch) {
+  return std::isalnum(static_cast<unsigned char>(ch)) != 0;
+}
+
+std::size_t count_repeated(std::string_view text, std::size_t index, char delimiter) {
+  std::size_t count = 0;
+  while (index + count < text.size() && text[index + count] == delimiter) {
+    ++count;
+  }
+  return count;
+}
+
+bool can_open_emphasis(std::string_view text, std::size_t index, char delimiter, std::size_t run_length) {
+  if (index + run_length >= text.size()) {
+    return false;
+  }
+
+  const char next = text[index + run_length];
+  if (is_space(next)) {
+    return false;
+  }
+
+  if (delimiter == '_' && index > 0 && is_word_char(text[index - 1]) && is_word_char(next)) {
+    return false;
+  }
+
+  return true;
+}
+
+bool can_close_emphasis(std::string_view text, std::size_t index, char delimiter, std::size_t run_length) {
+  if (index == 0) {
+    return false;
+  }
+
+  const char previous = text[index - 1];
+  if (is_space(previous)) {
+    return false;
+  }
+
+  if (delimiter == '_'
+    && index + run_length < text.size()
+    && is_word_char(previous)
+    && is_word_char(text[index + run_length])) {
+    return false;
+  }
+
+  return true;
+}
+
+std::size_t choose_emphasis_length(std::size_t run_length) {
+  return std::min<std::size_t>(run_length, 3);
+}
+
+std::size_t scan_emphasis_close(
+  std::string_view text,
+  std::size_t start_index,
+  char delimiter,
+  std::size_t delimiter_length
+) {
+  std::size_t index = start_index;
+  while (index < text.size()) {
+    if (text[index] == '\\' && index + 1 < text.size()) {
+      index += 2;
+      continue;
+    }
+
+    if (text[index] == '`') {
+      const std::size_t close = text.find('`', index + 1);
+      if (close == std::string_view::npos) {
+        break;
+      }
+
+      index = close + 1;
+      continue;
+    }
+
+    if (text[index] == delimiter) {
+      const std::size_t close_run = count_repeated(text, index, delimiter);
+      if (close_run >= delimiter_length && can_close_emphasis(text, index, delimiter, delimiter_length)) {
+        return index;
+      }
+
+      index += close_run;
+      continue;
+    }
+
+    ++index;
+  }
+
+  return std::string_view::npos;
+}
+
+bool try_render_emphasis(
+  std::string_view text,
+  std::size_t index,
+  const render_request& request,
+  std::string& out,
+  std::size_t& next_index
+) {
+  const char delimiter = text[index];
+  if (delimiter != '*' && delimiter != '_') {
+    return false;
+  }
+
+  const std::size_t open_run = count_repeated(text, index, delimiter);
+  if (open_run == 0) {
+    return false;
+  }
+
+  for (std::size_t delimiter_length = choose_emphasis_length(open_run); delimiter_length > 0; --delimiter_length) {
+    if (open_run < delimiter_length || !can_open_emphasis(text, index, delimiter, delimiter_length)) {
+      if (delimiter_length == 1) {
+        break;
+      }
+      continue;
+    }
+
+    const std::size_t close_index = scan_emphasis_close(text, index + delimiter_length, delimiter, delimiter_length);
+    if (close_index == std::string_view::npos || close_index <= index + delimiter_length) {
+      if (delimiter_length == 1) {
+        break;
+      }
+      continue;
+    }
+
+    const std::string_view inner = text.substr(index + delimiter_length, close_index - index - delimiter_length);
+    if (inner.empty()) {
+      if (delimiter_length == 1) {
+        break;
+      }
+      continue;
+    }
+
+    const std::string rendered_inner = render_inline(inner, request);
+    switch (delimiter_length) {
+      case 3:
+        out.append("<strong><em>");
+        out.append(rendered_inner);
+        out.append("</em></strong>");
+        break;
+      case 2:
+        out.append("<strong>");
+        out.append(rendered_inner);
+        out.append("</strong>");
+        break;
+      case 1:
+        out.append("<em>");
+        out.append(rendered_inner);
+        out.append("</em>");
+        break;
+      default:
+        return false;
+    }
+
+    next_index = close_index + delimiter_length;
+    return true;
+  }
+
+  return false;
+}
+
 std::string escape_and_wrap_code(std::string_view code, std::string_view language = {}) {
   std::string out;
   out.reserve(code.size() + 64);
@@ -284,6 +447,18 @@ std::string render_inline(std::string_view text, const render_request& request) 
           segment_start = index;
           continue;
         }
+      }
+    }
+
+    if (ch == '*' || ch == '_') {
+      std::string emphasis_html;
+      std::size_t next_index = index;
+      if (try_render_emphasis(text, index, request, emphasis_html, next_index)) {
+        flush_segment(index);
+        out.append(emphasis_html);
+        index = next_index;
+        segment_start = index;
+        continue;
       }
     }
 
@@ -1006,6 +1181,20 @@ bool contains_feature(std::string_view source, feature kind) {
       return source.find('#') != std::string_view::npos;
     case feature::link:
       return source.find('[') != std::string_view::npos && source.find("](") != std::string_view::npos;
+    case feature::emphasis: {
+      for (std::size_t index = 0; index < source.size(); ++index) {
+        if (source[index] != '*' && source[index] != '_') {
+          continue;
+        }
+
+        std::size_t next_index = index;
+        std::string scratch;
+        if (try_render_emphasis(source, index, render_request{}, scratch, next_index)) {
+          return true;
+        }
+      }
+      return false;
+    }
   }
 
   return false;
@@ -1147,9 +1336,9 @@ render_result build_render_result(const render_request& request) {
   const std::string normalized = normalize_source(request.source);
   render_result result;
   result.normalized_source = normalized;
-  result.features.reserve(7);
+  result.features.reserve(8);
 
-  for (feature kind : {feature::code_block, feature::latex, feature::mermaid, feature::table, feature::image, feature::heading, feature::link}) {
+  for (feature kind : {feature::code_block, feature::latex, feature::mermaid, feature::table, feature::image, feature::heading, feature::link, feature::emphasis}) {
     if (contains_feature(normalized, kind)) {
       result.features.push_back(kind);
     }

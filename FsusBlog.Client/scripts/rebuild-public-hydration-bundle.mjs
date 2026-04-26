@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto'
+import { readJsonLikeResponse } from '../tests/support/aeds-envelope.mjs'
 import { buildPublicHydrationBundle } from './public-hydration-bundle.mjs'
 
-const baseUrl = process.env.FSUSBLOG_BASE_URL || process.env.VITE_API_BASE_URL || 'http://127.0.0.1:8080'
-const publicBaseUrl = process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000'
+const baseUrl = process.env.FSUSBLOG_BASE_URL || process.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000'
+const publicBaseUrl = process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:8080'
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin'
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!'
 const articleId = Number(process.env.FSUSBLOG_ARTICLE_ID || '1')
@@ -16,6 +17,7 @@ const includeArchive = process.env.FSUSBLOG_REBUILD_INCLUDE_ARCHIVE === '1'
 const includeFilter = process.env.FSUSBLOG_REBUILD_INCLUDE_FILTER === '1'
 const filterRouteKey = process.env.FSUSBLOG_FILTER_ROUTE_KEY || ''
 const archivePageSize = Number(process.env.FSUSBLOG_ARCHIVE_PAGE_SIZE || '100')
+const deviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'public-hydration-rebuild'
 
 function assert(condition, message) {
   if (!condition) {
@@ -91,7 +93,7 @@ async function fetchJson(path, init) {
   })
 
   assert(response.ok, `${path} failed: ${response.status}`)
-  const payload = await response.json()
+  const payload = await readJsonLikeResponse(response)
   return unwrapEnvelope(payload)
 }
 
@@ -101,7 +103,7 @@ async function fetchChallenge() {
 
 async function loginWithPow(username, password) {
   const challenge = await fetchChallenge()
-  const browserFp = 'public-hydration-rebuild'
+  const browserFp = deviceFingerprint
   const nonce = solvePowNonce(challenge.salt, browserFp, Number(challenge.difficulty ?? 4))
   const powHeader = toSafeBase64({
     powSalt: challenge.salt,
@@ -117,7 +119,8 @@ async function loginWithPow(username, password) {
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      'X-Fsus-Pow-Proof': powHeader
+      'X-Fsus-Pow-Proof': powHeader,
+      'X-Fsus-Device-Fp': deviceFingerprint
     },
     body: JSON.stringify({ username, password })
   })
@@ -128,7 +131,7 @@ async function loginWithPow(username, password) {
 
 async function postWithPow(path, cookieHeader, body) {
   const challenge = await fetchChallenge()
-  const browserFp = 'public-hydration-rebuild'
+  const browserFp = deviceFingerprint
   const nonce = solvePowNonce(challenge.salt, browserFp, Number(challenge.difficulty ?? 4))
   const powHeader = toSafeBase64({
     powSalt: challenge.salt,
@@ -145,7 +148,8 @@ async function postWithPow(path, cookieHeader, body) {
       'Content-Type': 'application/json',
       Accept: 'application/json',
       Cookie: cookieHeader,
-      'X-Fsus-Pow-Proof': powHeader
+      'X-Fsus-Pow-Proof': powHeader,
+      'X-Fsus-Device-Fp': deviceFingerprint
     },
     body: JSON.stringify(body)
   })

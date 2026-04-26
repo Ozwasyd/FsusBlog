@@ -31,7 +31,7 @@ public sealed partial class FileService : IFileService
 
     private static readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"];
     private static readonly string[] _allowedFormats = ["jpg", "jpeg", "png", "gif", "webp", "avif"];
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _sessionLocks = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, SessionLockEntry> _sessionLocks = new(StringComparer.Ordinal);
 
     public FileService(IWebHostEnvironment env, ILogger<FileService> logger)
     {
@@ -186,7 +186,13 @@ public sealed partial class FileService : IFileService
             return Result<UploadStatusDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
         }
 
-        long uploadedBytes = await GetUploadedBytesAsync(uploadId, record.UploadedParts, cancellationToken);
+        long uploadedBytes = await ResolveUploadedBytesAsync(uploadId, record, cancellationToken);
+        if (record.UploadedBytes != uploadedBytes)
+        {
+            record.UploadedBytes = uploadedBytes;
+            await SaveSessionAsync(record, cancellationToken);
+        }
+
         return Result<UploadStatusDto>.Success(new UploadStatusDto
         {
             UploadId = record.UploadId,
@@ -195,8 +201,26 @@ public sealed partial class FileService : IFileService
             UploadedBytes = uploadedBytes,
             ChunkSize = record.ChunkSize,
             TotalParts = record.TotalParts,
-            UploadedParts = [.. record.UploadedParts.OrderBy(static value => value)],
+            UploadedPartCount = record.UploadedParts.Count,
+            NextPartHint = ResolveNextPartHint(record),
             ExpiresAt = record.ExpiresAt
+        });
+    }
+
+    public async Task<Result<UploadPartMapDto>> GetUploadPartMapAsync(string uploadId, CancellationToken cancellationToken = default)
+    {
+        await CleanupExpiredSessionsAsync(cancellationToken);
+
+        var record = await LoadSessionAsync(uploadId, cancellationToken);
+        if (record is null)
+        {
+            return Result<UploadPartMapDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
+        }
+
+        return Result<UploadPartMapDto>.Success(new UploadPartMapDto
+        {
+            UploadId = record.UploadId,
+            UploadedRanges = BuildUploadedRanges(record.UploadedParts)
         });
     }
 
@@ -213,13 +237,13 @@ public sealed partial class FileService : IFileService
             return Result<UploadPartAckDto>.Failure(ErrorCode.Validation, "上传分片为空");
         }
 
-        var sessionLock = GetSessionLock(uploadId);
-        await sessionLock.WaitAsync(cancellationToken);
+        await using SessionLockLease sessionLock = await AcquireSessionLockAsync(uploadId, cancellationToken);
         try
         {
             var record = await LoadSessionAsync(uploadId, cancellationToken);
             if (record is null)
             {
+                RetireSessionLock(uploadId);
                 return Result<UploadPartAckDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
             }
 
@@ -279,41 +303,43 @@ public sealed partial class FileService : IFileService
                 }
             }
 
-            if (!record.UploadedParts.Contains(partNumber))
+            bool isNewPart = !record.UploadedParts.Contains(partNumber);
+            if (isNewPart)
             {
                 record.UploadedParts.Add(partNumber);
+                record.UploadedBytes += part.Length;
             }
 
             record.Status = record.UploadedParts.Count >= record.TotalParts ? "uploaded" : "uploading";
             record.ExpiresAt = DateTime.UtcNow.Add(SessionTtl);
-            await SaveSessionAsync(record, cancellationToken);
+            if (!isNewPart && record.UploadedBytes == 0 && record.UploadedParts.Count > 0)
+            {
+                record.UploadedBytes = await ResolveUploadedBytesAsync(uploadId, record, cancellationToken);
+            }
 
-            long uploadedBytes = await GetUploadedBytesAsync(uploadId, record.UploadedParts, cancellationToken);
+            await SaveSessionAsync(record, cancellationToken);
             return Result<UploadPartAckDto>.Success(new UploadPartAckDto
             {
                 UploadId = uploadId,
                 PartNumber = partNumber,
                 Offset = offset,
                 Size = checked((int)part.Length),
-                UploadedBytes = uploadedBytes,
+                UploadedBytes = record.UploadedBytes,
                 UploadedPartCount = record.UploadedParts.Count
             });
         }
-        finally
-        {
-            sessionLock.Release();
-        }
+        finally { }
     }
 
     public async Task<Result<UploadCompleteDto>> CompleteUploadAsync(string uploadId, string? sha256, CancellationToken cancellationToken = default)
     {
-        var sessionLock = GetSessionLock(uploadId);
-        await sessionLock.WaitAsync(cancellationToken);
+        await using SessionLockLease sessionLock = await AcquireSessionLockAsync(uploadId, cancellationToken);
         try
         {
             var record = await LoadSessionAsync(uploadId, cancellationToken);
             if (record is null)
             {
+                RetireSessionLock(uploadId);
                 return Result<UploadCompleteDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
             }
 
@@ -412,18 +438,65 @@ public sealed partial class FileService : IFileService
                 TotalBytes = new FileInfo(finalPath).Length
             });
         }
-        finally
+        finally { }
+    }
+
+    private static int ResolveNextPartHint(UploadSessionRecord record)
+    {
+        if (record.UploadedParts.Count == 0)
         {
-            sessionLock.Release();
+            return 0;
         }
+
+        HashSet<int> uploaded = [.. record.UploadedParts];
+        for (int partNumber = 0; partNumber < record.TotalParts; partNumber++)
+        {
+            if (!uploaded.Contains(partNumber))
+            {
+                return partNumber;
+            }
+        }
+
+        return record.TotalParts;
+    }
+
+    private static List<UploadPartRangeDto> BuildUploadedRanges(IReadOnlyCollection<int> uploadedParts)
+    {
+        if (uploadedParts.Count == 0)
+        {
+            return [];
+        }
+
+        int[] ordered = [.. uploadedParts.OrderBy(static value => value)];
+        var ranges = new List<UploadPartRangeDto>();
+        int start = ordered[0];
+        int end = ordered[0];
+
+        for (int i = 1; i < ordered.Length; i++)
+        {
+            int current = ordered[i];
+            if (current == end + 1)
+            {
+                end = current;
+                continue;
+            }
+
+            ranges.Add(new UploadPartRangeDto(start, end));
+            start = current;
+            end = current;
+        }
+
+        ranges.Add(new UploadPartRangeDto(start, end));
+        return ranges;
     }
 
     public async Task<Result<bool>> AbortUploadAsync(string uploadId, CancellationToken cancellationToken = default)
     {
-        _ = cancellationToken;
+        await using SessionLockLease sessionLock = await AcquireSessionLockAsync(uploadId, cancellationToken);
         string sessionPath = GetSessionPath(uploadId);
         if (!Directory.Exists(sessionPath))
         {
+            RetireSessionLock(uploadId);
             return Result<bool>.Failure(ErrorCode.NotFound, "上传会话不存在");
         }
 
@@ -487,8 +560,28 @@ public sealed partial class FileService : IFileService
             LogLevel.Error);
     }
 
-    private SemaphoreSlim GetSessionLock(string uploadId)
-        => _sessionLocks.GetOrAdd(uploadId, static _ => new SemaphoreSlim(1, 1));
+    private static async Task<SessionLockLease> AcquireSessionLockAsync(string uploadId, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            SessionLockEntry entry = _sessionLocks.GetOrAdd(uploadId, static _ => new SessionLockEntry());
+            if (!entry.TryAddReference())
+            {
+                continue;
+            }
+
+            try
+            {
+                await entry.Semaphore.WaitAsync(cancellationToken);
+                return new SessionLockLease(uploadId, entry);
+            }
+            catch
+            {
+                ReleaseSessionLock(uploadId, entry, releaseSemaphore: false);
+                throw;
+            }
+        }
+    }
 
     private string GetSessionPath(string uploadId) => Path.Combine(_sessionRootPath, uploadId);
     private string GetPartsPath(string uploadId) => Path.Combine(GetSessionPath(uploadId), "parts");
@@ -600,19 +693,11 @@ public sealed partial class FileService : IFileService
         string manifestPath = GetManifestPath(uploadId);
         if (!File.Exists(manifestPath))
         {
+            RetireSessionLock(uploadId);
             return null;
         }
 
-        await using var stream = new FileStream(manifestPath, new FileStreamOptions
-        {
-            Mode = FileMode.Open,
-            Access = FileAccess.Read,
-            Share = FileShare.Read,
-            BufferSize = 81920,
-            Options = FileOptions.Asynchronous
-        });
-
-        var record = await JsonSerializer.DeserializeAsync<UploadSessionRecord>(stream, SessionJsonOptions, cancellationToken);
+        UploadSessionRecord? record = await ReadSessionAsync(manifestPath, cancellationToken);
         if (record is null || record.ExpiresAt <= DateTime.UtcNow)
         {
             await DeleteSessionDirectoryAsync(uploadId);
@@ -626,28 +711,18 @@ public sealed partial class FileService : IFileService
     {
         string manifestPath = GetManifestPath(record.UploadId);
         string tempPath = manifestPath + ".tmp";
-
-        await using (var stream = new FileStream(tempPath, new FileStreamOptions
-        {
-            Mode = FileMode.Create,
-            Access = FileAccess.Write,
-            Share = FileShare.None,
-            BufferSize = 81920,
-            Options = FileOptions.Asynchronous
-        }))
-        {
-            await JsonSerializer.SerializeAsync(stream, record, SessionJsonOptions, cancellationToken);
-        }
+        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(record, SessionJsonOptions);
+        await File.WriteAllBytesAsync(tempPath, payload, cancellationToken);
 
         File.Move(tempPath, manifestPath, true);
     }
 
     private async Task<long> GetUploadedBytesAsync(string uploadId, IEnumerable<int> parts, CancellationToken cancellationToken)
     {
-        _ = cancellationToken;
         long total = 0;
         foreach (int part in parts)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             string path = GetPartPath(uploadId, part);
             if (File.Exists(path))
             {
@@ -658,9 +733,24 @@ public sealed partial class FileService : IFileService
         return total;
     }
 
+    private async Task<UploadSessionRecord?> ReadSessionAsync(string manifestPath, CancellationToken cancellationToken)
+    {
+        byte[] payload = await File.ReadAllBytesAsync(manifestPath, cancellationToken);
+        return JsonSerializer.Deserialize<UploadSessionRecord>(payload, SessionJsonOptions);
+    }
+
+    private async Task<long> ResolveUploadedBytesAsync(string uploadId, UploadSessionRecord record, CancellationToken cancellationToken)
+    {
+        if (record.UploadedBytes > 0 || record.UploadedParts.Count == 0)
+        {
+            return record.UploadedBytes;
+        }
+
+        return await GetUploadedBytesAsync(uploadId, record.UploadedParts, cancellationToken);
+    }
+
     private async Task CleanupExpiredSessionsAsync(CancellationToken cancellationToken)
     {
-        _ = cancellationToken;
         if (!Directory.Exists(_sessionRootPath))
         {
             return;
@@ -668,18 +758,19 @@ public sealed partial class FileService : IFileService
 
         foreach (string sessionPath in Directory.EnumerateDirectories(_sessionRootPath))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             string manifestPath = Path.Combine(sessionPath, "manifest.json");
             if (!File.Exists(manifestPath))
             {
                 Directory.Delete(sessionPath, true);
+                RetireSessionLock(Path.GetFileName(sessionPath));
                 continue;
             }
 
             bool shouldDelete = await BoundaryExecutor.ExecuteValueAsync(
                 async () =>
                 {
-                    string json = await File.ReadAllTextAsync(manifestPath, cancellationToken);
-                    var record = JsonSerializer.Deserialize<UploadSessionRecord>(json, SessionJsonOptions);
+                    UploadSessionRecord? record = await ReadSessionAsync(manifestPath, cancellationToken);
                     return record is null || record.ExpiresAt <= DateTime.UtcNow;
                 },
                 _ => true,
@@ -688,6 +779,7 @@ public sealed partial class FileService : IFileService
             if (shouldDelete)
             {
                 Directory.Delete(sessionPath, true);
+                RetireSessionLock(Path.GetFileName(sessionPath));
             }
         }
     }
@@ -698,6 +790,98 @@ public sealed partial class FileService : IFileService
         if (Directory.Exists(sessionPath))
         {
             await Task.Run(() => Directory.Delete(sessionPath, true));
+        }
+
+        RetireSessionLock(uploadId);
+    }
+
+    private static void RetireSessionLock(string uploadId)
+    {
+        if (_sessionLocks.TryGetValue(uploadId, out SessionLockEntry? entry))
+        {
+            entry.MarkRetired();
+            TryDisposeSessionLock(uploadId, entry);
+        }
+    }
+
+    private static void ReleaseSessionLock(string uploadId, SessionLockEntry entry, bool releaseSemaphore)
+    {
+        if (releaseSemaphore)
+        {
+            entry.Semaphore.Release();
+        }
+
+        entry.ReleaseReference();
+        TryDisposeSessionLock(uploadId, entry);
+    }
+
+    private static void TryDisposeSessionLock(string uploadId, SessionLockEntry entry)
+    {
+        if (!entry.CanDispose)
+        {
+            return;
+        }
+
+        if (_sessionLocks.TryRemove(new KeyValuePair<string, SessionLockEntry>(uploadId, entry)))
+        {
+            entry.Dispose();
+        }
+    }
+
+    internal sealed class SessionLockEntry : IDisposable
+    {
+        private int _referenceCount;
+        private int _retired;
+        private int _disposed;
+
+        public SemaphoreSlim Semaphore { get; } = new(1, 1);
+
+        public bool CanDispose => Volatile.Read(ref _retired) == 1 && Volatile.Read(ref _referenceCount) == 0;
+
+        public bool TryAddReference()
+        {
+            while (true)
+            {
+                if (Volatile.Read(ref _retired) == 1 || Volatile.Read(ref _disposed) == 1)
+                {
+                    return false;
+                }
+
+                int current = Volatile.Read(ref _referenceCount);
+                if (Interlocked.CompareExchange(ref _referenceCount, current + 1, current) != current)
+                {
+                    continue;
+                }
+
+                if (Volatile.Read(ref _retired) == 1 || Volatile.Read(ref _disposed) == 1)
+                {
+                    ReleaseReference();
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
+        public void ReleaseReference() => Interlocked.Decrement(ref _referenceCount);
+
+        public void MarkRetired() => Volatile.Write(ref _retired, 1);
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                Semaphore.Dispose();
+            }
+        }
+    }
+
+    private readonly struct SessionLockLease(string uploadId, SessionLockEntry entry) : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync()
+        {
+            ReleaseSessionLock(uploadId, entry, releaseSemaphore: true);
+            return ValueTask.CompletedTask;
         }
     }
 

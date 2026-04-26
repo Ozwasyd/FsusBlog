@@ -3,11 +3,11 @@ import { type UploadRequestOptions } from '@ozwasyd/element-plus'
 import type { AxiosRequestConfig } from 'axios'
 import {
   deleteImage,
-  getPageData,
-  getSiteConfig,
+  getAdminPageData,
+  getAdminSiteConfig,
   updatePageData,
   updateSiteConfig,
-  type SeoConfigResponse
+  type SeoConfigAdmin
 } from '@/api/system'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { isAbortError } from '@/utils/errors'
@@ -70,7 +70,7 @@ export function useAdminSettingsPage() {
 
   const buildSignalConfig = (signal: AbortSignal): AxiosRequestConfig => ({ signal })
 
-  const readStringField = (source: Record<string, unknown>, camel: keyof SeoConfigResponse, pascal: string): string => {
+  const readStringField = (source: Record<string, unknown>, camel: keyof SeoConfigAdmin, pascal: string): string => {
     const camelValue = source[camel]
     if (typeof camelValue === 'string') {
       return camelValue
@@ -80,7 +80,7 @@ export function useAdminSettingsPage() {
     return typeof pascalValue === 'string' ? pascalValue : ''
   }
 
-  const normalizeSiteConfig = (value: unknown): SeoConfigResponse => {
+  const normalizeSiteConfig = (value: unknown): SeoConfigAdmin => {
     if (!value || typeof value !== 'object') {
       return {
         title: '',
@@ -260,7 +260,7 @@ export function useAdminSettingsPage() {
   const loadSiteConfig = async (): Promise<void> => {
     try {
       await initialLoadTask.run(async (signal) => {
-        const data = await getSiteConfig(buildSignalConfig(signal))
+        const data = await getAdminSiteConfig(buildSignalConfig(signal))
         if (!data) {
           return
         }
@@ -285,7 +285,7 @@ export function useAdminSettingsPage() {
     pageLoading.value = true
     try {
       await pageTask.run(async (signal) => {
-        const data = await getPageData(slug, buildSignalConfig(signal))
+        const data = await getAdminPageData(slug, buildSignalConfig(signal))
         if (!signal.aborted) {
           pageContent.value = data?.content || ''
         }

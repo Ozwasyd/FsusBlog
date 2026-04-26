@@ -1,18 +1,18 @@
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import type { AxiosRequestConfig } from 'axios'
 import {
   deleteArticle,
   getArticles,
   permanentDeleteArticle,
-  type ArticleListItem
+  type ArticleListItemResponse
 } from '@/api/article'
-import { useAbortableTask } from '@/composables/useAbortableTask'
-import { getErrorMessage, isAbortError } from '@/utils/errors'
+import { useMutationFlow } from '@/composables/useMutationFlow'
+import { useViewTask } from '@/composables/useViewTask'
+import { showErrorToast } from '@/utils/errorPresentation'
 import { TimeUtils } from '@/utils/time'
 
-type AdminArticleListViewItem = ArticleListItem & {
+type AdminArticleListViewItem = ArticleListItemResponse & {
   createdAtText: string
   categoryName: string
 }
@@ -23,7 +23,7 @@ export function useAdminArticleList() {
   const router = useRouter()
 
   const loading = ref(false)
-  const articleList = shallowRef<ArticleListItem[]>([])
+  const articleList = shallowRef<ArticleListItemResponse[]>([])
   const total = ref(0)
 
   const queryParam = reactive({
@@ -34,8 +34,8 @@ export function useAdminArticleList() {
   })
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
-  const loadTask = useAbortableTask()
-  const submitTask = useAbortableTask()
+  const loadTask = useViewTask()
+  const mutation = useMutationFlow()
   const articleListView = computed<AdminArticleListViewItem[]>(() =>
     articleList.value.map((item) => ({
       ...item,
@@ -51,29 +51,32 @@ export function useAdminArticleList() {
 
     loading.value = true
     try {
-      await loadTask.run(async (signal) => {
+      const response = await loadTask.run(async (signal) => {
         const config: AxiosRequestConfig = { signal }
-        const response = await getArticles(paramsSnapshot, config)
-
-        if (!response || !Array.isArray(response.items)) {
+        return await getArticles(paramsSnapshot, config)
+      }, {
+        fallbackMessage: '无法同步文章列表，请检查网络契约',
+        onError: (error) => {
+          console.error('[Admin List] Sync Error:', error)
           articleList.value = []
           total.value = 0
-          ElMessage.error('无法同步文章列表，请检查网络契约')
-          return
+          showErrorToast('无法同步文章列表，请检查网络契约', '无法同步文章列表，请检查网络契约')
         }
-
-        articleList.value = Object.freeze(response.items) as ArticleListItem[]
-        total.value = Number(response.total) || 0
       })
-    } catch (error: unknown) {
-      if (isAbortError(error)) {
+
+      if (!response) {
         return
       }
 
-      console.error('[Admin List] Sync Error:', error)
-      ElMessage.error('无法同步文章列表，请检查网络契约')
-      articleList.value = []
-      total.value = 0
+      if (!Array.isArray(response.items)) {
+        articleList.value = []
+        total.value = 0
+        showErrorToast('无法同步文章列表，请检查网络契约', '无法同步文章列表，请检查网络契约')
+        return
+      }
+
+      articleList.value = Object.freeze(response.items) as ArticleListItemResponse[]
+      total.value = Number(response.total) || 0
     } finally {
       loading.value = false
     }
@@ -100,74 +103,71 @@ export function useAdminArticleList() {
   }
 
   const handleEdit = (id: number): void => {
-    void router.push({ path: '/admin/article/write', query: { id } })
+    void router.push({ path: `/user/manage/article/edit/${id}` })
   }
 
-  const safeDelete = (row: ArticleListItem): void => {
-    void ElMessageBox.confirm(`确定要将文章《${row.title}》存入回收站吗？`, '内容存档确认', {
-      confirmButtonText: '确定存档',
-      cancelButtonText: '取消',
-      type: 'warning',
-      roundButton: true,
-      dangerouslyUseHTMLString: false
-    }).then(async () => {
+  const safeDelete = (row: ArticleListItemResponse): void => {
+    void (async () => {
       if (loading.value) {
         return
       }
 
       loading.value = true
       try {
-        await submitTask.run(async (signal) => {
+        await mutation.confirmThenRun({
+          message: `确定要将文章《${row.title}》存入回收站吗？`,
+          title: '内容存档确认',
+          confirmButtonText: '确定存档',
+          cancelButtonText: '取消',
+          type: 'warning',
+          roundButton: true
+        }, async (signal) => {
           await deleteArticle(row.id, { signal })
-          ElMessage.success('文章已进入回收站')
-          await loadData()
+        }, {
+          fallbackMessage: '文章归档失败',
+          successMessage: '文章已进入回收站',
+          onSuccess: loadData
         })
-      } catch (error: unknown) {
-        if (!isAbortError(error)) {
-          ElMessage.error(getErrorMessage(error, '文章归档失败'))
-        }
       } finally {
         loading.value = false
       }
-    }).catch(() => undefined)
+    })()
   }
 
-  const safePermanentDelete = (row: ArticleListItem): void => {
-    void ElMessageBox.confirm(
-      `警告：此操作将永久抹除博文《${row.title}》及其所有关联数据，不可恢复！`,
-      '物理销毁警示',
-      {
-        confirmButtonText: '确定永久销毁',
-        cancelButtonText: '放弃',
-        confirmButtonClass: 'el-button--danger',
-        type: 'error',
-        roundButton: true,
-        center: true,
-        dangerouslyUseHTMLString: false
-      }
-    ).then(async () => {
+  const safePermanentDelete = (row: ArticleListItemResponse): void => {
+    void (async () => {
       if (loading.value) {
         return
       }
 
       loading.value = true
       try {
-        await submitTask.run(async (signal) => {
-          await permanentDeleteArticle(row.id, { signal })
-          ElMessage.success('博文已彻底从数据库抹除')
-          await loadData()
-        })
-      } catch (error: unknown) {
-        if (!isAbortError(error)) {
-          ElMessage.error(getErrorMessage(error, '博文永久删除失败'))
-        }
+        await mutation.confirmThenRun(
+          {
+            message: `警告：此操作将永久抹除博文《${row.title}》及其所有关联数据，不可恢复！`,
+            title: '物理销毁警示',
+            confirmButtonText: '确定永久销毁',
+            cancelButtonText: '放弃',
+            confirmButtonClass: 'el-button--danger',
+            type: 'error',
+            roundButton: true
+          },
+          async (signal) => {
+            await permanentDeleteArticle(row.id, { signal })
+          },
+          {
+            fallbackMessage: '博文永久删除失败',
+            successMessage: '博文已彻底从数据库抹除',
+            onSuccess: loadData
+          }
+        )
       } finally {
         loading.value = false
       }
-    }).catch(() => undefined)
+    })()
   }
 
-  const handleMoreCommand = (command: string, row: ArticleListItem): void => {
+  const handleMoreCommand = (command: string, row: ArticleListItemResponse): void => {
     if (command === 'view') {
       window.open(`/article/${row.id}`, '_blank', 'noopener,noreferrer')
       return
@@ -189,7 +189,7 @@ export function useAdminArticleList() {
 
   onUnmounted(() => {
     loadTask.cancel()
-    submitTask.cancel()
+    mutation.cancel()
     if (debounceTimer) {
       clearTimeout(debounceTimer)
       debounceTimer = null

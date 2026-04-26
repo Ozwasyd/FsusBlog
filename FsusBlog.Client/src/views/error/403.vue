@@ -1,46 +1,38 @@
 <template>
-  <div class="min-h-[75vh] flex items-center justify-center px-6 sm:px-8 subpixel-antialiased">
-    
-    <div class="flex flex-col sm:flex-row items-center gap-10 sm:gap-16 animate-in fade-in duration-1000">
-      
-      <h1 class="text-7xl sm:text-9xl font-extrabold tracking-tighter text-zinc-950">
-        403<span class="text-zinc-200">.</span>
+  <div class="fsus-page-shell min-h-[75vh] bg-[#F7F7F8] px-5 py-16 text-[#0F0F11] subpixel-antialiased dark:bg-[#0F0F11] dark:text-[#FCFCFC] sm:px-8 sm:py-20">
+    <section class="mx-auto flex w-full max-w-5xl flex-col gap-8 animate-in fade-in duration-700 sm:gap-12">
+      <h1 class="text-6xl font-extrabold leading-none text-[#0F0F11] sm:text-9xl dark:text-[#FCFCFC]">
+        403<span class="text-[#A1A1AA]">.</span>
       </h1>
-      
-      <div class="hidden sm:block w-px h-24 bg-zinc-200"></div>
-      <div class="sm:hidden w-16 h-px bg-zinc-200"></div>
-      
-      <div class="flex flex-col items-center sm:items-start text-center sm:text-left">
-        
-        <h2 class="text-[10px] sm:text-xs font-mono font-bold tracking-[0.3em] text-zinc-400 uppercase mb-4">
-          Access Forbidden
+
+      <div class="h-px w-full max-w-2xl bg-[#E4E4E7] dark:bg-[#27272A]"></div>
+
+      <div class="safe-inline-wrap max-w-xl">
+        <h2 class="text-2xl font-extrabold leading-tight text-[#0F0F11] sm:text-4xl dark:text-[#FCFCFC]">
+          访问被拒绝
         </h2>
-        
-        <p class="text-sm text-zinc-500 leading-relaxed max-w-65 mb-10">
+        <p class="mt-4 text-sm leading-7 text-[#52525B] dark:text-[#A1A1AA]">
           抱歉，当前账户权限不足以访问此区域。
         </p>
-        
-        <div class="flex flex-col sm:flex-row items-center gap-8">
-          <router-link 
-            to="/" 
-            class="group inline-flex items-center gap-3 text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase text-zinc-950 hover:text-zinc-500 transition-colors"
+
+        <div class="action-row mt-10 sm:flex-row">
+          <router-link
+            to="/"
+            class="inline-flex min-h-11 items-center justify-center rounded-[8px] bg-[#0F0F11] px-5 text-sm font-bold text-white shadow-[0_32px_64px_rgba(0,0,0,0.08)] transition-colors hover:bg-[#2A599C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8] dark:bg-[#FCFCFC] dark:text-[#0F0F11] dark:hover:bg-[#7EA7E0] dark:focus-visible:ring-[#7EA7E0] dark:focus-visible:ring-offset-[#0F0F11]"
           >
-            <span class="group-hover:-translate-x-1 transition-transform duration-300">←</span>
             回到主页
           </router-link>
 
-          <button 
+          <button
+            type="button"
             @click="handleSwitchAccount"
-            class="group inline-flex items-center gap-3 text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase text-zinc-400 hover:text-zinc-950 transition-colors"
+            class="inline-flex min-h-11 items-center justify-center rounded-[8px] border border-[#E4E4E7] bg-[#FCFCFC] px-5 text-sm font-bold text-[#0F0F11] transition-colors hover:border-[#2A599C] hover:text-[#2A599C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8] dark:border-[#27272A] dark:bg-[#18181B] dark:text-[#FCFCFC] dark:hover:border-[#7EA7E0] dark:hover:text-[#7EA7E0] dark:focus-visible:ring-[#7EA7E0] dark:focus-visible:ring-offset-[#0F0F11]"
           >
             重新登录
-            <span class="group-hover:translate-x-1 transition-transform duration-300">→</span>
           </button>
         </div>
-        
       </div>
-      
-    </div>
+    </section>
   </div>
 </template>
 
@@ -59,6 +51,4 @@ const handleSwitchAccount = async () => {
 
 <style scoped>
 @reference "@/assets/main.css";
-
-/* 继承全局 subpixel-antialiased 确保 Windows 字体边缘清晰 */
 </style>

@@ -1,6 +1,6 @@
-﻿using FsusBlog.Server.Infrastructure.Cache;
+﻿using System.Data.Common;
+using Npgsql;
 using SqlSugar;
-using StackExchange.Redis;
 using DbType = SqlSugar.DbType;
 
 namespace FsusBlog.Server.Infrastructure.Helpers.Initializer;
@@ -16,12 +16,12 @@ public static class SqlSugarInitializer
     /// </summary>
     public static void AddSqlSugar(this IServiceCollection services)
     {
-        // 使用工厂模式注册单例，延迟解析依赖，避免 BuildServiceProvider 反模式
-        services.AddSingleton<ISqlSugarClient>(sp =>
+        // 使用 Scoped SqlSugarClient，遵循 SqlSugar 官方高性能 IOC 模式。
+        services.AddScoped<ISqlSugarClient>(sp =>
         {
-            // 1. 从 DI 容器中获取必要依赖 (此时容器已构建完成)
+            // 1. 从 DI 容器中获取必要依赖
             var config = sp.GetRequiredService<IConfiguration>();
-            var logger = sp.GetRequiredService<ILogger<SqlSugarScope>>();
+            var logger = sp.GetRequiredService<ILogger<SqlSugarClient>>();
 
             var connectionString = config.GetConnectionString("DefaultConnection");
             if (string.IsNullOrEmpty(connectionString))
@@ -29,12 +29,7 @@ public static class SqlSugarInitializer
                 throw new InvalidOperationException("致命错误：未配置数据库连接字符串 DefaultConnection。");
             }
 
-            // 核心修复：配合之前 SqlSugarCacheService 的物理级零分配重构，
-            // 这里必须注入 IConnectionMultiplexer 而不是 IDistributedCache
-            var redisMultiplexer = sp.GetRequiredService<IConnectionMultiplexer>();
-
-            // 获取缓存服务专用的 Logger，允许为 null
-            var cacheLogger = sp.GetService<ILogger<SqlSugarCacheService>>();
+            connectionString = NormalizeConnectionString(connectionString);
 
             // 2. 构建连接配置
             var connectionConfig = new ConnectionConfig
@@ -44,12 +39,6 @@ public static class SqlSugarInitializer
                 IsAutoCloseConnection = true,
                 InitKeyType = InitKeyType.Attribute,
 
-                ConfigureExternalServices = new ConfigureExternalServices
-                {
-                    // 注入重构后的极致性能缓存服务
-                    DataInfoCacheService = new SqlSugarCacheService(redisMultiplexer, cacheLogger!)
-                },
-
                 // PostgreSQL 特有配置：强制转小写
                 MoreSettings = new ConnMoreSettings
                 {
@@ -58,8 +47,8 @@ public static class SqlSugarInitializer
                 }
             };
 
-            // 3. 初始化 SqlSugarScope (线程安全的单例)
-            var db = new SqlSugarScope(connectionConfig, dbClient =>
+            // 3. 初始化 SqlSugarClient（每个 scope 一个新实例）
+            var db = new SqlSugarClient(connectionConfig, dbClient =>
             {
                 // 4. 配置 AOP (面向切面编程)
 
@@ -96,5 +85,49 @@ public static class SqlSugarInitializer
 
             return db;
         });
+    }
+
+    internal static string NormalizeConnectionString(string connectionString)
+    {
+        var rawBuilder = new DbConnectionStringBuilder
+        {
+            ConnectionString = connectionString
+        };
+        var builder = new NpgsqlConnectionStringBuilder(connectionString);
+
+        if (!ContainsAny(rawBuilder, "Maximum Pool Size", "MaxPoolSize"))
+        {
+            builder.MaxPoolSize = 60;
+        }
+
+        if (!ContainsAny(rawBuilder, "Minimum Pool Size", "MinPoolSize"))
+        {
+            builder.MinPoolSize = 5;
+        }
+
+        if (!ContainsAny(rawBuilder, "Timeout", "Connection Timeout"))
+        {
+            builder.Timeout = 15;
+        }
+
+        if (!ContainsAny(rawBuilder, "Command Timeout", "CommandTimeout"))
+        {
+            builder.CommandTimeout = 30;
+        }
+
+        return builder.ConnectionString;
+    }
+
+    private static bool ContainsAny(DbConnectionStringBuilder builder, params string[] keys)
+    {
+        for (int i = 0; i < keys.Length; i++)
+        {
+            if (builder.ContainsKey(keys[i]))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

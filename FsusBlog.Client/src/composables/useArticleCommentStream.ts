@@ -1,5 +1,11 @@
-import { ref, shallowRef, watch } from 'vue'
-import { getComments, type CommentItem } from '@/api/comment'
+import { ref, shallowRef } from 'vue'
+import {
+  getComments,
+  getThreadReplies,
+  type CommentReplyItem,
+  type CommentReplyPreviewItem,
+  type CommentThreadItem
+} from '@/api/comment'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { isAbortError } from '@/utils/errors'
 
@@ -7,132 +13,93 @@ type UseArticleCommentStreamOptions = Readonly<{
   getArticleId: () => number | null
   isMounted: () => boolean
   pageSize?: number
+  replyPageSize?: number
 }>
+
+type CommentPushLike = {
+  id: string
+  content: string
+  createTime: string
+  userName: string
+  parentId?: string | null
+  rootId?: string | null
+  replyToUserId?: number | null
+  replyToCommentId?: string | null
+  depth?: number
+  isDeleted?: boolean
+}
 
 export function useArticleCommentStream(options: UseArticleCommentStreamOptions) {
   const pageSize = options.pageSize ?? 10
-  const comments = shallowRef<CommentItem[]>([])
-  const visibleComments = shallowRef<CommentItem[]>([])
-  const paddingTop = ref(0)
-  const paddingBottom = ref(0)
-  const nextCursor = ref<string | null>(null)
-  const hasMore = ref(true)
-  const loadingComments = ref(false)
-  const loadMoreTrigger = ref<HTMLElement | null>(null)
-  const virtualListRef = ref<HTMLElement | null>(null)
+  const replyPageSize = options.replyPageSize ?? 20
 
-  const commentIdSet = new Set<string>()
+  const threads = shallowRef<CommentThreadItem[]>([])
+  const hasMore = ref(true)
+  const nextCursor = ref<string | null>(null)
+  const loadingComments = ref(false)
+  const loadingReplies = shallowRef<Record<string, boolean>>({})
+  const loadMoreTrigger = ref<HTMLElement | null>(null)
+
+  const threadIdSet = new Set<string>()
+  const replyIdSetByRoot = new Map<string, Set<string>>()
+  const replyCursorByRoot = new Map<string, string | null>()
+  const replyHasMoreByRoot = new Map<string, boolean>()
+
   const loadTask = useAbortableTask()
-  const itemHeight = 120
-  const bufferSize = 12
-  let scrollRAF: number | null = null
+  const replyTask = useAbortableTask()
   let observer: IntersectionObserver | null = null
 
-  const updateVirtualScroll = () => {
-    const total = comments.value.length
-    if (total === 0) {
-      visibleComments.value = []
-      paddingTop.value = 0
-      paddingBottom.value = 0
-      return
+const updateReplySet = (rootId: string, replies: ReadonlyArray<CommentReplyPreviewItem>) => {
+    const set = new Set<string>()
+    for (const item of replies) {
+      set.add(String(item.id))
     }
-
-    const scrollY = window.scrollY
-    const winHeight = window.innerHeight
-    const containerTop = virtualListRef.value
-      ? virtualListRef.value.getBoundingClientRect().top + scrollY
-      : 0
-
-    let startIdx = 0
-    if (scrollY > containerTop && containerTop !== 0) {
-      startIdx = Math.floor((scrollY - containerTop) / itemHeight) - bufferSize
-    }
-    startIdx = Math.max(0, startIdx)
-
-    let endIdx = startIdx + Math.ceil(winHeight / itemHeight) + (bufferSize * 2)
-    endIdx = Math.min(total, endIdx)
-
-    visibleComments.value = comments.value.slice(startIdx, endIdx)
-    paddingTop.value = startIdx * itemHeight
-    paddingBottom.value = (total - endIdx) * itemHeight
+    replyIdSetByRoot.set(rootId, set)
   }
 
-  const handleVirtualScroll = () => {
-    if (scrollRAF !== null) {
-      return
-    }
+  const updateThreads = (nextItems: CommentThreadItem[]) => {
+    threads.value = nextItems
+    threadIdSet.clear()
+    replyIdSetByRoot.clear()
+    replyCursorByRoot.clear()
+    replyHasMoreByRoot.clear()
 
-    scrollRAF = requestAnimationFrame(() => {
-      updateVirtualScroll()
-      scrollRAF = null
-    })
-  }
-
-  const updateComments = (nextItems: CommentItem[]) => {
-    comments.value = nextItems
-    commentIdSet.clear()
     for (const item of nextItems) {
-      commentIdSet.add(String(item.id))
+      threadIdSet.add(String(item.id))
+      const rootId = String(item.rootId)
+      updateReplySet(rootId, item.repliesPreview)
+      replyCursorByRoot.set(rootId, item.repliesPreview.length > 0 ? String(item.repliesPreview[item.repliesPreview.length - 1]?.id ?? '') : null)
+      replyHasMoreByRoot.set(rootId, item.hasMoreReplies)
     }
   }
 
   const clearCommentState = () => {
-    updateComments([])
-    nextCursor.value = null
+    updateThreads([])
     hasMore.value = true
+    nextCursor.value = null
   }
 
-  const appendUniqueComments = (incoming: ReadonlyArray<CommentItem>) => {
-    if (incoming.length === 0) {
-      return 0
-    }
+  const appendThreads = (incoming: ReadonlyArray<CommentThreadItem>) => {
+    const merged = [...threads.value]
+    let appended = 0
 
-    const merged = [...comments.value]
-    let added = 0
     for (const item of incoming) {
       const id = String(item.id)
-      if (commentIdSet.has(id)) {
+      if (threadIdSet.has(id)) {
         continue
       }
       merged.push(item)
-      commentIdSet.add(id)
-      added++
+      threadIdSet.add(id)
+      const rootId = String(item.rootId)
+      updateReplySet(rootId, item.repliesPreview)
+      replyCursorByRoot.set(rootId, item.repliesPreview.length > 0 ? String(item.repliesPreview[item.repliesPreview.length - 1]?.id ?? '') : null)
+      replyHasMoreByRoot.set(rootId, item.hasMoreReplies)
+      appended++
     }
 
-    if (added > 0) {
-      comments.value = merged
+    if (appended > 0) {
+      threads.value = merged
     }
-    return added
-  }
-
-  const prependCommentIfAbsent = (incoming: CommentItem, limit = 500) => {
-    const incomingId = String(incoming.id)
-    if (commentIdSet.has(incomingId)) {
-      return false
-    }
-
-    const merged = [incoming, ...comments.value]
-    if (merged.length > limit) {
-      const tail = merged.pop()
-      if (tail) {
-        commentIdSet.delete(String(tail.id))
-      }
-    }
-
-    comments.value = merged
-    commentIdSet.add(incomingId)
-    return true
-  }
-
-  const removeCommentById = (id: string | number) => {
-    const targetId = String(id)
-    if (!commentIdSet.has(targetId)) {
-      return false
-    }
-
-    comments.value = comments.value.filter((item) => String(item.id) !== targetId)
-    commentIdSet.delete(targetId)
-    return true
   }
 
   const loadMoreComments = async () => {
@@ -143,30 +110,228 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
 
     loadTask.cancel()
     loadingComments.value = true
+
     try {
       const res = await loadTask.run(async (signal) =>
-        await getComments(articleId, nextCursor.value, pageSize, { signal }))
+        await getComments(articleId, nextCursor.value, pageSize, { signal })
+      )
 
       if (!options.isMounted()) {
         return
       }
 
-      if (res.data && res.data.length > 0) {
-        appendUniqueComments(res.data)
-        nextCursor.value = res.nextCursor ? String(res.nextCursor) : null
-        hasMore.value = res.hasMore
-      } else {
-        hasMore.value = false
-      }
+      appendThreads(res.data)
+      nextCursor.value = res.nextCursor ? String(res.nextCursor) : null
+      hasMore.value = res.hasMore
     } catch (error: unknown) {
       if (!isAbortError(error) && options.isMounted()) {
-        console.error('[Comments] Load failed:', error)
+        console.error('[Comments] Load threads failed:', error)
       }
     } finally {
       if (options.isMounted()) {
         loadingComments.value = false
       }
     }
+  }
+
+  const loadMoreReplies = async (rootId: string) => {
+    const articleId = options.getArticleId()
+    if (!articleId || !rootId) {
+      return
+    }
+
+    if (loadingReplies.value[rootId] === true) {
+      return
+    }
+
+    if (replyHasMoreByRoot.get(rootId) === false) {
+      return
+    }
+
+    const cursor = replyCursorByRoot.get(rootId) ?? null
+    loadingReplies.value = {
+      ...loadingReplies.value,
+      [rootId]: true
+    }
+
+    replyTask.cancel()
+
+    try {
+      const res = await replyTask.run(async (signal) =>
+        await getThreadReplies(articleId, rootId, cursor, replyPageSize, { signal })
+      )
+
+      if (!options.isMounted()) {
+        return
+      }
+
+      const nextThreads = [...threads.value]
+      const targetIndex = nextThreads.findIndex((thread) => String(thread.rootId) === rootId)
+      if (targetIndex === -1) {
+        return
+      }
+
+      const seen = replyIdSetByRoot.get(rootId) ?? new Set<string>()
+      const mergedReplies = [...nextThreads[targetIndex].repliesPreview]
+      for (const reply of res.data) {
+        const id = String(reply.id)
+        if (seen.has(id)) {
+          continue
+        }
+        mergedReplies.push(reply)
+        seen.add(id)
+      }
+
+      replyIdSetByRoot.set(rootId, seen)
+      replyCursorByRoot.set(rootId, res.nextCursor ? String(res.nextCursor) : null)
+      replyHasMoreByRoot.set(rootId, res.hasMore)
+
+      nextThreads[targetIndex] = {
+        ...nextThreads[targetIndex],
+        repliesPreview: mergedReplies,
+        hasMoreReplies: res.hasMore
+      }
+      threads.value = nextThreads
+    } catch (error: unknown) {
+      if (!isAbortError(error) && options.isMounted()) {
+        console.error('[Comments] Load replies failed:', error)
+      }
+    } finally {
+      if (options.isMounted()) {
+        loadingReplies.value = {
+          ...loadingReplies.value,
+          [rootId]: false
+        }
+      }
+    }
+  }
+
+  const prependCommentIfAbsent = (incoming: CommentPushLike, limit = 200) => {
+    const incomingId = String(incoming.id)
+    const rootId = String(incoming.rootId ?? incoming.id)
+
+    if (!incoming.parentId) {
+      if (threadIdSet.has(incomingId)) {
+        return false
+      }
+
+      const thread: CommentThreadItem = {
+        id: incomingId,
+        content: incoming.content,
+        createTime: incoming.createTime,
+        userName: incoming.userName,
+        rootId,
+        isDeleted: incoming.isDeleted === true,
+        replyCount: 0,
+        hasMoreReplies: false,
+        repliesPreview: []
+      }
+
+      const merged = [thread, ...threads.value]
+      if (merged.length > limit) {
+        const removed = merged.pop()
+        if (removed) {
+          threadIdSet.delete(String(removed.id))
+          replyIdSetByRoot.delete(String(removed.rootId))
+          replyCursorByRoot.delete(String(removed.rootId))
+          replyHasMoreByRoot.delete(String(removed.rootId))
+        }
+      }
+
+      threadIdSet.add(incomingId)
+      replyIdSetByRoot.set(rootId, new Set())
+      replyCursorByRoot.set(rootId, null)
+      replyHasMoreByRoot.set(rootId, false)
+      threads.value = merged
+      return true
+    }
+
+    const targetIndex = threads.value.findIndex((item) => String(item.rootId) === rootId)
+    if (targetIndex === -1) {
+      return false
+    }
+
+    const seen = replyIdSetByRoot.get(rootId) ?? new Set<string>()
+    if (seen.has(incomingId)) {
+      return false
+    }
+
+    const reply: CommentReplyPreviewItem = {
+      id: incomingId,
+      content: incoming.content,
+      createTime: incoming.createTime,
+      userName: incoming.userName,
+      replyToUserName: null,
+      isDeleted: incoming.isDeleted === true
+    }
+
+    const nextThreads = [...threads.value]
+    const target = nextThreads[targetIndex]
+    nextThreads[targetIndex] = {
+      ...target,
+      replyCount: target.replyCount + 1,
+      repliesPreview: [...target.repliesPreview, reply]
+    }
+
+    seen.add(incomingId)
+    replyIdSetByRoot.set(rootId, seen)
+    replyCursorByRoot.set(rootId, incomingId)
+    threads.value = nextThreads
+    return true
+  }
+
+  const removeCommentById = (id: string | number, rootId?: string | null, parentId?: string | null) => {
+    const targetId = String(id)
+
+    if (!parentId) {
+      if (!threadIdSet.has(targetId)) {
+        return false
+      }
+
+      const nextThreads = [...threads.value]
+      const index = nextThreads.findIndex((item) => String(item.id) === targetId)
+      if (index === -1) {
+        return false
+      }
+
+      nextThreads[index] = {
+        ...nextThreads[index],
+        isDeleted: true,
+        content: '该回复已删除'
+      }
+      threads.value = nextThreads
+      return true
+    }
+
+    const rootKey = String(rootId ?? '')
+    if (!rootKey) {
+      return false
+    }
+
+    const nextThreads = [...threads.value]
+    const index = nextThreads.findIndex((item) => String(item.rootId) === rootKey)
+    if (index === -1) {
+      return false
+    }
+
+    const replies = [...nextThreads[index].repliesPreview]
+    const replyIndex = replies.findIndex((item) => String(item.id) === targetId)
+    if (replyIndex === -1) {
+      return false
+    }
+
+    replies[replyIndex] = {
+      ...replies[replyIndex],
+      isDeleted: true,
+      content: '该回复已删除'
+    }
+
+    nextThreads[index] = {
+      ...nextThreads[index],
+      repliesPreview: replies
+    }
+    threads.value = nextThreads
+    return true
   }
 
   const initObserver = () => {
@@ -188,36 +353,24 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
   }
 
   const dispose = () => {
-    if (scrollRAF !== null) {
-      cancelAnimationFrame(scrollRAF)
-      scrollRAF = null
-    }
-
     if (observer) {
       observer.disconnect()
       observer = null
     }
-
     loadTask.cancel()
+    replyTask.cancel()
   }
 
-  watch(comments, () => {
-    updateVirtualScroll()
-  })
-
   return {
-    comments,
-    visibleComments,
-    paddingTop,
-    paddingBottom,
-    nextCursor,
+    threads,
     hasMore,
+    nextCursor,
     loadingComments,
+    loadingReplies,
     loadMoreTrigger,
-    virtualListRef,
-    handleVirtualScroll,
     clearCommentState,
     loadMoreComments,
+    loadMoreReplies,
     prependCommentIfAbsent,
     removeCommentById,
     initObserver,

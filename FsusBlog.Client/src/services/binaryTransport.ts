@@ -1,6 +1,7 @@
 import { BinaryRequestError, binaryRequest } from '@/api/binaryApiClient';
 import { decodeBinaryEnvelope } from '@/api/binaryEnvelope';
 import { AppError, AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/appError';
+import { isAbortError } from '@/utils/errors';
 import { FrameType } from '@wasm/protocol/frame';
 
 
@@ -27,6 +28,7 @@ export type TransportFailure = {
   kind: TransportFailureKind;
   message: string;
   traceId?: string;
+  canceled?: boolean;
 };
 
 function transportFailureToCode(kind: TransportFailureKind): AppErrorCode {
@@ -44,7 +46,7 @@ function transportFailureToCode(kind: TransportFailureKind): AppErrorCode {
   }
 }
 
-function workerErrorToCode(code?: string, message?: string): AppErrorCode {
+function workerErrorToCode(code?: string): AppErrorCode {
   if (code === 'wasm_init_failed') {
     return AppErrorCode.InfraFailure;
   }
@@ -56,10 +58,6 @@ function workerErrorToCode(code?: string, message?: string): AppErrorCode {
     || code === 'payload_out_of_range'
     || code === 'schema_mismatch'
     || code === 'pod_parse_failed'
-    || message?.includes('decode')
-    || message?.includes('frame')
-    || message?.includes('schema')
-    || message?.includes('payload')
   ) {
     return AppErrorCode.ProtocolFailure;
   }
@@ -91,10 +89,80 @@ type BinaryDecodeResult<T> = BinaryDecodeSuccess<T> | BinaryDecodeFailure;
 
 let workerSingleton: Worker | null = null;
 let requestSeq = 0;
+const DECODE_WORKER_TIMEOUT_MS = 15000;
+
+type PendingDecodeRequest = {
+  resolve: (value: unknown) => void;
+  reject: (reason?: unknown) => void;
+  timeoutId: ReturnType<typeof setTimeout> | null;
+  abortCleanup: (() => void) | null;
+};
+
+const pendingRequests = new Map<number, PendingDecodeRequest>();
+
+function clearPendingRequest(requestId: number): PendingDecodeRequest | undefined {
+  const pending = pendingRequests.get(requestId);
+  if (!pending) {
+    return undefined;
+  }
+
+  pendingRequests.delete(requestId);
+  if (pending.timeoutId) {
+    clearTimeout(pending.timeoutId);
+    pending.timeoutId = null;
+  }
+  pending.abortCleanup?.();
+  pending.abortCleanup = null;
+
+  return pending;
+}
+
+function resetWorker(error: unknown): void {
+  const pending = Array.from(pendingRequests.keys());
+  for (let i = 0; i < pending.length; i += 1) {
+    const request = clearPendingRequest(pending[i]);
+    request?.reject(error);
+  }
+
+  workerSingleton?.terminate();
+  workerSingleton = null;
+}
+
+function handleWorkerMessage(event: MessageEvent<DecodeWorkerResponse>): void {
+  const payload = event.data;
+  const pending = clearPendingRequest(payload.requestId);
+  if (!pending) {
+    return;
+  }
+
+  if (!payload.ok) {
+    const message = payload.error ?? payload.errorCode ?? 'binary_decode_failed';
+    pending.reject(createAppError(workerErrorToCode(payload.errorCode), message, {
+      details: payload.errorCode
+    }));
+    return;
+  }
+
+  pending.resolve(payload.data);
+}
+
+function handleWorkerFatalError(reason: unknown): void {
+  const error = reason instanceof Error
+    ? reason
+    : createAppError(AppErrorCode.InfraFailure, 'binary_decode_worker_failed');
+  resetWorker(error);
+}
 
 function getWorker(): Worker {
   if (!workerSingleton) {
     workerSingleton = new Worker(new URL('../workers/wasmDecode.worker.ts', import.meta.url), { type: 'module' });
+    workerSingleton.addEventListener('message', handleWorkerMessage);
+    workerSingleton.addEventListener('error', (event) => {
+      handleWorkerFatalError(event.error ?? new Error(event.message || 'binary_decode_worker_failed'));
+    });
+    workerSingleton.addEventListener('messageerror', () => {
+      handleWorkerFatalError(createAppError(AppErrorCode.ProtocolFailure, 'binary_decode_worker_message_error'));
+    });
   }
 
   return workerSingleton;
@@ -112,33 +180,65 @@ function reportTransportEvent(name: string, detail: Record<string, unknown>): vo
   window.dispatchEvent(new CustomEvent(name, { detail }));
 }
 
-function decodeInWorker<T>(buffer: ArrayBuffer, expectedFrameType: FrameType): Promise<T> {
+function createAbortLikeError(message: string): Error {
+  const error = new Error(message);
+  error.name = 'AbortError';
+  return error;
+}
+
+function decodeInWorker<T>(buffer: ArrayBuffer, expectedFrameType: FrameType, signal?: AbortSignal): Promise<T> {
+  if (signal?.aborted) {
+    return Promise.reject(createAbortLikeError('binary_decode_aborted'));
+  }
+
   const worker = getWorker();
   requestSeq += 1;
   const requestId = requestSeq;
 
   return new Promise<T>((resolve, reject) => {
-    const listener = (event: MessageEvent<DecodeWorkerResponse>) => {
-      const payload = event.data;
-      if (payload.requestId !== requestId) {
+    const abortHandler = () => {
+      const pending = clearPendingRequest(requestId);
+      if (!pending) {
         return;
       }
 
-      worker.removeEventListener('message', listener);
-      if (!payload.ok) {
-        const message = payload.error ?? payload.errorCode ?? 'binary_decode_failed';
-        reject(createAppError(workerErrorToCode(payload.errorCode, message), message, {
-          details: payload.errorCode
-        }));
-        return;
+      pending.reject(createAbortLikeError('binary_decode_aborted'));
+      if (pendingRequests.size === 0) {
+        resetWorker(createAbortLikeError('binary_decode_aborted'));
       }
-
-      resolve(payload.data as T);
     };
 
-    worker.addEventListener('message', listener);
-    const request: BinaryDecodeRequest = { v: 1, requestId, buffer, expectedFrameType };
-    worker.postMessage(request, [buffer]);
+    const timeoutId = setTimeout(() => {
+      const pending = clearPendingRequest(requestId);
+      if (!pending) {
+        return;
+      }
+
+      const timeoutError = createAppError(AppErrorCode.InfraFailure, 'binary_decode_timeout');
+      pending.reject(timeoutError);
+      resetWorker(timeoutError);
+    }, DECODE_WORKER_TIMEOUT_MS);
+
+    let abortCleanup: (() => void) | null = null;
+    if (signal) {
+      signal.addEventListener('abort', abortHandler, { once: true });
+      abortCleanup = () => signal.removeEventListener('abort', abortHandler);
+    }
+
+    pendingRequests.set(requestId, {
+      resolve: (value) => resolve(value as T),
+      reject,
+      timeoutId,
+      abortCleanup
+    });
+
+    try {
+      const request: BinaryDecodeRequest = { v: 1, requestId, buffer, expectedFrameType };
+      worker.postMessage(request, [buffer]);
+    } catch (error) {
+      const pending = clearPendingRequest(requestId);
+      pending?.reject(error);
+    }
   });
 }
 
@@ -149,14 +249,16 @@ export async function loadBinaryAndDecode<T>(
   signal?: AbortSignal
 ): Promise<T> {
   if (!isBinaryEnabled()) {
-    throw createAppError(AppErrorCode.InfraFailure, 'binary_disabled');
+    throw createAppError(AppErrorCode.InfraFailure, 'binary_transport_unavailable', {
+      details: 'binary_disabled'
+    });
   }
 
   const buffer = await binaryRequest(url, {
     ...(requestOptions ?? {}),
     ...(signal ? { signal } : {})
   });
-  return await decodeInWorker<T>(buffer, frameType);
+  return await decodeInWorker<T>(buffer, frameType, signal);
 }
 
 export async function loadBinaryAndDecodeSafe<T>(
@@ -168,6 +270,17 @@ export async function loadBinaryAndDecodeSafe<T>(
   return loadBinaryAndDecode<T>(url, frameType, requestOptions, signal)
     .then((value) => ({ ok: true, value }))
     .catch((error: unknown) => {
+      if (isAbortError(error)) {
+        return {
+          ok: false,
+          failure: {
+            kind: 'network',
+            message: error instanceof Error ? error.message : 'request_aborted',
+            canceled: true
+          }
+        };
+      }
+
       let envelopeMessage = '';
       if (error instanceof BinaryRequestError) {
         try {
@@ -197,16 +310,13 @@ export async function loadBinaryAndDecodeSafe<T>(
       const normalizedError = toAppError(error, 'binary_transport_failed');
       const message = envelopeMessage || normalizedError.message || 'binary_transport_failed';
       const appCode = isAppError(error) ? error.code : normalizedError.code;
-      const kind: TransportFailureKind = message.includes('disabled')
+      const kind: TransportFailureKind = normalizedError.details === 'binary_disabled'
         ? 'binary_disabled'
         : error instanceof BinaryRequestError && error.status === 401
         ? 'auth_failed'
         : error instanceof BinaryRequestError && error.status === 403
         ? 'forbidden'
         : appCode === AppErrorCode.ProtocolFailure
-          || message.includes('decode')
-          || message.includes('frame')
-          || message.includes('schema')
         ? 'decode_failed'
         : 'network';
       return {
@@ -232,7 +342,11 @@ export async function requestBinaryOnly<T>(options: {
     return binaryResult.value;
   }
 
-  const { kind, message, traceId } = binaryResult.failure;
+  const { kind, message, traceId, canceled } = binaryResult.failure;
+  if (canceled) {
+    throw createAbortLikeError(message);
+  }
+
   reportTransportEvent('fsus:binary:failure', {
     kind,
     message,

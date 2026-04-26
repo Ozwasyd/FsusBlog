@@ -19,6 +19,18 @@ export const MARKDOWN_BASIC_WASM_URL = `${WASM_PUBLIC_BASE}/markdown_basic.wasm`
 
 export type MarkdownAssetKind = 'simd' | 'basic';
 
+export const IMAGE_CODEC_SIMD_MODULE_URL = `${WASM_PUBLIC_BASE}/image_codec_simd.js`;
+export const IMAGE_CODEC_SIMD_WASM_URL = `${WASM_PUBLIC_BASE}/image_codec_simd.wasm`;
+export const IMAGE_CODEC_BASIC_MODULE_URL = `${WASM_PUBLIC_BASE}/image_codec_basic.js`;
+export const IMAGE_CODEC_BASIC_WASM_URL = `${WASM_PUBLIC_BASE}/image_codec_basic.wasm`;
+export const SEARCH_SIMD_MODULE_URL = `${WASM_PUBLIC_BASE}/search_simd.js`;
+export const SEARCH_SIMD_WASM_URL = `${WASM_PUBLIC_BASE}/search_simd.wasm`;
+export const SEARCH_BASIC_MODULE_URL = `${WASM_PUBLIC_BASE}/search_basic.js`;
+export const SEARCH_BASIC_WASM_URL = `${WASM_PUBLIC_BASE}/search_basic.wasm`;
+
+export type ImageCodecAssetKind = 'simd' | 'basic';
+export type SearchAssetKind = 'simd' | 'basic';
+
 export function resolvePowAsset(kind: PowAssetKind): { moduleUrl: string; wasmUrl: string } {
   return kind === 'simd'
     ? { moduleUrl: POW_SIMD_MODULE_URL, wasmUrl: POW_SIMD_WASM_URL }
@@ -29,4 +41,16 @@ export function resolveMarkdownAsset(kind: MarkdownAssetKind): { moduleUrl: stri
   return kind === 'simd'
     ? { moduleUrl: MARKDOWN_SIMD_MODULE_URL, wasmUrl: MARKDOWN_SIMD_WASM_URL }
     : { moduleUrl: MARKDOWN_BASIC_MODULE_URL, wasmUrl: MARKDOWN_BASIC_WASM_URL };
+}
+
+export function resolveImageCodecAsset(kind: ImageCodecAssetKind): { moduleUrl: string; wasmUrl: string } {
+  return kind === 'simd'
+    ? { moduleUrl: IMAGE_CODEC_SIMD_MODULE_URL, wasmUrl: IMAGE_CODEC_SIMD_WASM_URL }
+    : { moduleUrl: IMAGE_CODEC_BASIC_MODULE_URL, wasmUrl: IMAGE_CODEC_BASIC_WASM_URL };
+}
+
+export function resolveSearchAsset(kind: SearchAssetKind): { moduleUrl: string; wasmUrl: string } {
+  return kind === 'simd'
+    ? { moduleUrl: SEARCH_SIMD_MODULE_URL, wasmUrl: SEARCH_SIMD_WASM_URL }
+    : { moduleUrl: SEARCH_BASIC_MODULE_URL, wasmUrl: SEARCH_BASIC_WASM_URL };
 }

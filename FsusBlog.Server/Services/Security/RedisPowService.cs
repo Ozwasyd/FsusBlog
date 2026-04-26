@@ -1,7 +1,6 @@
 ﻿using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
-using StackExchange.Redis;
 using System.Buffers.Text;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -17,20 +16,17 @@ namespace FsusBlog.Server.Services;
 public class RedisPowService : IPowService
 {
     private static long _lastFallbackWarningTicks;
-    private readonly IDatabase _redis;
     private readonly byte[] _cachedPowKey;
     private readonly bool _isFallbackKey;
     private readonly ILogger<RedisPowService> _logger;
     private readonly AdaptivePowGovernor _governor;
 
     public RedisPowService(
-        IConnectionMultiplexer redis,
         IConfiguration config,
         ILogger<RedisPowService> logger,
         AdaptivePowGovernor governor)
     {
         _logger = logger;
-        _redis = redis.GetDatabase();
         _governor = governor;
 
         string? secretKey = config["Jwt:SecretKey"];

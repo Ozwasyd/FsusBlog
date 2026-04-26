@@ -10,7 +10,11 @@ namespace FsusBlog.Server.Infrastructure.Middlewares;
 /// 修复日期: 2026-02-22 (引入 SearchValues 实现 Aho-Corasick 自动机，消除 String 驻留与 GC Alloc，实现极速清洗)
 /// 职责：在请求进入 Pipeline 最前端时，直接过滤非法特征，但为真爬虫通过 VIP 通道
 /// </summary>
-public class ShieldMiddleware(RequestDelegate next, AdaptivePowGovernor governor, CrawlerDetectorService crawlerDetector)
+public class ShieldMiddleware(
+    RequestDelegate next,
+    AdaptivePowGovernor governor,
+    CrawlerDetectorService crawlerDetector,
+    IWebHostEnvironment env)
 {
     // 核心性能优化：使用新一代 SearchValues<string> 进行字符串多模式极速扫描，复杂度降至极限
     private static readonly SearchValues<string> _blockedUserAgents = SearchValues.Create(
@@ -25,6 +29,18 @@ public class ShieldMiddleware(RequestDelegate next, AdaptivePowGovernor governor
 
     public async Task InvokeAsync(HttpContext context)
     {
+        if (context.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase))
+        {
+            await next(context);
+            return;
+        }
+
+        if (env.IsDevelopment())
+        {
+            await next(context);
+            return;
+        }
+
         // 1. 流量计数 (喂给治理器，用于自适应难度动态计算)
         governor.RecordInboundRequest();
 
@@ -33,6 +49,13 @@ public class ShieldMiddleware(RequestDelegate next, AdaptivePowGovernor governor
         // 2. 协议指纹检查 (User-Agent)
         if (string.IsNullOrWhiteSpace(ua))
         {
+            // 开发阶段兼容：部分本地代理/健康检查不会带 User-Agent。
+            // 若直接 Abort 会让上游看到 502（连接被重置）。
+            if (env.IsDevelopment())
+            {
+                await next(context);
+                return;
+            }
             context.Abort();
             return;
         }

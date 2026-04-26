@@ -1,20 +1,21 @@
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Models.Requests;
 
 namespace FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 
 public sealed class SystemServiceCoreAdapter(ISystemCoreService core) : ISystemService
 {
-    public async Task<SeoConfigDto> GetSeoConfigAsync()
+    public async Task<SeoConfigReadModel> GetSeoConfigAsync()
     {
         var result = await core.GetSeoConfigAsync();
         if (!result.IsSuccess)
         {
-            return new SeoConfigDto();
+            return new SeoConfigReadModel();
         }
 
-        return new SeoConfigDto
+        return new SeoConfigReadModel
         {
             Title = result.Value.Title,
             Description = result.Value.Description,
@@ -25,7 +26,7 @@ public sealed class SystemServiceCoreAdapter(ISystemCoreService core) : ISystemS
         };
     }
 
-    public async Task UpdateSeoConfigAsync(SeoConfigDto dto)
+    public async Task UpdateSeoConfigAsync(UpdateSeoConfigRequest dto)
         => _ = await core.UpdateSeoConfigAsync(new(
             dto.Title,
             dto.Description,
@@ -34,15 +35,15 @@ public sealed class SystemServiceCoreAdapter(ISystemCoreService core) : ISystemS
             dto.OgImage,
             dto.BaseUrl));
 
-    public async Task<PageContentDto> GetPageContentAsync(string slug)
+    public async Task<PageContentReadModel> GetPageContentAsync(string slug)
     {
         var result = await core.GetPageContentAsync(slug);
         return result.IsSuccess
-            ? new PageContentDto { Slug = result.Value.Slug, Content = result.Value.Content }
-            : default;
+            ? new PageContentReadModel { Slug = result.Value.Slug, Content = result.Value.Content }
+            : new PageContentReadModel();
     }
 
-    public async Task<bool> UpdatePageContentAsync(PageContentDto dto)
+    public async Task<bool> UpdatePageContentAsync(UpdatePageContentRequest dto)
     {
         var result = await core.UpdatePageContentAsync(new(dto.Slug, dto.Content));
         return result.IsSuccess;

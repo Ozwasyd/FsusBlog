@@ -1,8 +1,8 @@
-import type { ArticleListItemResponse } from '@/api/article';
-import type { CommentReplyItem, CommentThreadItem } from '@/api/comment';
+import type { ArticleListItemResponse, PopularArticleSummaryResponse } from '@/api/article';
+import type { CommentReplyItem, CommentReplyPreviewItem, CommentThreadItem } from '@/api/comment';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { BinaryReader, readBlobText, readFixedTextNullable, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64 } from './reader';
-import { ARTICLE_LIST_POD_SIZE, COMMENT_REPLY_ITEM_POD_SIZE, COMMENT_THREAD_ITEM_POD_SIZE, POPULAR_ARTICLE_POD_SIZE, TAG_POD_SIZE } from './types';
+import { ARTICLE_LIST_POD_SIZE, COMMENT_REPLY_ITEM_POD_SIZE, COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE, COMMENT_THREAD_ITEM_POD_SIZE, POPULAR_ARTICLE_POD_SIZE, TAG_POD_SIZE } from './types';
 
 type TagViewModel = ArticleListItemResponse['tags'][number];
 type CategoryViewModel = ArticleListItemResponse['category'];
@@ -54,7 +54,6 @@ export function readArticleListItemCore(reader: BinaryReader): ArticleListItemRe
     id: readInt32(pod, 0),
     title: readFixedUtf8(pod, 148, 256),
     summary: readBlobText(pod, payload, 404),
-    snippet: readBlobText(pod, payload, 412),
     views: readInt32(pod, 4),
     createTime: readIsoDate64(pod, 8),
     category: readCategoryPod(pod, 16, 20, 128),
@@ -62,20 +61,15 @@ export function readArticleListItemCore(reader: BinaryReader): ArticleListItemRe
   };
 }
 
-export function readPopularArticlePod(pod: Uint8Array): ArticleListItemResponse {
+export function readPopularArticlePod(pod: Uint8Array): PopularArticleSummaryResponse {
   return {
     id: readInt32(pod, 0),
     title: readFixedUtf8(pod, 8, 256),
-    summary: '',
-    snippet: '',
-    views: readInt32(pod, 4),
-    createTime: new Date(0).toISOString(),
-    category: { id: 0, name: '' },
-    tags: []
+    views: readInt32(pod, 4)
   };
 }
 
-export function readPopularArticleItem(reader: BinaryReader): ArticleListItemResponse {
+export function readPopularArticleItem(reader: BinaryReader): PopularArticleSummaryResponse {
   return readPopularArticlePod(reader.readSpan(POPULAR_ARTICLE_POD_SIZE));
 }
 
@@ -99,6 +93,20 @@ export function readReplyItem(pod: Uint8Array, blob: Uint8Array): CommentReplyIt
   return readCommentCore(pod, blob);
 }
 
+export function readReplyPreviewItemFromReader(reader: BinaryReader): CommentReplyPreviewItem {
+  const pod = reader.readSpan(COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE);
+  const blob = reader.readBlob();
+
+  return {
+    id: String(readInt64Number(pod, 0)),
+    isDeleted: (pod[8] ?? 0) === 1,
+    createTime: readIsoDate64(pod, 12),
+    userName: readFixedUtf8(pod, 20, 64),
+    replyToUserName: readFixedTextNullable(pod, 84, 64),
+    content: readBlobText(pod, blob, 148)
+  };
+}
+
 export function readReplyItemFromReader(reader: BinaryReader): CommentReplyItem {
   const pod = reader.readSpan(COMMENT_REPLY_ITEM_POD_SIZE);
   const blob = reader.readBlob();
@@ -109,14 +117,19 @@ export function readThreadItemFromReader(reader: BinaryReader): CommentThreadIte
   const pod = reader.readSpan(COMMENT_THREAD_ITEM_POD_SIZE);
   const blob = reader.readBlob();
   const previewReplyCount = pod[194] ?? 0;
-  const repliesPreview: CommentReplyItem[] = [];
+  const repliesPreview: CommentReplyPreviewItem[] = [];
 
   for (let i = 0; i < previewReplyCount; i++) {
-    repliesPreview.push(readReplyItemFromReader(reader));
+    repliesPreview.push(readReplyPreviewItemFromReader(reader));
   }
 
   return {
-    ...readCommentCore(pod, blob),
+    id: String(readInt64Number(pod, 0)),
+    content: readBlobText(pod, blob, 180),
+    createTime: readIsoDate64(pod, 44),
+    userName: readFixedUtf8(pod, 52, 64),
+    rootId: String(readInt64Number(pod, 16)),
+    isDeleted: (pod[40] ?? 0) === 1,
     replyCount: readInt32(pod, 188),
     hasMoreReplies: (pod[192] ?? 0) === 1,
     repliesPreview

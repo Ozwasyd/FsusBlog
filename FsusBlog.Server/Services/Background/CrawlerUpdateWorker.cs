@@ -1,4 +1,5 @@
-﻿using FsusBlog.Server.Services.Security;
+﻿using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Services.Security;
 using System.Net;
 using System.Text.Json;
 
@@ -23,43 +24,42 @@ public class CrawlerUpdateWorker(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromHours(24));
-        do
-        {
-            try
+        await BackgroundTaskExecutor.RunLoopAsync(
+            async token =>
             {
-                _logger.LogInformation("开始同步搜索引擎 IP 白名单...");
-
-                using var scope = _serviceProvider.CreateScope();
-                var detector = scope.ServiceProvider.GetRequiredService<CrawlerDetectorService>();
-                using var client = _httpClientFactory.CreateClient();
-
-                // 强制应用超时控制
-                client.Timeout = TimeSpan.FromSeconds(30);
-
-                // 1. 获取 Google IP
-                using var googleResponse = await client.GetAsync(GoogleIpUrl, stoppingToken);
-                googleResponse.EnsureSuccessStatusCode();
-                var googleJson = await googleResponse.Content.ReadAsStringAsync(stoppingToken);
-                var googleCidrs = ParseGoogleJson(googleJson);
-
-                // 2. 获取 Bing IP
-                using var bingResponse = await client.GetAsync(BingIpUrl, stoppingToken);
-                bingResponse.EnsureSuccessStatusCode();
-                var bingJson = await bingResponse.Content.ReadAsStringAsync(stoppingToken);
-                var bingCidrs = ParseBingJson(bingJson);
-
-                // 3. 更新原子快照
-                detector.UpdateCidrLists(googleCidrs, bingCidrs);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
+                await SynchronizeOnceAsync(token);
+                return await timer.WaitForNextTickAsync(token);
+            },
+            _logger,
+            "crawler-update-worker",
+            stoppingToken,
+            onFaulted: ex =>
             {
                 _logger.LogError(ex, "同步搜索引擎 IP 库失败，将使用旧缓存或空列表。");
-            }
-        } while (await timer.WaitForNextTickAsync(stoppingToken));
+                return Task.CompletedTask;
+            });
+    }
+
+    internal async Task SynchronizeOnceAsync(CancellationToken token)
+    {
+        _logger.LogInformation("开始同步搜索引擎 IP 白名单...");
+
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var detector = scope.ServiceProvider.GetRequiredService<CrawlerDetectorService>();
+        using var client = _httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(30);
+
+        using var googleResponse = await client.GetAsync(GoogleIpUrl, token);
+        googleResponse.EnsureSuccessStatusCode();
+        var googleJson = await googleResponse.Content.ReadAsStringAsync(token);
+        var googleCidrs = ParseGoogleJson(googleJson);
+
+        using var bingResponse = await client.GetAsync(BingIpUrl, token);
+        bingResponse.EnsureSuccessStatusCode();
+        var bingJson = await bingResponse.Content.ReadAsStringAsync(token);
+        var bingCidrs = ParseBingJson(bingJson);
+
+        detector.UpdateCidrLists(googleCidrs, bingCidrs);
     }
 
     private static List<string> ParseGoogleJson(string json)

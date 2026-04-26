@@ -4,14 +4,14 @@
       <article
         v-for="item in view.items"
         :key="item.id"
-        class="group relative pt-10 border-t border-zinc-100 first:border-t-0 sm:first:border-t transition-all duration-500"
+        class="group relative pt-10 border-t border-[#F4F4F5] first:border-t-0 sm:first:border-t transition-all duration-500"
         :class="{ 'opacity-50 grayscale-[0.8]': item.isRead }"
       >
-        <div class="flex justify-between items-start mb-6">
-          <div class="flex items-center gap-3">
+        <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start mb-6">
+          <div class="flex min-w-0 flex-wrap items-center gap-3 sm:gap-5">
             <div v-if="!item.isRead" :class="tokens.unreadDot" aria-hidden="true" />
             <span
-              class="text-[9px] font-bold uppercase tracking-[0.2em] px-2 py-0.5 rounded-xs border"
+              class="text-[9px] font-bold uppercase tracking-normal px-2 py-0.5 rounded-xs border"
               :class="item.category.badgeClassName"
             >
               {{ item.category.label }}
@@ -20,26 +20,26 @@
           <time
             :datetime="item.time.isoTime"
             :title="item.time.fullText"
-            class="text-[10px] font-mono font-bold text-zinc-300 uppercase tracking-widest shrink-0 pt-0.5"
+            class="text-[10px] font-mono font-bold text-[#D4D4D8] uppercase tracking-normal shrink-0 pt-0.5"
           >
             {{ item.time.smartText }}
           </time>
         </div>
 
         <div class="space-y-3 pr-0 sm:pr-12">
-          <h3 class="text-base sm:text-lg font-bold tracking-tight text-zinc-950 leading-snug">
+          <h3 class="text-base sm:text-lg font-bold tracking-normal text-[#0F0F11] leading-snug">
             {{ item.preview.title }}
           </h3>
-          <p class="text-zinc-500 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
+          <p class="text-[#8E8E93] text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
             {{ item.preview.content }}
           </p>
         </div>
 
-        <div class="flex justify-end gap-6 items-center pt-2">
+        <div class="action-row justify-start pt-2 sm:justify-end">
           <button
             v-if="item.actions.canMarkRead"
             type="button"
-            class="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-950 underline underline-offset-8 decoration-zinc-200 hover:decoration-zinc-950 transition-all py-3 outline-none focus-visible:decoration-zinc-950"
+            class="text-[9px] font-bold uppercase tracking-normal text-[#0F0F11] underline underline-offset-8 decoration-[#E4E4E7] hover:decoration-[#0F0F11] transition-all py-3 outline-none focus-visible:decoration-[#0F0F11]"
             @click="emit('mark-read', item.id)"
           >
             我知道了
@@ -47,7 +47,7 @@
           <button
             v-if="item.actions.canDelete"
             type="button"
-            class="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-300 hover:text-red-500 transition-colors duration-300 py-3 active:scale-95 outline-none focus-visible:text-red-500"
+            class="text-[9px] font-bold uppercase tracking-normal text-[#D4D4D8] hover:text-red-500 transition-colors duration-300 py-3 active:scale-95 outline-none focus-visible:text-red-500"
             @click="emit('request-delete', item.id)"
           >
             删除
@@ -56,25 +56,20 @@
       </article>
     </TransitionGroup>
 
-    <div v-if="view.footer.showLoadMoreButton" class="pt-12 border-t border-zinc-950 flex justify-center">
+    <div v-if="view.footer.showLoadMoreButton" class="pt-12 border-t border-[#0F0F11] flex justify-center">
       <button
         type="button"
         :disabled="view.footer.loadingMore"
-        class="w-full sm:w-auto px-12 py-4 sm:py-3 border border-zinc-950 text-[10px] font-black tracking-[0.3em] uppercase transition-all duration-300 hover:bg-zinc-950 hover:text-white disabled:opacity-30 outline-none focus-visible:ring-2 focus-visible:ring-zinc-950"
+        class="w-full sm:w-auto px-6 sm:px-12 py-4 sm:py-3 border border-[#0F0F11] text-[10px] font-black tracking-normal uppercase transition-all duration-300 hover:bg-[#0F0F11] hover:text-white disabled:opacity-30 outline-none focus-visible:ring-2 focus-visible:ring-[#0F0F11]"
         @click="emit('load-more')"
       >
-        <template v-if="view.footer.loadingMore">
-          <span class="animate-pulse">{{ view.footer.loadMoreButtonText }}</span>
-        </template>
-        <template v-else>{{ view.footer.loadMoreButtonText }}</template>
+        <span :class="{ 'animate-pulse': view.footer.loadingMore }">{{ view.footer.loadMoreButtonText }}</span>
       </button>
     </div>
 
-    <div v-else-if="view.footer.showEndHint" class="pt-12 border-t border-zinc-100 text-center">
-      <span class="text-[9px] font-bold tracking-[0.3em] text-zinc-300 uppercase">
-        {{ view.footer.endHintText }}
-      </span>
-    </div>
+    <p v-else-if="view.footer.showEndHint" class="pt-12 border-t border-[#F4F4F5] text-[9px] font-bold tracking-normal text-[#D4D4D8] uppercase">
+      {{ view.footer.endHintText }}
+    </p>
   </div>
 </template>
 

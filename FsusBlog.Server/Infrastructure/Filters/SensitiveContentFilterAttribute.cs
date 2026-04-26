@@ -28,16 +28,16 @@ public class SensitiveContentFilterAttribute : Attribute, IAsyncActionFilter
                     // 3. 从 DI 容器中获取我们一直在后台运行的 DFA 单例引擎
                     var filterService = context.HttpContext.RequestServices.GetRequiredService<IContentFilterService>();
 
-                    var (isValid, message) = filterService.ValidateContent(textToValidate);
+                    ContentValidationResult validation = filterService.ValidateContent(textToValidate);
 
-                    if (!isValid)
+                    if (!validation.IsValid)
                     {
                         // 4. 拦截请求，直接返回 400 错误，保护 Controller 不被污染
                         var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<SensitiveContentFilterAttribute>>();
                         logger.LogWarning("过滤器拦截敏感请求 | IP: {IP} | 原因: {Reason}",
-                            context.HttpContext.Connection.RemoteIpAddress?.ToString(), message);
+                            context.HttpContext.Connection.RemoteIpAddress?.ToString(), validation.ReasonCode);
 
-                        context.Result = new BadRequestObjectResult(ApiResponse.Fail(message));
+                        context.Result = new BadRequestObjectResult(ApiResponse.Fail(validation.Message, 400, context.HttpContext.TraceIdentifier));
                         return;
                     }
                 }

@@ -1,10 +1,20 @@
 <template>
   <div v-if="isLoggedIn" :class="commentDetailTokens.composer.loggedInShell">
+    <div v-if="replyTarget" class="mb-3 flex items-center justify-between border border-[#E4E4E7] bg-[#FCFCFC] px-3 py-2 text-xs text-[#71717A]">
+      <span>正在回复 @{{ replyTarget.userName }}</span>
+      <button
+        type="button"
+        class="rounded-[8px] font-bold text-[#8E8E93] hover:text-[#2A599C] uppercase outline-none focus-visible:ring-2 focus-visible:ring-[#2A599C]"
+        @click="$emit('cancel-reply')"
+      >
+        取消
+      </button>
+    </div>
     <textarea
       v-model="contentModel"
       rows="3"
       aria-label="发表评论"
-      :placeholder="composerUi.placeholder"
+      :placeholder="placeholderText"
       :class="[commentDetailTokens.composer.textarea, composerUi.disabledClass]"
       :disabled="composerUi.disabled"
       @keydown.ctrl.enter="$emit('submit')"
@@ -48,11 +58,13 @@ const props = defineProps<{
   isPowCalculating: boolean;
   isSubmitting: boolean;
   redirectPath: string;
+  replyTarget: { id: string; rootId: string; userName: string; depth: number } | null;
 }>();
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void;
   (e: 'submit'): void;
+  (e: 'cancel-reply'): void;
 }>()
 
 const contentModel = computed({
@@ -67,5 +79,11 @@ const composerUi = computed(() =>
     isSubmitting: props.isSubmitting,
     hasContent: Boolean(contentModel.value.trim())
   })
+)
+
+const placeholderText = computed(() =>
+  props.replyTarget
+    ? `回复 @${props.replyTarget.userName} (Ctrl + Enter 发送)`
+    : composerUi.value.placeholder
 )
 </script>

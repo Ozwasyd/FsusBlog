@@ -1,4 +1,6 @@
 ﻿using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Server.Models.Responses;
 using Microsoft.AspNetCore.OutputCaching;
@@ -14,7 +16,7 @@ public static class TagEndpoints
 {
     public static void MapTagEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("api/Tag").WithTags("Tag");
+        var group = app.MapGroup("api/Tag").WithTags(CacheTag.Tag.ToOutputCacheTag());
 
         // GET /api/Tag
         group.MapGet("/", async (ISqlSugarClient db) =>
@@ -34,8 +36,8 @@ public static class TagEndpoints
                 countDict.GetValueOrDefault(t.Id, 0)
             )).ToList();
 
-            return TypedResults.Ok(ApiResponse<List<TagWithCountDto>>.Success(result));
+            return ApiResults.Ok(result);
         })
-        .CacheOutput(p => p.Expire(TimeSpan.FromMinutes(5)).Tag("Tag")); // 增加 Tag 以便手动失效
+        .CacheOutput(HttpCachePolicyCatalog.ApplyTagList);
     }
 }

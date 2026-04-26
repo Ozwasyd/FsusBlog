@@ -43,4 +43,16 @@ public static class ClaimsPrincipalExtensions
                ?? user.FindFirst("preferred_username")?.Value
                ?? "匿名用户";
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string? GetSessionId(this ClaimsPrincipal? user)
+    {
+        return user?.FindFirst("sid")?.Value;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsMfaVerified(this ClaimsPrincipal? user)
+    {
+        return user?.FindFirst("mfa")?.Value == "1";
+    }
 }

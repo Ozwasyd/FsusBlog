@@ -1,64 +1,52 @@
-using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.ReadModels;
 
 namespace FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 
 public sealed class CommentServiceCoreAdapter(ICommentCoreService core) : ICommentService
 {
+    private static readonly Int64CursorCodec CursorCodec = Int64CursorCodec.Instance;
+
     public Task<bool> CreateCommentAsync(int userId, CommentDto dto)
         => ExecuteBool(core.CreateCommentAsync(userId, dto.ArticleId, dto.Content));
 
-    public async Task<CursorResult<CommentQueryResultDto>> GetCommentsByCursorAsync(int articleId, long? cursor, int limit)
+    public async Task<CursorResponse<CommentQueryResultDto>> GetCommentsByCursorAsync(int articleId, CursorPageRequest<long> request)
     {
-        var result = await core.GetCommentsByCursorAsync(articleId, cursor, limit);
+        var result = await core.GetCommentsByCursorAsync(articleId, request.Cursor, request.Limit);
         if (!result.IsSuccess)
         {
-            return new CursorResult<CommentQueryResultDto> { Data = [], HasMore = false, NextCursor = null };
+            return new CursorResponse<CommentQueryResultDto> { Data = [], HasMore = false, NextCursor = null };
         }
 
-        var data = new List<CommentQueryResultDto>(result.Value.Data.Count);
-        foreach (var item in result.Value.Data)
-        {
-            data.Add(new CommentQueryResultDto(item.Id, item.Content, item.CreateTime, item.UserName));
-        }
-
-        return new CursorResult<CommentQueryResultDto>
-        {
-            Data = data,
-            NextCursor = result.Value.NextCursor?.ToString(),
-            HasMore = result.Value.HasMore
-        };
+        return CursorInterop.FromCore(result.Value,
+            item => new CommentQueryResultDto(item.Id, item.Content, item.CreateTime, item.UserName),
+            CursorCodec);
     }
 
-    public async Task<CursorResult<UserCommentDto>> GetUserCommentsAsync(int userId, long? cursor, int limit)
+    public async Task<CursorResponse<UserCommentResponse>> GetUserCommentsAsync(int userId, CursorPageRequest<long> request)
     {
-        var result = await core.GetUserCommentsAsync(userId, cursor, limit);
+        var result = await core.GetUserCommentsAsync(userId, request.Cursor, request.Limit);
         if (!result.IsSuccess)
         {
-            return new CursorResult<UserCommentDto> { Data = [], HasMore = false, NextCursor = null };
+            return new CursorResponse<UserCommentResponse> { Data = [], HasMore = false, NextCursor = null };
         }
 
-        var data = new List<UserCommentDto>(result.Value.Data.Count);
-        foreach (var item in result.Value.Data)
-        {
-            data.Add(new UserCommentDto
+        return CursorInterop.FromCore(result.Value,
+            item => CommentProjection.ToResponse(new UserCommentReadModel
             {
                 Id = item.Id,
                 Content = item.Content,
                 CreateTime = item.CreateTime,
                 ArticleId = item.ArticleId,
-                ArticleTitle = item.ArticleTitle
-            });
-        }
-
-        return new CursorResult<UserCommentDto>
-        {
-            Data = data,
-            NextCursor = result.Value.NextCursor?.ToString(),
-            HasMore = result.Value.HasMore
-        };
+                ArticleTitle = item.ArticleTitle,
+                RootId = item.RootId,
+                ReplyToUserName = item.ReplyToUserName
+            }),
+            CursorCodec);
     }
 
     public Task<bool> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason = "违反社区管理条例")

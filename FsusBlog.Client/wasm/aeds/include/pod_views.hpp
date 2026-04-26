@@ -20,6 +20,7 @@ struct ArticleDetailPod {
   std::int32_t id;
   std::int32_t views;
   std::int64_t create_time_unix_ms;
+  std::int32_t reserved0;
   ArticleCategoryViewPod category;
   std::uint8_t title[256];
   Utf8SliceRef summary;
@@ -34,7 +35,7 @@ struct TagPod {
 
 static_assert(sizeof(Utf8SliceRef) == 8, "Utf8SliceRef size mismatch");
 static_assert(sizeof(ArticleCategoryViewPod) == 132, "ArticleCategoryViewPod size mismatch");
-static_assert(sizeof(ArticleDetailPod) == 420, "ArticleDetailPod size mismatch");
+static_assert(sizeof(ArticleDetailPod) == 424, "ArticleDetailPod size mismatch");
 static_assert(sizeof(TagPod) == 132, "TagPod size mismatch");
 
 struct ParsedArticleDetail {

@@ -37,6 +37,8 @@ public sealed record class LoginDto
 
     [Required(ErrorMessage = "密码不能为空")]
     public required string Password { get; init; }
+
+    public bool RememberMe { get; init; }
 }
 
 public sealed record class RegisterDto : ICheckableContent
@@ -68,6 +70,40 @@ public sealed record class AdminResetPwdDto
 }
 
 public readonly record struct RefreshRequestDto(string RefreshToken);
+
+public sealed record class MfaSetupVerifyRequestDto
+{
+    [Required]
+    public required string Code { get; init; }
+}
+
+public sealed record class MfaChallengeRequestDto
+{
+    public string? ChallengeToken { get; init; }
+    public string? Action { get; init; }
+    public string? Code { get; init; }
+    public string? RecoveryCode { get; init; }
+}
+
+public sealed record class MfaDisableRequestDto
+{
+    [Required]
+    public required string Password { get; init; }
+    public string? Code { get; init; }
+    public string? RecoveryCode { get; init; }
+}
+
+public sealed record class DeleteAccountRequestDto
+{
+    [Required]
+    public required string Password { get; init; }
+
+    [Required]
+    public required string ConfirmText { get; init; }
+
+    public string? Code { get; init; }
+    public string? RecoveryCode { get; init; }
+}
 
 // ==========================================
 // 2. 查询参数

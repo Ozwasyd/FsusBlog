@@ -5,7 +5,7 @@ using FsusBlog.Shared.Contracts.AuthSystem;
 
 namespace FsusBlog.Core.Services.Implementations;
 
-public sealed class UserCoreService(ILegacyUserGateway gateway) : IUserCoreService
+public sealed class UserCoreService(IUserCoreGateway gateway) : IUserCoreService
 {
     public async Task<Result> RegisterAsync(string username, string password, string confirmPassword)
     {

@@ -1,13 +1,13 @@
 {
-  "schemaVersion": 1,
-  "builtAtUtc": "2026-04-16T18:02:08.274Z",
+  "schemaVersion": 2,
+  "builtAtUtc": "2026-04-19T14:01:54.949Z",
   "buildModes": [
     "basic",
     "simd"
   ],
   "buildScript": "wasm/build.sh",
   "dependencyInstaller": "scripts/install-wasm-codec-deps.sh",
-  "sourceHash": "a5221e193877c609f52ef969aa8f4c9661b3ee85ad781282fe3fe035191c7e76",
+  "sourceHash": "a9450b5cc58ec8b097a84a6e65dcadd83abc77ceb753634e0c1be77318095145",
   "sourceFiles": [
     "scripts/install-wasm-codec-deps.sh",
     "wasm/aeds/CMakeLists.txt",
@@ -70,5 +70,25 @@
     "search_basic.wasm",
     "search_simd.js",
     "search_simd.wasm"
-  ]
+  ],
+  "outputFileHashes": {
+    "aeds_decoder.js": "3b97725a29fae85fc42988a90eac2b1f36a0608ce96abe0c244231f16777497b",
+    "aeds_decoder.wasm": "c292e5ad3aac941919b9d312465043f60c1bd7ce1e3b9553a0e68185453c6017",
+    "fsus_pow_basic.js": "6ae21bd8ce4d1b0b8276e6641d08f5837304c67aaa52c1f64eaacdd45fd93889",
+    "fsus_pow_basic.wasm": "9f48fdd9999bbc72d0adaffd51cc4ccc279521c5f504f53251c7b2184b985424",
+    "fsus_pow_simd.js": "120534b1dfcb8fe4ef68c23fd9885ddc9eb07b2c30d22615708733cbb356e0e5",
+    "fsus_pow_simd.wasm": "bec218481849335bc2be5912f86498c582de3b4e436e30c4f6b395441dcba818",
+    "image_codec_basic.js": "ccaed9d2526bf0fbec293d5b0b682a827de52053a9cfd472e95331630de6d17d",
+    "image_codec_basic.wasm": "78920a066136d30268ea67c1938f3dd4a76be54ae65fc33356e1600abd83d876",
+    "image_codec_simd.js": "4adef8dd093b946482b649d7747318ace54a7c24a151ac0be7793298c57ca307",
+    "image_codec_simd.wasm": "217f094a74a853e780ebf24f60ce7abfdf0e6f28e19fa7568a02ac5996141b8a",
+    "markdown_basic.js": "984177d85d3b26817fbe1f66cc2f9e768f17b1f9c028cd316a9d16182a25bfc7",
+    "markdown_basic.wasm": "85676bfa0f53d670d6d84860b7692cb068606173d575b4b4faaf14862b7f3436",
+    "markdown_simd.js": "5ab05b137a7fa077fa3ae72cf720c4c7efa14ec69b0d89263cffedcd26912bcf",
+    "markdown_simd.wasm": "9ee6ef38855806664d1a164a6d7195cef435ddd3d8adaa09489c41a7cf042e78",
+    "search_basic.js": "7ea398ff24bdc570dd03a23b8d89c2030111621c611ff2150757d9659cc2548e",
+    "search_basic.wasm": "1569ea73dcffba2bd4f9379eb54fcd3a2b6872a90c0a7d27076aa8195422ada5",
+    "search_simd.js": "43a07e77fb23bc2723a1878b056183ab8d9dae2fd739b5cfcb49d10b659c07a9",
+    "search_simd.wasm": "cf4857f394786ad222e2efaf40514f82701f4ee41ab87cd55b696382895c476d"
+  }
 }

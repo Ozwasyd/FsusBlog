@@ -1,4 +1,6 @@
-﻿using FsusBlog.Server.Infrastructure.Helpers;
+﻿using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Interfaces;
 using System.Buffers;
@@ -48,7 +50,12 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
             "加v", "加微", "加威", "加薇", "加嶶", "vx", "微信", "威信", "薇信", "+v", "qq", "扣扣", "企鹅", "q群", "加群"
         ]);
 
-        ReloadKeywords();
+        TextNormalizer.Initialize(_logger);
+        var initResult = ReloadKeywordsCore();
+        if (initResult.IsFailure)
+        {
+            _logger.LogWarning("内容审查词库初始化失败，已降级为空词库: {Message}", initResult.Error.Message);
+        }
 
         if (Directory.Exists(_dictDirectory))
         {
@@ -61,13 +68,18 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         }
     }
 
-    private void EnsureFileExists(string path)
+    private static void EnsureFileExists(string path)
     {
         if (!File.Exists(path)) File.WriteAllText(path, string.Empty);
     }
 
     private void OnFileChanged(object sender, FileSystemEventArgs e)
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         if (string.IsNullOrEmpty(e.Name)) return;
 
         if (!_lastReloadTimes.TryAdd(e.Name, DateTime.UtcNow))
@@ -83,25 +95,31 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         }, (this, e.Name));
     }
 
-    private void ReloadFromWatcher(string fileName)
+    private Result ReloadFromWatcher(string fileName)
     {
+        if (_disposed)
+        {
+            return Result.Success();
+        }
+
         if (fileName.Equals("SensitiveWords.txt", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogInformation("检测到政治红线词库变动，准备自动热重载...");
-            ReloadSensitiveWords();
-            return;
+            return ReloadSensitiveWords();
         }
 
         if (fileName.Equals("AdWords.txt", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogInformation("检测到动态广告词库变动，准备自动热重载...");
-            ReloadAdWords();
+            return ReloadAdWords();
         }
+
+        return Result.Success();
     }
 
-    public (bool isValid, string message) ValidateContent(string text)
+    public ContentValidationResult ValidateContent(string text)
     {
-        if (string.IsNullOrWhiteSpace(text)) return (true, string.Empty);
+        if (string.IsNullOrWhiteSpace(text)) return new ContentValidationResult(true, "ok", string.Empty);
 
         char[]? rentedBuffer = null;
         try
@@ -113,20 +131,20 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
             TextNormalizer.NormalizeInPlace(bufferSpan);
 
             if (_contactSearch.ContainsAny(bufferSpan))
-                return (false, "输入内容包含涉嫌引流的联系方式或变体，已被拦截。");
+                return new ContentValidationResult(false, "contact_lead_detected", "输入内容包含涉嫌引流的联系方式或变体，已被拦截。");
 
-            var currentAdSearch = _adSearch;
+            var currentAdSearch = Volatile.Read(ref _adSearch);
             if (currentAdSearch != null && currentAdSearch.ContainsAny(bufferSpan))
-                return (false, "输入内容包含涉嫌引流的违规业务或恶意链接，已被拦截。");
+                return new ContentValidationResult(false, "malicious_ad_detected", "输入内容包含涉嫌引流的违规业务或恶意链接，已被拦截。");
 
             if (TopRedLineRegex().IsMatch(bufferSpan))
-                return (false, "严重违规：检测到对抗性涉政词汇。");
+                return new ContentValidationResult(false, "political_redline_detected", "严重违规：检测到对抗性涉政词汇。");
 
-            var currentSensitiveSearch = _sensitiveSearch;
+            var currentSensitiveSearch = Volatile.Read(ref _sensitiveSearch);
             if (currentSensitiveSearch != null && currentSensitiveSearch.ContainsAny(bufferSpan))
-                return (false, "输入内容包含违反相关法律法规的政治红线词汇，已被拦截。");
+                return new ContentValidationResult(false, "sensitive_term_detected", "输入内容包含违反相关法律法规的政治红线词汇，已被拦截。");
 
-            return (true, string.Empty);
+            return new ContentValidationResult(true, "ok", string.Empty);
         }
         finally
         {
@@ -136,84 +154,170 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
 
     public void ReloadKeywords()
     {
-        _logger.LogInformation("系统发起全量词库热重载指令...");
-        ReloadSensitiveWords();
-        ReloadAdWords();
+        if (_disposed)
+        {
+            return;
+        }
+
+        var result = ReloadKeywordsCore();
+        if (result.IsFailure)
+        {
+            _logger.LogWarning("词库热重载存在失败项: {Message}", result.Error.Message);
+        }
     }
 
-    private string[] ReadAllLinesWithRetry(string path)
+    private Result ReloadKeywordsCore()
     {
+        _logger.LogInformation("系统发起全量词库热重载指令...");
+        var sensitiveResult = ReloadSensitiveWords();
+        if (sensitiveResult.IsFailure)
+        {
+            return sensitiveResult;
+        }
+
+        return ReloadAdWords();
+    }
+
+    private Result<string[]> ReadAllLinesWithRetry(string path)
+    {
+        Result<string[]> lastResult = Result<string[]>.Failure(
+            ErrorCode.InfraFailure,
+            $"读取词库失败: {Path.GetFileName(path)}");
+
         for (int i = 0; i < 5; i++)
         {
-            try
+            var attemptResult = BoundaryExecutor.ExecuteResult(
+                () => ReadAllLinesCore(path),
+                ex => ErrorDetail.Create(
+                    ErrorCode.InfraFailure,
+                    $"读取词库文件失败: {Path.GetFileName(path)}",
+                    path,
+                    ex.Message),
+                _logger,
+                $"content-filter-read-lines-{Path.GetFileName(path)}",
+                i < 4 ? LogLevel.Debug : LogLevel.Warning);
+
+            if (attemptResult.IsSuccess)
             {
-                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                using var reader = new StreamReader(stream);
-                var lines = new List<string>();
-                string? line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    if (!string.IsNullOrWhiteSpace(line)) lines.Add(line);
-                }
-                return [.. lines];
+                return attemptResult;
             }
-            catch (IOException)
+
+            lastResult = attemptResult;
+            if (i < 4)
             {
                 Thread.Sleep(100);
             }
         }
+
         _logger.LogWarning("词库文件读取失败，已降级为空词库 | Path: {Path}", path);
-        return [];
+        return lastResult;
     }
 
-    private void ReloadSensitiveWords()
+    private static string[] ReadAllLinesCore(string path)
     {
-        try
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+        var lines = new List<string>();
+        string? line;
+        while ((line = reader.ReadLine()) != null)
         {
-            if (File.Exists(_sensitiveFilePath))
+            if (!string.IsNullOrWhiteSpace(line))
             {
-                var lines = ReadAllLinesWithRetry(_sensitiveFilePath);
-                var normalizedLines = NormalizeKeywords(lines);
+                lines.Add(line);
+            }
+        }
+
+        return [.. lines];
+    }
+
+    private Result ReloadSensitiveWords()
+    {
+        if (_disposed)
+        {
+            return Result.Success();
+        }
+
+        if (!File.Exists(_sensitiveFilePath))
+        {
+            _sensitiveSearch = null;
+            _logger.LogWarning("未找到红线词库 [{FilePath}]", _sensitiveFilePath);
+            return Result.Success();
+        }
+
+        var linesResult = ReadAllLinesWithRetry(_sensitiveFilePath);
+        if (linesResult.IsFailure)
+        {
+            _sensitiveSearch = null;
+            return Result.Failure(ErrorDetail.Create(
+                ErrorCode.InfraFailure,
+                "读取红线词库失败",
+                _sensitiveFilePath,
+                linesResult.Error.TraceId));
+        }
+
+        Result buildResult = BoundaryExecutor.Execute(
+            () =>
+            {
+                var normalizedLines = NormalizeKeywords(linesResult.Value!);
                 var newSearch = new ModernAcAutomaton();
                 newSearch.Build(normalizedLines);
                 Interlocked.Exchange(ref _sensitiveSearch, newSearch);
                 _logger.LogInformation("DFA引擎：政治红线词库加载成功，共载入 {Count} 个指纹化规则", normalizedLines.Length);
-            }
-            else
-            {
-                _sensitiveSearch = null;
-                _logger.LogWarning("未找到红线词库 [{FilePath}]", _sensitiveFilePath);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "读取或构建红线词库失败");
-        }
+            },
+            ex => ErrorDetail.Create(
+                ErrorCode.InfraFailure,
+                "读取或构建红线词库失败",
+                _sensitiveFilePath,
+                ex.Message),
+            _logger,
+            "content-filter-reload-sensitive",
+            LogLevel.Warning);
+        return buildResult;
     }
 
-    private void ReloadAdWords()
+    private Result ReloadAdWords()
     {
-        try
+        if (_disposed)
         {
-            if (File.Exists(_adFilePath))
+            return Result.Success();
+        }
+
+        if (!File.Exists(_adFilePath))
+        {
+            _adSearch = null;
+            _logger.LogWarning("未找到广告词库 [{FilePath}]", _adFilePath);
+            return Result.Success();
+        }
+
+        var linesResult = ReadAllLinesWithRetry(_adFilePath);
+        if (linesResult.IsFailure)
+        {
+            _adSearch = null;
+            return Result.Failure(ErrorDetail.Create(
+                ErrorCode.InfraFailure,
+                "读取广告词库失败",
+                _adFilePath,
+                linesResult.Error.TraceId));
+        }
+
+        Result buildResult = BoundaryExecutor.Execute(
+            () =>
             {
-                var lines = ReadAllLinesWithRetry(_adFilePath);
-                var normalizedLines = NormalizeKeywords(lines);
+                var normalizedLines = NormalizeKeywords(linesResult.Value!);
                 var newSearch = new ModernAcAutomaton();
                 newSearch.Build(normalizedLines);
                 Interlocked.Exchange(ref _adSearch, newSearch);
                 _logger.LogInformation("DFA引擎：动态广告词库加载成功，共载入 {Count} 个指纹化规则", normalizedLines.Length);
-            }
-            else
-            {
-                _adSearch = null;
-                _logger.LogWarning("未找到广告词库 [{FilePath}]", _adFilePath);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "读取或构建广告词库失败");
-        }
+            },
+            ex => ErrorDetail.Create(
+                ErrorCode.InfraFailure,
+                "读取或构建广告词库失败",
+                _adFilePath,
+                ex.Message),
+            _logger,
+            "content-filter-reload-ad",
+            LogLevel.Warning);
+        return buildResult;
     }
 
     private static string[] NormalizeKeywords(string[] keywords)
@@ -262,8 +366,8 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
     {
         if (!_disposed)
         {
-            if (disposing) _fileWatcher?.Dispose();
             _disposed = true;
+            if (disposing) _fileWatcher?.Dispose();
         }
     }
 }

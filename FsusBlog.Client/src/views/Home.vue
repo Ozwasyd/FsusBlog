@@ -1,47 +1,26 @@
 <template>
     <HomeFeedSurface>
         <template #main>
-            <div class="flex flex-col gap-12 sm:gap-20">
-                <HomeArticleLoadingState v-if="loading" />
+            <HomeArticleLoadingState v-if="loading" />
 
-                <HomeArticleErrorState v-else-if="isError" @retry="loadArticles(true)" />
+            <HomeArticleErrorState v-else-if="isError" @retry="loadArticles(true)" />
 
-                <template v-else-if="articles?.length > 0">
-                    <PublicArticleList
-                        :items="articles"
-                        :pagination="paginationContract"
-                        :show-pagination="totalPages > 1"
-                        :spa-navigation="true"
-                        @navigate="navigateToArticle"
-                        @page-prev="handlePageChange(currentPage - 1)"
-                        @page-next="handlePageChange(currentPage + 1)"
-                    />
-                </template>
+            <PublicArticleList
+                v-else-if="articles?.length > 0"
+                :items="articles"
+                :pagination="paginationContract"
+                :show-pagination="totalPages > 1"
+                :spa-navigation="true"
+                @navigate="navigateToArticle"
+                @page-prev="handlePageChange(currentPage - 1)"
+                @page-next="handlePageChange(currentPage + 1)"
+            />
 
-                <HomeArticleEmptyState v-else />
-            </div>
+            <HomeArticleEmptyState v-else />
         </template>
 
         <template #aside>
             <HotArticlesCard v-if="runtimeReady" />
-            <section
-                v-else
-                class="public-aside-placeholder rounded-3xl border border-zinc-100 bg-zinc-50/60 px-6 py-8"
-                aria-hidden="true"
-            >
-                <h2 class="text-xs font-bold tracking-[0.2em] text-zinc-400 uppercase mb-8">
-                    热门文章
-                </h2>
-                <div class="space-y-6">
-                    <div v-for="i in 5" :key="i" class="flex items-start gap-4">
-                        <div class="w-6 text-sm font-mono text-zinc-200">0{{ i }}</div>
-                        <div class="flex-1 space-y-2 pt-0.5">
-                            <div class="h-3 rounded-sm bg-zinc-100"></div>
-                            <div class="h-3 w-2/3 rounded-sm bg-zinc-100/90"></div>
-                        </div>
-                    </div>
-                </div>
-            </section>
         </template>
     </HomeFeedSurface>
 </template>

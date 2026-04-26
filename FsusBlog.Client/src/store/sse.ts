@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { reactive, ref, shallowRef } from 'vue'
 import { createSseRenderScheduler } from '@/services/sseRenderScheduler'
-import { SseEventType, type SseArticleRenderPatch, type SseCommentRenderPatch, type SseDeliveryCursor, type SseEventV2, type SseFailureCode, type SseInboxRenderPatch, type SseRenderPatch, type SseRuntimeState, type UserStatusPayload } from '@/services/sseTypes'
+import { SseEventType, SseFailureCodes, type SseArticleRenderPatch, type SseCommentRenderPatch, type SseDeliveryCursor, type SseEventV2, type SseFailureCode, type SseInboxRenderPatch, type SseRenderPatch, type SseRuntimeState, type UserStatusPayload } from '@/services/sseTypes'
 import { AppErrorCode } from '@/utils/appError'
 
 function createInitialState(): SseRuntimeState {
@@ -29,14 +29,14 @@ function createInitialState(): SseRuntimeState {
 
 function sseFailureCodeToAppErrorCode(code: SseFailureCode): AppErrorCode {
   switch (code) {
-    case 'auth_failed':
+    case SseFailureCodes.AuthFailed:
       return AppErrorCode.Unauthorized
-    case 'pow_failed':
+    case SseFailureCodes.PowFailed:
       return AppErrorCode.Forbidden
-    case 'protocol_mismatch':
+    case SseFailureCodes.ProtocolMismatch:
       return AppErrorCode.ProtocolFailure
-    case 'network_error':
-    case 'server_error':
+    case SseFailureCodes.NetworkError:
+    case SseFailureCodes.ServerError:
     default:
       return AppErrorCode.InfraFailure
   }
@@ -120,7 +120,7 @@ export const useSseStore = defineStore('sse', () => {
 
   const recordProtocolError = (): void => {
     runtime.protocolErrorCount += 1
-    runtime.lastErrorCode = 'protocol_mismatch'
+    runtime.lastErrorCode = SseFailureCodes.ProtocolMismatch
     runtime.lastAppErrorCode = AppErrorCode.ProtocolFailure
     runtime.lastErrorAt = Date.now()
     runtime.lastProtocolErrorAt = runtime.lastErrorAt
@@ -130,7 +130,7 @@ export const useSseStore = defineStore('sse', () => {
     runtime.lastErrorCode = code
     runtime.lastAppErrorCode = sseFailureCodeToAppErrorCode(code)
     runtime.lastErrorAt = Date.now()
-    if (code === 'protocol_mismatch') {
+    if (code === SseFailureCodes.ProtocolMismatch) {
       runtime.protocolErrorCount += 1
       runtime.lastProtocolErrorAt = runtime.lastErrorAt
     }

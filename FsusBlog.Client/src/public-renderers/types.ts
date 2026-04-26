@@ -17,24 +17,17 @@ export type PublicHomeHydrationPayload = Readonly<{
   view: ArticleListViewContract;
 }>;
 
-export type ArticleDetailCommentsIslandPayload = Readonly<{
-  articleId: number | string;
-  placeholderTitle: string;
-  placeholderBody: string;
-  placeholderHint: string;
-}>;
-
 export type PublicArticleDetailHydrationPayload = Readonly<{
   pageKind: 'ArticleDetail';
   routeKey: string;
   articleId: number | string;
   rendererVersion: string;
   title: string;
+  authorName?: string | null;
   siteTitle?: string | null;
   siteDescription?: string | null;
   baseUrl?: string | null;
   detailView: ArticleDetailPageViewContract;
-  commentsIsland: ArticleDetailCommentsIslandPayload;
 }>;
 
 export type PublicPassiveHydrationPayload = Readonly<{
@@ -94,3 +87,9 @@ export type PublicHydrationPayload =
   | PublicPassiveHydrationPayload
   | PublicArchiveHydrationPayload
   | PublicFilterHydrationPayload;
+
+export type PublicRenderMetadata = Readonly<{
+  rendererVersion: string;
+  templateHash?: string | null;
+  generatedAt?: string | null;
+}>;

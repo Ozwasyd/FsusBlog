@@ -5,6 +5,7 @@
     "types": ["vite/client"],
     "lib": ["ESNext", "DOM", "DOM.Iterable", "WebWorker"],
     "composite": true,
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
@@ -19,5 +20,21 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "wasm/web/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "src/vite-env.d.ts",
+    "wasm/web/**/*.ts",
+    "auto-imports.d.ts",
+    "components.d.ts"
+  ],
+  "exclude": [
+    "dist",
+    "obj",
+    "node_modules",
+    "public/wasm",
+    "wasm/build",
+    "wasm/dist"
+  ]
 }

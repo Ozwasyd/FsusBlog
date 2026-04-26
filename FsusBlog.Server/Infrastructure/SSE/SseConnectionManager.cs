@@ -1,85 +1,266 @@
 ﻿using System.Collections.Concurrent;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Channels;
 
 namespace FsusBlog.Server.Infrastructure.Sse;
 
-public sealed class SseClient(string connectionId, string? userId, ChannelWriter<string> writer, IEnumerable<string> groups)
+public sealed class SseConnectionManager(IConfiguration configuration, ILogger<SseConnectionManager> logger)
 {
-    public string ConnectionId { get; } = connectionId;
-    public string? UserId { get; } = userId;
-    public ChannelWriter<string> Writer { get; } = writer;
-    public HashSet<string> Groups { get; } = new(groups);
+    private readonly ConcurrentDictionary<string, SseConnection> _byConnectionId = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _byUserId = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _byGroup = new(StringComparer.Ordinal);
+    private readonly int _queueCapacity = Math.Clamp(configuration.GetValue<int?>("Sse:QueueCapacity") ?? 256, 32, 4096);
+
+    public int ConnectionCount => _byConnectionId.Count;
+
+    public SseConnection RegisterConnection(string connectionId, string? userId, IReadOnlyCollection<string> groups)
+    {
+        var connection = new SseConnection(connectionId, userId, groups, _queueCapacity);
+        if (!_byConnectionId.TryAdd(connectionId, connection))
+        {
+            throw new InvalidOperationException($"Duplicate SSE connection id: {connectionId}");
+        }
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            AddToIndex(_byUserId, userId, connectionId);
+        }
+
+        foreach (string group in groups)
+        {
+            AddToIndex(_byGroup, group, connectionId);
+        }
+
+        SseMetrics.ConnectionOpened();
+        logger.LogDebug("SSE connection registered. ConnectionId: {ConnectionId} | UserId: {UserId}", connectionId, userId);
+        return connection;
+    }
+
+    public void RemoveConnection(string connectionId)
+    {
+        if (!_byConnectionId.TryRemove(connectionId, out SseConnection? connection))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(connection.UserId))
+        {
+            RemoveFromIndex(_byUserId, connection.UserId, connectionId);
+        }
+
+        foreach (string group in connection.Groups)
+        {
+            RemoveFromIndex(_byGroup, group, connectionId);
+        }
+
+        connection.Complete();
+        connection.Drain();
+        SseMetrics.ConnectionClosed();
+
+        logger.LogDebug("SSE connection removed. ConnectionId: {ConnectionId}", connectionId);
+    }
+
+    public int Publish(SharedSseFrame frame, SseTarget target)
+    {
+        int delivered = 0;
+        foreach (SseConnection connection in ResolveConnections(target))
+        {
+            if (connection.TryEnqueue(frame))
+            {
+                delivered++;
+            }
+        }
+
+        return delivered;
+    }
+
+    private IEnumerable<SseConnection> ResolveConnections(SseTarget target)
+    {
+        return target switch
+        {
+            UserTarget user => ResolveByIndex(_byUserId, user.UserId),
+            GroupTarget group => ResolveByIndex(_byGroup, group.GroupName),
+            MultiUserTarget multi => ResolveMultiUser(multi.UserIds),
+            _ => Array.Empty<SseConnection>()
+        };
+    }
+
+    private IEnumerable<SseConnection> ResolveByIndex(ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index, string key)
+    {
+        if (!index.TryGetValue(key, out ConcurrentDictionary<string, byte>? connectionIds))
+        {
+            yield break;
+        }
+
+        foreach ((string connectionId, _) in connectionIds)
+        {
+            if (_byConnectionId.TryGetValue(connectionId, out SseConnection? connection))
+            {
+                yield return connection;
+            }
+        }
+    }
+
+    private IEnumerable<SseConnection> ResolveMultiUser(IReadOnlyList<string> userIds)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (string userId in userIds)
+        {
+            if (!_byUserId.TryGetValue(userId, out ConcurrentDictionary<string, byte>? connectionIds))
+            {
+                continue;
+            }
+
+            foreach ((string connectionId, _) in connectionIds)
+            {
+                if (!seen.Add(connectionId))
+                {
+                    continue;
+                }
+
+                if (_byConnectionId.TryGetValue(connectionId, out SseConnection? connection))
+                {
+                    yield return connection;
+                }
+            }
+        }
+    }
+
+    private static void AddToIndex(ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index, string key, string connectionId)
+    {
+        ConcurrentDictionary<string, byte> connections = index.GetOrAdd(key, static _ => new ConcurrentDictionary<string, byte>(StringComparer.Ordinal));
+        connections.TryAdd(connectionId, 0);
+    }
+
+    private static void RemoveFromIndex(ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index, string key, string connectionId)
+    {
+        if (!index.TryGetValue(key, out ConcurrentDictionary<string, byte>? connections))
+        {
+            return;
+        }
+
+        connections.TryRemove(connectionId, out _);
+        if (connections.IsEmpty)
+        {
+            TryRemoveBucketIfCurrent(index, key, connections);
+        }
+    }
+
+    internal static bool TryRemoveBucketIfCurrent(
+        ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index,
+        string key,
+        ConcurrentDictionary<string, byte> connections)
+        => index.TryRemove(new KeyValuePair<string, ConcurrentDictionary<string, byte>>(key, connections));
 }
 
-public sealed class SseConnectionManager
+public sealed class SseConnection
 {
-    private readonly ConcurrentDictionary<string, SseClient> _clients = new();
+    private readonly Channel<SharedSseFrame> _queue;
+    private readonly HashSet<string> _groups;
+    private readonly int _queueCapacity;
+    private int _queuedFrames;
+    private int _closed;
+    private long _lastActivityUnixMs;
 
-    private static readonly JsonSerializerOptions _jsonOptions = new()
+    internal SseConnection(string connectionId, string? userId, IReadOnlyCollection<string> groups, int queueCapacity)
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
+        ConnectionId = connectionId;
+        UserId = userId;
+        _groups = new HashSet<string>(groups, StringComparer.Ordinal);
+        _queueCapacity = queueCapacity;
+        _queue = Channel.CreateBounded<SharedSseFrame>(new BoundedChannelOptions(queueCapacity)
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.Wait,
+            AllowSynchronousContinuations = false
+        });
 
-    public void AddClient(SseClient client) => _clients.TryAdd(client.ConnectionId, client);
-
-    public void RemoveClient(string connectionId) => _clients.TryRemove(connectionId, out _);
-
-    private static string FormatSseEvent(string eventName, object data)
-    {
-        var payload = JsonSerializer.Serialize(data, _jsonOptions);
-        return $"event: {eventName}\ndata: {payload}\n\n";
+        Touch();
     }
 
-    public void SendToUser(string userId, string eventName, object data)
+    public string ConnectionId { get; }
+
+    public string? UserId { get; }
+
+    public IReadOnlySet<string> Groups => _groups;
+
+    public ChannelReader<SharedSseFrame> Reader => _queue.Reader;
+
+    public bool IsIdle(TimeSpan idleWindow)
+        => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - Volatile.Read(ref _lastActivityUnixMs) >= (long)idleWindow.TotalMilliseconds;
+
+    public void MarkWriteActivity() => Touch();
+
+    public bool TryEnqueue(SharedSseFrame frame)
     {
-        var message = FormatSseEvent(eventName, data);
-        foreach (var client in _clients.Values)
+        if (Volatile.Read(ref _closed) == 1)
         {
-            if (client.UserId == userId) client.Writer.TryWrite(message);
+            return false;
+        }
+
+        int depth = Interlocked.Increment(ref _queuedFrames);
+        if (depth > _queueCapacity)
+        {
+            Interlocked.Decrement(ref _queuedFrames);
+            CloseSlowConsumer();
+            return false;
+        }
+
+        frame.Retain();
+        if (_queue.Writer.TryWrite(frame))
+        {
+            Touch();
+            SseMetrics.RecordQueueDepth(depth);
+            return true;
+        }
+
+        frame.Release();
+        Interlocked.Decrement(ref _queuedFrames);
+        CloseSlowConsumer();
+        return false;
+    }
+
+    public void AcknowledgeDequeuedFrame()
+    {
+        int depth = Interlocked.Decrement(ref _queuedFrames);
+        if (depth < 0)
+        {
+            Interlocked.Exchange(ref _queuedFrames, 0);
+        }
+
+        Touch();
+    }
+
+    public void Complete()
+    {
+        if (Interlocked.Exchange(ref _closed, 1) != 0)
+        {
+            return;
+        }
+
+        _queue.Writer.TryComplete();
+    }
+
+    public void Drain()
+    {
+        while (_queue.Reader.TryRead(out SharedSseFrame? frame))
+        {
+            AcknowledgeDequeuedFrame();
+            frame.Release();
         }
     }
 
-    public void SendToUsers(IEnumerable<string> userIds, string eventName, object data)
+    private void CloseSlowConsumer()
     {
-        var message = FormatSseEvent(eventName, data);
-        IReadOnlySet<string> set = userIds as IReadOnlySet<string> ?? userIds.ToHashSet();
-        foreach (var client in _clients.Values)
+        if (Interlocked.Exchange(ref _closed, 1) != 0)
         {
-            if (client.UserId != null && set.Contains(client.UserId)) client.Writer.TryWrite(message);
+            return;
         }
+
+        SseMetrics.RecordSlowDisconnect();
+        _queue.Writer.TryComplete();
     }
 
-    public void SendToGroup(string groupName, string eventName, object data)
-    {
-        var message = FormatSseEvent(eventName, data);
-        foreach (var client in _clients.Values)
-        {
-            if (client.Groups.Contains(groupName)) client.Writer.TryWrite(message);
-        }
-    }
-
-    public void BroadcastPing()
-    {
-        var message = "event: ping\ndata: {}\n\n";
-        foreach (var client in _clients.Values)
-        {
-            client.Writer.TryWrite(message);
-        }
-    }
-}
-
-// 后台心跳守护进程：自动探测半开 TCP 连接并触发 Cancellation 销毁僵尸内存
-public sealed class SseHeartbeatService(SseConnectionManager manager) : BackgroundService
-{
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
-        while (await timer.WaitForNextTickAsync(stoppingToken))
-        {
-            manager.BroadcastPing();
-        }
-    }
+    private void Touch() => Volatile.Write(ref _lastActivityUnixMs, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 }

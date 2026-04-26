@@ -1,33 +1,41 @@
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-.vite
-.cache
-.tmp
-.artifacts
-.emscripten-cache
-build-basic
-build-simd
-.output
-.nuxt
+# Build outputs
+node_modules/
+dist/
+dist-ssr/
+obj\\*/
+.vite/
+.cache/
+.playwright/
+.tmp/
+.artifacts/
+.output/
+.nuxt/
+coverage/
 .eslintcache
-coverage
 *.tsbuildinfo
 *.local
+playwright-report/
+test-results/
+.playwright-fixtures.json
+tmp-*.mjs
+*.trace.zip
 
-# Editor directories and files
+# Generated Vue/Vite files
+auto-imports.d.ts
+components.d.ts
+
+# Local editor files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
@@ -37,3 +45,24 @@ coverage
 *~
 *.tmp
 *.temp
+
+# WASM / emsdk / CMake
+src/wasm/dist/
+wasm/build/
+wasm/pow/build/
+wasm/build-basic/
+wasm/build-simd/
+wasm/.cmake/
+wasm/.artifacts/
+wasm/.emscripten-cache/
+wasm/**/CMakeFiles/
+wasm/**/CMakeCache.txt
+wasm/**/cmake_install.cmake
+wasm/**/compile_commands.json
+wasm/**/Makefile
+wasm/**/build.ninja
+wasm/**/rules.ninja
+wasm/**/.ninja_*
+wasm/**/*.rsp
+wasm/**/*.o
+wasm/**/*.a

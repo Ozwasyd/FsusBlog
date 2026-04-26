@@ -7,23 +7,53 @@
 #include <limits>
 #include <string>
 #include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
 namespace {
 
-constexpr std::uint32_t kMagic = 0x58425346u;
-constexpr std::uint16_t kVersion = 1u;
-constexpr std::uint32_t kPatchMagic = 0x50425346u;
-constexpr std::uint16_t kPatchVersion = 1u;
+constexpr std::uint32_t kShardMagic = 0x32534846u;   // FHS2
+constexpr std::uint32_t kShardVersion = 2u;
+constexpr std::uint32_t kPatchMagic = 0x54505346u;   // FSPT
+constexpr std::uint32_t kPatchVersion = 2u;
+constexpr std::uint32_t kPackageMagic = 0x4B505346u; // FSPK
+constexpr std::uint32_t kPackageVersion = 2u;
 constexpr double kBm25K1 = 1.2;
 constexpr double kBm25B = 0.75;
 constexpr double kTitleBoost = 2.5;
+constexpr double kMetaBoost = 0.9;
+constexpr double kBodyBoost = 1.0;
+constexpr double kPhraseBonus = 1.25;
 constexpr double kWeightRelevance = 1.0;
 constexpr double kWeightHotness = 0.35;
 constexpr double kHotCommentFactor = 12.0;
 constexpr double kHotViewFactor = 0.15;
 constexpr double kLambda = 1.0 / (1000.0 * 60.0 * 60.0 * 24.0 * 45.0);
+
+enum class ErrorCode : std::uint8_t {
+  None = 0,
+  PackagePayloadEmpty = 1,
+  PackageHeaderInvalid = 2,
+  ShardHeaderInvalid = 3,
+  PatchHeaderInvalid = 4,
+  VarintOverflow = 5,
+  StringOverflow = 6,
+  IndexNotLoaded = 7
+};
+
+enum class EntryKind : std::uint32_t {
+  Shard = 0,
+  Patch = 1
+};
+
+enum class ShardRole : std::uint32_t {
+  Core = 0,
+  Recent = 1,
+  Archive = 2,
+  Body = 3
+};
 
 struct SearchTag {
   std::uint32_t id = 0;
@@ -43,24 +73,53 @@ struct SearchDoc {
   std::vector<SearchTag> tags;
 };
 
-struct Posting {
-  std::uint32_t doc_index = 0;
-  std::uint16_t body_tf = 0;
-  std::uint16_t title_tf = 0;
+struct PositionRange {
+  std::uint32_t position = 0;
+  std::uint32_t length = 1;
+  std::uint8_t field = 0;
+};
+
+struct PostingHit {
+  std::uint32_t article_id = 0;
+  std::uint8_t title_tf = 0;
+  std::uint8_t meta_tf = 0;
+  std::uint8_t body_tf = 0;
+  std::vector<PositionRange> positions;
 };
 
 struct TermEntry {
   std::uint32_t hash = 0;
   float idf = 0.0f;
-  std::uint32_t posting_start = 0;
-  std::uint32_t posting_count = 0;
+  std::uint32_t posting_offset = 0;
+  std::uint32_t posting_length = 0;
+  bool has_positions = false;
+};
+
+struct CategoryEntry {
+  std::uint32_t id = 0;
+  std::string name;
+};
+
+struct TagEntry {
+  std::uint32_t id = 0;
+  std::string name;
+};
+
+struct ShardState {
+  ShardRole role = ShardRole::Core;
+  bool is_patch = false;
+  float avg_doc_length = 1.0f;
+  std::vector<TermEntry> terms;
+  std::vector<std::uint8_t> postings_blob;
+  std::unordered_set<std::uint32_t> tombstones;
 };
 
 struct SearchState {
-  float avg_doc_length = 1.0f;
   std::vector<SearchDoc> docs;
-  std::vector<Posting> postings;
-  std::vector<TermEntry> terms;
+  std::unordered_map<std::uint32_t, std::uint32_t> doc_index_by_article;
+  std::vector<ShardState> shards;
+  std::unordered_map<std::uint32_t, std::size_t> role_patch_index;
+  float avg_doc_length = 1.0f;
   bool loaded = false;
 };
 
@@ -69,24 +128,6 @@ struct ScoreEntry {
   double bm25 = 0.0;
   double hot = 0.0;
   double final_score = 0.0;
-};
-
-enum class ErrorCode : std::uint8_t {
-  None = 0,
-  U32Overflow = 1,
-  U16Overflow = 2,
-  U8Overflow = 3,
-  I64Overflow = 4,
-  StringOverflow = 5,
-  IndexPayloadEmpty = 6,
-  IndexHeaderInvalid = 7,
-  PatchPayloadEmpty = 8,
-  PatchHeaderInvalid = 9,
-  PatchCopyOutOfRange = 10,
-  PatchOpcodeInvalid = 11,
-  PatchLiteralOverflow = 12,
-  PatchLengthMismatch = 13,
-  IndexNotLoaded = 14
 };
 
 thread_local SearchState g_state{};
@@ -100,19 +141,12 @@ thread_local std::vector<std::uint32_t> g_touched_docs;
 const char* to_error_string(ErrorCode code) {
   switch (code) {
     case ErrorCode::None: return "";
-    case ErrorCode::U32Overflow: return "search_index_u32_overflow";
-    case ErrorCode::U16Overflow: return "search_index_u16_overflow";
-    case ErrorCode::U8Overflow: return "search_index_u8_overflow";
-    case ErrorCode::I64Overflow: return "search_index_i64_overflow";
-    case ErrorCode::StringOverflow: return "search_index_string_overflow";
-    case ErrorCode::IndexPayloadEmpty: return "search_index_payload_empty";
-    case ErrorCode::IndexHeaderInvalid: return "search_index_header_invalid";
-    case ErrorCode::PatchPayloadEmpty: return "search_patch_payload_empty";
+    case ErrorCode::PackagePayloadEmpty: return "search_package_payload_empty";
+    case ErrorCode::PackageHeaderInvalid: return "search_package_header_invalid";
+    case ErrorCode::ShardHeaderInvalid: return "search_shard_header_invalid";
     case ErrorCode::PatchHeaderInvalid: return "search_patch_header_invalid";
-    case ErrorCode::PatchCopyOutOfRange: return "search_patch_copy_out_of_range";
-    case ErrorCode::PatchOpcodeInvalid: return "search_patch_opcode_invalid";
-    case ErrorCode::PatchLiteralOverflow: return "search_patch_literal_overflow";
-    case ErrorCode::PatchLengthMismatch: return "search_patch_length_mismatch";
+    case ErrorCode::VarintOverflow: return "search_varint_overflow";
+    case ErrorCode::StringOverflow: return "search_string_overflow";
     case ErrorCode::IndexNotLoaded: return "search_index_not_loaded";
     default: return "search_runtime_failed";
   }
@@ -130,7 +164,7 @@ void set_error(ErrorCode code) {
 
 std::uint32_t read_u32(const std::uint8_t*& cursor, const std::uint8_t* end) {
   if (cursor + 4 > end) {
-    set_error(ErrorCode::U32Overflow);
+    set_error(ErrorCode::ShardHeaderInvalid);
     return 0;
   }
 
@@ -144,7 +178,7 @@ std::uint32_t read_u32(const std::uint8_t*& cursor, const std::uint8_t* end) {
 
 std::uint16_t read_u16(const std::uint8_t*& cursor, const std::uint8_t* end) {
   if (cursor + 2 > end) {
-    set_error(ErrorCode::U16Overflow);
+    set_error(ErrorCode::ShardHeaderInvalid);
     return 0;
   }
 
@@ -154,18 +188,9 @@ std::uint16_t read_u16(const std::uint8_t*& cursor, const std::uint8_t* end) {
   return value;
 }
 
-std::uint8_t read_u8(const std::uint8_t*& cursor, const std::uint8_t* end) {
-  if (cursor + 1 > end) {
-    set_error(ErrorCode::U8Overflow);
-    return 0;
-  }
-
-  return *cursor++;
-}
-
 std::int64_t read_i64(const std::uint8_t*& cursor, const std::uint8_t* end) {
   if (cursor + 8 > end) {
-    set_error(ErrorCode::I64Overflow);
+    set_error(ErrorCode::ShardHeaderInvalid);
     return 0;
   }
 
@@ -184,15 +209,189 @@ float read_f32(const std::uint8_t*& cursor, const std::uint8_t* end) {
   return value;
 }
 
-std::string read_string(const std::uint8_t*& cursor, const std::uint8_t* end, std::size_t length) {
-  if (cursor + length > end) {
+std::string read_string(const std::uint8_t* start, const std::uint8_t* end, std::uint32_t offset, std::uint16_t length) {
+  if (length == 0) {
+    return {};
+  }
+
+  if (start + offset + length > end) {
     set_error(ErrorCode::StringOverflow);
     return {};
   }
 
-  std::string value(reinterpret_cast<const char*>(cursor), length);
-  cursor += length;
-  return value;
+  return std::string(reinterpret_cast<const char*>(start + offset), length);
+}
+
+std::uint32_t read_vint(const std::uint8_t*& cursor, const std::uint8_t* end) {
+  std::uint32_t value = 0;
+  int shift = 0;
+  while (cursor < end && shift <= 28) {
+    const std::uint8_t byte = *cursor++;
+    value |= static_cast<std::uint32_t>(byte & 0x7Fu) << shift;
+    if ((byte & 0x80u) == 0) {
+      return value;
+    }
+    shift += 7;
+  }
+
+  set_error(ErrorCode::VarintOverflow);
+  return 0;
+}
+
+std::uint32_t murmur_hash3(std::string_view source) {
+  const auto* data = reinterpret_cast<const std::uint8_t*>(source.data());
+  const int length = static_cast<int>(source.size());
+  const int rounded_end = length & ~0x3;
+  std::uint32_t h1 = 0;
+
+  constexpr std::uint32_t c1 = 0xcc9e2d51u;
+  constexpr std::uint32_t c2 = 0x1b873593u;
+
+  for (int i = 0; i < rounded_end; i += 4) {
+    std::uint32_t k1 = static_cast<std::uint32_t>(data[i])
+      | (static_cast<std::uint32_t>(data[i + 1]) << 8)
+      | (static_cast<std::uint32_t>(data[i + 2]) << 16)
+      | (static_cast<std::uint32_t>(data[i + 3]) << 24);
+
+    k1 *= c1;
+    k1 = (k1 << 15) | (k1 >> 17);
+    k1 *= c2;
+
+    h1 ^= k1;
+    h1 = (h1 << 13) | (h1 >> 19);
+    h1 = h1 * 5 + 0xe6546b64u;
+  }
+
+  std::uint32_t k1 = 0;
+  switch (length & 3) {
+    case 3: k1 ^= static_cast<std::uint32_t>(data[rounded_end + 2]) << 16; [[fallthrough]];
+    case 2: k1 ^= static_cast<std::uint32_t>(data[rounded_end + 1]) << 8; [[fallthrough]];
+    case 1:
+      k1 ^= static_cast<std::uint32_t>(data[rounded_end]);
+      k1 *= c1;
+      k1 = (k1 << 15) | (k1 >> 17);
+      k1 *= c2;
+      h1 ^= k1;
+      break;
+    default:
+      break;
+  }
+
+  h1 ^= static_cast<std::uint32_t>(length);
+  h1 ^= h1 >> 16;
+  h1 *= 0x85ebca6bu;
+  h1 ^= h1 >> 13;
+  h1 *= 0xc2b2ae35u;
+  h1 ^= h1 >> 16;
+  return h1;
+}
+
+bool is_ascii_word(std::uint8_t ch) {
+  return (ch >= 'a' && ch <= 'z')
+    || (ch >= 'A' && ch <= 'Z')
+    || (ch >= '0' && ch <= '9');
+}
+
+std::uint32_t decode_utf8_codepoint(const std::string& input, std::size_t& index) {
+  const unsigned char lead = static_cast<unsigned char>(input[index]);
+  if (lead < 0x80) {
+    ++index;
+    return lead;
+  }
+  if ((lead >> 5) == 0x6 && index + 1 < input.size()) {
+    std::uint32_t codepoint = ((lead & 0x1Fu) << 6)
+      | (static_cast<unsigned char>(input[index + 1]) & 0x3Fu);
+    index += 2;
+    return codepoint;
+  }
+  if ((lead >> 4) == 0xE && index + 2 < input.size()) {
+    std::uint32_t codepoint = ((lead & 0x0Fu) << 12)
+      | ((static_cast<unsigned char>(input[index + 1]) & 0x3Fu) << 6)
+      | (static_cast<unsigned char>(input[index + 2]) & 0x3Fu);
+    index += 3;
+    return codepoint;
+  }
+  if ((lead >> 3) == 0x1E && index + 3 < input.size()) {
+    std::uint32_t codepoint = ((lead & 0x07u) << 18)
+      | ((static_cast<unsigned char>(input[index + 1]) & 0x3Fu) << 12)
+      | ((static_cast<unsigned char>(input[index + 2]) & 0x3Fu) << 6)
+      | (static_cast<unsigned char>(input[index + 3]) & 0x3Fu);
+    index += 4;
+    return codepoint;
+  }
+
+  ++index;
+  return 0;
+}
+
+bool is_cjk(std::uint32_t codepoint) {
+  return (codepoint >= 0x4E00u && codepoint <= 0x9FFFu)
+    || (codepoint >= 0x3400u && codepoint <= 0x4DBFu)
+    || (codepoint >= 0x3040u && codepoint <= 0x30FFu)
+    || (codepoint >= 0xAC00u && codepoint <= 0xD7AFu);
+}
+
+std::vector<std::uint32_t> tokenize_query_hashes(std::string query) {
+  std::vector<std::uint32_t> hashes;
+  std::string ascii_buffer;
+  auto flush_ascii = [&]() {
+    if (!ascii_buffer.empty()) {
+      std::transform(ascii_buffer.begin(), ascii_buffer.end(), ascii_buffer.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+      });
+      hashes.push_back(murmur_hash3(ascii_buffer));
+      ascii_buffer.clear();
+    }
+  };
+
+  for (std::size_t index = 0; index < query.size();) {
+    unsigned char lead = static_cast<unsigned char>(query[index]);
+    if (lead < 0x80) {
+      char ch = static_cast<char>(lead);
+      if (is_ascii_word(static_cast<std::uint8_t>(ch))) {
+        ascii_buffer.push_back(ch);
+      } else {
+        flush_ascii();
+      }
+      ++index;
+      continue;
+    }
+
+    flush_ascii();
+    std::size_t start = index;
+    std::uint32_t codepoint = decode_utf8_codepoint(query, index);
+    if (is_cjk(codepoint)) {
+      hashes.push_back(murmur_hash3(std::string_view(query.data() + start, index - start)));
+    }
+  }
+
+  flush_ascii();
+  std::sort(hashes.begin(), hashes.end());
+  hashes.erase(std::unique(hashes.begin(), hashes.end()), hashes.end());
+  return hashes;
+}
+
+double decode_quantized_tf(std::uint8_t value) {
+  switch (value) {
+    case 0: return 0.0;
+    case 1: case 2: case 3: case 4: case 5:
+    case 6: case 7: case 8: case 9: case 10:
+      return static_cast<double>(value);
+    case 11: return 12.0;
+    case 12: return 15.0;
+    case 13: return 20.0;
+    case 14: return 30.0;
+    case 15: return 50.0;
+    case 16: return 100.0;
+    default: return 140.0;
+  }
+}
+
+double compute_hot_score(const SearchDoc& doc, std::int64_t now_ms) {
+  const double age_ms = std::max<double>(0.0, static_cast<double>(now_ms - doc.publish_unix_ms));
+  const double base = static_cast<double>(doc.comment_count) * kHotCommentFactor
+    + static_cast<double>(doc.views) * kHotViewFactor;
+  return base * std::exp(-kLambda * age_ms);
 }
 
 void write_u16(std::string& target, std::uint16_t value) {
@@ -260,182 +459,6 @@ void append_blob(std::string& target, std::string_view payload) {
   target.append(payload.data(), payload.size());
 }
 
-std::uint32_t murmur_hash3(std::string_view source) {
-  const auto* data = reinterpret_cast<const std::uint8_t*>(source.data());
-  const int length = static_cast<int>(source.size());
-  const int rounded_end = length & ~0x3;
-  std::uint32_t h1 = 0;
-
-  constexpr std::uint32_t c1 = 0xcc9e2d51u;
-  constexpr std::uint32_t c2 = 0x1b873593u;
-
-  for (int i = 0; i < rounded_end; i += 4) {
-    std::uint32_t k1 = static_cast<std::uint32_t>(data[i])
-      | (static_cast<std::uint32_t>(data[i + 1]) << 8)
-      | (static_cast<std::uint32_t>(data[i + 2]) << 16)
-      | (static_cast<std::uint32_t>(data[i + 3]) << 24);
-
-    k1 *= c1;
-    k1 = (k1 << 15) | (k1 >> 17);
-    k1 *= c2;
-
-    h1 ^= k1;
-    h1 = (h1 << 13) | (h1 >> 19);
-    h1 = h1 * 5 + 0xe6546b64u;
-  }
-
-  std::uint32_t k1 = 0;
-  switch (length & 3) {
-    case 3: k1 ^= static_cast<std::uint32_t>(data[rounded_end + 2]) << 16; [[fallthrough]];
-    case 2: k1 ^= static_cast<std::uint32_t>(data[rounded_end + 1]) << 8; [[fallthrough]];
-    case 1:
-      k1 ^= static_cast<std::uint32_t>(data[rounded_end]);
-      k1 *= c1;
-      k1 = (k1 << 15) | (k1 >> 17);
-      k1 *= c2;
-      h1 ^= k1;
-      break;
-    default:
-      break;
-  }
-
-  h1 ^= static_cast<std::uint32_t>(length);
-  h1 ^= h1 >> 16;
-  h1 *= 0x85ebca6bu;
-  h1 ^= h1 >> 13;
-  h1 *= 0xc2b2ae35u;
-  h1 ^= h1 >> 16;
-  return h1;
-}
-
-bool is_ascii_word(char ch) {
-  return (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9');
-}
-
-std::uint32_t decode_utf8_codepoint(const std::string& input, std::size_t& index) {
-  const unsigned char lead = static_cast<unsigned char>(input[index]);
-  if (lead < 0x80) {
-    ++index;
-    return lead;
-  }
-
-  if ((lead >> 5) == 0x6 && index + 1 < input.size()) {
-    std::uint32_t codepoint = ((lead & 0x1Fu) << 6)
-      | (static_cast<unsigned char>(input[index + 1]) & 0x3Fu);
-    index += 2;
-    return codepoint;
-  }
-
-  if ((lead >> 4) == 0xE && index + 2 < input.size()) {
-    std::uint32_t codepoint = ((lead & 0x0Fu) << 12)
-      | ((static_cast<unsigned char>(input[index + 1]) & 0x3Fu) << 6)
-      | (static_cast<unsigned char>(input[index + 2]) & 0x3Fu);
-    index += 3;
-    return codepoint;
-  }
-
-  if ((lead >> 3) == 0x1E && index + 3 < input.size()) {
-    std::uint32_t codepoint = ((lead & 0x07u) << 18)
-      | ((static_cast<unsigned char>(input[index + 1]) & 0x3Fu) << 12)
-      | ((static_cast<unsigned char>(input[index + 2]) & 0x3Fu) << 6)
-      | (static_cast<unsigned char>(input[index + 3]) & 0x3Fu);
-    index += 4;
-    return codepoint;
-  }
-
-  ++index;
-  return 0;
-}
-
-bool is_cjk(std::uint32_t codepoint) {
-  return (codepoint >= 0x4E00u && codepoint <= 0x9FFFu)
-    || (codepoint >= 0x3400u && codepoint <= 0x4DBFu)
-    || (codepoint >= 0x3040u && codepoint <= 0x30FFu)
-    || (codepoint >= 0xAC00u && codepoint <= 0xD7AFu);
-}
-
-std::vector<std::uint32_t> tokenize_query_hashes(std::string query) {
-  std::transform(query.begin(), query.end(), query.begin(), [](unsigned char ch) {
-    return static_cast<char>(std::tolower(ch));
-  });
-
-  std::vector<std::uint32_t> hashes;
-  std::string ascii_buffer;
-  std::vector<std::string> cjk_segment;
-
-  auto flush_ascii = [&]() {
-    if (!ascii_buffer.empty()) {
-      hashes.push_back(murmur_hash3(ascii_buffer));
-      ascii_buffer.clear();
-    }
-  };
-
-  auto flush_cjk = [&]() {
-    if (cjk_segment.empty()) {
-      return;
-    }
-
-    if (cjk_segment.size() == 1) {
-      hashes.push_back(murmur_hash3(cjk_segment.front()));
-    } else {
-      for (std::size_t i = 0; i + 1 < cjk_segment.size(); ++i) {
-        hashes.push_back(murmur_hash3(cjk_segment[i] + cjk_segment[i + 1]));
-      }
-    }
-
-    cjk_segment.clear();
-  };
-
-  for (std::size_t index = 0; index < query.size();) {
-    unsigned char lead = static_cast<unsigned char>(query[index]);
-    if (lead < 0x80) {
-      flush_cjk();
-      char ch = static_cast<char>(lead);
-      if (is_ascii_word(ch)) {
-        ascii_buffer.push_back(ch);
-      } else {
-        flush_ascii();
-      }
-      ++index;
-      continue;
-    }
-
-    flush_ascii();
-    std::size_t start = index;
-    std::uint32_t codepoint = decode_utf8_codepoint(query, index);
-    if (is_cjk(codepoint)) {
-      cjk_segment.emplace_back(query.substr(start, index - start));
-    } else {
-      flush_cjk();
-    }
-  }
-
-  flush_ascii();
-  flush_cjk();
-
-  std::sort(hashes.begin(), hashes.end());
-  hashes.erase(std::unique(hashes.begin(), hashes.end()), hashes.end());
-  return hashes;
-}
-
-const TermEntry* find_term(std::uint32_t hash) {
-  auto it = std::lower_bound(g_state.terms.begin(), g_state.terms.end(), hash, [](const TermEntry& entry, std::uint32_t value) {
-    return entry.hash < value;
-  });
-  if (it == g_state.terms.end() || it->hash != hash) {
-    return nullptr;
-  }
-
-  return &(*it);
-}
-
-double compute_hot_score(const SearchDoc& doc, std::int64_t now_ms) {
-  const double age_ms = std::max<double>(0.0, static_cast<double>(now_ms - doc.publish_unix_ms));
-  const double base = static_cast<double>(doc.comment_count) * kHotCommentFactor
-    + static_cast<double>(doc.views) * kHotViewFactor;
-  return base * std::exp(-kLambda * age_ms);
-}
-
 void append_article_list_item(std::string& target, const SearchDoc& doc) {
   std::string text_blob;
   text_blob.reserve(doc.summary.size());
@@ -450,10 +473,6 @@ void append_article_list_item(std::string& target, const SearchDoc& doc) {
   append_fixed_utf8(target, doc.title, 256);
   append_slice_ref(target, 0, static_cast<std::int32_t>(summary_len));
   append_slice_ref(target, static_cast<std::int32_t>(summary_len), 0);
-  target.push_back(static_cast<char>(0));
-  target.push_back(static_cast<char>(0));
-  write_u16(target, 0);
-
   write_u32(target, static_cast<std::uint32_t>(doc.tags.size()));
   for (const SearchTag& tag : doc.tags) {
     write_u32(target, tag.id);
@@ -486,6 +505,441 @@ void build_binary_page(const std::vector<ScoreEntry>& scores, std::size_t page, 
   }
 }
 
+const TermEntry* find_term(const ShardState& shard, std::uint32_t hash) {
+  auto it = std::lower_bound(shard.terms.begin(), shard.terms.end(), hash, [](const TermEntry& entry, std::uint32_t value) {
+    return entry.hash < value;
+  });
+  if (it == shard.terms.end() || it->hash != hash) {
+    return nullptr;
+  }
+
+  return &(*it);
+}
+
+bool align_cursor(const std::uint8_t*& cursor, const std::uint8_t* base, const std::uint8_t* end, std::uint32_t offset) {
+  if (base + offset > end) {
+    set_error(ErrorCode::ShardHeaderInvalid);
+    return false;
+  }
+  cursor = base + offset;
+  return true;
+}
+
+bool parse_shard_payload(
+  const std::uint8_t* data,
+  int length,
+  ShardRole expected_role,
+  bool is_patch_payload,
+  const std::unordered_set<std::uint32_t>& tombstones,
+  ShardState& out_shard)
+{
+  if (length <= 0) {
+    set_error(ErrorCode::ShardHeaderInvalid);
+    return false;
+  }
+
+  const auto* base = data;
+  const auto* cursor = data;
+  const auto* end = data + length;
+
+  const std::uint32_t magic = read_u32(cursor, end);
+  const std::uint32_t version = read_u32(cursor, end);
+  const auto role = static_cast<ShardRole>(read_u32(cursor, end));
+  const std::uint32_t flags = read_u32(cursor, end);
+  const std::uint32_t term_count = read_u32(cursor, end);
+  const std::uint32_t doc_count = read_u32(cursor, end);
+  const std::uint32_t category_count = read_u32(cursor, end);
+  const std::uint32_t tag_count = read_u32(cursor, end);
+  const std::uint32_t tag_ref_count = read_u32(cursor, end);
+  const std::uint32_t term_offset = read_u32(cursor, end);
+  const std::uint32_t doc_offset = read_u32(cursor, end);
+  const std::uint32_t category_offset = read_u32(cursor, end);
+  const std::uint32_t tag_offset = read_u32(cursor, end);
+  const std::uint32_t tag_ref_offset = read_u32(cursor, end);
+  const std::uint32_t string_pool_offset = read_u32(cursor, end);
+  const std::uint32_t posting_offset = read_u32(cursor, end);
+  const std::uint32_t posting_length = read_u32(cursor, end);
+  const float avg_doc_length = read_f32(cursor, end);
+
+  if (!g_last_error.empty() || magic != kShardMagic || version != kShardVersion || role != expected_role) {
+    set_error(ErrorCode::ShardHeaderInvalid);
+    return false;
+  }
+
+  std::vector<CategoryEntry> categories;
+  categories.reserve(category_count);
+  if (!align_cursor(cursor, base, end, category_offset)) {
+    return false;
+  }
+  for (std::uint32_t i = 0; i < category_count; ++i) {
+    CategoryEntry entry;
+    entry.id = read_u32(cursor, end);
+    std::uint32_t name_offset = read_u32(cursor, end);
+    std::uint16_t name_length = read_u16(cursor, end);
+    cursor += 2;
+    cursor += 4;
+    if (!g_last_error.empty()) {
+      return false;
+    }
+    entry.name = read_string(base + string_pool_offset, end, name_offset, name_length);
+    if (!g_last_error.empty()) {
+      return false;
+    }
+    categories.push_back(std::move(entry));
+  }
+
+  std::vector<TagEntry> tags;
+  tags.reserve(tag_count);
+  if (!align_cursor(cursor, base, end, tag_offset)) {
+    return false;
+  }
+  for (std::uint32_t i = 0; i < tag_count; ++i) {
+    TagEntry entry;
+    entry.id = read_u32(cursor, end);
+    std::uint32_t name_offset = read_u32(cursor, end);
+    std::uint16_t name_length = read_u16(cursor, end);
+    cursor += 2;
+    cursor += 4;
+    if (!g_last_error.empty()) {
+      return false;
+    }
+    entry.name = read_string(base + string_pool_offset, end, name_offset, name_length);
+    if (!g_last_error.empty()) {
+      return false;
+    }
+    tags.push_back(std::move(entry));
+  }
+
+  std::vector<std::uint16_t> tag_refs;
+  tag_refs.reserve(tag_ref_count);
+  if (!align_cursor(cursor, base, end, tag_ref_offset)) {
+    return false;
+  }
+  for (std::uint32_t i = 0; i < tag_ref_count; ++i) {
+    tag_refs.push_back(read_u16(cursor, end));
+    if (!g_last_error.empty()) {
+      return false;
+    }
+  }
+
+  if (!align_cursor(cursor, base, end, doc_offset)) {
+    return false;
+  }
+  for (std::uint32_t i = 0; i < doc_count; ++i) {
+    std::uint32_t article_id = read_u32(cursor, end);
+    std::uint16_t category_index = read_u16(cursor, end);
+    std::uint16_t tag_count_for_doc = read_u16(cursor, end);
+    std::uint32_t tag_ref_start = read_u32(cursor, end);
+    std::uint32_t views = read_u32(cursor, end);
+    std::uint32_t comment_count = read_u32(cursor, end);
+    std::uint32_t doc_length = read_u32(cursor, end);
+    std::int64_t publish_unix_ms = read_i64(cursor, end);
+    std::uint32_t title_offset = read_u32(cursor, end);
+    std::uint16_t title_length = read_u16(cursor, end);
+    cursor += 2;
+    std::uint32_t summary_offset = read_u32(cursor, end);
+    std::uint16_t summary_length = read_u16(cursor, end);
+    cursor += 2;
+    cursor += 4;
+
+    if (!g_last_error.empty()) {
+      return false;
+    }
+
+    if ((flags & 1u) != 0u) {
+      SearchDoc doc;
+      doc.article_id = article_id;
+      doc.publish_unix_ms = publish_unix_ms;
+      doc.views = views;
+      doc.comment_count = comment_count;
+      doc.doc_length = doc_length == 0 ? 1u : doc_length;
+      doc.title = read_string(base + string_pool_offset, end, title_offset, title_length);
+      doc.summary = read_string(base + string_pool_offset, end, summary_offset, summary_length);
+      if (category_index < categories.size()) {
+        doc.category_id = categories[category_index].id;
+        doc.category_name = categories[category_index].name;
+      }
+
+      doc.tags.reserve(tag_count_for_doc);
+      for (std::uint16_t tag_index = 0; tag_index < tag_count_for_doc; ++tag_index) {
+        const std::uint32_t ref_index = tag_ref_start + tag_index;
+        if (ref_index >= tag_refs.size()) {
+          continue;
+        }
+
+        const std::uint16_t dict_index = tag_refs[ref_index];
+        if (dict_index >= tags.size()) {
+          continue;
+        }
+
+        doc.tags.push_back(SearchTag{ tags[dict_index].id, tags[dict_index].name });
+      }
+
+      auto existing = g_state.doc_index_by_article.find(article_id);
+      if (existing == g_state.doc_index_by_article.end()) {
+        g_state.doc_index_by_article.emplace(article_id, static_cast<std::uint32_t>(g_state.docs.size()));
+        g_state.docs.push_back(std::move(doc));
+      } else {
+        g_state.docs[existing->second] = std::move(doc);
+      }
+    }
+  }
+
+  if (!align_cursor(cursor, base, end, term_offset)) {
+    return false;
+  }
+
+  out_shard.role = role;
+  out_shard.is_patch = is_patch_payload;
+  out_shard.avg_doc_length = avg_doc_length <= 0.0f ? 1.0f : avg_doc_length;
+  out_shard.tombstones = tombstones;
+  out_shard.terms.reserve(term_count);
+  for (std::uint32_t i = 0; i < term_count; ++i) {
+    TermEntry entry;
+    entry.hash = read_u32(cursor, end);
+    entry.idf = read_f32(cursor, end);
+    entry.posting_offset = read_u32(cursor, end);
+    entry.posting_length = read_u32(cursor, end);
+    entry.has_positions = read_u32(cursor, end) != 0;
+    cursor += 4;
+    if (!g_last_error.empty()) {
+      return false;
+    }
+    out_shard.terms.push_back(entry);
+  }
+
+  if (base + posting_offset + posting_length > end) {
+    set_error(ErrorCode::ShardHeaderInvalid);
+    return false;
+  }
+
+  out_shard.postings_blob.assign(base + posting_offset, base + posting_offset + posting_length);
+  return true;
+}
+
+bool parse_patch_payload(const std::uint8_t* data, int length, ShardRole role, ShardState& out_shard) {
+  const auto* cursor = data;
+  const auto* end = data + length;
+  const std::uint32_t magic = read_u32(cursor, end);
+  const std::uint32_t version = read_u32(cursor, end);
+  const std::uint32_t tombstone_count = read_u32(cursor, end);
+  const std::uint32_t tombstone_bytes_length = read_u32(cursor, end);
+  const std::uint32_t shard_length = read_u32(cursor, end);
+  cursor += 4;
+
+  if (!g_last_error.empty() || magic != kPatchMagic || version != kPatchVersion || cursor + tombstone_bytes_length + shard_length > end) {
+    set_error(ErrorCode::PatchHeaderInvalid);
+    return false;
+  }
+
+  std::unordered_set<std::uint32_t> tombstones;
+  tombstones.reserve(tombstone_count);
+  std::uint32_t previous_article_id = 0;
+  const auto* tombstone_end = cursor + tombstone_bytes_length;
+  for (std::uint32_t i = 0; i < tombstone_count; ++i) {
+    previous_article_id += read_vint(cursor, tombstone_end);
+    if (!g_last_error.empty()) {
+      return false;
+    }
+    tombstones.insert(previous_article_id);
+  }
+
+  return parse_shard_payload(cursor, static_cast<int>(shard_length), role, true, tombstones, out_shard);
+}
+
+bool parse_package(const std::uint8_t* data, int length) {
+  const auto* cursor = data;
+  const auto* end = data + length;
+  const std::uint32_t magic = read_u32(cursor, end);
+  const std::uint32_t version = read_u32(cursor, end);
+  const std::uint32_t entry_count = read_u32(cursor, end);
+
+  if (!g_last_error.empty() || magic != kPackageMagic || version != kPackageVersion) {
+    set_error(ErrorCode::PackageHeaderInvalid);
+    return false;
+  }
+
+  struct PackageEntry {
+    EntryKind kind = EntryKind::Shard;
+    ShardRole role = ShardRole::Core;
+    std::uint32_t offset = 0;
+    std::uint32_t length = 0;
+  };
+
+  std::vector<PackageEntry> entries;
+  entries.reserve(entry_count);
+  for (std::uint32_t i = 0; i < entry_count; ++i) {
+    PackageEntry entry;
+    entry.kind = static_cast<EntryKind>(read_u32(cursor, end));
+    entry.role = static_cast<ShardRole>(read_u32(cursor, end));
+    entry.offset = read_u32(cursor, end);
+    entry.length = read_u32(cursor, end);
+    if (!g_last_error.empty() || data + entry.offset + entry.length > end) {
+      set_error(ErrorCode::PackageHeaderInvalid);
+      return false;
+    }
+    entries.push_back(entry);
+  }
+
+  g_state = SearchState{};
+  for (const PackageEntry& entry : entries) {
+    ShardState shard;
+    if (entry.kind == EntryKind::Patch) {
+      if (!parse_patch_payload(data + entry.offset, static_cast<int>(entry.length), entry.role, shard)) {
+        return false;
+      }
+    } else {
+      if (!parse_shard_payload(data + entry.offset, static_cast<int>(entry.length), entry.role, false, {}, shard)) {
+        return false;
+      }
+    }
+    g_state.shards.push_back(std::move(shard));
+  }
+
+  for (std::size_t index = 0; index < g_state.shards.size(); ++index) {
+    if (g_state.shards[index].role == ShardRole::Core) {
+      g_state.avg_doc_length = g_state.shards[index].avg_doc_length;
+      break;
+    }
+  }
+  if (g_state.avg_doc_length <= 0.0f) {
+    g_state.avg_doc_length = 1.0f;
+  }
+  g_state.loaded = true;
+  return true;
+}
+
+bool decode_posting_hit(const ShardState& shard, const TermEntry& term, std::uint32_t target_article_id, PostingHit& hit) {
+  if (term.posting_offset + term.posting_length > shard.postings_blob.size()) {
+    return false;
+  }
+
+  const auto* cursor = shard.postings_blob.data() + term.posting_offset;
+  const auto* end = cursor + term.posting_length;
+  const std::uint32_t posting_count = read_vint(cursor, end);
+  if (!g_last_error.empty()) {
+    return false;
+  }
+
+  std::uint32_t article_id = 0;
+  for (std::uint32_t i = 0; i < posting_count; ++i) {
+    article_id += read_vint(cursor, end);
+    if (cursor + 3 > end || !g_last_error.empty()) {
+      return false;
+    }
+
+    const std::uint8_t title_tf = *cursor++;
+    const std::uint8_t meta_tf = *cursor++;
+    const std::uint8_t body_tf = *cursor++;
+    const std::uint32_t position_count = read_vint(cursor, end);
+    if (!g_last_error.empty()) {
+      return false;
+    }
+
+    std::vector<PositionRange> positions;
+    positions.reserve(position_count);
+    std::uint32_t previous_position = 0;
+    for (std::uint32_t p = 0; p < position_count; ++p) {
+      previous_position += read_vint(cursor, end);
+      const std::uint32_t position_length = read_vint(cursor, end);
+      const std::uint32_t field = read_vint(cursor, end);
+      if (!g_last_error.empty()) {
+        return false;
+      }
+      positions.push_back(PositionRange{ previous_position, position_length == 0 ? 1u : position_length, static_cast<std::uint8_t>(field) });
+    }
+
+    if (article_id != target_article_id) {
+      continue;
+    }
+
+    hit.article_id = article_id;
+    hit.title_tf = title_tf;
+    hit.meta_tf = meta_tf;
+    hit.body_tf = body_tf;
+    hit.positions = std::move(positions);
+    return true;
+  }
+
+  return false;
+}
+
+double compute_phrase_bonus(const std::vector<const TermEntry*>& terms, const ShardState& shard, std::uint32_t article_id) {
+  if (terms.size() < 2) {
+    return 0.0;
+  }
+
+  std::vector<std::vector<PositionRange>> term_positions;
+  term_positions.reserve(terms.size());
+  for (const TermEntry* term : terms) {
+    if (term == nullptr || !term->has_positions) {
+      return 0.0;
+    }
+
+    PostingHit hit;
+    if (!decode_posting_hit(shard, *term, article_id, hit) || hit.positions.empty()) {
+      return 0.0;
+    }
+    term_positions.push_back(std::move(hit.positions));
+  }
+
+  for (const PositionRange& first : term_positions.front()) {
+    std::uint32_t expected = first.position + first.length;
+    const std::uint8_t expected_field = first.field;
+    bool matched = true;
+    for (std::size_t index = 1; index < term_positions.size(); ++index) {
+      const auto& positions = term_positions[index];
+      auto it = std::find_if(positions.begin(), positions.end(), [&](const PositionRange& candidate) {
+        return candidate.position == expected && candidate.field == expected_field;
+      });
+      if (it == positions.end()) {
+        matched = false;
+        break;
+      }
+
+      expected = it->position + it->length;
+    }
+
+    if (matched) {
+      return kPhraseBonus;
+    }
+  }
+
+  return 0.0;
+}
+
+double compute_effective_tf(
+  std::uint8_t title_tf,
+  std::uint8_t meta_tf,
+  std::uint8_t body_tf,
+  const TermEntry& term,
+  const std::vector<PositionRange>& positions,
+  std::unordered_set<std::uint64_t>* covered_positions)
+{
+  const double meta_contribution = decode_quantized_tf(meta_tf) * kMetaBoost;
+  double positional_contribution = decode_quantized_tf(title_tf) * kTitleBoost
+    + decode_quantized_tf(body_tf) * kBodyBoost;
+
+  if (covered_positions != nullptr && term.has_positions && !positions.empty()) {
+    std::uint32_t new_covered_positions = 0;
+    for (const PositionRange& position : positions) {
+      const std::uint32_t length = std::max<std::uint32_t>(1, position.length);
+      for (std::uint32_t delta = 0; delta < length; ++delta) {
+        const std::uint64_t key = (static_cast<std::uint64_t>(position.field) << 56)
+          | static_cast<std::uint64_t>(position.position + delta);
+        if (covered_positions->insert(key).second) {
+          ++new_covered_positions;
+        }
+      }
+    }
+
+    const double max_field_boost = title_tf > 0 ? kTitleBoost : kBodyBoost;
+    positional_contribution = std::min(positional_contribution, static_cast<double>(new_covered_positions) * max_field_boost);
+  }
+
+  return meta_contribution + positional_contribution;
+}
+
 } // namespace
 
 extern "C" {
@@ -505,178 +959,13 @@ void free_buffer(void* ptr) {
 int load_search_index(const std::uint8_t* data, int length) {
   clear_error();
   g_last_result.clear();
-  g_state = SearchState{};
 
   if (data == nullptr || length <= 0) {
-    set_error(ErrorCode::IndexPayloadEmpty);
+    set_error(ErrorCode::PackagePayloadEmpty);
     return 0;
   }
 
-  const auto* cursor = data;
-  const auto* end = data + length;
-
-  const std::uint32_t magic = read_u32(cursor, end);
-  const std::uint16_t version = read_u16(cursor, end);
-  (void)read_u16(cursor, end);
-  const std::uint32_t term_count = read_u32(cursor, end);
-  const std::uint32_t posting_count = read_u32(cursor, end);
-  const std::uint32_t doc_count = read_u32(cursor, end);
-  const float avg_doc_len = read_f32(cursor, end);
-
-  if (!g_last_error.empty()) {
-    return 0;
-  }
-
-  if (magic != kMagic || version != kVersion) {
-    set_error(ErrorCode::IndexHeaderInvalid);
-    return 0;
-  }
-
-  g_state.avg_doc_length = avg_doc_len <= 0.0f ? 1.0f : avg_doc_len;
-  g_state.terms.reserve(term_count);
-  g_state.postings.reserve(posting_count);
-  g_state.docs.reserve(doc_count);
-
-  for (std::uint32_t i = 0; i < term_count; ++i) {
-    TermEntry entry;
-    entry.hash = read_u32(cursor, end);
-    entry.idf = read_f32(cursor, end);
-    entry.posting_start = read_u32(cursor, end);
-    entry.posting_count = read_u32(cursor, end);
-    if (!g_last_error.empty()) {
-      return 0;
-    }
-    g_state.terms.push_back(entry);
-  }
-
-  for (std::uint32_t i = 0; i < posting_count; ++i) {
-    Posting posting;
-    posting.doc_index = read_u32(cursor, end);
-    posting.body_tf = read_u16(cursor, end);
-    posting.title_tf = read_u16(cursor, end);
-    if (!g_last_error.empty()) {
-      return 0;
-    }
-    g_state.postings.push_back(posting);
-  }
-
-  for (std::uint32_t i = 0; i < doc_count; ++i) {
-    SearchDoc doc;
-    doc.article_id = read_u32(cursor, end);
-    doc.category_id = read_u32(cursor, end);
-    doc.publish_unix_ms = read_i64(cursor, end);
-    doc.views = read_u32(cursor, end);
-    doc.comment_count = read_u32(cursor, end);
-    doc.doc_length = read_u32(cursor, end);
-    const auto title_len = read_u16(cursor, end);
-    const auto summary_len = read_u16(cursor, end);
-    const auto category_len = read_u16(cursor, end);
-    const auto tag_count = read_u16(cursor, end);
-    if (!g_last_error.empty()) {
-      return 0;
-    }
-
-    doc.title = read_string(cursor, end, title_len);
-    doc.summary = read_string(cursor, end, summary_len);
-    doc.category_name = read_string(cursor, end, category_len);
-    if (!g_last_error.empty()) {
-      return 0;
-    }
-
-    doc.tags.reserve(tag_count);
-    for (std::uint16_t tag_index = 0; tag_index < tag_count; ++tag_index) {
-      SearchTag tag;
-      tag.id = read_u32(cursor, end);
-      const auto name_len = read_u16(cursor, end);
-      tag.name = read_string(cursor, end, name_len);
-      if (!g_last_error.empty()) {
-        return 0;
-      }
-      doc.tags.push_back(std::move(tag));
-    }
-
-    if (doc.doc_length == 0) {
-      doc.doc_length = 1;
-    }
-
-    g_state.docs.push_back(std::move(doc));
-  }
-
-  g_state.loaded = true;
-  return 1;
-}
-
-int apply_search_patch(const std::uint8_t* old_data, int old_length, const std::uint8_t* patch_data, int patch_length) {
-  clear_error();
-  g_last_result.clear();
-
-  if ((old_data == nullptr && old_length > 0) || patch_data == nullptr || patch_length <= 0) {
-    set_error(ErrorCode::PatchPayloadEmpty);
-    return 0;
-  }
-
-  const auto* cursor = patch_data;
-  const auto* end = patch_data + patch_length;
-
-  const std::uint32_t magic = read_u32(cursor, end);
-  const std::uint16_t version = read_u16(cursor, end);
-  (void)read_u16(cursor, end);
-  const std::uint32_t target_length = read_u32(cursor, end);
-  const std::uint32_t op_count = read_u32(cursor, end);
-
-  if (!g_last_error.empty()) {
-    return 0;
-  }
-
-  if (magic != kPatchMagic || version != kPatchVersion) {
-    set_error(ErrorCode::PatchHeaderInvalid);
-    return 0;
-  }
-
-  g_last_result.reserve(target_length);
-  for (std::uint32_t i = 0; i < op_count; ++i) {
-    const std::uint8_t op = read_u8(cursor, end);
-    if (!g_last_error.empty()) {
-      return 0;
-    }
-
-    if (op == 1u) {
-      const std::uint32_t offset = read_u32(cursor, end);
-      const std::uint32_t length = read_u32(cursor, end);
-      if (!g_last_error.empty()) {
-        return 0;
-      }
-
-      if (offset > static_cast<std::uint32_t>(old_length) || length > static_cast<std::uint32_t>(old_length) || offset + length > static_cast<std::uint32_t>(old_length)) {
-        set_error(ErrorCode::PatchCopyOutOfRange);
-        return 0;
-      }
-
-      g_last_result.append(reinterpret_cast<const char*>(old_data + offset), length);
-      continue;
-    }
-
-    if (op != 0u) {
-      set_error(ErrorCode::PatchOpcodeInvalid);
-      return 0;
-    }
-
-    const std::uint32_t length = read_u32(cursor, end);
-    if (!g_last_error.empty()) {
-      return 0;
-    }
-
-    if (cursor + length > end) {
-      set_error(ErrorCode::PatchLiteralOverflow);
-      return 0;
-    }
-
-    g_last_result.append(reinterpret_cast<const char*>(cursor), length);
-    cursor += length;
-  }
-
-  if (g_last_result.size() != target_length) {
-    set_error(ErrorCode::PatchLengthMismatch);
+  if (!parse_package(data, length)) {
     return 0;
   }
 
@@ -709,35 +998,93 @@ int search_articles(const std::uint8_t* query_ptr, int query_len, int sort_mode,
   g_doc_touched.assign(doc_count, static_cast<std::uint8_t>(0));
   g_touched_docs.clear();
   g_touched_docs.reserve(std::min<std::size_t>(doc_count, 512));
+
   const auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::system_clock::now().time_since_epoch()).count();
+    std::chrono::system_clock::now().time_since_epoch()).count();
 
-  for (std::uint32_t hash : hashes) {
-    const TermEntry* term = find_term(hash);
-    if (term == nullptr) {
-      continue;
+  std::unordered_map<std::uint32_t, std::unordered_set<std::uint32_t>> tombstones_by_role;
+  std::unordered_map<std::uint32_t, std::unordered_set<std::uint64_t>> covered_positions_by_doc;
+  for (const ShardState& shard : g_state.shards) {
+    if (shard.is_patch) {
+      tombstones_by_role[static_cast<std::uint32_t>(shard.role)].insert(shard.tombstones.begin(), shard.tombstones.end());
     }
+  }
 
-    for (std::uint32_t i = 0; i < term->posting_count; ++i) {
-      const Posting& posting = g_state.postings[term->posting_start + i];
-      if (posting.doc_index >= g_state.docs.size()) {
+  for (const ShardState& shard : g_state.shards) {
+    const auto tombstone_it = tombstones_by_role.find(static_cast<std::uint32_t>(shard.role));
+    const std::unordered_set<std::uint32_t>* tombstones = tombstone_it == tombstones_by_role.end() ? nullptr : &tombstone_it->second;
+
+    for (std::uint32_t hash : hashes) {
+      const TermEntry* term = find_term(shard, hash);
+      if (term == nullptr || term->posting_offset + term->posting_length > shard.postings_blob.size()) {
         continue;
       }
 
-      const SearchDoc& doc = g_state.docs[posting.doc_index];
-      const double tf = static_cast<double>(posting.body_tf)
-        + static_cast<double>(posting.title_tf) * kTitleBoost;
-      if (tf <= 0.0) {
-        continue;
+      const auto* cursor = shard.postings_blob.data() + term->posting_offset;
+      const auto* end = cursor + term->posting_length;
+      std::uint32_t posting_count = read_vint(cursor, end);
+      if (!g_last_error.empty()) {
+        return 0;
       }
 
-      const double norm = tf + kBm25K1 * (1.0 - kBm25B + kBm25B * (static_cast<double>(doc.doc_length) / g_state.avg_doc_length));
-      const double contribution = static_cast<double>(term->idf) * ((tf * (kBm25K1 + 1.0)) / norm);
+      std::uint32_t article_id = 0;
+      for (std::uint32_t i = 0; i < posting_count; ++i) {
+        article_id += read_vint(cursor, end);
+        if (cursor + 3 > end || !g_last_error.empty()) {
+          return 0;
+        }
 
-      g_bm25_scores[posting.doc_index] += contribution;
-      if (g_doc_touched[posting.doc_index] == 0) {
-        g_doc_touched[posting.doc_index] = 1;
-        g_touched_docs.push_back(posting.doc_index);
+        const std::uint8_t title_tf = *cursor++;
+        const std::uint8_t meta_tf = *cursor++;
+        const std::uint8_t body_tf = *cursor++;
+        const std::uint32_t position_count = read_vint(cursor, end);
+        if (!g_last_error.empty()) {
+          return 0;
+        }
+
+        std::vector<PositionRange> positions;
+        positions.reserve(position_count);
+        std::uint32_t previous_position = 0;
+        for (std::uint32_t p = 0; p < position_count; ++p) {
+          previous_position += read_vint(cursor, end);
+          const std::uint32_t position_length = read_vint(cursor, end);
+          const std::uint32_t field = read_vint(cursor, end);
+          if (!g_last_error.empty()) {
+            return 0;
+          }
+          positions.push_back(PositionRange{ previous_position, position_length == 0 ? 1u : position_length, static_cast<std::uint8_t>(field) });
+        }
+
+        if (tombstones && tombstones->contains(article_id) && !shard.is_patch) {
+          continue;
+        }
+
+        auto doc_it = g_state.doc_index_by_article.find(article_id);
+        if (doc_it == g_state.doc_index_by_article.end()) {
+          continue;
+        }
+
+        const std::uint32_t doc_index = doc_it->second;
+        const SearchDoc& doc = g_state.docs[doc_index];
+        std::unordered_set<std::uint64_t>* covered_positions = nullptr;
+        if (term->has_positions && !positions.empty()) {
+          covered_positions = &covered_positions_by_doc[doc_index];
+        }
+
+        const double tf = compute_effective_tf(title_tf, meta_tf, body_tf, *term, positions, covered_positions);
+        if (tf <= 0.0) {
+          continue;
+        }
+
+        const double avg_doc_length = shard.avg_doc_length > 0.0f ? static_cast<double>(shard.avg_doc_length) : static_cast<double>(g_state.avg_doc_length);
+        const double norm = tf + kBm25K1 * (1.0 - kBm25B + kBm25B * (static_cast<double>(doc.doc_length) / std::max(1.0, avg_doc_length)));
+        const double contribution = static_cast<double>(term->idf) * ((tf * (kBm25K1 + 1.0)) / norm);
+
+        g_bm25_scores[doc_index] += contribution;
+        if (g_doc_touched[doc_index] == 0) {
+          g_doc_touched[doc_index] = 1;
+          g_touched_docs.push_back(doc_index);
+        }
       }
     }
   }
@@ -751,58 +1098,44 @@ int search_articles(const std::uint8_t* query_ptr, int query_len, int sort_mode,
     const SearchDoc& doc = g_state.docs[doc_index];
     entry.hot = compute_hot_score(doc, now_ms);
     entry.final_score = entry.bm25 * kWeightRelevance + entry.hot * kWeightHotness;
+
+    if (hashes.size() > 1) {
+      for (const ShardState& shard : g_state.shards) {
+        const auto tombstone_it = tombstones_by_role.find(static_cast<std::uint32_t>(shard.role));
+        const std::unordered_set<std::uint32_t>* tombstones = tombstone_it == tombstones_by_role.end() ? nullptr : &tombstone_it->second;
+        if (tombstones && tombstones->contains(doc.article_id) && !shard.is_patch) {
+          continue;
+        }
+
+        std::vector<const TermEntry*> phrase_terms;
+        phrase_terms.reserve(hashes.size());
+        for (std::uint32_t hash : hashes) {
+          phrase_terms.push_back(find_term(shard, hash));
+        }
+
+        entry.final_score += compute_phrase_bonus(phrase_terms, shard, doc.article_id);
+      }
+    }
+
     scores.push_back(entry);
   }
 
   switch (sort_mode) {
     case 1:
-    {
-      auto compare = [&](const ScoreEntry& left, const ScoreEntry& right) {
+      std::sort(scores.begin(), scores.end(), [](const ScoreEntry& left, const ScoreEntry& right) {
         return g_state.docs[left.doc_index].publish_unix_ms > g_state.docs[right.doc_index].publish_unix_ms;
-      };
-      const std::size_t safe_page = page <= 0 ? 1u : static_cast<std::size_t>(page);
-      const std::size_t safe_size = std::max<std::size_t>(1, static_cast<std::size_t>(page_size));
-      const std::size_t needed = std::min(scores.size(), safe_page * safe_size);
-      if (needed < scores.size()) {
-        std::nth_element(scores.begin(), scores.begin() + needed, scores.end(), compare);
-        std::sort(scores.begin(), scores.begin() + needed, compare);
-      } else {
-        std::sort(scores.begin(), scores.end(), compare);
-      }
+      });
       break;
-    }
     case 2:
-    {
-      auto compare = [](const ScoreEntry& left, const ScoreEntry& right) {
+      std::sort(scores.begin(), scores.end(), [](const ScoreEntry& left, const ScoreEntry& right) {
         return left.hot > right.hot;
-      };
-      const std::size_t safe_page = page <= 0 ? 1u : static_cast<std::size_t>(page);
-      const std::size_t safe_size = std::max<std::size_t>(1, static_cast<std::size_t>(page_size));
-      const std::size_t needed = std::min(scores.size(), safe_page * safe_size);
-      if (needed < scores.size()) {
-        std::nth_element(scores.begin(), scores.begin() + needed, scores.end(), compare);
-        std::sort(scores.begin(), scores.begin() + needed, compare);
-      } else {
-        std::sort(scores.begin(), scores.end(), compare);
-      }
+      });
       break;
-    }
     default:
-    {
-      auto compare = [](const ScoreEntry& left, const ScoreEntry& right) {
+      std::sort(scores.begin(), scores.end(), [](const ScoreEntry& left, const ScoreEntry& right) {
         return left.final_score > right.final_score;
-      };
-      const std::size_t safe_page = page <= 0 ? 1u : static_cast<std::size_t>(page);
-      const std::size_t safe_size = std::max<std::size_t>(1, static_cast<std::size_t>(page_size));
-      const std::size_t needed = std::min(scores.size(), safe_page * safe_size);
-      if (needed < scores.size()) {
-        std::nth_element(scores.begin(), scores.begin() + needed, scores.end(), compare);
-        std::sort(scores.begin(), scores.begin() + needed, compare);
-      } else {
-        std::sort(scores.begin(), scores.end(), compare);
-      }
+      });
       break;
-    }
   }
 
   build_binary_page(scores, static_cast<std::size_t>(page), static_cast<std::size_t>(page_size));

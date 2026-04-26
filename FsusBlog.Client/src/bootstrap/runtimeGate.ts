@@ -1,4 +1,6 @@
 import { shallowRef } from 'vue'
+import { getActivePinia } from 'pinia'
+import { useAppShellStore } from '@/store/appShell'
 import { markStartup, measureStartup } from '@/bootstrap/startupProfiler'
 
 type IdleWindow = Window & {
@@ -50,6 +52,7 @@ function activateRuntime(): void {
   }
 
   runtimePhase.value = 'runtime-ready'
+  syncAppShellRuntimePhase('runtime-ready')
   runtimeReady.value = true
   markStartup('runtime-ready')
   measureStartup('entry-to-runtime-ready', 'entry', 'runtime-ready')
@@ -66,6 +69,7 @@ function queueRuntimeActivation(reason: 'immediate' | 'intent' | 'idle'): void {
   activationQueued = true
   if (reason === 'intent') {
     runtimePhase.value = 'runtime-loading'
+    syncAppShellRuntimePhase('runtime-loading')
   }
   markStartup('runtime-gate:scheduled')
   markStartup(`runtime-gate:scheduled:${reason}`)
@@ -89,6 +93,18 @@ function queueRuntimeActivation(reason: 'immediate' | 'intent' | 'idle'): void {
 
 function handleIntentActivation(): void {
   queueRuntimeActivation('intent')
+}
+
+function syncAppShellRuntimePhase(phase: 'shell-visible' | 'runtime-loading' | 'runtime-ready'): void {
+  if (!getActivePinia()) {
+    return
+  }
+
+  try {
+    useAppShellStore().setRuntimePhase(phase)
+  } catch {
+    // no-op: store may be unavailable during early bootstrap
+  }
 }
 
 export function enableFullAppRuntime(): void {

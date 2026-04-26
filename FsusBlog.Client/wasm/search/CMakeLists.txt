@@ -39,6 +39,6 @@ target_link_options(FsusSearchRuntime PRIVATE
   -sEXPORT_ES6=1
   -sEXPORT_NAME=createSearchModule
   -sENVIRONMENT=web,worker,node
-  -sEXPORTED_FUNCTIONS=["_alloc_buffer","_free_buffer","_load_search_index","_apply_search_patch","_search_articles","_get_last_result_ptr","_get_last_result_len","_get_last_error_ptr","_get_last_error_len","_get_last_error_code"]
+  -sEXPORTED_FUNCTIONS=["_alloc_buffer","_free_buffer","_load_search_index","_search_articles","_get_last_result_ptr","_get_last_result_len","_get_last_error_ptr","_get_last_error_len","_get_last_error_code"]
   -sEXPORTED_RUNTIME_METHODS=["UTF8ToString","HEAPU8"]
 )

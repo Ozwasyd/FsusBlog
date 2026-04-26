@@ -1,24 +1,38 @@
-import type { CommentItem, CursorResult, MyCommentItem } from '@/api/comment';
-import { BinaryReader, readFixedUtf8, readInt32, readInt64Number, readSliceRef, readSliceText } from './reader';
-import { COMMENT_ITEM_POD_SIZE, USER_COMMENT_POD_SIZE } from './types';
+import type {
+  CommentReplyItem,
+  CommentThreadItem,
+  CursorResponse,
+  UserCommentResponse
+} from '@/api/comment';
+import { BinaryReader, readCountChecked, readFixedTextNullable, readFixedUtf8, readInt32, readNullableId64, readIsoDate64, readBlobText } from './reader';
+import { readCursorEnvelope } from './envelopeReaders';
+import { readReplyItem, readThreadItemFromReader } from './podReaders';
+import {
+  COMMENT_REPLY_ITEM_POD_SIZE,
+  USER_COMMENT_POD_SIZE
+} from './types';
 
-export function mapCommentCursorFromPodPayload(payload: Uint8Array): CursorResult<CommentItem> {
+export function mapCommentCursorFromPodPayload(payload: Uint8Array): CursorResponse<CommentThreadItem> {
   const reader = new BinaryReader(payload);
+  return readCursorEnvelope(reader, () => readThreadItemFromReader(reader), 'comment_thread_cursor_count_invalid');
+}
+
+export function mapThreadReplyCursorFromPodPayload(payload: Uint8Array): CursorResponse<CommentReplyItem> {
+  const reader = new BinaryReader(payload);
+  const rootIdRaw = reader.readInt64();
   const nextCursorRaw = reader.readInt64();
   const hasMore = reader.readByte() === 1;
-  const count = reader.readInt32();
-  if (count < 0) throw new Error('comment_cursor_count_invalid');
+  const count = readCountChecked(reader, 'comment_reply_cursor_count_invalid');
+  const data: CommentReplyItem[] = [];
 
-  const data: CommentItem[] = [];
   for (let i = 0; i < count; i++) {
-    const pod = reader.readSpan(COMMENT_ITEM_POD_SIZE);
+    const pod = reader.readSpan(COMMENT_REPLY_ITEM_POD_SIZE);
     const blob = reader.readBlob();
-    data.push({
-      id: String(readInt64Number(pod, 0)),
-      createTime: new Date(readInt64Number(pod, 8)).toISOString(),
-      userName: readFixedUtf8(pod, 16, 64),
-      content: readSliceText(blob, readSliceRef(pod, 80))
-    });
+    const reply = readReplyItem(pod, blob);
+    if (!reply.rootId || reply.rootId === '0') {
+      reply.rootId = String(rootIdRaw);
+    }
+    data.push(reply);
   }
 
   return {
@@ -28,29 +42,23 @@ export function mapCommentCursorFromPodPayload(payload: Uint8Array): CursorResul
   };
 }
 
-export function mapUserCommentCursorFromPodPayload(payload: Uint8Array): CursorResult<MyCommentItem> {
+export function mapUserCommentCursorFromPodPayload(payload: Uint8Array): CursorResponse<UserCommentResponse> {
   const reader = new BinaryReader(payload);
-  const nextCursorRaw = reader.readInt64();
-  const hasMore = reader.readByte() === 1;
-  const count = reader.readInt32();
-  if (count < 0) throw new Error('user_comment_cursor_count_invalid');
-
-  const data: MyCommentItem[] = [];
-  for (let i = 0; i < count; i++) {
-    const pod = reader.readSpan(USER_COMMENT_POD_SIZE);
-    const blob = reader.readBlob();
-    data.push({
-      id: String(readInt64Number(pod, 0)),
-      articleId: readInt32(pod, 8),
-      createTime: new Date(readInt64Number(pod, 12)).toISOString(),
-      content: readSliceText(blob, readSliceRef(pod, 20)),
-      articleTitle: readFixedUtf8(pod, 28, 256)
-    });
-  }
-
-  return {
-    data,
-    nextCursor: nextCursorRaw === 0 ? null : String(nextCursorRaw),
-    hasMore
-  };
+  return readCursorEnvelope(
+    reader,
+    () => {
+      const pod = reader.readSpan(USER_COMMENT_POD_SIZE);
+      const blob = reader.readBlob();
+      return {
+        id: readNullableId64(pod, 0) ?? '0',
+        articleId: readInt32(pod, 8),
+        createTime: readIsoDate64(pod, 12),
+        content: readBlobText(pod, blob, 20),
+        articleTitle: readFixedUtf8(pod, 28, 256),
+        rootId: readNullableId64(pod, 284),
+        replyToUserName: readFixedTextNullable(pod, 292, 64)
+      };
+    },
+    'user_comment_cursor_count_invalid'
+  );
 }

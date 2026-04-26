@@ -1,5 +1,6 @@
 using System.Buffers;
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
 
 namespace FsusBlog.Server.Infrastructure.Binary;
 
@@ -13,12 +14,13 @@ public static class AedsBinaryWriter
         ushort version = 1,
         uint flags = 0)
     {
-        byte[] encoded = encoder.Encode(frameType, payload, version, flags);
-        destination.Write(encoded);
+        encoder.WriteFrame(frameType, payload, destination, version, flags);
     }
 
     public static byte[] WriteFrame(IAedsEncoder encoder, AedsFrameType frameType, ReadOnlySpan<byte> payload, ushort version = 1, uint flags = 0)
     {
-        return encoder.Encode(frameType, payload, version, flags);
+        using var writer = new PooledByteBufferWriter(AedsFrameHeader.Size + payload.Length);
+        encoder.WriteFrame(frameType, payload, writer, version, flags);
+        return writer.ToArray();
     }
 }

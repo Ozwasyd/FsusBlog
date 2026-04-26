@@ -16,6 +16,11 @@ public sealed record class CommentDto : ICheckableContent
     [MaxLength(1000, ErrorMessage = "评论内容不能超过1000字")]
     public required string Content { get; init; }
 
+    public string? ParentId { get; init; }
+    public string? RootId { get; init; }
+    public string? ReplyToCommentId { get; init; }
+    public int? ReplyToUserId { get; init; }
+
     public string GetTextToCheck() => Content;
 }
 

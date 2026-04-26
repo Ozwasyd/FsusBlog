@@ -19,7 +19,7 @@ internal static partial class PowValidationLogic
     {
         if (!httpContext.Request.Headers.TryGetValue(PowHeaderName, out var encodedProof) || encodedProof.Count != 1)
         {
-            return Task.FromResult<IActionResult?>(new UnauthorizedObjectResult(ApiResponse.Fail("安全校验凭证缺失 (Header)")));
+            return Task.FromResult<IActionResult?>(new UnauthorizedObjectResult(Fail(httpContext, "安全校验凭证缺失 (Header)", 401)));
         }
         return CoreValidationAsync(httpContext, encodedProof[0]!, logger, powService, governor);
     }
@@ -28,7 +28,7 @@ internal static partial class PowValidationLogic
     {
         if (!httpContext.Request.Query.TryGetValue(PowQueryName, out var encodedProof) || encodedProof.Count != 1)
         {
-            return Task.FromResult<IActionResult?>(new UnauthorizedObjectResult(ApiResponse.Fail("安全校验凭证缺失 (Query)")));
+            return Task.FromResult<IActionResult?>(new UnauthorizedObjectResult(Fail(httpContext, "安全校验凭证缺失 (Query)", 401)));
         }
         return CoreValidationAsync(httpContext, encodedProof[0]!, logger, powService, governor);
     }
@@ -46,16 +46,16 @@ internal static partial class PowValidationLogic
 
             if (!Convert.TryFromBase64String(encodedProof, rentedBuffer, out int bytesWritten))
             {
-                return new BadRequestObjectResult(ApiResponse.Fail("安全凭证格式异常 (Base64)"));
+                return new BadRequestObjectResult(Fail(httpContext, "安全凭证格式异常 (Base64)", 400));
             }
 
             var powRequest = JsonSerializer.Deserialize(rentedBuffer.AsSpan(0, bytesWritten), PowJsonContext.Default.VirtualPowRequest);
-            if (powRequest is null) return new BadRequestObjectResult(ApiResponse.Fail("安全凭证解析失败 (JSON)"));
+            if (powRequest is null) return new BadRequestObjectResult(Fail(httpContext, "安全凭证解析失败 (JSON)", 400));
 
             int requiredDifficulty = await governor.GetDifficultyForIpAsync(clientIp);
             if (powRequest.Difficulty < requiredDifficulty)
             {
-                return new ObjectResult(ApiResponse.Fail("算力凭证已失效，请重试")) { StatusCode = 403 };
+                return new ObjectResult(Fail(httpContext, "算力凭证已失效，请重试", 403)) { StatusCode = 403 };
             }
 
             // [修复 2026-02-24] 核心重构：代理穿透与 IP 漂移自动修正逻辑
@@ -78,20 +78,23 @@ internal static partial class PowValidationLogic
             if (!isValid)
             {
                 LogAccessDenied(logger, clientIp, "Signature/Nonce Verification Failed");
-                return new UnauthorizedObjectResult(ApiResponse.Fail("安全校验未通过或凭证已过期"));
+                return new UnauthorizedObjectResult(Fail(httpContext, "安全校验未通过或凭证已过期", 401));
             }
 
             return null;
         }
         catch (JsonException)
         {
-            return new BadRequestObjectResult(ApiResponse.Fail("安全凭证解析失败 (JSON)"));
+            return new BadRequestObjectResult(Fail(httpContext, "安全凭证解析失败 (JSON)", 400));
         }
         finally
         {
             if (rentedBuffer != null) ArrayPool<byte>.Shared.Return(rentedBuffer, clearArray: true);
         }
     }
+
+    private static ApiResponse Fail(HttpContext httpContext, string message, int statusCode)
+        => ApiResponse.Fail(message, statusCode, httpContext.TraceIdentifier);
 
     [LoggerMessage(EventId = 101, Level = LogLevel.Warning, Message = "PoW 验证逻辑拒绝访问 | IP: {IP} | 原因: {Reason}")]
     private static partial void LogAccessDenied(ILogger logger, string ip, string reason);

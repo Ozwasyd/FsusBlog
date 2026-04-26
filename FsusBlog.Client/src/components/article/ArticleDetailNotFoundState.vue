@@ -1,16 +1,16 @@
 <template>
-  <div :class="`${themeTokens.primitives.emptyRoot} grow flex flex-col items-center justify-center py-32`">
+  <div :class="`${themeTokens.primitives.emptyRoot} grow flex flex-col items-center justify-center py-24 sm:py-32`">
     <p :class="`${themeTokens.primitives.emptyTitle} mb-6`">{{ view.title }}</p>
-    <router-link
+    <UiButton
       :to="view.actionHref"
-      :class="themeTokens.primitives.buttonPlain"
-    >
-      {{ view.actionText }}
-    </router-link>
+      :label="view.actionText"
+      variant="plain"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import { UiButton } from '@/components/ui';
 import type { ArticleDetailNotFoundStateViewContract } from '@/view-contracts/articleDetail';
 import { themeTokens } from '@/ui-tokens/themeTokens';
 

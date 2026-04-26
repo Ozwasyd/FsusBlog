@@ -1,24 +1,23 @@
 <template>
-  <!-- 触发按钮 -->
-  <button 
+  <button
     id="mobile-menu-trigger"
     type="button"
-    @click="toggleMenu" 
+    @click="toggleMenu"
     class="fixed top-5 right-6 z-250 w-12 h-12 flex flex-col items-center justify-center gap-1.5 sm:hidden transition-all active:scale-90 select-none outline-none"
     :aria-expanded="isOpen"
     aria-controls="mobile-menu-overlay"
     aria-label="切换菜单"
   >
-    <div 
-      class="w-6 h-0.5 bg-zinc-950 transition-all duration-300 origin-center" 
+    <div
+      class="w-6 h-0.5 bg-[#0F0F11] dark:bg-[#F4F4F5] transition-all duration-300 origin-center"
       :class="isOpen ? 'rotate-45 translate-y-2' : ''"
     ></div>
-    <div 
-      class="w-6 h-0.5 bg-zinc-950 transition-opacity duration-200" 
+    <div
+      class="w-6 h-0.5 bg-[#0F0F11] dark:bg-[#F4F4F5] transition-opacity duration-200"
       :class="isOpen ? 'opacity-0' : 'opacity-100'"
     ></div>
-    <div 
-      class="w-6 h-0.5 bg-zinc-950 transition-all duration-300 origin-center" 
+    <div
+      class="w-6 h-0.5 bg-[#0F0F11] dark:bg-[#F4F4F5] transition-all duration-300 origin-center"
       :class="isOpen ? '-rotate-45 -translate-y-2' : ''"
     ></div>
   </button>
@@ -27,42 +26,40 @@
 
   <Teleport to="body">
     <transition name="menu-fade">
-      <div 
-        v-if="isOpen" 
+      <div
+        v-if="isOpen"
         id="mobile-menu-overlay"
         role="dialog"
         aria-modal="true"
-        class="fixed inset-0 z-200 bg-white flex flex-col overflow-hidden touch-none overscroll-none"
+        class="fixed inset-0 z-200 bg-[var(--fsus-panel-bg)] dark:bg-[#0F0F11] flex flex-col overflow-hidden touch-none overscroll-none"
       >
-        <!-- 背景装饰 -->
         <div class="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden opacity-5">
-          <span class="text-[30vw] font-black text-zinc-900 tracking-tighter leading-none uppercase">
+          <span class="text-[30vw] font-black text-[#18181B] tracking-normal leading-none uppercase">
             菜单
           </span>
         </div>
 
-        <nav class="relative grow flex flex-col justify-center px-10 sm:px-12 space-y-6">
+        <nav class="relative grow flex flex-col justify-center px-6 sm:px-12 space-y-5 sm:space-y-6">
           <div class="overflow-hidden">
-            <button 
+            <button
               type="button"
               @click="openSearch"
-              class="inline-block text-5xl font-black tracking-tighter text-zinc-950 hover:text-zinc-400 transition-colors animate-mobile-nav-in"
+              class="inline-block text-4xl sm:text-5xl font-black tracking-normal text-[#0F0F11] dark:text-[#F4F4F5] hover:text-[#A1A1AA] dark:hover:text-[#D4D4D8] transition-colors animate-mobile-nav-in"
               style="--stagger: 0"
             >
               搜索
             </button>
           </div>
 
-          <div 
-            v-for="(link, index) in navLinks" 
+          <div
+            v-for="(link, index) in navLinks"
             :key="link.routeName"
             class="overflow-hidden"
           >
-            <!-- [修复 2026-02-23] 逻辑自洽：使用 routeName 作为 Key，修复 TS 2339 错误 -->
-            <router-link 
-              :to="{ name: link.routeName }" 
+            <router-link
+              :to="{ name: link.routeName }"
               @click="closeMenu"
-              class="inline-block text-5xl font-black tracking-tighter text-zinc-950 hover:text-zinc-400 transition-colors animate-mobile-nav-in"
+              class="inline-block text-4xl sm:text-5xl font-black tracking-normal text-[#0F0F11] dark:text-[#F4F4F5] hover:text-[#A1A1AA] dark:hover:text-[#D4D4D8] transition-colors animate-mobile-nav-in"
               :style="{ '--stagger': index + 1 }"
             >
               {{ link.name }}
@@ -70,19 +67,21 @@
           </div>
         </nav>
 
-        <footer class="relative px-10 sm:px-12 py-12 border-t border-zinc-100 flex justify-between items-end bg-white">
+        <footer class="relative px-6 sm:px-12 py-8 sm:py-12 border-t border-[#F4F4F5] dark:border-[#27272A] flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 bg-[var(--fsus-panel-bg)] dark:bg-[#0F0F11]">
           <div class="space-y-3">
-            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950">
+            <p class="text-[10px] font-black uppercase tracking-normal text-[#0F0F11] dark:text-[#F4F4F5]">
               {{ siteStore.siteInfo.title }} &copy; 2026
             </p>
-            <p class="text-[9px] font-medium text-zinc-400 uppercase tracking-widest leading-relaxed max-w-50">
+            <p class="text-[9px] font-medium text-[#A1A1AA] uppercase tracking-normal leading-relaxed max-w-50">
               {{ siteStore.siteInfo.description }}
             </p>
           </div>
-          
-          <span class="text-[9px] font-mono text-zinc-200 uppercase tracking-[0.4em] rotate-180 [writing-mode:vertical-lr] hidden xs:block">
-            最小化
-          </span>
+          <div class="flex items-center gap-5">
+            <ThemeModeToggle />
+            <span class="text-[9px] font-mono text-[#E4E4E7] dark:text-[#3F3F46] uppercase tracking-normal hidden xs:block">
+              最小化
+            </span>
+          </div>
         </footer>
       </div>
     </transition>
@@ -95,6 +94,7 @@ import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { useSiteStore } from '@/store/site'
 import SearchModal from '@/components/SearchModal.vue'
+import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -102,17 +102,11 @@ const siteStore = useSiteStore()
 
 const isOpen = ref(false)
 
-/**
- * [修复 2026-02-23] 状态变更动作收敛
- */
 const isSearchVisible = computed({
   get: () => siteStore.isMobileSearchOpen,
   set: (val) => siteStore.setMobileSearchVisible(val)
 })
 
-/**
- * [修复 2026-02-23] 导航数据构造：使用 routeName 确保类型安全
- */
 const navLinks = computed(() => {
   const base = [
     { name: '首页', routeName: 'Home' },
@@ -121,9 +115,9 @@ const navLinks = computed(() => {
   ]
 
   if (userStore.isLoggedIn) {
-    base.push({ 
-      name: userStore.isAdmin ? '控制板' : '账户', 
-      routeName: userStore.isAdmin ? 'AdminDashboard' : 'UserProfile' 
+    base.push({
+      name: userStore.isAdmin ? '控制板' : '账户',
+      routeName: userStore.isAdmin ? 'ManageDashboard' : 'UserProfile'
     })
   } else {
     base.push({ name: '登录', routeName: 'Login' })
@@ -141,8 +135,8 @@ const closeMenu = () => {
 }
 
 const openSearch = () => {
-  isOpen.value = false 
-  siteStore.setMobileSearchVisible(true) 
+  isOpen.value = false
+  siteStore.setMobileSearchVisible(true)
 }
 
 const handleKeyDown = (e: KeyboardEvent) => {
@@ -157,7 +151,7 @@ watch(() => route.path, () => {
 })
 
 watch(
-  [isOpen, () => siteStore.isMobileSearchOpen], 
+  [isOpen, () => siteStore.isMobileSearchOpen],
   ([mOpen, sOpen]) => {
     const shouldLock = mOpen || sOpen
     if (shouldLock) {

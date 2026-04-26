@@ -1,7 +1,7 @@
-using System.Buffers.Binary;
-using System.Text;
 using System.Buffers;
+using System.Buffers.Binary;
 using FsusBlog.Core.Common;
+using System.Text;
 
 namespace FsusBlog.Server.Infrastructure.Binary;
 
@@ -9,34 +9,9 @@ public static class ApiBinaryEnvelopeCodec
 {
     public static byte[] EncodeEnvelopePayload(int statusCode, string? contentType, ReadOnlySpan<byte> body)
     {
-        string safeContentType = contentType ?? string.Empty;
-        int contentTypeByteCount = Encoding.UTF8.GetByteCount(safeContentType);
-        int payloadLength = sizeof(int)
-            + sizeof(ushort)
-            + contentTypeByteCount
-            + sizeof(int)
-            + body.Length;
-
-        byte[] payload = new byte[payloadLength];
-        var span = payload.AsSpan();
-        int offset = 0;
-
-        BinaryPrimitives.WriteInt32LittleEndian(span.Slice(offset, sizeof(int)), statusCode);
-        offset += sizeof(int);
-
-        BinaryPrimitives.WriteUInt16LittleEndian(span.Slice(offset, sizeof(ushort)), checked((ushort)contentTypeByteCount));
-        offset += sizeof(ushort);
-
-        if (contentTypeByteCount > 0)
-        {
-            offset += Encoding.UTF8.GetBytes(safeContentType.AsSpan(), span.Slice(offset, contentTypeByteCount));
-        }
-
-        BinaryPrimitives.WriteInt32LittleEndian(span.Slice(offset, sizeof(int)), body.Length);
-        offset += sizeof(int);
-
-        body.CopyTo(span.Slice(offset, body.Length));
-        return payload;
+        using var writer = new PooledByteBufferWriter(GetInitialCapacity(contentType, body.Length));
+        WriteEnvelopePayload(statusCode, contentType, body, writer);
+        return writer.ToArray();
     }
 
     public static void WriteEnvelopePayload(int statusCode, string? contentType, ReadOnlySpan<byte> body, IBufferWriter<byte> destination)
@@ -74,6 +49,16 @@ public static class ApiBinaryEnvelopeCodec
         }
 
         return Result.Success();
+    }
+
+    private static int GetInitialCapacity(string? contentType, int bodyLength)
+    {
+        int contentTypeByteCount = Encoding.UTF8.GetByteCount(contentType ?? string.Empty);
+        return sizeof(int)
+            + sizeof(ushort)
+            + contentTypeByteCount
+            + sizeof(int)
+            + bodyLength;
     }
 
     private static void WriteInt32(IBufferWriter<byte> destination, int value)

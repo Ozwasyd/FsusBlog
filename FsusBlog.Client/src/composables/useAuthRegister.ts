@@ -1,33 +1,30 @@
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { register, type RegisterDto } from '@/api/auth'
-import { useAbortableTask } from '@/composables/useAbortableTask'
 import { scheduleIdleTask, type IdleTaskHandle } from '@/composables/useIdleTask'
 import { usePow } from '@/composables/usePow'
+import { useViewTask } from '@/composables/useViewTask'
 import { useSiteStore } from '@/store/site'
+import { AppErrorCode, toAppError } from '@/utils/appError'
 import { validateCommentContent } from '@/utils/contentFilter'
 import { toast } from '@/utils/toast'
 
 const USERNAME_REGEX = /^[\u4e00-\u9fa5a-zA-Z]+$/
 
-const isAbortOrCanceledError = (error: unknown): boolean => {
-  if (typeof error !== 'object' || error === null) {
-    return false
-  }
-
-  const known = error as { name?: string; message?: string }
-  return known.name === 'AbortError' || known.message === 'canceled'
-}
-
 const getErrorText = (error: unknown): string => {
-  if (typeof error === 'object' && error !== null) {
-    const known = error as { message?: string }
-    if (typeof known.message === 'string' && known.message.length > 0) {
-      return known.message
-    }
-  }
+  const normalized = toAppError(error, '注册服务暂不可用，请稍后再试')
 
-  return String(error)
+  switch (normalized.code) {
+    case AppErrorCode.Timeout:
+      if (normalized.details === 'pow_calculation_timeout' || normalized.message === 'pow_calculation_timeout') {
+        return '安全组件响应超时，请刷新页面重试'
+      }
+      return '网络连接异常，请检查您的网络设置'
+    case AppErrorCode.Conflict:
+      return '该用户名已被注册，请尝试其他名称'
+    default:
+      return normalized.message || '注册服务暂不可用，请稍后再试'
+  }
 }
 
 export function useAuthRegister() {
@@ -119,22 +116,28 @@ export function useAuthRegister() {
   })
 
   const usernameLabelClass = computed(() =>
-    usernameHint.value ? 'text-red-500' : 'text-zinc-400'
+    usernameHint.value ? 'text-[#E5484D]' : 'text-[#52525B] dark:text-[#A1A1AA]'
   )
   const usernameInputClass = computed(() =>
-    usernameHint.value ? 'border-red-500 focus:border-red-500' : 'border-zinc-200 focus:border-zinc-950'
+    usernameHint.value
+      ? 'border-[#E5484D] focus:border-[#E5484D] focus:ring-1 focus:ring-[#E5484D] dark:border-[#E5484D] dark:focus:ring-[#E5484D]'
+      : 'border-[#E4E4E7] focus:border-[#2A599C] focus:ring-1 focus:ring-[#2A599C] dark:border-[#27272A] dark:focus:border-[#7EA7E0] dark:focus:ring-[#7EA7E0]'
   )
   const passwordLabelClass = computed(() =>
-    passwordHint.value ? 'text-red-500' : 'text-zinc-400'
+    passwordHint.value ? 'text-[#E5484D]' : 'text-[#52525B] dark:text-[#A1A1AA]'
   )
   const passwordInputClass = computed(() =>
-    passwordHint.value ? 'border-red-500 focus:border-red-500' : 'border-zinc-200 focus:border-zinc-950'
+    passwordHint.value
+      ? 'border-[#E5484D] focus:border-[#E5484D] focus:ring-1 focus:ring-[#E5484D] dark:border-[#E5484D] dark:focus:ring-[#E5484D]'
+      : 'border-[#E4E4E7] focus:border-[#2A599C] focus:ring-1 focus:ring-[#2A599C] dark:border-[#27272A] dark:focus:border-[#7EA7E0] dark:focus:ring-[#7EA7E0]'
   )
   const confirmPasswordLabelClass = computed(() =>
-    confirmPasswordHint.value ? 'text-red-500' : 'text-zinc-400'
+    confirmPasswordHint.value ? 'text-[#E5484D]' : 'text-[#52525B] dark:text-[#A1A1AA]'
   )
   const confirmPasswordInputClass = computed(() =>
-    confirmPasswordHint.value ? 'border-red-500 focus:border-red-500' : 'border-zinc-200 focus:border-zinc-950'
+    confirmPasswordHint.value
+      ? 'border-[#E5484D] focus:border-[#E5484D] focus:ring-1 focus:ring-[#E5484D] dark:border-[#E5484D] dark:focus:ring-[#E5484D]'
+      : 'border-[#E4E4E7] focus:border-[#2A599C] focus:ring-1 focus:ring-[#2A599C] dark:border-[#27272A] dark:focus:border-[#7EA7E0] dark:focus:ring-[#7EA7E0]'
   )
 
   const isFormValid = computed(
@@ -149,7 +152,7 @@ export function useAuthRegister() {
   )
 
   let prewarmTask: IdleTaskHandle | null = null
-  const registerTask = useAbortableTask()
+  const registerTask = useViewTask()
 
   const handleRegister = async (): Promise<void> => {
     if (!isFormValid.value || isProcessing.value) {
@@ -172,8 +175,8 @@ export function useAuthRegister() {
     loading.value = true
 
     try {
-      await registerTask.run(async (signal) =>
-        await register(
+      const registered = await registerTask.run(async (signal) =>
+        register(
           {
             username: registerData.username.trim(),
             password: registerData.password,
@@ -181,27 +184,24 @@ export function useAuthRegister() {
           },
           { signal }
         )
-      )
+      , {
+        fallbackMessage: '注册服务暂不可用，请稍后再试',
+        onError: (error) => {
+          const msg = getErrorText(error)
+
+          localError.value = msg || '注册服务暂不可用，请稍后再试'
+
+          console.error('[Register Error]', error)
+        }
+      })
+
+      if (!registered) {
+        return
+      }
 
       toast.success('账户注册成功')
       await router.push('/login')
     } catch (error: unknown) {
-      if (isAbortOrCanceledError(error)) {
-        return
-      }
-
-      const msg = getErrorText(error)
-
-      if (msg.includes('POW_CALCULATION_TIMEOUT')) {
-        localError.value = '安全组件响应超时，请刷新页面重试'
-      } else if (msg.includes('Network Error') || msg.includes('timeout')) {
-        localError.value = '网络连接异常，请检查您的网络设置'
-      } else if (msg.includes('已存在') || msg.includes('占用')) {
-        localError.value = '该用户名已被注册，请尝试其他名称'
-      } else {
-        localError.value = msg || '注册服务暂不可用，请稍后再试'
-      }
-
       console.error('[Register Error]', error)
     } finally {
       loading.value = false

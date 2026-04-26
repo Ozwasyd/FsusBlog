@@ -1,13 +1,11 @@
 <template>
   <header class="mb-12 sm:mb-20 select-none">
-    <p class="text-[10px] font-bold tracking-[0.3em] text-zinc-400 uppercase mb-4 animate-in fade-in duration-700">
+    <p class="text-[10px] font-bold text-[#A1A1AA] uppercase mb-6 animate-in fade-in duration-700">
       {{ view.labelText }}
     </p>
-    <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-950 animate-in fade-in slide-in-from-bottom-3 duration-1000">
-      <span v-if="view.loadingMeta" class="inline-block w-32 h-8 bg-zinc-100 animate-pulse rounded-sm"></span>
-      <template v-else>
-        {{ view.currentName }}
-      </template>
+    <h1 class="text-3xl sm:text-4xl font-bold text-[#0F0F11] animate-in fade-in slide-in-from-bottom-3 duration-1000">
+      <span v-if="view.loadingMeta" class="inline-block w-32 h-8 bg-[#F4F4F5] animate-pulse rounded-[var(--fsus-radius-sm)]"></span>
+      <span v-else>{{ view.currentName }}</span>
     </h1>
   </header>
 </template>

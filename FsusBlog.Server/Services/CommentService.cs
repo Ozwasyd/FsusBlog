@@ -1,31 +1,35 @@
-﻿using FsusBlog.Server.Entities;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.ReadModels;
 using SqlSugar;
-using StackExchange.Redis;
-using System.Data.Common;
 
 namespace FsusBlog.Server.Services;
 
-/// <summary>
-/// 评论核心服务
-/// 修复日期: 2026-02-23 
-/// </summary>
 public partial class CommentService(
-    ISqlSugarClient _db,
-    ILogger<CommentService> _logger,
-    IMessageService _messageService,
-    IServiceScopeFactory _scopeFactory,
-    IConnectionMultiplexer _redisConnection) : ICommentService
+    ISqlSugarClient db,
+    ILogger<CommentService> logger,
+    IMessageRealtimePublisher messageService,
+    IServiceScopeFactory scopeFactory,
+    ICacheInvalidationDispatcher cacheInvalidationDispatcher) : ICommentService
 {
-    private readonly IDatabase _redis = _redisConnection.GetDatabase();
-    private const string StatsCacheKey = "admin:dashboard:stats";
     private const int MaxCommentLength = 4000;
-    private const int MaxCursorLimit = 100;
+    private const int DefaultReplyPreviewLimit = 3;
+    private const string DeletedPlaceholder = "该回复已删除";
+    private static readonly Int64CursorCodec CursorCodec = Int64CursorCodec.Instance;
 
-    /// <summary>
-    /// 发表评论
-    /// </summary>
+    private static bool TryParsePositiveCommentId(string? raw, out long value)
+    {
+        value = 0;
+        return !string.IsNullOrWhiteSpace(raw)
+            && long.TryParse(raw, out value)
+            && value > 0;
+    }
+
     public async Task<bool> CreateCommentAsync(int userId, CommentDto dto)
     {
         if (dto.ArticleId <= 0)
@@ -33,234 +37,452 @@ public partial class CommentService(
             return false;
         }
 
-        var normalizedContent = NormalizeCommentContent(dto.Content);
+        string normalizedContent = NormalizeCommentContent(dto.Content);
         if (normalizedContent.Length == 0)
         {
             return false;
         }
 
-        var userQuery = _db.Queryable<User>()
-            .Where(u => u.Id == userId)
-            .Select(u => new { u.Username });
-
-        var sqlObj = userQuery.ToSql();
-        string? username = null;
-
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        bool articleExists = await db.Queryable<Article>()
+            .Where(a => a.Id == dto.ArticleId && !a.IsDeleted)
+            .AnyAsync();
+        if (!articleExists)
         {
-            if (await reader.ReadAsync())
-            {
-                username = reader.IsDBNull(0) ? "匿名用户" : reader.GetString(0);
-            }
+            return false;
         }
 
-        if (username == null) return false;
+        string? actorUserName = await db.Queryable<User>()
+            .Where(u => u.Id == userId)
+            .Select(u => u.Username)
+            .FirstAsync();
+        if (string.IsNullOrWhiteSpace(actorUserName))
+        {
+            return false;
+        }
+
+        bool hasReplyContext = !string.IsNullOrWhiteSpace(dto.ParentId)
+            || !string.IsNullOrWhiteSpace(dto.RootId)
+            || !string.IsNullOrWhiteSpace(dto.ReplyToCommentId);
+        long? parentId = null;
+        long? rootId = null;
+        int? replyToUserId = null;
+        long? replyToCommentId = null;
+        string? replyToUserName = null;
+        int depth = 0;
+
+        if (hasReplyContext)
+        {
+            if (!TryParsePositiveCommentId(dto.ParentId, out long parsedParentId))
+            {
+                return false;
+            }
+
+            long? requestedRootId = null;
+            if (!string.IsNullOrWhiteSpace(dto.RootId))
+            {
+                if (!TryParsePositiveCommentId(dto.RootId, out long parsedRootId))
+                {
+                    return false;
+                }
+
+                requestedRootId = parsedRootId;
+            }
+
+            long? requestedReplyToCommentId = null;
+            if (!string.IsNullOrWhiteSpace(dto.ReplyToCommentId))
+            {
+                if (!TryParsePositiveCommentId(dto.ReplyToCommentId, out long parsedReplyToCommentId))
+                {
+                    return false;
+                }
+
+                requestedReplyToCommentId = parsedReplyToCommentId;
+            }
+
+            var parent = await db.Queryable<Comment, User>((c, u) => c.UserId == u.Id)
+                .Where((c, u) => c.Id == parsedParentId && c.ArticleId == dto.ArticleId)
+                .Select((c, u) => new
+                {
+                    c.Id,
+                    c.ArticleId,
+                    c.RootId,
+                    c.Depth,
+                    c.UserId,
+                    ParentUserName = u.Username
+                })
+                .FirstAsync();
+
+            if (parent is null || parent.ArticleId != dto.ArticleId)
+            {
+                return false;
+            }
+
+            parentId = parent.Id;
+            rootId = parent.RootId ?? parent.Id;
+            if (requestedRootId.HasValue && requestedRootId.Value != rootId.Value)
+            {
+                return false;
+            }
+
+            replyToUserId = parent.UserId;
+            replyToCommentId = parent.Id;
+            if (requestedReplyToCommentId.HasValue && requestedReplyToCommentId.Value != replyToCommentId.Value)
+            {
+                return false;
+            }
+
+            replyToUserName = parent.ParentUserName;
+            depth = Math.Max(1, parent.Depth + 1);
+        }
 
         var comment = new Comment
         {
             ArticleId = dto.ArticleId,
             Content = normalizedContent,
             UserId = userId,
-            CreateTime = DateTime.UtcNow
+            CreateTime = DateTime.UtcNow,
+            ParentId = parentId,
+            RootId = rootId,
+            ReplyToUserId = replyToUserId,
+            ReplyToCommentId = replyToCommentId,
+            Depth = depth,
+            IsDeleted = false,
+            DeleteReason = null,
+            DeleteTime = null
         };
 
-        long generatedId = await _db.Insertable(comment).ExecuteReturnSnowflakeIdAsync();
-
-        if (generatedId > 0)
+        long generatedId = await db.Insertable(comment).ExecuteReturnSnowflakeIdAsync();
+        if (generatedId <= 0)
         {
-            await _redis.KeyDeleteAsync(StatsCacheKey);
-
-            comment.Id = generatedId;
-
-            var notifyPayload = new CommentAddedNotifyDto
-            {
-                ArticleId = dto.ArticleId,
-                Comment = new CommentPushDto
-                {
-                    Id = comment.Id.ToString(),
-                    Content = comment.Content,
-                    CreateTime = comment.CreateTime,
-                    UserName = username
-                },
-                Time = DateTime.UtcNow
-            };
-
-            await _messageService.PushCommentAddAsync(notifyPayload);
-
-            _logger.LogInformation("评论发表成功并广播推送 | 文章: {ArticleId} | ID: {Id}", dto.ArticleId, comment.Id);
-            return true;
+            return false;
         }
 
-        return false;
+        await cacheInvalidationDispatcher.InvalidateStatsAsync();
+
+        comment.Id = generatedId;
+        long resolvedRootId = comment.RootId ?? comment.Id;
+        var notifyPayload = new CommentAddedNotifyDto
+        {
+            ArticleId = dto.ArticleId,
+            Comment = new CommentPushDto
+            {
+                Id = comment.Id.ToString(),
+                Content = comment.Content,
+                CreateTime = comment.CreateTime,
+                UserName = actorUserName,
+                ParentId = comment.ParentId?.ToString(),
+                RootId = resolvedRootId.ToString(),
+                ReplyToUserId = replyToUserId,
+                ReplyToCommentId = replyToCommentId?.ToString(),
+                Depth = comment.Depth,
+                IsDeleted = false
+            },
+            Time = DateTime.UtcNow
+        };
+
+        await messageService.PushCommentAddAsync(notifyPayload);
+
+        if (replyToUserId.HasValue && replyToUserId.Value > 0 && replyToUserId.Value != userId)
+        {
+            _ = NotifyReplyAsync(replyToUserId.Value, dto.ArticleId, actorUserName, replyToUserName, normalizedContent);
+        }
+
+        logger.LogInformation("评论发表成功 | Article: {ArticleId} | CommentId: {CommentId} | Root: {RootId} | Parent: {ParentId}",
+            dto.ArticleId,
+            comment.Id,
+            resolvedRootId,
+            comment.ParentId);
+
+        return true;
     }
 
-    /// <summary>
-    /// 游标分页获取文章评论 (Dapper 级物理映射)
-    /// </summary>
-    public async Task<CursorResult<CommentQueryResultDto>> GetCommentsByCursorAsync(int articleId, long? cursor, int limit)
+    public async Task<CursorResponse<CommentThreadItemDto>> GetCommentThreadsByCursorAsync(
+        int articleId,
+        CursorPageRequest<long> request,
+        int previewLimit = DefaultReplyPreviewLimit)
     {
         if (articleId <= 0)
         {
-            return new CursorResult<CommentQueryResultDto> { Data = [], NextCursor = null, HasMore = false };
+            return new CursorResponse<CommentThreadItemDto> { Data = [], NextCursor = null, HasMore = false };
         }
 
-        limit = NormalizeLimit(limit);
+        int normalizedPreviewLimit = Math.Clamp(previewLimit, 1, 10);
 
-        var query = _db.Queryable<Comment, User>((c, u) => c.UserId == u.Id)
-            .Where(c => c.ArticleId == articleId)
-            .WhereIF(cursor.HasValue && cursor > 0, c => c.Id < cursor!.Value)
-            .OrderByDescending(c => c.Id)
-            .Take(limit + 1) // 取 limit + 1 条作为 HasMore 哨兵
-            .Select((c, u) => new
+        var roots = await db.Queryable<Comment, User>((c, u) => c.UserId == u.Id)
+            .Where((c, u) => c.ArticleId == articleId && c.ParentId == null)
+            .WhereIF(request.Cursor.HasValue, (c, u) => c.Id < request.Cursor!.Value)
+            .OrderByDescending((c, u) => c.Id)
+            .Take(request.Limit + 1)
+            .Select((c, u) => new ThreadRootRow
             {
-                c.Id,
-                c.Content,
-                c.CreateTime,
-                u.Username
-            });
+                Id = c.Id,
+                ArticleId = c.ArticleId,
+                Content = c.Content,
+                CreateTime = c.CreateTime,
+                UserName = u.Username,
+                Depth = c.Depth,
+                IsDeleted = c.IsDeleted
+            })
+            .ToListAsync();
 
-        var sqlObj = query.ToSql();
-        var list = new List<CommentQueryResultDto>(limit + 1);
-
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        CursorEnvelope<long, ThreadRootRow> slice = CursorPagination.Slice(roots, request.Limit, root => root.Id);
+        CursorEnvelope<long, CommentThreadItemDto> mapped = await CursorPagination.MapAsync(slice, async root =>
         {
-            int fId = reader.GetOrdinal("Id");
-            int fContent = reader.GetOrdinal("Content");
-            int fTime = reader.GetOrdinal("CreateTime");
-            int fName = reader.GetOrdinal("Username");
+            long rootId = root.Id;
+            int replyCount = await db.Queryable<Comment>()
+                .Where(c => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
+                .CountAsync();
 
-            while (await reader.ReadAsync())
-            {
-                list.Add(new CommentQueryResultDto
-                {
-                    Id = reader.GetInt64(fId),
-                    Content = reader.GetString(fContent),
-                    CreateTime = reader.GetDateTime(fTime),
-                    UserName = reader.IsDBNull(fName) ? "匿名用户" : reader.GetString(fName)
-                });
-            }
-        }
+            List<CommentReplyPreviewItemDto> previewReplies = await QueryThreadRepliesPreviewAsync(articleId, rootId, normalizedPreviewLimit);
+            bool hasMoreReplies = replyCount > previewReplies.Count;
 
-        return BuildCursorResult(list, limit, static item => item.Id);
+            return new CommentThreadItemDto(
+                root.Id.ToString(),
+                ToDisplayContent(root.IsDeleted, root.Content),
+                root.CreateTime,
+                string.IsNullOrWhiteSpace(root.UserName) ? "匿名用户" : root.UserName,
+                rootId.ToString(),
+                root.IsDeleted,
+                replyCount,
+                hasMoreReplies,
+                previewReplies);
+        });
+
+        return CursorPagination.ToResponse(mapped, CursorCodec);
     }
 
-    /// <summary>
-    /// 获取用户的历史评论 (个人中心)
-    /// </summary>
-    public async Task<CursorResult<UserCommentDto>> GetUserCommentsAsync(int userId, long? cursor, int limit)
+    public async Task<CursorResponse<CommentReplyItemDto>> GetThreadRepliesByCursorAsync(int articleId, long rootId, CursorPageRequest<long> request)
+    {
+        if (articleId <= 0 || rootId <= 0)
+        {
+            return new CursorResponse<CommentReplyItemDto> { Data = [], NextCursor = null, HasMore = false };
+        }
+
+        bool rootExists = await db.Queryable<Comment>()
+            .Where(c => c.Id == rootId && c.ArticleId == articleId && c.ParentId == null)
+            .AnyAsync();
+        if (!rootExists)
+        {
+            return new CursorResponse<CommentReplyItemDto> { Data = [], NextCursor = null, HasMore = false };
+        }
+
+        var rows = await db.Queryable<Comment, User, User>((c, u, ru) => new object[]
+            {
+                JoinType.Left, c.UserId == u.Id,
+                JoinType.Left, c.ReplyToUserId == ru.Id
+            })
+            .Where((c, u, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
+            .WhereIF(request.Cursor.HasValue, (c, u, ru) => c.Id > request.Cursor!.Value)
+            .OrderBy((c, u, ru) => c.Id)
+            .Take(request.Limit + 1)
+            .Select((c, u, ru) => new ReplyRow
+            {
+                Id = c.Id,
+                ParentId = c.ParentId,
+                RootId = c.RootId,
+                ReplyToUserId = c.ReplyToUserId,
+                ReplyToCommentId = c.ReplyToCommentId,
+                Content = c.Content,
+                CreateTime = c.CreateTime,
+                UserName = u.Username,
+                ReplyToUserName = ru.Username,
+                Depth = c.Depth,
+                IsDeleted = c.IsDeleted
+            })
+            .ToListAsync();
+
+        CursorEnvelope<long, ReplyRow> slice = CursorPagination.Slice(rows, request.Limit, row => row.Id);
+        CursorEnvelope<long, CommentReplyItemDto> mapped = CursorPagination.Map(slice, MapReplyRow);
+        return CursorPagination.ToResponse(mapped, CursorCodec);
+    }
+
+    public async Task<CursorResponse<CommentQueryResultDto>> GetCommentsByCursorAsync(int articleId, CursorPageRequest<long> request)
+    {
+        CursorResponse<CommentThreadItemDto> threads = await GetCommentThreadsByCursorAsync(articleId, request, 1);
+        var data = new List<CommentQueryResultDto>(threads.Data.Count);
+        foreach (CommentThreadItemDto item in threads.Data)
+        {
+            data.Add(new CommentQueryResultDto(
+                long.TryParse(item.Id, out long id) ? id : 0,
+                item.Content,
+                item.CreateTime,
+                item.UserName));
+        }
+
+        return new CursorResponse<CommentQueryResultDto>
+        {
+            Data = data,
+            NextCursor = threads.NextCursor,
+            HasMore = threads.HasMore
+        };
+    }
+
+    public async Task<CursorResponse<UserCommentResponse>> GetUserCommentsAsync(int userId, CursorPageRequest<long> request)
     {
         if (userId <= 0)
         {
-            return new CursorResult<UserCommentDto> { Data = [], NextCursor = null, HasMore = false };
+            return new CursorResponse<UserCommentResponse> { Data = [], NextCursor = null, HasMore = false };
         }
 
-        limit = NormalizeLimit(limit);
+        var rows = await db.Queryable<Comment, Article, User>((c, a, ru) => new object[]
+            {
+                JoinType.Left, c.ArticleId == a.Id,
+                JoinType.Left, c.ReplyToUserId == ru.Id
+            })
+            .Where((c, a, ru) => c.UserId == userId && !a.IsDeleted)
+            .WhereIF(request.Cursor.HasValue, (c, a, ru) => c.Id < request.Cursor!.Value)
+            .OrderByDescending((c, a, ru) => c.Id)
+            .Take(request.Limit + 1)
+            .Select((c, a, ru) => new UserCommentRow
+            {
+                Id = c.Id,
+                Content = c.Content,
+                CreateTime = c.CreateTime,
+                IsDeleted = c.IsDeleted,
+                RootId = c.RootId,
+                ArticleId = a.Id,
+                ArticleTitle = a.Title,
+                ReplyToUserName = ru.Username
+            })
+            .ToListAsync();
 
-        var query = _db.Queryable<Comment, Article>((c, a) => c.ArticleId == a.Id)
-            .Where((c, a) => c.UserId == userId && !a.IsDeleted)
-            .WhereIF(cursor.HasValue && cursor > 0, (c, a) => c.Id < cursor)
-            .OrderByDescending((c, a) => c.Id)
-            .Take(limit + 1)
+        CursorEnvelope<long, UserCommentRow> slice = CursorPagination.Slice(rows, request.Limit, item => item.Id);
+        var envelope = CursorPagination.Map(slice, item => CommentProjection.ToResponse(new UserCommentReadModel
+        {
+            Id = item.Id,
+            Content = ToDisplayContent(item.IsDeleted, item.Content),
+            CreateTime = item.CreateTime,
+            ArticleId = item.ArticleId,
+            ArticleTitle = item.ArticleTitle ?? string.Empty,
+            RootId = item.RootId,
+            ReplyToUserName = item.ReplyToUserName
+        }));
+
+        return CursorPagination.ToResponse(envelope, CursorCodec);
+    }
+
+    public async Task<bool> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason = "违反社区管理条例")
+    {
+        var row = await db.Queryable<Comment, Article>((c, a) => c.ArticleId == a.Id)
+            .Where((c, a) => c.Id == id)
             .Select((c, a) => new
             {
                 c.Id,
-                c.Content,
-                c.CreateTime,
-                ArticleId = a.Id,
-                ArticleTitle = a.Title
-            });
-
-        var sqlObj = query.ToSql();
-        var list = new List<UserCommentDto>(limit + 1);
-
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
-        {
-            int fId = reader.GetOrdinal("Id");
-            int fContent = reader.GetOrdinal("Content");
-            int fTime = reader.GetOrdinal("CreateTime");
-            int fArtId = reader.GetOrdinal("ArticleId");
-            int fTitle = reader.GetOrdinal("ArticleTitle");
-
-            while (await reader.ReadAsync())
-            {
-                list.Add(new UserCommentDto
-                {
-                    Id = reader.GetInt64(fId),
-                    Content = reader.GetString(fContent),
-                    CreateTime = reader.GetDateTime(fTime),
-                    ArticleId = reader.GetInt32(fArtId),
-                    ArticleTitle = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle)
-                });
-            }
-        }
-
-        return BuildCursorResult(list, limit, static item => item.Id);
-    }
-
-    /// <summary>
-    /// 安全删除评论 (支持作者自删和管理员强删)
-    /// </summary>
-    public async Task<bool> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason = "违反社区管理条例")
-    {
-        var infoQuery = _db.Queryable<Comment, Article>((c, a) => c.ArticleId == a.Id)
-            .Where(c => c.Id == id)
-            .Select((c, a) => new
-            {
                 c.UserId,
                 c.ArticleId,
+                c.ParentId,
+                c.RootId,
                 c.Content,
+                c.IsDeleted,
                 ArticleTitle = a.Title
-            });
+            })
+            .FirstAsync();
 
-        var sqlObj = infoQuery.ToSql();
-
-        int? targetUserId = null;
-        int articleId = 0;
-        string content = string.Empty;
-        string articleTitle = string.Empty;
-
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        if (row is null)
         {
-            if (await reader.ReadAsync())
+            return false;
+        }
+
+        if (row.UserId != currentUserId && !isAdmin)
+        {
+            return false;
+        }
+
+        if (!row.IsDeleted)
+        {
+            int affected = await db.Updateable<Comment>()
+                .SetColumns(c => new Comment
+                {
+                    IsDeleted = true,
+                    DeleteReason = reason,
+                    DeleteTime = DateTime.UtcNow
+                })
+                .Where(c => c.Id == id)
+                .ExecuteCommandAsync();
+
+            if (affected <= 0)
             {
-                targetUserId = reader.GetInt32(0);
-                articleId = reader.GetInt32(1);
-                content = reader.GetString(2);
-                articleTitle = reader.IsDBNull(3) ? "未知文章" : reader.GetString(3);
+                return false;
             }
         }
 
-        if (targetUserId == null) return false;
-        if (targetUserId.Value != currentUserId && !isAdmin) return false;
+        await cacheInvalidationDispatcher.InvalidateStatsAsync();
+        await messageService.PushCommentRemoveAsync(row.ArticleId, id, row.RootId ?? id, row.ParentId);
 
-        // 核心修复：直接使用 C# 8 切片语法，最干净且无编译错误的实现方式
-        string commentSnippet = content.Length > 20 ? content[..20] : content;
-
-        var success = await _db.Deleteable<Comment>().In(id).ExecuteCommandAsync() > 0;
-
-        if (success)
+        if (isAdmin && currentUserId != row.UserId)
         {
-            await _redis.KeyDeleteAsync(StatsCacheKey);
-
-            await _messageService.PushCommentRemoveAsync(articleId, id);
-
-            if (isAdmin && currentUserId != targetUserId.Value)
-            {
-                _ = NotifyDeletionAsync(targetUserId.Value, articleTitle, commentSnippet, reason);
-            }
-
-            _logger.LogInformation("[治理审计] 管理员 {AdminId} 移除了用户 {TargetId} 的评论 | 理由: {Reason} | 评论ID: {Id}", currentUserId, targetUserId, reason, id);
+            string commentSnippet = row.Content.Length > 20 ? row.Content[..20] : row.Content;
+            _ = NotifyDeletionAsync(row.UserId, row.ArticleTitle ?? "未知文章", commentSnippet, reason);
         }
 
-        return success;
+        logger.LogInformation("评论软删除成功 | CommentId: {CommentId} | Article: {ArticleId} | Root: {RootId} | Parent: {ParentId}",
+            id,
+            row.ArticleId,
+            row.RootId ?? id,
+            row.ParentId);
+
+        return true;
     }
 
-    private int NormalizeLimit(int limit) => limit switch
+    private async Task<List<CommentReplyPreviewItemDto>> QueryThreadRepliesPreviewAsync(int articleId, long rootId, int limit)
     {
-        < 1 => 20,
-        > MaxCursorLimit => MaxCursorLimit,
-        _ => limit
-    };
+        var rows = await db.Queryable<Comment, User, User>((c, u, ru) => new object[]
+            {
+                JoinType.Left, c.UserId == u.Id,
+                JoinType.Left, c.ReplyToUserId == ru.Id
+            })
+            .Where((c, u, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
+            .OrderBy((c, u, ru) => c.Id)
+            .Take(limit)
+            .Select((c, u, ru) => new ReplyRow
+            {
+                Id = c.Id,
+                ParentId = c.ParentId,
+                RootId = c.RootId,
+                ReplyToUserId = c.ReplyToUserId,
+                ReplyToCommentId = c.ReplyToCommentId,
+                Content = c.Content,
+                CreateTime = c.CreateTime,
+                UserName = u.Username,
+                ReplyToUserName = ru.Username,
+                Depth = c.Depth,
+                IsDeleted = c.IsDeleted
+            })
+            .ToListAsync();
+
+        return rows.Select(MapReplyPreviewRow).ToList();
+    }
+
+    private static CommentReplyItemDto MapReplyRow(ReplyRow row)
+    {
+        long resolvedRootId = row.RootId ?? row.Id;
+        int viewDepth = Math.Min(2, Math.Max(1, row.Depth));
+
+        return new CommentReplyItemDto(
+            row.Id.ToString(),
+            ToDisplayContent(row.IsDeleted, row.Content),
+            row.CreateTime,
+            string.IsNullOrWhiteSpace(row.UserName) ? "匿名用户" : row.UserName,
+            row.ReplyToUserId,
+            string.IsNullOrWhiteSpace(row.ReplyToUserName) ? null : row.ReplyToUserName,
+            row.ParentId?.ToString(),
+            resolvedRootId.ToString(),
+            row.ReplyToCommentId?.ToString(),
+            viewDepth,
+            row.IsDeleted);
+    }
+
+    private static CommentReplyPreviewItemDto MapReplyPreviewRow(ReplyRow row)
+        => new(
+            row.Id.ToString(),
+            ToDisplayContent(row.IsDeleted, row.Content),
+            row.CreateTime,
+            string.IsNullOrWhiteSpace(row.UserName) ? "匿名用户" : row.UserName,
+            string.IsNullOrWhiteSpace(row.ReplyToUserName) ? null : row.ReplyToUserName,
+            row.IsDeleted);
+
+    private static string ToDisplayContent(bool isDeleted, string content)
+        => isDeleted ? DeletedPlaceholder : content;
 
     private static string NormalizeCommentContent(string? content)
     {
@@ -269,42 +491,75 @@ public partial class CommentService(
             return string.Empty;
         }
 
-        var trimmed = content.Trim();
+        string trimmed = content.Trim();
         return trimmed.Length > MaxCommentLength ? trimmed[..MaxCommentLength] : trimmed;
     }
 
     private async Task NotifyDeletionAsync(int userId, string articleTitle, string commentSnippet, string reason)
     {
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var msgSvc = scope.ServiceProvider.GetRequiredService<IMessageService>();
-            await msgSvc.SendCommentDeletedNoticeAsync(userId, articleTitle, commentSnippet, reason);
-        }
-        catch (Exception ex)
-        {
-            LogNotifyDeletionFailed(ex);
-        }
+        await BoundaryExecutor.ExecuteAsync(
+            async () =>
+            {
+                await using var scope = scopeFactory.CreateAsyncScope();
+                var msgSvc = scope.ServiceProvider.GetRequiredService<IMessageCommandService>();
+                await msgSvc.SendCommentDeletedNoticeAsync(userId, articleTitle, commentSnippet, reason);
+            },
+            logger,
+            $"comment-notify-delete:{userId}",
+            LogLevel.Error);
     }
 
-    private static CursorResult<T> BuildCursorResult<T>(List<T> list, int limit, Func<T, long> idSelector)
+    private async Task NotifyReplyAsync(int userId, int articleId, string actor, string? targetUserName, string content)
     {
-        bool hasMore = list.Count > limit;
-        string? nextCursor = null;
-        if (hasMore)
-        {
-            list.RemoveAt(limit);
-            nextCursor = idSelector(list[^1]).ToString();
-        }
-
-        return new CursorResult<T>
-        {
-            Data = list,
-            NextCursor = nextCursor,
-            HasMore = hasMore
-        };
+        await BoundaryExecutor.ExecuteAsync(
+            async () =>
+            {
+                await using var scope = scopeFactory.CreateAsyncScope();
+                var msgSvc = scope.ServiceProvider.GetRequiredService<IMessageCommandService>();
+                string targetName = string.IsNullOrWhiteSpace(targetUserName) ? "您" : targetUserName!;
+                string snippet = content.Length > 40 ? content[..40] : content;
+                await msgSvc.SendUserTransactionalNoticeAsync(userId, "收到新的评论回复", $"{actor} 回复了 {targetName}：{snippet}");
+            },
+            logger,
+            $"comment-notify-reply:{userId}",
+            LogLevel.Warning);
     }
 
-    [LoggerMessage(EventId = 1, Level = LogLevel.Error, Message = "后台异步发送评论删除通知失败")]
-    private partial void LogNotifyDeletionFailed(Exception ex);
+    private sealed record ThreadRootRow
+    {
+        public long Id { get; init; }
+        public int ArticleId { get; init; }
+        public string Content { get; init; } = string.Empty;
+        public DateTime CreateTime { get; init; }
+        public string UserName { get; init; } = string.Empty;
+        public int Depth { get; init; }
+        public bool IsDeleted { get; init; }
+    }
+
+    private sealed record ReplyRow
+    {
+        public long Id { get; init; }
+        public long? ParentId { get; init; }
+        public long? RootId { get; init; }
+        public int? ReplyToUserId { get; init; }
+        public long? ReplyToCommentId { get; init; }
+        public string Content { get; init; } = string.Empty;
+        public DateTime CreateTime { get; init; }
+        public string UserName { get; init; } = string.Empty;
+        public string? ReplyToUserName { get; init; }
+        public int Depth { get; init; }
+        public bool IsDeleted { get; init; }
+    }
+
+    private sealed record UserCommentRow
+    {
+        public long Id { get; init; }
+        public string Content { get; init; } = string.Empty;
+        public DateTime CreateTime { get; init; }
+        public bool IsDeleted { get; init; }
+        public long? RootId { get; init; }
+        public int ArticleId { get; init; }
+        public string? ArticleTitle { get; init; }
+        public string? ReplyToUserName { get; init; }
+    }
 }

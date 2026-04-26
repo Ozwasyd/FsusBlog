@@ -24,7 +24,7 @@ type ArticleDetailResponse = {
   }>;
 };
 
-type ArticleListItem = {
+type ArticleListItemResponse = {
   id: number;
   title: string;
   summary: string;
@@ -41,25 +41,26 @@ type ArticleListItem = {
   }>;
 };
 
-type ArticleListResponse = {
-  items: ArticleListItem[];
+type PageResponse<T> = {
+  items: T[];
   total: number;
 };
 
-type SeoConfigResponse = {
+type SeoConfigPublic = {
   title?: string;
   description?: string;
   baseUrl?: string;
 };
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000';
-const publicBaseUrl = process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000';
+const publicBaseUrl = process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:8080';
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!';
 const articleId = Number(process.env.FSUSBLOG_ARTICLE_ID || '1');
 const homePage = Number(process.env.FSUSBLOG_HOME_PAGE || '1');
 const homeSize = Number(process.env.FSUSBLOG_HOME_SIZE || '10');
 const skipHome = process.env.FSUSBLOG_REBUILD_SKIP_HOME === '1';
+const deviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'public-hydration-rebuild';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -157,7 +158,7 @@ async function fetchChallenge() {
 
 async function loginWithPow(username: string, password: string): Promise<string> {
   const challenge = await fetchChallenge();
-  const browserFp = 'public-hydration-rebuild';
+  const browserFp = deviceFingerprint;
   const nonce = solvePowNonce(challenge.salt, browserFp, Number(challenge.difficulty ?? 4));
   const powHeader = toSafeBase64({
     powSalt: challenge.salt,
@@ -173,7 +174,8 @@ async function loginWithPow(username: string, password: string): Promise<string>
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      'X-Fsus-Pow-Proof': powHeader
+      'X-Fsus-Pow-Proof': powHeader,
+      'X-Fsus-Device-Fp': deviceFingerprint
     },
     body: JSON.stringify({ username, password })
   });
@@ -184,7 +186,7 @@ async function loginWithPow(username: string, password: string): Promise<string>
 
 async function postWithPow(path: string, cookieHeader: string, body: unknown): Promise<void> {
   const challenge = await fetchChallenge();
-  const browserFp = 'public-hydration-rebuild';
+  const browserFp = deviceFingerprint;
   const nonce = solvePowNonce(challenge.salt, browserFp, Number(challenge.difficulty ?? 4));
   const powHeader = toSafeBase64({
     powSalt: challenge.salt,
@@ -201,7 +203,8 @@ async function postWithPow(path: string, cookieHeader: string, body: unknown): P
       'Content-Type': 'application/json',
       Accept: 'application/json',
       Cookie: cookieHeader,
-      'X-Fsus-Pow-Proof': powHeader
+      'X-Fsus-Pow-Proof': powHeader,
+      'X-Fsus-Device-Fp': deviceFingerprint
     },
     body: JSON.stringify(body)
   });
@@ -217,13 +220,13 @@ async function main() {
   );
 
   const [seo, article] = await Promise.all([
-    fetchJson<SeoConfigResponse>('/api/System/seo'),
+    fetchJson<SeoConfigPublic>('/api/System/seo'),
     fetchJson<ArticleDetailResponse>(`/api/Article/${articleId}`)
   ]);
 
   const home = skipHome
     ? null
-    : await fetchJson<ArticleListResponse>(`/api/Article?page=${homePage}&size=${homeSize}&isDeleted=false`);
+    : await fetchJson<PageResponse<ArticleListItemResponse>>(`/api/Article?page=${homePage}&size=${homeSize}&isDeleted=false`);
 
   const bundle = await buildPublicHydrationBundle({
     articleId: article.id,

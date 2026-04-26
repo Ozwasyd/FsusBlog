@@ -2,6 +2,7 @@ import { computed, reactive, ref } from 'vue'
 import {
   abortUpload,
   completeUpload,
+  getUploadPartMap,
   getUploadStatus,
   initUploadSession,
   type ImageCompressionOptions,
@@ -61,6 +62,27 @@ function readSnapshot(resumeKey: string): ResumeSessionSnapshot | null {
 function clearSnapshot(resumeKey: string): void {
   if (typeof window === 'undefined') return
   window.localStorage.removeItem(STORAGE_PREFIX + resumeKey)
+}
+
+function expandUploadedRanges(ranges: readonly { start: number; end: number }[] | null | undefined): Set<number> {
+  const uploadedParts = new Set<number>()
+  if (!Array.isArray(ranges)) {
+    return uploadedParts
+  }
+
+  for (const range of ranges) {
+    const start = Number(range.start)
+    const end = Number(range.end)
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+      continue
+    }
+
+    for (let value = start; value <= end; value += 1) {
+      uploadedParts.add(value)
+    }
+  }
+
+  return uploadedParts
 }
 
 async function retry<T>(task: () => Promise<T>, onRetry: (attempt: number) => void): Promise<T> {
@@ -142,7 +164,10 @@ export function useImageUploadRuntime() {
       try {
         const status = await getUploadStatus(snapshot.uploadId)
         uploadId = status.uploadId
-        uploadedParts = new Set(status.uploadedParts)
+        if (status.uploadedPartCount > 0) {
+          const map = await getUploadPartMap(snapshot.uploadId)
+          uploadedParts = expandUploadedRanges(map.uploadedRanges)
+        }
       } catch {
         snapshot = null
       }

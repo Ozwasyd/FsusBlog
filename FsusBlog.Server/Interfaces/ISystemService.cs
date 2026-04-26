@@ -1,4 +1,5 @@
-﻿using FsusBlog.Shared.Contracts.Outputs;
+﻿using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Models.Requests;
 
 namespace FsusBlog.Server.Interfaces;
 
@@ -7,21 +8,21 @@ public interface ISystemService
     /// <summary>
     /// 获取 SEO 配置（包含默认值填充逻辑）
     /// </summary>
-    Task<SeoConfigDto> GetSeoConfigAsync();
+    Task<SeoConfigReadModel> GetSeoConfigAsync();
 
     /// <summary>
     /// 更新 SEO 配置
     /// </summary>
-    Task UpdateSeoConfigAsync(SeoConfigDto dto);
+    Task UpdateSeoConfigAsync(UpdateSeoConfigRequest request);
 
     /// <summary>
     /// 获取页面
     /// </summary>
-    Task<PageContentDto> GetPageContentAsync(string slug);
+    Task<PageContentReadModel> GetPageContentAsync(string slug);
     /// <summary>
     /// 更新页面
     /// </summary>
-    Task<bool> UpdatePageContentAsync(PageContentDto dto);
+    Task<bool> UpdatePageContentAsync(UpdatePageContentRequest request);
 
     /// <summary>
     /// 强制刷新页面缓存

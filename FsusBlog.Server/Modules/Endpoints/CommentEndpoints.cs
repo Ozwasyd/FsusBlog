@@ -1,9 +1,10 @@
-﻿using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Dtos;
+﻿using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Models.Responses;
+using FsusBlog.Server.Services;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.OutputCaching;
 using System.Security.Claims;
 
 namespace FsusBlog.Server.Modules.Endpoints;
@@ -17,43 +18,58 @@ public static class CommentEndpoints
     public static void MapCommentEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("api/Comment").WithTags("Comment");
+        Int64CursorCodec cursorCodec = Int64CursorCodec.Instance;
 
         // GET /api/Comment/{articleId}
-        group.MapGet("/{articleId:int}", async Task<Ok<ApiResponse<CommentListResponseDto>>> (
+        group.MapGet("/{articleId:int}", async Task<Results<Ok<ApiResponse<CursorResponse<CommentThreadItemDto>>>, BadRequest<ApiResponse>>> (
             int articleId,
-            long? cursor,
-            int? limit,
-            ICommentService commentService) =>
+            HttpContext httpContext,
+            CommentService commentService) =>
         {
-            int actualLimit = Math.Clamp(limit ?? 10, 5, 50);
-            // 此时 result 的 Data 已经是 struct 类型的 CommentQueryResultDto 了
-            var result = await commentService.GetCommentsByCursorAsync(articleId, cursor, actualLimit);
-
-            var data = new List<CommentItemDto>(result.Data.Count);
-            foreach (var c in result.Data)
+            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.Threads, cursorCodec);
+            if (!bind.IsSuccess)
             {
-                // 这里的 c 已经是映射好的 struct，读取速度极快且零分配
-                data.Add(new CommentItemDto(c.Id.ToString(), c.Content, c.CreateTime, c.UserName));
+                return ApiResults.BadRequest(bind.ErrorMessage ?? "游标参数非法");
             }
 
-            var response = new CommentListResponseDto(data, result.NextCursor, result.HasMore);
-            return TypedResults.Ok(ApiResponse<CommentListResponseDto>.Success(response));
+            var threaded = await commentService.GetCommentThreadsByCursorAsync(articleId, bind.Request);
+            return ApiResults.Ok(threaded);
+        });
+
+        group.MapGet("/{articleId:int}/thread/{rootId:long}", async Task<Results<Ok<ApiResponse<CursorResponse<CommentReplyItemDto>>>, BadRequest<ApiResponse>>> (
+            int articleId,
+            long rootId,
+            HttpContext httpContext,
+            CommentService commentService) =>
+        {
+            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.Replies, cursorCodec);
+            if (!bind.IsSuccess)
+            {
+                return ApiResults.BadRequest(bind.ErrorMessage ?? "游标参数非法");
+            }
+
+            var replyCursor = await commentService.GetThreadRepliesByCursorAsync(articleId, rootId, bind.Request);
+            return ApiResults.Ok(replyCursor);
         });
 
         // GET /api/Comment/me
-        group.MapGet("/me", async Task<Results<Ok<ApiResponse<CursorResult<UserCommentDto>>>, JsonHttpResult<ApiResponse>>> (
-             long? cursor,
-             int? limit,
-             ICommentService commentService,
+        group.MapGet("/me", async Task<Results<Ok<ApiResponse<CursorResponse<UserCommentResponse>>>, JsonHttpResult<ApiResponse>, BadRequest<ApiResponse>>> (
+             HttpContext httpContext,
+             CommentService commentService,
              ClaimsPrincipal user) =>
         {
-            int userId = user.GetUserId();
-            if (userId == 0) return TypedResults.Json(ApiResponse.Fail("未找到用户信息", 401), statusCode: 401);
+            var userContext = EndpointUserContext.From(user);
+            if (userContext.UserId == 0) return ApiResults.Unauthorized("未找到用户信息");
 
-            int actualLimit = Math.Clamp(limit ?? 10, 5, 50);
-            var result = await commentService.GetUserCommentsAsync(userId, cursor, actualLimit);
+            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.UserComments, cursorCodec);
+            if (!bind.IsSuccess)
+            {
+                return ApiResults.BadRequest(bind.ErrorMessage ?? "游标参数非法");
+            }
 
-            return TypedResults.Ok(ApiResponse<CursorResult<UserCommentDto>>.Success(result));
+            var result = await commentService.GetUserCommentsAsync(userContext.UserId, bind.Request);
+
+            return ApiResults.Ok(result);
         })
          .RequireAuthorization();
     }

@@ -1,11 +1,13 @@
 ﻿using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Models.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.OutputCaching;
 using SqlSugar;
 
 namespace FsusBlog.Server.Modules.Controllers;
@@ -19,55 +21,59 @@ namespace FsusBlog.Server.Modules.Controllers;
 [Authorize(Roles = "admin")]
 public partial class CategoryController( // partial for logger
     ISqlSugarClient _db,
-    IOutputCacheStore _cacheStore,
+    IHttpCacheInvalidator _httpCacheInvalidator,
     ILogger<CategoryController> _logger) : ControllerBase
 {
-    private const string CacheTag = "Category";
-
     /// <summary>
     /// 新增分类
     /// </summary>
     [HttpPost]
     [RequiresPow]
-    public async Task<ActionResult<ApiResponse>> Create([FromBody] CategoryDto dto)
+    public async Task<ActionResult<ApiResponse>> Create([FromBody] CategoryWriteRequest dto)
     {
         var trimmedName = dto.Name.Trim();
         if (string.IsNullOrWhiteSpace(trimmedName))
-            return BadRequest(ApiResponse.Fail("分类名称不能为空"));
+            return ControllerResults.BadRequest("分类名称不能为空", HttpContext.TraceIdentifier);
 
         bool exists = await _db.Queryable<Category>().AnyAsync(c => c.Name == trimmedName);
         if (exists)
-            return BadRequest(ApiResponse.Fail($"分类“{trimmedName}”已存在"));
+            return ControllerResults.BadRequest($"分类“{trimmedName}”已存在", HttpContext.TraceIdentifier);
 
         var category = new Category { Name = trimmedName };
         var success = await _db.Insertable(category).ExecuteCommandAsync() > 0;
 
         if (success)
         {
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Category,
+                AuditTypeCatalog.Audit,
+                new KeyValuePair<string, object?>("AuditAction", "category.create"),
+                new KeyValuePair<string, object?>("CategoryName", trimmedName));
             LogCategoryCreated(User.GetUserName(), trimmedName);
-            await _cacheStore.EvictByTagAsync(CacheTag, default);
+            await _httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
             return ApiResponse.Success("分类创建成功");
         }
 
-        return StatusCode(500, ApiResponse.Fail("由于数据库写入异常，分类创建失败"));
+        return ControllerResults.Status(500, "由于数据库写入异常，分类创建失败", HttpContext.TraceIdentifier);
     }
 
     /// <summary>
     /// 修改分类
     /// </summary>
     [HttpPut("{id}")]
-    public async Task<ActionResult<ApiResponse>> Update(int id, [FromBody] CategoryDto dto)
+    [RequiresPow]
+    public async Task<ActionResult<ApiResponse>> Update(int id, [FromBody] CategoryWriteRequest dto)
     {
         var trimmedName = dto.Name.Trim();
         if (string.IsNullOrWhiteSpace(trimmedName))
-            return BadRequest(ApiResponse.Fail("分类名称不能为空"));
+            return ControllerResults.BadRequest("分类名称不能为空", HttpContext.TraceIdentifier);
 
         bool exists = await _db.Queryable<Category>()
             .Where(c => c.Name == trimmedName && c.Id != id)
             .AnyAsync();
 
         if (exists)
-            return BadRequest(ApiResponse.Fail($"该分类名称“{trimmedName}”已被其他分类占用"));
+            return ControllerResults.BadRequest($"该分类名称“{trimmedName}”已被其他分类占用", HttpContext.TraceIdentifier);
 
         var updateCount = await _db.Updateable<Category>()
              .SetColumns(c => c.Name == trimmedName)
@@ -76,18 +82,25 @@ public partial class CategoryController( // partial for logger
 
         if (updateCount > 0)
         {
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Category,
+                AuditTypeCatalog.Audit,
+                new KeyValuePair<string, object?>("AuditAction", "category.update"),
+                new KeyValuePair<string, object?>("CategoryId", id),
+                new KeyValuePair<string, object?>("CategoryName", trimmedName));
             LogCategoryUpdated(User.GetUserName(), id, trimmedName);
-            await _cacheStore.EvictByTagAsync(CacheTag, default);
+            await _httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
             return ApiResponse.Success("分类更新成功");
         }
 
-        return NotFound(ApiResponse.Fail("操作失败：未找到对应的分类记录"));
+        return ControllerResults.NotFound("操作失败：未找到对应的分类记录", HttpContext.TraceIdentifier);
     }
 
     /// <summary>
     /// 删除分类
     /// </summary>
     [HttpDelete("{id}")]
+    [RequiresPow]
     public async Task<ActionResult<ApiResponse>> Delete(int id)
     {
         bool hasArticles = await _db.Queryable<Article>()
@@ -95,20 +108,30 @@ public partial class CategoryController( // partial for logger
 
         if (hasArticles)
         {
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Category,
+                AuditTypeCatalog.Security,
+                new KeyValuePair<string, object?>("AuditAction", "category.delete.blocked"),
+                new KeyValuePair<string, object?>("CategoryId", id));
             LogUnsafeDeleteAttempt(id);
-            return BadRequest(ApiResponse.Fail("无法删除：该分类下仍有关联文章，请先迁移文章到其他分类"));
+            return ControllerResults.BadRequest("无法删除：该分类下仍有关联文章，请先迁移文章到其他分类", HttpContext.TraceIdentifier);
         }
 
         var deleteCount = await _db.Deleteable<Category>().In(id).ExecuteCommandAsync();
 
         if (deleteCount > 0)
         {
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Category,
+                AuditTypeCatalog.Audit,
+                new KeyValuePair<string, object?>("AuditAction", "category.delete"),
+                new KeyValuePair<string, object?>("CategoryId", id));
             LogCategoryDeleted(User.GetUserName(), id);
-            await _cacheStore.EvictByTagAsync(CacheTag, default);
+            await _httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
             return ApiResponse.Success("分类及统计信息已移除");
         }
 
-        return NotFound(ApiResponse.Fail("操作失败：目标分类不存在或已被删除"));
+        return ControllerResults.NotFound("操作失败：目标分类不存在或已被删除", HttpContext.TraceIdentifier);
     }
 
     // ==========================================

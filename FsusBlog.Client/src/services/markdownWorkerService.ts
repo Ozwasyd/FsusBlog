@@ -3,6 +3,8 @@ import type { MarkdownRenderRequest } from '@wasm/markdown'
 type PendingRequest = {
   resolve: (value: string) => void
   reject: (error: unknown) => void
+  release: () => void
+  timeoutId: ReturnType<typeof setTimeout> | null
 }
 
 type WorkerSuccessMessage = {
@@ -17,6 +19,7 @@ let retainCount = 0
 let idleTerminateTimer: ReturnType<typeof setTimeout> | null = null
 
 const IDLE_TERMINATE_MS = 30_000
+const REQUEST_TIMEOUT_MS = 15_000
 
 function clearIdleTerminateTimer(): void {
   if (!idleTerminateTimer) {
@@ -32,11 +35,41 @@ function destroyWorker(reason: unknown = new Error('markdown worker destroyed'))
     return
   }
 
+  sharedWorker.onmessage = null
+  sharedWorker.onerror = null
   sharedWorker.terminate()
   sharedWorker = null
 
-  pending.forEach((entry) => entry.reject(reason))
+  pending.forEach((entry) => {
+    try {
+      if (entry.timeoutId) {
+        clearTimeout(entry.timeoutId)
+        entry.timeoutId = null
+      }
+      entry.reject(reason)
+    } finally {
+      entry.release()
+    }
+  })
   pending.clear()
+}
+
+function settlePendingRequest(id: number, action: (entry: PendingRequest) => void): void {
+  const entry = pending.get(id)
+  if (!entry) {
+    return
+  }
+
+  pending.delete(id)
+  try {
+    if (entry.timeoutId) {
+      clearTimeout(entry.timeoutId)
+      entry.timeoutId = null
+    }
+    action(entry)
+  } finally {
+    entry.release()
+  }
 }
 
 function scheduleIdleTerminate(): void {
@@ -64,13 +97,7 @@ function ensureWorker(): Worker {
 
   sharedWorker.onmessage = (event: MessageEvent<WorkerSuccessMessage>) => {
     const { id, html } = event.data
-    const entry = pending.get(id)
-    if (!entry) {
-      return
-    }
-
-    pending.delete(id)
-    entry.resolve(html)
+    settlePendingRequest(id, (entry) => entry.resolve(html))
   }
 
   sharedWorker.onerror = (error: ErrorEvent) => {
@@ -98,12 +125,35 @@ export function retainMarkdownWorker(): () => void {
 }
 
 export function renderMarkdownInWorker(request: MarkdownRenderRequest | string): Promise<string> {
+  const release = retainMarkdownWorker()
   const worker = ensureWorker()
   const id = ++requestSeq
   const payload = typeof request === 'string' ? { source: request } : request
 
   return new Promise<string>((resolve, reject) => {
-    pending.set(id, { resolve, reject })
-    worker.postMessage({ id, ...payload })
+    let released = false
+    const releaseOnce = () => {
+      if (released) {
+        return
+      }
+      released = true
+      release()
+    }
+
+    const timeoutId = setTimeout(() => {
+      settlePendingRequest(id, (entry) => {
+        const timeoutError = new Error('markdown worker request timed out')
+        entry.reject(timeoutError)
+        destroyWorker(timeoutError)
+      })
+    }, REQUEST_TIMEOUT_MS)
+
+    pending.set(id, { resolve, reject, release: releaseOnce, timeoutId })
+
+    try {
+      worker.postMessage({ id, ...payload })
+    } catch (error) {
+      settlePendingRequest(id, (entry) => entry.reject(error))
+    }
   })
 }

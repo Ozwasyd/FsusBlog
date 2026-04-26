@@ -1,15 +1,33 @@
 <template>
-  <div class="max-w-3xl mx-auto px-6 sm:px-8 min-h-screen">
-    <article style="overflow-anchor: none;">
+  <article
+    class="max-w-3xl mx-auto px-6 sm:px-8 min-h-screen"
+    style="overflow-anchor: none;"
+    itemscope
+    itemtype="https://schema.org/BlogPosting"
+  >
+      <meta itemprop="headline" :content="view.title" />
+      <meta itemprop="datePublished" :content="view.meta.isoTime" />
+      <meta itemprop="dateModified" :content="view.meta.isoTime" />
+      <meta itemprop="articleSection" :content="view.meta.categoryName" />
+      <meta itemprop="description" :content="description || view.title" />
+      <meta itemprop="author" :content="authorName || 'Fsu'" />
+      <meta
+        v-if="canonicalUrl"
+        itemprop="mainEntityOfPage"
+        :content="canonicalUrl"
+      />
+
       <header :class="themeTokens.articleDetail.header">
         <slot name="header" />
       </header>
 
-      <slot name="body" />
+      <section itemprop="articleBody">
+        <slot name="body" />
+      </section>
 
       <footer
         v-if="view.tags.length > 0"
-        class="mt-12 sm:mt-24 pt-8 sm:pt-10 border-t border-zinc-100"
+        class="mt-12 sm:mt-24 pt-8 sm:pt-10 border-t border-[#F4F4F5] dark:border-[#18181B]"
       >
         <slot name="footer" />
       </footer>
@@ -19,25 +37,11 @@
         :class="themeTokens.articleDetail.commentsRoot"
         :data-article-id="String(articleId)"
       >
-        <h3 :class="themeTokens.articleDetail.commentsHeading">
-          {{ commentsHeading }}
-        </h3>
         <slot name="comments">
-          <div :class="themeTokens.articleDetail.commentsPlaceholderRoot">
-            <p :class="themeTokens.articleDetail.commentsPlaceholderTitle">
-              {{ commentsPlaceholderTitle }}
-            </p>
-            <p :class="themeTokens.articleDetail.commentsPlaceholderBody">
-              {{ commentsPlaceholderBody }}
-            </p>
-            <p :class="themeTokens.articleDetail.commentsPlaceholderHint">
-              {{ commentsPlaceholderHint }}
-            </p>
-          </div>
+          <div :class="themeTokens.articleDetail.commentsPlaceholderRoot" aria-hidden="true" />
         </slot>
       </section>
-    </article>
-  </div>
+  </article>
 </template>
 
 <script setup lang="ts">
@@ -51,5 +55,8 @@ defineProps<{
   commentsPlaceholderTitle: string;
   commentsPlaceholderBody: string;
   commentsPlaceholderHint: string;
+  authorName?: string;
+  description?: string;
+  canonicalUrl?: string;
 }>();
 </script>

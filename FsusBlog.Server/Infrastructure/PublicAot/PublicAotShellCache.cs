@@ -1,52 +1,53 @@
-using System.Text;
-using FsusBlog.Core.Cache;
-using FsusBlog.Core.Common;
+using System.Linq;
+using FsusBlog.Server.Infrastructure.Cache;
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
-public sealed class PublicAotShellCache(ICacheManager cacheManager, IConnectionMultiplexer redis) : IPublicAotShellCache
+public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiplexer redis) : IPublicAotShellCache
 {
-    private const string RegistryKey = "public:aot:v2:registry";
     private readonly IDatabase _db = redis.GetDatabase();
 
-    public async Task<(bool Hit, string Value)> TryGetAsync(string cacheKey, CancellationToken cancellationToken = default)
+    public async Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
     {
-        Result<string> cached = await cacheManager.TryGetAsync<string>(cacheKey, DecodeString, cancellationToken);
-        return cached.IsSuccess
-            ? (true, cached.Value ?? string.Empty)
-            : (false, string.Empty);
+        var cached = await cache.TryGetAsync<PublicAotCacheEntry>(
+            CachePolicyId.PublicAotDocument,
+            cacheKey,
+            DecodeEntry,
+            cancellationToken);
+        return cached.Hit ? cached.Value : null;
     }
 
-    public async Task<string> GetOrCreateAsync(
-        string cacheKey,
-        Func<CancellationToken, Task<string>> factory,
-        TimeSpan ttl,
-        CancellationToken cancellationToken = default)
+    public async Task SetAsync(PublicAotCacheEntry entry, CancellationToken cancellationToken = default)
     {
-        Result<string> cached = await cacheManager.TryGetAsync<string>(cacheKey, DecodeString, cancellationToken);
-        if (cached.IsSuccess)
-        {
-            return cached.Value ?? string.Empty;
-        }
-
-        string value = await factory(cancellationToken);
-        await SetAsync(cacheKey, value, ttl, cancellationToken);
-        return value;
-    }
-
-    public async Task SetAsync(string cacheKey, string value, TimeSpan ttl, CancellationToken cancellationToken = default)
-    {
-        await cacheManager.SetAsync(cacheKey, value, EncodeString, ttl, cancellationToken);
+        byte[] payload = SerializeEntryBytes(entry);
+        await cache.SetRawAsync(
+            CachePolicyId.PublicAotDocument,
+            entry.CacheKey,
+            payload,
+            entry.ExpiresAtUtc - DateTimeOffset.UtcNow,
+            cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        _ = await _db.SetAddAsync(RegistryKey, cacheKey);
+        foreach (string registryKey in PublicAotCacheRegistry.GetRegistryKeys(entry.PageId, entry.RouteKey))
+        {
+            _ = await _db.SetAddAsync(registryKey, entry.CacheKey);
+        }
     }
 
     public async Task RemoveAsync(string cacheKey, CancellationToken cancellationToken = default)
     {
-        await cacheManager.RemoveAsync(cacheKey, cancellationToken);
+        await cache.RemoveAsync(CachePolicyId.PublicAotDocument, cacheKey, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        _ = await _db.SetRemoveAsync(RegistryKey, cacheKey);
+        if (PublicAotCacheRegistry.TryParseCacheKey(cacheKey, out PublicPageId pageId, out string routeKey))
+        {
+            foreach (string registryKey in PublicAotCacheRegistry.GetRegistryKeys(pageId, routeKey))
+            {
+                _ = await _db.SetRemoveAsync(registryKey, cacheKey);
+            }
+            return;
+        }
+
+        _ = await _db.SetRemoveAsync(PublicAotCacheRegistry.GlobalRegistryKey, cacheKey);
     }
 
     public async Task RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
@@ -57,10 +58,19 @@ public sealed class PublicAotShellCache(ICacheManager cacheManager, IConnectionM
             return;
         }
 
-        RedisValue[] keys = await _db.SetMembersAsync(RegistryKey);
+        string registryKey = ResolveRegistryKey(prefix, out bool requiresPrefixFilter);
+        RedisValue[] keys = await _db.SetMembersAsync(registryKey);
         if (keys.Length == 0)
         {
-            return;
+            if (!string.Equals(registryKey, PublicAotCacheRegistry.GlobalRegistryKey, StringComparison.Ordinal))
+            {
+                keys = await _db.SetMembersAsync(PublicAotCacheRegistry.GlobalRegistryKey);
+            }
+
+            if (keys.Length == 0)
+            {
+                return;
+            }
         }
 
         foreach (RedisValue key in keys)
@@ -71,44 +81,63 @@ public sealed class PublicAotShellCache(ICacheManager cacheManager, IConnectionM
             }
 
             string value = key.ToString();
-            if (!value.StartsWith(prefix, StringComparison.Ordinal))
+            if (requiresPrefixFilter && !value.StartsWith(prefix, StringComparison.Ordinal))
             {
                 continue;
             }
 
-            await cacheManager.RemoveAsync(value, cancellationToken);
-            _ = await _db.SetRemoveAsync(RegistryKey, value);
+            await RemoveAsync(value, cancellationToken);
         }
     }
 
     public async Task InvalidateAllAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        RedisValue[] keys = await _db.SetMembersAsync(RegistryKey);
-        if (keys.Length == 0)
+        HashSet<string> keysToDelete = [];
+        foreach (string registryKey in PublicAotCacheRegistry.GetAllKnownRegistryKeys())
         {
-            return;
+            RedisValue[] keys = await _db.SetMembersAsync(registryKey);
+            foreach (RedisValue key in keys)
+            {
+                if (key.IsNullOrEmpty)
+                {
+                    continue;
+                }
+
+                keysToDelete.Add(key.ToString());
+            }
         }
 
-        foreach (RedisValue key in keys)
+        if (keysToDelete.Count > 0)
         {
-            if (key.IsNullOrEmpty)
+            foreach (string key in keysToDelete)
             {
-                continue;
+                await cache.RemoveAsync(CachePolicyId.PublicAotDocument, key, cancellationToken);
             }
-
-            await cacheManager.RemoveAsync(key!, cancellationToken);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        _ = await _db.KeyDeleteAsync(RegistryKey);
+        RedisKey[] registryKeys = [.. PublicAotCacheRegistry.GetAllKnownRegistryKeys().Select(static key => (RedisKey)key)];
+        if (registryKeys.Length > 0)
+        {
+            _ = await _db.KeyDeleteAsync(registryKeys);
+        }
     }
 
-    private static byte[] EncodeString(string value) => Encoding.UTF8.GetBytes(value);
-
-    private static bool DecodeString(ReadOnlyMemory<byte> bytes, out string value)
+    private static string ResolveRegistryKey(string prefix, out bool requiresPrefixFilter)
     {
-        value = Encoding.UTF8.GetString(bytes.Span);
-        return true;
+        if (PublicAotCacheRegistry.TryResolveRegistryScope(prefix, out string registryKey, out requiresPrefixFilter))
+        {
+            return registryKey;
+        }
+
+        requiresPrefixFilter = true;
+        return PublicAotCacheRegistry.GlobalRegistryKey;
     }
+
+    private static (bool Success, PublicAotCacheEntry? Value) DecodeEntry(ReadOnlyMemory<byte> bytes)
+        => (true, System.Text.Json.JsonSerializer.Deserialize<PublicAotCacheEntry>(bytes.Span));
+
+    private static byte[] SerializeEntryBytes(PublicAotCacheEntry entry)
+        => System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(entry);
 }

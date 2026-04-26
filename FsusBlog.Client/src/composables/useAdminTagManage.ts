@@ -1,10 +1,10 @@
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
+import { type FormInstance } from '@ozwasyd/element-plus'
 import type { AxiosRequestConfig } from 'axios'
 import { createTag, deleteTag, getTags, updateTag, type TagItem } from '@/api/tag'
-import { useAbortableTask } from '@/composables/useAbortableTask'
+import { useMutationFlow } from '@/composables/useMutationFlow'
 import { usePow } from '@/composables/usePow'
-import { getErrorMessage, isAbortError } from '@/utils/errors'
+import { useViewTask } from '@/composables/useViewTask'
 
 export function useAdminTagManage() {
   const list = shallowRef<TagItem[]>([])
@@ -21,8 +21,8 @@ export function useAdminTagManage() {
     powProvider.isCalculating.value ? '安全计算中...' : '保存变更'
   )
 
-  const loadTask = useAbortableTask()
-  const submitTask = useAbortableTask()
+  const loadTask = useViewTask()
+  const mutation = useMutationFlow()
 
   const form = reactive({ name: '' })
   const rules = {
@@ -33,22 +33,22 @@ export function useAdminTagManage() {
     ]
   }
 
-  const loadData = async (): Promise<void> => {
-    loading.value = true
-    try {
-      await loadTask.run(async (signal) => {
-        const config: AxiosRequestConfig = { signal }
-        const data = await getTags(config)
-        list.value = Array.isArray(data) ? data : []
-      })
-    } catch (error: unknown) {
-      if (!isAbortError(error)) {
-        ElMessage.error(getErrorMessage(error, '标签列表同步失败'))
+  const loadData = async (): Promise<boolean> => {
+    const data = await loadTask.run(async (signal) => {
+      const config: AxiosRequestConfig = { signal }
+      return await getTags(config)
+    }, {
+      fallbackMessage: '标签列表同步失败',
+      onError: () => {
         list.value = []
       }
-    } finally {
-      loading.value = false
+    })
+
+    if (data) {
+      list.value = Array.isArray(data) ? data : []
     }
+
+    return data !== undefined
   }
 
   const openDialog = (row?: TagItem): void => {
@@ -71,59 +71,56 @@ export function useAdminTagManage() {
       }
 
       submitting.value = true
-      await submitTask.run(async (signal) => {
+      await mutation.run(async (signal) => {
         const config: AxiosRequestConfig = { signal }
-
         if (editingId.value) {
           await updateTag(editingId.value, cleanName, config)
-          ElMessage.success('标签已重命名')
         } else {
           await createTag(cleanName, config)
-          ElMessage.success('标签创建成功')
         }
-
-        dialogVisible.value = false
-        await loadData()
+      }, {
+        fallbackMessage: editingId.value ? '更新标签失败' : '创建标签失败',
+        successMessage: editingId.value ? '标签已重命名' : '标签创建成功',
+        postSuccessWarningMessage: '标签已保存，但列表同步失败，请稍后刷新',
+        onSuccess: async () => {
+          dialogVisible.value = false
+          return await loadData()
+        }
       })
     } catch (error: unknown) {
-      if (!isAbortError(error)) {
-        console.error('[Tag] Submit failed:', error)
-      }
+      console.error('[Tag] Submit failed:', error)
     } finally {
       submitting.value = false
     }
   }
 
   const handleDelete = (row: TagItem): void => {
-    void ElMessageBox.confirm(`您正在销毁索引词。标签「${row.name}」将被永久移除。`, '安全警告', {
-      confirmButtonText: '确定销毁',
-      cancelButtonText: '取消',
-      type: 'error',
-      confirmButtonClass: 'el-button--danger',
-      roundButton: true,
-      dangerouslyUseHTMLString: false
-    }).then(async () => {
+    void (async () => {
       if (isProcessing.value) {
         return
       }
 
       submitting.value = true
       try {
-        await submitTask.run(async (signal) => {
+        await mutation.confirmThenRun({
+          message: `您正在销毁索引词。标签「${row.name}」将被永久移除。`,
+          title: '安全警告',
+          confirmButtonText: '确定销毁',
+          type: 'error',
+          confirmButtonClass: 'el-button--danger'
+        }, async (signal) => {
           const config: AxiosRequestConfig = { signal }
           await deleteTag(row.id, config)
-          ElMessage.success('数据已彻底移除')
-          await loadData()
+        }, {
+          fallbackMessage: '删除标签失败',
+          successMessage: '数据已彻底移除',
+          postSuccessWarningMessage: '标签已删除，但列表同步失败，请稍后刷新',
+          onSuccess: loadData
         })
-      } catch (error: unknown) {
-        if (!isAbortError(error)) {
-          console.error('[Tag] Delete failed:', error)
-          ElMessage.error(getErrorMessage(error, '删除标签失败'))
-        }
       } finally {
         submitting.value = false
       }
-    }).catch(() => undefined)
+    })()
   }
 
   onMounted(() => {

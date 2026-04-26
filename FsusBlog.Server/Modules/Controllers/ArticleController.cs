@@ -1,18 +1,22 @@
 ﻿using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Models.Responses;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using StackExchange.Redis;
 using SqlSugar;
 using System.Data.Common;
 using System.Text;
+using System.Runtime.InteropServices;
 using System.IO;
 using FsusBlog.Server.Infrastructure.Filters;
 
@@ -28,21 +32,20 @@ namespace FsusBlog.Server.Modules.Controllers;
 public partial class ArticleController(
     IArticleService _articleService,
     IPublicAotShellService _publicAotShellService,
-    IConnectionMultiplexer _redisConnection,
+    IUnifiedCache _cache,
     ISqlSugarClient _db,
     ILogger<ArticleController> _logger) : ControllerBase
 {
-    private readonly IDatabase _redis = _redisConnection.GetDatabase();
-    private const string RssCacheKey = "cache:rss:xml_content";
+    private const string RssCacheIdentity = "main";
 
     [HttpPost]
     [RequiresPow]
-    public async Task<ActionResult<ApiResponse<ArticleMutationResponseDto>>> Create([FromBody] ArticleDto dto)
+    public async Task<ActionResult<ApiResponse<ArticleMutationResponseDto>>> Create([FromBody] CreateArticleRequest dto)
     {
         int id = await _articleService.CreateAsync(dto);
         if (id <= 0)
         {
-            return StatusCode(500, ApiResponse.Fail("发布失败：数据库操作异常", 500));
+            return ControllerResults.Status<ArticleMutationResponseDto>(500, "发布失败：数据库操作异常", HttpContext.TraceIdentifier);
         }
 
         await TryStorePublicAotShellAsync(dto.AotBundle, id, "create");
@@ -53,7 +56,7 @@ public partial class ArticleController(
 
     [HttpPut("{id}")]
     [RequiresPow]
-    public async Task<ActionResult<ApiResponse<ArticleMutationResponseDto>>> Update(int id, [FromBody] ArticleDto dto)
+    public async Task<ActionResult<ApiResponse<ArticleMutationResponseDto>>> Update(int id, [FromBody] UpdateArticleRequest dto)
     {
         var success = await _articleService.UpdateAsync(id, dto);
         if (success)
@@ -62,7 +65,7 @@ public partial class ArticleController(
             return ApiResponse<ArticleMutationResponseDto>.Success(new ArticleMutationResponseDto(id), "博文更新成功");
         }
 
-        return StatusCode(500, ApiResponse.Fail("更新失败：数据库操作异常", 500));
+        return ControllerResults.Status<ArticleMutationResponseDto>(500, "更新失败：数据库操作异常", HttpContext.TraceIdentifier);
     }
 
     [HttpPost("{id}/aot-bundle")]
@@ -74,6 +77,7 @@ public partial class ArticleController(
     }
 
     [HttpDelete("{id}")]
+    [RequiresPow]
     public async Task<ActionResult<ApiResponse>> Delete(int id)
     {
         if (await _articleService.DeleteAsync(id))
@@ -81,10 +85,11 @@ public partial class ArticleController(
             return ApiResponse.Success("文章已移至回收站");
         }
 
-        return NotFound(ApiResponse.Fail("未找到对应文章", 404));
+        return ControllerResults.NotFound("未找到对应文章", HttpContext.TraceIdentifier);
     }
 
     [HttpDelete("permanent/{id}")]
+    [RequiresPow]
     public async Task<ActionResult<ApiResponse>> PermanentDelete(int id)
     {
         if (await _articleService.PermanentlyDeleteArticleAsync(id))
@@ -92,7 +97,7 @@ public partial class ArticleController(
             return ApiResponse.Success("文章及关联资源已彻底抹除");
         }
 
-        return NotFound(ApiResponse.Fail("操作失败：资源不存在", 404));
+        return ControllerResults.NotFound("操作失败：资源不存在", HttpContext.TraceIdentifier);
     }
 
     [HttpDelete("trash")]
@@ -102,14 +107,20 @@ public partial class ArticleController(
         int count = await _articleService.ClearTrashAsync();
         if (count < 0)
         {
-            return StatusCode(500, ApiResponse.Fail("清空回收站失败：数据库操作异常", 500));
+            return ControllerResults.Status<TrashClearResponseDto>(500, "清空回收站失败：数据库操作异常", HttpContext.TraceIdentifier);
         }
 
+        using var _ = AuditLogScope.Push(
+            AuditSourceCatalog.Article,
+            AuditTypeCatalog.Audit,
+            new KeyValuePair<string, object?>("AuditAction", "trash.clear"),
+            new KeyValuePair<string, object?>("DestroyedCount", count));
         LogClearTrash(count);
         return ApiResponse<TrashClearResponseDto>.Success(new TrashClearResponseDto(count), "回收站已清空");
     }
 
     [HttpPut("restore/{id}")]
+    [RequiresPow]
     public async Task<ActionResult<ApiResponse>> Restore(int id)
     {
         if (await _articleService.RestoreAsync(id))
@@ -117,7 +128,7 @@ public partial class ArticleController(
             return ApiResponse.Success("文章已恢复发布");
         }
 
-        return NotFound(ApiResponse.Fail("恢复失败：资源不存在", 404));
+        return ControllerResults.NotFound("恢复失败：资源不存在", HttpContext.TraceIdentifier);
     }
 
     /// <summary>
@@ -129,11 +140,23 @@ public partial class ArticleController(
     [Produces("application/xml")]
     public async Task<IActionResult> GetRssFeed()
     {
-        // 1. 优先租约读取缓存
-        using var lease = await _redis.StringGetLeaseAsync(RssCacheKey);
-        if (lease != null && lease.Length > 0)
+        var rssCache = await _cache.TryGetAsync<byte[]>(
+            CachePolicyId.ArticleRss,
+            RssCacheIdentity,
+            static bytes =>
+            {
+                if (MemoryMarshal.TryGetArray(bytes, out ArraySegment<byte> segment)
+                    && segment.Offset == 0
+                    && segment.Count == segment.Array?.Length)
+                {
+                    return (true, segment.Array);
+                }
+
+                return (true, bytes.ToArray());
+            });
+        if (rssCache.Hit && rssCache.Value is { Length: > 0 } cachedBytes)
         {
-            return File(lease.Span.ToArray(), "application/xml");
+            return File(cachedBytes, "application/xml");
         }
 
         // 2. 获取 SEO 配置
@@ -153,13 +176,14 @@ public partial class ArticleController(
         // 3. 物理读取前 20 篇文章
         var sqlObj = _db.Queryable<Article>()
             .LeftJoin<Category>((a, c) => a.CategoryId == c.Id)
+            .LeftJoin<ArticleBody>((a, c, b) => a.Id == b.ArticleId)
             .Where(a => !a.IsDeleted)
             .OrderByDescending(a => a.CreateTime)
             .Take(20)
-            .Select((a, c) => new { a.Id, a.Title, a.Summary, a.CreateTime, CategoryName = c.Name, a.Content })
+            .Select((a, c, b) => new { a.Id, a.Title, a.Summary, a.CreateTime, CategoryName = c.Name, Content = b.MarkdownContent })
             .ToSql();
 
-        var items = new List<ArticleListDto>(20);
+        var items = new List<ArticleListItemResponse>(20);
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
         {
             int fId = reader.GetOrdinal("Id"), fTitle = reader.GetOrdinal("Title"), fSum = reader.GetOrdinal("Summary"),
@@ -168,13 +192,13 @@ public partial class ArticleController(
             while (await reader.ReadAsync())
             {
                 var contentStr = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent);
-                items.Add(new ArticleListDto
+                items.Add(new ArticleListItemResponse
                 {
                     Id = reader.GetInt32(fId),
                     Title = reader.GetString(fTitle),
-                    Summary = reader.IsDBNull(fSum) ? null : reader.GetString(fSum),
-                    // 🌟 核心修复：使用 C# 索引切片，解决 ReadOnlySpan 转换 IEnumerable 的编译错误
-                    Snippet = contentStr.Length > 300 ? contentStr[..300] : contentStr,
+                    Summary = reader.IsDBNull(fSum)
+                        ? ImageHelper.StripMarkdown(contentStr, 200)
+                        : reader.GetString(fSum),
                     CreateTime = reader.GetDateTime(fTime),
                     Category = new ArticleCategoryView(0, reader.IsDBNull(fCat) ? "默认" : reader.GetString(fCat))
                 });
@@ -192,9 +216,7 @@ public partial class ArticleController(
 
             foreach (var art in items)
             {
-                string sum = string.IsNullOrWhiteSpace(art.Summary)
-                    ? ImageHelper.StripMarkdown(art.Snippet ?? string.Empty, 200)
-                    : art.Summary;
+                string sum = art.Summary ?? string.Empty;
 
                 writer.Write("    <item>\n");
                 writer.Write("      <title><![CDATA["); writer.Write(art.Title); writer.Write("]]></title>\n");
@@ -207,11 +229,9 @@ public partial class ArticleController(
         }
 
         ms.Position = 0;
-        var finalBytes = ms.ToArray();
-        _ = _redis.StringSetAsync(RssCacheKey, finalBytes, TimeSpan.FromMinutes(30));
-
-        ms.Position = 0;
-        return File(ms, "application/xml");
+        byte[] finalBytes = ms.ToArray();
+        await _cache.SetRawAsync(CachePolicyId.ArticleRss, RssCacheIdentity, finalBytes);
+        return File(finalBytes, "application/xml");
     }
 
     [LoggerMessage(EventId = 1, Level = LogLevel.Critical, Message = "执行清空回收站操作 | 被销毁文章数: {Count}")]

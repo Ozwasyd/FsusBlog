@@ -1,5 +1,5 @@
 <template>
-  <div class="markdown-body prose prose-zinc max-w-none subpixel-antialiased whitespace-pre-wrap">
+  <div class="markdown-body prose max-w-none subpixel-antialiased whitespace-pre-wrap safe-inline-wrap">
     <slot />
   </div>
 </template>

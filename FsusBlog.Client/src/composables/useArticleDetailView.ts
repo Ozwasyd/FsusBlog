@@ -1,20 +1,21 @@
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { ArticleDetail } from '@/api/article'
+import type { ArticleDetailResponse } from '@/api/article'
 import { consumePublicAotBootstrap, toBootstrapArticleDetail } from '@/bootstrap/publicAotBootstrap'
-import { createComment, deleteComment, type CommentItem } from '@/api/comment'
+import { createComment, deleteComment } from '@/api/comment'
 import { useUserStore } from '@/store/user'
 import { useArticleBinaryStore } from '@/store/article'
 import type MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import { toast } from '@/utils/toast'
 import { usePow } from '@/composables/usePow'
 import { useAbortableTask } from '@/composables/useAbortableTask'
-import { useAotRenderBridge } from '@/composables/useAotRenderBridge'
 import { useArticleCommentStream } from '@/composables/useArticleCommentStream'
-import { useWindowEvents } from '@/composables/useWindowEvents'
+import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
 import { validateCommentContent } from '@/utils/contentFilter'
-import { FrameType } from '@wasm/protocol/frame'
-import { getErrorMessage, isAbortError } from '@/utils/errors'
+import { isAbortError } from '@/utils/errors'
+import { showErrorToast } from '@/utils/errorPresentation'
+import type { SseArticleRenderPatch, SseCommentRenderPatch } from '@/services/sseTypes'
+import { useSseStore } from '@/store/sse'
 import {
   createArticleDetailPageViewContract,
   createArticleDetailHeaderViewContract,
@@ -23,80 +24,100 @@ import {
 } from '@/view-contracts/articleDetail'
 
 type ArticleSignalPayload = { articleId: string | number }
-type CommentAddedSignalPayload = ArticleSignalPayload & { comment: CommentItem }
-type CommentDeletedSignalPayload = ArticleSignalPayload & { commentId: string | number }
 
-const SIGNALS = {
-  UPDATED: 'signalr:article-updated',
-  DELETED: 'signalr:article-deleted',
-  RESTORED: 'signalr:article-restored',
-  RECONNECTED: 'signalr:reconnected',
-  COMMENT_ADD: 'signalr:comment-added',
-  COMMENT_DEL: 'signalr:comment-removed'
-} as const
+type CommentAddedSignalPayload = ArticleSignalPayload & {
+  comment: {
+    id: string
+    content: string
+    createTime: string
+    userName: string
+    parentId?: string | null
+    rootId?: string | null
+    replyToUserId?: number | null
+    replyToCommentId?: string | null
+    depth?: number
+    isDeleted?: boolean
+  }
+}
+
+type CommentDeletedSignalPayload = ArticleSignalPayload & {
+  commentId: string | number
+  rootId?: string | null
+  parentId?: string | null
+}
+
+type ReplyTarget = {
+  id: string
+  rootId: string
+  userName: string
+  depth: number
+} | null
 
 export function useArticleDetailView() {
   const route = useRoute()
   const router = useRouter()
+  const sseStore = useSseStore()
   const initialBootstrap = consumePublicAotBootstrap('ArticleDetail')
   const userStore = useUserStore()
   const articleStore = useArticleBinaryStore()
   const powProvider = usePow()
 
-  const article = ref<ArticleDetail | null>(null)
+  const article = ref<ArticleDetailResponse | null>(null)
   const loading = ref(true)
   const isError = ref(false)
   const spaReady = ref(false)
   const articleLoadTask = useAbortableTask()
   const commentSubmitTask = useAbortableTask()
-  const { aotRenderedHtml, clearAotHtml } = useAotRenderBridge({
-    frameType: FrameType.ArticleDetail,
-    onRefresh: () => {
-      void loadArticle(false)
-    },
-    cooldownMs: 300
-  })
 
   const articleRendererRef = ref<InstanceType<typeof MarkdownRenderer> | null>(null)
   const commentContent = ref('')
   const submittingComment = ref(false)
-  const virtualListStyle = computed(() => ({
-    paddingTop: `${paddingTop.value}px`,
-    paddingBottom: `${paddingBottom.value}px`
-  }))
+  const replyTarget = ref<ReplyTarget>(null)
 
-  let isMounted = false
   let bootstrapApplied = false
   let routeInitVersion = 0
+  const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  const lifecycle = usePublicPageLifecycle({
+    onDispose: () => {
+      debounceTimers.forEach((timer) => clearTimeout(timer))
+      debounceTimers.clear()
+      disposeCommentStream()
+      articleLoadTask.cancel()
+      commentSubmitTask.cancel()
+    }
+  })
+
   const {
-    comments,
-    visibleComments,
-    paddingTop,
-    paddingBottom,
+    threads,
     hasMore,
     loadingComments,
+    loadingReplies,
     loadMoreTrigger,
-    virtualListRef,
-    handleVirtualScroll,
     clearCommentState,
     loadMoreComments,
+    loadMoreReplies,
     prependCommentIfAbsent,
     removeCommentById,
     initObserver,
     dispose: disposeCommentStream
   } = useArticleCommentStream({
     getArticleId: () => article.value?.id ?? null,
-    isMounted: () => isMounted,
-    pageSize: 10
+    isMounted: () => lifecycle.isActive(),
+    pageSize: 10,
+    replyPageSize: 20
   })
+
   const articleView = computed(() =>
     article.value ? createArticleDetailHeaderViewContract(article.value) : emptyArticleDetailHeaderView
   )
+
+  const totalCommentCount = computed(() => threads.value.reduce((acc, item) => acc + 1 + item.replyCount, 0))
+
   const detailView = computed(() =>
     article.value
       ? createArticleDetailPageViewContract(
           article.value,
-          comments.value.length,
+          totalCommentCount.value,
           hasMore.value
         )
       : emptyArticleDetailPageView
@@ -108,60 +129,24 @@ export function useArticleDetailView() {
   }
 
   const hydrateCommentStream = async (): Promise<void> => {
-    if (!isMounted || !article.value) {
+    if (!lifecycle.isActive() || !article.value) {
       return
     }
 
     const articleId = article.value.id
     clearCommentState()
     await nextTick()
-    if (!isMounted || article.value?.id !== articleId) {
+    if (!lifecycle.isActive() || article.value?.id !== articleId) {
       return
     }
 
     await loadMoreComments()
-    if (!isMounted || article.value?.id !== articleId) {
+    if (!lifecycle.isActive() || article.value?.id !== articleId) {
       return
     }
 
     await nextTick()
     initObserver()
-    handleVirtualScroll()
-  }
-
-  const getSignalDetail = <T>(event: Event): T | null => {
-    const detail = (event as CustomEvent).detail
-    if (!detail || typeof detail !== 'object') {
-      return null
-    }
-    return detail as T
-  }
-
-  const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
-
-  const modalState = ref({
-    visible: false,
-    title: '',
-    content: '',
-    onConfirm: () => {},
-    onCancel: () => {}
-  })
-
-  const triggerModal = (config: {
-    title: string
-    content: string
-    onConfirm: () => void
-    onCancel?: () => void
-  }): void => {
-    modalState.value = {
-      visible: true,
-      title: config.title,
-      content: config.content,
-      onConfirm: config.onConfirm,
-      onCancel: config.onCancel || (() => {
-        modalState.value.visible = false
-      })
-    }
   }
 
   const runSmoothUpdate = async (updateAction: () => Promise<void>): Promise<void> => {
@@ -222,14 +207,13 @@ export function useArticleDetailView() {
       loading.value = true
       isError.value = false
     }
-    clearAotHtml()
 
     const action = async (): Promise<void> => {
       try {
         const response = await articleLoadTask.run(
           async (signal) => await articleStore.fetchArticleById(id, signal)
         )
-        if (!isMounted || resolveActiveRouteId() !== id) {
+        if (!lifecycle.isActive() || resolveActiveRouteId() !== id) {
           return
         }
 
@@ -241,7 +225,7 @@ export function useArticleDetailView() {
           }
         }
       } catch (error: unknown) {
-        if (!isAbortError(error) && isMounted) {
+        if (!isAbortError(error) && lifecycle.isActive()) {
           console.error('[Article] Load failed:', error)
           isError.value = true
         }
@@ -252,7 +236,7 @@ export function useArticleDetailView() {
       await runSmoothUpdate(action)
     } else {
       await action()
-      if (isMounted && resolveActiveRouteId() === id) {
+      if (lifecycle.isActive() && resolveActiveRouteId() === id) {
         await nextTick()
         if (loadComments) {
           initObserver()
@@ -260,7 +244,7 @@ export function useArticleDetailView() {
       }
     }
 
-    if (isMounted && !silent && resolveActiveRouteId() === id) {
+    if (lifecycle.isActive() && !silent && resolveActiveRouteId() === id) {
       loading.value = false
     }
   }
@@ -270,9 +254,9 @@ export function useArticleDetailView() {
     spaReady.value = false
     isError.value = false
     article.value = null
-    clearAotHtml()
     disposeCommentStream()
     clearCommentState()
+    clearReplyTarget()
 
     const routeId = resolveActiveRouteId()
     const bootstrapArticle = !bootstrapApplied &&
@@ -290,7 +274,7 @@ export function useArticleDetailView() {
       await loadArticle(false, false)
     }
 
-    if (!isMounted || initVersion !== routeInitVersion) {
+    if (!lifecycle.isActive() || initVersion !== routeInitVersion) {
       return
     }
 
@@ -300,23 +284,22 @@ export function useArticleDetailView() {
     }
 
     await nextTick()
-    if (!isMounted || initVersion !== routeInitVersion || !article.value) {
+    if (!lifecycle.isActive() || initVersion !== routeInitVersion || !article.value) {
       return
     }
 
     spaReady.value = true
     await hydrateCommentStream()
-    if (isMounted && initVersion === routeInitVersion && article.value) {
+    if (lifecycle.isActive() && initVersion === routeInitVersion && article.value) {
       powProvider.prewarm()
     }
   }
 
   const handleRenderComplete = (): void => {
-    handleVirtualScroll()
+    // no-op, kept for renderer event contract
   }
 
-  const handleRemoteArticleUpdated = (event: Event): void => {
-    const data = getSignalDetail<ArticleSignalPayload>(event)
+  const handleRemoteArticleUpdated = (data: ArticleSignalPayload): void => {
     if (!data?.articleId || !article.value) {
       return
     }
@@ -329,18 +312,19 @@ export function useArticleDetailView() {
     if (debounceTimers.has(articleId)) {
       clearTimeout(debounceTimers.get(articleId))
     }
+
     const timer = setTimeout(async () => {
-      if (isMounted) {
+      if (lifecycle.isActive()) {
         await loadArticle(true)
         toast.info('内容已实时同步')
       }
       debounceTimers.delete(articleId)
     }, 500)
+
     debounceTimers.set(articleId, timer)
   }
 
-  const handleRemoteArticleDeleted = (event: Event): void => {
-    const data = getSignalDetail<ArticleSignalPayload>(event)
+  const handleRemoteArticleDeleted = (data: ArticleSignalPayload): void => {
     if (!data?.articleId) {
       return
     }
@@ -353,15 +337,9 @@ export function useArticleDetailView() {
       }
       article.value = null
 
-      triggerModal({
-        title: '文章已被删除',
-        content: '该文章内容已被作者移除，正在为您返回首页。',
-        onConfirm: () => {
-          modalState.value.visible = false
-          void router.replace('/')
-        },
-        onCancel: () => {
-          modalState.value.visible = false
+      ElMessageBox.alert('该文章内容已被作者移除，正在为您返回首页。', '文章已被删除', {
+        confirmButtonText: '确定',
+        callback: () => {
           void router.replace('/')
         }
       })
@@ -369,7 +347,7 @@ export function useArticleDetailView() {
   }
 
   const handleSignalRReconnected = (): void => {
-    if (isMounted && article.value) {
+    if (lifecycle.isActive() && article.value) {
       void loadArticle(true)
     }
   }
@@ -381,7 +359,7 @@ export function useArticleDetailView() {
 
     const checkResult = validateCommentContent(commentContent.value)
     if (!checkResult.isValid) {
-      toast.error(checkResult.message)
+      showErrorToast(checkResult.message)
       return
     }
 
@@ -398,30 +376,41 @@ export function useArticleDetailView() {
           await createComment(
             {
               articleId: article.value!.id,
-              content: commentContent.value
+              content: commentContent.value,
+              parentId: replyTarget.value?.id ?? null,
+              rootId: replyTarget.value?.rootId ?? null,
+              replyToCommentId: replyTarget.value?.id ?? null
             },
             { signal }
           )
       )
 
-      if (isMounted) {
+      if (lifecycle.isActive()) {
         toast.success('发送成功')
         commentContent.value = ''
+        clearReplyTarget()
       }
     } catch (error: unknown) {
       if (!isAbortError(error)) {
         console.error('[Comment] Submit failed:', error)
-        toast.error(getErrorMessage(error, '评论发布失败'))
+        showErrorToast(error, '评论发布失败')
       }
     } finally {
-      if (isMounted) {
+      if (lifecycle.isActive()) {
         submittingComment.value = false
       }
     }
   }
 
-  const handleRemoteAdd = (event: Event): void => {
-    const data = getSignalDetail<CommentAddedSignalPayload>(event)
+  const setReplyTarget = (payload: { id: string; rootId: string; userName: string; depth: number }): void => {
+    replyTarget.value = payload
+  }
+
+  const clearReplyTarget = (): void => {
+    replyTarget.value = null
+  }
+
+  const handleRemoteAdd = (data: CommentAddedSignalPayload): void => {
     if (!data?.articleId || !data.comment?.id) {
       return
     }
@@ -431,19 +420,18 @@ export function useArticleDetailView() {
     }
   }
 
-  const handleRemoteDelete = (event: Event): void => {
-    const data = getSignalDetail<CommentDeletedSignalPayload>(event)
+  const handleRemoteDelete = (data: CommentDeletedSignalPayload): void => {
     if (!data?.articleId || !data.commentId) {
       return
     }
 
     if (article.value && String(data.articleId) === String(article.value.id)) {
-      removeCommentById(data.commentId)
+      removeCommentById(data.commentId, data.rootId ?? null, data.parentId ?? null)
     }
   }
 
-  const handleCommentDelete = (id: string): void => {
-    const targetId = String(id)
+  const handleCommentDelete = (payload: { id: string; rootId: string; parentId: string | null }): void => {
+    const targetId = String(payload.id)
     const isAdmin = userStore.isAdmin
 
     triggerModal({
@@ -453,9 +441,9 @@ export function useArticleDetailView() {
         try {
           await deleteComment(targetId)
           toast.success('已移除')
-          removeCommentById(targetId)
+          removeCommentById(targetId, payload.rootId, payload.parentId)
         } catch (error: unknown) {
-          toast.error(getErrorMessage(error, '操作失败'))
+          showErrorToast(error, '操作失败')
         } finally {
           modalState.value.visible = false
         }
@@ -463,30 +451,49 @@ export function useArticleDetailView() {
     })
   }
 
-  const signalListeners: ReadonlyArray<[string, (event: Event) => void]> = [
-    [SIGNALS.COMMENT_ADD, handleRemoteAdd],
-    [SIGNALS.COMMENT_DEL, handleRemoteDelete],
-    [SIGNALS.UPDATED, handleRemoteArticleUpdated],
-    [SIGNALS.RESTORED, handleRemoteArticleUpdated],
-    [SIGNALS.DELETED, handleRemoteArticleDeleted],
-    [SIGNALS.RECONNECTED, handleSignalRReconnected]
-  ]
+  const handleArticleBatch = (patches: readonly SseArticleRenderPatch[]): void => {
+    for (const patch of patches) {
+      if (patch.kind === 'reconnected') {
+        handleSignalRReconnected()
+        continue
+      }
 
-  useWindowEvents([
-    { name: 'scroll', handler: handleVirtualScroll, options: { passive: true } },
-    { name: 'resize', handler: handleVirtualScroll, options: { passive: true } },
-    ...signalListeners.map(([name, handler]) => ({ name, handler }))
-  ])
+      const payload = patch.event?.payload
+      if (!payload) {
+        continue
+      }
+
+      if (payload.action === 'Deleted') {
+        handleRemoteArticleDeleted(payload)
+        continue
+      }
+
+      if (payload.action === 'Updated' || payload.action === 'Restored') {
+        handleRemoteArticleUpdated(payload)
+      }
+    }
+  }
+
+  const handleCommentBatch = (patches: readonly SseCommentRenderPatch[]): void => {
+    for (const patch of patches) {
+      const payload = patch.event.payload
+      if (patch.kind === 'added') {
+        handleRemoteAdd(payload as CommentAddedSignalPayload)
+        continue
+      }
+
+      handleRemoteDelete(payload as CommentDeletedSignalPayload)
+    }
+  }
 
   onMounted(() => {
-    isMounted = true
     void initializeArticleRoute()
   })
 
   watch(
     () => route.params.id,
     (nextId, prevId) => {
-      if (!isMounted || nextId === prevId) {
+      if (!lifecycle.isActive() || nextId === prevId) {
         return
       }
 
@@ -494,15 +501,27 @@ export function useArticleDetailView() {
     }
   )
 
-  onUnmounted(() => {
-    isMounted = false
-    debounceTimers.forEach((timer) => clearTimeout(timer))
-    debounceTimers.clear()
+  watch(
+    () => sseStore.articleRevision,
+    () => {
+      if (!lifecycle.isActive()) {
+        return
+      }
 
-    disposeCommentStream()
-    articleLoadTask.cancel()
-    commentSubmitTask.cancel()
-  })
+      handleArticleBatch(sseStore.articleBatch)
+    }
+  )
+
+  watch(
+    () => sseStore.commentRevision,
+    () => {
+      if (!lifecycle.isActive()) {
+        return
+      }
+
+      handleCommentBatch(sseStore.commentBatch)
+    }
+  )
 
   return {
     route,
@@ -513,24 +532,22 @@ export function useArticleDetailView() {
     detailView,
     loading,
     isError,
-    aotRenderedHtml,
     articleRendererRef,
     commentContent,
     submittingComment,
-    comments,
-    visibleComments,
-    paddingTop,
-    paddingBottom,
+    threads,
     hasMore,
     loadingComments,
+    loadingReplies,
     loadMoreTrigger,
-    virtualListRef,
+    replyTarget,
+    setReplyTarget,
+    clearReplyTarget,
+    loadMoreReplies,
     loadArticle,
     handleRenderComplete,
     submitComment,
     handleCommentDelete,
-    modalState,
-    virtualListStyle,
     spaReady
   }
 }

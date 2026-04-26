@@ -10,4 +10,5 @@
   <Project Path="FsusBlog.Core/FsusBlog.Core.csproj" />
   <Project Path="FsusBlog.Shared/FsusBlog.Shared.csproj" />
   <Project Path="FsusBlog.Server/FsusBlog.Server.csproj" />
+  <Project Path="FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj" />
 </Solution>

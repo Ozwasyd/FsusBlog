@@ -22,7 +22,8 @@ enum class feature : std::uint8_t {
   table = 3,
   image = 4,
   heading = 5,
-  link = 6
+  link = 6,
+  emphasis = 7
 };
 
 enum class placeholder_kind : std::uint8_t {
@@ -75,7 +76,7 @@ struct render_result final {
   render_metadata metadata;
 };
 
-inline constexpr std::string_view renderer_version = "markdown-wasm-contract@2026-04-06-3";
+inline constexpr std::string_view renderer_version = "markdown-wasm-contract@2026-04-19-1";
 
 [[nodiscard]] std::string normalize_source(std::string_view input);
 [[nodiscard]] std::string escape_html(std::string_view input);

@@ -12,6 +12,7 @@ export interface RegisterDto {
 export interface LoginDto {
     username: string;
     password: string;
+    rememberMe: boolean;
 }
 
 export interface UpdateUsernameDto {
@@ -26,13 +27,66 @@ export interface UpdatePasswordDto {
 
 // ================= 响应模型定义 =================
 
-/** 用户基础信息 */
-export interface UserInfo {
+export interface AuthIdentitySnapshot {
   id: number
   username: string
-  role: string // 'admin' | 'guest'
-  status: number 
-  banReason: string | null 
+  role: string
+}
+
+/** 当前登录用户信息 */
+export interface CurrentUserSnapshot extends AuthIdentitySnapshot {
+  status: number
+  banReason: string | null
+  deletedAt?: string | null
+}
+
+export interface AuthLoginFlow {
+  user: AuthIdentitySnapshot
+  authPhase: 'authenticated' | 'mfa_required'
+  mfaMode: 'risk' | 'standard' | null
+  challengeToken: string | null
+}
+
+export interface MfaSetupStart {
+  enabled: boolean
+  secret: string
+  otpAuthUrl: string
+  issuer: string
+  account: string
+}
+
+export interface MfaSetupVerify {
+  enabled: boolean
+  recoveryCodes: string[]
+}
+
+export interface MfaProfile {
+  enabled: boolean
+  verifiedAt: string | null
+}
+
+export interface MfaChallengeResult {
+  verified: boolean
+  action: string
+  proofToken: string | null
+  user: AuthIdentitySnapshot | null
+}
+
+export interface UserSessionSummary {
+  sessionId: string
+  deviceFingerprint: string
+  lastIp: string
+  deviceLabel: string
+  lastSeenAt: string | null
+  isCurrent: boolean
+  mfaVerified: boolean
+}
+
+export interface DeleteAccountRequest {
+  password: string
+  confirmText: string
+  code?: string
+  recoveryCode?: string
 }
 
 // ================= API 方法定义 =================
@@ -46,14 +100,14 @@ export interface UserInfo {
  * 1. 修复二次解包漏洞：拦截器已剥离响应壳，去除无意义的 .data 寻址，O(1) 直接映射 UserInfo。
  * 2. 性能最优化：移除冗余的 async/await，避免 V8 引擎生成额外的 Promise 状态机与微任务开销。
  */
-export const login = (data: LoginDto, config?: AxiosRequestConfig): Promise<UserInfo> => {
+export const login = (data: LoginDto, config?: AxiosRequestConfig): Promise<AuthLoginFlow> => {
   // 安全性保障：强制要求算力验证
   const finalConfig: AxiosRequestConfig = {
     ...config,
     requiresPow: true
   };
   
-  return api.post<UserInfo>('/Auth/login', data, finalConfig)
+  return api.post<AuthLoginFlow>('/Auth/login', data, finalConfig)
 }
 
 /**
@@ -73,21 +127,21 @@ export const register = (data: RegisterDto, config?: AxiosRequestConfig) => {
  * 获取当前登录用户信息 (利用 Cookie 中的 Token)
  */
 export const getMe = (config?: AxiosRequestConfig) => {
-  return api.get<UserInfo>('/Auth/me', config)
+  return api.get<CurrentUserSnapshot>('/Auth/me', config)
 }
 
 /**
  * 根据 ID 获取用户信息
  */
 export const getUserById = (id: number, config?: AxiosRequestConfig) => {
-  return api.get<UserInfo>(`/Auth/${id}`, config)
+  return api.get<CurrentUserSnapshot>(`/Auth/${id}`, config)
 }
 
 /**
  * (管理员) 根据用户名查找用户
  */
 export const findUserByName = (username: string, config?: AxiosRequestConfig) => {
-  return api.get<UserInfo>(`/Auth/find/${username}`, config)
+  return api.get<CurrentUserSnapshot>(`/Auth/find/${username}`, config)
 }
 
 /**
@@ -116,16 +170,57 @@ export const logout = (config?: AxiosRequestConfig) => {
   return api.post('/Auth/logout', {}, config)
 }
 
+export const deleteAccount = (data: DeleteAccountRequest, config?: AxiosRequestConfig) => {
+  return api.post('/Auth/delete-account', data, {
+    ...config,
+    requiresPow: true
+  } as AxiosRequestConfig)
+}
+
 /**
  * 手动刷新 Token
  */
 export const refreshToken = (config?: AxiosRequestConfig) => {
   return api.post('/Auth/refresh-token', {}, config)
 }
+
+export const listSessions = (config?: AxiosRequestConfig) =>
+  api.get<UserSessionSummary[]>('/Auth/sessions', config)
+
+export const revokeSession = (sessionId: string, config?: AxiosRequestConfig) =>
+  api.post(`/Auth/sessions/${encodeURIComponent(sessionId)}/revoke`, {}, config)
+
+export const revokeOtherSessions = (config?: AxiosRequestConfig) =>
+  api.post('/Auth/sessions/revoke-others', {}, config)
+
+export const startMfaSetup = (config?: AxiosRequestConfig) =>
+  api.post<MfaSetupStart>('/Auth/mfa/setup/start', {}, config)
+
+export const getMfaProfile = (config?: AxiosRequestConfig) =>
+  api.get<MfaProfile>('/Auth/mfa/profile', config)
+
+export const verifyMfaSetup = (code: string, config?: AxiosRequestConfig) =>
+  api.post<MfaSetupVerify>('/Auth/mfa/setup/verify', { code }, config)
+
+export const disableMfa = (payload: { password: string; code?: string; recoveryCode?: string }, config?: AxiosRequestConfig) =>
+  api.post('/Auth/mfa/disable', payload, config)
+
+export const regenerateMfaRecoveryCodes = (
+  payload: { password: string; code?: string; recoveryCode?: string },
+  config?: AxiosRequestConfig
+) => api.post<MfaSetupVerify>('/Auth/mfa/recovery/regenerate', payload, config)
+
+export const startMfaChallenge = (action: string, config?: AxiosRequestConfig) =>
+  api.post<MfaChallengeResult>('/Auth/mfa/challenge/start', { action }, config)
+
+export const verifyMfaChallenge = (
+  payload: { challengeToken: string; code?: string; recoveryCode?: string; action?: string },
+  config?: AxiosRequestConfig
+) => api.post<MfaChallengeResult>('/Auth/mfa/challenge', payload, config)
 /**
  * 获取 PoW 挑战接口
- * @param params action 指定行为（如 login, register, signalr_connect）
+ * 当前挑战仅按 clientIp 生成，不区分 action。
  */
-export const getPowChallenge = (params?: { action: string }, config?: AxiosRequestConfig) => {
-  return api.get<any>('/Auth/pow-challenge', { ...config, params })
+export const getPowChallenge = (config?: AxiosRequestConfig) => {
+  return api.get<any>('/Auth/pow-challenge', config)
 }

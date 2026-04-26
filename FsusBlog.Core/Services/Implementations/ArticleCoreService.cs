@@ -5,7 +5,7 @@ using FsusBlog.Core.Services.Gateways;
 
 namespace FsusBlog.Core.Services.Implementations;
 
-public sealed class ArticleCoreService(ILegacyArticleGateway gateway) : IArticleCoreService
+public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCoreService
 {
     public async Task<Result<CorePageResult<ArticleListCoreModel>>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted)
     {

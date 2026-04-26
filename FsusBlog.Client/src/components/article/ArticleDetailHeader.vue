@@ -1,10 +1,10 @@
 <template>
-  <h1 :class="themeTokens.articleDetail.title">
+  <h1 :class="themeTokens.articleDetail.title" itemprop="headline">
     {{ view.title }}
   </h1>
 
   <div :class="themeTokens.articleDetail.metaRow">
-    <time :datetime="view.meta.isoTime" :title="view.meta.fullTime">
+    <time :datetime="view.meta.isoTime" :title="view.meta.fullTime" itemprop="datePublished">
       {{ view.meta.displayTime }}
     </time>
     <span :class="themeTokens.articleDetail.metaSeparator" aria-hidden="true">/</span>
@@ -15,10 +15,11 @@
       v-bind="categoryLinkProps"
       :class="themeTokens.articleDetail.categoryLink"
       data-public-link="filter"
+      itemprop="articleSection"
     >
       {{ view.meta.categoryName }}
     </component>
-    <span v-else :class="themeTokens.articleDetail.categoryText">
+    <span v-else :class="themeTokens.articleDetail.categoryText" itemprop="articleSection">
       {{ view.meta.categoryName }}
     </span>
 

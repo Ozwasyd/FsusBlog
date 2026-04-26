@@ -1,8 +1,10 @@
-import { computed, onMounted, ref, shallowRef } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { deleteComment, getMyComments } from '@/api/comment'
-import { useAbortableTask } from '@/composables/useAbortableTask'
+import { requestGlobalConfirm } from '@/composables/useGlobalConfirm'
+import { useMutationFlow } from '@/composables/useMutationFlow'
 import { usePagedListState } from '@/composables/usePagedListState'
-import { getErrorMessage, isAbortError } from '@/utils/errors'
+import { useViewTask } from '@/composables/useViewTask'
+import { showErrorToast } from '@/utils/errorPresentation'
 import { toast } from '@/utils/toast'
 import {
   createUserCommentViewContract,
@@ -15,11 +17,11 @@ export function useUserCommentsPage() {
   const cursor = ref<string | undefined>(undefined)
   const isError = ref(false)
 
-  const showConfirm = ref(false)
   const pendingDeleteId = ref<string | null>(null)
 
   const existingIds = new Set<string>()
-  const commentTask = useAbortableTask()
+  const commentTask = useViewTask()
+  const deleteTask = useMutationFlow()
   const showLoadMoreButton = computed(() => hasMore.value)
   const showEndHint = computed(() => !hasMore.value && list.value.length > 0)
   const loadMoreButtonText = computed(() => (loading.value ? '加载中...' : '加载更多记录'))
@@ -33,11 +35,19 @@ export function useUserCommentsPage() {
     beginLoading()
     isError.value = false
 
-    try {
-      const response = await commentTask.run(
-        async (signal) => await getMyComments(cursor.value, 10, { signal })
-      )
+    const response = await commentTask.run(
+      async (signal) => await getMyComments(cursor.value, 10, { signal }),
+      {
+        fallbackMessage: '加载失败',
+        onError: (error) => {
+          console.error('[Comment] Fetch fail:', error)
+          setError('加载失败')
+          isError.value = true
+        }
+      }
+    )
 
+    try {
       if (response) {
         const uniqueNew = response.data.filter((item) => !existingIds.has(String(item.id)))
         uniqueNew.forEach((item) => existingIds.add(String(item.id)))
@@ -46,12 +56,6 @@ export function useUserCommentsPage() {
 
         cursor.value = response.nextCursor ? String(response.nextCursor) : undefined
         hasMore.value = response.hasMore
-      }
-    } catch (error: unknown) {
-      if (!isAbortError(error)) {
-        console.error('[Comment] Fetch fail:', error)
-        setError('加载失败')
-        isError.value = true
       }
     } finally {
       endLoading()
@@ -66,9 +70,21 @@ export function useUserCommentsPage() {
     void fetchComments()
   }
 
-  const onDelete = (id: string): void => {
+  const onDelete = async (id: string): Promise<void> => {
     pendingDeleteId.value = String(id)
-    showConfirm.value = true
+    const confirmed = await requestGlobalConfirm({
+      title: '删除评论',
+      content: '确定要永久移除这条评论吗？此操作无法撤销。',
+      confirmText: '删除',
+      cancelText: '取消'
+    })
+
+    if (!confirmed) {
+      pendingDeleteId.value = null
+      return
+    }
+
+    await executeDelete()
   }
 
   const executeDelete = async (): Promise<void> => {
@@ -83,22 +99,30 @@ export function useUserCommentsPage() {
     existingIds.delete(targetId)
 
     try {
-      await deleteComment(targetId)
-      toast.success('评论已移除')
-    } catch (error: unknown) {
-      list.value = originalList
-      existingIds.add(targetId)
+      await deleteTask.run(async () => {
+        await deleteComment(targetId)
+      }, {
+        fallbackMessage: '删除失败，请稍后重试',
+        successMessage: '评论已移除'
+      })
 
-      toast.error(getErrorMessage(error, '删除失败，请稍后重试'))
-      console.error('Delete fail:', error)
+      if (deleteTask.errorMessage.value) {
+        list.value = originalList
+        existingIds.add(targetId)
+        showErrorToast(deleteTask.errorMessage.value, '删除失败，请稍后重试')
+      }
     } finally {
-      showConfirm.value = false
       pendingDeleteId.value = null
     }
   }
 
   onMounted(() => {
     void fetchComments()
+  })
+
+  onUnmounted(() => {
+    commentTask.cancel()
+    deleteTask.cancel()
   })
 
   return {
@@ -109,7 +133,6 @@ export function useUserCommentsPage() {
     loadMoreButtonText,
     endHintText,
     isError,
-    showConfirm,
     fetchComments,
     onDelete,
     executeDelete

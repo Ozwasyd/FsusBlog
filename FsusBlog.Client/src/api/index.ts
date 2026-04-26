@@ -3,7 +3,7 @@ import { useUserStore } from '@/store/user'
 import { useAppShellStore } from '@/store/appShell'
 import { dispatchSessionExpired } from '@/bootstrap/sessionExpiryBridge'
 import { showErrorToast } from '@/utils/errorPresentation'
-import { AppError, AppErrorCode, appErrorFromStatus, createAppError } from '@/utils/appError'
+import { AppError, AppErrorCode, appErrorFromStatus, createAppError, toAppError } from '@/utils/appError'
 import { encodeJsonToBase64 } from '@/utils/utf8'
 import { usePow, PowAbortError } from '@/composables/usePow' 
 import { getBrowserFp } from '@/utils/fingerprint' 
@@ -97,6 +97,18 @@ function tryGetAppShellStore() {
     }
 }
 
+function isTimeoutLike(error: unknown): boolean {
+    if (error instanceof AppError) {
+        return error.code === AppErrorCode.Timeout;
+    }
+
+    if (axios.isAxiosError(error)) {
+        return error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT';
+    }
+
+    return false;
+}
+
 // =================================================================================
 // 核心状态锁
 // =================================================================================
@@ -127,12 +139,13 @@ service.interceptors.request.use(
 
         const { calculate } = usePow();
         const controller = new AbortController();
+        const externalSignal = config.signal as AbortSignal | undefined;
+        const relayAbort = () => controller.abort();
         
-        if (config.signal) {
-            const externalSignal = config.signal as any;
-            if (typeof externalSignal.addEventListener === 'function') {
-                externalSignal.addEventListener('abort', () => controller.abort());
-            }
+        if (externalSignal?.aborted) {
+            controller.abort();
+        } else if (externalSignal && typeof externalSignal.addEventListener === 'function') {
+            externalSignal.addEventListener('abort', relayAbort, { once: true });
         }
         config.signal = controller.signal;
 
@@ -175,6 +188,10 @@ service.interceptors.request.use(
                 controller.abort();
             }
             return Promise.reject(error);
+        } finally {
+            if (externalSignal && typeof externalSignal.removeEventListener === 'function') {
+                externalSignal.removeEventListener('abort', relayAbort);
+            }
         }
     },
     (error) => Promise.reject(error)
@@ -302,14 +319,16 @@ service.interceptors.response.use(
             }
         }
 
+        const normalized = toAppError(error, 'request_failed')
+
         // 网络中断或超时处理
-        if (error.message.includes('timeout')) {
+        if (isTimeoutLike(error)) {
             showErrorToast('请求超时，请检查网络连接', '请求超时，请检查网络连接')
         } else if (!window.navigator.onLine) {
             showErrorToast('网络已断开', '网络已断开')
         }
 
-        return Promise.reject(error)
+        return Promise.reject(normalized)
     }
 )
 

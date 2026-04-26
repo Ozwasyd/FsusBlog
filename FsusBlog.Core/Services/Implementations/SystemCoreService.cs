@@ -5,7 +5,7 @@ using FsusBlog.Shared.Contracts.AuthSystem;
 
 namespace FsusBlog.Core.Services.Implementations;
 
-public sealed class SystemCoreService(ILegacySystemGateway gateway) : ISystemCoreService
+public sealed class SystemCoreService(ISystemCoreGateway gateway) : ISystemCoreService
 {
     public async Task<Result<SeoConfigContract>> GetSeoConfigAsync() => Result<SeoConfigContract>.Success(await gateway.GetSeoConfigAsync());
 

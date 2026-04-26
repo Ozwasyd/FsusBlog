@@ -1,3 +1,5 @@
+import { emitFrontendAudit, type FrontendAuditType } from '@/services/auditConsole'
+
 export type TelemetryLevel = 'info' | 'warn' | 'error';
 
 export type TelemetryPayload = {
@@ -117,17 +119,14 @@ function onTelemetry(event: Event): void {
     return;
   }
 
-  if (payload.level === 'error') {
-    console.error('[telemetry]', payload.name, payload.detail ?? {});
-    return;
-  }
-
-  if (payload.level === 'warn') {
-    console.warn('[telemetry]', payload.name, payload.detail ?? {});
-    return;
-  }
-
-  console.info('[telemetry]', payload.name, payload.detail ?? {});
+  emitFrontendAudit({
+    source: 'frontend',
+    type: classifyTelemetryType(payload),
+    occurredAtUtc: payload.timestamp,
+    eventInfo: payload.name,
+    context: payload.detail ?? {},
+    level: payload.level
+  });
 }
 
 function onAotEvent(event: Event): void {
@@ -160,4 +159,20 @@ export function initTelemetryService(): void {
   window.addEventListener(AOT_EVENT, onAotEvent as EventListener);
   window.addEventListener(TELEMETRY_EVENT, onTelemetry as EventListener);
   initialized = true;
+}
+
+function classifyTelemetryType(payload: TelemetryPayload): FrontendAuditType {
+  if (payload.level === 'error') {
+    return 'exception';
+  }
+
+  if (payload.name === 'binary_failure') {
+    return 'infra';
+  }
+
+  if (payload.name.startsWith('aot_')) {
+    return 'performance';
+  }
+
+  return 'business';
 }

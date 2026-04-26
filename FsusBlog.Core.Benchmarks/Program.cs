@@ -47,7 +47,7 @@ public class PodMappingBenchmarks
         _aedsEncoder = new AedsEncoder();
         _aedsValidator = new AedsDecoderValidator(_aedsEncoder);
 
-        var pod = PodProjector.ProjectArticleList(1, 99, DateTime.UtcNow, 2, "分类", _title, _summary, _snippet, false, out _);
+        var pod = PodProjector.ProjectArticleList(1, 99, DateTime.UtcNow, 2, "分类", _title, _summary, false, out _);
         _pageResult = new CorePageResult<ArticleListCoreModel>(
             [new ArticleListCoreModel(
                 pod,
@@ -75,7 +75,7 @@ public class PodMappingBenchmarks
     [Benchmark]
     public int ArticleList_PodProjection()
     {
-        var pod = PodProjector.ProjectArticleList(1, 99, DateTime.UtcNow, 2, "分类", _title, _summary, _snippet, false, out var payload);
+        var pod = PodProjector.ProjectArticleList(1, 99, DateTime.UtcNow, 2, "分类", _title, _summary, false, out var payload);
         return payload.Length + pod.GetHashCode();
     }
 
@@ -203,7 +203,7 @@ internal static class ContractVerifier
 
     private static bool VerifyArticle()
     {
-        var pod = PodProjector.ProjectArticleList(11, 23, DateTime.UnixEpoch.AddDays(3), 7, "cat", "title", "summary", "snippet", false, out _);
+        var pod = PodProjector.ProjectArticleList(11, 23, DateTime.UnixEpoch.AddDays(3), 7, "cat", "title", "summary", false, out _);
         var page = new CorePageResult<ArticleListCoreModel>(
             [new ArticleListCoreModel(
                 pod,
@@ -256,7 +256,7 @@ internal static class ContractVerifier
 
     private static bool VerifySemanticParity()
     {
-        var pod = PodProjector.ProjectArticleList(21, 88, DateTime.UnixEpoch.AddHours(2), 5, "cat-x", "title-x", "summary-x", "snippet-x", false, out _);
+        var pod = PodProjector.ProjectArticleList(21, 88, DateTime.UnixEpoch.AddHours(2), 5, "cat-x", "title-x", "summary-x", false, out _);
         var source = new CorePageResult<ArticleListCoreModel>(
             [new ArticleListCoreModel(
                 pod,
@@ -558,7 +558,7 @@ internal static class HttpParityVerifier
             return (false, []);
         }
 
-        return (true, decode.Value.Payload);
+        return (true, decode.Value.Payload.ToArray());
     }
 
     private static string? GetArg(string[] args, string name)

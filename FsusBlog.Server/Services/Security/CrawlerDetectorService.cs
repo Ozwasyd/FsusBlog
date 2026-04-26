@@ -108,19 +108,21 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
             return isVerified;
         }
 
-        // 核心修复：声明 200ms 硬性超时 Token，不仅管控信号量，更掐断底层 DNS IO 请求
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        return await VerifyByReverseDnsAsync(ip, ipStr, TimeSpan.FromMilliseconds(200));
+    }
 
-        // B. 缓存未命中，发起真实 DNS 查询 (带并发熔断保护)
-        if (!await _dnsSemaphore.WaitAsync(TimeSpan.FromMilliseconds(200), cts.Token))
-        {
-            logger.LogWarning("DNS 验证触发并发防线，降级拦截 IP: {IP}", ipStr);
-            return false;
-        }
-
+    internal async Task<bool> VerifyByReverseDnsAsync(IPAddress ip, string ipStr, TimeSpan timeout)
+    {
+        string cacheKey = $"crawler:verified:{ipStr}";
+        using var cts = new CancellationTokenSource(timeout);
+        bool acquired = false;
         bool result = false;
+
         try
         {
+            await _dnsSemaphore.WaitAsync(cts.Token);
+            acquired = true;
+
             // 1. PTR 查询: IP -> 域名 (挂载 CancellationToken 防底层阻塞)
             // 逻辑自洽修复：使用现成的 ipStr (string)，完美契合支持 CancellationToken 的 API 重载
             var hostEntry = await Dns.GetHostEntryAsync(ipStr, cts.Token);
@@ -153,7 +155,10 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
         }
         finally
         {
-            _dnsSemaphore.Release();
+            if (acquired)
+            {
+                _dnsSemaphore.Release();
+            }
         }
 
         // C. 写入缓存 (真爬虫存 24h，假爬虫存 1h 防止频繁重试攻击消耗内存与 CPU)

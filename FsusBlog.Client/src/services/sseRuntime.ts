@@ -1,5 +1,5 @@
 import type { PowParams, SseDeliveryCursor, SseEventV2, SseFailureCode } from '@/services/sseTypes'
-import { SseEventType } from '@/services/sseTypes'
+import { SseEventType, SseFailureCodes } from '@/services/sseTypes'
 import { encodeJsonToBase64 } from '@/utils/utf8'
 
 const RECENT_EVENT_WINDOW = 512
@@ -162,7 +162,7 @@ class SseRuntime {
       await this.readStream(response.body.getReader())
     } catch (error: unknown) {
       if ((error as { name?: string }).name !== 'AbortError') {
-        this.scheduleReconnect('network_error')
+        this.scheduleReconnect(SseFailureCodes.NetworkError)
       }
     }
   }
@@ -195,7 +195,7 @@ class SseRuntime {
       reader.releaseLock()
     }
 
-    this.scheduleReconnect('network_error')
+    this.scheduleReconnect(SseFailureCodes.NetworkError)
   }
 
   private processChunk(chunk: string): boolean {
@@ -259,8 +259,8 @@ class SseRuntime {
     }
 
     if (cursorState === 'out_of_order') {
-      this.handleProtocolMismatch('out_of_order_event')
-      return false
+      this.onDuplicateEvent?.(event.id)
+      return true
     }
 
     this.onEvent?.(event)
@@ -309,23 +309,23 @@ class SseRuntime {
 
   private async resolveFailureCode(response: Response): Promise<SseFailureCode> {
     if (response.status === 409) {
-      return 'protocol_mismatch'
+      return SseFailureCodes.ProtocolMismatch
     }
 
     if (response.status === 401 || response.status === 403) {
-      return this.currentMode === 'auth' ? 'auth_failed' : 'pow_failed'
+      return this.currentMode === 'auth' ? SseFailureCodes.AuthFailed : SseFailureCodes.PowFailed
     }
 
-    return 'server_error'
+    return SseFailureCodes.ServerError
   }
 
   private handleProtocolMismatch(reason: string): void {
     this.onProtocolError?.(reason)
-    this.scheduleReconnect('protocol_mismatch')
+    this.scheduleReconnect(SseFailureCodes.ProtocolMismatch)
   }
 
   private scheduleReconnect(reason: SseFailureCode): void {
-    if (this.abortController?.signal.aborted || reason === 'auth_failed' || reason === 'pow_failed') {
+    if (this.abortController?.signal.aborted || reason === SseFailureCodes.AuthFailed || reason === SseFailureCodes.PowFailed) {
       return
     }
 

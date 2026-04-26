@@ -1,35 +1,16 @@
 import type { EChartsType } from 'echarts/core'
 
-type EchartsRuntime = typeof import('echarts/core')
+type EchartsRuntimeModule = typeof import('@/utils/echartsRuntime.bundle')
 
-let runtimePromise: Promise<EchartsRuntime> | null = null
+let runtimePromise: Promise<EchartsRuntimeModule['echarts']> | null = null
 
 export type { EChartsType }
 
-export function loadEchartsRuntime(): Promise<EchartsRuntime> {
+export function loadEchartsRuntime(): Promise<EchartsRuntimeModule['echarts']> {
   if (runtimePromise) {
     return runtimePromise
   }
 
-  runtimePromise = (async () => {
-    const [echarts, charts, components, renderers] = await Promise.all([
-      import('echarts/core'),
-      import('echarts/charts'),
-      import('echarts/components'),
-      import('echarts/renderers')
-    ])
-
-    echarts.use([
-      components.TooltipComponent,
-      components.LegendComponent,
-      components.GridComponent,
-      charts.PieChart,
-      charts.BarChart,
-      renderers.CanvasRenderer
-    ])
-
-    return echarts
-  })()
-
+  runtimePromise = import('@/utils/echartsRuntime.bundle').then((module) => module.echarts)
   return runtimePromise
 }

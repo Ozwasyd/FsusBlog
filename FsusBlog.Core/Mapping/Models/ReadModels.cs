@@ -29,6 +29,9 @@ public readonly record struct ArticleDetailCoreModel(
     string Content,
     string? Summary,
     int Views,
+    int WordCount,
+    int EstimatedReadingMinutes,
+    bool ShowReadingNotice,
     DateTime CreateTime,
     ArticleCategoryCoreModel Category,
     IReadOnlyList<TagCoreModel> Tags,
@@ -39,7 +42,15 @@ public readonly record struct PopularArticleCoreModel(PopularArticlePod Pod, int
 
 public readonly record struct CommentQueryCoreModel(CommentItemPod Pod, long Id, string Content, DateTime CreateTime, string UserName);
 
-public readonly record struct UserCommentCoreModel(UserCommentPod Pod, long Id, string Content, DateTime CreateTime, int ArticleId, string ArticleTitle);
+public readonly record struct UserCommentCoreModel(
+    UserCommentPod Pod,
+    long Id,
+    string Content,
+    DateTime CreateTime,
+    int ArticleId,
+    string ArticleTitle,
+    long? RootId,
+    string? ReplyToUserName);
 
 public readonly record struct RecentCommentCoreModel(RecentCommentPod Pod, int? UserId, string UserName, string Content, DateTime CreateTime);
 

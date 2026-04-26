@@ -30,6 +30,7 @@ enum class FrameType : std::uint16_t {
   CommentArticleCursor = 5,
   CommentUserCursor = 6,
   AdminStats = 7,
+  CommentThreadReplyCursor = 8,
 };
 
 } // namespace fsusblog::aeds

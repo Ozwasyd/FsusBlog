@@ -20,10 +20,11 @@ export interface UserListItem {
   id: number
   username: string
   role: string
-  status: number // 0:正常, 1:禁用
+  status: number // 0:正常, 1:封禁, 2:已注销
   createTime: string
   lastLoginIp?: string
   lastLoginTime?: string
+  deletedAt?: string | null
 }
 
 /**

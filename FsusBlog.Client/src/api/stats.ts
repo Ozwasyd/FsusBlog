@@ -1,69 +1,59 @@
 import type { AxiosRequestConfig } from 'axios';
-import api from './index'
+import api from './index';
 import { FrameType } from '@wasm/protocol/frame';
 import { requestBinaryOnly } from '@/services/binaryTransport';
 
-/** 1. 热门文章 DTO */
-export interface PopularArticleDto {
+export interface PopularArticleStatItem {
   id: number
   title: string
   views: number
 }
 
-/** 2. 最新评论 DTO */
-export interface RecentCommentDto {
+export interface RecentCommentStatItem {
   userId: number | null
   userName: string
   content: string
-  createTime: string // 后端 DateTime 序列化后为字符串
+  createTime: string
 }
 
-/** 3. 地域分布项 DTO */
-export interface RegionDistributionDto {
-  region: string // 格式: 国家-省份-城市
+export interface RegionStatItem {
+  region: string
   count: number
 }
 
-/** 4. 后台管理概览统计数据 (主 DTO) */
-export interface SiteStats {
-  // 内容指标
+export interface StatsSummary {
   totalArticles: number
   totalComments: number
   trashCount: number
-
-  // 访问指标
   totalVisits: number
   registeredVisits: number
   anonymousVisits: number
-
-  // 深度数据
-  popularArticles: PopularArticleDto[]
-  recentComments: RecentCommentDto[]
-  regionDistributions: RegionDistributionDto[]
 }
 
-/**
- * [修复 2026-02-23] 逻辑自洽：所有方法增加可选的 config 参数以支持 AbortSignal 物理中断
- */
+export interface AdminStatsOverview {
+  summary: StatsSummary
+  popularArticles: PopularArticleStatItem[]
+}
 
-/** * 获取后台汇总统计数据 
- * GET /api/Stats
- * 算法最优：透传 config 确保管理员快速刷新仪表盘时，过期的聚合查询能被物理中断
- */
-export const getSiteStats = (config?: AxiosRequestConfig) => 
-  requestBinaryOnly<SiteStats>({
+export interface TrashClearResponse {
+  count: number
+}
+
+export const getSiteStatsOverview = (config?: AxiosRequestConfig) =>
+  requestBinaryOnly<AdminStatsOverview>({
     binaryUrl: '/api/binary/stats',
     frameType: FrameType.AdminStats,
     signal: config?.signal as AbortSignal | undefined
   })
 
-/** * 一键清空回收站 
- * DELETE /api/Stats/clear-trash
- * 安全性保障：清空回收站属于不可逆的物理删除操作，强制接入 PoW 算力校验
- * 物理隔离针对敏感管理接口的自动化探测或误操作攻击。
- */
-export const clearTrash = (config?: AxiosRequestConfig) => 
-  api.delete<string>('/Stats/clear-trash', {
+export const getRecentCommentStats = (config?: AxiosRequestConfig) =>
+  api.get<RecentCommentStatItem[]>('/Stats/recent-comments', config)
+
+export const getRegionStats = (config?: AxiosRequestConfig) =>
+  api.get<RegionStatItem[]>('/Stats/regions', config)
+
+export const clearTrash = (config?: AxiosRequestConfig) =>
+  api.delete<TrashClearResponse>('/Article/trash', {
     ...config,
     requiresPow: true
   } as AxiosRequestConfig)

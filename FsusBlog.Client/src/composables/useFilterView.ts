@@ -1,55 +1,49 @@
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { AxiosRequestConfig } from 'axios'
-import { getArticles, searchArticles, type ArticleListItem, type ArticleListRes } from '@/api/article'
+import { getArticles, type ArticleListItemResponse, type PageResponse } from '@/api/article'
 import { consumePublicAotBootstrap, toBootstrapArticleListItem } from '@/bootstrap/publicAotBootstrap'
 import { getCategories, type CategoryItem } from '@/api/category'
 import { getTags, type TagItem } from '@/api/tag'
 import { usePow } from '@/composables/usePow'
 import { useAbortableTask } from '@/composables/useAbortableTask'
+import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
 import { usePagedListState } from '@/composables/usePagedListState'
-import { useAotRenderBridge } from '@/composables/useAotRenderBridge'
-import { useWindowEvents } from '@/composables/useWindowEvents'
-import { hasServerAotShell } from '@/bootstrap/publicShellPrimitives'
+import { matchesCategoryFilter, matchesTagFilter, removeArticlePreview, upsertArticlePreview } from '@/services/sseArticlePatch'
+import type { ArticleUpdatePayload, SseArticleRenderPatch } from '@/services/sseTypes'
+import { useSseStore } from '@/store/sse'
 import { isAbortError } from '@/utils/errors'
-import { createArticleListCardViewContract, createArticleListViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList'
+import { createArticleListCardViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList'
 import { createFilterEmptyStateViewContract, createFilterHeaderViewContract, createFilterLoadingStateViewContract } from '@/view-contracts/filterView'
-import { renderArticleListAot } from '@/renderers/aot'
-import { FrameType } from '@wasm/protocol/frame'
-
-const SIGNALS = {
-  CREATED: 'signalr:article-created',
-  UPDATED: 'signalr:article-updated',
-  DELETED: 'signalr:article-deleted',
-  RESTORED: 'signalr:article-restored',
-  RECONNECTED: 'signalr:reconnected'
-} as const
+import { loadDeepSearchIndex, searchIndex, type SearchSortMode } from '@/services/localSearch'
 
 type NamedMeta = Pick<CategoryItem, 'id' | 'name'> | Pick<TagItem, 'id' | 'name'>
-type RouteSignalPayload = { articleId?: string | number }
 
 export function useFilterView() {
   const route = useRoute()
+  const router = useRouter()
+  const sseStore = useSseStore()
   const powProvider = usePow()
   const initialBootstrap = consumePublicAotBootstrap('Filter')
 
   const filterType = ref<'category' | 'tag' | 'search'>('category')
   const filterId = ref<number>(0)
   const currentName = ref('')
-  const articles = ref<ArticleListCardViewContract[]>([])
+  const articleItems = ref<ArticleListItemResponse[]>([])
   const loadingMeta = ref(true)
   const {
     loading: loadingArticles,
     currentPage,
     pageSize,
+    total,
     totalPages,
     beginLoading,
     endLoading,
     setPageTotal
   } = usePagedListState({ pageSize: 10 })
   const hasError = ref(false)
-  const serverShellPresent = typeof document !== 'undefined' && hasServerAotShell(document.getElementById('app'))
   const searchKeyword = computed(() => String(route.query.q || '').trim())
+  const searchSortMode = ref<SearchSortMode>('relevance')
   const pageIndicatorText = computed(
     () => `${String(currentPage.value).padStart(2, '0')} / ${String(totalPages.value).padStart(2, '0')}`
   )
@@ -58,7 +52,9 @@ export function useFilterView() {
   const isLoadingState = computed(
     () => loadingArticles.value || powProvider.isCalculating.value
   )
-  const shouldDelayLoadingSkeleton = computed(() => serverShellPresent && filterType.value !== 'search')
+  const articles = computed<ArticleListCardViewContract[]>(() =>
+    articleItems.value.map((item, index) => createArticleListCardViewContract(item, index))
+  )
 
   const labelText = computed(() => {
     if (filterType.value === 'category') {
@@ -73,38 +69,12 @@ export function useFilterView() {
   const articleTask = useAbortableTask()
   const buildSignalConfig = (signal: AbortSignal): AxiosRequestConfig => ({ signal })
 
-  let isMounted = false
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null
   let bootstrapApplied = false
-
-  const { aotRenderedHtml, clearAotHtml } = useAotRenderBridge({
-    frameType: FrameType.ArticleList,
-    onRefresh: () => {
-      if (!articleTask.isRunning.value) {
-        void articleTask.run(async (signal) => await loadArticles(true, signal))
-      }
-    },
-    onPageNext: () => handlePageChange(currentPage.value + 1),
-    onPagePrev: () => handlePageChange(currentPage.value - 1),
-    cooldownMs: 300
-  })
-
-  const syncAotHtml = (items: ArticleListItem[], total: number): void => {
-    if (items.length === 0) {
-      clearAotHtml()
-      return
+  const lifecycle = usePublicPageLifecycle({
+    onDispose: () => {
+      articleTask.cancel()
     }
-
-    const view = createArticleListViewContract(
-      { items, total },
-      {
-        currentPage: currentPage.value,
-        pageSize: pageSize.value,
-        searchKeyword: filterType.value === 'search' ? searchKeyword.value : ''
-      }
-    )
-    aotRenderedHtml.value = renderArticleListAot(view)
-  }
+  })
 
   const loadMetaName = async (signal: AbortSignal): Promise<void> => {
     if (filterType.value === 'search') {
@@ -118,17 +88,17 @@ export function useFilterView() {
       const fetchFn = filterType.value === 'category' ? getCategories : getTags
       const list = await fetchFn(buildSignalConfig(signal))
 
-      if (isMounted && !signal.aborted) {
+      if (lifecycle.isActive() && !signal.aborted) {
         const targetId = Number(route.params.id)
         const match = (list as NamedMeta[]).find((item) => item.id === targetId)
         currentName.value = match ? match.name : '未发现'
       }
     } catch (error: unknown) {
-      if (!isAbortError(error) && isMounted && !signal.aborted) {
+      if (!isAbortError(error) && lifecycle.isActive() && !signal.aborted) {
         currentName.value = '加载失败'
       }
     } finally {
-      if (isMounted && !signal.aborted) {
+      if (lifecycle.isActive() && !signal.aborted) {
         loadingMeta.value = false
       }
     }
@@ -145,19 +115,18 @@ export function useFilterView() {
       const keyword = searchKeyword.value
 
       if (isSearch && !keyword) {
-        if (isMounted && !signal.aborted) {
-          articles.value = []
+        if (lifecycle.isActive() && !signal.aborted) {
+          articleItems.value = []
           setPageTotal(0)
           hasError.value = false
-          clearAotHtml()
         }
         return
       }
 
-      let response: ArticleListRes | ArticleListItem[]
+      let response: PageResponse<ArticleListItemResponse> | ArticleListItemResponse[]
       if (isSearch) {
-        const config: AxiosRequestConfig = { signal, requiresPow: true }
-        response = await searchArticles({ keyword }, config)
+        await loadDeepSearchIndex(signal)
+        response = await searchIndex(keyword, searchSortMode.value, currentPage.value, pageSize.value, signal)
       } else {
         response = await getArticles(
           {
@@ -170,29 +139,27 @@ export function useFilterView() {
         )
       }
 
-      if (isMounted && !signal.aborted) {
+      if (lifecycle.isActive() && !signal.aborted) {
         const items = Array.isArray(response) ? response : response.items
         const count = Array.isArray(response) ? items.length : response.total
-        articles.value = items.map((item, index) => createArticleListCardViewContract(item, index))
+        articleItems.value = items
         setPageTotal(count)
         hasError.value = false
-        syncAotHtml(items, count)
       }
     } catch (error: unknown) {
       if (isAbortError(error)) {
         return
       }
 
-      if (isMounted && !signal.aborted) {
+      if (lifecycle.isActive() && !signal.aborted) {
         const msg = error instanceof Error ? error.message : String(error)
         console.error('[FilterView] Load Fail:', msg)
         hasError.value = true
-        articles.value = []
+        articleItems.value = []
         setPageTotal(0)
-        clearAotHtml()
       }
     } finally {
-      if (isMounted && !signal.aborted) {
+      if (lifecycle.isActive() && !signal.aborted) {
         endLoading()
       }
     }
@@ -200,16 +167,17 @@ export function useFilterView() {
 
   const init = async (): Promise<void> => {
     articleTask.cancel()
-    clearAotHtml()
 
     hasError.value = false
     if (route.query.q !== undefined) {
       filterType.value = 'search'
       filterId.value = 0
-      powProvider.prewarm()
+      const rawSort = String(route.query.sort || '').trim().toLowerCase()
+      searchSortMode.value = rawSort === 'latest' || rawSort === 'hot' ? rawSort : 'relevance'
     } else {
       filterType.value = route.path.includes('/category') ? 'category' : 'tag'
       filterId.value = Number(route.params.id) || 0
+      searchSortMode.value = 'relevance'
     }
     currentPage.value = 1
 
@@ -222,7 +190,7 @@ export function useFilterView() {
         ? filterBootstrap.articles.map((article) => toBootstrapArticleListItem(article))
         : []
 
-      articles.value = bootstrapItems.map((item, index) => createArticleListCardViewContract(item, index))
+      articleItems.value = bootstrapItems
       setPageTotal(Number(filterBootstrap.total) || 0)
       bootstrapApplied = true
 
@@ -247,50 +215,106 @@ export function useFilterView() {
   }
 
   const dispatchSync = (): void => {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer)
-    }
-
-    debounceTimer = setTimeout(() => {
-      if (isMounted && !articleTask.isRunning.value) {
+    lifecycle.scheduleSync(() => {
+      if (!articleTask.isRunning.value) {
         void articleTask.run(async (signal) => await loadArticles(false, signal))
       }
-      debounceTimer = null
-    }, 500)
+    })
   }
 
-  const handleRemoteCreated = (): void => {
-    if (filterType.value === 'search' || currentPage.value === 1) {
+  const matchesCurrentFilter = (article: ArticleListItemResponse): boolean => {
+    if (filterType.value === 'category') {
+      return matchesCategoryFilter(article, filterId.value)
+    }
+
+    if (filterType.value === 'tag') {
+      return matchesTagFilter(article, filterId.value)
+    }
+
+    return false
+  }
+
+  const applyArticlePatch = (payload: ArticleUpdatePayload): boolean => {
+    if (filterType.value === 'search') {
+      return false
+    }
+
+    const exists = articleItems.value.some((article) => article.id === payload.articleId)
+    const preview = payload.preview ?? null
+
+    if (payload.action === 'Created' || payload.action === 'Restored') {
+      if (!preview) {
+        return false
+      }
+
+      if (!matchesCurrentFilter(preview)) {
+        return true
+      }
+
+      if (!exists) {
+        setPageTotal(total.value + 1)
+      }
+
+      if (currentPage.value === 1) {
+        articleItems.value = upsertArticlePreview(articleItems.value, preview).slice(0, pageSize.value)
+      }
+
+      return true
+    }
+
+    if (payload.action === 'Updated') {
+      if (!preview) {
+        return false
+      }
+
+      const matches = matchesCurrentFilter(preview)
+      if (exists && matches) {
+        articleItems.value = upsertArticlePreview(articleItems.value, preview)
+        return true
+      }
+
+      if (exists && !matches) {
+        articleItems.value = removeArticlePreview(articleItems.value, payload.articleId)
+        setPageTotal(Math.max(0, total.value - 1))
+        return false
+      }
+
+      if (!exists && matches && currentPage.value === 1) {
+        setPageTotal(total.value + 1)
+        articleItems.value = upsertArticlePreview(articleItems.value, preview).slice(0, pageSize.value)
+        return false
+      }
+
+      return true
+    }
+
+    if (!exists) {
+      return true
+    }
+
+    articleItems.value = removeArticlePreview(articleItems.value, payload.articleId)
+    setPageTotal(Math.max(0, total.value - 1))
+    return false
+  }
+
+  const handleArticleBatch = (patches: readonly SseArticleRenderPatch[]): void => {
+    let needsSync = false
+
+    for (const patch of patches) {
+      if (patch.kind === 'reconnected') {
+        needsSync = true
+        continue
+      }
+
+      if (!patch.event || !applyArticlePatch(patch.event.payload)) {
+        needsSync = true
+      }
+    }
+
+    if (needsSync && lifecycle.isActive()) {
       dispatchSync()
     }
   }
-
-  const handleRemoteUpdated = (event: Event): void => {
-    const data = (event as CustomEvent<RouteSignalPayload>).detail
-    if (!data?.articleId) {
-      return
-    }
-
-    const targetId = String(data.articleId)
-    const exists = articles.value.some((article) => String(article.id) === targetId)
-    if (exists || filterType.value === 'search') {
-      dispatchSync()
-    }
-  }
-
-  const handleReconnected = (): void => {
-    if (isMounted) {
-      void articleTask.run(async (signal) => await loadArticles(false, signal))
-    }
-  }
-
-  const signalListeners = [
-    { name: SIGNALS.CREATED, handler: handleRemoteCreated },
-    { name: SIGNALS.UPDATED, handler: handleRemoteUpdated },
-    { name: SIGNALS.DELETED, handler: dispatchSync },
-    { name: SIGNALS.RESTORED, handler: handleRemoteCreated },
-    { name: SIGNALS.RECONNECTED, handler: handleReconnected }
-  ] as const
 
   function handlePageChange(page: number): void {
     if (page < 1 || page > totalPages.value || loadingArticles.value) {
@@ -302,25 +326,41 @@ export function useFilterView() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  watch([() => route.params.id, () => route.query.q], () => {
+  function setSearchSortMode(mode: SearchSortMode): void {
+    if (filterType.value !== 'search' || searchSortMode.value === mode) {
+      return
+    }
+
+    searchSortMode.value = mode
+    currentPage.value = 1
+
+    const nextQuery = { ...route.query }
+    if (mode === 'relevance') {
+      delete nextQuery.sort
+    } else {
+      nextQuery.sort = mode
+    }
+
+    void router.replace({ path: route.path, query: nextQuery })
+  }
+
+  watch([() => route.params.id, () => route.query.q, () => route.query.sort], () => {
     void init()
   })
 
-  useWindowEvents(signalListeners)
+  watch(
+    () => sseStore.articleRevision,
+    () => {
+      if (!lifecycle.isActive()) {
+        return
+      }
+
+      handleArticleBatch(sseStore.articleBatch)
+    }
+  )
 
   onMounted(() => {
-    isMounted = true
     void init()
-  })
-
-  onUnmounted(() => {
-    isMounted = false
-    if (debounceTimer) {
-      clearTimeout(debounceTimer)
-      debounceTimer = null
-    }
-    articleTask.cancel()
-    clearAotHtml()
   })
 
   return {
@@ -335,14 +375,14 @@ export function useFilterView() {
     totalPages,
     hasError,
     searchKeyword,
+    searchSortMode,
     pageIndicatorText,
     canGoPrev,
     canGoNext,
     isLoadingState,
     labelText,
     handlePageChange,
-    aotRenderedHtml,
-    shouldDelayLoadingSkeleton,
+    setSearchSortMode,
     filterView: computed(() => ({
       header: createFilterHeaderViewContract({
         labelText: labelText.value,

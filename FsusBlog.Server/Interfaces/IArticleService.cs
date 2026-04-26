@@ -1,25 +1,25 @@
-﻿using FsusBlog.Server.Entities;
-using FsusBlog.Server.Models.Dtos;
+﻿using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Models.Requests;
 
 namespace FsusBlog.Server.Interfaces;
 
 public interface IArticleService
 {
-    Task<PageResultDto<ArticleListDto>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted = false);
+    Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted = false);
 
     /// <summary>
     /// 获取文章详情
     /// </summary>
-    Task<Article?> GetByIdAsync(int id);
+    Task<ArticleDetailReadModel?> GetByIdAsync(int id);
 
     /// <summary>
     /// 发布文章（包含存数据库 + 建索引）
     /// </summary>
-    Task<int> CreateAsync(ArticleDto dto);
+    Task<int> CreateAsync(CreateArticleRequest request);
     /// <summary>
     /// 更新文章（包含存数据库 + 建索引）
     /// </summary>
-    Task<bool> UpdateAsync(int id, ArticleDto dto);
+    Task<bool> UpdateAsync(int id, UpdateArticleRequest request);
 
     /// <summary>
     /// 删除文章（包含存数据库 + 建索引）
@@ -40,15 +40,15 @@ public interface IArticleService
     Task<int> ClearTrashAsync();
 
     /// <summary>
-    /// 搜索文章（从 Lucene 查，或者从数据库查）
+    /// 搜索文章（优先使用本地搜索索引链，必要时回落到数据库查）
     /// </summary>
-    Task<List<ArticleListDto>> SearchArticlesAsync(string keyword);
+    Task<List<ArticleListItemReadModel>> SearchArticlesAsync(string keyword);
 
     /// <summary>
     /// 获取热门文章排行榜
     /// </summary>
     /// <param name="count">获取数量，默认 10 条</param>
-    Task<List<PopularArticleDto>> GetHotArticlesAsync(int count = 10);
+    Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync(int count = 10);
 
     /// <summary>
     /// 高性能增加阅读量：同步更新 DB、热榜 Score 并失效详情缓存

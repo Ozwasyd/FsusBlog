@@ -1,15 +1,23 @@
 <template>
-  <div class="article-trash-wrapper">
-    <el-card shadow="never" class="action-card mb-5 border-none rounded-xl">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-2">
-        <div class="header-info">
-          <h2 class="text-xl font-bold text-zinc-800 tracking-tight flex items-center gap-2">
+  <div class="account-page article-trash-wrapper w-full">
+    <header class="account-page-header">
+      <div class="account-page-eyebrow">管理</div>
+      <h1 class="account-page-title">回收站</h1>
+      <p class="account-page-description">
+        处理已下线稿件的恢复与物理删除。永久抹除后数据不可找回。
+      </p>
+    </header>
+
+    <section class="admin-page-toolbar mb-6">
+      <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+        <div>
+          <h2 class="text-xl font-bold text-[#27272A] flex items-center gap-2">
             回收站
-            <el-tag size="small" type="warning" effect="dark" class="rounded-full px-3 border-none tabular-nums">
+            <el-tag size="small" type="warning" effect="dark" class="rounded-[var(--fsus-radius-full)] px-3  tabular-nums">
               {{ pendingCountText }}
             </el-tag>
           </h2>
-          <p class="text-[12px] text-zinc-400 mt-1 italic font-medium flex items-center gap-1">
+          <p class="text-[12px] text-[#A1A1AA] mt-1 italic font-medium flex items-center gap-1">
             <el-icon><InfoFilled /></el-icon>
             安全提示：恢复文章将重新发布并同步搜索索引。物理抹除后数据将不可找回。
           </p>
@@ -18,37 +26,36 @@
           @click="goToArticleList" 
           :disabled="!canBackToList"
           plain 
-          class="rounded-xl border-zinc-200 hover:bg-zinc-50 transition-all active:scale-95"
+          class=" border-[#E4E4E7] hover:bg-[#FCFCFC] transition-all active:scale-95"
         >
           <el-icon class="mr-1"><Back /></el-icon>返回正常列表
         </el-button>
-      </div>
-    </el-card>
+      </header>
+    </section>
 
-    <el-card shadow="never" class="list-card border-none rounded-xl shadow-sm overflow-hidden">
+    <section class="admin-table-panel">
       <el-table 
         v-loading="loading" 
         :data="trashListView" 
         :row-key="getTrashRowKey"
-        stripe 
         table-layout="fixed"
         class="trash-table w-full"
       >
         <!-- 使用响应式标准类名统一显示策略 -->
-        <el-table-column prop="id" label="ID" width="100" align="center" class-name="font-mono text-zinc-300 hidden-sm-and-down" />
+        <el-table-column prop="id" label="ID" width="100" align="center" class-name="font-mono text-[#D4D4D8] hidden-sm-and-down" />
         
         <el-table-column label="已下线博文标题" min-width="320">
           <template #default="{ row }: { row: ArticleTrashViewItem }">
             <div class="flex flex-col py-1">
-              <span class="text-zinc-500 font-bold text-[15px] line-through decoration-zinc-300 opacity-60 truncate">
+              <span class="text-[#8E8E93] font-bold text-[15px] line-through decoration-[#D4D4D8] opacity-60 truncate">
                 {{ row.title }}
               </span>
-              <div class="flex items-center gap-4 mt-2 text-[11px] text-zinc-400">
+              <div class="flex items-center gap-6 mt-2 text-[11px] text-[#A1A1AA]">
                 <span class="flex items-center gap-1 tabular-nums">
                   <el-icon><Calendar /></el-icon> 
                   创作于: {{ row.createdAtText }}
                 </span>
-                <el-tag size="small" type="info" effect="plain" class="rounded border-zinc-200 scale-90 origin-left" disable-transitions>
+                <el-tag size="small" type="info" effect="plain" class="rounded border-[#E4E4E7] scale-90 origin-left" disable-transitions>
                   {{ row.categoryName }}
                 </el-tag>
               </div>
@@ -88,8 +95,8 @@
         </template>
       </el-table>
 
-      <div class="flex justify-between items-center mt-6 px-4 pb-2">
-        <span class="text-[10px] text-zinc-300 font-mono tracking-widest uppercase select-none">
+      <div class="admin-table-footer">
+        <span class="text-[10px] text-[#D4D4D8] font-mono uppercase select-none">
           {{ footerWatermark }}
         </span>
         <el-pagination
@@ -103,16 +110,16 @@
           @current-change="loadData"
         />
       </div>
-    </el-card>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { InfoFilled, Calendar, Back, RefreshLeft, DeleteFilled } from '@element-plus/icons-vue'
-import { type ArticleListItem } from '@/api/article'
+import { type ArticleListItemResponse } from '@/api/article'
 import { useAdminArticleTrash } from '@/composables/useAdminArticleTrash'
 
-type ArticleTrashViewItem = ArticleListItem & {
+type ArticleTrashViewItem = ArticleListItemResponse & {
   createdAtText: string
   categoryName: string
 }
@@ -133,10 +140,11 @@ const {
 } = useAdminArticleTrash()
 
 const getTrashRowKey = (row: ArticleTrashViewItem): string => row.id
-const goToArticleList = (): Promise<void> => router.push({ path: '/admin/article/list' })
+const goToArticleList = (): Promise<void> => router.push({ path: '/user/manage/article/list' })
 </script>
 
 <style scoped>
+
 /* 变量抽离与规范化 */
 :root {
   --archive-line-through: #f4f4f5;
@@ -157,12 +165,23 @@ const goToArticleList = (): Promise<void> => router.push({ path: '/admin/article
 }
 
 :deep(.trash-table) {
-  --el-table-header-bg-color: #fafafa;
-  --el-table-header-text-color: #94a3b8;
+  --el-table-header-bg-color: rgba(252, 252, 252, 0.96);
+  --el-table-header-text-color: #A1A1AA;
+  --el-table-row-hover-bg-color: rgba(42, 89, 156, 0.04);
 }
 
 :deep(.el-table__row) {
   height: 72px;
+}
+
+:deep(.trash-table .el-table__header th) {
+  font-size: 0.65rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+:deep(.trash-table .el-table__inner-wrapper::before) {
+  display: none;
 }
 
 .tabular-nums {

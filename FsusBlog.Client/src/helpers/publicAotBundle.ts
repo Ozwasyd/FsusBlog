@@ -191,14 +191,7 @@ const entryValidators: Partial<Record<PublicAotShellPageId, EntryValidator>> = {
     assertStringField(hydration, 'pageKind', 'ArticleDetail', 'hydrationPropsJson');
     assertStringField(hydration, 'routeKey', expectedRouteKey, 'hydrationPropsJson');
     assertNumberField(hydration, 'articleId', articleId, 'hydrationPropsJson');
-
-    const commentsIsland = asRecord(hydration.commentsIsland, 'hydrationPropsJson.commentsIsland');
-    assertNumberField(commentsIsland, 'articleId', articleId, 'hydrationPropsJson.commentsIsland');
-
-    assert(entry.islandsJson, 'article detail bundle requires islandsJson');
-    const islands = parseJsonRecord(entry.islandsJson, 'islandsJson');
-    const comments = asRecord(islands.comments, 'islandsJson.comments');
-    assertNumberField(comments, 'articleId', articleId, 'islandsJson.comments');
+    assert(!entry.islandsJson, 'article detail bundle should not carry islandsJson');
   },
   3: (entry, bootstrap, hydration) => {
     assert(entry.articleId == null, 'filter bundle should not carry articleId');
@@ -257,7 +250,6 @@ function createArticleDetailBootstrap(options: ArticleDetailPublicAotBundleOptio
       category: options.categoryName?.trim() || '未分类',
       tags: (options.tags ?? []).map((tag) => tag.name)
     },
-    commentsPlaceholder: '评论将在 SPA 接管后加载',
     authorName: options.authorName?.trim() || options.siteTitle?.trim() || 'Fsu'
   });
 }
@@ -311,14 +303,9 @@ async function createArticleDetailHydrationPayload(
     detailView: {
       ...detailView,
       body: {
+        ...detailView.body,
         content: markdownHtml
       }
-    },
-    commentsIsland: {
-      articleId: options.articleId ?? '{{articleId}}',
-      placeholderTitle: detailView.comments.placeholderTitle,
-      placeholderBody: detailView.comments.placeholderBody,
-      placeholderHint: detailView.comments.placeholderHint
     }
   };
 }
@@ -337,7 +324,7 @@ export async function buildArticleDetailPublicAotEntry(
     bootstrapJson: createArticleDetailBootstrap(options),
     hydrationPropsJson: rendered.hydrationPropsJson,
     rendererVersion: rendered.rendererVersion,
-    islandsJson: rendered.islandsJson ?? JSON.stringify({ comments: hydrationPayload.commentsIsland }),
+    islandsJson: rendered.islandsJson ?? null,
     title: options.title,
     baseUrl: options.baseUrl ?? null
   };
