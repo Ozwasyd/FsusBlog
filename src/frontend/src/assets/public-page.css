@@ -1,0 +1,394 @@
+/* src/assets/public-page.css */
+
+@reference "./tailwind.css";
+
+:root {
+  color-scheme: light dark;
+  --fsusblog-color-primary: var(--fsus-scholarly-blue, Highlight);
+  --fsusblog-color-surface: var(--fsus-paper, var(--el-fill-color-blank, Canvas));
+  --fsusblog-color-surface-soft: var(--fsus-page, var(--el-fill-color-light, Canvas));
+  --fsusblog-color-surface-muted: var(--fsus-border-extra-light, var(--el-fill-color, ButtonFace));
+  --fsusblog-color-line: var(--fsus-border-lighter, var(--el-border-color-lighter, ButtonBorder));
+  --fsusblog-color-line-strong: var(--fsus-border, var(--el-border-color, ButtonBorder));
+  --fsusblog-color-disabled-bg: var(--el-disabled-bg-color, ButtonFace);
+  --fsusblog-color-disabled-text: var(--el-disabled-text-color, GrayText);
+  --fsusblog-color-error: var(--el-color-danger, CanvasText);
+  --fsusblog-color-error-strong: var(--el-color-danger-dark-2, var(--fsusblog-color-error));
+  --fsusblog-color-error-bg: var(--fsusblog-reading-error-bg, color-mix(in srgb, var(--fsusblog-color-error) 10%, var(--fsusblog-page-bg)));
+  --fsusblog-color-error-border: var(--fsusblog-reading-error-border, color-mix(in srgb, var(--fsusblog-color-error) 28%, transparent));
+  --fsusblog-color-success: var(--el-color-success, Highlight);
+  --fsusblog-color-warning: var(--el-color-warning, CanvasText);
+  --fsusblog-color-warning-bg: var(--el-color-warning-light-9, color-mix(in srgb, var(--fsusblog-color-warning) 10%, var(--fsusblog-page-bg)));
+  --fsusblog-color-warning-border: var(--el-color-warning-light-5, color-mix(in srgb, var(--fsusblog-color-warning) 36%, transparent));
+  --fsusblog-color-warning-text: var(--el-color-warning-dark-2, var(--fsusblog-color-warning));
+  --fsusblog-color-focus-ring: var(--el-a11y-focus-color, var(--fsus-scholarly-blue, Highlight));
+  --fsusblog-page-bg: var(--fsus-page, var(--el-bg-color-page, Canvas));
+  --fsusblog-page-bg-soft: var(--fsus-paper, var(--el-bg-color, Canvas));
+  --fsusblog-page-bg-muted: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
+  --fsusblog-panel-bg: var(--fsusblog-color-surface);
+  --fsusblog-panel-bg-soft: var(--fsusblog-color-surface-soft);
+  --fsusblog-panel-border: var(--fsusblog-color-line);
+  --fsusblog-panel-border-strong: var(--fsusblog-color-line-strong);
+  --fsusblog-text-primary: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
+  --fsusblog-text-secondary: var(--fsus-text-regular, var(--el-text-color-regular, CanvasText));
+  --fsusblog-text-tertiary: var(--fsus-dot-gray, var(--el-text-color-secondary, GrayText));
+  --fsusblog-text-muted: var(--fsus-text-placeholder, var(--el-text-color-placeholder, GrayText));
+  --fsusblog-text-subtle: var(--fsus-dot-gray, var(--el-disabled-text-color, GrayText));
+  --fsusblog-reading-text: var(--fsus-text-regular, var(--el-text-color-regular, CanvasText));
+  --fsusblog-reading-heading: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
+  --fsusblog-reading-subheading: var(--fsus-text-regular, var(--el-text-color-regular, CanvasText));
+  --fsusblog-reading-quote: var(--fsus-dot-gray, var(--el-text-color-secondary, GrayText));
+  --fsusblog-reading-link: var(--fsus-scholarly-blue, LinkText);
+  --fsusblog-reading-link-decoration: color-mix(in srgb, var(--fsusblog-reading-link) 56%, transparent);
+  --fsusblog-reading-code-bg: var(--fsus-border-extra-light, var(--el-fill-color-light, Field));
+  --fsusblog-reading-code-border: var(--fsus-border-lighter, var(--el-border-color-lighter, ButtonBorder));
+  --fsusblog-reading-code-text: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
+  --fsusblog-reading-placeholder-bg: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
+  --fsusblog-reading-placeholder-border: var(--fsus-border, var(--el-border-color, ButtonBorder));
+  --fsusblog-reading-error-bg: var(--el-color-danger-light-9, color-mix(in srgb, var(--fsusblog-color-error) 10%, var(--fsusblog-page-bg)));
+  --fsusblog-reading-error-border: var(--el-color-danger-light-7, color-mix(in srgb, var(--fsusblog-color-error) 28%, transparent));
+  --fsusblog-reading-error-text: var(--el-color-danger, CanvasText);
+  --fsusblog-reading-marker: var(--fsus-text-placeholder, var(--el-text-color-placeholder, GrayText));
+  --fsusblog-reading-rule: var(--fsus-border-lighter, var(--el-border-color-lighter, ButtonBorder));
+  --fsusblog-highlight-mark-bg: var(--fsus-highlight, var(--el-fill-color, Mark));
+  --fsusblog-highlight-mark-text: var(--fsus-ink, var(--el-text-color-primary, MarkText));
+  --fsusblog-highlight-mark-ring: color-mix(in srgb, var(--fsus-border, var(--el-border-color, ButtonBorder)) 65%, transparent);
+
+}
+
+html.light,
+html[data-theme-resolved='light'] {
+  color-scheme: light;
+}
+
+html.dark,
+html[data-theme-resolved='dark'] {
+  color-scheme: dark;
+  --fsusblog-color-primary: var(--fsus-scholarly-blue, Highlight);
+  --fsusblog-color-surface: var(--fsus-paper, var(--el-fill-color-blank, Canvas));
+  --fsusblog-color-surface-soft: var(--fsus-page, var(--el-fill-color-light, Canvas));
+  --fsusblog-color-surface-muted: var(--fsus-border-extra-light, var(--el-fill-color, ButtonFace));
+  --fsusblog-color-line: var(--fsus-border-lighter, var(--el-border-color-lighter, ButtonBorder));
+  --fsusblog-color-line-strong: var(--fsus-border, var(--el-border-color, ButtonBorder));
+  --fsusblog-color-disabled-bg: var(--el-disabled-bg-color, ButtonFace);
+  --fsusblog-color-disabled-text: var(--el-disabled-text-color, GrayText);
+  --fsusblog-color-error: var(--el-color-danger, CanvasText);
+  --fsusblog-color-error-strong: var(--el-color-danger-light-3, var(--fsusblog-color-error));
+  --fsusblog-color-error-bg: var(--fsusblog-reading-error-bg, color-mix(in srgb, var(--fsusblog-color-error) 20%, var(--fsusblog-page-bg)));
+  --fsusblog-color-error-border: var(--fsusblog-reading-error-border, color-mix(in srgb, var(--fsusblog-color-error) 36%, transparent));
+  --fsusblog-color-success: var(--el-color-success, Highlight);
+  --fsusblog-color-warning: var(--el-color-warning, CanvasText);
+  --fsusblog-color-warning-bg: color-mix(in srgb, var(--fsusblog-color-warning) 12%, var(--fsusblog-page-bg));
+  --fsusblog-color-warning-border: color-mix(in srgb, var(--fsusblog-color-warning) 48%, transparent);
+  --fsusblog-color-warning-text: var(--fsusblog-color-warning);
+  --fsusblog-color-focus-ring: var(--el-a11y-focus-color, var(--fsus-scholarly-blue, Highlight));
+  --fsusblog-page-bg: var(--fsus-page, var(--el-bg-color-page, Canvas));
+  --fsusblog-page-bg-soft: var(--fsus-paper, var(--el-bg-color, Canvas));
+  --fsusblog-page-bg-muted: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
+  --fsusblog-panel-bg: var(--fsusblog-color-surface);
+  --fsusblog-panel-bg-soft: var(--fsusblog-color-surface-soft);
+  --fsusblog-panel-border: var(--fsusblog-color-line);
+  --fsusblog-panel-border-strong: var(--fsusblog-color-line-strong);
+  --fsusblog-text-primary: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
+  --fsusblog-text-secondary: var(--fsus-text-regular, var(--el-text-color-regular, CanvasText));
+  --fsusblog-text-tertiary: var(--fsus-dot-gray, var(--el-text-color-secondary, GrayText));
+  --fsusblog-text-muted: var(--fsus-text-placeholder, var(--el-text-color-placeholder, GrayText));
+  --fsusblog-text-subtle: var(--fsus-dot-gray, var(--el-disabled-text-color, GrayText));
+  --fsusblog-reading-text: var(--fsus-text-regular, var(--el-text-color-regular, CanvasText));
+  --fsusblog-reading-heading: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
+  --fsusblog-reading-subheading: var(--fsus-text-regular, var(--el-text-color-regular, CanvasText));
+  --fsusblog-reading-quote: var(--fsus-dot-gray, var(--el-text-color-secondary, GrayText));
+  --fsusblog-reading-link: var(--fsus-scholarly-blue, LinkText);
+  --fsusblog-reading-link-decoration: color-mix(in srgb, var(--fsusblog-reading-link) 56%, transparent);
+  --fsusblog-reading-code-bg: var(--fsus-border-extra-light, var(--el-fill-color-light, Field));
+  --fsusblog-reading-code-border: var(--fsus-border-lighter, var(--el-border-color-lighter, ButtonBorder));
+  --fsusblog-reading-code-text: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
+  --fsusblog-reading-placeholder-bg: color-mix(in srgb, var(--fsusblog-page-bg) 92%, transparent);
+  --fsusblog-reading-placeholder-border: var(--fsus-border, var(--el-border-color, ButtonBorder));
+  --fsusblog-reading-error-bg: color-mix(in srgb, var(--el-color-danger) 20%, var(--fsusblog-page-bg));
+  --fsusblog-reading-error-border: color-mix(in srgb, var(--el-color-danger) 36%, transparent);
+  --fsusblog-reading-error-text: var(--el-color-danger, CanvasText);
+  --fsusblog-reading-marker: var(--fsus-text-placeholder, var(--el-text-color-placeholder, GrayText));
+  --fsusblog-reading-rule: var(--fsus-border-lighter, var(--el-border-color-lighter, ButtonBorder));
+  --fsusblog-highlight-mark-bg: var(--fsus-highlight, var(--el-fill-color, Mark));
+  --fsusblog-highlight-mark-text: var(--fsus-ink, var(--el-text-color-primary, MarkText));
+  --fsusblog-highlight-mark-ring: color-mix(in srgb, var(--fsus-border, var(--el-border-color, ButtonBorder)) 65%, transparent);
+
+}
+
+html, body {
+  max-width: 100%;
+}
+
+#app,
+#fsus-aot-shell {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+#app,
+#fsus-aot-shell,
+#app .router-view,
+.app-wrapper,
+.account-page,
+.admin-page-shell,
+.blog-page-shell {
+  min-width: 0;
+}
+
+body {
+  background-color: var(--fsusblog-page-bg);
+  color: var(--fsusblog-text-primary);
+}
+
+body[data-fsusblog-public-first-paint="true"] {
+  overflow-y: scroll;
+}
+
+body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-in,
+body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
+  animation: none !important;
+  transition: none !important;
+}
+
+@layer base {
+  .markdown-body.prose :where(h1):not(:where([class~="not-prose"] *)) {
+    @apply text-3xl font-bold mb-10;
+    color: var(--fsusblog-reading-heading);
+  }
+  .markdown-body.prose :where(h2):not(:where([class~="not-prose"] *)) {
+    @apply text-2xl font-bold mt-16 mb-6 border-b pb-3;
+    color: var(--fsusblog-reading-heading);
+    border-bottom-color: var(--fsusblog-reading-rule);
+  }
+  .markdown-body.prose :where(h3):not(:where([class~="not-prose"] *)) {
+    @apply text-xl font-bold mt-10 mb-4;
+    color: var(--fsusblog-reading-heading);
+  }
+
+  .markdown-body.prose :where(p):not(:where([class~="not-prose"] *)) {
+    @apply leading-8 mb-6;
+    color: var(--fsusblog-reading-text);
+  }
+
+  .markdown-body.prose {
+    max-width: none;
+  }
+}
+
+#fsus-aot-shell :where(.ui-article-card, .ui-pagination, .ui-toast, .ui-toast-card) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+#fsus-aot-shell .animate-fade-in {
+  --stagger-delay: calc(var(--fsus-motion-control-fast) / 4);
+  animation: slide-up var(--fsus-motion-panel) var(--fsus-motion-standard) both;
+  animation-delay: calc(min(var(--index, 0), 20) * var(--stagger-delay));
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+#fsus-aot-shell .line-clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+
+#fsus-aot-shell .highlight-mark {
+  background-color: var(--fsusblog-highlight-mark-bg);
+  color: var(--fsusblog-highlight-mark-text);
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--fsusblog-highlight-mark-ring);
+}
+
+#fsus-aot-shell .public-aside-placeholder {
+  min-height: 18rem;
+}
+
+#fsus-aot-shell .mono-link {
+  color: var(--fsusblog-text-tertiary);
+  transition: color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+  outline: none;
+}
+
+#fsus-aot-shell .mono-link:hover,
+#fsus-aot-shell .mono-link:focus-visible,
+#fsus-aot-shell .active-link {
+  color: var(--fsusblog-text-primary);
+}
+
+#fsus-aot-shell .nav-link,
+#fsus-aot-shell .blog-link-state {
+  border-radius: var(--fsus-radius-control-small);
+  color: var(--fsusblog-text-muted);
+  outline: none;
+  transition:
+    background-color var(--fsus-motion-control) var(--fsus-motion-standard),
+    border-color var(--fsus-motion-control) var(--fsus-motion-standard),
+    box-shadow var(--fsus-motion-control) var(--fsus-motion-standard),
+    color var(--fsus-motion-control) var(--fsus-motion-standard),
+    opacity var(--fsus-motion-control) var(--fsus-motion-standard),
+    transform var(--fsus-motion-control) var(--fsus-motion-standard);
+}
+
+#fsus-aot-shell .nav-link:hover,
+#fsus-aot-shell .nav-link:focus-visible,
+#fsus-aot-shell .blog-link-state:hover,
+#fsus-aot-shell .blog-link-state:focus-visible {
+  color: var(--fsusblog-text-primary);
+}
+
+#fsus-aot-shell .blog-focus-ring:focus-visible,
+#fsus-aot-shell .nav-link:focus-visible,
+#fsus-aot-shell .mono-link:focus-visible,
+#fsus-aot-shell .blog-link-state:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--fsusblog-color-focus-ring);
+}
+
+#fsus-aot-shell .active-link {
+  font-weight: 700;
+}
+
+@media (max-width: 767px) {
+  #fsus-aot-shell .el-public-shell__desktop-nav,
+  #fsus-aot-shell .el-public-shell__actions,
+  #fsus-aot-shell .el-theme-mode-toggle--desktop {
+    display: none !important;
+  }
+}
+
+@media (min-width: 768px) {
+  #fsus-aot-shell .el-public-shell__desktop-nav {
+    display: flex !important;
+    align-items: baseline;
+  }
+
+  #fsus-aot-shell .el-public-shell__mobile-toolbar,
+  #fsus-aot-shell .el-theme-mode-toggle--mobile {
+    display: none !important;
+  }
+}
+
+#fsus-aot-shell .el-public-shell__mobile-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+#fsus-aot-shell .el-public-shell__mobile-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: max-content;
+}
+
+#fsus-aot-shell .el-public-shell__search--mobile {
+  width: 7rem;
+}
+
+#fsus-aot-shell .el-public-shell__mobile-nav-scrollbar {
+  min-width: 0;
+}
+
+#fsus-aot-shell .el-public-shell__mobile-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  min-width: max-content;
+  padding-block: 0.125rem;
+}
+
+#fsus-aot-shell .el-public-shell__mobile-nav .el-public-shell__nav-link {
+  flex: 0 0 auto;
+  inline-size: max-content;
+  min-inline-size: max-content;
+  white-space: nowrap;
+  word-break: keep-all;
+  writing-mode: horizontal-tb;
+}
+
+#fsus-aot-shell .el-public-shell__mobile-nav-wrap {
+  overflow-y: hidden !important;
+}
+
+.blog-page-shell {
+  width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.safe-inline-wrap {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.aot-panel {
+  border: 1px solid var(--fsusblog-panel-border);
+  background: var(--fsusblog-panel-bg);
+  border-radius: var(--fsus-radius-panel);
+  box-shadow: var(--fsus-shadow-panel-light);
+}
+
+.aot-panel__header {
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  padding: 1rem 1.25rem;
+}
+
+.aot-panel__header h2 {
+  margin: 0;
+  color: var(--fsusblog-text-primary);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.aot-panel__body {
+  padding: 1.25rem;
+}
+
+.aot-action-button {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--fsusblog-text-primary);
+  background: var(--fsusblog-text-primary);
+  color: var(--fsusblog-page-bg);
+  border-radius: var(--fsus-radius-control);
+  padding: 0 1rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #fsus-aot-shell .animate-fade-in {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.markdown-body.prose :where(pre, table):not(:where([class~="not-prose"] *)),
+.markdown-body pre,
+.markdown-body table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.markdown-body.prose :where(code, a):not(:where([class~="not-prose"] *)),
+.markdown-body code,
+.markdown-body a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

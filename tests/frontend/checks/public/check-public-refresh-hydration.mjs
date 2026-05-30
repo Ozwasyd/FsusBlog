@@ -1,0 +1,649 @@
+#!/usr/bin/env node
+/**
+ * Public Shell Hydration Regression Check
+ *
+ * Tests hydration consistency across public SEO routes and shell interactions:
+ *   1. First visit   – SSR shell → Vue hydration on page load
+ *   2. Reload        – Full browser refresh with fresh SSR HTML
+ *   3. Interaction   – Real public route clicks after hydration/runtime takeover
+ *   4. Post-click refresh – Reload destination route after SPA/public-shell navigation
+ *
+ * Checks for Vue hydration mismatch warnings, [public-hydration] errors,
+ * uncaught JS errors, and shell remounts/rebuilds that indicate a broken
+ * takeover sequence.
+ *
+ * Usage:
+ *   FSUSBLOG_BASE_URL=http://127.0.0.1:5000 node ../../tests/frontend/checks/public/check-public-refresh-hydration.mjs
+ */
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
+const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
+
+const PUBLIC_HYDRATION_TIMEOUT_MS = 12000
+const PUBLIC_RUNTIME_TIMEOUT_MS = 10000
+const PUBLIC_INTERACTION_SETTLE_MS = 800
+const PUBLIC_RELOAD_SETTLE_TIMEOUT_MS = parsePositiveInt(
+  process.env.FSUSBLOG_PUBLIC_AOT_SETTLE_TIMEOUT_MS,
+  30000
+)
+
+const HYDRATION_KEYWORDS = [
+  'Hydration',
+  'mismatch',
+  '[public-hydrate]',
+  '[public-hydration]',
+  'hydration node mismatch',
+  'hydration text content mismatch',
+  'hydration attribute mismatch',
+  'hydration completed but contains mismatches',
+  'server rendered html didn',
+]
+
+const PUBLIC_SEO_SCENARIOS = [
+  {
+    name: 'home',
+    route: '/',
+    expectedKind: 'Home',
+    interact: interactHomeScenario,
+  },
+  {
+    name: 'about',
+    route: '/about',
+    expectedKind: 'About',
+    interact: async (page, helpers) => {
+      await helpers.clickPublicNav('home', '/', 'Home')
+      await helpers.reloadAndWaitForHydration('Home')
+    },
+  },
+  {
+    name: 'archive',
+    route: '/archive',
+    expectedKind: 'Archive',
+    interact: interactListToArticleScenario,
+  },
+  {
+    name: 'article',
+    route: '/article/1',
+    expectedKind: 'ArticleDetail',
+    interact: async (page, helpers) => {
+      await helpers.clickPublicNav('archive', '/archive', 'Archive')
+      await helpers.reloadAndWaitForHydration('Archive')
+    },
+  },
+  {
+    name: 'category',
+    route: '/category/1',
+    expectedKind: 'Filter',
+    interact: interactListToArticleScenario,
+  },
+  {
+    name: 'tag',
+    route: '/tag/1',
+    expectedKind: 'Filter',
+    interact: interactListToArticleScenario,
+  },
+]
+
+const PUBLIC_INTERACTION_ONLY_SCENARIOS = [
+  {
+    name: 'search-from-home',
+    route: '/',
+    expectedKind: 'Home',
+    interact: interactSearchScenario,
+  },
+]
+
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? ''), 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function isHydrationIssue(text) {
+  const lower = text.toLowerCase()
+  return HYDRATION_KEYWORDS.some((k) => lower.includes(k.toLowerCase()))
+}
+
+async function waitForVueMount(page, maxMs = 5000) {
+  try {
+    await page.waitForFunction(
+      () => document.getElementById('app')?.__vue_app__ != null,
+      { timeout: maxMs }
+    )
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function waitForPublicHydration(page, expectedKind, maxMs = PUBLIC_HYDRATION_TIMEOUT_MS) {
+  await page.waitForFunction(
+    ({ kind }) => {
+      const app = document.getElementById('app')
+      const shell = app?.querySelector('#fsus-aot-shell')
+      const metrics = Array.isArray(window.__FSUS_PUBLIC_HYDRATION_METRICS__)
+        ? window.__FSUS_PUBLIC_HYDRATION_METRICS__
+        : []
+
+      return Boolean(
+        app?.__vue_app__
+        && shell
+        && shell.parentElement === app
+        && shell.getAttribute('data-public-hydration-kind') === kind
+        && metrics.some((entry) => entry?.pageKind === kind)
+      )
+    },
+    { kind: expectedKind },
+    { timeout: maxMs }
+  )
+}
+
+async function readHydrationState(page, expectedKind = null) {
+  return page.evaluate((kind) => {
+    const app = document.getElementById('app')
+    const shell = app?.querySelector('#fsus-aot-shell')
+    const metrics = Array.isArray(window.__FSUS_PUBLIC_HYDRATION_METRICS__)
+      ? window.__FSUS_PUBLIC_HYDRATION_METRICS__
+      : []
+
+    return {
+      path: window.location.pathname,
+      hasVueApp: Boolean(app?.__vue_app__),
+      hasShell: Boolean(shell),
+      shellKind: shell?.getAttribute('data-public-hydration-kind') ?? null,
+      hasExpectedMetrics: kind == null ? metrics.length > 0 : metrics.some((entry) => entry?.pageKind === kind),
+    }
+  }, expectedKind)
+}
+
+async function waitForRuntimeRoute(page, options) {
+  const {
+    pathname,
+    expectedKind,
+    requireKind = true,
+    requireIdentity = false,
+    maxMs = PUBLIC_RUNTIME_TIMEOUT_MS,
+  } = options
+
+  await page.waitForFunction(
+    ({ routePathname, kind, needsKind, needsIdentity }) => {
+      const app = document.getElementById('app')
+      const shell = app?.querySelector('#fsus-aot-shell')
+      if (!app?.__vue_app__ || !shell || shell.parentElement !== app) {
+        return false
+      }
+
+      if (window.location.pathname !== routePathname) {
+        return false
+      }
+
+      if (needsKind && shell.getAttribute('data-public-hydration-kind') !== kind) {
+        return false
+      }
+
+      if (needsIdentity && !shell.dataset.publicShellIdentity) {
+        return false
+      }
+
+      return true
+    },
+    {
+      routePathname: pathname,
+      kind: expectedKind ?? null,
+      needsKind: requireKind,
+      needsIdentity: requireIdentity,
+    },
+    { timeout: maxMs }
+  )
+}
+
+async function checkShellStructure(page, options = {}) {
+  const {
+    expectedKind = null,
+    requireKind = true,
+    requireHydrationMetrics = true,
+  } = options
+
+  return page.evaluate((input) => {
+    const app = document.getElementById('app')
+    if (!app) return { ok: false, reason: '#app missing' }
+    const shell = app.querySelector('#fsus-aot-shell')
+    if (!shell) return { ok: false, reason: '#fsus-aot-shell missing inside #app' }
+    if (shell.parentElement !== app) {
+      return {
+        ok: false,
+        reason: `#fsus-aot-shell parent is <${shell.parentElement?.tagName?.toLowerCase() ?? '?'}>, expected #app directly`,
+      }
+    }
+
+    const kind = shell.getAttribute('data-public-hydration-kind')
+    if (input.requireKind && kind !== input.expectedKind) {
+      return {
+        ok: false,
+        reason: `data-public-hydration-kind mismatch: expected ${String(input.expectedKind)}, got ${String(kind)}`,
+      }
+    }
+
+    if (input.requireHydrationMetrics) {
+      const metrics = Array.isArray(window.__FSUS_PUBLIC_HYDRATION_METRICS__)
+        ? window.__FSUS_PUBLIC_HYDRATION_METRICS__
+        : []
+
+      if (!metrics.some((entry) => entry?.pageKind === input.expectedKind)) {
+        return { ok: false, reason: `missing hydration metrics for ${String(input.expectedKind)}` }
+      }
+    }
+
+    return {
+      ok: true,
+      kind,
+      metricsCount: Array.isArray(window.__FSUS_PUBLIC_HYDRATION_METRICS__)
+        ? window.__FSUS_PUBLIC_HYDRATION_METRICS__.length
+        : 0,
+    }
+  }, {
+    expectedKind,
+    requireKind,
+    requireHydrationMetrics,
+  })
+}
+
+async function setShellProbe(page, marker) {
+  return await page.evaluate((probe) => {
+    const shell = document.querySelector('#fsus-aot-shell')
+    if (!(shell instanceof HTMLElement)) {
+      return false
+    }
+
+    shell.dataset.publicShellProbe = probe
+    return true
+  }, marker)
+}
+
+async function assertShellProbePreserved(page, marker, expectedKind) {
+  const result = await page.evaluate((probe) => {
+    const app = document.getElementById('app')
+    const shell = app?.querySelector('#fsus-aot-shell')
+    return {
+      ok: Boolean(app && shell && shell.parentElement === app && shell.dataset.publicShellProbe === probe),
+      kind: shell?.getAttribute('data-public-hydration-kind') ?? null,
+    }
+  }, marker)
+
+  if (!result.ok) {
+    throw new Error(`shell probe ${marker} was lost during interaction`)
+  }
+
+  if (expectedKind && result.kind !== expectedKind) {
+    throw new Error(`shell kind mismatch after interaction: expected ${expectedKind}, got ${String(result.kind)}`)
+  }
+}
+
+async function clickPublicNav(page, navKey, expectedPath, expectedKind) {
+  const candidates = page.locator(`[data-public-nav="${navKey}"]`)
+  const count = await candidates.count()
+  let link = candidates.first()
+
+  for (let index = 0; index < count; index += 1) {
+    const candidate = candidates.nth(index)
+    if (await candidate.isVisible()) {
+      link = candidate
+      break
+    }
+  }
+
+  await link.click()
+  await page.waitForURL((url) => url.pathname === expectedPath, { timeout: PUBLIC_RUNTIME_TIMEOUT_MS })
+  await waitForRuntimeRoute(page, {
+    pathname: expectedPath,
+    expectedKind,
+    requireKind: true,
+    requireIdentity: false,
+  })
+}
+
+async function clickFirstArticleLink(page) {
+  const articleLink = page.locator('a[data-public-link="article"]').first()
+  const href = await articleLink.getAttribute('href')
+  if (!href) {
+    throw new Error('missing first article href for interaction scenario')
+  }
+
+  const targetUrl = new URL(href, 'http://127.0.0.1')
+  await articleLink.click()
+  await page.waitForURL((url) => url.pathname === targetUrl.pathname, { timeout: PUBLIC_RUNTIME_TIMEOUT_MS })
+  await waitForRuntimeRoute(page, {
+    pathname: targetUrl.pathname,
+    expectedKind: 'ArticleDetail',
+    requireKind: true,
+    requireIdentity: false,
+  })
+
+  return targetUrl.pathname
+}
+
+async function searchFromHome(page) {
+  const firstTitleText = (await page.locator('a[data-public-link="article"]').first().textContent())?.trim() || 'hydrate'
+  const query = firstTitleText.split(/\s+/u).find((part) => part.length >= 2) || firstTitleText || 'hydrate'
+  const forms = page.locator('form[action="/search"]')
+  const count = await forms.count()
+  let input = null
+
+  for (let index = 0; index < count; index += 1) {
+    const candidate = forms
+      .nth(index)
+      .locator('input:not([type="hidden"]), textarea')
+      .first()
+    if (await candidate.isVisible()) {
+      input = candidate
+      break
+    }
+  }
+
+  if (!input) {
+    throw new Error('missing visible search input for interaction scenario')
+  }
+
+  await input.click()
+  await input.fill(query)
+  await input.press('Enter')
+
+  await page.waitForURL((url) => url.pathname === '/search' && url.searchParams.get('q')?.length > 0, {
+    timeout: PUBLIC_RUNTIME_TIMEOUT_MS,
+  })
+
+  const vueReady = await waitForVueMount(page, PUBLIC_RUNTIME_TIMEOUT_MS)
+  if (!vueReady) {
+    throw new Error('Vue did not mount within timeout after search navigation')
+  }
+
+  const sortButton = page.locator('button').filter({ hasText: '最新' }).first()
+  if (await sortButton.isVisible()) {
+    await sortButton.click()
+    await page.waitForTimeout(PUBLIC_INTERACTION_SETTLE_MS)
+  }
+}
+
+async function interactListToArticleScenario(page, helpers) {
+  await helpers.markShellProbe(`${helpers.name}-list-to-article`)
+  const articlePath = await clickFirstArticleLink(page)
+  await helpers.assertShellProbePreserved(`${helpers.name}-list-to-article`, 'ArticleDetail')
+  await helpers.reloadAndWaitForHydration('ArticleDetail', articlePath, { allowInitialSpaFallback: true })
+}
+
+async function interactHomeScenario(page, helpers) {
+  await helpers.markShellProbe('home-to-article')
+  const articlePath = await clickFirstArticleLink(page)
+  await helpers.assertShellProbePreserved('home-to-article', 'ArticleDetail')
+  await helpers.reloadAndWaitForHydration('ArticleDetail', articlePath, { allowInitialSpaFallback: true })
+}
+
+async function interactSearchScenario(page, helpers) {
+  await searchFromHome(page)
+
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
+  await page.waitForURL((url) => url.pathname === '/search' && url.searchParams.get('q')?.length > 0, {
+    timeout: PUBLIC_RUNTIME_TIMEOUT_MS,
+  })
+  const vueReady = await waitForVueMount(page, PUBLIC_RUNTIME_TIMEOUT_MS)
+  if (!vueReady) {
+    throw new Error('Vue did not mount within timeout after search route reload')
+  }
+}
+
+async function runScenario(page, baseUrl, route) {
+  const issues = []
+  const seenIssues = new Set()
+  let currentStage = 'setup'
+
+  function recordIssue(type, text, stage) {
+    const normalizedText = text.substring(0, 200)
+    const key = `${type}:${stage}:${normalizedText}`
+    if (seenIssues.has(key)) {
+      return
+    }
+
+    seenIssues.add(key)
+    issues.push({ type, text: normalizedText, stage })
+  }
+
+  page.on('console', (msg) => {
+    const text = msg.text()
+    const type = msg.type()
+    if ((type === 'warn' || type === 'error') && isHydrationIssue(text)) {
+      recordIssue(type, text, currentStage)
+    }
+  })
+
+  page.on('pageerror', (err) => {
+    const text = err.message
+    if (
+      isHydrationIssue(text) ||
+      text.includes('[public-') ||
+      text.includes('remount') ||
+      text.includes('subtree rebuilt')
+    ) {
+      recordIssue('error', text, currentStage)
+    }
+  })
+
+  const helpers = {
+    name: route.name,
+    async markShellProbe(marker) {
+      const applied = await setShellProbe(page, marker)
+      if (!applied) {
+        throw new Error(`failed to mark shell probe: ${marker}`)
+      }
+    },
+    async assertShellProbePreserved(marker, expectedKind) {
+      await assertShellProbePreserved(page, marker, expectedKind)
+    },
+    async clickPublicNav(navKey, expectedPath, expectedKind) {
+      currentStage = `${route.name}:interaction:nav:${navKey}`
+      await clickPublicNav(page, navKey, expectedPath, expectedKind)
+    },
+    async reloadAndWaitForHydration(expectedKind, expectedPath = null, options = {}) {
+      currentStage = `${route.name}:interaction:reload`
+      const deadline = Date.now() + (options.allowInitialSpaFallback
+        ? PUBLIC_RELOAD_SETTLE_TIMEOUT_MS
+        : PUBLIC_HYDRATION_TIMEOUT_MS)
+      let lastError = null
+      let attempts = 0
+
+      while (Date.now() < deadline) {
+        attempts += 1
+        await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
+        if (expectedPath) {
+          await page.waitForURL((url) => url.pathname === expectedPath, { timeout: PUBLIC_HYDRATION_TIMEOUT_MS })
+        }
+
+        try {
+          await waitForPublicHydration(page, expectedKind)
+
+          const structure = await checkShellStructure(page, {
+            expectedKind,
+            requireKind: true,
+            requireHydrationMetrics: true,
+          })
+          if (!structure.ok) {
+            throw new Error(`shell structure after interaction reload invalid: ${structure.reason}`)
+          }
+
+          return
+        } catch (err) {
+          lastError = err
+          const state = await readHydrationState(page, expectedKind)
+          const isExpectedPath = expectedPath == null || state.path === expectedPath
+          const isSpaFallback = isExpectedPath && state.hasVueApp && !state.hasShell
+
+          if (!options.allowInitialSpaFallback || !isExpectedPath) {
+            throw err
+          }
+
+          if (!isSpaFallback && Date.now() + PUBLIC_INTERACTION_SETTLE_MS >= deadline) {
+            throw err
+          }
+
+          await page.waitForTimeout(PUBLIC_INTERACTION_SETTLE_MS)
+        }
+      }
+
+      throw new Error(
+        `hydration did not settle after ${attempts} reload attempt(s): ${
+          lastError instanceof Error ? lastError.message : String(lastError ?? 'unknown error')
+        }`
+      )
+    },
+  }
+
+  currentStage = `${route.name}:first-visit:navigation`
+  try {
+    await page.goto(`${baseUrl}${route.route}`, { waitUntil: 'networkidle', timeout: 30000 })
+  } catch (err) {
+    recordIssue('error', `goto failed: ${err.message}`, currentStage)
+    return issues
+  }
+
+  currentStage = `${route.name}:first-visit:hydrate`
+  try {
+    await waitForPublicHydration(page, route.expectedKind)
+  } catch (err) {
+    recordIssue('error', `hydration wait failed: ${err.message}`, currentStage)
+    return issues
+  }
+
+  const struct1 = await checkShellStructure(page, {
+    expectedKind: route.expectedKind,
+    requireKind: true,
+    requireHydrationMetrics: true,
+  })
+  if (!struct1.ok) {
+    recordIssue('error', `DOM structure after first visit: ${struct1.reason}`, `${route.name}:first-visit:structure`)
+  }
+
+  currentStage = `${route.name}:reload:navigation`
+  try {
+    await page.reload({ waitUntil: 'networkidle', timeout: 30000 })
+  } catch (err) {
+    recordIssue('error', `reload failed: ${err.message}`, currentStage)
+    return issues
+  }
+
+  currentStage = `${route.name}:reload:hydrate`
+  try {
+    await waitForPublicHydration(page, route.expectedKind)
+  } catch (err) {
+    recordIssue('error', `reload hydration wait failed: ${err.message}`, currentStage)
+    return issues
+  }
+
+  const struct2 = await checkShellStructure(page, {
+    expectedKind: route.expectedKind,
+    requireKind: true,
+    requireHydrationMetrics: true,
+  })
+  if (!struct2.ok) {
+    recordIssue('error', `DOM structure after reload: ${struct2.reason}`, `${route.name}:reload:structure`)
+  }
+
+  if (typeof route.interact === 'function') {
+    currentStage = `${route.name}:interaction:start`
+    try {
+      await route.interact(page, helpers)
+    } catch (err) {
+      recordIssue('error', `interaction failed: ${err.message}`, currentStage)
+    }
+  }
+
+  return issues
+}
+
+async function runRoute(baseUrl, route, viewportSize) {
+  const browser = await chromium.launch({ headless: true })
+  const context = await browser.newContext({ viewport: viewportSize, javaScriptEnabled: true })
+  const page = await context.newPage()
+
+  let issues = []
+  try {
+    issues = await runScenario(page, baseUrl, route)
+  } finally {
+    await context.close()
+    await browser.close()
+  }
+  return issues
+}
+
+async function main() {
+  const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000'
+  const viewports = [
+    { name: 'desktop', width: 1440, height: 900 },
+    { name: 'mobile', width: 390, height: 844 },
+  ]
+
+  // Quick connectivity check
+  try {
+    const res = await fetch(baseUrl, { signal: AbortSignal.timeout(5000) })
+    if (!res.ok) {
+      console.error(`Server at ${baseUrl} returned HTTP ${res.status}. Is it running?`)
+      process.exit(2)
+    }
+  } catch (err) {
+    console.error(`Cannot reach ${baseUrl}: ${err.message}`)
+    console.error('Start the dev/preview server first.')
+    process.exit(2)
+  }
+
+  let failedCount = 0
+  let passedCount = 0
+  const allResults = []
+  const scenarios = [...PUBLIC_SEO_SCENARIOS, ...PUBLIC_INTERACTION_ONLY_SCENARIOS]
+
+  for (const vp of viewports) {
+    for (const route of scenarios) {
+      const label = `[${vp.name} ${route.route}]`
+      process.stdout.write(`Testing ${label}... `)
+      const issues = await runRoute(baseUrl, route, { width: vp.width, height: vp.height })
+
+      const critical = issues.filter((i) => i.type === 'error')
+      const warnings = issues.filter((i) => i.type === 'warning')
+
+      if (critical.length > 0) {
+        failedCount++
+        process.stdout.write('FAIL\n')
+        critical.forEach((issue) => {
+          console.error(`  ✗ [${issue.stage}] ${issue.text}`)
+        })
+        warnings.forEach((issue) => {
+          process.stdout.write(`  ! [${issue.stage}] ${issue.text}\n`)
+        })
+      } else {
+        passedCount++
+        const warnSuffix = warnings.length > 0 ? ` (${warnings.length} warning(s))` : ''
+        process.stdout.write(`PASS${warnSuffix}\n`)
+        warnings.forEach((issue) => {
+          process.stdout.write(`  ! [${issue.stage}] ${issue.text}\n`)
+        })
+      }
+
+      allResults.push({ label, issues })
+    }
+  }
+
+  const total = passedCount + failedCount
+  console.log(`\nResults: ${passedCount}/${total} passed`)
+
+  if (failedCount > 0) {
+    console.error('\nFailed scenarios:')
+    allResults
+      .filter((r) => r.issues.some((i) => i.type === 'error'))
+      .forEach((r) => console.error(`  ${r.label}`))
+    process.exit(1)
+  }
+
+  console.log('All hydration checks passed!')
+}
+
+main().catch((err) => {
+  console.error('Test runner error:', err.message)
+  process.exit(1)
+})

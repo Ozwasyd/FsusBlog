@@ -1,0 +1,83 @@
+// Auto-generated from src/shared/Contracts/Outputs/PublicPageContracts.cs
+// Run: node ../../tools/frontend/generate-public-page-manifest.mjs
+
+export const PUBLIC_PAGE_MANIFEST = Object.freeze({
+  Home: {
+    kind: 'Home',
+    pageId: 1,
+    canonicalSlug: 'home',
+    seoEligible: true,
+    aotShellReady: true,
+    deferSpaBoot: true
+  },
+  ArticleDetail: {
+    kind: 'ArticleDetail',
+    pageId: 2,
+    canonicalSlug: 'article',
+    seoEligible: true,
+    aotShellReady: true,
+    deferSpaBoot: true
+  },
+  Filter: {
+    kind: 'Filter',
+    pageId: 3,
+    canonicalSlug: 'filter',
+    seoEligible: true,
+    aotShellReady: true,
+    deferSpaBoot: true
+  },
+  Archive: {
+    kind: 'Archive',
+    pageId: 4,
+    canonicalSlug: 'archive',
+    seoEligible: true,
+    aotShellReady: true,
+    deferSpaBoot: true
+  },
+  About: {
+    kind: 'About',
+    pageId: 5,
+    canonicalSlug: 'about',
+    seoEligible: true,
+    aotShellReady: true,
+    deferSpaBoot: true
+  },
+  Account: {
+    kind: 'Account',
+    pageId: 6,
+    canonicalSlug: 'account',
+    seoEligible: false,
+    aotShellReady: true,
+    deferSpaBoot: true
+  }
+} as const)
+
+export const PUBLIC_ROUTE_IDENTITY_TOKENS = Object.freeze({
+  searchRouteKey: 'search',
+  searchPath: '/search',
+  accountPath: '/user/profile',
+  unknownFilterRouteKey: 'filter:unknown',
+  articleBucket: 'article',
+  articlePathPrefix: '/article/',
+  categoryBucket: 'category',
+  categoryPathPrefix: '/category/',
+  tagBucket: 'tag',
+  tagPathPrefix: '/tag/',
+  tagNameBucket: 'tag-name'
+} as const)
+
+
+export type SharedPublicPageKind = keyof typeof PUBLIC_PAGE_MANIFEST
+
+type SharedPublicPageManifest = typeof PUBLIC_PAGE_MANIFEST
+
+type SharedPageKindsWithFlag<TFlag extends keyof SharedPublicPageManifest[SharedPublicPageKind]> = {
+  [K in SharedPublicPageKind]: SharedPublicPageManifest[K][TFlag] extends true ? K : never
+}[SharedPublicPageKind]
+
+export type SharedSeoEligiblePublicPageKind = SharedPageKindsWithFlag<'seoEligible'>
+export type SharedAotShellReadyPublicPageKind = SharedPageKindsWithFlag<'aotShellReady'>
+
+export function getSharedPublicPageManifestEntry<TKind extends SharedPublicPageKind>(kind: TKind): SharedPublicPageManifest[TKind] {
+  return PUBLIC_PAGE_MANIFEST[kind]
+}
