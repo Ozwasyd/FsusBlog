@@ -1,0 +1,183 @@
+using FsusBlog.Shared.Contracts.Models;
+
+namespace FsusBlog.Core.Mapping.Models;
+
+public readonly record struct CorePageResult<T>(IReadOnlyList<T> Items, int Total);
+
+public readonly record struct CoreCursorResult<T>(IReadOnlyList<T> Data, long? NextCursor, bool HasMore);
+
+public readonly record struct ArticleCategoryCoreModel(int Id, string Name);
+
+public readonly record struct TagCoreModel(int Id, string Name);
+
+public readonly record struct ArticleListCoreModel(
+    ArticleListItemPod Pod,
+    int Id,
+    string Title,
+    string? Summary,
+    string? CoverImageUrl,
+    string? Snippet,
+    int Views,
+    DateTime CreateTime,
+    ArticleCategoryCoreModel Category,
+    IReadOnlyList<TagCoreModel> Tags,
+    bool? IsDeleted,
+    int Status = 2,
+    DateTime? ScheduledPublishAt = null,
+    DateTime? PublishedAt = null);
+
+public readonly record struct ArticleDetailCoreModel(
+    ArticleDetailPod Pod,
+    int Id,
+    string Title,
+    string Content,
+    string? Summary,
+    string? CoverImageUrl,
+    int Views,
+    int WordCount,
+    int EstimatedReadingMinutes,
+    bool ShowReadingNotice,
+    DateTime CreateTime,
+    ArticleCategoryCoreModel Category,
+    IReadOnlyList<TagCoreModel> Tags,
+    int CategoryId,
+    bool IsDeleted,
+    int Status = 2,
+    DateTime? ScheduledPublishAt = null,
+    DateTime? PublishedAt = null);
+
+public readonly record struct PopularArticleCoreModel(PopularArticlePod Pod, int Id, string Title, int Views);
+
+public readonly record struct FeaturedArticleCoreModel(
+    int Id,
+    string Title,
+    string CoverImageUrl,
+    int Views,
+    DateTime CreateTime,
+    ArticleCategoryCoreModel Category);
+
+public readonly record struct CommentQueryCoreModel(CommentItemPod Pod, long Id, string Content, DateTime CreateTime, string UserName);
+
+public readonly record struct UserCommentCoreModel(
+    UserCommentPod Pod,
+    long Id,
+    string Content,
+    DateTime CreateTime,
+    int ArticleId,
+    string ArticleTitle,
+    long? RootId,
+    string? ReplyToUserName);
+
+public readonly record struct CommentCreateRequestCoreModel(
+    int ArticleId,
+    string Content,
+    string? ParentId,
+    string? RootId,
+    string? ReplyToCommentId,
+    int? ReplyToUserId);
+
+public readonly record struct AdminChangeUserStatusRequestCoreModel(int UserId, int Status, string? Reason);
+
+public readonly record struct AdminResetUserPasswordRequestCoreModel(int UserId, string NewPassword);
+
+public readonly record struct AuthLoginRequestCoreModel(string Username, string Password, bool RememberMe);
+
+public readonly record struct AuthRegisterRequestCoreModel(string Username, string Password, string ConfirmPassword);
+
+public readonly record struct AuthUpdatePasswordRequestCoreModel(string OldPassword, string NewPassword, string ConfirmPassword);
+
+public readonly record struct AuthDeleteAccountRequestCoreModel(string Password, string ConfirmText, string? Code, string? RecoveryCode);
+
+public readonly record struct MfaPasswordProofRequestCoreModel(string Password, string? Code, string? RecoveryCode);
+
+public readonly record struct MfaChallengeVerifyRequestCoreModel(string ChallengeToken, string? Action, string? Code, string? RecoveryCode);
+
+public readonly record struct ConversationCreateRequestCoreModel(string Subject, string Body);
+
+public readonly record struct SystemMessageRequestCoreModel(long? TargetUserId, string Subject, string Body);
+
+public sealed record class PasskeyRegisterCompleteCoreModel
+{
+    public string SessionKey { get; init; } = string.Empty;
+    public string Id { get; init; } = string.Empty;
+    public byte[] RawId { get; init; } = [];
+    public byte[] ClientDataBytes { get; init; } = [];
+    public byte[] AttestationObject { get; init; } = [];
+    public IReadOnlyList<int> Transports { get; init; } = [];
+    public string? FriendlyName { get; init; }
+    public string? MfaProofToken { get; init; }
+}
+
+public readonly record struct PasskeyCredentialDescriptorCoreModel(
+    int Type,
+    byte[] Id,
+    IReadOnlyList<int> Transports);
+
+public readonly record struct PasskeyPublicKeyCredentialParamCoreModel(int Type, int Alg);
+
+public sealed record class PasskeyRegisterBeginCoreModel
+{
+    public string SessionKey { get; init; } = string.Empty;
+    public ulong Timeout { get; init; }
+    public int Attestation { get; init; }
+    public int ResidentKey { get; init; }
+    public int UserVerification { get; init; }
+    public int? AuthenticatorAttachment { get; init; }
+    public bool RequireResidentKey { get; init; }
+    public string RpId { get; init; } = string.Empty;
+    public string RpName { get; init; } = string.Empty;
+    public string UserName { get; init; } = string.Empty;
+    public string UserDisplayName { get; init; } = string.Empty;
+    public byte[] UserId { get; init; } = [];
+    public byte[] Challenge { get; init; } = [];
+    public IReadOnlyList<PasskeyPublicKeyCredentialParamCoreModel> PubKeyCredParams { get; init; } = [];
+    public IReadOnlyList<PasskeyCredentialDescriptorCoreModel> ExcludeCredentials { get; init; } = [];
+}
+
+public sealed record class PasskeyLoginBeginCoreModel
+{
+    public string ChallengeToken { get; init; } = string.Empty;
+    public ulong Timeout { get; init; }
+    public string RpId { get; init; } = string.Empty;
+    public int? UserVerification { get; init; }
+    public byte[] Challenge { get; init; } = [];
+    public IReadOnlyList<PasskeyCredentialDescriptorCoreModel> AllowCredentials { get; init; } = [];
+}
+
+public sealed record class PasskeyLoginCompleteCoreModel
+{
+    public string ChallengeToken { get; init; } = string.Empty;
+    public string Id { get; init; } = string.Empty;
+    public byte[] RawId { get; init; } = [];
+    public byte[] ClientDataBytes { get; init; } = [];
+    public byte[] AuthenticatorData { get; init; } = [];
+    public byte[] Signature { get; init; } = [];
+    public byte[]? UserHandle { get; init; }
+    public bool RememberMe { get; init; }
+}
+
+public readonly record struct ArticleWriteRequestCoreModel(
+    string Title,
+    string Content,
+    string? Summary,
+    string? CoverImageUrl,
+    int CategoryId,
+    IReadOnlyList<int> TagIds,
+    int Status = 2,
+    DateTime? ScheduledPublishAt = null);
+
+public readonly record struct RecentCommentCoreModel(RecentCommentPod Pod, int? UserId, string UserName, string Content, DateTime CreateTime);
+
+public readonly record struct RegionDistributionCoreModel(RegionDistributionPod Pod, string Region, int Count);
+
+public readonly record struct SiteStatsCoreModel(
+    SiteStatsPod Pod,
+    int TotalArticles,
+    int TotalComments,
+    int TrashCount,
+    int TotalVisits,
+    int RegisteredVisits,
+    int AnonymousVisits,
+    IReadOnlyList<PopularArticleCoreModel> PopularArticles,
+    IReadOnlyList<RecentCommentCoreModel> RecentComments,
+    IReadOnlyList<RegionDistributionCoreModel> RegionDistributions);

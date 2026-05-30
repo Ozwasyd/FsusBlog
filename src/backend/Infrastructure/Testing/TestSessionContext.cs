@@ -1,0 +1,98 @@
+using System.Text.RegularExpressions;
+using FsusBlog.Server.Infrastructure.Cache;
+
+namespace FsusBlog.Server.Infrastructure.Testing;
+
+public interface ITestSessionContext
+{
+    bool IsActive { get; }
+    string? SessionId { get; }
+    string? SchemaName { get; }
+    string PrefixKey(string key);
+}
+
+public interface ITestSessionKeyScope
+{
+    string? SessionId { get; }
+    string PrefixKey(string key);
+}
+
+public sealed class TestSessionContext(ITestSessionKeyScope keyScope) : ITestSessionContext
+{
+    public bool IsActive => SessionId is not null;
+    public string? SessionId => keyScope.SessionId;
+    public string? SchemaName => SessionId is { } session ? $"fsus_e2e_{session.Replace('-', '_')}" : null;
+    public string PrefixKey(string key) => keyScope.PrefixKey(key);
+}
+
+public sealed class TestAwareRuntimeKeyScope(ITestSessionKeyScope keyScope) : IRuntimeKeyScope
+{
+    public string PrefixKey(string key) => keyScope.PrefixKey(key);
+}
+
+public sealed partial class HttpTestSessionKeyScope(IHttpContextAccessor httpContextAccessor, IWebHostEnvironment environment) : ITestSessionKeyScope
+{
+    public const string HeaderName = "X-Fsus-Test-Session";
+
+    public string? SessionId
+    {
+        get
+        {
+            if (!IsIsolationEnabled(environment))
+            {
+                return null;
+            }
+
+            string? raw = httpContextAccessor.HttpContext?.Request.Headers[HeaderName].FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            string normalized = raw.Trim().ToLowerInvariant();
+            return SessionIdPattern().IsMatch(normalized) ? normalized : null;
+        }
+    }
+
+    public string PrefixKey(string key)
+    {
+        return SessionId is { } session ? $"e2e:{session}:{key}" : key;
+    }
+
+    public static bool IsIsolationEnabled(IWebHostEnvironment environment)
+    {
+        return string.Equals(Environment.GetEnvironmentVariable("FSUSBLOG_TEST_SESSION_ISOLATION"), "1", StringComparison.Ordinal)
+            || environment.IsDevelopment()
+            || string.Equals(environment.EnvironmentName, "Test", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool IsValidSessionId(string value) => SessionIdPattern().IsMatch(value);
+
+    [GeneratedRegex("^[a-z0-9][a-z0-9-]{0,40}$", RegexOptions.CultureInvariant)]
+    private static partial Regex SessionIdPattern();
+}
+
+public sealed class TestSessionValidationMiddleware(RequestDelegate next, IWebHostEnvironment environment)
+{
+    public async Task InvokeAsync(HttpContext context)
+    {
+        if (!HttpTestSessionKeyScope.IsIsolationEnabled(environment)
+            || !context.Request.Headers.TryGetValue(HttpTestSessionKeyScope.HeaderName, out var raw)
+            || string.IsNullOrWhiteSpace(raw.FirstOrDefault()))
+        {
+            await next(context);
+            return;
+        }
+
+        string session = raw.First()!.Trim().ToLowerInvariant();
+        if (!HttpTestSessionKeyScope.IsValidSessionId(session))
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsync("invalid test session id", context.RequestAborted);
+            return;
+        }
+
+        context.Response.Headers["Vary"] = HttpTestSessionKeyScope.HeaderName;
+        await next(context);
+    }
+}

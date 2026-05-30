@@ -1,0 +1,785 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { FrameType } from '@wasm/protocol/frame'
+import { AppErrorCode } from '@/utils/appError'
+
+vi.mock('@wasm/aeds', async () => await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds'))
+
+vi.mock('@/api/binaryApiClient', async () => {
+  const actual = await vi.importActual<typeof import('@/api/binaryApiClient')>('@/api/binaryApiClient')
+  return {
+    ...actual,
+    binaryRequest: vi.fn()
+  }
+})
+
+import { BinaryRequestError, binaryRequest } from '@/api/binaryApiClient'
+import { BinaryTransportError, requestBinaryOnly } from '@/services/binaryTransport'
+
+const mockBinaryRequest = vi.mocked(binaryRequest)
+
+describe('binaryTransport ApiError mapping', () => {
+  beforeEach(() => {
+    mockBinaryRequest.mockReset()
+    vi.spyOn(window, 'dispatchEvent').mockReturnValue(true)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('maps a PowChallenge frame into the expected view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('pow-challenge-frame.hex'))
+
+    await expect(requestBinaryOnly<{ salt: string; difficulty: number; timestamp: number; signature: string }>({
+      binaryUrl: '/api/binary/auth/pow-challenge',
+      frameType: FrameType.PowChallenge
+    })).resolves.toEqual({
+      salt: 'salt-value',
+      difficulty: 4,
+      timestamp: 1778290000,
+      signature: 'signature-value'
+    })
+  })
+
+  it('maps an AuthLoginFlow frame into the expected view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('auth-login-flow-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      user: {
+        id: number;
+        username: string;
+        role: string;
+      };
+      authPhase: 'authenticated' | 'mfa_required';
+      mfaMode: 'risk' | 'standard' | null;
+      challengeToken: string | null;
+    }>({
+      binaryUrl: '/api/binary/auth/login',
+      frameType: FrameType.AuthLoginFlow
+    })).resolves.toEqual({
+      user: {
+        id: 7,
+        username: 'alice',
+        role: 'admin'
+      },
+      authPhase: 'mfa_required',
+      mfaMode: 'risk',
+      challengeToken: 'ticket-1'
+    })
+  })
+
+  it('maps an MfaChallengeResult frame into the expected view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('mfa-challenge-result-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      verified: boolean;
+      action: string;
+      proofToken: string | null;
+      user: {
+        id: number;
+        username: string;
+        role: string;
+      } | null;
+    }>({
+      binaryUrl: '/api/binary/auth/mfa/challenge',
+      frameType: FrameType.MfaChallengeResult
+    })).resolves.toEqual({
+      verified: true,
+      action: 'login',
+      proofToken: 'proof-1',
+      user: {
+        id: 7,
+        username: 'alice',
+        role: 'admin'
+      }
+    })
+  })
+
+  it('maps an MfaSetupStart frame into the expected view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('mfa-setup-start-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      enabled: boolean;
+      secret: string;
+      otpAuthUrl: string;
+      issuer: string;
+      account: string;
+    }>({
+      binaryUrl: '/api/binary/auth/mfa/setup/start',
+      frameType: FrameType.MfaSetupStart
+    })).resolves.toEqual({
+      enabled: true,
+      secret: 'secret',
+      otpAuthUrl: 'otpauth://totp/Fsus%20Blog?secret=secret',
+      issuer: 'Fsus Blog',
+      account: 'alice@example.com'
+    })
+  })
+
+  it('maps an AuthSessionList frame into the expected view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('auth-session-list-frame.hex'))
+
+    await expect(requestBinaryOnly<Array<{
+      sessionId: string;
+      deviceFingerprint: string;
+      lastIp: string;
+      deviceLabel: string;
+      lastSeenAt: string | null;
+      isCurrent: boolean;
+      mfaVerified: boolean;
+    }>>({
+      binaryUrl: '/api/binary/auth/sessions',
+      frameType: FrameType.AuthSessionList
+    })).resolves.toEqual([
+      {
+        sessionId: 'session-1',
+        deviceFingerprint: 'fp-1',
+        lastIp: '127.0.0.1',
+        deviceLabel: 'Chrome on Linux',
+        lastSeenAt: '2026-01-02T03:04:05.000Z',
+        isCurrent: true,
+        mfaVerified: true
+      },
+      {
+        sessionId: 'session-2',
+        deviceFingerprint: 'fp-2',
+        lastIp: '10.0.0.2',
+        deviceLabel: 'Safari on iPhone',
+        lastSeenAt: null,
+        isCurrent: false,
+        mfaVerified: false
+      }
+    ])
+  })
+
+  it('maps a CurrentUserSnapshot frame into the expected view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('current-user-snapshot-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      id: number;
+      username: string;
+      role: string;
+      status: number;
+      banReason: string | null;
+      deletedAt: string | null;
+    }>({
+      binaryUrl: '/api/binary/auth/me',
+      frameType: FrameType.CurrentUserSnapshot
+    })).resolves.toEqual({
+      id: 123,
+      username: 'alice',
+      role: 'User',
+      status: 1,
+      banReason: null,
+      deletedAt: null
+    })
+  })
+
+  it('maps an MfaProfile frame into the expected view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('mfa-profile-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      enabled: boolean;
+      verifiedAt: string | null;
+    }>({
+      binaryUrl: '/api/binary/auth/mfa/profile',
+      frameType: FrameType.MfaProfile
+    })).resolves.toEqual({
+      enabled: true,
+      verifiedAt: '2026-01-02T03:04:05.000Z'
+    })
+  })
+
+  it('maps a CategoryList frame into the expected items', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('category-list-frame.hex'))
+
+    await expect(requestBinaryOnly<Array<{ id: number; name: string; articleCount: number }>>({
+      binaryUrl: '/api/binary/category',
+      frameType: FrameType.CategoryList
+    })).resolves.toEqual([
+      { id: 1, name: 'Tech', articleCount: 2 },
+      { id: 2, name: 'Life', articleCount: 0 }
+    ])
+  })
+
+  it('maps a ConversationList frame into the expected view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('conversation-list-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      total: number;
+      items: Array<{
+        conversationId: string;
+        subject: string;
+        status: 0 | 1 | 2;
+        isSystemSource: boolean;
+        canReply: boolean;
+        unreadCount: number;
+        lastMessageAt: string;
+        updatedAt: string;
+        lastMessage?: {
+          senderType: 0 | 1 | 2;
+          senderName?: string | null;
+          bodyPreview: string;
+          createdAt: string;
+        } | null;
+      }>;
+    }>({
+      binaryUrl: '/api/binary/messages/conversations',
+      frameType: FrameType.ConversationList
+    })).resolves.toEqual({
+      total: 1,
+      items: [{
+        conversationId: '7',
+        subject: 'Support',
+        status: 1,
+        isSystemSource: true,
+        canReply: true,
+        unreadCount: 2,
+        lastMessageAt: '2026-01-02T03:04:05.000Z',
+        updatedAt: '2026-01-03T03:04:05.000Z',
+        lastMessage: {
+          senderType: 1,
+          senderName: 'Admin',
+          bodyPreview: 'Latest reply',
+          createdAt: '2026-01-04T03:04:05.000Z'
+        }
+      }]
+    })
+  })
+
+  it('maps a ConversationMessage frame into the expected view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('conversation-message-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      messageId: string;
+      conversationId: string;
+      senderType: 0 | 1 | 2;
+      senderName?: string | null;
+      body: string;
+      createdAt: string;
+    }>({
+      binaryUrl: '/api/binary/messages/conversations/7/reply',
+      frameType: FrameType.ConversationMessage
+    })).resolves.toEqual({
+      messageId: '11',
+      conversationId: '7',
+      senderType: 0,
+      senderName: 'Alice',
+      body: 'Message body',
+      createdAt: '2026-01-02T04:04:05.000Z'
+    })
+  })
+
+  it('maps a ConversationDetail frame into the expected view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('conversation-detail-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      conversationId: string;
+      subject: string;
+      status: 0 | 1 | 2;
+      isSystemSource: boolean;
+      canReply: boolean;
+      unreadCount: number;
+      lastMessageAt: string;
+      messages: Array<{
+        messageId: string;
+        conversationId: string;
+        senderType: 0 | 1 | 2;
+        senderName?: string | null;
+        body: string;
+        createdAt: string;
+      }>;
+    }>({
+      binaryUrl: '/api/binary/messages/conversations/7',
+      frameType: FrameType.ConversationDetail
+    })).resolves.toEqual({
+      conversationId: '7',
+      subject: 'Support',
+      status: 0,
+      isSystemSource: false,
+      canReply: true,
+      unreadCount: 1,
+      lastMessageAt: '2026-01-02T03:04:05.000Z',
+      messages: [{
+        messageId: '11',
+        conversationId: '7',
+        senderType: 0,
+        senderName: 'Alice',
+        body: 'Message body',
+        createdAt: '2026-01-02T04:04:05.000Z'
+      }]
+    })
+  })
+
+  it('maps an ArticleFeatured frame into the expected items', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-featured-frame.hex'))
+
+    await expect(requestBinaryOnly<Array<{
+      id: number;
+      title: string;
+      coverImageUrl: string;
+      views: number;
+      createTime: string;
+      category: {
+        id: number;
+        name: string;
+      };
+    }>>({
+      binaryUrl: '/api/binary/article/featured?size=2',
+      frameType: FrameType.ArticleFeatured
+    })).resolves.toEqual([
+      {
+        id: 41,
+        title: 'Binary First',
+        coverImageUrl: '/covers/first.webp',
+        views: 88,
+        createTime: '2026-05-12T06:00:00.000Z',
+        category: {
+          id: 3,
+          name: 'Protocol'
+        }
+      },
+      {
+        id: 42,
+        title: 'Hydration Again',
+        coverImageUrl: '/covers/hydration.webp',
+        views: 64,
+        createTime: '2026-05-13T07:30:00.000Z',
+        category: {
+          id: 4,
+          name: 'Frontend'
+        }
+      }
+    ])
+  })
+
+  it('maps an ArticleDetail frame into the expected view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-detail-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      id: number;
+      title: string;
+      content: string;
+      summary: string;
+      views: number;
+      createTime: string;
+      category: {
+        id: number;
+        name: string;
+      };
+      coverImageUrl: string;
+      tags: Array<{
+        id: number;
+        name: string;
+      }>;
+    }>({
+      binaryUrl: '/api/binary/article/42',
+      frameType: FrameType.ArticleDetail
+    })).resolves.toEqual({
+      id: 42,
+      title: 'Article 42',
+      content: 'Content 42\nHello',
+      summary: 'Summary 42',
+      views: 123,
+      createTime: '2026-01-02T03:04:05.000Z',
+      category: {
+        id: 7,
+        name: 'Life'
+      },
+      coverImageUrl: '/covers/42.png',
+      tags: [
+        { id: 9, name: 'aeds' },
+        { id: 10, name: 'blog' }
+      ],
+      isDeleted: false,
+      status: 2,
+      scheduledPublishAt: null,
+      publishedAt: null
+    })
+  })
+
+  it('maps an ArticleHot frame into the expected view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-hot-frame.hex'))
+
+    await expect(requestBinaryOnly<Array<{ id: number; title: string; views: number }>>({
+      binaryUrl: '/api/binary/article/hot',
+      frameType: FrameType.ArticleHot
+    })).resolves.toEqual([
+      { id: 11, title: 'Hot 1', views: 999 },
+      { id: 22, title: 'Hot 2', views: 888 }
+    ])
+  })
+
+  it('maps an ArticleSearch frame into the expected page response', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-search-frame.hex'))
+
+    const res = await requestBinaryOnly<any>({
+      binaryUrl: '/api/binary/article/search?q=AEDS',
+      frameType: FrameType.ArticleSearch
+    });
+    expect(res.items).toEqual([{
+      id: 11,
+      title: 'Intro AEDS',
+      summary: 'Binary protocol basics',
+      views: 42,
+      createTime: '2026-05-12T12:34:56.000Z',
+      category: {
+        id: 3,
+        name: 'Protocol'
+      },
+      tags: [
+        { id: 9, name: 'binary' },
+        { id: 10, name: 'contract' }
+      ]
+    }])
+  })
+
+  it('maps an ArticleList frame into the expected page response', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-list-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      total: number;
+      items: Array<{
+        id: number;
+        title: string;
+        summary: string;
+        views: number;
+        createTime: string;
+        category: {
+          id: number;
+          name: string;
+        };
+        tags: Array<{
+          id: number;
+          name: string;
+        }>;
+      }>;
+    }>({
+      binaryUrl: '/api/binary/article?page=1&size=10&isDeleted=false',
+      frameType: FrameType.ArticleList
+    })).resolves.toEqual({
+      total: 17,
+      items: [
+        {
+          id: 11,
+          title: 'Intro AEDS',
+          summary: 'Binary protocol basics',
+          views: 42,
+          createTime: '2026-05-12T12:34:56.000Z',
+          category: {
+            id: 3,
+            name: 'Protocol'
+          },
+          tags: [
+            { id: 9, name: 'binary' },
+            { id: 10, name: 'contract' }
+          ],
+          isDeleted: false,
+          status: 2,
+          scheduledPublishAt: null,
+          publishedAt: null
+        },
+        {
+          id: 12,
+          title: 'Hydration Fixes',
+          summary: '',
+          views: 7,
+          createTime: '2026-05-13T08:00:00.000Z',
+          category: {
+            id: 4,
+            name: 'Frontend'
+          },
+          tags: [
+            { id: 11, name: 'vue' }
+          ],
+          isDeleted: false,
+          status: 2,
+          scheduledPublishAt: null,
+          publishedAt: null
+        }
+      ]
+    })
+  })
+
+  it('maps a RecentCommentStats frame into the expected comment list', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('recent-comment-stats-frame.hex'))
+
+    await expect(requestBinaryOnly<Array<{
+      userId: number | null;
+      userName: string;
+      content: string;
+      createTime: string;
+    }>>({
+      binaryUrl: '/api/binary/stats/recent-comments',
+      frameType: FrameType.RecentCommentStats
+    })).resolves.toEqual([
+      {
+        userId: 12,
+        userName: 'alice',
+        content: 'first admin comment',
+        createTime: '2026-05-12T09:08:07.000Z'
+      },
+      {
+        userId: null,
+        userName: 'anonymous',
+        content: 'hidden user',
+        createTime: '2026-05-12T10:00:00.000Z'
+      }
+    ])
+  })
+
+  it('maps a RegionStats frame into the expected region list', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('region-stats-frame.hex'))
+
+    await expect(requestBinaryOnly<Array<{
+      region: string;
+      count: number;
+    }>>({
+      binaryUrl: '/api/binary/stats/regions',
+      frameType: FrameType.RegionStats
+    })).resolves.toEqual([
+      {
+        region: 'China',
+        count: 5
+      },
+      {
+        region: 'Unknown',
+        count: 2
+      }
+    ])
+  })
+
+  it('maps an AdminStats frame into the expected overview', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('admin-stats-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      overview: {
+        summary: {
+          totalArticles: number;
+          totalComments: number;
+          trashCount: number;
+          totalVisits: number;
+          registeredVisits: number;
+          anonymousVisits: number;
+        };
+        popularArticles: Array<{
+          id: number;
+          title: string;
+          views: number;
+        }>;
+      };
+      recentComments: Array<{
+        content: string;
+        createTime: string;
+        userId: number;
+        userName: string;
+      }>;
+      regions: Array<{
+        region: string;
+        count: number;
+      }>;
+    }>({
+      binaryUrl: '/api/binary/stats',
+      frameType: FrameType.AdminStats
+    })).resolves.toEqual({
+      overview: {
+        summary: {
+          totalArticles: 25,
+          totalComments: 120,
+          trashCount: 4,
+          totalVisits: 900,
+          registeredVisits: 500,
+          anonymousVisits: 400
+        },
+        popularArticles: [
+          {
+            id: 31,
+            title: 'Top post',
+            views: 88
+          },
+          {
+            id: 32,
+            title: 'Second post',
+            views: 55
+          }
+        ]
+      },
+      recentComments: [
+        {
+          content: 'first admin comment',
+          createTime: '2026-05-12T09:08:07.000Z',
+          userId: 12,
+          userName: 'alice'
+        }
+      ],
+      regions: [
+        {
+          region: 'China',
+          count: 5
+        },
+        {
+          region: 'Unknown',
+          count: 2
+        }
+      ]
+    })
+  })
+
+  it('maps a SeoConfig frame into the expected site config', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('seo-config-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      title: string;
+      description: string;
+      keywords: string;
+      author: string;
+      ogImage: string;
+      baseUrl: string;
+    }>({
+      binaryUrl: '/api/binary/system/seo',
+      frameType: FrameType.SeoConfig
+    })).resolves.toEqual({
+      title: 'Fsus Blog',
+      description: 'Forward Forever',
+      keywords: 'blog,aeds,hydration',
+      author: 'Fsu',
+      ogImage: '/images/og.png',
+      baseUrl: 'https://fsus.example'
+    })
+  })
+
+  it('maps a PageContent frame into the expected page payload', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('page-content-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      slug: string;
+      content: string;
+    }>({
+      binaryUrl: '/api/binary/system/page/about',
+      frameType: FrameType.PageContent
+    })).resolves.toEqual({
+      slug: 'about',
+      content: '# About\n\nHydration-safe binary payload.'
+    })
+  })
+
+  it('maps a CommentArticleCursor frame into the expected cursor response', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('comment-article-cursor-frame.hex'))
+
+    await expect(requestBinaryOnly<{
+      nextCursor: string | null;
+      hasMore: boolean;
+      data: Array<{
+        id: string;
+        content: string;
+        createTime: string;
+        userName: string;
+        rootId: string;
+        isDeleted: boolean;
+        replyCount: number;
+        hasMoreReplies: boolean;
+        repliesPreview: Array<{
+          id: string;
+          content: string;
+          createTime: string;
+          userName: string;
+          replyToUserName: string | null;
+          isDeleted: boolean;
+        }>;
+      }>;
+    }>({
+      binaryUrl: '/api/binary/comment/5?limit=10',
+      frameType: FrameType.CommentArticleCursor
+    })).resolves.toEqual({
+      nextCursor: '777',
+      hasMore: true,
+      data: [
+        {
+          id: '101',
+          content: 'root comment',
+          createTime: '2026-05-12T00:00:00.000Z',
+          userName: 'alice',
+          rootId: '101',
+          isDeleted: false,
+          replyCount: 3,
+          hasMoreReplies: true,
+          repliesPreview: [
+            {
+              id: '202',
+              content: 'preview reply',
+              createTime: '2026-05-12T01:02:03.000Z',
+              userName: 'bob',
+              replyToUserName: 'alice',
+              isDeleted: false
+            }
+          ]
+        }
+      ]
+    })
+  })
+
+  it('maps an ApiError frame into a BinaryTransportError with message and traceId', async () => {
+    const buffer = readProtocolFixtureBuffer('api-error-frame.hex')
+    mockBinaryRequest.mockRejectedValue(new BinaryRequestError(403, 'Binary request failed: 403', buffer))
+
+    await requestBinaryOnly({ binaryUrl: '/api/binary/example', frameType: FrameType.EmptySuccess })
+      .then(() => {
+        throw new Error('expected requestBinaryOnly to throw')
+      })
+      .catch((error: unknown) => {
+        expect(error).toBeInstanceOf(BinaryTransportError)
+        expect(error).toMatchObject({
+          name: 'BinaryTransportError',
+          kind: 'forbidden',
+          code: AppErrorCode.Forbidden,
+          traceId: 'trace-123'
+        })
+        expect((error as BinaryTransportError).message).toContain('权限不足')
+        expect((error as BinaryTransportError).message).toContain('[trace:trace-123]')
+      })
+  })
+
+  it('suppresses telemetry for expected anonymous auth failures', async () => {
+    mockBinaryRequest.mockRejectedValue(new BinaryRequestError(401, 'Binary request failed: 401', new ArrayBuffer(0)))
+    const dispatchSpy = vi.mocked(window.dispatchEvent)
+
+    await expect(requestBinaryOnly({
+      binaryUrl: '/api/binary/auth/me',
+      frameType: FrameType.CurrentUserSnapshot,
+      suppressAuthFailureTelemetry: true
+    })).rejects.toMatchObject({
+      name: 'BinaryTransportError',
+      kind: 'auth_failed',
+      code: AppErrorCode.Unauthorized
+    })
+
+    expect(dispatchSpy).not.toHaveBeenCalled()
+  })
+
+  it('treats fetch failures after signal abort as canceled without telemetry', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    mockBinaryRequest.mockRejectedValue(new TypeError('Failed to fetch'))
+    const dispatchSpy = vi.mocked(window.dispatchEvent)
+
+    await expect(requestBinaryOnly({
+      binaryUrl: '/api/binary/article?page=1&size=10&isDeleted=false',
+      frameType: FrameType.ArticleList,
+      signal: controller.signal
+    })).rejects.toMatchObject({
+      name: 'AbortError',
+      message: 'Failed to fetch'
+    })
+
+    expect(dispatchSpy).not.toHaveBeenCalled()
+  })
+})
+
+function readProtocolFixtureBuffer(fileName: string): ArrayBuffer {
+  const fixturePath = fileURLToPath(new URL(`../../../fixtures/protocol/${fileName}`, import.meta.url))
+  const hex = readFileSync(fixturePath, 'utf8').replace(/\s+/g, '')
+  const bytes = Uint8Array.from(Buffer.from(hex, 'hex'))
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+}

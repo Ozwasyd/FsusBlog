@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *, [data-theme-resolved='dark'], [data-theme-resolved='dark'] *));
+
+@theme {
+  --font-sans: "Google Sans", 'Noto Sans SC' , 'Noto Sans TC', 'Noto Sans JP', "ui-sans-serif", "system-ui", "sans-serif";
+  --font-mono: "JetBrains Mono", "ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", monospace;
+
+}

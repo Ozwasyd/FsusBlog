@@ -1,0 +1,356 @@
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
+using FsusBlog.Core.Common;
+using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Helpers.Security;
+using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models;
+using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Requests;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.Outputs;
+using SqlSugar;
+using System.Buffers;
+using System.Data.Common;
+
+namespace FsusBlog.Server.Modules.Endpoints.Binary;
+
+public static partial class BinaryEndpoints
+{
+    private static void MapBinaryTaxonomyEndpoints(IEndpointRouteBuilder group)
+    {
+        group.MapGet("/category", static async Task<BinaryFrameResult> (
+            ISqlSugarClient db,
+            IAedsEncoder aeds) =>
+        {
+            DateTime now = DateTime.UtcNow;
+            var query = db.Queryable<Category>()
+                .LeftJoin<Article>((c, a) => c.Id == a.CategoryId
+                    && a.IsDeleted == false
+                    && a.Status == ArticleStatus.Published
+                    && (a.PublishedAt == null || a.PublishedAt <= now)
+                    && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
+                .GroupBy(c => new { c.Id, c.Name })
+                .OrderBy(c => c.Id)
+                .Select((c, a) => new
+                {
+                    c.Id,
+                    c.Name,
+                    ArticleCount = SqlFunc.AggregateCount(a.Id)
+                });
+
+            var sqlObj = query.ToSql();
+            var result = new List<CategoryListItemResponse>();
+
+            using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+            {
+                int fId = reader.GetOrdinal("Id");
+                int fName = reader.GetOrdinal("Name");
+                int fCount = reader.GetOrdinal("ArticleCount");
+
+                while (await reader.ReadAsync())
+                {
+                    result.Add(ArticleProjection.ToCategoryResponse(
+                        reader.GetInt32(fId),
+                        reader.IsDBNull(fName) ? string.Empty : reader.GetString(fName),
+                        (int)reader.GetInt64(fCount)));
+                }
+            }
+
+            return BinaryResults.Frame(aeds, AedsFrameType.CategoryList, writer => PodBinaryCodec.WriteCategoryList(result, writer));
+        })
+        .AllowAnonymous()
+        .CacheOutput(HttpCachePolicyCatalog.ApplyCategoryList);
+
+        group.MapGet("/tag", static async Task<BinaryFrameResult> (
+            ISqlSugarClient db,
+            IAedsEncoder aeds) =>
+        {
+            DateTime now = DateTime.UtcNow;
+            var query = db.Queryable<Tag>()
+                .LeftJoin<ArticleTag>((t, at) => t.Id == at.TagId)
+                .LeftJoin<Article>((t, at, a) => at.ArticleId == a.Id
+                    && a.IsDeleted == false
+                    && a.Status == ArticleStatus.Published
+                    && (a.PublishedAt == null || a.PublishedAt <= now)
+                    && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
+                .GroupBy(t => new { t.Id, t.Name })
+                .OrderBy(t => t.Id)
+                .Select((t, at, a) => new
+                {
+                    t.Id,
+                    t.Name,
+                    ArticleCount = SqlFunc.AggregateCount(a.Id)
+                });
+
+            var sqlObj = query.ToSql();
+            var result = new List<TagWithCountDto>();
+
+            using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+            {
+                int fId = reader.GetOrdinal("Id");
+                int fName = reader.GetOrdinal("Name");
+                int fCount = reader.GetOrdinal("ArticleCount");
+
+                while (await reader.ReadAsync())
+                {
+                    result.Add(new TagWithCountDto(
+                        reader.GetInt32(fId),
+                        reader.IsDBNull(fName) ? string.Empty : reader.GetString(fName),
+                        (int)reader.GetInt64(fCount)));
+                }
+            }
+
+            return BinaryResults.Frame(aeds, AedsFrameType.TagList, writer => PodBinaryCodec.WriteTagWithCountList(result, writer));
+        })
+        .AllowAnonymous()
+        .CacheOutput(HttpCachePolicyCatalog.ApplyTagList);
+
+        var taxonomyWriteGroup = group.MapGroup("")
+            .RequireAuthorization(policy => policy.RequireRole("admin"))
+            .AddEndpointFilter<RequiresPowFilter>();
+
+        taxonomyWriteGroup.MapPost("/category", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            ISqlSugarClient db,
+            IHttpCacheInvalidator httpCacheInvalidator,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var nameResult = await ReadNameMutationAsync(httpContext, aeds, AedsFrameType.CategoryWriteRequest, cancellationToken);
+            if (!nameResult.IsSuccess)
+            {
+                return BinaryResults.FromError(nameResult.Error, aeds);
+            }
+
+            string trimmedName = nameResult.Name.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedName))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分类名称不能为空"), aeds);
+            }
+
+            bool exists = await db.Queryable<Category>().AnyAsync(c => c.Name == trimmedName);
+            if (exists)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"分类“{trimmedName}”已存在"), aeds);
+            }
+
+            var category = new Category { Name = trimmedName };
+            bool success = await db.Insertable(category).ExecuteCommandAsync() > 0;
+            if (!success)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "由于数据库写入异常，分类创建失败"), aeds);
+            }
+
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Category,
+                AuditTypeCatalog.Audit,
+                new KeyValuePair<string, object?>("AuditAction", "category.create"),
+                new KeyValuePair<string, object?>("CategoryName", trimmedName));
+            await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
+            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+        });
+
+        taxonomyWriteGroup.MapPut("/category/{id:int}", static async Task<BinaryFrameResult> (
+            int id,
+            HttpContext httpContext,
+            ISqlSugarClient db,
+            IHttpCacheInvalidator httpCacheInvalidator,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var nameResult = await ReadNameMutationAsync(httpContext, aeds, AedsFrameType.CategoryWriteRequest, cancellationToken);
+            if (!nameResult.IsSuccess)
+            {
+                return BinaryResults.FromError(nameResult.Error, aeds);
+            }
+
+            string trimmedName = nameResult.Name.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedName))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分类名称不能为空"), aeds);
+            }
+
+            bool exists = await db.Queryable<Category>()
+                .Where(c => c.Name == trimmedName && c.Id != id)
+                .AnyAsync();
+            if (exists)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"该分类名称“{trimmedName}”已被其他分类占用"), aeds);
+            }
+
+            int updateCount = await db.Updateable<Category>()
+                .SetColumns(c => c.Name == trimmedName)
+                .Where(c => c.Id == id)
+                .ExecuteCommandAsync();
+            if (updateCount <= 0)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：未找到对应的分类记录"), aeds);
+            }
+
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Category,
+                AuditTypeCatalog.Audit,
+                new KeyValuePair<string, object?>("AuditAction", "category.update"),
+                new KeyValuePair<string, object?>("CategoryId", id),
+                new KeyValuePair<string, object?>("CategoryName", trimmedName));
+            await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
+            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+        });
+
+        taxonomyWriteGroup.MapDelete("/category/{id:int}", static async Task<BinaryFrameResult> (
+            int id,
+            ISqlSugarClient db,
+            IHttpCacheInvalidator httpCacheInvalidator,
+            IAedsEncoder aeds) =>
+        {
+            bool hasArticles = await db.Queryable<Article>().AnyAsync(a => a.CategoryId == id && !a.IsDeleted && a.Status != ArticleStatus.Deleted);
+            if (hasArticles)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "无法删除：该分类下仍有关联文章，请先迁移文章到其他分类"), aeds);
+            }
+
+            int deleteCount = await db.Deleteable<Category>().In(id).ExecuteCommandAsync();
+            if (deleteCount <= 0)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：目标分类不存在或已被删除"), aeds);
+            }
+
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Category,
+                AuditTypeCatalog.Audit,
+                new KeyValuePair<string, object?>("AuditAction", "category.delete"),
+                new KeyValuePair<string, object?>("CategoryId", id));
+            await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
+            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+        });
+
+        taxonomyWriteGroup.MapPost("/tag", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            ISqlSugarClient db,
+            IHttpCacheInvalidator httpCacheInvalidator,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var nameResult = await ReadNameMutationAsync(httpContext, aeds, AedsFrameType.TagWriteRequest, cancellationToken);
+            if (!nameResult.IsSuccess)
+            {
+                return BinaryResults.FromError(nameResult.Error, aeds);
+            }
+
+            string trimmedName = nameResult.Name.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedName))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "标签名称不能为空"), aeds);
+            }
+
+            bool exists = await db.Queryable<Tag>().AnyAsync(t => t.Name == trimmedName);
+            if (exists)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"标签 [{trimmedName}] 已存在"), aeds);
+            }
+
+            int newId = await db.Insertable(new Tag { Name = trimmedName }).ExecuteReturnIdentityAsync();
+            if (newId <= 0)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "标签创建失败，数据库写入异常"), aeds);
+            }
+
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Tag,
+                AuditTypeCatalog.Audit,
+                new KeyValuePair<string, object?>("AuditAction", "tag.create"),
+                new KeyValuePair<string, object?>("TagName", trimmedName));
+            await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
+            return BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(newId, writer));
+        });
+
+        taxonomyWriteGroup.MapPut("/tag/{id:int}", static async Task<BinaryFrameResult> (
+            int id,
+            HttpContext httpContext,
+            ISqlSugarClient db,
+            IHttpCacheInvalidator httpCacheInvalidator,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var nameResult = await ReadNameMutationAsync(httpContext, aeds, AedsFrameType.TagWriteRequest, cancellationToken);
+            if (!nameResult.IsSuccess)
+            {
+                return BinaryResults.FromError(nameResult.Error, aeds);
+            }
+
+            string trimmedName = nameResult.Name.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedName))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "标签名称不能为空"), aeds);
+            }
+
+            bool exists = await db.Queryable<Tag>()
+                .Where(t => t.Name == trimmedName && t.Id != id)
+                .AnyAsync();
+            if (exists)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"标签名称 [{trimmedName}] 已被其他记录占用"), aeds);
+            }
+
+            int updateCount = await db.Updateable<Tag>()
+                .SetColumns(t => t.Name == trimmedName)
+                .Where(t => t.Id == id)
+                .ExecuteCommandAsync();
+            if (updateCount <= 0)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "目标标签不存在"), aeds);
+            }
+
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Tag,
+                AuditTypeCatalog.Audit,
+                new KeyValuePair<string, object?>("AuditAction", "tag.update"),
+                new KeyValuePair<string, object?>("TagId", id),
+                new KeyValuePair<string, object?>("TagName", trimmedName));
+            await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
+            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+        });
+
+        taxonomyWriteGroup.MapDelete("/tag/{id:int}", static async Task<BinaryFrameResult> (
+            int id,
+            ISqlSugarClient db,
+            IHttpCacheInvalidator httpCacheInvalidator,
+            IAedsEncoder aeds,
+            ILoggerFactory loggerFactory) =>
+        {
+            var result = await db.Ado.UseTranAsync(async () =>
+            {
+                await db.Deleteable<ArticleTag>().Where(at => at.TagId == id).ExecuteCommandAsync();
+                await db.Deleteable<Tag>().In(id).ExecuteCommandAsync();
+            });
+
+            if (!result.IsSuccess)
+            {
+                loggerFactory.CreateLogger("BinaryTaxonomyEndpoints")
+                    .LogError(result.ErrorException, "标签删除事务失败 | ID: {Id} | 错误: {Msg}", id, result.ErrorMessage);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, $"删除失败：{result.ErrorMessage}"), aeds);
+            }
+
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Tag,
+                AuditTypeCatalog.Audit,
+                new KeyValuePair<string, object?>("AuditAction", "tag.delete"),
+                new KeyValuePair<string, object?>("TagId", id));
+            await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
+            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+        });
+    }
+}

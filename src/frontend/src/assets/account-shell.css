@@ -1,0 +1,125 @@
+.account-shell {
+  background: var(--fsusblog-page-bg, Canvas);
+  color: var(--fsusblog-text-primary);
+  font-family: var(--font-sans, "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif);
+}
+
+.account-shell-panel {
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: var(--fsus-radius-panel);
+  background: var(--fsus-surface-overlay, var(--fsusblog-panel-bg));
+  box-shadow: var(--fsus-shadow-floating);
+  backdrop-filter: blur(var(--fsus-backdrop-blur)) saturate(var(--fsus-backdrop-saturate, 120%));
+}
+
+.account-page {
+  width: 100%;
+  min-width: 0;
+}
+
+.account-page-header {
+  margin-bottom: 3rem;
+}
+
+.account-page-header--compact {
+  margin-bottom: 2rem;
+}
+
+.account-page-eyebrow {
+  margin-bottom: 0.9rem;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.account-page-title {
+  max-width: 12ch;
+  color: var(--fsusblog-text-primary);
+  font-size: clamp(2.1rem, 4vw, 3.8rem);
+  font-weight: 700;
+  line-height: 0.96;
+  letter-spacing: 0;
+}
+
+.account-page-description {
+  margin-top: 1.25rem;
+  max-width: 42rem;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.95rem;
+  line-height: 1.9;
+}
+
+.account-section {
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--fsusblog-panel-border);
+}
+
+.account-section + .account-section {
+  margin-top: 3rem;
+}
+
+.account-section-title {
+  margin-bottom: 1rem;
+  color: var(--fsusblog-text-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.account-section-caption {
+  margin-bottom: 1.5rem;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.875rem;
+  line-height: 1.75;
+}
+
+.admin-page-shell {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-page-shell--dashboard,
+.admin-page-shell--list,
+.admin-page-shell--form,
+.admin-page-shell--settings {
+  width: 100%;
+}
+
+.admin-page-shell--form {
+  max-width: 1480px;
+}
+
+.admin-page-shell--settings {
+  max-width: 1320px;
+}
+
+@media (max-width: 1024px) {
+  .account-page-header {
+    margin-bottom: 2rem;
+  }
+
+  .account-page-description {
+    max-width: none;
+  }
+
+}
+
+@media (max-width: 640px) {
+  .account-page {
+    min-width: 0;
+  }
+
+  .account-page-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .account-page-title {
+    max-width: none;
+    font-size: clamp(1.9rem, 12vw, 2.7rem);
+    line-height: 1;
+  }
+
+}

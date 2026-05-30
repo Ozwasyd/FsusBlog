@@ -1,0 +1,196 @@
+<template>
+  <section
+    v-if="isEdit"
+    class="article-revision-panel border-t border-[var(--fsusblog-panel-border)]"
+    aria-labelledby="article-revision-title"
+  >
+    <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <div id="article-revision-title" class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">修订历史 / REVISIONS</div>
+          <p class="mt-1 text-[11px] text-[var(--fsusblog-text-tertiary)]" aria-live="polite">{{ statusText }}</p>
+        </div>
+        <el-button
+          circle
+          :icon="Refresh"
+          :loading="loading"
+          :disabled="loading || rollbacking"
+          aria-label="刷新修订历史"
+          @click="$emit('refresh')"
+        />
+      </div>
+    </header>
+
+    <div class="space-y-4 p-4 bg-[var(--fsusblog-page-bg)]">
+      <p v-if="!loading && revisions.length === 0" class="text-xs text-[var(--fsusblog-text-tertiary)]">
+        暂无修订记录。发布或更新文章后会自动写入历史版本。
+      </p>
+
+      <div v-else class="revision-list" aria-label="历史版本列表">
+        <button
+          v-for="revision in revisions"
+          :key="revision.id"
+          type="button"
+          class="revision-row"
+          :class="{ 'revision-row--active': selectedRevision?.id === revision.id }"
+          :disabled="loading || rollbacking"
+          :aria-label="`选择修订版本 ${revision.revisionNo}`"
+          @click="$emit('select-revision', revision)"
+        >
+          <span class="revision-row__main">
+            <span class="revision-row__title">版本 {{ revision.revisionNo }} · {{ revision.title }}</span>
+            <span class="revision-row__meta">{{ revision.diffSummary }} · {{ formatDate(revision.createdAt) }}</span>
+          </span>
+          <span class="revision-row__actor">#{{ revision.createdByUserId }}</span>
+        </button>
+      </div>
+
+      <div v-if="selectedRevision" class="revision-compare border-t border-[var(--fsusblog-panel-border)] pt-4">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <div class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ selectedLabel }}</div>
+            <p class="mt-1 text-xs text-[var(--fsusblog-text-secondary)]">{{ compareText }}</p>
+          </div>
+          <el-popconfirm
+            title="确认回滚到此历史版本？"
+            confirm-button-text="确认回滚"
+            cancel-button-text="取消"
+            @confirm="$emit('rollback')"
+          >
+            <template #reference>
+              <el-button
+                type="primary"
+                :icon="RefreshLeft"
+                :loading="rollbacking"
+                :disabled="loading || rollbacking"
+                aria-label="回滚到此版本"
+              >
+                回滚
+              </el-button>
+            </template>
+          </el-popconfirm>
+        </div>
+        <dl class="revision-fields">
+          <div>
+            <dt>标题</dt>
+            <dd>{{ selectedRevision.title }}</dd>
+          </div>
+          <div>
+            <dt>正文</dt>
+            <dd>{{ selectedRevision.content.length }} 字符</dd>
+          </div>
+          <div>
+            <dt>标签</dt>
+            <dd>{{ selectedRevision.tagIds.length }} 个</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { Refresh, RefreshLeft } from '@/ui/fsusIcons'
+import type { ArticleRevisionDetailResponse, ArticleRevisionSummaryResponse } from '@/api/authoring'
+
+defineProps<{
+  isEdit: boolean
+  revisions: ArticleRevisionSummaryResponse[]
+  selectedRevision: ArticleRevisionDetailResponse | null
+  selectedLabel: string
+  loading: boolean
+  rollbacking: boolean
+  statusText: string
+  compareText: string
+}>()
+
+defineEmits<{
+  (e: 'refresh'): void
+  (e: 'select-revision', revision: ArticleRevisionSummaryResponse): void
+  (e: 'rollback'): void
+}>()
+
+const formatDate = (value: string): string => {
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) ? new Date(timestamp).toLocaleString() : value
+}
+</script>
+
+<style scoped>
+.revision-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.revision-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid var(--fsusblog-panel-border);
+  background: var(--fsusblog-page-bg-soft);
+  padding: 0.75rem;
+  text-align: left;
+  transition: border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
+    background-color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+}
+
+.revision-row:hover,
+.revision-row--active {
+  border-color: var(--fsus-state-focus-border, var(--fsusblog-color-primary));
+  background: var(--fsus-state-selected-bg, var(--fsusblog-page-bg));
+}
+
+.revision-row__main {
+  min-width: 0;
+}
+
+.revision-row__title,
+.revision-row__meta {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.revision-row__title {
+  color: var(--fsusblog-text-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.revision-row__meta,
+.revision-row__actor {
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.68rem;
+}
+
+.revision-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.revision-fields div {
+  min-width: 0;
+}
+
+.revision-fields dt {
+  color: var(--fsusblog-text-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.revision-fields dd {
+  overflow: hidden;
+  margin: 0.25rem 0 0;
+  color: var(--fsusblog-text-secondary);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

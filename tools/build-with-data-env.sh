@@ -1,16 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
-export TMPDIR=/data/tmp
-export TMP=/data/tmp
-export TEMP=/data/tmp
-export DOTNET_CLI_HOME=/data/cache/dev/dotnet-cli
-export NUGET_PACKAGES=/data/cache/dev/nuget/packages
-export NUGET_HTTP_CACHE_PATH=/data/cache/dev/nuget/http-cache
-export NUGET_SCRATCH=/data/cache/dev/nuget/scratch
-export XDG_CACHE_HOME=/data/cache/dev/xdg-cache
-export XDG_CONFIG_HOME=/data/cache/dev/xdg-config
-export XDG_STATE_HOME=/data/cache/dev/xdg-state
-export MSBUILDDEBUGPATH=/data/tmp/msbuild
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DEFAULT_DATA_ROOT="${FSUSBLOG_DATA_ROOT:-/data}"
+
+if mkdir -p "${DEFAULT_DATA_ROOT}" >/dev/null 2>&1; then
+  DATA_ROOT="${DEFAULT_DATA_ROOT}"
+else
+  DATA_ROOT="${ROOT_DIR}/.tmp/data-root"
+  mkdir -p "${DATA_ROOT}"
+fi
+
+export TMPDIR="${DATA_ROOT}/tmp"
+export TMP="${DATA_ROOT}/tmp"
+export TEMP="${DATA_ROOT}/tmp"
+export DOTNET_CLI_HOME="${DATA_ROOT}/cache/dev/dotnet-cli"
+export NUGET_PACKAGES="${DATA_ROOT}/cache/dev/nuget/packages"
+export NUGET_HTTP_CACHE_PATH="${DATA_ROOT}/cache/dev/nuget/http-cache"
+export NUGET_SCRATCH="${DATA_ROOT}/cache/dev/nuget/scratch"
+export XDG_CACHE_HOME="${DATA_ROOT}/cache/dev/xdg-cache"
+export XDG_CONFIG_HOME="${DATA_ROOT}/cache/dev/xdg-config"
+export XDG_STATE_HOME="${DATA_ROOT}/cache/dev/xdg-state"
+export MSBUILDDEBUGPATH="${DATA_ROOT}/tmp/msbuild"
 export MSBUILDDISABLENODEREUSE=1
 mkdir -p \
   "$TMPDIR" \

@@ -2,13 +2,15 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CLIENT_DIR="$ROOT_DIR/FsusBlog.Client"
+CLIENT_DIR="$ROOT_DIR/src/frontend"
+SERVER_WWWROOT_DIR="$ROOT_DIR/src/backend/wwwroot"
 TMP_DIR="$ROOT_DIR/.tmp/acceptance"
 mkdir -p "$TMP_DIR"
 
 DEBUG_FRONTEND_URL="${FSUSBLOG_DEBUG_FRONTEND_URL:-http://127.0.0.1:3000}"
 DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:5000}"
 RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:8080}"
+FORCE_BOOTSTRAP="${FSUSBLOG_FORCE_BOOTSTRAP:-${CI:+1}}"
 
 log() {
   printf '[acceptance:bootstrap] %s\n' "$1"
@@ -45,6 +47,25 @@ probe_url() {
   curl -fsS --max-time 5 "$url" >/dev/null 2>&1
 }
 
+probe_binary_url() {
+  local url="$1"
+  curl -fsS --max-time 5 -H 'Accept: application/octet-stream' "$url" >/dev/null 2>&1
+}
+
+can_reuse_processes() {
+  [[ "${FORCE_BOOTSTRAP:-0}" != "1" ]]
+}
+
+hash_release_inputs() {
+  (
+    cd "$CLIENT_DIR"
+    {
+      printf '%s\0' package.json package-lock.json vite.config.ts tsconfig.json index.html
+      find src public scripts -type f -print0 2>/dev/null || true
+    } | sort -z | xargs -0 sha256sum 2>/dev/null | sha256sum | awk '{print $1}'
+  )
+}
+
 wait_for_url() {
   local label="$1"
   local url="$2"
@@ -52,6 +73,22 @@ wait_for_url() {
 
   for ((i=0; i<attempts; i+=1)); do
     if probe_url "$url"; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  log "$label did not become ready at $url"
+  return 1
+}
+
+wait_for_binary_url() {
+  local label="$1"
+  local url="$2"
+  local attempts="${3:-60}"
+
+  for ((i=0; i<attempts; i+=1)); do
+    if probe_binary_url "$url"; then
       return 0
     fi
     sleep 1
@@ -121,30 +158,32 @@ ensure_backend() {
   local pid_file="$TMP_DIR/backend.pid"
   local log_file="$TMP_DIR/backend.log"
   local managed_pid
+  local existing_pid
   managed_pid="$(read_pid_file "$pid_file")"
+  existing_pid="$(find_port_pid 5000)"
 
-  if probe_url "$DEBUG_BACKEND_URL/api/System/seo"; then
-    if [[ -n "$managed_pid" ]] && kill -0 "$managed_pid" >/dev/null 2>&1; then
-      log 'backend already reachable'
-      return
-    fi
-
-    local existing_pid
-    existing_pid="$(find_port_pid 5000)"
-    if [[ -n "$existing_pid" ]]; then
-      log "restarting unmanaged backend process on 5000 (pid ${existing_pid})"
-      kill_pid_if_running "$existing_pid"
-    fi
+  if can_reuse_processes && probe_binary_url "$DEBUG_BACKEND_URL/api/binary/system/seo" && probe_binary_url "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge"; then
+    log 'debug backend already healthy; reusing existing process'
+    return
   fi
 
+  if [[ -n "$managed_pid" ]] && kill -0 "$managed_pid" >/dev/null 2>&1; then
+    log "restarting managed backend process on 5000 (pid ${managed_pid})"
+    kill_pid_if_running "$managed_pid"
+  elif [[ -n "$existing_pid" ]]; then
+    log "restarting unmanaged backend process on 5000 (pid ${existing_pid})"
+  fi
+
+  existing_pid="$(find_port_pid 5000)"
+  kill_pid_if_running "$existing_pid"
   kill_pid_if_running "$managed_pid"
 
   log 'starting managed debug backend'
-  nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && exec ./tools/build-with-data-env.sh dotnet run --project FsusBlog.Server/FsusBlog.Server.csproj --launch-profile FsusBlog.Server" >"$log_file" 2>&1 < /dev/null &
+  nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --launch-profile FsusBlog.Server" >"$log_file" 2>&1 < /dev/null &
   echo $! >"$pid_file"
 
-  wait_for_url 'debug backend' "$DEBUG_BACKEND_URL/api/System/seo" 120
-  wait_for_url 'pow challenge' "$DEBUG_BACKEND_URL/api/Auth/pow-challenge" 120
+  wait_for_binary_url 'debug backend' "$DEBUG_BACKEND_URL/api/binary/system/seo" 120
+  wait_for_binary_url 'pow challenge' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" 120
 }
 
 start_background_if_needed() {
@@ -183,6 +222,11 @@ start_background_if_needed() {
 }
 
 ensure_debug_frontend() {
+  if can_reuse_processes && probe_url "$DEBUG_FRONTEND_URL/"; then
+    log 'debug frontend already healthy; reusing existing process'
+    return
+  fi
+
   kill_pid_if_running "$(read_pid_file "$TMP_DIR/dev-server.pid")"
   kill_pid_if_running "$(find_port_pid 3000)"
   start_background_if_needed \
@@ -194,11 +238,31 @@ ensure_debug_frontend() {
 }
 
 ensure_release_preview() {
+  local fingerprint_file="$TMP_DIR/release-inputs.sha"
+  local next_fingerprint
+  local current_fingerprint=""
+  next_fingerprint="$(hash_release_inputs)"
+  if [[ -f "$fingerprint_file" ]]; then
+    current_fingerprint="$(cat "$fingerprint_file" 2>/dev/null || true)"
+  fi
+
+  if can_reuse_processes \
+    && [[ "$current_fingerprint" == "$next_fingerprint" ]] \
+    && [[ -f "$CLIENT_DIR/dist/index.html" ]] \
+    && [[ -f "$SERVER_WWWROOT_DIR/index.html" ]] \
+    && probe_url "$RELEASE_PREVIEW_URL/"; then
+    log 'release preview already healthy with matching fingerprint; reusing existing process'
+    return
+  fi
+
   log 'building release preview bundle'
   (
     cd "$CLIENT_DIR"
     npm run build:release >/dev/null
   )
+  printf '%s\n' "$next_fingerprint" >"$fingerprint_file"
+
+  sync_backend_wwwroot_from_client_dist
 
   kill_pid_if_running "$(read_pid_file "$TMP_DIR/preview.pid")"
   kill_pid_if_running "$(find_port_pid 8080)"
@@ -211,12 +275,30 @@ ensure_release_preview() {
     npm run preview
 }
 
+sync_backend_wwwroot_from_client_dist() {
+  log 'syncing backend wwwroot with release preview bundle'
+  rm -rf \
+    "$SERVER_WWWROOT_DIR/.vite" \
+    "$SERVER_WWWROOT_DIR/assets" \
+    "$SERVER_WWWROOT_DIR/dist" \
+    "$SERVER_WWWROOT_DIR/wasm" \
+    "$SERVER_WWWROOT_DIR/favicon.svg" \
+    "$SERVER_WWWROOT_DIR/index.html" \
+    "$SERVER_WWWROOT_DIR/sw.js" \
+    "$SERVER_WWWROOT_DIR/vite.svg"
+  mkdir -p "$SERVER_WWWROOT_DIR"
+  cp -a "$CLIENT_DIR/dist/." "$SERVER_WWWROOT_DIR/"
+}
+
 prepare_fixtures() {
   log 'preparing auth users and playwright fixtures'
   (
     cd "$CLIENT_DIR"
     npm run prepare:binary-smoke:auth-users >/dev/null
     npm run prepare:playwright:fixtures >/dev/null
+    if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
+      npm run prepare:playwright:sessions >/dev/null
+    fi
   )
 }
 
@@ -225,11 +307,11 @@ main() {
   ensure_postgres
   ensure_redis
   ensure_backend
-  ensure_debug_frontend
   ensure_release_preview
+  ensure_debug_frontend
   prepare_fixtures
-  wait_for_url 'seo probe' "$DEBUG_BACKEND_URL/api/System/seo" 30
-  wait_for_url 'pow challenge probe' "$DEBUG_BACKEND_URL/api/Auth/pow-challenge" 30
+  wait_for_binary_url 'seo probe' "$DEBUG_BACKEND_URL/api/binary/system/seo" 30
+  wait_for_binary_url 'pow challenge probe' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" 30
   log 'acceptance environment ready'
 }
 

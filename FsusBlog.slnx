@@ -1,14 +1,42 @@
 <Solution>
-  <Project Path="docker-compose.dcproj">
-    <Build />
-  </Project>
-  <Project Path="FsusBlog.Client/FsusBlog.Client.esproj">
-    <Build />
-    <Deploy />
-  </Project>
-  <Project Path="FsusBlog.Core.Benchmarks/FsusBlog.Core.Benchmarks.csproj" />
-  <Project Path="FsusBlog.Core/FsusBlog.Core.csproj" />
-  <Project Path="FsusBlog.Shared/FsusBlog.Shared.csproj" />
-  <Project Path="FsusBlog.Server/FsusBlog.Server.csproj" />
-  <Project Path="FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj" />
+  <Folder Name="/Backend/">
+    <Project Path="src/backend/FsusBlog.Server.csproj" />
+  </Folder>
+  <Folder Name="/Frontend/">
+    <Project Path="src/frontend/FsusBlog.Client.esproj">
+      <Build />
+      <Deploy />
+    </Project>
+  </Folder>
+  <Folder Name="/Shared Kernel/">
+    <Project Path="src/core/FsusBlog.Core.csproj" />
+    <Project Path="src/shared/FsusBlog.Shared.csproj" />
+  </Folder>
+  <Folder Name="/Quality/">
+    <Project Path="tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj" />
+    <Project Path="benchmarks/core/FsusBlog.Core.Benchmarks/FsusBlog.Core.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/Ops/">
+    <Project Path="ops/docker/docker-compose.dcproj">
+      <Build />
+    </Project>
+    <File Path="ops/docker/docker-compose.yml" />
+    <File Path="ops/docker/docker-compose.dev.yml" />
+    <File Path="ops/docker/docker-compose.local-proxy.yml" />
+    <File Path="ops/docker/FsusBlog.Server.Dockerfile" />
+  </Folder>
+  <Folder Name="/Docs/">
+    <File Path="docs/architecture.md" />
+    <File Path="docs/api/contracts.md" />
+    <File Path="docs/api/design.md" />
+    <File Path="docs/security.md" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+    <File Path="AGENTS.md" />
+    <File Path="FsusBlog.slnLaunch" />
+    <File Path="Directory.Build.props" />
+    <File Path=".dockerignore" />
+    <File Path=".gitignore" />
+  </Folder>
 </Solution>

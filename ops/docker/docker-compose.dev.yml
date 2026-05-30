@@ -1,0 +1,37 @@
+# FsusBlog 开发环境覆盖配置 (修订日期: 2026-03-01)
+# 逻辑自洽说明: 贯彻极简主义，彻底剥离开发环境的前端容器负担。
+# 前端将在宿主机原生运行实现毫秒级 HMR，后端在此处由 dotnet watch 启动专注于 API 调试。
+services:
+  # 后端 API 调试配置
+  fsusblog.server:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=1
+      - DOTNET_WATCH_SUPPRESS_BROWSER_REFRESH=1
+      - HOME=/tmp/fsusblog-dev
+      - DOTNET_CLI_HOME=/tmp/fsusblog-dev
+      - NUGET_PACKAGES=/tmp/fsusblog-dev/.nuget/packages
+      - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev
+      - ConnectionStrings__Redis=host.docker.internal:6379,abortConnect=false,connectTimeout=10000
+      - RedisOptions__Configuration=host.docker.internal:6379,abortConnect=false,connectTimeout=10000
+      - CORS_ALLOWED_HOSTS=http://localhost:3000,http://127.0.0.1:3000
+      - Seo__BaseUrl=http://127.0.0.1:3000
+    volumes:
+      - ../../:/workspace
+      - ~/.aspnet/https:/https:ro
+    working_dir: /workspace/src/backend/FsusBlog.Server
+    command: ["dotnet", "watch", "--non-interactive", "run", "--project", "FsusBlog.Server.csproj", "--urls", "http://0.0.0.0:5000"]
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "5000:5000"
+
+  # =========================================================================
+  #[修改日期 2026-03-01]
+  # 物理剔除：原 fsusblog.client (前端 UI 调试容器) 已被完全移除。
+  # 修改理由：
+  # 1. 避免寻找已删除的 src/frontend/Dockerfile 导致引擎崩溃。
+  # 2. 彻底消灭 WSL2/Docker 的跨文件系统 I/O 损耗，节约数 GB 开发内存。
+  # =========================================================================

@@ -1,0 +1,54 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { FrameType } from '@wasm/protocol/frame'
+
+vi.mock('@/services/binaryTransport', () => ({
+  requestBinaryOnly: vi.fn()
+}))
+
+import { requestBinaryOnly } from '@/services/binaryTransport'
+import { getAdminStatsQuery, getRecentCommentStats, getRegionStats, getSiteStatsOverview } from '@/api/stats'
+
+const mockBinary = vi.mocked(requestBinaryOnly)
+
+describe('stats API', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockBinary.mockResolvedValue({ overview: {}, recentComments: [], regions: [] } as never)
+  })
+
+  it('getAdminStatsQuery uses single binary stats frame', async () => {
+    await getAdminStatsQuery()
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/stats',
+      frameType: FrameType.AdminStats
+    }))
+  })
+
+  it('getSiteStatsOverview maps overview from binary stats query', async () => {
+    const overview = { summary: {}, popularArticles: [] }
+    mockBinary.mockResolvedValueOnce({ overview, recentComments: [], regions: [] } as never)
+
+    await expect(getSiteStatsOverview()).resolves.toBe(overview)
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/stats',
+      frameType: FrameType.AdminStats
+    }))
+  })
+
+  it('getRecentCommentStats uses binary recent comments frame', async () => {
+    await getRecentCommentStats()
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/stats/recent-comments',
+      frameType: FrameType.RecentCommentStats
+    }))
+  })
+
+  it('getRegionStats uses binary region frame', async () => {
+    await getRegionStats()
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/stats/regions',
+      frameType: FrameType.RegionStats
+    }))
+  })
+
+})

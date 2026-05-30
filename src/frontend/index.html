@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <script type="module" src="/src/bootstrap/preTheme.ts"></script>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="/feed/rss.xml" />
+    <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/feed/atom.xml" />
+    <link rel="alternate" type="application/feed+json" title="JSON Feed" href="/feed/feed.json" />
+    <link rel="stylesheet" href="/src/assets/public-shell-critical.css" data-fsusblog-style="public-shell-critical" />
+    <link rel="stylesheet" href="/src/assets/tailwind.css" data-fsusblog-style="tailwind" />
+    <link rel="stylesheet" href="/src/assets/markdown.css" data-fsusblog-style="markdown" />
+    <link rel="stylesheet" href="/src/assets/public-page.css" data-fsusblog-style="public-page" />
+    <title>Loading...</title>
+
+    <style>
+      /* FsusUI 2026: The Intellectual Minimalist - Baseline CSS */
+      :root {
+        --fsusblog-page-bg: Canvas;
+        --fsusblog-text-primary: CanvasText;
+        --fsusblog-text-muted: GrayText;
+        --fsusblog-panel-border: ButtonBorder;
+        --fsusblog-loader-accent: var(--fsusblog-color-primary, var(--fsus-scholarly-blue, Highlight));
+      }
+
+      html.dark,
+      html[data-theme-resolved='dark'] {
+        --fsusblog-page-bg: Canvas;
+        --fsusblog-text-primary: CanvasText;
+        --fsusblog-text-muted: GrayText;
+        --fsusblog-panel-border: ButtonBorder;
+      }
+
+      html,
+      body {
+        background: var(--fsusblog-page-bg);
+        color: var(--fsusblog-text-primary);
+        margin: 0;
+        padding: 0;
+        font-family: "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
+      }
+
+      /* Global Loader: Swiss Grid Editorial Style */
+      #global-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background-color: var(--fsusblog-page-bg);
+        display: flex;
+        flex-direction: column;
+        transition: opacity var(--fsus-motion-control-fast, 160ms) var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));
+      }
+
+      #global-loader[hidden] {
+        display: none;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .loader-grid-context {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 4rem 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      .loader-header-line {
+        height: 1px;
+        background: var(--fsusblog-panel-border);
+        width: 100%;
+        margin-bottom: 4rem;
+        transform-origin: left;
+        animation: line-grow calc(var(--fsus-motion-panel, 420ms) * 3) var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1)) forwards;
+      }
+
+      .loader-branding {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .loader-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: 0;
+        color: var(--fsusblog-text-primary);
+      }
+
+      .loader-dot {
+        width: 6px;
+        height: 6px;
+        background: var(--fsusblog-loader-accent);
+        border-radius: 50%;
+        animation: pulse-dot calc(var(--fsus-motion-panel, 420ms) * 5) infinite;
+      }
+
+      .loader-status-group {
+        margin-top: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .loader-text {
+        font-family: ui-monospace, monospace;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0;
+        color: var(--fsusblog-text-muted);
+        text-transform: uppercase;
+      }
+
+      .loader-bar-bg {
+        width: 48px;
+        height: 1px;
+        background-color: var(--fsusblog-panel-border);
+        overflow: hidden;
+        position: relative;
+      }
+
+      .loader-bar-active {
+        position: absolute;
+        inset: 0;
+        background-color: var(--fsusblog-text-primary);
+        animation: slide-bar calc(var(--fsus-motion-panel, 420ms) * 4) var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1)) infinite;
+      }
+
+      @keyframes line-grow {
+        from { transform: scaleX(0); }
+        to { transform: scaleX(1); }
+      }
+
+      @keyframes pulse-dot {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.8); }
+      }
+
+      @keyframes slide-bar {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+
+      /* Base shell styles for hydration transition */
+      #app:empty {
+        background: var(--fsusblog-page-bg);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #global-loader,
+        #global-loader *,
+        #global-loader *::before,
+        #global-loader *::after {
+          animation: none !important;
+          scroll-behavior: auto !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+
+    <nav hidden aria-hidden="true">
+      <a href="/">Home</a>
+    </nav>
+
+    <div id="global-loader" hidden aria-hidden="true">
+      <div class="loader-grid-context">
+        <div class="loader-header-line"></div>
+        <div class="loader-branding">
+          <span class="loader-title">FsusBlog</span>
+          <div class="loader-dot"></div>
+        </div>
+        <div class="loader-status-group">
+          <span class="loader-text">Initializing Engine</span>
+          <div class="loader-bar-bg">
+            <div class="loader-bar-active"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="app"></div>
+    <script type="module" src="/src/bootstrap/entry.ts"></script>
+  </body>
+</html>

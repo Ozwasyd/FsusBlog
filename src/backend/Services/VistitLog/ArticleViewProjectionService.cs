@@ -1,0 +1,35 @@
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Interfaces;
+
+namespace FsusBlog.Server.Services.VistitLog;
+
+public interface IArticleViewProjectionService
+{
+    Task ApplyAsync(IReadOnlyList<VisitLog> batch, CancellationToken cancellationToken);
+}
+
+public sealed class ArticleViewProjectionService(
+    IArticleService articleService,
+    ICacheInvalidationDispatcher dispatcher) : IArticleViewProjectionService
+{
+    public async Task ApplyAsync(IReadOnlyList<VisitLog> batch, CancellationToken cancellationToken)
+    {
+        var articleCounts = batch
+            .Where(static item => item.EventType == HumanReadEventTypes.ArticleRead && item.ArticleId is > 0)
+            .GroupBy(static item => item.ArticleId!.Value)
+            .Select(static group => (ArticleId: group.Key, Count: group.Count()))
+            .ToArray();
+        if (articleCounts.Length == 0)
+        {
+            return;
+        }
+
+        foreach ((int articleId, int count) in articleCounts)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await articleService.IncreaseViewCountAsync(articleId, count);
+            await dispatcher.InvalidateArticleViewAsync(articleId, cancellationToken);
+        }
+    }
+}

@@ -1,0 +1,157 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { FrameType } from '@wasm/protocol/frame'
+
+vi.mock('@/services/binaryTransport', () => ({
+  requestBinaryOnly: vi.fn()
+}))
+
+import { requestBinaryOnly } from '@/services/binaryTransport'
+import {
+  getArticles,
+  getArticleById,
+  getFeaturedArticles,
+  getHotArticles,
+  createArticle,
+  updateArticle,
+  deleteArticle,
+  restoreArticle,
+  permanentDeleteArticle
+} from '@/api/article'
+
+const mockBinary = vi.mocked(requestBinaryOnly)
+
+describe('article API (binary)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockBinary.mockResolvedValue({} as never)
+  })
+
+  it('getArticles calls requestBinaryOnly with default params', async () => {
+    await getArticles({})
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: expect.stringContaining('/api/binary/article'),
+    }))
+    const call = mockBinary.mock.calls[0][0]
+    expect(call.binaryUrl).toContain('page=1')
+    expect(call.binaryUrl).toContain('size=10')
+  })
+
+  it('getArticles applies categoryId filter', async () => {
+    await getArticles({ categoryId: 5 })
+    const call = mockBinary.mock.calls[0][0]
+    expect(call.binaryUrl).toContain('categoryId=5')
+  })
+
+  it('getArticles applies tagId filter', async () => {
+    await getArticles({ tagId: 3, page: 2 })
+    const call = mockBinary.mock.calls[0][0]
+    expect(call.binaryUrl).toContain('tagId=3')
+    expect(call.binaryUrl).toContain('page=2')
+  })
+
+  it('getArticleById calls binary detail endpoint', async () => {
+    await getArticleById(42)
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/article/42',
+      frameType: expect.any(Number)
+    }))
+  })
+
+  it('getHotArticles calls requestBinaryOnly with size param', async () => {
+    await getHotArticles(5)
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/article/hot?size=5'
+    }))
+  })
+
+  it('getHotArticles uses default size 10', async () => {
+    await getHotArticles()
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/article/hot?size=10'
+    }))
+  })
+
+  it('getFeaturedArticles calls binary featured endpoint', async () => {
+    await getFeaturedArticles(4)
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/article/featured?size=4',
+      frameType: expect.any(Number)
+    }))
+  })
+})
+
+describe('article API (admin)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockBinary.mockResolvedValue({} as never)
+  })
+
+  it('createArticle calls POST /Article with requiresPow', async () => {
+    const data = { title: 'T', content: 'C', summary: 'S', categoryId: 1, tagIds: [] }
+    await createArticle(data)
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/article',
+      frameType: FrameType.MutationId,
+      requestOptions: expect.objectContaining({
+        method: 'POST',
+        requiresPow: true,
+        body: expect.any(ArrayBuffer)
+      })
+    }))
+  })
+
+  it('updateArticle calls PUT /Article/:id', async () => {
+    const data = { title: 'T', content: 'C', summary: 'S', categoryId: 1, tagIds: [] }
+    await updateArticle(10, data)
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/article/10',
+      frameType: FrameType.MutationId,
+      requestOptions: expect.objectContaining({
+        method: 'PUT',
+        requiresPow: true,
+        body: expect.any(ArrayBuffer)
+      })
+    }))
+  })
+
+  it('deleteArticle calls DELETE /Article/:id', async () => {
+    await deleteArticle(10)
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/article/10',
+      frameType: FrameType.EmptySuccess,
+      requestOptions: expect.objectContaining({
+        method: 'DELETE',
+        requiresPow: true
+      })
+    }))
+  })
+
+  it('restoreArticle calls PUT /Article/restore/:id', async () => {
+    await restoreArticle(5)
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/article/restore/5',
+      frameType: FrameType.EmptySuccess,
+      requestOptions: expect.objectContaining({
+        method: 'PUT',
+        requiresPow: true
+      })
+    }))
+  })
+
+  it('permanentDeleteArticle calls DELETE /Article/permanent/:id', async () => {
+    await permanentDeleteArticle(7)
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/article/permanent/7',
+      frameType: FrameType.EmptySuccess,
+      requestOptions: expect.objectContaining({
+        method: 'DELETE',
+        requiresPow: true
+      })
+    }))
+  })
+
+  it('does not export client AOT bundle upload APIs', async () => {
+    const articleApi = await import('@/api/article')
+    expect('uploadArticleAotBundle' in articleApi).toBe(false)
+  })
+})

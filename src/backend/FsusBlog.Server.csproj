@@ -1,0 +1,112 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<TieredCompilation>true</TieredCompilation>
+		<TieredPGO>true</TieredPGO>
+		<ServerGarbageCollection>true</ServerGarbageCollection>
+		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+		<SpaRoot>..\..\frontend</SpaRoot>
+		<SpaProxyLaunchCommand>npm run dev:debug</SpaProxyLaunchCommand>
+		<SpaProxyServerUrl>http://127.0.0.1:3000</SpaProxyServerUrl>
+		<DockerComposeProjectPath>..\..\..\ops\docker\docker-compose.dcproj</DockerComposeProjectPath>
+		<OpenApiGenerateDocumentsOnBuild>false</OpenApiGenerateDocumentsOnBuild>
+		<SwaggerAdminEnable>false</SwaggerAdminEnable>
+		<DefaultItemExcludes>$(DefaultItemExcludes);wwwroot\aot-cache\**;wwwroot/aot-cache/**</DefaultItemExcludes>
+
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<ClientProjectDir>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(SpaRoot)'))</ClientProjectDir>
+		<ClientNodeModulesDir>$([MSBuild]::NormalizePath('$(ClientProjectDir)', 'node_modules'))</ClientNodeModulesDir>
+		<ClientDistDir>$([MSBuild]::NormalizePath('$(ClientProjectDir)', 'dist'))</ClientDistDir>
+		<ClientRuntimePublishDir>$([MSBuild]::NormalizePath('$(PublishDir)', 'FsusBlog.ClientRuntime'))</ClientRuntimePublishDir>
+		<ClientWwwRootPublishDir>$([MSBuild]::NormalizePath('$(PublishDir)', 'wwwroot'))</ClientWwwRootPublishDir>
+		<GitHubPackagesToken>$([System.Environment]::GetEnvironmentVariable('GITHUB_PACKAGES_TOKEN'))</GitHubPackagesToken>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<PublishReadyToRun>true</PublishReadyToRun>
+		<ReadyToRunUseCrossgen2>true</ReadyToRunUseCrossgen2>
+	</PropertyGroup>
+
+		<!--[修改日期 2026-03-01] 打破 VS 缓存屏障：将前端源码纳入 MSBuild 监控，保存前端代码即触发增量更新 -->
+	<ItemGroup>
+		<UpToDateCheckInput Include="..\..\frontend\src\**\*" />
+		<UpToDateCheckInput Include="..\..\frontend\package.json" />
+		<UpToDateCheckInput Include="..\..\frontend\vite.config.ts" />
+		<UpToDateCheckInput Include="..\..\frontend\index.html" />
+	</ItemGroup>
+
+	<!-- 核心修复 (修订日期: 2026-02-22)：使用 Content Include 批量匹配，确保发布时字典文件绝对不会遗漏 -->
+	<ItemGroup>
+		<Content Include="Dictionaries\**\*.txt">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
+		<PackageReference Include="Fido2" Version="4.0.1" />
+		<PackageReference Include="IP2Location.IPGeolocation" Version="9.1.1" />
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.7" />
+		<PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.7">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.7" />
+		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.23.0" />
+		<PackageReference Include="Npgsql.OpenTelemetry" Version="10.0.2" />
+		<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+		<PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+		<PackageReference Include="Serilog" Version="4.3.1" />
+		<PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+		<PackageReference Include="Serilog.Sinks.Async" Version="2.1.0" />
+		<PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+		<PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+		<PackageReference Include="SqlSugarCore" Version="5.1.4.214" />
+	</ItemGroup>
+
+	<ItemGroup>
+				<ProjectReference Include="..\core\FsusBlog.Core.csproj" />
+				<ProjectReference Include="..\shared\FsusBlog.Shared.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Update="wwwroot\resources\IP2LOCATION.BIN">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+		<Target Name="EnsureClientDependenciesForPublish" BeforeTargets="Publish" Condition="'$(Configuration)' == 'Release' and '$(SkipClientDependenciesForPublish)' != 'true'">
+		<Error Condition="!Exists('$(ClientNodeModulesDir)') and '$(GitHubPackagesToken)' == ''" Text="GITHUB_PACKAGES_TOKEN is required for Visual Studio release publish when FsusBlog.Client/node_modules is missing." />
+		<Exec Condition="!Exists('$(ClientNodeModulesDir)')" WorkingDirectory="$(ClientProjectDir)" Command="npm ci --no-audit --progress=false" />
+	</Target>
+
+		<Target Name="BuildClientReleaseAssets" BeforeTargets="Publish" Condition="'$(Configuration)' == 'Release' and '$(SkipClientReleaseBuild)' != 'true'">
+		<Exec WorkingDirectory="$(ClientProjectDir)" Command="npm run build:release" />
+	</Target>
+
+		<Target Name="CopyClientReleaseArtifacts" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release' and '$(SkipClientReleaseArtifactCopy)' != 'true'">
+		<ItemGroup>
+			<ClientDistFiles Include="$(ClientDistDir)\**\*.*" />
+			<ClientRuntimeFiles Include="$(ClientProjectDir)\**\*.*" Exclude="&#xA;									$(ClientDistDir)\**\*;&#xA;									$(ClientProjectDir)\.vite\**\*;&#xA;									$(ClientProjectDir)\dist-ssr\**\*;&#xA;									$(ClientProjectDir)\coverage\**\*;&#xA;									$(ClientProjectDir)\wasm\build\**\*;&#xA;									$(ClientProjectDir)\wasm\build-basic\**\*;&#xA;									$(ClientProjectDir)\wasm\build-simd\**\*;&#xA;									$(ClientProjectDir)\wasm\.artifacts\**\*;&#xA;									$(ClientProjectDir)\wasm\.cmake\**\*;&#xA;									$(ClientProjectDir)\wasm\.emscripten-cache\**\*" />
+		</ItemGroup>
+
+		<RemoveDir Directories="$(ClientWwwRootPublishDir)" />
+		<MakeDir Directories="$(ClientWwwRootPublishDir)" />
+		<Copy SourceFiles="@(ClientDistFiles)" DestinationFiles="@(ClientDistFiles->'$(ClientWwwRootPublishDir)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+
+		<RemoveDir Directories="$(ClientRuntimePublishDir)" />
+		<MakeDir Directories="$(ClientRuntimePublishDir)" />
+		<Copy SourceFiles="@(ClientRuntimeFiles)" DestinationFiles="@(ClientRuntimeFiles->'$(ClientRuntimePublishDir)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+	</Target>
+
+</Project>

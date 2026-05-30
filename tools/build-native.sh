@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CLIENT_DIR="${ROOT_DIR}/FsusBlog.Client"
-SERVER_PROJ="${ROOT_DIR}/FsusBlog.Server/FsusBlog.Server.csproj"
+CLIENT_DIR="${ROOT_DIR}/src/frontend"
+SERVER_PROJ="${ROOT_DIR}/src/backend/FsusBlog.Server.csproj"
 TARGET_RUNTIME="${FSUSBLOG_NATIVE_RUNTIME:-linux-musl-x64}"
 BUILD_CONFIGURATION="${FSUSBLOG_NATIVE_CONFIGURATION:-Release}"
 BUILD_CONFIGURATION_LOWER="$(printf '%s' "${BUILD_CONFIGURATION}" | tr '[:upper:]' '[:lower:]')"

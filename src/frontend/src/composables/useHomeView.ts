@@ -1,0 +1,343 @@
+import { computed, onMounted, ref, watch, onUnmounted } from 'vue'
+import { getArticles, getFeaturedArticles, getHotArticles, type ArticleListItemResponse, type FeaturedArticleItem, type PopularArticleSummaryResponse } from '@/api/article'
+import { toBootstrapArticleListItem } from '@/bootstrap/publicAotBootstrap'
+import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
+import { useSiteStore } from '@/store/site'
+import { useSseStore } from '@/store/sse'
+import { useAbortableTask } from '@/composables/useAbortableTask'
+import { usePagedListState } from '@/composables/usePagedListState'
+import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
+import { upsertArticlePreview, removeArticlePreview } from '@/services/sseArticlePatch'
+import type { ArticleUpdatePayload, SseArticleRenderPatch } from '@/services/sseTypes'
+import { isAbortError } from '@/utils/errors'
+import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
+import { createArticleListViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList'
+import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
+
+export function useHomeView() {
+  const siteStore = useSiteStore()
+  const sseStore = useSseStore()
+  const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Home')
+  const initialHydrationView = initialHydrationPayload?.view ?? null
+  const hasServerHydrationView = Boolean(initialHydrationView)
+  const initialSiteTitleText = initialHydrationPayload?.siteTitle?.trim()
+    || initialBootstrap?.siteTitle?.trim()
+    || `Fsu's Blog`
+  const initialSiteDescriptionText = initialHydrationPayload?.siteDescription?.trim()
+    || initialBootstrap?.siteDescription?.trim()
+    || '记录技术与生活'
+
+  const articleItems = ref<ArticleListItemResponse[]>([])
+  const featuredArticles = ref<FeaturedArticleItem[]>([])
+  const hotArticles = ref<PopularArticleSummaryResponse[]>([])
+  const featuredLoading = ref(!hasServerHydrationView)
+  const initialViewItems = ref<readonly ArticleListCardViewContract[] | null>(
+    initialHydrationView && Array.isArray(initialHydrationView.items)
+      ? initialHydrationView.items
+      : null
+  )
+  const mapArticleCards = createStableArticleCardMapper()
+  const {
+    currentPage,
+    pageSize,
+    total,
+    totalPages,
+    loading,
+    error,
+    beginLoading,
+    endLoading,
+    setError,
+    setPageTotal
+  } = usePagedListState({ pageSize: 10 })
+  const isError = computed(() => error.value !== null)
+  const siteTitleText = computed(() =>
+    siteStore.isLoaded ? siteStore.siteInfo.title : initialSiteTitleText
+  )
+  const pageIndicatorText = computed(() => `${currentPage.value} / ${totalPages.value}`)
+  const articles = computed<ArticleListCardViewContract[]>(() =>
+    initialViewItems.value
+      ? [...initialViewItems.value]
+      : mapArticleCards(articleItems.value)
+  )
+  const listView = computed(() =>
+    initialViewItems.value && initialHydrationView
+      ? {
+          ...initialHydrationView,
+          items: [...initialViewItems.value],
+          pagination: {
+            ...initialHydrationView.pagination
+          }
+        }
+      : createArticleListViewContract(
+          {
+            items: articleItems.value,
+            total: total.value
+          },
+          {
+            currentPage: currentPage.value,
+            pageSize: pageSize.value
+          }
+        )
+  )
+  const canGoPrev = computed(() => currentPage.value > 1 && !loading.value)
+  const canGoNext = computed(() => currentPage.value < totalPages.value && !loading.value)
+
+  const articleTask = useAbortableTask()
+  const featuredTask = useAbortableTask()
+  let featuredDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+  const lifecycle = usePublicPageLifecycle({
+    onDispose: () => {
+      articleTask.cancel()
+      featuredTask.cancel()
+      if (featuredDebounceTimer) {
+        clearTimeout(featuredDebounceTimer)
+      }
+    }
+  })
+
+  if (initialBootstrap) {
+    articleItems.value = initialBootstrap.articles.map((article) => toBootstrapArticleListItem(article))
+    setPageTotal(Number(initialBootstrap.total) || 0)
+  }
+  if (initialHydrationView) {
+    currentPage.value = Math.max(1, Number(initialHydrationPayload?.currentPage) || 1)
+    pageSize.value = Math.max(1, Number(initialHydrationPayload?.pageSize) || pageSize.value)
+    setPageTotal(Number(initialHydrationPayload?.total) || 0)
+  }
+
+  const handlePageChange = (page: number): void => {
+    if (page < 1 || page > totalPages.value || loading.value) {
+      return
+    }
+    currentPage.value = page
+    void loadArticles()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const loadArticles = async (showLoading = true): Promise<void> => {
+    if (showLoading) {
+      beginLoading()
+    } else {
+      error.value = null
+    }
+
+    try {
+      const response = await articleTask.run(
+        async (signal) =>
+          await getArticles(
+            {
+              page: currentPage.value,
+              size: pageSize.value
+            },
+            { signal }
+          )
+      )
+
+      if (lifecycle.isActive() && response) {
+        if (Array.isArray(response.items)) {
+          initialViewItems.value = null
+          articleItems.value = response.items
+          setPageTotal(Number(response.total) || 0)
+          error.value = null
+        } else {
+          throw createAppError(AppErrorCode.ProtocolFailure, 'home_articles_response_invalid')
+        }
+      }
+    } catch (caught: unknown) {
+      if (isAbortError(caught)) {
+        return
+      }
+
+      if (lifecycle.isActive()) {
+        const normalized = toAppError(caught, 'home_articles_load_failed')
+        console.error('[Home] Data loading error:', normalized.message)
+        setError(normalized.code === AppErrorCode.ProtocolFailure ? '数据结构异常' : '数据加载异常')
+        articleItems.value = []
+        setPageTotal(0)
+      }
+    } finally {
+      if (lifecycle.isActive() && showLoading) {
+        endLoading()
+      }
+    }
+  }
+
+  const loadFeaturedArticles = async (showLoading = true): Promise<void> => {
+    if (showLoading) {
+      featuredLoading.value = true
+    }
+
+    try {
+      const [featured, hot] = await featuredTask.run(
+        async (signal) => await Promise.all([
+          getFeaturedArticles(3, { signal }),
+          getHotArticles(8, { signal }) // 多取一点用于去重
+        ])
+      )
+
+      if (lifecycle.isActive()) {
+        featuredArticles.value = featured || []
+
+        // 去重逻辑：如果文章已经出现在精选位，则不再出现在热门排行中
+        const featuredIds = new Set(featuredArticles.value.map(a => a.id))
+        hotArticles.value = (hot || [])
+          .filter(a => !featuredIds.has(a.id))
+          .slice(0, 5)
+      }
+    } catch (caught: unknown) {
+      if (isAbortError(caught)) {
+        return
+      }
+      console.error('[Home] Featured articles load error:', caught)
+    } finally {
+      if (lifecycle.isActive()) {
+        featuredLoading.value = false
+      }
+    }
+  }
+
+  const dispatchFeaturedUpdate = (): void => {
+    if (featuredDebounceTimer) {
+      clearTimeout(featuredDebounceTimer)
+    }
+
+    featuredDebounceTimer = setTimeout(() => {
+      void loadFeaturedArticles(false)
+      featuredDebounceTimer = null
+    }, 500)
+  }
+
+  const dispatchListUpdate = (): void => {
+    lifecycle.scheduleSync(() => {
+      void loadArticles(false)
+    })
+  }
+
+  const applyArticlePatch = (payload: ArticleUpdatePayload): boolean => {
+    const exists = articleItems.value.some((article) => article.id === payload.articleId)
+
+    if (payload.action === 'Created' || payload.action === 'Restored') {
+      if (!payload.preview) {
+        return false
+      }
+
+      if (!exists) {
+        setPageTotal(total.value + 1)
+      }
+
+      if (currentPage.value === 1) {
+        initialViewItems.value = null
+        articleItems.value = upsertArticlePreview(articleItems.value, payload.preview).slice(0, pageSize.value)
+      }
+
+      return true
+    }
+
+    if (payload.action === 'Updated') {
+      if (!exists || !payload.preview) {
+        return false
+      }
+
+      articleItems.value = upsertArticlePreview(articleItems.value, payload.preview)
+      initialViewItems.value = null
+      return true
+    }
+
+    if (!exists) {
+      return false
+    }
+
+    articleItems.value = removeArticlePreview(articleItems.value, payload.articleId)
+    initialViewItems.value = null
+    setPageTotal(Math.max(0, total.value - 1))
+    return currentPage.value === 1 && articleItems.value.length >= pageSize.value
+  }
+
+  const handleArticleBatch = (patches: readonly SseArticleRenderPatch[]): void => {
+    let needsSync = false
+    let needsFeaturedSync = false
+
+    for (const patch of patches) {
+      if (patch.kind === 'reconnected') {
+        needsSync = true
+        needsFeaturedSync = true
+        continue
+      }
+
+      if (!patch.event) {
+        needsSync = true
+        needsFeaturedSync = true
+        continue
+      }
+
+      const action = patch.event.payload.action
+      if (action === 'Created' || action === 'Deleted' || action === 'Restored' || action === 'Updated') {
+        needsFeaturedSync = true
+      }
+
+      if (!applyArticlePatch(patch.event.payload)) {
+        needsSync = true
+      }
+    }
+
+    if (needsSync && lifecycle.isActive()) {
+      dispatchListUpdate()
+    }
+
+    if (needsFeaturedSync && lifecycle.isActive()) {
+      dispatchFeaturedUpdate()
+    }
+  }
+
+  watch(
+    () => sseStore.articleRevision,
+    () => {
+      if (!lifecycle.isActive()) {
+        return
+      }
+
+      handleArticleBatch(sseStore.articleBatch)
+    }
+  )
+
+  onMounted(() => {
+    // Defer featured articles loading significantly to avoid hydration mismatch
+    // Featured data should not change during hydration phase
+    setTimeout(() => {
+      void loadFeaturedArticles(!hasServerHydrationView)
+    }, 500)
+
+    if (!initialBootstrap) {
+      void loadArticles()
+    }
+  })
+
+  onUnmounted(() => {
+    if (featuredDebounceTimer) {
+      clearTimeout(featuredDebounceTimer)
+    }
+  })
+
+  return {
+    siteStore,
+    siteTitleText,
+    initialSiteTitleText,
+    initialSiteDescriptionText,
+    listView,
+    articles,
+    featuredArticles,
+    hotArticles,
+    featuredLoading,
+    currentPage,
+    totalPages,
+    loading,
+    isError,
+    pageIndicatorText,
+    canGoPrev,
+    canGoNext,
+    handlePageChange,
+    loadArticles,
+    loadFeaturedArticles
+  }
+}

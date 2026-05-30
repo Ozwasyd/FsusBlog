@@ -1,0 +1,350 @@
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Interfaces;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using NSubstitute;
+
+namespace FsusBlog.Server.Tests;
+
+public sealed class LifecycleHostedBootstrapServiceTests
+{
+    [Fact]
+    public async Task StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string aotCacheDir = CreateAotCacheDir(root, "stale.txt");
+            var runtimeState = new StartupRuntimeState();
+            ServiceProvider services = CreateServices(
+                out ISchemaMigrationRunner migrationRunner,
+                out ISearchIndexService searchIndexService,
+                out ICacheInitializer cacheInitializer);
+            var service = new LifecycleHostedBootstrapService(
+                services,
+                new TestWebHostEnvironment(root),
+                runtimeState,
+                Options.Create(new LifecycleBootstrapOptions()),
+                Substitute.For<ILogger<LifecycleHostedBootstrapService>>());
+
+            await service.StartAsync(CancellationToken.None);
+
+            Assert.True(File.Exists(Path.Combine(aotCacheDir, "stale.txt")));
+            Assert.False(runtimeState.SystemCachesClearedOnStartup);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["schemaMigration"].Status);
+            Assert.Equal("non_compensable", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
+            Assert.Equal("skipped", runtimeState.GetStartupTasks()["bootstrapRollback"].Status);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["searchIndex"].Status);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["cacheInitializer"].Status);
+            Assert.Equal("no_entries", runtimeState.GetStartupTasks()["cacheInitializer"].Detail);
+            Assert.Equal("skipped", runtimeState.GetStartupTasks()["aotDiskCache"].Status);
+            Assert.Equal("disabled", runtimeState.GetStartupTasks()["aotDiskCache"].Detail);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["bootstrap"].Status);
+            await migrationRunner.Received(1).RunAsync(Arg.Any<CancellationToken>());
+            await searchIndexService.Received(1).BuildIndexAsync(Arg.Is<List<FsusBlog.Server.Entities.Article>>(items => items.Count == 0));
+            await cacheInitializer.Received(1).InitializeAsync();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_ClearsAotDiskCache_WhenOptionEnabled()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string aotCacheDir = CreateAotCacheDir(root, "stale.txt");
+            var runtimeState = new StartupRuntimeState();
+            ServiceProvider services = CreateServices(
+                out ISchemaMigrationRunner migrationRunner,
+                out ISearchIndexService searchIndexService,
+                out ICacheInitializer cacheInitializer);
+            var service = new LifecycleHostedBootstrapService(
+                services,
+                new TestWebHostEnvironment(root),
+                runtimeState,
+                Options.Create(new LifecycleBootstrapOptions { ClearAotDiskCacheOnStartup = true }),
+                Substitute.For<ILogger<LifecycleHostedBootstrapService>>());
+
+            await service.StartAsync(CancellationToken.None);
+
+            Assert.True(Directory.Exists(aotCacheDir));
+            Assert.Empty(Directory.GetFileSystemEntries(aotCacheDir));
+            Assert.True(runtimeState.SystemCachesClearedOnStartup);
+            Assert.Equal("skipped", runtimeState.GetStartupTasks()["bootstrapRollback"].Status);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["aotDiskCache"].Status);
+            Assert.Equal("cleared", runtimeState.GetStartupTasks()["aotDiskCache"].Detail);
+            Assert.Equal("non_compensable", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
+            Assert.Equal("no_entries", runtimeState.GetStartupTasks()["cacheInitializer"].Detail);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["bootstrap"].Status);
+            await migrationRunner.Received(1).RunAsync(Arg.Any<CancellationToken>());
+            await searchIndexService.Received(1).BuildIndexAsync(Arg.Is<List<FsusBlog.Server.Entities.Article>>(items => items.Count == 0));
+            await cacheInitializer.Received(1).InitializeAsync();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_RestoresAotDiskCache_WhenLaterTaskFails()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string aotCacheDir = CreateAotCacheDir(root, "stale.txt");
+            var runtimeState = new StartupRuntimeState();
+            ServiceProvider services = CreateServices(
+                out ISchemaMigrationRunner migrationRunner,
+                out ISearchIndexService searchIndexService,
+                out ICacheInitializer cacheInitializer,
+                failCacheInitializer: true);
+            var service = new LifecycleHostedBootstrapService(
+                services,
+                new TestWebHostEnvironment(root),
+                runtimeState,
+                Options.Create(new LifecycleBootstrapOptions { ClearAotDiskCacheOnStartup = true }),
+                Substitute.For<ILogger<LifecycleHostedBootstrapService>>());
+
+            await service.StartAsync(CancellationToken.None);
+
+            Assert.True(File.Exists(Path.Combine(aotCacheDir, "stale.txt")));
+            Assert.False(runtimeState.SystemCachesClearedOnStartup);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["schemaMigration"].Status);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["searchIndex"].Status);
+            Assert.Equal("failed", runtimeState.GetStartupTasks()["cacheInitializer"].Status);
+            Assert.Equal("InvalidOperationException", runtimeState.GetStartupTasks()["cacheInitializer"].Detail);
+            Assert.Equal("rolled_back", runtimeState.GetStartupTasks()["aotDiskCache"].Status);
+            Assert.Equal("restored_after_failure", runtimeState.GetStartupTasks()["aotDiskCache"].Detail);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["bootstrapRollback"].Status);
+            Assert.Equal("restored:1", runtimeState.GetStartupTasks()["bootstrapRollback"].Detail);
+            Assert.Equal("failed", runtimeState.GetStartupTasks()["bootstrap"].Status);
+            Assert.Equal("InvalidOperationException", runtimeState.GetStartupTasks()["bootstrap"].Detail);
+            await migrationRunner.Received(1).RunAsync(Arg.Any<CancellationToken>());
+            await searchIndexService.Received(1).BuildIndexAsync(Arg.Is<List<FsusBlog.Server.Entities.Article>>(items => items.Count == 0));
+            await cacheInitializer.Received(1).InitializeAsync();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_RestoresSearchIndexArtifacts_WhenLaterTaskFails()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string searchRoot = CreateSearchIndexDir(root, "stale.manifest", "old-index");
+            var runtimeState = new StartupRuntimeState();
+            ServiceProvider services = CreateServices(
+                out ISchemaMigrationRunner migrationRunner,
+                out ISearchIndexService searchIndexService,
+                out ICacheInitializer cacheInitializer,
+                failCacheInitializer: true);
+            searchIndexService.BuildIndexAsync(Arg.Any<List<FsusBlog.Server.Entities.Article>>()).Returns(_ =>
+            {
+                Directory.CreateDirectory(searchRoot);
+                File.WriteAllText(Path.Combine(searchRoot, "fresh.manifest"), "new-index");
+                return Task.CompletedTask;
+            });
+
+            var service = new LifecycleHostedBootstrapService(
+                services,
+                new TestWebHostEnvironment(root),
+                runtimeState,
+                Options.Create(new LifecycleBootstrapOptions()),
+                Substitute.For<ILogger<LifecycleHostedBootstrapService>>());
+
+            await service.StartAsync(CancellationToken.None);
+
+            Assert.True(File.Exists(Path.Combine(searchRoot, "stale.manifest")));
+            Assert.False(File.Exists(Path.Combine(searchRoot, "fresh.manifest")));
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["schemaMigration"].Status);
+            Assert.Equal("rolled_back", runtimeState.GetStartupTasks()["searchIndex"].Status);
+            Assert.Equal("restored_after_failure", runtimeState.GetStartupTasks()["searchIndex"].Detail);
+            Assert.Equal("failed", runtimeState.GetStartupTasks()["cacheInitializer"].Status);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["bootstrapRollback"].Status);
+            Assert.Equal("restored:1", runtimeState.GetStartupTasks()["bootstrapRollback"].Detail);
+            Assert.Equal("failed", runtimeState.GetStartupTasks()["bootstrap"].Status);
+            await migrationRunner.Received(1).RunAsync(Arg.Any<CancellationToken>());
+            await searchIndexService.Received(1).BuildIndexAsync(Arg.Is<List<FsusBlog.Server.Entities.Article>>(items => items.Count == 0));
+            await cacheInitializer.Received(1).InitializeAsync();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_KeepsExistingSearchArtifactsVisible_DuringSearchIndexBuild()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string searchRoot = CreateSearchIndexDir(root, "index.manifest.aeds", "stale-manifest");
+            var runtimeState = new StartupRuntimeState();
+            ServiceProvider services = CreateServices(
+                out ISchemaMigrationRunner migrationRunner,
+                out ISearchIndexService searchIndexService,
+                out ICacheInitializer cacheInitializer);
+
+            searchIndexService.BuildIndexAsync(Arg.Any<List<FsusBlog.Server.Entities.Article>>()).Returns(_ =>
+            {
+                Assert.True(File.Exists(Path.Combine(searchRoot, "index.manifest.aeds")));
+                return Task.CompletedTask;
+            });
+
+            var service = new LifecycleHostedBootstrapService(
+                services,
+                new TestWebHostEnvironment(root),
+                runtimeState,
+                Options.Create(new LifecycleBootstrapOptions()),
+                Substitute.For<ILogger<LifecycleHostedBootstrapService>>());
+
+            await service.StartAsync(CancellationToken.None);
+
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["searchIndex"].Status);
+            await migrationRunner.Received(1).RunAsync(Arg.Any<CancellationToken>());
+            await searchIndexService.Received(1).BuildIndexAsync(Arg.Is<List<FsusBlog.Server.Entities.Article>>(items => items.Count == 0));
+            await cacheInitializer.Received(1).InitializeAsync();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_StopsRemainingTasks_WhenSchemaMigrationFails()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string aotCacheDir = CreateAotCacheDir(root, "stale.txt");
+            var runtimeState = new StartupRuntimeState();
+            ServiceProvider services = CreateServices(
+                out ISchemaMigrationRunner migrationRunner,
+                out ISearchIndexService searchIndexService,
+                out ICacheInitializer cacheInitializer,
+                failMigrationRunner: true);
+            var service = new LifecycleHostedBootstrapService(
+                services,
+                new TestWebHostEnvironment(root),
+                runtimeState,
+                Options.Create(new LifecycleBootstrapOptions { ClearAotDiskCacheOnStartup = true }),
+                Substitute.For<ILogger<LifecycleHostedBootstrapService>>());
+
+            await service.StartAsync(CancellationToken.None);
+
+            Assert.True(File.Exists(Path.Combine(aotCacheDir, "stale.txt")));
+            Assert.False(runtimeState.SystemCachesClearedOnStartup);
+
+            IReadOnlyDictionary<string, StartupLifecycleTaskReport> tasks = runtimeState.GetStartupTasks();
+            Assert.Equal("failed", tasks["schemaMigration"].Status);
+            Assert.Equal("InvalidOperationException", tasks["schemaMigration"].Detail);
+            Assert.False(tasks.ContainsKey("aotDiskCache"));
+            Assert.False(tasks.ContainsKey("searchIndex"));
+            Assert.False(tasks.ContainsKey("cacheInitializer"));
+            Assert.Equal("skipped", tasks["bootstrapRollback"].Status);
+            Assert.Equal("none_registered", tasks["bootstrapRollback"].Detail);
+            Assert.Equal("failed", tasks["bootstrap"].Status);
+            Assert.Equal("InvalidOperationException", tasks["bootstrap"].Detail);
+
+            await migrationRunner.Received(1).RunAsync(Arg.Any<CancellationToken>());
+            await searchIndexService.DidNotReceive().BuildIndexAsync(Arg.Any<List<FsusBlog.Server.Entities.Article>>());
+            await cacheInitializer.DidNotReceive().InitializeAsync();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static ServiceProvider CreateServices(
+        out ISchemaMigrationRunner migrationRunner,
+        out ISearchIndexService searchIndexService,
+        out ICacheInitializer cacheInitializer,
+        bool failCacheInitializer = false,
+        bool failMigrationRunner = false)
+    {
+        migrationRunner = Substitute.For<ISchemaMigrationRunner>();
+        migrationRunner.RunAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            if (failMigrationRunner)
+            {
+                throw new InvalidOperationException("migration failed");
+            }
+
+            return Task.CompletedTask;
+        });
+
+        searchIndexService = Substitute.For<ISearchIndexService>();
+        searchIndexService.BuildIndexAsync(Arg.Any<List<FsusBlog.Server.Entities.Article>>()).Returns(Task.CompletedTask);
+
+        cacheInitializer = Substitute.For<ICacheInitializer>();
+        cacheInitializer.InitializeAsync().Returns(_ =>
+        {
+            if (failCacheInitializer)
+            {
+                throw new InvalidOperationException("cache init failed");
+            }
+
+            return Task.FromResult(CacheInitializationResult.Empty);
+        });
+        cacheInitializer.RollbackAsync(Arg.Any<CacheInitializationResult>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        var services = new ServiceCollection();
+        services.AddSingleton(migrationRunner);
+        services.AddSingleton(searchIndexService);
+        services.AddSingleton(cacheInitializer);
+        return services.BuildServiceProvider();
+    }
+
+    private static string CreateTempRoot()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "fsus-lifecycle-bootstrap-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        Directory.CreateDirectory(Path.Combine(root, "wwwroot"));
+        return root;
+    }
+
+    private static string CreateAotCacheDir(string root, string fileName)
+    {
+        string aotCacheDir = Path.Combine(root, "wwwroot", "aot-cache");
+        Directory.CreateDirectory(aotCacheDir);
+        File.WriteAllText(Path.Combine(aotCacheDir, fileName), "stale");
+        return aotCacheDir;
+    }
+
+    private static string CreateSearchIndexDir(string root, string fileName, string content)
+    {
+        string searchRoot = Path.Combine(root, "wwwroot", "search");
+        Directory.CreateDirectory(searchRoot);
+        File.WriteAllText(Path.Combine(searchRoot, fileName), content);
+        return searchRoot;
+    }
+
+    private sealed class TestWebHostEnvironment(string root) : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "FsusBlog.Server";
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string WebRootPath { get; set; } = Path.Combine(root, "wwwroot");
+        public string EnvironmentName { get; set; } = Environments.Development;
+        public string ContentRootPath { get; set; } = root;
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+}

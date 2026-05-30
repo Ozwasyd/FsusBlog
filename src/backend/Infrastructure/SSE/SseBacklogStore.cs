@@ -1,0 +1,270 @@
+using System.Globalization;
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Shared.Contracts.Sse;
+using StackExchange.Redis;
+
+namespace FsusBlog.Server.Infrastructure.Sse;
+
+public sealed class SseBacklogStore(IConnectionMultiplexer redis, IRuntimeKeyScope keyScope, ILogger<SseBacklogStore> logger)
+{
+    private const string SequenceKey = "fsus:sse:v2:sequence";
+    private const string RouteStreamPrefix = "fsus:sse:v2:route:";
+    private const int StreamMaxLength = 4096;
+    private const int MaxReplayEntries = 512;
+
+    private readonly IDatabase _database = redis.GetDatabase();
+
+    public async Task<long> NextEventIdAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return await _database.StringIncrementAsync(keyScope.PrefixKey(SequenceKey)).ConfigureAwait(false);
+    }
+
+    public async Task<Result> AppendAsync(long eventId, string route, SharedSseFrame frame, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            IReadOnlyList<string> storageRoutes = TargetRouteCodec.GetStorageRoutes(route);
+            if (storageRoutes.Count == 0)
+            {
+                return Result.Failure(ErrorCode.Validation, "SSE backlog route invalid");
+            }
+
+            NameValueEntry[] fields = [new("f", frame.BufferMemory)];
+            string streamId = string.Create(CultureInfo.InvariantCulture, $"{eventId}-0");
+            for (int i = 0; i < storageRoutes.Count; i++)
+            {
+                await _database.StreamAddAsync(
+                        RouteStreamKey(storageRoutes[i]),
+                        fields,
+                        streamId,
+                        StreamMaxLength,
+                        useApproximateMaxLength: true)
+                    .ConfigureAwait(false);
+            }
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to append SSE backlog entry. EventId: {EventId}", eventId);
+            return Result.Failure(ErrorCode.InfraFailure, "SSE backlog append failed");
+        }
+    }
+
+    public async Task<SseReplayBatch> ReplayAsync(SseCursor cursor, string? userId, IReadOnlySet<string> groups, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!cursor.HasValue)
+        {
+            return SseReplayBatch.Empty;
+        }
+
+        try
+        {
+            IReadOnlyList<string> replayRoutes = TargetRouteCodec.GetReplayRoutes(userId, groups);
+            string start = string.Create(CultureInfo.InvariantCulture, $"{cursor.Value + 1}-0");
+            bool missedGap = false;
+            List<ReplayEntry> replayEntries = [];
+
+            for (int routeIndex = 0; routeIndex < replayRoutes.Count; routeIndex++)
+            {
+                string streamKey = RouteStreamKey(replayRoutes[routeIndex]);
+                StreamEntry[] first = await _database.StreamRangeAsync(streamKey, count: 1).ConfigureAwait(false);
+                missedGap |= first.Length > 0 && TryParseEventId(first[0].Id, out long firstEventId) && firstEventId > cursor.Value + 1;
+
+                StreamEntry[] entries = await _database.StreamRangeAsync(streamKey, start, "+", MaxReplayEntries).ConfigureAwait(false);
+                foreach (StreamEntry entry in entries)
+                {
+                    if (!TryParseEventId(entry.Id, out long eventId))
+                    {
+                        continue;
+                    }
+
+                    if (!TryGetField(entry, "f", out RedisValue frameValue) || frameValue.IsNullOrEmpty)
+                    {
+                        continue;
+                    }
+
+                    replayEntries.Add(new ReplayEntry(eventId, frameValue));
+                }
+            }
+
+            replayEntries.Sort(static (left, right) => left.EventId.CompareTo(right.EventId));
+
+            var seenEventIds = new HashSet<long>();
+            List<SharedSseFrame> frames = [];
+            foreach (ReplayEntry replayEntry in replayEntries)
+            {
+                if (frames.Count >= MaxReplayEntries || !seenEventIds.Add(replayEntry.EventId))
+                {
+                    continue;
+                }
+
+                byte[]? buffer = replayEntry.Frame;
+                if (buffer is null || buffer.Length == 0)
+                {
+                    continue;
+                }
+                frames.Add(SharedSseFrame.FromArray(buffer));
+            }
+
+            SseMetrics.RecordReplay(frames.Count, missedGap);
+            return new SseReplayBatch(frames, missedGap);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to replay SSE backlog. Cursor: {Cursor}", cursor.Value);
+            return SseReplayBatch.Empty;
+        }
+    }
+
+    private string RouteStreamKey(string route)
+        => keyScope.PrefixKey(RouteStreamPrefix + route);
+
+    private static bool TryGetField(StreamEntry entry, string fieldName, out RedisValue value)
+    {
+        foreach (NameValueEntry current in entry.Values)
+        {
+            if (string.Equals(current.Name, fieldName, StringComparison.Ordinal))
+            {
+                value = current.Value;
+                return true;
+            }
+        }
+
+        value = RedisValue.Null;
+        return false;
+    }
+
+    private static bool TryParseEventId(RedisValue streamId, out long eventId)
+    {
+        string? raw = streamId.ToString();
+        int separator = raw?.IndexOf('-') ?? -1;
+        if (separator <= 0)
+        {
+            eventId = 0;
+            return false;
+        }
+
+        return long.TryParse(raw.AsSpan(0, separator), NumberStyles.None, CultureInfo.InvariantCulture, out eventId);
+    }
+
+    private readonly record struct ReplayEntry(long EventId, RedisValue Frame);
+}
+
+public sealed record SseReplayBatch(IReadOnlyList<SharedSseFrame> Frames, bool MissedGap)
+{
+    public static SseReplayBatch Empty { get; } = new(Array.Empty<SharedSseFrame>(), false);
+}
+
+internal static class TargetRouteCodec
+{
+    private const string UserPrefix = "u:";
+    private const string GroupPrefix = "g:";
+    private const string MultiUserPrefix = "m:";
+
+    public static Result<string> TryEncode(SseTarget target) => target switch
+    {
+        UserTarget user => Result<string>.Success(UserPrefix + user.UserId),
+        GroupTarget group => Result<string>.Success(GroupPrefix + group.GroupName),
+        MultiUserTarget multi => Result<string>.Success(MultiUserPrefix + string.Join(',', multi.UserIds)),
+        _ => Result<string>.Failure(ErrorCode.Validation, "Unsupported SSE target.")
+    };
+
+    public static IReadOnlyList<string> GetReplayRoutes(string? userId, IReadOnlySet<string> groups)
+    {
+        var routes = new List<string>(groups.Count + (string.IsNullOrEmpty(userId) ? 0 : 1));
+        if (!string.IsNullOrEmpty(userId))
+        {
+            routes.Add(UserPrefix + userId);
+        }
+
+        foreach (string group in groups)
+        {
+            if (!string.IsNullOrWhiteSpace(group))
+            {
+                routes.Add(GroupPrefix + group);
+            }
+        }
+
+        return routes;
+    }
+
+    public static IReadOnlyList<string> GetStorageRoutes(string route)
+    {
+        if (route.StartsWith(MultiUserPrefix, StringComparison.Ordinal))
+        {
+            return ExpandMultiUserRoutes(route.AsSpan(MultiUserPrefix.Length));
+        }
+
+        return string.IsNullOrWhiteSpace(route) ? [] : [route];
+    }
+
+    public static bool Matches(string? route, string? userId, IReadOnlySet<string> groups)
+    {
+        if (string.IsNullOrWhiteSpace(route) || route.Length < 3)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> target = route.AsSpan(2);
+        return route[0] switch
+        {
+            'u' => !string.IsNullOrEmpty(userId) && target.Equals(userId.AsSpan(), StringComparison.Ordinal),
+            'g' => groups.Contains(target.ToString()),
+            'm' => !string.IsNullOrEmpty(userId) && ContainsUser(target, userId),
+            _ => false
+        };
+    }
+
+    private static IReadOnlyList<string> ExpandMultiUserRoutes(ReadOnlySpan<char> routeUsers)
+    {
+        var routes = new List<string>();
+        while (!routeUsers.IsEmpty)
+        {
+            int comma = routeUsers.IndexOf(',');
+            ReadOnlySpan<char> segment = comma >= 0 ? routeUsers[..comma] : routeUsers;
+            segment = segment.Trim();
+            if (!segment.IsEmpty)
+            {
+                routes.Add(UserPrefix + segment.ToString());
+            }
+
+            if (comma < 0)
+            {
+                break;
+            }
+
+            routeUsers = routeUsers[(comma + 1)..];
+        }
+
+        return routes;
+    }
+
+    private static bool ContainsUser(ReadOnlySpan<char> routeUsers, string userId)
+    {
+        while (!routeUsers.IsEmpty)
+        {
+            int comma = routeUsers.IndexOf(',');
+            ReadOnlySpan<char> segment = comma >= 0 ? routeUsers[..comma] : routeUsers;
+            if (segment.Trim().Equals(userId.AsSpan(), StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (comma < 0)
+            {
+                break;
+            }
+
+            routeUsers = routeUsers[(comma + 1)..];
+        }
+
+        return false;
+    }
+}

@@ -1,0 +1,706 @@
+namespace FsusBlog.Server.Infrastructure.SchemaMigration;
+
+public interface ISchemaMigrationRegistry
+{
+    IReadOnlyList<ISchemaMigrationDescriptor> GetDescriptors();
+}
+
+public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
+{
+    private readonly IReadOnlyList<ISchemaMigrationDescriptor> _descriptors =
+    [
+        BuildUserSessionCompatPreMigration(),
+        BuildCommentThreadCompatMigration(),
+        BuildContentCompatMigration(),
+        BuildCommentThreadIndexMigration(),
+        BuildContentCleanupMigration(),
+        BuildMessagingSplitMigration(),
+        BuildUserSoftDeleteMigration(),
+        BuildUserSessionFinalizeMigration(),
+        BuildAuditLogMigration(),
+        BuildCoverImageMigration(),
+        BuildHumanReadEventMigration(),
+        BuildSingleAuthorArticleLifecycleMigration(),
+        BuildSingleAuthorArticleLifecycleIndexMigration(),
+        BuildAuthoringWorkspaceTablesMigration(),
+        BuildAuthoringDraftLifecycleMigration(),
+        BuildCommentModerationMigration(),
+        BuildCommentModerationIndexMigration()
+    ];
+
+    public IReadOnlyList<ISchemaMigrationDescriptor> GetDescriptors() => _descriptors;
+
+    private static ISchemaMigrationDescriptor BuildUserSessionCompatPreMigration()
+        => new SchemaMigrationDescriptor(
+            "20260418-pre-user-session-compat",
+            "Backfill legacy sys_user_session expiration columns before CodeFirst sync.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("sys_user_session", "idleexpiresat", "timestamp NULL"),
+                new EnsureColumnStep("sys_user_session", "absoluteexpiresat", "timestamp NULL"),
+                new EnsureColumnStep("sys_user_session", "rememberme", "boolean NULL"),
+                new RawSqlStep("""
+                    DO $$
+                    DECLARE
+                        legacy_expression text := 'NULL';
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'sys_user_session'
+                        ) THEN
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'sys_user_session' AND column_name = 'expires_at'
+                            ) THEN
+                                legacy_expression := 'expires_at';
+                            ELSIF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'sys_user_session' AND column_name = 'expiresat'
+                            ) THEN
+                                legacy_expression := 'expiresat';
+                            END IF;
+
+                            EXECUTE format(
+                                'UPDATE sys_user_session
+                                 SET idleexpiresat = COALESCE(idleexpiresat, %1$s, now() + interval ''7 day''),
+                                     absoluteexpiresat = COALESCE(absoluteexpiresat, %1$s, now() + interval ''30 day''),
+                                     rememberme = COALESCE(rememberme, false)
+                                 WHERE idleexpiresat IS NULL
+                                    OR absoluteexpiresat IS NULL
+                                    OR rememberme IS NULL;',
+                                legacy_expression
+                            );
+                        END IF;
+                    END $$;
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildCommentThreadCompatMigration()
+        => new SchemaMigrationDescriptor(
+            "20260418-pre-comment-threading-compat",
+            "Upgrade comment threading/delete columns before CodeFirst sync on legacy comment tables.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("comment", "parent_id", "bigint NULL"),
+                new EnsureColumnStep("comment", "root_id", "bigint NULL"),
+                new EnsureColumnStep("comment", "reply_to_user_id", "integer NULL"),
+                new EnsureColumnStep("comment", "reply_to_comment_id", "bigint NULL"),
+                new EnsureColumnStep("comment", "depth", "integer NOT NULL DEFAULT 0"),
+                new EnsureColumnStep("comment", "is_deleted", "boolean NOT NULL DEFAULT false"),
+                new EnsureColumnStep("comment", "delete_reason", "text NULL"),
+                new EnsureColumnStep("comment", "delete_time", "timestamp NULL"),
+                new RawSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'comment'
+                        ) THEN
+                            UPDATE comment
+                            SET depth = 0
+                            WHERE depth IS NULL;
+
+                            UPDATE comment
+                            SET is_deleted = false
+                            WHERE is_deleted IS NULL;
+                        END IF;
+                    END $$;
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildCommentThreadIndexMigration()
+        => new SchemaMigrationDescriptor(
+            "20260418-post-comment-threading-indexes",
+            "Align comment indexes to the current threading model.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new DropIndexStep("idx_comment_article_root_id"),
+                new DropIndexStep("idx_comment_article_parent_id"),
+                new DropIndexStep("idx_comment_user_id"),
+                new DropIndexStep("idx_comment_user_id_desc"),
+                new CreateIndexStep(
+                    "idx_comment_article_root_id",
+                    "CREATE INDEX IF NOT EXISTS idx_comment_article_root_id ON comment(article_id, root_id, id ASC);"),
+                new CreateIndexStep(
+                    "idx_comment_article_parent_id",
+                    "CREATE INDEX IF NOT EXISTS idx_comment_article_parent_id ON comment(article_id, parent_id, id DESC);"),
+                new CreateIndexStep(
+                    "idx_comment_user_id_desc",
+                    "CREATE INDEX IF NOT EXISTS idx_comment_user_id_desc ON comment(user_id, id DESC);")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildContentCompatMigration()
+        => new SchemaMigrationDescriptor(
+            "20260418-pre-content-compat",
+            "Create compatibility content tables and backfill legacy article/page content before CodeFirst sync.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "article_body",
+                    """
+                    CREATE TABLE IF NOT EXISTS article_body (
+                        article_id integer PRIMARY KEY,
+                        markdown_content text NOT NULL DEFAULT '',
+                        updated_at timestamp NOT NULL DEFAULT now()
+                    );
+                    """),
+                new EnsureTableStep(
+                    "page_content",
+                    """
+                    CREATE TABLE IF NOT EXISTS page_content (
+                        slug varchar(64) PRIMARY KEY,
+                        content text NOT NULL DEFAULT '',
+                        updated_at timestamp NOT NULL DEFAULT now()
+                    );
+                    """),
+                new BackfillSqlStep("""
+                    DO $$
+                    DECLARE
+                        timestamp_expression text := 'now()';
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'article'
+                        ) THEN
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'article' AND column_name = 'create_time'
+                            ) THEN
+                                timestamp_expression := 'a.create_time';
+                            ELSIF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'article' AND column_name = 'createtime'
+                            ) THEN
+                                timestamp_expression := 'a.createtime';
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'article' AND column_name = 'content'
+                            ) THEN
+                                EXECUTE format(
+                                    'INSERT INTO article_body(article_id, markdown_content, updated_at)
+                                     SELECT a.id, COALESCE(a.content, ''''), COALESCE(%1$s, now())
+                                     FROM article a
+                                     WHERE NOT EXISTS (
+                                         SELECT 1 FROM article_body b WHERE b.article_id = a.id
+                                     );',
+                                    timestamp_expression
+                                );
+
+                                EXECUTE format(
+                                    'UPDATE article_body b
+                                     SET markdown_content = COALESCE(a.content, ''''),
+                                         updated_at = COALESCE(%1$s, now())
+                                     FROM article a
+                                     WHERE a.id = b.article_id
+                                       AND (b.markdown_content IS NULL OR length(trim(b.markdown_content)) = 0)
+                                       AND a.content IS NOT NULL
+                                       AND length(trim(a.content)) > 0;',
+                                    timestamp_expression
+                                );
+                            ELSE
+                                EXECUTE format(
+                                    'INSERT INTO article_body(article_id, markdown_content, updated_at)
+                                     SELECT a.id, '''', COALESCE(%1$s, now())
+                                     FROM article a
+                                     WHERE NOT EXISTS (
+                                         SELECT 1 FROM article_body b WHERE b.article_id = a.id
+                                     );',
+                                    timestamp_expression
+                                );
+                            END IF;
+                        END IF;
+                    END $$;
+                    """),
+                new BackfillSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'sys_systemconfig'
+                        ) THEN
+                            INSERT INTO page_content(slug, content, updated_at)
+                            SELECT lower(replace(substr(s.key, 6), '_', '-')), s.value, now()
+                            FROM sys_systemconfig s
+                            WHERE s.key LIKE 'Page_%'
+                              AND NOT EXISTS (
+                                SELECT 1 FROM page_content p
+                                WHERE p.slug = lower(replace(substr(s.key, 6), '_', '-'))
+                              );
+                        END IF;
+                    END $$;
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildContentCleanupMigration()
+        => new SchemaMigrationDescriptor(
+            "20260418-post-content-cleanup",
+            "Finalize content migration, regenerate summaries, and delete legacy structures.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new BackfillSqlStep("""
+                    UPDATE article
+                    SET summary = substring(summary FROM 1 FOR 512)
+                    WHERE summary IS NOT NULL AND length(summary) > 512;
+                    """),
+                new BackfillSqlStep("""
+                    UPDATE article a
+                    SET summary = substring(COALESCE(b.markdown_content, '') FROM 1 FOR 200)
+                    FROM article_body b
+                    WHERE a.id = b.article_id
+                      AND (a.summary IS NULL OR length(trim(a.summary)) = 0);
+                    """),
+                new RawSqlStep("""
+                    DELETE FROM sys_systemconfig
+                    WHERE key LIKE 'Page_%';
+                    """),
+                new AssertSqlStep(
+                    "Legacy Page_* system config entries should be deleted after backfill.",
+                    """
+                    DO $$
+                    BEGIN
+                        IF EXISTS (SELECT 1 FROM sys_systemconfig WHERE key LIKE 'Page_%') THEN
+                            RAISE EXCEPTION 'Legacy Page_* entries still exist in sys_systemconfig.';
+                        END IF;
+                    END $$;
+                    """),
+                new DropColumnStep("article", "content")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildMessagingSplitMigration()
+        => new SchemaMigrationDescriptor(
+            "20260418-post-messaging-split",
+            "Backfill legacy sys_message/sys_user_message into msg_* tables and drop the old tables.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new BackfillSqlStep("""
+                    DO $$
+                    DECLARE
+                        timestamp_expression text := 'now()';
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'sys_message'
+                        ) THEN
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'sys_message' AND column_name = 'createtime'
+                            ) THEN
+                                timestamp_expression := 'm.createtime';
+                            END IF;
+
+                            EXECUTE format(
+                                'INSERT INTO msg_conversation(
+                                     id, subject, initiatoruserid, status, issystemsource, sourcemessageid,
+                                     createdbytype, createdbyid, createdat, updatedat, lastmessageat
+                                 )
+                                 SELECT
+                                     m.id,
+                                     substring(coalesce(m.title, '''') from 1 for 160),
+                                     NULL,
+                                     0,
+                                     true,
+                                     m.id,
+                                     2,
+                                     NULL,
+                                     coalesce(%1$s, now()),
+                                     coalesce(%1$s, now()),
+                                     coalesce(%1$s, now())
+                                 FROM sys_message m
+                                 WHERE NOT EXISTS (SELECT 1 FROM msg_conversation c WHERE c.id = m.id);',
+                                timestamp_expression
+                            );
+
+                            EXECUTE format(
+                                'INSERT INTO msg_message(
+                                     id, conversationid, sendertype, senderid, body, attachmentsmeta, isinternalnote, createdat
+                                 )
+                                 SELECT
+                                     m.id,
+                                     m.id,
+                                     2,
+                                     NULL,
+                                     coalesce(m.content, ''''),
+                                     NULL,
+                                     false,
+                                     coalesce(%1$s, now())
+                                 FROM sys_message m
+                                 WHERE NOT EXISTS (SELECT 1 FROM msg_message x WHERE x.id = m.id);',
+                                timestamp_expression
+                            );
+                        END IF;
+                    END $$;
+                    """),
+                new BackfillSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'sys_user_message'
+                        ) THEN
+                            INSERT INTO msg_participant_state(
+                                conversationid, userid, lastreadmessageid, unreadcount, muted, lastreadat, updatedat
+                            )
+                            SELECT
+                                rel.messageid,
+                                rel.userid::integer,
+                                CASE WHEN rel.isread THEN rel.messageid ELSE NULL END,
+                                CASE WHEN rel.isread THEN 0 ELSE 1 END,
+                                false,
+                                rel.readtime,
+                                coalesce(rel.readtime, now())
+                            FROM sys_user_message rel
+                            WHERE NOT EXISTS (
+                                SELECT 1
+                                FROM msg_participant_state p
+                                WHERE p.conversationid = rel.messageid
+                                  AND p.userid = rel.userid::integer
+                            );
+                        END IF;
+                    END $$;
+                    """),
+                new DropTableStep("sys_user_message"),
+                new DropTableStep("sys_message")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildUserSoftDeleteMigration()
+        => new SchemaMigrationDescriptor(
+            "20260418-post-user-soft-delete",
+            "Ensure sys_user soft-delete columns exist on legacy databases.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("sys_user", "deleted_at", "timestamp NULL"),
+                new EnsureColumnStep("sys_user", "deleted_reason", "varchar(256) NULL")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildUserSessionFinalizeMigration()
+        => new SchemaMigrationDescriptor(
+            "20260418-post-user-session-finalize",
+            "Finalize sys_user_session schema and remove legacy expiration columns.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new RawSqlStep("""
+                    DO $$
+                    DECLARE
+                        legacy_expression text := 'NULL';
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'sys_user_session' AND column_name = 'expires_at'
+                        ) THEN
+                            legacy_expression := 'expires_at';
+                        ELSIF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'sys_user_session' AND column_name = 'expiresat'
+                        ) THEN
+                            legacy_expression := 'expiresat';
+                        END IF;
+
+                        EXECUTE format(
+                            'UPDATE sys_user_session
+                             SET idleexpiresat = COALESCE(idleexpiresat, %1$s, now() + interval ''7 day''),
+                                 absoluteexpiresat = COALESCE(absoluteexpiresat, %1$s, now() + interval ''30 day''),
+                                 rememberme = COALESCE(rememberme, false)
+                             WHERE idleexpiresat IS NULL
+                                OR absoluteexpiresat IS NULL
+                                OR rememberme IS NULL;',
+                            legacy_expression
+                        );
+                    END $$;
+                    """),
+                new RawSqlStep("""
+                    ALTER TABLE sys_user_session ALTER COLUMN idleexpiresat SET NOT NULL;
+                    ALTER TABLE sys_user_session ALTER COLUMN absoluteexpiresat SET NOT NULL;
+                    ALTER TABLE sys_user_session ALTER COLUMN rememberme SET DEFAULT false;
+                    ALTER TABLE sys_user_session ALTER COLUMN rememberme SET NOT NULL;
+                    """),
+                new DropColumnStep("sys_user_session", "expires_at"),
+                new DropColumnStep("sys_user_session", "expiresat")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAuditLogMigration()
+        => new SchemaMigrationDescriptor(
+            "20260418-post-audit-log",
+            "Create structured audit log table and indexes.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "sys_audit_log",
+                    """
+                    CREATE TABLE IF NOT EXISTS sys_audit_log (
+                        id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                        source varchar(64) NOT NULL,
+                        type varchar(32) NOT NULL,
+                        occurred_at_utc timestamp NOT NULL,
+                        event_info text NOT NULL,
+                        context_payload bytea NULL
+                    );
+                    """),
+                new EnsureColumnStep("sys_audit_log", "context_payload", "bytea"),
+                new DropColumnStep("sys_audit_log", "context_json"),
+                new CreateIndexStep(
+                    "idx_audit_occurred_at_desc",
+                    "CREATE INDEX IF NOT EXISTS idx_audit_occurred_at_desc ON sys_audit_log(occurred_at_utc DESC);"),
+                new CreateIndexStep(
+                    "idx_audit_source_time",
+                    "CREATE INDEX IF NOT EXISTS idx_audit_source_time ON sys_audit_log(source, occurred_at_utc DESC);"),
+                new CreateIndexStep(
+                    "idx_audit_type_time",
+                    "CREATE INDEX IF NOT EXISTS idx_audit_type_time ON sys_audit_log(type, occurred_at_utc DESC);")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildCoverImageMigration()
+        => new SchemaMigrationDescriptor(
+            "20260508-pre-cover-image",
+            "Add coverimageurl to article table.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("article", "coverimageurl", "VARCHAR(512)")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildHumanReadEventMigration()
+        => new SchemaMigrationDescriptor(
+            "20260513-post-human-read-events",
+            "Extend visit logs into the single human-read event source and seed legacy article views.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("sys_visit_log", "event_type", "VARCHAR(32)"),
+                new EnsureColumnStep("sys_visit_log", "route_key", "VARCHAR(200) NULL"),
+                new EnsureColumnStep("sys_visit_log", "article_id", "INTEGER NULL"),
+                new EnsureColumnStep("sys_visit_log", "viewer_key_hash", "VARCHAR(64) NULL"),
+                new EnsureColumnStep("sys_visit_log", "proof_id", "VARCHAR(64) NULL"),
+                new EnsureColumnStep("sys_visit_log", "dwell_ms", "INTEGER NOT NULL DEFAULT 0"),
+                new BackfillSqlStep("UPDATE sys_visit_log SET event_type = 'site_read' WHERE event_type IS NULL;"),
+                new EnsureTableStep(
+                    "article_view_seed",
+                    """
+                    CREATE TABLE IF NOT EXISTS article_view_seed (
+                        article_id integer PRIMARY KEY,
+                        legacy_views integer NOT NULL DEFAULT 0,
+                        seeded_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+                    );
+                    """),
+                new BackfillSqlStep(
+                    """
+                    INSERT INTO article_view_seed(article_id, legacy_views, seeded_at_utc)
+                    SELECT id, COALESCE(views, 0), now() AT TIME ZONE 'utc'
+                    FROM article
+                    ON CONFLICT (article_id) DO NOTHING;
+                    """),
+                new CreateIndexStep(
+                    "idx_visit_event_time",
+                    "CREATE INDEX IF NOT EXISTS idx_visit_event_time ON sys_visit_log(event_type, createtime DESC);"),
+                new CreateIndexStep(
+                    "idx_visit_article_time",
+                    "CREATE INDEX IF NOT EXISTS idx_visit_article_time ON sys_visit_log(article_id, createtime DESC);"),
+                new CreateIndexStep(
+                    "idx_visit_proof_id",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_visit_proof_id ON sys_visit_log(proof_id) WHERE proof_id IS NOT NULL;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildSingleAuthorArticleLifecycleMigration()
+        => new SchemaMigrationDescriptor(
+            "20260518-pre-single-author-article-lifecycle",
+            "Add article lifecycle state for draft, scheduled, published, archived, and deleted flows.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("article", "status", "integer NOT NULL DEFAULT 2"),
+                new EnsureColumnStep("article", "scheduled_publish_at", "timestamp NULL"),
+                new EnsureColumnStep("article", "published_at", "timestamp NULL"),
+                new EnsureColumnStep("article", "archived_at", "timestamp NULL"),
+                new EnsureColumnStep("article", "deleted_at", "timestamp NULL"),
+                new BackfillSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'article'
+                        ) THEN
+                            UPDATE article
+                            SET status = CASE WHEN isdeleted THEN 4 ELSE 2 END,
+                                published_at = COALESCE(published_at, createtime),
+                                deleted_at = CASE WHEN isdeleted AND deleted_at IS NULL THEN now() ELSE deleted_at END
+                            WHERE status IS NULL
+                               OR published_at IS NULL
+                               OR (isdeleted AND deleted_at IS NULL);
+                        END IF;
+                    END $$;
+                    """),
+                new CreateIndexStep(
+                    "idx_article_public_state_time",
+                    "CREATE INDEX IF NOT EXISTS idx_article_public_state_time ON article(status, isdeleted, published_at DESC, createtime DESC);"),
+                new CreateIndexStep(
+                    "idx_article_scheduled_publish",
+                    "CREATE INDEX IF NOT EXISTS idx_article_scheduled_publish ON article(status, scheduled_publish_at) WHERE status = 1;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildSingleAuthorArticleLifecycleIndexMigration()
+        => new SchemaMigrationDescriptor(
+            "20260518-post-single-author-article-lifecycle-indexes",
+            "Ensure article lifecycle indexes exist after CodeFirst creates fresh article tables.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new CreateIndexStep(
+                    "idx_article_public_state_time",
+                    "CREATE INDEX IF NOT EXISTS idx_article_public_state_time ON article(status, isdeleted, published_at DESC, createtime DESC);"),
+                new CreateIndexStep(
+                    "idx_article_scheduled_publish",
+                    "CREATE INDEX IF NOT EXISTS idx_article_scheduled_publish ON article(status, scheduled_publish_at) WHERE status = 1;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAuthoringWorkspaceTablesMigration()
+        => new SchemaMigrationDescriptor(
+            "20260518-post-authoring-workspace-tables",
+            "Create durable authoring tables for server drafts, revisions, assets, and site subscriptions.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "article_draft",
+                    """
+                    CREATE TABLE IF NOT EXISTS article_draft (
+                        id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                        owner_user_id integer NOT NULL,
+                        article_id integer NULL,
+                        draft_key varchar(96) NOT NULL,
+                        title varchar(256) NOT NULL DEFAULT '',
+                        summary varchar(512) NULL,
+                        cover_image_url varchar(512) NULL,
+                        categoryid integer NOT NULL DEFAULT 0,
+                        tag_ids text NOT NULL DEFAULT '',
+                        markdown_content text NOT NULL DEFAULT '',
+                        client_revision varchar(64) NULL,
+                        updated_at timestamp NOT NULL DEFAULT now(),
+                        created_at timestamp NOT NULL DEFAULT now()
+                    );
+                    """),
+                new CreateIndexStep(
+                    "idx_article_draft_owner_key",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_article_draft_owner_key ON article_draft(owner_user_id, draft_key);"),
+                new EnsureTableStep(
+                    "article_revision",
+                    """
+                    CREATE TABLE IF NOT EXISTS article_revision (
+                        id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                        article_id integer NOT NULL,
+                        revision_no integer NOT NULL,
+                        title varchar(256) NOT NULL DEFAULT '',
+                        summary varchar(512) NULL,
+                        cover_image_url varchar(512) NULL,
+                        categoryid integer NOT NULL DEFAULT 0,
+                        tag_ids text NOT NULL DEFAULT '',
+                        markdown_content text NOT NULL DEFAULT '',
+                        diff_summary varchar(512) NOT NULL DEFAULT '',
+                        created_by_user_id integer NOT NULL DEFAULT 0,
+                        created_at timestamp NOT NULL DEFAULT now()
+                    );
+                    """),
+                new CreateIndexStep(
+                    "idx_article_revision_article_time",
+                    "CREATE INDEX IF NOT EXISTS idx_article_revision_article_time ON article_revision(article_id, created_at DESC);"),
+                new EnsureTableStep(
+                    "asset_library_item",
+                    """
+                    CREATE TABLE IF NOT EXISTS asset_library_item (
+                        id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                        url varchar(512) NOT NULL,
+                        alt_text varchar(256) NULL,
+                        source_article_id integer NULL,
+                        width integer NULL,
+                        height integer NULL,
+                        sha256 varchar(64) NULL,
+                        reference_count integer NOT NULL DEFAULT 0,
+                        created_at timestamp NOT NULL DEFAULT now(),
+                        updated_at timestamp NOT NULL DEFAULT now()
+                    );
+                    """),
+                new CreateIndexStep(
+                    "idx_asset_library_hash",
+                    "CREATE INDEX IF NOT EXISTS idx_asset_library_hash ON asset_library_item(sha256);"),
+                new EnsureTableStep(
+                    "site_subscription",
+                    """
+                    CREATE TABLE IF NOT EXISTS site_subscription (
+                        id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                        email_hash varchar(64) NOT NULL,
+                        channel varchar(32) NOT NULL DEFAULT 'rss',
+                        is_enabled boolean NOT NULL DEFAULT true,
+                        created_at timestamp NOT NULL DEFAULT now(),
+                        unsubscribed_at timestamp NULL
+                    );
+                    """),
+                new CreateIndexStep(
+                    "idx_site_subscription_email",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_site_subscription_email ON site_subscription(email_hash);")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildCommentModerationMigration()
+        => new SchemaMigrationDescriptor(
+            "20260518-pre-comment-moderation",
+            "Add comment moderation state, reason, actor, and timestamp.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("comment", "moderation_status", "integer NOT NULL DEFAULT 1"),
+                new EnsureColumnStep("comment", "moderation_reason", "varchar(256) NULL"),
+                new EnsureColumnStep("comment", "moderated_by_user_id", "integer NULL"),
+                new EnsureColumnStep("comment", "moderated_at", "timestamp NULL"),
+                new CreateIndexStep(
+                    "idx_comment_moderation_status_time",
+                    "CREATE INDEX IF NOT EXISTS idx_comment_moderation_status_time ON comment(moderation_status, create_time DESC);")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAuthoringDraftLifecycleMigration()
+        => new SchemaMigrationDescriptor(
+            "20260518-post-authoring-draft-lifecycle",
+            "Persist article lifecycle fields in durable authoring drafts.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("article_draft", "status", "integer NOT NULL DEFAULT 2"),
+                new EnsureColumnStep("article_draft", "scheduled_publish_at", "timestamp NULL")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildCommentModerationIndexMigration()
+        => new SchemaMigrationDescriptor(
+            "20260518-post-comment-moderation-indexes",
+            "Ensure comment moderation indexes exist after CodeFirst creates fresh comment tables.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new CreateIndexStep(
+                    "idx_comment_moderation_status_time",
+                    "CREATE INDEX IF NOT EXISTS idx_comment_moderation_status_time ON comment(moderation_status, create_time DESC);")
+            ]);
+}

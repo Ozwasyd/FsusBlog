@@ -1,0 +1,75 @@
+#!/usr/bin/env node
+
+import { decodeApiErrorFrame, decodeAedsFrame } from '../../support/aeds-envelope.mjs'
+import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs'
+
+const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000'
+const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000)
+
+const successChecks = [
+  ['article list', '/api/binary/article?page=1&size=3', 1],
+  ['article hot', '/api/binary/article/hot?size=3', 3],
+  ['category list', '/api/binary/category', 9],
+  ['tag list', '/api/binary/tag', 10],
+  ['comment cursor', '/api/binary/comment/1?limit=5', 5]
+]
+
+const denialChecks = [
+  ['comment me anonymous', '/api/binary/comment/me?limit=5', 401],
+  ['deleted article anonymous', '/api/binary/article?page=1&size=5&isDeleted=true', 403],
+  ['article status anonymous', '/api/binary/article?page=1&size=5&status=0', 403],
+  ['admin stats anonymous', '/api/binary/stats', 401],
+  ['recent comments anonymous', '/api/binary/stats/recent-comments', 401],
+  ['regions anonymous', '/api/binary/stats/regions', 401]
+]
+
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message)
+  }
+}
+
+async function fetchBinary(name, path) {
+  const response = await fetchWithTimeout(`${baseUrl}${path}`, {
+    headers: { Accept: 'application/octet-stream' }
+  }, requestTimeoutMs)
+  assert(response.status < 500, `[${name}] binary endpoint must not return 5xx, got ${response.status}`)
+  const contentType = response.headers.get('content-type') || ''
+  assert(contentType.includes('application/octet-stream'), `[${name}] expected octet-stream, got ${contentType || 'none'}`)
+  return { response, payload: await response.arrayBuffer() }
+}
+
+async function checkSuccess([name, path, expectedFrameType]) {
+  const { response, payload } = await fetchBinary(name, path)
+  assert(response.status === 200, `[${name}] expected 200, got ${response.status}`)
+  const frame = decodeAedsFrame(payload)
+  assert(frame.frameType === expectedFrameType, `[${name}] expected frame ${expectedFrameType}, got ${frame.frameType}`)
+  console.log(`[binary-contract-smoke] ok: ${name}`)
+}
+
+async function checkDenial([name, path, expectedStatus]) {
+  const { response, payload } = await fetchBinary(name, path)
+  assert(response.status === expectedStatus, `[${name}] expected ${expectedStatus}, got ${response.status}`)
+  const error = decodeApiErrorFrame(payload)
+  assert(error.statusCode === expectedStatus, `[${name}] ApiError status mismatch: ${error.statusCode}`)
+  console.log(`[binary-contract-smoke] ok: ${name}`)
+}
+
+async function main() {
+  await probeReachable(`${baseUrl}/api/binary/article?page=1&size=1`, '[binary-contract-smoke backend]', requestTimeoutMs)
+
+  for (const item of successChecks) {
+    await checkSuccess(item)
+  }
+
+  for (const item of denialChecks) {
+    await checkDenial(item)
+  }
+
+  console.log('[binary-contract-smoke] all checks passed')
+}
+
+main().catch((error) => {
+  console.error('[binary-contract-smoke] fatal:', error instanceof Error ? error.message : String(error))
+  process.exit(1)
+})

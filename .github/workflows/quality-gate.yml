@@ -1,0 +1,143 @@
+name: Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: quality-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    name: Coverage Collection
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+      FSUSBLOG_COVERAGE_ROOT: ${{ github.workspace }}/.tmp/coverage
+      FSUSBLOG_COVERAGE_LINE_THRESHOLD: '100'
+      FSUSBLOG_COVERAGE_BRANCH_THRESHOLD: '100'
+      FSUSBLOG_COVERAGE_METHOD_THRESHOLD: '100'
+      FSUSBLOG_BACKEND_COVERAGE_LINE_THRESHOLD: '100'
+      FSUSBLOG_BACKEND_COVERAGE_BRANCH_THRESHOLD: '100'
+      FSUSBLOG_BACKEND_COVERAGE_METHOD_THRESHOLD: '100'
+      GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Verify private package token
+        run: |
+          if [ -z "${GITHUB_PACKAGES_TOKEN:-}" ]; then
+            echo "::error::GITHUB_PACKAGES_TOKEN secret is required for @ozwasyd packages"
+            exit 1
+          fi
+
+      - name: Install frontend dependencies
+        working-directory: src/frontend
+        run: npm ci --no-audit --progress=false
+
+      - name: Run coverage gate
+        run: ./tools/test.sh coverage-gate
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-artifacts
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/coverage/**
+
+  production:
+    name: Production Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+      FSUSBLOG_DATA_ROOT: ${{ github.workspace }}/.tmp/ci-data
+      GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Verify private package token
+        run: |
+          if [ -z "${GITHUB_PACKAGES_TOKEN:-}" ]; then
+            echo "::error::GITHUB_PACKAGES_TOKEN secret is required for @ozwasyd packages"
+            exit 1
+          fi
+
+      - name: Install frontend dependencies
+        working-directory: src/frontend
+        run: npm ci --no-audit --progress=false
+
+      - name: Install Playwright Chromium
+        working-directory: src/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run production quality gate
+        run: ./tools/test.sh production
+
+      - name: Upload quality artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-gate-artifacts
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/acceptance/*.log
+            .tmp/security/zap/**
+            src/frontend/test-results/**
+            src/frontend/playwright-report/**
+
+      - name: Cleanup test services
+        if: always()
+        run: |
+          for file in .tmp/acceptance/*.pid; do
+            [ -f "$file" ] || continue
+            pid="$(cat "$file" 2>/dev/null || true)"
+            if [ -n "$pid" ] && kill -0 "$pid" >/dev/null 2>&1; then
+              kill "$pid" >/dev/null 2>&1 || true
+            fi
+          done
+          docker rm -f fsusblog-postgres fsusblog-redis >/dev/null 2>&1 || true
+          docker ps -aq --filter "name=fsus-schema-migration-" | xargs -r docker rm -f >/dev/null 2>&1 || true

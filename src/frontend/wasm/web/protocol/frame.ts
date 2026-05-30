@@ -1,0 +1,92 @@
+// Generated from src/shared/Contracts/Validation/aeds-protocol.json. Run npm run generate:aeds-protocol from src/frontend.
+
+export const FrameType = {
+  Unknown: 0,
+  ArticleList: 1,
+  ArticleDetail: 2,
+  ArticleHot: 3,
+  ArticleSearch: 4,
+  CommentArticleCursor: 5,
+  CommentUserCursor: 6,
+  AdminStats: 7,
+  CommentThreadReplyCursor: 8,
+  CategoryList: 9,
+  TagList: 10,
+  RecentCommentStats: 11,
+  RegionStats: 12,
+  SeoConfig: 13,
+  PageContent: 14,
+  ArticleFeatured: 15,
+  TrashClearResponse: 16,
+  AdminUserList: 17,
+  AuthLoginFlow: 18,
+  CurrentUserSnapshot: 19,
+  UploadInit: 20,
+  UploadStatus: 21,
+  UploadPartAck: 22,
+  UploadComplete: 23,
+  UploadPartMap: 24,
+  AuthSessionList: 25,
+  PowChallenge: 30,
+  UploadInitRequest: 31,
+  UploadCompleteRequest: 32,
+  CategoryWriteRequest: 33,
+  TagWriteRequest: 34,
+  SeoConfigUpdateRequest: 35,
+  PageContentUpdateRequest: 36,
+  CommentCreateRequest: 37,
+  FileDeleteRequest: 38,
+  AdminChangeUserStatusRequest: 39,
+  AdminResetUserPasswordRequest: 40,
+  ArticleWriteRequest: 41,
+  // Reserved legacy value. Client-side AOT bundle uploads are no longer accepted.
+  ArticleAotBundleRequest: 42,
+  AuthLoginRequest: 43,
+  AuthRegisterRequest: 44,
+  AuthUpdateUsernameRequest: 45,
+  AuthUpdatePasswordRequest: 46,
+  AuthDeleteAccountRequest: 47,
+  MfaSetupStart: 48,
+  MfaSetupVerify: 49,
+  MfaProfile: 50,
+  MfaChallengeResult: 51,
+  MfaSetupVerifyRequest: 52,
+  MfaPasswordProofRequest: 53,
+  MfaChallengeStartRequest: 54,
+  MfaChallengeVerifyRequest: 55,
+  ConversationList: 56,
+  ConversationDetail: 57,
+  ConversationMessage: 58,
+  ConversationCreateRequest: 59,
+  ConversationReplyRequest: 60,
+  ConversationStatusRequest: 61,
+  SystemMessageRequest: 62,
+  PasskeyRegisterBegin: 63,
+  PasskeyLoginBegin: 64,
+  PasskeyCredentialList: 65,
+  PasskeyRegisterCompleteRequest: 66,
+  PasskeyLoginCompleteRequest: 67,
+  PasskeyRenameRequest: 68,
+  NotificationEvent: 69,
+  NotificationHeartbeat: 70,
+  PublicAotBootstrap: 71,
+  EmptySuccess: 240,
+  MutationId: 241,
+  ApiError: 251,
+} as const
+
+export type FrameType = (typeof FrameType)[keyof typeof FrameType]
+
+export const AEDS_HEADER_LENGTH = 16;
+export const AEDS_MAGIC = 0x53444541;
+export const AEDS_VERSION = 2;
+
+export const PUBLIC_SEO_FRAME_TYPES = new Set<FrameType>([
+  FrameType.ArticleList,
+  FrameType.ArticleDetail,
+  FrameType.ArticleFeatured
+]);
+
+export function isPublicSeoFrameType(frameType: FrameType | undefined): boolean {
+  return frameType !== undefined && PUBLIC_SEO_FRAME_TYPES.has(frameType);
+}

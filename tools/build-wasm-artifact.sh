@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARTIFACT_DIR="${ROOT_DIR}/build/artifacts/wasm-release"
 TMP_DIR="${ROOT_DIR}/build/artifacts/.wasm-release-tmp"
-CLIENT_DIR="${ROOT_DIR}/FsusBlog.Client"
-MANIFEST_PATH="${ARTIFACT_DIR}/wasm-manifest.json"
+CLIENT_DIR="${ROOT_DIR}/src/frontend"
+MANIFEST_PATH="${ARTIFACT_DIR}/wasm-manifest.aeds"
 
 log() {
   printf '[build-wasm-artifact] %s\n' "$1"
@@ -26,7 +26,7 @@ rm -rf "${TMP_DIR}"
 mkdir -p "${TMP_DIR}"
 DOCKER_BUILDKIT=1 docker build \
   --pull \
-  -f "${ROOT_DIR}/FsusBlog.Server/Dockerfile" \
+  -f "${ROOT_DIR}/ops/docker/FsusBlog.Server.Dockerfile" \
   --target wasm-artifact \
   --output "type=local,dest=${TMP_DIR}" \
   "${ROOT_DIR}"
@@ -48,20 +48,21 @@ const clientDir = process.env.CLIENT_DIR;
 
 const entries = fs.readdirSync(artifactDir, { withFileTypes: true });
 const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name).sort();
-const invalidFiles = files.filter((name) => !name.endsWith('.js') && !name.endsWith('.wasm') && name !== 'wasm-manifest.json');
+const manifestName = path.basename(manifestPath);
+const invalidFiles = files.filter((name) => !name.endsWith('.js') && !name.endsWith('.wasm') && name !== manifestName);
 if (invalidFiles.length > 0) {
   console.error(`[build-wasm-artifact] fatal: artifact directory contains unsupported files: ${invalidFiles.join(', ')}`);
   process.exit(1);
 }
 
 if (!fs.existsSync(manifestPath)) {
-  console.error('[build-wasm-artifact] fatal: wasm-manifest.json is missing from artifact directory');
+  console.error('[build-wasm-artifact] fatal: wasm-manifest.aeds is missing from artifact directory');
   process.exit(1);
 }
 
-const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+const manifest = parseManifest(fs.readFileSync(manifestPath, 'utf8'));
 const requiredFiles = Array.isArray(manifest.outputFiles) ? [...manifest.outputFiles].sort() : [];
-const actualOutputFiles = files.filter((name) => name !== 'wasm-manifest.json').sort();
+const actualOutputFiles = files.filter((name) => name !== manifestName).sort();
 
 if (requiredFiles.length !== actualOutputFiles.length ||
     requiredFiles.some((name, index) => name !== actualOutputFiles[index])) {
@@ -77,6 +78,64 @@ console.log(`[build-wasm-artifact] trusted input boundary=${path.relative(client
 console.log('[build-wasm-artifact] artifact contents');
 for (const file of files) {
   console.log(file);
+}
+
+function decodeManifestField(value) {
+  return Buffer.from(value, 'base64url').toString('utf8');
+}
+
+function parseManifest(raw) {
+  const manifest = {
+    schemaVersion: 0,
+    builtAtUtc: '',
+    buildModes: [],
+    buildScript: '',
+    dependencyInstaller: '',
+    sourceHash: '',
+    sourceFiles: [],
+    outputFiles: [],
+    outputFileHashes: {}
+  };
+
+  for (const line of raw.split(/\r?\n/u)) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    const [key, value = '', extra = ''] = trimmed.split('\t');
+    switch (key) {
+      case 'schemaVersion':
+        manifest.schemaVersion = Number(value);
+        break;
+      case 'builtAtUtc':
+        manifest.builtAtUtc = decodeManifestField(value);
+        break;
+      case 'buildModes':
+        manifest.buildModes = value ? value.split(',').map(decodeManifestField) : [];
+        break;
+      case 'buildScript':
+        manifest.buildScript = decodeManifestField(value);
+        break;
+      case 'dependencyInstaller':
+        manifest.dependencyInstaller = decodeManifestField(value);
+        break;
+      case 'sourceHash':
+        manifest.sourceHash = decodeManifestField(value);
+        break;
+      case 'sourceFile':
+        manifest.sourceFiles.push(decodeManifestField(value));
+        break;
+      case 'outputFile': {
+        const outputFile = decodeManifestField(value);
+        manifest.outputFiles.push(outputFile);
+        manifest.outputFileHashes[outputFile] = decodeManifestField(extra);
+        break;
+      }
+    }
+  }
+
+  return manifest;
 }
 EOF
 

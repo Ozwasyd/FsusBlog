@@ -1,0 +1,1675 @@
+const UTF8_DECODER = new TextDecoder()
+const UTF8_ENCODER = new TextEncoder()
+const AEDS_MAGIC = 0x53444541
+const AEDS_VERSION = 2
+const AEDS_HEADER_LENGTH = 16
+const FRAME_ARTICLE_LIST = 1
+const FRAME_ARTICLE_DETAIL = 2
+const FRAME_SEO_CONFIG = 13
+const FRAME_PAGE_CONTENT = 14
+const FRAME_AUTH_LOGIN_FLOW = 18
+const FRAME_CURRENT_USER_SNAPSHOT = 19
+const FRAME_COMMENT_USER_CURSOR = 6
+const FRAME_UPLOAD_INIT = 20
+const FRAME_UPLOAD_STATUS = 21
+const FRAME_UPLOAD_PART_ACK = 22
+const FRAME_UPLOAD_COMPLETE = 23
+const FRAME_UPLOAD_PART_MAP = 24
+const FRAME_AUTH_SESSION_LIST = 25
+const FRAME_POW_CHALLENGE = 30
+const FRAME_UPLOAD_COMPLETE_REQUEST = 32
+const FRAME_SEO_CONFIG_UPDATE_REQUEST = 35
+const FRAME_PAGE_CONTENT_UPDATE_REQUEST = 36
+const FRAME_COMMENT_CREATE_REQUEST = 37
+const FRAME_ADMIN_CHANGE_USER_STATUS_REQUEST = 39
+const FRAME_ADMIN_RESET_USER_PASSWORD_REQUEST = 40
+const FRAME_MFA_SETUP_START = 48
+const FRAME_MFA_SETUP_VERIFY = 49
+const FRAME_MFA_PROFILE = 50
+const FRAME_MFA_CHALLENGE_RESULT = 51
+const FRAME_MFA_SETUP_VERIFY_REQUEST = 52
+const FRAME_MFA_PASSWORD_PROOF_REQUEST = 53
+const FRAME_MFA_CHALLENGE_START_REQUEST = 54
+const FRAME_MFA_CHALLENGE_VERIFY_REQUEST = 55
+const FRAME_CONVERSATION_LIST = 56
+const FRAME_CONVERSATION_DETAIL = 57
+const FRAME_CONVERSATION_MESSAGE = 58
+const FRAME_CONVERSATION_CREATE_REQUEST = 59
+const FRAME_CONVERSATION_REPLY_REQUEST = 60
+const FRAME_CONVERSATION_STATUS_REQUEST = 61
+const FRAME_SYSTEM_MESSAGE_REQUEST = 62
+const FRAME_CATEGORY_LIST = 9
+const FRAME_TAG_LIST = 10
+const FRAME_PASSKEY_REGISTER_BEGIN = 63
+const FRAME_PASSKEY_LOGIN_BEGIN = 64
+const FRAME_PASSKEY_CREDENTIAL_LIST = 65
+const FRAME_PUBLIC_AOT_BOOTSTRAP = 71
+const FRAME_EMPTY_SUCCESS = 240
+const FRAME_MUTATION_ID = 241
+const FRAME_API_ERROR = 251
+const AUTH_LOGIN_FLOW_POD_SIZE = 168
+const CURRENT_USER_SNAPSHOT_POD_SIZE = 372
+const USER_SESSION_SUMMARY_POD_SIZE = 396
+const MFA_SETUP_START_POD_SIZE = 36
+const MFA_SETUP_VERIFY_POD_SIZE = 8
+const MFA_RECOVERY_CODE_POD_SIZE = 64
+const MFA_PROFILE_POD_SIZE = 12
+const MFA_CHALLENGE_RESULT_POD_SIZE = 296
+const USER_COMMENT_POD_SIZE = 356
+const CONVERSATION_MESSAGE_PREVIEW_POD_SIZE = 32
+const CONVERSATION_LIST_ITEM_POD_SIZE = 76
+const CONVERSATION_MESSAGE_POD_SIZE = 48
+const CONVERSATION_DETAIL_POD_SIZE = 36
+const ARTICLE_LIST_RECORD_SIZE = 56
+const ARTICLE_LIST_RECORD_WITH_STATUS_SIZE = 76
+const COMPACT_TAG_RECORD_SIZE = 12
+const ARTICLE_DETAIL_POD_SIZE = 424
+const TAG_POD_SIZE = 132
+const SEO_CONFIG_POD_SIZE = 1096
+const PAGE_CONTENT_POD_SIZE = 136
+const CATEGORY_POD_SIZE = 136
+const TAG_WITH_COUNT_POD_SIZE = 136
+const PASSKEY_PUBLIC_KEY_CREDENTIAL_PARAM_POD_SIZE = 8
+const PASSKEY_CREDENTIAL_DESCRIPTOR_POD_SIZE = 16
+const PASSKEY_REGISTER_BEGIN_POD_SIZE = 148
+const PASSKEY_LOGIN_BEGIN_POD_SIZE = 100
+const PASSKEY_CREDENTIAL_SUMMARY_POD_SIZE = 96
+const API_ERROR_POD_SIZE = 584
+const PUBLIC_AOT_NULL_KIND = 0
+const PUBLIC_AOT_STRING_KIND = 1
+const PUBLIC_AOT_INT32_KIND = 2
+const PUBLIC_AOT_INT64_KIND = 3
+const PUBLIC_AOT_DOUBLE_KIND = 4
+const PUBLIC_AOT_BOOL_KIND = 5
+const PUBLIC_AOT_OBJECT_KIND = 6
+const PUBLIC_AOT_ARRAY_KIND = 7
+const SEARCH_MANIFEST_MAGIC = 0x4d495346
+const SEARCH_MANIFEST_BINARY_VERSION = 1
+const DOTNET_EPOCH_OFFSET_MS = 62135596800000
+
+function readUInt32(view, offset) {
+  return view.getUint32(offset, true)
+}
+
+function readUInt16(view, offset) {
+  return view.getUint16(offset, true)
+}
+
+function readInt32(view, offset) {
+  return view.getInt32(offset, true)
+}
+
+function readInt64Number(view, offset) {
+  return Number(view.getBigInt64(offset, true))
+}
+
+function readInt64FromBytes(bytes, offset) {
+  return Number(new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getBigInt64(offset, true))
+}
+
+function readByte(bytes, offset) {
+  return bytes[offset] ?? 0
+}
+
+function readFixedUtf8(bytes, offset, length) {
+  const slice = bytes.subarray(offset, offset + length)
+  const end = slice.indexOf(0)
+  return UTF8_DECODER.decode(end >= 0 ? slice.subarray(0, end) : slice)
+}
+
+function readSliceRef(bytes, offset) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  return {
+    offset: readInt32(view, offset),
+    length: readInt32(view, offset + 4)
+  }
+}
+
+function readSliceBytes(blob, slice) {
+  if (slice.offset < 0 || slice.length < 0 || slice.offset + slice.length > blob.byteLength) {
+    return new Uint8Array(0)
+  }
+  return blob.subarray(slice.offset, slice.offset + slice.length)
+}
+
+function readSliceText(blob, slice) {
+  return UTF8_DECODER.decode(readSliceBytes(blob, slice))
+}
+
+export async function readAedsResponse(response) {
+  if (typeof response.arrayBuffer === 'function') {
+    return decodeKnownFrame(await response.arrayBuffer())
+  }
+
+  if (typeof response.body === 'function') {
+    return decodeKnownFrame(await response.body())
+  }
+
+  throw new Error('aeds_response_body_unavailable')
+}
+
+export function decodeAedsFrame(buffer) {
+  const bytes = new Uint8Array(buffer)
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  if (bytes.byteLength < AEDS_HEADER_LENGTH) {
+    throw new Error('aeds_frame_too_short')
+  }
+
+  const magic = readUInt32(view, 0)
+  if (magic !== AEDS_MAGIC) {
+    throw new Error('aeds_magic_mismatch')
+  }
+
+  if (bytes[4] !== AEDS_VERSION || bytes[5] !== AEDS_HEADER_LENGTH) {
+    throw new Error('aeds_version_mismatch')
+  }
+
+  const payloadLength = readUInt32(view, 10)
+  if (payloadLength !== bytes.byteLength - AEDS_HEADER_LENGTH) {
+    throw new Error('aeds_payload_length_mismatch')
+  }
+  const payload = bytes.subarray(AEDS_HEADER_LENGTH)
+  if (crc16(payload) !== readUInt16(view, 14)) {
+    throw new Error('aeds_payload_crc_mismatch')
+  }
+
+  return {
+    frameType: readUInt16(view, 8),
+    payload
+  }
+}
+
+export function decodeApiErrorFrame(buffer) {
+  const frame = decodeAedsFrame(buffer)
+  if (frame.frameType !== FRAME_API_ERROR) {
+    throw new Error(`aeds_frame_type_unsupported:${frame.frameType}`)
+  }
+
+  if (frame.payload.byteLength !== API_ERROR_POD_SIZE) {
+    throw new Error(`api_error_payload_size_mismatch:${frame.payload.byteLength}`)
+  }
+
+  const payloadView = new DataView(frame.payload.buffer, frame.payload.byteOffset, frame.payload.byteLength)
+  return {
+    code: frame.payload[0],
+    category: frame.payload[1],
+    statusCode: readInt32(payloadView, 4),
+    message: readFixedUtf8(frame.payload, 8, 256),
+    details: readFixedUtf8(frame.payload, 264, 256),
+    traceId: readFixedUtf8(frame.payload, 520, 64)
+  }
+}
+
+export function encodeAedsFrame(frameType, payload) {
+  const frame = new Uint8Array(AEDS_HEADER_LENGTH + payload.byteLength)
+  const view = new DataView(frame.buffer)
+  view.setUint32(0, AEDS_MAGIC, true)
+  view.setUint8(4, AEDS_VERSION)
+  view.setUint8(5, AEDS_HEADER_LENGTH)
+  view.setUint16(6, 0, true)
+  view.setUint16(8, frameType, true)
+  view.setUint32(10, payload.byteLength, true)
+  view.setUint16(14, crc16(payload), true)
+  frame.set(payload, AEDS_HEADER_LENGTH)
+  return frame.buffer
+}
+
+export function encodeAuthLoginRequest({ username, password, rememberMe }) {
+  const { bytes, refs, blobLength } = encodeStringBlob([username, password])
+  const view = new DataView(bytes.buffer)
+  bytes[0] = rememberMe ? 1 : 0
+  view.setUint16(2, 0, true)
+  writeSliceRef(view, 4, refs[0])
+  writeSliceRef(view, 12, refs[1])
+  view.setInt32(20, blobLength, true)
+  return bytes
+}
+
+export function encodeAuthRegisterRequest({ username, password, confirmPassword }) {
+  const { bytes, refs, blobLength } = encodeStringBlob([username, password, confirmPassword])
+  const view = new DataView(bytes.buffer)
+  writeSliceRef(view, 0, refs[0])
+  writeSliceRef(view, 8, refs[1])
+  writeSliceRef(view, 16, refs[2])
+  view.setInt32(24, blobLength, true)
+  return bytes
+}
+
+export function encodeUploadInitRequest(payload) {
+  const bytes = new Uint8Array(428)
+  const view = new DataView(bytes.buffer)
+  writeFixedUtf8(bytes, 0, 256, payload.fileName)
+  writeFixedUtf8(bytes, 256, 64, payload.mimeType)
+  writeFixedUtf8(bytes, 320, 32, payload.targetFormat)
+  view.setBigInt64(352, BigInt(payload.totalBytes), true)
+  view.setInt32(360, payload.chunkSize, true)
+  writeFixedUtf8(bytes, 364, 64, payload.sha256 ?? '')
+  return bytes
+}
+
+export function encodeUploadCompleteRequest(sha256) {
+  const bytes = new Uint8Array(64)
+  writeFixedUtf8(bytes, 0, 64, sha256 ?? '')
+  return bytes
+}
+
+export function encodeStringMutationRequest(value) {
+  const encoded = UTF8_ENCODER.encode(value ?? '')
+  const bytes = new Uint8Array(12 + encoded.byteLength)
+  const view = new DataView(bytes.buffer)
+  view.setInt32(0, 0, true)
+  view.setInt32(4, encoded.byteLength, true)
+  view.setInt32(8, encoded.byteLength, true)
+  bytes.set(encoded, 12)
+  return bytes
+}
+
+export function encodeAuthUpdatePasswordRequest(data) {
+  const { bytes, refs, blobLength } = encodeStringBlob([data.oldPassword, data.newPassword, data.confirmPassword])
+  const view = new DataView(bytes.buffer)
+  writeSliceRef(view, 0, refs[0])
+  writeSliceRef(view, 8, refs[1])
+  writeSliceRef(view, 16, refs[2])
+  view.setInt32(24, blobLength, true)
+  return bytes
+}
+
+export function encodeCommentCreateRequest(data) {
+  const content = UTF8_ENCODER.encode(data.content ?? '')
+  const bytes = new Uint8Array(48 + content.byteLength)
+  const view = new DataView(bytes.buffer)
+  view.setInt32(0, data.articleId ?? 0, true)
+  view.setInt32(4, data.replyToUserId ?? 0, true)
+
+  const parentId = parseOptionalBigInt(data.parentId)
+  const rootId = parseOptionalBigInt(data.rootId)
+  const replyToCommentId = parseOptionalBigInt(data.replyToCommentId)
+  bytes[8] = parentId === null ? 0 : 1
+  bytes[9] = rootId === null ? 0 : 1
+  bytes[10] = replyToCommentId === null ? 0 : 1
+  bytes[11] = data.replyToUserId === null || data.replyToUserId === undefined ? 0 : 1
+  view.setBigInt64(12, parentId ?? 0n, true)
+  view.setBigInt64(20, rootId ?? 0n, true)
+  view.setBigInt64(28, replyToCommentId ?? 0n, true)
+  view.setInt32(36, 0, true)
+  view.setInt32(40, content.byteLength, true)
+  view.setInt32(44, content.byteLength, true)
+  bytes.set(content, 48)
+  return bytes
+}
+
+export function encodeSeoConfigPayload(data) {
+  const description = UTF8_ENCODER.encode(data.description ?? '')
+  const bytes = new Uint8Array(1100 + description.byteLength)
+  const view = new DataView(bytes.buffer)
+  writeFixedUtf8(bytes, 0, 256, data.title ?? '')
+  view.setInt32(256, 0, true)
+  view.setInt32(260, description.byteLength, true)
+  writeFixedUtf8(bytes, 264, 256, data.keywords ?? '')
+  writeFixedUtf8(bytes, 520, 64, data.author ?? '')
+  writeFixedUtf8(bytes, 584, 256, data.ogImage ?? '')
+  writeFixedUtf8(bytes, 840, 256, data.baseUrl ?? '')
+  view.setInt32(1096, description.byteLength, true)
+  bytes.set(description, 1100)
+  return bytes
+}
+
+export function encodePageContentPayload(data) {
+  const content = UTF8_ENCODER.encode(data.content ?? '')
+  const bytes = new Uint8Array(140 + content.byteLength)
+  const view = new DataView(bytes.buffer)
+  writeFixedUtf8(bytes, 0, 128, data.slug ?? '')
+  view.setInt32(128, 0, true)
+  view.setInt32(132, content.byteLength, true)
+  view.setInt32(136, content.byteLength, true)
+  bytes.set(content, 140)
+  return bytes
+}
+
+export function encodeAdminChangeStatusRequest(data) {
+  const reason = UTF8_ENCODER.encode(data.reason ?? '')
+  const bytes = new Uint8Array(20 + reason.byteLength)
+  const view = new DataView(bytes.buffer)
+  view.setInt32(0, data.userId ?? 0, true)
+  view.setInt32(4, data.status ?? 0, true)
+  view.setInt32(8, 0, true)
+  view.setInt32(12, reason.byteLength, true)
+  view.setInt32(16, reason.byteLength, true)
+  bytes.set(reason, 20)
+  return bytes
+}
+
+export function encodeAdminResetPasswordRequest(data) {
+  const password = UTF8_ENCODER.encode(data.newPassword ?? '')
+  const bytes = new Uint8Array(20 + password.byteLength)
+  const view = new DataView(bytes.buffer)
+  view.setInt32(0, data.userId ?? 0, true)
+  view.setInt32(4, 0, true)
+  view.setInt32(8, 0, true)
+  view.setInt32(12, password.byteLength, true)
+  view.setInt32(16, password.byteLength, true)
+  bytes.set(password, 20)
+  return bytes
+}
+
+export function encodeConversationCreateRequest(data) {
+  const subject = UTF8_ENCODER.encode(data.subject ?? '')
+  const body = UTF8_ENCODER.encode(data.body ?? '')
+  const bytes = new Uint8Array(20 + subject.byteLength + body.byteLength)
+  const view = new DataView(bytes.buffer)
+  view.setInt32(0, 0, true)
+  view.setInt32(4, subject.byteLength, true)
+  view.setInt32(8, subject.byteLength, true)
+  view.setInt32(12, body.byteLength, true)
+  view.setInt32(16, subject.byteLength + body.byteLength, true)
+  bytes.set(subject, 20)
+  bytes.set(body, 20 + subject.byteLength)
+  return bytes
+}
+
+export function encodeConversationStatusRequest(status) {
+  const bytes = new Uint8Array(4)
+  new DataView(bytes.buffer).setInt32(0, status === 'pending' ? 1 : status === 'closed' ? 2 : 0, true)
+  return bytes
+}
+
+export function encodeSystemMessageRequest(data) {
+  const subject = UTF8_ENCODER.encode(data.subject ?? '')
+  const body = UTF8_ENCODER.encode(data.body ?? '')
+  const bytes = new Uint8Array(36 + subject.byteLength + body.byteLength)
+  const view = new DataView(bytes.buffer)
+  view.setBigInt64(0, BigInt(data.targetUserId ?? 0), true)
+  view.setUint8(8, data.targetUserId == null ? 0 : 1)
+  view.setInt32(16, 0, true)
+  view.setInt32(20, subject.byteLength, true)
+  view.setInt32(24, subject.byteLength, true)
+  view.setInt32(28, body.byteLength, true)
+  view.setInt32(32, subject.byteLength + body.byteLength, true)
+  bytes.set(subject, 36)
+  bytes.set(body, 36 + subject.byteLength)
+  return bytes
+}
+
+export function encodeNameMutationRequest(value) {
+  const bytes = new Uint8Array(128)
+  writeFixedUtf8(bytes, 0, 128, value ?? '')
+  return bytes
+}
+
+export function encodeArticleWriteRequest(data) {
+  const textParts = [
+    UTF8_ENCODER.encode(data.title ?? ''),
+    UTF8_ENCODER.encode(data.content ?? ''),
+    UTF8_ENCODER.encode(data.summary ?? ''),
+    UTF8_ENCODER.encode(data.coverImageUrl ?? '')
+  ]
+  const blobLength = textParts.reduce((sum, part) => sum + part.byteLength, 0)
+  const tagIds = Array.isArray(data.tagIds) ? data.tagIds : []
+  const tagBytesLength = tagIds.length * 4
+  const bytes = new Uint8Array(40 + tagBytesLength + 4 + blobLength + 12)
+  const view = new DataView(bytes.buffer)
+
+  view.setInt32(0, data.categoryId ?? 0, true)
+  view.setInt32(4, tagIds.length, true)
+
+  let blobOffset = 0
+  for (let i = 0; i < textParts.length; i += 1) {
+    const part = textParts[i]
+    const refOffset = 8 + i * 8
+    view.setInt32(refOffset, blobOffset, true)
+    view.setInt32(refOffset + 4, part.byteLength, true)
+    blobOffset += part.byteLength
+  }
+
+  let cursor = 40
+  for (const tagId of tagIds) {
+    view.setInt32(cursor, tagId, true)
+    cursor += 4
+  }
+
+  view.setInt32(cursor, blobLength, true)
+  cursor += 4
+  for (const part of textParts) {
+    bytes.set(part, cursor)
+    cursor += part.byteLength
+  }
+
+  view.setInt32(cursor, data.status ?? 2, true)
+  cursor += 4
+  view.setBigInt64(cursor, BigInt(toScheduledPublishAtUnixMs(data.scheduledPublishAt)), true)
+
+  return bytes
+}
+
+function toScheduledPublishAtUnixMs(value) {
+  if (!value) {
+    return 0
+  }
+
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
+function parseOptionalBigInt(value) {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+
+  try {
+    const parsed = BigInt(value)
+    return parsed > 0n ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+export function encodeAotBundleRequest(bundle) {
+  const entries = Array.isArray(bundle.entries) ? bundle.entries : []
+  const encodedEntries = entries.map((entry) => [
+    UTF8_ENCODER.encode(entry.routeKey ?? ''),
+    UTF8_ENCODER.encode(entry.html ?? ''),
+    UTF8_ENCODER.encode(entry.bootstrapPayload ?? ''),
+    UTF8_ENCODER.encode(entry.hydrationPropsPayload ?? ''),
+    UTF8_ENCODER.encode(entry.rendererVersion ?? ''),
+    UTF8_ENCODER.encode(entry.islandsPayload ?? ''),
+    UTF8_ENCODER.encode(entry.title ?? ''),
+    UTF8_ENCODER.encode(entry.baseUrl ?? '')
+  ])
+  const blobLength = encodedEntries.reduce(
+    (sum, parts) => sum + parts.reduce((inner, part) => inner + part.byteLength, 0),
+    0
+  )
+  const entrySize = 76
+  const bytes = new Uint8Array(16 + entries.length * entrySize + 4 + blobLength)
+  const view = new DataView(bytes.buffer)
+  const generated = Date.parse(bundle.generatedAtUtc)
+  view.setBigInt64(0, BigInt(Number.isFinite(generated) ? generated : Date.now()), true)
+  view.setInt32(8, entries.length, true)
+  view.setInt32(12, 0, true)
+
+  let blobOffset = 0
+  let blobCursor = 16 + entries.length * entrySize + 4
+  for (let entryIndex = 0; entryIndex < entries.length; entryIndex += 1) {
+    const entry = entries[entryIndex]
+    const entryOffset = 16 + entryIndex * entrySize
+    view.setInt32(entryOffset, Number(entry.pageId) || 0, true)
+    view.setInt32(entryOffset + 4, entry.articleId ?? 0, true)
+    bytes[entryOffset + 8] = entry.articleId === null || entry.articleId === undefined ? 0 : 1
+    bytes[entryOffset + 9] = 0
+    view.setUint16(entryOffset + 10, 0, true)
+
+    const parts = encodedEntries[entryIndex]
+    for (let partIndex = 0; partIndex < parts.length; partIndex += 1) {
+      const refOffset = entryOffset + 12 + partIndex * 8
+      const part = parts[partIndex]
+      view.setInt32(refOffset, blobOffset, true)
+      view.setInt32(refOffset + 4, part.byteLength, true)
+      bytes.set(part, blobCursor)
+      blobOffset += part.byteLength
+      blobCursor += part.byteLength
+    }
+  }
+
+  view.setInt32(16 + entries.length * entrySize, blobLength, true)
+  return bytes
+}
+
+export function encodePasskeyRegisterCompleteRequest(data) {
+  const transports = Array.isArray(data.attestation?.response?.transports)
+    ? data.attestation.response.transports.map(transportToInt).filter((value) => value !== null)
+    : []
+  const { bytes, refs, blobLength } = encodeBinaryBlob(120 + transports.length * 4, [
+    textBytes(data.attestation?.id ?? ''),
+    base64UrlToBytes(data.attestation?.rawId ?? ''),
+    base64UrlToBytes(data.attestation?.response?.clientDataBytes ?? ''),
+    base64UrlToBytes(data.attestation?.response?.attestationObject ?? ''),
+    textBytes(data.friendlyName ?? ''),
+    textBytes(data.mfaProofToken ?? '')
+  ])
+  const view = new DataView(bytes.buffer)
+  bytes[0] = data.friendlyName?.trim() ? 1 : 0
+  bytes[1] = data.mfaProofToken?.trim() ? 1 : 0
+  view.setUint16(2, 0, true)
+  view.setInt32(4, transports.length, true)
+  writeFixedUtf8(bytes, 8, 64, data.sessionKey)
+  writeSliceRef(view, 72, refs[0])
+  writeSliceRef(view, 80, refs[1])
+  writeSliceRef(view, 88, refs[2])
+  writeSliceRef(view, 96, refs[3])
+  writeSliceRef(view, 104, refs[4])
+  writeSliceRef(view, 112, refs[5])
+  let cursor = 120
+  for (const transport of transports) {
+    view.setInt32(cursor, transport, true)
+    cursor += 4
+  }
+  view.setInt32(cursor, blobLength, true)
+  return bytes
+}
+
+export function encodePasskeyLoginCompleteRequest(data) {
+  const userHandle = data.assertion?.response?.userHandle
+  const { bytes, refs, blobLength } = encodeBinaryBlob(120, [
+    textBytes(data.assertion?.id ?? ''),
+    base64UrlToBytes(data.assertion?.rawId ?? ''),
+    base64UrlToBytes(data.assertion?.response?.clientDataBytes ?? ''),
+    base64UrlToBytes(data.assertion?.response?.authenticatorData ?? ''),
+    base64UrlToBytes(data.assertion?.response?.signature ?? ''),
+    userHandle ? base64UrlToBytes(userHandle) : new Uint8Array(0)
+  ])
+  const view = new DataView(bytes.buffer)
+  bytes[0] = data.rememberMe ? 1 : 0
+  bytes[1] = userHandle ? 1 : 0
+  view.setUint16(2, 0, true)
+  view.setInt32(4, 0, true)
+  writeFixedUtf8(bytes, 8, 64, data.challengeToken)
+  writeSliceRef(view, 72, refs[0])
+  writeSliceRef(view, 80, refs[1])
+  writeSliceRef(view, 88, refs[2])
+  writeSliceRef(view, 96, refs[3])
+  writeSliceRef(view, 104, refs[4])
+  writeSliceRef(view, 112, refs[5])
+  view.setInt32(120, blobLength, true)
+  return bytes
+}
+
+export function encodeMfaPasswordProofRequest(data) {
+  const { bytes, refs, blobLength } = encodeStringBlob([data.password, data.code ?? '', data.recoveryCode ?? ''])
+  const view = new DataView(bytes.buffer)
+  writeSliceRef(view, 0, refs[0])
+  writeSliceRef(view, 8, refs[1])
+  writeSliceRef(view, 16, refs[2])
+  view.setInt32(24, blobLength, true)
+  return bytes
+}
+
+export function encodeMfaChallengeVerifyRequest(data) {
+  const { bytes, refs, blobLength } = encodeStringBlob([
+    data.challengeToken,
+    data.action ?? '',
+    data.code ?? '',
+    data.recoveryCode ?? ''
+  ])
+  const view = new DataView(bytes.buffer)
+  writeSliceRef(view, 0, refs[0])
+  writeSliceRef(view, 8, refs[1])
+  writeSliceRef(view, 16, refs[2])
+  writeSliceRef(view, 24, refs[3])
+  view.setInt32(32, blobLength, true)
+  return bytes
+}
+
+export function decodeKnownFrame(buffer) {
+  const frame = decodeAedsFrame(buffer)
+  switch (frame.frameType) {
+    case FRAME_ARTICLE_LIST:
+      return decodeArticlePage(frame.payload)
+    case FRAME_ARTICLE_DETAIL:
+      return decodeArticleDetail(frame.payload)
+    case FRAME_COMMENT_USER_CURSOR:
+      return decodeUserCommentCursor(frame.payload)
+    case FRAME_SEO_CONFIG:
+      return decodeSeoConfig(frame.payload)
+    case FRAME_PAGE_CONTENT:
+      return decodePageContent(frame.payload)
+    case FRAME_AUTH_LOGIN_FLOW:
+      return decodeAuthLoginFlow(frame.payload)
+    case FRAME_CURRENT_USER_SNAPSHOT:
+      return decodeCurrentUserSnapshot(frame.payload)
+    case FRAME_UPLOAD_INIT:
+      return decodeUploadInit(frame.payload)
+    case FRAME_UPLOAD_STATUS:
+      return decodeUploadStatus(frame.payload)
+    case FRAME_UPLOAD_PART_ACK:
+      return decodeUploadPartAck(frame.payload)
+    case FRAME_UPLOAD_COMPLETE:
+      return decodeUploadComplete(frame.payload)
+    case FRAME_UPLOAD_PART_MAP:
+      return decodeUploadPartMap(frame.payload)
+    case FRAME_AUTH_SESSION_LIST:
+      return decodeUserSessions(frame.payload)
+    case FRAME_POW_CHALLENGE:
+      return decodePowChallengePayload(frame.payload)
+    case FRAME_MFA_SETUP_START:
+      return decodeMfaSetupStart(frame.payload)
+    case FRAME_MFA_SETUP_VERIFY:
+      return decodeMfaSetupVerify(frame.payload)
+    case FRAME_MFA_PROFILE:
+      return decodeMfaProfile(frame.payload)
+    case FRAME_MFA_CHALLENGE_RESULT:
+      return decodeMfaChallengeResult(frame.payload)
+    case FRAME_CONVERSATION_LIST:
+      return decodeConversationList(frame.payload)
+    case FRAME_CONVERSATION_DETAIL:
+      return decodeConversationDetail(frame.payload)
+    case FRAME_CONVERSATION_MESSAGE:
+      return decodeConversationMessageFrame(frame.payload)
+    case FRAME_CATEGORY_LIST:
+      return decodeTaxonomyList(frame.payload, CATEGORY_POD_SIZE)
+    case FRAME_TAG_LIST:
+      return decodeTaxonomyList(frame.payload, TAG_WITH_COUNT_POD_SIZE)
+    case FRAME_PASSKEY_REGISTER_BEGIN:
+      return decodePasskeyRegisterBegin(frame.payload)
+    case FRAME_PASSKEY_LOGIN_BEGIN:
+      return decodePasskeyLoginBegin(frame.payload)
+    case FRAME_PASSKEY_CREDENTIAL_LIST:
+      return decodePasskeyCredentialList(frame.payload)
+    case FRAME_EMPTY_SUCCESS:
+      return null
+    case FRAME_MUTATION_ID:
+      return decodeMutationId(frame.payload)
+    case FRAME_API_ERROR:
+      return decodeApiErrorFrame(buffer)
+    default:
+      return { frameType: frame.frameType, payload: frame.payload }
+  }
+}
+
+function decodeMutationId(payload) {
+  assertPayloadLength(payload, 8, 'mutation_id_payload_invalid')
+  return { id: readInt64FromBytes(payload, 0) }
+}
+
+function decodeUploadInit(payload) {
+  assertPayloadLength(payload, 440, 'upload_init_payload_invalid')
+  return {
+    uploadId: readFixedUtf8(payload, 0, 64),
+    fileName: readFixedUtf8(payload, 64, 256),
+    mimeType: readFixedUtf8(payload, 320, 64),
+    targetFormat: readFixedUtf8(payload, 384, 32),
+    totalBytes: readInt64FromBytes(payload, 416),
+    chunkSize: readInt32(new DataView(payload.buffer, payload.byteOffset, payload.byteLength), 424),
+    totalParts: readInt32(new DataView(payload.buffer, payload.byteOffset, payload.byteLength), 428),
+    expiresAt: new Date(readInt64FromBytes(payload, 432)).toISOString().replace('.000Z', 'Z')
+  }
+}
+
+function decodeUploadStatus(payload) {
+  assertPayloadLength(payload, 136, 'upload_status_payload_invalid')
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  return {
+    uploadId: readFixedUtf8(payload, 0, 64),
+    status: readFixedUtf8(payload, 64, 32),
+    totalBytes: readInt64FromBytes(payload, 96),
+    uploadedBytes: readInt64FromBytes(payload, 104),
+    chunkSize: readInt32(view, 112),
+    totalParts: readInt32(view, 116),
+    uploadedPartCount: readInt32(view, 120),
+    nextPartHint: readInt32(view, 124),
+    expiresAt: new Date(readInt64FromBytes(payload, 128)).toISOString().replace('.000Z', 'Z')
+  }
+}
+
+function decodeUploadPartMap(payload) {
+  if (payload.byteLength < 72) throw new Error('upload_part_map_payload_invalid')
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  const count = readInt32(view, 64)
+  if (count < 0 || payload.byteLength !== 72 + count * 8) {
+    throw new Error('upload_part_map_count_invalid')
+  }
+  const uploadedRanges = []
+  for (let i = 0; i < count; i += 1) {
+    const offset = 72 + i * 8
+    uploadedRanges.push({ start: readInt32(view, offset), end: readInt32(view, offset + 4) })
+  }
+  return { uploadId: readFixedUtf8(payload, 0, 64), uploadedRanges }
+}
+
+function decodeUploadPartAck(payload) {
+  assertPayloadLength(payload, 92, 'upload_part_ack_payload_invalid')
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  return {
+    uploadId: readFixedUtf8(payload, 0, 64),
+    partNumber: readInt32(view, 64),
+    offset: readInt64FromBytes(payload, 68),
+    size: readInt32(view, 76),
+    uploadedBytes: readInt64FromBytes(payload, 80),
+    uploadedPartCount: readInt32(view, 88)
+  }
+}
+
+function decodeUploadComplete(payload) {
+  assertPayloadLength(payload, 648, 'upload_complete_payload_invalid')
+  return {
+    uploadId: readFixedUtf8(payload, 0, 64),
+    url: readFixedUtf8(payload, 64, 256),
+    relativeUrl: readFixedUtf8(payload, 320, 256),
+    mimeType: readFixedUtf8(payload, 576, 64),
+    totalBytes: readInt64FromBytes(payload, 640)
+  }
+}
+
+function assertPayloadLength(payload, expected, code) {
+  if (payload.byteLength !== expected) {
+    throw new Error(`${code}:${payload.byteLength}`)
+  }
+}
+
+function assertPayloadLengthAtLeast(payload, minimum, code) {
+  if (payload.byteLength < minimum) {
+    throw new Error(`${code}:${payload.byteLength}`)
+  }
+}
+
+export function decodeSearchManifest(bytes) {
+  const payload = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  let offset = 0
+  const readUint32 = () => {
+    if (offset + 4 > payload.byteLength) throw new Error('search_manifest_truncated')
+    const value = view.getUint32(offset, true)
+    offset += 4
+    return value
+  }
+  const readInt32Value = () => {
+    if (offset + 4 > payload.byteLength) throw new Error('search_manifest_truncated')
+    const value = view.getInt32(offset, true)
+    offset += 4
+    return value
+  }
+  const readInt64 = () => {
+    if (offset + 8 > payload.byteLength) throw new Error('search_manifest_truncated')
+    const value = view.getBigInt64(offset, true)
+    offset += 8
+    return value
+  }
+  const readBool = () => {
+    if (offset + 1 > payload.byteLength) throw new Error('search_manifest_truncated')
+    return payload[offset++] !== 0
+  }
+  const readStringValue = () => {
+    const length = readInt32Value()
+    if (length < 0 || length > 4096 || offset + length > payload.byteLength) {
+      throw new Error('search_manifest_string_invalid')
+    }
+    const value = UTF8_DECODER.decode(payload.subarray(offset, offset + length))
+    offset += length
+    return value
+  }
+  const readNullableString = () => readBool() ? readStringValue() : null
+  const readStringList = () => {
+    const count = readInt32Value()
+    if (count < 0 || count > 32) throw new Error('search_manifest_list_invalid')
+    return Array.from({ length: count }, () => readStringValue())
+  }
+
+  if (readUint32() !== SEARCH_MANIFEST_MAGIC || readUint32() !== SEARCH_MANIFEST_BINARY_VERSION) {
+    throw new Error('search_manifest_magic_invalid')
+  }
+
+  const schemaVersion = readInt32Value()
+  const ticks = readInt64()
+  const currentVersion = readStringValue()
+  const shardCount = readInt32Value()
+  if (shardCount < 0 || shardCount > 32) {
+    throw new Error('search_manifest_shards_invalid')
+  }
+
+  const shards = []
+  for (let index = 0; index < shardCount; index += 1) {
+    shards.push({
+      role: readUint32(),
+      fullUrl: readStringValue(),
+      fullSha256: readStringValue(),
+      patchUrl: readNullableString(),
+      patchSha256: readNullableString(),
+      loadPhase: readInt32Value()
+    })
+  }
+
+  const manifest = {
+    schemaVersion,
+    currentVersion,
+    generatedAt: new Date(Number(ticks / 10000n) - DOTNET_EPOCH_OFFSET_MS).toISOString(),
+    shards,
+    initialRoles: readStringList(),
+    backgroundRoles: readStringList(),
+    deepRoles: readStringList()
+  }
+
+  if (offset !== payload.byteLength) {
+    throw new Error('search_manifest_trailing_bytes')
+  }
+  return manifest
+}
+
+export function decodePublicAotPayload(text) {
+  const bytes = new Uint8Array(Buffer.from(String(text).trim().replace(/-/g, '+').replace(/_/g, '/'), 'base64'))
+  const frame = decodeAedsFrame(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength))
+  if (frame.frameType !== FRAME_PUBLIC_AOT_BOOTSTRAP) {
+    throw new Error(`public_aot_frame_type_mismatch:${frame.frameType}`)
+  }
+
+  const reader = new PublicAotValueReader(frame.payload)
+  const value = reader.readValue()
+  if (reader.remaining() !== 0 || !value || typeof value !== 'object') {
+    throw new Error('public_aot_payload_invalid')
+  }
+  return value
+}
+
+function decodeArticlePage(payload) {
+  const reader = new BinaryReader(payload)
+  const total = reader.readInt32()
+  const count = reader.readInt32()
+  const tagRecordCount = reader.readInt32()
+  if (count < 0 || tagRecordCount < 0) {
+    throw new Error('article_page_count_invalid')
+  }
+  const blob = reader.readBlob()
+  const itemRecordBytes = reader.remaining() - tagRecordCount * COMPACT_TAG_RECORD_SIZE
+  const itemRecordSize = count === 0 ? ARTICLE_LIST_RECORD_WITH_STATUS_SIZE : itemRecordBytes / count
+  if (itemRecordBytes < 0 || (count > 0 && itemRecordBytes % count !== 0) || ![ARTICLE_LIST_RECORD_SIZE, ARTICLE_LIST_RECORD_WITH_STATUS_SIZE].includes(itemRecordSize)) {
+    throw new Error('article_page_record_layout_invalid')
+  }
+
+  const records = []
+  for (let i = 0; i < count; i += 1) {
+    records.push(reader.readSpan(itemRecordSize))
+  }
+  const tagRecords = []
+  for (let i = 0; i < tagRecordCount; i += 1) {
+    const record = reader.readSpan(COMPACT_TAG_RECORD_SIZE)
+    const view = new DataView(record.buffer, record.byteOffset, record.byteLength)
+    tagRecords.push({
+      id: readInt32(view, 0),
+      name: readSliceText(blob, readSliceRef(record, 4))
+    })
+  }
+  const items = []
+  for (const record of records) {
+    const view = new DataView(record.buffer, record.byteOffset, record.byteLength)
+    const tagStart = readInt32(view, 44)
+    const tagCount = readInt32(view, 48)
+    if (tagStart < 0 || tagCount < 0 || tagStart + tagCount > tagRecords.length) {
+      throw new Error('article_page_tag_range_invalid')
+    }
+    const item = {
+      id: readInt32(view, 0),
+      title: readSliceText(blob, readSliceRef(record, 28)),
+      summary: readSliceText(blob, readSliceRef(record, 36)),
+      views: readInt32(view, 4),
+      createTime: new Date(readInt64Number(view, 8)).toISOString(),
+      category: {
+        id: readInt32(view, 16),
+        name: readSliceText(blob, readSliceRef(record, 20))
+      },
+      tags: tagRecords.slice(tagStart, tagStart + tagCount)
+    }
+    if (itemRecordSize === ARTICLE_LIST_RECORD_WITH_STATUS_SIZE) {
+      item.isDeleted = record[53] === 1 ? record[52] === 1 : undefined
+      item.status = readInt32(view, 56)
+      item.scheduledPublishAt = unixMsToIsoOrNull(readInt64Number(view, 60))
+      item.publishedAt = unixMsToIsoOrNull(readInt64Number(view, 68))
+    }
+    items.push(item)
+  }
+  if (reader.remaining() !== 0) {
+    throw new Error('article_page_trailing_bytes')
+  }
+  return { items, total }
+}
+
+function decodeArticleDetail(payload) {
+  const reader = new BinaryReader(payload)
+  const pod = reader.readSpan(ARTICLE_DETAIL_POD_SIZE)
+  const podView = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
+  const tags = readTagList(reader)
+  const blob = reader.readBlob()
+  let coverImageUrl = ''
+  if (reader.remaining() > 1) {
+    coverImageUrl = UTF8_DECODER.decode(reader.readBlob())
+  }
+  if (reader.remaining() > 0) {
+    const isDeleted = reader.readByte() === 1
+    if (reader.remaining() !== 0 && reader.remaining() !== 20) {
+      throw new Error('article_detail_publication_tail_invalid')
+    }
+    if (reader.remaining() === 20) {
+      const status = reader.readInt32()
+      const scheduledPublishAt = unixMsToIsoOrNull(reader.readInt64())
+      const publishedAt = unixMsToIsoOrNull(reader.readInt64())
+      return {
+        id: readInt32(podView, 0),
+        title: readFixedUtf8(pod, 152, 256),
+        content: readSliceText(blob, readSliceRef(pod, 416)),
+        summary: readSliceText(blob, readSliceRef(pod, 408)),
+        views: readInt32(podView, 4),
+        createTime: new Date(readInt64Number(podView, 8)).toISOString(),
+        category: {
+          id: readInt32(podView, 20),
+          name: readFixedUtf8(pod, 24, 128)
+        },
+        coverImageUrl,
+        tags,
+        isDeleted,
+        status,
+        scheduledPublishAt,
+        publishedAt
+      }
+    }
+  }
+  return {
+    id: readInt32(podView, 0),
+    title: readFixedUtf8(pod, 152, 256),
+    content: readSliceText(blob, readSliceRef(pod, 416)),
+    summary: readSliceText(blob, readSliceRef(pod, 408)),
+    views: readInt32(podView, 4),
+    createTime: new Date(readInt64Number(podView, 8)).toISOString(),
+    category: {
+      id: readInt32(podView, 20),
+      name: readFixedUtf8(pod, 24, 128)
+    },
+    coverImageUrl,
+    tags
+  }
+}
+
+function unixMsToIsoOrNull(value) {
+  return Number.isFinite(value) && value > 0 ? new Date(value).toISOString() : null
+}
+
+function decodeSeoConfig(payload) {
+  const reader = new BinaryReader(payload)
+  const pod = reader.readSpan(SEO_CONFIG_POD_SIZE)
+  const blob = reader.readBlob()
+  return {
+    title: readFixedUtf8(pod, 0, 256),
+    description: readSliceText(blob, readSliceRef(pod, 256)),
+    keywords: readFixedUtf8(pod, 264, 256),
+    author: readFixedUtf8(pod, 520, 64),
+    ogImage: readFixedUtf8(pod, 584, 256),
+    baseUrl: readFixedUtf8(pod, 840, 256)
+  }
+}
+
+function decodePageContent(payload) {
+  const reader = new BinaryReader(payload)
+  const pod = reader.readSpan(PAGE_CONTENT_POD_SIZE)
+  const blob = reader.readBlob()
+  return {
+    slug: readFixedUtf8(pod, 0, 128),
+    content: readSliceText(blob, readSliceRef(pod, 128))
+  }
+}
+
+function readTagList(reader) {
+  const count = reader.readInt32()
+  if (count < 0) {
+    throw new Error('tag_count_invalid')
+  }
+
+  const tags = []
+  for (let i = 0; i < count; i += 1) {
+    const pod = reader.readSpan(TAG_POD_SIZE)
+    const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
+    tags.push({
+      id: readInt32(view, 0),
+      name: readFixedUtf8(pod, 4, 128)
+    })
+  }
+  return tags
+}
+
+function decodeTaxonomyList(payload, itemSize) {
+  void itemSize
+  const reader = new BinaryReader(payload)
+  const count = reader.readInt32()
+  if (count < 0) {
+    throw new Error(`taxonomy_payload_size_mismatch:${payload.byteLength}`)
+  }
+  const blob = reader.readBlob()
+
+  const items = []
+  for (let i = 0; i < count; i += 1) {
+    const record = reader.readSpan(16)
+    const view = new DataView(record.buffer, record.byteOffset, record.byteLength)
+    items.push({
+      id: readInt32(view, 0),
+      name: readSliceText(blob, readSliceRef(record, 8)),
+      articleCount: readInt32(view, 4)
+    })
+  }
+  if (reader.remaining() !== 0) {
+    throw new Error('taxonomy_trailing_bytes')
+  }
+  return items
+}
+
+function decodePasskeyRegisterBegin(payload) {
+  const reader = new BinaryReader(payload)
+  const pod = reader.readSpan(PASSKEY_REGISTER_BEGIN_POD_SIZE)
+  const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
+  const paramCount = readInt32(view, 8)
+  const excludeCount = readInt32(view, 12)
+  if (paramCount < 0 || excludeCount < 0) {
+    throw new Error('passkey_register_begin_count_invalid')
+  }
+
+  const params = []
+  for (let i = 0; i < paramCount; i += 1) {
+    const param = reader.readSpan(PASSKEY_PUBLIC_KEY_CREDENTIAL_PARAM_POD_SIZE)
+    const paramView = new DataView(param.buffer, param.byteOffset, param.byteLength)
+    params.push({ type: credentialTypeToText(readInt32(paramView, 0)), alg: readInt32(paramView, 4) })
+  }
+
+  const descriptors = readDescriptors(reader, excludeCount)
+  const blob = reader.readBlob()
+  const attachment = readByte(pod, 32) === 1 ? authenticatorAttachmentToText(readInt32(view, 28)) : undefined
+  return {
+    sessionKey: readFixedUtf8(pod, 36, 64),
+    options: {
+      rp: {
+        id: readSliceText(blob, readSliceRef(pod, 100)),
+        name: readSliceText(blob, readSliceRef(pod, 108))
+      },
+      user: {
+        id: bytesToBase64Url(readBytes(blob, pod, 132)),
+        name: readSliceText(blob, readSliceRef(pod, 116)),
+        displayName: readSliceText(blob, readSliceRef(pod, 124))
+      },
+      challenge: bytesToBase64Url(readBytes(blob, pod, 140)),
+      pubKeyCredParams: params,
+      timeout: Number(view.getBigUint64(0, true)),
+      attestation: attestationToText(readInt32(view, 16)),
+      authenticatorSelection: {
+        ...(attachment ? { authenticatorAttachment: attachment } : {}),
+        residentKey: residentKeyToText(readInt32(view, 20)),
+        requireResidentKey: readByte(pod, 33) === 1,
+        userVerification: userVerificationToText(readInt32(view, 24))
+      },
+      excludeCredentials: descriptors.map((descriptor) => descriptorToView(descriptor, blob))
+    }
+  }
+}
+
+function decodePasskeyLoginBegin(payload) {
+  const reader = new BinaryReader(payload)
+  const pod = reader.readSpan(PASSKEY_LOGIN_BEGIN_POD_SIZE)
+  const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
+  const allowCount = readInt32(view, 8)
+  if (allowCount < 0) {
+    throw new Error('passkey_login_begin_count_invalid')
+  }
+
+  const descriptors = readDescriptors(reader, allowCount)
+  const blob = reader.readBlob()
+  const userVerification = readInt32(view, 12)
+  return {
+    challengeToken: readFixedUtf8(pod, 20, 64),
+    options: {
+      challenge: bytesToBase64Url(readBytes(blob, pod, 92)),
+      timeout: Number(view.getBigUint64(0, true)),
+      rpId: readSliceText(blob, readSliceRef(pod, 84)),
+      ...(userVerification >= 0 ? { userVerification: userVerificationToText(userVerification) } : {}),
+      allowCredentials: descriptors.map((descriptor) => descriptorToView(descriptor, blob))
+    }
+  }
+}
+
+function decodePasskeyCredentialList(payload) {
+  const reader = new BinaryReader(payload)
+  const count = reader.readInt32()
+  if (count < 0) {
+    throw new Error('passkey_credential_count_invalid')
+  }
+
+  const pods = []
+  for (let i = 0; i < count; i += 1) {
+    pods.push(reader.readSpan(PASSKEY_CREDENTIAL_SUMMARY_POD_SIZE))
+  }
+  const blob = reader.readBlob()
+  return pods.map((pod) => {
+    const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
+    return {
+      id: readInt32(view, 0),
+      deviceFriendlyName: readByte(pod, 4) === 1 ? readSliceText(blob, readSliceRef(pod, 88)) : null,
+      createdAt: new Date(readInt64Number(view, 8)).toISOString(),
+      lastUsedAt: readByte(pod, 5) === 1 ? new Date(readInt64Number(view, 16)).toISOString() : null,
+      aaGuid: readFixedUtf8(pod, 24, 64),
+      backupEligible: readByte(pod, 6) === 1,
+      backupState: readByte(pod, 7) === 1
+    }
+  })
+}
+
+function readDescriptors(reader, count) {
+  const descriptors = []
+  for (let i = 0; i < count; i += 1) {
+    const pod = reader.readSpan(PASSKEY_CREDENTIAL_DESCRIPTOR_POD_SIZE)
+    const transportCount = reader.readInt32()
+    const podView = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
+    if (transportCount < 0 || transportCount !== readInt32(podView, 4)) {
+      throw new Error('passkey_descriptor_transport_count_invalid')
+    }
+
+    const transports = []
+    for (let transportIndex = 0; transportIndex < transportCount; transportIndex += 1) {
+      transports.push(reader.readInt32())
+    }
+    descriptors.push({ pod, transports })
+  }
+  return descriptors
+}
+
+function descriptorToView(descriptor, blob) {
+  const podView = new DataView(descriptor.pod.buffer, descriptor.pod.byteOffset, descriptor.pod.byteLength)
+  const transports = descriptor.transports.map(transportToText).filter(Boolean)
+  return {
+    type: credentialTypeToText(readInt32(podView, 0)),
+    id: bytesToBase64Url(readSliceBytes(blob, readSliceRef(descriptor.pod, 8))),
+    ...(transports.length > 0 ? { transports } : {})
+  }
+}
+
+function readBytes(blob, pod, offset) {
+  return readSliceBytes(blob, readSliceRef(pod, offset))
+}
+
+function decodeAuthLoginFlow(payload) {
+  if (payload.byteLength !== AUTH_LOGIN_FLOW_POD_SIZE) {
+    throw new Error(`auth_login_flow_payload_size_mismatch:${payload.byteLength}`)
+  }
+
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  const authPhase = payload[4]
+  const mfaMode = payload[5]
+  const hasChallengeToken = payload[6] === 1
+  return {
+    user: {
+      id: readInt32(view, 0),
+      username: readFixedUtf8(payload, 8, 64),
+      role: readFixedUtf8(payload, 72, 32)
+    },
+    authPhase: authPhase === 2 ? 'mfa_required' : 'authenticated',
+    mfaMode: mfaMode === 1 ? 'risk' : mfaMode === 2 ? 'standard' : null,
+    challengeToken: hasChallengeToken ? readFixedUtf8(payload, 104, 64) : null
+  }
+}
+
+function decodeCurrentUserSnapshot(payload) {
+  if (payload.byteLength !== CURRENT_USER_SNAPSHOT_POD_SIZE) {
+    throw new Error(`current_user_snapshot_payload_size_mismatch:${payload.byteLength}`)
+  }
+
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  const banReason = readFixedUtf8(payload, 116, 256)
+  return {
+    id: readInt32(view, 0),
+    status: readInt32(view, 4),
+    deletedAt: payload[16] === 1 ? new Date(readInt64Number(view, 8)).toISOString() : null,
+    username: readFixedUtf8(payload, 20, 64),
+    role: readFixedUtf8(payload, 84, 32),
+    banReason: banReason.length > 0 ? banReason : null
+  }
+}
+
+function decodeUserSessions(payload) {
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  const count = readInt32(view, 0)
+  if (count < 0 || payload.byteLength !== 4 + count * USER_SESSION_SUMMARY_POD_SIZE) {
+    throw new Error(`auth_session_payload_size_mismatch:${payload.byteLength}`)
+  }
+
+  const sessions = []
+  for (let i = 0; i < count; i += 1) {
+    const offset = 4 + i * USER_SESSION_SUMMARY_POD_SIZE
+    sessions.push({
+      lastSeenAt: payload[offset + 10] === 1 ? new Date(readInt64Number(view, offset)).toISOString() : null,
+      isCurrent: payload[offset + 8] === 1,
+      mfaVerified: payload[offset + 9] === 1,
+      sessionId: readFixedUtf8(payload, offset + 12, 64),
+      deviceFingerprint: readFixedUtf8(payload, offset + 76, 128),
+      lastIp: readFixedUtf8(payload, offset + 204, 64),
+      deviceLabel: readFixedUtf8(payload, offset + 268, 128)
+    })
+  }
+  return sessions
+}
+
+function decodeMfaSetupStart(payload) {
+  const reader = new BinaryReader(payload)
+  const pod = reader.readSpan(MFA_SETUP_START_POD_SIZE)
+  const blob = reader.readBlob()
+  return {
+    enabled: readByte(pod, 0) === 1,
+    secret: readSliceText(blob, readSliceRef(pod, 4)),
+    otpAuthUrl: readSliceText(blob, readSliceRef(pod, 12)),
+    issuer: readSliceText(blob, readSliceRef(pod, 20)),
+    account: readSliceText(blob, readSliceRef(pod, 28))
+  }
+}
+
+function decodeMfaSetupVerify(payload) {
+  assertPayloadLengthAtLeast(payload, MFA_SETUP_VERIFY_POD_SIZE, 'mfa_setup_verify_payload_invalid')
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  const count = readInt32(view, 4)
+  if (count < 0 || payload.byteLength !== MFA_SETUP_VERIFY_POD_SIZE + count * MFA_RECOVERY_CODE_POD_SIZE) {
+    throw new Error(`mfa_recovery_code_count_invalid:${count}`)
+  }
+
+  const recoveryCodes = []
+  for (let index = 0; index < count; index += 1) {
+    recoveryCodes.push(readFixedUtf8(
+      payload,
+      MFA_SETUP_VERIFY_POD_SIZE + index * MFA_RECOVERY_CODE_POD_SIZE,
+      MFA_RECOVERY_CODE_POD_SIZE
+    ))
+  }
+  return {
+    enabled: readByte(payload, 0) === 1,
+    recoveryCodes
+  }
+}
+
+function decodeMfaProfile(payload) {
+  assertPayloadLength(payload, MFA_PROFILE_POD_SIZE, 'mfa_profile_payload_invalid')
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  return {
+    enabled: readByte(payload, 8) === 1,
+    verifiedAt: readByte(payload, 9) === 1 ? new Date(readInt64Number(view, 0)).toISOString() : null
+  }
+}
+
+function decodeMfaChallengeResult(payload) {
+  assertPayloadLength(payload, MFA_CHALLENGE_RESULT_POD_SIZE, 'mfa_challenge_result_payload_invalid')
+  return {
+    verified: readByte(payload, 4) === 1,
+    action: readFixedUtf8(payload, 104, 64),
+    proofToken: readByte(payload, 5) === 1 ? readFixedUtf8(payload, 168, 128) : null,
+    user: readByte(payload, 6) === 1
+      ? {
+          id: readInt32(new DataView(payload.buffer, payload.byteOffset, payload.byteLength), 0),
+          username: readFixedUtf8(payload, 8, 64),
+          role: readFixedUtf8(payload, 72, 32)
+        }
+      : null
+  }
+}
+
+function decodeUserCommentCursor(payload) {
+  const reader = new BinaryReader(payload)
+  const nextCursorRaw = reader.readSpan(8)
+  const nextCursor = new DataView(nextCursorRaw.buffer, nextCursorRaw.byteOffset, nextCursorRaw.byteLength).getBigInt64(0, true)
+  const hasMore = reader.readByte() === 1
+  const count = reader.readInt32()
+  if (count < 0) {
+    throw new Error('user_comment_cursor_count_invalid')
+  }
+
+  const data = []
+  for (let index = 0; index < count; index += 1) {
+    const pod = reader.readSpan(USER_COMMENT_POD_SIZE)
+    const blob = reader.readBlob()
+    const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
+    const replyToUserName = readFixedUtf8(pod, 292, 64).trim()
+    data.push({
+      id: readInt64String(pod, 0),
+      articleId: readInt32(view, 8),
+      createTime: new Date(readInt64Number(view, 12)).toISOString(),
+      content: readBlobText(pod, blob, 20),
+      articleTitle: readFixedUtf8(pod, 28, 256),
+      rootId: readInt64String(pod, 284) === '0' ? null : readInt64String(pod, 284),
+      replyToUserName: replyToUserName.length > 0 ? replyToUserName : null
+    })
+  }
+
+  return {
+    data,
+    nextCursor: nextCursor === 0n ? null : String(nextCursor),
+    hasMore
+  }
+}
+
+function decodeConversationList(payload) {
+  const reader = new BinaryReader(payload)
+  const total = reader.readInt32()
+  const count = reader.readInt32()
+  if (total < 0 || count < 0) {
+    throw new Error('conversation_list_count_invalid')
+  }
+
+  const pods = []
+  for (let index = 0; index < count; index += 1) {
+    pods.push(reader.readSpan(CONVERSATION_LIST_ITEM_POD_SIZE))
+  }
+  const blob = reader.readBlob()
+  return {
+    total,
+    items: pods.map((pod) => readConversationListItem(pod, blob))
+  }
+}
+
+function decodeConversationDetail(payload) {
+  const reader = new BinaryReader(payload)
+  const pod = reader.readSpan(CONVERSATION_DETAIL_POD_SIZE)
+  const count = reader.readInt32()
+  if (count < 0) {
+    throw new Error('conversation_message_count_invalid')
+  }
+
+  const messagePods = []
+  for (let index = 0; index < count; index += 1) {
+    messagePods.push(reader.readSpan(CONVERSATION_MESSAGE_POD_SIZE))
+  }
+  const blob = reader.readBlob()
+  return {
+    conversationId: readInt64String(pod, 0),
+    subject: readBlobText(pod, blob, 28),
+    status: readInt32(new DataView(pod.buffer, pod.byteOffset, pod.byteLength), 8),
+    isSystemSource: readByte(pod, 24) === 1,
+    canReply: readByte(pod, 25) === 1,
+    unreadCount: readInt32(new DataView(pod.buffer, pod.byteOffset, pod.byteLength), 12),
+    lastMessageAt: new Date(readInt64Number(new DataView(pod.buffer, pod.byteOffset, pod.byteLength), 16)).toISOString(),
+    messages: messagePods.map((messagePod) => readConversationMessage(messagePod, blob))
+  }
+}
+
+function decodeConversationMessageFrame(payload) {
+  const reader = new BinaryReader(payload)
+  const pod = reader.readSpan(CONVERSATION_MESSAGE_POD_SIZE)
+  const blob = reader.readBlob()
+  return readConversationMessage(pod, blob)
+}
+
+function readConversationListItem(pod, blob) {
+  const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
+  const hasLastMessage = readByte(pod, 34) === 1
+  const lastMessagePod = pod.subarray(44, 44 + CONVERSATION_MESSAGE_PREVIEW_POD_SIZE)
+  return {
+    conversationId: readInt64String(pod, 0),
+    subject: readBlobText(pod, blob, 36),
+    status: readInt32(view, 8),
+    isSystemSource: readByte(pod, 32) === 1,
+    canReply: readByte(pod, 33) === 1,
+    unreadCount: readInt32(view, 12),
+    lastMessageAt: new Date(readInt64Number(view, 16)).toISOString(),
+    updatedAt: new Date(readInt64Number(view, 24)).toISOString(),
+    lastMessage: hasLastMessage ? readConversationPreview(lastMessagePod, blob) : null
+  }
+}
+
+function readConversationPreview(pod, blob) {
+  const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
+  return {
+    senderType: readInt32(view, 0),
+    senderName: readByte(pod, 12) === 1 ? readBlobText(pod, blob, 16) : null,
+    bodyPreview: readBlobText(pod, blob, 24),
+    createdAt: new Date(readInt64Number(view, 4)).toISOString()
+  }
+}
+
+function readConversationMessage(pod, blob) {
+  const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
+  return {
+    messageId: readInt64String(pod, 0),
+    conversationId: readInt64String(pod, 8),
+    senderType: readInt32(view, 16),
+    senderName: readByte(pod, 28) === 1 ? readBlobText(pod, blob, 32) : null,
+    body: readBlobText(pod, blob, 40),
+    createdAt: new Date(readInt64Number(view, 20)).toISOString()
+  }
+}
+
+function readInt64String(bytes, offset) {
+  return String(new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getBigInt64(offset, true))
+}
+
+function readBlobText(pod, blob, offset) {
+  return readSliceText(blob, readSliceRef(pod, offset))
+}
+
+function decodePowChallengePayload(payload) {
+  if (payload.byteLength !== 204) {
+    throw new Error(`pow_challenge_payload_size_mismatch:${payload.byteLength}`)
+  }
+
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  return {
+    salt: readFixedUtf8(payload, 0, 64),
+    difficulty: readInt32(view, 64),
+    timestamp: readInt64Number(view, 68),
+    signature: readFixedUtf8(payload, 76, 128)
+  }
+}
+
+function encodeStringBlob(values) {
+  const encodedValues = values.map((value) => UTF8_ENCODER.encode(value ?? ''))
+  const headerLength = values.length === 2 ? 24 : values.length * 8 + 4
+  const blobLength = encodedValues.reduce((sum, item) => sum + item.byteLength, 0)
+  const bytes = new Uint8Array(headerLength + blobLength)
+  let offset = headerLength
+  const refs = []
+  for (const encoded of encodedValues) {
+    refs.push({ offset: offset - headerLength, length: encoded.byteLength })
+    bytes.set(encoded, offset)
+    offset += encoded.byteLength
+  }
+  return { bytes, refs, blobLength }
+}
+
+function writeSliceRef(view, offset, ref) {
+  view.setInt32(offset, ref.offset, true)
+  view.setInt32(offset + 4, ref.length, true)
+}
+
+function writeFixedUtf8(target, offset, length, value) {
+  const encoded = UTF8_ENCODER.encode(value ?? '')
+  target.set(encoded.subarray(0, length), offset)
+}
+
+function encodeBinaryBlob(headerLength, parts) {
+  const blobLength = parts.reduce((sum, part) => sum + part.byteLength, 0)
+  const bytes = new Uint8Array(headerLength + 4 + blobLength)
+  const refs = []
+  let offset = 0
+  let cursor = headerLength + 4
+  for (const part of parts) {
+    refs.push({ offset, length: part.byteLength })
+    bytes.set(part, cursor)
+    offset += part.byteLength
+    cursor += part.byteLength
+  }
+  return { bytes, refs, blobLength }
+}
+
+function textBytes(value) {
+  return UTF8_ENCODER.encode(value ?? '')
+}
+
+function base64UrlToBytes(value) {
+  if (!value) return new Uint8Array(0)
+  return new Uint8Array(Buffer.from(String(value).replace(/-/g, '+').replace(/_/g, '/'), 'base64'))
+}
+
+function bytesToBase64Url(bytes) {
+  return Buffer.from(bytes).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function credentialTypeToText(value) {
+  if (value !== 0) throw new Error('passkey_credential_type_invalid')
+  return 'public-key'
+}
+
+function attestationToText(value) {
+  return value === 1 ? 'indirect' : value === 2 ? 'direct' : value === 3 ? 'enterprise' : 'none'
+}
+
+function residentKeyToText(value) {
+  return value === 1 ? 'preferred' : value === 2 ? 'discouraged' : 'required'
+}
+
+function userVerificationToText(value) {
+  return value === 1 ? 'preferred' : value === 2 ? 'discouraged' : 'required'
+}
+
+function authenticatorAttachmentToText(value) {
+  return value === 1 ? 'cross-platform' : 'platform'
+}
+
+function transportToText(value) {
+  return ['usb', 'nfc', 'ble', 'smart-card', 'hybrid', 'internal'][value] ?? null
+}
+
+function transportToInt(value) {
+  switch (value) {
+    case 'usb':
+      return 0
+    case 'nfc':
+      return 1
+    case 'ble':
+      return 2
+    case 'smart-card':
+      return 3
+    case 'hybrid':
+      return 4
+    case 'internal':
+      return 5
+    default:
+      return null
+  }
+}
+
+class BinaryReader {
+  constructor(bytes) {
+    this.bytes = bytes
+    this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    this.offset = 0
+  }
+
+  remaining() {
+    return this.bytes.byteLength - this.offset
+  }
+
+  readInt32() {
+    if (this.remaining() < 4) throw new Error('binary_read_int32_overflow')
+    const value = this.view.getInt32(this.offset, true)
+    this.offset += 4
+    return value
+  }
+
+  readInt64() {
+    if (this.remaining() < 8) throw new Error('binary_read_int64_overflow')
+    const value = Number(this.view.getBigInt64(this.offset, true))
+    this.offset += 8
+    return value
+  }
+
+  readSpan(length) {
+    if (length < 0 || this.remaining() < length) throw new Error('binary_read_span_overflow')
+    const span = this.bytes.subarray(this.offset, this.offset + length)
+    this.offset += length
+    return span
+  }
+
+  readByte() {
+    if (this.remaining() < 1) throw new Error('binary_read_byte_overflow')
+    return this.bytes[this.offset++]
+  }
+
+  readBlob() {
+    const length = this.readInt32()
+    return this.readSpan(length)
+  }
+}
+
+class PublicAotValueReader {
+  constructor(bytes) {
+    this.bytes = bytes
+    this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    this.offset = 0
+  }
+
+  remaining() {
+    return this.bytes.byteLength - this.offset
+  }
+
+  readValue() {
+    const kind = this.readByte()
+    switch (kind) {
+      case PUBLIC_AOT_NULL_KIND:
+        return null
+      case PUBLIC_AOT_STRING_KIND:
+        return this.readString()
+      case PUBLIC_AOT_INT32_KIND:
+        return this.readInt32()
+      case PUBLIC_AOT_INT64_KIND:
+        return Number(this.readInt64())
+      case PUBLIC_AOT_DOUBLE_KIND:
+        return this.readDouble()
+      case PUBLIC_AOT_BOOL_KIND:
+        return this.readByte() === 1
+      case PUBLIC_AOT_OBJECT_KIND:
+        return this.readObject()
+      case PUBLIC_AOT_ARRAY_KIND:
+        return this.readArray()
+      default:
+        throw new Error('public_aot_value_kind_invalid')
+    }
+  }
+
+  readByte() {
+    if (this.remaining() < 1) throw new Error('public_aot_read_byte_overflow')
+    return this.bytes[this.offset++]
+  }
+
+  readInt32() {
+    if (this.remaining() < 4) throw new Error('public_aot_read_int32_overflow')
+    const value = this.view.getInt32(this.offset, true)
+    this.offset += 4
+    return value
+  }
+
+  readInt64() {
+    if (this.remaining() < 8) throw new Error('public_aot_read_int64_overflow')
+    const value = this.view.getBigInt64(this.offset, true)
+    this.offset += 8
+    return value
+  }
+
+  readDouble() {
+    if (this.remaining() < 8) throw new Error('public_aot_read_double_overflow')
+    const value = this.view.getFloat64(this.offset, true)
+    this.offset += 8
+    return value
+  }
+
+  readString() {
+    const length = this.readInt32()
+    if (length < 0 || this.remaining() < length) throw new Error('public_aot_string_length_invalid')
+    const value = UTF8_DECODER.decode(this.bytes.subarray(this.offset, this.offset + length))
+    this.offset += length
+    return value
+  }
+
+  readObject() {
+    const count = this.readInt32()
+    if (count < 0) throw new Error('public_aot_object_count_invalid')
+    const value = {}
+    for (let i = 0; i < count; i += 1) {
+      value[this.readString()] = this.readValue()
+    }
+    return value
+  }
+
+  readArray() {
+    const count = this.readInt32()
+    if (count < 0) throw new Error('public_aot_array_count_invalid')
+    const value = []
+    for (let i = 0; i < count; i += 1) {
+      value.push(this.readValue())
+    }
+    return value
+  }
+}
+
+function crc16(bytes) {
+  let crc = 0xffff
+  for (let i = 0; i < bytes.byteLength; i += 1) {
+    crc ^= bytes[i] ?? 0
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc & 1) !== 0 ? ((crc >>> 1) ^ 0xa001) : (crc >>> 1)
+    }
+  }
+  return crc & 0xffff
+}

@@ -13,6 +13,7 @@ Thumbs.db
 *~
 *.tmp
 *.temp
+*.bak
 *.orig
 *.rej
 
@@ -39,6 +40,12 @@ Thumbs.db
 **/.tmp/
 **/tmp/
 **/temp/
+**/.tmp/**
+**/tmp/**
+**/temp/**
+**/*.tmp
+**/*.temp
+**/*.bak
 **/coverage/
 **/.eslintcache
 **/*.tsbuildinfo
@@ -55,6 +62,23 @@ Thumbs.db
 # Dependencies
 **/node_modules/
 
+# Python local tooling
+.venv/
+venv/
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.hypothesis/
+**/.tox/
+**/.nox/
+.python-version
+.coverage.*
+htmlcov/
+
 # Secrets / local config
 .env
 .env.local
@@ -63,11 +87,15 @@ Thumbs.db
 !.env.production-template
 launchSettings.json
 !FsusBlog.Server/Properties/launchSettings.json
+!src/backend/Properties/launchSettings.json
 !Properties/launchSettings.json
 FsusBlog.Server/appsettings.Development.json
+src/backend/appsettings.Development.json
 
 # Logs / runtime artifacts
 FsusBlog.Server/[Ll]ogs/
+src/backend/[Ll]ogs/
+src/backend/FsusBlog.Server/[Ll]ogs/
 *.log
 *.pid
 *.seed
@@ -81,28 +109,35 @@ FsusBlog.Server/[Ll]ogs/
 .full-regression-server.log
 
 # Frontend local outputs
-FsusBlog.Client/.vite/
-FsusBlog.Client/.cache/
-FsusBlog.Client/dist/
-FsusBlog.Client/dist-ssr/
-FsusBlog.Client/[Bb]in/
-FsusBlog.Client/[Oo]bj/
-FsusBlog.Client/auto-imports.d.ts
-FsusBlog.Client/components.d.ts
-FsusBlog.Client/npm-debug.log*
-FsusBlog.Client/yarn-debug.log*
-FsusBlog.Client/yarn-error.log*
-FsusBlog.Client/pnpm-debug.log*
-FsusBlog.Client/.playwright-fixtures.json
-FsusBlog.Client/playwright-report/
-FsusBlog.Client/test-results/
-FsusBlog.Client/tmp-*.mjs
+src/frontend/.vite/
+src/frontend/.cache/
+src/frontend/dist/
+src/frontend/dist-ssr/
+src/frontend/[Bb]in/
+src/frontend/[Oo]bj/
+src/frontend/auto-imports.d.ts
+src/frontend/components.d.ts
+src/frontend/npm-debug.log*
+src/frontend/yarn-debug.log*
+src/frontend/yarn-error.log*
+src/frontend/pnpm-debug.log*
+src/frontend/.playwright-fixtures.json
+src/frontend/.playwright-fixtures/
+src/frontend/playwright-report/
+src/frontend/test-results/
+src/frontend/tmp-*.mjs
+src/frontend/*.trace.zip
+src/frontend/*.trace
 
 # Server local outputs
 FsusBlog.Server/[Bb]in/
+src/backend/[Bb]in/
 FsusBlog.Server/[Oo]bj/
+src/backend/[Oo]bj/
 FsusBlog.Server.Tests/.artifacts/
+tests/backend/FsusBlog.Server.Tests/.artifacts/
 FsusBlog.Server.Tests/.tmp/
+tests/backend/FsusBlog.Server.Tests/.tmp/
 
 # Accidental publish / build spillover in repo root
 wwwroot/
@@ -119,40 +154,45 @@ obj\\*/
 **/.bin.stale-root-*/
 **/.obj.stale-root-*/
 **/.Debug.container-root-*/
+**/.migrated-root/
 
 # Search / content caches
 FsusBlog.Server/wwwroot/index/
+src/backend/wwwroot/index/
 FsusBlog.Server/wwwroot/aot-cache/
+src/backend/wwwroot/aot-cache/
 FsusBlog.Server/LuceneIndex/
+src/backend/LuceneIndex/
 *.index
 
 # WASM / CMake / emsdk artifacts
 build_windows/
 FsusBlog.Wasm/build/
 FsusBlog.Wasm/build_windows/
-FsusBlog.Client/src/wasm/dist/
-FsusBlog.Client/wasm/build/
-FsusBlog.Client/wasm/pow/build/
-FsusBlog.Client/wasm/build-basic/
-FsusBlog.Client/wasm/build-simd/
-FsusBlog.Client/wasm/.cmake/
-FsusBlog.Client/wasm/.artifacts/
-FsusBlog.Client/wasm/.emscripten-cache/
-FsusBlog.Client/wasm/**/CMakeFiles/
-FsusBlog.Client/wasm/**/CMakeCache.txt
-FsusBlog.Client/wasm/**/cmake_install.cmake
-FsusBlog.Client/wasm/**/compile_commands.json
-FsusBlog.Client/wasm/**/Makefile
-FsusBlog.Client/wasm/**/build.ninja
-FsusBlog.Client/wasm/**/rules.ninja
-FsusBlog.Client/wasm/**/.ninja_*
-FsusBlog.Client/wasm/**/*.rsp
-FsusBlog.Client/wasm/**/*.o
-FsusBlog.Client/wasm/**/*.a
+src/frontend/src/wasm/dist/
+src/frontend/wasm/build/
+src/frontend/wasm/pow/build/
+src/frontend/wasm/build-basic/
+src/frontend/wasm/build-simd/
+src/frontend/wasm/.cmake/
+src/frontend/wasm/.artifacts/
+src/frontend/wasm/.emscripten-cache/
+src/frontend/wasm/**/CMakeFiles/
+src/frontend/wasm/**/CMakeCache.txt
+src/frontend/wasm/**/cmake_install.cmake
+src/frontend/wasm/**/compile_commands.json
+src/frontend/wasm/**/Makefile
+src/frontend/wasm/**/build.ninja
+src/frontend/wasm/**/rules.ninja
+src/frontend/wasm/**/.ninja_*
+src/frontend/wasm/**/*.rsp
+src/frontend/wasm/**/*.o
+src/frontend/wasm/**/*.a
 
 # Benchmark / profiling
 BenchmarkDotNet.Artifacts/
 FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/
+benchmarks/core/FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/
 
 # Local-only agent / planning / scratch files
 .codex/
@@ -164,6 +204,5 @@ AOT_CACHE_TODO.md
 AOT_PUBLIC_TODO.md
 PUBLIC_AOT_SERVER_FIRST_TODO.md
 PUBLIC_AOT_TODO.md
-tasks
-B
-FsusBlog.Client/B
+/tmp/
+/.tmp/

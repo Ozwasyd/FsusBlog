@@ -1,0 +1,327 @@
+using Microsoft.AspNetCore.Http;
+using FsusBlog.Shared.Contracts.Outputs;
+
+namespace FsusBlog.Server.Infrastructure.PublicAot;
+
+internal static class PublicRouteIdentity
+{
+    private static readonly string ArticlePathPrefix = PublicRouteIdentityRegistry.ArticlePathPrefix;
+    private static readonly string CategoryPathPrefix = PublicRouteIdentityRegistry.CategoryPathPrefix;
+    private static readonly string TagPathPrefix = PublicRouteIdentityRegistry.TagPathPrefix;
+    private static readonly string ArticleRoutePrefix = string.Concat(PublicRouteIdentityRegistry.ArticleBucket, ":");
+    private static readonly string CategoryRoutePrefix = string.Concat(PublicRouteIdentityRegistry.CategoryBucket, ":");
+    private static readonly string TagRoutePrefix = string.Concat(PublicRouteIdentityRegistry.TagBucket, ":");
+    private static readonly string TagNameRoutePrefix = string.Concat(PublicRouteIdentityRegistry.TagNameBucket, ":");
+
+    internal static bool TryResolveKind(PathString path, out PublicPageKind kind)
+    {
+        kind = PublicPageKind.Unknown;
+
+        string? value = path.Value;
+        if (string.IsNullOrEmpty(value))
+        {
+            kind = PublicPageKind.Home;
+            return true;
+        }
+
+        ReadOnlySpan<char> normalizedPath = value.AsSpan().TrimEnd('/');
+        if (normalizedPath.IsEmpty || normalizedPath.SequenceEqual("/"))
+        {
+            kind = PublicPageKind.Home;
+            return true;
+        }
+
+        if (normalizedPath.StartsWith(ArticlePathPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            kind = PublicPageKind.ArticleDetail;
+            return true;
+        }
+
+        if (normalizedPath.StartsWith(CategoryPathPrefix, StringComparison.OrdinalIgnoreCase) ||
+            normalizedPath.StartsWith(TagPathPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            kind = PublicPageKind.Filter;
+            return true;
+        }
+
+        if (PublicAotPageCatalog.TryGetByStaticPath(normalizedPath, out PublicAotPageDescriptor descriptor))
+        {
+            kind = descriptor.Kind;
+            return true;
+        }
+
+        return false;
+    }
+
+    internal static string BuildRouteKey(HttpContext context, PublicPageKind kind)
+    {
+        string path = context.Request.Path.Value?.TrimEnd('/') ?? string.Empty;
+        PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(kind);
+
+        if (!string.IsNullOrWhiteSpace(descriptor.FixedRouteKey))
+        {
+            return descriptor.FixedRouteKey;
+        }
+
+        return kind switch
+        {
+            PublicPageKind.ArticleDetail when TryResolvePathId(context, ArticlePathPrefix, out int id) => BuildArticleRouteKey(id),
+            PublicPageKind.Filter => BuildFilterRouteKey(context, path),
+            _ => path
+        };
+    }
+
+    internal static string NormalizeRouteKey(PublicPageId pageId, string routeKey, int? articleId)
+    {
+        string resolved = (routeKey ?? string.Empty).Trim();
+        if (articleId is > 0)
+        {
+            resolved = resolved.Replace("{{articleId}}", articleId.Value.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(pageId);
+        return string.IsNullOrWhiteSpace(descriptor.FixedRouteKey)
+            ? resolved
+            : descriptor.FixedRouteKey;
+    }
+
+    internal static string BuildCanonicalPath(PublicPageId pageId, string routeKey, int? articleId)
+    {
+        if (PublicAotPageCatalog.TryGet(pageId, out PublicAotPageDescriptor? descriptor) &&
+            !string.IsNullOrWhiteSpace(descriptor.CanonicalFixedPath))
+        {
+            return descriptor.CanonicalFixedPath;
+        }
+
+        return pageId switch
+        {
+            PublicPageId.ArticleDetail => BuildCanonicalArticlePath(routeKey, articleId),
+            PublicPageId.Filter => BuildCanonicalFilterPath(routeKey),
+            _ => "/"
+        };
+    }
+
+    internal static string? ResolveRouteBucket(PublicPageId pageId, string routeKey)
+    {
+        if (string.IsNullOrEmpty(routeKey))
+        {
+            return null;
+        }
+
+        int separatorIndex = routeKey.IndexOf(':');
+        if (separatorIndex <= 0)
+        {
+            return null;
+        }
+
+        string bucket = routeKey[..separatorIndex];
+        return pageId switch
+        {
+            PublicPageId.ArticleDetail when string.Equals(bucket, PublicRouteIdentityRegistry.ArticleBucket, StringComparison.Ordinal) => bucket,
+            PublicPageId.Filter when string.Equals(bucket, PublicRouteIdentityRegistry.CategoryBucket, StringComparison.Ordinal) => bucket,
+            PublicPageId.Filter when string.Equals(bucket, PublicRouteIdentityRegistry.TagBucket, StringComparison.Ordinal) => bucket,
+            PublicPageId.Filter when string.Equals(bucket, PublicRouteIdentityRegistry.TagNameBucket, StringComparison.Ordinal) => bucket,
+            _ => null
+        };
+    }
+
+    internal static string BuildArticleRouteKey(int articleId)
+        => string.Concat(PublicRouteIdentityRegistry.ArticleBucket, ":", Math.Max(0, articleId));
+
+    internal static int ParseArticleRouteKey(string routeKey)
+        => ResolveId((routeKey ?? string.Empty).Trim(), ArticleRoutePrefix);
+
+    internal static string BuildCategoryRouteKey(int categoryId)
+        => string.Concat(PublicRouteIdentityRegistry.CategoryBucket, ":", Math.Max(0, categoryId));
+
+    internal static string BuildTagIdRouteKey(int tagId)
+        => string.Concat(PublicRouteIdentityRegistry.TagBucket, ":", Math.Max(0, tagId));
+
+    internal static string BuildTagNameRouteKey(string tagName)
+        => string.Concat(PublicRouteIdentityRegistry.TagNameBucket, ":", Uri.UnescapeDataString(tagName).Trim());
+
+    internal static string BuildCategoryPath(int categoryId)
+        => string.Concat(CategoryPathPrefix, Math.Max(0, categoryId));
+
+    internal static string BuildTagPathFromName(string tagName)
+        => string.Concat(TagPathPrefix, Uri.EscapeDataString(tagName.Trim()));
+
+    internal static ParsedFilterRouteIdentity ParseFilterRouteKey(string routeKey)
+    {
+        string normalizedRouteKey = (routeKey ?? string.Empty).Trim();
+
+        if (normalizedRouteKey.StartsWith(CategoryRoutePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            int categoryId = ResolveId(normalizedRouteKey, CategoryRoutePrefix);
+            return new ParsedFilterRouteIdentity(
+                FilterType: "category",
+                FilterKey: BuildCategoryRouteKey(categoryId),
+                FilterId: categoryId,
+                FilterName: null,
+                CategoryId: categoryId,
+                TagId: null);
+        }
+
+        if (normalizedRouteKey.StartsWith(TagRoutePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            int tagId = ResolveId(normalizedRouteKey, TagRoutePrefix);
+            return new ParsedFilterRouteIdentity(
+                FilterType: "tag",
+                FilterKey: BuildTagIdRouteKey(tagId),
+                FilterId: tagId,
+                FilterName: null,
+                CategoryId: null,
+                TagId: tagId);
+        }
+
+        if (normalizedRouteKey.StartsWith(TagNameRoutePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            string tagName = Uri.UnescapeDataString(normalizedRouteKey[TagNameRoutePrefix.Length..]).Trim();
+            return new ParsedFilterRouteIdentity(
+                FilterType: "tag",
+                FilterKey: BuildTagNameRouteKey(tagName),
+                FilterId: 0,
+                FilterName: tagName,
+                CategoryId: null,
+                TagId: null);
+        }
+
+        return new ParsedFilterRouteIdentity(
+            FilterType: "search",
+            FilterKey: normalizedRouteKey,
+            FilterId: 0,
+            FilterName: null,
+            CategoryId: null,
+            TagId: null);
+    }
+
+    private static string BuildFilterRouteKey(HttpContext context, string path)
+    {
+        if (path.StartsWith(CategoryPathPrefix, StringComparison.OrdinalIgnoreCase) &&
+            TryResolvePathId(context, CategoryPathPrefix, out int categoryId))
+        {
+            return BuildCategoryRouteKey(categoryId);
+        }
+
+        if (path.StartsWith(TagPathPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            string segment = GetRouteSegment(context, TagPathPrefix);
+            if (int.TryParse(segment, out int tagId) && tagId > 0)
+            {
+                return BuildTagIdRouteKey(tagId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(segment))
+            {
+                return BuildTagNameRouteKey(segment);
+            }
+        }
+
+        return $"filter:{NormalizeKeyPart(path)}";
+    }
+
+    private static string BuildCanonicalArticlePath(string routeKey, int? articleId)
+    {
+        int resolvedArticleId = articleId is > 0 ? articleId.Value : ParseArticleRouteKey(routeKey);
+        return resolvedArticleId > 0
+            ? string.Concat(ArticlePathPrefix, resolvedArticleId)
+            : "/";
+    }
+
+    private static string BuildCanonicalFilterPath(string routeKey)
+    {
+        if (routeKey.StartsWith(CategoryRoutePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Concat(CategoryPathPrefix, routeKey[CategoryRoutePrefix.Length..]);
+        }
+
+        if (routeKey.StartsWith(TagRoutePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Concat(TagPathPrefix, routeKey[TagRoutePrefix.Length..]);
+        }
+
+        if (routeKey.StartsWith(TagNameRoutePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return BuildTagPathFromName(routeKey[TagNameRoutePrefix.Length..]);
+        }
+
+        return "/";
+    }
+
+    private static int ResolveId(string routeKey, string prefix)
+        => routeKey.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+           int.TryParse(routeKey[prefix.Length..], out int id)
+            ? Math.Max(0, id)
+            : 0;
+
+    private static string NormalizeKeyPart(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "empty";
+        }
+
+        return value.Trim()
+            .Replace(':', '_')
+            .Replace('/', '_')
+            .Replace('?', '_')
+            .Replace('&', '_')
+            .Replace('=', '_');
+    }
+
+    private static bool TryResolvePathId(HttpContext context, string prefix, out int id)
+    {
+        id = 0;
+        if (int.TryParse(context.Request.RouteValues["id"]?.ToString(), out id))
+        {
+            return true;
+        }
+
+        string path = context.Request.Path.Value ?? string.Empty;
+        if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> tail = path.AsSpan(prefix.Length);
+        int slashIndex = tail.IndexOf('/');
+        if (slashIndex >= 0)
+        {
+            tail = tail[..slashIndex];
+        }
+
+        return int.TryParse(tail, out id);
+    }
+
+    private static string GetRouteSegment(HttpContext context, string prefix)
+    {
+        string routeValue = context.Request.RouteValues["id"]?.ToString() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(routeValue))
+        {
+            return routeValue.Trim();
+        }
+
+        string path = context.Request.Path.Value ?? string.Empty;
+        if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        ReadOnlySpan<char> tail = path.AsSpan(prefix.Length);
+        int slashIndex = tail.IndexOf('/');
+        if (slashIndex >= 0)
+        {
+            tail = tail[..slashIndex];
+        }
+
+        return tail.ToString().Trim();
+    }
+
+    internal readonly record struct ParsedFilterRouteIdentity(
+        string FilterType,
+        string FilterKey,
+        int FilterId,
+        string? FilterName,
+        int? CategoryId,
+        int? TagId);
+}

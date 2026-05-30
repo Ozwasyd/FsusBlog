@@ -1,0 +1,342 @@
+using FsusBlog.Core.Mapping.Codecs;
+using FsusBlog.Core.Mapping.Projectors;
+using FsusBlog.Shared.Contracts.Models;
+
+namespace FsusBlog.Server.Tests.Unit;
+
+public class PodProjectorTests
+{
+    // ── ProjectArticleList ──────────────────────────────────────────────────
+
+    [Fact]
+    public void ProjectArticleList_Fields_AreCorrect()
+    {
+        var createTime = new DateTime(2024, 6, 15, 12, 0, 0, DateTimeKind.Utc);
+        var pod = PodProjector.ProjectArticleList(
+            id: 42, views: 100, createTime: createTime,
+            categoryId: 7, categoryName: "Tech",
+            title: "Hello World",
+            summary: "A summary",
+            isDeleted: false,
+            payload: out var payload);
+
+        Assert.Equal(42, pod.Id);
+        Assert.Equal(100, pod.Views);
+        Assert.Equal(7, pod.Category.Id);
+        Assert.Equal("Tech", PodUtf8Codec.FromFixed128(pod.Category.Name));
+        Assert.Equal("Hello World", PodUtf8Codec.FromFixed256(pod.Title));
+        Assert.Equal("A summary", PodProjector.ReadSlice(pod.Summary, payload.Span));
+        Assert.Equal((byte)0, pod.IsDeleted);
+        Assert.Equal((byte)1, pod.HasIsDeleted); // isDeleted was non-null
+    }
+
+    [Fact]
+    public void ProjectArticleList_IsDeleted_True_SetsByte()
+    {
+        var pod = PodProjector.ProjectArticleList(
+            1, 0, DateTime.UtcNow, 1, "C", "T", null, isDeleted: true, out _);
+
+        Assert.Equal((byte)1, pod.IsDeleted);
+        Assert.Equal((byte)1, pod.HasIsDeleted);
+    }
+
+    [Fact]
+    public void ProjectArticleList_IsDeleted_Null_HasIsDeletedIsZero()
+    {
+        var pod = PodProjector.ProjectArticleList(
+            1, 0, DateTime.UtcNow, 1, "C", "T", null, isDeleted: null, out _);
+
+        Assert.Equal((byte)0, pod.IsDeleted);
+        Assert.Equal((byte)0, pod.HasIsDeleted);
+    }
+
+    [Fact]
+    public void ProjectArticleList_NullSummary_ReadsAsEmpty()
+    {
+        var pod = PodProjector.ProjectArticleList(
+            1, 0, DateTime.UtcNow, 1, "C", "T", null, isDeleted: null, out var payload);
+
+        Assert.Equal(string.Empty, PodProjector.ReadSlice(pod.Summary, payload.Span));
+    }
+
+    [Fact]
+    public void ProjectArticleList_CreateTime_EncodesAsUnixMs()
+    {
+        var createTime = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var pod = PodProjector.ProjectArticleList(
+            1, 0, createTime, 1, "C", "T", null, null, out _);
+
+        long expected = PodTimeCodec.ToUnixMs(createTime);
+        Assert.Equal(expected, pod.CreateTimeUnixMs);
+    }
+
+    // ── ProjectArticleDetail ────────────────────────────────────────────────
+
+    [Fact]
+    public void ProjectArticleDetail_Fields_AreCorrect()
+    {
+        var createTime = new DateTime(2024, 3, 10, 8, 0, 0, DateTimeKind.Utc);
+        var pod = PodProjector.ProjectArticleDetail(
+            id: 99, views: 500, createTime: createTime,
+            categoryId: 3, categoryName: "Dev",
+            title: "Detail Title",
+            content: "Full content here",
+            summary: "Short summary",
+            payload: out var payload);
+
+        Assert.Equal(99, pod.Id);
+        Assert.Equal(500, pod.Views);
+        Assert.Equal(3, pod.Category.Id);
+        Assert.Equal("Dev", PodUtf8Codec.FromFixed128(pod.Category.Name));
+        Assert.Equal("Detail Title", PodUtf8Codec.FromFixed256(pod.Title));
+        Assert.Equal("Short summary", PodProjector.ReadSlice(pod.Summary, payload.Span));
+        Assert.Equal("Full content here", PodProjector.ReadSlice(pod.Content, payload.Span));
+    }
+
+    [Fact]
+    public void ProjectArticleDetail_NullSummary_ReadsAsEmpty()
+    {
+        var pod = PodProjector.ProjectArticleDetail(
+            1, 0, DateTime.UtcNow, 1, "C", "T", "content", null, out var payload);
+
+        Assert.Equal(string.Empty, PodProjector.ReadSlice(pod.Summary, payload.Span));
+        Assert.Equal("content", PodProjector.ReadSlice(pod.Content, payload.Span));
+    }
+
+    // ── ProjectTag ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public void ProjectTag_IdAndName_AreCorrect()
+    {
+        var pod = PodProjector.ProjectTag(id: 5, name: "csharp");
+
+        Assert.Equal(5, pod.Id);
+        Assert.Equal("csharp", PodUtf8Codec.FromFixed128(pod.Name));
+    }
+
+    [Fact]
+    public void ProjectTag_EmptyName_ReadsAsEmpty()
+    {
+        var pod = PodProjector.ProjectTag(1, string.Empty);
+
+        Assert.Equal(string.Empty, PodUtf8Codec.FromFixed128(pod.Name));
+    }
+
+    // ── ProjectPopularArticle ───────────────────────────────────────────────
+
+    [Fact]
+    public void ProjectPopularArticle_Fields_AreCorrect()
+    {
+        var pod = PodProjector.ProjectPopularArticle(id: 10, title: "Top Article", views: 9999);
+
+        Assert.Equal(10, pod.Id);
+        Assert.Equal(9999, pod.Views);
+        Assert.Equal("Top Article", PodUtf8Codec.FromFixed256(pod.Title));
+    }
+
+    // ── ProjectCommentItem ──────────────────────────────────────────────────
+
+    [Fact]
+    public void ProjectCommentItem_Fields_AreCorrect()
+    {
+        var createTime = new DateTime(2024, 5, 20, 0, 0, 0, DateTimeKind.Utc);
+        var pod = PodProjector.ProjectCommentItem(
+            id: 123L, createTime: createTime,
+            userName: "alice", content: "Nice post!",
+            payload: out var payload);
+
+        Assert.Equal(123L, pod.Id);
+        Assert.Equal(PodTimeCodec.ToUnixMs(createTime), pod.CreateTimeUnixMs);
+        Assert.Equal("alice", PodUtf8Codec.FromFixed64(pod.UserName));
+        Assert.Equal("Nice post!", PodProjector.ReadSlice(pod.Content, payload.Span));
+    }
+
+    // ── ProjectUserComment ──────────────────────────────────────────────────
+
+    [Fact]
+    public void ProjectUserComment_Fields_AreCorrect()
+    {
+        var createTime = new DateTime(2024, 7, 1, 0, 0, 0, DateTimeKind.Utc);
+        var pod = PodProjector.ProjectUserComment(
+            id: 77L, articleId: 9, createTime: createTime,
+            content: "My comment",
+            articleTitle: "Article Title",
+            rootId: 50L,
+            replyToUserName: "bob",
+            payload: out var payload);
+
+        Assert.Equal(77L, pod.Id);
+        Assert.Equal(9, pod.ArticleId);
+        Assert.Equal(50L, pod.RootId);
+        Assert.Equal("My comment", PodProjector.ReadSlice(pod.Content, payload.Span));
+        Assert.Equal("Article Title", PodUtf8Codec.FromFixed256(pod.ArticleTitle));
+        Assert.Equal("bob", PodUtf8Codec.FromFixed64(pod.ReplyToUserName));
+    }
+
+    [Fact]
+    public void ProjectUserComment_NullRootId_BecomesZero()
+    {
+        var pod = PodProjector.ProjectUserComment(
+            1L, 1, DateTime.UtcNow, "c", "t", rootId: null, replyToUserName: null, out _);
+
+        Assert.Equal(0L, pod.RootId);
+    }
+
+    // ── ProjectCommentThreadItem ────────────────────────────────────────────
+
+    [Fact]
+    public void ProjectCommentThreadItem_IsDeleted_True()
+    {
+        var createTime = new DateTime(2024, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var pod = PodProjector.ProjectCommentThreadItem(
+            id: 1L, rootId: 2L, isDeleted: true,
+            createTime: createTime, userName: "charlie",
+            content: "deleted comment",
+            replyCount: 5, hasMoreReplies: true, previewReplyCount: 3,
+            payload: out var payload);
+
+        Assert.Equal(1L, pod.Id);
+        Assert.Equal(2L, pod.RootId);
+        Assert.Equal((byte)1, pod.IsDeleted);
+        Assert.Equal((byte)1, pod.HasMoreReplies);
+        Assert.Equal((byte)3, pod.PreviewReplyCount);
+        Assert.Equal(5, pod.ReplyCount);
+        Assert.Equal("deleted comment", PodProjector.ReadSlice(pod.Content, payload.Span));
+    }
+
+    [Fact]
+    public void ProjectCommentThreadItem_IsDeleted_False()
+    {
+        var pod = PodProjector.ProjectCommentThreadItem(
+            1L, 2L, isDeleted: false,
+            DateTime.UtcNow, "user", "content",
+            replyCount: 0, hasMoreReplies: false, previewReplyCount: 0, out _);
+
+        Assert.Equal((byte)0, pod.IsDeleted);
+        Assert.Equal((byte)0, pod.HasMoreReplies);
+    }
+
+    [Fact]
+    public void ProjectCommentThreadItem_PreviewReplyCount_ClampedAt255()
+    {
+        var pod = PodProjector.ProjectCommentThreadItem(
+            1L, 1L, false, DateTime.UtcNow, "u", "c",
+            0, false, previewReplyCount: 999, out _);
+
+        Assert.Equal((byte)255, pod.PreviewReplyCount);
+    }
+
+    // ── ProjectCommentReplyItem ─────────────────────────────────────────────
+
+    [Fact]
+    public void ProjectCommentReplyItem_Fields_AreCorrect()
+    {
+        var createTime = new DateTime(2024, 9, 1, 0, 0, 0, DateTimeKind.Utc);
+        var pod = PodProjector.ProjectCommentReplyItem(
+            id: 200L, parentId: 100L, rootId: 50L,
+            replyToUserId: 7, replyToCommentId: 99L,
+            depth: 2, isDeleted: false,
+            createTime: createTime,
+            userName: "dave",
+            replyToUserName: "eve",
+            content: "reply text",
+            payload: out var payload);
+
+        Assert.Equal(200L, pod.Id);
+        Assert.Equal(100L, pod.ParentId);
+        Assert.Equal(50L, pod.RootId);
+        Assert.Equal(7, pod.ReplyToUserId);
+        Assert.Equal(99L, pod.ReplyToCommentId);
+        Assert.Equal(2, pod.Depth);
+        Assert.Equal((byte)0, pod.IsDeleted);
+        Assert.Equal((byte)1, pod.HasReplyToUserId);
+        Assert.Equal("dave", PodUtf8Codec.FromFixed64(pod.UserName));
+        Assert.Equal("eve", PodUtf8Codec.FromFixed64(pod.ReplyToUserName));
+        Assert.Equal("reply text", PodProjector.ReadSlice(pod.Content, payload.Span));
+    }
+
+    [Fact]
+    public void ProjectCommentReplyItem_NullOptionals_ZeroedOut()
+    {
+        var pod = PodProjector.ProjectCommentReplyItem(
+            1L, parentId: null, rootId: 1L,
+            replyToUserId: null, replyToCommentId: null,
+            depth: 0, isDeleted: false,
+            DateTime.UtcNow, "u", replyToUserName: null, "c", out _);
+
+        Assert.Equal(0L, pod.ParentId);
+        Assert.Equal(0, pod.ReplyToUserId);
+        Assert.Equal(0L, pod.ReplyToCommentId);
+        Assert.Equal((byte)0, pod.HasReplyToUserId);
+    }
+
+    // ── ProjectRecentComment ────────────────────────────────────────────────
+
+    [Fact]
+    public void ProjectRecentComment_WithUserId_HasUserIdIsOne()
+    {
+        var pod = PodProjector.ProjectRecentComment(
+            userId: 42, createTime: DateTime.UtcNow, userName: "frank",
+            content: "recent", payload: out var payload);
+
+        Assert.Equal(42, pod.UserId);
+        Assert.Equal((byte)1, pod.HasUserId);
+        Assert.Equal("frank", PodUtf8Codec.FromFixed64(pod.UserName));
+        Assert.Equal("recent", PodProjector.ReadSlice(pod.Content, payload.Span));
+    }
+
+    [Fact]
+    public void ProjectRecentComment_NullUserId_HasUserIdIsZero()
+    {
+        var pod = PodProjector.ProjectRecentComment(
+            userId: null, createTime: DateTime.UtcNow, userName: "anon",
+            content: "anon comment", payload: out _);
+
+        Assert.Equal(0, pod.UserId);
+        Assert.Equal((byte)0, pod.HasUserId);
+    }
+
+    // ── ProjectRegionDistribution ───────────────────────────────────────────
+
+    [Fact]
+    public void ProjectRegionDistribution_Fields_AreCorrect()
+    {
+        var pod = PodProjector.ProjectRegionDistribution("China", 500);
+
+        Assert.Equal(500, pod.Count);
+        Assert.Equal("China", PodUtf8Codec.FromFixed128(pod.Region));
+    }
+
+    // ── ProjectSiteStats ────────────────────────────────────────────────────
+
+    [Fact]
+    public void ProjectSiteStats_Fields_AreCorrect()
+    {
+        var pod = PodProjector.ProjectSiteStats(
+            totalArticles: 10, totalComments: 20, trashCount: 2,
+            totalVisits: 1000, registeredVisits: 300, anonymousVisits: 700,
+            popularCount: 5, recentCount: 8, regionCount: 3);
+
+        Assert.Equal(10, pod.TotalArticles);
+        Assert.Equal(20, pod.TotalComments);
+        Assert.Equal(2, pod.TrashCount);
+        Assert.Equal(1000, pod.TotalVisits);
+        Assert.Equal(300, pod.RegisteredVisits);
+        Assert.Equal(700, pod.AnonymousVisits);
+    }
+
+    // ── ReadSlice overloads ─────────────────────────────────────────────────
+
+    [Fact]
+    public void ReadSlice_ByteArrayOverload_SameAsSpan()
+    {
+        var pod = PodProjector.ProjectCommentItem(1L, DateTime.UtcNow, "u", "hello", out var payload);
+        byte[] arr = payload.ToArray();
+
+        string fromSpan = PodProjector.ReadSlice(pod.Content, payload.Span);
+        string fromArray = PodProjector.ReadSlice(pod.Content, arr);
+
+        Assert.Equal(fromSpan, fromArray);
+        Assert.Equal("hello", fromArray);
+    }
+}

@@ -27,14 +27,18 @@ require_non_empty_env() {
 require_command docker
 require_non_empty_env GITHUB_PACKAGES_TOKEN
 
-log "building wasm artifact package"
-"${ROOT_DIR}/tools/build-wasm-artifact.sh"
+if [[ "${FSUSBLOG_FINAL_SKIP_WASM:-0}" == "1" ]]; then
+  log "skip wasm artifact package by FSUSBLOG_FINAL_SKIP_WASM=1"
+else
+  log "building wasm artifact package"
+  "${ROOT_DIR}/tools/build-wasm-artifact.sh"
+fi
 
 log "building docker image ${IMAGE_TAG}"
 DOCKER_BUILDKIT=1 docker build \
   --pull \
   --network host \
-  -f "${ROOT_DIR}/FsusBlog.Server/Dockerfile" \
+  -f "${ROOT_DIR}/ops/docker/FsusBlog.Server.Dockerfile" \
   --target "${TARGET}" \
   -t "${IMAGE_TAG}" \
   --secret id=github_packages_token,env=GITHUB_PACKAGES_TOKEN \

@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST_DIR="$ROOT_DIR/FsusBlog.Server.Tests"
-CLIENT_DIR="$ROOT_DIR/FsusBlog.Client"
-CLIENT_TEST_DIR="$CLIENT_DIR/tests"
+TEST_DIR="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests"
+CLIENT_DIR="$ROOT_DIR/src/frontend"
+CLIENT_TEST_DIR="$ROOT_DIR/tests/frontend"
 CLIENT_SCRIPT_DIR="$CLIENT_DIR/scripts"
 
 echo "[test-hygiene] checking root layout"
@@ -32,7 +32,8 @@ ROOT_DIRS="$(
     ! -name 'obj' \
     ! -name 'TestResults' \
     ! -name '.artifacts' \
-    ! -name '.tmp' | sort
+    ! -name '.tmp' \
+    ! -name '.migrated-root' | sort
 )"
 
 if [[ -n "$ROOT_DIRS" ]]; then
@@ -125,7 +126,7 @@ fi
 echo "[test-hygiene] checking frontend test layout"
 
 if [[ ! -d "$CLIENT_TEST_DIR" ]]; then
-  echo "[test-hygiene] missing FsusBlog.Client/tests directory"
+  echo "[test-hygiene] missing tests/frontend directory"
   exit 1
 fi
 
@@ -135,7 +136,7 @@ CLIENT_ROOT_TEST_FILES="$(
 )"
 
 if [[ -n "$CLIENT_ROOT_TEST_FILES" ]]; then
-  echo "[test-hygiene] unexpected files in FsusBlog.Client/tests root:"
+  echo "[test-hygiene] unexpected files in tests/frontend root:"
   echo "$CLIENT_ROOT_TEST_FILES"
   exit 1
 fi
@@ -145,25 +146,28 @@ CLIENT_ROOT_TEST_DIRS="$(
     ! -name 'checks' \
     ! -name 'e2e' \
     ! -name 'fixtures' \
-    ! -name 'support' | sort
+    ! -name 'support' \
+    ! -name 'unit' | sort
 )"
 
 if [[ -n "$CLIENT_ROOT_TEST_DIRS" ]]; then
-  echo "[test-hygiene] unexpected directories in FsusBlog.Client/tests root:"
+  echo "[test-hygiene] unexpected directories in tests/frontend root:"
   echo "$CLIENT_ROOT_TEST_DIRS"
   exit 1
 fi
 
 MISPLACED_CLIENT_CHECKS="$(
-  find "$CLIENT_SCRIPT_DIR" -maxdepth 1 -type f \( \
-      -name 'check-*.mjs' -o \
-      -name '*-smoke.mjs' -o \
-      -name '*-regression.mjs' \
-    \) | sort
+  if [[ -d "$CLIENT_SCRIPT_DIR" ]]; then
+    find "$CLIENT_SCRIPT_DIR" -maxdepth 1 -type f \( \
+        -name 'check-*.mjs' -o \
+        -name '*-smoke.mjs' -o \
+        -name '*-regression.mjs' \
+      \) | sort
+  fi
 )"
 
 if [[ -n "$MISPLACED_CLIENT_CHECKS" ]]; then
-  echo "[test-hygiene] frontend checks belong under FsusBlog.Client/tests/checks, not scripts/:"
+  echo "[test-hygiene] frontend checks belong under tests/frontend/checks, not scripts/:"
   echo "$MISPLACED_CLIENT_CHECKS"
   exit 1
 fi

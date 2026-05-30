@@ -1,0 +1,141 @@
+import type { AuthLoginFlow, CurrentUserSnapshot, MfaChallengeResult, MfaProfile, MfaSetupStart, MfaSetupVerify, UserSessionSummary } from '@/api/auth';
+import { createAppError, AppErrorCode } from '@/utils/appError';
+import { BinaryReader, readByte, readFixedUtf8, readInt32, readIsoDate64, readSliceRef, readSliceText } from './reader';
+import { readArrayEnvelope } from './envelopeReaders';
+import { AUTH_LOGIN_FLOW_POD_SIZE, CURRENT_USER_SNAPSHOT_POD_SIZE, MFA_CHALLENGE_RESULT_POD_SIZE, MFA_PROFILE_POD_SIZE, MFA_RECOVERY_CODE_POD_SIZE, MFA_SETUP_START_POD_SIZE, MFA_SETUP_VERIFY_POD_SIZE, USER_SESSION_SUMMARY_POD_SIZE } from './types';
+
+export function mapAuthLoginFlowFromPayload(payload: Uint8Array): AuthLoginFlow {
+  if (payload.byteLength !== AUTH_LOGIN_FLOW_POD_SIZE) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'auth_login_flow_payload_invalid');
+  }
+
+  const authPhase = readByte(payload, 4);
+  const mfaMode = readByte(payload, 5);
+  const hasChallengeToken = readByte(payload, 6) === 1;
+  return {
+    user: {
+      id: readInt32(payload, 0),
+      username: readFixedUtf8(payload, 8, 64),
+      role: readFixedUtf8(payload, 72, 32)
+    },
+    authPhase: authPhase === 2 ? 'mfa_required' : 'authenticated',
+    mfaMode: mfaMode === 1 ? 'risk' : mfaMode === 2 ? 'standard' : null,
+    challengeToken: hasChallengeToken ? readFixedUtf8(payload, 104, 64) : null
+  };
+}
+
+export function mapCurrentUserSnapshotFromPayload(payload: Uint8Array): CurrentUserSnapshot {
+  if (payload.byteLength !== CURRENT_USER_SNAPSHOT_POD_SIZE) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'current_user_snapshot_payload_invalid');
+  }
+
+  const hasDeletedAt = readByte(payload, 16) === 1;
+  const banReason = readFixedUtf8(payload, 116, 256);
+  return {
+    id: readInt32(payload, 0),
+    status: readInt32(payload, 4),
+    deletedAt: hasDeletedAt ? readIsoDate64(payload, 8) : null,
+    username: readFixedUtf8(payload, 20, 64),
+    role: readFixedUtf8(payload, 84, 32),
+    banReason: banReason.length > 0 ? banReason : null
+  };
+}
+
+export function mapUserSessionsFromPayload(payload: Uint8Array): UserSessionSummary[] {
+  const reader = new BinaryReader(payload);
+  return readArrayEnvelope(reader, () => readUserSessionSummary(reader), 'auth_session_count_invalid', 'auth_session_trailing_payload_invalid');
+}
+
+export function mapPowChallengeFromPayload(payload: Uint8Array): { salt: string; difficulty: number; timestamp: number; signature: string } {
+  if (payload.byteLength !== 204) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'pow_challenge_payload_invalid');
+  }
+
+  return {
+    salt: readFixedUtf8(payload, 0, 64),
+    difficulty: readInt32(payload, 64),
+    timestamp: Number(new DataView(payload.buffer, payload.byteOffset, payload.byteLength).getBigInt64(68, true)),
+    signature: readFixedUtf8(payload, 76, 128)
+  };
+}
+
+export function mapMfaSetupStartFromPayload(payload: Uint8Array): MfaSetupStart {
+  const reader = new BinaryReader(payload);
+  const pod = reader.readSpan(MFA_SETUP_START_POD_SIZE);
+  const blob = reader.readBlob();
+  const result = {
+    enabled: readByte(pod, 0) === 1,
+    secret: readSliceText(blob, readSliceRef(pod, 4)),
+    otpAuthUrl: readSliceText(blob, readSliceRef(pod, 12)),
+    issuer: readSliceText(blob, readSliceRef(pod, 20)),
+    account: readSliceText(blob, readSliceRef(pod, 28))
+  };
+
+  if (reader.remaining() !== 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'mfa_setup_start_trailing_payload_invalid');
+  }
+
+  return result;
+}
+
+export function mapMfaSetupVerifyFromPayload(payload: Uint8Array): MfaSetupVerify {
+  if (payload.byteLength < MFA_SETUP_VERIFY_POD_SIZE) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'mfa_setup_verify_payload_invalid');
+  }
+
+  const enabled = readByte(payload, 0) === 1;
+  const count = readInt32(payload, 4);
+  if (count < 0 || payload.byteLength !== MFA_SETUP_VERIFY_POD_SIZE + count * MFA_RECOVERY_CODE_POD_SIZE) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'mfa_recovery_code_count_invalid');
+  }
+
+  const recoveryCodes: string[] = [];
+  for (let i = 0; i < count; i += 1) {
+    recoveryCodes.push(readFixedUtf8(payload, MFA_SETUP_VERIFY_POD_SIZE + i * MFA_RECOVERY_CODE_POD_SIZE, MFA_RECOVERY_CODE_POD_SIZE));
+  }
+  return { enabled, recoveryCodes };
+}
+
+export function mapMfaProfileFromPayload(payload: Uint8Array): MfaProfile {
+  if (payload.byteLength !== MFA_PROFILE_POD_SIZE) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'mfa_profile_payload_invalid');
+  }
+
+  return {
+    enabled: readByte(payload, 8) === 1,
+    verifiedAt: readByte(payload, 9) === 1 ? readIsoDate64(payload, 0) : null
+  };
+}
+
+export function mapMfaChallengeResultFromPayload(payload: Uint8Array): MfaChallengeResult {
+  if (payload.byteLength !== MFA_CHALLENGE_RESULT_POD_SIZE) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'mfa_challenge_result_payload_invalid');
+  }
+
+  const hasProofToken = readByte(payload, 5) === 1;
+  const hasUser = readByte(payload, 6) === 1;
+  return {
+    verified: readByte(payload, 4) === 1,
+    action: readFixedUtf8(payload, 104, 64),
+    proofToken: hasProofToken ? readFixedUtf8(payload, 168, 128) : null,
+    user: hasUser ? {
+      id: readInt32(payload, 0),
+      username: readFixedUtf8(payload, 8, 64),
+      role: readFixedUtf8(payload, 72, 32)
+    } : null
+  };
+}
+
+function readUserSessionSummary(reader: BinaryReader): UserSessionSummary {
+  const pod = reader.readSpan(USER_SESSION_SUMMARY_POD_SIZE);
+  const hasLastSeenAt = readByte(pod, 10) === 1;
+  return {
+    lastSeenAt: hasLastSeenAt ? readIsoDate64(pod, 0) : null,
+    isCurrent: readByte(pod, 8) === 1,
+    mfaVerified: readByte(pod, 9) === 1,
+    sessionId: readFixedUtf8(pod, 12, 64),
+    deviceFingerprint: readFixedUtf8(pod, 76, 128),
+    lastIp: readFixedUtf8(pod, 204, 64),
+    deviceLabel: readFixedUtf8(pod, 268, 128)
+  };
+}
