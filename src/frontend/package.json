@@ -123,7 +123,7 @@
     "qrcode.vue": "^3.9.0",
     "shiki": "^4.0.2",
     "tailwindcss": "^4.2.4",
-    "vue": "^3.5.33",
+    "vue": "^3.5.35",
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
