@@ -40,6 +40,11 @@ const defaultFixture = {
   sse: {
     slowDisconnectsLast5m: 24
   },
+  cache: {
+    registryMissingScanRecoveredLast5m: 2,
+    registryMissingScanEmptyLast5m: 1,
+    registryMissingScanFailedLast5m: 0
+  },
   security: {
     status: 'blocked',
     blockers: [
@@ -56,6 +61,7 @@ const defaultFixture = {
     'aot_backfill_failed',
     'search_rebuild_failed',
     'sse_disconnect_spike',
+    'cache_registry_missing_scan',
     'security_blocker'
   ]
 };
@@ -96,6 +102,12 @@ const alertCatalog = {
     impact: 'Notification streams can miss live updates and increase replay pressure for authenticated/admin clients.',
     investigate: 'SSE slow disconnect metric, /health/ready runtime.sseConnections, gateway websocket buffering and slow consumer logs.',
     rollbackOrDegrade: 'Lower gateway traffic or reconnect pressure, preserve polling/fetch fallback paths, and revert gateway changes that introduced buffering.'
+  },
+  cache_registry_missing_scan: {
+    severity: 'warning',
+    impact: 'Redis prefix invalidation is recovering through keyspace scan because the cache registry is missing or stale.',
+    investigate: 'fsus.cache.operation.count result=registry_missing_scan_*, Redis cache registry sets, recent RemoveByPrefixAsync warnings and cache governance catalog.',
+    rollbackOrDegrade: 'Treat repeated fallback as degraded cache-control behavior; rebuild registry through normal writes or clear the affected cache family during low traffic.'
   },
   security_blocker: {
     severity: 'critical',
@@ -174,6 +186,9 @@ function evaluateAlerts(fixture) {
     0);
   const security = fixture?.security ?? {};
   const securityBlockerCount = Array.isArray(security.blockers) ? security.blockers.length : 0;
+  const cacheFallbackRecovered = numberAt(fixture?.cache?.registryMissingScanRecoveredLast5m, 0);
+  const cacheFallbackEmpty = numberAt(fixture?.cache?.registryMissingScanEmptyLast5m, 0);
+  const cacheFallbackFailed = numberAt(fixture?.cache?.registryMissingScanFailedLast5m, 0);
 
   if (statusOf(readiness) !== 'ready'
     || Object.values(readinessChecks).some(isUnhealthy)
@@ -222,6 +237,14 @@ function evaluateAlerts(fixture) {
       slowDisconnectsLast5m: sseSlowDisconnects,
       threshold: thresholds.sseSlowDisconnectsLast5m
     }, ['fsus.sse.slow_disconnects']);
+  }
+
+  if (cacheFallbackRecovered > 0 || cacheFallbackEmpty > 0 || cacheFallbackFailed > 0) {
+    addAlert(alerts, 'cache_registry_missing_scan', {
+      recoveredLast5m: cacheFallbackRecovered,
+      emptyLast5m: cacheFallbackEmpty,
+      failedLast5m: cacheFallbackFailed
+    }, ['fsus.cache.operation.count registry_missing_scan_*']);
   }
 
   if (isUnhealthy(security) || securityBlockerCount > 0) {

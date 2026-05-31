@@ -256,6 +256,33 @@ public class ModernAcAutomaton
         }
     }
 
+    internal bool ValidateSortedChildRangesForTests()
+    {
+        for (int nodeIndex = 0; nodeIndex < _nodes.Length; nodeIndex++)
+        {
+            FlatNode node = _nodes[nodeIndex];
+            if (node.ChildrenOffset < 0 || node.ChildrenOffset + node.ChildrenCount > _keys.Length)
+            {
+                return false;
+            }
+
+            if (node.ChildrenOffset + node.ChildrenCount > _nexts.Length)
+            {
+                return false;
+            }
+
+            for (int i = 1; i < node.ChildrenCount; i++)
+            {
+                if (_keys[node.ChildrenOffset + i - 1] >= _keys[node.ChildrenOffset + i])
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsValidChar(char c)
     {

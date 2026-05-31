@@ -216,7 +216,9 @@ public sealed class ContentFilterServiceTests
         string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Services", "Security", "ContentFilterService.cs"));
 
         Assert.DoesNotContain("Thread.Sleep", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(".GetAwaiter().GetResult()", source, StringComparison.Ordinal);
         Assert.Contains("WaitForReloadRetryAsync", source, StringComparison.Ordinal);
+        Assert.Contains("WaitForStartupReloadRetry", source, StringComparison.Ordinal);
     }
 
     private static string CreateTempDirectory()

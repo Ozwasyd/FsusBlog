@@ -11,13 +11,18 @@ namespace FsusBlog.Server.Infrastructure.Cache;
 public readonly record struct CacheReadResult<T>(bool Hit, T? Value);
 
 public interface IUnifiedCache
-    {
-        Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default);
+{
+    Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default);
     /// <summary>
     /// Returns a caller-owned byte array. Callers may pass it to serializers or streams without retaining cache ownership;
     /// mutating the returned array must not mutate L1/L2 cache state.
     /// </summary>
     Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Returns an immutable cache-owned raw payload for synchronous response write-through.
+    /// Callers must not mutate, retain for cross-request state, or expose the backing buffer as writable.
+    /// </summary>
+    Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
     /// <summary>
     /// Stores a defensive copy of <paramref name="value"/> so later caller mutations cannot corrupt cache state.
     /// </summary>
@@ -142,6 +147,35 @@ public sealed class UnifiedCache(
         SetL1(policyId, key, bytes);
         FsusObservability.RecordCacheOperation("get_raw", policyId.ToString(), "l2", "hit", FsusObservability.GetElapsed(startedAt));
         return new CacheReadResult<byte[]>(true, CopyRawBytes(bytes));
+    }
+
+    public async Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(
+        CachePolicyId policyId,
+        string identity,
+        CancellationToken cancellationToken = default)
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        using Activity? activity = FsusObservability.StartActivity("cache.get_raw_readonly", "cache", ActivityKind.Client);
+        FsusObservability.SetTag(activity, "fsus.cache.operation", "get_raw_readonly");
+        FsusObservability.SetTag(activity, "fsus.cache.policy", policyId.ToString());
+        string key = BuildKey(policyId, identity);
+        if (memoryCache.TryGetValue(key, out byte[]? l1Bytes) && l1Bytes is not null)
+        {
+            FsusObservability.RecordCacheOperation("get_raw_readonly", policyId.ToString(), "l1", "hit", FsusObservability.GetElapsed(startedAt));
+            return new CacheReadResult<ReadOnlyMemory<byte>>(true, l1Bytes);
+        }
+
+        RedisValue l2Value = await _db.StringGetAsync(key).ConfigureAwait(false);
+        if (!l2Value.HasValue)
+        {
+            FsusObservability.RecordCacheOperation("get_raw_readonly", policyId.ToString(), "l2", "miss", FsusObservability.GetElapsed(startedAt));
+            return new CacheReadResult<ReadOnlyMemory<byte>>(false, default);
+        }
+
+        byte[] bytes = (byte[])l2Value!;
+        SetL1(policyId, key, bytes);
+        FsusObservability.RecordCacheOperation("get_raw_readonly", policyId.ToString(), "l2", "hit", FsusObservability.GetElapsed(startedAt));
+        return new CacheReadResult<ReadOnlyMemory<byte>>(true, bytes);
     }
 
     public async Task SetRawAsync(
@@ -424,6 +458,9 @@ public sealed class UnifiedCache(
 
     internal static byte[] CopyRawBytesForTests(byte[] bytes)
         => CopyRawBytes(bytes);
+
+    internal static ReadOnlyMemory<byte> BorrowRawBytesReadonlyForTests(byte[] bytes)
+        => bytes;
 
     private async Task SetNegativeCoreAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken)
     {

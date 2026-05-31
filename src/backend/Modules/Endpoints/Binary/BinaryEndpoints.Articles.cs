@@ -62,9 +62,9 @@ public static partial class BinaryEndpoints
             bool deleted = (isDeleted ?? false) || status == (int)ArticleStatus.Deleted;
             bool canReadDeleted = httpContext.User.Identity?.IsAuthenticated == true && httpContext.User.IsInRole("admin");
             var payloadResult = await articles.GetPageListAsync(pageValue, sizeValue, categoryId, tagId, deleted, canReadDeleted, status, canReadPrivate);
-            if (payloadResult.CachedPayload is { Length: > 0 } payload)
+            if (payloadResult.HasCachedPayload)
             {
-                return BinaryResults.FrameRaw(aeds, AedsFrameType.ArticleList, payload);
+                return BinaryResults.FrameRaw(aeds, AedsFrameType.ArticleList, payloadResult.CachedPayload);
             }
 
             return BinaryResults.FromResult(payloadResult.Result, aeds, AedsFrameType.ArticleList, static (value, writer) => PodBinaryCodec.WriteArticlePage(value, writer));
@@ -72,13 +72,27 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .CacheOutput(HttpCachePolicyCatalog.ApplyArticleList);
 
-        group.MapGet("/article/{id:int}", static async Task<BinaryFrameResult> (
+        group.MapGet("/article/{id:int}", static async Task<IResult> (
             int id,
             HttpContext httpContext,
             IArticleEndpointService articles,
             IAedsEncoder aeds) =>
         {
             bool canReadPrivate = httpContext.User.Identity?.IsAuthenticated == true && httpContext.User.IsInRole("admin");
+            if (!canReadPrivate)
+            {
+                ArticleDetailArtifactPayload artifact = await articles.GetPublicArtifactBackedDetailAsync(id);
+                if (artifact.HasPreencodedFrame)
+                {
+                    return BinaryResults.PreencodedFrame(artifact.PreencodedFrame);
+                }
+
+                string message = artifact.BackfillQueued
+                    ? "文章详情读模型正在构建"
+                    : "文章详情读模型排队失败";
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, message), aeds, StatusCodes.Status503ServiceUnavailable);
+            }
+
             var result = await articles.GetByIdAsync(id, canReadPrivate);
             if (!result.IsSuccess || result.Value is null)
             {
@@ -99,9 +113,9 @@ public static partial class BinaryEndpoints
         {
             int count = Math.Clamp(size ?? 10, 1, 50);
             var payloadResult = await articles.GetHotArticlesAsync(count);
-            if (payloadResult.CachedPayload is { Length: > 0 } payload)
+            if (payloadResult.HasCachedPayload)
             {
-                return BinaryResults.FrameRaw(aeds, AedsFrameType.ArticleHot, payload);
+                return BinaryResults.FrameRaw(aeds, AedsFrameType.ArticleHot, payloadResult.CachedPayload);
             }
 
             return BinaryResults.FromResult(

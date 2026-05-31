@@ -163,6 +163,8 @@ Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passke
 Bundle 格式遵循 `PublicAotShellEntryContract`（见 `docs/api/contracts.md`）。
 SPA 接管后由 hydration 层用同一份 Bundle 数据初始化状态，无需二次网络请求。
 
+公开 Binary 读模型与 HTML AOT 一样按 artifact 边界治理。`/api/binary/article/{id}` 的匿名 published 详情优先读取 `runtime-cache/public/articles/{id}.aeds` 预编码 frame；artifact hit 路径只写出 bytes，不查询 PostgreSQL。artifact miss 只排队后台 singleflight rebuild 并返回可降级错误，DB fallback 只能出现在后台 projector、修复任务或 admin/private 读取路径。L1/L2/OutputCache 仍是加速层，不等价于 CQRS read model。
+
 公开页结构的唯一真相源是 `src/frontend/src/helpers/publicAotBundle.ts` 与
 `src/frontend/src/public-renderers/renderPublicPage.ts`。服务端 AOT provider
 只提供数据型 options，不手写 hydration props、不渲染 Markdown、不拼页面内部 HTML；

@@ -41,7 +41,8 @@ if (!fs.existsSync(sloFile)) {
     'sse-reconnect-success-rate',
     'aot-hit-rate',
     'search-rebuild-success-rate',
-    'scheduled-publish-delay'
+    'scheduled-publish-delay',
+    'redis-prefix-registry-fallback'
   ]
   const ids = new Set(entries.map((entry) => entry.id))
   for (const id of required) {
@@ -53,7 +54,10 @@ if (!fs.existsSync(sloFile)) {
       if (!entry.fields.get(field)) fail(`${entry.id} is missing ${field}`)
     }
     const objective = Number(entry.fields.get('objective'))
-    if (!Number.isFinite(objective) || objective <= 0) fail(`${entry.id} has invalid objective`)
+    const unit = entry.fields.get('unit') ?? ''
+    if (!Number.isFinite(objective) || objective < 0 || (objective === 0 && unit !== 'events')) {
+      fail(`${entry.id} has invalid objective`)
+    }
   }
 }
 

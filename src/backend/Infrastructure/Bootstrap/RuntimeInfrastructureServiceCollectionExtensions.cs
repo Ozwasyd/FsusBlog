@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Sse;
@@ -13,7 +14,7 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.Sse;
-using FsusBlog.Server.Services.VistitLog;
+using FsusBlog.Server.Services.VisitLog;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.ObjectPool;
@@ -32,6 +33,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddAuditRuntime();
         services.AddMessagingRuntime();
         services.AddCacheRuntime();
+        services.AddPublicReadArtifactRuntime();
         services.AddIdentityRuntime();
         services.AddBackgroundRuntime();
         services.AddSpaRuntime();
@@ -108,6 +110,16 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<IDbConcurrencyGate, DbConcurrencyGate>();
         services.AddScoped<IHttpCacheInvalidator, HttpCacheInvalidator>();
         services.AddScoped<ICacheInvalidationDispatcher, CacheInvalidationDispatcher>();
+        return services;
+    }
+
+    private static IServiceCollection AddPublicReadArtifactRuntime(this IServiceCollection services)
+    {
+        services.AddSingleton<IArticleDetailAedsArtifactStore, ArticleDetailAedsFileArtifactStore>();
+        services.AddSingleton<ArticleDetailAedsArtifactBackfillScheduler>();
+        services.AddSingleton<IArticleDetailAedsArtifactBackfillScheduler>(sp => sp.GetRequiredService<ArticleDetailAedsArtifactBackfillScheduler>());
+        services.AddHostedService<ArticleDetailAedsArtifactBackfillWorker>();
+        services.AddScoped<IArticleDetailAedsArtifactProjector, ArticleDetailAedsArtifactProjector>();
         return services;
     }
 

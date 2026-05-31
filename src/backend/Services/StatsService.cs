@@ -6,6 +6,7 @@ using FsusBlog.Server.Models.Dtos;
 using SqlSugar;
 using System.Data;
 using System.Data.Common;
+using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 
 namespace FsusBlog.Server.Services;
 
@@ -120,7 +121,7 @@ public partial class StatsService(
             }
         }
 
-        var visitStatsQuery = _db.Queryable<VisitLog>()
+        var visitStatsQuery = _db.Queryable<VisitLogEntity>()
             .Select(v => new
             {
                 Registered = SqlFunc.AggregateSum(SqlFunc.IIF(v.UserId != null, 1, 0)),
@@ -192,7 +193,7 @@ public partial class StatsService(
 
     private async Task<List<RegionStatItemDto>> LoadRegionStatsAsync(CancellationToken cancellationToken)
     {
-        var regionQuery = _db.Queryable<VisitLog>()
+        var regionQuery = _db.Queryable<VisitLogEntity>()
             .GroupBy(v => v.Region)
             .Select(v => new
             {

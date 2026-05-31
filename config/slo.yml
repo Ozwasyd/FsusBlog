@@ -54,3 +54,10 @@ slos:
     window: 15m
     source: /health/ready runtime.scheduledPublish
     alert: ready_degraded
+
+  - id: redis-prefix-registry-fallback
+    objective: 0
+    unit: events
+    window: 5m
+    source: fsus.cache.operation.count{operation=remove_prefix,result=~registry_missing_scan_.*}
+    alert: cache_registry_missing_scan

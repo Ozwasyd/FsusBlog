@@ -201,6 +201,28 @@ coverage_summary_json() {
     ' 2>/dev/null || jq -n '{status: "invalid", merged: null, backend: null}'
 }
 
+runtime_tuning_json() {
+  jq -n \
+    --arg readyToRun "${DOTNET_ReadyToRun:-}" \
+    --arg quickJitForLoops "${DOTNET_TC_QuickJitForLoops:-}" \
+    --arg tieredPgo "${DOTNET_TieredPGO:-}" \
+    --arg minWorkerThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_WORKER_THREADS:-}" \
+    --arg minCompletionPortThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS:-}" \
+    --arg benchmarkEvidence "$PERF_ARTIFACT" '
+    {
+      readyToRun: (if $readyToRun == "" then null else $readyToRun end),
+      quickJitForLoops: (if $quickJitForLoops == "" then null else $quickJitForLoops end),
+      tieredPgo: (if $tieredPgo == "" then null else $tieredPgo end),
+      threadPool: {
+        minWorkerThreads: (if $minWorkerThreads == "" then null else $minWorkerThreads end),
+        minCompletionPortThreads: (if $minCompletionPortThreads == "" then null else $minCompletionPortThreads end)
+      },
+      benchmarkEvidence: (if $benchmarkEvidence == "null" then null else $benchmarkEvidence end),
+      nonDefaultPresetsRequireBenchmarkEvidence: true,
+      rollback: "unset RuntimeTuning/DOTNET_* overrides and restart on the same image"
+    }'
+}
+
 PRODUCTION_STATUS="$(copy_if_present "$SECURITY_DIR/production-exposure-status.json" production-exposure-status.json)"
 PRODUCTION_REQUEST="$(copy_if_present "$SECURITY_DIR/production-exposure-evidence-request.json" production-exposure-evidence-request.json)"
 PRODUCTION_LIVE="$(copy_if_present "$SECURITY_DIR/production-exposure-live.json" production-exposure-live.json)"
@@ -221,6 +243,7 @@ COVERAGE_ARTIFACT="$(copy_if_present "$COVERAGE_DIR" coverage)"
 PERF_ARTIFACT="$(copy_if_present "$PERF_DIR" perf)"
 GATE_LOGS="$(copy_if_present "$GATE_LOG_DIR" gate-logs)"
 VISUAL_GATE_SKIP="$(copy_if_present "$GATE_LOG_DIR/visual-gate-skip.json" visual-gate-skip.json)"
+RUNTIME_TUNING_SUMMARY="$(runtime_tuning_json)"
 
 PRODUCTION_STATUS_DIGEST="$(artifact_digest_json "$PRODUCTION_STATUS")"
 PRODUCTION_REQUEST_DIGEST="$(artifact_digest_json "$PRODUCTION_REQUEST")"
@@ -326,7 +349,8 @@ cat > "$OUT_DIR/manifest.json" <<JSON
       "postDeploySmoke": "$POST_DEPLOY_SMOKE_STATUS_VALUE",
       "sloAlerts": "$SLO_STATUS_VALUE",
       "sloCriticalFiring": $SLO_CRITICAL_COUNT,
-      "retentionCleanup": "$RETENTION_STATUS_VALUE"
+      "retentionCleanup": "$RETENTION_STATUS_VALUE",
+      "runtimeTuning": $RUNTIME_TUNING_SUMMARY
     },
     "gates": {
       "visualGateSkip": $VISUAL_GATE_SKIP

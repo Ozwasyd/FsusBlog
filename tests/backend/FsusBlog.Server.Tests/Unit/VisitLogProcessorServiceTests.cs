@@ -1,4 +1,4 @@
-using FsusBlog.Server.Services.VistitLog;
+using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Server.Entities;
 using IP2Location;
 using Microsoft.Extensions.DependencyInjection;

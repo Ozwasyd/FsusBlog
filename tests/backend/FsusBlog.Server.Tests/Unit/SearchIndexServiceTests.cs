@@ -354,6 +354,36 @@ public sealed class SearchIndexServiceTests
     }
 
     [Fact]
+    public void TokenizeForTests_LongCjkSegment_KeepsDictionaryMatchesSubtokensAndStopwords()
+    {
+        string lexiconRoot = CreateLexiconRoot(
+            coreEntries:
+            [
+                "北京大学\t500",
+                "自然语言处理\t450",
+                "机器学习\t400",
+                "深度学习\t350",
+                "大学\t50",
+                "语言\t50",
+                "学习\t50"
+            ],
+            stopwords: ["学习"]);
+        string text = string.Concat(
+            "北京大学自然语言处理机器学习深度学习",
+            new string('甲', 120),
+            "北京大学机器学习");
+
+        SearchIndexService.SearchTokenDebugView[] tokens = SearchIndexService.TokenizeForTests(lexiconRoot, text);
+
+        Assert.Contains(tokens, static token => token.Text == "北京大学" && token.PositionLength == 4u);
+        Assert.Contains(tokens, static token => token.Text == "自然语言处理" && token.PositionLength == 6u);
+        Assert.Contains(tokens, static token => token.Text == "机器学习" && token.PositionLength == 4u);
+        Assert.Contains(tokens, static token => token.Text == "大学" && token.PositionLength == 2u);
+        Assert.Contains(tokens, static token => token.Text == "学习" && token.Stopword);
+        Assert.True(tokens.Select(static token => token.Position).SequenceEqual(tokens.Select(static token => token.Position).Order()));
+    }
+
+    [Fact]
     public void TokenizeForTests_MixedChineseAndEnglish_BothTokenized()
     {
         string lexiconRoot = CreateLexiconRoot(coreEntries: ["机器\t50", "学习\t50"]);

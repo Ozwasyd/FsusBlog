@@ -42,6 +42,9 @@ public static class BinaryResults
         ReadOnlyMemory<byte> payload)
         => new(aeds, frameType, payload);
 
+    public static BinaryPreencodedFrameResult PreencodedFrame(ReadOnlyMemory<byte> frame)
+        => new(frame);
+
     public static BinaryFrameResult Frame(
         IAedsEncoder aeds,
         AedsFrameType frameType,

@@ -109,6 +109,64 @@ public class ModernAcAutomatonTests
         Assert.True(ac.ContainsAny("prefix ag suffix"));
         Assert.False(ac.ContainsAny("prefix az suffix"));
     }
+
+    [Fact]
+    public void Build_RandomDictionary_PreservesSortedChildInvariantAndMatchesNaiveRules()
+    {
+        string[] words = ["甲", "乙", "丙", "丁", "北京", "大学", "算法", "缓存", "redis", "pow", "search", "artifact"];
+        string[] rules =
+        [
+            "北京+大学",
+            "缓存+redis",
+            "pow",
+            "search",
+            "artifact",
+            "甲乙",
+            "丙丁"
+        ];
+        var random = new Random(20260531);
+        var generatedRules = new List<string>(rules);
+        for (int i = 0; i < 64; i++)
+        {
+            string first = words[random.Next(words.Length)];
+            string second = words[random.Next(words.Length)];
+            generatedRules.Add(random.Next(2) == 0 ? string.Concat(first, second) : string.Concat(first, "+", second));
+        }
+
+        var ac = new ModernAcAutomaton();
+        ac.Build([.. generatedRules]);
+
+        Assert.True(ac.ValidateSortedChildRangesForTests());
+        for (int i = 0; i < 128; i++)
+        {
+            string text = string.Concat(
+                words[random.Next(words.Length)],
+                words[random.Next(words.Length)],
+                words[random.Next(words.Length)]);
+
+            Assert.Equal(NaiveContains(generatedRules, text), ac.ContainsAny(text));
+        }
+    }
+
+    private static bool NaiveContains(IEnumerable<string> rules, string text)
+    {
+        foreach (string rule in rules)
+        {
+            string[] parts = rule
+                .Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length == 0)
+            {
+                continue;
+            }
+
+            if (parts.All(part => text.Contains(part, StringComparison.Ordinal)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

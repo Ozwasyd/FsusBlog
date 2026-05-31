@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Common;
@@ -51,6 +52,45 @@ public sealed class RedisPowServiceTests
         };
 
         bool result = await service.VerifyAsync(request, "127.0.0.1");
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_RejectsMalformedSignatureWithoutThrowing()
+    {
+        var cache = new OneShotCache();
+        var service = CreateService(cache);
+        var request = new VirtualPowRequest
+        {
+            PowSalt = "salt",
+            PowNonce = "1",
+            Difficulty = 4,
+            PowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            PowSignature = "not-base64",
+            BrowserFp = "unit-browser"
+        };
+
+        bool result = await service.VerifyAsync(request, "127.0.0.1");
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void CheckWorkloadWithSpan_RejectsDifficultyBeyondSha256NibbleRange()
+    {
+        var request = new VirtualPowRequest
+        {
+            PowSalt = "salt",
+            PowNonce = "nonce",
+            Difficulty = 65,
+            PowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            PowSignature = Convert.ToBase64String(new byte[32]),
+            BrowserFp = "unit-browser"
+        };
+        MethodInfo method = typeof(RedisPowService).GetMethod("CheckWorkloadWithSpan", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        bool result = (bool)method.Invoke(null, [request])!;
 
         Assert.False(result);
     }
@@ -111,6 +151,9 @@ public sealed class RedisPowServiceTests
 
         public Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
             => Task.FromResult(default(CacheReadResult<byte[]>));
+
+        public Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => Task.FromResult(default(CacheReadResult<ReadOnlyMemory<byte>>));
 
         public Task SetRawAsync(CachePolicyId policyId, string identity, byte[] value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
             => Task.CompletedTask;

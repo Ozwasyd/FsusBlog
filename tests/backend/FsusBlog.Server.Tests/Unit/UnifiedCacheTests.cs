@@ -53,6 +53,18 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public void BorrowRawBytesReadonlyForTests_ReusesImmutableCacheBuffer()
+    {
+        byte[] cached = [1, 2, 3];
+
+        ReadOnlyMemory<byte> returned = UnifiedCache.BorrowRawBytesReadonlyForTests(cached);
+
+        Assert.Equal(new byte[] { 1, 2, 3 }, returned.ToArray());
+        Assert.True(System.Runtime.InteropServices.MemoryMarshal.TryGetArray(returned, out ArraySegment<byte> segment));
+        Assert.Same(cached, segment.Array);
+    }
+
+    [Fact]
     public void ApplyDeterministicJitterForTests_SameKeyRemainsDeterministic()
     {
         TimeSpan first = UnifiedCache.ApplyDeterministicJitterForTests(TimeSpan.FromMinutes(10), 0.10d, "fsus:blog:article-list:1");

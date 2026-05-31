@@ -10,7 +10,7 @@
 | 功能 | 说明 |
 |------|------|
 | 公开内容页 | 首页、归档、分类、标签、文章详情，AOT 预渲染 + SPA hydration 双路保障首屏 |
-| Binary 传输 | AEDS v2 二进制帧协议，C++23 Wasm / TypeScript 双解码，零分配写入，不回退旧文本 API |
+| Binary 传输 | AEDS v2 二进制帧协议，C++23 Wasm / TypeScript 双解码，hot-path 池化写入且不构造第二份完整 frame，不回退旧文本 API |
 | 本地搜索 | Service Worker 缓存静态索引 + 浏览器端 Wasm 排序，无服务端在线检索 |
 | 认证与授权 | PoW 前置 + 注册/登录 + JWT Access Token（15 min）+ HttpOnly Cookie |
 | 通行密钥 (Passkey) | WebAuthn / FIDO2 Discoverable Credential，无密码登录，最多 5 枚/用户 |
@@ -43,7 +43,7 @@ FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核
 | ASP.NET Core Kestrel | 10 | HTTP 服务器 |
 | SqlSugar | 5.1.4.214 | PostgreSQL ORM，CodeFirst |
 | Redis | — | L2 缓存 + SSE backing store |
-| Fido2NetLib | 4.0.0 | WebAuthn / Passkey |
+| Fido2 | 4.0.1 | WebAuthn / Passkey |
 | BCrypt.Net-Next | 4.1.0 | 密码哈希 |
 | Serilog | 4.3.1 | 结构化日志，异步滚动文件 |
 | IP2Location | — | 地理定位 |

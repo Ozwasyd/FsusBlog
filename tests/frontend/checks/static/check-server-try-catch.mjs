@@ -30,6 +30,7 @@ const defaultWhitelist = [
   'src/backend/Infrastructure/Helpers/',
   'src/backend/Infrastructure/Operations/',
   'src/backend/Infrastructure/PublicAot/',
+  'src/backend/Infrastructure/PublicReadArtifacts/',
   'src/backend/Infrastructure/PowLoadResetWorker.cs',
   'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs',
   'src/backend/Services/Background/',
@@ -38,7 +39,7 @@ const defaultWhitelist = [
   'src/backend/Services/SearchIndexService.cs',
   'src/backend/Services/Security/',
   'src/backend/Services/SSE/',
-  'src/backend/Services/VistitLog/',
+  'src/backend/Services/VisitLog/',
   'src/core/Mapping/Codecs/',
   'src/shared/Contracts/Outputs/'
 ];

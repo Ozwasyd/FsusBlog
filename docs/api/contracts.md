@@ -28,6 +28,8 @@
 
 运行时主 API 已收敛到 AEDS Binary：`/api/binary/**` 响应使用 AEDS v2 frame，错误也通过 `ApiError` frame 表达，不再通过旧文本响应包装。真人阅读 proof 使用 `/api/read-proof/**` JSON 包装响应，避免把计数 proof 扩展进 AEDS/Wasm 协议面。
 
+公开 article detail binary 读模型使用预编码 artifact：匿名 `GET /api/binary/article/{id}` 只读取 `runtime-cache/public/articles/{id}.aeds` 的完整 AEDS v2 `ArticleDetail` frame。命中时服务端直接写出完整 frame；miss 时排队后台 rebuild 并返回 AEDS `ApiError`，不会在请求线程同步查询 PostgreSQL。admin/private 读取仍可走服务端 query path，以便草稿、定时、归档和删除状态管理。
+
 所有 HTTP 响应都会带 `X-Fsus-Trace-Id`，值与当前 OpenTelemetry `Activity.TraceId`、`HttpContext.TraceIdentifier`、Serilog/audit `TraceId` 对齐。客户端可用该值报告问题；它不是认证凭据，也不得包含用户身份或请求正文。
 
 ### AEDS 通用响应 POD

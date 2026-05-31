@@ -176,6 +176,9 @@ public sealed class CacheMissCoordinatorTests
         public Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        public Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
         public Task SetRawAsync(CachePolicyId policyId, string identity, byte[] value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 

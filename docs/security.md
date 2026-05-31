@@ -101,7 +101,7 @@
 
 - 规范：W3C Web Authentication Level 3（FIDO2）
 - 凭证类型：Discoverable Credential（resident key），支持无用户名流程（usernameless）
-- 库：Fido2NetLib 4.0.0
+- 库：Fido2 4.0.1
 - 上限：每用户最多 5 枚 Passkey
 - 注册保护：已启用 MFA 的用户注册新 Passkey 须提供有效的 MFA proofToken
 - 传输契约：Passkey 注册/登录选项、attestation、assertion 与凭证管理均走 `/api/binary/auth/passkey/**`，请求与响应为 `application/octet-stream` AEDS frame；不再暴露文本字符串载荷
@@ -238,7 +238,7 @@ FsusBlog 采用三级角色体系：
 | 依赖 | 版本 | 用途 |
 |------|------|------|
 | BCrypt.Net-Next | 4.1.0 | 密码哈希 |
-| Fido2NetLib | 4.0.0 | WebAuthn / FIDO2 |
-| System.Buffers.Text.Base64Url | .NET 10 BCL | WebAuthn ID 编解码（替代 Fido2NetLib v3 的 `Base64Url` 类） |
+| Fido2 | 4.0.1 | WebAuthn / FIDO2 |
+| System.Buffers.Text.Base64Url | .NET 10 BCL | WebAuthn ID 编解码（替代旧版 FIDO2 helper 的 `Base64Url` 类） |
 | ASP.NET Core Data Protection | 10 | Cookie 保护 |
 | ASP.NET Core RateLimiting | 10 | IP 速率限制 |

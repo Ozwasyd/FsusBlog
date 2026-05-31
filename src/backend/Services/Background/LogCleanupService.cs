@@ -1,6 +1,7 @@
 ﻿using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Execution;
 using SqlSugar;
+using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 
 namespace FsusBlog.Server.Services.Background;
 
@@ -61,7 +62,7 @@ public class LogCleanupService(
         int processedChunks = 0;
         while (!token.IsCancellationRequested && processedChunks < MaxChunksPerCycle)
         {
-            var ids = await db.Queryable<VisitLog>()
+            var ids = await db.Queryable<VisitLogEntity>()
                 .Where(it => it.CreateTime < expireDate)
                 .Select(it => it.Id)
                 .Take(ChunkSize)
@@ -69,7 +70,7 @@ public class LogCleanupService(
 
             if (ids.Count == 0) break;
 
-            var deletedCount = await db.Deleteable<VisitLog>()
+            var deletedCount = await db.Deleteable<VisitLogEntity>()
                 .In(ids)
                 .ExecuteCommandAsync(token);
 

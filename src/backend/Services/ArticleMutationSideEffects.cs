@@ -3,6 +3,7 @@ using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
@@ -75,6 +76,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
     IRuntimeKeyScope runtimeKeyScope,
     IUnifiedCache cache,
     ArticleSearchProjector searchProjector,
+    IArticleDetailAedsArtifactProjector articleDetailArtifacts,
     ArticleRealtimeNotifier realtimeNotifier,
     ArticleAssetCleanupPolicy assetCleanupPolicy,
     ILogger<ArticleMutationSideEffectCoordinator> logger) : IArticleMutationSideEffectCoordinator
@@ -88,6 +90,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
                 article.Id = articleId;
                 await Task.WhenAll(
                     searchProjector.ProjectAsync(article),
+                    articleDetailArtifacts.GenerateAndStoreAsync(articleId),
                     realtimeNotifier.PushChangedAsync(articleId, "Created", preview));
             },
             "article-create-sync");
@@ -104,6 +107,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
                 await Task.WhenAll(
                     searchProjector.ProjectAsync(article),
+                    articleDetailArtifacts.GenerateAndStoreAsync(articleId),
                     realtimeNotifier.PushChangedAsync(articleId, "Updated", preview));
             },
             "article-update-sync");
@@ -114,6 +118,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
             {
                 await Task.WhenAll(
                     searchProjector.DeleteAsync(articleId),
+                    articleDetailArtifacts.RemoveAsync(articleId),
                     _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId),
                     realtimeNotifier.PushChangedAsync(articleId, "Deleted"));
             },
@@ -131,6 +136,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
                 await Task.WhenAll(
                     searchProjector.ProjectAsync(article),
+                    articleDetailArtifacts.GenerateAndStoreAsync(articleId),
                     _redis.SortedSetAddAsync(RedisKey("blog:top_articles"), articleId, article.Views),
                     realtimeNotifier.PushChangedAsync(articleId, "Restored", preview));
             },
@@ -142,6 +148,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
             {
                 await Task.WhenAll(
                     searchProjector.DeleteAsync(articleId),
+                    articleDetailArtifacts.RemoveAsync(articleId),
                     _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId),
                     realtimeNotifier.PushChangedAsync(articleId, "Deleted"));
 
@@ -163,6 +170,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
                     {
                         tasks.Add(_redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId));
                         tasks.Add(cache.RemoveAsync(CachePolicyId.ArticleDetail, articleId.ToString(), cancellationToken));
+                        tasks.Add(articleDetailArtifacts.RemoveAsync(articleId, cancellationToken));
                         tasks.Add(searchProjector.DeleteAsync(articleId));
                     }
 

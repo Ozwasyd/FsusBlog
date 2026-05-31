@@ -136,6 +136,20 @@ public class PodMappingBenchmarks
     }
 
     [Benchmark]
+    public int CacheHit_RawDefensiveCopy_L1()
+    {
+        byte[] callerOwned = _encodedArticlePage.ToArray();
+        return callerOwned.Length;
+    }
+
+    [Benchmark]
+    public int CacheHit_RawReadonly_L1()
+    {
+        ReadOnlyMemory<byte> readonlyPayload = _encodedArticlePage;
+        return readonlyPayload.Length;
+    }
+
+    [Benchmark]
     public int Aeds_Encode_ArticleList()
     {
         byte[] payload = PodBinaryCodec.EncodeArticlePage(_pageResult);

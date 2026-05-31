@@ -300,6 +300,17 @@
       "l2JitterRatio": 0
     },
     {
+      "id": "SecurityPowProof",
+      "domain": "sec",
+      "resource": "pow-proof",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(5)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
       "id": "SecurityPowRisk",
       "domain": "sec",
       "resource": "pow-risk",

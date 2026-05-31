@@ -202,7 +202,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
             lastResult = attemptResult;
             if (i < 4)
             {
-                WaitForReloadRetryAsync(CancellationToken.None).GetAwaiter().GetResult();
+                WaitForStartupReloadRetry(CancellationToken.None);
             }
         }
 
@@ -248,6 +248,9 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
 
     private static Task WaitForReloadRetryAsync(CancellationToken cancellationToken)
         => Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+
+    private static void WaitForStartupReloadRetry(CancellationToken cancellationToken)
+        => cancellationToken.WaitHandle.WaitOne(TimeSpan.FromMilliseconds(100));
 
     private static string[] ReadAllLinesCore(string path)
     {

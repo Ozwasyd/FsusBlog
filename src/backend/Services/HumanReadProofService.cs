@@ -8,7 +8,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
-using FsusBlog.Server.Services.VistitLog;
+using FsusBlog.Server.Services.VisitLog;
 
 namespace FsusBlog.Server.Services;
 

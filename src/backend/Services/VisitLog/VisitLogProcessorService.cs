@@ -7,8 +7,9 @@ using FsusBlog.Server.Interfaces;
 using IP2Location;
 using Microsoft.Extensions.ObjectPool;
 using SqlSugar;
+using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 
-namespace FsusBlog.Server.Services.VistitLog;
+namespace FsusBlog.Server.Services.VisitLog;
 
 public readonly record struct VisitLogMessage(
     string IP,
@@ -84,7 +85,7 @@ public class VisitLogProcessorService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var batch = new List<VisitLog>(BatchSize);
+        var batch = new List<VisitLogEntity>(BatchSize);
         await BackgroundTaskExecutor.RunAsync(
             async token =>
             {
@@ -140,7 +141,7 @@ public class VisitLogProcessorService : BackgroundService
             });
     }
 
-    private void TryProcessSingleMessage(VisitLogMessage msg, List<VisitLog> batch)
+    private void TryProcessSingleMessage(VisitLogMessage msg, List<VisitLogEntity> batch)
     {
         try
         {
@@ -152,7 +153,7 @@ public class VisitLogProcessorService : BackgroundService
         }
     }
 
-    private void ProcessSingleMessageCore(VisitLogMessage msg, List<VisitLog> batch)
+    private void ProcessSingleMessageCore(VisitLogMessage msg, List<VisitLogEntity> batch)
     {
         if (string.IsNullOrWhiteSpace(msg.IP))
         {
@@ -162,7 +163,7 @@ public class VisitLogProcessorService : BackgroundService
         var ip = msg.IP.Length > MaxIpLength ? msg.IP[..MaxIpLength] : msg.IP;
         if (TryClassifyLocalNetwork(ip, out var localRegion))
         {
-            batch.Add(new VisitLog
+            batch.Add(new VisitLogEntity
             {
                 IP = ip,
                 UserId = msg.UserId,
@@ -202,7 +203,7 @@ public class VisitLogProcessorService : BackgroundService
             }
         }
 
-        batch.Add(new VisitLog
+        batch.Add(new VisitLogEntity
         {
             IP = ip,
             UserId = msg.UserId,
@@ -217,7 +218,7 @@ public class VisitLogProcessorService : BackgroundService
         });
     }
 
-    private async Task FlushBatchAsync(List<VisitLog> batch, CancellationToken token)
+    private async Task FlushBatchAsync(List<VisitLogEntity> batch, CancellationToken token)
     {
         try
         {
@@ -246,14 +247,14 @@ public class VisitLogProcessorService : BackgroundService
 
     private async Task ApplyArticleViewProjectionAsync(
         IServiceProvider scopedServices,
-        List<VisitLog> batch,
+        List<VisitLogEntity> batch,
         CancellationToken token)
     {
         var projectionService = scopedServices.GetRequiredService<IArticleViewProjectionService>();
         await projectionService.ApplyAsync(batch, token);
     }
 
-    private async Task InvalidateStatsAfterFlushAsync(IServiceProvider scopedServices, List<VisitLog> batch, CancellationToken token)
+    private async Task InvalidateStatsAfterFlushAsync(IServiceProvider scopedServices, List<VisitLogEntity> batch, CancellationToken token)
     {
         try
         {

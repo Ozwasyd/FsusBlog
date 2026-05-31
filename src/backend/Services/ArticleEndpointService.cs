@@ -3,6 +3,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -12,7 +13,9 @@ namespace FsusBlog.Server.Services;
 public sealed class ArticleEndpointService(
     IArticleCoreService core,
     IArticleService articles,
-    IUnifiedCache cache) : IArticleEndpointService
+    IUnifiedCache cache,
+    IArticleDetailAedsArtifactStore detailArtifacts,
+    IArticleDetailAedsArtifactBackfillScheduler detailArtifactBackfill) : IArticleEndpointService
 {
     public async Task<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>> GetPageListAsync(
         int page,
@@ -26,38 +29,50 @@ public sealed class ArticleEndpointService(
     {
         if (isDeleted && !canReadDeleted)
         {
-            return new(null, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Forbidden, "权限不足"));
+            return new(default, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Forbidden, "权限不足"));
         }
 
         if (status.HasValue && !canReadPrivate)
         {
-            return new(null, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Forbidden, "权限不足"));
+            return new(default, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Forbidden, "权限不足"));
         }
 
         long version = await GetArticleListCacheVersionAsync();
         string identity = BuildArticleListCacheIdentity(version, page, size, categoryId, tagId, isDeleted, status, canReadPrivate);
-        CacheReadResult<byte[]> raw = await cache.TryGetRawAsync(CachePolicyId.ArticleList, identity);
-        if (raw.Hit && raw.Value is { Length: > 0 } payload)
+        CacheReadResult<ReadOnlyMemory<byte>> raw = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleList, identity);
+        if (raw.Hit && raw.Value.Length > 0)
         {
-            return new(payload, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
+            return new(raw.Value, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
         }
 
-        return new(null, await core.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, canReadPrivate));
+        return new(default, await core.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, canReadPrivate));
     }
 
     public Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(int id, bool canReadPrivate = false)
         => core.GetByIdAsync(id, canReadPrivate);
 
+    public async Task<ArticleDetailArtifactPayload> GetPublicArtifactBackedDetailAsync(int id)
+    {
+        var artifact = await detailArtifacts.TryReadAsync(id);
+        if (artifact.Found)
+        {
+            return new ArticleDetailArtifactPayload(artifact.Frame, BackfillQueued: false);
+        }
+
+        bool queued = detailArtifactBackfill.TrySchedule(id);
+        return new ArticleDetailArtifactPayload(default, queued);
+    }
+
     public async Task<ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>>> GetHotArticlesAsync(int count)
     {
         string identity = BuildArticleHotCacheIdentity(count);
-        CacheReadResult<byte[]> raw = await cache.TryGetRawAsync(CachePolicyId.ArticleHot, identity);
-        if (raw.Hit && raw.Value is { Length: > 0 } payload)
+        CacheReadResult<ReadOnlyMemory<byte>> raw = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleHot, identity);
+        if (raw.Hit && raw.Value.Length > 0)
         {
-            return new(payload, Result<IReadOnlyList<PopularArticleCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
+            return new(raw.Value, Result<IReadOnlyList<PopularArticleCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
         }
 
-        return new(null, await core.GetHotArticlesAsync(count));
+        return new(default, await core.GetHotArticlesAsync(count));
     }
 
     public async Task<Result<IReadOnlyList<FeaturedArticleSummaryDto>>> GetFeaturedArticlesAsync(int count)

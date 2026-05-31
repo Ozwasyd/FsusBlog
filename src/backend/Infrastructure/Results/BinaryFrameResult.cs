@@ -61,3 +61,22 @@ public sealed class BinaryFramePayloadResult(
     private static IBinaryEnvelopePolicy ResolveEnvelopePolicy(HttpContext httpContext)
         => httpContext.RequestServices?.GetService<IBinaryEnvelopePolicy>() ?? new BinaryEnvelopePolicy();
 }
+
+public sealed class BinaryPreencodedFrameResult(ReadOnlyMemory<byte> frame, int? statusCode = null) : IResult
+{
+    private readonly ReadOnlyMemory<byte> _frame = frame;
+    private readonly int? _statusCode = statusCode;
+
+    public async Task ExecuteAsync(HttpContext httpContext)
+    {
+        httpContext.Response.ContentType = "application/octet-stream";
+        if (_statusCode.HasValue)
+        {
+            httpContext.Response.StatusCode = _statusCode.Value;
+        }
+
+        httpContext.Response.Headers["X-Fsus-Frame-Version"] = AedsFrameHeader.CurrentVersion.ToString();
+        httpContext.Response.ContentLength = _frame.Length;
+        await httpContext.Response.BodyWriter.WriteAsync(_frame, httpContext.RequestAborted);
+    }
+}

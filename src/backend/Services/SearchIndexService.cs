@@ -2363,6 +2363,7 @@ public sealed partial class SearchIndexService(
         private int _index;
         private uint _position;
         private SearchToken[] _queuedTokens;
+        private bool _queuedTokensRented;
         private int _queuedIndex;
         private int _queuedCount;
 
@@ -2374,6 +2375,7 @@ public sealed partial class SearchIndexService(
             _index = 0;
             _position = 0;
             _queuedTokens = [];
+            _queuedTokensRented = false;
             _queuedIndex = 0;
             _queuedCount = 0;
         }
@@ -2386,6 +2388,11 @@ public sealed partial class SearchIndexService(
             if (_queuedIndex < _queuedCount)
             {
                 token = _queuedTokens[_queuedIndex++];
+                if (_queuedIndex == _queuedCount)
+                {
+                    ReturnQueuedTokenBuffer();
+                }
+
                 return true;
             }
 
@@ -2414,6 +2421,11 @@ public sealed partial class SearchIndexService(
                 if (IsCjkScalar(scalar) && QueueCjkSegmentTokens())
                 {
                     token = _queuedTokens[_queuedIndex++];
+                    if (_queuedIndex == _queuedCount)
+                    {
+                        ReturnQueuedTokenBuffer();
+                    }
+
                     return true;
                 }
 
@@ -2431,6 +2443,7 @@ public sealed partial class SearchIndexService(
 
         private bool QueueCjkSegmentTokens()
         {
+            ReturnQueuedTokenBuffer();
             int segmentStart = _index;
             int cursor = _index;
             int runeCount = 0;
@@ -2458,98 +2471,156 @@ public sealed partial class SearchIndexService(
             }
 
             ReadOnlySpan<byte> segment = _source[segmentStart..cursor];
-            int[] runeOffsets = new int[runeCount + 1];
-            int localOffset = 0;
-            for (int i = 0; i < runeCount; i++)
+            const int StackRuneThreshold = 96;
+            int[]? rentedOffsets = null;
+            double[]? rentedScores = null;
+            int[]? rentedLengths = null;
+            bool[]? rentedStopwords = null;
+            SearchToken[]? queued = null;
+            bool queuedRented = false;
+
+            Span<int> runeOffsets = (rentedOffsets = ArrayPool<int>.Shared.Rent(runeCount + 1)).AsSpan(0, runeCount + 1);
+            Span<double> bestScores = runeCount <= StackRuneThreshold
+                ? stackalloc double[runeCount + 1]
+                : (rentedScores = ArrayPool<double>.Shared.Rent(runeCount + 1)).AsSpan(0, runeCount + 1);
+            Span<int> bestLengths = runeCount <= StackRuneThreshold
+                ? stackalloc int[runeCount]
+                : (rentedLengths = ArrayPool<int>.Shared.Rent(runeCount)).AsSpan(0, runeCount);
+            Span<bool> bestStopwords = runeCount <= StackRuneThreshold
+                ? stackalloc bool[runeCount]
+                : (rentedStopwords = ArrayPool<bool>.Shared.Rent(runeCount)).AsSpan(0, runeCount);
+
+            try
             {
-                runeOffsets[i] = localOffset;
-                localOffset += GetUtf8ScalarLength(segment[localOffset]);
-            }
-            runeOffsets[runeCount] = segment.Length;
-
-            double[] bestScores = new double[runeCount + 1];
-            int[] bestLengths = new int[runeCount];
-            bool[] bestStopwords = new bool[runeCount];
-            Span<SearchDictionaryMatch> matches = stackalloc SearchDictionaryMatch[32];
-
-            for (int runeIndex = runeCount - 1; runeIndex >= 0; runeIndex--)
-            {
-                ReadOnlySpan<byte> suffix = segment[runeOffsets[runeIndex]..];
-                int matchCount = _dictionary.CollectMatches(suffix, matches);
-
-                double bestScore = double.NegativeInfinity;
-                int bestLength = 1;
-                bool bestStopword = false;
-
-                if (matchCount > 0)
+                int localOffset = 0;
+                for (int i = 0; i < runeCount; i++)
                 {
-                    for (int i = 0; i < matchCount; i++)
-                    {
-                        SearchDictionaryMatch match = matches[i];
-                        if (match.RuneLength <= 0 || runeIndex + match.RuneLength > runeCount)
-                        {
-                            continue;
-                        }
+                    runeOffsets[i] = localOffset;
+                    localOffset += GetUtf8ScalarLength(segment[localOffset]);
+                }
+                runeOffsets[runeCount] = segment.Length;
 
-                        double score = match.Frequency + (match.RuneLength * 0.25d) + bestScores[runeIndex + match.RuneLength];
-                        if (score > bestScore)
+                Span<SearchDictionaryMatch> matches = stackalloc SearchDictionaryMatch[32];
+
+                for (int runeIndex = runeCount - 1; runeIndex >= 0; runeIndex--)
+                {
+                    ReadOnlySpan<byte> suffix = segment[runeOffsets[runeIndex]..];
+                    int matchCount = _dictionary.CollectMatches(suffix, matches);
+
+                    double bestScore = double.NegativeInfinity;
+                    int bestLength = 1;
+                    bool bestStopword = false;
+
+                    if (matchCount > 0)
+                    {
+                        for (int i = 0; i < matchCount; i++)
                         {
-                            bestScore = score;
-                            bestLength = match.RuneLength;
-                            bestStopword = match.Stopword;
+                            SearchDictionaryMatch match = matches[i];
+                            if (match.RuneLength <= 0 || runeIndex + match.RuneLength > runeCount)
+                            {
+                                continue;
+                            }
+
+                            double score = match.Frequency + (match.RuneLength * 0.25d) + bestScores[runeIndex + match.RuneLength];
+                            if (score > bestScore)
+                            {
+                                bestScore = score;
+                                bestLength = match.RuneLength;
+                                bestStopword = match.Stopword;
+                            }
                         }
                     }
+
+                    double unigramScore = 1d + bestScores[runeIndex + 1];
+                    if (bestScore < unigramScore)
+                    {
+                        bestScore = unigramScore;
+                        bestLength = 1;
+                        bestStopword = false;
+                    }
+
+                    bestScores[runeIndex] = bestScore;
+                    bestLengths[runeIndex] = bestLength;
+                    bestStopwords[runeIndex] = bestStopword;
                 }
 
-                double unigramScore = 1d + bestScores[runeIndex + 1];
-                if (bestScore < unigramScore)
+                int queuedCapacity = Math.Max(1, runeCount * 2);
+                queued = ArrayPool<SearchToken>.Shared.Rent(queuedCapacity);
+                queuedRented = true;
+                int queuedCount = 0;
+                uint basePosition = _position;
+                for (int runeIndex = 0; runeIndex < runeCount;)
                 {
-                    bestScore = unigramScore;
-                    bestLength = 1;
-                    bestStopword = false;
+                    int runeLength = Math.Max(1, bestLengths[runeIndex]);
+                    int tokenByteStart = runeOffsets[runeIndex];
+                    int tokenByteLength = runeOffsets[runeIndex + runeLength] - tokenByteStart;
+                    ReadOnlySpan<byte> tokenBytes = segment.Slice(tokenByteStart, tokenByteLength);
+                    uint tokenPosition = basePosition + (uint)runeIndex;
+                    bool keepPositions = _field is SearchFieldKind.Title or SearchFieldKind.Body;
+
+                    EnsureQueuedCapacity(ref queued, ref queuedRented, queuedCount + 1);
+                    queued[queuedCount++] = new SearchToken(
+                        MurmurHash3.HashBytes(tokenBytes),
+                        SearchTokenHashing.Fingerprint64(tokenBytes),
+                        _field,
+                        tokenPosition,
+                        (uint)runeLength,
+                        bestStopwords[runeIndex],
+                        keepPositions);
+
+                    if (runeLength >= 3)
+                    {
+                        int maxSubtokens = (runeLength * (runeLength - 1)) / 2;
+                        EnsureQueuedCapacity(ref queued, ref queuedRented, queuedCount + maxSubtokens);
+                        QueueDictionarySubtokens(segment, runeOffsets, runeIndex, runeLength, basePosition, keepPositions, queued, ref queuedCount);
+                    }
+
+                    runeIndex += runeLength;
                 }
 
-                bestScores[runeIndex] = bestScore;
-                bestLengths[runeIndex] = bestLength;
-                bestStopwords[runeIndex] = bestStopword;
-            }
+                if (queuedCount == 0)
+                {
+                    ArrayPool<SearchToken>.Shared.Return(queued, clearArray: false);
+                    return false;
+                }
 
-            int maxTokenCount = runeCount * 2;
-            SearchToken[] queued = new SearchToken[maxTokenCount];
-            int queuedCount = 0;
-            uint basePosition = _position;
-            for (int runeIndex = 0; runeIndex < runeCount;)
+                _queuedTokens = queued;
+                _queuedTokensRented = queuedRented;
+                queued = null;
+                queuedRented = false;
+                _queuedIndex = 0;
+                _queuedCount = queuedCount;
+                _index = cursor;
+                _position += (uint)runeCount;
+                return true;
+            }
+            finally
             {
-                int runeLength = Math.Max(1, bestLengths[runeIndex]);
-                int tokenByteStart = runeOffsets[runeIndex];
-                int tokenByteLength = runeOffsets[runeIndex + runeLength] - tokenByteStart;
-                ReadOnlySpan<byte> tokenBytes = segment.Slice(tokenByteStart, tokenByteLength);
-                uint tokenPosition = basePosition + (uint)runeIndex;
-                bool keepPositions = _field is SearchFieldKind.Title or SearchFieldKind.Body;
-
-                queued[queuedCount++] = new SearchToken(
-                    MurmurHash3.HashBytes(tokenBytes),
-                    SearchTokenHashing.Fingerprint64(tokenBytes),
-                    _field,
-                    tokenPosition,
-                    (uint)runeLength,
-                    bestStopwords[runeIndex],
-                    keepPositions);
-
-                if (runeLength >= 3)
+                if (queued is not null && queuedRented)
                 {
-                    QueueDictionarySubtokens(segment, runeOffsets, runeIndex, runeLength, basePosition, keepPositions, ref queued, ref queuedCount);
+                    ArrayPool<SearchToken>.Shared.Return(queued, clearArray: false);
                 }
 
-                runeIndex += runeLength;
-            }
+                if (rentedOffsets is not null)
+                {
+                    ArrayPool<int>.Shared.Return(rentedOffsets, clearArray: false);
+                }
 
-            _queuedTokens = queuedCount == queued.Length ? queued : queued[..queuedCount];
-            _queuedIndex = 0;
-            _queuedCount = queuedCount;
-            _index = cursor;
-            _position += (uint)runeCount;
-            return queuedCount > 0;
+                if (rentedScores is not null)
+                {
+                    ArrayPool<double>.Shared.Return(rentedScores, clearArray: false);
+                }
+
+                if (rentedLengths is not null)
+                {
+                    ArrayPool<int>.Shared.Return(rentedLengths, clearArray: false);
+                }
+
+                if (rentedStopwords is not null)
+                {
+                    ArrayPool<bool>.Shared.Return(rentedStopwords, clearArray: true);
+                }
+            }
         }
 
         private bool MoveAscii(out SearchToken token)
@@ -2579,12 +2650,12 @@ public sealed partial class SearchIndexService(
 
         private void QueueDictionarySubtokens(
             ReadOnlySpan<byte> segment,
-            int[] runeOffsets,
+            ReadOnlySpan<int> runeOffsets,
             int tokenRuneIndex,
             int tokenRuneLength,
             uint basePosition,
             bool keepPositions,
-            ref SearchToken[] queued,
+            SearchToken[] queued,
             ref int queuedCount)
         {
             for (int subStart = tokenRuneIndex; subStart < tokenRuneIndex + tokenRuneLength; subStart++)
@@ -2623,15 +2694,47 @@ public sealed partial class SearchIndexService(
 
                     if (!duplicate)
                     {
-                        if (queuedCount == queued.Length)
+                        if (queuedCount >= queued.Length)
                         {
-                            Array.Resize(ref queued, queued.Length + 8);
+                            return;
                         }
 
                         queued[queuedCount++] = subToken;
                     }
                 }
             }
+        }
+
+        private void ReturnQueuedTokenBuffer()
+        {
+            if (_queuedTokensRented && _queuedTokens.Length > 0)
+            {
+                ArrayPool<SearchToken>.Shared.Return(_queuedTokens, clearArray: false);
+            }
+
+            _queuedTokens = [];
+            _queuedTokensRented = false;
+            _queuedIndex = 0;
+            _queuedCount = 0;
+        }
+
+        private static void EnsureQueuedCapacity(ref SearchToken[] queued, ref bool queuedRented, int required)
+        {
+            if (queued.Length >= required)
+            {
+                return;
+            }
+
+            int newCapacity = Math.Max(required, queued.Length + 8);
+            SearchToken[] replacement = ArrayPool<SearchToken>.Shared.Rent(newCapacity);
+            queued.AsSpan(0, Math.Min(queued.Length, required - 1)).CopyTo(replacement);
+            if (queuedRented)
+            {
+                ArrayPool<SearchToken>.Shared.Return(queued, clearArray: false);
+            }
+
+            queued = replacement;
+            queuedRented = true;
         }
 
         private static bool IsAsciiWord(byte value)

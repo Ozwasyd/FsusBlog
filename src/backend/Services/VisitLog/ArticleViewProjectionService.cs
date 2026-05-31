@@ -1,19 +1,20 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
+using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 
-namespace FsusBlog.Server.Services.VistitLog;
+namespace FsusBlog.Server.Services.VisitLog;
 
 public interface IArticleViewProjectionService
 {
-    Task ApplyAsync(IReadOnlyList<VisitLog> batch, CancellationToken cancellationToken);
+    Task ApplyAsync(IReadOnlyList<VisitLogEntity> batch, CancellationToken cancellationToken);
 }
 
 public sealed class ArticleViewProjectionService(
     IArticleService articleService,
     ICacheInvalidationDispatcher dispatcher) : IArticleViewProjectionService
 {
-    public async Task ApplyAsync(IReadOnlyList<VisitLog> batch, CancellationToken cancellationToken)
+    public async Task ApplyAsync(IReadOnlyList<VisitLogEntity> batch, CancellationToken cancellationToken)
     {
         var articleCounts = batch
             .Where(static item => item.EventType == HumanReadEventTypes.ArticleRead && item.ArticleId is > 0)

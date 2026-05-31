@@ -47,6 +47,45 @@ for project in "${NUGET_PROJECTS[@]}"; do
   fi
 done
 
+log "check documented security-sensitive backend dependencies"
+node - "$ROOT_DIR" <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+const root = process.argv[2];
+const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+const csproj = fs.readFileSync(path.join(root, 'src/backend/FsusBlog.Server.csproj'), 'utf8');
+const lock = JSON.parse(fs.readFileSync(path.join(root, 'src/backend/packages.lock.json'), 'utf8'));
+
+function fail(message) {
+  console.error(`[supply-chain] dependency-docs violation: ${message}`);
+  process.exit(1);
+}
+
+function packageVersionFromCsproj(name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = csproj.match(new RegExp(`<PackageReference\\s+Include="${escaped}"\\s+Version="([^"]+)"\\s*/>`));
+  return match?.[1] ?? null;
+}
+
+function packageVersionFromReadme(name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = readme.match(new RegExp(`\\|\\s*${escaped}\\s*\\|\\s*([^|]+?)\\s*\\|`));
+  return match?.[1]?.trim() ?? null;
+}
+
+for (const name of ['Fido2']) {
+  const csprojVersion = packageVersionFromCsproj(name);
+  const lockVersion = lock.dependencies?.['net10.0']?.[name]?.resolved;
+  const readmeVersion = packageVersionFromReadme(name);
+  if (!csprojVersion) fail(`${name} is missing from FsusBlog.Server.csproj`);
+  if (!lockVersion) fail(`${name} is missing from src/backend/packages.lock.json`);
+  if (!readmeVersion) fail(`${name} is missing from README dependency table`);
+  if (readmeVersion !== csprojVersion || lockVersion !== csprojVersion) {
+    fail(`${name} version drift README=${readmeVersion} csproj=${csprojVersion} lock=${lockVersion}`);
+  }
+}
+NODE
+
 for project in "${NUGET_PROJECTS[@]}"; do
   relative_project="${project#$ROOT_DIR/}"
   safe_name="${relative_project//\//__}"

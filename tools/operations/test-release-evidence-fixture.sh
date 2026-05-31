@@ -228,6 +228,8 @@ jq -e '
   and .evidenceSummary.operations.postDeploySmoke == "ok"
   and .evidenceSummary.operations.sloAlerts == "ok"
   and .evidenceSummary.operations.sloCriticalFiring == 0
+  and .evidenceSummary.operations.runtimeTuning.nonDefaultPresetsRequireBenchmarkEvidence == true
+  and .evidenceSummary.operations.runtimeTuning.rollback == "unset RuntimeTuning/DOTNET_* overrides and restart on the same image"
   and .evidenceSummary.security.attackMatrix == "ok"
   and .evidenceSummary.security.permissionMatrix == "ok"
   and .evidenceSummary.security.supplyChain == "ok"

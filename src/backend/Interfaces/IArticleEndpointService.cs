@@ -4,7 +4,15 @@ using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Interfaces;
 
-public readonly record struct ArticleEndpointPayload<T>(byte[]? CachedPayload, Result<T> Result);
+public readonly record struct ArticleEndpointPayload<T>(ReadOnlyMemory<byte> CachedPayload, Result<T> Result)
+{
+    public bool HasCachedPayload => !CachedPayload.IsEmpty;
+}
+
+public readonly record struct ArticleDetailArtifactPayload(ReadOnlyMemory<byte> PreencodedFrame, bool BackfillQueued)
+{
+    public bool HasPreencodedFrame => !PreencodedFrame.IsEmpty;
+}
 
 public interface IArticleEndpointService
 {
@@ -19,6 +27,8 @@ public interface IArticleEndpointService
         bool canReadPrivate);
 
     Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(int id, bool canReadPrivate = false);
+
+    Task<ArticleDetailArtifactPayload> GetPublicArtifactBackedDetailAsync(int id);
 
     Task<ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>>> GetHotArticlesAsync(int count);
 

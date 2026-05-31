@@ -106,7 +106,7 @@ Host runtime tuning is configuration-driven. By default the application does not
 }
 ```
 
-The startup log line `Runtime tuning effective values` records the configured values, whether each environment variable was applied, and the before/after ThreadPool minimums. Prefer measuring request path, search rebuild, and Public AOT backfill latency before raising these defaults in production.
+The startup log line `Runtime tuning effective values` records the configured values, whether each environment variable was applied, and the before/after ThreadPool minimums. `tools/operations/collect-release-evidence.sh` also records the effective `DOTNET_*` runtime preset values, optional ThreadPool override evidence, the perf artifact pointer, and the rollback instruction in `evidenceSummary.operations.runtimeTuning`. Prefer measuring request path, search rebuild, and Public AOT backfill latency before raising these defaults in production; rollback is to unset `RuntimeTuning` / `DOTNET_*` overrides and restart on the same image.
 
 ## Gateway Notes
 

@@ -13,6 +13,7 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Telemetry;
 using SqlSugar;
+using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 
 namespace FsusBlog.Server.Services.Authoring;
 
@@ -324,8 +325,8 @@ public sealed class AuthoringWorkflowService(
         int draft = await db.Queryable<Article>().Where(it => !it.IsDeleted && it.Status == ArticleStatus.Draft).CountAsync(cancellationToken);
         int scheduled = await db.Queryable<Article>().Where(it => !it.IsDeleted && it.Status == ArticleStatus.Scheduled).CountAsync(cancellationToken);
         int archived = await db.Queryable<Article>().Where(it => !it.IsDeleted && it.Status == ArticleStatus.Archived).CountAsync(cancellationToken);
-        int reads = await db.Queryable<VisitLog>().Where(it => it.EventType == HumanReadEventTypes.ArticleRead || it.EventType == HumanReadEventTypes.SiteRead).CountAsync(cancellationToken);
-        List<VisitLog> recentReads = await db.Queryable<VisitLog>()
+        int reads = await db.Queryable<VisitLogEntity>().Where(it => it.EventType == HumanReadEventTypes.ArticleRead || it.EventType == HumanReadEventTypes.SiteRead).CountAsync(cancellationToken);
+        List<VisitLogEntity> recentReads = await db.Queryable<VisitLogEntity>()
             .Where(it => it.EventType == HumanReadEventTypes.ArticleRead || it.EventType == HumanReadEventTypes.SiteRead)
             .OrderByDescending(it => it.CreateTime)
             .Take(5_000)
@@ -334,7 +335,7 @@ public sealed class AuthoringWorkflowService(
         int averageDwellMs = recentReads.Count == 0
             ? 0
             : (int)Math.Round(recentReads.Average(static item => Math.Max(0, item.DwellMs)));
-        VisitLog[] articleReads = [.. recentReads.Where(static item => item.EventType == HumanReadEventTypes.ArticleRead)];
+        VisitLogEntity[] articleReads = [.. recentReads.Where(static item => item.EventType == HumanReadEventTypes.ArticleRead)];
         double readingCompletionRate = articleReads.Length == 0
             ? 0d
             : Math.Round(articleReads.Count(static item => item.DwellMs >= 30_000) / (double)articleReads.Length, 4);

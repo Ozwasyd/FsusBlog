@@ -155,15 +155,16 @@ IPublicAotRouteRegistry
 ```text
 Client
   → AEDS Binary（Accept: application/octet-stream）
-    → Kestrel → L1 内存缓存
-      → 命中 → AedsBinaryWriter 零分配写帧 → 返回 application/octet-stream
-      → 未命中 → Redis L2
-        → 命中 → 反序列化 → L1 暖身 → 写帧返回
-        → 未命中 → PostgreSQL → 写 L1 + L2 → 写帧返回
+    → Kestrel → 公开读 artifact fast path（article detail *.aeds）
+      → 命中 → 直接搬运预编码 AEDS frame → 返回 application/octet-stream
+      → 未命中 → singleflight 排队后台 rebuild → 503/stale/SPA fallback，不在请求内同步打 PostgreSQL
+    → 其他公开列表/聚合 → L1 readonly raw cache
+      → 命中 → AedsBinaryWriter 写 header + payload，避免 L1 hit 的 byte[] 防御性复制
+      → 未命中 → Redis L2 / DB concurrency gate / cache refill
   → TypeScript adapter / Wasm Web Worker 解码 AEDS 帧 → Pinia Store 更新
 ```
 
-Article/comment binary endpoints 只面向应用 facade：文章端点通过 `IArticleEndpointService` 获取 article list/detail/hot/featured 与写入操作，评论端点通过 `ICommentEndpointService` 获取 thread/reply/user cursor 与删除操作。Core query、raw payload cache、投影转换和 service mutation 不在 endpoint 文件内展开。文章写入后的搜索投影、实时通知、Redis 热榜清理、文章详情缓存清理和图片资产清理统一下沉到 `IArticleMutationSideEffectCoordinator`，由 `ArticleSearchProjector`、`ArticleRealtimeNotifier`、`ArticleAssetCleanupPolicy` 等小服务承载，`ArticleService` 只负责写入事务、查询、缓存/AOT 失效编排。
+Article/comment binary endpoints 只面向应用 facade：文章端点通过 `IArticleEndpointService` 获取 article list/detail/hot/featured 与写入操作，评论端点通过 `ICommentEndpointService` 获取 thread/reply/user cursor 与删除操作。Core query、raw payload cache、投影转换和 service mutation 不在 endpoint 文件内展开。文章写入后的搜索投影、实时通知、Redis 热榜清理、文章详情 AEDS artifact 生成/失效和图片资产清理统一下沉到 `IArticleMutationSideEffectCoordinator`，由 `ArticleSearchProjector`、`ArticleDetailAedsArtifactProjector`、`ArticleRealtimeNotifier`、`ArticleAssetCleanupPolicy` 等小服务承载，`ArticleService` 只负责写入事务、查询、缓存/AOT 失效编排。
 
 用户域对外按不重叠 facade 拆分：`IUserAccountReader` 只返回 `UserAccountSnapshot`，`IUserLoginWorkflowService` 负责登录/MFA 风险/最终签发，`IUserProfileCommandService` 负责资料与注销，`IUserSessionCommandService` 负责 refresh/session revoke，`IUserAdminModerationService` 负责后台治理。`User`/`UserSession` ORM entity 只在 `UserService` 兼容实现内部流转，不作为 endpoint、middleware 或 SSE admission 的读取契约。
 
@@ -194,7 +195,7 @@ Client
 
 > L1 暖身策略：L2 命中后立即回填 L1，避免下次 L2 往返。
 
-运行时缓存只通过 `IUnifiedCache`、`CachePolicyRegistry`、`CachePolicyId` 与 `ICacheInvalidationDispatcher` 进入。旧的 `Core.Cache.CacheManager` / `ILevel1CacheStore` / `ILevel2CacheStore` 双层抽象已移除，core benchmark 覆盖 POD/AEDS codec、raw cache-hit decode、search rebuild/query 和 Public AOT bundle 编解码，不再模拟第二套 cache manager。
+运行时缓存只通过 `IUnifiedCache`、`CachePolicyRegistry`、`CachePolicyId` 与 `ICacheInvalidationDispatcher` 进入。`TryGetRawAsync` 保持 caller-owned 防御性复制语义；只读公开 payload 使用 `TryGetRawReadonlyAsync`，调用方只能把不可变 buffer 同步写出到 response，不能把 backing array 暴露为可写状态。旧的 `Core.Cache.CacheManager` / `ILevel1CacheStore` / `ILevel2CacheStore` 双层抽象已移除，core benchmark 覆盖 POD/AEDS codec、raw cache-hit decode/readonly cache hit、search rebuild/query 和 Public AOT bundle 编解码，不再模拟第二套 cache manager。
 
 缓存失效优先使用 Redis registry 精确删除 prefix 命中的 key；registry 缺失时，`RemoveByPrefixAsync` 会记录 `registry_missing` 警告并执行 Redis keyspace scan fallback 回收现存 key，扫描失败则降级为可观测 warning，让后续写入自然修复 registry。AOT cache 文件失效仍走专用 Public AOT cache 服务，不在统一 Redis prefix 失效路径里全盘扫描。热点 miss singleflight 等待使用指数退避，避免固定间隔轮询放大 Redis 与 GC 压力。
 
@@ -214,7 +215,9 @@ FsusBlog 运行时 API 只维护 AEDS binary 链：
 - 非 binary `/api/**` 请求只有在客户端显式接受 binary envelope 时才进入捕获/转换路径；普通 JSON 成功响应和真人阅读 proof 写入请求不再被无差别缓冲。
 - 非上传 binary 请求使用 pooled frame buffer 读取，默认最大 frame 为 8 MiB；解码后的 payload 以 buffer slice 传递给端点，buffer 生命周期挂到 response completion，不再为 payload 额外 `ToArray()`。
 - 上传分片继续走 raw stream，端点用 request body backed `IFormFile` 交给文件服务，不再把整个分片读入 `MemoryStream` 后克隆成数组。
-- 公开热点 GET（article list、hot articles、category、tag）复用 HTTP output cache；article detail 不缓存，浏览计数不在读取链路产生，而由独立真人阅读 proof 事件更新。
+- PostgreSQL/ORM entity/command service 是 write model；Public AOT HTML、article detail `.aeds`、search index、list/category/tag/hot snapshot 是 artifact-backed read model；L1/L2/OutputCache 只是加速层，不能作为 CQRS read model 的替代。
+- 公开热点 GET（article list、hot articles、category、tag）复用 HTTP output cache 与 readonly raw cache；article detail 走 `runtime-cache/public/articles/{id}.aeds` 预编码 read artifact，artifact hit 路径不访问 PostgreSQL。artifact miss 只排队后台 singleflight rebuild 并返回可降级状态，DB fallback 只允许在后台 projector、修复任务或管理端发生。
+- 浏览计数不在读取链路产生，而由独立真人阅读 proof 事件更新。
 - compact payload 使用共享 UTF-8 blob + 固定数值记录，减少列表、分类、标签和 stats 的包体。
 - SSE notification payload 写出优先走已知契约的 typed writer；只有新增且尚未登记的 payload 才允许进入反射兜底。
 - 管理端 stats 对外收敛为 `AdminStatsQueryDto` / `AdminStats` 聚合 query model。`/api/binary/stats` 同帧携带 overview、recent comments 与 regions，dashboard 首屏从单次请求派生视图区块；recent/region 窄端点仅作为兼容入口。
