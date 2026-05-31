@@ -12,7 +12,7 @@ Vue 3 SPA 前端，集成 WebAssembly 解码引擎、Service Worker 离线搜索
 ## 目录结构
 
 ```text
-src/frontend/FsusBlog.Client/
+src/frontend/
 ├── src/
 │   ├── api/                # AEDS binary client + 各域 API 函数
 │   ├── adapters/           # Binary → ViewModel 数据映射（binaryToViewModel.ts）
@@ -126,4 +126,4 @@ npx playwright test tests/e2e/acceptance/
 npm run build:wasm
 ```
 
-协议规格见 [../../core/FsusBlog.Core/Algorithms/AEDS_V1_PROTOCOL.md](../../core/FsusBlog.Core/Algorithms/AEDS_V1_PROTOCOL.md)。
+协议规格见 [../core/Algorithms/AEDS_V1_PROTOCOL.md](../core/Algorithms/AEDS_V1_PROTOCOL.md)。

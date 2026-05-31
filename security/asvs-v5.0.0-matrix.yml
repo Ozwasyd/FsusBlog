@@ -9,7 +9,7 @@ requirements:
       - docs/architecture.md
       - src/backend/Program.cs
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/EndpointPolicyContractTests.cs
+      - tests/backend/Unit/EndpointPolicyContractTests.cs
       - tests/frontend/checks/static/check-security-consistency.mjs
     evidence:
       - .tmp/security/attack-matrix.json
@@ -23,8 +23,8 @@ requirements:
       - src/backend/Infrastructure/Helpers/JwtHelper.cs
       - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/JwtHelperTests.cs
-      - tests/backend/FsusBlog.Server.Tests/Unit/AuthCookieServiceSecurityTests.cs
+      - tests/backend/Unit/JwtHelperTests.cs
+      - tests/backend/Unit/AuthCookieServiceSecurityTests.cs
       - tests/frontend/checks/runtime/auth-session-smoke.mjs
     evidence:
       - .tmp/security/attack-matrix.json
@@ -37,7 +37,7 @@ requirements:
       - src/backend/Infrastructure/Auth
       - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/PasskeyServiceTests.cs
+      - tests/backend/Unit/PasskeyServiceTests.cs
       - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
     evidence:
       - .tmp/security/attack-matrix.json
@@ -50,7 +50,7 @@ requirements:
       - src/backend/Modules/Endpoints
       - src/backend/Infrastructure/Filters/BannedUserFilter.cs
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/EndpointPolicyContractTests.cs
+      - tests/backend/Unit/EndpointPolicyContractTests.cs
       - tests/frontend/checks/security/check-permission-matrix.mjs
     evidence:
       - .tmp/security/permission-matrix.json
@@ -64,8 +64,8 @@ requirements:
       - src/shared/Contracts/Validation/PodSizeCatalog.cs
       - src/core/Algorithms/AedsDecoderValidator.cs
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/PodValidationTests.cs
-      - tests/backend/FsusBlog.Server.Tests/Unit/AedsEncoderTests.cs
+      - tests/backend/Unit/PodValidationTests.cs
+      - tests/backend/Unit/AedsEncoderTests.cs
       - tests/frontend/checks/runtime/binary-contract-smoke.mjs
     evidence:
       - .tmp/security/attack-matrix.json
@@ -79,8 +79,8 @@ requirements:
       - src/backend/Infrastructure/Audit
       - src/frontend/src/services/telemetryService.ts
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/ObservabilityTests.cs
-      - tests/backend/FsusBlog.Server.Tests/Unit/AuditAndNormalizerTests.cs
+      - tests/backend/Unit/ObservabilityTests.cs
+      - tests/backend/Unit/AuditAndNormalizerTests.cs
       - tests/frontend/checks/static/check-telemetry-privacy.mjs
       - tests/frontend/checks/static/check-subscription-privacy.mjs
     evidence:
@@ -95,8 +95,8 @@ requirements:
       - tools/security/check-production-network-baseline.sh
       - tools/security/check-production-exposure-live.sh
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/ProductionStartupValidatorTests.cs
-      - tests/backend/FsusBlog.Server.Tests/Unit/ProductionHealthTests.cs
+      - tests/backend/Unit/ProductionStartupValidatorTests.cs
+      - tests/backend/Unit/ProductionHealthTests.cs
       - tools/security/test-production-exposure-tools.sh
     evidence:
       - .tmp/security/production-exposure-status.json

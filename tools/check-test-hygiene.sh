@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEST_DIR="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests"
+TEST_DIR="$ROOT_DIR/tests/backend"
 CLIENT_DIR="$ROOT_DIR/src/frontend"
 CLIENT_TEST_DIR="$ROOT_DIR/tests/frontend"
 CLIENT_SCRIPT_DIR="$CLIENT_DIR/scripts"
@@ -13,11 +13,12 @@ ROOT_FILES="$(
   find "$TEST_DIR" -maxdepth 1 -type f \
     ! -name 'FsusBlog.Server.Tests.csproj' \
     ! -name 'GlobalUsings.cs' \
-    ! -name 'TESTING.md' | sort
+    ! -name 'TESTING.md' \
+    ! -name 'packages.lock.json' | sort
 )"
 
 if [[ -n "$ROOT_FILES" ]]; then
-  echo "[test-hygiene] unexpected files in FsusBlog.Server.Tests root:"
+  echo "[test-hygiene] unexpected files in tests/backend root:"
   echo "$ROOT_FILES"
   exit 1
 fi
@@ -37,7 +38,7 @@ ROOT_DIRS="$(
 )"
 
 if [[ -n "$ROOT_DIRS" ]]; then
-  echo "[test-hygiene] unexpected directories in FsusBlog.Server.Tests root:"
+  echo "[test-hygiene] unexpected directories in tests/backend root:"
   echo "$ROOT_DIRS"
   exit 1
 fi

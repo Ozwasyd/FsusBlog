@@ -7,7 +7,7 @@ import {
 
 // ---------------------------------------------------------------------------
 // Payload builder helpers — mirror the ArticleDetailPod / ArticleListItemPod
-// memory layouts defined in src/shared/FsusBlog.Shared/Contracts/Models/ArticlePods.cs
+// memory layouts defined in src/shared/Contracts/Models/ArticlePods.cs
 // ---------------------------------------------------------------------------
 
 const enc = new TextEncoder()

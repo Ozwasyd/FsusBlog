@@ -24,7 +24,7 @@ scenarios:
     tests:
       - tests/frontend/checks/runtime/auth-session-smoke.mjs
       - tests/frontend/checks/security/check-auth-mfa-smoke.mjs
-      - tests/backend/FsusBlog.Server.Tests/Unit/AuthAndBoundaryTests.cs
+      - tests/backend/Unit/AuthAndBoundaryTests.cs
     evidence:
       - .tmp/security/attack-matrix.json
 
@@ -38,8 +38,8 @@ scenarios:
     tests:
       - tests/frontend/checks/security/check-auth-mfa-smoke.mjs
       - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
-      - tests/backend/FsusBlog.Server.Tests/Unit/TotpServiceTests.cs
-      - tests/backend/FsusBlog.Server.Tests/Unit/PasskeyServiceTests.cs
+      - tests/backend/Unit/TotpServiceTests.cs
+      - tests/backend/Unit/PasskeyServiceTests.cs
     evidence:
       - .tmp/security/attack-matrix.json
 
@@ -52,7 +52,7 @@ scenarios:
       - src/backend/Infrastructure/Filters/BannedUserFilter.cs
     tests:
       - tests/frontend/checks/security/check-permission-matrix.mjs
-      - tests/backend/FsusBlog.Server.Tests/Unit/EndpointPolicyContractTests.cs
+      - tests/backend/Unit/EndpointPolicyContractTests.cs
     evidence:
       - .tmp/security/permission-matrix.json
 
@@ -64,8 +64,8 @@ scenarios:
       - src/backend/Infrastructure/Auth/AuthCookieService.cs
       - src/backend/Infrastructure/Helpers/JwtHelper.cs
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/JwtHelperTests.cs
-      - tests/backend/FsusBlog.Server.Tests/Unit/AuthCookieServiceSecurityTests.cs
+      - tests/backend/Unit/JwtHelperTests.cs
+      - tests/backend/Unit/AuthCookieServiceSecurityTests.cs
       - tests/frontend/checks/runtime/auth-session-smoke.mjs
     evidence:
       - .tmp/security/attack-matrix.json
@@ -79,8 +79,8 @@ scenarios:
       - src/backend/Infrastructure/Middlewares/ApiBinaryResponseMiddleware.cs
       - src/shared/Contracts/Validation/PodSizeCatalog.cs
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/AedsEncoderTests.cs
-      - tests/backend/FsusBlog.Server.Tests/Unit/PodValidationTests.cs
+      - tests/backend/Unit/AedsEncoderTests.cs
+      - tests/backend/Unit/PodValidationTests.cs
       - tests/frontend/checks/security/check-security-sse-binary.mjs
     evidence:
       - .tmp/security/attack-matrix.json
@@ -109,6 +109,6 @@ scenarios:
     tests:
       - tests/frontend/checks/static/check-telemetry-privacy.mjs
       - tests/frontend/checks/static/check-subscription-privacy.mjs
-      - tests/backend/FsusBlog.Server.Tests/Unit/ObservabilityTests.cs
+      - tests/backend/Unit/ObservabilityTests.cs
     evidence:
       - .tmp/security/attack-matrix.json

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj"
+SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj"
 BUILD_ENV_RUNNER="$ROOT_DIR/tools/build-with-data-env.sh"
 BASE_REF="${FSUSBLOG_BASE_REF:-origin/main}"
 CACHE_DIR="$ROOT_DIR/.tmp/test-cache"
@@ -47,7 +47,7 @@ fi
 requires_full=0
 for file in "${changed_files[@]}"; do
   case "$file" in
-    src/backend/FsusBlog.Server/*|src/shared/FsusBlog.Shared/*|src/core/FsusBlog.Core/*|tests/backend/FsusBlog.Server.Tests/*|*.sln|*.slnx|Directory.Build.props|Directory.Packages.props|global.json)
+    src/backend/*|src/shared/*|src/core/*|tests/backend/*|*.sln|*.slnx|Directory.Build.props|Directory.Packages.props|global.json)
       requires_full=1
       ;;
   esac

@@ -95,7 +95,7 @@ async function ensureServerReachable() {
     const tip = [
       `cannot reach backend at ${baseUrl}`,
       'ensure FsusBlog.Server is running and Redis connection string is configured',
-      'example: ConnectionStrings__Redis=127.0.0.1:6379 dotnet run --project src/backend/FsusBlog.Server/FsusBlog.Server.csproj -c Release'
+      'example: ConnectionStrings__Redis=127.0.0.1:6379 dotnet run --project src/backend/FsusBlog.Server.csproj -c Release'
     ].join(' | ');
     throw new Error(`${tip} | reason: ${reason}`);
   }

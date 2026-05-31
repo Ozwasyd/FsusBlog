@@ -83,8 +83,8 @@ FsusBlog/
 ├── src/backend/          # ASP.NET Core 10 API、AOT、SSE、缓存、安全链路
 ├── src/shared/          # 前后端共享契约与二进制协议模型
 ├── src/core/            # 映射、POD 编解码、共享投影逻辑
-├── tests/backend/FsusBlog.Server.Tests/   # xUnit 单元与集成测试
-├── benchmarks/core/FsusBlog.Core.Benchmarks/ # BenchmarkDotNet 性能基准
+├── tests/backend/   # xUnit 单元与集成测试
+├── benchmarks/core/ # BenchmarkDotNet 性能基准
 ├── docs/                     # 深度文档
 │   ├── architecture.md       # 系统架构与缓存分层
 │   ├── api.md                # API 端点快速参考
@@ -187,11 +187,11 @@ dotnet publish src/backend/FsusBlog.Server.csproj -c Release /p:PublishClientAss
 单独运行快速单元测试：
 
 ```bash
-dotnet test tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj \
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
   --filter "Category!=Integration" -v minimal
 ```
 
-详细规则见 [tests/backend/FsusBlog.Server.Tests/TESTING.md](tests/backend/FsusBlog.Server.Tests/TESTING.md)。
+详细规则见 [tests/backend/TESTING.md](tests/backend/TESTING.md)。
 
 `production` 是合并与发布前的权威质量门：要求 0 编译警告、0 类型错误、0 Vite build warning、0 测试失败、0 运行时 error/warning，并覆盖匿名/登录/admin、Binary API、作者工作台/read-proof/health JSON、SSE、AOT hydration、PoW/MFA/Passkey/session、视觉、弹性与轻量负载。GitHub Actions `Quality Gate` 会在 PR、`main` / `master` push 和手动触发时运行同一条 `./tools/test.sh production`；仓库 secret 需要配置 `GITHUB_PACKAGES_TOKEN`。
 
@@ -211,5 +211,5 @@ dotnet test tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj \
 | [docs/development.md](docs/development.md) | 本地开发环境搭建、常用脚本说明 |
 | [docs/testing.md](docs/testing.md) | 测试分层策略（10 级）与覆盖场景说明 |
 | [docs/wasm.md](docs/wasm.md) | WebAssembly 工具链、构建、C++/TS 接口边界 |
-| [tests/backend/FsusBlog.Server.Tests/TESTING.md](tests/backend/FsusBlog.Server.Tests/TESTING.md) | 测试分层规则与洁净性约定 |
+| [tests/backend/TESTING.md](tests/backend/TESTING.md) | 测试分层规则与洁净性约定 |
 | [src/core/Algorithms/AEDS_V1_PROTOCOL.md](src/core/Algorithms/AEDS_V1_PROTOCOL.md) | AEDS 二进制帧协议规格（当前运行时只接受 v2） |

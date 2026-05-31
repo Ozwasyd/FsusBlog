@@ -8,7 +8,7 @@ scenarios:
       - src/backend/Services/Security/PasskeyService.cs
       - src/backend/Infrastructure/Operations/ProductionStartupValidator.cs
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/PasskeyServiceTests.cs
+      - tests/backend/Unit/PasskeyServiceTests.cs
       - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
     evidence:
       - .tmp/security/attack-matrix.json
@@ -21,7 +21,7 @@ scenarios:
       - src/backend/Services/Security/PasskeyService.cs
       - docs/security.md
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/PasskeyServiceTests.cs
+      - tests/backend/Unit/PasskeyServiceTests.cs
       - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
     evidence:
       - .tmp/security/attack-matrix.json
@@ -33,7 +33,7 @@ scenarios:
     code:
       - src/backend/Services/Security/PasskeyService.cs
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/PasskeyServiceTests.cs
+      - tests/backend/Unit/PasskeyServiceTests.cs
     evidence:
       - .tmp/security/attack-matrix.json
 
@@ -44,7 +44,7 @@ scenarios:
     code:
       - src/backend/Services/Security/PasskeyService.cs
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/PasskeyServiceTests.cs
+      - tests/backend/Unit/PasskeyServiceTests.cs
       - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
     evidence:
       - .tmp/security/attack-matrix.json
@@ -56,7 +56,7 @@ scenarios:
     code:
       - src/backend/Services/Security/PasskeyService.cs
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/PasskeyServiceTests.cs
+      - tests/backend/Unit/PasskeyServiceTests.cs
     evidence:
       - .tmp/security/attack-matrix.json
 
@@ -67,7 +67,7 @@ scenarios:
     code:
       - src/backend/Services/Security/PasskeyService.cs
     tests:
-      - tests/backend/FsusBlog.Server.Tests/Unit/PasskeyServiceTests.cs
+      - tests/backend/Unit/PasskeyServiceTests.cs
     evidence:
       - .tmp/security/attack-matrix.json
 

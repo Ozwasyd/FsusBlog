@@ -30,7 +30,7 @@ FsusBlog 采用**多分层测试**架构，从纯单元测试到全量发布门�
 **触发时机**：本地提交前、PR 检查
 
 **覆盖内容**：
-- `tests/backend/FsusBlog.Server.Tests/Unit/` — 服务逻辑、工具函数、DTO 映射
+- `tests/backend/Unit/` — 服务逻辑、工具函数、DTO 映射
 - `PodContractValidation.AreAllPodModelsReferenceFree()` — POD 引用安全断言
 - AEDS v2 帧头编解码逻辑（`AedsEncoder`、`AedsDecoderValidator`）：16-byte header、CRC16、payload length、unknown version 拒绝、v1 frame 拒绝
 - compact POD round-trip：article list/detail/hot/category/tag/comment/stats 与损坏 payload 拒绝
@@ -39,7 +39,7 @@ FsusBlog 采用**多分层测试**架构，从纯单元测试到全量发布门�
 
 **单独运行**：
 ```bash
-dotnet test tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj \
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
   --filter "Category!=Integration" -v minimal
 ```
 
@@ -56,7 +56,7 @@ docker compose -f docker-compose.dev.yml up -d
 ```
 
 **覆盖内容**：
-- `tests/backend/FsusBlog.Server.Tests/Integration/` — 真实数据库 + Redis
+- `tests/backend/Integration/` — 真实数据库 + Redis
 - 端点级集成：文章 CRUD、评论流、分类/标签查询
 - 缓存回填与失效（L1 + L2）
 - 认证流程：注册 → 登录 → refresh → logout
@@ -65,7 +65,7 @@ docker compose -f docker-compose.dev.yml up -d
 
 **单独运行**：
 ```bash
-dotnet test tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj \
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
   --filter "Category=Integration" -v minimal
 ```
 
@@ -228,7 +228,7 @@ GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push
 
 ## 测试洁净性约定
 
-详见 `tests/backend/FsusBlog.Server.Tests/TESTING.md`。
+详见 `tests/backend/TESTING.md`。
 
 核心约定：
 
@@ -267,10 +267,10 @@ GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push
 本轮单作者博客能力的窄门禁：
 
 ```bash
-dotnet test tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~ArticlePublicationTests|FullyQualifiedName~PublicAotDocumentComposerTests|FullyQualifiedName~SchemaMigrationRegistryTests|FullyQualifiedName~AuthoringWorkflowServiceTests"
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~ArticlePublicationTests|FullyQualifiedName~PublicAotDocumentComposerTests|FullyQualifiedName~SchemaMigrationRegistryTests|FullyQualifiedName~AuthoringWorkflowServiceTests"
 cd src/frontend && npx vitest run --config vitest.config.ts ../../tests/frontend/unit/api/authoring.test.ts
-dotnet test tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~AuthoringWorkflowServiceTests|FullyQualifiedName~CommentServiceValidationTests"
-dotnet test tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~ObservabilityTests|FullyQualifiedName~ServiceCollectionExtensionsTests|FullyQualifiedName~ProductionHealthTests|FullyQualifiedName~ScheduledPublishWorkerTests|FullyQualifiedName~UnifiedCacheTests"
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~AuthoringWorkflowServiceTests|FullyQualifiedName~CommentServiceValidationTests"
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~ObservabilityTests|FullyQualifiedName~ServiceCollectionExtensionsTests|FullyQualifiedName~ProductionHealthTests|FullyQualifiedName~ScheduledPublishWorkerTests|FullyQualifiedName~UnifiedCacheTests"
 npm --prefix src/frontend run check:security:attack-matrix
 cd src/frontend && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test acceptance/admin-console.spec.ts -g "dashboard, article write"
 npm --prefix src/frontend run check:acceptance:console
@@ -316,5 +316,5 @@ tools/operations/cleanup-retention.sh
 
 - [development.md](development.md) — 本地环境搭建
 - [operations.md](operations.md) — 发布门控与滚动更新
-- `tests/backend/FsusBlog.Server.Tests/TESTING.md` — 洁净性约定完整版
+- `tests/backend/TESTING.md` — 洁净性约定完整版
 - `tools/test.sh` — 测试入口脚本

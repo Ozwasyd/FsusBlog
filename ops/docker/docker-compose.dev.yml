@@ -21,7 +21,7 @@ services:
     volumes:
       - ../../:/workspace
       - ~/.aspnet/https:/https:ro
-    working_dir: /workspace/src/backend/FsusBlog.Server
+    working_dir: /workspace/src/backend
     command: ["dotnet", "watch", "--non-interactive", "run", "--project", "FsusBlog.Server.csproj", "--urls", "http://0.0.0.0:5000"]
     extra_hosts:
       - host.docker.internal:host-gateway

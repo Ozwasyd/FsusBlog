@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\backend\FsusBlog.Server.csproj" />
+    <ProjectReference Include="..\..\src\backend\FsusBlog.Server.csproj" />
   </ItemGroup>
 
 </Project>

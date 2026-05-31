@@ -12,10 +12,10 @@ run_self_test() {
     "$temp_dir/.github/workflows" \
     "$temp_dir/docs" \
     "$temp_dir/src/frontend" \
-    "$temp_dir/tests/backend/FsusBlog.Server.Tests" \
+    "$temp_dir/tests/backend" \
     "$temp_dir/tools/coverage"
 
-  touch "$temp_dir/tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj"
+  touch "$temp_dir/tests/backend/FsusBlog.Server.Tests.csproj"
   touch "$temp_dir/src/frontend/package-lock.json"
 
   cat > "$temp_dir/tools/test.sh" <<'EOF'
@@ -28,7 +28,7 @@ run bash "$ROOT_DIR/tools/coverage/collect-frontend-coverage.sh"
 run bash "$ROOT_DIR/tools/coverage/merge-coverage.sh"
 run bash "$ROOT_DIR/tools/coverage/check-scope-snapshot.sh"
 run bash "$ROOT_DIR/tools/coverage/check-threshold.sh"
-SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj"
+SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj"
 Usage: ./tools/test.sh <fast|production|coverage-gate>
 EOF
 
@@ -87,7 +87,7 @@ EOF
 
   cat > "$temp_dir/README.md" <<'EOF'
 Quality Gate runs on pull requests, pushes to main and master, and manual dispatch.
-See tests/backend/FsusBlog.Server.Tests/TESTING.md.
+See tests/backend/TESTING.md.
 EOF
   cat > "$temp_dir/docs/testing.md" <<'EOF'
 Quality Gate runs on pull_request, main and master push, and workflow_dispatch.
@@ -95,7 +95,7 @@ EOF
   cat > "$temp_dir/docs/operations.md" <<'EOF'
 Quality Gate runs on pull requests, pushes to main and master, and manual dispatch.
 EOF
-  cat > "$temp_dir/tests/backend/FsusBlog.Server.Tests/TESTING.md" <<'EOF'
+  cat > "$temp_dir/tests/backend/TESTING.md" <<'EOF'
 Quality Gate runs on pull_request, main and master push, and workflow_dispatch.
 EOF
 
@@ -304,7 +304,7 @@ function scanDocs() {
     'README.md',
     'docs/testing.md',
     'docs/operations.md',
-    'tests/backend/FsusBlog.Server.Tests/TESTING.md'
+    'tests/backend/TESTING.md'
   ];
 
   for (const doc of docs) {

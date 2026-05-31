@@ -164,7 +164,7 @@
   Dependencies: 需要覆盖后端解码、前端解码和协议 fixture。
   Done when: malformed frame 不会导致崩溃、越界、错误响应语义漂移或资源放大。
   Gates: fuzz corpus；property-based test；崩溃回归 fixture。
-  Comment: Done in code. Added deterministic malformed-frame fuzz coverage in `AedsEncoderTests` for random bytes, unknown version, invalid header length, oversized declared length, unknown frame type, CRC mismatch and truncation. Verified with `dotnet test tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj -c Debug --no-restore --filter "FullyQualifiedName~AedsEncoderTests" -v minimal`.
+  Comment: Done in code. Added deterministic malformed-frame fuzz coverage in `AedsEncoderTests` for random bytes, unknown version, invalid header length, oversized declared length, unknown frame type, CRC mismatch and truncation. Verified with `dotnet test tests/backend/FsusBlog.Server.Tests.csproj -c Debug --no-restore --filter "FullyQualifiedName~AedsEncoderTests" -v minimal`.
 
 - [ ] `APPSEC-007` `wasm-fuzz-regression`
   Scope: 对 C++23 Wasm 解码/Markdown/LaTeX/Mermaid/render 边界做 fuzz 语料回归。
@@ -280,7 +280,7 @@
   Dependencies: 需要 migration fixture 和双版本兼容测试。
   Done when: migration 失败恢复和幂等性有自动化证明。
   Gates: migration integration tests；interrupted-run fixture；old/new app compatibility smoke。
-  Comment: Done by existing code and verified now. `SchemaMigrationIntegrationTests` cover forward execution, repeat execution/idempotency, failure interruption behavior, concurrent startup migration and history consistency. Verified with `dotnet test tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj -c Debug --no-restore --filter "FullyQualifiedName~SchemaMigrationRegistryTests|FullyQualifiedName~SchemaMigrationIntegrationTests" -v minimal`.
+  Comment: Done by existing code and verified now. `SchemaMigrationIntegrationTests` cover forward execution, repeat execution/idempotency, failure interruption behavior, concurrent startup migration and history consistency. Verified with `dotnet test tests/backend/FsusBlog.Server.Tests.csproj -c Debug --no-restore --filter "FullyQualifiedName~SchemaMigrationRegistryTests|FullyQualifiedName~SchemaMigrationIntegrationTests" -v minimal`.
 
 - [ ] `RUNTIME-005` `background-worker-reliability`
   Scope: scheduled publish、search rebuild、AOT backfill、retention cleanup 必须有互斥、幂等、失败恢复和超时测试。
@@ -375,7 +375,7 @@
   Dependencies: 需要可控缓存清理和并发压测入口。
   Done when: cache stampede 不会造成 DB/Redis 放大或响应失败。
   Gates: stampede pressure test；DB/Redis metrics；p95/p99 summary。
-  Comment: Done in code. `CacheMissCoordinator` already uses Redis lease plus local single-flight; added `CoordinateAsync_ManyConcurrentMisses_CoalescesHotKeyRebuild` to prove 64 concurrent misses for the same hot key rebuild once and all callers receive the rebuilt value. Verified with `dotnet test tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj -c Debug --no-restore --filter "FullyQualifiedName~CacheMissCoordinatorTests" -v minimal`.
+  Comment: Done in code. `CacheMissCoordinator` already uses Redis lease plus local single-flight; added `CoordinateAsync_ManyConcurrentMisses_CoalescesHotKeyRebuild` to prove 64 concurrent misses for the same hot key rebuild once and all callers receive the rebuilt value. Verified with `dotnet test tests/backend/FsusBlog.Server.Tests.csproj -c Debug --no-restore --filter "FullyQualifiedName~CacheMissCoordinatorTests" -v minimal`.
 
 - [ ] `CACHE-003` `l1-l2-invalidation-order`
   Scope: 验证 L1 memory cache 与 Redis L2 在关键写入后的失效顺序。
@@ -456,7 +456,7 @@
   Dependencies: 需要扫描 README、docs、TESTING.md、workflow 和脚本中的测试路径。
   Done when: 文档和脚本不再出现冲突路径。
   Gates: docs path consistency script；README/docs diff；CI check。
-  Comment: Done in code. README and backend testing docs now use `tests/backend/FsusBlog.Server.Tests`; `tools/check-gate-integrity.sh` rejects stale `tests/server/` and `src/frontend/FsusBlog.Client/` references.
+  Comment: Done in code. README and backend testing docs now use `tests/backend`; `tools/check-gate-integrity.sh` rejects stale `tests/server/` and `src/frontend/FsusBlog.Client/` references.
 
 - [x] `DOCS-002` `branch-doc-workflow-consistency`
   Scope: README / docs 说 GitHub Actions 在 `main` push 运行，但仓库默认分支是 `master`；需要统一实际发布分支、workflow、branch protection 和文档。

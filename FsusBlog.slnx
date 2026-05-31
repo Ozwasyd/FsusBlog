@@ -13,8 +13,8 @@
     <Project Path="src/shared/FsusBlog.Shared.csproj" />
   </Folder>
   <Folder Name="/Quality/">
-    <Project Path="tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj" />
-    <Project Path="benchmarks/core/FsusBlog.Core.Benchmarks/FsusBlog.Core.Benchmarks.csproj" />
+    <Project Path="tests/backend/FsusBlog.Server.Tests.csproj" />
+    <Project Path="benchmarks/core/FsusBlog.Core.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/Ops/">
     <Project Path="ops/docker/docker-compose.dcproj">
