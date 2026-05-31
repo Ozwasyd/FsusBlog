@@ -100,15 +100,15 @@ export function useAdminArticleTrash() {
       submittingIds.value.add(row.id)
       try {
         await mutation.confirmThenRun({
-          message: `确定要彻底抹除文章《${row.title}》吗？此操作不可逆。`,
-          title: '物理销毁警示',
-          confirmButtonText: '确定抹除'
+          message: `确定要永久删除文章《${row.title}》吗？此操作不可恢复。`,
+          title: '永久删除文章',
+          confirmButtonText: '确认永久删除'
         }, async (signal) => {
           const config: ApiRequestConfig = { signal }
           await permanentDeleteArticle(row.id, config)
         }, {
-          fallbackMessage: '文章彻底抹除失败',
-          successMessage: '数据已彻底抹除',
+          fallbackMessage: '文章永久删除失败',
+          successMessage: '文章已永久删除',
           successType: 'warning',
           onSuccess: loadData
         })

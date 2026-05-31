@@ -9,7 +9,9 @@ SECURITY_DIR="$TMP_ROOT/security"
 OPERATIONS_DIR="$TMP_ROOT/operations"
 COVERAGE_DIR="$TMP_ROOT/coverage"
 OUT_DIR="$TMP_ROOT/release-evidence"
-mkdir -p "$SECURITY_DIR/zap/run-1" "$OPERATIONS_DIR" "$COVERAGE_DIR"
+PERF_DIR="$TMP_ROOT/perf"
+GATE_LOG_DIR="$TMP_ROOT/gate-logs"
+mkdir -p "$SECURITY_DIR/zap/run-1" "$SECURITY_DIR/supply-chain" "$SECURITY_DIR/sbom" "$OPERATIONS_DIR" "$COVERAGE_DIR/merged" "$COVERAGE_DIR/backend-merged" "$PERF_DIR" "$GATE_LOG_DIR"
 
 printf '{"status":"blocked","requiredHosts":["fsus.blog"],"delegationDomains":["fsus.blog"],"blockers":[{"source":"fixture","message":"synthetic"}]}\n' > "$SECURITY_DIR/production-exposure-status.json"
 jq -n \
@@ -156,17 +158,25 @@ printf '{"generatedAt":"2026-05-18T00:00:00Z","delegationDomains":"fsus.blog"}\n
 printf '{"status":"ok","checks":["synthetic-attack"]}\n' > "$SECURITY_DIR/attack-matrix.json"
 printf '{"status":"ok","checks":["synthetic-permission"]}\n' > "$SECURITY_DIR/permission-matrix.json"
 printf '{"site":"frontend","status":"ok"}\n' > "$SECURITY_DIR/zap/run-1/zap.json"
+printf '{"status":"ok"}\n' > "$SECURITY_DIR/supply-chain/summary.json"
+printf '{"status":"ok"}\n' > "$SECURITY_DIR/sbom/summary.json"
 printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/backup-restore-drill.json"
 printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/post-deploy-smoke.json"
 printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/slo-alert-fixture.json"
 printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/retention-cleanup.json"
+printf '{"summary":{"linecoverage":100,"branchcoverage":100,"methodcoverage":100,"assemblies":1,"classes":1,"files":1}}\n' > "$COVERAGE_DIR/merged/Summary.json"
+printf '{"summary":{"linecoverage":100,"branchcoverage":100,"methodcoverage":100,"assemblies":1,"classes":1,"files":1}}\n' > "$COVERAGE_DIR/backend-merged/Summary.json"
 
 FSUSBLOG_RELEASE_STAMP=fixture \
 FSUSBLOG_RELEASE_EVIDENCE_DIR="$OUT_DIR" \
 FSUSBLOG_SECURITY_EVIDENCE_SOURCE_DIR="$SECURITY_DIR" \
 FSUSBLOG_OPERATIONS_EVIDENCE_SOURCE_DIR="$OPERATIONS_DIR" \
 FSUSBLOG_COVERAGE_EVIDENCE_DIR="$COVERAGE_DIR" \
+FSUSBLOG_PERF_EVIDENCE_DIR="$PERF_DIR" \
+FSUSBLOG_GATE_LOG_SOURCE_DIR="$GATE_LOG_DIR" \
   "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
+
+"$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" "$OUT_DIR/manifest.json" >/dev/null
 
 jq -e '
   .releaseStamp == "fixture"
@@ -187,7 +197,7 @@ jq -e '
   and .artifactDigests.dnsReadiness.algorithm == "sha256"
   and .artifactDigests.dnsDelegation.algorithm == "sha256"
   and .evidenceSummary.image.status == "missing"
-  and .evidenceSummary.coverage.status == "missing"
+  and .evidenceSummary.coverage.status == "ok"
   and .evidenceSummary.externalExposure.status == "blocked"
   and .evidenceSummary.externalExposure.valid == false
   and .evidenceSummary.externalExposure.firewallPolicy == "present"
@@ -216,8 +226,13 @@ jq -e '
 	  and .evidenceSummary.externalExposure.request.closeoutCommands.releaseEvidence == "tools/operations/collect-release-evidence.sh"
 	  and .evidenceSummary.operations.backupRestoreDrill == "ok"
   and .evidenceSummary.operations.postDeploySmoke == "ok"
+  and .evidenceSummary.operations.sloAlerts == "ok"
+  and .evidenceSummary.operations.sloCriticalFiring == 0
   and .evidenceSummary.security.attackMatrix == "ok"
   and .evidenceSummary.security.permissionMatrix == "ok"
+  and .evidenceSummary.security.supplyChain == "ok"
+  and .evidenceSummary.security.sbom == "ok"
+  and .evidenceSummary.security.dastZap == "ok"
   and (.securityEvidenceIndex | map(.kind) | index("dast") != null)
   and (.securityEvidenceIndex | map(.kind) | index("attack-matrix") != null)
   and (.securityEvidenceIndex | map(.kind) | index("permission-matrix") != null)

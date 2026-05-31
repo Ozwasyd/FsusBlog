@@ -53,6 +53,13 @@
   --fsusblog-highlight-mark-bg: var(--fsus-highlight, var(--el-fill-color, Mark));
   --fsusblog-highlight-mark-text: var(--fsus-ink, var(--el-text-color-primary, MarkText));
   --fsusblog-highlight-mark-ring: color-mix(in srgb, var(--fsus-border, var(--el-border-color, ButtonBorder)) 65%, transparent);
+  --fsusblog-container-reading: 48rem;
+  --fsusblog-container-article: 56rem;
+  --fsusblog-container-public: 64rem;
+  --fsusblog-container-account: 64rem;
+  --fsusblog-container-settings: 82.5rem;
+  --fsusblog-container-workbench: 92.5rem;
+  --fsusblog-container-wide: 100rem;
 
 }
 
@@ -256,6 +263,35 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
 
 #fsus-aot-shell .active-link {
   font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app :where(
+    .animate-in,
+    .animate-fade-in,
+    [class*="fade-in"],
+    [class*="slide-in"],
+    [class*="hover:scale"],
+    [class*="group-hover:scale"],
+    [class*="hover:translate"],
+    [class*="group-hover:translate"],
+    [class*="animate-"]
+  ),
+  #fsus-aot-shell :where(
+    .animate-in,
+    .animate-fade-in,
+    [class*="fade-in"],
+    [class*="slide-in"],
+    [class*="hover:scale"],
+    [class*="group-hover:scale"],
+    [class*="hover:translate"],
+    [class*="group-hover:translate"],
+    [class*="animate-"]
+  ) {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
 }
 
 @media (max-width: 767px) {

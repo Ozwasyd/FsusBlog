@@ -8,7 +8,7 @@ namespace FsusBlog.Server.Tests;
 public sealed class RequestAuditContextMiddlewareTests
 {
     [Fact]
-    public void RequestAuditContextSnapshot_FromHttpContext_ExtractsTraceUserAndProxyAwareIp()
+    public void RequestAuditContextSnapshot_FromHttpContext_ExtractsTraceAndUserWithoutIpOrUserAgent()
     {
         var context = new DefaultHttpContext();
         context.TraceIdentifier = "trace-42";
@@ -30,8 +30,8 @@ public sealed class RequestAuditContextMiddlewareTests
         Assert.Equal("/api/Article/1", properties["RequestPath"]);
         Assert.Equal("GET", properties["RequestMethod"]);
         Assert.Equal("12", properties["UserId"]);
-        Assert.Equal("binaryadmin", properties["Username"]);
-        Assert.Equal("203.0.113.10", properties["ClientIp"]);
-        Assert.Equal("FsusBrowser/1.0", properties["UserAgent"]);
+        Assert.DoesNotContain("Username", properties.Keys);
+        Assert.DoesNotContain("ClientIp", properties.Keys);
+        Assert.DoesNotContain("UserAgent", properties.Keys);
     }
 }

@@ -60,6 +60,22 @@
   margin-top: 3rem;
 }
 
+.account-motion-enter {
+  animation: account-motion-enter var(--fsus-motion-panel) var(--fsus-motion-standard);
+}
+
+@keyframes account-motion-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .account-section-title {
   margin-bottom: 1rem;
   color: var(--fsusblog-text-primary);
@@ -76,6 +92,51 @@
   line-height: 1.75;
 }
 
+.account-section-eyebrow {
+  margin-bottom: 1rem;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.account-section-heading {
+  color: var(--fsusblog-text-primary);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.account-section-description {
+  margin-top: 1rem;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.75rem;
+  line-height: 1.75;
+}
+
+.workbench-panel {
+  border-top: 1px solid var(--fsusblog-panel-border);
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  background: var(--fsusblog-page-bg);
+}
+
+.workbench-panel__header {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  justify-content: space-between;
+  padding: 2rem 1rem;
+}
+
+@media (min-width: 640px) {
+  .workbench-panel__header {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
 .admin-page-shell {
   width: 100%;
   min-width: 0;
@@ -89,11 +150,30 @@
 }
 
 .admin-page-shell--form {
-  max-width: 1480px;
+  max-width: var(--fsusblog-container-workbench);
 }
 
 .admin-page-shell--settings {
-  max-width: 1320px;
+  max-width: var(--fsusblog-container-settings);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-shell .account-motion-enter,
+  .account-shell [class*="hover:scale"],
+  .account-shell [class*="group-hover:scale"],
+  .account-shell [class*="hover:translate"],
+  .account-shell [class*="group-hover:translate"] {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .account-layout-root > header {
+    background: var(--fsusblog-page-bg) !important;
+    backdrop-filter: none !important;
+  }
 }
 
 @media (max-width: 1024px) {

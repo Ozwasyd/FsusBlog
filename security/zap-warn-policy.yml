@@ -1,0 +1,25 @@
+version: zap-warn-policy-v1
+rules:
+  - id: "10038"
+    action: WARN
+    owner: ServerContractAgent
+    status: accepted-debug-target
+    riskAcceptance: CSP is enforced by repo-native header checks against debug and release targets; ZAP debug-target CSP noise is reviewed in the retained report.
+    fixBy: "2026-08-30"
+    failWhen: repo-native CSP checks fail or production target emits wildcard script/style directives
+
+  - id: "10055"
+    action: WARN
+    owner: ServerContractAgent
+    status: accepted-debug-target
+    riskAcceptance: Development CSP wildcard findings are tolerated only for local runtime targets; release security headers are enforced by check-security-headers-cors.
+    fixBy: "2026-08-30"
+    failWhen: release target has CSP wildcard findings or check-security-headers-cors fails
+
+  - id: "10096"
+    action: WARN
+    owner: ServerContractAgent
+    status: accepted-artifact-noise
+    riskAcceptance: ZAP can flag harmless Unix-like constants in generated assets; reports remain release evidence and must be reviewed.
+    fixBy: "2026-08-30"
+    failWhen: the alert references secrets, tokens, private paths or source maps

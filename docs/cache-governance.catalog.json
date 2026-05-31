@@ -1,0 +1,475 @@
+{
+  "version": 1,
+  "generatedFrom": [
+    "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs",
+    "src/backend/Infrastructure/Cache/CacheTag.cs",
+    "src/backend/Infrastructure/Cache/HttpCachePolicyCatalog.cs"
+  ],
+  "tags": [
+    {
+      "name": "None",
+      "value": 0,
+      "outputCacheTag": "None"
+    },
+    {
+      "name": "ArticleList",
+      "value": 1,
+      "outputCacheTag": "ArticleList"
+    },
+    {
+      "name": "HotArticles",
+      "value": 2,
+      "outputCacheTag": "HotArticles"
+    },
+    {
+      "name": "Category",
+      "value": 3,
+      "outputCacheTag": "Category"
+    },
+    {
+      "name": "Tag",
+      "value": 4,
+      "outputCacheTag": "Tag"
+    },
+    {
+      "name": "SystemPage",
+      "value": 5,
+      "outputCacheTag": "SystemPage"
+    },
+    {
+      "name": "Seo",
+      "value": 6,
+      "outputCacheTag": "Seo"
+    },
+    {
+      "name": "Stats",
+      "value": 7,
+      "outputCacheTag": "Stats"
+    },
+    {
+      "name": "Aot",
+      "value": 8,
+      "outputCacheTag": "Aot"
+    },
+    {
+      "name": "Comment",
+      "value": 9,
+      "outputCacheTag": "Comment"
+    }
+  ],
+  "policies": [
+    {
+      "id": "AdminStats",
+      "domain": "admin",
+      "resource": "stats",
+      "l1Ttl": "TimeSpan.FromMinutes(2)",
+      "l2Ttl": "TimeSpan.FromMinutes(10)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "Stats"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
+      "id": "ArticleDetail",
+      "domain": "blog",
+      "resource": "article-detail",
+      "l1Ttl": "TimeSpan.FromMinutes(5)",
+      "l2Ttl": "TimeSpan.FromHours(1)",
+      "negativeTtl": "TimeSpan.FromMinutes(5)",
+      "invalidationTags": [
+        "ArticleList"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
+      "id": "ArticleHot",
+      "domain": "blog",
+      "resource": "article-hot",
+      "l1Ttl": "TimeSpan.FromMinutes(2)",
+      "l2Ttl": "TimeSpan.FromMinutes(10)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "HotArticles"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
+      "id": "ArticleList",
+      "domain": "blog",
+      "resource": "article-list",
+      "l1Ttl": "TimeSpan.FromMinutes(2)",
+      "l2Ttl": "TimeSpan.FromMinutes(10)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "ArticleList",
+        "Category"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
+      "id": "ArticleListVersion",
+      "domain": "blog",
+      "resource": "article-list-version",
+      "l1Ttl": "TimeSpan.FromMinutes(1)",
+      "l2Ttl": "TimeSpan.FromDays(7)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "ArticleList"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "ArticleRss",
+      "domain": "blog",
+      "resource": "article-rss",
+      "l1Ttl": "TimeSpan.FromMinutes(3)",
+      "l2Ttl": "TimeSpan.FromMinutes(30)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "ArticleList"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "ArticleSearch",
+      "domain": "blog",
+      "resource": "article-search",
+      "l1Ttl": "TimeSpan.FromMinutes(1)",
+      "l2Ttl": "TimeSpan.FromMinutes(10)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "ArticleList"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
+      "id": "ArticleViewLock",
+      "domain": "sec",
+      "resource": "article-view-lock",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromHours(1)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "CommentCursor",
+      "domain": "blog",
+      "resource": "comment-cursor",
+      "l1Ttl": "TimeSpan.FromMinutes(1)",
+      "l2Ttl": "TimeSpan.FromMinutes(5)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "Stats"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "HumanReadProof",
+      "domain": "sec",
+      "resource": "human-read-proof",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromDays(1)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "MessageGlobalVersion",
+      "domain": "msg",
+      "resource": "global-version",
+      "l1Ttl": "TimeSpan.FromMinutes(2)",
+      "l2Ttl": "TimeSpan.FromDays(3)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": false,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "MessageUnread",
+      "domain": "msg",
+      "resource": "unread",
+      "l1Ttl": "TimeSpan.FromMinutes(2)",
+      "l2Ttl": "TimeSpan.FromDays(3)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": false,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "PublicAotDocument",
+      "domain": "public",
+      "resource": "aot-doc",
+      "l1Ttl": "TimeSpan.FromMinutes(30)",
+      "l2Ttl": "TimeSpan.FromDays(30)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "Aot"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "PublicAotRegistry",
+      "domain": "public",
+      "resource": "aot-registry",
+      "l1Ttl": "TimeSpan.FromMinutes(5)",
+      "l2Ttl": "TimeSpan.FromDays(30)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "Aot"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SecurityBlacklistUser",
+      "domain": "sec",
+      "resource": "blacklist-user",
+      "l1Ttl": "TimeSpan.FromMinutes(2)",
+      "l2Ttl": "TimeSpan.FromDays(7)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SecurityBlockedUser",
+      "domain": "sec",
+      "resource": "blocked-user",
+      "l1Ttl": "TimeSpan.FromMinutes(1)",
+      "l2Ttl": "TimeSpan.FromMinutes(20)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SecurityMfaChallenge",
+      "domain": "sec",
+      "resource": "mfa-challenge",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(10)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SecurityMfaProof",
+      "domain": "sec",
+      "resource": "mfa-proof",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(10)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SecurityPasskeyAuthChallenge",
+      "domain": "sec",
+      "resource": "pk-auth",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(5)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SecurityPasskeyRegChallenge",
+      "domain": "sec",
+      "resource": "pk-reg",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(5)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SecurityPowRisk",
+      "domain": "sec",
+      "resource": "pow-risk",
+      "l1Ttl": "TimeSpan.FromSeconds(10)",
+      "l2Ttl": "TimeSpan.FromMinutes(2)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "SystemPage",
+      "domain": "sys",
+      "resource": "page",
+      "l1Ttl": "TimeSpan.FromMinutes(10)",
+      "l2Ttl": "TimeSpan.FromHours(24)",
+      "negativeTtl": "TimeSpan.FromMinutes(2)",
+      "invalidationTags": [
+        "SystemPage"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
+      "id": "SystemSeo",
+      "domain": "sys",
+      "resource": "seo",
+      "l1Ttl": "TimeSpan.FromMinutes(10)",
+      "l2Ttl": "TimeSpan.FromHours(24)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "Seo"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
+      "id": "TopArticles",
+      "domain": "blog",
+      "resource": "top-articles",
+      "l1Ttl": "TimeSpan.FromMinutes(2)",
+      "l2Ttl": "TimeSpan.FromHours(2)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "HotArticles"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "UserCommentCursor",
+      "domain": "blog",
+      "resource": "user-comment-cursor",
+      "l1Ttl": "TimeSpan.FromMinutes(1)",
+      "l2Ttl": "TimeSpan.FromMinutes(5)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "Stats"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "VisitLock",
+      "domain": "sec",
+      "resource": "visit-lock",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(30)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    }
+  ],
+  "httpPolicies": [
+    {
+      "method": "ApplyArticleList",
+      "tags": [
+        "ArticleList"
+      ],
+      "varyByQuery": [
+        "page",
+        "size",
+        "categoryId",
+        "tagId",
+        "isDeleted",
+        "status"
+      ],
+      "varyByRouteValue": []
+    },
+    {
+      "method": "ApplyHotArticles",
+      "tags": [
+        "HotArticles"
+      ],
+      "varyByQuery": [
+        "size"
+      ],
+      "varyByRouteValue": []
+    },
+    {
+      "method": "ApplyFeaturedArticles",
+      "tags": [
+        "ArticleList"
+      ],
+      "varyByQuery": [
+        "size"
+      ],
+      "varyByRouteValue": []
+    },
+    {
+      "method": "ApplyCategoryList",
+      "tags": [
+        "Category"
+      ],
+      "varyByQuery": [],
+      "varyByRouteValue": []
+    },
+    {
+      "method": "ApplyTagList",
+      "tags": [
+        "Tag"
+      ],
+      "varyByQuery": [],
+      "varyByRouteValue": []
+    },
+    {
+      "method": "ApplySystemSeo",
+      "tags": [
+        "Seo"
+      ],
+      "varyByQuery": [],
+      "varyByRouteValue": []
+    },
+    {
+      "method": "ApplySystemPage",
+      "tags": [
+        "SystemPage"
+      ],
+      "varyByQuery": [],
+      "varyByRouteValue": [
+        "slug"
+      ]
+    },
+    {
+      "method": "ApplyCommentThreads",
+      "tags": [
+        "Comment"
+      ],
+      "varyByQuery": [
+        "cursor",
+        "limit"
+      ],
+      "varyByRouteValue": [
+        "articleId"
+      ]
+    },
+    {
+      "method": "ApplyCommentThreadReplies",
+      "tags": [
+        "Comment"
+      ],
+      "varyByQuery": [
+        "cursor",
+        "limit"
+      ],
+      "varyByRouteValue": [
+        "articleId",
+        "rootId"
+      ]
+    }
+  ]
+}

@@ -26,7 +26,7 @@
       class="markdown-text-editor__textarea"
       :placeholder="placeholder"
       :disabled="isBusy"
-      :aria-describedby="statusId"
+      :aria-describedby="`${helpId} ${statusId}`"
       aria-label="Markdown 正文编辑区"
       spellcheck="false"
       @keydown="handleKeydown"
@@ -48,6 +48,7 @@
       <span>行 {{ lineCount }}</span>
       <span>字 {{ charCount }}</span>
       <span>词 {{ wordCount }}</span>
+      <span :id="helpId">Tab 缩进，Shift+Tab 反缩进，Esc 离开编辑区</span>
       <span>{{ saveHint }}</span>
       <span v-if="loading">编辑器初始化中</span>
       <span v-else-if="saving">内容正在写入</span>
@@ -96,6 +97,7 @@ const emit = defineEmits<{
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const imageInputRef = ref<HTMLInputElement | null>(null)
 const statusId = `markdown-editor-status-${Math.random().toString(36).slice(2, 9)}`
+const helpId = `markdown-editor-help-${Math.random().toString(36).slice(2, 9)}`
 const historyStack = ref<SelectionSnapshot[]>([])
 const redoStack = ref<SelectionSnapshot[]>([])
 const isUploading = ref(false)
@@ -299,7 +301,32 @@ async function handleKeydown(event: KeyboardEvent): Promise<void> {
       ? outdentSelection({ snapshot: snapshotFromTextarea() })
       : indentSelection({ snapshot: snapshotFromTextarea() })
     await applyResult(result)
+    return
   }
+
+  if (event.key === 'Escape') {
+    focusNextControl()
+  }
+}
+
+function focusNextControl(): void {
+  const textarea = textareaRef.value
+  if (!textarea) {
+    return
+  }
+
+  const focusableSelector = [
+    'a[href]',
+    'button:not([disabled])',
+    'textarea:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])'
+  ].join(',')
+  const focusable = Array.from(document.querySelectorAll<HTMLElement>(focusableSelector))
+    .filter((element) => !element.hasAttribute('aria-hidden') && element.offsetParent !== null)
+  const currentIndex = focusable.indexOf(textarea)
+  focusable[currentIndex + 1]?.focus()
 }
 
 watch(() => props.modelValue, () => {

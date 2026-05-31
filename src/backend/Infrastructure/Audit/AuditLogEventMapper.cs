@@ -6,6 +6,21 @@ namespace FsusBlog.Server.Infrastructure.Audit;
 
 public sealed class AuditLogEventMapper
 {
+    private static readonly HashSet<string> ForbiddenContextProperties = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Authorization",
+        "Body",
+        "ClientIp",
+        "Cookie",
+        "Email",
+        "Ip",
+        "Password",
+        "RequestBody",
+        "Token",
+        "UserAgent",
+        "Username"
+    };
+
     private static readonly string[] BackgroundLifecycleKeywords =
     [
         "初始化",
@@ -171,6 +186,17 @@ public sealed class AuditLogEventMapper
                 or AuditPropertyNames.SkipPersistence
                 or "MessageTemplate"
                 or "Renderings")
+            {
+                continue;
+            }
+
+            if (ForbiddenContextProperties.Contains(propertyName)
+                || propertyName.Contains("token", StringComparison.OrdinalIgnoreCase)
+                || propertyName.Contains("cookie", StringComparison.OrdinalIgnoreCase)
+                || propertyName.Contains("email", StringComparison.OrdinalIgnoreCase)
+                || propertyName.Contains("body", StringComparison.OrdinalIgnoreCase)
+                || propertyName.Contains("useragent", StringComparison.OrdinalIgnoreCase)
+                || propertyName.Contains("clientip", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }

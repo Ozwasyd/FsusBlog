@@ -360,7 +360,7 @@ export function useAdminArticleWrite() {
     title: [{ required: true, message: '博文标题是必填项', trigger: 'blur' }],
     content: [
       { required: true, message: '请键入正文内容', trigger: 'blur' },
-      { max: 200000, message: '内容长度超出物理限制 (200KB)', trigger: 'blur' }
+      { max: 200000, message: '内容长度超出系统限制 (200KB)', trigger: 'blur' }
     ],
     categoryId: [{ required: true, message: '请为文章指定一个分类', trigger: 'change' }]
   }

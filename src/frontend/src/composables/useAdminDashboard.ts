@@ -111,6 +111,10 @@ export function useAdminDashboard() {
       const chartText = readCssToken('--fsusblog-text-secondary', 'CanvasText')
 
       visitChart.setOption({
+        aria: {
+          enabled: true,
+          description: `访客来源构成：注册用户 ${dashboardView.value.visitChart.registeredVisits}，匿名访客 ${dashboardView.value.visitChart.anonymousVisits}。`
+        },
         tooltip: {
           trigger: 'item',
           backgroundColor: chartSurface,
@@ -152,6 +156,10 @@ export function useAdminDashboard() {
         count: dashboardView.value.regionChart.values[index] ?? 0
       }))
       regionChart.setOption({
+        aria: {
+          enabled: true,
+          description: `地域访问分布：${chartData.length > 0 ? chartData.map((item) => `${item.region} ${item.count}`).join('，') : '暂无地域访问数据'}。`
+        },
         grid: {
           top: '5%',
           left: '3%',

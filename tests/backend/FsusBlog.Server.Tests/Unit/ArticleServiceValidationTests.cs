@@ -4,7 +4,6 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
@@ -32,9 +31,9 @@ public class ArticleServiceValidationTests
             _runtimeKeyScope: Substitute.For<IRuntimeKeyScope>(),
             _httpContextAccessor: Substitute.For<IHttpContextAccessor>(),
             _logger: NullLogger<ArticleService>.Instance,
-            _scopeFactory: Substitute.For<IServiceScopeFactory>(),
             _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
-            _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>());
+            _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
+            _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>());
     }
 
     // ─── SearchArticlesAsync guard ────────────────────────────────────────────

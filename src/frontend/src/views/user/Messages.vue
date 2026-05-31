@@ -47,13 +47,19 @@
             <div v-else class="mail-scroll-region">
               <div class="mail-scroll-frame">
                 <el-scrollbar>
-                  <div class="mail-item-stack">
-                    <button
+                  <ul class="mail-item-stack" aria-label="会话列表">
+                    <li
                       v-for="item in conversations"
                       :key="item.conversationId"
+                      class="mail-item-entry"
+                    >
+                    <button
                       type="button"
                       class="mail-item"
                       :class="{ active: item.conversationId === selectedConversationId }"
+                      :aria-current="item.conversationId === selectedConversationId ? 'true' : undefined"
+                      :aria-pressed="item.conversationId === selectedConversationId"
+                      :aria-label="conversationAriaLabel(item)"
                       @click="handleSelectConversation(item.conversationId)"
                     >
                       <div class="mail-item-top">
@@ -65,11 +71,12 @@
                       </div>
                       <p class="mail-item-preview" data-visual-dynamic>{{ item.lastMessage?.bodyPreview || (isAdminView ? '暂无内容' : '暂无消息内容') }}</p>
                       <div class="mail-item-meta">
-                        <span data-visual-dynamic>{{ formatTime(item.lastMessageAt) }}</span>
+                        <time :datetime="item.lastMessageAt" data-visual-dynamic>{{ formatTime(item.lastMessageAt) }}</time>
                         <el-badge v-if="item.unreadCount > 0" :value="item.unreadCount" />
                       </div>
                     </button>
-                  </div>
+                    </li>
+                  </ul>
                 </el-scrollbar>
               </div>
             </div>
@@ -106,7 +113,7 @@
         </div>
       </section>
 
-      <section v-show="showDetailPane" class="mail-pane mail-detail-pane mail-detail-stack mail-thread-panel">
+      <section v-show="showDetailPane" class="mail-pane mail-detail-pane mail-detail-stack mail-thread-panel" aria-live="polite" :aria-busy="detailLoading">
         <div class="mail-flat-pane mail-thread-flat-pane">
           <header class="mail-pane-header mail-pane-header-detail">
             <div class="mail-header mail-header-detail">
@@ -153,7 +160,7 @@
                     >
                       <div class="mail-bubble-meta">
                         <span data-visual-dynamic>{{ msg.senderName || senderLabel(msg.senderType) }}</span>
-                        <span data-visual-dynamic>{{ formatTime(msg.createdAt) }}</span>
+                        <time :datetime="msg.createdAt" data-visual-dynamic>{{ formatTime(msg.createdAt) }}</time>
                       </div>
                       <p class="mail-bubble-body" data-visual-dynamic>{{ msg.body }}</p>
                     </div>
@@ -374,6 +381,23 @@ const statusType = (status: number): 'warning' | 'success' | '' => {
   return ''
 }
 
+const conversationAriaLabel = (item: {
+  subject: string
+  status: number
+  unreadCount: number
+  isSystemSource: boolean
+  lastMessageAt: string
+}): string => {
+  const parts = [
+    item.subject,
+    statusLabel(item.status),
+    item.isSystemSource ? '系统消息' : '',
+    item.unreadCount > 0 ? `${item.unreadCount} 条未读` : '无未读',
+    `最后更新 ${formatTime(item.lastMessageAt)}`
+  ].filter(Boolean)
+  return parts.join('，')
+}
+
 const senderLabel = (senderType: number): string => {
   if (senderType === 1) return '管理员'
   if (senderType === 2) return '系统'
@@ -492,6 +516,14 @@ const formatTime = (input: string): string => {
 .mail-item-stack {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mail-item-entry {
   min-width: 0;
   max-width: 100%;
 }

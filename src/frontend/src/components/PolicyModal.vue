@@ -7,7 +7,7 @@
     @closed="handleAfterLeave"
   >
     <div>
-      <el-scrollbar max-height="min(64vh, 44rem)" :aria-busy="loading" role="document">
+      <el-scrollbar max-height="min(64vh, 44rem)" :aria-busy="loading" aria-label="条款正文">
         <div>
           <div v-if="loading" class="h-48 py-4" role="status">
             <el-skeleton animated :rows="4" />

@@ -8,11 +8,11 @@
       >
         {{ row.title }}
       </el-link>
-      <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-[var(--fsusblog-text-muted)]">
+      <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-[var(--fsusblog-text-muted)]">
         <span class="inline-flex items-center gap-1 tabular-nums">
           <el-icon><View /></el-icon> {{ row.views }} 阅读
         </span>
-        <span class="tabular-nums">{{ row.createdAtText }}</span>
+        <SemanticTime :value="row.createTime" :text="row.createdAtText" class="tabular-nums" />
       </div>
     </div>
 
@@ -35,7 +35,7 @@
           <el-dropdown-menu>
             <el-dropdown-item icon="Monitor" @click="$emit('view', row)">前台预览</el-dropdown-item>
             <el-dropdown-item icon="Box" @click="$emit('move-to-trash', row)">移入回收站</el-dropdown-item>
-            <el-dropdown-item icon="Warning" @click="$emit('permanent-remove', row)">永久抹除</el-dropdown-item>
+            <el-dropdown-item icon="Warning" @click="$emit('permanent-remove', row)">永久删除</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
@@ -45,6 +45,7 @@
 
 <script setup lang="ts">
 import { ArrowDown, View } from '@/ui/fsusIcons'
+import SemanticTime from '@/components/ui/SemanticTime.vue'
 import { type ArticleListItemResponse } from '@/api/article'
 
 export type AdminArticleCompactCardRow = ArticleListItemResponse & {

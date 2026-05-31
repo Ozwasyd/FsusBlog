@@ -36,9 +36,9 @@ public class ArticleService(
     IRuntimeKeyScope _runtimeKeyScope,
     IHttpContextAccessor _httpContextAccessor,
     ILogger<ArticleService> _logger,
-    IServiceScopeFactory _scopeFactory,
     IPublicAotInvalidationService _publicAotInvalidationService,
-    ICacheInvalidationDispatcher _cacheInvalidationDispatcher) : IArticleService
+    ICacheInvalidationDispatcher _cacheInvalidationDispatcher,
+    IArticleMutationSideEffectCoordinator _mutationSideEffects) : IArticleService
 {
     private const int MaxPageSize = 100;
     private const int MaxSearchKeywordLength = 128;
@@ -326,26 +326,7 @@ public class ArticleService(
             await InvalidatePublicAotAsync(null, [dto.CategoryId], tagIds, "create");
             ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(result.Data);
 
-            //[修改日期 2026-03-01]
-            // 物理真相：阻断 Fire-and-Forget。采用同步 Await 保障强一致性与停机期间的物理防损。
-            // 后台管理员操作频率极低，20ms 的索引落盘与推送耗时在主干管道中微乎其微。
-            await BoundaryExecutor.ExecuteAsync(
-                async () =>
-                {
-                    await using var scope = _scopeFactory.CreateAsyncScope();
-                    var searchIndex = scope.ServiceProvider.GetRequiredService<ISearchIndexService>();
-                    var messageSvc = scope.ServiceProvider.GetRequiredService<IMessageRealtimePublisher>();
-                    Task indexTask = ArticlePublication.IsPubliclyVisible(article, DateTime.UtcNow)
-                        ? searchIndex.AddOrUpdateIndexAsync(article)
-                        : searchIndex.DeleteIndexAsync(result.Data);
-                    await Task.WhenAll(
-                        indexTask,
-                        messageSvc.PushArticleChangedAsync(new ArticleNoticeDto(result.Data, "Created", article.CreateTime, realtimePreview))
-                    );
-                },
-                _logger,
-                "article-create-sync",
-                LogLevel.Error);
+            await _mutationSideEffects.AfterCreatedAsync(article, result.Data, realtimePreview);
 
             return result.Data;
         }
@@ -468,28 +449,7 @@ public class ArticleService(
                 MergeIds(originalTagIds, tagIds),
                 "update");
             ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(id);
-            await BoundaryExecutor.ExecuteAsync(
-                async () =>
-                {
-                    await using var scope = _scopeFactory.CreateAsyncScope();
-                    var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
-                    var messageSvc = scope.ServiceProvider.GetRequiredService<IMessageRealtimePublisher>();
-                    var searchIndex = scope.ServiceProvider.GetRequiredService<ISearchIndexService>();
-                    var art = await db.Queryable<Article>().InSingleAsync(id);
-                    if (art != null)
-                    {
-                        art.Content = await db.Queryable<ArticleBody>().Where(it => it.ArticleId == id).Select(it => it.MarkdownContent).FirstAsync() ?? string.Empty;
-                        Task indexTask = ArticlePublication.IsPubliclyVisible(art, DateTime.UtcNow)
-                            ? searchIndex.AddOrUpdateIndexAsync(art)
-                            : searchIndex.DeleteIndexAsync(id);
-                        await Task.WhenAll(
-                            indexTask,
-                            messageSvc.PushArticleChangedAsync(new ArticleNoticeDto(id, "Updated", DateTime.UtcNow, realtimePreview)));
-                    }
-                },
-                _logger,
-                "article-update-sync",
-                LogLevel.Error);
+            await _mutationSideEffects.AfterUpdatedAsync(id, realtimePreview);
             return true;
         }
         return false;
@@ -509,22 +469,7 @@ public class ArticleService(
         {
             await InvalidateCache(id);
             await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "delete");
-            await BoundaryExecutor.ExecuteAsync(
-                async () =>
-                {
-                    await using var scope = _scopeFactory.CreateAsyncScope();
-                    var messageSvc = scope.ServiceProvider.GetRequiredService<IMessageRealtimePublisher>();
-                    var searchIndex = scope.ServiceProvider.GetRequiredService<ISearchIndexService>();
-                    var redisDb = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>().GetDatabase();
-                    await Task.WhenAll(
-                        searchIndex.DeleteIndexAsync(id),
-                        redisDb.SortedSetRemoveAsync(RedisKey("blog:top_articles"), id),
-                        messageSvc.PushArticleChangedAsync(new ArticleNoticeDto(id, "Deleted", DateTime.UtcNow))
-                    );
-                },
-                _logger,
-                "article-delete-sync",
-                LogLevel.Error);
+            await _mutationSideEffects.AfterDeletedAsync(id);
         }
         return success;
     }
@@ -545,28 +490,7 @@ public class ArticleService(
             await InvalidateCache(id);
             await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "restore");
             ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(id);
-            await BoundaryExecutor.ExecuteAsync(
-                async () =>
-                {
-                    await using var scope = _scopeFactory.CreateAsyncScope();
-                    var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
-                    var messageSvc = scope.ServiceProvider.GetRequiredService<IMessageRealtimePublisher>();
-                    var searchIndex = scope.ServiceProvider.GetRequiredService<ISearchIndexService>();
-                    var redisDb = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>().GetDatabase();
-                    var article = await db.Queryable<Article>().InSingleAsync(id);
-                    if (article != null)
-                    {
-                        article.Content = await db.Queryable<ArticleBody>().Where(it => it.ArticleId == id).Select(it => it.MarkdownContent).FirstAsync() ?? string.Empty;
-                        await Task.WhenAll(
-                            searchIndex.AddOrUpdateIndexAsync(article),
-                            redisDb.SortedSetAddAsync(RedisKey("blog:top_articles"), id, article.Views),
-                            messageSvc.PushArticleChangedAsync(new ArticleNoticeDto(id, "Restored", DateTime.UtcNow, realtimePreview))
-                        );
-                    }
-                },
-                _logger,
-                "article-restore-sync",
-                LogLevel.Error);
+            await _mutationSideEffects.AfterRestoredAsync(id, realtimePreview);
         }
         return success;
     }
@@ -590,32 +514,7 @@ public class ArticleService(
         {
             await InvalidateCache(id);
             await InvalidatePublicAotAsync(id, [article.CategoryId], tagIds, "permanent-delete");
-            await BoundaryExecutor.ExecuteAsync(
-                async () =>
-                {
-                    await using var scope = _scopeFactory.CreateAsyncScope();
-                    var messageSvc = scope.ServiceProvider.GetRequiredService<IMessageRealtimePublisher>();
-                    var fileSvc = scope.ServiceProvider.GetRequiredService<IFileService>();
-                    var searchIndex = scope.ServiceProvider.GetRequiredService<ISearchIndexService>();
-                    var redisDb = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>().GetDatabase();
-
-                    await Task.WhenAll(
-                        searchIndex.DeleteIndexAsync(id),
-                        redisDb.SortedSetRemoveAsync(RedisKey("blog:top_articles"), id),
-                        messageSvc.PushArticleChangedAsync(new ArticleNoticeDto(id, "Deleted", DateTime.UtcNow))
-                    );
-
-                    if (imageUrls.Count > 0)
-                    {
-                        await Parallel.ForEachAsync(imageUrls, new ParallelOptions { MaxDegreeOfParallelism = 5 }, async (url, token) =>
-                        {
-                            await fileSvc.DeleteImageAsync(url);
-                        });
-                    }
-                },
-                _logger,
-                "article-permanent-delete-sync",
-                LogLevel.Error);
+            await _mutationSideEffects.AfterPermanentlyDeletedAsync(id, imageUrls, Ct);
             return true;
         }
         return false;
@@ -660,52 +559,7 @@ public class ArticleService(
         {
             await InvalidateCache();
             await InvalidatePublicAotBatchAsync(articleIds, categoryIds, tagIds, "clear-trash");
-            await BoundaryExecutor.ExecuteAsync(
-                async () =>
-                {
-                    await using var scope = _scopeFactory.CreateAsyncScope();
-                    var fileSvc = scope.ServiceProvider.GetRequiredService<IFileService>();
-                    var redisDb = scope.ServiceProvider.GetRequiredService<IConnectionMultiplexer>().GetDatabase();
-
-                    foreach (int[] chunk in articleIds.Chunk(128))
-                    {
-                        var tasks = new List<Task>(chunk.Length * 3);
-                        for (int i = 0; i < chunk.Length; i++)
-                        {
-                            int id = chunk[i];
-                            tasks.Add(redisDb.SortedSetRemoveAsync(RedisKey("blog:top_articles"), id));
-                            tasks.Add(_cache.RemoveAsync(CachePolicyId.ArticleDetail, id.ToString(), Ct));
-                            tasks.Add(_searchIndex.DeleteIndexAsync(id));
-                        }
-
-                        await Task.WhenAll(tasks);
-                    }
-
-                    var imgUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var art in trashArticles)
-                    {
-                        if (!trashedBodyMap.TryGetValue(art.Id, out string? body))
-                        {
-                            continue;
-                        }
-
-                        foreach (var url in ImageHelper.ExtractIllustrationUrls(body))
-                        {
-                            imgUrls.Add(url);
-                        }
-                    }
-
-                    if (imgUrls.Count > 0)
-                    {
-                        await Parallel.ForEachAsync(imgUrls, new ParallelOptions { MaxDegreeOfParallelism = 5 }, async (url, token) =>
-                        {
-                            await fileSvc.DeleteImageAsync(url);
-                        });
-                    }
-                },
-                _logger,
-                "article-clear-trash-sync",
-                LogLevel.Error);
+            await _mutationSideEffects.AfterTrashClearedAsync(articleIds, trashedBodyMap, Ct);
             return result.Data;
         }
         _logger.LogError("清空回收站失败 | DbError: {Error}", result.ErrorMessage);

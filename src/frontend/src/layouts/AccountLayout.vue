@@ -8,7 +8,7 @@
     </a>
 
     <header class="sticky top-0 z-40 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]/82 backdrop-blur-[var(--fsus-backdrop-blur)]">
-      <div class="mx-auto flex h-16 max-w-[1480px] items-center justify-between gap-4 px-4 sm:h-[4.75rem] sm:px-6 lg:px-10">
+      <div class="mx-auto flex h-16 max-w-[var(--fsusblog-container-workbench)] items-center justify-between gap-4 px-4 sm:h-[4.75rem] sm:px-6 lg:px-10">
         <div class="flex min-w-0 items-center gap-4 sm:gap-6">
           <router-link
             to="/"
@@ -18,7 +18,7 @@
           </router-link>
           <div class="hidden h-4 w-px bg-[var(--fsusblog-panel-border-strong)] sm:block" aria-hidden="true"></div>
           <div class="hidden min-w-0 sm:block">
-            <div class="text-[9px] font-bold uppercase text-[var(--fsusblog-text-muted)]">
+            <div class="text-[11px] font-bold uppercase text-[var(--fsusblog-text-muted)]">
               {{ areaMeta.eyebrow }}
             </div>
             <div class="truncate text-[11px] font-medium text-[var(--fsusblog-text-tertiary)]">
@@ -64,18 +64,18 @@
             :icon="Menu"
             :aria-expanded="String(mobileNavOpen)"
             aria-controls="account-mobile-drawer"
-            aria-label="打开账户导航"
+            :aria-label="mobileNavButtonLabel"
             @click="toggleMobileNav"
           />
         </div>
       </div>
     </header>
 
-    <div class="mx-auto flex w-full max-w-[1480px] flex-1 gap-5 px-4 py-5 sm:px-6 sm:py-8 lg:gap-10 lg:px-10">
+    <div class="mx-auto flex w-full max-w-[var(--fsusblog-container-workbench)] flex-1 gap-5 px-4 py-5 sm:px-6 sm:py-8 lg:gap-10 lg:px-10">
       <aside class="hidden lg:block lg:w-[18rem] lg:shrink-0">
         <div class="sticky top-24 space-y-12 pr-6">
           <div class="space-y-5">
-            <div class="text-[9px] font-bold uppercase tracking-normal text-[var(--fsusblog-text-muted)]">
+            <div class="text-[11px] font-bold uppercase tracking-normal text-[var(--fsusblog-text-muted)]">
               {{ areaMeta.eyebrow }}
             </div>
             <h1 class="text-[2.25rem] font-bold leading-[0.9] tracking-normal text-[var(--fsusblog-text-primary)]">
@@ -94,7 +94,7 @@
             >
               <div
                 v-if="navGroups.length > 1"
-                class="px-1 text-[9px] font-bold uppercase tracking-normal text-[var(--fsusblog-text-muted)]"
+                class="px-1 text-[11px] font-bold uppercase tracking-normal text-[var(--fsusblog-text-muted)]"
               >
                 {{ group.label }}
               </div>
@@ -102,7 +102,7 @@
                 v-for="item in group.items"
                 :key="item.to"
                 :to="item.to"
-                class="account-nav-link"
+                class="account-nav-link group"
                 :class="{ 'account-nav-link-active': isNavItemActive(item) }"
               >
                 <div class="account-nav-link-label">
@@ -145,7 +145,7 @@
       <div id="account-mobile-drawer" class="flex h-full min-h-0 flex-col">
         <div class="flex items-start justify-between gap-4 border-b border-[var(--fsusblog-panel-border)] pb-5">
           <div>
-            <div class="text-[9px] font-bold uppercase text-[var(--fsusblog-text-muted)]">
+            <div class="text-[11px] font-bold uppercase text-[var(--fsusblog-text-muted)]">
               {{ areaMeta.eyebrow }}
             </div>
             <div class="mt-2 text-[1.75rem] font-bold leading-none">
@@ -162,7 +162,7 @@
                 v-for="item in navItems"
                 :key="item.to"
                 :to="item.to"
-                class="account-nav-link"
+                class="account-nav-link group"
                 :class="{ 'account-nav-link-active': isNavItemActive(item) }"
                 @click="closeMobileNav"
               >
@@ -191,7 +191,7 @@
           </el-button>
           <span class="h-0.5 w-0.5 rounded-[var(--fsus-radius-pill)] bg-[var(--fsusblog-text-muted)]" aria-hidden="true"></span>
           <el-button link :disabled="isLoggingOut" @click="handleLogout">
-            {{ isLoggingOut ? '登出' : '登出' }}
+            {{ isLoggingOut ? '登出中...' : '登出' }}
           </el-button>
         </div>
       </div>
@@ -220,6 +220,7 @@ const showPolicy = ref(false)
 const policyType = ref<'privacy' | 'guidelines'>('guidelines')
 const mobileNavOpen = ref(false)
 const isLoggingOut = ref(false)
+const mobileNavButtonLabel = computed(() => mobileNavOpen.value ? '关闭账户导航' : '打开账户导航')
 
 const currentArea = computed<AccountArea>(() =>
   route.meta.accountArea === 'manage' ? 'manage' : 'self'
@@ -239,14 +240,14 @@ const navItems = computed(() => navGroups.value.flatMap((group) => group.items))
 
 const contentViewportClass = computed(() => {
   if (currentContentMode.value === 'wide') {
-    return 'max-w-[1600px]'
+    return 'max-w-[var(--fsusblog-container-wide)]'
   }
 
   if (currentContentMode.value === 'takeover') {
     return 'max-w-none'
   }
 
-  return 'max-w-5xl'
+  return 'max-w-[var(--fsusblog-container-account)]'
 })
 
 const contentModeClass = computed(() => {
@@ -347,7 +348,7 @@ watch(
 
 .account-header-link,
 .account-meta-link {
-  @apply inline-flex items-center rounded-[var(--fsus-radius-control-small)] text-[10px] font-bold uppercase tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-40;
+  @apply inline-flex items-center rounded-[var(--fsus-radius-control-small)] text-[11px] font-bold uppercase tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-40;
 }
 
 .account-skip-link:focus {
@@ -363,6 +364,11 @@ watch(
   @apply relative block pl-6 py-1 transition-[color,padding-left] duration-[var(--fsus-motion-control-fast)] text-[var(--fsusblog-text-tertiary)] hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none;
 }
 
+.account-nav-link:focus-visible {
+  border-radius: var(--fsus-radius-control-small);
+  box-shadow: 0 0 0 2px var(--fsusblog-color-focus-ring);
+}
+
 .account-nav-link::before {
   content: "";
   @apply absolute left-0 top-1/2 h-0 w-[2px] -translate-y-1/2 bg-[var(--fsusblog-color-primary)] transition-[height,opacity] duration-[var(--fsus-motion-control-fast)];
@@ -370,6 +376,10 @@ watch(
 
 .account-nav-link:hover::before {
   @apply h-4 opacity-30;
+}
+
+.account-nav-link:focus-visible::before {
+  @apply h-full opacity-100;
 }
 
 .account-nav-link-active {
@@ -385,7 +395,7 @@ watch(
 }
 
 .account-nav-link-helper {
-  @apply mt-1 text-[10px] font-medium leading-normal opacity-50 transition-opacity group-hover:opacity-80;
+  @apply mt-1 text-[11px] font-medium leading-normal opacity-50 transition-opacity group-hover:opacity-80;
 }
 
 .account-nav-link-active .account-nav-link-helper {

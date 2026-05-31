@@ -9,21 +9,21 @@
 ### 1. 契约稳定性优先
 
 - 一旦端点路径发布，非 breaking 语义变更在原路径叠加；breaking 变更须新开版本段（如 `/api/v2/`）。
-- 所有请求/响应字段用 `src/shared/FsusBlog.Shared/Contracts/Outputs/ServerResponseContracts.cs` 作为唯一来源，任何业务逻辑层不得自行定义与之并行的 DTO。
+- 所有请求/响应字段用 `src/shared/Contracts/Outputs/ServerResponseContracts.cs` 作为唯一来源，任何业务逻辑层不得自行定义与之并行的 DTO。
 
 ### 2. AEDS Binary-only 运行时协议
 
-运行时 API 只暴露 AEDS 二进制链路：
+运行时主业务 API 只暴露 AEDS 二进制链路：
 
 | 链路 | Content-Type | 解码方 | 路径前缀 |
 |------|-------------|-------|---------|
 | **AEDS Binary** | `application/octet-stream` | TypeScript adapter / C++23 Wasm Worker | `/api/binary/...` |
 
-旧文本 API 不再注册；`/api/**` 非 binary 路径统一返回 `ApiError` AEDS frame。客户端不得把解码失败回退为文本 API 请求。
+旧文本业务 API 不再注册；`/api/**` 非 binary 业务路径统一返回 `ApiError` AEDS frame。客户端不得把解码失败回退为文本 API 请求。例外只限作者工作台 `/api/author/**`、真人阅读 proof、健康检查和运维类 JSON 端点。
 
 ### 3. 统一响应包装
 
-所有运行时响应体均为 AEDS v2 frame。成功写操作使用 `EmptySuccess` 或 `MutationId`；失败、鉴权拒绝、限流和异常兜底统一使用 `ApiError` frame。AEDS v1 frame 不再兼容，也不保留旧 frame fallback。
+所有运行时主业务响应体均为 AEDS v2 frame。成功写操作使用 `EmptySuccess` 或 `MutationId`；失败、鉴权拒绝、限流和异常兜底统一使用 `ApiError` frame。AEDS v1 frame 不再兼容，也不保留旧 frame fallback。
 
 ### 4. 认证一致性
 
@@ -36,8 +36,8 @@
 | 规则 | 示例 |
 |------|------|
 | Binary 端点统一前缀 `/api/binary/` + 小写资源名 | `/api/binary/article`、`/api/binary/comment/{id}` |
-| 消息系统使用 `/api/v1/messages/` 路径段区分 | `/api/v1/messages/conversations` |
-| 管理端以 `/admin/` 段区分 | `/api/v1/admin/messages/`、`/api/Auth/admin/users/` |
+| 消息系统使用 binary 消息路径 | `/api/binary/messages/conversations` |
+| 管理端以 binary admin 资源路径区分 | `/api/binary/admin/users`、`/api/binary/stats` |
 | 健康检查与通知独立于业务路径 | `/health/live`、`/api/notifications/stream` |
 
 ---
@@ -51,7 +51,7 @@
 | `PUT` | 全量更新单个资源属性（重命名） |
 | `DELETE` | 删除资源 |
 
-Binary 端点仅使用 `GET`（读）和管理端的 `POST/PUT/DELETE`（上传操作）。
+Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passkey、上传和管理端写入均不得退回旧文本路径。
 
 ---
 

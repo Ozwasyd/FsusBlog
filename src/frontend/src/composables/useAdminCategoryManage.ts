@@ -121,15 +121,15 @@ export function useAdminCategoryManage() {
       submitting.value = true
       try {
         await mutation.confirmThenRun({
-          message: `确定要永久移除分类「${row.name}」吗？该操作无法撤销。`,
-          title: '危险操作警告',
-          confirmButtonText: '确定移除'
+          message: `确定要删除分类「${row.name}」吗？该操作无法撤销。`,
+          title: '删除分类',
+          confirmButtonText: '确认删除'
         }, async (signal) => {
           const config: ApiRequestConfig = { signal }
           await deleteCategory(row.id, config)
         }, {
           fallbackMessage: '删除分类失败',
-          successMessage: '数据已彻底移除',
+          successMessage: '分类已删除',
           postSuccessWarningMessage: '分类已删除，但列表同步失败，请稍后刷新',
           onSuccess: loadData
         })

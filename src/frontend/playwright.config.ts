@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { defineConfig } from '@playwright/test'
+import { defineConfig, type BrowserName } from '@playwright/test'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000'
 const configuredWorkers = Number(process.env.FSUSBLOG_PLAYWRIGHT_WORKERS || '')
@@ -9,7 +9,7 @@ const workers = Number.isFinite(configuredWorkers) && configuredWorkers > 0
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
   || ['/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find((candidate) => existsSync(candidate))
 
-const launchOptions: {
+const chromiumLaunchOptions: {
   executablePath?: string
   args: string[]
 } = {
@@ -17,8 +17,30 @@ const launchOptions: {
 }
 
 if (executablePath) {
-  launchOptions.executablePath = executablePath
+  chromiumLaunchOptions.executablePath = executablePath
 }
+
+const requestedBrowsers = (process.env.FSUSBLOG_PLAYWRIGHT_BROWSERS || 'chromium')
+  .split(',')
+  .map((browser) => browser.trim().toLowerCase())
+  .filter(Boolean)
+
+const uniqueBrowsers = Array.from(new Set(requestedBrowsers))
+const supportedBrowsers = new Set(['chromium', 'firefox', 'webkit'])
+const projects = uniqueBrowsers.map((browser) => {
+  if (!supportedBrowsers.has(browser)) {
+    throw new Error(`Unsupported FSUSBLOG_PLAYWRIGHT_BROWSERS entry: ${browser}`)
+  }
+
+  const browserName = browser as BrowserName
+  return {
+    name: browser,
+    use: {
+      browserName,
+      ...(browserName === 'chromium' ? { launchOptions: chromiumLaunchOptions } : {})
+    }
+  }
+})
 
 export default defineConfig({
   testDir: '../../tests/frontend/e2e',
@@ -37,15 +59,7 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'off',
-    launchOptions
+    video: 'off'
   },
-  projects: [
-    {
-      name: 'chrome',
-      use: {
-        browserName: 'chromium'
-      }
-    }
-  ]
+  projects
 })

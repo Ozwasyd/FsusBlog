@@ -102,26 +102,17 @@ internal sealed record RequestAuditContextSnapshot(
     string? TraceId,
     string? RequestPath,
     string? RequestMethod,
-    string? UserId,
-    string? Username,
-    string? ClientIp,
-    string? UserAgent)
+    string? UserId)
 {
     public static RequestAuditContextSnapshot FromHttpContext(HttpContext context)
     {
         string? userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        string? username = context.User.Identity?.IsAuthenticated == true
-            ? context.User.Identity?.Name ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
-            : null;
 
         return new RequestAuditContextSnapshot(
             context.TraceIdentifier,
             context.Request.Path.HasValue ? context.Request.Path.Value : null,
             context.Request.Method,
-            string.IsNullOrWhiteSpace(userId) ? null : userId,
-            string.IsNullOrWhiteSpace(username) ? null : username,
-            context.GetClientIp(),
-            context.Request.Headers.UserAgent.ToString());
+            string.IsNullOrWhiteSpace(userId) ? null : userId);
     }
 
     public IReadOnlyDictionary<string, object?> ToProperties()
@@ -131,10 +122,7 @@ internal sealed record RequestAuditContextSnapshot(
             ["TraceId"] = TraceId,
             ["RequestPath"] = RequestPath,
             ["RequestMethod"] = RequestMethod,
-            ["UserId"] = UserId,
-            ["Username"] = Username,
-            ["ClientIp"] = ClientIp,
-            ["UserAgent"] = UserAgent
+            ["UserId"] = UserId
         };
 
         return new ReadOnlyDictionary<string, object?>(values);

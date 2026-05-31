@@ -217,4 +217,4 @@ Offset  Size  字段
 ```
 
 offset 8 是 `FrameType`，不是记录数；记录数属于各 payload 自己的 compact layout。
-协议完整规格见 [../src/core/FsusBlog.Core/Algorithms/AEDS_V1_PROTOCOL.md](../src/core/FsusBlog.Core/Algorithms/AEDS_V1_PROTOCOL.md)。
+协议完整规格见 [../src/core/Algorithms/AEDS_V1_PROTOCOL.md](../src/core/Algorithms/AEDS_V1_PROTOCOL.md)。

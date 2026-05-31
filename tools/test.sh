@@ -6,6 +6,7 @@ CLIENT_DIR="$ROOT_DIR/src/frontend"
 SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj"
 BUILD_ENV_RUNNER="$ROOT_DIR/tools/build-with-data-env.sh"
 COVERAGE_ROOT="${FSUSBLOG_COVERAGE_ROOT:-$ROOT_DIR/.tmp/coverage}"
+GATE_LOG_DIR="${FSUSBLOG_GATE_LOG_DIR:-$ROOT_DIR/.tmp/gate-logs}"
 
 FAST_HTTP_TIMEOUT_MS="${FSUSBLOG_FAST_HTTP_TIMEOUT_MS:-15000}"
 INTEGRATION_HTTP_TIMEOUT_MS="${FSUSBLOG_INTEGRATION_HTTP_TIMEOUT_MS:-15000}"
@@ -20,6 +21,48 @@ DEBUG_FRONTEND_URL="${FSUSBLOG_DEBUG_FRONTEND_URL:-http://127.0.0.1:3000}"
 DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:5000}"
 RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:8080}"
 DOTNET_BUILD_PARALLEL_ARGS=(/m:1 /p:UseSharedCompilation=true /p:NuGetAudit=false)
+
+default_playwright_workers() {
+  if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    printf '1'
+  else
+    printf '4'
+  fi
+}
+
+record_visual_gate_skip() {
+  local reason="${FSUSBLOG_VISUAL_SKIP_REASON:-}"
+  local approver="${FSUSBLOG_VISUAL_SKIP_APPROVER:-}"
+  local impact="${FSUSBLOG_VISUAL_SKIP_IMPACT:-}"
+  local rerun_url="${FSUSBLOG_VISUAL_SKIP_RERUN_URL:-}"
+  local out_file="$GATE_LOG_DIR/visual-gate-skip.json"
+
+  if [[ -z "$reason" || -z "$approver" || -z "$impact" || -z "$rerun_url" ]]; then
+    fail "FSUSBLOG_SKIP_VISUAL_GATE=1 requires FSUSBLOG_VISUAL_SKIP_REASON, FSUSBLOG_VISUAL_SKIP_APPROVER, FSUSBLOG_VISUAL_SKIP_IMPACT and FSUSBLOG_VISUAL_SKIP_RERUN_URL"
+  fi
+
+  mkdir -p "$GATE_LOG_DIR"
+  node - "$out_file" <<'NODE'
+const fs = require('node:fs');
+const outFile = process.argv[2];
+const rerunUrl = process.env.FSUSBLOG_VISUAL_SKIP_RERUN_URL || '';
+if (!/^https?:\/\/\S+$/.test(rerunUrl)) {
+  console.error('[test:production] FSUSBLOG_VISUAL_SKIP_RERUN_URL must be an absolute http(s) URL');
+  process.exit(1);
+}
+
+const evidence = {
+  status: 'visual-gate-skipped',
+  generatedAt: new Date().toISOString(),
+  reason: process.env.FSUSBLOG_VISUAL_SKIP_REASON,
+  approver: process.env.FSUSBLOG_VISUAL_SKIP_APPROVER,
+  impact: process.env.FSUSBLOG_VISUAL_SKIP_IMPACT,
+  rerunUrl
+};
+fs.writeFileSync(outFile, `${JSON.stringify(evidence, null, 2)}\n`);
+NODE
+  log "tier=visual | skip evidence: $out_file"
+}
 
 print_artifact_hint() {
   printf '[test:%s] diagnostics: .tmp/acceptance/*.log and src/frontend/test-results/playwright are preserved when present\n' "${CURRENT_TIER:-unknown}" >&2
@@ -168,12 +211,20 @@ run_fast_frontend_lane() {
   run_in_client npm run check:no-runtime-message-branching
   run_in_client npm run check:security-consistency
   run_in_client npm run check:server-try-catch
+  run_in_client npm run check:asset-size-budget
+  run_in_client npm run check:public-private-data-leakage
+  run_in_client npm run check:pwa-offline-policy
   run_in_client npm run check:views-constraints
   run_in_client npm run check:image-codec-wasm
   run_in_client npm run check:image-codec-wasm-runtime
   run "$ROOT_DIR/tools/check-historical-residue.sh"
   run "$ROOT_DIR/tools/check-cache-governance.sh"
   run "$ROOT_DIR/tools/check-test-hygiene.sh"
+  run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test
+  run "$ROOT_DIR/tools/check-test-matrix.mjs"
+  run "$ROOT_DIR/tools/operations/check-slo-definition.mjs"
+  run "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" --self-test
+  run "$ROOT_DIR/tools/operations/check-release-slo-alerts.mjs" --self-test
 }
 
 run_fast_only() {
@@ -302,6 +353,7 @@ run_release_only() {
   run_in_client npm run check:search-runtime
   run_in_client npm run check:public-hydration
   run_in_client npm run check:public-seo-smoke
+  run_in_client npm run check:pwa-offline-smoke
 }
 
 run_release() {
@@ -365,6 +417,10 @@ run_visual() {
 
 run_security_only() {
   log "tier=security | auth/mfa/passkey/pow/permission/a11y gates"
+  run "$ROOT_DIR/tools/security/check-security-matrices.mjs"
+  run "$ROOT_DIR/tools/security/check-zap-warn-policy.mjs"
+  run "$ROOT_DIR/tools/security/generate-sbom.sh"
+  run "$ROOT_DIR/tools/security/check-supply-chain-audit.sh"
   run "$ROOT_DIR/tools/security/check-production-network-baseline.sh"
   if [[ -n "${FSUSBLOG_FIREWALL_POLICY_EVIDENCE:-}" ]]; then
     run "$ROOT_DIR/tools/security/verify-production-firewall-policy-evidence.sh" "$FSUSBLOG_FIREWALL_POLICY_EVIDENCE"
@@ -456,7 +512,7 @@ run_production() {
 
   CURRENT_TIER="production"
   export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"
-  export FSUSBLOG_PLAYWRIGHT_WORKERS="${FSUSBLOG_PLAYWRIGHT_WORKERS:-4}"
+  export FSUSBLOG_PLAYWRIGHT_WORKERS="${FSUSBLOG_PLAYWRIGHT_WORKERS:-$(default_playwright_workers)}"
   # Fast rebuilds backend StaticWebAssets and frontend release assets. Force the
   # shared runtime to restart once here so the remaining gates validate the
   # just-built code and asset generation instead of a previously healthy stack.
@@ -479,7 +535,14 @@ run_production() {
 
   export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/acceptance'
   run_tier "acceptance" run_acceptance_only
+  if [[ "${FSUSBLOG_ENABLE_CROSS_BROWSER:-0}" == "1" ]]; then
+    export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/cross-browser'
+    export FSUSBLOG_PLAYWRIGHT_BROWSERS="${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,firefox,webkit}"
+    export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
+    run_in_client npm run check:cross-browser:smoke
+  fi
   if [[ "${FSUSBLOG_SKIP_VISUAL_GATE:-0}" == "1" ]]; then
+    record_visual_gate_skip
     log "tier=visual | skipped by FSUSBLOG_SKIP_VISUAL_GATE=1"
   else
     export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/visual'
@@ -489,11 +552,13 @@ run_production() {
   run_tier "resilience" run_resilience_only
 
   run_tier "load" run_load_only
+  run "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
+  run "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs"
 }
 
 usage() {
   cat <<'EOF'
-Usage: ./tools/test.sh <fast|integration|ci|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|resilience|load|production>
+Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|resilience|load|production>
 
 Tiers:
   fast         Static and local-only validation; no running services required.
@@ -504,13 +569,14 @@ Tiers:
   coverage-merge    Merge available coverage artifacts under .tmp/coverage into one summary.
   coverage-threshold Enforce merged + backend-only coverage thresholds (defaults: line/branch/method 100%).
   coverage-gate     One-shot coverage gate: backend + frontend + merge + threshold.
+  coverage          Alias for coverage-gate.
   release      Release preview validation; requires preview at 8080.
   acceptance   Full acceptance gate; bootstraps env and runs fast + integration + release + full Playwright acceptance.
   visual       Visual gate; bootstraps env and runs dark/mobile layout + screenshot baselines on public + console routes.
   security     Auth/session/MFA/permission/a11y security gate.
   resilience   Runtime/upload/search resilience gate.
   load         Lightweight public/API concurrency gate.
-  production   Industrial release gate; runs fast, bootstraps once, then runs integration + release + acceptance + visual + security + resilience + load. Set FSUSBLOG_SKIP_VISUAL_GATE=1 only when visual acceptance is intentionally out of scope.
+  production   Industrial release gate; runs fast, bootstraps once, then runs integration + release + acceptance + visual + security + resilience + load. Set FSUSBLOG_SKIP_VISUAL_GATE=1 only with FSUSBLOG_VISUAL_SKIP_REASON, FSUSBLOG_VISUAL_SKIP_APPROVER, FSUSBLOG_VISUAL_SKIP_IMPACT and FSUSBLOG_VISUAL_SKIP_RERUN_URL.
 EOF
 }
 
@@ -545,7 +611,7 @@ main() {
       CURRENT_TIER="coverage-threshold"
       run_coverage_threshold
       ;;
-    coverage-gate)
+    coverage|coverage-gate)
       CURRENT_TIER="coverage-gate"
       run_coverage_gate
       ;;

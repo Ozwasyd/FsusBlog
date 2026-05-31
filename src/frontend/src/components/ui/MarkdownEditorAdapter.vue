@@ -3,10 +3,10 @@
     <header class="editor-shell__header mb-6 pb-4 border-b border-[var(--fsusblog-panel-border)]">
       <div class="editor-shell__meta">
         <span class="editor-shell__title text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-primary)]" id="markdown-editor-title">Markdown 编辑器</span>
-        <span class="text-[9px] tabular-nums font-bold normal-case tracking-normal px-2 py-0.5 border border-[var(--fsusblog-panel-border)] text-[var(--fsusblog-text-muted)] rounded-[var(--fsus-radius-control-small)]">{{ provider.label }}</span>
+        <span class="text-[11px] tabular-nums font-bold normal-case tracking-normal px-2 py-0.5 border border-[var(--fsusblog-panel-border)] text-[var(--fsusblog-text-muted)] rounded-[var(--fsus-radius-control-small)]">{{ provider.label }}</span>
         <span
           v-if="loading || saving"
-          class="text-[9px] font-bold normal-case tracking-normal "
+          class="text-[11px] font-bold normal-case tracking-normal "
           :class="saving ? 'text-[var(--fsusblog-color-warning-text)]' : 'text-[var(--fsusblog-text-muted)]'"
         >
           {{ saving ? 'Saving...' : 'Loading...' }}

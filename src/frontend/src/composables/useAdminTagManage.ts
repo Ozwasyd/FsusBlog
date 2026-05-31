@@ -107,15 +107,15 @@ export function useAdminTagManage() {
       submitting.value = true
       try {
         await mutation.confirmThenRun({
-          message: `您正在销毁索引词。标签「${row.name}」将被永久移除。`,
-          title: '安全警告',
-          confirmButtonText: '确定销毁'
+          message: `确定要删除标签「${row.name}」吗？标签将从索引中移除。`,
+          title: '删除标签',
+          confirmButtonText: '确认删除'
         }, async (signal) => {
           const config: ApiRequestConfig = { signal }
           await deleteTag(row.id, config)
         }, {
           fallbackMessage: '删除标签失败',
-          successMessage: '数据已彻底移除',
+          successMessage: '标签已删除',
           postSuccessWarningMessage: '标签已删除，但列表同步失败，请稍后刷新',
           onSuccess: loadData
         })

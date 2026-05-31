@@ -63,6 +63,8 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 
 路由组装按 `MapFsusOperationalRoutes`、`MapFsusApiRoutes`、`MapFsusPublicRoutes` 分层，避免在新增 API 时同时触碰健康探针、SSE、SPA fallback 和静态文件策略。
 
+运行时 DI 组合根按边界拆分：基础设施注册由 `AddBinaryRuntime`、`AddNotificationRuntime`、`AddCrawlerAndSearchRuntime`、`AddFileAndAuthRuntime`、`AddAuditRuntime`、`AddMessagingRuntime`、`AddCacheRuntime`、`AddIdentityRuntime`、`AddBackgroundRuntime`、`AddSpaRuntime`、`AddObjectPools` 分段承载；领域注册由 `AddContentRuntimeServices`、`AddUserRuntimePorts`、`AddGeneralDomainServices`、`AddCoreBridgeServices` 分段承载。新增服务应优先落入对应分组，避免把 Bootstrap 重新变成无边界注册清单。
+
 `BannedUserMiddleware` 是运行时封禁检查的唯一主实现；旧 `BannedUserFilter` 名称仅作为兼容别名保留，新增调用点必须使用 Middleware 命名。
 
 封禁写入绕过、认证响应 `no-store` 等端点级策略只允许通过 endpoint metadata 声明。`Infrastructure/Policies/EndpointPolicyMetadata.cs` 提供 `AllowBannedUserWrite()` 与 `RequireNoStoreResponse()`，运行时中间件读取路由元数据执行策略，避免 `/api/...` 字符串匹配在路由迁移时失效。
@@ -70,6 +72,8 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 生产启动校验通过 `ProductionStartupValidationHostedService` 纳入 DI 生命周期。生产环境校验失败时写入 `StartupRuntimeState` 的 `productionStartupValidation=degraded` 并记录日志，进程保持可观测；就绪探针仍由 DB/Redis 连通性决定。非生产环境报告 `skipped`。
 
 运行时可观测性由 `Infrastructure/Observability` 统一管理。`FsusObservability` 暴露 `ActivitySource=FsusBlog.Server` 与 `Meter=FsusBlog.Server`，并把自定义属性限制为低基数 `fsus.*` 白名单。ASP.NET Core、HttpClient、runtime、Npgsql、SSE meter、cache、PublicAOT、search 和 scheduled-publish worker 都进入同一 trace/metric 面；`ObservabilityCorrelationMiddleware` 把 `Activity.TraceId` 写回 `HttpContext.TraceIdentifier` 和 `X-Fsus-Trace-Id`，使错误响应、Serilog/audit 与标准 collector trace 能按同一 ID 关联。OTLP exporter 默认关闭，只有 `Observability:ExporterEnabled`/`OTEL_EXPORTER_OTLP_ENDPOINT` 打开后才向 collector 导出。
+
+缓存治理清单由 `tools/cache/export-cache-governance.mjs` 从 `CachePolicyRegistry`、`CacheTag`、`HttpCachePolicyCatalog` 生成到 `docs/cache-governance.catalog.json`。`tools/check-cache-governance.sh` 会在 fast gate 中校验该清单，防止 cache key/tag/catalog 与文档证据漂移。
 
 ## 前端主题与组件覆盖边界
 
@@ -159,7 +163,7 @@ Client
   → TypeScript adapter / Wasm Web Worker 解码 AEDS 帧 → Pinia Store 更新
 ```
 
-Article/comment binary endpoints 只面向应用 facade：文章端点通过 `IArticleEndpointService` 获取 article list/detail/hot/featured 与写入操作，评论端点通过 `ICommentEndpointService` 获取 thread/reply/user cursor 与删除操作。Core query、raw payload cache、投影转换和 service mutation 不在 endpoint 文件内展开。
+Article/comment binary endpoints 只面向应用 facade：文章端点通过 `IArticleEndpointService` 获取 article list/detail/hot/featured 与写入操作，评论端点通过 `ICommentEndpointService` 获取 thread/reply/user cursor 与删除操作。Core query、raw payload cache、投影转换和 service mutation 不在 endpoint 文件内展开。文章写入后的搜索投影、实时通知、Redis 热榜清理、文章详情缓存清理和图片资产清理统一下沉到 `IArticleMutationSideEffectCoordinator`，由 `ArticleSearchProjector`、`ArticleRealtimeNotifier`、`ArticleAssetCleanupPolicy` 等小服务承载，`ArticleService` 只负责写入事务、查询、缓存/AOT 失效编排。
 
 用户域对外按不重叠 facade 拆分：`IUserAccountReader` 只返回 `UserAccountSnapshot`，`IUserLoginWorkflowService` 负责登录/MFA 风险/最终签发，`IUserProfileCommandService` 负责资料与注销，`IUserSessionCommandService` 负责 refresh/session revoke，`IUserAdminModerationService` 负责后台治理。`User`/`UserSession` ORM entity 只在 `UserService` 兼容实现内部流转，不作为 endpoint、middleware 或 SSE admission 的读取契约。
 
@@ -172,6 +176,12 @@ Client
   → JWT Access Token（15 min） + HttpOnly Refresh Token Cookie
   → MFA 挑战（如已启用，Passkey 登录免 MFA）
 ```
+
+注册/登录 binary 端点按 `AuthBinaryRequestReader -> AuthBinaryApplicationFacade -> AuthBinaryResponseWriter` 分层：reader 只负责 AEDS request frame 解码，application facade 只负责注册、凭据校验、MFA 登录分支和最终 session token 结果，endpoint 保留 cookie 写入这一 HTTP side effect，writer 只负责 AEDS `AuthLoginFlow` / `ApiError` frame。
+
+## 发布构建边界
+
+`src/backend/FsusBlog.Server.csproj` 的 Release publish 默认会检查 `src/frontend/node_modules`、执行 `npm run build:release` 并复制 `src/frontend/dist` 与前端 runtime 文件，保证单体发布产物一致。需要后端-only 诊断或临时发布时，可显式传入 `/p:PublishClientAssets=false`，跳过前端依赖检查、前端构建和前端 artifact copy；该开关不改变生产默认行为。
 
 ## 缓存分层
 

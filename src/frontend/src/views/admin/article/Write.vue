@@ -1,6 +1,6 @@
 <template>
   <main
-    class="account-page write-article-wrapper w-full"
+    class="account-page write-article-wrapper account-motion-enter w-full"
     aria-labelledby="article-write-title"
     :aria-busy="pageLoading || submitting"
   >
@@ -18,7 +18,7 @@
         <div class="min-w-0">
           <div class="account-page-eyebrow mb-2">管理 / CONTENT EDITING</div>
           <h1 id="article-write-title" class="write-command-title">{{ pageTitle }}</h1>
-          <p class="write-command-status" aria-live="polite">
+          <p id="article-editor-status" class="write-command-status" aria-live="polite">
             {{ editorStatusText }}
           </p>
         </div>
@@ -31,7 +31,7 @@
               type="primary"
               :loading="submitting"
               @click="requestSubmit"
-              :aria-describedby="'article-editor-status'"
+              aria-describedby="article-editor-status"
             >
               {{ submitButtonText }}
             </el-button>
@@ -47,7 +47,7 @@
           aria-live="polite"
         >
           <div class="min-w-0">
-            <div class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-color-warning-text)] mb-1">{{ pendingDraftSourceLabel }} / DRAFT</div>
+            <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-color-warning-text)] mb-1">{{ pendingDraftSourceLabel }} / DRAFT</div>
             <p class="text-[11px] text-[var(--fsusblog-text-tertiary)]">
               {{ draftStatusText }}。{{ pendingDraftDescription }}
             </p>
@@ -64,7 +64,7 @@
 
         <el-form-item prop="title">
           <template #label>
-            <span id="article-title-label" class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章标题 / TITLE</span>
+            <span id="article-title-label" class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章标题 / TITLE</span>
           </template>
           <div class="mt-4">
             <el-input
@@ -84,7 +84,7 @@
       <div class="write-grid">
         <section class="write-editor-panel border-t border-[var(--fsusblog-panel-border)]" aria-labelledby="article-content-label">
           <header class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)]">
-            <div class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">正文编辑器 / EDITOR</div>
+            <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">正文编辑器 / EDITOR</div>
           </header>
           <div class="overflow-hidden">
             <el-form-item prop="content">
@@ -180,8 +180,8 @@
           <details class="write-upload-disclosure border-t border-[var(--fsusblog-panel-border)]">
             <summary class="write-disclosure-summary px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)] cursor-pointer outline-none">
               <div class="flex items-center justify-between">
-                <span class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">图片上传策略 / IMAGE POLICY</span>
-                <span class="text-[10px] font-bold text-[var(--fsusblog-text-muted)]" aria-live="polite">{{ imageUploadRuntime.statusText }}</span>
+                <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">图片上传策略 / IMAGE POLICY</span>
+                <span class="text-[11px] font-bold text-[var(--fsusblog-text-muted)]" aria-live="polite">{{ imageUploadRuntime.statusText }}</span>
               </div>
             </summary>
             <div class="p-6 bg-[var(--fsusblog-page-bg)]">
@@ -280,7 +280,7 @@
     >
       <p class="text-sm text-[var(--fsusblog-text-secondary)]">{{ submitConfirmContent }}</p>
       <div v-if="prepublishWarningsNeedOverride" class="mt-5 space-y-3" aria-label="发布前警告跳过确认">
-        <div class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布前警告 / WARNING OVERRIDE</div>
+        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布前警告 / WARNING OVERRIDE</div>
         <ul class="space-y-2">
           <li
             v-for="issue in prepublishWarningIssues"
@@ -515,15 +515,6 @@ const submitQuickCreateTag = async (): Promise<void> => {
 </script>
 
 <style scoped>
-.write-article-wrapper {
-  animation: fade-in-slide var(--fsus-motion-panel) var(--fsus-motion-standard);
-}
-
-@keyframes fade-in-slide {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 .write-workspace {
   display: flex;
   flex-direction: column;

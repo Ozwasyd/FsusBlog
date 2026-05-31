@@ -1,7 +1,7 @@
 <template>
   <section class="bg-[var(--fsusblog-page-bg)] h-full flex flex-col">
     <header class="p-8 border-b border-[var(--fsusblog-panel-border)]">
-      <div class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">工作区</div>
+      <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">工作区</div>
       <h2 class="mt-4 text-3xl font-bold text-[var(--fsusblog-text-primary)]">运营入口</h2>
       <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">
         从首页直接进入常用管理路径，并优先处理需要恢复、归类和治理的内容。
@@ -11,7 +11,7 @@
     <div class="p-8 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)]/50">
       <div class="flex items-start justify-between gap-6">
         <div>
-          <p class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">回收站状态</p>
+          <p class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">回收站状态</p>
           <p class="mt-6 text-5xl font-bold text-[var(--fsusblog-text-primary)] tabular-nums tracking-normal">{{ trashCount }}</p>
           <p class="mt-6 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)] max-w-xs">
             {{ trashCount > 0 ? '当前存在待恢复或待清理稿件，建议优先处理。' : '当前没有待处理的下线稿件。' }}
@@ -34,7 +34,7 @@
         :to="item.to"
         class="bg-[var(--fsusblog-page-bg)] p-8 transition-colors hover:bg-[var(--fsusblog-panel-bg)] group"
       >
-        <div class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors">{{ item.eyebrow }}</div>
+        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors">{{ item.eyebrow }}</div>
         <div class="mt-4 text-base font-bold text-[var(--fsusblog-text-primary)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors">{{ item.label }}</div>
         <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)] group-hover:text-[var(--fsusblog-text-secondary)] transition-colors">{{ item.helper }}</p>
       </router-link>

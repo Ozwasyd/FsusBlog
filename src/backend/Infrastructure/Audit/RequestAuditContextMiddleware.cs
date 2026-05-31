@@ -16,10 +16,7 @@ public sealed class RequestAuditContextMiddleware(RequestDelegate next)
             LogContext.PushProperty("TraceId", properties["TraceId"]),
             LogContext.PushProperty("RequestPath", properties["RequestPath"]),
             LogContext.PushProperty("RequestMethod", properties["RequestMethod"]),
-            LogContext.PushProperty("UserId", properties["UserId"]),
-            LogContext.PushProperty("Username", properties["Username"]),
-            LogContext.PushProperty("ClientIp", properties["ClientIp"]),
-            LogContext.PushProperty("UserAgent", properties["UserAgent"])
+            LogContext.PushProperty("UserId", properties["UserId"])
         ];
 
         try

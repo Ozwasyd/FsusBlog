@@ -28,12 +28,12 @@
               <span class="truncate text-sm font-bold leading-tight text-[var(--fsusblog-text-primary)]">
                 {{ row.username }}
               </span>
-              <time
+              <SemanticTime
                 v-if="!props.isMobile"
-                class="mt-0.5 tabular-nums text-[10px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case tracking-normal"
-              >
-                {{ row.createdAtText }} 注册
-              </time>
+                :value="row.createTime"
+                :text="`${row.createdAtText} 注册`"
+                class="mt-0.5 tabular-nums text-[11px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case tracking-normal"
+              />
             </p>
           </div>
         </template>
@@ -41,7 +41,7 @@
 
       <el-table-column prop="role" label="角色" :width="roleColumnWidth" align="center">
         <template #default="{ row }: { row: UserListViewItem }">
-          <span class="text-[10px] font-black italic normal-case tracking-normal" :class="row.roleClass">
+          <span class="text-[11px] font-black italic normal-case tracking-normal" :class="row.roleClass">
             {{ row.roleShort }}
           </span>
         </template>
@@ -49,12 +49,13 @@
 
       <el-table-column v-if="hasWideTable" label="最后活动" width="160">
         <template #default="{ row }: { row: UserListViewItem }">
-          <time v-if="row.lastLoginTime" class="flex flex-col whitespace-nowrap tabular-nums">
-            <span class="text-[11px] text-[var(--fsusblog-text-tertiary)] tabular-nums font-bold">{{ row.lastLoginText }}</span>
-            <span class="text-[10px] text-[var(--fsusblog-text-subtle)] tabular-nums flex items-center gap-1">
-              <span class="text-[8px]"><el-icon><Location /></el-icon></span> {{ row.lastLoginIp }}
+          <div v-if="row.lastLoginTime" class="flex flex-col whitespace-nowrap tabular-nums">
+            <span class="text-[12px] text-[var(--fsusblog-text-tertiary)] tabular-nums font-bold">{{ row.lastLoginText }}</span>
+            <span class="text-[11px] text-[var(--fsusblog-text-subtle)] tabular-nums flex items-center gap-1">
+              <span class="text-[11px]" aria-hidden="true"><el-icon><Location /></el-icon></span> {{ row.lastLoginIp }}
             </span>
-          </time>
+            <SemanticTime :value="row.lastLoginTime" class="sr-only" />
+          </div>
           <span v-else class="text-[var(--fsusblog-text-subtle)] text-[11px] italic">--</span>
         </template>
       </el-table-column>
@@ -62,8 +63,8 @@
       <el-table-column prop="status" label="状态" :width="statusColumnWidth" align="center">
         <template #default="{ row }: { row: UserListViewItem }">
           <span class="inline-flex flex-col items-center justify-center">
-            <span class="mb-1 h-1 w-1 rounded-[var(--fsus-radius-control-small)]" :class="row.statusDotClass" />
-            <span class="text-[9px] font-black normal-case tracking-normal" :class="row.statusClass">
+            <span class="mb-1 h-1 w-1 rounded-[var(--fsus-radius-control-small)]" :class="row.statusDotClass" aria-hidden="true" />
+            <span class="text-[11px] font-black normal-case tracking-normal" :class="row.statusClass">
               {{ row.statusText }}
             </span>
           </span>
@@ -96,8 +97,8 @@
               {{ row.status === 0 ? '封禁' : '解封' }}
             </el-button>
           </div>
-          <span v-else-if="row.isDeleted" class="text-[var(--fsusblog-text-subtle)] text-[9px] font-black normal-case italic tracking-normal pr-4">DELETED</span>
-          <span v-else class="text-[var(--fsusblog-text-subtle)] text-[9px] font-black normal-case italic tracking-normal pr-4">PROTECTED</span>
+          <span v-else-if="row.isDeleted" class="text-[var(--fsusblog-text-subtle)] text-[11px] font-black normal-case italic tracking-normal pr-4">已注销</span>
+          <span v-else class="text-[var(--fsusblog-text-subtle)] text-[11px] font-black normal-case italic tracking-normal pr-4">受保护</span>
         </template>
       </el-table-column>
 
@@ -123,19 +124,19 @@
               <span class="truncate text-sm font-bold text-[var(--fsusblog-text-primary)]">
                 {{ row.username }}
               </span>
-              <span class="text-[9px] font-black italic normal-case tracking-normal px-2 py-0.5 bg-[var(--fsusblog-panel-bg-soft)]" :class="row.roleClass">
+              <span class="text-[11px] font-black italic normal-case tracking-normal px-2 py-0.5 bg-[var(--fsusblog-panel-bg-soft)]" :class="row.roleClass">
                 {{ row.roleShort }}
               </span>
             </div>
-            <div class="mt-2 flex flex-wrap items-center gap-3 text-[10px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
-              <time>{{ row.createdAtText }}</time>
-              <span v-if="row.lastLoginText" class="text-[var(--fsusblog-text-subtle)]">/</span>
-              <span v-if="row.lastLoginText">{{ row.lastLoginText }}</span>
+            <div class="mt-2 flex flex-wrap items-center gap-3 text-[11px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
+              <SemanticTime :value="row.createTime" :text="row.createdAtText" />
+              <span v-if="row.lastLoginTime" class="text-[var(--fsusblog-text-subtle)]">/</span>
+              <SemanticTime v-if="row.lastLoginTime" :value="row.lastLoginTime" :text="row.lastLoginText" />
             </div>
           </div>
           <div class="shrink-0 flex flex-col items-center">
-             <span class="h-1 w-1 rounded-[var(--fsus-radius-control-small)] mb-1" :class="row.statusDotClass" />
-             <span class="text-[9px] font-black normal-case tracking-normal" :class="row.statusClass">
+             <span class="h-1 w-1 rounded-[var(--fsus-radius-control-small)] mb-1" :class="row.statusDotClass" aria-hidden="true" />
+             <span class="text-[11px] font-black normal-case tracking-normal" :class="row.statusClass">
               {{ row.statusText }}
             </span>
           </div>
@@ -156,7 +157,7 @@
             {{ row.status === 0 ? '封禁' : '解封' }}
           </el-button>
         </div>
-        <div v-else class="text-center py-3 bg-[var(--fsusblog-panel-bg-soft)] text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+        <div v-else class="text-center py-3 bg-[var(--fsusblog-panel-bg-soft)] text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
           {{ row.isDeleted ? '已注销账户' : '受保护账户' }}
         </div>
       </article>
@@ -165,7 +166,7 @@
     </div>
 
     <div class="p-8 border-t border-[var(--fsusblog-panel-border)] flex flex-col sm:flex-row items-center justify-between gap-6 bg-[var(--fsusblog-panel-bg)]">
-      <span class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">User Directory / Database</span>
+      <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">用户目录 / Database</span>
       <el-pagination
         :current-page="currentPage"
         :page-size="pageSize"
@@ -184,6 +185,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Key, Location } from '@/ui/fsusIcons'
+import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { UserListItem } from '@/api/admin'
 import type { UserListViewItem } from '@/composables/useAdminUserManage'
 import { useMediaQuery } from '@/composables/useMediaQuery'

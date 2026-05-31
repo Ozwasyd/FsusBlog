@@ -43,7 +43,7 @@ export GITHUB_PACKAGES_TOKEN=your_github_personal_access_token
 仓库不内置预编译 Wasm。首次开发前，确保 `src/frontend/wasm/` 目录下有已构建的 `.wasm` 文件：
 
 ```bash
-cd FsusBlog.Client
+cd src/frontend
 npm run ensure:wasm
 ```
 
@@ -72,7 +72,7 @@ docker compose -f docker-compose.dev.yml up -d
 ASP.NET Core 后端也可在本地直接运行（更快的 C# 迭代）：
 
 ```bash
-cd FsusBlog.Server
+cd src/backend
 dotnet run
 # 或通过 Visual Studio / Rider 的 "Debug / NativeServer" 配置启动
 ```
@@ -80,7 +80,7 @@ dotnet run
 ### 第二步：启动前端开发服务器
 
 ```bash
-cd FsusBlog.Client
+cd src/frontend
 npm ci                 # 首次或依赖变更后需执行
 npm run dev:debug      # Vite HMR，监听 0.0.0.0:3000
 ```
@@ -238,7 +238,7 @@ docker compose -f docker-compose.dev.yml restart redis
 ```bash
 ls src/frontend/wasm/
 # 若为空，执行：
-cd FsusBlog.Client && npm run ensure:wasm
+cd src/frontend && npm run ensure:wasm
 ```
 
 ### 数据库迁移未执行

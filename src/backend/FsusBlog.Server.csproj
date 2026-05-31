@@ -26,6 +26,7 @@
 		<ClientRuntimePublishDir>$([MSBuild]::NormalizePath('$(PublishDir)', 'FsusBlog.ClientRuntime'))</ClientRuntimePublishDir>
 		<ClientWwwRootPublishDir>$([MSBuild]::NormalizePath('$(PublishDir)', 'wwwroot'))</ClientWwwRootPublishDir>
 		<GitHubPackagesToken>$([System.Environment]::GetEnvironmentVariable('GITHUB_PACKAGES_TOKEN'))</GitHubPackagesToken>
+		<PublishClientAssets Condition="'$(PublishClientAssets)' == ''">true</PublishClientAssets>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -85,16 +86,16 @@
 		</Content>
 	</ItemGroup>
 
-		<Target Name="EnsureClientDependenciesForPublish" BeforeTargets="Publish" Condition="'$(Configuration)' == 'Release' and '$(SkipClientDependenciesForPublish)' != 'true'">
-		<Error Condition="!Exists('$(ClientNodeModulesDir)') and '$(GitHubPackagesToken)' == ''" Text="GITHUB_PACKAGES_TOKEN is required for Visual Studio release publish when FsusBlog.Client/node_modules is missing." />
+		<Target Name="EnsureClientDependenciesForPublish" BeforeTargets="Publish" Condition="'$(Configuration)' == 'Release' and '$(PublishClientAssets)' == 'true' and '$(SkipClientDependenciesForPublish)' != 'true'">
+		<Error Condition="!Exists('$(ClientNodeModulesDir)') and '$(GitHubPackagesToken)' == ''" Text="GITHUB_PACKAGES_TOKEN is required for Visual Studio release publish when src/frontend/node_modules is missing. Use /p:PublishClientAssets=false for a backend-only publish." />
 		<Exec Condition="!Exists('$(ClientNodeModulesDir)')" WorkingDirectory="$(ClientProjectDir)" Command="npm ci --no-audit --progress=false" />
 	</Target>
 
-		<Target Name="BuildClientReleaseAssets" BeforeTargets="Publish" Condition="'$(Configuration)' == 'Release' and '$(SkipClientReleaseBuild)' != 'true'">
+		<Target Name="BuildClientReleaseAssets" BeforeTargets="Publish" Condition="'$(Configuration)' == 'Release' and '$(PublishClientAssets)' == 'true' and '$(SkipClientReleaseBuild)' != 'true'">
 		<Exec WorkingDirectory="$(ClientProjectDir)" Command="npm run build:release" />
 	</Target>
 
-		<Target Name="CopyClientReleaseArtifacts" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release' and '$(SkipClientReleaseArtifactCopy)' != 'true'">
+		<Target Name="CopyClientReleaseArtifacts" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release' and '$(PublishClientAssets)' == 'true' and '$(SkipClientReleaseArtifactCopy)' != 'true'">
 		<ItemGroup>
 			<ClientDistFiles Include="$(ClientDistDir)\**\*.*" />
 			<ClientRuntimeFiles Include="$(ClientProjectDir)\**\*.*" Exclude="&#xA;									$(ClientDistDir)\**\*;&#xA;									$(ClientProjectDir)\.vite\**\*;&#xA;									$(ClientProjectDir)\dist-ssr\**\*;&#xA;									$(ClientProjectDir)\coverage\**\*;&#xA;									$(ClientProjectDir)\wasm\build\**\*;&#xA;									$(ClientProjectDir)\wasm\build-basic\**\*;&#xA;									$(ClientProjectDir)\wasm\build-simd\**\*;&#xA;									$(ClientProjectDir)\wasm\.artifacts\**\*;&#xA;									$(ClientProjectDir)\wasm\.cmake\**\*;&#xA;									$(ClientProjectDir)\wasm\.emscripten-cache\**\*" />

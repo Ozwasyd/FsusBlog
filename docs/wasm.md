@@ -123,7 +123,7 @@ ls artifacts/wasm-release/
 ### 拉取预构建产物（无需 Emscripten）
 
 ```bash
-cd FsusBlog.Client
+cd src/frontend
 npm run ensure:wasm
 ```
 
@@ -348,7 +348,7 @@ C++ 解码器核心逻辑也在 C# 侧通过 `FsusBlog.Core` 有对等实现，�
 
 ## ABI 稳定性约束
 
-C++ POD 类型必须与 C# `src/shared/FsusBlog.Shared/Contracts/Models/` 中的对应类型保持**字节级兼容**。
+C++ POD 类型必须与 C# `src/shared/Contracts/Models/` 中的对应类型保持**字节级兼容**。
 
 修改任一 POD 类型时：
 1. 同时修改 C# 和 C++ 两侧
@@ -371,7 +371,7 @@ Wasm 产物不入 git，通过 CI 构建并存储到产物仓库：
 ./tools/build-wasm-artifact.sh
 
 # 本地拉取最新产物
-cd FsusBlog.Client
+cd src/frontend
 npm run ensure:wasm
 ```
 
@@ -387,6 +387,6 @@ npm run ensure:wasm
 
 - [development.md](development.md) — 本地环境搭建（含 Wasm 依赖安装）
 - [docs/api/schemas-and-errors.md](api/schemas-and-errors.md) — POD 大小目录与 C++ 对齐规则
-- `src/core/FsusBlog.Core/Algorithms/AEDS_V1_PROTOCOL.md` — 完整帧协议规格
-- `src/shared/FsusBlog.Shared/Contracts/CPP_ALIGNMENT_CHECKLIST.md` — C++/C# 类型对齐检查清单
+- `src/core/Algorithms/AEDS_V1_PROTOCOL.md` — 完整帧协议规格
+- `src/shared/Contracts/CPP_ALIGNMENT_CHECKLIST.md` — C++/C# 类型对齐检查清单
 - `src/frontend/src/wasm/CMakeLists.txt` — CMake 构建配置

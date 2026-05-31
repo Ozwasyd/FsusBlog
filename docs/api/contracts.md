@@ -1,7 +1,7 @@
 # API 契约文档
 
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
-所有定义的权威源码位于 `src/shared/FsusBlog.Shared/Contracts/` 目录。
+所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
 ---
 
@@ -32,7 +32,7 @@
 
 ### AEDS 通用响应 POD
 
-源码：`src/shared/FsusBlog.Shared/Contracts/Models/CommonPods.cs`
+源码：`src/shared/Contracts/Models/CommonPods.cs`
 
 | FrameType | POD | 说明 |
 |-----------|-----|------|
@@ -85,7 +85,7 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 
 ## 分页与游标信封
 
-源码：`src/shared/FsusBlog.Shared/Contracts/Envelopes/PodEnvelopes.cs`
+源码：`src/shared/Contracts/Envelopes/PodEnvelopes.cs`
 
 ### `PageResponse<T>`（基于页码）
 
@@ -129,8 +129,8 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 
 ## 认证系统契约
 
-源码：`src/shared/FsusBlog.Shared/Contracts/AuthSystem/AuthSystemContracts.cs`
-源码：`src/shared/FsusBlog.Shared/Contracts/Outputs/ServerResponseContracts.cs`
+源码：`src/shared/Contracts/AuthSystem/AuthSystemContracts.cs`
+源码：`src/shared/Contracts/Outputs/ServerResponseContracts.cs`
 
 ### `TokenResponseDto`（内部令牌载荷）
 
@@ -219,7 +219,7 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 
 ## 文章契约
 
-源码：`src/shared/FsusBlog.Shared/Contracts/Outputs/ServerResponseContracts.cs`
+源码：`src/shared/Contracts/Outputs/ServerResponseContracts.cs`
 
 ### `ArticleListItemResponse`
 
@@ -256,7 +256,7 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 
 ### Binary Article POD
 
-源码：`src/shared/FsusBlog.Shared/Contracts/Models/ArticlePods.cs`
+源码：`src/shared/Contracts/Models/ArticlePods.cs`
 
 Article POD 为定长结构体，字段按 C++ 内存对齐排列：
 - `Id`：int64
@@ -328,7 +328,7 @@ Query：
 
 ## 评论契约
 
-源码：`src/shared/FsusBlog.Shared/Contracts/Outputs/ServerResponseContracts.cs`
+源码：`src/shared/Contracts/Outputs/ServerResponseContracts.cs`
 
 ### `CommentItemDto`（顶层评论）
 
@@ -398,7 +398,7 @@ Query：
 
 ## 消息系统契约
 
-源码：`src/shared/FsusBlog.Shared/Contracts/Outputs/ServerResponseContracts.cs`
+源码：`src/shared/Contracts/Outputs/ServerResponseContracts.cs`
 
 ### `ConversationListItemResponse`
 
@@ -435,7 +435,7 @@ Query：
 
 ## 通知 WebSocket 契约
 
-源码：`src/shared/FsusBlog.Shared/Contracts/Sse/SseContracts.cs`
+源码：`src/shared/Contracts/Sse/SseContracts.cs`
 
 ### 通道
 
@@ -547,7 +547,7 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 
 ## 文件上传契约
 
-源码：`src/shared/FsusBlog.Shared/Contracts/Outputs/ServerResponseContracts.cs`
+源码：`src/shared/Contracts/Outputs/ServerResponseContracts.cs`
 
 所有上传端点在 `/api/binary/upload/` 路径下，需要 admin 角色。
 
@@ -587,7 +587,7 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 
 ## 系统配置契约
 
-源码：`src/shared/FsusBlog.Shared/Contracts/AuthSystem/AuthSystemContracts.cs`
+源码：`src/shared/Contracts/AuthSystem/AuthSystemContracts.cs`
 
 ### `SeoConfigContract`
 
@@ -631,7 +631,7 @@ SiteStatsPod、共享 UTF-8 blob、popular article records、recent comment reco
 
 ## AOT 公开页契约
 
-源码：`src/shared/FsusBlog.Shared/Contracts/Outputs/PublicPageContracts.cs`
+源码：`src/shared/Contracts/Outputs/PublicPageContracts.cs`
 
 ### `PublicPageId` 枚举
 
@@ -888,5 +888,5 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 - [design.md](design.md) — API 设计哲学与格式约定
 - [quick-reference.md](quick-reference.md) — 端点路由速查表
 - [schemas-and-errors.md](schemas-and-errors.md) — 错误码枚举与 Binary 帧格式
-- `src/shared/FsusBlog.Shared/Contracts/Outputs/ServerResponseContracts.cs` — 所有 DTO 权威源码
-- `src/shared/FsusBlog.Shared/Contracts/Sse/SseContracts.cs` — SSE 信封权威源码
+- `src/shared/Contracts/Outputs/ServerResponseContracts.cs` — 所有 DTO 权威源码
+- `src/shared/Contracts/Sse/SseContracts.cs` — SSE 信封权威源码

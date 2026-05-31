@@ -177,17 +177,17 @@ export function useAdminArticleList() {
       try {
         await mutation.confirmThenRun(
           {
-            message: `警告：此操作将永久抹除博文《${row.title}》及其所有关联数据，不可恢复！`,
-            title: '物理销毁警示',
-            confirmButtonText: '确定永久销毁',
-            cancelButtonText: '放弃'
+            message: `确认永久删除博文《${row.title}》及其所有关联数据？此操作不可恢复。`,
+            title: '永久删除文章',
+            confirmButtonText: '确认永久删除',
+            cancelButtonText: '取消'
           },
           async (signal) => {
             await permanentDeleteArticle(row.id, { signal })
           },
           {
             fallbackMessage: '博文永久删除失败',
-            successMessage: '博文已彻底从数据库抹除',
+            successMessage: '博文已永久删除',
             onSuccess: loadData
           }
         )

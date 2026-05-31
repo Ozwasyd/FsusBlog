@@ -9,25 +9,25 @@
 
 | 目录 / 文件 | 职责 |
 |------------|------|
-| `src/backend/FsusBlog.Server/Program.cs` | 中间件链 + 路由注册收口 |
-| `src/backend/FsusBlog.Server/Modules/Endpoints/` | 所有 Minimal API 端点定义 |
-| `src/backend/FsusBlog.Server/Modules/Controllers/` | MVC 控制器（若有） |
-| `src/backend/FsusBlog.Server/Infrastructure/` | 缓存 / 安全 / 中间件 / 启动校验等横切关注点 |
-| `src/backend/FsusBlog.Server/Infrastructure/Cache/` | L1 内存缓存、L2 Redis 缓存、失效入口 |
-| `src/backend/FsusBlog.Server/Infrastructure/Auth/` | JWT、Cookie、认证服务 |
-| `src/backend/FsusBlog.Server/Infrastructure/Helpers/JwtHelper.cs` | JWT 签发与校验 |
-| `src/backend/FsusBlog.Server/Infrastructure/Filters/BannedUserFilter.cs` | 封禁用户过滤 |
-| `src/backend/FsusBlog.Server/Infrastructure/Middlewares/` | ShieldMiddleware / GlobalException / ApiBinaryResponse |
-| `src/backend/FsusBlog.Server/Infrastructure/Operations/ProductionStartupValidator.cs` | 生产启动前置校验 |
-| `src/backend/FsusBlog.Server/Infrastructure/PublicAot/` | AOT 公开页壳层 |
-| `src/backend/FsusBlog.Server/Infrastructure/Sse/` | SSE 连接管理、背压、事件分发 |
-| `src/shared/FsusBlog.Shared/Contracts/` | 前后端共享 DTO、SSE 信封、AOT 契约 |
-| `src/shared/FsusBlog.Shared/Contracts/Outputs/ServerResponseContracts.cs` | 所有响应 DTO 定义 |
-| `src/shared/FsusBlog.Shared/Contracts/Sse/SseContracts.cs` | SSE 事件类型与信封 |
-| `src/shared/FsusBlog.Shared/Contracts/Envelopes/PodEnvelopes.cs` | POD 分页 / 游标信封 |
-| `src/core/FsusBlog.Core/Algorithms/` | AEDS 编解码算法核心 |
-| `src/core/FsusBlog.Core/Algorithms/AedsFrameType.cs` | 帧类型枚举（权威来源） |
-| `src/core/FsusBlog.Core/Algorithms/AEDS_V1_PROTOCOL.md` | 二进制帧协议规格 |
+| `src/backend/Program.cs` | 中间件链 + 路由注册收口 |
+| `src/backend/Modules/Endpoints/` | 所有 Minimal API 端点定义 |
+| `src/backend/Modules/Controllers/` | MVC 控制器（若有） |
+| `src/backend/Infrastructure/` | 缓存 / 安全 / 中间件 / 启动校验等横切关注点 |
+| `src/backend/Infrastructure/Cache/` | L1 内存缓存、L2 Redis 缓存、失效入口 |
+| `src/backend/Infrastructure/Auth/` | JWT、Cookie、认证服务 |
+| `src/backend/Infrastructure/Helpers/JwtHelper.cs` | JWT 签发与校验 |
+| `src/backend/Infrastructure/Filters/BannedUserFilter.cs` | 封禁用户过滤 |
+| `src/backend/Infrastructure/Middlewares/` | ShieldMiddleware / GlobalException / ApiBinaryResponse |
+| `src/backend/Infrastructure/Operations/ProductionStartupValidator.cs` | 生产启动校验 |
+| `src/backend/Infrastructure/PublicAot/` | AOT 公开页壳层 |
+| `src/backend/Infrastructure/Sse/` | SSE 连接管理、背压、事件分发 |
+| `src/shared/Contracts/` | 前后端共享 DTO、SSE 信封、AOT 契约 |
+| `src/shared/Contracts/Outputs/ServerResponseContracts.cs` | 所有响应 DTO 定义 |
+| `src/shared/Contracts/Sse/SseContracts.cs` | SSE 事件类型与信封 |
+| `src/shared/Contracts/Envelopes/PodEnvelopes.cs` | POD 分页 / 游标信封 |
+| `src/core/Algorithms/` | AEDS 编解码算法核心 |
+| `src/core/Algorithms/AedsFrameType.cs` | 帧类型枚举（权威来源） |
+| `src/core/Algorithms/AEDS_V1_PROTOCOL.md` | 二进制帧协议规格（当前运行时只接受 v2） |
 | `src/frontend/src/wasm/` | C++23 解码器源码（include/ + src/） |
 | `src/frontend/src/workers/wasmDecode.worker.ts` | Wasm 解码 Web Worker |
 | `src/frontend/src/wasm/aeds.ts` | C++/TS 胶水层 |
@@ -45,10 +45,10 @@
 ### ServerContractAgent
 
 **负责范围**
-- `src/shared/FsusBlog.Shared/`、`src/core/FsusBlog.Core/`
-- `src/backend/FsusBlog.Server/Modules/Endpoints/`、`src/backend/FsusBlog.Server/Modules/Controllers/`
-- `src/backend/FsusBlog.Server/Infrastructure/`
-- `src/backend/FsusBlog.Server/Program.cs`
+- `src/shared/`、`src/core/`
+- `src/backend/Modules/Endpoints/`、`src/backend/Modules/Controllers/`
+- `src/backend/Infrastructure/`
+- `src/backend/Program.cs`
 
 **允许操作**
 - 修改端点注册与中间件顺序（仅在已有设计范围内，须同步 `docs/architecture.md`）
@@ -69,7 +69,7 @@
 
 **允许操作**
 - 修改 Wasm 解码器、协议映射、类型解析流程
-- 优化边界回退策略（binary → json）
+- 优化边界回退策略（Wasm binary decoder → TypeScript binary decoder / 协议错误）
 
 **禁止操作**
 - 修改业务路由、鉴权逻辑、JWT/Passkey 核心流程
@@ -98,13 +98,13 @@
 ### API 变更
 1. 阅读 `docs/api/design.md`、`docs/api/contracts.md`
 2. 对照 `docs/api/quick-reference.md`、`docs/api/schemas-and-errors.md`
-3. 核验 `src/backend/FsusBlog.Server/Program.cs` 路由注册与中间件顺序
-4. 核验 `src/backend/FsusBlog.Server/Modules/Endpoints/` 全量端点现状
+3. 核验 `src/backend/Program.cs` 路由注册与中间件顺序
+4. 核验 `src/backend/Modules/Endpoints/` 全量端点现状
 5. 形成变更单：新增 / 移除 / 重命名 / 参数变更
 
 ### 缓存策略变更
 1. 阅读 `docs/architecture.md`（缓存分层与顺序）
-2. 核验 `src/backend/FsusBlog.Server/Infrastructure/Cache/*.cs`
+2. 核验 `src/backend/Infrastructure/Cache/*.cs`
 3. 核对 `UseOutputCache`、`CacheOutput` 标记
 4. 核对 L1/L2 回填与失效入口（`IHttpCacheInvalidator`）
 
@@ -118,15 +118,15 @@
    - `Infrastructure/Operations/ProductionStartupValidator.cs`
 
 ### 二进制协议变更
-1. 阅读 `docs/api/contracts.md`、`src/core/FsusBlog.Core/Algorithms/AEDS_V1_PROTOCOL.md`
+1. 阅读 `docs/api/contracts.md`、`src/core/Algorithms/AEDS_V1_PROTOCOL.md`
 2. 核验三个算法文件：
-   - `src/core/FsusBlog.Core/Algorithms/AedsFrameType.cs`
-   - `src/core/FsusBlog.Core/Algorithms/AedsEncoder.cs`
-   - `src/core/FsusBlog.Core/Algorithms/AedsDecoderValidator.cs`
+   - `src/core/Algorithms/AedsFrameType.cs`
+   - `src/core/Algorithms/AedsEncoder.cs`
+   - `src/core/Algorithms/AedsDecoderValidator.cs`
 3. 核对端点与中间件：
-   - `src/backend/FsusBlog.Server/Modules/Endpoints/Binary/BinaryEndpoints.cs`
-   - `src/backend/FsusBlog.Server/Infrastructure/Middlewares/ApiBinaryResponseMiddleware.cs`
-4. 同步更新 `src/shared/FsusBlog.Shared/Contracts/Validation/PodSizeCatalog.cs` 中的尺寸常量
+   - `src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs`
+   - `src/backend/Infrastructure/Middlewares/ApiBinaryResponseMiddleware.cs`
+4. 同步更新 `src/shared/Contracts/Validation/PodSizeCatalog.cs` 中的尺寸常量
 5. 同步更新 `src/frontend/src/wasm/` 侧的解码逻辑
 
 ---
@@ -136,7 +136,7 @@
 ### 端点注册模式（Minimal API）
 
 ```csharp
-// src/backend/FsusBlog.Server/Modules/Endpoints/Xxx/XxxEndpoints.cs
+// src/backend/Modules/Endpoints/Xxx/XxxEndpoints.cs
 public static class XxxEndpoints
 {
     public static IEndpointRouteBuilder MapXxxEndpoints(this IEndpointRouteBuilder app)
@@ -188,7 +188,7 @@ CacheKeyBuilder.PublicAotShell(pageId, routeKey)
 ### Binary 端点模式
 
 ```csharp
-// Binary 端点与 JSON 端点一一对应，仅响应格式不同
+// Binary 端点是运行时主 API；不得新增旧文本 API fallback
 group.MapGet("/article", async (IAedsEncoder encoder, ...) =>
 {
     var pods = await service.GetArticleListPodsAsync(...);

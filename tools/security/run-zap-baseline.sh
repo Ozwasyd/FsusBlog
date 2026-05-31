@@ -23,6 +23,8 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
+"$ROOT_DIR/tools/security/check-zap-warn-policy.mjs"
+
 mkdir -p "$OUT_DIR"
 RUN_DIR="${FSUSBLOG_ZAP_RUN_DIR:-$OUT_DIR/$(date -u +%Y%m%dT%H%M%SZ)-$$}"
 mkdir -p "$RUN_DIR"

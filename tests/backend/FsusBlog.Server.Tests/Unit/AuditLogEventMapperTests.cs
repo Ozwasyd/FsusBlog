@@ -68,6 +68,36 @@ public sealed class AuditLogEventMapperTests
         Assert.Null(mapper.Map(logEvent));
     }
 
+    [Fact]
+    public void Map_DropsSensitiveTelemetryAndAuditContextProperties()
+    {
+        var mapper = new AuditLogEventMapper();
+        LogEvent logEvent = CreateLogEvent(
+            DateTimeOffset.UtcNow,
+            LogEventLevel.Information,
+            "request completed",
+            null,
+            new LogEventProperty("TraceId", new ScalarValue("trace-safe")),
+            new LogEventProperty("ClientIp", new ScalarValue("203.0.113.10")),
+            new LogEventProperty("UserAgent", new ScalarValue("browser")),
+            new LogEventProperty("Cookie", new ScalarValue("__Host-AccessToken=secret")),
+            new LogEventProperty("Authorization", new ScalarValue("Bearer token")),
+            new LogEventProperty("Email", new ScalarValue("user@example.invalid")),
+            new LogEventProperty("RequestBody", new ScalarValue("{\"password\":\"secret\"}")));
+
+        AuditRecord? record = mapper.Map(logEvent);
+
+        Assert.NotNull(record);
+        IReadOnlyDictionary<string, object?> context = DecodeContext(record!);
+        Assert.Equal("trace-safe", context["TraceId"]);
+        Assert.DoesNotContain("ClientIp", context.Keys);
+        Assert.DoesNotContain("UserAgent", context.Keys);
+        Assert.DoesNotContain("Cookie", context.Keys);
+        Assert.DoesNotContain("Authorization", context.Keys);
+        Assert.DoesNotContain("Email", context.Keys);
+        Assert.DoesNotContain("RequestBody", context.Keys);
+    }
+
     private static LogEvent CreateLogEvent(
         DateTimeOffset timestamp,
         LogEventLevel level,

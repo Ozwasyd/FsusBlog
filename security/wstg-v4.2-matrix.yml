@@ -1,0 +1,114 @@
+version: wstg-v4.2
+scenarios:
+  - id: WSTG-v42-CONF-05
+    scenario: production network exposure and security header verification
+    owner: ServerContractAgent
+    status: automated
+    code:
+      - tools/security/check-production-network-baseline.sh
+      - tools/security/check-production-exposure-live.sh
+      - tests/frontend/checks/security/check-security-headers-cors.mjs
+    tests:
+      - tools/security/test-production-exposure-tools.sh
+      - tests/frontend/checks/security/check-security-headers-cors.mjs
+    evidence:
+      - .tmp/security/production-exposure-status.json
+
+  - id: WSTG-v42-ATHN-01
+    scenario: authentication entry points reject weak or malformed session flows
+    owner: ServerContractAgent
+    status: automated
+    code:
+      - src/backend/Infrastructure/Auth
+      - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs
+    tests:
+      - tests/frontend/checks/runtime/auth-session-smoke.mjs
+      - tests/frontend/checks/security/check-auth-mfa-smoke.mjs
+      - tests/backend/FsusBlog.Server.Tests/Unit/AuthAndBoundaryTests.cs
+    evidence:
+      - .tmp/security/attack-matrix.json
+
+  - id: WSTG-v42-ATHN-08
+    scenario: MFA and passkey recovery boundaries remain enforced
+    owner: ServerContractAgent
+    status: automated
+    code:
+      - src/backend/Infrastructure/Auth
+      - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs
+    tests:
+      - tests/frontend/checks/security/check-auth-mfa-smoke.mjs
+      - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
+      - tests/backend/FsusBlog.Server.Tests/Unit/TotpServiceTests.cs
+      - tests/backend/FsusBlog.Server.Tests/Unit/PasskeyServiceTests.cs
+    evidence:
+      - .tmp/security/attack-matrix.json
+
+  - id: WSTG-v42-ATHZ-01
+    scenario: horizontal and vertical authorization are enforced for user and admin actions
+    owner: ServerContractAgent
+    status: automated
+    code:
+      - src/backend/Modules/Endpoints
+      - src/backend/Infrastructure/Filters/BannedUserFilter.cs
+    tests:
+      - tests/frontend/checks/security/check-permission-matrix.mjs
+      - tests/backend/FsusBlog.Server.Tests/Unit/EndpointPolicyContractTests.cs
+    evidence:
+      - .tmp/security/permission-matrix.json
+
+  - id: WSTG-v42-SESS-02
+    scenario: cookie, JWT and bearer-token session handling reject fixation and downgrade paths
+    owner: ServerContractAgent
+    status: automated
+    code:
+      - src/backend/Infrastructure/Auth/AuthCookieService.cs
+      - src/backend/Infrastructure/Helpers/JwtHelper.cs
+    tests:
+      - tests/backend/FsusBlog.Server.Tests/Unit/JwtHelperTests.cs
+      - tests/backend/FsusBlog.Server.Tests/Unit/AuthCookieServiceSecurityTests.cs
+      - tests/frontend/checks/runtime/auth-session-smoke.mjs
+    evidence:
+      - .tmp/security/attack-matrix.json
+
+  - id: WSTG-v42-INPV-04
+    scenario: malformed JSON, binary and AEDS frames cannot bypass validation
+    owner: ServerContractAgent
+    status: automated
+    code:
+      - src/core/Algorithms/AedsDecoderValidator.cs
+      - src/backend/Infrastructure/Middlewares/ApiBinaryResponseMiddleware.cs
+      - src/shared/Contracts/Validation/PodSizeCatalog.cs
+    tests:
+      - tests/backend/FsusBlog.Server.Tests/Unit/AedsEncoderTests.cs
+      - tests/backend/FsusBlog.Server.Tests/Unit/PodValidationTests.cs
+      - tests/frontend/checks/security/check-security-sse-binary.mjs
+    evidence:
+      - .tmp/security/attack-matrix.json
+
+  - id: WSTG-v42-CLNT-05
+    scenario: frontend runtime avoids dangerous HTML and client-side trust drift
+    owner: InteropGlueAgent
+    status: automated
+    code:
+      - src/frontend/src
+      - tests/frontend/checks/static/check-security-consistency.mjs
+    tests:
+      - tests/frontend/checks/static/check-security-consistency.mjs
+      - tests/frontend/checks/static/check-no-runtime-message-branching.mjs
+    evidence:
+      - .tmp/security/attack-matrix.json
+
+  - id: WSTG-v42-ERRH-01
+    scenario: errors, traces and telemetry avoid sensitive payload disclosure
+    owner: ServerContractAgent
+    status: automated
+    code:
+      - src/backend/Infrastructure/Observability
+      - src/backend/Infrastructure/Audit
+      - src/frontend/src/services/telemetryService.ts
+    tests:
+      - tests/frontend/checks/static/check-telemetry-privacy.mjs
+      - tests/frontend/checks/static/check-subscription-privacy.mjs
+      - tests/backend/FsusBlog.Server.Tests/Unit/ObservabilityTests.cs
+    evidence:
+      - .tmp/security/attack-matrix.json

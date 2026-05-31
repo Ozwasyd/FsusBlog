@@ -3,6 +3,8 @@
 import { decodeAedsFrame } from '../../support/aeds-envelope.mjs'
 import { baseUrl, buildPowHeaders, requestTimeoutMs } from '../../support/auth-helpers.mjs'
 import { probeReachable } from '../../support/http.mjs'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 
 const streamPath = '/api/notifications/stream'
 const wsProtocol = 'fsus-aeds.v2'
@@ -12,6 +14,7 @@ const durationMs = readPositiveInt(process.env.FSUSBLOG_SSE_DURATION_MS, 30000)
 const connectBatchSize = readPositiveInt(process.env.FSUSBLOG_SSE_CONNECT_BATCH_SIZE, 10)
 const powAttempts = readPositiveInt(process.env.FSUSBLOG_SSE_POW_ATTEMPTS, 30)
 const testSessionId = process.env.FSUSBLOG_TEST_SESSION_ID || ''
+const evidenceDir = process.env.FSUSBLOG_PERF_EVIDENCE_DIR || resolve(process.cwd(), '..', '..', '.tmp/perf')
 
 function readPositiveInt(value, fallback) {
   const parsed = Number(value)
@@ -172,6 +175,13 @@ async function main() {
   assert(stats.opened === connections, `open count drift: ${stats.opened}/${connections}`)
   assert(stats.heartbeats >= connections, `heartbeat count drift: ${stats.heartbeats}/${connections}`)
   assert(stats.errors === 0, `websocket errors: ${stats.errors}`)
+
+  await mkdir(evidenceDir, { recursive: true })
+  await writeFile(resolve(evidenceDir, 'sse-pressure.json'), `${JSON.stringify({
+    status: 'ok',
+    generatedAt: new Date().toISOString(),
+    ...stats
+  }, null, 2)}\n`)
 
   console.log(`[sse-pressure] ok ${JSON.stringify(stats)}`)
   process.exit(0)

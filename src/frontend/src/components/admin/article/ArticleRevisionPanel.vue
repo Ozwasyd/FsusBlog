@@ -7,7 +7,7 @@
     <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <div id="article-revision-title" class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">修订历史 / REVISIONS</div>
+          <div id="article-revision-title" class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">修订历史 / REVISIONS</div>
           <p class="mt-1 text-[11px] text-[var(--fsusblog-text-tertiary)]" aria-live="polite">{{ statusText }}</p>
         </div>
         <el-button
@@ -35,11 +35,15 @@
           :class="{ 'revision-row--active': selectedRevision?.id === revision.id }"
           :disabled="loading || rollbacking"
           :aria-label="`选择修订版本 ${revision.revisionNo}`"
+          :aria-current="selectedRevision?.id === revision.id ? 'true' : undefined"
+          :aria-pressed="selectedRevision?.id === revision.id"
           @click="$emit('select-revision', revision)"
         >
           <span class="revision-row__main">
             <span class="revision-row__title">版本 {{ revision.revisionNo }} · {{ revision.title }}</span>
-            <span class="revision-row__meta">{{ revision.diffSummary }} · {{ formatDate(revision.createdAt) }}</span>
+            <span class="revision-row__meta">
+              {{ revision.diffSummary }} · <SemanticTime :value="revision.createdAt" />
+            </span>
           </span>
           <span class="revision-row__actor">#{{ revision.createdByUserId }}</span>
         </button>
@@ -48,7 +52,7 @@
       <div v-if="selectedRevision" class="revision-compare border-t border-[var(--fsusblog-panel-border)] pt-4">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <div class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ selectedLabel }}</div>
+            <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ selectedLabel }}</div>
             <p class="mt-1 text-xs text-[var(--fsusblog-text-secondary)]">{{ compareText }}</p>
           </div>
           <el-popconfirm
@@ -91,6 +95,7 @@
 
 <script setup lang="ts">
 import { Refresh, RefreshLeft } from '@/ui/fsusIcons'
+import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { ArticleRevisionDetailResponse, ArticleRevisionSummaryResponse } from '@/api/authoring'
 
 defineProps<{
@@ -110,10 +115,6 @@ defineEmits<{
   (e: 'rollback'): void
 }>()
 
-const formatDate = (value: string): string => {
-  const timestamp = Date.parse(value)
-  return Number.isFinite(timestamp) ? new Date(timestamp).toLocaleString() : value
-}
 </script>
 
 <style scoped>

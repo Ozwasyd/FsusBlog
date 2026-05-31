@@ -13,8 +13,9 @@
 
     <div class="space-y-4">
       <div>
-        <label class="block text-[10px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">当前密码</label>
+        <label for="mfa-credential-password" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">当前密码</label>
         <el-input
+          id="mfa-credential-password"
           ref="passwordInput"
           v-model="password"
           type="password"
@@ -25,20 +26,25 @@
         />
       </div>
       <div>
-        <label class="block text-[10px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">验证码</label>
+        <label for="mfa-credential-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">验证码</label>
         <el-input
+          id="mfa-credential-code"
           v-model="code"
           type="text"
+          autocomplete="one-time-code"
+          inputmode="numeric"
           placeholder="6 位验证码"
           :disabled="loading"
           @keyup.enter="handleConfirm"
         />
       </div>
       <div>
-        <label class="block text-[10px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">恢复码(可选)</label>
+        <label for="mfa-credential-recovery-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">恢复码(可选)</label>
         <el-input
+          id="mfa-credential-recovery-code"
           v-model="recoveryCode"
           type="text"
+          autocomplete="one-time-code"
           placeholder="恢复码"
           :disabled="loading"
           @keyup.enter="handleConfirm"
@@ -46,7 +52,7 @@
       </div>
     </div>
 
-    <div v-if="errorMessage" class="mt-4 text-[11px] font-medium text-[var(--fsusblog-color-error)]">{{ errorMessage }}</div>
+    <div v-if="errorMessage" role="alert" class="mt-4 text-[11px] font-medium text-[var(--fsusblog-color-error)]">{{ errorMessage }}</div>
 
     <template #footer>
       <div class="dialog-footer flex justify-end gap-5 mt-4">

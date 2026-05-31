@@ -16,6 +16,7 @@
           <div class="w-full">
             <el-select
               :model-value="reason"
+              aria-label="封禁原因"
               placeholder="请选择或输入理由"
               allow-create
               filterable

@@ -33,4 +33,7 @@ if [[ -n "$TAG_MATCHES" ]]; then
   exit 1
 fi
 
+echo "[cache-governance] checking machine-readable cache catalog"
+node "$ROOT_DIR/tools/cache/export-cache-governance.mjs" --check
+
 echo "[cache-governance] ok"

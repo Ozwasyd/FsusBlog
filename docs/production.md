@@ -36,6 +36,8 @@ Required variables:
 
 Production validation rejects default JWT secrets, placeholder secrets, empty Redis passwords, HTTP CORS origins, non-HTTPS `SITE_BASEURL`, wildcard `AllowedHosts`, and missing reverse-proxy trust configuration. Invalid production validation marks `/health/ready` as `503`, and the hosted validation task reports the detailed degraded state in runtime health.
 
+DataProtection keys are persisted by default under `FSUSBLOG_DATA_ROOT/data-protection-keys`; override with `DataProtection:KeyRingPath` or `FSUSBLOG_DATA_PROTECTION_KEY_RING` when running multiple instances or using a mounted secrets volume. Keep `DataProtection:ApplicationName=FsusBlog` consistent across rolling deployments so protected MFA/session payloads remain readable during restart and rollout windows.
+
 ## Build And Deploy
 
 ```bash
@@ -213,3 +215,13 @@ tools/operations/collect-release-evidence.sh
 ```
 
 The smoke output belongs in `.tmp/operations/post-deploy-smoke.json`; the evidence collector writes `.tmp/release-evidence/<timestamp>/manifest.json`. The manifest may be `collected-blocked`; in that case `evidenceSummary` is the release-blocking record and must show the missing image digest, firewall policy, DNS, live exposure or other invalid evidence directly. The collector also copies `production-exposure-evidence-request.json` when present and summarizes its current status, blocker count, blocker sources, next action sources, unblock plan sources/count, required hosts, delegation domains, verification command names/count, returned closeout command count and closeout command fields under `evidenceSummary.externalExposure.request`, so the release artifact records exactly what external inputs and closeout paths were requested. These files complement, but do not replace, `tools/security/complete-production-exposure-closeout.sh`: external production exposure is complete only when real DNS delegation/readiness, firewall/security-group evidence, HTTPS/HSTS and live forbidden-port checks all pass for the production host set.
+
+Closeout levels:
+
+| Evidence | Responsibility |
+| --- | --- |
+| coverage, ZAP, attack matrix, permission matrix, supply-chain audit, SBOM, load result | CI forced before release evidence collection |
+| image digest, DNS readiness/delegation, firewall policy, live HTTPS/HSTS/forbidden-port exposure, post-deploy smoke | release closeout required before promotion |
+| backup restore drill, retention cleanup and SLO alert replay | scheduled operations drill, copied into release evidence when available |
+
+Run `tools/operations/check-release-evidence-manifest.mjs .tmp/release-evidence/<timestamp>/manifest.json` before treating a manifest as a release credential. Use `--require-ok` only for final promotion, because local CI can legitimately produce `collected-blocked` while waiting for external production evidence.

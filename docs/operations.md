@@ -10,7 +10,7 @@ Before publishing a production image:
 
 `production` is the authoritative gate: it runs fast validation first, starts the full local stack once, then reuses that stack for integration, release, acceptance, visual, security, resilience, and load checks. A passing gate means no compile warnings, no TypeScript/Vite warnings, no runtime console errors or warnings, no API/Binary/SSE/AOT contract drift, and no blocker security or workflow regressions in the encoded risk matrix.
 
-The same gate is enforced by GitHub Actions `Quality Gate` on pull requests, pushes to `main`, and manual dispatch. CI requires `GITHUB_PACKAGES_TOKEN` for the private `@ozwasyd` npm package.
+The same gate is enforced by GitHub Actions `Quality Gate` on pull requests, pushes to `main` / `master`, and manual dispatch. CI requires `GITHUB_PACKAGES_TOKEN` for the private `@ozwasyd` npm package. CI pins `FSUSBLOG_PLAYWRIGHT_WORKERS=1`; local runs may override that value when more parallelism is safe.
 
 ## Coverage Gate
 
@@ -80,6 +80,8 @@ OpenTelemetry is enabled in-process by default and uses `FsusBlog.Server` as the
 OTLP export is off by default. Enable it by setting either `Observability:ExporterEnabled=true` with `Observability:OtlpEndpoint=http://collector:4317`, or the standard `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable. Requests return `X-Fsus-Trace-Id`, and Serilog/audit request context uses the same trace identifier for log correlation. Do not add raw route parameters, request/response bodies, cookies, tokens, IP addresses, usernames or email addresses as OpenTelemetry attributes.
 
 ## SLO Alerts
+
+Production SLO definitions are machine-readable in `config/slo.yml`; `tools/operations/check-slo-definition.mjs` verifies availability, error-rate, p95/p99 latency, SSE reconnect success, AOT hit rate, search rebuild success and scheduled publish delay objectives before the release gate proceeds.
 
 The release SLO fixture is executable:
 
@@ -166,6 +168,14 @@ tools/operations/collect-release-evidence.sh
 The collector writes `.tmp/release-evidence/<timestamp>/manifest.json` and copies available security, operations, coverage and gate-log evidence. The manifest status is `collected-ok` only when required evidence is valid; otherwise it is `collected-blocked` and `evidenceSummary` records which evidence is missing or blocked. Production closeout evidence remains fail-closed: DNS delegation/readiness, firewall policy and live exposure must come from the real production environment before `NB-P0-001` can close.
 
 The manifest is also the security evidence index for the release. It records DAST/ZAP output, `attack-matrix.json`, `permission-matrix.json`, production exposure status, production exposure request, firewall policy evidence, DNS readiness, DNS delegation and live exposure evidence. `evidenceSummary.externalExposure.valid=false` is a valid release-blocking artifact state, not a promotion signal. `evidenceSummary.externalExposure.request` summarizes the request package status, blocker count, current blocker sources, next action sources, unblock plan sources/count, required hosts, delegation domains, required evidence keys, firewall source sha256 requirements, handoff check count, verification command names/count, returned closeout command count and closeout command fields so operators can triage from the manifest before opening the full request JSON. `artifactDigests` records sha256 digests for copied production exposure artifacts so a handed-off bundle can be checked without trusting the current working tree; firewall policy evidence also carries `evidenceSource.sourceSha256` for the raw cloud or UFW export used to generate the normalized policy. If an artifact is absent, its digest must also be `null`. Missing external evidence is represented as `null` in `securityEvidenceIndex` while the blocker detail remains in `production-exposure-status.json`; do not replace that with synthetic passing firewall or DNS data.
+
+Evidence levels are intentionally split:
+
+| Evidence | Level | Gate |
+| --- | --- | --- |
+| coverage summary, ZAP, attack matrix, permission matrix, supply-chain audit, SBOM, load result | CI forced | `tools/test.sh production` and `tools/operations/check-release-evidence-manifest.mjs` |
+| image digest, post-deploy smoke, DNS readiness/delegation, firewall policy, live exposure | release closeout | `tools/operations/collect-release-evidence.sh` records `collected-blocked` until real evidence is present |
+| backup restore drill, retention cleanup, SLO alert replay | scheduled drill | `.github/workflows/daily-operations-checks.yml` plus release evidence copy when a release run provides the artifacts |
 
 When `tools/security/complete-production-exposure-closeout.sh` fails, it still writes `.tmp/security/production-exposure-evidence-request.json`, tries to refresh later DNS readiness/live evidence, writes `.tmp/security/production-exposure-status.json` when possible, refreshes the request package with `currentStatus`, `nextActions` and `unblockPlan`, and leaves `TODO.md` unchanged. The request package includes the direct closeout command plus returned-evidence and returned-handoff closeout commands so an operator can continue from either a filled `returned-evidence/` directory or a returned handoff tarball. `unblockPlan` groups every blocker source with the blocker count, exact expected artifact names, evidence file paths and commands needed to produce or verify that source. Run `tools/security/write-production-exposure-evidence-request.sh` before handoff when you only need the request package without live probing. Run `tools/operations/collect-release-evidence.sh` after a failed closeout attempt to preserve that request, the blocked status, and the DNS readiness/delegation, live exposure and firewall evidence files that were available.
 

@@ -1,27 +1,25 @@
 <template>
-  <div class="account-page tag-manage-wrapper w-full">
-    <header class="account-page-header">
-      <div class="account-page-eyebrow">管理 / TAXONOMY</div>
-      <h1 class="account-page-title">标签管理</h1>
-      <p class="account-page-description">
-        维护文章的索引关键词与检索语义。标签变更需要保持可读、简洁。
-      </p>
-    </header>
+  <div class="account-page tag-manage-wrapper account-motion-enter w-full">
+    <AccountPageHeader
+      eyebrow="管理 / TAXONOMY"
+      title="标签管理"
+      description="维护文章的索引关键词与检索语义。标签变更需要保持可读、简洁。"
+    />
 
-    <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] py-8 px-4 mb-12">
-      <header class="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
-        <div>
-          <div class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">索引规模 / SCALE</div>
-          <h2 class="text-2xl font-bold text-[var(--fsusblog-text-primary)] flex items-center gap-3">
-            已存标签
-            <span class="text-[var(--fsusblog-text-primary)] tabular-nums">
-              {{ list.length }}
-            </span>
-          </h2>
-          <p class="text-[11px] text-[var(--fsusblog-text-tertiary)] mt-4 italic font-medium">
-            维护博文索引关键词，高危操作将触发强制算力校验
-          </p>
-        </div>
+    <WorkbenchPanel
+      class="mb-12"
+      eyebrow="索引规模 / SCALE"
+      title="已存标签"
+      caption="维护博文索引关键词，高危操作将触发强制算力校验"
+      title-id="tag-scale-title"
+    >
+      <template #title>
+        已存标签
+        <span class="text-[var(--fsusblog-text-primary)] tabular-nums">
+          {{ list.length }}
+        </span>
+      </template>
+      <template #actions>
         <el-button
           type="primary"
           :icon="Plus"
@@ -29,12 +27,12 @@
         >
           创建标签
         </el-button>
-      </header>
-    </section>
+      </template>
+    </WorkbenchPanel>
 
     <section class="border-t border-[var(--fsusblog-panel-border)]">
       <div class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] flex items-center justify-between">
-        <div class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">标签列表 / TAG LIST</div>
+        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">标签列表 / TAG LIST</div>
       </div>
       <el-table
         v-loading="loading"
@@ -86,7 +84,7 @@
                 type="danger"
                 @click="handleDelete(row)"
               >
-                {{ isCompact ? '删' : '销毁' }}
+                删除
               </el-button>
             </div>
           </template>
@@ -103,8 +101,8 @@
       :close-on-click-modal="false"
     >
       <div class="pt-2">
-        <el-form :model="form" ref="formRef" :rules="rules" @submit.prevent="submitForm">
-          <el-form-item prop="name">
+        <el-form :model="form" ref="formRef" :rules="rules" label-position="top" @submit.prevent="submitForm">
+          <el-form-item label="标签名称" prop="name">
             <el-input
               v-model="form.name"
               name="tagName"
@@ -123,7 +121,7 @@
         <span class="text-[var(--fsusblog-text-muted)] mt-1">
           <el-icon><InfoFilled /></el-icon>
         </span>
-        <p class="text-[11px] text-[var(--fsusblog-text-muted)] leading-relaxed">
+        <p class="text-[12px] text-[var(--fsusblog-text-muted)] leading-relaxed">
           变更标签名会即时同步至所有关联博文。建议使用简洁、具有高辨识度的词汇。
         </p>
       </div>
@@ -146,6 +144,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { type TagItem } from '@/api/tag'
+import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { InfoFilled, Plus } from '@/ui/fsusIcons'
 import { useAdminTagManage } from '@/composables/useAdminTagManage'
 import { useMediaQuery } from '@/composables/useMediaQuery'
@@ -176,15 +176,6 @@ const actionColumnWidth = computed(() => (isCompact.value ? 104 : 180))
 </script>
 
 <style scoped>
-
-.tag-manage-wrapper {
-  animation: slide-in var(--fsus-motion-panel) var(--fsus-motion-standard);
-}
-
-@keyframes slide-in {
-  from { opacity: 0; transform: translateY(15px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;

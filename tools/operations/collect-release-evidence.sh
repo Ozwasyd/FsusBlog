@@ -11,6 +11,7 @@ if [[ ! -d "$COVERAGE_DIR" && -d "$ROOT_DIR/.tmp/coverage" ]]; then
   COVERAGE_DIR="$ROOT_DIR/.tmp/coverage"
 fi
 GATE_LOG_DIR="${FSUSBLOG_GATE_LOG_SOURCE_DIR:-$ROOT_DIR/.tmp/gate-logs}"
+PERF_DIR="${FSUSBLOG_PERF_EVIDENCE_DIR:-$ROOT_DIR/.tmp/perf}"
 mkdir -p "$OUT_DIR"
 
 copy_if_present() {
@@ -75,6 +76,21 @@ result_status_or_missing() {
   ' "$file" 2>/dev/null || printf 'invalid'
 }
 
+zap_status_or_missing() {
+  local dir="$1"
+  if [[ ! -d "$dir" ]]; then
+    printf 'missing'
+    return
+  fi
+
+  if find "$dir" -type f -name '*.json' -print -quit | grep -q .; then
+    printf 'ok'
+    return
+  fi
+
+  printf 'invalid'
+}
+
 blockers_json_or_empty() {
   local file="$1"
   if [[ ! -f "$file" ]]; then
@@ -83,6 +99,16 @@ blockers_json_or_empty() {
   fi
 
   jq -c '.blockers // []' "$file" 2>/dev/null || printf '[]'
+}
+
+slo_critical_count_or_zero() {
+  local file="$1"
+  if [[ ! -f "$file" ]]; then
+    printf '0'
+    return
+  fi
+
+  jq -r '[.alerts[]? | select(.severity == "critical" and ((.status // "firing") == "firing"))] | length' "$file" 2>/dev/null || printf '0'
 }
 
 request_summary_json() {
@@ -184,12 +210,17 @@ DNS_DELEGATION="$(copy_if_present "$SECURITY_DIR/production-dns-delegation.json"
 ATTACK_MATRIX="$(copy_if_present "$SECURITY_DIR/attack-matrix.json" attack-matrix.json)"
 PERMISSION_MATRIX="$(copy_if_present "$SECURITY_DIR/permission-matrix.json" permission-matrix.json)"
 ZAP="$(copy_if_present "$SECURITY_DIR/zap" zap)"
+SUPPLY_CHAIN="$(copy_if_present "$SECURITY_DIR/supply-chain" supply-chain)"
+SBOM="$(copy_if_present "$SECURITY_DIR/sbom" sbom)"
+SECURITY_MATRICES="$(copy_if_present "$ROOT_DIR/security" security-matrices)"
 RESTORE_DRILL="$(copy_if_present "$OPERATIONS_DIR/backup-restore-drill.json" backup-restore-drill.json)"
 SMOKE="$(copy_if_present "$OPERATIONS_DIR/post-deploy-smoke.json" post-deploy-smoke.json)"
 SLO_ALERTS="$(copy_if_present "$OPERATIONS_DIR/slo-alert-fixture.json" slo-alert-fixture.json)"
 RETENTION_CLEANUP="$(copy_if_present "$OPERATIONS_DIR/retention-cleanup.json" retention-cleanup.json)"
 COVERAGE_ARTIFACT="$(copy_if_present "$COVERAGE_DIR" coverage)"
+PERF_ARTIFACT="$(copy_if_present "$PERF_DIR" perf)"
 GATE_LOGS="$(copy_if_present "$GATE_LOG_DIR" gate-logs)"
+VISUAL_GATE_SKIP="$(copy_if_present "$GATE_LOG_DIR/visual-gate-skip.json" visual-gate-skip.json)"
 
 PRODUCTION_STATUS_DIGEST="$(artifact_digest_json "$PRODUCTION_STATUS")"
 PRODUCTION_REQUEST_DIGEST="$(artifact_digest_json "$PRODUCTION_REQUEST")"
@@ -205,15 +236,20 @@ DNS_DELEGATION_STATUS_VALUE="$(result_status_or_missing "$SECURITY_DIR/productio
 FIREWALL_POLICY_STATUS_VALUE="$([[ "$FIREWALL_POLICY" == "null" ]] && printf 'missing' || printf 'present')"
 ATTACK_MATRIX_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/attack-matrix.json")"
 PERMISSION_MATRIX_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/permission-matrix.json")"
+SUPPLY_CHAIN_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/supply-chain/summary.json")"
+SBOM_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/sbom/summary.json")"
 BACKUP_RESTORE_STATUS_VALUE="$(json_status_or_missing "$OPERATIONS_DIR/backup-restore-drill.json")"
 POST_DEPLOY_SMOKE_STATUS_VALUE="$(json_status_or_missing "$OPERATIONS_DIR/post-deploy-smoke.json")"
 SLO_STATUS_VALUE="$(json_status_or_missing "$OPERATIONS_DIR/slo-alert-fixture.json")"
+SLO_CRITICAL_COUNT="$(slo_critical_count_or_zero "$OPERATIONS_DIR/slo-alert-fixture.json")"
 RETENTION_STATUS_VALUE="$(json_status_or_missing "$OPERATIONS_DIR/retention-cleanup.json")"
 IMAGE_DIGEST_VALUE="${FSUSBLOG_IMAGE_DIGEST:-unknown}"
 IMAGE_DIGEST_STATUS="$([[ "$IMAGE_DIGEST_VALUE" == "unknown" || -z "$IMAGE_DIGEST_VALUE" ]] && printf 'missing' || printf 'present')"
 EXTERNAL_BLOCKERS="$(blockers_json_or_empty "$SECURITY_DIR/production-exposure-status.json")"
 REQUEST_SUMMARY="$(request_summary_json)"
 COVERAGE_SUMMARY="$(coverage_summary_json)"
+COVERAGE_STATUS_VALUE="$(jq -r '.status // "missing"' <<<"$COVERAGE_SUMMARY" 2>/dev/null || printf 'invalid')"
+ZAP_STATUS_VALUE="$(zap_status_or_missing "$SECURITY_DIR/zap")"
 
 MANIFEST_STATUS="collected-ok"
 if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
@@ -223,8 +259,14 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$FIREWALL_POLICY_STATUS_VALUE" != "present" \
   || "$ATTACK_MATRIX_STATUS_VALUE" != "ok" \
   || "$PERMISSION_MATRIX_STATUS_VALUE" != "ok" \
+  || "$ZAP_STATUS_VALUE" != "ok" \
+  || "$SUPPLY_CHAIN_STATUS_VALUE" != "ok" \
+  || "$SBOM_STATUS_VALUE" != "ok" \
+  || "$COVERAGE_STATUS_VALUE" != "ok" \
   || "$BACKUP_RESTORE_STATUS_VALUE" != "ok" \
   || "$POST_DEPLOY_SMOKE_STATUS_VALUE" != "ok" \
+  || "$SLO_STATUS_VALUE" != "ok" \
+  || "$SLO_CRITICAL_COUNT" != "0" \
   || "$IMAGE_DIGEST_STATUS" != "present" ]]; then
   MANIFEST_STATUS="collected-blocked"
 fi
@@ -235,6 +277,12 @@ cat > "$OUT_DIR/manifest.json" <<JSON
   "releaseStamp": "$STAMP",
   "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "gitRevision": "$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)",
+  "commitSha": "$(git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)",
+  "workflowRun": {
+    "id": "${GITHUB_RUN_ID:-unknown}",
+    "attempt": "${GITHUB_RUN_ATTEMPT:-unknown}",
+    "workflow": "${GITHUB_WORKFLOW:-unknown}"
+  },
   "imageDigest": "$IMAGE_DIGEST_VALUE",
   "artifacts": {
     "productionExposureStatus": $PRODUCTION_STATUS,
@@ -246,11 +294,16 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "attackMatrix": $ATTACK_MATRIX,
     "permissionMatrix": $PERMISSION_MATRIX,
     "dastZap": $ZAP,
+    "supplyChain": $SUPPLY_CHAIN,
+    "sbom": $SBOM,
+    "securityMatrices": $SECURITY_MATRICES,
     "backupRestoreDrill": $RESTORE_DRILL,
     "postDeploySmoke": $SMOKE,
     "sloAlerts": $SLO_ALERTS,
     "retentionCleanup": $RETENTION_CLEANUP,
     "coverage": $COVERAGE_ARTIFACT,
+    "perf": $PERF_ARTIFACT,
+    "visualGateSkip": $VISUAL_GATE_SKIP,
     "gateLogs": $GATE_LOGS,
     "securitySourceDir": "$(realpath --relative-to="$OUT_DIR" "$SECURITY_DIR" 2>/dev/null || true)"
   },
@@ -272,12 +325,18 @@ cat > "$OUT_DIR/manifest.json" <<JSON
       "backupRestoreDrill": "$BACKUP_RESTORE_STATUS_VALUE",
       "postDeploySmoke": "$POST_DEPLOY_SMOKE_STATUS_VALUE",
       "sloAlerts": "$SLO_STATUS_VALUE",
+      "sloCriticalFiring": $SLO_CRITICAL_COUNT,
       "retentionCleanup": "$RETENTION_STATUS_VALUE"
+    },
+    "gates": {
+      "visualGateSkip": $VISUAL_GATE_SKIP
     },
     "security": {
       "attackMatrix": "$ATTACK_MATRIX_STATUS_VALUE",
       "permissionMatrix": "$PERMISSION_MATRIX_STATUS_VALUE",
-      "dastZap": $ZAP
+      "supplyChain": "$SUPPLY_CHAIN_STATUS_VALUE",
+      "sbom": "$SBOM_STATUS_VALUE",
+      "dastZap": "$ZAP_STATUS_VALUE"
     },
     "externalExposure": {
       "status": "$PRODUCTION_STATUS_VALUE",
@@ -292,6 +351,9 @@ cat > "$OUT_DIR/manifest.json" <<JSON
   },
   "securityEvidenceIndex": [
     { "kind": "dast", "artifact": $ZAP },
+    { "kind": "supply-chain", "artifact": $SUPPLY_CHAIN },
+    { "kind": "sbom", "artifact": $SBOM },
+    { "kind": "security-matrices", "artifact": $SECURITY_MATRICES },
     { "kind": "attack-matrix", "artifact": $ATTACK_MATRIX },
     { "kind": "permission-matrix", "artifact": $PERMISSION_MATRIX },
     { "kind": "production-exposure-status", "artifact": $PRODUCTION_STATUS },

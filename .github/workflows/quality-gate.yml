@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - master
   workflow_dispatch:
 
 permissions:
@@ -80,6 +81,9 @@ jobs:
       DOTNET_NOLOGO: 'true'
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
       FSUSBLOG_DATA_ROOT: ${{ github.workspace }}/.tmp/ci-data
+      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
+      FSUSBLOG_ENABLE_CROSS_BROWSER: '1'
+      FSUSBLOG_PLAYWRIGHT_BROWSERS: chromium,firefox,webkit
       GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
 
     steps:
@@ -109,9 +113,12 @@ jobs:
         working-directory: src/frontend
         run: npm ci --no-audit --progress=false
 
-      - name: Install Playwright Chromium
+      - name: Install Playwright browsers
         working-directory: src/frontend
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Run gate integrity self-test
+        run: ./tools/check-gate-integrity.sh --self-test
 
       - name: Run production quality gate
         run: ./tools/test.sh production
@@ -125,7 +132,9 @@ jobs:
           retention-days: 14
           path: |
             .tmp/acceptance/*.log
-            .tmp/security/zap/**
+            .tmp/gate-logs/**
+            .tmp/release-evidence/**
+            .tmp/security/**
             src/frontend/test-results/**
             src/frontend/playwright-report/**
 

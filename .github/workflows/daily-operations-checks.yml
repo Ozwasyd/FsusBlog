@@ -1,0 +1,52 @@
+name: Daily Operations Checks
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-operations-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  operations:
+    name: Operations Evidence Fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+
+      - name: Run operations fixture checks
+        run: |
+          tools/operations/check-slo-definition.mjs
+          tools/operations/check-slo-alert-fixture.mjs
+          tools/operations/check-release-slo-alerts.mjs .tmp/operations/slo-alert-fixture.json --allow-critical
+          tools/operations/test-backup-restore-drill-fixture.sh
+          tools/operations/test-retention-cleanup-fixture.sh
+          tools/operations/test-release-evidence-fixture.sh
+          tools/operations/check-release-evidence-manifest.mjs --self-test
+
+      - name: Upload operations evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: daily-operations-evidence
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/operations/**
+            .tmp/release-evidence/**

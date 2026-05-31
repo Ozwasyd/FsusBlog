@@ -8,7 +8,7 @@
         size="small"
         @click="resetOptions"
       >
-        Reset
+        重置
       </el-button>
     </header>
 
@@ -22,7 +22,7 @@
           <el-option label="AVIF" value="avif" />
           <el-option label="PNG" value="png" />
           <el-option label="JPEG" value="jpeg" />
-          <el-option label="GIF (Original)" value="gif" />
+          <el-option label="GIF（原图）" value="gif" />
         </el-select>
       </el-form-item>
 
@@ -80,36 +80,36 @@
     <!-- 状态与预览 -->
     <footer class="mt-12 space-y-6">
       <div v-if="statusText" class="flex items-center gap-4 py-3 px-4 bg-[var(--fsusblog-page-bg)] border border-[var(--fsusblog-panel-border-strong)] rounded-[var(--fsus-radius-control)]">
-        <span class="text-[10px] tabular-nums font-bold text-[var(--fsusblog-text-primary)] normal-case tracking-normal">{{ statusText }}</span>
-        <el-button v-if="canResume" link type="primary" @click="$emit('resume')">Resume</el-button>
-        <el-button v-if="canAbort" link type="danger" @click="$emit('abandon')">Abort</el-button>
+        <span class="text-[11px] tabular-nums font-bold text-[var(--fsusblog-text-primary)] normal-case tracking-normal">{{ statusText }}</span>
+        <el-button v-if="canResume" link type="primary" @click="$emit('resume')">继续上传</el-button>
+        <el-button v-if="canAbort" link type="danger" @click="$emit('abandon')">中止上传</el-button>
       </div>
 
       <div v-if="preview" class="grid grid-cols-2 sm:grid-cols-5 gap-4 pt-6 border-t border-[var(--fsusblog-panel-border)]">
         <div class="preview-metric">
-          <label>Estimated</label>
+          <label>预计尺寸</label>
           <span>{{ preview.width }} × {{ preview.height }}</span>
         </div>
         <div class="preview-metric">
-          <label>Format</label>
+          <label>格式</label>
           <span>{{ preview.format.toUpperCase() }}</span>
         </div>
         <div class="preview-metric">
-          <label>Size Change</label>
+          <label>大小变化</label>
           <span class="tabular-nums">{{ formatBytes(preview.originalBytes) }} → {{ formatBytes(preview.compressedBytes) }}</span>
         </div>
         <div class="preview-metric">
-          <label>Pipeline</label>
+          <label>处理链路</label>
           <span>{{ preview.pipeline }}</span>
         </div>
         <div class="preview-metric">
-          <label>Capability</label>
+          <label>能力</label>
           <span class="text-[var(--fsusblog-text-primary)]">{{ preview.wasmCapability.toUpperCase() }}</span>
         </div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] tabular-nums">
-        <span class="font-bold text-[var(--fsusblog-text-muted)] normal-case tracking-normal">WASM Support:</span>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] tabular-nums">
+        <span class="font-bold text-[var(--fsusblog-text-muted)] normal-case tracking-normal">WASM 支持：</span>
         <div class="flex gap-2">
           <span
             v-for="format in wasmSupportedFormatsDisplay"
@@ -219,7 +219,7 @@ function formatBytes(value: number): string {
 }
 
 .preview-metric label {
-  @apply text-[9px] font-bold text-[var(--fsusblog-text-muted)] normal-case tracking-normal;
+  @apply text-[11px] font-bold text-[var(--fsusblog-text-muted)] normal-case tracking-normal;
 }
 
 .preview-metric span {

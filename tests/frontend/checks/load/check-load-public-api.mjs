@@ -3,11 +3,14 @@
 import { fetchWithTimeout, parseTimeoutMs } from '../../support/http.mjs';
 import { baseUrl as apiBaseUrl, requestTimeoutMs as defaultTimeoutMs } from '../../support/auth-helpers.mjs';
 import { readAedsResponse } from '../../support/aeds-envelope.mjs';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 const publicBaseUrl = process.env.FSUSBLOG_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:8080';
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, defaultTimeoutMs);
 const concurrency = Number(process.env.FSUSBLOG_LOAD_CONCURRENCY || '10');
 const rounds = Number(process.env.FSUSBLOG_LOAD_ROUNDS || '6');
+const evidenceDir = process.env.FSUSBLOG_PERF_EVIDENCE_DIR || resolve(process.cwd(), '..', '..', '.tmp/perf');
 
 function assert(condition, message) {
   if (!condition) {
@@ -79,9 +82,20 @@ async function exerciseEndpoint(definition) {
   assert(timeouts === 0, `[${definition.name}] should not timeout under light load`);
   assert(p95 <= definition.p95BudgetMs, `[${definition.name}] p95 ${p95.toFixed(1)}ms exceeds budget ${definition.p95BudgetMs}ms`);
 
+  const summary = {
+    name: definition.name,
+    count: expectedTotal,
+    p50Ms: Number(p50.toFixed(1)),
+    p95Ms: Number(p95.toFixed(1)),
+    p95BudgetMs: definition.p95BudgetMs,
+    serverErrors,
+    timeouts
+  };
+
   console.log(
     `[check-load-public-api] ok: ${definition.name} | count=${expectedTotal} | p50=${p50.toFixed(1)}ms | p95=${p95.toFixed(1)}ms`
   );
+  return summary;
 }
 
 async function main() {
@@ -161,9 +175,21 @@ async function main() {
     }
   ];
 
+  const results = [];
   for (const definition of definitions) {
-    await exerciseEndpoint(definition);
+    results.push(await exerciseEndpoint(definition));
   }
+
+  await mkdir(evidenceDir, { recursive: true });
+  await writeFile(resolve(evidenceDir, 'load-public-api.json'), `${JSON.stringify({
+    status: 'ok',
+    generatedAt: new Date().toISOString(),
+    apiBaseUrl,
+    publicBaseUrl,
+    concurrency,
+    rounds,
+    results
+  }, null, 2)}\n`);
 
   console.log(
     `[check-load-public-api] ok | apiBase=${apiBaseUrl} publicBase=${publicBaseUrl} concurrency=${concurrency} rounds=${rounds}`

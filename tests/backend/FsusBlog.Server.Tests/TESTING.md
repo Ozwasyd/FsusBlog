@@ -67,10 +67,10 @@ All test classes must live under `Unit/` or `Integration/`.
 
 ## CI Contract
 
-- `.github/workflows/quality-gate.yml` runs `./tools/test.sh production` on `pull_request`, `main` push, and manual dispatch.
+- `.github/workflows/quality-gate.yml` runs `./tools/test.sh production` on `pull_request`, `main` / `master` push, and manual dispatch.
 - The same workflow also runs `./tools/test.sh coverage-gate` as the coverage blocker.
-- CI must provide `GITHUB_PACKAGES_TOKEN` so `src/frontend/FsusBlog.Client/.npmrc` can install the private `@ozwasyd` package.
-- On failure, inspect `.tmp/acceptance/*.log` and `src/frontend/FsusBlog.Client/test-results/playwright/`; CI uploads both as `quality-gate-artifacts`.
+- CI must provide `GITHUB_PACKAGES_TOKEN` so `src/frontend/.npmrc` can install the private `@ozwasyd` package.
+- On failure, inspect `.tmp/acceptance/*.log` and `src/frontend/test-results/playwright/`; CI uploads both as `quality-gate-artifacts`.
 
 ## Cleanliness Rules
 

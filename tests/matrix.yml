@@ -1,0 +1,67 @@
+version: fsusblog-test-matrix-v1
+tiers:
+  - id: fast
+    owner: ServerContractAgent
+    command: ./tools/test.sh fast
+    script: tools/test.sh
+    evidence: .tmp/acceptance/*.log
+
+  - id: integration
+    owner: ServerContractAgent
+    command: ./tools/test.sh integration
+    script: tools/test.sh
+    evidence: .tmp/acceptance/*.log
+
+  - id: ci
+    owner: ServerContractAgent
+    command: ./tools/test.sh ci
+    script: tools/test.sh
+    evidence: .tmp/acceptance/*.log
+
+  - id: coverage-gate
+    owner: ServerContractAgent
+    command: ./tools/test.sh coverage-gate
+    script: tools/test.sh
+    evidence: .tmp/coverage
+
+  - id: release
+    owner: ServerContractAgent
+    command: ./tools/test.sh release
+    script: tools/test.sh
+    evidence: .tmp/acceptance/*.log
+
+  - id: acceptance
+    owner: InteropGlueAgent
+    command: ./tools/test.sh acceptance
+    script: tools/test.sh
+    evidence: src/frontend/test-results/playwright/acceptance
+
+  - id: visual
+    owner: InteropGlueAgent
+    command: ./tools/test.sh visual
+    script: tools/test.sh
+    evidence: src/frontend/test-results/playwright/visual
+
+  - id: security
+    owner: ServerContractAgent
+    command: ./tools/test.sh security
+    script: tools/test.sh
+    evidence: .tmp/security
+
+  - id: resilience
+    owner: ServerContractAgent
+    command: ./tools/test.sh resilience
+    script: tools/test.sh
+    evidence: src/frontend/test-results/playwright/resilience
+
+  - id: load
+    owner: ServerContractAgent
+    command: ./tools/test.sh load
+    script: tools/test.sh
+    evidence: .tmp/perf
+
+  - id: production
+    owner: ServerContractAgent
+    command: ./tools/test.sh production
+    script: tools/test.sh
+    evidence: .tmp/release-evidence

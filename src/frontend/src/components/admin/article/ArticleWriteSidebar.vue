@@ -1,13 +1,13 @@
 <template>
   <section class="article-write-sidebar border-t border-[var(--fsusblog-panel-border)]" aria-labelledby="article-publish-settings-title">
     <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
-      <div class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布设置 / SETTINGS</div>
+      <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布设置 / SETTINGS</div>
     </header>
 
     <div class="p-6 space-y-8">
       <el-form-item prop="status">
         <template #label>
-          <span class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布状态 / STATUS</span>
+          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布状态 / STATUS</span>
         </template>
         <div class="mt-2">
           <el-select
@@ -28,7 +28,7 @@
 
       <el-form-item v-if="form.status === ArticlePublishStatus.Scheduled" prop="scheduledPublishAt">
         <template #label>
-          <span class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布时间 / SCHEDULE</span>
+          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布时间 / SCHEDULE</span>
         </template>
         <div class="mt-2">
           <el-date-picker
@@ -45,7 +45,7 @@
 
       <el-form-item prop="coverImageUrl">
         <template #label>
-          <span class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章头图 / COVER IMAGE</span>
+          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章头图 / COVER IMAGE</span>
         </template>
         <div class="mt-2">
           <div
@@ -54,7 +54,7 @@
           >
             <img
               :src="form.coverImageUrl"
-              alt="Cover Preview"
+              alt="当前文章头图预览"
               class="h-full w-full object-cover transition-transform duration-[var(--fsus-motion-control-fast)] group-hover:scale-105"
             />
             <div class="cover-action-overlay absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
@@ -62,6 +62,7 @@
                 type="danger"
                 circle
                 :icon="Delete"
+                aria-label="移除文章头图"
                 @click="$emit('clear-cover')"
               />
             </div>
@@ -73,7 +74,7 @@
             <span class="text-2xl text-[var(--fsusblog-text-subtle)]">
               <el-icon><Picture /></el-icon>
             </span>
-            <span class="mt-2 text-[10px] font-medium text-[var(--fsusblog-text-muted)]">建议比例 16:9</span>
+            <span class="mt-2 text-[11px] font-medium text-[var(--fsusblog-text-muted)]">建议比例 16:9</span>
           </div>
           <div class="mt-4 grid gap-3">
             <el-button
@@ -89,7 +90,7 @@
 
       <el-form-item prop="categoryId">
         <template #label>
-          <span class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">所属分类 / CATEGORY</span>
+          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">所属分类 / CATEGORY</span>
         </template>
         <div class="quick-field-row mt-2">
           <div class="quick-field-control">
@@ -117,7 +118,7 @@
 
       <el-form-item prop="tagIds">
         <template #label>
-          <span class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">标签索引 / TAGS</span>
+          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">标签索引 / TAGS</span>
         </template>
         <div class="quick-field-row mt-2">
           <div class="quick-field-control">
@@ -155,7 +156,7 @@
       <el-form-item prop="summary">
         <template #label>
           <div class="flex items-center justify-between w-full">
-            <span class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">内容摘要 / SUMMARY</span>
+            <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">内容摘要 / SUMMARY</span>
             <el-button link type="primary" size="small" @click="$emit('auto-summary')" :disabled="submitting">
               智能生成
             </el-button>
@@ -187,7 +188,7 @@
       >
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0">
-            <div class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">AI ASSIST</div>
+            <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">AI ASSIST</div>
             <p class="mt-1 text-[11px] leading-5 text-[var(--fsusblog-text-subtle)]">
               {{ aiAssistStatusText || aiAssist.providerMode }}
             </p>

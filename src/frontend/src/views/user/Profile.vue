@@ -1,12 +1,10 @@
 <template>
   <div class="account-page profile-page">
-    <header class="account-page-header">
-      <div class="account-page-eyebrow">账户</div>
-      <h1 class="account-page-title">个人资料</h1>
-      <p class="account-page-description">
-        管理你的身份信息、访问凭证与在线设备。所有高危操作都在同一组界面里完成，但保持与主站一致的学术式阅读节奏。
-      </p>
-    </header>
+    <AccountPageHeader
+      eyebrow="账户"
+      title="个人资料"
+      description="管理你的身份信息、访问凭证与在线设备。所有高危操作都在同一组界面里完成，但保持与主站一致的学术式阅读节奏。"
+    />
 
     <div class="grid grid-cols-1 gap-x-24 gap-y-20 lg:grid-cols-2">
       <!-- 身份识别 -->
@@ -35,10 +33,10 @@
               {{ usernameSubmitText }}
             </el-button>
           </div>
-          <p
+            <p
             v-else
-            role="alert"
-            class="mt-8 rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-panel-border)] px-5 py-4 text-[10px] font-bold tracking-normal text-[var(--fsusblog-text-muted)]"
+            role="status"
+            class="mt-8 rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-panel-border)] px-5 py-4 text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)]"
           >
             {{ usernameBannedText }}
           </p>
@@ -56,8 +54,9 @@
               name="profileOldPassword"
               type="password"
               show-password
+              autocomplete="current-password"
               :disabled="isPasswordSubmitDisabled"
-              placeholder="CURRENT PASSWORD"
+              placeholder="当前密码"
               aria-label="当前密码"
             />
           </el-form-item>
@@ -68,8 +67,9 @@
               name="profileNewPassword"
               type="password"
               show-password
+              autocomplete="new-password"
               :disabled="isPasswordSubmitDisabled"
-              placeholder="NEW PASSWORD"
+              placeholder="新密码"
               aria-label="新密码"
             />
           </el-form-item>
@@ -80,8 +80,9 @@
               name="profileConfirmPassword"
               type="password"
               show-password
+              autocomplete="new-password"
               :disabled="isPasswordSubmitDisabled"
-              placeholder="CONFIRM NEW"
+              placeholder="确认新密码"
               aria-label="确认新密码"
             />
           </el-form-item>
@@ -101,8 +102,8 @@
           </div>
           <p
             v-else
-            role="alert"
-            class="mt-8 rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-panel-border)] px-5 py-4 text-[10px] font-bold tracking-normal text-[var(--fsusblog-text-muted)]"
+            role="status"
+            class="mt-8 rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-panel-border)] px-5 py-4 text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)]"
           >
             {{ passwordBannedText }}
           </p>
@@ -116,7 +117,9 @@
       <p class="section-caption">
         状态：
         <span class="font-bold text-[var(--fsusblog-text-primary)]">{{ mfaProfile.loading ? '加载中...' : (mfaProfile.enabled ? '已启用' : '未启用') }}</span>
-        <span v-if="mfaProfile.verifiedAt" class="ml-2 text-[var(--fsusblog-text-muted)]">最近验证：{{ new Date(mfaProfile.verifiedAt).toLocaleString() }}</span>
+        <span v-if="mfaProfile.verifiedAt" class="ml-2 text-[var(--fsusblog-text-muted)]">
+          最近验证：<SemanticTime :value="mfaProfile.verifiedAt" />
+        </span>
       </p>
       <div class="mt-8 flex flex-wrap gap-5">
         <el-button
@@ -180,13 +183,13 @@
                 </p>
                 <el-button link @click="startEditPasskeyName(cred)">编辑</el-button>
               </div>
-              <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-                <span>创建：{{ new Date(cred.createdAt).toLocaleDateString() }}</span>
+              <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+                <span>创建：<SemanticTime :value="cred.createdAt" format="date" /></span>
                 <span class="h-0.5 w-0.5 rounded-[var(--fsus-radius-control-small)] bg-current opacity-30"></span>
-                <span v-if="cred.lastUsedAt">活跃：{{ new Date(cred.lastUsedAt).toLocaleDateString() }}</span>
+                <span v-if="cred.lastUsedAt">活跃：<SemanticTime :value="cred.lastUsedAt" format="date" /></span>
                 <span v-if="cred.backupEligible" class="inline-flex items-center gap-1 text-[var(--fsusblog-color-success)]">
-                  <Cloudy class="h-3 w-3" />
-                  SYNCED
+                  <Cloudy class="h-3 w-3" aria-hidden="true" />
+                  已同步
                 </span>
               </div>
             </div>
@@ -195,7 +198,7 @@
               type="danger"
               @click="confirmDeletePasskey(cred.id)"
             >
-              REMOVE
+              删除
             </el-button>
           </div>
         </div>
@@ -239,13 +242,13 @@
               <p class="truncate text-[14px] font-bold text-[var(--fsusblog-text-primary)]">
                 {{ session.lastIp || 'UNKNOWN IP' }}
               </p>
-              <el-tag v-if="session.isCurrent" size="small">CURRENT</el-tag>
+              <el-tag v-if="session.isCurrent" size="small">当前</el-tag>
             </div>
             <p class="mt-1 truncate text-[11px] font-medium text-[var(--fsusblog-text-tertiary)] normal-case tracking-normal">
               {{ session.deviceLabel || session.deviceFingerprint || '-' }}
             </p>
-            <p class="mt-2 text-[10px] font-medium text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
-              LAST ACTIVE: {{ session.lastSeenAt ? new Date(session.lastSeenAt).toLocaleString() : '-' }}
+            <p class="mt-2 text-[11px] font-medium text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
+              最后活跃：<SemanticTime v-if="session.lastSeenAt" :value="session.lastSeenAt" /><span v-else>-</span>
             </p>
           </div>
           <el-button
@@ -254,7 +257,7 @@
             type="danger"
             @click="revokeSessionDevice(session.sessionId)"
           >
-            REVOKE
+            下线
           </el-button>
         </div>
       </div>
@@ -327,29 +330,44 @@
         <p class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-4 py-3 text-xs font-medium tracking-normal text-[var(--fsusblog-text-secondary)]">
           确认文本必须为 <span class="font-semibold text-[var(--fsusblog-text-primary)]">{{ deleteConfirmText }}</span>
         </p>
+        <label for="delete-account-password" class="sr-only">当前密码</label>
         <el-input
+          id="delete-account-password"
           v-model="deleteAccountState.form.password"
           name="deleteAccountPassword"
           type="password"
           show-password
           autocomplete="current-password"
+          aria-label="当前密码"
           placeholder="当前密码"
         />
+        <label for="delete-account-confirm-text" class="sr-only">注销确认文本</label>
         <el-input
+          id="delete-account-confirm-text"
           v-model="deleteAccountState.form.confirmText"
           name="deleteAccountConfirmText"
+          aria-label="注销确认文本"
           :placeholder="`输入 ${deleteConfirmText} 确认`"
         />
+        <label v-if="mfaProfile.enabled" for="delete-account-mfa-code" class="sr-only">MFA 验证码</label>
         <el-input
           v-if="mfaProfile.enabled"
+          id="delete-account-mfa-code"
           v-model="deleteAccountState.form.code"
           name="deleteAccountMfaCode"
+          autocomplete="one-time-code"
+          inputmode="numeric"
+          aria-label="MFA 验证码"
           placeholder="6 位验证码"
         />
+        <label v-if="mfaProfile.enabled" for="delete-account-recovery-code" class="sr-only">恢复码</label>
         <el-input
           v-if="mfaProfile.enabled"
+          id="delete-account-recovery-code"
           v-model="deleteAccountState.form.recoveryCode"
           name="deleteAccountRecoveryCode"
+          autocomplete="one-time-code"
+          aria-label="恢复码"
           placeholder="恢复码（可选）"
         />
       </div>
@@ -367,15 +385,19 @@
 </template>
 
 <script setup lang="ts">
+import { ElMessageBox } from '@ozwasyd/element-plus'
 import { Cloudy } from '@/ui/fsusIcons'
 import { ref, onMounted } from 'vue'
+import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import MfaChallengeModal from '@/components/ui/MfaChallengeModal.vue'
 import MfaCredentialModal from '@/components/ui/MfaCredentialModal.vue'
 import MfaSetupModal from '@/components/ui/MfaSetupModal.vue'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
+import SemanticTime from '@/components/ui/SemanticTime.vue'
 import { useUserProfileSecurity } from '@/composables/useUserProfileSecurity'
 import { usePasskeyManagement } from '@/composables/usePasskeyManagement'
 import type { PasskeyCredentialSummary } from '@/api/auth'
+import { isFsusUiOk } from '@/utils/fsusUiResult'
 
 const {
   isUsernameSubmitDisabled,
@@ -451,6 +473,14 @@ const savePasskeyName = async (id: number) => {
 }
 
 const confirmDeletePasskey = async (id: number) => {
+  const result = await ElMessageBox.confirm(
+    '确认删除此通行密钥？删除后，该设备将不能继续使用此密钥登录。',
+    '删除通行密钥',
+    { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'warning' }
+  )
+  if (!isFsusUiOk(result)) {
+    return
+  }
   await removePasskey(id)
 }
 
@@ -498,7 +528,7 @@ onMounted(() => {
 
 @media (max-width: 640px) {
   .section-title {
-    @apply text-[10px] tracking-normal;
+    @apply text-[11px] tracking-normal;
   }
 }
 </style>

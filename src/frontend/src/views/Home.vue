@@ -19,7 +19,6 @@
         :articles="featuredArticles"
         :hot-articles="hotArticles"
         :loading="featuredLoading"
-        @navigate="navigateToArticle"
       />
     </template>
   </PublicHomePageContent>

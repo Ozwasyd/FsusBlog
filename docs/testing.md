@@ -1,6 +1,6 @@
 # 测试策略
 
-FsusBlog 采用**多分层测试**架构，从纯单元测试到全量发布门控共 10 个层级，按依赖复杂度递进。
+FsusBlog 采用**多分层测试**架构，从纯单元测试到全量发布门控共 10 个层级，按依赖复杂度递进。机器可读测试矩阵位于 `tests/matrix.yml`，`tools/check-test-matrix.mjs` 在 fast gate 中校验每个 tier 的入口命令、owner 和 evidence 归档位置。
 
 ---
 
@@ -18,6 +18,8 @@ FsusBlog 采用**多分层测试**架构，从纯单元测试到全量发布门�
 | `resilience` | `./tools/test.sh resilience` | 全部端口 | < 8min | 上传/搜索/SSE 弹性 |
 | `load` | `./tools/test.sh load` | 全部端口 | < 20min | 轻量并发压测 |
 | `production` | `./tools/test.sh production` | Docker、全部端口 | < 60min | 全量发布门控（fast 后强制 bootstrap，串行风险清单） |
+
+`load` 与 SSE pressure 检查会写入 `.tmp/perf/load-public-api.json` 和 `.tmp/perf/sse-pressure.json`，release evidence 会把 `.tmp/perf/` 作为性能证据归档。
 
 ---
 
@@ -98,7 +100,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj \
 
 **运行**：
 ```bash
-cd FsusBlog.Client
+cd src/frontend
 npx playwright test --config=playwright.config.ts
 ```
 
@@ -115,7 +117,7 @@ npx playwright test --config=playwright.config.ts
 
 更新视觉基线：
 ```bash
-cd FsusBlog.Client
+cd src/frontend
 npx playwright test --update-snapshots
 ```
 
@@ -142,6 +144,10 @@ npx playwright test --update-snapshots
 | CORS | 非白名单来源请求被拒绝 |
 | 安全头 / Cookie | CSP、XFO、XCTO、Referrer-Policy、Permissions-Policy、auth/PoW no-store、`__Host-*` Cookie 属性 |
 | 攻击矩阵 | CSRF 形态、伪造 Cookie/JWT、篡改 PoW、method override、路径穿越、超大 / 畸形 binary payload |
+| ASVS / WSTG 矩阵 | `tools/security/check-security-matrices.mjs` 校验 `security/asvs-v5.0.0-matrix.yml` 与 `security/wstg-v4.2-matrix.yml` 的版本化 ID、代码/测试/证据路径和 owner |
+| 供应链审计 | `tools/security/check-supply-chain-audit.sh` 对 NuGet 和 npm production dependencies 执行 high/critical vulnerability gate |
+| SBOM | `tools/security/generate-sbom.sh` 从 NuGet lock files、`package-lock.json` 和 image digest 生成 CycloneDX 1.5 evidence |
+| ZAP WARN 策略 | `tools/security/check-zap-warn-policy.mjs` 校验 `security/zap-warn-policy.yml`，要求每个 WARN 有 owner、接受理由、修复期限和升级条件 |
 | DAST | OWASP ZAP baseline 扫描本地前后端目标，FAIL 级告警阻断发布 |
 | 生产暴露面工具 | `tools/security/test-production-exposure-tools.sh` 用合成 DNS/firewall/live evidence 覆盖 prereq handoff/returned 脚本与 tar/find/xargs 依赖清单、evidence request schema、request `requiredEvidence`/`verificationCommands`/`handoffChecks`、request returned-evidence/returned-handoff verifier 与 closeout 命令、request currentStatus/nextActions/unblockPlan、firewall source sha256 生成/缺失/格式/原始文件摘要不匹配拒绝、handoff request 缺失 firewall source sha256 合同拒绝、status report requiredHosts/delegationDomains、live/DNS readiness `requiredHosts` 与 DNS delegation `delegationDomains` 字符串/数组形态、handoff request/status/manifest 对齐、request/status 域名漂移拒绝、request/status blocker 明细漂移拒绝、request requiredEvidence 路径漂移拒绝、request 缺失 handoff check 拒绝、request 缺失 blocker source 的 unblockPlan 拒绝、request 缺失 returned handoff closeout 命令拒绝、request 顶层 returned verifier 命令漂移拒绝、manifest request firewall source sha256 合同漂移拒绝、manifest request returned closeout command summary 漂移拒绝、manifest request unblockPlan summary 漂移拒绝、manifest blocker 明细漂移拒绝、manifest external exposure valid 漂移拒绝、manifest external exposure 组件状态漂移拒绝、request evidenceFiles 路径漂移拒绝、request/status artifact digest 漂移拒绝、manifest host/domain drift 拒绝、release bundle exposure artifact drift 拒绝、bundle artifact 非标准路径拒绝、manifest sha256 digest 校验、缺失 artifact 残留 digest 拒绝、handoff bundle 导出前校验、exporter 输出目录/tarball 自校验、tarball 解压前路径穿越和非普通 entry 拒绝、summary/operator checklist/returned-evidence manifest/README/校验和/tarball 生成、handoff bundle checker 目录/tarball 验证与篡改 returned manifest/README/artifact digest/symlink/archive path traversal/unsupported entry 拒绝、含 symlink 源 release evidence 导出失败、handoff summary unblockPlan、operator checklist unblockPlan、returned manifest unblockPlan 拒绝、returned handoff closeout 对完整 bundle 的 preflight 校验和篡改 operator checklist 不改 TODO、direct returned-evidence closeout 对父级 handoff bundle 的 preflight 校验和篡改 operator checklist 不改 TODO、returned expected manifest source metadata 与 unblockPlan sources/count/key/file/artifact/command 映射拒绝、returned evidence 目录验收与 symlink 拒绝、ok/blocked returned manifest 保留、returned request 与 expected manifest scope 缩窄拒绝、returned evidence 成功 closeout 与 missing expected manifest/blocked/缩窄 request/缩窄 manifest 不改 TODO、临时 fixture 路径拒绝、manifest request summary、complete closeout 自动生成并刷新 request、verifier、status report、失败不改 TODO、失败写 blocked status report、缺失 `Comment:` 字段时拒绝勾选、早期失败仍刷新后续 evidence、成功 closeout 勾选当前 `NB-P0-001` fixture 并把 `生产可信闭环` 进度更新为 `5/5` |
 | 回传 handoff 收口 | `complete-production-exposure-from-returned-handoff-bundle.sh` 覆盖空 returned-evidence 槽不改 TODO、目录输入成功 closeout、tarball + `.sha256` 输入成功 closeout、blocked tarball 输入不改 TODO 且保留解包后的 blocked status 证据、symlinked returned-evidence tarball 与 archive path traversal tarball 解压前拒绝且不改 TODO、handoff bundle README/expected manifest 暴露一键 closeout 命令，并复用 returned evidence scope/verifier 规则 |
@@ -203,7 +209,7 @@ dotnet run -c Release
 FSUSBLOG_SKIP_VISUAL_GATE=1 ./tools/test.sh production
 ```
 
-该开关只跳过 `production` 内的 `visual` tier，不会跳过 `security`、`acceptance`、`resilience` 或 `load`；常规发布仍应恢复完整 visual gate。
+该开关只跳过 `production` 内的 `visual` tier，不会跳过 `security`、`acceptance`、`resilience` 或 `load`；常规发布仍应恢复完整 visual gate。使用该例外时必须同时设置 `FSUSBLOG_VISUAL_SKIP_REASON`、`FSUSBLOG_VISUAL_SKIP_APPROVER`、`FSUSBLOG_VISUAL_SKIP_IMPACT`、`FSUSBLOG_VISUAL_SKIP_RERUN_URL`，门禁会写入 `.tmp/gate-logs/visual-gate-skip.json` 并由 release evidence manifest 索引。
 
 完成后检查：
 ```bash
@@ -216,7 +222,7 @@ curl -fsS http://127.0.0.1:8080/health/ready
 - `src/frontend/test-results/playwright/` — Playwright trace / screenshot
 - GitHub Actions 的 `quality-gate-artifacts` artifact
 
-GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` push、手动 `workflow_dispatch` 触发同一条 `./tools/test.sh production` 门控。CI 需要配置 `GITHUB_PACKAGES_TOKEN` secret，用于安装 `@ozwasyd` 私有包。
+GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push、手动 `workflow_dispatch` 触发同一条 `./tools/test.sh production` 门控。CI 需要配置 `GITHUB_PACKAGES_TOKEN` secret，用于安装 `@ozwasyd` 私有包。CI 默认 `FSUSBLOG_PLAYWRIGHT_WORKERS=1`，本地可按机器资源显式覆盖。
 
 ---
 
@@ -302,6 +308,7 @@ tools/operations/cleanup-retention.sh
 - OWASP ZAP baseline 不得产生 FAIL 级告警；报告必须保留为发布门控 artifact。
 - WebSocket 通知握手、匿名 PoW、重连 cursor、AOT hydration、搜索、上传、视觉和轻量并发门控全部通过。
 - Markdown 代码高亮必须保持 Shiki 输出质量，但 highlighter 只能在实际代码块渲染时懒加载；`FSUSBLOG_VITE_WARN_AS_ERROR=1 npm --prefix src/frontend run build` 不允许出现 chunk size warning。
+- 前端资源大小预算由 `npm --prefix src/frontend run check:asset-size-budget` 执行，默认限制总 `dist` 80 MiB、单 JS 900 KiB、单 CSS 600 KiB、单 Wasm 220 KiB，并输出 `.tmp/frontend/asset-size-budget.json`。
 
 ---
 

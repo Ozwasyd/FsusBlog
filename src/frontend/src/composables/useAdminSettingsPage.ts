@@ -228,7 +228,7 @@ export function useAdminSettingsPage() {
       siteForm.ogImage = ''
 
       await syncSeoConfig()
-      toast.success('已物理重置')
+      toast.success('预览图已重置')
     } finally {
       imageLoading.value = false
     }

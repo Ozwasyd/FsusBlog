@@ -119,6 +119,50 @@ public sealed class CacheMissCoordinatorTests
         Assert.Equal(1, rebuildCount);
     }
 
+    [Fact]
+    public async Task CoordinateAsync_ManyConcurrentMisses_CoalescesHotKeyRebuild()
+    {
+        var cache = new CoordinatingCache
+        {
+            TryAcquireLeaseHandler = static (_, _, _, _, _) => Task.FromResult(true)
+        };
+        var coordinator = new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        var releaseRebuild = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        string? current = null;
+        int rebuildCount = 0;
+        int readCount = 0;
+
+        Task<string?>[] callers = Enumerable.Range(0, 64)
+            .Select(_ => coordinator.CoordinateAsync(
+                CachePolicyId.ArticleDetail,
+                "hot:42",
+                _ =>
+                {
+                    Interlocked.Increment(ref readCount);
+                    return Task.FromResult(current is null
+                        ? new CacheReadResult<string>(false, default)
+                        : new CacheReadResult<string>(true, current));
+                },
+                async _ =>
+                {
+                    Interlocked.Increment(ref rebuildCount);
+                    await releaseRebuild.Task;
+                    current = "rebuilt-hot-article";
+                    return current;
+                },
+                "article-detail"))
+            .ToArray();
+
+        await Task.Yield();
+        releaseRebuild.SetResult(true);
+
+        string?[] results = await Task.WhenAll(callers);
+
+        Assert.All(results, result => Assert.Equal("rebuilt-hot-article", result));
+        Assert.Equal(1, rebuildCount);
+        Assert.True(readCount >= callers.Length);
+    }
+
     private sealed class CoordinatingCache : IUnifiedCache
     {
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);

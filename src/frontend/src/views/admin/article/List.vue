@@ -1,5 +1,5 @@
 <template>
-  <div class="account-page article-list-wrapper w-full">
+  <div class="account-page article-list-wrapper account-motion-enter w-full">
     <header class="account-page-header account-page-header--compact">
       <div class="account-page-eyebrow">管理 / CONTENT</div>
       <h1 class="account-page-title">文章管理</h1>
@@ -67,7 +67,7 @@
 
     <section class="border-t border-[var(--fsusblog-panel-border)]">
       <div class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] flex items-center justify-between">
-        <div class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章列表 / ARTICLE LIST</div>
+        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章列表 / ARTICLE LIST</div>
       </div>
       <el-responsive-collection
         v-loading="loading"
@@ -110,13 +110,13 @@
                   >
                     {{ row.title }}
                   </el-link>
-                  <div class="flex items-center gap-6 mt-2 text-[11px] text-[var(--fsusblog-text-muted)]">
+                  <div class="flex items-center gap-6 mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">
                     <span class="flex items-center gap-1 tabular-nums">
                       <el-icon><View /></el-icon> {{ row.views }} 阅读
                     </span>
                     <span class="flex items-center gap-1 tabular-nums">
                       <el-icon><Calendar /></el-icon>
-                      {{ row.createdAtText }}
+                      <SemanticTime :value="row.createTime" :text="row.createdAtText" />
                     </span>
                   </div>
                 </div>
@@ -167,7 +167,7 @@
                       <el-dropdown-menu>
                         <el-dropdown-item icon="Monitor" @click="handleViewArticle(row)">前台预览</el-dropdown-item>
                         <el-dropdown-item icon="Box" @click="handleMoveToTrash(row)">移入回收站</el-dropdown-item>
-                        <el-dropdown-item icon="Warning" @click="handlePermanentRemove(row)">永久抹除</el-dropdown-item>
+                        <el-dropdown-item icon="Warning" @click="handlePermanentRemove(row)">永久删除</el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
@@ -207,6 +207,7 @@ import { type ArticleListItemResponse } from '@/api/article'
 import { useAdminArticleList } from '@/composables/useAdminArticleList'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import AdminArticleCompactCard from '@/components/admin/article/AdminArticleCompactCard.vue'
+import SemanticTime from '@/components/ui/SemanticTime.vue'
 
 type ArticleListViewItem = ArticleListItemResponse & {
   createdAtText: string
@@ -232,7 +233,7 @@ const {
   handleMoreCommand
 } = useAdminArticleList()
 
-const getArticleRowKey = (row: ArticleListViewItem): string => String(row.id)
+const getArticleRowKey = (row: unknown): string => String((row as ArticleListViewItem).id)
 const isCompactPagination = useMediaQuery('(max-width: 639px)')
 const handleStatusFilterChange = (value: string | number | boolean): void => {
   setStatusFilter(typeof value === 'number' ? value as Parameters<typeof setStatusFilter>[0] : undefined)
@@ -246,15 +247,6 @@ const handlePermanentRemove = (row: ArticleListViewItem): void => handleMoreComm
 </script>
 
 <style scoped>
-
-.article-list-wrapper {
-  animation: slide-up var(--fsus-motion-panel) var(--fsus-motion-standard);
-}
-
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(15px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;

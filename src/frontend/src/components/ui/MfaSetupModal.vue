@@ -7,6 +7,8 @@
     :show-close="false"
     @update:model-value="val => !val && close()"
   >
+    <p class="sr-only" role="status" aria-live="polite">{{ setupStepStatusText }}</p>
+
     <p class="text-sm text-[var(--fsusblog-text-muted)] leading-relaxed mb-5">
       1) 使用认证器 App（如 Google Authenticator）扫描下方二维码。2) 输入 6 位验证码完成绑定。
     </p>
@@ -23,7 +25,7 @@
             foreground="var(--fsusblog-text-primary)"
           />
         </div>
-        <div class="mt-4 text-[10px] font-bold text-[var(--fsusblog-text-muted)] normal-case tracking-normal">扫描二维码绑定</div>
+        <div class="mt-4 text-[11px] font-bold text-[var(--fsusblog-text-muted)] normal-case tracking-normal">扫描二维码绑定</div>
       </div>
 
       <div>
@@ -34,17 +36,20 @@
       <a
         v-if="otpAuthUrl"
         :href="otpAuthUrl"
-        class="inline-flex text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)] transition-colors border-b border-current pb-0.5"
+        class="inline-flex text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)] transition-colors border-b border-current pb-0.5"
       >
         在 App 中直接打开
       </a>
 
       <div v-if="!recoveryCodes.length">
-        <label class="block text-[10px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">验证码</label>
+        <label for="mfa-setup-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">验证码</label>
         <el-input
+          id="mfa-setup-code"
           :model-value="setupCode"
           @update:model-value="val => emit('update:setupCode', String(val))"
           type="text"
+          autocomplete="one-time-code"
+          inputmode="numeric"
           placeholder="6 位验证码"
           :disabled="loading"
           @keyup.enter="$emit('verify')"
@@ -65,7 +70,7 @@
       </div>
     </div>
 
-    <div v-if="errorMessage" class="mt-4 text-[11px] font-medium text-[var(--fsusblog-color-error)]">{{ errorMessage }}</div>
+    <div v-if="errorMessage" role="alert" class="mt-4 text-[11px] font-medium text-[var(--fsusblog-color-error)]">{{ errorMessage }}</div>
 
     <template #footer>
       <div class="dialog-footer flex justify-end gap-5 mt-4">
@@ -87,9 +92,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import QrcodeVue from 'qrcode.vue'
 
-defineProps<{
+const props = defineProps<{
   visible: boolean
   loading: boolean
   secret: string
@@ -108,4 +114,20 @@ const emit = defineEmits<{
 const close = () => {
   emit('update:visible', false)
 }
+
+const setupStepStatusText = computed(() => {
+  if (props.recoveryCodes.length > 0) {
+    return 'MFA 绑定完成，请保存恢复码'
+  }
+
+  if (props.loading) {
+    return 'MFA 绑定流程正在处理'
+  }
+
+  if (props.otpAuthUrl) {
+    return 'MFA 绑定步骤，扫描二维码或输入手动密钥后填写验证码'
+  }
+
+  return '正在准备 MFA 绑定信息'
+})
 </script>

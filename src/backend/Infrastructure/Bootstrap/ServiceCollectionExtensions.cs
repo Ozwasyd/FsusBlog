@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using FsusBlog.Core.DependencyInjection;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -40,7 +41,7 @@ public static class ServiceCollectionExtensions
         services.AddAuthorization();
         services.AddFsusBlogCore(configuration);
         services.AddPowServices();
-        services.AddDataProtection();
+        services.AddFsusDataProtection(configuration);
         services.AddMemoryCache();
         services.AddHttpClient();
 
@@ -87,6 +88,24 @@ public static class ServiceCollectionExtensions
         }
 
         return [.. origins];
+    }
+
+    private static IServiceCollection AddFsusDataProtection(this IServiceCollection services, IConfiguration configuration)
+    {
+        string dataRoot = configuration["FSUSBLOG_DATA_ROOT"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_DATA_ROOT")
+            ?? Path.Combine(AppContext.BaseDirectory, "data");
+        string keyRingPath = configuration["DataProtection:KeyRingPath"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_DATA_PROTECTION_KEY_RING")
+            ?? Path.Combine(dataRoot, "data-protection-keys");
+        string applicationName = configuration["DataProtection:ApplicationName"] ?? "FsusBlog";
+
+        Directory.CreateDirectory(keyRingPath);
+        services.AddDataProtection()
+            .SetApplicationName(applicationName)
+            .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+
+        return services;
     }
 
     public static IServiceCollection AddFsusRuntimeServices(this IServiceCollection services, IConfiguration configuration)

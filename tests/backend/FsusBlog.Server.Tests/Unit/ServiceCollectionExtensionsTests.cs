@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.AspNetCore.DataProtection;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Interfaces;
@@ -10,6 +11,46 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class ServiceCollectionExtensionsTests
 {
+    [Fact]
+    public void AddFsusApiFoundation_PersistsDataProtectionKeysToConfiguredDirectory()
+    {
+        string keyRingPath = Path.Combine(Path.GetTempPath(), "fsusblog-data-protection-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var services = new ServiceCollection();
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ASPNETCORE_ENVIRONMENT"] = "Development",
+                    ["ConnectionStrings:Redis"] = "localhost:6379",
+                    ["Jwt:SecretKey"] = "unit-test-secret-key-with-at-least-32-chars",
+                    ["Jwt:Issuer"] = "FsusBlog.Tests",
+                    ["Jwt:Audience"] = "FsusBlog.Tests",
+                    ["DataProtection:KeyRingPath"] = keyRingPath,
+                    ["DataProtection:ApplicationName"] = "FsusBlog.Tests"
+                })
+                .Build();
+
+            services.AddFsusApiFoundation(configuration);
+
+            using ServiceProvider provider = services.BuildServiceProvider();
+            var dataProtectionProvider = provider.GetRequiredService<IDataProtectionProvider>();
+            IDataProtector protector = dataProtectionProvider.CreateProtector("unit-test");
+
+            string protectedValue = protector.Protect("persistent-key-ring");
+
+            Assert.Equal("persistent-key-ring", protector.Unprotect(protectedValue));
+            Assert.NotEmpty(Directory.EnumerateFiles(keyRingPath, "*.xml"));
+        }
+        finally
+        {
+            if (Directory.Exists(keyRingPath))
+            {
+                Directory.Delete(keyRingPath, recursive: true);
+            }
+        }
+    }
+
     [Fact]
     public void AddFsusRuntimeServices_RegistersBlacklistServiceAsScoped()
     {

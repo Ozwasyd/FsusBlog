@@ -1,0 +1,56 @@
+version: fsusblog-slo-v1
+slos:
+  - id: availability
+    objective: 99.9
+    window: 30d
+    source: /health/ready
+    alert: ready_degraded
+
+  - id: error-rate
+    objective: 0.1
+    unit: percent
+    window: 5m
+    source: http.server.request.duration
+    alert: ready_degraded
+
+  - id: http-p95-latency
+    objective: 750
+    unit: ms
+    window: 5m
+    source: http.server.request.duration
+    alert: ready_degraded
+
+  - id: http-p99-latency
+    objective: 1500
+    unit: ms
+    window: 5m
+    source: http.server.request.duration
+    alert: ready_degraded
+
+  - id: sse-reconnect-success-rate
+    objective: 99.5
+    unit: percent
+    window: 15m
+    source: FsusBlog.Sse
+    alert: sse_disconnect_spike
+
+  - id: aot-hit-rate
+    objective: 95
+    unit: percent
+    window: 1h
+    source: PublicAOT
+    alert: aot_backfill_failed
+
+  - id: search-rebuild-success-rate
+    objective: 99
+    unit: percent
+    window: 24h
+    source: SearchIndexService
+    alert: search_rebuild_failed
+
+  - id: scheduled-publish-delay
+    objective: 60
+    unit: seconds
+    window: 15m
+    source: /health/ready runtime.scheduledPublish
+    alert: ready_degraded

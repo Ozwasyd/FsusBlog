@@ -1,7 +1,7 @@
 <template>
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-labelledby="author-analytics-title">
     <header class="border-b border-[var(--fsusblog-panel-border)] p-8">
-      <div class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">作者分析 / AUTHOR ANALYTICS</div>
+      <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">作者分析 / AUTHOR ANALYTICS</div>
       <h2 id="author-analytics-title" class="mt-4 text-3xl font-bold text-[var(--fsusblog-text-primary)]">内容与技术表现</h2>
       <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">
         聚合真实阅读证明、公开路由、搜索与 AOT 运行信号，不采集正文输入或账号敏感字段。
@@ -10,7 +10,7 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-px bg-[var(--fsusblog-panel-bg-soft)]">
       <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-8">
-        <div class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
+        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
         <div class="mt-5 text-4xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] tabular-nums">{{ metric.value }}</div>
         <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">{{ metric.description }}</p>
       </div>

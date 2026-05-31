@@ -21,6 +21,9 @@
           <el-input
             :model-value="password"
             name="resetPassword"
+            type="password"
+            autocomplete="new-password"
+            aria-label="设置新登录密码"
             placeholder="请输入 6 位以上密码，禁止使用空格"
             show-password
             @update:model-value="emit('update:password', $event)"

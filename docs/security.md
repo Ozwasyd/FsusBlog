@@ -32,7 +32,7 @@
 
 - 策略名称：`fixed_ip`（固定窗口，按客户端 IP 计数）
 - 超限响应：`429 Too Many Requests`，响应头携带 `Retry-After`
-- 客户端 IP 提取：`X-Forwarded-For`（`GetClientIp()` 扩展方法，需 Nginx/OpenResty 配置 `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for`，且 `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` 只信任真实网关）
+- 客户端 IP 提取：`GetClientIp()` 只读取 `ForwardedHeadersMiddleware` 按 `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` 处理后的 `Connection.RemoteIpAddress`；业务代码不得直接信任原始 `X-Forwarded-For` / `X-Real-IP` 请求头。
 - 受保护端点：PoW 挑战、注册、密码登录、Token 续签、Passkey 登录开始/完成
 
 ---
@@ -200,6 +200,12 @@ FsusBlog 采用三级角色体系：
 - **真人计数**：无 proof 读取不增加浏览数，challenge 篡改、route/article 不匹配、停留不足、重放、直接 API、crawler/scanner 不写入计数事件。
 - **浏览器安全面**：CSP、X-Frame-Options、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、CORS allow/deny/preflight、auth/PoW no-store。
 - **DAST**：OWASP ZAP baseline 对本地运行目标执行 spider + passive scan；FAIL 级告警会阻断发布，报告保存在 `.tmp/security/zap/`。
+- **ASVS / WSTG / WebAuthn 追踪**：`security/asvs-v5.0.0-matrix.yml`、`security/wstg-v4.2-matrix.yml` 与 `security/webauthn-matrix.yml` 将安全控制映射到代码、测试、证据与 owner；`tools/security/check-security-matrices.mjs` 会在 `security` / `production` 门禁中校验矩阵结构、版本化 ID 和本地路径。
+- **ZAP WARN 策略**：`security/zap-warn-policy.yml` 为每个 ZAP WARN 规则登记 owner、接受理由、修复期限、状态和升级为 FAIL 的条件；`tools/security/check-zap-warn-policy.mjs` 在 ZAP baseline 前校验清单，并保持关键规则为 FAIL。
+- **供应链审计**：`tools/security/check-supply-chain-audit.sh` 执行 `dotnet list package --vulnerable --include-transitive --format json` 与 `npm audit --omit=dev --audit-level=high --json`，并要求 `src/frontend/package-lock.json` 以及每个 audited `.csproj` 旁的 `packages.lock.json` 存在；高危或严重漏洞会阻断 `security` / `production` 门禁，结果保存在 `.tmp/security/supply-chain/`。
+- **依赖变更审查**：`.github/dependabot.yml` 覆盖 npm、NuGet 与 GitHub Actions 更新；`.github/workflows/dependency-review.yml` 在 PR 上阻断 high/critical advisory，并对 AGPL/GPL/LGPL license 风险 fail closed。
+- **SBOM**：`tools/security/generate-sbom.sh` 从 NuGet lock files、`src/frontend/package-lock.json` 和 `FSUSBLOG_IMAGE_DIGEST` 生成 CycloneDX 1.5 SBOM，包含私有 GitHub Packages 组件和容器 digest 状态；release evidence 会复制 `.tmp/security/sbom/`。
+- **隐私快照**：RUM、subscription、author AI assist、OpenTelemetry 和 audit log 都有静态或单元测试保护；audit context mapper 会丢弃 `Authorization`、cookie、token、email、request body、client IP、user agent 和 username 字段，只保留 trace correlation 与低基数字段。
 - **安全证据留存**：`check-security-attack-matrix.mjs` 和 `check-permission-matrix.mjs` 会分别写入 `.tmp/security/attack-matrix.json` 与 `.tmp/security/permission-matrix.json`。`tools/operations/collect-release-evidence.sh` 会把这些文件、DAST/ZAP 目录、production exposure status、DNS readiness/delegation、live exposure 和可用 firewall policy evidence 复制到 `.tmp/release-evidence/<timestamp>/`，并在 `manifest.json.securityEvidenceIndex` 中索引。`manifest.json.evidenceSummary.externalExposure` 记录外部证据是否有效；`valid=false` 表示 release 被阻塞而不是可发布。缺失的真实 firewall/DNS/live 证据不能用合成通过件替代；缺失状态应保留为 `null` 加 `production-exposure-status.json` blocker。
 
 测试矩阵覆盖已知攻击类和回归风险，不构成对未知攻击的绝对安全承诺；新增风险必须补到矩阵或 ZAP 配置中。

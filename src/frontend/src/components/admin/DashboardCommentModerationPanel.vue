@@ -3,7 +3,7 @@
     <header class="border-b border-[var(--fsusblog-panel-border)] p-8">
       <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">评论审核 / MODERATION</div>
+          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">评论审核 / MODERATION</div>
           <h2 id="comment-moderation-title" class="mt-4 text-3xl font-bold text-[var(--fsusblog-text-primary)]">待审与处置队列</h2>
           <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">
             新评论先进入审核队列，批准后才进入公开评论流；隐藏或拒绝可联动封禁用户并写入审计。
@@ -22,7 +22,7 @@
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-px bg-[var(--fsusblog-panel-bg-soft)]">
       <div v-for="counter in counters" :key="counter.label" class="bg-[var(--fsusblog-page-bg)] p-6">
-        <div class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ counter.label }}</div>
+        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ counter.label }}</div>
         <div class="mt-3 text-3xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ counter.value }}</div>
       </div>
     </div>
@@ -64,16 +64,19 @@
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-3">
               <span class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ comment.userName }}</span>
-              <span class="text-[10px] font-bold text-[var(--fsusblog-text-muted)]">#{{ comment.id }}</span>
-              <span class="text-[10px] font-bold text-[var(--fsusblog-text-muted)]">文章 {{ comment.articleId }} · {{ comment.articleTitle }}</span>
-              <time class="text-[10px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]">{{ formatTime(comment.createTime) }}</time>
+              <span class="text-[11px] font-bold text-[var(--fsusblog-text-muted)]">#{{ comment.id }}</span>
+              <span class="text-[11px] font-bold text-[var(--fsusblog-text-muted)]">文章 {{ comment.articleId }} · {{ comment.articleTitle }}</span>
+              <SemanticTime
+                :value="comment.createTime"
+                class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]"
+              />
             </div>
             <p class="mt-4 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--fsusblog-text-secondary)]">{{ comment.content }}</p>
             <div class="mt-4 flex flex-wrap items-center gap-2">
-              <span v-for="reason in comment.hitReasons" :key="reason" class="border border-[var(--fsusblog-panel-border)] px-2 py-1 text-[10px] font-bold text-[var(--fsusblog-text-muted)]">
+              <span v-for="reason in comment.hitReasons" :key="reason" class="border border-[var(--fsusblog-panel-border)] px-2 py-1 text-[11px] font-bold text-[var(--fsusblog-text-muted)]">
                 {{ reasonLabel(reason) }}
               </span>
-              <span class="px-2 py-1 text-[10px] font-black text-[var(--fsusblog-page-bg)]" :class="statusClass(comment.status)">
+              <span class="px-2 py-1 text-[11px] font-black text-[var(--fsusblog-page-bg)]" :class="statusClass(comment.status)">
                 {{ statusLabel(comment.status) }}
               </span>
             </div>
@@ -92,6 +95,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { Check, Close, Hide, Refresh } from '@/ui/fsusIcons'
+import SemanticTime from '@/components/ui/SemanticTime.vue'
 import {
   CommentModerationStatus,
   listCommentModerationQueue,
@@ -226,11 +230,6 @@ const reasonLabel = (reason: string): string => {
     political_redline_detected: '红线词命中'
   }
   return labels[reason] ?? reason
-}
-
-const formatTime = (value: string): string => {
-  const time = new Date(value)
-  return Number.isNaN(time.getTime()) ? value : time.toLocaleString()
 }
 
 onMounted(() => {

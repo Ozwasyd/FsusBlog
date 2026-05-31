@@ -1,11 +1,12 @@
 <template>
   <transition name="fade-fast" appear>
     <div :class="themeTokens.userComments.list">
-      <transition-group name="list-fade" tag="div" class="relative">
+      <transition-group name="list-fade" tag="div" class="relative" role="list" aria-label="评论历史列表">
       <article
         v-for="item in list"
         :key="item.id"
         :class="themeTokens.userComments.item"
+        role="listitem"
       >
         <div :class="themeTokens.userComments.itemHeader">
           <div class="space-y-1.5 grow pr-0 sm:pr-8">

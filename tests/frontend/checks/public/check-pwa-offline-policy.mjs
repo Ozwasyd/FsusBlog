@@ -41,5 +41,12 @@ assert(!shellPathBlock.includes('/login'), 'service worker must not cache login 
 assert(sw.includes("headers.set('X-Fsus-Offline-Stale', '1')"), 'offline shell responses must be marked stale')
 assert(sw.includes("headers.set('Cache-Control', 'no-store')"), 'offline stale shell responses must not be re-cached by HTTP caches')
 assert(sw.includes("url.pathname.startsWith('/api/binary/')"), 'binary API requests must stay outside shell cache handling')
+assert(sw.includes('clearLegacyFsusCaches'), 'service worker activate must clear legacy fsus caches')
+assert(sw.includes("key.startsWith('fsus-') && !keep.has(key)"), 'service worker must preserve only current cache names')
+assert(sw.includes("case 'shell.invalidate':"), 'service worker must support explicit shell invalidation')
+assert(sw.includes("case 'search-index.updated':"), 'service worker must support search index refresh messages')
+assert(sw.includes("case 'asset.clear':"), 'service worker must support targeted cache clearing')
+assert(sw.includes("networkErrorResponse('binary-network-unavailable')"), 'binary API offline failures must not be cached as shells')
+assert(sw.includes("fetch(request, { cache: 'no-store' })"), 'public shell network refresh must bypass HTTP cache')
 
 console.log('[check-pwa-offline-policy] ok')

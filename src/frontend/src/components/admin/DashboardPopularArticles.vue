@@ -1,7 +1,7 @@
 <template>
   <section class="bg-[var(--fsusblog-page-bg)] h-full flex flex-col">
     <header class="p-8 border-b border-[var(--fsusblog-panel-border)]">
-      <div class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">内容表现</div>
+      <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">内容表现</div>
       <h2 class="mt-4 text-3xl font-bold text-[var(--fsusblog-text-primary)]">热门文章</h2>
       <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-secondary)]">用内容表现判断哪些稿件值得继续编辑、补链或置顶处理。</p>
     </header>
@@ -36,7 +36,7 @@
     <footer class="p-6 border-t border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg-soft)]">
       <router-link
         :to="{ name: 'ManageArticleList' }"
-        class="blog-link-state group flex items-center gap-3 text-[10px] font-black normal-case tracking-normal"
+        class="blog-link-state group flex items-center gap-3 text-[11px] font-black normal-case tracking-normal"
       >
         进入文章管理 <el-icon class="transition-transform" aria-hidden="true"><ArrowRight /></el-icon>
       </router-link>

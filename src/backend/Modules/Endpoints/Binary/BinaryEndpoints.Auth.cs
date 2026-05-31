@@ -47,67 +47,30 @@ public static partial class BinaryEndpoints
 
         group.MapPost("/auth/login", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
-            IUserLoginWorkflowService loginWorkflow,
-            IMfaChallengeService mfaChallengeService,
+            AuthBinaryApplicationFacade authFacade,
             IWebHostEnvironment env,
             AuthCookieService authCookieService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.AuthLoginRequest, cancellationToken);
-            if (!payload.IsSuccess)
+            var request = await AuthBinaryRequestReader.ReadLoginAsync(httpContext, aeds, cancellationToken);
+            if (!request.IsSuccess)
             {
-                return BinaryResults.FromError(payload.Error, aeds);
+                return AuthBinaryResponseWriter.Error(aeds, request.Error);
             }
 
-            if (!PodBinaryCodec.TryDecodeAuthLoginRequest(payload.Payload, out var request) ||
-                string.IsNullOrWhiteSpace(request.Username) ||
-                string.IsNullOrWhiteSpace(request.Password))
+            var result = await authFacade.LoginAsync(request.Value, AuthBinaryClientContext.From(httpContext));
+            if (!result.Success)
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "用户名或密码不能为空"), aeds);
+                return AuthBinaryResponseWriter.Error(aeds, result.Error);
             }
 
-            string clientIp = httpContext.GetClientIp();
-            string? deviceFp = GetDeviceFingerprint(httpContext);
-            string? userAgent = httpContext.Request.Headers.UserAgent.ToString();
-            var dto = new LoginDto { Username = request.Username, Password = request.Password, RememberMe = request.RememberMe };
-            var check = await loginWorkflow.ValidateCredentialsAsync(dto, clientIp);
-            if (!check.Success || check.User == null)
+            if (result.SessionTokens is { } tokens)
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, check.Message), aeds);
+                authCookieService.SetTokenCookies(httpContext, env, tokens.AccessToken, tokens.RefreshToken, tokens.RefreshTokenExpiresAt);
             }
 
-            if (check.User.Value.MfaEnabled)
-            {
-                var risk = await loginWorkflow.EvaluateLoginRiskAsync(check.User.Value.Id, clientIp, deviceFp, userAgent);
-                var ticket = await mfaChallengeService.CreateLoginChallengeAsync(check.User.Value.Id, risk.RequiresMfa, request.RememberMe);
-                var flow = new AuthLoginFlowDto(
-                    new AuthIdentitySnapshotDto(check.User.Value.Id, check.User.Value.Username, check.User.Value.Role),
-                    "mfa_required",
-                    risk.RequiresMfa ? "risk" : "standard",
-                    ticket.TicketId);
-                return BinaryResults.Frame(aeds, AedsFrameType.AuthLoginFlow, writer => PodBinaryCodec.WriteAuthLoginFlow(flow, writer));
-            }
-
-            var login = await loginWorkflow.CompleteLoginAsync(
-                check.User.Value.Id,
-                clientIp,
-                deviceFp,
-                userAgent,
-                mfaVerified: !check.User.Value.MfaEnabled,
-                rememberMe: request.RememberMe);
-            if (!login.Success || login.Data == null || login.User == null)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, login.Message), aeds);
-            }
-
-            authCookieService.SetTokenCookies(httpContext, env, login.Data.Value.AccessToken, login.Data.Value.RefreshToken, login.User.Value.RefreshTokenExpiryTime ?? DateTime.UtcNow.AddDays(7));
-            var done = new AuthLoginFlowDto(
-                new AuthIdentitySnapshotDto(login.User.Value.Id, login.User.Value.Username, login.User.Value.Role.ToLowerInvariant()),
-                "authenticated",
-                null,
-                null);
-            return BinaryResults.Frame(aeds, AedsFrameType.AuthLoginFlow, writer => PodBinaryCodec.WriteAuthLoginFlow(done, writer));
+            return AuthBinaryResponseWriter.LoginFlow(aeds, result.Flow);
         })
         .RequireRateLimiting("fixed_ip")
         .AllowAnonymous()
@@ -116,58 +79,30 @@ public static partial class BinaryEndpoints
 
         group.MapPost("/auth/register", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
-            IUserRegistrationService registration,
-            IUserAccountReader users,
-            IUserLoginWorkflowService loginWorkflow,
+            AuthBinaryApplicationFacade authFacade,
             IWebHostEnvironment env,
             AuthCookieService authCookieService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.AuthRegisterRequest, cancellationToken);
-            if (!payload.IsSuccess)
+            var request = await AuthBinaryRequestReader.ReadRegisterAsync(httpContext, aeds, cancellationToken);
+            if (!request.IsSuccess)
             {
-                return BinaryResults.FromError(payload.Error, aeds);
+                return AuthBinaryResponseWriter.Error(aeds, request.Error);
             }
 
-            if (!PodBinaryCodec.TryDecodeAuthRegisterRequest(payload.Payload, out var request))
+            var result = await authFacade.RegisterAsync(request.Value, AuthBinaryClientContext.From(httpContext));
+            if (!result.Success)
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "注册请求体非法"), aeds);
+                return AuthBinaryResponseWriter.Error(aeds, result.Error);
             }
 
-            var dto = new RegisterDto { Username = request.Username, Password = request.Password, ConfirmPassword = request.ConfirmPassword };
-            var (success, message) = await registration.RegisterAsync(dto);
-            if (!success)
+            if (result.SessionTokens is { } tokens)
             {
-                var code = string.Equals(message, "用户名已存在", StringComparison.Ordinal) ||
-                    string.Equals(message, "用户名已被占用", StringComparison.Ordinal)
-                    ? ErrorCode.Conflict
-                    : ErrorCode.Validation;
-                return BinaryResults.FromError(ErrorDetail.Create(code, message), aeds);
+                authCookieService.SetTokenCookies(httpContext, env, tokens.AccessToken, tokens.RefreshToken, tokens.RefreshTokenExpiresAt);
             }
 
-            string clientIp = httpContext.GetClientIp();
-            string? deviceFp = GetDeviceFingerprint(httpContext);
-            string? userAgent = httpContext.Request.Headers.UserAgent.ToString();
-            UserAccountSnapshot? user = await users.GetAccountByUsernameAsync(request.Username.Trim());
-            if (user == null)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "注册成功，但初始化会话失败，请改用登录继续"), aeds);
-            }
-
-            var login = await loginWorkflow.CompleteLoginAsync(user.Value.Id, clientIp, deviceFp, userAgent, mfaVerified: true, rememberMe: false);
-            if (!login.Success || login.Data == null || login.User == null)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "注册成功，但自动登录失败，请改用登录继续"), aeds);
-            }
-
-            authCookieService.SetTokenCookies(httpContext, env, login.Data.Value.AccessToken, login.Data.Value.RefreshToken, login.User.Value.RefreshTokenExpiryTime ?? DateTime.UtcNow.AddDays(7));
-            var flow = new AuthLoginFlowDto(
-                new AuthIdentitySnapshotDto(login.User.Value.Id, login.User.Value.Username, login.User.Value.Role.ToLowerInvariant()),
-                "authenticated",
-                null,
-                null);
-            return BinaryResults.Frame(aeds, AedsFrameType.AuthLoginFlow, writer => PodBinaryCodec.WriteAuthLoginFlow(flow, writer));
+            return AuthBinaryResponseWriter.LoginFlow(aeds, result.Flow);
         })
         .RequireRateLimiting("fixed_ip")
         .AllowAnonymous()

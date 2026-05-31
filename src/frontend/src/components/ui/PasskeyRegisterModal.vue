@@ -7,6 +7,8 @@
     :show-close="false"
     @update:model-value="val => !val && handleClose()"
   >
+    <p class="sr-only" role="status" aria-live="polite">{{ stepStatusText }}</p>
+
     <!-- 步骤 1：设备名称 -->
     <template v-if="step === 'name'">
       <p class="text-sm text-[var(--fsusblog-text-muted)] leading-relaxed mb-6">
@@ -14,11 +16,13 @@
       </p>
 
       <div>
-        <label class="block text-[10px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">设备名称（可选）</label>
+        <label for="passkey-register-name" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">设备名称（可选）</label>
         <el-input
+          id="passkey-register-name"
           ref="nameInput"
           v-model="friendlyName"
           type="text"
+          autocomplete="webauthn"
           placeholder="例如：我的 MacBook Touch ID"
           :disabled="loading"
           maxlength="64"
@@ -36,21 +40,26 @@
 
       <div class="space-y-4">
         <div>
-          <label class="block text-[10px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">验证码</label>
+          <label for="passkey-register-mfa-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">验证码</label>
           <el-input
+            id="passkey-register-mfa-code"
             ref="mfaCodeInput"
             v-model="mfaCode"
             type="text"
+            autocomplete="one-time-code"
+            inputmode="numeric"
             placeholder="6 位验证码"
             :disabled="loading"
             @keyup.enter="onMfaVerify"
           />
         </div>
         <div>
-          <label class="block text-[10px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">恢复码（可选）</label>
+          <label for="passkey-register-recovery-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">恢复码（可选）</label>
           <el-input
+            id="passkey-register-recovery-code"
             v-model="mfaRecoveryCode"
             type="text"
+            autocomplete="one-time-code"
             placeholder="恢复码"
             :disabled="loading"
             @keyup.enter="onMfaVerify"
@@ -73,14 +82,14 @@
     <template v-else-if="step === 'success'">
       <div class="flex flex-col items-center gap-3 py-4">
         <div class="w-12 h-12 rounded-[var(--fsus-radius-panel)] bg-[var(--fsusblog-text-primary)] flex items-center justify-center">
-          <Check class="w-6 h-6 text-[var(--fsusblog-page-bg)]" />
+          <Check class="w-6 h-6 text-[var(--fsusblog-page-bg)]" aria-hidden="true" />
         </div>
         <p class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">通行密钥注册成功</p>
         <p class="text-[12px] text-[var(--fsusblog-text-muted)]">下次登录时可直接使用此密钥</p>
       </div>
     </template>
 
-    <div v-if="errorMessage" class="mt-4 text-[11px] font-medium text-[var(--fsusblog-color-error)]">{{ errorMessage }}</div>
+    <div v-if="errorMessage" role="alert" class="mt-4 text-[11px] font-medium text-[var(--fsusblog-color-error)]">{{ errorMessage }}</div>
 
     <template #footer>
       <div class="dialog-footer flex justify-end gap-5 mt-4">
@@ -116,7 +125,7 @@
 
 <script setup lang="ts">
 import { Check } from '@/ui/fsusIcons'
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { startRegistration } from '@simplewebauthn/browser'
 import { passkeyRegisterBegin, passkeyRegisterComplete, startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
 
@@ -143,6 +152,12 @@ const loading = ref(false)
 const errorMessage = ref('')
 const nameInput = ref<HTMLElement | null>(null)
 const mfaCodeInput = ref<HTMLElement | null>(null)
+const stepStatusText = computed(() => {
+  if (step.value === 'name') return '步骤 1，填写通行密钥设备名称'
+  if (step.value === 'mfa') return '步骤 2，完成 MFA 验证'
+  if (step.value === 'ceremony') return '步骤 3，等待浏览器认证器响应'
+  return '步骤 4，通行密钥注册成功'
+})
 
 watch(() => props.visible, (val) => {
   if (val) {

@@ -10,7 +10,7 @@
 | 功能 | 说明 |
 |------|------|
 | 公开内容页 | 首页、归档、分类、标签、文章详情，AOT 预渲染 + SPA hydration 双路保障首屏 |
-| Binary 传输 | AEDS v1 二进制帧协议，C++23 Wasm 解码，零分配写入，JSON 自动回退 |
+| Binary 传输 | AEDS v2 二进制帧协议，C++23 Wasm / TypeScript 双解码，零分配写入，不回退旧文本 API |
 | 本地搜索 | Service Worker 缓存静态索引 + 浏览器端 Wasm 排序，无服务端在线检索 |
 | 认证与授权 | PoW 前置 + 注册/登录 + JWT Access Token（15 min）+ HttpOnly Cookie |
 | 通行密钥 (Passkey) | WebAuthn / FIDO2 Discoverable Credential，无密码登录，最多 5 枚/用户 |
@@ -26,7 +26,7 @@
 FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核心约束：
 
 - **公开页优先**：首页、归档、分类、标签、文章详情优先保障首屏和可索引性。
-- **统一契约**：同一业务对象在 JSON、Binary、AOT 三条读链保持同一语义。
+- **统一契约**：同一业务对象在 AEDS Binary、Public AOT 与必要 JSON 运维/证明端点中保持同一语义。
 - **单体优先**：减少跨服务跳转，把复杂度压在工程内部而不是部署拓扑上。
 - **安全前置**：PoW、JWT、多会话、MFA、Passkey、风控、注销、缓存治理都按基础设施能力建设。
 - **前端性能优先**：浏览器本地搜索、Service Worker 边缘缓存、Wasm 渲染与解码进入正式主链。
@@ -66,12 +66,12 @@ FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核
 
 - C++23（Freestanding，无 STL 堆分配）
 - Emscripten SDK，CMake + Ninja
-- AEDS v1 解码、CRC32 校验、Markdown 渲染
+- AEDS v2 解码、CRC 校验、Markdown 渲染
 
 ### 当前主链
 
-- 公开文章、列表、评论等高频读取链优先走 Binary/POD（`application/octet-stream`，AEDS 帧）。
-- 管理端写接口、认证接口和部分通用业务接口继续走 JSON。
+- 运行时主 API 收敛到 `/api/binary/**` Binary/POD（`application/octet-stream`，AEDS v2 帧），公开读取、管理端写入、认证、MFA、Passkey 都走同一链路。
+- 作者工作台 `/api/author/**`、真人阅读 proof、健康检查和少量运维端点保留 JSON；旧文本 `/api/**` 业务端点不作为客户端 fallback。
 - 搜索不再依赖服务端在线检索，客户端加载静态索引并本地排序。
 - 公开页首访优先走 AOT 命中；未命中则回到 SPA index，再由 hydration 接管。
 
@@ -79,11 +79,11 @@ FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核
 
 ```text
 FsusBlog/
-├── src/frontend/FsusBlog.Client/          # Vue 3 SPA、Wasm、Service Worker、公开页 hydration
+├── src/frontend/                         # Vue 3 SPA、Wasm、Service Worker、公开页 hydration
 ├── src/backend/          # ASP.NET Core 10 API、AOT、SSE、缓存、安全链路
 ├── src/shared/          # 前后端共享契约与二进制协议模型
 ├── src/core/            # 映射、POD 编解码、共享投影逻辑
-├── tests/server/FsusBlog.Server.Tests/    # xUnit 单元与集成测试
+├── tests/backend/FsusBlog.Server.Tests/   # xUnit 单元与集成测试
 ├── benchmarks/core/FsusBlog.Core.Benchmarks/ # BenchmarkDotNet 性能基准
 ├── docs/                     # 深度文档
 │   ├── architecture.md       # 系统架构与缓存分层
@@ -138,7 +138,7 @@ docker compose -f docker-compose.dev.yml up -d
 **第二步**：安装前端依赖并启动开发服务器
 
 ```bash
-cd FsusBlog.Client
+cd src/frontend
 npm ci
 npm run dev:debug
 ```
@@ -156,6 +156,16 @@ npm run dev:debug
 - 默认启动配置：`Debug / Client + Docker`（最接近生产）
 - 次级启动配置：`Debug / Client + NativeServer`（更快的 C# 迭代）
 - 默认 `F5` 浏览器入口统一为 `http://127.0.0.1:3000`
+
+### 发布构建开关
+
+Release publish 默认会检查 `src/frontend/node_modules`、执行 `npm run build:release`，并把 `src/frontend/dist` 与前端 runtime 文件复制进后端发布产物。后端-only 诊断或临时发布可显式传入：
+
+```bash
+dotnet publish src/backend/FsusBlog.Server.csproj -c Release /p:PublishClientAssets=false
+```
+
+该开关不会改变生产默认行为；只用于把后端发布链路从 Node/npm/GitHub Packages 临时解耦。
 
 ## 测试
 
@@ -177,13 +187,13 @@ npm run dev:debug
 单独运行快速单元测试：
 
 ```bash
-dotnet test tests/server/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj \
+dotnet test tests/backend/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj \
   --filter "Category!=Integration" -v minimal
 ```
 
-详细规则见 [tests/server/FsusBlog.Server.Tests/TESTING.md](tests/server/FsusBlog.Server.Tests/TESTING.md)。
+详细规则见 [tests/backend/FsusBlog.Server.Tests/TESTING.md](tests/backend/FsusBlog.Server.Tests/TESTING.md)。
 
-`production` 是合并与发布前的权威质量门：要求 0 编译警告、0 类型错误、0 Vite build warning、0 测试失败、0 运行时 error/warning，并覆盖匿名/登录/admin、JSON API、Binary API、SSE、AOT hydration、PoW/MFA/Passkey/session、视觉、弹性与轻量负载。GitHub Actions `Quality Gate` 会在 PR、`main` push 和手动触发时运行同一条 `./tools/test.sh production`；仓库 secret 需要配置 `GITHUB_PACKAGES_TOKEN`。
+`production` 是合并与发布前的权威质量门：要求 0 编译警告、0 类型错误、0 Vite build warning、0 测试失败、0 运行时 error/warning，并覆盖匿名/登录/admin、Binary API、作者工作台/read-proof/health JSON、SSE、AOT hydration、PoW/MFA/Passkey/session、视觉、弹性与轻量负载。GitHub Actions `Quality Gate` 会在 PR、`main` / `master` push 和手动触发时运行同一条 `./tools/test.sh production`；仓库 secret 需要配置 `GITHUB_PACKAGES_TOKEN`。
 
 ## 文档索引
 
@@ -194,12 +204,12 @@ dotnet test tests/server/FsusBlog.Server.Tests/FsusBlog.Server.Tests.csproj \
 | [docs/api/design.md](docs/api/design.md) | API 设计哲学、响应格式约定、双链路决策 |
 | [docs/api/contracts.md](docs/api/contracts.md) | 请求/响应 DTO 完整契约、SSE 信封、AOT 契约 |
 | [docs/api/quick-reference.md](docs/api/quick-reference.md) | 所有端点路由速查表（含认证 / 限流 / Binary 对照） |
-| [docs/api/schemas-and-errors.md](docs/api/schemas-and-errors.md) | 错误码枚举、AEDS v1 帧格式、POD 大小目录 |
+| [docs/api/schemas-and-errors.md](docs/api/schemas-and-errors.md) | 错误码枚举、AEDS v2 帧格式、POD 大小目录 |
 | [docs/security.md](docs/security.md) | 安全模型：PoW、JWT、MFA、Passkey、RBAC、CORS |
 | [docs/production.md](docs/production.md) | 生产部署、环境变量、健康检查 |
 | [docs/operations.md](docs/operations.md) | 运维手册：发布门控、回滚、备份、事故处置 |
 | [docs/development.md](docs/development.md) | 本地开发环境搭建、常用脚本说明 |
 | [docs/testing.md](docs/testing.md) | 测试分层策略（10 级）与覆盖场景说明 |
 | [docs/wasm.md](docs/wasm.md) | WebAssembly 工具链、构建、C++/TS 接口边界 |
-| [tests/server/FsusBlog.Server.Tests/TESTING.md](tests/server/FsusBlog.Server.Tests/TESTING.md) | 测试分层规则与洁净性约定 |
-| [src/core/Algorithms/AEDS_V1_PROTOCOL.md](src/core/Algorithms/AEDS_V1_PROTOCOL.md) | AEDS v1 二进制帧协议规格 |
+| [tests/backend/FsusBlog.Server.Tests/TESTING.md](tests/backend/FsusBlog.Server.Tests/TESTING.md) | 测试分层规则与洁净性约定 |
+| [src/core/Algorithms/AEDS_V1_PROTOCOL.md](src/core/Algorithms/AEDS_V1_PROTOCOL.md) | AEDS 二进制帧协议规格（当前运行时只接受 v2） |

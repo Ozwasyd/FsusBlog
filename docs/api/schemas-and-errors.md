@@ -120,7 +120,7 @@ SSE preflight 与 WebSocket 握手失败会在 `X-Fsus-Sse-Error-Code` 头、JSO
 
 ## AEDS v2 帧格式
 
-权威规格：`src/core/FsusBlog.Core/Algorithms/AEDS_V1_PROTOCOL.md`（文件名沿用历史路径，内容为当前 v2 规格）
+权威规格：`src/core/Algorithms/AEDS_V1_PROTOCOL.md`（文件名沿用历史路径，内容为当前 v2 规格）
 
 ### 帧头布局（16 字节，小端序）
 
@@ -217,7 +217,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 
 ## POD 大小目录
 
-源码：`src/shared/FsusBlog.Shared/Contracts/Validation/PodSizeCatalog.cs`
+源码：`src/shared/Contracts/Validation/PodSizeCatalog.cs`
 
 以下尺寸为**编译期常量**，C# 和 C++ 两侧必须保持一致。任何修改须同时更新：
 1. `PodSizeCatalog.cs` 中对应字段
@@ -311,7 +311,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 
 ## C++ POD 对齐规则
 
-源码：`src/shared/FsusBlog.Shared/Contracts/CPP_ALIGNMENT_CHECKLIST.md`
+源码：`src/shared/Contracts/CPP_ALIGNMENT_CHECKLIST.md`
 
 ### 类型映射
 
@@ -357,7 +357,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 - [design.md](design.md) — API 设计哲学
 - [contracts.md](contracts.md) — 响应 DTO 完整定义
 - [quick-reference.md](quick-reference.md) — 端点速查表
-- `src/core/FsusBlog.Core/Algorithms/AEDS_V1_PROTOCOL.md` — 完整协议规格
+- `src/core/Algorithms/AEDS_V1_PROTOCOL.md` — 完整协议规格
 - `src/shared/Contracts/Validation/aeds-protocol.json` — 帧类型与 AEDS header 的生成输入
 - `tools/frontend/generate-aeds-protocol.mjs` — 生成并校验三端协议常量
-- `src/shared/FsusBlog.Shared/Contracts/Validation/PodSizeCatalog.cs` — POD 大小权威源码
+- `src/shared/Contracts/Validation/PodSizeCatalog.cs` — POD 大小权威源码

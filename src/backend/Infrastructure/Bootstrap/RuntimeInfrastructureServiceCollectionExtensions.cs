@@ -25,9 +25,31 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     public static IServiceCollection AddFsusRuntimeInfrastructureServices(this IServiceCollection services)
     {
         services.AddSingleton<StartupRuntimeState>();
+        services.AddBinaryRuntime();
+        services.AddNotificationRuntime();
+        services.AddCrawlerAndSearchRuntime();
+        services.AddFileAndAuthRuntime();
+        services.AddAuditRuntime();
+        services.AddMessagingRuntime();
+        services.AddCacheRuntime();
+        services.AddIdentityRuntime();
+        services.AddBackgroundRuntime();
+        services.AddSpaRuntime();
+        services.AddObjectPools();
+
+        return services;
+    }
+
+    private static IServiceCollection AddBinaryRuntime(this IServiceCollection services)
+    {
         services.AddSingleton<IBinaryEnvelopePolicy, BinaryEnvelopePolicy>();
         services.AddSingleton<IBinaryRequestBinder, BinaryRequestBinder>();
         services.AddScoped<IBinaryEndpointRequestContext, BinaryEndpointRequestContext>();
+        return services;
+    }
+
+    private static IServiceCollection AddNotificationRuntime(this IServiceCollection services)
+    {
         services.AddSingleton<INotificationFrameCodec, NotificationFrameCodec>();
         services.AddScoped<INotificationStreamAdmissionService, NotificationStreamAdmissionService>();
         services.AddScoped<INotificationStreamAudienceResolver, NotificationStreamAudienceResolver>();
@@ -37,37 +59,67 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<SseConnectionManager>();
         services.AddSingleton<SseBacklogStore>();
         services.AddSingleton<ISsePublisher, RedisSsePublisher>();
+        return services;
+    }
+
+    private static IServiceCollection AddCrawlerAndSearchRuntime(this IServiceCollection services)
+    {
         services.AddSingleton<CrawlerDetectorService>();
         services.AddHostedService<CrawlerUpdateWorker>();
         services.AddSingleton<ISearchIndexService, SearchIndexService>();
+        return services;
+    }
 
+    private static IServiceCollection AddFileAndAuthRuntime(this IServiceCollection services)
+    {
         services.AddScoped<IFileService, FileService>();
         services.AddSingleton<AuthCookieService>();
         services.AddScoped<IHumanReadProofEndpointAdapter, HumanReadProofEndpointAdapter>();
+        return services;
+    }
+
+    private static IServiceCollection AddAuditRuntime(this IServiceCollection services)
+    {
         services.AddSingleton<AuditLogEventMapper>();
         services.AddSingleton<AuditSerilogEnricher>();
         services.AddSingleton<AuditLogChannel>();
         services.AddSingleton<AuditSerilogSink>();
         services.AddScoped<IAuditLogStore, AuditLogStore>();
         services.AddHostedService<AuditLogWriterWorker>();
+        return services;
+    }
 
+    private static IServiceCollection AddMessagingRuntime(this IServiceCollection services)
+    {
         services.AddScoped<MessageCacheService>();
         services.AddScoped<IMessageSsePort, MessageSsePort>();
         services.AddScoped<MessageCenterService>();
         services.AddScoped<IMessageQueryService>(sp => sp.GetRequiredService<MessageCenterService>());
         services.AddScoped<IMessageCommandService>(sp => sp.GetRequiredService<MessageCenterService>());
         services.AddScoped<IMessageRealtimePublisher>(sp => sp.GetRequiredService<MessageCenterService>());
+        return services;
+    }
 
+    private static IServiceCollection AddCacheRuntime(this IServiceCollection services)
+    {
         services.AddSingleton<ICachePolicyRegistry, CachePolicyRegistry>();
         services.AddSingleton<IUnifiedCache, UnifiedCache>();
         services.AddSingleton<ICacheMissCoordinator, CacheMissCoordinator>();
         services.AddSingleton<IDbConcurrencyGate, DbConcurrencyGate>();
         services.AddScoped<IHttpCacheInvalidator, HttpCacheInvalidator>();
         services.AddScoped<ICacheInvalidationDispatcher, CacheInvalidationDispatcher>();
+        return services;
+    }
 
+    private static IServiceCollection AddIdentityRuntime(this IServiceCollection services)
+    {
         services.AddScoped<IBlacklistService, BlacklistService>();
         services.AddSingleton<IUserIdProvider, SnowflakeUserIdProvider>();
+        return services;
+    }
 
+    private static IServiceCollection AddBackgroundRuntime(this IServiceCollection services)
+    {
         services.AddSingleton<VisitLogChannel>();
         services.AddScoped<IArticleViewProjectionService, ArticleViewProjectionService>();
         services.AddHostedService<VisitLogProcessorService>();
@@ -75,10 +127,19 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddHostedService<LogCleanupService>();
         services.AddSingleton<ScheduledPublishRuntimeState>();
         services.AddHostedService<ScheduledPublishWorker>();
+        return services;
+    }
+
+    private static IServiceCollection AddSpaRuntime(this IServiceCollection services)
+    {
         services.AddSingleton<ISpaAssetManifestService, SpaAssetManifestService>();
+        return services;
+    }
+
+    private static IServiceCollection AddObjectPools(this IServiceCollection services)
+    {
         services.TryAddSingleton<ObjectPoolProvider, DefaultObjectPoolProvider>();
         services.AddSingleton(CreateIp2LocationPool);
-
         return services;
     }
 

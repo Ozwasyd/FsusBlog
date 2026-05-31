@@ -1,5 +1,5 @@
 <template>
-  <div class="account-page profile-page w-full">
+  <div class="account-page profile-page account-motion-enter w-full">
     <header class="account-page-header">
       <div class="account-page-eyebrow">管理</div>
       <h1 class="account-page-title">系统设置</h1>
@@ -8,24 +8,25 @@
       </p>
     </header>
 
-    <div
-      role="alert"
+    <section
+      role="status"
+      aria-labelledby="settings-privileged-mode-title"
       class="mb-12 border-l-2 border-[var(--fsusblog-color-warning-border)] bg-[var(--fsusblog-color-warning-bg)] px-6 py-5 rounded-r-[var(--fsus-radius-control)]"
     >
       <div class="flex items-center gap-3 mb-2">
         <span class="text-[var(--fsusblog-color-warning-text)]">
           <el-icon><Warning /></el-icon>
         </span>
-        <span class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-color-warning-text)]">高权限管理模式 (Privileged Mode)</span>
+        <span id="settings-privileged-mode-title" class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-color-warning-text)]">高权限管理模式 (Privileged Mode)</span>
       </div>
       <p class="text-[13px] leading-relaxed text-[var(--fsusblog-color-warning-text)] font-medium">
         变更站点全局配置将立即触发物理磁盘 AOT 缓存清理。若同步失败，系统将执行原子化回滚。
       </p>
-    </div>
+    </section>
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="SEO 配置" name="site">
-        <div class="mt-16 space-y-32">
+        <div class="mt-10 space-y-14 md:space-y-16">
           <!-- 上传与输出策略 -->
           <section class="profile-section">
             <header class="mb-12">
@@ -71,7 +72,7 @@
                 <el-input v-model="siteForm.baseUrl" name="siteBaseUrl" placeholder="https://fsus.blog" :disabled="savingSite">
                   <template #prepend>URL</template>
                 </el-input>
-                <div class="text-[9px] font-bold text-[var(--fsusblog-text-muted)] mt-4 normal-case tracking-normal">
+                <div class="text-[11px] font-bold text-[var(--fsusblog-text-muted)] mt-4 normal-case tracking-normal">
                   必须以 http/https 开头，禁止末尾斜杠。用于 RSS 与邮件生成。
                 </div>
               </el-form-item>
@@ -89,13 +90,13 @@
                     :disabled="imageLoading"
                   >
                     <div v-loading="imageLoading" class="group relative min-w-0 overflow-hidden rounded-[var(--fsus-radius-popover)] border border-[var(--fsusblog-panel-border-strong)] bg-[var(--fsusblog-page-bg)] transition-[background-color,border-color,color,opacity,transform] hover:border-[var(--fsusblog-color-primary)]">
-                      <img v-if="displayUrl" :src="displayUrl" class="w-full h-full object-cover" />
+                      <img v-if="displayUrl" :src="displayUrl" alt="当前社交媒体预览图" class="w-full h-full object-cover" />
                       <div v-else class="h-full flex flex-col items-center justify-center text-[var(--fsusblog-text-muted)]">
                         <el-icon size="24"><Plus /></el-icon>
-                        <span class="text-[10px] mt-2 font-black normal-case tracking-normal">Upload Cover</span>
+                        <span class="text-[11px] mt-2 font-black normal-case tracking-normal">上传预览图</span>
                       </div>
                       <div class="image-replace-overlay absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span class="text-[10px] font-black normal-case tracking-normal">点击更换 / REPLACE</span>
+                        <span class="text-[11px] font-black normal-case tracking-normal">点击更换 / REPLACE</span>
                       </div>
                     </div>
                   </el-upload>
@@ -112,7 +113,7 @@
                       :disabled="imageLoading"
                       @click="confirmImageRemove"
                     >
-                      物理删除并重置
+                      删除并重置
                     </el-button>
                   </div>
                 </div>
@@ -224,7 +225,7 @@ const {
 } = useAdminSettingsPage()
 
 const confirmImageRemove = async (): Promise<void> => {
-  const result = await ElMessageBox.confirm('这会物理删除当前预览图，并立即同步到公开站点。', '重置预览图', {
+  const result = await ElMessageBox.confirm('这会删除当前预览图，并立即同步到公开站点。', '重置预览图', {
     type: 'warning',
     confirmButtonText: '确认重置',
     cancelButtonText: '取消'
@@ -251,15 +252,6 @@ const confirmPagePublish = async (): Promise<void> => {
 
 <style scoped>
 @reference "@/assets/main.css";
-
-.profile-page {
-  animation: fade-in var(--fsus-motion-panel) var(--fsus-motion-standard);
-}
-
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 
 /* Editorial Blocks */
 .section-title {

@@ -23,6 +23,7 @@ type AdminRecentCommentViewContract = Readonly<{
   id: string | number;
   userName: string;
   content: string;
+  timeValue: string;
   timeText: string;
   timeTitle: string;
   isLatest: boolean;
@@ -123,6 +124,7 @@ export function createAdminDashboardViewContract(
       id: comment.userId ?? `${comment.userName}-${index}`,
       userName: comment.userName,
       content: comment.content,
+      timeValue: comment.createTime,
       timeText: TimeUtils.toFullLocalString(comment.createTime),
       timeTitle: TimeUtils.toFullLocalString(comment.createTime),
       isLatest: index === 0
