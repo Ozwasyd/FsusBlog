@@ -23,7 +23,7 @@ namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
 internal static class RuntimeInfrastructureServiceCollectionExtensions
 {
-    public static IServiceCollection AddFsusRuntimeInfrastructureServices(this IServiceCollection services)
+    public static IServiceCollection AddFsusRuntimeInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<StartupRuntimeState>();
         services.AddBinaryRuntime();
@@ -33,7 +33,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddAuditRuntime();
         services.AddMessagingRuntime();
         services.AddCacheRuntime();
-        services.AddPublicReadArtifactRuntime();
+        services.AddPublicReadArtifactRuntime(configuration);
         services.AddIdentityRuntime();
         services.AddBackgroundRuntime();
         services.AddSpaRuntime();
@@ -113,13 +113,15 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddPublicReadArtifactRuntime(this IServiceCollection services)
+    private static IServiceCollection AddPublicReadArtifactRuntime(this IServiceCollection services, IConfiguration configuration)
     {
-        services.Configure<PublicHotReadOptions>(_ => { });
+        services.Configure<PublicHotReadOptions>(configuration.GetSection("PublicHotRead"));
         services.AddSingleton<PublicHotReadStore>();
         services.AddSingleton<PublicHotReadCounters>();
+        services.AddSingleton<PublicHotArtifactUpdateQueue>();
         services.AddHostedService<PublicHotReadMetricFlushWorker>();
         services.AddHostedService<PublicHotReadStartupWarmupService>();
+        services.AddHostedService<PublicHotArtifactUpdateWorker>();
         services.AddScoped<IPublicHotArtifactProjector, PublicHotArtifactProjector>();
         services.AddSingleton<IArticleDetailAedsArtifactStore, ArticleDetailAedsFileArtifactStore>();
         services.AddSingleton<ArticleDetailAedsArtifactBackfillScheduler>();

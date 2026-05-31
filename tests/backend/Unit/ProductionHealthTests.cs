@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Services.Background;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -60,10 +61,13 @@ public sealed class ProductionHealthTests
             runtimeState.ReportStartupTask("bootstrapRollback", "ok", "restored:1");
             var scheduledPublishState = new ScheduledPublishRuntimeState();
             scheduledPublishState.ReportResult(2, 1, 1, "one_or_more_articles_failed");
+            var publicHotStore = new PublicHotReadStore();
+            publicHotStore.Publish(PublicHotReadSnapshot.Empty);
 
             var services = new ServiceCollection()
                 .AddSingleton(runtimeState)
                 .AddSingleton(scheduledPublishState)
+                .AddSingleton(publicHotStore)
                 .BuildServiceProvider();
             IConfiguration configuration = new ConfigurationBuilder().Build();
             var probe = new ProductionReadinessProbe(
@@ -90,6 +94,10 @@ public sealed class ProductionHealthTests
             Assert.Equal(2, runtime.ScheduledPublish.LastPublishedCount);
             Assert.Equal(1, runtime.ScheduledPublish.LastFailedCount);
             Assert.Equal(1, runtime.ScheduledPublish.DueBacklog);
+
+            Assert.NotNull(runtime.PublicHotRead);
+            Assert.Equal(nameof(PublicHotReadState.Ready), runtime.PublicHotRead!.State);
+            Assert.Equal("ok", runtime.PublicHotRead.LastBuildStatus);
         }
         finally
         {

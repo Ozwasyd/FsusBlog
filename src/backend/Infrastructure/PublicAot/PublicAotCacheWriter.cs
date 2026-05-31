@@ -38,6 +38,7 @@ public sealed class PublicAotCacheWriter(
         await cache.SetAsync(entry, cancellationToken).ConfigureAwait(false);
         hotReadStore.PublishHtml(
             routeKey,
+            pageId,
             PublicHotReadHtmlArtifactFactory.FromHtml(html, "public,max-age=60"));
     }
 }

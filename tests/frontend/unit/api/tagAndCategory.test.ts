@@ -19,7 +19,7 @@ describe('tag API', () => {
   it('getTags calls GET /Tag', async () => {
     await getTags()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/tag'
+      binaryUrl: '/api/binary/tag.aeds'
     }))
   })
 
@@ -76,7 +76,7 @@ describe('category API', () => {
   it('getCategories calls GET /Category', async () => {
     await getCategories()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/category'
+      binaryUrl: '/api/binary/category.aeds'
     }))
   })
 

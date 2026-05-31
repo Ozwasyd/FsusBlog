@@ -196,7 +196,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('category-list-frame.hex'))
 
     await expect(requestBinaryOnly<Array<{ id: number; name: string; articleCount: number }>>({
-      binaryUrl: '/api/binary/category',
+      binaryUrl: '/api/binary/category.aeds',
       frameType: FrameType.CategoryList
     })).resolves.toEqual([
       { id: 1, name: 'Tech', articleCount: 2 },
@@ -739,6 +739,25 @@ describe('binaryTransport ApiError mapping', () => {
         expect((error as BinaryTransportError).message).toContain('权限不足')
         expect((error as BinaryTransportError).message).toContain('[trace:trace-123]')
       })
+  })
+
+  it.each([
+    [404, 'not_found', AppErrorCode.NotFound],
+    [503, 'public_artifact_not_ready', AppErrorCode.Timeout],
+    [400, 'client_route_contract', AppErrorCode.ProtocolFailure],
+    [406, 'accept_contract', AppErrorCode.ProtocolFailure]
+  ] as const)('maps public artifact status %i to %s', async (status, kind, code) => {
+    mockBinaryRequest.mockRejectedValue(new BinaryRequestError(status, `Binary request failed: ${status}`, new ArrayBuffer(0)))
+
+    await expect(requestBinaryOnly({
+      binaryUrl: '/api/binary/article/list/home/1/10.aeds',
+      frameType: FrameType.ArticleList
+    })).rejects.toMatchObject({
+      name: 'BinaryTransportError',
+      kind,
+      code,
+      status
+    })
   })
 
   it('suppresses telemetry for expected anonymous auth failures', async () => {

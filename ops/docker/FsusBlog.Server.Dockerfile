@@ -8,7 +8,7 @@ WORKDIR /app
 EXPOSE 8080
 
 USER root
-RUN apk add --no-cache icu-data-full icu-libs nodejs npm
+RUN apk add --no-cache icu-data-full icu-libs krb5-libs nodejs npm
 RUN mkdir -p /app/wwwroot/uploads /app/Dictionaries && \
     chown -R $APP_UID:$APP_UID /app/wwwroot/uploads /app/Dictionaries
 

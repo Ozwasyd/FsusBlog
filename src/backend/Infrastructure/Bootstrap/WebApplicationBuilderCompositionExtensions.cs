@@ -8,6 +8,25 @@ namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
 public static class WebApplicationBuilderCompositionExtensions
 {
+    public static WebApplicationBuilder ConfigureFsusKestrelSingleProcessRuntime(this WebApplicationBuilder builder)
+    {
+        builder.WebHost.ConfigureKestrel(options =>
+        {
+            options.AddServerHeader = false;
+            options.AllowSynchronousIO = false;
+
+            options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
+            options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(10);
+            options.Limits.MaxRequestBodySize = 8 * 1024 * 1024;
+
+            options.Limits.Http2.MaxStreamsPerConnection = 128;
+            options.Limits.Http2.HeaderTableSize = 4096;
+            options.Limits.Http2.MaxRequestHeaderFieldSize = 8192;
+        });
+
+        return builder;
+    }
+
     public static WebApplicationBuilder ConfigureFsusApplication(this WebApplicationBuilder builder)
     {
         FsusHostRuntimeTuningReport runtimeTuningReport = FsusHostRuntimeTuning.Apply(builder.Configuration);

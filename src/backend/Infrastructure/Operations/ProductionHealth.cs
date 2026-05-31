@@ -2,6 +2,7 @@ using System.Diagnostics;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Sse;
 using FsusBlog.Server.Services.Background;
 using Npgsql;
@@ -20,7 +21,8 @@ public sealed record RuntimeHealthSnapshot(
     int? SseConnections,
     int AvailableWorkerThreads,
     StartupRuntimeSnapshot? Startup,
-    ScheduledPublishRuntimeSnapshot? ScheduledPublish);
+    ScheduledPublishRuntimeSnapshot? ScheduledPublish,
+    PublicHotReadRuntimeSnapshot? PublicHotRead);
 
 public static class ProductionLivenessProbe
 {
@@ -117,14 +119,20 @@ public sealed class ProductionReadinessProbe(
         int? sseConnections = serviceProvider.GetService<SseConnectionManager>()?.ConnectionCount;
         StartupRuntimeState? startupRuntime = serviceProvider.GetService<StartupRuntimeState>();
         ScheduledPublishRuntimeState? scheduledPublish = serviceProvider.GetService<ScheduledPublishRuntimeState>();
+        PublicHotReadRuntimeSnapshot? publicHotRead = serviceProvider.GetService<PublicHotReadStore>()?.CreateRuntimeSnapshot();
+        string status = publicHotRead is null
+            || string.Equals(publicHotRead.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
+            ? "ok"
+            : "degraded";
 
         return new RuntimeHealthSnapshot(
-            "ok",
+            status,
             dbGate,
             sseConnections,
             RuntimePressureSnapshot.Capture().AvailableWorkerThreads,
             startupRuntime?.CreateSnapshot(),
-            scheduledPublish?.CreateSnapshot());
+            scheduledPublish?.CreateSnapshot(),
+            publicHotRead);
     }
 
     private async Task<object> CheckPostgresAsync(CancellationToken cancellationToken)

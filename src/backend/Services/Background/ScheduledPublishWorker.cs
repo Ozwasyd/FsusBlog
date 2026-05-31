@@ -3,6 +3,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using SqlSugar;
 
@@ -51,6 +52,7 @@ public sealed class ScheduledPublishWorker(
                     ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
                     ICacheInvalidationDispatcher invalidation = scope.ServiceProvider.GetRequiredService<ICacheInvalidationDispatcher>();
                     ISearchIndexService searchIndex = scope.ServiceProvider.GetRequiredService<ISearchIndexService>();
+                    PublicHotArtifactUpdateQueue publicHotUpdates = scope.ServiceProvider.GetRequiredService<PublicHotArtifactUpdateQueue>();
                     DateTime now = timeProvider.GetUtcNow().UtcDateTime;
 
                     List<Article> due = await db.Queryable<Article>()
@@ -115,6 +117,11 @@ public sealed class ScheduledPublishWorker(
                     failedForMetrics = failed;
                     backlogForMetrics = backlog;
                     resultForMetrics = failed > 0 ? "partial_failure" : "ok";
+                    if (published > 0 && !publicHotUpdates.TryEnqueue(null, "scheduled-publish"))
+                    {
+                        logger.LogWarning("public-hot-read-update-enqueue-failed {Reason}", "scheduled-publish");
+                    }
+
                     return published;
                 },
                 ex =>

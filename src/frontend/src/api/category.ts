@@ -20,7 +20,7 @@ export interface CategoryItem {
  */
 export const getCategories = (config?: { signal?: AbortSignal }) =>
   requestBinaryOnly<CategoryItem[]>({
-    binaryUrl: '/api/binary/category',
+    binaryUrl: '/api/binary/category.aeds',
     frameType: FrameType.CategoryList,
     signal: config?.signal,
     requestOptions: {

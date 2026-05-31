@@ -115,6 +115,7 @@ function isPublicShellRequest(request, url) {
 
 async function handleBinaryApiRequest(request) {
   try {
+    // Binary API artifacts stay network pass-through; server headers own browser cache policy.
     return await fetch(request)
   } catch {
     return networkErrorResponse('binary-network-unavailable')

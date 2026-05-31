@@ -15,6 +15,7 @@ ASPNETCORE_ENVIRONMENT_NAME="${FSUSBLOG_PERF_ASPNETCORE_ENVIRONMENT:-Staging}"
 CONTAINER_USER="${FSUSBLOG_PERF_CONTAINER_USER:-$(id -u):$(id -g)}"
 PERF_USER_AGENT="${FSUSBLOG_PERF_USER_AGENT:-Mozilla/5.0 (FsusBlog Perf Runner)}"
 USE_TEST_SESSION_FOR_READS="${FSUSBLOG_PERF_USE_TEST_SESSION_FOR_READS:-0}"
+READYTORUN_MODE="${FSUSBLOG_PERF_READYTORUN:-1}"
 WRK_DURATION="${FSUSBLOG_PERF_WRK_DURATION:-10s}"
 WRK_THREADS="${FSUSBLOG_PERF_WRK_THREADS:-4}"
 WRK_CONNECTIONS="${FSUSBLOG_PERF_WRK_CONNECTIONS:-64}"
@@ -194,6 +195,8 @@ wait_for_diagnostic_socket() {
 
 prepare_runtime_writable_overlays() {
   mkdir -p "$DIAG_DIR/aot-cache"
+  mkdir -p "$DIAG_DIR/data"
+  mkdir -p "$DIAG_DIR/upload-sessions"
   rm -rf "$DIAG_DIR/search"
   mkdir -p "$DIAG_DIR/search"
   local seed_container
@@ -202,6 +205,8 @@ prepare_runtime_writable_overlays() {
   docker rm "$seed_container" >/dev/null 2>&1 || true
   touch "$DIAG_DIR/auto-imports.d.ts" "$DIAG_DIR/components.d.ts"
   chmod 0777 "$DIAG_DIR/aot-cache"
+  chmod -R u+rwX,go+rwX "$DIAG_DIR/data"
+  chmod -R u+rwX,go+rwX "$DIAG_DIR/upload-sessions"
   chmod -R u+rwX,go+rwX "$DIAG_DIR/search"
   chmod 0666 "$DIAG_DIR/auto-imports.d.ts" "$DIAG_DIR/components.d.ts"
 }
@@ -222,6 +227,8 @@ start_container() {
     -p "127.0.0.1:$HOST_PORT:8080" \
     -v "$DIAG_DIR:/diag" \
     -v "$DIAG_DIR/aot-cache:/app/wwwroot/aot-cache" \
+    -v "$DIAG_DIR/data:/diag/data" \
+    -v "$DIAG_DIR/upload-sessions:/app/.upload-sessions" \
     -v "$DIAG_DIR/search:/app/wwwroot/search" \
     -v "$DIAG_DIR/auto-imports.d.ts:/app/FsusBlog.ClientRuntime/auto-imports.d.ts" \
     -v "$DIAG_DIR/components.d.ts:/app/FsusBlog.ClientRuntime/components.d.ts" \
@@ -229,8 +236,10 @@ start_container() {
     --tmpfs /app/FsusBlog.ClientRuntime/node_modules/.vite-temp:rw,nosuid,nodev,mode=1777 \
     -e ASPNETCORE_ENVIRONMENT="$ASPNETCORE_ENVIRONMENT_NAME" \
     -e ASPNETCORE_URLS=http://0.0.0.0:8080 \
+    -e COMPlus_ReadyToRun="$READYTORUN_MODE" \
     -e HOME=/diag \
     -e TMPDIR=/diag \
+    -e FSUSBLOG_DATA_ROOT=/diag/data \
     "${test_session_env_args[@]}" \
     -e ConnectionStrings__DefaultConnection="${FSUSBLOG_PERF_POSTGRES:-Host=host.docker.internal;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Pooling=true;Minimum Pool Size=5;Maximum Pool Size=100;No Reset On Close=true}" \
     -e ConnectionStrings__Redis="${FSUSBLOG_PERF_REDIS:-host.docker.internal:6379,abortConnect=false,connectTimeout=5000}" \
@@ -330,6 +339,10 @@ run_http_baseline() {
   run_wrk binary-pow-challenge "$BASE_URL/api/binary/auth/pow-challenge" "application/octet-stream"
   run_wrk binary-article-list "$BASE_URL/api/binary/article/list/home/1/10.aeds" "application/octet-stream"
   run_wrk binary-article-detail "$BASE_URL/api/binary/article/$article_id.aeds" "application/octet-stream"
+  run_wrk binary-article-hot-l0 "$BASE_URL/api/binary/article/hot/10.aeds" "application/octet-stream"
+  run_wrk binary-article-featured-l0 "$BASE_URL/api/binary/article/featured/4.aeds" "application/octet-stream"
+  run_wrk binary-category-l0 "$BASE_URL/api/binary/category.aeds" "application/octet-stream"
+  run_wrk binary-tag-l0 "$BASE_URL/api/binary/tag.aeds" "application/octet-stream"
   run_wrk binary-comment-list "$BASE_URL/api/binary/comment/$article_id?limit=10" "application/octet-stream"
 }
 
@@ -338,11 +351,11 @@ write_summary() {
   docker inspect "$CONTAINER_NAME" >"$OUT_DIR/docker-inspect.json" 2>&1 || true
   docker logs "$CONTAINER_NAME" >"$OUT_DIR/container-final.log" 2>&1 || true
 
-  node --input-type=module - "$OUT_DIR" "$BASE_URL" "$TEST_SESSION_ID" "$IMAGE_TAG" "$WRK_DURATION" "$WRK_THREADS" "$WRK_CONNECTIONS" <<'NODE'
+  node --input-type=module - "$OUT_DIR" "$BASE_URL" "$TEST_SESSION_ID" "$IMAGE_TAG" "$WRK_DURATION" "$WRK_THREADS" "$WRK_CONNECTIONS" "$READYTORUN_MODE" <<'NODE'
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-const [outDir, baseUrl, testSessionId, imageTag, wrkDuration, wrkThreads, wrkConnections] = process.argv.slice(2)
+const [outDir, baseUrl, testSessionId, imageTag, wrkDuration, wrkThreads, wrkConnections, readyToRunMode] = process.argv.slice(2)
 const wrk = {}
 for (const file of readdirSync(outDir).filter((name) => name.startsWith('wrk-') && name.endsWith('.log')).sort()) {
   const text = readFileSync(join(outDir, file), 'utf8')
@@ -353,7 +366,8 @@ for (const file of readdirSync(outDir).filter((name) => name.startsWith('wrk-') 
     p50: text.match(/\s+50%\s+([^\s]+)/)?.[1] ?? null,
     p75: text.match(/\s+75%\s+([^\s]+)/)?.[1] ?? null,
     p90: text.match(/\s+90%\s+([^\s]+)/)?.[1] ?? null,
-    p99: text.match(/\s+99%\s+([^\s]+)/)?.[1] ?? null
+    p99: text.match(/\s+99%\s+([^\s]+)/)?.[1] ?? null,
+    p999: text.match(/\s+99\.9%\s+([^\s]+)/)?.[1] ?? null
   }
 }
 
@@ -367,18 +381,65 @@ try {
 } catch {
 }
 
+let fixtureArticleId = null
+try {
+  const raw = readFileSync(join(outDir, 'article-id.txt'), 'utf8').trim()
+  fixtureArticleId = raw.length > 0 ? Number(raw) : null
+} catch {
+}
+
 writeFileSync(join(outDir, 'summary.json'), JSON.stringify({
   generatedAtUtc: new Date().toISOString(),
   baseUrl,
   imageTag,
   testSessionId,
+  readyToRun: {
+    comPlusReadyToRun: readyToRunMode,
+    conclusion: readyToRunMode === '0'
+      ? 'ReadyToRun disabled for this run; compare with FSUSBLOG_PERF_READYTORUN=1 using the same wrk settings.'
+      : 'ReadyToRun enabled for this run; compare with FSUSBLOG_PERF_READYTORUN=0 using the same wrk settings.'
+  },
   wrkConfig: {
     duration: wrkDuration,
     threads: Number(wrkThreads),
-    connections: Number(wrkConnections)
+    connections: Number(wrkConnections),
+    latencyPercentiles: ['p50', 'p75', 'p90', 'p99', 'p999 when emitted by wrk']
+  },
+  fixture: {
+    articleId: Number.isFinite(fixtureArticleId) ? fixtureArticleId : null,
+    discoveryEndpoint: '/api/binary/article/list/home/1/1.aeds',
+    emptyDatabaseBehavior: 'The run fails before wrk when the public home fixture has no article id.'
+  },
+  endpointGroups: {
+    publicHotReadL0: [
+      'binary-article-list',
+      'binary-article-detail',
+      'binary-article-hot-l0',
+      'binary-article-featured-l0',
+      'binary-category-l0',
+      'binary-tag-l0'
+    ],
+    normalPipelineContrast: [
+      'binary-system-seo',
+      'binary-pow-challenge',
+      'binary-comment-list',
+      'public-home',
+      'search-manifest'
+    ],
+    fullArticlePageWaterfallScope: {
+      included: ['article detail L0 frame', 'hot/featured L0 frames', 'category/tag L0 frames', 'comment cursor normal pipeline'],
+      excluded: ['authenticated admin article reads', 'browser asset cache timing'],
+      note: 'Use wrk endpoint groups plus public hydration smoke for first-screen waterfall evidence.'
+    }
   },
   wrk,
   ssePressure,
+  diagnostics: {
+    dotnetCountersLog: 'dotnet-counters.log',
+    dotnetTraceLog: 'dotnet-trace.log',
+    traceBudgetSeconds: Number(process.env.FSUSBLOG_PERF_TRACE_SECONDS || 60),
+    countersBudgetSeconds: Number(process.env.FSUSBLOG_PERF_COUNTERS_SECONDS || 90)
+  },
   artifacts: readdirSync(outDir).sort()
 }, null, 2) + '\n')
 NODE

@@ -9,8 +9,8 @@ const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15
 const successChecks = [
   ['article list', '/api/binary/article/list/home/1/3.aeds', 1],
   ['article hot', '/api/binary/article/hot/3.aeds', 3],
-  ['category list', '/api/binary/category', 9],
-  ['tag list', '/api/binary/tag', 10],
+  ['category list', '/api/binary/category.aeds', 9],
+  ['tag list', '/api/binary/tag.aeds', 10],
   ['comment cursor', '/api/binary/comment/1?limit=5', 5]
 ]
 

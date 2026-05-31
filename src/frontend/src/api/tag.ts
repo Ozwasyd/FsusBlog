@@ -21,7 +21,7 @@ export interface TagItem {
  */
 export const getTags = (config?: { signal?: AbortSignal }) =>
   requestBinaryOnly<TagItem[]>({
-    binaryUrl: '/api/binary/tag',
+    binaryUrl: '/api/binary/tag.aeds',
     frameType: FrameType.TagList,
     signal: config?.signal,
     requestOptions: {

@@ -1,12 +1,15 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Buffers.Binary;
+using System.Data.Common;
 using System.Threading.Channels;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
-using FsusBlog.Core.Common;
-using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Models.ReadModels;
+using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 
@@ -218,24 +221,213 @@ public sealed class ArticleDetailAedsArtifactBackfillWorker(
 }
 
 public sealed class ArticleDetailAedsArtifactProjector(
-    IArticleCoreService core,
+    ISqlSugarClient db,
     IAedsEncoder aeds,
     IArticleDetailAedsArtifactStore store) : IArticleDetailAedsArtifactProjector
 {
+    private const int LongReadThreshold = 5_000;
+    private const int ReadingCharsPerMinute = 300;
+
+    private bool? legacyArticleContentColumnExists;
+
     public async Task GenerateAndStoreAsync(int articleId, CancellationToken cancellationToken = default)
     {
-        var result = await core.GetByIdAsync(articleId, includePrivate: false).ConfigureAwait(false);
-        if (!result.IsSuccess || result.Value is null)
+        ArticleDetailReadModel? article = await LoadArticleDetailFromDbAsync(articleId, cancellationToken).ConfigureAwait(false);
+        if (article is null)
         {
             await store.RemoveAsync(articleId, cancellationToken).ConfigureAwait(false);
             return;
         }
 
-        byte[] payload = PodBinaryCodec.EncodeArticleDetail(result.Value.Value);
+        byte[] payload = PodBinaryCodec.EncodeArticleDetail(ArticleProjection.ToCoreDetailModel(article));
         byte[] frame = aeds.Encode(AedsFrameType.ArticleDetail, payload);
         await store.WriteAsync(articleId, frame, cancellationToken).ConfigureAwait(false);
     }
 
     public Task RemoveAsync(int articleId, CancellationToken cancellationToken = default)
         => store.RemoveAsync(articleId, cancellationToken);
+
+    private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync(int id, CancellationToken ct)
+    {
+        DateTime utcNow = DateTime.UtcNow;
+        var query = db.Queryable<Article>()
+            .LeftJoin<Category>((a, c) => a.CategoryId == c.Id)
+            .Where(a => a.Id == id
+                && a.IsDeleted == false
+                && a.Status == ArticleStatus.Published
+                && (a.PublishedAt == null || a.PublishedAt <= utcNow)
+                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= utcNow))
+            .Select((a, c) => new
+            {
+                a.Id,
+                a.Title,
+                a.Summary,
+                a.CoverImageUrl,
+                a.CategoryId,
+                a.Views,
+                a.CreateTime,
+                a.IsDeleted,
+                a.Status,
+                a.ScheduledPublishAt,
+                a.PublishedAt,
+                CategoryName = c.Name
+            });
+
+        var sqlObj = query.ToSql();
+        ArticleDetailReadModel? article = null;
+        using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        {
+            if (await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                int fId = reader.GetOrdinal("Id");
+                int fTitle = reader.GetOrdinal("Title");
+                int fSum = reader.GetOrdinal("Summary");
+                int fCover = reader.GetOrdinal("CoverImageUrl");
+                int fCatId = reader.GetOrdinal("CategoryId");
+                int fViews = reader.GetOrdinal("Views");
+                int fTime = reader.GetOrdinal("CreateTime");
+                int fIsDel = reader.GetOrdinal("IsDeleted");
+                int fStatus = reader.GetOrdinal("Status");
+                int fScheduled = reader.GetOrdinal("ScheduledPublishAt");
+                int fPublished = reader.GetOrdinal("PublishedAt");
+                int fCatName = reader.GetOrdinal("CategoryName");
+
+                article = new ArticleDetailReadModel
+                {
+                    Id = reader.GetInt32(fId),
+                    Title = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle),
+                    Summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum),
+                    CoverImageUrl = reader.IsDBNull(fCover) ? null : reader.GetString(fCover),
+                    CategoryId = reader.GetInt32(fCatId),
+                    Views = reader.GetInt32(fViews),
+                    CreateTime = reader.GetDateTime(fTime),
+                    IsDeleted = reader.GetBoolean(fIsDel),
+                    Status = (ArticleStatus)reader.GetInt32(fStatus),
+                    ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : reader.GetDateTime(fScheduled),
+                    PublishedAt = reader.IsDBNull(fPublished) ? null : reader.GetDateTime(fPublished),
+                    CategoryName = reader.IsDBNull(fCatName) ? "默认分类" : reader.GetString(fCatName),
+                    Tags = []
+                };
+            }
+        }
+
+        if (article is null)
+        {
+            return null;
+        }
+
+        string content = await LoadArticleContentAsync(id, ct).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(article.Summary))
+        {
+            content = article.Summary;
+        }
+
+        int wordCount = CalculateReadableLength(content);
+        IReadOnlyDictionary<int, List<TagReadModel>> tagMap = await LoadArticleTagMapAsync([id], ct).ConfigureAwait(false);
+        return article with
+        {
+            Content = content,
+            WordCount = wordCount,
+            EstimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
+            ShowReadingNotice = wordCount > LongReadThreshold,
+            Tags = tagMap.TryGetValue(id, out var tags) ? tags : []
+        };
+    }
+
+    private async Task<string> LoadArticleContentAsync(int articleId, CancellationToken ct)
+    {
+        string content = await db.Queryable<ArticleBody>()
+            .Where(it => it.ArticleId == articleId)
+            .Select(it => it.MarkdownContent)
+            .FirstAsync() ?? string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(content) || !await LegacyArticleContentColumnExistsAsync().ConfigureAwait(false))
+        {
+            return content;
+        }
+
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            "SELECT COALESCE(content, '') AS content FROM article WHERE id = @id LIMIT 1;",
+            new[] { new SugarParameter("@id", articleId) });
+        if (await reader.ReadAsync(ct).ConfigureAwait(false) && !reader.IsDBNull(0))
+        {
+            return reader.GetString(0);
+        }
+
+        return string.Empty;
+    }
+
+    private async Task<bool> LegacyArticleContentColumnExistsAsync()
+    {
+        if (legacyArticleContentColumnExists.HasValue)
+        {
+            return legacyArticleContentColumnExists.Value;
+        }
+
+        int exists = await db.Ado.GetIntAsync("""
+            SELECT COUNT(1)
+            FROM information_schema.columns
+            WHERE table_name = 'article'
+              AND column_name = 'content';
+            """);
+        legacyArticleContentColumnExists = exists > 0;
+        return legacyArticleContentColumnExists.Value;
+    }
+
+    private async Task<Dictionary<int, List<TagReadModel>>> LoadArticleTagMapAsync(IReadOnlyCollection<int> articleIds, CancellationToken ct)
+    {
+        if (articleIds.Count == 0)
+        {
+            return new Dictionary<int, List<TagReadModel>>();
+        }
+
+        var ids = articleIds
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+        if (ids.Count == 0)
+        {
+            return new Dictionary<int, List<TagReadModel>>();
+        }
+
+        var tagRows = await db.Queryable<ArticleTag>()
+            .InnerJoin<Tag>((at, t) => at.TagId == t.Id)
+            .Where(at => ids.Contains(at.ArticleId))
+            .Select((at, t) => new { at.ArticleId, t.Id, t.Name })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var tagMap = new Dictionary<int, List<TagReadModel>>(ids.Count);
+        foreach (var row in tagRows)
+        {
+            if (!tagMap.TryGetValue(row.ArticleId, out var tags))
+            {
+                tags = [];
+                tagMap[row.ArticleId] = tags;
+            }
+
+            tags.Add(new TagReadModel { Id = row.Id, Name = row.Name ?? string.Empty });
+        }
+
+        return tagMap;
+    }
+
+    private static int CalculateReadableLength(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return 0;
+        }
+
+        int count = 0;
+        foreach (char ch in content)
+        {
+            if (!char.IsWhiteSpace(ch))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
 }

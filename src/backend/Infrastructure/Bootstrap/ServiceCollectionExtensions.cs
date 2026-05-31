@@ -111,7 +111,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddFsusRuntimeServices(this IServiceCollection services, IConfiguration configuration)
     {
         return services
-            .AddFsusRuntimeInfrastructureServices()
+            .AddFsusRuntimeInfrastructureServices(configuration)
             .AddFsusRuntimeSecurityAndLifecycleServices(configuration)
             .AddFsusRuntimePublicAotServices()
             .AddFsusRuntimeDomainServices();

@@ -163,7 +163,11 @@ Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passke
 Bundle 格式遵循 `PublicAotShellEntryContract`（见 `docs/api/contracts.md`）。
 SPA 接管后由 hydration 层用同一份 Bundle 数据初始化状态，无需二次网络请求。
 
-公开 Binary 读模型与 HTML AOT 一样按 artifact 边界治理。`/api/binary/article/{id}.aeds`、`/api/binary/article/list/home/{page}/{size}.aeds`、`/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds`、`/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds`、`/api/binary/article/hot/{size}.aeds` 等匿名热点路径由 `PublicHotReadFastPath` 在常规应用管线前读取内存快照并直接写出完整预编码 frame；hit 路径不查询 PostgreSQL、Redis、IMemoryCache、OutputCache 或文件系统。artifact miss 只返回可降级错误，DB fallback 只能出现在后台 projector、修复任务或 admin/private 读取路径。L1/L2/OutputCache 仍是加速层，不等价于 CQRS read model。
+公开 Binary 读模型与 HTML AOT 一样按 artifact 边界治理。`/api/binary/article/{id}.aeds`、`/api/binary/article/list/home/{page}/{size}.aeds`、`/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds`、`/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds`、`/api/binary/article/hot/{size}.aeds`、`/api/binary/category.aeds`、`/api/binary/tag.aeds` 等匿名热点路径由 `PublicHotReadFastPath` 在常规应用管线前读取内存快照并直接写出完整预编码 frame；hit 路径不查询 PostgreSQL、Redis、IMemoryCache、OutputCache 或文件系统。artifact miss 只返回可降级状态码，DB fallback 只能出现在后台 projector、修复任务或 admin/private 读取路径。L1/L2/OutputCache 仍是加速层，不等价于 CQRS read model。
+
+L0 artifact 只接受 `GET`/`HEAD`；`OPTIONS` 在同源场景下返回 `405`，不在 fast path 上注入 CORS。Binary artifact 接受空 `Accept`、`*/*` 或 `application/octet-stream`；HTML artifact 只接受空 `Accept`、`*/*` 或 `text/html`；不匹配时返回 `406`。快照未进入 `Ready` 状态时返回 `503` + `Retry-After: 1`，除非显式启用 `PublicHotRead:FailOpenWhenNotReady` 降级到常规管线。`400`/`404`/`405`/`406`/`416`/`503` 等 L0 负响应固定 `Cache-Control: no-store`，`Range` 请求返回 `416`，`.aeds` 命中声明 `Accept-Ranges: none` 且不写 `Content-Encoding`。HTML artifact 必须是静态 CSP 形态，不依赖 nonce placeholder 或 inline script。
+
+`/api/binary/article/html/{pathKey}.html` 是 AOT shell 的诊断/预览 artifact 命中路径，不是 `/article/{id}`、`/category/{id}` 等真实公开 URL 的替代路由；真实页面仍由 public route + AOT shell/SPA 渲染。`routeKey` 与 URL-safe `pathKey` 分离：`article:42` 映射为 `article-42`，`category:7`/`tag:9` 同理，`tag-name:*`、包含空白、斜杠或非 ASCII 的 routeKey 使用稳定 hash pathKey。可观测诊断头 `X-Fsus-HotRead-*` 默认关闭，只能通过 `PublicHotRead:EnableDiagnosticHeaders=true` 打开。
 
 公开页结构的唯一真相源是 `src/frontend/src/helpers/publicAotBundle.ts` 与
 `src/frontend/src/public-renderers/renderPublicPage.ts`。服务端 AOT provider

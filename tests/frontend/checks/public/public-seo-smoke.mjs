@@ -238,8 +238,8 @@ async function fetchSettledPublicHtml(path) {
 async function main() {
   await probeReachable(`${baseUrl}/api/System/seo`, '[public-seo-smoke backend]', requestTimeoutMs);
 
-  const categoryId = await resolvePublicId('/api/binary/category');
-  const tagId = await resolvePublicId('/api/binary/tag');
+  const categoryId = await resolvePublicId('/api/binary/category.aeds');
+  const tagId = await resolvePublicId('/api/binary/tag.aeds');
 
   if (categoryId) {
     checks.push({ name: 'filter_category', path: `/category/${categoryId}`, expectedHydrationKind: 'Filter' });

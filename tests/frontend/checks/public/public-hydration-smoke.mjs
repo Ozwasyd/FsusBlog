@@ -329,7 +329,7 @@ async function main() {
     assertDeferredSpaOnly(html, 'archive');
   }, 'archive shell contract');
 
-  const categoryList = await fetchAeds('/api/binary/category');
+  const categoryList = await fetchAeds('/api/binary/category.aeds');
   const categoryId = typeof categoryList?.[0]?.id === 'number'
     ? categoryList[0].id
     : Number(categoryList?.[0]?.id);
@@ -366,7 +366,7 @@ async function main() {
   expectIncludes(invalidCategory, '筛选目标不存在', 'invalid category empty state');
   expectNotIncludes(invalidCategory, 'Acceptance Public Article', 'invalid category leaked article list');
 
-  const tagList = await fetchAeds('/api/binary/tag');
+  const tagList = await fetchAeds('/api/binary/tag.aeds');
   const tagId = typeof tagList?.[0]?.id === 'number'
     ? tagList[0].id
     : Number(tagList?.[0]?.id);

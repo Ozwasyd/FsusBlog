@@ -25,11 +25,21 @@ type BinaryDecodeRequest = {
   expectedFrameType: FrameType;
 };
 
-export type TransportFailureKind = 'binary_disabled' | 'auth_failed' | 'forbidden' | 'network' | 'decode_failed';
+export type TransportFailureKind =
+  | 'binary_disabled'
+  | 'auth_failed'
+  | 'forbidden'
+  | 'not_found'
+  | 'public_artifact_not_ready'
+  | 'client_route_contract'
+  | 'accept_contract'
+  | 'network'
+  | 'decode_failed';
 
 export type TransportFailure = {
   kind: TransportFailureKind;
   message: string;
+  status?: number;
   traceId?: string;
   canceled?: boolean;
 };
@@ -40,6 +50,12 @@ function transportFailureToCode(kind: TransportFailureKind): AppErrorCode {
       return AppErrorCode.Unauthorized;
     case 'forbidden':
       return AppErrorCode.Forbidden;
+    case 'not_found':
+      return AppErrorCode.NotFound;
+    case 'public_artifact_not_ready':
+      return AppErrorCode.Timeout;
+    case 'client_route_contract':
+    case 'accept_contract':
     case 'decode_failed':
       return AppErrorCode.ProtocolFailure;
     case 'binary_disabled':
@@ -72,7 +88,7 @@ export class BinaryTransportError extends AppError {
   readonly kind: TransportFailureKind;
 
   constructor(failure: TransportFailure) {
-    super(transportFailureToCode(failure.kind), failure.message, { traceId: failure.traceId });
+    super(transportFailureToCode(failure.kind), failure.message, { traceId: failure.traceId, status: failure.status });
     this.name = 'BinaryTransportError';
     this.kind = failure.kind;
   }
@@ -237,6 +253,34 @@ function reportTransportEvent(name: string, detail: Record<string, unknown>): vo
   }
 
   window.dispatchEvent(new CustomEvent(name, { detail }));
+}
+
+function binaryFailureKindFromStatus(status: number): TransportFailureKind {
+  if (status === 401) {
+    return 'auth_failed';
+  }
+
+  if (status === 403) {
+    return 'forbidden';
+  }
+
+  if (status === 404) {
+    return 'not_found';
+  }
+
+  if (status === 503) {
+    return 'public_artifact_not_ready';
+  }
+
+  if (status === 400) {
+    return 'client_route_contract';
+  }
+
+  if (status === 406) {
+    return 'accept_contract';
+  }
+
+  return 'network';
 }
 
 function createAbortLikeError(message: string): Error {
@@ -421,17 +465,15 @@ async function loadBinaryAndDecodeSafe<T>(
       let binaryErrorMessage = '';
       if (error instanceof BinaryRequestError) {
         const apiError = decodeApiErrorFrame(error.buffer);
+        const kind = binaryFailureKindFromStatus(error.status);
         if (apiError) {
           binaryErrorMessage = apiError.message;
           return {
             ok: false,
             failure: {
-              kind: error.status === 401
-                ? 'auth_failed'
-                : error.status === 403
-                ? 'forbidden'
-                : 'network',
+              kind,
               message: apiError.message || (error instanceof Error ? error.message : 'binary_transport_failed'),
+              status: error.status,
               traceId: apiError.traceId || undefined
             }
           };
@@ -443,16 +485,18 @@ async function loadBinaryAndDecodeSafe<T>(
       const appCode = isAppError(error) ? error.code : normalizedError.code;
       const kind: TransportFailureKind = normalizedError.details === 'binary_disabled'
         ? 'binary_disabled'
-        : error instanceof BinaryRequestError && error.status === 401
-        ? 'auth_failed'
-        : error instanceof BinaryRequestError && error.status === 403
-        ? 'forbidden'
+        : error instanceof BinaryRequestError
+        ? binaryFailureKindFromStatus(error.status)
         : appCode === AppErrorCode.ProtocolFailure
         ? 'decode_failed'
         : 'network';
       return {
         ok: false,
-        failure: { kind, message }
+        failure: {
+          kind,
+          message,
+          status: error instanceof BinaryRequestError ? error.status : undefined
+        }
       };
     });
 }
@@ -487,7 +531,7 @@ export async function requestBinaryOnly<T>(options: {
     return binaryResult.value;
   }
 
-  const { kind, message, traceId, canceled } = binaryResult.failure;
+  const { kind, message, status, traceId, canceled } = binaryResult.failure;
   if (canceled) {
     throw createAbortLikeError(message);
   }
@@ -497,16 +541,18 @@ export async function requestBinaryOnly<T>(options: {
     reportTransportEvent('fsus:binary:failure', {
       kind,
       message,
+      status,
       traceId,
       url: options.binaryUrl,
       frameType: options.frameType
     });
   }
-  const error = new BinaryTransportError({ kind, message, traceId });
+  const error = new BinaryTransportError({ kind, message, status, traceId });
   if (shouldReportFailure) {
     reportTransportEvent('fsus:binary:error', {
       kind,
       message,
+      status,
       traceId,
       url: options.binaryUrl,
       frameType: options.frameType

@@ -2,6 +2,7 @@
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.ConfigureFsusKestrelSingleProcessRuntime();
 builder.ConfigureFsusApplication();
 
 var app = builder.Build();

@@ -63,7 +63,7 @@ async function waitForAotHit(path) {
 }
 
 async function tryAppendFilterPaths(paths) {
-  const [categoryRes, tagRes] = await Promise.all([fetchAeds('/api/binary/category'), fetchAeds('/api/binary/tag')])
+  const [categoryRes, tagRes] = await Promise.all([fetchAeds('/api/binary/category.aeds'), fetchAeds('/api/binary/tag.aeds')])
   const categoryId = Number(categoryRes?.[0]?.id ?? 0)
   const tagId = Number(tagRes?.[0]?.id ?? 0)
   if (Number.isFinite(categoryId) && categoryId > 0) {

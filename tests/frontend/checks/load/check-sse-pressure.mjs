@@ -131,10 +131,10 @@ async function openPressureSocket(index, stats, powProof) {
 async function openSockets(stats) {
   const sockets = []
   for (let index = 0; index < connections; index += connectBatchSize) {
-    const powProof = await buildPressurePowProof()
     const batch = []
     const end = Math.min(index + connectBatchSize, connections)
     for (let current = index; current < end; current += 1) {
+      const powProof = await buildPressurePowProof()
       batch.push(openPressureSocket(current, stats, powProof))
     }
 

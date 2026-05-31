@@ -6,6 +6,7 @@ FASTPATH_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHo
 PROGRAM_FILE="$ROOT_DIR/src/backend/Program.cs"
 ARTICLE_ENDPOINTS_FILE="$ROOT_DIR/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs"
 ARTICLE_API_FILE="$ROOT_DIR/src/frontend/src/api/article.ts"
+BINARY_TRANSPORT_FILE="$ROOT_DIR/src/frontend/src/services/binaryTransport.ts"
 
 echo "[public-hot-read] checking middleware order"
 node - "$PROGRAM_FILE" <<'NODE'
@@ -48,6 +49,60 @@ const banned = [
 for (const token of banned) {
   if (block.includes(token)) {
     console.error(`[public-hot-read] forbidden L0 dependency token: ${token}`);
+    process.exit(1);
+  }
+}
+NODE
+
+echo "[public-hot-read] checking protocol/readiness boundary tokens"
+node - "$FASTPATH_FILE" <<'NODE'
+const fs = require('node:fs');
+const source = fs.readFileSync(process.argv[2], 'utf8');
+const required = [
+  'private const string CategoryPath = "/api/binary/category.aeds"',
+  'private const string TagPath = "/api/binary/tag.aeds"',
+  'path.StartsWith(ArticlePrefix + "/"',
+  'StatusCodes.Status503ServiceUnavailable',
+  'Retry-After',
+  'StatusCodes.Status406NotAcceptable',
+  'StatusCodes.Status405MethodNotAllowed',
+  'StatusCodes.Status416RangeNotSatisfiable',
+  'ContentRange',
+  'Cache-Control"] = "no-store"',
+  'Accept-Ranges',
+  'Content-Encoding',
+  'response.Headers["ETag"]',
+  'PublicHotReadBinaryArtifactFactory',
+  'LooksLikeExpectedAedsFrame',
+  'ValidateStaticHtml',
+  'HtmlPathKey',
+  'X-Fsus-Required-Route',
+  'EnableDiagnosticHeaders',
+  'must not depend on nonce',
+  'Executable inline script is audited'
+];
+for (const token of required) {
+  if (!source.includes(token)) {
+    console.error(`[public-hot-read] missing protocol/readiness token: ${token}`);
+    process.exit(1);
+  }
+}
+NODE
+
+echo "[public-hot-read] checking frontend artifact failure taxonomy"
+node - "$BINARY_TRANSPORT_FILE" <<'NODE'
+const fs = require('node:fs');
+const source = fs.readFileSync(process.argv[2], 'utf8');
+const required = [
+  'not_found',
+  'public_artifact_not_ready',
+  'client_route_contract',
+  'accept_contract',
+  'binaryFailureKindFromStatus'
+];
+for (const token of required) {
+  if (!source.includes(token)) {
+    console.error(`[public-hot-read] missing frontend failure token: ${token}`);
     process.exit(1);
   }
 }

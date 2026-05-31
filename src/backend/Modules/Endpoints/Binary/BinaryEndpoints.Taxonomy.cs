@@ -14,6 +14,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models;
 using FsusBlog.Server.Models.Dtos;
@@ -126,6 +127,7 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -160,6 +162,7 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "category.create"),
                 new KeyValuePair<string, object?>("CategoryName", trimmedName));
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
+            publicHotUpdates.TryEnqueue(null, "taxonomy-category-created");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         });
 
@@ -168,6 +171,7 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -207,6 +211,7 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("CategoryId", id),
                 new KeyValuePair<string, object?>("CategoryName", trimmedName));
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
+            publicHotUpdates.TryEnqueue(null, "taxonomy-category-updated");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         });
 
@@ -214,6 +219,7 @@ public static partial class BinaryEndpoints
             int id,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds) =>
         {
             bool hasArticles = await db.Queryable<Article>().AnyAsync(a => a.CategoryId == id && !a.IsDeleted && a.Status != ArticleStatus.Deleted);
@@ -234,6 +240,7 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "category.delete"),
                 new KeyValuePair<string, object?>("CategoryId", id));
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
+            publicHotUpdates.TryEnqueue(null, "taxonomy-category-deleted");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         });
 
@@ -241,6 +248,7 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -274,6 +282,7 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "tag.create"),
                 new KeyValuePair<string, object?>("TagName", trimmedName));
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
+            publicHotUpdates.TryEnqueue(null, "taxonomy-tag-created");
             return BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(newId, writer));
         });
 
@@ -282,6 +291,7 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -321,6 +331,7 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("TagId", id),
                 new KeyValuePair<string, object?>("TagName", trimmedName));
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
+            publicHotUpdates.TryEnqueue(null, "taxonomy-tag-updated");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         });
 
@@ -328,6 +339,7 @@ public static partial class BinaryEndpoints
             int id,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
+            PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds,
             ILoggerFactory loggerFactory) =>
         {
@@ -350,6 +362,7 @@ public static partial class BinaryEndpoints
                 new KeyValuePair<string, object?>("AuditAction", "tag.delete"),
                 new KeyValuePair<string, object?>("TagId", id));
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
+            publicHotUpdates.TryEnqueue(null, "taxonomy-tag-deleted");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         });
     }

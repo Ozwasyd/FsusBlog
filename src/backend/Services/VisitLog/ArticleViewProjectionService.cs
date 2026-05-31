@@ -1,5 +1,6 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 
@@ -12,7 +13,9 @@ public interface IArticleViewProjectionService
 
 public sealed class ArticleViewProjectionService(
     IArticleService articleService,
-    ICacheInvalidationDispatcher dispatcher) : IArticleViewProjectionService
+    ICacheInvalidationDispatcher dispatcher,
+    PublicHotArtifactUpdateQueue publicHotUpdates,
+    ILogger<ArticleViewProjectionService> logger) : IArticleViewProjectionService
 {
     public async Task ApplyAsync(IReadOnlyList<VisitLogEntity> batch, CancellationToken cancellationToken)
     {
@@ -31,6 +34,10 @@ public sealed class ArticleViewProjectionService(
             cancellationToken.ThrowIfCancellationRequested();
             await articleService.IncreaseViewCountAsync(articleId, count);
             await dispatcher.InvalidateArticleViewAsync(articleId, cancellationToken);
+            if (!publicHotUpdates.TryEnqueue(articleId, "article-view-projection"))
+            {
+                logger.LogWarning("public-hot-read-update-enqueue-failed {ArticleId} {Reason}", articleId, "article-view-projection");
+            }
         }
     }
 }

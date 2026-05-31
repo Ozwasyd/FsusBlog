@@ -57,7 +57,7 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 
 | 阶段 | 方法 | 职责 |
 |------|------|------|
-| L0 公开热点 | `UseFsusPublicHotReadFastPath` | 在常规管线前命中 `/api/binary/article/**.aeds` 与公开 HTML 快照，直接写出预编码 bytes |
+| L0 公开热点 | `UseFsusPublicHotReadFastPath` | 在常规管线前命中 `/api/binary/article/**.aeds`、`/api/binary/category.aeds`、`/api/binary/tag.aeds` 与公开 HTML 快照，直接写出预编码 bytes |
 | 安全响应头 | `UseFsusSecurityHeaders` | CSP/HSTS/跨源隔离等头部策略 |
 | 核心中间件 | `UseFsusCoreMiddlewares` | 异常、审计、认证授权、封禁用户、访问日志兼容占位 |
 | 静态资源 | `UseFsusStaticAssets` | Public AOT cache、SPA 静态文件、fallback |
@@ -190,7 +190,7 @@ Client
 
 | 层级 | 类型 | 用途 | 失效策略 |
 |------|------|------|----------|
-| L0 — Hot read snapshot | `PublicHotReadSnapshot` 不可变进程内快照 | 公开 article `.aeds` 与公开 HTML 高频命中 | 文章/AOT 变更后后台 projector 重建并原子发布 |
+| L0 — Hot read snapshot | `PublicHotReadSnapshot` 不可变进程内快照 | 公开 article/category/tag `.aeds` 与公开 HTML 高频命中 | 文章、浏览量、分类标签、定时发布与 AOT 变更只入队刷新；后台 projector debounce/coalesce 后重建并原子发布 |
 | L0 — AOT 卷 | 静态 HTML 文件 | 公开页首访 shell | 内容变更时主动清除 |
 | L1 — 内存 | `IMemoryCache` / `ConcurrentDictionary` | 进程内高频读对象 | 绝对过期 + 手动吊销 |
 | L2 — Redis | `IUnifiedCache` | 跨重启持久热点 | TTL + 手动吊销 |
@@ -219,7 +219,7 @@ FsusBlog 运行时 API 只维护 AEDS binary 链：
 - 非上传 binary 请求使用 pooled frame buffer 读取，默认最大 frame 为 8 MiB；解码后的 payload 以 buffer slice 传递给端点，buffer 生命周期挂到 response completion，不再为 payload 额外 `ToArray()`。
 - 上传分片继续走 raw stream，端点用 request body backed `IFormFile` 交给文件服务，不再把整个分片读入 `MemoryStream` 后克隆成数组。
 - PostgreSQL/ORM entity/command service 是 write model；Public AOT HTML、article detail `.aeds`、search index、list/category/tag/hot snapshot 是 artifact-backed read model；L1/L2/OutputCache 只是加速层，不能作为 CQRS read model 的替代。
-- 公开热点 GET（article list、hot articles、category、tag、detail、公开 HTML）优先由 `PublicHotReadFastPath` 在 `UseFsusApplicationPipeline` 之前命中不可变快照并写出完整预编码 bytes；hit 路径不访问 PostgreSQL、Redis、`IMemoryCache`、OutputCache、文件系统、OpenTelemetry span 或 AEDS encoder。DB fallback 只允许在后台 projector、修复任务或 `/api/binary/admin/article/**` 管理端路径发生。
+- 公开热点 GET（article list、hot articles、category、tag、detail、公开 HTML）优先由 `PublicHotReadFastPath` 在 `UseFsusApplicationPipeline` 之前命中不可变快照并写出完整预编码 bytes；hit 路径不访问 PostgreSQL、Redis、`IMemoryCache`、OutputCache、文件系统、OpenTelemetry span 或 AEDS encoder。DB fallback 只允许在后台 projector、修复任务或 `/api/binary/admin/article/**` 管理端路径发生。快照状态（`NotStarted` / `Building` / `Ready` / `Failed`）通过 readiness 暴露；未 Ready 时 L0 路径返回 `503` + `Retry-After`，写入链路不等待完整重建。HTML artifact 的 `routeKey` 会先映射为 URL-safe `pathKey`，`/api/binary/article/html/{pathKey}.html` 只作为诊断/预览命中路径，不计入真实公开页 QPS。
 - 浏览计数不在读取链路产生，而由独立真人阅读 proof 事件更新。
 - compact payload 使用共享 UTF-8 blob + 固定数值记录，减少列表、分类、标签和 stats 的包体。
 - SSE notification payload 写出优先走已知契约的 typed writer；只有新增且尚未登记的 payload 才允许进入反射兜底。
@@ -280,7 +280,7 @@ Service Worker → 缓存 manifest/shard/patch 并按版本隔离旧索引
 
 文章实体现在显式记录 `Status`、`ScheduledPublishAt`、`PublishedAt`、`ArchivedAt`、`DeletedAt`。公开读链、feed、sitemap、related-reading、搜索 runtime fallback、search index rebuild、分类/标签计数必须只读取 `Status=Published` 且发布时间已到的文章；`IsDeleted` 继续保留原有回收站语义。
 
-`ScheduledPublishWorker` 每分钟扫描到期 `Scheduled` 文章，转换为 `Published` 后同步 search index，并通过 `ICacheInvalidationDispatcher.InvalidateArticleMutationAsync` 触发文章列表、旧 JSON 详情缓存、CoreBridge `core:v2:{id}` / `core:v3:{id}` 详情缓存、RSS、PublicAOT 等失效链。单篇发布失败会保留 `Scheduled` 状态，下一轮继续重试；worker 每轮把 `lastPublishedCount`、`lastFailedCount`、`dueBacklog` 与最近错误写入 `ScheduledPublishRuntimeState`，`/health/ready` 的 runtime 区块会暴露该快照。创建、更新、删除、恢复、永久删除必须同步更新 search index artifact；失败通过 worker/BoundaryExecutor 日志和 ready health runtime snapshot 暴露。
+`ScheduledPublishWorker` 每分钟扫描到期 `Scheduled` 文章，转换为 `Published` 后同步 search index，并通过 `ICacheInvalidationDispatcher.InvalidateArticleMutationAsync` 触发文章列表、旧 JSON 详情缓存、CoreBridge `core:v2:{id}` / `core:v3:{id}` 详情缓存、RSS、PublicAOT 等失效链，同时向 `PublicHotArtifactUpdateQueue` 入队 L0 快照刷新。单篇发布失败会保留 `Scheduled` 状态，下一轮继续重试；worker 每轮把 `lastPublishedCount`、`lastFailedCount`、`dueBacklog` 与最近错误写入 `ScheduledPublishRuntimeState`，`/health/ready` 的 runtime 区块会暴露该快照。创建、更新、删除、恢复、永久删除必须同步更新 search index artifact，并异步触发 public hot-read 快照刷新；失败通过 worker/BoundaryExecutor 日志和 ready health runtime snapshot 暴露。
 
 Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔离，HTTP OutputCache 的 ArticleList 策略也必须按 `page/size/categoryId/tagId/isDeleted/status` vary。匿名列表只缓存 public published 视图；admin 状态筛选可缓存 draft/scheduled/archived/deleted 视图，但 admin 详情读取未发布文章时绕过公开详情缓存，避免草稿负缓存或私有正文污染匿名 `/article/{id}` 读链。
 
@@ -302,7 +302,7 @@ Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔�
 
 ## PWA 与匿名性能遥测
 
-`public/manifest.webmanifest` 暴露安装能力；`public/sw.js` 只缓存公开 shell 路由和搜索索引，不缓存 `/user`、`/admin`、`/login`。离线 shell 响应附带 `X-Fsus-Offline-Stale: 1` 和 `Cache-Control: no-store`，让 UI 和代理都能识别 stale 内容。`check:pwa-offline-smoke` 必须跑在 production preview 或真实生产 URL 上，验证最近公开文章可离线读取且私有 console 路由离线不命中缓存。
+`public/manifest.webmanifest` 暴露安装能力；`public/sw.js` 只缓存公开 shell 路由和搜索索引，不缓存 `/user`、`/admin`、`/login`。`/api/binary/**` 包括新的 public `.aeds` artifact 只走 service worker 网络透传，浏览器缓存策略完全由服务端 `Cache-Control`、`ETag`、`no-store` 负响应决定，不写入 shell/search cache。离线 shell 响应附带 `X-Fsus-Offline-Stale: 1` 和 `Cache-Control: no-store`，让 UI 和代理都能识别 stale 内容。`check:pwa-offline-smoke` 必须跑在 production preview 或真实生产 URL 上，验证最近公开文章可离线读取且私有 console 路由离线不命中缓存。
 
 前端 `telemetryService` 采集公开页面 Core Web Vitals、hydration time、Wasm decode timing、Markdown render timing 与 navigation timing，只记录 `pageType`、`aotSource` 和数值指标；私有页面不发送 RUM 事件，敏感输入不进入 payload。匿名 `POST /api/telemetry/rum` 由 `RumTelemetryService` 净化后写入 `sys_audit_log` 的 performance 记录，作者 dashboard 从这些记录聚合 P75/平均值、页面类型和 AOT 来源分布。
 

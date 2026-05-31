@@ -54,7 +54,7 @@ The compose file binds Kestrel to `127.0.0.1:8080:8080`. Do not change it back t
 ## Health Checks
 
 - `GET /health/live`: process/Kestrel liveness only; safe for Docker healthcheck; returns `application/json`.
-- `GET /health/ready`: readiness for rollout and operations; checks configuration, PostgreSQL, Redis, public webroot, IP2LOCATION data, DB gate snapshot, SSE connection count, typed startup runtime snapshot, and scheduled publish worker snapshot (`lastPublishedCount` / `lastFailedCount` / `dueBacklog`); returns `application/json`.
+- `GET /health/ready`: readiness for rollout and operations; checks configuration, PostgreSQL, Redis, public webroot, IP2LOCATION data, DB gate snapshot, SSE connection count, typed startup runtime snapshot, scheduled publish worker snapshot (`lastPublishedCount` / `lastFailedCount` / `dueBacklog`), and public hot-read snapshot state/version/error metadata; returns `application/json`.
 
 Health checks are an ops JSON protocol. They do not emit PublicAOT bootstrap frames or AEDS binary payloads, so rollout probes can evolve independently from public-page payload changes.
 
@@ -82,6 +82,7 @@ The default compose file is tuned for a practical 2C/2G VPS baseline:
 
 - Kestrel serves static frontend assets directly.
 - L1 memory cache and Redis L2 absorb public hot reads.
+- Public hot-read L0 serves preencoded `.aeds` snapshots ahead of the normal pipeline; misses and not-ready responses are `no-store` and must be watched through `/health/ready` runtime metadata.
 - DB concurrency gate protects PostgreSQL during cache misses.
 - SSE frames are bounded per connection and slow consumers are disconnected.
 - Docker log rotation caps container stdout/stderr growth.

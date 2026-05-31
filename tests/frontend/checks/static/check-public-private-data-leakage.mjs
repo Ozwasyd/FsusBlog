@@ -59,6 +59,14 @@ for (const forbiddenPath of ['/admin', '/user', '/login', '/api']) {
   assert(!shellPathBlock.includes(forbiddenPath), `service worker public shell cache must not include ${forbiddenPath}`)
 }
 assert(serviceWorker.includes("url.pathname.startsWith('/api/binary/')"), 'service worker must keep binary API outside public shell cache')
+for (const publicArtifactPath of [
+  '/api/binary/article/list/home/',
+  '/api/binary/category.aeds',
+  '/api/binary/tag.aeds'
+]) {
+  assert(!shellPathBlock.includes(publicArtifactPath), `service worker shell cache must not include ${publicArtifactPath}`)
+}
+assert(serviceWorker.includes('server headers own browser cache policy'), 'service worker must leave binary artifact browser cache policy to the server')
 assert(serviceWorker.includes('clearLegacyFsusCaches'), 'service worker must clear old public caches on activate')
 assert(serviceWorker.includes('shell.invalidate'), 'service worker must support public shell invalidation')
 
