@@ -28,7 +28,7 @@
 
 运行时主 API 已收敛到 AEDS Binary：`/api/binary/**` 响应使用 AEDS v2 frame，错误也通过 `ApiError` frame 表达，不再通过旧文本响应包装。真人阅读 proof 使用 `/api/read-proof/**` JSON 包装响应，避免把计数 proof 扩展进 AEDS/Wasm 协议面。
 
-公开 article detail binary 读模型使用预编码 artifact：匿名 `GET /api/binary/article/{id}` 只读取 `runtime-cache/public/articles/{id}.aeds` 的完整 AEDS v2 `ArticleDetail` frame。命中时服务端直接写出完整 frame；miss 时排队后台 rebuild 并返回 AEDS `ApiError`，不会在请求线程同步查询 PostgreSQL。admin/private 读取仍可走服务端 query path，以便草稿、定时、归档和删除状态管理。
+公开 article binary 读模型使用预编码 artifact：匿名 `GET /api/binary/article/{id}.aeds`、`GET /api/binary/article/list/home/{page}/{size}.aeds`、`GET /api/binary/article/list/category/{categoryId}/{page}/{size}.aeds`、`GET /api/binary/article/list/tag/{tagId}/{page}/{size}.aeds`、`GET /api/binary/article/hot/{size}.aeds` 只读取进程内 `PublicHotReadSnapshot` 的完整 AEDS v2 frame。命中时服务端直接写出完整 frame；miss 返回 AEDS `ApiError`，不会在请求线程同步查询 PostgreSQL、Redis、IMemoryCache、OutputCache 或文件系统。admin/private 读取走 `/api/binary/admin/article/**` query path，以便草稿、定时、归档和删除状态管理。
 
 所有 HTTP 响应都会带 `X-Fsus-Trace-Id`，值与当前 OpenTelemetry `Activity.TraceId`、`HttpContext.TraceIdentifier`、Serilog/audit `TraceId` 对齐。客户端可用该值报告问题；它不是认证凭据，也不得包含用户身份或请求正文。
 
@@ -819,7 +819,7 @@ X-Fsus-Pow-Answer: <nonce 值>
 
 Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tagIds` + blob 作为主体，并在尾部追加 `status:int32` 与 `scheduledPublishAtUnixMs:int64`；缺省尾部按 `Published`、无定时发布处理。`ArticleDetail` 在 cover blob 与 `isDeleted:byte` 后追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`publishedAtUnixMs:int64`，admin 读取未发布文章时依赖该尾部恢复编辑器状态。
 
-`GET /api/binary/article` 的 `status` 查询参数仅 admin 可用。匿名或普通用户请求 `status` 或 `isDeleted=true` 必须得到 `ApiError` frame；admin 不带 `status` 时读取所有非删除状态，带 `status=0/1/2/3/4` 时读取对应 draft/scheduled/published/archived/deleted 集合。
+`GET /api/binary/admin/article` 的 `status` 查询参数仅 admin 可用。公开 `/api/binary/article/**.aeds` 不接受 query string、请求体或 credentials；admin 不带 `status` 时读取所有非删除状态，带 `status=0/1/2/3/4` 时读取对应 draft/scheduled/published/archived/deleted 集合。
 
 ### Admin 作者工作台
 

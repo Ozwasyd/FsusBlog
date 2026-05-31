@@ -327,7 +327,7 @@ describe('binaryTransport ApiError mapping', () => {
         name: string;
       };
     }>>({
-      binaryUrl: '/api/binary/article/featured?size=2',
+      binaryUrl: '/api/binary/article/featured/2.aeds',
       frameType: FrameType.ArticleFeatured
     })).resolves.toEqual([
       {
@@ -375,7 +375,7 @@ describe('binaryTransport ApiError mapping', () => {
         name: string;
       }>;
     }>({
-      binaryUrl: '/api/binary/article/42',
+      binaryUrl: '/api/binary/article/42.aeds',
       frameType: FrameType.ArticleDetail
     })).resolves.toEqual({
       id: 42,
@@ -404,7 +404,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-hot-frame.hex'))
 
     await expect(requestBinaryOnly<Array<{ id: number; title: string; views: number }>>({
-      binaryUrl: '/api/binary/article/hot',
+      binaryUrl: '/api/binary/article/hot/10.aeds',
       frameType: FrameType.ArticleHot
     })).resolves.toEqual([
       { id: 11, title: 'Hot 1', views: 999 },
@@ -416,7 +416,7 @@ describe('binaryTransport ApiError mapping', () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-search-frame.hex'))
 
     const res = await requestBinaryOnly<any>({
-      binaryUrl: '/api/binary/article/search?q=AEDS',
+      binaryUrl: '/api/binary/search/article?q=AEDS',
       frameType: FrameType.ArticleSearch
     });
     expect(res.items).toEqual([{
@@ -457,7 +457,7 @@ describe('binaryTransport ApiError mapping', () => {
         }>;
       }>;
     }>({
-      binaryUrl: '/api/binary/article?page=1&size=10&isDeleted=false',
+      binaryUrl: '/api/binary/article/list/home/1/10.aeds',
       frameType: FrameType.ArticleList
     })).resolves.toEqual({
       total: 17,
@@ -765,7 +765,7 @@ describe('binaryTransport ApiError mapping', () => {
     const dispatchSpy = vi.mocked(window.dispatchEvent)
 
     await expect(requestBinaryOnly({
-      binaryUrl: '/api/binary/article?page=1&size=10&isDeleted=false',
+      binaryUrl: '/api/binary/article/list/home/1/10.aeds',
       frameType: FrameType.ArticleList,
       signal: controller.signal
     })).rejects.toMatchObject({

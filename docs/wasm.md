@@ -335,7 +335,7 @@ if (DEBUG_MODE) {
 import { loadWasm, decodeFrame } from './src/wasm/aeds';
 
 await loadWasm();
-const buffer = await fetch('/api/binary/article').then(r => r.arrayBuffer());
+const buffer = await fetch('/api/binary/article/list/home/1/10.aeds').then(r => r.arrayBuffer());
 const result = decodeFrame(buffer);
 console.log(result);
 ```

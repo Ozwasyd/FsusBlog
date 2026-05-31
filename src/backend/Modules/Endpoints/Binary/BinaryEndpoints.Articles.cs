@@ -29,7 +29,7 @@ public static partial class BinaryEndpoints
 {
     private static void MapBinaryArticleEndpoints(IEndpointRouteBuilder group)
     {
-        group.MapGet("/article", static async Task<IResult> (
+        group.MapGet("/admin/article", static async Task<IResult> (
             int? page,
             int? size,
             int? categoryId,
@@ -41,15 +41,9 @@ public static partial class BinaryEndpoints
         {
             int pageValue = Math.Max(page ?? 1, 1);
             int sizeValue = Math.Clamp(size ?? 10, 1, 100);
-            bool canReadPrivate = httpContext.User.Identity?.IsAuthenticated == true && httpContext.User.IsInRole("admin");
             int? status = null;
             if (httpContext.Request.Query.TryGetValue("status", out var rawStatus))
             {
-                if (!canReadPrivate)
-                {
-                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "权限不足"), aeds);
-                }
-
                 string? statusValue = rawStatus.ToString();
                 if (!int.TryParse(statusValue, out int parsedStatus))
                 {
@@ -60,8 +54,7 @@ public static partial class BinaryEndpoints
             }
 
             bool deleted = (isDeleted ?? false) || status == (int)ArticleStatus.Deleted;
-            bool canReadDeleted = httpContext.User.Identity?.IsAuthenticated == true && httpContext.User.IsInRole("admin");
-            var payloadResult = await articles.GetPageListAsync(pageValue, sizeValue, categoryId, tagId, deleted, canReadDeleted, status, canReadPrivate);
+            var payloadResult = await articles.GetPageListAsync(pageValue, sizeValue, categoryId, tagId, deleted, canReadDeleted: true, status, canReadPrivate: true);
             if (payloadResult.HasCachedPayload)
             {
                 return BinaryResults.FrameRaw(aeds, AedsFrameType.ArticleList, payloadResult.CachedPayload);
@@ -69,31 +62,14 @@ public static partial class BinaryEndpoints
 
             return BinaryResults.FromResult(payloadResult.Result, aeds, AedsFrameType.ArticleList, static (value, writer) => PodBinaryCodec.WriteArticlePage(value, writer));
         })
-        .AllowAnonymous()
-        .CacheOutput(HttpCachePolicyCatalog.ApplyArticleList);
+        .RequireAuthorization(policy => policy.RequireRole("admin"));
 
-        group.MapGet("/article/{id:int}", static async Task<IResult> (
+        group.MapGet("/admin/article/{id:int}", static async Task<IResult> (
             int id,
-            HttpContext httpContext,
             IArticleEndpointService articles,
             IAedsEncoder aeds) =>
         {
-            bool canReadPrivate = httpContext.User.Identity?.IsAuthenticated == true && httpContext.User.IsInRole("admin");
-            if (!canReadPrivate)
-            {
-                ArticleDetailArtifactPayload artifact = await articles.GetPublicArtifactBackedDetailAsync(id);
-                if (artifact.HasPreencodedFrame)
-                {
-                    return BinaryResults.PreencodedFrame(artifact.PreencodedFrame);
-                }
-
-                string message = artifact.BackfillQueued
-                    ? "文章详情读模型正在构建"
-                    : "文章详情读模型排队失败";
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, message), aeds, StatusCodes.Status503ServiceUnavailable);
-            }
-
-            var result = await articles.GetByIdAsync(id, canReadPrivate);
+            var result = await articles.GetByIdAsync(id, canReadPrivate: true);
             if (!result.IsSuccess || result.Value is null)
             {
                 return BinaryResults.FromError(result.Error.Code == ErrorCode.None
@@ -104,9 +80,9 @@ public static partial class BinaryEndpoints
 
             var detail = result.Value.Value;
             return BinaryResults.Frame(aeds, AedsFrameType.ArticleDetail, writer => PodBinaryCodec.WriteArticleDetail(detail, writer));
-        }).AllowAnonymous();
+        }).RequireAuthorization(policy => policy.RequireRole("admin"));
 
-        group.MapGet("/article/hot", static async Task<IResult> (
+        group.MapGet("/admin/article/hot", static async Task<IResult> (
             int? size,
             IArticleEndpointService articles,
             IAedsEncoder aeds) =>
@@ -125,10 +101,9 @@ public static partial class BinaryEndpoints
                 static (value, writer) => PodBinaryCodec.WritePopularArticles(value, writer),
                 "热门文章数据为空");
         })
-        .AllowAnonymous()
-        .CacheOutput(HttpCachePolicyCatalog.ApplyHotArticles);
+        .RequireAuthorization(policy => policy.RequireRole("admin"));
 
-        group.MapGet("/article/featured", static async Task<BinaryFrameResult> (
+        group.MapGet("/admin/article/featured", static async Task<BinaryFrameResult> (
             int? size,
             IArticleEndpointService articles,
             IAedsEncoder aeds) =>
@@ -143,10 +118,9 @@ public static partial class BinaryEndpoints
             IReadOnlyList<FeaturedArticleSummaryDto> featured = result.Value ?? [];
             return BinaryResults.Frame(aeds, AedsFrameType.ArticleFeatured, writer => PodBinaryCodec.WriteFeaturedArticles(featured, writer));
         })
-        .AllowAnonymous()
-        .CacheOutput(HttpCachePolicyCatalog.ApplyFeaturedArticles);
+        .RequireAuthorization(policy => policy.RequireRole("admin"));
 
-        group.MapPost("/article", static async Task<BinaryFrameResult> (
+        group.MapPost("/admin/article", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IArticleEndpointService articles,
             IAedsEncoder aeds,
@@ -172,7 +146,7 @@ public static partial class BinaryEndpoints
         .RequireAuthorization(policy => policy.RequireRole("admin"))
         .AddEndpointFilter<RequiresPowFilter>();
 
-        group.MapPut("/article/{id:int}", static async Task<BinaryFrameResult> (
+        group.MapPut("/admin/article/{id:int}", static async Task<BinaryFrameResult> (
             int id,
             HttpContext httpContext,
             IArticleEndpointService articles,
@@ -199,7 +173,7 @@ public static partial class BinaryEndpoints
         .RequireAuthorization(policy => policy.RequireRole("admin"))
         .AddEndpointFilter<RequiresPowFilter>();
 
-        group.MapDelete("/article/trash", static async Task<BinaryFrameResult> (
+        group.MapDelete("/admin/article/trash", static async Task<BinaryFrameResult> (
             IArticleEndpointService articles,
             IAedsEncoder aeds) =>
         {
@@ -219,7 +193,7 @@ public static partial class BinaryEndpoints
         .RequireAuthorization(policy => policy.RequireRole("admin"))
         .AddEndpointFilter<RequiresPowFilter>();
 
-        group.MapDelete("/article/{id:int}", static async Task<BinaryFrameResult> (
+        group.MapDelete("/admin/article/{id:int}", static async Task<BinaryFrameResult> (
             int id,
             IArticleEndpointService articles,
             IAedsEncoder aeds) =>
@@ -232,7 +206,7 @@ public static partial class BinaryEndpoints
         .RequireAuthorization(policy => policy.RequireRole("admin"))
         .AddEndpointFilter<RequiresPowFilter>();
 
-        group.MapPut("/article/restore/{id:int}", static async Task<BinaryFrameResult> (
+        group.MapPut("/admin/article/restore/{id:int}", static async Task<BinaryFrameResult> (
             int id,
             IArticleEndpointService articles,
             IAedsEncoder aeds) =>
@@ -245,7 +219,7 @@ public static partial class BinaryEndpoints
         .RequireAuthorization(policy => policy.RequireRole("admin"))
         .AddEndpointFilter<RequiresPowFilter>();
 
-        group.MapDelete("/article/permanent/{id:int}", static async Task<BinaryFrameResult> (
+        group.MapDelete("/admin/article/permanent/{id:int}", static async Task<BinaryFrameResult> (
             int id,
             IArticleEndpointService articles,
             IAedsEncoder aeds) =>

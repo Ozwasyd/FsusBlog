@@ -47,6 +47,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.ConfigureFsusApplication();
 
 var app = builder.Build();
+app.UseFsusPublicHotReadFastPath();
 app.UseFsusApplicationPipeline();
 app.MapFsusApplicationRoutes();
 app.Run();
@@ -56,6 +57,7 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 
 | 阶段 | 方法 | 职责 |
 |------|------|------|
+| L0 公开热点 | `UseFsusPublicHotReadFastPath` | 在常规管线前命中 `/api/binary/article/**.aeds` 与公开 HTML 快照，直接写出预编码 bytes |
 | 安全响应头 | `UseFsusSecurityHeaders` | CSP/HSTS/跨源隔离等头部策略 |
 | 核心中间件 | `UseFsusCoreMiddlewares` | 异常、审计、认证授权、封禁用户、访问日志兼容占位 |
 | 静态资源 | `UseFsusStaticAssets` | Public AOT cache、SPA 静态文件、fallback |
@@ -188,6 +190,7 @@ Client
 
 | 层级 | 类型 | 用途 | 失效策略 |
 |------|------|------|----------|
+| L0 — Hot read snapshot | `PublicHotReadSnapshot` 不可变进程内快照 | 公开 article `.aeds` 与公开 HTML 高频命中 | 文章/AOT 变更后后台 projector 重建并原子发布 |
 | L0 — AOT 卷 | 静态 HTML 文件 | 公开页首访 shell | 内容变更时主动清除 |
 | L1 — 内存 | `IMemoryCache` / `ConcurrentDictionary` | 进程内高频读对象 | 绝对过期 + 手动吊销 |
 | L2 — Redis | `IUnifiedCache` | 跨重启持久热点 | TTL + 手动吊销 |
@@ -216,7 +219,7 @@ FsusBlog 运行时 API 只维护 AEDS binary 链：
 - 非上传 binary 请求使用 pooled frame buffer 读取，默认最大 frame 为 8 MiB；解码后的 payload 以 buffer slice 传递给端点，buffer 生命周期挂到 response completion，不再为 payload 额外 `ToArray()`。
 - 上传分片继续走 raw stream，端点用 request body backed `IFormFile` 交给文件服务，不再把整个分片读入 `MemoryStream` 后克隆成数组。
 - PostgreSQL/ORM entity/command service 是 write model；Public AOT HTML、article detail `.aeds`、search index、list/category/tag/hot snapshot 是 artifact-backed read model；L1/L2/OutputCache 只是加速层，不能作为 CQRS read model 的替代。
-- 公开热点 GET（article list、hot articles、category、tag）复用 HTTP output cache 与 readonly raw cache；article detail 走 `runtime-cache/public/articles/{id}.aeds` 预编码 read artifact，artifact hit 路径不访问 PostgreSQL。artifact miss 只排队后台 singleflight rebuild 并返回可降级状态，DB fallback 只允许在后台 projector、修复任务或管理端发生。
+- 公开热点 GET（article list、hot articles、category、tag、detail、公开 HTML）优先由 `PublicHotReadFastPath` 在 `UseFsusApplicationPipeline` 之前命中不可变快照并写出完整预编码 bytes；hit 路径不访问 PostgreSQL、Redis、`IMemoryCache`、OutputCache、文件系统、OpenTelemetry span 或 AEDS encoder。DB fallback 只允许在后台 projector、修复任务或 `/api/binary/admin/article/**` 管理端路径发生。
 - 浏览计数不在读取链路产生，而由独立真人阅读 proof 事件更新。
 - compact payload 使用共享 UTF-8 blob + 固定数值记录，减少列表、分类、标签和 stats 的包体。
 - SSE notification payload 写出优先走已知契约的 typed writer；只有新增且尚未登记的 payload 才允许进入反射兜底。
@@ -256,7 +259,7 @@ SPA hydration
 
 - `sys_visit_log` 是文章浏览与站点访问统计的单一事件源，字段包含 `event_type`、`route_key`、`article_id`、`viewer_key_hash`、`proof_id`、`dwell_ms`。
 - `article_view_seed` 保存迁移时的历史 `article.views`，用于重建 `Article.Views = legacy_views + article_read events` 投影。
-- 直接读取 `/api/binary/article/{id}`、AOT 首屏、无 JS、爬虫和预取请求不会增加计数。
+- 直接读取 `/api/binary/article/{id}.aeds`、AOT 首屏、无 JS、爬虫和预取请求不会增加计数。
 - `VisitLogMiddleware` 仅保留为管线兼容占位，不再从 GET 请求采样。
 - `VisitLogProcessorService` 只负责读取事件批次与落库，文章浏览量投影由 `IArticleViewProjectionService` 聚合后批量写入，避免逐条 DB 往返。
 

@@ -122,28 +122,20 @@ export interface ArticleWriteRequest {
 
 /** 获取文章列表 */
 export const getArticles = (
-  params: { page?: number; size?: number; categoryId?: number; tagId?: number; isDeleted?: boolean; status?: ArticlePublishStatus },
+  params: { page?: number; size?: number; categoryId?: number; tagId?: number },
   config?: ApiRequestConfig
 ) => {
   const normalized = {
     page: params.page ?? 1,
     size: params.size ?? 10,
     categoryId: params.categoryId,
-    tagId: params.tagId,
-    isDeleted: params.isDeleted ?? false
+    tagId: params.tagId
   };
 
-  const search = new URLSearchParams();
-  search.set('page', String(normalized.page));
-  search.set('size', String(normalized.size));
-  search.set('isDeleted', String(normalized.isDeleted));
-  if (normalized.categoryId !== undefined) search.set('categoryId', String(normalized.categoryId));
-  if (normalized.tagId !== undefined) search.set('tagId', String(normalized.tagId));
-  if (params.status !== undefined) search.set('status', String(params.status));
-
   return requestBinaryOnly<PageResponse<ArticleListItemResponse>>({
-    binaryUrl: `/api/binary/article?${search.toString()}`,
+    binaryUrl: buildPublicArticleListUrl(normalized),
     frameType: FrameType.ArticleList,
+    requestOptions: { credentials: 'omit' },
     signal: config?.signal as AbortSignal | undefined
   });
 }
@@ -151,8 +143,9 @@ export const getArticles = (
 /** 获取详情 */
 export const getArticleById = (id: number, config?: ApiRequestConfig) => {
   return requestBinaryOnly<ArticleDetailResponse>({
-    binaryUrl: `/api/binary/article/${id}`,
+    binaryUrl: `/api/binary/article/${normalizePositiveInt(id, 1)}.aeds`,
     frameType: FrameType.ArticleDetail,
+    requestOptions: { credentials: 'omit' },
     signal: config?.signal as AbortSignal | undefined
   });
 }
@@ -187,23 +180,54 @@ export const getRelatedReading = async (id: number, config?: ApiRequestConfig): 
 
 /** 热门排行 */
 export const getHotArticles = (size = 10, config?: ApiRequestConfig) => {
+  const count = normalizeSize(size, 10)
   return requestBinaryOnly<PopularArticleSummaryResponse[]>({
-    binaryUrl: `/api/binary/article/hot?size=${size}`,
+    binaryUrl: `/api/binary/article/hot/${count}.aeds`,
     frameType: FrameType.ArticleHot,
+    requestOptions: { credentials: 'omit' },
     signal: config?.signal as AbortSignal | undefined
   });
 }
 
 /** 精选文章 */
 export const getFeaturedArticles = (size = 3, config?: ApiRequestConfig) => {
+  const count = normalizeSize(size, 3)
   return requestBinaryOnly<FeaturedArticleItem[]>({
-    binaryUrl: `/api/binary/article/featured?size=${size}`,
+    binaryUrl: `/api/binary/article/featured/${count}.aeds`,
     frameType: FrameType.ArticleFeatured,
+    requestOptions: { credentials: 'omit' },
     signal: config?.signal as AbortSignal | undefined
   });
 }
 
 // ================= 管理端 =================
+
+export const getAdminArticles = (
+  params: { page?: number; size?: number; categoryId?: number; tagId?: number; isDeleted?: boolean; status?: ArticlePublishStatus },
+  config?: ApiRequestConfig
+) => {
+  const search = new URLSearchParams();
+  search.set('page', String(params.page ?? 1));
+  search.set('size', String(params.size ?? 10));
+  search.set('isDeleted', String(params.isDeleted ?? false));
+  if (params.categoryId !== undefined) search.set('categoryId', String(params.categoryId));
+  if (params.tagId !== undefined) search.set('tagId', String(params.tagId));
+  if (params.status !== undefined) search.set('status', String(params.status));
+
+  return requestBinaryOnly<PageResponse<ArticleListItemResponse>>({
+    binaryUrl: `/api/binary/admin/article?${search.toString()}`,
+    frameType: FrameType.ArticleList,
+    signal: config?.signal as AbortSignal | undefined
+  });
+}
+
+export const getAdminArticleById = (id: number, config?: ApiRequestConfig) => {
+  return requestBinaryOnly<ArticleDetailResponse>({
+    binaryUrl: `/api/binary/admin/article/${normalizePositiveInt(id, 1)}`,
+    frameType: FrameType.ArticleDetail,
+    signal: config?.signal as AbortSignal | undefined
+  });
+}
 
 /**
  * 创建文章
@@ -211,7 +235,7 @@ export const getFeaturedArticles = (size = 3, config?: ApiRequestConfig) => {
  */
 export const createArticle = (data: ArticleWriteRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<{ id: number }>({
-    binaryUrl: '/api/binary/article',
+    binaryUrl: '/api/binary/admin/article',
     frameType: FrameType.MutationId,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -226,7 +250,7 @@ export const createArticle = (data: ArticleWriteRequest, config?: ApiRequestConf
  */
 export const updateArticle = (id: number, data: ArticleWriteRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<{ id: number }>({
-    binaryUrl: `/api/binary/article/${id}`,
+    binaryUrl: `/api/binary/admin/article/${id}`,
     frameType: FrameType.MutationId,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -238,7 +262,7 @@ export const updateArticle = (id: number, data: ArticleWriteRequest, config?: Ap
 
 export const deleteArticle = (id: number, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/article/${id}`,
+    binaryUrl: `/api/binary/admin/article/${id}`,
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -249,7 +273,7 @@ export const deleteArticle = (id: number, config?: ApiRequestConfig) =>
 
 export const restoreArticle = (id: number, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/article/restore/${id}`,
+    binaryUrl: `/api/binary/admin/article/restore/${id}`,
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -260,7 +284,7 @@ export const restoreArticle = (id: number, config?: ApiRequestConfig) =>
 
 export const permanentDeleteArticle = (id: number, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
-    binaryUrl: `/api/binary/article/permanent/${id}`,
+    binaryUrl: `/api/binary/admin/article/permanent/${id}`,
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -268,6 +292,29 @@ export const permanentDeleteArticle = (id: number, config?: ApiRequestConfig) =>
       requiresPow: true
     }
   })
+
+function buildPublicArticleListUrl(params: { page: number; size: number; categoryId?: number; tagId?: number }): string {
+  const page = normalizePositiveInt(params.page, 1)
+  const size = normalizeSize(params.size, 10)
+  if (params.categoryId !== undefined) {
+    return `/api/binary/article/list/category/${normalizePositiveInt(params.categoryId, 1)}/${page}/${size}.aeds`
+  }
+
+  if (params.tagId !== undefined) {
+    return `/api/binary/article/list/tag/${normalizePositiveInt(params.tagId, 1)}/${page}/${size}.aeds`
+  }
+
+  return `/api/binary/article/list/home/${page}/${size}.aeds`
+}
+
+function normalizePositiveInt(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? Math.trunc(value) : fallback
+}
+
+function normalizeSize(value: number, fallback: number): number {
+  const normalized = normalizePositiveInt(value, fallback)
+  return Math.min(Math.max(normalized, 1), 100)
+}
 
 function encodeArticleWriteRequest(data: ArticleWriteRequest): Uint8Array {
   const encoder = new TextEncoder()

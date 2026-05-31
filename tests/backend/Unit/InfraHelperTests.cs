@@ -181,7 +181,7 @@ public class ApiBinaryResponseMiddlewareTests
         }
 
         var context = CreateContext();
-        context.Request.Path = "/api/binary/article";
+        context.Request.Path = "/api/binary/article/list/home/1/10.aeds";
         context.Request.Headers.Accept = "application/" + "json";
         await using var body = new MemoryStream();
         context.Response.Body = body;
@@ -210,7 +210,7 @@ public class ApiBinaryResponseMiddlewareTests
         }
 
         var context = CreateContext();
-        context.Request.Path = "/api/binary/article";
+        context.Request.Path = "/api/binary/admin/article";
         context.Request.Method = "POST";
         context.Request.Headers.Accept = "application/octet-stream";
         context.Request.ContentType = "application/" + "json";

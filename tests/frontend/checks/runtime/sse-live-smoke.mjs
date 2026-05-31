@@ -94,7 +94,7 @@ async function expectLiveWebSocket(name, extraParams = {}) {
 }
 
 async function main() {
-  await probeReachable(`${baseUrl}/api/binary/article?page=1&size=1`, '[sse-live-smoke backend]', requestTimeoutMs)
+  await probeReachable(`${baseUrl}/api/binary/article/list/home/1/1.aeds`, '[sse-live-smoke backend]', requestTimeoutMs)
 
   await expectHttpHandshakeFailure('http-upgrade-required', 426, 'websocket_required')
   await expectLiveWebSocket('anonymous-initial')

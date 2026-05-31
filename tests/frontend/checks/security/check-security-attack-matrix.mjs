@@ -125,8 +125,8 @@ async function assertSqlInjectionProbeSafeForAdminKeyword(name, adminSession, pa
 async function assertSqlInjectionProbeSafeForNumericBoundaries(name, payload) {
   const encoded = encodeURIComponent(payload);
   const probes = [
-    [`${name} article categoryId`, `/api/binary/article?page=1&size=5&categoryId=${encoded}`],
-    [`${name} article tagId`, `/api/binary/article?page=1&size=5&tagId=${encoded}`]
+    [`${name} article categoryId`, `/api/binary/article/list/category/${encoded}/1/5.aeds`],
+    [`${name} article tagId`, `/api/binary/article/list/tag/${encoded}/1/5.aeds`]
   ];
 
   for (const [probeName, path] of probes) {
@@ -138,7 +138,7 @@ async function assertSqlInjectionProbeSafeForNumericBoundaries(name, payload) {
     });
   }
 
-  await assertRawDenied(`${name} article id route`, `/api/binary/article/${encoded}`, {
+  await assertRawDenied(`${name} article id route`, `/api/binary/article/${encoded}.aeds`, {
     method: 'GET',
     headers: {
       Accept: 'application/octet-stream'

@@ -1,12 +1,15 @@
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
-public sealed class PublicAotCacheWriter(IPublicAotShellCache cache) : IPublicAotCacheWriter
+public sealed class PublicAotCacheWriter(
+    IPublicAotShellCache cache,
+    PublicHotReadStore hotReadStore) : IPublicAotCacheWriter
 {
     private static readonly TimeSpan DefaultTtl = TimeSpan.FromDays(30);
 
-    public Task WriteAsync(
+    public async Task WriteAsync(
         string cacheKey,
         PublicPageId pageId,
         string routeKey,
@@ -32,6 +35,9 @@ public sealed class PublicAotCacheWriter(IPublicAotShellCache cache) : IPublicAo
             Value = html
         };
 
-        return cache.SetAsync(entry, cancellationToken);
+        await cache.SetAsync(entry, cancellationToken).ConfigureAwait(false);
+        hotReadStore.PublishHtml(
+            routeKey,
+            PublicHotReadHtmlArtifactFactory.FromHtml(html, "public,max-age=60"));
     }
 }

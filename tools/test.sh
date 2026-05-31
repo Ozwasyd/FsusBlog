@@ -217,6 +217,7 @@ run_fast_frontend_lane() {
   run_in_client npm run check:views-constraints
   run_in_client npm run check:image-codec-wasm
   run_in_client npm run check:image-codec-wasm-runtime
+  run "$ROOT_DIR/tools/check-public-hot-read-fastpath.sh"
   run "$ROOT_DIR/tools/check-historical-residue.sh"
   run "$ROOT_DIR/tools/check-cache-governance.sh"
   run "$ROOT_DIR/tools/check-test-hygiene.sh"

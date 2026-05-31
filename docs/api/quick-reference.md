@@ -125,9 +125,11 @@
 
 | Binary 路径 | 权限 | FrameType | 说明 |
 |------------|------|-----------|------|
-| GET `/api/binary/article` | 🔓 📦 | `ArticleList`(1) | 文章列表 |
-| GET `/api/binary/article/{id}` | 🔓 📦 | `ArticleDetail`(2) | 文章详情 |
-| GET `/api/binary/article/hot` | 🔓 📦 | `ArticleHot`(3) | 热门文章 |
+| GET `/api/binary/article/list/home/{page}/{size}.aeds` | 🔓 📦 | `ArticleList`(1) | 首页文章列表 L0 artifact |
+| GET `/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds` | 🔓 📦 | `ArticleList`(1) | 分类文章列表 L0 artifact |
+| GET `/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds` | 🔓 📦 | `ArticleList`(1) | 标签文章列表 L0 artifact |
+| GET `/api/binary/article/{id}.aeds` | 🔓 📦 | `ArticleDetail`(2) | 文章详情 L0 artifact |
+| GET `/api/binary/article/hot/{size}.aeds` | 🔓 📦 | `ArticleHot`(3) | 热门文章 L0 artifact |
 | GET `/api/binary/comment/{articleId}` | 🔓 📦 | `CommentArticleCursor`(5) | 文章评论 |
 | GET `/api/binary/comment/{articleId}/thread/{rootId}` | 🔓 📦 | `CommentThreadReplyCursor`(8) | 评论线程 |
 | GET `/api/binary/comment/me` | 🔑 📦 | `CommentUserCursor`(6) | 用户评论历史 |
@@ -137,6 +139,8 @@
 | 方法 | 路径 | 权限 | FrameType | 说明 |
 |------|------|------|-----------|------|
 | GET | `/api/binary/stats` | 👑 📦 | `AdminStats`(7) | Binary 聚合统计（overview + recent comments + regions） |
+| GET | `/api/binary/admin/article` | 👑 📦 | `ArticleList`(1) | 管理端文章列表，可带 `status` / `isDeleted` |
+| GET | `/api/binary/admin/article/{id}` | 👑 📦 | `ArticleDetail`(2) | 管理端文章详情 |
 | POST | `/api/binary/upload/init` | 👑 | `UploadInit`(20) | 初始化分片上传 |
 | GET | `/api/binary/upload/{id}` | 👑 📦 | `UploadStatus`(21) | 查询上传状态 |
 | PUT | `/api/binary/upload/{id}/part/{n}` | 👑 📦 | `UploadPartAck`(22) | 上传分片 |

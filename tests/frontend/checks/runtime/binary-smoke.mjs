@@ -8,9 +8,9 @@ const adminToken = process.env.FSUSBLOG_ADMIN_TOKEN || '';
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000);
 
 const checks = [
-  { name: 'article_list', path: '/api/binary/article?page=1&size=5', expect: 'binary' },
-  { name: 'article_hot', path: '/api/binary/article/hot?size=5', expect: 'binary' },
-  { name: 'article_featured', path: '/api/binary/article/featured?size=3', expect: 'binary' },
+  { name: 'article_list', path: '/api/binary/article/list/home/1/5.aeds', expect: 'binary' },
+  { name: 'article_hot', path: '/api/binary/article/hot/5.aeds', expect: 'binary' },
+  { name: 'article_featured', path: '/api/binary/article/featured/3.aeds', expect: 'binary' },
   { name: 'search_index', path: '/search/index.bin', expect: 'binary' },
   { name: 'comment_article', path: '/api/binary/comment/1?limit=10', expect: 'binary_or_error' },
   { name: 'comment_me_unauthorized', path: '/api/binary/comment/me?limit=10', expect: 'binary_error', status: 401 },

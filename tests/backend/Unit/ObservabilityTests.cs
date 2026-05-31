@@ -9,7 +9,7 @@ namespace FsusBlog.Server.Tests;
 public sealed class ObservabilityTests
 {
     [Theory]
-    [InlineData("/api/binary/article", "binary")]
+    [InlineData("/api/binary/article/list/home/1/10.aeds", "binary")]
     [InlineData("/api/notifications/stream", "sse")]
     [InlineData("/api/author/analytics", "api")]
     [InlineData("/health/ready", "health")]

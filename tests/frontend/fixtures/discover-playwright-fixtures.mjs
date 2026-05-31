@@ -320,7 +320,7 @@ async function seedPublicFixturesViaApi() {
 }
 
 async function main() {
-  await probeReachable(`${baseUrl}/api/binary/article?page=1&size=5`, '[discover-playwright-fixtures backend]', requestTimeoutMs)
+  await probeReachable(`${baseUrl}/api/binary/article/list/home/1/5.aeds`, '[discover-playwright-fixtures backend]', requestTimeoutMs)
 
   let page = await fetchApiBinary('/api/Article?page=1&size=8')
   let categories = await fetchApiBinary('/api/Category')

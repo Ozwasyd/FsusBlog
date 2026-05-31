@@ -7,8 +7,8 @@ const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000'
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000)
 
 const publicChecks = [
-  ['article list', '/api/binary/article?page=1&size=1', 1],
-  ['article hot', '/api/binary/article/hot?size=1', 3],
+  ['article list', '/api/binary/article/list/home/1/1.aeds', 1],
+  ['article hot', '/api/binary/article/hot/1.aeds', 3],
   ['category list', '/api/binary/category', 9],
   ['tag list', '/api/binary/tag', 10]
 ]
@@ -62,7 +62,7 @@ async function checkDenied([name, path, expectedStatus]) {
 }
 
 async function main() {
-  await probeReachable(`${baseUrl}/api/binary/article?page=1&size=1`, '[api-contract-matrix backend]', requestTimeoutMs)
+  await probeReachable(`${baseUrl}/api/binary/article/list/home/1/1.aeds`, '[api-contract-matrix backend]', requestTimeoutMs)
 
   for (const item of publicChecks) {
     await checkPublic(item)

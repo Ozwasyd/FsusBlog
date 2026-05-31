@@ -296,7 +296,7 @@ function toBinaryPath(path) {
   return path
     .replace(/^\/api\/Auth\b/u, '/api/binary/auth')
     .replace(/^\/api\/Comment\b/u, '/api/binary/comment')
-    .replace(/^\/api\/Article\b/u, '/api/binary/article')
+    .replace(/^\/api\/Article\b/u, '/api/binary/admin/article')
     .replace(/^\/api\/Category\b/u, '/api/binary/category')
     .replace(/^\/api\/Tag\b/u, '/api/binary/tag')
     .replace(/^\/api\/System\b/u, '/api/binary/system')

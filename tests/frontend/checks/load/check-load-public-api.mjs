@@ -28,7 +28,7 @@ function percentile(values, p) {
 }
 
 async function fetchFirstArticleId() {
-  const response = await fetchWithTimeout(`${apiBaseUrl}/api/binary/article?page=1&size=1`, {
+  const response = await fetchWithTimeout(`${apiBaseUrl}/api/binary/article/list/home/1/1.aeds`, {
     headers: { Accept: 'application/octet-stream' }
   }, requestTimeoutMs);
   assert(response.ok, `article probe failed: ${response.status}`);
@@ -133,7 +133,7 @@ async function main() {
     },
     {
       name: 'api_article_detail',
-      url: `${apiBaseUrl}/api/binary/article/${articleId}`,
+      url: `${apiBaseUrl}/api/binary/article/${articleId}.aeds`,
       headers: { Accept: 'application/octet-stream' },
       p95BudgetMs: 2000
     },
@@ -151,19 +151,19 @@ async function main() {
     },
     {
       name: 'binary_article_list',
-      url: `${apiBaseUrl}/api/binary/article?page=1&size=5`,
+      url: `${apiBaseUrl}/api/binary/article/list/home/1/5.aeds`,
       headers: { Accept: 'application/octet-stream' },
       p95BudgetMs: 2000
     },
     {
       name: 'binary_article_detail',
-      url: `${apiBaseUrl}/api/binary/article/${articleId}`,
+      url: `${apiBaseUrl}/api/binary/article/${articleId}.aeds`,
       headers: { Accept: 'application/octet-stream' },
       p95BudgetMs: 2000
     },
     {
       name: 'binary_article_hot',
-      url: `${apiBaseUrl}/api/binary/article/hot?size=5`,
+      url: `${apiBaseUrl}/api/binary/article/hot/5.aeds`,
       headers: { Accept: 'application/octet-stream' },
       p95BudgetMs: 2000
     },

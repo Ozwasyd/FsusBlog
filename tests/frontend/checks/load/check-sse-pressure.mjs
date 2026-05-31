@@ -145,7 +145,7 @@ async function openSockets(stats) {
 }
 
 async function main() {
-  await probeReachable(`${baseUrl}/api/binary/article?page=1&size=1`, '[sse-pressure backend]', requestTimeoutMs)
+  await probeReachable(`${baseUrl}/api/binary/article/list/home/1/1.aeds`, '[sse-pressure backend]', requestTimeoutMs)
 
   const stats = {
     targetConnections: connections,

@@ -273,7 +273,7 @@ discover_article_id() {
 import { readAedsResponse } from './tests/frontend/support/aeds-envelope.mjs'
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL
-const response = await fetch(`${baseUrl}/api/binary/article?page=1&size=1`, {
+const response = await fetch(`${baseUrl}/api/binary/article/list/home/1/1.aeds`, {
   headers: {
     Accept: 'application/octet-stream',
     'User-Agent': process.env.FSUSBLOG_PERF_USER_AGENT ?? 'Mozilla/5.0 (FsusBlog Perf Runner)'
@@ -328,8 +328,8 @@ run_http_baseline() {
   run_wrk search-manifest "$BASE_URL/search/index.manifest.aeds" "application/octet-stream"
   run_wrk binary-system-seo "$BASE_URL/api/binary/system/seo" "application/octet-stream"
   run_wrk binary-pow-challenge "$BASE_URL/api/binary/auth/pow-challenge" "application/octet-stream"
-  run_wrk binary-article-list "$BASE_URL/api/binary/article?page=1&size=10" "application/octet-stream"
-  run_wrk binary-article-detail "$BASE_URL/api/binary/article/$article_id" "application/octet-stream"
+  run_wrk binary-article-list "$BASE_URL/api/binary/article/list/home/1/10.aeds" "application/octet-stream"
+  run_wrk binary-article-detail "$BASE_URL/api/binary/article/$article_id.aeds" "application/octet-stream"
   run_wrk binary-comment-list "$BASE_URL/api/binary/comment/$article_id?limit=10" "application/octet-stream"
 }
 

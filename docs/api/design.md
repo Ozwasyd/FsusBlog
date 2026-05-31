@@ -35,7 +35,7 @@
 
 | 规则 | 示例 |
 |------|------|
-| Binary 端点统一前缀 `/api/binary/` + 小写资源名 | `/api/binary/article`、`/api/binary/comment/{id}` |
+| Binary 端点统一前缀 `/api/binary/` + 小写资源名；公开热点 article 使用无 query 的 artifact 路径 | `/api/binary/article/list/home/1/10.aeds`、`/api/binary/comment/{id}` |
 | 消息系统使用 binary 消息路径 | `/api/binary/messages/conversations` |
 | 管理端以 binary admin 资源路径区分 | `/api/binary/admin/users`、`/api/binary/stats` |
 | 健康检查与通知独立于业务路径 | `/health/live`、`/api/notifications/stream` |
@@ -163,7 +163,7 @@ Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passke
 Bundle 格式遵循 `PublicAotShellEntryContract`（见 `docs/api/contracts.md`）。
 SPA 接管后由 hydration 层用同一份 Bundle 数据初始化状态，无需二次网络请求。
 
-公开 Binary 读模型与 HTML AOT 一样按 artifact 边界治理。`/api/binary/article/{id}` 的匿名 published 详情优先读取 `runtime-cache/public/articles/{id}.aeds` 预编码 frame；artifact hit 路径只写出 bytes，不查询 PostgreSQL。artifact miss 只排队后台 singleflight rebuild 并返回可降级错误，DB fallback 只能出现在后台 projector、修复任务或 admin/private 读取路径。L1/L2/OutputCache 仍是加速层，不等价于 CQRS read model。
+公开 Binary 读模型与 HTML AOT 一样按 artifact 边界治理。`/api/binary/article/{id}.aeds`、`/api/binary/article/list/home/{page}/{size}.aeds`、`/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds`、`/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds`、`/api/binary/article/hot/{size}.aeds` 等匿名热点路径由 `PublicHotReadFastPath` 在常规应用管线前读取内存快照并直接写出完整预编码 frame；hit 路径不查询 PostgreSQL、Redis、IMemoryCache、OutputCache 或文件系统。artifact miss 只返回可降级错误，DB fallback 只能出现在后台 projector、修复任务或 admin/private 读取路径。L1/L2/OutputCache 仍是加速层，不等价于 CQRS read model。
 
 公开页结构的唯一真相源是 `src/frontend/src/helpers/publicAotBundle.ts` 与
 `src/frontend/src/public-renderers/renderPublicPage.ts`。服务端 AOT provider
@@ -175,7 +175,7 @@ Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayloa
 
 文章写入 API 可以表达 `Draft`、`Scheduled`、`Published`、`Archived`、`Deleted`，但公开读链只承认 `Published` 且已到发布时间的数据。新增公开分发端点、AOT、搜索、Binary list、feed、sitemap、related-reading 时必须复用同一套可见性语义，不能各自放宽过滤条件。
 
-`GET /api/binary/article` 默认语义随身份区分：匿名请求只返回公开 published；admin 请求可读取所有非删除状态，并可用 `status=0/1/2/3/4` 精确管理 draft、scheduled、published、archived、deleted。任何带 `status` 或 `isDeleted=true` 的匿名请求都必须返回 binary `ApiError`，不得退回文本 API 或泄露未发布标题。
+公开 article Binary 端点不再按身份混合语义。匿名公开读只能使用 `/api/binary/article/**.aeds` artifact 路径，客户端必须省略 credentials；admin/private 读写统一使用 `/api/binary/admin/article/**`，可读取所有非删除状态，并可用 `status=0/1/2/3/4` 精确管理 draft、scheduled、published、archived、deleted。任何旧 query 公开路径或匿名管理查询都不得退回文本 API 或泄露未发布标题。
 
 作者工作台 API 放在 `/api/author/**`，全部使用 admin 授权和统一响应包装；预览、草稿、修订、资产、AI 辅助都属于作者私有能力。私有预览走 `/api/author/preview`，由服务端把草稿 Markdown 渲染成带 `data-preview-only=true`、`data-markdown-renderer=server-preview` 的 AOT-like HTML，前端只放进 sandboxed iframe，不进入公开路由或缓存。服务端草稿以 `ownerUserId + draftKey` 隔离并持久化正文、分类标签、发布状态和定时发布时间；编辑器发现服务端草稿比本地缓存更新时必须先提示恢复/丢弃，不能用本地缓存静默覆盖。文章修订历史必须通过 admin-only API 读取摘要和单条正文详情，编辑器只在作者工作台内比较当前表单与历史版本，回滚复用正式文章更新链路而不是直接写表。未发布正文不得进入 feed、search、sitemap、PublicAOT cache，也不得默认发送到外部 AI provider。
 

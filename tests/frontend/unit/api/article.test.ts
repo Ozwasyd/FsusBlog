@@ -8,6 +8,8 @@ vi.mock('@/services/binaryTransport', () => ({
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import {
   getArticles,
+  getAdminArticles,
+  getAdminArticleById,
   getArticleById,
   getFeaturedArticles,
   getHotArticles,
@@ -29,30 +31,28 @@ describe('article API (binary)', () => {
   it('getArticles calls requestBinaryOnly with default params', async () => {
     await getArticles({})
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: expect.stringContaining('/api/binary/article'),
+      binaryUrl: '/api/binary/article/list/home/1/10.aeds',
+      requestOptions: expect.objectContaining({ credentials: 'omit' })
     }))
-    const call = mockBinary.mock.calls[0][0]
-    expect(call.binaryUrl).toContain('page=1')
-    expect(call.binaryUrl).toContain('size=10')
   })
 
   it('getArticles applies categoryId filter', async () => {
     await getArticles({ categoryId: 5 })
     const call = mockBinary.mock.calls[0][0]
-    expect(call.binaryUrl).toContain('categoryId=5')
+    expect(call.binaryUrl).toBe('/api/binary/article/list/category/5/1/10.aeds')
   })
 
   it('getArticles applies tagId filter', async () => {
     await getArticles({ tagId: 3, page: 2 })
     const call = mockBinary.mock.calls[0][0]
-    expect(call.binaryUrl).toContain('tagId=3')
-    expect(call.binaryUrl).toContain('page=2')
+    expect(call.binaryUrl).toBe('/api/binary/article/list/tag/3/2/10.aeds')
   })
 
   it('getArticleById calls binary detail endpoint', async () => {
     await getArticleById(42)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/article/42',
+      binaryUrl: '/api/binary/article/42.aeds',
+      requestOptions: expect.objectContaining({ credentials: 'omit' }),
       frameType: expect.any(Number)
     }))
   })
@@ -60,21 +60,23 @@ describe('article API (binary)', () => {
   it('getHotArticles calls requestBinaryOnly with size param', async () => {
     await getHotArticles(5)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/article/hot?size=5'
+      binaryUrl: '/api/binary/article/hot/5.aeds',
+      requestOptions: expect.objectContaining({ credentials: 'omit' })
     }))
   })
 
   it('getHotArticles uses default size 10', async () => {
     await getHotArticles()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/article/hot?size=10'
+      binaryUrl: '/api/binary/article/hot/10.aeds'
     }))
   })
 
   it('getFeaturedArticles calls binary featured endpoint', async () => {
     await getFeaturedArticles(4)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/article/featured?size=4',
+      binaryUrl: '/api/binary/article/featured/4.aeds',
+      requestOptions: expect.objectContaining({ credentials: 'omit' }),
       frameType: expect.any(Number)
     }))
   })
@@ -90,7 +92,7 @@ describe('article API (admin)', () => {
     const data = { title: 'T', content: 'C', summary: 'S', categoryId: 1, tagIds: [] }
     await createArticle(data)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/article',
+      binaryUrl: '/api/binary/admin/article',
       frameType: FrameType.MutationId,
       requestOptions: expect.objectContaining({
         method: 'POST',
@@ -104,7 +106,7 @@ describe('article API (admin)', () => {
     const data = { title: 'T', content: 'C', summary: 'S', categoryId: 1, tagIds: [] }
     await updateArticle(10, data)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/article/10',
+      binaryUrl: '/api/binary/admin/article/10',
       frameType: FrameType.MutationId,
       requestOptions: expect.objectContaining({
         method: 'PUT',
@@ -117,7 +119,7 @@ describe('article API (admin)', () => {
   it('deleteArticle calls DELETE /Article/:id', async () => {
     await deleteArticle(10)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/article/10',
+      binaryUrl: '/api/binary/admin/article/10',
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'DELETE',
@@ -129,7 +131,7 @@ describe('article API (admin)', () => {
   it('restoreArticle calls PUT /Article/restore/:id', async () => {
     await restoreArticle(5)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/article/restore/5',
+      binaryUrl: '/api/binary/admin/article/restore/5',
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'PUT',
@@ -141,12 +143,28 @@ describe('article API (admin)', () => {
   it('permanentDeleteArticle calls DELETE /Article/permanent/:id', async () => {
     await permanentDeleteArticle(7)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/article/permanent/7',
+      binaryUrl: '/api/binary/admin/article/permanent/7',
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'DELETE',
         requiresPow: true
       })
+    }))
+  })
+
+  it('getAdminArticles uses normal admin pipeline URL', async () => {
+    await getAdminArticles({ page: 2, size: 20, status: 0 })
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/admin/article?page=2&size=20&isDeleted=false&status=0',
+      frameType: FrameType.ArticleList
+    }))
+  })
+
+  it('getAdminArticleById uses admin detail URL', async () => {
+    await getAdminArticleById(9)
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/admin/article/9',
+      frameType: FrameType.ArticleDetail
     }))
   })
 

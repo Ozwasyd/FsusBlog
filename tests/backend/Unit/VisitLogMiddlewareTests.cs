@@ -15,7 +15,7 @@ public sealed class VisitLogMiddlewareTests
             return Task.CompletedTask;
         });
         var ctx = new DefaultHttpContext();
-        ctx.Request.Path = "/api/binary/article/42";
+        ctx.Request.Path = "/api/binary/article/42.aeds";
         ctx.Request.Method = HttpMethods.Get;
 
         await sut.InvokeAsync(ctx);

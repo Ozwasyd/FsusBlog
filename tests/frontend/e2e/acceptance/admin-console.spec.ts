@@ -251,7 +251,7 @@ for (const viewport of [
         const createArticleResponsePromise = session.page.waitForResponse((response) => {
           const request = response.request()
           const url = new URL(response.url())
-          return request.method() === 'POST' && url.pathname === '/api/binary/article'
+          return request.method() === 'POST' && url.pathname === '/api/binary/admin/article'
         })
         await submitButton.click()
         const prepublishResponse = await prepublishResponsePromise
@@ -319,7 +319,7 @@ for (const viewport of [
           const updateResponsePromise = session.page.waitForResponse((response) => {
             const request = response.request()
             const url = new URL(response.url())
-            return request.method() === 'PUT' && url.pathname === `/api/binary/article/${createdArticleId}`
+            return request.method() === 'PUT' && url.pathname === `/api/binary/admin/article/${createdArticleId}`
           })
           await session.page.locator('.write-submit-button').click()
           await session.page.getByRole('dialog', { name: '更新确认' }).getByRole('button', { name: '确认更新' }).click()

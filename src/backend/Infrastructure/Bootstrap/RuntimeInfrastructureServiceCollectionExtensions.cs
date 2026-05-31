@@ -115,6 +115,12 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
 
     private static IServiceCollection AddPublicReadArtifactRuntime(this IServiceCollection services)
     {
+        services.Configure<PublicHotReadOptions>(_ => { });
+        services.AddSingleton<PublicHotReadStore>();
+        services.AddSingleton<PublicHotReadCounters>();
+        services.AddHostedService<PublicHotReadMetricFlushWorker>();
+        services.AddHostedService<PublicHotReadStartupWarmupService>();
+        services.AddScoped<IPublicHotArtifactProjector, PublicHotArtifactProjector>();
         services.AddSingleton<IArticleDetailAedsArtifactStore, ArticleDetailAedsFileArtifactStore>();
         services.AddSingleton<ArticleDetailAedsArtifactBackfillScheduler>();
         services.AddSingleton<IArticleDetailAedsArtifactBackfillScheduler>(sp => sp.GetRequiredService<ArticleDetailAedsArtifactBackfillScheduler>());

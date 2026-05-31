@@ -4,7 +4,7 @@ import type { ApiRequestConfig } from '@/api/requestConfig'
 import {
   ArticlePublishStatus,
   deleteArticle,
-  getArticles,
+  getAdminArticles,
   permanentDeleteArticle,
   type ArticleListItemResponse
 } from '@/api/article'
@@ -82,7 +82,7 @@ export function useAdminArticleList() {
     try {
       const response = await loadTask.run(async (signal) => {
         const config: ApiRequestConfig = { signal }
-        return await getArticles(paramsSnapshot, config)
+        return await getAdminArticles(paramsSnapshot, config)
       }, {
         fallbackMessage: '无法同步文章列表，请检查网络契约',
         onError: (error) => {

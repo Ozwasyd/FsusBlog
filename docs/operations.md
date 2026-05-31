@@ -131,7 +131,7 @@ FSUSBLOG_SEARCH_BACKUP=backups/fsus-search.tar.gz \
   tools/operations/backup-restore-drill.sh
 ```
 
-The real mode starts disposable restore containers, copies upload/AOT/search artifacts into an isolated webroot, starts a restored backend on `FSUSBLOG_DRILL_BACKEND_PORT` (default `5180`), verifies `/`, admin login, `/api/binary/article`, `/search/index.manifest.aeds` and SSE live WebSocket heartbeat, then removes the temporary stack unless `FSUSBLOG_DRILL_KEEP_WORK=1` is set.
+The real mode starts disposable restore containers, copies upload/AOT/search artifacts into an isolated webroot, starts a restored backend on `FSUSBLOG_DRILL_BACKEND_PORT` (default `5180`), verifies `/`, admin login, `/api/binary/article/list/home/1/5.aeds`, `/search/index.manifest.aeds` and SSE live WebSocket heartbeat, then removes the temporary stack unless `FSUSBLOG_DRILL_KEEP_WORK=1` is set.
 
 Authoring-level content export is a lighter recovery path for editorial mistakes, not a replacement for database and upload backups. `GET /api/author/articles/{articleId}/export` returns one Markdown document with frontmatter and base64url metadata; `GET /api/author/content/export` returns a JSON package of all article exports. The metadata preserves category id, tag ids, cover URL, article status, scheduled publish time and revision records. Restore through `POST /api/author/articles/import`; use `publish=false,preserveRevisions=true` for parity restores, or `publish=true` only when intentionally bringing the restored article online immediately.
 

@@ -3,7 +3,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { type FormInstance } from '@ozwasyd/element-plus'
 import { isFsusUiOk } from '@/utils/fsusUiResult'
 import {
-  getArticleById,
+  getAdminArticleById,
   createArticle,
   updateArticle,
   ArticlePublishStatus,
@@ -750,7 +750,7 @@ export function useAdminArticleWrite() {
       return
     }
 
-    const data = await getArticleById(articleId.value, buildSignalConfig(signal)) as ArticleDetailResponse
+    const data = await getAdminArticleById(articleId.value, buildSignalConfig(signal)) as ArticleDetailResponse
     if (!signal.aborted) {
       applyArticleDetailToForm(data)
     }

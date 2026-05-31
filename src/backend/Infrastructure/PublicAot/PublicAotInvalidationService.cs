@@ -1,5 +1,6 @@
 using FsusBlog.Core.Cache;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -8,12 +9,14 @@ public sealed class PublicAotInvalidationService(
     IPublicAotShellCache cache,
     IRuntimeKeyScope runtimeKeyScope,
     PublicAotInvalidationTracker invalidationTracker,
+    PublicHotReadStore hotReadStore,
     ILogger<PublicAotInvalidationService> logger) : IPublicAotInvalidationService
 {
     public async Task InvalidateAllAsync(CancellationToken cancellationToken = default)
     {
         invalidationTracker.MarkAll();
         await cache.InvalidateAllAsync(cancellationToken);
+        hotReadStore.ClearHtml();
     }
 
     public async Task InvalidatePageAsync(PublicPageId pageId, CancellationToken cancellationToken = default)
@@ -21,6 +24,7 @@ public sealed class PublicAotInvalidationService(
         string prefix = ScopeKey(CacheKeyBuilder.PublicAotDocument(pageId, string.Empty));
         invalidationTracker.MarkPrefix(prefix);
         await cache.RemoveByPrefixAsync(prefix, cancellationToken);
+        hotReadStore.ClearHtml();
     }
 
     public async Task InvalidateRouteAsync(PublicPageId pageId, string routeKey, CancellationToken cancellationToken = default)
@@ -33,6 +37,7 @@ public sealed class PublicAotInvalidationService(
         string cacheKey = ScopeKey(CacheKeyBuilder.PublicAotDocument(pageId, routeKey.Trim()));
         invalidationTracker.MarkKey(cacheKey);
         await cache.RemoveAsync(cacheKey, cancellationToken);
+        hotReadStore.RemoveHtml(routeKey);
     }
 
     public async Task InvalidateArticleMutationAsync(
@@ -67,6 +72,7 @@ public sealed class PublicAotInvalidationService(
     public async Task InvalidateSeoAsync(CancellationToken cancellationToken = default)
     {
         await cache.InvalidateAllAsync(cancellationToken);
+        hotReadStore.ClearHtml();
     }
 
     public async Task InvalidateAboutAsync(CancellationToken cancellationToken = default)

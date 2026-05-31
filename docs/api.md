@@ -134,9 +134,11 @@ Binary 端点输出 AEDS v2 帧（`Content-Type: application/octet-stream`）。
 
 | 方法 | 路径 | 描述 | 权限 |
 |------|------|------|------|
-| GET | `/api/binary/article` | 文章列表（Binary） | 🔓 |
-| GET | `/api/binary/article/{id}` | 文章详情（Binary） | 🔓 |
-| GET | `/api/binary/article/hot` | 热门文章（Binary） | 🔓 |
+| GET | `/api/binary/article/list/home/{page}/{size}.aeds` | 首页文章列表 L0 artifact（Binary） | 🔓 |
+| GET | `/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds` | 分类文章列表 L0 artifact（Binary） | 🔓 |
+| GET | `/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds` | 标签文章列表 L0 artifact（Binary） | 🔓 |
+| GET | `/api/binary/article/{id}.aeds` | 文章详情 L0 artifact（Binary） | 🔓 |
+| GET | `/api/binary/article/hot/{size}.aeds` | 热门文章 L0 artifact（Binary） | 🔓 |
 | GET | `/api/binary/comment/{articleId}` | 文章评论（Binary） | 🔓 |
 | GET | `/api/binary/comment/{articleId}/thread/{rootId}` | 评论线程（Binary） | 🔓 |
 

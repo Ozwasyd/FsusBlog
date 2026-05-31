@@ -2,7 +2,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, shallowRef } from 'vue
 import { useRouter } from 'vue-router'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import {
-  getArticles,
+  getAdminArticles,
   permanentDeleteArticle,
   restoreArticle,
   type ArticleListItemResponse
@@ -51,7 +51,7 @@ export function useAdminArticleTrash() {
 
     const response = await loadTask.run(async (signal) => {
       const config: ApiRequestConfig = { signal }
-      return await getArticles(paramsSnapshot, config)
+      return await getAdminArticles(paramsSnapshot, config)
     }, {
       fallbackMessage: '无法同步回收站数据',
       onError: (error) => {

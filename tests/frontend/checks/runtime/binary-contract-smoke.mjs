@@ -7,8 +7,8 @@ const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000'
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000)
 
 const successChecks = [
-  ['article list', '/api/binary/article?page=1&size=3', 1],
-  ['article hot', '/api/binary/article/hot?size=3', 3],
+  ['article list', '/api/binary/article/list/home/1/3.aeds', 1],
+  ['article hot', '/api/binary/article/hot/3.aeds', 3],
   ['category list', '/api/binary/category', 9],
   ['tag list', '/api/binary/tag', 10],
   ['comment cursor', '/api/binary/comment/1?limit=5', 5]
@@ -16,8 +16,8 @@ const successChecks = [
 
 const denialChecks = [
   ['comment me anonymous', '/api/binary/comment/me?limit=5', 401],
-  ['deleted article anonymous', '/api/binary/article?page=1&size=5&isDeleted=true', 403],
-  ['article status anonymous', '/api/binary/article?page=1&size=5&status=0', 403],
+  ['deleted article anonymous', '/api/binary/admin/article?page=1&size=5&isDeleted=true', 401],
+  ['article status anonymous', '/api/binary/admin/article?page=1&size=5&status=0', 401],
   ['admin stats anonymous', '/api/binary/stats', 401],
   ['recent comments anonymous', '/api/binary/stats/recent-comments', 401],
   ['regions anonymous', '/api/binary/stats/regions', 401]
@@ -56,7 +56,7 @@ async function checkDenial([name, path, expectedStatus]) {
 }
 
 async function main() {
-  await probeReachable(`${baseUrl}/api/binary/article?page=1&size=1`, '[binary-contract-smoke backend]', requestTimeoutMs)
+  await probeReachable(`${baseUrl}/api/binary/article/list/home/1/1.aeds`, '[binary-contract-smoke backend]', requestTimeoutMs)
 
   for (const item of successChecks) {
     await checkSuccess(item)

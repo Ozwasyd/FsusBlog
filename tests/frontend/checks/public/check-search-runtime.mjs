@@ -63,7 +63,7 @@ async function main() {
   assert(Array.isArray(manifest.backgroundRoles), 'manifest backgroundRoles invalid')
   assert(Array.isArray(manifest.deepRoles), 'manifest deepRoles invalid')
 
-  const articlePage = await fetchAeds('/api/binary/article?page=1&size=5')
+  const articlePage = await fetchAeds('/api/binary/article/list/home/1/5.aeds')
   const items = Array.isArray(articlePage?.items) ? articlePage.items : []
   assert(items.length > 0, 'no articles available for search runtime smoke')
 

@@ -318,7 +318,7 @@ run_smoke_checks() {
   wait_for_url "public-page" "$BASE_URL/" || return
   add_check "public-page" "ok"
 
-  wait_for_url "binary-api" "$BASE_URL/api/binary/article?page=1&size=5" "Accept: application/octet-stream" || return
+  wait_for_url "binary-api" "$BASE_URL/api/binary/article/list/home/1/5.aeds" "Accept: application/octet-stream" || return
   add_check "binary-api" "ok"
 
   wait_for_url "search-index" "$BASE_URL/search/index.manifest.aeds" || return
