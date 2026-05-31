@@ -13,9 +13,12 @@ internal static class SseMetrics
     private static readonly Counter<long> SlowDisconnectCounter = Meter.CreateCounter<long>("fsus.sse.slow_disconnects");
     private static readonly Counter<long> ReplayCounter = Meter.CreateCounter<long>("fsus.sse.replay_hits");
     private static readonly Counter<long> ReplayMissCounter = Meter.CreateCounter<long>("fsus.sse.replay_misses");
+    private static readonly Counter<long> ReplayDedupedCounter = Meter.CreateCounter<long>("fsus.sse.replay_deduped_entries");
     private static readonly Histogram<int> QueueDepthHistogram = Meter.CreateHistogram<int>("fsus.sse.queue_depth");
     private static readonly Histogram<int> FlushBatchHistogram = Meter.CreateHistogram<int>("fsus.sse.flush_batch_size");
     private static readonly Histogram<double> FlushDurationHistogram = Meter.CreateHistogram<double>("fsus.sse.flush_duration_ms");
+    private static readonly Histogram<int> ReplayRouteHistogram = Meter.CreateHistogram<int>("fsus.sse.replay_routes");
+    private static readonly Histogram<int> ReplayScanHistogram = Meter.CreateHistogram<int>("fsus.sse.replay_scanned_entries");
 
     static SseMetrics()
     {
@@ -35,11 +38,24 @@ internal static class SseMetrics
 
     public static void RecordQueueDepth(int depth) => QueueDepthHistogram.Record(depth);
 
-    public static void RecordReplay(int hitCount, bool missedGap)
+    public static void RecordReplay(
+        int hitCount,
+        bool missedGap,
+        int routeCount = 0,
+        int scannedEntries = 0,
+        int dedupedEntries = 0)
     {
+        ReplayRouteHistogram.Record(routeCount);
+        ReplayScanHistogram.Record(scannedEntries);
+
         if (hitCount > 0)
         {
             ReplayCounter.Add(hitCount);
+        }
+
+        if (dedupedEntries > 0)
+        {
+            ReplayDedupedCounter.Add(dedupedEntries);
         }
 
         if (missedGap)

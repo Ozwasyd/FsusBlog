@@ -325,9 +325,12 @@ public sealed class PublicAotNodeSsrRenderer(
 
         public async Task<string> SendAsync(string command, IReadOnlyDictionary<string, object?> payload, CancellationToken cancellationToken)
         {
-            NodeWorkerClient worker = _workers[Math.Abs(Interlocked.Increment(ref _next)) % _workers.Length];
+            NodeWorkerClient worker = _workers[CalculateWorkerIndex(Interlocked.Increment(ref _next), _workers.Length)];
             return await worker.SendAsync(command, payload, cancellationToken);
         }
+
+        internal static int CalculateWorkerIndex(int counter, int workerCount)
+            => (int)((uint)counter % (uint)workerCount);
 
         public async ValueTask DisposeAsync()
         {
@@ -337,6 +340,9 @@ public sealed class PublicAotNodeSsrRenderer(
             }
         }
     }
+
+    internal static int CalculateWorkerIndexForTests(int counter, int workerCount)
+        => NodeWorkerPool.CalculateWorkerIndex(counter, workerCount);
 
     private sealed class NodeWorkerClient(
         string clientRoot,

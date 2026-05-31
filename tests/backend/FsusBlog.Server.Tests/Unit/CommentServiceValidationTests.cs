@@ -217,6 +217,17 @@ public class CommentServiceValidationTests
         Assert.Empty(result.Data);
     }
 
+    [Fact]
+    public void CommentCursorQueries_UseIndexedKeysetPredicates()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Services", "CommentService.cs"));
+
+        Assert.Contains("c.Id < request.Cursor!.Value", source);
+        Assert.Contains("c.Id > request.Cursor!.Value", source);
+        Assert.DoesNotContain(".Skip(", source);
+        Assert.DoesNotContain("OFFSET", source, StringComparison.OrdinalIgnoreCase);
+    }
+
     // Note: DeleteCommentAsync always queries DB first, so no pure validation path to test without DB mock
 
     // ── Private static helpers via reflection ──────────────────────────────────
@@ -225,6 +236,29 @@ public class CommentServiceValidationTests
     {
         var method = typeof(CommentService).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
         return (T)method.Invoke(null, args)!;
+    }
+
+    private static string FindRepoRoot()
+    {
+        string current = AppContext.BaseDirectory;
+        while (!string.IsNullOrWhiteSpace(current))
+        {
+            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
+                File.Exists(Path.Combine(current, "src", "backend", "Services", "CommentService.cs")))
+            {
+                return current;
+            }
+
+            DirectoryInfo? parent = Directory.GetParent(current);
+            if (parent is null)
+            {
+                break;
+            }
+
+            current = parent.FullName;
+        }
+
+        throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 
     [Theory]

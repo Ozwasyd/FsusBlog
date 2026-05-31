@@ -40,6 +40,19 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public void CopyRawBytesForTests_ReturnsCallerOwnedCopy()
+    {
+        byte[] cached = [1, 2, 3];
+
+        byte[] returned = UnifiedCache.CopyRawBytesForTests(cached);
+        returned[0] = 9;
+
+        Assert.Equal(new byte[] { 1, 2, 3 }, cached);
+        Assert.Equal(new byte[] { 9, 2, 3 }, returned);
+        Assert.NotSame(cached, returned);
+    }
+
+    [Fact]
     public void ApplyDeterministicJitterForTests_SameKeyRemainsDeterministic()
     {
         TimeSpan first = UnifiedCache.ApplyDeterministicJitterForTests(TimeSpan.FromMinutes(10), 0.10d, "fsus:blog:article-list:1");

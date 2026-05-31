@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Services.Background;
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests;
@@ -52,5 +53,16 @@ public sealed class PublicAotBackfillSchedulerTests
         Assert.True(firstQueued);
         Assert.False(secondQueued);
         Assert.Equal(1, scheduler.InFlightCount);
+    }
+
+    [Theory]
+    [InlineData(-1, 1)]
+    [InlineData(0, 1)]
+    [InlineData(1, 1)]
+    [InlineData(4, 4)]
+    [InlineData(99, 8)]
+    public void NormalizeBackfillConcurrency_ClampsDatabasePressure(int configured, int expected)
+    {
+        Assert.Equal(expected, PublicAotBackfillWorker.NormalizeBackfillConcurrency(configured));
     }
 }

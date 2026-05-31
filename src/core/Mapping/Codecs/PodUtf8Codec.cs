@@ -103,6 +103,14 @@ public static class PodUtf8Codec
 
         if (!string.IsNullOrEmpty(value))
         {
+            int byteCount = Utf8.GetByteCount(value);
+            if (byteCount > bytes.Length)
+            {
+                throw new ArgumentException(
+                    $"Fixed UTF-8 POD field can hold at most {bytes.Length} bytes, but the value requires {byteCount} bytes.",
+                    nameof(value));
+            }
+
             _ = Utf8.GetBytes(value.AsSpan(), bytes);
         }
 

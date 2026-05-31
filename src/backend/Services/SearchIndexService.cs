@@ -233,6 +233,28 @@ public sealed partial class SearchIndexService(
         }
     }
 
+    public static ulong TokenFingerprintForTests(string input)
+    {
+        int byteCount = Encoding.UTF8.GetByteCount(input);
+        byte[]? rented = null;
+        Span<byte> bytes = byteCount <= 512
+            ? stackalloc byte[byteCount]
+            : (rented = ArrayPool<byte>.Shared.Rent(byteCount)).AsSpan(0, byteCount);
+
+        try
+        {
+            Encoding.UTF8.GetBytes(input.AsSpan(), bytes);
+            return SearchTokenHashing.Fingerprint64(bytes[..byteCount]);
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(rented, clearArray: true);
+            }
+        }
+    }
+
     internal static void ValidateDictionaryHeaderForTests(string path)
     {
         using var runtime = SearchDictionaryRuntime.Open(path);
@@ -1800,7 +1822,7 @@ public sealed partial class SearchIndexService(
                 return [];
             }
 
-            var scores = new Dictionary<int, int>();
+            var scores = new Dictionary<int, double>();
             foreach (uint hash in hashes)
             {
                 if (!_postingsByHash.TryGetValue(hash, out SearchRuntimePosting[]? postings))
@@ -1810,7 +1832,7 @@ public sealed partial class SearchIndexService(
 
                 foreach (SearchRuntimePosting posting in postings)
                 {
-                    scores.TryGetValue(posting.ArticleId, out int current);
+                    scores.TryGetValue(posting.ArticleId, out double current);
                     scores[posting.ArticleId] = current + posting.Score;
                 }
             }
@@ -1866,7 +1888,8 @@ public sealed partial class SearchIndexService(
 
     private sealed class SearchRuntimeIndexBuilder
     {
-        private readonly Dictionary<uint, Dictionary<int, int>> _scoresByHash = [];
+        private readonly Dictionary<uint, Dictionary<int, double>> _weightedTfByHash = [];
+        private readonly Dictionary<uint, ulong> _fingerprintsByHash = [];
         private readonly Dictionary<int, SearchRuntimeDocument> _documentsById;
 
         public SearchRuntimeIndexBuilder(int documentCount)
@@ -1882,7 +1905,8 @@ public sealed partial class SearchIndexService(
                 article.Summary,
                 article.Body,
                 article.Views,
-                article.CreateTime);
+                article.CreateTime,
+                Math.Max(article.DocLength, 1));
 
             AddField(dictionary, article, article.Title, SearchFieldKind.Title, 16);
             AddField(dictionary, article, article.Summary, SearchFieldKind.Summary, 8);
@@ -1897,14 +1921,30 @@ public sealed partial class SearchIndexService(
 
         public SearchRuntimeSnapshot Build()
         {
-            FrozenDictionary<uint, SearchRuntimePosting[]> postings = _scoresByHash
+            int documentCount = _documentsById.Count;
+            double averageDocumentLength = documentCount == 0
+                ? 1d
+                : _documentsById.Values.Average(static document => Math.Max(document.DocLength, 1));
+
+            FrozenDictionary<uint, SearchRuntimePosting[]> postings = _weightedTfByHash
                 .ToDictionary(
                     entry => entry.Key,
-                    entry => entry.Value
-                        .Select(static score => new SearchRuntimePosting(score.Key, score.Value))
+                    entry =>
+                    {
+                        int documentFrequency = entry.Value.Count;
+                        return entry.Value
+                        .Select(score => new SearchRuntimePosting(
+                            score.Key,
+                            SearchRuntimeScorer.ComputeBm25(
+                                score.Value,
+                                documentCount,
+                                documentFrequency,
+                                _documentsById[score.Key].DocLength,
+                                averageDocumentLength)))
                         .OrderByDescending(static posting => posting.Score)
                         .ThenBy(static posting => posting.ArticleId)
-                        .ToArray())
+                        .ToArray();
+                    })
                 .ToFrozenDictionary();
 
             return new SearchRuntimeSnapshot(postings, _documentsById.ToFrozenDictionary());
@@ -1925,22 +1965,34 @@ public sealed partial class SearchIndexService(
                 new RuntimeFieldTokenConsumer(this, article.Id, weight));
         }
 
-        private void AddToken(int articleId, uint hash, int weight)
+        private void AddToken(int articleId, uint hash, ulong fingerprint, int weight)
         {
-            if (!_scoresByHash.TryGetValue(hash, out Dictionary<int, int>? scoresByDocument))
+            if (_fingerprintsByHash.TryGetValue(hash, out ulong existingFingerprint))
             {
-                scoresByDocument = [];
-                _scoresByHash[hash] = scoresByDocument;
+                if (existingFingerprint != fingerprint)
+                {
+                    throw new InvalidDataException($"Search runtime token hash collision detected for hash {hash}.");
+                }
+            }
+            else
+            {
+                _fingerprintsByHash[hash] = fingerprint;
             }
 
-            scoresByDocument.TryGetValue(articleId, out int current);
+            if (!_weightedTfByHash.TryGetValue(hash, out Dictionary<int, double>? scoresByDocument))
+            {
+                scoresByDocument = [];
+                _weightedTfByHash[hash] = scoresByDocument;
+            }
+
+            scoresByDocument.TryGetValue(articleId, out double current);
             scoresByDocument[articleId] = current + weight;
         }
 
         private readonly record struct RuntimeFieldTokenConsumer(SearchRuntimeIndexBuilder Builder, int ArticleId, int Weight)
         {
             public void AddToken(SearchToken token)
-                => Builder.AddToken(ArticleId, token.Hash, Weight);
+                => Builder.AddToken(ArticleId, token.Hash, token.Fingerprint, Weight);
         }
     }
 
@@ -1950,9 +2002,10 @@ public sealed partial class SearchIndexService(
         string Summary,
         string Body,
         int Views,
-        DateTime CreateTime);
+        DateTime CreateTime,
+        int DocLength);
 
-    private readonly record struct SearchRuntimePosting(int ArticleId, int Score);
+    private readonly record struct SearchRuntimePosting(int ArticleId, double Score);
 
     private sealed record SearchIndexManifest(
         int SchemaVersion,
@@ -2060,7 +2113,7 @@ public sealed partial class SearchIndexService(
     private sealed record SearchPostingEntry(uint ArticleId, byte TitleTf, byte MetaTf, byte BodyTf, SearchPositionEntry[] Positions);
     private readonly record struct SearchPositionEntry(uint Position, uint PositionLength, SearchFieldKind Field);
 
-    private readonly record struct SearchToken(uint Hash, SearchFieldKind Field, uint Position, uint PositionLength, bool Stopword, bool KeepPositionsCandidate);
+    private readonly record struct SearchToken(uint Hash, ulong Fingerprint, SearchFieldKind Field, uint Position, uint PositionLength, bool Stopword, bool KeepPositionsCandidate);
 
     private enum SearchFieldKind : byte
     {
@@ -2102,10 +2155,28 @@ public sealed partial class SearchIndexService(
 
     private sealed class TermAccumulator
     {
+        private bool _hasFingerprint;
+        private ulong _fingerprint;
+
         public int DocumentFrequency { get; set; }
         public bool Stopword { get; set; }
         public bool KeepPositions { get; set; }
         public Dictionary<int, PostingAccumulator> Postings { get; } = [];
+
+        public void VerifyFingerprint(SearchToken token)
+        {
+            if (!_hasFingerprint)
+            {
+                _fingerprint = token.Fingerprint;
+                _hasFingerprint = true;
+                return;
+            }
+
+            if (_fingerprint != token.Fingerprint)
+            {
+                throw new InvalidDataException($"Search token hash collision detected for hash {token.Hash}.");
+            }
+        }
     }
 
     private sealed class PostingAccumulator
@@ -2155,6 +2226,7 @@ public sealed partial class SearchIndexService(
         {
             ref TermAccumulator? term = ref CollectionsMarshal.GetValueRefOrAddDefault(Terms, token.Hash, out _);
             term ??= new TermAccumulator();
+            term.VerifyFingerprint(token);
             term.Stopword |= token.Stopword;
             term.KeepPositions |= token.KeepPositionsCandidate;
 
@@ -2217,6 +2289,14 @@ public sealed partial class SearchIndexService(
         int shardBytesLength)
         => ShouldEmitPatch(shardDocCount, patchDocCount, tombstoneCount, patchBytesLength, shardBytesLength);
 
+    internal static double ComputeRuntimeBm25ForTests(
+        double weightedTermFrequency,
+        int documentCount,
+        int documentFrequency,
+        int documentLength,
+        double averageDocumentLength)
+        => SearchRuntimeScorer.ComputeBm25(weightedTermFrequency, documentCount, documentFrequency, documentLength, averageDocumentLength);
+
     internal static (int SchemaVersion, string[] InitialRoles, string[] BackgroundRoles, string[] DeepRoles, uint[] ShardRoles) SearchIndexContractForTests()
         => (
             SearchManifestSchemaVersion,
@@ -2252,7 +2332,7 @@ public sealed partial class SearchIndexService(
             var tokens = new List<SearchTokenDebugView>();
             while (tokenizer.MoveNext(out SearchToken token))
             {
-                tokens.Add(new SearchTokenDebugView(token.Hash, tokenizer.GetDebugText(token), token.Position, token.PositionLength, token.Stopword, token.KeepPositionsCandidate));
+                tokens.Add(new SearchTokenDebugView(token.Hash, token.Fingerprint, tokenizer.GetDebugText(token), token.Position, token.PositionLength, token.Stopword, token.KeepPositionsCandidate));
             }
 
             return [.. tokens];
@@ -2268,6 +2348,7 @@ public sealed partial class SearchIndexService(
 
     internal readonly record struct SearchTokenDebugView(
         uint Hash,
+        ulong Fingerprint,
         string Text,
         uint Position,
         uint PositionLength,
@@ -2336,8 +2417,9 @@ public sealed partial class SearchIndexService(
                     return true;
                 }
 
-                uint unigramHash = MurmurHash3.HashBytes(_source.Slice(_index, runeLength));
-                token = new SearchToken(unigramHash, _field, _position, 1, false, _field is SearchFieldKind.Title or SearchFieldKind.Body);
+                ReadOnlySpan<byte> unigramBytes = _source.Slice(_index, runeLength);
+                uint unigramHash = MurmurHash3.HashBytes(unigramBytes);
+                token = new SearchToken(unigramHash, SearchTokenHashing.Fingerprint64(unigramBytes), _field, _position, 1, false, _field is SearchFieldKind.Title or SearchFieldKind.Body);
                 _index += runeLength;
                 _position++;
                 return true;
@@ -2447,6 +2529,7 @@ public sealed partial class SearchIndexService(
 
                 queued[queuedCount++] = new SearchToken(
                     MurmurHash3.HashBytes(tokenBytes),
+                    SearchTokenHashing.Fingerprint64(tokenBytes),
                     _field,
                     tokenPosition,
                     (uint)runeLength,
@@ -2489,7 +2572,7 @@ public sealed partial class SearchIndexService(
                 }
             }
 
-            token = new SearchToken(MurmurHash3.HashBytes(lower), _field, _position, 1, false, _field is SearchFieldKind.Title or SearchFieldKind.Body);
+            token = new SearchToken(MurmurHash3.HashBytes(lower), SearchTokenHashing.Fingerprint64(lower), _field, _position, 1, false, _field is SearchFieldKind.Title or SearchFieldKind.Body);
             _position++;
             return true;
         }
@@ -2519,6 +2602,7 @@ public sealed partial class SearchIndexService(
 
                     SearchToken subToken = new(
                         MurmurHash3.HashBytes(subBytes),
+                        SearchTokenHashing.Fingerprint64(subBytes),
                         _field,
                         basePosition + (uint)subStart,
                         (uint)subLength,

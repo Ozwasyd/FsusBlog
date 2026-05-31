@@ -53,6 +53,9 @@ public sealed class ApiBinaryResponseMiddleware
                     StatusCodes.Status415UnsupportedMediaType);
                 return;
             }
+
+            await InvokeBinaryEndpointDirectAsync(context, envelopePolicy);
+            return;
         }
         else if (!envelopePolicy.AcceptsBinaryEnvelope(context.Request))
         {
@@ -261,4 +264,23 @@ public sealed class ApiBinaryResponseMiddleware
             return base.DisposeAsync();
         }
     }
+
+    private async Task InvokeBinaryEndpointDirectAsync(HttpContext context, IBinaryEnvelopePolicy envelopePolicy)
+    {
+        await _next(context);
+
+        if (context.Response.HasStarted || context.Response.StatusCode < 400 || !IsResponseBodyEmpty(context.Response.Body))
+        {
+            return;
+        }
+
+        await envelopePolicy.WriteApiErrorAsync(
+            context,
+            context.Response.Body,
+            ErrorDetail.Create(envelopePolicy.MapErrorCode(context.Response.StatusCode), $"HTTP {context.Response.StatusCode}", traceId: context.TraceIdentifier),
+            context.Response.StatusCode);
+    }
+
+    private static bool IsResponseBodyEmpty(Stream body)
+        => !body.CanSeek || body.Length == 0;
 }

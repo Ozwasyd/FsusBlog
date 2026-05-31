@@ -99,6 +99,16 @@ public class ModernAcAutomatonTests
         ac.Build(["dup", "dup", "dup"]);
         Assert.True(ac.ContainsAny("dup"));
     }
+
+    [Fact]
+    public void ContainsAny_WideNodeMatchesViaSortedChildBinarySearch()
+    {
+        var ac = new ModernAcAutomaton();
+        ac.Build(["aa", "ab", "ac", "ad", "ae", "af", "ag"]);
+
+        Assert.True(ac.ContainsAny("prefix ag suffix"));
+        Assert.False(ac.ContainsAny("prefix az suffix"));
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

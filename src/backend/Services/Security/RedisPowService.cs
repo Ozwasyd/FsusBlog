@@ -1,4 +1,5 @@
-﻿using FsusBlog.Server.Infrastructure.Security;
+﻿using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using System.Buffers.Text;
@@ -15,19 +16,27 @@ namespace FsusBlog.Server.Services;
 /// </summary>
 public class RedisPowService : IPowService
 {
+    private const int MaxSaltUtf8Bytes = 128;
+    private const int MaxNonceUtf8Bytes = 64;
+    private const int MaxSignatureUtf8Bytes = 128;
+    private const int MaxBrowserFingerprintUtf8Bytes = 256;
+    private static readonly TimeSpan ProofReplayTtl = TimeSpan.FromMinutes(5);
     private static long _lastFallbackWarningTicks;
     private readonly byte[] _cachedPowKey;
     private readonly bool _isFallbackKey;
     private readonly ILogger<RedisPowService> _logger;
     private readonly AdaptivePowGovernor _governor;
+    private readonly IUnifiedCache _cache;
 
     public RedisPowService(
         IConfiguration config,
         ILogger<RedisPowService> logger,
-        AdaptivePowGovernor governor)
+        AdaptivePowGovernor governor,
+        IUnifiedCache cache)
     {
         _logger = logger;
         _governor = governor;
+        _cache = cache;
 
         string? secretKey = config["Jwt:SecretKey"];
         if (string.IsNullOrEmpty(secretKey))
@@ -51,6 +60,12 @@ public class RedisPowService : IPowService
             LogFallbackModeThrottled();
         }
 
+        if (!HasValidFieldLengths(req))
+        {
+            _logger.LogWarning("PoW 字段长度超限 | Salt: {Salt}", req.PowSalt);
+            return false;
+        }
+
         // 1. 签名校验 (防重放与篡改)
         if (!BasicValidate(req, clientIp))
         {
@@ -61,7 +76,8 @@ public class RedisPowService : IPowService
         // 2. 算力验算 (纯 C# SHA-NI 硬件加速)
         if (!CheckWorkloadWithSpan(req)) return false;
 
-        return true;
+        // 3. Redis-backed consume-once protection: the same normalized proof can be accepted only once.
+        return await TryConsumeProofOnceAsync(req, clientIp).ConfigureAwait(false);
     }
 
     private void LogFallbackModeThrottled()
@@ -86,7 +102,10 @@ public class RedisPowService : IPowService
 
         // 性能保障：容量从 128 扩充至 256，物理杜绝溢出可能，彻底消灭 Fallback 回退分配
         Span<byte> buffer = stackalloc byte[256];
-        TryFormatSignatureData(buffer, normalizedIp, salt, difficulty, timestamp, out int bytesWritten);
+        if (!TryFormatSignatureData(buffer, normalizedIp, salt, difficulty, timestamp, out int bytesWritten))
+        {
+            throw new InvalidOperationException("PoW signature input exceeds fixed buffer capacity.");
+        }
 
         Span<byte> hashResult = stackalloc byte[32];
         HMACSHA256.HashData(_cachedPowKey, buffer[..bytesWritten], hashResult);
@@ -101,7 +120,10 @@ public class RedisPowService : IPowService
 
         string normalizedIp = NormalizeIp(ip);
         Span<byte> buffer = stackalloc byte[256];
-        TryFormatSignatureData(buffer, normalizedIp, req.PowSalt, req.Difficulty, req.PowTimestamp, out int bytesWritten);
+        if (!TryFormatSignatureData(buffer, normalizedIp, req.PowSalt, req.Difficulty, req.PowTimestamp, out int bytesWritten))
+        {
+            return false;
+        }
 
         Span<byte> computedHash = stackalloc byte[32];
         HMACSHA256.HashData(_cachedPowKey, buffer[..bytesWritten], computedHash);
@@ -121,18 +143,35 @@ public class RedisPowService : IPowService
     {
         int offset = 0;
 
-        // 性能最大化：单次调用直接返回写入长度，彻底消灭原版 GetByteCount 带来的双重字符串遍历
-        offset += Encoding.UTF8.GetBytes(ip.AsSpan(), destination[offset..]);
-        destination[offset++] = (byte)':';
+        if (!TryWriteUtf8(ip, destination, ref offset) || !TryWriteByte((byte)':', destination, ref offset))
+        {
+            bytesWritten = 0;
+            return false;
+        }
 
-        offset += Encoding.UTF8.GetBytes(salt.AsSpan(), destination[offset..]);
-        destination[offset++] = (byte)':';
+        if (!TryWriteUtf8(salt, destination, ref offset) || !TryWriteByte((byte)':', destination, ref offset))
+        {
+            bytesWritten = 0;
+            return false;
+        }
 
-        Utf8Formatter.TryFormat(diff, destination[offset..], out int diffBytes);
+        if (!Utf8Formatter.TryFormat(diff, destination[offset..], out int diffBytes))
+        {
+            bytesWritten = 0;
+            return false;
+        }
         offset += diffBytes;
-        destination[offset++] = (byte)':';
+        if (!TryWriteByte((byte)':', destination, ref offset))
+        {
+            bytesWritten = 0;
+            return false;
+        }
 
-        Utf8Formatter.TryFormat(ts, destination[offset..], out int tsBytes);
+        if (!Utf8Formatter.TryFormat(ts, destination[offset..], out int tsBytes))
+        {
+            bytesWritten = 0;
+            return false;
+        }
         offset += tsBytes;
 
         bytesWritten = offset;
@@ -147,9 +186,9 @@ public class RedisPowService : IPowService
         int offset = 0;
 
         if (!TryWriteUtf8(req.PowSalt, dataBuffer, ref offset)) return false;
-        dataBuffer[offset++] = (byte)':';
+        if (!TryWriteByte((byte)':', dataBuffer, ref offset)) return false;
         if (!TryWriteUtf8(req.PowNonce, dataBuffer, ref offset)) return false;
-        dataBuffer[offset++] = (byte)':';
+        if (!TryWriteByte((byte)':', dataBuffer, ref offset)) return false;
         if (!TryWriteUtf8(req.BrowserFp, dataBuffer, ref offset)) return false;
 
         Span<byte> hashResult = stackalloc byte[32];
@@ -180,10 +219,63 @@ public class RedisPowService : IPowService
     private static bool TryWriteUtf8(string value, Span<byte> destination, ref int offset)
     {
         if (string.IsNullOrEmpty(value)) return true;
-        // 性能最大化：单次调用即可，剔除双重遍历
+        int byteCount = Encoding.UTF8.GetByteCount(value);
+        if (byteCount > destination.Length - offset)
+        {
+            return false;
+        }
+
         offset += Encoding.UTF8.GetBytes(value.AsSpan(), destination[offset..]);
         return true;
     }
+
+    private static bool TryWriteByte(byte value, Span<byte> destination, ref int offset)
+    {
+        if ((uint)offset >= (uint)destination.Length)
+        {
+            return false;
+        }
+
+        destination[offset++] = value;
+        return true;
+    }
+
+    private async Task<bool> TryConsumeProofOnceAsync(IPowRequest req, string clientIp)
+    {
+        string identity = BuildProofIdentity(req, NormalizeIp(clientIp));
+        TimeSpan ttl = ResolveReplayTtl(req.PowTimestamp);
+        bool acquired = await _cache.TryAcquireLeaseAsync(CachePolicyId.SecurityPowProof, identity, "1", ttl).ConfigureAwait(false);
+        if (!acquired)
+        {
+            _logger.LogWarning("PoW 重放被拒绝 | Salt: {Salt}", req.PowSalt);
+        }
+
+        return acquired;
+    }
+
+    private static string BuildProofIdentity(IPowRequest req, string normalizedIp)
+    {
+        string material = string.Join('\u001F', normalizedIp, req.PowSalt, req.PowNonce, req.PowTimestamp.ToString(), req.Difficulty.ToString(), req.BrowserFp);
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(Encoding.UTF8.GetBytes(material), hash);
+        return Convert.ToHexString(hash);
+    }
+
+    private static TimeSpan ResolveReplayTtl(long timestamp)
+    {
+        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        long remainingSeconds = Math.Max(1, 300 - Math.Abs(now - timestamp));
+        return TimeSpan.FromSeconds(Math.Min(remainingSeconds, (long)ProofReplayTtl.TotalSeconds));
+    }
+
+    private static bool HasValidFieldLengths(IPowRequest req)
+        => IsUtf8LengthInRange(req.PowSalt, MaxSaltUtf8Bytes)
+            && IsUtf8LengthInRange(req.PowNonce, MaxNonceUtf8Bytes)
+            && IsUtf8LengthInRange(req.PowSignature, MaxSignatureUtf8Bytes)
+            && IsUtf8LengthInRange(req.BrowserFp, MaxBrowserFingerprintUtf8Bytes);
+
+    private static bool IsUtf8LengthInRange(string value, int maxBytes)
+        => Encoding.UTF8.GetByteCount(value) <= maxBytes;
 
     private static string NormalizeIp(string ip) => System.Net.IPAddress.TryParse(ip, out var parsed) ? parsed.ToString() : ip;
 

@@ -88,14 +88,11 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         }
         _lastReloadTimes[e.Name] = DateTime.UtcNow;
 
-        ThreadPool.UnsafeQueueUserWorkItem(static state =>
-        {
-            var (self, fileName) = ((ContentFilterService, string))state!;
-            self.ReloadFromWatcher(fileName);
-        }, (this, e.Name));
+        string fileName = e.Name;
+        _ = Task.Run(async () => await ReloadFromWatcherAsync(fileName).ConfigureAwait(false));
     }
 
-    private Result ReloadFromWatcher(string fileName)
+    private async Task<Result> ReloadFromWatcherAsync(string fileName)
     {
         if (_disposed)
         {
@@ -105,13 +102,13 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         if (fileName.Equals("SensitiveWords.txt", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogInformation("检测到政治红线词库变动，准备自动热重载...");
-            return ReloadSensitiveWords();
+            return await ReloadSensitiveWordsAsync().ConfigureAwait(false);
         }
 
         if (fileName.Equals("AdWords.txt", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogInformation("检测到动态广告词库变动，准备自动热重载...");
-            return ReloadAdWords();
+            return await ReloadAdWordsAsync().ConfigureAwait(false);
         }
 
         return Result.Success();
@@ -205,13 +202,52 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
             lastResult = attemptResult;
             if (i < 4)
             {
-                Thread.Sleep(100);
+                WaitForReloadRetryAsync(CancellationToken.None).GetAwaiter().GetResult();
             }
         }
 
         _logger.LogWarning("词库文件读取失败，已降级为空词库 | Path: {Path}", path);
         return lastResult;
     }
+
+    private async Task<Result<string[]>> ReadAllLinesWithRetryAsync(string path, CancellationToken cancellationToken = default)
+    {
+        Result<string[]> lastResult = Result<string[]>.Failure(
+            ErrorCode.InfraFailure,
+            $"读取词库失败: {Path.GetFileName(path)}");
+
+        for (int i = 0; i < 5; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var attemptResult = BoundaryExecutor.ExecuteResult(
+                () => ReadAllLinesCore(path),
+                ex => ErrorDetail.Create(
+                    ErrorCode.InfraFailure,
+                    $"读取词库文件失败: {Path.GetFileName(path)}",
+                    path,
+                    ex.Message),
+                _logger,
+                $"content-filter-read-lines-{Path.GetFileName(path)}",
+                i < 4 ? LogLevel.Debug : LogLevel.Warning);
+
+            if (attemptResult.IsSuccess)
+            {
+                return attemptResult;
+            }
+
+            lastResult = attemptResult;
+            if (i < 4)
+            {
+                await WaitForReloadRetryAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        _logger.LogWarning("词库文件读取失败，已降级为空词库 | Path: {Path}", path);
+        return lastResult;
+    }
+
+    private static Task WaitForReloadRetryAsync(CancellationToken cancellationToken)
+        => Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
 
     private static string[] ReadAllLinesCore(string path)
     {
@@ -255,10 +291,43 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
                 linesResult.Error.TraceId));
         }
 
+        return BuildSensitiveSearch(linesResult.Value!);
+    }
+
+    private async Task<Result> ReloadSensitiveWordsAsync(CancellationToken cancellationToken = default)
+    {
+        if (_disposed)
+        {
+            return Result.Success();
+        }
+
+        if (!File.Exists(_sensitiveFilePath))
+        {
+            _sensitiveSearch = null;
+            _logger.LogWarning("未找到红线词库 [{FilePath}]", _sensitiveFilePath);
+            return Result.Success();
+        }
+
+        var linesResult = await ReadAllLinesWithRetryAsync(_sensitiveFilePath, cancellationToken).ConfigureAwait(false);
+        if (linesResult.IsFailure)
+        {
+            _sensitiveSearch = null;
+            return Result.Failure(ErrorDetail.Create(
+                ErrorCode.InfraFailure,
+                "读取红线词库失败",
+                _sensitiveFilePath,
+                linesResult.Error.TraceId));
+        }
+
+        return BuildSensitiveSearch(linesResult.Value!);
+    }
+
+    private Result BuildSensitiveSearch(string[] lines)
+    {
         Result buildResult = BoundaryExecutor.Execute(
             () =>
             {
-                var normalizedLines = NormalizeKeywords(linesResult.Value!);
+                var normalizedLines = NormalizeKeywords(lines);
                 var newSearch = new ModernAcAutomaton();
                 newSearch.Build(normalizedLines);
                 Interlocked.Exchange(ref _sensitiveSearch, newSearch);
@@ -300,10 +369,43 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
                 linesResult.Error.TraceId));
         }
 
+        return BuildAdSearch(linesResult.Value!);
+    }
+
+    private async Task<Result> ReloadAdWordsAsync(CancellationToken cancellationToken = default)
+    {
+        if (_disposed)
+        {
+            return Result.Success();
+        }
+
+        if (!File.Exists(_adFilePath))
+        {
+            _adSearch = null;
+            _logger.LogWarning("未找到广告词库 [{FilePath}]", _adFilePath);
+            return Result.Success();
+        }
+
+        var linesResult = await ReadAllLinesWithRetryAsync(_adFilePath, cancellationToken).ConfigureAwait(false);
+        if (linesResult.IsFailure)
+        {
+            _adSearch = null;
+            return Result.Failure(ErrorDetail.Create(
+                ErrorCode.InfraFailure,
+                "读取广告词库失败",
+                _adFilePath,
+                linesResult.Error.TraceId));
+        }
+
+        return BuildAdSearch(linesResult.Value!);
+    }
+
+    private Result BuildAdSearch(string[] lines)
+    {
         Result buildResult = BoundaryExecutor.Execute(
             () =>
             {
-                var normalizedLines = NormalizeKeywords(linesResult.Value!);
+                var normalizedLines = NormalizeKeywords(lines);
                 var newSearch = new ModernAcAutomaton();
                 newSearch.Build(normalizedLines);
                 Interlocked.Exchange(ref _adSearch, newSearch);

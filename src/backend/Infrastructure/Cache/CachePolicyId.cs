@@ -28,5 +28,6 @@ public enum CachePolicyId
     ArticleViewLock = 23,
     SecurityPasskeyRegChallenge = 24,
     SecurityPasskeyAuthChallenge = 25,
-    HumanReadProof = 26
+    HumanReadProof = 26,
+    SecurityPowProof = 27
 }

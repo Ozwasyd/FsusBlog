@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Runtime.Intrinsics;
 using BenchmarkDotNet.Attributes;
@@ -9,6 +10,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
+using FsusBlog.Shared.Contracts.Outputs;
 
 if (args.Contains("--verify-contract", StringComparer.Ordinal))
 {
@@ -35,6 +37,10 @@ public class PodMappingBenchmarks
     private readonly string _userName = "benchmark-user";
 
     private readonly CorePageResult<ArticleListCoreModel> _pageResult;
+    private readonly byte[] _encodedArticlePage;
+    private readonly PublicAotShellBundleContract _aotBundle;
+    private readonly string[] _searchDocuments;
+    private readonly Dictionary<string, Dictionary<int, int>> _searchIndex;
     private readonly IAedsEncoder _aedsEncoder;
     private readonly AedsDecoderValidator _aedsValidator;
 
@@ -58,6 +64,30 @@ public class PodMappingBenchmarks
                 [new TagCoreModel(10, "tag-a")],
                 false)],
             1);
+        _encodedArticlePage = PodBinaryCodec.EncodeArticlePage(_pageResult);
+        _aotBundle = new PublicAotShellBundleContract
+        {
+            GeneratedAtUtc = DateTimeOffset.UtcNow,
+            Entries =
+            [
+                new PublicAotShellEntryContract
+                {
+                    PageId = PublicPageId.Home,
+                    RouteKey = "home",
+                    Html = "<main><article>benchmark public AOT shell</article></main>",
+                    BootstrapPayload = "bootstrap",
+                    HydrationPropsPayload = "props",
+                    IslandsPayload = "islands",
+                    RendererVersion = "bench-renderer",
+                    Title = "Benchmark",
+                    BaseUrl = "https://example.test"
+                }
+            ]
+        };
+        _searchDocuments = Enumerable.Range(0, 256)
+            .Select(i => $"fsus blog search benchmark document {i} category {(i % 8)} tag {(i % 13)} content token {(i % 21)}")
+            .ToArray();
+        _searchIndex = BuildSyntheticSearchIndex(_searchDocuments);
     }
 
     [Benchmark(Baseline = true)]
@@ -99,6 +129,13 @@ public class PodMappingBenchmarks
     }
 
     [Benchmark]
+    public int CacheHit_ArticlePageDecode()
+    {
+        bool ok = PodBinaryCodec.TryDecodeArticlePage(_encodedArticlePage, out var result);
+        return ok ? result.Items.Count : 0;
+    }
+
+    [Benchmark]
     public int Aeds_Encode_ArticleList()
     {
         byte[] payload = PodBinaryCodec.EncodeArticlePage(_pageResult);
@@ -123,6 +160,78 @@ public class PodMappingBenchmarks
         return result.IsSuccess ? payload.Length : 0;
     }
 
+    [Benchmark]
+    public int PublicAotBundle_Encode()
+    {
+        byte[] bytes = PodBinaryCodec.EncodePublicAotBundle(_aotBundle);
+        return bytes.Length;
+    }
+
+    [Benchmark]
+    public int PublicAotBundle_Decode()
+    {
+        byte[] bytes = PodBinaryCodec.EncodePublicAotBundle(_aotBundle);
+        bool ok = PodBinaryCodec.TryDecodePublicAotBundle(bytes, out var bundle);
+        return ok ? bundle.Entries.Count : 0;
+    }
+
+    [Benchmark]
+    public int SearchRebuild_SyntheticInvertedIndex()
+    {
+        Dictionary<string, Dictionary<int, int>> index = BuildSyntheticSearchIndex(_searchDocuments);
+        return index.Count;
+    }
+
+    [Benchmark]
+    public double SearchQuery_SyntheticBm25()
+        => QuerySyntheticSearchIndex(_searchIndex, _searchDocuments, ["fsus", "benchmark", "token"]);
+
+    private static Dictionary<string, Dictionary<int, int>> BuildSyntheticSearchIndex(IReadOnlyList<string> documents)
+    {
+        var index = new Dictionary<string, Dictionary<int, int>>(StringComparer.Ordinal);
+        for (int docId = 0; docId < documents.Count; docId++)
+        {
+            foreach (string token in documents[docId].Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                string normalized = token.ToLowerInvariant();
+                if (!index.TryGetValue(normalized, out Dictionary<int, int>? postings))
+                {
+                    postings = [];
+                    index[normalized] = postings;
+                }
+
+                postings.TryGetValue(docId, out int tf);
+                postings[docId] = tf + 1;
+            }
+        }
+
+        return index;
+    }
+
+    private static double QuerySyntheticSearchIndex(
+        IReadOnlyDictionary<string, Dictionary<int, int>> index,
+        IReadOnlyList<string> documents,
+        IReadOnlyList<string> queryTokens)
+    {
+        double score = 0d;
+        double averageLength = documents.Average(static document => document.Length);
+        foreach (string token in queryTokens)
+        {
+            if (!index.TryGetValue(token, out Dictionary<int, int>? postings))
+            {
+                continue;
+            }
+
+            foreach ((int docId, int tf) in postings)
+            {
+                double idf = Math.Log(1d + ((documents.Count - postings.Count + 0.5d) / (postings.Count + 0.5d)));
+                double norm = 1.2d * (1d - 0.75d + (0.75d * documents[docId].Length / Math.Max(averageLength, 1d)));
+                score += idf * ((tf * 2.2d) / (tf + norm));
+            }
+        }
+
+        return score;
+    }
 }
 
 internal static class ContractVerifier

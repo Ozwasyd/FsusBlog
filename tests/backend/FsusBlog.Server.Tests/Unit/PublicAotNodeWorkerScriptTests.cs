@@ -1,7 +1,22 @@
+using FsusBlog.Server.Infrastructure.PublicAot;
+
 namespace FsusBlog.Server.Tests;
 
 public sealed class PublicAotNodeWorkerScriptTests
 {
+    [Theory]
+    [InlineData(int.MinValue, 1)]
+    [InlineData(int.MinValue, 3)]
+    [InlineData(-1, 4)]
+    [InlineData(0, 4)]
+    [InlineData(int.MaxValue, 7)]
+    public void NodeWorkerPoolIndex_HandlesOverflowAndNeverReturnsNegative(int counter, int workerCount)
+    {
+        int index = PublicAotNodeSsrRenderer.CalculateWorkerIndexForTests(counter, workerCount);
+
+        Assert.InRange(index, 0, workerCount - 1);
+    }
+
     [Fact]
     public void ServerPublicSsrScript_ExposesLineProtocolWorkerCommands()
     {

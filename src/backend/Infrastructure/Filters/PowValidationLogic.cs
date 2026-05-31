@@ -15,6 +15,10 @@ internal static partial class PowValidationLogic
 {
     private const string PowHeaderName = "X-Fsus-Pow-Proof";
     private const string PowQueryName = "pow";
+    private const int MaxSaltUtf8Bytes = 128;
+    private const int MaxNonceUtf8Bytes = 64;
+    private const int MaxSignatureUtf8Bytes = 128;
+    private const int MaxBrowserFingerprintUtf8Bytes = 256;
 
     public static Task<IActionResult?> ValidateAsync(HttpContext httpContext, ILogger logger, IPowService powService, AdaptivePowGovernor governor)
     {
@@ -112,10 +116,10 @@ internal static partial class PowValidationLogic
         int difficulty = BinaryPrimitives.ReadInt32LittleEndian(source.Slice(5, sizeof(int)));
         long timestamp = BinaryPrimitives.ReadInt64LittleEndian(source.Slice(9, sizeof(long)));
         int offset = 17;
-        if (!TryReadString(source, ref offset, out string salt)
-            || !TryReadString(source, ref offset, out string nonce)
-            || !TryReadString(source, ref offset, out string signature)
-            || !TryReadString(source, ref offset, out string browserFp)
+        if (!TryReadString(source, ref offset, MaxSaltUtf8Bytes, out string salt)
+            || !TryReadString(source, ref offset, MaxNonceUtf8Bytes, out string nonce)
+            || !TryReadString(source, ref offset, MaxSignatureUtf8Bytes, out string signature)
+            || !TryReadString(source, ref offset, MaxBrowserFingerprintUtf8Bytes, out string browserFp)
             || offset != source.Length)
         {
             proof = new VirtualPowRequest();
@@ -134,7 +138,7 @@ internal static partial class PowValidationLogic
         return true;
     }
 
-    private static bool TryReadString(ReadOnlySpan<byte> source, ref int offset, out string value)
+    private static bool TryReadString(ReadOnlySpan<byte> source, ref int offset, int maxUtf8Bytes, out string value)
     {
         value = string.Empty;
         if (offset + sizeof(ushort) > source.Length)
@@ -144,7 +148,7 @@ internal static partial class PowValidationLogic
 
         int length = BinaryPrimitives.ReadUInt16LittleEndian(source.Slice(offset, sizeof(ushort)));
         offset += sizeof(ushort);
-        if (length < 0 || offset + length > source.Length)
+        if (length < 0 || length > maxUtf8Bytes || offset + length > source.Length)
         {
             return false;
         }

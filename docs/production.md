@@ -86,6 +86,26 @@ The default compose file is tuned for a practical 2C/2G VPS baseline:
 
 For larger machines, override compose resource limits and DB/Redis pool settings with a production override file. Do not raise DB concurrency without checking PostgreSQL connection limits.
 
+## Runtime Tuning
+
+Host runtime tuning is configuration-driven. By default the application does not force `DOTNET_ReadyToRun`, `DOTNET_TC_QuickJitForLoops`, `DOTNET_TieredPGO`, or ThreadPool minimums at process startup. If a deployment needs aggressive runtime settings, configure them explicitly and keep the benchmark evidence with the release notes:
+
+```json
+{
+  "RuntimeTuning": {
+    "ReadyToRun": "1",
+    "QuickJitForLoops": "1",
+    "TieredPGO": "1",
+    "ThreadPool": {
+      "Enabled": true,
+      "MinThreadsPerCpu": 50
+    }
+  }
+}
+```
+
+The startup log line `Runtime tuning effective values` records the configured values, whether each environment variable was applied, and the before/after ThreadPool minimums. Prefer measuring request path, search rebuild, and Public AOT backfill latency before raising these defaults in production.
+
 ## Gateway Notes
 
 The host gateway must:

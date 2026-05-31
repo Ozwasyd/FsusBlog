@@ -416,4 +416,24 @@ public class SharedSseFrameExtendedTests
         frame.Release(); // refcount = 1, no return
         frame.Release(); // refcount = 0, return
     }
+
+    [Fact]
+    public void Release_WhenCalledMoreThanRetain_Throws()
+    {
+        var frame = SharedSseFrame.FromArray([1, 2, 3]);
+
+        frame.Release();
+
+        Assert.Throws<InvalidOperationException>(() => frame.Release());
+    }
+
+    [Fact]
+    public void Retain_AfterRelease_Throws()
+    {
+        var frame = SharedSseFrame.FromArray([1, 2, 3]);
+
+        frame.Release();
+
+        Assert.Throws<ObjectDisposedException>(() => frame.Retain());
+    }
 }

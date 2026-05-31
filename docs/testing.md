@@ -181,7 +181,7 @@ npx playwright test --update-snapshots
 cd FsusBlog.Core.Benchmarks
 dotnet run -c Release
 ```
-结果保存在 `BenchmarkDotNet.Artifacts/results/`。
+结果保存在 `BenchmarkDotNet.Artifacts/results/`。当前套件覆盖 AEDS/POD encode/decode、raw cache-hit decode、合成 search rebuild/query BM25 路径，以及 Public AOT bundle encode/decode；生产调高 runtime tuning 前必须把对应基准结果随发布证据保存。
 
 ---
 

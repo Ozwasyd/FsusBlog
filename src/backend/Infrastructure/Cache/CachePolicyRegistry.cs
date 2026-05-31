@@ -32,7 +32,8 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             [CachePolicyId.ArticleViewLock] = new(CachePolicyId.ArticleViewLock, "sec", "article-view-lock", TimeSpan.Zero, TimeSpan.FromHours(1), null, null, true),
             [CachePolicyId.SecurityPasskeyRegChallenge] = new(CachePolicyId.SecurityPasskeyRegChallenge, "sec", "pk-reg", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true),
             [CachePolicyId.SecurityPasskeyAuthChallenge] = new(CachePolicyId.SecurityPasskeyAuthChallenge, "sec", "pk-auth", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true),
-            [CachePolicyId.HumanReadProof] = new(CachePolicyId.HumanReadProof, "sec", "human-read-proof", TimeSpan.Zero, TimeSpan.FromDays(1), null, null, true)
+            [CachePolicyId.HumanReadProof] = new(CachePolicyId.HumanReadProof, "sec", "human-read-proof", TimeSpan.Zero, TimeSpan.FromDays(1), null, null, true),
+            [CachePolicyId.SecurityPowProof] = new(CachePolicyId.SecurityPowProof, "sec", "pow-proof", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true)
         }.ToFrozenDictionary();
 
     public bool TryGet(CachePolicyId id, out CachePolicy policy)

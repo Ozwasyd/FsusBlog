@@ -43,6 +43,17 @@ public sealed class PodUtf8CodecTests
     }
 
     [Fact]
+    public void ToFixed32_OversizedUtf8_ThrowsDeterministicValidationError()
+    {
+        string oversized = new('界', 11); // 33 UTF-8 bytes.
+
+        var ex = Assert.Throws<ArgumentException>(() => PodUtf8Codec.ToFixed32(oversized));
+
+        Assert.Contains("Fixed UTF-8 POD field", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("32 bytes", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ReadSlice_OutOfBoundsOffset_ReturnsEmpty()
     {
         var slice = new FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef();

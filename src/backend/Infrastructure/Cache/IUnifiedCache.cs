@@ -13,7 +13,14 @@ public readonly record struct CacheReadResult<T>(bool Hit, T? Value);
 public interface IUnifiedCache
     {
         Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Returns a caller-owned byte array. Callers may pass it to serializers or streams without retaining cache ownership;
+    /// mutating the returned array must not mutate L1/L2 cache state.
+    /// </summary>
     Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Stores a defensive copy of <paramref name="value"/> so later caller mutations cannot corrupt cache state.
+    /// </summary>
     Task SetRawAsync(CachePolicyId policyId, string identity, byte[] value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default);
     Task SetNegativeAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
     Task<string?> GetStringAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default);
@@ -38,6 +45,7 @@ public sealed class UnifiedCache(
         private const string RegistryKeyPrefix = "cache:registry:";
         private const int PrefixInvalidationBatchSize = 256;
 
+    private readonly IConnectionMultiplexer _redis = redis;
     private readonly IDatabase _db = redis.GetDatabase();
 
     public string BuildKey(CachePolicyId policyId, string identity, string? version = null)
@@ -120,7 +128,7 @@ public sealed class UnifiedCache(
         if (memoryCache.TryGetValue(key, out byte[]? l1Bytes) && l1Bytes is not null)
         {
             FsusObservability.RecordCacheOperation("get_raw", policyId.ToString(), "l1", "hit", FsusObservability.GetElapsed(startedAt));
-            return new CacheReadResult<byte[]>(true, l1Bytes);
+            return new CacheReadResult<byte[]>(true, CopyRawBytes(l1Bytes));
         }
 
         RedisValue l2Value = await _db.StringGetAsync(key).ConfigureAwait(false);
@@ -133,7 +141,7 @@ public sealed class UnifiedCache(
         byte[] bytes = (byte[])l2Value!;
         SetL1(policyId, key, bytes);
         FsusObservability.RecordCacheOperation("get_raw", policyId.ToString(), "l2", "hit", FsusObservability.GetElapsed(startedAt));
-        return new CacheReadResult<byte[]>(true, bytes);
+        return new CacheReadResult<byte[]>(true, CopyRawBytes(bytes));
     }
 
     public async Task SetRawAsync(
@@ -150,9 +158,10 @@ public sealed class UnifiedCache(
         string key = BuildKey(policyId, identity);
         CachePolicy policy = ResolvePolicy(policyId);
         TimeSpan l2Ttl = l2TtlOverride ?? ApplyDeterministicJitter(key, policy.L2Ttl, policy.L2JitterRatio);
-        await _db.StringSetAsync(key, value, l2Ttl).ConfigureAwait(false);
+        byte[] cachedValue = CopyRawBytes(value);
+        await _db.StringSetAsync(key, cachedValue, l2Ttl).ConfigureAwait(false);
         await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
-        SetL1(policyId, key, value);
+        SetL1(policyId, key, cachedValue);
         FsusObservability.RecordCacheOperation("set", policyId.ToString(), "l2", "ok", FsusObservability.GetElapsed(startedAt));
     }
 
@@ -250,10 +259,28 @@ public sealed class UnifiedCache(
         }
 
         logger.LogWarning(
-            "cache-prefix-invalidation-registry-missing {PolicyId} {IdentityPrefix}; skipped Redis keyspace scan",
+            "cache-prefix-invalidation-registry-missing {PolicyId} {IdentityPrefix}; using Redis keyspace scan fallback",
             policyId,
             identityPrefix);
-        FsusObservability.RecordCacheOperation("remove_prefix", policyId.ToString(), "l2", "registry_missing", FsusObservability.GetElapsed(startedAt));
+        try
+        {
+            int recoveredKeys = await DeleteKeysByPrefixScanAsync(prefix, cancellationToken).ConfigureAwait(false);
+            FsusObservability.RecordCacheOperation(
+                "remove_prefix",
+                policyId.ToString(),
+                "l2",
+                recoveredKeys > 0 ? "registry_missing_scan_recovered" : "registry_missing_scan_empty",
+                FsusObservability.GetElapsed(startedAt));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "cache-prefix-invalidation-scan-failed {PolicyId} {IdentityPrefix}",
+                policyId,
+                identityPrefix);
+            FsusObservability.RecordCacheOperation("remove_prefix", policyId.ToString(), "l2", "registry_missing_scan_failed", FsusObservability.GetElapsed(startedAt));
+        }
     }
 
     private async Task DeleteRegisteredKeysByPrefixAsync(
@@ -292,6 +319,57 @@ public sealed class UnifiedCache(
         await _db.SetRemoveAsync(registryKey, registryMembers.ToArray()).ConfigureAwait(false);
         deleteKeys.Clear();
         registryMembers.Clear();
+    }
+
+    private async Task<int> DeleteKeysByPrefixScanAsync(string prefix, CancellationToken cancellationToken)
+    {
+        string pattern = prefix + "*";
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var deleteKeys = new List<RedisKey>(PrefixInvalidationBatchSize);
+        int deleted = 0;
+
+        foreach (EndPoint endpoint in _redis.GetEndPoints())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            IServer server = _redis.GetServer(endpoint);
+            if (!server.IsConnected)
+            {
+                continue;
+            }
+
+            foreach (RedisKey key in server.Keys(_db.Database, pattern, pageSize: PrefixInvalidationBatchSize))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                string keyText = key.ToString();
+                if (!seen.Add(keyText))
+                {
+                    continue;
+                }
+
+                deleteKeys.Add(key);
+                memoryCache.Remove(keyText);
+
+                if (deleteKeys.Count >= PrefixInvalidationBatchSize)
+                {
+                    deleted += await FlushScanDeleteBatchAsync(deleteKeys).ConfigureAwait(false);
+                }
+            }
+        }
+
+        if (deleteKeys.Count > 0)
+        {
+            deleted += await FlushScanDeleteBatchAsync(deleteKeys).ConfigureAwait(false);
+        }
+
+        return deleted;
+    }
+
+    private async Task<int> FlushScanDeleteBatchAsync(List<RedisKey> deleteKeys)
+    {
+        int count = deleteKeys.Count;
+        await _db.KeyDeleteAsync(deleteKeys.ToArray()).ConfigureAwait(false);
+        deleteKeys.Clear();
+        return count;
     }
 
     public async Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
@@ -338,8 +416,14 @@ public sealed class UnifiedCache(
             return;
         }
 
-        memoryCache.Set(key, bytes, policy.L1Ttl);
+        memoryCache.Set(key, CopyRawBytes(bytes), policy.L1Ttl);
     }
+
+    private static byte[] CopyRawBytes(byte[] bytes)
+        => bytes.Length == 0 ? Array.Empty<byte>() : bytes.ToArray();
+
+    internal static byte[] CopyRawBytesForTests(byte[] bytes)
+        => CopyRawBytes(bytes);
 
     private async Task SetNegativeCoreAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken)
     {

@@ -262,8 +262,10 @@ public class ApiBinaryResponseMiddlewareTests
     [Fact]
     public async Task InvokeAsync_BinaryEndpointWithCompatibleAccept_DoesNotWrapEndpointResponse()
     {
-        static async Task Next(HttpContext context)
+        Stream? endpointBody = null;
+        async Task Next(HttpContext context)
         {
+            endpointBody = context.Response.Body;
             context.Response.StatusCode = StatusCodes.Status200OK;
             context.Response.ContentType = "application/octet-stream";
             await context.Response.Body.WriteAsync(new byte[] { 0x01, 0x02, 0x03 });
@@ -281,6 +283,7 @@ public class ApiBinaryResponseMiddlewareTests
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.Equal("application/octet-stream", context.Response.ContentType);
         Assert.Equal(new byte[] { 0x01, 0x02, 0x03 }, body.ToArray());
+        Assert.Same(body, endpointBody);
     }
 
     [Fact]

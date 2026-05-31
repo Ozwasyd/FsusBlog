@@ -184,9 +184,9 @@ Client
 
 > L1 暖身策略：L2 命中后立即回填 L1，避免下次 L2 往返。
 
-运行时缓存只通过 `IUnifiedCache`、`CachePolicyRegistry`、`CachePolicyId` 与 `ICacheInvalidationDispatcher` 进入。旧的 `Core.Cache.CacheManager` / `ILevel1CacheStore` / `ILevel2CacheStore` 双层抽象已移除，core benchmark 只保留 POD/AEDS codec 基准，不再模拟第二套 cache manager。
+运行时缓存只通过 `IUnifiedCache`、`CachePolicyRegistry`、`CachePolicyId` 与 `ICacheInvalidationDispatcher` 进入。旧的 `Core.Cache.CacheManager` / `ILevel1CacheStore` / `ILevel2CacheStore` 双层抽象已移除，core benchmark 覆盖 POD/AEDS codec、raw cache-hit decode、search rebuild/query 和 Public AOT bundle 编解码，不再模拟第二套 cache manager。
 
-缓存失效不允许在 registry 缺失时回退扫描 Redis keyspace 或 AOT cache 全盘文件；`RemoveByPrefixAsync` 必须记录 registry-missing 警告、发布 prefix invalidation，并让后续写入自然修复 registry。热点 miss singleflight 等待使用指数退避，避免固定间隔轮询放大 Redis 与 GC 压力。
+缓存失效优先使用 Redis registry 精确删除 prefix 命中的 key；registry 缺失时，`RemoveByPrefixAsync` 会记录 `registry_missing` 警告并执行 Redis keyspace scan fallback 回收现存 key，扫描失败则降级为可观测 warning，让后续写入自然修复 registry。AOT cache 文件失效仍走专用 Public AOT cache 服务，不在统一 Redis prefix 失效路径里全盘扫描。热点 miss singleflight 等待使用指数退避，避免固定间隔轮询放大 Redis 与 GC 压力。
 
 ## AEDS Binary 链
 

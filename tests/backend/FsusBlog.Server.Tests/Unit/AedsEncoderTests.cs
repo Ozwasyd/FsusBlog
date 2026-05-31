@@ -65,6 +65,14 @@ public sealed class AedsEncoderTests
     }
 
     [Fact]
+    public void Encode_WritesModbusCrc16KnownVector()
+    {
+        byte[] frame = _enc.Encode(AedsFrameType.ArticleList, "123456789"u8);
+        ushort payloadCrc = BinaryPrimitives.ReadUInt16LittleEndian(frame.AsSpan(14, 2));
+        Assert.Equal(0x4B37, payloadCrc);
+    }
+
+    [Fact]
     public void Encode_EmptyPayloadProducesMinimalFrame()
     {
         byte[] frame = _enc.Encode(AedsFrameType.ApiError, []);
@@ -210,6 +218,44 @@ public sealed class AedsEncoderTests
         Result<AedsDecodeResult> result = _enc.TryDecode(trimmed);
 
         Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public void TryDecode_FuzzMalformedFramesNeverThrowsOrSucceeds()
+    {
+        var random = new Random(0xAED5);
+        List<byte[]> malformedFrames = [];
+
+        for (int i = 0; i < 128; i++)
+        {
+            byte[] fuzz = new byte[random.Next(0, 256)];
+            random.NextBytes(fuzz);
+            malformedFrames.Add(fuzz);
+        }
+
+        byte[] valid = _enc.Encode(AedsFrameType.ArticleList, [1, 2, 3, 4, 5]);
+        malformedFrames.Add(Mutate(valid, frame => frame[4] = 0xFF)); // unknown version
+        malformedFrames.Add(Mutate(valid, frame => frame[5] = 0xFF)); // invalid header length
+        malformedFrames.Add(Mutate(valid, frame => BinaryPrimitives.WriteUInt32LittleEndian(frame.AsSpan(10, 4), 1024 * 1024))); // oversized declared payload
+        malformedFrames.Add(Mutate(valid, frame => BinaryPrimitives.WriteUInt16LittleEndian(frame.AsSpan(8, 2), 0x7FFF))); // unknown frame type
+        malformedFrames.Add(Mutate(valid, frame => frame[^1] ^= 0x7F)); // CRC mismatch
+        malformedFrames.Add(valid[..^1]); // truncated payload
+
+        byte[] nestedMalformed = _enc.Encode(AedsFrameType.ArticleDetail, valid[..8]);
+        malformedFrames.Add(Mutate(nestedMalformed, frame => BinaryPrimitives.WriteUInt32LittleEndian(frame.AsSpan(10, 4), 999_999)));
+
+        foreach (byte[] frame in malformedFrames)
+        {
+            Result<AedsDecodeResult> result = _enc.TryDecode(frame);
+            Assert.False(result.IsSuccess);
+        }
+    }
+
+    private static byte[] Mutate(byte[] frame, Action<byte[]> mutation)
+    {
+        byte[] copy = [.. frame];
+        mutation(copy);
+        return copy;
     }
 
     // ─── WriteFrame (IBufferWriter) ───────────────────────────────────────

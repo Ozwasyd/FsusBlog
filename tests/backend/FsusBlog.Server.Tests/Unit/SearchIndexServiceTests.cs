@@ -34,6 +34,26 @@ public sealed class SearchIndexServiceTests
     }
 
     [Fact]
+    public void TokenFingerprintForTests_AddsCollisionVerificationMaterial()
+    {
+        ulong first = SearchIndexService.TokenFingerprintForTests("hello");
+        ulong second = SearchIndexService.TokenFingerprintForTests("world");
+
+        Assert.NotEqual(0UL, first);
+        Assert.NotEqual(first, second);
+        Assert.Equal(first, SearchIndexService.TokenFingerprintForTests("hello"));
+    }
+
+    [Fact]
+    public void ComputeRuntimeBm25ForTests_PenalizesLongerDocuments()
+    {
+        double shortDocument = SearchIndexService.ComputeRuntimeBm25ForTests(4, 10, 2, 100, 100);
+        double longDocument = SearchIndexService.ComputeRuntimeBm25ForTests(4, 10, 2, 600, 100);
+
+        Assert.True(shortDocument > longDocument);
+    }
+
+    [Fact]
     public void TokenizeForTests_PrefersHigherFrequencyLongerPath_AndEmitsDictionarySubtokens()
     {
         string lexiconRoot = CreateLexiconRoot(
@@ -53,6 +73,7 @@ public sealed class SearchIndexServiceTests
             {
                 Assert.Equal("北京大学", token.Text);
                 Assert.Equal(SearchIndexService.HashTokenForTests("北京大学"), token.Hash);
+                Assert.Equal(SearchIndexService.TokenFingerprintForTests("北京大学"), token.Fingerprint);
                 Assert.Equal(0u, token.Position);
                 Assert.Equal(4u, token.PositionLength);
                 Assert.False(token.Stopword);

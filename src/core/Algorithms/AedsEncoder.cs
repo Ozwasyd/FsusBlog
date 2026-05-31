@@ -88,20 +88,34 @@ public sealed class AedsEncoder : IAedsEncoder
     private static class Crc16
     {
         private const ushort Polynomial = 0xA001;
+        private static readonly ushort[] Table = CreateTable();
 
         public static ushort Compute(ReadOnlySpan<byte> data)
         {
             ushort crc = 0xFFFF;
             for (int i = 0; i < data.Length; i++)
             {
-                crc ^= data[i];
-                for (int bit = 0; bit < 8; bit++)
-                {
-                    crc = (ushort)(((crc & 1) != 0) ? ((crc >> 1) ^ Polynomial) : (crc >> 1));
-                }
+                crc = (ushort)((crc >> 8) ^ Table[(crc ^ data[i]) & 0xFF]);
             }
 
             return crc;
+        }
+
+        private static ushort[] CreateTable()
+        {
+            var table = new ushort[256];
+            for (int i = 0; i < table.Length; i++)
+            {
+                ushort value = (ushort)i;
+                for (int bit = 0; bit < 8; bit++)
+                {
+                    value = (ushort)(((value & 1) != 0) ? ((value >> 1) ^ Polynomial) : (value >> 1));
+                }
+
+                table[i] = value;
+            }
+
+            return table;
         }
     }
 
@@ -122,11 +136,6 @@ public sealed class AedsEncoder : IAedsEncoder
         if (flags > ushort.MaxValue)
         {
             throw new ArgumentOutOfRangeException(nameof(flags), "AEDS v2 flags are uint16.");
-        }
-
-        if ((uint)payload.Length > uint.MaxValue)
-        {
-            throw new ArgumentOutOfRangeException(nameof(payload));
         }
 
         BinaryPrimitives.WriteUInt32LittleEndian(header[0..4], Magic);

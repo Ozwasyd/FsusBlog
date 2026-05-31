@@ -210,11 +210,43 @@ public sealed class ContentFilterServiceTests
         }
     }
 
+    [Fact]
+    public void ContentFilterService_DictionaryRetryDoesNotUseThreadSleep()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Services", "Security", "ContentFilterService.cs"));
+
+        Assert.DoesNotContain("Thread.Sleep", source, StringComparison.Ordinal);
+        Assert.Contains("WaitForReloadRetryAsync", source, StringComparison.Ordinal);
+    }
+
     private static string CreateTempDirectory()
     {
         string path = Path.Combine(Path.GetTempPath(), "fsus-content-filter-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private static string FindRepoRoot()
+    {
+        string current = AppContext.BaseDirectory;
+        while (!string.IsNullOrWhiteSpace(current))
+        {
+            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
+                File.Exists(Path.Combine(current, "src", "backend", "Services", "Security", "ContentFilterService.cs")))
+            {
+                return current;
+            }
+
+            DirectoryInfo? parent = Directory.GetParent(current);
+            if (parent is null)
+            {
+                break;
+            }
+
+            current = parent.FullName;
+        }
+
+        throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 
     private sealed class TestWebHostEnvironment(string root) : IWebHostEnvironment

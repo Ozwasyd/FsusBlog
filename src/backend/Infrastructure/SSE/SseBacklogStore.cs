@@ -69,15 +69,19 @@ public sealed class SseBacklogStore(IConnectionMultiplexer redis, IRuntimeKeySco
             IReadOnlyList<string> replayRoutes = TargetRouteCodec.GetReplayRoutes(userId, groups);
             string start = string.Create(CultureInfo.InvariantCulture, $"{cursor.Value + 1}-0");
             bool missedGap = false;
+            int scannedEntries = 0;
             List<ReplayEntry> replayEntries = [];
+            Task<RouteReplayRead>[] routeReads = replayRoutes
+                .Select(route => ReadRouteReplayAsync(route, start, cursor.Value))
+                .ToArray();
 
-            for (int routeIndex = 0; routeIndex < replayRoutes.Count; routeIndex++)
+            RouteReplayRead[] reads = await Task.WhenAll(routeReads).ConfigureAwait(false);
+            for (int routeIndex = 0; routeIndex < reads.Length; routeIndex++)
             {
-                string streamKey = RouteStreamKey(replayRoutes[routeIndex]);
-                StreamEntry[] first = await _database.StreamRangeAsync(streamKey, count: 1).ConfigureAwait(false);
-                missedGap |= first.Length > 0 && TryParseEventId(first[0].Id, out long firstEventId) && firstEventId > cursor.Value + 1;
-
-                StreamEntry[] entries = await _database.StreamRangeAsync(streamKey, start, "+", MaxReplayEntries).ConfigureAwait(false);
+                RouteReplayRead read = reads[routeIndex];
+                missedGap |= read.MissedGap;
+                StreamEntry[] entries = read.Entries;
+                scannedEntries += entries.Length;
                 foreach (StreamEntry entry in entries)
                 {
                     if (!TryParseEventId(entry.Id, out long eventId))
@@ -98,9 +102,16 @@ public sealed class SseBacklogStore(IConnectionMultiplexer redis, IRuntimeKeySco
 
             var seenEventIds = new HashSet<long>();
             List<SharedSseFrame> frames = [];
+            int dedupedEntries = 0;
             foreach (ReplayEntry replayEntry in replayEntries)
             {
-                if (frames.Count >= MaxReplayEntries || !seenEventIds.Add(replayEntry.EventId))
+                if (!seenEventIds.Add(replayEntry.EventId))
+                {
+                    dedupedEntries++;
+                    continue;
+                }
+
+                if (frames.Count >= MaxReplayEntries)
                 {
                     continue;
                 }
@@ -113,7 +124,7 @@ public sealed class SseBacklogStore(IConnectionMultiplexer redis, IRuntimeKeySco
                 frames.Add(SharedSseFrame.FromArray(buffer));
             }
 
-            SseMetrics.RecordReplay(frames.Count, missedGap);
+            SseMetrics.RecordReplay(frames.Count, missedGap, replayRoutes.Count, scannedEntries, dedupedEntries);
             return new SseReplayBatch(frames, missedGap);
         }
         catch (Exception ex)
@@ -125,6 +136,20 @@ public sealed class SseBacklogStore(IConnectionMultiplexer redis, IRuntimeKeySco
 
     private string RouteStreamKey(string route)
         => keyScope.PrefixKey(RouteStreamPrefix + route);
+
+    private async Task<RouteReplayRead> ReadRouteReplayAsync(string route, string start, long cursorValue)
+    {
+        string streamKey = RouteStreamKey(route);
+        Task<StreamEntry[]> firstTask = _database.StreamRangeAsync(streamKey, count: 1);
+        Task<StreamEntry[]> entriesTask = _database.StreamRangeAsync(streamKey, start, "+", MaxReplayEntries);
+        await Task.WhenAll(firstTask, entriesTask).ConfigureAwait(false);
+
+        StreamEntry[] first = await firstTask.ConfigureAwait(false);
+        bool missedGap = first.Length > 0
+            && TryParseEventId(first[0].Id, out long firstEventId)
+            && firstEventId > cursorValue + 1;
+        return new RouteReplayRead(await entriesTask.ConfigureAwait(false), missedGap);
+    }
 
     private static bool TryGetField(StreamEntry entry, string fieldName, out RedisValue value)
     {
@@ -155,6 +180,7 @@ public sealed class SseBacklogStore(IConnectionMultiplexer redis, IRuntimeKeySco
     }
 
     private readonly record struct ReplayEntry(long EventId, RedisValue Frame);
+    private readonly record struct RouteReplayRead(StreamEntry[] Entries, bool MissedGap);
 }
 
 public sealed record SseReplayBatch(IReadOnlyList<SharedSseFrame> Frames, bool MissedGap)

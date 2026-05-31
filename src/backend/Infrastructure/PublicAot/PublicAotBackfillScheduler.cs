@@ -17,7 +17,7 @@ public sealed class PublicAotBackfillScheduler : IPublicAotBackfillScheduler
         _channel = Channel.CreateBounded<PublicAotBackfillRequest>(
             new BoundedChannelOptions(queueCapacity)
             {
-                SingleReader = true,
+                SingleReader = false,
                 SingleWriter = false,
                 FullMode = BoundedChannelFullMode.Wait,
                 AllowSynchronousContinuations = false

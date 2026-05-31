@@ -10,7 +10,9 @@ public static class WebApplicationBuilderCompositionExtensions
 {
     public static WebApplicationBuilder ConfigureFsusApplication(this WebApplicationBuilder builder)
     {
-        FsusHostRuntimeTuning.Apply();
+        FsusHostRuntimeTuningReport runtimeTuningReport = FsusHostRuntimeTuning.Apply(builder.Configuration);
+        builder.Services.AddSingleton(runtimeTuningReport);
+        builder.Services.AddHostedService<FsusHostRuntimeTuningLogService>();
 
         builder.Host.UseSerilog((context, services, configuration) => configuration
             .ReadFrom.Configuration(context.Configuration)
@@ -39,25 +41,121 @@ public static class WebApplicationBuilderCompositionExtensions
 
 internal static class FsusHostRuntimeTuning
 {
-    public static void Apply()
+    public static FsusHostRuntimeTuningReport Apply(IConfiguration configuration)
     {
-        SetIfMissing("DOTNET_ReadyToRun", "1");
-        SetIfMissing("DOTNET_TC_QuickJitForLoops", "1");
-        SetIfMissing("DOTNET_TieredPGO", "1");
+        IConfigurationSection section = configuration.GetSection("RuntimeTuning");
+        bool enableEnvironmentDefaults = section.GetValue("EnableEnvironmentDefaults", false);
+        string? readyToRun = ResolveOptionalValue(section, "ReadyToRun", enableEnvironmentDefaults ? "1" : null);
+        string? quickJitForLoops = ResolveOptionalValue(section, "QuickJitForLoops", enableEnvironmentDefaults ? "1" : null);
+        string? tieredPgo = ResolveOptionalValue(section, "TieredPGO", enableEnvironmentDefaults ? "1" : null);
 
-        ThreadPool.GetMinThreads(out int workerThreads, out _);
-        int minThreadsBasedOnCpu = Environment.ProcessorCount * 50;
-        int targetMinThreads = Math.Max(minThreadsBasedOnCpu, workerThreads);
-        ThreadPool.SetMinThreads(targetMinThreads, targetMinThreads);
+        bool readyToRunApplied = SetIfConfigured("DOTNET_ReadyToRun", readyToRun);
+        bool quickJitApplied = SetIfConfigured("DOTNET_TC_QuickJitForLoops", quickJitForLoops);
+        bool tieredPgoApplied = SetIfConfigured("DOTNET_TieredPGO", tieredPgo);
+
+        ThreadPool.GetMinThreads(out int beforeWorkerThreads, out int beforeCompletionPortThreads);
+        int afterWorkerThreads = beforeWorkerThreads;
+        int afterCompletionPortThreads = beforeCompletionPortThreads;
+        bool threadPoolApplied = TryApplyThreadPoolTuning(section.GetSection("ThreadPool"), beforeWorkerThreads, beforeCompletionPortThreads, out afterWorkerThreads, out afterCompletionPortThreads);
+
+        return new FsusHostRuntimeTuningReport(
+            readyToRun,
+            quickJitForLoops,
+            tieredPgo,
+            readyToRunApplied,
+            quickJitApplied,
+            tieredPgoApplied,
+            threadPoolApplied,
+            beforeWorkerThreads,
+            beforeCompletionPortThreads,
+            afterWorkerThreads,
+            afterCompletionPortThreads);
     }
 
-    private static void SetIfMissing(string key, string value)
+    private static string? ResolveOptionalValue(IConfiguration section, string key, string? fallback)
     {
+        string? value = section[key];
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private static bool SetIfConfigured(string key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
         if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(key)))
         {
-            return;
+            return false;
         }
 
         Environment.SetEnvironmentVariable(key, value);
+        return true;
     }
+
+    private static bool TryApplyThreadPoolTuning(
+        IConfiguration section,
+        int beforeWorkerThreads,
+        int beforeCompletionPortThreads,
+        out int afterWorkerThreads,
+        out int afterCompletionPortThreads)
+    {
+        afterWorkerThreads = beforeWorkerThreads;
+        afterCompletionPortThreads = beforeCompletionPortThreads;
+
+        bool enabled = section.GetValue("Enabled", false);
+        int minThreadsPerCpu = Math.Max(0, section.GetValue("MinThreadsPerCpu", 0));
+        int configuredWorkerThreads = Math.Max(0, section.GetValue("MinWorkerThreads", 0));
+        int configuredCompletionPortThreads = Math.Max(0, section.GetValue("MinCompletionPortThreads", 0));
+        if (!enabled && minThreadsPerCpu == 0 && configuredWorkerThreads == 0 && configuredCompletionPortThreads == 0)
+        {
+            return false;
+        }
+
+        int cpuBasedMinThreads = minThreadsPerCpu > 0 ? Environment.ProcessorCount * minThreadsPerCpu : 0;
+        int targetWorkerThreads = Math.Max(beforeWorkerThreads, Math.Max(configuredWorkerThreads, cpuBasedMinThreads));
+        int targetCompletionPortThreads = Math.Max(beforeCompletionPortThreads, Math.Max(configuredCompletionPortThreads, cpuBasedMinThreads));
+        bool applied = ThreadPool.SetMinThreads(targetWorkerThreads, targetCompletionPortThreads);
+        ThreadPool.GetMinThreads(out afterWorkerThreads, out afterCompletionPortThreads);
+        return applied;
+    }
+}
+
+internal sealed record FsusHostRuntimeTuningReport(
+    string? ReadyToRun,
+    string? QuickJitForLoops,
+    string? TieredPgo,
+    bool ReadyToRunApplied,
+    bool QuickJitForLoopsApplied,
+    bool TieredPgoApplied,
+    bool ThreadPoolApplied,
+    int BeforeWorkerThreads,
+    int BeforeCompletionPortThreads,
+    int AfterWorkerThreads,
+    int AfterCompletionPortThreads);
+
+internal sealed class FsusHostRuntimeTuningLogService(
+    FsusHostRuntimeTuningReport report,
+    ILogger<FsusHostRuntimeTuningLogService> logger) : IHostedService
+{
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        logger.LogInformation(
+            "Runtime tuning effective values | ReadyToRun={ReadyToRun} Applied={ReadyToRunApplied} | QuickJitForLoops={QuickJitForLoops} Applied={QuickJitForLoopsApplied} | TieredPGO={TieredPgo} Applied={TieredPgoApplied} | ThreadPoolApplied={ThreadPoolApplied} | WorkerThreads={BeforeWorkerThreads}->{AfterWorkerThreads} | CompletionPortThreads={BeforeCompletionPortThreads}->{AfterCompletionPortThreads}",
+            report.ReadyToRun ?? "(unchanged)",
+            report.ReadyToRunApplied,
+            report.QuickJitForLoops ?? "(unchanged)",
+            report.QuickJitForLoopsApplied,
+            report.TieredPgo ?? "(unchanged)",
+            report.TieredPgoApplied,
+            report.ThreadPoolApplied,
+            report.BeforeWorkerThreads,
+            report.AfterWorkerThreads,
+            report.BeforeCompletionPortThreads,
+            report.AfterCompletionPortThreads);
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

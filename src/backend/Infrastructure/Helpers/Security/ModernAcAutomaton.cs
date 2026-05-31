@@ -65,12 +65,12 @@ public class ModernAcAutomaton
             if (string.IsNullOrWhiteSpace(line)) continue;
             if (!seenLines.Add(line)) continue;
 
-            var parts = line.Split('+', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 0) continue;
+            ReadOnlySpan<char> rule = line.AsSpan().Trim();
+            if (rule.IsEmpty) continue;
 
-            if (parts.Length == 1)
+            if (!rule.Contains('+'))
             {
-                string w = parts[0].Trim();
+                string w = rule.ToString();
                 if (string.IsNullOrEmpty(w)) continue;
                 if (!wordToId.TryGetValue(w, out int id))
                 {
@@ -81,18 +81,37 @@ public class ModernAcAutomaton
             }
             else
             {
-                int[] ruleArr = new int[parts.Length];
-                for (int i = 0; i < parts.Length; i++)
+                var ruleIds = new List<int>(4);
+                int start = 0;
+                while (start <= rule.Length)
                 {
-                    string w = parts[i].Trim();
-                    if (string.IsNullOrEmpty(w)) continue;
-                    if (!wordToId.TryGetValue(w, out int id))
+                    ReadOnlySpan<char> remaining = rule[start..];
+                    int separator = remaining.IndexOf('+');
+                    ReadOnlySpan<char> part = separator < 0
+                        ? remaining.Trim()
+                        : remaining[..separator].Trim();
+
+                    if (!part.IsEmpty)
                     {
-                        id = wordIdCounter++;
-                        wordToId[w] = id;
+                        string w = part.ToString();
+                        if (!wordToId.TryGetValue(w, out int id))
+                        {
+                            id = wordIdCounter++;
+                            wordToId[w] = id;
+                        }
+                        ruleIds.Add(id);
                     }
-                    ruleArr[i] = id;
+
+                    if (separator < 0)
+                    {
+                        break;
+                    }
+
+                    start += separator + 1;
                 }
+
+                if (ruleIds.Count == 0) continue;
+                int[] ruleArr = [.. ruleIds];
                 Array.Sort(ruleArr);
                 multiRulesTemp.Add(ruleArr);
             }
@@ -200,6 +219,8 @@ public class ModernAcAutomaton
             int cCount = node.Children?.Count ?? 0;
             if (cCount > 0)
             {
+                // BuilderNode.Children is a SortedDictionary, so each flattened child range stays sorted.
+                // FindChildFast depends on this invariant when it switches to binary search for wider nodes.
                 foreach (var kvp in node.Children!)
                 {
                     keysList.Add(kvp.Key);

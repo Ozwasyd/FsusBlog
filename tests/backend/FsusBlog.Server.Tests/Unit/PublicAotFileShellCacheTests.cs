@@ -56,6 +56,30 @@ public sealed class PublicAotFileShellCacheTests
     }
 
     [Fact]
+    public void DeserializeEntryBytes_RejectsMalformedPayloads()
+    {
+        var entry = new PublicAotCacheEntry
+        {
+            CacheKey = "public:aot:v2:home",
+            RouteKey = "home",
+            PageId = PublicPageId.Home,
+            Source = PublicAotWriteSource.ServerSsrBackfill,
+            GeneratedAtUtc = DateTimeOffset.UtcNow,
+            ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(30),
+            RendererVersion = "renderer-v2",
+            FrontendAssetVersion = "frontend-v2",
+            Value = "<main>home</main>"
+        };
+        byte[] payload = PublicAotFileShellCache.SerializeEntryBytes(entry);
+        byte[] invalidMagic = payload.ToArray();
+        invalidMagic[0] = 0;
+
+        Assert.Null(PublicAotFileShellCache.DeserializeEntryBytes(ReadOnlyMemory<byte>.Empty));
+        Assert.Null(PublicAotFileShellCache.DeserializeEntryBytes(payload.AsMemory(0, payload.Length - 1)));
+        Assert.Null(PublicAotFileShellCache.DeserializeEntryBytes(invalidMagic));
+    }
+
+    [Fact]
     public void ToHashForTests_MatchesLegacyUtf8Sha256()
     {
         const string input = "public:aot:v2:doc:2:article:42";
