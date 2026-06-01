@@ -2773,7 +2773,7 @@ public sealed partial class SearchIndexService(
                 _ => 1
             };
 
-        private static uint DecodeUtf8Scalar(ReadOnlySpan<byte> source, int offset, int runeLength)
+        internal static uint DecodeUtf8Scalar(ReadOnlySpan<byte> source, int offset, int runeLength)
             => runeLength switch
             {
                 1 => source[offset],
@@ -2798,7 +2798,7 @@ public sealed partial class SearchIndexService(
     private static class SearchDictionaryCompiler
     {
         internal const uint Magic = 0x4C445346; // FSDL
-        internal const uint Version = 1;
+        internal const uint Version = 2;
 
         public static void CompileIfNeeded(string sourceRoot, string outputPath, ILogger logger)
         {
@@ -2812,7 +2812,7 @@ public sealed partial class SearchIndexService(
                 .DefaultIfEmpty(DateTime.MinValue)
                 .Max();
 
-            if (File.Exists(outputPath) && File.GetLastWriteTimeUtc(outputPath) >= latestSource)
+            if (IsCompiledDictionaryCurrent(outputPath, latestSource))
             {
                 return;
             }
@@ -2824,37 +2824,32 @@ public sealed partial class SearchIndexService(
             LoadEntries(stopwordsPath, entries, stopword: true);
 
             LexiconEntryBuilder[] ordered = entries.Values
-                .OrderBy(it => it.Bytes[0])
+                .OrderBy(it => it.Bytes.Length == 0 ? 0 : it.Bytes[0])
                 .ThenBy(it => Convert.ToHexString(it.Bytes), StringComparer.Ordinal)
                 .ToArray();
-
-            var prefixRanges = new (uint Start, uint Count)[256];
-            for (uint i = 0; i < ordered.Length; i++)
-            {
-                byte first = ordered[i].Bytes[0];
-                ref var range = ref prefixRanges[first];
-                if (range.Count == 0)
-                {
-                    range.Start = i;
-                }
-                range.Count++;
-            }
+            SearchDictionaryTrieBuild trie = BuildTrie(ordered);
 
             using var strings = new PooledByteBufferWriter(Math.Max(ordered.Sum(it => it.Bytes.Length), 256));
             using var writer = new PooledByteBufferWriter(4096);
             WriteUInt32(writer, Magic);
             WriteUInt32(writer, Version);
+            WriteUInt32(writer, (uint)trie.Nodes.Length);
+            WriteUInt32(writer, (uint)trie.Edges.Length);
             WriteUInt32(writer, (uint)ordered.Length);
-            WriteUInt32(writer, 16 + 256 * 8u);
 
-            foreach ((uint start, uint count) in prefixRanges)
+            foreach (SearchDictionaryNode node in trie.Nodes)
             {
-                WriteUInt32(writer, start);
-                WriteUInt32(writer, count);
+                WriteUInt32(writer, node.FirstEdgeIndex);
+                WriteUInt32(writer, node.EdgeCount);
+                WriteUInt32(writer, node.TerminalEntryIndex);
+                WriteUInt32(writer, 0);
             }
 
-            int entryTableOffset = writer.WrittenCount;
-            AlignWriter(writer, Align(entryTableOffset, 8));
+            foreach (SearchDictionaryEdge edge in trie.Edges)
+            {
+                WriteUInt32(writer, edge.Scalar);
+                WriteUInt32(writer, edge.TargetNodeIndex);
+            }
 
             var offsets = new uint[ordered.Length];
             for (int i = 0; i < ordered.Length; i++)
@@ -2870,14 +2865,127 @@ public sealed partial class SearchIndexService(
                 WriteUInt16(writer, checked((ushort)entry.Bytes.Length));
                 WriteUInt16(writer, entry.Stopword ? (ushort)1 : (ushort)0);
                 WriteUInt32(writer, (uint)entry.Frequency);
-                WriteUInt32(writer, 0);
+                WriteUInt32(writer, (uint)entry.RuneLength);
             }
 
             byte[] stringBytes = strings.ToArray();
             WriteUInt32(writer, (uint)stringBytes.Length);
             writer.Write(stringBytes);
             File.WriteAllBytes(outputPath, writer.ToArray());
-            logger.LogInformation("search lexicon compiled to {Path} with {Count} entries", outputPath, ordered.Length);
+            logger.LogInformation(
+                "search lexicon compiled to {Path} with {Count} entries, {NodeCount} trie nodes and {EdgeCount} trie edges",
+                outputPath,
+                ordered.Length,
+                trie.Nodes.Length,
+                trie.Edges.Length);
+        }
+
+        private static bool IsCompiledDictionaryCurrent(string outputPath, DateTime latestSource)
+        {
+            if (!File.Exists(outputPath) || File.GetLastWriteTimeUtc(outputPath) < latestSource)
+            {
+                return false;
+            }
+
+            Span<byte> header = stackalloc byte[8];
+            try
+            {
+                using FileStream stream = File.OpenRead(outputPath);
+                if (stream.Read(header) != header.Length)
+                {
+                    return false;
+                }
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+
+            return BinaryPrimitives.ReadUInt32LittleEndian(header[..4]) == Magic
+                && BinaryPrimitives.ReadUInt32LittleEndian(header[4..]) == Version;
+        }
+
+        private static SearchDictionaryTrieBuild BuildTrie(LexiconEntryBuilder[] entries)
+        {
+            var nodes = new List<TrieBuildNode> { new() };
+            for (uint entryIndex = 0; entryIndex < entries.Length; entryIndex++)
+            {
+                LexiconEntryBuilder entry = entries[checked((int)entryIndex)];
+                int nodeIndex = 0;
+                foreach (uint scalar in DecodeScalars(entry.Bytes))
+                {
+                    SortedDictionary<uint, int> children = nodes[nodeIndex].Children;
+                    if (!children.TryGetValue(scalar, out int nextNodeIndex))
+                    {
+                        nextNodeIndex = nodes.Count;
+                        children.Add(scalar, nextNodeIndex);
+                        nodes.Add(new TrieBuildNode());
+                    }
+
+                    nodeIndex = nextNodeIndex;
+                }
+
+                nodes[nodeIndex].TerminalEntryIndex = entryIndex;
+            }
+
+            var nodeRecords = new SearchDictionaryNode[nodes.Count];
+            var edges = new List<SearchDictionaryEdge>();
+            for (int nodeIndex = 0; nodeIndex < nodes.Count; nodeIndex++)
+            {
+                TrieBuildNode node = nodes[nodeIndex];
+                uint firstEdgeIndex = (uint)edges.Count;
+                foreach ((uint scalar, int targetNodeIndex) in node.Children)
+                {
+                    edges.Add(new SearchDictionaryEdge(scalar, (uint)targetNodeIndex));
+                }
+
+                nodeRecords[nodeIndex] = new SearchDictionaryNode(
+                    firstEdgeIndex,
+                    (uint)node.Children.Count,
+                    node.TerminalEntryIndex ?? NoSearchDictionaryTerminal);
+            }
+
+            return new SearchDictionaryTrieBuild(nodeRecords, [.. edges]);
+        }
+
+        private static uint[] DecodeScalars(byte[] bytes)
+        {
+            var scalars = new List<uint>(Math.Max(1, bytes.Length / 3));
+            for (int offset = 0; offset < bytes.Length;)
+            {
+                int runeLength = SearchTokenizer.GetUtf8ScalarLength(bytes[offset]);
+                if (runeLength <= 0 || offset + runeLength > bytes.Length)
+                {
+                    break;
+                }
+
+                scalars.Add(SearchTokenizer.DecodeUtf8Scalar(bytes, offset, runeLength));
+                offset += runeLength;
+            }
+
+            return [.. scalars];
+        }
+
+        private static int CountScalars(byte[] bytes)
+        {
+            int count = 0;
+            for (int offset = 0; offset < bytes.Length;)
+            {
+                int runeLength = SearchTokenizer.GetUtf8ScalarLength(bytes[offset]);
+                if (runeLength <= 0 || offset + runeLength > bytes.Length)
+                {
+                    break;
+                }
+
+                offset += runeLength;
+                count++;
+            }
+
+            return count;
         }
 
         private static void LoadEntries(string path, Dictionary<string, LexiconEntryBuilder> target, bool stopword)
@@ -2910,9 +3018,11 @@ public sealed partial class SearchIndexService(
                     continue;
                 }
 
+                byte[] bytes = Encoding.UTF8.GetBytes(term);
                 target[term] = new LexiconEntryBuilder
                 {
-                    Bytes = Encoding.UTF8.GetBytes(term),
+                    Bytes = bytes,
+                    RuneLength = CountScalars(bytes),
                     Frequency = frequency,
                     Stopword = stopword
                 };
@@ -2922,8 +3032,15 @@ public sealed partial class SearchIndexService(
         private sealed class LexiconEntryBuilder
         {
             public byte[] Bytes { get; init; } = [];
+            public int RuneLength { get; init; }
             public int Frequency { get; set; }
             public bool Stopword { get; set; }
+        }
+
+        private sealed class TrieBuildNode
+        {
+            public SortedDictionary<uint, int> Children { get; } = [];
+            public uint? TerminalEntryIndex { get; set; }
         }
     }
 
@@ -2933,8 +3050,9 @@ public sealed partial class SearchIndexService(
         private readonly MemoryMappedViewAccessor _view;
         private readonly SafeMemoryMappedViewHandle _handle;
         private byte* _basePtr;
-        private readonly PrefixRange[] _prefixRanges;
-        private readonly LexiconEntry[] _entries;
+        private readonly SearchDictionaryNode[] _nodes;
+        private readonly SearchDictionaryEdge[] _edges;
+        private readonly SearchDictionaryEntry[] _entries;
         private readonly int _stringsBaseOffset;
 
         private SearchDictionaryRuntime(
@@ -2942,15 +3060,17 @@ public sealed partial class SearchIndexService(
             MemoryMappedViewAccessor view,
             SafeMemoryMappedViewHandle handle,
             byte* basePtr,
-            PrefixRange[] prefixRanges,
-            LexiconEntry[] entries,
+            SearchDictionaryNode[] nodes,
+            SearchDictionaryEdge[] edges,
+            SearchDictionaryEntry[] entries,
             int stringsBaseOffset)
         {
             _mmf = mmf;
             _view = view;
             _handle = handle;
             _basePtr = basePtr;
-            _prefixRanges = prefixRanges;
+            _nodes = nodes;
+            _edges = edges;
             _entries = entries;
             _stringsBaseOffset = stringsBaseOffset;
         }
@@ -2985,34 +3105,48 @@ public sealed partial class SearchIndexService(
                     throw new InvalidDataException("search dictionary header invalid");
                 }
 
+                uint nodeCount = Unsafe.ReadUnaligned<uint>(cursor);
+                cursor += sizeof(uint);
+                uint edgeCount = Unsafe.ReadUnaligned<uint>(cursor);
+                cursor += sizeof(uint);
                 uint entryCount = Unsafe.ReadUnaligned<uint>(cursor);
                 cursor += sizeof(uint);
-                _ = Unsafe.ReadUnaligned<uint>(cursor);
-                cursor += sizeof(uint);
 
-                var prefixRanges = new PrefixRange[256];
-                for (int i = 0; i < prefixRanges.Length; i++)
+                var nodes = new SearchDictionaryNode[checked((int)nodeCount)];
+                for (int i = 0; i < nodes.Length; i++)
                 {
-                    prefixRanges[i] = new PrefixRange(Unsafe.ReadUnaligned<uint>(cursor), Unsafe.ReadUnaligned<uint>(cursor + 4));
+                    nodes[i] = new SearchDictionaryNode(
+                        Unsafe.ReadUnaligned<uint>(cursor),
+                        Unsafe.ReadUnaligned<uint>(cursor + 4),
+                        Unsafe.ReadUnaligned<uint>(cursor + 8));
+                    cursor += 16;
+                }
+
+                var edges = new SearchDictionaryEdge[checked((int)edgeCount)];
+                for (int i = 0; i < edges.Length; i++)
+                {
+                    edges[i] = new SearchDictionaryEdge(
+                        Unsafe.ReadUnaligned<uint>(cursor),
+                        Unsafe.ReadUnaligned<uint>(cursor + 4));
                     cursor += 8;
                 }
 
-                cursor = basePtr + Align((int)(cursor - basePtr), 8);
-                var entries = new LexiconEntry[entryCount];
+                var entries = new SearchDictionaryEntry[checked((int)entryCount)];
                 for (int i = 0; i < entryCount; i++)
                 {
                     uint offset = Unsafe.ReadUnaligned<uint>(cursor);
                     ushort length = Unsafe.ReadUnaligned<ushort>(cursor + 4);
                     ushort flags = Unsafe.ReadUnaligned<ushort>(cursor + 6);
                     uint frequency = Unsafe.ReadUnaligned<uint>(cursor + 8);
-                    entries[i] = new LexiconEntry(offset, length, frequency, (flags & 1) != 0);
+                    uint runeLength = Unsafe.ReadUnaligned<uint>(cursor + 12);
+                    entries[i] = new SearchDictionaryEntry(offset, length, frequency, runeLength, (flags & 1) != 0);
                     cursor += 16;
                 }
 
                 _ = (int)Unsafe.ReadUnaligned<uint>(cursor);
                 cursor += sizeof(uint);
                 int stringsBaseOffset = (int)(cursor - basePtr);
-                return new SearchDictionaryRuntime(mmf, view, handle, basePtr, prefixRanges, entries, stringsBaseOffset);
+                return new SearchDictionaryRuntime(mmf, view, handle, basePtr, nodes, edges, entries, stringsBaseOffset);
             }
             catch
             {
@@ -3029,10 +3163,11 @@ public sealed partial class SearchIndexService(
 
         public ISearchDictionaryLookup CreateSnapshot()
         {
-            var prefixRanges = (PrefixRange[])_prefixRanges.Clone();
-            var entries = new LexiconEntry[_entries.Length];
+            var nodes = (SearchDictionaryNode[])_nodes.Clone();
+            var edges = (SearchDictionaryEdge[])_edges.Clone();
+            var entries = new SearchDictionaryEntry[_entries.Length];
             int stringBytesLength = 0;
-            foreach (LexiconEntry entry in _entries)
+            foreach (SearchDictionaryEntry entry in _entries)
             {
                 stringBytesLength += entry.ByteLength;
             }
@@ -3041,63 +3176,18 @@ public sealed partial class SearchIndexService(
             int stringOffset = 0;
             for (int i = 0; i < _entries.Length; i++)
             {
-                LexiconEntry entry = _entries[i];
+                SearchDictionaryEntry entry = _entries[i];
                 ReadOnlySpan<byte> candidate = new(_basePtr + _stringsBaseOffset + entry.StringOffset, entry.ByteLength);
                 candidate.CopyTo(strings.AsSpan(stringOffset, entry.ByteLength));
                 entries[i] = entry with { StringOffset = (uint)stringOffset };
                 stringOffset += entry.ByteLength;
             }
 
-            return new SearchDictionarySnapshot(prefixRanges, entries, strings);
+            return new SearchDictionarySnapshot(nodes, edges, entries, strings);
         }
 
         public int CollectMatches(ReadOnlySpan<byte> source, Span<SearchDictionaryMatch> matches)
-        {
-            if (source.IsEmpty)
-            {
-                return 0;
-            }
-
-            PrefixRange range = _prefixRanges[source[0]];
-            if (range.Count == 0)
-            {
-                return 0;
-            }
-
-            int count = 0;
-            for (uint i = range.Start; i < range.Start + range.Count; i++)
-            {
-                LexiconEntry entry = _entries[i];
-                if (entry.ByteLength > source.Length)
-                {
-                    continue;
-                }
-
-                ReadOnlySpan<byte> candidate = new(_basePtr + _stringsBaseOffset + entry.StringOffset, entry.ByteLength);
-                if (!source[..entry.ByteLength].SequenceEqual(candidate))
-                {
-                    continue;
-                }
-
-                if (count >= matches.Length)
-                {
-                    break;
-                }
-
-                matches[count++] = new SearchDictionaryMatch(entry.ByteLength, CountRunes(candidate), entry.Frequency, entry.Stopword);
-            }
-
-            if (count > 1)
-            {
-                matches[..count].Sort(static (left, right) =>
-                {
-                    int byRunes = right.RuneLength.CompareTo(left.RuneLength);
-                    return byRunes != 0 ? byRunes : right.Frequency.CompareTo(left.Frequency);
-                });
-            }
-
-            return count;
-        }
+            => CollectTrieMatches(source, matches, _nodes, _edges, _entries);
 
         public bool TryFindExactMatch(ReadOnlySpan<byte> source, out SearchDictionaryMatch match)
         {
@@ -3118,7 +3208,7 @@ public sealed partial class SearchIndexService(
 
         public string ResolveUtf8(uint hash)
         {
-            foreach (LexiconEntry entry in _entries)
+            foreach (SearchDictionaryEntry entry in _entries)
             {
                 ReadOnlySpan<byte> candidate = new(_basePtr + _stringsBaseOffset + entry.StringOffset, entry.ByteLength);
                 if (MurmurHash3.HashBytes(candidate) == hash)
@@ -3142,74 +3232,110 @@ public sealed partial class SearchIndexService(
             _mmf.Dispose();
         }
 
-        private static int CountRunes(ReadOnlySpan<byte> bytes)
+        private static int CollectTrieMatches(
+            ReadOnlySpan<byte> source,
+            Span<SearchDictionaryMatch> matches,
+            SearchDictionaryNode[] nodes,
+            SearchDictionaryEdge[] edges,
+            SearchDictionaryEntry[] entries)
         {
-            int count = 0;
-            for (int i = 0; i < bytes.Length;)
+            if (source.IsEmpty || nodes.Length == 0)
             {
-                i += SearchTokenizer.GetUtf8ScalarLength(bytes[i]);
-                count++;
+                return 0;
+            }
+
+            int count = 0;
+            uint state = 0;
+            for (int offset = 0; offset < source.Length;)
+            {
+                int runeLength = SearchTokenizer.GetUtf8ScalarLength(source[offset]);
+                if (runeLength <= 0 || offset + runeLength > source.Length)
+                {
+                    break;
+                }
+
+                uint scalar = SearchTokenizer.DecodeUtf8Scalar(source, offset, runeLength);
+                if (!TryFindEdge(nodes, edges, state, scalar, out uint nextState))
+                {
+                    break;
+                }
+
+                state = nextState;
+                offset += runeLength;
+
+                uint terminalEntryIndex = nodes[(int)state].TerminalEntryIndex;
+                if (terminalEntryIndex == NoSearchDictionaryTerminal)
+                {
+                    continue;
+                }
+
+                if (count >= matches.Length)
+                {
+                    break;
+                }
+
+                SearchDictionaryEntry entry = entries[checked((int)terminalEntryIndex)];
+                matches[count++] = new SearchDictionaryMatch(
+                    entry.ByteLength,
+                    checked((int)entry.RuneLength),
+                    entry.Frequency,
+                    entry.Stopword);
+            }
+
+            if (count > 1)
+            {
+                matches[..count].Sort(static (left, right) =>
+                {
+                    int byRunes = right.RuneLength.CompareTo(left.RuneLength);
+                    return byRunes != 0 ? byRunes : right.Frequency.CompareTo(left.Frequency);
+                });
             }
 
             return count;
         }
 
-        private readonly record struct PrefixRange(uint Start, uint Count);
-        private readonly record struct LexiconEntry(uint StringOffset, ushort ByteLength, uint Frequency, bool Stopword)
-        { }
+        private static bool TryFindEdge(
+            SearchDictionaryNode[] nodes,
+            SearchDictionaryEdge[] edges,
+            uint state,
+            uint scalar,
+            out uint nextState)
+        {
+            SearchDictionaryNode node = nodes[checked((int)state)];
+            int low = checked((int)node.FirstEdgeIndex);
+            int high = low + checked((int)node.EdgeCount) - 1;
+            while (low <= high)
+            {
+                int mid = low + ((high - low) / 2);
+                SearchDictionaryEdge edge = edges[mid];
+                if (edge.Scalar == scalar)
+                {
+                    nextState = edge.TargetNodeIndex;
+                    return true;
+                }
+
+                if (edge.Scalar < scalar)
+                {
+                    low = mid + 1;
+                }
+                else
+                {
+                    high = mid - 1;
+                }
+            }
+
+            nextState = 0;
+            return false;
+        }
 
         private sealed class SearchDictionarySnapshot(
-            PrefixRange[] prefixRanges,
-            LexiconEntry[] entries,
+            SearchDictionaryNode[] nodes,
+            SearchDictionaryEdge[] edges,
+            SearchDictionaryEntry[] entries,
             byte[] strings) : ISearchDictionaryLookup
         {
             public int CollectMatches(ReadOnlySpan<byte> source, Span<SearchDictionaryMatch> matches)
-            {
-                if (source.IsEmpty)
-                {
-                    return 0;
-                }
-
-                PrefixRange range = prefixRanges[source[0]];
-                if (range.Count == 0)
-                {
-                    return 0;
-                }
-
-                int count = 0;
-                for (uint i = range.Start; i < range.Start + range.Count; i++)
-                {
-                    LexiconEntry entry = entries[i];
-                    if (entry.ByteLength > source.Length)
-                    {
-                        continue;
-                    }
-
-                    ReadOnlySpan<byte> candidate = strings.AsSpan((int)entry.StringOffset, entry.ByteLength);
-                    if (!source[..entry.ByteLength].SequenceEqual(candidate))
-                    {
-                        continue;
-                    }
-
-                    if (count >= matches.Length)
-                    {
-                        break;
-                    }
-
-                    matches[count++] = new SearchDictionaryMatch(entry.ByteLength, CountRunes(candidate), entry.Frequency, entry.Stopword);
-                }
-
-                if (count > 1)
-                {
-                    matches[..count].Sort(static (left, right) =>
-                    {
-                        int byRunes = right.RuneLength.CompareTo(left.RuneLength);
-                        return byRunes != 0 ? byRunes : right.Frequency.CompareTo(left.Frequency);
-                    });
-                }
-
-                return count;
-            }
+                => CollectTrieMatches(source, matches, nodes, edges, entries);
 
             public bool TryFindExactMatch(ReadOnlySpan<byte> source, out SearchDictionaryMatch match)
             {
@@ -3230,7 +3356,7 @@ public sealed partial class SearchIndexService(
 
             public string ResolveUtf8(uint hash)
             {
-                foreach (LexiconEntry entry in entries)
+                foreach (SearchDictionaryEntry entry in entries)
                 {
                     ReadOnlySpan<byte> candidate = strings.AsSpan((int)entry.StringOffset, entry.ByteLength);
                     if (MurmurHash3.HashBytes(candidate) == hash)
@@ -3244,6 +3370,12 @@ public sealed partial class SearchIndexService(
         }
     }
 
+    private const uint NoSearchDictionaryTerminal = uint.MaxValue;
+
+    private readonly record struct SearchDictionaryTrieBuild(SearchDictionaryNode[] Nodes, SearchDictionaryEdge[] Edges);
+    private readonly record struct SearchDictionaryNode(uint FirstEdgeIndex, uint EdgeCount, uint TerminalEntryIndex);
+    private readonly record struct SearchDictionaryEdge(uint Scalar, uint TargetNodeIndex);
+    private readonly record struct SearchDictionaryEntry(uint StringOffset, ushort ByteLength, uint Frequency, uint RuneLength, bool Stopword);
     private readonly record struct SearchDictionaryMatch(int ByteLength, int RuneLength, uint Frequency, bool Stopword);
 
     private static class MurmurHash3

@@ -394,6 +394,38 @@ public sealed class SearchIndexServiceTests
     }
 
     [Fact]
+    public void TokenizeForTests_TrieDictionaryLookup_PreservesOverlapsLongSegmentsStopwordsAndMixedAscii()
+    {
+        string lexiconRoot = CreateLexiconRoot(
+            coreEntries:
+            [
+                "中华\t50",
+                "人民\t50",
+                "中华人民\t500",
+                "共和国\t450",
+                "语言\t50",
+                "处理\t50",
+                "语言处理\t400",
+                "学习\t50"
+            ],
+            stopwords: ["的"]);
+
+        SearchIndexService.SearchTokenDebugView[] tokens = SearchIndexService.TokenizeForTests(
+            lexiconRoot,
+            "pipeline中华人民共和国语言处理machine学习的");
+
+        Assert.Contains(tokens, static token => token.Hash == SearchIndexService.HashTokenForTests("pipeline"));
+        Assert.Contains(tokens, static token => token.Text == "中华人民" && token.PositionLength == 4u);
+        Assert.Contains(tokens, static token => token.Text == "中华" && token.PositionLength == 2u);
+        Assert.Contains(tokens, static token => token.Text == "人民" && token.PositionLength == 2u);
+        Assert.Contains(tokens, static token => token.Text == "共和国" && token.PositionLength == 3u);
+        Assert.Contains(tokens, static token => token.Text == "语言处理" && token.PositionLength == 4u);
+        Assert.Contains(tokens, static token => token.Hash == SearchIndexService.HashTokenForTests("machine"));
+        Assert.Contains(tokens, static token => token.Text == "学习");
+        Assert.Contains(tokens, static token => token.Text == "的" && token.Stopword);
+    }
+
+    [Fact]
     public void RuntimeQueryHashesForTests_ExactDictionaryTerm_UsesDocumentTokenizer()
     {
         string lexiconRoot = CreateLexiconRoot(
