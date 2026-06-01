@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\core\FsusBlog.Core.csproj" />
+    <ProjectReference Include="..\..\src\backend\FsusBlog.Server.csproj" />
     <ProjectReference Include="..\..\src\shared\FsusBlog.Shared.csproj" />
   </ItemGroup>
 </Project>

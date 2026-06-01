@@ -140,6 +140,83 @@ public sealed class ContentFilterServiceTests
     }
 
     [Fact]
+    public void ValidateContent_WithTopRedLineTerm_IsBlocked()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            using var service = new ContentFilterService(new TestWebHostEnvironment(root), NullLogger<ContentFilterService>.Instance);
+            var result = service.ValidateContent("这条评论提到习近平相关内容");
+            Assert.False(result.IsValid);
+            Assert.Equal("political_redline_detected", result.ReasonCode);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("广告关键词 加v", "广告关键词", "", "contact_lead_detected")]
+    [InlineData("广告关键词 习近平", "广告关键词", "", "malicious_ad_detected")]
+    [InlineData("违禁词汇 毛泽东", "", "违禁词汇", "political_redline_detected")]
+    [InlineData("共享关键词", "共享关键词", "共享关键词", "malicious_ad_detected")]
+    public void ValidateContent_WhenMultipleRuleKindsMatch_PreservesPriorityOrder(
+        string text,
+        string adWord,
+        string sensitiveWord,
+        string expectedReasonCode)
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            string dictDir = Path.Combine(root, "Dictionaries");
+            Directory.CreateDirectory(dictDir);
+            File.WriteAllLines(Path.Combine(dictDir, "SensitiveWords.txt"), string.IsNullOrEmpty(sensitiveWord) ? [] : [sensitiveWord]);
+            File.WriteAllLines(Path.Combine(dictDir, "AdWords.txt"), string.IsNullOrEmpty(adWord) ? [] : [adWord]);
+
+            using var service = new ContentFilterService(new TestWebHostEnvironment(root), NullLogger<ContentFilterService>.Instance);
+            var result = service.ValidateContent(text);
+
+            Assert.False(result.IsValid);
+            Assert.Equal(expectedReasonCode, result.ReasonCode);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ReloadKeywords_UpdatesUnifiedRuleSearch()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            string dictDir = Path.Combine(root, "Dictionaries");
+            Directory.CreateDirectory(dictDir);
+            string sensitivePath = Path.Combine(dictDir, "SensitiveWords.txt");
+            string adPath = Path.Combine(dictDir, "AdWords.txt");
+            File.WriteAllLines(sensitivePath, []);
+            File.WriteAllLines(adPath, []);
+
+            using var service = new ContentFilterService(new TestWebHostEnvironment(root), NullLogger<ContentFilterService>.Instance);
+            Assert.True(service.ValidateContent("这里有新广告词").IsValid);
+
+            File.WriteAllLines(adPath, ["新广告词"]);
+            service.ReloadKeywords();
+            var result = service.ValidateContent("这里有新广告词");
+
+            Assert.False(result.IsValid);
+            Assert.Equal("malicious_ad_detected", result.ReasonCode);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ValidateContent_NormalTextAfterReload_IsValid()
     {
         string root = CreateTempDirectory();
@@ -219,6 +296,19 @@ public sealed class ContentFilterServiceTests
         Assert.DoesNotContain(".GetAwaiter().GetResult()", source, StringComparison.Ordinal);
         Assert.Contains("WaitForReloadRetryAsync", source, StringComparison.Ordinal);
         Assert.Contains("WaitForStartupReloadRetry", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ContentFilterService_UsesUnifiedTaggedAutomaton()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Services", "Security", "ContentFilterService.cs"));
+
+        Assert.DoesNotContain("_sensitiveSearch", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_adSearch", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_contactSearch", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("TopRedLineRegex", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(".ContainsAny(bufferSpan)", source, StringComparison.Ordinal);
+        Assert.Contains("TryFindBest(bufferSpan", source, StringComparison.Ordinal);
     }
 
     private static string CreateTempDirectory()

@@ -5,7 +5,7 @@ using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Interfaces;
 using System.Buffers;
 using System.Collections.Concurrent;
-using System.Text.RegularExpressions;
+using System.Runtime.InteropServices;
 using System.Threading.Channels;
 
 namespace FsusBlog.Server.Services.Security;
@@ -23,12 +23,35 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
     private readonly string _sensitiveFilePath;
     private readonly string _adFilePath;
 
-    private ModernAcAutomaton? _sensitiveSearch;
-    private ModernAcAutomaton? _adSearch;
-    private readonly ModernAcAutomaton _contactSearch;
+    private readonly Lock _ruleReloadLock = new();
+    private string[] _sensitiveRules = [];
+    private string[] _adRules = [];
+    private ModernTaggedAcAutomaton<ContentRulePayload> _ruleSearch = new();
 
-    [GeneratedRegex(@"(习.{0,6}近.{0,6}平|毛.{0,6}泽.{0,6}东|六.{0,6}四.{0,6}事.{0,6}件)", RegexOptions.IgnoreCase)]
-    private static partial Regex TopRedLineRegex();
+    private static readonly string[] ContactRules =
+    [
+        "加v", "加微", "加威", "加薇", "加嶶", "vx", "微信", "威信", "薇信", "+v", "qq", "扣扣", "企鹅", "q群", "加群"
+    ];
+
+    private static readonly string[] TopRedLineRules =
+    [
+        "习+近+平",
+        "毛+泽+东",
+        "六+四+事+件"
+    ];
+
+    private enum ContentRuleKind
+    {
+        Contact = 0,
+        Ad = 1,
+        TopRedLine = 2,
+        Sensitive = 3
+    }
+
+    private readonly record struct ContentRulePayload(
+        ContentRuleKind Kind,
+        string ReasonCode,
+        string Message);
 
     private readonly FileSystemWatcher? _fileWatcher;
     private readonly Channel<string> _reloadQueue;
@@ -67,12 +90,8 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         EnsureFileExists(_sensitiveFilePath);
         EnsureFileExists(_adFilePath);
 
-        _contactSearch = new ModernAcAutomaton();
-        _contactSearch.Build([
-            "加v", "加微", "加威", "加薇", "加嶶", "vx", "微信", "威信", "薇信", "+v", "qq", "扣扣", "企鹅", "q群", "加群"
-        ]);
-
         TextNormalizer.Initialize(_logger);
+        _ruleSearch = BuildUnifiedRuleSearch([], []);
         var initResult = ReloadKeywordsCore();
         if (initResult.IsFailure)
         {
@@ -195,19 +214,11 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
 
             TextNormalizer.NormalizeInPlace(bufferSpan);
 
-            if (_contactSearch.ContainsAny(bufferSpan))
-                return new ContentValidationResult(false, "contact_lead_detected", "输入内容包含涉嫌引流的联系方式或变体，已被拦截。");
-
-            var currentAdSearch = Volatile.Read(ref _adSearch);
-            if (currentAdSearch != null && currentAdSearch.ContainsAny(bufferSpan))
-                return new ContentValidationResult(false, "malicious_ad_detected", "输入内容包含涉嫌引流的违规业务或恶意链接，已被拦截。");
-
-            if (TopRedLineRegex().IsMatch(bufferSpan))
-                return new ContentValidationResult(false, "political_redline_detected", "严重违规：检测到对抗性涉政词汇。");
-
-            var currentSensitiveSearch = Volatile.Read(ref _sensitiveSearch);
-            if (currentSensitiveSearch != null && currentSensitiveSearch.ContainsAny(bufferSpan))
-                return new ContentValidationResult(false, "sensitive_term_detected", "输入内容包含违反相关法律法规的政治红线词汇，已被拦截。");
+            var currentRuleSearch = Volatile.Read(ref _ruleSearch);
+            if (currentRuleSearch.TryFindBest(bufferSpan, out ContentRulePayload payload))
+            {
+                return new ContentValidationResult(false, payload.ReasonCode, payload.Message);
+            }
 
             return new ContentValidationResult(true, "ok", string.Empty);
         }
@@ -367,7 +378,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
 
         if (!File.Exists(_sensitiveFilePath))
         {
-            _sensitiveSearch = null;
+            ReplaceSensitiveRules([]);
             _logger.LogWarning("未找到红线词库 [{FilePath}]", _sensitiveFilePath);
             return Result.Success();
         }
@@ -375,7 +386,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         var linesResult = ReadAllLinesWithRetry(_sensitiveFilePath);
         if (linesResult.IsFailure)
         {
-            _sensitiveSearch = null;
+            ReplaceSensitiveRules([]);
             return Result.Failure(ErrorDetail.Create(
                 ErrorCode.InfraFailure,
                 "读取红线词库失败",
@@ -395,7 +406,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
 
         if (!File.Exists(_sensitiveFilePath))
         {
-            _sensitiveSearch = null;
+            ReplaceSensitiveRules([]);
             _logger.LogWarning("未找到红线词库 [{FilePath}]", _sensitiveFilePath);
             return Result.Success();
         }
@@ -403,7 +414,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         var linesResult = await ReadAllLinesWithRetryAsync(_sensitiveFilePath, cancellationToken).ConfigureAwait(false);
         if (linesResult.IsFailure)
         {
-            _sensitiveSearch = null;
+            ReplaceSensitiveRules([]);
             return Result.Failure(ErrorDetail.Create(
                 ErrorCode.InfraFailure,
                 "读取红线词库失败",
@@ -420,9 +431,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
             () =>
             {
                 var normalizedLines = NormalizeKeywords(lines);
-                var newSearch = new ModernAcAutomaton();
-                newSearch.Build(normalizedLines);
-                Interlocked.Exchange(ref _sensitiveSearch, newSearch);
+                ReplaceSensitiveRules(normalizedLines);
                 _logger.LogInformation("DFA引擎：政治红线词库加载成功，共载入 {Count} 个指纹化规则", normalizedLines.Length);
             },
             ex => ErrorDetail.Create(
@@ -445,7 +454,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
 
         if (!File.Exists(_adFilePath))
         {
-            _adSearch = null;
+            ReplaceAdRules([]);
             _logger.LogWarning("未找到广告词库 [{FilePath}]", _adFilePath);
             return Result.Success();
         }
@@ -453,7 +462,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         var linesResult = ReadAllLinesWithRetry(_adFilePath);
         if (linesResult.IsFailure)
         {
-            _adSearch = null;
+            ReplaceAdRules([]);
             return Result.Failure(ErrorDetail.Create(
                 ErrorCode.InfraFailure,
                 "读取广告词库失败",
@@ -473,7 +482,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
 
         if (!File.Exists(_adFilePath))
         {
-            _adSearch = null;
+            ReplaceAdRules([]);
             _logger.LogWarning("未找到广告词库 [{FilePath}]", _adFilePath);
             return Result.Success();
         }
@@ -481,7 +490,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         var linesResult = await ReadAllLinesWithRetryAsync(_adFilePath, cancellationToken).ConfigureAwait(false);
         if (linesResult.IsFailure)
         {
-            _adSearch = null;
+            ReplaceAdRules([]);
             return Result.Failure(ErrorDetail.Create(
                 ErrorCode.InfraFailure,
                 "读取广告词库失败",
@@ -498,9 +507,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
             () =>
             {
                 var normalizedLines = NormalizeKeywords(lines);
-                var newSearch = new ModernAcAutomaton();
-                newSearch.Build(normalizedLines);
-                Interlocked.Exchange(ref _adSearch, newSearch);
+                ReplaceAdRules(normalizedLines);
                 _logger.LogInformation("DFA引擎：动态广告词库加载成功，共载入 {Count} 个指纹化规则", normalizedLines.Length);
             },
             ex => ErrorDetail.Create(
@@ -512,6 +519,89 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
             "content-filter-reload-ad",
             LogLevel.Warning);
         return buildResult;
+    }
+
+    private void ReplaceSensitiveRules(string[] normalizedRules)
+        => ReplaceRules(sensitiveRules: normalizedRules, adRules: null);
+
+    private void ReplaceAdRules(string[] normalizedRules)
+        => ReplaceRules(sensitiveRules: null, adRules: normalizedRules);
+
+    private void ReplaceRules(string[]? sensitiveRules, string[]? adRules)
+    {
+        lock (_ruleReloadLock)
+        {
+            if (sensitiveRules is not null)
+            {
+                _sensitiveRules = sensitiveRules;
+            }
+
+            if (adRules is not null)
+            {
+                _adRules = adRules;
+            }
+
+            var newSearch = BuildUnifiedRuleSearch(_sensitiveRules, _adRules);
+            Volatile.Write(ref _ruleSearch, newSearch);
+        }
+    }
+
+    private static ModernTaggedAcAutomaton<ContentRulePayload> BuildUnifiedRuleSearch(
+        string[] sensitiveRules,
+        string[] adRules)
+    {
+        var rules = new List<ModernTaggedAcRule<ContentRulePayload>>(
+            ContactRules.Length + TopRedLineRules.Length + sensitiveRules.Length + adRules.Length);
+
+        AddRules(
+            rules,
+            NormalizeKeywords(ContactRules),
+            new ContentRulePayload(
+                ContentRuleKind.Contact,
+                "contact_lead_detected",
+                "输入内容包含涉嫌引流的联系方式或变体，已被拦截。"));
+        AddRules(
+            rules,
+            adRules,
+            new ContentRulePayload(
+                ContentRuleKind.Ad,
+                "malicious_ad_detected",
+                "输入内容包含涉嫌引流的违规业务或恶意链接，已被拦截。"));
+        AddRules(
+            rules,
+            NormalizeKeywords(TopRedLineRules),
+            new ContentRulePayload(
+                ContentRuleKind.TopRedLine,
+                "political_redline_detected",
+                "严重违规：检测到对抗性涉政词汇。"));
+        AddRules(
+            rules,
+            sensitiveRules,
+            new ContentRulePayload(
+                ContentRuleKind.Sensitive,
+                "sensitive_term_detected",
+                "输入内容包含违反相关法律法规的政治红线词汇，已被拦截。"));
+
+        var search = new ModernTaggedAcAutomaton<ContentRulePayload>();
+        search.Build(CollectionsMarshal.AsSpan(rules));
+        return search;
+    }
+
+    private static void AddRules(
+        List<ModernTaggedAcRule<ContentRulePayload>> rules,
+        string[] patterns,
+        ContentRulePayload payload)
+    {
+        for (int i = 0; i < patterns.Length; i++)
+        {
+            string pattern = patterns[i];
+            if (string.IsNullOrWhiteSpace(pattern))
+            {
+                continue;
+            }
+
+            rules.Add(new ModernTaggedAcRule<ContentRulePayload>(pattern, payload, (int)payload.Kind));
+        }
     }
 
     private static string[] NormalizeKeywords(string[] keywords)

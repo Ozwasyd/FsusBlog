@@ -22,9 +22,9 @@ if (args.Contains("--compare-http", StringComparer.Ordinal))
     return await HttpParityVerifier.RunAsync(args);
 }
 
-BenchmarkRunner.Run<PodMappingBenchmarks>(
-    ManualConfig.Create(DefaultConfig.Instance)
-        .AddJob(Job.ShortRun));
+BenchmarkSwitcher
+    .FromTypes([typeof(PodMappingBenchmarks), typeof(ContentFilterBenchmarks)])
+    .Run(args, ManualConfig.Create(DefaultConfig.Instance).AddJob(Job.ShortRun));
 return 0;
 
 [MemoryDiagnoser]
