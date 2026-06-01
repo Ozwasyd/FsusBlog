@@ -169,6 +169,8 @@ L0 artifact 只接受 `GET`/`HEAD`；`OPTIONS` 在同源场景下返回 `405`，
 
 `/api/binary/article/html/{pathKey}.html` 是 AOT shell 的诊断/预览 artifact 命中路径，不是 `/article/{id}`、`/category/{id}` 等真实公开 URL 的替代路由；真实页面仍由 public route + AOT shell/SPA 渲染。`routeKey` 与 URL-safe `pathKey` 分离：`article:42` 映射为 `article-42`，`category:7`/`tag:9` 同理，`tag-name:*`、包含空白、斜杠或非 ASCII 的 routeKey 使用稳定 hash pathKey。可观测诊断头 `X-Fsus-HotRead-*` 默认关闭，只能通过 `PublicHotRead:EnableDiagnosticHeaders=true` 打开。
 
+Public AOT 预热和内容变更驱动 backfill 必须消费后端权威 route manifest，而不是脚本猜测 URL。`GET /internal/public-aot/manifest` 只暴露公开 SEO route，支持 `scope=all`、`scope=hot` 与 `changedSince`，并通过 `dependencyKeys` 连接 `article:{id}`、`category:{id}`、`tag:{id}`、`article:list`、`seo` 等内容依赖。配置 `PublicAot:ManifestToken` 时，调用方必须携带 `X-Fsus-Public-Aot-Token`。
+
 公开页结构的唯一真相源是 `src/frontend/src/helpers/publicAotBundle.ts` 与
 `src/frontend/src/public-renderers/renderPublicPage.ts`。服务端 AOT provider
 只提供数据型 options，不手写 hydration props、不渲染 Markdown、不拼页面内部 HTML；

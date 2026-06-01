@@ -214,6 +214,7 @@ public static class WebApplicationCompositionExtensions
         app.MapAuthoringEndpoints();
         app.MapSubscriptionEndpoints();
         app.MapTelemetryEndpoints();
+        app.MapPublicAotEndpoints();
 
         app.MapGet("/api/notifications/stream/preflight", (
             HttpContext ctx,

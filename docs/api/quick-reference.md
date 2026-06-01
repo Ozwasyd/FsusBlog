@@ -190,6 +190,7 @@
 | GET | `/sitemap.xml` | 🔓 | 公开 sitemap，排除私有路由 |
 | GET | `/robots.txt` | 🔓 | robots + sitemap 声明 |
 | GET | `/api/public/articles/{articleId}/related` | 🔓 | 延伸阅读：相关文章 / 上一篇 / 下一篇 |
+| GET | `/internal/public-aot/manifest` | 🔓 | Public AOT route manifest；配置 `PublicAot:ManifestToken` 时需 `X-Fsus-Public-Aot-Token` |
 | POST | `/api/subscriptions` | 🔓 | 更新订阅，保存 email hash |
 | DELETE | `/api/subscriptions` | 🔓 | 退订 |
 | POST | `/api/author/drafts` | 👑 | 保存服务端草稿 |

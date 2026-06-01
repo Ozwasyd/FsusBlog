@@ -80,10 +80,13 @@ public sealed class PublicAotInvalidationTrackerTests
     {
         var tracker = new PublicAotInvalidationTracker();
         var cache = new RecordingAotCache();
+        var scheduler = new RecordingBackfillScheduler();
         var service = new PublicAotInvalidationService(
             cache,
             new DefaultRuntimeKeyScope(),
             tracker,
+            scheduler,
+            new RecordingRouteManifestProvider(),
             new PublicHotReadStore(),
             NullLogger<PublicAotInvalidationService>.Instance);
         string cacheKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Home, "home");
@@ -103,6 +106,7 @@ public sealed class PublicAotInvalidationTrackerTests
 
         Assert.True(cache.InvalidatedAll);
         Assert.True(tracker.WasInvalidatedAfter(request));
+        Assert.Contains(scheduler.Requests, scheduled => scheduled.RouteKey == "home");
     }
 
     [Fact]
@@ -157,5 +161,25 @@ public sealed class PublicAotInvalidationTrackerTests
             InvalidatedAll = true;
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class RecordingBackfillScheduler : IPublicAotBackfillScheduler
+    {
+        public List<PublicAotBackfillRequest> Requests { get; } = [];
+
+        public bool TrySchedule(PublicAotBackfillRequest request)
+        {
+            Requests.Add(request);
+            return true;
+        }
+    }
+
+    private sealed class RecordingRouteManifestProvider : IPublicAotRouteManifestProvider
+    {
+        public Task<IReadOnlyList<PublicAotRouteDescriptor>> ListRoutesAsync(
+            PublicAotRouteManifestScope scope,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<PublicAotRouteDescriptor>>(
+                [PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Home, 0)]);
     }
 }

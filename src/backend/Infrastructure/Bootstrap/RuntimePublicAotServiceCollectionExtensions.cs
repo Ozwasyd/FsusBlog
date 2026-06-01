@@ -20,6 +20,7 @@ internal static class RuntimePublicAotServiceCollectionExtensions
         services.AddSingleton<IPublicAotShellCache, PublicAotFileShellCache>();
         services.AddScoped<IPublicAotCacheWriter, PublicAotCacheWriter>();
         services.AddSingleton<IPublicAotRouteRegistry, PublicAotRouteRegistry>();
+        services.AddScoped<IPublicAotRouteManifestProvider, PublicAotRouteManifestProvider>();
         services.AddScoped<IPublicAotBootstrapProvider, PublicAotHomeBootstrapProvider>();
         services.AddScoped<IPublicAotBootstrapProvider, PublicAotArticleDetailBootstrapProvider>();
         services.AddScoped<IPublicAotBootstrapProvider, PublicAotFilterBootstrapProvider>();

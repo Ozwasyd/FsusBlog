@@ -674,6 +674,44 @@ HTML bootstrap、hydration props 和 islands payload 均以 `script type="applic
 - AOT HTML 缓存同时校验 `rendererVersion` 与 frontend asset version；前端 `index.html` 或
   `.vite/manifest.json` 变化会自动拒绝旧缓存。
 
+### Public AOT Route Manifest
+
+`GET /internal/public-aot/manifest` 返回后端权威公开 SEO route 清单，供预热脚本和内容变更驱动 backfill 使用。该端点只列出公开可访问 route；文章 route 必须满足 `Published`、未删除、已到 `PublishedAt` / `ScheduledPublishAt` 时间。若配置 `PublicAot:ManifestToken`，调用方必须携带 `X-Fsus-Public-Aot-Token`，否则返回 `403`。
+
+查询参数：
+
+| 参数 | 说明 |
+|------|------|
+| `scope=all` | 默认，列出 Home / About / Archive / 全部公开文章 / 有公开文章的分类与标签 |
+| `scope=hot` | 列出固定页与最近公开文章相关 route，用于轻量预热 |
+| `changedSince=<ISO-8601>` | 列出指定时间后变更/发布的公开文章及其关联分类、标签 route |
+
+响应包装为 `JsonApiResponse<PublicAotRouteManifestResponse>`：
+
+```json
+{
+  "success": true,
+  "data": {
+    "scope": "all",
+    "generatedAtUtc": "2026-06-01T00:00:00Z",
+    "routes": [
+      {
+        "pageId": 2,
+        "kind": "ArticleDetail",
+        "routeKey": "article:42",
+        "path": "/article/42",
+        "canonicalPath": "/article/42",
+        "dependencyKeys": ["seo", "article:list", "article:42", "category:7", "tag:3"],
+        "priority": 100
+      }
+    ]
+  },
+  "message": null
+}
+```
+
+`dependencyKeys` 是预生成和失效收敛的稳定键：`article:{id}`、`category:{id}`、`tag:{id}`、`tag-name:{name}`、`article:list`、`seo`。内容变更后服务端会根据已知依赖主动调度 Home、Archive、ArticleDetail、Category/Tag Filter 的 AOT backfill；SEO 变更会按 manifest 调度所有 public routes。
+
 ### `PublicAotShellEntryContract`
 
 ```text

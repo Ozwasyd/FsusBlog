@@ -1,0 +1,299 @@
+using FsusBlog.Server.Entities;
+using FsusBlog.Shared.Contracts.Outputs;
+using SqlSugar;
+
+namespace FsusBlog.Server.Infrastructure.PublicAot;
+
+public sealed record PublicAotRouteDescriptor(
+    PublicPageId PageId,
+    PublicPageKind Kind,
+    string RouteKey,
+    string Path,
+    string CanonicalPath,
+    IReadOnlyList<string> DependencyKeys,
+    int Priority);
+
+public sealed record PublicAotRouteManifestResponse(
+    string Scope,
+    DateTimeOffset GeneratedAtUtc,
+    IReadOnlyList<PublicAotRouteDescriptor> Routes);
+
+public sealed record PublicAotRouteManifestScope(
+    string Scope,
+    DateTimeOffset? ChangedSinceUtc,
+    int? Limit)
+{
+    public bool IsHot => string.Equals(Scope, "hot", StringComparison.OrdinalIgnoreCase);
+    public bool IsChanged => ChangedSinceUtc.HasValue;
+
+    public static PublicAotRouteManifestScope All { get; } = new("all", null, null);
+
+    public static PublicAotRouteManifestScope FromQuery(string? scope, string? changedSince)
+    {
+        string normalizedScope = string.IsNullOrWhiteSpace(scope)
+            ? "all"
+            : scope.Trim().ToLowerInvariant();
+
+        DateTimeOffset? changedSinceUtc = null;
+        if (!string.IsNullOrWhiteSpace(changedSince) &&
+            DateTimeOffset.TryParse(changedSince, out DateTimeOffset parsed))
+        {
+            changedSinceUtc = parsed.ToUniversalTime();
+            normalizedScope = "changed";
+        }
+
+        return normalizedScope switch
+        {
+            "hot" => new("hot", null, 64),
+            "changed" or "changed-since" => new("changed", changedSinceUtc, null),
+            _ => All
+        };
+    }
+}
+
+public interface IPublicAotRouteManifestProvider
+{
+    Task<IReadOnlyList<PublicAotRouteDescriptor>> ListRoutesAsync(
+        PublicAotRouteManifestScope scope,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class PublicAotRouteManifestProvider(
+    ISqlSugarClient db,
+    ILogger<PublicAotRouteManifestProvider> logger) : IPublicAotRouteManifestProvider
+{
+    private const string SeoDependency = "seo";
+    private const string ArticleListDependency = "article:list";
+
+    public async Task<IReadOnlyList<PublicAotRouteDescriptor>> ListRoutesAsync(
+        PublicAotRouteManifestScope scope,
+        CancellationToken cancellationToken = default)
+    {
+        List<PublicAotRouteDescriptor> routes =
+        [
+            CreateStaticRoute(PublicPageKind.Home, 0),
+            CreateStaticRoute(PublicPageKind.About, 10),
+            CreateStaticRoute(PublicPageKind.Archive, 20)
+        ];
+
+        IReadOnlyList<ArticleRouteProjection> articles = await LoadPublicArticlesAsync(scope, cancellationToken).ConfigureAwait(false);
+        if (articles.Count == 0)
+        {
+            return Deduplicate(routes);
+        }
+
+        Dictionary<int, int[]> tagIdsByArticle = await LoadTagIdsByArticleAsync(articles, cancellationToken).ConfigureAwait(false);
+        foreach (ArticleRouteProjection article in articles)
+        {
+            int[] tagIds = tagIdsByArticle.GetValueOrDefault(article.Id, []);
+            routes.Add(CreateArticleRoute(article.Id, article.CategoryId, tagIds, 100));
+        }
+
+        foreach (int categoryId in articles.Select(static article => article.CategoryId).Where(static id => id > 0).Distinct().Order())
+        {
+            routes.Add(CreateCategoryRoute(categoryId, 200));
+        }
+
+        int[] tagIdsInScope = [.. tagIdsByArticle.Values.SelectMany(static ids => ids).Where(static id => id > 0).Distinct().Order()];
+        Dictionary<int, string> tagNamesById = await LoadTagNamesAsync(tagIdsInScope, cancellationToken).ConfigureAwait(false);
+        foreach (int tagId in tagIdsInScope)
+        {
+            string? tagName = tagNamesById.GetValueOrDefault(tagId);
+            routes.Add(CreateTagIdRoute(tagId, tagName, 210));
+            if (!string.IsNullOrWhiteSpace(tagName))
+            {
+                routes.Add(CreateTagNameRoute(tagId, tagName, 220));
+            }
+        }
+
+        logger.LogDebug("public_aot_route_manifest_built {Scope} {Count}", scope.Scope, routes.Count);
+        return Deduplicate(routes);
+    }
+
+    internal static PublicAotRouteDescriptor CreateStaticRoute(PublicPageKind kind, int priority)
+    {
+        PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(kind);
+        string routeKey = descriptor.FixedRouteKey ?? PublicAotPageIdentity.GetCanonicalSlug(kind);
+        string path = descriptor.CanonicalFixedPath ?? descriptor.StaticPath ?? "/";
+        return new PublicAotRouteDescriptor(
+            descriptor.PageId,
+            kind,
+            routeKey,
+            path,
+            path,
+            [SeoDependency, ArticleListDependency],
+            priority);
+    }
+
+    internal static PublicAotRouteDescriptor CreateArticleRoute(int articleId, int categoryId, IReadOnlyList<int> tagIds, int priority)
+    {
+        string routeKey = PublicRouteIdentity.BuildArticleRouteKey(articleId);
+        string path = PublicRouteIdentity.BuildCanonicalPath(PublicPageId.ArticleDetail, routeKey, articleId);
+        List<string> dependencies =
+        [
+            SeoDependency,
+            ArticleListDependency,
+            $"article:{articleId}"
+        ];
+        if (categoryId > 0)
+        {
+            dependencies.Add($"category:{categoryId}");
+        }
+        dependencies.AddRange(tagIds.Where(static id => id > 0).Distinct().Order().Select(static id => $"tag:{id}"));
+
+        return new PublicAotRouteDescriptor(
+            PublicPageId.ArticleDetail,
+            PublicPageKind.ArticleDetail,
+            routeKey,
+            path,
+            path,
+            dependencies,
+            priority);
+    }
+
+    internal static PublicAotRouteDescriptor CreateCategoryRoute(int categoryId, int priority)
+    {
+        string routeKey = PublicRouteIdentity.BuildCategoryRouteKey(categoryId);
+        string path = PublicRouteIdentity.BuildCanonicalPath(PublicPageId.Filter, routeKey, null);
+        return new PublicAotRouteDescriptor(
+            PublicPageId.Filter,
+            PublicPageKind.Filter,
+            routeKey,
+            path,
+            path,
+            [SeoDependency, ArticleListDependency, $"category:{categoryId}"],
+            priority);
+    }
+
+    internal static PublicAotRouteDescriptor CreateTagIdRoute(int tagId, string? tagName, int priority)
+    {
+        string routeKey = PublicRouteIdentity.BuildTagIdRouteKey(tagId);
+        string path = PublicRouteIdentity.BuildCanonicalPath(PublicPageId.Filter, routeKey, null);
+        List<string> dependencies = [SeoDependency, ArticleListDependency, $"tag:{tagId}"];
+        if (!string.IsNullOrWhiteSpace(tagName))
+        {
+            dependencies.Add($"tag-name:{tagName.Trim()}");
+        }
+
+        return new PublicAotRouteDescriptor(
+            PublicPageId.Filter,
+            PublicPageKind.Filter,
+            routeKey,
+            path,
+            path,
+            dependencies,
+            priority);
+    }
+
+    internal static PublicAotRouteDescriptor CreateTagNameRoute(int tagId, string tagName, int priority)
+    {
+        string routeKey = PublicRouteIdentity.BuildTagNameRouteKey(tagName);
+        string path = PublicRouteIdentity.BuildCanonicalPath(PublicPageId.Filter, routeKey, null);
+        return new PublicAotRouteDescriptor(
+            PublicPageId.Filter,
+            PublicPageKind.Filter,
+            routeKey,
+            path,
+            path,
+            [SeoDependency, ArticleListDependency, $"tag:{tagId}", $"tag-name:{tagName.Trim()}"],
+            priority);
+    }
+
+    private async Task<IReadOnlyList<ArticleRouteProjection>> LoadPublicArticlesAsync(
+        PublicAotRouteManifestScope scope,
+        CancellationToken cancellationToken)
+    {
+        DateTime utcNow = DateTime.UtcNow;
+        ISugarQueryable<Article> query = db.Queryable<Article>()
+            .Where(article => !article.IsDeleted
+                && article.Status == ArticleStatus.Published
+                && (!article.PublishedAt.HasValue || article.PublishedAt.Value <= utcNow)
+                && (!article.ScheduledPublishAt.HasValue || article.ScheduledPublishAt.Value <= utcNow));
+
+        if (scope.ChangedSinceUtc is { } changedSinceUtc)
+        {
+            DateTime since = changedSinceUtc.UtcDateTime;
+            query = query.Where(article => article.CreateTime >= since
+                || (article.PublishedAt.HasValue && article.PublishedAt.Value >= since)
+                || (article.ScheduledPublishAt.HasValue && article.ScheduledPublishAt.Value >= since));
+        }
+
+        query = query
+            .OrderBy(article => article.CreateTime, OrderByType.Desc)
+            .OrderBy(article => article.Id, OrderByType.Desc);
+
+        if (scope.IsHot && scope.Limit is > 0)
+        {
+            query = query.Take(scope.Limit.Value);
+        }
+
+        return await query
+            .Select(static article => new ArticleRouteProjection
+            {
+                Id = article.Id,
+                CategoryId = article.CategoryId,
+                CreateTime = article.CreateTime
+            })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<Dictionary<int, int[]>> LoadTagIdsByArticleAsync(
+        IReadOnlyList<ArticleRouteProjection> articles,
+        CancellationToken cancellationToken)
+    {
+        int[] articleIds = [.. articles.Select(static article => article.Id).Where(static id => id > 0).Distinct()];
+        if (articleIds.Length == 0)
+        {
+            return [];
+        }
+
+        List<ArticleTag> articleTags = await db.Queryable<ArticleTag>()
+            .Where(articleTag => articleIds.Contains(articleTag.ArticleId))
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return articleTags
+            .GroupBy(static articleTag => articleTag.ArticleId)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.Select(static articleTag => articleTag.TagId).Where(static id => id > 0).Distinct().Order().ToArray());
+    }
+
+    private async Task<Dictionary<int, string>> LoadTagNamesAsync(int[] tagIds, CancellationToken cancellationToken)
+    {
+        if (tagIds.Length == 0)
+        {
+            return [];
+        }
+
+        List<TagNameProjection> tags = await db.Queryable<Tag>()
+            .Where(tag => tagIds.Contains(tag.Id))
+            .Select(static tag => new TagNameProjection { Id = tag.Id, Name = tag.Name })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return tags.ToDictionary(static tag => tag.Id, static tag => tag.Name);
+    }
+
+    private static IReadOnlyList<PublicAotRouteDescriptor> Deduplicate(IEnumerable<PublicAotRouteDescriptor> routes)
+        => [.. routes
+            .GroupBy(static route => $"{route.PageId}:{route.RouteKey}", StringComparer.Ordinal)
+            .Select(static group => group.OrderBy(static route => route.Priority).First())
+            .OrderBy(static route => route.Priority)
+            .ThenBy(static route => route.PageId)
+            .ThenBy(static route => route.RouteKey, StringComparer.Ordinal)];
+
+    private sealed class ArticleRouteProjection
+    {
+        public int Id { get; set; }
+        public int CategoryId { get; set; }
+        public DateTime CreateTime { get; set; }
+    }
+
+    private sealed class TagNameProjection
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+}

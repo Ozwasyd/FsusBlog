@@ -46,6 +46,7 @@ function assertStaticContracts() {
   const renderer = read('src/backend/Infrastructure/PublicAot/PublicAotNodeSsrRenderer.cs')
   const renderPublicPage = read('src/frontend/src/public-renderers/renderPublicPage.ts')
   const buildScript = read('tools/frontend/build.mjs')
+  const warmScript = read('tools/frontend/warm-public-aot-cache.mjs')
 
   if (prodWorker.includes("from 'vite'") || prodWorker.includes('createServer') || prodWorker.includes('ssrLoadModule')) {
     fail('production bundle worker must not import or create Vite runtime')
@@ -67,6 +68,14 @@ function assertStaticContracts() {
   }
   if (!buildScript.includes('vite-public-ssr-build') || !buildScript.includes("'server'")) {
     fail('frontend release build must build and sync dist/server')
+  }
+  for (const token of ['/internal/public-aot/manifest', '--concurrency', '--json-report', '--fail-fast']) {
+    if (!warmScript.includes(token)) {
+      fail(`warm script must consume route manifest and expose bounded warm controls: ${token}`)
+    }
+  }
+  if (warmScript.includes('/article/1') || warmScript.includes('publicPaths')) {
+    fail('warm script must not hard-code public route guesses')
   }
 }
 
