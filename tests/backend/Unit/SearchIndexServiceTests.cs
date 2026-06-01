@@ -533,6 +533,42 @@ public sealed class SearchIndexServiceTests
         Assert.Contains(3, resultIds);
     }
 
+    [Fact]
+    public void RuntimeSearchResultIdsForTests_TieBreaksByViewsCreateTimeAndId()
+    {
+        string lexiconRoot = CreateLexiconRoot(coreEntries: ["alpha\t100"]);
+        var createdAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        int[] resultIds = SearchIndexService.RuntimeSearchResultIdsForTests(
+            lexiconRoot,
+            "alpha",
+            new SearchIndexService.SearchRuntimeTestArticle(1, "alpha", "", "", 10, createdAt),
+            new SearchIndexService.SearchRuntimeTestArticle(2, "alpha", "", "", 10, createdAt),
+            new SearchIndexService.SearchRuntimeTestArticle(3, "alpha", "", "", 20, createdAt.AddMinutes(1)));
+
+        Assert.Equal([3, 2, 1], resultIds);
+    }
+
+    [Fact]
+    public void CanSkipRuntimePostingBlockForTests_UsesBlockMaxUpperBound()
+    {
+        Assert.True(SearchIndexService.CanSkipRuntimePostingBlockForTests(10, 2, 3, 5));
+        Assert.False(SearchIndexService.CanSkipRuntimePostingBlockForTests(10, 3, 3, 5));
+    }
+
+    [Fact]
+    public void SearchIndexService_SourceUsesBoundedTopKForwardIndexAndDfHistogram()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/SearchIndexService.cs"));
+
+        Assert.Contains("PriorityQueue<SearchRuntimeCandidate", source, StringComparison.Ordinal);
+        Assert.Contains("BuildForwardIndex(terms)", source, StringComparison.Ordinal);
+        Assert.Contains("ForwardIndex", source, StringComparison.Ordinal);
+        Assert.Contains("BuildRuntimePostingBlocks", source, StringComparison.Ordinal);
+        Assert.Contains("ArrayPool<int>.Shared.Rent(documentCount + 1)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(".OrderByDescending(entry => entry.Score)", source, StringComparison.Ordinal);
+    }
+
     // ── Private static helpers via reflection ──────────────────────────────────
 
     private static T InvokePrivateStatic<T>(string methodName, object?[] args)
@@ -639,5 +675,21 @@ public sealed class SearchIndexServiceTests
         h1 *= 0xc2b2ae35;
         h1 ^= h1 >> 16;
         return h1;
+    }
+
+    private static string FindRepoRoot()
+    {
+        DirectoryInfo? current = new(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        throw new DirectoryNotFoundException("repo root not found");
     }
 }

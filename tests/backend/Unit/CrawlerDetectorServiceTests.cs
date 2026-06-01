@@ -8,6 +8,21 @@ namespace FsusBlog.Server.Tests;
 public sealed class CrawlerDetectorServiceTests
 {
     [Fact]
+    public void IpRadixTree_UsesFlatIntervalsForIpv4Ipv6AndMappedIpv4()
+    {
+        var tree = new IpRadixTree();
+        tree.Add(IPAddress.Parse("66.249.64.0"), 19);
+        tree.Add(IPAddress.Parse("2001:4860::"), 32);
+        tree.Seal();
+
+        Assert.True(tree.Contains(IPAddress.Parse("66.249.64.1")));
+        Assert.True(tree.Contains(IPAddress.Parse("::ffff:66.249.64.1")));
+        Assert.False(tree.Contains(IPAddress.Parse("66.250.64.1")));
+        Assert.True(tree.Contains(IPAddress.Parse("2001:4860:abcd::1")));
+        Assert.False(tree.Contains(IPAddress.Parse("2001:4861::1")));
+    }
+
+    [Fact]
     public async Task VerifyByReverseDnsAsync_WhenSemaphoreWaitTimesOut_ReturnsFalse()
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());

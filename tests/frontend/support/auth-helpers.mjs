@@ -62,15 +62,16 @@ function assert(condition, message) {
 }
 
 function hasLeadingDifficulty(hash, difficulty) {
-  const fullBytes = Math.floor(difficulty / 2);
+  const fullBytes = Math.floor(difficulty / 8);
   for (let i = 0; i < fullBytes; i += 1) {
     if (hash[i] !== 0) {
       return false;
     }
   }
 
-  if (difficulty % 2 === 1) {
-    return (hash[fullBytes] & 0xf0) === 0;
+  const remainingBits = difficulty % 8;
+  if (remainingBits > 0) {
+    return (hash[fullBytes] >> (8 - remainingBits)) === 0;
   }
 
   return true;

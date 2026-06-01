@@ -67,7 +67,7 @@ function resolveShardCount(): number {
 }
 
 function isThreadPoolCandidate(difficulty: number): boolean {
-    return engineType === 'THREADS-SIMD' && difficulty > 0 && difficulty <= 8 && resolveShardCount() > 1;
+    return engineType === 'THREADS-SIMD' && difficulty > 0 && difficulty <= 32 && resolveShardCount() > 1;
 }
 
 function calculateWithShardWorkers(salt: string, browserFp: string, difficulty: number): Promise<{ nonce: string; engine: string }> {

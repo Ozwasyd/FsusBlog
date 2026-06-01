@@ -23,21 +23,22 @@ const engines = [
 
 const salt = process.env.FSUSBLOG_POW_BENCH_SALT || '0123456789abcdef0123456789abcdef';
 const fp = process.env.FSUSBLOG_POW_BENCH_FP || '0123456789abcdef0123456789abcdef';
-const difficulties = (process.env.FSUSBLOG_POW_BENCH_DIFFICULTIES || '4,5')
+const difficulties = (process.env.FSUSBLOG_POW_BENCH_DIFFICULTIES || '16,20')
   .split(',')
   .map((value) => Number(value.trim()))
-  .filter((value) => Number.isInteger(value) && value > 0 && value <= 8);
+  .filter((value) => Number.isInteger(value) && value > 0 && value <= 32);
 const samplesPerDifficulty = Math.max(1, Number(process.env.FSUSBLOG_POW_BENCH_SAMPLES || 3));
 
 function hasLeadingDifficulty(hash, difficulty) {
-  const fullBytes = Math.floor(difficulty / 2);
+  const fullBytes = Math.floor(difficulty / 8);
   for (let i = 0; i < fullBytes; i += 1) {
     if (hash[i] !== 0) {
       return false;
     }
   }
 
-  return difficulty % 2 === 0 || (hash[fullBytes] & 0xf0) === 0;
+  const remainingBits = difficulty % 8;
+  return remainingBits === 0 || (hash[fullBytes] >> (8 - remainingBits)) === 0;
 }
 
 function verifyNonce(nonce, difficulty) {
@@ -143,7 +144,7 @@ async function benchEngine(engine) {
     }
   }
 
-  const rangeSmoke = solve(module, difficulties[0] ?? 4, 1, 4);
+  const rangeSmoke = solve(module, difficulties[0] ?? 16, 1, 4);
   const durations = samples.map((sample) => sample.durationMs);
   return {
     ...engine,

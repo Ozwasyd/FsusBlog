@@ -45,7 +45,7 @@ public sealed class RedisPowServiceTests
         {
             PowSalt = new string('s', 129),
             PowNonce = "1",
-            Difficulty = 4,
+            Difficulty = 16,
             PowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             PowSignature = Convert.ToBase64String(new byte[32]),
             BrowserFp = "unit-browser"
@@ -65,7 +65,7 @@ public sealed class RedisPowServiceTests
         {
             PowSalt = "salt",
             PowNonce = "1",
-            Difficulty = 4,
+            Difficulty = 16,
             PowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             PowSignature = "not-base64",
             BrowserFp = "unit-browser"
@@ -77,13 +77,13 @@ public sealed class RedisPowServiceTests
     }
 
     [Fact]
-    public void CheckWorkloadWithSpan_RejectsDifficultyBeyondSha256NibbleRange()
+    public void CheckWorkloadWithSpan_RejectsDifficultyBeyondSha256BitRange()
     {
         var request = new VirtualPowRequest
         {
             PowSalt = "salt",
             PowNonce = "nonce",
-            Difficulty = 65,
+            Difficulty = 257,
             PowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             PowSignature = Convert.ToBase64String(new byte[32]),
             BrowserFp = "unit-browser"
@@ -93,6 +93,30 @@ public sealed class RedisPowServiceTests
         bool result = (bool)method.Invoke(null, [request])!;
 
         Assert.False(result);
+    }
+
+    [Theory]
+    [InlineData(8)]
+    [InlineData(9)]
+    public void CheckWorkloadWithSpan_AcceptsByteAndBitAlignedDifficulties(int difficulty)
+    {
+        string browserFingerprint = "unit-browser";
+        string salt = "bit-level-salt";
+        string nonce = SolveNonce(salt, browserFingerprint, difficulty);
+        var request = new VirtualPowRequest
+        {
+            PowSalt = salt,
+            PowNonce = nonce,
+            Difficulty = difficulty,
+            PowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            PowSignature = Convert.ToBase64String(new byte[32]),
+            BrowserFp = browserFingerprint
+        };
+        MethodInfo method = typeof(RedisPowService).GetMethod("CheckWorkloadWithSpan", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        bool result = (bool)method.Invoke(null, [request])!;
+
+        Assert.True(result);
     }
 
     private static RedisPowService CreateService(OneShotCache cache)
@@ -124,7 +148,7 @@ public sealed class RedisPowServiceTests
 
     private static bool HasLeadingDifficulty(ReadOnlySpan<byte> hash, int difficulty)
     {
-        int fullBytes = difficulty / 2;
+        int fullBytes = difficulty / 8;
         for (int i = 0; i < fullBytes; i++)
         {
             if (hash[i] != 0)
@@ -133,7 +157,8 @@ public sealed class RedisPowServiceTests
             }
         }
 
-        return difficulty % 2 == 0 || (hash[fullBytes] & 0xF0) == 0;
+        int remainingBits = difficulty % 8;
+        return remainingBits == 0 || (hash[fullBytes] >> (8 - remainingBits)) == 0;
     }
 
     private sealed class OneShotCache : IUnifiedCache

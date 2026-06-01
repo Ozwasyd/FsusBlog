@@ -17,4 +17,19 @@ public sealed class TextNormalizerTests
 
         Assert.Equal("ABC hello", new string(value));
     }
+
+    [Fact]
+    public void NormalizeWithPhraseMappingsForTests_UsesLongestPhraseBeforeCharMap()
+    {
+        string result = TextNormalizer.NormalizeWithPhraseMappingsForTests(
+            "乾燥機與伺服器",
+            new Dictionary<string, string>
+            {
+                ["乾燥機"] = "干燥机",
+                ["乾燥"] = "干燥",
+                ["伺服器"] = "服务器"
+            });
+
+        Assert.Equal("干燥机与服务器", result);
+    }
 }

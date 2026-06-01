@@ -160,6 +160,24 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
+    public void LoadArticleListPageFromDbAsync_SourceUsesKeysetForPublicPagination()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("private async Task<ArticleListPageReadModel> LoadArticleListPageFromDbAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private static string RewriteParameters", StringComparison.Ordinal);
+        string methodBlock = source[methodStart..nextMethod];
+
+        Assert.Contains("ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate)", methodBlock, StringComparison.Ordinal);
+        Assert.Contains("LoadPublicArticleListPageByKeysetAsync", methodBlock, StringComparison.Ordinal);
+        Assert.Contains("a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId)", methodBlock, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY a.createtime DESC, a.id DESC", methodBlock, StringComparison.Ordinal);
+
+        int keysetMethod = methodBlock.IndexOf("LoadPublicArticleListPageByKeysetAsync", StringComparison.Ordinal);
+        int offset = methodBlock.IndexOf("OFFSET @Offset", StringComparison.Ordinal);
+        Assert.True(offset > keysetMethod);
+    }
+
+    [Fact]
     public void ArticleEntity_DefinesPublicListStatusTimeIndexes()
     {
         string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Entities/Article.cs"));

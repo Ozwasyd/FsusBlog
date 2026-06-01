@@ -131,7 +131,7 @@ npm run ensure:wasm
 
 ### PoW Wasm 分层与基准
 
-PoW 求解器位于 `src/frontend/wasm/pow`，仍然使用 `salt:nonce:browserFp` 的 SHA-256 工作量证明格式。优化只改变客户端搜索速度，不改变服务端 `difficulty`、`X-Fsus-Pow-Proof` 或 Redis/HMAC 验证语义。
+PoW 求解器位于 `src/frontend/wasm/pow`，仍然使用 `salt:nonce:browserFp` 的 SHA-256 工作量证明格式。`difficulty` 表示 bit 级前导零数量；优化只改变客户端搜索速度，不改变 `X-Fsus-Pow-Proof` 或 Redis/HMAC 验证语义。
 
 `npm run build:wasm` 会生成以下 PoW 资产：
 
@@ -152,10 +152,10 @@ npm run build:wasm
 npm run bench:pow-wasm
 ```
 
-默认基准输出 `.tmp/perf/pow-wasm.json`，记录每个资产的 `p50Ms`、`p95Ms`、`hashesPerSecond` 和 range solver smoke。默认只跑 difficulty `4,5` 以避免本地开发被高难度样本拖住；需要完整压力样本时可显式指定：
+默认基准输出 `.tmp/perf/pow-wasm.json`，记录每个资产的 `p50Ms`、`p95Ms`、`hashesPerSecond` 和 range solver smoke。默认只跑 difficulty `16,20` 以避免本地开发被高难度样本拖住；需要完整压力样本时可显式指定：
 
 ```bash
-FSUSBLOG_POW_BENCH_DIFFICULTIES=4,5,6,7 FSUSBLOG_POW_BENCH_SAMPLES=1 npm run bench:pow-wasm
+FSUSBLOG_POW_BENCH_DIFFICULTIES=16,20,24,28 FSUSBLOG_POW_BENCH_SAMPLES=1 npm run bench:pow-wasm
 ```
 
 ### CMake 关键配置

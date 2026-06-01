@@ -1,5 +1,6 @@
 ﻿using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
+using System.Text;
 
 namespace FsusBlog.Server.Infrastructure.Helpers.Security;
 
@@ -14,6 +15,7 @@ public static class TextNormalizer
     // 这将消耗 128KB 内存 (65536 * 2 bytes)，但会将繁简转换的性能提升到物理极限。
     private static readonly char[] _charMap;
     private static readonly Lock _initLock = new();
+    private static PhraseNode _phraseRoot = new();
     private static int _openCcLoaded;
 
     // 静态构造函数，在服务启动时只执行一次，负责构建这个巨大的查找表
@@ -59,24 +61,30 @@ public static class TextNormalizer
     {
         string baseDirectory = AppContext.BaseDirectory;
         string dictDirectory = Path.Combine(baseDirectory, "Dictionaries");
+        var phraseRoot = new PhraseNode();
 
-        var variantsResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TWVariants.txt"), logger);
+        var variantsResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TWVariants.txt"), phraseRoot, logger);
         if (variantsResult.IsFailure)
         {
             return variantsResult;
         }
 
-        var phrasesResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TWPhrases.txt"), logger);
+        var phrasesResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TWPhrases.txt"), phraseRoot, logger);
         if (phrasesResult.IsFailure)
         {
             return phrasesResult;
         }
 
-        var charactersResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TSCharacters.txt"), logger);
+        var charactersResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TSCharacters.txt"), phraseRoot, logger);
+        if (charactersResult.IsSuccess)
+        {
+            Volatile.Write(ref _phraseRoot, phraseRoot);
+        }
+
         return charactersResult;
     }
 
-    private static Result LoadOpenCcFile(string path, ILogger logger)
+    private static Result LoadOpenCcFile(string path, PhraseNode phraseRoot, ILogger logger)
     {
         if (!File.Exists(path))
         {
@@ -111,6 +119,10 @@ public static class TextNormalizer
                             // TryAdd 的逻辑在这里通过加载顺序来保证
                             _charMap[key[i]] = value[i];
                         }
+                    }
+                    else
+                    {
+                        AddPhraseMapping(phraseRoot, key, value);
                     }
                 }
             },
@@ -153,5 +165,100 @@ public static class TextNormalizer
             // 使用 ref 直接修改内存，并用 char 值作为索引进行 O(1) 物理寻址
             buffer[i] = _charMap[buffer[i]];
         }
+    }
+
+    public static string Normalize(string value, bool usePhraseMappings = false)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        if (!usePhraseMappings)
+        {
+            char[] buffer = value.ToCharArray();
+            NormalizeInPlace(buffer);
+            return new string(buffer);
+        }
+
+        return NormalizeWithPhraseRoot(value, Volatile.Read(ref _phraseRoot));
+    }
+
+    internal static string NormalizeWithPhraseMappingsForTests(string value, IReadOnlyDictionary<string, string> phrases)
+    {
+        var root = new PhraseNode();
+        foreach ((string key, string replacement) in phrases)
+        {
+            AddPhraseMapping(root, key, replacement);
+        }
+
+        return NormalizeWithPhraseRoot(value, root);
+    }
+
+    private static string NormalizeWithPhraseRoot(string value, PhraseNode phraseRoot)
+    {
+        var builder = new StringBuilder(value.Length);
+        int index = 0;
+        while (index < value.Length)
+        {
+            PhraseNode current = phraseRoot;
+            string? replacement = null;
+            int replacementEnd = -1;
+
+            for (int cursor = index; cursor < value.Length; cursor++)
+            {
+                if (!current.Children.TryGetValue(value[cursor], out PhraseNode? next))
+                {
+                    break;
+                }
+
+                current = next;
+                if (current.Replacement is not null)
+                {
+                    replacement = current.Replacement;
+                    replacementEnd = cursor + 1;
+                }
+            }
+
+            if (replacement is not null)
+            {
+                builder.Append(replacement);
+                index = replacementEnd;
+                continue;
+            }
+
+            builder.Append(_charMap[value[index]]);
+            index++;
+        }
+
+        return builder.ToString();
+    }
+
+    private static void AddPhraseMapping(PhraseNode root, string key, string replacement)
+    {
+        if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(replacement))
+        {
+            return;
+        }
+
+        PhraseNode current = root;
+        foreach (char ch in key)
+        {
+            if (!current.Children.TryGetValue(ch, out PhraseNode? next))
+            {
+                next = new PhraseNode();
+                current.Children[ch] = next;
+            }
+
+            current = next;
+        }
+
+        current.Replacement = replacement;
+    }
+
+    private sealed class PhraseNode
+    {
+        public Dictionary<char, PhraseNode> Children { get; } = [];
+        public string? Replacement { get; set; }
     }
 }

@@ -17,8 +17,8 @@ public sealed class AdaptivePowGovernorTests
     {
         var governor = CreateGovernor();
 
-        // No requests recorded → RPS = 0 → BASE_DIFFICULTY = 4
-        Assert.Equal(4, governor.CurrentGlobalDifficulty);
+        // No requests recorded → RPS = 0 → BASE_DIFFICULTY = 16 bits
+        Assert.Equal(16, governor.CurrentGlobalDifficulty);
     }
 
     [Fact]
@@ -28,8 +28,8 @@ public sealed class AdaptivePowGovernorTests
 
         RecordRequests(governor, 101);
 
-        // RPS > 100 → ELEVATED_DIFFICULTY = 5
-        Assert.Equal(5, governor.CurrentGlobalDifficulty);
+        // RPS > 100 → ELEVATED_DIFFICULTY = 20 bits
+        Assert.Equal(20, governor.CurrentGlobalDifficulty);
     }
 
     [Fact]
@@ -39,8 +39,8 @@ public sealed class AdaptivePowGovernorTests
 
         RecordRequests(governor, 301);
 
-        // RPS > 300 → HIGH_LOAD_DIFFICULTY = 6
-        Assert.Equal(6, governor.CurrentGlobalDifficulty);
+        // RPS > 300 → HIGH_LOAD_DIFFICULTY = 24 bits
+        Assert.Equal(24, governor.CurrentGlobalDifficulty);
     }
 
     [Fact]
@@ -50,8 +50,8 @@ public sealed class AdaptivePowGovernorTests
 
         RecordRequests(governor, 1001);
 
-        // RPS > 1000 → WAR_MODE_DIFFICULTY = 7
-        Assert.Equal(7, governor.CurrentGlobalDifficulty);
+        // RPS > 1000 → WAR_MODE_DIFFICULTY = 28 bits
+        Assert.Equal(28, governor.CurrentGlobalDifficulty);
     }
 
     // ─── RecordInboundRequest ─────────────────────────────────────────────
@@ -84,24 +84,24 @@ public sealed class AdaptivePowGovernorTests
     [Fact]
     public async Task GetDifficultyForIpAsync_AddsPenaltyForHighRiskIp()
     {
-        // Risk score 20 → penalty 2
+        // Risk score 20 → two 4-bit penalty steps
         var governor = CreateGovernor(riskScoreForAnyIp: 20);
         int global = governor.CurrentGlobalDifficulty;
 
         int result = await governor.GetDifficultyForIpAsync("1.2.3.4");
 
-        Assert.Equal(Math.Min(global + 2, 7), result);
+        Assert.Equal(Math.Min(global + 8, 28), result);
     }
 
     [Fact]
     public async Task GetDifficultyForIpAsync_CapsAtWarMode()
     {
-        // Even a huge risk score must not exceed WAR_MODE = 7
+        // Even a huge risk score must not exceed WAR_MODE = 28 bits
         var governor = CreateGovernor(riskScoreForAnyIp: 9999);
 
         int result = await governor.GetDifficultyForIpAsync("1.2.3.4");
 
-        Assert.Equal(7, result);
+        Assert.Equal(28, result);
     }
 
     [Fact]
@@ -128,6 +128,29 @@ public sealed class AdaptivePowGovernorTests
         var governor = CreateGovernor();
         var ex = Record.Exception(() => governor.Tick());
         Assert.Null(ex);
+    }
+
+    [Fact]
+    public void Tick_CarriesLoadForwardWithEwmaAfterWindowReset()
+    {
+        var governor = CreateGovernor();
+        RecordRequests(governor, 1001);
+        typeof(AdaptivePowGovernor)
+            .GetField("_lastTick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(governor, Environment.TickCount64 - 1000);
+
+        governor.Tick();
+
+        Assert.Equal(28, governor.CurrentGlobalDifficulty);
+    }
+
+    [Fact]
+    public void StableIpHashForTests_IsDeterministicAcrossCalls()
+    {
+        uint first = AdaptivePowGovernor.StableIpHashForTests("203.0.113.10");
+        uint second = AdaptivePowGovernor.StableIpHashForTests("203.0.113.10");
+
+        Assert.Equal(first, second);
     }
 
     // ─── helpers ──────────────────────────────────────────────────────────

@@ -801,12 +801,12 @@ HTML bootstrap、hydration props 和 islands payload 均以 `script type="applic
 ```json
 {
   "challenge": "hex-encoded-challenge-string",
-  "difficulty": 4,
+  "difficulty": 16,
   "expiresAt": "2026-01-01T00:05:00Z"
 }
 ```
 
-- `difficulty`：前导零个数，客户端需找到使 `SHA256(challenge + nonce)` 有 `difficulty` 个前导零的 `nonce`
+- `difficulty`：bit 级前导零个数，客户端需找到使 `SHA256(salt + ":" + nonce + ":" + browserFp)` 有 `difficulty` 个前导零 bit 的 `nonce`
 - 挑战令牌存入 Redis，5 分钟过期，使用后立即删除（防重放）
 
 ### PoW 请求头

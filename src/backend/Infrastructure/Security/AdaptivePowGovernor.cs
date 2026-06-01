@@ -14,30 +14,36 @@ public sealed class AdaptivePowGovernor
     // ==========================================
     // 难度配置 (适配前端 SIMD 加速后的新基准)
     // ==========================================
-    private const int BASE_DIFFICULTY = 4;        // 静默期
-    private const int ELEVATED_DIFFICULTY = 5;    // 活跃期
-    private const int HIGH_LOAD_DIFFICULTY = 6;   // 拥堵期
-    private const int WAR_MODE_DIFFICULTY = 7;    // 激战期
+    private const int BASE_DIFFICULTY = 16;       // 静默期
+    private const int ELEVATED_DIFFICULTY = 20;   // 活跃期
+    private const int HIGH_LOAD_DIFFICULTY = 24;  // 拥堵期
+    private const int WAR_MODE_DIFFICULTY = 28;   // 激战期
+    private const int RISK_PENALTY_BITS = 4;
 
     // ==========================================
     // 性能计数器 (实例级原子操作)
     // ==========================================
     private int _currentRps;
     private long _lastTick = Environment.TickCount64;
+    private int _rpsEwmaScaled;
+    private const int EWMA_SCALE = 1000;
+    private const int EWMA_ALPHA_NUMERATOR = 35;
+    private const int EWMA_ALPHA_DENOMINATOR = 100;
 
     // ==========================================
-    // 极限 L1 本地缓存 (无锁 Direct Mapped Cache)
+    // 极限 L1 本地缓存 (无锁 Set-Associative Cache)
     // ==========================================
-    // 容量必须是 2 的整数次幂，以便使用极速的位与(&)操作代替取模(%)运算
-    private const int CACHE_SIZE = 8192;
-    private const int CACHE_MASK = CACHE_SIZE - 1;
-    private readonly RiskCacheEntry?[] _localRiskCache = new RiskCacheEntry?[CACHE_SIZE];
+    private const int CACHE_SET_COUNT = 2048;
+    private const int CACHE_SET_MASK = CACHE_SET_COUNT - 1;
+    private const int CACHE_WAYS = 4;
+    private readonly RiskCacheEntry?[] _localRiskCache = new RiskCacheEntry?[CACHE_SET_COUNT * CACHE_WAYS];
     private const int CACHE_DURATION_MS = 10000; // 本地缓存 10 秒
 
     // 采用引用类型包装缓存节点，确保引用的原子级更新，防止多线程结构体撕裂 (Struct Tearing)
     private sealed class RiskCacheEntry
     {
         public required string Ip { get; init; }
+        public required uint Hash { get; init; }
         public required int Score { get; init; }
         public required long ExpireAt { get; init; }
     }
@@ -67,44 +73,44 @@ public sealed class AdaptivePowGovernor
         int globalDiff = CurrentGlobalDifficulty;
         long now = Environment.TickCount64;
 
-        // 核心物理级优化：无锁环形缓存定位
-        // 彻底消灭 ConcurrentDictionary 的高昂开销与并发争用
-        int idx = ip.GetHashCode() & CACHE_MASK;
-        var cached = Volatile.Read(ref _localRiskCache[idx]);
-
+        uint hash = StableIpHash(ip);
+        int setStart = (int)(hash & CACHE_SET_MASK) * CACHE_WAYS;
+        int replacementIndex = setStart + (int)((hash >> 16) & (CACHE_WAYS - 1));
         int riskScore = 0;
 
-        if (cached != null && cached.Ip == ip && now < cached.ExpireAt)
+        for (int way = 0; way < CACHE_WAYS; way++)
         {
-            // 极速命中本地 L1 缓存
-            riskScore = cached.Score;
-        }
-        else
-        {
-            string? redisValue = await _cache.GetStringAsync(CachePolicyId.SecurityPowRisk, ip);
-            if (!string.IsNullOrWhiteSpace(redisValue) && int.TryParse(redisValue, out int val))
+            int index = setStart + way;
+            RiskCacheEntry? cached = Volatile.Read(ref _localRiskCache[index]);
+            if (cached is null || now >= cached.ExpireAt)
             {
-                riskScore = val;
+                replacementIndex = index;
+                continue;
             }
 
-            // 写入本地缓存 (原子级引用替换，自动淘汰旧数据，彻底免疫缓存雪崩)
-            var newEntry = new RiskCacheEntry
+            if (cached.Hash == hash && cached.Ip == ip)
             {
-                Ip = ip,
-                Score = riskScore,
-                ExpireAt = now + CACHE_DURATION_MS
-            };
-            Volatile.Write(ref _localRiskCache[idx], newEntry);
+                riskScore = cached.Score;
+                return ApplyRiskPenalty(globalDiff, riskScore);
+            }
         }
 
-        // 动态加权：风险分每增加 10 分，难度 +1
-        if (riskScore > 0)
+        string? redisValue = await _cache.GetStringAsync(CachePolicyId.SecurityPowRisk, ip);
+        if (!string.IsNullOrWhiteSpace(redisValue) && int.TryParse(redisValue, out int val))
         {
-            int penalty = riskScore / 10;
-            return Math.Min(globalDiff + penalty, WAR_MODE_DIFFICULTY);
+            riskScore = val;
         }
 
-        return globalDiff;
+        var newEntry = new RiskCacheEntry
+        {
+            Ip = ip,
+            Hash = hash,
+            Score = riskScore,
+            ExpireAt = now + CACHE_DURATION_MS
+        };
+        Volatile.Write(ref _localRiskCache[replacementIndex], newEntry);
+
+        return ApplyRiskPenalty(globalDiff, riskScore);
     }
 
     /// <summary>
@@ -130,7 +136,8 @@ public sealed class AdaptivePowGovernor
         {
             if (Interlocked.CompareExchange(ref _lastTick, now, last) == last)
             {
-                Interlocked.Exchange(ref _currentRps, 0);
+                int observedRps = Interlocked.Exchange(ref _currentRps, 0);
+                UpdateRpsEwma(observedRps);
             }
         }
     }
@@ -151,12 +158,52 @@ public sealed class AdaptivePowGovernor
     private int CalculateGlobalDifficulty()
     {
         // 性能微调：使用 Volatile 读取确保最新值，省去不必要的 Interlocked 锁开销
-        int rps = Volatile.Read(ref _currentRps);
+        int currentRps = Volatile.Read(ref _currentRps);
+        int ewmaRps = Volatile.Read(ref _rpsEwmaScaled) / EWMA_SCALE;
+        int rps = Math.Max(currentRps, ewmaRps);
 
         if (rps > 1000) return WAR_MODE_DIFFICULTY;
         if (rps > 300) return HIGH_LOAD_DIFFICULTY;
         if (rps > 100) return ELEVATED_DIFFICULTY;
 
         return BASE_DIFFICULTY;
+    }
+
+    private void UpdateRpsEwma(int observedRps)
+    {
+        int observedScaled = Math.Max(0, observedRps) * EWMA_SCALE;
+        int previous = Volatile.Read(ref _rpsEwmaScaled);
+        int next = previous == 0
+            ? observedScaled
+            : ((previous * (EWMA_ALPHA_DENOMINATOR - EWMA_ALPHA_NUMERATOR)) + (observedScaled * EWMA_ALPHA_NUMERATOR)) / EWMA_ALPHA_DENOMINATOR;
+        Volatile.Write(ref _rpsEwmaScaled, next);
+    }
+
+    private static int ApplyRiskPenalty(int globalDiff, int riskScore)
+    {
+        if (riskScore <= 0)
+        {
+            return globalDiff;
+        }
+
+        int penalty = (riskScore / 10) * RISK_PENALTY_BITS;
+        return Math.Min(globalDiff + penalty, WAR_MODE_DIFFICULTY);
+    }
+
+    internal static uint StableIpHashForTests(string ip) => StableIpHash(ip);
+
+    private static uint StableIpHash(string ip)
+    {
+        unchecked
+        {
+            uint hash = 2166136261u;
+            foreach (char ch in ip)
+            {
+                hash ^= ch;
+                hash *= 16777619u;
+            }
+
+            return hash;
+        }
     }
 }

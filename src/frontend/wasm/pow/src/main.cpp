@@ -347,7 +347,7 @@ namespace simd4 {
         return true;
     }
 
-    const int leading_bits = difficulty * 4;
+    const int leading_bits = difficulty;
     const int full_words = leading_bits / 32;
     const int remaining_bits = leading_bits % 32;
 
@@ -370,11 +370,11 @@ namespace simd4 {
     if (difficulty <= 0) [[unlikely]] {
         return true;
     }
-    if (difficulty > 8) [[unlikely]] {
+    if (difficulty > 32) [[unlikely]] {
         return false;
     }
 
-    const int leading_bits = difficulty * 4;
+    const int leading_bits = difficulty;
     const std::uint32_t mask = leading_bits == 32 ? 0xffffffffu : (0xffffffffu << (32 - leading_bits));
     return (state0 & mask) == 0u;
 }
@@ -424,7 +424,7 @@ bool solve_range_simd4(
     std::uint32_t step,
     std::uint32_t& solution) noexcept
 {
-    if (difficulty > 8) [[unlikely]] {
+    if (difficulty > 32) [[unlikely]] {
         return solve_range_scalar(salt, salt_len, browser_fp, browser_fp_len, difficulty, start_nonce, step, solution);
     }
 
@@ -487,7 +487,7 @@ bool validate_inputs(const char* salt, const char* browser_fp, int difficulty, s
     if (salt == nullptr || browser_fp == nullptr) {
         return false;
     }
-    if (difficulty <= 0 || difficulty > 64) {
+    if (difficulty <= 0 || difficulty > 256) {
         salt_len = 0;
         fp_len = 0;
         return true;

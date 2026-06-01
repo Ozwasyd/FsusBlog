@@ -899,7 +899,6 @@ public class ArticleService(
         [
             new("@IsDeleted", isDeleted),
             new("@Now", DateTime.UtcNow),
-            new("@Offset", (page - 1) * size),
             new("@Limit", size)
         ];
 
@@ -935,6 +934,12 @@ public class ArticleService(
         }
 
         string whereSql = string.Join(" AND ", whereClauses);
+        if (ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate))
+        {
+            return await LoadPublicArticleListPageByKeysetAsync(page, size, whereSql, parameters, cancellationToken);
+        }
+
+        parameters.Add(new SugarParameter("@Offset", (page - 1) * size));
         string combinedSql = $$"""
             SELECT COUNT(1) AS "__TotalCount"
             FROM article a
@@ -956,7 +961,7 @@ public class ArticleService(
             FROM article a
             LEFT JOIN category c ON a.categoryid = c.id
             WHERE {{whereSql}}
-            ORDER BY a.createtime DESC
+            ORDER BY a.createtime DESC, a.id DESC
             OFFSET @Offset
             LIMIT @Limit;
             """;
@@ -975,53 +980,165 @@ public class ArticleService(
                 return new ArticleListPageReadModel { Items = [], Total = totalCount };
             }
 
-            int fId = reader.GetOrdinal("Id");
-            int fTitle = reader.GetOrdinal("Title");
-            int fSum = reader.GetOrdinal("Summary");
-            int fCover = reader.GetOrdinal("CoverImageUrl");
-            int fViews = reader.GetOrdinal("Views");
-            int fTime = reader.GetOrdinal("CreateTime");
-            int fCatId = reader.GetOrdinal("CategoryId");
-            int fCatName = reader.GetOrdinal("CategoryName");
-            int fDel = reader.GetOrdinal("IsDeleted");
-            int fStatus = reader.GetOrdinal("Status");
-            int fScheduled = reader.GetOrdinal("ScheduledPublishAt");
-            int fPublished = reader.GetOrdinal("PublishedAt");
-
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                list.Add(new ArticleListItemReadModel
-                {
-                    Id = reader.GetInt32(fId),
-                    Title = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle),
-                    Summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum),
-                    CoverImageUrl = reader.IsDBNull(fCover) ? null : reader.GetString(fCover),
-                    Views = reader.GetInt32(fViews),
-                    CreateTime = reader.GetDateTime(fTime),
-                    CategoryId = reader.GetInt32(fCatId),
-                    CategoryName = reader.IsDBNull(fCatName) ? "默认" : reader.GetString(fCatName),
-                    IsDeleted = reader.GetBoolean(fDel),
-                    Status = (ArticleStatus)reader.GetInt32(fStatus),
-                    ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : reader.GetDateTime(fScheduled),
-                    PublishedAt = reader.IsDBNull(fPublished) ? null : reader.GetDateTime(fPublished),
-                    Tags = []
-                });
-            }
+            await ReadArticleListItemsAsync(reader, list, cancellationToken);
         }
 
-        if (list.Count > 0)
-        {
-            var ids = new List<int>(list.Count);
-            for (int i = 0; i < list.Count; i++)
-            {
-                ids.Add(list[i].Id);
-            }
-
-            var tagDict = await LoadArticleTagMapAsync(ids);
-            AttachTags(list, tagDict);
-        }
+        await AttachArticleListTagsAsync(list);
 
         return new ArticleListPageReadModel { Items = list, Total = totalCount };
+    }
+
+    private static bool ShouldUsePublicKeysetPagination(bool isDeleted, int? status, bool includePrivate)
+        => !isDeleted && !includePrivate && !status.HasValue;
+
+    private async Task<ArticleListPageReadModel> LoadPublicArticleListPageByKeysetAsync(
+        int page,
+        int size,
+        string whereSql,
+        IReadOnlyCollection<SugarParameter> baseParameters,
+        CancellationToken cancellationToken)
+    {
+        string countSql = $$"""
+            SELECT COUNT(1) AS "__TotalCount"
+            FROM article a
+            WHERE {{whereSql}};
+            """;
+
+        int totalCount = 0;
+        using (var countReader = (DbDataReader)await _db.Ado.GetDataReaderAsync(countSql, CloneArticleListParameters(baseParameters)))
+        {
+            if (await countReader.ReadAsync(cancellationToken))
+            {
+                totalCount = countReader.IsDBNull(0) ? 0 : Convert.ToInt32(countReader.GetValue(0));
+            }
+        }
+
+        DateTime? cursorTime = null;
+        int? cursorId = null;
+        List<ArticleListItemReadModel> pageItems = [];
+        for (int currentPage = 1; currentPage <= page; currentPage++)
+        {
+            List<SugarParameter> pageParameters = CloneArticleListParameters(baseParameters);
+            string pageWhereSql = whereSql;
+            if (cursorTime.HasValue && cursorId.HasValue)
+            {
+                pageWhereSql += " AND (a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId))";
+                pageParameters.Add(new SugarParameter("@CursorTime", cursorTime.Value));
+                pageParameters.Add(new SugarParameter("@CursorId", cursorId.Value));
+            }
+
+            string pageSql = BuildArticleListKeysetPageSql(pageWhereSql);
+            var currentItems = new List<ArticleListItemReadModel>(size);
+            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(pageSql, pageParameters))
+            {
+                await ReadArticleListItemsAsync(reader, currentItems, cancellationToken);
+            }
+
+            if (currentPage == page)
+            {
+                pageItems = currentItems;
+                break;
+            }
+
+            if (currentItems.Count < size)
+            {
+                pageItems = [];
+                break;
+            }
+
+            ArticleListItemReadModel last = currentItems[^1];
+            cursorTime = last.CreateTime;
+            cursorId = last.Id;
+        }
+
+        await AttachArticleListTagsAsync(pageItems);
+        return new ArticleListPageReadModel { Items = pageItems, Total = totalCount };
+    }
+
+    private static string BuildArticleListKeysetPageSql(string whereSql)
+        => $$"""
+            SELECT
+                a.id AS "Id",
+                a.title AS "Title",
+                a.summary AS "Summary",
+                a.coverimageurl AS "CoverImageUrl",
+                a.views AS "Views",
+                a.createtime AS "CreateTime",
+                a.categoryid AS "CategoryId",
+                c.name AS "CategoryName",
+                a.isdeleted AS "IsDeleted",
+                a.status AS "Status",
+                a.scheduled_publish_at AS "ScheduledPublishAt",
+                a.published_at AS "PublishedAt"
+            FROM article a
+            LEFT JOIN category c ON a.categoryid = c.id
+            WHERE {{whereSql}}
+            ORDER BY a.createtime DESC, a.id DESC
+            LIMIT @Limit;
+            """;
+
+    private static async Task ReadArticleListItemsAsync(DbDataReader reader, List<ArticleListItemReadModel> list, CancellationToken cancellationToken)
+    {
+        int fId = reader.GetOrdinal("Id");
+        int fTitle = reader.GetOrdinal("Title");
+        int fSum = reader.GetOrdinal("Summary");
+        int fCover = reader.GetOrdinal("CoverImageUrl");
+        int fViews = reader.GetOrdinal("Views");
+        int fTime = reader.GetOrdinal("CreateTime");
+        int fCatId = reader.GetOrdinal("CategoryId");
+        int fCatName = reader.GetOrdinal("CategoryName");
+        int fDel = reader.GetOrdinal("IsDeleted");
+        int fStatus = reader.GetOrdinal("Status");
+        int fScheduled = reader.GetOrdinal("ScheduledPublishAt");
+        int fPublished = reader.GetOrdinal("PublishedAt");
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            list.Add(new ArticleListItemReadModel
+            {
+                Id = reader.GetInt32(fId),
+                Title = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle),
+                Summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum),
+                CoverImageUrl = reader.IsDBNull(fCover) ? null : reader.GetString(fCover),
+                Views = reader.GetInt32(fViews),
+                CreateTime = reader.GetDateTime(fTime),
+                CategoryId = reader.GetInt32(fCatId),
+                CategoryName = reader.IsDBNull(fCatName) ? "默认" : reader.GetString(fCatName),
+                IsDeleted = reader.GetBoolean(fDel),
+                Status = (ArticleStatus)reader.GetInt32(fStatus),
+                ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : reader.GetDateTime(fScheduled),
+                PublishedAt = reader.IsDBNull(fPublished) ? null : reader.GetDateTime(fPublished),
+                Tags = []
+            });
+        }
+    }
+
+    private async Task AttachArticleListTagsAsync(List<ArticleListItemReadModel> list)
+    {
+        if (list.Count == 0)
+        {
+            return;
+        }
+
+        var ids = new List<int>(list.Count);
+        for (int i = 0; i < list.Count; i++)
+        {
+            ids.Add(list[i].Id);
+        }
+
+        var tagDict = await LoadArticleTagMapAsync(ids);
+        AttachTags(list, tagDict);
+    }
+
+    private static List<SugarParameter> CloneArticleListParameters(IReadOnlyCollection<SugarParameter> source)
+    {
+        var cloned = new List<SugarParameter>(source.Count);
+        foreach (SugarParameter parameter in source)
+        {
+            cloned.Add(new SugarParameter(parameter.ParameterName, parameter.Value));
+        }
+
+        return cloned;
     }
 
     private static string RewriteParameters(

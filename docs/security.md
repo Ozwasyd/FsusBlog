@@ -22,7 +22,8 @@
 - 有效期：挑战存入 Redis，TTL 过期后自动失效
 - 服务端验证：注册 / 登录端点在执行业务逻辑前校验 PoW 解答，失败拒绝请求
 - 安全门控覆盖：缺失、篡改、重放形态的 PoW 请求不得产生 2xx，且不得写入业务状态。
-- 客户端求解器：PoW 延迟优化只发生在 `src/frontend/wasm/pow` 的 C++23/Wasm 层，服务端 difficulty 与 proof 格式不降低、不变更。
+- 难度语义：`difficulty` 表示 SHA-256 摘要的 bit 级前导零数量，而不是半字节 / nibble 数；默认阶梯为 16/20/24/28 bits。
+- 客户端求解器：PoW 延迟优化只发生在 `src/frontend/wasm/pow` 的 C++23/Wasm 层，proof wire 格式与 Redis/HMAC 绑定语义不变。
 - Wasm 分层：运行时按 `threads -> relaxed SIMD -> SIMD128 -> basic` 选择可用资产；任一高阶资产初始化或求解失败时自动降级到下一层，不影响 API 语义。
 - 多核约束：threads 层只在 `crossOriginIsolated`、`SharedArrayBuffer` 和 Wasm atomics 可用时启用，worker 数上限为 `min(4, hardwareConcurrency - 1)`。
 

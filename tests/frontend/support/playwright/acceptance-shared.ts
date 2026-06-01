@@ -254,15 +254,15 @@ function hasLeadingDifficulty(hash: Buffer, difficulty: number): boolean {
       return true
     }
 
-    if (remaining >= 2) {
+    if (remaining >= 8) {
       if (byte !== 0) {
         return false
       }
-      remaining -= 2
+      remaining -= 8
       continue
     }
 
-    if ((byte >> 4) !== 0) {
+    if ((byte >> (8 - remaining)) !== 0) {
       return false
     }
     return true

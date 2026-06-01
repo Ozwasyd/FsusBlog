@@ -20,4 +20,36 @@ public sealed class StatsServiceRegionTests
     {
         Assert.Equal("中国-北京", StatsService.NormalizeRegionForStats("  中国-北京  "));
     }
+
+    [Fact]
+    public void LoadRegionStatsAsync_SourcePushesNormalizationAndTopNToSql()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/StatsService.cs"));
+        int methodStart = source.IndexOf("private async Task<List<RegionStatItemDto>> LoadRegionStatsAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("internal static string NormalizeRegionForStats", StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("WITH normalized_regions AS", method, StringComparison.Ordinal);
+        Assert.Contains("GROUP BY \"Region\"", method, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY \"Count\" DESC, \"Region\" ASC", method, StringComparison.Ordinal);
+        Assert.Contains("LIMIT 10", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Dictionary<string, int>", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("OrderByDescending(item => item.Value)", method, StringComparison.Ordinal);
+    }
+
+    private static string FindRepoRoot()
+    {
+        DirectoryInfo? current = new(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        throw new DirectoryNotFoundException("repo root not found");
+    }
 }

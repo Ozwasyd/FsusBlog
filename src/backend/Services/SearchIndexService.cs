@@ -487,17 +487,7 @@ public sealed partial class SearchIndexService(
             .Where(doc => changedDocumentIds.Contains(doc.ArticleId))
             .ToArray();
 
-        SearchTermEntry[] terms = shard.Terms
-            .Select(term =>
-            {
-                SearchPostingEntry[] postings = term.Postings
-                    .Where(posting => changedDocumentIds.Contains((int)posting.ArticleId))
-                    .ToArray();
-                return postings.Length == 0 ? null : new SearchTermEntry(term.Hash, term.Idf, term.HasPositions, postings);
-            })
-            .Where(term => term is not null)
-            .Select(term => term!)
-            .ToArray();
+        SearchTermEntry[] terms = BuildPatchTermsFromForwardIndex(shard, changedDocumentIds);
 
         if (!docs.Any(HasDocumentMetadata))
         {
@@ -507,10 +497,51 @@ public sealed partial class SearchIndexService(
                 [],
                 [],
                 terms,
+                BuildForwardIndex(terms),
                 shard.AverageDocLength);
         }
 
         return BuildMetadataPatchShard(shard, docs, terms);
+    }
+
+    private static SearchTermEntry[] BuildPatchTermsFromForwardIndex(SearchShardData shard, IReadOnlySet<int> changedDocumentIds)
+    {
+        var postingsByTerm = new SortedDictionary<uint, List<SearchPostingEntry>>();
+        foreach (int articleId in changedDocumentIds)
+        {
+            if (!shard.ForwardIndex.TryGetValue(articleId, out SearchForwardTermEntry[]? forwardTerms))
+            {
+                continue;
+            }
+
+            foreach (SearchForwardTermEntry forward in forwardTerms)
+            {
+                if (!postingsByTerm.TryGetValue(forward.TermHash, out List<SearchPostingEntry>? postings))
+                {
+                    postings = [];
+                    postingsByTerm[forward.TermHash] = postings;
+                }
+
+                postings.Add(forward.Posting);
+            }
+        }
+
+        if (postingsByTerm.Count == 0)
+        {
+            return [];
+        }
+
+        var termMetadata = shard.Terms.ToDictionary(static term => term.Hash);
+        var terms = new SearchTermEntry[postingsByTerm.Count];
+        int index = 0;
+        foreach ((uint hash, List<SearchPostingEntry> postings) in postingsByTerm)
+        {
+            SearchTermEntry source = termMetadata[hash];
+            postings.Sort(static (left, right) => left.ArticleId.CompareTo(right.ArticleId));
+            terms[index++] = new SearchTermEntry(hash, source.Idf, source.HasPositions, postings.ToArray());
+        }
+
+        return terms;
     }
 
     private static bool HasDocumentMetadata(SearchDocEntry doc)
@@ -551,6 +582,7 @@ public sealed partial class SearchIndexService(
             categoryEntries.ToImmutable(),
             tagEntries.ToImmutable(),
             terms,
+            BuildForwardIndex(terms),
             shard.AverageDocLength);
     }
 
@@ -902,7 +934,33 @@ public sealed partial class SearchIndexService(
             : selectedArticles.Select(article => SearchDocEntry.Minimal(article.Id)).ToImmutableArray();
 
         float avgDocLength = selectedArticles.Length == 0 ? 1f : Math.Max((float)totalDocLength / selectedArticles.Length, 1f);
-        return new SearchShardData(role, docs, categoryDictionary.Entries, tagDictionary.Entries, terms, avgDocLength);
+        return new SearchShardData(role, docs, categoryDictionary.Entries, tagDictionary.Entries, terms, BuildForwardIndex(terms), avgDocLength);
+    }
+
+    private static FrozenDictionary<int, SearchForwardTermEntry[]> BuildForwardIndex(SearchTermEntry[] terms)
+    {
+        var forward = new Dictionary<int, List<SearchForwardTermEntry>>();
+        foreach (SearchTermEntry term in terms)
+        {
+            foreach (SearchPostingEntry posting in term.Postings)
+            {
+                int articleId = checked((int)posting.ArticleId);
+                if (!forward.TryGetValue(articleId, out List<SearchForwardTermEntry>? entries))
+                {
+                    entries = [];
+                    forward[articleId] = entries;
+                }
+
+                entries.Add(new SearchForwardTermEntry(term.Hash, term.Idf, term.HasPositions, posting));
+            }
+        }
+
+        return forward.ToDictionary(
+                static entry => entry.Key,
+                static entry => entry.Value
+                    .OrderBy(static term => term.TermHash)
+                    .ToArray())
+            .ToFrozenDictionary();
     }
 
     private static ImmutableArray<SearchDocEntry> FilterDocsBySelectedArticles(
@@ -939,9 +997,36 @@ public sealed partial class SearchIndexService(
             return int.MaxValue;
         }
 
-        int[] dfs = accumulators.Values.Select(it => it.DocumentFrequency).OrderBy(it => it).ToArray();
-        int percentileIndex = (int)Math.Floor((dfs.Length - 1) * (HotFrequencyPercentile / 100d));
-        return dfs[Math.Clamp(percentileIndex, 0, dfs.Length - 1)];
+        int percentileIndex = Math.Clamp(
+            (int)Math.Floor((accumulators.Count - 1) * (HotFrequencyPercentile / 100d)),
+            0,
+            accumulators.Count - 1);
+        int[] histogram = ArrayPool<int>.Shared.Rent(documentCount + 1);
+        try
+        {
+            histogram.AsSpan(0, documentCount + 1).Clear();
+            foreach (TermAccumulator accumulator in accumulators.Values)
+            {
+                int df = Math.Clamp(accumulator.DocumentFrequency, 0, documentCount);
+                histogram[df]++;
+            }
+
+            int seen = 0;
+            for (int df = 0; df <= documentCount; df++)
+            {
+                seen += histogram[df];
+                if (seen > percentileIndex)
+                {
+                    return df;
+                }
+            }
+
+            return documentCount;
+        }
+        finally
+        {
+            ArrayPool<int>.Shared.Return(histogram, clearArray: false);
+        }
     }
 
     private static SearchTermEntry[] BuildTerms(Dictionary<uint, TermAccumulator> accumulators, int docCount, int dfCutoff)
@@ -1766,15 +1851,18 @@ public sealed partial class SearchIndexService(
     private sealed class SearchRuntimeSnapshot
     {
         private readonly FrozenDictionary<uint, SearchRuntimePosting[]> _postingsByHash;
+        private readonly FrozenDictionary<uint, SearchRuntimePostingBlock[]> _postingBlocksByHash;
         private readonly FrozenDictionary<int, SearchRuntimeDocument> _documentsById;
         private readonly ISearchDictionaryLookup _queryDictionary;
 
         public SearchRuntimeSnapshot(
             FrozenDictionary<uint, SearchRuntimePosting[]> postingsByHash,
+            FrozenDictionary<uint, SearchRuntimePostingBlock[]> postingBlocksByHash,
             FrozenDictionary<int, SearchRuntimeDocument> documentsById,
             ISearchDictionaryLookup queryDictionary)
         {
             _postingsByHash = postingsByHash;
+            _postingBlocksByHash = postingBlocksByHash;
             _documentsById = documentsById;
             _queryDictionary = queryDictionary;
         }
@@ -1818,16 +1906,7 @@ public sealed partial class SearchIndexService(
                 return [];
             }
 
-            return scores
-                .Select(entry => new
-                {
-                    Score = entry.Value,
-                    Document = _documentsById[entry.Key]
-                })
-                .OrderByDescending(entry => entry.Score)
-                .ThenByDescending(entry => entry.Document.Views)
-                .ThenByDescending(entry => entry.Document.CreateTime)
-                .Take(200)
+            return SelectTopRuntimeCandidates(scores, _documentsById, 200)
                 .Select(entry => new Article
                 {
                     Id = entry.Document.Id,
@@ -1835,6 +1914,40 @@ public sealed partial class SearchIndexService(
                     Content = BuildRuntimeSnippet(keyword, entry.Document)
                 })
                 .ToList();
+        }
+
+        private static SearchRuntimeCandidate[] SelectTopRuntimeCandidates(
+            Dictionary<int, double> scores,
+            FrozenDictionary<int, SearchRuntimeDocument> documentsById,
+            int limit)
+        {
+            var heap = new PriorityQueue<SearchRuntimeCandidate, SearchRuntimeCandidatePriority>();
+            foreach ((int articleId, double score) in scores)
+            {
+                SearchRuntimeDocument document = documentsById[articleId];
+                var candidate = new SearchRuntimeCandidate(score, document);
+                var priority = SearchRuntimeCandidatePriority.From(candidate);
+                if (heap.Count < limit)
+                {
+                    heap.Enqueue(candidate, priority);
+                    continue;
+                }
+
+                _ = heap.TryPeek(out _, out SearchRuntimeCandidatePriority worstPriority);
+                if (priority.CompareTo(worstPriority) <= 0)
+                {
+                    continue;
+                }
+
+                _ = heap.Dequeue();
+                heap.Enqueue(candidate, priority);
+            }
+
+            SearchRuntimeCandidate[] candidates = heap.UnorderedItems
+                .Select(static item => item.Element)
+                .ToArray();
+            Array.Sort(candidates, static (left, right) => SearchRuntimeCandidate.CompareBestFirst(left, right));
+            return candidates;
         }
 
         private static string BuildRuntimeSnippet(string keyword, SearchRuntimeDocument document)
@@ -1902,7 +2015,7 @@ public sealed partial class SearchIndexService(
                 ? 1d
                 : _documentsById.Values.Average(static document => Math.Max(document.DocLength, 1));
 
-            FrozenDictionary<uint, SearchRuntimePosting[]> postings = _weightedTfByHash
+            Dictionary<uint, SearchRuntimePosting[]> postingMap = _weightedTfByHash
                 .ToDictionary(
                     entry => entry.Key,
                     entry =>
@@ -1920,10 +2033,13 @@ public sealed partial class SearchIndexService(
                         .OrderByDescending(static posting => posting.Score)
                         .ThenBy(static posting => posting.ArticleId)
                         .ToArray();
-                    })
+                    });
+            FrozenDictionary<uint, SearchRuntimePostingBlock[]> postingBlocks = postingMap
+                .ToDictionary(static entry => entry.Key, static entry => BuildRuntimePostingBlocks(entry.Value))
                 .ToFrozenDictionary();
+            FrozenDictionary<uint, SearchRuntimePosting[]> postings = postingMap.ToFrozenDictionary();
 
-            return new SearchRuntimeSnapshot(postings, _documentsById.ToFrozenDictionary(), queryDictionary);
+            return new SearchRuntimeSnapshot(postings, postingBlocks, _documentsById.ToFrozenDictionary(), queryDictionary);
         }
 
         private void AddField(
@@ -1982,6 +2098,98 @@ public sealed partial class SearchIndexService(
         int DocLength);
 
     private readonly record struct SearchRuntimePosting(int ArticleId, double Score);
+    private readonly record struct SearchRuntimePostingBlock(int Start, int Length, double MaxScore);
+
+    private static SearchRuntimePostingBlock[] BuildRuntimePostingBlocks(SearchRuntimePosting[] postings)
+    {
+        const int blockSize = 64;
+        if (postings.Length == 0)
+        {
+            return [];
+        }
+
+        var blocks = new SearchRuntimePostingBlock[(postings.Length + blockSize - 1) / blockSize];
+        for (int start = 0, blockIndex = 0; start < postings.Length; start += blockSize, blockIndex++)
+        {
+            int length = Math.Min(blockSize, postings.Length - start);
+            double maxScore = 0d;
+            for (int i = start; i < start + length; i++)
+            {
+                maxScore = Math.Max(maxScore, postings[i].Score);
+            }
+
+            blocks[blockIndex] = new SearchRuntimePostingBlock(start, length, maxScore);
+        }
+
+        return blocks;
+    }
+
+    private static bool CanSkipRuntimePostingBlock(
+        double topKThreshold,
+        double accumulatedDocumentScore,
+        double blockMaxScore,
+        double remainingQueryMaxScore)
+        => accumulatedDocumentScore + blockMaxScore + remainingQueryMaxScore <= topKThreshold;
+
+    private readonly record struct SearchRuntimeCandidate(double Score, SearchRuntimeDocument Document)
+    {
+        public static int CompareBestFirst(SearchRuntimeCandidate left, SearchRuntimeCandidate right)
+        {
+            int score = right.Score.CompareTo(left.Score);
+            if (score != 0)
+            {
+                return score;
+            }
+
+            int views = right.Document.Views.CompareTo(left.Document.Views);
+            if (views != 0)
+            {
+                return views;
+            }
+
+            int createTime = right.Document.CreateTime.CompareTo(left.Document.CreateTime);
+            if (createTime != 0)
+            {
+                return createTime;
+            }
+
+            return right.Document.Id.CompareTo(left.Document.Id);
+        }
+    }
+
+    private readonly record struct SearchRuntimeCandidatePriority(double Score, int Views, DateTime CreateTime, int ArticleId)
+        : IComparable<SearchRuntimeCandidatePriority>
+    {
+        public static SearchRuntimeCandidatePriority From(SearchRuntimeCandidate candidate)
+            => new(
+                candidate.Score,
+                candidate.Document.Views,
+                candidate.Document.CreateTime,
+                candidate.Document.Id);
+
+        public int CompareTo(SearchRuntimeCandidatePriority other)
+        {
+            int score = Score.CompareTo(other.Score);
+            if (score != 0)
+            {
+                return score;
+            }
+
+            int views = Views.CompareTo(other.Views);
+            if (views != 0)
+            {
+                return views;
+            }
+
+            int createTime = CreateTime.CompareTo(other.CreateTime);
+            if (createTime != 0)
+            {
+                return createTime;
+            }
+
+            return ArticleId.CompareTo(other.ArticleId);
+        }
+    }
 
     private sealed record SearchIndexManifest(
         int SchemaVersion,
@@ -2068,6 +2276,7 @@ public sealed partial class SearchIndexService(
         ImmutableArray<SearchCategoryDictionaryEntry> Categories,
         ImmutableArray<SearchTagDictionaryEntry> Tags,
         SearchTermEntry[] Terms,
+        FrozenDictionary<int, SearchForwardTermEntry[]> ForwardIndex,
         float AverageDocLength);
 
     private sealed record SearchDocEntry(
@@ -2086,6 +2295,7 @@ public sealed partial class SearchIndexService(
     }
 
     private sealed record SearchTermEntry(uint Hash, float Idf, bool HasPositions, SearchPostingEntry[] Postings);
+    private readonly record struct SearchForwardTermEntry(uint TermHash, float Idf, bool HasPositions, SearchPostingEntry Posting);
     private sealed record SearchPostingEntry(uint ArticleId, byte TitleTf, byte MetaTf, byte BodyTf, SearchPositionEntry[] Positions);
     private readonly record struct SearchPositionEntry(uint Position, uint PositionLength, SearchFieldKind Field);
 
@@ -2351,6 +2561,13 @@ public sealed partial class SearchIndexService(
         SearchRuntimeSnapshot snapshot = SearchRuntimeSnapshot.Build(sources, dictionary);
         return [.. snapshot.Search(keyword).Select(static article => article.Id)];
     }
+
+    internal static bool CanSkipRuntimePostingBlockForTests(
+        double topKThreshold,
+        double accumulatedDocumentScore,
+        double blockMaxScore,
+        double remainingQueryMaxScore)
+        => CanSkipRuntimePostingBlock(topKThreshold, accumulatedDocumentScore, blockMaxScore, remainingQueryMaxScore);
 
     internal readonly record struct SearchRuntimeTestArticle(
         int Id,

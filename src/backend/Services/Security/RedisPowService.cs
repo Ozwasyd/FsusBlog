@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using System.Buffers.Text;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -196,24 +197,27 @@ public class RedisPowService : IPowService
         // RyuJIT 编译器会在 AMD EPYC 7K62 上将此行直接替换为 SHA 硬件加速指令
         SHA256.HashData(dataBuffer[..offset], hashResult);
 
-        // 极限前导零校验 (规避数组越界检查)
-        int fullBytes = req.Difficulty / 2;
-        if (fullBytes > 32) return false;
+        return (uint)req.Difficulty <= 256u
+            && CountLeadingZeroBits(hashResult) >= req.Difficulty;
+    }
 
-        // 性能最大化：提取栈内存首地址，生成底层汇编指针寻址，无任何 Bounds Checking
-        ref byte hashRef = ref MemoryMarshal.GetReference(hashResult);
-
-        for (int i = 0; i < fullBytes; i++)
+    private static int CountLeadingZeroBits(ReadOnlySpan<byte> hash)
+    {
+        int count = 0;
+        ref byte hashRef = ref MemoryMarshal.GetReference(hash);
+        for (int i = 0; i < hash.Length; i++)
         {
-            if (Unsafe.Add(ref hashRef, i) != 0) return false;
+            byte value = Unsafe.Add(ref hashRef, i);
+            if (value == 0)
+            {
+                count += 8;
+                continue;
+            }
+
+            return count + BitOperations.LeadingZeroCount((uint)value) - 24;
         }
 
-        if (req.Difficulty % 2 != 0)
-        {
-            if ((Unsafe.Add(ref hashRef, fullBytes) & 0xF0) != 0) return false;
-        }
-
-        return true;
+        return count;
     }
 
     private static bool TryWriteUtf8(string value, Span<byte> destination, ref int offset)

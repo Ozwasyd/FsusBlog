@@ -193,34 +193,41 @@ public partial class StatsService(
 
     private async Task<List<RegionStatItemDto>> LoadRegionStatsAsync(CancellationToken cancellationToken)
     {
-        var regionQuery = _db.Queryable<VisitLogEntity>()
-            .GroupBy(v => v.Region)
-            .Select(v => new
-            {
-                Region = SqlFunc.IsNull(v.Region, "未知地区"),
-                Count = SqlFunc.AggregateCount(v.Id)
-            });
+        const string regionSql = """
+            WITH normalized_regions AS (
+                SELECT
+                    CASE
+                        WHEN region IS NULL
+                            OR btrim(region) = ''
+                            OR lower(btrim(region)) = 'unknown'
+                            OR btrim(region) = '未知'
+                        THEN '未知地区'
+                        ELSE btrim(region)
+                    END AS "Region"
+                FROM sys_visit_log
+            )
+            SELECT
+                "Region",
+                COUNT(1)::bigint AS "Count"
+            FROM normalized_regions
+            GROUP BY "Region"
+            ORDER BY "Count" DESC, "Region" ASC
+            LIMIT 10;
+            """;
 
-        var regionSql = regionQuery.ToSql();
-        var regionCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-
-        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(regionSql.Key, regionSql.Value);
+        var regions = new List<RegionStatItemDto>(10);
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(regionSql);
         int fRegion = reader.GetOrdinal("Region");
         int fCount = reader.GetOrdinal("Count");
 
         while (await reader.ReadAsync(cancellationToken))
         {
-            string region = NormalizeRegionForStats(reader.IsDBNull(fRegion) ? null : reader.GetString(fRegion));
+            string region = reader.IsDBNull(fRegion) ? "未知地区" : reader.GetString(fRegion);
             int count = (int)reader.GetInt64(fCount);
-            regionCounts[region] = regionCounts.GetValueOrDefault(region) + count;
+            regions.Add(new RegionStatItemDto(region, count));
         }
 
-        return regionCounts
-            .OrderByDescending(item => item.Value)
-            .ThenBy(item => item.Key, StringComparer.Ordinal)
-            .Take(10)
-            .Select(item => new RegionStatItemDto(item.Key, item.Value))
-            .ToList();
+        return regions;
     }
 
     internal static string NormalizeRegionForStats(string? region)

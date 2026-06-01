@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
+using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
 
@@ -95,6 +96,7 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
                 tree.Add(ip, len);
             }
         }
+        tree.Seal();
         return tree;
     }
 
@@ -172,72 +174,212 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
     }
 }
 
-#region 极速 IP 前缀树 (Radix Tree)
+#region 极速 IP 前缀区间表
 public class IpRadixTree
 {
-    private readonly IpTrieNode _v4Root = new();
-    private readonly IpTrieNode _v6Root = new();
+    private readonly List<Ipv4Interval> _v4Intervals = [];
+    private readonly List<Ipv6Interval> _v6Intervals = [];
+    private bool _sealed;
 
     public void Add(IPAddress ip, int prefixLength)
     {
         if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
 
-        var root = ip.AddressFamily == AddressFamily.InterNetwork ? _v4Root : _v6Root;
-        byte[] bytes = ip.GetAddressBytes();
-        IpTrieNode current = root;
-
-        for (int i = 0; i < prefixLength; i++)
+        if (ip.AddressFamily == AddressFamily.InterNetwork)
         {
-            int byteIndex = i / 8;
-            int bitIndex = 7 - (i % 8);
-            bool bit = ((bytes[byteIndex] >> bitIndex) & 1) == 1;
+            if ((uint)prefixLength > 32u)
+            {
+                return;
+            }
 
-            if (bit)
-            {
-                current.One ??= new IpTrieNode();
-                current = current.One;
-            }
-            else
-            {
-                current.Zero ??= new IpTrieNode();
-                current = current.Zero;
-            }
+            uint value = BinaryPrimitives.ReadUInt32BigEndian(ip.GetAddressBytes());
+            uint mask = prefixLength == 0 ? 0u : uint.MaxValue << (32 - prefixLength);
+            uint start = value & mask;
+            uint end = start | ~mask;
+            _v4Intervals.Add(new Ipv4Interval(start, end));
+            _sealed = false;
+            return;
         }
-        current.IsMatch = true;
+
+        if (ip.AddressFamily == AddressFamily.InterNetworkV6)
+        {
+            if ((uint)prefixLength > 128u)
+            {
+                return;
+            }
+
+            UInt128 value = ReadUInt128BigEndian(ip.GetAddressBytes());
+            UInt128 mask = prefixLength == 0 ? UInt128.Zero : UInt128.MaxValue << (128 - prefixLength);
+            UInt128 start = value & mask;
+            UInt128 end = start | ~mask;
+            _v6Intervals.Add(new Ipv6Interval(start, end));
+            _sealed = false;
+        }
     }
 
     public bool Contains(IPAddress ip)
     {
-        var root = ip.AddressFamily == AddressFamily.InterNetwork ? _v4Root : _v6Root;
-        byte[] bytes = ip.GetAddressBytes();
-
-        // 此处的 current 初始值为 root，不可能为 null
-        IpTrieNode current = root;
-
-        for (int i = 0; i < bytes.Length * 8; i++)
+        if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
+        EnsureSealed();
+        if (ip.AddressFamily == AddressFamily.InterNetwork)
         {
-            if (current.IsMatch) return true; // 命中被包裹的父网段
-
-            int byteIndex = i / 8;
-            int bitIndex = 7 - (i % 8);
-            bool bit = ((bytes[byteIndex] >> bitIndex) & 1) == 1;
-
-            // 安全性保障：使用可空引用类型过渡，消除编译警告，逻辑自洽
-            IpTrieNode? nextNode = bit ? current.One : current.Zero;
-
-            if (nextNode == null) return false;
-
-            // 确认 nextNode 不为 null 后再赋给 current
-            current = nextNode;
+            uint value = BinaryPrimitives.ReadUInt32BigEndian(ip.GetAddressBytes());
+            return Contains(_v4Intervals, value);
         }
-        return current.IsMatch;
-    }
-}
 
-public class IpTrieNode
-{
-    public IpTrieNode? Zero { get; set; }
-    public IpTrieNode? One { get; set; }
-    public bool IsMatch { get; set; }
+        if (ip.AddressFamily == AddressFamily.InterNetworkV6)
+        {
+            UInt128 value = ReadUInt128BigEndian(ip.GetAddressBytes());
+            return Contains(_v6Intervals, value);
+        }
+
+        return false;
+    }
+
+    internal void Seal()
+    {
+        if (_sealed)
+        {
+            return;
+        }
+
+        _v4Intervals.Sort(static (left, right) =>
+        {
+            int start = left.Start.CompareTo(right.Start);
+            return start != 0 ? start : left.End.CompareTo(right.End);
+        });
+        _v6Intervals.Sort(static (left, right) =>
+        {
+            int start = left.Start.CompareTo(right.Start);
+            return start != 0 ? start : left.End.CompareTo(right.End);
+        });
+        Merge(_v4Intervals);
+        Merge(_v6Intervals);
+        _sealed = true;
+    }
+
+    private void EnsureSealed()
+    {
+        if (!_sealed)
+        {
+            Seal();
+        }
+    }
+
+    private static bool Contains(List<Ipv4Interval> intervals, uint value)
+    {
+        int index = FindLastStartLessThanOrEqual(intervals, value);
+        return index >= 0 && intervals[index].End >= value;
+    }
+
+    private static bool Contains(List<Ipv6Interval> intervals, UInt128 value)
+    {
+        int index = FindLastStartLessThanOrEqual(intervals, value);
+        return index >= 0 && intervals[index].End >= value;
+    }
+
+    private static int FindLastStartLessThanOrEqual(List<Ipv4Interval> intervals, uint value)
+    {
+        int low = 0;
+        int high = intervals.Count - 1;
+        int result = -1;
+        while (low <= high)
+        {
+            int mid = low + ((high - low) >> 1);
+            if (intervals[mid].Start <= value)
+            {
+                result = mid;
+                low = mid + 1;
+            }
+            else
+            {
+                high = mid - 1;
+            }
+        }
+
+        return result;
+    }
+
+    private static int FindLastStartLessThanOrEqual(List<Ipv6Interval> intervals, UInt128 value)
+    {
+        int low = 0;
+        int high = intervals.Count - 1;
+        int result = -1;
+        while (low <= high)
+        {
+            int mid = low + ((high - low) >> 1);
+            if (intervals[mid].Start <= value)
+            {
+                result = mid;
+                low = mid + 1;
+            }
+            else
+            {
+                high = mid - 1;
+            }
+        }
+
+        return result;
+    }
+
+    private static void Merge(List<Ipv4Interval> intervals)
+    {
+        if (intervals.Count <= 1)
+        {
+            return;
+        }
+
+        int write = 0;
+        for (int read = 1; read < intervals.Count; read++)
+        {
+            Ipv4Interval current = intervals[write];
+            Ipv4Interval next = intervals[read];
+            bool overlapsOrTouches = current.End == uint.MaxValue || next.Start <= current.End + 1u;
+            if (overlapsOrTouches)
+            {
+                intervals[write] = current with { End = Math.Max(current.End, next.End) };
+                continue;
+            }
+
+            intervals[++write] = next;
+        }
+
+        intervals.RemoveRange(write + 1, intervals.Count - write - 1);
+    }
+
+    private static void Merge(List<Ipv6Interval> intervals)
+    {
+        if (intervals.Count <= 1)
+        {
+            return;
+        }
+
+        int write = 0;
+        for (int read = 1; read < intervals.Count; read++)
+        {
+            Ipv6Interval current = intervals[write];
+            Ipv6Interval next = intervals[read];
+            bool overlapsOrTouches = current.End == UInt128.MaxValue || next.Start <= current.End + (UInt128)1u;
+            if (overlapsOrTouches)
+            {
+                intervals[write] = current with { End = current.End >= next.End ? current.End : next.End };
+                continue;
+            }
+
+            intervals[++write] = next;
+        }
+
+        intervals.RemoveRange(write + 1, intervals.Count - write - 1);
+    }
+
+    private static UInt128 ReadUInt128BigEndian(byte[] bytes)
+    {
+        ulong high = BinaryPrimitives.ReadUInt64BigEndian(bytes.AsSpan(0, 8));
+        ulong low = BinaryPrimitives.ReadUInt64BigEndian(bytes.AsSpan(8, 8));
+        return ((UInt128)high << 64) | low;
+    }
+
+    private readonly record struct Ipv4Interval(uint Start, uint End);
+    private readonly record struct Ipv6Interval(UInt128 Start, UInt128 End);
 }
 #endregion
