@@ -1,3 +1,4 @@
+export { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 export { PUBLIC_RENDERER_VERSION } from '@/public-renderers/publicEntryCore'
 export {
   buildPublicEntry,

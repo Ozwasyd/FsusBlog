@@ -8,13 +8,14 @@ import { copyFile, cp, mkdir, readdir, rm, stat } from 'node:fs/promises';
 const clientRoot = process.cwd();
 const ensureWasmScript = fileURLToPath(new URL('./ensure-wasm.mjs', import.meta.url));
 const generatePublicPageManifestScript = fileURLToPath(new URL('./generate-public-page-manifest.mjs', import.meta.url));
+const buildPublicSsrBundleScript = fileURLToPath(new URL('./build-public-ssr-bundle.mjs', import.meta.url));
 const vueTscBin = join(clientRoot, 'node_modules/.bin/vue-tsc');
 const viteBin = join(clientRoot, 'node_modules/.bin/vite');
 const distAssetsDir = join(clientRoot, 'dist', 'assets');
 const distRoot = join(clientRoot, 'dist');
 const backendWebRoot = join(clientRoot, '..', 'backend', 'wwwroot');
 const stableSpaEntryName = 'fsus-spa-entry.js';
-const managedDistEntries = ['.vite', 'assets', 'dist', 'favicon.svg', 'index.html', 'sw.js', 'vite.svg', 'wasm'];
+const managedDistEntries = ['.vite', 'assets', 'dist', 'favicon.svg', 'index.html', 'server', 'sw.js', 'vite.svg', 'wasm'];
 const fsusUiMarkdownRuntimeAssets = [
   'markdown_simd.js',
   'markdown_simd.wasm',
@@ -178,6 +179,7 @@ async function main() {
     runStage('vue-tsc', vueTscBin, []),
     runStage('vite-build', viteBin, ['build'])
   ]);
+  await runStage('vite-public-ssr-build', process.execPath, [buildPublicSsrBundleScript]);
   await syncStableSpaEntryAlias();
   await syncFsusUiMarkdownRuntimeAssets();
   await syncBackendWebRoot();

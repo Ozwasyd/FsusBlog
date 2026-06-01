@@ -205,6 +205,8 @@ export default defineConfig(({ mode }) => {
         || process.env.FSUSBLOG_VUE_HYDRATION_DETAILS?.toLowerCase() === 'true'
     const warnAsError = process.env.FSUSBLOG_VITE_WARN_AS_ERROR === '1'
         || process.env.FSUSBLOG_VITE_WARN_AS_ERROR?.toLowerCase() === 'true'
+    const isPublicSsrBuild = process.env.FSUSBLOG_PUBLIC_SSR_BUILD === '1'
+        || process.env.FSUSBLOG_PUBLIC_SSR_BUILD?.toLowerCase() === 'true'
     const hasProxyFlag = typeof env.VITE_PUBLIC_SHELL_PROXY === 'string' && env.VITE_PUBLIC_SHELL_PROXY.trim().length > 0
     const enablePublicShellProxy = hasProxyFlag
         ? env.VITE_PUBLIC_SHELL_PROXY === '1' || env.VITE_PUBLIC_SHELL_PROXY?.toLowerCase() === 'true'
@@ -355,62 +357,66 @@ export default defineConfig(({ mode }) => {
 
                     warn(warning)
                 },
-                output: {
-                    codeSplitting: {
-                        includeDependenciesRecursively: false,
-                        groups: [
-                            {
-                                name: 'entry-runtime',
-                                test: /node_modules[\\/]@ozwasyd[\\/]element-plus[\\/]es[\\/]components[\\/]config-provider[\\/]src[\\/]theme-mode/,
-                                priority: 110,
-                                minSize: 1
-                            },
-                            {
-                                name: 'vendor-element-plus',
-                                test: /node_modules[\\/](?:@ozwasyd[\\/]element-plus|@element-plus[\\/]icons-vue|@popperjs[\\/]core|@floating-ui|async-validator|dayjs|@ctrl[\\/]tinycolor|motion-dom)/,
-                                priority: 100,
-                                minSize: 1
-                            },
-                            {
-                                name: 'vendor-vue',
-                                test: /node_modules[\\/](?:@vue|vue)[\\/]/,
-                                priority: 90,
-                                minSize: 1
-                            },
-                            {
-                                name: 'vendor-runtime',
-                                test: /node_modules[\\/](?:pinia|pinia-plugin-persistedstate|vue-router)[\\/]/,
-                                priority: 80,
-                                minSize: 1
-                            },
-                            {
-                                name: 'vendor-echarts',
-                                test: /node_modules[\\/]echarts[\\/]/,
-                                priority: 70,
-                                minSize: 1
-                            },
-                            {
-                                name: 'vendor-progress',
-                                test: /node_modules[\\/]nprogress[\\/]/,
-                                priority: 70,
-                                minSize: 1
-                            },
-                            {
-                                name: 'vendor-vueuse',
-                                test: /node_modules[\\/]@unhead[\\/]/,
-                                priority: 70,
-                                minSize: 1
-                            },
-                            {
-                                name(moduleId: string) {
-                                    return resolveManualChunk(moduleId) ?? null
-                                },
-                                priority: 10,
-                                minSize: 1
+                ...(isPublicSsrBuild
+                    ? {}
+                    : {
+                        output: {
+                            codeSplitting: {
+                                includeDependenciesRecursively: false,
+                                groups: [
+                                    {
+                                        name: 'entry-runtime',
+                                        test: /node_modules[\\/]@ozwasyd[\\/]element-plus[\\/]es[\\/]components[\\/]config-provider[\\/]src[\\/]theme-mode/,
+                                        priority: 110,
+                                        minSize: 1
+                                    },
+                                    {
+                                        name: 'vendor-element-plus',
+                                        test: /node_modules[\\/](?:@ozwasyd[\\/]element-plus|@element-plus[\\/]icons-vue|@popperjs[\\/]core|@floating-ui|async-validator|dayjs|@ctrl[\\/]tinycolor|motion-dom)/,
+                                        priority: 100,
+                                        minSize: 1
+                                    },
+                                    {
+                                        name: 'vendor-vue',
+                                        test: /node_modules[\\/](?:@vue|vue)[\\/]/,
+                                        priority: 90,
+                                        minSize: 1
+                                    },
+                                    {
+                                        name: 'vendor-runtime',
+                                        test: /node_modules[\\/](?:pinia|pinia-plugin-persistedstate|vue-router)[\\/]/,
+                                        priority: 80,
+                                        minSize: 1
+                                    },
+                                    {
+                                        name: 'vendor-echarts',
+                                        test: /node_modules[\\/]echarts[\\/]/,
+                                        priority: 70,
+                                        minSize: 1
+                                    },
+                                    {
+                                        name: 'vendor-progress',
+                                        test: /node_modules[\\/]nprogress[\\/]/,
+                                        priority: 70,
+                                        minSize: 1
+                                    },
+                                    {
+                                        name: 'vendor-vueuse',
+                                        test: /node_modules[\\/]@unhead[\\/]/,
+                                        priority: 70,
+                                        minSize: 1
+                                    },
+                                    {
+                                        name(moduleId: string) {
+                                            return resolveManualChunk(moduleId) ?? null
+                                        },
+                                        priority: 10,
+                                        minSize: 1
+                                    }
+                                ]
                             }
-                        ]
-                    }
-                }
+                        }
+                    })
             }
         },
         server: {

@@ -6,11 +6,23 @@ using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
+public sealed record PublicAotSsrWorkerResourceStatus(
+    string Status,
+    bool IsProduction,
+    bool UsesPrebuiltBundle,
+    string? ClientRoot,
+    string? WorkerScript,
+    string? BundlePath,
+    string? Error);
+
 public sealed class PublicAotNodeSsrRenderer(
     IWebHostEnvironment env,
     IConfiguration configuration,
     ILogger<PublicAotNodeSsrRenderer> logger) : IPublicAotEntryRenderer, IAsyncDisposable
 {
+    private const string DevelopmentWorkerScriptName = "server-public-ssr.vite.mjs";
+    private const string ProductionWorkerScriptName = "server-public-ssr.bundle.mjs";
+
     private readonly string _nodeExecutable = configuration["PublicAot:SsrNodePath"]?.Trim() is { Length: > 0 } configuredNode
         ? configuredNode
         : "node";
@@ -18,15 +30,20 @@ public sealed class PublicAotNodeSsrRenderer(
         ? mode
         : "Pooled";
     private readonly TimeSpan _requestTimeout = TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue<int?>("PublicAot:SsrRequestTimeoutSeconds") ?? 30, 5, 180));
-    private readonly Lazy<Result<string>> _clientRoot = new(() => ResolveClientRoot(env, configuration));
-    private readonly Lazy<NodeWorkerPool> _workerPool = new(() => new NodeWorkerPool(
-        ResolveClientRoot(env, configuration).Value ?? string.Empty,
-        configuration["PublicAot:SsrNodePath"]?.Trim() is { Length: > 0 } configuredNode
-            ? configuredNode
-            : "node",
-        Math.Clamp(configuration.GetValue<int?>("PublicAot:SsrWorkerCount") ?? 1, 1, Math.Min(4, Environment.ProcessorCount)),
-        TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue<int?>("PublicAot:SsrRequestTimeoutSeconds") ?? 30, 5, 180)),
-        logger));
+    private readonly Lazy<Result<SsrWorkerOptions>> _workerOptions = new(() => ResolveWorkerOptions(env, configuration));
+    private readonly Lazy<NodeWorkerPool> _workerPool = new(() =>
+    {
+        SsrWorkerOptions workerOptions = ResolveWorkerOptions(env, configuration).Value!;
+        return new NodeWorkerPool(
+            workerOptions.ClientRoot,
+            workerOptions.WorkerScript,
+            configuration["PublicAot:SsrNodePath"]?.Trim() is { Length: > 0 } configuredNode
+                ? configuredNode
+                : "node",
+            Math.Clamp(configuration.GetValue<int?>("PublicAot:SsrWorkerCount") ?? 1, 1, Math.Min(4, Environment.ProcessorCount)),
+            TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue<int?>("PublicAot:SsrRequestTimeoutSeconds") ?? 30, 5, 180)),
+            logger);
+    });
 
     public async Task<Result<PublicAotShellEntryContract>> BuildEntryAsync(
         PublicAotRenderRequest request,
@@ -62,16 +79,16 @@ public sealed class PublicAotNodeSsrRenderer(
 
     private async Task<Result<RendererCommandResponse>> InvokeAsync(string command, IReadOnlyDictionary<string, object?> payload, CancellationToken cancellationToken)
     {
-        if (_clientRoot.Value.IsFailure || string.IsNullOrWhiteSpace(_clientRoot.Value.Value))
+        if (_workerOptions.Value.IsFailure || _workerOptions.Value.Value is null)
         {
-            return Result<RendererCommandResponse>.Failure(_clientRoot.Value.Error);
+            return Result<RendererCommandResponse>.Failure(_workerOptions.Value.Error);
         }
 
         return await BoundaryExecutor.ExecuteValueAsync(
             async () =>
             {
                 string raw = IsPerRequestMode()
-                    ? await InvokePerRequestAsync(_clientRoot.Value.Value!, command, payload, cancellationToken)
+                    ? await InvokePerRequestAsync(_workerOptions.Value.Value!, command, payload, cancellationToken)
                     : await _workerPool.Value.SendAsync(command, payload, cancellationToken);
                 return ParseResponse(raw);
             },
@@ -84,11 +101,11 @@ public sealed class PublicAotNodeSsrRenderer(
     private bool IsPerRequestMode()
         => string.Equals(_workerMode, "PerRequest", StringComparison.OrdinalIgnoreCase);
 
-    private async Task<string> InvokePerRequestAsync(string clientRoot, string command, IReadOnlyDictionary<string, object?> payload, CancellationToken cancellationToken)
+    private async Task<string> InvokePerRequestAsync(SsrWorkerOptions workerOptions, string command, IReadOnlyDictionary<string, object?> payload, CancellationToken cancellationToken)
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(_requestTimeout);
-        var startInfo = CreateStartInfo(clientRoot, _nodeExecutable);
+        var startInfo = CreateStartInfo(workerOptions.ClientRoot, workerOptions.WorkerScript, _nodeExecutable);
         using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
         if (!process.Start())
         {
@@ -122,7 +139,7 @@ public sealed class PublicAotNodeSsrRenderer(
         return stdout;
     }
 
-    private static ProcessStartInfo CreateStartInfo(string clientRoot, string nodeExecutable)
+    private static ProcessStartInfo CreateStartInfo(string clientRoot, string workerScript, string nodeExecutable)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -133,7 +150,7 @@ public sealed class PublicAotNodeSsrRenderer(
             RedirectStandardError = true,
             UseShellExecute = false
         };
-        startInfo.ArgumentList.Add("./scripts/server-public-ssr.mjs");
+        startInfo.ArgumentList.Add(workerScript);
         return startInfo;
     }
 
@@ -252,6 +269,103 @@ public sealed class PublicAotNodeSsrRenderer(
         };
     }
 
+    internal static PublicAotSsrWorkerResourceStatus CheckWorkerResourceForTests(IWebHostEnvironment env, IConfiguration configuration)
+        => CheckWorkerResource(env, configuration);
+
+    internal static PublicAotSsrWorkerResourceStatus CheckWorkerResource(IWebHostEnvironment env, IConfiguration configuration)
+    {
+        Result<SsrWorkerOptions> options = ResolveWorkerOptions(env, configuration);
+        if (options.IsFailure || options.Value is null)
+        {
+            return new PublicAotSsrWorkerResourceStatus(
+                "failed",
+                env.IsProduction(),
+                false,
+                null,
+                null,
+                null,
+                options.Error.Message);
+        }
+
+        return new PublicAotSsrWorkerResourceStatus(
+            "ok",
+            env.IsProduction(),
+            options.Value.UsesPrebuiltBundle,
+            options.Value.ClientRoot,
+            options.Value.WorkerScript,
+            options.Value.BundlePath,
+            null);
+    }
+
+    private static Result<SsrWorkerOptions> ResolveWorkerOptions(IWebHostEnvironment env, IConfiguration configuration)
+    {
+        Result<string> clientRootResult = ResolveClientRoot(env, configuration);
+        if (clientRootResult.IsFailure || string.IsNullOrWhiteSpace(clientRootResult.Value))
+        {
+            return Result<SsrWorkerOptions>.Failure(clientRootResult.Error);
+        }
+
+        string clientRoot = clientRootResult.Value!;
+        string workerScript = ResolveWorkerScript(env, configuration);
+        string fullWorkerScriptPath = Path.GetFullPath(Path.Combine(clientRoot, workerScript));
+        if (!File.Exists(fullWorkerScriptPath))
+        {
+            return Result<SsrWorkerOptions>.Failure(ErrorCode.InfraFailure, $"public_aot_worker_script_missing:{workerScript}");
+        }
+
+        bool usesPrebuiltBundle = string.Equals(Path.GetFileName(workerScript), ProductionWorkerScriptName, StringComparison.OrdinalIgnoreCase);
+        if (env.IsProduction() && !usesPrebuiltBundle)
+        {
+            return Result<SsrWorkerOptions>.Failure(ErrorCode.InfraFailure, "public_aot_production_worker_must_use_prebuilt_bundle");
+        }
+
+        string? bundlePath = ResolveSsrBundlePath(clientRoot, fullWorkerScriptPath);
+        if (usesPrebuiltBundle && !File.Exists(bundlePath))
+        {
+            return Result<SsrWorkerOptions>.Failure(ErrorCode.InfraFailure, "public_aot_ssr_bundle_missing:public-ssr.mjs");
+        }
+
+        return Result<SsrWorkerOptions>.Success(new SsrWorkerOptions(
+            clientRoot,
+            workerScript,
+            usesPrebuiltBundle,
+            usesPrebuiltBundle ? bundlePath : null));
+    }
+
+    private static string ResolveWorkerScript(IWebHostEnvironment env, IConfiguration configuration)
+    {
+        string? configured = configuration["PublicAot:SsrWorkerScript"];
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return configured.Trim();
+        }
+
+        return env.IsProduction()
+            ? $"./server/{ProductionWorkerScriptName}"
+            : $"./scripts/{DevelopmentWorkerScriptName}";
+    }
+
+    private static string ResolveSsrBundlePath(string clientRoot, string fullWorkerScriptPath)
+    {
+        string workerDirectory = Path.GetDirectoryName(fullWorkerScriptPath) ?? clientRoot;
+        string[] candidates =
+        [
+            Path.Combine(workerDirectory, "public-ssr.mjs"),
+            Path.Combine(clientRoot, "server", "public-ssr.mjs"),
+            Path.Combine(clientRoot, "dist", "server", "public-ssr.mjs")
+        ];
+
+        foreach (string candidate in candidates)
+        {
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return candidates[0];
+    }
+
     private static Result<string> ResolveClientRoot(IWebHostEnvironment env, IConfiguration configuration)
     {
         string? configured = configuration["PublicAot:SsrClientRoot"];
@@ -260,14 +374,28 @@ public sealed class PublicAotNodeSsrRenderer(
             return Result<string>.Success(Path.GetFullPath(configured));
         }
 
-        string[] candidates =
+        string webRoot = string.IsNullOrWhiteSpace(env.WebRootPath)
+            ? Path.Combine(env.ContentRootPath, "wwwroot")
+            : env.WebRootPath;
+        string[] productionCandidates =
+        [
+            webRoot,
+            Path.Combine(env.ContentRootPath, "wwwroot"),
+            Path.Combine(env.ContentRootPath, "FsusBlog.ClientRuntime")
+        ];
+        string[] developmentCandidates =
         [
             Path.Combine(env.ContentRootPath, "..", "frontend"),
             Path.Combine(env.ContentRootPath, "..", "..", "frontend"),
             Path.Combine(env.ContentRootPath, "..", "FsusBlog.Client"),
             Path.Combine(env.ContentRootPath, "FsusBlog.Client"),
-            Path.Combine(env.ContentRootPath, "FsusBlog.ClientRuntime")
+            Path.Combine(env.ContentRootPath, "FsusBlog.ClientRuntime"),
+            webRoot
         ];
+
+        string[] candidates = env.IsProduction()
+            ? [.. productionCandidates, .. developmentCandidates]
+            : developmentCandidates;
 
         foreach (string candidate in candidates)
         {
@@ -311,15 +439,21 @@ public sealed class PublicAotNodeSsrRenderer(
         public string? Error { get; init; }
     }
 
+    private sealed record SsrWorkerOptions(
+        string ClientRoot,
+        string WorkerScript,
+        bool UsesPrebuiltBundle,
+        string? BundlePath);
+
     private sealed class NodeWorkerPool : IAsyncDisposable
     {
         private readonly NodeWorkerClient[] _workers;
         private int _next;
 
-        public NodeWorkerPool(string clientRoot, string nodeExecutable, int workerCount, TimeSpan requestTimeout, ILogger logger)
+        public NodeWorkerPool(string clientRoot, string workerScript, string nodeExecutable, int workerCount, TimeSpan requestTimeout, ILogger logger)
         {
             _workers = Enumerable.Range(0, workerCount)
-                .Select(index => new NodeWorkerClient(clientRoot, nodeExecutable, requestTimeout, logger, index))
+                .Select(index => new NodeWorkerClient(clientRoot, workerScript, nodeExecutable, requestTimeout, logger, index))
                 .ToArray();
         }
 
@@ -346,6 +480,7 @@ public sealed class PublicAotNodeSsrRenderer(
 
     private sealed class NodeWorkerClient(
         string clientRoot,
+        string workerScript,
         string nodeExecutable,
         TimeSpan requestTimeout,
         ILogger logger,
@@ -456,7 +591,7 @@ public sealed class PublicAotNodeSsrRenderer(
             }
             _pending.Clear();
 
-            ProcessStartInfo startInfo = CreateStartInfo(clientRoot, nodeExecutable);
+            ProcessStartInfo startInfo = CreateStartInfo(clientRoot, workerScript, nodeExecutable);
             startInfo.ArgumentList.Add("--worker");
             _process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
             if (!_process.Start())

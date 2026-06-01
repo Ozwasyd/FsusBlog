@@ -213,6 +213,7 @@ run_fast_frontend_lane() {
   run_in_client npm run check:server-try-catch
   run_in_client npm run check:asset-size-budget
   run_in_client npm run check:public-private-data-leakage
+  run_in_client npm run check:public-aot-contracts
   run_in_client npm run check:pwa-offline-policy
   run_in_client npm run check:views-constraints
   run_in_client npm run check:image-codec-wasm

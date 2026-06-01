@@ -1,0 +1,90 @@
+#!/usr/bin/env node
+
+import { spawn } from 'node:child_process'
+import { copyFile, mkdir, stat } from 'node:fs/promises'
+import { join } from 'node:path'
+
+const clientRoot = process.cwd()
+const viteBin = join(clientRoot, 'node_modules/.bin/vite')
+const distServerDir = join(clientRoot, 'dist', 'server')
+const sourceEntry = join(distServerDir, 'renderPublicPage.js')
+const stableEntry = join(distServerDir, 'public-ssr.mjs')
+const scriptSourceDir = join(clientRoot, 'scripts')
+const workerScripts = [
+  'server-public-ssr.bundle.mjs',
+  'server-public-ssr.worker-core.mjs'
+]
+
+function log(message) {
+  console.log(`[public-ssr-build] ${message}`)
+}
+
+function run(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: clientRoot,
+      env: {
+        ...process.env,
+        FSUSBLOG_PUBLIC_SSR_BUILD: '1'
+      },
+      stdio: 'inherit'
+    })
+
+    child.on('error', reject)
+    child.on('exit', (code, signal) => {
+      if (code === 0) {
+        resolve()
+        return
+      }
+
+      const reason = signal ? `signal ${signal}` : `exit code ${code}`
+      reject(new Error(`vite public SSR build failed with ${reason}`))
+    })
+  })
+}
+
+async function pathExists(path) {
+  try {
+    await stat(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function finalizeStableEntry() {
+  if (!(await pathExists(sourceEntry))) {
+    throw new Error(`missing Vite SSR entry output: ${sourceEntry}`)
+  }
+
+  await copyFile(sourceEntry, stableEntry)
+  log('copied stable SSR entry alias public-ssr.mjs -> renderPublicPage.js')
+}
+
+async function copyWorkerScripts() {
+  await mkdir(distServerDir, { recursive: true })
+  for (const fileName of workerScripts) {
+    await copyFile(join(scriptSourceDir, fileName), join(distServerDir, fileName))
+  }
+
+  log('copied production worker scripts into dist/server')
+}
+
+async function main() {
+  await run(viteBin, [
+    'build',
+    '--ssr',
+    'src/public-renderers/renderPublicPage.ts',
+    '--outDir',
+    'dist/server',
+    '--emptyOutDir',
+    'true'
+  ])
+  await finalizeStableEntry()
+  await copyWorkerScripts()
+}
+
+main().catch((error) => {
+  console.error('[public-ssr-build] fatal:', error instanceof Error ? error.message : String(error))
+  process.exit(1)
+})

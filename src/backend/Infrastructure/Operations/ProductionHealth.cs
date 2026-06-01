@@ -2,6 +2,7 @@ using System.Diagnostics;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Sse;
 using FsusBlog.Server.Services.Background;
@@ -80,13 +81,17 @@ public sealed class ProductionReadinessProbe(
         bool webRootExists = Directory.Exists(webRoot);
         bool indexExists = File.Exists(Path.Combine(webRoot, "index.html"));
         bool ip2LocationExists = !string.IsNullOrEmpty(ip2Location);
+        PublicAotSsrWorkerResourceStatus publicAotSsrWorker = PublicAotNodeSsrRenderer.CheckWorkerResource(environment, configuration);
+        bool publicAotSsrWorkerReady = !environment.IsProduction()
+            || string.Equals(publicAotSsrWorker.Status, "ok", StringComparison.Ordinal);
 
         return new
         {
-            status = webRootExists && indexExists && ip2LocationExists ? "ok" : "failed",
+            status = webRootExists && indexExists && ip2LocationExists && publicAotSsrWorkerReady ? "ok" : "failed",
             webRootExists,
             indexExists,
-            ip2LocationExists
+            ip2LocationExists,
+            publicAotSsrWorker
         };
     }
 
