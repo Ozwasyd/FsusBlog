@@ -7,6 +7,7 @@ public sealed record class PublicAotBackfillRequest(
     string QueryString,
     string CacheKey)
 {
+    public string PagePrefixKey { get; init; } = string.Empty;
     public long ScheduledInvalidationVersion { get; init; }
     public string? TestSessionId { get; init; }
 }

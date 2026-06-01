@@ -71,6 +71,7 @@ public sealed class PublicAotInvalidationService(
 
     public async Task InvalidateSeoAsync(CancellationToken cancellationToken = default)
     {
+        invalidationTracker.MarkAll();
         await cache.InvalidateAllAsync(cancellationToken);
         hotReadStore.ClearHtml();
     }

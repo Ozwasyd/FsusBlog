@@ -60,6 +60,7 @@ public sealed class PublicAotShellService(
             await cache.RemoveAsync(documentCacheKey, cancellationToken);
         }
 
+        string pagePrefixKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty));
         bool queued = backfillScheduler.TrySchedule(new PublicAotBackfillRequest(
             match.Kind,
             match.RouteKey,
@@ -67,7 +68,8 @@ public sealed class PublicAotShellService(
             match.QueryString,
             documentCacheKey)
         {
-            ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(match.PageId, documentCacheKey),
+            PagePrefixKey = pagePrefixKey,
+            ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(documentCacheKey, pagePrefixKey),
             TestSessionId = ResolveTestSessionId(context)
         });
         context.Items[PublicAotSourceContextKey] = "spa-fallback";
@@ -107,7 +109,7 @@ public sealed class PublicAotShellService(
         }
 
         (PublicAotRouteMatch match, string html, string rendererVersion) = document.Value;
-        if (invalidationTracker.WasInvalidatedAfter(request, match.PageId))
+        if (invalidationTracker.WasInvalidatedAfter(request))
         {
             logger.LogInformation(
                 "Public AOT backfill skipped stale write after invalidation: {Kind} {RouteKey}",

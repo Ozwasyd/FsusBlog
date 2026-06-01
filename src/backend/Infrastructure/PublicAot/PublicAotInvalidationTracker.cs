@@ -1,6 +1,4 @@
 using System.Collections.Concurrent;
-using FsusBlog.Core.Cache;
-using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
@@ -19,16 +17,16 @@ public sealed class PublicAotInvalidationTracker
     public long MarkKey(string cacheKey)
         => string.IsNullOrWhiteSpace(cacheKey) ? CurrentVersion : Mark(cacheKey);
 
-    public long GetCurrentVersion(PublicPageId pageId, string cacheKey)
+    public long GetCurrentVersion(string cacheKey, string pagePrefixKey)
     {
         long version = GetVersion(AllKey);
         version = Math.Max(version, GetVersion(cacheKey));
-        version = Math.Max(version, GetVersion(CacheKeyBuilder.PublicAotDocument(pageId, string.Empty)));
+        version = Math.Max(version, GetVersion(pagePrefixKey));
         return version;
     }
 
-    public bool WasInvalidatedAfter(PublicAotBackfillRequest request, PublicPageId pageId)
-        => GetCurrentVersion(pageId, request.CacheKey) > request.ScheduledInvalidationVersion;
+    public bool WasInvalidatedAfter(PublicAotBackfillRequest request)
+        => GetCurrentVersion(request.CacheKey, request.PagePrefixKey) > request.ScheduledInvalidationVersion;
 
     private long CurrentVersion => Interlocked.Read(ref _nextVersion);
 

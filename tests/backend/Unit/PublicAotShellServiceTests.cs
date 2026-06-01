@@ -63,6 +63,7 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal(match.Kind, request.Kind);
         Assert.Equal(match.RouteKey, request.RouteKey);
         Assert.Equal(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey), request.CacheKey);
+        Assert.Equal(CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty), request.PagePrefixKey);
         Assert.Empty(cache.RemovedKeys);
     }
 
@@ -81,6 +82,7 @@ public sealed class PublicAotShellServiceTests
         PublicAotBackfillRequest request = Assert.Single(scheduler.Requests);
         Assert.Equal("pw-0", request.TestSessionId);
         Assert.Equal($"e2e:pw-0:{CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey)}", request.CacheKey);
+        Assert.Equal($"e2e:pw-0:{CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty)}", request.PagePrefixKey);
     }
 
     [Fact]
