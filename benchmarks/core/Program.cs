@@ -23,7 +23,7 @@ if (args.Contains("--compare-http", StringComparer.Ordinal))
 }
 
 BenchmarkSwitcher
-    .FromTypes([typeof(PodMappingBenchmarks), typeof(ContentFilterBenchmarks)])
+    .FromTypes([typeof(PodMappingBenchmarks), typeof(ContentFilterBenchmarks), typeof(CompositeAcBenchmarks)])
     .Run(args, ManualConfig.Create(DefaultConfig.Instance).AddJob(Job.ShortRun));
 return 0;
 

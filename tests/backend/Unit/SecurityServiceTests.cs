@@ -93,6 +93,43 @@ public class ModernAcAutomatonTests
     }
 
     [Fact]
+    public void ContainsAny_AndRule_RepeatedComponentOccurrencesCountOnce()
+    {
+        var ac = new ModernAcAutomaton();
+        ac.Build(["alpha+beta"]);
+
+        Assert.False(ac.ContainsAny("alpha alpha alpha"));
+        Assert.True(ac.ContainsAny("alpha alpha beta"));
+    }
+
+    [Fact]
+    public void ContainsAny_AndRule_SharedComponentRulesOnlyMatchCompletedRule()
+    {
+        var ac = new ModernAcAutomaton();
+        ac.Build(["alpha+beta", "alpha+gamma"]);
+
+        Assert.True(ac.ContainsAny("gamma appears after alpha"));
+        Assert.False(ac.ContainsAny("alpha appears without the other components"));
+    }
+
+    [Fact]
+    public void TryFindBest_TaggedAndRule_PreservesPriorityWithSharedComponents()
+    {
+        var ac = new ModernTaggedAcAutomaton<string>();
+        ac.Build(
+        [
+            new ModernTaggedAcRule<string>("alpha+beta", "low", 3),
+            new ModernTaggedAcRule<string>("alpha+gamma", "high", 1),
+            new ModernTaggedAcRule<string>("delta", "single", 2)
+        ]);
+
+        Assert.True(ac.TryFindBest("alpha beta gamma", out string? payload));
+        Assert.Equal("high", payload);
+        Assert.True(ac.TryFindBest("alpha beta", out payload));
+        Assert.Equal("low", payload);
+    }
+
+    [Fact]
     public void ContainsAny_DuplicateKeywords_DeduplicatesGracefully()
     {
         var ac = new ModernAcAutomaton();
@@ -148,6 +185,22 @@ public class ModernAcAutomatonTests
         }
     }
 
+    [Fact]
+    public void ModernAcAutomaton_CompositeMatchingUsesInvertedIndexInHotScan()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "Helpers", "Security", "ModernAcAutomaton.cs"));
+        int containsStart = source.IndexOf("public bool ContainsAny", StringComparison.Ordinal);
+        int containsEnd = source.IndexOf("private int NextScanEpoch", containsStart, StringComparison.Ordinal);
+        Assert.True(containsStart >= 0);
+        Assert.True(containsEnd > containsStart);
+        string containsAnySource = source[containsStart..containsEnd];
+
+        Assert.Contains("_componentRuleOffsets", source, StringComparison.Ordinal);
+        Assert.Contains("_componentRuleIds", source, StringComparison.Ordinal);
+        Assert.Contains("TryMarkCompositeComponent", containsAnySource, StringComparison.Ordinal);
+        Assert.DoesNotContain("i < _multiWordRules.Length", containsAnySource, StringComparison.Ordinal);
+    }
+
     private static bool NaiveContains(IEnumerable<string> rules, string text)
     {
         foreach (string rule in rules)
@@ -166,6 +219,28 @@ public class ModernAcAutomatonTests
         }
 
         return false;
+    }
+
+    private static string FindRepoRoot()
+    {
+        string current = AppContext.BaseDirectory;
+        while (!string.IsNullOrWhiteSpace(current))
+        {
+            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
+            {
+                return current;
+            }
+
+            DirectoryInfo? parent = Directory.GetParent(current);
+            if (parent is null)
+            {
+                break;
+            }
+
+            current = parent.FullName;
+        }
+
+        throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 }
 

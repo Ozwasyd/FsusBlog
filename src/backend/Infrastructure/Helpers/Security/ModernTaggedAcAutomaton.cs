@@ -40,10 +40,13 @@ public sealed class ModernTaggedAcAutomaton<TPayload>
     private int[] _matchWordIds = [];
     private FlatRule[] _multiWordRules = [];
     private int[] _multiWordRuleComponents = [];
+    private int[] _componentRuleOffsets = [];
+    private int[] _componentRuleIds = [];
     private int[] _singleRulePayloadIndexes = [];
     private TPayload[] _payloads = [];
     private int[] _payloadPriorities = [];
     private int _totalWordCount;
+    private int _scanEpoch;
 
     public void Build(ReadOnlySpan<ModernTaggedAcRule<TPayload>> rules)
     {
@@ -135,6 +138,7 @@ public sealed class ModernTaggedAcAutomaton<TPayload>
         }
 
         BuildCompositeRules(multiRulesTemp);
+        BuildCompositeRuleIndex();
         BuildTrie(wordToId);
     }
 
@@ -149,10 +153,23 @@ public sealed class ModernTaggedAcAutomaton<TPayload>
 
         int bitMapLength = (_totalWordCount + 31) >> 5;
         uint[]? rentedMap = null;
+        int[]? rentedRuleRemaining = null;
+        int[]? rentedRuleEpochs = null;
 
         Span<uint> hitMap = bitMapLength <= 1024
             ? stackalloc uint[bitMapLength]
             : (rentedMap = ArrayPool<uint>.Shared.Rent(bitMapLength)).AsSpan(0, bitMapLength);
+        Span<int> ruleRemaining = Span<int>.Empty;
+        Span<int> ruleEpochs = Span<int>.Empty;
+        int scanEpoch = 0;
+        if (_multiWordRules.Length > 0)
+        {
+            rentedRuleRemaining = ArrayPool<int>.Shared.Rent(_multiWordRules.Length);
+            rentedRuleEpochs = ArrayPool<int>.Shared.Rent(_multiWordRules.Length);
+            ruleRemaining = rentedRuleRemaining.AsSpan(0, _multiWordRules.Length);
+            ruleEpochs = rentedRuleEpochs.AsSpan(0, _multiWordRules.Length);
+            scanEpoch = NextScanEpoch();
+        }
 
         int bestPayloadIndex = -1;
         int bestPriority = int.MaxValue;
@@ -208,60 +225,42 @@ public sealed class ModernTaggedAcAutomaton<TPayload>
                 for (int m = 0; m < matchCount; m++)
                 {
                     int wordId = Unsafe.Add(ref matchIdsRef, matchOffset + m);
-                    Unsafe.Add(ref hitMapRef, wordId >> 5) |= 1u << (wordId & 31);
 
                     int payloadIndex = Unsafe.Add(ref singlePayloadRef, wordId);
-                    if (payloadIndex < 0)
+                    if (payloadIndex >= 0)
+                    {
+                        int priority = Unsafe.Add(ref payloadPriorityRef, payloadIndex);
+                        if (priority < bestPriority)
+                        {
+                            bestPriority = priority;
+                            bestPayloadIndex = payloadIndex;
+                            if (priority == 0)
+                            {
+                                payload = _payloads[payloadIndex];
+                                return true;
+                            }
+                        }
+                    }
+
+                    ref uint hitBucket = ref Unsafe.Add(ref hitMapRef, wordId >> 5);
+                    uint hitMask = 1u << (wordId & 31);
+                    if ((hitBucket & hitMask) != 0)
                     {
                         continue;
                     }
 
-                    int priority = Unsafe.Add(ref payloadPriorityRef, payloadIndex);
-                    if (priority < bestPriority)
+                    hitBucket |= hitMask;
+                    if (!ruleRemaining.IsEmpty &&
+                        TryApplyCompositeComponent(
+                            wordId,
+                            scanEpoch,
+                            ruleRemaining,
+                            ruleEpochs,
+                            ref bestPayloadIndex,
+                            ref bestPriority))
                     {
-                        bestPriority = priority;
-                        bestPayloadIndex = payloadIndex;
-                        if (priority == 0)
-                        {
-                            payload = _payloads[payloadIndex];
-                            return true;
-                        }
-                    }
-                }
-            }
-
-            if (_multiWordRules.Length > 0)
-            {
-                ref FlatRule rulesRef = ref MemoryMarshal.GetArrayDataReference(_multiWordRules);
-                ref int ruleCompsRef = ref MemoryMarshal.GetArrayDataReference(_multiWordRuleComponents);
-
-                for (int i = 0; i < _multiWordRules.Length; i++)
-                {
-                    ref FlatRule rule = ref Unsafe.Add(ref rulesRef, i);
-                    if (rule.Priority >= bestPriority)
-                    {
-                        continue;
-                    }
-
-                    bool ruleMatched = true;
-                    for (int c = 0; c < rule.Count; c++)
-                    {
-                        int wordId = Unsafe.Add(ref ruleCompsRef, rule.Offset + c);
-                        if ((Unsafe.Add(ref hitMapRef, wordId >> 5) & (1u << (wordId & 31))) == 0)
-                        {
-                            ruleMatched = false;
-                            break;
-                        }
-                    }
-
-                    if (ruleMatched)
-                    {
-                        bestPriority = rule.Priority;
-                        bestPayloadIndex = rule.PayloadIndex;
-                        if (bestPriority == 0)
-                        {
-                            break;
-                        }
+                        payload = _payloads[bestPayloadIndex];
+                        return true;
                     }
                 }
             }
@@ -280,7 +279,63 @@ public sealed class ModernTaggedAcAutomaton<TPayload>
             {
                 ArrayPool<uint>.Shared.Return(rentedMap);
             }
+
+            if (rentedRuleRemaining != null)
+            {
+                ArrayPool<int>.Shared.Return(rentedRuleRemaining);
+            }
+
+            if (rentedRuleEpochs != null)
+            {
+                ArrayPool<int>.Shared.Return(rentedRuleEpochs);
+            }
         }
+    }
+
+    private int NextScanEpoch()
+    {
+        int epoch = Interlocked.Increment(ref _scanEpoch);
+        return epoch == int.MinValue ? Interlocked.Increment(ref _scanEpoch) : epoch;
+    }
+
+    private bool TryApplyCompositeComponent(
+        int wordId,
+        int scanEpoch,
+        Span<int> ruleRemaining,
+        Span<int> ruleEpochs,
+        ref int bestPayloadIndex,
+        ref int bestPriority)
+    {
+        int start = _componentRuleOffsets[wordId];
+        int end = _componentRuleOffsets[wordId + 1];
+        for (int i = start; i < end; i++)
+        {
+            int ruleId = _componentRuleIds[i];
+            FlatRule rule = _multiWordRules[ruleId];
+            if (rule.Priority >= bestPriority)
+            {
+                continue;
+            }
+
+            if (ruleEpochs[ruleId] != scanEpoch)
+            {
+                ruleEpochs[ruleId] = scanEpoch;
+                ruleRemaining[ruleId] = rule.Count;
+            }
+
+            int remaining = --ruleRemaining[ruleId];
+            if (remaining == 0)
+            {
+                bestPriority = rule.Priority;
+                bestPayloadIndex = rule.PayloadIndex;
+                if (bestPriority == 0)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private void ResetToEmpty()
@@ -292,6 +347,8 @@ public sealed class ModernTaggedAcAutomaton<TPayload>
         _matchWordIds = [];
         _multiWordRules = [];
         _multiWordRuleComponents = [];
+        _componentRuleOffsets = [];
+        _componentRuleIds = [];
         _singleRulePayloadIndexes = [];
         _payloads = [];
         _payloadPriorities = [];
@@ -354,6 +411,47 @@ public sealed class ModernTaggedAcAutomaton<TPayload>
         rulesList.Sort(static (a, b) => a.Priority.CompareTo(b.Priority));
         _multiWordRules = [.. rulesList];
         _multiWordRuleComponents = [.. compsList];
+    }
+
+    private void BuildCompositeRuleIndex()
+    {
+        if (_totalWordCount == 0 || _multiWordRules.Length == 0)
+        {
+            _componentRuleOffsets = new int[_totalWordCount + 1];
+            _componentRuleIds = [];
+            return;
+        }
+
+        var counts = new int[_totalWordCount];
+        for (int ruleId = 0; ruleId < _multiWordRules.Length; ruleId++)
+        {
+            FlatRule rule = _multiWordRules[ruleId];
+            for (int i = 0; i < rule.Count; i++)
+            {
+                int wordId = _multiWordRuleComponents[rule.Offset + i];
+                counts[wordId]++;
+            }
+        }
+
+        _componentRuleOffsets = new int[_totalWordCount + 1];
+        for (int i = 0; i < counts.Length; i++)
+        {
+            _componentRuleOffsets[i + 1] = _componentRuleOffsets[i] + counts[i];
+        }
+
+        _componentRuleIds = new int[_componentRuleOffsets[^1]];
+        var writeOffsets = new int[_totalWordCount];
+        _componentRuleOffsets.AsSpan(0, _totalWordCount).CopyTo(writeOffsets);
+
+        for (int ruleId = 0; ruleId < _multiWordRules.Length; ruleId++)
+        {
+            FlatRule rule = _multiWordRules[ruleId];
+            for (int i = 0; i < rule.Count; i++)
+            {
+                int wordId = _multiWordRuleComponents[rule.Offset + i];
+                _componentRuleIds[writeOffsets[wordId]++] = ruleId;
+            }
+        }
     }
 
     private void BuildTrie(Dictionary<string, int> wordToId)

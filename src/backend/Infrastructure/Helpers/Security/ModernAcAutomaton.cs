@@ -35,8 +35,11 @@ public class ModernAcAutomaton
     private int[] _matchWordIds = [];
     private FlatRule[] _multiWordRules = [];
     private int[] _multiWordRuleComponents = [];
+    private int[] _componentRuleOffsets = [];
+    private int[] _componentRuleIds = [];
     private bool[] _isSingleWord = [];
     private int _totalWordCount = 0;
+    private int _scanEpoch;
 
     public void Build(string[] keywords)
     {
@@ -49,6 +52,8 @@ public class ModernAcAutomaton
             _matchWordIds = [];
             _multiWordRules = [];
             _multiWordRuleComponents = [];
+            _componentRuleOffsets = [];
+            _componentRuleIds = [];
             _isSingleWord = [];
             _totalWordCount = 0;
             return;
@@ -139,6 +144,7 @@ public class ModernAcAutomaton
         }
         _multiWordRules = [.. rulesList];
         _multiWordRuleComponents = [.. compsList];
+        BuildCompositeRuleIndex();
 
         var root = new BuilderNode();
         foreach (var kvp in wordToId)
@@ -256,6 +262,47 @@ public class ModernAcAutomaton
         }
     }
 
+    private void BuildCompositeRuleIndex()
+    {
+        if (_totalWordCount == 0 || _multiWordRules.Length == 0)
+        {
+            _componentRuleOffsets = new int[_totalWordCount + 1];
+            _componentRuleIds = [];
+            return;
+        }
+
+        var counts = new int[_totalWordCount];
+        for (int ruleId = 0; ruleId < _multiWordRules.Length; ruleId++)
+        {
+            FlatRule rule = _multiWordRules[ruleId];
+            for (int i = 0; i < rule.Count; i++)
+            {
+                int wordId = _multiWordRuleComponents[rule.Offset + i];
+                counts[wordId]++;
+            }
+        }
+
+        _componentRuleOffsets = new int[_totalWordCount + 1];
+        for (int i = 0; i < counts.Length; i++)
+        {
+            _componentRuleOffsets[i + 1] = _componentRuleOffsets[i] + counts[i];
+        }
+
+        _componentRuleIds = new int[_componentRuleOffsets[^1]];
+        var writeOffsets = new int[_totalWordCount];
+        _componentRuleOffsets.AsSpan(0, _totalWordCount).CopyTo(writeOffsets);
+
+        for (int ruleId = 0; ruleId < _multiWordRules.Length; ruleId++)
+        {
+            FlatRule rule = _multiWordRules[ruleId];
+            for (int i = 0; i < rule.Count; i++)
+            {
+                int wordId = _multiWordRuleComponents[rule.Offset + i];
+                _componentRuleIds[writeOffsets[wordId]++] = ruleId;
+            }
+        }
+    }
+
     internal bool ValidateSortedChildRangesForTests()
     {
         for (int nodeIndex = 0; nodeIndex < _nodes.Length; nodeIndex++)
@@ -298,10 +345,23 @@ public class ModernAcAutomaton
 
         int bitMapLength = (_totalWordCount + 31) >> 5;
         uint[]? rentedMap = null;
+        int[]? rentedRuleRemaining = null;
+        int[]? rentedRuleEpochs = null;
 
         Span<uint> hitMap = bitMapLength <= 1024
             ? stackalloc uint[bitMapLength]
             : (rentedMap = ArrayPool<uint>.Shared.Rent(bitMapLength)).AsSpan(0, bitMapLength);
+        Span<int> ruleRemaining = Span<int>.Empty;
+        Span<int> ruleEpochs = Span<int>.Empty;
+        int scanEpoch = 0;
+        if (_multiWordRules.Length > 0)
+        {
+            rentedRuleRemaining = ArrayPool<int>.Shared.Rent(_multiWordRules.Length);
+            rentedRuleEpochs = ArrayPool<int>.Shared.Rent(_multiWordRules.Length);
+            ruleRemaining = rentedRuleRemaining.AsSpan(0, _multiWordRules.Length);
+            ruleEpochs = rentedRuleEpochs.AsSpan(0, _multiWordRules.Length);
+            scanEpoch = NextScanEpoch();
+        }
 
         try
         {
@@ -346,34 +406,25 @@ public class ModernAcAutomaton
                     for (int m = 0; m < matchCount; m++)
                     {
                         int wid = Unsafe.Add(ref matchIdsRef, matchOffset + m);
-                        Unsafe.Add(ref hitMapRef, wid >> 5) |= (1u << (wid & 31));
                         if (Unsafe.Add(ref isSingleRef, wid))
                         {
                             return true;
                         }
-                    }
-                }
-            }
 
-            if (_multiWordRules.Length > 0)
-            {
-                ref FlatRule rulesRef = ref MemoryMarshal.GetArrayDataReference(_multiWordRules);
-                ref int ruleCompsRef = ref MemoryMarshal.GetArrayDataReference(_multiWordRuleComponents);
-
-                for (int i = 0; i < _multiWordRules.Length; i++)
-                {
-                    ref FlatRule r = ref Unsafe.Add(ref rulesRef, i);
-                    bool ruleMatched = true;
-                    for (int c = 0; c < r.Count; c++)
-                    {
-                        int wid = Unsafe.Add(ref ruleCompsRef, r.Offset + c);
-                        if ((Unsafe.Add(ref hitMapRef, wid >> 5) & (1u << (wid & 31))) == 0)
+                        ref uint hitBucket = ref Unsafe.Add(ref hitMapRef, wid >> 5);
+                        uint hitMask = 1u << (wid & 31);
+                        if ((hitBucket & hitMask) != 0)
                         {
-                            ruleMatched = false;
-                            break;
+                            continue;
+                        }
+
+                        hitBucket |= hitMask;
+                        if (!ruleRemaining.IsEmpty &&
+                            TryMarkCompositeComponent(wid, scanEpoch, ruleRemaining, ruleEpochs))
+                        {
+                            return true;
                         }
                     }
-                    if (ruleMatched) return true;
                 }
             }
 
@@ -385,7 +436,50 @@ public class ModernAcAutomaton
             {
                 ArrayPool<uint>.Shared.Return(rentedMap);
             }
+
+            if (rentedRuleRemaining != null)
+            {
+                ArrayPool<int>.Shared.Return(rentedRuleRemaining);
+            }
+
+            if (rentedRuleEpochs != null)
+            {
+                ArrayPool<int>.Shared.Return(rentedRuleEpochs);
+            }
         }
+    }
+
+    private int NextScanEpoch()
+    {
+        int epoch = Interlocked.Increment(ref _scanEpoch);
+        return epoch == int.MinValue ? Interlocked.Increment(ref _scanEpoch) : epoch;
+    }
+
+    private bool TryMarkCompositeComponent(
+        int wordId,
+        int scanEpoch,
+        Span<int> ruleRemaining,
+        Span<int> ruleEpochs)
+    {
+        int start = _componentRuleOffsets[wordId];
+        int end = _componentRuleOffsets[wordId + 1];
+        for (int i = start; i < end; i++)
+        {
+            int ruleId = _componentRuleIds[i];
+            if (ruleEpochs[ruleId] != scanEpoch)
+            {
+                ruleEpochs[ruleId] = scanEpoch;
+                ruleRemaining[ruleId] = _multiWordRules[ruleId].Count;
+            }
+
+            int remaining = --ruleRemaining[ruleId];
+            if (remaining == 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
