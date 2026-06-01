@@ -1,4 +1,4 @@
-﻿using System.Buffers;
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -6,20 +6,15 @@ namespace FsusBlog.Server.Infrastructure.Helpers.Security;
 
 /// <summary>
 /// 现代化 .NET 10 专供 AC 自动机 (支持组合词逻辑 AND 匹配)
-/// 终极版: 2026-02-22 (重构构建引擎，消除临时对象风暴，避免运行时GC冻结)
+/// 使用 compact alphabet + double-array transitions，避免扫描期 child-range 查找。
 /// </summary>
 [SkipLocalsInit]
 public class ModernAcAutomaton
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 4)]
-    private struct FlatNode
-    {
-        public int Failure;
-        public int ChildrenOffset;
-        public int MatchOffset;
-        public ushort ChildrenCount;
-        public ushort MatchCount;
-    }
+    private const int RootState = 1;
+    private const int NoTransition = 0;
+    private const string LegacyFeatureSwitchName = "FsusBlog.Security.ModernAcAutomaton.UseLegacyChildRange";
+    private const string LegacyFeatureEnvName = "FSUSBLOG_SECURITY_MODERN_AC_USE_LEGACY_CHILD_RANGE";
 
     private struct FlatRule
     {
@@ -27,10 +22,13 @@ public class ModernAcAutomaton
         public int Count;
     }
 
-    private FlatNode[] _nodes = [];
-    private char[] _keys = [];
-    private int[] _nexts = [];
-    private int[] _first = [];
+    private int[] _base = [];
+    private int[] _check = [];
+    private int[] _failure = [];
+    private int[] _outputLink = [];
+    private int[] _matchOffset = [];
+    private ushort[] _matchCount = [];
+    private int[] _alphabetMap = [];
 
     private int[] _matchWordIds = [];
     private FlatRule[] _multiWordRules = [];
@@ -40,22 +38,23 @@ public class ModernAcAutomaton
     private bool[] _isSingleWord = [];
     private int _totalWordCount = 0;
     private int _scanEpoch;
+    private LegacyModernAcAutomaton? _legacyFallback;
 
     public void Build(string[] keywords)
     {
+        if (UseLegacyChildRangeAutomaton())
+        {
+            var legacy = new LegacyModernAcAutomaton();
+            legacy.Build(keywords);
+            _legacyFallback = legacy;
+            ResetToEmpty();
+            return;
+        }
+
+        _legacyFallback = null;
         if (keywords == null || keywords.Length == 0)
         {
-            _nodes = [new FlatNode()];
-            _keys = [];
-            _nexts = [];
-            _first = new int[char.MaxValue + 1];
-            _matchWordIds = [];
-            _multiWordRules = [];
-            _multiWordRuleComponents = [];
-            _componentRuleOffsets = [];
-            _componentRuleIds = [];
-            _isSingleWord = [];
-            _totalWordCount = 0;
+            ResetToEmpty();
             return;
         }
 
@@ -65,201 +64,125 @@ public class ModernAcAutomaton
         var multiRulesTemp = new List<int[]>();
         var singleRulesTemp = new List<int>();
 
-        foreach (var line in keywords)
+        foreach (string line in keywords)
         {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-            if (!seenLines.Add(line)) continue;
+            if (string.IsNullOrWhiteSpace(line) || !seenLines.Add(line))
+            {
+                continue;
+            }
 
             ReadOnlySpan<char> rule = line.AsSpan().Trim();
-            if (rule.IsEmpty) continue;
+            if (rule.IsEmpty)
+            {
+                continue;
+            }
 
             if (!rule.Contains('+'))
             {
-                string w = rule.ToString();
-                if (string.IsNullOrEmpty(w)) continue;
-                if (!wordToId.TryGetValue(w, out int id))
+                string word = rule.ToString();
+                if (string.IsNullOrEmpty(word))
                 {
-                    id = wordIdCounter++;
-                    wordToId[w] = id;
+                    continue;
                 }
+
+                int id = GetOrAddWordId(word, wordToId, ref wordIdCounter);
                 singleRulesTemp.Add(id);
+                continue;
             }
-            else
+
+            var ruleIds = new List<int>(4);
+            int start = 0;
+            while (start <= rule.Length)
             {
-                var ruleIds = new List<int>(4);
-                int start = 0;
-                while (start <= rule.Length)
+                ReadOnlySpan<char> remaining = rule[start..];
+                int separator = remaining.IndexOf('+');
+                ReadOnlySpan<char> part = separator < 0
+                    ? remaining.Trim()
+                    : remaining[..separator].Trim();
+
+                if (!part.IsEmpty)
                 {
-                    ReadOnlySpan<char> remaining = rule[start..];
-                    int separator = remaining.IndexOf('+');
-                    ReadOnlySpan<char> part = separator < 0
-                        ? remaining.Trim()
-                        : remaining[..separator].Trim();
-
-                    if (!part.IsEmpty)
-                    {
-                        string w = part.ToString();
-                        if (!wordToId.TryGetValue(w, out int id))
-                        {
-                            id = wordIdCounter++;
-                            wordToId[w] = id;
-                        }
-                        ruleIds.Add(id);
-                    }
-
-                    if (separator < 0)
-                    {
-                        break;
-                    }
-
-                    start += separator + 1;
+                    ruleIds.Add(GetOrAddWordId(part.ToString(), wordToId, ref wordIdCounter));
                 }
 
-                if (ruleIds.Count == 0) continue;
-                int[] ruleArr = [.. ruleIds];
-                Array.Sort(ruleArr);
-                multiRulesTemp.Add(ruleArr);
+                if (separator < 0)
+                {
+                    break;
+                }
+
+                start += separator + 1;
             }
+
+            if (ruleIds.Count == 0)
+            {
+                continue;
+            }
+
+            int[] ruleArr = [.. ruleIds];
+            Array.Sort(ruleArr);
+            multiRulesTemp.Add(ruleArr);
         }
 
         _totalWordCount = wordIdCounter;
         _isSingleWord = new bool[_totalWordCount];
-        foreach (var id in singleRulesTemp) _isSingleWord[id] = true;
-
-        multiRulesTemp.Sort((a, b) =>
+        foreach (int id in singleRulesTemp)
         {
-            if (a.Length != b.Length) return a.Length.CompareTo(b.Length);
-            return a.AsSpan().SequenceCompareTo(b.AsSpan());
+            _isSingleWord[id] = true;
+        }
+
+        BuildCompositeRules(multiRulesTemp);
+        BuildCompositeRuleIndex();
+        BuildDoubleArray(wordToId);
+    }
+
+    private static int GetOrAddWordId(string word, Dictionary<string, int> wordToId, ref int wordIdCounter)
+    {
+        if (wordToId.TryGetValue(word, out int id))
+        {
+            return id;
+        }
+
+        id = wordIdCounter++;
+        wordToId[word] = id;
+        return id;
+    }
+
+    private void BuildCompositeRules(List<int[]> multiRulesTemp)
+    {
+        if (multiRulesTemp.Count == 0)
+        {
+            _multiWordRules = [];
+            _multiWordRuleComponents = [];
+            return;
+        }
+
+        multiRulesTemp.Sort(static (a, b) =>
+        {
+            if (a.Length != b.Length)
+            {
+                return a.Length.CompareTo(b.Length);
+            }
+
+            return a.AsSpan().SequenceCompareTo(b);
         });
 
         var rulesList = new List<FlatRule>();
         var compsList = new List<int>();
         int[]? prevRule = null;
-        foreach (var r in multiRulesTemp)
+        foreach (int[] rule in multiRulesTemp)
         {
-            if (prevRule != null && prevRule.AsSpan().SequenceEqual(r.AsSpan())) continue;
-            rulesList.Add(new FlatRule { Offset = compsList.Count, Count = r.Length });
-            compsList.AddRange(r);
-            prevRule = r;
+            if (prevRule != null && prevRule.AsSpan().SequenceEqual(rule))
+            {
+                continue;
+            }
+
+            rulesList.Add(new FlatRule { Offset = compsList.Count, Count = rule.Length });
+            compsList.AddRange(rule);
+            prevRule = rule;
         }
+
         _multiWordRules = [.. rulesList];
         _multiWordRuleComponents = [.. compsList];
-        BuildCompositeRuleIndex();
-
-        var root = new BuilderNode();
-        foreach (var kvp in wordToId)
-        {
-            var curr = root;
-            foreach (char c in kvp.Key)
-            {
-                if (!curr.TryGetChild(c, out var next))
-                {
-                    next = new BuilderNode();
-                    curr.AddChild(c, next);
-                }
-                curr = next!;
-            }
-            if (!curr.MatchWordIds.Contains(kvp.Value))
-            {
-                curr.MatchWordIds.Add(kvp.Value);
-            }
-        }
-
-        var queue = new Queue<BuilderNode>();
-        if (root.Children != null)
-        {
-            foreach (var kvp in root.Children)
-            {
-                kvp.Value.Failure = root;
-                queue.Enqueue(kvp.Value);
-            }
-        }
-
-        while (queue.Count > 0)
-        {
-            var curr = queue.Dequeue();
-            if (curr.Children == null) continue;
-
-            foreach (var kvp in curr.Children)
-            {
-                char c = kvp.Key;
-                var next = kvp.Value;
-                var fail = curr.Failure;
-                while (fail != null && !fail.TryGetChild(c, out _))
-                {
-                    fail = fail.Failure;
-                }
-                next.Failure = (fail != null && fail.TryGetChild(c, out var failChild)) ? failChild : root;
-                if (next.Failure!.MatchWordIds.Count > 0)
-                {
-                    foreach (var id in next.Failure.MatchWordIds)
-                    {
-                        if (!next.MatchWordIds.Contains(id)) next.MatchWordIds.Add(id);
-                    }
-                }
-                queue.Enqueue(next);
-            }
-        }
-
-        var allNodes = new List<BuilderNode>();
-        int idCount = 0;
-        void AssignIds(BuilderNode node)
-        {
-            node.Id = idCount++;
-            allNodes.Add(node);
-            if (node.Children != null)
-            {
-                foreach (var kvp in node.Children) AssignIds(kvp.Value);
-            }
-        }
-        AssignIds(root);
-
-        _nodes = new FlatNode[allNodes.Count];
-        var keysList = new List<char>();
-        var nextsList = new List<int>();
-        var matchIdsList = new List<int>();
-
-        foreach (var node in allNodes)
-        {
-            int cOffset = keysList.Count;
-            int cCount = node.Children?.Count ?? 0;
-            if (cCount > 0)
-            {
-                // BuilderNode.Children is a SortedDictionary, so each flattened child range stays sorted.
-                // FindChildFast depends on this invariant when it switches to binary search for wider nodes.
-                foreach (var kvp in node.Children!)
-                {
-                    keysList.Add(kvp.Key);
-                    nextsList.Add(kvp.Value.Id);
-                }
-            }
-
-            int mOffset = matchIdsList.Count;
-            int mCount = node.MatchWordIds.Count;
-            if (mCount > 0) matchIdsList.AddRange(node.MatchWordIds);
-
-            _nodes[node.Id] = new FlatNode
-            {
-                Failure = node.Failure?.Id ?? 0,
-                ChildrenOffset = cOffset,
-                MatchOffset = mOffset,
-                ChildrenCount = (ushort)Math.Min(cCount, ushort.MaxValue),
-                MatchCount = (ushort)Math.Min(mCount, ushort.MaxValue)
-            };
-        }
-
-        _keys = [.. keysList];
-        _nexts = [.. nextsList];
-        _matchWordIds = [.. matchIdsList];
-
-        _first = new int[char.MaxValue + 1];
-        ref FlatNode rootNode = ref _nodes[0];
-        int rOffset = rootNode.ChildrenOffset;
-        int rCount = rootNode.ChildrenCount;
-        for (int i = 0; i < rCount; i++)
-        {
-            _first[_keys[rOffset + i]] = _nexts[rOffset + i];
-        }
     }
 
     private void BuildCompositeRuleIndex()
@@ -303,27 +226,295 @@ public class ModernAcAutomaton
         }
     }
 
+    private void BuildDoubleArray(Dictionary<string, int> wordToId)
+    {
+        if (wordToId.Count == 0)
+        {
+            ResetToEmpty();
+            return;
+        }
+
+        BuilderNode root = BuildTrie(wordToId);
+        BuildFailureLinks(root);
+        List<BuilderNode> nodes = AssignBuilderIds(root);
+        BuildCompactAlphabet(wordToId.Keys);
+
+        var datBase = new List<int> { 0, 0 };
+        var datCheck = new List<int> { 0, RootState };
+        int[] nodeToState = new int[nodes.Count];
+        nodeToState[root.Id] = RootState;
+
+        var queue = new Queue<BuilderNode>();
+        queue.Enqueue(root);
+        while (queue.Count > 0)
+        {
+            BuilderNode node = queue.Dequeue();
+            int state = nodeToState[node.Id];
+            if (node.Children is null || node.Children.Count == 0)
+            {
+                continue;
+            }
+
+            var childIds = new int[node.Children.Count];
+            int childIndex = 0;
+            foreach (char c in node.Children.Keys)
+            {
+                childIds[childIndex++] = _alphabetMap[c];
+            }
+
+            int baseValue = FindFreeBase(childIds, datCheck);
+            EnsureSize(datBase, baseValue + Max(childIds) + 1);
+            EnsureSize(datCheck, baseValue + Max(childIds) + 1);
+            datBase[state] = baseValue;
+
+            foreach ((char c, BuilderNode child) in node.Children)
+            {
+                int targetState = baseValue + _alphabetMap[c];
+                datCheck[targetState] = state;
+                nodeToState[child.Id] = targetState;
+                queue.Enqueue(child);
+            }
+        }
+
+        _base = [.. datBase];
+        _check = [.. datCheck];
+        _failure = new int[_check.Length];
+        _outputLink = new int[_check.Length];
+        _matchOffset = new int[_check.Length];
+        _matchCount = new ushort[_check.Length];
+
+        var matchIds = new List<int>();
+        foreach (BuilderNode node in nodes)
+        {
+            int state = nodeToState[node.Id];
+            _failure[state] = node.Failure is null ? RootState : nodeToState[node.Failure.Id];
+            _matchOffset[state] = matchIds.Count;
+            _matchCount[state] = (ushort)Math.Min(node.MatchWordIds.Count, ushort.MaxValue);
+            if (node.MatchWordIds.Count > 0)
+            {
+                matchIds.AddRange(node.MatchWordIds);
+            }
+        }
+
+        var outputQueue = new Queue<BuilderNode>();
+        if (root.Children is not null)
+        {
+            foreach (BuilderNode child in root.Children.Values)
+            {
+                outputQueue.Enqueue(child);
+            }
+        }
+
+        while (outputQueue.Count > 0)
+        {
+            BuilderNode node = outputQueue.Dequeue();
+            int state = nodeToState[node.Id];
+            int failure = _failure[state];
+            _outputLink[state] = _matchCount[failure] > 0 ? failure : _outputLink[failure];
+            if (node.Children is null)
+            {
+                continue;
+            }
+
+            foreach (BuilderNode child in node.Children.Values)
+            {
+                outputQueue.Enqueue(child);
+            }
+        }
+
+        _matchWordIds = [.. matchIds];
+    }
+
+    private static BuilderNode BuildTrie(Dictionary<string, int> wordToId)
+    {
+        var root = new BuilderNode();
+        foreach ((string word, int wordId) in wordToId)
+        {
+            BuilderNode current = root;
+            foreach (char c in word)
+            {
+                if (!current.TryGetChild(c, out BuilderNode? next))
+                {
+                    next = new BuilderNode();
+                    current.AddChild(c, next);
+                }
+
+                current = next!;
+            }
+
+            if (!current.MatchWordIds.Contains(wordId))
+            {
+                current.MatchWordIds.Add(wordId);
+            }
+        }
+
+        return root;
+    }
+
+    private static void BuildFailureLinks(BuilderNode root)
+    {
+        root.Failure = root;
+        var queue = new Queue<BuilderNode>();
+        if (root.Children is not null)
+        {
+            foreach (BuilderNode child in root.Children.Values)
+            {
+                child.Failure = root;
+                queue.Enqueue(child);
+            }
+        }
+
+        while (queue.Count > 0)
+        {
+            BuilderNode current = queue.Dequeue();
+            if (current.Children is null)
+            {
+                continue;
+            }
+
+            foreach ((char c, BuilderNode next) in current.Children)
+            {
+                BuilderNode? fail = current.Failure;
+                while (fail != root && fail is not null && !fail.TryGetChild(c, out _))
+                {
+                    fail = fail.Failure;
+                }
+
+                next.Failure = fail is not null && fail.TryGetChild(c, out BuilderNode? failChild)
+                    ? failChild
+                    : root;
+                queue.Enqueue(next);
+            }
+        }
+    }
+
+    private static List<BuilderNode> AssignBuilderIds(BuilderNode root)
+    {
+        var nodes = new List<BuilderNode>();
+        var queue = new Queue<BuilderNode>();
+        queue.Enqueue(root);
+        while (queue.Count > 0)
+        {
+            BuilderNode node = queue.Dequeue();
+            node.Id = nodes.Count;
+            nodes.Add(node);
+            if (node.Children is null)
+            {
+                continue;
+            }
+
+            foreach (BuilderNode child in node.Children.Values)
+            {
+                queue.Enqueue(child);
+            }
+        }
+
+        return nodes;
+    }
+
+    private void BuildCompactAlphabet(IEnumerable<string> words)
+    {
+        var alphabet = new SortedSet<char>();
+        foreach (string word in words)
+        {
+            foreach (char c in word)
+            {
+                alphabet.Add(c);
+            }
+        }
+
+        _alphabetMap = new int[char.MaxValue + 1];
+        int id = 1;
+        foreach (char c in alphabet)
+        {
+            _alphabetMap[c] = id++;
+        }
+    }
+
+    private static int FindFreeBase(ReadOnlySpan<int> childIds, List<int> check)
+    {
+        int maxChildId = Max(childIds);
+        for (int candidate = 1; ; candidate++)
+        {
+            EnsureSize(check, candidate + maxChildId + 1);
+            bool available = true;
+            foreach (int childId in childIds)
+            {
+                int index = candidate + childId;
+                if (index == RootState || check[index] != 0)
+                {
+                    available = false;
+                    break;
+                }
+            }
+
+            if (available)
+            {
+                return candidate;
+            }
+        }
+    }
+
+    private static int Max(ReadOnlySpan<int> values)
+    {
+        int max = 0;
+        foreach (int value in values)
+        {
+            max = Math.Max(max, value);
+        }
+
+        return max;
+    }
+
+    private static void EnsureSize(List<int> values, int size)
+    {
+        while (values.Count < size)
+        {
+            values.Add(0);
+        }
+    }
+
+    private void ResetToEmpty()
+    {
+        _base = [0, 0];
+        _check = [0, RootState];
+        _failure = [0, RootState];
+        _outputLink = [0, 0];
+        _matchOffset = [0, 0];
+        _matchCount = [0, 0];
+        _alphabetMap = new int[char.MaxValue + 1];
+        _matchWordIds = [];
+        _multiWordRules = [];
+        _multiWordRuleComponents = [];
+        _componentRuleOffsets = [];
+        _componentRuleIds = [];
+        _isSingleWord = [];
+        _totalWordCount = 0;
+    }
+
     internal bool ValidateSortedChildRangesForTests()
     {
-        for (int nodeIndex = 0; nodeIndex < _nodes.Length; nodeIndex++)
+        if (_legacyFallback is { } legacy)
         {
-            FlatNode node = _nodes[nodeIndex];
-            if (node.ChildrenOffset < 0 || node.ChildrenOffset + node.ChildrenCount > _keys.Length)
+            return legacy.ValidateSortedChildRangesForTests();
+        }
+
+        if (_base.Length != _check.Length ||
+            _failure.Length != _check.Length ||
+            _outputLink.Length != _check.Length ||
+            _matchOffset.Length != _check.Length ||
+            _matchCount.Length != _check.Length ||
+            _check.Length <= RootState ||
+            _check[RootState] != RootState)
+        {
+            return false;
+        }
+
+        for (int state = RootState; state < _check.Length; state++)
+        {
+            if (_check[state] != 0 && (_failure[state] < RootState || _failure[state] >= _check.Length))
             {
                 return false;
-            }
-
-            if (node.ChildrenOffset + node.ChildrenCount > _nexts.Length)
-            {
-                return false;
-            }
-
-            for (int i = 1; i < node.ChildrenCount; i++)
-            {
-                if (_keys[node.ChildrenOffset + i - 1] >= _keys[node.ChildrenOffset + i])
-                {
-                    return false;
-                }
             }
         }
 
@@ -341,7 +532,12 @@ public class ModernAcAutomaton
     [SkipLocalsInit]
     public bool ContainsAny(ReadOnlySpan<char> text)
     {
-        if (_nodes.Length <= 1 || text.IsEmpty) return false;
+        if (_legacyFallback is { } legacy)
+        {
+            return legacy.ContainsAny(text);
+        }
+
+        if (_check.Length <= RootState || text.IsEmpty) return false;
 
         int bitMapLength = (_totalWordCount + 31) >> 5;
         uint[]? rentedMap = null;
@@ -368,63 +564,44 @@ public class ModernAcAutomaton
             hitMap.Clear();
 
             ref char textRef = ref MemoryMarshal.GetReference(text);
-            int length = text.Length;
-
-            ref FlatNode nodesRef = ref MemoryMarshal.GetArrayDataReference(_nodes);
-            ref char keysRef = ref MemoryMarshal.GetArrayDataReference(_keys);
-            ref int nextsRef = ref MemoryMarshal.GetArrayDataReference(_nexts);
-            ref int firstRef = ref MemoryMarshal.GetArrayDataReference(_first);
+            ref int alphabetRef = ref MemoryMarshal.GetArrayDataReference(_alphabetMap);
+            ref int baseRef = ref MemoryMarshal.GetArrayDataReference(_base);
+            ref int checkRef = ref MemoryMarshal.GetArrayDataReference(_check);
+            ref int failureRef = ref MemoryMarshal.GetArrayDataReference(_failure);
+            ref int outputLinkRef = ref MemoryMarshal.GetArrayDataReference(_outputLink);
+            ref int matchOffsetRef = ref MemoryMarshal.GetArrayDataReference(_matchOffset);
+            ref ushort matchCountRef = ref MemoryMarshal.GetArrayDataReference(_matchCount);
             ref int matchIdsRef = ref MemoryMarshal.GetArrayDataReference(_matchWordIds);
             ref bool isSingleRef = ref MemoryMarshal.GetArrayDataReference(_isSingleWord);
             ref uint hitMapRef = ref MemoryMarshal.GetReference(hitMap);
 
-            int state = 0;
-            for (int i = 0; i < length; i++)
+            int state = RootState;
+            for (int i = 0; i < text.Length; i++)
             {
                 char c = Unsafe.Add(ref textRef, i);
                 if (!IsValidChar(c)) continue;
 
-                if (state == 0)
+                int alphabetId = Unsafe.Add(ref alphabetRef, c);
+                if (alphabetId == 0)
                 {
-                    state = Unsafe.Add(ref firstRef, c);
-                }
-                else
-                {
-                    int next = FindChildFast(state, c, ref nodesRef, ref keysRef, ref nextsRef);
-                    while (next == -1 && state != 0)
-                    {
-                        state = Unsafe.Add(ref nodesRef, state).Failure;
-                        next = FindChildFast(state, c, ref nodesRef, ref keysRef, ref nextsRef);
-                    }
-                    state = next != -1 ? next : Unsafe.Add(ref firstRef, c);
+                    state = RootState;
+                    continue;
                 }
 
-                int matchCount = Unsafe.Add(ref nodesRef, state).MatchCount;
-                if (matchCount > 0)
+                state = NextState(state, alphabetId, ref baseRef, ref checkRef, ref failureRef);
+                if (ProcessMatches(
+                    state,
+                    scanEpoch,
+                    ruleRemaining,
+                    ruleEpochs,
+                    ref outputLinkRef,
+                    ref matchOffsetRef,
+                    ref matchCountRef,
+                    ref matchIdsRef,
+                    ref isSingleRef,
+                    ref hitMapRef))
                 {
-                    int matchOffset = Unsafe.Add(ref nodesRef, state).MatchOffset;
-                    for (int m = 0; m < matchCount; m++)
-                    {
-                        int wid = Unsafe.Add(ref matchIdsRef, matchOffset + m);
-                        if (Unsafe.Add(ref isSingleRef, wid))
-                        {
-                            return true;
-                        }
-
-                        ref uint hitBucket = ref Unsafe.Add(ref hitMapRef, wid >> 5);
-                        uint hitMask = 1u << (wid & 31);
-                        if ((hitBucket & hitMask) != 0)
-                        {
-                            continue;
-                        }
-
-                        hitBucket |= hitMask;
-                        if (!ruleRemaining.IsEmpty &&
-                            TryMarkCompositeComponent(wid, scanEpoch, ruleRemaining, ruleEpochs))
-                        {
-                            return true;
-                        }
-                    }
+                    return true;
                 }
             }
 
@@ -447,6 +624,79 @@ public class ModernAcAutomaton
                 ArrayPool<int>.Shared.Return(rentedRuleEpochs);
             }
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int NextState(
+        int state,
+        int alphabetId,
+        ref int baseRef,
+        ref int checkRef,
+        ref int failureRef)
+    {
+        while (true)
+        {
+            int next = Unsafe.Add(ref baseRef, state) + alphabetId;
+            if ((uint)next < (uint)_check.Length && Unsafe.Add(ref checkRef, next) == state)
+            {
+                return next;
+            }
+
+            if (state == RootState)
+            {
+                return RootState;
+            }
+
+            state = Unsafe.Add(ref failureRef, state);
+        }
+    }
+
+    private bool ProcessMatches(
+        int state,
+        int scanEpoch,
+        Span<int> ruleRemaining,
+        Span<int> ruleEpochs,
+        ref int outputLinkRef,
+        ref int matchOffsetRef,
+        ref ushort matchCountRef,
+        ref int matchIdsRef,
+        ref bool isSingleRef,
+        ref uint hitMapRef)
+    {
+        for (int matchState = state; matchState != NoTransition; matchState = Unsafe.Add(ref outputLinkRef, matchState))
+        {
+            int matchCount = Unsafe.Add(ref matchCountRef, matchState);
+            if (matchCount == 0)
+            {
+                continue;
+            }
+
+            int matchOffset = Unsafe.Add(ref matchOffsetRef, matchState);
+            for (int m = 0; m < matchCount; m++)
+            {
+                int wordId = Unsafe.Add(ref matchIdsRef, matchOffset + m);
+                if (Unsafe.Add(ref isSingleRef, wordId))
+                {
+                    return true;
+                }
+
+                ref uint hitBucket = ref Unsafe.Add(ref hitMapRef, wordId >> 5);
+                uint hitMask = 1u << (wordId & 31);
+                if ((hitBucket & hitMask) != 0)
+                {
+                    continue;
+                }
+
+                hitBucket |= hitMask;
+                if (!ruleRemaining.IsEmpty &&
+                    TryMarkCompositeComponent(wordId, scanEpoch, ruleRemaining, ruleEpochs))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private int NextScanEpoch()
@@ -482,41 +732,18 @@ public class ModernAcAutomaton
         return false;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int FindChildFast(int state, char c, ref FlatNode nodesRef, ref char keysRef, ref int nextsRef)
+    private static bool UseLegacyChildRangeAutomaton()
     {
-        ref FlatNode node = ref Unsafe.Add(ref nodesRef, state);
-        int count = node.ChildrenCount;
-        if (count == 0) return -1;
-
-        int offset = node.ChildrenOffset;
-
-        if (count <= 5)
+        if (AppContext.TryGetSwitch(LegacyFeatureSwitchName, out bool enabled))
         {
-            ref char startKeys = ref Unsafe.Add(ref keysRef, offset);
-            for (int i = 0; i < count; i++)
-            {
-                if (Unsafe.Add(ref startKeys, i) == c)
-                    return Unsafe.Add(ref nextsRef, offset + i);
-            }
-            return -1;
+            return enabled;
         }
 
-        int left = offset;
-        int right = offset + count - 1;
-
-        while (left <= right)
-        {
-            int mid = left + ((right - left) >> 1);
-            char midChar = Unsafe.Add(ref keysRef, mid);
-            if (midChar == c) return Unsafe.Add(ref nextsRef, mid);
-            if (midChar < c) left = mid + 1;
-            else right = mid - 1;
-        }
-        return -1;
+        string? value = Environment.GetEnvironmentVariable(LegacyFeatureEnvName);
+        return bool.TryParse(value, out enabled) && enabled;
     }
 
-    private class BuilderNode
+    private sealed class BuilderNode
     {
         public int Id;
         public SortedDictionary<char, BuilderNode>? Children;
@@ -535,6 +762,7 @@ public class ModernAcAutomaton
             {
                 return Children.TryGetValue(c, out node);
             }
+
             node = null;
             return false;
         }

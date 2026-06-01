@@ -138,13 +138,39 @@ public class ModernAcAutomatonTests
     }
 
     [Fact]
-    public void ContainsAny_WideNodeMatchesViaSortedChildBinarySearch()
+    public void ContainsAny_WideNodeMatchesViaDoubleArrayTransition()
     {
         var ac = new ModernAcAutomaton();
         ac.Build(["aa", "ab", "ac", "ad", "ae", "af", "ag"]);
 
         Assert.True(ac.ContainsAny("prefix ag suffix"));
         Assert.False(ac.ContainsAny("prefix az suffix"));
+    }
+
+    [Fact]
+    public void ContainsAny_SuffixHeavyAsciiPatterns_UsesOutputLinks()
+    {
+        var ac = new ModernAcAutomaton();
+        ac.Build(["a", "ba", "cba", "dcba"]);
+
+        Assert.True(ac.ContainsAny("xxdcba"));
+        Assert.True(ac.ContainsAny("xxcba"));
+        Assert.True(ac.ContainsAny("xxba"));
+        Assert.True(ac.ContainsAny("xxa"));
+        Assert.False(ac.ContainsAny("zz"));
+    }
+
+    [Fact]
+    public void ContainsAny_SuffixHeavyChinesePatterns_UsesOutputLinks()
+    {
+        var ac = new ModernAcAutomaton();
+        ac.Build(["学", "大学", "北京大学", "清华北京大学"]);
+
+        Assert.True(ac.ContainsAny("我在清华北京大学旁边"));
+        Assert.True(ac.ContainsAny("我在北京大学旁边"));
+        Assert.True(ac.ContainsAny("这是一所大学"));
+        Assert.True(ac.ContainsAny("数学"));
+        Assert.False(ac.ContainsAny("普通文本"));
     }
 
     [Fact]
@@ -183,6 +209,26 @@ public class ModernAcAutomatonTests
 
             Assert.Equal(NaiveContains(generatedRules, text), ac.ContainsAny(text));
         }
+    }
+
+    [Fact]
+    public void ModernAcAutomaton_UsesCompactDoubleArrayTransitionsInHotScan()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "Helpers", "Security", "ModernAcAutomaton.cs"));
+        int containsStart = source.IndexOf("public bool ContainsAny", StringComparison.Ordinal);
+        int containsEnd = source.IndexOf("private int NextState", containsStart, StringComparison.Ordinal);
+        Assert.True(containsStart >= 0);
+        Assert.True(containsEnd > containsStart);
+        string containsAnySource = source[containsStart..containsEnd];
+
+        Assert.Contains("compact alphabet", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("_base", source, StringComparison.Ordinal);
+        Assert.Contains("_check", source, StringComparison.Ordinal);
+        Assert.Contains("_outputLink", source, StringComparison.Ordinal);
+        Assert.Contains("NextState(", containsAnySource, StringComparison.Ordinal);
+        Assert.DoesNotContain("FindChildFast", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ChildrenOffset", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ChildrenCount", source, StringComparison.Ordinal);
     }
 
     [Fact]
