@@ -1,6 +1,12 @@
 using System.Text;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests;
 
@@ -88,5 +94,140 @@ public sealed class PublicAotFileShellCacheTests
         string expected = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(input)));
 
         Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public async Task TryGetEntryAsync_UsesMemoryHitWithoutDiskStat()
+    {
+        using var temp = new TempDirectory();
+        var entry = CreateEntry("public:aot:v2:doc:2:article:42");
+        string path = ResolveEntryPath(temp.WebRoot, entry.CacheKey);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllBytesAsync(path, PublicAotFileShellCache.SerializeEntryBytes(entry));
+
+        var cache = BuildCache(temp.Root, Environments.Development);
+
+        PublicAotCacheEntry? fileHit = await cache.TryGetEntryAsync(entry.CacheKey);
+        Assert.NotNull(fileHit);
+        Assert.Equal(entry.Value, fileHit.Value);
+
+        File.Delete(path);
+        PublicAotCacheEntry? memoryHit = await cache.TryGetEntryAsync(entry.CacheKey);
+
+        Assert.NotNull(memoryHit);
+        Assert.Equal(entry.Value, memoryHit.Value);
+    }
+
+    [Fact]
+    public async Task TryGetEntryAsync_HonorsCancellationToken()
+    {
+        using var temp = new TempDirectory();
+        var cache = BuildCache(temp.Root, Environments.Production);
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => cache.TryGetEntryAsync("public:aot:v2:home", cts.Token));
+    }
+
+    [Fact]
+    public void Source_UsesTrueAsyncReadAndHotPathMetrics()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs"));
+
+        Assert.Contains("FileOptions.Asynchronous", source);
+        Assert.Contains("ReadAsync", source);
+        Assert.DoesNotContain(".GetAwaiter().GetResult()", source);
+        Assert.DoesNotContain("stream.Read(", source);
+        Assert.Contains("public_aot_cache_memory_hit", source);
+        Assert.Contains("public_aot_cache_file_hit", source);
+        Assert.Contains("public_aot_cache_miss", source);
+        Assert.Contains("public_aot_cache_file_read_ms", source);
+        Assert.Contains("public_aot_cache_stale_removed", source);
+        Assert.Contains("public_aot_cache_read_error", source);
+    }
+
+    private static PublicAotCacheEntry CreateEntry(string cacheKey)
+        => new()
+        {
+            CacheKey = cacheKey,
+            RouteKey = "article:42",
+            PageId = PublicPageId.ArticleDetail,
+            Source = PublicAotWriteSource.ServerSsrBackfill,
+            GeneratedAtUtc = DateTimeOffset.UtcNow.AddSeconds(-1),
+            ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(30),
+            RendererVersion = "renderer-v2",
+            FrontendAssetVersion = "frontend-v2",
+            Value = "<article>async cache</article>"
+        };
+
+    private static PublicAotFileShellCache BuildCache(string root, string environmentName)
+    {
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
+        return new PublicAotFileShellCache(
+            new TestWebHostEnvironment(root, environmentName),
+            redis,
+            NullLogger<PublicAotFileShellCache>.Instance);
+    }
+
+    private static string ResolveEntryPath(string webRoot, string cacheKey)
+    {
+        string hash = PublicAotFileShellCache.ToHashForTests(cacheKey);
+        return Path.Combine(webRoot, "aot-cache", hash[..2], $"{hash}.aeds");
+    }
+
+    private static string FindRepoRoot()
+    {
+        string current = AppContext.BaseDirectory;
+        while (!string.IsNullOrWhiteSpace(current))
+        {
+            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
+                File.Exists(Path.Combine(current, "src", "backend", "Infrastructure", "PublicAot", "PublicAotFileShellCache.cs")))
+            {
+                return current;
+            }
+
+            DirectoryInfo? parent = Directory.GetParent(current);
+            if (parent is null)
+            {
+                break;
+            }
+
+            current = parent.FullName;
+        }
+
+        throw new DirectoryNotFoundException("Unable to locate repository root.");
+    }
+
+    private sealed class TempDirectory : IDisposable
+    {
+        public string Root { get; } = Path.Combine(System.IO.Path.GetTempPath(), $"fsus-aot-file-cache-{Guid.NewGuid():N}");
+        public string WebRoot => Path.Combine(Root, "wwwroot");
+
+        public TempDirectory()
+        {
+            Directory.CreateDirectory(WebRoot);
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                Directory.Delete(Root, recursive: true);
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private sealed class TestWebHostEnvironment(string root, string environmentName) : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "FsusBlog.Tests";
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string WebRootPath { get; set; } = Path.Combine(root, "wwwroot");
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+        public string ContentRootPath { get; set; } = root;
+        public string EnvironmentName { get; set; } = environmentName;
     }
 }

@@ -1,10 +1,12 @@
 using System.Collections.Concurrent;
 using System.Buffers;
+using System.Diagnostics;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
-using Microsoft.Extensions.Logging.Abstractions;
+using FsusBlog.Server.Infrastructure.Observability;
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -17,18 +19,18 @@ public sealed class PublicAotFileShellCache(
     private const string InvalidationChannel = "public:aot:v2:invalidate";
     private readonly IDatabase _db = redis.GetDatabase();
     private readonly string _cacheRoot = ResolveCacheRoot(env);
-    private readonly bool _isDevelopment = env.IsDevelopment();
     private readonly ConcurrentDictionary<string, MemoryCacheEntry> _memoryCache = new(StringComparer.Ordinal);
+    private long _memoryGeneration;
 
-    public Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
+    public async Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!TryReadValidEntry(cacheKey, out var cachedValue))
+        if (TryGetMemoryEntry(cacheKey, out var cachedValue))
         {
-            return Task.FromResult<PublicAotCacheEntry?>(null);
+            return cachedValue;
         }
 
-        return Task.FromResult<PublicAotCacheEntry?>(cachedValue);
+        return await TryReadValidEntryAsync(cacheKey, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task SetAsync(PublicAotCacheEntry entry, CancellationToken cancellationToken = default)
@@ -42,7 +44,7 @@ public sealed class PublicAotFileShellCache(
         byte[] payload = SerializeEntryBytes(entry);
         await File.WriteAllBytesAsync(tempPath, payload, cancellationToken);
         File.Move(tempPath, targetPath, overwrite: true);
-        _memoryCache[entry.CacheKey] = new MemoryCacheEntry(entry, File.GetLastWriteTimeUtc(targetPath));
+        _memoryCache[entry.CacheKey] = CreateMemoryCacheEntry(entry);
 
         await RegisterKeyAsync(entry.CacheKey).ConfigureAwait(false);
     }
@@ -92,6 +94,7 @@ public sealed class PublicAotFileShellCache(
     public async Task InvalidateAllAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        Interlocked.Increment(ref _memoryGeneration);
         _memoryCache.Clear();
         if (Directory.Exists(_cacheRoot))
         {
@@ -117,46 +120,36 @@ public sealed class PublicAotFileShellCache(
         await PublishInvalidationAsync("all").ConfigureAwait(false);
     }
 
-    private bool TryReadValidEntry(string cacheKey, out PublicAotCacheEntry? value)
+    private async Task<PublicAotCacheEntry?> TryReadValidEntryAsync(string cacheKey, CancellationToken cancellationToken)
     {
-        value = null;
         string path = GetEntryPath(cacheKey);
-        if (TryGetMemoryEntry(cacheKey, path, out value))
+        PublicAotCacheEntry? entry = await TryReadEntryAsync(path, cancellationToken).ConfigureAwait(false);
+        if (entry is null)
         {
-            return true;
-        }
-
-        if (!TryReadEntry(path, out var entry) || entry is null)
-        {
-            return false;
+            RecordCacheRead("miss", "file", "public_aot_cache_miss", cacheKey, TimeSpan.Zero);
+            return null;
         }
 
         if (!string.Equals(entry.CacheKey, cacheKey, StringComparison.Ordinal))
         {
-            return false;
+            RecordCacheRead("miss", "file", "public_aot_cache_miss", cacheKey, TimeSpan.Zero);
+            return null;
         }
 
         if (entry.ExpiresAtUtc <= DateTimeOffset.UtcNow)
         {
-            BoundaryExecutor.ExecuteAsync(
-                () =>
-                {
-                    File.Delete(path);
-                    return Task.CompletedTask;
-                },
-                logger,
-                $"public-aot-delete-expired:{path}",
-                LogLevel.Debug).GetAwaiter().GetResult();
-
-            return false;
+            _memoryCache.TryRemove(cacheKey, out _);
+            QueueExpiredFileDelete(path);
+            RecordCacheRead("stale", "file", "public_aot_cache_stale_removed", cacheKey, TimeSpan.Zero);
+            return null;
         }
 
-        value = entry;
-        _memoryCache[cacheKey] = new MemoryCacheEntry(entry, File.GetLastWriteTimeUtc(path));
-        return true;
+        _memoryCache[cacheKey] = CreateMemoryCacheEntry(entry);
+        RecordCacheRead("hit", "file", "public_aot_cache_file_hit", cacheKey, TimeSpan.Zero);
+        return entry;
     }
 
-    private bool TryGetMemoryEntry(string cacheKey, string path, out PublicAotCacheEntry? value)
+    private bool TryGetMemoryEntry(string cacheKey, out PublicAotCacheEntry? value)
     {
         value = null;
         if (!_memoryCache.TryGetValue(cacheKey, out MemoryCacheEntry? cached))
@@ -164,96 +157,143 @@ public sealed class PublicAotFileShellCache(
             return false;
         }
 
-        if (!_isDevelopment)
+        long generation = Volatile.Read(ref _memoryGeneration);
+        if (cached.GenerationToken != generation || cached.ExpiresAtUtc <= DateTimeOffset.UtcNow)
         {
-            if (cached.Entry.ExpiresAtUtc <= DateTimeOffset.UtcNow)
+            _memoryCache.TryRemove(cacheKey, out _);
+            if (cached.ExpiresAtUtc <= DateTimeOffset.UtcNow)
             {
-                _memoryCache.TryRemove(cacheKey, out _);
-                return false;
+                QueueExpiredFileDelete(GetEntryPath(cacheKey));
+                RecordCacheRead("stale", "memory", "public_aot_cache_stale_removed", cacheKey, TimeSpan.Zero);
             }
-
-            value = cached.Entry;
-            return true;
-        }
-
-        if (!File.Exists(path))
-        {
-            _memoryCache.TryRemove(cacheKey, out _);
-            return false;
-        }
-
-        if (File.GetLastWriteTimeUtc(path) != cached.LastWriteTimeUtc)
-        {
-            _memoryCache.TryRemove(cacheKey, out _);
-            return false;
-        }
-
-        if (cached.Entry.ExpiresAtUtc <= DateTimeOffset.UtcNow)
-        {
-            _memoryCache.TryRemove(cacheKey, out _);
-            BoundaryExecutor.ExecuteAsync(
-                () =>
-                {
-                    File.Delete(path);
-                    return Task.CompletedTask;
-                },
-                logger,
-                $"public-aot-delete-expired:{path}",
-                LogLevel.Debug).GetAwaiter().GetResult();
             return false;
         }
 
         value = cached.Entry;
+        RecordCacheRead("hit", "memory", "public_aot_cache_memory_hit", cacheKey, TimeSpan.Zero);
         return true;
     }
 
-    private static bool TryReadEntry(string path, out PublicAotCacheEntry? entry)
+    private async Task<PublicAotCacheEntry?> TryReadEntryAsync(string path, CancellationToken cancellationToken)
     {
-        entry = null;
         if (!File.Exists(path))
         {
-            return false;
+            return null;
         }
 
-        entry = BoundaryExecutor.ExecuteValueAsync(
-            () =>
+        long started = Stopwatch.GetTimestamp();
+        try
+        {
+            await using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 64 * 1024,
+                options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+            if (stream.Length <= 0 || stream.Length > int.MaxValue)
             {
-                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.SequentialScan);
-                if (stream.Length <= 0 || stream.Length > int.MaxValue)
-                {
-                    return Task.FromResult<PublicAotCacheEntry?>(null);
-                }
+                return null;
+            }
 
-                int length = checked((int)stream.Length);
-                byte[] raw = ArrayPool<byte>.Shared.Rent(length);
-                try
+            int length = checked((int)stream.Length);
+            byte[] raw = ArrayPool<byte>.Shared.Rent(length);
+            try
+            {
+                int totalRead = 0;
+                while (totalRead < length)
                 {
-                    int totalRead = 0;
-                    while (totalRead < length)
+                    int read = await stream.ReadAsync(raw.AsMemory(totalRead, length - totalRead), cancellationToken).ConfigureAwait(false);
+                    if (read == 0)
                     {
-                        int read = stream.Read(raw, totalRead, length - totalRead);
-                        if (read == 0)
-                        {
-                            break;
-                        }
-
-                        totalRead += read;
+                        break;
                     }
 
-                    return Task.FromResult(totalRead == length
-                        ? PublicAotCacheEntryBinaryCodec.Decode(raw.AsMemory(0, totalRead))
-                        : null);
+                    totalRead += read;
                 }
-                finally
+
+                return totalRead == length
+                    ? PublicAotCacheEntryBinaryCodec.Decode(raw.AsMemory(0, totalRead))
+                    : null;
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(raw, clearArray: false);
+                TimeSpan elapsed = Stopwatch.GetElapsedTime(started);
+                FsusObservability.RecordCacheOperation(
+                    "read",
+                    nameof(CachePolicyId.PublicAotDocument),
+                    "file",
+                    "completed",
+                    elapsed);
+                logger.LogDebug("public_aot_cache_file_read_ms {Path} {ElapsedMs}", path, elapsed.TotalMilliseconds);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            TimeSpan elapsed = Stopwatch.GetElapsedTime(started);
+            FsusObservability.RecordCacheOperation(
+                "read",
+                nameof(CachePolicyId.PublicAotDocument),
+                "file",
+                "error",
+                elapsed);
+            logger.LogWarning(ex, "public_aot_cache_read_error {Path}", path);
+            return null;
+        }
+    }
+
+    private MemoryCacheEntry CreateMemoryCacheEntry(PublicAotCacheEntry entry)
+        => new(entry, entry.ExpiresAtUtc, entry.RendererVersion, entry.FrontendAssetVersion, Volatile.Read(ref _memoryGeneration));
+
+    private void RecordCacheRead(string result, string layer, string logToken, string cacheKey, TimeSpan duration)
+    {
+        FsusObservability.RecordCacheOperation(
+            "lookup",
+            nameof(CachePolicyId.PublicAotDocument),
+            layer,
+            result,
+            duration);
+        switch (logToken)
+        {
+            case "public_aot_cache_memory_hit":
+                logger.LogDebug("public_aot_cache_memory_hit {CacheKey}", cacheKey);
+                break;
+            case "public_aot_cache_file_hit":
+                logger.LogDebug("public_aot_cache_file_hit {CacheKey}", cacheKey);
+                break;
+            case "public_aot_cache_miss":
+                logger.LogDebug("public_aot_cache_miss {CacheKey}", cacheKey);
+                break;
+            case "public_aot_cache_stale_removed":
+                logger.LogDebug("public_aot_cache_stale_removed {CacheKey}", cacheKey);
+                break;
+            default:
+                logger.LogDebug("public_aot_cache_lookup {Result} {Layer} {CacheKey}", result, layer, cacheKey);
+                break;
+        }
+    }
+
+    private void QueueExpiredFileDelete(string path)
+    {
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                if (File.Exists(path))
                 {
-                    ArrayPool<byte>.Shared.Return(raw, clearArray: false);
+                    File.Delete(path);
                 }
-            },
-            _ => null,
-            NullLogger<PublicAotFileShellCache>.Instance,
-            $"public-aot-read-entry:{path}",
-            LogLevel.Debug).GetAwaiter().GetResult();
-        return entry is not null;
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "public_aot_cache_expired_delete_failed {Path}", path);
+            }
+        });
     }
 
     internal static byte[] SerializeEntryBytes(PublicAotCacheEntry entry)
@@ -420,5 +460,10 @@ public sealed class PublicAotFileShellCache(
             LogLevel.Debug);
     }
 
-    private sealed record MemoryCacheEntry(PublicAotCacheEntry Entry, DateTime LastWriteTimeUtc);
+    private sealed record MemoryCacheEntry(
+        PublicAotCacheEntry Entry,
+        DateTimeOffset ExpiresAtUtc,
+        string RendererVersion,
+        string FrontendAssetVersion,
+        long GenerationToken);
 }
