@@ -13,10 +13,10 @@ const OBJECT_KIND = 6
 const ARRAY_KIND = 7
 
 export function encodePublicAotPayload(value: unknown): string {
-  const payload: number[] = []
+  const payload = new BinaryWriter()
   writeValue(payload, value)
-  const frame = encodeAedsFrame(FrameType.PublicAotBootstrap, new Uint8Array(payload))
-  return toBase64Url(new Uint8Array(frame))
+  const frame = encodeAedsFrame(FrameType.PublicAotBootstrap, payload.toUint8Array())
+  return toBase64Url(frame)
 }
 
 export function decodePublicAotPayload<T>(text: string): T | null {
@@ -52,44 +52,45 @@ export function decodePublicAotPayload<T>(text: string): T | null {
   return reader.remaining() === 0 && value && typeof value === 'object' ? value as T : null
 }
 
-function writeValue(target: number[], value: unknown): void {
+function writeValue(target: BinaryWriter, value: unknown): void {
   if (value === null || value === undefined) {
-    target.push(NULL_KIND)
+    target.writeByte(NULL_KIND)
     return
   }
 
   if (typeof value === 'string') {
-    target.push(STRING_KIND)
+    target.writeByte(STRING_KIND)
     writeString(target, value)
     return
   }
 
   if (typeof value === 'number') {
     if (Number.isInteger(value) && value >= -2147483648 && value <= 2147483647) {
-      target.push(INT32_KIND)
-      writeInt32(target, value)
+      target.writeByte(INT32_KIND)
+      target.writeInt32(value)
       return
     }
 
     if (Number.isInteger(value) && Number.isSafeInteger(value)) {
-      target.push(INT64_KIND)
-      writeInt64(target, value)
+      target.writeByte(INT64_KIND)
+      target.writeInt64(value)
       return
     }
 
-    target.push(DOUBLE_KIND)
-    writeDouble(target, value)
+    target.writeByte(DOUBLE_KIND)
+    target.writeDouble(value)
     return
   }
 
   if (typeof value === 'boolean') {
-    target.push(BOOL_KIND, value ? 1 : 0)
+    target.writeByte(BOOL_KIND)
+    target.writeByte(value ? 1 : 0)
     return
   }
 
   if (Array.isArray(value)) {
-    target.push(ARRAY_KIND)
-    writeInt32(target, value.length)
+    target.writeByte(ARRAY_KIND)
+    target.writeInt32(value.length)
     for (const item of value) writeValue(target, item)
     return
   }
@@ -97,8 +98,8 @@ function writeValue(target: number[], value: unknown): void {
   if (typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>)
       .filter(([, item]) => item !== undefined)
-    target.push(OBJECT_KIND)
-    writeInt32(target, entries.length)
+    target.writeByte(OBJECT_KIND)
+    target.writeInt32(entries.length)
     for (const [key, item] of entries) {
       writeString(target, key)
       writeValue(target, item)
@@ -106,42 +107,78 @@ function writeValue(target: number[], value: unknown): void {
     return
   }
 
-  target.push(NULL_KIND)
+  target.writeByte(NULL_KIND)
 }
 
-function writeString(target: number[], value: string): void {
+function writeString(target: BinaryWriter, value: string): void {
   const bytes = encoder.encode(value)
-  writeInt32(target, bytes.byteLength)
-  for (let index = 0; index < bytes.byteLength; index += 1) {
-    target.push(bytes[index])
+  target.writeInt32(bytes.byteLength)
+  target.writeBytes(bytes)
+}
+
+class BinaryWriter {
+  private buffer: Uint8Array
+  private view: DataView
+  private offset = 0
+
+  constructor(initialCapacity = 4096) {
+    this.buffer = new Uint8Array(initialCapacity)
+    this.view = new DataView(this.buffer.buffer)
+  }
+
+  writeByte(value: number): void {
+    this.ensure(1)
+    this.buffer[this.offset] = value & 0xff
+    this.offset += 1
+  }
+
+  writeBytes(value: Uint8Array): void {
+    this.ensure(value.byteLength)
+    this.buffer.set(value, this.offset)
+    this.offset += value.byteLength
+  }
+
+  writeInt32(value: number): void {
+    this.ensure(4)
+    this.view.setInt32(this.offset, value, true)
+    this.offset += 4
+  }
+
+  writeInt64(value: number): void {
+    this.ensure(8)
+    this.view.setBigInt64(this.offset, BigInt(value), true)
+    this.offset += 8
+  }
+
+  writeDouble(value: number): void {
+    this.ensure(8)
+    this.view.setFloat64(this.offset, value, true)
+    this.offset += 8
+  }
+
+  toUint8Array(): Uint8Array {
+    return this.buffer.subarray(0, this.offset)
+  }
+
+  private ensure(length: number): void {
+    const required = this.offset + length
+    if (required <= this.buffer.byteLength) {
+      return
+    }
+
+    let nextLength = this.buffer.byteLength
+    while (nextLength < required) {
+      nextLength *= 2
+    }
+
+    const next = new Uint8Array(nextLength)
+    next.set(this.buffer.subarray(0, this.offset))
+    this.buffer = next
+    this.view = new DataView(this.buffer.buffer)
   }
 }
 
-function writeInt32(target: number[], value: number): void {
-  const bytes = new Uint8Array(4)
-  new DataView(bytes.buffer).setInt32(0, value, true)
-  for (let index = 0; index < bytes.byteLength; index += 1) {
-    target.push(bytes[index])
-  }
-}
-
-function writeInt64(target: number[], value: number): void {
-  const bytes = new Uint8Array(8)
-  new DataView(bytes.buffer).setBigInt64(0, BigInt(value), true)
-  for (let index = 0; index < bytes.byteLength; index += 1) {
-    target.push(bytes[index])
-  }
-}
-
-function writeDouble(target: number[], value: number): void {
-  const bytes = new Uint8Array(8)
-  new DataView(bytes.buffer).setFloat64(0, value, true)
-  for (let index = 0; index < bytes.byteLength; index += 1) {
-    target.push(bytes[index])
-  }
-}
-
-function encodeAedsFrame(frameType: FrameType, payload: Uint8Array): ArrayBuffer {
+function encodeAedsFrame(frameType: FrameType, payload: Uint8Array): Uint8Array {
   const frame = new Uint8Array(AEDS_HEADER_LENGTH + payload.byteLength)
   const view = new DataView(frame.buffer)
   view.setUint32(0, AEDS_MAGIC, true)
@@ -152,7 +189,7 @@ function encodeAedsFrame(frameType: FrameType, payload: Uint8Array): ArrayBuffer
   view.setUint32(10, payload.byteLength, true)
   view.setUint16(14, crc16(payload), true)
   frame.set(payload, AEDS_HEADER_LENGTH)
-  return frame.buffer
+  return frame
 }
 
 class BinaryValueReader {
@@ -254,11 +291,37 @@ class BinaryValueReader {
 }
 
 function toBase64Url(bytes: Uint8Array): string {
-  let binary = ''
-  for (let i = 0; i < bytes.byteLength; i += 1) {
-    binary += String.fromCharCode(bytes[i])
+  type Base64UrlBufferConstructor = {
+    from(value: Uint8Array): { toString(encoding: 'base64url'): string }
   }
-  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/u, '')
+  const bufferCtor = (globalThis as typeof globalThis & { Buffer?: Base64UrlBufferConstructor }).Buffer
+  if (bufferCtor) {
+    return bufferCtor.from(bytes).toString('base64url')
+  }
+
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+  let output = ''
+  let index = 0
+  for (; index + 2 < bytes.byteLength; index += 3) {
+    const triplet = ((bytes[index] ?? 0) << 16) | ((bytes[index + 1] ?? 0) << 8) | (bytes[index + 2] ?? 0)
+    output += alphabet[(triplet >>> 18) & 0x3f]
+      + alphabet[(triplet >>> 12) & 0x3f]
+      + alphabet[(triplet >>> 6) & 0x3f]
+      + alphabet[triplet & 0x3f]
+  }
+
+  const remaining = bytes.byteLength - index
+  if (remaining === 1) {
+    const value = (bytes[index] ?? 0) << 16
+    output += alphabet[(value >>> 18) & 0x3f] + alphabet[(value >>> 12) & 0x3f]
+  } else if (remaining === 2) {
+    const value = ((bytes[index] ?? 0) << 16) | ((bytes[index + 1] ?? 0) << 8)
+    output += alphabet[(value >>> 18) & 0x3f]
+      + alphabet[(value >>> 12) & 0x3f]
+      + alphabet[(value >>> 6) & 0x3f]
+  }
+
+  return output
 }
 
 function fromBase64Url(value: string): Uint8Array {

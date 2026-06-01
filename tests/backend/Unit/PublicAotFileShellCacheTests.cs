@@ -119,6 +119,57 @@ public sealed class PublicAotFileShellCacheTests
     }
 
     [Fact]
+    public async Task SetAsync_WritesVersionedArtifactPath_AndRemovesLegacyCopy()
+    {
+        using var temp = new TempDirectory();
+        var entry = CreateEntry("public:aot:v2:doc:2:article:42");
+        string legacyPath = ResolveEntryPath(temp.WebRoot, entry.CacheKey);
+        Directory.CreateDirectory(Path.GetDirectoryName(legacyPath)!);
+        await File.WriteAllBytesAsync(legacyPath, PublicAotFileShellCache.SerializeEntryBytes(entry));
+        var cache = BuildCache(temp.Root, Environments.Production);
+
+        await cache.SetAsync(entry);
+        await Task.Delay(100);
+
+        string versionedPath = PublicAotFileShellCache.ResolveVersionedEntryPathForTests(
+            temp.WebRoot,
+            entry.CacheKey,
+            entry.FrontendAssetVersion,
+            entry.PageId);
+        Assert.True(File.Exists(versionedPath));
+        Assert.False(File.Exists(legacyPath));
+
+        PublicAotCacheEntry? restored = await cache.TryGetEntryAsync(entry.CacheKey, entry.FrontendAssetVersion);
+        Assert.NotNull(restored);
+        Assert.Equal(entry.Value, restored.Value);
+    }
+
+    [Fact]
+    public async Task TryGetEntryAsync_ReturnsExpiredCompatibleEntryForSwr()
+    {
+        using var temp = new TempDirectory();
+        var entry = CreateEntry("public:aot:v2:doc:2:article:42") with
+        {
+            ExpiresAtUtc = DateTimeOffset.UtcNow.AddSeconds(-10)
+        };
+        string path = PublicAotFileShellCache.ResolveVersionedEntryPathForTests(
+            temp.WebRoot,
+            entry.CacheKey,
+            entry.FrontendAssetVersion,
+            entry.PageId);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllBytesAsync(path, PublicAotFileShellCache.SerializeEntryBytes(entry));
+
+        var cache = BuildCache(temp.Root, Environments.Production);
+
+        PublicAotCacheEntry? stale = await cache.TryGetEntryAsync(entry.CacheKey, entry.FrontendAssetVersion);
+
+        Assert.NotNull(stale);
+        Assert.True(stale.ExpiresAtUtc <= DateTimeOffset.UtcNow);
+        Assert.Equal(entry.Value, stale.Value);
+    }
+
+    [Fact]
     public async Task TryGetEntryAsync_HonorsCancellationToken()
     {
         using var temp = new TempDirectory();
@@ -143,7 +194,9 @@ public sealed class PublicAotFileShellCacheTests
         Assert.Contains("public_aot_cache_miss", source);
         Assert.Contains("public_aot_cache_file_read_ms", source);
         Assert.Contains("public_aot_cache_stale_removed", source);
+        Assert.Contains("public_aot_cache_stale_compatible", source);
         Assert.Contains("public_aot_cache_read_error", source);
+        Assert.Contains("ResolveVersionedEntryPathForTests", source);
     }
 
     private static PublicAotCacheEntry CreateEntry(string cacheKey)

@@ -147,6 +147,9 @@ public sealed class PublicAotInvalidationTrackerTests
         public Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
             => Task.FromResult<PublicAotCacheEntry?>(null);
 
+        public Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, string? frontendAssetVersion, CancellationToken cancellationToken = default)
+            => Task.FromResult<PublicAotCacheEntry?>(null);
+
         public Task SetAsync(PublicAotCacheEntry entry, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 

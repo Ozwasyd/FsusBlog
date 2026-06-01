@@ -29,6 +29,7 @@ public sealed class PublicAotShellServiceTests
                 Source = PublicAotWriteSource.ServerSsrBackfill,
                 RendererVersion = PublicAotShellService.PublicRendererVersion,
                 FrontendAssetVersion = "frontend-v1",
+                ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(5),
                 Value = "<!doctype html><html><body>aot</body></html>"
             }
         };
@@ -41,6 +42,7 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal(cache.Entry.Value, html);
         Assert.Equal("server-ssr", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
         Assert.Equal("none", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
+        Assert.Equal("fresh", context.Items[PublicAotShellService.PublicAotStateContextKey]);
         Assert.Empty(scheduler.Requests);
         Assert.Empty(cache.RemovedKeys);
     }
@@ -59,6 +61,7 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal(string.Empty, html);
         Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
         Assert.Equal("queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
+        Assert.Equal("fallback", context.Items[PublicAotShellService.PublicAotStateContextKey]);
         PublicAotBackfillRequest request = Assert.Single(scheduler.Requests);
         Assert.Equal(match.Kind, request.Kind);
         Assert.Equal(match.RouteKey, request.RouteKey);
@@ -100,6 +103,7 @@ public sealed class PublicAotShellServiceTests
                 Source = PublicAotWriteSource.ServerSsrBackfill,
                 RendererVersion = PublicAotShellService.PublicRendererVersion,
                 FrontendAssetVersion = "stale-frontend",
+                ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(5),
                 Value = "<!doctype html><html><body>stale</body></html>"
             }
         };
@@ -117,6 +121,39 @@ public sealed class PublicAotShellServiceTests
     }
 
     [Fact]
+    public async Task RenderAsync_WhenCacheEntryIsExpiredButCompatible_ReturnsStaleDocument_AndQueuesRefresh()
+    {
+        var match = HomeMatch();
+        string cacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey);
+        var cache = new RecordingAotCache
+        {
+            Entry = new PublicAotCacheEntry
+            {
+                CacheKey = cacheKey,
+                RouteKey = match.RouteKey,
+                PageId = match.PageId,
+                Source = PublicAotWriteSource.ServerSsrBackfill,
+                RendererVersion = PublicAotShellService.PublicRendererVersion,
+                FrontendAssetVersion = "frontend-v1",
+                ExpiresAtUtc = DateTimeOffset.UtcNow.AddSeconds(-5),
+                Value = "<!doctype html><html><body>stale-compatible</body></html>"
+            }
+        };
+        var scheduler = new RecordingBackfillScheduler();
+        PublicAotShellService sut = CreateService(match, cache, scheduler);
+        var context = new DefaultHttpContext();
+
+        string? html = await sut.RenderAsync(context, match);
+
+        Assert.Equal(cache.Entry.Value, html);
+        Assert.Equal("server-ssr", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
+        Assert.Equal("stale-refresh-queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
+        Assert.Equal("stale", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+        Assert.Empty(cache.RemovedKeys);
+        Assert.Single(scheduler.Requests);
+    }
+
+    [Fact]
     public void IsRenderableCacheEntry_RejectsMismatchedFrontendAssetVersion()
     {
         var entry = new PublicAotCacheEntry
@@ -125,6 +162,7 @@ public sealed class PublicAotShellServiceTests
             RouteKey = "home",
             RendererVersion = PublicAotShellService.PublicRendererVersion,
             FrontendAssetVersion = "frontend-v1",
+            ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(5),
             Value = "<html>cached</html>"
         };
 
@@ -142,6 +180,7 @@ public sealed class PublicAotShellServiceTests
             RouteKey = "home",
             RendererVersion = PublicAotShellService.PublicRendererVersion,
             FrontendAssetVersion = "frontend-v1",
+            ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(5),
             Value = "<html>cached</html>"
         };
 
@@ -222,6 +261,9 @@ public sealed class PublicAotShellServiceTests
         public List<string> RemovedKeys { get; } = [];
 
         public Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
+            => Task.FromResult(Entry);
+
+        public Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, string? frontendAssetVersion, CancellationToken cancellationToken = default)
             => Task.FromResult(Entry);
 
         public Task SetAsync(PublicAotCacheEntry entry, CancellationToken cancellationToken = default)

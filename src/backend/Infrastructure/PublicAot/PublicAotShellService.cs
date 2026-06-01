@@ -26,6 +26,7 @@ public sealed class PublicAotShellService(
     public const string PublicAotSourceContextKey = "__fsus_public_aot_source";
     public const string PublicAotVersionContextKey = "__fsus_public_aot_version";
     public const string PublicAotBackfillContextKey = "__fsus_public_aot_backfill";
+    public const string PublicAotStateContextKey = "__fsus_public_aot_state";
     private static readonly Action<ILogger, PublicPageKind, string, Exception?> PublicAotBackfillQueuedLog =
         LoggerMessage.Define<PublicPageKind, string>(
             LogLevel.Information,
@@ -46,12 +47,24 @@ public sealed class PublicAotShellService(
     {
         string documentCacheKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
         string frontendAssetVersion = assetManifest.GetFrontendAssetVersion();
-        PublicAotCacheEntry? entry = await cache.TryGetEntryAsync(documentCacheKey, cancellationToken);
+        PublicAotCacheEntry? entry = await cache.TryGetEntryAsync(documentCacheKey, frontendAssetVersion, cancellationToken);
         if (IsRenderableCacheEntry(entry, frontendAssetVersion))
         {
             context.Items[PublicAotSourceContextKey] = entry!.Source.ToHeaderValue();
             context.Items[PublicAotVersionContextKey] = entry.RendererVersion;
             context.Items[PublicAotBackfillContextKey] = "none";
+            context.Items[PublicAotStateContextKey] = "fresh";
+            return entry.Value;
+        }
+
+        string pagePrefixKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty));
+        if (IsStaleCompatibleCacheEntry(entry, frontendAssetVersion))
+        {
+            bool staleQueued = ScheduleBackfill(context, match, documentCacheKey, pagePrefixKey);
+            context.Items[PublicAotSourceContextKey] = entry!.Source.ToHeaderValue();
+            context.Items[PublicAotVersionContextKey] = entry.RendererVersion;
+            context.Items[PublicAotBackfillContextKey] = staleQueued ? "stale-refresh-queued" : "stale-refresh-dropped";
+            context.Items[PublicAotStateContextKey] = "stale";
             return entry.Value;
         }
 
@@ -60,21 +73,11 @@ public sealed class PublicAotShellService(
             await cache.RemoveAsync(documentCacheKey, cancellationToken);
         }
 
-        string pagePrefixKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty));
-        bool queued = backfillScheduler.TrySchedule(new PublicAotBackfillRequest(
-            match.Kind,
-            match.RouteKey,
-            match.Path,
-            match.QueryString,
-            documentCacheKey)
-        {
-            PagePrefixKey = pagePrefixKey,
-            ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(documentCacheKey, pagePrefixKey),
-            TestSessionId = ResolveTestSessionId(context)
-        });
+        bool queued = ScheduleBackfill(context, match, documentCacheKey, pagePrefixKey);
         context.Items[PublicAotSourceContextKey] = "spa-fallback";
         context.Items[PublicAotVersionContextKey] = PublicRendererVersion;
         context.Items[PublicAotBackfillContextKey] = queued ? "queued" : "dropped";
+        context.Items[PublicAotStateContextKey] = "fallback";
         if (queued)
         {
             PublicAotBackfillQueuedLog(logger, match.Kind, match.RouteKey, null);
@@ -86,6 +89,23 @@ public sealed class PublicAotShellService(
 
         return string.Empty;
     }
+
+    private bool ScheduleBackfill(
+        HttpContext context,
+        PublicAotRouteMatch match,
+        string documentCacheKey,
+        string pagePrefixKey)
+        => backfillScheduler.TrySchedule(new PublicAotBackfillRequest(
+            match.Kind,
+            match.RouteKey,
+            match.Path,
+            match.QueryString,
+            documentCacheKey)
+        {
+            PagePrefixKey = pagePrefixKey,
+            ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(documentCacheKey, pagePrefixKey),
+            TestSessionId = ResolveTestSessionId(context)
+        });
 
     public async Task GenerateAndStoreAsync(PublicAotBackfillRequest request, CancellationToken cancellationToken = default)
     {
@@ -139,6 +159,14 @@ public sealed class PublicAotShellService(
     }
 
     internal static bool IsRenderableCacheEntry(PublicAotCacheEntry? entry, string frontendAssetVersion)
+        => IsCompatibleCacheEntry(entry, frontendAssetVersion)
+            && entry!.ExpiresAtUtc > DateTimeOffset.UtcNow;
+
+    internal static bool IsStaleCompatibleCacheEntry(PublicAotCacheEntry? entry, string frontendAssetVersion)
+        => IsCompatibleCacheEntry(entry, frontendAssetVersion)
+            && entry!.ExpiresAtUtc <= DateTimeOffset.UtcNow;
+
+    private static bool IsCompatibleCacheEntry(PublicAotCacheEntry? entry, string frontendAssetVersion)
     {
         if (entry is null || string.IsNullOrWhiteSpace(entry.Value))
         {

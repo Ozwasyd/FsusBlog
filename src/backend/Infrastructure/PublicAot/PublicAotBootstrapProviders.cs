@@ -57,9 +57,9 @@ public sealed class PublicAotHomeBootstrapProvider(
 }
 
 public sealed class PublicAotArticleDetailBootstrapProvider(
-    IArticleService articleService,
     RelatedReadingService relatedReadingService,
-    ISystemService systemService) : PublicAotBootstrapProviderBase(systemService)
+    ISystemService systemService,
+    ISqlSugarClient db) : PublicAotBootstrapProviderBase(systemService)
 {
     public override PublicPageKind Kind => PublicPageKind.ArticleDetail;
 
@@ -72,13 +72,8 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         }
 
         DateTime utcNow = DateTime.UtcNow;
-        ArticleDetailReadModel? article = await articleService.GetByIdAsync(articleId, includePrivate: true);
+        ArticleDetailAotProjection? article = await LoadPublicArticleForAotAsync(articleId, utcNow, cancellationToken);
         if (article is null)
-        {
-            article = await articleService.GetByIdAsync(articleId);
-        }
-
-        if (article is null || !IsPubliclyVisible(article, utcNow))
         {
             return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_article_not_found");
         }
@@ -95,8 +90,57 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
             string.IsNullOrWhiteSpace(seo.Author) ? seo.Title : seo.Author,
             article.CreateTime,
             new PublicAotArticleCategorySnapshot(article.CategoryId, article.CategoryName),
-            article.Tags.Select(static tag => new PublicAotArticleTagSnapshot(tag.Id, tag.Name)).ToArray(),
+            article.Tags,
             ToRelatedReadingSnapshot(relatedReading)));
+    }
+
+    private async Task<ArticleDetailAotProjection?> LoadPublicArticleForAotAsync(
+        int articleId,
+        DateTime utcNow,
+        CancellationToken cancellationToken)
+    {
+        ArticleDetailAotProjection? projection = await db.Queryable<Article>()
+            .LeftJoin<Category>((a, category) => a.CategoryId == category.Id)
+            .LeftJoin<ArticleBody>((a, category, body) => a.Id == body.ArticleId)
+            .Where(a => a.Id == articleId
+                && a.IsDeleted == false
+                && a.Status == ArticleStatus.Published
+                && (a.PublishedAt == null || a.PublishedAt <= utcNow)
+                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= utcNow))
+            .Select((a, category, body) => new ArticleDetailAotProjection
+            {
+                Id = a.Id,
+                Title = a.Title,
+                Content = body.MarkdownContent,
+                Summary = a.Summary,
+                Views = a.Views,
+                CreateTime = a.CreateTime,
+                CategoryId = a.CategoryId,
+                CategoryName = category.Name
+            })
+            .FirstAsync(cancellationToken);
+        if (projection is null)
+        {
+            return null;
+        }
+
+        List<ArticleTagAotProjection> tags = await db.Queryable<ArticleTag>()
+            .InnerJoin<Tag>((articleTag, tag) => articleTag.TagId == tag.Id)
+            .Where((articleTag, tag) => articleTag.ArticleId == articleId)
+            .OrderBy((articleTag, tag) => tag.Id)
+            .Select((articleTag, tag) => new ArticleTagAotProjection
+            {
+                Id = tag.Id,
+                Name = tag.Name
+            })
+            .ToListAsync(cancellationToken);
+        projection.Tags = tags
+            .Select(static tag => new PublicAotArticleTagSnapshot(tag.Id, tag.Name))
+            .ToArray();
+        projection.Content = string.IsNullOrWhiteSpace(projection.Content) ? projection.Summary ?? string.Empty : projection.Content;
+        projection.Summary ??= string.Empty;
+        projection.CategoryName = string.IsNullOrWhiteSpace(projection.CategoryName) ? "未分类" : projection.CategoryName;
+        return projection;
     }
 
     private static PublicAotRelatedReadingSnapshot? ToRelatedReadingSnapshot(RelatedReadingResponse? response)
@@ -110,11 +154,24 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
     private static PublicAotRelatedReadingItemSnapshot ToRelatedReadingItemSnapshot(RelatedReadingItem item)
         => new(item.Id, item.Title, item.Summary, item.CreateTime, item.Reason);
 
-    private static bool IsPubliclyVisible(ArticleDetailReadModel article, DateTime utcNow)
-        => !article.IsDeleted
-            && article.Status == ArticleStatus.Published
-            && (!article.PublishedAt.HasValue || article.PublishedAt.Value <= utcNow)
-            && (!article.ScheduledPublishAt.HasValue || article.ScheduledPublishAt.Value <= utcNow);
+    private sealed class ArticleDetailAotProjection
+    {
+        public int Id { get; init; }
+        public string Title { get; init; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public string? Summary { get; set; }
+        public int Views { get; init; }
+        public DateTime CreateTime { get; init; }
+        public int CategoryId { get; init; }
+        public string CategoryName { get; set; } = string.Empty;
+        public IReadOnlyList<PublicAotArticleTagSnapshot> Tags { get; set; } = [];
+    }
+
+    private sealed class ArticleTagAotProjection
+    {
+        public int Id { get; init; }
+        public string Name { get; init; } = string.Empty;
+    }
 }
 
 public sealed class PublicAotFilterBootstrapProvider(
@@ -225,44 +282,44 @@ public sealed class PublicAotAboutBootstrapProvider : PublicAotBootstrapProvider
 }
 
 public sealed class PublicAotArchiveBootstrapProvider(
-    IArticleService articleService,
-    ISystemService systemService) : PublicAotBootstrapProviderBase(systemService)
+    ISystemService systemService,
+    ISqlSugarClient db) : PublicAotBootstrapProviderBase(systemService)
 {
     public override PublicPageKind Kind => PublicPageKind.Archive;
 
     public override async Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
         SeoConfigReadModel seo = await LoadSeoAsync();
-        List<ArticleListItemReadModel> articles = await LoadAllArchiveArticlesAsync(cancellationToken);
+        IReadOnlyList<ArchiveArticleAotProjection> articles = await ListPublicArchiveArticlesAsync(cancellationToken);
         return Result<PublicPageSnapshot>.Success(new PublicArchivePageSnapshot(
             ToSeoSnapshot(seo),
             articles.Select(static article => new PublicArchiveArticleSnapshot(article.Id, article.Title, article.CreateTime)).ToArray(),
             "归档"));
     }
 
-    private async Task<List<ArticleListItemReadModel>> LoadAllArchiveArticlesAsync(CancellationToken cancellationToken)
+    private async Task<List<ArchiveArticleAotProjection>> ListPublicArchiveArticlesAsync(CancellationToken cancellationToken)
     {
-        const int pageSize = 100;
-        var results = new List<ArticleListItemReadModel>(pageSize);
-        int pageIndex = 1;
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            ArticleListPageReadModel page = await articleService.GetPageListAsync(pageIndex, pageSize, null, null, false);
-            if (page.Items.Count == 0)
+        DateTime utcNow = DateTime.UtcNow;
+        return await db.Queryable<Article>()
+            .Where(article => article.IsDeleted == false
+                && article.Status == ArticleStatus.Published
+                && (article.PublishedAt == null || article.PublishedAt <= utcNow)
+                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= utcNow))
+            .OrderBy(article => article.CreateTime, OrderByType.Desc)
+            .OrderBy(article => article.Id, OrderByType.Desc)
+            .Select(article => new ArchiveArticleAotProjection
             {
-                break;
-            }
+                Id = article.Id,
+                Title = article.Title,
+                CreateTime = article.CreateTime
+            })
+            .ToListAsync(cancellationToken);
+    }
 
-            results.AddRange(page.Items);
-            if (results.Count >= page.Total || page.Items.Count < pageSize)
-            {
-                break;
-            }
-
-            pageIndex++;
-        }
-
-        return results;
+    private sealed class ArchiveArticleAotProjection
+    {
+        public int Id { get; init; }
+        public string Title { get; init; } = string.Empty;
+        public DateTime CreateTime { get; init; }
     }
 }

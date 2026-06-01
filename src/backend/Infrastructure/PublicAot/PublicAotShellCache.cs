@@ -9,6 +9,9 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
     private readonly IDatabase _db = redis.GetDatabase();
 
     public async Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
+        => await TryGetEntryAsync(cacheKey, frontendAssetVersion: null, cancellationToken).ConfigureAwait(false);
+
+    public async Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, string? frontendAssetVersion, CancellationToken cancellationToken = default)
     {
         var cached = await cache.TryGetAsync<PublicAotCacheEntry>(
             CachePolicyId.PublicAotDocument,

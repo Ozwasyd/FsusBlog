@@ -171,6 +171,8 @@ L0 artifact 只接受 `GET`/`HEAD`；`OPTIONS` 在同源场景下返回 `405`，
 
 Public AOT 预热和内容变更驱动 backfill 必须消费后端权威 route manifest，而不是脚本猜测 URL。`GET /internal/public-aot/manifest` 只暴露公开 SEO route，支持 `scope=all`、`scope=hot` 与 `changedSince`，并通过 `dependencyKeys` 连接 `article:{id}`、`category:{id}`、`tag:{id}`、`article:list`、`seo` 等内容依赖。配置 `PublicAot:ManifestToken` 时，调用方必须携带 `X-Fsus-Public-Aot-Token`。
 
+Public AOT document composer 只允许通过 `<!--fsus:aot:*-->` sentinel 写入 AOT 管理区域；模板缺少 sentinel 必须失败而不是静默降级。AOT 负责维护的 description/canonical/Open Graph/Twitter/feed/JSON-LD head 节点必须统一带 `data-fsus-aot-head`，客户端 micro-navigation 只替换这些标记节点，不触碰 Vite runtime、CSP nonce 或其他非 AOT head。
+
 公开页结构的唯一真相源是 `src/frontend/src/helpers/publicAotBundle.ts` 与
 `src/frontend/src/public-renderers/renderPublicPage.ts`。服务端 AOT provider
 只提供数据型 options，不手写 hydration props、不渲染 Markdown、不拼页面内部 HTML；

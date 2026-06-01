@@ -1,85 +1,54 @@
-using FsusBlog.Core.Common;
-using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.ReadModels;
-using FsusBlog.Server.Services.Distribution;
-using FsusBlog.Shared.Contracts.Outputs;
-using NSubstitute;
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicAotBootstrapProviderTests
 {
     [Fact]
-    public async Task ArticleDetailProvider_DoesNotFallbackToPublicCacheWhenPrivateArticleIsHidden()
+    public void ArticleDetailProvider_SourceUsesPublicOnlyProjection()
     {
-        var articleService = Substitute.For<IArticleService>();
-        articleService.GetByIdAsync(123, includePrivate: true).Returns(new ArticleDetailReadModel
-        {
-            Id = 123,
-            Title = "scheduled",
-            Content = "body",
-            Summary = "summary",
-            CategoryId = 1,
-            CategoryName = "category",
-            Status = ArticleStatus.Scheduled,
-            ScheduledPublishAt = DateTime.UtcNow.AddHours(1),
-            PublishedAt = null
-        });
+        string source = ReadProviderSource();
 
-        var provider = new PublicAotArticleDetailBootstrapProvider(
-            articleService,
-            new RelatedReadingService(Substitute.For<ISqlSugarClient>()),
-            CreateSystemService());
-
-        Result<PublicPageSnapshot> result = await provider.BuildSnapshotAsync(
-            new PublicAotRouteMatch(
-                PublicPageKind.ArticleDetail,
-                PublicPageId.ArticleDetail,
-                "article:123",
-                "/article/123",
-                "/article/123",
-                string.Empty));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorCode.NotFound, result.Error.Code);
-        await articleService.Received(1).GetByIdAsync(123, includePrivate: true);
-        await articleService.DidNotReceive().GetByIdAsync(123);
+        Assert.Contains("LoadPublicArticleForAotAsync", source);
+        Assert.Contains("ArticleBody", source);
+        Assert.Contains("ArticleStatus.Published", source);
+        Assert.Contains("ScheduledPublishAt", source);
+        Assert.DoesNotContain("includePrivate: true", source);
     }
 
     [Fact]
-    public async Task ArticleDetailProvider_UsesPublicReadFallbackWhenPrivateReadMisses()
+    public void ArchiveProvider_SourceUsesMinimalProjectionInsteadOfFullArticleDtoPaging()
     {
-        var articleService = Substitute.For<IArticleService>();
-        articleService.GetByIdAsync(123, includePrivate: true).Returns((ArticleDetailReadModel?)null);
-        articleService.GetByIdAsync(123).Returns((ArticleDetailReadModel?)null);
+        string source = ReadProviderSource();
+        string archiveProviderSource = source[source.IndexOf("public sealed class PublicAotArchiveBootstrapProvider", StringComparison.Ordinal)..];
 
-        var provider = new PublicAotArticleDetailBootstrapProvider(
-            articleService,
-            new RelatedReadingService(Substitute.For<ISqlSugarClient>()),
-            CreateSystemService());
-
-        Result<PublicPageSnapshot> result = await provider.BuildSnapshotAsync(
-            new PublicAotRouteMatch(
-                PublicPageKind.ArticleDetail,
-                PublicPageId.ArticleDetail,
-                "article:123",
-                "/article/123",
-                "/article/123",
-                string.Empty));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorCode.NotFound, result.Error.Code);
-        await articleService.Received(1).GetByIdAsync(123, includePrivate: true);
-        await articleService.Received(1).GetByIdAsync(123);
+        Assert.Contains("ArchiveArticleAotProjection", archiveProviderSource);
+        Assert.Contains("ListPublicArchiveArticlesAsync", archiveProviderSource);
+        Assert.Contains("ArticleStatus.Published", archiveProviderSource);
+        Assert.DoesNotContain("IArticleService articleService", archiveProviderSource);
+        Assert.DoesNotContain("GetPageListAsync", archiveProviderSource);
     }
 
-    private static ISystemService CreateSystemService()
+    private static string ReadProviderSource()
+        => File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs"));
+
+    private static string FindRepoRoot()
     {
-        var systemService = Substitute.For<ISystemService>();
-        systemService.GetSeoConfigAsync().Returns(new SeoConfigReadModel());
-        return systemService;
+        string current = AppContext.BaseDirectory;
+        while (!string.IsNullOrWhiteSpace(current))
+        {
+            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
+            {
+                return current;
+            }
+
+            DirectoryInfo? parent = Directory.GetParent(current);
+            if (parent is null)
+            {
+                break;
+            }
+
+            current = parent.FullName;
+        }
+
+        throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 }

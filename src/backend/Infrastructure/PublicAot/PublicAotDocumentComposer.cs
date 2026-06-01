@@ -24,6 +24,14 @@ internal readonly record struct PublicAotDocumentModel(
 internal static class PublicAotDocumentComposer
 {
     private const string StableSpaEntryAlias = "/assets/fsus-spa-entry.js";
+    private const string AotHeadStartSentinel = "<!--fsus:aot:head-start-->";
+    private const string AotHeadEndSentinel = "<!--fsus:aot:head-end-->";
+    private const string AotAppSentinel = "<!--fsus:aot:app-->";
+    private const string AotPayloadsSentinel = "<!--fsus:aot:payloads-->";
+    private const string AotSpaBootSentinel = "<!--fsus:aot:spa-boot-->";
+    private static readonly Regex BodyTagRegex = new(
+        "<body\\b(?<attrs>[^>]*)>",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     internal static string BuildSeoHeadTags(
         PublicPageKind kind,
@@ -63,19 +71,19 @@ internal static class PublicAotDocumentComposer
             "\"description\":\"", JavaScriptEncoder.Default.Encode(description), "\"}",
             "]}");
         return $"""
-<meta name="description" content="{Encode(description)}" />
-<meta property="og:title" content="{Encode(fullTitle)}" />
-<meta property="og:description" content="{Encode(description)}" />
-<meta property="og:type" content="{Encode(ogType)}" />
-<meta property="og:url" content="{Encode(canonicalUrl)}" />
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="{Encode(fullTitle)}" />
-<meta name="twitter:description" content="{Encode(description)}" />
-<link rel="canonical" href="{Encode(canonicalUrl)}" />
-<link rel="alternate" type="application/rss+xml" title="{Encode(siteTitle)} RSS" href="/feed/rss.xml" />
-<link rel="alternate" type="application/atom+xml" title="{Encode(siteTitle)} Atom" href="/feed/atom.xml" />
-<link rel="alternate" type="application/feed+json" title="{Encode(siteTitle)} JSON Feed" href="/feed/feed.json" />
-<script type="application/ld+json">{jsonLd}</script>
+<meta name="description" content="{Encode(description)}" data-fsus-aot-head />
+<meta property="og:title" content="{Encode(fullTitle)}" data-fsus-aot-head />
+<meta property="og:description" content="{Encode(description)}" data-fsus-aot-head />
+<meta property="og:type" content="{Encode(ogType)}" data-fsus-aot-head />
+<meta property="og:url" content="{Encode(canonicalUrl)}" data-fsus-aot-head />
+<meta name="twitter:card" content="summary_large_image" data-fsus-aot-head />
+<meta name="twitter:title" content="{Encode(fullTitle)}" data-fsus-aot-head />
+<meta name="twitter:description" content="{Encode(description)}" data-fsus-aot-head />
+<link rel="canonical" href="{Encode(canonicalUrl)}" data-fsus-aot-head />
+<link rel="alternate" type="application/rss+xml" title="{Encode(siteTitle)} RSS" href="/feed/rss.xml" data-fsus-aot-head />
+<link rel="alternate" type="application/atom+xml" title="{Encode(siteTitle)} Atom" href="/feed/atom.xml" data-fsus-aot-head />
+<link rel="alternate" type="application/feed+json" title="{Encode(siteTitle)} JSON Feed" href="/feed/feed.json" data-fsus-aot-head />
+<script type="application/ld+json" data-fsus-aot-head>{jsonLd}</script>
 """;
     }
 
@@ -98,15 +106,16 @@ internal static class PublicAotDocumentComposer
 
     internal static string ComposeDocument(PublicAotDocumentModel model)
     {
-        string html = model.PreparedTemplate
-            .Replace("<head>", $"<head>\n    {BuildThemeBootstrapScript()}", StringComparison.Ordinal)
-            .Replace("<body>", "<body data-fsusblog-public-first-paint=\"true\" data-fsusblog-public-shell=\"true\">", StringComparison.Ordinal)
-            .Replace(
-                "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />",
-                $"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    {BuildSeoHeadTags(model.Kind, model.Title, model.SiteTitle, model.Description, model.CanonicalUrl)}",
-                StringComparison.Ordinal)
-            .Replace("<title>Loading...</title>", $"<title>{Encode(model.Title)}{BuildTitleSuffix(model.Title, model.SiteTitle)}</title>", StringComparison.Ordinal)
-            .Replace("<div id=\"app\"></div>", $"<div id=\"app\">{model.ShellHtml}</div>", StringComparison.Ordinal);
+        ValidateSentinels(model.PreparedTemplate);
+
+        string html = EnsureBodyAttributes(model.PreparedTemplate);
+        html = ReplaceBetween(
+            html,
+            AotHeadStartSentinel,
+            AotHeadEndSentinel,
+            BuildAotManagedHead(model),
+            "head");
+        html = html.Replace(AotAppSentinel, model.ShellHtml, StringComparison.Ordinal);
 
         if (!string.IsNullOrWhiteSpace(model.HeadLinks))
         {
@@ -125,10 +134,77 @@ internal static class PublicAotDocumentComposer
             : BuildBinaryPayloadScript("fsus-aot-islands", model.IslandsPayload);
         string deferredSpaBoot = BuildDeferredSpaBootScript(model.RawTemplate, model.SpaEntryScript);
 
+        string payloadScripts = string.Join(
+            "\n    ",
+            new[] { bootstrapScript, hydrationScript, islandsScript }.Where(static script => !string.IsNullOrWhiteSpace(script)));
+
+        html = html.Replace(AotPayloadsSentinel, payloadScripts, StringComparison.Ordinal);
+        html = html.Replace(AotSpaBootSentinel, deferredSpaBoot, StringComparison.Ordinal);
+
         return html.Contains(bodyClose, StringComparison.Ordinal)
-            ? html.Replace(bodyClose, $"{bootstrapScript}\n    {hydrationScript}\n    {islandsScript}\n    {deferredSpaBoot}\n    {bodyClose}", StringComparison.Ordinal)
-            : html + bootstrapScript + hydrationScript + islandsScript + deferredSpaBoot;
+            ? html
+            : html + payloadScripts + deferredSpaBoot;
     }
+
+    private static string BuildAotManagedHead(PublicAotDocumentModel model)
+        => $"""
+{BuildThemeBootstrapScript()}
+    <title>{Encode(model.Title)}{BuildTitleSuffix(model.Title, model.SiteTitle)}</title>
+    {BuildSeoHeadTags(model.Kind, model.Title, model.SiteTitle, model.Description, model.CanonicalUrl)}
+""";
+
+    private static void ValidateSentinels(string template)
+    {
+        RequireSentinel(template, AotHeadStartSentinel, "head-start");
+        RequireSentinel(template, AotHeadEndSentinel, "head-end");
+        RequireSentinel(template, AotAppSentinel, "app");
+        RequireSentinel(template, AotPayloadsSentinel, "payloads");
+        RequireSentinel(template, AotSpaBootSentinel, "spa-boot");
+    }
+
+    private static void RequireSentinel(string template, string sentinel, string name)
+    {
+        if (!template.Contains(sentinel, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"public_aot_template_sentinel_missing:{name}");
+        }
+    }
+
+    private static string ReplaceBetween(string html, string startSentinel, string endSentinel, string replacement, string name)
+    {
+        int start = html.IndexOf(startSentinel, StringComparison.Ordinal);
+        int end = html.IndexOf(endSentinel, start + startSentinel.Length, StringComparison.Ordinal);
+        if (start < 0 || end < 0)
+        {
+            throw new InvalidOperationException($"public_aot_template_sentinel_missing:{name}");
+        }
+
+        int afterEnd = end + endSentinel.Length;
+        return string.Concat(html.AsSpan(0, start), replacement, html.AsSpan(afterEnd));
+    }
+
+    private static string EnsureBodyAttributes(string html)
+    {
+        return BodyTagRegex.Replace(
+            html,
+            match =>
+            {
+                string attrs = match.Groups["attrs"].Value;
+                return string.Concat(
+                    "<body",
+                    attrs,
+                    HasAttribute(attrs, "data-fsusblog-public-first-paint") ? string.Empty : " data-fsusblog-public-first-paint=\"true\"",
+                    HasAttribute(attrs, "data-fsusblog-public-shell") ? string.Empty : " data-fsusblog-public-shell=\"true\"",
+                    ">");
+            },
+            1);
+    }
+
+    private static bool HasAttribute(string attrs, string attributeName)
+        => Regex.IsMatch(
+            attrs,
+            $"\\b{Regex.Escape(attributeName)}\\s*=",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     internal static string BuildThemeBootstrapScript() =>
         """

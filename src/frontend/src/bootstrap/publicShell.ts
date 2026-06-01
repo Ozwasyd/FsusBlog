@@ -507,24 +507,6 @@ function syncShellAttributes(target: HTMLElement, source: HTMLElement): void {
   target.removeAttribute('data-public-hydrated')
 }
 
-function syncMetaTagFromDocument(targetDocument: Document, selector: string): void {
-  const current = document.head.querySelector(selector)
-  const next = targetDocument.head.querySelector(selector)
-
-  if (!(next instanceof HTMLElement)) {
-    current?.remove()
-    return
-  }
-
-  const clone = document.importNode(next, true)
-  if (current) {
-    current.replaceWith(clone)
-    return
-  }
-
-  document.head.appendChild(clone)
-}
-
 function canPatchNode(current: Node, next: Node): boolean {
   if (current.nodeType !== next.nodeType) {
     return false
@@ -598,12 +580,10 @@ function syncHeadFromDocument(targetDocument: Document): void {
     document.title = targetDocument.title
   }
 
-  syncMetaTagFromDocument(targetDocument, 'link[rel="canonical"]')
-  syncMetaTagFromDocument(targetDocument, 'meta[name="description"]')
-  syncMetaTagFromDocument(targetDocument, 'meta[property="og:title"]')
-  syncMetaTagFromDocument(targetDocument, 'meta[property="og:description"]')
-  syncMetaTagFromDocument(targetDocument, 'meta[property="og:type"]')
-  syncMetaTagFromDocument(targetDocument, 'meta[property="og:url"]')
+  document.head.querySelectorAll('[data-fsus-aot-head]').forEach((node) => node.remove())
+  targetDocument.head.querySelectorAll('[data-fsus-aot-head]').forEach((node) => {
+    document.head.appendChild(document.importNode(node, true))
+  })
 }
 
 function updateHistoryStateForCurrentScroll(): void {

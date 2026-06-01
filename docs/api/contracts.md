@@ -669,10 +669,15 @@ HTML bootstrap、hydration props 和 islands payload 均以 `script type="applic
 - AOT 产物只允许由服务端 `server-ssr` backfill 写入；客户端、管理端和脚本不得上传 AOT bundle。
 - `Filter` / `ArticleDetail` 不允许持久化错误态壳层，例如 markdown fallback/error 文案。
 - 服务端 backfill 使用 `PublicAot:SsrWorkerMode=Pooled` 的 Node/Vue SSR worker 池生成条目；
-  如缓存未命中、过期或 worker 不可用，公开页请求一律返回 SPA index fallback，并通过
+  如缓存未命中或 worker 不可用，公开页请求返回 SPA index fallback，并通过
   `X-Fsus-Public-Aot-Backfill` 标记 `queued` 或 `dropped`。
+- 过期但 renderer/frontend asset version 兼容的条目可作为 stale HTML 返回，同时排队刷新；
+  响应头用 `X-Fsus-Public-Aot-State: fresh|stale|fallback` 与
+  `X-Fsus-Public-Aot-Stale: 1` 区分 fresh 命中、SWR stale 命中和 SPA fallback。
 - AOT HTML 缓存同时校验 `rendererVersion` 与 frontend asset version；前端 `index.html` 或
-  `.vite/manifest.json` 变化会自动拒绝旧缓存。
+  `.vite/manifest.json` 变化会自动拒绝旧缓存，并按 frontend asset version 隔离文件 artifact。
+- AOT HTML 模板通过 `<!--fsus:aot:*-->` sentinel 注入 title/SEO head、shell、AEDS payload 与
+  deferred SPA boot；由 Public AOT 管理的 SEO head 节点必须带 `data-fsus-aot-head`。
 
 ### Public AOT Route Manifest
 

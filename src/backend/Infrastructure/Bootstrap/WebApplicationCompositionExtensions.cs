@@ -397,6 +397,9 @@ public static class WebApplicationCompositionExtensions
             string backfill = ctx.Items.TryGetValue(PublicAotShellService.PublicAotBackfillContextKey, out object? backfillObj)
                 ? backfillObj?.ToString() ?? "none"
                 : "none";
+            string state = ctx.Items.TryGetValue(PublicAotShellService.PublicAotStateContextKey, out object? stateObj)
+                ? stateObj?.ToString() ?? "unknown"
+                : "unknown";
             FsusObservability.RecordAotRender(
                 source,
                 backfill,
@@ -407,6 +410,11 @@ public static class WebApplicationCompositionExtensions
                 ctx.Response.Headers["X-Fsus-Public-Aot-Source"] = source;
                 ctx.Response.Headers["X-Fsus-Public-Aot-Version"] = version;
                 ctx.Response.Headers["X-Fsus-Public-Aot-Backfill"] = backfill;
+                ctx.Response.Headers["X-Fsus-Public-Aot-State"] = state;
+                if (string.Equals(state, "stale", StringComparison.Ordinal))
+                {
+                    ctx.Response.Headers["X-Fsus-Public-Aot-Stale"] = "1";
+                }
                 ctx.Response.Headers["Cache-Control"] = "no-cache";
                 ctx.Response.Headers.Remove("ETag");
                 ctx.Response.Headers.Remove("Last-Modified");
@@ -428,9 +436,13 @@ public static class WebApplicationCompositionExtensions
         string spaBackfill = ctx.Items.TryGetValue(PublicAotShellService.PublicAotBackfillContextKey, out object? spaBackfillObj)
             ? spaBackfillObj?.ToString() ?? "none"
             : "none";
+        string spaState = ctx.Items.TryGetValue(PublicAotShellService.PublicAotStateContextKey, out object? spaStateObj)
+            ? spaStateObj?.ToString() ?? "fallback"
+            : "fallback";
         ctx.Response.Headers["X-Fsus-Public-Aot-Source"] = spaSource;
         ctx.Response.Headers["X-Fsus-Public-Aot-Version"] = spaVersion;
         ctx.Response.Headers["X-Fsus-Public-Aot-Backfill"] = spaBackfill;
+        ctx.Response.Headers["X-Fsus-Public-Aot-State"] = spaState;
         ctx.Response.Headers["Cache-Control"] = "no-cache";
         ctx.Response.Headers.Remove("ETag");
         ctx.Response.Headers.Remove("Last-Modified");

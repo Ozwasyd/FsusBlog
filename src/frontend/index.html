@@ -7,14 +7,16 @@
     <meta name="color-scheme" content="light dark" />
     <script type="module" src="/src/bootstrap/preTheme.ts"></script>
     <link rel="manifest" href="/manifest.webmanifest" />
+    <!--fsus:aot:head-start-->
     <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="/feed/rss.xml" />
     <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/feed/atom.xml" />
     <link rel="alternate" type="application/feed+json" title="JSON Feed" href="/feed/feed.json" />
+    <title>Loading...</title>
+    <!--fsus:aot:head-end-->
     <link rel="stylesheet" href="/src/assets/public-shell-critical.css" data-fsusblog-style="public-shell-critical" />
     <link rel="stylesheet" href="/src/assets/tailwind.css" data-fsusblog-style="tailwind" />
     <link rel="stylesheet" href="/src/assets/markdown.css" data-fsusblog-style="markdown" />
     <link rel="stylesheet" href="/src/assets/public-page.css" data-fsusblog-style="public-page" />
-    <title>Loading...</title>
 
     <style>
       /* FsusUI 2026: The Intellectual Minimalist - Baseline CSS */
@@ -186,7 +188,11 @@
       </div>
     </div>
 
-    <div id="app"></div>
+    <div id="app">
+      <!--fsus:aot:app-->
+    </div>
+    <!--fsus:aot:payloads-->
+    <!--fsus:aot:spa-boot-->
     <script type="module" src="/src/bootstrap/entry.ts"></script>
   </body>
 </html>

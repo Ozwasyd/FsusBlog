@@ -100,7 +100,8 @@ Browser
     → 未命中 → 转发 Kestrel
       → Kestrel 尝试读取 Public AOT document cache
         → 命中且 renderer/assets version 匹配 → 直接输出 HTML
-        → 未命中 → 返回 SPA index.html + 排队 backfill
+        → 过期但 version 兼容 → 输出 stale HTML + 排队 refresh
+        → 未命中或 version 不兼容 → 返回 SPA index.html + 排队 backfill
         → backfill worker → bootstrap provider → Node/Vue SSR worker pool → document cache
       → SPA index.html fallback：客户端 hydration 接管
 ```
@@ -123,6 +124,7 @@ IPublicAotRouteRegistry
 
 - `src/frontend/scripts/server-public-ssr.mjs` 以 AEDS 行协议 worker 模式长驻，支持 `buildEntry` / `validateBundle` / `health` / `shutdown`；`PublicAot:SsrWorkerMode=PerRequest` 可作为紧急回退。
 - AOT document cache 只允许由服务端 `server-ssr` backfill 写入；客户端、管理端和脚本不得上传 AOT bundle。
+- AOT document cache 按 frontend asset version 写入版本化 artifact 路径；旧版本 artifact 只能在后台清理或因 version 不兼容被拒绝，不能直接返回给公开 URL。
 - `PublicAotDocumentComposer` 只负责文档包装、SEO 头和脚本注入，不承担页面业务结构修复。
 - Provider、shell service 与 renderer 之间只传递 `PublicPageSnapshot` / `PublicAotRenderRequest`，进入 Node worker 前由 `PublicAotRendererPayloadMapper` 做唯一 dictionary payload 映射；禁止恢复匿名 object graph 或每个 provider 自行拼 payload。
 - `PublicAotDocumentService` 只在 compose 周期内解码一次 entry bootstrap/hydration payload，后续标题、描述和脚本注入复用同一解码结果。

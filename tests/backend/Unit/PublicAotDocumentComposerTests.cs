@@ -7,19 +7,7 @@ public sealed class PublicAotDocumentComposerTests
     [Fact]
     public void ComposeDocument_UsesManifestEntryOverrideAndHeadLinks()
     {
-        const string template = """
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Loading...</title>
-</head>
-<body>
-    <div id="app"></div>
-    <script type="module" src="/assets/index-old.js"></script>
-</body>
-</html>
-""";
+        string template = Template(spaScript: "<script type=\"module\" src=\"/assets/index-old.js\"></script>");
         string prepared = PublicAotDocumentComposer.PreparePublicDocumentTemplate(template);
 
         string html = PublicAotDocumentComposer.ComposeDocument(new PublicAotDocumentModel(
@@ -41,6 +29,7 @@ public sealed class PublicAotDocumentComposerTests
         Assert.Contains("/assets/public-page-a.css", html);
         Assert.DoesNotContain("/assets/index-old.js\" type=\"module\"", html);
         Assert.Contains("fsus-aot-bootstrap", html);
+        Assert.Contains("data-fsus-aot-head", html);
     }
 
     [Fact]
@@ -49,6 +38,7 @@ public sealed class PublicAotDocumentComposerTests
         string result = PublicAotDocumentComposer.BuildSeoHeadTags(
             PublicPageKind.ArticleDetail, "Title", "Site", "Desc", "https://example.com/");
         Assert.Contains("og:type\" content=\"article\"", result);
+        Assert.All(result.Split('\n').Where(static line => line.Contains("<meta", StringComparison.Ordinal) || line.Contains("<link", StringComparison.Ordinal) || line.Contains("<script", StringComparison.Ordinal)), line => Assert.Contains("data-fsus-aot-head", line));
     }
 
     [Fact]
@@ -160,23 +150,69 @@ public sealed class PublicAotDocumentComposerTests
     [Fact]
     public void ComposeDocument_EmptyHeadLinks_NoExtraContent()
     {
-        const string template = """
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Loading...</title>
-</head>
-<body>
-    <div id="app"></div>
-</body>
-</html>
-""";
+        string template = Template();
         string prepared = PublicAotDocumentComposer.PreparePublicDocumentTemplate(template);
         string html = PublicAotDocumentComposer.ComposeDocument(new PublicAotDocumentModel(
             PublicPageKind.Home, template, prepared, "Title", "Blog", "Desc",
             "https://example.com/", "<main/>", AedsPayload(("pageKind", "Home")), string.Empty, string.Empty, string.Empty, string.Empty));
         Assert.Contains("fsus-aot-bootstrap", html);
+    }
+
+    [Fact]
+    public void ComposeDocument_WithTemplateVariants_InjectsBySentinel()
+    {
+        string template = Template(
+            title: "Changed bootstrap title",
+            bodyAttributes: " class=\"source-body\"",
+            appMarkup: """
+<div id="app">
+    <!--fsus:aot:app-->
+</div>
+""");
+        string prepared = PublicAotDocumentComposer.PreparePublicDocumentTemplate(template);
+
+        string html = PublicAotDocumentComposer.ComposeDocument(new PublicAotDocumentModel(
+            PublicPageKind.Home,
+            template,
+            prepared,
+            "Public title",
+            "Blog",
+            "Desc",
+            "https://example.com/",
+            "<main>shell</main>",
+            AedsPayload(("pageKind", "Home")),
+            string.Empty,
+            string.Empty,
+            string.Empty,
+            string.Empty));
+
+        Assert.Contains("<title>Public title - Blog</title>", html);
+        Assert.Contains("<body class=\"source-body\" data-fsusblog-public-first-paint=\"true\" data-fsusblog-public-shell=\"true\">", html);
+        Assert.Contains("<div id=\"app\">\n    <main>shell</main>\n</div>", html);
+    }
+
+    [Fact]
+    public void ComposeDocument_MissingSentinel_ThrowsClearError()
+    {
+        string template = Template().Replace("<!--fsus:aot:payloads-->", string.Empty, StringComparison.Ordinal);
+        string prepared = PublicAotDocumentComposer.PreparePublicDocumentTemplate(template);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => PublicAotDocumentComposer.ComposeDocument(new PublicAotDocumentModel(
+            PublicPageKind.Home,
+            template,
+            prepared,
+            "Title",
+            "Blog",
+            "Desc",
+            "https://example.com/",
+            "<main/>",
+            AedsPayload(("pageKind", "Home")),
+            string.Empty,
+            string.Empty,
+            string.Empty,
+            string.Empty)));
+
+        Assert.Contains("public_aot_template_sentinel_missing:payloads", ex.Message);
     }
 
     private static string AedsPayload(params (string Key, object? Value)[] values)
@@ -189,4 +225,27 @@ public sealed class PublicAotDocumentComposerTests
 
         return PublicAotBinaryPayload.EncodeObject(payload);
     }
+
+    private static string Template(
+        string title = "Loading...",
+        string bodyAttributes = "",
+        string appMarkup = "<div id=\"app\"><!--fsus:aot:app--></div>",
+        string spaScript = "")
+        => $"""
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--fsus:aot:head-start-->
+    <title>{title}</title>
+    <!--fsus:aot:head-end-->
+</head>
+<body{bodyAttributes}>
+    {appMarkup}
+    <!--fsus:aot:payloads-->
+    <!--fsus:aot:spa-boot-->
+    {spaScript}
+</body>
+</html>
+""";
 }

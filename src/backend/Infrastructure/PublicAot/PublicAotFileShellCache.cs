@@ -23,6 +23,9 @@ public sealed class PublicAotFileShellCache(
     private long _memoryGeneration;
 
     public async Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
+        => await TryGetEntryAsync(cacheKey, frontendAssetVersion: null, cancellationToken).ConfigureAwait(false);
+
+    public async Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, string? frontendAssetVersion, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (TryGetMemoryEntry(cacheKey, out var cachedValue))
@@ -30,13 +33,13 @@ public sealed class PublicAotFileShellCache(
             return cachedValue;
         }
 
-        return await TryReadValidEntryAsync(cacheKey, cancellationToken).ConfigureAwait(false);
+        return await TryReadCachedEntryAsync(cacheKey, frontendAssetVersion, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task SetAsync(PublicAotCacheEntry entry, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string targetPath = GetEntryPath(entry.CacheKey);
+        string targetPath = GetEntryPath(entry.CacheKey, entry.FrontendAssetVersion, entry.PageId);
         string directory = Path.GetDirectoryName(targetPath)!;
         Directory.CreateDirectory(directory);
 
@@ -47,16 +50,20 @@ public sealed class PublicAotFileShellCache(
         _memoryCache[entry.CacheKey] = CreateMemoryCacheEntry(entry);
 
         await RegisterKeyAsync(entry.CacheKey).ConfigureAwait(false);
+        QueueSupersededVersionDelete(entry.CacheKey, targetPath);
     }
 
     public async Task RemoveAsync(string cacheKey, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string path = GetEntryPath(cacheKey);
         _memoryCache.TryRemove(cacheKey, out _);
-        if (File.Exists(path))
+        foreach (string path in EnumerateEntryPathsForKey(cacheKey))
         {
-            File.Delete(path);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
         }
 
         await UnregisterKeyAsync(cacheKey).ConfigureAwait(false);
@@ -120,33 +127,38 @@ public sealed class PublicAotFileShellCache(
         await PublishInvalidationAsync("all").ConfigureAwait(false);
     }
 
-    private async Task<PublicAotCacheEntry?> TryReadValidEntryAsync(string cacheKey, CancellationToken cancellationToken)
+    private async Task<PublicAotCacheEntry?> TryReadCachedEntryAsync(
+        string cacheKey,
+        string? frontendAssetVersion,
+        CancellationToken cancellationToken)
     {
-        string path = GetEntryPath(cacheKey);
-        PublicAotCacheEntry? entry = await TryReadEntryAsync(path, cancellationToken).ConfigureAwait(false);
-        if (entry is null)
+        foreach (string path in ResolveCandidateEntryPaths(cacheKey, frontendAssetVersion))
         {
-            RecordCacheRead("miss", "file", "public_aot_cache_miss", cacheKey, TimeSpan.Zero);
-            return null;
+            PublicAotCacheEntry? entry = await TryReadEntryAsync(path, cancellationToken).ConfigureAwait(false);
+            if (entry is null)
+            {
+                continue;
+            }
+
+            if (!string.Equals(entry.CacheKey, cacheKey, StringComparison.Ordinal))
+            {
+                RecordCacheRead("miss", "file", "public_aot_cache_miss", cacheKey, TimeSpan.Zero);
+                continue;
+            }
+
+            _memoryCache[cacheKey] = CreateMemoryCacheEntry(entry);
+            if (entry.ExpiresAtUtc <= DateTimeOffset.UtcNow)
+            {
+                RecordCacheRead("stale", "file", "public_aot_cache_stale_compatible", cacheKey, TimeSpan.Zero);
+                return entry;
+            }
+
+            RecordCacheRead("hit", "file", "public_aot_cache_file_hit", cacheKey, TimeSpan.Zero);
+            return entry;
         }
 
-        if (!string.Equals(entry.CacheKey, cacheKey, StringComparison.Ordinal))
-        {
-            RecordCacheRead("miss", "file", "public_aot_cache_miss", cacheKey, TimeSpan.Zero);
-            return null;
-        }
-
-        if (entry.ExpiresAtUtc <= DateTimeOffset.UtcNow)
-        {
-            _memoryCache.TryRemove(cacheKey, out _);
-            QueueExpiredFileDelete(path);
-            RecordCacheRead("stale", "file", "public_aot_cache_stale_removed", cacheKey, TimeSpan.Zero);
-            return null;
-        }
-
-        _memoryCache[cacheKey] = CreateMemoryCacheEntry(entry);
-        RecordCacheRead("hit", "file", "public_aot_cache_file_hit", cacheKey, TimeSpan.Zero);
-        return entry;
+        RecordCacheRead("miss", "file", "public_aot_cache_miss", cacheKey, TimeSpan.Zero);
+        return null;
     }
 
     private bool TryGetMemoryEntry(string cacheKey, out PublicAotCacheEntry? value)
@@ -158,18 +170,19 @@ public sealed class PublicAotFileShellCache(
         }
 
         long generation = Volatile.Read(ref _memoryGeneration);
-        if (cached.GenerationToken != generation || cached.ExpiresAtUtc <= DateTimeOffset.UtcNow)
+        if (cached.GenerationToken != generation)
         {
             _memoryCache.TryRemove(cacheKey, out _);
-            if (cached.ExpiresAtUtc <= DateTimeOffset.UtcNow)
-            {
-                QueueExpiredFileDelete(GetEntryPath(cacheKey));
-                RecordCacheRead("stale", "memory", "public_aot_cache_stale_removed", cacheKey, TimeSpan.Zero);
-            }
             return false;
         }
 
         value = cached.Entry;
+        if (cached.ExpiresAtUtc <= DateTimeOffset.UtcNow)
+        {
+            RecordCacheRead("stale", "memory", "public_aot_cache_stale_compatible", cacheKey, TimeSpan.Zero);
+            return true;
+        }
+
         RecordCacheRead("hit", "memory", "public_aot_cache_memory_hit", cacheKey, TimeSpan.Zero);
         return true;
     }
@@ -272,6 +285,9 @@ public sealed class PublicAotFileShellCache(
             case "public_aot_cache_stale_removed":
                 logger.LogDebug("public_aot_cache_stale_removed {CacheKey}", cacheKey);
                 break;
+            case "public_aot_cache_stale_compatible":
+                logger.LogDebug("public_aot_cache_stale_compatible {CacheKey}", cacheKey);
+                break;
             default:
                 logger.LogDebug("public_aot_cache_lookup {Result} {Layer} {CacheKey}", result, layer, cacheKey);
                 break;
@@ -323,11 +339,104 @@ public sealed class PublicAotFileShellCache(
         return Directory.EnumerateFiles(_cacheRoot, "*.aeds", SearchOption.AllDirectories);
     }
 
-    private string GetEntryPath(string cacheKey)
+    private IEnumerable<string> ResolveCandidateEntryPaths(string cacheKey, string? frontendAssetVersion)
+    {
+        if (!string.IsNullOrWhiteSpace(frontendAssetVersion))
+        {
+            yield return GetEntryPath(cacheKey, frontendAssetVersion, ResolvePageId(cacheKey));
+        }
+
+        yield return GetLegacyEntryPath(cacheKey);
+    }
+
+    private IEnumerable<string> EnumerateEntryPathsForKey(string cacheKey)
+    {
+        yield return GetLegacyEntryPath(cacheKey);
+
+        string hash = ToHash(cacheKey);
+        string versionedRoot = Path.Combine(_cacheRoot, "frontend");
+        if (!Directory.Exists(versionedRoot))
+        {
+            yield break;
+        }
+
+        foreach (string path in Directory.EnumerateFiles(versionedRoot, $"{hash}.aeds", SearchOption.AllDirectories))
+        {
+            yield return path;
+        }
+    }
+
+    private string GetEntryPath(string cacheKey, string? frontendAssetVersion, PublicPageId pageId)
+        => string.IsNullOrWhiteSpace(frontendAssetVersion)
+            ? GetLegacyEntryPath(cacheKey)
+            : GetVersionedEntryPath(cacheKey, frontendAssetVersion, pageId);
+
+    private string GetLegacyEntryPath(string cacheKey)
     {
         string hash = ToHash(cacheKey);
         string bucket = hash[..2];
         return Path.Combine(_cacheRoot, bucket, $"{hash}.aeds");
+    }
+
+    private string GetVersionedEntryPath(string cacheKey, string frontendAssetVersion, PublicPageId pageId)
+    {
+        string hash = ToHash(cacheKey);
+        string bucket = hash[..2];
+        return Path.Combine(
+            _cacheRoot,
+            "frontend",
+            SanitizePathSegment(frontendAssetVersion),
+            pageId.ToString(),
+            bucket,
+            $"{hash}.aeds");
+    }
+
+    private static PublicPageId ResolvePageId(string cacheKey)
+        => PublicAotCacheRegistry.TryParseCacheKey(cacheKey, out PublicPageId pageId, out _)
+            ? pageId
+            : PublicPageId.Home;
+
+    private void QueueSupersededVersionDelete(string cacheKey, string currentPath)
+    {
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                foreach (string path in EnumerateEntryPathsForKey(cacheKey))
+                {
+                    if (string.Equals(Path.GetFullPath(path), Path.GetFullPath(currentPath), StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (File.Exists(path))
+                    {
+                        File.Delete(path);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "public_aot_cache_superseded_version_delete_failed {CacheKey}", cacheKey);
+            }
+        });
+    }
+
+    private static string SanitizePathSegment(string value)
+    {
+        var builder = new StringBuilder(value.Length);
+        foreach (char ch in value)
+        {
+            builder.Append(char.IsAsciiLetterOrDigit(ch) || ch is '.' or '_' or '-' ? ch : '-');
+        }
+
+        string sanitized = builder.ToString().Trim('.', '_', '-');
+        if (sanitized.Length == 0)
+        {
+            return "unknown";
+        }
+
+        return sanitized.Length <= 96 ? sanitized : ToHash(sanitized);
     }
 
     private static string ToHash(string input)
@@ -357,6 +466,12 @@ public sealed class PublicAotFileShellCache(
     }
 
     internal static string ToHashForTests(string input) => ToHash(input);
+
+    internal static string ResolveVersionedEntryPathForTests(string webRoot, string cacheKey, string frontendAssetVersion, PublicPageId pageId)
+    {
+        string hash = ToHash(cacheKey);
+        return Path.Combine(webRoot, "aot-cache", "frontend", SanitizePathSegment(frontendAssetVersion), pageId.ToString(), hash[..2], $"{hash}.aeds");
+    }
 
     private async Task<int> RemoveRegisteredKeysAsync(
         string registryKey,

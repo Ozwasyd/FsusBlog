@@ -47,6 +47,12 @@ function assertStaticContracts() {
   const renderPublicPage = read('src/frontend/src/public-renderers/renderPublicPage.ts')
   const buildScript = read('tools/frontend/build.mjs')
   const warmScript = read('tools/frontend/warm-public-aot-cache.mjs')
+  const indexHtml = read('src/frontend/index.html')
+  const documentComposer = read('src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs')
+  const publicShell = read('src/frontend/src/bootstrap/publicShell.ts')
+  const binaryPayload = read('src/frontend/src/bootstrap/publicAotBinaryPayload.ts')
+  const shellService = read('src/backend/Infrastructure/PublicAot/PublicAotShellService.cs')
+  const fileCache = read('src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs')
 
   if (prodWorker.includes("from 'vite'") || prodWorker.includes('createServer') || prodWorker.includes('ssrLoadModule')) {
     fail('production bundle worker must not import or create Vite runtime')
@@ -76,6 +82,33 @@ function assertStaticContracts() {
   }
   if (warmScript.includes('/article/1') || warmScript.includes('publicPaths')) {
     fail('warm script must not hard-code public route guesses')
+  }
+  for (const token of ['<!--fsus:aot:head-start-->', '<!--fsus:aot:app-->', '<!--fsus:aot:payloads-->', '<!--fsus:aot:spa-boot-->']) {
+    if (!indexHtml.includes(token)) {
+      fail(`index.html missing Public AOT sentinel: ${token}`)
+    }
+    if (!documentComposer.includes(token)) {
+      fail(`document composer missing Public AOT sentinel contract: ${token}`)
+    }
+  }
+  if (!documentComposer.includes('data-fsus-aot-head')) {
+    fail('document composer must mark all Public AOT-managed head nodes')
+  }
+  if (!publicShell.includes("querySelectorAll('[data-fsus-aot-head]')")) {
+    fail('public shell micro-navigation must replace all Public AOT-managed head nodes')
+  }
+  if (!binaryPayload.includes('class BinaryWriter') || binaryPayload.includes('const payload: number[]') || !binaryPayload.includes("toString('base64url')")) {
+    fail('Public AOT payload encoder must use growable Uint8Array writer and Node base64url fast path')
+  }
+  for (const token of ['PublicAotStateContextKey', 'IsStaleCompatibleCacheEntry', 'stale-refresh-queued']) {
+    if (!shellService.includes(token)) {
+      fail(`Public AOT shell service missing SWR state token: ${token}`)
+    }
+  }
+  for (const token of ['frontend', 'ResolveVersionedEntryPathForTests', 'public_aot_cache_stale_compatible']) {
+    if (!fileCache.includes(token)) {
+      fail(`Public AOT file cache missing artifact versioning token: ${token}`)
+    }
   }
 }
 
