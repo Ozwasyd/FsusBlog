@@ -98,6 +98,12 @@ public static class CursorPageBinder
 
 public static class CursorPagination
 {
+    public static int WindowCount<TSource>(IReadOnlyList<TSource> rows, int limit)
+    {
+        int safeLimit = Math.Max(limit, 1);
+        return rows.Count > safeLimit ? safeLimit : rows.Count;
+    }
+
     public static CursorEnvelope<TCursor, TSource> Slice<TCursor, TSource>(
         IReadOnlyList<TSource> rows,
         int limit,
@@ -118,6 +124,32 @@ public static class CursorPagination
         {
             Data = data,
             NextCursor = nextCursor,
+            HasMore = hasMore
+        };
+    }
+
+    public static CursorResponse<TTarget> SliceMapToResponse<TCursor, TSource, TTarget>(
+        IReadOnlyList<TSource> rows,
+        int limit,
+        Func<TSource, TCursor> cursorSelector,
+        Func<TSource, TTarget> map,
+        ICursorCodec<TCursor> codec)
+        where TCursor : struct
+    {
+        int safeLimit = Math.Max(limit, 1);
+        bool hasMore = rows.Count > safeLimit;
+        int count = hasMore ? safeLimit : rows.Count;
+        var data = new List<TTarget>(count);
+        for (int i = 0; i < count; i++)
+        {
+            data.Add(map(rows[i]));
+        }
+
+        TCursor? nextCursor = hasMore && count > 0 ? cursorSelector(rows[count - 1]) : null;
+        return new CursorResponse<TTarget>
+        {
+            Data = data,
+            NextCursor = nextCursor.HasValue ? codec.Format(nextCursor.Value) : null,
             HasMore = hasMore
         };
     }

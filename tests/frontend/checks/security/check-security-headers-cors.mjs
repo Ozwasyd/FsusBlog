@@ -44,9 +44,18 @@ function assertCommonSecurityHeaders(response, label) {
   assertHeaderContains(response, 'content-security-policy', "object-src 'none'", label);
   assertHeaderContains(response, 'content-security-policy', "'wasm-unsafe-eval'", label);
   assertHeaderContains(response, 'content-security-policy', "style-src 'self'", label);
-  assertHeaderContains(response, 'content-security-policy', "style-src 'self' 'nonce-", label);
   assertHeaderContains(response, 'content-security-policy', "style-src-attr 'unsafe-inline'", label);
   assertHeaderNotContains(response, 'content-security-policy', "style-src 'self' 'unsafe-inline'", label);
+}
+
+function assertHtmlSecurityHeaders(response, label) {
+  assertCommonSecurityHeaders(response, label);
+  assertHeaderContains(response, 'content-security-policy', "style-src 'self' 'nonce-", label);
+}
+
+function assertNonHtmlSecurityHeaders(response, label) {
+  assertCommonSecurityHeaders(response, label);
+  assertHeaderNotContains(response, 'content-security-policy', "'nonce-", label);
 }
 
 async function main() {
@@ -57,7 +66,7 @@ async function main() {
     }
   }, requestTimeoutMs);
   assert(publicResponse.status < 500, `public shell must not return 5xx, got ${publicResponse.status}`);
-  assertCommonSecurityHeaders(publicResponse, 'public shell');
+  assertHtmlSecurityHeaders(publicResponse, 'public shell');
 
   const authResponse = await fetchWithTimeout(`${baseUrl}/api/binary/auth/pow-challenge`, {
     headers: {
@@ -66,7 +75,7 @@ async function main() {
     }
   }, requestTimeoutMs);
   assert(authResponse.ok, `pow challenge must be reachable, got ${authResponse.status}`);
-  assertCommonSecurityHeaders(authResponse, 'binary auth');
+  assertNonHtmlSecurityHeaders(authResponse, 'binary auth');
   assertHeaderContains(authResponse, 'cache-control', 'no-store', 'binary auth');
   assertHeaderContains(authResponse, 'pragma', 'no-cache', 'binary auth');
 

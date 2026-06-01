@@ -34,4 +34,49 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Contains("<script nonce=\"old\"></script>", rendered);
         Assert.DoesNotContain("nonce=\"new\"", rendered);
     }
+
+    [Theory]
+    [InlineData("/search/index.core.0123456789abcdef.bin", true)]
+    [InlineData("/search/index.recent.0123456789ABCDEF.bin", true)]
+    [InlineData("/search/index.archive.0123456789abcdef.bin", true)]
+    [InlineData("/search/index.body.0123456789abcdef.bin", true)]
+    [InlineData("/search/index.core.01234.bin", false)]
+    [InlineData("/search/index.other.0123456789abcdef.bin", false)]
+    [InlineData("/search/index.core.0123456789abcdef.json", false)]
+    public void IsImmutableSearchIndexAssetPath_MatchesFixedHashedShape(string path, bool expected)
+    {
+        Assert.Equal(expected, WebApplicationCompositionExtensions.IsImmutableSearchIndexAssetPath(path));
+    }
+
+    [Fact]
+    public void HotPathCompositionSource_AvoidsRegexAndFullPageReplaceForStaticAndFallback()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "Bootstrap", "WebApplicationCompositionExtensions.cs"));
+
+        Assert.DoesNotContain("Regex.IsMatch", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Replace(\"</head>\"", source, StringComparison.Ordinal);
+        Assert.Contains("SpaHtmlByteTemplate", source, StringComparison.Ordinal);
+    }
+
+    private static string FindRepoRoot()
+    {
+        string current = AppContext.BaseDirectory;
+        while (!string.IsNullOrWhiteSpace(current))
+        {
+            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
+            {
+                return current;
+            }
+
+            DirectoryInfo? parent = Directory.GetParent(current);
+            if (parent is null)
+            {
+                break;
+            }
+
+            current = parent.FullName;
+        }
+
+        throw new DirectoryNotFoundException("Unable to locate repository root.");
+    }
 }

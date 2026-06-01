@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Serilog.Context;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
@@ -8,27 +9,11 @@ public sealed class RequestAuditContextMiddleware(RequestDelegate next)
 
     public async Task InvokeAsync(HttpContext context)
     {
-        RequestAuditContextSnapshot snapshot = RequestAuditContextSnapshot.FromHttpContext(context);
-        IReadOnlyDictionary<string, object?> properties = snapshot.ToProperties();
+        using IDisposable traceId = LogContext.PushProperty("TraceId", context.TraceIdentifier);
+        using IDisposable requestPath = LogContext.PushProperty("RequestPath", context.Request.Path.Value);
+        using IDisposable requestMethod = LogContext.PushProperty("RequestMethod", context.Request.Method);
+        using IDisposable userId = LogContext.PushProperty("UserId", context.User.FindFirstValue(ClaimTypes.NameIdentifier));
 
-        IDisposable[] disposables =
-        [
-            LogContext.PushProperty("TraceId", properties["TraceId"]),
-            LogContext.PushProperty("RequestPath", properties["RequestPath"]),
-            LogContext.PushProperty("RequestMethod", properties["RequestMethod"]),
-            LogContext.PushProperty("UserId", properties["UserId"])
-        ];
-
-        try
-        {
-            await _next(context);
-        }
-        finally
-        {
-            for (int i = disposables.Length - 1; i >= 0; i--)
-            {
-                disposables[i].Dispose();
-            }
-        }
+        await _next(context);
     }
 }

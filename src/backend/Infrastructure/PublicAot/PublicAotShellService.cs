@@ -39,25 +39,11 @@ public sealed class PublicAotShellService(
     private readonly IReadOnlyDictionary<PublicPageKind, IPublicAotBootstrapProvider> _bootstrapProviders =
         BuildBootstrapProviderMap(bootstrapProviders);
 
-    public bool TryResolve(HttpContext context, out PublicPageKind kind)
+    public bool TryResolve(HttpContext context, out PublicAotRouteMatch match)
+        => routeRegistry.TryResolve(context, out match);
+
+    public async Task<string?> RenderAsync(HttpContext context, PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
-        if (routeRegistry.TryResolve(context, out PublicAotRouteMatch match))
-        {
-            kind = match.Kind;
-            return true;
-        }
-
-        kind = PublicPageKind.Unknown;
-        return false;
-    }
-
-    public async Task<string?> RenderAsync(HttpContext context, CancellationToken cancellationToken = default)
-    {
-        if (!routeRegistry.TryResolve(context, out PublicAotRouteMatch match))
-        {
-            return null;
-        }
-
         string documentCacheKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
         string frontendAssetVersion = assetManifest.GetFrontendAssetVersion();
         PublicAotCacheEntry? entry = await cache.TryGetEntryAsync(documentCacheKey, cancellationToken);

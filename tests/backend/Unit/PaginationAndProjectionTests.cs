@@ -137,6 +137,17 @@ public class CursorPaginationSliceTests
     }
 
     [Fact]
+    public void SliceMapToResponse_MapsInOneWindowAndEncodesCursor()
+    {
+        var rows = new[] { 10L, 20L, 30L, 40L };
+        var response = CursorPagination.SliceMapToResponse(rows, 3, x => x, x => x.ToString(), Int64CursorCodec.Instance);
+
+        Assert.Equal(["10", "20", "30"], response.Data);
+        Assert.Equal("30", response.NextCursor);
+        Assert.True(response.HasMore);
+    }
+
+    [Fact]
     public async Task MapAsync_TransformsItems()
     {
         var envelope = new CursorEnvelope<long, int> { Data = [5, 10], NextCursor = 10L, HasMore = false };

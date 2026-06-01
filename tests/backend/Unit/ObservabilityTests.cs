@@ -1,8 +1,10 @@
 using FsusBlog.Server.Infrastructure.Observability;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Tests;
 
@@ -18,6 +20,19 @@ public sealed class ObservabilityTests
     public void ClassifyRoute_MapsRuntimeSurfacesWithoutRawPathTags(string path, string expected)
     {
         Assert.Equal(expected, FsusObservability.ClassifyRoute(path));
+    }
+
+    [Fact]
+    public void ResolveRouteKind_UsesEndpointMetadataBeforePathClassification()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = "/api/binary/article/list/home/1/10.aeds";
+        context.SetEndpoint(new Endpoint(
+            _ => Task.CompletedTask,
+            new EndpointMetadataCollection(new FsusRouteKindMetadata("public")),
+            "metadata-route"));
+
+        Assert.Equal("public", FsusObservability.ResolveRouteKind(context));
     }
 
     [Fact]
@@ -51,7 +66,9 @@ public sealed class ObservabilityTests
             {
                 ["Observability:Enabled"] = "true",
                 ["Observability:ExporterEnabled"] = "true",
-                ["Observability:OtlpEndpoint"] = "http://127.0.0.1:4317"
+                ["Observability:OtlpEndpoint"] = "http://127.0.0.1:4317",
+                ["Observability:HttpMetricsSampleRate"] = "16",
+                ["Observability:SlowRequestThresholdMilliseconds"] = "250"
             })
             .Build();
         var services = new ServiceCollection();
@@ -63,6 +80,9 @@ public sealed class ObservabilityTests
         Assert.True(state.Enabled);
         Assert.True(state.ExporterEnabled);
         Assert.Equal("http://127.0.0.1:4317", state.OtlpEndpoint);
+        FsusObservabilityOptions options = provider.GetRequiredService<IOptions<FsusObservabilityOptions>>().Value;
+        Assert.Equal(16, options.HttpMetricsSampleRate);
+        Assert.Equal(250, options.SlowRequestThresholdMilliseconds);
     }
 
     private sealed class FakeEnvironment : IWebHostEnvironment

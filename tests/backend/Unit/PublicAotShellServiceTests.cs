@@ -36,7 +36,7 @@ public sealed class PublicAotShellServiceTests
         PublicAotShellService sut = CreateService(match, cache, scheduler);
         var context = new DefaultHttpContext();
 
-        string? html = await sut.RenderAsync(context);
+        string? html = await sut.RenderAsync(context, match);
 
         Assert.Equal(cache.Entry.Value, html);
         Assert.Equal("server-ssr", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
@@ -54,7 +54,7 @@ public sealed class PublicAotShellServiceTests
         PublicAotShellService sut = CreateService(match, cache, scheduler);
         var context = new DefaultHttpContext();
 
-        string? html = await sut.RenderAsync(context);
+        string? html = await sut.RenderAsync(context, match);
 
         Assert.Equal(string.Empty, html);
         Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
@@ -76,7 +76,7 @@ public sealed class PublicAotShellServiceTests
         var context = new DefaultHttpContext();
         context.Request.Headers[HttpTestSessionKeyScope.HeaderName] = "pw-0";
 
-        _ = await sut.RenderAsync(context);
+        _ = await sut.RenderAsync(context, match);
 
         PublicAotBackfillRequest request = Assert.Single(scheduler.Requests);
         Assert.Equal("pw-0", request.TestSessionId);
@@ -105,7 +105,7 @@ public sealed class PublicAotShellServiceTests
         PublicAotShellService sut = CreateService(match, cache, scheduler);
         var context = new DefaultHttpContext();
 
-        string? html = await sut.RenderAsync(context);
+        string? html = await sut.RenderAsync(context, match);
 
         Assert.Equal(string.Empty, html);
         Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);

@@ -68,11 +68,7 @@ internal sealed class BinaryEnvelopePolicy : IBinaryEnvelopePolicy
 
         context.Response.Body = responseBody;
         ApplyFrameResponse(context.Response, payloadWriter.WrittenCount, statusCode);
-
-        encoder.WriteHeader(AedsFrameType.ApiError, payloadWriter.WrittenSpan, context.Response.BodyWriter);
-        Span<byte> payloadTarget = context.Response.BodyWriter.GetSpan(payloadWriter.WrittenCount);
-        payloadWriter.WrittenSpan.CopyTo(payloadTarget);
-        context.Response.BodyWriter.Advance(payloadWriter.WrittenCount);
+        encoder.WriteFrame(AedsFrameType.ApiError, payloadWriter.WrittenSpan, context.Response.BodyWriter);
         await context.Response.BodyWriter.FlushAsync(context.RequestAborted);
     }
 }

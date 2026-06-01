@@ -51,11 +51,17 @@ public static class FsusObservabilityServiceCollectionExtensions
                         instrumentation.RecordException = true;
                         instrumentation.EnrichWithHttpRequest = static (activity, request) =>
                         {
-                            FsusObservability.SetTag(activity, "fsus.route_kind", FsusObservability.ClassifyRoute(request.Path));
+                            if (activity.IsAllDataRequested)
+                            {
+                                FsusObservability.SetTag(activity, "fsus.route_kind", FsusObservability.ResolveRouteKind(request.HttpContext));
+                            }
                         };
                         instrumentation.EnrichWithHttpResponse = static (activity, response) =>
                         {
-                            FsusObservability.SetTag(activity, "fsus.http.status_code", response.StatusCode);
+                            if (activity.IsAllDataRequested)
+                            {
+                                FsusObservability.SetTag(activity, "fsus.http.status_code", response.StatusCode);
+                            }
                         };
                     })
                     .AddHttpClientInstrumentation()

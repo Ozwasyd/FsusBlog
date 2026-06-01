@@ -1,10 +1,12 @@
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Security.Cryptography;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.IO.Pipelines;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -74,7 +76,10 @@ public static class WebApplicationCompositionExtensions
 {
     private const string CspNonceContextKey = "__fsusblog_csp_nonce";
     private const string CspNonceTemplatePlaceholder = "%%FSUSBLOG_CSP_NONCE%%";
+    private const string HtmlContentType = "text/html; charset=utf-8";
+    private static readonly byte[] EmptyBytes = [];
     private static readonly ConditionalWeakTable<string, CspNonceHtmlTemplate> CspNonceHtmlTemplates = new();
+    private static readonly ConditionalWeakTable<byte[], SpaHtmlByteTemplate> SpaHtmlByteTemplates = new();
 
     public static void UseFsusApplicationPipeline(this WebApplication app)
     {
@@ -96,9 +101,6 @@ public static class WebApplicationCompositionExtensions
     {
         app.Use(async (ctx, next) =>
         {
-            string nonce = CreateCspNonce();
-            ctx.Items[CspNonceContextKey] = nonce;
-
             var headers = ctx.Response.Headers;
             headers["X-Content-Type-Options"] = "nosniff";
             headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
@@ -113,10 +115,15 @@ public static class WebApplicationCompositionExtensions
                 headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
             }
 
-            string csp = app.Environment.IsDevelopment()
-                ? $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 http://127.0.0.1:5000 http://localhost:5000 ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:5000 ws://localhost:5000; worker-src 'self' blob:;"
-                : $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:;";
-            headers["Content-Security-Policy"] = csp;
+            if (ShouldApplyHtmlCsp(ctx))
+            {
+                string nonce = EnsureCspNonce(ctx);
+                headers["Content-Security-Policy"] = BuildHtmlCsp(app.Environment, nonce);
+            }
+            else
+            {
+                headers["Content-Security-Policy"] = BuildStaticCsp(app.Environment);
+            }
 
             ctx.Response.OnStarting(static state =>
             {
@@ -211,18 +218,22 @@ public static class WebApplicationCompositionExtensions
         app.MapGet("/api/notifications/stream/preflight", (
             HttpContext ctx,
             INotificationStreamHandshakeService handshakeService,
-            CancellationToken ct) => ValidateNotificationStreamPreflightAsync(ctx, handshakeService, ct)).AllowAnonymous();
+            CancellationToken ct) => ValidateNotificationStreamPreflightAsync(ctx, handshakeService, ct))
+            .AllowAnonymous()
+            .WithMetadata(new FsusRouteKindMetadata("sse"));
         app.MapGet("/api/notifications/stream", (
             HttpContext ctx,
             INotificationStreamHandler handler,
-            CancellationToken ct) => handler.HandleAsync(ctx, ct)).AllowAnonymous();
+            CancellationToken ct) => handler.HandleAsync(ctx, ct))
+            .AllowAnonymous()
+            .WithMetadata(new FsusRouteKindMetadata("sse"));
         app.Map("/api/{**path}", (IAedsEncoder aeds) =>
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.NotFound, "旧文本 API 已移除，请使用 /api/binary/** AEDS 二进制端点"),
                 aeds,
                 StatusCodes.Status404NotFound);
-        });
+        }).WithMetadata(new FsusRouteKindMetadata("api"));
     }
 
     private static void MapFsusPublicRoutes(this WebApplication app)
@@ -235,14 +246,17 @@ public static class WebApplicationCompositionExtensions
             ISpaAssetManifestService assetService,
             IWebHostEnvironment env,
             StartupRuntimeState runtimeState,
-            CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, env, runtimeState, ct)).AllowAnonymous();
+            CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, env, runtimeState, ct))
+            .AllowAnonymous()
+            .WithMetadata(new FsusRouteKindMetadata("public"));
         app.MapFallback((
             HttpContext ctx,
             IPublicAotShellService shellService,
             ISpaAssetManifestService assetService,
             IWebHostEnvironment env,
             StartupRuntimeState runtimeState,
-            CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, env, runtimeState, ct));
+            CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, env, runtimeState, ct))
+            .WithMetadata(new FsusRouteKindMetadata("public"));
     }
 
     private static async Task<IResult> ValidateNotificationStreamPreflightAsync(
@@ -301,7 +315,7 @@ public static class WebApplicationCompositionExtensions
         }
 
         if (requestPath.StartsWith("/search/patches/", StringComparison.Ordinal)
-            || Regex.IsMatch(requestPath, @"^/search/index\.(?:core|recent|archive|body)\.[0-9a-f]{16}\.bin$", RegexOptions.IgnoreCase)
+            || IsImmutableSearchIndexAssetPath(requestPath.AsSpan())
             || requestPath.StartsWith("/search/dictionaries/", StringComparison.Ordinal))
         {
             headers["Cache-Control"] = "public,max-age=31536000,immutable";
@@ -368,11 +382,11 @@ public static class WebApplicationCompositionExtensions
             return TypedResults.NotFound();
         }
 
-        bool isPublicAotRoute = shellService.TryResolve(ctx, out _);
+        bool isPublicAotRoute = shellService.TryResolve(ctx, out PublicAotRouteMatch aotMatch);
         if (isPublicAotRoute)
         {
             long aotStartedAt = System.Diagnostics.Stopwatch.GetTimestamp();
-            string? html = await shellService.RenderAsync(ctx, ct);
+            string? html = await shellService.RenderAsync(ctx, aotMatch, ct);
             string source = ctx.Items.TryGetValue(PublicAotShellService.PublicAotSourceContextKey, out object? sourceObj)
                 ? sourceObj?.ToString() ?? "unknown"
                 : "unknown";
@@ -395,6 +409,7 @@ public static class WebApplicationCompositionExtensions
                 ctx.Response.Headers["Cache-Control"] = "no-cache";
                 ctx.Response.Headers.Remove("ETag");
                 ctx.Response.Headers.Remove("Last-Modified");
+                EnsureHtmlCspHeader(ctx, env);
                 html = ApplyCspNonceToHtml(ctx, html);
                 return TypedResults.Content(html, "text/html; charset=utf-8");
             }
@@ -427,68 +442,268 @@ public static class WebApplicationCompositionExtensions
         ReadOnlyMemory<byte> templateBytes = await PublicSpaTemplateLocator.ReadIndexTemplateBytesAsync(env, ct, preferSourceTemplate);
 
         string path = ctx.Request.Path.Value ?? string.Empty;
-        if (!HttpMethods.IsHead(ctx.Request.Method) && templateBytes.Length > 0)
+        if (templateBytes.Length > 0)
         {
             var preloads = assetService.GetPreloadsForPath(path, ctx);
             SpaAssetSet? publicAssetSet = isPublicAotRoute ? assetService.GetPublicAssetSet(ctx) : null;
             if (preloads.Count > 0)
             {
-                string html = Encoding.UTF8.GetString(templateBytes.Span);
-                StringBuilder sb = new();
-                foreach (var asset in preloads)
-                {
-                    if (asset.EndsWith(".js")) sb.AppendLine($"<link rel=\"modulepreload\" href=\"{asset}\">");
-                    else if (asset.EndsWith(".css")) sb.AppendLine($"<link rel=\"stylesheet\" href=\"{asset}\">");
-                }
-                html = html.Replace("</head>", $"{sb}</head>");
-                html = ApplyCspNonceToHtml(ctx, html);
-                byte[] finalBytes = Encoding.UTF8.GetBytes(html);
-                ctx.Response.ContentType = "text/html; charset=utf-8";
-                ctx.Response.ContentLength = finalBytes.Length;
-                await ctx.Response.BodyWriter.WriteAsync(finalBytes, ct);
+                ReadOnlyMemory<byte> headInjection = BuildRoutePreloadHeadInjection(preloads);
+                await WriteSpaHtmlResponseAsync(ctx, env, templateBytes, headInjection, ct);
                 return TypedResults.Empty;
             }
             if (publicAssetSet is not null)
             {
-                string html = Encoding.UTF8.GetString(templateBytes.Span);
-                StringBuilder sb = new();
-                foreach (string asset in publicAssetSet.ModulePreloads)
-                {
-                    sb.AppendLine($"<link rel=\"modulepreload\" crossorigin href=\"{asset}\">");
-                }
-                foreach (string asset in publicAssetSet.Stylesheets)
-                {
-                    sb.AppendLine($"<link rel=\"stylesheet\" href=\"{asset}\">");
-                }
-                html = html.Replace("</head>", $"{sb}</head>");
-                html = ApplyCspNonceToHtml(ctx, html);
-                byte[] finalBytes = Encoding.UTF8.GetBytes(html);
-                ctx.Response.ContentType = "text/html; charset=utf-8";
-                ctx.Response.ContentLength = finalBytes.Length;
-                await ctx.Response.BodyWriter.WriteAsync(finalBytes, ct);
+                ReadOnlyMemory<byte> headInjection = BuildPublicAssetHeadInjection(publicAssetSet);
+                await WriteSpaHtmlResponseAsync(ctx, env, templateBytes, headInjection, ct);
                 return TypedResults.Empty;
             }
         }
 
-        string template = templateBytes.Length > 0
-            ? ApplyCspNonceToHtml(ctx, Encoding.UTF8.GetString(templateBytes.Span))
-            : string.Empty;
-        byte[] renderedTemplateBytes = template.Length > 0
-            ? Encoding.UTF8.GetBytes(template)
-            : [];
-
-        ctx.Response.ContentType = "text/html; charset=utf-8";
-        ctx.Response.ContentLength = renderedTemplateBytes.Length;
-        if (!HttpMethods.IsHead(ctx.Request.Method) && renderedTemplateBytes.Length > 0)
-        {
-            await ctx.Response.BodyWriter.WriteAsync(renderedTemplateBytes, ct);
-        }
+        await WriteSpaHtmlResponseAsync(ctx, env, templateBytes, EmptyBytes, ct);
 
         return TypedResults.Empty;
     }
 
+    private static bool ShouldApplyHtmlCsp(HttpContext ctx)
+    {
+        if (!HttpMethods.IsGet(ctx.Request.Method) && !HttpMethods.IsHead(ctx.Request.Method))
+        {
+            return false;
+        }
+
+        string path = ctx.Request.Path.Value ?? string.Empty;
+        if (IsNonHtmlHotPath(path.AsSpan()))
+        {
+            return false;
+        }
+
+        return HttpAcceptNegotiation.Accepts(ctx.Request.Headers.Accept, "text/html");
+    }
+
+    private static bool IsNonHtmlHotPath(ReadOnlySpan<char> path)
+    {
+        if (path.IsEmpty)
+        {
+            return false;
+        }
+
+        if (path.StartsWith("/api/".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/health/".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/assets/".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/src/assets/".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/search/".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/uploads/".AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return path.Equals("/sw.js".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/favicon.svg".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/manifest.webmanifest".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || HasStaticAssetExtension(path);
+    }
+
+    private static bool HasStaticAssetExtension(ReadOnlySpan<char> path)
+        => path.EndsWith(".js".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".css".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".wasm".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".woff".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".woff2".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".ttf".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".otf".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".png".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".jpg".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".jpeg".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".gif".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".webp".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".avif".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".svg".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".ico".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".map".AsSpan(), StringComparison.OrdinalIgnoreCase);
+
+    internal static bool IsImmutableSearchIndexAssetPath(ReadOnlySpan<char> path)
+    {
+        const string prefix = "/search/index.";
+        const string suffix = ".bin";
+        if (!path.StartsWith(prefix.AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || !path.EndsWith(suffix.AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> middle = path[prefix.Length..^suffix.Length];
+        int dot = middle.LastIndexOf('.');
+        if (dot <= 0 || dot == middle.Length - 1)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> kind = middle[..dot];
+        ReadOnlySpan<char> hash = middle[(dot + 1)..];
+        return IsSearchIndexKind(kind) && IsSixteenHex(hash);
+    }
+
+    private static bool IsSearchIndexKind(ReadOnlySpan<char> value)
+        => value.Equals("core".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || value.Equals("recent".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || value.Equals("archive".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || value.Equals("body".AsSpan(), StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSixteenHex(ReadOnlySpan<char> value)
+    {
+        if (value.Length != 16)
+        {
+            return false;
+        }
+
+        foreach (char ch in value)
+        {
+            bool isHex = ch is >= '0' and <= '9'
+                || ch is >= 'a' and <= 'f'
+                || ch is >= 'A' and <= 'F';
+            if (!isHex)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string BuildStaticCsp(IWebHostEnvironment env)
+        => env.IsDevelopment()
+            ? "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 http://127.0.0.1:5000 http://localhost:5000 ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:5000 ws://localhost:5000; worker-src 'self' blob:;"
+            : "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:;";
+
+    private static string BuildHtmlCsp(IWebHostEnvironment env, string nonce)
+        => env.IsDevelopment()
+            ? $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 http://127.0.0.1:5000 http://localhost:5000 ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:5000 ws://localhost:5000; worker-src 'self' blob:;"
+            : $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:;";
+
+    private static string EnsureCspNonce(HttpContext ctx)
+    {
+        if (ctx.Items.TryGetValue(CspNonceContextKey, out object? nonceObj)
+            && nonceObj is string nonce
+            && !string.IsNullOrWhiteSpace(nonce))
+        {
+            return nonce;
+        }
+
+        nonce = CreateCspNonce();
+        ctx.Items[CspNonceContextKey] = nonce;
+        return nonce;
+    }
+
+    private static void EnsureHtmlCspHeader(HttpContext ctx, IWebHostEnvironment env)
+    {
+        string nonce = EnsureCspNonce(ctx);
+        ctx.Response.Headers["Content-Security-Policy"] = BuildHtmlCsp(env, nonce);
+    }
+
     private static string CreateCspNonce()
         => Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
+
+    private static async Task WriteSpaHtmlResponseAsync(
+        HttpContext ctx,
+        IWebHostEnvironment env,
+        ReadOnlyMemory<byte> templateBytes,
+        ReadOnlyMemory<byte> headInjection,
+        CancellationToken cancellationToken)
+    {
+        EnsureHtmlCspHeader(ctx, env);
+        SpaHtmlByteTemplate template = GetSpaHtmlByteTemplate(templateBytes);
+        ReadOnlyMemory<byte> nonceBytes = GetEncodedNonceBytes(ctx);
+        int contentLength = template.GetLength(nonceBytes.Length, headInjection.Length);
+
+        ctx.Response.ContentType = HtmlContentType;
+        ctx.Response.ContentLength = contentLength;
+        if (HttpMethods.IsHead(ctx.Request.Method) || contentLength == 0)
+        {
+            return;
+        }
+
+        template.Write(ctx.Response.BodyWriter, nonceBytes.Span, headInjection.Span);
+        await ctx.Response.BodyWriter.FlushAsync(cancellationToken);
+    }
+
+    private static SpaHtmlByteTemplate GetSpaHtmlByteTemplate(ReadOnlyMemory<byte> templateBytes)
+    {
+        if (templateBytes.Length == 0)
+        {
+            return SpaHtmlByteTemplate.Empty;
+        }
+
+        if (MemoryMarshal.TryGetArray(templateBytes, out ArraySegment<byte> segment)
+            && segment.Array is not null
+            && segment.Offset == 0
+            && segment.Count == segment.Array.Length)
+        {
+            return SpaHtmlByteTemplates.GetValue(segment.Array, static bytes => SpaHtmlByteTemplate.Create(bytes));
+        }
+
+        return SpaHtmlByteTemplate.Create(templateBytes.Span);
+    }
+
+    private static ReadOnlyMemory<byte> GetEncodedNonceBytes(HttpContext ctx)
+    {
+        string nonce = EnsureCspNonce(ctx);
+        string encodedNonce = System.Net.WebUtility.HtmlEncode(nonce);
+        return Encoding.UTF8.GetBytes(encodedNonce);
+    }
+
+    private static ReadOnlyMemory<byte> BuildRoutePreloadHeadInjection(IReadOnlyList<string> preloads)
+    {
+        if (preloads.Count == 0)
+        {
+            return EmptyBytes;
+        }
+
+        var sb = new StringBuilder(preloads.Count * 64);
+        foreach (string asset in preloads)
+        {
+            if (asset.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
+            {
+                sb.Append("<link rel=\"modulepreload\" href=\"");
+                sb.Append(asset);
+                sb.AppendLine("\">");
+            }
+            else if (asset.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
+            {
+                sb.Append("<link rel=\"stylesheet\" href=\"");
+                sb.Append(asset);
+                sb.AppendLine("\">");
+            }
+        }
+
+        return sb.Length == 0 ? EmptyBytes : Encoding.UTF8.GetBytes(sb.ToString());
+    }
+
+    private static ReadOnlyMemory<byte> BuildPublicAssetHeadInjection(SpaAssetSet publicAssetSet)
+    {
+        int assetCount = publicAssetSet.ModulePreloads.Count + publicAssetSet.Stylesheets.Count;
+        if (assetCount == 0)
+        {
+            return EmptyBytes;
+        }
+
+        var sb = new StringBuilder(assetCount * 72);
+        foreach (string asset in publicAssetSet.ModulePreloads)
+        {
+            sb.Append("<link rel=\"modulepreload\" crossorigin href=\"");
+            sb.Append(asset);
+            sb.AppendLine("\">");
+        }
+
+        foreach (string asset in publicAssetSet.Stylesheets)
+        {
+            sb.Append("<link rel=\"stylesheet\" href=\"");
+            sb.Append(asset);
+            sb.AppendLine("\">");
+        }
+
+        return Encoding.UTF8.GetBytes(sb.ToString());
+    }
 
     internal static string ApplyCspNonceToHtml(HttpContext ctx, string html)
     {
@@ -609,6 +824,136 @@ public static class WebApplicationCompositionExtensions
         builder.Append(encodedNonce);
         builder.Append('"');
         builder.Append(html, insertAt, tagEnd - insertAt + 1);
+    }
+
+    private sealed class SpaHtmlByteTemplate
+    {
+        public static SpaHtmlByteTemplate Empty { get; } = new(
+            NoncePatchedByteTemplate.Empty,
+            NoncePatchedByteTemplate.Empty);
+
+        private readonly NoncePatchedByteTemplate _beforeHeadClose;
+        private readonly NoncePatchedByteTemplate _headCloseAndAfter;
+
+        private SpaHtmlByteTemplate(NoncePatchedByteTemplate beforeHeadClose, NoncePatchedByteTemplate headCloseAndAfter)
+        {
+            _beforeHeadClose = beforeHeadClose;
+            _headCloseAndAfter = headCloseAndAfter;
+        }
+
+        public static SpaHtmlByteTemplate Create(ReadOnlySpan<byte> templateBytes)
+        {
+            if (templateBytes.IsEmpty)
+            {
+                return Empty;
+            }
+
+            string html = Encoding.UTF8.GetString(templateBytes);
+            CspNonceHtmlTemplate cspTemplate = BuildCspNonceHtmlTemplate(html);
+            string patchedHtml = cspTemplate.HasPlaceholders ? cspTemplate.Html : html;
+            int headClose = patchedHtml.IndexOf("</head>", StringComparison.OrdinalIgnoreCase);
+            if (headClose < 0)
+            {
+                return new SpaHtmlByteTemplate(
+                    NoncePatchedByteTemplate.Create(patchedHtml),
+                    NoncePatchedByteTemplate.Empty);
+            }
+
+            return new SpaHtmlByteTemplate(
+                NoncePatchedByteTemplate.Create(patchedHtml[..headClose]),
+                NoncePatchedByteTemplate.Create(patchedHtml[headClose..]));
+        }
+
+        public int GetLength(int nonceLength, int headInjectionLength)
+            => _beforeHeadClose.GetLength(nonceLength)
+                + headInjectionLength
+                + _headCloseAndAfter.GetLength(nonceLength);
+
+        public void Write(PipeWriter writer, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> headInjection)
+        {
+            _beforeHeadClose.Write(writer, nonce);
+            WriteBytes(writer, headInjection);
+            _headCloseAndAfter.Write(writer, nonce);
+        }
+    }
+
+    private sealed class NoncePatchedByteTemplate
+    {
+        public static NoncePatchedByteTemplate Empty { get; } = new([], 0, 0);
+
+        private readonly byte[][] _segments;
+        private readonly int _placeholderCount;
+        private readonly int _lengthWithoutNonce;
+
+        private NoncePatchedByteTemplate(byte[][] segments, int placeholderCount, int lengthWithoutNonce)
+        {
+            _segments = segments;
+            _placeholderCount = placeholderCount;
+            _lengthWithoutNonce = lengthWithoutNonce;
+        }
+
+        public static NoncePatchedByteTemplate Create(string source)
+        {
+            if (string.IsNullOrEmpty(source))
+            {
+                return Empty;
+            }
+
+            var segments = new List<byte[]>();
+            int lengthWithoutNonce = 0;
+            int placeholderCount = 0;
+            int position = 0;
+            while (position < source.Length)
+            {
+                int placeholder = source.IndexOf(CspNonceTemplatePlaceholder, position, StringComparison.Ordinal);
+                if (placeholder < 0)
+                {
+                    byte[] segment = Encoding.UTF8.GetBytes(source[position..]);
+                    segments.Add(segment);
+                    lengthWithoutNonce += segment.Length;
+                    break;
+                }
+
+                byte[] before = Encoding.UTF8.GetBytes(source[position..placeholder]);
+                segments.Add(before);
+                lengthWithoutNonce += before.Length;
+                placeholderCount++;
+                position = placeholder + CspNonceTemplatePlaceholder.Length;
+            }
+
+            if (source.EndsWith(CspNonceTemplatePlaceholder, StringComparison.Ordinal))
+            {
+                segments.Add([]);
+            }
+
+            return new NoncePatchedByteTemplate([.. segments], placeholderCount, lengthWithoutNonce);
+        }
+
+        public int GetLength(int nonceLength)
+            => _lengthWithoutNonce + _placeholderCount * nonceLength;
+
+        public void Write(PipeWriter writer, ReadOnlySpan<byte> nonce)
+        {
+            for (int i = 0; i < _segments.Length; i++)
+            {
+                WriteBytes(writer, _segments[i]);
+                if (i < _placeholderCount)
+                {
+                    WriteBytes(writer, nonce);
+                }
+            }
+        }
+    }
+
+    private static void WriteBytes(PipeWriter writer, ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.IsEmpty)
+        {
+            return;
+        }
+
+        bytes.CopyTo(writer.GetSpan(bytes.Length));
+        writer.Advance(bytes.Length);
     }
 
     private sealed record CspNonceHtmlTemplate(string Html, bool HasPlaceholders)

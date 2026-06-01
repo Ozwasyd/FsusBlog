@@ -1,3 +1,5 @@
+using System.Data.Common;
+using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -199,12 +201,17 @@ public partial class CommentService(
             })
             .ToListAsync();
 
-        CursorEnvelope<long, ThreadRootRow> slice = CursorPagination.Slice(roots, request.Limit, root => root.Id);
-        long[] rootIds = [.. slice.Data.Select(static root => root.Id)];
+        int rootWindowCount = CursorPagination.WindowCount(roots, request.Limit);
+        long[] rootIds = new long[rootWindowCount];
+        for (int i = 0; i < rootWindowCount; i++)
+        {
+            rootIds[i] = roots[i].Id;
+        }
+
         Dictionary<long, int> replyCountMap = await LoadThreadReplyCountMapAsync(articleId, rootIds);
         Dictionary<long, List<CommentReplyPreviewItemDto>> previewMap = await QueryThreadRepliesPreviewMapAsync(articleId, rootIds, normalizedPreviewLimit);
 
-        CursorEnvelope<long, CommentThreadItemDto> mapped = CursorPagination.Map(slice, root =>
+        return CursorPagination.SliceMapToResponse(roots, request.Limit, root => root.Id, root =>
         {
             long rootId = root.Id;
             int replyCount = replyCountMap.GetValueOrDefault(rootId, 0);
@@ -221,9 +228,7 @@ public partial class CommentService(
                 replyCount,
                 hasMoreReplies,
                 previewReplies);
-        });
-
-        return CursorPagination.ToResponse(mapped, CursorCodec);
+        }, CursorCodec);
     }
 
     public async Task<CursorResponse<CommentReplyItemDto>> GetThreadRepliesByCursorAsync(int articleId, long rootId, CursorPageRequest<long> request)
@@ -267,9 +272,7 @@ public partial class CommentService(
             })
             .ToListAsync();
 
-        CursorEnvelope<long, ReplyRow> slice = CursorPagination.Slice(rows, request.Limit, row => row.Id);
-        CursorEnvelope<long, CommentReplyItemDto> mapped = CursorPagination.Map(slice, MapReplyRow);
-        return CursorPagination.ToResponse(mapped, CursorCodec);
+        return CursorPagination.SliceMapToResponse(rows, request.Limit, row => row.Id, MapReplyRow, CursorCodec);
     }
 
     public async Task<CursorResponse<CommentQueryResultDto>> GetCommentsByCursorAsync(int articleId, CursorPageRequest<long> request)
@@ -322,8 +325,7 @@ public partial class CommentService(
             })
             .ToListAsync();
 
-        CursorEnvelope<long, UserCommentRow> slice = CursorPagination.Slice(rows, request.Limit, item => item.Id);
-        var envelope = CursorPagination.Map(slice, item => CommentProjection.ToResponse(new UserCommentReadModel
+        return CursorPagination.SliceMapToResponse(rows, request.Limit, item => item.Id, item => CommentProjection.ToResponse(new UserCommentReadModel
         {
             Id = item.Id,
             Content = ToDisplayContent(item.IsDeleted, item.Content),
@@ -332,9 +334,7 @@ public partial class CommentService(
             ArticleTitle = item.ArticleTitle ?? string.Empty,
             RootId = item.RootId,
             ReplyToUserName = item.ReplyToUserName
-        }));
-
-        return CursorPagination.ToResponse(envelope, CursorCodec);
+        }), CursorCodec);
     }
 
     public async Task<bool> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason = "违反社区管理条例")
@@ -463,30 +463,100 @@ public partial class CommentService(
             return [];
         }
 
-        var rows = await db.Queryable<Comment, User, User>((c, u, ru) => new object[]
+        var sql = new StringBuilder("""
+SELECT
+    x.id AS "Id",
+    x.parent_id AS "ParentId",
+    x.root_id AS "RootId",
+    x.reply_to_user_id AS "ReplyToUserId",
+    x.reply_to_comment_id AS "ReplyToCommentId",
+    x.content AS "Content",
+    x.create_time AS "CreateTime",
+    x.user_name AS "UserName",
+    x.reply_to_user_name AS "ReplyToUserName",
+    x.depth AS "Depth",
+    x.is_deleted AS "IsDeleted"
+FROM (
+    SELECT
+        c.id,
+        c.parent_id,
+        c.root_id,
+        c.reply_to_user_id,
+        c.reply_to_comment_id,
+        c.content,
+        c.create_time,
+        u.username AS user_name,
+        ru.username AS reply_to_user_name,
+        c.depth,
+        c.is_deleted,
+        ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.id) AS rn
+    FROM comment c
+    LEFT JOIN sys_user u ON c.user_id = u.id
+    LEFT JOIN sys_user ru ON c.reply_to_user_id = ru.id
+    WHERE c.article_id = @ArticleId
+      AND c.root_id IS NOT NULL
+      AND c.root_id IN (
+""");
+        var parameters = new List<SugarParameter>(rootIds.Length + 3)
+        {
+            new("@ArticleId", articleId),
+            new("@Approved", (int)CommentModerationStatus.Approved),
+            new("@PreviewLimit", limit)
+        };
+        for (int i = 0; i < rootIds.Length; i++)
+        {
+            if (i > 0)
             {
-                JoinType.Left, c.UserId == u.Id,
-                JoinType.Left, c.ReplyToUserId == ru.Id
-            })
-            .Where((c, u, ru) => c.ArticleId == articleId && c.RootId != null && rootIds.Contains(c.RootId.Value) && c.ParentId != null)
-            .Where((c, u, ru) => c.ModerationStatus == CommentModerationStatus.Approved)
-            .OrderBy((c, u, ru) => c.RootId)
-            .OrderBy((c, u, ru) => c.Id)
-            .Select((c, u, ru) => new ReplyRow
+                sql.Append(',');
+            }
+
+            string parameterName = $"@RootId{i}";
+            sql.Append(parameterName);
+            parameters.Add(new SugarParameter(parameterName, rootIds[i]));
+        }
+
+        sql.Append("""
+)
+      AND c.parent_id IS NOT NULL
+      AND c.moderation_status = @Approved
+) x
+WHERE x.rn <= @PreviewLimit
+ORDER BY x.root_id, x.id;
+""");
+
+        var rows = new List<ReplyRow>(rootIds.Length * limit);
+        using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql.ToString(), parameters))
+        {
+            int fId = reader.GetOrdinal("Id");
+            int fParentId = reader.GetOrdinal("ParentId");
+            int fRootId = reader.GetOrdinal("RootId");
+            int fReplyToUserId = reader.GetOrdinal("ReplyToUserId");
+            int fReplyToCommentId = reader.GetOrdinal("ReplyToCommentId");
+            int fContent = reader.GetOrdinal("Content");
+            int fCreateTime = reader.GetOrdinal("CreateTime");
+            int fUserName = reader.GetOrdinal("UserName");
+            int fReplyToUserName = reader.GetOrdinal("ReplyToUserName");
+            int fDepth = reader.GetOrdinal("Depth");
+            int fIsDeleted = reader.GetOrdinal("IsDeleted");
+
+            while (await reader.ReadAsync())
             {
-                Id = c.Id,
-                ParentId = c.ParentId,
-                RootId = c.RootId,
-                ReplyToUserId = c.ReplyToUserId,
-                ReplyToCommentId = c.ReplyToCommentId,
-                Content = c.Content,
-                CreateTime = c.CreateTime,
-                UserName = u.Username,
-                ReplyToUserName = ru.Username,
-                Depth = c.Depth,
-                IsDeleted = c.IsDeleted
-            })
-            .ToListAsync();
+                rows.Add(new ReplyRow
+                {
+                    Id = reader.GetInt64(fId),
+                    ParentId = reader.IsDBNull(fParentId) ? null : reader.GetInt64(fParentId),
+                    RootId = reader.IsDBNull(fRootId) ? null : reader.GetInt64(fRootId),
+                    ReplyToUserId = reader.IsDBNull(fReplyToUserId) ? null : reader.GetInt32(fReplyToUserId),
+                    ReplyToCommentId = reader.IsDBNull(fReplyToCommentId) ? null : reader.GetInt64(fReplyToCommentId),
+                    Content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent),
+                    CreateTime = reader.GetDateTime(fCreateTime),
+                    UserName = reader.IsDBNull(fUserName) ? string.Empty : reader.GetString(fUserName),
+                    ReplyToUserName = reader.IsDBNull(fReplyToUserName) ? null : reader.GetString(fReplyToUserName),
+                    Depth = reader.GetInt32(fDepth),
+                    IsDeleted = reader.GetBoolean(fIsDeleted)
+                });
+            }
+        }
 
         var map = new Dictionary<long, List<CommentReplyPreviewItemDto>>(rootIds.Length);
         foreach (ReplyRow row in rows)
@@ -498,10 +568,7 @@ public partial class CommentService(
                 map[resolvedRootId] = previews;
             }
 
-            if (previews.Count < limit)
-            {
-                previews.Add(MapReplyPreviewRow(row));
-            }
+            previews.Add(MapReplyPreviewRow(row));
         }
 
         return map;

@@ -3,6 +3,8 @@ using System.Diagnostics.Metrics;
 
 namespace FsusBlog.Server.Infrastructure.Observability;
 
+public sealed record FsusRouteKindMetadata(string RouteKind);
+
 public static class FsusObservability
 {
     public const string DefaultServiceName = "FsusBlog";
@@ -104,6 +106,14 @@ public static class FsusObservability
         }
 
         return "public";
+    }
+
+    public static string ResolveRouteKind(HttpContext context)
+    {
+        string? routeKind = context.GetEndpoint()?.Metadata.GetMetadata<FsusRouteKindMetadata>()?.RouteKind;
+        return string.IsNullOrWhiteSpace(routeKind)
+            ? ClassifyRoute(context.Request.Path)
+            : routeKind;
     }
 
     public static void RecordOperation(string component, string operation, string result, TimeSpan duration)

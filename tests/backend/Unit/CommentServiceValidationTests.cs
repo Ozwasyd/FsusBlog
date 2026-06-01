@@ -224,8 +224,19 @@ public class CommentServiceValidationTests
 
         Assert.Contains("c.Id < request.Cursor!.Value", source);
         Assert.Contains("c.Id > request.Cursor!.Value", source);
+        Assert.Contains("SliceMapToResponse", source);
         Assert.DoesNotContain(".Skip(", source);
         Assert.DoesNotContain("OFFSET", source, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CommentThreadPreviewQuery_UsesSqlPerRootWindowLimit()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Services", "CommentService.cs"));
+
+        Assert.Contains("ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.id)", source);
+        Assert.Contains("WHERE x.rn <= @PreviewLimit", source);
+        Assert.DoesNotContain("previews.Count < limit", source);
     }
 
     // Note: DeleteCommentAsync always queries DB first, so no pure validation path to test without DB mock

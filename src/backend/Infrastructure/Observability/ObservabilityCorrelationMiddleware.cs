@@ -1,14 +1,17 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.Observability;
 
-public sealed class ObservabilityCorrelationMiddleware(RequestDelegate next)
+public sealed class ObservabilityCorrelationMiddleware(RequestDelegate next, IOptions<FsusObservabilityOptions> options)
 {
     private readonly RequestDelegate _next = next;
+    private readonly int _httpMetricsSampleRate = Math.Clamp(options.Value.HttpMetricsSampleRate, 1, 4096);
+    private readonly double _slowRequestThresholdMs = Math.Max(1, options.Value.SlowRequestThresholdMilliseconds);
 
     public async Task InvokeAsync(HttpContext context)
     {
-        string routeKind = FsusObservability.ClassifyRoute(context.Request.Path);
+        string routeKind = FsusObservability.ResolveRouteKind(context);
         Activity? activity = Activity.Current;
         if (activity is not null)
         {
@@ -18,7 +21,10 @@ public sealed class ObservabilityCorrelationMiddleware(RequestDelegate next)
                 context.TraceIdentifier = traceId;
             }
 
-            FsusObservability.SetTag(activity, "fsus.route_kind", routeKind);
+            if (activity.IsAllDataRequested)
+            {
+                FsusObservability.SetTag(activity, "fsus.route_kind", routeKind);
+            }
         }
 
         context.Response.OnStarting(static state =>
@@ -36,8 +42,23 @@ public sealed class ObservabilityCorrelationMiddleware(RequestDelegate next)
         finally
         {
             TimeSpan duration = FsusObservability.GetElapsed(startedAt);
-            FsusObservability.RecordHttpRequest(routeKind, context.Response.StatusCode, duration);
-            FsusObservability.SetTag(Activity.Current, "fsus.http.status_code", context.Response.StatusCode);
+            int statusCode = context.Response.StatusCode;
+            if (ShouldRecordHttpRequest(statusCode, duration))
+            {
+                FsusObservability.RecordHttpRequest(routeKind, statusCode, duration);
+            }
+
+            Activity? current = Activity.Current;
+            if (current?.IsAllDataRequested == true)
+            {
+                FsusObservability.SetTag(current, "fsus.http.status_code", statusCode);
+            }
         }
     }
+
+    private bool ShouldRecordHttpRequest(int statusCode, TimeSpan duration)
+        => statusCode >= StatusCodes.Status500InternalServerError
+            || duration.TotalMilliseconds >= _slowRequestThresholdMs
+            || _httpMetricsSampleRate <= 1
+            || Random.Shared.Next(_httpMetricsSampleRate) == 0;
 }

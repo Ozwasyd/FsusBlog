@@ -12,6 +12,7 @@ using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
@@ -40,7 +41,9 @@ public static partial class BinaryEndpoints
 
     public static void MapBinaryEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("api/binary").WithTags("Binary-POD");
+        var group = app.MapGroup("api/binary")
+            .WithTags("Binary-POD")
+            .WithMetadata(new FsusRouteKindMetadata("binary"));
         Int64CursorCodec cursorCodec = Int64CursorCodec.Instance;
 
         MapBinaryAuthEndpoints(group);

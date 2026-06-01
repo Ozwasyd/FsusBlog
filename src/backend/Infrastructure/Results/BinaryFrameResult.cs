@@ -1,5 +1,6 @@
 using System.Buffers;
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Binary;
 
@@ -11,6 +12,9 @@ public sealed class BinaryFrameResult(
     Action<IBufferWriter<byte>> writePayload,
     int? statusCode = null) : IResult
 {
+    private static readonly byte[] EmptySuccessPayload = PodBinaryCodec.EncodeEmptySuccess();
+    private static readonly ReadOnlyMemory<byte> EmptySuccessFrame =
+        new AedsEncoder().Encode(AedsFrameType.EmptySuccess, EmptySuccessPayload);
     private readonly IAedsEncoder _encoder = encoder;
     private readonly AedsFrameType _frameType = frameType;
     private readonly Action<IBufferWriter<byte>> _writePayload = writePayload;
@@ -19,15 +23,18 @@ public sealed class BinaryFrameResult(
     public async Task ExecuteAsync(HttpContext httpContext)
     {
         IBinaryEnvelopePolicy envelopePolicy = ResolveEnvelopePolicy(httpContext);
+        if (!_statusCode.HasValue && _frameType == AedsFrameType.EmptySuccess)
+        {
+            envelopePolicy.ApplyFrameResponse(httpContext.Response, EmptySuccessPayload.Length);
+            await httpContext.Response.BodyWriter.WriteAsync(EmptySuccessFrame, httpContext.RequestAborted);
+            return;
+        }
+
         using var payloadWriter = new PooledByteBufferWriter(1024);
         _writePayload(payloadWriter);
 
         envelopePolicy.ApplyFrameResponse(httpContext.Response, payloadWriter.WrittenCount, _statusCode);
-
-        _encoder.WriteHeader(_frameType, payloadWriter.WrittenSpan, httpContext.Response.BodyWriter);
-        Span<byte> payloadTarget = httpContext.Response.BodyWriter.GetSpan(payloadWriter.WrittenCount);
-        payloadWriter.WrittenSpan.CopyTo(payloadTarget);
-        httpContext.Response.BodyWriter.Advance(payloadWriter.WrittenCount);
+        _encoder.WriteFrame(_frameType, payloadWriter.WrittenSpan, httpContext.Response.BodyWriter);
         await httpContext.Response.BodyWriter.FlushAsync(httpContext.RequestAborted);
     }
 
@@ -50,11 +57,7 @@ public sealed class BinaryFramePayloadResult(
     {
         IBinaryEnvelopePolicy envelopePolicy = ResolveEnvelopePolicy(httpContext);
         envelopePolicy.ApplyFrameResponse(httpContext.Response, _payload.Length, _statusCode);
-
-        _encoder.WriteHeader(_frameType, _payload.Span, httpContext.Response.BodyWriter);
-        Span<byte> payloadTarget = httpContext.Response.BodyWriter.GetSpan(_payload.Length);
-        _payload.Span.CopyTo(payloadTarget);
-        httpContext.Response.BodyWriter.Advance(_payload.Length);
+        _encoder.WriteFrame(_frameType, _payload.Span, httpContext.Response.BodyWriter);
         await httpContext.Response.BodyWriter.FlushAsync(httpContext.RequestAborted);
     }
 

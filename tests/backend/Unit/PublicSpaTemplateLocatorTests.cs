@@ -8,7 +8,7 @@ namespace FsusBlog.Server.Tests;
 public sealed class PublicSpaTemplateLocatorTests
 {
     [Fact]
-    public async Task Production_ReloadsTemplateAfterFileChanges()
+    public async Task Production_CachesTemplateAfterFileChanges()
     {
         string root = CreateTempDirectory();
         try
@@ -24,7 +24,7 @@ public sealed class PublicSpaTemplateLocatorTests
             string second = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, CancellationToken.None);
 
             Assert.Equal("<html>v1</html>", first);
-            Assert.Equal("<html>v2</html>", second);
+            Assert.Equal("<html>v1</html>", second);
         }
         finally
         {
@@ -60,13 +60,13 @@ public sealed class PublicSpaTemplateLocatorTests
     }
 
     [Fact]
-    public async Task ReadFrontendAssetVersionAsync_ChangesWhenTemplateChanges()
+    public async Task ReadFrontendAssetVersionAsync_DevelopmentChangesWhenTemplateChanges()
     {
         string root = CreateTempDirectory();
         try
         {
             string indexPath = CreateIndex(root, "<html><script type=\"module\" src=\"/assets/index-a.js\"></script></html>");
-            var env = new TestWebHostEnvironment(root, Environments.Production);
+            var env = new TestWebHostEnvironment(root, Environments.Development);
             PublicSpaTemplateLocator.ResetCacheForTests();
 
             string first = await PublicSpaTemplateLocator.ReadFrontendAssetVersionAsync(env, CancellationToken.None);

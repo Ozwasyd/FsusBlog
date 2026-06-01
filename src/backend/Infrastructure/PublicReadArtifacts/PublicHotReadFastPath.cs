@@ -303,6 +303,7 @@ public sealed class PublicHotReadSnapshot
 public sealed class PublicHotReadStore
 {
     private PublicHotReadSnapshot _current = PublicHotReadSnapshot.Empty;
+    private int _ready;
     private readonly object _gate = new();
     private PublicHotReadRuntimeSnapshot _runtime = new(
         nameof(PublicHotReadState.NotStarted),
@@ -326,6 +327,7 @@ public sealed class PublicHotReadStore
     public void Publish(PublicHotReadSnapshot next)
     {
         Volatile.Write(ref _current, next);
+        Volatile.Write(ref _ready, 1);
         lock (_gate)
         {
             _runtime = CreateRuntimeSnapshotLocked(nameof(PublicHotReadState.Ready), next, DateTimeOffset.UtcNow, _runtime.LastBuildReason, "ok", null);
@@ -364,7 +366,13 @@ public sealed class PublicHotReadStore
         }
     }
 
-    public bool IsReady => string.Equals(CreateRuntimeSnapshot().State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal);
+    public bool IsReady => IsReadyFast;
+
+    public bool IsReadyFast
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => Volatile.Read(ref _ready) == 1;
+    }
 
     public void PublishHtml(string routeKey, PublicPageId pageId, PublicHtmlArtifact html)
     {
@@ -492,7 +500,7 @@ public static class PublicHotReadFastPath
             return WriteStatus(ctx, StatusCodes.Status406NotAcceptable);
         }
 
-        if (!store.IsReady && !options.FailOpenWhenNotReady)
+        if (!store.IsReadyFast && !options.FailOpenWhenNotReady)
         {
             ctx.Response.Headers["Retry-After"] = "1";
             return WriteStatus(ctx, StatusCodes.Status503ServiceUnavailable);

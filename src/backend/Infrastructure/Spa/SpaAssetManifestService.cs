@@ -44,6 +44,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<SpaAssetManifestService> _logger;
     private readonly Lock _loadLock = new();
+    private bool _manifestLoaded;
     private FrozenDictionary<string, List<string>> _routeAssetMap = FrozenDictionary<string, List<string>>.Empty;
     private FrozenDictionary<string, ManifestAsset> _manifestByKey = FrozenDictionary<string, ManifestAsset>.Empty;
     private DateTime _lastManifestWriteTime = DateTime.MinValue;
@@ -149,23 +150,34 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
 
     private void LoadManifest()
     {
-        string manifestPath = ResolveCurrentManifestPath();
-        if (string.IsNullOrWhiteSpace(manifestPath) || !File.Exists(manifestPath))
-        {
-            _frontendAssetVersion = ComputeFallbackAssetVersion();
-            _publicAssetSet = CreatePublicAssetSet(FrozenDictionary<string, ManifestAsset>.Empty, _frontendAssetVersion);
-            return;
-        }
-
-        DateTime lastWrite = File.GetLastWriteTimeUtc(manifestPath);
-        if (lastWrite <= _lastManifestWriteTime && string.Equals(manifestPath, _manifestPath, StringComparison.Ordinal))
+        bool isDevelopment = _env.IsDevelopment();
+        if (!isDevelopment && Volatile.Read(ref _manifestLoaded))
         {
             return;
         }
 
         lock (_loadLock)
         {
-            if (lastWrite <= _lastManifestWriteTime && string.Equals(manifestPath, _manifestPath, StringComparison.Ordinal))
+            if (!isDevelopment && _manifestLoaded)
+            {
+                return;
+            }
+
+            string manifestPath = ResolveCurrentManifestPath();
+            if (string.IsNullOrWhiteSpace(manifestPath) || !File.Exists(manifestPath))
+            {
+                _frontendAssetVersion = ComputeFallbackAssetVersion();
+                _publicAssetSet = CreatePublicAssetSet(FrozenDictionary<string, ManifestAsset>.Empty, _frontendAssetVersion);
+                _manifestLoaded = !isDevelopment;
+                return;
+            }
+
+            DateTime lastWrite = isDevelopment
+                ? File.GetLastWriteTimeUtc(manifestPath)
+                : DateTime.MaxValue;
+            if (isDevelopment
+                && lastWrite <= _lastManifestWriteTime
+                && string.Equals(manifestPath, _manifestPath, StringComparison.Ordinal))
             {
                 return;
             }
@@ -216,6 +228,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
                 _lastManifestWriteTime = lastWrite;
                 _frontendAssetVersion = ComputeAssetVersion(manifestPath);
                 _publicAssetSet = CreatePublicAssetSet(manifestSnapshot, _frontendAssetVersion);
+                _manifestLoaded = !isDevelopment;
                 _logger.LogInformation("SPA manifest loaded from {ManifestPath}. chunks={ChunkCount}", manifestPath, _manifestByKey.Count);
             }
             catch (Exception ex)
@@ -223,6 +236,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
                 _logger.LogError(ex, "Failed to load SPA asset manifest from {ManifestPath}", manifestPath);
                 _frontendAssetVersion = ComputeFallbackAssetVersion();
                 _publicAssetSet = CreatePublicAssetSet(_manifestByKey, _frontendAssetVersion);
+                _manifestLoaded = !isDevelopment;
             }
         }
     }

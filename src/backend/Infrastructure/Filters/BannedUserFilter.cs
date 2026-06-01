@@ -2,13 +2,24 @@
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Caching.Memory;
+using System.Globalization;
 using System.Security.Claims;
 
 namespace FsusBlog.Server.Infrastructure.Filters;
 
 public class BannedUserMiddleware(RequestDelegate _next)
 {
-    public async Task InvokeAsync(HttpContext context, IBlacklistService blacklist, IUserAccountReader users)
+    private static readonly MemoryCacheEntryOptions AccountStateCacheOptions = new()
+    {
+        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60)
+    };
+
+    public async Task InvokeAsync(
+        HttpContext context,
+        IBlacklistService blacklist,
+        IUserAccountReader users,
+        IMemoryCache accountStateCache)
     {
         // 1. 只处理已登录用户
         if (context.User.Identity?.IsAuthenticated != true)
@@ -27,20 +38,23 @@ public class BannedUserMiddleware(RequestDelegate _next)
             return;
         }
 
-        var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        string method = context.Request.Method;
+        bool isWriteAction =
+            HttpMethods.IsPost(method)
+            || HttpMethods.IsPut(method)
+            || HttpMethods.IsDelete(method)
+            || HttpMethods.IsPatch(method);
+
+        string? userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (int.TryParse(userIdClaim, out int userId))
         {
-            UserAccountSnapshot? user = await users.GetAccountByIdAsync(userId);
+            UserAccountSnapshot? user = await GetAccountStateAsync(userId, users, accountStateCache, forceRefresh: isWriteAction);
             if (user == null || user.Value.DeletedAt.HasValue || user.Value.Status == 2)
             {
                 await MiddlewareResults.WriteErrorAsync(context, "账户已注销", StatusCodes.Status401Unauthorized);
                 return;
             }
         }
-
-        // 2. 动词过滤
-        var method = context.Request.Method.ToUpper();
-        bool isWriteAction = method == "POST" || method == "PUT" || method == "DELETE" || method == "PATCH";
 
         if (isWriteAction)
         {
@@ -70,6 +84,31 @@ public class BannedUserMiddleware(RequestDelegate _next)
 
         // 正常请求或 GET 请求，继续执行
         await _next(context);
+    }
+
+    private static async Task<UserAccountSnapshot?> GetAccountStateAsync(
+        int userId,
+        IUserAccountReader users,
+        IMemoryCache cache,
+        bool forceRefresh)
+    {
+        string cacheKey = string.Concat("user:account-state:", userId.ToString(CultureInfo.InvariantCulture));
+        if (!forceRefresh && cache.TryGetValue(cacheKey, out UserAccountSnapshot cached))
+        {
+            return cached;
+        }
+
+        UserAccountSnapshot? snapshot = await users.GetAccountByIdAsync(userId);
+        if (snapshot.HasValue)
+        {
+            cache.Set(cacheKey, snapshot.Value, AccountStateCacheOptions);
+        }
+        else
+        {
+            cache.Remove(cacheKey);
+        }
+
+        return snapshot;
     }
 }
 

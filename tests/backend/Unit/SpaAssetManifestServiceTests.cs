@@ -68,13 +68,36 @@ public sealed class SpaAssetManifestServiceTests
     }
 
     [Fact]
-    public void GetFrontendAssetVersion_ChangesWhenManifestChanges()
+    public void GetFrontendAssetVersion_ProductionKeepsStartupManifestSnapshot()
     {
         string root = CreateTempDirectory();
         try
         {
             WriteManifest(root, "public-page-a.css");
             var env = new TestWebHostEnvironment(root, Environments.Production);
+            var service = new SpaAssetManifestService(env, NullLogger<SpaAssetManifestService>.Instance);
+            string first = service.GetFrontendAssetVersion();
+
+            Thread.Sleep(1100);
+            WriteManifest(root, "public-page-b.css");
+            string second = service.GetFrontendAssetVersion();
+
+            Assert.Equal(first, second);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFrontendAssetVersion_DevelopmentChangesWhenManifestChanges()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css");
+            var env = new TestWebHostEnvironment(root, Environments.Development);
             var service = new SpaAssetManifestService(env, NullLogger<SpaAssetManifestService>.Instance);
             string first = service.GetFrontendAssetVersion();
 

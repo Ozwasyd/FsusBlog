@@ -98,12 +98,18 @@ internal static class PublicSpaTemplateLocator
 
     private static async Task<TemplateSnapshot> GetTemplateSnapshotAsync(IWebHostEnvironment env, CancellationToken cancellationToken, bool preferSourceTemplate)
     {
-        bool canUseCachedTemplate = !preferSourceTemplate || !env.IsDevelopment();
+        bool isDevelopment = env.IsDevelopment();
+        bool canUseCachedTemplate = !preferSourceTemplate || !isDevelopment;
         string indexPath = string.Empty;
         if (canUseCachedTemplate)
         {
             lock (CacheGate)
             {
+                if (!isDevelopment && _cachedTemplate is { } productionCachedTemplate)
+                {
+                    return productionCachedTemplate;
+                }
+
                 if (_cachedTemplate is { Path.Length: > 0 } cachedTemplate && File.Exists(cachedTemplate.Path))
                 {
                     indexPath = cachedTemplate.Path;
@@ -118,12 +124,22 @@ internal static class PublicSpaTemplateLocator
 
         if (string.IsNullOrWhiteSpace(indexPath))
         {
+            if (!isDevelopment)
+            {
+                lock (CacheGate)
+                {
+                    _cachedTemplate = TemplateSnapshot.Minimal;
+                }
+            }
+
             return TemplateSnapshot.Minimal;
         }
 
-        DateTime lastWriteTimeUtc = File.GetLastWriteTimeUtc(indexPath);
+        DateTime lastWriteTimeUtc = isDevelopment
+            ? File.GetLastWriteTimeUtc(indexPath)
+            : DateTime.MinValue;
 
-        if (canUseCachedTemplate)
+        if (canUseCachedTemplate && isDevelopment)
         {
             lock (CacheGate)
             {

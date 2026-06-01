@@ -7,4 +7,6 @@ public sealed class FsusObservabilityOptions
     public string ServiceName { get; set; } = FsusObservability.DefaultServiceName;
     public string ServiceVersion { get; set; } = FsusObservability.ServiceVersion;
     public string? OtlpEndpoint { get; set; }
+    public int HttpMetricsSampleRate { get; set; } = 1;
+    public int SlowRequestThresholdMilliseconds { get; set; } = 500;
 }

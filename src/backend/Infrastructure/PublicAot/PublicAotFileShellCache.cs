@@ -17,6 +17,7 @@ public sealed class PublicAotFileShellCache(
     private const string InvalidationChannel = "public:aot:v2:invalidate";
     private readonly IDatabase _db = redis.GetDatabase();
     private readonly string _cacheRoot = ResolveCacheRoot(env);
+    private readonly bool _isDevelopment = env.IsDevelopment();
     private readonly ConcurrentDictionary<string, MemoryCacheEntry> _memoryCache = new(StringComparer.Ordinal);
 
     public Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
@@ -161,6 +162,18 @@ public sealed class PublicAotFileShellCache(
         if (!_memoryCache.TryGetValue(cacheKey, out MemoryCacheEntry? cached))
         {
             return false;
+        }
+
+        if (!_isDevelopment)
+        {
+            if (cached.Entry.ExpiresAtUtc <= DateTimeOffset.UtcNow)
+            {
+                _memoryCache.TryRemove(cacheKey, out _);
+                return false;
+            }
+
+            value = cached.Entry;
+            return true;
         }
 
         if (!File.Exists(path))
