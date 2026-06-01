@@ -50,17 +50,24 @@ public sealed class ScheduledPublishWorker(
                 {
                     await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
                     ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+                    IDbConcurrencyGate dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
                     ICacheInvalidationDispatcher invalidation = scope.ServiceProvider.GetRequiredService<ICacheInvalidationDispatcher>();
                     ISearchIndexService searchIndex = scope.ServiceProvider.GetRequiredService<ISearchIndexService>();
                     PublicHotArtifactUpdateQueue publicHotUpdates = scope.ServiceProvider.GetRequiredService<PublicHotArtifactUpdateQueue>();
                     DateTime now = timeProvider.GetUtcNow().UtcDateTime;
 
-                    List<Article> due = await db.Queryable<Article>()
-                        .Where(article => !article.IsDeleted
-                            && article.Status == ArticleStatus.Scheduled
-                            && article.ScheduledPublishAt <= now)
-                        .Take(100)
-                        .ToListAsync(cancellationToken);
+                    List<Article> due = await dbGate.ExecuteAsync(
+                        "scheduled-publish-due-query",
+                        gateCt => db.Queryable<Article>()
+                            .Where(article => !article.IsDeleted
+                                && article.Status == ArticleStatus.Scheduled
+                                && article.ScheduledPublishAt <= now)
+                            .OrderBy(article => article.ScheduledPublishAt)
+                            .OrderBy(article => article.Id)
+                            .Take(100)
+                            .ToListAsync(gateCt),
+                        _ => Task.FromResult(new List<Article>()),
+                        cancellationToken);
                     if (due.Count == 0)
                     {
                         runtimeState.ReportResult(0, 0, 0);
@@ -74,12 +81,16 @@ public sealed class ScheduledPublishWorker(
                     {
                         try
                         {
-                            int updated = await db.Updateable<Article>()
-                                .SetColumns(it => it.Status == ArticleStatus.Published)
-                                .SetColumns(it => it.PublishedAt == now)
-                                .SetColumns(it => it.ScheduledPublishAt == null)
-                                .Where(it => it.Id == article.Id && it.Status == ArticleStatus.Scheduled)
-                                .ExecuteCommandAsync(cancellationToken);
+                            int updated = await dbGate.ExecuteAsync(
+                                "scheduled-publish-update",
+                                gateCt => db.Updateable<Article>()
+                                    .SetColumns(it => it.Status == ArticleStatus.Published)
+                                    .SetColumns(it => it.PublishedAt == now)
+                                    .SetColumns(it => it.ScheduledPublishAt == null)
+                                    .Where(it => it.Id == article.Id && it.Status == ArticleStatus.Scheduled)
+                                    .ExecuteCommandAsync(gateCt),
+                                _ => Task.FromResult(0),
+                                cancellationToken);
                             if (updated == 0)
                             {
                                 continue;
@@ -88,10 +99,14 @@ public sealed class ScheduledPublishWorker(
                             article.Status = ArticleStatus.Published;
                             article.PublishedAt = now;
                             article.ScheduledPublishAt = null;
-                            article.Content = await db.Queryable<ArticleBody>()
-                                .Where(it => it.ArticleId == article.Id)
-                                .Select(it => it.MarkdownContent)
-                                .FirstAsync(cancellationToken) ?? string.Empty;
+                            article.Content = await dbGate.ExecuteAsync(
+                                "scheduled-publish-body-query",
+                                gateCt => db.Queryable<ArticleBody>()
+                                    .Where(it => it.ArticleId == article.Id)
+                                    .Select(it => it.MarkdownContent)
+                                    .FirstAsync(gateCt),
+                                _ => Task.FromResult(string.Empty),
+                                cancellationToken);
                             await searchIndex.AddOrUpdateIndexAsync(article);
                             await invalidation.InvalidateArticleMutationAsync(article.Id, cancellationToken);
                             published++;
@@ -103,11 +118,15 @@ public sealed class ScheduledPublishWorker(
                         }
                     }
 
-                    int backlog = await db.Queryable<Article>()
-                        .Where(article => !article.IsDeleted
-                            && article.Status == ArticleStatus.Scheduled
-                            && article.ScheduledPublishAt <= now)
-                        .CountAsync(cancellationToken);
+                    int backlog = await dbGate.ExecuteAsync(
+                        "scheduled-publish-backlog-count",
+                        gateCt => db.Queryable<Article>()
+                            .Where(article => !article.IsDeleted
+                                && article.Status == ArticleStatus.Scheduled
+                                && article.ScheduledPublishAt <= now)
+                            .CountAsync(gateCt),
+                        _ => Task.FromResult(0),
+                        cancellationToken);
                     runtimeState.ReportResult(
                         published,
                         failed,

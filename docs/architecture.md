@@ -242,7 +242,8 @@ Client
 - Preflight 只验证认证、PoW、cursor 和协议语义，不要求 WebSocket upgrade。
 - 握手失败统一写入 `X-Fsus-Sse-Error-Code` 与 `X-Fsus-Sse-Status-Code`；WebSocket 路径失败仍返回 AEDS `ApiError` frame。
 - 通知握手只编排协议、PoW 与握手结果。账号封禁/注销准入下沉到 `NotificationStreamAdmissionService`，SSE audience 分组下沉到 `NotificationStreamAudienceResolver`，消息域到 user/group route 的映射下沉到 `MessageSsePort`。
-- SSE backlog 按 route 写入 Redis stream（`u:{id}` / `g:{group}`；multi-user target 展开为多个 user route），replay 只读取当前连接可见的 user/group stream 后按 event id 合并，不再从全局流拉取后置过滤。
+- SSE backlog 按 route 写入 Redis stream（`u:{id}` / `g:{group}`；multi-user target 展开为多个 user route），多目标 backlog 写入通过 Redis batch/pipeline 一次提交；replay 只读取当前连接可见的 user/group stream 后按 event id 合并，不再从全局流拉取后置过滤。
+- 业务发布路径只负责写 backlog 并把本地 fanout 意图放入 `SseLocalFanoutQueue`，`SseLocalFanoutWorker` 再遍历本机连接。慢连接仍由每连接队列和 slow-consumer 断开保护兜底，突变请求不随本机连接数线性放大。
 - 连接 pump 使用每连接一个 `PeriodicTimer` heartbeat loop；业务 frame 与 heartbeat 通过发送锁串行写 WebSocket，避免每轮 idle wait 创建 linked timeout CTS。
 - `CacheControl` 与 `SearchIndexUpdated` 的搜索索引版本字段以 `version / manifestUrl / generatedAt` 为唯一消费语义，Service Worker 不再从多个字段推导版本。
 
@@ -261,7 +262,8 @@ SPA hydration
 - `article_view_seed` 保存迁移时的历史 `article.views`，用于重建 `Article.Views = legacy_views + article_read events` 投影。
 - 直接读取 `/api/binary/article/{id}.aeds`、AOT 首屏、无 JS、爬虫和预取请求不会增加计数。
 - `VisitLogMiddleware` 仅保留为管线兼容占位，不再从 GET 请求采样。
-- `VisitLogProcessorService` 只负责读取事件批次与落库，文章浏览量投影由 `IArticleViewProjectionService` 聚合后批量写入，避免逐条 DB 往返。
+- `VisitLogProcessorService` 只负责读取事件批次与落库，文章浏览量投影由 `IArticleViewProjectionService` 聚合后通过单条 `VALUES` 更新批量写入，Redis 热榜使用 batch/pipeline，详情失效设置批次上限，PublicHot 只收到一个 `article-view-projection-batch` dirty event。
+- `ArticleViewProjectionRepairWorker` 周期性从 `sys_visit_log` 重新聚合 `article_read` 事件修复 `article.views`，保证访问日志已落库但投影失败时不会永久漂移。访问日志落库、投影修复、定时发布和 PublicHot rebuild 都走 `DbConcurrencyGate`，避免后台任务绕过 DB 并发预算。
 
 ## Service Worker 搜索
 
@@ -280,7 +282,7 @@ Service Worker → 缓存 manifest/shard/patch 并按版本隔离旧索引
 
 文章实体现在显式记录 `Status`、`ScheduledPublishAt`、`PublishedAt`、`ArchivedAt`、`DeletedAt`。公开读链、feed、sitemap、related-reading、搜索 runtime fallback、search index rebuild、分类/标签计数必须只读取 `Status=Published` 且发布时间已到的文章；`IsDeleted` 继续保留原有回收站语义。
 
-`ScheduledPublishWorker` 每分钟扫描到期 `Scheduled` 文章，转换为 `Published` 后同步 search index，并通过 `ICacheInvalidationDispatcher.InvalidateArticleMutationAsync` 触发文章列表、旧 JSON 详情缓存、CoreBridge `core:v2:{id}` / `core:v3:{id}` 详情缓存、RSS、PublicAOT 等失效链，同时向 `PublicHotArtifactUpdateQueue` 入队 L0 快照刷新。单篇发布失败会保留 `Scheduled` 状态，下一轮继续重试；worker 每轮把 `lastPublishedCount`、`lastFailedCount`、`dueBacklog` 与最近错误写入 `ScheduledPublishRuntimeState`，`/health/ready` 的 runtime 区块会暴露该快照。创建、更新、删除、恢复、永久删除必须同步更新 search index artifact，并异步触发 public hot-read 快照刷新；失败通过 worker/BoundaryExecutor 日志和 ready health runtime snapshot 暴露。
+`ScheduledPublishWorker` 每分钟按 `scheduled_publish_at, id` 扫描到期 `Scheduled` 文章，转换为 `Published` 后同步 search index，并通过 `ICacheInvalidationDispatcher.InvalidateArticleMutationAsync` 触发文章列表、旧 JSON 详情缓存、CoreBridge `core:v2:{id}` / `core:v3:{id}` 详情缓存、RSS、PublicAOT 等失效链，同时向 `PublicHotArtifactUpdateQueue` 入队 L0 快照刷新。单篇发布失败会保留 `Scheduled` 状态，下一轮继续重试；worker 每轮把 `lastPublishedCount`、`lastFailedCount`、`dueBacklog` 与最近错误写入 `ScheduledPublishRuntimeState`，`/health/ready` 的 runtime 区块会暴露该快照。创建、更新、删除、恢复、永久删除必须在同一文章事务内写入 `article_mutation_outbox`，请求内仍同步尝试 search/AEDS/PublicHot/SSE 派生更新；若进程在提交后崩溃，`ArticleMutationOutboxDispatcher` 会按 retry/backoff 重放派生更新并在成功后标记 processed。
 
 Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔离，HTTP OutputCache 的 ArticleList 策略也必须按 `page/size/categoryId/tagId/isDeleted/status` vary。匿名列表只缓存 public published 视图；admin 状态筛选可缓存 draft/scheduled/archived/deleted 视图，但 admin 详情读取未发布文章时绕过公开详情缓存，避免草稿负缓存或私有正文污染匿名 `/article/{id}` 读链。
 
@@ -296,7 +298,7 @@ Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔�
 
 ## 作者工作台与私有内容边界
 
-作者工作台表包含 `article_draft`、`article_revision`、`asset_library_item`、`site_subscription`，评论审核字段保存在 `comment`。`article_draft` 持久化正文、摘要、封面、分类、标签、`status`、`scheduled_publish_at` 与 `client_revision`；编辑器同时写本地缓存和 `/api/author/drafts`，检测到服务端草稿更新时暂停服务端覆盖并要求作者恢复或丢弃。写作页从站点 SEO 配置计算 title/description/canonical/OG image/slug 预览，并在发布或定时发布前调用 `/api/author/prepublish-check` 检查 SEO、危险 HTML、Markdown 结构、正文链接与图片 alt；错误项阻断提交，warning 需要作者在确认弹窗填写跳过理由并写入 `prepublish-warning-override` 审计。`/api/author/preview` 不读写公开文章表，直接把当前表单 payload 渲染为受限 Markdown/AOT-like HTML，并由写作页以 sandboxed iframe 展示。`article_revision` 在创建、更新和回滚时记录标题、正文、摘要、封面、分类、标签、修订序号、diff 摘要、操作者与时间；编辑器通过 `/api/author/articles/{articleId}/revisions` 和单条 revision detail 在侧栏比较当前表单与历史版本，回滚后复用文章更新链路触发 AOT/search/feed/binary cache 失效并写入审计。`asset_library_item` 由 `/api/author/articles/{articleId}/assets/reindex` 从正文 Markdown 图片与封面重建，仅索引 `/uploads/illustration/*`，保存 alt text、来源文章、hash 和引用计数；失去引用的资产先保留为 `referenceCount=0` 供作者审计，`/api/author/assets/orphans` 只删除孤儿索引行，不删除上传文件本体。评论创建后默认 `Pending`，公开评论线程、回复预览和回复游标只读取 `Approved`；`/api/author/comments/moderation` 提供状态队列和命中原因，单条/批量审核写入审计、清理评论游标缓存，并可在拒绝/隐藏时联动封禁非 admin 用户。作者分析从 `VisitLog` 聚合真实阅读、搜索 routeKey、公开来源路径和 404 routeKey，并用 `PublicAOT` miss 审计估算 AOT 命中率；dashboard 只读取 admin-only `/api/author/analytics`，不从私有页面采集 RUM。`/api/author/**` 全部要求 admin 角色，负责服务端草稿、预览、发布前检查、修订回滚、资产重建、作者分析、评论审核、导入导出和默认关闭的 AI 辅助。
+作者工作台表包含 `article_draft`、`article_revision`、`asset_library_item`、`site_subscription`，评论审核字段保存在 `comment`。`article_draft` 持久化正文、摘要、封面、分类、标签、`status`、`scheduled_publish_at` 与 `client_revision`；编辑器同时写本地缓存和 `/api/author/drafts`，检测到服务端草稿更新时暂停服务端覆盖并要求作者恢复或丢弃。写作页从站点 SEO 配置计算 title/description/canonical/OG image/slug 预览，并在发布或定时发布前调用 `/api/author/prepublish-check` 检查 SEO、危险 HTML、Markdown 结构、正文链接与图片 alt；错误项阻断提交，warning 需要作者在确认弹窗填写跳过理由并写入 `prepublish-warning-override` 审计。`/api/author/preview` 不读写公开文章表，直接把当前表单 payload 渲染为受限 Markdown/AOT-like HTML，并由写作页以 sandboxed iframe 展示。`article_revision` 在创建、更新和回滚时记录标题、正文、摘要、封面、分类、标签、修订序号、diff 摘要、操作者与时间；修订写入在文章事务内对 `article` 行执行 `FOR UPDATE` 并由 `(article_id, revision_no)` 唯一索引兜底，避免并发更新产生重复修订号。编辑器通过 `/api/author/articles/{articleId}/revisions` 和单条 revision detail 在侧栏比较当前表单与历史版本，回滚后复用文章更新链路触发 AOT/search/feed/binary cache 失效并写入审计。`asset_library_item` 由 `/api/author/articles/{articleId}/assets/reindex` 从正文 Markdown 图片与封面重建，仅索引 `/uploads/illustration/*`，保存 alt text、来源文章、hash 和引用计数；失去引用的资产先保留为 `referenceCount=0` 供作者审计，`/api/author/assets/orphans` 只删除孤儿索引行，不删除上传文件本体。评论创建后默认 `Pending`，公开评论线程、回复预览和回复游标只读取 `Approved`；`/api/author/comments/moderation` 提供状态队列和命中原因，单条/批量审核写入审计、清理评论游标缓存，并可在拒绝/隐藏时联动封禁非 admin 用户。作者分析从 `VisitLog` 聚合真实阅读、搜索 routeKey、公开来源路径和 404 routeKey，并用 `PublicAOT` miss 审计估算 AOT 命中率；dashboard 只读取 admin-only `/api/author/analytics`，不从私有页面采集 RUM。`/api/author/**` 全部要求 admin 角色，负责服务端草稿、预览、发布前检查、修订回滚、资产重建、作者分析、评论审核、导入导出和默认关闭的 AI 辅助。
 
 预览输出带 `data-preview-only=true` 和 `data-markdown-renderer=server-preview`，只走 admin JSON API，不写 PublicAOT cache，不进入 feed/search/sitemap。订阅表只保存 email hash 与 channel，避免把站点更新订阅扩展成社交关系链。
 

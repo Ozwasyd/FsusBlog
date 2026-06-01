@@ -58,7 +58,8 @@ public sealed class AuditLogWriterWorker(
             }
         }
 
-        await DrainRemainingAsync(stoppingToken);
+        using var drainCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        await DrainRemainingAsync(drainCts.Token);
     }
 
     internal async Task WriteBatchOnceAsync(IReadOnlyList<AuditRecord> batch, CancellationToken cancellationToken)
@@ -82,17 +83,36 @@ public sealed class AuditLogWriterWorker(
             batch.Add(record);
             if (batch.Count >= BatchSize)
             {
-                await PersistSafelyAsync(batch, cancellationToken);
+                if (!await TryPersistDrainBatchAsync(batch, cancellationToken))
+                {
+                    return;
+                }
+
                 batch.Clear();
             }
         }
 
         if (batch.Count > 0)
         {
-            await PersistSafelyAsync(batch, cancellationToken);
+            _ = await TryPersistDrainBatchAsync(batch, cancellationToken);
         }
 
         LogDroppedIfAny();
+    }
+
+    private async Task<bool> TryPersistDrainBatchAsync(IReadOnlyList<AuditRecord> batch, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await PersistSafelyAsync(batch, cancellationToken);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            using var _ = AuditLogScope.SkipPersistence();
+            _logger.LogWarning("audit-log shutdown drain budget expired; remaining records may be dropped. AttemptedCount={Count}", batch.Count);
+            return false;
+        }
     }
 
     private async Task PersistSafelyAsync(IReadOnlyList<AuditRecord> batch, CancellationToken cancellationToken)

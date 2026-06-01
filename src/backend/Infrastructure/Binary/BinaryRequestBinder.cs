@@ -1,4 +1,6 @@
 using System.Buffers;
+using System.Buffers.Binary;
+using System.IO.Pipelines;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -41,53 +43,141 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
             return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "请求帧超过 8 MiB 上限"));
         }
 
-        using var frameWriter = new PooledByteBufferWriter(
-            (int)Math.Min(httpContext.Request.ContentLength ?? 1024, MaxBinaryRequestFrameBytes),
-            clearOnReturn: true);
-        byte[] rented = ArrayPool<byte>.Shared.Rent(81920);
+        byte[] headerBuffer = ArrayPool<byte>.Shared.Rent(AedsFrameHeader.Size);
         try
         {
-            while (true)
+            if (!await ReadExactAsync(httpContext.Request.BodyReader, headerBuffer.AsMemory(0, AedsFrameHeader.Size), cancellationToken))
             {
-                int read = await httpContext.Request.Body.ReadAsync(rented.AsMemory(0, rented.Length), cancellationToken);
-                if (read == 0)
-                {
-                    break;
-                }
-
-                if (frameWriter.WrittenCount + read > MaxBinaryRequestFrameBytes)
-                {
-                    return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "请求帧超过 8 MiB 上限"));
-                }
-
-                frameWriter.Write(rented.AsSpan(0, read));
+                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS frame too short"));
             }
+
+            ReadOnlySpan<byte> header = headerBuffer.AsSpan(0, AedsFrameHeader.Size);
+            uint magic = BinaryPrimitives.ReadUInt32LittleEndian(header[0..4]);
+            byte version = header[4];
+            byte headerLength = header[5];
+            ushort frameTypeRaw = BinaryPrimitives.ReadUInt16LittleEndian(header[8..10]);
+            uint payloadLength = BinaryPrimitives.ReadUInt32LittleEndian(header[10..14]);
+            ushort expectedPayloadCrc = BinaryPrimitives.ReadUInt16LittleEndian(header[14..16]);
+
+            if (magic != AedsEncoder.Magic)
+            {
+                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS magic mismatch"));
+            }
+
+            if (version != AedsFrameHeader.CurrentVersion)
+            {
+                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS version unsupported"));
+            }
+
+            if (headerLength != AedsFrameHeader.Size)
+            {
+                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS header length mismatch"));
+            }
+
+            if (frameTypeRaw != (ushort)expectedFrameType)
+            {
+                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "请求帧类型不匹配"));
+            }
+
+            if (payloadLength > MaxBinaryRequestFrameBytes - AedsFrameHeader.Size)
+            {
+                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "请求帧超过 8 MiB 上限"));
+            }
+
+            long expectedFrameLength = AedsFrameHeader.Size + (long)payloadLength;
+            if (httpContext.Request.ContentLength.HasValue && httpContext.Request.ContentLength.Value != expectedFrameLength)
+            {
+                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS payload length mismatch"));
+            }
+
+            if (payloadLength == 0)
+            {
+                return expectedPayloadCrc == AedsCrc16.Compute(ReadOnlySpan<byte>.Empty)
+                    ? BinaryRequestPayload.Success(ReadOnlyMemory<byte>.Empty)
+                    : BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS payload crc mismatch"));
+            }
+
+            byte[] payloadBuffer = ArrayPool<byte>.Shared.Rent((int)payloadLength);
+            ErrorDetail payloadError = await ReadPayloadAndValidateAsync(
+                    httpContext,
+                    payloadBuffer,
+                    (int)payloadLength,
+                    expectedPayloadCrc,
+                    cancellationToken);
+            if (payloadError.Code != ErrorCode.None)
+            {
+                return BinaryRequestPayload.Failure(payloadError);
+            }
+
+            httpContext.Response.OnCompleted(static state =>
+            {
+                ArrayPool<byte>.Shared.Return((byte[])state, clearArray: true);
+                return Task.CompletedTask;
+            }, payloadBuffer);
+
+            return BinaryRequestPayload.Success(new ReadOnlyMemory<byte>(payloadBuffer, 0, (int)payloadLength));
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(rented, clearArray: true);
+            ArrayPool<byte>.Shared.Return(headerBuffer, clearArray: true);
+        }
+    }
+
+    private static async Task<ErrorDetail> ReadPayloadAndValidateAsync(
+        HttpContext httpContext,
+        byte[] payloadBuffer,
+        int payloadLength,
+        ushort expectedPayloadCrc,
+        CancellationToken cancellationToken)
+    {
+        bool read = await ReadExactAsync(httpContext.Request.BodyReader, payloadBuffer.AsMemory(0, payloadLength), cancellationToken);
+        if (!read)
+        {
+            ArrayPool<byte>.Shared.Return(payloadBuffer, clearArray: true);
+            return ErrorDetail.Create(ErrorCode.Validation, "AEDS payload length mismatch");
         }
 
-        var decoded = aeds.TryDecode(frameWriter.WrittenMemory);
-        if (!decoded.IsSuccess)
+        ushort actualCrc = AedsCrc16.Compute(payloadBuffer.AsSpan(0, payloadLength));
+        if (actualCrc == expectedPayloadCrc)
         {
-            return BinaryRequestPayload.Failure(decoded.Error);
+            return ErrorDetail.None;
         }
 
-        if (decoded.Value.FrameType != expectedFrameType)
+        ArrayPool<byte>.Shared.Return(payloadBuffer, clearArray: true);
+        return ErrorDetail.Create(ErrorCode.Validation, "AEDS payload crc mismatch");
+    }
+
+    private static async Task<bool> ReadExactAsync(
+        PipeReader reader,
+        Memory<byte> destination,
+        CancellationToken cancellationToken)
+    {
+        int copied = 0;
+        while (copied < destination.Length)
         {
-            return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "请求帧类型不匹配"));
+            ReadResult result = await reader.ReadAsync(cancellationToken);
+            ReadOnlySequence<byte> buffer = result.Buffer;
+            long remaining = destination.Length - copied;
+            long copyLength = Math.Min(buffer.Length, remaining);
+            if (copyLength > 0)
+            {
+                buffer.Slice(0, copyLength).CopyTo(destination.Span[copied..]);
+                copied += (int)copyLength;
+                SequencePosition consumed = buffer.GetPosition(copyLength);
+                reader.AdvanceTo(consumed, consumed);
+            }
+            else
+            {
+                reader.AdvanceTo(buffer.Start, buffer.End);
+            }
+
+            if (result.IsCompleted && copied < destination.Length)
+            {
+                return false;
+            }
         }
 
-        int payloadLength = decoded.Value.Payload.Length;
-        byte[] frameBuffer = frameWriter.DetachBuffer(out _);
-        httpContext.Response.OnCompleted(static state =>
-        {
-            ArrayPool<byte>.Shared.Return((byte[])state, clearArray: true);
-            return Task.CompletedTask;
-        }, frameBuffer);
-
-        return BinaryRequestPayload.Success(new ReadOnlyMemory<byte>(frameBuffer, AedsFrameHeader.Size, payloadLength));
+        return true;
     }
 
     public async Task<NameMutationPayload> ReadNameMutationAsync(

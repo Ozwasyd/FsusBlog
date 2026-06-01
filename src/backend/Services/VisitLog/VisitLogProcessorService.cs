@@ -65,6 +65,7 @@ public class VisitLogProcessorService : BackgroundService
 {
     private const int BatchSize = 500;
     private const int MaxIpLength = 64;
+    internal static readonly TimeSpan FlushWindow = TimeSpan.FromMilliseconds(200);
 
     private readonly VisitLogChannel _channel;
     private readonly IServiceProvider _serviceProvider;
@@ -93,10 +94,7 @@ public class VisitLogProcessorService : BackgroundService
                 {
                     if (await _channel.Reader.WaitToReadAsync(token))
                     {
-                        while (batch.Count < BatchSize && _channel.Reader.TryRead(out var msg))
-                        {
-                            TryProcessSingleMessage(msg, batch);
-                        }
+                        await DrainBatchWithFlushWindowAsync(batch, token);
 
                         if (batch.Count > 0)
                         {
@@ -139,6 +137,36 @@ public class VisitLogProcessorService : BackgroundService
                     }
                 }
             });
+    }
+
+    private async Task DrainBatchWithFlushWindowAsync(List<VisitLogEntity> batch, CancellationToken token)
+    {
+        while (batch.Count < BatchSize)
+        {
+            while (batch.Count < BatchSize && _channel.Reader.TryRead(out var msg))
+            {
+                TryProcessSingleMessage(msg, batch);
+            }
+
+            if (batch.Count >= BatchSize || batch.Count == 0)
+            {
+                return;
+            }
+
+            using var flushCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            flushCts.CancelAfter(FlushWindow);
+            try
+            {
+                if (!await _channel.Reader.WaitToReadAsync(flushCts.Token))
+                {
+                    return;
+                }
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            {
+                return;
+            }
+        }
     }
 
     private void TryProcessSingleMessage(VisitLogMessage msg, List<VisitLogEntity> batch)
@@ -224,10 +252,29 @@ public class VisitLogProcessorService : BackgroundService
         {
             await using var scope = _serviceProvider.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
-            int inserted = await db.Insertable(batch).ExecuteCommandAsync(token);
+            var dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
+            int inserted = await dbGate.ExecuteAsync(
+                "visit-log-flush",
+                gateCt => db.Insertable(batch).ExecuteCommandAsync(gateCt),
+                _ => Task.FromResult(0),
+                token);
             if (inserted > 0)
             {
-                await ApplyArticleViewProjectionAsync(scope.ServiceProvider, batch, token);
+                try
+                {
+                    await ApplyArticleViewProjectionAsync(scope.ServiceProvider, batch, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "访问日志已落库但阅读量投影失败，后台 reconciliation worker 将从 visit_log 修复 article.views。");
+                }
+
                 await InvalidateStatsAfterFlushAsync(scope.ServiceProvider, batch, token);
             }
         }

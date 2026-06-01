@@ -35,17 +35,32 @@ public sealed class SseBacklogStore(IConnectionMultiplexer redis, IRuntimeKeySco
 
             NameValueEntry[] fields = [new("f", frame.BufferMemory)];
             string streamId = string.Create(CultureInfo.InvariantCulture, $"{eventId}-0");
-            for (int i = 0; i < storageRoutes.Count; i++)
+            if (storageRoutes.Count == 1)
             {
                 await _database.StreamAddAsync(
-                        RouteStreamKey(storageRoutes[i]),
+                        RouteStreamKey(storageRoutes[0]),
                         fields,
                         streamId,
                         StreamMaxLength,
                         useApproximateMaxLength: true)
                     .ConfigureAwait(false);
+                return Result.Success();
             }
 
+            IBatch batch = _database.CreateBatch();
+            var writes = new Task<RedisValue>[storageRoutes.Count];
+            for (int i = 0; i < storageRoutes.Count; i++)
+            {
+                writes[i] = batch.StreamAddAsync(
+                    RouteStreamKey(storageRoutes[i]),
+                    fields,
+                    streamId,
+                    StreamMaxLength,
+                    useApproximateMaxLength: true);
+            }
+
+            batch.Execute();
+            await Task.WhenAll(writes).ConfigureAwait(false);
             return Result.Success();
         }
         catch (Exception ex)

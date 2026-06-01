@@ -356,6 +356,7 @@ public sealed class PublicAotNodeSsrRenderer(
         private Process? _process;
         private Task? _stdoutLoop;
         private Task? _stderrLoop;
+        private int _generation;
 
         public async Task<string> SendAsync(string command, IReadOnlyDictionary<string, object?> payload, CancellationToken cancellationToken)
         {
@@ -363,6 +364,7 @@ public sealed class PublicAotNodeSsrRenderer(
             try
             {
                 EnsureStarted();
+                Process process = _process!;
                 string requestId = Guid.NewGuid().ToString("N");
                 var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
                 if (!_pending.TryAdd(requestId, tcs))
@@ -371,8 +373,8 @@ public sealed class PublicAotNodeSsrRenderer(
                 }
 
                 string line = CreateRequestLine(requestId, command, payload);
-                await _process!.StandardInput.WriteLineAsync(line.AsMemory(), cancellationToken);
-                await _process.StandardInput.FlushAsync(cancellationToken);
+                await process.StandardInput.WriteLineAsync(line.AsMemory(), cancellationToken);
+                await process.StandardInput.FlushAsync(cancellationToken);
 
                 using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 timeoutCts.CancelAfter(requestTimeout);
@@ -408,12 +410,13 @@ public sealed class PublicAotNodeSsrRenderer(
 
             try
             {
-                if (!_process.HasExited)
+                Process process = _process;
+                if (!process.HasExited)
                 {
-                    await _process.StandardInput.WriteLineAsync(CreateRequestLine(Guid.NewGuid().ToString("N"), "shutdown", new Dictionary<string, object?>(StringComparer.Ordinal)));
-                    await _process.StandardInput.FlushAsync();
+                    await process.StandardInput.WriteLineAsync(CreateRequestLine(Guid.NewGuid().ToString("N"), "shutdown", new Dictionary<string, object?>(StringComparer.Ordinal)));
+                    await process.StandardInput.FlushAsync();
                     using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                    await _process.WaitForExitAsync(cts.Token);
+                    await process.WaitForExitAsync(cts.Token);
                 }
             }
             catch
@@ -422,8 +425,10 @@ public sealed class PublicAotNodeSsrRenderer(
             }
             finally
             {
+                Interlocked.Increment(ref _generation);
                 _process.Dispose();
                 _process = null;
+                await AwaitReaderLoopsAsync(_stdoutLoop, _stderrLoop);
             }
         }
 
@@ -459,16 +464,18 @@ public sealed class PublicAotNodeSsrRenderer(
                 throw new InvalidOperationException("failed to start public AOT pooled worker");
             }
 
-            _stdoutLoop = Task.Run(ReadStdoutLoopAsync);
-            _stderrLoop = Task.Run(ReadStderrLoopAsync);
+            Process process = _process;
+            int generation = Interlocked.Increment(ref _generation);
+            _stdoutLoop = Task.Run(() => ReadStdoutLoopAsync(process, generation));
+            _stderrLoop = Task.Run(() => ReadStderrLoopAsync(process, generation));
             logger.LogInformation("Started public AOT pooled worker #{WorkerIndex}", index);
         }
 
-        private async Task ReadStdoutLoopAsync()
+        private async Task ReadStdoutLoopAsync(Process process, int generation)
         {
             try
             {
-                while (_process is { HasExited: false } process)
+                while (!process.HasExited && Volatile.Read(ref _generation) == generation)
                 {
                     string? line = await process.StandardOutput.ReadLineAsync();
                     if (line is null)
@@ -478,6 +485,7 @@ public sealed class PublicAotNodeSsrRenderer(
 
                     string requestId = ExtractRequestId(line);
                     if (!string.IsNullOrWhiteSpace(requestId) &&
+                        Volatile.Read(ref _generation) == generation &&
                         _pending.TryRemove(requestId, out TaskCompletionSource<string>? pending))
                     {
                         pending.TrySetResult(line);
@@ -490,11 +498,11 @@ public sealed class PublicAotNodeSsrRenderer(
             }
         }
 
-        private async Task ReadStderrLoopAsync()
+        private async Task ReadStderrLoopAsync(Process process, int generation)
         {
             try
             {
-                while (_process is { HasExited: false } process)
+                while (!process.HasExited && Volatile.Read(ref _generation) == generation)
                 {
                     string? line = await process.StandardError.ReadLineAsync();
                     if (line is null)
@@ -508,6 +516,18 @@ public sealed class PublicAotNodeSsrRenderer(
             catch (Exception ex)
             {
                 logger.LogDebug(ex, "Public AOT pooled worker stderr loop stopped.");
+            }
+        }
+
+        private static async Task AwaitReaderLoopsAsync(Task? stdoutLoop, Task? stderrLoop)
+        {
+            try
+            {
+                Task[] loops = [stdoutLoop ?? Task.CompletedTask, stderrLoop ?? Task.CompletedTask];
+                await Task.WhenAll(loops).WaitAsync(TimeSpan.FromSeconds(2));
+            }
+            catch
+            {
             }
         }
 

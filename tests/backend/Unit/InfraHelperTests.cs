@@ -126,6 +126,103 @@ public class BinaryRequestBinderTests
         Assert.True(result.IsSuccess);
         Assert.Equal(payload, result.Payload.ToArray());
     }
+
+    [Fact]
+    public async Task ReadFrameAsync_DeclaredOversizedPayloadRejectsBeforePayloadRead()
+    {
+        byte[] frameHeader = new byte[AedsFrameHeader.Size];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(frameHeader.AsSpan(0, 4), AedsEncoder.Magic);
+        frameHeader[4] = AedsFrameHeader.CurrentVersion;
+        frameHeader[5] = AedsFrameHeader.Size;
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frameHeader.AsSpan(8, 2), (ushort)AedsFrameType.AuthLoginRequest);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(frameHeader.AsSpan(10, 4), 8 * 1024 * 1024);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frameHeader.AsSpan(14, 2), AedsCrc16.Compute(ReadOnlySpan<byte>.Empty));
+
+        var context = new DefaultHttpContext();
+        context.Request.ContentType = "application/octet-stream";
+        context.Request.ContentLength = frameHeader.Length;
+        context.Request.Body = new MemoryStream(frameHeader);
+        await using var body = new MemoryStream();
+        context.Response.Body = body;
+
+        var binder = new BinaryRequestBinder();
+        BinaryRequestPayload result = await binder.ReadFrameAsync(
+            context,
+            new AedsEncoder(),
+            AedsFrameType.AuthLoginRequest,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("8 MiB", result.Error.Message, StringComparison.Ordinal);
+    }
+}
+
+public class BackgroundWorkflowSourceTests
+{
+    [Fact]
+    public void ContentFilterReload_SourceUsesSerializedQueueInsteadOfWatcherTaskRun()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/Security/ContentFilterService.cs"));
+
+        Assert.Contains("Channel.CreateBounded<string>", source, StringComparison.Ordinal);
+        Assert.Contains("ProcessReloadQueueAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.Run(async () => await ReloadFromWatcherAsync", source, StringComparison.Ordinal);
+        Assert.Contains("ReadAllLinesCoreAsync", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SsePublish_SourceQueuesLocalFanoutAndBatchesMultiRouteBacklog()
+    {
+        string publisher = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/SSE/RedisSsePublisher.cs"));
+        string backlog = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/SSE/SseBacklogStore.cs"));
+
+        Assert.Contains("SseLocalFanoutQueue", publisher, StringComparison.Ordinal);
+        Assert.Contains("TryEnqueue(frame, target)", publisher, StringComparison.Ordinal);
+        Assert.Contains("IBatch batch = _database.CreateBatch()", backlog, StringComparison.Ordinal);
+        Assert.Contains("Task.WhenAll(writes)", backlog, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UploadSessionCleanup_SourceRunsInBackgroundWorker()
+    {
+        string fileService = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/FileService.cs"));
+        string worker = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/UploadSessionCleanupWorker.cs"));
+
+        Assert.DoesNotContain("await CleanupExpiredSessionsAsync(cancellationToken);", fileService, StringComparison.Ordinal);
+        Assert.Contains("RequestUploadSessionCleanup()", fileService, StringComparison.Ordinal);
+        Assert.Contains("UploadSessionCleanupWorker", worker, StringComparison.Ordinal);
+        Assert.Contains("RunCleanupOnceAsync", worker, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void VisitProjectionAndPublicHot_SourceCoalesceBackgroundWork()
+    {
+        string projection = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/VisitLog/ArticleViewProjectionService.cs"));
+        string repair = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/VisitLog/ArticleViewProjectionRepairWorker.cs"));
+        string publicHotQueue = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs"));
+
+        Assert.Contains("IncreaseViewCountsAsync", projection, StringComparison.Ordinal);
+        Assert.Contains("MaxPerBatchViewInvalidations", projection, StringComparison.Ordinal);
+        Assert.Contains("article-view-projection-batch", projection, StringComparison.Ordinal);
+        Assert.Contains("ArticleViewProjectionRepairWorker", repair, StringComparison.Ordinal);
+        Assert.Contains("ViewProjectionRefreshInterval", publicHotQueue, StringComparison.Ordinal);
+    }
+
+    private static string FindRepoRoot()
+    {
+        DirectoryInfo? current = new(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        throw new DirectoryNotFoundException("repo root not found");
+    }
 }
 
 public class MiddlewareResultsTests
@@ -259,6 +356,60 @@ public class ApiBinaryResponseMiddlewareTests
         Assert.Equal(0, body.Length);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("*/*")]
+    [InlineData("application/octet-stream")]
+    [InlineData("application/octet-stream; charset=binary")]
+    [InlineData("application/json;q=1, application/octet-stream;q=0.5")]
+    public async Task InvokeAsync_BinaryEndpointCompatibleAcceptVariants_RunEndpoint(string accept)
+    {
+        static async Task Next(HttpContext context)
+        {
+            context.Response.StatusCode = StatusCodes.Status200OK;
+            context.Response.ContentType = "application/octet-stream";
+            await context.Response.Body.WriteAsync(new byte[] { 0x42 });
+        }
+
+        var context = CreateContext();
+        context.Request.Path = "/api/binary/system/seo";
+        context.Request.Headers.Accept = accept;
+        await using var body = new MemoryStream();
+        context.Response.Body = body;
+
+        var middleware = new ApiBinaryResponseMiddleware(Next);
+        await middleware.InvokeAsync(context, new AedsEncoder());
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal(new byte[] { 0x42 }, body.ToArray());
+    }
+
+    [Theory]
+    [InlineData("application/octet-stream;q=0")]
+    [InlineData("application/json, application/octet-stream;q=0")]
+    public async Task InvokeAsync_BinaryEndpointQZeroRejectsBinaryAccept(string accept)
+    {
+        static Task Next(HttpContext context)
+        {
+            throw new InvalidOperationException("binary endpoint should not execute");
+        }
+
+        var context = CreateContext();
+        context.Request.Path = "/api/binary/system/seo";
+        context.Request.Headers.Accept = accept;
+        await using var body = new MemoryStream();
+        context.Response.Body = body;
+
+        var encoder = new AedsEncoder();
+        var middleware = new ApiBinaryResponseMiddleware(Next);
+        await middleware.InvokeAsync(context, encoder);
+
+        Assert.Equal(StatusCodes.Status406NotAcceptable, context.Response.StatusCode);
+        var decoded = encoder.TryDecode(body.ToArray());
+        Assert.True(decoded.IsSuccess);
+        Assert.Equal(AedsFrameType.ApiError, decoded.Value.FrameType);
+    }
+
     [Fact]
     public async Task InvokeAsync_BinaryEndpointWithCompatibleAccept_DoesNotWrapEndpointResponse()
     {
@@ -346,5 +497,37 @@ public class ApiBinaryResponseMiddlewareTests
         Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var errorPod));
         Assert.Equal(StatusCodes.Status406NotAcceptable, errorPod.HttpStatus);
         Assert.Equal("binary_response_required", PodUtf8Codec.FromFixed256(errorPod.Message));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_BinaryAcceptWithLargeTextResponse_ReturnsCaptureLimitApiError()
+    {
+        static async Task Next(HttpContext context)
+        {
+            context.Response.StatusCode = StatusCodes.Status200OK;
+            context.Response.ContentType = "text/plain; charset=utf-8";
+            byte[] payload = new byte[ApiBinaryResponseMiddleware.MaxCapturedResponseBytes + 1];
+            await context.Response.Body.WriteAsync(payload);
+        }
+
+        var context = CreateContext();
+        context.Request.Path = "/api/test";
+        context.Request.Headers.Accept = "application/octet-stream";
+        await using var body = new MemoryStream();
+        context.Response.Body = body;
+
+        var encoder = new AedsEncoder();
+        var middleware = new ApiBinaryResponseMiddleware(Next);
+        await middleware.InvokeAsync(context, encoder);
+
+        Assert.Equal(StatusCodes.Status413PayloadTooLarge, context.Response.StatusCode);
+        Assert.Equal("application/octet-stream", context.Response.ContentType);
+
+        var decoded = encoder.TryDecode(body.ToArray());
+        Assert.True(decoded.IsSuccess);
+        Assert.Equal(AedsFrameType.ApiError, decoded.Value.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var errorPod));
+        Assert.Equal(StatusCodes.Status413PayloadTooLarge, errorPod.HttpStatus);
+        Assert.Equal("binary_response_capture_limit_exceeded", PodUtf8Codec.FromFixed256(errorPod.Message));
     }
 }

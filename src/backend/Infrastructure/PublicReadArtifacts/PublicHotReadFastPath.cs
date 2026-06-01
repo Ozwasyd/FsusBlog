@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.Extensions.Options;
 
@@ -109,7 +110,10 @@ public sealed class PublicHotReadSnapshot
     private readonly FrozenDictionary<PublicListKey, PublicBinaryArtifact> _listFrames;
     private readonly PublicBinaryArtifact _categoryFrame;
     private readonly PublicBinaryArtifact _tagFrame;
-    private readonly FrozenDictionary<string, PublicHtmlArtifact> _htmlByPath;
+    private readonly FrozenDictionary<string, PublicHtmlArtifact> _htmlBaseByPath;
+    private readonly FrozenDictionary<string, PublicHtmlArtifact> _htmlOverlayByPath;
+    private readonly FrozenSet<string> _htmlRemovedPaths;
+    private readonly int _htmlFrameCount;
 
     public PublicHotReadSnapshot(
         long version,
@@ -118,13 +122,39 @@ public sealed class PublicHotReadSnapshot
         PublicBinaryArtifact categoryFrame,
         PublicBinaryArtifact tagFrame,
         FrozenDictionary<string, PublicHtmlArtifact> htmlByPath)
+        : this(
+            version,
+            articleFramesById,
+            listFrames,
+            categoryFrame,
+            tagFrame,
+            htmlByPath,
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            FrozenSet<string>.Empty,
+            htmlByPath.Count)
+    {
+    }
+
+    private PublicHotReadSnapshot(
+        long version,
+        FrozenDictionary<int, PublicBinaryArtifact> articleFramesById,
+        FrozenDictionary<PublicListKey, PublicBinaryArtifact> listFrames,
+        PublicBinaryArtifact categoryFrame,
+        PublicBinaryArtifact tagFrame,
+        FrozenDictionary<string, PublicHtmlArtifact> htmlBaseByPath,
+        FrozenDictionary<string, PublicHtmlArtifact> htmlOverlayByPath,
+        FrozenSet<string> htmlRemovedPaths,
+        int htmlFrameCount)
     {
         Version = version;
         _articleFramesById = articleFramesById;
         _listFrames = listFrames;
         _categoryFrame = categoryFrame;
         _tagFrame = tagFrame;
-        _htmlByPath = htmlByPath;
+        _htmlBaseByPath = htmlBaseByPath;
+        _htmlOverlayByPath = htmlOverlayByPath;
+        _htmlRemovedPaths = htmlRemovedPaths;
+        _htmlFrameCount = htmlFrameCount;
     }
 
     public long Version { get; }
@@ -133,9 +163,26 @@ public sealed class PublicHotReadSnapshot
     public int ListFrameCount => _listFrames.Count;
     public bool CategoryFrameReady => !_categoryFrame.Frame.IsEmpty;
     public bool TagFrameReady => !_tagFrame.Frame.IsEmpty;
-    public int HtmlFrameCount => _htmlByPath.Count;
+    public int HtmlFrameCount => _htmlFrameCount;
 
-    public IEnumerable<KeyValuePair<string, PublicHtmlArtifact>> HtmlArtifacts => _htmlByPath;
+    public IEnumerable<KeyValuePair<string, PublicHtmlArtifact>> HtmlArtifacts
+    {
+        get
+        {
+            foreach (KeyValuePair<string, PublicHtmlArtifact> item in _htmlBaseByPath)
+            {
+                if (!_htmlOverlayByPath.ContainsKey(item.Key) && !_htmlRemovedPaths.Contains(item.Key))
+                {
+                    yield return item;
+                }
+            }
+
+            foreach (KeyValuePair<string, PublicHtmlArtifact> item in _htmlOverlayByPath)
+            {
+                yield return item;
+            }
+        }
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetArticle(int id, out PublicBinaryArtifact artifact)
@@ -161,41 +208,85 @@ public sealed class PublicHotReadSnapshot
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetHtml(string path, out PublicHtmlArtifact html)
-        => _htmlByPath.TryGetValue(path, out html) && !html.Bytes.IsEmpty;
+    {
+        if (_htmlOverlayByPath.TryGetValue(path, out html))
+        {
+            return !html.Bytes.IsEmpty;
+        }
+
+        if (_htmlRemovedPaths.Contains(path))
+        {
+            html = default;
+            return false;
+        }
+
+        return _htmlBaseByPath.TryGetValue(path, out html) && !html.Bytes.IsEmpty;
+    }
 
     public PublicHotReadSnapshot WithHtml(string path, PublicHtmlArtifact html)
     {
-        var next = _htmlByPath.ToDictionary(StringComparer.Ordinal);
-        next[path] = html;
+        bool hadVisible = TryGetHtml(path, out _);
+        var nextOverlay = _htmlOverlayByPath.ToDictionary(StringComparer.Ordinal);
+        nextOverlay[path] = html;
+        FrozenSet<string> nextRemoved = _htmlRemovedPaths;
+        if (_htmlRemovedPaths.Contains(path))
+        {
+            var removed = _htmlRemovedPaths.ToHashSet(StringComparer.Ordinal);
+            removed.Remove(path);
+            nextRemoved = removed.ToFrozenSet(StringComparer.Ordinal);
+        }
+
         return new PublicHotReadSnapshot(
             Version + 1,
             _articleFramesById,
             _listFrames,
             _categoryFrame,
             _tagFrame,
-            next.ToFrozenDictionary(StringComparer.Ordinal));
+            _htmlBaseByPath,
+            nextOverlay.ToFrozenDictionary(StringComparer.Ordinal),
+            nextRemoved,
+            hadVisible ? _htmlFrameCount : _htmlFrameCount + 1);
     }
 
     public PublicHotReadSnapshot WithoutHtml(string path)
     {
-        if (!_htmlByPath.ContainsKey(path))
+        bool overlayHad = _htmlOverlayByPath.ContainsKey(path);
+        bool baseVisible = _htmlBaseByPath.ContainsKey(path) && !_htmlRemovedPaths.Contains(path);
+        if (!overlayHad && !baseVisible)
         {
             return this;
         }
 
-        var next = _htmlByPath.ToDictionary(StringComparer.Ordinal);
-        next.Remove(path);
+        FrozenDictionary<string, PublicHtmlArtifact> nextOverlay = _htmlOverlayByPath;
+        if (overlayHad)
+        {
+            var overlay = _htmlOverlayByPath.ToDictionary(StringComparer.Ordinal);
+            overlay.Remove(path);
+            nextOverlay = overlay.ToFrozenDictionary(StringComparer.Ordinal);
+        }
+
+        FrozenSet<string> nextRemoved = _htmlRemovedPaths;
+        if (baseVisible)
+        {
+            var removed = _htmlRemovedPaths.ToHashSet(StringComparer.Ordinal);
+            removed.Add(path);
+            nextRemoved = removed.ToFrozenSet(StringComparer.Ordinal);
+        }
+
         return new PublicHotReadSnapshot(
             Version + 1,
             _articleFramesById,
             _listFrames,
             _categoryFrame,
             _tagFrame,
-            next.ToFrozenDictionary(StringComparer.Ordinal));
+            _htmlBaseByPath,
+            nextOverlay,
+            nextRemoved,
+            _htmlFrameCount - 1);
     }
 
     public PublicHotReadSnapshot WithoutAllHtml()
-        => _htmlByPath.Count == 0
+        => _htmlFrameCount == 0
             ? this
             : new PublicHotReadSnapshot(
                 Version + 1,
@@ -203,7 +294,10 @@ public sealed class PublicHotReadSnapshot
                 _listFrames,
                 _categoryFrame,
                 _tagFrame,
-                FrozenDictionary<string, PublicHtmlArtifact>.Empty);
+                FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+                FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+                FrozenSet<string>.Empty,
+                0);
 }
 
 public sealed class PublicHotReadStore
@@ -345,6 +439,7 @@ public static class PublicHotReadFastPath
     private const string CategoryPath = "/api/binary/category.aeds";
     private const string TagPath = "/api/binary/tag.aeds";
     private const string BinaryContentType = "application/octet-stream";
+    private const string HtmlMediaType = "text/html";
     private const string HtmlContentType = "text/html; charset=utf-8";
     private const string StaticPublicCsp = "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:;";
     private static readonly Task Completed = Task.CompletedTask;
@@ -453,22 +548,7 @@ public static class PublicHotReadFastPath
         => path.StartsWith("/api/binary/article/html/", StringComparison.Ordinal);
 
     private static bool AcceptsArtifact(HttpContext ctx, bool html)
-    {
-        string accept = ctx.Request.Headers.Accept.ToString();
-        if (string.IsNullOrWhiteSpace(accept))
-        {
-            return true;
-        }
-
-        if (accept.Contains("*/*", StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        return html
-            ? accept.Contains("text/html", StringComparison.OrdinalIgnoreCase)
-            : accept.Contains(BinaryContentType, StringComparison.OrdinalIgnoreCase);
-    }
+        => HttpAcceptNegotiation.Accepts(ctx.Request.Headers.Accept, html ? HtmlMediaType : BinaryContentType);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool ContainsRejectedPathChar(ReadOnlySpan<char> path)
@@ -1231,22 +1311,6 @@ internal static class PublicHotReadBinaryArtifactFactory
         }
 
         ushort expectedCrc = BinaryPrimitives.ReadUInt16LittleEndian(frame[14..16]);
-        return expectedCrc == ComputeCrc16(frame[AedsFrameHeader.Size..]);
-    }
-
-    private static ushort ComputeCrc16(ReadOnlySpan<byte> data)
-    {
-        const ushort polynomial = 0xA001;
-        ushort crc = 0xFFFF;
-        for (int i = 0; i < data.Length; i++)
-        {
-            crc ^= data[i];
-            for (int bit = 0; bit < 8; bit++)
-            {
-                crc = (ushort)(((crc & 1) != 0) ? ((crc >> 1) ^ polynomial) : (crc >> 1));
-            }
-        }
-
-        return crc;
+        return expectedCrc == AedsCrc16.Compute(frame[AedsFrameHeader.Size..]);
     }
 }

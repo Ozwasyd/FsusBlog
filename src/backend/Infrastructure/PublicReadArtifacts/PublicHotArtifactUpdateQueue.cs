@@ -3,7 +3,16 @@ using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 
-public readonly record struct PublicHotArtifactUpdate(int? ArticleId, string Reason);
+[Flags]
+public enum PublicHotArtifactDirtyReason
+{
+    Unknown = 0,
+    Content = 1,
+    ViewProjection = 2,
+    ScheduledPublish = 4
+}
+
+public readonly record struct PublicHotArtifactUpdate(int? ArticleId, string Reason, PublicHotArtifactDirtyReason DirtyReason);
 
 public sealed class PublicHotArtifactUpdateQueue
 {
@@ -21,9 +30,27 @@ public sealed class PublicHotArtifactUpdateQueue
     }
 
     public bool TryEnqueue(int? articleId, string reason)
-        => _channel.Writer.TryWrite(new PublicHotArtifactUpdate(articleId, string.IsNullOrWhiteSpace(reason) ? "unknown" : reason));
+    {
+        string normalized = string.IsNullOrWhiteSpace(reason) ? "unknown" : reason;
+        return _channel.Writer.TryWrite(new PublicHotArtifactUpdate(articleId, normalized, ClassifyReason(normalized)));
+    }
 
     internal ChannelReader<PublicHotArtifactUpdate> Reader => _channel.Reader;
+
+    private static PublicHotArtifactDirtyReason ClassifyReason(string reason)
+    {
+        if (reason.Contains("view-projection", StringComparison.OrdinalIgnoreCase))
+        {
+            return PublicHotArtifactDirtyReason.ViewProjection;
+        }
+
+        if (reason.Contains("scheduled-publish", StringComparison.OrdinalIgnoreCase))
+        {
+            return PublicHotArtifactDirtyReason.ScheduledPublish | PublicHotArtifactDirtyReason.Content;
+        }
+
+        return PublicHotArtifactDirtyReason.Content;
+    }
 }
 
 public sealed class PublicHotArtifactUpdateWorker(
@@ -33,11 +60,15 @@ public sealed class PublicHotArtifactUpdateWorker(
     IOptions<PublicHotReadOptions> options,
     ILogger<PublicHotArtifactUpdateWorker> logger) : BackgroundService
 {
+    private static readonly TimeSpan ViewProjectionRefreshInterval = TimeSpan.FromSeconds(30);
+    private DateTime _lastViewProjectionRefreshUtc = DateTime.MinValue;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await foreach (PublicHotArtifactUpdate first in queue.Reader.ReadAllAsync(stoppingToken).ConfigureAwait(false))
         {
             string reason = first.Reason;
+            PublicHotArtifactDirtyReason dirtyReason = first.DirtyReason;
             int coalesced = 1;
             TimeSpan debounce = TimeSpan.FromMilliseconds(Math.Clamp(options.Value.UpdateDebounceMilliseconds, 0, 30_000));
             if (debounce > TimeSpan.Zero)
@@ -48,7 +79,23 @@ public sealed class PublicHotArtifactUpdateWorker(
             while (queue.Reader.TryRead(out PublicHotArtifactUpdate next))
             {
                 reason = string.Concat(reason, "+", next.Reason);
+                dirtyReason |= next.DirtyReason;
                 coalesced++;
+            }
+
+            if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
+            {
+                DateTime now = DateTime.UtcNow;
+                if (now - _lastViewProjectionRefreshUtc < ViewProjectionRefreshInterval)
+                {
+                    logger.LogInformation(
+                        "public-hot-read-view-refresh-coalesced {Reason} {Coalesced}",
+                        reason,
+                        coalesced);
+                    continue;
+                }
+
+                _lastViewProjectionRefreshUtc = now;
             }
 
             store.BeginBuild(reason);

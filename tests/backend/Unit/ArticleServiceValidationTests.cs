@@ -69,4 +69,119 @@ public class ArticleServiceValidationTests
         var result = await svc.SearchArticlesAsync("\t\n\r");
         Assert.Empty(result);
     }
+
+    [Fact]
+    public void UpdateAsync_SourceChecksAffectedRowsBeforeDependentWrites()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+        int updateMethod = source.IndexOf("public async Task<bool> UpdateAsync", StringComparison.Ordinal);
+        int deleteMethod = source.IndexOf("public async Task<bool> DeleteAsync", StringComparison.Ordinal);
+        string method = source[updateMethod..deleteMethod];
+
+        int affectedAssignment = method.IndexOf("int affectedRows = await _db.Updateable<Article>()", StringComparison.Ordinal);
+        int zeroRowReturn = method.IndexOf("if (affectedRows == 0)", StringComparison.Ordinal);
+        int bodyWrite = method.IndexOf("Storageable(new ArticleBody", StringComparison.Ordinal);
+        int revisionWrite = method.IndexOf("SaveArticleRevisionAsync", StringComparison.Ordinal);
+        int successGuard = method.IndexOf("if (result.IsSuccess && articleUpdated)", StringComparison.Ordinal);
+
+        Assert.True(affectedAssignment >= 0);
+        Assert.True(zeroRowReturn > affectedAssignment);
+        Assert.True(bodyWrite > zeroRowReturn);
+        Assert.True(revisionWrite > zeroRowReturn);
+        Assert.True(successGuard > revisionWrite);
+    }
+
+    [Fact]
+    public void ArticleService_SourceUsesProcessWideLegacySchemaCapabilityCache()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+
+        Assert.Contains("private static int s_legacyArticleContentColumnState", source, StringComparison.Ordinal);
+        Assert.Contains("Volatile.Read(ref s_legacyArticleContentColumnState)", source, StringComparison.Ordinal);
+        Assert.Contains("Volatile.Write(ref s_legacyArticleContentColumnState", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("private bool? _legacyArticleContentColumnExists", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IncreaseViewCountAsync_SourceChecksAffectedRowsBeforeRedisHotRanking()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("public async ValueTask IncreaseViewCountAsync(int id, int count)", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("public async Task<ArticleListPageReadModel>", StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        int affectedAssignment = method.IndexOf("int affectedRows = await _db.Updateable<Article>()", StringComparison.Ordinal);
+        int nonDeletedFilter = method.IndexOf(".Where(it => it.Id == id && !it.IsDeleted)", StringComparison.Ordinal);
+        int zeroGuard = method.IndexOf("if (affectedRows == 0)", StringComparison.Ordinal);
+        int redisRemove = method.IndexOf("SortedSetRemoveAsync", StringComparison.Ordinal);
+        int redisIncrement = method.IndexOf("SortedSetIncrementAsync", StringComparison.Ordinal);
+
+        Assert.True(affectedAssignment >= 0);
+        Assert.True(nonDeletedFilter > affectedAssignment);
+        Assert.True(zeroGuard > nonDeletedFilter);
+        Assert.True(redisRemove > zeroGuard);
+        Assert.True(redisIncrement > redisRemove);
+    }
+
+    [Fact]
+    public void ArticleMutations_SourceRecordsTransactionalOutboxEvents()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+
+        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"created\")", source, StringComparison.Ordinal);
+        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"updated\")", source, StringComparison.Ordinal);
+        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"deleted\")", source, StringComparison.Ordinal);
+        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"restored\")", source, StringComparison.Ordinal);
+        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"permanently-deleted\")", source, StringComparison.Ordinal);
+        Assert.Contains("RecordArticleMutationOutboxAsync(articleId, \"trash-cleared\")", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SaveArticleRevisionAsync_SourceLocksArticleRowAndDefinesUniqueRevisionIndex()
+    {
+        string articleService = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+        string entities = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Entities/Article.cs"));
+
+        Assert.Contains("FOR UPDATE", articleService, StringComparison.Ordinal);
+        Assert.Contains("ux_article_revision_article_revision_no", entities, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IncreaseViewCountsAsync_SourceUsesSingleValuesUpdateAndRedisBatch()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("public async ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("public async Task<ArticleListPageReadModel>", StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("FROM (VALUES", method, StringComparison.Ordinal);
+        Assert.Contains("RETURNING a.id", method, StringComparison.Ordinal);
+        Assert.Contains("IBatch redisBatch = _redis.CreateBatch()", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArticleEntity_DefinesPublicListStatusTimeIndexes()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Entities/Article.cs"));
+
+        Assert.Contains("idx_article_public_status_time", source, StringComparison.Ordinal);
+        Assert.Contains("idx_article_public_category_status_time", source, StringComparison.Ordinal);
+        Assert.Contains("nameof(Status), OrderByType.Asc, nameof(CreateTime), OrderByType.Desc", source, StringComparison.Ordinal);
+    }
+
+    private static string FindRepoRoot()
+    {
+        DirectoryInfo? current = new(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        throw new DirectoryNotFoundException("repo root not found");
+    }
 }

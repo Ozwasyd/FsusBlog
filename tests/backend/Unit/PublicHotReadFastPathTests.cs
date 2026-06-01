@@ -158,6 +158,47 @@ public sealed class PublicHotReadFastPathTests
         AssertNoStore(context);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("*/*")]
+    [InlineData("application/octet-stream")]
+    [InlineData("application/octet-stream; version=2")]
+    [InlineData("application/json;q=1, application/octet-stream;q=0.5")]
+    public async Task TryServeAsync_BinaryAcceptVariants_UseSharedNegotiation(string accept)
+    {
+        byte[] frame = CreateFrame(AedsFrameType.ArticleDetail);
+        var store = CreateReadyStoreWithArticle(42, frame);
+        var context = CreateContext("/api/binary/article/42.aeds");
+        context.Request.Headers.Accept = accept;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal(frame, ((MemoryStream)context.Response.Body).ToArray());
+    }
+
+    [Fact]
+    public async Task TryServeAsync_BinaryAcceptQZero_Returns406()
+    {
+        var context = CreateContext("/api/binary/article/42.aeds");
+        context.Request.Headers.Accept = "application/octet-stream;q=0";
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            CreateReadyEmptyStore(),
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status406NotAcceptable, context.Response.StatusCode);
+        AssertNoStore(context);
+    }
+
     [Fact]
     public async Task TryServeAsync_HtmlPathWithBinaryAccept_Returns406()
     {
@@ -177,6 +218,48 @@ public sealed class PublicHotReadFastPathTests
             new PublicHotReadCounters());
 
         Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status406NotAcceptable, context.Response.StatusCode);
+        AssertNoStore(context);
+    }
+
+    [Theory]
+    [InlineData("text/html")]
+    [InlineData("text/html; charset=utf-8")]
+    [InlineData("application/json;q=1, text/html;q=0.5")]
+    [InlineData("*/*")]
+    public async Task TryServeAsync_HtmlAcceptVariants_UseSharedNegotiation(string accept)
+    {
+        var store = CreateReadyEmptyStore();
+        store.PublishHtml(
+            "home",
+            PublicHotReadHtmlArtifactFactory.FromHtml("<!doctype html><html><body>ok</body></html>", "public,max-age=60"));
+        var context = CreateContext(PublicHotReadRouteKeys.HtmlPath("home"));
+        context.Request.Headers.Accept = accept;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal("text/html; charset=utf-8", context.Response.ContentType);
+    }
+
+    [Fact]
+    public async Task TryServeAsync_HtmlAcceptQZero_Returns406()
+    {
+        var context = CreateContext(PublicHotReadRouteKeys.HtmlPath("home"));
+        context.Request.Headers.Accept = "text/html;q=0";
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            CreateReadyEmptyStore(),
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
         Assert.Equal(StatusCodes.Status406NotAcceptable, context.Response.StatusCode);
         AssertNoStore(context);
     }
@@ -350,6 +433,36 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.Equal("text/html; charset=utf-8", context.Response.ContentType);
         Assert.Equal("none", context.Response.Headers["Accept-Ranges"]);
+    }
+
+    [Fact]
+    public void SnapshotHtmlOverlay_UpdatesAndRemovesWithoutRebuildingBase()
+    {
+        var baseHtml = PublicHotReadHtmlArtifactFactory.FromHtml("<!doctype html><html><body>base</body></html>", "public,max-age=60");
+        var nextHtml = PublicHotReadHtmlArtifactFactory.FromHtml("<!doctype html><html><body>next</body></html>", "public,max-age=60");
+        var baseSnapshot = new PublicHotReadSnapshot(
+            1,
+            FrozenDictionary<int, PublicBinaryArtifact>.Empty,
+            FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+            default,
+            default,
+            new Dictionary<string, PublicHtmlArtifact>
+            {
+                [PublicHotReadRouteKeys.HtmlPath("home")] = baseHtml
+            }.ToFrozenDictionary(StringComparer.Ordinal));
+
+        PublicHotReadSnapshot updated = baseSnapshot.WithHtml(PublicHotReadRouteKeys.HtmlPath("home"), nextHtml);
+        PublicHotReadSnapshot added = updated.WithHtml(PublicHotReadRouteKeys.HtmlPath("about"), nextHtml);
+        PublicHotReadSnapshot removedBase = added.WithoutHtml(PublicHotReadRouteKeys.HtmlPath("home"));
+
+        Assert.Equal(1, baseSnapshot.HtmlFrameCount);
+        Assert.Equal(1, updated.HtmlFrameCount);
+        Assert.Equal(2, added.HtmlFrameCount);
+        Assert.Equal(1, removedBase.HtmlFrameCount);
+        Assert.True(updated.TryGetHtml(PublicHotReadRouteKeys.HtmlPath("home"), out PublicHtmlArtifact updatedHtml));
+        Assert.Equal(nextHtml.ETag, updatedHtml.ETag);
+        Assert.False(removedBase.TryGetHtml(PublicHotReadRouteKeys.HtmlPath("home"), out _));
+        Assert.Single(removedBase.HtmlArtifacts);
     }
 
     [Fact]

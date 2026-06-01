@@ -68,10 +68,6 @@ internal static class FsusHostRuntimeTuning
         string? quickJitForLoops = ResolveOptionalValue(section, "QuickJitForLoops", enableEnvironmentDefaults ? "1" : null);
         string? tieredPgo = ResolveOptionalValue(section, "TieredPGO", enableEnvironmentDefaults ? "1" : null);
 
-        bool readyToRunApplied = SetIfConfigured("DOTNET_ReadyToRun", readyToRun);
-        bool quickJitApplied = SetIfConfigured("DOTNET_TC_QuickJitForLoops", quickJitForLoops);
-        bool tieredPgoApplied = SetIfConfigured("DOTNET_TieredPGO", tieredPgo);
-
         ThreadPool.GetMinThreads(out int beforeWorkerThreads, out int beforeCompletionPortThreads);
         int afterWorkerThreads = beforeWorkerThreads;
         int afterCompletionPortThreads = beforeCompletionPortThreads;
@@ -81,9 +77,9 @@ internal static class FsusHostRuntimeTuning
             readyToRun,
             quickJitForLoops,
             tieredPgo,
-            readyToRunApplied,
-            quickJitApplied,
-            tieredPgoApplied,
+            false,
+            false,
+            false,
             threadPoolApplied,
             beforeWorkerThreads,
             beforeCompletionPortThreads,
@@ -95,22 +91,6 @@ internal static class FsusHostRuntimeTuning
     {
         string? value = section[key];
         return string.IsNullOrWhiteSpace(value) ? fallback : value;
-    }
-
-    private static bool SetIfConfigured(string key, string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
-
-        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(key)))
-        {
-            return false;
-        }
-
-        Environment.SetEnvironmentVariable(key, value);
-        return true;
     }
 
     private static bool TryApplyThreadPoolTuning(
@@ -161,7 +141,7 @@ internal sealed class FsusHostRuntimeTuningLogService(
     public Task StartAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation(
-            "Runtime tuning effective values | ReadyToRun={ReadyToRun} Applied={ReadyToRunApplied} | QuickJitForLoops={QuickJitForLoops} Applied={QuickJitForLoopsApplied} | TieredPGO={TieredPgo} Applied={TieredPgoApplied} | ThreadPoolApplied={ThreadPoolApplied} | WorkerThreads={BeforeWorkerThreads}->{AfterWorkerThreads} | CompletionPortThreads={BeforeCompletionPortThreads}->{AfterCompletionPortThreads}",
+            "Runtime tuning effective values | ReadyToRun={ReadyToRun} StartupEnvMutated={ReadyToRunApplied} | QuickJitForLoops={QuickJitForLoops} StartupEnvMutated={QuickJitForLoopsApplied} | TieredPGO={TieredPgo} StartupEnvMutated={TieredPgoApplied} | ThreadPoolApplied={ThreadPoolApplied} | WorkerThreads={BeforeWorkerThreads}->{AfterWorkerThreads} | CompletionPortThreads={BeforeCompletionPortThreads}->{AfterCompletionPortThreads}",
             report.ReadyToRun ?? "(unchanged)",
             report.ReadyToRunApplied,
             report.QuickJitForLoops ?? "(unchanged)",

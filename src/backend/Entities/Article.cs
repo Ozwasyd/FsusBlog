@@ -20,6 +20,8 @@ public class ArticleTag
 [SugarTable("article")]
 [SugarIndex("idx_article_deleted_time", nameof(IsDeleted), OrderByType.Asc, nameof(CreateTime), OrderByType.Desc)]
 [SugarIndex("idx_article_category_deleted_time", nameof(CategoryId), OrderByType.Asc, nameof(IsDeleted), OrderByType.Asc, nameof(CreateTime), OrderByType.Desc)]
+[SugarIndex("idx_article_public_status_time", nameof(IsDeleted), OrderByType.Asc, nameof(Status), OrderByType.Asc, nameof(CreateTime), OrderByType.Desc)]
+[SugarIndex("idx_article_public_category_status_time", nameof(CategoryId), OrderByType.Asc, nameof(IsDeleted), OrderByType.Asc, nameof(Status), OrderByType.Asc, nameof(CreateTime), OrderByType.Desc)]
 public class Article
 {
     // PostgreSQL 自增主键
@@ -163,6 +165,7 @@ public class ArticleDraft
 
 [SugarTable("article_revision")]
 [SugarIndex("idx_article_revision_article_time", nameof(ArticleId), OrderByType.Asc, nameof(CreatedAt), OrderByType.Desc)]
+[SugarIndex("ux_article_revision_article_revision_no", nameof(ArticleId), OrderByType.Asc, nameof(RevisionNo), OrderByType.Asc, true)]
 public class ArticleRevision
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
@@ -199,6 +202,48 @@ public class ArticleRevision
 
     [SugarColumn(ColumnName = "created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+[SugarTable("article_mutation_outbox")]
+[SugarIndex("ux_article_mutation_outbox_event_id", nameof(EventId), OrderByType.Asc, true)]
+[SugarIndex("idx_article_mutation_outbox_pending", nameof(Status), OrderByType.Asc, nameof(NextRetryAt), OrderByType.Asc, nameof(Id), OrderByType.Asc)]
+public class ArticleMutationOutboxEvent
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
+    public long Id { get; set; }
+
+    [SugarColumn(ColumnName = "event_id", Length = 36)]
+    public string EventId { get; set; } = Guid.NewGuid().ToString("N");
+
+    [SugarColumn(ColumnName = "aggregate_type", Length = 32)]
+    public string AggregateType { get; set; } = "article";
+
+    [SugarColumn(ColumnName = "aggregate_id")]
+    public int AggregateId { get; set; }
+
+    [SugarColumn(ColumnName = "event_type", Length = 64)]
+    public string EventType { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "payload_json", ColumnDataType = "text")]
+    public string PayloadJson { get; set; } = "{}";
+
+    [SugarColumn(ColumnName = "status", Length = 24)]
+    public string Status { get; set; } = "pending";
+
+    [SugarColumn(ColumnName = "retry_count")]
+    public int RetryCount { get; set; }
+
+    [SugarColumn(ColumnName = "next_retry_at")]
+    public DateTime NextRetryAt { get; set; } = DateTime.UtcNow;
+
+    [SugarColumn(ColumnName = "created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [SugarColumn(ColumnName = "processed_at", IsNullable = true)]
+    public DateTime? ProcessedAt { get; set; }
+
+    [SugarColumn(ColumnName = "last_error", Length = 1024, IsNullable = true)]
+    public string? LastError { get; set; }
 }
 
 [SugarTable("asset_library_item")]

@@ -83,15 +83,19 @@ The default compose file is tuned for a practical 2C/2G VPS baseline:
 - Kestrel serves static frontend assets directly.
 - L1 memory cache and Redis L2 absorb public hot reads.
 - Public hot-read L0 serves preencoded `.aeds` snapshots ahead of the normal pipeline; misses and not-ready responses are `no-store` and must be watched through `/health/ready` runtime metadata.
-- DB concurrency gate protects PostgreSQL during cache misses.
-- SSE frames are bounded per connection and slow consumers are disconnected.
+- DB concurrency gate protects PostgreSQL during cache misses and DB-heavy background jobs such as visit-log flush, view reconciliation, scheduled publish and PublicHot rebuild.
+- Article mutations write `article_mutation_outbox` in the same DB transaction as the primary row change; the dispatcher replays cache/search/AEDS/PublicHot/SSE side effects with bounded retry after a crash.
+- Visit-log view projection is batched and periodically reconciled from `sys_visit_log`, so a projection failure after log persistence is repairable.
+- SSE backlog multi-target writes are pipelined and local fanout runs from a bounded queue; frames remain bounded per connection and slow consumers are disconnected.
+- Upload-session expiration scans run in `UploadSessionCleanupWorker`, not on init/status request paths.
+- Content-filter dictionary reloads are serialized through one reload queue to coalesce file watcher bursts.
 - Docker log rotation caps container stdout/stderr growth.
 
 For larger machines, override compose resource limits and DB/Redis pool settings with a production override file. Do not raise DB concurrency without checking PostgreSQL connection limits.
 
 ## Runtime Tuning
 
-Host runtime tuning is configuration-driven. By default the application does not force `DOTNET_ReadyToRun`, `DOTNET_TC_QuickJitForLoops`, `DOTNET_TieredPGO`, or ThreadPool minimums at process startup. If a deployment needs aggressive runtime settings, configure them explicitly and keep the benchmark evidence with the release notes:
+Host runtime tuning is deployment-driven. The application does not mutate startup-sensitive `DOTNET_ReadyToRun`, `DOTNET_TC_QuickJitForLoops`, or `DOTNET_TieredPGO` after `WebApplication.CreateBuilder(args)`, because the CLR can read those switches before app code runs. Set those values in Docker/systemd/Kubernetes/runtimeconfig before process start and keep the benchmark evidence with the release notes:
 
 ```json
 {
@@ -107,7 +111,11 @@ Host runtime tuning is configuration-driven. By default the application does not
 }
 ```
 
-The startup log line `Runtime tuning effective values` records the configured values, whether each environment variable was applied, and the before/after ThreadPool minimums. `tools/operations/collect-release-evidence.sh` also records the effective `DOTNET_*` runtime preset values, optional ThreadPool override evidence, the perf artifact pointer, and the rollback instruction in `evidenceSummary.operations.runtimeTuning`. Prefer measuring request path, search rebuild, and Public AOT backfill latency before raising these defaults in production; rollback is to unset `RuntimeTuning` / `DOTNET_*` overrides and restart on the same image.
+The default Docker publish profile is throughput/TieredPGO-first and keeps `PublishReadyToRun=false` consistently in both `src/backend/FsusBlog.Server.csproj` and `ops/docker/FsusBlog.Server.Dockerfile`. Use `tools/build-native.sh` or a named publish profile when a startup/R2R benchmark explicitly chooses a different profile.
+
+The startup log line `Runtime tuning effective values` records the configured values, confirms startup environment variables were not mutated by app code, and records before/after ThreadPool minimums. `tools/operations/collect-release-evidence.sh` also records the effective `DOTNET_*` runtime preset values, optional ThreadPool override evidence, the perf artifact pointer, and the rollback instruction in `evidenceSummary.operations.runtimeTuning`. Prefer measuring request path, search rebuild, and Public AOT backfill latency before raising these defaults in production; rollback is to unset deployment `DOTNET_*` overrides and restart on the same image.
+
+Toolchain pins are part of the release input. The Docker wasm builder pins Emscripten by image digest and vcpkg by `VCPKG_COMMIT`; bump both in the Dockerfile in the same commit as the rebuild evidence.
 
 ## Gateway Notes
 

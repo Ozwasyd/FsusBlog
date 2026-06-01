@@ -40,6 +40,15 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public void RemoveByPrefix_SourceUsesPagedSetScanInsteadOfSetMembers()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/Cache/IUnifiedCache.cs"));
+
+        Assert.Contains(".SetScan(", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetMembersAsync", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CopyRawBytesForTests_ReturnsCallerOwnedCopy()
     {
         byte[] cached = [1, 2, 3];
@@ -105,5 +114,21 @@ public sealed class UnifiedCacheTests
         entry.MarkRetired();
 
         Assert.False(entry.TryAddReference());
+    }
+
+    private static string FindRepoRoot()
+    {
+        DirectoryInfo? current = new(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        throw new DirectoryNotFoundException("repo root not found");
     }
 }

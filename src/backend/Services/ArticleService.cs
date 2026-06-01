@@ -51,7 +51,7 @@ public class ArticleService(
     private const int ReadingCharsPerMinute = 300;
 
     private readonly IDatabase _redis = _redisConnection.GetDatabase();
-    private bool? _legacyArticleContentColumnExists;
+    private static int s_legacyArticleContentColumnState;
 
     private CancellationToken Ct => _httpContextAccessor.HttpContext?.RequestAborted ?? CancellationToken.None;
 
@@ -65,15 +65,88 @@ public class ArticleService(
             return;
         }
 
-        await _db.Updateable<Article>()
+        int affectedRows = await _db.Updateable<Article>()
             .SetColumns(it => it.Views == it.Views + count)
-            .Where(it => it.Id == id)
+            .Where(it => it.Id == id && !it.IsDeleted)
             .ExecuteCommandAsync();
+        if (affectedRows == 0)
+        {
+            await _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), id);
+            return;
+        }
 
         await _redis.SortedSetIncrementAsync(RedisKey("blog:top_articles"), id, count);
 
         // 逻辑自洽：增加阅读量不触发全局列表版本号变更
         await _cache.RemoveAsync(CachePolicyId.ArticleDetail, id.ToString());
+    }
+
+    public async ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync(
+        IReadOnlyDictionary<int, int> articleCounts,
+        CancellationToken cancellationToken = default)
+    {
+        if (articleCounts.Count == 0)
+        {
+            return new HashSet<int>();
+        }
+
+        var normalized = articleCounts
+            .Where(static pair => pair.Key > 0 && pair.Value > 0)
+            .GroupBy(static pair => pair.Key)
+            .Select(static group => new KeyValuePair<int, int>(group.Key, group.Sum(static pair => pair.Value)))
+            .ToArray();
+        if (normalized.Length == 0)
+        {
+            return new HashSet<int>();
+        }
+
+        var sql = new System.Text.StringBuilder(
+            "UPDATE article AS a SET views = a.views + v.delta FROM (VALUES ");
+        var parameters = new List<SugarParameter>(normalized.Length * 2);
+        for (int i = 0; i < normalized.Length; i++)
+        {
+            if (i > 0)
+            {
+                sql.Append(',');
+            }
+
+            sql.Append($"(@id_{i}, @delta_{i})");
+            parameters.Add(new SugarParameter($"@id_{i}", normalized[i].Key));
+            parameters.Add(new SugarParameter($"@delta_{i}", normalized[i].Value));
+        }
+
+        sql.Append(
+            ") AS v(id, delta) WHERE a.id = v.id AND a.isdeleted = false RETURNING a.id;");
+
+        var updatedIds = new HashSet<int>();
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sql.ToString(), parameters))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                updatedIds.Add(reader.GetInt32(0));
+            }
+        }
+
+        string hotRankKey = RedisKey("blog:top_articles");
+        IBatch redisBatch = _redis.CreateBatch();
+        var redisTasks = new List<Task>(normalized.Length * 2);
+        foreach ((int articleId, int count) in normalized)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (updatedIds.Contains(articleId))
+            {
+                redisTasks.Add(redisBatch.SortedSetIncrementAsync(hotRankKey, articleId, count));
+                redisTasks.Add(_cache.RemoveAsync(CachePolicyId.ArticleDetail, articleId.ToString(), cancellationToken));
+            }
+            else
+            {
+                redisTasks.Add(redisBatch.SortedSetRemoveAsync(hotRankKey, articleId));
+            }
+        }
+
+        redisBatch.Execute();
+        await Task.WhenAll(redisTasks).ConfigureAwait(false);
+        return updatedIds;
     }
 
     public async Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false)
@@ -269,9 +342,10 @@ public class ArticleService(
 
     private async Task<bool> LegacyArticleContentColumnExistsAsync()
     {
-        if (_legacyArticleContentColumnExists.HasValue)
+        int state = Volatile.Read(ref s_legacyArticleContentColumnState);
+        if (state != 0)
         {
-            return _legacyArticleContentColumnExists.Value;
+            return state == 1;
         }
 
         int exists = await _db.Ado.GetIntAsync("""
@@ -280,8 +354,9 @@ public class ArticleService(
             WHERE table_name = 'article'
               AND column_name = 'content';
             """);
-        _legacyArticleContentColumnExists = exists > 0;
-        return _legacyArticleContentColumnExists.Value;
+        bool existsInSchema = exists > 0;
+        Volatile.Write(ref s_legacyArticleContentColumnState, existsInSchema ? 1 : 2);
+        return existsInSchema;
     }
 
     public async Task<int> CreateAsync(CreateArticleRequest dto)
@@ -317,6 +392,7 @@ public class ArticleService(
                 await _db.Insertable(BuildArticleTags(id, tagIds)).ExecuteCommandAsync();
             }
             await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "initial publish");
+            await RecordArticleMutationOutboxAsync(id, "created");
             return id;
         });
 
@@ -377,6 +453,9 @@ public class ArticleService(
         IReadOnlyList<int> tagIds,
         string diffSummary)
     {
+        await _db.Ado.ExecuteCommandAsync(
+            "SELECT id FROM article WHERE id = @id FOR UPDATE;",
+            new SugarParameter[] { new("@id", articleId) });
         int lastRevision = await _db.Queryable<ArticleRevision>()
             .Where(it => it.ArticleId == articleId)
             .MaxAsync(it => it.RevisionNo);
@@ -396,6 +475,19 @@ public class ArticleService(
             CreatedAt = DateTime.UtcNow
         }).ExecuteCommandAsync();
     }
+
+    private Task RecordArticleMutationOutboxAsync(int articleId, string eventType)
+        => _db.Insertable(new ArticleMutationOutboxEvent
+        {
+            EventId = Guid.NewGuid().ToString("N"),
+            AggregateId = articleId,
+            EventType = eventType,
+            PayloadJson = $"{{\"articleId\":{articleId},\"eventType\":\"{eventType}\"}}",
+            Status = "pending",
+            RetryCount = 0,
+            NextRetryAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow
+        }).ExecuteCommandAsync();
 
     public async Task<bool> UpdateAsync(int id, UpdateArticleRequest dto)
     {
@@ -417,9 +509,10 @@ public class ArticleService(
         DateTime? publishedAt = status == ArticleStatus.Published ? now : null;
         DateTime? archivedAt = status == ArticleStatus.Archived ? now : null;
 
+        bool articleUpdated = false;
         var result = await _db.Ado.UseTranAsync(async () =>
         {
-            await _db.Updateable<Article>()
+            int affectedRows = await _db.Updateable<Article>()
                 .SetColumns(it => it.Title == title)
                 .SetColumns(it => it.Summary == safeSummary)
                 .SetColumns(it => it.CoverImageUrl == coverImageUrl)
@@ -431,6 +524,12 @@ public class ArticleService(
                 .SetColumns(it => it.IsDeleted == (status == ArticleStatus.Deleted))
                 .SetColumns(it => it.DeletedAt == (status == ArticleStatus.Deleted ? now : null))
                 .Where(it => it.Id == id).ExecuteCommandAsync();
+            if (affectedRows == 0)
+            {
+                return;
+            }
+
+            articleUpdated = true;
             await _db.Storageable(new ArticleBody { ArticleId = id, MarkdownContent = content, UpdatedAt = DateTime.UtcNow }).ExecuteCommandAsync();
             await _db.Deleteable<ArticleTag>().Where(it => it.ArticleId == id).ExecuteCommandAsync();
             if (tagIds.Count > 0)
@@ -438,9 +537,10 @@ public class ArticleService(
                 await _db.Insertable(BuildArticleTags(id, tagIds)).ExecuteCommandAsync();
             }
             await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "article updated");
+            await RecordArticleMutationOutboxAsync(id, "updated");
         });
 
-        if (result.IsSuccess)
+        if (result.IsSuccess && articleUpdated)
         {
             await InvalidateCache(id);
             await InvalidatePublicAotAsync(
@@ -459,12 +559,22 @@ public class ArticleService(
     {
         var state = await LoadArticleAotStateAsync(id);
         DateTime now = DateTime.UtcNow;
-        var success = await _db.Updateable<Article>()
-            .SetColumns(it => it.IsDeleted == true)
-            .SetColumns(it => it.Status == ArticleStatus.Deleted)
-            .SetColumns(it => it.DeletedAt == now)
-            .Where(it => it.Id == id)
-            .ExecuteCommandAsync() > 0;
+        bool success = false;
+        var result = await _db.Ado.UseTranAsync(async () =>
+        {
+            int updated = await _db.Updateable<Article>()
+                .SetColumns(it => it.IsDeleted == true)
+                .SetColumns(it => it.Status == ArticleStatus.Deleted)
+                .SetColumns(it => it.DeletedAt == now)
+                .Where(it => it.Id == id)
+                .ExecuteCommandAsync();
+            if (updated > 0)
+            {
+                success = true;
+                await RecordArticleMutationOutboxAsync(id, "deleted");
+            }
+        });
+        success = result.IsSuccess && success;
         if (success)
         {
             await InvalidateCache(id);
@@ -478,13 +588,23 @@ public class ArticleService(
     {
         var state = await LoadArticleAotStateAsync(id);
         DateTime now = DateTime.UtcNow;
-        var success = await _db.Updateable<Article>()
-            .SetColumns(it => it.IsDeleted == false)
-            .SetColumns(it => it.Status == ArticleStatus.Published)
-            .SetColumns(it => it.DeletedAt == null)
-            .SetColumns(it => it.PublishedAt == now)
-            .Where(it => it.Id == id)
-            .ExecuteCommandAsync() > 0;
+        bool success = false;
+        var result = await _db.Ado.UseTranAsync(async () =>
+        {
+            int updated = await _db.Updateable<Article>()
+                .SetColumns(it => it.IsDeleted == false)
+                .SetColumns(it => it.Status == ArticleStatus.Published)
+                .SetColumns(it => it.DeletedAt == null)
+                .SetColumns(it => it.PublishedAt == now)
+                .Where(it => it.Id == id)
+                .ExecuteCommandAsync();
+            if (updated > 0)
+            {
+                success = true;
+                await RecordArticleMutationOutboxAsync(id, "restored");
+            }
+        });
+        success = result.IsSuccess && success;
         if (success)
         {
             await InvalidateCache(id);
@@ -507,6 +627,7 @@ public class ArticleService(
             await _db.Deleteable<Comment>().Where(c => c.ArticleId == id).ExecuteCommandAsync();
             await _db.Deleteable<ArticleTag>().Where(at => at.ArticleId == id).ExecuteCommandAsync();
             await _db.Deleteable<ArticleBody>().Where(it => it.ArticleId == id).ExecuteCommandAsync();
+            await RecordArticleMutationOutboxAsync(id, "permanently-deleted");
             return await _db.Deleteable<Article>().In(id).ExecuteCommandAsync();
         });
 
@@ -550,6 +671,10 @@ public class ArticleService(
                 await _db.Deleteable<Comment>().Where(c => chunk.Contains(c.ArticleId)).ExecuteCommandAsync();
                 await _db.Deleteable<ArticleTag>().Where(at => chunk.Contains(at.ArticleId)).ExecuteCommandAsync();
                 await _db.Deleteable<ArticleBody>().Where(it => chunk.Contains(it.ArticleId)).ExecuteCommandAsync();
+                foreach (int articleId in chunk)
+                {
+                    await RecordArticleMutationOutboxAsync(articleId, "trash-cleared");
+                }
                 await _db.Deleteable<Article>().In(chunk).ExecuteCommandAsync();
             }
             return articleIds.Count;

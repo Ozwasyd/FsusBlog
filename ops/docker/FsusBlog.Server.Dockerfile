@@ -8,7 +8,7 @@ WORKDIR /app
 EXPOSE 8080
 
 USER root
-RUN apk add --no-cache icu-data-full icu-libs krb5-libs nodejs npm
+RUN apk add --no-cache icu-data-full icu-libs krb5-libs nodejs
 RUN mkdir -p /app/wwwroot/uploads /app/Dictionaries && \
     chown -R $APP_UID:$APP_UID /app/wwwroot/uploads /app/Dictionaries
 
@@ -21,6 +21,7 @@ USER $APP_UID
 # 只用于导出受信 wasm artifact，不进入 final build 运行时链路。
 ## =========================================================================
 FROM emscripten/emsdk:latest@sha256:e1b3e665245524ac6b62b180f9ccf9bd22308e6bb034f5fd9090df54fdbdfba6 AS wasm-builder
+ARG VCPKG_COMMIT=eae1680538b86f962455c27abca2aad0dc304a4d
 WORKDIR /work
 
 RUN apt-get update && \
@@ -43,7 +44,9 @@ COPY tools/frontend/ /work/tools/frontend/
 COPY tools/frontend/ /tools/frontend/
 COPY src/frontend/ /work/FsusBlog.Client/
 
-RUN git clone --depth 1 https://github.com/microsoft/vcpkg.git /opt/vcpkg && \
+RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg && \
+    cd /opt/vcpkg && \
+    git checkout "${VCPKG_COMMIT}" && \
     /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
 RUN bash -lc 'set -euo pipefail; \

@@ -8,7 +8,7 @@ namespace FsusBlog.Server.Services.Sse;
 
 internal sealed class RedisSsePublisher(
     SseBacklogStore backlogStore,
-    SseConnectionManager connectionManager,
+    SseLocalFanoutQueue localFanoutQueue,
     INotificationFrameCodec frameCodec,
     ILogger<RedisSsePublisher> logger) : ISsePublisher
 {
@@ -47,7 +47,13 @@ internal sealed class RedisSsePublisher(
                 return Result<SseCursor>.Failure(appendResult.Error);
             }
 
-            connectionManager.Publish(frame, target);
+            if (!localFanoutQueue.TryEnqueue(frame, target))
+            {
+                logger.LogWarning("sse-local-fanout-enqueue-dropped {EventType} {EventId} {DroppedCount}",
+                    eventType,
+                    eventId,
+                    localFanoutQueue.DroppedCount);
+            }
             return Result<SseCursor>.Success(new SseCursor(eventId));
         }
         catch (Exception ex)

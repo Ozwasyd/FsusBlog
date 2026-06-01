@@ -90,7 +90,7 @@ public class PooledByteBufferWriterTests
     }
 
     [Fact]
-    public void DetachBuffer_ReturnsBufferAndResetsState()
+    public void DetachBuffer_ReturnsBufferAndInvalidatesWriter()
     {
         using var w = new PooledByteBufferWriter();
         w.Write([1, 2, 3]);
@@ -98,7 +98,11 @@ public class PooledByteBufferWriterTests
 
         Assert.Equal(3, len);
         Assert.Equal(1, buf[0]);
-        Assert.Equal(0, w.WrittenCount); // reset
+        Assert.Throws<InvalidOperationException>(() => w.GetSpan(1));
+        Assert.Throws<InvalidOperationException>(() => w.GetMemory(1));
+        Assert.Throws<InvalidOperationException>(() => w.Advance(0));
+        Assert.Throws<InvalidOperationException>(() => w.ToArray());
+        Assert.Throws<InvalidOperationException>(() => { _ = w.WrittenCount; });
     }
 
     [Fact]
@@ -107,6 +111,20 @@ public class PooledByteBufferWriterTests
         var w = new PooledByteBufferWriter();
         w.Dispose();
         w.Dispose(); // should not throw
+    }
+
+    [Fact]
+    public void Dispose_InvalidatesWriter()
+    {
+        var w = new PooledByteBufferWriter();
+        w.Write([1, 2, 3]);
+        w.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => w.GetSpan(1));
+        Assert.Throws<ObjectDisposedException>(() => w.GetMemory(1));
+        Assert.Throws<ObjectDisposedException>(() => w.Advance(0));
+        Assert.Throws<ObjectDisposedException>(() => w.ToArray());
+        Assert.Throws<ObjectDisposedException>(() => { _ = w.WrittenCount; });
     }
 }
 

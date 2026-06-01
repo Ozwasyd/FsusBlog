@@ -9,6 +9,8 @@ namespace FsusBlog.Server.Infrastructure.Middlewares;
 
 public sealed class ApiBinaryResponseMiddleware
 {
+    internal const int MaxCapturedResponseBytes = 256 * 1024;
+
     private readonly RequestDelegate _next;
 
     public ApiBinaryResponseMiddleware(RequestDelegate next)
@@ -57,14 +59,14 @@ public sealed class ApiBinaryResponseMiddleware
             await InvokeBinaryEndpointDirectAsync(context, envelopePolicy);
             return;
         }
-        else if (!envelopePolicy.AcceptsBinaryEnvelope(context.Request))
+        else if (!envelopePolicy.ExplicitlyAcceptsBinaryEnvelope(context.Request))
         {
             await _next(context);
             return;
         }
 
         Stream originalBody = context.Response.Body;
-        await using var capture = new PooledCaptureStream();
+        await using var capture = new PooledCaptureStream(MaxCapturedResponseBytes);
         context.Response.Body = capture;
 
         try
@@ -81,7 +83,6 @@ public sealed class ApiBinaryResponseMiddleware
                 return;
             }
 
-            bool acceptsBinaryEnvelope = envelopePolicy.AcceptsBinaryEnvelope(context.Request);
             string contentType = context.Response.ContentType ?? string.Empty;
             if (envelopePolicy.IsBinaryContentType(contentType) || envelopePolicy.IsStreamContentType(contentType))
             {
@@ -94,27 +95,6 @@ public sealed class ApiBinaryResponseMiddleware
             }
 
             ReadOnlyMemory<byte> rawBody = capture.WrittenMemory;
-
-            if (!acceptsBinaryEnvelope)
-            {
-                context.Response.Body = originalBody;
-                if (rawBody.Length == 0 && context.Response.StatusCode >= 400)
-                {
-                    await envelopePolicy.WriteApiErrorAsync(
-                        context,
-                        originalBody,
-                        ErrorDetail.Create(envelopePolicy.MapErrorCode(context.Response.StatusCode), $"HTTP {context.Response.StatusCode}", traceId: context.TraceIdentifier),
-                        context.Response.StatusCode);
-                    return;
-                }
-
-                if (rawBody.Length > 0)
-                {
-                    await originalBody.WriteAsync(rawBody, context.RequestAborted);
-                }
-
-                return;
-            }
 
             if (rawBody.Length == 0 && context.Response.StatusCode >= 400)
             {
@@ -137,6 +117,20 @@ public sealed class ApiBinaryResponseMiddleware
                 originalBody,
                 ErrorDetail.Create(envelopePolicy.MapErrorCode(statusCode), message, traceId: context.TraceIdentifier),
                 statusCode);
+        }
+        catch (BinaryResponseCaptureLimitExceededException)
+        {
+            if (!context.Response.HasStarted)
+            {
+                await envelopePolicy.WriteApiErrorAsync(
+                    context,
+                    originalBody,
+                    ErrorDetail.Create(
+                        envelopePolicy.MapErrorCode(StatusCodes.Status413PayloadTooLarge),
+                        "binary_response_capture_limit_exceeded",
+                        traceId: context.TraceIdentifier),
+                    StatusCodes.Status413PayloadTooLarge);
+            }
         }
         finally
         {
@@ -189,7 +183,13 @@ public sealed class ApiBinaryResponseMiddleware
 
     private sealed class PooledCaptureStream : Stream
     {
+        private readonly int _maxBytes;
         private readonly PooledByteBufferWriter _writer = new(1024);
+
+        public PooledCaptureStream(int maxBytes)
+        {
+            _maxBytes = maxBytes;
+        }
 
         public ReadOnlyMemory<byte> WrittenMemory => _writer.WrittenMemory;
 
@@ -218,11 +218,13 @@ public sealed class ApiBinaryResponseMiddleware
 
         public override void Write(byte[] buffer, int offset, int count)
         {
+            EnsureWritable(count);
             _writer.Write(buffer.AsSpan(offset, count));
         }
 
         public override void Write(ReadOnlySpan<byte> buffer)
         {
+            EnsureWritable(buffer.Length);
             _writer.Write(buffer);
         }
 
@@ -233,6 +235,7 @@ public sealed class ApiBinaryResponseMiddleware
                 return Task.FromCanceled(cancellationToken);
             }
 
+            EnsureWritable(count);
             _writer.Write(buffer.AsSpan(offset, count));
             return Task.CompletedTask;
         }
@@ -244,6 +247,7 @@ public sealed class ApiBinaryResponseMiddleware
                 return ValueTask.FromCanceled(cancellationToken);
             }
 
+            EnsureWritable(buffer.Length);
             _writer.Write(buffer.Span);
             return ValueTask.CompletedTask;
         }
@@ -262,6 +266,14 @@ public sealed class ApiBinaryResponseMiddleware
         {
             _writer.Dispose();
             return base.DisposeAsync();
+        }
+
+        private void EnsureWritable(int count)
+        {
+            if (count < 0 || Length > _maxBytes - count)
+            {
+                throw new BinaryResponseCaptureLimitExceededException();
+            }
         }
     }
 
@@ -283,4 +295,8 @@ public sealed class ApiBinaryResponseMiddleware
 
     private static bool IsResponseBodyEmpty(Stream body)
         => !body.CanSeek || body.Length == 0;
+
+    private sealed class BinaryResponseCaptureLimitExceededException : Exception
+    {
+    }
 }

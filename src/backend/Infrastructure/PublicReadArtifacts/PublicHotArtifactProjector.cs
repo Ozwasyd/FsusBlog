@@ -5,6 +5,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -26,6 +27,7 @@ public interface IPublicHotArtifactProjector
 public sealed class PublicHotArtifactProjector(
     ISqlSugarClient db,
     IAedsEncoder aeds,
+    IDbConcurrencyGate dbConcurrencyGate,
     IOptions<PublicHotReadOptions> options,
     ILogger<PublicHotArtifactProjector> logger) : IPublicHotArtifactProjector
 {
@@ -45,7 +47,17 @@ public sealed class PublicHotArtifactProjector(
     public Task<PublicHotReadSnapshot> BuildInitialSnapshotAsync(CancellationToken ct)
         => BuildSnapshotAsync([], ct);
 
-    private async Task<PublicHotReadSnapshot> BuildSnapshotAsync(
+    private Task<PublicHotReadSnapshot> BuildSnapshotAsync(
+        IEnumerable<KeyValuePair<string, PublicHtmlArtifact>> existingHtml,
+        CancellationToken ct)
+        => dbConcurrencyGate.ExecuteAsync(
+            "public-hot-read-rebuild",
+            gateCt => BuildSnapshotCoreAsync(existingHtml, gateCt),
+            _ => Task.FromException<PublicHotReadSnapshot>(
+                new TimeoutException("db-gate-timeout:public-hot-read-rebuild")),
+            ct);
+
+    private async Task<PublicHotReadSnapshot> BuildSnapshotCoreAsync(
         IEnumerable<KeyValuePair<string, PublicHtmlArtifact>> existingHtml,
         CancellationToken ct)
     {

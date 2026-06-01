@@ -30,8 +30,8 @@
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
-		<PublishReadyToRun>true</PublishReadyToRun>
-		<ReadyToRunUseCrossgen2>true</ReadyToRunUseCrossgen2>
+		<PublishReadyToRun>false</PublishReadyToRun>
+		<ReadyToRunUseCrossgen2>false</ReadyToRunUseCrossgen2>
 	</PropertyGroup>
 
 		<!--[修改日期 2026-03-01] 打破 VS 缓存屏障：将前端源码纳入 MSBuild 监控，保存前端代码即触发增量更新 -->

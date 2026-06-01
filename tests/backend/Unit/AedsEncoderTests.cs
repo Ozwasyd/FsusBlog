@@ -73,6 +73,12 @@ public sealed class AedsEncoderTests
     }
 
     [Fact]
+    public void AedsCrc16_KnownVector_MatchesModbus()
+    {
+        Assert.Equal(0x4B37, AedsCrc16.Compute("123456789"u8));
+    }
+
+    [Fact]
     public void Encode_EmptyPayloadProducesMinimalFrame()
     {
         byte[] frame = _enc.Encode(AedsFrameType.ApiError, []);

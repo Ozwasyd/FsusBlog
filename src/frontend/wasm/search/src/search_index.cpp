@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -136,8 +137,9 @@ thread_local std::string g_last_result;
 thread_local std::string g_last_error;
 thread_local ErrorCode g_last_error_code = ErrorCode::None;
 thread_local std::vector<double> g_bm25_scores;
-thread_local std::vector<std::uint8_t> g_doc_touched;
+thread_local std::vector<std::uint32_t> g_score_generation;
 thread_local std::vector<std::uint32_t> g_touched_docs;
+thread_local std::uint32_t g_current_score_generation = 1;
 
 const char* to_error_string(ErrorCode code) {
   switch (code) {
@@ -517,6 +519,70 @@ void build_binary_page(const std::vector<ScoreEntry>& scores, std::size_t page, 
   g_last_result.append(blob);
 }
 
+bool is_score_before(const ScoreEntry& left, const ScoreEntry& right, int sort_mode) {
+  const SearchDoc& left_doc = g_state.docs[left.doc_index];
+  const SearchDoc& right_doc = g_state.docs[right.doc_index];
+  switch (sort_mode) {
+    case 1:
+      if (left_doc.publish_unix_ms != right_doc.publish_unix_ms) {
+        return left_doc.publish_unix_ms > right_doc.publish_unix_ms;
+      }
+      if (left.final_score != right.final_score) {
+        return left.final_score > right.final_score;
+      }
+      return left_doc.article_id < right_doc.article_id;
+    case 2:
+      if (left.hot != right.hot) {
+        return left.hot > right.hot;
+      }
+      if (left.final_score != right.final_score) {
+        return left.final_score > right.final_score;
+      }
+      return left_doc.article_id < right_doc.article_id;
+    default:
+      if (left.final_score != right.final_score) {
+        return left.final_score > right.final_score;
+      }
+      if (left.hot != right.hot) {
+        return left.hot > right.hot;
+      }
+      if (left_doc.publish_unix_ms != right_doc.publish_unix_ms) {
+        return left_doc.publish_unix_ms > right_doc.publish_unix_ms;
+      }
+      return left_doc.article_id < right_doc.article_id;
+  }
+}
+
+void order_scores_for_page(std::vector<ScoreEntry>& scores, std::size_t page, std::size_t page_size, int sort_mode) {
+  if (scores.size() <= 1) {
+    return;
+  }
+
+  const std::size_t safe_page = page == 0 ? 1 : page;
+  const std::size_t safe_size = std::max<std::size_t>(1, page_size);
+  if (safe_page > std::numeric_limits<std::size_t>::max() / safe_size) {
+    std::sort(scores.begin(), scores.end(), [sort_mode](const ScoreEntry& left, const ScoreEntry& right) {
+      return is_score_before(left, right, sort_mode);
+    });
+    return;
+  }
+
+  const std::size_t top_count = std::min(scores.size(), safe_page * safe_size);
+  if (top_count == 0) {
+    return;
+  }
+
+  auto comparator = [sort_mode](const ScoreEntry& left, const ScoreEntry& right) {
+    return is_score_before(left, right, sort_mode);
+  };
+
+  if (top_count < scores.size()) {
+    std::nth_element(scores.begin(), scores.begin() + static_cast<std::ptrdiff_t>(top_count), scores.end(), comparator);
+  }
+
+  std::sort(scores.begin(), scores.begin() + static_cast<std::ptrdiff_t>(top_count), comparator);
+}
+
 const TermEntry* find_term(const ShardState& shard, std::uint32_t hash) {
   auto it = std::lower_bound(shard.terms.begin(), shard.terms.end(), hash, [](const TermEntry& entry, std::uint32_t value) {
     return entry.hash < value;
@@ -842,6 +908,7 @@ bool parse_package(const std::uint8_t* data, int length) {
     }
   }
 
+  g_state.loaded = true;
   return true;
 }
 
@@ -1058,8 +1125,17 @@ int search_articles(const std::uint8_t* query_ptr, int query_len, int sort_mode,
   }
 
   const std::size_t doc_count = g_state.docs.size();
-  g_bm25_scores.assign(doc_count, 0.0);
-  g_doc_touched.assign(doc_count, static_cast<std::uint8_t>(0));
+  if (g_bm25_scores.size() < doc_count) {
+    g_bm25_scores.resize(doc_count, 0.0);
+  }
+  if (g_score_generation.size() < doc_count) {
+    g_score_generation.resize(doc_count, 0);
+  }
+  ++g_current_score_generation;
+  if (g_current_score_generation == 0) {
+    std::fill(g_score_generation.begin(), g_score_generation.end(), 0);
+    g_current_score_generation = 1;
+  }
   g_touched_docs.clear();
   g_touched_docs.reserve(std::min<std::size_t>(doc_count, 512));
 
@@ -1144,11 +1220,12 @@ int search_articles(const std::uint8_t* query_ptr, int query_len, int sort_mode,
         const double norm = tf + kBm25K1 * (1.0 - kBm25B + kBm25B * (static_cast<double>(doc.doc_length) / std::max(1.0, avg_doc_length)));
         const double contribution = static_cast<double>(term->idf) * ((tf * (kBm25K1 + 1.0)) / norm);
 
-        g_bm25_scores[doc_index] += contribution;
-        if (g_doc_touched[doc_index] == 0) {
-          g_doc_touched[doc_index] = 1;
+        if (g_score_generation[doc_index] != g_current_score_generation) {
+          g_score_generation[doc_index] = g_current_score_generation;
+          g_bm25_scores[doc_index] = 0.0;
           g_touched_docs.push_back(doc_index);
         }
+        g_bm25_scores[doc_index] += contribution;
       }
     }
   }
@@ -1184,23 +1261,7 @@ int search_articles(const std::uint8_t* query_ptr, int query_len, int sort_mode,
     scores.push_back(entry);
   }
 
-  switch (sort_mode) {
-    case 1:
-      std::sort(scores.begin(), scores.end(), [](const ScoreEntry& left, const ScoreEntry& right) {
-        return g_state.docs[left.doc_index].publish_unix_ms > g_state.docs[right.doc_index].publish_unix_ms;
-      });
-      break;
-    case 2:
-      std::sort(scores.begin(), scores.end(), [](const ScoreEntry& left, const ScoreEntry& right) {
-        return left.hot > right.hot;
-      });
-      break;
-    default:
-      std::sort(scores.begin(), scores.end(), [](const ScoreEntry& left, const ScoreEntry& right) {
-        return left.final_score > right.final_score;
-      });
-      break;
-  }
+  order_scores_for_page(scores, static_cast<std::size_t>(page), static_cast<std::size_t>(page_size), sort_mode);
 
   build_binary_page(scores, static_cast<std::size_t>(page), static_cast<std::size_t>(page_size));
   return 1;

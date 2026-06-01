@@ -74,7 +74,7 @@ public sealed class AedsEncoder : IAedsEncoder
         }
 
         ReadOnlySpan<byte> payloadSpan = frameSpan[AedsFrameHeader.Size..];
-        ushort computedPayloadCrc = Crc16.Compute(payloadSpan);
+        ushort computedPayloadCrc = AedsCrc16.Compute(payloadSpan);
         if (computedPayloadCrc != payloadCrc16)
         {
             return Result<AedsDecodeResult>.Failure(ErrorCode.Validation, "AEDS payload crc mismatch");
@@ -83,40 +83,6 @@ public sealed class AedsEncoder : IAedsEncoder
         var typedFrame = (AedsFrameType)frameTypeRaw;
         var headerModel = new AedsFrameHeader(magic, version, headerLength, flags, frameTypeRaw, payloadLength, payloadCrc16);
         return Result<AedsDecodeResult>.Success(new AedsDecodeResult(headerModel, frame[AedsFrameHeader.Size..], typedFrame));
-    }
-
-    private static class Crc16
-    {
-        private const ushort Polynomial = 0xA001;
-        private static readonly ushort[] Table = CreateTable();
-
-        public static ushort Compute(ReadOnlySpan<byte> data)
-        {
-            ushort crc = 0xFFFF;
-            for (int i = 0; i < data.Length; i++)
-            {
-                crc = (ushort)((crc >> 8) ^ Table[(crc ^ data[i]) & 0xFF]);
-            }
-
-            return crc;
-        }
-
-        private static ushort[] CreateTable()
-        {
-            var table = new ushort[256];
-            for (int i = 0; i < table.Length; i++)
-            {
-                ushort value = (ushort)i;
-                for (int bit = 0; bit < 8; bit++)
-                {
-                    value = (ushort)(((value & 1) != 0) ? ((value >> 1) ^ Polynomial) : (value >> 1));
-                }
-
-                table[i] = value;
-            }
-
-            return table;
-        }
     }
 
     private static void EncodeInto(AedsFrameType frameType, ReadOnlySpan<byte> payload, ushort version, uint flags, Span<byte> frame)
@@ -144,6 +110,6 @@ public sealed class AedsEncoder : IAedsEncoder
         BinaryPrimitives.WriteUInt16LittleEndian(header[6..8], (ushort)flags);
         BinaryPrimitives.WriteUInt16LittleEndian(header[8..10], (ushort)frameType);
         BinaryPrimitives.WriteUInt32LittleEndian(header[10..14], (uint)payload.Length);
-        BinaryPrimitives.WriteUInt16LittleEndian(header[14..16], Crc16.Compute(payload));
+        BinaryPrimitives.WriteUInt16LittleEndian(header[14..16], AedsCrc16.Compute(payload));
     }
 }

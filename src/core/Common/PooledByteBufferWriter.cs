@@ -7,6 +7,8 @@ public sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
     private byte[] _buffer;
     private int _written;
     private readonly bool _clearOnReturn;
+    private bool _detached;
+    private bool _disposed;
 
     public PooledByteBufferWriter(int initialCapacity = 256, bool clearOnReturn = false)
     {
@@ -14,14 +16,36 @@ public sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
         _buffer = ArrayPool<byte>.Shared.Rent(Math.Max(256, initialCapacity));
     }
 
-    public int WrittenCount => _written;
+    public int WrittenCount
+    {
+        get
+        {
+            ThrowIfUnavailable();
+            return _written;
+        }
+    }
 
-    public ReadOnlySpan<byte> WrittenSpan => _buffer.AsSpan(0, _written);
+    public ReadOnlySpan<byte> WrittenSpan
+    {
+        get
+        {
+            ThrowIfUnavailable();
+            return _buffer.AsSpan(0, _written);
+        }
+    }
 
-    public ReadOnlyMemory<byte> WrittenMemory => _buffer.AsMemory(0, _written);
+    public ReadOnlyMemory<byte> WrittenMemory
+    {
+        get
+        {
+            ThrowIfUnavailable();
+            return _buffer.AsMemory(0, _written);
+        }
+    }
 
     public void Advance(int count)
     {
+        ThrowIfUnavailable();
         if (count < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(count));
@@ -37,12 +61,14 @@ public sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
 
     public Memory<byte> GetMemory(int sizeHint = 0)
     {
+        ThrowIfUnavailable();
         Ensure(sizeHint);
         return _buffer.AsMemory(_written);
     }
 
     public Span<byte> GetSpan(int sizeHint = 0)
     {
+        ThrowIfUnavailable();
         Ensure(sizeHint);
         return _buffer.AsSpan(_written);
     }
@@ -56,6 +82,7 @@ public sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
 
     public byte[] ToArray()
     {
+        ThrowIfUnavailable();
         byte[] result = new byte[_written];
         _buffer.AsSpan(0, _written).CopyTo(result);
         return result;
@@ -63,8 +90,10 @@ public sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
 
     public byte[] DetachBuffer(out int length)
     {
+        ThrowIfUnavailable();
         byte[] buffer = _buffer;
         length = _written;
+        _detached = true;
         _buffer = Array.Empty<byte>();
         _written = 0;
         return buffer;
@@ -72,14 +101,32 @@ public sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
 
     public void Dispose()
     {
-        if (_buffer.Length == 0)
+        if (_disposed)
         {
             return;
         }
 
-        ArrayPool<byte>.Shared.Return(_buffer, clearArray: _clearOnReturn);
+        if (!_detached && _buffer.Length > 0)
+        {
+            ArrayPool<byte>.Shared.Return(_buffer, clearArray: _clearOnReturn);
+        }
+
         _buffer = Array.Empty<byte>();
         _written = 0;
+        _disposed = true;
+    }
+
+    private void ThrowIfUnavailable()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(PooledByteBufferWriter));
+        }
+
+        if (_detached)
+        {
+            throw new InvalidOperationException("The pooled buffer has been detached and is no longer owned by this writer.");
+        }
     }
 
     private void Ensure(int sizeHint)

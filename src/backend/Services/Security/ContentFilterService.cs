@@ -6,6 +6,7 @@ using FsusBlog.Server.Interfaces;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using System.Threading.Channels;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -30,6 +31,9 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
     private static partial Regex TopRedLineRegex();
 
     private readonly FileSystemWatcher? _fileWatcher;
+    private readonly Channel<string> _reloadQueue;
+    private readonly CancellationTokenSource _reloadCts = new();
+    private readonly Task _reloadWorker;
     private readonly ConcurrentDictionary<string, DateTime> _lastReloadTimes = new();
     private bool _disposed;
 
@@ -41,6 +45,24 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
 
         _sensitiveFilePath = Path.Combine(_dictDirectory, "SensitiveWords.txt");
         _adFilePath = Path.Combine(_dictDirectory, "AdWords.txt");
+        _reloadQueue = Channel.CreateBounded<string>(new BoundedChannelOptions(32)
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.DropOldest
+        });
+        _reloadWorker = Task.Factory
+            .StartNew(
+                static state =>
+                {
+                    var service = (ContentFilterService)state!;
+                    return service.ProcessReloadQueueAsync(service._reloadCts.Token);
+                },
+                this,
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default)
+            .Unwrap();
 
         EnsureFileExists(_sensitiveFilePath);
         EnsureFileExists(_adFilePath);
@@ -88,11 +110,57 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         }
         _lastReloadTimes[e.Name] = DateTime.UtcNow;
 
-        string fileName = e.Name;
-        _ = Task.Run(async () => await ReloadFromWatcherAsync(fileName).ConfigureAwait(false));
+        if (!_reloadQueue.Writer.TryWrite(e.Name))
+        {
+            _logger.LogWarning("内容审查词库 reload 队列已满，已丢弃本次 watcher 事件: {FileName}", e.Name);
+        }
     }
 
-    private async Task<Result> ReloadFromWatcherAsync(string fileName)
+    private async Task ProcessReloadQueueAsync(CancellationToken cancellationToken)
+    {
+        var pending = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            while (await _reloadQueue.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                pending.Clear();
+                while (_reloadQueue.Reader.TryRead(out string? fileName))
+                {
+                    if (!string.IsNullOrWhiteSpace(fileName))
+                    {
+                        pending.Add(fileName);
+                    }
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken).ConfigureAwait(false);
+                while (_reloadQueue.Reader.TryRead(out string? fileName))
+                {
+                    if (!string.IsNullOrWhiteSpace(fileName))
+                    {
+                        pending.Add(fileName);
+                    }
+                }
+
+                foreach (string fileName in pending)
+                {
+                    Result result = await ReloadFromWatcherAsync(fileName, cancellationToken).ConfigureAwait(false);
+                    if (result.IsFailure)
+                    {
+                        _logger.LogWarning("内容审查词库热重载失败: {FileName} {Message}", fileName, result.Error.Message);
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "内容审查词库 reload worker 异常退出。");
+        }
+    }
+
+    private async Task<Result> ReloadFromWatcherAsync(string fileName, CancellationToken cancellationToken)
     {
         if (_disposed)
         {
@@ -102,13 +170,13 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         if (fileName.Equals("SensitiveWords.txt", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogInformation("检测到政治红线词库变动，准备自动热重载...");
-            return await ReloadSensitiveWordsAsync().ConfigureAwait(false);
+            return await ReloadSensitiveWordsAsync(cancellationToken).ConfigureAwait(false);
         }
 
         if (fileName.Equals("AdWords.txt", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogInformation("检测到动态广告词库变动，准备自动热重载...");
-            return await ReloadAdWordsAsync().ConfigureAwait(false);
+            return await ReloadAdWordsAsync(cancellationToken).ConfigureAwait(false);
         }
 
         return Result.Success();
@@ -191,8 +259,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
                     path,
                     ex.Message),
                 _logger,
-                $"content-filter-read-lines-{Path.GetFileName(path)}",
-                i < 4 ? LogLevel.Debug : LogLevel.Warning);
+                $"content-filter-read-lines-{Path.GetFileName(path)}");
 
             if (attemptResult.IsSuccess)
             {
@@ -219,16 +286,15 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         for (int i = 0; i < 5; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var attemptResult = BoundaryExecutor.ExecuteResult(
-                () => ReadAllLinesCore(path),
+            var attemptResult = await BoundaryExecutor.ExecuteResultAsync(
+                () => ReadAllLinesCoreAsync(path, cancellationToken),
                 ex => ErrorDetail.Create(
                     ErrorCode.InfraFailure,
                     $"读取词库文件失败: {Path.GetFileName(path)}",
                     path,
                     ex.Message),
                 _logger,
-                $"content-filter-read-lines-{Path.GetFileName(path)}",
-                i < 4 ? LogLevel.Debug : LogLevel.Warning);
+                $"content-filter-read-lines-{Path.GetFileName(path)}");
 
             if (attemptResult.IsSuccess)
             {
@@ -259,6 +325,29 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         var lines = new List<string>();
         string? line;
         while ((line = reader.ReadLine()) != null)
+        {
+            if (!string.IsNullOrWhiteSpace(line))
+            {
+                lines.Add(line);
+            }
+        }
+
+        return [.. lines];
+    }
+
+    private static async Task<string[]> ReadAllLinesCoreAsync(string path, CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(path, new FileStreamOptions
+        {
+            Mode = FileMode.Open,
+            Access = FileAccess.Read,
+            Share = FileShare.ReadWrite,
+            BufferSize = 81920,
+            Options = FileOptions.Asynchronous | FileOptions.SequentialScan
+        });
+        using var reader = new StreamReader(stream);
+        var lines = new List<string>();
+        while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
         {
             if (!string.IsNullOrWhiteSpace(line))
             {
@@ -472,7 +561,24 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         if (!_disposed)
         {
             _disposed = true;
-            if (disposing) _fileWatcher?.Dispose();
+            if (disposing)
+            {
+                _fileWatcher?.Dispose();
+                _reloadQueue.Writer.TryComplete();
+                _reloadCts.Cancel();
+                try
+                {
+                    _reloadWorker.Wait(TimeSpan.FromSeconds(2));
+                }
+                catch (AggregateException ex)
+                {
+                    _logger.LogDebug(ex, "内容审查词库 reload worker 停止时已忽略异常。");
+                }
+                finally
+                {
+                    _reloadCts.Dispose();
+                }
+            }
         }
     }
 }

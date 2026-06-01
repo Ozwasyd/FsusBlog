@@ -281,9 +281,14 @@ export async function searchIndexBinary(
   query: string,
   sortMode: SearchSortMode,
   page: number,
-  pageSize: number
+  pageSize: number,
+  signal?: AbortSignal
 ): Promise<Uint8Array> {
   return await withSearchRuntimeLock(async () => {
+    if (signal?.aborted) {
+      throw new DOMException('The operation was aborted.', 'AbortError')
+    }
+
     const { module } = await initSearchRuntimeModule()
     const runtime = assertSearchModule(module)
 
@@ -312,6 +317,10 @@ export async function searchIndexBinary(
     }
 
     try {
+      if (signal?.aborted) {
+        throw new DOMException('The operation was aborted.', 'AbortError')
+      }
+
       if (queryBytes.byteLength > 0) {
         runtime.HEAPU8.set(queryBytes, ptr)
       }
@@ -320,6 +329,10 @@ export async function searchIndexBinary(
       if (ok !== 1) {
         const message = readCString(memory, getErrorPtr(), getErrorLen())
         throw createAppError(mapSearchErrorCode(getErrorCode(), message), message || 'search_runtime_failed')
+      }
+
+      if (signal?.aborted) {
+        throw new DOMException('The operation was aborted.', 'AbortError')
       }
 
       return readBuffer(memory, getResultPtr(), getResultLen())

@@ -19,25 +19,43 @@ public sealed class ArticleViewProjectionService(
 {
     public async Task ApplyAsync(IReadOnlyList<VisitLogEntity> batch, CancellationToken cancellationToken)
     {
-        var articleCounts = batch
+        Dictionary<int, int> articleCounts = batch
             .Where(static item => item.EventType == HumanReadEventTypes.ArticleRead && item.ArticleId is > 0)
             .GroupBy(static item => item.ArticleId!.Value)
-            .Select(static group => (ArticleId: group.Key, Count: group.Count()))
-            .ToArray();
-        if (articleCounts.Length == 0)
+            .ToDictionary(static group => group.Key, static group => group.Count());
+        if (articleCounts.Count == 0)
         {
             return;
         }
 
-        foreach ((int articleId, int count) in articleCounts)
+        IReadOnlySet<int> updatedArticleIds = await articleService
+            .IncreaseViewCountsAsync(articleCounts, cancellationToken)
+            .ConfigureAwait(false);
+        if (updatedArticleIds.Count == 0)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            await articleService.IncreaseViewCountAsync(articleId, count);
-            await dispatcher.InvalidateArticleViewAsync(articleId, cancellationToken);
-            if (!publicHotUpdates.TryEnqueue(articleId, "article-view-projection"))
+            return;
+        }
+
+        const int MaxPerBatchViewInvalidations = 128;
+        int invalidated = 0;
+        foreach (int articleId in updatedArticleIds)
+        {
+            if (invalidated >= MaxPerBatchViewInvalidations)
             {
-                logger.LogWarning("public-hot-read-update-enqueue-failed {ArticleId} {Reason}", articleId, "article-view-projection");
+                logger.LogWarning(
+                    "article-view-projection-invalidation-capped {UpdatedCount} {InvalidatedCount}",
+                    updatedArticleIds.Count,
+                    invalidated);
+                break;
             }
+
+            await dispatcher.InvalidateArticleViewAsync(articleId, cancellationToken).ConfigureAwait(false);
+            invalidated++;
+        }
+
+        if (!publicHotUpdates.TryEnqueue(null, "article-view-projection-batch"))
+        {
+            logger.LogWarning("public-hot-read-update-enqueue-failed {ArticleId} {Reason}", null, "article-view-projection-batch");
         }
     }
 }

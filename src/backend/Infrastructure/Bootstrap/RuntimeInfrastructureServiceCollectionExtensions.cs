@@ -60,6 +60,8 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddScoped<INotificationStreamHandler, NotificationStreamHandler>();
         services.AddSingleton<SseConnectionManager>();
         services.AddSingleton<SseBacklogStore>();
+        services.AddSingleton<SseLocalFanoutQueue>();
+        services.AddHostedService<SseLocalFanoutWorker>();
         services.AddSingleton<ISsePublisher, RedisSsePublisher>();
         return services;
     }
@@ -74,7 +76,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
 
     private static IServiceCollection AddFileAndAuthRuntime(this IServiceCollection services)
     {
-        services.AddScoped<IFileService, FileService>();
+        services.AddSingleton<UploadSessionCleanupQueue>();
+        services.AddScoped<FileService>();
+        services.AddScoped<IFileService>(sp => sp.GetRequiredService<FileService>());
+        services.AddHostedService<UploadSessionCleanupWorker>();
         services.AddSingleton<AuthCookieService>();
         services.AddScoped<IHumanReadProofEndpointAdapter, HumanReadProofEndpointAdapter>();
         return services;
@@ -143,8 +148,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<VisitLogChannel>();
         services.AddScoped<IArticleViewProjectionService, ArticleViewProjectionService>();
         services.AddHostedService<VisitLogProcessorService>();
+        services.AddHostedService<ArticleViewProjectionRepairWorker>();
         services.AddSingleton(TimeProvider.System);
         services.AddHostedService<LogCleanupService>();
+        services.AddHostedService<ArticleMutationOutboxDispatcher>();
         services.AddSingleton<ScheduledPublishRuntimeState>();
         services.AddHostedService<ScheduledPublishWorker>();
         return services;

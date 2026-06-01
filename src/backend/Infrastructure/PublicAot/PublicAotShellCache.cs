@@ -59,34 +59,10 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
         }
 
         string registryKey = ResolveRegistryKey(prefix, out bool requiresPrefixFilter);
-        RedisValue[] keys = await _db.SetMembersAsync(registryKey);
-        if (keys.Length == 0)
+        int removed = await RemoveRegisteredKeysAsync(registryKey, prefix, requiresPrefixFilter, cancellationToken).ConfigureAwait(false);
+        if (removed == 0 && !string.Equals(registryKey, PublicAotCacheRegistry.GlobalRegistryKey, StringComparison.Ordinal))
         {
-            if (!string.Equals(registryKey, PublicAotCacheRegistry.GlobalRegistryKey, StringComparison.Ordinal))
-            {
-                keys = await _db.SetMembersAsync(PublicAotCacheRegistry.GlobalRegistryKey);
-            }
-
-            if (keys.Length == 0)
-            {
-                return;
-            }
-        }
-
-        foreach (RedisValue key in keys)
-        {
-            if (key.IsNullOrEmpty)
-            {
-                continue;
-            }
-
-            string value = key.ToString();
-            if (requiresPrefixFilter && !value.StartsWith(prefix, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            await RemoveAsync(value, cancellationToken);
+            _ = await RemoveRegisteredKeysAsync(PublicAotCacheRegistry.GlobalRegistryKey, prefix, requiresPrefixFilter: true, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -96,9 +72,9 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
         HashSet<string> keysToDelete = [];
         foreach (string registryKey in PublicAotCacheRegistry.GetAllKnownRegistryKeys())
         {
-            RedisValue[] keys = await _db.SetMembersAsync(registryKey);
-            foreach (RedisValue key in keys)
+            foreach (RedisValue key in _db.SetScan(registryKey, pageSize: 256))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (key.IsNullOrEmpty)
                 {
                     continue;
@@ -133,6 +109,34 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
 
         requiresPrefixFilter = true;
         return PublicAotCacheRegistry.GlobalRegistryKey;
+    }
+
+    private async Task<int> RemoveRegisteredKeysAsync(
+        string registryKey,
+        string prefix,
+        bool requiresPrefixFilter,
+        CancellationToken cancellationToken)
+    {
+        int removed = 0;
+        foreach (RedisValue key in _db.SetScan(registryKey, pageSize: 256))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (key.IsNullOrEmpty)
+            {
+                continue;
+            }
+
+            string value = key.ToString();
+            if (requiresPrefixFilter && !value.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            await RemoveAsync(value, cancellationToken).ConfigureAwait(false);
+            removed++;
+        }
+
+        return removed;
     }
 
     private static (bool Success, PublicAotCacheEntry? Value) DecodeEntry(ReadOnlyMemory<byte> bytes)

@@ -285,8 +285,7 @@ public sealed class UnifiedCache(
         bool registryExists = await _db.KeyExistsAsync(registryKey).ConfigureAwait(false);
         if (registryExists)
         {
-            RedisValue[] registeredKeys = await _db.SetMembersAsync(registryKey).ConfigureAwait(false);
-            await DeleteRegisteredKeysByPrefixAsync(registryKey, prefix, registeredKeys, cancellationToken).ConfigureAwait(false);
+            await DeleteRegisteredKeysByPrefixAsync(registryKey, prefix, cancellationToken).ConfigureAwait(false);
             FsusObservability.RecordCacheOperation("remove_prefix", policyId.ToString(), "l2", "ok", FsusObservability.GetElapsed(startedAt));
 
             return;
@@ -320,14 +319,24 @@ public sealed class UnifiedCache(
     private async Task DeleteRegisteredKeysByPrefixAsync(
         string registryKey,
         string prefix,
-        ReadOnlyMemory<RedisValue> registeredKeys,
         CancellationToken cancellationToken)
     {
         List<RedisKey> deleteKeys = new(PrefixInvalidationBatchSize);
         List<RedisValue> registryMembers = new(PrefixInvalidationBatchSize);
-        foreach (string value in FilterRegistryKeys(prefix, registeredKeys.Span))
+        foreach (RedisValue registeredKey in _db.SetScan(registryKey, pageSize: PrefixInvalidationBatchSize))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (registeredKey.IsNullOrEmpty)
+            {
+                continue;
+            }
+
+            string value = registeredKey.ToString();
+            if (!value.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             deleteKeys.Add(value);
             registryMembers.Add(value);
             memoryCache.Remove(value);

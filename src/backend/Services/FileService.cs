@@ -26,15 +26,20 @@ public sealed partial class FileService : IFileService
     private readonly string _cleanSubFolderWeb;
     private readonly string _sandboxAbsolutePath;
     private readonly string _sessionRootPath;
+    private readonly UploadSessionCleanupQueue? _cleanupQueue;
 
     private static readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"];
     private static readonly string[] _allowedFormats = ["jpg", "jpeg", "png", "gif", "webp", "avif"];
     private static readonly ConcurrentDictionary<string, SessionLockEntry> _sessionLocks = new(StringComparer.Ordinal);
 
-    public FileService(IWebHostEnvironment env, ILogger<FileService> logger)
+    public FileService(
+        IWebHostEnvironment env,
+        ILogger<FileService> logger,
+        UploadSessionCleanupQueue? cleanupQueue = null)
     {
         _env = env;
         _logger = logger;
+        _cleanupQueue = cleanupQueue;
         _subFolder = Path.Combine("uploads", "illustration");
 
         string webRoot = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
@@ -98,7 +103,7 @@ public sealed partial class FileService : IFileService
 
     public async Task<Result<UploadInitDto>> InitUploadSessionAsync(UploadInitRequestDto dto, CancellationToken cancellationToken = default)
     {
-        await CleanupExpiredSessionsAsync(cancellationToken);
+        RequestUploadSessionCleanup();
 
         if (string.IsNullOrWhiteSpace(dto.FileName))
         {
@@ -176,7 +181,7 @@ public sealed partial class FileService : IFileService
 
     public async Task<Result<UploadStatusDto>> GetUploadStatusAsync(string uploadId, CancellationToken cancellationToken = default)
     {
-        await CleanupExpiredSessionsAsync(cancellationToken);
+        RequestUploadSessionCleanup();
 
         var record = await LoadSessionAsync(uploadId, cancellationToken);
         if (record is null)
@@ -207,7 +212,7 @@ public sealed partial class FileService : IFileService
 
     public async Task<Result<UploadPartMapDto>> GetUploadPartMapAsync(string uploadId, CancellationToken cancellationToken = default)
     {
-        await CleanupExpiredSessionsAsync(cancellationToken);
+        RequestUploadSessionCleanup();
 
         var record = await LoadSessionAsync(uploadId, cancellationToken);
         if (record is null)
@@ -881,7 +886,7 @@ public sealed partial class FileService : IFileService
         return await GetUploadedBytesAsync(uploadId, record.UploadedParts, cancellationToken);
     }
 
-    private async Task CleanupExpiredSessionsAsync(CancellationToken cancellationToken)
+    internal async Task CleanupExpiredSessionsAsync(CancellationToken cancellationToken)
     {
         if (!Directory.Exists(_sessionRootPath))
         {
@@ -921,11 +926,21 @@ public sealed partial class FileService : IFileService
         string sessionPath = GetSessionPath(uploadId);
         if (Directory.Exists(sessionPath))
         {
-            await Task.Run(() => Directory.Delete(sessionPath, true));
+            await BoundaryExecutor.ExecuteAsync(
+                () =>
+                {
+                    Directory.Delete(sessionPath, true);
+                    return Task.CompletedTask;
+                },
+                _logger,
+                $"upload-session-delete:{sessionPath}");
         }
 
         RetireSessionLock(uploadId);
     }
+
+    private void RequestUploadSessionCleanup()
+        => _cleanupQueue?.TryRequestScan();
 
     private static void RetireSessionLock(string uploadId)
     {

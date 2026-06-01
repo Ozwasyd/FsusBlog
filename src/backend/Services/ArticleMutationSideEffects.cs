@@ -29,6 +29,8 @@ public interface IArticleMutationSideEffectCoordinator
         IReadOnlyCollection<int> articleIds,
         IReadOnlyDictionary<int, string> articleBodies,
         CancellationToken cancellationToken);
+
+    Task ReplayOutboxAsync(int articleId, string eventType, CancellationToken cancellationToken);
 }
 
 public sealed class ArticleSearchProjector(ISearchIndexService searchIndex)
@@ -89,11 +91,11 @@ public sealed class ArticleMutationSideEffectCoordinator(
             async () =>
             {
                 article.Id = articleId;
-                await Task.WhenAll(
-                    searchProjector.ProjectAsync(article),
-                    articleDetailArtifacts.GenerateAndStoreAsync(articleId),
-                    QueuePublicHotUpdateAsync(articleId, "article-created"),
-                    realtimeNotifier.PushChangedAsync(articleId, "Created", preview));
+                await RunSideEffectsSequentiallyAsync(
+                    () => searchProjector.ProjectAsync(article),
+                    () => articleDetailArtifacts.GenerateAndStoreAsync(articleId),
+                    () => QueuePublicHotUpdateAsync(articleId, "article-created"),
+                    () => realtimeNotifier.PushChangedAsync(articleId, "Created", preview));
             },
             "article-create-sync");
 
@@ -107,11 +109,11 @@ public sealed class ArticleMutationSideEffectCoordinator(
                     return;
                 }
 
-                await Task.WhenAll(
-                    searchProjector.ProjectAsync(article),
-                    articleDetailArtifacts.GenerateAndStoreAsync(articleId),
-                    QueuePublicHotUpdateAsync(articleId, "article-updated"),
-                    realtimeNotifier.PushChangedAsync(articleId, "Updated", preview));
+                await RunSideEffectsSequentiallyAsync(
+                    () => searchProjector.ProjectAsync(article),
+                    () => articleDetailArtifacts.GenerateAndStoreAsync(articleId),
+                    () => QueuePublicHotUpdateAsync(articleId, "article-updated"),
+                    () => realtimeNotifier.PushChangedAsync(articleId, "Updated", preview));
             },
             "article-update-sync");
 
@@ -119,12 +121,12 @@ public sealed class ArticleMutationSideEffectCoordinator(
         => ExecuteAsync(
             async () =>
             {
-                await Task.WhenAll(
-                    searchProjector.DeleteAsync(articleId),
-                    articleDetailArtifacts.RemoveAsync(articleId),
-                    QueuePublicHotUpdateAsync(articleId, "article-deleted"),
-                    _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId),
-                    realtimeNotifier.PushChangedAsync(articleId, "Deleted"));
+                await RunSideEffectsSequentiallyAsync(
+                    () => searchProjector.DeleteAsync(articleId),
+                    () => articleDetailArtifacts.RemoveAsync(articleId),
+                    () => QueuePublicHotUpdateAsync(articleId, "article-deleted"),
+                    () => _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId),
+                    () => realtimeNotifier.PushChangedAsync(articleId, "Deleted"));
             },
             "article-delete-sync");
 
@@ -138,12 +140,12 @@ public sealed class ArticleMutationSideEffectCoordinator(
                     return;
                 }
 
-                await Task.WhenAll(
-                    searchProjector.ProjectAsync(article),
-                    articleDetailArtifacts.GenerateAndStoreAsync(articleId),
-                    QueuePublicHotUpdateAsync(articleId, "article-restored"),
-                    _redis.SortedSetAddAsync(RedisKey("blog:top_articles"), articleId, article.Views),
-                    realtimeNotifier.PushChangedAsync(articleId, "Restored", preview));
+                await RunSideEffectsSequentiallyAsync(
+                    () => searchProjector.ProjectAsync(article),
+                    () => articleDetailArtifacts.GenerateAndStoreAsync(articleId),
+                    () => QueuePublicHotUpdateAsync(articleId, "article-restored"),
+                    () => _redis.SortedSetAddAsync(RedisKey("blog:top_articles"), articleId, article.Views),
+                    () => realtimeNotifier.PushChangedAsync(articleId, "Restored", preview));
             },
             "article-restore-sync");
 
@@ -151,12 +153,12 @@ public sealed class ArticleMutationSideEffectCoordinator(
         => ExecuteAsync(
             async () =>
             {
-                await Task.WhenAll(
-                    searchProjector.DeleteAsync(articleId),
-                    articleDetailArtifacts.RemoveAsync(articleId),
-                    QueuePublicHotUpdateAsync(articleId, "article-permanently-deleted"),
-                    _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId),
-                    realtimeNotifier.PushChangedAsync(articleId, "Deleted"));
+                await RunSideEffectsSequentiallyAsync(
+                    () => searchProjector.DeleteAsync(articleId),
+                    () => articleDetailArtifacts.RemoveAsync(articleId),
+                    () => QueuePublicHotUpdateAsync(articleId, "article-permanently-deleted"),
+                    () => _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId),
+                    () => realtimeNotifier.PushChangedAsync(articleId, "Deleted"));
 
                 await assetCleanupPolicy.DeleteIllustrationsAsync(imageUrls, cancellationToken);
             },
@@ -171,16 +173,14 @@ public sealed class ArticleMutationSideEffectCoordinator(
             {
                 foreach (int[] chunk in articleIds.Chunk(128))
                 {
-                    var tasks = new List<Task>(chunk.Length * 3);
                     foreach (int articleId in chunk)
                     {
-                        tasks.Add(_redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId));
-                        tasks.Add(cache.RemoveAsync(CachePolicyId.ArticleDetail, articleId.ToString(), cancellationToken));
-                        tasks.Add(articleDetailArtifacts.RemoveAsync(articleId, cancellationToken));
-                        tasks.Add(searchProjector.DeleteAsync(articleId));
+                        await RunSideEffectsSequentiallyAsync(
+                            () => _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId),
+                            () => cache.RemoveAsync(CachePolicyId.ArticleDetail, articleId.ToString(), cancellationToken),
+                            () => articleDetailArtifacts.RemoveAsync(articleId, cancellationToken),
+                            () => searchProjector.DeleteAsync(articleId));
                     }
-
-                    await Task.WhenAll(tasks);
                 }
 
                 await QueuePublicHotUpdateAsync(null, "article-trash-cleared");
@@ -197,6 +197,48 @@ public sealed class ArticleMutationSideEffectCoordinator(
                 await assetCleanupPolicy.DeleteIllustrationsAsync(imageUrls, cancellationToken);
             },
             "article-clear-trash-sync");
+
+    public Task ReplayOutboxAsync(int articleId, string eventType, CancellationToken cancellationToken)
+        => ExecuteAsync(
+            async () =>
+            {
+                string normalized = eventType.Trim().ToLowerInvariant();
+                if (normalized is "deleted" or "permanently-deleted" or "trash-cleared")
+                {
+                    await RunSideEffectsSequentiallyAsync(
+                        () => searchProjector.DeleteAsync(articleId),
+                        () => articleDetailArtifacts.RemoveAsync(articleId, cancellationToken),
+                        () => QueuePublicHotUpdateAsync(articleId, $"outbox-{normalized}"),
+                        () => _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId),
+                        () => realtimeNotifier.PushChangedAsync(articleId, "Deleted"));
+                    return;
+                }
+
+                Article? article = await LoadArticleWithContentAsync(articleId);
+                if (article is null)
+                {
+                    await RunSideEffectsSequentiallyAsync(
+                        () => searchProjector.DeleteAsync(articleId),
+                        () => articleDetailArtifacts.RemoveAsync(articleId, cancellationToken),
+                        () => QueuePublicHotUpdateAsync(articleId, $"outbox-{normalized}"),
+                        () => _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId));
+                    return;
+                }
+
+                string action = normalized switch
+                {
+                    "created" => "Created",
+                    "restored" => "Restored",
+                    _ => "Updated"
+                };
+
+                await RunSideEffectsSequentiallyAsync(
+                    () => searchProjector.ProjectAsync(article),
+                    () => articleDetailArtifacts.GenerateAndStoreAsync(articleId, cancellationToken),
+                    () => QueuePublicHotUpdateAsync(articleId, $"outbox-{normalized}"),
+                    () => realtimeNotifier.PushChangedAsync(articleId, action));
+            },
+            $"article-outbox-replay:{articleId}:{eventType}");
 
     private async Task<Article?> LoadArticleWithContentAsync(int articleId)
     {
@@ -216,6 +258,14 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
     private Task ExecuteAsync(Func<Task> action, string operation)
         => BoundaryExecutor.ExecuteAsync(action, logger, operation, LogLevel.Error);
+
+    private static async Task RunSideEffectsSequentiallyAsync(params Func<Task>[] effects)
+    {
+        foreach (Func<Task> effect in effects)
+        {
+            await effect().ConfigureAwait(false);
+        }
+    }
 
     private string RedisKey(string key)
         => runtimeKeyScope.PrefixKey(key);

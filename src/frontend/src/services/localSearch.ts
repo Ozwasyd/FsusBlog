@@ -45,6 +45,7 @@ let loaded = false
 let loadedVersion: string | null = null
 let loadedEntries = new Map<string, Uint8Array>()
 let activeGeneration = 0
+let activeSearchController: AbortController | null = null
 let activeLoadController: AbortController | null = null
 let backgroundPreloadController: AbortController | null = null
 let runtimeReloadPromise: Promise<void> = Promise.resolve()
@@ -280,11 +281,33 @@ function createAbortError(message: string): Error {
   return new DOMException(message, 'AbortError')
 }
 
+function combineAbortSignals(...signals: Array<AbortSignal | undefined>): AbortSignal {
+  const activeSignals = signals.filter((signal): signal is AbortSignal => Boolean(signal))
+  if (activeSignals.length === 1) {
+    return activeSignals[0]
+  }
+
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+  for (const signal of activeSignals) {
+    if (signal.aborted) {
+      controller.abort()
+      break
+    }
+
+    signal.addEventListener('abort', abort, { once: true })
+  }
+
+  return controller.signal
+}
+
 function abortInFlightLoads(): void {
   activeLoadController?.abort()
   backgroundPreloadController?.abort()
+  activeSearchController?.abort()
   activeLoadController = null
   backgroundPreloadController = null
+  activeSearchController = null
 }
 
 function withCallerAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
@@ -343,7 +366,14 @@ async function reloadRuntimeFromEntries(entries: Map<string, Uint8Array>, genera
         return
       }
 
-      await loadSearchIndexIntoRuntime(buildSearchPackage(packageEntries))
+      await loadSearchIndexIntoRuntime(buildSearchPackage([]))
+      for (const entry of packageEntries) {
+        if (!isGenerationActive(generation, controller)) {
+          return
+        }
+
+        await loadSearchEntry(entry.kind, entry.role, entry.bytes)
+      }
     })
 
   await runtimeReloadPromise
@@ -499,17 +529,28 @@ export async function searchIndex(
   pageSize: number,
   signal?: AbortSignal
 ): Promise<PageResponse<ArticleListItemResponse>> {
-  await loadSearchIndex(signal)
-  if (signal?.aborted) {
+  activeSearchController?.abort()
+  const controller = new AbortController()
+  activeSearchController = controller
+  const effectiveSignal = combineAbortSignals(signal, controller.signal)
+
+  await loadSearchIndex(effectiveSignal)
+  if (effectiveSignal.aborted || activeSearchController !== controller) {
     throw new DOMException('The operation was aborted.', 'AbortError')
   }
 
-  const payload = await searchIndexBinary(query.trim(), sort, Math.max(1, page), Math.max(1, pageSize))
-  if (signal?.aborted) {
-    throw new DOMException('The operation was aborted.', 'AbortError')
-  }
+  try {
+    const payload = await searchIndexBinary(query.trim(), sort, Math.max(1, page), Math.max(1, pageSize), effectiveSignal)
+    if (effectiveSignal.aborted || activeSearchController !== controller) {
+      throw new DOMException('The operation was aborted.', 'AbortError')
+    }
 
-  return mapArticleSearchFromPodPayload(payload)
+    return mapArticleSearchFromPodPayload(payload)
+  } finally {
+    if (activeSearchController === controller) {
+      activeSearchController = null
+    }
+  }
 }
 
 export type { SearchSortMode }

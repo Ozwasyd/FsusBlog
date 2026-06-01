@@ -69,15 +69,15 @@ public sealed class PublicAotFileShellCache(
         }
 
         string registryKey = ResolveRegistryKey(prefix, out bool requiresPrefixFilter);
-        RedisValue[] keys = await SafeSetMembersAsync(registryKey).ConfigureAwait(false);
-        if (keys.Length == 0)
+        int removed = await RemoveRegisteredKeysAsync(registryKey, prefix, requiresPrefixFilter, cancellationToken).ConfigureAwait(false);
+        if (removed == 0)
         {
             if (!string.Equals(registryKey, PublicAotCacheRegistry.GlobalRegistryKey, StringComparison.Ordinal))
             {
-                keys = await SafeSetMembersAsync(PublicAotCacheRegistry.GlobalRegistryKey).ConfigureAwait(false);
+                removed = await RemoveRegisteredKeysAsync(PublicAotCacheRegistry.GlobalRegistryKey, prefix, requiresPrefixFilter: true, cancellationToken).ConfigureAwait(false);
             }
 
-            if (keys.Length == 0)
+            if (removed == 0)
             {
                 logger.LogWarning(
                     "public-aot-prefix-invalidation-registry-missing {Prefix}; skipped disk scan",
@@ -85,23 +85,6 @@ public sealed class PublicAotFileShellCache(
                 await PublishInvalidationAsync(prefix).ConfigureAwait(false);
                 return;
             }
-        }
-
-        foreach (RedisValue key in keys)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (key.IsNullOrEmpty)
-            {
-                continue;
-            }
-
-            string cacheKey = key.ToString();
-            if (requiresPrefixFilter && !cacheKey.StartsWith(prefix, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            await RemoveAsync(cacheKey, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -322,13 +305,39 @@ public sealed class PublicAotFileShellCache(
 
     internal static string ToHashForTests(string input) => ToHash(input);
 
-    private async Task<RedisValue[]> SafeSetMembersAsync(string registryKey)
+    private async Task<int> RemoveRegisteredKeysAsync(
+        string registryKey,
+        string prefix,
+        bool requiresPrefixFilter,
+        CancellationToken cancellationToken)
     {
-        return await BoundaryExecutor.ExecuteValueAsync(
-            () => _db.SetMembersAsync(registryKey),
-            _ => [],
-            logger,
-            $"public-aot-read-registry:{registryKey}");
+        int removed = 0;
+        try
+        {
+            foreach (RedisValue key in _db.SetScan(registryKey, pageSize: 256))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (key.IsNullOrEmpty)
+                {
+                    continue;
+                }
+
+                string cacheKey = key.ToString();
+                if (requiresPrefixFilter && !cacheKey.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                await RemoveAsync(cacheKey, cancellationToken).ConfigureAwait(false);
+                removed++;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "public-aot-read-registry-failed {RegistryKey}", registryKey);
+        }
+
+        return removed;
     }
 
     private async Task RegisterKeyAsync(string cacheKey)

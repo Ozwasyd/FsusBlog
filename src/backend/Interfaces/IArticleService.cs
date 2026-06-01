@@ -64,4 +64,11 @@ public interface IArticleService
     /// 高性能批量增加阅读量：按聚合计数减少后台写入往返
     /// </summary>
     ValueTask IncreaseViewCountAsync(int id, int count);
+
+    /// <summary>
+    /// 批量增加阅读量，并返回实际命中非删除文章的 id 集合。
+    /// </summary>
+    ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync(
+        IReadOnlyDictionary<int, int> articleCounts,
+        CancellationToken cancellationToken = default);
 }
