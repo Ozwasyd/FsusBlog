@@ -1013,7 +1013,7 @@ public sealed partial class SearchIndexService(
     }
 
     private static void EnumerateFieldTokens<TState>(
-        SearchDictionaryRuntime dictionary,
+        ISearchDictionaryLookup dictionary,
         string? text,
         SearchFieldKind field,
         Action<SearchToken, TState> consumer,
@@ -1744,7 +1744,7 @@ public sealed partial class SearchIndexService(
             "...");
     }
 
-    private static uint[] BuildRuntimeQueryHashes(string keyword)
+    private static uint[] BuildRuntimeQueryHashes(ISearchDictionaryLookup dictionary, string keyword)
     {
         string? normalized = NormalizeTokenForTests(keyword);
         if (normalized is null)
@@ -1752,55 +1752,31 @@ public sealed partial class SearchIndexService(
             return [];
         }
 
-        var hashes = new HashSet<uint> { HashTokenForTests(normalized) };
-        var segment = new StringBuilder(normalized.Length);
-        foreach (char ch in normalized)
-        {
-            if (IsCjk(ch))
-            {
-                FlushRuntimeQuerySegment(segment, hashes);
-                hashes.Add(HashTokenForTests(ch.ToString()));
-                continue;
-            }
+        var hashes = new HashSet<uint>();
+        EnumerateFieldTokens(
+            dictionary,
+            normalized,
+            SearchFieldKind.Body,
+            static (token, state) => state.Add(token.Hash),
+            hashes);
 
-            if (char.IsLetterOrDigit(ch))
-            {
-                segment.Append(char.ToLowerInvariant(ch));
-                continue;
-            }
-
-            FlushRuntimeQuerySegment(segment, hashes);
-        }
-
-        FlushRuntimeQuerySegment(segment, hashes);
         return [.. hashes];
     }
-
-    private static void FlushRuntimeQuerySegment(StringBuilder segment, HashSet<uint> hashes)
-    {
-        if (segment.Length == 0)
-        {
-            return;
-        }
-
-        hashes.Add(HashTokenForTests(segment.ToString()));
-        segment.Clear();
-    }
-
-    private static bool IsCjk(char ch)
-        => ch is >= '\u3400' and <= '\u9FFF';
 
     private sealed class SearchRuntimeSnapshot
     {
         private readonly FrozenDictionary<uint, SearchRuntimePosting[]> _postingsByHash;
         private readonly FrozenDictionary<int, SearchRuntimeDocument> _documentsById;
+        private readonly ISearchDictionaryLookup _queryDictionary;
 
         public SearchRuntimeSnapshot(
             FrozenDictionary<uint, SearchRuntimePosting[]> postingsByHash,
-            FrozenDictionary<int, SearchRuntimeDocument> documentsById)
+            FrozenDictionary<int, SearchRuntimeDocument> documentsById,
+            ISearchDictionaryLookup queryDictionary)
         {
             _postingsByHash = postingsByHash;
             _documentsById = documentsById;
+            _queryDictionary = queryDictionary;
         }
 
         public static SearchRuntimeSnapshot Build(List<SearchSourceArticle> articles, SearchDictionaryRuntime dictionary)
@@ -1811,12 +1787,12 @@ public sealed partial class SearchIndexService(
                 builder.AddArticle(article, dictionary);
             }
 
-            return builder.Build();
+            return builder.Build(dictionary.CreateSnapshot());
         }
 
         public List<Article> Search(string keyword)
         {
-            uint[] hashes = BuildRuntimeQueryHashes(keyword);
+            uint[] hashes = BuildRuntimeQueryHashes(_queryDictionary, keyword);
             if (hashes.Length == 0)
             {
                 return [];
@@ -1897,7 +1873,7 @@ public sealed partial class SearchIndexService(
             _documentsById = new Dictionary<int, SearchRuntimeDocument>(documentCount);
         }
 
-        public void AddArticle(SearchSourceArticle article, SearchDictionaryRuntime dictionary)
+        public void AddArticle(SearchSourceArticle article, ISearchDictionaryLookup dictionary)
         {
             _documentsById[article.Id] = new SearchRuntimeDocument(
                 article.Id,
@@ -1919,7 +1895,7 @@ public sealed partial class SearchIndexService(
             AddField(dictionary, article, article.Body, SearchFieldKind.Body, 2);
         }
 
-        public SearchRuntimeSnapshot Build()
+        public SearchRuntimeSnapshot Build(ISearchDictionaryLookup queryDictionary)
         {
             int documentCount = _documentsById.Count;
             double averageDocumentLength = documentCount == 0
@@ -1947,11 +1923,11 @@ public sealed partial class SearchIndexService(
                     })
                 .ToFrozenDictionary();
 
-            return new SearchRuntimeSnapshot(postings, _documentsById.ToFrozenDictionary());
+            return new SearchRuntimeSnapshot(postings, _documentsById.ToFrozenDictionary(), queryDictionary);
         }
 
         private void AddField(
-            SearchDictionaryRuntime dictionary,
+            ISearchDictionaryLookup dictionary,
             SearchSourceArticle article,
             string? text,
             SearchFieldKind field,
@@ -2346,6 +2322,44 @@ public sealed partial class SearchIndexService(
         }
     }
 
+    internal static uint[] RuntimeQueryHashesForTests(string sourceRoot, string keyword)
+    {
+        string lexiconPath = Path.Combine(sourceRoot, SearchLexiconBinaryFileName);
+        SearchDictionaryCompiler.CompileIfNeeded(sourceRoot, lexiconPath, NullLogger<SearchIndexService>.Instance);
+        using var dictionary = SearchDictionaryRuntime.Open(lexiconPath);
+        return BuildRuntimeQueryHashes(dictionary, keyword);
+    }
+
+    internal static int[] RuntimeSearchResultIdsForTests(string sourceRoot, string keyword, params SearchRuntimeTestArticle[] articles)
+    {
+        string lexiconPath = Path.Combine(sourceRoot, SearchLexiconBinaryFileName);
+        SearchDictionaryCompiler.CompileIfNeeded(sourceRoot, lexiconPath, NullLogger<SearchIndexService>.Instance);
+        using var dictionary = SearchDictionaryRuntime.Open(lexiconPath);
+        List<SearchSourceArticle> sources = articles
+            .Select(static article => new SearchSourceArticle
+            {
+                Id = article.Id,
+                Title = article.Title,
+                Summary = article.Summary,
+                Body = article.Body,
+                Views = article.Views,
+                CreateTime = article.CreateTime,
+                DocLength = Math.Max(1, article.Title.Length + article.Summary.Length + article.Body.Length)
+            })
+            .ToList();
+
+        SearchRuntimeSnapshot snapshot = SearchRuntimeSnapshot.Build(sources, dictionary);
+        return [.. snapshot.Search(keyword).Select(static article => article.Id)];
+    }
+
+    internal readonly record struct SearchRuntimeTestArticle(
+        int Id,
+        string Title,
+        string Summary,
+        string Body,
+        int Views,
+        DateTime CreateTime);
+
     internal readonly record struct SearchTokenDebugView(
         uint Hash,
         ulong Fingerprint,
@@ -2355,9 +2369,16 @@ public sealed partial class SearchIndexService(
         bool Stopword,
         bool KeepPositionsCandidate);
 
+    private interface ISearchDictionaryLookup
+    {
+        int CollectMatches(ReadOnlySpan<byte> source, Span<SearchDictionaryMatch> matches);
+        bool TryFindExactMatch(ReadOnlySpan<byte> source, out SearchDictionaryMatch match);
+        string ResolveUtf8(uint hash);
+    }
+
     private ref struct SearchTokenizer
     {
-        private readonly SearchDictionaryRuntime _dictionary;
+        private readonly ISearchDictionaryLookup _dictionary;
         private readonly SearchFieldKind _field;
         private ReadOnlySpan<byte> _source;
         private int _index;
@@ -2367,7 +2388,7 @@ public sealed partial class SearchIndexService(
         private int _queuedIndex;
         private int _queuedCount;
 
-        public SearchTokenizer(SearchDictionaryRuntime dictionary, SearchFieldKind field, ReadOnlySpan<byte> source)
+        public SearchTokenizer(ISearchDictionaryLookup dictionary, SearchFieldKind field, ReadOnlySpan<byte> source)
         {
             _dictionary = dictionary;
             _field = field;
@@ -2906,7 +2927,7 @@ public sealed partial class SearchIndexService(
         }
     }
 
-    private sealed unsafe class SearchDictionaryRuntime : IDisposable
+    private sealed unsafe class SearchDictionaryRuntime : ISearchDictionaryLookup, IDisposable
     {
         private readonly MemoryMappedFile _mmf;
         private readonly MemoryMappedViewAccessor _view;
@@ -3004,6 +3025,30 @@ public sealed partial class SearchIndexService(
                 mmf?.Dispose();
                 throw;
             }
+        }
+
+        public ISearchDictionaryLookup CreateSnapshot()
+        {
+            var prefixRanges = (PrefixRange[])_prefixRanges.Clone();
+            var entries = new LexiconEntry[_entries.Length];
+            int stringBytesLength = 0;
+            foreach (LexiconEntry entry in _entries)
+            {
+                stringBytesLength += entry.ByteLength;
+            }
+
+            var strings = new byte[stringBytesLength];
+            int stringOffset = 0;
+            for (int i = 0; i < _entries.Length; i++)
+            {
+                LexiconEntry entry = _entries[i];
+                ReadOnlySpan<byte> candidate = new(_basePtr + _stringsBaseOffset + entry.StringOffset, entry.ByteLength);
+                candidate.CopyTo(strings.AsSpan(stringOffset, entry.ByteLength));
+                entries[i] = entry with { StringOffset = (uint)stringOffset };
+                stringOffset += entry.ByteLength;
+            }
+
+            return new SearchDictionarySnapshot(prefixRanges, entries, strings);
         }
 
         public int CollectMatches(ReadOnlySpan<byte> source, Span<SearchDictionaryMatch> matches)
@@ -3112,6 +3157,91 @@ public sealed partial class SearchIndexService(
         private readonly record struct PrefixRange(uint Start, uint Count);
         private readonly record struct LexiconEntry(uint StringOffset, ushort ByteLength, uint Frequency, bool Stopword)
         { }
+
+        private sealed class SearchDictionarySnapshot(
+            PrefixRange[] prefixRanges,
+            LexiconEntry[] entries,
+            byte[] strings) : ISearchDictionaryLookup
+        {
+            public int CollectMatches(ReadOnlySpan<byte> source, Span<SearchDictionaryMatch> matches)
+            {
+                if (source.IsEmpty)
+                {
+                    return 0;
+                }
+
+                PrefixRange range = prefixRanges[source[0]];
+                if (range.Count == 0)
+                {
+                    return 0;
+                }
+
+                int count = 0;
+                for (uint i = range.Start; i < range.Start + range.Count; i++)
+                {
+                    LexiconEntry entry = entries[i];
+                    if (entry.ByteLength > source.Length)
+                    {
+                        continue;
+                    }
+
+                    ReadOnlySpan<byte> candidate = strings.AsSpan((int)entry.StringOffset, entry.ByteLength);
+                    if (!source[..entry.ByteLength].SequenceEqual(candidate))
+                    {
+                        continue;
+                    }
+
+                    if (count >= matches.Length)
+                    {
+                        break;
+                    }
+
+                    matches[count++] = new SearchDictionaryMatch(entry.ByteLength, CountRunes(candidate), entry.Frequency, entry.Stopword);
+                }
+
+                if (count > 1)
+                {
+                    matches[..count].Sort(static (left, right) =>
+                    {
+                        int byRunes = right.RuneLength.CompareTo(left.RuneLength);
+                        return byRunes != 0 ? byRunes : right.Frequency.CompareTo(left.Frequency);
+                    });
+                }
+
+                return count;
+            }
+
+            public bool TryFindExactMatch(ReadOnlySpan<byte> source, out SearchDictionaryMatch match)
+            {
+                Span<SearchDictionaryMatch> matches = stackalloc SearchDictionaryMatch[16];
+                int count = CollectMatches(source, matches);
+                for (int i = 0; i < count; i++)
+                {
+                    if (matches[i].ByteLength == source.Length)
+                    {
+                        match = matches[i];
+                        return true;
+                    }
+                }
+
+                match = default;
+                return false;
+            }
+
+            public string ResolveUtf8(uint hash)
+            {
+                foreach (LexiconEntry entry in entries)
+                {
+                    ReadOnlySpan<byte> candidate = strings.AsSpan((int)entry.StringOffset, entry.ByteLength);
+                    if (MurmurHash3.HashBytes(candidate) == hash)
+                    {
+                        return Encoding.UTF8.GetString(candidate);
+                    }
+                }
+
+                return hash.ToString(CultureInfo.InvariantCulture);
+            }
+        }
     }
 
     private readonly record struct SearchDictionaryMatch(int ByteLength, int RuneLength, uint Frequency, bool Stopword);

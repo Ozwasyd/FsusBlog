@@ -393,6 +393,114 @@ public sealed class SearchIndexServiceTests
         Assert.True(hasMachine);
     }
 
+    [Fact]
+    public void RuntimeQueryHashesForTests_ExactDictionaryTerm_UsesDocumentTokenizer()
+    {
+        string lexiconRoot = CreateLexiconRoot(
+            coreEntries:
+            [
+                "北京\t50",
+                "大学\t50",
+                "北京大学\t500",
+                "北京大\t10"
+            ]);
+
+        uint[] queryHashes = SearchIndexService.RuntimeQueryHashesForTests(lexiconRoot, "北京大学");
+        uint[] documentHashes = SearchIndexService.TokenizeForTests(lexiconRoot, "北京大学")
+            .Select(static token => token.Hash)
+            .Distinct()
+            .OrderBy(static hash => hash)
+            .ToArray();
+
+        Assert.Equal(documentHashes, queryHashes.OrderBy(static hash => hash).ToArray());
+        Assert.Contains(SearchIndexService.HashTokenForTests("北京大学"), queryHashes);
+        Assert.Contains(SearchIndexService.HashTokenForTests("北京"), queryHashes);
+        Assert.Contains(SearchIndexService.HashTokenForTests("大学"), queryHashes);
+    }
+
+    [Fact]
+    public void RuntimeQueryHashesForTests_PartialCjkQuery_UsesDictionaryTokenWhenAvailable()
+    {
+        string lexiconRoot = CreateLexiconRoot(
+            coreEntries:
+            [
+                "北京\t50",
+                "大学\t50",
+                "北京大学\t500"
+            ]);
+
+        uint[] queryHashes = SearchIndexService.RuntimeQueryHashesForTests(lexiconRoot, "北京");
+        uint[] documentHashes = SearchIndexService.TokenizeForTests(lexiconRoot, "北京")
+            .Select(static token => token.Hash)
+            .Distinct()
+            .OrderBy(static hash => hash)
+            .ToArray();
+
+        Assert.Equal(documentHashes, queryHashes.OrderBy(static hash => hash).ToArray());
+        Assert.Contains(SearchIndexService.HashTokenForTests("北京"), queryHashes);
+    }
+
+    [Fact]
+    public void RuntimeQueryHashesForTests_MixedCjkAsciiQuery_PreservesAsciiCompatibility()
+    {
+        string lexiconRoot = CreateLexiconRoot(coreEntries: ["学习\t50"]);
+
+        uint[] queryHashes = SearchIndexService.RuntimeQueryHashesForTests(lexiconRoot, "Machine学习");
+        uint[] documentHashes = SearchIndexService.TokenizeForTests(lexiconRoot, "Machine学习")
+            .Select(static token => token.Hash)
+            .Distinct()
+            .OrderBy(static hash => hash)
+            .ToArray();
+
+        Assert.Equal(documentHashes, queryHashes.OrderBy(static hash => hash).ToArray());
+        Assert.Contains(SearchIndexService.HashTokenForTests("machine"), queryHashes);
+        Assert.Contains(SearchIndexService.HashTokenForTests("学习"), queryHashes);
+    }
+
+    [Fact]
+    public void RuntimeQueryHashesForTests_PunctuationAndWhitespace_StaysAlignedWithDocumentTokenizer()
+    {
+        string lexiconRoot = CreateLexiconRoot(coreEntries: ["北京\t50", "大学\t50", "学习\t50"]);
+
+        const string query = "  北京, 大学\t学习!! ";
+        uint[] queryHashes = SearchIndexService.RuntimeQueryHashesForTests(lexiconRoot, query);
+        uint[] documentHashes = SearchIndexService.TokenizeForTests(lexiconRoot, query)
+            .Select(static token => token.Hash)
+            .Distinct()
+            .OrderBy(static hash => hash)
+            .ToArray();
+
+        Assert.Equal(documentHashes, queryHashes.OrderBy(static hash => hash).ToArray());
+        Assert.Contains(SearchIndexService.HashTokenForTests("北京"), queryHashes);
+        Assert.Contains(SearchIndexService.HashTokenForTests("大学"), queryHashes);
+        Assert.Contains(SearchIndexService.HashTokenForTests("学习"), queryHashes);
+    }
+
+    [Fact]
+    public void RuntimeSearchResultIdsForTests_ExactCjkDictionaryMatch_RanksAboveLooseUnigramMatches()
+    {
+        string lexiconRoot = CreateLexiconRoot(
+            coreEntries:
+            [
+                "北京\t50",
+                "大学\t50",
+                "北京大学\t500"
+            ]);
+        var createdAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        int[] resultIds = SearchIndexService.RuntimeSearchResultIdsForTests(
+            lexiconRoot,
+            "北京大学",
+            new SearchIndexService.SearchRuntimeTestArticle(1, "北京大学", "", "", 1, createdAt),
+            new SearchIndexService.SearchRuntimeTestArticle(2, "北京 大学", "", "", 1000, createdAt.AddMinutes(1)),
+            new SearchIndexService.SearchRuntimeTestArticle(3, "北京", "", "", 2000, createdAt.AddMinutes(2)));
+
+        Assert.NotEmpty(resultIds);
+        Assert.Equal(1, resultIds[0]);
+        Assert.Contains(2, resultIds);
+        Assert.Contains(3, resultIds);
+    }
+
     // ── Private static helpers via reflection ──────────────────────────────────
 
     private static T InvokePrivateStatic<T>(string methodName, object?[] args)
