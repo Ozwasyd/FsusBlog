@@ -6,6 +6,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Services;

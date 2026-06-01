@@ -186,7 +186,7 @@ public class BackgroundWorkflowSourceTests
     public void UploadSessionCleanup_SourceRunsInBackgroundWorker()
     {
         string fileService = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/FileService.cs"));
-        string worker = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/UploadSessionCleanupWorker.cs"));
+        string worker = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/Background/UploadSessionCleanupWorker.cs"));
 
         Assert.DoesNotContain("await CleanupExpiredSessionsAsync(cancellationToken);", fileService, StringComparison.Ordinal);
         Assert.Contains("RequestUploadSessionCleanup()", fileService, StringComparison.Ordinal);

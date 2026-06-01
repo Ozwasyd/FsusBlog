@@ -1,6 +1,6 @@
 using System.Threading.Channels;
 
-namespace FsusBlog.Server.Services;
+namespace FsusBlog.Server.Services.Background;
 
 public sealed class UploadSessionCleanupQueue
 {
