@@ -1,0 +1,648 @@
+{
+  "version": "fsusblog-backend-test-governance-v1",
+  "issue": 40,
+  "profiles": [
+    {
+      "id": "backend-api-integration",
+      "command": "./tools/test.sh backend-api-integration",
+      "risk": "critical",
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-WEBAPPLICATIONFACTORY"
+      ],
+      "evidencePaths": [
+        "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+        "tests/frontend/checks/runtime/api-contract-matrix.mjs"
+      ]
+    },
+    {
+      "id": "backend-auth-state-machine",
+      "command": "./tools/test.sh backend-auth-state-machine",
+      "risk": "critical",
+      "requirements": [
+        "BACKEND-AUTH-STATE-MACHINE",
+        "BACKEND-SECURITY-MATRIX"
+      ],
+      "evidencePaths": [
+        "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+        "tools/security/check-security-matrices.mjs"
+      ]
+    },
+    {
+      "id": "backend-concurrency",
+      "command": "./tools/test.sh backend-concurrency",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-CONCURRENCY-RACES",
+        "BACKEND-IDEMPOTENCY"
+      ],
+      "evidencePaths": [
+        "tests/backend/Unit/BackendConcurrencyModelTests.cs"
+      ]
+    },
+    {
+      "id": "backend-property",
+      "command": "./tools/test.sh backend-property",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-PROPERTY-TESTING",
+        "BACKEND-AEDS-POD-PROPERTIES",
+        "BACKEND-CACHE-KEY-PROPERTIES"
+      ],
+      "evidencePaths": [
+        "tests/backend/Unit/BackendPropertyTests.cs"
+      ]
+    },
+    {
+      "id": "backend-golden",
+      "command": "./tools/test.sh backend-golden",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-AEDS-GOLDEN",
+        "BACKEND-GOLDEN-GOVERNANCE",
+        "BACKEND-ERROR-FRAMES"
+      ],
+      "evidencePaths": [
+        "tests/backend/Fixtures/aeds-golden-catalog.json",
+        "tests/backend/Unit/BackendGoldenCatalogTests.cs",
+        "tests/backend/Unit/PodBinaryCodecTests.cs"
+      ]
+    },
+    {
+      "id": "backend-test-governance",
+      "command": "./tools/test.sh backend-test-governance",
+      "risk": "critical",
+      "requirements": [
+        "BACKEND-TRACEABILITY",
+        "BACKEND-TEST-IMPACT",
+        "BACKEND-FLAKY-GOVERNANCE",
+        "BACKEND-TIME-BUDGETS"
+      ],
+      "evidencePaths": [
+        "tools/check-backend-test-governance.mjs",
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tests/matrix.yml"
+      ]
+    },
+    {
+      "id": "backend-perf",
+      "command": "./tools/test.sh backend-perf",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-PERF-BENCHMARKS",
+        "BACKEND-LOAD-STRESS-CAPACITY"
+      ],
+      "evidencePaths": [
+        "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+        "benchmarks/core/Program.cs"
+      ]
+    },
+    {
+      "id": "backend-mutation",
+      "command": "./tools/test.sh backend-mutation",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-MUTATION-TESTING"
+      ],
+      "evidencePaths": [
+        "dotnet-tools.json",
+        "stryker-config.json"
+      ]
+    },
+    {
+      "id": "backend-chaos",
+      "command": "./tools/test.sh backend-chaos",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-REDIS-DB-FAULTS",
+        "BACKEND-CHAOS-TESTING",
+        "BACKEND-SOAK-TESTING"
+      ],
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tools/check-backend-test-governance.mjs"
+      ]
+    },
+    {
+      "id": "backend-nightly",
+      "command": "./tools/test.sh backend-nightly",
+      "risk": "critical",
+      "requirements": [
+        "BACKEND-NIGHTLY-EXHAUSTIVE",
+        "BACKEND-BACKUP-RESTORE",
+        "BACKEND-CONTRACT-FUZZ"
+      ],
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tools/check-backend-test-governance.mjs",
+        "stryker-config.json"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "BACKEND-ENDPOINT-HTTP-PIPELINE",
+      "risk": "critical",
+      "coverage": "anonymous-user-admin endpoint matrix, binary status and AEDS error consistency",
+      "evidencePaths": [
+        "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+        "tests/frontend/checks/runtime/api-contract-matrix.mjs"
+      ]
+    },
+    {
+      "id": "BACKEND-ENDPOINT-AUTH-MATRIX",
+      "risk": "critical",
+      "coverage": "anonymous/user/admin success, auth failure, permission failure, validation failure",
+      "evidencePaths": [
+        "tests/backend/Unit/EndpointPolicyContractTests.cs",
+        "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+        "tests/frontend/checks/security/check-permission-matrix.mjs"
+      ]
+    },
+    {
+      "id": "BACKEND-WEBAPPLICATIONFACTORY",
+      "risk": "high",
+      "coverage": "real ASP.NET Core pipeline, middleware order, filter order, response headers",
+      "evidencePaths": [
+        "tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs",
+        "tests/backend/Unit/BackendApiIntegrationContractTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-AUTH-STATE-MACHINE",
+      "risk": "critical",
+      "coverage": "PoW, login, MFA, recovery code, passkey, refresh, revoke, banned/deleted transitions",
+      "evidencePaths": [
+        "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+        "tests/backend/Unit/JwtHelperTests.cs",
+        "tests/backend/Unit/PasskeyServiceTests.cs",
+        "tests/backend/Unit/TotpServiceTests.cs",
+        "tests/backend/Unit/RedisPowServiceTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-CONCURRENCY-RACES",
+      "risk": "high",
+      "coverage": "refresh/logout, recovery code, passkey limit, publish/cache, comment/message/SSE/upload races",
+      "evidencePaths": [
+        "tests/backend/Unit/BackendConcurrencyModelTests.cs",
+        "tests/backend/Unit/DbConcurrencyGateTests.cs",
+        "tests/backend/Integration/SchemaMigrationIntegrationTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-TRANSACTIONS",
+      "risk": "high",
+      "coverage": "rollback, commit-before-invalidation, unique/foreign conflicts, migration locks",
+      "evidencePaths": [
+        "tests/backend/Unit/TransactionSideEffectGuardTests.cs",
+        "tests/backend/Integration/SchemaMigrationIntegrationTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-REDIS-DB-FAULTS",
+      "risk": "high",
+      "coverage": "Redis timeout/unavailable/reconnect, L1/L2 coherence, stampede, DB reset/deadlock policy",
+      "evidencePaths": [
+        "tests/backend/Unit/UnifiedCacheTests.cs",
+        "tests/backend/Unit/CacheMissCoordinatorTests.cs",
+        "tests/backend/Unit/RedisPowServiceTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-AEDS-GOLDEN",
+      "risk": "high",
+      "coverage": "all AedsFrameType entries have cataloged golden family and codec evidence",
+      "evidencePaths": [
+        "tests/backend/Fixtures/aeds-golden-catalog.json",
+        "tests/backend/Unit/BackendGoldenCatalogTests.cs",
+        "tests/backend/Unit/PodBinaryCodecTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-AEDS-POD-PROPERTIES",
+      "risk": "high",
+      "coverage": "AEDS round trip, truncation, bit flip, malformed frame and POD boundary properties",
+      "evidencePaths": [
+        "tests/backend/Unit/BackendPropertyTests.cs",
+        "tests/backend/Unit/AedsEncoderTests.cs",
+        "tests/backend/Unit/PodValidationTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-CACHE-KEY-PROPERTIES",
+      "risk": "medium",
+      "coverage": "determinism, namespace separation, bounded public AOT keys",
+      "evidencePaths": [
+        "tests/backend/Unit/BackendPropertyTests.cs",
+        "tests/backend/Unit/PodTimeCodecAndCacheKeyTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-PROPERTY-TESTING",
+      "risk": "high",
+      "coverage": "seeded deterministic property tier for protocols, cache, permissions, upload ranges",
+      "evidencePaths": [
+        "tests/backend/Unit/BackendPropertyTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-MUTATION-TESTING",
+      "risk": "high",
+      "coverage": "Stryker.NET config for core/security/binary/cache/authoring/upload/SSE mutation targets",
+      "evidencePaths": [
+        "dotnet-tools.json",
+        "stryker-config.json"
+      ]
+    },
+    {
+      "id": "BACKEND-PERF-BENCHMARKS",
+      "risk": "high",
+      "coverage": "BenchmarkDotNet backend evidence for AEDS, public read path, search, cache, auth, upload, SSE",
+      "evidencePaths": [
+        "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+        "benchmarks/core/Program.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-SECURITY-MATRIX",
+      "risk": "critical",
+      "coverage": "admin-only, binary endpoint auth, banned/deleted, MFA partial token, replay, CORS, oversized bodies",
+      "evidencePaths": [
+        "tools/security/check-security-matrices.mjs",
+        "tests/frontend/checks/security/check-permission-matrix.mjs",
+        "tests/backend/Unit/BackendAuthStateMachineTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-AUDIT-GOLDEN",
+      "risk": "medium",
+      "coverage": "audit payload stability and no password/token/secret leakage",
+      "evidencePaths": [
+        "tests/backend/Unit/AuditLogEventMapperTests.cs",
+        "tests/backend/Unit/AuditAndNormalizerTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-OBSERVABILITY-PRIVACY",
+      "risk": "medium",
+      "coverage": "trace id, metric whitelist, PII-free logs/metrics/RUM ingestion",
+      "evidencePaths": [
+        "tests/backend/Unit/ObservabilityTests.cs",
+        "tests/backend/Unit/RumTelemetryServiceTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-MIGRATION-FAILURE-DRILLS",
+      "risk": "high",
+      "coverage": "partial failure, idempotency, malformed legacy data, migration locks and history monotonicity",
+      "evidencePaths": [
+        "tests/backend/Unit/SchemaMigrationRegistryTests.cs",
+        "tests/backend/Integration/SchemaMigrationIntegrationTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-BACKUP-RESTORE",
+      "risk": "medium",
+      "coverage": "backup/restore drill, corrupt backup rejection, version mismatch policy",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json"
+      ]
+    },
+    {
+      "id": "BACKEND-UPLOAD-ASSETS",
+      "risk": "high",
+      "coverage": "MIME mismatch, content sniffing, huge/zero-byte, dedupe, orphan cleanup, path traversal",
+      "evidencePaths": [
+        "tests/backend/Unit/FileServiceTests.cs",
+        "tests/backend/Unit/BackendConcurrencyModelTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-MESSAGES",
+      "risk": "high",
+      "coverage": "participant state, unread count, admin broadcast, revoke, closed conversation, SSE recipient targeting",
+      "evidencePaths": [
+        "tests/backend/Unit/MessageCenterServiceTests.cs",
+        "tests/backend/Unit/BackendConcurrencyModelTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-COMMENT-MODERATION",
+      "risk": "high",
+      "coverage": "pending, approve, reject, restore, batch transition, hit reasons, content filter side effects",
+      "evidencePaths": [
+        "tests/backend/Unit/CommentServiceValidationTests.cs",
+        "tests/backend/Unit/ContentFilterServiceTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-SCHEDULED-PUBLISH",
+      "risk": "high",
+      "coverage": "due/future/archived/deleted scheduled article, idempotent worker, cache/search/AOT invalidation",
+      "evidencePaths": [
+        "tests/backend/Unit/ScheduledPublishWorkerTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-FAKE-CLOCK",
+      "risk": "medium",
+      "coverage": "token, refresh, session, scheduled publish, cache TTL, PoW, upload expiry without sleeps",
+      "evidencePaths": [
+        "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+        "tests/backend/Unit/ScheduledPublishWorkerTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-ERROR-FRAMES",
+      "risk": "high",
+      "coverage": "validation, unauthorized, forbidden, not found, conflict, PoW, MFA, banned/deleted, protocol, exception",
+      "evidencePaths": [
+        "tests/backend/Unit/GlobalExceptionMiddlewareTests.cs",
+        "tests/backend/Unit/InfraHelperTests.cs",
+        "tests/backend/Unit/BackendGoldenCatalogTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-IDEMPOTENCY",
+      "risk": "medium",
+      "coverage": "upload complete, delete/restore article, logout, mark-read, cache invalidation, migration, draft save",
+      "evidencePaths": [
+        "tests/backend/Unit/BackendConcurrencyModelTests.cs",
+        "tests/backend/Unit/SchemaMigrationRegistryTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-CONTRACT-FUZZ",
+      "risk": "medium",
+      "coverage": "malformed AEDS, wrong content-type, oversized/slow body, invalid UTF-8, path traversal, JWT/cookie fuzz",
+      "evidencePaths": [
+        "tests/backend/Unit/AedsEncoderTests.cs",
+        "tests/frontend/checks/security/check-security-attack-matrix.mjs"
+      ]
+    },
+    {
+      "id": "BACKEND-CHAOS-TESTING",
+      "risk": "medium",
+      "coverage": "Redis kill/restart, PostgreSQL reset/deadlock, disk full, SSE slow consumer, clock skew",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tests/backend/Unit/SseConnectionManagerTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-SOAK-TESTING",
+      "risk": "medium",
+      "coverage": "long run mixed read/write, continuous SSE, upload churn, Redis cache churn, search rebuild churn",
+      "evidencePaths": [
+        "TODO.md",
+        "tests/backend/Fixtures/backend-test-requirements.json"
+      ]
+    },
+    {
+      "id": "BACKEND-LOAD-STRESS-CAPACITY",
+      "risk": "medium",
+      "coverage": "load-smoke, stress, capacity, soak distinction with evidence history",
+      "evidencePaths": [
+        "tests/frontend/checks/load/check-load-public-api.mjs",
+        "tests/frontend/checks/load/check-sse-pressure.mjs",
+        "benchmarks/core/FsusBlog.Core.Benchmarks.csproj"
+      ]
+    },
+    {
+      "id": "BACKEND-DATA-SCALE",
+      "risk": "medium",
+      "coverage": "small/medium/large article/comment/search/cache/admin/migration synthetic scale tiers",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "benchmarks/core/FsusBlog.Core.Benchmarks.csproj"
+      ]
+    },
+    {
+      "id": "BACKEND-GOLDEN-GOVERNANCE",
+      "risk": "medium",
+      "coverage": "AEDS, API error, audit, SEO/AOT, feed/sitemap, search manifest, migration schema golden versioning",
+      "evidencePaths": [
+        "tests/backend/Fixtures/aeds-golden-catalog.json",
+        "tests/backend/Unit/BackendGoldenCatalogTests.cs"
+      ]
+    },
+    {
+      "id": "BACKEND-TEST-IMPACT",
+      "risk": "medium",
+      "coverage": "changed file to affected backend tests mapping",
+      "evidencePaths": [
+        "tools/dotnet-affected-tests.sh",
+        "tests/backend/Fixtures/backend-test-requirements.json"
+      ]
+    },
+    {
+      "id": "BACKEND-NIGHTLY-EXHAUSTIVE",
+      "risk": "high",
+      "coverage": "mutation, high-seed property, stress/capacity, chaos, soak, full Docker integration, backup/restore, fuzz",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "stryker-config.json"
+      ]
+    },
+    {
+      "id": "BACKEND-TRACEABILITY",
+      "risk": "critical",
+      "coverage": "test matrix maps high-risk backend requirements to commands, evidence, owner, risk and coverage",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tests/matrix.yml",
+        "tools/check-backend-test-governance.mjs"
+      ]
+    },
+    {
+      "id": "BACKEND-FLAKY-GOVERNANCE",
+      "risk": "medium",
+      "coverage": "quarantine owner, expiry, retry evidence and failure signature",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json"
+      ]
+    },
+    {
+      "id": "BACKEND-TIME-BUDGETS",
+      "risk": "medium",
+      "coverage": "fast, integration, security, resilience, load, production, property and mutation time budgets",
+      "evidencePaths": [
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tests/matrix.yml"
+      ]
+    }
+  ],
+  "endpointFamilies": [
+    {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-AUDIT-GOLDEN"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/DistributionEndpoints.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-OBSERVABILITY-PRIVACY"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/PublicAotEndpoints.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-GOLDEN-GOVERNANCE"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/ReadProofEndpoints.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-SECURITY-MATRIX"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/SubscriptionEndpoints.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-OBSERVABILITY-PRIVACY"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/TelemetryEndpoints.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-OBSERVABILITY-PRIVACY"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs",
+      "requirements": [
+        "BACKEND-AEDS-GOLDEN",
+        "BACKEND-ENDPOINT-AUTH-MATRIX"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SECURITY-MATRIX"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SCHEDULED-PUBLISH",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+      "requirements": [
+        "BACKEND-AUTH-STATE-MACHINE",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+      "requirements": [
+        "BACKEND-COMMENT-MODERATION",
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Files.cs",
+      "requirements": [
+        "BACKEND-UPLOAD-ASSETS",
+        "BACKEND-ENDPOINT-AUTH-MATRIX"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs",
+      "requirements": [
+        "BACKEND-MESSAGES",
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Stats.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-AUDIT-GOLDEN",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+      "requirements": [
+        "BACKEND-UPLOAD-ASSETS",
+        "BACKEND-IDEMPOTENCY",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    }
+  ],
+  "timeBudgets": [
+    {
+      "tier": "fast",
+      "budget": "30s"
+    },
+    {
+      "tier": "integration",
+      "budget": "3min"
+    },
+    {
+      "tier": "security",
+      "budget": "10min"
+    },
+    {
+      "tier": "resilience",
+      "budget": "8min"
+    },
+    {
+      "tier": "load-smoke",
+      "budget": "20min"
+    },
+    {
+      "tier": "production",
+      "budget": "60min"
+    },
+    {
+      "tier": "backend-property",
+      "budget": "2min"
+    },
+    {
+      "tier": "backend-mutation",
+      "budget": "nightly-only"
+    }
+  ],
+  "flakyGovernance": {
+    "quarantineList": ".tmp/flaky/backend-quarantine.json",
+    "requiredFields": [
+      "owner",
+      "expiryDate",
+      "failureSignature",
+      "retryCount",
+      "evidence"
+    ]
+  }
+}

@@ -15,6 +15,13 @@
         "dotnet-coverage"
       ],
       "rollForward": false
+    },
+    "dotnet-stryker": {
+      "version": "4.14.2",
+      "commands": [
+        "dotnet-stryker"
+      ],
+      "rollForward": false
     }
   }
 }

@@ -191,11 +191,67 @@ bootstrap_acceptance_env() {
 }
 
 run_fast_backend_lane() {
+  run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
   run "$BUILD_ENV_RUNNER" dotnet build "$ROOT_DIR/FsusBlog.slnx" -c Debug -warnaserror -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
   if [[ "${FSUSBLOG_TEST_SELECTION:-}" == "affected" ]]; then
     run "$ROOT_DIR/tools/dotnet-affected-tests.sh"
   else
     run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --no-build --filter "Category!=Integration"
+  fi
+}
+
+run_backend_dotnet_filter_only() {
+  local filter="$1"
+  run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --filter "$filter"
+}
+
+run_backend_api_integration_only() {
+  run_backend_dotnet_filter_only "Category=ApiIntegration"
+}
+
+run_backend_auth_state_machine_only() {
+  run_backend_dotnet_filter_only "Category=SecurityStateMachine"
+}
+
+run_backend_concurrency_only() {
+  run_backend_dotnet_filter_only "Category=Concurrency"
+}
+
+run_backend_property_only() {
+  run_backend_dotnet_filter_only "Category=Property"
+}
+
+run_backend_golden_only() {
+  run_backend_dotnet_filter_only "Category=GoldenContract"
+}
+
+run_backend_test_governance_only() {
+  run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
+}
+
+run_backend_perf_only() {
+  run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
+  run "$BUILD_ENV_RUNNER" dotnet build "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" -c Release -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
+}
+
+run_backend_mutation_only() {
+  run dotnet tool restore
+  run dotnet tool run dotnet-stryker --config-file "$ROOT_DIR/stryker-config.json"
+}
+
+run_backend_chaos_only() {
+  run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
+  run_backend_dotnet_filter_only "Category=Concurrency"
+}
+
+run_backend_nightly_only() {
+  run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
+  run_backend_dotnet_filter_only "Category=Property|Category=GoldenContract|Category=Concurrency|Category=SecurityStateMachine|Category=ApiIntegration"
+  run_backend_perf_only
+  if [[ "${FSUSBLOG_RUN_BACKEND_MUTATION_FULL:-0}" == "1" ]]; then
+    run_backend_mutation_only
+  else
+    log "skip backend mutation full run (set FSUSBLOG_RUN_BACKEND_MUTATION_FULL=1)"
   fi
 }
 
@@ -566,7 +622,7 @@ run_production() {
 
 usage() {
   cat <<'EOF'
-Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|resilience|load|production>
+Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|resilience|load|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-chaos|backend-nightly>
 
 Tiers:
   fast         Static and local-only validation; no running services required.
@@ -585,6 +641,16 @@ Tiers:
   resilience   Runtime/upload/search resilience gate.
   load         Lightweight public/API concurrency gate.
   production   Industrial release gate; runs fast, bootstraps once, then runs integration + release + acceptance + visual + security + resilience + load. Set FSUSBLOG_SKIP_VISUAL_GATE=1 only with FSUSBLOG_VISUAL_SKIP_REASON, FSUSBLOG_VISUAL_SKIP_APPROVER, FSUSBLOG_VISUAL_SKIP_IMPACT and FSUSBLOG_VISUAL_SKIP_RERUN_URL.
+  backend-api-integration       Backend endpoint/API matrix contract tier.
+  backend-auth-state-machine    Backend auth/MFA/PoW/session state-machine tier.
+  backend-concurrency           Backend deterministic race/idempotency tier.
+  backend-property              Backend property-based protocol/cache/upload tier.
+  backend-golden                Backend AEDS/POD golden catalog tier.
+  backend-test-governance       Backend traceability/profile/static governance tier.
+  backend-perf                  Backend BenchmarkDotNet build/readiness tier.
+  backend-mutation              Backend Stryker.NET mutation tier.
+  backend-chaos                 Backend deterministic fault/concurrency readiness tier.
+  backend-nightly               Backend exhaustive nightly readiness tier. Set FSUSBLOG_RUN_BACKEND_MUTATION_FULL=1 to include full mutation.
 EOF
 }
 
@@ -650,6 +716,46 @@ main() {
     production)
       CURRENT_TIER="production"
       run_production
+      ;;
+    backend-api-integration)
+      CURRENT_TIER="backend-api-integration"
+      run_tier "backend-api-integration" run_backend_api_integration_only
+      ;;
+    backend-auth-state-machine)
+      CURRENT_TIER="backend-auth-state-machine"
+      run_tier "backend-auth-state-machine" run_backend_auth_state_machine_only
+      ;;
+    backend-concurrency)
+      CURRENT_TIER="backend-concurrency"
+      run_tier "backend-concurrency" run_backend_concurrency_only
+      ;;
+    backend-property)
+      CURRENT_TIER="backend-property"
+      run_tier "backend-property" run_backend_property_only
+      ;;
+    backend-golden)
+      CURRENT_TIER="backend-golden"
+      run_tier "backend-golden" run_backend_golden_only
+      ;;
+    backend-test-governance)
+      CURRENT_TIER="backend-test-governance"
+      run_tier "backend-test-governance" run_backend_test_governance_only
+      ;;
+    backend-perf)
+      CURRENT_TIER="backend-perf"
+      run_tier "backend-perf" run_backend_perf_only
+      ;;
+    backend-mutation)
+      CURRENT_TIER="backend-mutation"
+      run_tier "backend-mutation" run_backend_mutation_only
+      ;;
+    backend-chaos)
+      CURRENT_TIER="backend-chaos"
+      run_tier "backend-chaos" run_backend_chaos_only
+      ;;
+    backend-nightly)
+      CURRENT_TIER="backend-nightly"
+      run_tier "backend-nightly" run_backend_nightly_only
       ;;
     -h|--help|help|'')
       usage

@@ -9,6 +9,96 @@ tiers:
     risk: high
     coverage: frontend-unit-property-model-static backend-unit
 
+  - id: backend-api-integration
+    owner: ServerContractAgent
+    command: ./tools/test.sh backend-api-integration
+    script: tools/test.sh
+    evidence: tests/backend/Fixtures/backend-test-requirements.json
+    requirements: BACKEND-ENDPOINT-HTTP-PIPELINE BACKEND-ENDPOINT-AUTH-MATRIX BACKEND-WEBAPPLICATIONFACTORY
+    risk: critical
+    coverage: backend-endpoint-api-contract
+
+  - id: backend-auth-state-machine
+    owner: ServerContractAgent
+    command: ./tools/test.sh backend-auth-state-machine
+    script: tools/test.sh
+    evidence: tests/backend/Unit/BackendAuthStateMachineTests.cs
+    requirements: BACKEND-AUTH-STATE-MACHINE BACKEND-SECURITY-MATRIX
+    risk: critical
+    coverage: backend-auth-mfa-pow-session-state-machine
+
+  - id: backend-concurrency
+    owner: ServerContractAgent
+    command: ./tools/test.sh backend-concurrency
+    script: tools/test.sh
+    evidence: tests/backend/Unit/BackendConcurrencyModelTests.cs
+    requirements: BACKEND-CONCURRENCY-RACES BACKEND-IDEMPOTENCY
+    risk: high
+    coverage: backend-race-idempotency-model
+
+  - id: backend-property
+    owner: ServerContractAgent
+    command: ./tools/test.sh backend-property
+    script: tools/test.sh
+    evidence: tests/backend/Unit/BackendPropertyTests.cs
+    requirements: BACKEND-PROPERTY-TESTING BACKEND-AEDS-POD-PROPERTIES BACKEND-CACHE-KEY-PROPERTIES
+    risk: high
+    coverage: backend-property-protocol-cache-upload
+
+  - id: backend-golden
+    owner: ServerContractAgent
+    command: ./tools/test.sh backend-golden
+    script: tools/test.sh
+    evidence: tests/backend/Fixtures/aeds-golden-catalog.json
+    requirements: BACKEND-AEDS-GOLDEN BACKEND-GOLDEN-GOVERNANCE BACKEND-ERROR-FRAMES
+    risk: high
+    coverage: backend-aeds-pod-golden
+
+  - id: backend-test-governance
+    owner: ServerContractAgent
+    command: ./tools/test.sh backend-test-governance
+    script: tools/test.sh
+    evidence: tests/backend/Fixtures/backend-test-requirements.json
+    requirements: BACKEND-TRACEABILITY BACKEND-TEST-IMPACT BACKEND-FLAKY-GOVERNANCE BACKEND-TIME-BUDGETS
+    risk: critical
+    coverage: backend-test-governance-static
+
+  - id: backend-perf
+    owner: ServerContractAgent
+    command: ./tools/test.sh backend-perf
+    script: tools/test.sh
+    evidence: benchmarks/core
+    requirements: BACKEND-PERF-BENCHMARKS BACKEND-LOAD-STRESS-CAPACITY
+    risk: high
+    coverage: backend-benchmarkdotnet-readiness
+
+  - id: backend-mutation
+    owner: ServerContractAgent
+    command: ./tools/test.sh backend-mutation
+    script: tools/test.sh
+    evidence: .tmp/mutation/backend
+    requirements: BACKEND-MUTATION-TESTING
+    risk: high
+    coverage: backend-stryker-core-security-binary-cache
+
+  - id: backend-chaos
+    owner: ServerContractAgent
+    command: ./tools/test.sh backend-chaos
+    script: tools/test.sh
+    evidence: tests/backend/Fixtures/backend-test-requirements.json
+    requirements: BACKEND-REDIS-DB-FAULTS BACKEND-CHAOS-TESTING BACKEND-SOAK-TESTING
+    risk: high
+    coverage: backend-fault-race-readiness
+
+  - id: backend-nightly
+    owner: ServerContractAgent
+    command: ./tools/test.sh backend-nightly
+    script: tools/test.sh
+    evidence: tests/backend/Fixtures/backend-test-requirements.json
+    requirements: BACKEND-NIGHTLY-EXHAUSTIVE BACKEND-BACKUP-RESTORE BACKEND-CONTRACT-FUZZ
+    risk: critical
+    coverage: backend-exhaustive-nightly-readiness
+
   - id: integration
     owner: ServerContractAgent
     command: ./tools/test.sh integration

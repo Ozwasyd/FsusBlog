@@ -42,6 +42,34 @@ All test classes must live under `Unit/` or `Integration/`.
   - One-shot hard coverage gate.
   - Runs `coverage-backend + coverage-frontend + coverage-merge + coverage-threshold`.
   - Enforces both merged and backend-only thresholds.
+- `./tools/test.sh backend-api-integration`
+  - Runs backend endpoint/API contract tests via `Category=ApiIntegration`.
+  - Guards endpoint family traceability and binary `AedsFrameType` coverage.
+- `./tools/test.sh backend-auth-state-machine`
+  - Runs backend auth/MFA/PoW/session state-machine tests via `Category=SecurityStateMachine`.
+  - Must cover legal transitions and illegal partial-auth/revoked/expired transitions.
+- `./tools/test.sh backend-concurrency`
+  - Runs deterministic race/idempotency model tests via `Category=Concurrency`.
+  - Use barriers/latches; do not use `Thread.Sleep` as the ordering mechanism.
+- `./tools/test.sh backend-property`
+  - Runs seeded backend property tests via `Category=Property`.
+  - Covers protocol, cache-key and upload-range invariants with reproducible samples.
+- `./tools/test.sh backend-golden`
+  - Runs backend golden catalog tests via `Category=GoldenContract`.
+  - `tests/backend/Fixtures/aeds-golden-catalog.json` must match `AedsFrameType`.
+- `./tools/test.sh backend-test-governance`
+  - Runs `tools/check-backend-test-governance.mjs`.
+  - Validates issue #40 profile, requirement, endpoint, FrameType, mutation and matrix traceability.
+- `./tools/test.sh backend-perf`
+  - Validates backend performance readiness by building the BenchmarkDotNet project in Release.
+- `./tools/test.sh backend-mutation`
+  - Runs Stryker.NET with `stryker-config.json`.
+  - This tier is intended for nightly/manual evidence, not the default fast gate.
+- `./tools/test.sh backend-chaos`
+  - Runs backend governance plus deterministic concurrency/fault-readiness tests.
+- `./tools/test.sh backend-nightly`
+  - Runs backend governance, property, golden, concurrency, auth/API contract and perf readiness.
+  - Set `FSUSBLOG_RUN_BACKEND_MUTATION_FULL=1` to include the full mutation run.
 - `./tools/test.sh release`
   - Requires release preview at `8080`.
   - Covers public hydration / SEO / AOT preview checks.
