@@ -34,6 +34,7 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260418-post-messaging-split", migrationIds);
         Assert.Contains("20260418-post-user-soft-delete", migrationIds);
         Assert.Contains("20260418-post-user-session-finalize", migrationIds);
+        Assert.Contains("20260602-post-user-auth-security-hardening", migrationIds);
         Assert.Contains("20260418-post-audit-log", migrationIds);
         Assert.Contains("20260518-pre-single-author-article-lifecycle", migrationIds);
         Assert.Contains("20260518-post-authoring-workspace-tables", migrationIds);

@@ -242,13 +242,13 @@ public class TotpServiceTests
     }
 
     [Fact]
-    public void GenerateRecoveryCodes_AllCodesHaveLength10()
+    public void GenerateRecoveryCodes_AllCodesHave128BitGroupedHex()
     {
         var svc = MakeService();
         var codes = svc.GenerateRecoveryCodes(8);
         foreach (var code in codes)
         {
-            Assert.Equal(10, code.Length);
+            Assert.Matches("^[0-9A-F]{4}(-[0-9A-F]{4}){7}$", code);
         }
     }
 
@@ -261,7 +261,7 @@ public class TotpServiceTests
         {
             foreach (char c in code)
             {
-                Assert.True(c is >= '0' and <= '9' or >= 'A' and <= 'F',
+                Assert.True(c is >= '0' and <= '9' or >= 'A' and <= 'F' or '-',
                     $"Code '{code}' contains invalid character '{c}'");
             }
         }
@@ -305,12 +305,12 @@ public class TotpServiceTests
     }
 
     [Fact]
-    public void HashRecoveryCodes_Deterministic()
+    public void HashRecoveryCodes_UsesPerCodeSalt()
     {
         var svc = MakeService();
         var r1 = svc.HashRecoveryCodes(["ABCD1234EF"]);
         var r2 = svc.HashRecoveryCodes(["ABCD1234EF"]);
-        Assert.Equal(r1, r2);
+        Assert.NotEqual(r1, r2);
     }
 
     [Fact]
@@ -323,17 +323,11 @@ public class TotpServiceTests
     }
 
     [Fact]
-    public void HashRecoveryCodes_HashesAreUpperHex()
+    public void HashRecoveryCodes_HashesUseVersionedSlowHashFormat()
     {
         var svc = MakeService();
         var result = svc.HashRecoveryCodes(["TESTCODE01"]);
-        // SHA-256 produces 32 bytes = 64 hex chars
-        Assert.Equal(64, result.Length);
-        foreach (char c in result)
-        {
-            Assert.True(c is >= '0' and <= '9' or >= 'A' and <= 'F',
-                $"Hash contains invalid char '{c}'");
-        }
+        Assert.Matches("^v2\\$pbkdf2-sha256\\$100000\\$[0-9A-F]{32}\\$[0-9A-F]{64}$", result);
     }
 
     // ── TryConsumeRecoveryCode ────────────────────────────────────────────────
@@ -420,6 +414,18 @@ public class TotpServiceTests
         var hashes = svc.HashRecoveryCodes(["ABCDEF1234"]);
         var result = svc.TryConsumeRecoveryCode(hashes, "abcdef1234", out _);
         Assert.True(result);
+    }
+
+    [Fact]
+    public void TryConsumeRecoveryCode_LegacySha256Hash_CanBeConsumedOnce()
+    {
+        var svc = MakeService();
+        string legacyHash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("ABCDEF1234")));
+
+        var result = svc.TryConsumeRecoveryCode(legacyHash, "abcdef1234", out var updatedHashes);
+
+        Assert.True(result);
+        Assert.Equal(string.Empty, updatedHashes);
     }
 
     [Fact]

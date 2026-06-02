@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
+using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Audit;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -21,14 +23,18 @@ public interface IMfaChallengeService
     Task<MfaChallengeTicket> CreateActionChallengeAsync(int userId, string action, bool riskTriggered);
     Task<MfaChallengeTicket?> GetChallengeAsync(string ticketId);
     Task ConsumeChallengeAsync(string ticketId);
+    Task<bool> RecordFailureAsync(MfaChallengeTicket ticket, string clientIp, string? userAgent);
     Task<string> CreateProofTokenAsync(int userId, string action, TimeSpan ttl);
     Task<bool> ValidateAndConsumeProofTokenAsync(int userId, string action, string token);
 }
 
-public sealed class MfaChallengeService(IUnifiedCache cache) : IMfaChallengeService
+public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChallengeService> logger) : IMfaChallengeService
 {
     private const uint TicketMagic = 0x41464D46; // FMFA
     private const byte TicketVersion = 1;
+    private const int MaxTicketFailures = 5;
+    private const int MaxUserWindowFailures = 10;
+    private const int MaxIpWindowFailures = 25;
 
     public Task<MfaChallengeTicket> CreateLoginChallengeAsync(int userId, bool riskTriggered, bool rememberMe)
         => CreateAsync(userId, "login", "login", riskTriggered, rememberMe, TimeSpan.FromMinutes(5));
@@ -54,6 +60,42 @@ public sealed class MfaChallengeService(IUnifiedCache cache) : IMfaChallengeServ
 
     public Task ConsumeChallengeAsync(string ticketId)
         => cache.RemoveAsync(CachePolicyId.SecurityMfaChallenge, ticketId);
+
+    public async Task<bool> RecordFailureAsync(MfaChallengeTicket ticket, string clientIp, string? userAgent)
+    {
+        string ticketIdentity = $"fail:ticket:{ticket.TicketId}";
+        string userIdentity = $"fail:user:{ticket.UserId}";
+        string ipIdentity = $"fail:ip:{HashIdentity(clientIp)}";
+        long ticketFailures = await cache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, ticketIdentity);
+        long userFailures = await cache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, userIdentity);
+        long ipFailures = await cache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, ipIdentity);
+
+        bool locked = ticketFailures >= MaxTicketFailures ||
+            userFailures >= MaxUserWindowFailures ||
+            ipFailures >= MaxIpWindowFailures;
+
+        using var _ = AuditLogScope.Push(
+            AuditSourceCatalog.Auth,
+            AuditTypeCatalog.Security,
+            new KeyValuePair<string, object?>("AuditAction", locked ? "mfa_challenge_locked" : "mfa_challenge_failed"),
+            new KeyValuePair<string, object?>("UserId", ticket.UserId),
+            new KeyValuePair<string, object?>("TicketHash", HashIdentity(ticket.TicketId)),
+            new KeyValuePair<string, object?>("ClientIpHash", HashIdentity(clientIp)),
+            new KeyValuePair<string, object?>("UserAgentHash", HashIdentity(userAgent ?? string.Empty)),
+            new KeyValuePair<string, object?>("TicketFailures", ticketFailures));
+        logger.LogWarning(
+            "MFA challenge verification failed. UserId={UserId} TicketHash={TicketHash} Locked={Locked}",
+            ticket.UserId,
+            HashIdentity(ticket.TicketId),
+            locked);
+
+        if (locked)
+        {
+            await ConsumeChallengeAsync(ticket.TicketId);
+        }
+
+        return locked;
+    }
 
     public async Task<string> CreateProofTokenAsync(int userId, string action, TimeSpan ttl)
     {
@@ -201,6 +243,9 @@ public sealed class MfaChallengeService(IUnifiedCache cache) : IMfaChallengeServ
             .TrimEnd('=')
             .Replace('+', '-')
             .Replace('/', '_');
+
+    private static string HashIdentity(string value)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value.Trim())))[..32];
 
     private static byte[] Base64UrlDecode(string value)
     {

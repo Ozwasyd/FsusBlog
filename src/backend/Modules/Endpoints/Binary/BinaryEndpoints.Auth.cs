@@ -209,8 +209,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
             }
 
-            UserAccountSnapshot? user = await users.GetAccountByIdAsync(userId);
-            authCookieService.SetTokenCookies(httpContext, env, newToken.Value.AccessToken, newToken.Value.RefreshToken, user?.RefreshTokenExpiryTime ?? DateTime.UtcNow.AddDays(7));
+            authCookieService.SetAccessTokenCookie(httpContext, env, newToken.Value.AccessToken);
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireRateLimiting("fixed_ip")
@@ -352,18 +351,44 @@ public static partial class BinaryEndpoints
         group.MapPost("/auth/mfa/setup/start", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserMfaCommandService mfaCommands,
+            IUserAccountReader users,
             ISystemService systemService,
             IAedsEncoder aeds) =>
         {
             int userId = httpContext.User.GetUserId();
+            string? password = null;
+            string? code = null;
+            string? recoveryCode = null;
+            UserAccountSnapshot? account = await users.GetAccountByIdAsync(userId);
+            if (account?.MfaEnabled == true)
+            {
+                var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest, httpContext.RequestAborted);
+                if (!payload.IsSuccess)
+                {
+                    return BinaryResults.FromError(payload.Error, aeds);
+                }
+
+                if (!PodBinaryCodec.TryDecodeMfaPasswordProofRequest(payload.Payload, out var proof) ||
+                    string.IsNullOrWhiteSpace(proof.Password))
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 重新绑定需要当前密码和验证码"), aeds, StatusCodes.Status428PreconditionRequired);
+                }
+
+                password = proof.Password;
+                code = proof.Code;
+                recoveryCode = proof.RecoveryCode;
+            }
+
             var site = await systemService.GetSeoConfigAsync();
             string issuer = string.IsNullOrWhiteSpace(site.Title) ? "FsusBlog" : site.Title;
-            var result = await mfaCommands.StartMfaSetupAsync(userId, issuer);
+            var result = await mfaCommands.StartMfaSetupAsync(userId, issuer, password, code, recoveryCode);
             return result.Success && result.Data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.MfaSetupStart, writer => PodBinaryCodec.WriteMfaSetupStart(result.Data.Value, writer))
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds);
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, StatusCodes.Status428PreconditionRequired);
         })
-        .RequireAuthorization();
+        .RequireRateLimiting("fixed_ip")
+        .RequireAuthorization()
+        .RequireNoStoreResponse();
 
         group.MapGet("/auth/mfa/profile", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -527,7 +552,13 @@ public static partial class BinaryEndpoints
             bool verified = await loginWorkflow.VerifyMfaOrRecoveryCodeAsync(ticket.UserId, request.Code, request.RecoveryCode, persistRecoveryConsumption: true);
             if (!verified)
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "验证码无效"), aeds);
+                bool locked = await challengeService.RecordFailureAsync(
+                    ticket,
+                    httpContext.GetClientIp(),
+                    httpContext.Request.Headers.UserAgent.ToString());
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Unauthorized, locked ? "MFA_CHALLENGE_LOCKED" : "MFA_CHALLENGE_INVALID"),
+                    aeds);
             }
 
             await challengeService.ConsumeChallengeAsync(ticket.TicketId);
@@ -546,7 +577,7 @@ public static partial class BinaryEndpoints
                     return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "LOGIN_FINALIZE_FAILED"), aeds);
                 }
 
-                authCookieService.SetTokenCookies(httpContext, env, login.Data.Value.AccessToken, login.Data.Value.RefreshToken, login.User.Value.RefreshTokenExpiryTime ?? DateTime.UtcNow.AddDays(7));
+                authCookieService.SetTokenCookies(httpContext, env, login.Data.Value.AccessToken, login.Data.Value.RefreshToken, login.Data.Value.RefreshTokenExpiresAt);
                 var loginResult = new MfaChallengeResultDto(
                     true,
                     "login",
@@ -560,6 +591,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(result, writer));
         })
         .AllowAnonymous()
+        .RequireRateLimiting("fixed_ip")
         .RequireNoStoreResponse();
 
         group.MapPost("/auth/refresh-token", static async Task<BinaryFrameResult> (
@@ -743,7 +775,7 @@ public static partial class BinaryEndpoints
                 env,
                 login.Data.Value.AccessToken,
                 login.Data.Value.RefreshToken,
-                login.User.Value.RefreshTokenExpiryTime ?? DateTime.UtcNow.AddDays(7));
+                login.Data.Value.RefreshTokenExpiresAt);
             var flow = new AuthLoginFlowDto(
                 new AuthIdentitySnapshotDto(login.User.Value.Id, login.User.Value.Username, login.User.Value.Role.ToLowerInvariant()),
                 "authenticated",

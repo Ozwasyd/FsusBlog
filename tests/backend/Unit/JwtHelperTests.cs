@@ -187,8 +187,8 @@ public sealed class JwtHelperTests
     public void GenerateRefreshToken_IsBase64UrlSafe()
     {
         string token = CreateHelper().GenerateRefreshToken();
-        // All remaining characters must be alphanumeric (base64url without padding)
-        Assert.Matches("^[A-Za-z0-9]*$", token);
+        Assert.Equal(43, token.Length);
+        Assert.Matches("^[A-Za-z0-9_-]*$", token);
     }
 
     // ─── helpers ──────────────────────────────────────────────────────────

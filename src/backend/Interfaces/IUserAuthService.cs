@@ -14,7 +14,7 @@ public interface IUserAuthService
     Task<User?> GetByUsernameAsync(string username);
     Task<(bool Success, string Message, TokenResponseDto? Data)> UpdateUsernameAsync(int userId, string newUsername);
     Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto);
-    Task<(bool Success, string Message, TokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync(
+    Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync(
         User user,
         string clientIp,
         string? deviceFingerprint,
@@ -25,7 +25,12 @@ public interface IUserAuthService
     Task<List<UserSessionSummaryDto>> GetUserSessionsAsync(int userId, string? currentSessionId);
     Task<bool> RevokeSessionAsync(int userId, string sessionId, string reason = "manual_revoke");
     Task<int> RevokeOtherSessionsAsync(int userId, string? currentSessionId);
-    Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(int userId, string issuer);
+    Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(
+        int userId,
+        string issuer,
+        string? password = null,
+        string? code = null,
+        string? recoveryCode = null);
     Task<MfaProfileDto?> GetMfaProfileAsync(int userId);
     Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> VerifyMfaSetupAsync(int userId, string code);
     Task<(bool Success, string Message)> DisableMfaAsync(int userId, string password, string? code, string? recoveryCode);

@@ -123,7 +123,7 @@ public partial class UserService(
             : (false, "注册失败，请稍后重试");
     }
 
-    public async Task<(bool Success, string Message, TokenResponseDto? Data, User? UserEntity)> LoginAsync(LoginDto dto, string clientIp)
+    public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> LoginAsync(LoginDto dto, string clientIp)
     {
         var check = await ValidateCredentialsAsync(dto, clientIp);
         if (!check.Success || check.User == null)
@@ -215,7 +215,7 @@ public partial class UserService(
             .ExecuteCommandAsync();
 
         user.Username = normalizedUsername;
-        return (true, "修改成功", new TokenResponseDto(_jwtHelper.GenerateAccessToken(user), user.RefreshToken ?? string.Empty));
+        return (true, "修改成功", new TokenResponseDto(_jwtHelper.GenerateAccessToken(user), string.Empty));
     }
 
     public async Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto)
@@ -241,14 +241,34 @@ public partial class UserService(
 
         string newHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
 
-        var success = await _db.Updateable<User>()
-            .SetColumns(u => u.Password == newHash)
-            .SetColumns(u => u.RefreshToken == null)
-            .SetColumns(u => u.RefreshTokenExpiryTime == null)
-            .Where(u => u.Id == userId)
-            .ExecuteCommandAsync() > 0;
+        DateTime revokedAt = DateTime.UtcNow;
+        var tran = await _db.Ado.UseTranAsync(async () =>
+        {
+            await _db.Updateable<User>()
+                .SetColumns(u => u.Password == newHash)
+                .Where(u => u.Id == userId)
+                .ExecuteCommandAsync();
 
-        return success ? (true, "密码修改成功") : (false, "操作失败");
+            await _db.Updateable<UserSession>()
+                .SetColumns(s => s.RevokedAt == revokedAt)
+                .SetColumns(s => s.RevokeReason == "password_changed")
+                .Where(s => s.UserId == userId && s.RevokedAt == null)
+                .ExecuteCommandAsync();
+        });
+
+        if (!tran.IsSuccess)
+        {
+            _logger.LogError(tran.ErrorException, "Password change transaction failed for user {UserId}", userId);
+            return (false, "操作失败");
+        }
+
+        using var _ = AuditLogScope.Push(
+            AuditSourceCatalog.Auth,
+            AuditTypeCatalog.Security,
+            new KeyValuePair<string, object?>("AuditAction", "password_changed"),
+            new KeyValuePair<string, object?>("UserId", userId),
+            new KeyValuePair<string, object?>("SessionsRevoked", true));
+        return (true, "密码修改成功");
     }
 
     public async Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken)
@@ -267,13 +287,7 @@ public partial class UserService(
             .Where(s => s.RefreshTokenHash == hash && s.RevokedAt == null)
             .ExecuteCommandAsync();
 
-        int userUpdated = await _db.Updateable<User>()
-            .SetColumns(it => it.RefreshToken == null)
-            .SetColumns(it => it.RefreshTokenExpiryTime == null)
-            .Where(it => it.RefreshToken == refreshToken)
-            .ExecuteCommandAsync();
-
-        return sessionUpdated > 0 || userUpdated > 0;
+        return sessionUpdated > 0;
     }
 
     public async Task<PageResult<UserListDto>> GetAdminUserListAsync(UserQueryDto dto)
@@ -348,6 +362,11 @@ public partial class UserService(
 
     public async Task<(bool Success, string Message)> AdminChangeStatusAsync(AdminChangeStatusDto dto)
     {
+        if (dto.Status is not (UserStatusNormal or UserStatusBanned))
+        {
+            return (false, "管理员接口只允许封禁或解封用户");
+        }
+
         var user = await _db.Queryable<User>().InSingleAsync(dto.UserId);
         if (user == null) return (false, "用户不存在");
         if (user.Role == "admin") return (false, "无法封禁管理员账号");
@@ -385,8 +404,6 @@ public partial class UserService(
 
         await _db.Updateable<User>()
                  .SetColumns(u => u.Password == newHash)
-                 .SetColumns(u => u.RefreshToken == null)
-                 .SetColumns(u => u.RefreshTokenExpiryTime == null)
                  .Where(u => u.Id == dto.UserId)
                  .ExecuteCommandAsync();
 
@@ -402,7 +419,7 @@ public partial class UserService(
         return (true, "密码已重置，用户已强制登出");
     }
 
-    public async Task<(bool Success, string Message, TokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync(
+    public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync(
         User user,
         string clientIp,
         string? deviceFingerprint,
@@ -452,16 +469,12 @@ public partial class UserService(
         await _db.Insertable(session).ExecuteCommandAsync();
 
         await _db.Updateable<User>()
-            .SetColumns(it => it.RefreshToken == refreshToken)
-            .SetColumns(it => it.RefreshTokenExpiryTime == idleExpiresAt)
             .SetColumns(it => it.LastLoginTime == now)
             .SetColumns(it => it.LastLoginIp == clientIp)
             .Where(it => it.Id == user.Id)
             .ExecuteCommandAsync();
 
-        user.RefreshToken = refreshToken;
-        user.RefreshTokenExpiryTime = idleExpiresAt;
-        return (true, "登录成功", new TokenResponseDto(accessToken, refreshToken), user);
+        return (true, "登录成功", new SessionTokenResponseDto(accessToken, refreshToken, idleExpiresAt), user);
     }
 
     public async Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken)
@@ -566,8 +579,9 @@ public partial class UserService(
         }
 
         string hash = HashToken(refreshToken);
+        DateTime now = DateTime.UtcNow;
         var query = _db.Queryable<UserSession>()
-            .Where(s => s.RefreshTokenHash == hash && s.RevokedAt == null && s.IdleExpiresAt > DateTime.UtcNow && s.AbsoluteExpiresAt > DateTime.UtcNow);
+            .Where(s => s.RefreshTokenHash == hash && s.RevokedAt == null && s.IdleExpiresAt > now && s.AbsoluteExpiresAt > now);
         if (!string.IsNullOrWhiteSpace(sessionId))
         {
             query = query.Where(s => s.SessionId == sessionId);
@@ -576,6 +590,11 @@ public partial class UserService(
         var session = await query.FirstAsync();
         if (session == null)
         {
+            if (!string.IsNullOrWhiteSpace(sessionId))
+            {
+                await RevokeLikelyRefreshReplayAsync(sessionId, hash);
+            }
+
             using var _ = AuditLogScope.Push(
                 AuditSourceCatalog.Auth,
                 AuditTypeCatalog.Security,
@@ -593,30 +612,46 @@ public partial class UserService(
 
         string newRefreshToken = _jwtHelper.GenerateRefreshToken();
         string newRefreshHash = HashToken(newRefreshToken);
-        DateTime idleExpiresAt = DateTime.UtcNow.Add(ResolveIdleSessionTtl(session.RememberMe));
+        DateTime idleExpiresAt = now.Add(ResolveIdleSessionTtl(session.RememberMe));
         if (idleExpiresAt > session.AbsoluteExpiresAt)
         {
             idleExpiresAt = session.AbsoluteExpiresAt;
         }
         string accessToken = _jwtHelper.GenerateAccessToken(user, session.SessionId, session.MfaVerified);
 
-        await _db.Updateable<UserSession>()
+        int rotated = await _db.Updateable<UserSession>()
             .SetColumns(s => s.RefreshTokenHash == newRefreshHash)
-            .SetColumns(s => s.LastSeenAt == DateTime.UtcNow)
+            .SetColumns(s => s.LastSeenAt == now)
             .SetColumns(s => s.IdleExpiresAt == idleExpiresAt)
-            .Where(s => s.SessionId == session.SessionId)
+            .Where(s => s.SessionId == session.SessionId
+                && s.RefreshTokenHash == hash
+                && s.RevokedAt == null
+                && s.IdleExpiresAt > now
+                && s.AbsoluteExpiresAt > now)
             .ExecuteCommandAsync();
 
-        await _db.Updateable<User>()
-            .SetColumns(u => u.RefreshToken == newRefreshToken)
-            .SetColumns(u => u.RefreshTokenExpiryTime == idleExpiresAt)
-            .Where(u => u.Id == user.Id)
-            .ExecuteCommandAsync();
+        if (rotated != 1)
+        {
+            await RevokeLikelyRefreshReplayAsync(session.SessionId, hash);
+            using var _ = AuditLogScope.Push(
+                AuditSourceCatalog.Auth,
+                AuditTypeCatalog.Security,
+                new KeyValuePair<string, object?>("AuditAction", "refresh_token_reuse_detected"),
+                new KeyValuePair<string, object?>("SessionId", session.SessionId),
+                new KeyValuePair<string, object?>("UserId", session.UserId));
+            LogRefreshTokenReuseDetected(session.SessionId, session.UserId);
+            return (false, null);
+        }
 
         return (true, new TokenResponseDto(accessToken, newRefreshToken));
     }
 
-    public async Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(int userId, string issuer)
+    public async Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(
+        int userId,
+        string issuer,
+        string? password = null,
+        string? code = null,
+        string? recoveryCode = null)
     {
         var user = await _db.Queryable<User>().InSingleAsync(userId);
         if (user == null)
@@ -624,19 +659,40 @@ public partial class UserService(
             return (false, null, "用户不存在");
         }
 
+        if (user.MfaEnabled)
+        {
+            if (string.IsNullOrWhiteSpace(password) || !BCrypt.Net.BCrypt.Verify(password, user.Password))
+            {
+                return (false, null, "MFA_REBIND_PASSWORD_REQUIRED");
+            }
+
+            bool stepUpPassed = await VerifyMfaOrRecoveryCodeAsync(user, code, recoveryCode, persistRecoveryConsumption: true);
+            if (!stepUpPassed)
+            {
+                return (false, null, "MFA_REBIND_STEP_UP_REQUIRED");
+            }
+        }
+
         string secret = _totpService.GenerateSecret();
         string protectedSecret = _totpService.ProtectSecret(secret);
         string account = user.Username;
         string otpAuthUrl = _totpService.BuildOtpAuthUri(issuer, account, secret);
 
-        // 未验证前先写临时 secret，验证成功后才启用
+        DateTime now = DateTime.UtcNow;
         await _db.Updateable<User>()
-            .SetColumns(u => u.MfaSecretEncrypted == protectedSecret)
-            .SetColumns(u => u.MfaEnabled == false)
+            .SetColumns(u => u.MfaPendingSecretEncrypted == protectedSecret)
+            .SetColumns(u => u.MfaPendingCreatedAt == now)
             .Where(u => u.Id == userId)
             .ExecuteCommandAsync();
 
-        return (true, new MfaSetupStartDto(false, secret, otpAuthUrl, issuer, account), "MFA_SETUP_STARTED");
+        using var _ = AuditLogScope.Push(
+            AuditSourceCatalog.Auth,
+            AuditTypeCatalog.Security,
+            new KeyValuePair<string, object?>("AuditAction", "mfa_setup_started"),
+            new KeyValuePair<string, object?>("UserId", userId),
+            new KeyValuePair<string, object?>("Rebind", user.MfaEnabled));
+
+        return (true, new MfaSetupStartDto(user.MfaEnabled, secret, otpAuthUrl, issuer, account), "MFA_SETUP_STARTED");
     }
 
     public async Task<(bool Success, string Message)> DeleteAccountAsync(int userId, DeleteAccountRequestDto dto)
@@ -692,10 +748,10 @@ public partial class UserService(
                 .SetColumns(u => u.Status == UserStatusDeleted)
                 .SetColumns(u => u.Username == anonymizedUsername)
                 .SetColumns(u => u.Password == replacementPassword)
-                .SetColumns(u => u.RefreshToken == null)
-                .SetColumns(u => u.RefreshTokenExpiryTime == null)
                 .SetColumns(u => u.MfaEnabled == false)
                 .SetColumns(u => u.MfaSecretEncrypted == null)
+                .SetColumns(u => u.MfaPendingSecretEncrypted == null)
+                .SetColumns(u => u.MfaPendingCreatedAt == null)
                 .SetColumns(u => u.MfaRecoveryCodesHash == null)
                 .SetColumns(u => u.RiskFlags == 0)
                 .SetColumns(u => u.BanReason == null)
@@ -741,13 +797,23 @@ public partial class UserService(
     public async Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> VerifyMfaSetupAsync(int userId, string code)
     {
         var user = await _db.Queryable<User>().InSingleAsync(userId);
-        if (user == null || string.IsNullOrWhiteSpace(user.MfaSecretEncrypted))
+        if (user == null || string.IsNullOrWhiteSpace(user.MfaPendingSecretEncrypted))
         {
             return (false, null, "MFA_SETUP_NOT_STARTED");
         }
 
+        if (user.MfaPendingCreatedAt is null || DateTime.UtcNow - user.MfaPendingCreatedAt.Value > TimeSpan.FromMinutes(10))
+        {
+            await _db.Updateable<User>()
+                .SetColumns(u => u.MfaPendingSecretEncrypted == null)
+                .SetColumns(u => u.MfaPendingCreatedAt == null)
+                .Where(u => u.Id == userId)
+                .ExecuteCommandAsync();
+            return (false, null, "MFA_SETUP_EXPIRED");
+        }
+
         Result<string> secretResult = BoundaryExecutor.ExecuteResult(
-            () => _totpService.UnprotectSecret(user.MfaSecretEncrypted),
+            () => _totpService.UnprotectSecret(user.MfaPendingSecretEncrypted),
             _ => ErrorDetail.Create(ErrorCode.Validation, "MFA_SECRET_INVALID"),
             _logger,
             $"mfa-verify-setup:{userId}");
@@ -766,9 +832,12 @@ public partial class UserService(
         string recoveryHashes = _totpService.HashRecoveryCodes(recoveryCodes);
 
         await _db.Updateable<User>()
+            .SetColumns(u => u.MfaSecretEncrypted == user.MfaPendingSecretEncrypted)
             .SetColumns(u => u.MfaEnabled == true)
             .SetColumns(u => u.MfaVerifiedAt == DateTime.UtcNow)
             .SetColumns(u => u.MfaRecoveryCodesHash == recoveryHashes)
+            .SetColumns(u => u.MfaPendingSecretEncrypted == null)
+            .SetColumns(u => u.MfaPendingCreatedAt == null)
             .Where(u => u.Id == userId)
             .ExecuteCommandAsync();
 
@@ -806,6 +875,8 @@ public partial class UserService(
         await _db.Updateable<User>()
             .SetColumns(u => u.MfaEnabled == false)
             .SetColumns(u => u.MfaSecretEncrypted == null)
+            .SetColumns(u => u.MfaPendingSecretEncrypted == null)
+            .SetColumns(u => u.MfaPendingCreatedAt == null)
             .SetColumns(u => u.MfaRecoveryCodesHash == null)
             .Where(u => u.Id == userId)
             .ExecuteCommandAsync();
@@ -861,6 +932,8 @@ public partial class UserService(
         return await _db.Updateable<User>()
             .SetColumns(u => u.MfaEnabled == false)
             .SetColumns(u => u.MfaSecretEncrypted == null)
+            .SetColumns(u => u.MfaPendingSecretEncrypted == null)
+            .SetColumns(u => u.MfaPendingCreatedAt == null)
             .SetColumns(u => u.MfaRecoveryCodesHash == null)
             .SetColumns(u => u.MfaVerifiedAt == null)
             .Where(u => u.Id == userId)
@@ -908,6 +981,27 @@ public partial class UserService(
         }
 
         return false;
+    }
+
+    private async Task RevokeLikelyRefreshReplayAsync(string sessionId, string staleHash)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return;
+        }
+
+        UserSession? candidate = await _db.Queryable<UserSession>()
+            .FirstAsync(s => s.SessionId == sessionId && s.RevokedAt == null);
+        if (candidate == null || string.Equals(candidate.RefreshTokenHash, staleHash, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        await _db.Updateable<UserSession>()
+            .SetColumns(s => s.RevokedAt == DateTime.UtcNow)
+            .SetColumns(s => s.RevokeReason == "refresh_token_reuse")
+            .Where(s => s.SessionId == sessionId && s.RevokedAt == null)
+            .ExecuteCommandAsync();
     }
 
     public Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent)
@@ -1000,4 +1094,7 @@ public partial class UserService(
 
     [LoggerMessage(EventId = 6, Level = LogLevel.Error, Message = "后台异步消息推送失败")]
     private partial void LogBackgroundTaskError(Exception ex);
+
+    [LoggerMessage(EventId = 7, Level = LogLevel.Warning, Message = "检测到刷新令牌重放 | SessionId: {SessionId} | UserId: {UserId}")]
+    private partial void LogRefreshTokenReuseDetected(string sessionId, int userId);
 }

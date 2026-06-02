@@ -15,7 +15,7 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
         return result.IsSuccess ? (true, "注册成功") : (false, result.Error.Message);
     }
 
-    public async Task<(bool Success, string Message, TokenResponseDto? Data, User? UserEntity)> LoginAsync(LoginDto dto, string clientIp)
+    public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> LoginAsync(LoginDto dto, string clientIp)
     {
         var result = await core.LoginAsync(dto.Username, dto.Password, clientIp);
         if (!result.IsSuccess)
@@ -23,7 +23,10 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
             return (false, result.Error.Message, null, null);
         }
 
-        var token = new TokenResponseDto(result.Value.Token.AccessToken, result.Value.Token.RefreshToken);
+        var token = new SessionTokenResponseDto(
+            result.Value.Token.AccessToken,
+            result.Value.Token.RefreshToken,
+            DateTime.UtcNow.AddDays(7));
         return (true, "登录成功", token, ToUserEntity(result.Value.User));
     }
 

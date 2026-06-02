@@ -45,7 +45,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 2;
+    private const int SchemaVersion = 3;
 
     private sealed class RequiredSettingRule(string key, Func<IConfiguration, string?> readValue)
     {
@@ -145,6 +145,7 @@ public static class ProductionStartupValidator
         ValidateCorsOrigins(corsOrigins, enforceProductionRules, errors);
         ValidateSeoBaseUrl(seoBaseUrl, enforceProductionRules, errors);
         ValidateFido2Settings(fido2ServerDomain, fido2Origins, seoBaseUrl, corsOrigins, enforceProductionRules, errors);
+        ValidateAuthCookieSettings(configuration, enforceProductionRules, errors);
 
         return new ProductionStartupValidationReport(SchemaVersion, enforceProductionRules, requirements, errors);
     }
@@ -454,6 +455,19 @@ public static class ProductionStartupValidator
         }
     }
 
+    private static void ValidateAuthCookieSettings(IConfiguration configuration, bool enforceProductionRules, List<string> errors)
+    {
+        if (!enforceProductionRules)
+        {
+            return;
+        }
+
+        if (configuration.GetValue<bool>("AuthCookies:AllowInsecureTransportCookies"))
+        {
+            errors.Add("AuthCookies:AllowInsecureTransportCookies must be false outside Development.");
+        }
+    }
+
     private static Uri? TryParseOriginLikeBaseUrl(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -495,6 +509,7 @@ internal sealed class ProductionStartupValidationHostedService(
     ILogger<ProductionStartupValidationHostedService> logger) : IHostedService
 {
     private const string TaskName = "productionStartupValidation";
+    private const string AllowInsecureStartupKey = "FSUSBLOG_ALLOW_INSECURE_STARTUP";
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -514,9 +529,19 @@ internal sealed class ProductionStartupValidationHostedService(
         }
 
         string detail = string.Join("; ", report.Errors);
-        runtimeState.ReportStartupTask(TaskName, "degraded", detail);
-        logger.LogWarning("Production startup validation degraded: {Errors}", detail);
-        return Task.CompletedTask;
+        if (configuration.GetValue<bool>(AllowInsecureStartupKey))
+        {
+            runtimeState.ReportStartupTask(TaskName, "degraded", detail);
+            logger.LogCritical(
+                "Production startup validation was bypassed by {BypassKey}=true. Errors: {Errors}",
+                AllowInsecureStartupKey,
+                detail);
+            return Task.CompletedTask;
+        }
+
+        runtimeState.ReportStartupTask(TaskName, "failed", detail);
+        logger.LogCritical("Production startup validation failed closed: {Errors}", detail);
+        throw new ProductionStartupValidationException(report.Errors);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

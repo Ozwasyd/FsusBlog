@@ -23,23 +23,14 @@ public sealed class AuthCookieService
 
     public void SetTokenCookies(HttpContext context, IWebHostEnvironment env, string accessToken, string refreshToken, DateTime idleExpiresAt)
     {
-        var useSecureTransportCookies = !env.IsDevelopment() && !_allowInsecureTransportCookies;
-        var baseOptions = new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = useSecureTransportCookies,
-            SameSite = SameSiteMode.Strict,
-            Path = "/"
-        };
+        CookieOptions baseOptions = CreateBaseOptions(env);
+        bool useSecureTransportCookies = baseOptions.Secure;
 
         string accessCookieName = useSecureTransportCookies ? HostAccessTokenCookieName : AccessTokenCookieName;
         string refreshCookieName = useSecureTransportCookies ? HostRefreshTokenCookieName : RefreshTokenCookieName;
         string sessionCookieName = useSecureTransportCookies ? HostSessionIdCookieName : SessionIdCookieName;
 
-        context.Response.Cookies.Append(accessCookieName, accessToken, new CookieOptions(baseOptions)
-        {
-            Expires = DateTime.UtcNow.AddMinutes(15)
-        });
+        AppendAccessTokenCookie(context, accessCookieName, accessToken, baseOptions);
 
         context.Response.Cookies.Append(refreshCookieName, refreshToken, new CookieOptions(baseOptions)
         {
@@ -55,6 +46,31 @@ public sealed class AuthCookieService
             });
         }
     }
+
+    public void SetAccessTokenCookie(HttpContext context, IWebHostEnvironment env, string accessToken)
+    {
+        CookieOptions baseOptions = CreateBaseOptions(env);
+        string accessCookieName = baseOptions.Secure ? HostAccessTokenCookieName : AccessTokenCookieName;
+        AppendAccessTokenCookie(context, accessCookieName, accessToken, baseOptions);
+    }
+
+    private CookieOptions CreateBaseOptions(IWebHostEnvironment env)
+    {
+        bool secure = !env.IsDevelopment() || !_allowInsecureTransportCookies;
+        return new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = secure,
+            SameSite = SameSiteMode.Strict,
+            Path = "/"
+        };
+    }
+
+    private static void AppendAccessTokenCookie(HttpContext context, string cookieName, string accessToken, CookieOptions baseOptions)
+        => context.Response.Cookies.Append(cookieName, accessToken, new CookieOptions(baseOptions)
+        {
+            Expires = DateTime.UtcNow.AddMinutes(15)
+        });
 
     public void ClearTokenCookies(HttpContext context)
     {

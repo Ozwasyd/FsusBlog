@@ -17,6 +17,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildMessagingSplitMigration(),
         BuildUserSoftDeleteMigration(),
         BuildUserSessionFinalizeMigration(),
+        BuildUserAuthSecurityHardeningMigration(),
         BuildAuditLogMigration(),
         BuildCoverImageMigration(),
         BuildHumanReadEventMigration(),
@@ -433,6 +434,40 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     """),
                 new DropColumnStep("sys_user_session", "expires_at"),
                 new DropColumnStep("sys_user_session", "expiresat")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildUserAuthSecurityHardeningMigration()
+        => new SchemaMigrationDescriptor(
+            "20260602-post-user-auth-security-hardening",
+            "Add MFA pending secret columns and remove legacy plaintext refresh token columns.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("sys_user", "mfapendingsecretencrypted", "text NULL"),
+                new EnsureColumnStep("sys_user", "mfapendingcreatedat", "timestamp NULL"),
+                new RawSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'refreshtoken'
+                        ) THEN
+                            EXECUTE 'UPDATE sys_user SET refreshtoken = NULL';
+                        END IF;
+
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'refresh_token'
+                        ) THEN
+                            EXECUTE 'UPDATE sys_user SET refresh_token = NULL';
+                        END IF;
+                    END $$;
+                    """),
+                new DropColumnStep("sys_user", "refreshtoken"),
+                new DropColumnStep("sys_user", "refreshtokenexpirytime"),
+                new DropColumnStep("sys_user", "refresh_token"),
+                new DropColumnStep("sys_user", "refresh_token_expiry_time")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAuditLogMigration()

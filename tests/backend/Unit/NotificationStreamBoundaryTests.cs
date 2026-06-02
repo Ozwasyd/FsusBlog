@@ -53,7 +53,6 @@ public class NotificationStreamBoundaryTests
             2,
             null,
             false,
-            null,
             null)));
         var admission = new NotificationStreamAdmissionService(blacklist, users);
 

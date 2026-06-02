@@ -59,6 +59,29 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    public void ValidateCore_RejectsProductionInsecureAuthCookies()
+    {
+        IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
+            ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
+            ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
+            ["Jwt:SecretKey"] = "production-secret-key-with-at-least-thirty-two-chars",
+            ["AllowedHosts"] = "fsus.blog",
+            ["CORS_ALLOWED_HOSTS"] = "https://fsus.blog",
+            ["Seo:BaseUrl"] = "https://fsus.blog",
+            ["Fido2:ServerDomain"] = "fsus.blog",
+            ["Fido2:Origins:0"] = "https://fsus.blog",
+            ["ReverseProxy:KnownProxies"] = "127.0.0.1",
+            ["AuthCookies:AllowInsecureTransportCookies"] = "true"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(errors, static error => error.Contains("AuthCookies:AllowInsecureTransportCookies", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ValidateCore_RejectsMissingRequiredProductionSettings()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>());
@@ -86,6 +109,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
+        Assert.Equal(3, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),

@@ -27,7 +27,8 @@ public sealed record PasskeyAuthBeginData(PasskeyLoginBeginCoreModel Options);
 public sealed class PasskeyService(
     IFido2 fido2,
     ISqlSugarClient db,
-    IUnifiedCache cache) : IPasskeyService
+    IUnifiedCache cache,
+    ILogger<PasskeyService> logger) : IPasskeyService
 {
     private const int MaxCredentialsPerUser = 5;
 
@@ -62,7 +63,7 @@ public sealed class PasskeyService(
         var authenticatorSelection = new AuthenticatorSelection
         {
             ResidentKey = ResidentKeyRequirement.Required,
-            UserVerification = UserVerificationRequirement.Preferred
+            UserVerification = UserVerificationRequirement.Required
         };
 
         var options = fido2.RequestNewCredential(new RequestNewCredentialParams
@@ -127,9 +128,13 @@ public sealed class PasskeyService(
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Passkey] Registration failed: {ex.Message}");
-            if (ex.InnerException != null) Console.WriteLine($"[Passkey] Inner: {ex.InnerException.Message}");
-            return (false, $"通行密钥验证失败：{ex.Message}");
+            logger.LogWarning(
+                ex,
+                "Passkey registration failed. UserId={UserId} SessionKeyHash={SessionKeyHash} ExceptionType={ExceptionType}",
+                userId,
+                HashForLog(request.SessionKey),
+                ex.GetType().Name);
+            return (false, "通行密钥验证失败，请重试");
         }
 
         string credentialIdBase64 = Base64Url.EncodeToString(result.Id);
@@ -177,7 +182,7 @@ public sealed class PasskeyService(
         var options = fido2.GetAssertionOptions(new GetAssertionOptionsParams
         {
             AllowedCredentials = [],
-            UserVerification = UserVerificationRequirement.Preferred
+            UserVerification = UserVerificationRequirement.Required
         });
 
         string challengeToken = Convert.ToHexString(Guid.NewGuid().ToByteArray());
@@ -245,6 +250,11 @@ public sealed class PasskeyService(
                 StoredSignatureCounter = (uint)storedCred.SignCount,
                 IsUserHandleOwnerOfCredentialIdCallback = (param, ct) =>
                 {
+                    if (param.UserHandle is null || param.UserHandle.Length != sizeof(int))
+                    {
+                        return Task.FromResult(false);
+                    }
+
                     int uid = BitConverter.ToInt32(param.UserHandle, 0);
                     return Task.FromResult(uid == storedCred.UserId);
                 }
@@ -252,9 +262,14 @@ public sealed class PasskeyService(
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Passkey] Assertion failed: {ex.Message}");
-            if (ex.InnerException != null) Console.WriteLine($"[Passkey] Inner: {ex.InnerException.Message}");
-            return (false, $"通行密钥验证失败：{ex.Message}", null);
+            logger.LogWarning(
+                ex,
+                "Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash} UserId={UserId} ExceptionType={ExceptionType}",
+                HashForLog(request.ChallengeToken),
+                HashForLog(credentialIdBase64),
+                storedCred.UserId,
+                ex.GetType().Name);
+            return (false, "通行密钥验证失败，请重试", null);
         }
 
         // 更新签名计数 + 上次使用时间
@@ -362,6 +377,11 @@ public sealed class PasskeyService(
             },
             ClientExtensionResults = new AuthenticationExtensionsClientOutputs()
         };
+
+    private static string HashForLog(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)))[..32];
 
     // ─────────────────────────────────────────────────────────────────────
     // Credential management

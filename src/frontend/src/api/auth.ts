@@ -256,13 +256,19 @@ export const revokeOtherSessions = (config?: ApiRequestConfig) =>
     }
   })
 
-export const startMfaSetup = (config?: ApiRequestConfig) =>
+export const startMfaSetup = (
+  payload?: { password?: string; code?: string; recoveryCode?: string },
+  config?: ApiRequestConfig
+) =>
   requestBinaryOnly<MfaSetupStart>({
     binaryUrl: '/api/binary/auth/mfa/setup/start',
     frameType: FrameType.MfaSetupStart,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
-      method: 'POST'
+      method: 'POST',
+      body: payload
+        ? encodeAedsFrame(FrameType.MfaPasswordProofRequest, encodeMfaPasswordProofRequest(payload))
+        : undefined
     }
   })
 

@@ -28,6 +28,22 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
+    public void SetTokenCookies_Production_IgnoresInsecureCookieBypass()
+    {
+        var service = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["AuthCookies:AllowInsecureTransportCookies"] = "true"
+        }));
+        var context = new DefaultHttpContext();
+
+        service.SetTokenCookies(context, ProductionEnv(), CreateAccessTokenWithSession("session-123"), "refresh-token", DateTime.UtcNow.AddDays(7));
+
+        string[] setCookies = ReadSetCookieHeaders(context);
+        Assert.Contains(setCookies, static cookie => cookie.StartsWith("__Host-RefreshToken=", StringComparison.Ordinal));
+        Assert.All(setCookies, AssertProductionCookieAttributes);
+    }
+
+    [Fact]
     public void ClearTokenCookies_DeletesPlainAndHostPrefixedCookies()
     {
         var service = new AuthCookieService(CreateConfiguration());
@@ -84,9 +100,9 @@ public sealed class AuthCookieServiceSecurityTests
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private static IConfiguration CreateConfiguration()
+    private static IConfiguration CreateConfiguration(Dictionary<string, string?>? values = null)
         => new ConfigurationBuilder()
-            .AddInMemoryCollection()
+            .AddInMemoryCollection(values ?? [])
             .Build();
 
     private static IWebHostEnvironment ProductionEnv() => new FakeWebHostEnvironment("Production");

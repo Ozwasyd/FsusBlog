@@ -50,7 +50,7 @@ type MfaCredentialState = {
   visible: boolean
   loading: boolean
   errorMessage: string
-  mode: 'disable' | 'regenerate'
+  mode: 'disable' | 'regenerate' | 'setup'
 }
 
 type SessionState = {
@@ -162,11 +162,14 @@ export function useUserProfileSecurity() {
   const showPasswordSubmitButton = computed(() => !isUserBanned.value)
   const usernameBannedText = '账号受限：暂无法修改资料'
   const passwordBannedText = '账号受限：安全设置已锁定'
-  const mfaCredentialTitle = computed(() =>
-    mfaCredentialState.mode === 'disable' ? '关闭 MFA' : '重新生成恢复码'
-  )
+  const mfaCredentialTitle = computed(() => {
+    if (mfaCredentialState.mode === 'setup') return '重新绑定 MFA'
+    return mfaCredentialState.mode === 'disable' ? '关闭 MFA' : '重新生成恢复码'
+  })
   const mfaCredentialDescription = computed(() =>
-    mfaCredentialState.mode === 'disable'
+    mfaCredentialState.mode === 'setup'
+      ? '请输入当前密码和验证码，确认重新绑定多因素认证。'
+      : mfaCredentialState.mode === 'disable'
       ? '请输入当前密码和验证码，确认关闭多因素认证。'
       : '请输入当前密码和验证码，重新生成恢复码。'
   )
@@ -370,13 +373,20 @@ export function useUserProfileSecurity() {
   }
 
   const startMfaSetupFlow = async (): Promise<void> => {
+    if (mfaProfile.enabled) {
+      mfaCredentialState.mode = 'setup'
+      mfaCredentialState.visible = true
+      mfaCredentialState.errorMessage = ''
+      return
+    }
+
     mfaSetupState.visible = true
     mfaSetupState.loading = true
     mfaSetupState.errorMessage = ''
     mfaSetupState.recoveryCodes = []
     mfaSetupState.setupCode = ''
     try {
-      const result = await mfaTask.run(async (signal) => await startMfaSetup({ signal }))
+      const result = await mfaTask.run(async (signal) => await startMfaSetup(undefined, { signal }))
       const payload = result as MfaSetupStart
       mfaSetupState.secret = payload.secret
       mfaSetupState.otpAuthUrl = payload.otpAuthUrl
@@ -431,7 +441,22 @@ export function useUserProfileSecurity() {
     mfaCredentialState.loading = true
     mfaCredentialState.errorMessage = ''
     try {
-      if (mfaCredentialState.mode === 'disable') {
+      if (mfaCredentialState.mode === 'setup') {
+        const result = await mfaTask.run(async (signal) =>
+          await startMfaSetup(
+            { password: payload.password, code: payload.code, recoveryCode: payload.recoveryCode },
+            buildSignalConfig(signal)
+          )
+        )
+        const response = result as MfaSetupStart
+        mfaSetupState.secret = response.secret
+        mfaSetupState.otpAuthUrl = response.otpAuthUrl
+        mfaSetupState.setupCode = ''
+        mfaSetupState.recoveryCodes = []
+        mfaSetupState.errorMessage = ''
+        mfaSetupState.visible = true
+        toast.success('MFA 重新绑定已开始')
+      } else if (mfaCredentialState.mode === 'disable') {
         await mfaTask.run(async (signal) =>
           await disableMfa(
             { password: payload.password, code: payload.code, recoveryCode: payload.recoveryCode },

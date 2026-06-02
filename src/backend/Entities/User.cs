@@ -27,18 +27,6 @@ public class User
     [SugarColumn(IsNullable = true)]
     public DateTime? LastUsernameUpdateTime { get; set; }
 
-    /// <summary>
-    /// 刷新令牌（长效凭证）
-    /// </summary>
-    [SugarColumn(IsNullable = true, Length = 200)]
-    public string? RefreshToken { get; set; }
-
-    /// <summary>
-    /// 刷新令牌过期时间
-    /// </summary>
-    [SugarColumn(IsNullable = true)]
-    public DateTime? RefreshTokenExpiryTime { get; set; }
-
     // ====== 管理字段 ======
 
     /// <summary>
@@ -82,6 +70,18 @@ public class User
     /// </summary>
     [SugarColumn(IsNullable = true, ColumnDataType = "text")]
     public string? MfaSecretEncrypted { get; set; }
+
+    /// <summary>
+    /// 待验证的 TOTP secret。重新绑定 MFA 时只写 pending，验证成功后才切换正式 secret。
+    /// </summary>
+    [SugarColumn(IsNullable = true, ColumnDataType = "text")]
+    public string? MfaPendingSecretEncrypted { get; set; }
+
+    /// <summary>
+    /// 最近一次 MFA pending secret 创建时间。
+    /// </summary>
+    [SugarColumn(IsNullable = true)]
+    public DateTime? MfaPendingCreatedAt { get; set; }
 
     /// <summary>
     /// 最近一次 MFA 绑定完成时间

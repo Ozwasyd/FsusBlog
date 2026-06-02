@@ -29,8 +29,7 @@ public sealed class UserAccountReader(UserService users) : IUserAccountReader
             user.Status,
             user.BanReason,
             user.MfaEnabled,
-            user.DeletedAt,
-            user.RefreshTokenExpiryTime);
+            user.DeletedAt);
 }
 
 public sealed class UserRegistrationService(UserService users) : IUserRegistrationService
@@ -47,7 +46,7 @@ public sealed class UserLoginWorkflowService(UserService users) : IUserLoginWork
         return (result.Success, result.Message, result.User is null ? null : UserAccountReader.ToAccountSnapshot(result.User));
     }
 
-    public async Task<(bool Success, string Message, TokenResponseDto? Data, UserAccountSnapshot? User)> CompleteLoginAsync(
+    public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, UserAccountSnapshot? User)> CompleteLoginAsync(
         int userId,
         string clientIp,
         string? deviceFingerprint,
@@ -110,6 +109,9 @@ public sealed class UserSessionCommandService(UserService users) : IUserSessionC
     public Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId)
         => users.RefreshTokenAsync(refreshToken, sessionId);
 
+    public Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken)
+        => users.GetSessionByRefreshTokenAsync(refreshToken);
+
     public Task<List<UserSessionSummaryDto>> GetUserSessionsAsync(int userId, string? currentSessionId)
         => users.GetUserSessionsAsync(userId, currentSessionId);
 
@@ -125,8 +127,13 @@ public sealed class UserSessionCommandService(UserService users) : IUserSessionC
 
 public sealed class UserMfaCommandService(UserService users) : IUserMfaCommandService
 {
-    public Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(int userId, string issuer)
-        => users.StartMfaSetupAsync(userId, issuer);
+    public Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(
+        int userId,
+        string issuer,
+        string? password = null,
+        string? code = null,
+        string? recoveryCode = null)
+        => users.StartMfaSetupAsync(userId, issuer, password, code, recoveryCode);
 
     public Task<MfaProfileDto?> GetMfaProfileAsync(int userId)
         => users.GetMfaProfileAsync(userId);

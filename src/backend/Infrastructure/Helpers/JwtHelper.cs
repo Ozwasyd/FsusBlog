@@ -6,6 +6,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.Server.Infrastructure.Helpers;
 
@@ -84,30 +85,9 @@ public class JwtHelper : IJwtHelper
     /// </summary>
     public string GenerateRefreshToken()
     {
-        // 核心优化 4：零中间分配的刷新令牌生成。
-        // 将原有的 new byte[32] 和 3次 Replace() 产生的 5 次堆分配，降维到只有最终结果的 1 次堆分配。
-
-        // 1. 在栈上分配 32 字节的随机数缓冲区
         Span<byte> randomBytes = stackalloc byte[32];
         RandomNumberGenerator.Fill(randomBytes);
-
-        // 2. 32 字节的 Base64 编码长度恒定为 44 字符，在栈上分配字符缓冲区
-        Span<char> base64Chars = stackalloc char[44];
-        Convert.TryToBase64Chars(randomBytes, base64Chars, out int charsWritten);
-
-        // 3. 原地剔除可能干扰 URL 的字符 (+, /, =)
-        int finalLen = 0;
-        for (int i = 0; i < charsWritten; i++)
-        {
-            char c = base64Chars[i];
-            if (c != '+' && c != '/' && c != '=')
-            {
-                base64Chars[finalLen++] = c;
-            }
-        }
-
-        // 4. 仅在此刻进行一次必要的字符串堆分配
-        return new string(base64Chars[..finalLen]);
+        return WebEncoders.Base64UrlEncode(randomBytes);
     }
 }
 

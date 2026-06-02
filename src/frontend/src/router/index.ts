@@ -103,6 +103,10 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       sessionBootstrap.syncDocumentTitle(to)
     }
 
+    if (!options.ssr && (to.path.startsWith('/user/manage') || Boolean(to.meta.roles))) {
+      await userStore.fetchUserInfo(true)
+    }
+
     const { isLoggedIn, isAdmin, userInfo } = userStore
     const userRole = userInfo?.role || ''
 

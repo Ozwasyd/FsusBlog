@@ -48,7 +48,7 @@ export const useUserStore = defineStore('user', () => {
     const isLoggedIn = computed(() => !!userInfo.value)
 
     const isAdmin = computed(() => {
-        const adminRoles = ['admin', 'root', 'super_admin'];
+        const adminRoles = ['admin'];
         return userInfo.value ? adminRoles.includes(userInfo.value.role) : false;
     })
 
@@ -88,7 +88,7 @@ export const useUserStore = defineStore('user', () => {
     }
 
     const fetchUserInfo = async (force = false) => {
-        if (isAuthChecked.value && !force) return
+        if (isAuthChecked.value && userInfo.value && !force) return
 
         if (force && abortController) {
             abortController.abort()
@@ -176,7 +176,6 @@ export const useUserStore = defineStore('user', () => {
     persist: {
         key: 'fsus_user_storage',
         storage: safeStorage,
-        // [修复 2026-02-24] 允许持久化 isAuthChecked 以实现乐观 UI 渲染
-        pick: ['userInfo', 'isAuthChecked']
+        pick: ['isAuthChecked']
     }
 })

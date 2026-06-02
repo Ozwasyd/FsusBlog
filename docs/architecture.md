@@ -323,7 +323,7 @@ Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔�
 
 认证成功
   → JWT Access Token（Bearer，15 min）
-  → Refresh Token（HttpOnly Cookie，轮换制）
+  → Refresh Token（HttpOnly Cookie，`UserSession.RefreshTokenHash` 哈希存储，CAS 轮换制）
   → 可选：MFA TOTP 挑战（Passkey 登录免 MFA）
   → 会话记录（可列出 / 吊销全部其他）
 

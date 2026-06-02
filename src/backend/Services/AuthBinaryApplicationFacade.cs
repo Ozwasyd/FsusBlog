@@ -141,7 +141,7 @@ public sealed class AuthBinaryApplicationFacade(
         var tokens = new AuthBinarySessionTokens(
             login.Data.Value.AccessToken,
             login.Data.Value.RefreshToken,
-            login.User.Value.RefreshTokenExpiryTime ?? DateTime.UtcNow.AddDays(7));
+            login.Data.Value.RefreshTokenExpiresAt);
         return new AuthBinaryFlowResult(true, ErrorDetail.None, flow, tokens);
     }
 

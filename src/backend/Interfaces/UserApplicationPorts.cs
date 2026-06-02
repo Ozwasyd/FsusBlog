@@ -1,3 +1,4 @@
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
 using FsusBlog.Server.Services.Security;
@@ -12,8 +13,12 @@ public readonly record struct UserAccountSnapshot(
     int Status,
     string? BanReason,
     bool MfaEnabled,
-    DateTime? DeletedAt,
-    DateTime? RefreshTokenExpiryTime);
+    DateTime? DeletedAt);
+
+public readonly record struct SessionTokenResponseDto(
+    string AccessToken,
+    string RefreshToken,
+    DateTime RefreshTokenExpiresAt);
 
 public interface IUserAccountReader
 {
@@ -31,7 +36,7 @@ public interface IUserLoginWorkflowService
 {
     Task<(bool Success, string Message, UserAccountSnapshot? User)> ValidateCredentialsAsync(LoginDto dto, string clientIp);
 
-    Task<(bool Success, string Message, TokenResponseDto? Data, UserAccountSnapshot? User)> CompleteLoginAsync(
+    Task<(bool Success, string Message, SessionTokenResponseDto? Data, UserAccountSnapshot? User)> CompleteLoginAsync(
         int userId,
         string clientIp,
         string? deviceFingerprint,
@@ -59,6 +64,8 @@ public interface IUserSessionCommandService
 
     Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId);
 
+    Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken);
+
     Task<List<UserSessionSummaryDto>> GetUserSessionsAsync(int userId, string? currentSessionId);
 
     Task<bool> RevokeSessionAsync(int userId, string sessionId, string reason = "manual_revoke");
@@ -70,7 +77,12 @@ public interface IUserSessionCommandService
 
 public interface IUserMfaCommandService
 {
-    Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(int userId, string issuer);
+    Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(
+        int userId,
+        string issuer,
+        string? password = null,
+        string? code = null,
+        string? recoveryCode = null);
 
     Task<MfaProfileDto?> GetMfaProfileAsync(int userId);
 

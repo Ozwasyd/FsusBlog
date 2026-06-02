@@ -18,7 +18,7 @@ public interface IUserService
     /// </summary>
     /// <param name="dto">登录信息</param>
     /// <returns>元组：是否成功，错误信息，生成的 Token</returns>
-    Task<(bool Success, string Message, TokenResponseDto? Data, User? UserEntity)> LoginAsync(LoginDto dto, string clientIp);
+    Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> LoginAsync(LoginDto dto, string clientIp);
 
     /// <summary>
     /// 根据 ID 获取用户信息（用于权限验证或个人资料）

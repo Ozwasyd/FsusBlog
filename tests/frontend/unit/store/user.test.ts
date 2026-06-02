@@ -66,10 +66,10 @@ describe('useUserStore', () => {
     expect(store.isAdmin).toBe(true)
   })
 
-  it('isAdmin returns true for root role', () => {
+  it('isAdmin returns false for root role', () => {
     const store = useUserStore()
     store.setUserInfo({ id: 1, username: 'root', role: 'root', status: 0, banReason: null } as never)
-    expect(store.isAdmin).toBe(true)
+    expect(store.isAdmin).toBe(false)
   })
 
   it('isAdmin returns false for regular user', () => {
@@ -115,6 +115,19 @@ describe('useUserStore', () => {
     await store.fetchUserInfo()
     await store.fetchUserInfo() // should skip
     expect(mockGetMe).toHaveBeenCalledTimes(1)
+  })
+
+  it('fetchUserInfo refreshes when only bootstrap marker was restored', async () => {
+    const mockUser = { id: 2, username: 'admin', role: 'admin', status: 0, banReason: null }
+    mockGetMe.mockResolvedValueOnce(mockUser as never)
+    const store = useUserStore()
+    store.isAuthChecked = true
+    store.userInfo = null
+
+    await store.fetchUserInfo()
+
+    expect(mockGetMe).toHaveBeenCalledTimes(1)
+    expect(store.userInfo).toEqual(mockUser)
   })
 
   it('updateStatus updates userInfo status', () => {

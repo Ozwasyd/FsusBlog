@@ -80,8 +80,10 @@
 |------|-----|
 | Access Token 有效期 | 15 分钟 |
 | Refresh Token 形式 | HttpOnly Cookie（SameSite=Strict，Secure） |
-| 续签方式 | `POST /api/Auth/refresh-token`，轮换制（旧 Token 立即失效） |
+| 续签方式 | `POST /api/Auth/refresh-token`，基于 `UserSession.RefreshTokenHash` 的原子 CAS 轮换（旧 Token 立即失效） |
 | 签名算法 | HS256（密钥来自环境变量，生产启动时强制校验非占位值） |
+
+Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再保存明文 Refresh Token 或全局刷新过期时间。刷新请求必须同时匹配当前 session id、旧 refresh hash、未撤销状态、idle/absolute 过期窗口；CAS 失败或旧 Token 重用会撤销对应 session 并清理客户端 Cookie。
 
 **生产启动保护**：如果 JWT 密钥与已知占位值相同，服务器拒绝启动，防止弱密钥上线。
 
@@ -90,9 +92,11 @@
 ## 多因素认证（MFA / TOTP）
 
 - 标准：RFC 6238 TOTP（Time-based OTP，30 秒窗口）
-- 启用流程：`/mfa/setup/start` → 展示二维码 + 密钥 → `/mfa/setup/verify` → 确认后正式启用
+- 启用流程：`/mfa/setup/start` 只写 `MfaPendingSecretEncrypted` / `MfaPendingCreatedAt`，展示二维码 + 密钥；`/mfa/setup/verify` 验证 pending secret 成功后才原子切换到 `MfaSecretEncrypted` 并启用 MFA
+- 重新绑定流程：已启用 MFA 的用户调用 `/mfa/setup/start` 必须提交当前密码和当前 TOTP/恢复码，旧 `MfaSecretEncrypted` 与 `MfaEnabled` 在新 secret 验证前保持不变
 - 登录流程：密码验证通过后，如用户已启用 MFA，颁发临时挑战令牌，等待 TOTP 码验证
-- 恢复码：启用 MFA 时生成一批单次使用恢复码，耗尽后可通过 `/mfa/recovery/regenerate` 重新生成
+- MFA challenge：`/auth/mfa/challenge` 受 `fixed_ip` 限流保护，并对 ticket、user、IP 三个维度记录失败次数；达到阈值后消费 challenge，所有失败返回通用错误
+- 恢复码：启用 MFA 时生成一批 128-bit 分组恢复码，服务端保存 per-code salt + PBKDF2-SHA256 慢哈希；恢复码单次使用，耗尽后可通过 `/mfa/recovery/regenerate` 重新生成
 - 管理员重置：`POST /api/Auth/admin/users/{id}/mfa/reset`（需 admin 角色），用于用户丢失设备时兜底
 - Passkey 免 MFA：使用 Passkey 登录的用户视为已完成双因素，直接跳过 MFA 挑战
 
@@ -115,7 +119,7 @@
   TimestampDriftTolerance: 300000 ms
   ```
 
-- 登录断言：`assertionResponse.Id` 为 Base64Url 字符串（直接使用，不重复编码）
+- 注册与登录均要求 `UserVerification=Required`；登录断言的 `assertionResponse.Id` 为 Base64Url 字符串（直接使用，不重复编码）
 - 凭证唯一性：注册时校验凭证 ID 全局唯一（`IsCredentialIdUniqueToUserCallback`）
 - 传输方式：存储 `RegisteredPublicKeyCredential.Transports` 数组（`.Length`）
 
@@ -215,7 +219,7 @@ FsusBlog 采用三级角色体系：
 
 ## 生产安全检查清单
 
-生产环境通过 `ProductionStartupValidator`、`/health/ready` 与 `./tools/test.sh security` 执行以下校验。失败会使 readiness 返回 `503`，并在运行时健康状态中报告 degraded 明细；发布流程必须把该状态视为阻断。
+生产环境通过 `ProductionStartupValidator`、`/health/ready` 与 `./tools/test.sh security` 执行以下校验。启动阶段校验失败会 fail-closed 阻止应用启动；只有显式设置危险开关 `FSUSBLOG_ALLOW_INSECURE_STARTUP=true` 时才允许降级启动并写出 critical 告警。readiness 仍会返回 `503` 并报告失败明细，发布流程必须把该状态视为阻断。
 
 - [ ] JWT 密钥不为默认占位值（非 `your-secret-key` 类占位）
 - [ ] Redis 密码不为空
@@ -223,6 +227,7 @@ FsusBlog 采用三级角色体系：
 - [ ] `AllowedHosts` 显式列出生产域名，且不使用 `*`
 - [ ] `ReverseProxy:KnownProxies` 或 `ReverseProxy:KnownNetworks` 只包含真实网关 IP / 私网 CIDR
 - [ ] CORS AllowedOrigins 中无 `http://` 来源
+- [ ] `AuthCookies:AllowInsecureTransportCookies=false`，Development 以外认证 Cookie 强制 `Secure` 与 `__Host-` 前缀
 - [ ] Fido2 `ServerDomain` 与实际部署域名一致
 - [ ] `Fido2:Origins` 包含实际部署来源
 - [ ] `Fido2:Origins` 与 `SITE_BASEURL` / `CORS_ALLOWED_HOSTS` 对齐，且生产来源全部使用 HTTPS

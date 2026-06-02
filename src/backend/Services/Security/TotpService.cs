@@ -20,6 +20,10 @@ public sealed class TotpService(IDataProtectionProvider dataProtectionProvider) 
 {
     private const int SecretBytesLength = 20;
     private const int TimeStepSeconds = 30;
+    private const int RecoveryCodeBytesLength = 16;
+    private const int RecoveryCodeSaltBytesLength = 16;
+    private const int RecoveryCodeHashBytesLength = 32;
+    private const int RecoveryCodeIterations = 100_000;
     private readonly IDataProtector _protector = dataProtectionProvider.CreateProtector("fsusblog.auth.totp.v1");
 
     public string GenerateSecret()
@@ -71,12 +75,12 @@ public sealed class TotpService(IDataProtectionProvider dataProtectionProvider) 
         }
 
         var codes = new List<string>(count);
-        byte[] random = new byte[8];
+        Span<byte> random = stackalloc byte[RecoveryCodeBytesLength];
         for (int i = 0; i < count; i++)
         {
             RandomNumberGenerator.Fill(random);
-            string code = Convert.ToHexString(random)[..10];
-            codes.Add(code);
+            string hex = Convert.ToHexString(random);
+            codes.Add(string.Join('-', Enumerable.Range(0, hex.Length / 4).Select(index => hex.Substring(index * 4, 4))));
         }
 
         return codes;
@@ -99,14 +103,12 @@ public sealed class TotpService(IDataProtectionProvider dataProtectionProvider) 
             return false;
         }
 
-        string codeHash = HashRecoveryCode(inputCode);
-        if (codeHash.Length == 0)
+        string normalized = SanitizeRecoveryCode(inputCode);
+        if (normalized.Length == 0)
         {
             return false;
         }
 
-        Span<byte> codeHashBytes = stackalloc byte[64];
-        Encoding.UTF8.GetBytes(codeHash.AsSpan(), codeHashBytes);
         var lines = storedHashes
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
@@ -114,7 +116,7 @@ public sealed class TotpService(IDataProtectionProvider dataProtectionProvider) 
         int matchedIndex = -1;
         for (int index = 0; index < lines.Count; index++)
         {
-            if (FixedTimeEqualsHash(lines[index], codeHashBytes))
+            if (VerifyRecoveryCodeHash(lines[index], normalized))
             {
                 matchedIndex = index;
                 break;
@@ -145,8 +147,61 @@ public sealed class TotpService(IDataProtectionProvider dataProtectionProvider) 
             return string.Empty;
         }
 
-        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
-        return Convert.ToHexString(hash);
+        byte[] salt = RandomNumberGenerator.GetBytes(RecoveryCodeSaltBytesLength);
+        byte[] hash = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(normalized),
+            salt,
+            RecoveryCodeIterations,
+            HashAlgorithmName.SHA256,
+            RecoveryCodeHashBytesLength);
+        return $"v2$pbkdf2-sha256${RecoveryCodeIterations}${Convert.ToHexString(salt)}${Convert.ToHexString(hash)}";
+    }
+
+    private static bool VerifyRecoveryCodeHash(string storedHash, string normalizedCode)
+    {
+        if (storedHash.StartsWith("v2$pbkdf2-sha256$", StringComparison.Ordinal))
+        {
+            string[] parts = storedHash.Split('$');
+            if (parts.Length != 5 ||
+                !int.TryParse(parts[2], out int iterations) ||
+                iterations < 10_000 ||
+                !TryDecodeHex(parts[3], RecoveryCodeSaltBytesLength, out byte[] salt) ||
+                !TryDecodeHex(parts[4], RecoveryCodeHashBytesLength, out byte[] expectedHash))
+            {
+                return false;
+            }
+
+            byte[] actualHash = Rfc2898DeriveBytes.Pbkdf2(
+                Encoding.UTF8.GetBytes(normalizedCode),
+                salt,
+                iterations,
+                HashAlgorithmName.SHA256,
+                expectedHash.Length);
+            return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
+        }
+
+        byte[] legacyHash = SHA256.HashData(Encoding.UTF8.GetBytes(normalizedCode));
+        string legacyHex = Convert.ToHexString(legacyHash);
+        return FixedTimeEqualsHash(storedHash, Encoding.UTF8.GetBytes(legacyHex));
+    }
+
+    private static bool TryDecodeHex(string value, int expectedBytes, out byte[] bytes)
+    {
+        bytes = [];
+        if (value.Length != expectedBytes * 2)
+        {
+            return false;
+        }
+
+        try
+        {
+            bytes = Convert.FromHexString(value);
+            return true;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 
     private static string ComputeTotp(byte[] secret, long timestep)
