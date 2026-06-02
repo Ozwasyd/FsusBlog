@@ -13,7 +13,7 @@
       element-loading-text="正在载入数据资源..."
       @submit.prevent="requestSubmit"
     >
-      <div class="write-workspace">
+      <div class="write-workspace" :class="`write-workspace--${editorLayoutMode}`">
       <header class="write-command-bar border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] py-6 px-4 mb-8" aria-label="文章编辑操作">
         <div class="min-w-0">
           <div class="account-page-eyebrow mb-2">管理 / CONTENT EDITING</div>
@@ -23,6 +23,15 @@
           </p>
         </div>
         <div class="shrink-0 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+          <el-radio-group
+            v-model="editorLayoutMode"
+            size="small"
+            aria-label="编辑器布局模式"
+          >
+            <el-radio-button value="standard">标准</el-radio-button>
+            <el-radio-button value="focus">专注</el-radio-button>
+            <el-radio-button value="fullscreen">全屏</el-radio-button>
+          </el-radio-group>
           <el-button @click="requestLeave" :disabled="submitting">
             返回列表
           </el-button>
@@ -81,7 +90,7 @@
         </el-form-item>
       </section>
 
-      <div class="write-grid">
+      <div class="write-grid" :class="{ 'write-grid--wide': editorLayoutMode !== 'standard' }">
         <section class="write-editor-panel border-t border-[var(--fsusblog-panel-border)]" aria-labelledby="article-content-label">
           <header class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)]">
             <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">正文编辑器 / EDITOR</div>
@@ -89,85 +98,171 @@
           <div class="overflow-hidden">
             <el-form-item prop="content">
               <ArticleWriteEditor
+                ref="articleEditorRef"
                 v-model="articleForm.content"
                 :loading="pageLoading"
                 :saving="submitting"
-                @save="requestSubmit"
+                :layout-mode="editorLayoutMode"
+                @save="saveDraftNow"
+                @draft-save="saveDraftNow"
+                @submit="requestSubmit"
                 @upload-img="handleUploadImg"
               />
             </el-form-item>
           </div>
         </section>
 
-        <aside class="write-side-panel" aria-label="发布与上传设置">
-          <ArticleWriteSidebar
-            :form="articleForm"
-            :categories="categories"
-            :tags="tags"
-            :submitting="submitting"
-            :quick-creating-category="quickCreatingCategory"
-            :quick-creating-tag="quickCreatingTag"
-            :ai-assist="aiAssist"
-            :ai-assist-loading="aiAssistLoading"
-            :ai-assist-status-text="aiAssistStatusText"
-            @auto-summary="autoGenerateSummary"
-            @ai-assist="requestAiAssist"
-            @apply-ai-summary="applyAiSummary"
-            @apply-ai-title="applyAiTitleCandidate"
-            @apply-ai-tags="applyAiSuggestedTags"
-            @apply-ai-translation="applyAiTranslationDraft"
-            @open-create-category="openQuickCreateCategory"
-            @open-create-tag="openQuickCreateTag"
-            @open-cover-upload="triggerCoverInput"
-            @clear-cover="articleForm.coverImageUrl = ''"
-            class="mb-8"
-          />
+        <aside v-show="editorLayoutMode === 'standard'" class="write-side-panel" aria-label="发布与上传设置">
+          <el-tabs v-model="sidePanelTab" class="write-side-tabs" stretch>
+            <el-tab-pane label="发布" name="publish">
+              <ArticleWriteSidebar
+                :form="articleForm"
+                :categories="categories"
+                :tags="tags"
+                :submitting="submitting"
+                :quick-creating-category="quickCreatingCategory"
+                :quick-creating-tag="quickCreatingTag"
+                :ai-assist="aiAssist"
+                :ai-assist-loading="aiAssistLoading"
+                :ai-assist-status-text="aiAssistStatusText"
+                @auto-summary="autoGenerateSummary"
+                @ai-assist="requestAiAssist"
+                @apply-ai-summary="applyAiSummary"
+                @apply-ai-title="applyAiTitleCandidate"
+                @apply-ai-tags="applyAiSuggestedTags"
+                @apply-ai-translation="applyAiTranslationDraft"
+                @open-create-category="openQuickCreateCategory"
+                @open-create-tag="openQuickCreateTag"
+                @open-cover-upload="triggerCoverInput"
+                @clear-cover="articleForm.coverImageUrl = ''"
+              />
+            </el-tab-pane>
 
-          <ArticleRevisionPanel
-            :is-edit="isEdit"
-            :revisions="articleRevisions"
-            :selected-revision="selectedRevision"
-            :selected-label="selectedRevisionLabel"
-            :loading="revisionLoading"
-            :rollbacking="revisionRollbacking"
-            :status-text="revisionStatusText"
-            :compare-text="revisionCompareText"
-            class="mb-8"
-            @refresh="() => refreshArticleRevisions()"
-            @select-revision="selectArticleRevision"
-            @rollback="rollbackSelectedRevision"
-          />
+            <el-tab-pane label="SEO" name="seo">
+              <ArticleSeoPreviewPanel
+                :preview="seoPreview"
+                :issues="seoIssues"
+                :loading="seoChecking"
+                :status-text="seoStatusText"
+                @refresh="refreshPrepublishCheck"
+              />
+            </el-tab-pane>
 
-          <ArticleSeoPreviewPanel
-            :preview="seoPreview"
-            :issues="seoIssues"
-            :loading="seoChecking"
-            :status-text="seoStatusText"
-            class="mb-8"
-            @refresh="refreshPrepublishCheck"
-          />
+            <el-tab-pane label="资产" name="assets">
+              <ArticleAssetLibraryPanel
+                :assets="assetLibrary"
+                :loading="assetLibraryLoading"
+                :status-text="assetLibraryStatusText"
+                :can-reindex="isEdit"
+                @refresh="() => refreshAssetLibrary()"
+                @reindex="reindexCurrentArticleAssets"
+                @cleanup-orphans="cleanupAssetOrphans"
+                @insert="insertAssetIntoEditor"
+              />
+            </el-tab-pane>
 
-          <ArticlePrivatePreviewPanel
-            :html="privatePreview?.html ?? ''"
-            :issues="privatePreview?.issues ?? []"
-            :loading="privatePreviewLoading"
-            :status-text="privatePreviewStatusText"
-            :can-preview="canGeneratePrivatePreview"
-            class="mb-8"
-            @preview="generatePrivatePreview"
-          />
+            <el-tab-pane label="版本" name="versions">
+              <ArticleRevisionPanel
+                :is-edit="isEdit"
+                :revisions="articleRevisions"
+                :selected-revision="selectedRevision"
+                :selected-label="selectedRevisionLabel"
+                :loading="revisionLoading"
+                :rollbacking="revisionRollbacking"
+                :status-text="revisionStatusText"
+                :compare-text="revisionCompareText"
+                @refresh="() => refreshArticleRevisions()"
+                @select-revision="selectArticleRevision"
+                @rollback="rollbackSelectedRevision"
+              />
+            </el-tab-pane>
 
-          <ArticleAssetLibraryPanel
-            :assets="assetLibrary"
-            :loading="assetLibraryLoading"
-            :status-text="assetLibraryStatusText"
-            :can-reindex="isEdit"
-            class="mb-8"
-            @refresh="() => refreshAssetLibrary()"
-            @reindex="reindexCurrentArticleAssets"
-            @cleanup-orphans="cleanupAssetOrphans"
-            @insert="insertAssetIntoContent"
-          />
+            <el-tab-pane label="预览" name="preview">
+              <ArticlePrivatePreviewPanel
+                :html="privatePreview?.html ?? ''"
+                :issues="privatePreview?.issues ?? []"
+                :loading="privatePreviewLoading"
+                :status-text="privatePreviewStatusText"
+                :can-preview="canGeneratePrivatePreview"
+                @preview="generatePrivatePreview"
+              />
+            </el-tab-pane>
+
+            <el-tab-pane label="AI" name="ai">
+              <section class="write-ai-panel border-t border-[var(--fsusblog-panel-border)]" aria-label="作者 AI 辅助">
+                <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
+                  <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">作者辅助 / AI</div>
+                </header>
+                <div class="p-6 space-y-5">
+                  <p class="text-xs leading-6 text-[var(--fsusblog-text-secondary)]" aria-live="polite">
+                    {{ aiAssistStatusText || '按当前标题与正文生成摘要、标题候选、标签和结构建议。' }}
+                  </p>
+                  <div class="grid grid-cols-2 gap-3">
+                    <el-button :disabled="submitting" @click="autoGenerateSummary">
+                      生成摘要
+                    </el-button>
+                    <el-button type="primary" :loading="aiAssistLoading" :disabled="submitting || aiAssistLoading" @click="requestAiAssist">
+                      AI 辅助
+                    </el-button>
+                  </div>
+                  <div v-if="aiAssist" class="space-y-4 border-t border-[var(--fsusblog-panel-border)] pt-5">
+                    <p v-if="aiAssist.suggestedSummary" class="text-xs leading-6 text-[var(--fsusblog-text-secondary)]">
+                      {{ aiAssist.suggestedSummary }}
+                    </p>
+                    <el-button v-if="aiAssist.suggestedSummary" size="small" :disabled="submitting" @click="applyAiSummary">
+                      采用摘要
+                    </el-button>
+                    <div v-if="aiAssist.suggestedTags.length > 0" class="flex flex-wrap gap-2">
+                      <el-tag v-for="tag in aiAssist.suggestedTags" :key="tag" size="small">{{ tag }}</el-tag>
+                    </div>
+                    <el-button v-if="aiAssist.suggestedTags.length > 0" size="small" :disabled="submitting" @click="applyAiSuggestedTags">
+                      关联已有标签
+                    </el-button>
+                    <div v-if="aiAssist.titleCandidates.length > 0" class="grid gap-2">
+                      <el-button
+                        v-for="title in aiAssist.titleCandidates"
+                        :key="title"
+                        :disabled="submitting"
+                        @click="applyAiTitleCandidate(title)"
+                      >
+                        <span class="min-w-0 whitespace-normal text-left leading-5">{{ title }}</span>
+                      </el-button>
+                    </div>
+                    <el-button v-if="aiAssist.translationDraft" size="small" :disabled="submitting" @click="applyAiTranslationDraft">
+                      采用翻译草稿
+                    </el-button>
+                  </div>
+                </div>
+              </section>
+            </el-tab-pane>
+
+            <el-tab-pane label="上传" name="upload">
+              <details class="write-upload-disclosure border-t border-[var(--fsusblog-panel-border)]" open>
+                <summary class="write-disclosure-summary px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)] cursor-pointer outline-none">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">图片上传策略 / IMAGE POLICY</span>
+                    <span class="text-[11px] font-bold text-[var(--fsusblog-text-muted)]" aria-live="polite">{{ imageUploadRuntime.statusText }}</span>
+                  </div>
+                </summary>
+                <div class="p-6 bg-[var(--fsusblog-page-bg)]">
+                  <ImageUploadOptionsPanel
+                    :options="imageUploadOptions"
+                    :status-text="imageUploadRuntime.statusText"
+                    :can-abort="Boolean(imageUploadRuntime.activeSession.uploadId)"
+                    :can-resume="imageUploadRuntime.canResume"
+                    :preview="imageUploadRuntime.preview"
+                    :wasm-only="imageUploadWasmOnlyMode"
+                    :wasm-supported-formats="imageUploadRuntime.wasmSupportedFormats"
+                    @update:options="setImageUploadOptions"
+                    @update:wasm-only="setImageUploadWasmOnlyMode"
+                    @reset="setImageUploadOptions({ format: 'webp', quality: 82, scaleRatio: 1, maxEdge: 1920, preserveAlpha: true })"
+                    @resume="resumeImageUpload"
+                    @abandon="imageUploadRuntime.abandon"
+                  />
+                </div>
+              </details>
+            </el-tab-pane>
+          </el-tabs>
 
           <input
             ref="coverInputRef"
@@ -176,31 +271,6 @@
             class="hidden"
             @change="onCoverFileChange"
           />
-
-          <details class="write-upload-disclosure border-t border-[var(--fsusblog-panel-border)]">
-            <summary class="write-disclosure-summary px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)] cursor-pointer outline-none">
-              <div class="flex items-center justify-between">
-                <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">图片上传策略 / IMAGE POLICY</span>
-                <span class="text-[11px] font-bold text-[var(--fsusblog-text-muted)]" aria-live="polite">{{ imageUploadRuntime.statusText }}</span>
-              </div>
-            </summary>
-            <div class="p-6 bg-[var(--fsusblog-page-bg)]">
-              <ImageUploadOptionsPanel
-                :options="imageUploadOptions"
-                :status-text="imageUploadRuntime.statusText"
-                :can-abort="Boolean(imageUploadRuntime.activeSession.uploadId)"
-                :can-resume="imageUploadRuntime.canResume"
-                :preview="imageUploadRuntime.preview"
-                :wasm-only="imageUploadWasmOnlyMode"
-                :wasm-supported-formats="imageUploadRuntime.wasmSupportedFormats"
-                @update:options="setImageUploadOptions"
-                @update:wasm-only="setImageUploadWasmOnlyMode"
-                @reset="setImageUploadOptions({ format: 'webp', quality: 82, scaleRatio: 1, maxEdge: 1920, preserveAlpha: true })"
-                @resume="resumeImageUpload"
-                @abandon="imageUploadRuntime.abandon"
-              />
-            </div>
-          </details>
         </aside>
       </div>
       </div>
@@ -344,6 +414,9 @@ import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vu
 import ArticleWriteSidebar from '@/components/admin/article/ArticleWriteSidebar.vue'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite'
+import type { AssetLibraryItemResponse } from '@/api/authoring'
+
+type EditorLayoutMode = 'standard' | 'focus' | 'fullscreen'
 
 const {
   formRef,
@@ -388,6 +461,7 @@ const {
   articleForm,
   rules,
   validateBeforeSubmit,
+  saveDraftNow,
   handleUploadImg,
   handleCoverUpload,
   submitForm,
@@ -430,8 +504,11 @@ const quickCreateTagDialog = ref(false)
 const quickCategoryName = ref('')
 const quickTagName = ref('')
 const coverInputRef = ref<HTMLInputElement | null>(null)
+const articleEditorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean } | null>(null)
 const submitConfirmDialog = ref(false)
 const leaveConfirmDialog = ref(false)
+const sidePanelTab = ref('publish')
+const editorLayoutMode = ref<EditorLayoutMode>('standard')
 
 const triggerCoverInput = (): void => {
   coverInputRef.value?.click()
@@ -463,6 +540,10 @@ const requestSubmit = async (): Promise<void> => {
   if (isValid) {
     submitConfirmDialog.value = true
   }
+}
+
+const insertAssetIntoEditor = (asset: AssetLibraryItemResponse): void => {
+  insertAssetIntoContent(asset, (markdown) => articleEditorRef.value?.insertMarkdownAtCursor?.(markdown) === true)
 }
 
 const confirmSubmit = async (): Promise<void> => {
@@ -555,6 +636,10 @@ const submitQuickCreateTag = async (): Promise<void> => {
   padding: 0 1rem;
 }
 
+.write-grid--wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .write-editor-panel {
   min-width: 0;
 }
@@ -565,6 +650,33 @@ const submitQuickCreateTag = async (): Promise<void> => {
   display: flex;
   min-width: 0;
   flex-direction: column;
+}
+
+.write-side-tabs {
+  min-width: 0;
+  border-top: 1px solid var(--fsusblog-panel-border);
+}
+
+.write-side-tabs :deep(.el-tabs__header) {
+  margin: 0;
+  background: var(--fsusblog-page-bg-soft);
+}
+
+.write-side-tabs :deep(.el-tabs__nav-wrap) {
+  padding: 0 0.5rem;
+}
+
+.write-side-tabs :deep(.el-tabs__content) {
+  background: var(--fsusblog-page-bg);
+}
+
+.write-workspace--focus .write-command-bar,
+.write-workspace--fullscreen .write-command-bar {
+  margin-bottom: 1.5rem;
+}
+
+.write-workspace--fullscreen .write-title-panel {
+  margin-bottom: 1.5rem;
 }
 
 .write-disclosure-summary::-webkit-details-marker {

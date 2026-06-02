@@ -996,17 +996,24 @@ export function useAdminArticleWrite() {
     }
   }
 
-  const insertAssetIntoContent = (asset: AssetLibraryItemResponse): void => {
+  const insertAssetIntoContent = (asset: AssetLibraryItemResponse, insertAtCursor?: (markdown: string) => boolean): void => {
     if (!asset.url || asset.referenceCount === 0) {
       return
     }
 
     const alt = asset.altText?.trim() || 'image'
     const markdown = `![${alt}](${asset.url})`
+    if (insertAtCursor?.(`\n${markdown}\n`) === true) {
+      toast.success('资产已插入光标位置')
+      saveDraftNow()
+      return
+    }
+
     articleForm.content = articleForm.content.trim().length > 0
       ? `${articleForm.content.trimEnd()}\n\n${markdown}\n`
       : `${markdown}\n`
     toast.success('资产已插入正文')
+    saveDraftNow()
   }
 
   const quickCreateCategory = async (name: string): Promise<boolean> => {
@@ -1398,6 +1405,7 @@ export function useAdminArticleWrite() {
     articleForm,
     rules,
     validateBeforeSubmit,
+    saveDraftNow,
     handleUploadImg,
     handleCoverUpload,
     submitForm,

@@ -16,26 +16,26 @@ export type MarkdownEditorCommandContext = Readonly<{
 type CommandHandler = (context: MarkdownEditorCommandContext) => SelectionResult
 
 export const markdownEditorCommands: readonly MarkdownEditorCommand[] = [
-  { key: 'undo', label: '撤销', ariaLabel: '撤销上一步编辑', shortcut: 'Ctrl+Z' },
-  { key: 'redo', label: '重做', ariaLabel: '重做上一步编辑', shortcut: 'Ctrl+Y' },
-  { key: 'h1', label: 'H1', ariaLabel: '插入一级标题' },
-  { key: 'h2', label: 'H2', ariaLabel: '插入二级标题' },
-  { key: 'h3', label: 'H3', ariaLabel: '插入三级标题' },
-  { key: 'bold', label: '粗体', ariaLabel: '加粗选中文本' },
-  { key: 'italic', label: '斜体', ariaLabel: '将选中文本设为斜体' },
-  { key: 'quote', label: '引用', ariaLabel: '插入引用块' },
-  { key: 'ul', label: '列表', ariaLabel: '插入无序列表' },
-  { key: 'ol', label: '有序', ariaLabel: '插入有序列表' },
-  { key: 'task', label: '任务', ariaLabel: '插入任务列表' },
-  { key: 'link', label: '链接', ariaLabel: '插入链接' },
-  { key: 'code', label: '代码', ariaLabel: '插入行内代码' },
-  { key: 'block', label: '代码块', ariaLabel: '插入代码块' },
-  { key: 'latex', label: 'LaTeX', ariaLabel: '插入 LaTeX 公式块' },
-  { key: 'mermaid', label: 'Mermaid', ariaLabel: '插入 Mermaid 图表' },
-  { key: 'table', label: '表格', ariaLabel: '插入 Markdown 表格' },
-  { key: 'hr', label: '分割线', ariaLabel: '插入分割线' },
-  { key: 'image', label: '图片', ariaLabel: '上传并插入图片' },
-  { key: 'save', label: '保存', ariaLabel: '保存文章', shortcut: 'Ctrl+S' }
+  { key: 'undo', label: '撤销', ariaLabel: '撤销上一步编辑', shortcut: 'Ctrl+Z', group: 'action' },
+  { key: 'redo', label: '重做', ariaLabel: '重做上一步编辑', shortcut: 'Ctrl+Y', group: 'action' },
+  { key: 'h1', label: '一级标题', ariaLabel: '插入一级标题', group: 'text' },
+  { key: 'h2', label: '二级标题', ariaLabel: '插入二级标题', group: 'text' },
+  { key: 'h3', label: '三级标题', ariaLabel: '插入三级标题', group: 'text' },
+  { key: 'bold', label: '粗体', ariaLabel: '加粗选中文本', group: 'text' },
+  { key: 'italic', label: '斜体', ariaLabel: '将选中文本设为斜体', group: 'text' },
+  { key: 'link', label: '链接', ariaLabel: '插入链接', group: 'text' },
+  { key: 'quote', label: '引用', ariaLabel: '插入引用块', group: 'structure' },
+  { key: 'ul', label: '列表', ariaLabel: '插入无序列表', group: 'structure' },
+  { key: 'ol', label: '有序列表', ariaLabel: '插入有序列表', group: 'structure' },
+  { key: 'task', label: '任务', ariaLabel: '插入任务列表', group: 'structure' },
+  { key: 'table', label: '表格', ariaLabel: '插入 Markdown 表格', group: 'structure' },
+  { key: 'hr', label: '分割线', ariaLabel: '插入分割线', group: 'structure' },
+  { key: 'code', label: '行内代码', ariaLabel: '插入行内代码', group: 'code' },
+  { key: 'block', label: '代码块', ariaLabel: '插入代码块', group: 'code' },
+  { key: 'latex', label: '公式', ariaLabel: '插入 LaTeX 公式块', group: 'code' },
+  { key: 'mermaid', label: '流程图', ariaLabel: '插入 Mermaid 图表', group: 'code' },
+  { key: 'image', label: '图片', ariaLabel: '上传并插入图片', group: 'media' },
+  { key: 'save', label: '保存草稿', ariaLabel: '保存文章草稿', shortcut: 'Ctrl+S', group: 'action' }
 ] as const
 
 const handlers: Readonly<Record<Exclude<MarkdownEditorCommandKey, 'undo' | 'redo' | 'image' | 'save'>, CommandHandler>> = {

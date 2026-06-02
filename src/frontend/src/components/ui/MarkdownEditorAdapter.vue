@@ -14,13 +14,15 @@
       </div>
       <el-radio-group v-model="mode" size="small" :disabled="loading">
         <el-radio-button value="write">编写</el-radio-button>
+        <el-radio-button class="editor-shell__split-option" value="split">分屏</el-radio-button>
         <el-radio-button value="preview">预览</el-radio-button>
       </el-radio-group>
     </header>
 
-    <div class="editor-shell__body">
+    <div class="editor-shell__body" :class="{ 'editor-shell__body--split': mode === 'split' }">
       <component
-        v-show="mode === 'write'"
+        ref="editorRef"
+        v-show="mode === 'write' || mode === 'split'"
         :is="provider.editorComponent"
         v-model="content"
         :placeholder="placeholder"
@@ -33,10 +35,12 @@
         aria-labelledby="markdown-editor-title"
         :toolbars-exclude="mergedToolbarsExclude"
         @on-save="emit('save')"
+        @on-draft-save="emit('draft-save')"
+        @on-submit="emit('submit')"
         @on-upload-img="handleUploadImg"
       />
 
-      <div v-show="mode === 'preview'" :class="['preview-panel', previewClass]" role="region" aria-label="Markdown 预览">
+      <div v-show="mode === 'preview' || mode === 'split'" :class="['preview-panel', previewClass]" role="region" aria-label="Markdown 预览">
         <div class="preview-panel__scroll">
           <div class="preview-panel__scroll-frame">
             <el-scrollbar>
@@ -108,11 +112,14 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
   (e: 'save'): void
+  (e: 'draft-save'): void
+  (e: 'submit'): void
   (e: 'upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void
 }>()
 
 const provider = computed(() => resolveMarkdownEditorProvider())
 const mode = ref<MarkdownEditorMode>(provider.value.defaultMode)
+const editorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean } | null>(null)
 
 const content = computed({
   get: () => props.modelValue,
@@ -126,6 +133,14 @@ const mergedToolbarsExclude = computed(() => {
 const handleUploadImg = (files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void => {
   emit('upload-img', files, callback, onError)
 }
+
+function insertMarkdownAtCursor(markdown: string): boolean {
+  return editorRef.value?.insertMarkdownAtCursor?.(markdown) === true
+}
+
+defineExpose({
+  insertMarkdownAtCursor
+})
 </script>
 
 <style scoped>
@@ -207,6 +222,19 @@ const handleUploadImg = (files: File[], callback: (urls: string[]) => void, onEr
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.editor-shell__body--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+@media (max-width: 768px) {
+  .editor-shell__body--split {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 </style>

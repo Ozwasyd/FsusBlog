@@ -1,6 +1,7 @@
 import type { Component } from 'vue'
 
-export type MarkdownEditorMode = 'write' | 'preview'
+export type MarkdownEditorMode = 'write' | 'split' | 'preview'
+export type MarkdownEditorCommandGroup = 'text' | 'structure' | 'code' | 'media' | 'action'
 export type MarkdownEditorCommandKey =
   | 'undo'
   | 'redo'
@@ -28,6 +29,7 @@ export type MarkdownEditorCommand = Readonly<{
   label: string
   ariaLabel?: string
   shortcut?: string
+  group: MarkdownEditorCommandGroup
 }>
 
 export type MarkdownEditorProviderContract = Readonly<{
