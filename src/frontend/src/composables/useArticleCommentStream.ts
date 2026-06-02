@@ -1,4 +1,4 @@
-import { ref, shallowRef } from 'vue'
+import { reactive, ref, shallowRef } from 'vue'
 import {
   getComments,
   getThreadReplies,
@@ -36,7 +36,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
   const hasMore = ref(true)
   const nextCursor = ref<string | null>(null)
   const loadingComments = ref(false)
-  const loadingReplies = shallowRef<Record<string, boolean>>({})
+  const loadingReplies = reactive<Record<string, boolean>>({})
   const loadMoreTrigger = ref<HTMLElement | null>(null)
 
   const threadIdSet = new Set<string>()
@@ -86,6 +86,9 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
     updateThreads([])
     hasMore.value = true
     nextCursor.value = null
+    for (const key of Object.keys(loadingReplies)) {
+      delete loadingReplies[key]
+    }
   }
 
   const appendThreads = (incoming: ReadonlyArray<CommentThreadItem>) => {
@@ -150,7 +153,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
       return
     }
 
-    if (loadingReplies.value[rootId] === true) {
+    if (loadingReplies[rootId] === true) {
       return
     }
 
@@ -159,10 +162,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
     }
 
     const cursor = replyCursorByRoot.get(rootId) ?? null
-    loadingReplies.value = {
-      ...loadingReplies.value,
-      [rootId]: true
-    }
+    loadingReplies[rootId] = true
 
     replyTask.cancel()
 
@@ -208,10 +208,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
       }
     } finally {
       if (options.isMounted()) {
-        loadingReplies.value = {
-          ...loadingReplies.value,
-          [rootId]: false
-        }
+        delete loadingReplies[rootId]
       }
     }
   }

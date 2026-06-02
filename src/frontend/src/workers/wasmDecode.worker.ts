@@ -16,10 +16,19 @@ export type DecodeErrorCode =
 
 type DecodeRequestV1 = {
   v: 1;
+  type?: 'decode';
   requestId: number;
   buffer: ArrayBuffer;
   expectedFrameType?: number;
 };
+
+type CancelRequestV1 = {
+  v: 1;
+  type: 'cancel';
+  requestId: number;
+};
+
+type WorkerRequestV1 = DecodeRequestV1 | CancelRequestV1;
 
 type DecodeResponseV1 = {
   v: 1;
@@ -30,6 +39,9 @@ type DecodeResponseV1 = {
   errorCode: DecodeErrorCode;
   error?: string;
 };
+
+const canceledRequests = new Set<number>();
+let wasmReadyPromise: Promise<boolean> | null = null;
 
 const exactDecodeErrorMap: Record<string, DecodeErrorCode> = {
   frame_too_short: 'payload_out_of_range',
@@ -91,8 +103,27 @@ function classifyError(error: unknown): DecodeErrorCode {
   return 'pod_parse_failed';
 }
 
-self.onmessage = async (event: MessageEvent<DecodeRequestV1>) => {
-  const { v, requestId, buffer, expectedFrameType } = event.data;
+function ensureWasmReady(): Promise<boolean> {
+  if (!wasmReadyPromise) {
+    wasmReadyPromise = initWasm();
+  }
+
+  return wasmReadyPromise;
+}
+
+function isRequestCanceled(requestId: number): boolean {
+  return canceledRequests.has(requestId);
+}
+
+function postDecodeResponse(response: DecodeResponseV1): void {
+  if (!isRequestCanceled(response.requestId)) {
+    self.postMessage(response);
+  }
+  canceledRequests.delete(response.requestId);
+}
+
+self.onmessage = async (event: MessageEvent<WorkerRequestV1>) => {
+  const { v, requestId } = event.data;
   try {
     if (v !== DECODE_WORKER_PROTOCOL_VERSION) {
       const response: DecodeResponseV1 = {
@@ -102,11 +133,27 @@ self.onmessage = async (event: MessageEvent<DecodeRequestV1>) => {
         errorCode: 'schema_mismatch',
         error: 'worker_protocol_version_mismatch'
       };
-      self.postMessage(response);
+      postDecodeResponse(response);
       return;
     }
 
-    const ready = await initWasm();
+    if (event.data.type === 'cancel') {
+      canceledRequests.add(requestId);
+      return;
+    }
+
+    const { buffer, expectedFrameType } = event.data;
+    if (isRequestCanceled(requestId)) {
+      canceledRequests.delete(requestId);
+      return;
+    }
+
+    const ready = await ensureWasmReady();
+    if (isRequestCanceled(requestId)) {
+      canceledRequests.delete(requestId);
+      return;
+    }
+
     if (!ready) {
       const response: DecodeResponseV1 = {
         v: 1,
@@ -115,11 +162,16 @@ self.onmessage = async (event: MessageEvent<DecodeRequestV1>) => {
         errorCode: 'wasm_init_failed',
         error: 'wasm_init_failed'
       };
-      self.postMessage(response);
+      postDecodeResponse(response);
       return;
     }
 
     const frame = decode(buffer);
+    if (isRequestCanceled(requestId)) {
+      canceledRequests.delete(requestId);
+      return;
+    }
+
     if (!frame.ok) {
       const response: DecodeResponseV1 = {
         v: 1,
@@ -129,7 +181,7 @@ self.onmessage = async (event: MessageEvent<DecodeRequestV1>) => {
         errorCode: classifyError(frame.error ?? 'decode_failed'),
         error: frame.error ?? 'decode_failed'
       };
-      self.postMessage(response);
+      postDecodeResponse(response);
       return;
     }
 
@@ -142,11 +194,16 @@ self.onmessage = async (event: MessageEvent<DecodeRequestV1>) => {
         errorCode: 'frame_type_unexpected',
         error: 'frame_type_unexpected'
       };
-      self.postMessage(response);
+      postDecodeResponse(response);
       return;
     }
 
     const data = mapFramePayloadToViewModel(frame.frameType, frame.payloadView);
+    if (isRequestCanceled(requestId)) {
+      canceledRequests.delete(requestId);
+      return;
+    }
+
     const response: DecodeResponseV1 = {
       v: 1,
       requestId,
@@ -155,7 +212,7 @@ self.onmessage = async (event: MessageEvent<DecodeRequestV1>) => {
       data,
       errorCode: 'none'
     };
-    self.postMessage(response);
+    postDecodeResponse(response);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'pod_parse_failed';
     const response: DecodeResponseV1 = {
@@ -165,7 +222,7 @@ self.onmessage = async (event: MessageEvent<DecodeRequestV1>) => {
       errorCode: message === 'wasm_init_failed' ? 'wasm_init_failed' : classifyError(error),
       error: message
     };
-    self.postMessage(response);
+    postDecodeResponse(response);
   }
 };
 

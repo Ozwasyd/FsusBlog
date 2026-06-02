@@ -43,7 +43,7 @@ const textDecoder = new TextDecoder()
 let loadPromise: Promise<void> | null = null
 let loaded = false
 let loadedVersion: string | null = null
-let loadedEntries = new Map<string, Uint8Array>()
+let loadedEntryKeys = new Set<string>()
 let activeGeneration = 0
 let activeSearchController: AbortController | null = null
 let activeLoadController: AbortController | null = null
@@ -148,6 +148,8 @@ function buildSearchPackage(entries: Array<{ kind: 'shard' | 'patch'; role: Sear
 
   return out
 }
+
+const EMPTY_SEARCH_PACKAGE = buildSearchPackage([])
 
 async function loadManifest(signal?: AbortSignal): Promise<SearchManifest> {
   return decodeSearchManifest(await fetchManifestBytes(SEARCH_MANIFEST_URL, signal))
@@ -255,19 +257,25 @@ async function loadAssetsForRoles(manifest: SearchManifest, roles: readonly stri
     }
   }
 
-  for (const role of roles) {
+  const entries = await Promise.all(roles.map(async (role) => {
     const normalizedRole = role === 'core' || role === 'recent' || role === 'archive' ? role : null
     if (!normalizedRole) {
-      continue
+      return null
     }
 
     const shard = shardsByRole.get(normalizedRole)
     if (!shard) {
-      continue
+      return null
     }
 
     const shardBytes = await fetchBytes(shard.fullUrl, signal)
-    results.set(roleCacheKey('shard', normalizedRole), shardBytes)
+    return [roleCacheKey('shard', normalizedRole), shardBytes] as const
+  }))
+
+  for (const entry of entries) {
+    if (entry) {
+      results.set(entry[0], entry[1])
+    }
   }
 
   return results
@@ -281,13 +289,22 @@ function createAbortError(message: string): Error {
   return new DOMException(message, 'AbortError')
 }
 
-function combineAbortSignals(...signals: Array<AbortSignal | undefined>): AbortSignal {
+type CombinedAbortSignal = Readonly<{
+  signal: AbortSignal
+  cleanup: () => void
+}>
+
+function combineAbortSignals(...signals: Array<AbortSignal | undefined>): CombinedAbortSignal {
   const activeSignals = signals.filter((signal): signal is AbortSignal => Boolean(signal))
   if (activeSignals.length === 1) {
-    return activeSignals[0]
+    return {
+      signal: activeSignals[0],
+      cleanup: () => {}
+    }
   }
 
   const controller = new AbortController()
+  const listeners: Array<readonly [AbortSignal, () => void]> = []
   const abort = () => controller.abort()
   for (const signal of activeSignals) {
     if (signal.aborted) {
@@ -296,9 +313,18 @@ function combineAbortSignals(...signals: Array<AbortSignal | undefined>): AbortS
     }
 
     signal.addEventListener('abort', abort, { once: true })
+    listeners.push([signal, abort])
   }
 
-  return controller.signal
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      for (const [signal, listener] of listeners) {
+        signal.removeEventListener('abort', listener)
+      }
+      listeners.length = 0
+    }
+  }
 }
 
 function abortInFlightLoads(): void {
@@ -366,7 +392,7 @@ async function reloadRuntimeFromEntries(entries: Map<string, Uint8Array>, genera
         return
       }
 
-      await loadSearchIndexIntoRuntime(buildSearchPackage([]))
+      await loadSearchIndexIntoRuntime(EMPTY_SEARCH_PACKAGE)
       for (const entry of packageEntries) {
         if (!isGenerationActive(generation, controller)) {
           return
@@ -379,27 +405,94 @@ async function reloadRuntimeFromEntries(entries: Map<string, Uint8Array>, genera
   await runtimeReloadPromise
 }
 
-async function loadIncrementalEntries(extra: Map<string, Uint8Array>, generation: number, controller?: AbortController | null): Promise<Map<string, Uint8Array>> {
-  const nextEntries = new Map(loadedEntries)
+async function loadIncrementalEntries(extra: Map<string, Uint8Array>, generation: number, controller?: AbortController | null): Promise<Set<string>> {
+  const nextEntryKeys = new Set(loadedEntryKeys)
   for (const [key, value] of extra) {
-    if (nextEntries.has(key)) {
+    if (nextEntryKeys.has(key)) {
       continue
     }
 
     const [kind, role] = key.split(':') as ['shard' | 'patch', SearchShardRole]
     if (!isGenerationActive(generation, controller)) {
-      return nextEntries
+      return nextEntryKeys
     }
 
     await loadSearchEntry(kind, role, value)
     if (!isGenerationActive(generation, controller)) {
-      return nextEntries
+      return nextEntryKeys
     }
 
-    nextEntries.set(key, value)
+    nextEntryKeys.add(key)
   }
 
-  return nextEntries
+  return nextEntryKeys
+}
+
+type SearchNavigator = Navigator & {
+  deviceMemory?: number
+  connection?: {
+    saveData?: boolean
+  }
+}
+
+type SearchIdleWindow = Window & typeof globalThis & {
+  requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+  cancelIdleCallback?: (handle: number) => void
+}
+
+function shouldPreloadBackgroundShard(): boolean {
+  if (typeof navigator === 'undefined') {
+    return true
+  }
+
+  const searchNavigator = navigator as SearchNavigator
+  if (searchNavigator.connection?.saveData === true) {
+    return false
+  }
+
+  return typeof searchNavigator.deviceMemory !== 'number' || searchNavigator.deviceMemory > 4
+}
+
+function waitForSearchIdle(signal: AbortSignal): Promise<void> {
+  if (signal.aborted) {
+    return Promise.reject(createAbortError('The operation was aborted.'))
+  }
+
+  if (typeof window === 'undefined') {
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve, reject) => {
+    const idleWindow = window as SearchIdleWindow
+    let idleHandle: number | null = null
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null
+
+    const cleanup = () => {
+      signal.removeEventListener('abort', abortHandler)
+      if (idleHandle !== null && typeof idleWindow.cancelIdleCallback === 'function') {
+        idleWindow.cancelIdleCallback(idleHandle)
+      }
+      if (timeoutHandle !== null) {
+        clearTimeout(timeoutHandle)
+      }
+    }
+    const complete = () => {
+      cleanup()
+      resolve()
+    }
+    const abortHandler = () => {
+      cleanup()
+      reject(createAbortError('The operation was aborted.'))
+    }
+
+    signal.addEventListener('abort', abortHandler, { once: true })
+    if (typeof idleWindow.requestIdleCallback === 'function') {
+      idleHandle = idleWindow.requestIdleCallback(() => complete(), { timeout: 2000 })
+      return
+    }
+
+    timeoutHandle = setTimeout(complete, 250)
+  })
 }
 
 async function preloadBackgroundShard(manifest: SearchManifest, generation: number): Promise<void> {
@@ -411,6 +504,13 @@ async function preloadBackgroundShard(manifest: SearchManifest, generation: numb
   const controller = new AbortController()
   backgroundPreloadController = controller
 
+  if (!shouldPreloadBackgroundShard()) {
+    if (backgroundPreloadController === controller) {
+      backgroundPreloadController = null
+    }
+    return
+  }
+
   const roles = manifest.backgroundRoles.filter((role): role is SearchShardRole => role === 'archive')
   if (roles.length === 0) {
     if (backgroundPreloadController === controller) {
@@ -420,12 +520,17 @@ async function preloadBackgroundShard(manifest: SearchManifest, generation: numb
   }
 
   try {
+    await waitForSearchIdle(controller.signal)
+    if (!isGenerationActive(generation, controller)) {
+      return
+    }
+
     const extra = await loadAssetsForRoles(manifest, roles, controller.signal)
     if (!isGenerationActive(generation, controller)) {
       return
     }
 
-    loadedEntries = await loadIncrementalEntries(extra, generation, controller)
+    loadedEntryKeys = await loadIncrementalEntries(extra, generation, controller)
   } catch (error) {
     if (!isAbortError(error)) {
       throw error
@@ -465,7 +570,7 @@ function ensureLoadPromise(): Promise<void> {
         return
       }
 
-      loadedEntries = entries
+      loadedEntryKeys = new Set(entries.keys())
       loaded = true
       loadedVersion = manifest.currentVersion
       void preloadBackgroundShard(manifest, generation).catch(() => {})
@@ -507,7 +612,7 @@ export function invalidateSearchIndexMemory(): void {
   loadPromise = null
   loaded = false
   loadedVersion = null
-  loadedEntries = new Map<string, Uint8Array>()
+  loadedEntryKeys = new Set<string>()
 }
 
 async function loadSearchIndex(signal?: AbortSignal): Promise<void> {
@@ -532,14 +637,15 @@ export async function searchIndex(
   activeSearchController?.abort()
   const controller = new AbortController()
   activeSearchController = controller
-  const effectiveSignal = combineAbortSignals(signal, controller.signal)
-
-  await loadSearchIndex(effectiveSignal)
-  if (effectiveSignal.aborted || activeSearchController !== controller) {
-    throw new DOMException('The operation was aborted.', 'AbortError')
-  }
+  const combinedSignal = combineAbortSignals(signal, controller.signal)
+  const effectiveSignal = combinedSignal.signal
 
   try {
+    await loadSearchIndex(effectiveSignal)
+    if (effectiveSignal.aborted || activeSearchController !== controller) {
+      throw new DOMException('The operation was aborted.', 'AbortError')
+    }
+
     const payload = await searchIndexBinary(query.trim(), sort, Math.max(1, page), Math.max(1, pageSize), effectiveSignal)
     if (effectiveSignal.aborted || activeSearchController !== controller) {
       throw new DOMException('The operation was aborted.', 'AbortError')
@@ -547,6 +653,7 @@ export async function searchIndex(
 
     return mapArticleSearchFromPodPayload(payload)
   } finally {
+    combinedSignal.cleanup()
     if (activeSearchController === controller) {
       activeSearchController = null
     }

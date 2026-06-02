@@ -18,6 +18,55 @@ describe('useViewTask', () => {
     expect(vt.errorMessage.value).toBe('')
   })
 
+  it('keeps loading owned by the latest run when an older run settles late', async () => {
+    const vt = useViewTask()
+    let resolveFirst: (value: string) => void = () => {}
+    let resolveSecond: (value: string) => void = () => {}
+    const first = new Promise<string>((resolve) => {
+      resolveFirst = resolve
+    })
+    const second = new Promise<string>((resolve) => {
+      resolveSecond = resolve
+    })
+
+    const firstRun = vt.run(() => first)
+    const secondRun = vt.run(() => second)
+
+    expect(vt.loading.value).toBe(true)
+    resolveFirst('old')
+    await firstRun
+    expect(vt.loading.value).toBe(true)
+
+    resolveSecond('new')
+    await secondRun
+    expect(vt.loading.value).toBe(false)
+  })
+
+  it('ignores late errors from stale runs', async () => {
+    const vt = useViewTask()
+    let rejectFirst: (error: Error) => void = () => {}
+    let resolveSecond: (value: string) => void = () => {}
+    const first = new Promise<string>((_, reject) => {
+      rejectFirst = reject
+    })
+    const second = new Promise<string>((resolve) => {
+      resolveSecond = resolve
+    })
+
+    const firstRun = vt.run(() => first)
+    const secondRun = vt.run(() => second)
+
+    rejectFirst(new Error('old failed'))
+    await firstRun
+    expect(vt.errorMessage.value).toBe('')
+    expect(vt.loading.value).toBe(true)
+
+    resolveSecond('new')
+    await secondRun
+    expect(vt.errorMessage.value).toBe('')
+    expect(vt.loading.value).toBe(false)
+  })
+
   it('run sets errorMessage on error', async () => {
     const vt = useViewTask()
     await vt.run(() => Promise.reject(new Error('something broke')))

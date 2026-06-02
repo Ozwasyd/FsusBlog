@@ -67,18 +67,18 @@ export const useSseStore = defineStore('sse', () => {
       runtime.lastRenderDurationMs = stats.durationMs
 
       if (module === 'article') {
-        articleBatch.value = Object.freeze([...patches]) as readonly SseArticleRenderPatch[]
+        articleBatch.value = Object.freeze(patches) as readonly SseArticleRenderPatch[]
         articleRevision.value += 1
         return
       }
 
       if (module === 'comment') {
-        commentBatch.value = Object.freeze([...patches]) as readonly SseCommentRenderPatch[]
+        commentBatch.value = Object.freeze(patches) as readonly SseCommentRenderPatch[]
         commentRevision.value += 1
         return
       }
 
-      inboxBatch.value = Object.freeze([...patches]) as readonly SseInboxRenderPatch[]
+      inboxBatch.value = Object.freeze(patches) as readonly SseInboxRenderPatch[]
       inboxRevision.value += 1
     }
   })

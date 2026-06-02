@@ -6,7 +6,7 @@ import { createSerializedExecutor, loadEmscriptenModule, resolveImageCodecAsset,
 export type WasmCodecLevel = 'simd' | 'basic' | 'none'
 
 interface WasmEncodeRequest {
-  rgba: Uint8Array
+  rgba: Uint8Array | Uint8ClampedArray
   width: number
   height: number
   format: ImageCompressionOptions['format']
@@ -78,16 +78,23 @@ type ImageCodecModule = {
 }
 
 const withImageCodecLock = createSerializedExecutor()
+let simdSupportCache: boolean | null = null
 
 function supportsSimd(): boolean {
+  if (simdSupportCache !== null) {
+    return simdSupportCache
+  }
+
   try {
     const simdProbe = new Uint8Array([
       0, 97, 115, 109, 1, 0, 0, 0,
       1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10,
       1, 8, 0, 65, 0, 253, 15, 253, 98, 11
     ])
-    return typeof WebAssembly !== 'undefined' && WebAssembly.validate(simdProbe)
+    simdSupportCache = typeof WebAssembly !== 'undefined' && WebAssembly.validate(simdProbe)
+    return simdSupportCache
   } catch {
+    simdSupportCache = false
     return false
   }
 }
@@ -97,7 +104,7 @@ function readUtf8(heap: Uint8Array, ptr: number, len: number): string {
     return ''
   }
   const view = heap.subarray(ptr, ptr + len)
-  return decodeUtf8(Uint8Array.from(view))
+  return decodeUtf8(view)
 }
 
 function readBytes(heap: Uint8Array, ptr: number, len: number): Uint8Array {

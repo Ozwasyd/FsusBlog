@@ -199,7 +199,7 @@ export async function compressImageFileWithRuntime(
     try {
       const imageData = context.getImageData(0, 0, width, height)
       const encoded = await wasmCodec.encode({
-        rgba: Uint8Array.from(imageData.data),
+        rgba: imageData.data,
         width,
         height,
         format: options.format,
@@ -207,12 +207,7 @@ export async function compressImageFileWithRuntime(
         preserveAlpha: options.preserveAlpha
       })
       if (isEncodedImageLikelyValid(encoded, options.format)) {
-        const encodedBytes = Uint8Array.from(encoded)
-        const encodedBuffer = encodedBytes.buffer.slice(
-          encodedBytes.byteOffset,
-          encodedBytes.byteOffset + encodedBytes.byteLength
-        ) as ArrayBuffer
-        encodedBlob = new Blob([encodedBuffer], { type: mimeType })
+        encodedBlob = new Blob([encoded], { type: mimeType })
         pipeline = wasmCodec.level === 'simd' ? 'wasm-simd' : 'wasm-basic'
       } else {
         throw new WasmEncodeError({

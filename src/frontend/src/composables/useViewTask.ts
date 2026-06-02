@@ -12,12 +12,14 @@ export function useViewTask() {
   const task = useAbortableTask()
   const loading = ref(false)
   const errorMessage = ref('')
+  let runSeq = 0
 
   const clearError = (): void => {
     errorMessage.value = ''
   }
 
   const run = async <T>(executor: AbortableExecutor<T>, options: ViewTaskRunOptions = {}): Promise<T | undefined> => {
+    const seq = ++runSeq
     if (options.clearError !== false) {
       errorMessage.value = ''
     }
@@ -30,12 +32,18 @@ export function useViewTask() {
         return undefined
       }
 
+      if (seq !== runSeq) {
+        return undefined
+      }
+
       const message = getErrorMessage(error, options.fallbackMessage || '请求失败')
       errorMessage.value = message
       options.onError?.(error, message)
       return undefined
     } finally {
-      loading.value = false
+      if (seq === runSeq) {
+        loading.value = false
+      }
     }
   }
 

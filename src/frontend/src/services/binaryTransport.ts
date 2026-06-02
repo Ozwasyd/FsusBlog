@@ -20,9 +20,16 @@ type DecodeWorkerResponse = {
 
 type BinaryDecodeRequest = {
   v: 1;
+  type: 'decode';
   requestId: number;
   buffer: ArrayBuffer;
   expectedFrameType: FrameType;
+};
+
+type BinaryCancelRequest = {
+  v: 1;
+  type: 'cancel';
+  requestId: number;
 };
 
 export type TransportFailureKind =
@@ -109,6 +116,7 @@ type BinaryDecodeResult<T> = BinaryDecodeSuccess<T> | BinaryDecodeFailure;
 let workerSingleton: Worker | null = null;
 let requestSeq = 0;
 const DECODE_WORKER_TIMEOUT_MS = 15000;
+const WORKER_IDLE_TTL_MS = 30000;
 
 type PendingDecodeRequest = {
   resolve: (value: unknown) => void;
@@ -134,6 +142,7 @@ type QueuedDecodeRequest = {
 };
 
 const queuedRequests: QueuedDecodeRequest[] = [];
+let workerIdleTimer: ReturnType<typeof setTimeout> | null = null;
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
@@ -154,12 +163,14 @@ function clearPendingRequest(requestId: number, pumpQueue = true): PendingDecode
   pending.abortCleanup = null;
   if (pumpQueue) {
     pumpDecodeQueue();
+    scheduleWorkerIdleTerminate();
   }
 
   return pending;
 }
 
 function resetWorker(error: unknown): void {
+  clearWorkerIdleTimer();
   const pending = Array.from(pendingRequests.keys());
   for (let i = 0; i < pending.length; i += 1) {
     const request = clearPendingRequest(pending[i], false);
@@ -174,6 +185,43 @@ function resetWorker(error: unknown): void {
 
   workerSingleton?.terminate();
   workerSingleton = null;
+}
+
+function clearWorkerIdleTimer(): void {
+  if (!workerIdleTimer) {
+    return;
+  }
+
+  clearTimeout(workerIdleTimer);
+  workerIdleTimer = null;
+}
+
+function scheduleWorkerIdleTerminate(): void {
+  clearWorkerIdleTimer();
+  if (!workerSingleton || pendingRequests.size > 0 || queuedRequests.length > 0) {
+    return;
+  }
+
+  workerIdleTimer = setTimeout(() => {
+    workerIdleTimer = null;
+    if (workerSingleton && pendingRequests.size === 0 && queuedRequests.length === 0) {
+      workerSingleton.terminate();
+      workerSingleton = null;
+    }
+  }, WORKER_IDLE_TTL_MS);
+}
+
+function postWorkerCancel(requestId: number): void {
+  if (!workerSingleton) {
+    return;
+  }
+
+  const request: BinaryCancelRequest = {
+    v: 1,
+    type: 'cancel',
+    requestId
+  };
+  workerSingleton.postMessage(request);
 }
 
 function rejectQueuedRequest(requestId: number, reason: unknown): boolean {
@@ -214,8 +262,12 @@ function handleWorkerFatalError(reason: unknown): void {
 }
 
 function getWorker(): Worker {
+  clearWorkerIdleTimer();
   if (!workerSingleton) {
     workerSingleton = new Worker(new URL('../workers/wasmDecode.worker.ts', import.meta.url), { type: 'module' });
+    emitRumMetric('binary_worker_init_count', {
+      value: 1
+    });
     workerSingleton.addEventListener('message', handleWorkerMessage);
     workerSingleton.addEventListener('error', (event) => {
       handleWorkerFatalError(event.error ?? new Error(event.message || 'binary_decode_worker_failed'));
@@ -229,6 +281,7 @@ function getWorker(): Worker {
 }
 
 function pumpDecodeQueue(): void {
+  clearWorkerIdleTimer();
   while (pendingRequests.size < DECODE_WORKER_ACTIVE_LIMIT && queuedRequests.length > 0) {
     const queued = queuedRequests.shift()!;
     queued.abortCleanup?.();
@@ -300,9 +353,8 @@ function startWorkerDecode<T>(queued: QueuedDecodeRequest): void {
     }
 
     pending.reject(createAbortLikeError('binary_decode_aborted'));
-    if (pendingRequests.size === 0) {
-      resetWorker(createAbortLikeError('binary_decode_aborted'));
-    }
+    postWorkerCancel(requestId);
+    scheduleWorkerIdleTerminate();
   };
 
   const timeoutId = setTimeout(() => {
@@ -332,6 +384,7 @@ function startWorkerDecode<T>(queued: QueuedDecodeRequest): void {
   try {
     const request: BinaryDecodeRequest = {
       v: 1,
+      type: 'decode',
       requestId,
       buffer: queued.buffer,
       expectedFrameType: queued.expectedFrameType

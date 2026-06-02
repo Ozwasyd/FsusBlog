@@ -50,7 +50,7 @@ public sealed class PublicAotFileShellCache(
         _memoryCache[entry.CacheKey] = CreateMemoryCacheEntry(entry);
 
         await RegisterKeyAsync(entry.CacheKey).ConfigureAwait(false);
-        QueueSupersededVersionDelete(entry.CacheKey, targetPath);
+        DeleteSupersededVersions(entry.CacheKey, targetPath);
     }
 
     public async Task RemoveAsync(string cacheKey, CancellationToken cancellationToken = default)
@@ -396,30 +396,27 @@ public sealed class PublicAotFileShellCache(
             ? pageId
             : PublicPageId.Home;
 
-    private void QueueSupersededVersionDelete(string cacheKey, string currentPath)
+    private void DeleteSupersededVersions(string cacheKey, string currentPath)
     {
-        _ = Task.Run(() =>
+        try
         {
-            try
+            foreach (string path in EnumerateEntryPathsForKey(cacheKey))
             {
-                foreach (string path in EnumerateEntryPathsForKey(cacheKey))
+                if (string.Equals(Path.GetFullPath(path), Path.GetFullPath(currentPath), StringComparison.Ordinal))
                 {
-                    if (string.Equals(Path.GetFullPath(path), Path.GetFullPath(currentPath), StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
+                    continue;
+                }
 
-                    if (File.Exists(path))
-                    {
-                        File.Delete(path);
-                    }
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
                 }
             }
-            catch (Exception ex)
-            {
-                logger.LogDebug(ex, "public_aot_cache_superseded_version_delete_failed {CacheKey}", cacheKey);
-            }
-        });
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "public_aot_cache_superseded_version_delete_failed {CacheKey}", cacheKey);
+        }
     }
 
     private static string SanitizePathSegment(string value)
