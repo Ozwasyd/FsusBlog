@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { validateCommentContent, validateUsername } from '@/utils/contentFilter'
+import {
+  normalizeModerationText,
+  scoreContentRisk,
+  USERNAME_CONSTRAINT,
+  validateCommentContent,
+  validateUsername
+} from '@/utils/contentFilter'
 
 describe('validateCommentContent', () => {
   it('rejects empty string', () => {
@@ -30,10 +36,27 @@ describe('validateCommentContent', () => {
     expect(r.isValid).toBe(false)
   })
 
+  it('normalizes full-width and confusable ad terms before matching', () => {
+    const r = validateCommentContent('加ＶＸ处理')
+    expect(r.isValid).toBe(false)
+  })
+
+  it('exposes explainable risk factors for blocked content', () => {
+    const risk = scoreContentRisk('代\u200B写联系 t.cn/abc')
+    expect(risk.score).toBeGreaterThanOrEqual(0.9)
+    expect(risk.factors).toContain('ad')
+    expect(risk.factors).toContain('obfuscation')
+    expect(risk.firstMatch).toBeTruthy()
+  })
+
   it('accepts text with common legitimate words containing "习"', () => {
     // "学习" should not be flagged as it's in the whitelist
     const r = validateCommentContent('坚持学习是好习惯')
     expect(r.isValid).toBe(true)
+  })
+
+  it('normalizes moderation text with NFKC, zero-width stripping, and confusable mapping', () => {
+    expect(normalizeModerationText('薇\u200B信：ＡＢＣ')).toContain('微信:abc')
   })
 })
 
@@ -55,9 +78,10 @@ describe('validateUsername', () => {
     expect(r.message).toContain('20')
   })
 
-  it('accepts valid ASCII username', () => {
+  it('rejects username with digits or separators according to the shared backend constraint', () => {
     const r = validateUsername('user_123')
-    expect(r.isValid).toBe(true)
+    expect(r.isValid).toBe(false)
+    expect(r.message).toBe(USERNAME_CONSTRAINT.patternMessage)
   })
 
   it('accepts valid Chinese username', () => {

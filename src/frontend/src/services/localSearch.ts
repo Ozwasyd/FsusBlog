@@ -1,6 +1,7 @@
 import type { ArticleListItemResponse, PageResponse } from '@/api/article'
 import { withBinaryAccept } from '@/api/contracts'
 import { mapArticleSearchFromPodPayload } from '@/adapters/binary/articleAdapter'
+import { rankSearchPage } from '@/services/searchRanking'
 import { subscribeServiceWorkerMessages } from '@/services/serviceWorkerRuntime'
 import { AppErrorCode, appErrorFromStatus, createAppError } from '@/utils/appError'
 import { isAbortError } from '@/utils/errors'
@@ -651,7 +652,7 @@ export async function searchIndex(
       throw new DOMException('The operation was aborted.', 'AbortError')
     }
 
-    return mapArticleSearchFromPodPayload(payload)
+    return rankSearchPage(mapArticleSearchFromPodPayload(payload), query, sort)
   } finally {
     combinedSignal.cleanup()
     if (activeSearchController === controller) {

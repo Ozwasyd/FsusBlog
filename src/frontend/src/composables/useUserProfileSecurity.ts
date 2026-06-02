@@ -26,7 +26,7 @@ import {
 import { usePow } from '@/composables/usePow'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { useUserStore } from '@/store/user'
-import { validateUsername } from '@/utils/contentFilter'
+import { createUsernamePattern, USERNAME_CONSTRAINT, validateUsername } from '@/utils/contentFilter'
 import { toast } from '@/utils/toast'
 import { getErrorMessage, isAbortError } from '@/utils/errors'
 
@@ -171,18 +171,16 @@ export function useUserProfileSecurity() {
       : '请输入当前密码和验证码，重新生成恢复码。'
   )
 
-  let usernameRegex: RegExp
-  try {
-    usernameRegex = new RegExp('^[\\p{Script=Han}\\p{L}\\p{N}_-]+$', 'u')
-  } catch {
-    usernameRegex = /^[\u4e00-\u9fa5A-Za-z0-9_-]+$/
-  }
-
   const rules = {
     newUsername: [
       { required: true, message: '请填写新的用户名', trigger: 'blur' },
-      { pattern: usernameRegex, message: '用户名仅允许中英文字符、数字及连字符', trigger: 'blur' },
-      { min: 3, max: 20, message: '长度在 3 到 20 个字符', trigger: 'blur' }
+      { pattern: createUsernamePattern(), message: USERNAME_CONSTRAINT.patternMessage, trigger: 'blur' },
+      {
+        min: USERNAME_CONSTRAINT.minLength,
+        max: USERNAME_CONSTRAINT.maxLength,
+        message: USERNAME_CONSTRAINT.lengthMessage,
+        trigger: 'blur'
+      }
     ],
     oldPassword: [{ required: true, message: '请填写当前密码', trigger: 'blur' }],
     newPassword: [

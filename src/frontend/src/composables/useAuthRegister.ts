@@ -7,10 +7,8 @@ import { usePow } from '@/composables/usePow'
 import { useViewTask } from '@/composables/useViewTask'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { AppErrorCode, toAppError } from '@/utils/appError'
-import { validateCommentContent } from '@/utils/contentFilter'
+import { isUsernameCharacterSetValid, USERNAME_CONSTRAINT, validateUsername } from '@/utils/contentFilter'
 import { toast } from '@/utils/toast'
-
-const USERNAME_REGEX = /^[\u4e00-\u9fa5a-zA-Z]+$/
 
 const getErrorText = (error: unknown): string => {
   const normalized = toAppError(error, '注册服务暂不可用，请稍后再试')
@@ -109,12 +107,12 @@ export function useAuthRegister() {
       return ''
     }
 
-    if (value.length < 3 || value.length > 20) {
-      return '* 长度需在 3-20 个字符之间'
+    if (value.length < USERNAME_CONSTRAINT.minLength || value.length > USERNAME_CONSTRAINT.maxLength) {
+      return `* 长度需在 ${USERNAME_CONSTRAINT.minLength}-${USERNAME_CONSTRAINT.maxLength} 个字符之间`
     }
 
-    if (!USERNAME_REGEX.test(value)) {
-      return '* 仅允许中文或英文字母，不支持数字和符号'
+    if (!isUsernameCharacterSetValid(value)) {
+      return `* ${USERNAME_CONSTRAINT.patternMessage.replace('用户名', '')}`
     }
 
     return ''
@@ -202,7 +200,7 @@ export function useAuthRegister() {
       return
     }
 
-    const nameCheck = validateCommentContent(registerData.username)
+    const nameCheck = validateUsername(registerData.username)
     if (!nameCheck.isValid) {
       localError.value = `用户名违规：${nameCheck.message}`
       return

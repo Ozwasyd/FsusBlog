@@ -26,6 +26,34 @@ type PendingBucket<TPatch extends SseRenderPatch> = {
 }
 
 const DEFAULT_MAX_HZ = 10
+type ArticleAction = NonNullable<SseArticleRenderPatch['event']>['payload']['action']
+
+const articlePatchMergeTable: Readonly<Record<ArticleAction, Partial<Record<ArticleAction, ArticleAction>>>> = {
+  Created: {
+    Created: 'Created',
+    Updated: 'Created',
+    Deleted: 'Deleted',
+    Restored: 'Restored'
+  },
+  Updated: {
+    Created: 'Created',
+    Updated: 'Updated',
+    Deleted: 'Deleted',
+    Restored: 'Restored'
+  },
+  Deleted: {
+    Created: 'Created',
+    Updated: 'Updated',
+    Deleted: 'Deleted',
+    Restored: 'Restored'
+  },
+  Restored: {
+    Created: 'Created',
+    Updated: 'Restored',
+    Deleted: 'Deleted',
+    Restored: 'Restored'
+  }
+}
 
 function createBucket<TPatch extends SseRenderPatch>(): PendingBucket<TPatch> {
   return {
@@ -43,7 +71,7 @@ function resolvePatchKey(patch: SseRenderPatch): string {
     }
 
     const payload = patch.event?.payload
-    return `article:${payload?.articleId ?? 0}:${payload?.action ?? 'unknown'}`
+    return `article:${payload?.articleId ?? 0}`
   }
 
   if (patch.module === 'comment') {
@@ -72,6 +100,51 @@ function resolvePatchKey(patch: SseRenderPatch): string {
   }
 
   return `inbox:${patch.kind}`
+}
+
+function mergeArticleAction(previous: ArticleAction, next: ArticleAction): ArticleAction {
+  return articlePatchMergeTable[previous][next] ?? next
+}
+
+function mergeArticleRenderPatch(previous: SseArticleRenderPatch, next: SseArticleRenderPatch): SseArticleRenderPatch {
+  if (previous.kind === 'reconnected' || next.kind === 'reconnected') {
+    return previous.kind === 'reconnected' ? previous : next
+  }
+
+  const previousPayload = previous.event?.payload
+  const nextPayload = next.event?.payload
+  if (!previousPayload || !nextPayload || previousPayload.articleId !== nextPayload.articleId) {
+    return next
+  }
+
+  const action = mergeArticleAction(previousPayload.action, nextPayload.action)
+  const preview = action === 'Deleted'
+    ? (nextPayload.preview ?? null)
+    : (nextPayload.preview ?? previousPayload.preview ?? null)
+
+  return {
+    ...next,
+    event: {
+      ...next.event,
+      payload: {
+        ...nextPayload,
+        action,
+        preview
+      }
+    }
+  }
+}
+
+export function mergeSseRenderPatch(previous: SseRenderPatch, next: SseRenderPatch): SseRenderPatch {
+  if (previous.module !== next.module) {
+    return next
+  }
+
+  if (previous.module === 'article' && next.module === 'article') {
+    return mergeArticleRenderPatch(previous, next)
+  }
+
+  return next
 }
 
 export function createSseRenderScheduler(options: SchedulerOptions) {
@@ -130,8 +203,10 @@ export function createSseRenderScheduler(options: SchedulerOptions) {
 
   return {
     schedule(patch: SseRenderPatch): void {
-      const bucket = buckets[patch.module]
-      bucket.pending.set(resolvePatchKey(patch), patch as never)
+      const bucket = buckets[patch.module] as PendingBucket<SseRenderPatch>
+      const key = resolvePatchKey(patch)
+      const previous = bucket.pending.get(key)
+      bucket.pending.set(key, previous ? mergeSseRenderPatch(previous, patch) : patch)
       schedule(patch.module)
     },
     cancel(): void {

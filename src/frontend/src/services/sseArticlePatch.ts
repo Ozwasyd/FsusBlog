@@ -1,8 +1,21 @@
 import type { ArticleListItemResponse } from '@/api/article'
 
+const articleCreateTimeMsCache = new WeakMap<ArticleListItemResponse, number>()
+
+function resolveArticleCreateTimeMs(article: ArticleListItemResponse): number {
+  const cached = articleCreateTimeMsCache.get(article)
+  if (cached !== undefined) {
+    return cached
+  }
+
+  const timeMs = Date.parse(article.createTime) || 0
+  articleCreateTimeMsCache.set(article, timeMs)
+  return timeMs
+}
+
 function compareArticlesByCreateTime(left: ArticleListItemResponse, right: ArticleListItemResponse): number {
-  const leftTime = Date.parse(left.createTime) || 0
-  const rightTime = Date.parse(right.createTime) || 0
+  const leftTime = resolveArticleCreateTimeMs(left)
+  const rightTime = resolveArticleCreateTimeMs(right)
   return rightTime - leftTime || right.id - left.id
 }
 
