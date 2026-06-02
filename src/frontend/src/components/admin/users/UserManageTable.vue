@@ -42,7 +42,7 @@
       <el-table-column prop="role" label="角色" :width="roleColumnWidth" align="center">
         <template #default="{ row }: { row: UserListViewItem }">
           <span class="text-[11px] font-black italic normal-case tracking-normal" :class="row.roleClass">
-            {{ row.roleShort }}
+            {{ row.roleLabel }}
           </span>
         </template>
       </el-table-column>
@@ -125,7 +125,7 @@
                 {{ row.username }}
               </span>
               <span class="text-[11px] font-black italic normal-case tracking-normal px-2 py-0.5 bg-[var(--fsusblog-panel-bg-soft)]" :class="row.roleClass">
-                {{ row.roleShort }}
+                {{ row.roleLabel }}
               </span>
             </div>
             <div class="mt-2 flex flex-wrap items-center gap-3 text-[11px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
@@ -172,11 +172,10 @@
         :page-size="pageSize"
         :total="total"
         :pager-count="5"
-        :layout="isMobile ? 'prev, next' : 'total, prev, pager, next'"
-        @update:current-page="emit('update:current-page', $event)"
-        @update:page-size="emit('update:page-size', $event)"
-        @size-change="emit('refresh')"
-        @current-change="emit('refresh')"
+        :page-sizes="[10, 20, 50, 100]"
+        :layout="isMobile ? 'prev, next' : 'total, sizes, prev, pager, next'"
+        @current-change="emit('update:current-page', $event)"
+        @size-change="emit('update:page-size', $event)"
       />
     </div>
   </section>
@@ -204,9 +203,9 @@ interface Props {
 const props = defineProps<Props>()
 
 const userColumnWidth = computed(() => (props.isMobile ? 136 : 220))
-const roleColumnWidth = computed(() => (props.isMobile ? 44 : 80))
-const statusColumnWidth = computed(() => (props.isMobile ? 56 : 80))
-const actionColumnWidth = computed(() => (props.isMobile ? 56 : 120))
+const roleColumnWidth = computed(() => (props.isMobile ? 44 : 116))
+const statusColumnWidth = computed(() => (props.isMobile ? 56 : 124))
+const actionColumnWidth = computed(() => (props.isMobile ? 56 : 132))
 const hasWideTable = useMediaQuery('(min-width: 1024px)', true)
 const tableRows = computed(() => [...props.list])
 

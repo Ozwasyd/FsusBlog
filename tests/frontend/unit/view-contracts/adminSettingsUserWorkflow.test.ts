@@ -1,0 +1,97 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
+const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
+
+describe('admin settings and user governance workflow contract', () => {
+  const settingsPage = readRepoFile('src/frontend/src/views/admin/Settings.vue')
+  const settingsComposable = readRepoFile('src/frontend/src/composables/useAdminSettingsPage.ts')
+  const userPage = readRepoFile('src/frontend/src/views/admin/UserManage.vue')
+  const userComposable = readRepoFile('src/frontend/src/composables/useAdminUserManage.ts')
+  const userHeader = readRepoFile('src/frontend/src/components/admin/users/UserManageHeader.vue')
+  const userTable = readRepoFile('src/frontend/src/components/admin/users/UserManageTable.vue')
+  const resetDialog = readRepoFile('src/frontend/src/components/admin/users/UserResetPasswordDialog.vue')
+  const banDialog = readRepoFile('src/frontend/src/components/admin/users/UserBanDialog.vue')
+
+  it('keeps site metadata and media policy in separate tabs with guarded save semantics', () => {
+    expect(settingsPage).toContain('label="站点信息"')
+    expect(settingsPage).toContain('label="媒体策略"')
+    expect(settingsPage).toContain('v-loading="loadingSite"')
+    expect(settingsPage).toContain(':disabled="siteFormDisabled || !isSiteDirty"')
+    expect(settingsPage).toContain('confirmSiteSave')
+    expect(settingsPage).toContain('siteSearchPreview')
+    expect(settingsComposable).toContain('originalSiteSnapshot')
+    expect(settingsComposable).toContain('siteFormDisabled')
+    expect(settingsComposable).toContain('siteLoadFailed')
+    expect(settingsComposable).toContain('siteChangeSummary')
+    expect(settingsComposable).toContain('作者名称不可为空')
+    expect(settingsComposable).toContain('sanitizeKeywords()')
+    expect(settingsPage).toContain('站点配置加载失败')
+    expect(settingsPage).toContain('@click="loadSiteConfig"')
+  })
+
+  it('does not auto-save SEO text when OG image changes', () => {
+    expect(settingsComposable).toContain('配置图已更新，请保存同步')
+    expect(settingsComposable).toContain('配置图恢复上传成功，请保存同步')
+    expect(settingsComposable).toContain('预览图已从待保存配置移除，请保存同步')
+    expect(settingsPage).toContain('上传只更新待保存配置')
+    expect(settingsPage).toContain('这只会从待保存配置中移除当前预览图')
+  })
+
+  it('protects page editor content before switching static page slugs', () => {
+    expect(settingsComposable).toContain('originalPageContent')
+    expect(settingsComposable).toContain('isPageDirty')
+    expect(settingsComposable).toContain('pendingPageSwitchSlug')
+    expect(settingsComposable).toContain('requestPageSwitch')
+    expect(settingsComposable).toContain('savePageAndSwitch')
+    expect(settingsComposable).toContain('beforeunload')
+    expect(settingsPage).toContain('@update:model-value="requestPageSwitch"')
+    expect(settingsPage).toContain('保存并切换')
+    expect(settingsPage).toContain('放弃修改')
+  })
+
+  it('syncs user filters to URL query and exposes reset chips', () => {
+    expect(userComposable).toContain('useRoute')
+    expect(userComposable).toContain('useRouter')
+    expect(userComposable).toContain('hydrateQueryFromRoute')
+    expect(userComposable).toContain('syncQueryToRoute')
+    expect(userComposable).toContain('activeFilterChips')
+    expect(userHeader).toContain('activeFilters')
+    expect(userHeader).toContain("emit('reset')")
+    expect(userHeader).toContain("emit('remove-filter', chip.key)")
+    expect(userPage).toContain('@reset="resetFilters"')
+  })
+
+  it('makes user status and role labels readable while exposing desktop page size control', () => {
+    expect(userComposable).toContain('roleLabel')
+    expect(userComposable).toContain('statusLabel')
+    expect(userComposable).toContain('statusText: `${statusLabel} / ${statusCode}`')
+    expect(userTable).toContain('row.roleLabel')
+    expect(userTable).toContain('row.statusText')
+    expect(userTable).toContain("'total, sizes, prev, pager, next'")
+  })
+
+  it('requires strong reset-password confirmation and safe password handling', () => {
+    expect(userComposable).toContain('resetPasswordPolicy')
+    expect(userComposable).toContain('canSubmitResetPassword')
+    expect(userComposable).toContain('密码不能包含空白字符')
+    expect(userComposable).toContain('密码已重置，用户已强制下线')
+    expect(resetDialog).toContain('生成强密码')
+    expect(resetDialog).toContain('复制新密码')
+    expect(resetDialog).toContain('confirmUsername')
+    expect(resetDialog).toContain(':disabled="!canSubmit"')
+  })
+
+  it('requires ban impact review, public preview, and username confirmation', () => {
+    expect(userComposable).toContain('banReasonValidation')
+    expect(userComposable).toContain('canSubmitBan')
+    expect(userComposable).toContain('当前接口未返回封禁原因')
+    expect(banDialog).toContain('当前封禁为永久封禁')
+    expect(banDialog).toContain('封禁影响')
+    expect(banDialog).toContain('用户可见文案预览')
+    expect(banDialog).toContain('confirmUsername')
+    expect(banDialog).toContain(':disabled="!canSubmit"')
+  })
+})

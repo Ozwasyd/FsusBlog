@@ -2,7 +2,6 @@ import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from
 import { type UploadRequestOptions } from '@ozwasyd/element-plus'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import {
-  deleteImage,
   getAdminPageData,
   getAdminSiteConfig,
   updatePageData,
@@ -27,6 +26,7 @@ export function useAdminSettingsPage() {
   const savingPage = ref(false)
   const pageLoading = ref(false)
   const imageLoading = ref(false)
+  const siteLoadFailed = ref(false)
   const {
     options: imageUploadOptions,
     wasmOnlyMode,
@@ -59,8 +59,11 @@ export function useAdminSettingsPage() {
   })
 
   const previousOgImage = ref('')
+  const originalSiteSnapshot = ref('')
   const currentSlug = ref('about')
   const pageContent = ref('')
+  const originalPageContent = ref('')
+  const pendingPageSwitchSlug = ref('')
   const hasActivatedPagesTab = ref(false)
   const pageTargets = [
     { value: 'about', label: '关于我' },
@@ -110,11 +113,51 @@ export function useAdminSettingsPage() {
     return siteForm.ogImage.startsWith('http') ? siteForm.ogImage : `${baseURL}${siteForm.ogImage}`
   })
 
+  const normalizedBaseUrl = computed(() => siteForm.baseUrl.trim().replace(/\/+$/, ''))
   const computedKeywords = computed(() =>
     siteForm.keywords ? siteForm.keywords.split(',').map((value) => value.trim()).filter((value) => value) : [])
   const hasOgImage = computed(() => Boolean(siteForm.ogImage))
+  const loadingSite = computed(() => initialLoadTask.isRunning.value)
+  const siteFormDisabled = computed(() => loadingSite.value || savingSite.value || siteLoadFailed.value)
   const siteSubmitText = computed(() => (savingSite.value ? '保存中...' : '保存同步'))
   const pageSubmitText = computed(() => (savingPage.value ? '发布中...' : '发布更新'))
+  const isPageDirty = computed(() => pageContent.value !== originalPageContent.value)
+  const currentPageTarget = computed(() => pageTargets.find((item) => item.value === currentSlug.value) ?? pageTargets[0])
+  const pageContentLength = computed(() => pageContent.value.trim().length)
+  const siteSearchPreview = computed(() => ({
+    title: siteForm.title.trim() || "Fsus's Blog",
+    url: normalizedBaseUrl.value || 'https://fsus.blog',
+    description: siteForm.description.trim() || '站点描述将在这里显示。'
+  }))
+
+  const serializeSiteForm = (): string => JSON.stringify({
+    title: siteForm.title.trim(),
+    description: siteForm.description.trim(),
+    keywords: siteForm.keywords.trim(),
+    author: siteForm.author.trim(),
+    ogImage: siteForm.ogImage.trim(),
+    baseUrl: normalizedBaseUrl.value
+  })
+
+  const isSiteDirty = computed(() => serializeSiteForm() !== originalSiteSnapshot.value)
+  const siteChangeSummary = computed(() => {
+    if (!originalSiteSnapshot.value) {
+      return []
+    }
+
+    const before = JSON.parse(originalSiteSnapshot.value) as Record<string, string>
+    const after = JSON.parse(serializeSiteForm()) as Record<string, string>
+    const labels: Record<string, string> = {
+      title: '网站标题',
+      description: 'SEO 描述',
+      keywords: '关键词',
+      author: '作者名称',
+      ogImage: 'OG 图',
+      baseUrl: '站点基础 URL'
+    }
+
+    return Object.keys(labels).filter((key) => before[key] !== after[key]).map((key) => labels[key])
+  })
 
   const sanitizeKeywords = (): void => {
     if (!siteForm.keywords) {
@@ -139,8 +182,9 @@ export function useAdminSettingsPage() {
 
   const syncSeoConfig = async (signal?: AbortSignal): Promise<void> => {
     try {
+      sanitizeKeywords()
       if (siteForm.baseUrl) {
-        siteForm.baseUrl = siteForm.baseUrl.trim().replace(/\/+$/, '')
+        siteForm.baseUrl = normalizedBaseUrl.value
         if (!validateBaseUrl(siteForm.baseUrl)) {
           throw createAppError(AppErrorCode.Validation, 'BASEURL_PROTOCOL_INVALID')
         }
@@ -148,6 +192,7 @@ export function useAdminSettingsPage() {
 
       await updateSiteConfig({ ...siteForm }, signal ? buildSignalConfig(signal) : undefined)
       previousOgImage.value = siteForm.ogImage
+      originalSiteSnapshot.value = serializeSiteForm()
     } catch (error: unknown) {
       if (!isAbortError(error)) {
         siteForm.ogImage = previousOgImage.value
@@ -174,7 +219,7 @@ export function useAdminSettingsPage() {
         onSuccess: async ([url]) => {
           siteForm.ogImage = url
           await nextTick()
-          await syncSeoConfig()
+          toast.success('配置图已更新，请保存同步')
         },
         onError: (message, error) => {
           if (!isAbortError(error)) {
@@ -202,7 +247,7 @@ export function useAdminSettingsPage() {
         onSuccess: async ([url]) => {
           siteForm.ogImage = url
           await nextTick()
-          await syncSeoConfig()
+          toast.success('配置图恢复上传成功，请保存同步')
         },
         onError: (message, error) => {
           if (!isAbortError(error)) {
@@ -222,21 +267,27 @@ export function useAdminSettingsPage() {
     previousOgImage.value = siteForm.ogImage
 
     try {
-      if (siteForm.ogImage) {
-        await deleteImage(siteForm.ogImage)
-      }
       siteForm.ogImage = ''
-
-      await syncSeoConfig()
-      toast.success('预览图已重置')
+      toast.success('预览图已从待保存配置移除，请保存同步')
     } finally {
       imageLoading.value = false
     }
   }
 
   const saveSiteConfig = async (): Promise<void> => {
+    if (loadingSite.value) {
+      showWarningToast('站点配置仍在加载，请稍后保存', '站点配置仍在加载，请稍后保存')
+      return
+    }
+
+    sanitizeKeywords()
+
     if (!siteForm.title.trim()) {
       showWarningToast('标题不可为空', '标题不可为空')
+      return
+    }
+    if (!siteForm.author.trim()) {
+      showWarningToast('作者名称不可为空', '作者名称不可为空')
       return
     }
     if (!siteForm.baseUrl.trim() || !validateBaseUrl(siteForm.baseUrl)) {
@@ -259,6 +310,7 @@ export function useAdminSettingsPage() {
 
   const loadSiteConfig = async (): Promise<void> => {
     try {
+      siteLoadFailed.value = false
       await initialLoadTask.run(async (signal) => {
         const data = await getAdminSiteConfig(buildSignalConfig(signal))
         if (!data) {
@@ -273,9 +325,12 @@ export function useAdminSettingsPage() {
         siteForm.ogImage = normalized.ogImage
         siteForm.baseUrl = normalized.baseUrl
         previousOgImage.value = siteForm.ogImage
+        sanitizeKeywords()
+        originalSiteSnapshot.value = serializeSiteForm()
       })
     } catch (error: unknown) {
       if (!isAbortError(error)) {
+        siteLoadFailed.value = true
         console.error('[Settings] Fetch Error:', error)
       }
     }
@@ -288,6 +343,7 @@ export function useAdminSettingsPage() {
         const data = await getAdminPageData(slug, buildSignalConfig(signal))
         if (!signal.aborted) {
           pageContent.value = data?.content || ''
+          originalPageContent.value = pageContent.value
         }
       })
     } catch (error: unknown) {
@@ -303,10 +359,70 @@ export function useAdminSettingsPage() {
     try {
       savingPage.value = true
       await updatePageData({ slug: currentSlug.value, content: pageContent.value })
+      originalPageContent.value = pageContent.value
       toast.success('发布同步成功')
     } finally {
       savingPage.value = false
     }
+  }
+
+  const switchPage = async (slug: string): Promise<void> => {
+    if (slug === currentSlug.value) {
+      return
+    }
+
+    currentSlug.value = slug
+    await loadPage(slug)
+  }
+
+  const requestPageSwitch = async (value: unknown): Promise<void> => {
+    if (typeof value !== 'string') {
+      return
+    }
+
+    const slug = value
+    if (slug === currentSlug.value || pageLoading.value || savingPage.value) {
+      return
+    }
+
+    if (isPageDirty.value) {
+      pendingPageSwitchSlug.value = slug
+      return
+    }
+
+    await switchPage(slug)
+  }
+
+  const cancelPageSwitch = (): void => {
+    pendingPageSwitchSlug.value = ''
+  }
+
+  const discardPageChangesAndSwitch = async (): Promise<void> => {
+    const slug = pendingPageSwitchSlug.value
+    pendingPageSwitchSlug.value = ''
+    if (slug) {
+      await switchPage(slug)
+    }
+  }
+
+  const savePageAndSwitch = async (): Promise<void> => {
+    const slug = pendingPageSwitchSlug.value
+    if (!slug) {
+      return
+    }
+
+    await savePageContent()
+    pendingPageSwitchSlug.value = ''
+    await switchPage(slug)
+  }
+
+  const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
+    if (!isPageDirty.value) {
+      return
+    }
+
+    event.preventDefault()
+    event.returnValue = ''
   }
 
   watch(activeTab, (value) => {
@@ -318,19 +434,13 @@ export function useAdminSettingsPage() {
     void loadPage(currentSlug.value)
   }, { immediate: true })
 
-  watch(currentSlug, (value) => {
-    if (!hasActivatedPagesTab.value || activeTab.value !== 'pages') {
-      return
-    }
-
-    void loadPage(value)
-  })
-
   onMounted(() => {
+    window.addEventListener('beforeunload', handleBeforeUnload)
     void loadSiteConfig()
   })
 
   onUnmounted(() => {
+    window.removeEventListener('beforeunload', handleBeforeUnload)
     siteTask.cancel()
     pageTask.cancel()
     initialLoadTask.cancel()
@@ -342,6 +452,9 @@ export function useAdminSettingsPage() {
     activeTab,
     savingSite,
     savingPage,
+    loadingSite,
+    siteFormDisabled,
+    siteLoadFailed,
     pageLoading,
     imageLoading,
     siteForm,
@@ -351,8 +464,16 @@ export function useAdminSettingsPage() {
     displayUrl,
     hasOgImage,
     computedKeywords,
+    normalizedBaseUrl,
+    isSiteDirty,
+    siteChangeSummary,
+    siteSearchPreview,
     siteSubmitText,
     pageSubmitText,
+    isPageDirty,
+    currentPageTarget,
+    pageContentLength,
+    pendingPageSwitchSlug,
     imageUploadOptions,
     imageUploadWasmOnlyMode: wasmOnlyMode,
     setImageUploadWasmOnlyMode,
@@ -362,7 +483,12 @@ export function useAdminSettingsPage() {
     sanitizeKeywords,
     handleImageAction,
     handleImageRemove,
+    loadSiteConfig,
     saveSiteConfig,
-    savePageContent
+    savePageContent,
+    requestPageSwitch,
+    cancelPageSwitch,
+    discardPageChangesAndSwitch,
+    savePageAndSwitch
   }
 }

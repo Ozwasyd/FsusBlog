@@ -62,8 +62,28 @@
             <span v-else>查询</span>
           </el-button>
         </div>
+        <div class="bg-[var(--fsusblog-page-bg)] p-1">
+          <el-button
+            :disabled="loading || activeFilters.length === 0"
+            @click="emit('reset')"
+          >
+            重置
+          </el-button>
+        </div>
       </div>
     </div>
+
+    <div v-if="activeFilters.length > 0" class="mt-6 flex flex-wrap gap-3 px-8">
+      <el-tag
+        v-for="chip in activeFilters"
+        :key="chip.key"
+        closable
+        size="small"
+        @close="emit('remove-filter', chip.key)"
+      >
+        {{ chip.label }}
+      </el-tag>
+      </div>
   </section>
 </template>
 
@@ -75,12 +95,15 @@ interface Props {
   keyword: string
   status: number | undefined
   loading: boolean
+  activeFilters: ReadonlyArray<{ key: 'status' | 'keyword'; label: string }>
 }
 
 defineProps<Props>()
 
 const emit = defineEmits<{
   search: []
+  reset: []
+  'remove-filter': [key: 'status' | 'keyword']
   'update:keyword': [value: string]
   'update:status': [value: number | undefined]
 }>()

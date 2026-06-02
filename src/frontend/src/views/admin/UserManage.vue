@@ -13,7 +13,10 @@
       :keyword="queryParams.keyword ?? ''"
       :status="queryParams.status"
       :loading="loading"
+      :active-filters="activeFilterChips"
       @search="handleSearch"
+      @reset="resetFilters"
+      @remove-filter="removeFilter"
       @update:keyword="onKeywordChange"
       @update:status="onStatusChange"
     />
@@ -40,7 +43,13 @@
       :is-calculating="isCalculating"
       :target-username="resetDialog.targetUser?.username ?? ''"
       :password="resetDialog.form.newPassword"
+      :confirm-username="resetDialog.form.confirmUsername"
+      :password-policy="resetPasswordPolicy"
+      :can-submit="canSubmitResetPassword"
       @update:password="onResetPasswordChange"
+      @update:confirm-username="onResetPasswordConfirmChange"
+      @generate-password="generateStrongPassword"
+      @copy-password="copyResetPassword"
       @submit="handleResetSubmit"
     />
 
@@ -52,7 +61,11 @@
       :is-calculating="isCalculating"
       :target-username="banDialog.targetUser?.username ?? ''"
       :target-initials="getTargetInitials(banDialog.targetUser)"
+      :confirm-username="banDialog.confirmUsername"
+      :validation="banReasonValidation"
+      :can-submit="canSubmitBan"
       @update:reason="onBanReasonChange"
+      @update:confirm-username="onBanConfirmChange"
       @submit="handleBanSubmit"
     />
   </div>
@@ -76,6 +89,11 @@ const {
   isProcessing,
   resetDialog,
   banDialog,
+  activeFilterChips,
+  resetPasswordPolicy,
+  canSubmitResetPassword,
+  banReasonValidation,
+  canSubmitBan,
   fetchData,
   onKeywordChange,
   onStatusChange,
@@ -83,11 +101,17 @@ const {
   onPageSizeChange,
   onBanReasonChange,
   onResetPasswordChange,
+  onResetPasswordConfirmChange,
+  onBanConfirmChange,
   handleSearch,
+  resetFilters,
+  removeFilter,
   handleToggleStatus,
   handleBanSubmit,
   openResetDialog,
   handleResetSubmit,
+  generateStrongPassword,
+  copyResetPassword,
   getTargetInitials
 } = useAdminUserManage()
 </script>
