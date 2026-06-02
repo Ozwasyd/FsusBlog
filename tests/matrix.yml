@@ -99,6 +99,15 @@ tiers:
     risk: critical
     coverage: backend-exhaustive-nightly-readiness
 
+  - id: cross-stack-contract
+    owner: ServerContractAgent
+    command: ./tools/test.sh cross-stack-contract
+    script: tools/test.sh
+    evidence: tests/frontend/fixtures/cross-stack-contract-matrix.json
+    requirements: CROSS-BINARY-ENDPOINT-MATRIX CROSS-FRONTEND-BACKEND-API-PARITY CROSS-FRAME-SCHEMA-SYNC CROSS-NEGATIVE-MATRIX CROSS-RUNTIME-COHERENCE
+    risk: critical
+    coverage: frontend-backend-contract-coherence
+
   - id: integration
     owner: ServerContractAgent
     command: ./tools/test.sh integration

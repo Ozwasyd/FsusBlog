@@ -255,6 +255,10 @@ run_backend_nightly_only() {
   fi
 }
 
+run_cross_stack_contract_only() {
+  run_in_client npm run check:cross-stack-contract
+}
+
 run_fast_frontend_lane() {
   run_in_client env FSUSBLOG_SKIP_ENSURE_WASM=1 FSUSBLOG_VITE_WARN_AS_ERROR=1 npm run build
   if node -e "const pkg=require(process.argv[1]); process.exit(pkg.scripts && pkg.scripts['test:unit:fast'] ? 0 : 1)" "$CLIENT_DIR/package.json"; then
@@ -267,6 +271,12 @@ run_fast_frontend_lane() {
   run_in_client npm run check:frontend-perf-regression
   run_in_client npm run check:a11y:deep
   run_in_client npm run check:frontend-test-governance
+  run_in_client npm run check:contract:binary-matrix
+  run_in_client npm run check:contract:api-parity
+  run_in_client npm run check:contract:frame-schema
+  run_in_client npm run check:contract:negative-matrix
+  run_in_client npm run check:coherence:runtime-matrix
+  run_in_client npm run check:cross-stack-test-governance
   run_in_client npm run check:modern-standards
   run_in_client npm run check:result-boundaries
   run_in_client npm run check:error-code-alignment
@@ -622,7 +632,7 @@ run_production() {
 
 usage() {
   cat <<'EOF'
-Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|resilience|load|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-chaos|backend-nightly>
+Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|resilience|load|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-chaos|backend-nightly|cross-stack-contract>
 
 Tiers:
   fast         Static and local-only validation; no running services required.
@@ -651,6 +661,7 @@ Tiers:
   backend-mutation              Backend Stryker.NET mutation tier.
   backend-chaos                 Backend deterministic fault/concurrency readiness tier.
   backend-nightly               Backend exhaustive nightly readiness tier. Set FSUSBLOG_RUN_BACKEND_MUTATION_FULL=1 to include full mutation.
+  cross-stack-contract          Frontend/backend binary contract, API parity, schema sync, negative and coherence governance tier.
 EOF
 }
 
@@ -756,6 +767,10 @@ main() {
     backend-nightly)
       CURRENT_TIER="backend-nightly"
       run_tier "backend-nightly" run_backend_nightly_only
+      ;;
+    cross-stack-contract)
+      CURRENT_TIER="cross-stack-contract"
+      run_tier "cross-stack-contract" run_cross_stack_contract_only
       ;;
     -h|--help|help|'')
       usage

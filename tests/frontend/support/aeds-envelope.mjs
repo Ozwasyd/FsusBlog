@@ -1,52 +1,59 @@
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 const UTF8_DECODER = new TextDecoder()
 const UTF8_ENCODER = new TextEncoder()
-const AEDS_MAGIC = 0x53444541
-const AEDS_VERSION = 2
-const AEDS_HEADER_LENGTH = 16
-const FRAME_ARTICLE_LIST = 1
-const FRAME_ARTICLE_DETAIL = 2
-const FRAME_SEO_CONFIG = 13
-const FRAME_PAGE_CONTENT = 14
-const FRAME_AUTH_LOGIN_FLOW = 18
-const FRAME_CURRENT_USER_SNAPSHOT = 19
-const FRAME_COMMENT_USER_CURSOR = 6
-const FRAME_UPLOAD_INIT = 20
-const FRAME_UPLOAD_STATUS = 21
-const FRAME_UPLOAD_PART_ACK = 22
-const FRAME_UPLOAD_COMPLETE = 23
-const FRAME_UPLOAD_PART_MAP = 24
-const FRAME_AUTH_SESSION_LIST = 25
-const FRAME_POW_CHALLENGE = 30
-const FRAME_UPLOAD_COMPLETE_REQUEST = 32
-const FRAME_SEO_CONFIG_UPDATE_REQUEST = 35
-const FRAME_PAGE_CONTENT_UPDATE_REQUEST = 36
-const FRAME_COMMENT_CREATE_REQUEST = 37
-const FRAME_ADMIN_CHANGE_USER_STATUS_REQUEST = 39
-const FRAME_ADMIN_RESET_USER_PASSWORD_REQUEST = 40
-const FRAME_MFA_SETUP_START = 48
-const FRAME_MFA_SETUP_VERIFY = 49
-const FRAME_MFA_PROFILE = 50
-const FRAME_MFA_CHALLENGE_RESULT = 51
-const FRAME_MFA_SETUP_VERIFY_REQUEST = 52
-const FRAME_MFA_PASSWORD_PROOF_REQUEST = 53
-const FRAME_MFA_CHALLENGE_START_REQUEST = 54
-const FRAME_MFA_CHALLENGE_VERIFY_REQUEST = 55
-const FRAME_CONVERSATION_LIST = 56
-const FRAME_CONVERSATION_DETAIL = 57
-const FRAME_CONVERSATION_MESSAGE = 58
-const FRAME_CONVERSATION_CREATE_REQUEST = 59
-const FRAME_CONVERSATION_REPLY_REQUEST = 60
-const FRAME_CONVERSATION_STATUS_REQUEST = 61
-const FRAME_SYSTEM_MESSAGE_REQUEST = 62
-const FRAME_CATEGORY_LIST = 9
-const FRAME_TAG_LIST = 10
-const FRAME_PASSKEY_REGISTER_BEGIN = 63
-const FRAME_PASSKEY_LOGIN_BEGIN = 64
-const FRAME_PASSKEY_CREDENTIAL_LIST = 65
-const FRAME_PUBLIC_AOT_BOOTSTRAP = 71
-const FRAME_EMPTY_SUCCESS = 240
-const FRAME_MUTATION_ID = 241
-const FRAME_API_ERROR = 251
+const PROTOCOL_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../../../src/shared/Contracts/Validation/aeds-protocol.json')
+const AEDS_PROTOCOL = JSON.parse(readFileSync(PROTOCOL_PATH, 'utf8'))
+const AEDS_MAGIC = Number.parseInt(AEDS_PROTOCOL.header.magic, 16)
+const AEDS_VERSION = AEDS_PROTOCOL.header.version
+const AEDS_HEADER_LENGTH = AEDS_PROTOCOL.header.size
+const AEDS_FRAME_TYPES = new Map(AEDS_PROTOCOL.frameTypes.map((frame) => [frame.name, frame.value]))
+const FRAME_ARTICLE_LIST = frameType('ArticleList')
+const FRAME_ARTICLE_DETAIL = frameType('ArticleDetail')
+const FRAME_SEO_CONFIG = frameType('SeoConfig')
+const FRAME_PAGE_CONTENT = frameType('PageContent')
+const FRAME_AUTH_LOGIN_FLOW = frameType('AuthLoginFlow')
+const FRAME_CURRENT_USER_SNAPSHOT = frameType('CurrentUserSnapshot')
+const FRAME_COMMENT_USER_CURSOR = frameType('CommentUserCursor')
+const FRAME_UPLOAD_INIT = frameType('UploadInit')
+const FRAME_UPLOAD_STATUS = frameType('UploadStatus')
+const FRAME_UPLOAD_PART_ACK = frameType('UploadPartAck')
+const FRAME_UPLOAD_COMPLETE = frameType('UploadComplete')
+const FRAME_UPLOAD_PART_MAP = frameType('UploadPartMap')
+const FRAME_AUTH_SESSION_LIST = frameType('AuthSessionList')
+const FRAME_POW_CHALLENGE = frameType('PowChallenge')
+const FRAME_UPLOAD_COMPLETE_REQUEST = frameType('UploadCompleteRequest')
+const FRAME_SEO_CONFIG_UPDATE_REQUEST = frameType('SeoConfigUpdateRequest')
+const FRAME_PAGE_CONTENT_UPDATE_REQUEST = frameType('PageContentUpdateRequest')
+const FRAME_COMMENT_CREATE_REQUEST = frameType('CommentCreateRequest')
+const FRAME_ADMIN_CHANGE_USER_STATUS_REQUEST = frameType('AdminChangeUserStatusRequest')
+const FRAME_ADMIN_RESET_USER_PASSWORD_REQUEST = frameType('AdminResetUserPasswordRequest')
+const FRAME_MFA_SETUP_START = frameType('MfaSetupStart')
+const FRAME_MFA_SETUP_VERIFY = frameType('MfaSetupVerify')
+const FRAME_MFA_PROFILE = frameType('MfaProfile')
+const FRAME_MFA_CHALLENGE_RESULT = frameType('MfaChallengeResult')
+const FRAME_MFA_SETUP_VERIFY_REQUEST = frameType('MfaSetupVerifyRequest')
+const FRAME_MFA_PASSWORD_PROOF_REQUEST = frameType('MfaPasswordProofRequest')
+const FRAME_MFA_CHALLENGE_START_REQUEST = frameType('MfaChallengeStartRequest')
+const FRAME_MFA_CHALLENGE_VERIFY_REQUEST = frameType('MfaChallengeVerifyRequest')
+const FRAME_CONVERSATION_LIST = frameType('ConversationList')
+const FRAME_CONVERSATION_DETAIL = frameType('ConversationDetail')
+const FRAME_CONVERSATION_MESSAGE = frameType('ConversationMessage')
+const FRAME_CONVERSATION_CREATE_REQUEST = frameType('ConversationCreateRequest')
+const FRAME_CONVERSATION_REPLY_REQUEST = frameType('ConversationReplyRequest')
+const FRAME_CONVERSATION_STATUS_REQUEST = frameType('ConversationStatusRequest')
+const FRAME_SYSTEM_MESSAGE_REQUEST = frameType('SystemMessageRequest')
+const FRAME_CATEGORY_LIST = frameType('CategoryList')
+const FRAME_TAG_LIST = frameType('TagList')
+const FRAME_PASSKEY_REGISTER_BEGIN = frameType('PasskeyRegisterBegin')
+const FRAME_PASSKEY_LOGIN_BEGIN = frameType('PasskeyLoginBegin')
+const FRAME_PASSKEY_CREDENTIAL_LIST = frameType('PasskeyCredentialList')
+const FRAME_PUBLIC_AOT_BOOTSTRAP = frameType('PublicAotBootstrap')
+const FRAME_EMPTY_SUCCESS = frameType('EmptySuccess')
+const FRAME_MUTATION_ID = frameType('MutationId')
+const FRAME_API_ERROR = frameType('ApiError')
 const AUTH_LOGIN_FLOW_POD_SIZE = 168
 const CURRENT_USER_SNAPSHOT_POD_SIZE = 372
 const USER_SESSION_SUMMARY_POD_SIZE = 396
@@ -86,6 +93,14 @@ const PUBLIC_AOT_ARRAY_KIND = 7
 const SEARCH_MANIFEST_MAGIC = 0x4d495346
 const SEARCH_MANIFEST_BINARY_VERSION = 1
 const DOTNET_EPOCH_OFFSET_MS = 62135596800000
+
+function frameType(name) {
+  const value = AEDS_FRAME_TYPES.get(name)
+  if (!Number.isInteger(value)) {
+    throw new Error(`aeds_frame_type_missing:${name}`)
+  }
+  return value
+}
 
 function readUInt32(view, offset) {
   return view.getUint32(offset, true)
