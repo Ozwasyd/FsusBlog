@@ -205,6 +205,12 @@ run_fast_frontend_lane() {
     run_in_client npm run test:unit:fast
   fi
 
+  run_in_client npm run test:property
+  run_in_client npm run check:frontend-state-machines
+  run_in_client npm run check:worker-contracts
+  run_in_client npm run check:frontend-perf-regression
+  run_in_client npm run check:a11y:deep
+  run_in_client npm run check:frontend-test-governance
   run_in_client npm run check:modern-standards
   run_in_client npm run check:result-boundaries
   run_in_client npm run check:error-code-alignment

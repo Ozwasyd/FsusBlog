@@ -1,0 +1,34 @@
+{
+  "version": "fsusblog-a11y-deep-matrix-v1",
+  "pages": [
+    { "id": "public-home", "path": "/", "scope": "public", "assertions": ["landmarks", "keyboard", "reduced-motion"] },
+    { "id": "public-search", "path": "/search", "scope": "public", "assertions": ["unique-link-names", "empty-state", "keyboard"] },
+    { "id": "article-detail", "path": "/article/:id", "scope": "public", "assertions": ["heading-order", "comments-live-region", "keyboard"] },
+    { "id": "login", "path": "/login", "scope": "auth", "assertions": ["form-errors", "aria-describedby", "focus-return"] },
+    { "id": "register", "path": "/register", "scope": "auth", "assertions": ["form-errors", "aria-describedby", "policy-dialog"] },
+    { "id": "profile", "path": "/user/profile", "scope": "user", "assertions": ["mfa-panels", "passkey-empty-list", "danger-dialog-focus"] },
+    { "id": "messages", "path": "/user/messagebox", "scope": "user", "assertions": ["conversation-keyboard", "draft-live-region", "closed-state"] },
+    { "id": "article-write", "path": "/user/manage/article/write", "scope": "admin", "assertions": ["editor-keyboard", "upload-live-region", "publish-dialog-focus"] },
+    { "id": "settings", "path": "/user/manage/settings", "scope": "admin", "assertions": ["dirty-confirm", "form-errors", "focus-return"] },
+    { "id": "user-manage", "path": "/user/manage/users", "scope": "admin", "assertions": ["ban-dialog-focus", "reset-password-confirm", "table-keyboard"] }
+  ],
+  "dialogs": [
+    { "id": "policy", "assertions": ["focus-trap", "focus-return", "labelled-title"] },
+    { "id": "publish-confirm", "assertions": ["focus-trap", "danger-action-name", "focus-return"] },
+    { "id": "reset-password", "assertions": ["focus-trap", "confirmation-input", "focus-return"] },
+    { "id": "ban-user", "assertions": ["focus-trap", "reason-required", "focus-return"] },
+    { "id": "delete-account", "assertions": ["focus-trap", "confirmation-input", "focus-return"] },
+    { "id": "recovery-codes", "assertions": ["focus-trap", "acknowledge-save", "focus-return"] }
+  ],
+  "viewports": ["desktop", "mobile"],
+  "themes": ["light", "dark"],
+  "requiredAssertions": [
+    "keyboard",
+    "focus-trap",
+    "focus-return",
+    "aria-describedby",
+    "unique-link-names",
+    "live-region",
+    "reduced-motion"
+  ]
+}

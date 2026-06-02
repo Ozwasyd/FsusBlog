@@ -5,63 +5,96 @@ tiers:
     command: ./tools/test.sh fast
     script: tools/test.sh
     evidence: .tmp/acceptance/*.log
+    requirements: FAST-BUILD-UNIT-STATIC-PROPERTY-MODEL
+    risk: high
+    coverage: frontend-unit-property-model-static backend-unit
 
   - id: integration
     owner: ServerContractAgent
     command: ./tools/test.sh integration
     script: tools/test.sh
     evidence: .tmp/acceptance/*.log
+    requirements: INTEGRATION-RUNTIME-BINARY-SSE-SEARCH
+    risk: high
+    coverage: runtime-contract-smoke
 
   - id: ci
     owner: ServerContractAgent
     command: ./tools/test.sh ci
     script: tools/test.sh
     evidence: .tmp/acceptance/*.log
+    requirements: CI-FAST-INTEGRATION
+    risk: high
+    coverage: fast-plus-integration
 
   - id: coverage-gate
     owner: ServerContractAgent
     command: ./tools/test.sh coverage-gate
     script: tools/test.sh
     evidence: .tmp/coverage
+    requirements: COVERAGE-MERGE-THRESHOLD
+    risk: high
+    coverage: backend-frontend-merged
 
   - id: release
     owner: ServerContractAgent
     command: ./tools/test.sh release
     script: tools/test.sh
     evidence: .tmp/acceptance/*.log
+    requirements: RELEASE-AOT-HYDRATION-PWA-SEO
+    risk: high
+    coverage: release-preview-runtime
 
   - id: acceptance
     owner: InteropGlueAgent
     command: ./tools/test.sh acceptance
     script: tools/test.sh
     evidence: src/frontend/test-results/playwright/acceptance
+    requirements: ACCEPTANCE-PUBLIC-AUTH-CONSOLE
+    risk: high
+    coverage: playwright-acceptance
 
   - id: visual
     owner: InteropGlueAgent
     command: ./tools/test.sh visual
     script: tools/test.sh
     evidence: src/frontend/test-results/playwright/visual
+    requirements: VISUAL-LIGHT-DARK-MOBILE-DESKTOP
+    risk: medium
+    coverage: playwright-visual
 
   - id: security
     owner: ServerContractAgent
     command: ./tools/test.sh security
     script: tools/test.sh
     evidence: .tmp/security
+    requirements: SECURITY-AUTH-MFA-PASSKEY-POW-A11Y
+    risk: high
+    coverage: frontend-security-runtime
 
   - id: resilience
     owner: ServerContractAgent
     command: ./tools/test.sh resilience
     script: tools/test.sh
     evidence: src/frontend/test-results/playwright/resilience
+    requirements: RESILIENCE-RUNTIME-UPLOAD-SEARCH-SSE-BINARY
+    risk: high
+    coverage: runtime-resilience
 
   - id: load
     owner: ServerContractAgent
     command: ./tools/test.sh load
     script: tools/test.sh
     evidence: .tmp/perf
+    requirements: LOAD-PUBLIC-API-SSE-PRESSURE
+    risk: medium
+    coverage: load-smoke
 
   - id: production
     owner: ServerContractAgent
     command: ./tools/test.sh production
     script: tools/test.sh
     evidence: .tmp/release-evidence
+    requirements: PRODUCTION-FULL-GATE
+    risk: critical
+    coverage: full-release-evidence

@@ -144,9 +144,12 @@ fi
 
 CLIENT_ROOT_TEST_DIRS="$(
   find "$CLIENT_TEST_DIR" -maxdepth 1 -mindepth 1 -type d \
+    ! -name 'benchmarks' \
     ! -name 'checks' \
     ! -name 'e2e' \
     ! -name 'fixtures' \
+    ! -name 'model' \
+    ! -name 'property' \
     ! -name 'support' \
     ! -name 'unit' | sort
 )"

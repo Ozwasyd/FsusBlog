@@ -14,6 +14,20 @@ type FieldSpec = Readonly<{
   b: number
 }>
 
+type RankingContext = Readonly<{
+  tokens: string[]
+  normalizedQuery: string
+  avgLengths: Record<FieldKey, number>
+  maxViews: number
+  nowMs: number
+  fieldStats: WeakMap<SearchableArticle, Partial<Record<FieldKey, FieldStats>>>
+}>
+
+type FieldStats = Readonly<{
+  text: string
+  length: number
+}>
+
 export const SEARCH_RANKING_FIELD_WEIGHTS: Readonly<Record<FieldKey, number>> = {
   title: 4,
   tags: 3,
@@ -130,40 +144,59 @@ function resolveAverageFieldLengths(items: readonly SearchableArticle[]): Record
   return averages
 }
 
-function resolveFieldTermScore(text: string, token: string, field: FieldSpec, avgLength: number): number {
-  const normalized = normalizeSearchText(text)
-  const rawTf = countOccurrences(normalized, token)
+function getFieldStats(article: SearchableArticle, field: FieldKey, context: RankingContext): FieldStats {
+  let statsByField = context.fieldStats.get(article)
+  if (!statsByField) {
+    statsByField = {}
+    context.fieldStats.set(article, statsByField)
+  }
+
+  const cached = statsByField[field]
+  if (cached) {
+    return cached
+  }
+
+  const text = normalizeSearchText(getFieldText(article, field))
+  const stats = {
+    text,
+    length: estimateFieldLength(text)
+  }
+  statsByField[field] = stats
+  return stats
+}
+
+function resolveFieldTermScore(stats: FieldStats, token: string, field: FieldSpec, avgLength: number): number {
+  const rawTf = countOccurrences(stats.text, token)
   if (rawTf === 0) {
     return 0
   }
 
   const tf = Math.min(rawTf, field.key === 'body' ? 3 : 8)
-  const length = estimateFieldLength(normalized)
-  const normalizedTf = (field.weight * tf) / ((1 - field.b) + field.b * (length / avgLength))
+  const normalizedTf = (field.weight * tf) / ((1 - field.b) + field.b * (stats.length / avgLength))
   return ((K1 + 1) * normalizedTf) / (K1 + normalizedTf)
 }
 
-function resolvePhraseProximity(article: SearchableArticle, normalizedQuery: string): number {
-  if (!normalizedQuery) {
+function resolvePhraseProximity(article: SearchableArticle, context: RankingContext): number {
+  if (!context.normalizedQuery) {
     return 0
   }
 
-  const title = normalizeSearchText(article.title)
-  if (title === normalizedQuery) {
+  const title = getFieldStats(article, 'title', context).text
+  if (title === context.normalizedQuery) {
     return 1
   }
 
-  if (title.includes(normalizedQuery)) {
+  if (title.includes(context.normalizedQuery)) {
     return 0.75
   }
 
-  const tags = normalizeSearchText(article.tags.map((tag) => tag.name).join(' '))
-  if (tags.includes(normalizedQuery)) {
+  const tags = getFieldStats(article, 'tags', context).text
+  if (tags.includes(context.normalizedQuery)) {
     return 0.65
   }
 
-  const summary = normalizeSearchText(article.summary)
-  return summary.includes(normalizedQuery) ? 0.35 : 0
+  const summary = getFieldStats(article, 'summary', context).text
+  return summary.includes(context.normalizedQuery) ? 0.35 : 0
 }
 
 function resolveFreshnessScore(article: ArticleListItemResponse, nowMs: number): number {
@@ -189,54 +222,67 @@ function resolveHotScore(article: ArticleListItemResponse, maxViews: number, now
   return popularity / Math.pow(ageHours + 12, 0.35)
 }
 
-export function scoreArticleSearchResult(
-  article: SearchableArticle,
+function createRankingContext(
   query: string,
   corpus: readonly SearchableArticle[],
   nowMs = Date.now()
-): number {
+): RankingContext {
   const tokens = tokenizeSearchQuery(query)
-  if (tokens.length === 0) {
+  return {
+    tokens,
+    normalizedQuery: normalizeSearchText(query),
+    avgLengths: resolveAverageFieldLengths(corpus),
+    maxViews: Math.max(1, ...corpus.map((item) => item.views)),
+    nowMs,
+    fieldStats: new WeakMap<SearchableArticle, Partial<Record<FieldKey, FieldStats>>>()
+  }
+}
+
+function scoreArticleWithContext(article: SearchableArticle, context: RankingContext): number {
+  if (context.tokens.length === 0) {
     return 0
   }
 
-  const avgLengths = resolveAverageFieldLengths(corpus)
-  const maxViews = Math.max(1, ...corpus.map((item) => item.views))
   let bm25f = 0
 
-  for (const token of tokens) {
+  for (const token of context.tokens) {
     let fieldScore = 0
     for (const field of FIELD_SPECS) {
-      fieldScore += resolveFieldTermScore(getFieldText(article, field.key), token, field, avgLengths[field.key])
+      fieldScore += resolveFieldTermScore(getFieldStats(article, field.key, context), token, field, context.avgLengths[field.key])
     }
 
     const idfApprox = 1 + Math.min(1.5, token.length / 4)
     bm25f += idfApprox * fieldScore
   }
 
-  const normalizedQuery = normalizeSearchText(query)
-  const phrase = resolvePhraseProximity(article, normalizedQuery)
-  const freshness = resolveFreshnessScore(article, nowMs)
-  const popularity = resolvePopularityBayes(article, maxViews)
+  const phrase = resolvePhraseProximity(article, context)
+  const freshness = resolveFreshnessScore(article, context.nowMs)
+  const popularity = resolvePopularityBayes(article, context.maxViews)
 
   return bm25f + 0.12 * freshness + 0.08 * popularity + 0.22 * phrase
 }
 
-function resolveSortScore(
+export function scoreArticleSearchResult(
   article: SearchableArticle,
   query: string,
-  sort: SearchSortMode,
   corpus: readonly SearchableArticle[],
-  nowMs: number
+  nowMs = Date.now()
 ): number {
-  const relevance = scoreArticleSearchResult(article, query, corpus, nowMs)
-  const maxViews = Math.max(1, ...corpus.map((item) => item.views))
+  return scoreArticleWithContext(article, createRankingContext(query, corpus, nowMs))
+}
+
+function resolveSortScore(
+  article: SearchableArticle,
+  sort: SearchSortMode,
+  context: RankingContext
+): number {
+  const relevance = scoreArticleWithContext(article, context)
 
   switch (sort) {
     case 'latest':
-      return resolveFreshnessScore(article, nowMs) + Math.min(0.2, relevance / 25)
+      return resolveFreshnessScore(article, context.nowMs) + Math.min(0.2, relevance / 25)
     case 'hot':
-      return resolveHotScore(article, maxViews, nowMs) + Math.min(0.25, relevance / 20)
+      return resolveHotScore(article, context.maxViews, context.nowMs) + Math.min(0.25, relevance / 20)
     default:
       return relevance
   }
@@ -253,11 +299,12 @@ export function rankSearchPage<TArticle extends ArticleListItemResponse>(
   }
 
   const corpus = response.items as SearchableArticle[]
+  const context = createRankingContext(query, corpus, nowMs)
   const ranked = response.items
     .map((item, index) => ({
       item,
       index,
-      score: resolveSortScore(item as SearchableArticle, query, sort, corpus, nowMs)
+      score: resolveSortScore(item as SearchableArticle, sort, context)
     }))
     .sort((left, right) =>
       right.score - left.score
