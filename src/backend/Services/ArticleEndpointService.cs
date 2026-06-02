@@ -25,7 +25,8 @@ public sealed class ArticleEndpointService(
         bool isDeleted,
         bool canReadDeleted,
         int? status,
-        bool canReadPrivate)
+        bool canReadPrivate,
+        string? keyword = null)
     {
         if (isDeleted && !canReadDeleted)
         {
@@ -38,14 +39,15 @@ public sealed class ArticleEndpointService(
         }
 
         long version = await GetArticleListCacheVersionAsync();
-        string identity = BuildArticleListCacheIdentity(version, page, size, categoryId, tagId, isDeleted, status, canReadPrivate);
+        string normalizedKeyword = NormalizeArticleListKeyword(keyword);
+        string identity = BuildArticleListCacheIdentity(version, page, size, categoryId, tagId, isDeleted, status, canReadPrivate, normalizedKeyword);
         CacheReadResult<ReadOnlyMemory<byte>> raw = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleList, identity);
         if (raw.Hit && raw.Value.Length > 0)
         {
             return new(raw.Value, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
         }
 
-        return new(default, await core.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, canReadPrivate));
+        return new(default, await core.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, canReadPrivate, normalizedKeyword));
     }
 
     public Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(int id, bool canReadPrivate = false)
@@ -105,8 +107,11 @@ public sealed class ArticleEndpointService(
         return long.TryParse(version, out long parsed) ? parsed : 0;
     }
 
-    private static string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate)
-        => $"core:v3:{(includePrivate ? "admin" : "public")}:{version}:{page}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}";
+    private static string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword)
+        => $"core:v4:{(includePrivate ? "admin" : "public")}:{version}:{page}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}:{keyword}";
+
+    private static string NormalizeArticleListKeyword(string? keyword)
+        => string.IsNullOrWhiteSpace(keyword) ? string.Empty : keyword.Trim()[..Math.Min(keyword.Trim().Length, 80)];
 
     private static string BuildArticleHotCacheIdentity(int count)
         => $"core:v2:{count}";

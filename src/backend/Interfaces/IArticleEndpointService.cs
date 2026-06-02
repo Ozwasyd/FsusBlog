@@ -24,7 +24,8 @@ public interface IArticleEndpointService
         bool isDeleted,
         bool canReadDeleted,
         int? status,
-        bool canReadPrivate);
+        bool canReadPrivate,
+        string? keyword = null);
 
     Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(int id, bool canReadPrivate = false);
 

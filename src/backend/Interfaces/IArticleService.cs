@@ -5,7 +5,7 @@ namespace FsusBlog.Server.Interfaces;
 
 public interface IArticleService
 {
-    Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted = false, int? status = null, bool includePrivate = false);
+    Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted = false, int? status = null, bool includePrivate = false, string? keyword = null);
 
     /// <summary>
     /// 获取文章详情

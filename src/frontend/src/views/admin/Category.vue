@@ -31,12 +31,24 @@
     </WorkbenchPanel>
 
     <section class="border-t border-[var(--fsusblog-panel-border)]">
-      <div class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] flex items-center justify-between">
+      <div class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] flex flex-wrap items-center justify-between gap-3">
         <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">分类列表 / CATEGORY LIST</div>
+        <div class="flex flex-wrap items-center gap-2">
+          <el-input
+            v-model="filters.keyword"
+            class="taxonomy-filter-input"
+            clearable
+            placeholder="搜索分类"
+            aria-label="搜索分类"
+            :prefix-icon="Search"
+          />
+          <el-checkbox v-model="filters.unusedOnly">仅未引用</el-checkbox>
+          <el-button text @click="resetFilters">清除筛选</el-button>
+        </div>
       </div>
       <el-table
         v-loading="loading"
-        :data="list"
+        :data="filteredList"
         :row-key="getCategoryRowKey"
         >
         <el-table-column v-if="!isCompact" prop="id" label="ID" width="100" align="center">
@@ -47,7 +59,15 @@
 
         <el-table-column prop="name" label="分类名称" :min-width="nameColumnWidth">
           <template #default="{ row }: { row: CategoryItem }">
-            <strong class="font-bold text-[var(--fsusblog-text-secondary)] leading-6">{{ row.name }}</strong>
+            <div class="min-w-0">
+              <strong class="font-bold text-[var(--fsusblog-text-secondary)] leading-6">{{ row.name }}</strong>
+              <p
+                v-if="isCompact && row.articleCount > 0"
+                class="mt-1 text-[11px] leading-5 text-[var(--fsusblog-text-muted)]"
+              >
+                {{ relationLockReason(row) }}
+              </p>
+            </div>
           </template>
         </el-table-column>
 
@@ -73,10 +93,19 @@
                 <span v-if="!isCompact">编辑</span><el-icon v-else><Edit /></el-icon>
               </el-button>
               <el-divider direction="vertical" />
+              <el-button
+                link
+                type="primary"
+                :disabled="row.articleCount <= 0"
+                @click="viewAssociatedArticles(row)"
+              >
+                <span v-if="!isCompact">查看文章</span><el-icon v-else><View /></el-icon>
+              </el-button>
+              <el-divider direction="vertical" />
 
               <el-tooltip
                 v-if="row.articleCount > 0"
-                content="该分类下仍有博文挂载，系统拦截删除操作"
+                :content="relationLockReason(row)"
                 placement="top"
               >
                 <el-button link type="info" disabled>
@@ -150,20 +179,25 @@ import { computed } from 'vue'
 import { type CategoryItem } from '@/api/category'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
-import { InfoFilled, Plus, Edit, Lock, Delete } from '@/ui/fsusIcons'
+import { InfoFilled, Plus, Edit, Lock, Delete, Search, View } from '@/ui/fsusIcons'
 import { useAdminCategoryManage } from '@/composables/useAdminCategoryManage'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 
 const {
   list,
+  filteredList,
   loading,
   dialogVisible,
   dialogTitle,
   submitButtonText,
   formRef,
   isProcessing,
+  filters,
   form,
   rules,
+  relationLockReason,
+  viewAssociatedArticles,
+  resetFilters,
   openDialog,
   submitForm,
   handleDelete
@@ -175,13 +209,17 @@ const getCategoryRowKey = (row: CategoryItem): string => String(row.id)
 const isCompact = useMediaQuery('(max-width: 639px)')
 const nameColumnWidth = computed(() => (isCompact.value ? 148 : 200))
 const relationColumnWidth = computed(() => (isCompact.value ? 96 : 150))
-const actionColumnWidth = computed(() => (isCompact.value ? 104 : 200))
+const actionColumnWidth = computed(() => (isCompact.value ? 156 : 300))
 </script>
 
 <style scoped>
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.taxonomy-filter-input {
+  width: min(15rem, 100%);
 }
 
 </style>

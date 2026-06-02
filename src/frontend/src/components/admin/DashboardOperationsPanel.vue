@@ -67,8 +67,8 @@ const actions: ReadonlyArray<{
   },
   {
     eyebrow: '结构',
-    label: '分类与标签',
-    helper: '维护目录结构与索引关键词。',
+    label: '分类管理',
+    helper: '维护目录结构与归档入口。',
     to: { name: 'ManageCategory' }
   },
   {

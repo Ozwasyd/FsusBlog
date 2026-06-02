@@ -15,11 +15,12 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache)
         bool isDeleted,
         int? status,
         bool includePrivate,
+        string keyword,
         Func<Task<CorePageResult<ArticleListCoreModel>>> loader)
     {
         long version = await GetListCacheVersionAsync();
         string scope = includePrivate ? "admin" : "public";
-        string identity = $"core:v3:{scope}:{version}:{page}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}";
+        string identity = $"core:v4:{scope}:{version}:{page}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}:{keyword}";
         var hit = await cache.TryGetAsync(CachePolicyId.ArticleList, identity, DecodeArticlePage);
         if (hit.Hit && hit.Value is not null)
         {

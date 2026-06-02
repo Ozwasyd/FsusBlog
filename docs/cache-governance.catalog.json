@@ -394,6 +394,7 @@
       "varyByQuery": [
         "page",
         "size",
+        "keyword",
         "categoryId",
         "tagId",
         "isDeleted",

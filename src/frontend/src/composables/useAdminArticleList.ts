@@ -1,23 +1,35 @@
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter, type LocationQueryRaw } from 'vue-router'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import {
   ArticlePublishStatus,
   deleteArticle,
   getAdminArticles,
-  permanentDeleteArticle,
   type ArticleListItemResponse
 } from '@/api/article'
+import { getCategories, type CategoryItem } from '@/api/category'
+import { getTags, type TagItem } from '@/api/tag'
 import { useMutationFlow } from '@/composables/useMutationFlow'
 import { useViewTask } from '@/composables/useViewTask'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { TimeUtils } from '@/utils/time'
+
+type FilterChipKey = 'keyword' | 'status' | 'categoryId' | 'tagId'
+
+type ActiveFilterChip = {
+  key: FilterChipKey
+  label: string
+}
 
 type AdminArticleListViewItem = ArticleListItemResponse & {
   createdAtText: string
   categoryName: string
   statusText: string
   statusTagType: 'success' | 'warning' | 'info' | 'danger'
+  statusTimeLabel: string
+  statusTimeText: string
+  statusTimeValue: string
+  primaryActionLabel: string
 }
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
@@ -45,11 +57,68 @@ const statusTagType = (status: ArticlePublishStatus | undefined): AdminArticleLi
   return 'success'
 }
 
+const primaryActionLabel = (status: ArticlePublishStatus | undefined): string => {
+  if (status === ArticlePublishStatus.Draft) return '继续写作'
+  if (status === ArticlePublishStatus.Scheduled) return '调整排期'
+  if (status === ArticlePublishStatus.Archived) return '查看并恢复'
+  return '编辑'
+}
+
+const statusTimeMeta = (item: ArticleListItemResponse): Pick<AdminArticleListViewItem, 'statusTimeLabel' | 'statusTimeText' | 'statusTimeValue'> => {
+  const value = item.status === ArticlePublishStatus.Scheduled && item.scheduledPublishAt
+    ? item.scheduledPublishAt
+    : item.publishedAt || item.createTime
+  const label = item.status === ArticlePublishStatus.Scheduled && item.scheduledPublishAt
+    ? '计划发布'
+    : item.publishedAt
+      ? '发布时间'
+      : '创建时间'
+
+  return {
+    statusTimeLabel: label,
+    statusTimeValue: value,
+    statusTimeText: TimeUtils.toFullLocalString(value)
+  }
+}
+
+const firstQueryValue = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return value[0] == null ? '' : String(value[0])
+  }
+
+  return value == null ? '' : String(value)
+}
+
+const parsePositiveInt = (value: unknown, fallback?: number): number | undefined => {
+  const text = firstQueryValue(value).trim()
+  if (!text) {
+    return fallback
+  }
+
+  const parsed = Number.parseInt(text, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+const parseStatus = (value: unknown): ArticlePublishStatus | undefined => {
+  const text = firstQueryValue(value).trim()
+  if (!text) {
+    return undefined
+  }
+
+  const parsed = Number.parseInt(text, 10)
+  return parsed >= ArticlePublishStatus.Draft && parsed <= ArticlePublishStatus.Archived
+    ? parsed as ArticlePublishStatus
+    : undefined
+}
+
 export function useAdminArticleList() {
   const router = useRouter()
+  const route = useRoute()
 
   const loading = ref(false)
   const articleList = shallowRef<ArticleListItemResponse[]>([])
+  const categories = shallowRef<CategoryItem[]>([])
+  const tags = shallowRef<TagItem[]>([])
   const total = ref(0)
 
   const queryParam = reactive({
@@ -57,11 +126,13 @@ export function useAdminArticleList() {
     size: 10,
     keyword: '',
     categoryId: undefined as number | undefined,
+    tagId: undefined as number | undefined,
     status: undefined as ArticlePublishStatus | undefined
   })
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
   const loadTask = useViewTask()
+  const taxonomyTask = useViewTask()
   const mutation = useMutationFlow()
   const articleListView = computed<AdminArticleListViewItem[]>(() =>
     articleList.value.map((item) => ({
@@ -69,14 +140,70 @@ export function useAdminArticleList() {
       createdAtText: TimeUtils.toFullLocalString(item.createTime),
       categoryName: item.category?.name || '未分类',
       statusText: statusText(item.status),
-      statusTagType: statusTagType(item.status)
+      statusTagType: statusTagType(item.status),
+      primaryActionLabel: primaryActionLabel(item.status),
+      ...statusTimeMeta(item)
     }))
   )
   const totalText = computed(() => `检索到 ${total.value} 篇记录`)
-  const isBusy = computed(() => loading.value)
+  const isBusy = computed(() => loading.value || taxonomyTask.loading.value)
+
+  const categoryNameById = computed(() => new Map(categories.value.map((item) => [item.id, item.name])))
+  const tagNameById = computed(() => new Map(tags.value.map((item) => [item.id, item.name])))
+  const activeFilterChips = computed<ActiveFilterChip[]>(() => {
+    const chips: ActiveFilterChip[] = []
+    const keyword = queryParam.keyword.trim()
+    if (keyword) {
+      chips.push({ key: 'keyword', label: `标题：${keyword}` })
+    }
+
+    if (queryParam.status !== undefined) {
+      chips.push({ key: 'status', label: `状态：${statusText(queryParam.status)}` })
+    }
+
+    if (queryParam.categoryId !== undefined) {
+      chips.push({ key: 'categoryId', label: `分类：${categoryNameById.value.get(queryParam.categoryId) ?? `#${queryParam.categoryId}`}` })
+    }
+
+    if (queryParam.tagId !== undefined) {
+      chips.push({ key: 'tagId', label: `标签：${tagNameById.value.get(queryParam.tagId) ?? `#${queryParam.tagId}`}` })
+    }
+
+    return chips
+  })
+
+  const hydrateQueryFromRoute = (): void => {
+    queryParam.page = parsePositiveInt(route.query.page, 1) ?? 1
+    queryParam.size = parsePositiveInt(route.query.size, 10) ?? 10
+    queryParam.keyword = firstQueryValue(route.query.keyword)
+    queryParam.categoryId = parsePositiveInt(route.query.categoryId)
+    queryParam.tagId = parsePositiveInt(route.query.tagId)
+    queryParam.status = parseStatus(route.query.status)
+  }
+
+  const buildRouteQuery = (): LocationQueryRaw => {
+    const query: LocationQueryRaw = {
+      page: String(queryParam.page),
+      size: String(queryParam.size)
+    }
+    const keyword = queryParam.keyword.trim()
+    if (keyword) query.keyword = keyword
+    if (queryParam.status !== undefined) query.status = String(queryParam.status)
+    if (queryParam.categoryId !== undefined) query.categoryId = String(queryParam.categoryId)
+    if (queryParam.tagId !== undefined) query.tagId = String(queryParam.tagId)
+    return query
+  }
+
+  const syncQueryToRoute = (): void => {
+    void router.replace({ name: 'ManageArticleList', query: buildRouteQuery() }).catch(() => undefined)
+  }
 
   const loadData = async (): Promise<void> => {
-    const paramsSnapshot = { ...queryParam }
+    syncQueryToRoute()
+    const paramsSnapshot = {
+      ...queryParam,
+      keyword: queryParam.keyword.trim() || undefined
+    }
 
     loading.value = true
     try {
@@ -111,6 +238,27 @@ export function useAdminArticleList() {
     }
   }
 
+  const loadTaxonomy = async (): Promise<void> => {
+    const data = await taxonomyTask.run(async (signal) => {
+      const config: ApiRequestConfig = { signal }
+      const [categoryItems, tagItems] = await Promise.all([
+        getCategories(config),
+        getTags(config)
+      ])
+      return { categoryItems, tagItems }
+    }, {
+      fallbackMessage: '无法同步分类与标签筛选项',
+      onError: (error) => {
+        console.error('[Admin List] Taxonomy sync error:', error)
+      }
+    })
+
+    if (data) {
+      categories.value = Array.isArray(data.categoryItems) ? data.categoryItems : []
+      tags.value = Array.isArray(data.tagItems) ? data.tagItems : []
+    }
+  }
+
   const loadDataWithDebounce = (): void => {
     if (debounceTimer) {
       clearTimeout(debounceTimer)
@@ -128,6 +276,7 @@ export function useAdminArticleList() {
   const resetQuery = (): void => {
     queryParam.keyword = ''
     queryParam.categoryId = undefined
+    queryParam.tagId = undefined
     queryParam.status = undefined
     handleSearch()
   }
@@ -137,8 +286,39 @@ export function useAdminArticleList() {
     handleSearch()
   }
 
+  const setCategoryFilter = (categoryId: number | undefined): void => {
+    queryParam.categoryId = categoryId
+    handleSearch()
+  }
+
+  const setTagFilter = (tagId: number | undefined): void => {
+    queryParam.tagId = tagId
+    handleSearch()
+  }
+
+  const removeFilter = (key: FilterChipKey): void => {
+    if (key === 'keyword') queryParam.keyword = ''
+    if (key === 'status') queryParam.status = undefined
+    if (key === 'categoryId') queryParam.categoryId = undefined
+    if (key === 'tagId') queryParam.tagId = undefined
+    handleSearch()
+  }
+
+  const handlePageSizeChange = (): void => {
+    queryParam.page = 1
+    void loadData()
+  }
+
+  const handlePageChange = (): void => {
+    loadDataWithDebounce()
+  }
+
   const handleEdit = (id: number): void => {
-    void router.push({ path: `/user/manage/article/edit/${id}` })
+    void router.push({
+      name: 'ManageEditArticle',
+      params: { id: String(id) },
+      query: { from: route.fullPath }
+    })
   }
 
   const safeDelete = (row: ArticleListItemResponse): void => {
@@ -150,47 +330,17 @@ export function useAdminArticleList() {
       loading.value = true
       try {
         await mutation.confirmThenRun({
-          message: `确定要将文章《${row.title}》存入回收站吗？`,
-          title: '内容存档确认',
-          confirmButtonText: '确定存档',
+          message: `确定要将文章《${row.title}》移入回收站吗？文章会从公开列表下线，仍可在回收站恢复。`,
+          title: '移入回收站',
+          confirmButtonText: '移入回收站',
           cancelButtonText: '取消'
         }, async (signal) => {
           await deleteArticle(row.id, { signal })
         }, {
-          fallbackMessage: '文章归档失败',
-          successMessage: '文章已进入回收站',
+          fallbackMessage: '文章移入回收站失败',
+          successMessage: '文章已移入回收站',
           onSuccess: loadData
         })
-      } finally {
-        loading.value = false
-      }
-    })()
-  }
-
-  const safePermanentDelete = (row: ArticleListItemResponse): void => {
-    void (async () => {
-      if (loading.value) {
-        return
-      }
-
-      loading.value = true
-      try {
-        await mutation.confirmThenRun(
-          {
-            message: `确认永久删除博文《${row.title}》及其所有关联数据？此操作不可恢复。`,
-            title: '永久删除文章',
-            confirmButtonText: '确认永久删除',
-            cancelButtonText: '取消'
-          },
-          async (signal) => {
-            await permanentDeleteArticle(row.id, { signal })
-          },
-          {
-            fallbackMessage: '博文永久删除失败',
-            successMessage: '博文已永久删除',
-            onSuccess: loadData
-          }
-        )
       } finally {
         loading.value = false
       }
@@ -205,20 +355,18 @@ export function useAdminArticleList() {
 
     if (command === 'delete') {
       safeDelete(row)
-      return
-    }
-
-    if (command === 'permanent') {
-      safePermanentDelete(row)
     }
   }
 
   onMounted(() => {
+    hydrateQueryFromRoute()
+    void loadTaxonomy()
     void loadData()
   })
 
   onUnmounted(() => {
     loadTask.cancel()
+    taxonomyTask.cancel()
     mutation.cancel()
     if (debounceTimer) {
       clearTimeout(debounceTimer)
@@ -231,14 +379,22 @@ export function useAdminArticleList() {
     loading,
     articleList,
     articleListView,
+    categories,
+    tags,
     total,
     totalText,
     isBusy,
     pageSizeOptions: PAGE_SIZE_OPTIONS,
     statusFilters: STATUS_FILTERS,
+    activeFilterChips,
     queryParam,
     setStatusFilter,
+    setCategoryFilter,
+    setTagFilter,
+    removeFilter,
     loadDataWithDebounce,
+    handlePageSizeChange,
+    handlePageChange,
     handleSearch,
     resetQuery,
     handleEdit,

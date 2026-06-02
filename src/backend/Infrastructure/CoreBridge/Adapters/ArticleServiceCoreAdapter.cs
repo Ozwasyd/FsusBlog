@@ -9,9 +9,9 @@ namespace FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 
 public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArticleService
 {
-    public async Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted = false, int? status = null, bool includePrivate = false)
+    public async Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted = false, int? status = null, bool includePrivate = false, string? keyword = null)
     {
-        var result = await core.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate);
+        var result = await core.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, keyword);
         if (!result.IsSuccess)
         {
             return new ArticleListPageReadModel { Items = [], Total = 0 };

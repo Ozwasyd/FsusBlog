@@ -1,13 +1,16 @@
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
 import { type FormInstance } from '@ozwasyd/element-plus'
+import { useRouter } from 'vue-router'
 import { isFsusUiOk } from '@/utils/fsusUiResult'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import { createTag, deleteTag, getTags, updateTag, type TagItem } from '@/api/tag'
 import { useMutationFlow } from '@/composables/useMutationFlow'
 import { usePow } from '@/composables/usePow'
 import { useViewTask } from '@/composables/useViewTask'
+import { showWarningToast } from '@/utils/errorPresentation'
 
 export function useAdminTagManage() {
+  const router = useRouter()
   const list = shallowRef<TagItem[]>([])
   const loading = ref(false)
   const dialogVisible = ref(false)
@@ -24,8 +27,22 @@ export function useAdminTagManage() {
 
   const loadTask = useViewTask()
   const mutation = useMutationFlow()
+  const filters = reactive({
+    keyword: '',
+    unusedOnly: false
+  })
 
   const form = reactive({ name: '' })
+  const filteredList = computed(() => {
+    const keyword = filters.keyword.trim().toLowerCase()
+    return list.value.filter((item) => {
+      if (filters.unusedOnly && item.articleCount > 0) {
+        return false
+      }
+
+      return !keyword || item.name.toLowerCase().includes(keyword) || String(item.id).includes(keyword)
+    })
+  })
   const rules = {
     name: [
       { required: true, message: '请输入标签名', trigger: 'blur' },
@@ -35,21 +52,26 @@ export function useAdminTagManage() {
   }
 
   const loadData = async (): Promise<boolean> => {
-    const data = await loadTask.run(async (signal) => {
-      const config: ApiRequestConfig = { signal }
-      return await getTags(config)
-    }, {
-      fallbackMessage: '标签列表同步失败',
-      onError: () => {
-        list.value = []
+    loading.value = true
+    try {
+      const data = await loadTask.run(async (signal) => {
+        const config: ApiRequestConfig = { signal }
+        return await getTags(config)
+      }, {
+        fallbackMessage: '标签列表同步失败',
+        onError: () => {
+          list.value = []
+        }
+      })
+
+      if (data) {
+        list.value = Array.isArray(data) ? data : []
       }
-    })
 
-    if (data) {
-      list.value = Array.isArray(data) ? data : []
+      return data !== undefined
+    } finally {
+      loading.value = false
     }
-
-    return data !== undefined
   }
 
   const openDialog = (row?: TagItem): void => {
@@ -71,6 +93,11 @@ export function useAdminTagManage() {
 
       const cleanName = form.name.trim()
       if (!cleanName) {
+        return
+      }
+
+      if (hasDuplicateName(cleanName)) {
+        showWarningToast(`标签「${cleanName}」已存在，请直接重命名原标签或选择合并路径。`)
         return
       }
 
@@ -99,6 +126,11 @@ export function useAdminTagManage() {
   }
 
   const handleDelete = (row: TagItem): void => {
+    if (row.articleCount > 0) {
+      showWarningToast(`标签「${row.name}」正被 ${row.articleCount} 篇文章引用，请先查看引用或执行合并清理。`)
+      return
+    }
+
     void (async () => {
       if (isProcessing.value) {
         return
@@ -125,6 +157,36 @@ export function useAdminTagManage() {
     })()
   }
 
+  const hasDuplicateName = (name: string): boolean => {
+    const normalized = name.trim().toLowerCase()
+    return list.value.some((item) => item.id !== editingId.value && item.name.trim().toLowerCase() === normalized)
+  }
+
+  const relationLockReason = (row: TagItem): string =>
+    row.articleCount > 0
+      ? `已引用 ${row.articleCount} 篇文章，请先查看引用或合并后再删除。`
+      : '未被引用，可删除'
+
+  const viewAssociatedArticles = (row: TagItem): void => {
+    void router.push({
+      name: 'ManageArticleList',
+      query: {
+        page: '1',
+        size: '10',
+        tagId: String(row.id)
+      }
+    })
+  }
+
+  const handleMergeRequest = (row: TagItem): void => {
+    showWarningToast(`标签「${row.name}」的合并接口尚未开放。请先查看引用文章并批量调整标签。`)
+  }
+
+  const resetFilters = (): void => {
+    filters.keyword = ''
+    filters.unusedOnly = false
+  }
+
   onMounted(() => {
     void loadData()
     powProvider.prewarm()
@@ -132,6 +194,7 @@ export function useAdminTagManage() {
 
   return {
     list,
+    filteredList,
     loading,
     dialogVisible,
     editingId,
@@ -140,8 +203,13 @@ export function useAdminTagManage() {
     formRef,
     powProvider,
     isProcessing,
+    filters,
     form,
     rules,
+    relationLockReason,
+    viewAssociatedArticles,
+    handleMergeRequest,
+    resetFilters,
     openDialog,
     submitForm,
     handleDelete

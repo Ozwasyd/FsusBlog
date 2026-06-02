@@ -10,7 +10,7 @@ internal interface IBinaryEndpointRequestContext
     Task<NameMutationPayload> ReadNameMutationAsync(HttpContext httpContext, IAedsEncoder aeds, AedsFrameType expectedFrameType, CancellationToken cancellationToken);
     string BuildArticleViewerIdentity(HttpContext context, int articleId);
     ValueTask<long> GetArticleListCacheVersionAsync(IUnifiedCache cache);
-    string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false);
+    string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string keyword = "");
     string BuildArticleHotCacheIdentity(int count);
     string? GetDeviceFingerprint(HttpContext context);
     bool TryReadMfaProof(HttpContext context, out string proofToken);
@@ -52,8 +52,8 @@ internal sealed class BinaryEndpointRequestContext(IBinaryRequestBinder binder) 
         return long.TryParse(version, out long parsed) ? parsed : 0;
     }
 
-    public string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false)
-        => $"core:v3:{(includePrivate ? "admin" : "public")}:{version}:{page}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}";
+    public string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string keyword = "")
+        => $"core:v4:{(includePrivate ? "admin" : "public")}:{version}:{page}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}:{keyword}";
 
     public string BuildArticleHotCacheIdentity(int count)
         => $"core:v2:{count}";

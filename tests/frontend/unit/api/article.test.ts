@@ -160,6 +160,14 @@ describe('article API (admin)', () => {
     }))
   })
 
+  it('getAdminArticles serializes keyword and taxonomy filters', async () => {
+    await getAdminArticles({ page: 1, size: 10, keyword: '  中文 keyword / a&b  ', categoryId: 3, tagId: 5 })
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/admin/article?page=1&size=10&isDeleted=false&keyword=%E4%B8%AD%E6%96%87+keyword+%2F+a%26b&categoryId=3&tagId=5',
+      frameType: FrameType.ArticleList
+    }))
+  })
+
   it('getAdminArticleById uses admin detail URL', async () => {
     await getAdminArticleById(9)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({

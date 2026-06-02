@@ -170,17 +170,33 @@ public sealed class ArticleServiceTests
     [Fact]
     public void BuildArticleListIdentity_ProducesConsistentKey()
     {
-        var r1 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, null, null, false, null, false]);
-        var r2 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, null, null, false, null, false]);
+        var r1 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, null, null, false, null, false, ""]);
+        var r2 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, null, null, false, null, false, ""]);
         Assert.Equal(r1, r2);
     }
 
     [Fact]
     public void BuildArticleListIdentity_DiffParamsProduceDiffKeys()
     {
-        var r1 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, (int?)5, null, false, null, false]);
-        var r2 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, null, null, false, null, false]);
+        var r1 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, (int?)5, null, false, null, false, ""]);
+        var r2 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, null, null, false, null, false, ""]);
         Assert.NotEqual(r1, r2);
+    }
+
+    [Fact]
+    public void BuildArticleListIdentity_DiffKeywordProduceDiffKeys()
+    {
+        var r1 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, null, null, false, null, true, "中文 keyword"]);
+        var r2 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, null, null, false, null, true, ""]);
+        Assert.NotEqual(r1, r2);
+    }
+
+    [Fact]
+    public void NormalizeArticleListKeyword_TrimsAndLimitsLength()
+    {
+        var result = InvokePrivateStatic<string>("NormalizeArticleListKeyword", ["  " + new string('a', 100) + "  "]);
+        Assert.Equal(80, result.Length);
+        Assert.DoesNotContain(" ", result);
     }
 
     [Fact]

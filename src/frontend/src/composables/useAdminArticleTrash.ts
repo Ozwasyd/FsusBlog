@@ -1,5 +1,6 @@
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessageBox } from '@ozwasyd/element-plus'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import {
   getAdminArticles,
@@ -9,11 +10,13 @@ import {
 } from '@/api/article'
 import { useMutationFlow } from '@/composables/useMutationFlow'
 import { useViewTask } from '@/composables/useViewTask'
+import { isFsusUiOk } from '@/utils/fsusUiResult'
 import { TimeUtils } from '@/utils/time'
 
 type AdminTrashViewItem = ArticleListItemResponse & {
   createdAtText: string
   categoryName: string
+  restoreActionText: string
 }
 
 const FOOTER_WATERMARK = 'FsusBlog Archive Storage / Secured'
@@ -38,7 +41,8 @@ export function useAdminArticleTrash() {
     trashList.value.map((item) => ({
       ...item,
       createdAtText: TimeUtils.toFullLocalString(item.createTime),
-      categoryName: item.category?.name || '无分类'
+      categoryName: item.category?.name || '无分类',
+      restoreActionText: '恢复并重新发布'
     }))
   )
   const pendingCountText = computed(() => `${total.value} 篇待处理`)
@@ -74,15 +78,15 @@ export function useAdminArticleTrash() {
       submittingIds.value.add(row.id)
       try {
         await mutation.confirmThenRun({
-          message: `确定要恢复文章《${row.title}》吗？`,
-          title: '恢复确认',
-          confirmButtonText: '立即恢复'
+          message: `确定要恢复文章《${row.title}》吗？恢复后文章将重新对外可见，并同步搜索索引。`,
+          title: '恢复并重新发布',
+          confirmButtonText: '恢复并重新发布'
         }, async (signal) => {
           const config: ApiRequestConfig = { signal }
           await restoreArticle(row.id, config)
         }, {
           fallbackMessage: '文章恢复失败',
-          successMessage: '文章已恢复',
+          successMessage: '文章已恢复并重新发布',
           onSuccess: loadData
         })
       } finally {
@@ -99,11 +103,11 @@ export function useAdminArticleTrash() {
     void (async () => {
       submittingIds.value.add(row.id)
       try {
-        await mutation.confirmThenRun({
-          message: `确定要永久删除文章《${row.title}》吗？此操作不可恢复。`,
-          title: '永久删除文章',
-          confirmButtonText: '确认永久删除'
-        }, async (signal) => {
+        if (!await requestPermanentDeleteConfirmation(row)) {
+          return
+        }
+
+        await mutation.run(async (signal) => {
           const config: ApiRequestConfig = { signal }
           await permanentDeleteArticle(row.id, config)
         }, {
@@ -116,6 +120,32 @@ export function useAdminArticleTrash() {
         submittingIds.value.delete(row.id)
       }
     })()
+  }
+
+  const requestPermanentDeleteConfirmation = async (row: ArticleListItemResponse): Promise<boolean> => {
+    const result = await ElMessageBox.prompt(
+      `此操作会永久删除文章《${row.title}》及其关联数据，无法恢复。请输入完整标题或文章 ID「${row.id}」继续。`,
+      '永久删除文章',
+      {
+        type: 'warning',
+        confirmButtonText: '确认永久删除',
+        cancelButtonText: '取消',
+        inputPlaceholder: `输入 ${row.id} 或完整标题`,
+        inputValidator: (value: string) => {
+          const text = value.trim()
+          return text === String(row.id) || text === row.title
+            ? true
+            : '请输入完整标题或文章 ID'
+        }
+      }
+    )
+
+    if (!isFsusUiOk(result)) {
+      return false
+    }
+
+    const value = (result as { value?: { value?: string } }).value?.value?.trim()
+    return value === String(row.id) || value === row.title
   }
 
   onMounted(() => {

@@ -34,6 +34,7 @@ public static partial class BinaryEndpoints
             int? size,
             int? categoryId,
             int? tagId,
+            string? keyword,
             bool? isDeleted,
             HttpContext httpContext,
             IArticleEndpointService articles,
@@ -54,7 +55,7 @@ public static partial class BinaryEndpoints
             }
 
             bool deleted = (isDeleted ?? false) || status == (int)ArticleStatus.Deleted;
-            var payloadResult = await articles.GetPageListAsync(pageValue, sizeValue, categoryId, tagId, deleted, canReadDeleted: true, status, canReadPrivate: true);
+            var payloadResult = await articles.GetPageListAsync(pageValue, sizeValue, categoryId, tagId, deleted, canReadDeleted: true, status, canReadPrivate: true, keyword: keyword);
             if (payloadResult.HasCachedPayload)
             {
                 return BinaryResults.FrameRaw(aeds, AedsFrameType.ArticleList, payloadResult.CachedPayload);

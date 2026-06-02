@@ -1,18 +1,32 @@
 <template>
   <article class="article-compact-card" role="listitem">
-    <div class="min-w-0">
-      <el-link
-        type="primary"
-        class="article-compact-title"
-        @click="$emit('edit', row.id)"
-      >
-        {{ row.title }}
-      </el-link>
-      <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-[var(--fsusblog-text-muted)]">
-        <span class="inline-flex items-center gap-1 tabular-nums">
-          <el-icon><View /></el-icon> {{ row.views }} 阅读
-        </span>
-        <SemanticTime :value="row.createTime" :text="row.createdAtText" class="tabular-nums" />
+    <div class="flex min-w-0 items-start gap-3">
+      <div class="article-compact-cover" aria-hidden="true">
+        <img
+          v-if="row.coverImageUrl"
+          :src="row.coverImageUrl"
+          alt=""
+          loading="lazy"
+        >
+        <span v-else>{{ row.title.slice(0, 1) || '#' }}</span>
+      </div>
+      <div class="min-w-0">
+        <el-link
+          type="primary"
+          class="article-compact-title"
+          @click="$emit('edit', row.id)"
+        >
+          {{ row.title }}
+        </el-link>
+        <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-[var(--fsusblog-text-muted)]">
+          <span class="inline-flex items-center gap-1 tabular-nums">
+            <el-icon><View /></el-icon> {{ row.views }} 阅读
+          </span>
+          <span class="inline-flex items-center gap-1 tabular-nums">
+            {{ row.statusTimeLabel }}
+            <SemanticTime :value="row.statusTimeValue" :text="row.statusTimeText" />
+          </span>
+        </div>
       </div>
     </div>
 
@@ -26,7 +40,7 @@
     </div>
 
     <div class="article-compact-actions">
-      <el-button text type="primary" @click="$emit('edit', row.id)">编辑</el-button>
+      <el-button text type="primary" @click="$emit('edit', row.id)">{{ row.primaryActionLabel }}</el-button>
       <el-dropdown>
         <el-button text type="primary">
           更多 <span class="ml-0.5 inline-flex"><el-icon><ArrowDown /></el-icon></span>
@@ -35,7 +49,6 @@
           <el-dropdown-menu>
             <el-dropdown-item icon="Monitor" @click="$emit('view', row)">前台预览</el-dropdown-item>
             <el-dropdown-item icon="Box" @click="$emit('move-to-trash', row)">移入回收站</el-dropdown-item>
-            <el-dropdown-item icon="Warning" @click="$emit('permanent-remove', row)">永久删除</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
@@ -53,6 +66,10 @@ export type AdminArticleCompactCardRow = ArticleListItemResponse & {
   categoryName: string
   statusText: string
   statusTagType: 'success' | 'warning' | 'info' | 'danger'
+  statusTimeLabel: string
+  statusTimeText: string
+  statusTimeValue: string
+  primaryActionLabel: string
 }
 
 defineProps<{
@@ -63,7 +80,6 @@ defineEmits<{
   (event: 'edit', id: number): void
   (event: 'view', row: AdminArticleCompactCardRow): void
   (event: 'move-to-trash', row: AdminArticleCompactCardRow): void
-  (event: 'permanent-remove', row: AdminArticleCompactCardRow): void
 }>()
 </script>
 
@@ -89,6 +105,26 @@ defineEmits<{
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+}
+
+.article-compact-cover {
+  display: grid;
+  width: 4.5rem;
+  height: 3.375rem;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: 6px;
+  background: var(--fsusblog-panel-bg);
+  color: var(--fsusblog-text-muted);
+  font-weight: 700;
+}
+
+.article-compact-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .article-compact-actions {

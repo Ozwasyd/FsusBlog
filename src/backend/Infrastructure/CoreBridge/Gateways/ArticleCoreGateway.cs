@@ -14,8 +14,9 @@ namespace FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
 
 public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryCache queryCache) : IArticleCoreGateway
 {
-    public async Task<CorePageResult<ArticleListCoreModel>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false)
+    public async Task<CorePageResult<ArticleListCoreModel>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null)
     {
+        string normalizedKeyword = NormalizeArticleListKeyword(keyword);
         return await queryCache.GetOrLoadPageListAsync(
             page,
             size,
@@ -24,7 +25,8 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
             isDeleted,
             status,
             includePrivate,
-            () => LoadPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate));
+            normalizedKeyword,
+            () => LoadPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword));
     }
 
     public async Task<ArticleDetailCoreModel?> GetByIdAsync(int id, bool includePrivate = false)
@@ -94,9 +96,9 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
 
     public ValueTask IncreaseViewCountAsync(int id) => service.IncreaseViewCountAsync(id);
 
-    private async Task<CorePageResult<ArticleListCoreModel>> LoadPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate)
+    private async Task<CorePageResult<ArticleListCoreModel>> LoadPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword)
     {
-        ArticleListPageReadModel source = await service.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate);
+        ArticleListPageReadModel source = await service.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, keyword);
         return new CorePageResult<ArticleListCoreModel>(source.Items.Select(ArticleProjection.ToCoreListModel).ToList(), source.Total);
     }
 
@@ -127,4 +129,7 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
 
     private static ArticleStatus ToArticleStatus(int status)
         => Enum.IsDefined(typeof(ArticleStatus), status) ? (ArticleStatus)status : ArticleStatus.Published;
+
+    private static string NormalizeArticleListKeyword(string? keyword)
+        => string.IsNullOrWhiteSpace(keyword) ? string.Empty : keyword.Trim()[..Math.Min(keyword.Trim().Length, 80)];
 }

@@ -4,7 +4,7 @@
       <div class="account-page-eyebrow">管理 / ARCHIVE</div>
       <h1 class="account-page-title">回收站</h1>
       <p class="account-page-description">
-        处理已下线稿件的恢复与永久删除。永久删除后数据不可找回。
+        处理已下线稿件的恢复与永久删除。恢复后会重新对外可见，永久删除后数据不可找回。
       </p>
     </header>
 
@@ -67,7 +67,7 @@
               :loading="isRowSubmitting(row.id)"
               @click="handleRestore(row)"
             >
-              恢复
+              {{ row.restoreActionText }}
             </el-button>
             <el-button
               type="danger"
@@ -122,7 +122,7 @@
                       :loading="isRowSubmitting(row.id)"
                       @click="handleRestore(row)"
                     >
-                      恢复
+                      {{ row.restoreActionText }}
                     </el-button>
                     <el-divider direction="vertical" />
                     <el-button
@@ -172,6 +172,7 @@ import SemanticTime from '@/components/ui/SemanticTime.vue'
 type ArticleTrashViewItem = ArticleListItemResponse & {
   createdAtText: string
   categoryName: string
+  restoreActionText: string
 }
 
 const {

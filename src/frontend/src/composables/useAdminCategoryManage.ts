@@ -1,5 +1,6 @@
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
 import { type FormInstance } from '@ozwasyd/element-plus'
+import { useRouter } from 'vue-router'
 import { isFsusUiOk } from '@/utils/fsusUiResult'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import {
@@ -15,6 +16,7 @@ import { useViewTask } from '@/composables/useViewTask'
 import { showWarningToast } from '@/utils/errorPresentation'
 
 export function useAdminCategoryManage() {
+  const router = useRouter()
   const powProvider = usePow()
 
   const list = shallowRef<CategoryItem[]>([])
@@ -26,6 +28,10 @@ export function useAdminCategoryManage() {
 
   const loadTask = useViewTask()
   const mutation = useMutationFlow()
+  const filters = reactive({
+    keyword: '',
+    unusedOnly: false
+  })
 
   const isProcessing = computed(() => submitting.value || powProvider.isCalculating.value)
   const dialogTitle = computed(() => (editingId.value ? '修改分类属性' : '创建全站分类'))
@@ -34,6 +40,16 @@ export function useAdminCategoryManage() {
   )
 
   const form = reactive({ name: '' })
+  const filteredList = computed(() => {
+    const keyword = filters.keyword.trim().toLowerCase()
+    return list.value.filter((item) => {
+      if (filters.unusedOnly && item.articleCount > 0) {
+        return false
+      }
+
+      return !keyword || item.name.toLowerCase().includes(keyword) || String(item.id).includes(keyword)
+    })
+  })
   const rules = {
     name: [
       { required: true, message: '名称不能为空', trigger: 'blur' },
@@ -43,22 +59,27 @@ export function useAdminCategoryManage() {
   }
 
   const loadData = async (): Promise<boolean> => {
-    const data = await loadTask.run(async (signal) => {
-      const config: ApiRequestConfig = { signal }
-      return await getCategories(config)
-    }, {
-      fallbackMessage: '无法同步全站分类数据',
-      onError: (error) => {
-        console.error('[Admin Category] Load failed:', error)
-        list.value = []
+    loading.value = true
+    try {
+      const data = await loadTask.run(async (signal) => {
+        const config: ApiRequestConfig = { signal }
+        return await getCategories(config)
+      }, {
+        fallbackMessage: '无法同步全站分类数据',
+        onError: (error) => {
+          console.error('[Admin Category] Load failed:', error)
+          list.value = []
+        }
+      })
+
+      if (data) {
+        list.value = Array.isArray(data) ? data : []
       }
-    })
 
-    if (data) {
-      list.value = Array.isArray(data) ? data : []
+      return data !== undefined
+    } finally {
+      loading.value = false
     }
-
-    return data !== undefined
   }
 
   const openDialog = (row?: CategoryItem): void => {
@@ -80,6 +101,11 @@ export function useAdminCategoryManage() {
 
       const cleanName = form.name.trim()
       if (!cleanName) {
+        return
+      }
+
+      if (hasDuplicateName(cleanName)) {
+        showWarningToast(`分类「${cleanName}」已存在，请直接编辑原分类或换用更明确的名称。`)
         return
       }
 
@@ -139,6 +165,32 @@ export function useAdminCategoryManage() {
     })()
   }
 
+  const hasDuplicateName = (name: string): boolean => {
+    const normalized = name.trim().toLowerCase()
+    return list.value.some((item) => item.id !== editingId.value && item.name.trim().toLowerCase() === normalized)
+  }
+
+  const relationLockReason = (row: CategoryItem): string =>
+    row.articleCount > 0
+      ? `已关联 ${row.articleCount} 篇文章，请先查看关联文章并迁移后再删除。`
+      : '未关联文章，可删除'
+
+  const viewAssociatedArticles = (row: CategoryItem): void => {
+    void router.push({
+      name: 'ManageArticleList',
+      query: {
+        page: '1',
+        size: '10',
+        categoryId: String(row.id)
+      }
+    })
+  }
+
+  const resetFilters = (): void => {
+    filters.keyword = ''
+    filters.unusedOnly = false
+  }
+
   onMounted(() => {
     void loadData()
     powProvider.prewarm()
@@ -147,6 +199,7 @@ export function useAdminCategoryManage() {
   return {
     powProvider,
     list,
+    filteredList,
     loading,
     dialogVisible,
     editingId,
@@ -154,8 +207,12 @@ export function useAdminCategoryManage() {
     submitButtonText,
     formRef,
     isProcessing,
+    filters,
     form,
     rules,
+    relationLockReason,
+    viewAssociatedArticles,
+    resetFilters,
     openDialog,
     submitForm,
     handleDelete

@@ -33,6 +33,48 @@
           </el-form-item>
 
           <el-form-item>
+            <div class="w-48 sm:w-52">
+              <el-select
+                v-model="queryParam.categoryId"
+                clearable
+                filterable
+                placeholder="按分类筛选"
+                aria-label="按分类筛选文章"
+                :disabled="isBusy"
+                @update:model-value="handleCategoryFilterChange"
+              >
+                <el-option
+                  v-for="item in categories"
+                  :key="item.id"
+                  :label="item.name"
+                  :value="item.id"
+                />
+              </el-select>
+            </div>
+          </el-form-item>
+
+          <el-form-item>
+            <div class="w-48 sm:w-52">
+              <el-select
+                v-model="queryParam.tagId"
+                clearable
+                filterable
+                placeholder="按标签筛选"
+                aria-label="按标签筛选文章"
+                :disabled="isBusy"
+                @update:model-value="handleTagFilterChange"
+              >
+                <el-option
+                  v-for="item in tags"
+                  :key="item.id"
+                  :label="`# ${item.name}`"
+                  :value="item.id"
+                />
+              </el-select>
+            </div>
+          </el-form-item>
+
+          <el-form-item>
             <el-radio-group
               :model-value="queryParam.status"
               aria-label="文章状态筛选"
@@ -63,6 +105,22 @@
           发布新博文
         </el-button>
       </div>
+
+      <div
+        v-if="activeFilterChips.length > 0"
+        class="mt-5 flex flex-wrap items-center gap-2"
+        aria-label="当前筛选条件"
+      >
+        <el-tag
+          v-for="chip in activeFilterChips"
+          :key="chip.key"
+          closable
+          type="info"
+          @close="removeFilter(chip.key)"
+        >
+          {{ chip.label }}
+        </el-tag>
+      </div>
     </section>
 
     <section class="border-t border-[var(--fsusblog-panel-border)]">
@@ -82,7 +140,6 @@
             @edit="handleEdit"
             @view="handleViewArticle"
             @move-to-trash="handleMoveToTrash"
-            @permanent-remove="handlePermanentRemove"
           />
         </template>
 
@@ -103,21 +160,33 @@
 
             <el-table-column label="内容概要" min-width="320">
               <template #default="{ row }: { row: ArticleListViewItem }">
-                <div class="flex flex-col py-1">
-                  <el-link
-                    type="primary"
-                    @click="handleEdit(row.id)"
-                  >
-                    {{ row.title }}
-                  </el-link>
-                  <div class="flex items-center gap-6 mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">
-                    <span class="flex items-center gap-1 tabular-nums">
-                      <el-icon><View /></el-icon> {{ row.views }} 阅读
-                    </span>
-                    <span class="flex items-center gap-1 tabular-nums">
-                      <el-icon><Calendar /></el-icon>
-                      <SemanticTime :value="row.createTime" :text="row.createdAtText" />
-                    </span>
+                <div class="flex min-w-0 items-start gap-4 py-1">
+                  <div class="article-cover-thumb" aria-hidden="true">
+                    <img
+                      v-if="row.coverImageUrl"
+                      :src="row.coverImageUrl"
+                      alt=""
+                      loading="lazy"
+                    >
+                    <span v-else>{{ row.title.slice(0, 1) || '#' }}</span>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <el-link
+                      type="primary"
+                      @click="handleEdit(row.id)"
+                    >
+                      {{ row.title }}
+                    </el-link>
+                    <div class="flex flex-wrap items-center gap-x-6 gap-y-2 mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">
+                      <span class="flex items-center gap-1 tabular-nums">
+                        <el-icon><View /></el-icon> {{ row.views }} 阅读
+                      </span>
+                      <span class="flex items-center gap-1 tabular-nums">
+                        <el-icon><Calendar /></el-icon>
+                        <span>{{ row.statusTimeLabel }}</span>
+                        <SemanticTime :value="row.statusTimeValue" :text="row.statusTimeText" />
+                      </span>
+                    </div>
                   </div>
                 </div>
               </template>
@@ -157,7 +226,7 @@
             <el-table-column label="管理" width="160" fixed="right" align="right">
               <template #default="{ row }: { row: ArticleListViewItem }">
                 <div class="flex justify-end items-center gap-1 pr-2">
-                  <el-button link type="primary" @click="handleEdit(row.id)">编辑</el-button>
+                  <el-button link type="primary" @click="handleEdit(row.id)">{{ row.primaryActionLabel }}</el-button>
                   <el-divider direction="vertical" />
                   <el-dropdown>
                     <el-button link type="primary">
@@ -167,7 +236,6 @@
                       <el-dropdown-menu>
                         <el-dropdown-item icon="Monitor" @click="handleViewArticle(row)">前台预览</el-dropdown-item>
                         <el-dropdown-item icon="Box" @click="handleMoveToTrash(row)">移入回收站</el-dropdown-item>
-                        <el-dropdown-item icon="Warning" @click="handlePermanentRemove(row)">永久删除</el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
@@ -193,8 +261,8 @@
           :layout="isCompactPagination ? 'prev, pager, next' : 'sizes, prev, pager, next'"
           :total="total"
           :disabled="isBusy"
-          @size-change="handleSearch"
-          @current-change="loadDataWithDebounce"
+          @size-change="handlePageSizeChange"
+          @current-change="handlePageChange"
         />
       </div>
     </section>
@@ -214,19 +282,30 @@ type ArticleListViewItem = ArticleListItemResponse & {
   categoryName: string
   statusText: string
   statusTagType: 'success' | 'warning' | 'info' | 'danger'
+  statusTimeLabel: string
+  statusTimeText: string
+  statusTimeValue: string
+  primaryActionLabel: string
 }
 const {
   router,
   loading,
   isBusy,
   articleListView,
+  categories,
+  tags,
   total,
   totalText,
   pageSizeOptions,
   statusFilters,
+  activeFilterChips,
   queryParam,
   setStatusFilter,
-  loadDataWithDebounce,
+  setCategoryFilter,
+  setTagFilter,
+  removeFilter,
+  handlePageSizeChange,
+  handlePageChange,
   handleSearch,
   resetQuery,
   handleEdit,
@@ -238,18 +317,49 @@ const isCompactPagination = useMediaQuery('(max-width: 639px)')
 const handleStatusFilterChange = (value: string | number | boolean): void => {
   setStatusFilter(typeof value === 'number' ? value as Parameters<typeof setStatusFilter>[0] : undefined)
 }
+const normalizeFilterId = (value: string | number | undefined): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value
+  const parsed = Number.parseInt(String(value ?? ''), 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+}
+const handleCategoryFilterChange = (value: string | number | undefined): void => {
+  setCategoryFilter(normalizeFilterId(value))
+}
+const handleTagFilterChange = (value: string | number | undefined): void => {
+  setTagFilter(normalizeFilterId(value))
+}
 const goToWriteArticle = async (): Promise<void> => {
   await router.push({ path: '/user/manage/article/write' })
 }
 const handleViewArticle = (row: ArticleListViewItem): void => handleMoreCommand('view', row)
 const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand('delete', row)
-const handlePermanentRemove = (row: ArticleListViewItem): void => handleMoreCommand('permanent', row)
 </script>
 
 <style scoped>
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.article-cover-thumb {
+  display: grid;
+  width: 4rem;
+  height: 3rem;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: 6px;
+  background: var(--fsusblog-panel-bg);
+  color: var(--fsusblog-text-muted);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.article-cover-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 @media (max-width: 639px) {

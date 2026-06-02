@@ -203,13 +203,15 @@ export const getFeaturedArticles = (size = 3, config?: ApiRequestConfig) => {
 // ================= 管理端 =================
 
 export const getAdminArticles = (
-  params: { page?: number; size?: number; categoryId?: number; tagId?: number; isDeleted?: boolean; status?: ArticlePublishStatus },
+  params: { page?: number; size?: number; keyword?: string; categoryId?: number; tagId?: number; isDeleted?: boolean; status?: ArticlePublishStatus },
   config?: ApiRequestConfig
 ) => {
   const search = new URLSearchParams();
   search.set('page', String(params.page ?? 1));
   search.set('size', String(params.size ?? 10));
   search.set('isDeleted', String(params.isDeleted ?? false));
+  const keyword = params.keyword?.trim();
+  if (keyword) search.set('keyword', keyword);
   if (params.categoryId !== undefined) search.set('categoryId', String(params.categoryId));
   if (params.tagId !== undefined) search.set('tagId', String(params.tagId));
   if (params.status !== undefined) search.set('status', String(params.status));

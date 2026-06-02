@@ -31,12 +31,24 @@
     </WorkbenchPanel>
 
     <section class="border-t border-[var(--fsusblog-panel-border)]">
-      <div class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] flex items-center justify-between">
+      <div class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] flex flex-wrap items-center justify-between gap-3">
         <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">标签列表 / TAG LIST</div>
+        <div class="flex flex-wrap items-center gap-2">
+          <el-input
+            v-model="filters.keyword"
+            class="taxonomy-filter-input"
+            clearable
+            placeholder="搜索标签"
+            aria-label="搜索标签"
+            :prefix-icon="Search"
+          />
+          <el-checkbox v-model="filters.unusedOnly">仅未引用</el-checkbox>
+          <el-button text @click="resetFilters">清除筛选</el-button>
+        </div>
       </div>
       <el-table
         v-loading="loading"
-        :data="list"
+        :data="filteredList"
         :row-key="getTagRowKey"
       >
         <el-table-column
@@ -53,9 +65,17 @@
 
         <el-table-column prop="name" label="标签名称" :min-width="nameColumnWidth">
           <template #default="{ row }: { row: TagItem }">
-            <el-tag type="info">
-              # {{ row.name }}
-            </el-tag>
+            <div class="min-w-0">
+              <el-tag type="info">
+                # {{ row.name }}
+              </el-tag>
+              <p
+                v-if="isCompact && row.articleCount > 0"
+                class="mt-2 text-[11px] leading-5 text-[var(--fsusblog-text-muted)]"
+              >
+                {{ relationLockReason(row) }}
+              </p>
+            </div>
           </template>
         </el-table-column>
 
@@ -81,10 +101,33 @@
               <el-divider direction="vertical" />
               <el-button
                 link
+                type="primary"
+                :disabled="row.articleCount <= 0"
+                @click="viewAssociatedArticles(row)"
+              >
+                <span v-if="!isCompact">查看文章</span><el-icon v-else><View /></el-icon>
+              </el-button>
+              <el-divider direction="vertical" />
+              <el-tooltip
+                v-if="row.articleCount > 0"
+                :content="relationLockReason(row)"
+                placement="top"
+              >
+                <el-button link type="info" disabled>
+                  <span v-if="!isCompact">锁定</span><el-icon v-else><Lock /></el-icon>
+                </el-button>
+              </el-tooltip>
+              <el-button
+                v-else
+                link
                 type="danger"
                 @click="handleDelete(row)"
               >
                 删除
+              </el-button>
+              <el-divider direction="vertical" />
+              <el-button link type="warning" @click="handleMergeRequest(row)">
+                合并
               </el-button>
             </div>
           </template>
@@ -146,20 +189,26 @@ import { computed } from 'vue'
 import { type TagItem } from '@/api/tag'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
-import { InfoFilled, Plus } from '@/ui/fsusIcons'
+import { InfoFilled, Plus, Search, View, Lock } from '@/ui/fsusIcons'
 import { useAdminTagManage } from '@/composables/useAdminTagManage'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 
 const {
   list,
+  filteredList,
   loading,
   dialogVisible,
   dialogTitle,
   submitButtonText,
   formRef,
   isProcessing,
+  filters,
   form,
   rules,
+  relationLockReason,
+  viewAssociatedArticles,
+  handleMergeRequest,
+  resetFilters,
   openDialog,
   submitForm,
   handleDelete
@@ -172,12 +221,16 @@ const getTagRowKey = (row: TagItem): string => String(row.id)
 const isCompact = useMediaQuery('(max-width: 639px)')
 const nameColumnWidth = computed(() => (isCompact.value ? 148 : 220))
 const countColumnWidth = computed(() => (isCompact.value ? 96 : 150))
-const actionColumnWidth = computed(() => (isCompact.value ? 104 : 180))
+const actionColumnWidth = computed(() => (isCompact.value ? 188 : 320))
 </script>
 
 <style scoped>
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.taxonomy-filter-input {
+  width: min(15rem, 100%);
 }
 </style>

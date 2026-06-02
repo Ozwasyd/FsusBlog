@@ -149,7 +149,7 @@ public class ArticleService(
         return updatedIds;
     }
 
-    public async Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false)
+    public async Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null)
     {
         page = page < 1 ? 1 : page;
         size = size switch
@@ -159,8 +159,9 @@ public class ArticleService(
             _ => size
         };
 
+        string normalizedKeyword = NormalizeArticleListKeyword(keyword);
         long version = await GetListCacheVersionAsync();
-        string cacheIdentity = BuildArticleListIdentity(version, page, size, categoryId, tagId, isDeleted, status, includePrivate);
+        string cacheIdentity = BuildArticleListIdentity(version, page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword);
 
         return await _cacheMissCoordinator.CoordinateAsync(
                 CachePolicyId.ArticleList,
@@ -170,7 +171,7 @@ public class ArticleService(
                     "article-list",
                     async gateCt =>
                     {
-                        ArticleListPageReadModel result = await LoadArticleListPageFromDbAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, gateCt);
+                        ArticleListPageReadModel result = await LoadArticleListPageFromDbAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword, gateCt);
                         await _cache.SetRawAsync(CachePolicyId.ArticleList, cacheIdentity, ServerCacheBinaryCodec.EncodeArticleListPage(result), null, gateCt);
                         return result;
                     },
@@ -892,6 +893,7 @@ public class ArticleService(
         bool isDeleted,
         int? status,
         bool includePrivate,
+        string keyword,
         CancellationToken cancellationToken)
     {
         List<string> whereClauses = ["a.isdeleted = @IsDeleted"];
@@ -931,6 +933,12 @@ public class ArticleService(
                 )
                 """);
             parameters.Add(new SugarParameter("@TagId", tagId.Value));
+        }
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            whereClauses.Add("(a.title LIKE @Keyword OR a.summary LIKE @Keyword)");
+            parameters.Add(new SugarParameter("@Keyword", $"%{keyword}%"));
         }
 
         string whereSql = string.Join(" AND ", whereClauses);
@@ -1595,7 +1603,7 @@ public class ArticleService(
 
     private string RedisKey(string key) => _runtimeKeyScope.PrefixKey(key);
 
-    private static string BuildArticleListIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate)
+    private static string BuildArticleListIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword)
     {
         return string.Concat(
             includePrivate ? "admin:" : "public:",
@@ -1606,6 +1614,19 @@ public class ArticleService(
             (tagId ?? 0).ToString(), ":",
             isDeleted ? "1" : "0",
             ":",
-            (status ?? -1).ToString());
+            (status ?? -1).ToString(),
+            ":",
+            keyword);
+    }
+
+    private static string NormalizeArticleListKeyword(string? keyword)
+    {
+        if (string.IsNullOrWhiteSpace(keyword))
+        {
+            return string.Empty;
+        }
+
+        string trimmed = keyword.Trim();
+        return trimmed.Length <= 80 ? trimmed : trimmed[..80];
     }
 }

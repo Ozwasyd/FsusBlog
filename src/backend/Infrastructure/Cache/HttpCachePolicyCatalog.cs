@@ -7,7 +7,7 @@ public static class HttpCachePolicyCatalog
     public static void ApplyArticleList(OutputCachePolicyBuilder builder)
     {
         builder
-            .SetVaryByQuery("page", "size", "categoryId", "tagId", "isDeleted", "status")
+            .SetVaryByQuery("page", "size", "keyword", "categoryId", "tagId", "isDeleted", "status")
             .Expire(TimeSpan.FromMinutes(1))
             .Tag(CacheTag.ArticleList.ToOutputCacheTag());
     }

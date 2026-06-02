@@ -7,7 +7,7 @@ namespace FsusBlog.Core.Services.Implementations;
 
 public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCoreService
 {
-    public async Task<Result<CorePageResult<ArticleListCoreModel>>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false)
+    public async Task<Result<CorePageResult<ArticleListCoreModel>>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null)
     {
         if (page <= 0 || size <= 0)
         {
@@ -19,7 +19,7 @@ public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCo
             return Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Validation, "文章状态非法");
         }
 
-        return Result<CorePageResult<ArticleListCoreModel>>.Success(await gateway.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate));
+        return Result<CorePageResult<ArticleListCoreModel>>.Success(await gateway.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, keyword));
     }
 
     public async Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(int id, bool includePrivate = false)
