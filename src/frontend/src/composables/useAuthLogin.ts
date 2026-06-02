@@ -84,6 +84,7 @@ const getSafeRedirect = (target: unknown): string => {
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, ms))
 const POST_AUTH_NOTIFICATION_DELAY_MS = 5000
+type MfaMode = 'totp' | 'recovery'
 
 export function useAuthLogin() {
   const router = useRouter()
@@ -98,6 +99,7 @@ export function useAuthLogin() {
   const mfaChallengeToken = ref<string>('')
   const mfaCode = ref('')
   const mfaRecoveryCode = ref('')
+  const mfaMode = ref<MfaMode>('totp')
   const requiresMfa = ref(false)
   const rememberMe = ref(true)
   const loginData = reactive({ username: '', password: '', rememberMe: true })
@@ -116,7 +118,7 @@ export function useAuthLogin() {
     if (loading.value) {
       return '登录中...'
     }
-    return '进行'
+    return '登录'
   })
   let prewarmTask: IdleTaskHandle | null = null
 
@@ -170,6 +172,9 @@ export function useAuthLogin() {
         setRiskPhase(userData.mfaMode === 'risk' ? 'elevated' : 'normal')
         requiresMfa.value = true
         mfaChallengeToken.value = userData.challengeToken
+        mfaMode.value = 'totp'
+        mfaCode.value = ''
+        mfaRecoveryCode.value = ''
         loginData.rememberMe = rememberMe.value
         loginData.password = ''
         return
@@ -213,8 +218,13 @@ export function useAuthLogin() {
       return
     }
 
-    if (!mfaCode.value.trim() && !mfaRecoveryCode.value.trim()) {
-      errorMessage.value = '请输入验证码或恢复码'
+    if (mfaMode.value === 'totp' && !mfaCode.value.trim()) {
+      errorMessage.value = '请输入验证码'
+      return
+    }
+
+    if (mfaMode.value === 'recovery' && !mfaRecoveryCode.value.trim()) {
+      errorMessage.value = '请输入恢复码'
       return
     }
 
@@ -224,8 +234,8 @@ export function useAuthLogin() {
         async () =>
           await verifyMfaChallenge({
             challengeToken: mfaChallengeToken.value,
-            code: mfaCode.value.trim() || undefined,
-            recoveryCode: mfaRecoveryCode.value.trim() || undefined
+            code: mfaMode.value === 'totp' ? mfaCode.value.trim() : undefined,
+            recoveryCode: mfaMode.value === 'recovery' ? mfaRecoveryCode.value.trim() : undefined
           }),
         {
           fallbackMessage: '验证码无效，请重试',
@@ -252,6 +262,7 @@ export function useAuthLogin() {
       setRiskPhase('normal')
       requiresMfa.value = false
       mfaChallengeToken.value = ''
+      mfaMode.value = 'totp'
       mfaCode.value = ''
       mfaRecoveryCode.value = ''
       rememberMe.value = loginData.rememberMe
@@ -293,6 +304,7 @@ export function useAuthLogin() {
     handleLogin,
     handleMfaVerify,
     requiresMfa,
+    mfaMode,
     mfaCode,
     mfaRecoveryCode
   }

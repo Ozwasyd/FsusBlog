@@ -35,6 +35,12 @@ type ResolvedFilterTarget = Readonly<{
 
 type RouteFilterIdentity = ReturnType<typeof resolvePublicFilterIdentity>
 
+const parsePageQuery = (value: unknown): number => {
+  const raw = Array.isArray(value) ? value[0] : value
+  const parsed = Number.parseInt(String(raw ?? ''), 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
+}
+
 export function useFilterView() {
   const route = useRoute()
   const router = useRouter()
@@ -172,6 +178,9 @@ export function useFilterView() {
     currentPage.value = Math.max(1, Number(initialHydrationView.view.pagination.currentPage) || currentPage.value)
     setPageTotal(Number(initialHydrationView.filter?.total ?? initialHydrationView.view.articles.length) || 0)
   }
+
+  currentPage.value = parsePageQuery(route.query.page)
+
   const lifecycle = usePublicPageLifecycle({
     onDispose: () => {
       articleTask.cancel()
@@ -349,7 +358,7 @@ export function useFilterView() {
       invalidTarget.value = false
       searchSortMode.value = 'relevance'
     }
-    currentPage.value = 1
+    currentPage.value = parsePageQuery(route.query.page)
     if (filterType.value === PUBLIC_FILTER_TYPE.search) {
       currentName.value = route.query.q ? `“${route.query.q}”` : '全站搜索'
       invalidTarget.value = false
@@ -498,9 +507,15 @@ export function useFilterView() {
     if (page < 1 || page > totalPages.value || loadingArticles.value) {
       return
     }
-    currentPage.value = page
 
-    void articleTask.run(async (signal) => await loadArticles(true, signal))
+    const nextQuery = { ...route.query }
+    if (page <= 1) {
+      delete nextQuery.page
+    } else {
+      nextQuery.page = String(page)
+    }
+
+    void router.replace({ path: route.path, query: nextQuery })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -518,11 +533,12 @@ export function useFilterView() {
     } else {
       nextQuery.sort = mode
     }
+    delete nextQuery.page
 
     void router.replace({ path: route.path, query: nextQuery })
   }
 
-  watch([() => route.params.id, () => route.query.q, () => route.query.sort], () => {
+  watch([() => route.params.id, () => route.query.q, () => route.query.sort, () => route.query.page], () => {
     void init()
   })
 

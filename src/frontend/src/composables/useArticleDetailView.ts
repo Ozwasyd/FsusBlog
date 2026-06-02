@@ -57,6 +57,8 @@ type ReplyTarget = {
   depth: number
 } | null
 
+const COMMENT_SUMMARY_LIMIT = 48
+
 export function useArticleDetailView() {
   const route = useRoute()
   const router = useRouter()
@@ -356,6 +358,20 @@ export function useArticleDetailView() {
     // no-op, kept for renderer event contract
   }
 
+  const commentsRedirectPath = (): string => {
+    const current = route.fullPath.split('#')[0] || route.path
+    return `${current}#comments`
+  }
+
+  const redirectToCommentLogin = (): void => {
+    void router.push({
+      path: '/login',
+      query: {
+        redirect: commentsRedirectPath()
+      }
+    })
+  }
+
   const handleRemoteArticleUpdated = (data: ArticleSignalPayload): void => {
     if (!data?.articleId || !article.value) {
       return
@@ -462,6 +478,11 @@ export function useArticleDetailView() {
   }
 
   const setReplyTarget = (payload: { id: string; rootId: string; userName: string; depth: number }): void => {
+    if (!userStore.isLoggedIn) {
+      redirectToCommentLogin()
+      return
+    }
+
     replyTarget.value = payload
   }
 
@@ -489,14 +510,28 @@ export function useArticleDetailView() {
     }
   }
 
-  const handleCommentDelete = (payload: { id: string; rootId: string; parentId: string | null }): void => {
+  const summarizeCommentContent = (content: string): string => {
+    const normalized = content.replace(/\s+/g, ' ').trim()
+    if (!normalized) {
+      return '无内容摘要'
+    }
+
+    return normalized.length > COMMENT_SUMMARY_LIMIT
+      ? `${normalized.slice(0, COMMENT_SUMMARY_LIMIT)}...`
+      : normalized
+  }
+
+  const handleCommentDelete = (payload: { id: string; rootId: string; parentId: string | null; content: string }): void => {
     const targetId = String(payload.id)
     const isAdmin = userStore.isAdmin
+    const summary = summarizeCommentContent(payload.content)
 
     void (async () => {
       const confirmed = await requestGlobalConfirm({
         title: isAdmin ? '管理员操作' : '删除评论',
-        content: isAdmin ? '确定要删除这条评论吗？操作记录将被审计。' : '确定要删除这条评论吗？',
+        content: isAdmin
+          ? `确定要删除这条评论吗？操作记录将被审计。内容摘要：${summary}`
+          : `确定要删除这条评论吗？内容摘要：${summary}`,
         confirmText: '删除'
       })
       if (!confirmed) {
@@ -607,6 +642,7 @@ export function useArticleDetailView() {
     setReplyTarget,
     clearReplyTarget,
     loadMoreReplies,
+    loadMoreComments,
     loadArticle,
     handleRenderComplete,
     submitComment,

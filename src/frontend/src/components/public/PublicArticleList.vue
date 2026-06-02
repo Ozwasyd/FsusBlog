@@ -43,7 +43,7 @@
       <a
         :href="item.href"
         :class="themeTokens.articleList.readLink"
-        aria-label="阅读全文"
+        :aria-label="`阅读全文：${item.title}`"
         data-public-link="article"
         @click="handleNavigate($event, item.href)"
       >

@@ -36,7 +36,7 @@
           :is-banned="userStore.isBanned"
           :is-pow-calculating="powProvider.isCalculating.value"
           :is-submitting="submittingComment"
-          :redirect-path="route.fullPath"
+          :redirect-path="commentRedirectPath"
           :reply-target="replyTarget"
           @submit="submitComment"
           @cancel-reply="clearReplyTarget"
@@ -63,6 +63,15 @@
                 <div class="absolute inset-0 bg-[var(--fsusblog-text-primary)]/20 animate-loading-bar"></div>
               </div>
             </div>
+            <el-button
+              v-else-if="hasMore"
+              key="manual"
+              link
+              :disabled="loadingComments"
+              @click="loadMoreComments"
+            >
+              加载更多评论
+            </el-button>
             <div
               v-else-if="!hasMore"
               key="end"
@@ -122,6 +131,7 @@ const {
   setReplyTarget,
   clearReplyTarget,
   loadMoreReplies,
+  loadMoreComments,
   loadArticle,
   handleRenderComplete,
   submitComment,
@@ -197,6 +207,11 @@ const pageDetailView = computed(() => (
 
 const canRenderBodyRuntime = ref(false)
 const canRenderCommentsRuntime = computed(() => spaReady.value && runtimeReady.value)
+
+const commentRedirectPath = computed(() => {
+  const basePath = route.fullPath.split('#')[0] || route.path
+  return `${basePath}#comments`
+})
 
 const articleSummary = computed(() => {
   if (article.value) {

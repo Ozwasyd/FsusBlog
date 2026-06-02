@@ -36,15 +36,21 @@
 </template>
 
 <script setup lang="ts">
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 
 const handleSwitchAccount = async () => {
   await userStore.logout()
-  router.push('/login')
+  router.push({
+    path: '/login',
+    query: {
+      redirect: route.fullPath
+    }
+  })
 }
 </script>
 

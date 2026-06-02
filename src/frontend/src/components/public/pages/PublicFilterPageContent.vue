@@ -44,6 +44,13 @@
         <p class="text-[11px] tabular-nums font-bold text-[var(--fsusblog-text-subtle)] normal-case tracking-normal">
           {{ view.empty.title }}
         </p>
+        <a
+          :href="PUBLIC_FIXED_PATHS.home"
+          class="mt-6 inline-flex items-center gap-2 text-sm font-bold text-[var(--fsusblog-text-primary)] hover:text-[var(--fsusblog-color-primary)]"
+          @click="handleEmptyAction"
+        >
+          {{ view.empty.actionText }}
+        </a>
       </div>
     </div>
 
@@ -95,6 +102,15 @@ const handleSortChange = (value: string | number | boolean | undefined): void =>
   if (value === 'relevance' || value === 'latest' || value === 'hot') {
     emit('sort-change', value)
   }
+}
+
+const handleEmptyAction = (event: MouseEvent): void => {
+  if (!props.spaNavigation) {
+    return
+  }
+
+  event.preventDefault()
+  emit('navigate', PUBLIC_FIXED_PATHS.home)
 }
 
 const paginationContract = computed<PaginationContract>(() => ({

@@ -15,13 +15,25 @@
           抱歉，你所寻找的资源已移动、删除或从未存在。
         </p>
 
-        <div class="mt-10 grid sm:inline-grid">
+        <div class="mt-10 flex flex-col gap-3 sm:flex-row">
           <el-button
             :tag="RouterLink"
             to="/"
             type="primary"
           >
             回到主页
+          </el-button>
+          <el-button
+            :tag="RouterLink"
+            to="/search"
+          >
+            搜索文章
+          </el-button>
+          <el-button
+            :tag="RouterLink"
+            to="/archive"
+          >
+            查看归档
           </el-button>
         </div>
       </div>

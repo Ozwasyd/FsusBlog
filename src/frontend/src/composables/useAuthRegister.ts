@@ -36,7 +36,7 @@ const getErrorText = (error: unknown): string => {
         return '请输入用户名'
       }
       if (normalized.message === '用户名格式非法，仅允许中英文') {
-        return '用户名仅支持纯中文或纯英文'
+        return '用户名仅允许中文或英文字母，不支持数字和符号'
       }
       if (normalized.message === '两次输入的密码不一致') {
         return '两次输入的密码不一致'
@@ -114,7 +114,7 @@ export function useAuthRegister() {
     }
 
     if (!USERNAME_REGEX.test(value)) {
-      return '* 仅允许包含纯中文或纯英文'
+      return '* 仅允许中文或英文字母，不支持数字和符号'
     }
 
     return ''
@@ -126,8 +126,12 @@ export function useAuthRegister() {
       return ''
     }
 
-    if (value.length < 6) {
-      return '* 密码至少需要 6 个字符'
+    if (value.length < 8) {
+      return '* 密码至少需要 8 个字符'
+    }
+
+    if (value.length > 128) {
+      return '* 密码最多 128 个字符'
     }
 
     return ''

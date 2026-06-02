@@ -1,4 +1,5 @@
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   messageApi,
   type ConversationDetailResponse,
@@ -17,6 +18,7 @@ import { showErrorToast } from '@/utils/errorPresentation'
 import { toast } from '@/utils/toast'
 
 const PAGE_SIZE = 20
+const FILTERS: readonly ConversationFilter[] = ['all', 'unread', 'system', 'open', 'pending', 'closed']
 
 const toMessagePreview = (message: InboxMessageAppendPayload['message']): ConversationMessagePreviewResponse => ({
   senderType: message.senderType,
@@ -87,6 +89,8 @@ const resetInboxState = (
 export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
   const { unreadCount } = useNotification()
   const sseStore = useSseStore()
+  const route = useRoute()
+  const router = useRouter()
 
   const loading = ref(false)
   const loadingDetail = ref(false)
@@ -99,14 +103,63 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
   const detail = shallowRef<ConversationDetailResponse | null>(null)
 
   const replyBody = ref('')
+  const replyDrafts = reactive<Record<string, string>>({})
+  const pendingConversationId = ref('')
   const createSubject = ref('')
   const createBody = ref('')
+  let syncingRoute = false
 
   const hasSelection = computed(() => selectedConversationId.value.length > 0)
+  const hasCurrentReplyDraft = computed(() => Boolean(selectedConversationId.value && replyBody.value.trim()))
 
   const selectedConversation = computed(() =>
     conversations.value.find((it) => it.conversationId === selectedConversationId.value) ?? null
   )
+
+  const parseFilter = (value: unknown): ConversationFilter => {
+    const raw = Array.isArray(value) ? value[0] : value
+    return typeof raw === 'string' && FILTERS.includes(raw as ConversationFilter) ? raw as ConversationFilter : 'all'
+  }
+
+  const hydrateQueryFromRoute = (): void => {
+    filter.value = parseFilter(route.query.filter)
+    selectedConversationId.value = typeof route.query.conversation === 'string' ? route.query.conversation : ''
+  }
+
+  const syncQueryToRoute = async (): Promise<void> => {
+    const query: Record<string, string> = {}
+    if (filter.value !== 'all') {
+      query.filter = filter.value
+    }
+    if (selectedConversationId.value) {
+      query.conversation = selectedConversationId.value
+    }
+
+    syncingRoute = true
+    try {
+      await router.replace({ name: 'UserMessage', query })
+    } finally {
+      syncingRoute = false
+    }
+  }
+
+  const saveCurrentReplyDraft = (): void => {
+    const conversationId = selectedConversationId.value
+    if (!conversationId) {
+      return
+    }
+
+    const draft = replyBody.value
+    if (draft.trim()) {
+      replyDrafts[conversationId] = draft
+    } else {
+      delete replyDrafts[conversationId]
+    }
+  }
+
+  const loadReplyDraft = (conversationId: string): void => {
+    replyBody.value = replyDrafts[conversationId] ?? ''
+  }
 
   const refreshList = async (silent = false): Promise<boolean> => {
     if (!isEnabled()) {
@@ -126,6 +179,9 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
         if (!exists) {
           selectedConversationId.value = conversations.value[0]?.conversationId ?? ''
         }
+      }
+      if (selectedConversationId.value) {
+        loadReplyDraft(selectedConversationId.value)
       }
     } catch (error) {
       if (!silent) {
@@ -175,10 +231,46 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
     return true
   }
 
-  const selectConversation = async (conversationId: string): Promise<void> => {
-    if (!conversationId) return
+  const performSelectConversation = async (conversationId: string): Promise<boolean> => {
+    if (!conversationId) return false
+    saveCurrentReplyDraft()
     selectedConversationId.value = conversationId
+    loadReplyDraft(conversationId)
+    await syncQueryToRoute()
     await loadDetail(conversationId)
+    return true
+  }
+
+  const selectConversation = async (conversationId: string): Promise<boolean> => {
+    if (!conversationId || conversationId === selectedConversationId.value) return false
+    if (hasCurrentReplyDraft.value) {
+      pendingConversationId.value = conversationId
+      return false
+    }
+
+    return await performSelectConversation(conversationId)
+  }
+
+  const cancelConversationSwitch = (): void => {
+    pendingConversationId.value = ''
+  }
+
+  const saveDraftAndSwitch = async (): Promise<boolean> => {
+    saveCurrentReplyDraft()
+    const conversationId = pendingConversationId.value
+    pendingConversationId.value = ''
+    return conversationId ? await performSelectConversation(conversationId) : false
+  }
+
+  const discardDraftAndSwitch = async (): Promise<boolean> => {
+    const currentId = selectedConversationId.value
+    if (currentId) {
+      delete replyDrafts[currentId]
+    }
+    replyBody.value = ''
+    const conversationId = pendingConversationId.value
+    pendingConversationId.value = ''
+    return conversationId ? await performSelectConversation(conversationId) : false
   }
 
   const sendReply = async (): Promise<void> => {
@@ -191,6 +283,7 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
         message,
         conversationUnreadCount: 0
       })
+      delete replyDrafts[selectedConversationId.value]
       replyBody.value = ''
       toast.success('已发送')
     } catch (error) {
@@ -211,10 +304,12 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
       createSubject.value = ''
       createBody.value = ''
       selectedConversationId.value = created.conversationId
+      loadReplyDraft(created.conversationId)
       detail.value = created
       applyConversationUpsertPatch({
         conversation: toConversationListItem(created)
       })
+      await syncQueryToRoute()
       toast.success('工单已创建')
     } catch (error) {
       showErrorToast(error, '工单创建失败')
@@ -340,11 +435,37 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
 
   watch(
     () => filter.value,
-    () => {
+    async () => {
       if (!isEnabled()) {
         return
       }
-      void refreshList()
+      await refreshList()
+      await syncQueryToRoute()
+      if (selectedConversationId.value) {
+        await loadDetail(selectedConversationId.value)
+      }
+    }
+  )
+
+  watch(
+    () => replyBody.value,
+    () => {
+      saveCurrentReplyDraft()
+    }
+  )
+
+  watch(
+    () => [route.query.filter, route.query.conversation],
+    async () => {
+      if (syncingRoute || !isEnabled()) {
+        return
+      }
+
+      hydrateQueryFromRoute()
+      await refreshList(true)
+      if (selectedConversationId.value) {
+        await loadDetail(selectedConversationId.value)
+      }
     }
   )
 
@@ -375,8 +496,10 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
       return
     }
 
+    hydrateQueryFromRoute()
     await refreshList()
     if (selectedConversationId.value) {
+      await syncQueryToRoute()
       await loadDetail(selectedConversationId.value)
     }
   })
@@ -396,11 +519,17 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
     selectedConversation,
     detail,
     replyBody,
+    replyDrafts,
+    pendingConversationId,
+    hasCurrentReplyDraft,
     createSubject,
     createBody,
     hasSelection,
     refreshList,
     selectConversation,
+    cancelConversationSwitch,
+    saveDraftAndSwitch,
+    discardDraftAndSwitch,
     sendReply,
     createTicket
   }

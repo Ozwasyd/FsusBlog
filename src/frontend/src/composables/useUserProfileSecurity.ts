@@ -449,12 +449,12 @@ export function useUserProfileSecurity() {
           )
         )
         const response = result as MfaSetupVerify
-        const alertResult = await ElMessageBox.alert(response.recoveryCodes.join('\n'), '新的恢复码（仅显示一次）', {
-          confirmButtonText: '我已记录'
-        })
-        if (!isFsusUiOk(alertResult)) {
-          return
-        }
+        mfaSetupState.secret = ''
+        mfaSetupState.otpAuthUrl = ''
+        mfaSetupState.setupCode = ''
+        mfaSetupState.recoveryCodes = response.recoveryCodes
+        mfaSetupState.errorMessage = ''
+        mfaSetupState.visible = true
         toast.success('恢复码已更新')
       }
 
@@ -468,6 +468,16 @@ export function useUserProfileSecurity() {
   }
 
   const revokeSessionDevice = async (sessionId: string): Promise<void> => {
+    const target = sessionState.list.find((item) => item.sessionId === sessionId)
+    const confirmation = await ElMessageBox.confirm(
+      `确定下线设备 ${target?.deviceLabel || target?.lastIp || sessionId} 吗？该设备需要重新登录。`,
+      '下线设备',
+      { confirmButtonText: '确认下线', cancelButtonText: '取消', type: 'warning' }
+    ).catch(() => null)
+    if (!isFsusUiOk(confirmation)) {
+      return
+    }
+
     try {
       await sessionTask.run(async (signal) => await revokeSession(sessionId, { signal }))
       toast.success('设备已下线')
@@ -480,6 +490,16 @@ export function useUserProfileSecurity() {
   }
 
   const revokeOtherSessionDevices = async (): Promise<void> => {
+    const count = sessionState.list.filter((item) => !item.isCurrent).length
+    const confirmation = await ElMessageBox.confirm(
+      `确定下线其他 ${count} 个设备会话吗？这些设备需要重新登录。`,
+      '下线其他设备',
+      { confirmButtonText: '确认下线', cancelButtonText: '取消', type: 'warning' }
+    ).catch(() => null)
+    if (!isFsusUiOk(confirmation)) {
+      return
+    }
+
     try {
       await sessionTask.run(async (signal) => await revokeOtherSessions({ signal }))
       toast.success('其他设备已下线')

@@ -160,6 +160,7 @@
       class="mt-32 border-t border-[var(--fsusblog-panel-border)] pt-16"
       :data-article-id="String(safeArticleId)"
     >
+      <span id="comments" class="sr-only">评论</span>
       <div
         id="fsus-comments-island-content"
         class="min-h-[10rem]"

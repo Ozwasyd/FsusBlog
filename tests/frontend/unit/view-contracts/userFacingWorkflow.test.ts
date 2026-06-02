@@ -1,0 +1,98 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
+const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
+
+describe('user facing workflow contract', () => {
+  const messagesPage = readRepoFile('src/frontend/src/views/user/Messages.vue')
+  const messagesInbox = readRepoFile('src/frontend/src/composables/useUserMessagesInbox.ts')
+  const loginPage = readRepoFile('src/frontend/src/views/auth/Login.vue')
+  const loginComposable = readRepoFile('src/frontend/src/composables/useAuthLogin.ts')
+  const registerPage = readRepoFile('src/frontend/src/views/auth/Register.vue')
+  const registerComposable = readRepoFile('src/frontend/src/composables/useAuthRegister.ts')
+  const articleDetail = readRepoFile('src/frontend/src/views/ArticleDetail.vue')
+  const articleDetailComposable = readRepoFile('src/frontend/src/composables/useArticleDetailView.ts')
+  const commentList = readRepoFile('src/frontend/src/components/article/ArticleCommentsVirtualList.vue')
+  const publicArticleList = readRepoFile('src/frontend/src/components/public/PublicArticleList.vue')
+  const publicArticleDetail = readRepoFile('src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue')
+  const homeContent = readRepoFile('src/frontend/src/components/public/pages/PublicHomePageContent.vue')
+  const homeComposable = readRepoFile('src/frontend/src/composables/useHomeView.ts')
+  const filterContent = readRepoFile('src/frontend/src/components/public/pages/PublicFilterPageContent.vue')
+  const filterComposable = readRepoFile('src/frontend/src/composables/useFilterView.ts')
+  const archiveContent = readRepoFile('src/frontend/src/components/public/pages/PublicArchivePageContent.vue')
+  const profilePage = readRepoFile('src/frontend/src/views/user/Profile.vue')
+  const profileComposable = readRepoFile('src/frontend/src/composables/useUserProfileSecurity.ts')
+  const mfaSetupModal = readRepoFile('src/frontend/src/components/ui/MfaSetupModal.vue')
+  const userCommentsPage = readRepoFile('src/frontend/src/views/user/Comments.vue')
+  const userCommentsComposable = readRepoFile('src/frontend/src/composables/useUserCommentsPage.ts')
+  const aboutContent = readRepoFile('src/frontend/src/components/public/pages/PublicAboutPageContent.vue')
+  const forbiddenPage = readRepoFile('src/frontend/src/views/error/403.vue')
+  const notFoundPage = readRepoFile('src/frontend/src/views/error/404.vue')
+
+  it('protects message replies with per-conversation drafts and URL state', () => {
+    expect(messagesInbox).toContain('replyDrafts')
+    expect(messagesInbox).toContain('pendingConversationId')
+    expect(messagesInbox).toContain("name: 'UserMessage'")
+    expect(messagesInbox).toContain('query.conversation = selectedConversationId.value')
+    expect(messagesPage).toContain('replyDisabled || !replyBody.trim()')
+    expect(messagesPage).toContain('保存草稿并切换')
+    expect(messagesPage).toContain('showMobileTicketCompose')
+    expect(messagesPage).toContain('新建工单')
+  })
+
+  it('keeps auth copy and MFA modes aligned with backend expectations', () => {
+    expect(loginComposable).toContain("type MfaMode = 'totp' | 'recovery'")
+    expect(loginComposable).toContain("return '登录'")
+    expect(loginPage).toContain('value="totp"')
+    expect(loginPage).toContain('value="recovery"')
+    expect(loginPage).toContain('如果验证失败')
+    expect(registerPage).toContain('placeholder="8-128 个字符"')
+    expect(registerComposable).toContain('密码至少需要 8 个字符')
+    expect(registerComposable).toContain('密码最多 128 个字符')
+    expect(registerComposable).toContain('不支持数字和符号')
+  })
+
+  it('routes guest comment replies through login and keeps comment actions explicit', () => {
+    expect(commentList).toContain("{{ isLoggedIn ? '回复' : '登录后回复' }}")
+    expect(articleDetailComposable).toContain('redirect: commentsRedirectPath()')
+    expect(articleDetailComposable).toContain("return `${current}#comments`")
+    expect(articleDetailComposable).toContain('内容摘要')
+    expect(articleDetail).toContain('加载更多评论')
+    expect(publicArticleDetail).toContain('id="comments"')
+    expect(publicArticleList).toContain('`阅读全文：${item.title}`')
+  })
+
+  it('syncs public list/filter pagination and exposes useful empty/navigation affordances', () => {
+    expect(homeComposable).toContain('parsePageQuery(route.query.page)')
+    expect(homeComposable).toContain('nextQuery.page = String(page)')
+    expect(filterComposable).toContain('parsePageQuery(route.query.page)')
+    expect(filterComposable).toContain('delete nextQuery.page')
+    expect(homeContent).toContain('站点索引 / INDEX')
+    expect(filterContent).toContain('view.empty.actionText')
+    expect(archiveContent).toContain('年份快速导航')
+    expect(archiveContent).toContain('#archive-year-')
+  })
+
+  it('adds profile anchors, session confirmation, and recovery-code handling', () => {
+    expect(profilePage).toContain('profile-anchor-nav')
+    expect(profilePage).toContain('id="profile-sessions"')
+    expect(profileComposable).toContain('确认下线')
+    expect(profileComposable).toContain('mfaSetupState.recoveryCodes = response.recoveryCodes')
+    expect(mfaSetupModal).toContain('copyRecoveryCodes')
+    expect(mfaSetupModal).toContain('downloadRecoveryCodes')
+    expect(mfaSetupModal).toContain('我已保存恢复码')
+  })
+
+  it('keeps user comments and error recovery paths searchable and reversible', () => {
+    expect(userCommentsComposable).toContain('filteredList')
+    expect(userCommentsComposable).toContain("type CommentTimeFilter = 'all' | '7d' | '30d'")
+    expect(userCommentsPage).toContain('userCommentSearch')
+    expect(userCommentsPage).toContain('userCommentTimeFilter')
+    expect(aboutContent).toContain('回到首页')
+    expect(forbiddenPage).toContain('redirect: route.fullPath')
+    expect(notFoundPage).toContain('to="/search"')
+    expect(notFoundPage).toContain('to="/archive"')
+  })
+})

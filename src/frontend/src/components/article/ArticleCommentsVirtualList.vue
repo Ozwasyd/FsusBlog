@@ -12,14 +12,14 @@
             link
             @click="$emit('reply', { id: thread.id, rootId: thread.rootId, userName: thread.userName, depth: 0 })"
           >
-            回复
+            {{ isLoggedIn ? '回复' : '登录后回复' }}
           </el-button>
           <el-button
             v-if="thread.canDelete"
             link
             type="danger"
             aria-label="删除评论"
-            @click="$emit('delete', { id: thread.id, rootId: thread.rootId, parentId: null })"
+            @click="$emit('delete', { id: thread.id, rootId: thread.rootId, parentId: null, content: thread.content })"
           >
             删除
           </el-button>
@@ -48,13 +48,13 @@
               link
               @click="$emit('reply', { id: reply.id, rootId: thread.rootId, userName: reply.userName, depth: 1 })"
             >
-              回复
+              {{ isLoggedIn ? '回复' : '登录后回复' }}
             </el-button>
             <el-button
               v-if="reply.canDelete"
               link
               type="danger"
-              @click="$emit('delete', { id: reply.id, rootId: thread.rootId, parentId: thread.id })"
+              @click="$emit('delete', { id: reply.id, rootId: thread.rootId, parentId: thread.id, content: reply.content })"
             >
               删除
             </el-button>
@@ -93,6 +93,7 @@ type DeletePayload = {
   id: string
   rootId: string
   parentId: string | null
+  content: string
 }
 
 const props = defineProps<{

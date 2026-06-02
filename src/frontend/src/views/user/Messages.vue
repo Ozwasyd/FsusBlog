@@ -38,6 +38,12 @@
           </header>
 
           <div class="mail-pane-body">
+            <div v-if="isMobile && !isAdminView" class="mail-mobile-primary">
+              <el-button type="primary" @click="showMobileTicketCompose = !showMobileTicketCompose">
+                新建工单
+              </el-button>
+            </div>
+
             <el-skeleton v-if="listLoading" :rows="8" animated />
 
             <div v-else-if="conversations.length === 0" class="mail-empty">
@@ -97,7 +103,7 @@
               </el-form>
             </div>
 
-            <div v-else-if="isMobile" class="mail-mobile-compose">
+            <div v-if="isMobile && !isAdminView && showMobileTicketCompose" class="mail-mobile-compose">
               <div class="mail-subheader">新建申诉工单</div>
               <el-form label-position="top">
                 <el-form-item label="主题">
@@ -184,7 +190,7 @@
                       placeholder="请输入回复内容"
                     />
                   </el-form-item>
-                  <el-button type="primary" :loading="replyLoading" :disabled="!detail?.canReply" @click="handleReply">
+                  <el-button type="primary" :loading="replyLoading" :disabled="replyDisabled || !replyBody.trim()" @click="handleReply">
                     发送回复
                   </el-button>
                 </el-form>
@@ -231,11 +237,27 @@
         </div>
       </section>
     </div>
+
+    <el-dialog
+      :model-value="hasPendingConversationSwitch"
+      title="当前回复尚未发送"
+      width="min(92vw, 28rem)"
+      @close="userInbox.cancelConversationSwitch"
+    >
+      <p class="mail-draft-dialog-text">
+        当前会话的回复草稿会按会话保留。你可以保存草稿后切换，也可以放弃这段草稿。
+      </p>
+      <template #footer>
+        <el-button @click="userInbox.cancelConversationSwitch">取消</el-button>
+        <el-button @click="handleDiscardDraftAndSwitch">放弃草稿</el-button>
+        <el-button type="primary" @click="handleSaveDraftAndSwitch">保存草稿并切换</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import { useInboxSplitView } from '@/composables/useInboxSplitView'
 import { useUserMessagesInbox } from '@/composables/useUserMessagesInbox'
@@ -246,6 +268,8 @@ const isAdminView = computed(() => userStore.isAdmin)
 
 const adminCenter = useAdminMessageCenter(() => isAdminView.value)
 const userInbox = useUserMessagesInbox(() => !isAdminView.value)
+const showMobileTicketCompose = ref(false)
+const hasPendingConversationSwitch = computed(() => Boolean(userInbox.pendingConversationId.value))
 
 const selectedConversationId = computed(() =>
   isAdminView.value ? adminCenter.selectedConversationId.value : userInbox.selectedConversationId.value
@@ -338,16 +362,22 @@ const creating = computed(() => userInbox.creating.value)
 const processing = computed(() => adminCenter.processing.value)
 
 const handleSelectConversation = async (conversationId: string): Promise<void> => {
-  const task = isAdminView.value
-    ? adminCenter.selectConversation(conversationId)
-    : userInbox.selectConversation(conversationId)
-  openDetailPane()
-  await task
+  if (isAdminView.value) {
+    openDetailPane()
+    await adminCenter.selectConversation(conversationId)
+    return
+  }
+
+  const switched = await userInbox.selectConversation(conversationId)
+  if (switched) {
+    openDetailPane()
+  }
 }
 
 const handleCreateTicket = async (): Promise<void> => {
   await userInbox.createTicket()
   if (userInbox.selectedConversationId.value) {
+    showMobileTicketCompose.value = false
     openDetailPane()
   }
 }
@@ -367,6 +397,18 @@ const updateStatus = async (status: 'open' | 'pending' | 'closed'): Promise<void
 
 const sendSystemMessage = async (): Promise<void> => {
   await adminCenter.sendSystemMessage()
+}
+
+const handleSaveDraftAndSwitch = async (): Promise<void> => {
+  if (await userInbox.saveDraftAndSwitch()) {
+    openDetailPane()
+  }
+}
+
+const handleDiscardDraftAndSwitch = async (): Promise<void> => {
+  if (await userInbox.discardDraftAndSwitch()) {
+    openDetailPane()
+  }
 }
 
 const statusLabel = (status: number): string => {
@@ -669,8 +711,20 @@ const formatTime = (input: string): string => {
 }
 
 .mail-reply-form,
-.mail-mobile-compose {
+.mail-mobile-compose,
+.mail-mobile-primary {
   margin-top: 1.5rem;
+}
+
+.mail-mobile-primary {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.mail-draft-dialog-text {
+  margin: 0;
+  color: var(--fsusblog-text-secondary);
+  line-height: 1.7;
 }
 
 .mail-empty {

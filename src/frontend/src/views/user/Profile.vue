@@ -6,9 +6,18 @@
       description="管理你的身份信息、访问凭证与在线设备。所有高危操作都在同一组界面里完成，但保持与主站一致的学术式阅读节奏。"
     />
 
+    <nav class="profile-anchor-nav" aria-label="个人资料分区">
+      <a href="#profile-identity">身份识别</a>
+      <a href="#profile-password">安全验证</a>
+      <a href="#profile-mfa">多因素认证</a>
+      <a href="#profile-passkeys">通行密钥</a>
+      <a href="#profile-sessions">设备会话</a>
+      <a href="#profile-danger">危险操作</a>
+    </nav>
+
     <div class="grid grid-cols-1 gap-x-24 gap-y-20 lg:grid-cols-2">
       <!-- 身份识别 -->
-      <section class="profile-section">
+      <section id="profile-identity" class="profile-section scroll-mt-24">
         <h3 class="section-title">身份识别</h3>
         <p class="section-caption">更新用户名与公开身份标识，不改变既有账户权限。</p>
         <el-form ref="usernameFormRef" :model="usernameForm" :rules="rules" label-position="top" @submit.prevent>
@@ -44,7 +53,7 @@
       </section>
 
       <!-- 安全验证 -->
-      <section class="profile-section">
+      <section id="profile-password" class="profile-section scroll-mt-24">
         <h3 class="section-title">安全验证</h3>
         <p class="section-caption">修改密码会立即刷新身份凭证，并要求你重新登录。</p>
         <el-form ref="passwordFormRef" :model="passwordForm" :rules="rules" label-position="top" @submit.prevent>
@@ -112,7 +121,7 @@
     </div>
 
     <!-- MFA -->
-    <section class="profile-section mt-24">
+    <section id="profile-mfa" class="profile-section mt-24 scroll-mt-24">
       <h3 class="section-title">多因素认证</h3>
       <p class="section-caption">
         状态：
@@ -145,7 +154,7 @@
     </section>
 
     <!-- 通行密钥 -->
-    <section class="profile-section mt-24">
+    <section id="profile-passkeys" class="profile-section mt-24 scroll-mt-24">
       <h3 class="section-title">通行密钥</h3>
       <p class="section-caption">
         使用设备生物识别或 PIN 保护，无需密码即可安全登录。
@@ -216,7 +225,7 @@
     </section>
 
     <!-- 会话管理 -->
-    <section class="profile-section mt-24">
+    <section id="profile-sessions" class="profile-section mt-24 scroll-mt-24">
       <div class="flex flex-col gap-4 border-b border-[var(--fsusblog-panel-border)] pb-6 mb-10 sm:flex-row sm:items-end sm:justify-between">
         <div class="min-w-0">
           <h3 class="section-title section-title--inline">设备会话管理</h3>
@@ -264,7 +273,7 @@
     </section>
 
     <!-- 危险操作 -->
-    <section class="profile-section mt-32">
+    <section id="profile-danger" class="profile-section mt-32 scroll-mt-24">
       <h3 class="section-title section-title--danger">危险操作</h3>
       <div class="mt-10 border-l-2 border-[var(--fsusblog-color-error)] pl-8 py-2">
         <p class="text-[13px] font-bold text-[var(--fsusblog-color-error)] normal-case tracking-normal mb-2">注销账户 (Permanent Deletion)</p>
@@ -291,6 +300,7 @@
 
     <MfaSetupModal
       v-model:visible="mfaSetupState.visible"
+      :title="mfaSetupState.secret ? 'MFA 绑定' : '恢复码'"
       :loading="mfaSetupState.loading"
       :secret="mfaSetupState.secret"
       :otp-auth-url="mfaSetupState.otpAuthUrl"
@@ -499,6 +509,28 @@ onMounted(() => {
 .section-title {
   @apply text-[11px] font-bold tracking-normal mb-10 pb-4 border-b border-[var(--fsusblog-panel-border)] text-[var(--fsusblog-text-primary)] normal-case;
   position: relative;
+}
+
+.profile-anchor-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 4rem;
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  padding-bottom: 1rem;
+}
+
+.profile-anchor-nav a {
+  border: 1px solid var(--fsusblog-panel-border);
+  padding: 0.375rem 0.625rem;
+  color: var(--fsusblog-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.profile-anchor-nav a:hover {
+  border-color: var(--fsusblog-color-primary);
+  color: var(--fsusblog-color-primary);
 }
 
 .section-title::before {

@@ -37,7 +37,7 @@
               v-model="registerData.username"
               name="username"
               type="text"
-              placeholder="3-20位中英文字符"
+              placeholder="3-20位中文或英文字母"
               :disabled="isProcessing"
               required
               aria-required="true"
@@ -70,7 +70,8 @@
               name="password"
               type="password"
               show-password
-              placeholder="最少六个字符"
+              placeholder="8-128 个字符"
+              maxlength="128"
               :disabled="isProcessing"
               required
               aria-required="true"
@@ -103,6 +104,7 @@
               type="password"
               show-password
               placeholder="再次输入你的密码"
+              maxlength="128"
               :disabled="isProcessing"
               required
               aria-required="true"

@@ -10,11 +10,15 @@ import {
   type CommentThreadItemContract
 } from '@/view-contracts/commentDetail'
 
+type CommentTimeFilter = 'all' | '7d' | '30d'
+
 export function useUserCommentsPage() {
   const list = shallowRef<CommentThreadItemContract[]>([])
   const { loading, hasMore, beginLoading, endLoading, setError } = usePagedListState()
   const cursor = ref<string | undefined>(undefined)
   const isError = ref(false)
+  const searchKeyword = ref('')
+  const timeFilter = ref<CommentTimeFilter>('all')
 
   const pendingDeleteId = ref<string | null>(null)
 
@@ -25,6 +29,39 @@ export function useUserCommentsPage() {
   const showEndHint = computed(() => !hasMore.value && list.value.length > 0)
   const loadMoreButtonText = computed(() => (loading.value ? '加载中...' : '加载更多记录'))
   const endHintText = '上面的评论已为最后一条评论。'
+  const hasActiveFilter = computed(() => searchKeyword.value.trim().length > 0 || timeFilter.value !== 'all')
+  const filteredList = computed(() => {
+    const keyword = searchKeyword.value.trim().toLowerCase()
+    const now = Date.now()
+    const timeLimit = timeFilter.value === '7d'
+      ? now - 7 * 24 * 60 * 60 * 1000
+      : timeFilter.value === '30d'
+        ? now - 30 * 24 * 60 * 60 * 1000
+        : 0
+
+    return list.value.filter((item) => {
+      if (keyword) {
+        const haystack = `${item.content} ${item.article?.title ?? ''}`.toLowerCase()
+        if (!haystack.includes(keyword)) {
+          return false
+        }
+      }
+
+      if (timeLimit > 0) {
+        const createdAt = new Date(item.time.isoTime).getTime()
+        if (!Number.isFinite(createdAt) || createdAt < timeLimit) {
+          return false
+        }
+      }
+
+      return true
+    })
+  })
+
+  const clearFilters = (): void => {
+    searchKeyword.value = ''
+    timeFilter.value = 'all'
+  }
 
   const fetchComments = async (): Promise<void> => {
     if (loading.value) {
@@ -118,13 +155,18 @@ export function useUserCommentsPage() {
 
   return {
     list,
+    filteredList,
     loading,
+    searchKeyword,
+    timeFilter,
+    hasActiveFilter,
     showLoadMoreButton,
     showEndHint,
     loadMoreButtonText,
     endHintText,
     isError,
     fetchComments,
+    clearFilters,
     onDelete,
     executeDelete
   }

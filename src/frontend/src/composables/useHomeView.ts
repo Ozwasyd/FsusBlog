@@ -1,4 +1,5 @@
 import { computed, onMounted, ref, watch, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { getArticles, getFeaturedArticles, getHotArticles, type ArticleListItemResponse, type FeaturedArticleItem, type PopularArticleSummaryResponse } from '@/api/article'
 import { toBootstrapArticleListItem } from '@/bootstrap/publicAotBootstrap'
 import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
@@ -14,7 +15,15 @@ import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 import { createArticleListViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList'
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
 
+const parsePageQuery = (value: unknown): number => {
+  const raw = Array.isArray(value) ? value[0] : value
+  const parsed = Number.parseInt(String(raw ?? ''), 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
+}
+
 export function useHomeView() {
+  const route = useRoute()
+  const router = useRouter()
   const siteStore = useSiteStore()
   const sseStore = useSseStore()
   const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Home')
@@ -106,12 +115,24 @@ export function useHomeView() {
     setPageTotal(Number(initialHydrationPayload?.total) || 0)
   }
 
+  currentPage.value = parsePageQuery(route.query.page)
+
+  const syncPageQuery = (page: number): void => {
+    const nextQuery = { ...route.query }
+    if (page <= 1) {
+      delete nextQuery.page
+    } else {
+      nextQuery.page = String(page)
+    }
+
+    void router.replace({ path: route.path, query: nextQuery })
+  }
+
   const handlePageChange = (page: number): void => {
     if (page < 1 || page > totalPages.value || loading.value) {
       return
     }
-    currentPage.value = page
-    void loadArticles()
+    syncPageQuery(page)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -291,6 +312,20 @@ export function useHomeView() {
   }
 
   watch(
+    () => route.query.page,
+    () => {
+      const nextPage = parsePageQuery(route.query.page)
+      if (nextPage === currentPage.value) {
+        return
+      }
+
+      initialViewItems.value = null
+      currentPage.value = nextPage
+      void loadArticles()
+    }
+  )
+
+  watch(
     () => sseStore.articleRevision,
     () => {
       if (!lifecycle.isActive()) {
@@ -308,7 +343,8 @@ export function useHomeView() {
       void loadFeaturedArticles(!hasServerHydrationView)
     }, 500)
 
-    if (!initialBootstrap) {
+    if (!initialBootstrap || currentPage.value > 1) {
+      initialViewItems.value = null
       void loadArticles()
     }
   })

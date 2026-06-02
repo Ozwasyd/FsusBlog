@@ -26,12 +26,27 @@
           <span>目前发布</span>
           <span class="text-[var(--fsusblog-text-primary)] tabular-nums">{{ view.total }}</span>
         </div>
+        <nav
+          v-if="view.yearGroups.length > 1"
+          class="mt-10 flex flex-wrap gap-3"
+          aria-label="年份快速导航"
+        >
+          <a
+            v-for="yearGroup in view.yearGroups"
+            :key="`quick-${yearGroup.year}`"
+            :href="`#archive-year-${yearGroup.year}`"
+            class="border border-[var(--fsusblog-panel-border)] px-3 py-1 text-xs font-bold tabular-nums text-[var(--fsusblog-text-secondary)] hover:border-[var(--fsusblog-color-primary)] hover:text-[var(--fsusblog-color-primary)]"
+          >
+            {{ yearGroup.year }}
+          </a>
+        </nav>
       </header>
 
       <div class="space-y-24 sm:space-y-32">
         <section
           v-for="yearGroup in view.yearGroups"
           :key="yearGroup.year"
+          :id="`archive-year-${yearGroup.year}`"
           class="relative animate-in slide-in-from-bottom-8 fade-in duration-[var(--fsus-motion-control-fast)]"
         >
           <div class="sticky top-24 z-10 bg-[var(--fsusblog-page-bg)] py-6 mb-12 sm:mb-16 border-b border-[var(--fsusblog-panel-border)]/50">

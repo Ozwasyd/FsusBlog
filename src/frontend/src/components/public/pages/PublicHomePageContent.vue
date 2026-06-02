@@ -36,7 +36,32 @@
 
     <template #aside>
       <slot name="aside">
-        <div id="fsus-home-hot-articles-slot-content" class="min-h-[18rem]"></div>
+        <nav
+          id="fsus-home-hot-articles-slot-content"
+          class="min-h-[18rem] border-l border-[var(--fsusblog-panel-border)] pl-8"
+          aria-label="站点索引"
+        >
+          <h2 class="mb-8 text-[10px] font-bold normal-case text-[var(--fsusblog-text-muted)]">
+            站点索引 / INDEX
+          </h2>
+          <ul class="space-y-5 text-sm font-semibold">
+            <li>
+              <RouterLink class="text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)]" to="/archive">
+                归档
+              </RouterLink>
+            </li>
+            <li>
+              <RouterLink class="text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)]" to="/search">
+                搜索
+              </RouterLink>
+            </li>
+            <li>
+              <RouterLink class="text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)]" to="/about">
+                关于
+              </RouterLink>
+            </li>
+          </ul>
+        </nav>
       </slot>
     </template>
   </HomeFeedSurface>

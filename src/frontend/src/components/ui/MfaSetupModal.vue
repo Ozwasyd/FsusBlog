@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     :model-value="visible"
-    title="MFA 绑定"
+    :title="title"
     width="520px"
     destroy-on-close
     :show-close="false"
@@ -67,6 +67,13 @@
             {{ code }}
           </div>
         </div>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <el-button size="small" @click="copyRecoveryCodes">复制恢复码</el-button>
+          <el-button size="small" @click="downloadRecoveryCodes">下载恢复码</el-button>
+        </div>
+        <el-checkbox v-model="recoveryCodesAcknowledged" class="mt-4">
+          我已保存恢复码
+        </el-checkbox>
       </div>
     </div>
 
@@ -92,18 +99,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import QrcodeVue from 'qrcode.vue'
+import { toast } from '@/utils/toast'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   visible: boolean
+  title?: string
   loading: boolean
   secret: string
   otpAuthUrl: string
   setupCode: string
   recoveryCodes: string[]
   errorMessage: string
-}>()
+}>(), {
+  title: 'MFA 绑定'
+})
 
 const emit = defineEmits<{
   'update:visible': [value: boolean]
@@ -111,8 +122,41 @@ const emit = defineEmits<{
   verify: []
 }>()
 
+const recoveryCodesAcknowledged = ref(false)
+const recoveryCodesText = computed(() => props.recoveryCodes.join('\n'))
+
+watch(recoveryCodesText, () => {
+  recoveryCodesAcknowledged.value = false
+})
+
 const close = () => {
+  if (props.recoveryCodes.length > 0 && !recoveryCodesAcknowledged.value) {
+    toast.warning('请先确认已保存恢复码')
+    return
+  }
+
   emit('update:visible', false)
+}
+
+const copyRecoveryCodes = async (): Promise<void> => {
+  try {
+    await navigator.clipboard.writeText(recoveryCodesText.value)
+    toast.success('恢复码已复制')
+  } catch {
+    toast.error('复制失败，请手动保存恢复码')
+  }
+}
+
+const downloadRecoveryCodes = (): void => {
+  const blob = new Blob([`${recoveryCodesText.value}\n`], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `fsusblog-recovery-codes-${new Date().toISOString().slice(0, 10)}.txt`
+  anchor.rel = 'noopener'
+  anchor.click()
+  URL.revokeObjectURL(url)
+  toast.success('恢复码已下载')
 }
 
 const setupStepStatusText = computed(() => {

@@ -8,6 +8,22 @@
       </p>
     </header>
 
+    <div class="comments-filter-bar">
+      <el-input
+        v-model="searchKeyword"
+        name="userCommentSearch"
+        clearable
+        placeholder="搜索评论内容或文章标题"
+        aria-label="搜索评论"
+      />
+      <el-select v-model="timeFilter" name="userCommentTimeFilter" aria-label="筛选评论时间">
+        <el-option label="全部时间" value="all" />
+        <el-option label="近 7 天" value="7d" />
+        <el-option label="近 30 天" value="30d" />
+      </el-select>
+      <el-button v-if="hasActiveFilter" @click="clearFilters">重置</el-button>
+    </div>
+
     <transition name="fade-fast" mode="out-in">
       <UserCommentsErrorState v-if="isError" @retry="fetchComments" />
 
@@ -36,9 +52,14 @@
 
       <UserCommentsEmptyState v-else-if="list.length === 0" />
 
+      <div v-else-if="filteredList.length === 0" class="comments-filter-empty">
+        <p>没有匹配的评论。</p>
+        <el-button @click="clearFilters">清除筛选</el-button>
+      </div>
+
       <UserCommentsList
         v-else
-        :list="list"
+        :list="filteredList"
         :loading="loading"
         :show-load-more-button="showLoadMoreButton"
         :show-end-hint="showEndHint"
@@ -59,13 +80,18 @@ import UserCommentsList from '@/components/user/UserCommentsList.vue'
 
 const {
   list,
+  filteredList,
   loading,
+  searchKeyword,
+  timeFilter,
+  hasActiveFilter,
   showLoadMoreButton,
   showEndHint,
   loadMoreButtonText,
   endHintText,
   isError,
   fetchComments,
+  clearFilters,
   onDelete
 } =
   useUserCommentsPage()
@@ -88,6 +114,24 @@ const {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.comments-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(8rem, 12rem) auto;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.comments-filter-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  border: 1px solid var(--fsusblog-panel-border);
+  padding: 2rem;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.875rem;
 }
 
 .comment-skeleton-item {
@@ -147,6 +191,10 @@ const {
 }
 
 @media (max-width: 640px) {
+  .comments-filter-bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .list-fade-leave-active {
     width: calc(100% - 3rem);
   }

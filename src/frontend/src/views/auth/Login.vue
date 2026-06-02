@@ -113,6 +113,9 @@
               </template>
               {{ passkeyLoading ? '请按照提示操作...' : '使用通行密钥登录' }}
             </el-button>
+            <p class="mt-3 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
+              需要已绑定的设备或安全密钥；如果验证失败，可继续使用密码登录。
+            </p>
           </div>
 
           <div
@@ -122,6 +125,9 @@
             class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] px-4 py-3 text-sm font-semibold text-[var(--fsusblog-color-error)] animate-in fade-in slide-in-from-top-1"
           >
             {{ passkeyError }}
+            <p class="mt-2 text-xs leading-6">
+              请检查浏览器是否允许通行密钥，或改用用户名密码登录。
+            </p>
           </div>
         </form>
 
@@ -130,7 +136,12 @@
             需要进行多因素验证。请输入 Google Authenticator 验证码，或使用恢复码。
           </div>
 
-          <div class="relative group">
+          <el-radio-group v-model="mfaMode" class="w-full" aria-label="选择验证方式">
+            <el-radio-button value="totp">验证码</el-radio-button>
+            <el-radio-button value="recovery">恢复码</el-radio-button>
+          </el-radio-group>
+
+          <div v-if="mfaMode === 'totp'" class="relative group">
             <label for="mfa-code" class="mb-2 block text-xs font-semibold text-[var(--fsusblog-text-secondary)]">
               MFA 验证码
             </label>
@@ -148,9 +159,9 @@
             />
           </div>
 
-          <div class="relative group">
+          <div v-else class="relative group">
             <label for="mfa-recovery" class="mb-2 block text-xs font-semibold text-[var(--fsusblog-text-secondary)]">
-              恢复码（可选）
+              恢复码
             </label>
             <el-input
               id="mfa-recovery"
@@ -215,6 +226,7 @@ const {
   handleLogin,
   handleMfaVerify,
   requiresMfa,
+  mfaMode,
   mfaCode,
   mfaRecoveryCode
 } = useAuthLogin()

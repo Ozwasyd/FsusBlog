@@ -63,10 +63,18 @@
     >
       重连
     </el-button>
+    <el-button
+      class="mt-3"
+      :tag="RouterLink"
+      to="/"
+    >
+      回到首页
+    </el-button>
   </section>
 </template>
 
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
 import type { AboutPageViewContract } from '@/view-contracts/aboutPage'
 
 defineProps<{
