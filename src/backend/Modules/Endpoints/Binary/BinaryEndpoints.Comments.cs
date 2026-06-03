@@ -107,7 +107,9 @@ public static partial class BinaryEndpoints
             var result = await commentService.GetCommentThreadsByCursorAsync(articleId, bind.Request);
             return BinaryResults.Frame(aeds, AedsFrameType.CommentArticleCursor, writer => PodBinaryCodec.WriteCommentThreadCursor(result, writer));
         })
-        .AllowAnonymous();
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .AddEndpointFilter<RiskAwarePublicReadFilter>();
 
         group.MapGet("/comment/{articleId:int}/thread/{rootId:long}", async Task<BinaryFrameResult> (
             int articleId,
@@ -125,7 +127,9 @@ public static partial class BinaryEndpoints
             var result = await commentService.GetThreadRepliesByCursorAsync(articleId, rootId, bind.Request);
             return BinaryResults.Frame(aeds, AedsFrameType.CommentThreadReplyCursor, writer => PodBinaryCodec.WriteCommentReplyCursor(rootId, result, writer));
         })
-        .AllowAnonymous();
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .AddEndpointFilter<RiskAwarePublicReadFilter>();
 
         group.MapGet("/comment/me", async Task<BinaryFrameResult> (
             HttpContext httpContext,

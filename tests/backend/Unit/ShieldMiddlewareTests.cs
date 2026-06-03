@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Core.Common;
 
@@ -233,6 +234,32 @@ public sealed class ShieldMiddlewareTests
     }
 
     [Fact]
+    public async Task InvokeAsync_SocialPreviewBot_PublicArticleGet_CallsNext()
+    {
+        bool nextCalled = false;
+        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var ctx = BuildContext("/article/42", "Twitterbot/1.0", method: "GET");
+
+        await sut.InvokeAsync(ctx);
+
+        Assert.True(nextCalled);
+        Assert.True(ctx.Items.ContainsKey("SocialPreviewBot"));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_SocialPreviewBot_ApiRead_DoesNotCallNext()
+    {
+        bool nextCalled = false;
+        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var ctx = BuildContext("/api/binary/category", "Discordbot/2.0", method: "GET");
+
+        await sut.InvokeAsync(ctx);
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status403Forbidden, ctx.Response.StatusCode);
+    }
+
+    [Fact]
     public async Task InvokeAsync_RecordsInboundRequestForGovernor()
     {
         // The middleware calls governor.RecordInboundRequest() on each non-health request
@@ -263,7 +290,7 @@ public sealed class ShieldMiddlewareTests
         var crawlerDetector = new CrawlerDetectorService(
             NullLogger<CrawlerDetectorService>.Instance,
             new MemoryCache(new MemoryCacheOptions()));
-        return new ShieldMiddleware(next, governor ?? CreateFreshGovernor(), crawlerDetector, env);
+        return new ShieldMiddleware(next, governor ?? CreateFreshGovernor(), crawlerDetector, new NullCrawlerRiskService(), env);
     }
 
     private static DefaultHttpContext BuildContext(string path, string ua, string method = "GET")
@@ -321,5 +348,12 @@ public sealed class ShieldMiddlewareTests
         public Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => Task.FromResult<IAsyncDisposable>(NullDisposable.Instance);
         public string BuildKey(CachePolicyId policyId, string identity, string? version = null) => $"{policyId}:{identity}";
         private sealed class NullDisposable : IAsyncDisposable { public static readonly NullDisposable Instance = new(); public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
+    }
+
+    private sealed class NullCrawlerRiskService : ICrawlerRiskService
+    {
+        public Task AddRiskAsync(HttpContext context, CrawlerRiskReason reason, int score, TimeSpan ttl, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<int> GetRiskScoreAsync(HttpContext context, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<bool> IsHighRiskAsync(HttpContext context, CancellationToken cancellationToken = default) => Task.FromResult(false);
     }
 }

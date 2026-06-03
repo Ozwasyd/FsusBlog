@@ -6,7 +6,10 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Server.Interfaces;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
@@ -122,6 +125,16 @@ public static class ServiceCollectionExtensions
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.OnRejected = async (context, cancellationToken) =>
+            {
+                context.HttpContext.Response.Headers["Retry-After"] = "60";
+                FsusObservability.RecordSecurityEvent("rate_limited", "rate_limited", "rejected");
+                var risk = context.HttpContext.RequestServices.GetService<ICrawlerRiskService>();
+                if (risk is not null)
+                {
+                    await risk.AddRiskAsync(context.HttpContext, CrawlerRiskReason.RateLimited, 10, TimeSpan.FromMinutes(10), cancellationToken);
+                }
+            };
 
             options.AddPolicy("fixed_ip", httpContext =>
             {
@@ -130,6 +143,11 @@ public static class ServiceCollectionExtensions
                 if (httpContext.User.IsInRole("admin") || clientIp == "127.0.0.1" || clientIp == "::1")
                 {
                     return RateLimitPartition.GetNoLimiter("admin");
+                }
+
+                if (IsVerifiedCrawlerPublicRead(httpContext))
+                {
+                    return CreateFixedWindowPartition($"verified-crawler:{clientIp}", 1000, 0);
                 }
 
                 return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
@@ -141,8 +159,50 @@ public static class ServiceCollectionExtensions
                     QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                 });
             });
+
+            options.AddPolicy("read_proof", httpContext =>
+            {
+                string deviceFp = httpContext.Request.Headers["X-Fsus-Device-Fp"].ToString();
+                string key = string.IsNullOrWhiteSpace(deviceFp)
+                    ? $"{httpContext.GetClientIp()}:{httpContext.Request.Path}"
+                    : $"{httpContext.GetClientIp()}:{deviceFp}:{httpContext.Request.Path}";
+                return CreateFixedWindowPartition($"read-proof:{key}", 30, 0);
+            });
+
+            options.AddPolicy("public_read", httpContext =>
+            {
+                string clientIp = httpContext.GetClientIp();
+                string path = httpContext.Request.Path.Value?.ToLowerInvariant() ?? "/";
+
+                if (IsVerifiedCrawlerPublicRead(httpContext))
+                {
+                    return CreateFixedWindowPartition($"public-read:verified-crawler:{clientIp}:{path}", 1000, 0);
+                }
+
+                if (httpContext.Items.TryGetValue("SocialPreviewBot", out object? socialPreview) && socialPreview is true)
+                {
+                    return CreateFixedWindowPartition($"public-read:social:{clientIp}:{path}", 30, 0);
+                }
+
+                return CreateFixedWindowPartition($"public-read:{clientIp}:{path}", 120, 2);
+            });
         });
 
         return services;
     }
+
+    private static bool IsVerifiedCrawlerPublicRead(HttpContext httpContext)
+        => httpContext.Items.TryGetValue("VerifiedCrawler", out object? value)
+            && value is true
+            && (HttpMethods.IsGet(httpContext.Request.Method) || HttpMethods.IsHead(httpContext.Request.Method));
+
+    private static RateLimitPartition<string> CreateFixedWindowPartition(string key, int permitLimit, int queueLimit)
+        => RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = permitLimit,
+            Window = TimeSpan.FromMinutes(1),
+            AutoReplenishment = true,
+            QueueLimit = queueLimit,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+        });
 }

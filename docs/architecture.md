@@ -61,7 +61,7 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 | 安全响应头 | `UseFsusSecurityHeaders` | CSP/HSTS/跨源隔离等头部策略 |
 | 核心中间件 | `UseFsusCoreMiddlewares` | 异常、审计、认证授权、封禁用户、访问日志兼容占位 |
 | 静态资源 | `UseFsusStaticAssets` | Public AOT cache、SPA 静态文件、fallback |
-| 端点管线 | `UseFsusEndpointPipeline` | OpenTelemetry trace correlation、Rate Limiting、OutputCache、API/Binary/健康路由 |
+| 端点管线 | `UseFsusEndpointPipeline` | OpenTelemetry trace correlation、crawler-aware Rate Limiting、OutputCache、API/Binary/健康路由 |
 
 路由组装按 `MapFsusOperationalRoutes`、`MapFsusApiRoutes`、`MapFsusPublicRoutes` 分层，避免在新增 API 时同时触碰健康探针、SSE、SPA fallback 和静态文件策略。
 
@@ -298,7 +298,7 @@ Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔�
 
 `RelatedReadingService` 是相关文章、上一篇、下一篇的唯一查询入口，端点与 PublicAOT article snapshot 共用它。相关性只来自公开文章的分类、标签、正文关键词和发布时间，不读取点赞、收藏、关注、登录用户或画像数据；PublicAOT renderer payload 会携带同一份 `relatedReading`，SPA hydration 后继续使用同一个 view contract 渲染，避免首屏与运行时结构不一致。PublicAOT article detail 生成会先读取 admin/detail 原始视图并在 provider 内执行同一套公开可见性判定；只有 private 读取为空时才回退到公开 detail 读取，因此草稿、定时、归档状态不会被旧公开缓存覆盖，发布后的公开读链也可以帮助 AOT 避免偶发空读。
 
-这些端点使用 output cache 的 ArticleList/Seo tag，依赖文章突变和 SEO 变更的统一失效。PublicAOT backfill 请求会记录排队时的失效版本；写盘前若同一路由或页面在排队后又被文章突变失效，本次 backfill 会丢弃，避免 draft/scheduled/archived 时排队的旧 category/tag 文档在 published 失效后覆盖新状态。测试隔离开启时，PublicAOT cache key 与 backfill 查询必须携带同一个 `X-Fsus-Test-Session`，后台生成通过临时 `HttpContext` 读取对应测试 schema，避免把测试文章写入全局 AOT 缓存。`check:distribution-version-coherence` 会预热公开缓存后，验证 draft/scheduled/archived 隐藏、published 可见，以及 update/delete/restore/permanent-delete 在 public binary list/detail、admin 状态列表/回收站、feed、sitemap、AOT article/category/tag pages 与 search index alias 上保持一致。
+这些端点使用 output cache 的 ArticleList/Seo tag，响应头使用 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 和 body ETag，依赖文章突变和 SEO 变更的统一失效。公开评论、公开 taxonomy 与 related-reading 额外挂 `public_read` 限流和 `RiskAwarePublicReadFilter`：普通用户直接读取，verified crawler 使用独立高额度，social preview bot 不能访问 API，高风险 IP 在动态 API 上先要求 PoW，持续高风险返回 429。PublicHotRead L0 artifact 命中仍在常规 endpoint 前直接返回，不进入该动态加压路径。PublicAOT backfill 请求会记录排队时的失效版本；写盘前若同一路由或页面在排队后又被文章突变失效，本次 backfill 会丢弃，避免 draft/scheduled/archived 时排队的旧 category/tag 文档在 published 失效后覆盖新状态。测试隔离开启时，PublicAOT cache key 与 backfill 查询必须携带同一个 `X-Fsus-Test-Session`，后台生成通过临时 `HttpContext` 读取对应测试 schema，避免把测试文章写入全局 AOT 缓存。`check:distribution-version-coherence` 会预热公开缓存后，验证 draft/scheduled/archived 隐藏、published 可见，以及 update/delete/restore/permanent-delete 在 public binary list/detail、admin 状态列表/回收站、feed、sitemap、AOT article/category/tag pages 与 search index alias 上保持一致。
 
 ## 作者工作台与私有内容边界
 

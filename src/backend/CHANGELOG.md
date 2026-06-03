@@ -8,6 +8,16 @@
 
 ## [Unreleased]
 
+### 新增
+
+- 防爬虫闭环：`CrawlerRiskService` 统一沉淀 Shield、RateLimiter、PoW、ReadProof 和公开动态读风险分，`RiskAwarePublicReadFilter` 在高风险公开 GET API 上动态要求 PoW 或返回 429。
+- Crawler CIDR 同步支持远程官方 JSON、last-known-good snapshot、配置项 fallback 与 admin-only `/api/ops/crawler-ranges/status` 状态接口。
+
+### 变更
+
+- `ShieldMiddleware` 将 search crawler、social preview bot、unknown bot 和工具型 UA 分层处理，保留路径攻击硬 abort，其余拒绝返回轻量 403 并记录安全指标。
+- RSS、Atom、JSON Feed、sitemap 和 robots 响应统一使用 CDN 友好缓存头与 ETag；`robots.txt` 明确禁止 `/api/`、搜索索引和私有路径。
+
 ---
 
 ## [1.0.0] — 2026-04-27

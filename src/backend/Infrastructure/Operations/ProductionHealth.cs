@@ -6,6 +6,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Sse;
 using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Services.Security;
 using Npgsql;
 using StackExchange.Redis;
 
@@ -228,6 +229,20 @@ public static class ProductionHealthEndpoints
                 : StatusCodes.Status503ServiceUnavailable;
             return TypedResults.Json(report, statusCode: statusCode);
         }).AllowAnonymous();
+
+        endpoints.MapGet("/api/ops/crawler-ranges/status", (CrawlerDetectorService detector) =>
+        {
+            CrawlerRangeStatus status = detector.GetRangeStatus();
+            return TypedResults.Json(new
+            {
+                googleRanges = status.GoogleRanges,
+                bingRanges = status.BingRanges,
+                lastSyncAt = status.LastSyncAt,
+                lastSuccessAt = status.LastSuccessAt,
+                source = status.Source,
+                lastError = status.LastError
+            });
+        }).RequireAuthorization(policy => policy.RequireRole("admin"));
 
         return endpoints;
     }

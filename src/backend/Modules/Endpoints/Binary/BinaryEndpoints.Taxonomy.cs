@@ -73,6 +73,8 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.CategoryList, writer => PodBinaryCodec.WriteCategoryList(result, writer));
         })
         .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .AddEndpointFilter<RiskAwarePublicReadFilter>()
         .CacheOutput(HttpCachePolicyCatalog.ApplyCategoryList);
 
         group.MapGet("/tag", static async Task<BinaryFrameResult> (
@@ -117,6 +119,8 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.TagList, writer => PodBinaryCodec.WriteTagWithCountList(result, writer));
         })
         .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .AddEndpointFilter<RiskAwarePublicReadFilter>()
         .CacheOutput(HttpCachePolicyCatalog.ApplyTagList);
 
         var taxonomyWriteGroup = group.MapGroup("")

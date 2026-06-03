@@ -31,6 +31,7 @@ public static class FsusObservability
         "fsus.operation",
         "fsus.result",
         "fsus.route_kind",
+        "fsus.security.reason",
         "fsus.search.mode",
         "fsus.sse.operation"
     ];
@@ -43,6 +44,7 @@ public static class FsusObservability
     private static readonly Counter<long> OperationCounter = Meter.CreateCounter<long>("fsus.operation.count");
     private static readonly Histogram<double> OperationDuration = Meter.CreateHistogram<double>("fsus.operation.duration", "ms");
     private static readonly Counter<long> CacheOperationCounter = Meter.CreateCounter<long>("fsus.cache.operation.count");
+    private static readonly Counter<long> SecurityEventCounter = Meter.CreateCounter<long>("fsus.security.event.count");
     private static readonly Histogram<double> CacheOperationDuration = Meter.CreateHistogram<double>("fsus.cache.operation.duration", "ms");
     private static readonly Histogram<double> DbOperationDuration = Meter.CreateHistogram<double>("fsus.db.operation.duration", "ms");
     private static readonly Histogram<double> AotRenderDuration = Meter.CreateHistogram<double>("fsus.aot.render.duration", "ms");
@@ -140,6 +142,13 @@ public static class FsusObservability
         tags.Add("fsus.cache.layer", layer);
         CacheOperationCounter.Add(1, tags);
         CacheOperationDuration.Record(duration.TotalMilliseconds, tags);
+    }
+
+    public static void RecordSecurityEvent(string operation, string reason, string result)
+    {
+        TagList tags = CreateBaseTags("security", operation, result);
+        tags.Add("fsus.security.reason", reason);
+        SecurityEventCounter.Add(1, tags);
     }
 
     public static void RecordDbOperation(string operation, string result, TimeSpan duration)

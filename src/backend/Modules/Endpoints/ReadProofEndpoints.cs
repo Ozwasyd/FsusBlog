@@ -1,4 +1,6 @@
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 
 namespace FsusBlog.Server.Modules.Endpoints;
@@ -20,26 +22,37 @@ public static class ReadProofEndpoints
             int? articleId,
             HttpContext context,
             IHumanReadProofEndpointAdapter proofAdapter,
+            ICrawlerRiskService crawlerRisk,
             CancellationToken cancellationToken) =>
         {
             var response = await proofAdapter.CreateChallengeAsync(
                 context,
                 new HumanReadChallengeRequest(scope, routeKey, articleId),
                 cancellationToken);
+            if (response is null)
+            {
+                await crawlerRisk.AddRiskAsync(context, CrawlerRiskReason.ReadProofRejected, 5, TimeSpan.FromMinutes(10), cancellationToken);
+            }
 
             return Results.Ok(JsonApiResponse<HumanReadChallengeResponse>.Ok(
                 response ?? CreateRejectedChallenge(scope, routeKey, articleId)));
-        });
+        }).RequireRateLimiting("read_proof");
 
         group.MapPost("/submit", async (
             HumanReadSubmitRequest request,
             HttpContext context,
             IHumanReadProofEndpointAdapter proofAdapter,
+            ICrawlerRiskService crawlerRisk,
             CancellationToken cancellationToken) =>
         {
             HumanReadSubmitResponse response = await proofAdapter.SubmitAsync(context, request, cancellationToken);
+            if (!response.Counted && ShouldScoreRejectedSubmit(response.Status))
+            {
+                await crawlerRisk.AddRiskAsync(context, CrawlerRiskReason.ReadProofRejected, ReadProofRiskScore(response.Status), TimeSpan.FromMinutes(10), cancellationToken);
+            }
+
             return Results.Ok(JsonApiResponse<HumanReadSubmitResponse>.Ok(response));
-        });
+        }).RequireRateLimiting("read_proof");
 
         return app;
     }
@@ -70,4 +83,19 @@ public static class ReadProofEndpoints
             now,
             now);
     }
+
+    private static bool ShouldScoreRejectedSubmit(string status)
+        => !string.Equals(status, "paused", StringComparison.Ordinal)
+            && !string.Equals(status, "duplicate_viewer", StringComparison.Ordinal);
+
+    private static int ReadProofRiskScore(string status)
+        => status switch
+        {
+            "proof_replayed" => 20,
+            "proof_binding_mismatch" => 10,
+            "fetch_metadata_invalid" => 10,
+            "origin_invalid" => 10,
+            "fingerprint_missing" => 5,
+            _ => 5
+        };
 }

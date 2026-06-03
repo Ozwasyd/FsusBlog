@@ -291,6 +291,8 @@ Query：
 
 请求头必须包含浏览器上下文：`X-Fsus-Device-Fp`、`Sec-Fetch-Site`、`Sec-Fetch-Mode`、`Sec-Fetch-Dest`，并由可信 `Origin` 或 `Referer` 发起。
 
+该端点受 `read_proof` 专用限流保护。被拒绝的 challenge 不产生有效 token，拒绝原因会进入 crawler risk 分，但公开内容访问不会因此被阻断。
+
 响应 `data`：
 
 ```json
@@ -318,6 +320,8 @@ Query：
   "dwellMs": 9000
 }
 ```
+
+Submit 同样受 `read_proof` 专用限流保护。`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid`、`fingerprint_missing` 等拒绝状态会写入 crawler risk；`duplicate_viewer` 只表示 24 小时去重，不计入风险。
 
 响应 `data`：
 
@@ -860,6 +864,18 @@ X-Fsus-Pow-Answer: <nonce 值>
 | GET | `/sitemap.xml` | `application/xml` | 首页、文章、归档、关于、分类、标签；排除登录、用户、admin |
 | GET | `/robots.txt` | `text/plain` | 声明 sitemap，并拒绝私有路由 |
 | GET | `/api/public/articles/{articleId}/related` | `JsonApiResponse<RelatedReadingResponse>` | 基于分类、标签、全文关键词和发布时间的公开延伸阅读 |
+
+feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 和 body ETag；客户端提交匹配的 `If-None-Match` 时返回 `304 Not Modified`。`robots.txt` 明确禁止 `/api/`、`/user`、`/admin`、搜索索引二进制与 patch 目录，同时保留 `/api/public/`、`/feed/`、`/sitemap.xml` 与公开页面可抓取。
+
+公开评论读取、公开 taxonomy 与 `related-reading` 受 `public_read` 限流和风险感知过滤保护。风险分达到 50 时动态 API 要求 `X-Fsus-Pow-Proof`，达到 100 时返回 429；verified crawler 走独立高额度，social preview bot 不允许访问 `/api/**`。
+
+### Crawler Range Ops
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| GET | `/api/ops/crawler-ranges/status` | admin | 返回 Google/Bing CIDR 数量、最近同步时间、最近成功时间、来源和错误摘要 |
+
+该状态来自 `CrawlerUpdateWorker` 的远程官方 JSON → last-known-good snapshot → 配置项 → empty degraded 加载链，只用于运维诊断，不返回客户端 IP、User-Agent 或用户数据。
 
 `RelatedReadingResponse`：
 

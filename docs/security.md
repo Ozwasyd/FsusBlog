@@ -31,10 +31,24 @@
 
 ## 速率限制（Rate Limiting）
 
-- 策略名称：`fixed_ip`（固定窗口，按客户端 IP 计数）
-- 超限响应：`429 Too Many Requests`，响应头携带 `Retry-After`
+- 基础策略：`fixed_ip`（固定窗口，按客户端 IP 计数），作为认证、PoW、写入和审核端点的 fallback。
+- 公开读策略：`public_read` 按 `IP + path` 分区；verified search crawler 使用独立高额度分区，social preview bot 使用低额度公开 HTML/静态资源分区，普通匿名公开 API 使用中等配额。
+- 真人阅读策略：`read_proof` 专门保护 `/api/read-proof/challenge` 与 `/api/read-proof/submit`，按 `IP + route` 或 `IP + deviceFp + route` 分区，避免匿名 challenge/submit 被无限打。
+- 超限响应：`429 Too Many Requests`，响应头携带 `Retry-After`，并向 `CrawlerRiskService` 写入 `RateLimited` 风险事件。
 - 客户端 IP 提取：`GetClientIp()` 只读取 `ForwardedHeadersMiddleware` 按 `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` 处理后的 `Connection.RemoteIpAddress`；业务代码不得直接信任原始 `X-Forwarded-For` / `X-Real-IP` 请求头。
-- 受保护端点：PoW 挑战、注册、密码登录、Token 续签、Passkey 登录开始/完成、评论审核队列和单条/批量审核写入
+- 受保护端点：PoW 挑战、注册、密码登录、Token 续签、Passkey 登录开始/完成、评论审核队列和单条/批量审核写入、ReadProof challenge/submit、公开评论读取、公开 taxonomy 与 related-reading。
+
+## 防爬虫闭环
+
+`ShieldMiddleware` 在常规 endpoint 前分类处理请求：
+
+- search crawler：`Googlebot` / `Google-InspectionTool` / `bingbot` / `msnbot` 先按 CIDR 验证，`Baiduspider` / `Sogou` 继续使用 rDNS + forward DNS；验证通过后写 `HttpContext.Items["VerifiedCrawler"] = true`。
+- social preview bot：`Twitterbot`、`facebookexternalhit`、`Discordbot`、`Slackbot`、`TelegramBot`、`LinkedInBot`、`WhatsApp` 只允许公开 HTML、OG/静态资源、`robots.txt` 的 GET/HEAD，不允许访问 `/api/**`。
+- unknown bot、工具型 UA、空 UA：返回轻量 403，记录 `fsus.security.event.count`，并向风险分写入原因；路径穿越、双斜杠、反斜杠和双重编码路径仍直接 `Abort()`，同时记录指标。
+
+`CrawlerUpdateWorker` 每 24 小时按优先级加载搜索引擎 CIDR：远程官方 JSON（Google `googlebot.json`、Bing `bingbot.json`）→ 本地 last-known-good snapshot → `Security:CrawlerCidrs:*` 配置 → empty degraded。状态通过 admin-only `GET /api/ops/crawler-ranges/status` 暴露，只包含 range 数量、来源、最近同步时间、最近成功时间和错误摘要。
+
+`CrawlerRiskService` 把 Shield、RateLimiter、PoW、ReadProof 和 risk-aware public read 的异常事件累积到 `SecurityPowRisk`。`AdaptivePowGovernor` 继续消费同一 risk key 提高 PoW 难度；`RiskAwarePublicReadFilter` 在风险分达到 50 时要求公开 GET API 携带 `X-Fsus-Pow-Proof`，达到 100 时直接返回 429。该策略只作用于动态公开 API，不影响 PublicHotRead artifact 命中路径。
 
 ---
 
@@ -47,6 +61,7 @@
 - 客户端要求：SPA hydration 后，主内容进入视口并累计可见停留至少 8 秒，再携带 `X-Fsus-Device-Fp` 提交 proof。
 - 服务端绑定：HMAC token 绑定 scope、routeKey、articleId、设备指纹哈希、IP 哈希、UA 哈希、签发时间、过期时间、最小停留时间和 nonce。
 - 拒绝条件：无 JS/AOT 未 hydration、直接 API 请求、缺失 Fetch Metadata、跨站 Origin/Referer、爬虫 UA、已验证 crawler、停留不足、过期 token、篡改 token、重放 proof。
+- 拒绝与超限会写入 `CrawlerRiskService`，但不会阻断公开内容访问；HumanReadProof 只决定阅读事件是否计数。
 - 降级开关：`HumanReadProof:Mode=paused` 暂停计数写入，但不影响内容读取。
 
 该机制提高浏览计数的真人口径，不用于身份认证，也不承诺识别所有未知自动化行为。

@@ -69,6 +69,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     private static IServiceCollection AddCrawlerAndSearchRuntime(this IServiceCollection services)
     {
         services.AddSingleton<CrawlerDetectorService>();
+        services.AddSingleton<ICrawlerRiskService, CrawlerRiskService>();
         services.AddHostedService<CrawlerUpdateWorker>();
         services.AddSingleton<ISearchIndexService, SearchIndexService>();
         return services;

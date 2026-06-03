@@ -20,22 +20,26 @@ internal static partial class PowValidationLogic
     private const int MaxSignatureUtf8Bytes = 128;
     private const int MaxBrowserFingerprintUtf8Bytes = 256;
 
-    public static Task<IActionResult?> ValidateAsync(HttpContext httpContext, ILogger logger, IPowService powService, AdaptivePowGovernor governor)
+    public static async Task<IActionResult?> ValidateAsync(HttpContext httpContext, ILogger logger, IPowService powService, AdaptivePowGovernor governor)
     {
         if (!httpContext.Request.Headers.TryGetValue(PowHeaderName, out var encodedProof) || encodedProof.Count != 1)
         {
-            return Task.FromResult<IActionResult?>(new UnauthorizedObjectResult(Fail(httpContext, ErrorCode.Unauthorized, "安全校验凭证缺失 (Header)")));
+            await AddRiskAsync(httpContext, CrawlerRiskReason.PowInvalid, 5);
+            return new UnauthorizedObjectResult(Fail(httpContext, ErrorCode.Unauthorized, "安全校验凭证缺失 (Header)"));
         }
-        return CoreValidationAsync(httpContext, encodedProof[0]!, logger, powService, governor);
+
+        return await CoreValidationAsync(httpContext, encodedProof[0]!, logger, powService, governor);
     }
 
-    public static Task<IActionResult?> ValidateFromQueryAsync(HttpContext httpContext, ILogger logger, IPowService powService, AdaptivePowGovernor governor)
+    public static async Task<IActionResult?> ValidateFromQueryAsync(HttpContext httpContext, ILogger logger, IPowService powService, AdaptivePowGovernor governor)
     {
         if (!httpContext.Request.Query.TryGetValue(PowQueryName, out var encodedProof) || encodedProof.Count != 1)
         {
-            return Task.FromResult<IActionResult?>(new UnauthorizedObjectResult(Fail(httpContext, ErrorCode.Unauthorized, "安全校验凭证缺失 (Query)")));
+            await AddRiskAsync(httpContext, CrawlerRiskReason.PowInvalid, 5);
+            return new UnauthorizedObjectResult(Fail(httpContext, ErrorCode.Unauthorized, "安全校验凭证缺失 (Query)"));
         }
-        return CoreValidationAsync(httpContext, encodedProof[0]!, logger, powService, governor);
+
+        return await CoreValidationAsync(httpContext, encodedProof[0]!, logger, powService, governor);
     }
 
     private static async Task<IActionResult?> CoreValidationAsync(HttpContext httpContext, string encodedProof, ILogger logger, IPowService powService, AdaptivePowGovernor governor)
@@ -51,18 +55,21 @@ internal static partial class PowValidationLogic
 
             if (!Convert.TryFromBase64String(encodedProof, rentedBuffer, out int bytesWritten))
             {
+                await AddRiskAsync(httpContext, CrawlerRiskReason.PowInvalid, 5);
                 return new BadRequestObjectResult(Fail(httpContext, ErrorCode.Validation, "安全凭证格式异常 (Base64)"));
             }
 
             var proofSpan = rentedBuffer.AsSpan(0, bytesWritten);
             if (!TryDecodeBinaryProof(proofSpan, out var powRequest))
             {
+                await AddRiskAsync(httpContext, CrawlerRiskReason.PowInvalid, 5);
                 return new BadRequestObjectResult(Fail(httpContext, ErrorCode.Validation, "安全凭证解析失败 (binary)"));
             }
 
             int requiredDifficulty = await governor.GetDifficultyForIpAsync(clientIp);
             if (powRequest.Difficulty < requiredDifficulty)
             {
+                await AddRiskAsync(httpContext, CrawlerRiskReason.PowInvalid, 5);
                 return new ObjectResult(Fail(httpContext, ErrorCode.Forbidden, "算力凭证已失效，请重试")) { StatusCode = 403 };
             }
 
@@ -86,6 +93,7 @@ internal static partial class PowValidationLogic
             if (!isValid)
             {
                 LogAccessDenied(logger, clientIp, "Signature/Nonce Verification Failed");
+                await AddRiskAsync(httpContext, CrawlerRiskReason.PowInvalid, 10);
                 return new UnauthorizedObjectResult(Fail(httpContext, ErrorCode.Unauthorized, "安全校验未通过或凭证已过期"));
             }
 
@@ -99,6 +107,24 @@ internal static partial class PowValidationLogic
 
     private static ErrorDetail Fail(HttpContext httpContext, ErrorCode code, string message)
         => ErrorDetail.Create(code, message, traceId: httpContext.TraceIdentifier);
+
+    private static async Task AddRiskAsync(HttpContext httpContext, CrawlerRiskReason reason, int score)
+    {
+        var risk = httpContext.RequestServices.GetService<ICrawlerRiskService>();
+        if (risk is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await risk.AddRiskAsync(httpContext, reason, score, TimeSpan.FromMinutes(10), httpContext.RequestAborted);
+        }
+        catch
+        {
+            // PoW validation result must not depend on telemetry persistence.
+        }
+    }
 
     private static bool TryDecodeBinaryProof(ReadOnlySpan<byte> source, out VirtualPowRequest proof)
     {

@@ -20,16 +20,26 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
     // 核心性能优化：使用 volatile 保证后台更新时的原子性指针切换，查询侧达到绝对的“无锁零争用”
     private volatile IpRadixTree _googleTree = new();
     private volatile IpRadixTree _bingTree = new();
+    private volatile CrawlerRangeStatus _rangeStatus = CrawlerRangeStatus.Empty;
 
     /// <summary>
     /// 更新 CIDR 列表 (由后台任务调用)
     /// </summary>
-    public void UpdateCidrLists(List<string> googleRanges, List<string> bingRanges)
+    public void UpdateCidrLists(List<string> googleRanges, List<string> bingRanges, CrawlerRangeStatus? status = null)
     {
         _googleTree = BuildTree(googleRanges, MaxCidrRangesPerProvider);
         _bingTree = BuildTree(bingRanges, MaxCidrRangesPerProvider);
+        _rangeStatus = status ?? new CrawlerRangeStatus(
+            googleRanges.Count,
+            bingRanges.Count,
+            DateTimeOffset.UtcNow,
+            googleRanges.Count + bingRanges.Count > 0 ? DateTimeOffset.UtcNow : null,
+            googleRanges.Count + bingRanges.Count > 0 ? "config" : "empty",
+            googleRanges.Count + bingRanges.Count > 0 ? null : "crawler_cidrs_empty");
         logger.LogInformation("爬虫白名单前缀树构建完毕: Google {GCount} 段, Bing {BCount} 段", googleRanges.Count, bingRanges.Count);
     }
+
+    public CrawlerRangeStatus GetRangeStatus() => _rangeStatus;
 
     /// <summary>
     /// 核心方法：验证 IP 是否为合法的搜索引擎爬虫
@@ -61,7 +71,8 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
         {
             return _googleTree.Contains(ip);
         }
-        if (userAgent.Contains("bingbot", StringComparison.OrdinalIgnoreCase))
+        if (userAgent.Contains("bingbot", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("msnbot", StringComparison.OrdinalIgnoreCase))
         {
             return _bingTree.Contains(ip);
         }
@@ -172,6 +183,17 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
 
         return result;
     }
+}
+
+public sealed record CrawlerRangeStatus(
+    int GoogleRanges,
+    int BingRanges,
+    DateTimeOffset? LastSyncAt,
+    DateTimeOffset? LastSuccessAt,
+    string Source,
+    string? LastError)
+{
+    public static readonly CrawlerRangeStatus Empty = new(0, 0, null, null, "empty", null);
 }
 
 #region 极速 IP 前缀区间表

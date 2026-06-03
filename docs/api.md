@@ -19,7 +19,7 @@
 | 🔓 | 匿名可访问 |
 | 🔑 | 需要登录（Bearer JWT） |
 | 👑 | 需要 admin 角色 |
-| 🚦 | 有 IP 速率限制（fixed_ip 固定窗口） |
+| 🚦 | 有速率限制（fixed_ip / public_read / read_proof 等策略） |
 
 ---
 
@@ -195,14 +195,15 @@ Binary 端点输出 AEDS v2 帧（`Content-Type: application/octet-stream`）。
 | GET | `/api/notifications/stream` | WebSocket 通知通道（`fsus-aeds.v2`） | 🔓 |
 | GET | `/health/live` | JSON 存活探针 | 🔓 |
 | GET | `/health/ready` | JSON 就绪探针（Redis + DB + 启动状态）| 🔓 |
+| GET | `/api/ops/crawler-ranges/status` | Crawler CIDR 同步状态 | 👑 |
 
 ---
 
 ## 速率限制说明
 
-带 🚦 标记的端点受 `fixed_ip` 速率限制策略约束，按客户端 IP 计数，超限返回 `429 Too Many Requests`，响应头包含 `Retry-After`。
+带 🚦 标记的端点受速率限制策略约束：认证/写入默认使用 `fixed_ip`，公开动态读使用 `public_read`，真人阅读 proof 使用 `read_proof`。超限返回 `429 Too Many Requests`，响应头包含 `Retry-After`，并写入 crawler risk 分。
 
-客户端 IP 通过 `X-Forwarded-For` 提取（`context.GetClientIp()`），需要 Nginx 正确传递真实 IP。
+客户端 IP 由 `ForwardedHeadersMiddleware` 处理后通过 `context.GetClientIp()` 读取，需要 Nginx/OpenResty 正确传递真实 IP；业务代码不得直接信任原始转发头。
 
 ## AEDS 帧格式
 

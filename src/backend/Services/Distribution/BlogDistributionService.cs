@@ -126,11 +126,17 @@ public sealed class BlogDistributionService(
         return string.Join('\n',
             "User-agent: *",
             "Allow: /",
+            "Allow: /feed/",
+            "Allow: /sitemap.xml",
+            "Allow: /robots.txt",
+            "Allow: /api/public/",
             "Disallow: /login",
             "Disallow: /register",
             "Disallow: /user",
             "Disallow: /admin",
-            "Disallow: /api/binary/admin",
+            "Disallow: /api/",
+            "Disallow: /search/index.bin",
+            "Disallow: /search/patches/",
             $"Sitemap: {baseUrl}/sitemap.xml",
             string.Empty);
     }
