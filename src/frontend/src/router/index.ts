@@ -63,6 +63,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'manage/article/edit/:id', name: 'ManageEditArticle', component: () => import('@/views/admin/article/Write.vue'), meta: { title: '编辑文章', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/article/list', name: 'ManageArticleList', component: () => import('@/views/admin/article/List.vue'), meta: { title: '文章管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/article/trash', name: 'ManageArticleTrash', component: () => import('@/views/admin/article/Trash.vue'), meta: { title: '回收站', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
+      { path: 'manage/comments', name: 'ManageCommentModeration', component: () => import('@/views/admin/CommentModeration.vue'), meta: { title: '评论审核', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/category', name: 'ManageCategory', component: () => import('@/views/admin/Category.vue'), meta: { title: '分类管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/tag', name: 'ManageTag', component: () => import('@/views/admin/Tag.vue'), meta: { title: '标签管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/settings', name: 'ManageSettings', component: () => import('@/views/admin/Settings.vue'), meta: { title: '系统设置', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },

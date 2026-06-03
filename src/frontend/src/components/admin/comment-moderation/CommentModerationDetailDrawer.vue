@@ -1,0 +1,104 @@
+<template>
+  <el-drawer
+    :model-value="visible"
+    direction="rtl"
+    size="min(92vw, 34rem)"
+    @update:model-value="emit('update:visible', $event)"
+  >
+    <template #header>
+      <div v-if="item" class="min-w-0">
+        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">评论详情 / DETAIL</div>
+        <div class="mt-2 truncate text-xl font-bold text-[var(--fsusblog-text-primary)]">#{{ item.id }}</div>
+      </div>
+    </template>
+
+    <div v-if="item" class="space-y-8">
+      <section>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-[11px] font-black normal-case tracking-normal" :class="item.statusClass">{{ item.statusLabel }}</span>
+          <span class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]">{{ item.statusCode }}</span>
+          <SemanticTime :value="item.createTime" :text="item.createTimeText" class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]" />
+        </div>
+        <p class="mt-5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--fsusblog-text-secondary)]">
+          {{ item.content }}
+        </p>
+      </section>
+
+      <section class="grid grid-cols-1 gap-px bg-[var(--fsusblog-panel-bg-soft)] border-y border-[var(--fsusblog-panel-border)]">
+        <div class="bg-[var(--fsusblog-page-bg)] p-5">
+          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章</div>
+          <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.articleLabel }}</div>
+        </div>
+        <div class="bg-[var(--fsusblog-page-bg)] p-5">
+          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">用户</div>
+          <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.userLabel }}</div>
+        </div>
+      </section>
+
+      <section>
+        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">命中原因</div>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <el-tag v-for="reason in item.hitReasonLabels" :key="reason" type="info">
+            {{ reason }}
+          </el-tag>
+          <el-tag v-if="item.hitReasonLabels.length === 0" type="info">未命中</el-tag>
+        </div>
+      </section>
+
+      <section class="border-y border-[var(--fsusblog-panel-border)]">
+        <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
+          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核历史</div>
+        </div>
+        <div class="divide-y divide-[var(--fsusblog-panel-border)]">
+          <div v-for="event in item.auditEvents" :key="event" class="p-5 text-[12px] font-bold text-[var(--fsusblog-text-secondary)]">
+            {{ event }}
+          </div>
+        </div>
+      </section>
+
+      <section class="border-y border-[var(--fsusblog-panel-border)]">
+        <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
+          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审计事件</div>
+        </div>
+        <div class="p-5 text-[12px] leading-relaxed text-[var(--fsusblog-text-secondary)]">
+          <div class="font-bold">状态：{{ item.statusLabel }}</div>
+          <div class="mt-2 break-words">原因：{{ item.reason || '--' }}</div>
+          <div class="mt-2 tabular-nums">审核人：{{ item.moderatedByUserId ?? '--' }}</div>
+        </div>
+      </section>
+
+      <section>
+        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核操作</div>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <el-button :icon="Check" type="success" :loading="processing" @click="emit('apply', item, CommentModerationStatus.Approved)">通过</el-button>
+          <el-button :icon="Close" type="danger" :loading="processing" @click="emit('apply', item, CommentModerationStatus.Rejected)">拒绝</el-button>
+          <el-button :icon="Hide" :loading="processing" @click="emit('apply', item, CommentModerationStatus.Hidden)">隐藏</el-button>
+        </div>
+      </section>
+    </div>
+  </el-drawer>
+</template>
+
+<script setup lang="ts">
+import { Check, Close, Hide } from '@/ui/fsusIcons'
+import { CommentModerationStatus, type CommentModerationStatus as CommentModerationStatusValue } from '@/api/authoring'
+import SemanticTime from '@/components/ui/SemanticTime.vue'
+import type { CommentModerationViewItem } from '@/composables/useCommentModerationQueue'
+
+defineProps<{
+  visible: boolean
+  item: CommentModerationViewItem | null
+  processing: boolean
+}>()
+
+const emit = defineEmits<{
+  'update:visible': [value: boolean]
+  apply: [item: CommentModerationViewItem, status: CommentModerationStatusValue]
+}>()
+</script>
+
+<style scoped>
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+</style>

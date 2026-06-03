@@ -46,7 +46,7 @@
         <el-input
           id="mfa-setup-code"
           :model-value="setupCode"
-          @update:model-value="val => emit('update:setupCode', String(val))"
+          @update:model-value="(val: string | number) => emit('update:setupCode', String(val))"
           type="text"
           autocomplete="one-time-code"
           inputmode="numeric"

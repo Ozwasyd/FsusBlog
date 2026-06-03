@@ -24,6 +24,7 @@ type RankingContext = Readonly<{
 }>
 
 type FieldStats = Readonly<{
+  source: string
   text: string
   length: number
 }>
@@ -48,6 +49,7 @@ const K1 = 1.25
 const FRESHNESS_TAU_DAYS = 180
 const POPULARITY_PRIOR_VIEWS = 24
 const POPULARITY_PRIOR_WEIGHT = 2
+const FIELD_STATS_CACHE = new WeakMap<SearchableArticle, Partial<Record<FieldKey, FieldStats>>>()
 
 export function normalizeSearchText(value: string): string {
   return value.normalize('NFKC').toLocaleLowerCase().trim()
@@ -59,6 +61,10 @@ function unique(values: string[]): string[] {
 
 export function tokenizeSearchQuery(query: string): string[] {
   const normalized = normalizeSearchText(query)
+  return tokenizeNormalizedSearchText(normalized)
+}
+
+function tokenizeNormalizedSearchText(normalized: string): string[] {
   if (!normalized) {
     return []
   }
@@ -115,10 +121,6 @@ function countOccurrences(haystack: string, needle: string): number {
   return count
 }
 
-function estimateFieldLength(text: string): number {
-  return Math.max(1, tokenizeSearchQuery(text).length)
-}
-
 function resolveAverageFieldLengths(items: readonly SearchableArticle[]): Record<FieldKey, number> {
   const averages = {
     title: 1,
@@ -135,13 +137,36 @@ function resolveAverageFieldLengths(items: readonly SearchableArticle[]): Record
   for (const field of FIELD_SPECS) {
     let total = 0
     for (const item of items) {
-      total += estimateFieldLength(getFieldText(item, field.key))
+      total += getCachedFieldStats(item, field.key).length
     }
 
     averages[field.key] = Math.max(1, total / items.length)
   }
 
   return averages
+}
+
+function getCachedFieldStats(article: SearchableArticle, field: FieldKey): FieldStats {
+  let statsByField = FIELD_STATS_CACHE.get(article)
+  if (!statsByField) {
+    statsByField = {}
+    FIELD_STATS_CACHE.set(article, statsByField)
+  }
+
+  const source = getFieldText(article, field)
+  const cached = statsByField[field]
+  if (cached && cached.source === source) {
+    return cached
+  }
+
+  const text = normalizeSearchText(source)
+  const stats = {
+    source,
+    text,
+    length: Math.max(1, tokenizeNormalizedSearchText(text).length)
+  }
+  statsByField[field] = stats
+  return stats
 }
 
 function getFieldStats(article: SearchableArticle, field: FieldKey, context: RankingContext): FieldStats {
@@ -151,16 +176,7 @@ function getFieldStats(article: SearchableArticle, field: FieldKey, context: Ran
     context.fieldStats.set(article, statsByField)
   }
 
-  const cached = statsByField[field]
-  if (cached) {
-    return cached
-  }
-
-  const text = normalizeSearchText(getFieldText(article, field))
-  const stats = {
-    text,
-    length: estimateFieldLength(text)
-  }
+  const stats = getCachedFieldStats(article, field)
   statsByField[field] = stats
   return stats
 }
@@ -234,7 +250,7 @@ function createRankingContext(
     avgLengths: resolveAverageFieldLengths(corpus),
     maxViews: Math.max(1, ...corpus.map((item) => item.views)),
     nowMs,
-    fieldStats: new WeakMap<SearchableArticle, Partial<Record<FieldKey, FieldStats>>>()
+    fieldStats: FIELD_STATS_CACHE
   }
 }
 

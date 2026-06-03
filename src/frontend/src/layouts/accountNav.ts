@@ -54,6 +54,14 @@ const accountNavItems: readonly AccountNavItem[] = [
       || path.startsWith('/user/manage/article/edit/')
   },
   { label: '回收站', to: '/user/manage/article/trash', helper: '删除恢复', area: 'manage', adminOnly: true },
+  {
+    label: '评论审核',
+    to: '/user/manage/comments',
+    helper: '队列与审计',
+    area: 'manage',
+    adminOnly: true,
+    match: (path) => path.startsWith('/user/manage/comments')
+  },
   { label: '分类', to: '/user/manage/category', helper: '目录结构', area: 'manage', adminOnly: true },
   { label: '标签', to: '/user/manage/tag', helper: '索引关键词', area: 'manage', adminOnly: true },
   { label: '用户', to: '/user/manage/users', helper: '账户治理', area: 'manage', adminOnly: true },

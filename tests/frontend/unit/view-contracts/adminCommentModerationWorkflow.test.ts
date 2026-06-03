@@ -1,0 +1,80 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
+const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
+
+describe('admin comment moderation workflow contract', () => {
+  const router = readRepoFile('src/frontend/src/router/index.ts')
+  const accountNav = readRepoFile('src/frontend/src/layouts/accountNav.ts')
+  const dashboardPanel = readRepoFile('src/frontend/src/components/admin/DashboardCommentModerationPanel.vue')
+  const page = readRepoFile('src/frontend/src/views/admin/CommentModeration.vue')
+  const toolbar = readRepoFile('src/frontend/src/components/admin/comment-moderation/CommentModerationToolbar.vue')
+  const queue = readRepoFile('src/frontend/src/components/admin/comment-moderation/CommentModerationQueue.vue')
+  const drawer = readRepoFile('src/frontend/src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue')
+  const bulkActions = readRepoFile('src/frontend/src/components/admin/comment-moderation/CommentModerationBulkActions.vue')
+  const queueComposable = readRepoFile('src/frontend/src/composables/useCommentModerationQueue.ts')
+  const actionsComposable = readRepoFile('src/frontend/src/composables/useCommentModerationActions.ts')
+
+  it('registers a first-class admin route and sidebar entry', () => {
+    expect(router).toContain("path: 'manage/comments'")
+    expect(router).toContain("name: 'ManageCommentModeration'")
+    expect(router).toContain("component: () => import('@/views/admin/CommentModeration.vue')")
+    expect(router).toContain("roles: ['admin']")
+    expect(router).toContain("accountArea: 'manage'")
+    expect(router).toContain("accountContentMode: 'wide'")
+    expect(accountNav).toContain("label: '评论审核'")
+    expect(accountNav).toContain("to: '/user/manage/comments'")
+    expect(accountNav).toContain("path.startsWith('/user/manage/comments')")
+  })
+
+  it('keeps dashboard moderation as a summary with a dedicated workbench link', () => {
+    expect(dashboardPanel).toContain('待审摘要')
+    expect(dashboardPanel).toContain("name: 'ManageCommentModeration'")
+    expect(dashboardPanel).toContain('useCommentModerationQueue')
+    expect(dashboardPanel).not.toContain('moderateComment(')
+    expect(dashboardPanel).not.toContain('moderateCommentsBulk(')
+    expect(dashboardPanel).not.toContain('批量通过')
+  })
+
+  it('builds the independent workbench from reusable moderation parts', () => {
+    expect(page).toContain('CommentModerationToolbar')
+    expect(page).toContain('CommentModerationBulkActions')
+    expect(page).toContain('CommentModerationQueue')
+    expect(page).toContain('CommentModerationDetailDrawer')
+    expect(page).toContain('useCommentModerationQueue')
+    expect(page).toContain('useCommentModerationActions')
+    expect(page).toContain('applySingle(item, status, refreshAndPrune)')
+    expect(page).toContain('applyBulk(status, refreshAndPrune)')
+  })
+
+  it('exposes status, article, user, text, hit reason, and date range filters', () => {
+    expect(toolbar).toContain('评论审核状态筛选')
+    expect(toolbar).toContain('commentModerationKeyword')
+    expect(toolbar).toContain('commentModerationArticle')
+    expect(toolbar).toContain('commentModerationUser')
+    expect(toolbar).toContain('commentModerationHitReason')
+    expect(toolbar).toContain('el-date-picker')
+    expect(queueComposable).toContain('filters.keyword')
+    expect(queueComposable).toContain('filters.article')
+    expect(queueComposable).toContain('filters.user')
+    expect(queueComposable).toContain('filters.hitReason')
+    expect(queueComposable).toContain('filters.dateRange')
+  })
+
+  it('keeps single, bulk, detail, history, audit, and MFA proof flows wired', () => {
+    expect(queue).toContain('CommentModerationStatus.Approved')
+    expect(queue).toContain('CommentModerationStatus.Rejected')
+    expect(queue).toContain('CommentModerationStatus.Hidden')
+    expect(drawer).toContain('审核历史')
+    expect(drawer).toContain('审计事件')
+    expect(bulkActions).toContain('联动封禁用户')
+    expect(actionsComposable).toContain('startMfaChallenge(AdminSensitiveAction)')
+    expect(actionsComposable).toContain('verifyMfaChallenge')
+    expect(actionsComposable).toContain('moderateComment')
+    expect(actionsComposable).toContain('moderateCommentsBulk')
+    expect(actionsComposable).toContain('该评论已被其他管理员处理，请刷新队列')
+    expect(actionsComposable).toContain('审核操作过于频繁，请稍后再试')
+  })
+})
