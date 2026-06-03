@@ -183,24 +183,40 @@ public sealed class BlogDistributionService(
     }
 
     private async Task<IReadOnlyList<DistributionTaxonomyRow>> LoadCategoriesAsync(CancellationToken cancellationToken)
-        => await db.Queryable<Category>()
-            .OrderBy(category => category.Id)
-            .Select(category => new DistributionTaxonomyRow
+    {
+        DateTime now = DateTime.UtcNow;
+        return await db.Queryable<Category, Article>((category, article) => category.Id == article.CategoryId)
+            .Where((category, article) => !article.IsDeleted
+                && article.Status == ArticleStatus.Published
+                && (article.PublishedAt == null || article.PublishedAt <= now)
+                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now))
+            .GroupBy((category, article) => new { category.Id, category.Name })
+            .OrderBy((category, article) => category.Id)
+            .Select((category, article) => new DistributionTaxonomyRow
             {
                 Id = category.Id,
                 Name = category.Name
             })
             .ToListAsync(cancellationToken);
+    }
 
     private async Task<IReadOnlyList<DistributionTaxonomyRow>> LoadTagsAsync(CancellationToken cancellationToken)
-        => await db.Queryable<Tag>()
-            .OrderBy(tag => tag.Id)
-            .Select(tag => new DistributionTaxonomyRow
+    {
+        DateTime now = DateTime.UtcNow;
+        return await db.Queryable<Tag, ArticleTag, Article>((tag, articleTag, article) => tag.Id == articleTag.TagId && articleTag.ArticleId == article.Id)
+            .Where((tag, articleTag, article) => !article.IsDeleted
+                && article.Status == ArticleStatus.Published
+                && (article.PublishedAt == null || article.PublishedAt <= now)
+                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now))
+            .GroupBy((tag, articleTag, article) => new { tag.Id, tag.Name })
+            .OrderBy((tag, articleTag, article) => tag.Id)
+            .Select((tag, articleTag, article) => new DistributionTaxonomyRow
             {
                 Id = tag.Id,
                 Name = tag.Name
             })
             .ToListAsync(cancellationToken);
+    }
 
     private static string NormalizeBaseUrl(string? raw)
         => string.IsNullOrWhiteSpace(raw) ? "https://fsus.blog" : raw.Trim().TrimEnd('/');

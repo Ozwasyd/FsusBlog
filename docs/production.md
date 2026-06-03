@@ -38,6 +38,8 @@ Production validation rejects default JWT secrets, placeholder secrets, empty Re
 
 DataProtection keys are persisted by default under `FSUSBLOG_DATA_ROOT/data-protection-keys`; override with `DataProtection:KeyRingPath` or `FSUSBLOG_DATA_PROTECTION_KEY_RING` when running multiple instances or using a mounted secrets volume. Keep `DataProtection:ApplicationName=FsusBlog` consistent across rolling deployments so protected MFA/session payloads remain readable during restart and rollout windows.
 
+Set `FSUSBLOG_BACKUP_ROOT` to a persistent backup volume. `tools/operations/backup-site.sh` writes complete site packages there, and `/user/manage/ops` reports the latest database/uploads/DataProtection/config/package/drill artifact status. Keep `FSUSBLOG_DATA_ROOT`, uploads, AOT cache and search artifact paths stable across image rollouts so restore packages can be replayed on a new host without path guessing.
+
 ## Build And Deploy
 
 ```bash

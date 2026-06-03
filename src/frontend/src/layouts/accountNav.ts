@@ -75,6 +75,9 @@ const accountNavItems: readonly AccountNavItem[] = [
   { label: '资产库', to: '/user/manage/assets', helper: '媒体与引用', area: 'manage', adminOnly: true },
   { label: '备份迁移', to: '/user/manage/content-tools', helper: '导入导出', area: 'manage', adminOnly: true },
   { label: '审计日志', to: '/user/manage/audit', helper: '事件与证据', area: 'manage', adminOnly: true },
+  { label: '运维健康', to: '/user/manage/ops', helper: '依赖与 worker', area: 'manage', adminOnly: true },
+  { label: '缓存诊断', to: '/user/manage/cache', helper: 'AOT 与搜索', area: 'manage', adminOnly: true },
+  { label: '数据巡检', to: '/user/manage/integrity', helper: '一致性与 diff', area: 'manage', adminOnly: true },
   { label: '用户', to: '/user/manage/users', helper: '账户治理', area: 'manage', adminOnly: true },
   { label: '系统设置', to: '/user/manage/settings', helper: 'SEO 与页面', area: 'manage', adminOnly: true }
 ]

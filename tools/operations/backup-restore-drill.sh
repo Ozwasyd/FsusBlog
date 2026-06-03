@@ -17,6 +17,7 @@ REDIS_BACKUP="${FSUSBLOG_REDIS_BACKUP:-}"
 UPLOADS_BACKUP="${FSUSBLOG_UPLOADS_BACKUP:-}"
 AOT_BACKUP="${FSUSBLOG_AOT_BACKUP:-}"
 SEARCH_BACKUP="${FSUSBLOG_SEARCH_BACKUP:-}"
+SITE_BACKUP_PACKAGE="${FSUSBLOG_SITE_BACKUP_PACKAGE:-}"
 
 status="ok"
 blockers=()
@@ -266,6 +267,30 @@ restore_webroot_artifacts() {
   add_check "webroot-artifact-restore" "ok"
 }
 
+prepare_site_backup_package() {
+  if [[ -z "$SITE_BACKUP_PACKAGE" ]]; then
+    return
+  fi
+
+  if [[ ! -r "$SITE_BACKUP_PACKAGE" ]]; then
+    add_blocker "site-backup-package-missing"
+    return
+  fi
+
+  local package_dir="$WORK_DIR/site-package"
+  mkdir -p "$package_dir"
+  tar -xzf "$SITE_BACKUP_PACKAGE" -C "$package_dir"
+  POSTGRES_BACKUP="${POSTGRES_BACKUP:-$package_dir/database.dump}"
+  if [[ -z "$REDIS_BACKUP" ]]; then
+    mkdir -p "$package_dir/redis-empty"
+    REDIS_BACKUP="$package_dir/redis-empty"
+  fi
+  UPLOADS_BACKUP="${UPLOADS_BACKUP:-$package_dir/uploads.tar.gz}"
+  AOT_BACKUP="${AOT_BACKUP:-$package_dir/aot-cache.tar.gz}"
+  SEARCH_BACKUP="${SEARCH_BACKUP:-$package_dir/search.tar.gz}"
+  add_check "site-backup-package" "unpacked"
+}
+
 wait_for_url() {
   local label="$1"
   local url="$2"
@@ -363,6 +388,7 @@ run_real() {
   require_command curl
   require_command jq
   require_command npm
+  prepare_site_backup_package
   require_backup "$POSTGRES_BACKUP" "postgres"
   require_backup "$REDIS_BACKUP" "redis"
   require_backup "$UPLOADS_BACKUP" "uploads"

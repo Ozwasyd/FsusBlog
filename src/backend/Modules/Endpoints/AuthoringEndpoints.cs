@@ -1,6 +1,7 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
@@ -391,6 +392,142 @@ public static class AuthoringEndpoints
             return response is null
                 ? Results.NotFound(JsonApiResponse<AuditTamperVerifyResponse>.Fail("audit_log_not_found"))
                 : Results.Ok(JsonApiResponse<AuditTamperVerifyResponse>.Ok(response));
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapGet("/ops/health", async (
+            AdminOperationsService operations,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            OpsHealthResponse response = await operations.GetOpsHealthAsync(cancellationToken);
+            await auditEvents.RecordAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Infra,
+                "admin.ops.health_viewed",
+                AuditOutcomeCatalog.Success,
+                AuditSeverityCatalog.Info,
+                "管理员查看生产运维健康面板",
+                TargetType: "ops_health"), cancellationToken);
+            return Results.Ok(JsonApiResponse<OpsHealthResponse>.Ok(response));
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapGet("/ops/backup", (
+            AdminOperationsService operations) =>
+            Results.Ok(JsonApiResponse<BackupStatusResponse>.Ok(operations.GetBackupStatus())))
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapGet("/ops/dangerous-operations/policy", (
+            AdminOperationsService operations) =>
+            Results.Ok(JsonApiResponse<DangerousOperationPolicyResponse>.Ok(operations.GetDangerousOperationPolicy())))
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapGet("/cache/diagnostics", async (
+            int? articleId,
+            AdminOperationsService operations,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            CacheDiagnosticsResponse response = await operations.GetCacheDiagnosticsAsync(articleId, cancellationToken);
+            await auditEvents.RecordAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Infra,
+                "admin.cache.diagnostics_viewed",
+                AuditOutcomeCatalog.Success,
+                AuditSeverityCatalog.Info,
+                "管理员查看缓存/AOT/search/sitemap 诊断",
+                TargetType: "cache_diagnostics",
+                TargetId: articleId?.ToString(System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+            return Results.Ok(JsonApiResponse<CacheDiagnosticsResponse>.Ok(response));
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/cache/actions", async (
+            AdminCacheActionRequest request,
+            AdminOperationsService operations,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            AdminCacheActionResponse response = await operations.RunCacheActionAsync(request, cancellationToken);
+            await auditEvents.RecordHighValueAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Infra,
+                "admin.cache.action_executed",
+                response.Status is "ok" or "queued" ? AuditOutcomeCatalog.Success : AuditOutcomeCatalog.Failure,
+                response.Status is "ok" or "queued" ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Error,
+                "管理员执行缓存/索引维护动作",
+                TargetType: "cache_action",
+                TargetId: response.Action,
+                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["articleId"] = request.ArticleId,
+                    ["status"] = response.Status,
+                    ["detail"] = response.Detail
+                }), cancellationToken);
+            return Results.Ok(JsonApiResponse<AdminCacheActionResponse>.Ok(response));
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapGet("/integrity", async (
+            AdminOperationsService operations,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            IntegrityReportResponse response = await operations.InspectIntegrityAsync(cancellationToken);
+            await auditEvents.RecordAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Infra,
+                "admin.integrity.checked",
+                AuditOutcomeCatalog.Success,
+                response.IssueCount > 0 ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Info,
+                "管理员执行数据一致性巡检",
+                TargetType: "integrity_report",
+                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["issueCount"] = response.IssueCount,
+                    ["checkCount"] = response.CheckCount
+                }), cancellationToken);
+            return Results.Ok(JsonApiResponse<IntegrityReportResponse>.Ok(response));
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapGet("/integrity/fix-preview", async (
+            AdminOperationsService operations,
+            CancellationToken cancellationToken) =>
+            Results.Ok(JsonApiResponse<IntegrityFixPreviewResponse>.Ok(await operations.PreviewIntegrityFixAsync(cancellationToken))))
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/integrity/fix", async (
+            IntegrityFixRequest request,
+            HttpContext context,
+            IMfaChallengeService mfaChallengeService,
+            AdminOperationsService operations,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            IntegrityFixResponse response = await operations.ApplyIntegrityFixAsync(request, cancellationToken);
+            await auditEvents.RecordHighValueAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Infra,
+                "admin.integrity.safe_fix_applied",
+                response.Status == "applied" ? AuditOutcomeCatalog.Success : AuditOutcomeCatalog.Denied,
+                response.Status == "applied" ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Error,
+                "管理员应用数据巡检安全修复",
+                TargetType: "integrity_fix",
+                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["status"] = response.Status,
+                    ["appliedCount"] = response.AppliedCount,
+                    ["codes"] = request.Codes
+                }), cancellationToken);
+            return Results.Ok(JsonApiResponse<IntegrityFixResponse>.Ok(response));
         })
         .RequireRateLimiting("fixed_ip");
 

@@ -204,6 +204,22 @@ FsusBlog 采用三级角色体系：
 - 结构化审计写入 `sys_audit_log`：保留 `source/type/action/outcome/severity/actor/target`、trace/path/method、原因码和低基数 context；IP、User-Agent、session id、设备指纹只保存 SHA-256 hash。高价值 admin/security/audit 事件通过 `IAuditEventService` 同步写库，失败时写入 `FSUSBLOG_DATA_ROOT/audit-fallback/critical-audit-*.jsonl`，避免关键审计静默丢失。每条审计生成 `record_hash`，配置 `Audit:TamperEvidenceKey` 或 `Security:AuditTamperEvidenceKey` 时额外生成 `record_mac`；`/user/manage/audit` 可查询详情并校验单条防篡改证据。
 - OpenTelemetry 自定义属性只允许 `fsus.*` 枚举字段，覆盖 route kind、状态码、组件、缓存 policy、AOT source、搜索模式、后台任务计数等低基数维度；不得写入原始路径参数、请求/响应正文、Authorization、Cookie、token、email、用户名、IP 或 User-Agent。`X-Fsus-Trace-Id` 仅用于用户报告和日志/trace 关联，不表示认证身份。
 
+## Secret Rotation And Recovery
+
+单作者生产环境的 secret 轮换必须先生成站点备份包：
+
+```bash
+tools/operations/backup-site.sh
+```
+
+- `Jwt__SecretKey`：生成新 secret 后滚动重启应用；旧 JWT 立即失效，依赖 refresh cookie 的会话也应通过用户 session 撤销或强制重新登录收口。
+- DataProtection keyring：默认追加新 key，不删除旧 key；只有确认旧 cookie、MFA pending payload 和恢复窗口全部过期后，才在离线维护窗口清理旧 key。迁移服务器时必须恢复 `data-protection-keyring.tar.gz`，否则受保护 cookie/MFA payload 不可读。
+- Redis password：先更新 Redis ACL/密码，再更新 `ConnectionStrings__Redis` / `RedisOptions__Configuration`，重启后用 `/api/author/ops/health` 验证 Redis 状态。Redis 数据不作为业务恢复来源。
+- PostgreSQL password：先创建或切换数据库凭据，再更新 `ConnectionStrings__DefaultConnection`，重启前保留旧凭据到 readiness 通过。失败时恢复旧连接串或用最近数据库 dump 恢复。
+- 域名/服务器迁移：同步恢复数据库、uploads、DataProtection keyring 和必要配置；更新 `SITE_BASEURL`、`CORS_ALLOWED_HOSTS`、`APP_ALLOWED_HOSTS`、Fido2/WebAuthn domain/origin 后，执行 `/health/ready`、`/user/manage/ops`、sitemap/feed 和登录/MFA smoke。
+
+Secret 轮换、站点备份导出、数据巡检修复、批量封禁、密码重置等高价值操作必须写结构化审计。管理 UI 的危险操作策略来自 `/api/author/ops/dangerous-operations/policy`：系统设置、导入、revision rollback、taxonomy 修改和 integrity fix 必须先展示 changed-fields diff；批量封禁、重置密码、站点备份导出和 integrity fix 必须使用 MFA step-up。
+
 ## 安全测试矩阵
 
 `./tools/test.sh security` 是安全边界的发布阻断门控，并被 `./tools/test.sh production` 调用。

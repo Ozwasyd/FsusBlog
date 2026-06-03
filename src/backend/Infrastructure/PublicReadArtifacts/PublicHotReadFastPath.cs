@@ -1034,7 +1034,13 @@ public sealed class PublicHotReadCounters
     public void HtmlMiss() => Interlocked.Increment(ref PickStripe().HtmlMiss);
     public void Rejected() => Interlocked.Increment(ref PickStripe().Rejected);
 
+    public PublicHotReadCounterSnapshot Snapshot()
+        => Collect(reset: false);
+
     public PublicHotReadCounterSnapshot CollectAndReset()
+        => Collect(reset: true);
+
+    private PublicHotReadCounterSnapshot Collect(bool reset)
     {
         long articleHit = 0;
         long articleMiss = 0;
@@ -1047,14 +1053,14 @@ public sealed class PublicHotReadCounters
 
         foreach (CounterStripe stripe in _stripes)
         {
-            articleHit += Interlocked.Exchange(ref stripe.ArticleHit, 0);
-            articleMiss += Interlocked.Exchange(ref stripe.ArticleMiss, 0);
-            listHit += Interlocked.Exchange(ref stripe.ListHit, 0);
-            listMiss += Interlocked.Exchange(ref stripe.ListMiss, 0);
-            htmlHit += Interlocked.Exchange(ref stripe.HtmlHit, 0);
-            htmlMiss += Interlocked.Exchange(ref stripe.HtmlMiss, 0);
-            rejected += Interlocked.Exchange(ref stripe.Rejected, 0);
-            bytes += Interlocked.Exchange(ref stripe.Bytes, 0);
+            articleHit += reset ? Interlocked.Exchange(ref stripe.ArticleHit, 0) : Volatile.Read(ref stripe.ArticleHit);
+            articleMiss += reset ? Interlocked.Exchange(ref stripe.ArticleMiss, 0) : Volatile.Read(ref stripe.ArticleMiss);
+            listHit += reset ? Interlocked.Exchange(ref stripe.ListHit, 0) : Volatile.Read(ref stripe.ListHit);
+            listMiss += reset ? Interlocked.Exchange(ref stripe.ListMiss, 0) : Volatile.Read(ref stripe.ListMiss);
+            htmlHit += reset ? Interlocked.Exchange(ref stripe.HtmlHit, 0) : Volatile.Read(ref stripe.HtmlHit);
+            htmlMiss += reset ? Interlocked.Exchange(ref stripe.HtmlMiss, 0) : Volatile.Read(ref stripe.HtmlMiss);
+            rejected += reset ? Interlocked.Exchange(ref stripe.Rejected, 0) : Volatile.Read(ref stripe.Rejected);
+            bytes += reset ? Interlocked.Exchange(ref stripe.Bytes, 0) : Volatile.Read(ref stripe.Bytes);
         }
 
         return new PublicHotReadCounterSnapshot(articleHit, articleMiss, listHit, listMiss, htmlHit, htmlMiss, rejected, bytes);

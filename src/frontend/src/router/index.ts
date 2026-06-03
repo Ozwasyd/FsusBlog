@@ -70,6 +70,9 @@ const routes: RouteRecordRaw[] = [
       { path: 'manage/assets', name: 'ManageAssets', component: () => import('@/views/admin/Assets.vue'), meta: { title: '资产库', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/content-tools', name: 'ManageContentTools', component: () => import('@/views/admin/ContentTools.vue'), meta: { title: '备份与迁移', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/audit', name: 'ManageAuditLog', component: () => import('@/views/admin/AuditLog.vue'), meta: { title: '审计日志', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
+      { path: 'manage/ops', name: 'ManageOpsHealth', component: () => import('@/views/admin/OpsHealth.vue'), meta: { title: '运维健康', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
+      { path: 'manage/cache', name: 'ManageCacheDiagnostics', component: () => import('@/views/admin/CacheDiagnostics.vue'), meta: { title: '缓存诊断', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
+      { path: 'manage/integrity', name: 'ManageIntegrity', component: () => import('@/views/admin/Integrity.vue'), meta: { title: '数据巡检', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/settings', name: 'ManageSettings', component: () => import('@/views/admin/Settings.vue'), meta: { title: '系统设置', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/users', name: 'ManageUsers', component: () => import('@/views/admin/UserManage.vue'), meta: { title: '用户管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } }
     ]

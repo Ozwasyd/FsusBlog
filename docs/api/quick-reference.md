@@ -218,6 +218,14 @@
 | GET | `/api/author/audit/summary` | 👑🚦 | 审计 facet 汇总与写入 runtime |
 | GET | `/api/author/audit/{id}` | 👑🚦 | 审计详情与 context |
 | GET | `/api/author/audit/{id}/verify` | 👑🚦 | 单条防篡改证据校验 |
+| GET | `/api/author/ops/health` | 👑🚦 | 运维健康：DB/Redis/audit/worker/search/backup/队列 |
+| GET | `/api/author/ops/backup` | 👑🚦 | 最近站点备份和 restore drill 状态 |
+| GET | `/api/author/ops/dangerous-operations/policy` | 👑🚦 | 管理端危险操作确认、MFA 与 diff 策略 |
+| GET | `/api/author/cache/diagnostics` | 👑🚦 | AOT/PublicHotRead/search/sitemap/feed/comment cache 状态 |
+| POST | `/api/author/cache/actions` | 👑🚦 | 手动重建 search/AOT 或清理 output cache |
+| GET | `/api/author/integrity` | 👑🚦 | 数据一致性巡检报告 |
+| GET | `/api/author/integrity/fix-preview` | 👑🚦 | 安全修复 diff 预览 |
+| POST | `/api/author/integrity/fix` | 👑🚦 MFA | 应用安全修复，要求确认短语和 MFA proof |
 | POST | `/api/author/ai-assist` | 👑 | 默认关闭的作者 AI 辅助 |
 
 ---

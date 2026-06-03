@@ -202,6 +202,216 @@ export interface AuditTamperVerifyResponse {
   chainId: string | null
 }
 
+export interface AdminMetricResponse {
+  key: string
+  value: unknown
+}
+
+export interface AdminServiceStatusResponse {
+  key: string
+  label: string
+  status: string
+  detail: string | null
+  updatedAt: string | null
+  metrics: AdminMetricResponse[]
+}
+
+export interface BackupArtifactResponse {
+  kind: string
+  status: string
+  path: string | null
+  updatedAt: string | null
+  sizeBytes: number | null
+  detail: string | null
+}
+
+export interface BackupStatusResponse {
+  status: string
+  checkedAt: string
+  backupRoot: string
+  artifacts: BackupArtifactResponse[]
+  restoreDrillCommand: string
+  restoreCommand: string
+}
+
+export interface QueueBacklogResponse {
+  articleMutationPending: number
+  articleMutationFailed: number
+  auditQueued: number
+  auditDropped: number
+}
+
+export interface OpsHealthResponse {
+  status: string
+  checkedAt: string
+  environment: string
+  version: string
+  commit: string
+  services: AdminServiceStatusResponse[]
+  workers: AdminServiceStatusResponse[]
+  queueBacklog: QueueBacklogResponse
+  backup: BackupStatusResponse
+  recentErrors: string[]
+}
+
+export interface AotDiagnosticsResponse {
+  status: string
+  version: number
+  lastBuildAt: string | null
+  lastBuildStatus: string | null
+  lastBuildReason: string | null
+  lastError: string | null
+  stalePageCount: number
+  invalidationVersion: number
+  trackedInvalidationKeys: number
+}
+
+export interface SearchIndexDiagnosticsResponse {
+  status: string
+  version: string | null
+  lastUpdatedAt: string | null
+  schemaVersion: number
+  shardCount: number
+  manifestExists: boolean
+  manifestPath: string
+  lastError: string | null
+}
+
+export interface DistributionDiagnosticsResponse {
+  status: string
+  checkedAt: string
+  sitemapUrlCount: number
+  feedItemCount: number
+  sitemapUpdatedAt: string | null
+  feedUpdatedAt: string | null
+  lastError: string | null
+}
+
+export interface CacheInvalidationRuntimeSnapshot {
+  articleMutationCount: number
+  seoCount: number
+  systemPageCount: number
+  categoryTagCount: number
+  commentMutationCount: number
+  statsCount: number
+  articleViewCount: number
+  hotArticlesCount: number
+  lastInvalidatedAt: string | null
+  lastKind: string | null
+  lastDetail: string | null
+}
+
+export interface OutputCacheDiagnosticsResponse {
+  status: string
+  enabled: boolean
+  tags: string[]
+  detail: string
+}
+
+export interface PublicHotReadCounterSnapshot {
+  articleHit: number
+  articleMiss: number
+  listHit: number
+  listMiss: number
+  htmlHit: number
+  htmlMiss: number
+  rejected: number
+  bytes: number
+}
+
+export interface ArticleCacheDiagnosisResponse {
+  articleId: number
+  publiclyVisible: boolean
+  articleFrameReady: boolean
+  htmlFrameReady: boolean
+  searchEligible: boolean
+  sitemapEligible: boolean
+  detail: string
+}
+
+export interface CacheDiagnosticsResponse {
+  status: string
+  checkedAt: string
+  aot: AotDiagnosticsResponse
+  search: SearchIndexDiagnosticsResponse
+  distribution: DistributionDiagnosticsResponse
+  commentCache: CacheInvalidationRuntimeSnapshot
+  outputCache: OutputCacheDiagnosticsResponse
+  publicHotReadCounters: PublicHotReadCounterSnapshot
+  article: ArticleCacheDiagnosisResponse | null
+}
+
+export interface AdminCacheActionRequest {
+  action: string
+  articleId?: number | null
+}
+
+export interface AdminCacheActionResponse {
+  action: string
+  status: string
+  detail: string
+  completedAt: string
+}
+
+export interface AdminDiffResponse {
+  field: string
+  before: string
+  after: string
+}
+
+export interface IntegrityCheckResponse {
+  code: string
+  title: string
+  status: string
+  severity: string
+  count: number
+  autoFixAvailable: boolean
+  detail: string
+  sampleKeys: string[]
+  previewDiffs: AdminDiffResponse[]
+}
+
+export interface IntegrityReportResponse {
+  status: string
+  checkedAt: string
+  checkCount: number
+  issueCount: number
+  checks: IntegrityCheckResponse[]
+}
+
+export interface IntegrityFixPreviewResponse {
+  status: string
+  checkedAt: string
+  diffs: AdminDiffResponse[]
+  confirmationLevel: string
+  auditAction: string
+}
+
+export interface IntegrityFixRequest {
+  codes?: string[] | null
+  confirmPhrase: string
+}
+
+export interface IntegrityFixResponse {
+  status: string
+  appliedAt: string
+  appliedCount: number
+  diffs: AdminDiffResponse[]
+}
+
+export interface DangerousOperationRuleResponse {
+  level: string
+  interaction: string
+  examples: string[]
+}
+
+export interface DangerousOperationPolicyResponse {
+  rules: DangerousOperationRuleResponse[]
+  diffRequiredOperations: string[]
+  mfaRequiredOperations: string[]
+  strategyVersion: string
+}
+
 export interface AuditLogQueryParams {
   page?: number
   pageSize?: number
@@ -574,6 +784,102 @@ export async function verifyAuditLog(id: number, config?: ApiRequestConfig): Pro
   })
 
   return await readJsonEnvelope<AuditTamperVerifyResponse>(response, `audit_verify_failed:${response.status}`)
+}
+
+export async function getOpsHealth(config?: ApiRequestConfig): Promise<OpsHealthResponse> {
+  const response = await fetch('/api/author/ops/health', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<OpsHealthResponse>(response, `ops_health_fetch_failed:${response.status}`)
+}
+
+export async function getBackupStatus(config?: ApiRequestConfig): Promise<BackupStatusResponse> {
+  const response = await fetch('/api/author/ops/backup', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<BackupStatusResponse>(response, `backup_status_fetch_failed:${response.status}`)
+}
+
+export async function getDangerousOperationPolicy(config?: ApiRequestConfig): Promise<DangerousOperationPolicyResponse> {
+  const response = await fetch('/api/author/ops/dangerous-operations/policy', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<DangerousOperationPolicyResponse>(response, `dangerous_policy_fetch_failed:${response.status}`)
+}
+
+export async function getCacheDiagnostics(articleId?: number | null, config?: ApiRequestConfig): Promise<CacheDiagnosticsResponse> {
+  const search = new URLSearchParams()
+  if (articleId && articleId > 0) {
+    search.set('articleId', String(articleId))
+  }
+
+  const query = search.toString()
+  const response = await fetch(`/api/author/cache/diagnostics${query ? `?${query}` : ''}`, {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<CacheDiagnosticsResponse>(response, `cache_diagnostics_fetch_failed:${response.status}`)
+}
+
+export async function runCacheAction(
+  request: AdminCacheActionRequest,
+  config?: ApiRequestConfig
+): Promise<AdminCacheActionResponse> {
+  const response = await fetch('/api/author/cache/actions', {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders(true),
+    signal: config?.signal,
+    body: JSON.stringify(request)
+  })
+
+  return await readJsonEnvelope<AdminCacheActionResponse>(response, `cache_action_failed:${response.status}`)
+}
+
+export async function inspectIntegrity(config?: ApiRequestConfig): Promise<IntegrityReportResponse> {
+  const response = await fetch('/api/author/integrity', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<IntegrityReportResponse>(response, `integrity_fetch_failed:${response.status}`)
+}
+
+export async function previewIntegrityFix(config?: ApiRequestConfig): Promise<IntegrityFixPreviewResponse> {
+  const response = await fetch('/api/author/integrity/fix-preview', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<IntegrityFixPreviewResponse>(response, `integrity_fix_preview_failed:${response.status}`)
+}
+
+export async function applyIntegrityFix(
+  request: IntegrityFixRequest,
+  config?: ApiRequestConfig
+): Promise<IntegrityFixResponse> {
+  const response = await fetch('/api/author/integrity/fix', {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders(true, config?.mfaProofToken),
+    signal: config?.signal,
+    body: JSON.stringify(request)
+  })
+
+  return await readJsonEnvelope<IntegrityFixResponse>(response, `integrity_fix_failed:${response.status}`)
 }
 
 export async function listCommentModerationQueue(

@@ -7,6 +7,7 @@ public sealed class PublicAotInvalidationTracker
     private const string AllKey = "__all__";
     private readonly ConcurrentDictionary<string, long> _versions = new(StringComparer.Ordinal);
     private long _nextVersion;
+    private DateTimeOffset? _lastInvalidatedAt;
 
     public long MarkAll()
         => Mark(AllKey);
@@ -34,9 +35,18 @@ public sealed class PublicAotInvalidationTracker
     {
         long version = Interlocked.Increment(ref _nextVersion);
         _versions.AddOrUpdate(key, version, (_, _) => version);
+        _lastInvalidatedAt = DateTimeOffset.UtcNow;
         return version;
     }
 
     private long GetVersion(string key)
         => string.IsNullOrWhiteSpace(key) ? 0 : _versions.GetValueOrDefault(key);
+
+    public PublicAotInvalidationRuntimeSnapshot Snapshot()
+        => new(CurrentVersion, _versions.Count, _lastInvalidatedAt);
 }
+
+public sealed record PublicAotInvalidationRuntimeSnapshot(
+    long CurrentVersion,
+    int TrackedInvalidationKeys,
+    DateTimeOffset? LastInvalidatedAt);

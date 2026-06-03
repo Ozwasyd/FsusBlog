@@ -118,8 +118,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<IUnifiedCache, UnifiedCache>();
         services.AddSingleton<ICacheMissCoordinator, CacheMissCoordinator>();
         services.AddSingleton<IDbConcurrencyGate, DbConcurrencyGate>();
+        services.AddSingleton<CacheInvalidationRuntimeState>();
         services.AddScoped<IHttpCacheInvalidator, HttpCacheInvalidator>();
         services.AddScoped<ICacheInvalidationDispatcher, CacheInvalidationDispatcher>();
+        services.AddScoped<AdminOperationsService>();
         return services;
     }
 

@@ -356,6 +356,10 @@ docker-compose.yml
 
 Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoints` 只返回 JSON 运维快照；readiness 的启动状态来自 `StartupRuntimeState.CreateSnapshot()`，定时发布后台状态来自 `ScheduledPublishRuntimeState.CreateSnapshot()`，因此生产启动校验、cache/bootstrap rollback、定时发布 backlog 与 PublicAOT 壳层协议可以分别演进。
 
+单作者后台运维面板位于 `/user/manage/ops`、`/user/manage/cache`、`/user/manage/integrity`，后端统一由 `AdminOperationsService` 聚合。`/api/author/ops/health` 合并 readiness、审计 runtime、Crawler CIDR、PublicHotRead、Search manifest、备份 artifact 和 `article_mutation_outbox` backlog；`/api/author/cache/diagnostics` 从 `PublicHotReadStore`、`PublicAotInvalidationTracker`、`CacheInvalidationRuntimeState`、search manifest 与实际 sitemap/feed 构建结果读取状态；`/api/author/integrity` 做只读巡检，safe fix 只处理无效 `article_tag` 和注销用户 session 撤销，必须通过 diff、确认短语、MFA proof 和审计事件闭环。
+
+备份/恢复闭环由 `tools/operations/backup-site.sh`、`tools/operations/restore-site.sh` 和 `tools/operations/backup-restore-drill.sh` 承载。站点包包含 PostgreSQL dump、uploads、DataProtection keyring、脱敏配置、AOT cache 和 search artifacts；Redis 仍视为缓存/控制面依赖，restore drill 使用空 Redis 数据目录即可验证恢复后的运行时。数据库迁移仍由启动 lifecycle 运行，失败后的回滚依赖迁移前站点包或数据库 dump，而不是自动 in-process down migration。
+
 ## 生产启动保护
 
 服务器通过 HostedService 在启动后执行以下生产校验，失败时进入可观测降级状态而不是直接终止进程：
