@@ -1,0 +1,60 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
+const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
+
+describe('admin consistency workflow contract', () => {
+  const router = readRepoFile('src/frontend/src/router/index.ts')
+  const accountNav = readRepoFile('src/frontend/src/layouts/accountNav.ts')
+  const userMessages = readRepoFile('src/frontend/src/views/user/Messages.vue')
+  const messageCenter = readRepoFile('src/frontend/src/views/admin/MessageCenter.vue')
+  const assetsPage = readRepoFile('src/frontend/src/views/admin/Assets.vue')
+  const contentToolsPage = readRepoFile('src/frontend/src/views/admin/ContentTools.vue')
+  const messageApi = readRepoFile('src/frontend/src/api/message.ts')
+  const messageEndpoint = readRepoFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs')
+  const articleListComposable = readRepoFile('src/frontend/src/composables/useAdminArticleList.ts')
+  const articleListPage = readRepoFile('src/frontend/src/views/admin/article/List.vue')
+  const compactCard = readRepoFile('src/frontend/src/components/admin/article/AdminArticleCompactCard.vue')
+  const writePage = readRepoFile('src/frontend/src/views/admin/article/Write.vue')
+
+  it('splits admin message center from personal messagebox', () => {
+    expect(router).toContain("path: 'manage/messages'")
+    expect(router).toContain("name: 'ManageMessages'")
+    expect(accountNav).toContain("to: '/user/manage/messages'")
+    expect(accountNav).toContain("label: '站内信'")
+    expect(userMessages).toContain("route.name === 'ManageMessages'")
+    expect(userMessages).not.toContain('useUserStore')
+    expect(messageCenter).toContain("import Messages from '@/views/user/Messages.vue'")
+  })
+
+  it('exposes asset and content migration admin tools', () => {
+    expect(router).toContain("path: 'manage/assets'")
+    expect(router).toContain("path: 'manage/content-tools'")
+    expect(accountNav).toContain("to: '/user/manage/assets'")
+    expect(accountNav).toContain("to: '/user/manage/content-tools'")
+    expect(assetsPage).toContain('listAssetLibrary')
+    expect(assetsPage).toContain('cleanupOrphanAssets')
+    expect(assetsPage).toContain('reindexArticleAssets')
+    expect(assetsPage).toContain('deleteImage(asset.url)')
+    expect(contentToolsPage).toContain('exportContentBackup')
+    expect(contentToolsPage).toContain('exportArticleContent')
+    expect(contentToolsPage).toContain('importArticleContent')
+  })
+
+  it('keeps system messages single-target and rejects nullable target at the endpoint', () => {
+    expect(messageApi).toContain('targetUserId: number')
+    expect(messageApi).toContain('view.setUint8(8, 1)')
+    expect(messageEndpoint).toContain('!request.TargetUserId.HasValue || request.TargetUserId.Value <= 0')
+  })
+
+  it('routes non-public article preview through the management workspace', () => {
+    expect(articleListComposable).toContain('isPubliclyVisibleArticle')
+    expect(articleListComposable).toContain("preview: 'private'")
+    expect(articleListComposable).toContain("name: 'ManageEditArticle'")
+    expect(articleListPage).toContain('row.previewActionLabel')
+    expect(compactCard).toContain('row.previewActionLabel')
+    expect(writePage).toContain("route.query.preview === 'private'")
+  })
+})

@@ -70,6 +70,27 @@ public sealed record class AssetLibraryItemResponse(
 
 public sealed record class AssetCleanupResponse(int Deleted);
 
+public sealed record class AdminCategoryItemResponse(
+    int Id,
+    string Name,
+    int PublicArticleCount,
+    int DraftArticleCount,
+    int ScheduledArticleCount,
+    int ArchivedArticleCount,
+    int TotalBlockingArticleCount,
+    bool CanDelete);
+
+public sealed record class AdminTagItemResponse(
+    int Id,
+    string Name,
+    int PublicArticleCount,
+    int DraftArticleCount,
+    int ScheduledArticleCount,
+    int ArchivedArticleCount,
+    int DeletedArticleCount,
+    int TotalBlockingArticleCount,
+    bool CanDelete);
+
 public sealed record class AuthorAnalyticsMetricResponse(string Label, int Count);
 
 public sealed record class AuthorRumMetricResponse(string Name, int Count, double P75, double Average);

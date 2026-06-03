@@ -52,7 +52,7 @@ export function buildAdminRoutes(fixtures: PlaywrightAuditFixtures): RouteCheck[
     { name: 'manage-tag', path: '/user/manage/tag', expectedUrl: '/user/manage/tag' },
     { name: 'manage-settings', path: '/user/manage/settings', expectedUrl: '/user/manage/settings' },
     { name: 'manage-users', path: '/user/manage/users', expectedUrl: '/user/manage/users' },
-    { name: 'manage-message', path: '/user/messagebox', expectedUrl: '/user/messagebox' },
+    { name: 'manage-message', path: '/user/manage/messages', expectedUrl: '/user/manage/messages' },
     { name: 'manage-user-profile', path: '/user/profile', expectedUrl: '/user/profile' },
     { name: 'manage-login-redirect', path: '/login', expectedUrl: '/user/manage' }
   ]

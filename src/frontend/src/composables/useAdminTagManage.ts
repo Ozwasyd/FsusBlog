@@ -3,7 +3,8 @@ import { type FormInstance } from '@ozwasyd/element-plus'
 import { useRouter } from 'vue-router'
 import { isFsusUiOk } from '@/utils/fsusUiResult'
 import type { ApiRequestConfig } from '@/api/requestConfig'
-import { createTag, deleteTag, getTags, updateTag, type TagItem } from '@/api/tag'
+import { listAdminTags, type AdminTagItemResponse } from '@/api/authoring'
+import { createTag, deleteTag, updateTag } from '@/api/tag'
 import { useMutationFlow } from '@/composables/useMutationFlow'
 import { usePow } from '@/composables/usePow'
 import { useViewTask } from '@/composables/useViewTask'
@@ -11,7 +12,7 @@ import { showWarningToast } from '@/utils/errorPresentation'
 
 export function useAdminTagManage() {
   const router = useRouter()
-  const list = shallowRef<TagItem[]>([])
+  const list = shallowRef<AdminTagItemResponse[]>([])
   const loading = ref(false)
   const dialogVisible = ref(false)
   const submitting = ref(false)
@@ -36,7 +37,7 @@ export function useAdminTagManage() {
   const filteredList = computed(() => {
     const keyword = filters.keyword.trim().toLowerCase()
     return list.value.filter((item) => {
-      if (filters.unusedOnly && item.articleCount > 0) {
+      if (filters.unusedOnly && !item.canDelete) {
         return false
       }
 
@@ -56,7 +57,7 @@ export function useAdminTagManage() {
     try {
       const data = await loadTask.run(async (signal) => {
         const config: ApiRequestConfig = { signal }
-        return await getTags(config)
+        return await listAdminTags(config)
       }, {
         fallbackMessage: '标签列表同步失败',
         onError: () => {
@@ -74,7 +75,7 @@ export function useAdminTagManage() {
     }
   }
 
-  const openDialog = (row?: TagItem): void => {
+  const openDialog = (row?: AdminTagItemResponse): void => {
     editingId.value = row?.id || null
     form.name = row?.name || ''
     dialogVisible.value = true
@@ -97,7 +98,7 @@ export function useAdminTagManage() {
       }
 
       if (hasDuplicateName(cleanName)) {
-        showWarningToast(`标签「${cleanName}」已存在，请直接重命名原标签或选择合并路径。`)
+        showWarningToast(`标签「${cleanName}」已存在，请直接重命名原标签或换用更明确的名称。`)
         return
       }
 
@@ -125,9 +126,9 @@ export function useAdminTagManage() {
     }
   }
 
-  const handleDelete = (row: TagItem): void => {
-    if (row.articleCount > 0) {
-      showWarningToast(`标签「${row.name}」正被 ${row.articleCount} 篇文章引用，请先查看引用或执行合并清理。`)
+  const handleDelete = (row: AdminTagItemResponse): void => {
+    if (!row.canDelete) {
+      showWarningToast(`标签「${row.name}」正被 ${row.totalBlockingArticleCount} 篇文章引用，请先查看引用并移除标签。`)
       return
     }
 
@@ -139,7 +140,7 @@ export function useAdminTagManage() {
       submitting.value = true
       try {
         await mutation.confirmThenRun({
-          message: `确定要删除标签「${row.name}」吗？标签将从索引中移除。`,
+          message: `确定要删除标签「${row.name}」吗？仅未被任何文章引用的标签可以删除。`,
           title: '删除标签',
           confirmButtonText: '确认删除'
         }, async (signal) => {
@@ -162,12 +163,12 @@ export function useAdminTagManage() {
     return list.value.some((item) => item.id !== editingId.value && item.name.trim().toLowerCase() === normalized)
   }
 
-  const relationLockReason = (row: TagItem): string =>
-    row.articleCount > 0
-      ? `已引用 ${row.articleCount} 篇文章，请先查看引用或合并后再删除。`
+  const relationLockReason = (row: AdminTagItemResponse): string =>
+    !row.canDelete
+      ? `真实引用 ${row.totalBlockingArticleCount} 篇：公开 ${row.publicArticleCount}，草稿 ${row.draftArticleCount}，定时 ${row.scheduledArticleCount}，归档 ${row.archivedArticleCount}。请先移除引用后再删除。`
       : '未被引用，可删除'
 
-  const viewAssociatedArticles = (row: TagItem): void => {
+  const viewAssociatedArticles = (row: AdminTagItemResponse): void => {
     void router.push({
       name: 'ManageArticleList',
       query: {
@@ -176,10 +177,6 @@ export function useAdminTagManage() {
         tagId: String(row.id)
       }
     })
-  }
-
-  const handleMergeRequest = (row: TagItem): void => {
-    showWarningToast(`标签「${row.name}」的合并接口尚未开放。请先查看引用文章并批量调整标签。`)
   }
 
   const resetFilters = (): void => {
@@ -208,7 +205,6 @@ export function useAdminTagManage() {
     rules,
     relationLockReason,
     viewAssociatedArticles,
-    handleMergeRequest,
     resetFilters,
     openDialog,
     submitForm,

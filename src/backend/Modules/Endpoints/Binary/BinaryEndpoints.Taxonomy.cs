@@ -340,20 +340,18 @@ public static partial class BinaryEndpoints
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
             PublicHotArtifactUpdateQueue publicHotUpdates,
-            IAedsEncoder aeds,
-            ILoggerFactory loggerFactory) =>
+            IAedsEncoder aeds) =>
         {
-            var result = await db.Ado.UseTranAsync(async () =>
+            bool hasArticleLinks = await db.Queryable<ArticleTag>().AnyAsync(at => at.TagId == id);
+            if (hasArticleLinks)
             {
-                await db.Deleteable<ArticleTag>().Where(at => at.TagId == id).ExecuteCommandAsync();
-                await db.Deleteable<Tag>().In(id).ExecuteCommandAsync();
-            });
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "无法删除：该标签仍有关联文章，请先查看引用文章并移除标签"), aeds);
+            }
 
-            if (!result.IsSuccess)
+            int deleteCount = await db.Deleteable<Tag>().In(id).ExecuteCommandAsync();
+            if (deleteCount <= 0)
             {
-                loggerFactory.CreateLogger("BinaryTaxonomyEndpoints")
-                    .LogError(result.ErrorException, "标签删除事务失败 | ID: {Id} | 错误: {Msg}", id, result.ErrorMessage);
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, $"删除失败：{result.ErrorMessage}"), aeds);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：目标标签不存在或已被删除"), aeds);
             }
 
             using var _ = AuditLogScope.Push(

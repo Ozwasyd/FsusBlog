@@ -589,7 +589,7 @@ test.describe('SPA route audit', () => {
         ]
       },
       {
-        path: '/user/messagebox',
+        path: '/user/manage/messages',
         label: 'manage-message',
         selectors: [
           (page) => page.getByText('站内信中心', { exact: false }),

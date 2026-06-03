@@ -47,7 +47,7 @@
         </el-button>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item icon="Monitor" @click="$emit('view', row)">前台预览</el-dropdown-item>
+            <el-dropdown-item icon="Monitor" @click="$emit('view', row)">{{ row.previewActionLabel }}</el-dropdown-item>
             <el-dropdown-item icon="Box" @click="$emit('move-to-trash', row)">移入回收站</el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -70,6 +70,8 @@ export type AdminArticleCompactCardRow = ArticleListItemResponse & {
   statusTimeText: string
   statusTimeValue: string
   primaryActionLabel: string
+  previewActionLabel: string
+  publicPreviewAvailable: boolean
 }
 
 defineProps<{

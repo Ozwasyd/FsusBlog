@@ -62,8 +62,18 @@ const accountNavItems: readonly AccountNavItem[] = [
     adminOnly: true,
     match: (path) => path.startsWith('/user/manage/comments')
   },
+  {
+    label: '站内信',
+    to: '/user/manage/messages',
+    helper: '会话与工单',
+    area: 'manage',
+    adminOnly: true,
+    match: (path) => path.startsWith('/user/manage/messages')
+  },
   { label: '分类', to: '/user/manage/category', helper: '目录结构', area: 'manage', adminOnly: true },
   { label: '标签', to: '/user/manage/tag', helper: '索引关键词', area: 'manage', adminOnly: true },
+  { label: '资产库', to: '/user/manage/assets', helper: '媒体与引用', area: 'manage', adminOnly: true },
+  { label: '备份迁移', to: '/user/manage/content-tools', helper: '导入导出', area: 'manage', adminOnly: true },
   { label: '用户', to: '/user/manage/users', helper: '账户治理', area: 'manage', adminOnly: true },
   { label: '系统设置', to: '/user/manage/settings', helper: 'SEO 与页面', area: 'manage', adminOnly: true }
 ]

@@ -2,8 +2,10 @@ import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from
 import { type UploadRequestOptions } from '@ozwasyd/element-plus'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import {
+  deleteImage,
   getAdminPageData,
   getAdminSiteConfig,
+  refreshPageData,
   updatePageData,
   updateSiteConfig,
   type SeoConfigAdmin
@@ -24,6 +26,7 @@ export function useAdminSettingsPage() {
   const activeTab = ref('site')
   const savingSite = ref(false)
   const savingPage = ref(false)
+  const refreshingPage = ref(false)
   const pageLoading = ref(false)
   const imageLoading = ref(false)
   const siteLoadFailed = ref(false)
@@ -274,6 +277,26 @@ export function useAdminSettingsPage() {
     }
   }
 
+  const handleImageDelete = async (): Promise<void> => {
+    const current = siteForm.ogImage
+    if (!current) {
+      return
+    }
+
+    imageLoading.value = true
+    previousOgImage.value = current
+    try {
+      await deleteImage(current)
+      siteForm.ogImage = ''
+      toast.success('预览图已从配置移除并删除服务器文件，请保存同步')
+    } catch (error: unknown) {
+      siteForm.ogImage = previousOgImage.value
+      showErrorToast(error, '服务器文件删除失败')
+    } finally {
+      imageLoading.value = false
+    }
+  }
+
   const saveSiteConfig = async (): Promise<void> => {
     if (loadingSite.value) {
       showWarningToast('站点配置仍在加载，请稍后保存', '站点配置仍在加载，请稍后保存')
@@ -359,10 +382,23 @@ export function useAdminSettingsPage() {
     try {
       savingPage.value = true
       await updatePageData({ slug: currentSlug.value, content: pageContent.value })
+      await refreshPageData(currentSlug.value)
       originalPageContent.value = pageContent.value
-      toast.success('发布同步成功')
+      toast.success('发布并刷新缓存成功')
     } finally {
       savingPage.value = false
+    }
+  }
+
+  const refreshPageCache = async (): Promise<void> => {
+    refreshingPage.value = true
+    try {
+      await refreshPageData(currentSlug.value)
+      toast.success('页面缓存已刷新')
+    } catch (error: unknown) {
+      showErrorToast(error, '页面缓存刷新失败')
+    } finally {
+      refreshingPage.value = false
     }
   }
 
@@ -452,6 +488,7 @@ export function useAdminSettingsPage() {
     activeTab,
     savingSite,
     savingPage,
+    refreshingPage,
     loadingSite,
     siteFormDisabled,
     siteLoadFailed,
@@ -483,9 +520,11 @@ export function useAdminSettingsPage() {
     sanitizeKeywords,
     handleImageAction,
     handleImageRemove,
+    handleImageDelete,
     loadSiteConfig,
     saveSiteConfig,
     savePageContent,
+    refreshPageCache,
     requestPageSwitch,
     cancelPageSwitch,
     discardPageChangesAndSwitch,

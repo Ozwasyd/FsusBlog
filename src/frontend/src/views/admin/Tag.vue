@@ -10,7 +10,7 @@
       class="mb-12"
       eyebrow="索引规模 / SCALE"
       title="已存标签"
-      caption="维护博文索引关键词，高危操作将触发强制算力校验"
+      caption="删除判断使用管理端真实引用数，高危操作将触发强制算力校验"
       title-id="tag-scale-title"
     >
       <template #title>
@@ -58,19 +58,19 @@
           width="100"
           align="center"
         >
-          <template #default="{ row }: { row: TagItem }">
+          <template #default="{ row }: { row: AdminTagItemResponse }">
             <span class="tabular-nums">{{ row.id }}</span>
           </template>
         </el-table-column>
 
         <el-table-column prop="name" label="标签名称" :min-width="nameColumnWidth">
-          <template #default="{ row }: { row: TagItem }">
+          <template #default="{ row }: { row: AdminTagItemResponse }">
             <div class="min-w-0">
               <el-tag type="info">
                 # {{ row.name }}
               </el-tag>
               <p
-                v-if="isCompact && row.articleCount > 0"
+                v-if="isCompact && !row.canDelete"
                 class="mt-2 text-[11px] leading-5 text-[var(--fsusblog-text-muted)]"
               >
                 {{ relationLockReason(row) }}
@@ -81,35 +81,38 @@
 
         <el-table-column
           v-if="!isCompact"
-          prop="articleCount"
-          label="引用次数"
+          prop="totalBlockingArticleCount"
+          label="真实引用"
           :width="countColumnWidth"
           align="center"
           sortable
         >
-          <template #default="{ row }: { row: TagItem }">
+          <template #default="{ row }: { row: AdminTagItemResponse }">
             <el-statistic
-              :value="row.articleCount"
+              :value="row.totalBlockingArticleCount"
             />
+            <p class="mt-1 text-[10px] text-[var(--fsusblog-text-muted)]">
+              公开 {{ row.publicArticleCount }}
+            </p>
           </template>
         </el-table-column>
 
         <el-table-column label="管理" :width="actionColumnWidth" align="right">
-          <template #default="{ row }: { row: TagItem }">
+          <template #default="{ row }: { row: AdminTagItemResponse }">
             <div class="flex justify-end items-center gap-2 pr-2" :class="{ 'gap-1 pr-0': isCompact }">
               <el-button link type="primary" @click="openDialog(row)"> <span>{{ isCompact ? '改名' : '重命名' }}</span></el-button>
               <el-divider direction="vertical" />
               <el-button
                 link
                 type="primary"
-                :disabled="row.articleCount <= 0"
+                :disabled="row.totalBlockingArticleCount <= 0"
                 @click="viewAssociatedArticles(row)"
               >
                 <span v-if="!isCompact">查看文章</span><el-icon v-else><View /></el-icon>
               </el-button>
               <el-divider direction="vertical" />
               <el-tooltip
-                v-if="row.articleCount > 0"
+                v-if="!row.canDelete"
                 :content="relationLockReason(row)"
                 placement="top"
               >
@@ -124,10 +127,6 @@
                 @click="handleDelete(row)"
               >
                 删除
-              </el-button>
-              <el-divider direction="vertical" />
-              <el-button link type="warning" @click="handleMergeRequest(row)">
-                合并
               </el-button>
             </div>
           </template>
@@ -186,7 +185,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { type TagItem } from '@/api/tag'
+import { type AdminTagItemResponse } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { InfoFilled, Plus, Search, View, Lock } from '@/ui/fsusIcons'
@@ -207,7 +206,6 @@ const {
   rules,
   relationLockReason,
   viewAssociatedArticles,
-  handleMergeRequest,
   resetFilters,
   openDialog,
   submitForm,
@@ -216,12 +214,12 @@ const {
 
 void formRef
 
-const getTagRowKey = (row: TagItem): string => String(row.id)
+const getTagRowKey = (row: AdminTagItemResponse): string => String(row.id)
 
 const isCompact = useMediaQuery('(max-width: 639px)')
 const nameColumnWidth = computed(() => (isCompact.value ? 148 : 220))
 const countColumnWidth = computed(() => (isCompact.value ? 96 : 150))
-const actionColumnWidth = computed(() => (isCompact.value ? 188 : 320))
+const actionColumnWidth = computed(() => (isCompact.value ? 168 : 280))
 </script>
 
 <style scoped>

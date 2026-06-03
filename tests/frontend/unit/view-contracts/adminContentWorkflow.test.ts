@@ -18,6 +18,9 @@ describe('admin content governance workflow contract', () => {
   const categoryComposable = readRepoFile('src/frontend/src/composables/useAdminCategoryManage.ts')
   const tagPage = readRepoFile('src/frontend/src/views/admin/Tag.vue')
   const tagComposable = readRepoFile('src/frontend/src/composables/useAdminTagManage.ts')
+  const authoringApi = readRepoFile('src/frontend/src/api/authoring.ts')
+  const taxonomyEndpoint = readRepoFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs')
+  const authoringEndpoint = readRepoFile('src/backend/Modules/Endpoints/AuthoringEndpoints.cs')
   const dashboardPanel = readRepoFile('src/frontend/src/components/admin/DashboardOperationsPanel.vue')
 
   it('serializes admin keyword search through frontend and backend list queries', () => {
@@ -68,16 +71,25 @@ describe('admin content governance workflow contract', () => {
   })
 
   it('adds taxonomy search, duplicate checks, reference locks, and article drill-downs', () => {
+    expect(authoringApi).toContain('listAdminCategories')
+    expect(authoringApi).toContain('listAdminTags')
+    expect(authoringEndpoint).toContain('"/taxonomy/categories"')
+    expect(authoringEndpoint).toContain('"/taxonomy/tags"')
+    expect(taxonomyEndpoint).toContain('AnyAsync(at => at.TagId == id)')
+    expect(taxonomyEndpoint).not.toContain('Deleteable<ArticleTag>().Where(at => at.TagId == id)')
     expect(categoryComposable).toContain('filteredList')
     expect(categoryComposable).toContain('hasDuplicateName')
     expect(categoryComposable).toContain('viewAssociatedArticles')
+    expect(categoryComposable).toContain('listAdminCategories')
+    expect(categoryComposable).toContain('totalBlockingArticleCount')
     expect(categoryComposable).toContain("name: 'ManageArticleList'")
     expect(categoryPage).toContain('仅未引用')
     expect(categoryPage).toContain('relationLockReason(row)')
-    expect(tagComposable).toContain('handleMergeRequest')
+    expect(tagComposable).toContain('listAdminTags')
     expect(tagComposable).toContain('正被')
+    expect(tagComposable).not.toContain('handleMergeRequest')
     expect(tagPage).toContain('查看文章')
-    expect(tagPage).toContain('合并')
+    expect(tagPage).not.toContain('合并')
   })
 
   it('does not label a category-only dashboard route as category and tag management', () => {

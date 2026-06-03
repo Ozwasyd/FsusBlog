@@ -234,7 +234,7 @@
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
-                        <el-dropdown-item icon="Monitor" @click="handleViewArticle(row)">前台预览</el-dropdown-item>
+                        <el-dropdown-item icon="Monitor" @click="handleViewArticle(row)">{{ row.previewActionLabel }}</el-dropdown-item>
                         <el-dropdown-item icon="Box" @click="handleMoveToTrash(row)">移入回收站</el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
@@ -286,6 +286,8 @@ type ArticleListViewItem = ArticleListItemResponse & {
   statusTimeText: string
   statusTimeValue: string
   primaryActionLabel: string
+  previewActionLabel: string
+  publicPreviewAvailable: boolean
 }
 const {
   router,

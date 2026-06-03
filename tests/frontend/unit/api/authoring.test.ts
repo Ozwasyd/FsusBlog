@@ -10,6 +10,8 @@ import {
   getArticleRevision,
   getServerDraft,
   importArticleContent,
+  listAdminCategories,
+  listAdminTags,
   listArticleRevisions,
   listAssetLibrary,
   listCommentModerationQueue,
@@ -199,6 +201,51 @@ describe('authoring API (server drafts)', () => {
     await expect(cleanupOrphanAssets()).resolves.toBe(3)
     expect(fetchMock).toHaveBeenCalledWith('/api/author/assets/orphans', expect.objectContaining({
       method: 'DELETE',
+      credentials: 'include'
+    }))
+  })
+
+  it('listAdminCategories fetches management taxonomy counts', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: [{
+        id: 1,
+        name: 'Drafts',
+        publicArticleCount: 0,
+        draftArticleCount: 2,
+        scheduledArticleCount: 0,
+        archivedArticleCount: 1,
+        totalBlockingArticleCount: 3,
+        canDelete: false
+      }]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const categories = await listAdminCategories()
+    expect(categories[0]?.totalBlockingArticleCount).toBe(3)
+    expect(fetchMock).toHaveBeenCalledWith('/api/author/taxonomy/categories', expect.objectContaining({
+      credentials: 'include'
+    }))
+  })
+
+  it('listAdminTags fetches management taxonomy counts', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: [{
+        id: 2,
+        name: 'wip',
+        publicArticleCount: 0,
+        draftArticleCount: 1,
+        scheduledArticleCount: 1,
+        archivedArticleCount: 0,
+        deletedArticleCount: 0,
+        totalBlockingArticleCount: 2,
+        canDelete: false
+      }]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const tags = await listAdminTags()
+    expect(tags[0]?.totalBlockingArticleCount).toBe(2)
+    expect(fetchMock).toHaveBeenCalledWith('/api/author/taxonomy/tags', expect.objectContaining({
       credentials: 'include'
     }))
   })

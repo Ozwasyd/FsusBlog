@@ -73,6 +73,29 @@ export interface AssetLibraryItemResponse {
   updatedAt: string
 }
 
+export interface AdminCategoryItemResponse {
+  id: number
+  name: string
+  publicArticleCount: number
+  draftArticleCount: number
+  scheduledArticleCount: number
+  archivedArticleCount: number
+  totalBlockingArticleCount: number
+  canDelete: boolean
+}
+
+export interface AdminTagItemResponse {
+  id: number
+  name: string
+  publicArticleCount: number
+  draftArticleCount: number
+  scheduledArticleCount: number
+  archivedArticleCount: number
+  deletedArticleCount: number
+  totalBlockingArticleCount: number
+  canDelete: boolean
+}
+
 export interface AuthorAnalyticsMetricResponse {
   label: string
   count: number
@@ -382,6 +405,26 @@ export async function cleanupOrphanAssets(config?: ApiRequestConfig): Promise<nu
   })
   const result = await readJsonEnvelope<{ deleted?: number }>(response, `asset_orphan_cleanup_failed:${response.status}`)
   return Number(result.deleted ?? 0)
+}
+
+export async function listAdminCategories(config?: ApiRequestConfig): Promise<AdminCategoryItemResponse[]> {
+  const response = await fetch('/api/author/taxonomy/categories', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<AdminCategoryItemResponse[]>(response, `admin_category_fetch_failed:${response.status}`)
+}
+
+export async function listAdminTags(config?: ApiRequestConfig): Promise<AdminTagItemResponse[]> {
+  const response = await fetch('/api/author/taxonomy/tags', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<AdminTagItemResponse[]>(response, `admin_tag_fetch_failed:${response.status}`)
 }
 
 export async function getAuthorAnalytics(config?: ApiRequestConfig): Promise<AuthorAnalyticsResponse> {

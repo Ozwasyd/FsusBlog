@@ -10,7 +10,7 @@
       class="mb-12"
       eyebrow="库存状态 / INVENTORY"
       title="现有分类"
-      caption="安全机制：仅允许删除关联文章数为 0 的项，变更将即时同步至主站"
+      caption="安全机制：删除判断使用管理端真实引用数，不复用公开分类计数"
       title-id="category-inventory-title"
     >
       <template #title>
@@ -52,17 +52,17 @@
         :row-key="getCategoryRowKey"
         >
         <el-table-column v-if="!isCompact" prop="id" label="ID" width="100" align="center">
-          <template #default="{ row }: { row: CategoryItem }">
+          <template #default="{ row }: { row: AdminCategoryItemResponse }">
             <span class="tabular-nums">{{ row.id }}</span>
           </template>
         </el-table-column>
 
         <el-table-column prop="name" label="分类名称" :min-width="nameColumnWidth">
-          <template #default="{ row }: { row: CategoryItem }">
+          <template #default="{ row }: { row: AdminCategoryItemResponse }">
             <div class="min-w-0">
               <strong class="font-bold text-[var(--fsusblog-text-secondary)] leading-6">{{ row.name }}</strong>
               <p
-                v-if="isCompact && row.articleCount > 0"
+                v-if="isCompact && !row.canDelete"
                 class="mt-1 text-[11px] leading-5 text-[var(--fsusblog-text-muted)]"
               >
                 {{ relationLockReason(row) }}
@@ -73,21 +73,24 @@
 
         <el-table-column
           v-if="!isCompact"
-          prop="articleCount"
-          label="关联文章"
+          prop="totalBlockingArticleCount"
+          label="真实引用"
           :width="relationColumnWidth"
           align="center"
           sortable
         >
-          <template #default="{ row }: { row: CategoryItem }">
+          <template #default="{ row }: { row: AdminCategoryItemResponse }">
             <el-statistic
-              :value="row.articleCount"
+              :value="row.totalBlockingArticleCount"
             />
+            <p class="mt-1 text-[10px] text-[var(--fsusblog-text-muted)]">
+              公开 {{ row.publicArticleCount }}
+            </p>
           </template>
         </el-table-column>
 
         <el-table-column label="管理" :width="actionColumnWidth" align="right" :fixed="isCompact ? false : 'right'">
-          <template #default="{ row }: { row: CategoryItem }">
+          <template #default="{ row }: { row: AdminCategoryItemResponse }">
             <div class="flex justify-end items-center gap-2 pr-2" :class="{ 'gap-1 pr-0': isCompact }">
               <el-button link type="primary" @click="openDialog(row)">
                 <span v-if="!isCompact">编辑</span><el-icon v-else><Edit /></el-icon>
@@ -96,7 +99,7 @@
               <el-button
                 link
                 type="primary"
-                :disabled="row.articleCount <= 0"
+                :disabled="row.totalBlockingArticleCount <= 0"
                 @click="viewAssociatedArticles(row)"
               >
                 <span v-if="!isCompact">查看文章</span><el-icon v-else><View /></el-icon>
@@ -104,7 +107,7 @@
               <el-divider direction="vertical" />
 
               <el-tooltip
-                v-if="row.articleCount > 0"
+                v-if="!row.canDelete"
                 :content="relationLockReason(row)"
                 placement="top"
               >
@@ -176,7 +179,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { type CategoryItem } from '@/api/category'
+import { type AdminCategoryItemResponse } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { InfoFilled, Plus, Edit, Lock, Delete, Search, View } from '@/ui/fsusIcons'
@@ -205,7 +208,7 @@ const {
 
 void formRef
 
-const getCategoryRowKey = (row: CategoryItem): string => String(row.id)
+const getCategoryRowKey = (row: AdminCategoryItemResponse): string => String(row.id)
 const isCompact = useMediaQuery('(max-width: 639px)')
 const nameColumnWidth = computed(() => (isCompact.value ? 148 : 200))
 const relationColumnWidth = computed(() => (isCompact.value ? 96 : 150))

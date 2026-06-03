@@ -109,8 +109,19 @@ public static partial class BinaryEndpoints
         group.MapGet("/system/admin/page/{slug}", static async Task<BinaryFrameResult> (
             string slug,
             ISystemService systemService,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            ILoggerFactory loggerFactory) =>
         {
+            var slugSpan = slug.AsSpan();
+            if (slugSpan.IsEmpty ||
+                !FastCharValidator.IsAlphaNumericHyphen(slugSpan) ||
+                !AllowedPageSlugs.Contains(slug))
+            {
+                var logger = loggerFactory.CreateLogger("BinarySystemEndpoints");
+                logger.LogWarning("拦截到非法的管理页面请求 Slug: {Slug}", slug);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "请求的页面不存在"), aeds);
+            }
+
             var data = await systemService.GetPageContentAsync(slug);
             if (data is null)
             {
@@ -140,9 +151,11 @@ public static partial class BinaryEndpoints
             }
 
             var slugSpan = (dto.Slug ?? string.Empty).AsSpan();
-            if (slugSpan.IsEmpty || !FastCharValidator.IsAlphaNumericHyphen(slugSpan))
+            if (slugSpan.IsEmpty ||
+                !FastCharValidator.IsAlphaNumericHyphen(slugSpan) ||
+                !AllowedPageSlugs.Contains(dto.Slug ?? string.Empty))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "页面标识 (Slug) 格式非法，仅允许字母、数字和连字符"), aeds);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "页面标识 (Slug) 不在可管理静态页范围内"), aeds);
             }
 
             bool success = await systemService.UpdatePageContentAsync(new UpdatePageContentRequest
@@ -166,9 +179,11 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds) =>
         {
             var slugSpan = slug.AsSpan();
-            if (slugSpan.IsEmpty || !FastCharValidator.IsAlphaNumericHyphen(slugSpan))
+            if (slugSpan.IsEmpty ||
+                !FastCharValidator.IsAlphaNumericHyphen(slugSpan) ||
+                !AllowedPageSlugs.Contains(slug))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "页面标识 (Slug) 格式非法，仅允许字母、数字和连字符"), aeds);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "页面标识 (Slug) 不在可管理静态页范围内"), aeds);
             }
 
             bool success = await systemService.RefreshPageCacheAsync(slug);

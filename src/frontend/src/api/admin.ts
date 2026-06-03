@@ -59,7 +59,7 @@ interface PowBaseDto {
  */
 export interface AdminChangeStatusDto extends PowBaseDto {
   userId: number
-  status: number // 1: 禁用, 0: 启用
+  status: 0 | 1 // 1: 禁用, 0: 启用
   reason?: string // 封禁理由
 }
 

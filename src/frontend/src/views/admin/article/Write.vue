@@ -406,6 +406,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import ArticleAssetLibraryPanel from '@/components/admin/article/ArticleAssetLibraryPanel.vue'
 import ArticlePrivatePreviewPanel from '@/components/admin/article/ArticlePrivatePreviewPanel.vue'
 import ArticleRevisionPanel from '@/components/admin/article/ArticleRevisionPanel.vue'
@@ -417,6 +418,8 @@ import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite'
 import type { AssetLibraryItemResponse } from '@/api/authoring'
 
 type EditorLayoutMode = 'standard' | 'focus' | 'fullscreen'
+
+const route = useRoute()
 
 const {
   formRef,
@@ -507,7 +510,7 @@ const coverInputRef = ref<HTMLInputElement | null>(null)
 const articleEditorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean } | null>(null)
 const submitConfirmDialog = ref(false)
 const leaveConfirmDialog = ref(false)
-const sidePanelTab = ref('publish')
+const sidePanelTab = ref(route.query.preview === 'private' ? 'preview' : 'publish')
 const editorLayoutMode = ref<EditorLayoutMode>('standard')
 
 const triggerCoverInput = (): void => {

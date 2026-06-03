@@ -258,13 +258,13 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import { useInboxSplitView } from '@/composables/useInboxSplitView'
 import { useUserMessagesInbox } from '@/composables/useUserMessagesInbox'
-import { useUserStore } from '@/store/user'
 
-const userStore = useUserStore()
-const isAdminView = computed(() => userStore.isAdmin)
+const route = useRoute()
+const isAdminView = computed(() => route.name === 'ManageMessages')
 
 const adminCenter = useAdminMessageCenter(() => isAdminView.value)
 const userInbox = useUserMessagesInbox(() => !isAdminView.value)

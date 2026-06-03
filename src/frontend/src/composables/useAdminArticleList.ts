@@ -30,6 +30,8 @@ type AdminArticleListViewItem = ArticleListItemResponse & {
   statusTimeText: string
   statusTimeValue: string
   primaryActionLabel: string
+  previewActionLabel: string
+  publicPreviewAvailable: boolean
 }
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
@@ -63,6 +65,18 @@ const primaryActionLabel = (status: ArticlePublishStatus | undefined): string =>
   if (status === ArticlePublishStatus.Archived) return '查看并恢复'
   return '编辑'
 }
+
+const isDateDue = (value: string | null | undefined, nowMs: number): boolean => {
+  if (!value) return true
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) && parsed <= nowMs
+}
+
+const isPubliclyVisibleArticle = (item: ArticleListItemResponse, nowMs = Date.now()): boolean =>
+  !item.isDeleted
+  && item.status === ArticlePublishStatus.Published
+  && isDateDue(item.publishedAt, nowMs)
+  && isDateDue(item.scheduledPublishAt, nowMs)
 
 const statusTimeMeta = (item: ArticleListItemResponse): Pick<AdminArticleListViewItem, 'statusTimeLabel' | 'statusTimeText' | 'statusTimeValue'> => {
   const value = item.status === ArticlePublishStatus.Scheduled && item.scheduledPublishAt
@@ -134,17 +148,23 @@ export function useAdminArticleList() {
   const loadTask = useViewTask()
   const taxonomyTask = useViewTask()
   const mutation = useMutationFlow()
-  const articleListView = computed<AdminArticleListViewItem[]>(() =>
-    articleList.value.map((item) => ({
-      ...item,
-      createdAtText: TimeUtils.toFullLocalString(item.createTime),
-      categoryName: item.category?.name || '未分类',
-      statusText: statusText(item.status),
-      statusTagType: statusTagType(item.status),
-      primaryActionLabel: primaryActionLabel(item.status),
-      ...statusTimeMeta(item)
-    }))
-  )
+  const articleListView = computed<AdminArticleListViewItem[]>(() => {
+    const nowMs = Date.now()
+    return articleList.value.map((item) => {
+      const publicPreviewAvailable = isPubliclyVisibleArticle(item, nowMs)
+      return {
+        ...item,
+        createdAtText: TimeUtils.toFullLocalString(item.createTime),
+        categoryName: item.category?.name || '未分类',
+        statusText: statusText(item.status),
+        statusTagType: statusTagType(item.status),
+        primaryActionLabel: primaryActionLabel(item.status),
+        previewActionLabel: publicPreviewAvailable ? '前台预览' : '管理预览',
+        publicPreviewAvailable,
+        ...statusTimeMeta(item)
+      }
+    })
+  })
   const totalText = computed(() => `检索到 ${total.value} 篇记录`)
   const isBusy = computed(() => loading.value || taxonomyTask.loading.value)
 
@@ -349,7 +369,16 @@ export function useAdminArticleList() {
 
   const handleMoreCommand = (command: string, row: ArticleListItemResponse): void => {
     if (command === 'view') {
-      window.open(`/article/${row.id}`, '_blank', 'noopener,noreferrer')
+      if (isPubliclyVisibleArticle(row)) {
+        window.open(`/article/${row.id}`, '_blank', 'noopener,noreferrer')
+        return
+      }
+
+      void router.push({
+        name: 'ManageEditArticle',
+        params: { id: String(row.id) },
+        query: { from: route.fullPath, preview: 'private' }
+      })
       return
     }
 

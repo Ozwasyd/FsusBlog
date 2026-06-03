@@ -112,7 +112,7 @@
 | 方法 | 路径 | 权限 | 缓存 | 说明 |
 |------|------|------|------|------|
 | GET | `/api/System/seo` | 🔓 | 🗄️ | 站点 SEO 配置 |
-| GET | `/api/System/page/{slug}` | 🔓 | 🗄️ | 指定 slug 的静态页面内容 |
+| GET | `/api/System/page/{slug}` | 🔓 | 🗄️ | 指定 slug 的静态页面内容；当前只支持 `about/privacy/guidelines` |
 
 ---
 
@@ -153,31 +153,31 @@
 
 ---
 
-## 消息系统 — `/api/v1/messages`
+## 消息系统 — `/api/binary/messages`
 
 > 整个路由组需要登录（🔑）。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/v1/messages/conversations` | 当前用户对话列表 |
-| GET | `/api/v1/messages/conversations/{id}` | 对话详情与消息 |
-| POST | `/api/v1/messages/conversations` | 发起新对话 |
-| POST | `/api/v1/messages/conversations/{id}/reply` | 回复对话 |
-| POST | `/api/v1/messages/conversations/{id}/read` | 标记对话已读 |
+| GET | `/api/binary/messages/conversations` | 当前用户对话列表 |
+| GET | `/api/binary/messages/conversations/{id}` | 对话详情与消息 |
+| POST | `/api/binary/messages/conversations` | 发起新对话 |
+| POST | `/api/binary/messages/conversations/{id}/reply` | 回复对话 |
+| POST | `/api/binary/messages/conversations/{id}/read` | 标记对话已读 |
 
 ---
 
-## 管理端消息 — `/api/v1/admin/messages`
+## 管理端消息 — `/api/binary/admin/messages`
 
 > 整个路由组需要 admin 角色（👑）。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/v1/admin/messages/conversations` | 所有对话列表 |
-| GET | `/api/v1/admin/messages/conversations/{id}` | 对话详情 |
-| POST | `/api/v1/admin/messages/conversations/{id}/reply` | 以管理员身份回复 |
-| POST | `/api/v1/admin/messages/conversations/{id}/status` | 更新对话状态（open/closed） |
-| POST | `/api/v1/admin/messages/system-send` | 系统广播消息 |
+| GET | `/api/binary/admin/messages/conversations` | 所有对话列表 |
+| GET | `/api/binary/admin/messages/conversations/{id}` | 对话详情 |
+| POST | `/api/binary/admin/messages/conversations/{id}/reply` | 以管理员身份回复 |
+| POST | `/api/binary/admin/messages/conversations/{id}/status` | 更新对话状态（open/closed） |
+| POST | `/api/binary/admin/messages/system-send` | 单用户系统消息；`targetUserId` 必填 |
 
 ## 开放分发与作者工作台
 
@@ -204,6 +204,8 @@
 | POST | `/api/author/articles/{articleId}/assets/reindex` | 👑 | 重建资产引用 |
 | GET | `/api/author/assets` | 👑 | 资产库列表 |
 | DELETE | `/api/author/assets/orphans` | 👑 | 删除孤儿资产库记录 |
+| GET | `/api/author/taxonomy/categories` | 👑 | 管理端分类真实引用计数 |
+| GET | `/api/author/taxonomy/tags` | 👑 | 管理端标签真实引用计数 |
 | GET | `/api/author/analytics` | 👑 | 单作者分析 |
 | GET | `/api/author/comments/moderation` | 👑 | 评论审核队列 |
 | POST | `/api/author/comments/moderation/bulk` | 👑 | 批量评论审核 |

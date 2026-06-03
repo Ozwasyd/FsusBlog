@@ -21,6 +21,7 @@ import {
   deleteImage,
   getPageData,
   getSiteConfig,
+  refreshPageData,
   updatePageData,
   updateSiteConfig
 } from '@/api/system'
@@ -95,6 +96,18 @@ describe('system API', () => {
         method: 'PUT',
         requiresPow: true,
         body: expect.any(ArrayBuffer)
+      })
+    }))
+  })
+
+  it('refreshPageData calls the page cache refresh endpoint', async () => {
+    await refreshPageData('privacy')
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/system/page/refresh/privacy',
+      frameType: FrameType.EmptySuccess,
+      requestOptions: expect.objectContaining({
+        method: 'POST',
+        requiresPow: true
       })
     }))
   })

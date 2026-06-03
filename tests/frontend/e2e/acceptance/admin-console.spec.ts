@@ -140,8 +140,8 @@ for (const viewport of [
           ]
         },
         {
-          path: '/user/messagebox',
-          expectedUrl: '/user/messagebox',
+          path: '/user/manage/messages',
+          expectedUrl: '/user/manage/messages',
           label: 'manage-message-center',
           selectors: [
             (page) => page.getByText('站内信中心', { exact: false }),
@@ -449,7 +449,7 @@ for (const viewport of [
         await session.page.getByRole('button', { name: '取消' }).click({
           force: viewport.size.width < 640
         })
-        await session.page.goto('/user/messagebox', { waitUntil: 'domcontentloaded' })
+        await session.page.goto('/user/manage/messages', { waitUntil: 'domcontentloaded' })
         await waitForAppReady(session.page)
         await settlePage(session.page)
         const composePanel = await session.page.locator('.mail-compose-panel').filter({ hasText: '发送系统消息' }).count()

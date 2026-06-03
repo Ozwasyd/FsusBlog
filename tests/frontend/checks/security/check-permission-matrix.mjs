@@ -276,7 +276,7 @@ async function assertMarkersAbsent(adminSession, marker) {
       cookieHeader: adminSession.cookieHeader,
       deviceFingerprint: 'permission-marker-tags'
     }),
-    authBinary('/api/v1/admin/messages/conversations?page=1&size=50', {
+    authBinary('/api/binary/admin/messages/conversations?page=1&size=50', {
       method: 'GET',
       cookieHeader: adminSession.cookieHeader,
       deviceFingerprint: 'permission-marker-messages'
@@ -470,23 +470,23 @@ async function assertRoleUserForbiddenMatrix(userSession, adminSession, articleI
       requiresPow: true,
       body: { userId: 1, newPassword: 'PermissionPass123!' }
     }],
-    ['role=user admin messages list attack probe', '/api/v1/admin/messages/conversations?page=1&size=10', {
+    ['role=user admin messages list attack probe', '/api/binary/admin/messages/conversations?page=1&size=10', {
       method: 'GET'
     }],
-    ['role=user admin message detail attack probe', '/api/v1/admin/messages/conversations/1', {
+    ['role=user admin message detail attack probe', '/api/binary/admin/messages/conversations/1', {
       method: 'GET'
     }],
-    ['role=user admin message reply attack probe', '/api/v1/admin/messages/conversations/1/reply', {
+    ['role=user admin message reply attack probe', '/api/binary/admin/messages/conversations/1/reply', {
       method: 'POST',
       requiresPow: true,
       body: { body: marker }
     }],
-    ['role=user admin message status attack probe', '/api/v1/admin/messages/conversations/1/status', {
+    ['role=user admin message status attack probe', '/api/binary/admin/messages/conversations/1/status', {
       method: 'POST',
       requiresPow: true,
       body: { status: 'closed' }
     }],
-    ['role=user admin system message attack probe', '/api/v1/admin/messages/system-send', {
+    ['role=user admin system message attack probe', '/api/binary/admin/messages/system-send', {
       method: 'POST',
       requiresPow: true,
       body: { targetUserId: null, subject: marker, body: marker }
@@ -530,7 +530,7 @@ async function assertGuestForbiddenMatrix(articleId) {
     }
   }, new Set([401]));
 
-  await expectDenied('guest message create attack probe', '/api/v1/messages/conversations', {
+  await expectDenied('guest message create attack probe', '/api/binary/messages/conversations', {
     method: 'POST',
     deviceFingerprint: 'permission-guest-message',
     requiresPow: true,
@@ -652,7 +652,7 @@ async function assertRoleUserAllowedBoundaries(userSession, articleId, marker) {
   assertNoServerError('role=user long comment boundary', longComment.response);
 
   const messageSubject = `${marker}-ticket`;
-  const createConversation = await expectAllowed('role=user own message conversation create', '/api/v1/messages/conversations', {
+  const createConversation = await expectAllowed('role=user own message conversation create', '/api/binary/messages/conversations', {
     method: 'POST',
     cookieHeader: userSession.cookieHeader,
     deviceFingerprint: 'permission-user-message-create',
@@ -661,7 +661,7 @@ async function assertRoleUserAllowedBoundaries(userSession, articleId, marker) {
   });
   let conversationId = String(unwrap(createConversation.payload)?.conversationId ?? unwrap(createConversation.payload)?.id ?? '');
   if (!/^\d+$/.test(conversationId)) {
-    const conversations = await expectAllowed('role=user own message conversations list', '/api/v1/messages/conversations?page=1&size=20', {
+    const conversations = await expectAllowed('role=user own message conversations list', '/api/binary/messages/conversations?page=1&size=20', {
       method: 'GET',
       cookieHeader: userSession.cookieHeader,
       deviceFingerprint: 'permission-user-message-list'
@@ -671,13 +671,13 @@ async function assertRoleUserAllowedBoundaries(userSession, articleId, marker) {
   }
   assert(/^\d+$/.test(conversationId), 'created role=user conversation id was not discoverable');
 
-  await expectAllowed('role=user own message conversation detail', `/api/v1/messages/conversations/${conversationId}`, {
+  await expectAllowed('role=user own message conversation detail', `/api/binary/messages/conversations/${conversationId}`, {
     method: 'GET',
     cookieHeader: userSession.cookieHeader,
     deviceFingerprint: 'permission-user-message-detail'
   });
 
-  await expectAllowed('role=user own message reply', `/api/v1/messages/conversations/${conversationId}/reply`, {
+  await expectAllowed('role=user own message reply', `/api/binary/messages/conversations/${conversationId}/reply`, {
     method: 'POST',
     cookieHeader: userSession.cookieHeader,
     deviceFingerprint: 'permission-user-message-reply',
@@ -685,13 +685,13 @@ async function assertRoleUserAllowedBoundaries(userSession, articleId, marker) {
     body: { body: `${marker} reply` }
   });
 
-  await expectAllowed('role=user own message mark read', `/api/v1/messages/conversations/${conversationId}/read`, {
+  await expectAllowed('role=user own message mark read', `/api/binary/messages/conversations/${conversationId}/read`, {
     method: 'POST',
     cookieHeader: userSession.cookieHeader,
     deviceFingerprint: 'permission-user-message-read'
   });
 
-  const missingConversationReply = await authBinary('/api/v1/messages/conversations/9223372036854775807/reply', {
+  const missingConversationReply = await authBinary('/api/binary/messages/conversations/9223372036854775807/reply', {
     method: 'POST',
     cookieHeader: userSession.cookieHeader,
     deviceFingerprint: 'permission-user-message-reply-missing',
@@ -700,7 +700,7 @@ async function assertRoleUserAllowedBoundaries(userSession, articleId, marker) {
   });
   assertDenied('role=user cannot reply missing/foreign conversation', missingConversationReply.response);
 
-  const longConversation = await authBinary('/api/v1/messages/conversations', {
+  const longConversation = await authBinary('/api/binary/messages/conversations', {
     method: 'POST',
     cookieHeader: userSession.cookieHeader,
     deviceFingerprint: 'permission-user-long-message',

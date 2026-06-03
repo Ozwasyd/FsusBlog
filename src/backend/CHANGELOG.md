@@ -83,15 +83,15 @@
 
 #### 站内消息
 
-- 用户对话列表（`GET /api/v1/messages/conversations`）
-- 用户对话详情（`GET /api/v1/messages/conversations/{id}`）
-- 发起新对话（`POST /api/v1/messages/conversations`）
-- 回复对话（`POST /api/v1/messages/conversations/{id}/reply`）
-- 标记已读（`POST /api/v1/messages/conversations/{id}/read`）
-- 管理员对话列表（`GET /api/v1/admin/messages/conversations`）
+- 用户对话列表（`GET /api/binary/messages/conversations`）
+- 用户对话详情（`GET /api/binary/messages/conversations/{id}`）
+- 发起新对话（`POST /api/binary/messages/conversations`）
+- 回复对话（`POST /api/binary/messages/conversations/{id}/reply`）
+- 标记已读（`POST /api/binary/messages/conversations/{id}/read`）
+- 管理员对话列表（`GET /api/binary/admin/messages/conversations`）
 - 管理员对话详情与回复
-- 管理员对话状态管理（`POST /api/v1/admin/messages/conversations/{id}/status`）
-- 管理员系统广播（`POST /api/v1/admin/messages/system-send`）
+- 管理员对话状态管理（`POST /api/binary/admin/messages/conversations/{id}/status`）
+- 管理员单用户系统消息（`POST /api/binary/admin/messages/system-send`）
 
 #### 用户评论历史
 

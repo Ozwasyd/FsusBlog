@@ -101,6 +101,16 @@
                     >
                       从配置移除
                     </el-button>
+                    <el-button
+                      v-if="hasOgImage"
+                      link
+                      type="danger"
+                      :icon="Delete"
+                      :disabled="imageLoading || siteFormDisabled"
+                      @click="confirmImageDelete"
+                    >
+                      删除服务器文件
+                    </el-button>
                   </div>
                 </div>
               </el-form-item>
@@ -177,7 +187,7 @@
             <header class="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12 pb-8 border-b border-[var(--fsusblog-panel-border)]">
               <div class="min-w-0">
                 <h3 class="section-title section-title--inline">页面编辑</h3>
-                <p class="text-[13px] text-[var(--fsusblog-text-tertiary)] font-medium">维护 About、Archive 等静态页面的发布内容。</p>
+                <p class="text-[13px] text-[var(--fsusblog-text-tertiary)] font-medium">维护关于、隐私政策与用户守则页面的发布内容。</p>
                 <p class="mt-3 text-[11px] font-bold normal-case tracking-normal" :class="isPageDirty ? 'text-[var(--fsusblog-color-warning-text)]' : 'text-[var(--fsusblog-text-muted)]'">
                   {{ currentPageTarget.label }} · {{ pageContentLength }} 字 · {{ isPageDirty ? '有未发布修改' : '已同步' }}
                 </p>
@@ -199,10 +209,17 @@
               />
             </div>
 
-            <div class="mt-16 flex justify-end">
+            <div class="mt-16 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <el-button
+                :disabled="savingPage || refreshingPage || pageLoading"
+                :loading="refreshingPage"
+                @click.prevent="confirmPageRefresh"
+              >
+                强制刷新缓存
+              </el-button>
               <el-button
                 type="primary"
-                :disabled="savingPage || pageLoading"
+                :disabled="savingPage || refreshingPage || pageLoading"
                 @click.prevent="confirmPagePublish"
               >
                 {{ pageSubmitText }}
@@ -249,6 +266,7 @@ import { useAdminSettingsPage } from '@/composables/useAdminSettingsPage'
 const {
   activeTab,
   savingPage,
+  refreshingPage,
   loadingSite,
   siteFormDisabled,
   siteLoadFailed,
@@ -280,9 +298,11 @@ const {
   sanitizeKeywords,
   handleImageAction,
   handleImageRemove,
+  handleImageDelete,
   loadSiteConfig,
   saveSiteConfig,
   savePageContent,
+  refreshPageCache,
   requestPageSwitch,
   cancelPageSwitch,
   discardPageChangesAndSwitch,
@@ -299,6 +319,18 @@ const confirmImageRemove = async (): Promise<void> => {
     return
   }
   await handleImageRemove()
+}
+
+const confirmImageDelete = async (): Promise<void> => {
+  const result = await ElMessageBox.confirm('这会从待保存配置中移除当前预览图，并立即请求后端删除服务器文件。删除失败不会清空配置。', '删除服务器文件', {
+    type: 'warning',
+    confirmButtonText: '移除并删除',
+    cancelButtonText: '取消'
+  })
+  if (!isFsusUiOk(result)) {
+    return
+  }
+  await handleImageDelete()
 }
 
 const confirmSiteSave = async (): Promise<void> => {
@@ -324,6 +356,18 @@ const confirmPagePublish = async (): Promise<void> => {
     return
   }
   await savePageContent()
+}
+
+const confirmPageRefresh = async (): Promise<void> => {
+  const result = await ElMessageBox.confirm(`确认强制刷新「${currentPageTarget.value.label}」页面缓存？`, '刷新页面缓存', {
+    type: 'warning',
+    confirmButtonText: '确认刷新',
+    cancelButtonText: '取消'
+  })
+  if (!isFsusUiOk(result)) {
+    return
+  }
+  await refreshPageCache()
 }
 
 </script>

@@ -100,6 +100,17 @@ export const updatePageData = (data: PageContentAdmin, config?: ApiRequestConfig
     }
   })
 
+export const refreshPageData = (slug: string, config?: ApiRequestConfig) =>
+  requestBinaryOnly<null>({
+    binaryUrl: `/api/binary/system/page/refresh/${encodeURIComponent(slug)}`,
+    frameType: FrameType.EmptySuccess,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'POST',
+      requiresPow: true
+    }
+  })
+
 /**
  * 删除文件
  * 安全性保障：物理删除操作接入 PoW 保护，杜绝自动化脚本批量抹除服务器资源

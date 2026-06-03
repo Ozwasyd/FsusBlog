@@ -228,6 +228,11 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "系统消息请求体非法"), aeds);
             }
 
+            if (!request.TargetUserId.HasValue || request.TargetUserId.Value <= 0)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "系统消息必须指定目标用户"), aeds);
+            }
+
             var result = await command.SendSystemMessageAsync(request.Subject, request.Body, request.TargetUserId, checked((int)user.Id));
             return result.IsSuccess
                 ? BinaryResults.Frame(aeds, AedsFrameType.ConversationDetail, writer => PodBinaryCodec.WriteConversationDetail(result.Value!, writer))

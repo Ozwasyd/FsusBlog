@@ -160,31 +160,31 @@ Binary 端点输出 AEDS v2 帧（`Content-Type: application/octet-stream`）。
 
 ---
 
-## Messages — `/api/v1/messages`
+## Messages — `/api/binary/messages`
 
 > 整个路由组需要登录。
 
 | 方法 | 路径 | 描述 | 权限 |
 |------|------|------|------|
-| GET | `/api/v1/messages/conversations` | 当前用户对话列表 | 🔑 |
-| GET | `/api/v1/messages/conversations/{id}` | 对话详情与消息 | 🔑 |
-| POST | `/api/v1/messages/conversations` | 发起新对话 | 🔑 |
-| POST | `/api/v1/messages/conversations/{id}/reply` | 回复对话 | 🔑 |
-| POST | `/api/v1/messages/conversations/{id}/read` | 标记对话已读 | 🔑 |
+| GET | `/api/binary/messages/conversations` | 当前用户对话列表 | 🔑 |
+| GET | `/api/binary/messages/conversations/{id}` | 对话详情与消息 | 🔑 |
+| POST | `/api/binary/messages/conversations` | 发起新对话 | 🔑 |
+| POST | `/api/binary/messages/conversations/{id}/reply` | 回复对话 | 🔑 |
+| POST | `/api/binary/messages/conversations/{id}/read` | 标记对话已读 | 🔑 |
 
 ---
 
-## Admin Messages — `/api/v1/admin/messages`
+## Admin Messages — `/api/binary/admin/messages`
 
 > 整个路由组需要 admin 角色。
 
 | 方法 | 路径 | 描述 | 权限 |
 |------|------|------|------|
-| GET | `/api/v1/admin/messages/conversations` | 所有对话列表 | 👑 |
-| GET | `/api/v1/admin/messages/conversations/{id}` | 对话详情 | 👑 |
-| POST | `/api/v1/admin/messages/conversations/{id}/reply` | 以管理员身份回复 | 👑 |
-| POST | `/api/v1/admin/messages/conversations/{id}/status` | 更新对话状态 | 👑 |
-| POST | `/api/v1/admin/messages/system-send` | 系统广播消息 | 👑 |
+| GET | `/api/binary/admin/messages/conversations` | 所有对话列表 | 👑 |
+| GET | `/api/binary/admin/messages/conversations/{id}` | 对话详情 | 👑 |
+| POST | `/api/binary/admin/messages/conversations/{id}/reply` | 以管理员身份回复 | 👑 |
+| POST | `/api/binary/admin/messages/conversations/{id}/status` | 更新对话状态 | 👑 |
+| POST | `/api/binary/admin/messages/system-send` | 单用户系统消息（targetUserId 必填） | 👑 |
 
 ---
 

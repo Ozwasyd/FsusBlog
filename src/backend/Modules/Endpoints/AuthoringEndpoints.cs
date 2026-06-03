@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
+using SqlSugar;
 
 namespace FsusBlog.Server.Modules.Endpoints;
 
@@ -111,6 +112,12 @@ public static class AuthoringEndpoints
         group.MapDelete("/assets/orphans", async (AuthoringWorkflowService service, CancellationToken cancellationToken) =>
             Results.Ok(JsonApiResponse<AssetCleanupResponse>.Ok(await service.CleanupOrphanAssetsAsync(cancellationToken))));
 
+        group.MapGet("/taxonomy/categories", async (ISqlSugarClient db, CancellationToken cancellationToken) =>
+            Results.Ok(JsonApiResponse<IReadOnlyList<AdminCategoryItemResponse>>.Ok(await ListAdminCategoriesAsync(db, cancellationToken))));
+
+        group.MapGet("/taxonomy/tags", async (ISqlSugarClient db, CancellationToken cancellationToken) =>
+            Results.Ok(JsonApiResponse<IReadOnlyList<AdminTagItemResponse>>.Ok(await ListAdminTagsAsync(db, cancellationToken))));
+
         group.MapGet("/analytics", async (AuthoringWorkflowService service, CancellationToken cancellationToken) =>
             Results.Ok(JsonApiResponse<AuthorAnalyticsResponse>.Ok(await service.GetAnalyticsAsync(cancellationToken))));
 
@@ -200,6 +207,156 @@ public static class AuthoringEndpoints
         return app;
     }
 
+    private static async Task<IReadOnlyList<AdminCategoryItemResponse>> ListAdminCategoriesAsync(ISqlSugarClient db, CancellationToken cancellationToken)
+    {
+        List<TaxonomyNameRow> categories = await db.Queryable<Category>()
+            .OrderBy(c => c.Id)
+            .Select(c => new TaxonomyNameRow
+            {
+                Id = c.Id,
+                Name = c.Name
+            })
+            .ToListAsync(cancellationToken);
+
+        DateTime now = DateTime.UtcNow;
+        List<TaxonomyCountRow> publicCounts = await db.Queryable<Article>()
+            .Where(a => !a.IsDeleted
+                && a.Status == ArticleStatus.Published
+                && (a.PublishedAt == null || a.PublishedAt <= now)
+                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
+            .GroupBy(a => a.CategoryId)
+            .Select(a => new TaxonomyCountRow
+            {
+                Id = a.CategoryId,
+                Count = SqlFunc.AggregateCount(a.Id)
+            })
+            .ToListAsync(cancellationToken);
+
+        List<TaxonomyStatusCountRow> statusCounts = await db.Queryable<Article>()
+            .Where(a => !a.IsDeleted && a.Status != ArticleStatus.Deleted)
+            .GroupBy(a => new { a.CategoryId, a.Status })
+            .Select(a => new TaxonomyStatusCountRow
+            {
+                Id = a.CategoryId,
+                Status = a.Status,
+                Count = SqlFunc.AggregateCount(a.Id)
+            })
+            .ToListAsync(cancellationToken);
+
+        Dictionary<int, int> publicById = publicCounts.ToDictionary(row => row.Id, row => row.Count);
+        Dictionary<int, Dictionary<ArticleStatus, int>> statusById = BuildStatusCountLookup(statusCounts);
+
+        return categories.Select(category =>
+        {
+            Dictionary<ArticleStatus, int> counts = GetStatusCounts(statusById, category.Id);
+            int totalBlocking =
+                CountStatus(counts, ArticleStatus.Draft)
+                + CountStatus(counts, ArticleStatus.Scheduled)
+                + CountStatus(counts, ArticleStatus.Published)
+                + CountStatus(counts, ArticleStatus.Archived);
+
+            return new AdminCategoryItemResponse(
+                category.Id,
+                category.Name ?? string.Empty,
+                publicById.GetValueOrDefault(category.Id),
+                CountStatus(counts, ArticleStatus.Draft),
+                CountStatus(counts, ArticleStatus.Scheduled),
+                CountStatus(counts, ArticleStatus.Archived),
+                totalBlocking,
+                totalBlocking == 0);
+        }).ToList();
+    }
+
+    private static async Task<IReadOnlyList<AdminTagItemResponse>> ListAdminTagsAsync(ISqlSugarClient db, CancellationToken cancellationToken)
+    {
+        List<TaxonomyNameRow> tags = await db.Queryable<Tag>()
+            .OrderBy(t => t.Id)
+            .Select(t => new TaxonomyNameRow
+            {
+                Id = t.Id,
+                Name = t.Name
+            })
+            .ToListAsync(cancellationToken);
+
+        DateTime now = DateTime.UtcNow;
+        List<TaxonomyCountRow> publicCounts = await db.Queryable<ArticleTag, Article>((at, a) => at.ArticleId == a.Id)
+            .Where((at, a) => !a.IsDeleted
+                && a.Status == ArticleStatus.Published
+                && (a.PublishedAt == null || a.PublishedAt <= now)
+                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
+            .GroupBy((at, a) => at.TagId)
+            .Select((at, a) => new TaxonomyCountRow
+            {
+                Id = at.TagId,
+                Count = SqlFunc.AggregateCount(at.ArticleId)
+            })
+            .ToListAsync(cancellationToken);
+
+        List<TaxonomyStatusCountRow> statusCounts = await db.Queryable<ArticleTag, Article>((at, a) => at.ArticleId == a.Id)
+            .Where((at, a) => !a.IsDeleted)
+            .GroupBy((at, a) => new { at.TagId, a.Status })
+            .Select((at, a) => new TaxonomyStatusCountRow
+            {
+                Id = at.TagId,
+                Status = a.Status,
+                Count = SqlFunc.AggregateCount(at.ArticleId)
+            })
+            .ToListAsync(cancellationToken);
+
+        List<TaxonomyCountRow> associationCounts = await db.Queryable<ArticleTag>()
+            .GroupBy(at => at.TagId)
+            .Select(at => new TaxonomyCountRow
+            {
+                Id = at.TagId,
+                Count = SqlFunc.AggregateCount(at.ArticleId)
+            })
+            .ToListAsync(cancellationToken);
+
+        Dictionary<int, int> publicById = publicCounts.ToDictionary(row => row.Id, row => row.Count);
+        Dictionary<int, int> associationById = associationCounts.ToDictionary(row => row.Id, row => row.Count);
+        Dictionary<int, Dictionary<ArticleStatus, int>> statusById = BuildStatusCountLookup(statusCounts);
+
+        return tags.Select(tag =>
+        {
+            Dictionary<ArticleStatus, int> counts = GetStatusCounts(statusById, tag.Id);
+            int totalBlocking = associationById.GetValueOrDefault(tag.Id);
+
+            return new AdminTagItemResponse(
+                tag.Id,
+                tag.Name ?? string.Empty,
+                publicById.GetValueOrDefault(tag.Id),
+                CountStatus(counts, ArticleStatus.Draft),
+                CountStatus(counts, ArticleStatus.Scheduled),
+                CountStatus(counts, ArticleStatus.Archived),
+                CountStatus(counts, ArticleStatus.Deleted),
+                totalBlocking,
+                totalBlocking == 0);
+        }).ToList();
+    }
+
+    private static Dictionary<int, Dictionary<ArticleStatus, int>> BuildStatusCountLookup(IEnumerable<TaxonomyStatusCountRow> rows)
+    {
+        var lookup = new Dictionary<int, Dictionary<ArticleStatus, int>>();
+        foreach (TaxonomyStatusCountRow row in rows)
+        {
+            if (!lookup.TryGetValue(row.Id, out Dictionary<ArticleStatus, int>? statusCounts))
+            {
+                statusCounts = [];
+                lookup[row.Id] = statusCounts;
+            }
+
+            statusCounts[row.Status] = row.Count;
+        }
+
+        return lookup;
+    }
+
+    private static Dictionary<ArticleStatus, int> GetStatusCounts(Dictionary<int, Dictionary<ArticleStatus, int>> lookup, int id)
+        => lookup.TryGetValue(id, out Dictionary<ArticleStatus, int>? counts) ? counts : [];
+
+    private static int CountStatus(Dictionary<ArticleStatus, int> counts, ArticleStatus status)
+        => counts.GetValueOrDefault(status);
+
     private static bool TryResolveModerationStatus(int? raw, out CommentModerationStatus? status)
     {
         status = null;
@@ -252,4 +409,23 @@ public static class AuthoringEndpoints
             or CommentModerationStatus.Approved
             or CommentModerationStatus.Rejected
             or CommentModerationStatus.Hidden;
+
+    private sealed record TaxonomyNameRow
+    {
+        public int Id { get; init; }
+        public string? Name { get; init; }
+    }
+
+    private sealed record TaxonomyCountRow
+    {
+        public int Id { get; init; }
+        public int Count { get; init; }
+    }
+
+    private sealed record TaxonomyStatusCountRow
+    {
+        public int Id { get; init; }
+        public ArticleStatus Status { get; init; }
+        public int Count { get; init; }
+    }
 }

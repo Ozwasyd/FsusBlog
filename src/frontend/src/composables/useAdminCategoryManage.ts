@@ -3,12 +3,11 @@ import { type FormInstance } from '@ozwasyd/element-plus'
 import { useRouter } from 'vue-router'
 import { isFsusUiOk } from '@/utils/fsusUiResult'
 import type { ApiRequestConfig } from '@/api/requestConfig'
+import { listAdminCategories, type AdminCategoryItemResponse } from '@/api/authoring'
 import {
   createCategory,
   deleteCategory,
-  getCategories,
   updateCategory,
-  type CategoryItem
 } from '@/api/category'
 import { usePow } from '@/composables/usePow'
 import { useMutationFlow } from '@/composables/useMutationFlow'
@@ -19,7 +18,7 @@ export function useAdminCategoryManage() {
   const router = useRouter()
   const powProvider = usePow()
 
-  const list = shallowRef<CategoryItem[]>([])
+  const list = shallowRef<AdminCategoryItemResponse[]>([])
   const loading = ref(false)
   const dialogVisible = ref(false)
   const submitting = ref(false)
@@ -43,7 +42,7 @@ export function useAdminCategoryManage() {
   const filteredList = computed(() => {
     const keyword = filters.keyword.trim().toLowerCase()
     return list.value.filter((item) => {
-      if (filters.unusedOnly && item.articleCount > 0) {
+      if (filters.unusedOnly && !item.canDelete) {
         return false
       }
 
@@ -63,7 +62,7 @@ export function useAdminCategoryManage() {
     try {
       const data = await loadTask.run(async (signal) => {
         const config: ApiRequestConfig = { signal }
-        return await getCategories(config)
+        return await listAdminCategories(config)
       }, {
         fallbackMessage: '无法同步全站分类数据',
         onError: (error) => {
@@ -82,7 +81,7 @@ export function useAdminCategoryManage() {
     }
   }
 
-  const openDialog = (row?: CategoryItem): void => {
+  const openDialog = (row?: AdminCategoryItemResponse): void => {
     editingId.value = row?.id || null
     form.name = row?.name || ''
     dialogVisible.value = true
@@ -133,9 +132,9 @@ export function useAdminCategoryManage() {
     }
   }
 
-  const handleDelete = (row: CategoryItem): void => {
-    if (row.articleCount > 0) {
-      showWarningToast(`分类「${row.name}」正被 ${row.articleCount} 篇文章占用，禁止删除。`)
+  const handleDelete = (row: AdminCategoryItemResponse): void => {
+    if (!row.canDelete) {
+      showWarningToast(`分类「${row.name}」正被 ${row.totalBlockingArticleCount} 篇文章占用，禁止删除。`)
       return
     }
 
@@ -170,12 +169,12 @@ export function useAdminCategoryManage() {
     return list.value.some((item) => item.id !== editingId.value && item.name.trim().toLowerCase() === normalized)
   }
 
-  const relationLockReason = (row: CategoryItem): string =>
-    row.articleCount > 0
-      ? `已关联 ${row.articleCount} 篇文章，请先查看关联文章并迁移后再删除。`
+  const relationLockReason = (row: AdminCategoryItemResponse): string =>
+    !row.canDelete
+      ? `真实引用 ${row.totalBlockingArticleCount} 篇：公开 ${row.publicArticleCount}，草稿 ${row.draftArticleCount}，定时 ${row.scheduledArticleCount}，归档 ${row.archivedArticleCount}。请先迁移后再删除。`
       : '未关联文章，可删除'
 
-  const viewAssociatedArticles = (row: CategoryItem): void => {
+  const viewAssociatedArticles = (row: AdminCategoryItemResponse): void => {
     void router.push({
       name: 'ManageArticleList',
       query: {

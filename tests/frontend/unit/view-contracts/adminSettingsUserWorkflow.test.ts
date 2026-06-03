@@ -8,6 +8,9 @@ const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf
 describe('admin settings and user governance workflow contract', () => {
   const settingsPage = readRepoFile('src/frontend/src/views/admin/Settings.vue')
   const settingsComposable = readRepoFile('src/frontend/src/composables/useAdminSettingsPage.ts')
+  const systemApi = readRepoFile('src/frontend/src/api/system.ts')
+  const systemEndpoint = readRepoFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs')
+  const adminUserEndpoint = readRepoFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs')
   const userPage = readRepoFile('src/frontend/src/views/admin/UserManage.vue')
   const userComposable = readRepoFile('src/frontend/src/composables/useAdminUserManage.ts')
   const userHeader = readRepoFile('src/frontend/src/components/admin/users/UserManageHeader.vue')
@@ -36,8 +39,11 @@ describe('admin settings and user governance workflow contract', () => {
     expect(settingsComposable).toContain('配置图已更新，请保存同步')
     expect(settingsComposable).toContain('配置图恢复上传成功，请保存同步')
     expect(settingsComposable).toContain('预览图已从待保存配置移除，请保存同步')
+    expect(settingsComposable).toContain('handleImageDelete')
+    expect(settingsComposable).toContain('deleteImage(current)')
     expect(settingsPage).toContain('上传只更新待保存配置')
     expect(settingsPage).toContain('这只会从待保存配置中移除当前预览图')
+    expect(settingsPage).toContain('删除服务器文件')
   })
 
   it('protects page editor content before switching static page slugs', () => {
@@ -46,8 +52,15 @@ describe('admin settings and user governance workflow contract', () => {
     expect(settingsComposable).toContain('pendingPageSwitchSlug')
     expect(settingsComposable).toContain('requestPageSwitch')
     expect(settingsComposable).toContain('savePageAndSwitch')
+    expect(settingsComposable).toContain('refreshPageCache')
+    expect(systemApi).toContain('refreshPageData')
+    expect(systemEndpoint).toContain('AllowedPageSlugs.Contains(dto.Slug')
+    expect(systemEndpoint).toContain('AllowedPageSlugs.Contains(slug)')
     expect(settingsComposable).toContain('beforeunload')
     expect(settingsPage).toContain('@update:model-value="requestPageSwitch"')
+    expect(settingsPage).toContain('维护关于、隐私政策与用户守则页面的发布内容')
+    expect(settingsPage).not.toContain('About、Archive')
+    expect(settingsPage).toContain('强制刷新缓存')
     expect(settingsPage).toContain('保存并切换')
     expect(settingsPage).toContain('放弃修改')
   })
@@ -65,6 +78,7 @@ describe('admin settings and user governance workflow contract', () => {
   })
 
   it('makes user status and role labels readable while exposing desktop page size control', () => {
+    expect(adminUserEndpoint).toContain('request.Status is not 0 and not 1')
     expect(userComposable).toContain('roleLabel')
     expect(userComposable).toContain('statusLabel')
     expect(userComposable).toContain('statusText: `${statusLabel} / ${statusCode}`')
