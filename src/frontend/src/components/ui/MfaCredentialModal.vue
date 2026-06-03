@@ -5,7 +5,7 @@
     width="400px"
     destroy-on-close
     :show-close="false"
-    @update:model-value="val => !val && handleCancel()"
+    @update:model-value="(val: boolean) => !val && handleCancel()"
   >
     <p class="text-sm text-[var(--fsusblog-text-muted)] leading-relaxed mb-6">
       {{ description || '请输入当前密码和验证信息继续。' }}

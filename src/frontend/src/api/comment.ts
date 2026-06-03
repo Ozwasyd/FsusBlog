@@ -3,6 +3,7 @@ import type { PowRequest } from './auth'
 import { FrameType } from '@wasm/protocol/frame';
 import { requestBinaryOnly } from '@/services/binaryTransport';
 import { encodeAedsFrame } from './binaryFrame';
+import { validateCommentContent } from '@/utils/contentFilter';
 
 // =================================================================================
 // 1. 类型定义 (DTOs)
@@ -86,6 +87,11 @@ export interface UserCommentResponse {
  * 安全性保障：启用 requiresPow 策略，物理隔离垃圾评论攻击
  */
 export const createComment = (data: CommentDto, config?: ApiRequestConfig) => {
+  const validation = validateCommentContent(data.content ?? '')
+  if (!validation.isValid) {
+    return Promise.reject(new Error(validation.message))
+  }
+
   return requestBinaryOnly<null>({
     binaryUrl: '/api/binary/comment',
     frameType: FrameType.EmptySuccess,

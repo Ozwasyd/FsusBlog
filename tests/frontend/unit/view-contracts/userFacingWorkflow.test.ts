@@ -59,6 +59,8 @@ describe('user facing workflow contract', () => {
     expect(articleDetailComposable).toContain('redirect: commentsRedirectPath()')
     expect(articleDetailComposable).toContain("return `${current}#comments`")
     expect(articleDetailComposable).toContain('内容摘要')
+    expect(articleDetailComposable).toContain("toast.success('已提交审核')")
+    expect(commentList).toContain('COMMENT_CONTENT_CONSTRAINT.replyRenderLimit')
     expect(articleDetail).toContain('加载更多评论')
     expect(publicArticleDetail).toContain('id="comments"')
     expect(publicArticleList).toContain('`阅读全文：${item.title}`')

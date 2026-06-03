@@ -160,6 +160,7 @@ public partial class StatsService(
     {
         var recentQuery = _db.Queryable<Comment>()
             .LeftJoin<User>((c, u) => c.UserId == u.Id)
+            .Where(c => c.ModerationStatus == CommentModerationStatus.Approved && !c.IsDeleted)
             .OrderByDescending(c => c.CreateTime)
             .Take(5)
             .Select((c, u) => new

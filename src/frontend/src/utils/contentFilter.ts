@@ -28,6 +28,17 @@ export const USERNAME_CONSTRAINT = {
   lengthMessage: '用户名长度必须在 3 到 20 个字符之间'
 } as const
 
+export const COMMENT_CONTENT_CONSTRAINT = {
+  maxChars: 1000,
+  maxUtf8Bytes: 4096,
+  createPayloadMaxBytes: 16 * 1024,
+  replyRenderLimit: 300,
+  charLengthMessage: '评论内容不能超过 1000 个字符',
+  byteLengthMessage: '评论内容编码后不能超过 4096 bytes'
+} as const
+
+const utf8Encoder = new TextEncoder()
+
 type AhoCorasickNode = {
   next: Map<string, number>
   fail: number
@@ -282,8 +293,17 @@ export function scoreContentRisk(text: string): ContentRiskScore {
 }
 
 export function validateCommentContent(text: string): ValidationResult {
-  if (!text || text.trim() === '') {
+  const trimmed = text.trim()
+  if (!text || trimmed === '') {
     return { isValid: false, message: '评论内容不能为空' }
+  }
+
+  if (utf8Encoder.encode(trimmed).byteLength > COMMENT_CONTENT_CONSTRAINT.maxUtf8Bytes) {
+    return { isValid: false, message: COMMENT_CONTENT_CONSTRAINT.byteLengthMessage }
+  }
+
+  if (trimmed.length > COMMENT_CONTENT_CONSTRAINT.maxChars) {
+    return { isValid: false, message: COMMENT_CONTENT_CONSTRAINT.charLengthMessage }
   }
 
   const risk = scoreContentRisk(text)

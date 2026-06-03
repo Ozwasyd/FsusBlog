@@ -3,6 +3,14 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FsusBlog.Server.Models.Dtos;
 
+public static class CommentLimits
+{
+    public const int ContentMaxChars = 1000;
+    public const int ContentMaxUtf8Bytes = 4096;
+    public const int CreatePayloadMaxBytes = 16 * 1024;
+    public const int ClientReplyRenderLimit = 300;
+}
+
 // ==========================================
 // 1. 输入 DTO (Request Models)
 // ==========================================
@@ -13,7 +21,7 @@ public sealed record class CommentDto : ICheckableContent
     public int ArticleId { get; init; }
 
     [Required]
-    [MaxLength(1000, ErrorMessage = "评论内容不能超过1000字")]
+    [MaxLength(CommentLimits.ContentMaxChars, ErrorMessage = "评论内容不能超过1000字")]
     public required string Content { get; init; }
 
     public string? ParentId { get; init; }

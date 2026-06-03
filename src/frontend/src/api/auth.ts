@@ -491,8 +491,8 @@ function encodeAuthDeleteAccountRequest(data: DeleteAccountRequest): Uint8Array 
   return bytes
 }
 
-function encodeMfaPasswordProofRequest(data: { password: string; code?: string; recoveryCode?: string }): Uint8Array {
-  const { bytes, refs, blobLength } = encodeStringBlob([data.password, data.code ?? '', data.recoveryCode ?? ''])
+function encodeMfaPasswordProofRequest(data: { password?: string; code?: string; recoveryCode?: string }): Uint8Array {
+  const { bytes, refs, blobLength } = encodeStringBlob([data.password ?? '', data.code ?? '', data.recoveryCode ?? ''])
   const view = new DataView(bytes.buffer)
   writeSliceRef(view, 0, refs[0])
   writeSliceRef(view, 8, refs[1])

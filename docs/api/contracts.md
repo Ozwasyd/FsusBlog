@@ -896,8 +896,8 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 | DELETE | `/api/author/assets/orphans` | 删除引用计数为 0 的孤儿资产库记录 |
 | GET | `/api/author/analytics` | 单作者公开内容与真实阅读事件概览 |
 | GET | `/api/author/comments/moderation?status={0..3}&limit={1..100}` | 评论审核队列，默认读取待审项 |
-| POST | `/api/author/comments/moderation/bulk` | 批量通过、拒绝或隐藏评论，可联动封禁用户 |
-| POST | `/api/author/comments/{commentId}/moderation` | 评论审核状态更新 |
+| POST | `/api/author/comments/moderation/bulk` | 批量通过、拒绝或隐藏评论，可联动封禁用户；必须携带 `X-Fsus-Mfa-Proof` |
+| POST | `/api/author/comments/{commentId}/moderation` | 评论审核状态更新；必须携带 `X-Fsus-Mfa-Proof` |
 | GET | `/api/author/content/export` | 全站内容备份包，包含每篇 Markdown + frontmatter |
 | GET | `/api/author/articles/{articleId}/export` | Markdown + frontmatter 导出 |
 | POST | `/api/author/articles/import` | Markdown + frontmatter 导入 |
@@ -931,7 +931,11 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 响应为 `JsonApiResponse<RumMetricIngestResponse>`，`accepted=false` 表示样本被丢弃但不向公开读链泄露校验细节。前端发送该请求时使用 `credentials: omit`，服务端只保存净化后的 performance audit payload。
 
-评论创建默认进入 `CommentModerationStatus.Pending`，公开评论线程、回复预览和回复游标只返回 `Approved`；用户自己的评论历史仍可看到本人提交记录。`CommentModerationItemResponse.id` 使用字符串承载 Snowflake ID，避免前端整数精度损失；响应同时包含文章、用户、内容、状态、审核原因、审核人、审核时间和 `hitReasons`。`hitReasons` 来自内容过滤器、HTML 风险、密集链接、重复刷屏和人工原因，用于解释敏感词/垃圾评论命中。单条与批量审核都会写入 `comment-moderation` / `comment-moderation-bulk` 审计并清理评论游标缓存；当 `status=Rejected|Hidden` 且 `banUser(s)=true` 时，服务端会把非 admin、非注销用户更新为封禁状态并同步黑名单缓存。误判恢复使用 `status=Approved`，不会触发封禁联动。
+评论创建默认进入 `CommentModerationStatus.Pending`，公开评论线程、回复预览和回复游标只返回 `Approved`；用户自己的评论历史仍可看到本人提交记录。创建请求的 AEDS frame 上限为 16 KiB，`content` 先 trim，再在内容过滤前校验 `<=1000` 字符且 UTF-8 `<=4096` bytes；目标文章必须是未删除、已发布且发布时间/定时发布时间已到达的公开文章。回复必须引用同文章、未删除、已通过的父评论和根评论。
+
+`CommentModerationItemResponse.id` 使用字符串承载 Snowflake ID，避免前端整数精度损失；响应同时包含文章、用户、内容、状态、审核原因、审核人、审核时间和 `hitReasons`。`hitReasons` 来自内容过滤器、HTML 风险、密集链接、重复刷屏和人工原因，用于解释敏感词/垃圾评论命中。审核读取和写入受 `fixed_ip` 限流；单条与批量审核需要先调用 `/api/binary/auth/mfa/challenge/start` / `/api/binary/auth/mfa/challenge` 获取 action=`admin-sensitive` 的一次性 proof，并在 JSON 请求头传入 `X-Fsus-Mfa-Proof`。proof 缺失、过期或已被消费时返回 `428` + `MFA_PROOF_REQUIRED`，当前 admin 会话未 MFA verified 时返回 `403` + `MFA_REQUIRED`。
+
+单条与批量审核都会写入 `comment-moderation` / `comment-moderation-bulk` 审计，服务层用旧 `ModerationStatus` 做 CAS 条件更新并限制状态机转换。`Pending/Rejected/Hidden -> Approved` 会通过 SSE 推送 `CommentAdded`；`Approved -> Rejected/Hidden` 和删除会推送 `CommentRemoved`。评论游标缓存按 article/root/user scope 清理，不再全局清 `CacheTag.Comment`；当 `status=Rejected|Hidden` 且 `banUser(s)=true` 时，服务端会把非 admin、非注销用户更新为封禁状态并同步黑名单缓存。误判恢复使用 `status=Approved`，不会触发封禁联动。
 
 内容导出使用 `ContentExportResponse`：`fileName`、`markdownWithFrontmatter`、`metadata`。frontmatter 固定写入 `fsusFormat: content-export-v1`、`sourceArticleId`、`title`、`summary`、`cover`、`categoryId`、`status`、`scheduledPublishAt`、`tagIds`、`revisionCount` 与 `fsusMetadataJson`；`fsusMetadataJson` 是 base64url 编码的 `ContentExportMetadataResponse`，用于无损恢复分类、标签、封面、文章状态和修订元数据。`GET /api/author/content/export` 返回 `ContentBackupExportResponse`，以 JSON 包含所有文章的导出结果。导入时 `publish=true` 会强制导入为 `Published`，否则按 metadata 的 `status` 恢复；`preserveRevisions=true` 会用导出包中的 revisions 替换导入时生成的初始 revision。
 

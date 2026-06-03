@@ -126,8 +126,9 @@ public static partial class BinaryEndpoints
         HttpContext httpContext,
         IAedsEncoder aeds,
         AedsFrameType expectedFrameType,
-        CancellationToken cancellationToken)
-        => RequestContext(httpContext).ReadFrameAsync(httpContext, aeds, expectedFrameType, cancellationToken);
+        CancellationToken cancellationToken,
+        int? maxFrameBytes = null)
+        => RequestContext(httpContext).ReadFrameAsync(httpContext, aeds, expectedFrameType, cancellationToken, maxFrameBytes);
 
     private static Task<NameMutationPayload> ReadNameMutationAsync(
         HttpContext httpContext,

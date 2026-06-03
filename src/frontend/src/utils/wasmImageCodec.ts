@@ -104,7 +104,7 @@ function readUtf8(heap: Uint8Array, ptr: number, len: number): string {
     return ''
   }
   const view = heap.subarray(ptr, ptr + len)
-  return decodeUtf8(view)
+  return decodeUtf8(view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer)
 }
 
 function readBytes(heap: Uint8Array, ptr: number, len: number): Uint8Array {

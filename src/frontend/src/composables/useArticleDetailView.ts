@@ -461,7 +461,7 @@ export function useArticleDetailView() {
       )
 
       if (lifecycle.isActive()) {
-        toast.success('发送成功')
+        toast.success('已提交审核')
         commentContent.value = ''
         clearReplyTarget()
       }

@@ -43,7 +43,7 @@ public sealed class CacheInvalidationDispatcherTests
     }
 
     [Fact]
-    public async Task InvalidateCommentMutationAsync_RemovesCursorAndOutputCaches()
+    public async Task InvalidateCommentMutationAsync_WithoutScope_RemovesCommentCursorFamiliesAndStats()
     {
         var cache = Substitute.For<IUnifiedCache>();
         var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
@@ -51,11 +51,34 @@ public sealed class CacheInvalidationDispatcherTests
 
         await sut.InvalidateCommentMutationAsync();
 
-        await cache.Received(1).RemoveByPrefixAsync(CachePolicyId.CommentCursor, string.Empty, Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveByPrefixAsync(CachePolicyId.UserCommentCursor, string.Empty, Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveByPrefixAsync(CachePolicyId.CommentCursor, "article:", Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveByPrefixAsync(CachePolicyId.UserCommentCursor, "user:", Arg.Any<CancellationToken>());
         await cache.Received(1).RemoveAsync(CachePolicyId.AdminStats, "main", Arg.Any<CancellationToken>());
         await cache.Received(1).RemoveAsync(CachePolicyId.AdminStats, "core:main", Arg.Any<CancellationToken>());
-        await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.Comment);
         await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.Stats);
+        await httpCacheInvalidator.DidNotReceive().InvalidateAsync(CacheTag.Comment);
+    }
+
+    [Fact]
+    public async Task InvalidateCommentMutationAsync_WithScope_RemovesOnlyAffectedArticleAndUser()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
+        var sut = new CacheInvalidationDispatcher(cache, httpCacheInvalidator);
+
+        await sut.InvalidateCommentMutationAsync(new CommentCacheInvalidationScope(
+            ArticleId: 42,
+            RootId: 99,
+            UserId: 7,
+            PublicArticleChanged: true,
+            UserCommentsChanged: true));
+
+        await cache.Received(1).RemoveByPrefixAsync(CachePolicyId.CommentCursor, "article:42:", Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveByPrefixAsync(CachePolicyId.CommentCursor, "article:42:root:99:", Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveByPrefixAsync(CachePolicyId.UserCommentCursor, "user:7:", Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveAsync(CachePolicyId.AdminStats, "main", Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveAsync(CachePolicyId.AdminStats, "core:main", Arg.Any<CancellationToken>());
+        await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.Stats);
+        await httpCacheInvalidator.DidNotReceive().InvalidateAsync(CacheTag.Comment);
     }
 }

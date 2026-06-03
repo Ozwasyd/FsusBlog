@@ -13,6 +13,7 @@ import {
   getMyComments,
   deleteComment
 } from '@/api/comment'
+import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
 
@@ -34,6 +35,13 @@ describe('comment API', () => {
         body: expect.any(ArrayBuffer)
       })
     }))
+  })
+
+  it('createComment rejects over-limit content before opening binary transport', async () => {
+    const dto = { articleId: 1, content: 'a'.repeat(COMMENT_CONTENT_CONSTRAINT.maxChars + 1), nonce: 'n', salt: 's', answer: 1 }
+
+    await expect(createComment(dto as never)).rejects.toThrow(COMMENT_CONTENT_CONSTRAINT.charLengthMessage)
+    expect(mockBinary).not.toHaveBeenCalled()
   })
 
   it('getComments calls requestBinaryOnly with articleId', async () => {

@@ -2,11 +2,15 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Services.Security;
 
 namespace FsusBlog.Server.Modules.Endpoints;
 
 public static class AuthoringEndpoints
 {
+    private const string AdminSensitiveAction = "admin-sensitive";
+    private const string MfaProofHeader = "X-Fsus-Mfa-Proof";
+
     public static IEndpointRouteBuilder MapAuthoringEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/author")
@@ -116,33 +120,54 @@ public static class AuthoringEndpoints
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
-            CommentModerationStatus? resolvedStatus = status is null ? null : (CommentModerationStatus)status.Value;
+            if (!TryResolveModerationStatus(status, out CommentModerationStatus? resolvedStatus))
+            {
+                return Results.BadRequest(JsonApiResponse<object>.Fail("comment_status_invalid"));
+            }
+
             CommentModerationQueueResponse queue = await service.ListCommentModerationQueueAsync(resolvedStatus, limit ?? 50, cancellationToken);
             return Results.Ok(JsonApiResponse<CommentModerationQueueResponse>.Ok(queue));
-        });
+        })
+        .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/comments/moderation/bulk", async (
             CommentModerationBulkRequest request,
             HttpContext context,
+            IMfaChallengeService mfaChallengeService,
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
             CommentModerationBulkResponse response = await service.ModerateCommentsAsync(context.User.GetUserId(), request, cancellationToken);
             return Results.Ok(JsonApiResponse<CommentModerationBulkResponse>.Ok(response));
-        });
+        })
+        .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/comments/{commentId:long}/moderation", async (
             long commentId,
             CommentModerationRequest request,
             HttpContext context,
+            IMfaChallengeService mfaChallengeService,
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
             bool moderated = await service.ModerateCommentAsync(context.User.GetUserId(), commentId, request, cancellationToken);
             return moderated
                 ? Results.Ok(JsonApiResponse<object>.Ok(new { moderated }))
                 : Results.NotFound(JsonApiResponse<object>.Fail("comment_not_found"));
-        });
+        })
+        .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/content/export", async (
             AuthoringWorkflowService service,
@@ -174,4 +199,57 @@ public static class AuthoringEndpoints
 
         return app;
     }
+
+    private static bool TryResolveModerationStatus(int? raw, out CommentModerationStatus? status)
+    {
+        status = null;
+        if (raw is null)
+        {
+            return true;
+        }
+
+        CommentModerationStatus resolved = (CommentModerationStatus)raw.Value;
+        if (!IsValidModerationStatus(resolved))
+        {
+            return false;
+        }
+
+        status = resolved;
+        return true;
+    }
+
+    private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(HttpContext context, IMfaChallengeService mfaChallengeService)
+    {
+        int userId = context.User.GetUserId();
+        if (userId <= 0)
+        {
+            return Results.Unauthorized();
+        }
+
+        if (!context.User.IsMfaVerified())
+        {
+            return Results.Json(
+                JsonApiResponse<object>.Fail("MFA_REQUIRED"),
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        string proofToken = context.Request.Headers.TryGetValue(MfaProofHeader, out var values)
+            ? values.ToString().Trim()
+            : string.Empty;
+        if (string.IsNullOrWhiteSpace(proofToken) ||
+            !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(userId, AdminSensitiveAction, proofToken))
+        {
+            return Results.Json(
+                JsonApiResponse<object>.Fail("MFA_PROOF_REQUIRED"),
+                statusCode: StatusCodes.Status428PreconditionRequired);
+        }
+
+        return null;
+    }
+
+    private static bool IsValidModerationStatus(CommentModerationStatus status)
+        => status is CommentModerationStatus.Pending
+            or CommentModerationStatus.Approved
+            or CommentModerationStatus.Rejected
+            or CommentModerationStatus.Hidden;
 }

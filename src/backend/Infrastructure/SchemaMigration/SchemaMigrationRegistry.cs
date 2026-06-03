@@ -26,7 +26,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAuthoringWorkspaceTablesMigration(),
         BuildAuthoringDraftLifecycleMigration(),
         BuildCommentModerationMigration(),
-        BuildCommentModerationIndexMigration()
+        BuildCommentModerationIndexMigration(),
+        BuildCommentPublicHotPathIndexMigration()
     ];
 
     public IReadOnlyList<ISchemaMigrationDescriptor> GetDescriptors() => _descriptors;
@@ -737,5 +738,43 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_comment_moderation_status_time",
                     "CREATE INDEX IF NOT EXISTS idx_comment_moderation_status_time ON comment(moderation_status, create_time DESC);")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildCommentPublicHotPathIndexMigration()
+        => new SchemaMigrationDescriptor(
+            "20260603-post-comment-public-hot-path-indexes",
+            "Add partial indexes for public approved comment roots, replies, reply counts, and recent stats.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new CreateIndexStep(
+                    "idx_comment_public_roots",
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_comment_public_roots
+                    ON comment(article_id, id DESC)
+                    WHERE parent_id IS NULL AND moderation_status = 1 AND is_deleted = false;
+                    """),
+                new CreateIndexStep(
+                    "idx_comment_public_replies",
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_comment_public_replies
+                    ON comment(article_id, root_id, id ASC)
+                    WHERE parent_id IS NOT NULL AND moderation_status = 1 AND is_deleted = false;
+                    """),
+                new CreateIndexStep(
+                    "idx_comment_public_reply_count",
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_comment_public_reply_count
+                    ON comment(article_id, root_id)
+                    WHERE parent_id IS NOT NULL AND moderation_status = 1 AND is_deleted = false;
+                    """),
+                new CreateIndexStep(
+                    "idx_comment_public_create_time_desc",
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_comment_public_create_time_desc
+                    ON comment(create_time DESC)
+                    WHERE moderation_status = 1 AND is_deleted = false;
+                    """)
             ]);
 }

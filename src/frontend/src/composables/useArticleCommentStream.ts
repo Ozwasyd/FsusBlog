@@ -6,6 +6,7 @@ import {
   type CommentThreadItem
 } from '@/api/comment'
 import { useAbortableTask } from '@/composables/useAbortableTask'
+import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
 import { isAbortError } from '@/utils/errors'
 
 type UseArticleCommentStreamOptions = Readonly<{
@@ -44,9 +45,9 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
   const replyIdSetByRoot = new Map<string, Set<string>>()
   const replyCursorByRoot = new Map<string, string | null>()
   const replyHasMoreByRoot = new Map<string, boolean>()
+  const replyControllerByRoot = new Map<string, AbortController>()
 
   const loadTask = useAbortableTask()
-  const replyTask = useAbortableTask()
   let observer: IntersectionObserver | null = null
 
   const updateReplySet = (rootId: string, replies: ReadonlyArray<CommentReplyPreviewItem>) => {
@@ -71,6 +72,10 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
     replyIdSetByRoot.clear()
     replyCursorByRoot.clear()
     replyHasMoreByRoot.clear()
+    for (const controller of replyControllerByRoot.values()) {
+      controller.abort()
+    }
+    replyControllerByRoot.clear()
 
     for (const item of nextItems) {
       threadIdSet.add(String(item.id))
@@ -78,7 +83,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
       threadIndexByRoot.set(rootId, threadIndexByRoot.size)
       updateReplySet(rootId, item.repliesPreview)
       replyCursorByRoot.set(rootId, item.repliesPreview.length > 0 ? String(item.repliesPreview[item.repliesPreview.length - 1]?.id ?? '') : null)
-      replyHasMoreByRoot.set(rootId, item.hasMoreReplies)
+      replyHasMoreByRoot.set(rootId, item.hasMoreReplies && item.repliesPreview.length < COMMENT_CONTENT_CONSTRAINT.replyRenderLimit)
     }
   }
 
@@ -106,7 +111,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
       threadIndexByRoot.set(rootId, merged.length - 1)
       updateReplySet(rootId, item.repliesPreview)
       replyCursorByRoot.set(rootId, item.repliesPreview.length > 0 ? String(item.repliesPreview[item.repliesPreview.length - 1]?.id ?? '') : null)
-      replyHasMoreByRoot.set(rootId, item.hasMoreReplies)
+      replyHasMoreByRoot.set(rootId, item.hasMoreReplies && item.repliesPreview.length < COMMENT_CONTENT_CONSTRAINT.replyRenderLimit)
       appended++
     }
 
@@ -163,13 +168,11 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
 
     const cursor = replyCursorByRoot.get(rootId) ?? null
     loadingReplies[rootId] = true
-
-    replyTask.cancel()
+    const controller = new AbortController()
+    replyControllerByRoot.set(rootId, controller)
 
     try {
-      const res = await replyTask.run(async (signal) =>
-        await getThreadReplies(articleId, rootId, cursor, replyPageSize, { signal })
-      )
+      const res = await getThreadReplies(articleId, rootId, cursor, replyPageSize, { signal: controller.signal })
 
       if (!options.isMounted()) {
         return
@@ -192,14 +195,16 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
         seen.add(id)
       }
 
-      replyIdSetByRoot.set(rootId, seen)
+      const cappedReplies = mergedReplies.slice(0, COMMENT_CONTENT_CONSTRAINT.replyRenderLimit)
+      const reachedRenderLimit = cappedReplies.length >= COMMENT_CONTENT_CONSTRAINT.replyRenderLimit
+      updateReplySet(rootId, cappedReplies)
       replyCursorByRoot.set(rootId, res.nextCursor ? String(res.nextCursor) : null)
-      replyHasMoreByRoot.set(rootId, res.hasMore)
+      replyHasMoreByRoot.set(rootId, res.hasMore && !reachedRenderLimit)
 
       nextThreads[targetIndex] = {
         ...nextThreads[targetIndex],
-        repliesPreview: mergedReplies,
-        hasMoreReplies: res.hasMore
+        repliesPreview: cappedReplies,
+        hasMoreReplies: res.hasMore && !reachedRenderLimit
       }
       threads.value = nextThreads
     } catch (error: unknown) {
@@ -207,6 +212,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
         console.error('[Comments] Load replies failed:', error)
       }
     } finally {
+      replyControllerByRoot.delete(rootId)
       if (options.isMounted()) {
         delete loadingReplies[rootId]
       }
@@ -278,7 +284,9 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
     nextThreads[targetIndex] = {
       ...target,
       replyCount: target.replyCount + 1,
-      repliesPreview: [...target.repliesPreview, reply]
+      repliesPreview: target.repliesPreview.length >= COMMENT_CONTENT_CONSTRAINT.replyRenderLimit
+        ? target.repliesPreview
+        : [...target.repliesPreview, reply]
     }
 
     seen.add(incomingId)
@@ -367,7 +375,10 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
       observer = null
     }
     loadTask.cancel()
-    replyTask.cancel()
+    for (const controller of replyControllerByRoot.values()) {
+      controller.abort()
+    }
+    replyControllerByRoot.clear()
   }
 
   return {

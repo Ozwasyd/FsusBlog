@@ -80,6 +80,7 @@
 import { computed } from 'vue'
 import type { CommentReplyPreviewItem, CommentThreadItem } from '@/api/comment'
 import { commentDetailTokens, type CommentTimeContract } from '@/view-contracts/commentDetail'
+import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
 import { TimeUtils } from '@/utils/time'
 
 type ReplyTargetPayload = {
@@ -123,7 +124,7 @@ const threadItems = computed(() => props.threads.map((thread) => ({
   ...thread,
   canDelete: canDeleteForUser(thread.userName),
   time: buildTime(thread.createTime),
-  replies: thread.repliesPreview.map((reply: CommentReplyPreviewItem) => ({
+  replies: thread.repliesPreview.slice(0, COMMENT_CONTENT_CONSTRAINT.replyRenderLimit).map((reply: CommentReplyPreviewItem) => ({
     ...reply,
     canDelete: canDeleteForUser(reply.userName),
     time: buildTime(reply.createTime)

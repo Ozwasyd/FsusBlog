@@ -230,12 +230,19 @@ type JsonApiResponse<T> = {
   message?: string | null
 }
 
-const jsonHeaders = (hasBody: boolean): Headers => {
+const ADMIN_SENSITIVE_MFA_HEADER = 'X-Fsus-Mfa-Proof'
+
+const jsonHeaders = (hasBody: boolean, mfaProofToken?: string | null): Headers => {
   const headers = new Headers()
   headers.set('Accept', 'application/json')
   headers.set(FSUS_HEADERS.deviceFingerprint, getBrowserFp())
   if (hasBody) {
     headers.set('Content-Type', 'application/json')
+  }
+
+  const proofToken = mfaProofToken?.trim()
+  if (proofToken) {
+    headers.set(ADMIN_SENSITIVE_MFA_HEADER, proofToken)
   }
 
   return headers
@@ -413,7 +420,7 @@ export async function moderateComment(
   const response = await fetch(`/api/author/comments/${commentId}/moderation`, {
     method: 'POST',
     credentials: 'include',
-    headers: jsonHeaders(true),
+    headers: jsonHeaders(true, config?.mfaProofToken),
     signal: config?.signal,
     body: JSON.stringify(request)
   })
@@ -428,7 +435,7 @@ export async function moderateCommentsBulk(
   const response = await fetch('/api/author/comments/moderation/bulk', {
     method: 'POST',
     credentials: 'include',
-    headers: jsonHeaders(true),
+    headers: jsonHeaders(true, config?.mfaProofToken),
     signal: config?.signal,
     body: JSON.stringify(request)
   })

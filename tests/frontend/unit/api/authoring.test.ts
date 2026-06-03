@@ -276,6 +276,8 @@ describe('authoring API (server drafts)', () => {
       status: CommentModerationStatus.Hidden,
       reason: 'spam links',
       banUser: true
+    }, {
+      mfaProofToken: 'proof-single'
     })).resolves.toBe(true)
     expect(fetchMock).toHaveBeenCalledWith('/api/author/comments/1001/moderation', expect.objectContaining({
       method: 'POST',
@@ -286,6 +288,8 @@ describe('authoring API (server drafts)', () => {
         banUser: true
       })
     }))
+    const headers = (fetchMock.mock.calls[0]?.[1] as RequestInit).headers as Headers
+    expect(headers.get('X-Fsus-Mfa-Proof')).toBe('proof-single')
   })
 
   it('moderateCommentsBulk posts batch decision payload', async () => {
@@ -299,6 +303,8 @@ describe('authoring API (server drafts)', () => {
       status: CommentModerationStatus.Rejected,
       reason: 'spam batch',
       banUsers: true
+    }, {
+      mfaProofToken: 'proof-bulk'
     })
 
     expect(result.updated).toBe(2)
@@ -312,6 +318,8 @@ describe('authoring API (server drafts)', () => {
         banUsers: true
       })
     }))
+    const headers = (fetchMock.mock.calls[0]?.[1] as RequestInit).headers as Headers
+    expect(headers.get('X-Fsus-Mfa-Proof')).toBe('proof-bulk')
   })
 
   it('exportArticleContent fetches Markdown frontmatter and metadata', async () => {

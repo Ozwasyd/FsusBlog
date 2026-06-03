@@ -13,7 +13,8 @@ internal interface IBinaryRequestBinder
         HttpContext httpContext,
         IAedsEncoder aeds,
         AedsFrameType expectedFrameType,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        int? maxFrameBytes = null);
 
     Task<NameMutationPayload> ReadNameMutationAsync(
         HttpContext httpContext,
@@ -31,16 +32,18 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
         HttpContext httpContext,
         IAedsEncoder aeds,
         AedsFrameType expectedFrameType,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? maxFrameBytes = null)
     {
+        int frameLimit = NormalizeFrameLimit(maxFrameBytes);
         if (!IsBinaryContentType(httpContext.Request.ContentType))
         {
             return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "请求体必须使用 application/octet-stream"));
         }
 
-        if (httpContext.Request.ContentLength is > MaxBinaryRequestFrameBytes)
+        if (httpContext.Request.ContentLength.HasValue && httpContext.Request.ContentLength.Value > frameLimit)
         {
-            return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "请求帧超过 8 MiB 上限"));
+            return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, $"请求帧超过 {FormatBytes(frameLimit)} 上限"));
         }
 
         byte[] headerBuffer = ArrayPool<byte>.Shared.Rent(AedsFrameHeader.Size);
@@ -79,9 +82,9 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
                 return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "请求帧类型不匹配"));
             }
 
-            if (payloadLength > MaxBinaryRequestFrameBytes - AedsFrameHeader.Size)
+            if (payloadLength > frameLimit - AedsFrameHeader.Size)
             {
-                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "请求帧超过 8 MiB 上限"));
+                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, $"请求帧超过 {FormatBytes(frameLimit)} 上限"));
             }
 
             long expectedFrameLength = AedsFrameHeader.Size + (long)payloadLength;
@@ -202,6 +205,21 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
 
     private static bool IsBinaryContentType(string? contentType)
         => contentType?.StartsWith(BinaryContentType, StringComparison.OrdinalIgnoreCase) == true;
+
+    private static int NormalizeFrameLimit(int? maxFrameBytes)
+    {
+        if (maxFrameBytes is null or <= 0)
+        {
+            return MaxBinaryRequestFrameBytes;
+        }
+
+        return Math.Min(Math.Max(maxFrameBytes.Value, AedsFrameHeader.Size), MaxBinaryRequestFrameBytes);
+    }
+
+    private static string FormatBytes(int bytes)
+        => bytes == MaxBinaryRequestFrameBytes
+            ? "8 MiB"
+            : $"{bytes} bytes";
 }
 
 internal readonly record struct BinaryRequestPayload(bool IsSuccess, ReadOnlyMemory<byte> Payload, ErrorDetail Error)

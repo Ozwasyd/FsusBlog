@@ -7,4 +7,5 @@ export type ApiRequestConfig = {
   signal?: AbortSignal
   onUploadProgress?: (event: ApiUploadProgress) => void
   requiresPow?: boolean
+  mfaProofToken?: string | null
 }

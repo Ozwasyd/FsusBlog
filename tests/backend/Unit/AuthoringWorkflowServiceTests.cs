@@ -5,6 +5,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Authoring;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using SqlSugar;
 using System.Text;
@@ -306,7 +307,10 @@ const value = "<script>alert(1)</script>";
             contentFilter,
             Substitute.For<IBlacklistService>(),
             Substitute.For<ICacheInvalidationDispatcher>(),
+            Substitute.For<IMessageRealtimePublisher>(),
+            Substitute.For<IMessageCommandService>(),
             auditLogChannel = new AuditLogChannel(),
-            configuration);
+            configuration,
+            Substitute.For<ILogger<AuthoringWorkflowService>>());
     }
 }

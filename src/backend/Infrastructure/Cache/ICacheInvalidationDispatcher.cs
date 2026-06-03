@@ -6,11 +6,18 @@ public interface ICacheInvalidationDispatcher
     Task InvalidateSeoAsync(CancellationToken cancellationToken = default);
     Task InvalidateSystemPageAsync(string slug, CancellationToken cancellationToken = default);
     Task InvalidateCategoryTagAsync(CancellationToken cancellationToken = default);
-    Task InvalidateCommentMutationAsync(CancellationToken cancellationToken = default);
+    Task InvalidateCommentMutationAsync(CommentCacheInvalidationScope? scope = null, CancellationToken cancellationToken = default);
     Task InvalidateStatsAsync(CancellationToken cancellationToken = default);
     Task InvalidateArticleViewAsync(int articleId, CancellationToken cancellationToken = default);
     Task InvalidateHotArticlesAsync(CancellationToken cancellationToken = default);
 }
+
+public sealed record class CommentCacheInvalidationScope(
+    int? ArticleId = null,
+    long? RootId = null,
+    int? UserId = null,
+    bool PublicArticleChanged = false,
+    bool UserCommentsChanged = false);
 
 public sealed class CacheInvalidationDispatcher(
     IUnifiedCache cache,
@@ -49,11 +56,31 @@ public sealed class CacheInvalidationDispatcher(
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.Tag, CacheTag.ArticleList);
     }
 
-    public async Task InvalidateCommentMutationAsync(CancellationToken cancellationToken = default)
+    public async Task InvalidateCommentMutationAsync(CommentCacheInvalidationScope? scope = null, CancellationToken cancellationToken = default)
     {
-        await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursor, string.Empty, cancellationToken);
-        await cache.RemoveByPrefixAsync(CachePolicyId.UserCommentCursor, string.Empty, cancellationToken);
-        await httpCacheInvalidator.InvalidateAsync(CacheTag.Comment);
+        if (scope is null)
+        {
+            await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursor, "article:", cancellationToken);
+            await cache.RemoveByPrefixAsync(CachePolicyId.UserCommentCursor, "user:", cancellationToken);
+        }
+        else
+        {
+            if (scope.PublicArticleChanged && scope.ArticleId is > 0)
+            {
+                await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursor, $"article:{scope.ArticleId.Value}:", cancellationToken);
+            }
+
+            if (scope.ArticleId is > 0 && scope.RootId is > 0)
+            {
+                await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursor, $"article:{scope.ArticleId.Value}:root:{scope.RootId.Value}:", cancellationToken);
+            }
+
+            if (scope.UserCommentsChanged && scope.UserId is > 0)
+            {
+                await cache.RemoveByPrefixAsync(CachePolicyId.UserCommentCursor, $"user:{scope.UserId.Value}:", cancellationToken);
+            }
+        }
+
         await InvalidateStatsAsync(cancellationToken);
     }
 

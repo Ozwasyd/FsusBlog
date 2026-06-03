@@ -207,7 +207,7 @@ export async function compressImageFileWithRuntime(
         preserveAlpha: options.preserveAlpha
       })
       if (isEncodedImageLikelyValid(encoded, options.format)) {
-        encodedBlob = new Blob([encoded], { type: mimeType })
+        encodedBlob = new Blob([encoded as unknown as BlobPart], { type: mimeType })
         pipeline = wasmCodec.level === 'simd' ? 'wasm-simd' : 'wasm-basic'
       } else {
         throw new WasmEncodeError({

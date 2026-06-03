@@ -12,7 +12,7 @@ public sealed class CommentCoreQueryCache(IUnifiedCache cache)
         int limit,
         Func<Task<CoreCursorResult<CommentQueryCoreModel>>> loader)
     {
-        string identity = $"core:{articleId}:{cursor?.ToString() ?? "null"}:{limit}";
+        string identity = $"article:{articleId}:threads:{cursor?.ToString() ?? "0"}:{limit}";
         var hit = await cache.TryGetAsync(CachePolicyId.CommentCursor, identity, DecodeCommentCursor);
         if (hit.Hit && hit.Value is not null)
         {
@@ -30,7 +30,7 @@ public sealed class CommentCoreQueryCache(IUnifiedCache cache)
         int limit,
         Func<Task<CoreCursorResult<UserCommentCoreModel>>> loader)
     {
-        string identity = $"core:{userId}:{cursor?.ToString() ?? "null"}:{limit}";
+        string identity = $"user:{userId}:{cursor?.ToString() ?? "0"}:{limit}";
         var hit = await cache.TryGetAsync(CachePolicyId.UserCommentCursor, identity, DecodeUserCommentCursor);
         if (hit.Hit && hit.Value is not null)
         {

@@ -7,6 +7,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
@@ -23,8 +24,11 @@ public sealed class AuthoringWorkflowService(
     IContentFilterService contentFilter,
     IBlacklistService blacklistService,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
+    IMessageRealtimePublisher messageRealtimePublisher,
+    IMessageCommandService messageCommandService,
     AuditLogChannel auditLogChannel,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    ILogger<AuthoringWorkflowService> logger)
 {
     private const int MaxDraftKeyLength = 96;
     private const int PreviewLength = 24_000;
@@ -389,7 +393,7 @@ public sealed class AuthoringWorkflowService(
                 JoinType.Left, c.ArticleId == a.Id,
                 JoinType.Left, c.UserId == u.Id
             })
-            .Where((c, a, u) => c.ModerationStatus == resolvedStatus)
+            .Where((c, a, u) => c.ModerationStatus == resolvedStatus && !c.IsDeleted)
             .OrderByDescending((c, a, u) => c.CreateTime)
             .Take(normalizedLimit)
             .Select((c, a, u) => new CommentModerationQueueRow
@@ -408,9 +412,9 @@ public sealed class AuthoringWorkflowService(
             })
             .ToListAsync(cancellationToken);
 
-        int pending = await db.Queryable<Comment>().Where(static item => item.ModerationStatus == CommentModerationStatus.Pending).CountAsync(cancellationToken);
-        int rejected = await db.Queryable<Comment>().Where(static item => item.ModerationStatus == CommentModerationStatus.Rejected).CountAsync(cancellationToken);
-        int hidden = await db.Queryable<Comment>().Where(static item => item.ModerationStatus == CommentModerationStatus.Hidden).CountAsync(cancellationToken);
+        int pending = await db.Queryable<Comment>().Where(static item => item.ModerationStatus == CommentModerationStatus.Pending && !item.IsDeleted).CountAsync(cancellationToken);
+        int rejected = await db.Queryable<Comment>().Where(static item => item.ModerationStatus == CommentModerationStatus.Rejected && !item.IsDeleted).CountAsync(cancellationToken);
+        int hidden = await db.Queryable<Comment>().Where(static item => item.ModerationStatus == CommentModerationStatus.Hidden && !item.IsDeleted).CountAsync(cancellationToken);
 
         return new CommentModerationQueueResponse(
             rows.Select(ToCommentModerationItem).ToArray(),
@@ -426,24 +430,33 @@ public sealed class AuthoringWorkflowService(
             return false;
         }
 
+        CommentModerationStateRow? current = await LoadCommentModerationStateAsync(commentId, cancellationToken);
+        if (current is null || !IsAllowedModerationTransition(current.Status, request.Status))
+        {
+            return false;
+        }
+
+        DateTime moderatedAt = DateTime.UtcNow;
+        string? normalizedReason = NormalizeNullable(request.Reason, 256);
         int count = await db.Updateable<Comment>()
             .SetColumns(it => it.ModerationStatus == request.Status)
-            .SetColumns(it => it.ModerationReason == NormalizeNullable(request.Reason, 256))
+            .SetColumns(it => it.ModerationReason == normalizedReason)
             .SetColumns(it => it.ModeratedByUserId == actorUserId)
-            .SetColumns(it => it.ModeratedAt == DateTime.UtcNow)
-            .Where(it => it.Id == commentId)
+            .SetColumns(it => it.ModeratedAt == moderatedAt)
+            .Where(it => it.Id == commentId && !it.IsDeleted && it.ModerationStatus == current.Status)
             .ExecuteCommandAsync(cancellationToken);
         if (count > 0)
         {
             int banned = request.BanUser && ShouldLinkBan(request.Status)
                 ? await BanModerationUsersAsync([commentId], request.Reason, cancellationToken)
                 : 0;
-            await cacheInvalidationDispatcher.InvalidateCommentMutationAsync(cancellationToken);
+            await InvalidateModeratedCommentAsync(current, request.Status, cancellationToken);
+            await PublishModerationRealtimeAsync(current, request.Status, moderatedAt);
             WriteAudit(
                 AuditSourceCatalog.Comment,
                 "comment-moderation",
                 actorUserId,
-                $"comment:{commentId.ToString(System.Globalization.CultureInfo.InvariantCulture)};status={(int)request.Status};ban={banned}");
+                $"comment:{commentId.ToString(System.Globalization.CultureInfo.InvariantCulture)};from={(int)current.Status};to={(int)request.Status};ban={banned}");
         }
 
         return count > 0;
@@ -469,20 +482,42 @@ public sealed class AuthoringWorkflowService(
             return new CommentModerationBulkResponse(0, 0);
         }
 
-        int updated = await db.Updateable<Comment>()
-            .SetColumns(it => it.ModerationStatus == request.Status)
-            .SetColumns(it => it.ModerationReason == NormalizeNullable(request.Reason, 256))
-            .SetColumns(it => it.ModeratedByUserId == actorUserId)
-            .SetColumns(it => it.ModeratedAt == DateTime.UtcNow)
-            .Where(it => ids.Contains(it.Id))
-            .ExecuteCommandAsync(cancellationToken);
+        List<CommentModerationStateRow> rows = await LoadCommentModerationStatesAsync(ids, cancellationToken);
+        int updated = 0;
+        var updatedIds = new List<long>(rows.Count);
+        DateTime moderatedAt = DateTime.UtcNow;
+        string? normalizedReason = NormalizeNullable(request.Reason, 256);
+        foreach (CommentModerationStateRow row in rows)
+        {
+            if (!IsAllowedModerationTransition(row.Status, request.Status))
+            {
+                continue;
+            }
+
+            int affected = await db.Updateable<Comment>()
+                .SetColumns(it => it.ModerationStatus == request.Status)
+                .SetColumns(it => it.ModerationReason == normalizedReason)
+                .SetColumns(it => it.ModeratedByUserId == actorUserId)
+                .SetColumns(it => it.ModeratedAt == moderatedAt)
+                .Where(it => it.Id == row.Id && !it.IsDeleted && it.ModerationStatus == row.Status)
+                .ExecuteCommandAsync(cancellationToken);
+            if (affected <= 0)
+            {
+                continue;
+            }
+
+            updated++;
+            updatedIds.Add(row.Id);
+            await InvalidateModeratedCommentAsync(row, request.Status, cancellationToken);
+            await PublishModerationRealtimeAsync(row, request.Status, moderatedAt);
+        }
+
         int banned = updated > 0 && request.BanUsers && ShouldLinkBan(request.Status)
-            ? await BanModerationUsersAsync(ids, request.Reason, cancellationToken)
+            ? await BanModerationUsersAsync(updatedIds, request.Reason, cancellationToken)
             : 0;
 
         if (updated > 0)
         {
-            await cacheInvalidationDispatcher.InvalidateCommentMutationAsync(cancellationToken);
             WriteAudit(
                 AuditSourceCatalog.Comment,
                 "comment-moderation-bulk",
@@ -721,6 +756,138 @@ public sealed class AuthoringWorkflowService(
         return banTargets.Count;
     }
 
+    private async Task<CommentModerationStateRow?> LoadCommentModerationStateAsync(long commentId, CancellationToken cancellationToken)
+        => await db.Queryable<Comment, Article, User, User>((c, a, u, ru) => new object[]
+            {
+                JoinType.Left, c.ArticleId == a.Id,
+                JoinType.Left, c.UserId == u.Id,
+                JoinType.Left, c.ReplyToUserId == ru.Id
+            })
+            .Where((c, a, u, ru) => c.Id == commentId && !c.IsDeleted)
+            .Select((c, a, u, ru) => new CommentModerationStateRow
+            {
+                Id = c.Id,
+                ArticleId = c.ArticleId,
+                ArticleTitle = a.Title,
+                UserId = c.UserId,
+                UserName = u.Username,
+                Content = c.Content,
+                CreateTime = c.CreateTime,
+                ParentId = c.ParentId,
+                RootId = c.RootId,
+                ReplyToUserId = c.ReplyToUserId,
+                ReplyToUserName = ru.Username,
+                ReplyToCommentId = c.ReplyToCommentId,
+                Depth = c.Depth,
+                Status = c.ModerationStatus
+            })
+            .FirstAsync(cancellationToken);
+
+    private async Task<List<CommentModerationStateRow>> LoadCommentModerationStatesAsync(long[] commentIds, CancellationToken cancellationToken)
+    {
+        if (commentIds.Length == 0)
+        {
+            return [];
+        }
+
+        return await db.Queryable<Comment, Article, User, User>((c, a, u, ru) => new object[]
+            {
+                JoinType.Left, c.ArticleId == a.Id,
+                JoinType.Left, c.UserId == u.Id,
+                JoinType.Left, c.ReplyToUserId == ru.Id
+            })
+            .Where((c, a, u, ru) => commentIds.Contains(c.Id) && !c.IsDeleted)
+            .Select((c, a, u, ru) => new CommentModerationStateRow
+            {
+                Id = c.Id,
+                ArticleId = c.ArticleId,
+                ArticleTitle = a.Title,
+                UserId = c.UserId,
+                UserName = u.Username,
+                Content = c.Content,
+                CreateTime = c.CreateTime,
+                ParentId = c.ParentId,
+                RootId = c.RootId,
+                ReplyToUserId = c.ReplyToUserId,
+                ReplyToUserName = ru.Username,
+                ReplyToCommentId = c.ReplyToCommentId,
+                Depth = c.Depth,
+                Status = c.ModerationStatus
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    private async Task InvalidateModeratedCommentAsync(
+        CommentModerationStateRow row,
+        CommentModerationStatus nextStatus,
+        CancellationToken cancellationToken)
+    {
+        bool publicArticleChanged = row.Status == CommentModerationStatus.Approved || nextStatus == CommentModerationStatus.Approved;
+        await cacheInvalidationDispatcher.InvalidateCommentMutationAsync(
+            new CommentCacheInvalidationScope(
+                ArticleId: row.ArticleId,
+                RootId: row.RootId ?? row.Id,
+                UserId: row.UserId,
+                PublicArticleChanged: publicArticleChanged,
+                UserCommentsChanged: true),
+            cancellationToken);
+    }
+
+    private async Task PublishModerationRealtimeAsync(CommentModerationStateRow row, CommentModerationStatus nextStatus, DateTime eventTime)
+    {
+        if (row.Status != CommentModerationStatus.Approved && nextStatus == CommentModerationStatus.Approved)
+        {
+            await messageRealtimePublisher.PushCommentAddAsync(new CommentAddedNotifyDto
+            {
+                ArticleId = row.ArticleId,
+                Time = eventTime,
+                Comment = new CommentPushDto
+                {
+                    Id = row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    Content = row.Content,
+                    CreateTime = row.CreateTime,
+                    UserName = string.IsNullOrWhiteSpace(row.UserName) ? "匿名用户" : row.UserName,
+                    ParentId = row.ParentId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    RootId = (row.RootId ?? row.Id).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ReplyToUserId = row.ReplyToUserId,
+                    ReplyToCommentId = row.ReplyToCommentId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    Depth = Math.Min(2, Math.Max(0, row.Depth)),
+                    IsDeleted = false
+                }
+            });
+            await NotifyApprovedReplyAsync(row);
+            return;
+        }
+
+        if (row.Status == CommentModerationStatus.Approved && nextStatus is CommentModerationStatus.Hidden or CommentModerationStatus.Rejected)
+        {
+            await messageRealtimePublisher.PushCommentRemoveAsync(row.ArticleId, row.Id, row.RootId ?? row.Id, row.ParentId);
+        }
+    }
+
+    private async Task NotifyApprovedReplyAsync(CommentModerationStateRow row)
+    {
+        if (!row.ReplyToUserId.HasValue || row.ReplyToUserId.Value <= 0 || row.ReplyToUserId.Value == row.UserId)
+        {
+            return;
+        }
+
+        await BoundaryExecutor.ExecuteAsync(
+            async () =>
+            {
+                string actor = string.IsNullOrWhiteSpace(row.UserName) ? "匿名用户" : row.UserName;
+                string targetName = string.IsNullOrWhiteSpace(row.ReplyToUserName) ? "您" : row.ReplyToUserName!;
+                string snippet = row.Content.Length > 40 ? row.Content[..40] : row.Content;
+                await messageCommandService.SendUserTransactionalNoticeAsync(
+                    row.ReplyToUserId.Value,
+                    "收到新的评论回复",
+                    $"{actor} 回复了 {targetName}：{snippet}");
+            },
+            logger,
+            $"comment-moderation-notify-reply:{row.ReplyToUserId.Value}",
+            LogLevel.Warning);
+    }
+
     private static bool ShouldLinkBan(CommentModerationStatus status)
         => status is CommentModerationStatus.Rejected or CommentModerationStatus.Hidden;
 
@@ -729,6 +896,24 @@ public sealed class AuthoringWorkflowService(
             or CommentModerationStatus.Approved
             or CommentModerationStatus.Rejected
             or CommentModerationStatus.Hidden;
+
+    private static bool IsAllowedModerationTransition(CommentModerationStatus currentStatus, CommentModerationStatus nextStatus)
+        => currentStatus == nextStatus
+            || currentStatus switch
+            {
+                CommentModerationStatus.Pending => nextStatus is CommentModerationStatus.Approved
+                    or CommentModerationStatus.Rejected
+                    or CommentModerationStatus.Hidden,
+                CommentModerationStatus.Approved => nextStatus is CommentModerationStatus.Rejected
+                    or CommentModerationStatus.Hidden,
+                CommentModerationStatus.Rejected => nextStatus is CommentModerationStatus.Pending
+                    or CommentModerationStatus.Approved
+                    or CommentModerationStatus.Hidden,
+                CommentModerationStatus.Hidden => nextStatus is CommentModerationStatus.Pending
+                    or CommentModerationStatus.Approved
+                    or CommentModerationStatus.Rejected,
+                _ => false
+            };
 
     private static IReadOnlyList<AuthorAnalyticsMetricResponse> BuildRankedMetrics(IEnumerable<string?> values)
         => values
@@ -1169,6 +1354,24 @@ public sealed class AuthoringWorkflowService(
         public string? Reason { get; set; }
         public int? ModeratedByUserId { get; set; }
         public DateTime? ModeratedAt { get; set; }
+    }
+
+    private sealed class CommentModerationStateRow
+    {
+        public long Id { get; init; }
+        public int ArticleId { get; init; }
+        public string? ArticleTitle { get; init; }
+        public int UserId { get; init; }
+        public string? UserName { get; init; }
+        public string Content { get; init; } = string.Empty;
+        public DateTime CreateTime { get; init; }
+        public long? ParentId { get; init; }
+        public long? RootId { get; init; }
+        public int? ReplyToUserId { get; init; }
+        public string? ReplyToUserName { get; init; }
+        public long? ReplyToCommentId { get; init; }
+        public int Depth { get; init; }
+        public CommentModerationStatus Status { get; init; }
     }
 
     private enum LinkValidationResult

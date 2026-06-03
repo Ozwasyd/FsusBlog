@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   normalizeModerationText,
   scoreContentRisk,
+  COMMENT_CONTENT_CONSTRAINT,
   USERNAME_CONSTRAINT,
   validateCommentContent,
   validateUsername
@@ -22,6 +23,18 @@ describe('validateCommentContent', () => {
   it('accepts normal comment', () => {
     const r = validateCommentContent('这是一条正常的评论。')
     expect(r.isValid).toBe(true)
+  })
+
+  it('rejects content over the shared character limit before risk scoring', () => {
+    const r = validateCommentContent('a'.repeat(COMMENT_CONTENT_CONSTRAINT.maxChars + 1))
+    expect(r.isValid).toBe(false)
+    expect(r.message).toBe(COMMENT_CONTENT_CONSTRAINT.charLengthMessage)
+  })
+
+  it('rejects content over the shared UTF-8 byte limit before risk scoring', () => {
+    const r = validateCommentContent('你'.repeat(Math.floor(COMMENT_CONTENT_CONSTRAINT.maxUtf8Bytes / 3) + 1))
+    expect(r.isValid).toBe(false)
+    expect(r.message).toBe(COMMENT_CONTENT_CONSTRAINT.byteLengthMessage)
   })
 
   it('rejects ad/spam content', () => {

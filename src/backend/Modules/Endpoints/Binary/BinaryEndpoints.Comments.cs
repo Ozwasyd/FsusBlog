@@ -24,6 +24,7 @@ using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
 using System.Buffers;
 using System.Data.Common;
+using System.Text;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
@@ -44,7 +45,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "未授权的访问，请重新登录"), aeds);
             }
 
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.CommentCreateRequest, cancellationToken);
+            var payload = await ReadBinaryRequestPayloadAsync(
+                httpContext,
+                aeds,
+                AedsFrameType.CommentCreateRequest,
+                cancellationToken,
+                CommentLimits.CreatePayloadMaxBytes);
             if (!payload.IsSuccess)
             {
                 return BinaryResults.FromError(payload.Error, aeds);
@@ -55,7 +61,13 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "评论请求体非法"), aeds);
             }
 
-            ContentValidationResult validation = contentFilterService.ValidateContent(request.Content);
+            string content = request.Content?.Trim() ?? string.Empty;
+            if (!IsCommentContentWithinLimit(content))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"评论内容不能超过 {CommentLimits.ContentMaxChars} 字或 {CommentLimits.ContentMaxUtf8Bytes} 字节"), aeds);
+            }
+
+            ContentValidationResult validation = contentFilterService.ValidateContent(content);
             if (!validation.IsValid)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, validation.Message), aeds);
@@ -64,7 +76,7 @@ public static partial class BinaryEndpoints
             var dto = new CommentDto
             {
                 ArticleId = request.ArticleId,
-                Content = request.Content,
+                Content = content,
                 ParentId = request.ParentId,
                 RootId = request.RootId,
                 ReplyToCommentId = request.ReplyToCommentId,
@@ -95,8 +107,7 @@ public static partial class BinaryEndpoints
             var result = await commentService.GetCommentThreadsByCursorAsync(articleId, bind.Request);
             return BinaryResults.Frame(aeds, AedsFrameType.CommentArticleCursor, writer => PodBinaryCodec.WriteCommentThreadCursor(result, writer));
         })
-        .AllowAnonymous()
-        .CacheOutput(HttpCachePolicyCatalog.ApplyCommentThreads);
+        .AllowAnonymous();
 
         group.MapGet("/comment/{articleId:int}/thread/{rootId:long}", async Task<BinaryFrameResult> (
             int articleId,
@@ -114,8 +125,7 @@ public static partial class BinaryEndpoints
             var result = await commentService.GetThreadRepliesByCursorAsync(articleId, rootId, bind.Request);
             return BinaryResults.Frame(aeds, AedsFrameType.CommentThreadReplyCursor, writer => PodBinaryCodec.WriteCommentReplyCursor(rootId, result, writer));
         })
-        .AllowAnonymous()
-        .CacheOutput(HttpCachePolicyCatalog.ApplyCommentThreadReplies);
+        .AllowAnonymous();
 
         group.MapGet("/comment/me", async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -156,4 +166,9 @@ public static partial class BinaryEndpoints
         .RequireAuthorization()
         .AddEndpointFilter<RequiresPowFilter>();
     }
+
+    private static bool IsCommentContentWithinLimit(string content)
+        => !string.IsNullOrWhiteSpace(content)
+            && content.Length <= CommentLimits.ContentMaxChars
+            && Encoding.UTF8.GetByteCount(content) <= CommentLimits.ContentMaxUtf8Bytes;
 }

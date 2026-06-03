@@ -19,7 +19,6 @@ public partial class CommentService(
     IMessageCommandService messageCommandService,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher) : ICommentService, ICommentEndpointService
 {
-    private const int MaxCommentLength = 4000;
     private const int DefaultReplyPreviewLimit = 3;
     private const string DeletedPlaceholder = "该回复已删除";
     private static readonly Int64CursorCodec CursorCodec = Int64CursorCodec.Instance;
@@ -40,13 +39,18 @@ public partial class CommentService(
         }
 
         string normalizedContent = NormalizeCommentContent(dto.Content);
-        if (normalizedContent.Length == 0)
+        if (!IsCommentContentWithinLimit(normalizedContent))
         {
             return false;
         }
 
+        DateTime now = DateTime.UtcNow;
         bool articleExists = await db.Queryable<Article>()
-            .Where(a => a.Id == dto.ArticleId && !a.IsDeleted)
+            .Where(a => a.Id == dto.ArticleId
+                && !a.IsDeleted
+                && a.Status == ArticleStatus.Published
+                && (a.PublishedAt == null || a.PublishedAt <= now)
+                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
             .AnyAsync();
         if (!articleExists)
         {
@@ -101,12 +105,16 @@ public partial class CommentService(
             }
 
             var parent = await db.Queryable<Comment, User>((c, u) => c.UserId == u.Id)
-                .Where((c, u) => c.Id == parsedParentId && c.ArticleId == dto.ArticleId)
+                .Where((c, u) => c.Id == parsedParentId
+                    && c.ArticleId == dto.ArticleId
+                    && c.ModerationStatus == CommentModerationStatus.Approved
+                    && !c.IsDeleted)
                 .Select((c, u) => new
                 {
                     c.Id,
                     c.ArticleId,
                     c.RootId,
+                    c.ParentId,
                     c.Depth,
                     c.UserId
                 })
@@ -120,6 +128,18 @@ public partial class CommentService(
             parentId = parent.Id;
             rootId = parent.RootId ?? parent.Id;
             if (requestedRootId.HasValue && requestedRootId.Value != rootId.Value)
+            {
+                return false;
+            }
+
+            bool rootIsVisible = await db.Queryable<Comment>()
+                .Where(c => c.Id == rootId.Value
+                    && c.ArticleId == dto.ArticleId
+                    && c.ParentId == null
+                    && c.ModerationStatus == CommentModerationStatus.Approved
+                    && !c.IsDeleted)
+                .AnyAsync();
+            if (!rootIsVisible)
             {
                 return false;
             }
@@ -158,9 +178,15 @@ public partial class CommentService(
             return false;
         }
 
-        await cacheInvalidationDispatcher.InvalidateCommentMutationAsync();
-
         comment.Id = generatedId;
+
+        await cacheInvalidationDispatcher.InvalidateCommentMutationAsync(
+            new CommentCacheInvalidationScope(
+                ArticleId: comment.ArticleId,
+                RootId: comment.RootId ?? comment.Id,
+                UserId: userId,
+                PublicArticleChanged: false,
+                UserCommentsChanged: true));
 
         logger.LogInformation("评论已进入审核队列 | Article: {ArticleId} | CommentId: {CommentId} | Root: {RootId} | Parent: {ParentId}",
             dto.ArticleId,
@@ -186,6 +212,7 @@ public partial class CommentService(
         var roots = await db.Queryable<Comment, User>((c, u) => c.UserId == u.Id)
             .Where((c, u) => c.ArticleId == articleId && c.ParentId == null)
             .Where((c, u) => c.ModerationStatus == CommentModerationStatus.Approved)
+            .Where((c, u) => !c.IsDeleted)
             .WhereIF(request.Cursor.HasValue, (c, u) => c.Id < request.Cursor!.Value)
             .OrderByDescending((c, u) => c.Id)
             .Take(request.Limit + 1)
@@ -208,15 +235,17 @@ public partial class CommentService(
             rootIds[i] = roots[i].Id;
         }
 
-        Dictionary<long, int> replyCountMap = await LoadThreadReplyCountMapAsync(articleId, rootIds);
-        Dictionary<long, List<CommentReplyPreviewItemDto>> previewMap = await QueryThreadRepliesPreviewMapAsync(articleId, rootIds, normalizedPreviewLimit);
+        Dictionary<long, List<CommentReplyPreviewItemDto>> previewMap = await QueryThreadRepliesPreviewMapAsync(articleId, rootIds, normalizedPreviewLimit + 1);
 
         return CursorPagination.SliceMapToResponse(roots, request.Limit, root => root.Id, root =>
         {
             long rootId = root.Id;
-            int replyCount = replyCountMap.GetValueOrDefault(rootId, 0);
-            List<CommentReplyPreviewItemDto> previewReplies = previewMap.GetValueOrDefault(rootId, []);
-            bool hasMoreReplies = replyCount > previewReplies.Count;
+            List<CommentReplyPreviewItemDto> loadedReplies = previewMap.GetValueOrDefault(rootId, []);
+            bool hasMoreReplies = loadedReplies.Count > normalizedPreviewLimit;
+            List<CommentReplyPreviewItemDto> previewReplies = hasMoreReplies
+                ? loadedReplies.Take(normalizedPreviewLimit).ToList()
+                : loadedReplies;
+            int replyCount = previewReplies.Count + (hasMoreReplies ? 1 : 0);
 
             return new CommentThreadItemDto(
                 root.Id.ToString(),
@@ -239,7 +268,7 @@ public partial class CommentService(
         }
 
         bool rootExists = await db.Queryable<Comment>()
-            .Where(c => c.Id == rootId && c.ArticleId == articleId && c.ParentId == null && c.ModerationStatus == CommentModerationStatus.Approved)
+            .Where(c => c.Id == rootId && c.ArticleId == articleId && c.ParentId == null && c.ModerationStatus == CommentModerationStatus.Approved && !c.IsDeleted)
             .AnyAsync();
         if (!rootExists)
         {
@@ -253,6 +282,7 @@ public partial class CommentService(
             })
             .Where((c, u, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
             .Where((c, u, ru) => c.ModerationStatus == CommentModerationStatus.Approved)
+            .Where((c, u, ru) => !c.IsDeleted)
             .WhereIF(request.Cursor.HasValue, (c, u, ru) => c.Id > request.Cursor!.Value)
             .OrderBy((c, u, ru) => c.Id)
             .Take(request.Limit + 1)
@@ -366,12 +396,16 @@ public partial class CommentService(
 
         if (!row.IsDeleted)
         {
+            DateTime deletedAt = DateTime.UtcNow;
+            string? normalizedReason = NormalizeNullable(reason, 256);
             int affected = await db.Updateable<Comment>()
                 .SetColumns(c => new Comment
                 {
                     IsDeleted = true,
                     DeleteReason = reason,
-                    DeleteTime = DateTime.UtcNow
+                    DeleteTime = deletedAt,
+                    ModerationStatus = CommentModerationStatus.Hidden,
+                    ModerationReason = normalizedReason
                 })
                 .Where(c => c.Id == id)
                 .ExecuteCommandAsync();
@@ -382,7 +416,13 @@ public partial class CommentService(
             }
         }
 
-        await cacheInvalidationDispatcher.InvalidateCommentMutationAsync();
+        await cacheInvalidationDispatcher.InvalidateCommentMutationAsync(
+            new CommentCacheInvalidationScope(
+                ArticleId: row.ArticleId,
+                RootId: row.RootId ?? row.Id,
+                UserId: row.UserId,
+                PublicArticleChanged: true,
+                UserCommentsChanged: true));
         await messageService.PushCommentRemoveAsync(row.ArticleId, id, row.RootId ?? id, row.ParentId);
 
         if (isAdmin && currentUserId != row.UserId)
@@ -409,6 +449,7 @@ public partial class CommentService(
             })
             .Where((c, u, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
             .Where((c, u, ru) => c.ModerationStatus == CommentModerationStatus.Approved)
+            .Where((c, u, ru) => !c.IsDeleted)
             .OrderBy((c, u, ru) => c.Id)
             .Take(limit)
             .Select((c, u, ru) => new ReplyRow
@@ -428,32 +469,6 @@ public partial class CommentService(
             .ToListAsync();
 
         return rows.Select(MapReplyPreviewRow).ToList();
-    }
-
-    private async Task<Dictionary<long, int>> LoadThreadReplyCountMapAsync(int articleId, long[] rootIds)
-    {
-        if (rootIds.Length == 0)
-        {
-            return [];
-        }
-
-        List<ReplyCountRow> rows = await db.Queryable<Comment>()
-            .Where(c => c.ArticleId == articleId && c.RootId != null && rootIds.Contains(c.RootId.Value) && c.ParentId != null && c.ModerationStatus == CommentModerationStatus.Approved)
-            .GroupBy(c => c.RootId)
-            .Select(c => new ReplyCountRow
-            {
-                RootId = c.RootId!.Value,
-                Count = SqlFunc.AggregateCount(c.Id)
-            })
-            .ToListAsync();
-
-        var map = new Dictionary<long, int>(rows.Count);
-        foreach (ReplyCountRow row in rows)
-        {
-            map[row.RootId] = row.Count;
-        }
-
-        return map;
     }
 
     private async Task<Dictionary<long, List<CommentReplyPreviewItemDto>>> QueryThreadRepliesPreviewMapAsync(int articleId, long[] rootIds, int limit)
@@ -519,6 +534,7 @@ FROM (
 )
       AND c.parent_id IS NOT NULL
       AND c.moderation_status = @Approved
+      AND c.is_deleted = false
 ) x
 WHERE x.rn <= @PreviewLimit
 ORDER BY x.root_id, x.id;
@@ -612,8 +628,23 @@ ORDER BY x.root_id, x.id;
             return string.Empty;
         }
 
-        string trimmed = content.Trim();
-        return trimmed.Length > MaxCommentLength ? trimmed[..MaxCommentLength] : trimmed;
+        return content.Trim();
+    }
+
+    private static bool IsCommentContentWithinLimit(string content)
+        => !string.IsNullOrWhiteSpace(content)
+            && content.Length <= CommentLimits.ContentMaxChars
+            && Encoding.UTF8.GetByteCount(content) <= CommentLimits.ContentMaxUtf8Bytes;
+
+    private static string? NormalizeNullable(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        string trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
 
     private async Task NotifyDeletionAsync(int userId, string articleTitle, string commentSnippet, string reason)
@@ -666,12 +697,6 @@ ORDER BY x.root_id, x.id;
         public string? ReplyToUserName { get; init; }
         public int Depth { get; init; }
         public bool IsDeleted { get; init; }
-    }
-
-    private sealed record ReplyCountRow
-    {
-        public long RootId { get; init; }
-        public int Count { get; init; }
     }
 
     private sealed record UserCommentRow

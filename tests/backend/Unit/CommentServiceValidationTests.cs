@@ -284,11 +284,37 @@ public class CommentServiceValidationTests
     }
 
     [Fact]
-    public void NormalizeCommentContent_TruncatesAt4000()
+    public void NormalizeCommentContent_DoesNotTruncateOversizedInput()
     {
         string longContent = new string('a', 5000);
         var result = InvokePrivateStatic<string>("NormalizeCommentContent", [longContent]);
-        Assert.Equal(4000, result.Length);
+        Assert.Equal(5000, result.Length);
+    }
+
+    [Theory]
+    [InlineData("hello", true)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    public void IsCommentContentWithinLimit_ReturnsExpectedForBasicInputs(string content, bool expected)
+    {
+        var result = InvokePrivateStatic<bool>("IsCommentContentWithinLimit", [content]);
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void IsCommentContentWithinLimit_RejectsOverCharacterLimit()
+    {
+        string longContent = new('a', CommentLimits.ContentMaxChars + 1);
+        var result = InvokePrivateStatic<bool>("IsCommentContentWithinLimit", [longContent]);
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void IsCommentContentWithinLimit_RejectsOverUtf8ByteLimit()
+    {
+        string longContent = new('你', (CommentLimits.ContentMaxUtf8Bytes / 3) + 1);
+        var result = InvokePrivateStatic<bool>("IsCommentContentWithinLimit", [longContent]);
+        Assert.False(result);
     }
 
     [Theory]

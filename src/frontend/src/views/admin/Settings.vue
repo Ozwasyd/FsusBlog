@@ -248,7 +248,6 @@ import { useAdminSettingsPage } from '@/composables/useAdminSettingsPage'
 
 const {
   activeTab,
-  savingSite,
   savingPage,
   loadingSite,
   siteFormDisabled,

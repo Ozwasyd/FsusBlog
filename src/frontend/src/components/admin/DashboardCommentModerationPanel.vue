@@ -94,6 +94,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { ElMessageBox } from '@ozwasyd/element-plus'
 import { Check, Close, Hide, Refresh } from '@/ui/fsusIcons'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import {
@@ -104,8 +105,12 @@ import {
   type CommentModerationItemResponse,
   type CommentModerationQueueResponse
 } from '@/api/authoring'
+import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
+import { isFsusUiOk } from '@/utils/fsusUiResult'
 import { toast } from '@/utils/toast'
+
+const AdminSensitiveAction = 'admin-sensitive'
 
 const loading = ref(false)
 const queue = ref<CommentModerationQueueResponse | null>(null)
@@ -148,10 +153,13 @@ const toggleSelection = (id: string, checked: boolean): void => {
 
 const applySingle = async (comment: CommentModerationItemResponse, status: CommentModerationStatus): Promise<void> => {
   try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
     await moderateComment(comment.id, {
       status,
       reason: normalizeReason(status),
       banUser: banUsers.value && shouldLinkBan(status)
+    }, {
+      mfaProofToken
     })
     toast.success('评论审核状态已更新')
     await refreshQueue()
@@ -167,11 +175,14 @@ const applyBulk = async (status: CommentModerationStatus): Promise<void> => {
   }
 
   try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
     const result = await moderateCommentsBulk({
       commentIds: selectedIds.value,
       status,
       reason: normalizeReason(status),
       banUsers: banUsers.value && shouldLinkBan(status)
+    }, {
+      mfaProofToken
     })
     toast.success(`已处理 ${result.updated} 条评论`)
     selectedIds.value = []
@@ -188,6 +199,39 @@ const normalizeReason = (status: CommentModerationStatus): string => {
 
 const shouldLinkBan = (status: CommentModerationStatus): boolean =>
   status === CommentModerationStatus.Rejected || status === CommentModerationStatus.Hidden
+
+const ensureAdminSensitiveProof = async (): Promise<string> => {
+  const challenge = await startMfaChallenge(AdminSensitiveAction)
+  if (challenge.verified && challenge.proofToken) {
+    return challenge.proofToken
+  }
+
+  const challengeToken = challenge.proofToken
+  if (!challengeToken) {
+    throw new Error('MFA_CHALLENGE_REQUIRED')
+  }
+
+  const result = await ElMessageBox.prompt('输入 MFA 验证码或恢复码', '管理员二次验证', {
+    confirmButtonText: '确认',
+    cancelButtonText: '取消',
+    inputPlaceholder: '验证码或恢复码',
+    inputValidator: (value: string) => value.trim().length > 0 || '请输入验证码或恢复码'
+  })
+  if (!isFsusUiOk(result)) {
+    throw new Error('MFA_CHALLENGE_CANCELLED')
+  }
+
+  const proof = await verifyMfaChallenge({
+    challengeToken,
+    code: ((result as { value?: { value?: string } }).value?.value ?? '').trim(),
+    action: AdminSensitiveAction
+  })
+  if (!proof.verified || !proof.proofToken) {
+    throw new Error('MFA_PROOF_REQUIRED')
+  }
+
+  return proof.proofToken
+}
 
 const statusLabel = (status: CommentModerationStatus): string => {
   switch (status) {

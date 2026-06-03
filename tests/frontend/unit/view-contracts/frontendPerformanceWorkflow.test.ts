@@ -33,13 +33,13 @@ describe('frontend performance workflow contract', () => {
 
   it('removes redundant image, wasm codec, and SSE batch copies', () => {
     expect(imageCompression).toContain('rgba: imageData.data')
-    expect(imageCompression).toContain('new Blob([encoded], { type: mimeType })')
+    expect(imageCompression).toContain('new Blob([encoded as unknown as BlobPart], { type: mimeType })')
     expect(imageCompression).not.toContain('Uint8Array.from(imageData.data)')
     expect(imageCompression).not.toContain('Uint8Array.from(encoded)')
 
     expect(wasmImageCodec).toContain('let simdSupportCache: boolean | null = null')
     expect(wasmImageCodec).toContain('rgba: Uint8Array | Uint8ClampedArray')
-    expect(wasmImageCodec).toContain('return decodeUtf8(view)')
+    expect(wasmImageCodec).toContain('return decodeUtf8(view.buffer.slice')
     expect(wasmImageCodec).not.toContain('decodeUtf8(Uint8Array.from(view))')
 
     expect(sseStore).toContain('Object.freeze(patches)')
@@ -67,6 +67,9 @@ describe('frontend performance workflow contract', () => {
     expect(commentStream).toContain('reactive<Record<string, boolean>>({})')
     expect(commentStream).toContain('loadingReplies[rootId] = true')
     expect(commentStream).toContain('delete loadingReplies[rootId]')
+    expect(commentStream).toContain('const replyControllerByRoot = new Map<string, AbortController>()')
+    expect(commentStream).toContain('COMMENT_CONTENT_CONSTRAINT.replyRenderLimit')
+    expect(commentStream).not.toContain('const replyTask = useAbortableTask()')
     expect(commentStream).not.toContain('loadingReplies.value = {')
   })
 })

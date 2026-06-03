@@ -5,7 +5,7 @@
     width="520px"
     destroy-on-close
     :show-close="false"
-    @update:model-value="val => !val && close()"
+    @update:model-value="(val: boolean) => !val && close()"
   >
     <p class="sr-only" role="status" aria-live="polite">{{ setupStepStatusText }}</p>
 
