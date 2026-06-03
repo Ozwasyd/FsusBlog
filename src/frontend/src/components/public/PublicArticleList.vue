@@ -80,7 +80,7 @@
 <script setup lang="ts">
 import { UiTag } from '@/components/ui';
 import { themeTokens } from '@/ui-tokens/themeTokens';
-import { ArrowRight } from '@/ui/fsusIcons';
+import { ArrowRight } from '@/fsusui/icons';
 import type { ArticleListCardViewContract } from '@/view-contracts/articleList';
 import type { PaginationContract } from '@/ui-contracts/primitives';
 

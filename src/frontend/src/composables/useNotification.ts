@@ -11,7 +11,7 @@ import { useSseStore } from '@/store/sse'
 import { useUserStore } from '@/store/user'
 import { getBrowserFp } from '@/utils/fingerprint'
 import { showErrorToast } from '@/utils/errorPresentation'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 import { decodePowCache, encodePowCache } from '@/services/powProofCodec'
 
 const currentMode = ref<'auth' | 'guest' | ''>('')

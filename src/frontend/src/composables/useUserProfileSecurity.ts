@@ -1,7 +1,6 @@
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import type { FormInstance } from '@ozwasyd/element-plus'
-import { ElMessageBox } from '@ozwasyd/element-plus'
-import { isFsusUiOk } from '@/utils/fsusUiResult'
+import { isFsusUiOk } from '@/fsusui/result'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import {
   deleteAccount,
@@ -27,7 +26,7 @@ import { usePow } from '@/composables/usePow'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { useUserStore } from '@/store/user'
 import { createUsernamePattern, USERNAME_CONSTRAINT, validateUsername } from '@/utils/contentFilter'
-import { toast } from '@/utils/toast'
+import { confirmWarning, toast } from '@/fsusui/feedback'
 import { getErrorMessage, isAbortError } from '@/utils/errors'
 
 type MfaPromptState = {
@@ -280,12 +279,12 @@ export function useUserProfileSecurity() {
     }
 
     const safeName = usernameForm.newUsername.replace(/["<>]/g, '')
-    const confirmation = await ElMessageBox.confirm(
+    const confirmed = await confirmWarning(
       `确定将用户名修改为 "${safeName}" 吗？这可能会影响您的展示名称。`,
       '修改身份识别',
-      { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' }
+      { confirmButtonText: '确认', cancelButtonText: '取消' }
     )
-    if (!isFsusUiOk(confirmation)) {
+    if (!confirmed) {
       return
     }
 
@@ -337,12 +336,12 @@ export function useUserProfileSecurity() {
       return
     }
 
-    const confirmation = await ElMessageBox.confirm(
+    const confirmed = await confirmWarning(
       '确定要重置您的登录密码吗？更新成功后，系统将要求您重新登录。',
       '更新安全凭证',
-      { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' }
+      { confirmButtonText: '确认', cancelButtonText: '取消' }
     )
-    if (!isFsusUiOk(confirmation)) {
+    if (!confirmed) {
       return
     }
 
@@ -492,12 +491,12 @@ export function useUserProfileSecurity() {
 
   const revokeSessionDevice = async (sessionId: string): Promise<void> => {
     const target = sessionState.list.find((item) => item.sessionId === sessionId)
-    const confirmation = await ElMessageBox.confirm(
+    const confirmed = await confirmWarning(
       `确定下线设备 ${target?.deviceLabel || target?.lastIp || sessionId} 吗？该设备需要重新登录。`,
       '下线设备',
-      { confirmButtonText: '确认下线', cancelButtonText: '取消', type: 'warning' }
-    ).catch(() => null)
-    if (!isFsusUiOk(confirmation)) {
+      { confirmButtonText: '确认下线', cancelButtonText: '取消' }
+    )
+    if (!confirmed) {
       return
     }
 
@@ -514,12 +513,12 @@ export function useUserProfileSecurity() {
 
   const revokeOtherSessionDevices = async (): Promise<void> => {
     const count = sessionState.list.filter((item) => !item.isCurrent).length
-    const confirmation = await ElMessageBox.confirm(
+    const confirmed = await confirmWarning(
       `确定下线其他 ${count} 个设备会话吗？这些设备需要重新登录。`,
       '下线其他设备',
-      { confirmButtonText: '确认下线', cancelButtonText: '取消', type: 'warning' }
-    ).catch(() => null)
-    if (!isFsusUiOk(confirmation)) {
+      { confirmButtonText: '确认下线', cancelButtonText: '取消' }
+    )
+    if (!confirmed) {
       return
     }
 

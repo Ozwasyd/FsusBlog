@@ -1,7 +1,7 @@
 import type { AbortableExecutor } from '@/composables/useAbortableTask'
 import { useViewTask } from '@/composables/useViewTask'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 import { requestGlobalConfirm } from '@/composables/useGlobalConfirm'
 
 type MutationMessageType = 'success' | 'warning' | 'error' | 'info'

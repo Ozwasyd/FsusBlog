@@ -8,7 +8,7 @@ import { useViewTask } from '@/composables/useViewTask'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { AppErrorCode, toAppError } from '@/utils/appError'
 import { isUsernameCharacterSetValid, USERNAME_CONSTRAINT, validateUsername } from '@/utils/contentFilter'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 
 const getErrorText = (error: unknown): string => {
   const normalized = toAppError(error, '注册服务暂不可用，请稍后再试')

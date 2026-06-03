@@ -5,6 +5,8 @@ export type MarkdownRenderResult = Readonly<{
   metadata?: Record<string, unknown>
 }>
 
+// Temporary downstream activation layer: FsusBlog keeps business CSS/CSP/anchor
+// behavior here until FsusUI markdown activation fully owns those generic features.
 let mermaidInitialized = false;
 let styleNonceBridgeInstalled = false;
 

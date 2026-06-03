@@ -256,9 +256,8 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessageBox } from '@ozwasyd/element-plus'
-import { Delete, Plus, Warning } from '@/ui/fsusIcons'
-import { isFsusUiOk } from '@/utils/fsusUiResult'
+import { Delete, Plus, Warning } from '@/fsusui/icons'
+import { confirmWarning } from '@/fsusui/feedback'
 import SettingsPageEditor from '@/components/admin/settings/SettingsPageEditor.vue'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
 import { useAdminSettingsPage } from '@/composables/useAdminSettingsPage'
@@ -310,24 +309,22 @@ const {
 } = useAdminSettingsPage()
 
 const confirmImageRemove = async (): Promise<void> => {
-  const result = await ElMessageBox.confirm('这只会从待保存配置中移除当前预览图，点击保存同步后才会影响公开站点。', '移除预览图', {
-    type: 'warning',
+  const confirmed = await confirmWarning('这只会从待保存配置中移除当前预览图，点击保存同步后才会影响公开站点。', '移除预览图', {
     confirmButtonText: '确认移除',
     cancelButtonText: '取消'
   })
-  if (!isFsusUiOk(result)) {
+  if (!confirmed) {
     return
   }
   await handleImageRemove()
 }
 
 const confirmImageDelete = async (): Promise<void> => {
-  const result = await ElMessageBox.confirm('这会从待保存配置中移除当前预览图，并立即请求后端删除服务器文件。删除失败不会清空配置。', '删除服务器文件', {
-    type: 'warning',
+  const confirmed = await confirmWarning('这会从待保存配置中移除当前预览图，并立即请求后端删除服务器文件。删除失败不会清空配置。', '删除服务器文件', {
     confirmButtonText: '移除并删除',
     cancelButtonText: '取消'
   })
-  if (!isFsusUiOk(result)) {
+  if (!confirmed) {
     return
   }
   await handleImageDelete()
@@ -335,36 +332,33 @@ const confirmImageDelete = async (): Promise<void> => {
 
 const confirmSiteSave = async (): Promise<void> => {
   const changed = siteChangeSummary.value.length > 0 ? siteChangeSummary.value.join('、') : '站点配置'
-  const result = await ElMessageBox.confirm(`本次将修改：${changed}。保存后将清理 AOT 缓存。`, '保存站点信息', {
-    type: 'warning',
+  const confirmed = await confirmWarning(`本次将修改：${changed}。保存后将清理 AOT 缓存。`, '保存站点信息', {
     confirmButtonText: '保存同步',
     cancelButtonText: '取消'
   })
-  if (!isFsusUiOk(result)) {
+  if (!confirmed) {
     return
   }
   await saveSiteConfig()
 }
 
 const confirmPagePublish = async (): Promise<void> => {
-  const result = await ElMessageBox.confirm(`确认发布「${currentPageTarget.value.label}」页面？当前内容 ${pageContentLength.value} 字，这会覆盖线上静态页面。`, '发布页面', {
-    type: 'warning',
+  const confirmed = await confirmWarning(`确认发布「${currentPageTarget.value.label}」页面？当前内容 ${pageContentLength.value} 字，这会覆盖线上静态页面。`, '发布页面', {
     confirmButtonText: '确认发布',
     cancelButtonText: '取消'
   })
-  if (!isFsusUiOk(result)) {
+  if (!confirmed) {
     return
   }
   await savePageContent()
 }
 
 const confirmPageRefresh = async (): Promise<void> => {
-  const result = await ElMessageBox.confirm(`确认强制刷新「${currentPageTarget.value.label}」页面缓存？`, '刷新页面缓存', {
-    type: 'warning',
+  const confirmed = await confirmWarning(`确认强制刷新「${currentPageTarget.value.label}」页面缓存？`, '刷新页面缓存', {
     confirmButtonText: '确认刷新',
     cancelButtonText: '取消'
   })
-  if (!isFsusUiOk(result)) {
+  if (!confirmed) {
     return
   }
   await refreshPageCache()

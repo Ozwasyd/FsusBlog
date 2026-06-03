@@ -1,6 +1,5 @@
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessageBox } from '@ozwasyd/element-plus'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import {
   getAdminArticles,
@@ -10,7 +9,7 @@ import {
 } from '@/api/article'
 import { useMutationFlow } from '@/composables/useMutationFlow'
 import { useViewTask } from '@/composables/useViewTask'
-import { isFsusUiOk } from '@/utils/fsusUiResult'
+import { promptText } from '@/fsusui/feedback'
 import { TimeUtils } from '@/utils/time'
 
 type AdminTrashViewItem = ArticleListItemResponse & {
@@ -123,7 +122,7 @@ export function useAdminArticleTrash() {
   }
 
   const requestPermanentDeleteConfirmation = async (row: ArticleListItemResponse): Promise<boolean> => {
-    const result = await ElMessageBox.prompt(
+    const value = await promptText(
       `此操作会永久删除文章《${row.title}》及其关联数据，无法恢复。请输入完整标题或文章 ID「${row.id}」继续。`,
       '永久删除文章',
       {
@@ -140,11 +139,6 @@ export function useAdminArticleTrash() {
       }
     )
 
-    if (!isFsusUiOk(result)) {
-      return false
-    }
-
-    const value = (result as { value?: { value?: string } }).value?.value?.trim()
     return value === String(row.id) || value === row.title
   }
 

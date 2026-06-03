@@ -21,6 +21,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { TagTone, TagVariant } from '@/ui-contracts/primitives';
+import { toFsusUiTagEffect, toFsusUiTagType } from '@/fsusui/primitiveAdapters';
 
 const props = withDefaults(defineProps<{
   label?: string;
@@ -34,16 +35,6 @@ const props = withDefaults(defineProps<{
   hiddenOnMobile: false
 });
 
-const tagType = computed((): Exclude<TagTone, 'neutral'> | undefined => {
-  if (props.tone === 'neutral') {
-    return undefined;
-  }
-  return props.tone;
-});
-const tagEffect = computed((): 'dark' | undefined => {
-  if (props.variant === 'status') {
-    return 'dark';
-  }
-  return undefined;
-});
+const tagType = computed(() => toFsusUiTagType(props.tone));
+const tagEffect = computed(() => toFsusUiTagEffect(props.variant));
 </script>

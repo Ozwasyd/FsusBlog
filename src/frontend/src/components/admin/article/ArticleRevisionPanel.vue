@@ -94,7 +94,7 @@
 </template>
 
 <script setup lang="ts">
-import { Refresh, RefreshLeft } from '@/ui/fsusIcons'
+import { Refresh, RefreshLeft } from '@/fsusui/icons'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { ArticleRevisionDetailResponse, ArticleRevisionSummaryResponse } from '@/api/authoring'
 

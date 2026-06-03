@@ -1,4 +1,5 @@
-import { bootstrapFullApp } from '@/bootstrap/fullApp'
+import { createSSRApp, nextTick, type App as VueApp } from 'vue'
+import { provideFsusUiAppContext } from '@/fsusui/appContext'
 import type { PublicHydrationPayload } from './types';
 import {
   beginHydrationMetrics,
@@ -10,9 +11,19 @@ import {
   verifyHydrationIdentity
 } from './hydrationIdentityGuard';
 import { normalizePublicHydrationPayload } from './publicPayloadNormalizer';
+import { createPublicHydrationRootComponent } from './publicHydrationRoot';
 
 const APP_SELECTOR = '#app';
 const SHELL_SELECTOR = '#fsus-aot-shell';
+let mountedPublicShellApp: VueApp<Element> | null = null;
+
+function removeWhitespaceTextNodes(container: HTMLElement): void {
+  for (const node of Array.from(container.childNodes)) {
+    if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
+      node.remove();
+    }
+  }
+}
 
 /**
  * Hydration of public shell via the shared public shell factory.
@@ -30,26 +41,27 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
     return;
   }
 
+  removeWhitespaceTextNodes(container);
   const guard = captureHydrationIdentity(container, shell, payload);
 
   const metrics = beginHydrationMetrics(payload);
   markHydrationStep('hydrate:start');
 
-  normalizePublicHydrationPayload(payload);
+  const normalizedPayload = normalizePublicHydrationPayload(payload);
   markHydrationStep('hydrate:component-ready');
 
-  // Bootstrap full app with hydration.
-  // The public route will resolve through BlogLayout and consume the same
-  // shell-state factory as SSR.
-  await bootstrapFullApp({
-    hydrate: true,
-    deferRuntime: true,
-    takeover: 'public-shell'
-  });
+  if (!mountedPublicShellApp) {
+    const app = createSSRApp(createPublicHydrationRootComponent(normalizedPayload));
+    provideFsusUiAppContext(app);
+    app.mount(container, true);
+    mountedPublicShellApp = app;
+    await nextTick();
+  }
+
   verifyHydrationIdentity({
     appSelector: APP_SELECTOR,
     shellSelector: SHELL_SELECTOR,
-    payload,
+    payload: normalizedPayload,
     guard
   });
   markHydrationStep('hydrate:mounted');

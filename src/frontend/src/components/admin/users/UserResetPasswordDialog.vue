@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { WarningFilled } from '@/ui/fsusIcons'
+import { WarningFilled } from '@/fsusui/icons'
 
 interface Props {
   visible: boolean

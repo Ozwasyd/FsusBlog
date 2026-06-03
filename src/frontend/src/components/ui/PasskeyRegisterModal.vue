@@ -124,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { Check } from '@/ui/fsusIcons'
+import { Check } from '@/fsusui/icons'
 import { computed, nextTick, ref, watch } from 'vue'
 import { startRegistration } from '@simplewebauthn/browser'
 import { passkeyRegisterBegin, passkeyRegisterComplete, startMfaChallenge, verifyMfaChallenge } from '@/api/auth'

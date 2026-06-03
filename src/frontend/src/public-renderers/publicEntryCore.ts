@@ -2,13 +2,13 @@ import { createSSRApp, type Component } from 'vue'
 import { renderToString } from '@vue/server-renderer'
 import type { ArticleDetailResponse, ArticleListItemResponse, Tag } from '@/api/article'
 import { encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
-import { provideFsusUiAppContext } from '@/config/fsusUiAppContext'
+import { provideFsusUiAppContext } from '@/fsusui/appContext'
 import { getSharedPublicPageManifestEntry } from '@/public-renderers/generated/publicPageManifest'
 import type { PublicPageKind } from '@/public-renderers/publicRenderBase'
 import { renderPublicAotShell, type PublicAotPageAssembly } from '@/public-renderers/scaffold'
-import { renderMarkdownWithFsusRuntime } from '@/services/fsusMarkdownRuntime'
+import { renderMarkdownWithFsusRuntime } from '@/fsusui/markdown'
 
-export const PUBLIC_RENDERER_VERSION = 'public-app-ssr@2026-05-24-fsusui-csp-nonce'
+export const PUBLIC_RENDERER_VERSION = 'public-app-ssr@2026-06-03-fsusui-boundary-3'
 
 export type RenderedPublicEntry = Readonly<{
   pageId: number

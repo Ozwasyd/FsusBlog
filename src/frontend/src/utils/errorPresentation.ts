@@ -1,5 +1,5 @@
 import { getErrorMessage } from '@/utils/errors'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 
 export const showErrorToast = (error: unknown, fallback = '请求失败', duration?: number): string => {
   const message = getErrorMessage(error, fallback)

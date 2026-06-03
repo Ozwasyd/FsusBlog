@@ -248,7 +248,7 @@
 </template>
 
 <script setup lang="ts">
-import { Delete, Picture } from '@/ui/fsusIcons';
+import { Delete, Picture } from '@/fsusui/icons';
 import { ArticlePublishStatus } from '@/api/article';
 import type { AiAssistResponse } from '@/api/authoring';
 import type { CategoryItem } from '@/api/category';

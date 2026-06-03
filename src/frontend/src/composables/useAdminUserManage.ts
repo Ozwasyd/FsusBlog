@@ -7,7 +7,7 @@ import { useViewTask } from '@/composables/useViewTask'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { TimeUtils } from '@/utils/time'
 import { showWarningToast } from '@/utils/errorPresentation'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 
 export interface UserListViewItem extends UserListItem {
   initials: string

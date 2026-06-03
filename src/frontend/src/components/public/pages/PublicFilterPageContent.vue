@@ -75,7 +75,7 @@ import PublicArticleList from '@/components/public/PublicArticleList.vue'
 import FilterHeader from '@/components/filter/FilterHeader.vue'
 import FilterArticleLoadingState from '@/components/filter/FilterArticleLoadingState.vue'
 import { PUBLIC_FIXED_PATHS } from '@/public-renderers/publicRoutePaths'
-import { Back } from '@/ui/fsusIcons'
+import { Back } from '@/fsusui/icons'
 import type { FilterPageViewContract } from '@/view-contracts/filterView'
 
 const props = defineProps<{

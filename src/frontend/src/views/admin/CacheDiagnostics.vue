@@ -117,9 +117,9 @@ import {
 } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
-import { Delete, Refresh, Search } from '@/ui/fsusIcons'
+import { Delete, Refresh, Search } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 
 const loading = ref(false)
 const actionLoading = ref('')

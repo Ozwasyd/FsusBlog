@@ -134,7 +134,7 @@ import {
 } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
-import { Refresh } from '@/ui/fsusIcons'
+import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 
 const loading = shallowRef(false)

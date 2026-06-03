@@ -203,6 +203,7 @@ const articleDetailEntryDefinition = definePublicEntry({
       articleId,
       title: article.title,
       authorName,
+      articleSummary: article.summary,
       bodyContent: article.content,
       bodyHtml,
       detailView,

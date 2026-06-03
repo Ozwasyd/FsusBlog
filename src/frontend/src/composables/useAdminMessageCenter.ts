@@ -9,7 +9,7 @@ import {
 import { useSseStore } from '@/store/sse'
 import type { SseInboxRenderPatch } from '@/services/sseTypes'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 
 const PAGE_SIZE = 30
 

@@ -270,7 +270,7 @@
 </template>
 
 <script setup lang="ts">
-import { Search, View, Calendar, Plus, ArrowDown } from '@/ui/fsusIcons'
+import { Search, View, Calendar, Plus, ArrowDown } from '@/fsusui/icons'
 import { type ArticleListItemResponse } from '@/api/article'
 import { useAdminArticleList } from '@/composables/useAdminArticleList'
 import { useMediaQuery } from '@/composables/useMediaQuery'

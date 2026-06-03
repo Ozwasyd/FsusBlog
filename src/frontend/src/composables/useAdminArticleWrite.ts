@@ -1,7 +1,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { type FormInstance } from '@ozwasyd/element-plus'
-import { isFsusUiOk } from '@/utils/fsusUiResult'
+import { isFsusUiOk } from '@/fsusui/result'
 import {
   getAdminArticleById,
   createArticle,
@@ -38,7 +38,7 @@ import { createTag, getTags, type TagItem } from '@/api/tag'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import { isAbortError } from '@/utils/errors'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { useImageUploadPreferences } from '@/composables/useImageUploadPreferences'
 import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime'

@@ -30,11 +30,12 @@ async function main() {
   assert(hydrateSource.includes('beginHydrationMetrics'), 'clientHydrate.ts must start hydration metrics')
   assert(hydrateSource.includes('finishHydrationMetrics'), 'clientHydrate.ts must finish hydration metrics')
   assert(hydrateSource.includes('normalizePublicHydrationPayload'), 'clientHydrate.ts must normalize payload before hydration')
-  assert(hydrateSource.includes('bootstrapFullApp('), 'clientHydrate.ts must hydrate through bootstrapFullApp')
+  assert(hydrateSource.includes('createPublicHydrationRootComponent'), 'clientHydrate.ts must hydrate through the public shell root')
+  assert(hydrateSource.includes('removeWhitespaceTextNodes'), 'clientHydrate.ts must normalize SSR fragment whitespace before hydration')
   assert(!hydrateSource.includes('loadPublicAotPageComponent'), 'clientHydrate.ts must not hydrate standalone public-renderer page components')
 
   const guardSource = await readUtf8(guardPath)
-  assert(guardSource.includes('SHELL_IDENTITY_DATASET_KEY = \'publicShellIdentity\''), 'hydrationIdentityGuard must preserve shell marker key')
+  assert(!guardSource.includes('publicShellIdentity'), 'hydrationIdentityGuard must not write identity markers into SSR DOM')
   assert(guardSource.includes('shell remount detected'), 'hydrationIdentityGuard must throw shell remount detected')
   assert(guardSource.includes('#app subtree rebuilt'), 'hydrationIdentityGuard must throw #app subtree rebuilt')
 

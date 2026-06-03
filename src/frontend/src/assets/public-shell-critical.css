@@ -1,4 +1,5 @@
 /* src/assets/public-shell-critical.css */
+@import '@ozwasyd/element-plus/dist/public-shell-critical.css';
 
 /* 公开页首访共用的布局基线（首屏关键路径） */
 #fsus-aot-shell {
@@ -34,7 +35,7 @@
 }
 
 /* 首屏接管稳定层：约束 header/main/footer 的最小尺寸，避免整页下推造成 CLS。 */
-#fsus-aot-shell .el-public-shell__inner {
+#fsus-aot-shell > header {
   min-height: 3.25rem;
 }
 
@@ -46,93 +47,6 @@
 #top > footer,
 #fsus-aot-shell > footer {
   min-height: 6.5rem;
-}
-
-#fsus-aot-shell .el-public-shell__primary-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2rem;
-  min-width: 0;
-}
-
-#fsus-aot-shell .el-public-shell__brand-nav,
-#fsus-aot-shell .el-public-shell__desktop-nav,
-#fsus-aot-shell .el-public-shell__actions,
-#fsus-aot-shell .el-public-shell__mobile-actions,
-#fsus-aot-shell .el-public-shell__mobile-nav {
-  display: flex;
-  align-items: center;
-}
-
-#fsus-aot-shell .el-public-shell__brand-nav {
-  gap: 2.5rem;
-  min-width: 0;
-}
-
-#fsus-aot-shell .el-public-shell__desktop-nav {
-  gap: 2rem;
-}
-
-#fsus-aot-shell .el-public-shell__actions {
-  gap: 1.25rem;
-  min-width: max-content;
-}
-
-#fsus-aot-shell .el-public-shell__mobile-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.75rem;
-  min-width: 0;
-  margin-top: 1.5rem;
-}
-
-#fsus-aot-shell .el-public-shell__search--mobile {
-  width: 7rem;
-}
-
-#fsus-aot-shell .el-public-shell__mobile-nav-scrollbar {
-  min-width: 0;
-}
-
-#fsus-aot-shell .el-public-shell__mobile-nav {
-  gap: 1.5rem;
-  min-width: max-content;
-  padding-block: 0.125rem;
-}
-
-#fsus-aot-shell .el-public-shell__mobile-nav .el-public-shell__nav-link {
-  flex: 0 0 auto;
-  inline-size: max-content;
-  min-inline-size: max-content;
-  white-space: nowrap;
-  word-break: keep-all;
-  writing-mode: horizontal-tb;
-}
-
-#fsus-aot-shell .el-public-shell__mobile-nav-wrap {
-  overflow-y: hidden !important;
-}
-
-@media (max-width: 767px) {
-  #fsus-aot-shell .el-public-shell__desktop-nav,
-  #fsus-aot-shell .el-public-shell__actions,
-  #fsus-aot-shell .el-theme-mode-toggle--desktop {
-    display: none !important;
-  }
-}
-
-@media (min-width: 768px) {
-  #fsus-aot-shell .el-public-shell__desktop-nav {
-    display: flex !important;
-    align-items: baseline;
-  }
-
-  #fsus-aot-shell .el-public-shell__mobile-toolbar,
-  #fsus-aot-shell .el-theme-mode-toggle--mobile {
-    display: none !important;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

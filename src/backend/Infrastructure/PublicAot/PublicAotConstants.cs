@@ -2,5 +2,5 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 internal static class PublicAotConstants
 {
-    internal const string RendererVersion = "public-app-ssr@2026-05-24-fsusui-csp-nonce";
+    internal const string RendererVersion = "public-app-ssr@2026-06-03-fsusui-boundary-3";
 }

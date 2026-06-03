@@ -211,7 +211,7 @@
 </template>
 
 <script setup lang="ts">
-import { Key } from '@/ui/fsusIcons'
+import { Key } from '@/fsusui/icons'
 import { useAuthLogin } from '@/composables/useAuthLogin'
 import { usePasskeyLogin } from '@/composables/usePasskeyLogin'
 

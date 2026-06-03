@@ -204,7 +204,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Close, Menu } from '@/ui/fsusIcons'
+import { Close, Menu } from '@/fsusui/icons'
 import PolicyModal from '@/components/PolicyModal.vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import { accountAreaMeta, getAccountNavGroups, type AccountArea, type AccountContentMode, type AccountNavItem } from '@/layouts/accountNav'

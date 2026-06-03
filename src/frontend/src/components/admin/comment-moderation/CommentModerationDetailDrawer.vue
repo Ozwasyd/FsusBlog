@@ -80,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { Check, Close, Hide } from '@/ui/fsusIcons'
+import { Check, Close, Hide } from '@/fsusui/icons'
 import { CommentModerationStatus, type CommentModerationStatus as CommentModerationStatusValue } from '@/api/authoring'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { CommentModerationViewItem } from '@/composables/useCommentModerationQueue'

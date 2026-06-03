@@ -15,7 +15,7 @@ import { useNotification } from '@/composables/useNotification'
 import type { SseInboxRenderPatch } from '@/services/sseTypes'
 import { useSseStore } from '@/store/sse'
 import { showErrorToast } from '@/utils/errorPresentation'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 
 const PAGE_SIZE = 20
 const FILTERS: readonly ConversationFilter[] = ['all', 'unread', 'system', 'open', 'pending', 'closed']

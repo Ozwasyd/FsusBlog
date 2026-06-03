@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowRight } from '@/ui/fsusIcons';
+import { ArrowRight } from '@/fsusui/icons';
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { AdminDashboardViewContract } from '@/view-contracts/adminStats';
 

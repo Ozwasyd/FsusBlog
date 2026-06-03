@@ -1,7 +1,7 @@
 import { h, type Component, type VNode, type VNodeChild } from 'vue'
 import { ElConfigProvider } from '@ozwasyd/element-plus'
 import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue'
-import { FSUSBLOG_RENDER_PIPELINE_CONFIG } from '@/config/fsusRenderPipeline'
+import { FSUSBLOG_RENDER_PIPELINE_CONFIG } from '@/fsusui/renderPipeline'
 import type { PublicPageKind } from '@/public-renderers/publicRenderBase'
 import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
 

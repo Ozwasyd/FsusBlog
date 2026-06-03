@@ -46,19 +46,19 @@
           </h2>
           <ul class="space-y-5 text-sm font-semibold">
             <li>
-              <RouterLink class="text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)]" to="/archive">
+              <a class="text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)]" href="/archive">
                 归档
-              </RouterLink>
+              </a>
             </li>
             <li>
-              <RouterLink class="text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)]" to="/search">
+              <a class="text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)]" href="/search">
                 搜索
-              </RouterLink>
+              </a>
             </li>
             <li>
-              <RouterLink class="text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)]" to="/about">
+              <a class="text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)]" href="/about">
                 关于
-              </RouterLink>
+              </a>
             </li>
           </ul>
         </nav>

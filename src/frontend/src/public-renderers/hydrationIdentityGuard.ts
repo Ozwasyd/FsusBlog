@@ -1,7 +1,5 @@
 import type { PublicHydrationPayload } from './types';
 
-const SHELL_IDENTITY_DATASET_KEY = 'publicShellIdentity';
-
 export type HydrationIdentityGuard = Readonly<{
   appRootRef: HTMLElement;
   shellRef: HTMLElement;
@@ -16,7 +14,6 @@ export function captureHydrationIdentity(
   payload: PublicHydrationPayload
 ): HydrationIdentityGuard {
   const identityMarker = `${payload.pageKind}:${payload.routeKey}`;
-  shell.dataset[SHELL_IDENTITY_DATASET_KEY] = identityMarker;
 
   return {
     appRootRef: appRoot,
@@ -42,10 +39,6 @@ export function verifyHydrationIdentity(options: {
   const shellAfterHydration = root.querySelector<HTMLElement>(shellSelector);
   if (shellAfterHydration !== guard.shellRef) {
     throw new Error(`[public-hydrate] shell remount detected for ${payload.pageKind} (${payload.routeKey})`);
-  }
-
-  if (shellAfterHydration.dataset[SHELL_IDENTITY_DATASET_KEY] !== guard.identityMarker) {
-    throw new Error(`[public-hydrate] shell identity marker changed for ${payload.pageKind} (${payload.routeKey})`);
   }
 
   if (root.firstElementChild !== guard.firstChildRef || root.childElementCount !== guard.childElementCount) {

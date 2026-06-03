@@ -163,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { Calendar, Back } from '@/ui/fsusIcons'
+import { Calendar, Back } from '@/fsusui/icons'
 import { type ArticleListItemResponse } from '@/api/article'
 import { useAdminArticleTrash } from '@/composables/useAdminArticleTrash'
 import { useMediaQuery } from '@/composables/useMediaQuery'

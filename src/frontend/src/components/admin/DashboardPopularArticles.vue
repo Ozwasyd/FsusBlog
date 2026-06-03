@@ -46,7 +46,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { ArrowRight } from '@/ui/fsusIcons';
+import { ArrowRight } from '@/fsusui/icons';
 import type { AdminDashboardViewContract } from '@/view-contracts/adminStats';
 
 const props = defineProps<{

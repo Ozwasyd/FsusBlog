@@ -1,7 +1,7 @@
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
 import { type FormInstance } from '@ozwasyd/element-plus'
 import { useRouter } from 'vue-router'
-import { isFsusUiOk } from '@/utils/fsusUiResult'
+import { isFsusUiOk } from '@/fsusui/result'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import { listAdminCategories, type AdminCategoryItemResponse } from '@/api/authoring'
 import {

@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChatDotRound, Delete, Document, View } from '@/ui/fsusIcons'
+import { ChatDotRound, Delete, Document, View } from '@/fsusui/icons'
 import type { AdminDashboardViewContract } from '@/view-contracts/adminStats';
 
 const iconMap = {

@@ -193,9 +193,9 @@ import {
 } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
-import { Aim, Lock, Operation, Refresh, RefreshLeft, Search, User, View } from '@/ui/fsusIcons'
+import { Aim, Lock, Operation, Refresh, RefreshLeft, Search, User, View } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 
 type AuditDateRange = [Date, Date] | null
 

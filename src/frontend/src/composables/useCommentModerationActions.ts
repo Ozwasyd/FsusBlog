@@ -1,5 +1,4 @@
 import { computed, ref } from 'vue'
-import { ElMessageBox } from '@ozwasyd/element-plus'
 import {
   CommentModerationStatus,
   moderateComment,
@@ -10,8 +9,7 @@ import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
 import { commentModerationStatusLabel } from '@/composables/useCommentModerationQueue'
 import { AppErrorCode, isAppError } from '@/utils/appError'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
-import { isFsusUiOk } from '@/utils/fsusUiResult'
-import { toast } from '@/utils/toast'
+import { promptText, toast } from '@/fsusui/feedback'
 
 const AdminSensitiveAction = 'admin-sensitive'
 
@@ -93,19 +91,19 @@ export function useCommentModerationActions() {
       throw new Error('MFA_CHALLENGE_REQUIRED')
     }
 
-    const result = await ElMessageBox.prompt('输入 MFA 验证码或恢复码', '管理员二次验证', {
+    const code = await promptText('输入 MFA 验证码或恢复码', '管理员二次验证', {
       confirmButtonText: '确认',
       cancelButtonText: '取消',
       inputPlaceholder: '验证码或恢复码',
       inputValidator: (value: string) => value.trim().length > 0 || '请输入验证码或恢复码'
     })
-    if (!isFsusUiOk(result)) {
+    if (!code) {
       throw new Error('MFA_CHALLENGE_CANCELLED')
     }
 
     const proof = await verifyMfaChallenge({
       challengeToken,
-      code: ((result as { value?: { value?: string } }).value?.value ?? '').trim(),
+      code,
       action: AdminSensitiveAction
     })
     if (!proof.verified || !proof.proofToken) {

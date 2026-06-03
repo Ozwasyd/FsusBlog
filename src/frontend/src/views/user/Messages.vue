@@ -52,7 +52,7 @@
 
             <div v-else class="mail-scroll-region">
               <div class="mail-scroll-frame">
-                <el-scrollbar>
+                <el-scrollbar class="mail-scrollbar">
                   <ul class="mail-item-stack" aria-label="会话列表">
                     <li
                       v-for="item in conversations"
@@ -157,7 +157,7 @@
             <template v-else>
               <div class="mail-scroll-region mail-thread-region">
                 <div class="mail-scroll-frame">
-                  <el-scrollbar>
+                <el-scrollbar class="mail-scrollbar">
                     <div
                       v-for="msg in detail?.messages || []"
                       :key="msg.messageId"
@@ -547,9 +547,7 @@ const formatTime = (input: string): string => {
   flex: 1 1 auto;
 }
 
-.mail-scroll-frame :deep(.el-scrollbar),
-.mail-scroll-frame :deep(.el-scrollbar__wrap),
-.mail-scroll-frame :deep(.el-scrollbar__view) {
+.mail-scrollbar {
   width: 100%;
   min-width: 0;
   max-width: 100%;

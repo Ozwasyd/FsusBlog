@@ -42,7 +42,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Check, Close, Hide } from '@/ui/fsusIcons'
+import { Check, Close, Hide } from '@/fsusui/icons'
 import { CommentModerationStatus, type CommentModerationStatus as CommentModerationStatusValue } from '@/api/authoring'
 
 const props = defineProps<{

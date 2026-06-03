@@ -152,7 +152,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowRight } from '@/ui/fsusIcons'
+import { ArrowRight } from '@/fsusui/icons'
 import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
 import { TimeUtils } from '@/utils/time'
 

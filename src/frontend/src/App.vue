@@ -10,7 +10,7 @@ import { SESSION_EXPIRED_EVENT, type SessionExpiredDetail } from '@/bootstrap/se
 import { runtimePhase, runtimeReady } from '@/bootstrap/runtimeGate'
 import { isPublicSeoRouteName, isPublicShellRouteName } from '@/public-renderers/publicPageModel'
 import { useThemeRuntime } from '@/services/themeRuntime'
-import { FSUSBLOG_RENDER_PIPELINE_CONFIG } from '@/config/fsusRenderPipeline'
+import { FSUSBLOG_RENDER_PIPELINE_CONFIG } from '@/fsusui/renderPipeline'
 
 const router = useRouter()
 const route = useRoute()

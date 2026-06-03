@@ -188,7 +188,7 @@ import { computed } from 'vue'
 import { type AdminTagItemResponse } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
-import { InfoFilled, Plus, Search, View, Lock } from '@/ui/fsusIcons'
+import { InfoFilled, Plus, Search, View, Lock } from '@/fsusui/icons'
 import { useAdminTagManage } from '@/composables/useAdminTagManage'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 

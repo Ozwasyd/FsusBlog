@@ -69,7 +69,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Delete, FolderChecked, Plus, Refresh } from '@/ui/fsusIcons'
+import { Delete, FolderChecked, Plus, Refresh } from '@/fsusui/icons'
 import type { AssetLibraryItemResponse } from '@/api/authoring'
 
 const props = defineProps<{

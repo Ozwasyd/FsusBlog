@@ -65,8 +65,8 @@
     </el-button>
     <el-button
       class="mt-3"
-      :tag="RouterLink"
-      to="/"
+      tag="a"
+      href="/"
     >
       回到首页
     </el-button>
@@ -74,7 +74,6 @@
 </template>
 
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
 import type { AboutPageViewContract } from '@/view-contracts/aboutPage'
 
 defineProps<{

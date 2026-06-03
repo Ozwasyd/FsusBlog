@@ -101,7 +101,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import QrcodeVue from 'qrcode.vue'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 
 const props = withDefaults(defineProps<{
   visible: boolean

@@ -57,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowDown, View } from '@/ui/fsusIcons'
+import { ArrowDown, View } from '@/fsusui/icons'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import { type ArticleListItemResponse } from '@/api/article'
 

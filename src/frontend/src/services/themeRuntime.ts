@@ -3,7 +3,7 @@ import {
   normalizeThemeMode,
   syncThemeMode,
   type ThemeMode as FsusThemeMode
-} from '@ozwasyd/element-plus/es/components/config-provider/src/theme-mode'
+} from '@/fsusui/theme'
 
 export type ThemeMode = FsusThemeMode
 type ResolvedTheme = 'light' | 'dark'

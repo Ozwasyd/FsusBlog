@@ -395,8 +395,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessageBox } from '@ozwasyd/element-plus'
-import { Cloudy } from '@/ui/fsusIcons'
+import { Cloudy } from '@/fsusui/icons'
 import { ref, onMounted } from 'vue'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import MfaChallengeModal from '@/components/ui/MfaChallengeModal.vue'
@@ -407,7 +406,7 @@ import SemanticTime from '@/components/ui/SemanticTime.vue'
 import { useUserProfileSecurity } from '@/composables/useUserProfileSecurity'
 import { usePasskeyManagement } from '@/composables/usePasskeyManagement'
 import type { PasskeyCredentialSummary } from '@/api/auth'
-import { isFsusUiOk } from '@/utils/fsusUiResult'
+import { confirmDanger } from '@/fsusui/feedback'
 
 const {
   isUsernameSubmitDisabled,
@@ -483,12 +482,12 @@ const savePasskeyName = async (id: number) => {
 }
 
 const confirmDeletePasskey = async (id: number) => {
-  const result = await ElMessageBox.confirm(
+  const confirmed = await confirmDanger(
     '确认删除此通行密钥？删除后，该设备将不能继续使用此密钥登录。',
     '删除通行密钥',
-    { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'warning' }
+    { confirmButtonText: '确认删除', cancelButtonText: '取消' }
   )
-  if (!isFsusUiOk(result)) {
+  if (!confirmed) {
     return
   }
   await removePasskey(id)

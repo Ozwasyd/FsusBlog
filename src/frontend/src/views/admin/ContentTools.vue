@@ -77,7 +77,7 @@ import {
 } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 
 const articleId = ref('')
 const markdown = ref('')

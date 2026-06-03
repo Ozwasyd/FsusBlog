@@ -1,5 +1,4 @@
-import { ElMessageBox } from '@ozwasyd/element-plus'
-import { isFsusUiOk } from '@/utils/fsusUiResult'
+import { confirmWarning } from '@/fsusui/feedback'
 
 type GlobalConfirmRequest = Readonly<{
   title: string
@@ -9,10 +8,8 @@ type GlobalConfirmRequest = Readonly<{
 }>
 
 export const requestGlobalConfirm = async (request: GlobalConfirmRequest): Promise<boolean> => {
-  const result = await ElMessageBox.confirm(request.content, request.title, {
+  return await confirmWarning(request.content, request.title, {
     confirmButtonText: request.confirmText ?? '确认',
-    cancelButtonText: request.cancelText ?? '取消',
-    type: 'warning'
+    cancelButtonText: request.cancelText ?? '取消'
   })
-  return isFsusUiOk(result)
 }

@@ -658,18 +658,6 @@ const submitQuickCreateTag = async (): Promise<void> => {
 .write-side-tabs {
   min-width: 0;
   border-top: 1px solid var(--fsusblog-panel-border);
-}
-
-.write-side-tabs :deep(.el-tabs__header) {
-  margin: 0;
-  background: var(--fsusblog-page-bg-soft);
-}
-
-.write-side-tabs :deep(.el-tabs__nav-wrap) {
-  padding: 0 0.5rem;
-}
-
-.write-side-tabs :deep(.el-tabs__content) {
   background: var(--fsusblog-page-bg);
 }
 

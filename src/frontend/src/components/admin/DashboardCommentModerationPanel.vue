@@ -62,7 +62,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
-import { ArrowRight, Refresh } from '@/ui/fsusIcons'
+import { ArrowRight, Refresh } from '@/fsusui/icons'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import { CommentModerationStatus } from '@/api/authoring'
 import { useCommentModerationQueue } from '@/composables/useCommentModerationQueue'

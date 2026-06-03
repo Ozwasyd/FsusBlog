@@ -182,7 +182,7 @@ import { computed } from 'vue'
 import { type AdminCategoryItemResponse } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
-import { InfoFilled, Plus, Edit, Lock, Delete, Search, View } from '@/ui/fsusIcons'
+import { InfoFilled, Plus, Edit, Lock, Delete, Search, View } from '@/fsusui/icons'
 import { useAdminCategoryManage } from '@/composables/useAdminCategoryManage'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 

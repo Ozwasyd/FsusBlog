@@ -59,7 +59,7 @@ const shellState = computed(() => createPublicShellViewState({
   siteTitle: siteStore.siteInfo.title,
   isSearchRoute: isSearchRoute.value,
   initialSearchQuery: isSearchRoute.value ? String(route.query.q || '') : '',
-  spaSearch: true,
+  spaSearch: isMounted.value && runtimeReady.value,
   showRuntime: isMounted.value && runtimeReady.value,
   isRuntimeAuthResolved: isMounted.value && runtimeReady.value,
   isLoggedIn: userStore.isLoggedIn,

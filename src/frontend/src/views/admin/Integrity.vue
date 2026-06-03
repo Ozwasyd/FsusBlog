@@ -127,9 +127,9 @@ import {
 } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
-import { Download, Refresh, Tools } from '@/ui/fsusIcons'
+import { Download, Refresh, Tools } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 
 const loading = ref(false)
 const fixing = ref(false)

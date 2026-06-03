@@ -65,7 +65,7 @@ describe('admin content governance workflow contract', () => {
   it('makes trash restore explicit and requires title or id before permanent delete', () => {
     expect(trashComposable).toContain('恢复后文章将重新对外可见')
     expect(trashComposable).toContain('恢复并重新发布')
-    expect(trashComposable).toContain('ElMessageBox.prompt')
+    expect(trashComposable).toContain('promptText')
     expect(trashComposable).toContain('text === String(row.id) || text === row.title')
     expect(trashPage).toContain('row.restoreActionText')
   })

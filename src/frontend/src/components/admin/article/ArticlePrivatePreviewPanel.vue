@@ -45,7 +45,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { View } from '@/ui/fsusIcons'
+import { View } from '@/fsusui/icons'
 import type { PrepublishIssue } from '@/api/authoring'
 
 const props = defineProps<{

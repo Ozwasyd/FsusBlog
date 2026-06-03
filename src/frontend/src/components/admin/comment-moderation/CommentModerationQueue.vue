@@ -144,7 +144,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowDown, Check, Close, Hide, View as ViewIcon } from '@/ui/fsusIcons'
+import { ArrowDown, Check, Close, Hide, View as ViewIcon } from '@/fsusui/icons'
 import { CommentModerationStatus, type CommentModerationStatus as CommentModerationStatusValue } from '@/api/authoring'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { CommentModerationViewItem } from '@/composables/useCommentModerationQueue'

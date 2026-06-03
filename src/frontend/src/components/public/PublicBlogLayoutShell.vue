@@ -66,8 +66,30 @@
 import { computed, defineAsyncComponent, ref } from 'vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import { PUBLIC_FIXED_PATHS, PUBLIC_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
-import { PUBLIC_SHELL_DEFAULTS, type PublicActiveNav } from '@/public-renderers/publicShellState'
-import { Top } from '@/ui/fsusIcons'
+import type { PublicActiveNav } from '@/public-renderers/publicShellState'
+import { Top } from '@/fsusui/icons'
+
+const SHELL_DEFAULTS = {
+  hydrationKind: null,
+  siteTitle: "Fsu's Blog",
+  activeNav: 'none',
+  authLabel: '登录',
+  authHref: '/login',
+  searchPlaceholder: '搜索',
+  initialSearchQuery: '',
+  spaSearch: false,
+  showRuntime: false
+} satisfies {
+  hydrationKind: string | null
+  siteTitle: string
+  activeNav: PublicActiveNav
+  authLabel: string
+  authHref: string
+  searchPlaceholder: string
+  initialSearchQuery: string
+  spaSearch: boolean
+  showRuntime: boolean
+}
 
 const props = withDefaults(defineProps<{
   hydrationKind?: string | null
@@ -80,15 +102,15 @@ const props = withDefaults(defineProps<{
   spaSearch?: boolean
   showRuntime?: boolean
 }>(), {
-  hydrationKind: PUBLIC_SHELL_DEFAULTS.hydrationKind,
-  siteTitle: PUBLIC_SHELL_DEFAULTS.siteTitle,
-  activeNav: PUBLIC_SHELL_DEFAULTS.activeNav,
-  authLabel: PUBLIC_SHELL_DEFAULTS.authLabel,
-  authHref: PUBLIC_SHELL_DEFAULTS.authHref,
-  searchPlaceholder: PUBLIC_SHELL_DEFAULTS.searchPlaceholder,
-  initialSearchQuery: PUBLIC_SHELL_DEFAULTS.initialSearchQuery,
-  spaSearch: PUBLIC_SHELL_DEFAULTS.spaSearch,
-  showRuntime: PUBLIC_SHELL_DEFAULTS.showRuntime
+  hydrationKind: null,
+  siteTitle: "Fsu's Blog",
+  activeNav: 'none',
+  authLabel: '登录',
+  authHref: '/login',
+  searchPlaceholder: '搜索',
+  initialSearchQuery: '',
+  spaSearch: false,
+  showRuntime: false
 })
 
 const emit = defineEmits<{
@@ -97,7 +119,7 @@ const emit = defineEmits<{
 }>()
 
 const currentYear = new Date().getFullYear()
-const siteTitleText = computed(() => props.siteTitle?.trim() || PUBLIC_SHELL_DEFAULTS.siteTitle)
+const siteTitleText = computed(() => props.siteTitle?.trim() || SHELL_DEFAULTS.siteTitle)
 const searchQuery = ref(props.initialSearchQuery)
 const FullAppRuntime = defineAsyncComponent(() => import('@/components/runtime/AppRuntime.vue'))
 const PUBLIC_NAV_ITEMS = [

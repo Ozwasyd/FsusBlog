@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { Picture, Refresh } from '@/ui/fsusIcons'
+import { Picture, Refresh } from '@/fsusui/icons'
 import type { PrepublishIssue } from '@/api/authoring'
 
 export interface ArticleSeoPreviewState {

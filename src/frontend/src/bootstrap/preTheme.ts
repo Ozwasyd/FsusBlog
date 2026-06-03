@@ -1,4 +1,4 @@
-import { normalizeThemeMode, syncThemeMode } from '@ozwasyd/element-plus/es/components/config-provider/src/theme-mode'
+import { normalizeThemeMode, syncThemeMode } from '@/fsusui/theme'
 
 const THEME_STORAGE_KEY = 'fsus:theme-mode'
 

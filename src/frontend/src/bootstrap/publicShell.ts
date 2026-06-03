@@ -92,6 +92,7 @@ const CRITICAL_STYLE_FALLBACKS: CriticalStyleLink[] = [
     marker: 'public-page.css'
   }
 ]
+const PUBLIC_NAVIGATION_RETRY_DELAYS_MS = [250, 500, 750, 1000]
 
 function isFontOnlyStylesheet(link: HTMLLinkElement): boolean {
   const href = (link.getAttribute('href') ?? '').toLowerCase()
@@ -217,20 +218,6 @@ function ensureEmergencyPublicShellStyle(): void {
 #fsus-aot-shell .ui-article-title{font-size:1.35rem;line-height:1.3;font-weight:700;color:var(--fsusblog-text-primary,CanvasText)}
 #fsus-aot-shell .ui-article-summary{font-size:.96rem;line-height:1.75;color:var(--fsusblog-text-secondary,GrayText)}
 #fsus-aot-shell .ui-pagination{display:flex;align-items:center;justify-content:space-between;margin-top:2rem;padding-top:1rem;border-top:1px solid var(--fsusblog-panel-border,ButtonBorder)}
-#fsus-aot-shell .el-public-shell__primary-row{display:flex;align-items:center;justify-content:space-between;gap:2rem;min-width:0}
-#fsus-aot-shell .el-public-shell__brand-nav,#fsus-aot-shell .el-public-shell__desktop-nav,#fsus-aot-shell .el-public-shell__actions,#fsus-aot-shell .el-public-shell__mobile-actions,#fsus-aot-shell .el-public-shell__mobile-nav{display:flex;align-items:center}
-#fsus-aot-shell .el-public-shell__brand-nav{gap:2.5rem;min-width:0}
-#fsus-aot-shell .el-public-shell__desktop-nav{gap:2rem}
-#fsus-aot-shell .el-public-shell__actions{gap:1.25rem;min-width:max-content}
-#fsus-aot-shell .el-public-shell__mobile-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.75rem;min-width:0;margin-top:1.5rem}
-#fsus-aot-shell .el-public-shell__mobile-actions{gap:1rem;min-width:max-content}
-#fsus-aot-shell .el-public-shell__search--mobile{width:7rem}
-#fsus-aot-shell .el-public-shell__mobile-nav-scrollbar{min-width:0}
-#fsus-aot-shell .el-public-shell__mobile-nav{gap:1.5rem;min-width:max-content;padding-block:.125rem}
-#fsus-aot-shell .el-public-shell__mobile-nav .el-public-shell__nav-link{flex:0 0 auto;inline-size:max-content;min-inline-size:max-content;white-space:nowrap;word-break:keep-all;writing-mode:horizontal-tb}
-#fsus-aot-shell .el-public-shell__mobile-nav-wrap{overflow-y:hidden!important}
-@media (max-width:767px){#fsus-aot-shell .el-public-shell__desktop-nav,#fsus-aot-shell .el-public-shell__actions,#fsus-aot-shell .el-theme-mode-toggle--desktop{display:none!important}}
-@media (min-width:768px){#fsus-aot-shell .el-public-shell__desktop-nav{display:flex!important;align-items:baseline}#fsus-aot-shell .el-public-shell__mobile-toolbar,#fsus-aot-shell .el-theme-mode-toggle--mobile{display:none!important}}
 `
   document.head.appendChild(style)
 }
@@ -488,7 +475,7 @@ function replaceBinaryScript(id: string, rawPayload: string | null): void {
 
 function syncShellAttributes(target: HTMLElement, source: HTMLElement): void {
   for (const { name } of Array.from(target.attributes)) {
-    if (name === 'id') {
+    if (name === 'id' || name === 'data-public-shell-probe') {
       continue
     }
 
@@ -615,6 +602,27 @@ function readBinaryTextById(doc: Document, id: string): string | null {
   return text ? text : null
 }
 
+function delay(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) {
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(resolve, ms)
+    signal.addEventListener('abort', () => {
+      window.clearTimeout(timer)
+      resolve()
+    }, { once: true })
+  })
+}
+
+function isHydratablePublicDocument(doc: Document): boolean {
+  return Boolean(
+    doc.querySelector('#app > #fsus-aot-shell')
+    && readBinaryTextById(doc, 'fsus-aot-hydration-props')
+  )
+}
+
 async function applyPublicNavigationDocument(
   targetDocument: Document,
   href: string,
@@ -683,31 +691,47 @@ async function navigateWithinPublicShell(
   const navigationToken = ++activeNavigationToken
 
   try {
-    const response = await fetch(target.toString(), {
-      headers: {
-        Accept: 'text/html,application/xhtml+xml',
-        'X-Fsus-Public-Navigation': '1'
-      },
-      credentials: 'same-origin',
-      signal: controller.signal
-    })
+    for (let attempt = 0; attempt <= PUBLIC_NAVIGATION_RETRY_DELAYS_MS.length; attempt += 1) {
+      const response = await fetch(target.toString(), {
+        headers: {
+          Accept: 'text/html,application/xhtml+xml',
+          'X-Fsus-Public-Navigation': '1'
+        },
+        credentials: 'same-origin',
+        signal: controller.signal
+      })
 
-    if (!response.ok) {
-      throw new Error(`public navigation failed: ${response.status}`)
+      if (!response.ok) {
+        throw new Error(`public navigation failed: ${response.status}`)
+      }
+
+      const html = await response.text()
+      if (controller.signal.aborted || navigationToken !== activeNavigationToken) {
+        return
+      }
+
+      const nextDocument = new DOMParser().parseFromString(html, 'text/html')
+      if (isHydratablePublicDocument(nextDocument)) {
+        await applyPublicNavigationDocument(
+          nextDocument,
+          target.toString(),
+          options.historyMode ?? 'push',
+          options.popState
+        )
+        return
+      }
+
+      const retryDelay = PUBLIC_NAVIGATION_RETRY_DELAYS_MS[attempt]
+      if (retryDelay == null) {
+        break
+      }
+      await delay(retryDelay, controller.signal)
+      if (controller.signal.aborted || navigationToken !== activeNavigationToken) {
+        return
+      }
     }
 
-    const html = await response.text()
-    if (controller.signal.aborted || navigationToken !== activeNavigationToken) {
-      return
-    }
-
-    const nextDocument = new DOMParser().parseFromString(html, 'text/html')
-    await applyPublicNavigationDocument(
-      nextDocument,
-      target.toString(),
-      options.historyMode ?? 'push',
-      options.popState
-    )
+    throw new Error('public navigation shell was not ready')
   } catch (error) {
     if ((error as { name?: string } | null)?.name === 'AbortError') {
       return
@@ -850,6 +874,8 @@ async function hydratePublicShell(): Promise<void> {
 export async function bootstrapPublicShell(): Promise<void> {
   ensureThemeRuntime()
   document.body.setAttribute('data-fsusblog-public-first-paint', 'true')
+  bindPreBootstrapNavigation()
+  bindPopStateNavigation()
   const hydrateTask = (async () => {
     await waitForDocumentInteractive()
     await hydratePublicShell()

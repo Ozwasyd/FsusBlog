@@ -183,7 +183,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Key, Location } from '@/ui/fsusIcons'
+import { Key, Location } from '@/fsusui/icons'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { UserListItem } from '@/api/admin'
 import type { UserListViewItem } from '@/composables/useAdminUserManage'

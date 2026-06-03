@@ -106,7 +106,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef } from 'vue'
-import { ElMessageBox } from '@ozwasyd/element-plus'
 import {
   cleanupOrphanAssets,
   listAssetLibrary,
@@ -116,10 +115,9 @@ import {
 import { deleteImage } from '@/api/system'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
-import { Delete, Refresh, Search } from '@/ui/fsusIcons'
+import { Delete, Refresh, Search } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
-import { isFsusUiOk } from '@/utils/fsusUiResult'
-import { toast } from '@/utils/toast'
+import { confirmDanger, toast } from '@/fsusui/feedback'
 
 const assets = shallowRef<AssetLibraryItemResponse[]>([])
 const loading = ref(false)
@@ -175,12 +173,11 @@ const reindexCurrentArticle = async (): Promise<void> => {
 }
 
 const confirmCleanupOrphans = async (): Promise<void> => {
-  const result = await ElMessageBox.confirm('确认清理所有引用计数为 0 的孤儿资产？该操作会删除服务器文件。', '清理孤儿资产', {
-    type: 'warning',
+  const confirmed = await confirmDanger('确认清理所有引用计数为 0 的孤儿资产？该操作会删除服务器文件。', '清理孤儿资产', {
     confirmButtonText: '确认清理',
     cancelButtonText: '取消'
   })
-  if (!isFsusUiOk(result)) {
+  if (!confirmed) {
     return
   }
 
@@ -200,12 +197,11 @@ const confirmDeleteAsset = async (asset: AssetLibraryItemResponse): Promise<void
   const warning = asset.referenceCount > 0
     ? `该文件仍有 ${asset.referenceCount} 个引用。确认删除服务器文件？`
     : '确认删除该孤儿文件？'
-  const result = await ElMessageBox.confirm(warning, '删除服务器文件', {
-    type: 'warning',
+  const confirmed = await confirmDanger(warning, '删除服务器文件', {
     confirmButtonText: '确认删除',
     cancelButtonText: '取消'
   })
-  if (!isFsusUiOk(result)) {
+  if (!confirmed) {
     return
   }
 

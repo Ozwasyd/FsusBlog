@@ -105,6 +105,7 @@ export type PublicHydrationPayloadByKind = {
   ArticleDetail: BaseHydrationPayload<'ArticleDetail'> & Readonly<{
     articleId: number | string
     authorName?: string | null
+    articleSummary?: string | null
     bodyContent?: string | null
     bodyHtml?: string | null
     detailView: ArticleDetailPageViewContract

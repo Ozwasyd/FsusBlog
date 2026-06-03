@@ -126,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { Search, Refresh } from '@/ui/fsusIcons'
+import { Search, Refresh } from '@/fsusui/icons'
 import {
   commentModerationStatusOptions as statusOptions,
   type CommentModerationFilterKey,

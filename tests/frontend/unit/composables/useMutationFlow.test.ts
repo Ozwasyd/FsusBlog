@@ -6,7 +6,7 @@ vi.mock('@/utils/errorPresentation', () => ({
   showWarningToast: vi.fn()
 }))
 
-vi.mock('@/utils/toast', () => ({
+vi.mock('@/fsusui/feedback', () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
@@ -19,7 +19,7 @@ vi.mock('@/composables/useGlobalConfirm', () => ({
   requestGlobalConfirm: vi.fn().mockResolvedValue(true)
 }))
 
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 import { showWarningToast } from '@/utils/errorPresentation'
 import { requestGlobalConfirm } from '@/composables/useGlobalConfirm'
 

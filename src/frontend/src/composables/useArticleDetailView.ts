@@ -1,13 +1,12 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessageBox } from '@ozwasyd/element-plus'
 import { getRelatedReading, type ArticleDetailResponse, type RelatedReadingResponse } from '@/api/article'
 import { toBootstrapArticleDetail } from '@/bootstrap/publicAotBootstrap'
 import { createComment, deleteComment } from '@/api/comment'
 import { useUserStore } from '@/store/user'
 import { useArticleBinaryStore } from '@/store/article'
 import type MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
-import { toast } from '@/utils/toast'
+import { toast } from '@/fsusui/feedback'
 import { usePow } from '@/composables/usePow'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { useArticleCommentStream } from '@/composables/useArticleCommentStream'
@@ -16,7 +15,7 @@ import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
 import { validateCommentContent } from '@/utils/contentFilter'
 import { isAbortError } from '@/utils/errors'
 import { showErrorToast } from '@/utils/errorPresentation'
-import { isFsusUiOk } from '@/utils/fsusUiResult'
+import { alertInfo } from '@/fsusui/feedback'
 import { requestGlobalConfirm } from '@/composables/useGlobalConfirm'
 import type { SseArticleRenderPatch, SseCommentRenderPatch } from '@/services/sseTypes'
 import { useSseStore } from '@/store/sse'
@@ -411,10 +410,10 @@ export function useArticleDetailView() {
       article.value = null
 
       void (async () => {
-        const result = await ElMessageBox.alert('该文章内容已被作者移除，正在为您返回首页。', '文章已被删除', {
+        const confirmed = await alertInfo('该文章内容已被作者移除，正在为您返回首页。', '文章已被删除', {
           confirmButtonText: '确定'
         })
-        if (isFsusUiOk(result)) {
+        if (confirmed) {
           void router.replace('/')
         }
       })()

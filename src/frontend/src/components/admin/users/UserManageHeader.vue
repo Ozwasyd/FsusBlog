@@ -88,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { Search } from '@/ui/fsusIcons'
+import { Search } from '@/fsusui/icons'
 
 interface Props {
   total: number
