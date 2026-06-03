@@ -1,6 +1,5 @@
 using System.Text.Json;
 using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Models.Dtos;
 using SqlSugar;
 
@@ -52,16 +51,18 @@ public sealed class RumTelemetryService(ISqlSugarClient db)
             return new RumMetricIngestResponse(false);
         }
 
-        var log = new AuditLog
+        var metric = new FrontendRumMetric
         {
-            Source = AuditSourceCatalog.Frontend,
-            Type = AuditTypeCatalog.Performance,
+            Name = context.Name,
+            PageType = context.PageType,
+            AotSource = context.AotSource,
+            Value = context.Value,
+            MetricsJson = JsonSerializer.Serialize(context.Metrics),
             OccurredAtUtc = context.Timestamp,
-            EventInfo = $"rum:{context.Name}",
-            ContextPayload = JsonSerializer.SerializeToUtf8Bytes(context)
+            CreatedAtUtc = DateTime.UtcNow
         };
 
-        await db.Insertable(log).ExecuteCommandAsync(cancellationToken);
+        await db.Insertable(metric).ExecuteCommandAsync(cancellationToken);
         return new RumMetricIngestResponse(true);
     }
 

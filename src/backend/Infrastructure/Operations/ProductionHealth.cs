@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -24,7 +25,8 @@ public sealed record RuntimeHealthSnapshot(
     int AvailableWorkerThreads,
     StartupRuntimeSnapshot? Startup,
     ScheduledPublishRuntimeSnapshot? ScheduledPublish,
-    PublicHotReadRuntimeSnapshot? PublicHotRead);
+    PublicHotReadRuntimeSnapshot? PublicHotRead,
+    AuditLogRuntimeSnapshot? AuditLog);
 
 public static class ProductionLivenessProbe
 {
@@ -126,6 +128,7 @@ public sealed class ProductionReadinessProbe(
         StartupRuntimeState? startupRuntime = serviceProvider.GetService<StartupRuntimeState>();
         ScheduledPublishRuntimeState? scheduledPublish = serviceProvider.GetService<ScheduledPublishRuntimeState>();
         PublicHotReadRuntimeSnapshot? publicHotRead = serviceProvider.GetService<PublicHotReadStore>()?.CreateRuntimeSnapshot();
+        AuditLogRuntimeSnapshot? auditLog = serviceProvider.GetService<AuditLogRuntimeState>()?.Snapshot();
         string status = publicHotRead is null
             || string.Equals(publicHotRead.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
             ? "ok"
@@ -138,7 +141,8 @@ public sealed class ProductionReadinessProbe(
             RuntimePressureSnapshot.Capture().AvailableWorkerThreads,
             startupRuntime?.CreateSnapshot(),
             scheduledPublish?.CreateSnapshot(),
-            publicHotRead);
+            publicHotRead,
+            auditLog);
     }
 
     private async Task<object> CheckPostgresAsync(CancellationToken cancellationToken)

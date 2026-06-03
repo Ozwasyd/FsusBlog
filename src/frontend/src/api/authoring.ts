@@ -126,6 +126,97 @@ export interface AuthorAnalyticsResponse {
   rumAotSources: AuthorAnalyticsMetricResponse[]
 }
 
+export interface AuditLogRuntimeResponse {
+  queuedCount: number
+  droppedCount: number
+  writeSuccessCount: number
+  writeFailureCount: number
+  fallbackWriteCount: number
+  lastWriteSuccessUtc: string | null
+  lastWriteFailureUtc: string | null
+  lastFallbackWriteUtc: string | null
+}
+
+export interface AuditLogItemResponse {
+  id: number
+  source: string
+  type: string
+  action: string
+  outcome: string
+  severity: string
+  isHighValue: boolean
+  actorType: string | null
+  actorId: string | null
+  actorRole: string | null
+  targetType: string | null
+  targetId: string | null
+  reasonCode: string | null
+  occurredAtUtc: string
+  eventInfo: string
+  traceId: string | null
+  requestPath: string | null
+  requestMethod: string | null
+  ipHash: string | null
+  userAgentHash: string | null
+  sessionIdHash: string | null
+  deviceFingerprintHash: string | null
+  chainId: string | null
+  prevHash: string | null
+  recordHash: string | null
+  recordMac: string | null
+}
+
+export interface AuditLogListResponse {
+  items: AuditLogItemResponse[]
+  total: number
+  page: number
+  pageSize: number
+  runtime: AuditLogRuntimeResponse
+}
+
+export interface AuditLogDetailResponse {
+  item: AuditLogItemResponse
+  contextJson: string | null
+  tamperEvidenceValid: boolean
+}
+
+export interface AuditFacetResponse {
+  value: string
+  count: number
+}
+
+export interface AuditLogSummaryResponse {
+  total: number
+  sources: AuditFacetResponse[]
+  actions: AuditFacetResponse[]
+  outcomes: AuditFacetResponse[]
+  severities: AuditFacetResponse[]
+  runtime: AuditLogRuntimeResponse
+}
+
+export interface AuditTamperVerifyResponse {
+  id: number
+  valid: boolean
+  recordHash: string | null
+  recordMac: string | null
+  chainId: string | null
+}
+
+export interface AuditLogQueryParams {
+  page?: number
+  pageSize?: number
+  source?: string | null
+  type?: string | null
+  actor?: string | null
+  action?: string | null
+  targetType?: string | null
+  targetId?: string | null
+  outcome?: string | null
+  severity?: string | null
+  fromUtc?: string | null
+  toUtc?: string | null
+}
+
 export const CommentModerationStatus = {
   Pending: 0,
   Approved: 1,
@@ -437,6 +528,54 @@ export async function getAuthorAnalytics(config?: ApiRequestConfig): Promise<Aut
   return await readJsonEnvelope<AuthorAnalyticsResponse>(response, `author_analytics_fetch_failed:${response.status}`)
 }
 
+export async function listAuditLogs(
+  params: AuditLogQueryParams,
+  config?: ApiRequestConfig
+): Promise<AuditLogListResponse> {
+  const search = buildAuditSearch(params)
+  const response = await fetch(`/api/author/audit?${search.toString()}`, {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<AuditLogListResponse>(response, `audit_log_fetch_failed:${response.status}`)
+}
+
+export async function getAuditLogSummary(
+  params: AuditLogQueryParams,
+  config?: ApiRequestConfig
+): Promise<AuditLogSummaryResponse> {
+  const search = buildAuditSearch(params)
+  const response = await fetch(`/api/author/audit/summary?${search.toString()}`, {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<AuditLogSummaryResponse>(response, `audit_summary_fetch_failed:${response.status}`)
+}
+
+export async function getAuditLogDetail(id: number, config?: ApiRequestConfig): Promise<AuditLogDetailResponse> {
+  const response = await fetch(`/api/author/audit/${id}`, {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<AuditLogDetailResponse>(response, `audit_detail_fetch_failed:${response.status}`)
+}
+
+export async function verifyAuditLog(id: number, config?: ApiRequestConfig): Promise<AuditTamperVerifyResponse> {
+  const response = await fetch(`/api/author/audit/${id}/verify`, {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<AuditTamperVerifyResponse>(response, `audit_verify_failed:${response.status}`)
+}
+
 export async function listCommentModerationQueue(
   status: CommentModerationStatus = CommentModerationStatus.Pending,
   limit = 50,
@@ -564,4 +703,17 @@ export async function rollbackArticleRevision(
   })
   const result = await readJsonEnvelope<{ rolledBack?: boolean }>(response, `article_revision_rollback_failed:${response.status}`)
   return result.rolledBack === true
+}
+
+function buildAuditSearch(params: AuditLogQueryParams): URLSearchParams {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') {
+      continue
+    }
+
+    search.set(key, String(value))
+  }
+
+  return search
 }

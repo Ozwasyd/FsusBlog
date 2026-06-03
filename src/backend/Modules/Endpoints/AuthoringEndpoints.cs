@@ -1,4 +1,5 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Authoring;
@@ -142,6 +143,7 @@ public static class AuthoringEndpoints
             HttpContext context,
             IMfaChallengeService mfaChallengeService,
             AuthoringWorkflowService service,
+            IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
             IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
@@ -151,6 +153,24 @@ public static class AuthoringEndpoints
             }
 
             CommentModerationBulkResponse response = await service.ModerateCommentsAsync(context.User.GetUserId(), request, cancellationToken);
+            await auditEvents.RecordHighValueAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Audit,
+                AuditActionCatalog.CommentBulkModerated,
+                AuditOutcomeCatalog.Success,
+                AuditSeverityCatalog.Warning,
+                "管理员批量审核评论",
+                TargetType: "comment",
+                TargetId: string.Join(',', request.CommentIds),
+                ReasonCode: request.Reason,
+                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["status"] = request.Status,
+                    ["commentCount"] = request.CommentIds.Count,
+                    ["updated"] = response.Updated,
+                    ["bannedUsers"] = response.BannedUsers,
+                    ["banUsers"] = request.BanUsers
+                }), cancellationToken);
             return Results.Ok(JsonApiResponse<CommentModerationBulkResponse>.Ok(response));
         })
         .RequireRateLimiting("fixed_ip");
@@ -161,6 +181,7 @@ public static class AuthoringEndpoints
             HttpContext context,
             IMfaChallengeService mfaChallengeService,
             AuthoringWorkflowService service,
+            IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
             IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
@@ -170,6 +191,21 @@ public static class AuthoringEndpoints
             }
 
             bool moderated = await service.ModerateCommentAsync(context.User.GetUserId(), commentId, request, cancellationToken);
+            await auditEvents.RecordHighValueAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Audit,
+                AuditActionCatalog.CommentModerated,
+                moderated ? AuditOutcomeCatalog.Success : AuditOutcomeCatalog.Failure,
+                moderated ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Error,
+                "管理员审核评论",
+                TargetType: "comment",
+                TargetId: commentId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ReasonCode: request.Reason,
+                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["status"] = request.Status,
+                    ["banUser"] = request.BanUser
+                }), cancellationToken);
             return moderated
                 ? Results.Ok(JsonApiResponse<object>.Ok(new { moderated }))
                 : Results.NotFound(JsonApiResponse<object>.Fail("comment_not_found"));
@@ -178,15 +214,50 @@ public static class AuthoringEndpoints
 
         group.MapGet("/content/export", async (
             AuthoringWorkflowService service,
+            IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
-            Results.Ok(JsonApiResponse<ContentBackupExportResponse>.Ok(await service.ExportContentBackupAsync(cancellationToken))));
+        {
+            ContentBackupExportResponse response = await service.ExportContentBackupAsync(cancellationToken);
+            await auditEvents.RecordHighValueAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Audit,
+                AuditActionCatalog.ContentExported,
+                AuditOutcomeCatalog.Success,
+                AuditSeverityCatalog.Warning,
+                "管理员导出全量内容备份",
+                TargetType: "content_backup",
+                TargetId: response.FileName,
+                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["articleCount"] = response.Articles.Count,
+                    ["exportedAt"] = response.ExportedAt
+                }), cancellationToken);
+            return Results.Ok(JsonApiResponse<ContentBackupExportResponse>.Ok(response));
+        });
 
         group.MapGet("/articles/{articleId:int}/export", async (
             int articleId,
             AuthoringWorkflowService service,
+            IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
             ContentExportResponse? exported = await service.ExportArticleAsync(articleId, cancellationToken);
+            await auditEvents.RecordHighValueAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Audit,
+                AuditActionCatalog.ArticleExported,
+                exported is null ? AuditOutcomeCatalog.Failure : AuditOutcomeCatalog.Success,
+                exported is null ? AuditSeverityCatalog.Error : AuditSeverityCatalog.Warning,
+                "管理员导出文章内容",
+                TargetType: "article",
+                TargetId: articleId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Context: exported is null
+                    ? null
+                    : new Dictionary<string, object?>(StringComparer.Ordinal)
+                    {
+                        ["fileName"] = exported.FileName,
+                        ["revisionCount"] = exported.Metadata.RevisionCount
+                    }), cancellationToken);
             return exported is null
                 ? Results.NotFound(JsonApiResponse<ContentExportResponse>.Fail("article_not_found"))
                 : Results.Ok(JsonApiResponse<ContentExportResponse>.Ok(exported));
@@ -195,17 +266,183 @@ public static class AuthoringEndpoints
         group.MapPost("/articles/import", async (
             ContentImportRequest request,
             AuthoringWorkflowService service,
+            IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
             ContentImportResponse response = await service.ImportArticleAsync(request, cancellationToken);
+            await auditEvents.RecordHighValueAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Audit,
+                AuditActionCatalog.ArticleImported,
+                AuditOutcomeCatalog.Success,
+                AuditSeverityCatalog.Warning,
+                "管理员导入文章内容",
+                TargetType: "article",
+                TargetId: response.ArticleId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["publish"] = request.Publish,
+                    ["preserveRevisions"] = request.PreserveRevisions,
+                    ["restoredRevisionCount"] = response.RestoredRevisionCount
+                }), cancellationToken);
             return Results.Ok(JsonApiResponse<ContentImportResponse>.Ok(response));
         });
+
+        group.MapGet("/audit", async (
+            int? page,
+            int? pageSize,
+            string? source,
+            string? type,
+            string? actor,
+            string? action,
+            string? targetType,
+            string? targetId,
+            string? outcome,
+            string? severity,
+            DateTime? fromUtc,
+            DateTime? toUtc,
+            AuditQueryService auditQuery,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            AuditLogQueryRequest query = BuildAuditLogQuery(page, pageSize, source, type, actor, action, targetType, targetId, outcome, severity, fromUtc, toUtc);
+            AuditLogListResponse response = await auditQuery.ListAsync(query, cancellationToken);
+            await auditEvents.RecordAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Audit,
+                AuditActionCatalog.AuditQueried,
+                AuditOutcomeCatalog.Success,
+                AuditSeverityCatalog.Info,
+                "管理员查询审计日志列表",
+                TargetType: "audit_log",
+                Context: BuildAuditQueryContext(query)), cancellationToken);
+            return Results.Ok(JsonApiResponse<AuditLogListResponse>.Ok(response));
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapGet("/audit/summary", async (
+            string? source,
+            string? type,
+            string? actor,
+            string? action,
+            string? targetType,
+            string? targetId,
+            string? outcome,
+            string? severity,
+            DateTime? fromUtc,
+            DateTime? toUtc,
+            AuditQueryService auditQuery,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            AuditLogQueryRequest query = BuildAuditLogQuery(1, 1, source, type, actor, action, targetType, targetId, outcome, severity, fromUtc, toUtc);
+            AuditLogSummaryResponse response = await auditQuery.GetSummaryAsync(query, cancellationToken);
+            await auditEvents.RecordAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Audit,
+                AuditActionCatalog.AuditQueried,
+                AuditOutcomeCatalog.Success,
+                AuditSeverityCatalog.Info,
+                "管理员查询审计日志汇总",
+                TargetType: "audit_log_summary",
+                Context: BuildAuditQueryContext(query)), cancellationToken);
+            return Results.Ok(JsonApiResponse<AuditLogSummaryResponse>.Ok(response));
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapGet("/audit/{id:long}", async (
+            long id,
+            AuditQueryService auditQuery,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            AuditLogDetailResponse? response = await auditQuery.GetAsync(id, cancellationToken);
+            await auditEvents.RecordAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Audit,
+                AuditActionCatalog.AuditQueried,
+                response is null ? AuditOutcomeCatalog.Failure : AuditOutcomeCatalog.Success,
+                response is null ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Info,
+                "管理员查看审计日志详情",
+                TargetType: "audit_log",
+                TargetId: id.ToString(System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+            return response is null
+                ? Results.NotFound(JsonApiResponse<AuditLogDetailResponse>.Fail("audit_log_not_found"))
+                : Results.Ok(JsonApiResponse<AuditLogDetailResponse>.Ok(response));
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapGet("/audit/{id:long}/verify", async (
+            long id,
+            AuditQueryService auditQuery,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            AuditTamperVerifyResponse? response = await auditQuery.VerifyAsync(id, cancellationToken);
+            await auditEvents.RecordAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Audit,
+                AuditActionCatalog.AuditQueried,
+                response is null ? AuditOutcomeCatalog.Failure : AuditOutcomeCatalog.Success,
+                response?.Valid == true ? AuditSeverityCatalog.Info : AuditSeverityCatalog.Warning,
+                "管理员校验审计日志防篡改证据",
+                TargetType: "audit_log",
+                TargetId: id.ToString(System.Globalization.CultureInfo.InvariantCulture)), cancellationToken);
+            return response is null
+                ? Results.NotFound(JsonApiResponse<AuditTamperVerifyResponse>.Fail("audit_log_not_found"))
+                : Results.Ok(JsonApiResponse<AuditTamperVerifyResponse>.Ok(response));
+        })
+        .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/ai-assist", (AiAssistRequest request, HttpContext context, AuthoringWorkflowService service) =>
             Results.Ok(JsonApiResponse<AiAssistResponse>.Ok(service.GenerateAiAssist(context.User.GetUserId(), request))));
 
         return app;
     }
+
+    private static AuditLogQueryRequest BuildAuditLogQuery(
+        int? page,
+        int? pageSize,
+        string? source,
+        string? type,
+        string? actor,
+        string? action,
+        string? targetType,
+        string? targetId,
+        string? outcome,
+        string? severity,
+        DateTime? fromUtc,
+        DateTime? toUtc)
+        => new(
+            page ?? 1,
+            pageSize ?? 50,
+            source,
+            type,
+            actor,
+            action,
+            targetType,
+            targetId,
+            outcome,
+            severity,
+            fromUtc,
+            toUtc);
+
+    private static IReadOnlyDictionary<string, object?> BuildAuditQueryContext(AuditLogQueryRequest query)
+        => new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["page"] = query.Page,
+            ["pageSize"] = query.PageSize,
+            ["source"] = query.Source,
+            ["type"] = query.Type,
+            ["actor"] = query.Actor,
+            ["action"] = query.Action,
+            ["targetType"] = query.TargetType,
+            ["targetId"] = query.TargetId,
+            ["outcome"] = query.Outcome,
+            ["severity"] = query.Severity,
+            ["fromUtc"] = query.FromUtc,
+            ["toUtc"] = query.ToUtc
+        };
 
     private static async Task<IReadOnlyList<AdminCategoryItemResponse>> ListAdminCategoriesAsync(ISqlSugarClient db, CancellationToken cancellationToken)
     {

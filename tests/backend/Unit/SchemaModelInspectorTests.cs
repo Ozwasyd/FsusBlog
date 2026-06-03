@@ -18,6 +18,7 @@ public sealed class SchemaModelInspectorTests
         Assert.Contains("sys_user_session", snapshot.Tables.Keys);
         Assert.Contains("msg_conversation", snapshot.Tables.Keys);
         Assert.Contains("sys_audit_log", snapshot.Tables.Keys);
+        Assert.Contains("frontend_rum_metric", snapshot.Tables.Keys);
 
         SchemaTableModel article = snapshot.Tables["article"];
         Assert.Contains("title", article.Columns.Keys);
@@ -33,5 +34,18 @@ public sealed class SchemaModelInspectorTests
         Assert.Contains("source", auditLog.Columns.Keys);
         Assert.Contains("type", auditLog.Columns.Keys);
         Assert.Contains("occurred_at_utc", auditLog.Columns.Keys);
+        Assert.Contains("action", auditLog.Columns.Keys);
+        Assert.Contains("actor_id", auditLog.Columns.Keys);
+        Assert.Contains("target_type", auditLog.Columns.Keys);
+        Assert.Contains("outcome", auditLog.Columns.Keys);
+        Assert.Contains("severity", auditLog.Columns.Keys);
+        Assert.Contains("ip_hash", auditLog.Columns.Keys);
+        Assert.Contains("context_json", auditLog.Columns.Keys);
+        Assert.Contains("record_hash", auditLog.Columns.Keys);
+
+        SchemaTableModel rumMetric = snapshot.Tables["frontend_rum_metric"];
+        Assert.Contains("name", rumMetric.Columns.Keys);
+        Assert.Contains("page_type", rumMetric.Columns.Keys);
+        Assert.Contains("metrics_json", rumMetric.Columns.Keys);
     }
 }

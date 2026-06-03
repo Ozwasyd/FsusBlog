@@ -280,6 +280,7 @@
       "risk": "medium",
       "coverage": "audit payload stability and no password/token/secret leakage",
       "evidencePaths": [
+        "tests/backend/Unit/AuditSystemContractTests.cs",
         "tests/backend/Unit/AuditLogEventMapperTests.cs",
         "tests/backend/Unit/AuditAndNormalizerTests.cs"
       ]

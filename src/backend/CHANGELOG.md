@@ -12,6 +12,8 @@
 
 - 防爬虫闭环：`CrawlerRiskService` 统一沉淀 Shield、RateLimiter、PoW、ReadProof 和公开动态读风险分，`RiskAwarePublicReadFilter` 在高风险公开 GET API 上动态要求 PoW 或返回 429。
 - Crawler CIDR 同步支持远程官方 JSON、last-known-good snapshot、配置项 fallback 与 admin-only `/api/ops/crawler-ranges/status` 状态接口。
+- 结构化审计系统：`sys_audit_log` 增加 actor/action/target/outcome/severity、隐私 hash、context JSON 和 tamper evidence；新增 `IAuditEventService`、critical fallback JSONL、admin-only `/api/author/audit/**` 查询与 `/user/manage/audit` 管理页。
+- RUM 遥测拆出独立 `frontend_rum_metric` 表，匿名 ingestion 加 `fixed_ip` 限流，作者 dashboard 从新表聚合性能指标。
 
 ### 变更
 

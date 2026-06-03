@@ -349,10 +349,7 @@ public sealed class AuthoringWorkflowService(
             .OrderByDescending(it => it.OccurredAtUtc)
             .Take(2_000)
             .ToListAsync(cancellationToken);
-        List<RumMetricAuditContext> recentRumMetrics = [.. (await db.Queryable<AuditLog>()
-            .Where(it => it.Source == AuditSourceCatalog.Frontend
-                && it.Type == AuditTypeCatalog.Performance
-                && it.EventInfo.Contains("rum:"))
+        List<RumMetricAuditContext> recentRumMetrics = [.. (await db.Queryable<FrontendRumMetric>()
             .OrderByDescending(it => it.OccurredAtUtc)
             .Take(5_000)
             .ToListAsync(cancellationToken))
@@ -948,14 +945,17 @@ public sealed class AuthoringWorkflowService(
             .Take(8)
             .ToArray();
 
-    private static RumMetricAuditContext? TryReadRumMetric(AuditLog log)
+    private static RumMetricAuditContext? TryReadRumMetric(FrontendRumMetric metric)
     {
-        if (log.ContextPayload is null || log.ContextPayload.Length == 0)
-        {
-            return null;
-        }
+        Dictionary<string, double>? metrics = JsonDecodeHelper.DeserializeOrNull<Dictionary<string, double>>(metric.MetricsJson);
 
-        return JsonDecodeHelper.DeserializeOrNull<RumMetricAuditContext>(log.ContextPayload);
+        return new RumMetricAuditContext(
+            metric.Name,
+            metric.PageType,
+            metric.AotSource,
+            metric.Value,
+            metrics ?? [],
+            metric.OccurredAtUtc);
     }
 
     private static double? SelectRumMetricValue(RumMetricAuditContext context)

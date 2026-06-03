@@ -21,9 +21,12 @@ public sealed class AuditLogWriterWorkerTests
             ValidateScopes = true
         });
 
+        var channel = new AuditLogChannel();
         var worker = new AuditLogWriterWorker(
-            new AuditLogChannel(),
+            channel,
             provider.GetRequiredService<IServiceScopeFactory>(),
+            new AuditLogRuntimeState(channel),
+            new NoopAuditFallbackWriter(),
             NullLogger<AuditLogWriterWorker>.Instance);
 
         await worker.WriteBatchOnceAsync(
@@ -56,6 +59,8 @@ public sealed class AuditLogWriterWorkerTests
         var worker = new AuditLogWriterWorker(
             channel,
             provider.GetRequiredService<IServiceScopeFactory>(),
+            new AuditLogRuntimeState(channel),
+            new NoopAuditFallbackWriter(),
             NullLogger<AuditLogWriterWorker>.Instance);
 
         await worker.StartAsync(CancellationToken.None);
@@ -119,5 +124,11 @@ public sealed class AuditLogWriterWorkerTests
             _probe.SuccessAfterFailure.TrySetResult(true);
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class NoopAuditFallbackWriter : IAuditFallbackWriter
+    {
+        public Task WriteAsync(AuditRecord record, Exception reason, CancellationToken cancellationToken)
+            => Task.CompletedTask;
     }
 }

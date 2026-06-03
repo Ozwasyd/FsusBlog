@@ -74,6 +74,7 @@ const accountNavItems: readonly AccountNavItem[] = [
   { label: '标签', to: '/user/manage/tag', helper: '索引关键词', area: 'manage', adminOnly: true },
   { label: '资产库', to: '/user/manage/assets', helper: '媒体与引用', area: 'manage', adminOnly: true },
   { label: '备份迁移', to: '/user/manage/content-tools', helper: '导入导出', area: 'manage', adminOnly: true },
+  { label: '审计日志', to: '/user/manage/audit', helper: '事件与证据', area: 'manage', adminOnly: true },
   { label: '用户', to: '/user/manage/users', helper: '账户治理', area: 'manage', adminOnly: true },
   { label: '系统设置', to: '/user/manage/settings', helper: 'SEO 与页面', area: 'manage', adminOnly: true }
 ]

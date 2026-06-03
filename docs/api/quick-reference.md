@@ -214,6 +214,10 @@
 | GET | `/api/author/content/export` | 👑 | 全站内容备份包 |
 | GET | `/api/author/articles/{articleId}/export` | 👑 | 导出 Markdown + frontmatter |
 | POST | `/api/author/articles/import` | 👑 | 导入 Markdown + frontmatter |
+| GET | `/api/author/audit` | 👑🚦 | 审计日志列表，支持 actor/action/target/outcome/time 过滤 |
+| GET | `/api/author/audit/summary` | 👑🚦 | 审计 facet 汇总与写入 runtime |
+| GET | `/api/author/audit/{id}` | 👑🚦 | 审计详情与 context |
+| GET | `/api/author/audit/{id}/verify` | 👑🚦 | 单条防篡改证据校验 |
 | POST | `/api/author/ai-assist` | 👑 | 默认关闭的作者 AI 辅助 |
 
 ---
@@ -224,7 +228,7 @@
 |------|------|------|------|
 | GET | `/api/notifications/stream/preflight` | 🔓 | WebSocket 通知握手预检，成功返回 204 |
 | GET | `/api/notifications/stream` | 🔓 | WebSocket 通知通道（子协议 `fsus-aeds.v2`） |
-| POST | `/api/telemetry/rum` | 🔓 | 匿名 RUM 性能样本 ingestion |
+| POST | `/api/telemetry/rum` | 🔓🚦 | 匿名 RUM 性能样本 ingestion |
 | GET | `/health/live` | 🔓 | JSON 存活探针（仅检查进程） |
 | GET | `/health/ready` | 🔓 | JSON 就绪探针（检查配置、Observability、启动状态、DB、Redis） |
 

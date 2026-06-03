@@ -69,6 +69,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'manage/tag', name: 'ManageTag', component: () => import('@/views/admin/Tag.vue'), meta: { title: '标签管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/assets', name: 'ManageAssets', component: () => import('@/views/admin/Assets.vue'), meta: { title: '资产库', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/content-tools', name: 'ManageContentTools', component: () => import('@/views/admin/ContentTools.vue'), meta: { title: '备份与迁移', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
+      { path: 'manage/audit', name: 'ManageAuditLog', component: () => import('@/views/admin/AuditLog.vue'), meta: { title: '审计日志', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/settings', name: 'ManageSettings', component: () => import('@/views/admin/Settings.vue'), meta: { title: '系统设置', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/users', name: 'ManageUsers', component: () => import('@/views/admin/UserManage.vue'), meta: { title: '用户管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } }
     ]

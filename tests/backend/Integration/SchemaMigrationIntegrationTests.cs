@@ -62,6 +62,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             connectionString,
             $"SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName};");
         bool auditLogExists = await fixture.TableExistsAsync(connectionString, "sys_audit_log");
+        bool rumMetricExists = await fixture.TableExistsAsync(connectionString, "frontend_rum_metric");
 
         Assert.Equal("# legacy body", markdown);
         Assert.Equal("# about from config", pageContent);
@@ -69,6 +70,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.Equal(0, legacyPageRows);
         Assert.Equal(new SchemaMigrationRegistry().GetDescriptors().Count, historyCount);
         Assert.True(auditLogExists);
+        Assert.True(rumMetricExists);
     }
 
     [Fact]
@@ -260,13 +262,17 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
         string source = await fixture.QueryScalarAsync<string>(connectionString, "SELECT source FROM sys_audit_log LIMIT 1;");
         string type = await fixture.QueryScalarAsync<string>(connectionString, "SELECT type FROM sys_audit_log LIMIT 1;");
+        string action = await fixture.QueryScalarAsync<string>(connectionString, "SELECT action FROM sys_audit_log LIMIT 1;");
         string eventInfo = await fixture.QueryScalarAsync<string>(connectionString, "SELECT event_info FROM sys_audit_log LIMIT 1;");
+        string recordHash = await fixture.QueryScalarAsync<string>(connectionString, "SELECT record_hash FROM sys_audit_log LIMIT 1;");
         byte[] contextPayload = await fixture.QueryScalarAsync<byte[]>(connectionString, "SELECT context_payload FROM sys_audit_log LIMIT 1;");
         Assert.True(PublicAotBinaryPayload.TryDecodeObject(contextPayload, out Dictionary<string, object?> context));
 
         Assert.Equal(AuditSourceCatalog.Auth, source);
         Assert.Equal(AuditTypeCatalog.Security, type);
+        Assert.Equal(AuditActionCatalog.LogRecorded, action);
         Assert.Equal("登录失败", eventInfo);
+        Assert.False(string.IsNullOrWhiteSpace(recordHash));
         Assert.Equal("trace-audit", context["traceId"]);
         Assert.Equal("127.0.0.1", context["clientIp"]);
     }
@@ -286,12 +292,14 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             connectionString,
             $"SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName};");
         bool auditLogExists = await fixture.TableExistsAsync(connectionString, "sys_audit_log");
+        bool rumMetricExists = await fixture.TableExistsAsync(connectionString, "frontend_rum_metric");
         bool articleTableExists = await fixture.TableExistsAsync(connectionString, "article");
         bool articleLifecycleIndexExists = await fixture.IndexExistsAsync(connectionString, "idx_article_public_state_time");
         bool commentModerationIndexExists = await fixture.IndexExistsAsync(connectionString, "idx_comment_moderation_status_time");
 
         Assert.Equal(new SchemaMigrationRegistry().GetDescriptors().Count, historyCount);
         Assert.True(auditLogExists);
+        Assert.True(rumMetricExists);
         Assert.True(articleTableExists);
         Assert.True(articleLifecycleIndexExists);
         Assert.True(commentModerationIndexExists);

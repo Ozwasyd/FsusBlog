@@ -5,6 +5,8 @@ namespace FsusBlog.Server.Infrastructure.Audit;
 public sealed class AuditLogWriterWorker(
     AuditLogChannel channel,
     IServiceScopeFactory scopeFactory,
+    AuditLogRuntimeState runtimeState,
+    IAuditFallbackWriter fallbackWriter,
     ILogger<AuditLogWriterWorker> logger) : BackgroundService
 {
     private const int BatchSize = 256;
@@ -12,6 +14,8 @@ public sealed class AuditLogWriterWorker(
 
     private readonly AuditLogChannel _channel = channel;
     private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
+    private readonly AuditLogRuntimeState _runtimeState = runtimeState;
+    private readonly IAuditFallbackWriter _fallbackWriter = fallbackWriter;
     private readonly ILogger<AuditLogWriterWorker> _logger = logger;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -28,7 +32,7 @@ public sealed class AuditLogWriterWorker(
                 }
 
                 batch.Clear();
-                batch.Add(await _channel.Reader.ReadAsync(stoppingToken));
+                batch.Add(await ReadRecordAsync(stoppingToken));
 
                 using var flushDelay = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                 flushDelay.CancelAfter(FlushWindow);
@@ -36,7 +40,7 @@ public sealed class AuditLogWriterWorker(
                 {
                     try
                     {
-                        AuditRecord next = await _channel.Reader.ReadAsync(flushDelay.Token);
+                        AuditRecord next = await ReadRecordAsync(flushDelay.Token);
                         batch.Add(next);
                     }
                     catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
@@ -56,6 +60,11 @@ public sealed class AuditLogWriterWorker(
             {
                 break;
             }
+            catch (Exception ex)
+            {
+                using var _ = AuditLogScope.SkipPersistence();
+                _logger.LogError(ex, "audit-log writer loop recovered from an unexpected failure.");
+            }
         }
 
         using var drainCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
@@ -72,6 +81,7 @@ public sealed class AuditLogWriterWorker(
         await using AsyncServiceScope scope = _scopeFactory.CreateAsyncScope();
         IAuditLogStore store = scope.ServiceProvider.GetRequiredService<IAuditLogStore>();
         await store.WriteBatchAsync(batch, cancellationToken);
+        _runtimeState.RecordWriteSuccess(batch.Count);
     }
 
     private async Task DrainRemainingAsync(CancellationToken cancellationToken)
@@ -80,6 +90,7 @@ public sealed class AuditLogWriterWorker(
 
         while (_channel.Reader.TryRead(out AuditRecord? record))
         {
+            _channel.MarkRead();
             batch.Add(record);
             if (batch.Count >= BatchSize)
             {
@@ -123,8 +134,38 @@ public sealed class AuditLogWriterWorker(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            _runtimeState.RecordWriteFailure(batch.Count);
+            await FallbackHighValueRecordsAsync(batch, ex, cancellationToken);
             using var _ = AuditLogScope.SkipPersistence();
             _logger.LogWarning(ex, "audit-log degraded: batch write failed, records dropped. Count={Count}", batch.Count);
+        }
+    }
+
+    private async ValueTask<AuditRecord> ReadRecordAsync(CancellationToken cancellationToken)
+    {
+        AuditRecord record = await _channel.Reader.ReadAsync(cancellationToken);
+        _channel.MarkRead();
+        return record;
+    }
+
+    private async Task FallbackHighValueRecordsAsync(IReadOnlyList<AuditRecord> batch, Exception reason, CancellationToken cancellationToken)
+    {
+        foreach (AuditRecord record in batch)
+        {
+            if (!record.RequiresDurableWrite)
+            {
+                continue;
+            }
+
+            try
+            {
+                await _fallbackWriter.WriteAsync(record, reason, cancellationToken);
+            }
+            catch (Exception fallbackEx) when (fallbackEx is not OperationCanceledException)
+            {
+                using var _ = AuditLogScope.SkipPersistence();
+                _logger.LogError(fallbackEx, "audit-log critical fallback write failed. Action={Action} TargetType={TargetType} TargetId={TargetId}", record.Action, record.TargetType, record.TargetId);
+            }
         }
     }
 

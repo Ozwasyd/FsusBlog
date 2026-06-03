@@ -44,9 +44,39 @@ public sealed class AuditLogEventMapper
             ?? ClassifySource(TryGetString(logEvent, "SourceContext"), eventInfo);
         string type = TryGetString(logEvent, AuditPropertyNames.Type)
             ?? ClassifyType(source, logEvent, eventInfo);
+        string action = TryGetString(logEvent, AuditPropertyNames.Action)
+            ?? ClassifyAction(source, type, eventInfo);
+        string outcome = TryGetString(logEvent, AuditPropertyNames.Outcome)
+            ?? ClassifyOutcome(logEvent);
+        string severity = TryGetString(logEvent, AuditPropertyNames.Severity)
+            ?? ClassifySeverity(logEvent);
+        bool isHighValue = TryGetBoolean(logEvent, AuditPropertyNames.HighValue)
+            ?? source is AuditSourceCatalog.Admin or AuditSourceCatalog.Auth or AuditSourceCatalog.Security;
 
         byte[] contextPayload = BuildContextPayload(logEvent, source, type);
-        return new AuditRecord(source, type, logEvent.Timestamp.UtcDateTime, eventInfo, contextPayload);
+        return new AuditRecord(
+            source,
+            type,
+            logEvent.Timestamp.UtcDateTime,
+            eventInfo,
+            contextPayload,
+            Action: action,
+            Outcome: outcome,
+            Severity: severity,
+            ActorType: TryGetString(logEvent, AuditPropertyNames.ActorType),
+            ActorId: TryGetString(logEvent, AuditPropertyNames.ActorId) ?? TryGetString(logEvent, "UserId"),
+            ActorRole: TryGetString(logEvent, AuditPropertyNames.ActorRole),
+            TargetType: TryGetString(logEvent, AuditPropertyNames.TargetType),
+            TargetId: TryGetString(logEvent, AuditPropertyNames.TargetId),
+            IsHighValue: isHighValue,
+            TraceId: TryGetString(logEvent, "TraceId"),
+            RequestPath: TryGetString(logEvent, "RequestPath"),
+            RequestMethod: TryGetString(logEvent, "RequestMethod"),
+            IpHash: TryGetString(logEvent, "IpHash"),
+            UserAgentHash: TryGetString(logEvent, "UserAgentHash"),
+            SessionIdHash: TryGetString(logEvent, "SessionIdHash"),
+            DeviceFingerprintHash: TryGetString(logEvent, "DeviceFingerprintHash"),
+            ReasonCode: TryGetString(logEvent, AuditPropertyNames.ReasonCode));
     }
 
     private static string ClassifySource(string? sourceContext, string eventInfo)
@@ -164,6 +194,47 @@ public sealed class AuditLogEventMapper
         };
     }
 
+    private static string ClassifyAction(string source, string type, string eventInfo)
+    {
+        if (source == AuditSourceCatalog.Auth && eventInfo.Contains("登录", StringComparison.Ordinal))
+        {
+            return "auth.login";
+        }
+
+        if (source == AuditSourceCatalog.Auth && eventInfo.Contains("刷新令牌", StringComparison.Ordinal))
+        {
+            return "auth.refresh_token";
+        }
+
+        if (source == AuditSourceCatalog.Security)
+        {
+            return "security.event";
+        }
+
+        if (source == AuditSourceCatalog.PublicAot)
+        {
+            return "public_aot.cache";
+        }
+
+        return type == AuditTypeCatalog.Exception
+            ? "runtime.exception"
+            : AuditActionCatalog.LogRecorded;
+    }
+
+    private static string ClassifyOutcome(LogEvent logEvent)
+        => logEvent.Exception is not null || logEvent.Level >= LogEventLevel.Error
+            ? AuditOutcomeCatalog.Failure
+            : AuditOutcomeCatalog.Success;
+
+    private static string ClassifySeverity(LogEvent logEvent)
+        => logEvent.Level switch
+        {
+            >= LogEventLevel.Fatal => AuditSeverityCatalog.Critical,
+            >= LogEventLevel.Error => AuditSeverityCatalog.Error,
+            >= LogEventLevel.Warning => AuditSeverityCatalog.Warning,
+            _ => AuditSeverityCatalog.Info
+        };
+
     private static byte[] BuildContextPayload(LogEvent logEvent, string source, string type)
     {
         var payload = new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -183,6 +254,16 @@ public sealed class AuditLogEventMapper
         {
             if (propertyName is AuditPropertyNames.Source
                 or AuditPropertyNames.Type
+                or AuditPropertyNames.Action
+                or AuditPropertyNames.Outcome
+                or AuditPropertyNames.Severity
+                or AuditPropertyNames.ActorType
+                or AuditPropertyNames.ActorId
+                or AuditPropertyNames.ActorRole
+                or AuditPropertyNames.TargetType
+                or AuditPropertyNames.TargetId
+                or AuditPropertyNames.HighValue
+                or AuditPropertyNames.ReasonCode
                 or AuditPropertyNames.SkipPersistence
                 or "MessageTemplate"
                 or "Renderings")

@@ -6,6 +6,7 @@ public sealed class AuditLogChannel
 {
     private readonly Channel<AuditRecord> _channel;
     private long _droppedCount;
+    private long _queuedCount;
 
     public AuditLogChannel()
         : this(new BoundedChannelOptions(20_000)
@@ -30,11 +31,34 @@ public sealed class AuditLogChannel
         if (!written)
         {
             Interlocked.Increment(ref _droppedCount);
+            return false;
         }
 
-        return written;
+        Interlocked.Increment(ref _queuedCount);
+        return true;
     }
 
     public long DrainDroppedCount()
         => Interlocked.Exchange(ref _droppedCount, 0);
+
+    public AuditLogChannelSnapshot Snapshot()
+        => new(
+            Volatile.Read(ref _queuedCount),
+            Volatile.Read(ref _droppedCount));
+
+    internal void MarkRead()
+    {
+        long current;
+        do
+        {
+            current = Volatile.Read(ref _queuedCount);
+            if (current <= 0)
+            {
+                return;
+            }
+        }
+        while (Interlocked.CompareExchange(ref _queuedCount, current - 1, current) != current);
+    }
 }
+
+public sealed record AuditLogChannelSnapshot(long QueuedCount, long DroppedCount);

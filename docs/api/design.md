@@ -19,7 +19,7 @@
 |------|-------------|-------|---------|
 | **AEDS Binary** | `application/octet-stream` | TypeScript adapter / C++23 Wasm Worker | `/api/binary/...` |
 
-旧文本业务 API 不再注册；`/api/**` 非 binary 业务路径统一返回 `ApiError` AEDS frame。客户端不得把解码失败回退为文本 API 请求。例外只限作者工作台 `/api/author/**`、真人阅读 proof、健康检查和运维类 JSON 端点。
+旧文本业务 API 不再注册；`/api/**` 非 binary 业务路径统一返回 `ApiError` AEDS frame。客户端不得把解码失败回退为文本 API 请求。例外只限作者工作台 `/api/author/**`、真人阅读 proof、健康检查和运维类 JSON 端点；其中 `/api/author/audit/**` 只用于 admin 审计查询、summary 和防篡改校验，不作为公开运行时业务 API。
 
 ### 3. 统一响应包装
 
@@ -38,6 +38,7 @@
 | Binary 端点统一前缀 `/api/binary/` + 小写资源名；公开热点 article 使用无 query 的 artifact 路径 | `/api/binary/article/list/home/1/10.aeds`、`/api/binary/comment/{id}` |
 | 消息系统使用 binary 消息路径 | `/api/binary/messages/conversations` |
 | 管理端以 binary admin 资源路径区分 | `/api/binary/admin/users`、`/api/binary/stats` |
+| 作者工作台 JSON 端点限定 admin 后台工作流 | `/api/author/drafts`、`/api/author/audit` |
 | 健康检查与通知独立于业务路径 | `/health/live`、`/api/notifications/stream` |
 
 ---

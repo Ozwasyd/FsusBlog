@@ -49,6 +49,7 @@ public static partial class BinaryEndpoints
         group.MapPut("/admin/users/status", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserService userService,
+            IAuditEventService auditEvents,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -75,6 +76,22 @@ public static partial class BinaryEndpoints
                 Reason = request.Reason
             });
 
+            await auditEvents.RecordHighValueAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Security,
+                AuditActionCatalog.UserStatusChanged,
+                success ? AuditOutcomeCatalog.Success : AuditOutcomeCatalog.Failure,
+                success ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Error,
+                "管理员变更用户状态",
+                TargetType: "user",
+                TargetId: request.UserId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ReasonCode: request.Reason,
+                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["status"] = request.Status,
+                    ["message"] = message
+                }), cancellationToken);
+
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
@@ -85,6 +102,7 @@ public static partial class BinaryEndpoints
         group.MapPost("/admin/users/reset-pwd", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserService userService,
+            IAuditEventService auditEvents,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -104,6 +122,20 @@ public static partial class BinaryEndpoints
                 UserId = request.UserId,
                 NewPassword = request.NewPassword
             });
+
+            await auditEvents.RecordHighValueAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Security,
+                AuditActionCatalog.UserPasswordReset,
+                success ? AuditOutcomeCatalog.Success : AuditOutcomeCatalog.Failure,
+                success ? AuditSeverityCatalog.Critical : AuditSeverityCatalog.Error,
+                "管理员强制重置用户密码",
+                TargetType: "user",
+                TargetId: request.UserId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["message"] = message
+                }), cancellationToken);
 
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)

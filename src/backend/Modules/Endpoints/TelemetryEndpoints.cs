@@ -18,7 +18,8 @@ public static class TelemetryEndpoints
         {
             RumMetricIngestResponse response = await service.IngestAsync(request, cancellationToken);
             return Results.Ok(JsonApiResponse<RumMetricIngestResponse>.Ok(response));
-        });
+        })
+        .RequireRateLimiting("fixed_ip");
 
         return app;
     }
