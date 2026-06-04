@@ -42,7 +42,7 @@ public sealed class AuditLogWriterWorkerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_ContinuesProcessingAfterBatchWriteFailure()
+    public async Task PersistSafelyAsync_ContinuesProcessingAfterBatchWriteFailure()
     {
         var probe = new FaultThenRecordProbe();
         var services = new ServiceCollection();
@@ -63,23 +63,16 @@ public sealed class AuditLogWriterWorkerTests
             new NoopAuditFallbackWriter(),
             NullLogger<AuditLogWriterWorker>.Instance);
 
-        await worker.StartAsync(CancellationToken.None);
+        await worker.PersistSafelyAsync(
+            [new AuditRecord("request", "business", DateTime.UtcNow, "first", null)],
+            CancellationToken.None);
+        await worker.PersistSafelyAsync(
+            [new AuditRecord("request", "business", DateTime.UtcNow, "second", null)],
+            CancellationToken.None);
 
-        try
-        {
-            Assert.True(channel.TryWrite(new AuditRecord("request", "business", DateTime.UtcNow, "first", null)));
-            await probe.FirstFailure.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.True(channel.TryWrite(new AuditRecord("request", "business", DateTime.UtcNow, "second", null)));
-            await probe.SuccessAfterFailure.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.Equal(2, probe.Attempts);
-            Assert.Equal(1, probe.SuccessfulBatches);
-        }
-        finally
-        {
-            await worker.StopAsync(CancellationToken.None);
-        }
+        Assert.Equal(2, probe.Attempts);
+        Assert.Equal(1, probe.FailedBatches);
+        Assert.Equal(1, probe.SuccessfulBatches);
     }
 
     private sealed class AuditStoreProbe
@@ -102,9 +95,8 @@ public sealed class AuditLogWriterWorkerTests
     private sealed class FaultThenRecordProbe
     {
         public int Attempts;
+        public int FailedBatches;
         public int SuccessfulBatches;
-        public TaskCompletionSource<bool> FirstFailure { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public TaskCompletionSource<bool> SuccessAfterFailure { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     private sealed class FaultThenRecordAuditLogStore(FaultThenRecordProbe probe) : IAuditLogStore
@@ -116,12 +108,11 @@ public sealed class AuditLogWriterWorkerTests
             int attempt = Interlocked.Increment(ref _probe.Attempts);
             if (attempt == 1)
             {
-                _probe.FirstFailure.TrySetResult(true);
+                Interlocked.Increment(ref _probe.FailedBatches);
                 throw new InvalidOperationException("simulated db failure");
             }
 
             Interlocked.Increment(ref _probe.SuccessfulBatches);
-            _probe.SuccessAfterFailure.TrySetResult(true);
             return Task.CompletedTask;
         }
     }

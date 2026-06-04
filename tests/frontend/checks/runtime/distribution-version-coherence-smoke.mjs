@@ -7,12 +7,16 @@ import {
   loginWithPow,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
+import { readAedsResponse } from '../../support/aeds-envelope.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
 
 const adminUsername = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!';
 const publicBaseUrl = process.env.FSUSBLOG_PUBLIC_BASE_URL || baseUrl;
 const timeoutMs = Math.max(requestTimeoutMs, 30_000);
+const coherenceTimeoutMs = Math.max(timeoutMs * 3, 90_000);
+const testSessionIsolation = process.env.FSUSBLOG_TEST_SESSION_ISOLATION === '1';
+const publicPageBaseUrl = testSessionIsolation ? baseUrl : publicBaseUrl;
 const ArticleStatus = Object.freeze({
   Draft: 0,
   Scheduled: 1,
@@ -31,7 +35,7 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function eventually(label, assertion, timeout = timeoutMs, interval = 600) {
+async function eventually(label, assertion, timeout = coherenceTimeoutMs, interval = 600) {
   const deadline = Date.now() + timeout;
   let lastError = null;
   do {
@@ -66,6 +70,18 @@ async function fetchSearchIndexText() {
 }
 
 async function fetchArticlePage(cookieHeader, isDeleted = false, status = undefined) {
+  if (!cookieHeader) {
+    const response = await fetchWithTimeout(`${baseUrl}/api/binary/article/list/home/1/10.aeds`, {
+      headers: {
+        Accept: 'application/octet-stream',
+        'X-Fsus-Device-Fp': 'distribution-public-list'
+      }
+    }, timeoutMs);
+    const payload = await readAedsResponse(response).catch(() => null);
+    assert(response.ok, `article list public failed: ${response.status}`);
+    return Array.isArray(payload?.items) ? payload.items : [];
+  }
+
   const params = new URLSearchParams({
     page: '1',
     size: '50',
@@ -83,6 +99,17 @@ async function fetchArticlePage(cookieHeader, isDeleted = false, status = undefi
 }
 
 async function fetchArticleDetail(articleId, cookieHeader = null) {
+  if (!cookieHeader) {
+    const response = await fetchWithTimeout(`${baseUrl}/api/binary/article/${articleId}.aeds`, {
+      headers: {
+        Accept: 'application/octet-stream',
+        'X-Fsus-Device-Fp': 'distribution-public-detail'
+      }
+    }, timeoutMs);
+    const payload = await readAedsResponse(response).catch(() => null);
+    return { response, payload };
+  }
+
   return await authBinary(`/api/Article/${articleId}`, { cookieHeader });
 }
 
@@ -121,26 +148,33 @@ async function warmPublicSurfaces(articleId, categoryId, tagId) {
     fetchText('/feed/atom.xml', baseUrl),
     fetchText('/feed/feed.json', baseUrl),
     fetchText('/sitemap.xml', baseUrl),
-    fetchText(`/article/${articleId}`),
-    fetchText(`/category/${categoryId}`),
-    fetchText(`/tag/${tagId}`),
+    fetchText(`/article/${articleId}`, publicPageBaseUrl),
+    fetchText(`/category/${categoryId}`, publicPageBaseUrl),
+    fetchText(`/tag/${tagId}`, publicPageBaseUrl),
     fetchSearchIndexText()
   ]);
 }
 
 async function readPublicSurfaces(articleId, categoryId, tagId, cookieHeader) {
-  const [publicItems, deletedItems, detail, rss, atom, jsonFeed, sitemap, articleHtml, categoryHtml, tagHtml, searchIndex] =
+  const publicItemsPromise = testSessionIsolation
+    ? fetchArticlePage(cookieHeader, false, ArticleStatus.Published)
+    : fetchArticlePage(null);
+  const scopedDetailPromise = testSessionIsolation
+    ? fetchArticleDetail(articleId, cookieHeader)
+    : Promise.resolve(null);
+  const [publicItems, deletedItems, detail, scopedDetail, rss, atom, jsonFeed, sitemap, articleHtml, categoryHtml, tagHtml, searchIndex] =
     await Promise.all([
-      fetchArticlePage(null),
+      publicItemsPromise,
       fetchArticlePage(cookieHeader, true),
       fetchArticleDetail(articleId),
+      scopedDetailPromise,
       fetchText('/feed/rss.xml', baseUrl),
       fetchText('/feed/atom.xml', baseUrl),
       fetchText('/feed/feed.json', baseUrl),
       fetchText('/sitemap.xml', baseUrl),
-      fetchText(`/article/${articleId}`),
-      fetchText(`/category/${categoryId}`),
-      fetchText(`/tag/${tagId}`),
+      fetchText(`/article/${articleId}`, publicPageBaseUrl),
+      fetchText(`/category/${categoryId}`, publicPageBaseUrl),
+      fetchText(`/tag/${tagId}`, publicPageBaseUrl),
       fetchSearchIndexText()
     ]);
 
@@ -148,6 +182,7 @@ async function readPublicSurfaces(articleId, categoryId, tagId, cookieHeader) {
     publicItems,
     deletedItems,
     detail,
+    scopedDetail,
     rss: rss.text,
     atom: atom.text,
     jsonFeed: jsonFeed.text,
@@ -160,9 +195,13 @@ async function readPublicSurfaces(articleId, categoryId, tagId, cookieHeader) {
 }
 
 function assertPublicPresent(snapshot, articleId, title, marker) {
-  assert(snapshot.publicItems.some((item) => Number(item?.id) === articleId && item?.title === title), `${title} missing from public article list`);
-  assert(snapshot.detail.response.ok, `${title} detail should be readable, got ${snapshot.detail.response.status}`);
-  assert(snapshot.detail.payload?.title === title, `${title} detail title mismatch`);
+  const readableDetail = snapshot.scopedDetail ?? snapshot.detail;
+  assert(
+    snapshot.publicItems.some((item) => Number(item?.id) === articleId && item?.title === title),
+    `${title} missing from public article list; got ${formatPublicItemSummary(snapshot.publicItems)}`
+  );
+  assert(readableDetail.response.ok, `${title} detail should be readable, got ${readableDetail.response.status}`);
+  assert(readableDetail.payload?.title === title, `${title} detail title mismatch`);
   assert(snapshot.rss.includes(title) && snapshot.rss.includes(marker), `${title} missing from RSS`);
   assert(snapshot.atom.includes(title) && snapshot.atom.includes(marker), `${title} missing from Atom`);
   assert(snapshot.jsonFeed.includes(title) && snapshot.jsonFeed.includes(marker), `${title} missing from JSON Feed`);
@@ -171,6 +210,20 @@ function assertPublicPresent(snapshot, articleId, title, marker) {
   assert(snapshot.categoryHtml.includes(title), `${title} missing from category AOT page`);
   assert(snapshot.tagHtml.includes(title), `${title} missing from tag AOT page`);
   assert(snapshot.searchIndex.includes(title) && snapshot.searchIndex.includes(marker), `${title} missing from search index alias`);
+}
+
+function formatPublicItemSummary(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return '[]';
+  }
+
+  return `[${items.map((item) => {
+    const id = Number(item?.id);
+    const title = typeof item?.title === 'string' ? item.title : '';
+    const createTime = typeof item?.createTime === 'string' ? item.createTime : '';
+    const status = item?.status ?? '';
+    return `{id:${Number.isFinite(id) ? id : 'n/a'},title:${JSON.stringify(title)},createTime:${createTime},status:${status}}`;
+  }).join(', ')}]`;
 }
 
 function assertPublicAbsent(snapshot, articleId, title, marker) {

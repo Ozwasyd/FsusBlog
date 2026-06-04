@@ -275,6 +275,13 @@ function pickMetricValues(detail: Record<string, unknown>): Record<string, numbe
 
 function observePerformance(type: string, handle: (entry: PerformanceEntry) => void): void {
   try {
+    if (
+      Array.isArray(PerformanceObserver.supportedEntryTypes) &&
+      !PerformanceObserver.supportedEntryTypes.includes(type)
+    ) {
+      return;
+    }
+
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         handle(entry);

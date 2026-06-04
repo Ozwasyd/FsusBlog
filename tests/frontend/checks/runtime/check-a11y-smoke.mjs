@@ -27,11 +27,25 @@ async function waitForApp(page) {
 }
 
 async function addSessionCookies(context, session) {
-  await context.addCookies(Array.from(session.cookieMap.entries()).map(([name, value]) => ({
-    name,
-    value,
-    url: frontendBaseUrl
-  })));
+  const backendHost = new URL(process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000').hostname;
+  await context.addCookies(Array.from(session.cookieMap.entries()).map(([name, value]) => {
+    if (name.startsWith('__Host-')) {
+      return {
+        name,
+        value,
+        url: `https://${backendHost}/`,
+        secure: true,
+        httpOnly: true,
+        sameSite: 'Lax'
+      };
+    }
+
+    return {
+      name,
+      value,
+      url: frontendBaseUrl
+    };
+  }));
 }
 
 async function assertPageA11y(page, label) {
@@ -91,6 +105,7 @@ async function main() {
     await guestContext.close();
 
     const userSession = await loginWithPow(userName, userPassword, false, 'a11y-user');
+    const adminSession = await loginWithPow(adminName, adminPassword, false, 'a11y-admin');
     const userContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
     await addSessionCookies(userContext, userSession);
     const userPage = await userContext.newPage();
@@ -102,7 +117,6 @@ async function main() {
     }
     await userContext.close();
 
-    const adminSession = await loginWithPow(adminName, adminPassword, false, 'a11y-admin');
     const adminContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
     await addSessionCookies(adminContext, adminSession);
     const adminPage = await adminContext.newPage();

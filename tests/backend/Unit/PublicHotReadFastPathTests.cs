@@ -560,6 +560,14 @@ public sealed class PublicHotReadFastPathTests
         Assert.DoesNotContain("BinaryResults", fastPathSource, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ProjectorSource_UsesDeterministicPublicListOrdering()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"));
+
+        Assert.Contains("ORDER BY a.createtime DESC, a.id DESC", source, StringComparison.Ordinal);
+    }
+
     private static DefaultHttpContext CreateContext(string path)
     {
         var context = new DefaultHttpContext();

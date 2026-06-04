@@ -1,6 +1,7 @@
 import type { ApiRequestConfig } from './requestConfig';
 import { FrameType } from '@wasm/protocol/frame';
 import { requestBinaryOnly } from '@/services/binaryTransport';
+import { buildBinaryPowHeaders } from '@/api/binaryApiClient';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { encodeAedsFrame } from './binaryFrame';
 
@@ -116,20 +117,24 @@ export interface ArticleWriteRequest {
 
 // ================= API 方法 =================
 
+const PUBLIC_ARTICLE_LIST_HOME_ROUTE_PREFIX = '/api/binary/article/list/home/'
+const PUBLIC_ARTICLE_LIST_ARCHIVE_ROUTE_PREFIX = '/api/binary/article/list/archive/'
+
 /**
  * [修复 2026-02-23] 逻辑自洽：所有方法增加可选的 config 参数以支持物理中断 (AbortSignal)
  */
 
 /** 获取文章列表 */
 export const getArticles = (
-  params: { page?: number; size?: number; categoryId?: number; tagId?: number },
+  params: { page?: number; size?: number; categoryId?: number; tagId?: number; listKind?: 'home' | 'archive' },
   config?: ApiRequestConfig
 ) => {
   const normalized = {
     page: params.page ?? 1,
     size: params.size ?? 10,
     categoryId: params.categoryId,
-    tagId: params.tagId
+    tagId: params.tagId,
+    listKind: params.listKind
   };
 
   return requestBinaryOnly<PageResponse<ArticleListItemResponse>>({
@@ -157,7 +162,18 @@ type JsonApiResponse<T> = {
 }
 
 async function readJsonEnvelope<T>(response: Response, fallbackMessage: string): Promise<T> {
-  const envelope = await response.json() as JsonApiResponse<T>
+  const contentType = response.headers.get('content-type') ?? ''
+  if (!contentType.toLowerCase().includes('application/json')) {
+    throw createAppError(AppErrorCode.ProtocolFailure, fallbackMessage, { status: response.status })
+  }
+
+  let envelope: JsonApiResponse<T>
+  try {
+    envelope = await response.json() as JsonApiResponse<T>
+  } catch {
+    throw createAppError(AppErrorCode.ProtocolFailure, fallbackMessage, { status: response.status })
+  }
+
   if (!response.ok || !envelope.success || envelope.data == null) {
     throw createAppError(AppErrorCode.ProtocolFailure, envelope.message || fallbackMessage, { status: response.status })
   }
@@ -166,11 +182,13 @@ async function readJsonEnvelope<T>(response: Response, fallbackMessage: string):
 }
 
 export const getRelatedReading = async (id: number, config?: ApiRequestConfig): Promise<RelatedReadingResponse> => {
+  const powHeaders = await buildBinaryPowHeaders()
   const response = await fetch(`/api/public/articles/${id}/related`, {
     method: 'GET',
     credentials: 'same-origin',
     headers: {
-      Accept: 'application/json'
+      Accept: 'application/json',
+      ...powHeaders
     },
     signal: config?.signal
   })
@@ -295,7 +313,7 @@ export const permanentDeleteArticle = (id: number, config?: ApiRequestConfig) =>
     }
   })
 
-function buildPublicArticleListUrl(params: { page: number; size: number; categoryId?: number; tagId?: number }): string {
+function buildPublicArticleListUrl(params: { page: number; size: number; categoryId?: number; tagId?: number; listKind?: 'home' | 'archive' }): string {
   const page = normalizePositiveInt(params.page, 1)
   const size = normalizeSize(params.size, 10)
   if (params.categoryId !== undefined) {
@@ -306,7 +324,10 @@ function buildPublicArticleListUrl(params: { page: number; size: number; categor
     return `/api/binary/article/list/tag/${normalizePositiveInt(params.tagId, 1)}/${page}/${size}.aeds`
   }
 
-  return `/api/binary/article/list/home/${page}/${size}.aeds`
+  const prefix = params.listKind === 'archive'
+    ? PUBLIC_ARTICLE_LIST_ARCHIVE_ROUTE_PREFIX
+    : PUBLIC_ARTICLE_LIST_HOME_ROUTE_PREFIX
+  return `${prefix}${page}/${size}.aeds`
 }
 
 function normalizePositiveInt(value: number, fallback: number): number {

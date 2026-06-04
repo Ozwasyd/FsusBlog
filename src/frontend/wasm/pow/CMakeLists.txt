@@ -69,7 +69,7 @@ target_link_options(FsusPowEngine PRIVATE
     "-sFILESYSTEM=0"
     "-sMALLOC=emmalloc"
     "-sDYNAMIC_EXECUTION=0"
-    "-sEXPORTED_FUNCTIONS=[\"_malloc\",\"_free\",\"_solve_pow_c\",\"_solve_pow_range_c\"]"
-    "-sEXPORTED_RUNTIME_METHODS=[]"
+    "-sEXPORTED_FUNCTIONS=[\"_malloc\",\"_free\",\"_solve_pow_c\",\"_solve_pow_range_c\",\"_solve_pow_limited_c\"]"
+    "-sEXPORTED_RUNTIME_METHODS=[\"HEAPU8\"]"
     "--no-entry"
 )

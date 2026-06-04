@@ -120,7 +120,10 @@ export const getComments = (
   return requestBinaryOnly<CursorResponse<CommentThreadItem>>({
     binaryUrl: `/api/binary/comment/${articleId}?${search.toString()}`,
     frameType: FrameType.CommentArticleCursor,
-    signal: config?.signal as AbortSignal | undefined
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      requiresPow: true
+    }
   });
 }
 
@@ -137,7 +140,10 @@ export const getThreadReplies = (
   return requestBinaryOnly<CursorResponse<CommentReplyItem>>({
     binaryUrl: `/api/binary/comment/${articleId}/thread/${rootId}?${search.toString()}`,
     frameType: FrameType.CommentThreadReplyCursor,
-    signal: config?.signal as AbortSignal | undefined
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      requiresPow: true
+    }
   });
 }
 

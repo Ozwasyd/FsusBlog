@@ -141,13 +141,66 @@ function assertIncludes(source, needle, label) {
   assert(source.includes(needle), `${label} missing required authorization boundary: ${needle}`);
 }
 
+function assertRouteChainIncludes(source, route, needle, label) {
+  const routeIndex = source.indexOf(route);
+  assert(routeIndex >= 0, `${label} missing route: ${route}`);
+
+  const nextRoutePattern = /\n\s*group\.Map(?:Get|Post|Put|Delete|Patch)\(/g;
+  nextRoutePattern.lastIndex = routeIndex + route.length;
+  const nextRoute = nextRoutePattern.exec(source);
+  const routeChain = source.slice(routeIndex, nextRoute?.index ?? source.length);
+
+  assertIncludes(routeChain, needle, `${label} ${route}`);
+}
+
+function toPlaywrightSessionCookies(cookieMap) {
+  const backendHost = new URL(baseUrl).hostname;
+  return Array.from(cookieMap.entries()).map(([name, value]) => {
+    if (name.startsWith('__Host-')) {
+      return {
+        name,
+        value,
+        url: `https://${backendHost}/`,
+        secure: true,
+        httpOnly: true,
+        sameSite: 'Lax'
+      };
+    }
+
+    return {
+      name,
+      value,
+      url: frontendBaseUrl
+    };
+  });
+}
+
 async function assertStaticAuthorizationBoundaries() {
   const binaryRoot = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs');
   assert(!binaryRoot.includes('/aot-bundle'), 'Binary endpoints must not expose client AOT bundle upload routes');
 
   const articleEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs');
-  for (const route of ['MapPost("/article"', 'MapPut("/article/{id:int}"', 'MapDelete("/article/{id:int}"', 'MapDelete("/article/permanent/{id:int}"', 'MapDelete("/article/trash"', 'MapPut("/article/restore/{id:int}"']) {
-    assertIncludes(articleEndpoints, route, `binary article route ${route}`);
+  const articleAdminWriteRoutes = [
+    'MapPost("/admin/article"',
+    'MapPut("/admin/article/{id:int}"',
+    'MapDelete("/admin/article/{id:int}"',
+    'MapDelete("/admin/article/permanent/{id:int}"',
+    'MapDelete("/admin/article/trash"',
+    'MapPut("/admin/article/restore/{id:int}"'
+  ];
+  for (const route of articleAdminWriteRoutes) {
+    assertRouteChainIncludes(
+      articleEndpoints,
+      route,
+      'RequireAuthorization(policy => policy.RequireRole("admin"))',
+      'binary article write route'
+    );
+    assertRouteChainIncludes(
+      articleEndpoints,
+      route,
+      'AddEndpointFilter<RequiresPowFilter>()',
+      'binary article write route'
+    );
   }
   assert(articleEndpoints.match(/RequireAuthorization\(policy => policy\.RequireRole\("admin"\)\)/g)?.length >= 6, 'binary article write routes must require admin');
   assert(articleEndpoints.match(/AddEndpointFilter<RequiresPowFilter>\(\)/g)?.length >= 6, 'binary article write routes must retain PoW filters');
@@ -209,11 +262,7 @@ async function assertGuestAndRoleRoutes() {
 
     const userSession = await loginWithPow(userName, userPassword, false, 'permission-user');
     const userContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
-    await userContext.addCookies(Array.from(userSession.cookieMap.entries()).map(([name, value]) => ({
-      name,
-      value,
-      url: frontendBaseUrl
-    })));
+    await userContext.addCookies(toPlaywrightSessionCookies(userSession.cookieMap));
     const userPage = await userContext.newPage();
     await userPage.goto('/user/manage', { waitUntil: 'domcontentloaded' });
     await waitForPath(userPage, (url) => url.pathname === '/user/profile', 'normal user admin redirect');
@@ -222,11 +271,7 @@ async function assertGuestAndRoleRoutes() {
 
     const adminSession = await loginWithPow(adminName, adminPassword, false, 'permission-admin');
     const adminContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
-    await adminContext.addCookies(Array.from(adminSession.cookieMap.entries()).map(([name, value]) => ({
-      name,
-      value,
-      url: frontendBaseUrl
-    })));
+    await adminContext.addCookies(toPlaywrightSessionCookies(adminSession.cookieMap));
     const adminPage = await adminContext.newPage();
     await adminPage.goto('/user/manage', { waitUntil: 'domcontentloaded' });
     await adminPage.waitForTimeout(2500);
@@ -237,9 +282,10 @@ async function assertGuestAndRoleRoutes() {
   }
 }
 
-async function fetchFirstArticleId() {
+async function fetchFirstArticleId(adminSession) {
   const { response, payload } = await authBinary('/api/Article?page=1&size=1', {
     method: 'GET',
+    cookieHeader: adminSession.cookieHeader,
     deviceFingerprint: 'permission-article-probe'
   });
   assertAllowed('article list fixture probe', response);
@@ -842,9 +888,9 @@ async function assertAdminPositivePowCrud(adminSession) {
 }
 
 async function assertApiMatrix() {
-  const articleId = await fetchFirstArticleId();
   const userSession = await loginWithPow(userName, userPassword, false, 'permission-api-user');
   const adminSession = await loginWithPow(adminName, adminPassword, false, 'permission-api-admin');
+  const articleId = await fetchFirstArticleId(adminSession);
   const categoryId = await fetchFirstCategoryId(adminSession);
   const marker = `perm-user-attack-${Date.now()}`;
   const largeMarkdownPayload = buildMarkdownExtremeCorpus(120_000);

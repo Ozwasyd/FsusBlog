@@ -48,5 +48,8 @@ assert(sw.includes("case 'search-index.updated':"), 'service worker must support
 assert(sw.includes("case 'asset.clear':"), 'service worker must support targeted cache clearing')
 assert(sw.includes("networkErrorResponse('binary-network-unavailable')"), 'binary API offline failures must not be cached as shells')
 assert(sw.includes("fetch(request, { cache: 'no-store' })"), 'public shell network refresh must bypass HTTP cache')
+assert(sw.includes('WASM_RUNTIME_ASSET_PATTERN'), 'service worker must detect Wasm runtime assets separately')
+assert(sw.includes('networkFirstStatic(request)'), 'Wasm runtime assets must stay network-first')
+assert(sw.includes('putCacheEntry(cache, request, response)'), 'static cache writes must not fail intercepted responses')
 
 console.log('[check-pwa-offline-policy] ok')

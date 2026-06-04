@@ -37,6 +37,7 @@
           <el-button
             link
             type="danger"
+            class="user-comment-delete-button"
             aria-label="删除此评论"
             @click="$emit('delete', item.id)"
           >
@@ -112,6 +113,12 @@ defineEmits<{
 .list-fade-leave-active {
   position: absolute;
   width: 100%;
+}
+
+.user-comment-delete-button {
+  min-width: 2.75rem;
+  min-height: 2.25rem;
+  padding-inline: 0.5rem;
 }
 
 @media (max-width: 640px) {

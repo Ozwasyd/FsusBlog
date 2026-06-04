@@ -59,7 +59,7 @@ public sealed class CrawlerRiskService(
 
         string reasonName = reason.ToString();
         FsusObservability.RecordSecurityEvent("crawler_risk", reasonName, "added");
-        logger.LogWarning(
+        logger.LogInformation(
             "crawler-risk-added {Reason} {Score} {TotalScore} {TtlSeconds}s",
             reasonName,
             score,

@@ -2,6 +2,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -88,6 +89,7 @@ public sealed class PublicAotInvalidationTrackerTests
             scheduler,
             new RecordingRouteManifestProvider(),
             new PublicHotReadStore(),
+            new FixedTestSessionKeyScope(null),
             NullLogger<PublicAotInvalidationService>.Instance);
         string cacheKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Home, "home");
         string pagePrefixKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Home, string.Empty);
@@ -107,6 +109,30 @@ public sealed class PublicAotInvalidationTrackerTests
         Assert.True(cache.InvalidatedAll);
         Assert.True(tracker.WasInvalidatedAfter(request));
         Assert.Contains(scheduler.Requests, scheduled => scheduled.RouteKey == "home");
+    }
+
+    [Fact]
+    public async Task InvalidateArticleMutationAsync_CarriesCurrentTestSessionToScheduledBackfills()
+    {
+        var tracker = new PublicAotInvalidationTracker();
+        var scheduler = new RecordingBackfillScheduler();
+        var service = new PublicAotInvalidationService(
+            new RecordingAotCache(),
+            new PrefixingRuntimeKeyScope("e2e:pw-0:"),
+            tracker,
+            scheduler,
+            new RecordingRouteManifestProvider(),
+            new PublicHotReadStore(),
+            new FixedTestSessionKeyScope("pw-0"),
+            NullLogger<PublicAotInvalidationService>.Instance);
+
+        await service.InvalidateArticleMutationAsync(42, [7], [9]);
+
+        Assert.NotEmpty(scheduler.Requests);
+        Assert.All(scheduler.Requests, request => Assert.Equal("pw-0", request.TestSessionId));
+        Assert.Contains(scheduler.Requests, request => request.RouteKey == "category:7");
+        Assert.Contains(scheduler.Requests, request => request.RouteKey == "tag:9");
+        Assert.Contains(scheduler.Requests, request => request.RouteKey == "article:42");
     }
 
     [Fact]
@@ -184,5 +210,17 @@ public sealed class PublicAotInvalidationTrackerTests
             CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<PublicAotRouteDescriptor>>(
                 [PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Home, 0)]);
+    }
+
+    private sealed class FixedTestSessionKeyScope(string? sessionId) : ITestSessionKeyScope
+    {
+        public string? SessionId { get; } = sessionId;
+
+        public string PrefixKey(string key) => SessionId is { } session ? $"e2e:{session}:{key}" : key;
+    }
+
+    private sealed class PrefixingRuntimeKeyScope(string prefix) : IRuntimeKeyScope
+    {
+        public string PrefixKey(string key) => prefix + key;
     }
 }

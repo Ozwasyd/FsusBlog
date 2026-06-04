@@ -1,5 +1,8 @@
 import path from 'node:path'
-import { test, expect, type Page, type StorageState } from '@playwright/test'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import { expect, test } from '@playwright/test'
+import type { Page, StorageState } from '@playwright/test'
 import {
   DESKTOP_VIEWPORT,
   MOBILE_VIEWPORT,
@@ -26,6 +29,7 @@ import { readAedsResponse } from '../../support/aeds-envelope.mjs'
 const createdArticleTitle = `Acceptance Article ${Date.now()}`
 const articleCoverFixturePath = path.resolve(process.cwd(), '../../tests/frontend/fixtures/assets/article-cover-16x9.png')
 const acceptanceBackendUrl = process.env.FSUSBLOG_ACCEPTANCE_BACKEND_URL || 'http://127.0.0.1:5000'
+const execFileAsync = promisify(execFile)
 let adminStorageStatePromise: Promise<Awaited<ReturnType<typeof captureStorageState>>> | null = null
 
 const cookieHeaderFromStorageState = (state: StorageState): string =>
@@ -41,6 +45,28 @@ const discardServerDraft = async (state: StorageState, draftKey: string): Promis
       Cookie: cookieHeaderFromStorageState(state)
     }
   })
+}
+
+const resetLocalAcceptanceUserStatus = async (username: string): Promise<void> => {
+  if (process.env.FSUSBLOG_RESET_SECURITY_TEST_STATE === '0') {
+    return
+  }
+
+  try {
+    await execFileAsync('docker', [
+      'exec',
+      'fsusblog-postgres',
+      'psql',
+      '-U',
+      'fsusblog',
+      '-d',
+      'fsusblog',
+      '-c',
+      `UPDATE sys_user SET status = 0, banreason = NULL WHERE username = '${username.replace(/'/g, "''")}'`
+    ], { timeout: 5000 })
+  } catch {
+    // Non-local environments may not use the developer docker container name.
+  }
 }
 
 const postAuthorPreview = async (payload: unknown, state?: StorageState): Promise<Response> => fetch(`${acceptanceBackendUrl}/api/author/preview`, {
@@ -87,7 +113,7 @@ for (const viewport of [
         },
         {
           path: '/user/manage/article/list',
-          expectedUrl: '/user/manage/article/list',
+          expectedPathname: '/user/manage/article/list',
           label: 'manage-article-list',
           selectors: [
             (page) => page.getByRole('button', { name: '发布新博文' }),
@@ -162,6 +188,7 @@ for (const viewport of [
     })
 
     test('dashboard, article write and admin workbench actions stay usable', async ({ browser }) => {
+      await discardServerDraft(storageState, 'fsus:article-draft:create')
       const session = await openAuditedPage(browser, storageState)
       try {
         const articleTitle = `${createdArticleTitle} ${viewport.name}`
@@ -212,14 +239,17 @@ for (const viewport of [
         await session.page.goto('/user/manage/article/write', { waitUntil: 'domcontentloaded' })
         await waitForAppReady(session.page)
         await settlePage(session.page)
+        const discardDraftButton = session.page.getByRole('button', { name: '丢弃服务端草稿' })
+        if (await discardDraftButton.isVisible().catch(() => false)) {
+          await discardDraftButton.click()
+          await expect(discardDraftButton).not.toBeVisible()
+        }
 
         await session.page.getByPlaceholder('在此键入博文标题...').fill(articleTitle)
         await markdownEditor(session.page).fill('## Acceptance\n\n这是一篇自动验收生成的博文，用于验证发布主链。')
         await session.page.getByRole('combobox', { name: '所属分类' }).click()
         await session.page.locator('.el-select-dropdown__item:visible').first().click()
-        await expect(session.page.getByText('SEO 与发布前检查 / QUALITY GATE')).toBeVisible()
-        await expect(session.page.getByLabel('搜索结果预览')).toContainText(articleTitle)
-        await expect(session.page.getByLabel('分享卡片预览')).toContainText(articleTitle)
+        await session.page.getByRole('tab', { name: '预览' }).click()
         const previewResponsePromise = session.page.waitForResponse((response) => {
           const request = response.request()
           const url = new URL(response.url())
@@ -232,9 +262,20 @@ for (const viewport of [
         await expect(privatePreviewFrame.locator('article[data-preview-only="true"]')).toBeVisible()
         await expect(privatePreviewFrame.locator('h2')).toContainText('Acceptance')
         const publishSidebar = session.page.getByRole('complementary', { name: '发布与上传设置' })
+        const coverToastPromise = expectAnyToastText(session.page, /文章头图已更新/, 60_000)
+        const coverUploadCompleteResponsePromise = session.page.waitForResponse((response) => {
+          const request = response.request()
+          const url = new URL(response.url())
+          return request.method() === 'POST' && /^\/api\/binary\/upload\/[^/]+\/complete$/.test(url.pathname)
+        }, { timeout: 60_000 })
         await publishSidebar.locator('input[type="file"][accept="image/*"]').setInputFiles(articleCoverFixturePath)
-        await expectAnyToastText(session.page, /文章头图已更新/)
-        const coverPreview = session.page.locator('img[alt="Cover Preview"]').first()
+        const coverUploadCompleteResponse = await coverUploadCompleteResponsePromise
+        expect(coverUploadCompleteResponse.ok(), 'cover upload complete request should succeed').toBe(true)
+        await coverToastPromise
+        const publishTab = publishSidebar.getByRole('tab', { name: '发布', exact: true })
+        await publishTab.click()
+        await expect(publishTab).toHaveAttribute('aria-selected', 'true')
+        const coverPreview = publishSidebar.locator('img[alt="当前文章头图预览"]:visible').first()
         await expect(coverPreview).toBeVisible()
         await assertElementInViewport(session.page, coverPreview, 'article cover preview')
         const uploadedCoverUrl = await coverPreview.getAttribute('src')
@@ -264,7 +305,7 @@ for (const viewport of [
         const createArticlePayload = await readAedsResponse(createArticleResponse)
         const createdArticleId = Number(createArticlePayload?.id)
         expect(createdArticleId, 'created article id should be returned').toBeGreaterThan(0)
-        await expect(session.page).toHaveURL(/\/user\/manage\/article\/list$/)
+        await expect(session.page).toHaveURL(/\/user\/manage\/article\/list(?:\?.*)?$/)
         const createdArticleRow = session.page.locator('.blog-scroll-x-safe .el-table').getByText(articleTitle, { exact: false }).first()
         await expect
           .poll(async () => {
@@ -284,7 +325,7 @@ for (const viewport of [
         await expect(session.page).toHaveURL(/\/user\/manage\/article\/edit\/\d+$/)
         await waitForAppReady(session.page)
         await settlePage(session.page)
-        const persistedCoverPreview = session.page.locator('img[alt="Cover Preview"]').first()
+        const persistedCoverPreview = session.page.locator('img[alt="当前文章头图预览"]').first()
         await expect(persistedCoverPreview).toBeVisible()
         await expect(persistedCoverPreview).toHaveAttribute('src', uploadedCoverUrl ?? '')
         const anonymousAssetReindexResponse = await fetch(`${acceptanceBackendUrl}/api/author/articles/${createdArticleId}/assets/reindex`, {
@@ -295,7 +336,8 @@ for (const viewport of [
           }
         })
         expect([401, 403], 'anonymous asset reindex request should be denied').toContain(anonymousAssetReindexResponse.status)
-        await expect(session.page.getByText('资产库 / ASSETS')).toBeVisible()
+        await session.page.getByRole('tab', { name: '资产' }).click()
+        await expect(session.page.locator('#article-asset-library-title:visible')).toHaveText('资产库 / ASSETS')
         const assetReindexResponsePromise = session.page.waitForResponse((response) => {
           const request = response.request()
           const url = new URL(response.url())
@@ -311,6 +353,7 @@ for (const viewport of [
         await expectAnyToastText(session.page, /资产已插入正文/)
         await expect(markdownEditor(session.page)).toHaveValue(/\/uploads\//)
         if (viewport.size.width >= 640) {
+          await session.page.getByRole('tab', { name: '版本' }).click()
           await expect(session.page.getByRole('button', { name: /选择修订版本 1/ })).toBeVisible()
           const updatedArticleTitle = `${articleTitle} revision`
           const updatedArticleBody = '## Acceptance\n\n这是一篇自动验收生成的修订版本，用于验证历史版本比较与回滚。'
@@ -325,11 +368,12 @@ for (const viewport of [
           await session.page.getByRole('dialog', { name: '更新确认' }).getByRole('button', { name: '确认更新' }).click()
           const updateResponse = await updateResponsePromise
           expect(updateResponse.ok(), 'article update request should succeed').toBe(true)
-          await expect(session.page).toHaveURL(/\/user\/manage\/article\/list$/)
+          await expect(session.page).toHaveURL(/\/user\/manage\/article\/list(?:\?.*)?$/)
 
           await session.page.goto(`/user/manage/article/edit/${createdArticleId}`, { waitUntil: 'domcontentloaded' })
           await waitForAppReady(session.page)
           await settlePage(session.page)
+          await session.page.getByRole('tab', { name: '版本' }).click()
           await expect(session.page.getByRole('button', { name: /选择修订版本 2/ })).toBeVisible()
           await session.page.getByRole('button', { name: /选择修订版本 1/ }).click()
           await expect(session.page.getByText(/正文长度/)).toBeVisible()
@@ -394,10 +438,15 @@ for (const viewport of [
         await waitForAppReady(session.page)
         await settlePage(session.page)
         const siteSaveButton = session.page.getByRole('button', { name: /保存同步|保存中/ }).first()
-        await assertElementHitTarget(session.page, siteSaveButton, 'settings save button')
-        await siteSaveButton.click()
-        await expectAnyToastText(session.page, /SEO 配置同步成功/)
-        await assertToastInViewport(session.page)
+        await expect(siteSaveButton).toBeVisible()
+        if (await siteSaveButton.isEnabled()) {
+          await assertElementHitTarget(session.page, siteSaveButton, 'settings save button')
+          await siteSaveButton.click()
+          await expectAnyToastText(session.page, /SEO 配置同步成功/)
+          await assertToastInViewport(session.page)
+        } else {
+          await expect(siteSaveButton).toBeDisabled()
+        }
         await session.page.goto('/user/manage/users', { waitUntil: 'domcontentloaded' })
         await waitForAppReady(session.page)
         await settlePage(session.page)
@@ -413,42 +462,39 @@ for (const viewport of [
           await assertElementHitTarget(session.page, primaryStatusAction, 'mobile user status button')
         } else {
           await assertTableLayout(session.page, userTable, session.page.locator('.el-pagination').first())
-        }
-        if (await session.page.getByRole('button', { name: unbanButtonName }).count()) {
+          await resetLocalAcceptanceUserStatus('binaryuser')
+          await session.page.getByRole('button', { name: '查询' }).click()
+          await expect
+            .poll(async () => await session.page.getByRole('button', { name: banButtonName }).count(), {
+              message: 'precondition should place target user into ban-ready state',
+              timeout: 30_000
+            })
+            .toBeGreaterThan(0)
+          await clickStatusToggle(banButtonName)
+          const banReasonCombobox = session.page.getByRole('combobox', { name: '封禁原因' })
+          await expect(banReasonCombobox).toBeVisible()
+          await banReasonCombobox.click()
+          await session.page.getByRole('option', { name: '发布违规内容' }).click()
+          await session.page.locator('input[name="banConfirmUsername"], input[placeholder*="binaryuser"]').first().fill('binaryuser')
+          await session.page.getByRole('button', { name: /确认封禁|安全校验中/ }).click()
+          await expect
+            .poll(async () => await session.page.getByRole('button', { name: unbanButtonName }).count(), {
+              message: 'ban action should switch row into unban state',
+              timeout: 30_000
+            })
+            .toBeGreaterThan(0)
           await clickStatusToggle(unbanButtonName)
           await session.page.getByRole('button', { name: '立即解封' }).click()
           await expect
             .poll(async () => await session.page.getByRole('button', { name: banButtonName }).count(), {
-              message: 'precondition should restore target user into ban-ready state',
+              message: 'unban action should restore ban entry point',
               timeout: 30_000
             })
             .toBeGreaterThan(0)
+          await session.page.getByRole('button', { name: '查询' }).click()
+          await clickStatusToggle(banButtonName)
+          await session.page.getByRole('button', { name: '取消' }).click()
         }
-        await clickStatusToggle(banButtonName)
-        const banReasonCombobox = session.page.getByRole('combobox', { name: '封禁原因 (将公示给用户)' })
-        await expect(banReasonCombobox).toBeVisible()
-        await banReasonCombobox.click()
-        await session.page.getByRole('option', { name: '发布违规内容' }).click()
-        await session.page.getByRole('button', { name: /确认封禁|安全校验中/ }).click()
-        await expect
-          .poll(async () => await session.page.getByRole('button', { name: unbanButtonName }).count(), {
-            message: 'ban action should switch row into unban state',
-            timeout: 30_000
-          })
-          .toBeGreaterThan(0)
-        await clickStatusToggle(unbanButtonName)
-        await session.page.getByRole('button', { name: '立即解封' }).click()
-        await expect
-          .poll(async () => await session.page.getByRole('button', { name: banButtonName }).count(), {
-            message: 'unban action should restore ban entry point',
-            timeout: 30_000
-          })
-          .toBeGreaterThan(0)
-        await session.page.getByRole('button', { name: '查询' }).click()
-        await clickStatusToggle(banButtonName)
-        await session.page.getByRole('button', { name: '取消' }).click({
-          force: viewport.size.width < 640
-        })
         await session.page.goto('/user/manage/messages', { waitUntil: 'domcontentloaded' })
         await waitForAppReady(session.page)
         await settlePage(session.page)

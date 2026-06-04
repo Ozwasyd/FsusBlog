@@ -83,11 +83,22 @@ public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChalleng
             new KeyValuePair<string, object?>("ClientIpHash", HashIdentity(clientIp)),
             new KeyValuePair<string, object?>("UserAgentHash", HashIdentity(userAgent ?? string.Empty)),
             new KeyValuePair<string, object?>("TicketFailures", ticketFailures));
-        logger.LogWarning(
-            "MFA challenge verification failed. UserId={UserId} TicketHash={TicketHash} Locked={Locked}",
-            ticket.UserId,
-            HashIdentity(ticket.TicketId),
-            locked);
+        if (locked)
+        {
+            logger.LogWarning(
+                "MFA challenge verification failed. UserId={UserId} TicketHash={TicketHash} Locked={Locked}",
+                ticket.UserId,
+                HashIdentity(ticket.TicketId),
+                locked);
+        }
+        else
+        {
+            logger.LogInformation(
+                "MFA challenge verification failed. UserId={UserId} TicketHash={TicketHash} Locked={Locked}",
+                ticket.UserId,
+                HashIdentity(ticket.TicketId),
+                locked);
+        }
 
         if (locked)
         {

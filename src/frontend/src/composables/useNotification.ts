@@ -10,6 +10,7 @@ import { SseEventType, SseFailureCodes, type ArticleUpdatePayload, type CacheCon
 import { useSseStore } from '@/store/sse'
 import { useUserStore } from '@/store/user'
 import { getBrowserFp } from '@/utils/fingerprint'
+import { isAbortError } from '@/utils/errors'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 import { decodePowCache, encodePowCache } from '@/services/powProofCodec'
@@ -212,6 +213,15 @@ export function useNotification() {
             await sseRuntime.start(pow, sseStore.runtime.cursor)
             currentMode.value = 'guest'
         } catch (error) {
+            if (isAbortError(error)) {
+                clearReauthRetryTimer()
+                reauthRetryTimer = setTimeout(() => {
+                    reauthRetryTimer = null
+                    void handleReauthAndRestart(failureCode)
+                }, 2000)
+                return
+            }
+
             console.error('[SSE] 恢复访客流失败:', error)
         }
     }
@@ -291,6 +301,16 @@ export function useNotification() {
                     await sseRuntime.start(pow, sseStore.runtime.cursor)
                 }
             } catch (error) {
+                if (isAbortError(error)) {
+                    currentMode.value = ''
+                    clearReauthRetryTimer()
+                    reauthRetryTimer = setTimeout(() => {
+                        reauthRetryTimer = null
+                        void initNotification(mode === 'auth')
+                    }, 1500)
+                    return
+                }
+
                 console.error('[SSE] 初始化失败:', error)
                 currentMode.value = ''
             } finally {

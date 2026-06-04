@@ -1,6 +1,7 @@
 using FsusBlog.Core.Cache;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -12,6 +13,7 @@ public sealed class PublicAotInvalidationService(
     IPublicAotBackfillScheduler backfillScheduler,
     IPublicAotRouteManifestProvider routeManifestProvider,
     PublicHotReadStore hotReadStore,
+    ITestSessionKeyScope testSessionKeyScope,
     ILogger<PublicAotInvalidationService> logger) : IPublicAotInvalidationService
 {
     public async Task InvalidateAllAsync(CancellationToken cancellationToken = default)
@@ -183,7 +185,8 @@ public sealed class PublicAotInvalidationService(
             cacheKey)
         {
             PagePrefixKey = pagePrefixKey,
-            ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(cacheKey, pagePrefixKey)
+            ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(cacheKey, pagePrefixKey),
+            TestSessionId = testSessionKeyScope.SessionId
         });
 
         logger.LogDebug(

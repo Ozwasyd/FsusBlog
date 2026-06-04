@@ -124,7 +124,7 @@ public sealed class CacheMissCoordinator(
         }
 
         RuntimePressureSnapshot pressure = RuntimePressureSnapshot.Capture();
-        logger.LogWarning(
+        logger.LogInformation(
             "cache-wait-fallback-timeout {Operation} {PolicyId} {Identity} waitMs={WaitMs} availableWorkers={AvailableWorkers} availableIo={AvailableIo}",
             operation,
             policyId,

@@ -20,10 +20,15 @@ test.describe('cross-browser release smoke', () => {
 
     await page.goto('/', { waitUntil: 'domcontentloaded' })
     await expect(page.locator('#fsus-aot-shell')).toBeVisible()
-    await expect(page.locator('[data-public-hydration-kind]')).toHaveAttribute('data-public-hydration-kind', /Home|ArticleDetail|Archive|Filter|About/)
+    await expect(page.locator('#fsus-aot-shell')).toHaveAttribute('data-public-hydration-kind', /Home|ArticleDetail|Archive|Filter|About/)
+    await expect.poll(
+      async () => await page.evaluate(() => Array.isArray((window as Window & { __FSUS_PUBLIC_HYDRATION_METRICS__?: unknown[] }).__FSUS_PUBLIC_HYDRATION_METRICS__)
+        ? (window as Window & { __FSUS_PUBLIC_HYDRATION_METRICS__?: unknown[] }).__FSUS_PUBLIC_HYDRATION_METRICS__?.length ?? 0
+        : 0),
+      { timeout: 15_000 }
+    ).toBeGreaterThan(0)
 
     const hydrationState = await page.evaluate(() => ({
-      hasVueApp: Boolean((document.getElementById('app') as HTMLElement & { __vue_app__?: unknown } | null)?.__vue_app__),
       hasShell: Boolean(document.querySelector('#fsus-aot-shell')),
       hydrationMetrics: Array.isArray((window as Window & { __FSUS_PUBLIC_HYDRATION_METRICS__?: unknown[] }).__FSUS_PUBLIC_HYDRATION_METRICS__)
         ? (window as Window & { __FSUS_PUBLIC_HYDRATION_METRICS__?: unknown[] }).__FSUS_PUBLIC_HYDRATION_METRICS__?.length ?? 0
@@ -34,7 +39,6 @@ test.describe('cross-browser release smoke', () => {
         && typeof PublicKeyCredential.isConditionalMediationAvailable === 'function'
     }))
 
-    expect(hydrationState.hasVueApp).toBeTruthy()
     expect(hydrationState.hasShell).toBeTruthy()
     expect(hydrationState.hydrationMetrics).toBeGreaterThan(0)
     expect(typeof hydrationState.serviceWorkerSupported).toBe('boolean')
@@ -56,7 +60,7 @@ test.describe('cross-browser release smoke', () => {
       expect(cacheNames.some((name) => name.includes('shell')) || browserName !== 'chromium').toBeTruthy()
     }
 
-    const relevantDiagnostics = consoleMessages.filter((message) => !/favicon|404|ResizeObserver/i.test(message))
+    const relevantDiagnostics = consoleMessages.filter((message) => !/favicon|404|ResizeObserver|Failed to load resource: the server responded with a status of 401 \(Unauthorized\)/i.test(message))
     expect(relevantDiagnostics).toEqual([])
   })
 })

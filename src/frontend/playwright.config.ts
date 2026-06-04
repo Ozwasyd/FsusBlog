@@ -43,6 +43,7 @@ const projects = uniqueBrowsers.map((browser) => {
 })
 
 export default defineConfig({
+  tsconfig: './tsconfig.playwright.json',
   testDir: '../../tests/frontend/e2e',
   fullyParallel: true,
   workers,

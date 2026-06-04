@@ -47,26 +47,10 @@ export function useArchiveView() {
     loading.value = false
   }
 
-  const fetchAllArticles = async (signal: AbortSignal): Promise<ArticleListItemResponse[]> => {
-    const allItems: ArticleListItemResponse[] = []
-    let page = 1
-    const size = 100
-
-    while (true) {
-      const response = await getArticles({ page, size }, { signal })
-      const items = response?.items || []
-      allItems.push(...items)
-
-      const currentTotal = Number(response?.total) || 0
-      if (allItems.length >= currentTotal || items.length < size) {
-        total.value = currentTotal
-        break
-      }
-
-      page++
-    }
-
-    return allItems
+  const fetchArchiveArticles = async (signal: AbortSignal): Promise<ArticleListItemResponse[]> => {
+    const response = await getArticles({ page: 1, size: 10, listKind: 'archive' }, { signal })
+    total.value = Number(response?.total) || 0
+    return response?.items || []
   }
 
   const loadArticles = async (showLoading = true): Promise<void> => {
@@ -76,7 +60,7 @@ export function useArchiveView() {
 
     try {
       await loadTask.run(async (signal) => {
-        const items = await fetchAllArticles(signal)
+        const items = await fetchArchiveArticles(signal)
         if (lifecycle.isActive() && !signal.aborted) {
           buildArchiveStructure(items)
         }

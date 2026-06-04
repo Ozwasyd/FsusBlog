@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.DataProtection;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services.Background;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests;
@@ -102,6 +104,22 @@ public sealed class ServiceCollectionExtensionsTests
             && descriptor.Lifetime == ServiceLifetime.Scoped);
     }
 
+    [Fact]
+    public void AddFsusRuntimeServices_StartsLifecycleBootstrapBeforeSchemaDependentWorkers()
+    {
+        var services = new ServiceCollection();
+
+        services.AddFsusRuntimeServices(CreateConfiguration());
+
+        int lifecycleIndex = HostedServiceIndex<LifecycleHostedBootstrapService>(services);
+        int auditWorkerIndex = HostedServiceIndex<AuditLogWriterWorker>(services);
+        int cleanupWorkerIndex = HostedServiceIndex<LogCleanupService>(services);
+
+        Assert.True(lifecycleIndex >= 0, "Lifecycle bootstrap hosted service is not registered.");
+        Assert.True(lifecycleIndex < auditWorkerIndex);
+        Assert.True(lifecycleIndex < cleanupWorkerIndex);
+    }
+
     private static bool HasDirectSqlSugarDependency(Type implementationType)
     {
         ConstructorInfo[] constructors = implementationType.GetConstructors(BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic);
@@ -118,6 +136,22 @@ public sealed class ServiceCollectionExtensionsTests
         }
 
         return false;
+    }
+
+    private static int HostedServiceIndex<TImplementation>(IList<ServiceDescriptor> services)
+        where TImplementation : IHostedService
+    {
+        for (int i = 0; i < services.Count; i++)
+        {
+            ServiceDescriptor descriptor = services[i];
+            if (descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType == typeof(TImplementation))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private static IConfiguration CreateConfiguration()

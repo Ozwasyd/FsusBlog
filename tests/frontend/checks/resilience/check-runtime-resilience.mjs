@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
-import { authBinary, loginWithPow } from '../../support/auth-helpers.mjs';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { authBinary, baseUrl, loginWithPow } from '../../support/auth-helpers.mjs';
 import { buildMarkdownExtremeCorpus, fnv1a32, normalizeMarkdownExtremeSize } from '../../support/markdown-extreme-corpus.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
 
@@ -92,11 +94,25 @@ async function waitForApp(page) {
 }
 
 async function addSessionCookies(context, session) {
-  await context.addCookies(Array.from(session.cookieMap.entries()).map(([name, value]) => ({
-    name,
-    value,
-    url: frontendBaseUrl
-  })));
+  const backendHost = new URL(baseUrl).hostname;
+  await context.addCookies(Array.from(session.cookieMap.entries()).map(([name, value]) => {
+    if (name.startsWith('__Host-')) {
+      return {
+        name,
+        value,
+        url: `https://${backendHost}/`,
+        secure: true,
+        httpOnly: true,
+        sameSite: 'Lax'
+      };
+    }
+
+    return {
+      name,
+      value,
+      url: frontendBaseUrl
+    };
+  }));
 }
 
 async function assertNoHorizontalOverflow(page, label, tolerance = 8) {
@@ -108,6 +124,87 @@ async function assertNoHorizontalOverflow(page, label, tolerance = 8) {
     metrics.scrollWidth <= metrics.innerWidth + tolerance,
     `${label} should not overflow horizontally: scrollWidth=${metrics.scrollWidth}, viewport=${metrics.innerWidth}`
   );
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForPublicArticleReadable(id, timeoutMs = 30_000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastStatus = 'unreachable';
+  const publicDetailUrl = `${baseUrl}/api/binary/article/${id}.aeds`;
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(publicDetailUrl, {
+        headers: {
+          Accept: 'application/octet-stream',
+          ...testSessionHeaders()
+        }
+      });
+      lastStatus = String(response.status);
+      if (response.ok) {
+        return;
+      }
+    } catch (error) {
+      lastStatus = error instanceof Error ? error.message : String(error);
+    }
+
+    await delay(500);
+  }
+
+  throw new Error(`public article detail ${id} did not become readable; last=${lastStatus}`);
+}
+
+function loadFixtureArticle() {
+  const fixturePath = resolve(process.cwd(), '.playwright-fixtures.aeds');
+  assert(existsSync(fixturePath), `playwright fixture file missing: ${fixturePath}`);
+
+  const values = new Map();
+  for (const line of readFileSync(fixturePath, 'utf8').split(/\r?\n/u)) {
+    const separator = line.indexOf('\t');
+    if (separator <= 0) {
+      continue;
+    }
+
+    values.set(line.slice(0, separator), Buffer.from(line.slice(separator + 1), 'base64url').toString('utf8'));
+  }
+
+  const id = Number(values.get('articleId'));
+  const title = String(values.get('articleTitle') ?? '').trim();
+  assert(Number.isFinite(id) && id > 0, 'playwright fixture articleId missing');
+  assert(title.length > 0, 'playwright fixture articleTitle missing');
+  return { id, title };
+}
+
+async function waitForMainText(page, expectedText, label, timeoutMs = 20_000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastText = '';
+  while (Date.now() < deadline) {
+    lastText = await page.locator('main').innerText().catch(() => '');
+    if (lastText.includes(expectedText)) {
+      return;
+    }
+    await page.waitForTimeout(500);
+  }
+
+  throw new Error(`${label} should render title`);
+}
+
+async function waitForArticleTitle(page, title) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await waitForMainText(page, title, 'extreme article detail', attempt === 0 ? 12_000 : 20_000);
+      return;
+    } catch (error) {
+      if (attempt > 0) {
+        throw error;
+      }
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await waitForApp(page);
+    }
+  }
 }
 
 async function fetchFirstCategoryId(cookieHeader) {
@@ -183,6 +280,7 @@ async function main() {
     await guest.close();
 
     const userSession = await loginWithPow(userName, userPassword, false, 'runtime-user');
+    const adminSession = await loginWithPow(adminName, adminPassword, false, 'runtime-admin');
     const userContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
     await addSessionCookies(userContext, userSession);
     const userPage = await userContext.newPage();
@@ -197,13 +295,14 @@ async function main() {
     auditUser();
     await userContext.close();
 
-    const adminSession = await loginWithPow(adminName, adminPassword, false, 'runtime-admin');
     const adminContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
     await addSessionCookies(adminContext, adminSession);
     const adminPage = await adminContext.newPage();
     const auditAdmin = attachAudit(adminPage);
     let extremeArticle = null;
     try {
+      const publicArticle = loadFixtureArticle();
+      await waitForPublicArticleReadable(publicArticle.id);
       extremeArticle = await createExtremeArticle(adminSession);
       for (const path of [
       '/user/manage',
@@ -211,7 +310,8 @@ async function main() {
       '/user/manage/settings',
       '/user/manage/article/trash',
       '/user/manage/article/write',
-      `/article/${extremeArticle.id}`,
+      `/user/manage/article/edit/${extremeArticle.id}`,
+      `/article/${publicArticle.id}`,
       '/user/manage',
       '/search?q=blog'
       ]) {
@@ -221,7 +321,7 @@ async function main() {
       await adminPage.waitForTimeout(900);
       await assertNoHorizontalOverflow(adminPage, `admin ${path}`);
       if (path.startsWith('/article/')) {
-        assert((await adminPage.locator('main').innerText()).includes(extremeArticle.title), 'extreme article detail should render title');
+        await waitForArticleTitle(adminPage, publicArticle.title);
       }
     }
     } finally {

@@ -4,6 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { authBinary, loginWithPow, requestTimeoutMs as defaultRequestTimeoutMs } from '../support/auth-helpers.mjs'
+import { readAedsResponse } from '../support/aeds-envelope.mjs'
 import { fetchWithTimeout, parseTimeoutMs, probeReachable } from '../support/http.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -30,6 +31,7 @@ const seedArticleSummary = process.env.FSUSBLOG_PLAYWRIGHT_ARTICLE_SUMMARY
   || 'Acceptance smoke summary for public routes and dashboard coverage.'
 const seedArticleMarkdown = process.env.FSUSBLOG_PLAYWRIGHT_ARTICLE_MARKDOWN
   || '这是自动验收生成的公开文章，用于 Playwright fixture 与公开页验收。\n\n正文探针段落用于校验公开页 hydration 与详情渲染。'
+const publicArticlePageSize = 5
 
 function assert(condition, message) {
   if (!condition) {
@@ -47,6 +49,28 @@ async function fetchApiBinary(relativePath) {
     throw new Error(`request failed: ${relativePath} -> ${result.response.status}`)
   }
   return result.payload?.data ?? result.payload
+}
+
+async function fetchPublicBinary(relativePath) {
+  const response = await fetchWithTimeout(`${baseUrl}${relativePath}`, {
+    headers: {
+      Accept: 'application/octet-stream',
+      'X-Fsus-Device-Fp': deviceFingerprint
+    }
+  }, requestTimeoutMs)
+  const payload = await readAedsResponse(response).catch(() => null)
+  if (!response.ok) {
+    throw new Error(`request failed: ${relativePath} -> ${response.status}`)
+  }
+  return payload?.data ?? payload
+}
+
+async function fetchPublicArticlePage(page, size) {
+  return await fetchPublicBinary(`/api/binary/article/list/home/${page}/${size}.aeds`)
+}
+
+async function fetchPublicArticleDetail(id) {
+  return await fetchPublicBinary(`/api/binary/article/${id}.aeds`)
 }
 
 async function loginAdminSession() {
@@ -322,7 +346,7 @@ async function seedPublicFixturesViaApi() {
 async function main() {
   await probeReachable(`${baseUrl}/api/binary/article/list/home/1/5.aeds`, '[discover-playwright-fixtures backend]', requestTimeoutMs)
 
-  let page = await fetchApiBinary('/api/Article?page=1&size=8')
+  let page = await fetchPublicArticlePage(1, publicArticlePageSize)
   let categories = await fetchApiBinary('/api/Category')
   let tags = await fetchApiBinary('/api/Tag')
 
@@ -337,7 +361,7 @@ async function main() {
     }
 
     await new Promise((resolve) => setTimeout(resolve, 1000))
-    page = await fetchApiBinary('/api/Article?page=1&size=8')
+    page = await fetchPublicArticlePage(1, publicArticlePageSize)
     categories = await fetchApiBinary('/api/Category')
     tags = await fetchApiBinary('/api/Tag')
   }
@@ -350,7 +374,7 @@ async function main() {
     }
 
     try {
-      articleDetail = await fetchApiBinary(`/api/Article/${candidate.id}`)
+      articleDetail = await fetchPublicArticleDetail(candidate.id)
       firstArticle = candidate
       break
     } catch (error) {
@@ -362,7 +386,7 @@ async function main() {
     const seeded = seedPublicFixtures()
     console.log(`[discover-playwright-fixtures] seeded replacement public fixture via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
     await new Promise((resolve) => setTimeout(resolve, 1000))
-    page = await fetchApiBinary('/api/Article?page=1&size=8')
+    page = await fetchPublicArticlePage(1, publicArticlePageSize)
     categories = await fetchApiBinary('/api/Category')
     tags = await fetchApiBinary('/api/Tag')
     for (const candidate of page?.items ?? []) {
@@ -371,7 +395,7 @@ async function main() {
       }
 
       try {
-        articleDetail = await fetchApiBinary(`/api/Article/${candidate.id}`)
+        articleDetail = await fetchPublicArticleDetail(candidate.id)
         firstArticle = candidate
         break
       } catch {

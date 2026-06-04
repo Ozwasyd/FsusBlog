@@ -291,7 +291,7 @@ public sealed class UnifiedCache(
             return;
         }
 
-        logger.LogWarning(
+        logger.LogInformation(
             "cache-prefix-invalidation-registry-missing {PolicyId} {IdentityPrefix}; using Redis keyspace scan fallback",
             policyId,
             identityPrefix);

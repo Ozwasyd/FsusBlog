@@ -120,7 +120,7 @@ public sealed class PublicAotShellService(
             cancellationToken);
         if (document.IsFailure)
         {
-            logger.LogWarning(
+            logger.LogInformation(
                 "Public AOT SSR backfill skipped due to recoverable render failure: {Kind} {RouteKey} {Message}",
                 request.Kind,
                 request.RouteKey,

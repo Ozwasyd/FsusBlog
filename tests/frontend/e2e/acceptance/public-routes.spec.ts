@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import { test, expect } from '@playwright/test'
 import {
   DESKTOP_VIEWPORT,
@@ -18,6 +20,26 @@ import {
 } from '../../support/playwright/acceptance-shared'
 
 const articlePath = `/article/${fixtures.articleId}`
+const execFileAsync = promisify(execFile)
+const resetSecurityTestState = process.env.FSUSBLOG_RESET_SECURITY_TEST_STATE !== '0'
+
+async function resetLocalPowRiskState() {
+  if (!resetSecurityTestState) {
+    return
+  }
+
+  try {
+    await execFileAsync('docker', [
+      'exec',
+      'fsusblog-redis',
+      'sh',
+      '-c',
+      "redis-cli --scan --pattern '*fsus:sec:pow-risk:*' | xargs -r redis-cli DEL"
+    ], { timeout: 5000 })
+  } catch {
+    // Non-local environments may not use the developer docker container name.
+  }
+}
 
 function publicExpectations() {
   return [
@@ -99,6 +121,10 @@ for (const viewport of [
 
     test.beforeAll(async ({ browser }) => {
       await prewarmDevRuntime(browser)
+    })
+
+    test.beforeEach(async () => {
+      await resetLocalPowRiskState()
     })
 
     test('visible public routes stay clean and aligned', async ({ browser }) => {

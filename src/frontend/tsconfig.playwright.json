@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@wasm/*": ["wasm/web/*"],
+      "@playwright/test": ["node_modules/@playwright/test/index.mjs"],
+      "@playwright/test/*": ["node_modules/@playwright/test/*"]
+    },
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node", "@playwright/test"],
+    "erasableSyntaxOnly": true
+  },
+  "include": [
+    "playwright.config.ts",
+    "../../tests/frontend/**/*.ts",
+    "src/**/*.ts",
+    "wasm/**/*.ts"
+  ]
+}

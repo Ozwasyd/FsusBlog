@@ -63,6 +63,10 @@ public sealed class PublicAotRouteManifestTests
         Assert.Contains("ArticleStatus.Published", providerSource);
         Assert.Contains("PublishedAt", providerSource);
         Assert.Contains("ScheduledPublishAt", providerSource);
+        Assert.Contains("article.PublishedAt == null || article.PublishedAt <= utcNow", providerSource);
+        Assert.Contains("article.ScheduledPublishAt == null || article.ScheduledPublishAt <= utcNow", providerSource);
+        Assert.DoesNotContain("article.PublishedAt.HasValue", providerSource);
+        Assert.DoesNotContain("article.ScheduledPublishAt.HasValue", providerSource);
         Assert.Contains("CreateArticleRoute", invalidationSource);
         Assert.Contains("public_aot_manifest_pregenerate", invalidationSource);
     }

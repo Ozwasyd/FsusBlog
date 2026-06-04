@@ -40,6 +40,19 @@ async function fetchSearchManifest(path) {
   return decodeSearchManifest(new Uint8Array(await response.arrayBuffer()))
 }
 
+async function waitForRequestPath(requests, predicate, timeoutMs = 8000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (Array.from(requests).some(predicate)) {
+      return true
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+
+  return Array.from(requests).some(predicate)
+}
+
 function pickQueryFromTitle(title) {
   const normalized = String(title || '').trim()
   if (!normalized) {
@@ -82,6 +95,33 @@ async function main() {
 
   const browser = await chromium.launch(launchOptions)
   const context = await browser.newContext({ baseURL: baseUrl, ignoreHTTPSErrors: true, extraHTTPHeaders: testSessionHeaders() })
+  await context.addInitScript(() => {
+    try {
+      Object.defineProperty(Navigator.prototype, 'deviceMemory', {
+        configurable: true,
+        get: () => 8
+      })
+    } catch {
+      // Browser-only deterministic test hint.
+    }
+
+    try {
+      const connection = navigator.connection ?? {}
+      Object.defineProperty(connection, 'saveData', {
+        configurable: true,
+        get: () => false
+      })
+
+      if (!navigator.connection) {
+        Object.defineProperty(Navigator.prototype, 'connection', {
+          configurable: true,
+          get: () => connection
+        })
+      }
+    } catch {
+      // Browser-only deterministic test hint.
+    }
+  })
   const page = await context.newPage()
 
   const requests = new Set()
@@ -114,7 +154,8 @@ async function main() {
     assert(!Array.from(requests).some((path) => path.includes('/search/index.body.')), 'search runtime should not load body shard in v3')
 
     if (Array.isArray(manifest.backgroundRoles) && manifest.backgroundRoles.includes('archive')) {
-      assert(Array.from(requests).some((path) => path.includes('/search/index.archive.')), 'search runtime did not preload archive shard in background')
+      const loadedArchive = await waitForRequestPath(requests, (path) => path.includes('/search/index.archive.'))
+      assert(loadedArchive, 'search runtime did not preload archive shard in background')
     }
 
     console.log('[check-search-runtime] ok')

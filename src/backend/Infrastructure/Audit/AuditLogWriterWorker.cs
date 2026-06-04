@@ -126,7 +126,7 @@ public sealed class AuditLogWriterWorker(
         }
     }
 
-    private async Task PersistSafelyAsync(IReadOnlyList<AuditRecord> batch, CancellationToken cancellationToken)
+    internal async Task PersistSafelyAsync(IReadOnlyList<AuditRecord> batch, CancellationToken cancellationToken)
     {
         try
         {

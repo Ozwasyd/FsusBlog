@@ -520,7 +520,14 @@ const triggerCoverInput = (): void => {
 const onCoverFileChange = (event: Event): void => {
   const input = event.target as HTMLInputElement
   if (input.files && input.files.length > 0) {
-    void handleCoverUpload(Array.from(input.files))
+    const files = Array.from(input.files)
+    const previousCoverUrl = articleForm.coverImageUrl
+    void (async () => {
+      await handleCoverUpload(files)
+      if (articleForm.coverImageUrl && articleForm.coverImageUrl !== previousCoverUrl) {
+        sidePanelTab.value = 'publish'
+      }
+    })()
     // 重置 input 以允许再次选择同一文件
     input.value = ''
   }

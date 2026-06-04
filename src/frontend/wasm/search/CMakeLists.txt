@@ -45,5 +45,5 @@ target_link_options(FsusSearchRuntime PRIVATE
   -sFILESYSTEM=0
   -sINCOMING_MODULE_JS_API=["locateFile","wasmBinary"]
   -sEXPORTED_FUNCTIONS=["_alloc_buffer","_free_buffer","_load_search_index","_load_search_entry","_search_articles","_get_last_result_ptr","_get_last_result_len","_get_last_error_ptr","_get_last_error_len","_get_last_error_code"]
-  -sEXPORTED_RUNTIME_METHODS=[]
+  -sEXPORTED_RUNTIME_METHODS=["HEAPU8"]
 )

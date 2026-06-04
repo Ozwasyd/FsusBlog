@@ -27,19 +27,41 @@ public sealed class UploadSessionCleanupWorker(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using PeriodicTimer timer = new(ScanInterval, timeProvider);
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            Task<bool> timerTask = timer.WaitForNextTickAsync(stoppingToken).AsTask();
-            Task<bool> signalTask = queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
-            Task completed = await Task.WhenAny(timerTask, signalTask).ConfigureAwait(false);
-            if (completed == signalTask && await signalTask.ConfigureAwait(false))
-            {
-                while (queue.Reader.TryRead(out _))
-                {
-                }
-            }
+        Task<bool> timerTask = timer.WaitForNextTickAsync(stoppingToken).AsTask();
+        Task<bool> signalTask = queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
 
-            await RunCleanupOnceAsync(stoppingToken).ConfigureAwait(false);
+        try
+        {
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                Task completed = await Task.WhenAny(timerTask, signalTask).ConfigureAwait(false);
+                if (completed == timerTask)
+                {
+                    if (!await timerTask.ConfigureAwait(false))
+                    {
+                        break;
+                    }
+
+                    timerTask = timer.WaitForNextTickAsync(stoppingToken).AsTask();
+                }
+                else if (await signalTask.ConfigureAwait(false))
+                {
+                    while (queue.Reader.TryRead(out _))
+                    {
+                    }
+
+                    signalTask = queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
+                }
+                else
+                {
+                    break;
+                }
+
+                await RunCleanupOnceAsync(stoppingToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
         }
     }
 

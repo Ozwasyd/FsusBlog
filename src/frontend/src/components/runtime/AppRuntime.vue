@@ -32,6 +32,10 @@ function isAuthFlowRouteNow(): boolean {
   return path === '/login' || path === '/register'
 }
 
+function shouldStartGuestNotifications(): boolean {
+  return !isPublicRouteNow() && !isAuthFlowRouteNow()
+}
+
 const runAfterFirstPaint = (task: () => void): void => {
   requestAnimationFrame(() => {
     window.setTimeout(task, 0)
@@ -78,7 +82,7 @@ watch(
       return
     }
 
-    if (isAuthFlowRouteNow()) {
+    if (isAuthFlowRouteNow() || (!loggedIn && isPublicRouteNow())) {
       return
     }
 
@@ -103,7 +107,7 @@ const triggerGlobalIntent = async () => {
     return
   }
 
-  if (hasTriggeredIntent || userStore.isLoggedIn || isAuthFlowRouteNow()) {
+  if (hasTriggeredIntent || userStore.isLoggedIn || !shouldStartGuestNotifications()) {
     removeIntentListeners()
     return
   }
@@ -116,7 +120,7 @@ const triggerGlobalIntent = async () => {
 }
 
 function bindGuestIntentListeners(): void {
-  if (hasTriggeredIntent || isAuthFlowRouteNow()) {
+  if (hasTriggeredIntent || !shouldStartGuestNotifications()) {
     return
   }
 

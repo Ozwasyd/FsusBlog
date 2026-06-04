@@ -47,7 +47,8 @@ describe('comment API', () => {
   it('getComments calls requestBinaryOnly with articleId', async () => {
     await getComments(5)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: expect.stringContaining('/api/binary/comment/5')
+      binaryUrl: expect.stringContaining('/api/binary/comment/5'),
+      requestOptions: expect.objectContaining({ requiresPow: true })
     }))
   })
 
@@ -68,6 +69,7 @@ describe('comment API', () => {
     const call = mockBinary.mock.calls[0][0]
     expect(call.binaryUrl).toContain('/api/binary/comment/1/thread/root-123')
     expect(call.binaryUrl).toContain('limit=20')
+    expect(call.requestOptions).toEqual(expect.objectContaining({ requiresPow: true }))
   })
 
   it('getThreadReplies includes cursor', async () => {

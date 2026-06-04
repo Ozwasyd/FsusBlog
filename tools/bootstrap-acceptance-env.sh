@@ -11,6 +11,8 @@ DEBUG_FRONTEND_URL="${FSUSBLOG_DEBUG_FRONTEND_URL:-http://127.0.0.1:3000}"
 DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:5000}"
 RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:8080}"
 FORCE_BOOTSTRAP="${FSUSBLOG_FORCE_BOOTSTRAP:-${CI:+1}}"
+RESET_SECURITY_TEST_STATE="${FSUSBLOG_RESET_SECURITY_TEST_STATE:-1}"
+POW_READY_MAX_DIFFICULTY="${FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY:-20}"
 
 log() {
   printf '[acceptance:bootstrap] %s\n' "$1"
@@ -152,6 +154,20 @@ ensure_redis() {
 
   log 'redis failed to become ready'
   exit 1
+}
+
+reset_security_test_state() {
+  if [[ "$RESET_SECURITY_TEST_STATE" == "0" ]]; then
+    return
+  fi
+
+  local deleted
+  deleted="$(docker exec fsusblog-redis sh -c "redis-cli --scan --pattern '*fsus:sec:pow-risk:*' | xargs -r redis-cli DEL" 2>/dev/null || true)"
+  deleted="${deleted:-0}"
+  if [[ "$deleted" =~ ^[0-9]+$ ]] && (( deleted > 0 )); then
+    log "reset local security PoW risk keys: ${deleted}"
+    FORCE_BOOTSTRAP=1
+  fi
 }
 
 ensure_backend() {
@@ -302,13 +318,40 @@ prepare_fixtures() {
   )
 }
 
+current_pow_difficulty() {
+  (
+    cd "$ROOT_DIR"
+    FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" node --input-type=module -e "import { fetchChallenge } from './tests/frontend/support/auth-helpers.mjs'; const challenge = await fetchChallenge(5000); console.log(challenge.difficulty ?? challenge.Difficulty ?? 999);"
+  )
+}
+
+wait_for_pow_ready() {
+  local max_difficulty="$POW_READY_MAX_DIFFICULTY"
+  local difficulty=""
+
+  for ((i=0; i<30; i+=1)); do
+    difficulty="$(current_pow_difficulty 2>/dev/null || true)"
+    if [[ "$difficulty" =~ ^[0-9]+$ ]] && (( difficulty <= max_difficulty )); then
+      log "pow difficulty ready: ${difficulty}"
+      return 0
+    fi
+
+    sleep 1
+  done
+
+  log "pow difficulty did not settle below ${max_difficulty}; last=${difficulty:-unknown}"
+  return 1
+}
+
 main() {
   command -v docker >/dev/null 2>&1 || { log 'docker is required'; exit 1; }
   ensure_postgres
   ensure_redis
+  reset_security_test_state
   ensure_backend
   ensure_release_preview
   ensure_debug_frontend
+  wait_for_pow_ready
   prepare_fixtures
   wait_for_binary_url 'seo probe' "$DEBUG_BACKEND_URL/api/binary/system/seo" 30
   wait_for_binary_url 'pow challenge probe' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" 30

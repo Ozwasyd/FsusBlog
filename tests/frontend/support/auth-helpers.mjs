@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash, createHmac } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import {
   decodeAedsFrame,
   encodeAdminChangeStatusRequest,
@@ -54,6 +55,18 @@ const FRAME_CONVERSATION_CREATE_REQUEST = 59;
 const FRAME_CONVERSATION_REPLY_REQUEST = 60;
 const FRAME_CONVERSATION_STATUS_REQUEST = 61;
 const FRAME_SYSTEM_MESSAGE_REQUEST = 62;
+const powWasmRoot = new URL('../../../src/frontend/public/wasm/', import.meta.url);
+const nodePowAssetKinds = ['relaxed', 'simd', 'basic'];
+const nodePowBatchSize = Math.max(
+  1,
+  Number.parseInt(process.env.FSUSBLOG_NODE_WASM_POW_BATCH_SIZE ?? '262144', 10) || 262144
+);
+const maxDeterministicPowDifficulty = Number.parseInt(process.env.FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY ?? '20', 10) || 20;
+const deterministicPowChallengeAttempts = Math.max(
+  1,
+  Number.parseInt(process.env.FSUSBLOG_ACCEPTANCE_POW_CHALLENGE_ATTEMPTS ?? '30', 10) || 30
+);
+let nodePowModulePromise = null;
 
 function assert(condition, message) {
   if (!condition) {
@@ -77,15 +90,129 @@ function hasLeadingDifficulty(hash, difficulty) {
   return true;
 }
 
-export function solvePowNonce(salt, browserFp, difficulty) {
+export function solvePowNonce(salt, browserFp, difficulty, deadlineMs = Number.POSITIVE_INFINITY) {
   let nonce = 0;
   while (true) {
+    if ((nonce & 0x0fff) === 0 && Date.now() > deadlineMs) {
+      throw new Error(`node pow solver timed out for difficulty ${difficulty}`);
+    }
+
     const payload = `${salt}:${nonce}:${browserFp}`;
     const hash = createHash('sha256').update(payload, 'utf8').digest();
     if (hasLeadingDifficulty(hash, difficulty)) {
       return String(nonce);
     }
     nonce += 1;
+  }
+}
+
+async function loadNodePowModule() {
+  if (process.env.FSUSBLOG_DISABLE_NODE_WASM_POW === '1') {
+    return null;
+  }
+
+  if (!nodePowModulePromise) {
+    nodePowModulePromise = (async () => {
+      for (const assetKind of nodePowAssetKinds) {
+        try {
+          const moduleRef = await import(new URL(`fsus_pow_${assetKind}.js`, powWasmRoot).href);
+          const factory = moduleRef.default ?? moduleRef.createPowModule;
+          if (typeof factory !== 'function') {
+            continue;
+          }
+
+          const wasmBinary = await readFile(new URL(`fsus_pow_${assetKind}.wasm`, powWasmRoot));
+          const module = await factory({ wasmBinary });
+          if (module?.HEAPU8 && typeof module._solve_pow_limited_c === 'function') {
+            return module;
+          }
+        } catch {
+          // Try the next tier.
+        }
+      }
+
+      return null;
+    })().catch(() => null);
+  }
+
+  return await nodePowModulePromise;
+}
+
+function writeCStringToPowModule(module, value) {
+  const bytes = new TextEncoder().encode(value);
+  const ptr = module._malloc(bytes.length + 1);
+  module.HEAPU8.set(bytes, ptr);
+  module.HEAPU8[ptr + bytes.length] = 0;
+  return ptr;
+}
+
+function readCStringFromPowModule(module, ptr, maxLength) {
+  let end = ptr;
+  const limit = ptr + maxLength;
+  while (end < limit && module.HEAPU8[end] !== 0) {
+    end += 1;
+  }
+
+  return new TextDecoder().decode(module.HEAPU8.subarray(ptr, end));
+}
+
+function resolvePowDeadline(timeoutMs) {
+  return Date.now() + Math.max(1000, timeoutMs - 250);
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function yieldToNodeEventLoop() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+async function solvePowNonceOptimized(salt, browserFp, difficulty, timeoutMs = requestTimeoutMs) {
+  const deadlineMs = resolvePowDeadline(timeoutMs);
+  const module = await loadNodePowModule();
+  if (!module?.HEAPU8 || typeof module._solve_pow_limited_c !== 'function') {
+    if (difficulty >= 25) {
+      throw new Error('node wasm pow solver unavailable for high difficulty challenge');
+    }
+
+    return solvePowNonce(salt, browserFp, difficulty, deadlineMs);
+  }
+
+  const saltPtr = writeCStringToPowModule(module, salt);
+  const fpPtr = writeCStringToPowModule(module, browserFp);
+  const outputPtr = module._malloc(2048);
+
+  try {
+    let startNonce = 0;
+    while (Date.now() <= deadlineMs) {
+      const remainingNonceSpace = 0x1_0000_0000 - startNonce;
+      const attempts = Math.min(nodePowBatchSize, remainingNonceSpace);
+      const resultLength = module._solve_pow_limited_c(saltPtr, fpPtr, difficulty, startNonce, attempts, outputPtr, 2048);
+      if (resultLength < 0) {
+        throw new Error(`node wasm pow solver failed: ${resultLength}`);
+      }
+
+      if (resultLength > 0) {
+        const nonce = readCStringFromPowModule(module, outputPtr, Math.min(resultLength + 1, 2048));
+        const hash = createHash('sha256').update(`${salt}:${nonce}:${browserFp}`, 'utf8').digest();
+        assert(hasLeadingDifficulty(hash, difficulty), `node wasm pow solver returned invalid nonce for difficulty ${difficulty}`);
+        return nonce;
+      }
+
+      startNonce = (startNonce + attempts) >>> 0;
+      if (startNonce === 0 || attempts <= 0) {
+        break;
+      }
+
+      await yieldToNodeEventLoop();
+    }
+
+    throw new Error(`node wasm pow solver timed out for difficulty ${difficulty}`);
+  } finally {
+    module._free(outputPtr);
+    module._free(fpPtr);
+    module._free(saltPtr);
   }
 }
 
@@ -169,15 +296,31 @@ export async function fetchChallenge(timeoutMs = requestTimeoutMs) {
   return decodePowChallenge(await response.arrayBuffer());
 }
 
+async function fetchDeterministicChallenge(timeoutMs = requestTimeoutMs) {
+  let lastDifficulty = 'unknown';
+  for (let attempt = 0; attempt < deterministicPowChallengeAttempts; attempt += 1) {
+    const challenge = await fetchChallenge(timeoutMs);
+    const difficulty = Number(challenge.difficulty ?? challenge.Difficulty ?? 999);
+    lastDifficulty = Number.isFinite(difficulty) ? String(difficulty) : 'unknown';
+    if (Number.isFinite(difficulty) && difficulty <= maxDeterministicPowDifficulty) {
+      return challenge;
+    }
+
+    await delay(1000);
+  }
+
+  throw new Error(`pow challenge difficulty did not settle below ${maxDeterministicPowDifficulty}; last=${lastDifficulty}`);
+}
+
 export async function buildPowHeaders(deviceFingerprint, timeoutMs = requestTimeoutMs) {
-  const challenge = await fetchChallenge(timeoutMs);
+  const challenge = await fetchDeterministicChallenge(timeoutMs);
   const salt = challenge.salt ?? challenge.Salt;
   const difficulty = Number(challenge.difficulty ?? challenge.Difficulty ?? 4);
   const timestamp = Number(challenge.timestamp ?? challenge.Timestamp);
   const signature = challenge.signature ?? challenge.Signature;
   assert(salt && signature, 'invalid pow challenge payload');
 
-  const nonce = solvePowNonce(salt, deviceFingerprint, difficulty);
+  const nonce = await solvePowNonceOptimized(salt, deviceFingerprint, difficulty, timeoutMs);
   const powHeader = encodePowProofHeader({
     salt,
     nonce,
@@ -274,6 +417,7 @@ export async function authBinary(path, { method = 'GET', cookieHeader, deviceFin
   const powHeaders = requiresPow ? await buildPowHeaders(deviceFingerprint || 'smoke-fp', timeoutMs) : {
     ...(deviceFingerprint ? { 'X-Fsus-Device-Fp': deviceFingerprint } : {})
   };
+  const encodedBody = encodeOptionalBody(path, body);
 
   const finalHeaders = {
     Accept: 'application/octet-stream',
@@ -286,10 +430,25 @@ export async function authBinary(path, { method = 'GET', cookieHeader, deviceFin
     finalHeaders['Content-Type'] = 'application/octet-stream';
   }
 
-  return await fetchAedsPayload(toBinaryPath(path), {
+  const binaryPath = toBinaryPath(path);
+  const result = await fetchAedsPayload(binaryPath, {
     method,
     headers: finalHeaders,
-    body: encodeOptionalBody(path, body)
+    body: encodedBody
+  }, timeoutMs);
+
+  if (!requiresPow || result.response.status !== 403) {
+    return result;
+  }
+
+  const retryPowHeaders = await buildPowHeaders(deviceFingerprint || 'smoke-fp', timeoutMs);
+  return await fetchAedsPayload(binaryPath, {
+    method,
+    headers: {
+      ...finalHeaders,
+      ...retryPowHeaders
+    },
+    body: encodedBody
   }, timeoutMs);
 }
 

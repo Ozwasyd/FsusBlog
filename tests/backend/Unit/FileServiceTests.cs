@@ -203,6 +203,55 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task CleanupExpiredSessionsAsync_PreservesFreshManifestlessSessionDirectory()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            string uploadId = Guid.NewGuid().ToString("N");
+            string sessionPath = GetSessionPath(root, uploadId);
+            Directory.CreateDirectory(Path.Combine(sessionPath, "parts"));
+
+            await service.CleanupExpiredSessionsAsync(CancellationToken.None);
+
+            Assert.True(Directory.Exists(sessionPath));
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task CleanupExpiredSessionsAsync_RemovesStaleManifestlessSessionDirectory()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            string uploadId = Guid.NewGuid().ToString("N");
+            string sessionPath = GetSessionPath(root, uploadId);
+            Directory.CreateDirectory(Path.Combine(sessionPath, "parts"));
+            DateTime staleUtc = DateTime.UtcNow.AddMinutes(-5);
+            Directory.SetCreationTimeUtc(sessionPath, staleUtc);
+            Directory.SetLastWriteTimeUtc(sessionPath, staleUtc);
+
+            await service.CleanupExpiredSessionsAsync(CancellationToken.None);
+
+            Assert.False(Directory.Exists(sessionPath));
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task SessionLockEntry_RetireAfterReference_DoesNotDisposeSemaphoreUntilReleased()
     {
         ResetSessionLocks();

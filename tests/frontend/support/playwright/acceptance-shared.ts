@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto'
-import { expect, type Browser, type Locator, type Page, type ScreenshotOptions, type StorageState } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
+import { expect } from '@playwright/test'
+import type { Browser, BrowserContextOptions, Locator, Page, ScreenshotOptions, StorageState } from '@playwright/test'
 import { AEDS_BINARY_MEDIA_TYPE, FSUS_HEADERS } from '../../../../src/frontend/src/api/contracts'
 import { encodeAedsFrame } from '../../../../src/frontend/src/api/binaryFrame'
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '../../../../src/frontend/wasm/web/protocol/frame'
@@ -14,6 +16,7 @@ export type RuntimeAudit = {
 type RouteExpectation = Readonly<{
   path: string
   expectedUrl?: string
+  expectedPathname?: string
   label: string
   selectors: Array<(page: Page) => Locator>
 }>
@@ -32,10 +35,52 @@ export const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdmin
 export const fixtures = loadAuditFixtures()
 export type ThemeMode = 'light' | 'dark'
 const acceptanceBackendUrl = process.env.FSUSBLOG_ACCEPTANCE_BACKEND_URL || 'http://127.0.0.1:5000'
-const acceptanceDeviceFingerprint = 'playwright-acceptance-fp'
+const acceptanceDefaultUserAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 const ACCEPTANCE_UTF8_DECODER = new TextDecoder()
 const ACCEPTANCE_UTF8_ENCODER = new TextEncoder()
 const ACCEPTANCE_API_ERROR_POD_SIZE = 584
+const acceptancePowWasmRoot = new URL('../../../../src/frontend/public/wasm/', import.meta.url)
+const acceptanceNodePowAssetKinds = ['relaxed', 'simd', 'basic'] as const
+const acceptanceNodePowBatchSize = Math.max(
+  1,
+  Number.parseInt(process.env.FSUSBLOG_NODE_WASM_POW_BATCH_SIZE ?? '262144', 10) || 262144
+)
+
+type AcceptancePowRuntimeModule = {
+  _malloc: (size: number) => number
+  _free: (ptr: number) => void
+  _solve_pow_c: (saltPtr: number, browserFpPtr: number, difficulty: number, outputPtr: number, outputLength: number) => number
+  _solve_pow_limited_c: (
+    saltPtr: number,
+    browserFpPtr: number,
+    difficulty: number,
+    startNonce: number,
+    maxAttempts: number,
+    outputPtr: number,
+    outputLength: number
+  ) => number
+  HEAPU8: Uint8Array
+}
+
+let acceptanceNodePowModulePromise: Promise<AcceptancePowRuntimeModule | null> | null = null
+let acceptanceContextCounter = 0
+let acceptanceDeviceFingerprintCounter = 0
+
+function nextAcceptanceId(scope: string): string {
+  const workerIndex = process.env.TEST_PARALLEL_INDEX || process.env.TEST_WORKER_INDEX || '0'
+  return `${scope}-${workerIndex}-${process.pid}-${Date.now().toString(36)}-${++acceptanceDeviceFingerprintCounter}`
+    .replace(/[^a-z0-9-]+/gi, '-')
+    .slice(0, 96)
+}
+
+function withAcceptanceContextOptions(options: BrowserContextOptions = {}): BrowserContextOptions {
+  const contextId = `${process.env.TEST_PARALLEL_INDEX || process.env.TEST_WORKER_INDEX || '0'}-${++acceptanceContextCounter}`
+  const userAgent = `${options.userAgent ?? acceptanceDefaultUserAgent} FsusAcceptance/${contextId}`
+  return withTestSessionContextOptions({
+    ...options,
+    userAgent
+  })
+}
 
 export function attachRuntimeAudit(page: Page): RuntimeAudit {
   const events: string[] = []
@@ -147,7 +192,7 @@ export async function openThemedAuditedPage(
   audit: RuntimeAudit
   close: () => Promise<void>
 }> {
-  const context = await browser.newContext(withTestSessionContextOptions(storageState ? { storageState } : undefined))
+  const context = await browser.newContext(withAcceptanceContextOptions(storageState ? { storageState } : undefined))
   await context.addInitScript((mode: ThemeMode) => {
     try {
       localStorage.setItem('fsus:theme-mode', mode)
@@ -236,7 +281,7 @@ export async function captureStorageState(
   redirectTo: string
 ): Promise<StorageState> {
   void redirectTo
-  const context = await browser.newContext(withTestSessionContextOptions())
+  const context = await browser.newContext(withAcceptanceContextOptions())
 
   try {
     const cookies = await loginViaApi(username, password)
@@ -271,15 +316,123 @@ function hasLeadingDifficulty(hash: Buffer, difficulty: number): boolean {
   return remaining <= 0
 }
 
-function solvePowNonce(salt: string, browserFp: string, difficulty: number): string {
+function solvePowNonce(salt: string, browserFp: string, difficulty: number, deadlineMs = Number.POSITIVE_INFINITY): string {
   let nonce = 0
   while (true) {
+    if ((nonce & 0x0fff) === 0 && Date.now() > deadlineMs) {
+      throw new Error(`acceptance node pow solver timed out for difficulty ${difficulty}`)
+    }
+
     const payload = `${salt}:${nonce}:${browserFp}`
     const hash = createHash('sha256').update(payload, 'utf8').digest()
     if (hasLeadingDifficulty(hash, difficulty)) {
       return String(nonce)
     }
     nonce += 1
+  }
+}
+
+async function loadAcceptanceNodePowModule(): Promise<AcceptancePowRuntimeModule | null> {
+  if (process.env.FSUSBLOG_DISABLE_NODE_WASM_POW === '1') {
+    return null
+  }
+
+  acceptanceNodePowModulePromise ??= (async () => {
+    for (const assetKind of acceptanceNodePowAssetKinds) {
+      try {
+        const moduleRef = await import(new URL(`fsus_pow_${assetKind}.js`, acceptancePowWasmRoot).href)
+        const factory = moduleRef.default ?? moduleRef.createPowModule
+        if (typeof factory !== 'function') {
+          continue
+        }
+
+        const wasmBinary = await readFile(new URL(`fsus_pow_${assetKind}.wasm`, acceptancePowWasmRoot))
+        const module = await factory({ wasmBinary }) as AcceptancePowRuntimeModule
+        if (module?.HEAPU8 && typeof module._solve_pow_limited_c === 'function') {
+          return module
+        }
+      } catch {
+        // Try the next tier.
+      }
+    }
+
+    return null
+  })().catch(() => null)
+
+  return await acceptanceNodePowModulePromise
+}
+
+function writeAcceptanceCString(module: AcceptancePowRuntimeModule, value: string): number {
+  const bytes = ACCEPTANCE_UTF8_ENCODER.encode(value)
+  const ptr = module._malloc(bytes.length + 1)
+  module.HEAPU8.set(bytes, ptr)
+  module.HEAPU8[ptr + bytes.length] = 0
+  return ptr
+}
+
+function readAcceptanceCString(module: AcceptancePowRuntimeModule, ptr: number, maxLength: number): string {
+  let end = ptr
+  const limit = ptr + maxLength
+  while (end < limit && module.HEAPU8[end] !== 0) {
+    end += 1
+  }
+
+  return ACCEPTANCE_UTF8_DECODER.decode(module.HEAPU8.subarray(ptr, end))
+}
+
+function resolveAcceptancePowDeadline(timeoutMs: number): number {
+  return Date.now() + Math.max(1000, timeoutMs - 250)
+}
+
+function yieldToAcceptanceEventLoop(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0))
+}
+
+async function solvePowNonceOptimized(salt: string, browserFp: string, difficulty: number, timeoutMs = 15_000): Promise<string> {
+  const deadlineMs = resolveAcceptancePowDeadline(timeoutMs)
+  const module = await loadAcceptanceNodePowModule()
+  if (!module?.HEAPU8 || typeof module._solve_pow_limited_c !== 'function') {
+    if (difficulty >= 25) {
+      throw new Error('acceptance node wasm pow solver unavailable for high difficulty challenge')
+    }
+
+    return solvePowNonce(salt, browserFp, difficulty, deadlineMs)
+  }
+
+  const saltPtr = writeAcceptanceCString(module, salt)
+  const fpPtr = writeAcceptanceCString(module, browserFp)
+  const outputPtr = module._malloc(2048)
+
+  try {
+    let startNonce = 0
+    while (Date.now() <= deadlineMs) {
+      const remainingNonceSpace = 0x1_0000_0000 - startNonce
+      const attempts = Math.min(acceptanceNodePowBatchSize, remainingNonceSpace)
+      const resultLength = module._solve_pow_limited_c(saltPtr, fpPtr, difficulty, startNonce, attempts, outputPtr, 2048)
+      if (resultLength < 0) {
+        throw new Error(`acceptance node wasm pow solver failed: ${resultLength}`)
+      }
+
+      if (resultLength > 0) {
+        const nonce = readAcceptanceCString(module, outputPtr, Math.min(resultLength + 1, 2048))
+        const hash = createHash('sha256').update(`${salt}:${nonce}:${browserFp}`, 'utf8').digest()
+        expect(hasLeadingDifficulty(hash, difficulty), `acceptance node wasm pow solver returned invalid nonce for difficulty ${difficulty}`).toBe(true)
+        return nonce
+      }
+
+      startNonce = (startNonce + attempts) >>> 0
+      if (startNonce === 0 || attempts <= 0) {
+        break
+      }
+
+      await yieldToAcceptanceEventLoop()
+    }
+
+    throw new Error(`acceptance node wasm pow solver timed out for difficulty ${difficulty}`)
+  } finally {
+    module._free(outputPtr)
+    module._free(fpPtr)
+    module._free(saltPtr)
   }
 }
 
@@ -335,9 +488,12 @@ function decodeAcceptanceBinaryFrame(buffer: ArrayBuffer) {
   }
 }
 
-async function buildAcceptancePowHeaders(): Promise<Record<string, string>> {
+async function buildAcceptancePowHeaders(deviceFingerprint: string): Promise<Record<string, string>> {
   const challenge = await fetchAcceptanceAeds('/api/binary/auth/pow-challenge', {
-    headers: { Accept: AEDS_BINARY_MEDIA_TYPE }
+    headers: {
+      Accept: AEDS_BINARY_MEDIA_TYPE,
+      [FSUS_HEADERS.deviceFingerprint]: deviceFingerprint
+    }
   })
 
   const salt = challenge.salt ?? challenge.Salt
@@ -349,12 +505,12 @@ async function buildAcceptancePowHeaders(): Promise<Record<string, string>> {
     throw new Error('acceptance pow challenge payload invalid')
   }
 
-  const nonce = solvePowNonce(salt, acceptanceDeviceFingerprint, difficulty)
-  const proof = encodeAcceptancePowProofHeader({ salt, nonce, timestamp, difficulty, signature, browserFp: acceptanceDeviceFingerprint })
+  const nonce = await solvePowNonceOptimized(salt, deviceFingerprint, difficulty, 30_000)
+  const proof = encodeAcceptancePowProofHeader({ salt, nonce, timestamp, difficulty, signature, browserFp: deviceFingerprint })
 
   return {
     [FSUS_HEADERS.powProof]: proof,
-    [FSUS_HEADERS.deviceFingerprint]: acceptanceDeviceFingerprint
+    [FSUS_HEADERS.deviceFingerprint]: deviceFingerprint
   }
 }
 
@@ -481,7 +637,8 @@ function normalizeRequestHeaders(headers: HeadersInit | undefined): Record<strin
 }
 
 async function loginViaApi(username: string, password: string) {
-  const powHeaders = await buildAcceptancePowHeaders()
+  const deviceFingerprint = nextAcceptanceId('login-fp')
+  const powHeaders = await buildAcceptancePowHeaders(deviceFingerprint)
   const response = await fetch(`${acceptanceBackendUrl}/api/binary/auth/login`, withAcceptanceSessionHeaders({
     method: 'POST',
     headers: {
@@ -966,12 +1123,12 @@ export async function assertToastInViewport(page: Page): Promise<void> {
   expect(box.x + Math.min(box.width, viewport.width), 'toast should not exceed viewport width').toBeLessThanOrEqual(viewport.width + 4)
 }
 
-export async function expectAnyToastText(page: Page, pattern: RegExp): Promise<void> {
+export async function expectAnyToastText(page: Page, pattern: RegExp, timeout = 15_000): Promise<void> {
   await expect
     .poll(async () => {
       const texts = await page.locator('.el-message').allTextContents()
       return texts.some((text) => pattern.test(text))
-    }, { message: `expected a toast matching ${pattern}` })
+    }, { message: `expected a toast matching ${pattern}`, timeout })
     .toBe(true)
 }
 
@@ -996,13 +1153,13 @@ export async function expectRouteAndShell(page: Page, audit: RuntimeAudit, route
   await waitForAppReady(page)
   await settlePage(page)
 
-  if (route.expectedUrl) {
+  if (route.expectedUrl || route.expectedPathname) {
     await expect
       .poll(() => {
         const current = new URL(page.url())
-        return `${current.pathname}${current.search}`
+        return route.expectedUrl ? `${current.pathname}${current.search}` : current.pathname
       }, { message: `${route.label} should land on expected route` })
-      .toBe(route.expectedUrl)
+      .toBe(route.expectedUrl ?? route.expectedPathname)
   }
 
   await expect(page.locator('#app')).toHaveCount(1)

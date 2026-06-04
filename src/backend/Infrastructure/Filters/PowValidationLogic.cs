@@ -184,7 +184,7 @@ internal static partial class PowValidationLogic
         return true;
     }
 
-    [LoggerMessage(EventId = 101, Level = LogLevel.Warning, Message = "PoW 验证逻辑拒绝访问 | IP: {IP} | 原因: {Reason}")]
+    [LoggerMessage(EventId = 101, Level = LogLevel.Information, Message = "PoW 验证逻辑拒绝访问 | IP: {IP} | 原因: {Reason}")]
     private static partial void LogAccessDenied(ILogger logger, string ip, string reason);
 
     [LoggerMessage(EventId = 102, Level = LogLevel.Information, Message = "PoW 代理穿透修正成功 | 原始 IP: {RealIp} | 退化 IP: {ProxyIp}")]

@@ -207,15 +207,15 @@ public sealed class PublicAotRouteManifestProvider(
         ISugarQueryable<Article> query = db.Queryable<Article>()
             .Where(article => !article.IsDeleted
                 && article.Status == ArticleStatus.Published
-                && (!article.PublishedAt.HasValue || article.PublishedAt.Value <= utcNow)
-                && (!article.ScheduledPublishAt.HasValue || article.ScheduledPublishAt.Value <= utcNow));
+                && (article.PublishedAt == null || article.PublishedAt <= utcNow)
+                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= utcNow));
 
         if (scope.ChangedSinceUtc is { } changedSinceUtc)
         {
             DateTime since = changedSinceUtc.UtcDateTime;
             query = query.Where(article => article.CreateTime >= since
-                || (article.PublishedAt.HasValue && article.PublishedAt.Value >= since)
-                || (article.ScheduledPublishAt.HasValue && article.ScheduledPublishAt.Value >= since));
+                || (article.PublishedAt != null && article.PublishedAt >= since)
+                || (article.ScheduledPublishAt != null && article.ScheduledPublishAt >= since));
         }
 
         query = query

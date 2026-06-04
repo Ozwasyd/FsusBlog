@@ -413,6 +413,46 @@ bool solve_range_scalar(
     }
 }
 
+bool solve_limited_scalar(
+    const char* salt,
+    std::size_t salt_len,
+    const char* browser_fp,
+    std::size_t browser_fp_len,
+    int difficulty,
+    std::uint32_t start_nonce,
+    std::uint32_t max_attempts,
+    std::uint32_t& solution) noexcept
+{
+    if (max_attempts == 0u) {
+        return false;
+    }
+
+    std::uint8_t blocks[kShortBlockBytes];
+    std::uint32_t state[8];
+    std::uint32_t nonce = start_nonce;
+
+    for (std::uint32_t attempt = 0; attempt < max_attempts; ++attempt) {
+        int block_count = 0;
+        if (!build_short_blocks(salt, salt_len, browser_fp, browser_fp_len, nonce, blocks, block_count)) [[unlikely]] {
+            return false;
+        }
+
+        sha256::digest_blocks(blocks, block_count, state);
+        if (meets_difficulty(state, difficulty)) {
+            solution = nonce;
+            return true;
+        }
+
+        const std::uint32_t next = nonce + 1u;
+        if (next < nonce) [[unlikely]] {
+            return false;
+        }
+        nonce = next;
+    }
+
+    return false;
+}
+
 #ifdef __wasm_simd128__
 bool solve_range_simd4(
     const char* salt,
@@ -479,6 +519,71 @@ bool solve_range_simd4(
         }
         nonce = next;
     }
+}
+
+bool solve_limited_simd4(
+    const char* salt,
+    std::size_t salt_len,
+    const char* browser_fp,
+    std::size_t browser_fp_len,
+    int difficulty,
+    std::uint32_t start_nonce,
+    std::uint32_t max_attempts,
+    std::uint32_t& solution) noexcept
+{
+    if (max_attempts == 0u) {
+        return false;
+    }
+
+    if (difficulty > 32) [[unlikely]] {
+        return solve_limited_scalar(salt, salt_len, browser_fp, browser_fp_len, difficulty, start_nonce, max_attempts, solution);
+    }
+
+    alignas(16) std::uint8_t blocks[4][kShortBlockBytes];
+    v128_t state[8];
+    std::uint32_t nonce = start_nonce;
+    std::uint32_t attempted = 0;
+
+    while (attempted < max_attempts) {
+        const std::uint32_t remaining = max_attempts - attempted;
+        if (remaining < 4u || nonce > std::numeric_limits<std::uint32_t>::max() - 3u) [[unlikely]] {
+            return solve_limited_scalar(salt, salt_len, browser_fp, browser_fp_len, difficulty, nonce, remaining, solution);
+        }
+
+        int block_counts[4] = {};
+        std::uint32_t candidates[4] = {};
+
+        for (int lane = 0; lane < 4; ++lane) {
+            candidates[lane] = nonce + static_cast<std::uint32_t>(lane);
+            if (!build_short_blocks(salt, salt_len, browser_fp, browser_fp_len, candidates[lane], blocks[lane], block_counts[lane])) [[unlikely]] {
+                return solve_limited_scalar(salt, salt_len, browser_fp, browser_fp_len, difficulty, nonce, remaining, solution);
+            }
+        }
+
+        if (block_counts[0] != block_counts[1] || block_counts[0] != block_counts[2] || block_counts[0] != block_counts[3]) [[unlikely]] {
+            return solve_limited_scalar(salt, salt_len, browser_fp, browser_fp_len, difficulty, nonce, remaining, solution);
+        }
+
+        sha256::simd4::digest_blocks(blocks[0], blocks[1], blocks[2], blocks[3], block_counts[0], state);
+        const std::uint32_t state0[4] = {
+            static_cast<std::uint32_t>(wasm_i32x4_extract_lane(state[0], 0)),
+            static_cast<std::uint32_t>(wasm_i32x4_extract_lane(state[0], 1)),
+            static_cast<std::uint32_t>(wasm_i32x4_extract_lane(state[0], 2)),
+            static_cast<std::uint32_t>(wasm_i32x4_extract_lane(state[0], 3))
+        };
+
+        for (int lane = 0; lane < 4; ++lane) {
+            if (meets_difficulty_first_word(state0[lane], difficulty)) {
+                solution = candidates[lane];
+                return true;
+            }
+        }
+
+        nonce += 4u;
+        attempted += 4u;
+    }
+
+    return false;
 }
 #endif
 
@@ -583,6 +688,43 @@ int solve_pow_range_c(
     int output_length)
 {
     return solve_pow_range_impl(salt, browser_fp, difficulty, start_nonce, step, output, output_length);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int solve_pow_limited_c(
+    const char* salt,
+    const char* browser_fp,
+    int difficulty,
+    std::uint32_t start_nonce,
+    std::uint32_t max_attempts,
+    char* output,
+    int output_length)
+{
+    if (output == nullptr || output_length <= 0) {
+        return -1;
+    }
+
+    std::size_t salt_len = 0;
+    std::size_t fp_len = 0;
+    if (!validate_inputs(salt, browser_fp, difficulty, salt_len, fp_len)) {
+        return -1;
+    }
+
+    if (difficulty <= 0) {
+        return write_solution(0, output, output_length);
+    }
+
+    std::uint32_t solution = 0;
+#ifdef __wasm_simd128__
+    const bool solved = solve_limited_simd4(salt, salt_len, browser_fp, fp_len, difficulty, start_nonce, max_attempts, solution);
+#else
+    const bool solved = solve_limited_scalar(salt, salt_len, browser_fp, fp_len, difficulty, start_nonce, max_attempts, solution);
+#endif
+    if (!solved) {
+        return 0;
+    }
+
+    return write_solution(solution, output, output_length);
 }
 
 }

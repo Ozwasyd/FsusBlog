@@ -70,7 +70,7 @@ public class RedisPowService : IPowService
         // 1. 签名校验 (防重放与篡改)
         if (!BasicValidate(req, clientIp))
         {
-            _logger.LogWarning("PoW 签名非法 | Salt: {Salt}", req.PowSalt);
+            _logger.LogInformation("PoW 签名非法 | Salt: {Salt}", req.PowSalt);
             return false;
         }
 

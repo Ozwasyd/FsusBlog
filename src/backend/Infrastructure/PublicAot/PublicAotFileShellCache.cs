@@ -89,7 +89,7 @@ public sealed class PublicAotFileShellCache(
 
             if (removed == 0)
             {
-                logger.LogWarning(
+                logger.LogInformation(
                     "public-aot-prefix-invalidation-registry-missing {Prefix}; skipped disk scan",
                     prefix);
                 await PublishInvalidationAsync(prefix).ConfigureAwait(false);

@@ -1,4 +1,5 @@
-import { expect, test, type Browser, type Locator, type Page, type StorageState } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import type { Browser, Locator, Page, StorageState } from '@playwright/test'
 import {
   buildAdminRoutes,
   buildAnonymousRoutes,
@@ -117,7 +118,9 @@ async function expectRoute(page: Page, audit: RuntimeAudit, route: RouteCheck): 
   await expect
     .poll(() => {
       const current = new URL(page.url())
-      return `${current.pathname}${current.search}`
+      return route.expectedUrl.includes('?')
+        ? `${current.pathname}${current.search}`
+        : current.pathname
     }, { message: `${route.name} should land on expected route` })
     .toBe(route.expectedUrl)
 

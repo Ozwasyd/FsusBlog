@@ -133,7 +133,8 @@ fi
 
 CLIENT_ROOT_TEST_FILES="$(
   find "$CLIENT_TEST_DIR" -maxdepth 1 -type f \
-    ! -name 'README.md' | sort
+    ! -name 'README.md' \
+    ! -name 'package.json' | sort
 )"
 
 if [[ -n "$CLIENT_ROOT_TEST_FILES" ]]; then

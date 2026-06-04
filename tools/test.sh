@@ -16,6 +16,7 @@ VISUAL_HTTP_TIMEOUT_MS="${FSUSBLOG_VISUAL_HTTP_TIMEOUT_MS:-15000}"
 SECURITY_HTTP_TIMEOUT_MS="${FSUSBLOG_SECURITY_HTTP_TIMEOUT_MS:-15000}"
 RESILIENCE_HTTP_TIMEOUT_MS="${FSUSBLOG_RESILIENCE_HTTP_TIMEOUT_MS:-15000}"
 LOAD_HTTP_TIMEOUT_MS="${FSUSBLOG_LOAD_HTTP_TIMEOUT_MS:-10000}"
+POW_READY_MAX_DIFFICULTY="${FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY:-20}"
 
 DEBUG_FRONTEND_URL="${FSUSBLOG_DEBUG_FRONTEND_URL:-http://127.0.0.1:3000}"
 DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:5000}"
@@ -176,6 +177,46 @@ require_debug_stack() {
 require_release_preview() {
   log "require release preview: 8080"
   probe_url "release preview" "$RELEASE_PREVIEW_URL/"
+}
+
+current_pow_difficulty() {
+  (
+    cd "$ROOT_DIR"
+    FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" node --input-type=module -e "import { fetchChallenge } from './tests/frontend/support/auth-helpers.mjs'; const challenge = await fetchChallenge(5000); console.log(challenge.difficulty ?? challenge.Difficulty ?? 999);"
+  )
+}
+
+wait_for_pow_ready() {
+  local label="${1:-pow}"
+  local max_difficulty="$POW_READY_MAX_DIFFICULTY"
+  local difficulty=""
+
+  for ((i=0; i<30; i+=1)); do
+    difficulty="$(current_pow_difficulty 2>/dev/null || true)"
+    if [[ "$difficulty" =~ ^[0-9]+$ ]] && (( difficulty <= max_difficulty )); then
+      log "${label}: pow difficulty ready: ${difficulty}"
+      return 0
+    fi
+
+    sleep 1
+  done
+
+  fail "${label}: pow difficulty did not settle below ${max_difficulty}; last=${difficulty:-unknown}"
+}
+
+reset_security_runtime_state() {
+  local label="${1:-security runtime state}"
+  if [[ "${FSUSBLOG_RESET_SECURITY_TEST_STATE:-1}" == "0" ]]; then
+    return
+  fi
+
+  local deleted
+  deleted="$(docker exec fsusblog-redis sh -c "redis-cli --scan --pattern '*fsus:sec:pow-risk:*' | xargs -r redis-cli DEL" 2>/dev/null || true)"
+  deleted="${deleted:-0}"
+  if [[ "$deleted" =~ ^[0-9]+$ ]] && (( deleted > 0 )); then
+    log "${label}: reset local security PoW risk keys: ${deleted}"
+  fi
+  wait_for_pow_ready "$label"
 }
 
 run_tier() {
@@ -421,7 +462,13 @@ run_release_only() {
   export FSUSBLOG_HTTP_TIMEOUT_MS="$RELEASE_HTTP_TIMEOUT_MS"
 
   run_in_client npm run check:public-hydration-rebuild
-  run_in_client npm run rebuild:public-hydration
+  # Public AOT warmup/backfill is a backend operation; Vite preview only serves static release assets.
+  run_in_client env \
+    FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" \
+    FSUSBLOG_PUBLIC_BASE_URL="$DEBUG_BACKEND_URL" \
+    npm run rebuild:public-hydration
+  export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
+  export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
   run_in_client node ../../tests/frontend/checks/public/aot-regression.mjs
   export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
   run_in_client npm run check:search-runtime
@@ -438,6 +485,7 @@ run_acceptance_only() {
   log "tier=acceptance | full Playwright acceptance e2e, requires frontend=3000 backend=5000 preview=8080"
   require_debug_stack
   require_release_preview
+  reset_security_runtime_state "pre acceptance"
 
   if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
     export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
@@ -455,6 +503,7 @@ run_acceptance_only() {
   export FSUSBLOG_HTTP_TIMEOUT_MS="$ACCEPTANCE_HTTP_TIMEOUT_MS"
   run_in_client npm run check:spa:routes
   run_in_client npm run check:acceptance:auth
+  reset_security_runtime_state "pre console acceptance"
   run_in_client npm run check:acceptance:console
 }
 
@@ -471,6 +520,7 @@ run_visual_only() {
   log "tier=visual | dark/mobile visual gates"
   require_debug_stack
   require_release_preview
+  reset_security_runtime_state "pre visual"
 
   export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
   export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
@@ -519,12 +569,16 @@ run_security_only() {
   run_in_client npm run check:auth-session-smoke
   run_in_client npm run check:security:auth-mfa
   run_in_client npm run check:security:auth-passkey
+  reset_security_runtime_state "pre permission matrix"
   run_in_client npm run check:security:permissions
   run_in_client npm run check:security:headers-cors
   run_in_client npm run check:security:attack-matrix
+  reset_security_runtime_state "post attack matrix"
   run_in_client npm run check:security:sse-binary
+  reset_security_runtime_state "pre a11y smoke"
   run_in_client npm run check:a11y:smoke
   run_in_client npm run check:security:dast
+  reset_security_runtime_state "post security gate"
 }
 
 run_security() {
@@ -537,6 +591,7 @@ run_resilience_only() {
   log "tier=resilience | runtime/upload/search/sse/binary resilience"
   require_debug_stack
   require_release_preview
+  reset_security_runtime_state "pre resilience"
 
   export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
   export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
@@ -562,6 +617,7 @@ run_load_only() {
   log "tier=load | lightweight public/api and SSE concurrency checks"
   require_debug_stack
   require_release_preview
+  reset_security_runtime_state "pre load"
 
   export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
   export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
@@ -610,10 +666,22 @@ run_production() {
   export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/acceptance'
   run_tier "acceptance" run_acceptance_only
   if [[ "${FSUSBLOG_ENABLE_CROSS_BROWSER:-0}" == "1" ]]; then
+    local previous_playwright_browsers="${FSUSBLOG_PLAYWRIGHT_BROWSERS-}"
+    local previous_playwright_base_url="${PLAYWRIGHT_BASE_URL-}"
     export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/cross-browser'
     export FSUSBLOG_PLAYWRIGHT_BROWSERS="${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,firefox,webkit}"
     export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
     run_in_client npm run check:cross-browser:smoke
+    if [[ -n "$previous_playwright_browsers" ]]; then
+      export FSUSBLOG_PLAYWRIGHT_BROWSERS="$previous_playwright_browsers"
+    else
+      unset FSUSBLOG_PLAYWRIGHT_BROWSERS
+    fi
+    if [[ -n "$previous_playwright_base_url" ]]; then
+      export PLAYWRIGHT_BASE_URL="$previous_playwright_base_url"
+    else
+      unset PLAYWRIGHT_BASE_URL
+    fi
   fi
   if [[ "${FSUSBLOG_SKIP_VISUAL_GATE:-0}" == "1" ]]; then
     record_visual_gate_skip

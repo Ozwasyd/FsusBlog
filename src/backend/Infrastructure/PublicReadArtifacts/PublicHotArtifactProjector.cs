@@ -358,7 +358,7 @@ public sealed class PublicHotArtifactProjector(
             FROM article a
             LEFT JOIN category c ON a.categoryid = c.id
             WHERE {{whereSql}}
-            ORDER BY a.createtime DESC
+            ORDER BY a.createtime DESC, a.id DESC
             OFFSET @Offset
             LIMIT @Limit;
             """;

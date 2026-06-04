@@ -19,6 +19,7 @@ const PUBLIC_SHELL_PATHS = [
   /^\/tag\/\d+\/?$/
 ]
 const STATIC_ASSET_PATTERN = /\.(?:css|js|mjs|wasm|woff2?|ttf|otf|eot|ico|svg|png|jpe?g|webp|avif)$/i
+const WASM_RUNTIME_ASSET_PATTERN = /^\/wasm\/[^/]+\.(?:js|wasm)$/i
 
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting())
@@ -71,8 +72,14 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
+  if (WASM_RUNTIME_ASSET_PATTERN.test(url.pathname)) {
+    event.respondWith(networkFirstStatic(request))
+    return
+  }
+
   if (STATIC_ASSET_PATTERN.test(url.pathname)) {
     event.respondWith(cacheFirstStatic(request))
+    return
   }
 })
 
@@ -132,11 +139,29 @@ async function cacheFirstStatic(request) {
   try {
     const response = await fetch(request)
     if (response.ok) {
-      await cache.put(request, response.clone())
+      await putCacheEntry(cache, request, response)
     }
     return response
   } catch {
     return networkErrorResponse('static-network-unavailable')
+  }
+}
+
+async function networkFirstStatic(request) {
+  try {
+    return await fetch(request)
+  } catch {
+    const cache = await caches.open(STATIC_CACHE)
+    return (await cache.match(request)) ?? networkErrorResponse('static-network-unavailable')
+  }
+}
+
+async function putCacheEntry(cache, request, response) {
+  try {
+    await cache.put(request, response.clone())
+  } catch {
+    // Some browsers reject Cache API writes for module/Wasm-adjacent responses.
+    // The network response is still valid and should not fail the intercepted fetch.
   }
 }
 

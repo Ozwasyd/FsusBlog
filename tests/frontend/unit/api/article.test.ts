@@ -48,6 +48,12 @@ describe('article API (binary)', () => {
     expect(call.binaryUrl).toBe('/api/binary/article/list/tag/3/2/10.aeds')
   })
 
+  it('getArticles can target archive artifact route', async () => {
+    await getArticles({ listKind: 'archive' })
+    const call = mockBinary.mock.calls[0][0]
+    expect(call.binaryUrl).toBe('/api/binary/article/list/archive/1/10.aeds')
+  })
+
   it('getArticleById calls binary detail endpoint', async () => {
     await getArticleById(42)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({

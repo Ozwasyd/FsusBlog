@@ -18,6 +18,8 @@ const decodeWorker = read('src/frontend/src/workers/wasmDecode.worker.ts')
 const powWorker = read('src/frontend/src/workers/pow.worker.ts')
 const wasmImageCodec = read('src/frontend/src/utils/wasmImageCodec.ts')
 const localSearch = read('src/frontend/src/services/localSearch.ts')
+const searchCmake = read('src/frontend/wasm/search/CMakeLists.txt')
+const powCmake = read('src/frontend/wasm/pow/CMakeLists.txt')
 
 assert(binaryTransport, 'const MAIN_THREAD_DECODE_MAX_BYTES = 4096', 'binary small-payload threshold')
 assert(binaryTransport, 'const DECODE_WORKER_TIMEOUT_MS = 15000', 'binary worker timeout')
@@ -54,6 +56,9 @@ assert(localSearch, 'combineAbortSignals', 'search abort combinator')
 assert(localSearch, 'preloadBackgroundShard', 'search background preload')
 assert(localSearch, 'invalidateSearchIndexMemory', 'search SW invalidation')
 assert(localSearch, 'rankSearchPage(mapArticleSearchFromPodPayload(payload), query, sort)', 'search ranking post-runtime contract')
+assert(searchCmake, '-sEXPORTED_RUNTIME_METHODS=["HEAPU8"]', 'search wasm heap export')
+assert(powCmake, '-sEXPORTED_RUNTIME_METHODS=[\\"HEAPU8\\"]', 'pow wasm heap export')
+assert(powCmake, '_solve_pow_limited_c', 'pow wasm bounded node solver export')
 
 if (errors.length > 0) {
   for (const error of errors) {

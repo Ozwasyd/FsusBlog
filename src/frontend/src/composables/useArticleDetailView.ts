@@ -217,7 +217,7 @@ export function useArticleDetailView() {
         relatedReading.value = response
       }
     } catch (error: unknown) {
-      if (!isAbortError(error) && lifecycle.isActive() && article.value?.id === articleId) {
+      if (import.meta.env.DEV && !isAbortError(error) && lifecycle.isActive() && article.value?.id === articleId) {
         console.warn('[Article] Related reading failed:', error)
       }
     }
@@ -335,7 +335,7 @@ export function useArticleDetailView() {
     }
 
     if (canReuseHydratedBootstrap || bootstrapArticle) {
-      await loadArticle(true, false)
+      await loadArticle(true, false, relatedReading.value === null)
       if (!lifecycle.isActive() || initVersion !== routeInitVersion || !article.value) {
         return
       }

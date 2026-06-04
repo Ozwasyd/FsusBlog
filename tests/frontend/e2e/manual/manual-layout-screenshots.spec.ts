@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
-import { expect, test, type Browser, type Page, type StorageState } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import type { Browser, Page, StorageState } from '@playwright/test'
 import {
   buildAdminRoutes,
   buildAnonymousRoutes,

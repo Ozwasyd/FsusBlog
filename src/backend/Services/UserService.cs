@@ -1080,13 +1080,13 @@ public partial class UserService(
     [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "注册竞态冲突 | 用户名: {Username}")]
     private partial void LogRegistrationConflict(string username);
 
-    [LoggerMessage(EventId = 2, Level = LogLevel.Warning, Message = "登录验证未通过 | 用户名: {Username} | IP: {IpAddress}")]
+    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "登录验证未通过 | 用户名: {Username} | IP: {IpAddress}")]
     private partial void LogLoginFailure(string username, string ipAddress);
 
     [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "封禁用户登录 | 用户名: {Username}")]
     private partial void LogBannedUserLogin(string username);
 
-    [LoggerMessage(EventId = 4, Level = LogLevel.Warning, Message = "续期失败 | 凭证失效")]
+    [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "续期失败 | 凭证失效")]
     private partial void LogTokenRefreshFailure();
 
     [LoggerMessage(EventId = 5, Level = LogLevel.Information, Message = "受限用户执行令牌续期 | 用户: {Username} | 状态: 只读模式")]

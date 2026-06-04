@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import {
   DESKTOP_VIEWPORT,
   openAuditedPage,
@@ -29,7 +30,7 @@ test.describe('auth flows acceptance', () => {
   test('register auto-login redirects to requested page', async ({ browser }) => {
     const session = await openAuditedPage(browser)
     const randomSuffix = Array.from({ length: 8 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join('')
-    const username = `uiregister${randomSuffix}`
+    const username = `uiacct${randomSuffix}`
     const password = 'UiRegisterPass123!'
 
     try {
@@ -80,9 +81,9 @@ test.describe('auth flows acceptance', () => {
       await waitForAppReady(session.page)
       await session.page.locator('#username').fill('definitely_missing_user')
       await session.page.locator('#password').fill('WrongPass123!')
-      let loginErrorText = await submitAndAwaitAuthAlert(session.page, /进行|登录中|安全校验中/, '#login-error')
+      let loginErrorText = await submitAndAwaitAuthAlert(session.page, /^登录$|登录中|安全校验中/, '#login-error')
       if (loginErrorText === '安全校验已刷新，请重新提交') {
-        loginErrorText = await submitAndAwaitAuthAlert(session.page, /进行|登录中|安全校验中/, '#login-error')
+        loginErrorText = await submitAndAwaitAuthAlert(session.page, /^登录$|登录中|安全校验中/, '#login-error')
       }
 
       expect(loginErrorText).toMatch(/用户名或密码错误|无法继续登录|锁定/)

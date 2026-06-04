@@ -19,6 +19,7 @@ public sealed partial class FileService : IFileService
     private const uint UploadSessionMagic = 0x53505546; // FUPS
     private const byte UploadSessionVersion = 1;
     private static readonly TimeSpan SessionTtl = TimeSpan.FromHours(6);
+    private static readonly TimeSpan ManifestlessSessionGracePeriod = TimeSpan.FromMinutes(1);
 
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<FileService> _logger;
@@ -900,6 +901,11 @@ public sealed partial class FileService : IFileService
             string manifestPath = Path.Combine(sessionPath, "manifest.aeds");
             if (!File.Exists(manifestPath))
             {
+                if (!IsStaleManifestlessSession(sessionPath))
+                {
+                    continue;
+                }
+
                 Directory.Delete(sessionPath, true);
                 RetireSessionLock(Path.GetFileName(sessionPath));
                 continue;
@@ -920,6 +926,18 @@ public sealed partial class FileService : IFileService
                 RetireSessionLock(Path.GetFileName(sessionPath));
             }
         }
+    }
+
+    private static bool IsStaleManifestlessSession(string sessionPath)
+    {
+        DateTime lastActivityUtc = Directory.GetLastWriteTimeUtc(sessionPath);
+        DateTime createdAtUtc = Directory.GetCreationTimeUtc(sessionPath);
+        if (createdAtUtc > lastActivityUtc)
+        {
+            lastActivityUtc = createdAtUtc;
+        }
+
+        return lastActivityUtc <= DateTime.UtcNow.Subtract(ManifestlessSessionGracePeriod);
     }
 
     private async Task DeleteSessionDirectoryAsync(string uploadId)

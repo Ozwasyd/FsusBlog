@@ -19,6 +19,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildUserSessionFinalizeMigration(),
         BuildUserAuthSecurityHardeningMigration(),
         BuildAuditLogMigration(),
+        BuildAuditLogStructuredFieldsPreCodeFirstMigration(),
         BuildAuditLogStructuredFieldsMigration(),
         BuildFrontendRumMetricMigration(),
         BuildCoverImageMigration(),
@@ -551,6 +552,58 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_audit_record_hash",
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_record_hash ON sys_audit_log(record_hash) WHERE record_hash IS NOT NULL;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAuditLogStructuredFieldsPreCodeFirstMigration()
+        => new SchemaMigrationDescriptor(
+            "20260603-pre-audit-structured-fields-codefirst-compat",
+            "Create structured audit fields before CodeFirst sync touches non-null audit columns.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("sys_audit_log", "actor_type", "varchar(32) NULL"),
+                new EnsureColumnStep("sys_audit_log", "actor_id", "varchar(64) NULL"),
+                new EnsureColumnStep("sys_audit_log", "actor_role", "varchar(32) NULL"),
+                new EnsureColumnStep("sys_audit_log", "action", "varchar(96) NULL DEFAULT ''log.recorded''"),
+                new EnsureColumnStep("sys_audit_log", "target_type", "varchar(64) NULL"),
+                new EnsureColumnStep("sys_audit_log", "target_id", "varchar(128) NULL"),
+                new EnsureColumnStep("sys_audit_log", "outcome", "varchar(32) NULL DEFAULT ''unknown''"),
+                new EnsureColumnStep("sys_audit_log", "severity", "varchar(32) NULL DEFAULT ''info''"),
+                new EnsureColumnStep("sys_audit_log", "is_high_value", "boolean NULL DEFAULT false"),
+                new EnsureColumnStep("sys_audit_log", "trace_id", "varchar(128) NULL"),
+                new EnsureColumnStep("sys_audit_log", "request_path", "varchar(256) NULL"),
+                new EnsureColumnStep("sys_audit_log", "request_method", "varchar(16) NULL"),
+                new EnsureColumnStep("sys_audit_log", "ip_hash", "varchar(64) NULL"),
+                new EnsureColumnStep("sys_audit_log", "user_agent_hash", "varchar(64) NULL"),
+                new EnsureColumnStep("sys_audit_log", "session_id_hash", "varchar(64) NULL"),
+                new EnsureColumnStep("sys_audit_log", "device_fingerprint_hash", "varchar(64) NULL"),
+                new EnsureColumnStep("sys_audit_log", "reason_code", "varchar(64) NULL"),
+                new EnsureColumnStep("sys_audit_log", "context_json", "text NULL"),
+                new EnsureColumnStep("sys_audit_log", "chain_id", "varchar(32) NULL"),
+                new EnsureColumnStep("sys_audit_log", "prev_hash", "varchar(64) NULL"),
+                new EnsureColumnStep("sys_audit_log", "record_hash", "varchar(64) NULL"),
+                new EnsureColumnStep("sys_audit_log", "record_mac", "varchar(64) NULL"),
+                new RawSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'sys_audit_log'
+                        ) THEN
+                            UPDATE sys_audit_log
+                            SET action = COALESCE(action, 'log.recorded'),
+                                outcome = COALESCE(outcome, 'unknown'),
+                                severity = COALESCE(severity, 'info'),
+                                is_high_value = COALESCE(is_high_value, false);
+
+                            ALTER TABLE sys_audit_log ALTER COLUMN action SET NOT NULL;
+                            ALTER TABLE sys_audit_log ALTER COLUMN outcome SET NOT NULL;
+                            ALTER TABLE sys_audit_log ALTER COLUMN severity SET NOT NULL;
+                            ALTER TABLE sys_audit_log ALTER COLUMN is_high_value SET NOT NULL;
+                        END IF;
+                    END $$;
+                    """)
             ]);
 
     private static ISchemaMigrationDescriptor BuildFrontendRumMetricMigration()

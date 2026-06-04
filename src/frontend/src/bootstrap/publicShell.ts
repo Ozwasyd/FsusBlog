@@ -203,23 +203,47 @@ function ensureEmergencyPublicShellStyle(): void {
     return
   }
 
-  const style = document.createElement('style')
-  style.id = styleId
-  const nonce = (window as CspNonceWindow).__FSUSBLOG_CSP_NONCE__
-  if (nonce) {
-    style.nonce = nonce
+  const link = document.createElement('link')
+  link.id = styleId
+  link.rel = 'stylesheet'
+  link.href = '/public-shell-emergency.css'
+  document.head.appendChild(link)
+}
+
+function readCurrentCspNonce(): string {
+  const nonceSource = document.querySelector(
+    'script[nonce], style[nonce], meta[property="csp-nonce"]'
+  ) as (HTMLElement & { nonce?: string }) | null
+
+  return (window as CspNonceWindow).__FSUSBLOG_CSP_NONCE__
+    || nonceSource?.nonce
+    || nonceSource?.getAttribute('nonce')
+    || ''
+}
+
+function applyCurrentCspNonceToImportedHead(node: Node): void {
+  if (!(node instanceof Element)) {
+    return
   }
-  style.textContent = `
-#fsus-aot-shell{font-family:var(--font-sans,"Google Sans","Noto Sans SC","Noto Sans TC","Noto Sans JP",ui-sans-serif,system-ui,sans-serif);background:var(--fsusblog-page-bg,Canvas);color:var(--fsusblog-text-primary,CanvasText);line-height:1.6}
-#fsus-aot-shell :where(.mono-link,.nav-link,.blog-link-state,[data-public-link]){color:var(--fsusblog-text-secondary,GrayText);text-decoration:none}
-#fsus-aot-shell .mono-link,#fsus-aot-shell .active-link{font-size:.875rem}
-#fsus-aot-shell .active-link{color:var(--fsusblog-text-primary,CanvasText);font-weight:700}
-#fsus-aot-shell .ui-article-card{display:flex;flex-direction:column;gap:.75rem}
-#fsus-aot-shell .ui-article-title{font-size:1.35rem;line-height:1.3;font-weight:700;color:var(--fsusblog-text-primary,CanvasText)}
-#fsus-aot-shell .ui-article-summary{font-size:.96rem;line-height:1.75;color:var(--fsusblog-text-secondary,GrayText)}
-#fsus-aot-shell .ui-pagination{display:flex;align-items:center;justify-content:space-between;margin-top:2rem;padding-top:1rem;border-top:1px solid var(--fsusblog-panel-border,ButtonBorder)}
-`
-  document.head.appendChild(style)
+
+  const nonce = readCurrentCspNonce()
+  if (!nonce) {
+    return
+  }
+
+  const apply = (element: Element) => {
+    const tag = element.tagName.toLowerCase()
+    if (tag !== 'style' && tag !== 'script') {
+      return
+    }
+
+    const target = element as HTMLElement & { nonce?: string }
+    target.nonce = nonce
+    target.setAttribute('nonce', nonce)
+  }
+
+  apply(node)
+  node.querySelectorAll('style,script').forEach(apply)
 }
 
 export async function ensurePublicShellStylesReady(): Promise<void> {
@@ -569,8 +593,14 @@ function syncHeadFromDocument(targetDocument: Document): void {
 
   document.head.querySelectorAll('[data-fsus-aot-head]').forEach((node) => node.remove())
   targetDocument.head.querySelectorAll('[data-fsus-aot-head]').forEach((node) => {
-    document.head.appendChild(document.importNode(node, true))
+    const imported = document.importNode(node, true)
+    applyCurrentCspNonceToImportedHead(imported)
+    document.head.appendChild(imported)
   })
+}
+
+function stripInlineStyleTagsForDetachedParse(html: string): string {
+  return html.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
 }
 
 function updateHistoryStateForCurrentScroll(): void {
@@ -710,7 +740,7 @@ async function navigateWithinPublicShell(
         return
       }
 
-      const nextDocument = new DOMParser().parseFromString(html, 'text/html')
+      const nextDocument = new DOMParser().parseFromString(stripInlineStyleTagsForDetachedParse(html), 'text/html')
       if (isHydratablePublicDocument(nextDocument)) {
         await applyPublicNavigationDocument(
           nextDocument,

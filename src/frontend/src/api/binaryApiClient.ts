@@ -23,11 +23,7 @@ export class BinaryRequestError extends AppError {
   }
 }
 
-async function buildPowHeadersIfNeeded(url: string, options?: BinaryRequestOptions): Promise<Record<string, string>> {
-  if (!options?.requiresPow || url.includes('pow-challenge')) {
-    return {}
-  }
-
+export async function buildBinaryPowHeaders(): Promise<Record<string, string>> {
   const { calculate } = usePow()
   const challengeResponse = await fetch('/api/binary/auth/pow-challenge?_t=' + Date.now(), {
     credentials: 'include',
@@ -50,6 +46,14 @@ async function buildPowHeadersIfNeeded(url: string, options?: BinaryRequestOptio
       [FSUS_HEADERS.deviceFingerprint]: fp,
       [FSUS_HEADERS.powProof]: encodeBinaryPowProofHeader({ salt, nonce, timestamp, difficulty, signature, browserFp: fp })
   }
+}
+
+async function buildPowHeadersIfNeeded(url: string, options?: BinaryRequestOptions): Promise<Record<string, string>> {
+  if (!options?.requiresPow || url.includes('pow-challenge')) {
+    return {}
+  }
+
+  return await buildBinaryPowHeaders()
 }
 
 function decodePowChallenge(buffer: ArrayBuffer): { salt: string; difficulty: number; timestamp: number; signature: string } {

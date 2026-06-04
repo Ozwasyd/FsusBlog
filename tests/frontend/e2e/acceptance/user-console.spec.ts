@@ -12,6 +12,7 @@ import {
   assertResponsiveLayoutContract,
   assertSectionsDoNotOverlap,
   assertToastInViewport,
+  expectAnyToastText,
   expectRouteAndShell,
   settlePage,
   waitForAppReady
@@ -54,7 +55,7 @@ for (const viewport of [
         },
         {
           path: '/user/messagebox',
-          expectedUrl: '/user/messagebox',
+          expectedPathname: '/user/messagebox',
           label: 'user-messagebox',
           selectors: [
             (page) => page.getByText('我的站内信', { exact: false }),
@@ -85,6 +86,9 @@ for (const viewport of [
         const revokeOthersButton = session.page.getByRole('button', { name: '下线其他设备' })
         await assertElementHitTarget(session.page, revokeOthersButton, 'revoke other sessions')
         await revokeOthersButton.click()
+        const revokeDialog = session.page.getByRole('dialog', { name: '下线其他设备' })
+        await expect(revokeDialog).toBeVisible()
+        await revokeDialog.getByRole('button', { name: '确认下线' }).click()
         await expect(session.page.locator('.el-message').last()).toContainText('其他设备已下线')
         await assertToastInViewport(session.page)
 
@@ -112,13 +116,29 @@ for (const viewport of [
         await settlePage(session.page)
 
         const unique = `Acceptance 工单 ${Date.now()}`
-        const subjectInput = session.page.locator('input[placeholder*="申诉"], input[placeholder*="系统通知"]').first()
-        const bodyInput = session.page.locator('textarea[placeholder*="描述问题"], textarea[placeholder*="消息正文"]').first()
+        if (viewport.size.width < 640) {
+          const newTicketButton = session.page.getByRole('button', { name: '新建工单' })
+          if (await newTicketButton.isVisible().catch(() => false)) {
+            await newTicketButton.click()
+          }
+        }
+        const subjectInput = session.page.locator('input[name^="ticketSubject"], input[placeholder*="申诉"], input[placeholder*="系统通知"]').first()
+        const bodyInput = session.page.locator('textarea[name^="ticketBody"], textarea[placeholder*="描述问题"], textarea[placeholder*="消息正文"]').first()
+        await expect(subjectInput).toBeVisible()
+        await expect(bodyInput).toBeVisible()
         await subjectInput.fill(unique)
         await bodyInput.fill('这是 acceptance 自动工单，用于验证消息中心主链。')
+        const ticketToastPromise = expectAnyToastText(session.page, /工单已创建/, 60_000)
+        const ticketCreateResponsePromise = session.page.waitForResponse((response) => {
+          const request = response.request()
+          const url = new URL(response.url())
+          return request.method() === 'POST' && url.pathname === '/api/binary/messages/conversations'
+        }, { timeout: 60_000 })
         await session.page.getByRole('button', { name: '提交工单' }).click()
 
-        await expect(session.page.locator('.el-message').last()).toContainText('工单已创建')
+        const ticketCreateResponse = await ticketCreateResponsePromise
+        expect(ticketCreateResponse.ok(), 'ticket create request should succeed').toBe(true)
+        await ticketToastPromise
         await assertToastInViewport(session.page)
         const threadPanel = session.page.locator('.mail-thread-panel').first()
         await expect(threadPanel.locator('.mail-header-title').first()).toContainText(unique)
