@@ -1,23 +1,22 @@
 # 测试策略
 
-FsusBlog 采用**多分层测试**架构，从纯单元测试到全量发布门控共 10 个层级，按依赖复杂度递进。机器可读测试矩阵位于 `tests/matrix.yml`，`tools/check-test-matrix.mjs` 在 fast gate 中校验每个 tier 的入口命令、owner 和 evidence 归档位置。
+FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑源，`tools/run-test-matrix.mjs` 负责 `validate` / `list` / `plan` / `run` / `ci-plan` / `docs` / `evidence-plan`，`tools/test.sh` 仅保留兼容入口并代理到 runner。
 
 ---
 
 ## 层级总览
 
-| 层级 | 命令 | 依赖 | 耗时估计 | 场景 |
-|------|------|------|---------|------|
-| `fast` | `./tools/test.sh fast` | 无 | < 30s | 纯单元，无 IO |
-| `integration` | `./tools/test.sh integration` | Docker、端口 3000/5000 | < 3min | 服务端集成 |
-| `ci` | `./tools/test.sh ci` | Docker | < 4min | fast + integration |
-| `release` | `./tools/test.sh release` | 端口 8080 | < 5min | 公开页/AOT/SEO |
-| `acceptance` | `./tools/test.sh acceptance` | 全部端口 | < 15min | 全量 Playwright E2E |
-| `visual` | `./tools/test.sh visual` | 全部端口 | < 10min | 视觉回归、截图基线 |
-| `security` | `./tools/test.sh security` | 全部端口 | < 10min | 认证/MFA/PoW/权限 |
-| `resilience` | `./tools/test.sh resilience` | 全部端口 | < 8min | 上传/搜索/SSE 弹性 |
-| `load` | `./tools/test.sh load` | 全部端口 | < 20min | 轻量并发压测 |
-| `production` | `./tools/test.sh production` | Docker、全部端口 | < 60min | 全量发布门控（fast 后强制 bootstrap，串行风险清单） |
+层级表由 `tests/matrix.yml` 生成，提交快照见 [testing.generated.md](testing.generated.md)。本地查看当前 production DAG：
+
+```bash
+./tools/test.sh production --plan-only
+```
+
+更新生成文档：
+
+```bash
+node tools/run-test-matrix.mjs docs --out docs/testing.generated.md
+```
 
 `load` 与 SSE pressure 检查会写入 `.tmp/perf/load-public-api.json` 和 `.tmp/perf/sse-pressure.json`，release evidence 会把 `.tmp/perf/` 作为性能证据归档。
 

@@ -1,199 +1,668 @@
-version: fsusblog-test-matrix-v1
+version: fsusblog-test-matrix-v2
+namespaceTemplate: ${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${MATRIX_JOB:-local}-${MATRIX_SHARD:-0}
 tiers:
+  - id: validate-matrix
+    owner: ServerContractAgent
+    command: node tools/run-test-matrix.mjs validate
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [test-dag]
+    artifacts: [.tmp/release-evidence/test-plan.json]
+    evidence: [.tmp/release-evidence/test-plan.json]
+    ciJob: validate-matrix
+    localOnly: false
+    nightlyOnly: false
+
+  - id: frontend-fast
+    owner: InteropGlueAgent
+    command: tools/test/lanes/frontend-fast.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [frontend-unit, frontend-property, frontend-static, contract-static]
+    artifacts: [src/frontend/coverage, .tmp/frontend]
+    evidence: [src/frontend/coverage, .tmp/frontend]
+    ciJob: fast-frontend-unit
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-fast
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-fast.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [backend-unit, backend-static]
+    artifacts: [.tmp/gate-logs]
+    evidence: [tests/backend/Fixtures/backend-test-requirements.json]
+    ciJob: fast-backend
+    localOnly: false
+    nightlyOnly: false
+
+  - id: static-governance
+    owner: ServerContractAgent
+    command: tools/test/lanes/static-governance.sh
+    dependsOn: [validate-matrix]
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [gate-integrity, matrix-integrity, evidence-schema]
+    artifacts: [.tmp/gate-logs, .tmp/release-evidence/test-plan.json]
+    evidence: [.tmp/gate-logs, .tmp/release-evidence/test-plan.json]
+    ciJob: fast-static-governance
+    localOnly: false
+    nightlyOnly: false
+
   - id: fast
     owner: ServerContractAgent
-    command: ./tools/test.sh fast
-    script: tools/test.sh
-    evidence: .tmp/acceptance/*.log
-    requirements: FAST-BUILD-UNIT-STATIC-PROPERTY-MODEL
+    command: tools/test/lanes/noop.sh fast
+    dependsOn: [frontend-fast, backend-fast, static-governance]
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 50
+    shardable: false
+    defaultShards: 1
     risk: high
-    coverage: frontend-unit-property-model-static backend-unit
+    coverage: [frontend-unit-property-model-static, backend-unit]
+    artifacts: [.tmp/gate-logs, src/frontend/coverage]
+    evidence: [.tmp/gate-logs, src/frontend/coverage]
+    ciJob: fast-summary
+    localOnly: false
+    nightlyOnly: false
 
-  - id: backend-api-integration
+  - id: coverage-backend
     owner: ServerContractAgent
-    command: ./tools/test.sh backend-api-integration
-    script: tools/test.sh
-    evidence: tests/backend/Fixtures/backend-test-requirements.json
-    requirements: BACKEND-ENDPOINT-HTTP-PIPELINE BACKEND-ENDPOINT-AUTH-MATRIX BACKEND-WEBAPPLICATIONFACTORY
+    command: tools/coverage/collect-backend-coverage.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 45
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [backend-coverage]
+    artifacts: [.tmp/coverage/backend-merged]
+    evidence: [.tmp/coverage/backend-merged/Summary.json]
+    ciJob: coverage-backend
+    localOnly: false
+    nightlyOnly: false
+
+  - id: coverage-frontend
+    owner: InteropGlueAgent
+    command: tools/coverage/collect-frontend-coverage.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 45
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [frontend-coverage]
+    artifacts: [.tmp/coverage/frontend, src/frontend/coverage]
+    evidence: [.tmp/coverage/frontend/Summary.json]
+    ciJob: coverage-frontend
+    localOnly: false
+    nightlyOnly: false
+
+  - id: coverage-merge
+    owner: ServerContractAgent
+    command: tools/coverage/merge-coverage.sh
+    dependsOn: [coverage-backend, coverage-frontend]
+    services: []
+    parallelizable: false
+    exclusiveResources: [coverage-root]
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [merged-coverage]
+    artifacts: [.tmp/coverage/merged]
+    evidence: [.tmp/coverage/merged/Summary.json]
+    ciJob: coverage-merge-threshold
+    localOnly: false
+    nightlyOnly: false
+
+  - id: coverage-threshold
+    owner: ServerContractAgent
+    command: tools/test/lanes/coverage-threshold.sh
+    dependsOn: [coverage-merge]
+    services: []
+    parallelizable: false
+    exclusiveResources: [coverage-root]
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
     risk: critical
-    coverage: backend-endpoint-api-contract
-
-  - id: backend-auth-state-machine
-    owner: ServerContractAgent
-    command: ./tools/test.sh backend-auth-state-machine
-    script: tools/test.sh
-    evidence: tests/backend/Unit/BackendAuthStateMachineTests.cs
-    requirements: BACKEND-AUTH-STATE-MACHINE BACKEND-SECURITY-MATRIX
-    risk: critical
-    coverage: backend-auth-mfa-pow-session-state-machine
-
-  - id: backend-concurrency
-    owner: ServerContractAgent
-    command: ./tools/test.sh backend-concurrency
-    script: tools/test.sh
-    evidence: tests/backend/Unit/BackendConcurrencyModelTests.cs
-    requirements: BACKEND-CONCURRENCY-RACES BACKEND-IDEMPOTENCY
-    risk: high
-    coverage: backend-race-idempotency-model
-
-  - id: backend-property
-    owner: ServerContractAgent
-    command: ./tools/test.sh backend-property
-    script: tools/test.sh
-    evidence: tests/backend/Unit/BackendPropertyTests.cs
-    requirements: BACKEND-PROPERTY-TESTING BACKEND-AEDS-POD-PROPERTIES BACKEND-CACHE-KEY-PROPERTIES
-    risk: high
-    coverage: backend-property-protocol-cache-upload
-
-  - id: backend-golden
-    owner: ServerContractAgent
-    command: ./tools/test.sh backend-golden
-    script: tools/test.sh
-    evidence: tests/backend/Fixtures/aeds-golden-catalog.json
-    requirements: BACKEND-AEDS-GOLDEN BACKEND-GOLDEN-GOVERNANCE BACKEND-ERROR-FRAMES
-    risk: high
-    coverage: backend-aeds-pod-golden
-
-  - id: backend-test-governance
-    owner: ServerContractAgent
-    command: ./tools/test.sh backend-test-governance
-    script: tools/test.sh
-    evidence: tests/backend/Fixtures/backend-test-requirements.json
-    requirements: BACKEND-TRACEABILITY BACKEND-TEST-IMPACT BACKEND-FLAKY-GOVERNANCE BACKEND-TIME-BUDGETS
-    risk: critical
-    coverage: backend-test-governance-static
-
-  - id: backend-perf
-    owner: ServerContractAgent
-    command: ./tools/test.sh backend-perf
-    script: tools/test.sh
-    evidence: benchmarks/core
-    requirements: BACKEND-PERF-BENCHMARKS BACKEND-LOAD-STRESS-CAPACITY
-    risk: high
-    coverage: backend-benchmarkdotnet-readiness
-
-  - id: backend-mutation
-    owner: ServerContractAgent
-    command: ./tools/test.sh backend-mutation
-    script: tools/test.sh
-    evidence: .tmp/mutation/backend
-    requirements: BACKEND-MUTATION-TESTING
-    risk: high
-    coverage: backend-stryker-core-security-binary-cache
-
-  - id: backend-chaos
-    owner: ServerContractAgent
-    command: ./tools/test.sh backend-chaos
-    script: tools/test.sh
-    evidence: tests/backend/Fixtures/backend-test-requirements.json
-    requirements: BACKEND-REDIS-DB-FAULTS BACKEND-CHAOS-TESTING BACKEND-SOAK-TESTING
-    risk: high
-    coverage: backend-fault-race-readiness
-
-  - id: backend-nightly
-    owner: ServerContractAgent
-    command: ./tools/test.sh backend-nightly
-    script: tools/test.sh
-    evidence: tests/backend/Fixtures/backend-test-requirements.json
-    requirements: BACKEND-NIGHTLY-EXHAUSTIVE BACKEND-BACKUP-RESTORE BACKEND-CONTRACT-FUZZ
-    risk: critical
-    coverage: backend-exhaustive-nightly-readiness
-
-  - id: cross-stack-contract
-    owner: ServerContractAgent
-    command: ./tools/test.sh cross-stack-contract
-    script: tools/test.sh
-    evidence: tests/frontend/fixtures/cross-stack-contract-matrix.json
-    requirements: CROSS-BINARY-ENDPOINT-MATRIX CROSS-FRONTEND-BACKEND-API-PARITY CROSS-FRAME-SCHEMA-SYNC CROSS-NEGATIVE-MATRIX CROSS-RUNTIME-COHERENCE
-    risk: critical
-    coverage: frontend-backend-contract-coherence
-
-  - id: integration
-    owner: ServerContractAgent
-    command: ./tools/test.sh integration
-    script: tools/test.sh
-    evidence: .tmp/acceptance/*.log
-    requirements: INTEGRATION-RUNTIME-BINARY-SSE-SEARCH
-    risk: high
-    coverage: runtime-contract-smoke
-
-  - id: ci
-    owner: ServerContractAgent
-    command: ./tools/test.sh ci
-    script: tools/test.sh
-    evidence: .tmp/acceptance/*.log
-    requirements: CI-FAST-INTEGRATION
-    risk: high
-    coverage: fast-plus-integration
+    coverage: [coverage-threshold]
+    artifacts: [.tmp/coverage/scope-snapshot.json]
+    evidence: [.tmp/coverage/scope-snapshot.json]
+    ciJob: coverage-merge-threshold
+    localOnly: false
+    nightlyOnly: false
 
   - id: coverage-gate
     owner: ServerContractAgent
-    command: ./tools/test.sh coverage-gate
-    script: tools/test.sh
-    evidence: .tmp/coverage
-    requirements: COVERAGE-MERGE-THRESHOLD
+    command: tools/test/lanes/noop.sh coverage-gate
+    dependsOn: [coverage-threshold]
+    services: []
+    parallelizable: false
+    exclusiveResources: [coverage-root]
+    timeoutMinutes: 90
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [backend-frontend-merged]
+    artifacts: [.tmp/coverage]
+    evidence: [.tmp/coverage]
+    ciJob: coverage-merge-threshold
+    localOnly: false
+    nightlyOnly: false
+
+  - id: bootstrap
+    owner: ServerContractAgent
+    command: tools/test/lanes/bootstrap-acceptance-env.sh
+    dependsOn: []
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [docker-compose, local-ports, redis-test-state]
+    timeoutMinutes: 15
+    shardable: false
+    defaultShards: 1
     risk: high
-    coverage: backend-frontend-merged
+    coverage: [runtime-bootstrap]
+    artifacts: [.tmp/acceptance]
+    evidence: [.tmp/acceptance/*.log]
+    ciJob: integration-runtime
+    localOnly: false
+    nightlyOnly: false
+
+  - id: integration
+    owner: ServerContractAgent
+    command: tools/test/lanes/runtime-integration.sh
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend]
+    parallelizable: false
+    exclusiveResources: [debug-runtime]
+    timeoutMinutes: 25
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [runtime-contract-smoke]
+    artifacts: [.tmp/acceptance/*.log, src/frontend/test-results/playwright/integration]
+    evidence: [.tmp/acceptance/*.log]
+    ciJob: integration-runtime
+    localOnly: false
+    nightlyOnly: false
+
+  - id: ci
+    owner: ServerContractAgent
+    command: tools/test/lanes/noop.sh ci
+    dependsOn: [fast, integration]
+    services: [postgres, redis, backend, frontend]
+    parallelizable: false
+    exclusiveResources: [debug-runtime]
+    timeoutMinutes: 70
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [fast-plus-integration]
+    artifacts: [.tmp/acceptance/*.log, .tmp/gate-logs]
+    evidence: [.tmp/acceptance/*.log, .tmp/gate-logs]
+    ciJob: ci-summary
+    localOnly: false
+    nightlyOnly: false
 
   - id: release
     owner: ServerContractAgent
-    command: ./tools/test.sh release
-    script: tools/test.sh
-    evidence: .tmp/acceptance/*.log
-    requirements: RELEASE-AOT-HYDRATION-PWA-SEO
+    command: tools/test/lanes/release-public.sh
+    dependsOn: [bootstrap]
+    services: [backend, preview]
+    parallelizable: false
+    exclusiveResources: [release-preview]
+    timeoutMinutes: 25
+    shardable: false
+    defaultShards: 1
     risk: high
-    coverage: release-preview-runtime
-
-  - id: acceptance
-    owner: InteropGlueAgent
-    command: ./tools/test.sh acceptance
-    script: tools/test.sh
-    evidence: src/frontend/test-results/playwright/acceptance
-    requirements: ACCEPTANCE-PUBLIC-AUTH-CONSOLE
-    risk: high
-    coverage: playwright-acceptance
-
-  - id: visual
-    owner: InteropGlueAgent
-    command: ./tools/test.sh visual
-    script: tools/test.sh
-    evidence: src/frontend/test-results/playwright/visual
-    requirements: VISUAL-LIGHT-DARK-MOBILE-DESKTOP
-    risk: medium
-    coverage: playwright-visual
+    coverage: [release-preview-runtime, aot-hydration-pwa-seo]
+    artifacts: [.tmp/acceptance/*.log, src/frontend/test-results/playwright/release]
+    evidence: [.tmp/acceptance/*.log]
+    ciJob: release-public
+    localOnly: false
+    nightlyOnly: false
 
   - id: security
     owner: ServerContractAgent
-    command: ./tools/test.sh security
-    script: tools/test.sh
-    evidence: .tmp/security
-    requirements: SECURITY-AUTH-MFA-PASSKEY-POW-A11Y
+    command: tools/test/lanes/security-runtime.sh
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend]
+    parallelizable: false
+    exclusiveResources: [security-runtime-state, redis-test-state]
+    timeoutMinutes: 40
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [auth-mfa-passkey-pow-permission-dast]
+    artifacts: [.tmp/security, src/frontend/test-results/playwright/security]
+    evidence: [.tmp/security]
+    ciJob: security-runtime
+    localOnly: false
+    nightlyOnly: false
+
+  - id: acceptance
+    owner: InteropGlueAgent
+    command: tools/test/lanes/acceptance-playwright.sh
+    dependsOn: [fast, integration, release]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: true
+    exclusiveResources: [playwright-session]
+    timeoutMinutes: 45
+    shardable: true
+    defaultShards: 4
     risk: high
-    coverage: frontend-security-runtime
+    coverage: [playwright-acceptance]
+    artifacts: [src/frontend/test-results/playwright/acceptance, src/frontend/playwright-report]
+    evidence: [src/frontend/test-results/playwright/acceptance]
+    ciJob: acceptance-playwright
+    localOnly: false
+    nightlyOnly: false
+
+  - id: visual
+    owner: InteropGlueAgent
+    command: tools/test/lanes/visual-playwright.sh
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: true
+    exclusiveResources: [visual-baselines]
+    timeoutMinutes: 35
+    shardable: true
+    defaultShards: 2
+    risk: medium
+    coverage: [playwright-visual]
+    artifacts: [src/frontend/test-results/playwright/visual, src/frontend/playwright-report, .tmp/gate-logs/visual-gate-skip.json]
+    evidence: [src/frontend/test-results/playwright/visual, .tmp/gate-logs/visual-gate-skip.json]
+    ciJob: visual-playwright
+    localOnly: false
+    nightlyOnly: false
+
+  - id: cross-browser-smoke
+    owner: InteropGlueAgent
+    command: npm --prefix src/frontend run check:cross-browser:smoke
+    dependsOn: [release]
+    services: [preview]
+    parallelizable: true
+    exclusiveResources: [playwright-browser]
+    timeoutMinutes: 20
+    shardable: true
+    defaultShards: 3
+    risk: high
+    coverage: [cross-browser-smoke]
+    artifacts: [src/frontend/test-results/playwright/cross-browser]
+    evidence: [src/frontend/test-results/playwright/cross-browser]
+    ciJob: cross-browser-smoke
+    localOnly: false
+    nightlyOnly: false
 
   - id: resilience
     owner: ServerContractAgent
-    command: ./tools/test.sh resilience
-    script: tools/test.sh
-    evidence: src/frontend/test-results/playwright/resilience
-    requirements: RESILIENCE-RUNTIME-UPLOAD-SEARCH-SSE-BINARY
+    command: tools/test/lanes/resilience-runtime.sh
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [runtime-fault-state]
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
     risk: high
-    coverage: runtime-resilience
+    coverage: [upload-search-notification-binary-resilience]
+    artifacts: [src/frontend/test-results/playwright/resilience]
+    evidence: [src/frontend/test-results/playwright/resilience]
+    ciJob: resilience-runtime
+    localOnly: false
+    nightlyOnly: false
 
   - id: load
     owner: ServerContractAgent
-    command: ./tools/test.sh load
-    script: tools/test.sh
-    evidence: .tmp/perf
-    requirements: LOAD-PUBLIC-API-SSE-PRESSURE
+    command: tools/test/lanes/load-smoke.sh
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [load-runtime]
+    timeoutMinutes: 25
+    shardable: false
+    defaultShards: 1
     risk: medium
-    coverage: load-smoke
+    coverage: [load-smoke, notification-pressure]
+    artifacts: [.tmp/perf]
+    evidence: [.tmp/perf]
+    ciJob: load-smoke
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-perf
+    owner: ServerContractAgent
+    command: tools/test/lanes/perf-regression.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 25
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [benchmarkdotnet-readiness]
+    artifacts: [BenchmarkDotNet.Artifacts/results]
+    evidence: [BenchmarkDotNet.Artifacts/results]
+    ciJob: perf-regression
+    localOnly: false
+    nightlyOnly: false
+
+  - id: fault-injection
+    owner: ServerContractAgent
+    command: tools/test/lanes/fault-injection.sh
+    dependsOn: []
+    services: [postgres, redis, backend]
+    parallelizable: false
+    exclusiveResources: [fault-runtime]
+    timeoutMinutes: 30
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [redis-postgres-sse-disk-shutdown-faults]
+    artifacts: [.tmp/fault-injection]
+    evidence: [.tmp/fault-injection/summary.json]
+    ciJob: resilience-runtime
+    localOnly: false
+    nightlyOnly: false
+
+  - id: soak
+    owner: ServerContractAgent
+    command: tools/test/lanes/soak.sh
+    dependsOn: []
+    services: [postgres, redis, backend, frontend]
+    parallelizable: false
+    exclusiveResources: [soak-runtime]
+    timeoutMinutes: 30
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [long-running-stability]
+    artifacts: [.tmp/soak]
+    evidence: [.tmp/soak]
+    ciJob: backend-nightly
+    localOnly: false
+    nightlyOnly: true
+
+  - id: security-authenticated-dast
+    owner: ServerContractAgent
+    command: tools/test/lanes/security-authenticated-dast.sh
+    dependsOn: []
+    services: [backend, frontend]
+    parallelizable: false
+    exclusiveResources: [dast-target]
+    timeoutMinutes: 30
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [authenticated-dast]
+    artifacts: [.tmp/security/authenticated-dast]
+    evidence: [.tmp/security/authenticated-dast/summary.json]
+    ciJob: security-runtime
+    localOnly: false
+    nightlyOnly: false
+
+  - id: wasm-fuzz-regression
+    owner: WasmEngineAgent
+    command: tools/test/lanes/wasm-fuzz-regression.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [aeds-wasm-markdown-fuzz]
+    artifacts: [.tmp/fuzz/wasm]
+    evidence: [.tmp/fuzz/wasm/summary.json]
+    ciJob: security-runtime
+    localOnly: false
+    nightlyOnly: false
+
+  - id: release-evidence
+    owner: ServerContractAgent
+    command: tools/test/lanes/release-evidence.sh
+    dependsOn: []
+    services: []
+    parallelizable: false
+    exclusiveResources: [release-evidence]
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-evidence-manifest]
+    artifacts: [.tmp/release-evidence]
+    evidence: [.tmp/release-evidence]
+    ciJob: release-evidence
+    localOnly: false
+    nightlyOnly: false
 
   - id: production
     owner: ServerContractAgent
-    command: ./tools/test.sh production
-    script: tools/test.sh
-    evidence: .tmp/release-evidence
-    requirements: PRODUCTION-FULL-GATE
+    command: tools/test/lanes/noop.sh production
+    dependsOn: [fast, bootstrap, release, integration, security, acceptance, cross-browser-smoke, visual, resilience, load, release-evidence]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [production-runtime]
+    timeoutMinutes: 120
+    shardable: false
+    defaultShards: 1
     risk: critical
-    coverage: full-release-evidence
+    coverage: [full-release-evidence]
+    artifacts: [.tmp/release-evidence, .tmp/security, .tmp/perf, src/frontend/test-results]
+    evidence: [.tmp/release-evidence]
+    ciJob: production-summary
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-api-integration
+    owner: ServerContractAgent
+    command: tools/test/legacy-test.sh backend-api-integration
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [backend-endpoint-api-contract]
+    artifacts: [.tmp/backend-api-integration]
+    evidence: [tests/backend/Fixtures/backend-test-requirements.json]
+    ciJob: integration-runtime
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-auth-state-machine
+    owner: ServerContractAgent
+    command: tools/test/legacy-test.sh backend-auth-state-machine
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 15
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [backend-auth-mfa-pow-session-state-machine]
+    artifacts: [.tmp/backend-auth-state-machine]
+    evidence: [tests/backend/Unit/BackendAuthStateMachineTests.cs]
+    ciJob: fast-backend
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-concurrency
+    owner: ServerContractAgent
+    command: tools/test/legacy-test.sh backend-concurrency
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 15
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [backend-race-idempotency-model]
+    artifacts: [.tmp/backend-concurrency]
+    evidence: [tests/backend/Unit/BackendConcurrencyModelTests.cs]
+    ciJob: fast-backend
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-property
+    owner: ServerContractAgent
+    command: tools/test/legacy-test.sh backend-property
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 15
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [backend-property-protocol-cache-upload]
+    artifacts: [.tmp/backend-property]
+    evidence: [tests/backend/Unit/BackendPropertyTests.cs]
+    ciJob: fast-backend
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-golden
+    owner: ServerContractAgent
+    command: tools/test/legacy-test.sh backend-golden
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 15
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [backend-aeds-pod-golden]
+    artifacts: [.tmp/backend-golden]
+    evidence: [tests/backend/Fixtures/aeds-golden-catalog.json]
+    ciJob: fast-backend
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-test-governance
+    owner: ServerContractAgent
+    command: tools/test/legacy-test.sh backend-test-governance
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [backend-test-governance-static]
+    artifacts: [.tmp/backend-test-governance]
+    evidence: [tests/backend/Fixtures/backend-test-requirements.json]
+    ciJob: fast-static-governance
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-mutation
+    owner: ServerContractAgent
+    command: tools/test/legacy-test.sh backend-mutation
+    dependsOn: []
+    services: []
+    parallelizable: false
+    exclusiveResources: [stryker]
+    timeoutMinutes: 120
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [backend-stryker-core-security-binary-cache]
+    artifacts: [.tmp/mutation/backend]
+    evidence: [.tmp/mutation/backend]
+    ciJob: backend-mutation
+    localOnly: false
+    nightlyOnly: true
+
+  - id: backend-chaos
+    owner: ServerContractAgent
+    command: tools/test/legacy-test.sh backend-chaos
+    dependsOn: []
+    services: []
+    parallelizable: false
+    exclusiveResources: [chaos-fixture]
+    timeoutMinutes: 25
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [backend-fault-race-readiness]
+    artifacts: [.tmp/backend-chaos]
+    evidence: [tests/backend/Fixtures/backend-test-requirements.json]
+    ciJob: resilience-runtime
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-nightly
+    owner: ServerContractAgent
+    command: tools/test/legacy-test.sh backend-nightly
+    dependsOn: [backend-property, backend-golden, backend-concurrency, backend-auth-state-machine, backend-api-integration, backend-perf]
+    services: []
+    parallelizable: false
+    exclusiveResources: [nightly]
+    timeoutMinutes: 180
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [backend-exhaustive-nightly-readiness]
+    artifacts: [.tmp/backend-nightly, BenchmarkDotNet.Artifacts/results]
+    evidence: [tests/backend/Fixtures/backend-test-requirements.json]
+    ciJob: backend-nightly
+    localOnly: false
+    nightlyOnly: true
+
+  - id: cross-stack-contract
+    owner: ServerContractAgent
+    command: tools/test/legacy-test.sh cross-stack-contract
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [frontend-backend-contract-coherence]
+    artifacts: [tests/frontend/fixtures/cross-stack-contract-matrix.json]
+    evidence: [tests/frontend/fixtures/cross-stack-contract-matrix.json]
+    ciJob: cross-stack-contract
+    localOnly: false
+    nightlyOnly: false

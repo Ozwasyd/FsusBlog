@@ -12,6 +12,9 @@ if [[ ! -d "$COVERAGE_DIR" && -d "$ROOT_DIR/.tmp/coverage" ]]; then
 fi
 GATE_LOG_DIR="${FSUSBLOG_GATE_LOG_SOURCE_DIR:-$ROOT_DIR/.tmp/gate-logs}"
 PERF_DIR="${FSUSBLOG_PERF_EVIDENCE_DIR:-$ROOT_DIR/.tmp/perf}"
+FAULT_DIR="${FSUSBLOG_FAULT_EVIDENCE_DIR:-$ROOT_DIR/.tmp/fault-injection}"
+SOAK_DIR="${FSUSBLOG_SOAK_EVIDENCE_DIR:-$ROOT_DIR/.tmp/soak}"
+FUZZ_DIR="${FSUSBLOG_FUZZ_EVIDENCE_DIR:-$ROOT_DIR/.tmp/fuzz}"
 mkdir -p "$OUT_DIR"
 
 copy_if_present() {
@@ -241,6 +244,11 @@ SLO_ALERTS="$(copy_if_present "$OPERATIONS_DIR/slo-alert-fixture.json" slo-alert
 RETENTION_CLEANUP="$(copy_if_present "$OPERATIONS_DIR/retention-cleanup.json" retention-cleanup.json)"
 COVERAGE_ARTIFACT="$(copy_if_present "$COVERAGE_DIR" coverage)"
 PERF_ARTIFACT="$(copy_if_present "$PERF_DIR" perf)"
+TEST_PLAN_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/test-plan.json" test-plan.json)"
+FAULT_ARTIFACT="$(copy_if_present "$FAULT_DIR" fault-injection)"
+SOAK_ARTIFACT="$(copy_if_present "$SOAK_DIR" soak)"
+FUZZ_ARTIFACT="$(copy_if_present "$FUZZ_DIR" fuzz)"
+AUTHENTICATED_DAST="$(copy_if_present "$SECURITY_DIR/authenticated-dast" authenticated-dast)"
 GATE_LOGS="$(copy_if_present "$GATE_LOG_DIR" gate-logs)"
 VISUAL_GATE_SKIP="$(copy_if_present "$GATE_LOG_DIR/visual-gate-skip.json" visual-gate-skip.json)"
 RUNTIME_TUNING_SUMMARY="$(runtime_tuning_json)"
@@ -273,6 +281,9 @@ REQUEST_SUMMARY="$(request_summary_json)"
 COVERAGE_SUMMARY="$(coverage_summary_json)"
 COVERAGE_STATUS_VALUE="$(jq -r '.status // "missing"' <<<"$COVERAGE_SUMMARY" 2>/dev/null || printf 'invalid')"
 ZAP_STATUS_VALUE="$(zap_status_or_missing "$SECURITY_DIR/zap")"
+FAULT_STATUS_VALUE="$(json_status_or_missing "$FAULT_DIR/summary.json")"
+AUTHENTICATED_DAST_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/authenticated-dast/summary.json")"
+WASM_FUZZ_STATUS_VALUE="$(json_status_or_missing "$FUZZ_DIR/wasm/summary.json")"
 
 MANIFEST_STATUS="collected-ok"
 if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
@@ -326,6 +337,11 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "retentionCleanup": $RETENTION_CLEANUP,
     "coverage": $COVERAGE_ARTIFACT,
     "perf": $PERF_ARTIFACT,
+    "testPlan": $TEST_PLAN_ARTIFACT,
+    "faultInjection": $FAULT_ARTIFACT,
+    "soak": $SOAK_ARTIFACT,
+    "fuzz": $FUZZ_ARTIFACT,
+    "authenticatedDast": $AUTHENTICATED_DAST,
     "visualGateSkip": $VISUAL_GATE_SKIP,
     "gateLogs": $GATE_LOGS,
     "securitySourceDir": "$(realpath --relative-to="$OUT_DIR" "$SECURITY_DIR" 2>/dev/null || true)"
@@ -360,7 +376,13 @@ cat > "$OUT_DIR/manifest.json" <<JSON
       "permissionMatrix": "$PERMISSION_MATRIX_STATUS_VALUE",
       "supplyChain": "$SUPPLY_CHAIN_STATUS_VALUE",
       "sbom": "$SBOM_STATUS_VALUE",
-      "dastZap": "$ZAP_STATUS_VALUE"
+      "dastZap": "$ZAP_STATUS_VALUE",
+      "authenticatedDast": "$AUTHENTICATED_DAST_STATUS_VALUE",
+      "wasmFuzz": "$WASM_FUZZ_STATUS_VALUE"
+    },
+    "resilienceDepth": {
+      "faultInjection": "$FAULT_STATUS_VALUE",
+      "soak": $SOAK_ARTIFACT
     },
     "externalExposure": {
       "status": "$PRODUCTION_STATUS_VALUE",
@@ -375,6 +397,8 @@ cat > "$OUT_DIR/manifest.json" <<JSON
   },
   "securityEvidenceIndex": [
     { "kind": "dast", "artifact": $ZAP },
+    { "kind": "authenticated-dast", "artifact": $AUTHENTICATED_DAST },
+    { "kind": "wasm-fuzz", "artifact": $FUZZ_ARTIFACT },
     { "kind": "supply-chain", "artifact": $SUPPLY_CHAIN },
     { "kind": "sbom", "artifact": $SBOM },
     { "kind": "security-matrices", "artifact": $SECURITY_MATRICES },

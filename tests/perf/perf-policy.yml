@@ -1,0 +1,22 @@
+version: fsusblog-perf-policy-v1
+loadProfiles:
+  baseline:
+    concurrency: 10
+    rounds: 6
+    durationMs: 30000
+  expected-peak:
+    concurrency: 50
+    rounds: 12
+    durationMs: 60000
+  2x-peak:
+    concurrency: 100
+    rounds: 12
+    durationMs: 60000
+  burst:
+    concurrency: 160
+    rounds: 4
+    durationMs: 15000
+regressionThresholds:
+  nightlyPercent: 5
+  releasePercent: 10
+temporaryExceptions: []

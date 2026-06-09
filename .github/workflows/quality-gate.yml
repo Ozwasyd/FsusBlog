@@ -16,137 +16,524 @@ concurrency:
   group: quality-gate-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+  FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
+  GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
+
 jobs:
-  coverage:
-    name: Coverage Collection
+  validate-matrix:
+    name: Validate Test Matrix
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+      - run: node tools/run-test-matrix.mjs validate
+      - run: node tools/run-test-matrix.mjs ci-plan --format github-actions > .tmp/ci-plan.json
+      - run: node tools/run-test-matrix.mjs docs --out docs/testing.generated.md
+      - run: node tools/run-test-matrix.mjs evidence-plan --out .tmp/release-evidence/test-plan.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: validate-matrix
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/ci-plan.json
+            .tmp/release-evidence/test-plan.json
+            docs/testing.generated.md
+
+  coverage-backend:
+    name: Coverage Backend
+    runs-on: ubuntu-latest
+    needs: validate-matrix
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: ./tools/test.sh coverage-backend --no-deps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-backend
+          if-no-files-found: ignore
+          retention-days: 14
+          path: .tmp/coverage/backend-merged/**
+
+  coverage-frontend:
+    name: Coverage Frontend
+    runs-on: ubuntu-latest
+    needs: validate-matrix
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh coverage-frontend --no-deps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-frontend
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/coverage/frontend/**
+            src/frontend/coverage/**
+
+  coverage-merge-threshold:
+    name: Coverage Merge Threshold
+    runs-on: ubuntu-latest
+    needs: [coverage-backend, coverage-frontend]
+    timeout-minutes: 10
     env:
-      DOTNET_NOLOGO: 'true'
-      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
-      FSUSBLOG_COVERAGE_ROOT: ${{ github.workspace }}/.tmp/coverage
       FSUSBLOG_COVERAGE_LINE_THRESHOLD: '100'
       FSUSBLOG_COVERAGE_BRANCH_THRESHOLD: '100'
       FSUSBLOG_COVERAGE_METHOD_THRESHOLD: '100'
       FSUSBLOG_BACKEND_COVERAGE_LINE_THRESHOLD: '100'
       FSUSBLOG_BACKEND_COVERAGE_BRANCH_THRESHOLD: '100'
       FSUSBLOG_BACKEND_COVERAGE_METHOD_THRESHOLD: '100'
-      GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+      - uses: actions/download-artifact@v7
+        with:
+          name: coverage-backend
+          path: .tmp/coverage/backend-merged
+      - uses: actions/download-artifact@v7
+        with:
+          name: coverage-frontend
+          path: .tmp/coverage/frontend
+      - run: ./tools/test.sh coverage-merge --no-deps
+      - run: ./tools/test.sh coverage-threshold --no-deps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-merge-threshold
+          if-no-files-found: ignore
+          retention-days: 14
+          path: .tmp/coverage/**
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+  fast-backend:
+    name: Fast Backend
+    runs-on: ubuntu-latest
+    needs: validate-matrix
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - run: ./tools/test.sh backend-fast --no-deps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fast-backend
+          if-no-files-found: ignore
+          retention-days: 14
+          path: .tmp/gate-logs/**
 
-      - name: Setup Node
-        uses: actions/setup-node@v6
+  fast-frontend-unit:
+    name: Fast Frontend Unit
+    runs-on: ubuntu-latest
+    needs: validate-matrix
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-
-      - name: Verify private package token
-        run: |
-          if [ -z "${GITHUB_PACKAGES_TOKEN:-}" ]; then
-            echo "::error::GITHUB_PACKAGES_TOKEN secret is required for @ozwasyd packages"
-            exit 1
-          fi
-
-      - name: Install frontend dependencies
-        working-directory: src/frontend
-        run: npm ci --no-audit --progress=false
-
-      - name: Run coverage gate
-        run: ./tools/test.sh coverage-gate
-
-      - name: Upload coverage artifacts
+      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh frontend-fast --no-deps
+      - uses: actions/upload-artifact@v7
         if: always()
-        uses: actions/upload-artifact@v7
         with:
-          name: coverage-artifacts
+          name: fast-frontend-unit
           if-no-files-found: ignore
           retention-days: 14
           path: |
-            .tmp/coverage/**
+            src/frontend/coverage/**
+            .tmp/frontend/**
 
-  production:
-    name: Production Quality Gate
+  fast-static-governance:
+    name: Fast Static Governance
     runs-on: ubuntu-latest
-    timeout-minutes: 120
-    env:
-      DOTNET_NOLOGO: 'true'
-      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
-      FSUSBLOG_DATA_ROOT: ${{ github.workspace }}/.tmp/ci-data
-      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
-      FSUSBLOG_ENABLE_CROSS_BROWSER: '1'
-      FSUSBLOG_PLAYWRIGHT_BROWSERS: chromium,firefox,webkit
-      GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
-
+    needs: validate-matrix
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - run: ./tools/test.sh static-governance --no-deps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fast-static-governance
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/gate-logs/**
+            .tmp/release-evidence/test-plan.json
 
-      - name: Setup Node
-        uses: actions/setup-node@v6
+  cross-stack-contract:
+    name: Cross Stack Contract
+    runs-on: ubuntu-latest
+    needs: [fast-frontend-unit, fast-static-governance]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-
-      - name: Verify private package token
-        run: |
-          if [ -z "${GITHUB_PACKAGES_TOKEN:-}" ]; then
-            echo "::error::GITHUB_PACKAGES_TOKEN secret is required for @ozwasyd packages"
-            exit 1
-          fi
-
-      - name: Install frontend dependencies
-        working-directory: src/frontend
-        run: npm ci --no-audit --progress=false
-
-      - name: Install Playwright browsers
-        working-directory: src/frontend
-        run: npx playwright install --with-deps chromium firefox webkit
-
-      - name: Run gate integrity self-test
-        run: ./tools/check-gate-integrity.sh --self-test
-
-      - name: Run production quality gate
-        run: ./tools/test.sh production
-
-      - name: Upload quality artifacts
+      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh cross-stack-contract --no-deps
+      - uses: actions/upload-artifact@v7
         if: always()
-        uses: actions/upload-artifact@v7
         with:
-          name: quality-gate-artifacts
+          name: cross-stack-contract
+          if-no-files-found: ignore
+          retention-days: 14
+          path: tests/frontend/fixtures/cross-stack-contract-matrix.json
+
+  integration-runtime:
+    name: Integration Runtime
+    runs-on: ubuntu-latest
+    needs: [fast-backend, fast-frontend-unit]
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh integration
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: integration-runtime
           if-no-files-found: ignore
           retention-days: 14
           path: |
             .tmp/acceptance/*.log
-            .tmp/gate-logs/**
-            .tmp/release-evidence/**
+            src/frontend/test-results/playwright/integration/**
+
+  release-public:
+    name: Release Public
+    runs-on: ubuntu-latest
+    needs: integration-runtime
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh release
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-public
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/acceptance/*.log
+            src/frontend/test-results/playwright/release/**
+
+  security-runtime:
+    name: Security Runtime
+    runs-on: ubuntu-latest
+    needs: integration-runtime
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh security
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: security-runtime
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
             .tmp/security/**
-            src/frontend/test-results/**
+            src/frontend/test-results/playwright/security/**
+
+  acceptance-playwright:
+    name: Acceptance Playwright ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    needs: release-public
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/4, 2/4, 3/4, 4/4]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: npm --prefix src/frontend exec -- playwright install --with-deps chromium
+      - run: ./tools/test.sh bootstrap --no-deps
+      - run: ./tools/test.sh acceptance --no-deps --shard ${{ matrix.shard }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: acceptance-playwright-${{ matrix.shard }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            src/frontend/test-results/playwright/acceptance/**
             src/frontend/playwright-report/**
 
-      - name: Cleanup test services
+  visual-playwright:
+    name: Visual Playwright ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    needs: release-public
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/2, 2/2]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: npm --prefix src/frontend exec -- playwright install --with-deps chromium
+      - run: ./tools/test.sh bootstrap --no-deps
+      - run: ./tools/test.sh visual --no-deps --shard ${{ matrix.shard }}
+      - uses: actions/upload-artifact@v7
         if: always()
+        with:
+          name: visual-playwright-${{ matrix.shard }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            src/frontend/test-results/playwright/visual/**
+            src/frontend/playwright-report/**
+            .tmp/gate-logs/visual-gate-skip.json
+
+  cross-browser-smoke:
+    name: Cross Browser ${{ matrix.browser }}
+    runs-on: ubuntu-latest
+    needs: release-public
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      FSUSBLOG_PLAYWRIGHT_BROWSERS: ${{ matrix.browser }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: npm --prefix src/frontend exec -- playwright install --with-deps ${{ matrix.browser }}
+      - run: ./tools/test.sh bootstrap --no-deps
+      - run: ./tools/test.sh cross-browser-smoke --no-deps --shard 1/3
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: cross-browser-smoke-${{ matrix.browser }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: src/frontend/test-results/playwright/cross-browser/**
+
+  resilience-runtime:
+    name: Resilience Runtime
+    runs-on: ubuntu-latest
+    needs: integration-runtime
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh resilience
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: resilience-runtime
+          if-no-files-found: ignore
+          retention-days: 14
+          path: src/frontend/test-results/playwright/resilience/**
+
+  load-smoke:
+    name: Load Smoke
+    runs-on: ubuntu-latest
+    needs: integration-runtime
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh load
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: load-smoke
+          if-no-files-found: ignore
+          retention-days: 14
+          path: .tmp/perf/**
+
+  perf-regression:
+    name: Perf Regression
+    runs-on: ubuntu-latest
+    needs: validate-matrix
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: ./tools/test.sh backend-perf --no-deps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: perf-regression
+          if-no-files-found: ignore
+          retention-days: 14
+          path: BenchmarkDotNet.Artifacts/results/**
+
+  release-evidence:
+    name: Release Evidence
+    runs-on: ubuntu-latest
+    needs:
+      - coverage-merge-threshold
+      - fast-backend
+      - fast-frontend-unit
+      - fast-static-governance
+      - cross-stack-contract
+      - integration-runtime
+      - release-public
+      - security-runtime
+      - acceptance-playwright
+      - visual-playwright
+      - cross-browser-smoke
+      - resilience-runtime
+      - load-smoke
+      - perf-regression
+    if: always()
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+      - uses: actions/download-artifact@v7
+        with:
+          path: .tmp/downloaded-artifacts
+      - run: node tools/run-test-matrix.mjs evidence-plan --out .tmp/release-evidence/test-plan.json
+      - run: ./tools/operations/collect-release-evidence.sh
+      - run: ./tools/operations/check-release-evidence-manifest.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-evidence
+          if-no-files-found: ignore
+          retention-days: 30
+          path: .tmp/release-evidence/**
+
+  production-summary:
+    name: Production Summary
+    runs-on: ubuntu-latest
+    needs:
+      - coverage-merge-threshold
+      - fast-backend
+      - fast-frontend-unit
+      - fast-static-governance
+      - cross-stack-contract
+      - integration-runtime
+      - release-public
+      - security-runtime
+      - acceptance-playwright
+      - visual-playwright
+      - cross-browser-smoke
+      - resilience-runtime
+      - load-smoke
+      - perf-regression
+      - release-evidence
+    if: always()
+    timeout-minutes: 5
+    steps:
+      - name: Check required job results
         run: |
-          for file in .tmp/acceptance/*.pid; do
-            [ -f "$file" ] || continue
-            pid="$(cat "$file" 2>/dev/null || true)"
-            if [ -n "$pid" ] && kill -0 "$pid" >/dev/null 2>&1; then
-              kill "$pid" >/dev/null 2>&1 || true
-            fi
-          done
-          docker rm -f fsusblog-postgres fsusblog-redis >/dev/null 2>&1 || true
-          docker ps -aq --filter "name=fsus-schema-migration-" | xargs -r docker rm -f >/dev/null 2>&1 || true
+          failures='${{ toJson(needs) }}'
+          node -e "
+            const needs = JSON.parse(process.argv[1]);
+            const failed = Object.entries(needs).filter(([, value]) => value.result !== 'success');
+            if (failed.length) {
+              for (const [name, value] of failed) console.error(name + ': ' + value.result);
+              process.exit(1);
+            }
+            console.log('production summary ok');
+          " "$failures"

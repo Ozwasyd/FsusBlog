@@ -1,0 +1,495 @@
+#!/usr/bin/env node
+import fs from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+
+const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
+const matrixFile = path.join(root, 'tests/matrix.yml')
+const schemaFile = path.join(root, 'tests/matrix.schema.json')
+const aliases = new Map([
+  ['coverage', 'coverage-gate']
+])
+
+const requiredFields = [
+  'id',
+  'owner',
+  'command',
+  'dependsOn',
+  'services',
+  'parallelizable',
+  'exclusiveResources',
+  'timeoutMinutes',
+  'shardable',
+  'defaultShards',
+  'risk',
+  'coverage',
+  'artifacts',
+  'evidence',
+  'ciJob',
+  'localOnly',
+  'nightlyOnly'
+]
+
+function parseValue(raw) {
+  const value = String(raw ?? '').trim()
+  if (value === '[]') return []
+  if (value.startsWith('[') && value.endsWith(']')) {
+    const inner = value.slice(1, -1).trim()
+    if (inner === '') return []
+    return inner.split(',').map((item) => parseValue(item))
+  }
+  if (value === 'true') return true
+  if (value === 'false') return false
+  if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value)
+  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    return value.slice(1, -1)
+  }
+  return value
+}
+
+function parseMatrix(text) {
+  const matrix = { tiers: [] }
+  let current = null
+  let inTiers = false
+
+  for (const rawLine of text.split(/\r?\n/)) {
+    const withoutComment = rawLine.replace(/\s+#.*$/, '')
+    if (!withoutComment.trim()) continue
+
+    const topMatch = withoutComment.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
+    if (topMatch && !rawLine.startsWith(' ')) {
+      const [, key, value] = topMatch
+      if (key === 'tiers') {
+        inTiers = true
+        current = null
+        continue
+      }
+      matrix[key] = parseValue(value)
+      continue
+    }
+
+    if (!inTiers) continue
+
+    const itemMatch = withoutComment.match(/^\s{2}-\s+([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
+    if (itemMatch) {
+      current = {}
+      matrix.tiers.push(current)
+      current[itemMatch[1]] = parseValue(itemMatch[2])
+      continue
+    }
+
+    const fieldMatch = withoutComment.match(/^\s{4}([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
+    if (fieldMatch && current) {
+      current[fieldMatch[1]] = parseValue(fieldMatch[2])
+    }
+  }
+
+  return matrix
+}
+
+function loadMatrix() {
+  if (!fs.existsSync(matrixFile)) {
+    throw new Error(`missing ${path.relative(root, matrixFile)}`)
+  }
+  return parseMatrix(fs.readFileSync(matrixFile, 'utf8'))
+}
+
+function tierMap(matrix) {
+  return new Map(matrix.tiers.map((tier) => [tier.id, tier]))
+}
+
+function normalizeTierId(id) {
+  return aliases.get(id) ?? id
+}
+
+function pathExistsForCommand(command) {
+  const [first] = String(command).split(/\s+/)
+  if (!first || !/^(tools|tests|src|\.\/tools|\.\/tests|\.\/src)\//.test(first)) return true
+  const rel = first.replace(/^\.\//, '')
+  return fs.existsSync(path.join(root, rel))
+}
+
+function isExecutableCommand(command) {
+  const [first] = String(command).split(/\s+/)
+  if (!first || !/^(tools|tests|src|\.\/tools|\.\/tests|\.\/src)\//.test(first)) return true
+  const rel = first.replace(/^\.\//, '')
+  try {
+    return (fs.statSync(path.join(root, rel)).mode & 0o111) !== 0
+  } catch {
+    return false
+  }
+}
+
+function validateMatrix(matrix) {
+  const errors = []
+  const ids = new Set()
+  const byId = tierMap(matrix)
+
+  if (matrix.version !== 'fsusblog-test-matrix-v2') {
+    errors.push(`version must be fsusblog-test-matrix-v2, got ${matrix.version ?? 'missing'}`)
+  }
+  if (!fs.existsSync(schemaFile)) {
+    errors.push('missing tests/matrix.schema.json')
+  }
+  if (!Array.isArray(matrix.tiers) || matrix.tiers.length === 0) {
+    errors.push('tiers must be a non-empty list')
+  }
+
+  for (const tier of matrix.tiers) {
+    if (!tier.id) {
+      errors.push('tier missing id')
+      continue
+    }
+    if (ids.has(tier.id)) errors.push(`duplicate tier id: ${tier.id}`)
+    ids.add(tier.id)
+
+    for (const field of requiredFields) {
+      if (!(field in tier)) errors.push(`${tier.id} missing ${field}`)
+    }
+    for (const field of ['dependsOn', 'services', 'exclusiveResources', 'coverage', 'artifacts', 'evidence']) {
+      if (!Array.isArray(tier[field])) errors.push(`${tier.id}.${field} must be an array`)
+    }
+    for (const field of ['parallelizable', 'shardable', 'localOnly', 'nightlyOnly']) {
+      if (typeof tier[field] !== 'boolean') errors.push(`${tier.id}.${field} must be boolean`)
+    }
+    for (const field of ['timeoutMinutes', 'defaultShards']) {
+      if (typeof tier[field] !== 'number' || tier[field] < 1) errors.push(`${tier.id}.${field} must be a positive number`)
+    }
+    if (!['low', 'medium', 'high', 'critical'].includes(tier.risk)) {
+      errors.push(`${tier.id}.risk is invalid: ${tier.risk}`)
+    }
+    for (const dep of tier.dependsOn ?? []) {
+      if (!byId.has(dep)) errors.push(`${tier.id} depends on missing tier ${dep}`)
+    }
+    if (!pathExistsForCommand(tier.command)) {
+      errors.push(`${tier.id} command path does not exist: ${tier.command}`)
+    } else if (!isExecutableCommand(tier.command)) {
+      errors.push(`${tier.id} command path is not executable: ${tier.command}`)
+    }
+    if (tier.shardable === false && Number(tier.defaultShards) !== 1) {
+      errors.push(`${tier.id} is not shardable but defaultShards is ${tier.defaultShards}`)
+    }
+  }
+
+  const visiting = new Set()
+  const visited = new Set()
+  function visit(id, stack = []) {
+    if (visited.has(id)) return
+    if (visiting.has(id)) {
+      errors.push(`cycle detected: ${[...stack, id].join(' -> ')}`)
+      return
+    }
+    visiting.add(id)
+    const tier = byId.get(id)
+    for (const dep of tier?.dependsOn ?? []) visit(dep, [...stack, id])
+    visiting.delete(id)
+    visited.add(id)
+  }
+  for (const id of ids) visit(id)
+
+  return errors
+}
+
+function planTier(matrix, requestedId) {
+  const byId = tierMap(matrix)
+  const targetId = normalizeTierId(requestedId)
+  if (!byId.has(targetId)) throw new Error(`unknown tier: ${requestedId}`)
+
+  const planned = []
+  const visited = new Set()
+
+  function visit(id) {
+    if (visited.has(id)) return
+    const tier = byId.get(id)
+    if (!tier) throw new Error(`missing dependency: ${id}`)
+    for (const dep of tier.dependsOn) visit(dep)
+    visited.add(id)
+    planned.push(tier)
+  }
+
+  visit(targetId)
+  return planned
+}
+
+function printPlan(tiers) {
+  for (const [index, tier] of tiers.entries()) {
+    const deps = tier.dependsOn.length > 0 ? ` deps=${tier.dependsOn.join(',')}` : ''
+    const shard = tier.shardable ? ` shards=${tier.defaultShards}` : ''
+    console.log(`${index + 1}. ${tier.id} [job=${tier.ciJob} timeout=${tier.timeoutMinutes}m risk=${tier.risk}${shard}]${deps}`)
+    console.log(`   ${tier.command}`)
+  }
+}
+
+function namespaceFor(tier, shard) {
+  if (process.env.FSUSBLOG_TEST_NAMESPACE) return process.env.FSUSBLOG_TEST_NAMESPACE
+  const runId = process.env.GITHUB_RUN_ID || 'local'
+  const attempt = process.env.GITHUB_RUN_ATTEMPT || '0'
+  const job = process.env.MATRIX_JOB || tier.ciJob || tier.id
+  const shardValue = shard ?? process.env.MATRIX_SHARD ?? '0'
+  return `${runId}-${attempt}-${job}-${shardValue}`.replace(/[^A-Za-z0-9_.-]/g, '-')
+}
+
+function loadNamespaceEnv(namespace) {
+  const envFile = path.join(root, '.tmp/env', `${namespace}.env`)
+  if (!fs.existsSync(envFile)) return {}
+  const values = {}
+  for (const line of fs.readFileSync(envFile, 'utf8').split(/\r?\n/)) {
+    if (!line || line.startsWith('#')) continue
+    const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/)
+    if (!match) continue
+    values[match[1]] = match[2]
+  }
+  return values
+}
+
+function parseRunOptions(args) {
+  const options = { planOnly: false, shard: null, noDeps: false }
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]
+    if (arg === '--plan-only') options.planOnly = true
+    else if (arg === '--no-deps') options.noDeps = true
+    else if (arg === '--shard') options.shard = args[++index]
+    else if (arg.startsWith('--shard=')) options.shard = arg.slice('--shard='.length)
+    else throw new Error(`unknown run option: ${arg}`)
+  }
+  return options
+}
+
+function runTier(matrix, tierId, args) {
+  const options = parseRunOptions(args)
+  const all = options.noDeps ? [tierMap(matrix).get(normalizeTierId(tierId))] : planTier(matrix, tierId)
+  if (all.some((tier) => !tier)) throw new Error(`unknown tier: ${tierId}`)
+
+  if (options.shard) {
+    const target = all[all.length - 1]
+    if (!target.shardable) throw new Error(`${target.id} is not shardable`)
+    if (!/^\d+\/\d+$/.test(options.shard)) throw new Error('--shard must use i/n format')
+  }
+
+  if (options.planOnly) {
+    printPlan(all)
+    return
+  }
+
+  for (const tier of all) {
+    const namespace = namespaceFor(tier, options.shard)
+    const namespaceEnv = loadNamespaceEnv(namespace)
+    const env = {
+      ...process.env,
+      ...namespaceEnv,
+      CURRENT_TIER: tier.id,
+      MATRIX_JOB: tier.ciJob,
+      FSUSBLOG_TEST_NAMESPACE: namespace
+    }
+    if (options.shard) {
+      const [index, total] = options.shard.split('/')
+      env.MATRIX_SHARD = options.shard
+      env.FSUSBLOG_TEST_SHARD_INDEX = index
+      env.FSUSBLOG_TEST_SHARD_TOTAL = total
+    }
+
+    console.error(`[matrix:${tier.id}] ${tier.command}`)
+    const result = spawnSync(tier.command, {
+      cwd: root,
+      env,
+      shell: true,
+      stdio: 'inherit'
+    })
+    if (result.status !== 0) {
+      process.exit(result.status ?? 1)
+    }
+  }
+}
+
+function listTiers(matrix) {
+  for (const tier of matrix.tiers) {
+    const tags = [
+      `job=${tier.ciJob}`,
+      `risk=${tier.risk}`,
+      tier.parallelizable ? 'parallel' : 'serial',
+      tier.shardable ? `shardable:${tier.defaultShards}` : 'single'
+    ]
+    console.log(`${tier.id}\t${tags.join(' ')}`)
+  }
+}
+
+function ciPlan(matrix, format) {
+  const jobs = new Map()
+  for (const tier of matrix.tiers) {
+    const job = jobs.get(tier.ciJob) ?? {
+      id: tier.ciJob,
+      tiers: [],
+      timeoutMinutes: 0,
+      needs: new Set(),
+      artifacts: new Set()
+    }
+    job.tiers.push(tier.id)
+    job.timeoutMinutes = Math.max(job.timeoutMinutes, tier.timeoutMinutes)
+    for (const artifact of tier.artifacts) job.artifacts.add(artifact)
+    jobs.set(tier.ciJob, job)
+  }
+  const byId = tierMap(matrix)
+  for (const tier of matrix.tiers) {
+    const job = jobs.get(tier.ciJob)
+    for (const dep of tier.dependsOn) {
+      const depJob = byId.get(dep)?.ciJob
+      if (depJob && depJob !== tier.ciJob) job.needs.add(depJob)
+    }
+  }
+  const output = {
+    format,
+    generatedAt: new Date().toISOString(),
+    jobs: [...jobs.values()].map((job) => ({
+      id: job.id,
+      tiers: job.tiers,
+      timeoutMinutes: job.timeoutMinutes,
+      needs: [...job.needs].sort(),
+      artifacts: [...job.artifacts].sort()
+    })).sort((a, b) => a.id.localeCompare(b.id))
+  }
+  console.log(JSON.stringify(output, null, 2))
+}
+
+function docs(matrix, outFile) {
+  const lines = [
+    '# Generated Test Matrix',
+    '',
+    '<!-- generated by tools/run-test-matrix.mjs docs; do not edit by hand -->',
+    '',
+    `Version: \`${matrix.version}\``,
+    '',
+    '| Tier | CI job | Depends on | Services | Shards | Timeout | Evidence |',
+    '|---|---|---|---|---:|---:|---|'
+  ]
+  for (const tier of matrix.tiers) {
+    lines.push([
+      `\`${tier.id}\``,
+      `\`${tier.ciJob}\``,
+      tier.dependsOn.length > 0 ? tier.dependsOn.map((id) => `\`${id}\``).join(', ') : '-',
+      tier.services.length > 0 ? tier.services.join(', ') : '-',
+      tier.shardable ? String(tier.defaultShards) : '1',
+      `${tier.timeoutMinutes}m`,
+      tier.evidence.map((item) => `\`${item}\``).join('<br>')
+    ].join(' | ').replace(/^/, '| ').replace(/$/, ' |'))
+  }
+  lines.push('')
+  const text = `${lines.join('\n')}\n`
+  if (outFile) {
+    const abs = path.resolve(root, outFile)
+    fs.mkdirSync(path.dirname(abs), { recursive: true })
+    fs.writeFileSync(abs, text)
+    console.log(`[matrix:docs] wrote ${path.relative(root, abs)}`)
+  } else {
+    process.stdout.write(text)
+  }
+}
+
+function evidencePlan(matrix, outFile) {
+  const plan = {
+    schema: 'fsusblog.release-evidence.test-plan.v1',
+    generatedAt: new Date().toISOString(),
+    commit: git(['rev-parse', 'HEAD']),
+    namespace: process.env.FSUSBLOG_TEST_NAMESPACE ?? null,
+    tiers: matrix.tiers.map((tier) => ({
+      id: tier.id,
+      ciJob: tier.ciJob,
+      command: tier.command,
+      dependsOn: tier.dependsOn,
+      timeoutMinutes: tier.timeoutMinutes,
+      shardable: tier.shardable,
+      defaultShards: tier.defaultShards,
+      artifacts: tier.artifacts,
+      evidence: tier.evidence,
+      risk: tier.risk,
+      nightlyOnly: tier.nightlyOnly
+    }))
+  }
+  const abs = path.resolve(root, outFile ?? '.tmp/release-evidence/test-plan.json')
+  fs.mkdirSync(path.dirname(abs), { recursive: true })
+  fs.writeFileSync(abs, `${JSON.stringify(plan, null, 2)}\n`)
+  console.log(`[matrix:evidence] wrote ${path.relative(root, abs)}`)
+}
+
+function git(args) {
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' })
+  return result.status === 0 ? result.stdout.trim() : null
+}
+
+function usage() {
+  console.log(`Usage:
+  node tools/run-test-matrix.mjs validate
+  node tools/run-test-matrix.mjs list
+  node tools/run-test-matrix.mjs plan <tier>
+  node tools/run-test-matrix.mjs run <tier> [--plan-only] [--no-deps] [--shard i/n]
+  node tools/run-test-matrix.mjs ci-plan [--format github-actions]
+  node tools/run-test-matrix.mjs docs [--out docs/testing.generated.md]
+  node tools/run-test-matrix.mjs evidence-plan [--out .tmp/release-evidence/test-plan.json]
+
+Compatibility:
+  ./tools/test.sh <tier> delegates to "run <tier>".
+  "./tools/test.sh production --plan-only" prints the DAG without executing it.
+`)
+}
+
+function optionValue(args, name, fallback = null) {
+  const flag = `--${name}`
+  const inline = args.find((arg) => arg.startsWith(`${flag}=`))
+  if (inline) return inline.slice(flag.length + 1)
+  const index = args.indexOf(flag)
+  if (index >= 0) return args[index + 1]
+  return fallback
+}
+
+function main() {
+  const [command, ...args] = process.argv.slice(2)
+  if (!command || command === 'help' || command === '--help' || command === '-h') {
+    usage()
+    return
+  }
+
+  const matrix = loadMatrix()
+  if (command === 'validate') {
+    const errors = validateMatrix(matrix)
+    if (errors.length > 0) {
+      for (const error of errors) console.error(`[matrix] ${error}`)
+      process.exit(1)
+    }
+    console.log(`[matrix] ok (${matrix.tiers.length} tiers)`)
+    return
+  }
+  if (command === 'list') {
+    listTiers(matrix)
+    return
+  }
+  if (command === 'plan') {
+    printPlan(planTier(matrix, args[0]))
+    return
+  }
+  if (command === 'run') {
+    runTier(matrix, args[0], args.slice(1))
+    return
+  }
+  if (command === 'ci-plan') {
+    ciPlan(matrix, optionValue(args, 'format', 'json'))
+    return
+  }
+  if (command === 'docs') {
+    docs(matrix, optionValue(args, 'out'))
+    return
+  }
+  if (command === 'evidence-plan') {
+    evidencePlan(matrix, optionValue(args, 'out'))
+    return
+  }
+
+  throw new Error(`unknown command: ${command}`)
+}
+
+try {
+  main()
+} catch (error) {
+  console.error(`[matrix] ${error.message}`)
+  process.exit(1)
+}

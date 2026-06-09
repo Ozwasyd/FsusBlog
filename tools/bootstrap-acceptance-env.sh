@@ -4,15 +4,87 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLIENT_DIR="$ROOT_DIR/src/frontend"
 SERVER_WWWROOT_DIR="$ROOT_DIR/src/backend/wwwroot"
-TMP_DIR="$ROOT_DIR/.tmp/acceptance"
+FSUSBLOG_TEST_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-local}"
+NS_SLUG="$(printf '%s' "$FSUSBLOG_TEST_NAMESPACE" | tr -c 'A-Za-z0-9_.-' '-')"
+TMP_DIR="$ROOT_DIR/.tmp/acceptance/$NS_SLUG"
+ENV_DIR="$ROOT_DIR/.tmp/env"
+FIXTURE_DIR="$ROOT_DIR/.tmp/fixtures/$NS_SLUG"
 mkdir -p "$TMP_DIR"
+mkdir -p "$ENV_DIR" "$FIXTURE_DIR"
 
-DEBUG_FRONTEND_URL="${FSUSBLOG_DEBUG_FRONTEND_URL:-http://127.0.0.1:3000}"
-DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:5000}"
-RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:8080}"
+find_free_port() {
+  local start="${1:-20000}"
+  local end="${2:-55000}"
+  local port
+  for port in $(shuf -i "${start}-${end}" -n 200); do
+    if ! ss -ltn "( sport = :${port} )" 2>/dev/null | grep -q ":${port}"; then
+      printf '%s\n' "$port"
+      return 0
+    fi
+  done
+  return 1
+}
+
+ENV_FILE="$ENV_DIR/$NS_SLUG.env"
+if [[ -f "$ENV_FILE" ]]; then
+  while IFS='=' read -r key value; do
+    case "$key" in
+      FSUSBLOG_POSTGRES_PORT) FSUSBLOG_POSTGRES_PORT="$value" ;;
+      FSUSBLOG_REDIS_PORT) FSUSBLOG_REDIS_PORT="$value" ;;
+      FSUSBLOG_DEBUG_BACKEND_PORT) FSUSBLOG_DEBUG_BACKEND_PORT="$value" ;;
+      FSUSBLOG_DEBUG_FRONTEND_PORT) FSUSBLOG_DEBUG_FRONTEND_PORT="$value" ;;
+      FSUSBLOG_RELEASE_PREVIEW_PORT) FSUSBLOG_RELEASE_PREVIEW_PORT="$value" ;;
+      FSUSBLOG_DEBUG_FRONTEND_URL) FSUSBLOG_DEBUG_FRONTEND_URL="$value" ;;
+      FSUSBLOG_DEBUG_BACKEND_URL) FSUSBLOG_DEBUG_BACKEND_URL="$value" ;;
+      FSUSBLOG_RELEASE_PREVIEW_URL) FSUSBLOG_RELEASE_PREVIEW_URL="$value" ;;
+      FSUSBLOG_POSTGRES_CONTAINER_NAME) FSUSBLOG_POSTGRES_CONTAINER_NAME="$value" ;;
+      FSUSBLOG_REDIS_CONTAINER_NAME) FSUSBLOG_REDIS_CONTAINER_NAME="$value" ;;
+      FSUSBLOG_DATA_ROOT) FSUSBLOG_DATA_ROOT="$value" ;;
+    esac
+  done < "$ENV_FILE"
+fi
+
+POSTGRES_PORT="${FSUSBLOG_POSTGRES_PORT:-$(find_free_port 20000 30000)}"
+REDIS_PORT="${FSUSBLOG_REDIS_PORT:-$(find_free_port 30001 40000)}"
+DEBUG_BACKEND_PORT="${FSUSBLOG_DEBUG_BACKEND_PORT:-$(find_free_port 40001 46000)}"
+DEBUG_FRONTEND_PORT="${FSUSBLOG_DEBUG_FRONTEND_PORT:-$(find_free_port 46001 51000)}"
+RELEASE_PREVIEW_PORT="${FSUSBLOG_RELEASE_PREVIEW_PORT:-$(find_free_port 51001 56000)}"
+
+DEBUG_FRONTEND_URL="${FSUSBLOG_DEBUG_FRONTEND_URL:-http://127.0.0.1:${DEBUG_FRONTEND_PORT}}"
+DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:${DEBUG_BACKEND_PORT}}"
+RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:${RELEASE_PREVIEW_PORT}}"
+POSTGRES_CONTAINER="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-fsusblog-postgres-$NS_SLUG}"
+REDIS_CONTAINER="${FSUSBLOG_REDIS_CONTAINER_NAME:-fsusblog-redis-$NS_SLUG}"
+TEST_DATA_ROOT="${FSUSBLOG_DATA_ROOT:-$ROOT_DIR/.tmp/data/$NS_SLUG}"
+POSTGRES_CONNECTION="Host=127.0.0.1;Port=${POSTGRES_PORT};Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true"
+REDIS_CONNECTION="127.0.0.1:${REDIS_PORT}"
 FORCE_BOOTSTRAP="${FSUSBLOG_FORCE_BOOTSTRAP:-${CI:+1}}"
 RESET_SECURITY_TEST_STATE="${FSUSBLOG_RESET_SECURITY_TEST_STATE:-1}"
 POW_READY_MAX_DIFFICULTY="${FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY:-20}"
+
+write_env_file() {
+  cat > "$ENV_FILE" <<EOF
+FSUSBLOG_TEST_NAMESPACE=$FSUSBLOG_TEST_NAMESPACE
+FSUSBLOG_POSTGRES_PORT=$POSTGRES_PORT
+FSUSBLOG_REDIS_PORT=$REDIS_PORT
+FSUSBLOG_DEBUG_BACKEND_PORT=$DEBUG_BACKEND_PORT
+FSUSBLOG_DEBUG_FRONTEND_PORT=$DEBUG_FRONTEND_PORT
+FSUSBLOG_RELEASE_PREVIEW_PORT=$RELEASE_PREVIEW_PORT
+FSUSBLOG_DEBUG_FRONTEND_URL=$DEBUG_FRONTEND_URL
+FSUSBLOG_DEBUG_BACKEND_URL=$DEBUG_BACKEND_URL
+FSUSBLOG_RELEASE_PREVIEW_URL=$RELEASE_PREVIEW_URL
+FSUSBLOG_POSTGRES_CONTAINER_NAME=$POSTGRES_CONTAINER
+FSUSBLOG_REDIS_CONTAINER_NAME=$REDIS_CONTAINER
+FSUSBLOG_DATA_ROOT=$TEST_DATA_ROOT
+ConnectionStrings__DefaultConnection=$POSTGRES_CONNECTION
+ConnectionStrings__Redis=$REDIS_CONNECTION
+RedisOptions__Configuration=$REDIS_CONNECTION
+RedisOptions__InstanceName=FsusBlog_${NS_SLUG}_
+ASPNETCORE_URLS=http://127.0.0.1:$DEBUG_BACKEND_PORT
+EOF
+}
+
+write_env_file
 
 log() {
   printf '[acceptance:bootstrap] %s\n' "$1"
@@ -101,27 +173,27 @@ wait_for_binary_url() {
 }
 
 ensure_postgres() {
-  if docker exec fsusblog-postgres pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
+  if docker exec "$POSTGRES_CONTAINER" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
     log 'postgres already ready'
     return
   fi
 
-  if docker ps -a --format '{{.Names}}' | grep -qx 'fsusblog-postgres'; then
+  if docker ps -a --format '{{.Names}}' | grep -qx "$POSTGRES_CONTAINER"; then
     log 'starting existing postgres container'
-    docker start fsusblog-postgres >/dev/null
+    docker start "$POSTGRES_CONTAINER" >/dev/null
   else
     log 'creating postgres container'
     docker run -d \
-      --name fsusblog-postgres \
+      --name "$POSTGRES_CONTAINER" \
       -e POSTGRES_USER=fsusblog \
       -e POSTGRES_PASSWORD=fsusblog_dev \
       -e POSTGRES_DB=fsusblog \
-      -p 5432:5432 \
+      -p "${POSTGRES_PORT}:5432" \
       postgres:16-alpine >/dev/null
   fi
 
   for ((i=0; i<60; i+=1)); do
-    if docker exec fsusblog-postgres pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
+    if docker exec "$POSTGRES_CONTAINER" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
       return
     fi
     sleep 1
@@ -132,21 +204,21 @@ ensure_postgres() {
 }
 
 ensure_redis() {
-  if docker exec fsusblog-redis redis-cli ping >/dev/null 2>&1; then
+  if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
     log 'redis already ready'
     return
   fi
 
-  if docker ps -a --format '{{.Names}}' | grep -qx 'fsusblog-redis'; then
+  if docker ps -a --format '{{.Names}}' | grep -qx "$REDIS_CONTAINER"; then
     log 'starting existing redis container'
-    docker start fsusblog-redis >/dev/null
+    docker start "$REDIS_CONTAINER" >/dev/null
   else
     log 'creating redis container'
-    docker run -d --name fsusblog-redis -p 6379:6379 redis:7-alpine >/dev/null
+    docker run -d --name "$REDIS_CONTAINER" -p "${REDIS_PORT}:6379" redis:7-alpine >/dev/null
   fi
 
   for ((i=0; i<60; i+=1)); do
-    if docker exec fsusblog-redis redis-cli ping >/dev/null 2>&1; then
+    if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
       return
     fi
     sleep 1
@@ -162,7 +234,7 @@ reset_security_test_state() {
   fi
 
   local deleted
-  deleted="$(docker exec fsusblog-redis sh -c "redis-cli --scan --pattern '*fsus:sec:pow-risk:*' | xargs -r redis-cli DEL" 2>/dev/null || true)"
+  deleted="$(docker exec "$REDIS_CONTAINER" sh -c "redis-cli --scan --pattern '*${NS_SLUG}*fsus:sec:pow-risk:*' | xargs -r redis-cli DEL" 2>/dev/null || true)"
   deleted="${deleted:-0}"
   if [[ "$deleted" =~ ^[0-9]+$ ]] && (( deleted > 0 )); then
     log "reset local security PoW risk keys: ${deleted}"
@@ -176,7 +248,7 @@ ensure_backend() {
   local managed_pid
   local existing_pid
   managed_pid="$(read_pid_file "$pid_file")"
-  existing_pid="$(find_port_pid 5000)"
+  existing_pid="$(find_port_pid "$DEBUG_BACKEND_PORT")"
 
   if can_reuse_processes && probe_binary_url "$DEBUG_BACKEND_URL/api/binary/system/seo" && probe_binary_url "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge"; then
     log 'debug backend already healthy; reusing existing process'
@@ -184,18 +256,18 @@ ensure_backend() {
   fi
 
   if [[ -n "$managed_pid" ]] && kill -0 "$managed_pid" >/dev/null 2>&1; then
-    log "restarting managed backend process on 5000 (pid ${managed_pid})"
+    log "restarting managed backend process on ${DEBUG_BACKEND_PORT} (pid ${managed_pid})"
     kill_pid_if_running "$managed_pid"
   elif [[ -n "$existing_pid" ]]; then
-    log "restarting unmanaged backend process on 5000 (pid ${existing_pid})"
+    log "restarting unmanaged backend process on ${DEBUG_BACKEND_PORT} (pid ${existing_pid})"
   fi
 
-  existing_pid="$(find_port_pid 5000)"
+  existing_pid="$(find_port_pid "$DEBUG_BACKEND_PORT")"
   kill_pid_if_running "$existing_pid"
   kill_pid_if_running "$managed_pid"
 
   log 'starting managed debug backend'
-  nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --launch-profile FsusBlog.Server" >"$log_file" 2>&1 < /dev/null &
+  nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile" >"$log_file" 2>&1 < /dev/null &
   echo $! >"$pid_file"
 
   wait_for_binary_url 'debug backend' "$DEBUG_BACKEND_URL/api/binary/system/seo" 120
@@ -244,13 +316,13 @@ ensure_debug_frontend() {
   fi
 
   kill_pid_if_running "$(read_pid_file "$TMP_DIR/dev-server.pid")"
-  kill_pid_if_running "$(find_port_pid 3000)"
+  kill_pid_if_running "$(find_port_pid "$DEBUG_FRONTEND_PORT")"
   start_background_if_needed \
     'debug frontend' \
     "$DEBUG_FRONTEND_URL/" \
     "$TMP_DIR/dev-server.pid" \
     "$TMP_DIR/dev-server.log" \
-    npm run dev:debug
+    npm exec -- vite --host 0.0.0.0 --port "$DEBUG_FRONTEND_PORT"
 }
 
 ensure_release_preview() {
@@ -281,14 +353,14 @@ ensure_release_preview() {
   sync_backend_wwwroot_from_client_dist
 
   kill_pid_if_running "$(read_pid_file "$TMP_DIR/preview.pid")"
-  kill_pid_if_running "$(find_port_pid 8080)"
+  kill_pid_if_running "$(find_port_pid "$RELEASE_PREVIEW_PORT")"
 
   start_background_if_needed \
     'release preview' \
     "$RELEASE_PREVIEW_URL/" \
     "$TMP_DIR/preview.pid" \
     "$TMP_DIR/preview.log" \
-    npm run preview
+    npm exec -- vite preview --host 0.0.0.0 --port "$RELEASE_PREVIEW_PORT"
 }
 
 sync_backend_wwwroot_from_client_dist() {
@@ -321,7 +393,7 @@ prepare_fixtures() {
 current_pow_difficulty() {
   (
     cd "$ROOT_DIR"
-    FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" node --input-type=module -e "import { fetchChallenge } from './tests/frontend/support/auth-helpers.mjs'; const challenge = await fetchChallenge(5000); console.log(challenge.difficulty ?? challenge.Difficulty ?? 999);"
+    FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" "${FSUSBLOG_NODE:-node}" --input-type=module -e "import { fetchChallenge } from './tests/frontend/support/auth-helpers.mjs'; const challenge = await fetchChallenge(5000); console.log(challenge.difficulty ?? challenge.Difficulty ?? 999);"
   )
 }
 
@@ -353,6 +425,15 @@ main() {
   ensure_debug_frontend
   wait_for_pow_ready
   prepare_fixtures
+  jq -n \
+    --arg namespace "$FSUSBLOG_TEST_NAMESPACE" \
+    --arg backend "$DEBUG_BACKEND_URL" \
+    --arg frontend "$DEBUG_FRONTEND_URL" \
+    --arg preview "$RELEASE_PREVIEW_URL" \
+    --arg postgres "$POSTGRES_CONTAINER" \
+    --arg redis "$REDIS_CONTAINER" \
+    '{namespace: $namespace, backendUrl: $backend, frontendUrl: $frontend, previewUrl: $preview, containers: {postgres: $postgres, redis: $redis}, generatedAt: now | todate}' \
+    > "$FIXTURE_DIR/manifest.json"
   wait_for_binary_url 'seo probe' "$DEBUG_BACKEND_URL/api/binary/system/seo" 30
   wait_for_binary_url 'pow challenge probe' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" 30
   log 'acceptance environment ready'

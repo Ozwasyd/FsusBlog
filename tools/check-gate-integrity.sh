@@ -13,6 +13,8 @@ run_self_test() {
     "$temp_dir/docs" \
     "$temp_dir/src/frontend" \
     "$temp_dir/tests/backend" \
+    "$temp_dir/tests" \
+    "$temp_dir/tools/test/lanes" \
     "$temp_dir/tools/coverage"
 
   touch "$temp_dir/tests/backend/FsusBlog.Server.Tests.csproj"
@@ -21,15 +23,40 @@ run_self_test() {
   cat > "$temp_dir/tools/test.sh" <<'EOF'
 #!/usr/bin/env bash
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test
-run "$ROOT_DIR/tools/ok.sh"
-run bash "$ROOT_DIR/tools/coverage/collect-backend-coverage.sh"
-run bash "$ROOT_DIR/tools/coverage/collect-frontend-coverage.sh"
-run bash "$ROOT_DIR/tools/coverage/merge-coverage.sh"
-run bash "$ROOT_DIR/tools/coverage/check-scope-snapshot.sh"
-run bash "$ROOT_DIR/tools/coverage/check-threshold.sh"
-SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj"
-Usage: ./tools/test.sh <fast|production|coverage-gate>
+exec node "$ROOT_DIR/tools/run-test-matrix.mjs" run "$@"
+EOF
+
+  cat > "$temp_dir/tools/run-test-matrix.mjs" <<'EOF'
+#!/usr/bin/env node
+console.log('[matrix] ok')
+EOF
+
+  cat > "$temp_dir/tools/test/legacy-test.sh" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+
+  cat > "$temp_dir/tests/matrix.yml" <<'EOF'
+version: fsusblog-test-matrix-v2
+tiers:
+  - id: fast
+    command: tools/ok.sh
+  - id: coverage-backend
+    command: tools/coverage/collect-backend-coverage.sh
+  - id: coverage-frontend
+    command: tools/coverage/collect-frontend-coverage.sh
+  - id: coverage-merge
+    command: tools/coverage/merge-coverage.sh
+  - id: coverage-threshold
+    command: tools/test/lanes/coverage-threshold.sh
+  - id: coverage-gate
+    command: tools/coverage/check-scope-snapshot.sh
+  - id: production
+    command: tools/test/lanes/noop.sh
+EOF
+
+  cat > "$temp_dir/tests/matrix.schema.json" <<'EOF'
+{}
 EOF
 
   cat > "$temp_dir/tools/ok.sh" <<'EOF'
@@ -44,8 +71,12 @@ EOF
 
   for file in \
     "$temp_dir/tools/test.sh" \
+    "$temp_dir/tools/run-test-matrix.mjs" \
+    "$temp_dir/tools/test/legacy-test.sh" \
     "$temp_dir/tools/ok.sh" \
     "$temp_dir/tools/check-gate-integrity.sh" \
+    "$temp_dir/tools/test/lanes/noop.sh" \
+    "$temp_dir/tools/test/lanes/coverage-threshold.sh" \
     "$temp_dir/tools/coverage/collect-backend-coverage.sh" \
     "$temp_dir/tools/coverage/collect-frontend-coverage.sh" \
     "$temp_dir/tools/coverage/merge-coverage.sh" \
@@ -77,12 +108,21 @@ on:
       - master
   workflow_dispatch:
 jobs:
+  validate-matrix:
+    steps:
+      - run: node tools/run-test-matrix.mjs validate
   coverage:
     steps:
-      - run: ./tools/test.sh coverage-gate
+      - run: ./tools/test.sh coverage-backend
+      - run: ./tools/test.sh coverage-frontend
+      - run: ./tools/test.sh coverage-merge
+      - run: ./tools/test.sh coverage-threshold
   production:
     steps:
       - run: ./tools/test.sh production
+  production-summary:
+    steps:
+      - run: echo ok
 EOF
 
   cat > "$temp_dir/README.md" <<'EOF'
@@ -220,15 +260,26 @@ function scanToolsTest() {
   }
 
   for (const needle of [
-    'tools/check-gate-integrity.sh',
-    'tools/coverage/collect-backend-coverage.sh',
-    'tools/coverage/collect-frontend-coverage.sh',
-    'tools/coverage/merge-coverage.sh',
-    'tools/coverage/check-scope-snapshot.sh',
-    'tools/coverage/check-threshold.sh'
+    'tools/run-test-matrix.mjs'
   ]) {
     if (!text.includes(needle)) {
       addError(`tools/test.sh does not reference ${needle}`);
+    }
+  }
+}
+
+function scanMatrix() {
+  const source = 'tests/matrix.yml';
+  const text = readRequired(source);
+  addRefsFromText(text, source);
+  for (const required of [
+    'tools/coverage/collect-backend-coverage.sh',
+    'tools/coverage/collect-frontend-coverage.sh',
+    'tools/coverage/merge-coverage.sh',
+    'tools/test/lanes/coverage-threshold.sh'
+  ]) {
+    if (!text.includes(required)) {
+      addError(`${source} does not reference ${required}`);
     }
   }
 }
@@ -264,10 +315,16 @@ function scanWorkflow(file) {
       }
     }
 
-    for (const required of ['./tools/test.sh coverage-gate', './tools/test.sh production']) {
+    for (const required of ['./tools/test.sh coverage-backend', './tools/test.sh coverage-frontend', './tools/test.sh coverage-merge', './tools/test.sh coverage-threshold']) {
       if (!text.includes(required)) {
         addError(`${file} does not run ${required}`);
       }
+    }
+    if (!text.includes('production-summary:')) {
+      addError(`${file} is missing production-summary job`);
+    }
+    if (!text.includes('node tools/run-test-matrix.mjs validate')) {
+      addError(`${file} does not validate tests/matrix.yml`);
     }
   }
 
@@ -327,7 +384,11 @@ function requirePath(rel, executable = false) {
 
 for (const rel of [
   'tools/test.sh',
+  'tools/test/legacy-test.sh',
+  'tools/run-test-matrix.mjs',
   'tools/check-gate-integrity.sh',
+  'tests/matrix.yml',
+  'tests/matrix.schema.json',
   'tools/coverage/collect-backend-coverage.sh',
   'tools/coverage/collect-frontend-coverage.sh',
   'tools/coverage/merge-coverage.sh',
@@ -338,6 +399,7 @@ for (const rel of [
 }
 
 scanToolsTest();
+scanMatrix();
 scanPackageJson();
 for (const workflow of fs.readdirSync(path.join(root, '.github/workflows')).filter((value) => /\.ya?ml$/.test(value)).sort()) {
   scanWorkflow(`.github/workflows/${workflow}`);

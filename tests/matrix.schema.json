@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FsusBlog Test Matrix",
+  "type": "object",
+  "required": ["version", "tiers"],
+  "properties": {
+    "version": { "type": "string", "pattern": "^fsusblog-test-matrix-v[0-9]+$" },
+    "namespaceTemplate": { "type": "string" },
+    "tiers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "owner",
+          "command",
+          "dependsOn",
+          "services",
+          "parallelizable",
+          "exclusiveResources",
+          "timeoutMinutes",
+          "shardable",
+          "defaultShards",
+          "risk",
+          "coverage",
+          "artifacts",
+          "evidence",
+          "ciJob",
+          "localOnly",
+          "nightlyOnly"
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "owner": { "type": "string" },
+          "command": { "type": "string", "minLength": 1 },
+          "dependsOn": { "type": "array", "items": { "type": "string" } },
+          "services": { "type": "array", "items": { "type": "string" } },
+          "parallelizable": { "type": "boolean" },
+          "exclusiveResources": { "type": "array", "items": { "type": "string" } },
+          "timeoutMinutes": { "type": "number", "minimum": 1 },
+          "shardable": { "type": "boolean" },
+          "defaultShards": { "type": "number", "minimum": 1 },
+          "risk": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "coverage": { "type": "array", "items": { "type": "string" } },
+          "artifacts": { "type": "array", "items": { "type": "string" } },
+          "evidence": { "type": "array", "items": { "type": "string" } },
+          "ciJob": { "type": "string" },
+          "localOnly": { "type": "boolean" },
+          "nightlyOnly": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
