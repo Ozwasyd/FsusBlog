@@ -61,7 +61,7 @@ All test classes must live under `Unit/` or `Integration/`.
   - Runs `tools/check-backend-test-governance.mjs`.
   - Validates issue #40 profile, requirement, endpoint, FrameType, mutation and matrix traceability.
 - `./tools/test.sh backend-perf`
-  - Validates backend performance readiness by building the BenchmarkDotNet project in Release.
+  - `backend-perf-readiness`: validates backend performance readiness by building the BenchmarkDotNet project in Release. It does not claim a benchmark result; use `backend-benchmark-regression` for real benchmark evidence.
 - `./tools/test.sh backend-mutation`
   - Runs Stryker.NET with `stryker-config.json`.
   - This tier is intended for nightly/manual evidence, not the default fast gate.

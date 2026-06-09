@@ -17,6 +17,24 @@ SOAK_DIR="${FSUSBLOG_SOAK_EVIDENCE_DIR:-$ROOT_DIR/.tmp/soak}"
 FUZZ_DIR="${FSUSBLOG_FUZZ_EVIDENCE_DIR:-$ROOT_DIR/.tmp/fuzz}"
 mkdir -p "$OUT_DIR"
 
+restore_downloaded_artifacts() {
+  local downloaded_dir="$ROOT_DIR/.tmp/downloaded-artifacts"
+  local artifact_dir name
+  [[ -d "$downloaded_dir" ]] || return 0
+
+  for artifact_dir in "$downloaded_dir"/*; do
+    [[ -d "$artifact_dir" ]] || continue
+    for name in gate-logs release-evidence docs frontend ux perf security coverage fault-injection fuzz soak operations; do
+      if [[ -d "$artifact_dir/$name" ]]; then
+        mkdir -p "$ROOT_DIR/.tmp/$name"
+        cp -a "$artifact_dir/$name/." "$ROOT_DIR/.tmp/$name/"
+      fi
+    done
+  done
+}
+
+restore_downloaded_artifacts
+
 copy_if_present() {
   local src="$1"
   local name="$2"
@@ -256,6 +274,7 @@ HYDRATION_LONG_SMOKE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence
 UX_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/ux" ux)"
 UX_VIEWPORT_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json" ux-viewport-summary.json)"
 FRONTEND_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json" frontend-render-pressure-summary.json)"
+DOC_SYNC_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json" doc-sync-summary.json)"
 DOM_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/dom-budget.json" dom-budget.json)"
 ROUTE_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/route-render-pressure.json" route-render-pressure.json)"
 MARKDOWN_RENDER_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/markdown-render-budget.json" markdown-render-budget.json)"
@@ -301,6 +320,7 @@ AUTHENTICATED_DAST_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/authent
 WASM_FUZZ_STATUS_VALUE="$(json_status_or_missing "$FUZZ_DIR/wasm/summary.json")"
 UX_VIEWPORT_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json")"
 FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json")"
+DOC_SYNC_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json")"
 
 MANIFEST_STATUS="collected-ok"
 if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
@@ -319,6 +339,7 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$SLO_STATUS_VALUE" != "ok" \
   || "$SLO_CRITICAL_COUNT" != "0" \
   || "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE" != "ok" \
+  || "$DOC_SYNC_STATUS_VALUE" != "ok" \
   || "$IMAGE_DIGEST_STATUS" != "present" ]]; then
   MANIFEST_STATUS="collected-blocked"
 fi
@@ -367,6 +388,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "ux": $UX_ARTIFACT,
     "uxViewportSummary": $UX_VIEWPORT_SUMMARY,
     "frontendRenderPressureSummary": $FRONTEND_RENDER_PRESSURE_SUMMARY,
+    "docSyncSummary": $DOC_SYNC_SUMMARY,
     "domBudgetSummary": $DOM_BUDGET_SUMMARY,
     "routeRenderPressureSummary": $ROUTE_RENDER_PRESSURE_SUMMARY,
     "markdownRenderBudgetSummary": $MARKDOWN_RENDER_BUDGET_SUMMARY,
@@ -404,7 +426,8 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "gates": {
       "visualGateSkip": $VISUAL_GATE_SKIP,
       "uxViewport": "$UX_VIEWPORT_STATUS_VALUE",
-      "frontendRenderPressure": "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE"
+      "frontendRenderPressure": "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE",
+      "docSync": "$DOC_SYNC_STATUS_VALUE"
     },
     "security": {
       "attackMatrix": "$ATTACK_MATRIX_STATUS_VALUE",

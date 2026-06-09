@@ -8,7 +8,9 @@ Before publishing a production image:
 ./tools/test.sh production
 ```
 
-`production` is the authoritative gate: it runs fast validation first, starts the full local stack once, then reuses that stack for integration, release, acceptance, visual, security, resilience, and load checks. A passing gate means no compile warnings, no TypeScript/Vite warnings, no runtime console errors or warnings, no API/Binary/SSE/AOT contract drift, and no blocker security or workflow regressions in the encoded risk matrix.
+`production` is the production-ci-gate: it runs fast validation first, starts the full local stack once, then reuses that stack for integration, release, acceptance, visual, security, resilience, load, frontend render-pressure, and release evidence schema checks. A passing production-ci-gate means no compile warnings, no TypeScript/Vite warnings, no runtime console errors or warnings, no API/Binary/WebSocket/AOT contract drift, and no blocker security or workflow regressions in the encoded risk matrix. It may still produce a schema-valid `collected-blocked` release evidence manifest while external production evidence is pending.
+
+`release-closeout-gate` is separate and must run `tools/operations/check-release-evidence-manifest.mjs --require-ok` or `./tools/test.sh release-closeout`. Only `collected-ok` is a release credential.
 
 The same gate is enforced by GitHub Actions `Quality Gate` on pull requests, pushes to `main` / `master`, and manual dispatch. CI requires `GITHUB_PACKAGES_TOKEN` for the private `@ozwasyd` npm package. CI pins `FSUSBLOG_PLAYWRIGHT_WORKERS=1`; local runs may override that value when more parallelism is safe.
 
@@ -71,17 +73,17 @@ If a release specifically needs public AOT disk cache invalidation, set `Lifecyc
 - Disk usage for Docker volumes and container logs is below alert thresholds.
 - PostgreSQL connection usage leaves headroom for migrations and backups.
 - Redis memory and eviction policy are within expected bounds.
-- SSE connection count matches expected traffic and does not grow without release.
+- WebSocket binary notification stream connection count matches expected traffic and does not grow without release.
 
 ## Observability
 
-OpenTelemetry is enabled in-process by default and uses `FsusBlog.Server` as the custom `ActivitySource` / `Meter`. ASP.NET Core, outgoing HTTP, runtime, Npgsql, SSE metrics, cache operations, PublicAOT render source, search rebuild/query and scheduled-publish worker timings are recorded with bounded `fsus.*` tags only.
+OpenTelemetry is enabled in-process by default and uses `FsusBlog.Server` as the custom `ActivitySource` / `Meter`. ASP.NET Core, outgoing HTTP, runtime, Npgsql, WebSocket notification metrics, cache operations, PublicAOT render source, search rebuild/query and scheduled-publish worker timings are recorded with bounded `fsus.*` tags only.
 
 OTLP export is off by default. Enable it by setting either `Observability:ExporterEnabled=true` with `Observability:OtlpEndpoint=http://collector:4317`, or the standard `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable. Requests return `X-Fsus-Trace-Id`, and Serilog/audit request context uses the same trace identifier for log correlation. Do not add raw route parameters, request/response bodies, cookies, tokens, IP addresses, usernames or email addresses as OpenTelemetry attributes.
 
 ## SLO Alerts
 
-Production SLO definitions are machine-readable in `config/slo.yml`; `tools/operations/check-slo-definition.mjs` verifies availability, error-rate, p95/p99 latency, SSE reconnect success, AOT hit rate, search rebuild success and scheduled publish delay objectives before the release gate proceeds.
+Production SLO definitions are machine-readable in `config/slo.yml`; `tools/operations/check-slo-definition.mjs` verifies availability, error-rate, p95/p99 latency, WebSocket reconnect success, AOT hit rate, search rebuild success and scheduled publish delay objectives before the release gate proceeds.
 
 The release SLO fixture is executable:
 
@@ -95,7 +97,7 @@ It writes `.tmp/operations/slo-alert-fixture.json`. With no argument it uses an 
 |-------|--------|---------------------|--------------------------------|
 | `ready_degraded` | Candidate traffic switch and release closeout are blocked. | `/health/ready`, runtime startup tasks, scheduled publish snapshot, app logs. | Keep traffic away from the candidate image or switch back to the previous image tag. |
 | `db_latency_high` | Cache misses, authoring writes, reads and migrations can stall behind PostgreSQL pressure. | `/health/ready` `checks.postgres.latencyMs`, DB concurrency gate snapshot, slow SQL logs, PostgreSQL connection usage. | Reduce public traffic, pause non-essential writes/background work, then rollback if latency started with the deploy. |
-| `redis_latency_high` | L2 cache, SSE backlog replay and cache-control fanout can become slow or stale. | `/health/ready` `checks.redis.latencyMs`, Redis memory/eviction policy, network path and command latency. | Keep the app out of new traffic until Redis recovers; allow public fallback only after readiness is healthy. |
+| `redis_latency_high` | L2 cache, WebSocket notification backlog replay and cache-control fanout can become slow or stale. | `/health/ready` `checks.redis.latencyMs`, Redis memory/eviction policy, network path and command latency. | Keep the app out of new traffic until Redis recovers; allow public fallback only after readiness is healthy. |
 | `aot_backfill_failed` | Public pages may fall back from server AOT shells to SPA rendering and lose first-load performance. | `runtime.startup.tasks.aotDiskCache`, PublicAOT worker logs, AOT cache directory permissions, `aotBackfill.failuresLastHour` if exported by the collector. | Disable one-shot AOT cache cleanup, keep SPA fallback enabled, and rerun backfill after fixing renderer or filesystem failures. |
 | `search_rebuild_failed` | Search results and distribution version coherence can be stale after article mutations or deployment. | `runtime.startup.tasks.searchIndex`, `search.rebuildFailuresLastHour`, search artifact directory and `SearchIndexService` logs. | Restore previous search artifacts or previous image, keep public reads online, and rebuild the index before closeout. |
 | `sse_disconnect_spike` | Notification streams can miss live updates and increase replay pressure for authenticated/admin clients. | `fsus.sse.slow_disconnects`, `/health/ready` `runtime.sseConnections`, gateway websocket buffering and slow consumer logs. | Lower gateway traffic or reconnect pressure, preserve polling/fetch fallbacks, and revert gateway changes that introduced buffering. |
@@ -127,7 +129,7 @@ Run a repeatable backup/restore rehearsal before closing the production TODO ite
 tools/operations/backup-restore-drill.sh
 ```
 
-By default the script runs in dry-run mode and writes `.tmp/operations/backup-restore-drill.json`. A real drill must provide PostgreSQL, Redis, upload, AOT cache and search index backup paths, restore them into an isolated PostgreSQL/Redis/backend stack, then smoke anonymous public pages, admin login, Binary API, search and SSE before recording RPO/RTO:
+By default the script runs in dry-run mode and writes `.tmp/operations/backup-restore-drill.json`. A real drill must provide PostgreSQL, Redis, upload, AOT cache and search index backup paths, restore them into an isolated PostgreSQL/Redis/backend stack, then smoke anonymous public pages, admin login, Binary API, search and WebSocket notifications before recording RPO/RTO:
 
 ```bash
 FSUSBLOG_DRILL_MODE=real \
@@ -139,7 +141,7 @@ FSUSBLOG_SEARCH_BACKUP=backups/fsus-search.tar.gz \
   tools/operations/backup-restore-drill.sh
 ```
 
-The real mode starts disposable restore containers, copies upload/AOT/search artifacts into an isolated webroot, starts a restored backend on `FSUSBLOG_DRILL_BACKEND_PORT` (default `5180`), verifies `/`, admin login, `/api/binary/article/list/home/1/5.aeds`, `/search/index.manifest.aeds` and SSE live WebSocket heartbeat, then removes the temporary stack unless `FSUSBLOG_DRILL_KEEP_WORK=1` is set.
+The real mode starts disposable restore containers, copies upload/AOT/search artifacts into an isolated webroot, starts a restored backend on `FSUSBLOG_DRILL_BACKEND_PORT` (default `5180`), verifies `/`, admin login, `/api/binary/article/list/home/1/5.aeds`, `/search/index.manifest.aeds` and WebSocket notification heartbeat, then removes the temporary stack unless `FSUSBLOG_DRILL_KEEP_WORK=1` is set.
 
 When the source is a site package generated by `backup-site.sh`, pass it directly; the drill unpacks database/uploads/AOT/search and starts Redis with an empty data directory:
 
@@ -207,7 +209,7 @@ Collect machine-readable release evidence after gates and smoke:
 tools/operations/collect-release-evidence.sh
 ```
 
-The collector writes `.tmp/release-evidence/<timestamp>/manifest.json` and copies available security, operations, coverage and gate-log evidence. The manifest status is `collected-ok` only when required evidence is valid; otherwise it is `collected-blocked` and `evidenceSummary` records which evidence is missing or blocked. Production closeout evidence remains fail-closed: DNS delegation/readiness, firewall policy and live exposure must come from the real production environment before `NB-P0-001` can close.
+The collector writes `.tmp/release-evidence/<timestamp>/manifest.json` and copies available security, operations, coverage, doc sync and gate-log evidence. The manifest status is `collected-ok` only when required evidence is valid; otherwise it is `collected-blocked` and `evidenceSummary` records which evidence is missing or blocked. `collected-blocked` is schema-valid for production-ci-gate diagnostics, but it is not publishable. Production closeout evidence remains fail-closed: DNS delegation/readiness, firewall policy and live exposure must come from the real production environment before `NB-P0-001` can close, and release-closeout-gate must run with `--require-ok`.
 
 The manifest is also the security evidence index for the release. It records DAST/ZAP output, `attack-matrix.json`, `permission-matrix.json`, production exposure status, production exposure request, firewall policy evidence, DNS readiness, DNS delegation and live exposure evidence. `evidenceSummary.externalExposure.valid=false` is a valid release-blocking artifact state, not a promotion signal. `evidenceSummary.externalExposure.request` summarizes the request package status, blocker count, current blocker sources, next action sources, unblock plan sources/count, required hosts, delegation domains, required evidence keys, firewall source sha256 requirements, handoff check count, verification command names/count, returned closeout command count and closeout command fields so operators can triage from the manifest before opening the full request JSON. `artifactDigests` records sha256 digests for copied production exposure artifacts so a handed-off bundle can be checked without trusting the current working tree; firewall policy evidence also carries `evidenceSource.sourceSha256` for the raw cloud or UFW export used to generate the normalized policy. If an artifact is absent, its digest must also be `null`. Missing external evidence is represented as `null` in `securityEvidenceIndex` while the blocker detail remains in `production-exposure-status.json`; do not replace that with synthetic passing firewall or DNS data.
 
@@ -279,4 +281,4 @@ Upload asset file deletion is opt-in and guarded. Set `FSUSBLOG_RETENTION_SCAN_U
 - App fails readiness only: inspect `/health/ready` detail to distinguish DB, Redis, config, or resource failure.
 - DB pressure: lower public traffic at the gateway, check DB concurrency gate detail, and inspect slow SQL logs.
 - Redis outage: keep the app isolated from new traffic until readiness returns; public hot paths may degrade without L2 cache.
-- SSE pressure: inspect readiness runtime detail and logs for slow consumer disconnects.
+- WebSocket pressure: inspect readiness runtime detail and logs for slow consumer disconnects.

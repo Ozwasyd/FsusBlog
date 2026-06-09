@@ -326,14 +326,14 @@ Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔�
   ↘ Passkey 验证（FIDO2 Discoverable Credential）
 
 认证成功
-  → JWT Access Token（Bearer，15 min）
+  → AEDS auth frame + HttpOnly Cookie session（短期 JWT 仅作为服务端内部签发/校验细节）
   → Refresh Token（HttpOnly Cookie，`UserSession.RefreshTokenHash` 哈希存储，CAS 轮换制）
   → 可选：MFA TOTP 挑战（Passkey 登录免 MFA）
   → 会话记录（可列出 / 吊销全部其他）
 
 请求授权
   → [anonymous] 公开内容端点
-  → [authenticated] 用户端点（需 Bearer JWT）
+  → [authenticated] 用户端点（需 HttpOnly Cookie session / AEDS auth frame）
   → [admin] 管理端端点（需 admin 角色声明）
 ```
 

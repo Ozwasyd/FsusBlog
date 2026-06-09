@@ -190,7 +190,9 @@ jobs:
           retention-days: 14
           path: |
             .tmp/gate-logs/**
+            .tmp/docs/**
             .tmp/release-evidence/test-plan.json
+            .tmp/release-evidence/doc-sync-summary.json
 
   cross-stack-contract:
     name: Cross Stack Contract

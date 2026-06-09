@@ -182,7 +182,7 @@ FsusBlog 采用三级角色体系：
 - Refresh Token 使用 `SameSite=Strict, HttpOnly, Secure` Cookie
 - 生产环境认证 Cookie 使用 `__Host-*` 前缀、`Path=/`、无 `Domain`、`HttpOnly`、`Secure`、`SameSite=Strict`
 - `SameSite=Strict` 阻止跨站请求自动携带 Cookie
-- 所有写操作额外校验 Bearer JWT（HTTP Header），无法被 CSRF 伪造
+- 前端主调用凭据是 HttpOnly Cookie session / AEDS auth frame；如服务端内部仍签发短期 JWT，它不是浏览器主调用的 Bearer Header 事实。高风险写操作还会叠加 PoW、MFA proof、RBAC 与 no-store metadata，避免只依赖自动携带 Cookie。
 
 ## 作者工作台、订阅与 RUM 隐私
 

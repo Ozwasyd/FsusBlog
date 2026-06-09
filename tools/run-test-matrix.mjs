@@ -430,6 +430,8 @@ function usage() {
 Compatibility:
   ./tools/test.sh <tier> delegates to "run <tier>".
   "./tools/test.sh production --plan-only" prints the DAG without executing it.
+  "./tools/test.sh production" is the production-ci-gate: release evidence may be schema-valid collected-blocked.
+  "./tools/test.sh release-closeout" is the release-closeout-gate: it requires check-release-evidence-manifest.mjs --require-ok.
 `)
 }
 

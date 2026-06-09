@@ -16,6 +16,11 @@ loadProfiles:
     concurrency: 160
     rounds: 4
     durationMs: 15000
+notificationPressure:
+  connections: 50
+  durationMs: 30000
+  connectBatchSize: 10
+  powAttempts: 30
 regressionThresholds:
   nightlyPercent: 5
   releasePercent: 10

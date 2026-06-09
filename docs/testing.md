@@ -15,16 +15,19 @@ FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑
 更新生成文档：
 
 ```bash
-node tools/run-test-matrix.mjs docs --out docs/testing.generated.md
+node tools/docs/generate-testing-docs.mjs --out docs/testing.generated.md
+node tools/docs/generate-testing-docs.mjs --check
 ```
 
-`load` 与 SSE pressure 检查会写入 `.tmp/perf/load-public-api.json` 和 `.tmp/perf/sse-pressure.json`，release evidence 会把 `.tmp/perf/` 作为性能证据归档。
+`coverage-gate` 与 `production` 是两个 independent required checks：coverage 负责阈值和合并覆盖率，production 负责运行时风险 DAG。
+
+`load` 与 WebSocket pressure 检查会写入 `.tmp/perf/load-public-api.json` 和 `.tmp/perf/sse-pressure.json`，release evidence 会把 `.tmp/perf/` 作为性能证据归档。默认参数来自 `tests/perf/perf-policy.yml`：HTTP load baseline 为 `concurrency=10`、`rounds=6`、`durationMs=30000`；WebSocket pressure 为 `connections=50`、`durationMs=30000`。
 
 ---
 
 ## 各层详解
 
-### `fast` — 纯单元测试
+### `fast` — 快速静态治理与单元测试
 
 **触发时机**：本地提交前、PR 检查
 
@@ -111,7 +114,9 @@ npx playwright test --config=playwright.config.ts
 
 **覆盖内容**：
 - 深色模式 / 浅色模式截图比对
-- 移动端（375px）/ 桌面端（1280px）布局
+- viewport registry 来自 `tests/frontend/fixtures/ux-viewport-matrix.json`
+- screenshot baseline 视口：`narrow-mobile` 360x780、`mobile` 390x844、`desktop` 1440x960
+- smoke/boundary 额外覆盖 320x568、844x390、1024x900、1366x640、2560x1440、3440x1440 等极端尺寸
 - 截图基线版本管理（`test-results/` 目录）
 
 更新视觉基线：
@@ -177,11 +182,15 @@ npx playwright test --update-snapshots
 > 非性能基准，仅验证基础并发稳定性。
 
 **覆盖内容**：
-- 文章列表 / 详情并发读（50 VU × 30s）
+- 文章列表 / 详情并发读（baseline `concurrency=10`、`rounds=6`、`durationMs=30000`，源自 `tests/perf/perf-policy.yml`）
 - Binary 链并发读
-- SSE 多连接稳定性（20 并发 SSE 连接）
+- WebSocket binary notification stream 多连接稳定性（`connections=50`、`durationMs=30000`）
 
-**性能基准**（独立工具）：
+**backend-perf-readiness / 性能基准**：
+
+`backend-perf` 在矩阵中是 BenchmarkDotNet build/readiness tier，只构建并确认 benchmark 项目可用；真实回归运行由 `backend-benchmark-regression` 负责并输出 release evidence。
+
+独立运行真实 BenchmarkDotNet：
 ```bash
 cd FsusBlog.Core.Benchmarks
 dotnet run -c Release
@@ -190,13 +199,22 @@ dotnet run -c Release
 
 ---
 
-### `production` — 全量发布门控
+### `production` — production-ci-gate
 
-包含上述所有层级，是**唯一允许合并到生产分支的门控**。执行顺序为：
+`production` 是 PR/CI 的 production-ci-gate。它执行当前 production DAG 并校验 release evidence schema，但允许 manifest 为 schema-valid `collected-blocked`，用于表达外部生产证据尚未回传；这不等于可以发布。
+
+执行顺序请以机器输出为准：
+
+```bash
+./tools/test.sh production --plan-only
+```
+
+当前高层顺序为：
 
 1. `fast`：Debug build `-warnaserror`、服务端非集成测试、`vue-tsc`、前端 release build warning-as-error、静态治理脚本。
 2. 强制 bootstrap：启动或重启 PostgreSQL、Redis、Debug 后端、Vite 前端、Release Preview。`fast` 会重新生成前端 release 资源并同步到后端 StaticWebAssets，production 门禁必须在这里重启运行时，避免旧进程继续服务上一代代码或静态资源。
-3. 复用同一套运行环境依次执行 `integration` runtime、`release`、`acceptance`、`visual`、`security`、`resilience`、`load`。
+3. 复用同一套运行环境执行 `release`、`integration`、`security`、`acceptance`、`cross-browser-smoke`、`visual`、`ux-viewport-smoke`、`frontend-render-pressure`、`resilience`、`load`。
+4. 收集 release evidence 并运行 schema check；此处不使用 `--require-ok`。
 
 ```bash
 ./tools/test.sh production
@@ -223,6 +241,17 @@ curl -fsS http://127.0.0.1:8080/health/ready
 
 GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push、手动 `workflow_dispatch` 触发同一条 `./tools/test.sh production` 门控。CI 需要配置 `GITHUB_PACKAGES_TOKEN` secret，用于安装 `@ozwasyd` 私有包。CI 默认 `FSUSBLOG_PLAYWRIGHT_WORKERS=1`，本地可按机器资源显式覆盖。
 
+### `release-closeout` — release-closeout-gate
+
+`release-closeout` 只用于最终发布收口，必须要求 release evidence manifest 为 `collected-ok`：
+
+```bash
+./tools/test.sh release-closeout
+tools/operations/check-release-evidence-manifest.mjs --require-ok
+```
+
+`collected-blocked` 是合法的 CI 证据状态，但不是可发布凭据。
+
 ---
 
 ## 测试洁净性约定
@@ -232,7 +261,7 @@ GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push
 核心约定：
 
 1. **无状态污染**：每个集成测试用例使用独立的数据库事务，测试后回滚
-2. **无硬编码端口**：端口配置通过环境变量或 `appsettings.Test.json` 注入
+2. **默认固定本地端口**：当前本地 acceptance/bootstrap 默认使用 3000/5000/8080/5432/6379 与固定容器名前缀，可通过环境变量覆盖；在 #51 的动态端口与 namespace 完全落地前，不保证同机多套 acceptance 并行
 3. **无真实 IO 在单元测试中**：数据库、Redis、文件系统访问全部通过接口 Mock
 4. **测试隔离**：`fast` 层测试不依赖任何运行中的服务
 5. **失败即停**：CI 中任一层失败立即中止，不继续运行后续层

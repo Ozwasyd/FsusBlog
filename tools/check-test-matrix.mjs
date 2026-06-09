@@ -18,5 +18,20 @@ function run(args) {
 run(['validate'])
 run(['plan', 'production'])
 run(['ci-plan', '--format', 'github-actions'])
+run(['docs', '--out', '.tmp/docs/run-test-matrix-docs-compat.md'])
+
+for (const script of [
+  'tools/docs/generate-testing-docs.mjs',
+  'tools/docs/check-time-budget-sync.mjs'
+]) {
+  const args = script.endsWith('generate-testing-docs.mjs') ? [script, '--check'] : [script]
+  const result = spawnSync('node', args, {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  if (result.stdout) process.stdout.write(result.stdout)
+  if (result.stderr) process.stderr.write(result.stderr)
+  if (result.status !== 0) process.exit(result.status ?? 1)
+}
 
 console.log('[test-matrix] ok')

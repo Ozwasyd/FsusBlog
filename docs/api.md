@@ -1,12 +1,12 @@
-# API 快速参考
+# API overview / selected quick reference
 
-本文档列出 FsusBlog 所有公开 API 端点。
+本文档是 FsusBlog 当前 API overview / selected quick reference，不再手写声明覆盖所有端点。完整 HTTP shell 契约以 `src/shared/Contracts/Validation/fsusblog.openapi.json` 为准，AEDS frame/header 以 `src/shared/Contracts/Validation/aeds-protocol.json` 为准，路由速查表见 [api/quick-reference.md](api/quick-reference.md)。
 详细文档请参阅 [api/](api/) 子目录：
 
 | 文档 | 说明 |
 |------|------|
 | [api/design.md](api/design.md) | API 设计哲学、响应格式约定、双链路决策 |
-| [api/contracts.md](api/contracts.md) | 请求/响应 DTO 完整契约、SSE 信封、AOT 契约 |
+| [api/contracts.md](api/contracts.md) | 请求/响应 DTO 完整契约、通知 WebSocket 契约、AOT 契约 |
 | [api/quick-reference.md](api/quick-reference.md) | 所有端点路由速查表（含认证 / 限流 / Binary 对照） |
 | [api/schemas-and-errors.md](api/schemas-and-errors.md) | 错误码枚举、AEDS v2 帧格式、compact POD 大小目录 |
 
@@ -17,11 +17,30 @@
 | 符号 | 含义 |
 |------|------|
 | 🔓 | 匿名可访问 |
-| 🔑 | 需要登录（Bearer JWT） |
+| 🔑 | 需要登录（HttpOnly Cookie session / AEDS auth frame） |
 | 👑 | 需要 admin 角色 |
 | 🚦 | 有速率限制（fixed_ip / public_read / read_proof 等策略） |
 
 ---
+
+## Current Binary API
+
+当前客户端主链优先调用 `/api/binary/**`，响应为 `application/octet-stream` AEDS v2 frame。认证、MFA、Passkey、公开读、评论、消息、上传和管理读链都通过 AEDS frame/POD 契约校验；少量 JSON 端点仅用于运维、健康检查、作者工作台辅助和兼容。
+
+| Family | Prefix | Auth | Notes |
+|--------|--------|------|-------|
+| Public article/read | `/api/binary/article/**` | 🔓 | 首页、分类、标签、详情、热门与搜索 frame |
+| Comment cursors | `/api/binary/comment/**` | 🔓 / 🔑 | 公开评论游标与用户评论历史 |
+| Auth / MFA / Passkey | `/api/binary/auth/**` | 🔓 / 🔑 | PoW、login flow、session、MFA、WebAuthn |
+| Messages | `/api/binary/messages/**` | 🔑 | 用户站内信与已读状态 |
+| Admin messages / stats / upload | `/api/binary/admin/**`, `/api/binary/stats`, `/api/binary/upload/**` | 👑 | 管理端 Binary read/write |
+| Notifications | `/api/notifications/stream` | 🔓 / 🔑 | WebSocket binary notification stream，子协议 `fsus-aeds.v2` |
+
+测试 helper 里的 `toBinaryPath()` 仅是兼容层映射说明，不代表旧 JSON route 是当前产品主 API。
+
+---
+
+## Legacy Aliases
 
 ## Auth — `/api/Auth`
 
@@ -209,7 +228,7 @@ Binary 端点输出 AEDS v2 帧（`Content-Type: application/octet-stream`）。
 
 ```
 Offset  Size  字段
-0       4     Magic (0x53455341 "AEDS")
+0       4     Magic (0x53444541 "AEDS")
 4       1     Version (2)
 5       1     Header Length (16)
 6       2     Flags

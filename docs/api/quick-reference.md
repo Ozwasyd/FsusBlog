@@ -7,7 +7,7 @@
 | 符号 | 含义 |
 |------|------|
 | 🔓 | 匿名可访问 |
-| 🔑 | 需要登录（Bearer JWT） |
+| 🔑 | 需要登录（HttpOnly Cookie session / AEDS auth frame） |
 | 👑 | 需要 admin 角色 |
 | 🚦 | IP 速率限制（fixed_ip 固定窗口） |
 | 📦 | Binary 端点（`application/octet-stream`，AEDS v2 帧） |

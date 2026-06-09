@@ -67,8 +67,8 @@ tiers:
     defaultShards: 1
     risk: critical
     coverage: [gate-integrity, matrix-integrity, evidence-schema]
-    artifacts: [.tmp/gate-logs, .tmp/release-evidence/test-plan.json]
-    evidence: [.tmp/gate-logs, .tmp/release-evidence/test-plan.json]
+    artifacts: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json]
+    evidence: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json]
     ciJob: fast-static-governance
     localOnly: false
     nightlyOnly: false
@@ -769,6 +769,24 @@ tiers:
     defaultShards: 1
     risk: critical
     coverage: [release-evidence-manifest]
+    artifacts: [.tmp/release-evidence]
+    evidence: [.tmp/release-evidence]
+    ciJob: release-evidence
+    localOnly: false
+    nightlyOnly: false
+
+  - id: release-closeout
+    owner: ServerContractAgent
+    command: tools/test/lanes/release-closeout.sh
+    dependsOn: [release-evidence]
+    services: []
+    parallelizable: false
+    exclusiveResources: [release-evidence]
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-closeout-manifest-ok]
     artifacts: [.tmp/release-evidence]
     evidence: [.tmp/release-evidence]
     ciJob: release-evidence

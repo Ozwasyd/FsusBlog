@@ -12,14 +12,14 @@
 | 公开内容页 | 首页、归档、分类、标签、文章详情，AOT 预渲染 + SPA hydration 双路保障首屏 |
 | Binary 传输 | AEDS v2 二进制帧协议，C++23 Wasm / TypeScript 双解码，hot-path 池化写入且不构造第二份完整 frame，不回退旧文本 API |
 | 本地搜索 | Service Worker 缓存静态索引 + 浏览器端 Wasm 排序，无服务端在线检索 |
-| 认证与授权 | PoW 前置 + 注册/登录 + JWT Access Token（15 min）+ HttpOnly Cookie |
+| 认证与授权 | PoW 前置 + 注册/登录 + AEDS auth frame + HttpOnly Cookie session |
 | 通行密钥 (Passkey) | WebAuthn / FIDO2 Discoverable Credential，无密码登录，最多 5 枚/用户 |
 | 多因素认证 (MFA) | TOTP RFC 6238，独立恢复码，管理员重置 |
 | 多会话管理 | 查看活跃会话，吊销单个或全部其他会话 |
-| 实时通知 | SSE 增量事件流（`/api/notifications/stream`） |
+| 实时通知 | WebSocket binary notification stream（`/api/notifications/stream`，子协议 `fsus-aeds.v2`） |
 | 站内消息 | 用户收发对话，管理员广播，对话状态管理 |
 | 管理后台 | 用户管理、内容审核、站点统计（Binary 读链） |
-| 多分层测试 | fast / integration / acceptance / visual / security / resilience / load / production 共 10 级 |
+| 多分层测试 | `tests/matrix.yml` 驱动的 DAG，覆盖 fast / coverage-gate / runtime / visual / security / resilience / load / production |
 
 ## 项目定位
 
@@ -42,7 +42,7 @@ FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核
 | .NET SDK / C# | 10 / 14 | 运行时与语言版本 |
 | ASP.NET Core Kestrel | 10 | HTTP 服务器 |
 | SqlSugar | 5.1.4.214 | PostgreSQL ORM，CodeFirst |
-| Redis | — | L2 缓存 + SSE backing store |
+| Redis | — | L2 缓存 + WebSocket notification backlog |
 | Fido2 | 4.0.1 | WebAuthn / Passkey |
 | BCrypt.Net-Next | 4.1.0 | 密码哈希 |
 | Serilog | 4.3.1 | 结构化日志，异步滚动文件 |
@@ -52,15 +52,15 @@ FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核
 
 | 技术 | 版本 | 用途 |
 |------|------|------|
-| Vue | 3.5.32 | 渐进式框架 |
-| Vite | 7.3.2 | 构建工具，HMR |
-| TypeScript | ~5.9.3 | 静态类型 |
-| Pinia | 3.0.4 | 状态管理 + 持久化 |
-| Vue Router | 4.6.4 | 客户端路由 |
-| Tailwind CSS | 4.2.2 | 原子化样式 |
+| Vue | 3.5.x | 渐进式框架 |
+| Vite | 8.x | 构建工具，HMR |
+| TypeScript | 6.x | 静态类型 |
+| Pinia | 3.0.x | 状态管理 + 持久化 |
+| Vue Router | 4.6.x | 客户端路由 |
+| Tailwind CSS | 4.2.x | 原子化样式 |
 | @simplewebauthn/browser | 13.3.0 | Passkey 浏览器 API |
 | FsusUI | GitHub Packages | 项目专属组件库 |
-| Playwright | 1.59.1 | E2E 测试 |
+| Playwright | 1.59.x | E2E 测试 |
 
 **WebAssembly / C++**
 
@@ -169,20 +169,22 @@ dotnet publish src/backend/FsusBlog.Server.csproj -c Release /p:PublishClientAss
 
 ## 测试
 
-测试通过 `./tools/test.sh <tier>` 按分级执行：
+测试通过 `./tools/test.sh <tier>` 按 `tests/matrix.yml` 中的 DAG 执行；提交快照见 [docs/testing.generated.md](docs/testing.generated.md)。
 
 | 层级 | 用途 | 依赖 |
 |------|------|------|
-| `fast` | 纯单元测试，无外部依赖 | 无 |
+| `fast` | 前后端快速检查、静态治理与单元测试汇总 | 无 |
+| `coverage-gate` | backend/frontend coverage merge 与阈值，和 production 是 independent required check | 无 |
 | `integration` | 服务端集成测试 | Docker、3000/5000 |
 | `ci` | fast + integration | 同上 |
 | `release` | 公开页 hydration / AOT / SEO | 8080 |
 | `acceptance` | 全量 Playwright E2E | 全部端口 |
 | `visual` | 深色模式、移动端、截图基线 | 全部端口 |
 | `security` | 认证/MFA/PoW/权限/Passkey 门控 | 全部端口 |
-| `resilience` | 上传、搜索、SSE 弹性 | 全部端口 |
+| `resilience` | 上传、搜索、WebSocket 通知弹性 | 全部端口 |
 | `load` | 轻量并发压测 | 全部端口 |
-| `production` | 全量发布门控（fast 后一次 bootstrap，再串行执行全部风险清单） | Docker、全部端口 |
+| `production` | production-ci-gate：全量 PR/CI 门控，release evidence 可为 schema-valid `collected-blocked` | Docker、全部端口 |
+| `release-closeout` | release-closeout-gate：要求既有 manifest 通过 `--require-ok`，仅用于最终发布收口 | release evidence |
 
 单独运行快速单元测试：
 
@@ -193,7 +195,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 
 详细规则见 [tests/backend/TESTING.md](tests/backend/TESTING.md)。
 
-`production` 是合并与发布前的权威质量门：要求 0 编译警告、0 类型错误、0 Vite build warning、0 测试失败、0 运行时 error/warning，并覆盖匿名/登录/admin、Binary API、作者工作台/read-proof/health JSON、SSE、AOT hydration、PoW/MFA/Passkey/session、视觉、弹性与轻量负载。GitHub Actions `Quality Gate` 会在 PR、`main` / `master` push 和手动触发时运行同一条 `./tools/test.sh production`；仓库 secret 需要配置 `GITHUB_PACKAGES_TOKEN`。
+`production` 是 production-ci-gate：要求 0 编译警告、0 类型错误、0 Vite build warning、0 测试失败、0 运行时 error/warning，并覆盖匿名/登录/admin、Binary API、作者工作台/read-proof/health JSON、WebSocket binary notification stream、AOT hydration、PoW/MFA/Passkey/session、视觉、弹性与轻量负载。它会校验 release evidence schema，但允许 manifest 处于 `collected-blocked` 来表达外部生产证据尚未回传；真正可发布的 release-closeout-gate 必须另跑 `./tools/test.sh release-closeout` 或 `tools/operations/check-release-evidence-manifest.mjs --require-ok`，要求 manifest 为 `collected-ok`。GitHub Actions `Quality Gate` 会在 PR、`main` / `master` push 和手动触发时运行 production-ci-gate；仓库 secret 需要配置 `GITHUB_PACKAGES_TOKEN`。
 
 ## 文档索引
 
@@ -202,14 +204,14 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/architecture.md](docs/architecture.md) | 系统架构、缓存分层、双读链、安全链路全景 |
 | [docs/api.md](docs/api.md) | API 端点快速参考（路由 / 认证要求 / 速率限制） |
 | [docs/api/design.md](docs/api/design.md) | API 设计哲学、响应格式约定、双链路决策 |
-| [docs/api/contracts.md](docs/api/contracts.md) | 请求/响应 DTO 完整契约、SSE 信封、AOT 契约 |
+| [docs/api/contracts.md](docs/api/contracts.md) | 请求/响应 DTO 完整契约、通知 WebSocket 契约、AOT 契约 |
 | [docs/api/quick-reference.md](docs/api/quick-reference.md) | 所有端点路由速查表（含认证 / 限流 / Binary 对照） |
 | [docs/api/schemas-and-errors.md](docs/api/schemas-and-errors.md) | 错误码枚举、AEDS v2 帧格式、POD 大小目录 |
 | [docs/security.md](docs/security.md) | 安全模型：PoW、JWT、MFA、Passkey、RBAC、CORS |
 | [docs/production.md](docs/production.md) | 生产部署、环境变量、健康检查 |
 | [docs/operations.md](docs/operations.md) | 运维手册：发布门控、回滚、备份、事故处置 |
 | [docs/development.md](docs/development.md) | 本地开发环境搭建、常用脚本说明 |
-| [docs/testing.md](docs/testing.md) | 测试分层策略（10 级）与覆盖场景说明 |
+| [docs/testing.md](docs/testing.md) | 测试 DAG、production-ci-gate、release-closeout-gate 与覆盖场景说明 |
 | [docs/wasm.md](docs/wasm.md) | WebAssembly 工具链、构建、C++/TS 接口边界 |
 | [tests/backend/TESTING.md](tests/backend/TESTING.md) | 测试分层规则与洁净性约定 |
 | [src/core/Algorithms/AEDS_V1_PROTOCOL.md](src/core/Algorithms/AEDS_V1_PROTOCOL.md) | AEDS 二进制帧协议规格（当前运行时只接受 v2） |

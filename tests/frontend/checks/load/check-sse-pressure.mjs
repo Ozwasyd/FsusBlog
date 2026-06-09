@@ -5,14 +5,16 @@ import { baseUrl, buildPowHeaders, requestTimeoutMs } from '../../support/auth-h
 import { probeReachable } from '../../support/http.mjs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { readNotificationPressurePolicy } from './loadPolicy.mjs'
 
 const streamPath = '/api/notifications/stream'
 const wsProtocol = 'fsus-aeds.v2'
 const frameNotificationHeartbeat = 70
-const connections = readPositiveInt(process.env.FSUSBLOG_SSE_CONNECTIONS, 50)
-const durationMs = readPositiveInt(process.env.FSUSBLOG_SSE_DURATION_MS, 30000)
-const connectBatchSize = readPositiveInt(process.env.FSUSBLOG_SSE_CONNECT_BATCH_SIZE, 10)
-const powAttempts = readPositiveInt(process.env.FSUSBLOG_SSE_POW_ATTEMPTS, 30)
+const notificationPolicy = readNotificationPressurePolicy()
+const connections = readPositiveInt(process.env.FSUSBLOG_SSE_CONNECTIONS, notificationPolicy.connections ?? 50)
+const durationMs = readPositiveInt(process.env.FSUSBLOG_SSE_DURATION_MS, notificationPolicy.durationMs ?? 30000)
+const connectBatchSize = readPositiveInt(process.env.FSUSBLOG_SSE_CONNECT_BATCH_SIZE, notificationPolicy.connectBatchSize ?? 10)
+const powAttempts = readPositiveInt(process.env.FSUSBLOG_SSE_POW_ATTEMPTS, notificationPolicy.powAttempts ?? 30)
 const testSessionId = process.env.FSUSBLOG_TEST_SESSION_ID || ''
 const evidenceDir = process.env.FSUSBLOG_PERF_EVIDENCE_DIR || resolve(process.cwd(), '..', '..', '.tmp/perf')
 
@@ -155,7 +157,11 @@ async function main() {
     nonHeartbeatFrames: 0,
     errors: 0,
     durationMs,
-    baseUrl
+    baseUrl,
+    policy: {
+      source: 'tests/perf/perf-policy.yml',
+      profile: 'notificationPressure'
+    }
   }
 
   const startedAt = performance.now()

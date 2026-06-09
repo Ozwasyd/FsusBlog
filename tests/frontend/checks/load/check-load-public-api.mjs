@@ -5,11 +5,14 @@ import { baseUrl as apiBaseUrl, requestTimeoutMs as defaultTimeoutMs } from '../
 import { readAedsResponse } from '../../support/aeds-envelope.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { readLoadProfile } from './loadPolicy.mjs';
 
 const publicBaseUrl = process.env.FSUSBLOG_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:8080';
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, defaultTimeoutMs);
-const concurrency = Number(process.env.FSUSBLOG_LOAD_CONCURRENCY || '10');
-const rounds = Number(process.env.FSUSBLOG_LOAD_ROUNDS || '6');
+const loadPolicy = readLoadProfile(process.env.FSUSBLOG_LOAD_PROFILE || 'baseline');
+const concurrency = Number(process.env.FSUSBLOG_LOAD_CONCURRENCY || loadPolicy.concurrency || '10');
+const rounds = Number(process.env.FSUSBLOG_LOAD_ROUNDS || loadPolicy.rounds || '6');
+const policyDurationMs = Number(loadPolicy.durationMs || 30000);
 const evidenceDir = process.env.FSUSBLOG_PERF_EVIDENCE_DIR || resolve(process.cwd(), '..', '..', '.tmp/perf');
 
 function assert(condition, message) {
@@ -186,6 +189,11 @@ async function main() {
     generatedAt: new Date().toISOString(),
     apiBaseUrl,
     publicBaseUrl,
+    policy: {
+      source: 'tests/perf/perf-policy.yml',
+      profile: process.env.FSUSBLOG_LOAD_PROFILE || 'baseline',
+      durationMs: policyDurationMs
+    },
     concurrency,
     rounds,
     results
