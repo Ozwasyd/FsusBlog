@@ -26,11 +26,24 @@ Version: `fsusblog-test-matrix-v2`
 | `cross-browser-smoke` | `cross-browser-smoke` | `release` | preview | 3 | 20m | `src/frontend/test-results/playwright/cross-browser` |
 | `resilience` | `resilience-runtime` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 35m | `src/frontend/test-results/playwright/resilience` |
 | `load` | `load-smoke` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 25m | `.tmp/perf` |
+| `endpoint-depth` | `cross-stack-contract` | - | - | 1 | 20m | `.tmp/release-evidence/endpoint-depth-summary.json` |
+| `data-scale-xs` | `integration-runtime` | - | postgres, redis | 1 | 15m | `.tmp/release-evidence/data-scale-summary.json` |
+| `data-scale-s` | `integration-runtime` | - | postgres, redis | 1 | 20m | `.tmp/release-evidence/data-scale-summary.json` |
+| `data-scale-m` | `backend-nightly` | - | postgres, redis | 1 | 45m | `.tmp/release-evidence/data-scale-summary.json` |
+| `data-scale-nightly` | `backend-nightly` | - | postgres, redis | 1 | 120m | `.tmp/release-evidence/data-scale-summary.json` |
+| `load-baseline` | `load-smoke` | - | backend, redis, postgres | 1 | 20m | `.tmp/release-evidence/perf-summary.json` |
+| `load-peak` | `load-smoke` | - | backend, redis, postgres | 1 | 35m | `.tmp/release-evidence/perf-summary.json` |
+| `load-2x-peak` | `backend-nightly` | - | backend, redis, postgres | 1 | 45m | `.tmp/release-evidence/perf-summary.json` |
+| `load-burst` | `backend-nightly` | - | backend, redis, postgres | 1 | 20m | `.tmp/release-evidence/perf-summary.json` |
 | `backend-perf` | `perf-regression` | - | - | 1 | 25m | `BenchmarkDotNet.Artifacts/results` |
+| `backend-benchmark-regression` | `perf-regression` | - | - | 1 | 35m | `.tmp/release-evidence/perf-summary.json` |
+| `browser-performance-regression` | `perf-regression` | - | frontend, backend | 1 | 20m | `.tmp/release-evidence/perf-summary.json` |
 | `fault-injection` | `resilience-runtime` | - | postgres, redis, backend | 1 | 30m | `.tmp/fault-injection/summary.json` |
 | `soak` | `backend-nightly` | - | postgres, redis, backend, frontend | 1 | 30m | `.tmp/soak` |
 | `security-authenticated-dast` | `security-runtime` | - | backend, frontend | 1 | 30m | `.tmp/security/authenticated-dast/summary.json` |
+| `csrf-browser-matrix` | `security-runtime` | - | frontend, backend | 1 | 20m | `.tmp/release-evidence/security-depth-summary.json` |
 | `wasm-fuzz-regression` | `security-runtime` | - | - | 1 | 20m | `.tmp/fuzz/wasm/summary.json` |
+| `contract-fuzz` | `security-runtime` | - | - | 1 | 20m | `.tmp/release-evidence/fuzz-seeds.json` |
 | `release-evidence` | `release-evidence` | - | - | 1 | 10m | `.tmp/release-evidence` |
 | `production` | `production-summary` | `fast`, `bootstrap`, `release`, `integration`, `security`, `acceptance`, `cross-browser-smoke`, `visual`, `resilience`, `load`, `release-evidence` | postgres, redis, backend, frontend, preview | 1 | 120m | `.tmp/release-evidence` |
 | `backend-api-integration` | `integration-runtime` | - | - | 1 | 20m | `tests/backend/Fixtures/backend-test-requirements.json` |

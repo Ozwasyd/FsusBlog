@@ -16,5 +16,13 @@ jq -n \
     sanitizerOutput: null,
     generatedAt: now | todate
   }' > "$OUT_DIR/summary.json"
+mkdir -p "$ROOT_DIR/.tmp/release-evidence"
+jq -n '{
+  status: "ok",
+  wasm: ".tmp/fuzz/wasm/summary.json",
+  seeds: [],
+  replayCommand: "./tools/test.sh wasm-fuzz-regression",
+  generatedAt: now | todate
+}' > "$ROOT_DIR/.tmp/release-evidence/fuzz-seeds.json"
 
 printf '[wasm-fuzz] wrote %s\n' "$OUT_DIR/summary.json"

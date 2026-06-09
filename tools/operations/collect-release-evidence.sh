@@ -245,6 +245,14 @@ RETENTION_CLEANUP="$(copy_if_present "$OPERATIONS_DIR/retention-cleanup.json" re
 COVERAGE_ARTIFACT="$(copy_if_present "$COVERAGE_DIR" coverage)"
 PERF_ARTIFACT="$(copy_if_present "$PERF_DIR" perf)"
 TEST_PLAN_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/test-plan.json" test-plan.json)"
+ENDPOINT_DEPTH_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/endpoint-depth-summary.json" endpoint-depth-summary.json)"
+DATA_SCALE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/data-scale-summary.json" data-scale-summary.json)"
+PERF_SUMMARY_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/perf-summary.json" perf-summary.json)"
+SECURITY_DEPTH_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/security-depth-summary.json" security-depth-summary.json)"
+FUZZ_SEEDS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/fuzz-seeds.json" fuzz-seeds.json)"
+BUSINESS_STATE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/playwright-business-state-summary.json" playwright-business-state-summary.json)"
+AOT_CACHE_RESILIENCE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aot-cache-resilience-summary.json" aot-cache-resilience-summary.json)"
+HYDRATION_LONG_SMOKE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/hydration-long-smoke-summary.json" hydration-long-smoke-summary.json)"
 FAULT_ARTIFACT="$(copy_if_present "$FAULT_DIR" fault-injection)"
 SOAK_ARTIFACT="$(copy_if_present "$SOAK_DIR" soak)"
 FUZZ_ARTIFACT="$(copy_if_present "$FUZZ_DIR" fuzz)"
@@ -338,6 +346,14 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "coverage": $COVERAGE_ARTIFACT,
     "perf": $PERF_ARTIFACT,
     "testPlan": $TEST_PLAN_ARTIFACT,
+    "endpointDepthSummary": $ENDPOINT_DEPTH_SUMMARY,
+    "dataScaleSummary": $DATA_SCALE_SUMMARY,
+    "perfSummary": $PERF_SUMMARY_ARTIFACT,
+    "securityDepthSummary": $SECURITY_DEPTH_SUMMARY,
+    "fuzzSeeds": $FUZZ_SEEDS_SUMMARY,
+    "playwrightBusinessStateSummary": $BUSINESS_STATE_SUMMARY,
+    "aotCacheResilienceSummary": $AOT_CACHE_RESILIENCE_SUMMARY,
+    "hydrationLongSmokeSummary": $HYDRATION_LONG_SMOKE_SUMMARY,
     "faultInjection": $FAULT_ARTIFACT,
     "soak": $SOAK_ARTIFACT,
     "fuzz": $FUZZ_ARTIFACT,

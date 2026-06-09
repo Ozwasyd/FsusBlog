@@ -361,6 +361,168 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: endpoint-depth
+    owner: ServerContractAgent
+    command: tools/test/lanes/endpoint-depth.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [endpoint-role-protocol-status-cache-error-frame]
+    artifacts: [.tmp/contracts/endpoint-depth-matrix.json, .tmp/release-evidence/endpoint-depth-summary.json]
+    evidence: [.tmp/release-evidence/endpoint-depth-summary.json]
+    ciJob: cross-stack-contract
+    localOnly: false
+    nightlyOnly: false
+
+  - id: data-scale-xs
+    owner: ServerContractAgent
+    command: tools/test/lanes/data-scale.sh scale-xs
+    dependsOn: []
+    services: [postgres, redis]
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 15
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [scale-xs-empty-single]
+    artifacts: [.tmp/scale/scale-xs/summary.json]
+    evidence: [.tmp/release-evidence/data-scale-summary.json]
+    ciJob: integration-runtime
+    localOnly: false
+    nightlyOnly: false
+
+  - id: data-scale-s
+    owner: ServerContractAgent
+    command: tools/test/lanes/data-scale.sh scale-s
+    dependsOn: []
+    services: [postgres, redis]
+    parallelizable: false
+    exclusiveResources: [scale-data]
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [scale-s-100-articles-1k-comments]
+    artifacts: [.tmp/scale/scale-s/summary.json]
+    evidence: [.tmp/release-evidence/data-scale-summary.json]
+    ciJob: integration-runtime
+    localOnly: false
+    nightlyOnly: false
+
+  - id: data-scale-m
+    owner: ServerContractAgent
+    command: tools/test/lanes/data-scale.sh scale-m
+    dependsOn: []
+    services: [postgres, redis]
+    parallelizable: false
+    exclusiveResources: [scale-data]
+    timeoutMinutes: 45
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [scale-m-10k-articles-100k-comments]
+    artifacts: [.tmp/scale/scale-m/summary.json]
+    evidence: [.tmp/release-evidence/data-scale-summary.json]
+    ciJob: backend-nightly
+    localOnly: false
+    nightlyOnly: true
+
+  - id: data-scale-nightly
+    owner: ServerContractAgent
+    command: tools/test/lanes/data-scale.sh scale-l-nightly
+    dependsOn: []
+    services: [postgres, redis]
+    parallelizable: false
+    exclusiveResources: [scale-data-nightly]
+    timeoutMinutes: 120
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [scale-l-nightly]
+    artifacts: [.tmp/scale/scale-l-nightly/summary.json]
+    evidence: [.tmp/release-evidence/data-scale-summary.json]
+    ciJob: backend-nightly
+    localOnly: false
+    nightlyOnly: true
+
+  - id: load-baseline
+    owner: ServerContractAgent
+    command: tools/test/lanes/load-profile.sh baseline
+    dependsOn: []
+    services: [backend, redis, postgres]
+    parallelizable: false
+    exclusiveResources: [load-runtime]
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [load-baseline]
+    artifacts: [.tmp/perf/load-baseline/summary.json]
+    evidence: [.tmp/release-evidence/perf-summary.json]
+    ciJob: load-smoke
+    localOnly: false
+    nightlyOnly: false
+
+  - id: load-peak
+    owner: ServerContractAgent
+    command: tools/test/lanes/load-profile.sh expected-peak
+    dependsOn: []
+    services: [backend, redis, postgres]
+    parallelizable: false
+    exclusiveResources: [load-runtime]
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [load-peak]
+    artifacts: [.tmp/perf/load-expected-peak/summary.json]
+    evidence: [.tmp/release-evidence/perf-summary.json]
+    ciJob: load-smoke
+    localOnly: false
+    nightlyOnly: false
+
+  - id: load-2x-peak
+    owner: ServerContractAgent
+    command: tools/test/lanes/load-profile.sh 2x-peak
+    dependsOn: []
+    services: [backend, redis, postgres]
+    parallelizable: false
+    exclusiveResources: [load-runtime]
+    timeoutMinutes: 45
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [load-2x-peak]
+    artifacts: [.tmp/perf/load-2x-peak/summary.json]
+    evidence: [.tmp/release-evidence/perf-summary.json]
+    ciJob: backend-nightly
+    localOnly: false
+    nightlyOnly: true
+
+  - id: load-burst
+    owner: ServerContractAgent
+    command: tools/test/lanes/load-profile.sh burst
+    dependsOn: []
+    services: [backend, redis, postgres]
+    parallelizable: false
+    exclusiveResources: [load-runtime]
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [load-burst]
+    artifacts: [.tmp/perf/load-burst/summary.json]
+    evidence: [.tmp/release-evidence/perf-summary.json]
+    ciJob: backend-nightly
+    localOnly: false
+    nightlyOnly: true
+
   - id: backend-perf
     owner: ServerContractAgent
     command: tools/test/lanes/perf-regression.sh
@@ -375,6 +537,42 @@ tiers:
     coverage: [benchmarkdotnet-readiness]
     artifacts: [BenchmarkDotNet.Artifacts/results]
     evidence: [BenchmarkDotNet.Artifacts/results]
+    ciJob: perf-regression
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-benchmark-regression
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-benchmark-regression.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [benchmarkdotnet-regression]
+    artifacts: [BenchmarkDotNet.Artifacts/results/fsusblog-benchmark-regression.json]
+    evidence: [.tmp/release-evidence/perf-summary.json]
+    ciJob: perf-regression
+    localOnly: false
+    nightlyOnly: false
+
+  - id: browser-performance-regression
+    owner: InteropGlueAgent
+    command: tools/test/lanes/browser-performance-regression.sh
+    dependsOn: []
+    services: [frontend, backend]
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [browser-performance-regression]
+    artifacts: [.tmp/perf/browser-performance.json]
+    evidence: [.tmp/release-evidence/perf-summary.json]
     ciJob: perf-regression
     localOnly: false
     nightlyOnly: false
@@ -433,6 +631,24 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: csrf-browser-matrix
+    owner: InteropGlueAgent
+    command: npm --prefix src/frontend run check:security:csrf-browser-matrix
+    dependsOn: []
+    services: [frontend, backend]
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [csrf-browser-negative-matrix]
+    artifacts: [.tmp/release-evidence/security-depth-summary.json]
+    evidence: [.tmp/release-evidence/security-depth-summary.json]
+    ciJob: security-runtime
+    localOnly: false
+    nightlyOnly: false
+
   - id: wasm-fuzz-regression
     owner: WasmEngineAgent
     command: tools/test/lanes/wasm-fuzz-regression.sh
@@ -447,6 +663,24 @@ tiers:
     coverage: [aeds-wasm-markdown-fuzz]
     artifacts: [.tmp/fuzz/wasm]
     evidence: [.tmp/fuzz/wasm/summary.json]
+    ciJob: security-runtime
+    localOnly: false
+    nightlyOnly: false
+
+  - id: contract-fuzz
+    owner: ServerContractAgent
+    command: tools/test/lanes/contract-fuzz.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [contract-fuzz-invalid-inputs]
+    artifacts: [.tmp/fuzz/contract, .tmp/release-evidence/fuzz-seeds.json]
+    evidence: [.tmp/release-evidence/fuzz-seeds.json]
     ciJob: security-runtime
     localOnly: false
     nightlyOnly: false
