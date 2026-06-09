@@ -42,4 +42,4 @@ Version: `fsusblog-test-matrix-v2`
 | `backend-mutation` | `backend-mutation` | - | - | 1 | 120m | `.tmp/mutation/backend` |
 | `backend-chaos` | `resilience-runtime` | - | - | 1 | 25m | `tests/backend/Fixtures/backend-test-requirements.json` |
 | `backend-nightly` | `backend-nightly` | `backend-property`, `backend-golden`, `backend-concurrency`, `backend-auth-state-machine`, `backend-api-integration`, `backend-perf` | - | 1 | 180m | `tests/backend/Fixtures/backend-test-requirements.json` |
-| `cross-stack-contract` | `cross-stack-contract` | - | - | 1 | 20m | `tests/frontend/fixtures/cross-stack-contract-matrix.json` |
+| `cross-stack-contract` | `cross-stack-contract` | - | - | 1 | 20m | `tests/frontend/fixtures/cross-stack-contract-matrix.json`<br>`tests/frontend/fixtures/cross-stack-contract-matrix.generated.json`<br>`src/shared/Contracts/Validation/fsusblog.openapi.json`<br>`src/frontend/src/generated/fsusBinaryRoutes.ts` |

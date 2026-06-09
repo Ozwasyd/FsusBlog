@@ -1,0 +1,1159 @@
+{
+  "version": "fsusblog-cross-stack-contract-matrix-v1",
+  "issue": 41,
+  "schema": {
+    "protocol": "src/shared/Contracts/Validation/aeds-protocol.json",
+    "backendEnum": "src/core/Algorithms/AedsFrameType.cs",
+    "frontendDecoder": "tests/frontend/support/aeds-envelope.mjs",
+    "backendGolden": "tests/backend/Fixtures/aeds-golden-catalog.json"
+  },
+  "negativeCases": [
+    "wrong-accept",
+    "wrong-content-type",
+    "missing-content-type",
+    "malformed-aeds-header",
+    "wrong-aeds-version",
+    "wrong-request-frame-type",
+    "truncated-body",
+    "oversized-body",
+    "invalid-utf8",
+    "invalid-enum",
+    "negative-id",
+    "missing-pow",
+    "expired-pow",
+    "replayed-pow",
+    "wrong-role",
+    "banned-user",
+    "deleted-user",
+    "mfa-partial-auth"
+  ],
+  "profiles": [
+    {
+      "id": "contract-binary-matrix",
+      "command": "npm run check:contract:binary-matrix",
+      "risk": "critical",
+      "requirements": [
+        "CROSS-BINARY-ENDPOINT-MATRIX",
+        "CROSS-FRAME-SCHEMA-SYNC"
+      ],
+      "evidencePaths": [
+        "tests/frontend/fixtures/cross-stack-contract-matrix.json",
+        "tests/frontend/checks/runtime/binary-contract-matrix.mjs"
+      ]
+    },
+    {
+      "id": "contract-api-parity",
+      "command": "npm run check:contract:api-parity",
+      "risk": "critical",
+      "requirements": [
+        "CROSS-FRONTEND-BACKEND-API-PARITY"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/static/check-frontend-backend-api-parity.mjs"
+      ]
+    },
+    {
+      "id": "contract-frame-schema",
+      "command": "npm run check:contract:frame-schema",
+      "risk": "critical",
+      "requirements": [
+        "CROSS-FRAME-SCHEMA-SYNC",
+        "CROSS-GOLDEN-FIXTURES"
+      ],
+      "evidencePaths": [
+        "src/shared/Contracts/Validation/aeds-protocol.json",
+        "tests/frontend/support/aeds-envelope.mjs",
+        "tests/frontend/checks/static/check-generated-frame-schema-sync.mjs"
+      ]
+    },
+    {
+      "id": "contract-negative-matrix",
+      "command": "npm run check:contract:negative-matrix",
+      "risk": "high",
+      "requirements": [
+        "CROSS-NEGATIVE-MATRIX",
+        "CROSS-ERROR-CONTRACT"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/security/check-binary-negative-matrix.mjs",
+        "tests/frontend/checks/security/check-security-sse-binary.mjs"
+      ]
+    },
+    {
+      "id": "coherence-runtime-matrix",
+      "command": "npm run check:coherence:runtime-matrix",
+      "risk": "high",
+      "requirements": [
+        "CROSS-RUNTIME-COHERENCE",
+        "CROSS-AOT-SEARCH-FEED-SITEMAP"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/runtime/runtime-coherence-matrix.mjs",
+        "tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs"
+      ]
+    },
+    {
+      "id": "coherence-sse-events",
+      "command": "npm run check:coherence:sse-events",
+      "risk": "high",
+      "requirements": [
+        "CROSS-SSE-BUSINESS-EVENTS"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/runtime/sse-business-events.mjs",
+        "tests/frontend/checks/runtime/sse-live-smoke.mjs"
+      ]
+    },
+    {
+      "id": "coherence-upload-complete",
+      "command": "npm run check:coherence:upload-complete",
+      "risk": "high",
+      "requirements": [
+        "CROSS-UPLOAD-COMPLETE-ASSET"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/resilience/check-upload-complete-coherence.mjs",
+        "tests/frontend/checks/resilience/check-upload-resilience.mjs"
+      ]
+    },
+    {
+      "id": "coherence-auth-state",
+      "command": "npm run check:coherence:auth-state",
+      "risk": "high",
+      "requirements": [
+        "CROSS-AUTH-SESSION-MFA-PASSKEY"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/runtime/auth-state-coherence.mjs",
+        "tests/frontend/checks/runtime/auth-session-smoke.mjs",
+        "tests/frontend/checks/runtime/auth-register-smoke.mjs"
+      ]
+    },
+    {
+      "id": "coherence-sw-cache",
+      "command": "npm run check:coherence:sw-cache",
+      "risk": "medium",
+      "requirements": [
+        "CROSS-SW-BACKEND-CACHE"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/public/check-sw-backend-cache-coherence.mjs",
+        "tests/frontend/checks/public/check-pwa-offline-policy.mjs"
+      ]
+    },
+    {
+      "id": "coherence-perf",
+      "command": "npm run check:coherence:perf",
+      "risk": "medium",
+      "requirements": [
+        "CROSS-PERFORMANCE"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/load/check-cross-stack-performance.mjs",
+        "tests/frontend/checks/load/check-load-public-api.mjs"
+      ]
+    },
+    {
+      "id": "cross-stack-governance",
+      "command": "npm run check:cross-stack-test-governance",
+      "risk": "critical",
+      "requirements": [
+        "CROSS-FIXTURE-FAMILIES",
+        "CROSS-CONSUMER-CONTRACT",
+        "CROSS-FLAKY-EVENTUAL-GOVERNANCE",
+        "CROSS-GENERATIVE-CONTRACTS"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/static/check-cross-stack-test-governance.mjs",
+        "tests/frontend/fixtures/cross-stack-contract-matrix.json",
+        "tests/matrix.yml"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "CROSS-BINARY-ENDPOINT-MATRIX",
+      "risk": "critical",
+      "coverage": "all /api/binary endpoint method/path/request/response/auth/PoW/cache/header matrix"
+    },
+    {
+      "id": "CROSS-FRONTEND-BACKEND-API-PARITY",
+      "risk": "critical",
+      "coverage": "frontend API wrappers and binary adapters map to backend endpoint matrix or server-only marker"
+    },
+    {
+      "id": "CROSS-FRAME-SCHEMA-SYNC",
+      "risk": "critical",
+      "coverage": "AEDS protocol JSON, backend enum, frontend decoder, backend golden catalog stay in sync"
+    },
+    {
+      "id": "CROSS-SSE-BUSINESS-EVENTS",
+      "risk": "high",
+      "coverage": "article/comment/message events, cursor replay, target fanout, private channel security"
+    },
+    {
+      "id": "CROSS-UPLOAD-COMPLETE-ASSET",
+      "risk": "high",
+      "coverage": "init/part/complete/public URL/asset library/reference/error/idempotency coherence"
+    },
+    {
+      "id": "CROSS-AOT-SEARCH-FEED-SITEMAP",
+      "risk": "high",
+      "coverage": "article lifecycle, taxonomy, settings, page content and stale marker distribution coherence"
+    },
+    {
+      "id": "CROSS-AUTH-SESSION-MFA-PASSKEY",
+      "risk": "high",
+      "coverage": "register/login/refresh/revoke/logout/MFA/passkey UI and backend session coherence"
+    },
+    {
+      "id": "CROSS-RUNTIME-COHERENCE",
+      "risk": "high",
+      "coverage": "debug backend, Vite SPA, release preview, static assets, AOT and search runtime surfaces"
+    },
+    {
+      "id": "CROSS-CONSUMER-CONTRACT",
+      "risk": "medium",
+      "coverage": "frontend consumed fields and backend response frames share consumer contract evidence"
+    },
+    {
+      "id": "CROSS-GOLDEN-FIXTURES",
+      "risk": "medium",
+      "coverage": "AEDS, hydration, feed, sitemap and search manifest golden fixture governance"
+    },
+    {
+      "id": "CROSS-NEGATIVE-MATRIX",
+      "risk": "high",
+      "coverage": "all mutation endpoint negative cases return stable HTTP status and ApiError without 5xx leak"
+    },
+    {
+      "id": "CROSS-FIXTURE-FAMILIES",
+      "risk": "medium",
+      "coverage": "versioned fixture families for public content, auth users, messages, upload, search, permission and unicode"
+    },
+    {
+      "id": "CROSS-SEARCH-COHERENCE",
+      "risk": "medium",
+      "coverage": "backend search index generation and frontend search runtime ranking/recall/version coherence"
+    },
+    {
+      "id": "CROSS-SEO-FEED-SITEMAP",
+      "risk": "medium",
+      "coverage": "RSS/Atom/JSON feed, sitemap, canonical, OG/Twitter, JSON-LD and public API payload cross-checks"
+    },
+    {
+      "id": "CROSS-PERMISSION-UI-BACKEND",
+      "risk": "high",
+      "coverage": "UI visible actions and backend permission boundaries align for anonymous/user/admin/banned/deleted/MFA partial"
+    },
+    {
+      "id": "CROSS-ERROR-CONTRACT",
+      "risk": "high",
+      "coverage": "validation/unauthorized/forbidden/not-found/conflict/rate-limit/PoW/MFA/banned/deleted/protocol errors map across stack"
+    },
+    {
+      "id": "CROSS-SW-BACKEND-CACHE",
+      "risk": "medium",
+      "coverage": "Service Worker cache, backend distribution version, auth cookie and offline public/private policies"
+    },
+    {
+      "id": "CROSS-OBSERVABILITY-AUDIT",
+      "risk": "medium",
+      "coverage": "RUM, traceId, ApiError, audit, SSE event id and upload session correlation without PII"
+    },
+    {
+      "id": "CROSS-CONTRACT-FUZZ",
+      "risk": "medium",
+      "coverage": "random AEDS/query/Unicode/upload/WebSocket/cursor/hydration fuzz with reproducible seeds"
+    },
+    {
+      "id": "CROSS-GENERATIVE-CONTRACTS",
+      "risk": "medium",
+      "coverage": "generated contract matrix, API parity, binary golden and permission matrix from shared schema"
+    },
+    {
+      "id": "CROSS-ARTIFACT-DRIFT",
+      "risk": "medium",
+      "coverage": "release static assets, StaticWebAssets, renderer version, distribution version and public manifest drift checks"
+    },
+    {
+      "id": "CROSS-BROWSER-PROTOCOL",
+      "risk": "medium",
+      "coverage": "WebAuthn, WebSocket binary, Service Worker cache, file upload and AOT hydration across browsers"
+    },
+    {
+      "id": "CROSS-PERFORMANCE",
+      "risk": "medium",
+      "coverage": "cross-stack AEDS encode/decode, public cache/render, search, upload, SSE and AOT/hydration latency evidence"
+    },
+    {
+      "id": "CROSS-FLAKY-EVENTUAL-GOVERNANCE",
+      "risk": "medium",
+      "coverage": "eventually timeout, attempt count, slow-success evidence and flake classification"
+    }
+  ],
+  "fixtureFamilies": [
+    "public-content-rich",
+    "public-content-empty",
+    "public-content-edge",
+    "article-lifecycle",
+    "comment-tree",
+    "message-conversations",
+    "upload-sessions",
+    "search-ranking",
+    "permission-matrix",
+    "auth-users",
+    "mfa-passkey-users",
+    "settings-pages",
+    "aot-search-feed",
+    "unicode-boundary"
+  ],
+  "publicArtifactRoutes": [
+    {
+      "method": "GET",
+      "path": "/api/binary/article/list/home/{page}/{size}.aeds",
+      "responseFrame": "ArticleList",
+      "surface": "public-list"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/article/{id}.aeds",
+      "responseFrame": "ArticleDetail",
+      "surface": "public-detail"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/article/hot/{size}.aeds",
+      "responseFrame": "ArticleHot",
+      "surface": "public-hot"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/article/featured/{size}.aeds",
+      "responseFrame": "ArticleFeatured",
+      "surface": "public-featured"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/category.aeds",
+      "responseFrame": "CategoryList",
+      "surface": "public-category"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/tag.aeds",
+      "responseFrame": "TagList",
+      "surface": "public-tag"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/comment/{articleId}?limit={limit}",
+      "responseFrame": "CommentArticleCursor",
+      "surface": "public-comments"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/system/seo",
+      "responseFrame": "SeoConfig",
+      "surface": "public-seo"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/system/page/{slug}",
+      "responseFrame": "PageContent",
+      "surface": "public-pages"
+    }
+  ],
+  "endpointFamilies": [
+    {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs",
+      "frontendWrapper": "src/frontend/src/api/article.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/articleAdapter.ts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/admin/article",
+          "auth": "admin",
+          "responseFrame": "ArticleList"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/article/{id:int}",
+          "auth": "admin",
+          "responseFrame": "ArticleDetail"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/article/hot",
+          "auth": "admin",
+          "responseFrame": "ArticleHot"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/article/featured",
+          "auth": "admin",
+          "responseFrame": "ArticleFeatured"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/article",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "ArticleWriteRequest",
+          "responseFrame": "MutationId"
+        },
+        {
+          "method": "PUT",
+          "path": "/admin/article/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "ArticleWriteRequest",
+          "responseFrame": "MutationId"
+        },
+        {
+          "method": "DELETE",
+          "path": "/admin/article/trash",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "TrashClearResponse"
+        },
+        {
+          "method": "DELETE",
+          "path": "/admin/article/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "PUT",
+          "path": "/admin/article/restore/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "DELETE",
+          "path": "/admin/article/permanent/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "EmptySuccess"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs",
+      "frontendWrapper": "src/frontend/src/api/admin.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/userAdapter.ts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/admin/users",
+          "auth": "admin",
+          "responseFrame": "AdminUserList"
+        },
+        {
+          "method": "PUT",
+          "path": "/admin/users/status",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "AdminChangeUserStatusRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/users/reset-pwd",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "AdminResetUserPasswordRequest",
+          "responseFrame": "EmptySuccess"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Stats.cs",
+      "frontendWrapper": "src/frontend/src/api/stats.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/statsAdapter.ts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/stats",
+          "auth": "admin",
+          "responseFrame": "AdminStats"
+        },
+        {
+          "method": "GET",
+          "path": "/stats/recent-comments",
+          "auth": "admin",
+          "responseFrame": "RecentCommentStats"
+        },
+        {
+          "method": "GET",
+          "path": "/stats/regions",
+          "auth": "admin",
+          "responseFrame": "RegionStats"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs",
+      "frontendWrapper": "src/frontend/src/api/system.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/systemAdapter.ts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/system/seo",
+          "auth": "anonymous",
+          "responseFrame": "SeoConfig"
+        },
+        {
+          "method": "GET",
+          "path": "/system/admin/seo",
+          "auth": "admin",
+          "responseFrame": "SeoConfig"
+        },
+        {
+          "method": "PUT",
+          "path": "/system/seo",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "SeoConfigUpdateRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "GET",
+          "path": "/system/page/{slug}",
+          "auth": "anonymous",
+          "responseFrame": "PageContent"
+        },
+        {
+          "method": "GET",
+          "path": "/system/admin/page/{slug}",
+          "auth": "admin",
+          "responseFrame": "PageContent"
+        },
+        {
+          "method": "PUT",
+          "path": "/system/page",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "PageContentUpdateRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/system/page/refresh/{slug}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "EmptySuccess"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs",
+      "frontendWrapper": "src/frontend/src/api/category.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/taxonomyAdapter.ts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/category",
+          "auth": "anonymous",
+          "responseFrame": "CategoryList"
+        },
+        {
+          "method": "GET",
+          "path": "/tag",
+          "auth": "anonymous",
+          "responseFrame": "TagList"
+        },
+        {
+          "method": "POST",
+          "path": "/category",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "CategoryWriteRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "PUT",
+          "path": "/category/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "CategoryWriteRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "DELETE",
+          "path": "/category/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/tag",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "TagWriteRequest",
+          "responseFrame": "MutationId"
+        },
+        {
+          "method": "PUT",
+          "path": "/tag/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "TagWriteRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "DELETE",
+          "path": "/tag/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "EmptySuccess"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+      "frontendWrapper": "src/frontend/src/api/auth.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/authAdapter.ts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/auth/pow-challenge",
+          "auth": "anonymous",
+          "responseFrame": "PowChallenge",
+          "cache": "no-store"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/login",
+          "auth": "anonymous",
+          "pow": true,
+          "requestFrame": "AuthLoginRequest",
+          "responseFrame": "AuthLoginFlow"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/register",
+          "auth": "anonymous",
+          "pow": true,
+          "requestFrame": "AuthRegisterRequest",
+          "responseFrame": "AuthLoginFlow"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/me",
+          "auth": "optional",
+          "responseFrame": "CurrentUserSnapshot"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/{id:int}",
+          "auth": "admin",
+          "responseFrame": "CurrentUserSnapshot"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/find/{username}",
+          "auth": "admin",
+          "responseFrame": "CurrentUserSnapshot"
+        },
+        {
+          "method": "PUT",
+          "path": "/auth/update-username",
+          "auth": "user",
+          "requestFrame": "AuthUpdateUsernameRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "PUT",
+          "path": "/auth/update-password",
+          "auth": "user",
+          "requestFrame": "AuthUpdatePasswordRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/delete-account",
+          "auth": "user",
+          "pow": true,
+          "requestFrame": "AuthDeleteAccountRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/sessions",
+          "auth": "user",
+          "responseFrame": "AuthSessionList"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/sessions/{id}/revoke",
+          "auth": "user",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/sessions/revoke-others",
+          "auth": "user",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/mfa/setup/start",
+          "auth": "user",
+          "responseFrame": "MfaSetupStart"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/mfa/profile",
+          "auth": "user",
+          "responseFrame": "MfaProfile"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/mfa/setup/verify",
+          "auth": "user",
+          "requestFrame": "MfaSetupVerifyRequest",
+          "responseFrame": "MfaSetupVerify"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/mfa/disable",
+          "auth": "user",
+          "requestFrame": "MfaPasswordProofRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/mfa/recovery/regenerate",
+          "auth": "user",
+          "requestFrame": "MfaPasswordProofRequest",
+          "responseFrame": "MfaSetupVerify"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/mfa/challenge/start",
+          "auth": "anonymous",
+          "requestFrame": "MfaChallengeStartRequest",
+          "responseFrame": "MfaChallengeResult"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/mfa/challenge",
+          "auth": "anonymous",
+          "requestFrame": "MfaChallengeVerifyRequest",
+          "responseFrame": "MfaChallengeResult"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/refresh-token",
+          "auth": "anonymous",
+          "responseFrame": "CurrentUserSnapshot"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/logout",
+          "auth": "anonymous",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/passkey/register/begin",
+          "auth": "user",
+          "responseFrame": "PasskeyRegisterBegin"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/passkey/register/complete",
+          "auth": "user",
+          "requestFrame": "PasskeyRegisterCompleteRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/passkey/login/begin",
+          "auth": "anonymous",
+          "responseFrame": "PasskeyLoginBegin"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/passkey/login/complete",
+          "auth": "anonymous",
+          "requestFrame": "PasskeyLoginCompleteRequest",
+          "responseFrame": "AuthLoginFlow"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/passkey/credentials",
+          "auth": "user",
+          "responseFrame": "PasskeyCredentialList"
+        },
+        {
+          "method": "DELETE",
+          "path": "/auth/passkey/credentials/{id:int}",
+          "auth": "user",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "PUT",
+          "path": "/auth/passkey/credentials/{id:int}/name",
+          "auth": "user",
+          "requestFrame": "PasskeyRenameRequest",
+          "responseFrame": "EmptySuccess"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Files.cs",
+      "frontendWrapper": "src/frontend/src/api/upload.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "routes": [
+        {
+          "method": "DELETE",
+          "path": "/file/delete",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "FileDeleteRequest",
+          "responseFrame": "EmptySuccess"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+      "frontendWrapper": "src/frontend/src/api/comment.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/commentAdapter.ts",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/comment",
+          "auth": "user",
+          "requestFrame": "CommentCreateRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "GET",
+          "path": "/comment/{articleId:int}",
+          "auth": "anonymous",
+          "responseFrame": "CommentArticleCursor"
+        },
+        {
+          "method": "GET",
+          "path": "/comment/{articleId:int}/thread/{rootId:long}",
+          "auth": "anonymous",
+          "responseFrame": "CommentThreadReplyCursor"
+        },
+        {
+          "method": "GET",
+          "path": "/comment/me",
+          "auth": "user",
+          "responseFrame": "CommentUserCursor"
+        },
+        {
+          "method": "DELETE",
+          "path": "/comment/{id:long}",
+          "auth": "user",
+          "responseFrame": "EmptySuccess"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+      "routePrefix": "/upload",
+      "frontendWrapper": "src/frontend/src/api/upload.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/upload/init",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "UploadInitRequest",
+          "responseFrame": "UploadInit"
+        },
+        {
+          "method": "GET",
+          "path": "/upload/{uploadId}/status",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "UploadStatus"
+        },
+        {
+          "method": "GET",
+          "path": "/upload/{uploadId}/status/parts",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "UploadPartMap"
+        },
+        {
+          "method": "PUT",
+          "path": "/upload/{uploadId}/part",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "UploadPartAck",
+          "contentType": "application/octet-stream"
+        },
+        {
+          "method": "POST",
+          "path": "/upload/{uploadId}/complete",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "UploadCompleteRequest",
+          "responseFrame": "UploadComplete"
+        },
+        {
+          "method": "DELETE",
+          "path": "/upload/{uploadId}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "UploadStatus"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs",
+      "frontendWrapper": "src/frontend/src/api/message.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/messageAdapter.ts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/messages/conversations",
+          "auth": "user",
+          "responseFrame": "ConversationList"
+        },
+        {
+          "method": "GET",
+          "path": "/messages/conversations/{id:long}",
+          "auth": "user",
+          "responseFrame": "ConversationDetail"
+        },
+        {
+          "method": "POST",
+          "path": "/messages/conversations",
+          "auth": "user",
+          "requestFrame": "ConversationCreateRequest",
+          "responseFrame": "ConversationDetail"
+        },
+        {
+          "method": "POST",
+          "path": "/messages/conversations/{id:long}/reply",
+          "auth": "user",
+          "requestFrame": "ConversationReplyRequest",
+          "responseFrame": "ConversationMessage"
+        },
+        {
+          "method": "POST",
+          "path": "/messages/conversations/{id:long}/read",
+          "auth": "user",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/messages/conversations",
+          "auth": "admin",
+          "responseFrame": "ConversationList"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/messages/conversations/{id:long}",
+          "auth": "admin",
+          "responseFrame": "ConversationDetail"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/messages/conversations/{id:long}/reply",
+          "auth": "admin",
+          "requestFrame": "ConversationReplyRequest",
+          "responseFrame": "ConversationMessage"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/messages/conversations/{id:long}/status",
+          "auth": "admin",
+          "requestFrame": "ConversationStatusRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/messages/system-send",
+          "auth": "admin",
+          "requestFrame": "SystemMessageRequest",
+          "responseFrame": "ConversationDetail"
+        }
+      ]
+    }
+  ],
+  "coherenceProfiles": [
+    {
+      "id": "runtime-matrix",
+      "requirements": [
+        "CROSS-RUNTIME-COHERENCE",
+        "CROSS-ARTIFACT-DRIFT"
+      ],
+      "surfaces": [
+        "debug-backend-binary",
+        "vite-spa",
+        "release-preview-html",
+        "hydration-payload",
+        "search-index",
+        "feed-sitemap",
+        "static-asset-version",
+        "distribution-version",
+        "aot-renderer-version"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/runtime/runtime-coherence-matrix.mjs",
+        "tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs"
+      ]
+    },
+    {
+      "id": "distribution-full",
+      "requirements": [
+        "CROSS-AOT-SEARCH-FEED-SITEMAP",
+        "CROSS-SEO-FEED-SITEMAP",
+        "CROSS-SEARCH-COHERENCE"
+      ],
+      "surfaces": [
+        "public-list",
+        "detail",
+        "rss",
+        "atom",
+        "json-feed",
+        "sitemap",
+        "aot-category",
+        "aot-tag",
+        "search-index",
+        "related-reading"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/runtime/distribution-coherence-full.mjs",
+        "tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs"
+      ]
+    },
+    {
+      "id": "sse-events",
+      "requirements": [
+        "CROSS-SSE-BUSINESS-EVENTS",
+        "CROSS-OBSERVABILITY-AUDIT"
+      ],
+      "surfaces": [
+        "article-events",
+        "comment-events",
+        "message-events",
+        "cursor-replay",
+        "duplicate-event-id",
+        "private-channel-security"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/runtime/sse-business-events.mjs",
+        "tests/frontend/checks/runtime/sse-live-smoke.mjs"
+      ]
+    },
+    {
+      "id": "upload-complete",
+      "requirements": [
+        "CROSS-UPLOAD-COMPLETE-ASSET"
+      ],
+      "surfaces": [
+        "init",
+        "part",
+        "complete",
+        "public-url",
+        "asset-library",
+        "article-reference",
+        "cover-og-image",
+        "wrong-sha",
+        "abort",
+        "dedupe"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/resilience/check-upload-complete-coherence.mjs",
+        "tests/frontend/checks/resilience/check-upload-resilience.mjs"
+      ]
+    },
+    {
+      "id": "auth-state",
+      "requirements": [
+        "CROSS-AUTH-SESSION-MFA-PASSKEY",
+        "CROSS-PERMISSION-UI-BACKEND"
+      ],
+      "surfaces": [
+        "register",
+        "login",
+        "refresh",
+        "revoke",
+        "logout",
+        "mfa-required",
+        "recovery-code",
+        "passkey-list",
+        "frontend-store",
+        "backend-me"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/runtime/auth-state-coherence.mjs",
+        "tests/frontend/checks/runtime/auth-session-smoke.mjs"
+      ]
+    },
+    {
+      "id": "sw-cache",
+      "requirements": [
+        "CROSS-SW-BACKEND-CACHE"
+      ],
+      "surfaces": [
+        "public-asset-cache",
+        "private-route-deny",
+        "search-index-cache",
+        "asset-clear",
+        "aot-update",
+        "offline-public",
+        "auth-cookie-change"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/public/check-sw-backend-cache-coherence.mjs",
+        "tests/frontend/checks/public/check-pwa-offline-policy.mjs"
+      ]
+    },
+    {
+      "id": "perf",
+      "requirements": [
+        "CROSS-PERFORMANCE"
+      ],
+      "surfaces": [
+        "aeds-encode-decode",
+        "public-cache-render",
+        "search-build-query",
+        "upload-part",
+        "sse-fanout-patch",
+        "aot-hydration"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/load/check-cross-stack-performance.mjs",
+        "tests/frontend/checks/load/check-load-public-api.mjs"
+      ]
+    }
+  ],
+  "eventualConsistency": {
+    "requiredFields": [
+      "timeoutMs",
+      "attempts",
+      "elapsedMs",
+      "surface",
+      "mutationId",
+      "classification"
+    ],
+    "classifications": [
+      "data-setup",
+      "cache-delay",
+      "sse-delay",
+      "aot-delay",
+      "search-index-delay",
+      "feed-delay"
+    ]
+  },
+  "generatedFrom": {
+    "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+    "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
+  },
+  "openapiOperationCount": 87
+}

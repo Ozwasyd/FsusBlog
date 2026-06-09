@@ -299,6 +299,7 @@ run_backend_nightly_only() {
 }
 
 run_cross_stack_contract_only() {
+  run "$ROOT_DIR/tools/contracts/export-openapi.sh"
   run_in_client npm run check:cross-stack-contract
 }
 

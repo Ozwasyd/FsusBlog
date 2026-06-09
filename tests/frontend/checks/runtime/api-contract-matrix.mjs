@@ -2,23 +2,32 @@
 
 import { decodeApiErrorFrame, decodeAedsFrame, decodeKnownFrame } from '../../support/aeds-envelope.mjs'
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs'
+import { extractBackendBinaryRoutes, loadProtocol } from '../support/crossStackMatrix.mjs'
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000'
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000)
+const materializePath = (path) => path
+  .replaceAll('{page}', '1')
+  .replaceAll('{size}', '1')
+  .replaceAll('{id:int}', '1')
+  .replaceAll('{id:long}', '1')
+  .replaceAll('{articleId:int}', '1')
+  .replaceAll('{rootId:long}', '1')
+  .replaceAll('{slug}', 'about')
+  .replaceAll('{username}', 'admin')
+  .replaceAll('{uploadId}', 'test-upload')
 
-const publicChecks = [
-  ['article list', '/api/binary/article/list/home/1/1.aeds', 1],
-  ['article hot', '/api/binary/article/hot/1.aeds', 3],
-  ['category list', '/api/binary/category.aeds', 9],
-  ['tag list', '/api/binary/tag.aeds', 10]
-]
+const frameValues = new Map(loadProtocol().frameTypes.map(frame => [frame.name, frame.value]))
+const openapiRoutes = extractBackendBinaryRoutes()
+const publicChecks = openapiRoutes
+  .filter(route => route.method === 'GET' && route.auth === 'anonymous' && route.pow !== true && route.responseFrame && frameValues.has(route.responseFrame))
+  .map(route => [route.operationId || route.path, `/api/binary${materializePath(route.path)}`, frameValues.get(route.responseFrame)])
+  .slice(0, 12)
 
-const deniedChecks = [
-  ['comment me anonymous', '/api/binary/comment/me?limit=1', 401],
-  ['stats anonymous', '/api/binary/stats', 401],
-  ['recent comments anonymous', '/api/binary/stats/recent-comments', 401],
-  ['regions anonymous', '/api/binary/stats/regions', 401]
-]
+const deniedChecks = openapiRoutes
+  .filter(route => route.method === 'GET' && ['user', 'admin'].includes(route.auth))
+  .map(route => [route.operationId || route.path, `/api/binary${materializePath(route.path)}`, 401])
+  .slice(0, 12)
 
 function assert(condition, message) {
   if (!condition) {

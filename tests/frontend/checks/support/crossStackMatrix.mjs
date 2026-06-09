@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 export const matrixPath = resolve(root, 'tests/frontend/fixtures/cross-stack-contract-matrix.json')
+export const openApiPath = resolve(root, 'src/shared/Contracts/Validation/fsusblog.openapi.json')
 
 export function loadMatrix() {
   return JSON.parse(readFileSync(matrixPath, 'utf8'))
@@ -15,6 +16,10 @@ export function loadProtocol() {
 
 export function loadBackendGoldenCatalog() {
   return JSON.parse(readFileSync(resolve(root, 'tests/backend/Fixtures/aeds-golden-catalog.json'), 'utf8'))
+}
+
+export function loadOpenApi() {
+  return JSON.parse(readFileSync(openApiPath, 'utf8'))
 }
 
 export function assert(condition, message) {
@@ -49,6 +54,34 @@ export function routeKey(method, path) {
 }
 
 export function extractBackendBinaryRoutes() {
+  return extractBackendBinaryRoutesFromOpenApi()
+}
+
+export function extractBackendBinaryRoutesFromOpenApi(openapi = loadOpenApi()) {
+  const routes = []
+  for (const [path, pathItem] of Object.entries(openapi.paths || {})) {
+    for (const [method, operation] of Object.entries(pathItem || {})) {
+      if (!['get', 'post', 'put', 'delete', 'patch'].includes(method)) continue
+      if (operation['x-fsus-protocol'] !== 'AEDS') continue
+      routes.push({
+        key: routeKey(method.toUpperCase(), path.replace(/^\/api\/binary/, '') || '/'),
+        method: method.toUpperCase(),
+        path: path.replace(/^\/api\/binary/, '') || '/',
+        source: operation['x-fsus-source'] || openApiPath,
+        operationId: operation.operationId,
+        requestFrame: operation['x-fsus-request-frame'] || null,
+        responseFrame: operation['x-fsus-response-frame'] || null,
+        errorFrame: operation['x-fsus-error-frame'] || null,
+        auth: operation['x-fsus-auth'] || null,
+        pow: operation['x-fsus-pow'],
+        cache: operation['x-fsus-cache'] || null
+      })
+    }
+  }
+  return routes.sort((a, b) => a.key.localeCompare(b.key))
+}
+
+export function extractBackendBinaryRoutesFromSource() {
   const dir = resolve(root, 'src/backend/Modules/Endpoints/Binary')
   const routes = []
   for (const file of walk(dir, path => path.endsWith('.cs') && !path.endsWith('Adapters.cs'))) {

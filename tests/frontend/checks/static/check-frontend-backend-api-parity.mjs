@@ -4,25 +4,25 @@ import { resolve } from 'node:path'
 import {
   assert,
   assertPathExists,
-  flattenMatrixRoutes,
-  loadMatrix,
+  extractBackendBinaryRoutes,
+  openApiPath,
   root,
   walk
 } from '../support/crossStackMatrix.mjs'
 
-const matrix = loadMatrix()
-const routes = flattenMatrixRoutes(matrix)
+const routes = extractBackendBinaryRoutes()
+const routeConstantsPath = resolve(root, 'src/frontend/src/generated/fsusBinaryRoutes.ts')
+assertPathExists('src/frontend/src/generated/fsusBinaryRoutes.ts')
+const routeConstants = readFileSync(routeConstantsPath, 'utf8')
 
 for (const route of routes) {
-  assertPathExists(route.frontendWrapper)
-  assertPathExists(route.frontendAdapter)
-  const wrapper = readFileSync(resolve(root, route.frontendWrapper), 'utf8')
-  const adapter = readFileSync(resolve(root, route.frontendAdapter), 'utf8')
-  const familyHint = route.path.split('/').filter(Boolean)[0]
-  assert(wrapper.includes('/api/binary') || wrapper.includes('binaryApiClient') || wrapper.includes('requestBinary'), `${route.key} wrapper does not use binary API client`)
-  assert(adapter.includes('decode') || adapter.includes('read'), `${route.key} adapter does not look like a binary adapter`)
-  assert(familyHint, `${route.key} lacks family hint`)
+  assert(route.operationId, `${route.key} lacks OpenAPI operationId`)
+  assert(routeConstants.includes(JSON.stringify(route.operationId)), `${route.key} missing generated route constant`)
+  assert(routeConstants.includes(JSON.stringify(`/api/binary${route.path}`)), `${route.key} missing generated path constant`)
+  if (route.source && route.source !== openApiPath) assertPathExists(route.source)
 }
+
+const knownPaths = new Set(routes.map(route => `/api/binary${route.path}`))
 
 const legacyPatterns = [
   /['"`]\/api\/Article\b/g,
@@ -39,6 +39,18 @@ for (const file of walk(resolve(root, 'src/frontend/src/api'), path => /\.(ts|js
     assert(!pattern.test(source), `${file} contains legacy JSON API path ${pattern}`)
     pattern.lastIndex = 0
   }
+  for (const match of source.matchAll(/['"`](\/api\/binary\/[^'"`?${}]*)/g)) {
+    assert(matchesKnownPath(match[1]), `${file} contains stale manual binary path ${match[1]}`)
+  }
 }
 
-console.log(`[frontend-backend-api-parity] ok routes=${routes.length}`)
+console.log(`[frontend-backend-api-parity] ok openapiRoutes=${routes.length}`)
+
+function matchesKnownPath(value) {
+  if (knownPaths.has(value)) return true
+  for (const known of knownPaths) {
+    const prefix = known.split('{')[0]
+    if (prefix && (value === prefix.replace(/\/$/, '') || value.startsWith(prefix))) return true
+  }
+  return false
+}

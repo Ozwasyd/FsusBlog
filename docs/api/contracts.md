@@ -28,6 +28,8 @@
 
 运行时主 API 已收敛到 AEDS Binary：`/api/binary/**` 响应使用 AEDS v2 frame，错误也通过 `ApiError` frame 表达，不再通过旧文本响应包装。真人阅读 proof 使用 `/api/read-proof/**` JSON 包装响应，避免把计数 proof 扩展进 AEDS/Wasm 协议面。
 
+HTTP 层契约源是 `src/shared/Contracts/Validation/fsusblog.openapi.json`。该 OpenAPI snapshot 描述 method/path/status/content-type/security 与 `x-fsus-*` AEDS metadata；AEDS frame 名称、header magic/version/size 仍以 `src/shared/Contracts/Validation/aeds-protocol.json` 为权威来源。cross-stack matrix、前端 route constants、runtime contract smoke 与 release evidence 通过 `tools/contracts/*` 从这两个源校验或生成。
+
 公开 binary 读模型使用预编码 artifact：匿名 `GET /api/binary/article/{id}.aeds`、`GET /api/binary/article/list/home/{page}/{size}.aeds`、`GET /api/binary/article/list/category/{categoryId}/{page}/{size}.aeds`、`GET /api/binary/article/list/tag/{tagId}/{page}/{size}.aeds`、`GET /api/binary/article/hot/{size}.aeds`、`GET /api/binary/category.aeds`、`GET /api/binary/tag.aeds` 只读取进程内 `PublicHotReadSnapshot` 的完整 AEDS v2 frame。命中时服务端直接写出完整 frame，并带预计算 `ETag`；miss/not-ready 返回状态码，不会在请求线程同步查询 PostgreSQL、Redis、IMemoryCache、OutputCache 或文件系统。admin/private 读取走 `/api/binary/admin/article/**` 和非 `.aeds` taxonomy mutation path，以便草稿、定时、归档、删除状态和分类标签管理。
 
 L0 `Accept` 语义固定为：空值、`*/*`、`application/octet-stream` 可读取 binary artifact；HTML artifact 只接受空值、`*/*`、`text/html`；其他类型返回 `406`。L0 不承担跨域公开接口，`OPTIONS` 返回 `405`，CORS 仍由常规管线治理。快照状态通过 `/health/ready` 的 `runtime.publicHotRead` 暴露 `NotStarted` / `Building` / `Ready` / `Failed`、版本、artifact 计数、最后构建原因和错误；未 Ready 时 fast path 返回 `503` + `Retry-After: 1`。L0 负响应固定 `Cache-Control: no-store`；`Range` 不支持并返回 `416` + `Accept-Ranges: none`；命中的 `.aeds` artifact 不进行响应级压缩，不写 `Content-Encoding`。

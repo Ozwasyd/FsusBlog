@@ -21,6 +21,8 @@
 
 旧文本业务 API 不再注册；`/api/**` 非 binary 业务路径统一返回 `ApiError` AEDS frame。客户端不得把解码失败回退为文本 API 请求。例外只限作者工作台 `/api/author/**`、真人阅读 proof、健康检查和运维类 JSON 端点；其中 `/api/author/audit/**` 只用于 admin 审计查询、summary 和防篡改校验，不作为公开运行时业务 API。
 
+HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提供，包含 method/path/status/content-type/security 与 `x-fsus-*` 扩展；AEDS payload、frame 编号、POD schema 和 golden fixture 仍由 `aeds-protocol.json`、POD 契约和 fixture 负责。
+
 ### 3. 统一响应包装
 
 所有运行时主业务响应体均为 AEDS v2 frame。成功写操作使用 `EmptySuccess` 或 `MutationId`；失败、鉴权拒绝、限流和异常兜底统一使用 `ApiError` frame。AEDS v1 frame 不再兼容，也不保留旧 frame fallback。
