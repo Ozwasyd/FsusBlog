@@ -34,6 +34,7 @@ const requiredArtifacts = [
   'postDeploySmoke',
   'backupRestoreDrill',
   'coverage',
+  'uxViewportSummary',
   'productionExposureStatus',
   'productionExposureLive',
   'firewallPolicy',

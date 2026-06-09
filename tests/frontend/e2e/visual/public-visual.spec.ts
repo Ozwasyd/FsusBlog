@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test'
 import {
-  DESKTOP_VIEWPORT,
-  MOBILE_VIEWPORT,
-  ThemeMode,
+  UX_VIEWPORT_MATRIX,
   WARMUP_TIMEOUT_MS,
+  type ThemeMode,
   assertElementInViewport,
   assertNoHorizontalOverflow,
   assertThemeReadable,
@@ -15,10 +14,13 @@ import {
 
 const articlePath = `/article/${process.env.FSUSBLOG_VISUAL_ARTICLE_ID || '1'}`
 
-const viewports = [
-  { name: 'desktop', size: DESKTOP_VIEWPORT },
-  { name: 'mobile', size: MOBILE_VIEWPORT }
-] as const
+const viewports = UX_VIEWPORT_MATRIX.viewports
+  .filter((viewport) => viewport.useInPublicVisual)
+  .map((viewport) => ({
+    name: viewport.name,
+    size: { width: viewport.width, height: viewport.height },
+    screenshot: viewport.name === 'desktop' || viewport.name === 'mobile'
+  }))
 
 const themes: ThemeMode[] = ['light', 'dark']
 
@@ -53,12 +55,14 @@ for (const viewport of viewports) {
               await expect(session.page.locator('#fsus-comments-island')).toBeVisible()
             }
 
-            await expectStableScreenshot(
-              session.page,
-              primary,
-              `${route.label}-${viewport.name}-${theme}.png`,
-              { maxDiffPixelRatio: 0.02 }
-            )
+            if (viewport.screenshot) {
+              await expectStableScreenshot(
+                session.page,
+                primary,
+                `${route.label}-${viewport.name}-${theme}.png`,
+                { maxDiffPixelRatio: 0.02 }
+              )
+            }
           } finally {
             await session.close()
           }

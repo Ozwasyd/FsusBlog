@@ -1,9 +1,7 @@
 import { test, expect } from '@playwright/test'
 import {
-  DESKTOP_VIEWPORT,
-  MOBILE_VIEWPORT,
-  NARROW_MOBILE_VIEWPORT,
-  ThemeMode,
+  UX_VIEWPORT_MATRIX,
+  type ThemeMode,
   adminName,
   adminPassword,
   assertElementHitTarget,
@@ -20,11 +18,13 @@ import {
   waitForAppReady
 } from '../../support/playwright/acceptance-shared'
 
-const viewports = [
-  { name: 'desktop', size: DESKTOP_VIEWPORT, screenshot: true },
-  { name: 'mobile', size: MOBILE_VIEWPORT, screenshot: true },
-  { name: 'narrow-mobile', size: NARROW_MOBILE_VIEWPORT, screenshot: false }
-] as const
+const viewports = UX_VIEWPORT_MATRIX.viewports
+  .filter((viewport) => viewport.useInConsoleVisual)
+  .map((viewport) => ({
+    name: viewport.name,
+    size: { width: viewport.width, height: viewport.height },
+    screenshot: viewport.name === 'desktop' || viewport.name === 'mobile'
+  }))
 
 const themes: ThemeMode[] = ['light', 'dark']
 

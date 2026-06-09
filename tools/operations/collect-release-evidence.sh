@@ -253,6 +253,8 @@ FUZZ_SEEDS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/fuzz-seed
 BUSINESS_STATE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/playwright-business-state-summary.json" playwright-business-state-summary.json)"
 AOT_CACHE_RESILIENCE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aot-cache-resilience-summary.json" aot-cache-resilience-summary.json)"
 HYDRATION_LONG_SMOKE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/hydration-long-smoke-summary.json" hydration-long-smoke-summary.json)"
+UX_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/ux" ux)"
+UX_VIEWPORT_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json" ux-viewport-summary.json)"
 FAULT_ARTIFACT="$(copy_if_present "$FAULT_DIR" fault-injection)"
 SOAK_ARTIFACT="$(copy_if_present "$SOAK_DIR" soak)"
 FUZZ_ARTIFACT="$(copy_if_present "$FUZZ_DIR" fuzz)"
@@ -292,6 +294,7 @@ ZAP_STATUS_VALUE="$(zap_status_or_missing "$SECURITY_DIR/zap")"
 FAULT_STATUS_VALUE="$(json_status_or_missing "$FAULT_DIR/summary.json")"
 AUTHENTICATED_DAST_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/authenticated-dast/summary.json")"
 WASM_FUZZ_STATUS_VALUE="$(json_status_or_missing "$FUZZ_DIR/wasm/summary.json")"
+UX_VIEWPORT_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json")"
 
 MANIFEST_STATUS="collected-ok"
 if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
@@ -354,6 +357,8 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "playwrightBusinessStateSummary": $BUSINESS_STATE_SUMMARY,
     "aotCacheResilienceSummary": $AOT_CACHE_RESILIENCE_SUMMARY,
     "hydrationLongSmokeSummary": $HYDRATION_LONG_SMOKE_SUMMARY,
+    "ux": $UX_ARTIFACT,
+    "uxViewportSummary": $UX_VIEWPORT_SUMMARY,
     "faultInjection": $FAULT_ARTIFACT,
     "soak": $SOAK_ARTIFACT,
     "fuzz": $FUZZ_ARTIFACT,
@@ -385,7 +390,8 @@ cat > "$OUT_DIR/manifest.json" <<JSON
       "runtimeTuning": $RUNTIME_TUNING_SUMMARY
     },
     "gates": {
-      "visualGateSkip": $VISUAL_GATE_SKIP
+      "visualGateSkip": $VISUAL_GATE_SKIP,
+      "uxViewport": "$UX_VIEWPORT_STATUS_VALUE"
     },
     "security": {
       "attackMatrix": "$ATTACK_MATRIX_STATUS_VALUE",

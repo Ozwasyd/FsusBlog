@@ -9,6 +9,14 @@ groups=(
   'console visual \(mobile, dark\)'
   'console visual \(narrow-mobile, light\)'
   'console visual \(narrow-mobile, dark\)'
+  'console visual \(short-mobile, light\)'
+  'console visual \(short-mobile, dark\)'
+  'console visual \(mobile-landscape, light\)'
+  'console visual \(mobile-landscape, dark\)'
+  'console visual \(tablet, light\)'
+  'console visual \(tablet, dark\)'
+  'console visual \(tablet-landscape, light\)'
+  'console visual \(tablet-landscape, dark\)'
 )
 
 for group in "${groups[@]}"; do

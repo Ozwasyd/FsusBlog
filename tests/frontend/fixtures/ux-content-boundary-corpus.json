@@ -1,0 +1,96 @@
+{
+  "version": "fsusblog-ux-content-boundary-corpus-v1",
+  "generatedFrom": "issue-54",
+  "cases": [
+    {
+      "id": "long-cjk-title",
+      "kind": "title",
+      "sample": "这是一段用于验证极端视口下标题换行边界的超长中文标题它应该在卡片标题文章详情标题以及管理台列表中保持可读且不产生横向溢出"
+    },
+    {
+      "id": "long-english-word",
+      "kind": "inline",
+      "sample": "SupercalifragilisticexpialidociousLayoutBoundaryUnbrokenWordWithoutSpacesShouldWrapSafelyInsideItsContainer"
+    },
+    {
+      "id": "long-url",
+      "kind": "inline",
+      "sample": "https://example.test/fsusblog/layout/boundary/with/a/very/very/very/long/path/and-query?search=viewport-boundary&mode=ultra-wide&token=abcdefghijklmnopqrstuvwxyz0123456789"
+    },
+    {
+      "id": "emoji-cluster",
+      "kind": "inline",
+      "sample": "状态更新 👩‍💻🧪✨🚀📦🧭✅ with emoji clusters and text fallback"
+    },
+    {
+      "id": "rtl-mixed",
+      "kind": "inline",
+      "sample": "RTL مثال عربي בתוך טקסט mixed with English and 中文 layout probes"
+    },
+    {
+      "id": "mixed-cjk-japanese-code",
+      "kind": "paragraph",
+      "sample": "中文段落、かな混在、English words, inline `code`, 以及 FsusUI 组件边界同时出现，用于验证自动换行和阅读行宽。"
+    },
+    {
+      "id": "long-taxonomy-name",
+      "kind": "taxonomy",
+      "sample": "category-tag-name-with-long-segment-中文分類タグ名-very-long-unbroken-suffix-0123456789"
+    },
+    {
+      "id": "long-username",
+      "kind": "username",
+      "sample": "BinaryUserWithAnUnexpectedlyLongDisplayName_边界测试_0123456789"
+    },
+    {
+      "id": "long-comment",
+      "kind": "comment",
+      "sample": "这是一条很长的评论内容，用于测试评论树、回复预览、移动端卡片和横屏短高场景下的换行、滚动和操作按钮可达性。重复内容用于制造真实阅读压力。"
+    },
+    {
+      "id": "long-message",
+      "kind": "message",
+      "sample": "站内信 subject/body boundary: a long subject and body preview should wrap without hiding unread state, timestamp, reply controls, or close actions."
+    },
+    {
+      "id": "long-code-line",
+      "kind": "code",
+      "sample": "const boundary = 'a-very-long-code-line-without-natural-breaks-that-must-scroll-inside-a-controlled-code-container-and-never-expand-the-body-scroll-width';"
+    },
+    {
+      "id": "wide-katex",
+      "kind": "katex",
+      "sample": "\\\\sum_{i=0}^{n} \\\\left(\\\\frac{alpha_i + beta_i + gamma_i}{delta_i + epsilon_i + zeta_i}\\\\right) = \\\\prod_{j=1}^{m} veryWideFormula_j"
+    },
+    {
+      "id": "wide-mermaid",
+      "kind": "mermaid",
+      "sample": "graph LR; A[Very wide start node] --> B[Intermediate node with long label] --> C[Another long label] --> D[End node that must remain scroll-contained]"
+    },
+    {
+      "id": "ultra-wide-image",
+      "kind": "image",
+      "sample": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='3200' height='400' viewBox='0 0 3200 400'%3E%3Crect width='3200' height='400' fill='%23dbeafe'/%3E%3Ctext x='32' y='210' font-size='72'%3Eultra wide image boundary%3C/text%3E%3C/svg%3E"
+    },
+    {
+      "id": "ultra-tall-image",
+      "kind": "image",
+      "sample": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='2400' viewBox='0 0 360 2400'%3E%3Crect width='360' height='2400' fill='%23fef3c7'/%3E%3Ctext x='24' y='120' font-size='32'%3Eultra tall image boundary%3C/text%3E%3C/svg%3E"
+    },
+    {
+      "id": "broken-image",
+      "kind": "image",
+      "sample": "/__fsus_missing_boundary_image__.png"
+    },
+    {
+      "id": "empty-state",
+      "kind": "state",
+      "sample": "empty"
+    },
+    {
+      "id": "huge-list-tail",
+      "kind": "state",
+      "sample": "page-tail-9999"
+    }
+  ]
+}

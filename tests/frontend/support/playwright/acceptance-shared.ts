@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { expect } from '@playwright/test'
 import type { Browser, BrowserContextOptions, Locator, Page, ScreenshotOptions, StorageState } from '@playwright/test'
@@ -23,10 +24,85 @@ type RouteExpectation = Readonly<{
 
 export const APP_READY_TIMEOUT_MS = 45_000
 export const WARMUP_TIMEOUT_MS = 45_000
-export const DESKTOP_VIEWPORT = { width: 1440, height: 960 }
-export const TABLET_VIEWPORT = { width: 1024, height: 900 }
-export const MOBILE_VIEWPORT = { width: 390, height: 844 }
-export const NARROW_MOBILE_VIEWPORT = { width: 360, height: 780 }
+
+export type ViewportSize = { width: number, height: number }
+export type UxViewport = Readonly<{
+  name: string
+  width: number
+  height: number
+  category: string
+  useInAcceptance: boolean
+  useInPublicVisual: boolean
+  useInConsoleVisual: boolean
+  screenshotBaseline: boolean
+  prSmoke: boolean
+  visualBoundary: boolean
+  boundaryFull: boolean
+}>
+export type UxViewportMode = 'smoke' | 'visual' | 'boundaries'
+export type UxViewportModeConfig = Readonly<{
+  artifact: string
+  themes: ThemeMode[]
+  viewports: string[]
+  routes: string[] | 'all'
+  media: string[]
+  screenshots?: boolean
+}>
+export type UxViewportMatrix = Readonly<{
+  version: string
+  generatedFrom: string
+  viewports: UxViewport[]
+  modes: Record<UxViewportMode, UxViewportModeConfig>
+}>
+export type UxContentBoundaryCase = Readonly<{
+  id: string
+  kind: string
+  sample: string
+}>
+export type UxContentBoundaryCorpus = Readonly<{
+  version: string
+  generatedFrom: string
+  cases: UxContentBoundaryCase[]
+}>
+
+const uxViewportMatrixFile = new URL('../../fixtures/ux-viewport-matrix.json', import.meta.url)
+const uxContentBoundaryCorpusFile = new URL('../../fixtures/ux-content-boundary-corpus.json', import.meta.url)
+
+export const UX_VIEWPORT_MATRIX: UxViewportMatrix = JSON.parse(readFileSync(uxViewportMatrixFile, 'utf8')) as UxViewportMatrix
+export const UX_CONTENT_BOUNDARY_CORPUS: UxContentBoundaryCorpus = JSON.parse(readFileSync(uxContentBoundaryCorpusFile, 'utf8')) as UxContentBoundaryCorpus
+
+export function uxViewportByName(name: string): UxViewport {
+  const viewport = UX_VIEWPORT_MATRIX.viewports.find((candidate) => candidate.name === name)
+  if (!viewport) {
+    throw new Error(`unknown UX viewport: ${name}`)
+  }
+  return viewport
+}
+
+export function uxViewportSize(name: string): ViewportSize {
+  const viewport = uxViewportByName(name)
+  return { width: viewport.width, height: viewport.height }
+}
+
+export function uxViewportsForMode(mode: UxViewportMode): UxViewport[] {
+  const config = UX_VIEWPORT_MATRIX.modes[mode]
+  return config.viewports.map((name) => uxViewportByName(name))
+}
+
+export const XS_MOBILE_VIEWPORT = uxViewportSize('xs-mobile')
+export const DESKTOP_VIEWPORT = uxViewportSize('desktop')
+export const DESKTOP_HD_VIEWPORT = uxViewportSize('desktop-hd')
+export const TABLET_VIEWPORT = uxViewportSize('tablet')
+export const TABLET_LANDSCAPE_VIEWPORT = uxViewportSize('tablet-landscape')
+export const MOBILE_VIEWPORT = uxViewportSize('mobile')
+export const NARROW_MOBILE_VIEWPORT = uxViewportSize('narrow-mobile')
+export const SHORT_MOBILE_VIEWPORT = uxViewportSize('short-mobile')
+export const MOBILE_LANDSCAPE_VIEWPORT = uxViewportSize('mobile-landscape')
+export const LAPTOP_SHORT_VIEWPORT = uxViewportSize('laptop-short')
+export const WIDE_DESKTOP_VIEWPORT = uxViewportSize('wide-desktop')
+export const ULTRA_WIDE_VIEWPORT = uxViewportSize('ultra-wide')
+export const TALL_DESKTOP_VIEWPORT = uxViewportSize('tall-desktop')
+export const FOUR_K_VIEWPORT = uxViewportSize('four-k')
 
 export const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser'
 export const userPassword = process.env.FSUSBLOG_USER_PASSWORD || 'BinaryUserPass123!'
@@ -808,6 +884,8 @@ export async function assertNoHorizontalOverflow(page: Page, tolerance = 4): Pro
 
 export async function assertResponsiveLayoutContract(page: Page, label = 'responsive layout'): Promise<void> {
   await assertNoHorizontalOverflow(page)
+  await assertNoVerticalTrap(page, label)
+  await assertCodeBlockControlledScroll(page, label)
 
   const violations = await page.evaluate(() => {
     const viewportWidth = window.innerWidth
@@ -883,6 +961,449 @@ export async function assertResponsiveLayoutContract(page: Page, label = 'respon
   })
 
   expect(violations, `${label} should fit viewport and keep controls reachable`).toEqual([])
+}
+
+export async function assertNoVerticalTrap(page: Page, label = 'vertical trap'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const viewportHeight = window.innerHeight
+    const issues: string[] = []
+    const documentHeight = Math.max(
+      document.documentElement.scrollHeight,
+      document.body?.scrollHeight ?? 0
+    )
+    const bodyStyle = getComputedStyle(document.body)
+    const rootStyle = getComputedStyle(document.documentElement)
+    const hasVisibleModal = Array.from(document.querySelectorAll('.el-dialog, .el-drawer, [role="dialog"]'))
+      .some((element) => {
+        if (!(element instanceof HTMLElement)) return false
+        const rect = element.getBoundingClientRect()
+        const style = getComputedStyle(element)
+        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0
+      })
+
+    if (
+      documentHeight > viewportHeight + 8
+      && !hasVisibleModal
+      && [bodyStyle.overflowY, rootStyle.overflowY].some((value) => value === 'hidden' || value === 'clip')
+    ) {
+      issues.push(`page taller than viewport but vertical scroll is disabled (height=${documentHeight}, viewport=${viewportHeight})`)
+    }
+
+    for (const element of Array.from(document.querySelectorAll('.el-dialog, .el-drawer, [role="dialog"]'))) {
+      if (!(element instanceof HTMLElement)) continue
+      const rect = element.getBoundingClientRect()
+      const style = getComputedStyle(element)
+      if (style.display === 'none' || style.visibility === 'hidden' || rect.width === 0 || rect.height === 0) continue
+      const scrollable = Array.from(element.querySelectorAll<HTMLElement>('*'))
+        .some((child) => {
+          const childStyle = getComputedStyle(child)
+          return child.scrollHeight > child.clientHeight + 4 && ['auto', 'scroll'].includes(childStyle.overflowY)
+        })
+      if (rect.height > viewportHeight + 4 && !scrollable) {
+        issues.push(`dialog/drawer is taller than viewport without internal scroll (${Math.round(rect.height)}>${viewportHeight})`)
+      }
+    }
+
+    return issues
+  })
+
+  expect(violations, `${label} should remain vertically reachable`).toEqual([])
+}
+
+export async function assertInteractiveControlsReachable(page: Page, label = 'interactive controls'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const issues: string[] = []
+    const visible = (element: Element): element is HTMLElement => {
+      if (!(element instanceof HTMLElement)) return false
+      const style = getComputedStyle(element)
+      const rect = element.getBoundingClientRect()
+      return style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && style.opacity !== '0'
+        && rect.width > 0
+        && rect.height > 0
+        && rect.bottom >= -viewportHeight
+        && rect.top <= viewportHeight * 2
+    }
+    const labelFor = (element: HTMLElement) => (element.getAttribute('aria-label') || element.textContent || element.id || element.tagName)
+      .toString()
+      .trim()
+      .replace(/\s+/g, ' ')
+      .slice(0, 80)
+
+    for (const control of Array.from(document.querySelectorAll('button, a[href], input, textarea, select, [role="button"], .el-button')).filter(visible)) {
+      const rect = control.getBoundingClientRect()
+      const position = getComputedStyle(control).position
+      if (rect.right < -2 || rect.left > viewportWidth + 2) {
+        issues.push(`control is horizontally unreachable: ${labelFor(control)}`)
+      }
+      if ((position === 'fixed' || position === 'sticky') && (rect.top < -2 || rect.bottom > viewportHeight + 2)) {
+        issues.push(`fixed/sticky control is outside viewport: ${labelFor(control)}`)
+      }
+    }
+
+    return issues.slice(0, 20)
+  })
+
+  expect(violations, `${label} should be reachable`).toEqual([])
+}
+
+export async function assertModalActionsReachable(page: Page, label = 'modal actions'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const viewportHeight = window.innerHeight
+    const viewportWidth = window.innerWidth
+    const issues: string[] = []
+
+    for (const modal of Array.from(document.querySelectorAll('.el-dialog, .el-drawer, [role="dialog"]'))) {
+      if (!(modal instanceof HTMLElement)) continue
+      const modalRect = modal.getBoundingClientRect()
+      const modalStyle = getComputedStyle(modal)
+      if (modalStyle.display === 'none' || modalStyle.visibility === 'hidden' || modalRect.width === 0 || modalRect.height === 0) continue
+      const buttons = Array.from(modal.querySelectorAll<HTMLElement>('button, .el-button, [role="button"]'))
+        .filter((button) => {
+          const rect = button.getBoundingClientRect()
+          const style = getComputedStyle(button)
+          return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0
+        })
+      const action = buttons.at(-1)
+      if (!action) continue
+      const rect = action.getBoundingClientRect()
+      const insideViewport = rect.left >= -4 && rect.right <= viewportWidth + 4 && rect.top >= -4 && rect.bottom <= viewportHeight + 4
+      const modalScrollable = Array.from(modal.querySelectorAll<HTMLElement>('*'))
+        .some((child) => {
+          const style = getComputedStyle(child)
+          return child.scrollHeight > child.clientHeight + 4 && ['auto', 'scroll'].includes(style.overflowY)
+        })
+      if (!insideViewport && !modalScrollable) {
+        issues.push(`modal action is clipped without scroll: ${(action.textContent || action.getAttribute('aria-label') || 'action').trim()}`)
+      }
+    }
+
+    return issues
+  })
+
+  expect(violations, `${label} should remain usable`).toEqual([])
+}
+
+export async function assertDrawerUsableUnderShortHeight(page: Page, label = 'drawer short height'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const viewportHeight = window.innerHeight
+    const issues: string[] = []
+    for (const drawer of Array.from(document.querySelectorAll('.el-drawer'))) {
+      if (!(drawer instanceof HTMLElement)) continue
+      const rect = drawer.getBoundingClientRect()
+      const style = getComputedStyle(drawer)
+      if (style.display === 'none' || style.visibility === 'hidden' || rect.height === 0) continue
+      const hasScroll = Array.from(drawer.querySelectorAll<HTMLElement>('*'))
+        .some((child) => child.scrollHeight > child.clientHeight + 4 && ['auto', 'scroll'].includes(getComputedStyle(child).overflowY))
+      if (rect.height > viewportHeight + 4 && !hasScroll) {
+        issues.push(`drawer exceeds viewport height without scroll (${Math.round(rect.height)}>${viewportHeight})`)
+      }
+    }
+    return issues
+  })
+
+  expect(violations, `${label} should be scrollable`).toEqual([])
+}
+
+export async function assertDropdownNotClipped(page: Page, label = 'dropdown clipping'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const issues: string[] = []
+    for (const popper of Array.from(document.querySelectorAll('.el-popper, .el-select-dropdown, .el-dropdown-menu, [role="listbox"], [role="menu"]'))) {
+      if (!(popper instanceof HTMLElement)) continue
+      const rect = popper.getBoundingClientRect()
+      const style = getComputedStyle(popper)
+      if (style.display === 'none' || style.visibility === 'hidden' || rect.width === 0 || rect.height === 0) continue
+      const scrollable = popper.scrollHeight > popper.clientHeight + 4 && ['auto', 'scroll'].includes(style.overflowY)
+      if (rect.left < -8 || rect.right > viewportWidth + 8 || (rect.bottom > viewportHeight + 8 && !scrollable)) {
+        issues.push(`dropdown clipped: ${Math.round(rect.left)},${Math.round(rect.top)} ${Math.round(rect.width)}x${Math.round(rect.height)}`)
+      }
+    }
+    return issues
+  })
+
+  expect(violations, `${label} should stay inside the viewport or scroll`).toEqual([])
+}
+
+export async function assertStickyHeaderDoesNotCoverFocusedInput(page: Page, label = 'sticky focus'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const focusable = Array.from(document.querySelectorAll<HTMLElement>('input:not([type="hidden"]), textarea, select, [contenteditable="true"]'))
+      .find((element) => {
+        const rect = element.getBoundingClientRect()
+        const style = getComputedStyle(element)
+        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0
+      })
+    if (!focusable) return []
+
+    focusable.focus({ preventScroll: false })
+    focusable.scrollIntoView({ block: 'center', inline: 'nearest' })
+    const rect = focusable.getBoundingClientRect()
+    const blockers = Array.from(document.querySelectorAll<HTMLElement>('body *'))
+      .filter((element) => {
+        if (element === focusable || focusable.contains(element)) return false
+        const style = getComputedStyle(element)
+        if (!['fixed', 'sticky'].includes(style.position)) return false
+        const blockerRect = element.getBoundingClientRect()
+        return blockerRect.height > 0
+          && blockerRect.width > 0
+          && blockerRect.top <= rect.top + 2
+          && blockerRect.bottom >= rect.top + 2
+          && blockerRect.left <= rect.right
+          && blockerRect.right >= rect.left
+      })
+
+    return blockers.slice(0, 5).map((element) => `focused input covered by ${element.tagName.toLowerCase()} ${String(element.className).slice(0, 80)}`)
+  })
+
+  expect(violations, `${label} should not hide focused inputs`).toEqual([])
+}
+
+export async function assertReadableLineWidthWithinBounds(page: Page, label = 'readable line width'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const viewportWidth = window.innerWidth
+    const maxReadableWidth = Math.min(Math.max(760, viewportWidth * 0.72), 1160)
+    const issues: string[] = []
+    for (const element of Array.from(document.querySelectorAll('article, .markdown-body, .prose, [data-readable-region]'))) {
+      if (!(element instanceof HTMLElement)) continue
+      if (element.closest('.account-page, .admin-page, .write-page, .el-table')) continue
+      const rect = element.getBoundingClientRect()
+      const text = element.textContent?.trim() ?? ''
+      if (text.length < 160 || rect.width === 0 || rect.height === 0) continue
+      if (rect.width > maxReadableWidth + 8) {
+        issues.push(`readable region too wide (${Math.round(rect.width)}>${Math.round(maxReadableWidth)})`)
+      }
+    }
+    return issues
+  })
+
+  expect(violations, `${label} should remain bounded on wide viewports`).toEqual([])
+}
+
+export async function assertDashboardGridWidthBounds(page: Page, label = 'dashboard grid'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const viewportWidth = window.innerWidth
+    const issues: string[] = []
+    for (const grid of Array.from(document.querySelectorAll('.account-page .grid, .dashboard-grid, [data-dashboard-grid]'))) {
+      if (!(grid instanceof HTMLElement)) continue
+      const rect = grid.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) continue
+      if (rect.width > Math.min(viewportWidth, 1800) + 8) {
+        issues.push(`dashboard grid over-expands: ${Math.round(rect.width)}px`)
+      }
+    }
+    return issues
+  })
+
+  expect(violations, `${label} should not over-stretch`).toEqual([])
+}
+
+export async function assertEditorPanelRatioBounds(page: Page, label = 'editor panel ratio'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const viewportWidth = window.innerWidth
+    const issues: string[] = []
+    const workspace = document.querySelector('.write-workspace, .write-layout, [data-editor-workspace]')
+    const editor = document.querySelector('.write-editor-panel, [data-editor-panel]')
+    const side = document.querySelector('.write-side-panel, [data-editor-side-panel]')
+    if (!(editor instanceof HTMLElement)) return issues
+    const editorRect = editor.getBoundingClientRect()
+    if (editorRect.width > viewportWidth + 4) {
+      issues.push(`editor panel exceeds viewport (${Math.round(editorRect.width)}>${viewportWidth})`)
+    }
+    if (workspace instanceof HTMLElement && side instanceof HTMLElement && viewportWidth >= 1024) {
+      const workspaceRect = workspace.getBoundingClientRect()
+      const sideRect = side.getBoundingClientRect()
+      if (workspaceRect.width > 0 && sideRect.width / workspaceRect.width > 0.48) {
+        issues.push(`editor side panel consumes too much width (${Math.round(sideRect.width / workspaceRect.width * 100)}%)`)
+      }
+    }
+    return issues
+  })
+
+  expect(violations, `${label} should stay proportionate`).toEqual([])
+}
+
+export async function assertTableResponsiveStrategy(page: Page, label = 'table responsive strategy'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const viewportWidth = window.innerWidth
+    const issues: string[] = []
+    const hasScrollAncestor = (element: HTMLElement) => {
+      let current: HTMLElement | null = element
+      while (current) {
+        const style = getComputedStyle(current)
+        if (['auto', 'scroll'].includes(style.overflowX) || current.scrollWidth > current.clientWidth + 4) return true
+        current = current.parentElement
+      }
+      return false
+    }
+
+    for (const table of Array.from(document.querySelectorAll('table, .el-table, .el-responsive-collection'))) {
+      if (!(table instanceof HTMLElement)) continue
+      const rect = table.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) continue
+      if (rect.width > viewportWidth + 4 && !hasScrollAncestor(table)) {
+        issues.push(`table/list overflows without controlled scroll: ${Math.round(rect.width)}px`)
+      }
+    }
+    return issues
+  })
+
+  expect(violations, `${label} should use controlled scrolling or card layout`).toEqual([])
+}
+
+export async function assertCodeBlockControlledScroll(page: Page, label = 'code block scroll'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const viewportWidth = window.innerWidth
+    const issues: string[] = []
+    const hasControlledScroll = (element: HTMLElement) => {
+      let current: HTMLElement | null = element
+      while (current) {
+        const style = getComputedStyle(current)
+        if (['auto', 'scroll'].includes(style.overflowX) || current.matches('.blog-scroll-x-safe, .markdown-body, .prose, pre, .katex-display, .mermaid')) {
+          if (current.scrollWidth > current.clientWidth + 4 || ['auto', 'scroll'].includes(style.overflowX)) return true
+        }
+        current = current.parentElement
+      }
+      return false
+    }
+
+    for (const element of Array.from(document.querySelectorAll('pre, code, .katex-display, .katex, .mermaid, svg'))) {
+      if (!(element instanceof HTMLElement) && !(element instanceof SVGElement)) continue
+      const rect = element.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) continue
+      if (rect.width > viewportWidth + 4 && !hasControlledScroll(element as HTMLElement)) {
+        issues.push(`wide rich content lacks controlled scroll: ${element.tagName.toLowerCase()} ${Math.round(rect.width)}px`)
+      }
+    }
+    return issues.slice(0, 20)
+  })
+
+  expect(violations, `${label} rich content should scroll inside its container`).toEqual([])
+}
+
+export async function assertKatexMermaidControlledScroll(page: Page, label = 'katex mermaid scroll'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const viewportWidth = window.innerWidth
+    const issues: string[] = []
+    for (const element of Array.from(document.querySelectorAll('.katex-display, .katex, .mermaid'))) {
+      if (!(element instanceof HTMLElement)) continue
+      const rect = element.getBoundingClientRect()
+      const style = getComputedStyle(element)
+      if (rect.width > viewportWidth + 4 && !['auto', 'scroll'].includes(style.overflowX) && element.scrollWidth <= element.clientWidth + 4) {
+        issues.push(`rich diagram/formula not scroll-contained: ${element.className}`)
+      }
+    }
+    return issues
+  })
+
+  expect(violations, `${label} should be controlled`).toEqual([])
+}
+
+export async function assertFocusOutlineVisible(page: Page, label = 'focus outline'): Promise<void> {
+  const result = await page.evaluate(() => {
+    const focusable = Array.from(document.querySelectorAll<HTMLElement>('button, a[href], input:not([type="hidden"]), textarea, select, [tabindex]:not([tabindex="-1"])'))
+      .find((element) => {
+        const rect = element.getBoundingClientRect()
+        const style = getComputedStyle(element)
+        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0
+      })
+    if (!focusable) return { checked: false, visible: true, detail: 'no focusable controls' }
+    focusable.focus({ preventScroll: true })
+    const style = getComputedStyle(focusable)
+    const visible = style.outlineStyle !== 'none'
+      || style.outlineWidth !== '0px'
+      || style.boxShadow !== 'none'
+      || style.borderColor !== 'rgba(0, 0, 0, 0)'
+    return { checked: true, visible, detail: `${focusable.tagName.toLowerCase()} ${String(focusable.className).slice(0, 80)}` }
+  })
+
+  expect(result.visible, `${label} should be visible (${result.detail})`).toBe(true)
+}
+
+export async function assertTouchTargetSize(page: Page, label = 'touch target'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const viewportWidth = window.innerWidth
+    if (viewportWidth >= 900) return []
+    const issues: string[] = []
+    const controls = Array.from(document.querySelectorAll<HTMLElement>('button, a[href], input, textarea, select, .el-button, [role="button"]'))
+    for (const control of controls) {
+      const rect = control.getBoundingClientRect()
+      const style = getComputedStyle(control)
+      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0' || rect.width === 0 || rect.height === 0) continue
+      if (control.closest('.el-table, table')) continue
+      if (control instanceof HTMLInputElement && ['checkbox', 'radio', 'file', 'hidden'].includes(control.type)) continue
+      if (rect.width < 32 || rect.height < 36) {
+        issues.push(`small touch target ${control.tagName.toLowerCase()} ${Math.round(rect.width)}x${Math.round(rect.height)}`)
+      }
+    }
+    return issues.slice(0, 20)
+  })
+
+  expect(violations, `${label} should meet mobile target budgets`).toEqual([])
+}
+
+export async function assertNoDuplicateStickyBars(page: Page, label = 'sticky bars'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const bars = Array.from(document.querySelectorAll<HTMLElement>('body *'))
+      .map((element) => ({ element, style: getComputedStyle(element), rect: element.getBoundingClientRect() }))
+      .filter(({ style, rect }) => ['fixed', 'sticky'].includes(style.position) && rect.height > 20 && rect.width > window.innerWidth * 0.5 && rect.top <= 120)
+    const issues: string[] = []
+    for (let index = 0; index < bars.length; index += 1) {
+      for (let otherIndex = index + 1; otherIndex < bars.length; otherIndex += 1) {
+        const first = bars[index].rect
+        const second = bars[otherIndex].rect
+        const overlap = Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top)
+        if (overlap > Math.min(first.height, second.height) * 0.6) {
+          issues.push(`duplicate sticky bars overlap at top=${Math.round(Math.max(first.top, second.top))}`)
+        }
+      }
+    }
+    return issues.slice(0, 5)
+  })
+
+  expect(violations, `${label} should not duplicate top chrome`).toEqual([])
+}
+
+export async function assertMobileLandscapeSafeArea(page: Page, label = 'mobile landscape safe area'): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    if (viewportWidth < viewportHeight || viewportWidth > 1100 || viewportHeight > 520) return []
+    const issues: string[] = []
+    for (const header of Array.from(document.querySelectorAll('header, nav, .account-sidebar, .mobile-nav, .site-header'))) {
+      if (!(header instanceof HTMLElement)) continue
+      const rect = header.getBoundingClientRect()
+      const style = getComputedStyle(header)
+      if (style.display === 'none' || style.visibility === 'hidden' || rect.width === 0 || rect.height === 0) continue
+      if (rect.height > viewportHeight * 0.34) {
+        issues.push(`landscape chrome consumes too much height (${Math.round(rect.height)}px of ${viewportHeight}px)`)
+      }
+    }
+    return issues
+  })
+
+  expect(violations, `${label} should preserve usable content height`).toEqual([])
+}
+
+export async function assertViewportBoundaryContract(page: Page, label = 'viewport boundary'): Promise<void> {
+  await assertResponsiveLayoutContract(page, label)
+  await assertInteractiveControlsReachable(page, label)
+  await assertModalActionsReachable(page, label)
+  await assertDrawerUsableUnderShortHeight(page, label)
+  await assertDropdownNotClipped(page, label)
+  await assertStickyHeaderDoesNotCoverFocusedInput(page, label)
+  await assertReadableLineWidthWithinBounds(page, label)
+  await assertDashboardGridWidthBounds(page, label)
+  await assertEditorPanelRatioBounds(page, label)
+  await assertTableResponsiveStrategy(page, label)
+  await assertKatexMermaidControlledScroll(page, label)
+  await assertFocusOutlineVisible(page, label)
+  await assertTouchTargetSize(page, label)
+  await assertNoDuplicateStickyBars(page, label)
+  await assertMobileLandscapeSafeArea(page, label)
 }
 
 export async function assertThemeReadable(page: Page, mode: ThemeMode): Promise<void> {

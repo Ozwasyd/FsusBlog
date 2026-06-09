@@ -307,6 +307,60 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: ux-viewport-smoke
+    owner: InteropGlueAgent
+    command: tools/test/lanes/ux-viewport-smoke.sh
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: true
+    exclusiveResources: [playwright-ux-viewport]
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [ux-viewport-boundary, responsive-layout, content-boundary]
+    artifacts: [.tmp/ux/viewport-smoke.json, .tmp/release-evidence/ux-viewport-summary.json, src/frontend/test-results/playwright/ux-viewport-smoke]
+    evidence: [.tmp/ux/viewport-smoke.json, .tmp/release-evidence/ux-viewport-summary.json]
+    ciJob: ux-viewport-smoke
+    localOnly: false
+    nightlyOnly: false
+
+  - id: ux-viewport-visual
+    owner: InteropGlueAgent
+    command: tools/test/lanes/ux-viewport-visual.sh
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [playwright-ux-viewport, visual-baselines]
+    timeoutMinutes: 45
+    shardable: false
+    defaultShards: 1
+    risk: medium
+    coverage: [ux-viewport-visual, screenshot-evidence]
+    artifacts: [.tmp/ux/viewport-visual.json, .tmp/ux/screenshots/visual, .tmp/release-evidence/ux-viewport-summary.json, src/frontend/test-results/playwright/ux-viewport-visual]
+    evidence: [.tmp/ux/viewport-visual.json, .tmp/ux/screenshots/visual, .tmp/release-evidence/ux-viewport-summary.json]
+    ciJob: ux-viewport-visual
+    localOnly: false
+    nightlyOnly: false
+
+  - id: ux-viewport-boundaries
+    owner: InteropGlueAgent
+    command: tools/test/lanes/ux-viewport-boundaries.sh
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [playwright-ux-viewport, visual-baselines]
+    timeoutMinutes: 90
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [ux-viewport-boundary-full, content-boundary-full]
+    artifacts: [.tmp/ux/viewport-boundaries.json, .tmp/ux/screenshots/boundaries, .tmp/release-evidence/ux-viewport-summary.json, src/frontend/test-results/playwright/ux-viewport-boundaries]
+    evidence: [.tmp/ux/viewport-boundaries.json, .tmp/ux/screenshots/boundaries, .tmp/release-evidence/ux-viewport-summary.json]
+    ciJob: ux-viewport-boundaries
+    localOnly: false
+    nightlyOnly: true
+
   - id: cross-browser-smoke
     owner: InteropGlueAgent
     command: npm --prefix src/frontend run check:cross-browser:smoke
@@ -706,7 +760,7 @@ tiers:
   - id: production
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh production
-    dependsOn: [fast, bootstrap, release, integration, security, acceptance, cross-browser-smoke, visual, resilience, load, release-evidence]
+    dependsOn: [fast, bootstrap, release, integration, security, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, resilience, load, release-evidence]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [production-runtime]

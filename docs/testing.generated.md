@@ -23,6 +23,9 @@ Version: `fsusblog-test-matrix-v2`
 | `security` | `security-runtime` | `bootstrap` | postgres, redis, backend, frontend | 1 | 40m | `.tmp/security` |
 | `acceptance` | `acceptance-playwright` | `fast`, `integration`, `release` | postgres, redis, backend, frontend, preview | 4 | 45m | `src/frontend/test-results/playwright/acceptance` |
 | `visual` | `visual-playwright` | `bootstrap` | postgres, redis, backend, frontend, preview | 2 | 35m | `src/frontend/test-results/playwright/visual`<br>`.tmp/gate-logs/visual-gate-skip.json` |
+| `ux-viewport-smoke` | `ux-viewport-smoke` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 35m | `.tmp/ux/viewport-smoke.json`<br>`.tmp/release-evidence/ux-viewport-summary.json` |
+| `ux-viewport-visual` | `ux-viewport-visual` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 45m | `.tmp/ux/viewport-visual.json`<br>`.tmp/ux/screenshots/visual`<br>`.tmp/release-evidence/ux-viewport-summary.json` |
+| `ux-viewport-boundaries` | `ux-viewport-boundaries` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 90m | `.tmp/ux/viewport-boundaries.json`<br>`.tmp/ux/screenshots/boundaries`<br>`.tmp/release-evidence/ux-viewport-summary.json` |
 | `cross-browser-smoke` | `cross-browser-smoke` | `release` | preview | 3 | 20m | `src/frontend/test-results/playwright/cross-browser` |
 | `resilience` | `resilience-runtime` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 35m | `src/frontend/test-results/playwright/resilience` |
 | `load` | `load-smoke` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 25m | `.tmp/perf` |
@@ -45,7 +48,7 @@ Version: `fsusblog-test-matrix-v2`
 | `wasm-fuzz-regression` | `security-runtime` | - | - | 1 | 20m | `.tmp/fuzz/wasm/summary.json` |
 | `contract-fuzz` | `security-runtime` | - | - | 1 | 20m | `.tmp/release-evidence/fuzz-seeds.json` |
 | `release-evidence` | `release-evidence` | - | - | 1 | 10m | `.tmp/release-evidence` |
-| `production` | `production-summary` | `fast`, `bootstrap`, `release`, `integration`, `security`, `acceptance`, `cross-browser-smoke`, `visual`, `resilience`, `load`, `release-evidence` | postgres, redis, backend, frontend, preview | 1 | 120m | `.tmp/release-evidence` |
+| `production` | `production-summary` | `fast`, `bootstrap`, `release`, `integration`, `security`, `acceptance`, `cross-browser-smoke`, `visual`, `ux-viewport-smoke`, `resilience`, `load`, `release-evidence` | postgres, redis, backend, frontend, preview | 1 | 120m | `.tmp/release-evidence` |
 | `backend-api-integration` | `integration-runtime` | - | - | 1 | 20m | `tests/backend/Fixtures/backend-test-requirements.json` |
 | `backend-auth-state-machine` | `fast-backend` | - | - | 1 | 15m | `tests/backend/Unit/BackendAuthStateMachineTests.cs` |
 | `backend-concurrency` | `fast-backend` | - | - | 1 | 15m | `tests/backend/Unit/BackendConcurrencyModelTests.cs` |
