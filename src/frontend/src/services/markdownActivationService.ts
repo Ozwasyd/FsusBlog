@@ -9,6 +9,10 @@ export type MarkdownRenderResult = Readonly<{
 // behavior here until FsusUI markdown activation fully owns those generic features.
 let mermaidInitialized = false;
 let styleNonceBridgeInstalled = false;
+const shikiHtmlCache = new Map<string, string>();
+const SHIKI_HTML_CACHE_LIMIT = 128;
+const MARKDOWN_ACTIVATION_CHUNK_SIZE = 8;
+const MERMAID_RENDER_BUDGET = 10;
 
 type CspNonceWindow = Window & typeof globalThis & {
   __FSUSBLOG_CSP_NONCE__?: string
@@ -112,12 +116,15 @@ async function initMermaid() {
 export async function activateMarkdownFeatures(container: HTMLElement, _result?: MarkdownRenderResult) {
   if (!container) return;
 
-  // 1. 查找所有待激活的 Mermaid 占位符
-  const mermaidPlaceholders = container.querySelectorAll<HTMLElement>('[data-mermaid-placeholder="true"]');
+  const targets = collectMarkdownFeatureTargets(container);
+  const activationStartedAt = performance.now();
+
+  // 1. Mermaid 渲染有单篇预算，避免超大文档在首帧内全部激活。
+  const mermaidPlaceholders = targets.mermaidPlaceholders.slice(0, MERMAID_RENDER_BUDGET);
   if (mermaidPlaceholders.length > 0) {
     const mermaid = await initMermaid();
     if (mermaid) {
-      for (const el of mermaidPlaceholders) {
+      await processInChunks(mermaidPlaceholders, async (el) => {
         const sourceCode = el.querySelector('code')?.textContent;
         if (sourceCode) {
           try {
@@ -132,15 +139,19 @@ export async function activateMarkdownFeatures(container: HTMLElement, _result?:
             el.removeAttribute('data-mermaid-placeholder');
           }
         }
-      }
+      });
     }
+  }
+  for (const el of targets.mermaidPlaceholders.slice(MERMAID_RENDER_BUDGET)) {
+    el.dataset.mermaidRendered = 'deferred';
+    el.removeAttribute('data-mermaid-placeholder');
   }
 
   // 2. 查找所有待激活的 LaTeX 占位符
-  const latexPlaceholders = container.querySelectorAll<HTMLElement>('[data-latex-placeholder="true"]');
+  const latexPlaceholders = targets.latexPlaceholders;
   if (latexPlaceholders.length > 0) {
     const katex = (await import('katex')).default;
-    for (const el of latexPlaceholders) {
+    await processInChunks(latexPlaceholders, async (el) => {
       const sourceCode = el.querySelector('code')?.textContent;
       if (sourceCode) {
         try {
@@ -157,11 +168,11 @@ export async function activateMarkdownFeatures(container: HTMLElement, _result?:
           console.error('[MarkdownActivation] KaTeX render failed:', e);
         }
       }
-    }
+    });
   }
 
   // 3. 代码高亮 (Shiki)
-  const codeBlocks = container.querySelectorAll<HTMLElement>('pre > code:not([data-mermaid-placeholder]):not([data-latex-placeholder])');
+  const codeBlocks = targets.codeBlocks;
   if (codeBlocks.length > 0) {
     try {
       const { getShikiHighlighter, normalizeShikiLanguage } = await import('@/services/shikiHighlighter');
@@ -169,7 +180,7 @@ export async function activateMarkdownFeatures(container: HTMLElement, _result?:
       const isDark = document.documentElement.dataset.themeResolved === 'dark'
       const theme = isDark ? 'github-dark' : 'github-light';
 
-      for (const el of codeBlocks) {
+      await processInChunks(codeBlocks, async (el) => {
         // 如果父元素已经被处理过（比如被 Shiki 替换了 pre），跳过
         if (!el.parentElement || el.parentElement.tagName !== 'PRE') continue;
 
@@ -178,7 +189,9 @@ export async function activateMarkdownFeatures(container: HTMLElement, _result?:
         const code = el.textContent || '';
 
         try {
-          const html = highlighter.codeToHtml(code, { lang, theme });
+          const cacheKey = `${theme}\0${lang}\0${hashString(code)}`;
+          const html = shikiHtmlCache.get(cacheKey) ?? highlighter.codeToHtml(code, { lang, theme });
+          rememberShikiHtml(cacheKey, html);
           const tempDiv = document.createElement('div');
           tempDiv.innerHTML = html;
           const newPre = tempDiv.firstElementChild;
@@ -188,14 +201,14 @@ export async function activateMarkdownFeatures(container: HTMLElement, _result?:
         } catch (e) {
           console.warn(`[MarkdownActivation] Shiki highlight failed for lang: ${lang}`, e);
         }
-      }
+      });
     } catch (e) {
       console.error('[MarkdownActivation] Shiki initialization failed:', e);
     }
   }
 
   // 4. 为标题注入 id，使手写 TOC 锚点链接可以页内跳转
-  const headingEls = container.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6');
+  const headingEls = targets.headingEls;
   if (headingEls.length > 0) {
     const usedSlugs = new Map<string, number>();
     for (const el of headingEls) {
@@ -210,11 +223,110 @@ export async function activateMarkdownFeatures(container: HTMLElement, _result?:
 
   // 5. 修复 C++ 渲染器对所有链接加的 target="_blank"：
   //    hash 锚点链接（href="#..."）应在当前页面内跳转
-  const hashLinks = container.querySelectorAll<HTMLAnchorElement>('a[href^="#"]');
+  const hashLinks = targets.hashLinks;
   for (const a of hashLinks) {
     a.removeAttribute('target');
     a.removeAttribute('rel');
   }
+
+  container.dataset.markdownActivationSummary = JSON.stringify({
+    mermaid: targets.mermaidPlaceholders.length,
+    mermaidRendered: mermaidPlaceholders.length,
+    mermaidDeferred: Math.max(0, targets.mermaidPlaceholders.length - MERMAID_RENDER_BUDGET),
+    latex: targets.latexPlaceholders.length,
+    code: targets.codeBlocks.length,
+    headings: targets.headingEls.length,
+    hashLinks: targets.hashLinks.length,
+    activationMs: Math.round(performance.now() - activationStartedAt)
+  });
+}
+
+type MarkdownFeatureTargets = {
+  mermaidPlaceholders: HTMLElement[]
+  latexPlaceholders: HTMLElement[]
+  codeBlocks: HTMLElement[]
+  headingEls: HTMLElement[]
+  hashLinks: HTMLAnchorElement[]
+}
+
+function collectMarkdownFeatureTargets(container: HTMLElement): MarkdownFeatureTargets {
+  const targets: MarkdownFeatureTargets = {
+    mermaidPlaceholders: [],
+    latexPlaceholders: [],
+    codeBlocks: [],
+    headingEls: [],
+    hashLinks: []
+  };
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT);
+  let current = walker.currentNode;
+
+  while (current) {
+    if (current instanceof HTMLElement) {
+      if (current.dataset.mermaidPlaceholder === 'true') {
+        targets.mermaidPlaceholders.push(current);
+      } else if (current.dataset.latexPlaceholder === 'true') {
+        targets.latexPlaceholders.push(current);
+      } else if (
+        current.tagName === 'CODE'
+        && current.parentElement?.tagName === 'PRE'
+        && current.dataset.mermaidPlaceholder !== 'true'
+        && current.dataset.latexPlaceholder !== 'true'
+      ) {
+        targets.codeBlocks.push(current);
+      } else if (/^H[1-6]$/u.test(current.tagName)) {
+        targets.headingEls.push(current);
+      }
+
+      if (current instanceof HTMLAnchorElement && current.getAttribute('href')?.startsWith('#')) {
+        targets.hashLinks.push(current);
+      }
+    }
+
+    current = walker.nextNode();
+  }
+
+  return targets;
+}
+
+async function processInChunks<T>(items: readonly T[], handler: (item: T) => Promise<void> | void): Promise<void> {
+  for (let index = 0; index < items.length; index += 1) {
+    await handler(items[index]);
+    if ((index + 1) % MARKDOWN_ACTIVATION_CHUNK_SIZE === 0) {
+      await yieldToBrowser();
+    }
+  }
+}
+
+function yieldToBrowser(): Promise<void> {
+  return new Promise((resolve) => {
+    const idle = (window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
+    }).requestIdleCallback;
+    if (typeof idle === 'function') {
+      idle(() => resolve(), { timeout: 120 });
+      return;
+    }
+    window.setTimeout(resolve, 0);
+  });
+}
+
+function hashString(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function rememberShikiHtml(cacheKey: string, html: string): void {
+  if (!shikiHtmlCache.has(cacheKey) && shikiHtmlCache.size >= SHIKI_HTML_CACHE_LIMIT) {
+    const oldest = shikiHtmlCache.keys().next().value;
+    if (oldest) {
+      shikiHtmlCache.delete(oldest);
+    }
+  }
+  shikiHtmlCache.set(cacheKey, html);
 }
 
 /**

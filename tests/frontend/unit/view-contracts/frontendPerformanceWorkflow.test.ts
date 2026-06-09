@@ -14,6 +14,12 @@ describe('frontend performance workflow contract', () => {
   const sseStore = readRepoFile('src/frontend/src/store/sse.ts')
   const commentStream = readRepoFile('src/frontend/src/composables/useArticleCommentStream.ts')
   const viewTask = readRepoFile('src/frontend/src/composables/useViewTask.ts')
+  const commentList = readRepoFile('src/frontend/src/components/article/ArticleCommentsVirtualList.vue')
+  const publicCommentIsland = readRepoFile('src/frontend/src/public-renderers/PublicArticleCommentsIsland.vue')
+  const messagesPage = readRepoFile('src/frontend/src/views/user/Messages.vue')
+  const markdownAdapter = readRepoFile('src/frontend/src/components/ui/MarkdownEditorAdapter.vue')
+  const markdownActivation = readRepoFile('src/frontend/src/services/markdownActivationService.ts')
+  const packageJson = readRepoFile('src/frontend/package.json')
 
   it('keeps normal AEDS worker aborts on a cancel protocol instead of worker reset', () => {
     expect(binaryTransport).toContain('const WORKER_IDLE_TTL_MS = 30000')
@@ -71,5 +77,28 @@ describe('frontend performance workflow contract', () => {
     expect(commentStream).toContain('COMMENT_CONTENT_CONSTRAINT.replyRenderLimit')
     expect(commentStream).not.toContain('const replyTask = useAbortableTask()')
     expect(commentStream).not.toContain('loadingReplies.value = {')
+  })
+
+  it('keeps DOM and markdown render pressure budgets wired into frontend gates', () => {
+    expect(packageJson).toContain('check:dom-depth-static')
+    expect(packageJson).toContain('check:dom-budget')
+    expect(packageJson).toContain('check:route-render-pressure')
+    expect(packageJson).toContain('check:markdown-render-budget')
+
+    expect(markdownAdapter).toContain('MARKDOWN_PREVIEW_DEBOUNCE_MS = 250')
+    expect(markdownAdapter).toContain('LARGE_PREVIEW_CONTENT_BYTES = 80 * 1024')
+    expect(markdownAdapter).toContain('v-if="isPreviewMounted"')
+    expect(markdownAdapter).toContain('refreshManualPreview')
+    expect(markdownActivation).toContain('collectMarkdownFeatureTargets')
+    expect(markdownActivation).toContain('processInChunks')
+    expect(markdownActivation).toContain('shikiHtmlCache')
+
+    expect(commentList).toContain('COMMENT_CONTENT_CONSTRAINT.rootRenderLimit')
+    expect(commentList).toContain('visibleThreadItems')
+    expect(publicCommentIsland).toContain('visibleRootLimit')
+    expect(messagesPage).toContain('CONVERSATION_RENDER_WINDOW')
+    expect(messagesPage).toContain('MESSAGE_RENDER_WINDOW')
+    expect(messagesPage).toContain('visibleConversationRows')
+    expect(messagesPage).not.toContain('v-show="showDetailPane"')
   })
 })

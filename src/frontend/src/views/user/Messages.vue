@@ -9,7 +9,7 @@
       </header>
 
     <div class="mail-layout">
-      <section v-show="showListPane" class="mail-pane mail-list-pane">
+      <section v-if="!isMobile || showListPane" class="mail-pane mail-list-pane">
         <div class="mail-flat-pane">
           <header class="mail-pane-header">
             <div class="mail-header">
@@ -52,12 +52,13 @@
 
             <div v-else class="mail-scroll-region">
               <div class="mail-scroll-frame">
-                <el-scrollbar class="mail-scrollbar">
+                <div class="mail-scrollbar mail-scrollbar-native">
                   <ul class="mail-item-stack" aria-label="会话列表">
                     <li
-                      v-for="item in conversations"
+                      v-for="item in visibleConversationRows"
                       :key="item.conversationId"
                       class="mail-item-entry"
+                      v-memo="[item.conversationId, item.subject, item.lastMessageAtText, item.unreadCount, item.status]"
                     >
                     <button
                       type="button"
@@ -65,7 +66,7 @@
                       :class="{ active: item.conversationId === selectedConversationId }"
                       :aria-current="item.conversationId === selectedConversationId ? 'true' : undefined"
                       :aria-pressed="item.conversationId === selectedConversationId"
-                      :aria-label="conversationAriaLabel(item)"
+                      :aria-label="item.ariaLabel"
                       @click="handleSelectConversation(item.conversationId)"
                     >
                       <div class="mail-item-top">
@@ -77,13 +78,22 @@
                       </div>
                       <p class="mail-item-preview" data-visual-dynamic>{{ item.lastMessage?.bodyPreview || (isAdminView ? '暂无内容' : '暂无消息内容') }}</p>
                       <div class="mail-item-meta">
-                        <time :datetime="item.lastMessageAt" data-visual-dynamic>{{ formatTime(item.lastMessageAt) }}</time>
+                        <time :datetime="item.lastMessageAt" data-visual-dynamic>{{ item.lastMessageAtText }}</time>
                         <el-badge v-if="item.unreadCount > 0" :value="item.unreadCount" />
                       </div>
                     </button>
                     </li>
                   </ul>
-                </el-scrollbar>
+                  <el-button
+                    v-if="hiddenConversationCount > 0"
+                    link
+                    type="primary"
+                    class="mail-window-more"
+                    @click="conversationRenderLimit += CONVERSATION_RENDER_WINDOW"
+                  >
+                    显示更多会话（{{ hiddenConversationCount }}）
+                  </el-button>
+                </div>
               </div>
             </div>
 
@@ -119,7 +129,7 @@
         </div>
       </section>
 
-      <section v-show="showDetailPane" class="mail-pane mail-detail-pane mail-detail-stack mail-thread-panel" aria-live="polite" :aria-busy="detailLoading">
+      <section v-if="!isMobile || showDetailPane" class="mail-pane mail-detail-pane mail-detail-stack mail-thread-panel" aria-live="polite" :aria-busy="detailLoading">
         <div class="mail-flat-pane mail-thread-flat-pane">
           <header class="mail-pane-header mail-pane-header-detail">
             <div class="mail-header mail-header-detail">
@@ -157,20 +167,30 @@
             <template v-else>
               <div class="mail-scroll-region mail-thread-region">
                 <div class="mail-scroll-frame">
-                <el-scrollbar class="mail-scrollbar">
+                <div class="mail-scrollbar mail-scrollbar-native">
                     <div
-                      v-for="msg in detail?.messages || []"
+                      v-for="msg in visibleMessageRows"
                       :key="msg.messageId"
                       class="mail-bubble"
-                      :class="bubbleClass(msg.senderType)"
+                      :class="msg.bubbleClassName"
+                      v-memo="[msg.messageId, msg.body, msg.createdAtText]"
                     >
                       <div class="mail-bubble-meta">
-                        <span data-visual-dynamic>{{ msg.senderName || senderLabel(msg.senderType) }}</span>
-                        <time :datetime="msg.createdAt" data-visual-dynamic>{{ formatTime(msg.createdAt) }}</time>
+                        <span data-visual-dynamic>{{ msg.senderText }}</span>
+                        <time :datetime="msg.createdAt" data-visual-dynamic>{{ msg.createdAtText }}</time>
                       </div>
                       <p class="mail-bubble-body" data-visual-dynamic>{{ msg.body }}</p>
                     </div>
-                  </el-scrollbar>
+                    <el-button
+                      v-if="hiddenMessageCount > 0"
+                      link
+                      type="primary"
+                      class="mail-window-more"
+                      @click="messageRenderLimit += MESSAGE_RENDER_WINDOW"
+                    >
+                      显示更早消息（{{ hiddenMessageCount }}）
+                    </el-button>
+                  </div>
                 </div>
               </div>
 
@@ -257,7 +277,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import { useInboxSplitView } from '@/composables/useInboxSplitView'
@@ -265,6 +285,8 @@ import { useUserMessagesInbox } from '@/composables/useUserMessagesInbox'
 
 const route = useRoute()
 const isAdminView = computed(() => route.name === 'ManageMessages')
+const CONVERSATION_RENDER_WINDOW = 80
+const MESSAGE_RENDER_WINDOW = 80
 
 const adminCenter = useAdminMessageCenter(() => isAdminView.value)
 const userInbox = useUserMessagesInbox(() => !isAdminView.value)
@@ -287,6 +309,8 @@ const conversations = computed(() =>
   isAdminView.value ? adminCenter.conversations.value : userInbox.conversations.value
 )
 const detail = computed(() => (isAdminView.value ? adminCenter.detail.value : userInbox.detail.value))
+const conversationRenderLimit = ref(CONVERSATION_RENDER_WINDOW)
+const messageRenderLimit = ref(MESSAGE_RENDER_WINDOW)
 const listLoading = computed(() => (isAdminView.value ? adminCenter.loading.value : userInbox.loading.value))
 const detailLoading = computed(() => (isAdminView.value ? adminCenter.loadingDetail.value : userInbox.loadingDetail.value))
 const replyLoading = computed(() => (isAdminView.value ? adminCenter.processing.value : userInbox.sending.value))
@@ -360,6 +384,31 @@ const systemBody = computed({
 
 const creating = computed(() => userInbox.creating.value)
 const processing = computed(() => adminCenter.processing.value)
+const visibleConversationRows = computed(() => conversations.value.slice(0, conversationRenderLimit.value).map((item) => ({
+  ...item,
+  lastMessageAtText: formatTime(item.lastMessageAt),
+  ariaLabel: conversationAriaLabel(item)
+})))
+const hiddenConversationCount = computed(() => Math.max(0, conversations.value.length - visibleConversationRows.value.length))
+const visibleMessageRows = computed(() => {
+  const messages = detail.value?.messages ?? []
+  const visible = messages.slice(Math.max(0, messages.length - messageRenderLimit.value))
+  return visible.map((message) => ({
+    ...message,
+    createdAtText: formatTime(message.createdAt),
+    senderText: message.senderName || senderLabel(message.senderType),
+    bubbleClassName: bubbleClass(message.senderType)
+  }))
+})
+const hiddenMessageCount = computed(() => Math.max(0, (detail.value?.messages.length ?? 0) - visibleMessageRows.value.length))
+
+watch(selectedConversationId, () => {
+  messageRenderLimit.value = MESSAGE_RENDER_WINDOW
+})
+
+watch(conversations, () => {
+  conversationRenderLimit.value = CONVERSATION_RENDER_WINDOW
+})
 
 const handleSelectConversation = async (conversationId: string): Promise<void> => {
   if (isAdminView.value) {
@@ -553,6 +602,12 @@ const formatTime = (input: string): string => {
   max-width: 100%;
 }
 
+.mail-scrollbar-native {
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+}
+
 .mail-item-stack {
   display: flex;
   flex-direction: column;
@@ -566,6 +621,10 @@ const formatTime = (input: string): string => {
 .mail-item-entry {
   min-width: 0;
   max-width: 100%;
+}
+
+.mail-window-more {
+  margin-top: 0.75rem;
 }
 
 .mail-item {

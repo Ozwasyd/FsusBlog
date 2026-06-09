@@ -71,7 +71,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="操作" :width="actionColumnWidth" align="right" fixed="right">
+      <el-table-column label="操作" :width="actionColumnWidth" align="right" :fixed="hasWideTable ? 'right' : false">
         <template #default="{ row }: { row: UserListViewItem }">
           <div
             v-if="!row.isAdmin && !row.isDeleted"
@@ -112,6 +112,7 @@
         v-for="row in list"
         :key="row.id"
         class="user-mobile-card p-6 bg-[var(--fsusblog-page-bg)] transition-colors hover:bg-[var(--fsusblog-panel-bg)]"
+        v-memo="[row.id, row.username, row.status, row.lastLoginTime]"
       >
         <div class="flex items-center gap-4 mb-6">
           <div class="shrink-0">
@@ -172,7 +173,7 @@
         :page-size="pageSize"
         :total="total"
         :pager-count="5"
-        :page-sizes="[10, 20, 50, 100]"
+        :page-sizes="[10, 20, 50]"
         :layout="isMobile ? 'prev, next' : 'total, sizes, prev, pager, next'"
         @current-change="emit('update:current-page', $event)"
         @size-change="emit('update:page-size', $event)"
@@ -207,7 +208,7 @@ const roleColumnWidth = computed(() => (props.isMobile ? 44 : 116))
 const statusColumnWidth = computed(() => (props.isMobile ? 56 : 124))
 const actionColumnWidth = computed(() => (props.isMobile ? 56 : 132))
 const hasWideTable = useMediaQuery('(min-width: 1024px)', true)
-const tableRows = computed(() => [...props.list])
+const tableRows = computed(() => props.list)
 
 const emit = defineEmits<{
   refresh: []

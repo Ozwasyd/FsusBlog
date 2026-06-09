@@ -32,6 +32,7 @@ export const COMMENT_CONTENT_CONSTRAINT = {
   maxChars: 1000,
   maxUtf8Bytes: 4096,
   createPayloadMaxBytes: 16 * 1024,
+  rootRenderLimit: 20,
   replyRenderLimit: 300,
   charLengthMessage: '评论内容不能超过 1000 个字符',
   byteLengthMessage: '评论内容编码后不能超过 4096 bytes'

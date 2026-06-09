@@ -361,6 +361,24 @@ tiers:
     localOnly: false
     nightlyOnly: true
 
+  - id: frontend-render-pressure
+    owner: InteropGlueAgent
+    command: tools/test/lanes/frontend-render-pressure.sh
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [playwright-render-pressure]
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [dom-budget, dom-depth-static, route-render-pressure, markdown-render-budget]
+    artifacts: [.tmp/frontend/dom-budget.json, .tmp/frontend/dom-budget, .tmp/frontend/route-render-pressure.json, .tmp/frontend/markdown-render-budget.json, .tmp/frontend/dom-depth-static.json, .tmp/release-evidence/frontend-render-pressure-summary.json]
+    evidence: [.tmp/frontend/dom-budget.json, .tmp/frontend/route-render-pressure.json, .tmp/frontend/markdown-render-budget.json, .tmp/frontend/dom-depth-static.json, .tmp/release-evidence/frontend-render-pressure-summary.json]
+    ciJob: frontend-render-pressure
+    localOnly: false
+    nightlyOnly: false
+
   - id: cross-browser-smoke
     owner: InteropGlueAgent
     command: npm --prefix src/frontend run check:cross-browser:smoke
@@ -760,7 +778,7 @@ tiers:
   - id: production
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh production
-    dependsOn: [fast, bootstrap, release, integration, security, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, resilience, load, release-evidence]
+    dependsOn: [fast, bootstrap, release, integration, security, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, frontend-render-pressure, resilience, load, release-evidence]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [production-runtime]

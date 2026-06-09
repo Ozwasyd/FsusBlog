@@ -40,10 +40,11 @@
       <p v-if="assets.length === 0" class="asset-empty">暂无可复用资产。</p>
       <div v-else class="asset-list" aria-label="可复用资产列表">
         <article
-          v-for="asset in assets"
+          v-for="asset in visibleAssets"
           :key="asset.id"
           class="asset-row"
           :class="{ 'asset-row--orphan': asset.referenceCount === 0 }"
+          v-memo="[asset.id, asset.url, asset.referenceCount]"
         >
           <img class="asset-row__thumb" :src="asset.url" :alt="asset.altText ?? ''" loading="lazy" decoding="async" />
           <div class="asset-row__meta">
@@ -51,9 +52,9 @@
             <div class="asset-row__sub">引用 {{ asset.referenceCount }} · 来源 #{{ asset.sourceArticleId ?? '-' }}</div>
           </div>
           <div class="asset-row__insert">
-          <el-button
-            type="primary"
-            :icon="Plus"
+            <el-button
+              type="primary"
+              :icon="Plus"
               :disabled="loading || asset.referenceCount === 0"
               :aria-label="`插入资产 ${asset.url}`"
               @click="$emit('insert', asset)"
@@ -62,13 +63,21 @@
             </el-button>
           </div>
         </article>
+        <el-button
+          v-if="hiddenAssetCount > 0"
+          link
+          type="primary"
+          @click="visibleAssetLimit += ASSET_RENDER_WINDOW"
+        >
+          显示更多资产（{{ hiddenAssetCount }}）
+        </el-button>
       </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Delete, FolderChecked, Plus, Refresh } from '@/fsusui/icons'
 import type { AssetLibraryItemResponse } from '@/api/authoring'
 
@@ -78,6 +87,8 @@ const props = defineProps<{
   statusText: string
   canReindex: boolean
 }>()
+const ASSET_RENDER_WINDOW = 20
+const visibleAssetLimit = ref(ASSET_RENDER_WINDOW)
 
 defineEmits<{
   (e: 'refresh'): void
@@ -86,7 +97,13 @@ defineEmits<{
   (e: 'insert', asset: AssetLibraryItemResponse): void
 }>()
 
-const orphanCount = computed(() => props.assets.filter((asset) => asset.referenceCount === 0).length)
+const visibleAssets = computed(() => props.assets.slice(0, visibleAssetLimit.value))
+const hiddenAssetCount = computed(() => Math.max(0, props.assets.length - visibleAssets.value.length))
+const orphanCount = computed(() => props.assets.reduce((count, asset) => count + (asset.referenceCount === 0 ? 1 : 0), 0))
+
+watch(() => props.assets, () => {
+  visibleAssetLimit.value = ASSET_RENDER_WINDOW
+})
 </script>
 
 <style scoped>

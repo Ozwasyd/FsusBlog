@@ -4,16 +4,12 @@
     aria-labelledby="article-write-title"
     :aria-busy="pageLoading || submitting"
   >
-    <el-form
-      ref="formRef"
-      :model="articleForm"
-      :rules="rules"
-      label-position="top"
+    <div
+      class="write-workspace"
+      :class="`write-workspace--${editorLayoutMode}`"
       v-loading="pageLoading"
       element-loading-text="正在载入数据资源..."
-      @submit.prevent="requestSubmit"
     >
-      <div class="write-workspace" :class="`write-workspace--${editorLayoutMode}`">
       <header class="write-command-bar border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] py-6 px-4 mb-8" aria-label="文章编辑操作">
         <div class="min-w-0">
           <div class="account-page-eyebrow mb-2">管理 / CONTENT EDITING</div>
@@ -48,6 +44,14 @@
         </div>
       </header>
 
+      <el-form
+        ref="formRef"
+        :model="articleForm"
+        :rules="rules"
+        class="write-validation-form"
+        label-position="top"
+        @submit.prevent="requestSubmit"
+      >
       <section class="write-title-panel px-4 mb-12" aria-labelledby="article-title-label">
         <div
           v-if="pendingDraft"
@@ -112,9 +116,9 @@
           </div>
         </section>
 
-        <aside v-show="editorLayoutMode === 'standard'" class="write-side-panel" aria-label="发布与上传设置">
+        <aside v-if="editorLayoutMode === 'standard'" class="write-side-panel" aria-label="发布与上传设置">
           <el-tabs v-model="sidePanelTab" class="write-side-tabs" stretch>
-            <el-tab-pane label="发布" name="publish">
+            <el-tab-pane label="发布" name="publish" lazy>
               <ArticleWriteSidebar
                 :form="articleForm"
                 :categories="categories"
@@ -138,7 +142,7 @@
               />
             </el-tab-pane>
 
-            <el-tab-pane label="SEO" name="seo">
+            <el-tab-pane label="SEO" name="seo" lazy>
               <ArticleSeoPreviewPanel
                 :preview="seoPreview"
                 :issues="seoIssues"
@@ -148,7 +152,7 @@
               />
             </el-tab-pane>
 
-            <el-tab-pane label="资产" name="assets">
+            <el-tab-pane label="资产" name="assets" lazy>
               <ArticleAssetLibraryPanel
                 :assets="assetLibrary"
                 :loading="assetLibraryLoading"
@@ -161,7 +165,7 @@
               />
             </el-tab-pane>
 
-            <el-tab-pane label="版本" name="versions">
+            <el-tab-pane label="版本" name="versions" lazy>
               <ArticleRevisionPanel
                 :is-edit="isEdit"
                 :revisions="articleRevisions"
@@ -177,7 +181,7 @@
               />
             </el-tab-pane>
 
-            <el-tab-pane label="预览" name="preview">
+            <el-tab-pane label="预览" name="preview" lazy>
               <ArticlePrivatePreviewPanel
                 :html="privatePreview?.html ?? ''"
                 :issues="privatePreview?.issues ?? []"
@@ -188,7 +192,7 @@
               />
             </el-tab-pane>
 
-            <el-tab-pane label="AI" name="ai">
+            <el-tab-pane label="AI" name="ai" lazy>
               <section class="write-ai-panel border-t border-[var(--fsusblog-panel-border)]" aria-label="作者 AI 辅助">
                 <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
                   <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">作者辅助 / AI</div>
@@ -236,7 +240,7 @@
               </section>
             </el-tab-pane>
 
-            <el-tab-pane label="上传" name="upload">
+            <el-tab-pane label="上传" name="upload" lazy>
               <details class="write-upload-disclosure border-t border-[var(--fsusblog-panel-border)]" open>
                 <summary class="write-disclosure-summary px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)] cursor-pointer outline-none">
                   <div class="flex items-center justify-between">
@@ -273,8 +277,8 @@
           />
         </aside>
       </div>
-      </div>
-    </el-form>
+      </el-form>
+    </div>
 
     <el-dialog
       v-model="quickCreateCategoryDialog"
@@ -405,7 +409,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import ArticleAssetLibraryPanel from '@/components/admin/article/ArticleAssetLibraryPanel.vue'
 import ArticlePrivatePreviewPanel from '@/components/admin/article/ArticlePrivatePreviewPanel.vue'
@@ -512,10 +516,24 @@ const submitConfirmDialog = ref(false)
 const leaveConfirmDialog = ref(false)
 const sidePanelTab = ref(route.query.preview === 'private' ? 'preview' : 'publish')
 const editorLayoutMode = ref<EditorLayoutMode>('standard')
+const assetLibraryLoaded = ref(false)
+const revisionsLoaded = ref(false)
 
 const triggerCoverInput = (): void => {
   coverInputRef.value?.click()
 }
+
+watch(sidePanelTab, (tab) => {
+  if (tab === 'assets' && !assetLibraryLoaded.value) {
+    assetLibraryLoaded.value = true
+    void refreshAssetLibrary()
+  }
+
+  if (tab === 'versions' && !revisionsLoaded.value) {
+    revisionsLoaded.value = true
+    void refreshArticleRevisions()
+  }
+}, { immediate: true })
 
 const onCoverFileChange = (event: Event): void => {
   const input = event.target as HTMLInputElement

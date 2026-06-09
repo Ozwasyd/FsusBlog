@@ -40,43 +40,43 @@
         @on-upload-img="handleUploadImg"
       />
 
-      <div v-show="mode === 'preview' || mode === 'split'" :class="['preview-panel', previewClass]" role="region" aria-label="Markdown 预览">
+      <div v-if="isPreviewMounted" :class="['preview-panel', previewClass]" role="region" aria-label="Markdown 预览">
         <div class="preview-panel__scroll">
-          <div class="preview-panel__scroll-frame">
-            <el-scrollbar>
-              <div class="preview-panel__view">
-                <div v-if="loading" class="preview-panel__loading">
-                  <el-skeleton animated>
-                    <template #template>
-                      <div class="preview-skeleton-line preview-skeleton-line--title">
-                        <el-skeleton-item variant="h1" />
-                      </div>
-                      <div class="preview-skeleton-line preview-skeleton-line--full">
-                        <el-skeleton-item variant="text" />
-                      </div>
-                      <div class="preview-skeleton-line preview-skeleton-line--wide">
-                        <el-skeleton-item variant="text" />
-                      </div>
-                      <div class="preview-skeleton-line preview-skeleton-line--medium">
-                        <el-skeleton-item variant="text" />
-                      </div>
-                      <div class="preview-skeleton-line preview-skeleton-line--almost-full">
-                        <el-skeleton-item variant="text" />
-                      </div>
-                    </template>
-                  </el-skeleton>
-                </div>
-                <el-empty
-                  v-else-if="!content.trim()"
-                  description="当前没有可预览内容"
-                />
-                <component
-                  :is="provider.previewComponent"
-                  v-else
-                  :content="content"
-                />
-              </div>
-            </el-scrollbar>
+          <div class="preview-panel__view">
+            <div v-if="loading" class="preview-panel__loading">
+              <el-skeleton animated>
+                <template #template>
+                  <div class="preview-skeleton-line preview-skeleton-line--title">
+                    <el-skeleton-item variant="h1" />
+                  </div>
+                  <div class="preview-skeleton-line preview-skeleton-line--full">
+                    <el-skeleton-item variant="text" />
+                  </div>
+                  <div class="preview-skeleton-line preview-skeleton-line--wide">
+                    <el-skeleton-item variant="text" />
+                  </div>
+                  <div class="preview-skeleton-line preview-skeleton-line--medium">
+                    <el-skeleton-item variant="text" />
+                  </div>
+                  <div class="preview-skeleton-line preview-skeleton-line--almost-full">
+                    <el-skeleton-item variant="text" />
+                  </div>
+                </template>
+              </el-skeleton>
+            </div>
+            <div v-else-if="isLargePreviewContent && isManualPreviewStale" class="preview-panel__notice" role="status">
+              <p>当前文档较大，预览已暂停自动刷新以降低渲染压力。</p>
+              <el-button type="primary" @click="refreshManualPreview">刷新预览</el-button>
+            </div>
+            <el-empty
+              v-else-if="!previewContent.trim()"
+              description="当前没有可预览内容"
+            />
+            <component
+              :is="provider.previewComponent"
+              v-else
+              :content="previewContent"
+            />
           </div>
         </div>
       </div>
@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { resolveMarkdownEditorProvider } from '@/components/ui/markdownEditorProvider'
 import type { MarkdownEditorMode } from '@/ui-contracts/markdownEditor'
 
@@ -120,11 +120,26 @@ const emit = defineEmits<{
 const provider = computed(() => resolveMarkdownEditorProvider())
 const mode = ref<MarkdownEditorMode>(provider.value.defaultMode)
 const editorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean } | null>(null)
+const debouncedPreviewContent = ref(props.modelValue)
+const manualPreviewContent = ref(props.modelValue)
+let previewDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+const MARKDOWN_PREVIEW_DEBOUNCE_MS = 250
+const LARGE_PREVIEW_CONTENT_BYTES = 80 * 1024
+const LARGE_PREVIEW_NODE_ESTIMATE = 3000
 
 const content = computed({
   get: () => props.modelValue,
   set: (value: string) => emit('update:modelValue', value)
 })
+
+const isPreviewMounted = computed(() => mode.value === 'preview' || mode.value === 'split')
+const estimatedPreviewNodes = computed(() => estimateMarkdownNodeCount(content.value))
+const isLargePreviewContent = computed(() =>
+  content.value.length > LARGE_PREVIEW_CONTENT_BYTES || estimatedPreviewNodes.value > LARGE_PREVIEW_NODE_ESTIMATE
+)
+const previewContent = computed(() => isLargePreviewContent.value ? manualPreviewContent.value : debouncedPreviewContent.value)
+const isManualPreviewStale = computed(() => manualPreviewContent.value !== content.value)
 
 const mergedToolbarsExclude = computed(() => {
   return Array.from(new Set([...(props.toolbarsExclude || []), ...provider.value.defaultToolbarsExclude]))
@@ -132,6 +147,49 @@ const mergedToolbarsExclude = computed(() => {
 
 const handleUploadImg = (files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void => {
   emit('upload-img', files, callback, onError)
+}
+
+watch([content, isPreviewMounted, isLargePreviewContent], ([nextContent, mounted, large]) => {
+  if (!mounted) {
+    return
+  }
+
+  if (large) {
+    if (!manualPreviewContent.value) {
+      manualPreviewContent.value = nextContent
+    }
+    return
+  }
+
+  if (previewDebounceTimer !== null) {
+    clearTimeout(previewDebounceTimer)
+  }
+  previewDebounceTimer = setTimeout(() => {
+    debouncedPreviewContent.value = nextContent
+  }, MARKDOWN_PREVIEW_DEBOUNCE_MS)
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  if (previewDebounceTimer !== null) {
+    clearTimeout(previewDebounceTimer)
+  }
+})
+
+const refreshManualPreview = (): void => {
+  manualPreviewContent.value = content.value
+}
+
+function estimateMarkdownNodeCount(value: string): number {
+  if (!value) {
+    return 0
+  }
+
+  const lineCount = value.split(/\r?\n/u).length
+  const fencedBlocks = (value.match(/```/g) ?? []).length
+  const headings = (value.match(/^#{1,6}\s+/gmu) ?? []).length
+  const listItems = (value.match(/^\s*[-*+]\s+/gmu) ?? []).length
+  const tables = (value.match(/^\s*\|.*\|\s*$/gmu) ?? []).length
+  return lineCount + headings * 2 + listItems * 2 + tables * 3 + fencedBlocks * 30
 }
 
 function insertMarkdownAtCursor(markdown: string): boolean {
@@ -175,19 +233,30 @@ defineExpose({
 
 .preview-panel__scroll {
   height: 100%;
-}
-
-.preview-panel__scroll-frame {
-  height: 100%;
+  min-height: 0;
+  overflow: auto;
 }
 
 .preview-panel__view {
   min-height: 100%;
   padding: 0;
+  content-visibility: auto;
+  contain-intrinsic-size: 900px;
 }
 
 .preview-panel__loading {
   padding: 24px 0;
+}
+
+.preview-panel__notice {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--fsusblog-panel-border);
+  background: var(--fsusblog-page-bg-soft);
+  color: var(--fsusblog-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.7;
 }
 
 .preview-skeleton-line {

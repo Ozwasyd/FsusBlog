@@ -255,6 +255,11 @@ AOT_CACHE_RESILIENCE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence
 HYDRATION_LONG_SMOKE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/hydration-long-smoke-summary.json" hydration-long-smoke-summary.json)"
 UX_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/ux" ux)"
 UX_VIEWPORT_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json" ux-viewport-summary.json)"
+FRONTEND_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json" frontend-render-pressure-summary.json)"
+DOM_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/dom-budget.json" dom-budget.json)"
+ROUTE_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/route-render-pressure.json" route-render-pressure.json)"
+MARKDOWN_RENDER_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/markdown-render-budget.json" markdown-render-budget.json)"
+DOM_DEPTH_STATIC_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/dom-depth-static.json" dom-depth-static.json)"
 FAULT_ARTIFACT="$(copy_if_present "$FAULT_DIR" fault-injection)"
 SOAK_ARTIFACT="$(copy_if_present "$SOAK_DIR" soak)"
 FUZZ_ARTIFACT="$(copy_if_present "$FUZZ_DIR" fuzz)"
@@ -295,6 +300,7 @@ FAULT_STATUS_VALUE="$(json_status_or_missing "$FAULT_DIR/summary.json")"
 AUTHENTICATED_DAST_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/authenticated-dast/summary.json")"
 WASM_FUZZ_STATUS_VALUE="$(json_status_or_missing "$FUZZ_DIR/wasm/summary.json")"
 UX_VIEWPORT_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json")"
+FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json")"
 
 MANIFEST_STATUS="collected-ok"
 if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
@@ -312,6 +318,7 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$POST_DEPLOY_SMOKE_STATUS_VALUE" != "ok" \
   || "$SLO_STATUS_VALUE" != "ok" \
   || "$SLO_CRITICAL_COUNT" != "0" \
+  || "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE" != "ok" \
   || "$IMAGE_DIGEST_STATUS" != "present" ]]; then
   MANIFEST_STATUS="collected-blocked"
 fi
@@ -359,6 +366,11 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "hydrationLongSmokeSummary": $HYDRATION_LONG_SMOKE_SUMMARY,
     "ux": $UX_ARTIFACT,
     "uxViewportSummary": $UX_VIEWPORT_SUMMARY,
+    "frontendRenderPressureSummary": $FRONTEND_RENDER_PRESSURE_SUMMARY,
+    "domBudgetSummary": $DOM_BUDGET_SUMMARY,
+    "routeRenderPressureSummary": $ROUTE_RENDER_PRESSURE_SUMMARY,
+    "markdownRenderBudgetSummary": $MARKDOWN_RENDER_BUDGET_SUMMARY,
+    "domDepthStaticSummary": $DOM_DEPTH_STATIC_SUMMARY,
     "faultInjection": $FAULT_ARTIFACT,
     "soak": $SOAK_ARTIFACT,
     "fuzz": $FUZZ_ARTIFACT,
@@ -391,7 +403,8 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     },
     "gates": {
       "visualGateSkip": $VISUAL_GATE_SKIP,
-      "uxViewport": "$UX_VIEWPORT_STATUS_VALUE"
+      "uxViewport": "$UX_VIEWPORT_STATUS_VALUE",
+      "frontendRenderPressure": "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE"
     },
     "security": {
       "attackMatrix": "$ATTACK_MATRIX_STATUS_VALUE",

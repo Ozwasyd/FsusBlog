@@ -18,7 +18,8 @@ describe('admin markdown editor workflow contract', () => {
     expect(contracts).toContain("export type MarkdownEditorMode = 'write' | 'split' | 'preview'")
     expect(adapter).toContain('value="split"')
     expect(adapter).toContain("mode === 'write' || mode === 'split'")
-    expect(adapter).toContain("mode === 'preview' || mode === 'split'")
+    expect(adapter).toContain('v-if="isPreviewMounted"')
+    expect(adapter).toContain("mode.value === 'preview' || mode.value === 'split'")
     expect(adapter).toContain('editor-shell__body--split')
   })
 

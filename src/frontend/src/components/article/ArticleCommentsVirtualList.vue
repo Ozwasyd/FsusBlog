@@ -1,9 +1,10 @@
 <template>
   <div class="space-y-8">
     <article
-      v-for="thread in threadItems"
+      v-for="thread in visibleThreadItems"
       :key="thread.id"
       :class="commentDetailTokens.articleList.itemRoot"
+      v-memo="[thread.id, thread.content, thread.replies.length, thread.canDelete]"
     >
       <div :class="commentDetailTokens.articleList.headerRoot">
         <div :class="commentDetailTokens.articleList.headerMeta">
@@ -39,6 +40,7 @@
           v-for="reply in thread.replies"
           :key="reply.id"
           class="space-y-1"
+          v-memo="[reply.id, reply.content, reply.canDelete]"
         >
           <div class="flex items-center gap-2 text-[11px] text-[var(--fsusblog-text-muted)]">
             <strong class="text-[var(--fsusblog-text-secondary)]">{{ reply.userName }}</strong>
@@ -73,11 +75,17 @@
         </el-button>
       </section>
     </article>
+
+    <div v-if="hasHiddenRootThreads" class="pt-2">
+      <el-button link type="primary" @click="showMoreRootThreads">
+        显示更多评论（{{ hiddenRootThreadCount }}）
+      </el-button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { CommentReplyPreviewItem, CommentThreadItem } from '@/api/comment'
 import { commentDetailTokens, type CommentTimeContract } from '@/view-contracts/commentDetail'
 import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
@@ -103,6 +111,7 @@ const props = defineProps<{
   isLoggedIn: boolean
   currentUsername: string | null
   loadingReplies: Record<string, boolean>
+  initialRenderLimit?: number
 }>()
 
 defineEmits<{
@@ -130,6 +139,13 @@ const threadItems = computed(() => props.threads.map((thread) => ({
     time: buildTime(reply.createTime)
   }))
 })))
+const rootRenderLimit = ref(props.initialRenderLimit ?? COMMENT_CONTENT_CONSTRAINT.rootRenderLimit)
+const visibleThreadItems = computed(() => threadItems.value.slice(0, rootRenderLimit.value))
+const hiddenRootThreadCount = computed(() => Math.max(0, threadItems.value.length - visibleThreadItems.value.length))
+const hasHiddenRootThreads = computed(() => hiddenRootThreadCount.value > 0)
 
 const isThreadRepliesLoading = (rootId: string): boolean => props.loadingReplies[rootId] === true
+const showMoreRootThreads = (): void => {
+  rootRenderLimit.value += COMMENT_CONTENT_CONSTRAINT.rootRenderLimit
+}
 </script>

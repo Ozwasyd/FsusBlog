@@ -22,7 +22,8 @@ const requiredStatusChecks = [
   ['firewall policy', (manifest) => manifest.evidenceSummary?.externalExposure?.firewallPolicy === 'present'],
   ['DNS readiness', (manifest) => manifest.evidenceSummary?.externalExposure?.dnsReadiness === 'ok'],
   ['DNS delegation', (manifest) => manifest.evidenceSummary?.externalExposure?.dnsDelegation === 'ok'],
-  ['live exposure', (manifest) => manifest.evidenceSummary?.externalExposure?.liveExposure === 'ok']
+  ['live exposure', (manifest) => manifest.evidenceSummary?.externalExposure?.liveExposure === 'ok'],
+  ['frontend render pressure', (manifest) => manifest.evidenceSummary?.gates?.frontendRenderPressure === 'ok']
 ]
 
 const requiredArtifacts = [
@@ -35,6 +36,11 @@ const requiredArtifacts = [
   'backupRestoreDrill',
   'coverage',
   'uxViewportSummary',
+  'frontendRenderPressureSummary',
+  'domBudgetSummary',
+  'routeRenderPressureSummary',
+  'markdownRenderBudgetSummary',
+  'domDepthStaticSummary',
   'productionExposureStatus',
   'productionExposureLive',
   'firewallPolicy',
@@ -103,6 +109,12 @@ function validateManifest(manifest, options = {}) {
     errors.push(`release closeout requires collected-ok, got ${manifest.status}`)
   }
 
+  for (const key of ['frontendRenderPressureSummary', 'domBudgetSummary', 'routeRenderPressureSummary', 'markdownRenderBudgetSummary', 'domDepthStaticSummary']) {
+    if (manifest.artifacts?.[key] === null || manifest.artifacts?.[key] === undefined) {
+      errors.push(`artifacts.${key} must point to a collected render-pressure summary`)
+    }
+  }
+
   return {
     ok: errors.length === 0,
     errors,
@@ -132,6 +144,9 @@ function runSelfTest() {
         permissionMatrix: 'ok',
         supplyChain: 'ok',
         sbom: 'ok'
+      },
+      gates: {
+        frontendRenderPressure: 'ok'
       },
       externalExposure: {
         status: 'ok',

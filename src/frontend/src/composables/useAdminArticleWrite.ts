@@ -1080,8 +1080,7 @@ export function useAdminArticleWrite() {
       await initTask.run(async (signal) => {
         await Promise.all([
           refreshTaxonomy(signal),
-          refreshSeoConfig(signal),
-          refreshAssetLibrary(signal)
+          refreshSeoConfig(signal)
         ])
 
         if (signal.aborted) {
@@ -1100,8 +1099,6 @@ export function useAdminArticleWrite() {
           if (signal.aborted) {
             return
           }
-
-          await refreshArticleRevisions(signal)
         }
 
         await detectDraftCandidates(signal)
