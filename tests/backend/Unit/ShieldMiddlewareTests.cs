@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Core.Common;
 
@@ -290,7 +291,7 @@ public sealed class ShieldMiddlewareTests
         var crawlerDetector = new CrawlerDetectorService(
             NullLogger<CrawlerDetectorService>.Instance,
             new MemoryCache(new MemoryCacheOptions()));
-        return new ShieldMiddleware(next, governor ?? CreateFreshGovernor(), crawlerDetector, new NullCrawlerRiskService(), env);
+        return new ShieldMiddleware(next, governor ?? CreateFreshGovernor(), crawlerDetector, new NullSecurityRiskSink(), new NullAntiCrawlerPolicyProvider(), env);
     }
 
     private static DefaultHttpContext BuildContext(string path, string ua, string method = "GET")
@@ -350,10 +351,49 @@ public sealed class ShieldMiddlewareTests
         private sealed class NullDisposable : IAsyncDisposable { public static readonly NullDisposable Instance = new(); public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
     }
 
-    private sealed class NullCrawlerRiskService : ICrawlerRiskService
+    private sealed class NullSecurityRiskSink : ISecurityRiskSignalSink
     {
-        public Task AddRiskAsync(HttpContext context, CrawlerRiskReason reason, int score, TimeSpan ttl, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<int> GetRiskScoreAsync(HttpContext context, CancellationToken cancellationToken = default) => Task.FromResult(0);
-        public Task<bool> IsHighRiskAsync(HttpContext context, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
+    }
+
+    private sealed class NullAntiCrawlerPolicyProvider : IAntiCrawlerPolicyProvider
+    {
+        public AntiCrawlerPolicySnapshot Current { get; } = new(
+            "test",
+            DateTimeOffset.UtcNow,
+            "test",
+            "test",
+            new AntiCrawlerPolicyOptions(
+                SecuritySystemModes.Enforce,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true,
+                50,
+                100,
+                200,
+                600,
+                3,
+                100,
+                2,
+                1000,
+                120,
+                2,
+                1000,
+                30,
+                30,
+                1440,
+                0,
+                30,
+                "https://developers.google.com/static/search/apis/ipranges/googlebot.json",
+                "https://www.bing.com/toolbox/bingbot.json",
+                null,
+                ["/", "/article/", "/assets/", "/uploads/", "/favicon.ico", "/robots.txt"],
+                ["python", "java", "curl", "wget", "httpclient", "axios", "go-http-client", "censys", "zgrab"],
+                "security.pow"));
     }
 }

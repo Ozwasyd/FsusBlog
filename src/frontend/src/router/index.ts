@@ -64,6 +64,17 @@ const routes: RouteRecordRaw[] = [
       { path: 'manage/article/list', name: 'ManageArticleList', component: () => import('@/views/admin/article/List.vue'), meta: { title: '文章管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       { path: 'manage/article/trash', name: 'ManageArticleTrash', component: () => import('@/views/admin/article/Trash.vue'), meta: { title: '回收站', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
       {
+        path: 'manage/security',
+        name: 'ManageSecuritySystem',
+        component: () => import('@/views/admin/security/SecurityLayout.vue'),
+        meta: { title: '安全系统', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' },
+        children: [
+          { path: '', name: 'ManageSecurityDashboard', component: () => import('@/views/admin/security/SecurityDashboard.vue'), meta: { title: '安全系统', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
+          { path: 'crawler', name: 'ManageSecurityCrawler', component: () => import('@/views/admin/security/SecurityCrawler.vue'), meta: { title: '反爬虫系统', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
+          { path: 'pow', name: 'ManageSecurityPow', component: () => import('@/views/admin/security/SecurityPow.vue'), meta: { title: 'PoW 系统', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } }
+        ]
+      },
+      {
         path: 'manage/moderation',
         name: 'ManageModerationSystem',
         component: () => import('@/views/admin/moderation/ModerationLayout.vue'),

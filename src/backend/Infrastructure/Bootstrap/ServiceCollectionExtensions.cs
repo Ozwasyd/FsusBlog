@@ -130,16 +130,24 @@ public static class ServiceCollectionExtensions
             {
                 context.HttpContext.Response.Headers["Retry-After"] = "60";
                 FsusObservability.RecordSecurityEvent("rate_limited", "rate_limited", "rejected");
-                var risk = context.HttpContext.RequestServices.GetService<ICrawlerRiskService>();
+                var risk = context.HttpContext.RequestServices.GetService<ISecurityRiskSignalSink>();
                 if (risk is not null)
                 {
-                    await risk.AddRiskAsync(context.HttpContext, CrawlerRiskReason.RateLimited, 10, TimeSpan.FromMinutes(10), cancellationToken);
+                    await risk.AddRiskAsync(new SecurityRiskSignal(
+                        context.HttpContext,
+                        SecurityRiskReason.RateLimited,
+                        10,
+                        TimeSpan.FromMinutes(10),
+                        SecurityRiskSources.RateLimiter,
+                        "rate_limited",
+                        "fixed_window_rejected"), cancellationToken);
                 }
             };
 
             options.AddPolicy("fixed_ip", httpContext =>
             {
                 string clientIp = httpContext.GetClientIp();
+                var policy = httpContext.RequestServices.GetRequiredService<IAntiCrawlerPolicyProvider>().Current.Options;
 
                 if (httpContext.User.IsInRole("admin") || clientIp == "127.0.0.1" || clientIp == "::1")
                 {
@@ -148,44 +156,46 @@ public static class ServiceCollectionExtensions
 
                 if (IsVerifiedCrawlerPublicRead(httpContext))
                 {
-                    return CreateFixedWindowPartition($"verified-crawler:{clientIp}", 1000, 0);
+                    return CreateFixedWindowPartition($"verified-crawler:{clientIp}", policy.VerifiedCrawlerFixedIpPermitLimit, 0);
                 }
 
                 return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
                 {
-                    PermitLimit = 100,
+                    PermitLimit = policy.FixedIpPermitLimit,
                     Window = TimeSpan.FromMinutes(1),
                     AutoReplenishment = true,
-                    QueueLimit = 2,
+                    QueueLimit = policy.FixedIpQueueLimit,
                     QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                 });
             });
 
             options.AddPolicy("read_proof", httpContext =>
             {
+                var policy = httpContext.RequestServices.GetRequiredService<IAntiCrawlerPolicyProvider>().Current.Options;
                 string deviceFp = httpContext.Request.Headers["X-Fsus-Device-Fp"].ToString();
                 string key = string.IsNullOrWhiteSpace(deviceFp)
                     ? $"{httpContext.GetClientIp()}:{httpContext.Request.Path}"
                     : $"{httpContext.GetClientIp()}:{deviceFp}:{httpContext.Request.Path}";
-                return CreateFixedWindowPartition($"read-proof:{key}", 30, 0);
+                return CreateFixedWindowPartition($"read-proof:{key}", policy.ReadProofPermitLimit, 0);
             });
 
             options.AddPolicy("public_read", httpContext =>
             {
                 string clientIp = httpContext.GetClientIp();
                 string path = GetPublicReadPartitionPath(httpContext);
+                var policy = httpContext.RequestServices.GetRequiredService<IAntiCrawlerPolicyProvider>().Current.Options;
 
                 if (IsVerifiedCrawlerPublicRead(httpContext))
                 {
-                    return CreateFixedWindowPartition($"public-read:verified-crawler:{clientIp}:{path}", 1000, 0);
+                    return CreateFixedWindowPartition($"public-read:verified-crawler:{clientIp}:{path}", policy.VerifiedCrawlerPublicReadPermitLimit, 0);
                 }
 
                 if (httpContext.Items.TryGetValue("SocialPreviewBot", out object? socialPreview) && socialPreview is true)
                 {
-                    return CreateFixedWindowPartition($"public-read:social:{clientIp}:{path}", 30, 0);
+                    return CreateFixedWindowPartition($"public-read:social:{clientIp}:{path}", policy.SocialPreviewPublicReadPermitLimit, 0);
                 }
 
-                return CreateFixedWindowPartition($"public-read:{clientIp}:{path}", 120, 2);
+                return CreateFixedWindowPartition($"public-read:{clientIp}:{path}", policy.PublicReadPermitLimit, policy.PublicReadQueueLimit);
             });
         });
 

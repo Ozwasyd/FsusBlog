@@ -34,7 +34,7 @@
 - 基础策略：`fixed_ip`（固定窗口，按客户端 IP 计数），作为认证、PoW、写入和审核端点的 fallback。
 - 公开读策略：`public_read` 按 `IP + path` 分区；verified search crawler 使用独立高额度分区，social preview bot 使用低额度公开 HTML/静态资源分区，普通匿名公开 API 使用中等配额。
 - 真人阅读策略：`read_proof` 专门保护 `/api/read-proof/challenge` 与 `/api/read-proof/submit`，按 `IP + route` 或 `IP + deviceFp + route` 分区，避免匿名 challenge/submit 被无限打。
-- 超限响应：`429 Too Many Requests`，响应头携带 `Retry-After`，并向 `CrawlerRiskService` 写入 `RateLimited` 风险事件。
+- 超限响应：`429 Too Many Requests`，响应头携带 `Retry-After`，并通过 `ISecurityRiskSignalSink` 写入 `RateLimited` 风险事件。
 - 客户端 IP 提取：`GetClientIp()` 只读取 `ForwardedHeadersMiddleware` 按 `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` 处理后的 `Connection.RemoteIpAddress`；业务代码不得直接信任原始 `X-Forwarded-For` / `X-Real-IP` 请求头。
 - 受保护端点：PoW 挑战、注册、密码登录、Token 续签、Passkey 登录开始/完成、评论审核队列和单条/批量审核写入、ReadProof challenge/submit、公开评论读取、公开 taxonomy 与 related-reading。
 
@@ -46,9 +46,17 @@
 - social preview bot：`Twitterbot`、`facebookexternalhit`、`Discordbot`、`Slackbot`、`TelegramBot`、`LinkedInBot`、`WhatsApp` 只允许公开 HTML、OG/静态资源、`robots.txt` 的 GET/HEAD，不允许访问 `/api/**`。
 - unknown bot、工具型 UA、空 UA：返回轻量 403，记录 `fsus.security.event.count`，并向风险分写入原因；路径穿越、双斜杠、反斜杠和双重编码路径仍直接 `Abort()`，同时记录指标。
 
-`CrawlerUpdateWorker` 每 24 小时按优先级加载搜索引擎 CIDR：远程官方 JSON（Google `googlebot.json`、Bing `bingbot.json`）→ 本地 last-known-good snapshot → `Security:CrawlerCidrs:*` 配置 → empty degraded。状态通过 admin-only `GET /api/ops/crawler-ranges/status` 暴露，只包含 range 数量、来源、最近同步时间、最近成功时间和错误摘要。
+`CrawlerUpdateWorker` 按运行时策略快照加载搜索引擎 CIDR：远程官方 JSON（Google `googlebot.json`、Bing `bingbot.json`）→ 本地 last-known-good snapshot → `Security:CrawlerCidrs:*` 配置 → empty degraded。默认更新间隔为 1440 分钟，后台可热更新 `CidrAutoUpdateEnabled`、`CidrUpdateIntervalMinutes`、`CidrMinUpdateIntervalMinutes`、Google/Bing URL 和 snapshot path；最小间隔默认 30 分钟，避免管理员误设过低造成外部请求风暴。状态通过 admin-only `GET /api/ops/crawler-ranges/status` 和 `/api/admin/security/anti-crawler/crawler-ranges/status` 暴露；后者额外返回自动更新开关、当前/最小 interval、下次同步时间和 worker 运行状态，并支持 `POST /api/admin/security/anti-crawler/crawler-ranges/sync` 手动同步。
 
-`CrawlerRiskService` 把 Shield、RateLimiter、PoW、ReadProof 和 risk-aware public read 的异常事件累积到 `SecurityPowRisk`。`AdaptivePowGovernor` 继续消费同一 risk key 提高 PoW 难度；`RiskAwarePublicReadFilter` 在风险分达到 50 时要求公开 GET API 携带 `X-Fsus-Pow-Proof`，达到 100 时直接返回 429。该策略只作用于动态公开 API，不影响 PublicHotRead artifact 命中路径。
+统一安全风险由 `ISecurityRiskSignalSink`、`ISecurityRiskScoreReader` 和 `ISecurityRiskPolicyProvider` 抽象承载；旧 `CrawlerRiskService` 只是兼容实现，不再代表反爬虫子系统。Shield 写入 `anti-crawler` 来源信号，RateLimiter 写入 `rate-limiter`，PoW 写入 `pow`，HumanReadProof 写入 `human-read-proof`，公开读过滤器写入 `public-read`。风险分仍落在 `SecurityPowRisk` key 上以保持 `AdaptivePowGovernor` 兼容；`RiskAwarePublicReadFilter` 只读取 `SecurityRiskPolicySnapshot`，在风险分达到 `RequireChallengeScore` 时引用 `security.pow` challenge，达到 `BlockScore` 时返回 429。该策略只作用于动态公开 API，不影响 PublicHotRead artifact 命中路径。
+
+管理后台新增 `/user/manage/security` 安全系统：
+
+- `/user/manage/security`：安全总览，展示 AntiCrawler、PoW 和统一风险信号摘要。
+- `/user/manage/security/crawler`：反爬虫系统，管理模式、局部开关、CIDR 更新、风险事件、allow/blocklist、规则和模拟器。
+- `/user/manage/security/pow`：PoW 系统，管理独立模式、默认 difficulty、proof TTL、replay 防护和风险分联动。
+
+AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关闭 crawler 类处置和 crawler 风险写入，不关闭 PoW、认证、授权、CORS、Fetch Metadata、路径穿越硬拦截等基础安全能力；`observe` 记录事件但不拦截、不触发 public read challenge 升级；`enforce` 是生产默认策略；`strict` 会提高 crawler 类风险分。局部开关包括 public read challenge、search crawler verification、social preview guard、risk scoring、event persistence、dashboard aggregation、CIDR auto update 和 illegal path hard abort。PoW 使用独立 `PowPolicySnapshot`，不受 AntiCrawler mode 直接控制。
 
 ---
 
@@ -61,7 +69,7 @@
 - 客户端要求：SPA hydration 后，主内容进入视口并累计可见停留至少 8 秒，再携带 `X-Fsus-Device-Fp` 提交 proof。
 - 服务端绑定：HMAC token 绑定 scope、routeKey、articleId、设备指纹哈希、IP 哈希、UA 哈希、签发时间、过期时间、最小停留时间和 nonce。
 - 拒绝条件：无 JS/AOT 未 hydration、直接 API 请求、缺失 Fetch Metadata、跨站 Origin/Referer、爬虫 UA、已验证 crawler、停留不足、过期 token、篡改 token、重放 proof。
-- 拒绝与超限会写入 `CrawlerRiskService`，但不会阻断公开内容访问；HumanReadProof 只决定阅读事件是否计数。
+- 拒绝与超限会以 `human-read-proof` 来源写入统一安全风险，但不会阻断公开内容访问；HumanReadProof 只决定阅读事件是否计数。
 - 降级开关：`HumanReadProof:Mode=paused` 暂停计数写入，但不影响内容读取。
 
 该机制提高浏览计数的真人口径，不用于身份认证，也不承诺识别所有未知自动化行为。

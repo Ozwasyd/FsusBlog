@@ -24,7 +24,7 @@ internal static partial class PowValidationLogic
     {
         if (!httpContext.Request.Headers.TryGetValue(PowHeaderName, out var encodedProof) || encodedProof.Count != 1)
         {
-            await AddRiskAsync(httpContext, CrawlerRiskReason.PowInvalid, 5);
+            await AddRiskAsync(httpContext, SecurityRiskReason.PowInvalid, 5);
             return new UnauthorizedObjectResult(Fail(httpContext, ErrorCode.Unauthorized, "安全校验凭证缺失 (Header)"));
         }
 
@@ -35,7 +35,7 @@ internal static partial class PowValidationLogic
     {
         if (!httpContext.Request.Query.TryGetValue(PowQueryName, out var encodedProof) || encodedProof.Count != 1)
         {
-            await AddRiskAsync(httpContext, CrawlerRiskReason.PowInvalid, 5);
+            await AddRiskAsync(httpContext, SecurityRiskReason.PowInvalid, 5);
             return new UnauthorizedObjectResult(Fail(httpContext, ErrorCode.Unauthorized, "安全校验凭证缺失 (Query)"));
         }
 
@@ -55,21 +55,21 @@ internal static partial class PowValidationLogic
 
             if (!Convert.TryFromBase64String(encodedProof, rentedBuffer, out int bytesWritten))
             {
-                await AddRiskAsync(httpContext, CrawlerRiskReason.PowInvalid, 5);
+                await AddRiskAsync(httpContext, SecurityRiskReason.PowInvalid, 5);
                 return new BadRequestObjectResult(Fail(httpContext, ErrorCode.Validation, "安全凭证格式异常 (Base64)"));
             }
 
             var proofSpan = rentedBuffer.AsSpan(0, bytesWritten);
             if (!TryDecodeBinaryProof(proofSpan, out var powRequest))
             {
-                await AddRiskAsync(httpContext, CrawlerRiskReason.PowInvalid, 5);
+                await AddRiskAsync(httpContext, SecurityRiskReason.PowInvalid, 5);
                 return new BadRequestObjectResult(Fail(httpContext, ErrorCode.Validation, "安全凭证解析失败 (binary)"));
             }
 
             int requiredDifficulty = await governor.GetDifficultyForIpAsync(clientIp);
             if (powRequest.Difficulty < requiredDifficulty)
             {
-                await AddRiskAsync(httpContext, CrawlerRiskReason.PowInvalid, 5);
+                await AddRiskAsync(httpContext, SecurityRiskReason.PowInvalid, 5);
                 return new ObjectResult(Fail(httpContext, ErrorCode.Forbidden, "算力凭证已失效，请重试")) { StatusCode = 403 };
             }
 
@@ -93,7 +93,7 @@ internal static partial class PowValidationLogic
             if (!isValid)
             {
                 LogAccessDenied(logger, clientIp, "Signature/Nonce Verification Failed");
-                await AddRiskAsync(httpContext, CrawlerRiskReason.PowInvalid, 10);
+                await AddRiskAsync(httpContext, SecurityRiskReason.PowInvalid, 10);
                 return new UnauthorizedObjectResult(Fail(httpContext, ErrorCode.Unauthorized, "安全校验未通过或凭证已过期"));
             }
 
@@ -108,9 +108,9 @@ internal static partial class PowValidationLogic
     private static ErrorDetail Fail(HttpContext httpContext, ErrorCode code, string message)
         => ErrorDetail.Create(code, message, traceId: httpContext.TraceIdentifier);
 
-    private static async Task AddRiskAsync(HttpContext httpContext, CrawlerRiskReason reason, int score)
+    private static async Task AddRiskAsync(HttpContext httpContext, SecurityRiskReason reason, int score)
     {
-        var risk = httpContext.RequestServices.GetService<ICrawlerRiskService>();
+        var risk = httpContext.RequestServices.GetService<ISecurityRiskSignalSink>();
         if (risk is null)
         {
             return;
@@ -118,7 +118,14 @@ internal static partial class PowValidationLogic
 
         try
         {
-            await risk.AddRiskAsync(httpContext, reason, score, TimeSpan.FromMinutes(10), httpContext.RequestAborted);
+            await risk.AddRiskAsync(new SecurityRiskSignal(
+                httpContext,
+                reason,
+                score,
+                TimeSpan.FromMinutes(10),
+                SecurityRiskSources.Pow,
+                "pow_invalid",
+                "pow_validation"), httpContext.RequestAborted);
         }
         catch
         {

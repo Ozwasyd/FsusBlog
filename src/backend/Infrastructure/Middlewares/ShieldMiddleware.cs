@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 
 namespace FsusBlog.Server.Infrastructure.Middlewares;
@@ -16,7 +17,8 @@ public class ShieldMiddleware(
     RequestDelegate next,
     AdaptivePowGovernor governor,
     CrawlerDetectorService crawlerDetector,
-    ICrawlerRiskService crawlerRisk,
+    ISecurityRiskSignalSink securityRisk,
+    IAntiCrawlerPolicyProvider antiCrawlerPolicy,
     IWebHostEnvironment env)
 {
     // 核心性能优化：使用新一代 SearchValues<string> 进行字符串多模式极速扫描，复杂度降至极限
@@ -47,68 +49,93 @@ public class ShieldMiddleware(
         // 1. 流量计数 (喂给治理器，用于自适应难度动态计算)
         governor.RecordInboundRequest();
 
+        var options = antiCrawlerPolicy.Current.Options;
+        string mode = SecuritySystemModes.Normalize(options.Mode);
+        bool antiCrawlerEnabled = mode != SecuritySystemModes.Disabled;
+        bool antiCrawlerObserving = mode == SecuritySystemModes.Observe;
+        bool antiCrawlerEnforcing = SecuritySystemModes.IsEnforcing(mode) && !antiCrawlerObserving;
         string? ua = context.Request.Headers.UserAgent;
 
         // 2. 协议指纹检查 (User-Agent)
-        if (string.IsNullOrWhiteSpace(ua))
+        if (antiCrawlerEnabled && string.IsNullOrWhiteSpace(ua))
         {
-            await RejectAsync(context, CrawlerRiskReason.UserAgentMissing, StatusCodes.Status403Forbidden, "ua_missing", 5);
-            return;
+            if (await RejectOrObserveAsync(context, SecurityRiskReason.UserAgentMissing, StatusCodes.Status403Forbidden, "ua_missing", 5, antiCrawlerEnforcing, options))
+            {
+                return;
+            }
         }
 
-        var uaSpan = ua.AsSpan();
+        var uaSpan = (ua ?? string.Empty).AsSpan();
 
         // 3. 智能爬虫鉴别 (逻辑自洽的核心)
         // 极速自动机扫描代替耗时的 || 与 .Contains()
         bool isClaimingToBeBot = uaSpan.ContainsAny(_botKeywords);
 
-        if (isClaimingToBeBot)
+        if (antiCrawlerEnabled && isClaimingToBeBot)
         {
             string clientIp = context.GetClientIp();
 
-            if (IsSearchCrawlerUserAgent(ua))
+            if (IsSearchCrawlerUserAgent(ua ?? string.Empty))
             {
-                bool isVerified = await crawlerDetector.IsVerifiedCrawlerAsync(clientIp, ua);
-                if (!isVerified)
+                if (options.SearchCrawlerVerificationEnabled)
                 {
-                    await RejectAsync(context, CrawlerRiskReason.FakeCrawler, StatusCodes.Status403Forbidden, "fake_crawler", 30);
-                    return;
-                }
+                    bool isVerified = await crawlerDetector.IsVerifiedCrawlerAsync(clientIp, ua ?? string.Empty);
+                    if (!isVerified)
+                    {
+                        if (await RejectOrObserveAsync(context, SecurityRiskReason.FakeCrawler, StatusCodes.Status403Forbidden, "fake_crawler", 30, antiCrawlerEnforcing, options))
+                        {
+                            return;
+                        }
+                    }
 
-                context.Items["VerifiedCrawler"] = true;
-                context.Items["CrawlerProvider"] = ResolveSearchCrawlerProvider(ua);
+                    context.Items["VerifiedCrawler"] = true;
+                    string provider = ResolveSearchCrawlerProvider(ua ?? string.Empty);
+                    context.Items["CrawlerProvider"] = provider;
+                    await RecordRiskAsync(context, SecurityRiskReason.FakeCrawler, "verified_crawler", 0, options, SecurityRiskSources.AntiCrawler, $"verified_crawler:{provider}");
+                }
+                else
+                {
+                    await RecordRiskAsync(context, SecurityRiskReason.FakeCrawler, "crawler_verification_disabled", 0, options, SecurityRiskSources.AntiCrawler, "search_crawler_verification_disabled");
+                }
             }
-            else if (IsSocialPreviewUserAgent(ua))
+            else if (IsSocialPreviewUserAgent(ua ?? string.Empty))
             {
-                if (!IsSocialPreviewRequestAllowed(context))
+                context.Items["SocialPreviewBot"] = true;
+                if (options.SocialPreviewGuardEnabled && !IsSocialPreviewRequestAllowed(context, options))
                 {
-                    await RejectAsync(context, CrawlerRiskReason.UnknownBot, StatusCodes.Status403Forbidden, "social_preview_scope_denied", 10);
-                    return;
+                    if (await RejectOrObserveAsync(context, SecurityRiskReason.UnknownBot, StatusCodes.Status403Forbidden, "social_preview_scope_denied", 10, antiCrawlerEnforcing, options))
+                    {
+                        return;
+                    }
                 }
 
-                context.Items["SocialPreviewBot"] = true;
+                await RecordRiskAsync(context, SecurityRiskReason.UnknownBot, "social_preview", 0, options, SecurityRiskSources.AntiCrawler, "social_preview");
             }
             else
             {
-                await RejectAsync(context, CrawlerRiskReason.UnknownBot, StatusCodes.Status403Forbidden, "unknown_bot", 15);
-                return;
+                if (await RejectOrObserveAsync(context, SecurityRiskReason.UnknownBot, StatusCodes.Status403Forbidden, "unknown_bot", 15, antiCrawlerEnforcing, options))
+                {
+                    return;
+                }
             }
         }
-        else
+        else if (antiCrawlerEnabled)
         {
             // 不是爬虫，通过自动机状态库极速检查是否在工具黑名单中
-            if (uaSpan.ContainsAny(_blockedUserAgents))
+            if (uaSpan.ContainsAny(_blockedUserAgents) || options.BlockedUserAgentKeywords.Any(keyword => ua?.Contains(keyword, StringComparison.OrdinalIgnoreCase) == true))
             {
-                await RejectAsync(context, CrawlerRiskReason.BlockedUserAgent, StatusCodes.Status403Forbidden, "blocked_user_agent", 10);
-                return;
+                if (await RejectOrObserveAsync(context, SecurityRiskReason.BlockedUserAgent, StatusCodes.Status403Forbidden, "blocked_user_agent", 10, antiCrawlerEnforcing, options))
+                {
+                    return;
+                }
             }
         }
 
         // 4. 路径合法性初步扫描 (Span 零分配切割优化)
         string? path = context.Request.Path.Value;
-        if (ContainsIllegalPathPattern(path))
+        if (options.IllegalPathHardAbortEnabled && ContainsIllegalPathPattern(path))
         {
-            await RecordRiskAsync(context, CrawlerRiskReason.PublicReadBlocked, "illegal_path", 15);
+            await RecordRiskAsync(context, SecurityRiskReason.PublicReadBlocked, "illegal_path", 15, options, "shield", "illegal_path");
             FsusObservability.RecordSecurityEvent("shield_reject", "illegal_path", "aborted");
             context.Abort();
             return;
@@ -156,7 +183,7 @@ public class ShieldMiddleware(
             || userAgent.Contains("LinkedInBot", StringComparison.OrdinalIgnoreCase)
             || userAgent.Contains("WhatsApp", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsSocialPreviewRequestAllowed(HttpContext context)
+    private static bool IsSocialPreviewRequestAllowed(HttpContext context, AntiCrawlerPolicyOptions options)
     {
         if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
         {
@@ -170,32 +197,61 @@ public class ShieldMiddleware(
         }
 
         string value = path.Value ?? "/";
-        return value == "/"
-            || value.StartsWith("/article/", StringComparison.OrdinalIgnoreCase)
-            || value.StartsWith("/assets/", StringComparison.OrdinalIgnoreCase)
-            || value.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("/favicon.ico", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("/robots.txt", StringComparison.OrdinalIgnoreCase);
+        return options.SocialPreviewAllowedPathPrefixes.Any(prefix =>
+            prefix == "/"
+                ? value == "/"
+                : value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
     }
 
-    private async Task RejectAsync(HttpContext context, CrawlerRiskReason reason, int statusCode, string metricReason, int score)
+    private async Task<bool> RejectOrObserveAsync(
+        HttpContext context,
+        SecurityRiskReason reason,
+        int statusCode,
+        string metricReason,
+        int score,
+        bool enforce,
+        AntiCrawlerPolicyOptions options)
     {
-        await RecordRiskAsync(context, reason, metricReason, score);
+        await RecordRiskAsync(context, reason, metricReason, enforce ? score : 0, options, SecurityRiskSources.AntiCrawler, metricReason);
+        if (!enforce)
+        {
+            FsusObservability.RecordSecurityEvent("shield_observe", metricReason, "observed");
+            return false;
+        }
+
         FsusObservability.RecordSecurityEvent("shield_reject", metricReason, "rejected");
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "text/plain; charset=utf-8";
         await context.Response.WriteAsync(metricReason);
+        return true;
     }
 
-    private async Task RecordRiskAsync(HttpContext context, CrawlerRiskReason reason, string metricReason, int score)
+    private async Task RecordRiskAsync(
+        HttpContext context,
+        SecurityRiskReason reason,
+        string metricReason,
+        int score,
+        AntiCrawlerPolicyOptions options,
+        string source,
+        string? detail)
     {
         try
         {
-            await crawlerRisk.AddRiskAsync(context, reason, score, TimeSpan.FromMinutes(10), context.RequestAborted);
+            int effectiveScore = options.Mode == SecuritySystemModes.Strict && score > 0
+                ? score * 2
+                : score;
+            await securityRisk.AddRiskAsync(new SecurityRiskSignal(
+                context,
+                reason,
+                effectiveScore,
+                TimeSpan.FromSeconds(options.DefaultRiskTtlSeconds),
+                source,
+                score > 0 ? "shield_rejected" : "shield_observed",
+                detail), context.RequestAborted);
         }
         catch (Exception ex)
         {
-            FsusObservability.RecordSecurityEvent("crawler_risk", metricReason, "write_failed");
+            FsusObservability.RecordSecurityEvent("security_risk", metricReason, "write_failed");
             context.RequestServices.GetService<ILogger<ShieldMiddleware>>()?.LogWarning(ex, "crawler-risk-write-failed {Reason}", metricReason);
         }
     }

@@ -83,6 +83,15 @@ const accountNavItems: readonly AccountNavItem[] = [
   { label: '标签', to: '/user/manage/tag', helper: '索引关键词', area: 'manage', groupKey: 'content', adminOnly: true },
   { label: '资产库', to: '/user/manage/assets', helper: '媒体与引用', area: 'manage', groupKey: 'content', adminOnly: true },
   { label: '备份迁移', to: '/user/manage/content-tools', helper: '导入导出', area: 'manage', groupKey: 'system', adminOnly: true },
+  {
+    label: '安全系统',
+    to: '/user/manage/security',
+    helper: '反爬虫与 PoW',
+    area: 'manage',
+    groupKey: 'system',
+    adminOnly: true,
+    match: (path) => path.startsWith('/user/manage/security')
+  },
   { label: '审计日志', to: '/user/manage/audit', helper: '事件与证据', area: 'manage', groupKey: 'system', adminOnly: true },
   { label: '运维健康', to: '/user/manage/ops', helper: '依赖与 worker', area: 'manage', groupKey: 'ops', adminOnly: true },
   { label: '缓存诊断', to: '/user/manage/cache', helper: 'AOT 与搜索', area: 'manage', groupKey: 'ops', adminOnly: true },
@@ -95,7 +104,7 @@ const navGroupTemplates: readonly Omit<AccountNavGroup, 'items'>[] = [
   { key: 'self', label: '账户', helper: '资料、评论、消息', area: 'self' },
   { key: 'content', label: '内容', helper: '文章、回收站、分类、标签、资产库', area: 'manage' },
   { key: 'interaction', label: '互动', helper: '评论审核、站内信、用户', area: 'manage' },
-  { key: 'system', label: '系统', helper: '系统设置、备份迁移、审计日志', area: 'manage' },
+  { key: 'system', label: '系统', helper: '系统设置、安全系统、备份迁移、审计日志', area: 'manage' },
   { key: 'ops', label: '运维', helper: '运维健康、缓存诊断、数据巡检', area: 'manage' }
 ]
 

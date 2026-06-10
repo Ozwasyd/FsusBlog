@@ -1,0 +1,804 @@
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Security;
+
+namespace FsusBlog.Server.Services.Security;
+
+public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
+{
+    private const int MaxRuntimeEvents = 512;
+    private const int MaxRuntimeSnapshots = 512;
+    private readonly object _gate = new();
+    private readonly IConfiguration _configuration;
+    private AntiCrawlerPolicySnapshot _currentAntiCrawler;
+    private AntiCrawlerPolicySnapshot? _previousAntiCrawler;
+    private PowPolicySnapshot _currentPow;
+    private PowPolicySnapshot? _previousPow;
+    private readonly List<AntiCrawlerRiskEventResponse> _riskEvents = new(MaxRuntimeEvents);
+    private readonly Dictionary<string, SecurityRiskSnapshotResponse> _riskSnapshots = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<AntiCrawlerRuleResponse> _rules;
+    private readonly List<AntiCrawlerListEntryResponse> _allowlist = [];
+    private readonly List<AntiCrawlerListEntryResponse> _blocklist = [];
+
+    public SecurityAdminPolicyService(IConfiguration configuration)
+    {
+        _configuration = configuration;
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        _currentAntiCrawler = new AntiCrawlerPolicySnapshot(
+            CreateSnapshotId("anti-crawler", now),
+            now,
+            "configuration",
+            "startup",
+            BuildDefaultAntiCrawlerOptions(configuration));
+        _currentPow = new PowPolicySnapshot(
+            CreateSnapshotId("pow", now),
+            now,
+            "configuration",
+            "startup",
+            BuildDefaultPowOptions(configuration));
+        _rules =
+        [
+            CreateRule("fake-crawler", "伪造搜索引擎爬虫", true, "user-agent", "Googlebot|bingbot|Baiduspider|Sogou", "block", 30, "搜索引擎 UA 必须通过 CIDR 或 DNS 验证。", "configuration", now),
+            CreateRule("unknown-bot", "未知 bot UA", true, "user-agent", "bot|spider|crawler", "block", 15, "未知 bot 默认进入反爬处置。", "configuration", now),
+            CreateRule("tool-user-agent", "工具型 User-Agent", true, "user-agent", "python|curl|wget|httpclient|zgrab", "block", 10, "工具型 UA 默认拒绝公开热路径。", "configuration", now),
+            CreateRule("social-preview-scope", "社交预览范围保护", true, "path", "/api", "block", 10, "社交预览 bot 不允许访问 API。", "configuration", now)
+        ];
+    }
+
+    public AntiCrawlerPolicySnapshot Current => Volatile.Read(ref _currentAntiCrawler);
+
+    public PowPolicySnapshot CurrentPow => Volatile.Read(ref _currentPow);
+
+    public SecurityRiskPolicySnapshot CurrentRiskPolicy
+    {
+        get
+        {
+            AntiCrawlerPolicySnapshot snapshot = Current;
+            AntiCrawlerPolicyOptions options = snapshot.Options;
+            return new SecurityRiskPolicySnapshot(
+                snapshot.SnapshotId,
+                options.RequireChallengeScore,
+                options.BlockScore,
+                options.MaxRiskScore,
+                options.PublicReadChallengeEnabled && SecuritySystemModes.IsEnforcing(options.Mode),
+                options.RiskScoringEnabled,
+                options.Mode);
+        }
+    }
+
+    public SecurityOverviewResponse BuildSecurityOverview(CrawlerRangeStatus ranges, CrawlerRangesAdminStatus syncStatus)
+        => new(
+            "ok",
+            DateTimeOffset.UtcNow,
+            BuildAntiCrawlerSummary(ranges, syncStatus),
+            BuildPowOverview(),
+            BuildRiskOverview());
+
+    public AntiCrawlerOverviewResponse BuildAntiCrawlerOverview(CrawlerRangeStatus ranges, CrawlerRangesAdminStatus syncStatus)
+    {
+        AntiCrawlerPolicySnapshot policy = Current;
+        return new AntiCrawlerOverviewResponse(
+            policy,
+            BuildAntiCrawlerSummary(ranges, syncStatus),
+            syncStatus,
+            ListRiskEvents(SecurityRiskSources.AntiCrawler, null, 50),
+            ListRules(),
+            ListEntries("allow"),
+            ListEntries("block"));
+    }
+
+    public PowOverviewResponse BuildPowOverview()
+    {
+        IReadOnlyList<AntiCrawlerRiskEventResponse> powEvents = ListRiskEvents(SecurityRiskSources.Pow, null, MaxRuntimeEvents);
+        DateTimeOffset since = DateTimeOffset.UtcNow.AddHours(-1);
+        int validationFailures = powEvents.Count(item =>
+            item.OccurredAtUtc >= since &&
+            string.Equals(item.Reason, nameof(SecurityRiskReason.PowInvalid), StringComparison.Ordinal));
+        int replayRejects = powEvents.Count(item =>
+            item.OccurredAtUtc >= since &&
+            string.Equals(item.Reason, nameof(SecurityRiskReason.PowReplay), StringComparison.Ordinal));
+        int challengeRequired = ListRiskEvents(SecurityRiskSources.PublicRead, nameof(SecurityRiskReason.PublicReadChallengeRequired), MaxRuntimeEvents)
+            .Count(item => item.OccurredAtUtc >= since);
+        return new PowOverviewResponse(
+            CurrentPow,
+            validationFailures,
+            replayRejects,
+            challengeRequired,
+            "registered:/api/binary/auth/pow-challenge");
+    }
+
+    public AntiCrawlerPolicySnapshot UpdateAntiCrawlerOptions(AntiCrawlerOptionsUpdateRequest request, string changedBy)
+    {
+        lock (_gate)
+        {
+            AntiCrawlerPolicySnapshot current = _currentAntiCrawler;
+            AntiCrawlerPolicyOptions next = ApplyAntiCrawlerOptions(current.Options, request);
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            var snapshot = new AntiCrawlerPolicySnapshot(
+                CreateSnapshotId("anti-crawler", now),
+                now,
+                NormalizeActor(changedBy),
+                NormalizeReason(request.Reason),
+                next);
+            _previousAntiCrawler = current;
+            Volatile.Write(ref _currentAntiCrawler, snapshot);
+            return snapshot;
+        }
+    }
+
+    public AntiCrawlerPolicySnapshot RollbackAntiCrawlerOptions(string changedBy)
+    {
+        lock (_gate)
+        {
+            AntiCrawlerPolicySnapshot rollback = _previousAntiCrawler ?? _currentAntiCrawler;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            var snapshot = rollback with
+            {
+                SnapshotId = CreateSnapshotId("anti-crawler", now),
+                UpdatedAtUtc = now,
+                UpdatedBy = NormalizeActor(changedBy),
+                Reason = "rollback"
+            };
+            _previousAntiCrawler = _currentAntiCrawler;
+            Volatile.Write(ref _currentAntiCrawler, snapshot);
+            return snapshot;
+        }
+    }
+
+    public PowPolicySnapshot UpdatePowOptions(PowOptionsUpdateRequest request, string changedBy)
+    {
+        lock (_gate)
+        {
+            PowPolicySnapshot current = _currentPow;
+            PowPolicyOptions next = ApplyPowOptions(current.Options, request);
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            var snapshot = new PowPolicySnapshot(
+                CreateSnapshotId("pow", now),
+                now,
+                NormalizeActor(changedBy),
+                NormalizeReason(request.Reason),
+                next);
+            _previousPow = current;
+            Volatile.Write(ref _currentPow, snapshot);
+            return snapshot;
+        }
+    }
+
+    public PowPolicySnapshot RollbackPowOptions(string changedBy)
+    {
+        lock (_gate)
+        {
+            PowPolicySnapshot rollback = _previousPow ?? _currentPow;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            var snapshot = rollback with
+            {
+                SnapshotId = CreateSnapshotId("pow", now),
+                UpdatedAtUtc = now,
+                UpdatedBy = NormalizeActor(changedBy),
+                Reason = "rollback"
+            };
+            _previousPow = _currentPow;
+            Volatile.Write(ref _currentPow, snapshot);
+            return snapshot;
+        }
+    }
+
+    public void RecordRiskEvent(AntiCrawlerRiskEventResponse riskEvent)
+    {
+        AntiCrawlerPolicyOptions options = Current.Options;
+        if (string.Equals(riskEvent.Source, SecurityRiskSources.AntiCrawler, StringComparison.OrdinalIgnoreCase)
+            && !options.EventPersistenceEnabled)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            _riskEvents.Add(riskEvent);
+            if (_riskEvents.Count > MaxRuntimeEvents)
+            {
+                _riskEvents.RemoveRange(0, _riskEvents.Count - MaxRuntimeEvents);
+            }
+        }
+    }
+
+    public void UpsertRiskSnapshot(SecurityRiskSnapshotResponse snapshot)
+    {
+        lock (_gate)
+        {
+            _riskSnapshots[snapshot.Subject] = snapshot;
+            if (_riskSnapshots.Count <= MaxRuntimeSnapshots)
+            {
+                return;
+            }
+
+            string? oldest = _riskSnapshots
+                .OrderBy(static item => item.Value.UpdatedAtUtc)
+                .Select(static item => item.Key)
+                .FirstOrDefault();
+            if (!string.IsNullOrEmpty(oldest))
+            {
+                _riskSnapshots.Remove(oldest);
+            }
+        }
+    }
+
+    public IReadOnlyList<AntiCrawlerRiskEventResponse> ListRiskEvents(string? source = null, string? reason = null, int limit = 100)
+    {
+        lock (_gate)
+        {
+            IEnumerable<AntiCrawlerRiskEventResponse> query = _riskEvents;
+            if (!string.IsNullOrWhiteSpace(source))
+            {
+                query = query.Where(item => string.Equals(item.Source, source, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(reason))
+            {
+                query = query.Where(item => string.Equals(item.Reason, reason, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return query
+                .OrderByDescending(static item => item.OccurredAtUtc)
+                .Take(Math.Clamp(limit, 1, MaxRuntimeEvents))
+                .ToArray();
+        }
+    }
+
+    public IReadOnlyList<SecurityRiskSnapshotResponse> ListRiskSnapshots(int limit = 100)
+    {
+        lock (_gate)
+        {
+            return _riskSnapshots.Values
+                .OrderByDescending(static item => item.Score)
+                .ThenByDescending(static item => item.UpdatedAtUtc)
+                .Take(Math.Clamp(limit, 1, MaxRuntimeSnapshots))
+                .ToArray();
+        }
+    }
+
+    public IReadOnlyList<AntiCrawlerRuleResponse> ListRules()
+    {
+        lock (_gate)
+        {
+            return _rules.OrderBy(static item => item.Name, StringComparer.OrdinalIgnoreCase).ToArray();
+        }
+    }
+
+    public AntiCrawlerRuleResponse AddRule(AntiCrawlerRuleRequest request, string changedBy)
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var rule = CreateRule(
+            CreateSnapshotId("rule", now),
+            NormalizeName(request.Name, "自定义规则"),
+            request.Enabled,
+            NormalizeMatchType(request.MatchType),
+            request.Pattern.Trim(),
+            NormalizeRuleAction(request.Action),
+            Math.Clamp(request.Score, 0, 100),
+            NormalizeNullable(request.Notes),
+            NormalizeActor(changedBy),
+            now);
+        lock (_gate)
+        {
+            _rules.Add(rule);
+        }
+
+        return rule;
+    }
+
+    public AntiCrawlerRuleResponse? UpdateRule(string id, AntiCrawlerRuleRequest request, string changedBy)
+    {
+        lock (_gate)
+        {
+            int index = _rules.FindIndex(item => string.Equals(item.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                return null;
+            }
+
+            AntiCrawlerRuleResponse updated = _rules[index] with
+            {
+                Name = NormalizeName(request.Name, _rules[index].Name),
+                Enabled = request.Enabled,
+                MatchType = NormalizeMatchType(request.MatchType),
+                Pattern = request.Pattern.Trim(),
+                Action = NormalizeRuleAction(request.Action),
+                Score = Math.Clamp(request.Score, 0, 100),
+                Notes = NormalizeNullable(request.Notes),
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedBy = NormalizeActor(changedBy)
+            };
+            _rules[index] = updated;
+            return updated;
+        }
+    }
+
+    public bool DeleteRule(string id)
+    {
+        lock (_gate)
+        {
+            return _rules.RemoveAll(item => string.Equals(item.Id, id, StringComparison.OrdinalIgnoreCase)) > 0;
+        }
+    }
+
+    public IReadOnlyList<AntiCrawlerListEntryResponse> ListEntries(string listType)
+    {
+        List<AntiCrawlerListEntryResponse> source = ResolveList(listType);
+        lock (_gate)
+        {
+            return source.OrderBy(static item => item.Value, StringComparer.OrdinalIgnoreCase).ToArray();
+        }
+    }
+
+    public AntiCrawlerListEntryResponse AddEntry(string listType, AntiCrawlerListEntryRequest request, string changedBy)
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        string normalizedType = NormalizeListType(listType);
+        var entry = new AntiCrawlerListEntryResponse(
+            CreateSnapshotId(normalizedType, now),
+            normalizedType,
+            request.Value.Trim(),
+            NormalizeMatchType(request.Scope),
+            NormalizeNullable(request.Reason),
+            request.Enabled,
+            now,
+            NormalizeActor(changedBy));
+        List<AntiCrawlerListEntryResponse> list = ResolveList(normalizedType);
+        lock (_gate)
+        {
+            list.Add(entry);
+        }
+
+        return entry;
+    }
+
+    public bool DeleteEntry(string listType, string id)
+    {
+        List<AntiCrawlerListEntryResponse> list = ResolveList(listType);
+        lock (_gate)
+        {
+            return list.RemoveAll(item => string.Equals(item.Id, id, StringComparison.OrdinalIgnoreCase)) > 0;
+        }
+    }
+
+    public AntiCrawlerSimulationResult Simulate(AntiCrawlerSimulationRequest request)
+    {
+        AntiCrawlerPolicySnapshot policy = Current;
+        AntiCrawlerPolicyOptions options = policy.Options;
+        string mode = SecuritySystemModes.Normalize(options.Mode);
+        var matchedRules = new List<string>();
+        var matchedLists = new List<string>();
+        int scoreDelta = 0;
+        bool allowlisted = false;
+        bool blocklisted = false;
+
+        lock (_gate)
+        {
+            foreach (AntiCrawlerListEntryResponse entry in _allowlist.Where(static item => item.Enabled))
+            {
+                if (Matches(entry.Scope, entry.Value, request))
+                {
+                    allowlisted = true;
+                    matchedLists.Add($"allow:{entry.Value}");
+                }
+            }
+
+            foreach (AntiCrawlerListEntryResponse entry in _blocklist.Where(static item => item.Enabled))
+            {
+                if (Matches(entry.Scope, entry.Value, request))
+                {
+                    blocklisted = true;
+                    matchedLists.Add($"block:{entry.Value}");
+                }
+            }
+
+            foreach (AntiCrawlerRuleResponse rule in _rules.Where(static item => item.Enabled))
+            {
+                if (!Matches(rule.MatchType, rule.Pattern, request))
+                {
+                    continue;
+                }
+
+                matchedRules.Add($"{rule.Name}:{rule.Action}");
+                scoreDelta += rule.Score;
+                if (string.Equals(rule.Action, "block", StringComparison.OrdinalIgnoreCase))
+                {
+                    blocklisted = true;
+                }
+            }
+        }
+
+        int resultingRiskScore = Math.Clamp(request.CurrentRiskScore + scoreDelta, 0, options.MaxRiskScore);
+        bool wouldRequireChallenge = options.PublicReadChallengeEnabled
+            && SecuritySystemModes.IsEnforcing(mode)
+            && resultingRiskScore >= options.RequireChallengeScore
+            && resultingRiskScore < options.BlockScore;
+        bool wouldBlock = blocklisted
+            || (SecuritySystemModes.IsEnforcing(mode) && resultingRiskScore >= options.BlockScore);
+        string finalAction = ResolveSimulationAction(mode, allowlisted, wouldBlock, wouldRequireChallenge, matchedRules.Count > 0);
+
+        return new AntiCrawlerSimulationResult(
+            mode,
+            finalAction,
+            options.SearchCrawlerVerificationEnabled && IsSearchCrawlerUserAgent(request.UserAgent),
+            options.SocialPreviewGuardEnabled && IsSocialPreviewUserAgent(request.UserAgent),
+            wouldRequireChallenge,
+            wouldBlock,
+            scoreDelta,
+            resultingRiskScore,
+            matchedRules,
+            matchedLists,
+            options.SecurityChallengeReference);
+    }
+
+    private AntiCrawlerOverviewSummary BuildAntiCrawlerSummary(CrawlerRangeStatus ranges, CrawlerRangesAdminStatus syncStatus)
+    {
+        AntiCrawlerPolicyOptions options = Current.Options;
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        DateTimeOffset hour = now.AddHours(-1);
+        DateTimeOffset day = now.AddDays(-1);
+        IReadOnlyList<AntiCrawlerRiskEventResponse> events = ListRiskEvents(null, null, MaxRuntimeEvents);
+        int CountSourceReason(string source, SecurityRiskReason reason, DateTimeOffset since) => events.Count(item =>
+            item.OccurredAtUtc >= since &&
+            string.Equals(item.Source, source, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(item.Reason, reason.ToString(), StringComparison.Ordinal));
+        return new AntiCrawlerOverviewSummary(
+            SecuritySystemModes.Normalize(options.Mode),
+            SecuritySystemModes.Normalize(options.Mode) != SecuritySystemModes.Disabled,
+            SecuritySystemModes.IsEnforcing(options.Mode),
+            events.Count(item => item.OccurredAtUtc >= hour),
+            events.Count(item => item.OccurredAtUtc >= day),
+            events.Count(item => item.OccurredAtUtc >= day && item.Detail?.Contains("verified_crawler", StringComparison.OrdinalIgnoreCase) == true),
+            CountSourceReason(SecurityRiskSources.AntiCrawler, SecurityRiskReason.FakeCrawler, day),
+            CountSourceReason(SecurityRiskSources.AntiCrawler, SecurityRiskReason.UnknownBot, day),
+            CountSourceReason(SecurityRiskSources.AntiCrawler, SecurityRiskReason.BlockedUserAgent, day),
+            events.Count(item => item.OccurredAtUtc >= day && item.Detail?.Contains("social_preview", StringComparison.OrdinalIgnoreCase) == true),
+            ListRiskSnapshots(MaxRuntimeSnapshots).Count,
+            ranges.Source,
+            ranges.GoogleRanges,
+            ranges.BingRanges,
+            ranges.LastSyncAt,
+            syncStatus.NextSyncAt);
+    }
+
+    private SecurityRiskOverviewResponse BuildRiskOverview()
+    {
+        IReadOnlyList<AntiCrawlerRiskEventResponse> events = ListRiskEvents(null, null, MaxRuntimeEvents);
+        IReadOnlyList<SecurityRiskSnapshotResponse> snapshots = ListRiskSnapshots(MaxRuntimeSnapshots);
+        DateTimeOffset hour = DateTimeOffset.UtcNow.AddHours(-1);
+        DateTimeOffset day = DateTimeOffset.UtcNow.AddDays(-1);
+        string topReason = events
+            .GroupBy(static item => item.Reason, StringComparer.Ordinal)
+            .OrderByDescending(static group => group.Count())
+            .Select(static group => group.Key)
+            .FirstOrDefault() ?? "none";
+        string topSource = events
+            .GroupBy(static item => item.Source, StringComparer.Ordinal)
+            .OrderByDescending(static group => group.Count())
+            .Select(static group => group.Key)
+            .FirstOrDefault() ?? "none";
+        return new SecurityRiskOverviewResponse(
+            events.Count(item => item.OccurredAtUtc >= hour),
+            events.Count(item => item.OccurredAtUtc >= day),
+            snapshots.Count,
+            snapshots.Count(item => item.Score >= Current.Options.RequireChallengeScore),
+            topReason,
+            topSource);
+    }
+
+    private static AntiCrawlerPolicyOptions BuildDefaultAntiCrawlerOptions(IConfiguration configuration)
+    {
+        int minInterval = Math.Clamp(ReadInt(configuration, "Security:CrawlerCidrs:MinUpdateIntervalMinutes", 30), 30, 24 * 60);
+        int interval = Math.Max(ReadInt(configuration, "Security:CrawlerCidrs:UpdateIntervalMinutes", 1440), minInterval);
+        return new AntiCrawlerPolicyOptions(
+            SecuritySystemModes.Normalize(configuration["AntiCrawler:Mode"] ?? configuration["Security:AntiCrawler:Mode"]),
+            ReadBool(configuration, "AntiCrawler:PublicReadChallengeEnabled", true),
+            ReadBool(configuration, "AntiCrawler:SearchCrawlerVerificationEnabled", true),
+            ReadBool(configuration, "AntiCrawler:SocialPreviewGuardEnabled", true),
+            ReadBool(configuration, "AntiCrawler:RiskScoringEnabled", true),
+            ReadBool(configuration, "AntiCrawler:EventPersistenceEnabled", true),
+            ReadBool(configuration, "AntiCrawler:DashboardAggregationEnabled", true),
+            ReadBool(configuration, "Security:CrawlerCidrs:Enabled", true),
+            ReadBool(configuration, "AntiCrawler:IllegalPathHardAbortEnabled", true),
+            Math.Clamp(ReadInt(configuration, "Security:Risk:RequireChallengeScore", 50), 1, 1000),
+            Math.Clamp(ReadInt(configuration, "Security:Risk:BlockScore", 100), 1, 1000),
+            Math.Clamp(ReadInt(configuration, "Security:Risk:MaxRiskScore", 200), 1, 2000),
+            Math.Clamp(ReadInt(configuration, "Security:Risk:DefaultRiskTtlSeconds", 600), 30, 86_400),
+            Math.Clamp(ReadInt(configuration, "Security:Risk:ZeroRiskCacheTtlSeconds", 3), 1, 60),
+            Math.Clamp(ReadInt(configuration, "RateLimiting:FixedIpPermitLimit", 100), 1, 100_000),
+            Math.Clamp(ReadInt(configuration, "RateLimiting:FixedIpQueueLimit", 2), 0, 10_000),
+            Math.Clamp(ReadInt(configuration, "RateLimiting:VerifiedCrawlerFixedIpPermitLimit", 1000), 1, 100_000),
+            Math.Clamp(ReadInt(configuration, "RateLimiting:PublicReadPermitLimit", 120), 1, 100_000),
+            Math.Clamp(ReadInt(configuration, "RateLimiting:PublicReadQueueLimit", 2), 0, 10_000),
+            Math.Clamp(ReadInt(configuration, "RateLimiting:VerifiedCrawlerPublicReadPermitLimit", 1000), 1, 100_000),
+            Math.Clamp(ReadInt(configuration, "RateLimiting:SocialPreviewPublicReadPermitLimit", 30), 1, 100_000),
+            Math.Clamp(ReadInt(configuration, "RateLimiting:ReadProofPermitLimit", 30), 1, 100_000),
+            interval,
+            Math.Clamp(ReadInt(configuration, "Security:CrawlerCidrs:InitialDelaySeconds", 0), 0, 3600),
+            minInterval,
+            configuration["Security:CrawlerCidrs:GoogleUrl"] ?? "https://developers.google.com/static/search/apis/ipranges/googlebot.json",
+            configuration["Security:CrawlerCidrs:BingUrl"] ?? "https://www.bing.com/toolbox/bingbot.json",
+            NormalizeNullable(configuration["Security:CrawlerCidrs:SnapshotPath"]),
+            ReadStringList(configuration, "AntiCrawler:SocialPreviewAllowedPathPrefixes",
+            [
+                "/",
+                "/article/",
+                "/assets/",
+                "/uploads/",
+                "/favicon.ico",
+                "/robots.txt"
+            ]),
+            ReadStringList(configuration, "AntiCrawler:BlockedUserAgentKeywords",
+            [
+                "python",
+                "java",
+                "curl",
+                "wget",
+                "httpclient",
+                "axios",
+                "go-http-client",
+                "censys",
+                "zgrab"
+            ]),
+            "security.pow");
+    }
+
+    private static PowPolicyOptions BuildDefaultPowOptions(IConfiguration configuration)
+        => new(
+            SecuritySystemModes.Normalize(configuration["Pow:Mode"] ?? SecuritySystemModes.Enforce),
+            Math.Clamp(ReadInt(configuration, "Pow:DefaultDifficulty", 4), 1, 12),
+            ReadBool(configuration, "Pow:AdaptiveDifficultyEnabled", true),
+            Math.Clamp(ReadInt(configuration, "Pow:ProofTtlSeconds", 300), 30, 3600),
+            ReadBool(configuration, "Pow:ReplayProtectionEnabled", true),
+            ReadBool(configuration, "Pow:RiskScoreLinkEnabled", true),
+            "/api/binary/auth/pow-challenge",
+            "RedisPowService");
+
+    private AntiCrawlerPolicyOptions ApplyAntiCrawlerOptions(AntiCrawlerPolicyOptions current, AntiCrawlerOptionsUpdateRequest request)
+    {
+        int minInterval = Math.Clamp(request.CidrMinUpdateIntervalMinutes ?? current.CidrMinUpdateIntervalMinutes, 30, 24 * 60);
+        int interval = Math.Max(request.CidrUpdateIntervalMinutes ?? current.CidrUpdateIntervalMinutes, minInterval);
+        return current with
+        {
+            Mode = SecuritySystemModes.Normalize(request.Mode ?? current.Mode),
+            PublicReadChallengeEnabled = request.PublicReadChallengeEnabled ?? current.PublicReadChallengeEnabled,
+            SearchCrawlerVerificationEnabled = request.SearchCrawlerVerificationEnabled ?? current.SearchCrawlerVerificationEnabled,
+            SocialPreviewGuardEnabled = request.SocialPreviewGuardEnabled ?? current.SocialPreviewGuardEnabled,
+            RiskScoringEnabled = request.RiskScoringEnabled ?? current.RiskScoringEnabled,
+            EventPersistenceEnabled = request.EventPersistenceEnabled ?? current.EventPersistenceEnabled,
+            DashboardAggregationEnabled = request.DashboardAggregationEnabled ?? current.DashboardAggregationEnabled,
+            CidrAutoUpdateEnabled = request.CidrAutoUpdateEnabled ?? current.CidrAutoUpdateEnabled,
+            IllegalPathHardAbortEnabled = request.IllegalPathHardAbortEnabled ?? current.IllegalPathHardAbortEnabled,
+            RequireChallengeScore = Math.Clamp(request.RequireChallengeScore ?? current.RequireChallengeScore, 1, 1000),
+            BlockScore = Math.Clamp(request.BlockScore ?? current.BlockScore, 1, 1000),
+            MaxRiskScore = Math.Clamp(request.MaxRiskScore ?? current.MaxRiskScore, 1, 2000),
+            DefaultRiskTtlSeconds = Math.Clamp(request.DefaultRiskTtlSeconds ?? current.DefaultRiskTtlSeconds, 30, 86_400),
+            ZeroRiskCacheTtlSeconds = Math.Clamp(request.ZeroRiskCacheTtlSeconds ?? current.ZeroRiskCacheTtlSeconds, 1, 60),
+            FixedIpPermitLimit = Math.Clamp(request.FixedIpPermitLimit ?? current.FixedIpPermitLimit, 1, 100_000),
+            FixedIpQueueLimit = Math.Clamp(request.FixedIpQueueLimit ?? current.FixedIpQueueLimit, 0, 10_000),
+            VerifiedCrawlerFixedIpPermitLimit = Math.Clamp(request.VerifiedCrawlerFixedIpPermitLimit ?? current.VerifiedCrawlerFixedIpPermitLimit, 1, 100_000),
+            PublicReadPermitLimit = Math.Clamp(request.PublicReadPermitLimit ?? current.PublicReadPermitLimit, 1, 100_000),
+            PublicReadQueueLimit = Math.Clamp(request.PublicReadQueueLimit ?? current.PublicReadQueueLimit, 0, 10_000),
+            VerifiedCrawlerPublicReadPermitLimit = Math.Clamp(request.VerifiedCrawlerPublicReadPermitLimit ?? current.VerifiedCrawlerPublicReadPermitLimit, 1, 100_000),
+            SocialPreviewPublicReadPermitLimit = Math.Clamp(request.SocialPreviewPublicReadPermitLimit ?? current.SocialPreviewPublicReadPermitLimit, 1, 100_000),
+            ReadProofPermitLimit = Math.Clamp(request.ReadProofPermitLimit ?? current.ReadProofPermitLimit, 1, 100_000),
+            CidrUpdateIntervalMinutes = interval,
+            CidrInitialDelaySeconds = Math.Clamp(request.CidrInitialDelaySeconds ?? current.CidrInitialDelaySeconds, 0, 3600),
+            CidrMinUpdateIntervalMinutes = minInterval,
+            GoogleCrawlerRangesUrl = NormalizeUrl(request.GoogleCrawlerRangesUrl, current.GoogleCrawlerRangesUrl),
+            BingCrawlerRangesUrl = NormalizeUrl(request.BingCrawlerRangesUrl, current.BingCrawlerRangesUrl),
+            SnapshotPath = request.SnapshotPath is null ? current.SnapshotPath : NormalizeNullable(request.SnapshotPath),
+            SocialPreviewAllowedPathPrefixes = NormalizePathPrefixes(request.SocialPreviewAllowedPathPrefixes, current.SocialPreviewAllowedPathPrefixes),
+            BlockedUserAgentKeywords = NormalizeKeywords(request.BlockedUserAgentKeywords, current.BlockedUserAgentKeywords)
+        };
+    }
+
+    private static PowPolicyOptions ApplyPowOptions(PowPolicyOptions current, PowOptionsUpdateRequest request)
+        => current with
+        {
+            Mode = SecuritySystemModes.Normalize(request.Mode ?? current.Mode),
+            DefaultDifficulty = Math.Clamp(request.DefaultDifficulty ?? current.DefaultDifficulty, 1, 12),
+            AdaptiveDifficultyEnabled = request.AdaptiveDifficultyEnabled ?? current.AdaptiveDifficultyEnabled,
+            ProofTtlSeconds = Math.Clamp(request.ProofTtlSeconds ?? current.ProofTtlSeconds, 30, 3600),
+            ReplayProtectionEnabled = request.ReplayProtectionEnabled ?? current.ReplayProtectionEnabled,
+            RiskScoreLinkEnabled = request.RiskScoreLinkEnabled ?? current.RiskScoreLinkEnabled
+        };
+
+    private List<AntiCrawlerListEntryResponse> ResolveList(string listType)
+        => NormalizeListType(listType) == "allow" ? _allowlist : _blocklist;
+
+    private static AntiCrawlerRuleResponse CreateRule(
+        string id,
+        string name,
+        bool enabled,
+        string matchType,
+        string pattern,
+        string action,
+        int score,
+        string? notes,
+        string updatedBy,
+        DateTimeOffset updatedAt)
+        => new(
+            id,
+            name,
+            enabled,
+            NormalizeMatchType(matchType),
+            pattern,
+            NormalizeRuleAction(action),
+            Math.Clamp(score, 0, 100),
+            notes,
+            updatedAt,
+            updatedBy);
+
+    private static bool Matches(string matchType, string pattern, AntiCrawlerSimulationRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(pattern))
+        {
+            return false;
+        }
+
+        string source = NormalizeMatchType(matchType) switch
+        {
+            "ip" => request.Ip,
+            "path" => request.Path,
+            "method" => request.Method,
+            _ => request.UserAgent
+        };
+        return source.Contains(pattern, StringComparison.OrdinalIgnoreCase)
+            || pattern.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Any(token => source.Contains(token, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string ResolveSimulationAction(string mode, bool allowlisted, bool wouldBlock, bool wouldRequireChallenge, bool matchedRule)
+    {
+        if (allowlisted)
+        {
+            return "allow";
+        }
+
+        if (mode == SecuritySystemModes.Disabled)
+        {
+            return "disabled_allow";
+        }
+
+        if (mode == SecuritySystemModes.Observe)
+        {
+            return matchedRule ? "observe" : "allow";
+        }
+
+        if (wouldBlock)
+        {
+            return "block";
+        }
+
+        return wouldRequireChallenge ? "require_challenge" : "allow";
+    }
+
+    private static bool IsSearchCrawlerUserAgent(string userAgent)
+        => userAgent.Contains("Googlebot", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("Google-InspectionTool", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("bingbot", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("msnbot", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("Baiduspider", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("Sogou", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSocialPreviewUserAgent(string userAgent)
+        => userAgent.Contains("Twitterbot", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("facebookexternalhit", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("Discordbot", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("Slackbot", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("TelegramBot", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("LinkedInBot", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("WhatsApp", StringComparison.OrdinalIgnoreCase);
+
+    private static IReadOnlyList<string> NormalizePathPrefixes(IReadOnlyList<string>? values, IReadOnlyList<string> fallback)
+    {
+        if (values is null)
+        {
+            return fallback;
+        }
+
+        string[] normalized = values
+            .Select(static value => value.Trim())
+            .Where(static value => value.Length > 0)
+            .Select(static value => value.StartsWith("/", StringComparison.Ordinal) ? value : $"/{value}")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(64)
+            .ToArray();
+        return normalized.Length == 0 ? fallback : normalized;
+    }
+
+    private static IReadOnlyList<string> NormalizeKeywords(IReadOnlyList<string>? values, IReadOnlyList<string> fallback)
+    {
+        if (values is null)
+        {
+            return fallback;
+        }
+
+        string[] normalized = values
+            .Select(static value => value.Trim())
+            .Where(static value => value.Length is > 0 and <= 64)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(128)
+            .ToArray();
+        return normalized.Length == 0 ? fallback : normalized;
+    }
+
+    private static IReadOnlyList<string> ReadStringList(IConfiguration configuration, string key, IReadOnlyList<string> fallback)
+    {
+        string? value = configuration[key];
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        return NormalizeKeywords(value.Split([',', ';', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), fallback);
+    }
+
+    private static string NormalizeUrl(string? value, string fallback)
+        => Uri.TryCreate(value, UriKind.Absolute, out Uri? uri)
+            && uri.Scheme is "https" or "http"
+            ? uri.ToString()
+            : fallback;
+
+    private static string NormalizeListType(string value)
+        => string.Equals(value, "allow", StringComparison.OrdinalIgnoreCase) ||
+           string.Equals(value, "allowlist", StringComparison.OrdinalIgnoreCase)
+            ? "allow"
+            : "block";
+
+    private static string NormalizeMatchType(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? "user-agent"
+            : value.Trim().ToLowerInvariant() switch
+            {
+                "ip" => "ip",
+                "path" => "path",
+                "method" => "method",
+                "ua" => "user-agent",
+                "useragent" => "user-agent",
+                _ => "user-agent"
+            };
+
+    private static string NormalizeRuleAction(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? "observe"
+            : value.Trim().ToLowerInvariant() switch
+            {
+                "allow" => "allow",
+                "block" => "block",
+                "require_challenge" => "require_challenge",
+                "challenge" => "require_challenge",
+                _ => "observe"
+            };
+
+    private static string NormalizeName(string? value, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        string trimmed = value.Trim();
+        return trimmed[..Math.Min(trimmed.Length, 80)];
+    }
+
+    private static string? NormalizeNullable(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string NormalizeActor(string? actor)
+        => string.IsNullOrWhiteSpace(actor) ? "system" : actor.Trim();
+
+    private static string? NormalizeReason(string? reason)
+        => string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+
+    private static int ReadInt(IConfiguration configuration, string key, int fallback)
+        => configuration.GetValue<int?>(key) ?? fallback;
+
+    private static bool ReadBool(IConfiguration configuration, string key, bool fallback)
+        => configuration.GetValue<bool?>(key) ?? fallback;
+
+    private static string CreateSnapshotId(string prefix, DateTimeOffset timestamp)
+        => $"{prefix}-{timestamp:yyyyMMddHHmmssfff}-{Random.Shared.Next(1000, 9999)}";
+}

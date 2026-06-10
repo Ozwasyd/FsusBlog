@@ -1,4 +1,6 @@
 ﻿using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 using System.Net;
 using System.Text.Json;
@@ -12,20 +14,38 @@ public class CrawlerUpdateWorker(
     IServiceProvider _serviceProvider,
     IConfiguration _configuration,
     IHttpClientFactory _httpClientFactory,
-    ILogger<CrawlerUpdateWorker> _logger) : BackgroundService
+    IAntiCrawlerPolicyProvider _policyProvider,
+    ILogger<CrawlerUpdateWorker> _logger) : BackgroundService, ICrawlerRangeSyncService
 {
     private const int MaxCidrsPerProvider = 8192;
     private static readonly Uri DefaultGoogleRangeUrl = new("https://developers.google.com/static/search/apis/ipranges/googlebot.json");
     private static readonly Uri DefaultBingRangeUrl = new("https://www.bing.com/toolbox/bingbot.json");
+    private DateTimeOffset? _nextSyncAt;
+    private DateTimeOffset? _lastStartedAt;
+    private DateTimeOffset? _lastFinishedAt;
+    private volatile string _lastOutcome = "not_started";
+    private int _running;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromHours(24));
+        TimeSpan initialDelay = TimeSpan.FromSeconds(_policyProvider.Current.Options.CidrInitialDelaySeconds);
         await BackgroundTaskExecutor.RunLoopAsync(
             async token =>
             {
-                await SynchronizeOnceAsync(token);
-                return await timer.WaitForNextTickAsync(token);
+                if (initialDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(initialDelay, token);
+                    initialDelay = TimeSpan.Zero;
+                }
+
+                AntiCrawlerPolicyOptions options = _policyProvider.Current.Options;
+                if (options.CidrAutoUpdateEnabled)
+                {
+                    await SynchronizeOnceAsync(token);
+                }
+
+                await WaitForNextPolicyTickAsync(token);
+                return true;
             },
             _logger,
             "crawler-update-worker",
@@ -37,7 +57,62 @@ public class CrawlerUpdateWorker(
             });
     }
 
-    internal async Task SynchronizeOnceAsync(CancellationToken token)
+    public CrawlerRangesAdminStatus GetStatus()
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var detector = scope.ServiceProvider.GetRequiredService<CrawlerDetectorService>();
+        CrawlerRangeStatus status = detector.GetRangeStatus();
+        AntiCrawlerPolicyOptions options = _policyProvider.Current.Options;
+        return new CrawlerRangesAdminStatus(
+            options.CidrAutoUpdateEnabled,
+            options.CidrUpdateIntervalMinutes,
+            options.CidrMinUpdateIntervalMinutes,
+            options.CidrInitialDelaySeconds,
+            _nextSyncAt,
+            _lastStartedAt,
+            _lastFinishedAt,
+            _lastOutcome,
+            Volatile.Read(ref _running) == 1,
+            status.GoogleRanges,
+            status.BingRanges,
+            status.LastSyncAt,
+            status.LastSuccessAt,
+            status.Source,
+            status.LastError,
+            options.GoogleCrawlerRangesUrl,
+            options.BingCrawlerRangesUrl,
+            options.SnapshotPath);
+    }
+
+    public async Task<CrawlerRangeSyncResponse> SynchronizeOnceAsync(CancellationToken token = default)
+    {
+        if (Interlocked.Exchange(ref _running, 1) == 1)
+        {
+            return new CrawlerRangeSyncResponse(GetStatus(), "already_running", DateTimeOffset.UtcNow);
+        }
+
+        _lastStartedAt = DateTimeOffset.UtcNow;
+        _lastOutcome = "running";
+        try
+        {
+            CrawlerRangeStatus status = await SynchronizeCoreAsync(token);
+            _lastFinishedAt = DateTimeOffset.UtcNow;
+            _lastOutcome = string.IsNullOrWhiteSpace(status.LastError) ? "success" : "degraded";
+            return new CrawlerRangeSyncResponse(GetStatus(), _lastOutcome, _lastFinishedAt.Value);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !token.IsCancellationRequested)
+        {
+            _lastFinishedAt = DateTimeOffset.UtcNow;
+            _lastOutcome = ex.GetType().Name;
+            throw;
+        }
+        finally
+        {
+            Volatile.Write(ref _running, 0);
+        }
+    }
+
+    private async Task<CrawlerRangeStatus> SynchronizeCoreAsync(CancellationToken token)
     {
         _logger.LogInformation("开始同步搜索引擎 IP 白名单...");
 
@@ -47,12 +122,13 @@ public class CrawlerUpdateWorker(
 
         DateTimeOffset syncStartedAt = DateTimeOffset.UtcNow;
         var errors = new List<string>(2);
-        CrawlerRangeSnapshot? snapshot = LoadSnapshot();
+        AntiCrawlerPolicyOptions options = _policyProvider.Current.Options;
+        CrawlerRangeSnapshot? snapshot = LoadSnapshot(options);
         var configGoogle = ParseConfiguredCidrs(_configuration["Security:CrawlerCidrs:Google"]);
         var configBing = ParseConfiguredCidrs(_configuration["Security:CrawlerCidrs:Bing"]);
 
-        var remoteGoogle = await FetchRemoteCidrsAsync(ResolveUri("Security:CrawlerCidrs:GoogleUrl", DefaultGoogleRangeUrl), "google", errors, token);
-        var remoteBing = await FetchRemoteCidrsAsync(ResolveUri("Security:CrawlerCidrs:BingUrl", DefaultBingRangeUrl), "bing", errors, token);
+        var remoteGoogle = await FetchRemoteCidrsAsync(ResolveUri(options.GoogleCrawlerRangesUrl, DefaultGoogleRangeUrl), "google", errors, token);
+        var remoteBing = await FetchRemoteCidrsAsync(ResolveUri(options.BingCrawlerRangesUrl, DefaultBingRangeUrl), "bing", errors, token);
 
         var googleSelection = SelectRanges(remoteGoogle, snapshot?.Google, configGoogle);
         var bingSelection = SelectRanges(remoteBing, snapshot?.Bing, configBing);
@@ -64,7 +140,7 @@ public class CrawlerUpdateWorker(
 
         if (remoteSucceeded && hasRanges)
         {
-            SaveSnapshot(new CrawlerRangeSnapshot(googleCidrs, bingCidrs, syncStartedAt));
+            SaveSnapshot(new CrawlerRangeSnapshot(googleCidrs, bingCidrs, syncStartedAt), options);
         }
 
         string? lastError = errors.Count == 0
@@ -86,6 +162,33 @@ public class CrawlerUpdateWorker(
             TruncateError(lastError));
 
         detector.UpdateCidrLists(googleCidrs, bingCidrs, status);
+        return status;
+    }
+
+    private async Task WaitForNextPolicyTickAsync(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            AntiCrawlerPolicyOptions options = _policyProvider.Current.Options;
+            if (!options.CidrAutoUpdateEnabled)
+            {
+                _nextSyncAt = null;
+                await Task.Delay(TimeSpan.FromSeconds(30), token);
+                continue;
+            }
+
+            TimeSpan interval = TimeSpan.FromMinutes(Math.Max(options.CidrUpdateIntervalMinutes, options.CidrMinUpdateIntervalMinutes));
+            DateTimeOffset anchor = _lastFinishedAt ?? DateTimeOffset.UtcNow;
+            DateTimeOffset next = anchor.Add(interval);
+            _nextSyncAt = next;
+            TimeSpan remaining = next - DateTimeOffset.UtcNow;
+            if (remaining <= TimeSpan.Zero)
+            {
+                return;
+            }
+
+            await Task.Delay(remaining < TimeSpan.FromSeconds(30) ? remaining : TimeSpan.FromSeconds(30), token);
+        }
     }
 
     private static List<string> ParseConfiguredCidrs(string? value)
@@ -113,9 +216,8 @@ public class CrawlerUpdateWorker(
         return list;
     }
 
-    private Uri ResolveUri(string key, Uri fallback)
+    private static Uri ResolveUri(string? configured, Uri fallback)
     {
-        string? configured = _configuration[key];
         return Uri.TryCreate(configured, UriKind.Absolute, out Uri? uri)
             ? uri
             : fallback;
@@ -145,9 +247,9 @@ public class CrawlerUpdateWorker(
         }
     }
 
-    private CrawlerRangeSnapshot? LoadSnapshot()
+    private CrawlerRangeSnapshot? LoadSnapshot(AntiCrawlerPolicyOptions options)
     {
-        string path = ResolveSnapshotPath();
+        string path = ResolveSnapshotPath(options);
         if (!File.Exists(path))
         {
             return null;
@@ -165,9 +267,9 @@ public class CrawlerUpdateWorker(
         }
     }
 
-    private void SaveSnapshot(CrawlerRangeSnapshot snapshot)
+    private void SaveSnapshot(CrawlerRangeSnapshot snapshot, AntiCrawlerPolicyOptions options)
     {
-        string path = ResolveSnapshotPath();
+        string path = ResolveSnapshotPath(options);
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -180,9 +282,9 @@ public class CrawlerUpdateWorker(
         }
     }
 
-    private string ResolveSnapshotPath()
+    private string ResolveSnapshotPath(AntiCrawlerPolicyOptions options)
     {
-        string? configured = _configuration["Security:CrawlerCidrs:SnapshotPath"];
+        string? configured = options.SnapshotPath ?? _configuration["Security:CrawlerCidrs:SnapshotPath"];
         if (!string.IsNullOrWhiteSpace(configured))
         {
             return configured;

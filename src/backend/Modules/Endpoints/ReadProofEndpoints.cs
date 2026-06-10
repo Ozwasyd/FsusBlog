@@ -22,7 +22,7 @@ public static class ReadProofEndpoints
             int? articleId,
             HttpContext context,
             IHumanReadProofEndpointAdapter proofAdapter,
-            ICrawlerRiskService crawlerRisk,
+            ISecurityRiskSignalSink riskSignalSink,
             CancellationToken cancellationToken) =>
         {
             var response = await proofAdapter.CreateChallengeAsync(
@@ -31,7 +31,14 @@ public static class ReadProofEndpoints
                 cancellationToken);
             if (response is null)
             {
-                await crawlerRisk.AddRiskAsync(context, CrawlerRiskReason.ReadProofRejected, 5, TimeSpan.FromMinutes(10), cancellationToken);
+                await riskSignalSink.AddRiskAsync(new SecurityRiskSignal(
+                    context,
+                    SecurityRiskReason.ReadProofRejected,
+                    5,
+                    TimeSpan.FromMinutes(10),
+                    SecurityRiskSources.HumanReadProof,
+                    "read_proof_rejected",
+                    "challenge_rejected"), cancellationToken);
             }
 
             return Results.Ok(JsonApiResponse<HumanReadChallengeResponse>.Ok(
@@ -42,13 +49,20 @@ public static class ReadProofEndpoints
             HumanReadSubmitRequest request,
             HttpContext context,
             IHumanReadProofEndpointAdapter proofAdapter,
-            ICrawlerRiskService crawlerRisk,
+            ISecurityRiskSignalSink riskSignalSink,
             CancellationToken cancellationToken) =>
         {
             HumanReadSubmitResponse response = await proofAdapter.SubmitAsync(context, request, cancellationToken);
             if (!response.Counted && ShouldScoreRejectedSubmit(response.Status))
             {
-                await crawlerRisk.AddRiskAsync(context, CrawlerRiskReason.ReadProofRejected, ReadProofRiskScore(response.Status), TimeSpan.FromMinutes(10), cancellationToken);
+                await riskSignalSink.AddRiskAsync(new SecurityRiskSignal(
+                    context,
+                    SecurityRiskReason.ReadProofRejected,
+                    ReadProofRiskScore(response.Status),
+                    TimeSpan.FromMinutes(10),
+                    SecurityRiskSources.HumanReadProof,
+                    "read_proof_rejected",
+                    response.Status), cancellationToken);
             }
 
             return Results.Ok(JsonApiResponse<HumanReadSubmitResponse>.Ok(response));

@@ -1034,6 +1034,30 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 `ModerationRuntimeStatusResponse` 返回 `snapshotId/globalState/regionStates/disabledDictionaryIds/model/changedAtUtc/changedBy/reason/expiresAtUtc/lastError`。`model` 是 `ModerationModelRuntimeResponse`，包含 `snapshotId/enabled/provider/modelProfile/thresholdProfile/contractVersion/configChecksum/loadedAtUtc/loadedBy/status/timeoutMs/failOpen/externalProviderAllowed/externalProviderReviewed/lastError`。全局状态支持 `enabled/read_only/disabled_to_pending/emergency_lockdown`，服务层仍能表达 `disabled_pass_through`，但 production 默认拒绝该状态；地区状态支持 `enabled/manual_review_only/no_public_display/read_only/disabled`。请求体包括：`ModerationRuntimeGlobalStateRequest(state, reason?, expiresAtUtc?)`、`ModerationRuntimeRegionStateRequest(region, state, reason?, expiresAtUtc?, confirmPhrase?)`、`ModerationDictionaryStateRequest(reason?, confirmPhrase?)`、`ModerationModelRuntimeRequest(enabled?, provider?, modelProfile?, thresholdProfile?, reason?)`。`CN-MAINLAND` 地区非 `enabled` 变更和强制词库禁用必须传 `confirmPhrase="CONFIRM CN-MAINLAND MODERATION CHANGE"`；`CN-MAINLAND` 地区状态不得设为 `disabled`。
 
+### Admin 安全系统
+
+`/api/admin/security/**` 全部要求 admin 角色，统一返回 `JsonApiResponse<T>`。写入型和高价值操作必须携带 action=`admin-sensitive` 的一次性 `X-Fsus-Mfa-Proof`，并写入高价值安全审计。
+
+安全系统 IA 与 API 边界：
+
+- `GET /api/admin/security/overview` 返回 `SecurityOverviewResponse(status, checkedAtUtc, antiCrawler, pow, risk)`。
+- `GET /api/admin/security/anti-crawler/overview` 返回 `AntiCrawlerOverviewResponse(policy, summary, crawlerRanges, recentEvents, rules, allowlist, blocklist)`。
+- `GET|PUT /api/admin/security/anti-crawler/options` 读取或更新 `AntiCrawlerPolicySnapshot`。
+- `POST /api/admin/security/anti-crawler/options/rollback` 回滚上一份反爬虫策略快照。
+- `GET|POST /api/admin/security/anti-crawler/crawler-ranges/status|sync` 查看 CIDR worker 状态或手动同步。
+- `GET /api/admin/security/anti-crawler/risk-events`、`GET /api/admin/security/risk/events`、`GET /api/admin/security/risk/snapshots` 分别读取反爬虫事件、统一风险事件和风险主体快照。
+- `GET|POST|PUT|DELETE /api/admin/security/anti-crawler/rules` 管理运行时反爬虫规则。
+- `GET|POST|DELETE /api/admin/security/anti-crawler/allowlist|blocklist` 管理运行时 allow/blocklist。
+- `POST /api/admin/security/anti-crawler/simulate` 只返回 dry-run 结果，不修改策略或风险分。
+- `GET|PUT /api/admin/security/pow/options` 和 `GET /api/admin/security/pow/overview` 管理 PoW 独立策略。
+- `POST /api/admin/security/risk/ip/reset` 重置指定 IP 的统一风险分。
+
+`AntiCrawlerPolicyOptions` 包含 `mode`（`disabled|observe|enforce|strict`）、局部开关 `publicReadChallengeEnabled/searchCrawlerVerificationEnabled/socialPreviewGuardEnabled/riskScoringEnabled/eventPersistenceEnabled/dashboardAggregationEnabled/cidrAutoUpdateEnabled/illegalPathHardAbortEnabled`、阈值 `requireChallengeScore/blockScore/maxRiskScore`、TTL、crawler-aware rate limiter 额度、CIDR 更新时间和 Google/Bing URL。`disabled` 只关闭 crawler 类处置，不关闭 PoW、认证、授权、CORS、Fetch Metadata 或基础路径安全；`observe` 记录事件但不拦截、不触发 public read challenge 升级；`strict` 提高 crawler 类风险分。更新时间运行时热更新，最小间隔默认 30 分钟。
+
+`PowPolicyOptions` 独立包含 `mode/defaultDifficulty/adaptiveDifficultyEnabled/proofTtlSeconds/replayProtectionEnabled/riskScoreLinkEnabled/challengeEndpoint/verificationStrategy`。PoW 是安全系统下与 AntiCrawler 并列的 challenge 能力；反爬虫页面只展示 `securityChallengeReference`，不得把 PoW 作为反爬虫子配置。
+
+统一风险抽象为 `SecurityRisk`：`ISecurityRiskSignalSink` 写入 `anti-crawler/rate-limiter/pow/human-read-proof/public-read` 来源事件，`ISecurityRiskScoreReader` 读取和重置主体风险分，`ISecurityRiskPolicyProvider` 提供 `SecurityRiskPolicySnapshot`。旧 `CrawlerRiskService` 作为兼容实现保留，但 API 与前端不再把 PoW、ReadProof、RateLimiter 归入 AntiCrawler。
+
 `AiAssistResponse` 返回 `providerEnabled`、`providerMode`、`externalProviderAllowed`、`auditEvent`、`suggestedSummary`、`suggestedTags`、`titleCandidates`、`translationDraft`、`structureIssues`。前端编辑器只能在 admin 作者工作台内调用该接口；调用结果可用于采用摘要、关联已有标签、采用标题候选或查看结构检查。外部 provider 必须同时满足 `Authoring:AiAssist:Enabled=true`、非 `local` provider、`AllowExternalProvider=true`、`ExternalProviderReviewed=true`，否则 `externalProviderAllowed=false` 且服务端只返回本地建议。
 
 `ArticlePreviewResponse` 只用于作者工作台内嵌预览：`html` 是服务端按公开阅读页常用 Markdown block/inline 语义生成的安全片段，前端放入 sandboxed iframe；`plainText` 用于字数和摘要提示；`issues` 复用发布前检查结果。该响应不得被缓存为公开 AOT、不得进入 feed/sitemap/search/related-reading，也不得被匿名接口返回。

@@ -10,7 +10,9 @@ public sealed class AntiCrawlerSecurityContractTests
         string source = Read("src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs");
 
         Assert.Contains("options.OnRejected", source, StringComparison.Ordinal);
-        Assert.Contains("CrawlerRiskReason.RateLimited", source, StringComparison.Ordinal);
+        Assert.Contains("ISecurityRiskSignalSink", source, StringComparison.Ordinal);
+        Assert.Contains("SecurityRiskReason.RateLimited", source, StringComparison.Ordinal);
+        Assert.Contains("IAntiCrawlerPolicyProvider", source, StringComparison.Ordinal);
         Assert.Contains("IsVerifiedCrawlerPublicRead", source, StringComparison.Ordinal);
         Assert.Contains("options.AddPolicy(\"read_proof\"", source, StringComparison.Ordinal);
         Assert.Contains("options.AddPolicy(\"public_read\"", source, StringComparison.Ordinal);
@@ -23,8 +25,12 @@ public sealed class AntiCrawlerSecurityContractTests
     {
         string source = Read("src/backend/Infrastructure/Middlewares/ShieldMiddleware.cs");
 
-        Assert.Contains("CrawlerRiskReason.FakeCrawler", source, StringComparison.Ordinal);
-        Assert.Contains("CrawlerRiskReason.BlockedUserAgent", source, StringComparison.Ordinal);
+        Assert.Contains("IAntiCrawlerPolicyProvider", source, StringComparison.Ordinal);
+        Assert.Contains("ISecurityRiskSignalSink", source, StringComparison.Ordinal);
+        Assert.Contains("SecuritySystemModes.Disabled", source, StringComparison.Ordinal);
+        Assert.Contains("SecuritySystemModes.Observe", source, StringComparison.Ordinal);
+        Assert.Contains("SecurityRiskReason.FakeCrawler", source, StringComparison.Ordinal);
+        Assert.Contains("SecurityRiskReason.BlockedUserAgent", source, StringComparison.Ordinal);
         Assert.Contains("Twitterbot", source, StringComparison.Ordinal);
         Assert.Contains("facebookexternalhit", source, StringComparison.Ordinal);
         Assert.Contains("context.Items[\"VerifiedCrawler\"] = true", source, StringComparison.Ordinal);
@@ -38,13 +44,19 @@ public sealed class AntiCrawlerSecurityContractTests
         string worker = Read("src/backend/Services/Background/CrawlerUpdateWorker.cs");
         string detector = Read("src/backend/Services/Security/CrawlerDetectorService.cs");
         string health = Read("src/backend/Infrastructure/Operations/ProductionHealth.cs");
+        string endpoints = Read("src/backend/Modules/Endpoints/SecurityEndpoints.cs");
 
         Assert.Contains("https://developers.google.com/static/search/apis/ipranges/googlebot.json", worker, StringComparison.Ordinal);
         Assert.Contains("https://www.bing.com/toolbox/bingbot.json", worker, StringComparison.Ordinal);
         Assert.Contains("CrawlerRangeSnapshot", worker, StringComparison.Ordinal);
         Assert.Contains("SelectRanges(remoteGoogle, snapshot?.Google, configGoogle)", worker, StringComparison.Ordinal);
+        Assert.Contains("ICrawlerRangeSyncService", worker, StringComparison.Ordinal);
+        Assert.Contains("CidrUpdateIntervalMinutes", worker, StringComparison.Ordinal);
+        Assert.Contains("WaitForNextPolicyTickAsync", worker, StringComparison.Ordinal);
         Assert.Contains("GetRangeStatus()", detector, StringComparison.Ordinal);
         Assert.Contains("/api/ops/crawler-ranges/status", health, StringComparison.Ordinal);
+        Assert.Contains("/anti-crawler/crawler-ranges/status", endpoints, StringComparison.Ordinal);
+        Assert.Contains("/anti-crawler/crawler-ranges/sync", endpoints, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -60,8 +72,42 @@ public sealed class AntiCrawlerSecurityContractTests
         Assert.Contains("RequireRateLimiting(\"public_read\")", taxonomy, StringComparison.Ordinal);
         Assert.Contains("AddEndpointFilter<RiskAwarePublicReadFilter>()", distribution, StringComparison.Ordinal);
         Assert.Contains("RequireRateLimiting(\"read_proof\")", readProof, StringComparison.Ordinal);
-        Assert.Contains("CrawlerRiskReason.ReadProofRejected", readProof, StringComparison.Ordinal);
-        Assert.Contains("CrawlerRiskReason.PowInvalid", pow, StringComparison.Ordinal);
+        Assert.Contains("ISecurityRiskSignalSink", readProof, StringComparison.Ordinal);
+        Assert.Contains("SecurityRiskSources.HumanReadProof", readProof, StringComparison.Ordinal);
+        Assert.Contains("SecurityRiskReason.ReadProofRejected", readProof, StringComparison.Ordinal);
+        Assert.Contains("ISecurityRiskSignalSink", pow, StringComparison.Ordinal);
+        Assert.Contains("SecurityRiskSources.Pow", pow, StringComparison.Ordinal);
+        Assert.Contains("SecurityRiskReason.PowInvalid", pow, StringComparison.Ordinal);
+        Assert.Contains("SecurityRiskPolicySnapshot", Read("src/backend/Infrastructure/Filters/RiskAwarePublicReadFilter.cs"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SecurityAdminConsole_SeparatesAntiCrawlerPowAndSecurityRisk()
+    {
+        string endpoints = Read("src/backend/Modules/Endpoints/SecurityEndpoints.cs");
+        string models = Read("src/backend/Models/Security/SecurityAdminModels.cs");
+        string abstractions = Read("src/backend/Infrastructure/Security/SecurityRiskAbstractions.cs");
+        string service = Read("src/backend/Services/Security/SecurityAdminPolicyService.cs");
+        string registration = Read("src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
+
+        Assert.Contains("/api/admin/security", endpoints, StringComparison.Ordinal);
+        Assert.Contains("/anti-crawler/overview", endpoints, StringComparison.Ordinal);
+        Assert.Contains("/anti-crawler/options", endpoints, StringComparison.Ordinal);
+        Assert.Contains("/pow/overview", endpoints, StringComparison.Ordinal);
+        Assert.Contains("/pow/options", endpoints, StringComparison.Ordinal);
+        Assert.Contains("/risk/events", endpoints, StringComparison.Ordinal);
+        Assert.Contains("/risk/snapshots", endpoints, StringComparison.Ordinal);
+        Assert.Contains("SecuritySystemModes", models, StringComparison.Ordinal);
+        Assert.Contains("disabled", models, StringComparison.Ordinal);
+        Assert.Contains("observe", models, StringComparison.Ordinal);
+        Assert.Contains("enforce", models, StringComparison.Ordinal);
+        Assert.Contains("strict", models, StringComparison.Ordinal);
+        Assert.Contains("ISecurityRiskSignalSink", abstractions, StringComparison.Ordinal);
+        Assert.Contains("ISecurityRiskScoreReader", abstractions, StringComparison.Ordinal);
+        Assert.Contains("ISecurityRiskPolicyProvider", abstractions, StringComparison.Ordinal);
+        Assert.Contains("security.pow", service, StringComparison.Ordinal);
+        Assert.Contains("AddSingleton<ISecurityAdminPolicyService", registration, StringComparison.Ordinal);
+        Assert.Contains("AddSingleton<ISecurityRiskSignalSink", registration, StringComparison.Ordinal);
     }
 
     [Fact]

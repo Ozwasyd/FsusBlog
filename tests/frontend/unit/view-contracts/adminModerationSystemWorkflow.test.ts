@@ -45,6 +45,8 @@ describe('admin moderation system workflow contract', () => {
     expect(tabs).toContain('策略回放')
     expect(tabs).toContain('审核模型')
     expect(tabs).toContain('审核审计')
+    expect(tabs).not.toContain('反爬虫系统')
+    expect(router).not.toContain("name: 'ManageModerationCrawler'")
   })
 
   it('keeps policy and model boundaries visible in the console', () => {

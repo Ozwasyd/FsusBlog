@@ -212,6 +212,7 @@ public static class WebApplicationCompositionExtensions
         app.MapBinaryEndpoints();
         app.MapReadProofEndpoints();
         app.MapAuthoringEndpoints();
+        app.MapSecurityEndpoints();
         app.MapSubscriptionEndpoints();
         app.MapTelemetryEndpoints();
         app.MapPublicAotEndpoints();

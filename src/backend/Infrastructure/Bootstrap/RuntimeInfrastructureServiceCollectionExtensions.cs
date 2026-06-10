@@ -72,11 +72,19 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
 
     private static IServiceCollection AddCrawlerAndSearchRuntime(this IServiceCollection services)
     {
+        services.AddSingleton<ISecurityAdminPolicyService, SecurityAdminPolicyService>();
+        services.AddSingleton<IAntiCrawlerPolicyProvider>(sp => sp.GetRequiredService<ISecurityAdminPolicyService>());
+        services.AddSingleton<IPowPolicyProvider>(sp => sp.GetRequiredService<ISecurityAdminPolicyService>());
+        services.AddSingleton<ISecurityRiskPolicyProvider>(sp => sp.GetRequiredService<ISecurityAdminPolicyService>());
         services.AddSingleton<CrawlerDetectorService>();
         services.AddSingleton<ICrawlerRiskService, CrawlerRiskService>();
+        services.AddSingleton<ISecurityRiskSignalSink>(sp => (CrawlerRiskService)sp.GetRequiredService<ICrawlerRiskService>());
+        services.AddSingleton<ISecurityRiskScoreReader>(sp => (CrawlerRiskService)sp.GetRequiredService<ICrawlerRiskService>());
+        services.AddSingleton<CrawlerUpdateWorker>();
+        services.AddSingleton<ICrawlerRangeSyncService>(sp => sp.GetRequiredService<CrawlerUpdateWorker>());
         if (!OpenApiExportMode.IsEnabled())
         {
-            services.AddHostedService<CrawlerUpdateWorker>();
+            services.AddHostedService(sp => sp.GetRequiredService<CrawlerUpdateWorker>());
         }
         services.AddSingleton<ISearchIndexService, SearchIndexService>();
         return services;

@@ -241,6 +241,33 @@
 | POST | `/api/author/moderation/model/runtime` | 👑🚦 MFA | 热切换模型 provider/profile/启停状态 |
 | POST | `/api/author/moderation/model/reload` | 👑🚦 MFA | 从配置热重载模型运行快照 |
 | POST | `/api/author/moderation/model/rollback` | 👑🚦 MFA | 回滚上一份模型运行快照 |
+| GET | `/api/admin/security/overview` | 👑 | 安全系统总览：AntiCrawler、PoW、SecurityRisk |
+| GET | `/api/admin/security/anti-crawler/overview` | 👑 | 反爬虫总览、CIDR、风险事件、规则与 list |
+| GET | `/api/admin/security/anti-crawler/options` | 👑 | 反爬虫运行策略快照 |
+| PUT | `/api/admin/security/anti-crawler/options` | 👑🚦 MFA | 更新 AntiCrawler mode、局部开关、阈值、限流额度和 CIDR 更新配置 |
+| POST | `/api/admin/security/anti-crawler/options/rollback` | 👑🚦 MFA | 回滚上一份反爬虫策略快照 |
+| GET | `/api/admin/security/anti-crawler/crawler-ranges/status` | 👑 | CIDR worker 状态、更新时间、下次同步和 range 数量 |
+| POST | `/api/admin/security/anti-crawler/crawler-ranges/sync` | 👑🚦 MFA | 手动同步 Google/Bing crawler CIDR |
+| GET | `/api/admin/security/anti-crawler/risk-events` | 👑 | 反爬虫风险事件列表 |
+| GET | `/api/admin/security/anti-crawler/rules` | 👑 | 反爬虫规则列表 |
+| POST | `/api/admin/security/anti-crawler/rules` | 👑🚦 MFA | 新增反爬虫规则 |
+| PUT | `/api/admin/security/anti-crawler/rules/{id}` | 👑🚦 MFA | 更新反爬虫规则 |
+| DELETE | `/api/admin/security/anti-crawler/rules/{id}` | 👑🚦 MFA | 删除反爬虫规则 |
+| GET | `/api/admin/security/anti-crawler/allowlist` | 👑 | 反爬虫 allowlist |
+| POST | `/api/admin/security/anti-crawler/allowlist` | 👑🚦 MFA | 新增 allowlist 条目 |
+| DELETE | `/api/admin/security/anti-crawler/allowlist/{id}` | 👑🚦 MFA | 删除 allowlist 条目 |
+| GET | `/api/admin/security/anti-crawler/blocklist` | 👑 | 反爬虫 blocklist |
+| POST | `/api/admin/security/anti-crawler/blocklist` | 👑🚦 MFA | 新增 blocklist 条目 |
+| DELETE | `/api/admin/security/anti-crawler/blocklist/{id}` | 👑🚦 MFA | 删除 blocklist 条目 |
+| POST | `/api/admin/security/anti-crawler/simulate` | 👑🚦 | 反爬虫策略模拟器，不执行变更 |
+| GET | `/api/admin/security/pow/overview` | 👑 | PoW 系统总览 |
+| GET | `/api/admin/security/pow/options` | 👑 | PoW 独立策略快照 |
+| PUT | `/api/admin/security/pow/options` | 👑🚦 MFA | 更新 PoW mode、difficulty、TTL、replay 和风险联动 |
+| POST | `/api/admin/security/pow/options/rollback` | 👑🚦 MFA | 回滚上一份 PoW 策略快照 |
+| GET | `/api/admin/security/pow/events` | 👑 | PoW 风险事件 |
+| GET | `/api/admin/security/risk/events` | 👑 | 统一安全风险事件 |
+| GET | `/api/admin/security/risk/snapshots` | 👑 | 统一安全风险主体快照 |
+| POST | `/api/admin/security/risk/ip/reset` | 👑🚦 MFA | 重置指定 IP 风险分 |
 | GET | `/api/author/content/export` | 👑 | 全站内容备份包 |
 | GET | `/api/author/articles/{articleId}/export` | 👑 | 导出 Markdown + frontmatter |
 | POST | `/api/author/articles/import` | 👑 | 导入 Markdown + frontmatter |

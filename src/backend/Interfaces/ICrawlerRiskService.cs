@@ -9,4 +9,6 @@ public interface ICrawlerRiskService
     Task<int> GetRiskScoreAsync(HttpContext context, CancellationToken cancellationToken = default);
 
     Task<bool> IsHighRiskAsync(HttpContext context, CancellationToken cancellationToken = default);
+
+    Task ResetRiskAsync(string ip, CancellationToken cancellationToken = default);
 }
