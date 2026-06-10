@@ -221,6 +221,7 @@
 | GET | `/api/author/comments/moderation` | 👑 | 评论审核队列 |
 | POST | `/api/author/comments/moderation/bulk` | 👑 | 批量评论审核 |
 | POST | `/api/author/comments/{commentId}/moderation` | 👑 | 评论审核 |
+| GET | `/api/author/moderation/dictionaries` | 👑 | 只读审核词库和地区策略 snapshot metadata |
 | GET | `/api/author/content/export` | 👑 | 全站内容备份包 |
 | GET | `/api/author/articles/{articleId}/export` | 👑 | 导出 Markdown + frontmatter |
 | POST | `/api/author/articles/import` | 👑 | 导入 Markdown + frontmatter |

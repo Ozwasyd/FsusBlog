@@ -1,0 +1,17 @@
+dictionary_id: cn-mainland.political-sensitive
+version: 2026-06-01
+scope: regional
+region: CN-MAINLAND
+category: political_sensitive
+match_mode: normalized
+normalization: zh_confusable
+severity_default: critical
+source: internal_review
+reviewed_by: engineering-preset
+updated_at: 2026-06-01T00:00:00Z
+terms:
+  - value: political_sensitive
+    aliases: [cn_mainland_political_sensitive]
+    severity: critical
+    reason: cn_mainland_political_sensitive
+    evidence_policy: redact

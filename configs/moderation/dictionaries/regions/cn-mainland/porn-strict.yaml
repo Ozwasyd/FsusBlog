@@ -1,0 +1,24 @@
+dictionary_id: cn-mainland.porn-strict
+version: 2026-06-01
+scope: regional
+region: CN-MAINLAND
+category: sexual_explicit
+match_mode: normalized
+normalization: zh_confusable
+severity_default: critical
+source: internal_review
+reviewed_by: engineering-preset
+updated_at: 2026-06-01T00:00:00Z
+terms:
+  - value: sexual_explicit
+    aliases: [色情, 黄色内容, pornographic]
+    category_override: pornographic
+    severity: critical
+    reason: cn_mainland_pornographic
+    evidence_policy: redact
+  - value: sexual_suggestion_high
+    aliases: [高风险性暗示]
+    category_override: sexual_suggestion_high
+    severity: high
+    reason: cn_mainland_sexual_suggestion_high
+    evidence_policy: redact

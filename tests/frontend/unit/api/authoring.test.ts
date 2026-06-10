@@ -8,6 +8,7 @@ import {
   exportContentBackup,
   getAuthorAnalytics,
   getArticleRevision,
+  getModerationDictionarySnapshot,
   getServerDraft,
   importArticleContent,
   listAdminCategories,
@@ -309,6 +310,47 @@ describe('authoring API (server drafts)', () => {
 
     expect(queue.items[0]?.hitReasons).toEqual(['pending-review'])
     expect(fetchMock).toHaveBeenCalledWith('/api/author/comments/moderation?status=0&limit=25', expect.objectContaining({
+      credentials: 'include'
+    }))
+  })
+
+  it('getModerationDictionarySnapshot fetches read-only dictionary metadata', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: {
+        snapshotId: 'moderation-dictionaries:abc',
+        version: 'GLOBAL-v2026-06+CN-MAINLAND-v2026-06',
+        checksum: 'abc',
+        createdAtUtc: '2026-06-10T00:00:00Z',
+        dictionaries: [{
+          dictionaryId: 'cn-mainland.political-sensitive',
+          version: '2026-06-01',
+          scope: 'regional',
+          region: 'CN-MAINLAND',
+          category: 'political_sensitive',
+          source: 'internal_review',
+          reviewedBy: 'engineering-preset',
+          updatedAtUtc: '2026-06-01T00:00:00Z',
+          checksum: 'dict',
+          termCount: 1
+        }],
+        regionPolicies: [{
+          region: 'CN-MAINLAND',
+          version: 'CN-MAINLAND-v2026-06',
+          inherits: ['GLOBAL'],
+          dictionaryIds: ['cn-mainland.political-sensitive'],
+          checksum: 'policy',
+          ruleCount: 1
+        }],
+        lastError: null
+      }
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const snapshot = await getModerationDictionarySnapshot()
+
+    expect(snapshot.dictionaries[0]?.termCount).toBe(1)
+    expect(snapshot.regionPolicies[0]?.dictionaryIds).toEqual(['cn-mainland.political-sensitive'])
+    expect(fetchMock).toHaveBeenCalledWith('/api/author/moderation/dictionaries', expect.objectContaining({
       credentials: 'include'
     }))
   })

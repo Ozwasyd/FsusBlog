@@ -2,7 +2,9 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
 using SqlSugar;
@@ -122,6 +124,9 @@ public static class AuthoringEndpoints
 
         group.MapGet("/analytics", async (AuthoringWorkflowService service, CancellationToken cancellationToken) =>
             Results.Ok(JsonApiResponse<AuthorAnalyticsResponse>.Ok(await service.GetAnalyticsAsync(cancellationToken))));
+
+        group.MapGet("/moderation/dictionaries", (IModerationDictionaryService dictionaryService) =>
+            Results.Ok(JsonApiResponse<ModerationDictionaryRuntimeSnapshot>.Ok(dictionaryService.GetRuntimeSnapshot())));
 
         group.MapGet("/comments/moderation", async (
             int? status,

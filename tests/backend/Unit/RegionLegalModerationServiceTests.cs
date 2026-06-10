@@ -1,4 +1,5 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Moderation;
 
@@ -86,6 +87,32 @@ public sealed class RegionLegalModerationServiceTests
         Assert.True(diff.PublicVisibilityChanged);
     }
 
+    [Fact]
+    public void PreviewReplay_RecordsAuditEvents()
+    {
+        var channel = new AuditLogChannel();
+        var service = new RegionLegalModerationService(auditLogChannel: channel);
+        var current = new CommentRegionCompliance
+        {
+            CommentId = 51,
+            PolicyVersion = "region-policy-old",
+            CanPublish = true,
+            RequiresManualReview = false,
+            HideUntilReviewed = false,
+            BlockedRegions = string.Empty,
+            RiskLabels = string.Empty
+        };
+        RegionModerationDecision next = service.EvaluateOnSubmit(MakeRequest(
+            "political_sensitive",
+            RegionCodes.Singapore));
+
+        _ = service.PreviewReplay(current, next);
+
+        IReadOnlyList<AuditRecord> auditRecords = Drain(channel);
+        Assert.Contains(auditRecords, static item => item.EventInfo == "region_policy_replay_started");
+        Assert.Contains(auditRecords, static item => item.EventInfo == "region_policy_replay_completed");
+    }
+
     private static RegionModerationRequest MakeRequest(string content, string submitRegion)
         => new(
             content,
@@ -97,4 +124,15 @@ public sealed class RegionLegalModerationServiceTests
             SubmitIpHash: "hash",
             UserAgent: null,
             SubmittedAtUtc: DateTime.UtcNow);
+
+    private static IReadOnlyList<AuditRecord> Drain(AuditLogChannel channel)
+    {
+        var records = new List<AuditRecord>();
+        while (channel.Reader.TryRead(out AuditRecord? record))
+        {
+            records.Add(record);
+        }
+
+        return records;
+    }
 }

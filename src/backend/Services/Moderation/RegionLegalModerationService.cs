@@ -1,5 +1,8 @@
+using System.Text;
+using System.Text.Json;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Models.Moderation;
 
 namespace FsusBlog.Server.Services.Moderation;
@@ -7,6 +10,16 @@ namespace FsusBlog.Server.Services.Moderation;
 public sealed class RegionLegalModerationService : IRegionLegalModerationService
 {
     public const string CurrentPolicyVersion = "region-policy-v2026-06";
+    private readonly IModerationDictionaryService? _dictionaryService;
+    private readonly AuditLogChannel? _auditLogChannel;
+
+    public RegionLegalModerationService(
+        IModerationDictionaryService? dictionaryService = null,
+        AuditLogChannel? auditLogChannel = null)
+    {
+        _dictionaryService = dictionaryService;
+        _auditLogChannel = auditLogChannel;
+    }
 
     private static readonly string[] EnabledViewerRegions =
     [
@@ -90,35 +103,62 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
     public RegionModerationDecision EvaluateOnSubmit(RegionModerationRequest request)
     {
         string submitRegion = NormalizeRegion(request.SubmitRegion);
-        string[] categories = DetectCategories(request.Content);
         var blockedRegions = new SortedSet<string>(StringComparer.Ordinal);
         var riskLabels = new SortedSet<string>(StringComparer.Ordinal);
         var hits = new List<RegionRuleHit>();
+        IReadOnlyList<ModerationDictionaryMatch> submitMatches = MatchDictionaries(request.Content, submitRegion);
+        bool submitRejected = false;
+        bool requiresManualReview = false;
+        bool hideUntilReviewed = false;
+
+        foreach (ModerationDictionaryMatch match in submitMatches)
+        {
+            ModerationPolicyAction action = ResolveAction(submitRegion, match.Category);
+            if (action.SubmitAction == ModerationDictionaryActions.RejectSubmit)
+            {
+                submitRejected = true;
+                riskLabels.Add(BuildRiskLabel(submitRegion, match));
+                hits.Add(BuildDictionaryHit(match, submitRegion, action.SubmitAction, action.DisplayAction));
+            }
+            else if (action.SubmitAction == ModerationDictionaryActions.ManualReview
+                     || action.SubmitAction == ModerationDictionaryActions.ManualReviewNoPublicDisplay)
+            {
+                requiresManualReview = true;
+                hideUntilReviewed |= action.SubmitAction == ModerationDictionaryActions.ManualReviewNoPublicDisplay;
+                riskLabels.Add(BuildRiskLabel(submitRegion, match));
+                hits.Add(BuildDictionaryHit(match, submitRegion, action.SubmitAction, action.DisplayAction));
+            }
+        }
 
         foreach (string viewerRegion in EnabledViewerRegions)
         {
-            if (viewerRegion == RegionCodes.MainlandChina && HasMainlandStrictHit(categories))
+            IReadOnlyList<ModerationDictionaryMatch> viewerMatches = MatchDictionaries(request.Content, viewerRegion);
+            foreach (ModerationDictionaryMatch match in viewerMatches)
             {
-                blockedRegions.Add(RegionCodes.MainlandChina);
-                foreach (string category in categories.Where(MainlandStrictCategories.Contains))
+                ModerationPolicyAction action = ResolveAction(viewerRegion, match.Category);
+                if (action.DisplayAction == ModerationDictionaryActions.GeoBlock)
                 {
-                    riskLabels.Add($"cn_mainland_{category}");
-                    hits.Add(BuildMainlandHit(category, submitRegion));
+                    blockedRegions.Add(viewerRegion);
+                    riskLabels.Add(BuildRiskLabel(viewerRegion, match));
+                    hits.Add(BuildDictionaryHit(match, viewerRegion, action.SubmitAction, action.DisplayAction));
                 }
             }
         }
 
         bool unknownSubmit = submitRegion == RegionCodes.Unknown;
-        bool submitRejected = submitRegion == RegionCodes.MainlandChina && HasMainlandStrictHit(categories);
-        bool requiresManualReview = unknownSubmit;
-        bool hideUntilReviewed = unknownSubmit;
+        requiresManualReview |= unknownSubmit;
+        hideUntilReviewed |= unknownSubmit;
         string decisionReason = submitRejected
             ? "submit_region_policy_reject"
             : unknownSubmit
                 ? "unknown_submit_region_manual_review_no_public_display"
-                : blockedRegions.Count > 0
-                    ? "viewer_region_geo_block"
-                    : "region_policy_allow";
+                : hideUntilReviewed
+                    ? "submit_region_manual_review_no_public_display"
+                    : requiresManualReview
+                        ? "submit_region_manual_review"
+                        : blockedRegions.Count > 0
+                            ? "viewer_region_geo_block"
+                            : "region_policy_allow";
 
         return new RegionModerationDecision(
             CanPublish: !submitRejected,
@@ -155,6 +195,15 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
 
     public RegionPolicyReplayDiff PreviewReplay(CommentRegionCompliance current, RegionModerationDecision nextDecision)
     {
+        WriteReplayAudit(
+            "region_policy_replay_started",
+            current.CommentId,
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["comment_id"] = current.CommentId,
+                ["previous_policy_version"] = current.PolicyVersion,
+                ["next_policy_version"] = nextDecision.PolicyVersion
+            });
         string[] previousBlockedRegions = [.. DeserializeRegions(current.BlockedRegions)];
         string[] nextBlockedRegions = [.. nextDecision.BlockedRegions
             .Where(static region => !string.IsNullOrWhiteSpace(region))
@@ -176,7 +225,7 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
         bool manualReviewChanged = current.RequiresManualReview != nextDecision.RequiresManualReview
             || current.HideUntilReviewed != nextDecision.HideUntilReviewed;
 
-        return new RegionPolicyReplayDiff(
+        var diff = new RegionPolicyReplayDiff(
             current.CommentId,
             current.PolicyVersion,
             nextDecision.PolicyVersion,
@@ -187,6 +236,22 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
             publishabilityChanged,
             manualReviewChanged,
             addedBlocked.Length > 0 || removedBlocked.Length > 0 || publishabilityChanged || manualReviewChanged);
+        WriteReplayAudit(
+            "region_policy_replay_completed",
+            current.CommentId,
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["comment_id"] = current.CommentId,
+                ["previous_policy_version"] = diff.PreviousPolicyVersion,
+                ["next_policy_version"] = diff.NextPolicyVersion,
+                ["added_blocked_region_count"] = diff.AddedBlockedRegions.Count,
+                ["removed_blocked_region_count"] = diff.RemovedBlockedRegions.Count,
+                ["added_risk_label_count"] = diff.AddedRiskLabels.Count,
+                ["removed_risk_label_count"] = diff.RemovedRiskLabels.Count,
+                ["publishability_changed"] = diff.PublishabilityChanged,
+                ["public_visibility_changed"] = diff.PublicVisibilityChanged
+            });
+        return diff;
     }
 
     public string NormalizeRegion(string? region)
@@ -253,6 +318,90 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
     private static bool HasMainlandStrictHit(IEnumerable<string> categories)
         => categories.Any(MainlandStrictCategories.Contains);
 
+    private IReadOnlyList<ModerationDictionaryMatch> MatchDictionaries(string content, string region)
+    {
+        if (_dictionaryService is not null)
+        {
+            IReadOnlyList<ModerationDictionaryMatch> matches = _dictionaryService.Match(content, region);
+            if (matches.Count > 0)
+            {
+                return matches;
+            }
+        }
+
+        string normalizedRegion = NormalizeRegion(region);
+        return DetectCategories(content)
+            .Select(category => new ModerationDictionaryMatch(
+                "fallback.inline",
+                category,
+                category == ModerationRiskCategories.SexualSuggestionHigh ? "high" : "critical",
+                normalizedRegion == RegionCodes.MainlandChina ? $"cn_mainland_{category}" : category,
+                ModerationEvidencePolicies.Redact,
+                null,
+                normalizedRegion))
+            .ToArray();
+    }
+
+    private ModerationPolicyAction ResolveAction(string region, string category)
+    {
+        if (_dictionaryService is not null)
+        {
+            return _dictionaryService.ResolveAction(region, category);
+        }
+
+        return NormalizeRegion(region) == RegionCodes.MainlandChina && MainlandStrictCategories.Contains(category)
+            ? new ModerationPolicyAction(ModerationDictionaryActions.RejectSubmit, ModerationDictionaryActions.GeoBlock)
+            : new ModerationPolicyAction(ModerationDictionaryActions.Allow, ModerationDictionaryActions.Allow);
+    }
+
+    private static string BuildRiskLabel(string region, ModerationDictionaryMatch match)
+        => NormalizeRegionLabel(region) == RegionCodes.MainlandChina
+            ? $"cn_mainland_{match.Category}"
+            : match.Reason;
+
+    private static RegionRuleHit BuildDictionaryHit(
+        ModerationDictionaryMatch match,
+        string region,
+        string submitAction,
+        string displayAction)
+        => new(
+            $"{match.DictionaryId}.{match.Category}",
+            NormalizeRegionLabel(region),
+            match.Category,
+            match.Severity,
+            submitAction,
+            displayAction,
+            "当前地区不可发布或展示",
+            "Dictionary hit is owned by FsusBlog policy; model providers cannot override actions or blocked_regions.");
+
+    private void WriteReplayAudit(
+        string eventInfo,
+        long commentId,
+        IReadOnlyDictionary<string, object?> context)
+    {
+        if (_auditLogChannel is null)
+        {
+            return;
+        }
+
+        string contextJson = JsonSerializer.Serialize(context);
+        _auditLogChannel.TryWrite(new AuditRecord(
+            AuditSourceCatalog.Security,
+            AuditTypeCatalog.Audit,
+            DateTime.UtcNow,
+            eventInfo,
+            Encoding.UTF8.GetBytes(contextJson),
+            Action: eventInfo,
+            Outcome: AuditOutcomeCatalog.Success,
+            Severity: AuditSeverityCatalog.Info,
+            ActorType: AuditActorTypeCatalog.System,
+            TargetType: "moderation_region_policy_replay",
+            TargetId: commentId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            IsHighValue: true,
+            ReasonCode: eventInfo,
+            ContextJson: contextJson));
+    }
+
     private static RegionRuleHit BuildMainlandHit(string category, string submitRegion)
     {
         string submitAction = submitRegion == RegionCodes.MainlandChina
@@ -271,4 +420,16 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
 
     private static string BuildRegionToken(string region)
         => $",{region},";
+
+    private static string NormalizeRegionLabel(string? region)
+        => (region ?? string.Empty).Trim().ToUpperInvariant() switch
+        {
+            "CN" or "CN-MAINLAND" or "MAINLAND" => RegionCodes.MainlandChina,
+            "HK" or "CN-HK" => RegionCodes.HongKong,
+            "MO" or "CN-MO" => RegionCodes.Macao,
+            "TW" or "CN-TW" => RegionCodes.Taiwan,
+            "GLOBAL" => RegionCodes.Global,
+            "UNKNOWN" or "" => RegionCodes.Unknown,
+            var value => value
+        };
 }

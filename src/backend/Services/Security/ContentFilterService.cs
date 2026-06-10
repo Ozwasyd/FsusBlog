@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Moderation;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
@@ -18,6 +19,7 @@ namespace FsusBlog.Server.Services.Security;
 public partial class ContentFilterService : IContentFilterService, IDisposable
 {
     private readonly ILogger<ContentFilterService> _logger;
+    private readonly IModerationDictionaryService? _moderationDictionaryService;
 
     private readonly string _dictDirectory;
     private readonly string _sensitiveFilePath;
@@ -40,6 +42,12 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         "六+四+事+件"
     ];
 
+    private static readonly HashSet<string> GlobalDictionaryHardFilterCategories = new(StringComparer.Ordinal)
+    {
+        "html_risk",
+        "malicious_link"
+    };
+
     private enum ContentRuleKind
     {
         Contact = 0,
@@ -61,8 +69,17 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
     private bool _disposed;
 
     public ContentFilterService(IWebHostEnvironment env, ILogger<ContentFilterService> logger)
+        : this(env, logger, null)
+    {
+    }
+
+    public ContentFilterService(
+        IWebHostEnvironment env,
+        ILogger<ContentFilterService> logger,
+        IModerationDictionaryService? moderationDictionaryService)
     {
         _logger = logger;
+        _moderationDictionaryService = moderationDictionaryService;
         _dictDirectory = Path.Combine(env.ContentRootPath, "Dictionaries");
         if (!Directory.Exists(_dictDirectory)) Directory.CreateDirectory(_dictDirectory);
 
@@ -91,7 +108,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         EnsureFileExists(_adFilePath);
 
         TextNormalizer.Initialize(_logger);
-        _ruleSearch = BuildUnifiedRuleSearch([], []);
+        _ruleSearch = BuildUnifiedRuleSearch([], [], []);
         var initResult = ReloadKeywordsCore();
         if (initResult.IsFailure)
         {
@@ -541,17 +558,19 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
                 _adRules = adRules;
             }
 
-            var newSearch = BuildUnifiedRuleSearch(_sensitiveRules, _adRules);
+            IReadOnlyList<ModerationDictionaryTerm> globalDictionaryTerms = _moderationDictionaryService?.GetGlobalHardFilterTerms() ?? [];
+            var newSearch = BuildUnifiedRuleSearch(_sensitiveRules, _adRules, globalDictionaryTerms);
             Volatile.Write(ref _ruleSearch, newSearch);
         }
     }
 
     private static ModernTaggedAcAutomaton<ContentRulePayload> BuildUnifiedRuleSearch(
         string[] sensitiveRules,
-        string[] adRules)
+        string[] adRules,
+        IReadOnlyList<ModerationDictionaryTerm> globalDictionaryTerms)
     {
         var rules = new List<ModernTaggedAcRule<ContentRulePayload>>(
-            ContactRules.Length + TopRedLineRules.Length + sensitiveRules.Length + adRules.Length);
+            ContactRules.Length + TopRedLineRules.Length + sensitiveRules.Length + adRules.Length + globalDictionaryTerms.Count);
 
         AddRules(
             rules,
@@ -567,6 +586,16 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
                 ContentRuleKind.Ad,
                 "malicious_ad_detected",
                 "输入内容包含涉嫌引流的违规业务或恶意链接，已被拦截。"));
+        foreach (ModerationDictionaryTerm term in globalDictionaryTerms.Where(static term => GlobalDictionaryHardFilterCategories.Contains(term.Category)))
+        {
+            AddRules(
+                rules,
+                NormalizeKeywords([term.Value, .. term.Aliases]),
+                new ContentRulePayload(
+                    ContentRuleKind.Ad,
+                    term.Reason,
+                    "输入内容命中站点硬词库规则，已进入安全拦截。"));
+        }
         AddRules(
             rules,
             NormalizeKeywords(TopRedLineRules),

@@ -1,0 +1,18 @@
+region: EU
+version: EU-v2026-06
+inherits:
+  - GLOBAL
+dictionaries:
+  - eu.hate-speech
+  - eu.terrorism
+  - eu.child-safety
+rules:
+  - category: hate_speech
+    submit_action: manual_review_no_public_display
+    display_action: geo_block
+  - category: terrorism_extremism
+    submit_action: reject_submit
+    display_action: geo_block
+  - category: child_safety
+    submit_action: reject_submit
+    display_action: geo_block

@@ -1,0 +1,13 @@
+region: SG
+version: SG-v2026-06
+inherits:
+  - GLOBAL
+dictionaries:
+  - sg.racial-religious-harmony
+rules:
+  - category: advertising
+    submit_action: manual_review
+    display_action: allow
+  - category: harassment
+    submit_action: manual_review
+    display_action: manual_review_no_public_display

@@ -485,6 +485,38 @@ export interface CommentModerationBulkResponse {
   bannedUsers: number
 }
 
+export interface ModerationDictionaryRuntimeItem {
+  dictionaryId: string
+  version: string
+  scope: string
+  region: string | null
+  category: string
+  source: string
+  reviewedBy: string
+  updatedAtUtc: string
+  checksum: string
+  termCount: number
+}
+
+export interface ModerationRegionPolicyRuntimeItem {
+  region: string
+  version: string
+  inherits: string[]
+  dictionaryIds: string[]
+  checksum: string
+  ruleCount: number
+}
+
+export interface ModerationDictionaryRuntimeSnapshot {
+  snapshotId: string
+  version: string
+  checksum: string
+  createdAtUtc: string
+  dictionaries: ModerationDictionaryRuntimeItem[]
+  regionPolicies: ModerationRegionPolicyRuntimeItem[]
+  lastError: string | null
+}
+
 export interface ContentRevisionExportResponse {
   revisionNo: number
   title: string
@@ -906,6 +938,16 @@ export async function listCommentModerationQueue(
   })
 
   return await readJsonEnvelope<CommentModerationQueueResponse>(response, `comment_moderation_fetch_failed:${response.status}`)
+}
+
+export async function getModerationDictionarySnapshot(config?: ApiRequestConfig): Promise<ModerationDictionaryRuntimeSnapshot> {
+  const response = await fetch('/api/author/moderation/dictionaries', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<ModerationDictionaryRuntimeSnapshot>(response, `moderation_dictionary_fetch_failed:${response.status}`)
 }
 
 export async function moderateComment(

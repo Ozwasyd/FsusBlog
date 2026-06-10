@@ -67,6 +67,8 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 
 运行时 DI 组合根按边界拆分：基础设施注册由 `AddBinaryRuntime`、`AddNotificationRuntime`、`AddCrawlerAndSearchRuntime`、`AddFileAndAuthRuntime`、`AddAuditRuntime`、`AddMessagingRuntime`、`AddCacheRuntime`、`AddIdentityRuntime`、`AddBackgroundRuntime`、`AddSpaRuntime`、`AddObjectPools` 分段承载；领域注册由 `AddContentRuntimeServices`、`AddUserRuntimePorts`、`AddGeneralDomainServices`、`AddCoreBridgeServices` 分段承载。新增服务应优先落入对应分组，避免把 Bootstrap 重新变成无边界注册清单。
 
+审核词库运行时由 `ModerationDictionaryService` 承载，注册在内容领域服务分组。它从 `configs/moderation/dictionaries/**` 和 `configs/moderation/region-policies/**` 构建 immutable snapshot；global 词库进入 `ContentFilterService` 硬拦截，地区策略组合进入 `RegionLegalModerationService` 计算 submit/viewer action、`blocked_regions` 和 replay diff。reload 失败时继续使用旧 snapshot，并通过审计通道写入 `dictionary_reload_failed` / `region_policy_reload_failed`。
+
 `BannedUserMiddleware` 是运行时封禁检查的唯一主实现；旧 `BannedUserFilter` 名称仅作为兼容别名保留，新增调用点必须使用 Middleware 命名。
 
 封禁写入绕过、认证响应 `no-store` 等端点级策略只允许通过 endpoint metadata 声明。`Infrastructure/Policies/EndpointPolicyMetadata.cs` 提供 `AllowBannedUserWrite()` 与 `RequireNoStoreResponse()`，运行时中间件读取路由元数据执行策略，避免 `/api/...` 字符串匹配在路由迁移时失效。
