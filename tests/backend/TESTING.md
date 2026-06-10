@@ -35,7 +35,7 @@ All test classes must live under `Unit/` or `Integration/`.
   - Must not require Docker or any running service.
 - `./tools/test.sh integration`
   - Runs server-side integration tests via `Category=Integration`.
-  - Then runs debug runtime checks that require `3000/5000`: auth session, API contract matrix, Binary parity, SSE static/live, search, and binary smoke.
+  - Then runs debug runtime checks that require `3000/5000`: auth session, API contract matrix, Binary parity, notification stream static/live, search, and binary smoke.
 - `./tools/test.sh ci`
   - Runs `fast + integration`.
 - `./tools/test.sh coverage-gate`
@@ -84,7 +84,7 @@ All test classes must live under `Unit/` or `Integration/`.
   - Runs auth/session/MFA/PoW/permission/a11y release blockers.
 - `./tools/test.sh resilience`
   - Requires the acceptance environment.
-  - Runs runtime, upload, search and SSE resilience gates.
+  - Runs runtime, upload, search and notification stream resilience gates.
 - `./tools/test.sh load`
   - Requires the acceptance environment.
   - Runs lightweight public/API concurrency checks.

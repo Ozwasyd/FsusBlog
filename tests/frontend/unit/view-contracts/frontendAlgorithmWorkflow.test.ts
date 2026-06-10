@@ -9,7 +9,7 @@ describe('frontend algorithm workflow contract', () => {
   const contentFilter = readRepoFile('src/frontend/src/utils/contentFilter.ts')
   const localSearch = readRepoFile('src/frontend/src/services/localSearch.ts')
   const searchRanking = readRepoFile('src/frontend/src/services/searchRanking.ts')
-  const sseRenderScheduler = readRepoFile('src/frontend/src/services/sseRenderScheduler.ts')
+  const notificationStreamRenderScheduler = readRepoFile('src/frontend/src/services/notificationStreamRenderScheduler.ts')
   const articleListStableCache = readRepoFile('src/frontend/src/view-contracts/articleListStableCache.ts')
   const register = readRepoFile('src/frontend/src/composables/useAuthRegister.ts')
   const profileSecurity = readRepoFile('src/frontend/src/composables/useUserProfileSecurity.ts')
@@ -30,10 +30,10 @@ describe('frontend algorithm workflow contract', () => {
     expect(localSearch).toContain('rankSearchPage(mapArticleSearchFromPodPayload(payload), query, sort)')
   })
 
-  it('keeps SSE article coalescing on a patch merge table', () => {
-    expect(sseRenderScheduler).toContain('articlePatchMergeTable')
-    expect(sseRenderScheduler).toContain('export function mergeSseRenderPatch')
-    expect(sseRenderScheduler).toContain("return `article:${payload?.articleId ?? 0}`")
+  it('keeps notification stream article coalescing on a patch merge table', () => {
+    expect(notificationStreamRenderScheduler).toContain('articlePatchMergeTable')
+    expect(notificationStreamRenderScheduler).toContain('export function mergeNotificationStreamRenderPatch')
+    expect(notificationStreamRenderScheduler).toContain("return `article:${payload?.articleId ?? 0}`")
   })
 
   it('keeps article card cache cleanup generation-based', () => {

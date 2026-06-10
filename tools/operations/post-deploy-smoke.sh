@@ -38,7 +38,7 @@ printf '  "status": "%s",\n' "$status" >> "$OUT_FILE"
 printf '  "baseUrl": "%s",\n' "$BASE_URL" >> "$OUT_FILE"
 printf '  "dryRun": %s,\n' "$([[ "$DRY_RUN" == "1" ]] && echo true || echo false)" >> "$OUT_FILE"
 printf '  "generatedAt": "%s",\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$OUT_FILE"
-printf '  "coverage": ["anonymous-public","feed","sitemap","robots","production-health","admin-login-manual","binary-api-manual","sse-manual","upload-manual","passkey-mfa-manual"],\n' >> "$OUT_FILE"
+printf '  "coverage": ["anonymous-public","feed","sitemap","robots","production-health","admin-login-manual","binary-api-manual","notification-stream-manual","upload-manual","passkey-mfa-manual"],\n' >> "$OUT_FILE"
 printf '  "blockers": [' >> "$OUT_FILE"
 for i in "${!blockers[@]}"; do
   [[ "$i" == "0" ]] || printf ', ' >> "$OUT_FILE"

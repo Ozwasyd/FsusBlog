@@ -16,5 +16,5 @@ Kestrel	60
 Vite	60
 Emscripten	60
 SqlSugar	60
-SSE	60
+NotificationStream	60
 AOT	80

@@ -5,7 +5,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Text;
 using FsusBlog.Shared.Contracts.Outputs;
-using FsusBlog.Shared.Contracts.Sse;
+using FsusBlog.Shared.Contracts.NotificationStream;
 
 namespace FsusBlog.Core.Cache;
 
@@ -22,7 +22,7 @@ public static partial class PodBinaryCodec
 
     public static void WriteNotificationEvent<TPayload>(
         long eventId,
-        SseEventType eventType,
+        NotificationStreamEventType eventType,
         long timestampUnixMs,
         TPayload payload,
         IBufferWriter<byte> destination)

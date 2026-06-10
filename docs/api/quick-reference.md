@@ -300,6 +300,8 @@
 | GET | `/health/live` | 🔓 | JSON 存活探针（仅检查进程） |
 | GET | `/health/ready` | 🔓 | JSON 就绪探针（检查配置、Observability、启动状态、DB、Redis） |
 
+通知通道是 AEDS WebSocket notification stream，不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`。
+
 ---
 
 ## 速率限制策略

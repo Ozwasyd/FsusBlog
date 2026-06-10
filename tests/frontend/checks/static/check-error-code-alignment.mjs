@@ -37,7 +37,7 @@ const bannedPatterns = [
     ]
   },
   {
-    file: resolve(clientRoot, 'src/services/sseRuntime.ts'),
+    file: resolve(clientRoot, 'src/services/notificationStreamRuntime.ts'),
     patterns: [
       /message\s*===\s*['"]protocol_mismatch['"]/
     ]

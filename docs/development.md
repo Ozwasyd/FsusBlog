@@ -205,7 +205,7 @@ proxy: {
 
 - **后端断点**：使用 `Debug / NativeServer` 配置，直接在 C# 代码打断点
 - **Binary 解码调试**：在 `wasmDecode.worker.ts` 中设置 `debugMode = true`，Worker 会输出详细解码日志
-- **SSE 调试**：访问 `http://127.0.0.1:5000/api/notifications/stream` 观察事件流
+- **Notification stream 调试**：访问 `http://127.0.0.1:5000/api/notifications/stream` 观察 AEDS WebSocket 事件流
 - **缓存调试**：L1 缓存在进程内，重启即清空；L2 Redis 缓存可通过 `redis-cli FLUSHDB` 清空
 
 ---

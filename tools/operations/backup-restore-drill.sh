@@ -351,9 +351,9 @@ run_smoke_checks() {
 
   (
     cd "$ROOT_DIR"
-    FSUSBLOG_BASE_URL="$BASE_URL" npm --prefix src/frontend run check:sse-live >/dev/null
+    FSUSBLOG_BASE_URL="$BASE_URL" npm --prefix src/frontend run check:notification-stream-live >/dev/null
   )
-  add_check "sse-live" "ok"
+  add_check "notification-stream-live" "ok"
 
   (
     cd "$ROOT_DIR"
@@ -378,7 +378,7 @@ run_dry_run() {
     "admin-login:planned"
     "binary-api:planned"
     "search:planned"
-    "sse:planned"
+    "notification-stream:planned"
   )
 }
 

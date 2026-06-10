@@ -72,12 +72,38 @@
       "l2JitterRatio": 0.1
     },
     {
+      "id": "AdminStatsFrame",
+      "domain": "admin",
+      "resource": "stats-frame",
+      "l1Ttl": "TimeSpan.FromMinutes(2)",
+      "l2Ttl": "TimeSpan.FromMinutes(10)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "Stats"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
       "id": "ArticleDetail",
       "domain": "blog",
       "resource": "article-detail",
       "l1Ttl": "TimeSpan.FromMinutes(5)",
       "l2Ttl": "TimeSpan.FromHours(1)",
       "negativeTtl": "TimeSpan.FromMinutes(5)",
+      "invalidationTags": [
+        "ArticleList"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
+      "id": "ArticleDetailFrame",
+      "domain": "blog",
+      "resource": "article-detail-frame",
+      "l1Ttl": "TimeSpan.FromMinutes(5)",
+      "l2Ttl": "TimeSpan.FromHours(1)",
+      "negativeTtl": "null",
       "invalidationTags": [
         "ArticleList"
       ],
@@ -98,9 +124,36 @@
       "l2JitterRatio": 0.1
     },
     {
+      "id": "ArticleHotFrame",
+      "domain": "blog",
+      "resource": "article-hot-frame",
+      "l1Ttl": "TimeSpan.FromMinutes(2)",
+      "l2Ttl": "TimeSpan.FromMinutes(10)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "HotArticles"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
       "id": "ArticleList",
       "domain": "blog",
       "resource": "article-list",
+      "l1Ttl": "TimeSpan.FromMinutes(2)",
+      "l2Ttl": "TimeSpan.FromMinutes(10)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "ArticleList",
+        "Category"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
+      "id": "ArticleListFrame",
+      "domain": "blog",
+      "resource": "article-list-frame",
       "l1Ttl": "TimeSpan.FromMinutes(2)",
       "l2Ttl": "TimeSpan.FromMinutes(10)",
       "negativeTtl": "null",
@@ -162,9 +215,35 @@
       "l2JitterRatio": 0
     },
     {
+      "id": "CategoryFrame",
+      "domain": "blog",
+      "resource": "category-frame",
+      "l1Ttl": "TimeSpan.FromMinutes(2)",
+      "l2Ttl": "TimeSpan.FromMinutes(10)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "Category"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
       "id": "CommentCursor",
       "domain": "blog",
       "resource": "comment-cursor",
+      "l1Ttl": "TimeSpan.FromMinutes(1)",
+      "l2Ttl": "TimeSpan.FromMinutes(5)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "Stats"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "CommentCursorFrame",
+      "domain": "blog",
+      "resource": "comment-cursor-frame",
       "l1Ttl": "TimeSpan.FromMinutes(1)",
       "l2Ttl": "TimeSpan.FromMinutes(5)",
       "negativeTtl": "null",
@@ -322,6 +401,19 @@
       "l2JitterRatio": 0
     },
     {
+      "id": "SystemCompliance",
+      "domain": "sys",
+      "resource": "compliance",
+      "l1Ttl": "TimeSpan.FromMinutes(10)",
+      "l2Ttl": "TimeSpan.FromHours(24)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "Seo"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
       "id": "SystemPage",
       "domain": "sys",
       "resource": "page",
@@ -348,6 +440,19 @@
       "l2JitterRatio": 0.1
     },
     {
+      "id": "TagFrame",
+      "domain": "blog",
+      "resource": "tag-frame",
+      "l1Ttl": "TimeSpan.FromMinutes(2)",
+      "l2Ttl": "TimeSpan.FromMinutes(10)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "Tag"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0.1
+    },
+    {
       "id": "TopArticles",
       "domain": "blog",
       "resource": "top-articles",
@@ -361,9 +466,35 @@
       "l2JitterRatio": 0
     },
     {
+      "id": "TopArticlesFrame",
+      "domain": "blog",
+      "resource": "top-articles-frame",
+      "l1Ttl": "TimeSpan.FromMinutes(2)",
+      "l2Ttl": "TimeSpan.FromHours(2)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "HotArticles"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0
+    },
+    {
       "id": "UserCommentCursor",
       "domain": "blog",
       "resource": "user-comment-cursor",
+      "l1Ttl": "TimeSpan.FromMinutes(1)",
+      "l2Ttl": "TimeSpan.FromMinutes(5)",
+      "negativeTtl": "null",
+      "invalidationTags": [
+        "Stats"
+      ],
+      "securityCritical": false,
+      "l2JitterRatio": 0
+    },
+    {
+      "id": "UserCommentCursorFrame",
+      "domain": "blog",
+      "resource": "user-comment-cursor-frame",
       "l1Ttl": "TimeSpan.FromMinutes(1)",
       "l2Ttl": "TimeSpan.FromMinutes(5)",
       "negativeTtl": "null",
@@ -440,6 +571,14 @@
     },
     {
       "method": "ApplySystemSeo",
+      "tags": [
+        "Seo"
+      ],
+      "varyByQuery": [],
+      "varyByRouteValue": []
+    },
+    {
+      "method": "ApplySystemCompliance",
       "tags": [
         "Seo"
       ],

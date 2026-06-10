@@ -43,6 +43,7 @@ Version: `fsusblog-test-matrix-v2`
 | Tier | CI job | Depends on | Services | Shards | Timeout | Evidence |
 |---|---|---|---|---:|---:|---|
 | `backend-qps-view-count-flush` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/view-count-flush.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-visitlog-invalidation` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/visitlog-invalidation.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
 | `backend-qps-cache-hit` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-hit.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
 | `backend-qps-comment-cursor` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/comment-cursor.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
 | `backend-qps-hotread` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/hotread.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
@@ -52,8 +53,9 @@ Version: `fsusblog-test-matrix-v2`
 | `backend-qps-list-pagination` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/list-pagination.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
 | `backend-qps-article-detail-miss` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/article-detail-miss.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
 | `backend-qps-cache-registry` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-registry.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-cache-invalidation-batch` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-invalidation-batch.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
 | `backend-qps-index-plan` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/index-plan.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps` | `backend-qps` | `bootstrap`, `backend-qps-view-count-flush`, `backend-qps-cache-hit`, `backend-qps-comment-cursor`, `backend-qps-hotread`, `backend-qps-cache-miss-singleflight`, `backend-qps-risk-filter`, `backend-qps-related-reading`, `backend-qps-list-pagination`, `backend-qps-article-detail-miss`, `backend-qps-cache-registry`, `backend-qps-index-plan` | - | 1 | 45m | `.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps` | `backend-qps` | `bootstrap`, `backend-qps-view-count-flush`, `backend-qps-visitlog-invalidation`, `backend-qps-cache-hit`, `backend-qps-comment-cursor`, `backend-qps-hotread`, `backend-qps-cache-miss-singleflight`, `backend-qps-risk-filter`, `backend-qps-related-reading`, `backend-qps-list-pagination`, `backend-qps-article-detail-miss`, `backend-qps-cache-registry`, `backend-cache-invalidation-batch`, `backend-qps-index-plan` | - | 1 | 45m | `.tmp/release-evidence/backend-qps-summary.json` |
 | `endpoint-depth` | `cross-stack-contract` | `bootstrap` | - | 1 | 20m | `.tmp/release-evidence/endpoint-depth-summary.json` |
 | `data-scale-xs` | `integration-runtime` | `bootstrap` | postgres, redis | 1 | 15m | `.tmp/release-evidence/data-scale-summary.json` |
 | `data-scale-s` | `integration-runtime` | `bootstrap` | postgres, redis | 1 | 20m | `.tmp/release-evidence/data-scale-summary.json` |

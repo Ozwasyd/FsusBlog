@@ -4,7 +4,7 @@
 
 Production is a Docker VPS deployment:
 
-- `fsus-app`: one ASP.NET Core container serving API, public HTML, static frontend assets, SSE, and the Node SSR runtime.
+- `fsus-app`: one ASP.NET Core container serving API, public HTML, static frontend assets, the AEDS WebSocket notification stream, and the Node SSR runtime.
 - PostgreSQL: external service reachable from the Docker network.
 - Redis: external service reachable from the Docker network.
 - Host Nginx/OpenResty: TLS, HTTP/2, request size policy, and reverse proxy to Kestrel `127.0.0.1:8080`.
@@ -56,7 +56,7 @@ The compose file binds Kestrel to `127.0.0.1:8080:8080`. Do not change it back t
 ## Health Checks
 
 - `GET /health/live`: process/Kestrel liveness only; safe for Docker healthcheck; returns `application/json`.
-- `GET /health/ready`: readiness for rollout and operations; checks configuration, PostgreSQL, Redis, public webroot, IP2LOCATION data, DB gate snapshot, SSE connection count, typed startup runtime snapshot, scheduled publish worker snapshot (`lastPublishedCount` / `lastFailedCount` / `dueBacklog`), and public hot-read snapshot state/version/error metadata; returns `application/json`.
+- `GET /health/ready`: readiness for rollout and operations; checks configuration, PostgreSQL, Redis, public webroot, IP2LOCATION data, DB gate snapshot, notification stream connection count, typed startup runtime snapshot, scheduled publish worker snapshot (`lastPublishedCount` / `lastFailedCount` / `dueBacklog`), and public hot-read snapshot state/version/error metadata; returns `application/json`.
 
 Health checks are an ops JSON protocol. They do not emit PublicAOT bootstrap frames or AEDS binary payloads, so rollout probes can evolve independently from public-page payload changes.
 
@@ -74,7 +74,7 @@ Before promoting a candidate release, generate the SLO alert fixture:
 tools/operations/check-slo-alert-fixture.mjs
 ```
 
-The default synthetic fixture proves that the alert definitions for readiness degradation, PostgreSQL latency, Redis latency, AOT backfill failure, search rebuild failure, SSE slow-disconnect spikes and security blockers are still executable. For production evidence, pass a JSON fixture built from the current `/health/ready` response, the latest SSE slow-disconnect metric window and `.tmp/security/production-exposure-status.json`.
+The default synthetic fixture proves that the alert definitions for readiness degradation, PostgreSQL latency, Redis latency, AOT backfill failure, search rebuild failure, notification stream slow-disconnect spikes and security blockers are still executable. For production evidence, pass a JSON fixture built from the current `/health/ready` response, the latest notification stream slow-disconnect metric window and `.tmp/security/production-exposure-status.json`.
 
 Traffic promotion is blocked while any `critical` alert is firing. `warning` alerts require an operator note in the release evidence manifest explaining impact, investigation result and the chosen rollback or degradation action. The detailed runbook and per-alert actions live in `docs/operations.md`.
 
@@ -86,9 +86,9 @@ The default compose file is tuned for a practical 2C/2G VPS baseline:
 - L1 memory cache and Redis L2 absorb public hot reads.
 - Public hot-read L0 serves preencoded `.aeds` snapshots ahead of the normal pipeline; misses and not-ready responses are `no-store` and must be watched through `/health/ready` runtime metadata.
 - DB concurrency gate protects PostgreSQL during cache misses and DB-heavy background jobs such as visit-log flush, view reconciliation, scheduled publish and PublicHot rebuild.
-- Article mutations write `article_mutation_outbox` in the same DB transaction as the primary row change; the dispatcher replays cache/search/AEDS/PublicHot/SSE side effects with bounded retry after a crash.
+- Article mutations write `article_mutation_outbox` in the same DB transaction as the primary row change; the dispatcher replays cache/search/AEDS/PublicHot/notification stream side effects with bounded retry after a crash.
 - Visit-log view projection is batched and periodically reconciled from `sys_visit_log`, so a projection failure after log persistence is repairable.
-- SSE backlog multi-target writes are pipelined and local fanout runs from a bounded queue; frames remain bounded per connection and slow consumers are disconnected.
+- Notification stream backlog multi-target writes are pipelined and local fanout runs from a bounded queue; frames remain bounded per connection and slow consumers are disconnected.
 - Upload-session expiration scans run in `UploadSessionCleanupWorker`, not on init/status request paths.
 - Content-filter dictionary reloads are serialized through one reload queue to coalesce file watcher bursts.
 - Docker log rotation caps container stdout/stderr growth.

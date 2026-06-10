@@ -949,7 +949,7 @@ tiers:
     shardable: false
     defaultShards: 1
     risk: critical
-    coverage: [redis-postgres-sse-disk-shutdown-faults]
+    coverage: [redis-postgres-notification-stream-disk-shutdown-faults]
     artifacts: [.tmp/fault-injection]
     evidence: [.tmp/fault-injection/summary.json]
     ciJob: resilience-runtime

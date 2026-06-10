@@ -188,13 +188,13 @@ public class AuditLogEventMapperTests
     }
 
     [Fact]
-    public void Map_SseSource_ClassifiedAsSse()
+    public void Map_NotificationStreamSource_ClassifiedAsNotificationStream()
     {
         var mapper = new AuditLogEventMapper();
-        var ev = MakeWithSourceContext("FsusBlog.Server.Services.Sse.MessageCenterService");
+        var ev = MakeWithSourceContext("FsusBlog.Server.Services.NotificationStream.MessageCenterService");
         var record = mapper.Map(ev);
 
-        Assert.Equal(AuditSourceCatalog.Sse, record!.Source);
+        Assert.Equal(AuditSourceCatalog.NotificationStream, record!.Source);
     }
 
     [Fact]

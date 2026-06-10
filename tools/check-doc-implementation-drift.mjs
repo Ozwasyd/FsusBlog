@@ -117,7 +117,7 @@ add('auth-docs', 'API auth legend uses HttpOnly Cookie session / AEDS auth frame
 
 add('notification-transport', 'notification transport docs consistently name WebSocket binary stream', () => {
   const text = `${read('README.md')}\n${read('docs/api.md')}\n${read('docs/testing.md')}\n${read('docs/operations.md')}`
-  return text.includes('WebSocket binary notification stream') && !text.includes('SSE 增量事件流')
+  return text.includes('WebSocket binary notification stream') && !text.includes('Server-Sent Events 增量事件流')
 })
 
 add('load', 'load docs match perf policy baseline and WebSocket pressure defaults', () => {

@@ -20,10 +20,10 @@
 | `src/backend/Infrastructure/Middlewares/` | ShieldMiddleware / GlobalException / ApiBinaryResponse |
 | `src/backend/Infrastructure/Operations/ProductionStartupValidator.cs` | 生产启动校验 |
 | `src/backend/Infrastructure/PublicAot/` | AOT 公开页壳层 |
-| `src/backend/Infrastructure/Sse/` | SSE 连接管理、背压、事件分发 |
-| `src/shared/Contracts/` | 前后端共享 DTO、SSE 信封、AOT 契约 |
+| `src/backend/Infrastructure/NotificationStream/` | notification stream 连接管理、背压、事件分发 |
+| `src/shared/Contracts/` | 前后端共享 DTO、notification stream 信封、AOT 契约 |
 | `src/shared/Contracts/Outputs/ServerResponseContracts.cs` | 所有响应 DTO 定义 |
-| `src/shared/Contracts/Sse/SseContracts.cs` | SSE 事件类型与信封 |
+| `src/shared/Contracts/NotificationStream/NotificationStreamContracts.cs` | notification stream 事件类型与信封 |
 | `src/shared/Contracts/Envelopes/PodEnvelopes.cs` | POD 分页 / 游标信封 |
 | `src/core/Algorithms/` | AEDS 编解码算法核心 |
 | `src/core/Algorithms/AedsFrameType.cs` | 帧类型枚举（权威来源） |
@@ -205,7 +205,7 @@ group.MapGet("/article", async (IAedsEncoder encoder, ...) =>
 
 1. **文档更新清单**（至少 2 个文档文件）
 2. **风险与回退路径**（如何在不重启的情况下降级）
-3. **已测场景覆盖**（最少包含：匿名请求、登录请求、admin 请求、SSE、binary）
+3. **已测场景覆盖**（最少包含：匿名请求、登录请求、admin 请求、notification stream、binary）
 
 优先最小修改：尽量在现有过滤器 / 服务边界内扩展，不破坏链路。
 
@@ -217,5 +217,5 @@ group.MapGet("/article", async (IAedsEncoder encoder, ...) =>
 |--------|------|------|
 | `FsusBlog.Server` | 端点增删改、中间件顺序（须同步 `docs/architecture.md`）、安全过滤器、健康探针 | 未经文档核验直接推送 API 变更；删除 `X-Fsus-*` 头或 PoW 链支持 |
 | `FsusBlog.Client` | 修正 API 客户端模型、工具脚本、E2E 用例与文档一致性 | 未同步 `docs/api/contracts.md` 前重命名/移除 binary/json 字段；改写解码行为破坏旧缓存兼容性 |
-| `FsusBlog.Shared` | 共享模型、响应包装、SSE/Security/Binary 契约结构体更新 | 删除 `ApiResponse` 与统一错误码语义；引入序列化/类型不兼容变更 |
+| `FsusBlog.Shared` | 共享模型、响应包装、NotificationStream/Security/Binary 契约结构体更新 | 删除 `ApiResponse` 与统一错误码语义；引入序列化/类型不兼容变更 |
 | `FsusBlog.Core` | POD/解码算法增强、AEDS 编解码优化、与 `Client/wasm` ABI 对齐 | 引入 HTTP 层细节（路由/Controller/Cookie）进入 Core；更改协议文档时不同步 `docs/api/contracts.md` |

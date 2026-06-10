@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getMe, logout as logoutApi, type CurrentUserSnapshot } from '@/api/auth'
-import { sseRuntime } from '@/services/sseRuntime'
-import { useSseStore } from '@/store/sse'
+import { notificationStreamRuntime } from '@/services/notificationStreamRuntime'
+import { useNotificationStreamStore } from '@/store/notificationStream'
 import { isAbortError } from '@/utils/errors'
 import { getKnownErrorInfo, isAuthFailureError } from '@/utils/errorKinds'
 
@@ -33,7 +33,7 @@ function createMemoryStorage(): Storage {
 const safeStorage = typeof localStorage !== 'undefined' ? localStorage : createMemoryStorage()
 
 export const useUserStore = defineStore('user', () => {
-    const sseStore = useSseStore()
+    const notificationStreamStore = useNotificationStreamStore()
 
     // ================= 1. State =================
     const userInfo = ref<CurrentUserSnapshot | null>(null)
@@ -69,12 +69,12 @@ export const useUserStore = defineStore('user', () => {
         lastFetchedAt.value = 0
         fetchPromise = null
 
-        sseStore.dispose()
-        sseStore.resetCursor()
-        sseStore.setStatus('stopped')
-        void sseRuntime.stop(true)
+        notificationStreamStore.dispose()
+        notificationStreamStore.resetCursor()
+        notificationStreamStore.setStatus('stopped')
+        void notificationStreamRuntime.stop(true)
         if (typeof sessionStorage !== 'undefined') {
-            sessionStorage.removeItem('sse_guest_pow');
+            sessionStorage.removeItem('notification_stream_guest_pow');
         }
     }
 

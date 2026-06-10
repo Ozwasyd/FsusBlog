@@ -147,7 +147,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `PasskeyRegisterBegin` payload: `PasskeyRegisterBeginPod`, `PasskeyPublicKeyCredentialParamPod[count]`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP/user/challenge/credential-id slices.
 - `PasskeyLoginBegin` payload: `PasskeyLoginBeginPod`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP/challenge/credential-id slices.
 - `PasskeyCredentialList` payload: `int32 count`, `PasskeyCredentialSummaryPod[count]`, followed by blob payload for optional device names.
-- `NotificationEvent` payload: `int64 EventId`, `int64 TimestampUnixMs`, `int32 SseEventType`, `int32 Reserved`, followed by one binary value payload.
+- `NotificationEvent` payload: `int64 EventId`, `int64 TimestampUnixMs`, `int32 NotificationStreamEventType`, `int32 Reserved`, followed by one binary value payload.
 - `NotificationHeartbeat` payload: `int64 TimestampUnixMs`.
 - `PublicAotBootstrap` payload: one binary value payload encoded with the same tagged value layout used by notifications; HTML embeds the full AEDS frame as base64url text in `application/octet-stream` script nodes.
 - `AdminUserList` payload: `int32 total`, `int32 count`, followed by `UserListItemPod[count]`.

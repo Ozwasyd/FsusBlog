@@ -154,7 +154,7 @@ Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passke
 - 匿名用户连接时接收公开事件（GlobalNotice、CacheControl 等）
 - 已认证用户额外接收私人事件（MessageReceived、InboxConversationUpsert 等）
 - 慢消费者（背压积压）自动断开连接，客户端需实现重连逻辑
-- 每条消息均为 AEDS binary frame；WebSocket 握手失败返回 `ApiError` frame，并写入 `X-Fsus-Sse-Error-Code` / `X-Fsus-Sse-Status-Code`
+- 每条消息均为 AEDS binary frame；WebSocket 握手失败返回 `ApiError` frame，并写入 `X-Fsus-Notification-Stream-Error-Code` / `X-Fsus-Notification-Stream-Status-Code`
 - 客户端应优先通过 preflight 区分 `account_blocked`、`account_deleted`、`auth_failed`、`pow_failed`、`websocket_required` 等失败码，再决定是否重连或提示用户
 - 客户端应存储最后收到的 cursor 值，断线重连时通过 `cursor` query 参数传递
 

@@ -33,7 +33,7 @@ public static class FsusObservability
         "fsus.route_kind",
         "fsus.security.reason",
         "fsus.search.mode",
-        "fsus.sse.operation"
+        "fsus.notification_stream.operation"
     ];
 
     private static readonly HashSet<string> AllowedCustomAttributes = new(AllowedCustomAttributeNames, StringComparer.Ordinal);
@@ -107,7 +107,7 @@ public static class FsusObservability
 
         if (value.StartsWith("/api/notifications/stream", StringComparison.OrdinalIgnoreCase))
         {
-            return "sse";
+            return "notification-stream";
         }
 
         if (value.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))

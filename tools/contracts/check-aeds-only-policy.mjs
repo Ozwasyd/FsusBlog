@@ -121,7 +121,7 @@ function scanFiles() {
     'src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs',
     ...listFiles('src/frontend/src/api', '.ts'),
     'src/frontend/src/services/telemetryService.ts',
-    'src/frontend/src/services/sseRuntime.ts'
+    'src/frontend/src/services/notificationStreamRuntime.ts'
   ].filter((file, index, files) => files.indexOf(file) === index && fs.existsSync(path.join(root, file)))
 }
 

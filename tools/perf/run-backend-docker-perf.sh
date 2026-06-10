@@ -161,7 +161,7 @@ start_diagnostics() {
     --diagnostic-port "$diagnostic_port" \
     --refresh-interval 1 \
     --duration "$COUNTERS_DURATION" \
-    --counters System.Runtime,Microsoft.AspNetCore.Hosting,Microsoft.AspNetCore.Server.Kestrel,FsusBlog.Server,FsusBlog.Sse \
+    --counters System.Runtime,Microsoft.AspNetCore.Hosting,Microsoft.AspNetCore.Server.Kestrel,FsusBlog.Server,FsusBlog.NotificationStream \
     >"$OUT_DIR/dotnet-counters.log" 2>&1 &
   COUNTERS_PID="$!"
 
@@ -317,15 +317,15 @@ run_load_checks() {
       npm run check:load:public-api
   ) >"$OUT_DIR/check-load-public-api.log" 2>&1
 
-  log "running SSE pressure gate"
+  log "running notification stream pressure gate"
   (
     cd "$CLIENT_DIR"
     env \
       FSUSBLOG_BASE_URL="$BASE_URL" \
       FSUSBLOG_HTTP_TIMEOUT_MS="${FSUSBLOG_HTTP_TIMEOUT_MS:-10000}" \
       "${test_session_env[@]}" \
-      npm run check:load:sse-pressure
-  ) >"$OUT_DIR/check-sse-pressure.log" 2>&1
+      npm run check:load:notification-stream-pressure
+  ) >"$OUT_DIR/check-notification-stream-pressure.log" 2>&1
 }
 
 run_http_baseline() {
@@ -371,12 +371,12 @@ for (const file of readdirSync(outDir).filter((name) => name.startsWith('wrk-') 
   }
 }
 
-let ssePressure = null
+let notificationStreamPressure = null
 try {
-  const text = readFileSync(join(outDir, 'check-sse-pressure.log'), 'utf8')
-  const line = text.split(/\r?\n/).find((entry) => entry.startsWith('[sse-pressure] ok '))
+  const text = readFileSync(join(outDir, 'check-notification-stream-pressure.log'), 'utf8')
+  const line = text.split(/\r?\n/).find((entry) => entry.startsWith('[notification-stream-pressure] ok '))
   if (line) {
-    ssePressure = JSON.parse(line.slice('[sse-pressure] ok '.length))
+    notificationStreamPressure = JSON.parse(line.slice('[notification-stream-pressure] ok '.length))
   }
 } catch {
 }
@@ -466,7 +466,7 @@ writeFileSync(join(outDir, 'summary.json'), JSON.stringify({
     }
   },
   wrk,
-  ssePressure,
+  notificationStreamPressure,
   diagnostics: {
     dotnetCountersLog: 'dotnet-counters.log',
     dotnetTraceLog: 'dotnet-trace.log',

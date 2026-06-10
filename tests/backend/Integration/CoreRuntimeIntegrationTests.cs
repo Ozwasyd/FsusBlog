@@ -2,7 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Infrastructure.Sse;
+using FsusBlog.Server.Infrastructure.NotificationStream;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -35,22 +35,22 @@ public sealed class CoreRuntimeIntegrationTests
     }
 
     [Fact]
-    public void SsePipeline_RegisterPublishRemove_WorksForUserAndGroupTargets()
+    public void NotificationStreamPipeline_RegisterPublishRemove_WorksForUserAndNotificationStreamGroupTargets()
     {
         IConfiguration config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Sse:QueueCapacity"] = "64" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["NotificationStream:QueueCapacity"] = "64" })
             .Build();
-        var manager = new SseConnectionManager(config, NullLogger<SseConnectionManager>.Instance);
+        var manager = new NotificationStreamConnectionManager(config, NullLogger<NotificationStreamConnectionManager>.Instance);
 
         var userConnection = manager.RegisterConnection("c-user", "u-1", new[] { "feed" });
         var groupConnection = manager.RegisterConnection("c-group", null, new[] { "feed" });
 
-        SharedSseFrame frame = SharedSseFrame.FromArray([1, 2, 3]);
+        SharedNotificationStreamFrame frame = SharedNotificationStreamFrame.FromArray([1, 2, 3]);
         try
         {
-            int userDelivered = manager.Publish(frame, new UserTarget("u-1"));
-            int groupDelivered = manager.Publish(frame, new GroupTarget("feed"));
-            int multiDelivered = manager.Publish(frame, new MultiUserTarget(new[] { "u-1", "missing" }));
+            int userDelivered = manager.Publish(frame, new NotificationStreamUserTarget("u-1"));
+            int groupDelivered = manager.Publish(frame, new NotificationStreamGroupTarget("feed"));
+            int multiDelivered = manager.Publish(frame, new NotificationStreamMultiUserTarget(new[] { "u-1", "missing" }));
 
             Assert.Equal(1, userDelivered);
             Assert.Equal(2, groupDelivered);

@@ -13,7 +13,7 @@ const defaultFixture = {
   thresholds: {
     postgresLatencyMs: 200,
     redisLatencyMs: 50,
-    sseSlowDisconnectsLast5m: 10
+    notificationStreamSlowDisconnectsLast5m: 10
   },
   readiness: {
     status: 'not_ready',
@@ -37,7 +37,7 @@ const defaultFixture = {
       }
     }
   },
-  sse: {
+  notificationStream: {
     slowDisconnectsLast5m: 24
   },
   cache: {
@@ -60,7 +60,7 @@ const defaultFixture = {
     'redis_latency_high',
     'aot_backfill_failed',
     'search_rebuild_failed',
-    'sse_disconnect_spike',
+    'notification_stream_disconnect_spike',
     'cache_registry_missing_scan',
     'security_blocker'
   ]
@@ -81,7 +81,7 @@ const alertCatalog = {
   },
   redis_latency_high: {
     severity: 'warning',
-    impact: 'L2 cache, SSE backlog replay and cache-control fanout can become slow or stale.',
+    impact: 'L2 cache, notification stream backlog replay and cache-control fanout can become slow or stale.',
     investigate: '/health/ready checks.redis.latencyMs, Redis memory/eviction policy, network path and Redis command latency.',
     rollbackOrDegrade: 'Keep the app out of new traffic until latency recovers; allow public JSON fallback only when readiness is restored.'
   },
@@ -97,10 +97,10 @@ const alertCatalog = {
     investigate: 'runtime.startup.tasks.searchIndex, search.rebuildFailuresLastHour, search artifact directory and SearchIndexService logs.',
     rollbackOrDegrade: 'Restore previous search artifacts or previous image, keep public reads online, and rebuild the index before release closeout.'
   },
-  sse_disconnect_spike: {
+  notification_stream_disconnect_spike: {
     severity: 'warning',
     impact: 'Notification streams can miss live updates and increase replay pressure for authenticated/admin clients.',
-    investigate: 'SSE slow disconnect metric, /health/ready runtime.sseConnections, gateway websocket buffering and slow consumer logs.',
+    investigate: 'Notification stream slow disconnect metric, /health/ready runtime.notificationStreamConnections, gateway websocket buffering and slow consumer logs.',
     rollbackOrDegrade: 'Lower gateway traffic or reconnect pressure, preserve polling/fetch fallback paths, and revert gateway changes that introduced buffering.'
   },
   cache_registry_missing_scan: {
@@ -167,7 +167,7 @@ function evaluateAlerts(fixture) {
   const thresholds = {
     postgresLatencyMs: numberAt(fixture?.thresholds?.postgresLatencyMs, 200),
     redisLatencyMs: numberAt(fixture?.thresholds?.redisLatencyMs, 50),
-    sseSlowDisconnectsLast5m: numberAt(fixture?.thresholds?.sseSlowDisconnectsLast5m, 10)
+    notificationStreamSlowDisconnectsLast5m: numberAt(fixture?.thresholds?.notificationStreamSlowDisconnectsLast5m, 10)
   };
   const readiness = fixture?.readiness ?? {};
   const readinessChecks = readiness.checks ?? {};
@@ -179,10 +179,10 @@ function evaluateAlerts(fixture) {
   const searchTask = startupTask(fixture, 'searchIndex');
   const aotFailures = numberAt(fixture?.aotBackfill?.failuresLastHour, 0);
   const searchFailures = numberAt(fixture?.search?.rebuildFailuresLastHour, 0);
-  const sseSlowDisconnects = numberAt(
-    fixture?.sse?.slowDisconnectsLast5m
-      ?? runtime?.sseSlowDisconnectsLast5m
-      ?? readinessChecks?.sse?.slowDisconnectsLast5m,
+  const notificationStreamSlowDisconnects = numberAt(
+    fixture?.notificationStream?.slowDisconnectsLast5m
+      ?? runtime?.notificationStreamSlowDisconnectsLast5m
+      ?? readinessChecks?.notificationStream?.slowDisconnectsLast5m,
     0);
   const security = fixture?.security ?? {};
   const securityBlockerCount = Array.isArray(security.blockers) ? security.blockers.length : 0;
@@ -232,11 +232,11 @@ function evaluateAlerts(fixture) {
     }, ['/health/ready runtime.startup.tasks.searchIndex', 'search.rebuildFailuresLastHour']);
   }
 
-  if (sseSlowDisconnects > thresholds.sseSlowDisconnectsLast5m) {
-    addAlert(alerts, 'sse_disconnect_spike', {
-      slowDisconnectsLast5m: sseSlowDisconnects,
-      threshold: thresholds.sseSlowDisconnectsLast5m
-    }, ['fsus.sse.slow_disconnects']);
+  if (notificationStreamSlowDisconnects > thresholds.notificationStreamSlowDisconnectsLast5m) {
+    addAlert(alerts, 'notification_stream_disconnect_spike', {
+      slowDisconnectsLast5m: notificationStreamSlowDisconnects,
+      threshold: thresholds.notificationStreamSlowDisconnectsLast5m
+    }, ['fsus.notification_stream.slow_disconnects']);
   }
 
   if (cacheFallbackRecovered > 0 || cacheFallbackEmpty > 0 || cacheFallbackFailed > 0) {

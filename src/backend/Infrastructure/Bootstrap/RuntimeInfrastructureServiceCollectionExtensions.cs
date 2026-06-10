@@ -9,12 +9,12 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Spa;
-using FsusBlog.Server.Infrastructure.Sse;
+using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Server.Services.Sse;
+using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.VisitLog;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.SignalR;
@@ -60,14 +60,14 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddScoped<INotificationStreamHandshakeService, NotificationStreamHandshakeService>();
         services.AddSingleton<INotificationStreamSessionService, NotificationStreamSessionService>();
         services.AddScoped<INotificationStreamHandler, NotificationStreamHandler>();
-        services.AddSingleton<SseConnectionManager>();
-        services.AddSingleton<SseBacklogStore>();
-        services.AddSingleton<SseLocalFanoutQueue>();
+        services.AddSingleton<NotificationStreamConnectionManager>();
+        services.AddSingleton<NotificationStreamBacklogStore>();
+        services.AddSingleton<NotificationStreamLocalFanoutQueue>();
         if (!OpenApiExportMode.IsEnabled())
         {
-            services.AddHostedService<SseLocalFanoutWorker>();
+            services.AddHostedService<NotificationStreamLocalFanoutWorker>();
         }
-        services.AddSingleton<ISsePublisher, RedisSsePublisher>();
+        services.AddSingleton<INotificationStreamPublisher, RedisNotificationStreamPublisher>();
         return services;
     }
 
@@ -126,7 +126,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     private static IServiceCollection AddMessagingRuntime(this IServiceCollection services)
     {
         services.AddScoped<MessageCacheService>();
-        services.AddScoped<IMessageSsePort, MessageSsePort>();
+        services.AddScoped<IMessageNotificationStreamPort, MessageNotificationStreamPort>();
         services.AddScoped<MessageCenterService>();
         services.AddScoped<IMessageQueryService>(sp => sp.GetRequiredService<MessageCenterService>());
         services.AddScoped<IMessageCommandService>(sp => sp.GetRequiredService<MessageCenterService>());

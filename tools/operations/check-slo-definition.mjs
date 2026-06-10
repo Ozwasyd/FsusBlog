@@ -38,7 +38,7 @@ if (!fs.existsSync(sloFile)) {
     'error-rate',
     'http-p95-latency',
     'http-p99-latency',
-    'sse-reconnect-success-rate',
+    'notification-stream-reconnect-success-rate',
     'aot-hit-rate',
     'search-rebuild-success-rate',
     'scheduled-publish-delay',

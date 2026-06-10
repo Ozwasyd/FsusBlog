@@ -27,12 +27,12 @@ slos:
     source: http.server.request.duration
     alert: ready_degraded
 
-  - id: sse-reconnect-success-rate
+  - id: notification-stream-reconnect-success-rate
     objective: 99.5
     unit: percent
     window: 15m
-    source: FsusBlog.Sse
-    alert: sse_disconnect_spike
+    source: FsusBlog.NotificationStream
+    alert: notification_stream_disconnect_spike
 
   - id: aot-hit-rate
     objective: 95

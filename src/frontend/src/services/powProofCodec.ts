@@ -1,4 +1,4 @@
-import type { PowParams } from '@/services/sseTypes'
+import type { PowParams } from '@/services/notificationStreamTypes'
 import { AppErrorCode, createAppError } from '@/utils/appError'
 
 type PowProofLayout = readonly string[]
@@ -108,7 +108,7 @@ export function encodeBinaryPowProofHeader(proof: {
   ])
 }
 
-export function encodeSsePowProof(pow: PowParams): string {
+export function encodeNotificationStreamPowProof(pow: PowParams): string {
   return encodePowEnvelope(pow.difficulty, pow.timestamp, [pow.salt, pow.nonce, pow.signature, pow.fp])
 }
 

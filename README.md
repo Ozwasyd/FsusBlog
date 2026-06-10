@@ -79,7 +79,7 @@ FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核
 ```text
 FsusBlog/
 ├── src/frontend/                         # Vue 3 SPA、Wasm、Service Worker、公开页 hydration
-├── src/backend/          # ASP.NET Core 10 API、AOT、SSE、缓存、安全链路
+├── src/backend/          # ASP.NET Core 10 API、AOT、notification stream、缓存、安全链路
 ├── src/shared/          # 前后端共享契约与二进制协议模型
 ├── src/core/            # 映射、POD 编解码、共享投影逻辑
 ├── tests/backend/   # xUnit 单元与集成测试

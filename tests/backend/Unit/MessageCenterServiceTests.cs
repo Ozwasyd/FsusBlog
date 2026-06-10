@@ -2,7 +2,7 @@ using System.Reflection;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Services.Sse;
+using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -19,7 +19,7 @@ public sealed class MessageCenterServiceTests
         return new MessageCenterService(
             db,
             cache,
-            Substitute.For<IMessageSsePort>(),
+            Substitute.For<IMessageNotificationStreamPort>(),
             NullLogger<MessageCenterService>.Instance);
     }
 

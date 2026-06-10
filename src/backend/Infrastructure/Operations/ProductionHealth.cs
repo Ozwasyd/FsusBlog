@@ -5,7 +5,7 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-using FsusBlog.Server.Infrastructure.Sse;
+using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using Npgsql;
@@ -21,7 +21,7 @@ public sealed record ProductionHealthReport(
 public sealed record RuntimeHealthSnapshot(
     string Status,
     DbConcurrencyGateSnapshot? DbGate,
-    int? SseConnections,
+    int? NotificationStreamConnections,
     int AvailableWorkerThreads,
     StartupRuntimeSnapshot? Startup,
     ScheduledPublishRuntimeSnapshot? ScheduledPublish,
@@ -124,7 +124,7 @@ public sealed class ProductionReadinessProbe(
             dbGate = gate.GetSnapshot();
         }
 
-        int? sseConnections = serviceProvider.GetService<SseConnectionManager>()?.ConnectionCount;
+        int? notificationStreamConnections = serviceProvider.GetService<NotificationStreamConnectionManager>()?.ConnectionCount;
         StartupRuntimeState? startupRuntime = serviceProvider.GetService<StartupRuntimeState>();
         ScheduledPublishRuntimeState? scheduledPublish = serviceProvider.GetService<ScheduledPublishRuntimeState>();
         PublicHotReadRuntimeSnapshot? publicHotRead = serviceProvider.GetService<PublicHotReadStore>()?.CreateRuntimeSnapshot();
@@ -137,7 +137,7 @@ public sealed class ProductionReadinessProbe(
         return new RuntimeHealthSnapshot(
             status,
             dbGate,
-            sseConnections,
+            notificationStreamConnections,
             RuntimePressureSnapshot.Capture().AvailableWorkerThreads,
             startupRuntime?.CreateSnapshot(),
             scheduledPublish?.CreateSnapshot(),

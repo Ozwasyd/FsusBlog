@@ -420,8 +420,8 @@ run_integration_only() {
   run_in_client npm run check:auth-session-smoke
   run_in_client npm run check:binary-smoke
   run_in_client npm run check:binary-smoke:auth
-  run_in_client npm run check:sse-runtime
-  run_in_client npm run check:sse-live
+  run_in_client npm run check:notification-stream-runtime
+  run_in_client npm run check:notification-stream-live
   run_in_client npm run check:api-contracts
   run_in_client npm run check:binary-contract-smoke
   run_in_client npm run check:distribution-version-coherence
@@ -626,7 +626,7 @@ run_security_only() {
   run_in_client npm run check:security:headers-cors
   run_in_client npm run check:security:attack-matrix
   reset_security_runtime_state "post attack matrix"
-  run_in_client npm run check:security:sse-binary
+  run_in_client npm run check:security:notification-stream-binary
   reset_security_runtime_state "pre a11y smoke"
   run_in_client npm run check:a11y:smoke
   run_in_client npm run check:security:dast
@@ -640,7 +640,7 @@ run_security() {
 }
 
 run_resilience_only() {
-  log "tier=resilience | runtime/upload/search/sse/binary resilience"
+  log "tier=resilience | runtime/upload/search/notification-stream/binary resilience"
   require_debug_stack
   require_release_preview
   reset_security_runtime_state "pre resilience"
@@ -653,20 +653,20 @@ run_resilience_only() {
   run_in_client npm run prepare:playwright:fixtures
   run_in_client npm run check:resilience:runtime
   run_in_client npm run check:resilience:upload
-  run_in_client npm run check:sse-runtime
+  run_in_client npm run check:notification-stream-runtime
   run_in_client npm run check:search-runtime
   run_in_client npm run check:binary-smoke
   run_in_client npm run check:binary-contract-smoke
 }
 
 run_resilience() {
-  log "tier=resilience | bootstrap + runtime/upload/search/sse/binary resilience"
+  log "tier=resilience | bootstrap + runtime/upload/search/notification-stream/binary resilience"
   bootstrap_acceptance_env
   run_tier "resilience" run_resilience_only
 }
 
 run_load_only() {
-  log "tier=load | lightweight public/api and SSE concurrency checks"
+  log "tier=load | lightweight public/api and notification stream concurrency checks"
   require_debug_stack
   require_release_preview
   reset_security_runtime_state "pre load"
@@ -678,11 +678,11 @@ run_load_only() {
   run_in_client npm run prepare:binary-smoke:auth-users
   run_in_client npm run prepare:playwright:fixtures
   run_in_client npm run check:load:public-api
-  run_in_client npm run check:load:sse-pressure
+  run_in_client npm run check:load:notification-stream-pressure
 }
 
 run_load() {
-  log "tier=load | bootstrap + lightweight public/api and SSE concurrency checks"
+  log "tier=load | bootstrap + lightweight public/api and notification stream concurrency checks"
   bootstrap_acceptance_env
   run_tier "load" run_load_only
 }

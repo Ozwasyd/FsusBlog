@@ -81,7 +81,7 @@ scenarios:
     tests:
       - tests/backend/Unit/AedsEncoderTests.cs
       - tests/backend/Unit/PodValidationTests.cs
-      - tests/frontend/checks/security/check-security-sse-binary.mjs
+      - tests/frontend/checks/security/check-security-notification-stream-binary.mjs
     evidence:
       - .tmp/security/attack-matrix.json
 

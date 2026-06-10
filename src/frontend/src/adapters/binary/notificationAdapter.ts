@@ -1,5 +1,5 @@
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
-import type { SseEventV2 } from '@/services/sseTypes'
+import type { NotificationStreamEventV2 } from '@/services/notificationStreamTypes'
 import { AppErrorCode, createAppError } from '@/utils/appError'
 
 const decoder = new TextDecoder()
@@ -15,7 +15,7 @@ const ARRAY_KIND = 7
 
 export type NotificationDecodeResult =
   | { kind: 'heartbeat' }
-  | { kind: 'event'; event: SseEventV2 }
+  | { kind: 'event'; event: NotificationStreamEventV2 }
 
 export function decodeNotificationFrame(buffer: ArrayBuffer): NotificationDecodeResult {
   const frame = decodeNotificationAedsFrame(buffer)
@@ -40,7 +40,7 @@ export function decodeNotificationFrame(buffer: ArrayBuffer): NotificationDecode
 
   return {
     kind: 'event',
-    event: { id, ts, type, payload } as SseEventV2
+    event: { id, ts, type, payload } as NotificationStreamEventV2
   }
 }
 

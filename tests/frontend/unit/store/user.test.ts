@@ -7,14 +7,14 @@ vi.mock('@/api/auth', () => ({
   logout: vi.fn()
 }))
 
-vi.mock('@/services/sseRuntime', () => ({
-  sseRuntime: {
+vi.mock('@/services/notificationStreamRuntime', () => ({
+  notificationStreamRuntime: {
     stop: vi.fn().mockResolvedValue(undefined)
   }
 }))
 
-vi.mock('@/store/sse', () => ({
-  useSseStore: vi.fn().mockReturnValue({
+vi.mock('@/store/notificationStream', () => ({
+  useNotificationStreamStore: vi.fn().mockReturnValue({
     dispose: vi.fn(),
     resetCursor: vi.fn(),
     setStatus: vi.fn()

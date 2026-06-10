@@ -121,10 +121,9 @@ public sealed class AuditLogEventMapper
                 || value.Contains("DbConcurrencyGate", StringComparison.Ordinal)
                 || value.Contains("SchemaMigration", StringComparison.Ordinal)
                 => AuditSourceCatalog.Db,
-            var value when value.Contains(".Infrastructure.SSE.", StringComparison.Ordinal)
-                || value.Contains(".Services.SSE.", StringComparison.Ordinal)
-                || value.Contains(".Services.Sse.", StringComparison.Ordinal)
-                => AuditSourceCatalog.Sse,
+            var value when value.Contains(".Infrastructure.NotificationStream.", StringComparison.Ordinal)
+                || value.Contains(".Services.NotificationStream.", StringComparison.Ordinal)
+                => AuditSourceCatalog.NotificationStream,
             var value when value.Contains("PublicAot", StringComparison.Ordinal)
                 => AuditSourceCatalog.PublicAot,
             var value when value.Contains(".Services.Background.", StringComparison.Ordinal)
@@ -137,8 +136,8 @@ public sealed class AuditLogEventMapper
             var value when value.Contains(".Modules.Controllers.", StringComparison.Ordinal)
                 || value.Contains(".Modules.Endpoints.", StringComparison.Ordinal)
                 => AuditSourceCatalog.Request,
-            _ when eventInfo.Contains("SSE", StringComparison.OrdinalIgnoreCase)
-                => AuditSourceCatalog.Sse,
+            _ when eventInfo.Contains("notification stream", StringComparison.OrdinalIgnoreCase)
+                => AuditSourceCatalog.NotificationStream,
             _ => AuditSourceCatalog.Runtime
         };
     }

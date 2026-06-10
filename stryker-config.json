@@ -23,7 +23,7 @@
       "src/backend/Infrastructure/Cache/**/*.cs",
       "src/backend/Infrastructure/Filters/**/*.cs",
       "src/backend/Infrastructure/Middlewares/**/*.cs",
-      "src/backend/Infrastructure/SSE/**/*.cs",
+      "src/backend/Infrastructure/NotificationStream/**/*.cs",
       "src/backend/Services/**/*.cs"
     ],
     "ignore-methods": [

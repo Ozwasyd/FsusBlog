@@ -11,7 +11,7 @@ describe('frontend performance workflow contract', () => {
   const localSearch = readRepoFile('src/frontend/src/services/localSearch.ts')
   const imageCompression = readRepoFile('src/frontend/src/utils/imageCompression.ts')
   const wasmImageCodec = readRepoFile('src/frontend/src/utils/wasmImageCodec.ts')
-  const sseStore = readRepoFile('src/frontend/src/store/sse.ts')
+  const notificationStreamStore = readRepoFile('src/frontend/src/store/notificationStream.ts')
   const commentStream = readRepoFile('src/frontend/src/composables/useArticleCommentStream.ts')
   const viewTask = readRepoFile('src/frontend/src/composables/useViewTask.ts')
   const commentList = readRepoFile('src/frontend/src/components/article/ArticleCommentsVirtualList.vue')
@@ -37,7 +37,7 @@ describe('frontend performance workflow contract', () => {
     expect(decodeWorker).toContain('isRequestCanceled(requestId)')
   })
 
-  it('removes redundant image, wasm codec, and SSE batch copies', () => {
+  it('removes redundant image, wasm codec, and notification stream batch copies', () => {
     expect(imageCompression).toContain('rgba: imageData.data')
     expect(imageCompression).toContain('new Blob([encoded as unknown as BlobPart], { type: mimeType })')
     expect(imageCompression).not.toContain('Uint8Array.from(imageData.data)')
@@ -48,8 +48,8 @@ describe('frontend performance workflow contract', () => {
     expect(wasmImageCodec).toContain('return decodeUtf8(view.buffer.slice')
     expect(wasmImageCodec).not.toContain('decodeUtf8(Uint8Array.from(view))')
 
-    expect(sseStore).toContain('Object.freeze(patches)')
-    expect(sseStore).not.toContain('Object.freeze([...patches])')
+    expect(notificationStreamStore).toContain('Object.freeze(patches)')
+    expect(notificationStreamStore).not.toContain('Object.freeze([...patches])')
   })
 
   it('keeps search index bytes out of long-lived JS state', () => {

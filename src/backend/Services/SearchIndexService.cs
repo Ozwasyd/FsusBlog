@@ -2,9 +2,9 @@ using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Infrastructure.Sse;
+using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Shared.Contracts.Sse;
+using FsusBlog.Shared.Contracts.NotificationStream;
 using SqlSugar;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -31,7 +31,7 @@ namespace FsusBlog.Server.Services;
 public sealed partial class SearchIndexService(
     IServiceScopeFactory scopeFactory,
     IWebHostEnvironment environment,
-    ISsePublisher ssePublisher,
+    INotificationStreamPublisher notificationStreamPublisher,
     ILogger<SearchIndexService> logger) : ISearchIndexService
 {
     private const uint ShardMagic = 0x32534846; // FHS2
@@ -474,10 +474,10 @@ public sealed partial class SearchIndexService(
 
         if (!string.Equals(previousManifest?.CurrentVersion, artifacts.Version, StringComparison.Ordinal))
         {
-            await ssePublisher.PublishAsync(
-                SseEventType.SearchIndexUpdated,
+            await notificationStreamPublisher.PublishAsync(
+                NotificationStreamEventType.SearchIndexUpdated,
                 new SearchIndexUpdatePayload(artifacts.Version, "/search/index.manifest.aeds", artifacts.GeneratedAt),
-                new GroupTarget(SseGroups.ContentFeed));
+                new NotificationStreamGroupTarget(NotificationStreamGroups.ContentFeed));
         }
     }
 

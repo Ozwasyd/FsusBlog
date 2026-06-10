@@ -92,8 +92,8 @@ npm run check:image-codec-wasm        # 图片编解码 Wasm 检查
 **运行时检查**（需启动完整调试栈 3000/5000）：
 
 ```bash
-npm run check:sse-runtime             # SSE 连接弹性
-npm run check:sse-live                # SSE 协议握手 / 重连冒烟
+npm run check:notification-stream-runtime             # notification stream 连接弹性
+npm run check:notification-stream-live                # notification stream 协议握手 / 重连冒烟
 npm run check:api-contracts           # 统一 API 响应契约矩阵
 npm run check:binary-contract-smoke      # Binary 状态与帧类型对齐
 npm run check:search-runtime          # 搜索功能冒烟

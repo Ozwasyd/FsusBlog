@@ -58,7 +58,7 @@ public static class AuditSourceCatalog
     public const string Security = "security";
     public const string Cache = "cache";
     public const string Db = "db";
-    public const string Sse = "sse";
+    public const string NotificationStream = "notification-stream";
     public const string PublicAot = "public_aot";
     public const string Storage = "storage";
     public const string Background = "background";

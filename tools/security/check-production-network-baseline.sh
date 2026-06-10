@@ -55,7 +55,7 @@ if [[ -f "$GATEWAY_FILE" ]]; then
   require_pattern "$GATEWAY_FILE" '\\\.\(bak\|old\|orig\|save\|sql\|tar\|gz\|zip\|7z\|rar\)' 'backup/archive deny rule'
   require_pattern "$GATEWAY_FILE" 'client_max_body_size[[:space:]]+5m;' 'explicit upload limit'
   require_pattern "$GATEWAY_FILE" 'proxy_set_header[[:space:]]+Upgrade[[:space:]]+\$http_upgrade;' 'WebSocket upgrade forwarding'
-  require_pattern "$GATEWAY_FILE" 'proxy_buffering[[:space:]]+off;' 'SSE/WebSocket buffering disabled'
+  require_pattern "$GATEWAY_FILE" 'proxy_buffering[[:space:]]+off;' 'WebSocket buffering disabled'
   require_pattern "$GATEWAY_FILE" 'Strict-Transport-Security' 'HSTS response header'
 fi
 

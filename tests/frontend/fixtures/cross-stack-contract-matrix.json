@@ -76,7 +76,7 @@
       ],
       "evidencePaths": [
         "tests/frontend/checks/security/check-binary-negative-matrix.mjs",
-        "tests/frontend/checks/security/check-security-sse-binary.mjs"
+        "tests/frontend/checks/security/check-security-notification-stream-binary.mjs"
       ]
     },
     {
@@ -93,15 +93,15 @@
       ]
     },
     {
-      "id": "coherence-sse-events",
-      "command": "npm run check:coherence:sse-events",
+      "id": "coherence-notification-stream-events",
+      "command": "npm run check:coherence:notification-stream-events",
       "risk": "high",
       "requirements": [
-        "CROSS-SSE-BUSINESS-EVENTS"
+        "CROSS-NOTIFICATION-STREAM-BUSINESS-EVENTS"
       ],
       "evidencePaths": [
-        "tests/frontend/checks/runtime/sse-business-events.mjs",
-        "tests/frontend/checks/runtime/sse-live-smoke.mjs"
+        "tests/frontend/checks/runtime/notification-stream-business-events.mjs",
+        "tests/frontend/checks/runtime/notification-stream-live-smoke.mjs"
       ]
     },
     {
@@ -175,7 +175,7 @@
     { "id": "CROSS-FRONTEND-BACKEND-API-PARITY", "risk": "critical", "coverage": "frontend API wrappers and binary adapters map to backend endpoint matrix or server-only marker" },
     { "id": "CROSS-FRAME-SCHEMA-SYNC", "risk": "critical", "coverage": "AEDS protocol JSON, backend enum, frontend decoder, backend golden catalog stay in sync" },
     { "id": "CROSS-AEDS-FLAGS-RESERVED", "risk": "high", "coverage": "request frame flags stay zero, non-zero flags are rejected, response-only flags require negative/downgrade matrix before adoption" },
-    { "id": "CROSS-SSE-BUSINESS-EVENTS", "risk": "high", "coverage": "article/comment/message events, cursor replay, target fanout, private channel security" },
+    { "id": "CROSS-NOTIFICATION-STREAM-BUSINESS-EVENTS", "risk": "high", "coverage": "article/comment/message events, cursor replay, target fanout, private channel security" },
     { "id": "CROSS-UPLOAD-COMPLETE-ASSET", "risk": "high", "coverage": "init/part/complete/public URL/asset library/reference/error/idempotency coherence" },
     { "id": "CROSS-AOT-SEARCH-FEED-SITEMAP", "risk": "high", "coverage": "article lifecycle, taxonomy, settings, page content and stale marker distribution coherence" },
     { "id": "CROSS-AUTH-SESSION-MFA-PASSKEY", "risk": "high", "coverage": "register/login/refresh/revoke/logout/MFA/passkey UI and backend session coherence" },
@@ -189,12 +189,12 @@
     { "id": "CROSS-PERMISSION-UI-BACKEND", "risk": "high", "coverage": "UI visible actions and backend permission boundaries align for anonymous/user/admin/banned/deleted/MFA partial" },
     { "id": "CROSS-ERROR-CONTRACT", "risk": "high", "coverage": "validation/unauthorized/forbidden/not-found/conflict/rate-limit/PoW/MFA/banned/deleted/protocol errors map across stack" },
     { "id": "CROSS-SW-BACKEND-CACHE", "risk": "medium", "coverage": "Service Worker cache, backend distribution version, auth cookie and offline public/private policies" },
-    { "id": "CROSS-OBSERVABILITY-AUDIT", "risk": "medium", "coverage": "RUM, traceId, ApiError, audit, SSE event id and upload session correlation without PII" },
+    { "id": "CROSS-OBSERVABILITY-AUDIT", "risk": "medium", "coverage": "RUM, traceId, ApiError, audit, notification stream event id and upload session correlation without PII" },
     { "id": "CROSS-CONTRACT-FUZZ", "risk": "medium", "coverage": "random AEDS/query/Unicode/upload/WebSocket/cursor/hydration fuzz with reproducible seeds" },
     { "id": "CROSS-GENERATIVE-CONTRACTS", "risk": "medium", "coverage": "generated contract matrix, API parity, binary golden and permission matrix from shared schema" },
     { "id": "CROSS-ARTIFACT-DRIFT", "risk": "medium", "coverage": "release static assets, StaticWebAssets, renderer version, distribution version and public manifest drift checks" },
     { "id": "CROSS-BROWSER-PROTOCOL", "risk": "medium", "coverage": "WebAuthn, WebSocket binary, Service Worker cache, file upload and AOT hydration across browsers" },
-    { "id": "CROSS-PERFORMANCE", "risk": "medium", "coverage": "cross-stack AEDS encode/decode, public cache/render, search, upload, SSE and AOT/hydration latency evidence" },
+    { "id": "CROSS-PERFORMANCE", "risk": "medium", "coverage": "cross-stack AEDS encode/decode, public cache/render, search, upload, notification stream and AOT/hydration latency evidence" },
     { "id": "CROSS-FLAKY-EVENTUAL-GOVERNANCE", "risk": "medium", "coverage": "eventually timeout, attempt count, slow-success evidence and flake classification" }
   ],
   "fixtureFamilies": [
@@ -405,10 +405,10 @@
       "evidencePaths": [ "tests/frontend/checks/runtime/distribution-coherence-full.mjs", "tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs" ]
     },
     {
-      "id": "sse-events",
-      "requirements": [ "CROSS-SSE-BUSINESS-EVENTS", "CROSS-OBSERVABILITY-AUDIT" ],
+      "id": "notification-stream-events",
+      "requirements": [ "CROSS-NOTIFICATION-STREAM-BUSINESS-EVENTS", "CROSS-OBSERVABILITY-AUDIT" ],
       "surfaces": [ "article-events", "comment-events", "message-events", "cursor-replay", "duplicate-event-id", "private-channel-security" ],
-      "evidencePaths": [ "tests/frontend/checks/runtime/sse-business-events.mjs", "tests/frontend/checks/runtime/sse-live-smoke.mjs" ]
+      "evidencePaths": [ "tests/frontend/checks/runtime/notification-stream-business-events.mjs", "tests/frontend/checks/runtime/notification-stream-live-smoke.mjs" ]
     },
     {
       "id": "upload-complete",
@@ -431,12 +431,12 @@
     {
       "id": "perf",
       "requirements": [ "CROSS-PERFORMANCE", "CROSS-AEDS-FLAGS-RESERVED" ],
-      "surfaces": [ "aeds-encode-decode", "aeds-frame-cost", "aeds-compression-profile", "aeds-flags-reserved", "public-cache-render", "search-build-query", "upload-part", "sse-fanout-patch", "aot-hydration" ],
+      "surfaces": [ "aeds-encode-decode", "aeds-frame-cost", "aeds-compression-profile", "aeds-flags-reserved", "public-cache-render", "search-build-query", "upload-part", "notification-stream-fanout-patch", "aot-hydration" ],
       "evidencePaths": [ "tests/frontend/checks/perf/check-aeds-decode-budget.mjs", "tools/test/lanes/aeds-frame-cost.sh", "tools/test/lanes/aeds-compression-profile.sh", "tests/frontend/checks/load/check-cross-stack-performance.mjs", "tests/frontend/checks/load/check-load-public-api.mjs" ]
     }
   ],
   "eventualConsistency": {
     "requiredFields": [ "timeoutMs", "attempts", "elapsedMs", "surface", "mutationId", "classification" ],
-    "classifications": [ "data-setup", "cache-delay", "sse-delay", "aot-delay", "search-index-delay", "feed-delay" ]
+    "classifications": [ "data-setup", "cache-delay", "notification-stream-delay", "aot-delay", "search-index-delay", "feed-delay" ]
   }
 }

@@ -472,7 +472,7 @@ interface AdminTagItemResponse extends AdminCategoryItemResponse {
 
 ## 通知 WebSocket 契约
 
-源码：`src/shared/Contracts/Sse/SseContracts.cs`
+源码：`src/shared/Contracts/NotificationStream/NotificationStreamContracts.cs`
 
 ### 通道
 
@@ -481,6 +481,7 @@ interface AdminTagItemResponse extends AdminCategoryItemResponse {
 - 协议：WebSocket，子协议固定为 `fsus-aeds.v2`
 - 消息类型：binary
 - 每条消息：完整 AEDS v2 frame
+- 传输语义：notification stream 不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`
 - 匿名连接：仍需 PoW，浏览器 WebSocket 使用 `pow` query 参数传递二进制 FPOW 证明的 base64 文本形式
 - 断线续传：使用 `cursor` query 参数传递最后确认的事件 ID
 
@@ -490,14 +491,14 @@ interface AdminTagItemResponse extends AdminCategoryItemResponse {
 
 ```http
 GET /api/notifications/stream/preflight?pow=<base64-fpow>&cursor=<last-event-id>
-X-Fsus-Sse-Protocol: fsus-aeds.v2
+X-Fsus-Notification-Stream-Protocol: fsus-aeds.v2
 ```
 
 成功时返回 `204 No Content`，不返回 body。失败时返回统一 JSON 错误信封，并带上可观测头：
 
 ```http
-X-Fsus-Sse-Error-Code: account_blocked
-X-Fsus-Sse-Status-Code: 423
+X-Fsus-Notification-Stream-Error-Code: account_blocked
+X-Fsus-Notification-Stream-Status-Code: 423
 ```
 
 失败 body 保持统一响应信封：
@@ -512,7 +513,7 @@ X-Fsus-Sse-Status-Code: 423
 }
 ```
 
-预检不要求 WebSocket upgrade；正式通道仍必须使用 `Sec-WebSocket-Protocol: fsus-aeds.v2`。WebSocket 主通道握手失败时继续返回 AEDS `ApiError` frame，同时写入相同的 `X-Fsus-Sse-*` 头。
+预检不要求 WebSocket upgrade；正式通道仍必须使用 `Sec-WebSocket-Protocol: fsus-aeds.v2`。WebSocket 主通道握手失败时继续返回 AEDS `ApiError` frame，同时写入相同的 `X-Fsus-Notification-Stream-*` 头。
 
 ### `NotificationEvent`
 
@@ -523,7 +524,7 @@ X-Fsus-Sse-Status-Code: 423
 ```text
 int64 eventId
 int64 timestampUnixMs
-int32 sseEventType
+int32 notificationStreamEventType
 int32 reserved
 binary-value payload
 ```
@@ -540,7 +541,7 @@ binary-value payload
 int64 timestampUnixMs
 ```
 
-### `SseEventType` 枚举
+### `NotificationStreamEventType` 枚举
 
 | 值 | 名称 | 载荷类型 | 说明 |
 |----|------|---------|------|
@@ -662,7 +663,7 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 }
 ```
 
-当 `enabled=false` 或备案字段为空时，公开 footer 不输出备案占位文案，只保留真实存在的版权、许可和静态页链接。保存成功后服务端会失效 `SystemCompliance` L1/L2/OutputCache、SEO/distribution cache 与相关 Public AOT 静态页，并通过 SSE `CacheControl` 通知 shell 失效。
+当 `enabled=false` 或备案字段为空时，公开 footer 不输出备案占位文案，只保留真实存在的版权、许可和静态页链接。保存成功后服务端会失效 `SystemCompliance` L1/L2/OutputCache、SEO/distribution cache 与相关 Public AOT 静态页，并通过 notification stream `CacheControl` 通知 shell 失效。
 
 ### `PageContentContract`
 
@@ -1096,7 +1097,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 `CommentModerationItemResponse.id` 使用字符串承载 Snowflake ID，避免前端整数精度损失；响应同时包含文章、用户、内容、状态、审核原因、审核人、审核时间、`hitReasons`、`submitRegion`、`submitRegionConfidence`、`blockedRegions`、`regionPolicyVersion`、`regionDecisionReason`、`regionCanPublish`、`regionRequiresManualReview`、`regionHideUntilReviewed`。启用可选反垃圾模型后，响应追加最新 `modelSignals` 及摘要字段 `modelLabel/modelConfidence/modelPrimaryReason/modelProvider/modelUnavailable`；这些字段只表示风险信号，不包含或代表最终审核动作。`hitReasons` 来自内容过滤器、HTML 风险、密集链接、重复刷屏、人工原因、地区风险标签和 `model:{category}`，用于解释敏感词/垃圾评论/地区策略/模型命中；管理端可按命中原因、blocked region、模型标签和 provider 做本地队列过滤。审核读取和写入受 `fixed_ip` 限流；单条与批量审核需要先调用 `/api/binary/auth/mfa/challenge/start` / `/api/binary/auth/mfa/challenge` 获取 action=`admin-sensitive` 的一次性 proof，并在 JSON 请求头传入 `X-Fsus-Mfa-Proof`。proof 缺失、过期或已被消费时返回 `428` + `MFA_PROOF_REQUIRED`，当前 admin 会话未 MFA verified 时返回 `403` + `MFA_REQUIRED`。
 
-单条与批量审核都会写入 `comment-moderation` / `comment-moderation-bulk` 审计，服务层用旧 `ModerationStatus` 做 CAS 条件更新并限制状态机转换。`Pending/Rejected/Hidden -> Approved` 会通过 SSE 推送 `CommentAdded`，但合规记录 `can_publish=false` 的发布地违法评论不能被批准；`Approved -> Rejected/Hidden` 和删除会推送 `CommentRemoved`。评论游标缓存按 article/root/user scope 清理，公开读取的 frame identity 额外包含 viewer region，不再全局清 `CacheTag.Comment`；当 `status=Rejected|Hidden` 且 `banUser(s)=true` 时，服务端会把非 admin、非注销用户更新为封禁状态并同步黑名单缓存。误判恢复使用 `status=Approved`，不会触发封禁联动。
+单条与批量审核都会写入 `comment-moderation` / `comment-moderation-bulk` 审计，服务层用旧 `ModerationStatus` 做 CAS 条件更新并限制状态机转换。`Pending/Rejected/Hidden -> Approved` 会通过 notification stream 推送 `CommentAdded`，但合规记录 `can_publish=false` 的发布地违法评论不能被批准；`Approved -> Rejected/Hidden` 和删除会推送 `CommentRemoved`。评论游标缓存按 article/root/user scope 清理，公开读取的 frame identity 额外包含 viewer region，不再全局清 `CacheTag.Comment`；当 `status=Rejected|Hidden` 且 `banUser(s)=true` 时，服务端会把非 admin、非注销用户更新为封禁状态并同步黑名单缓存。误判恢复使用 `status=Approved`，不会触发封禁联动。
 
 第三方审核模型 Provider 契约由 FsusBlog 定义，Provider 只返回风险类别、置信度、严重度、证据策略和模型元数据，不得返回 `reject_submit`、`geo_block`、`blocked_regions`、发布、隐藏或地区合法性字段。`comment_moderation_signal` 存储 `provider/model/contract_version/label/severity/confidence/primary_reason/needs_second_round/risk_categories/evidence_json/raw_reason/latency_ms/status/error_code/threshold_profile/created_at_utc`；`status=ok|timeout|unavailable|contract_invalid|error` 均 fail-open，不阻断评论进入 Pending。模型 runtime reload 会校验 provider/schema/checksum；失败时保留旧模型快照，rollback 只恢复上一份成功模型快照。模型 runtime 禁用只停止模型风险信号，不禁用硬词库、地区策略或人工审核。HTTP/CLI JSON schema、错误响应和 conformance 工具见 [../moderation/third-party-model-development.md](../moderation/third-party-model-development.md)，运行时配置见 [../moderation.md](../moderation.md)。
 
@@ -1116,4 +1117,4 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 - [quick-reference.md](quick-reference.md) — 端点路由速查表
 - [schemas-and-errors.md](schemas-and-errors.md) — 错误码枚举与 Binary 帧格式
 - `src/shared/Contracts/Outputs/ServerResponseContracts.cs` — 所有 DTO 权威源码
-- `src/shared/Contracts/Sse/SseContracts.cs` — SSE 信封权威源码
+- `src/shared/Contracts/NotificationStream/NotificationStreamContracts.cs` — notification stream 信封权威源码

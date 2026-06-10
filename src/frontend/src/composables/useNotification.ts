@@ -5,9 +5,9 @@ import { getPowChallenge } from '@/api/auth'
 import { usePow } from '@/composables/usePow'
 import { invalidateSearchIndexMemory } from '@/services/localSearch'
 import { forwardCacheControlPayload, forwardSearchIndexUpdate, postSwControlMessage } from '@/services/serviceWorkerRuntime'
-import { sseRuntime } from '@/services/sseRuntime'
-import { SseEventType, SseFailureCodes, type ArticleUpdatePayload, type CacheControlPayload, type PowParams, type SearchIndexUpdatePayload, type SseEventV2, type SseFailureCode, type UserStatusPayload } from '@/services/sseTypes'
-import { useSseStore } from '@/store/sse'
+import { notificationStreamRuntime } from '@/services/notificationStreamRuntime'
+import { NotificationStreamEventType, NotificationStreamFailureCodes, type ArticleUpdatePayload, type CacheControlPayload, type PowParams, type SearchIndexUpdatePayload, type NotificationStreamEventV2, type NotificationStreamFailureCode, type UserStatusPayload } from '@/services/notificationStreamTypes'
+import { useNotificationStreamStore } from '@/store/notificationStream'
 import { useUserStore } from '@/store/user'
 import { getBrowserFp } from '@/utils/fingerprint'
 import { isAbortError } from '@/utils/errors'
@@ -27,7 +27,7 @@ let pendingInitMode: 'auth' | 'guest' | '' = ''
 let articleCreatedToastTimer: ReturnType<typeof setTimeout> | null = null
 let pendingArticleCreatedIds: number[] = []
 
-const POW_STORAGE_KEY = 'sse_guest_pow'
+const POW_STORAGE_KEY = 'notification_stream_guest_pow'
 
 function clearReauthRetryTimer(): void {
     if (!reauthRetryTimer) {
@@ -45,13 +45,13 @@ function disposeNotificationBindings(): void {
         articleCreatedToastTimer = null
     }
     pendingArticleCreatedIds = []
-    sseRuntime.onEvent = undefined
-    sseRuntime.onCursorChange = undefined
-    sseRuntime.onStatusChange = undefined
-    sseRuntime.onDuplicateEvent = undefined
-    sseRuntime.onProtocolError = undefined
-    sseRuntime.onHandshakeFailure = undefined
-    sseRuntime.onReconnectSuccess = undefined
+    notificationStreamRuntime.onEvent = undefined
+    notificationStreamRuntime.onCursorChange = undefined
+    notificationStreamRuntime.onStatusChange = undefined
+    notificationStreamRuntime.onDuplicateEvent = undefined
+    notificationStreamRuntime.onProtocolError = undefined
+    notificationStreamRuntime.onHandshakeFailure = undefined
+    notificationStreamRuntime.onReconnectSuccess = undefined
     bindingsInitialized = false
 }
 
@@ -83,8 +83,8 @@ function scheduleArticleCreatedToast(articleId: number, router: ReturnType<typeo
 
 export function useNotification() {
     const userStore = useUserStore()
-    const sseStore = useSseStore()
-    const { unreadCount } = storeToRefs(sseStore)
+    const notificationStreamStore = useNotificationStreamStore()
+    const { unreadCount } = storeToRefs(notificationStreamStore)
     const router = useRouter()
     const { calculate, prewarm, isCalculating } = usePow()
 
@@ -142,16 +142,16 @@ export function useNotification() {
         }
     }
 
-    const handleIncomingEvent = (event: SseEventV2): void => {
-        sseStore.consumeEvent(event)
+    const handleIncomingEvent = (event: NotificationStreamEventV2): void => {
+        notificationStreamStore.consumeEvent(event)
 
-        if (event.type === SseEventType.GlobalNoticePublished) {
+        if (event.type === NotificationStreamEventType.GlobalNoticePublished) {
             const payload = event.payload as { title: string }
             toast.info(`公告：${payload.title}`, 8000)
             return
         }
 
-        if (event.type === SseEventType.ArticleChanged) {
+        if (event.type === NotificationStreamEventType.ArticleChanged) {
             const payload = event.payload as ArticleUpdatePayload
             postSwControlMessage({ type: 'shell.invalidate', scope: 'content' })
             if (payload.action === 'Created') {
@@ -160,24 +160,24 @@ export function useNotification() {
             return
         }
 
-        if (event.type === SseEventType.CacheControl) {
+        if (event.type === NotificationStreamEventType.CacheControl) {
             forwardCacheControlPayload(event.payload as CacheControlPayload)
             return
         }
 
-        if (event.type === SseEventType.SearchIndexUpdated) {
+        if (event.type === NotificationStreamEventType.SearchIndexUpdated) {
             invalidateSearchIndexMemory()
             forwardSearchIndexUpdate(event.payload as SearchIndexUpdatePayload)
             return
         }
 
-        if (event.type === SseEventType.UserStatusChanged) {
+        if (event.type === NotificationStreamEventType.UserStatusChanged) {
             handleUserStatusChange(event.payload as UserStatusPayload)
         }
     }
 
-    const handleReauthAndRestart = async (failureCode: SseFailureCode): Promise<void> => {
-        if (failureCode === SseFailureCodes.ProtocolMismatch) {
+    const handleReauthAndRestart = async (failureCode: NotificationStreamFailureCode): Promise<void> => {
+        if (failureCode === NotificationStreamFailureCodes.ProtocolMismatch) {
             return
         }
 
@@ -187,11 +187,11 @@ export function useNotification() {
         }
         lastReauthTime = now
 
-        if (failureCode === SseFailureCodes.AuthFailed && userStore.isLoggedIn) {
+        if (failureCode === NotificationStreamFailureCodes.AuthFailed && userStore.isLoggedIn) {
             await userStore.fetchUserInfo(true)
 
             if (userStore.isLoggedIn) {
-                await sseRuntime.start(undefined, sseStore.runtime.cursor)
+                await notificationStreamRuntime.start(undefined, notificationStreamStore.runtime.cursor)
                 currentMode.value = 'auth'
                 return
             }
@@ -210,7 +210,7 @@ export function useNotification() {
             memoryPowCache = null
             sessionStorage.removeItem(POW_STORAGE_KEY)
             const pow = await getOrRefreshPow()
-            await sseRuntime.start(pow, sseStore.runtime.cursor)
+            await notificationStreamRuntime.start(pow, notificationStreamStore.runtime.cursor)
             currentMode.value = 'guest'
         } catch (error) {
             if (isAbortError(error)) {
@@ -222,7 +222,7 @@ export function useNotification() {
                 return
             }
 
-            console.error('[SSE] 恢复访客流失败:', error)
+            console.error('[NotificationStream] 恢复访客流失败:', error)
         }
     }
 
@@ -233,26 +233,26 @@ export function useNotification() {
 
         bindingsInitialized = true
 
-        sseRuntime.onEvent = handleIncomingEvent
-        sseRuntime.onCursorChange = (cursor) => {
-            sseStore.syncCursor(cursor)
+        notificationStreamRuntime.onEvent = handleIncomingEvent
+        notificationStreamRuntime.onCursorChange = (cursor) => {
+            notificationStreamStore.syncCursor(cursor)
         }
-        sseRuntime.onStatusChange = (status, retryCount) => {
-            sseStore.setStatus(status, retryCount)
+        notificationStreamRuntime.onStatusChange = (status, retryCount) => {
+            notificationStreamStore.setStatus(status, retryCount)
         }
-        sseRuntime.onDuplicateEvent = () => {
-            sseStore.recordDuplicateEvent()
+        notificationStreamRuntime.onDuplicateEvent = () => {
+            notificationStreamStore.recordDuplicateEvent()
         }
-        sseRuntime.onProtocolError = (reason) => {
-            console.warn('[SSE] protocol_error', reason)
-            sseStore.recordProtocolError()
+        notificationStreamRuntime.onProtocolError = (reason) => {
+            console.warn('[NotificationStream] protocol_error', reason)
+            notificationStreamStore.recordProtocolError()
         }
-        sseRuntime.onHandshakeFailure = (code) => {
-            sseStore.recordHandshakeFailure(code)
+        notificationStreamRuntime.onHandshakeFailure = (code) => {
+            notificationStreamStore.recordHandshakeFailure(code)
             void handleReauthAndRestart(code)
         }
-        sseRuntime.onReconnectSuccess = (replayMissed) => {
-            sseStore.recordReconnect(replayMissed)
+        notificationStreamRuntime.onReconnectSuccess = (replayMissed) => {
+            notificationStreamStore.recordReconnect(replayMissed)
         }
     }
 
@@ -260,7 +260,7 @@ export function useNotification() {
         clearReauthRetryTimer()
         pendingInitMode = ''
         initNotificationPromise = null
-        await sseRuntime.stop(clearCursor)
+        await notificationStreamRuntime.stop(clearCursor)
         disposeNotificationBindings()
         currentMode.value = ''
         isInitializing.value = false
@@ -268,7 +268,7 @@ export function useNotification() {
 
     const initNotification = async (isLogged: boolean): Promise<void> => {
         const targetMode = isLogged ? 'auth' : 'guest'
-        if (sseRuntime.isConnected() && currentMode.value === targetMode) {
+        if (notificationStreamRuntime.isConnected() && currentMode.value === targetMode) {
             return
         }
 
@@ -277,7 +277,7 @@ export function useNotification() {
             await initNotificationPromise
 
             if (!pendingInitMode
-                || (sseRuntime.isConnected() && currentMode.value === pendingInitMode)
+                || (notificationStreamRuntime.isConnected() && currentMode.value === pendingInitMode)
                 || pendingInitMode === currentMode.value) {
                 return
             }
@@ -289,16 +289,16 @@ export function useNotification() {
             ensureBindings()
 
             try {
-                if (sseRuntime.isConnected()) {
-                    await sseRuntime.stop()
+                if (notificationStreamRuntime.isConnected()) {
+                    await notificationStreamRuntime.stop()
                 }
 
                 currentMode.value = mode
                 if (mode === 'auth') {
-                    await sseRuntime.start(undefined, sseStore.runtime.cursor)
+                    await notificationStreamRuntime.start(undefined, notificationStreamStore.runtime.cursor)
                 } else {
                     const pow = await getOrRefreshPow()
-                    await sseRuntime.start(pow, sseStore.runtime.cursor)
+                    await notificationStreamRuntime.start(pow, notificationStreamStore.runtime.cursor)
                 }
             } catch (error) {
                 if (isAbortError(error)) {
@@ -311,7 +311,7 @@ export function useNotification() {
                     return
                 }
 
-                console.error('[SSE] 初始化失败:', error)
+                console.error('[NotificationStream] 初始化失败:', error)
                 currentMode.value = ''
             } finally {
                 isInitializing.value = false
@@ -324,7 +324,7 @@ export function useNotification() {
                 const nextMode = pendingInitMode
                 pendingInitMode = ''
 
-                if (nextMode === currentMode.value && sseRuntime.isConnected()) {
+                if (nextMode === currentMode.value && notificationStreamRuntime.isConnected()) {
                     continue
                 }
 

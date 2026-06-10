@@ -6,7 +6,7 @@ using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Shared.Contracts.Sse;
+using FsusBlog.Shared.Contracts.NotificationStream;
 using SqlSugar;
 using System.Data.Common;
 using System.Runtime.InteropServices;

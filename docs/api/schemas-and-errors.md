@@ -102,9 +102,9 @@
 | `FileTooLarge` | 400 | 文件超出大小限制 |
 | `FileTypeNotAllowed` | 400 | 文件类型不允许 |
 
-### SSE 握手失败码
+### Notification Stream 握手失败码
 
-SSE preflight 与 WebSocket 握手失败会在 `X-Fsus-Sse-Error-Code` 头、JSON preflight body 或 AEDS `ApiError` frame 中携带以下传输级失败码：
+Notification stream preflight 与 WebSocket 握手失败会在 `X-Fsus-Notification-Stream-Error-Code` 头、JSON preflight body 或 AEDS `ApiError` frame 中携带以下传输级失败码：
 
 | 失败码 | HTTP 状态 | 含义 |
 |--------|-----------|------|

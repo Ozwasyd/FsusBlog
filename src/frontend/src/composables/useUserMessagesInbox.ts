@@ -12,8 +12,8 @@ import {
   type InboxReadUpdatedPayload
 } from '@/api/message'
 import { useNotification } from '@/composables/useNotification'
-import type { SseInboxRenderPatch } from '@/services/sseTypes'
-import { useSseStore } from '@/store/sse'
+import type { NotificationStreamInboxRenderPatch } from '@/services/notificationStreamTypes'
+import { useNotificationStreamStore } from '@/store/notificationStream'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 
@@ -88,7 +88,7 @@ const resetInboxState = (
 
 export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
   const { unreadCount } = useNotification()
-  const sseStore = useSseStore()
+  const notificationStreamStore = useNotificationStreamStore()
   const route = useRoute()
   const router = useRouter()
 
@@ -406,7 +406,7 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
     }
   }
 
-  const consumeInboxPatches = (patches: readonly SseInboxRenderPatch[]): void => {
+  const consumeInboxPatches = (patches: readonly NotificationStreamInboxRenderPatch[]): void => {
     for (const patch of patches) {
       switch (patch.kind) {
         case 'conversation-upsert':
@@ -470,12 +470,12 @@ export function useUserMessagesInbox(isEnabled: () => boolean = () => true) {
   )
 
   watch(
-    () => sseStore.inboxRevision,
+    () => notificationStreamStore.inboxRevision,
     () => {
       if (!isEnabled()) {
         return
       }
-      consumeInboxPatches(sseStore.inboxBatch)
+      consumeInboxPatches(notificationStreamStore.inboxBatch)
     }
   )
 

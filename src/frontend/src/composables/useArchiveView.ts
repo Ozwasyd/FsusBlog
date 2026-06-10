@@ -4,14 +4,14 @@ import { useAbortableTask } from '@/composables/useAbortableTask'
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
 import { toBootstrapArchiveArticleListItem } from '@/bootstrap/publicAotBootstrap'
 import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
-import { upsertArticlePreview, removeArticlePreview } from '@/services/sseArticlePatch'
-import type { SseArticleRenderPatch } from '@/services/sseTypes'
-import { useSseStore } from '@/store/sse'
+import { upsertArticlePreview, removeArticlePreview } from '@/services/notificationStreamArticlePatch'
+import type { NotificationStreamArticleRenderPatch } from '@/services/notificationStreamTypes'
+import { useNotificationStreamStore } from '@/store/notificationStream'
 import { isAbortError } from '@/utils/errors'
 import { createStableArchivePageViewContractBuilder, type ArchivePageViewContract } from '@/view-contracts/archive'
 
 export function useArchiveView() {
-  const sseStore = useSseStore()
+  const notificationStreamStore = useNotificationStreamStore()
   const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Archive')
   const initialHydrationView = initialHydrationPayload?.view ?? null
   const loading = ref(false)
@@ -83,7 +83,7 @@ export function useArchiveView() {
     })
   }
 
-  const handleArticleBatch = (patches: readonly SseArticleRenderPatch[]): void => {
+  const handleArticleBatch = (patches: readonly NotificationStreamArticleRenderPatch[]): void => {
     let needsSync = false
     let nextArticles = [...allArticles.value]
     let nextTotal = total.value
@@ -140,13 +140,13 @@ export function useArchiveView() {
   }
 
   watch(
-    () => sseStore.articleRevision,
+    () => notificationStreamStore.articleRevision,
     () => {
       if (!lifecycle.isActive()) {
         return
       }
 
-      handleArticleBatch(sseStore.articleBatch)
+      handleArticleBatch(notificationStreamStore.articleBatch)
     }
   )
 

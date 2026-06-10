@@ -17,8 +17,8 @@ import { isAbortError } from '@/utils/errors'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { alertInfo } from '@/fsusui/feedback'
 import { requestGlobalConfirm } from '@/composables/useGlobalConfirm'
-import type { SseArticleRenderPatch, SseCommentRenderPatch } from '@/services/sseTypes'
-import { useSseStore } from '@/store/sse'
+import type { NotificationStreamArticleRenderPatch, NotificationStreamCommentRenderPatch } from '@/services/notificationStreamTypes'
+import { useNotificationStreamStore } from '@/store/notificationStream'
 import {
   createArticleDetailPageViewContract,
   createArticleDetailHeaderViewContract,
@@ -61,7 +61,7 @@ const COMMENT_SUMMARY_LIMIT = 48
 export function useArticleDetailView() {
   const route = useRoute()
   const router = useRouter()
-  const sseStore = useSseStore()
+  const notificationStreamStore = useNotificationStreamStore()
   const { bootstrap: initialBootstrap } = consumePublicPageSeed('ArticleDetail')
   const userStore = useUserStore()
   const articleStore = useArticleBinaryStore()
@@ -547,7 +547,7 @@ export function useArticleDetailView() {
     })()
   }
 
-  const handleArticleBatch = (patches: readonly SseArticleRenderPatch[]): void => {
+  const handleArticleBatch = (patches: readonly NotificationStreamArticleRenderPatch[]): void => {
     for (const patch of patches) {
       if (patch.kind === 'reconnected') {
         handleSignalRReconnected()
@@ -570,7 +570,7 @@ export function useArticleDetailView() {
     }
   }
 
-  const handleCommentBatch = (patches: readonly SseCommentRenderPatch[]): void => {
+  const handleCommentBatch = (patches: readonly NotificationStreamCommentRenderPatch[]): void => {
     for (const patch of patches) {
       const payload = patch.event.payload
       if (patch.kind === 'added') {
@@ -598,24 +598,24 @@ export function useArticleDetailView() {
   )
 
   watch(
-    () => sseStore.articleRevision,
+    () => notificationStreamStore.articleRevision,
     () => {
       if (!lifecycle.isActive()) {
         return
       }
 
-      handleArticleBatch(sseStore.articleBatch)
+      handleArticleBatch(notificationStreamStore.articleBatch)
     }
   )
 
   watch(
-    () => sseStore.commentRevision,
+    () => notificationStreamStore.commentRevision,
     () => {
       if (!lifecycle.isActive()) {
         return
       }
 
-      handleCommentBatch(sseStore.commentBatch)
+      handleCommentBatch(notificationStreamStore.commentBatch)
     }
   )
 

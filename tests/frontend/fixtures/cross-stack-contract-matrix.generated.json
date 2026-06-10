@@ -76,7 +76,7 @@
       ],
       "evidencePaths": [
         "tests/frontend/checks/security/check-binary-negative-matrix.mjs",
-        "tests/frontend/checks/security/check-security-sse-binary.mjs"
+        "tests/frontend/checks/security/check-security-notification-stream-binary.mjs"
       ]
     },
     {
@@ -93,15 +93,15 @@
       ]
     },
     {
-      "id": "coherence-sse-events",
-      "command": "npm run check:coherence:sse-events",
+      "id": "coherence-notification-stream-events",
+      "command": "npm run check:coherence:notification-stream-events",
       "risk": "high",
       "requirements": [
-        "CROSS-SSE-BUSINESS-EVENTS"
+        "CROSS-NOTIFICATION-STREAM-BUSINESS-EVENTS"
       ],
       "evidencePaths": [
-        "tests/frontend/checks/runtime/sse-business-events.mjs",
-        "tests/frontend/checks/runtime/sse-live-smoke.mjs"
+        "tests/frontend/checks/runtime/notification-stream-business-events.mjs",
+        "tests/frontend/checks/runtime/notification-stream-live-smoke.mjs"
       ]
     },
     {
@@ -192,7 +192,7 @@
       "coverage": "request frame flags stay zero, non-zero flags are rejected, response-only flags require negative/downgrade matrix before adoption"
     },
     {
-      "id": "CROSS-SSE-BUSINESS-EVENTS",
+      "id": "CROSS-NOTIFICATION-STREAM-BUSINESS-EVENTS",
       "risk": "high",
       "coverage": "article/comment/message events, cursor replay, target fanout, private channel security"
     },
@@ -264,7 +264,7 @@
     {
       "id": "CROSS-OBSERVABILITY-AUDIT",
       "risk": "medium",
-      "coverage": "RUM, traceId, ApiError, audit, SSE event id and upload session correlation without PII"
+      "coverage": "RUM, traceId, ApiError, audit, notification stream event id and upload session correlation without PII"
     },
     {
       "id": "CROSS-CONTRACT-FUZZ",
@@ -289,7 +289,7 @@
     {
       "id": "CROSS-PERFORMANCE",
       "risk": "medium",
-      "coverage": "cross-stack AEDS encode/decode, public cache/render, search, upload, SSE and AOT/hydration latency evidence"
+      "coverage": "cross-stack AEDS encode/decode, public cache/render, search, upload, notification stream and AOT/hydration latency evidence"
     },
     {
       "id": "CROSS-FLAKY-EVENTUAL-GOVERNANCE",
@@ -1089,9 +1089,9 @@
       ]
     },
     {
-      "id": "sse-events",
+      "id": "notification-stream-events",
       "requirements": [
-        "CROSS-SSE-BUSINESS-EVENTS",
+        "CROSS-NOTIFICATION-STREAM-BUSINESS-EVENTS",
         "CROSS-OBSERVABILITY-AUDIT"
       ],
       "surfaces": [
@@ -1103,8 +1103,8 @@
         "private-channel-security"
       ],
       "evidencePaths": [
-        "tests/frontend/checks/runtime/sse-business-events.mjs",
-        "tests/frontend/checks/runtime/sse-live-smoke.mjs"
+        "tests/frontend/checks/runtime/notification-stream-business-events.mjs",
+        "tests/frontend/checks/runtime/notification-stream-live-smoke.mjs"
       ]
     },
     {
@@ -1185,7 +1185,7 @@
         "public-cache-render",
         "search-build-query",
         "upload-part",
-        "sse-fanout-patch",
+        "notification-stream-fanout-patch",
         "aot-hydration"
       ],
       "evidencePaths": [
@@ -1209,7 +1209,7 @@
     "classifications": [
       "data-setup",
       "cache-delay",
-      "sse-delay",
+      "notification-stream-delay",
       "aot-delay",
       "search-index-delay",
       "feed-delay"

@@ -31,7 +31,7 @@ Browser
 
 | 模块 | 职责 |
 |------|------|
-| `FsusBlog.Server` | HTTP API、认证、Rate Limiting、缓存治理、安全链路、AOT 输出、SSE |
+| `FsusBlog.Server` | HTTP API、认证、Rate Limiting、缓存治理、安全链路、AOT 输出、notification stream |
 | `FsusBlog.Client` | SPA、公开页 hydration、Wasm 解码、Service Worker 搜索、状态管理 |
 | `FsusBlog.Shared` | 前后端共享二进制协议模型（AEDS 帧结构、契约结构体） |
 | `FsusBlog.Core` | POD 编解码、映射、投影逻辑（与 HTTP 无关的纯计算层） |
@@ -42,7 +42,7 @@ Browser
 - `Server` 和 `Client` 均可引用 `Shared`，但彼此不得直接引用对方。
 - `Core` 不引用任何 HTTP、缓存或认证相关依赖。
 - `Client` 端 Wasm 模块（`wasm/`）不引用任何 JS/TS 代码。
-- `Shared` 只承载跨进程稳定 DTO、AEDS/SSE/POD 契约和响应信封；端点请求上下文、服务命令、缓存 key、认证中间状态必须留在 `Server`。
+- `Shared` 只承载跨进程稳定 DTO、AEDS/NotificationStream/POD 契约和响应信封；端点请求上下文、服务命令、缓存 key、认证中间状态必须留在 `Server`。
 - `Server` 端点层只做路由、输入校验和响应组装。二进制头、frame 名称、设备指纹、viewer identity、MFA proof 与 read-proof 适配分别通过 `IBinaryEndpointRequestContext`、`IHumanReadProofEndpointAdapter` 等基础设施服务注入。
 
 ## 运行时装配边界
@@ -70,7 +70,7 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 | 静态资源 | `UseFsusStaticAssets` | Public AOT cache、SPA 静态文件、fallback |
 | 端点管线 | `UseFsusEndpointPipeline` | OpenTelemetry trace correlation、crawler-aware Rate Limiting、OutputCache、API/Binary/健康路由 |
 
-路由组装按 `MapFsusOperationalRoutes`、`MapFsusApiRoutes`、`MapFsusPublicRoutes` 分层，避免在新增 API 时同时触碰健康探针、SSE、SPA fallback 和静态文件策略。
+路由组装按 `MapFsusOperationalRoutes`、`MapFsusApiRoutes`、`MapFsusPublicRoutes` 分层，避免在新增 API 时同时触碰健康探针、notification stream、SPA fallback 和静态文件策略。
 
 运行时 DI 组合根按边界拆分：基础设施注册由 `AddBinaryRuntime`、`AddNotificationRuntime`、`AddCrawlerAndSearchRuntime`、`AddFileAndAuthRuntime`、`AddAuditRuntime`、`AddMessagingRuntime`、`AddCacheRuntime`、`AddIdentityRuntime`、`AddBackgroundRuntime`、`AddSpaRuntime`、`AddObjectPools` 分段承载；领域注册由 `AddContentRuntimeServices`、`AddUserRuntimePorts`、`AddGeneralDomainServices`、`AddCoreBridgeServices` 分段承载。新增服务应优先落入对应分组，避免把 Bootstrap 重新变成无边界注册清单。
 
@@ -84,7 +84,7 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 
 生产启动校验通过 `ProductionStartupValidationHostedService` 纳入 DI 生命周期。生产环境校验失败时写入 `StartupRuntimeState` 的 `productionStartupValidation=degraded` 并记录日志，进程保持可观测；就绪探针仍由 DB/Redis 连通性决定。非生产环境报告 `skipped`。
 
-运行时可观测性由 `Infrastructure/Observability` 统一管理。`FsusObservability` 暴露 `ActivitySource=FsusBlog.Server` 与 `Meter=FsusBlog.Server`，并把自定义属性限制为低基数 `fsus.*` 白名单。ASP.NET Core、HttpClient、runtime、Npgsql、SSE meter、cache、PublicAOT、search 和 scheduled-publish worker 都进入同一 trace/metric 面；`ObservabilityCorrelationMiddleware` 把 `Activity.TraceId` 写回 `HttpContext.TraceIdentifier` 和 `X-Fsus-Trace-Id`，使错误响应、Serilog/audit 与标准 collector trace 能按同一 ID 关联。OTLP exporter 默认关闭，只有 `Observability:ExporterEnabled`/`OTEL_EXPORTER_OTLP_ENDPOINT` 打开后才向 collector 导出。
+运行时可观测性由 `Infrastructure/Observability` 统一管理。`FsusObservability` 暴露 `ActivitySource=FsusBlog.Server` 与 `Meter=FsusBlog.Server`，并把自定义属性限制为低基数 `fsus.*` 白名单。ASP.NET Core、HttpClient、runtime、Npgsql、notification stream meter、cache、PublicAOT、search 和 scheduled-publish worker 都进入同一 trace/metric 面；`ObservabilityCorrelationMiddleware` 把 `Activity.TraceId` 写回 `HttpContext.TraceIdentifier` 和 `X-Fsus-Trace-Id`，使错误响应、Serilog/audit 与标准 collector trace 能按同一 ID 关联。OTLP exporter 默认关闭，只有 `Observability:ExporterEnabled`/`OTEL_EXPORTER_OTLP_ENDPOINT` 打开后才向 collector 导出。
 
 缓存治理清单由 `tools/cache/export-cache-governance.mjs` 从 `CachePolicyRegistry`、`CacheTag`、`HttpCachePolicyCatalog` 生成到 `docs/cache-governance.catalog.json`。`tools/check-cache-governance.sh` 会在 fast gate 中校验该清单，防止 cache key/tag/catalog 与文档证据漂移。
 
@@ -150,7 +150,7 @@ IPublicAotRouteRegistry
 
 ### 测试隔离与运行时 key scope
 
-生产缓存、Redis L2、SSE backlog 与文章运行时 key 前缀只依赖 `IRuntimeKeyScope`。测试会话隔离通过 `TestAwareRuntimeKeyScope` 适配 `ITestSessionKeyScope`，`X-Fsus-Test-Session` 语义不得向默认生产缓存、SSE 或业务 service 扩散。
+生产缓存、Redis L2、notification stream backlog 与文章运行时 key 前缀只依赖 `IRuntimeKeyScope`。测试会话隔离通过 `TestAwareRuntimeKeyScope` 适配 `ITestSessionKeyScope`，`X-Fsus-Test-Session` 语义不得向默认生产缓存、notification stream 或业务 service 扩散。
 
 ### Public Route Identity
 
@@ -187,7 +187,7 @@ Client
 
 Article/comment binary endpoints 只面向应用 facade：文章端点通过 `IArticleEndpointService` 获取 article list/detail/hot/featured 与写入操作，评论端点通过 `ICommentEndpointService` 获取 thread/reply/user cursor 与删除操作。Core query、raw payload cache、投影转换和 service mutation 不在 endpoint 文件内展开。文章写入后的搜索投影、实时通知、Redis 热榜清理、文章详情 AEDS artifact 生成/失效和图片资产清理统一下沉到 `IArticleMutationSideEffectCoordinator`，由 `ArticleSearchProjector`、`ArticleDetailAedsArtifactProjector`、`ArticleRealtimeNotifier`、`ArticleAssetCleanupPolicy` 等小服务承载，`ArticleService` 只负责写入事务、查询、缓存/AOT 失效编排。
 
-用户域对外按不重叠 facade 拆分：`IUserAccountReader` 只返回 `UserAccountSnapshot`，`IUserLoginWorkflowService` 负责登录/MFA 风险/最终签发，`IUserProfileCommandService` 负责资料与注销，`IUserSessionCommandService` 负责 refresh/session revoke，`IUserAdminModerationService` 负责后台治理。`User`/`UserSession` ORM entity 只在 `UserService` 兼容实现内部流转，不作为 endpoint、middleware 或 SSE admission 的读取契约。
+用户域对外按不重叠 facade 拆分：`IUserAccountReader` 只返回 `UserAccountSnapshot`，`IUserLoginWorkflowService` 负责登录/MFA 风险/最终签发，`IUserProfileCommandService` 负责资料与注销，`IUserSessionCommandService` 负责 refresh/session revoke，`IUserAdminModerationService` 负责后台治理。`User`/`UserSession` ORM entity 只在 `UserService` 兼容实现内部流转，不作为 endpoint、middleware 或 notification stream admission 的读取契约。
 
 ### 认证写请求（注册 / 登录）
 
@@ -223,7 +223,7 @@ Client
 
 站点合规配置使用 `CachePolicyId.SystemCompliance` 进入 L1/L2/raw binary cache。admin 保存后由 `ICacheInvalidationDispatcher.InvalidateComplianceAsync` 清除 compliance cache、SEO/distribution output cache 与相关 AOT 静态页，并推送 `CacheControl` shell invalidate 事件；因此 ICP/公安备案、版权与许可 footer、RSS copyright 和 sitemap 静态页可在不重启服务的情况下收敛。
 
-评论缓存失效由 `ICacheInvalidationDispatcher.InvalidateCommentMutationAsync(CommentCacheInvalidationScope)` 承载：公开可见性变化只删除 `CommentCursor` 的 `article:{articleId}:` 前缀，特定回复树变化可额外删除 `article:{articleId}:root:{rootId}:`，个人评论历史只删除 `UserCommentCursor` 的 `user:{userId}:` 前缀；不得再用空 prefix 或 `CacheTag.Comment` 全局清除公开评论 output cache。公开评论 frame identity 包含 viewer region，保证 `comment_region_compliance.blocked_regions` 过滤后的 CN-MAINLAND/UNKNOWN/其他地区读模型不会共享同一个缓存条目。公开评论线程/回复端点不挂 HTTP OutputCache，避免审核 SSE、地区过滤与浏览器缓存产生状态分叉。
+评论缓存失效由 `ICacheInvalidationDispatcher.InvalidateCommentMutationAsync(CommentCacheInvalidationScope)` 承载：公开可见性变化只删除 `CommentCursor` 的 `article:{articleId}:` 前缀，特定回复树变化可额外删除 `article:{articleId}:root:{rootId}:`，个人评论历史只删除 `UserCommentCursor` 的 `user:{userId}:` 前缀；不得再用空 prefix 或 `CacheTag.Comment` 全局清除公开评论 output cache。公开评论 frame identity 包含 viewer region，保证 `comment_region_compliance.blocked_regions` 过滤后的 CN-MAINLAND/UNKNOWN/其他地区读模型不会共享同一个缓存条目。公开评论线程/回复端点不挂 HTTP OutputCache，避免审核 notification stream、地区过滤与浏览器缓存产生状态分叉。
 
 ## AEDS Binary 链
 
@@ -247,28 +247,29 @@ FsusBlog 运行时 API 只维护 AEDS binary 链：
 - VisitLog flush 只写入 `IHotStatsInvalidationCoalescer` dirty 标记，不直接 broad invalidate AdminStats/HotArticles。coalescer 对 HotArticles 使用 2s debounce、Stats 使用 10s debounce，并在 threshold 或 shutdown 时 flush pending state；HotArticles 的 L1/L2 identity 形如 `ArticleHot:v{hotVersion}:core:v2:{count}` / `ArticleHotFrame:v{hotVersion}:core:v2:{count}`，失效时发布新版本并让旧版本按 TTL 自然过期，避免高频 `RemoveByPrefixAsync(..., string.Empty)` 扫描。
 - `IUnifiedCache` 提供 `RemoveManyAsync` 与 `RemoveByPrefixManyAsync`。写路径失效应优先传递 `CacheKeyIdentity` / `CachePrefixIdentity` 批量请求，由 cache 层合并 L1 remove、Redis `KeyDeleteAsync(RedisKey[])`、registry `SetRemoveAsync(RedisValue[])`，并在同 policy 多 prefix 时只扫描一次 registry；registry 缺失 fallback 使用同 policy prefixes 的共同前缀执行一次 keyspace scan 后再二次过滤。
 - compact payload 使用共享 UTF-8 blob + 固定数值记录，作为当前兼容的 payload 字典化落点，减少列表、分类、标签、conversation 和 stats 的重复文本包体。
-- SSE notification payload 写出优先走已知契约的 typed writer；只有新增且尚未登记的 payload 才允许进入反射兜底。
+- Notification stream payload 写出优先走已知契约的 typed writer；只有新增且尚未登记的 payload 才允许进入反射兜底。
 - 管理端 stats 对外收敛为 `AdminStatsQueryDto` / `AdminStats` 聚合 query model。`/api/binary/stats` 同帧携带 overview、recent comments 与 regions，dashboard 首屏从单次请求派生视图区块；recent/region 窄端点仅作为兼容入口。
 - 前端 4 KiB 及以下 payload 默认主线程 TypeScript decode，大 payload 交给 Worker / Wasm decode。
 - 前端工具型响应式状态优先使用事件源本身：dashboard chart resize 由 chart 容器 `ResizeObserver` 驱动，布局断点由 `matchMedia` 驱动，human-read-proof 只按剩余 dwell 时间调度一次性提交检查，避免全局 resize 风暴和固定间隔 dwell polling。
 - JSON 与 Binary 失败语义共用 `ApiErrorSemanticMapper`，只在传输层区分 JSON envelope 与 `ApiError` frame，错误码、HTTP status 和默认消息必须一致。
 - Binary 端点基础解析通过 `IBinaryEndpointRequestContext` 统一读取 frame/header、缓存身份、设备指纹与 viewer identity，端点文件不得手写第二套头部解析。
 
-## SSE 握手与可观测性
+## Notification Stream 握手与可观测性
 
 ```text
 Client
   → GET /api/notifications/stream/preflight（同 PoW/cursor/protocol 参数）
   → 204 No Content：再发 WebSocket upgrade 到 /api/notifications/stream
-  → 非 204：读取 JSON ApiResponse 与 X-Fsus-Sse-* 头，映射为前端失败码
+  → 非 204：读取 JSON ApiResponse 与 X-Fsus-Notification-Stream-* 头，映射为前端失败码
 ```
 
 - WebSocket 主通道仍固定为 `GET /api/notifications/stream` + `fsus-aeds.v2`。
+- 该通道不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`，每条消息都是完整 AEDS v2 binary frame。
 - Preflight 只验证认证、PoW、cursor 和协议语义，不要求 WebSocket upgrade。
-- 握手失败统一写入 `X-Fsus-Sse-Error-Code` 与 `X-Fsus-Sse-Status-Code`；WebSocket 路径失败仍返回 AEDS `ApiError` frame。
-- 通知握手只编排协议、PoW 与握手结果。账号封禁/注销准入下沉到 `NotificationStreamAdmissionService`，SSE audience 分组下沉到 `NotificationStreamAudienceResolver`，消息域到 user/group route 的映射下沉到 `MessageSsePort`。
-- SSE backlog 按 route 写入 Redis stream（`u:{id}` / `g:{group}`；multi-user target 展开为多个 user route），多目标 backlog 写入通过 Redis batch/pipeline 一次提交；replay 只读取当前连接可见的 user/group stream 后按 event id 合并，不再从全局流拉取后置过滤。
-- 业务发布路径只负责写 backlog 并把本地 fanout 意图放入 `SseLocalFanoutQueue`，`SseLocalFanoutWorker` 再遍历本机连接。慢连接仍由每连接队列和 slow-consumer 断开保护兜底，突变请求不随本机连接数线性放大。
+- 握手失败统一写入 `X-Fsus-Notification-Stream-Error-Code` 与 `X-Fsus-Notification-Stream-Status-Code`；WebSocket 路径失败仍返回 AEDS `ApiError` frame。
+- 通知握手只编排协议、PoW 与握手结果。账号封禁/注销准入下沉到 `NotificationStreamAdmissionService`，notification stream audience 分组下沉到 `NotificationStreamAudienceResolver`，消息域到 user/group route 的映射下沉到 `MessageNotificationStreamPort`。
+- Notification stream backlog 按 route 写入 Redis stream（`u:{id}` / `g:{group}`；multi-user target 展开为多个 user route），多目标 backlog 写入通过 Redis batch/pipeline 一次提交；replay 只读取当前连接可见的 user/group stream 后按 event id 合并，不再从全局流拉取后置过滤。
+- 业务发布路径只负责写 backlog 并把本地 fanout 意图放入 `NotificationStreamLocalFanoutQueue`，`NotificationStreamLocalFanoutWorker` 再遍历本机连接。慢连接仍由每连接队列和 slow-consumer 断开保护兜底，突变请求不随本机连接数线性放大。
 - 连接 pump 使用每连接一个 `PeriodicTimer` heartbeat loop；业务 frame 与 heartbeat 通过发送锁串行写 WebSocket，避免每轮 idle wait 创建 linked timeout CTS。
 - `CacheControl` 与 `SearchIndexUpdated` 的搜索索引版本字段以 `version / manifestUrl / generatedAt` 为唯一消费语义，Service Worker 不再从多个字段推导版本。
 
@@ -307,7 +308,7 @@ Service Worker → 缓存 manifest/shard/patch 并按版本隔离旧索引
 
 文章实体现在显式记录 `Status`、`ScheduledPublishAt`、`PublishedAt`、`ArchivedAt`、`DeletedAt`。公开读链、feed、sitemap、related-reading、搜索 runtime fallback、search index rebuild、分类/标签计数必须只读取 `Status=Published` 且发布时间已到的文章；`IsDeleted` 继续保留原有回收站语义。
 
-`ScheduledPublishWorker` 每分钟按 `scheduled_publish_at, id` 扫描到期 `Scheduled` 文章，转换为 `Published` 后同步 search index，并通过 `ICacheInvalidationDispatcher.InvalidateArticleMutationAsync` 触发文章列表、旧 JSON 详情缓存、CoreBridge `core:v2:{id}` / `core:v3:{id}` 详情缓存、RSS、PublicAOT 等失效链，同时向 `PublicHotArtifactUpdateQueue` 入队 L0 快照刷新。单篇发布失败会保留 `Scheduled` 状态，下一轮继续重试；worker 每轮把 `lastPublishedCount`、`lastFailedCount`、`dueBacklog` 与最近错误写入 `ScheduledPublishRuntimeState`，`/health/ready` 的 runtime 区块会暴露该快照。创建、更新、删除、恢复、永久删除必须在同一文章事务内写入 `article_mutation_outbox`，请求内仍同步尝试 search/AEDS/PublicHot/SSE 派生更新；若进程在提交后崩溃，`ArticleMutationOutboxDispatcher` 会按 retry/backoff 重放派生更新并在成功后标记 processed。
+`ScheduledPublishWorker` 每分钟按 `scheduled_publish_at, id` 扫描到期 `Scheduled` 文章，转换为 `Published` 后同步 search index，并通过 `ICacheInvalidationDispatcher.InvalidateArticleMutationAsync` 触发文章列表、旧 JSON 详情缓存、CoreBridge `core:v2:{id}` / `core:v3:{id}` 详情缓存、RSS、PublicAOT 等失效链，同时向 `PublicHotArtifactUpdateQueue` 入队 L0 快照刷新。单篇发布失败会保留 `Scheduled` 状态，下一轮继续重试；worker 每轮把 `lastPublishedCount`、`lastFailedCount`、`dueBacklog` 与最近错误写入 `ScheduledPublishRuntimeState`，`/health/ready` 的 runtime 区块会暴露该快照。创建、更新、删除、恢复、永久删除必须在同一文章事务内写入 `article_mutation_outbox`，请求内仍同步尝试 search/AEDS/PublicHot/notification stream 派生更新；若进程在提交后崩溃，`ArticleMutationOutboxDispatcher` 会按 retry/backoff 重放派生更新并在成功后标记 processed。
 
 Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔离，HTTP OutputCache 的 ArticleList 策略也必须按 `page/size/categoryId/tagId/isDeleted/status` vary。匿名列表只缓存 public published 视图；admin 状态筛选可缓存 draft/scheduled/archived/deleted 视图，但 admin 详情读取未发布文章时绕过公开详情缓存，避免草稿负缓存或私有正文污染匿名 `/article/{id}` 读链。
 
@@ -324,7 +325,7 @@ Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔�
 
 ## 作者工作台与私有内容边界
 
-作者工作台表包含 `article_draft`、`article_revision`、`asset_library_item`、`site_subscription`，评论审核字段保存在 `comment`，地区合规结果保存在 `comment_region_compliance`。`article_draft` 持久化正文、摘要、封面、分类、标签、`status`、`scheduled_publish_at` 与 `client_revision`；编辑器同时写本地缓存和 `/api/author/drafts`，检测到服务端草稿更新时暂停服务端覆盖并要求作者恢复或丢弃。写作页从站点 SEO 配置计算 title/description/canonical/OG image/slug 预览，并在发布或定时发布前调用 `/api/author/prepublish-check` 检查 SEO、危险 HTML、Markdown 结构、正文链接与图片 alt；错误项阻断提交，warning 需要作者在确认弹窗填写跳过理由并写入 `prepublish-warning-override` 审计。`/api/author/preview` 不读写公开文章表，直接把当前表单 payload 渲染为受限 Markdown/AOT-like HTML，并由写作页以 sandboxed iframe 展示。`article_revision` 在创建、更新和回滚时记录标题、正文、摘要、封面、分类、标签、修订序号、diff 摘要、操作者与时间；修订写入在文章事务内对 `article` 行执行 `FOR UPDATE` 并由 `(article_id, revision_no)` 唯一索引兜底，避免并发更新产生重复修订号。编辑器通过 `/api/author/articles/{articleId}/revisions` 和单条 revision detail 在侧栏比较当前表单与历史版本，回滚后复用文章更新链路触发 AOT/search/feed/binary cache 失效并写入审计。`asset_library_item` 由 `/api/author/articles/{articleId}/assets/reindex` 从正文 Markdown 图片与封面重建，仅索引 `/uploads/illustration/*`，保存 alt text、来源文章、hash 和引用计数；失去引用的资产先保留为 `referenceCount=0` 供作者审计，`/api/author/assets/orphans` 只删除孤儿索引行，不删除上传文件本体。评论创建后默认 `Pending`，提交地区由 request IP 解析并写入合规表；CN-MAINLAND 严格策略只在 submit/viewer 为 CN-MAINLAND 时生效，UNKNOWN submit 进入人工审核且公开不可见，UNKNOWN viewer 对非空 blocked regions 保守隐藏。公开评论线程、回复预览和回复游标只读取 `Approved` 且未被当前 viewer region 屏蔽的记录；`/api/author/comments/moderation` 提供状态队列、命中原因和地区合规字段，单条/批量审核必须携带 `admin-sensitive` MFA proof，服务层按旧状态 CAS 更新并只允许审核状态机内的转换，且不允许批准 `can_publish=false` 的发布地违法评论。审核通过会向对应文章 SSE 推送 `CommentAdded`，已公开评论被隐藏/拒绝/删除会推送 `CommentRemoved`；缓存清理按 article/root/user scope 执行，并可在拒绝/隐藏时联动封禁非 admin 用户。作者分析从 `VisitLog` 聚合真实阅读、搜索 routeKey、公开来源路径和 404 routeKey，并用 `PublicAOT` miss 审计估算 AOT 命中率；dashboard 只读取 admin-only `/api/author/analytics`，不从私有页面采集 RUM。`/api/author/**` 全部要求 admin 角色，负责服务端草稿、预览、发布前检查、修订回滚、资产重建、作者分析、评论审核、导入导出和默认关闭的 AI 辅助。
+作者工作台表包含 `article_draft`、`article_revision`、`asset_library_item`、`site_subscription`，评论审核字段保存在 `comment`，地区合规结果保存在 `comment_region_compliance`。`article_draft` 持久化正文、摘要、封面、分类、标签、`status`、`scheduled_publish_at` 与 `client_revision`；编辑器同时写本地缓存和 `/api/author/drafts`，检测到服务端草稿更新时暂停服务端覆盖并要求作者恢复或丢弃。写作页从站点 SEO 配置计算 title/description/canonical/OG image/slug 预览，并在发布或定时发布前调用 `/api/author/prepublish-check` 检查 SEO、危险 HTML、Markdown 结构、正文链接与图片 alt；错误项阻断提交，warning 需要作者在确认弹窗填写跳过理由并写入 `prepublish-warning-override` 审计。`/api/author/preview` 不读写公开文章表，直接把当前表单 payload 渲染为受限 Markdown/AOT-like HTML，并由写作页以 sandboxed iframe 展示。`article_revision` 在创建、更新和回滚时记录标题、正文、摘要、封面、分类、标签、修订序号、diff 摘要、操作者与时间；修订写入在文章事务内对 `article` 行执行 `FOR UPDATE` 并由 `(article_id, revision_no)` 唯一索引兜底，避免并发更新产生重复修订号。编辑器通过 `/api/author/articles/{articleId}/revisions` 和单条 revision detail 在侧栏比较当前表单与历史版本，回滚后复用文章更新链路触发 AOT/search/feed/binary cache 失效并写入审计。`asset_library_item` 由 `/api/author/articles/{articleId}/assets/reindex` 从正文 Markdown 图片与封面重建，仅索引 `/uploads/illustration/*`，保存 alt text、来源文章、hash 和引用计数；失去引用的资产先保留为 `referenceCount=0` 供作者审计，`/api/author/assets/orphans` 只删除孤儿索引行，不删除上传文件本体。评论创建后默认 `Pending`，提交地区由 request IP 解析并写入合规表；CN-MAINLAND 严格策略只在 submit/viewer 为 CN-MAINLAND 时生效，UNKNOWN submit 进入人工审核且公开不可见，UNKNOWN viewer 对非空 blocked regions 保守隐藏。公开评论线程、回复预览和回复游标只读取 `Approved` 且未被当前 viewer region 屏蔽的记录；`/api/author/comments/moderation` 提供状态队列、命中原因和地区合规字段，单条/批量审核必须携带 `admin-sensitive` MFA proof，服务层按旧状态 CAS 更新并只允许审核状态机内的转换，且不允许批准 `can_publish=false` 的发布地违法评论。审核通过会向对应文章 notification stream 推送 `CommentAdded`，已公开评论被隐藏/拒绝/删除会推送 `CommentRemoved`；缓存清理按 article/root/user scope 执行，并可在拒绝/隐藏时联动封禁非 admin 用户。作者分析从 `VisitLog` 聚合真实阅读、搜索 routeKey、公开来源路径和 404 routeKey，并用 `PublicAOT` miss 审计估算 AOT 命中率；dashboard 只读取 admin-only `/api/author/analytics`，不从私有页面采集 RUM。`/api/author/**` 全部要求 admin 角色，负责服务端草稿、预览、发布前检查、修订回滚、资产重建、作者分析、评论审核、导入导出和默认关闭的 AI 辅助。
 
 预览输出带 `data-preview-only=true` 和 `data-markdown-renderer=server-preview`，只走 admin JSON API，不写 PublicAOT cache，不进入 feed/search/sitemap。订阅表只保存 email hash 与 channel，避免把站点更新订阅扩展成社交关系链。
 

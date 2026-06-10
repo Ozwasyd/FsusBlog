@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using FsusBlog.Server.Infrastructure.Sse;
+using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Interfaces;
 using Microsoft.AspNetCore.Http;
 using NSubstitute;
@@ -64,7 +64,7 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
-    public void AudienceResolver_MapsAuthenticatedAdminToSseGroups()
+    public void AudienceResolver_MapsAuthenticatedAdminToNotificationStreamGroups()
     {
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             [
@@ -76,8 +76,8 @@ public class NotificationStreamBoundaryTests
 
         IReadOnlySet<string> groups = resolver.ResolveGroups(principal, "42");
 
-        Assert.Contains(SseGroups.ContentFeed, groups);
-        Assert.Contains(SseGroups.AuthenticatedUsers, groups);
-        Assert.Contains(SseGroups.AdminUsers, groups);
+        Assert.Contains(NotificationStreamGroups.ContentFeed, groups);
+        Assert.Contains(NotificationStreamGroups.AuthenticatedUsers, groups);
+        Assert.Contains(NotificationStreamGroups.AdminUsers, groups);
     }
 }

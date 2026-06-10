@@ -113,7 +113,7 @@
       "classification": "must-migrate",
       "scope": "backend",
       "file": "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs",
-      "patterns": ["ValidateNotificationStreamPreflightAsync", "TypedResults.Json", "X-Fsus-Sse-Error-Code"],
+      "patterns": ["ValidateNotificationStreamPreflightAsync", "TypedResults.Json", "X-Fsus-Notification-Stream-Error-Code"],
       "routes": ["/api/notifications/stream/preflight"],
       "issue": "#105",
       "reason": "Notification preflight error envelope must converge to ApiError frame semantics."
@@ -122,7 +122,7 @@
       "id": "notification-preflight-json-migration-frontend",
       "classification": "must-migrate",
       "scope": "frontend",
-      "file": "src/frontend/src/services/sseRuntime.ts",
+      "file": "src/frontend/src/services/notificationStreamRuntime.ts",
       "patterns": ["response.json", "/api/notifications/stream/preflight"],
       "routes": ["/api/notifications/stream/preflight"],
       "issue": "#105",

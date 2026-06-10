@@ -12,7 +12,7 @@ public sealed class ObservabilityTests
 {
     [Theory]
     [InlineData("/api/binary/article/list/home/1/10.aeds", "binary")]
-    [InlineData("/api/notifications/stream", "sse")]
+    [InlineData("/api/notifications/stream", "notification-stream")]
     [InlineData("/api/author/analytics", "api")]
     [InlineData("/health/ready", "health")]
     [InlineData("/search/index.bin", "static")]

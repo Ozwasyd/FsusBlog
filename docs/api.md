@@ -36,6 +36,8 @@
 | Admin messages / stats / upload | `/api/binary/admin/**`, `/api/binary/stats`, `/api/binary/upload/**` | 👑 | 管理端 Binary read/write |
 | Notifications | `/api/notifications/stream` | 🔓 / 🔑 | WebSocket binary notification stream，子协议 `fsus-aeds.v2` |
 
+Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS 二进制通知帧；它不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`。
+
 测试 helper 里的 `toBinaryPath()` 仅是兼容层映射说明，不代表旧 JSON route 是当前产品主 API。
 
 ---

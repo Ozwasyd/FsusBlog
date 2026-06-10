@@ -195,12 +195,12 @@ public class BackgroundWorkflowSourceTests
     }
 
     [Fact]
-    public void SsePublish_SourceQueuesLocalFanoutAndBatchesMultiRouteBacklog()
+    public void NotificationStreamPublish_SourceQueuesLocalFanoutAndBatchesMultiRouteBacklog()
     {
-        string publisher = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/SSE/RedisSsePublisher.cs"));
-        string backlog = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/SSE/SseBacklogStore.cs"));
+        string publisher = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/NotificationStream/RedisNotificationStreamPublisher.cs"));
+        string backlog = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/NotificationStream/NotificationStreamBacklogStore.cs"));
 
-        Assert.Contains("SseLocalFanoutQueue", publisher, StringComparison.Ordinal);
+        Assert.Contains("NotificationStreamLocalFanoutQueue", publisher, StringComparison.Ordinal);
         Assert.Contains("TryEnqueue(frame, target)", publisher, StringComparison.Ordinal);
         Assert.Contains("IBatch batch = _database.CreateBatch()", backlog, StringComparison.Ordinal);
         Assert.Contains("Task.WhenAll(writes)", backlog, StringComparison.Ordinal);

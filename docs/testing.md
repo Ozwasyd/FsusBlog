@@ -21,7 +21,7 @@ node tools/docs/generate-testing-docs.mjs --check
 
 `coverage-gate` 与 `production` 是两个 independent required checks：coverage 负责阈值和合并覆盖率，production 负责运行时风险 DAG。
 
-`load` 与 WebSocket pressure 检查会写入 `.tmp/perf/load-public-api.json` 和 `.tmp/perf/sse-pressure.json`，release evidence 会把 `.tmp/perf/` 作为性能证据归档。默认参数来自 `tests/perf/perf-policy.yml`：HTTP load baseline 为 `concurrency=10`、`rounds=6`、`durationMs=30000`；WebSocket pressure 为 `connections=50`、`durationMs=30000`。
+`load` 与 WebSocket pressure 检查会写入 `.tmp/perf/load-public-api.json` 和 `.tmp/perf/notification-stream-pressure.json`，release evidence 会把 `.tmp/perf/` 作为性能证据归档。默认参数来自 `tests/perf/perf-policy.yml`：HTTP load baseline 为 `concurrency=10`、`rounds=6`、`durationMs=30000`；WebSocket pressure 为 `connections=50`、`durationMs=30000`。
 
 性能证据默认采用项目内基线：single process、Kestrel-only、无 nginx、无 CDN、无 reverse-proxy cache、无代理压缩层计入结果。nginx/Caddy/CDN 可以作为生产部署层存在，但相关数据必须写入独立的 `optional_deployment_layer`，并标记 `counted_as_project_baseline=false`。
 
@@ -368,7 +368,7 @@ tools/operations/cleanup-retention.sh
 - `/api/binary/**` 在公开读、匿名拒绝、admin 拒绝场景下状态与 AEDS error frame 一致。
 - `check:distribution-version-coherence` 覆盖文章生命周期状态：draft、scheduled、archived 必须只在 admin 状态列表和 admin detail 可见，published 才能进入 public list/detail、feed、sitemap、related-reading、PublicAOT 与 search index；delete/restore/permanent-delete 继续验证回收站语义。
 - PoW、MFA、Passkey、session refresh/revoke/logout、RBAC 权限矩阵均无绕过。
-- 安全头、CORS、auth/PoW no-store、Cookie 安全属性、畸形 AEDS frame、SSE 握手失败和攻击矩阵均无绕过。
+- 安全头、CORS、auth/PoW no-store、Cookie 安全属性、畸形 AEDS frame、notification stream 握手失败和攻击矩阵均无绕过。
 - OWASP ZAP baseline 不得产生 FAIL 级告警；报告必须保留为发布门控 artifact。
 - WebSocket 通知握手、匿名 PoW、重连 cursor、AOT hydration、搜索、上传、视觉和轻量并发门控全部通过。
 - Markdown 代码高亮必须保持 Shiki 输出质量，但 highlighter 只能在实际代码块渲染时懒加载；`FSUSBLOG_VITE_WARN_AS_ERROR=1 npm --prefix src/frontend run build` 不允许出现 chunk size warning。

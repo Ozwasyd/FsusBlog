@@ -28,6 +28,6 @@ Fast gate additions:
 Cross-stack contract governance:
 
 - `npm run check:cross-stack-contract` validates the full frontend/backend contract ledger in `fixtures/cross-stack-contract-matrix.json`.
-- The ledger covers binary endpoint routes, API wrapper parity, shared AEDS schema sync, negative cases, runtime/distribution/SSE/upload/auth/SW/perf coherence profiles, fixture families, and eventual-consistency evidence fields.
+- The ledger covers binary endpoint routes, API wrapper parity, shared AEDS schema sync, negative cases, runtime/distribution/notification stream/upload/auth/SW/perf coherence profiles, fixture families, and eventual-consistency evidence fields.
 
 Keep `../../tools/frontend/` for build, Wasm, public hydration generation, and local utility scripts only.

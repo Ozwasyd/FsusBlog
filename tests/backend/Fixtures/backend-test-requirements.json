@@ -184,7 +184,7 @@
     {
       "id": "BACKEND-CONCURRENCY-RACES",
       "risk": "high",
-      "coverage": "refresh/logout, recovery code, passkey limit, publish/cache, comment/message/SSE/upload races",
+      "coverage": "refresh/logout, recovery code, passkey limit, publish/cache, comment/message/notification stream/upload races",
       "evidencePaths": [
         "tests/backend/Unit/BackendConcurrencyModelTests.cs",
         "tests/backend/Unit/DbConcurrencyGateTests.cs",
@@ -250,7 +250,7 @@
     {
       "id": "BACKEND-MUTATION-TESTING",
       "risk": "high",
-      "coverage": "Stryker.NET config for core/security/binary/cache/authoring/upload/SSE mutation targets",
+      "coverage": "Stryker.NET config for core/security/binary/cache/authoring/upload/notification stream mutation targets",
       "evidencePaths": [
         "dotnet-tools.json",
         "stryker-config.json"
@@ -259,7 +259,7 @@
     {
       "id": "BACKEND-PERF-BENCHMARKS",
       "risk": "high",
-      "coverage": "BenchmarkDotNet backend evidence for AEDS, public read path, search, cache, auth, upload, SSE",
+      "coverage": "BenchmarkDotNet backend evidence for AEDS, public read path, search, cache, auth, upload, notification stream",
       "evidencePaths": [
         "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
         "benchmarks/core/Program.cs"
@@ -323,7 +323,7 @@
     {
       "id": "BACKEND-MESSAGES",
       "risk": "high",
-      "coverage": "participant state, unread count, admin broadcast, revoke, closed conversation, SSE recipient targeting",
+      "coverage": "participant state, unread count, admin broadcast, revoke, closed conversation, notification stream recipient targeting",
       "evidencePaths": [
         "tests/backend/Unit/MessageCenterServiceTests.cs",
         "tests/backend/Unit/BackendConcurrencyModelTests.cs"
@@ -386,16 +386,16 @@
     {
       "id": "BACKEND-CHAOS-TESTING",
       "risk": "medium",
-      "coverage": "Redis kill/restart, PostgreSQL reset/deadlock, disk full, SSE slow consumer, clock skew",
+      "coverage": "Redis kill/restart, PostgreSQL reset/deadlock, disk full, notification stream slow consumer, clock skew",
       "evidencePaths": [
         "tests/backend/Fixtures/backend-test-requirements.json",
-        "tests/backend/Unit/SseConnectionManagerTests.cs"
+        "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs"
       ]
     },
     {
       "id": "BACKEND-SOAK-TESTING",
       "risk": "medium",
-      "coverage": "long run mixed read/write, continuous SSE, upload churn, Redis cache churn, search rebuild churn",
+      "coverage": "long run mixed read/write, continuous notification stream, upload churn, Redis cache churn, search rebuild churn",
       "evidencePaths": [
         "tools/test/lanes/soak.sh",
         "tests/backend/Fixtures/backend-test-requirements.json"
@@ -407,7 +407,7 @@
       "coverage": "load-smoke, stress, capacity, soak distinction with evidence history",
       "evidencePaths": [
         "tests/frontend/checks/load/check-load-public-api.mjs",
-        "tests/frontend/checks/load/check-sse-pressure.mjs",
+        "tests/frontend/checks/load/check-notification-stream-pressure.mjs",
         "benchmarks/core/FsusBlog.Core.Benchmarks.csproj"
       ]
     },

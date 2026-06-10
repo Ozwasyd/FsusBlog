@@ -19,7 +19,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Spa;
-using FsusBlog.Server.Infrastructure.Sse;
+using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
@@ -229,13 +229,13 @@ public static class WebApplicationCompositionExtensions
             INotificationStreamHandshakeService handshakeService,
             CancellationToken ct) => ValidateNotificationStreamPreflightAsync(ctx, handshakeService, ct))
             .AllowAnonymous()
-            .WithMetadata(new FsusRouteKindMetadata("sse"));
+            .WithMetadata(new FsusRouteKindMetadata("notification-stream"));
         app.MapGet("/api/notifications/stream", (
             HttpContext ctx,
             INotificationStreamHandler handler,
             CancellationToken ct) => handler.HandleAsync(ctx, ct))
             .AllowAnonymous()
-            .WithMetadata(new FsusRouteKindMetadata("sse"));
+            .WithMetadata(new FsusRouteKindMetadata("notification-stream"));
         app.Map("/api/{**path}", (IAedsEncoder aeds) =>
         {
             return BinaryResults.FromError(
@@ -279,8 +279,8 @@ public static class WebApplicationCompositionExtensions
             return TypedResults.NoContent();
         }
 
-        ctx.Response.Headers["X-Fsus-Sse-Error-Code"] = result.ErrorCode ?? "notification_handshake_failed";
-        ctx.Response.Headers["X-Fsus-Sse-Status-Code"] = result.StatusCode.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        ctx.Response.Headers["X-Fsus-Notification-Stream-Error-Code"] = result.ErrorCode ?? "notification_handshake_failed";
+        ctx.Response.Headers["X-Fsus-Notification-Stream-Status-Code"] = result.StatusCode.ToString(System.Globalization.CultureInfo.InvariantCulture);
         ErrorDetail error = ApiErrorSemanticMapper.CreateError(
             result.StatusCode,
             result.ErrorCode ?? "notification_handshake_failed",

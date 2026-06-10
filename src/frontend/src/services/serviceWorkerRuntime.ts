@@ -1,5 +1,5 @@
 import { emitTelemetry } from '@/services/telemetryService'
-import type { CacheControlPayload, SearchIndexUpdatePayload } from '@/services/sseTypes'
+import type { CacheControlPayload, SearchIndexUpdatePayload } from '@/services/notificationStreamTypes'
 
 export type SwControlMessage =
   | { type: 'shell.invalidate'; scope?: string | null }

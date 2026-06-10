@@ -87,9 +87,9 @@
 - 吊销单个会话（`POST /api/Auth/sessions/{id}/revoke`）
 - 吊销全部其他会话（`POST /api/Auth/sessions/revoke-others`）
 
-#### 实时通知（SSE）
+#### 实时通知（AEDS WebSocket notification stream）
 
-- SSE 增量事件流端点（`GET /api/notifications/stream`）
+- AEDS WebSocket notification stream 端点（`GET /api/notifications/stream`）
 - 慢消费者自动断开保护
 - SignalR + Redis backing store
 

@@ -10,9 +10,9 @@ import { useAbortableTask } from '@/composables/useAbortableTask'
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
 import { usePagedListState } from '@/composables/usePagedListState'
 import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
-import { matchesCategoryFilter, matchesTagFilter, removeArticlePreview, upsertArticlePreview } from '@/services/sseArticlePatch'
-import type { ArticleUpdatePayload, SseArticleRenderPatch } from '@/services/sseTypes'
-import { useSseStore } from '@/store/sse'
+import { matchesCategoryFilter, matchesTagFilter, removeArticlePreview, upsertArticlePreview } from '@/services/notificationStreamArticlePatch'
+import type { ArticleUpdatePayload, NotificationStreamArticleRenderPatch } from '@/services/notificationStreamTypes'
+import { useNotificationStreamStore } from '@/store/notificationStream'
 import { isAbortError } from '@/utils/errors'
 import type { ArticleListCardViewContract } from '@/view-contracts/articleList'
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
@@ -44,7 +44,7 @@ const parsePageQuery = (value: unknown): number => {
 export function useFilterView() {
   const route = useRoute()
   const router = useRouter()
-  const sseStore = useSseStore()
+  const notificationStreamStore = useNotificationStreamStore()
   const powProvider = usePow()
   const { bootstrap: initialBootstrap, hydration: initialHydrationView } = consumePublicPageSeed('Filter')
   const preferHydrationView = ref(Boolean(initialHydrationView?.view))
@@ -484,7 +484,7 @@ export function useFilterView() {
     return false
   }
 
-  const handleArticleBatch = (patches: readonly SseArticleRenderPatch[]): void => {
+  const handleArticleBatch = (patches: readonly NotificationStreamArticleRenderPatch[]): void => {
     let needsSync = false
 
     for (const patch of patches) {
@@ -543,13 +543,13 @@ export function useFilterView() {
   })
 
   watch(
-    () => sseStore.articleRevision,
+    () => notificationStreamStore.articleRevision,
     () => {
       if (!lifecycle.isActive()) {
         return
       }
 
-      handleArticleBatch(sseStore.articleBatch)
+      handleArticleBatch(notificationStreamStore.articleBatch)
     }
   )
 

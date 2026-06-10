@@ -344,7 +344,7 @@ async function dataScale(tier, outFile) {
 }
 
 async function faultInjection(outDir) {
-  const cases = ['redis-restart', 'redis-latency', 'postgres-readiness', 'sse-slow-consumer', 'graceful-shutdown']
+  const cases = ['redis-restart', 'redis-latency', 'postgres-readiness', 'notification-stream-slow-consumer', 'graceful-shutdown']
   fs.mkdirSync(outDir, { recursive: true })
   const results = []
   for (const caseName of cases) {
@@ -436,7 +436,7 @@ async function soak(mode, outFile) {
       socketCountMax: null,
       dbPoolSaturationMs: null,
       redisLatencyP99Ms: null,
-      sseReconnectSuccessRate: null
+      notificationStreamReconnectSuccessRate: null
     },
     latencyMs: {
       p50: percentile(latencies, 50),

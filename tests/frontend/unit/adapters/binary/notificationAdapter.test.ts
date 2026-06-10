@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { encodeAedsFrame } from '@/api/binaryFrame'
 import { decodeNotificationFrame } from '@/adapters/binary/notificationAdapter'
-import { SseEventType } from '@/services/sseTypes'
+import { NotificationStreamEventType } from '@/services/notificationStreamTypes'
 
 const encoder = new TextEncoder()
 
@@ -68,7 +68,7 @@ describe('binary notification adapter', () => {
     const payload: number[] = []
     writeInt64(payload, 42)
     writeInt64(payload, Date.parse('2026-01-02T03:04:05.000Z'))
-    writeInt32(payload, SseEventType.NoticeReceived)
+    writeInt32(payload, NotificationStreamEventType.NoticeReceived)
     writeInt32(payload, 0)
     writeValue(payload, {
       title: 'Inbox',
@@ -81,7 +81,7 @@ describe('binary notification adapter', () => {
       kind: 'event',
       event: {
         id: 42,
-        type: SseEventType.NoticeReceived,
+        type: NotificationStreamEventType.NoticeReceived,
         ts: Date.parse('2026-01-02T03:04:05.000Z'),
         payload: {
           title: 'Inbox',

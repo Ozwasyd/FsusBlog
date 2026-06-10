@@ -6,8 +6,8 @@ import {
   type ConversationListItemResponse,
   type ConversationMessagePreviewResponse
 } from '@/api/message'
-import { useSseStore } from '@/store/sse'
-import type { SseInboxRenderPatch } from '@/services/sseTypes'
+import { useNotificationStreamStore } from '@/store/notificationStream'
+import type { NotificationStreamInboxRenderPatch } from '@/services/notificationStreamTypes'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 
@@ -43,7 +43,7 @@ const resetDetailState = (detailRef: { value: ConversationDetailResponse | null 
 }
 
 export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
-  const sseStore = useSseStore()
+  const notificationStreamStore = useNotificationStreamStore()
 
   const loading = ref(false)
   const loadingDetail = ref(false)
@@ -215,7 +215,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     }
   }
 
-  const consumePatches = (patches: readonly SseInboxRenderPatch[]): void => {
+  const consumePatches = (patches: readonly NotificationStreamInboxRenderPatch[]): void => {
     let requiresRefresh = false
     for (const patch of patches) {
       if (patch.kind === 'conversation-upsert' || patch.kind === 'message-append' || patch.kind === 'conversation-closed') {
@@ -242,12 +242,12 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
   )
 
   watch(
-    () => sseStore.inboxRevision,
+    () => notificationStreamStore.inboxRevision,
     () => {
       if (!isEnabled()) {
         return
       }
-      consumePatches(sseStore.inboxBatch)
+      consumePatches(notificationStreamStore.inboxBatch)
     }
   )
 

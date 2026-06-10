@@ -4,12 +4,12 @@ import { getArticles, getFeaturedArticles, getHotArticles, type ArticleListItemR
 import { toBootstrapArticleListItem } from '@/bootstrap/publicAotBootstrap'
 import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
 import { useSiteStore } from '@/store/site'
-import { useSseStore } from '@/store/sse'
+import { useNotificationStreamStore } from '@/store/notificationStream'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { usePagedListState } from '@/composables/usePagedListState'
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
-import { upsertArticlePreview, removeArticlePreview } from '@/services/sseArticlePatch'
-import type { ArticleUpdatePayload, SseArticleRenderPatch } from '@/services/sseTypes'
+import { upsertArticlePreview, removeArticlePreview } from '@/services/notificationStreamArticlePatch'
+import type { ArticleUpdatePayload, NotificationStreamArticleRenderPatch } from '@/services/notificationStreamTypes'
 import { isAbortError } from '@/utils/errors'
 import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 import { createArticleListViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList'
@@ -25,7 +25,7 @@ export function useHomeView() {
   const route = useRoute()
   const router = useRouter()
   const siteStore = useSiteStore()
-  const sseStore = useSseStore()
+  const notificationStreamStore = useNotificationStreamStore()
   const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Home')
   const initialHydrationView = initialHydrationPayload?.view ?? null
   const hasServerHydrationView = Boolean(initialHydrationView)
@@ -275,7 +275,7 @@ export function useHomeView() {
     return currentPage.value === 1 && articleItems.value.length >= pageSize.value
   }
 
-  const handleArticleBatch = (patches: readonly SseArticleRenderPatch[]): void => {
+  const handleArticleBatch = (patches: readonly NotificationStreamArticleRenderPatch[]): void => {
     let needsSync = false
     let needsFeaturedSync = false
 
@@ -326,13 +326,13 @@ export function useHomeView() {
   )
 
   watch(
-    () => sseStore.articleRevision,
+    () => notificationStreamStore.articleRevision,
     () => {
       if (!lifecycle.isActive()) {
         return
       }
 
-      handleArticleBatch(sseStore.articleBatch)
+      handleArticleBatch(notificationStreamStore.articleBatch)
     }
   )
 

@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest'
 import type { ArticleListItemResponse } from '@/api/article'
 import { scoreContentRisk } from '@/utils/contentFilter'
 import { rankSearchPage } from '@/services/searchRanking'
-import { mergeSseRenderPatch } from '@/services/sseRenderScheduler'
-import { SseEventType, type ArticleUpdatePayload, type SseArticleRenderPatch, type SseEventV2 } from '@/services/sseTypes'
+import { mergeNotificationStreamRenderPatch } from '@/services/notificationStreamRenderScheduler'
+import { NotificationStreamEventType, type ArticleUpdatePayload, type NotificationStreamArticleRenderPatch, type NotificationStreamEventV2 } from '@/services/notificationStreamTypes'
 
 type BenchmarkResult = {
   name: string
@@ -40,16 +40,16 @@ function makeArticle(id: number): ArticleListItemResponse {
   }
 }
 
-function articlePatch(action: ArticleUpdatePayload['action'], id: number): SseArticleRenderPatch {
+function articlePatch(action: ArticleUpdatePayload['action'], id: number): NotificationStreamArticleRenderPatch {
   const payload: ArticleUpdatePayload = {
     articleId: id,
     action,
     eventTime: '2025-01-01T00:00:00Z',
     preview: action === 'Deleted' ? null : makeArticle(id)
   }
-  const event: SseEventV2<ArticleUpdatePayload> = {
+  const event: NotificationStreamEventV2<ArticleUpdatePayload> = {
     id,
-    type: SseEventType.ArticleChanged,
+    type: NotificationStreamEventType.ArticleChanged,
     ts: id,
     payload
   }
@@ -69,8 +69,8 @@ describe('frontend perf regression smoke', () => {
     benchmark('search-rank-250-docs-80x', 80, 320, () => {
       rankSearchPage(page, 'aeds protocol vue', 'relevance', NOW_MS)
     })
-    benchmark('sse-merge-5000x', 5000, 45, () => {
-      mergeSseRenderPatch(updated, deleted)
+    benchmark('notification-stream-merge-5000x', 5000, 45, () => {
+      mergeNotificationStreamRenderPatch(updated, deleted)
     })
 
     const outputDir = resolve(process.cwd(), '../../.tmp/frontend-perf')
