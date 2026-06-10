@@ -43,7 +43,7 @@ public sealed class PublicAotShellService(
     public bool TryResolve(HttpContext context, out PublicAotRouteMatch match)
         => routeRegistry.TryResolve(context, out match);
 
-    public async Task<string?> RenderAsync(HttpContext context, PublicAotRouteMatch match, CancellationToken cancellationToken = default)
+    public async Task<PublicAotCacheEntry?> RenderAsync(HttpContext context, PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
         string documentCacheKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
         string frontendAssetVersion = assetManifest.GetFrontendAssetVersion();
@@ -54,7 +54,7 @@ public sealed class PublicAotShellService(
             context.Items[PublicAotVersionContextKey] = entry.RendererVersion;
             context.Items[PublicAotBackfillContextKey] = "none";
             context.Items[PublicAotStateContextKey] = "fresh";
-            return entry.Value;
+            return entry;
         }
 
         string pagePrefixKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty));
@@ -65,7 +65,7 @@ public sealed class PublicAotShellService(
             context.Items[PublicAotVersionContextKey] = entry.RendererVersion;
             context.Items[PublicAotBackfillContextKey] = staleQueued ? "stale-refresh-queued" : "stale-refresh-dropped";
             context.Items[PublicAotStateContextKey] = "stale";
-            return entry.Value;
+            return entry;
         }
 
         if (entry is not null)
@@ -87,7 +87,7 @@ public sealed class PublicAotShellService(
             PublicAotBackfillDroppedLog(logger, match.Kind, match.RouteKey, null);
         }
 
-        return string.Empty;
+        return null;
     }
 
     private bool ScheduleBackfill(
@@ -168,7 +168,7 @@ public sealed class PublicAotShellService(
 
     private static bool IsCompatibleCacheEntry(PublicAotCacheEntry? entry, string frontendAssetVersion)
     {
-        if (entry is null || string.IsNullOrWhiteSpace(entry.Value))
+        if (entry is null)
         {
             return false;
         }
@@ -179,7 +179,8 @@ public sealed class PublicAotShellService(
         }
 
         return string.Equals(entry.RendererVersion, PublicRendererVersion, StringComparison.Ordinal)
-            && string.Equals(entry.FrontendAssetVersion, frontendAssetVersion, StringComparison.Ordinal);
+            && string.Equals(entry.FrontendAssetVersion, frontendAssetVersion, StringComparison.Ordinal)
+            && !entry.GetDocument().Utf8Bytes.IsEmpty;
     }
 
     private async Task<Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>> BuildBackfillDocumentAsync(

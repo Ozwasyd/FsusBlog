@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Text;
 using FsusBlog.Core.Common;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -7,11 +8,14 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 internal static class PublicAotCacheEntryBinaryCodec
 {
     private const uint Magic = 0x45434150; // PACE
-    private const uint Version = 1;
+    private const uint LegacyStringVersion = 1;
+    private const uint Version = 2;
     private const int MaxStringBytes = 8 * 1024 * 1024;
+    private const int MaxBlobBytes = 32 * 1024 * 1024;
 
     internal static byte[] Encode(PublicAotCacheEntry entry)
     {
+        PublicAotHtmlArtifact document = entry.GetDocument();
         using var writer = new PooledByteBufferWriter(4096);
         WriteUInt32(writer, Magic);
         WriteUInt32(writer, Version);
@@ -23,7 +27,32 @@ internal static class PublicAotCacheEntryBinaryCodec
         WriteString(writer, entry.RouteKey);
         WriteString(writer, entry.RendererVersion);
         WriteString(writer, entry.FrontendAssetVersion);
-        WriteString(writer, entry.Value);
+        WriteString(writer, document.ContentType);
+        WriteString(writer, document.CacheControl);
+        WriteString(writer, document.ETag);
+        WriteString(writer, document.BrotliETag);
+        WriteString(writer, document.GzipETag);
+        WriteBool(writer, document.RequiresCspNonceMutation);
+        WriteBytes(writer, document.Utf8Bytes.Span);
+        WriteBytes(writer, document.BrotliBytes.Span);
+        WriteBytes(writer, document.GzipBytes.Span);
+        return writer.ToArray();
+    }
+
+    internal static byte[] EncodeLegacyForTests(PublicAotCacheEntry entry)
+    {
+        using var writer = new PooledByteBufferWriter(4096);
+        WriteUInt32(writer, Magic);
+        WriteUInt32(writer, LegacyStringVersion);
+        WriteInt32(writer, (int)entry.PageId);
+        WriteInt32(writer, (int)entry.Source);
+        WriteInt64(writer, entry.GeneratedAtUtc.UtcDateTime.Ticks);
+        WriteInt64(writer, entry.ExpiresAtUtc.UtcDateTime.Ticks);
+        WriteString(writer, entry.CacheKey);
+        WriteString(writer, entry.RouteKey);
+        WriteString(writer, entry.RendererVersion);
+        WriteString(writer, entry.FrontendAssetVersion);
+        WriteString(writer, entry.GetHtml());
         return writer.ToArray();
     }
 
@@ -40,7 +69,6 @@ internal static class PublicAotCacheEntryBinaryCodec
         if (!reader.TryReadUInt32(out uint magic)
             || !reader.TryReadUInt32(out uint version)
             || magic != Magic
-            || version != Version
             || !reader.TryReadInt32(out int pageIdRaw)
             || !reader.TryReadInt32(out int sourceRaw)
             || !reader.TryReadInt64(out long generatedTicks)
@@ -56,6 +84,40 @@ internal static class PublicAotCacheEntryBinaryCodec
             return false;
         }
 
+        if (version == LegacyStringVersion)
+        {
+            return TryDecodeLegacy(
+                ref reader,
+                pageId,
+                source,
+                generatedTicks,
+                expiresTicks,
+                out entry);
+        }
+
+        if (version != Version)
+        {
+            return false;
+        }
+
+        return TryDecodeCurrent(
+            ref reader,
+            pageId,
+            source,
+            generatedTicks,
+            expiresTicks,
+            out entry);
+    }
+
+    private static bool TryDecodeLegacy(
+        ref SpanReader reader,
+        PublicPageId pageId,
+        PublicAotWriteSource source,
+        long generatedTicks,
+        long expiresTicks,
+        out PublicAotCacheEntry? entry)
+    {
+        entry = null;
         if (!reader.TryReadString(out string cacheKey)
             || !reader.TryReadString(out string routeKey)
             || !reader.TryReadString(out string rendererVersion)
@@ -73,6 +135,12 @@ internal static class PublicAotCacheEntryBinaryCodec
 
         try
         {
+            PublicAotHtmlArtifact document = PublicAotHtmlArtifactFactory.FromHtml(
+                value,
+                rendererVersion,
+                frontendAssetVersion,
+                PublicAotHtmlArtifactOptions.DefaultCacheControl,
+                PublicAotHtmlArtifactOptions.DefaultMinPrecompressedHtmlBytes);
             entry = new PublicAotCacheEntry
             {
                 PageId = pageId,
@@ -83,7 +151,82 @@ internal static class PublicAotCacheEntryBinaryCodec
                 RouteKey = routeKey,
                 RendererVersion = rendererVersion,
                 FrontendAssetVersion = frontendAssetVersion,
-                Value = value
+                Value = value,
+                Document = document
+            };
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            entry = null;
+            return false;
+        }
+    }
+
+    private static bool TryDecodeCurrent(
+        ref SpanReader reader,
+        PublicPageId pageId,
+        PublicAotWriteSource source,
+        long generatedTicks,
+        long expiresTicks,
+        out PublicAotCacheEntry? entry)
+    {
+        entry = null;
+        if (!reader.TryReadString(out string cacheKey)
+            || !reader.TryReadString(out string routeKey)
+            || !reader.TryReadString(out string rendererVersion)
+            || !reader.TryReadString(out string frontendAssetVersion)
+            || !reader.TryReadString(out string contentType)
+            || !reader.TryReadString(out string cacheControl)
+            || !reader.TryReadString(out string etag)
+            || !reader.TryReadString(out string brotliEtag)
+            || !reader.TryReadString(out string gzipEtag)
+            || !reader.TryReadBool(out bool requiresCspNonceMutation)
+            || !reader.TryReadBytes(out ReadOnlyMemory<byte> utf8Bytes)
+            || !reader.TryReadBytes(out ReadOnlyMemory<byte> brotliBytes)
+            || !reader.TryReadBytes(out ReadOnlyMemory<byte> gzipBytes)
+            || !reader.Consumed)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(cacheKey) || utf8Bytes.IsEmpty)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(etag))
+        {
+            etag = PublicAotHtmlArtifactFactory.CreateEtag(utf8Bytes.Span);
+        }
+
+        try
+        {
+            var document = new PublicAotHtmlArtifact(
+                utf8Bytes,
+                etag,
+                brotliBytes,
+                brotliEtag,
+                gzipBytes,
+                gzipEtag,
+                string.IsNullOrWhiteSpace(contentType) ? "text/html; charset=utf-8" : contentType,
+                string.IsNullOrWhiteSpace(cacheControl) ? PublicAotHtmlArtifactOptions.DefaultCacheControl : cacheControl,
+                rendererVersion,
+                frontendAssetVersion,
+                requiresCspNonceMutation);
+
+            entry = new PublicAotCacheEntry
+            {
+                PageId = pageId,
+                Source = source,
+                GeneratedAtUtc = new DateTimeOffset(new DateTime(generatedTicks, DateTimeKind.Utc)),
+                ExpiresAtUtc = new DateTimeOffset(new DateTime(expiresTicks, DateTimeKind.Utc)),
+                CacheKey = cacheKey,
+                RouteKey = routeKey,
+                RendererVersion = rendererVersion,
+                FrontendAssetVersion = frontendAssetVersion,
+                Value = Encoding.UTF8.GetString(utf8Bytes.Span),
+                Document = document
             };
             return true;
         }
@@ -115,9 +258,12 @@ internal static class PublicAotCacheEntryBinaryCodec
         writer.Advance(sizeof(long));
     }
 
+    private static void WriteBool(PooledByteBufferWriter writer, bool value)
+        => WriteInt32(writer, value ? 1 : 0);
+
     private static void WriteString(PooledByteBufferWriter writer, string value)
     {
-        int byteCount = System.Text.Encoding.UTF8.GetByteCount(value);
+        int byteCount = Encoding.UTF8.GetByteCount(value);
         if (byteCount > MaxStringBytes)
         {
             throw new ArgumentException("Public AOT cache entry string exceeds the maximum encoded byte length.", nameof(value));
@@ -125,8 +271,21 @@ internal static class PublicAotCacheEntryBinaryCodec
 
         WriteInt32(writer, byteCount);
         Span<byte> span = writer.GetSpan(byteCount);
-        int written = System.Text.Encoding.UTF8.GetBytes(value.AsSpan(), span);
+        int written = Encoding.UTF8.GetBytes(value.AsSpan(), span);
         writer.Advance(written);
+    }
+
+    private static void WriteBytes(PooledByteBufferWriter writer, ReadOnlySpan<byte> value)
+    {
+        if (value.Length > MaxBlobBytes)
+        {
+            throw new ArgumentException("Public AOT cache entry byte artifact exceeds the maximum encoded byte length.", nameof(value));
+        }
+
+        WriteInt32(writer, value.Length);
+        Span<byte> span = writer.GetSpan(value.Length);
+        value.CopyTo(span);
+        writer.Advance(value.Length);
     }
 
     private ref struct SpanReader
@@ -179,6 +338,18 @@ internal static class PublicAotCacheEntryBinaryCodec
             return true;
         }
 
+        public bool TryReadBool(out bool value)
+        {
+            value = false;
+            if (!TryReadInt32(out int raw) || raw is not 0 and not 1)
+            {
+                return false;
+            }
+
+            value = raw == 1;
+            return true;
+        }
+
         public bool TryReadString(out string value)
         {
             value = string.Empty;
@@ -187,7 +358,25 @@ internal static class PublicAotCacheEntryBinaryCodec
                 return false;
             }
 
-            value = System.Text.Encoding.UTF8.GetString(_remaining[..length]);
+            value = Encoding.UTF8.GetString(_remaining[..length]);
+            _remaining = _remaining[length..];
+            return true;
+        }
+
+        public bool TryReadBytes(out ReadOnlyMemory<byte> value)
+        {
+            value = ReadOnlyMemory<byte>.Empty;
+            if (!TryReadInt32(out int length) || length < 0 || length > MaxBlobBytes || _remaining.Length < length)
+            {
+                return false;
+            }
+
+            if (length == 0)
+            {
+                return true;
+            }
+
+            value = _remaining[..length].ToArray();
             _remaining = _remaining[length..];
             return true;
         }

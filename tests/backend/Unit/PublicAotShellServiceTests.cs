@@ -37,9 +37,11 @@ public sealed class PublicAotShellServiceTests
         PublicAotShellService sut = CreateService(match, cache, scheduler);
         var context = new DefaultHttpContext();
 
-        string? html = await sut.RenderAsync(context, match);
+        PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
 
-        Assert.Equal(cache.Entry.Value, html);
+        Assert.NotNull(rendered);
+        Assert.Same(cache.Entry, rendered);
+        Assert.Equal(cache.Entry.Value, rendered.GetHtml());
         Assert.Equal("server-ssr", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
         Assert.Equal("none", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
         Assert.Equal("fresh", context.Items[PublicAotShellService.PublicAotStateContextKey]);
@@ -56,9 +58,9 @@ public sealed class PublicAotShellServiceTests
         PublicAotShellService sut = CreateService(match, cache, scheduler);
         var context = new DefaultHttpContext();
 
-        string? html = await sut.RenderAsync(context, match);
+        PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
 
-        Assert.Equal(string.Empty, html);
+        Assert.Null(rendered);
         Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
         Assert.Equal("queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
         Assert.Equal("fallback", context.Items[PublicAotShellService.PublicAotStateContextKey]);
@@ -111,9 +113,9 @@ public sealed class PublicAotShellServiceTests
         PublicAotShellService sut = CreateService(match, cache, scheduler);
         var context = new DefaultHttpContext();
 
-        string? html = await sut.RenderAsync(context, match);
+        PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
 
-        Assert.Equal(string.Empty, html);
+        Assert.Null(rendered);
         Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
         Assert.Equal("queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
         Assert.Collection(cache.RemovedKeys, removed => Assert.Equal(cacheKey, removed));
@@ -143,9 +145,11 @@ public sealed class PublicAotShellServiceTests
         PublicAotShellService sut = CreateService(match, cache, scheduler);
         var context = new DefaultHttpContext();
 
-        string? html = await sut.RenderAsync(context, match);
+        PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
 
-        Assert.Equal(cache.Entry.Value, html);
+        Assert.NotNull(rendered);
+        Assert.Same(cache.Entry, rendered);
+        Assert.Equal(cache.Entry.Value, rendered.GetHtml());
         Assert.Equal("server-ssr", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
         Assert.Equal("stale-refresh-queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
         Assert.Equal("stale", context.Items[PublicAotShellService.PublicAotStateContextKey]);

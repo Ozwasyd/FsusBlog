@@ -315,6 +315,9 @@ public sealed class PublicAotFileShellCache(
     internal static byte[] SerializeEntryBytes(PublicAotCacheEntry entry)
         => PublicAotCacheEntryBinaryCodec.Encode(entry);
 
+    internal static byte[] SerializeLegacyEntryBytesForTests(PublicAotCacheEntry entry)
+        => PublicAotCacheEntryBinaryCodec.EncodeLegacyForTests(entry);
+
     internal static PublicAotCacheEntry? DeserializeEntryBytes(ReadOnlySpan<byte> payload)
         => PublicAotCacheEntryBinaryCodec.Decode(payload);
 

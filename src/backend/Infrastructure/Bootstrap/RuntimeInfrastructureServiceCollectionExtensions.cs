@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Spa;
@@ -157,6 +158,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     private static IServiceCollection AddPublicReadArtifactRuntime(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<PublicHotReadOptions>(configuration.GetSection("PublicHotRead"));
+        services.Configure<PublicAotHtmlArtifactOptions>(configuration.GetSection("PublicAot"));
         services.AddSingleton<PublicHotReadStore>();
         services.AddSingleton<PublicHotReadCounters>();
         services.AddSingleton<PublicHotArtifactUpdateQueue>();

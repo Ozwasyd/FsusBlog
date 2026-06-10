@@ -1,4 +1,5 @@
 using System.Text;
+using System.Buffers.Binary;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Hosting;
@@ -15,6 +16,12 @@ public sealed class PublicAotFileShellCacheTests
     [Fact]
     public void SerializeEntryBytes_RoundTripsEntry()
     {
+        string html = string.Concat("<!doctype html><html><body>", new string('a', 4096), "</body></html>");
+        PublicAotHtmlArtifact document = PublicAotHtmlArtifactFactory.FromHtml(
+            html,
+            "renderer-v1",
+            "frontend-v1",
+            minPrecompressedHtmlBytes: 1);
         var entry = new PublicAotCacheEntry
         {
             CacheKey = "public:aot:v2:article:1",
@@ -25,15 +32,30 @@ public sealed class PublicAotFileShellCacheTests
             ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(10),
             RendererVersion = "renderer-v1",
             FrontendAssetVersion = "frontend-v1",
-            Value = "<article>content</article>"
+            Value = html,
+            Document = document
         };
 
         byte[] payload = PublicAotFileShellCache.SerializeEntryBytes(entry);
         PublicAotCacheEntry? restored = PublicAotFileShellCache.DeserializeEntryBytes(payload);
 
         Assert.NotNull(restored);
-        Assert.Equal(entry, restored);
+        Assert.Equal(entry.CacheKey, restored.CacheKey);
+        Assert.Equal(entry.RouteKey, restored.RouteKey);
+        Assert.Equal(entry.PageId, restored.PageId);
+        Assert.Equal(entry.Source, restored.Source);
+        Assert.Equal(entry.RendererVersion, restored.RendererVersion);
+        Assert.Equal(entry.FrontendAssetVersion, restored.FrontendAssetVersion);
+        Assert.Equal(entry.Value, restored.Value);
+        Assert.NotNull(restored.Document);
+        Assert.Equal(document.ETag, restored.Document.Value.ETag);
+        Assert.Equal(document.BrotliETag, restored.Document.Value.BrotliETag);
+        Assert.Equal(document.GzipETag, restored.Document.Value.GzipETag);
+        Assert.Equal(document.Utf8Bytes.ToArray(), restored.Document.Value.Utf8Bytes.ToArray());
+        Assert.Equal(document.BrotliBytes.ToArray(), restored.Document.Value.BrotliBytes.ToArray());
+        Assert.Equal(document.GzipBytes.ToArray(), restored.Document.Value.GzipBytes.ToArray());
         Assert.Equal("PACE", Encoding.ASCII.GetString(payload, 0, 4));
+        Assert.Equal(2u, BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(4, 4)));
     }
 
     [Fact]
@@ -83,6 +105,46 @@ public sealed class PublicAotFileShellCacheTests
         Assert.Null(PublicAotFileShellCache.DeserializeEntryBytes(ReadOnlyMemory<byte>.Empty));
         Assert.Null(PublicAotFileShellCache.DeserializeEntryBytes(payload.AsMemory(0, payload.Length - 1)));
         Assert.Null(PublicAotFileShellCache.DeserializeEntryBytes(invalidMagic));
+    }
+
+    [Fact]
+    public void DeserializeEntryBytes_UpgradesLegacyStringPayloadInMemory()
+    {
+        var entry = CreateEntry("public:aot:v2:doc:2:article:42");
+        byte[] legacyPayload = PublicAotFileShellCache.SerializeLegacyEntryBytesForTests(entry);
+
+        PublicAotCacheEntry? restored = PublicAotFileShellCache.DeserializeEntryBytes(legacyPayload);
+
+        Assert.NotNull(restored);
+        Assert.Equal(entry.Value, restored.Value);
+        Assert.NotNull(restored.Document);
+        Assert.Equal(Encoding.UTF8.GetBytes(entry.Value), restored.Document.Value.Utf8Bytes.ToArray());
+        Assert.False(string.IsNullOrWhiteSpace(restored.Document.Value.ETag));
+        Assert.Equal(1u, BinaryPrimitives.ReadUInt32LittleEndian(legacyPayload.AsSpan(4, 4)));
+    }
+
+    [Fact]
+    public void HtmlArtifactFactory_StoresCompressedVariantsOnlyWhenSmallerAndAboveThreshold()
+    {
+        string html = string.Concat("<!doctype html><html><body>", new string('z', 4096), "</body></html>");
+
+        PublicAotHtmlArtifact compressed = PublicAotHtmlArtifactFactory.FromHtml(
+            html,
+            "renderer-v2",
+            "frontend-v2",
+            minPrecompressedHtmlBytes: 1);
+        PublicAotHtmlArtifact tiny = PublicAotHtmlArtifactFactory.FromHtml(
+            "<p>tiny</p>",
+            "renderer-v2",
+            "frontend-v2",
+            minPrecompressedHtmlBytes: 1024);
+
+        Assert.False(compressed.BrotliBytes.IsEmpty);
+        Assert.False(compressed.GzipBytes.IsEmpty);
+        Assert.True(compressed.BrotliBytes.Length < compressed.Utf8Bytes.Length);
+        Assert.True(compressed.GzipBytes.Length < compressed.Utf8Bytes.Length);
+        Assert.True(tiny.BrotliBytes.IsEmpty);
+        Assert.True(tiny.GzipBytes.IsEmpty);
     }
 
     [Fact]

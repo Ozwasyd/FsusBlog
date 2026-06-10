@@ -1,11 +1,13 @@
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 public sealed class PublicAotCacheWriter(
     IPublicAotShellCache cache,
-    PublicHotReadStore hotReadStore) : IPublicAotCacheWriter
+    PublicHotReadStore hotReadStore,
+    IOptions<PublicAotHtmlArtifactOptions> htmlArtifactOptions) : IPublicAotCacheWriter
 {
     private static readonly TimeSpan DefaultTtl = TimeSpan.FromDays(30);
 
@@ -22,6 +24,14 @@ public sealed class PublicAotCacheWriter(
         CancellationToken cancellationToken = default)
     {
         DateTimeOffset generatedAt = generatedAtUtc ?? DateTimeOffset.UtcNow;
+        PublicAotHtmlArtifactOptions options = htmlArtifactOptions.Value;
+        PublicAotHtmlArtifact document = PublicAotHtmlArtifactFactory.FromHtml(
+            html,
+            rendererVersion,
+            frontendAssetVersion,
+            options.CacheControl,
+            options.MinPrecompressedHtmlBytes,
+            options.EnablePrecompressedHtmlVariants);
         var entry = new PublicAotCacheEntry
         {
             CacheKey = cacheKey,
@@ -32,7 +42,8 @@ public sealed class PublicAotCacheWriter(
             ExpiresAtUtc = generatedAt.Add(ttl ?? DefaultTtl),
             RendererVersion = rendererVersion,
             FrontendAssetVersion = frontendAssetVersion,
-            Value = html
+            Value = html,
+            Document = document
         };
 
         await cache.SetAsync(entry, cancellationToken).ConfigureAwait(false);

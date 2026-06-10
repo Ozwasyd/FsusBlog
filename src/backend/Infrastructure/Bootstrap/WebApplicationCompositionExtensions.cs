@@ -393,7 +393,7 @@ public static class WebApplicationCompositionExtensions
         if (isPublicAotRoute)
         {
             long aotStartedAt = System.Diagnostics.Stopwatch.GetTimestamp();
-            string? html = await shellService.RenderAsync(ctx, aotMatch, ct);
+            PublicAotCacheEntry? aotEntry = await shellService.RenderAsync(ctx, aotMatch, ct);
             string source = ctx.Items.TryGetValue(PublicAotShellService.PublicAotSourceContextKey, out object? sourceObj)
                 ? sourceObj?.ToString() ?? "unknown"
                 : "unknown";
@@ -409,24 +409,12 @@ public static class WebApplicationCompositionExtensions
             FsusObservability.RecordAotRender(
                 source,
                 backfill,
-                string.IsNullOrEmpty(html) ? "fallback" : "hit",
+                aotEntry is null ? "fallback" : "hit",
                 FsusObservability.GetElapsed(aotStartedAt));
-            if (!string.IsNullOrEmpty(html))
+            if (aotEntry is not null)
             {
-                ctx.Response.Headers["X-Fsus-Public-Aot-Source"] = source;
-                ctx.Response.Headers["X-Fsus-Public-Aot-Version"] = version;
-                ctx.Response.Headers["X-Fsus-Public-Aot-Backfill"] = backfill;
-                ctx.Response.Headers["X-Fsus-Public-Aot-State"] = state;
-                if (string.Equals(state, "stale", StringComparison.Ordinal))
-                {
-                    ctx.Response.Headers["X-Fsus-Public-Aot-Stale"] = "1";
-                }
-                ctx.Response.Headers["Cache-Control"] = "no-cache";
-                ctx.Response.Headers.Remove("ETag");
-                ctx.Response.Headers.Remove("Last-Modified");
-                EnsureHtmlCspHeader(ctx, env);
-                html = ApplyCspNonceToHtml(ctx, html);
-                return TypedResults.Content(html, "text/html; charset=utf-8");
+                await WritePublicAotHtmlEntryAsync(ctx, env, aotEntry, source, version, backfill, state, ct);
+                return TypedResults.Empty;
             }
         }
 
@@ -486,6 +474,130 @@ public static class WebApplicationCompositionExtensions
         await WriteSpaHtmlResponseAsync(ctx, env, templateBytes, EmptyBytes, ct);
 
         return TypedResults.Empty;
+    }
+
+    private static async Task WritePublicAotHtmlEntryAsync(
+        HttpContext ctx,
+        IWebHostEnvironment env,
+        PublicAotCacheEntry entry,
+        string source,
+        string version,
+        string backfill,
+        string state,
+        CancellationToken cancellationToken)
+    {
+        PublicAotHtmlArtifact document = entry.GetDocument();
+        SetPublicAotHtmlHeaders(ctx, document, source, version, backfill, state);
+        EnsureHtmlCspHeader(ctx, env);
+
+        if (document.RequiresCspNonceMutation)
+        {
+            await WritePublicAotHtmlSlowPathAsync(ctx, entry.GetHtml(), cancellationToken);
+            return;
+        }
+
+        if (!PublicAotHtmlResponseNegotiation.TrySelectVariant(
+                ctx.Request.Headers.AcceptEncoding,
+                document,
+                out PublicAotHtmlArtifactVariant variant))
+        {
+            ctx.Response.StatusCode = StatusCodes.Status406NotAcceptable;
+            ctx.Response.ContentLength = 0;
+            return;
+        }
+
+        HttpResponse response = ctx.Response;
+        response.StatusCode = StatusCodes.Status200OK;
+        response.ContentType = string.IsNullOrWhiteSpace(document.ContentType) ? HtmlContentType : document.ContentType;
+        response.ContentLength = variant.Bytes.Length;
+        if (string.IsNullOrWhiteSpace(variant.ContentEncoding))
+        {
+            response.Headers.Remove("Content-Encoding");
+        }
+        else
+        {
+            response.Headers["Content-Encoding"] = variant.ContentEncoding;
+        }
+
+        if (!string.IsNullOrWhiteSpace(variant.ETag))
+        {
+            response.Headers["ETag"] = variant.ETag;
+        }
+        else
+        {
+            response.Headers.Remove("ETag");
+        }
+
+        if (PublicAotHtmlResponseNegotiation.MatchesIfNoneMatch(ctx.Request.Headers.IfNoneMatch, variant.ETag))
+        {
+            response.StatusCode = StatusCodes.Status304NotModified;
+            response.ContentLength = 0;
+            return;
+        }
+
+        if (HttpMethods.IsHead(ctx.Request.Method) || variant.Bytes.IsEmpty)
+        {
+            return;
+        }
+
+        ValueTask<FlushResult> write = response.BodyWriter.WriteAsync(variant.Bytes, cancellationToken);
+        if (!write.IsCompletedSuccessfully)
+        {
+            await write;
+        }
+    }
+
+    private static async Task WritePublicAotHtmlSlowPathAsync(
+        HttpContext ctx,
+        string html,
+        CancellationToken cancellationToken)
+    {
+        // CSP nonce mutation changes the document per request, so precomputed
+        // compressed variants and ETags are intentionally skipped on this path.
+        html = ApplyCspNonceToHtml(ctx, html);
+        byte[] bytes = Encoding.UTF8.GetBytes(html);
+        HttpResponse response = ctx.Response;
+        response.StatusCode = StatusCodes.Status200OK;
+        response.ContentType = HtmlContentType;
+        response.ContentLength = bytes.Length;
+        response.Headers.Remove("Content-Encoding");
+        response.Headers.Remove("ETag");
+        if (HttpMethods.IsHead(ctx.Request.Method) || bytes.Length == 0)
+        {
+            return;
+        }
+
+        ValueTask<FlushResult> write = response.BodyWriter.WriteAsync(bytes, cancellationToken);
+        if (!write.IsCompletedSuccessfully)
+        {
+            await write;
+        }
+    }
+
+    private static void SetPublicAotHtmlHeaders(
+        HttpContext ctx,
+        PublicAotHtmlArtifact document,
+        string source,
+        string version,
+        string backfill,
+        string state)
+    {
+        var headers = ctx.Response.Headers;
+        headers["X-Fsus-Public-Aot-Source"] = source;
+        headers["X-Fsus-Public-Aot-Version"] = version;
+        headers["X-Fsus-Public-Aot-Backfill"] = backfill;
+        headers["X-Fsus-Public-Aot-State"] = state;
+        if (string.Equals(state, "stale", StringComparison.Ordinal))
+        {
+            headers["X-Fsus-Public-Aot-Stale"] = "1";
+        }
+
+        headers["Cache-Control"] = string.IsNullOrWhiteSpace(document.CacheControl)
+            ? PublicAotHtmlArtifactOptions.DefaultCacheControl
+            : document.CacheControl;
+        headers["Vary"] = "Accept-Encoding";
+        headers["Accept-Ranges"] = "none";
+        headers.Remove("Last-Modified");
     }
 
     private static bool ShouldApplyHtmlCsp(HttpContext ctx)
@@ -783,6 +895,21 @@ public static class WebApplicationCompositionExtensions
         await writer.CompleteAsync();
         return Encoding.UTF8.GetString(output.ToArray());
     }
+
+    internal static Task WritePublicAotHtmlEntryForTestsAsync(
+        HttpContext ctx,
+        IWebHostEnvironment env,
+        PublicAotCacheEntry entry,
+        string state = "fresh")
+        => WritePublicAotHtmlEntryAsync(
+            ctx,
+            env,
+            entry,
+            entry.Source.ToHeaderValue(),
+            entry.RendererVersion,
+            "none",
+            state,
+            CancellationToken.None);
 
     private static ReadOnlyMemory<byte> BuildRoutePreloadHeadInjection(IReadOnlyList<string> preloads)
     {

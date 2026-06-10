@@ -1,5 +1,7 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -7,6 +9,7 @@ using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 
@@ -186,6 +189,150 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
+    public async Task PublicAotHtmlFastPath_PrefersBrotliVariantAndWritesPreencodedBytes()
+    {
+        string html = string.Concat("<!doctype html><html><body>", new string('a', 4096), "</body></html>");
+        PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(
+            html,
+            "renderer-v2",
+            "frontend-v2",
+            minPrecompressedHtmlBytes: 1);
+        var entry = CreateAotEntry(html, artifact);
+        DefaultHttpContext context = CreateAotContext("br, gzip");
+
+        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal("br", context.Response.Headers["Content-Encoding"].ToString());
+        Assert.Equal("Accept-Encoding", context.Response.Headers["Vary"].ToString());
+        Assert.Equal(artifact.BrotliETag, context.Response.Headers["ETag"].ToString());
+        Assert.Equal(artifact.BrotliBytes.Length, context.Response.ContentLength);
+        Assert.Equal(artifact.BrotliBytes.ToArray(), ((MemoryStream)context.Response.Body).ToArray());
+    }
+
+    [Fact]
+    public async Task PublicAotHtmlFastPath_ReturnsNotModifiedForVariantEtag()
+    {
+        string html = string.Concat("<!doctype html><html><body>", new string('b', 4096), "</body></html>");
+        PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(
+            html,
+            "renderer-v2",
+            "frontend-v2",
+            minPrecompressedHtmlBytes: 1);
+        var entry = CreateAotEntry(html, artifact);
+        DefaultHttpContext context = CreateAotContext("gzip;q=1, identity;q=0");
+        context.Request.Headers.IfNoneMatch = artifact.GzipETag;
+
+        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
+
+        Assert.Equal(StatusCodes.Status304NotModified, context.Response.StatusCode);
+        Assert.Equal("gzip", context.Response.Headers["Content-Encoding"].ToString());
+        Assert.Equal(artifact.GzipETag, context.Response.Headers["ETag"].ToString());
+        Assert.Equal(0, context.Response.ContentLength);
+        Assert.Equal(0, context.Response.Body.Length);
+    }
+
+    [Fact]
+    public async Task PublicAotHtmlFastPath_FallsBackToIdentityWhenCompressedVariantIsMissing()
+    {
+        const string html = "<!doctype html><html><body>tiny</body></html>";
+        PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(
+            html,
+            "renderer-v2",
+            "frontend-v2",
+            minPrecompressedHtmlBytes: 1024);
+        var entry = CreateAotEntry(html, artifact);
+        DefaultHttpContext context = CreateAotContext("br, gzip");
+
+        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.True(string.IsNullOrEmpty(context.Response.Headers["Content-Encoding"].ToString()));
+        Assert.Equal(artifact.ETag, context.Response.Headers["ETag"].ToString());
+        Assert.Equal(Encoding.UTF8.GetBytes(html), ((MemoryStream)context.Response.Body).ToArray());
+    }
+
+    [Fact]
+    public async Task PublicAotHtmlSlowPath_PreservesCspNonceMutationAndSkipsVariantEtag()
+    {
+        const string html = "<html><head></head><body><script type=\"module\"></script></body></html>";
+        PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(
+            html,
+            "renderer-v2",
+            "frontend-v2",
+            minPrecompressedHtmlBytes: 1);
+        var entry = CreateAotEntry(html, artifact);
+        DefaultHttpContext context = CreateAotContext("br, gzip");
+
+        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
+
+        string rendered = Encoding.UTF8.GetString(((MemoryStream)context.Response.Body).ToArray());
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.True(artifact.RequiresCspNonceMutation);
+        Assert.Contains("<meta property=\"csp-nonce\" nonce=\"", rendered, StringComparison.Ordinal);
+        Assert.Contains("<script nonce=\"", rendered, StringComparison.Ordinal);
+        Assert.True(string.IsNullOrEmpty(context.Response.Headers["Content-Encoding"].ToString()));
+        Assert.True(string.IsNullOrEmpty(context.Response.Headers["ETag"].ToString()));
+    }
+
+    [Fact]
+    public void PublicAotHtmlFastPath_SourceAvoidsStringContentAndPerRequestUtf8Encode()
+    {
+        string source = ReadCompositionSource();
+        string fastPath = ExtractPublicAotFastPath(source);
+
+        Assert.Contains("BodyWriter.WriteAsync(variant.Bytes", fastPath, StringComparison.Ordinal);
+        Assert.DoesNotContain("TypedResults.Content", fastPath, StringComparison.Ordinal);
+        Assert.DoesNotContain("Encoding.UTF8.GetBytes", fastPath, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PublicAotHtmlFastPath_ProbeCapturesBytesLatencyAndAllocationShape()
+    {
+        string html = string.Concat("<!doctype html><html><body>", string.Concat(Enumerable.Repeat("public-aot-byte-artifact ", 512)), "</body></html>");
+        PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(
+            html,
+            "renderer-v2",
+            "frontend-v2",
+            minPrecompressedHtmlBytes: 1);
+        var entry = CreateAotEntry(html, artifact);
+
+        DefaultHttpContext identity = CreateAotContext("identity");
+        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(identity, CreateTestEnv(), entry);
+        DefaultHttpContext brotli = CreateAotContext("br, gzip");
+        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(brotli, CreateTestEnv(), entry);
+        DefaultHttpContext gzip = CreateAotContext("gzip;q=1, identity;q=0");
+        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(gzip, CreateTestEnv(), entry);
+
+        long identityBytes = identity.Response.Body.Length;
+        long brotliBytes = brotli.Response.Body.Length;
+        long gzipBytes = gzip.Response.Body.Length;
+        Assert.Equal(artifact.Utf8Bytes.Length, identityBytes);
+        Assert.Equal(artifact.BrotliBytes.Length, brotliBytes);
+        Assert.Equal(artifact.GzipBytes.Length, gzipBytes);
+        Assert.True(brotliBytes < identityBytes);
+        Assert.True(gzipBytes < identityBytes);
+
+        const int samples = 32;
+        long[] elapsedTicks = new long[samples];
+        long allocBefore = GC.GetTotalAllocatedBytes(precise: true);
+        long totalBytes = 0;
+        for (int i = 0; i < samples; i++)
+        {
+            DefaultHttpContext context = CreateAotContext("br, gzip");
+            long started = Stopwatch.GetTimestamp();
+            await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
+            elapsedTicks[i] = Stopwatch.GetTimestamp() - started;
+            totalBytes += context.Response.Body.Length;
+        }
+
+        long allocAfter = GC.GetTotalAllocatedBytes(precise: true);
+        Assert.True(allocAfter >= allocBefore);
+        Assert.True(PercentileTicks(elapsedTicks, 99) >= 0);
+        Assert.Equal(artifact.BrotliBytes.Length * samples, totalBytes);
+    }
+
+    [Fact]
     public void StaticNoCacheEntryAssets_PreserveValidatorsForConditionalRequests()
     {
         string source = ReadCompositionSource();
@@ -296,6 +443,52 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.True(branchEnd > branchStart, "Unable to locate end of no-cache static entry branch.");
 
         return source[branchStart..branchEnd];
+    }
+
+    private static string ExtractPublicAotFastPath(string source)
+    {
+        int branchStart = source.IndexOf("private static async Task WritePublicAotHtmlEntryAsync", StringComparison.Ordinal);
+        int branchEnd = source.IndexOf("private static async Task WritePublicAotHtmlSlowPathAsync", branchStart, StringComparison.Ordinal);
+
+        Assert.True(branchStart >= 0, "Unable to locate Public AOT HTML write branch.");
+        Assert.True(branchEnd > branchStart, "Unable to locate Public AOT HTML slow-path branch.");
+
+        return source[branchStart..branchEnd];
+    }
+
+    private static PublicAotCacheEntry CreateAotEntry(string html, PublicAotHtmlArtifact artifact)
+        => new()
+        {
+            CacheKey = "public:aot:v2:doc:1:home",
+            RouteKey = "home",
+            PageId = PublicPageId.Home,
+            Source = PublicAotWriteSource.ServerSsrBackfill,
+            GeneratedAtUtc = DateTimeOffset.UtcNow.AddSeconds(-1),
+            ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(10),
+            RendererVersion = artifact.RendererVersion,
+            FrontendAssetVersion = artifact.FrontendAssetVersion,
+            Value = html,
+            Document = artifact
+        };
+
+    private static DefaultHttpContext CreateAotContext(string acceptEncoding)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = HttpMethods.Get;
+        context.Request.Path = "/";
+        context.Request.Headers.AcceptEncoding = acceptEncoding;
+        context.Response.Body = new MemoryStream();
+        return context;
+    }
+
+    private static IWebHostEnvironment CreateTestEnv()
+        => new TestWebHostEnvironment(Path.GetTempPath(), new NullFileProvider());
+
+    private static long PercentileTicks(long[] values, int percentile)
+    {
+        Array.Sort(values);
+        int index = (int)Math.Ceiling(values.Length * (percentile / 100d)) - 1;
+        return values[Math.Clamp(index, 0, values.Length - 1)];
     }
 
     private sealed class StaticAssetTestSite : IDisposable
