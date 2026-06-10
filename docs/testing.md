@@ -23,6 +23,40 @@ node tools/docs/generate-testing-docs.mjs --check
 
 `load` 与 WebSocket pressure 检查会写入 `.tmp/perf/load-public-api.json` 和 `.tmp/perf/sse-pressure.json`，release evidence 会把 `.tmp/perf/` 作为性能证据归档。默认参数来自 `tests/perf/perf-policy.yml`：HTTP load baseline 为 `concurrency=10`、`rounds=6`、`durationMs=30000`；WebSocket pressure 为 `connections=50`、`durationMs=30000`。
 
+性能证据默认采用项目内基线：single process、Kestrel-only、无 nginx、无 CDN、无 reverse-proxy cache、无代理压缩层计入结果。nginx/Caddy/CDN 可以作为生产部署层存在，但相关数据必须写入独立的 `optional_deployment_layer`，并标记 `counted_as_project_baseline=false`。
+
+Backend QPS/perf artifact 必须包含以下 metadata。`backend-qps` lane 由 `tools/test/lanes/runtime-evidence-probe.mjs` 写入该块，Docker/wrk 性能脚本也必须保持同一语义：
+
+```yaml
+performance_baseline:
+  date: YYYY-MM-DD
+  mode: kestrel-only
+  process_count: 1
+  reverse_proxy: false
+  cdn: false
+  response_compression_proxy: false
+  native_aot: false
+  ready_to_run: true|false|null
+  tiered_pgo: true|false|null
+  runtime: dotnet-10
+  database: postgres version / local-or-remote / unknown
+  redis: redis version / local-or-remote / unknown
+  machine: cpu/memory/kernel / unknown
+
+optional_deployment_layer:
+  reverse_proxy: none|nginx|caddy|cloudflare|other
+  proxy_cache: true|false
+  proxy_compression: true|false
+  counted_as_project_baseline: false
+```
+
+未来性能 issue / perf evidence checklist：
+
+- 明确目标属于 `kestrel-only internal baseline` 还是 `optional deployment-layer`；未声明时默认前者。
+- QPS、latency、cache hit、compression 和 static file 结论不得混用 Kestrel-only 与代理层结果。
+- 如果 `baseUrl` 指向 nginx/CDN/reverse proxy，必须在证据中保留 `optional_deployment_layer`，并另行说明代理缓存、压缩和 buffering 设置。
+- 项目内优化 issue 不得把 CDN、nginx proxy cache 或代理压缩计为验收收益。
+
 ---
 
 ## 各层详解
@@ -189,6 +223,8 @@ npx playwright test --update-snapshots
 **backend-perf-readiness / 性能基准**：
 
 `backend-perf` 在矩阵中是 BenchmarkDotNet build/readiness tier，只构建并确认 benchmark 项目可用；真实回归运行由 `backend-benchmark-regression` 负责并输出 release evidence。
+
+`backend-qps` 是运行时 HTTP probe 证据，默认命名口径为 `backend-qps-kestrel-only`：调用本仓库启动的 Kestrel 进程，证据中 `performance_baseline.mode=kestrel-only`。如果要对 nginx/CDN/reverse proxy 做部署层对比，使用单独 artifact 名称（例如 `backend-qps-deployment-proxy-optional`），并保持 `optional_deployment_layer.counted_as_project_baseline=false`。
 
 独立运行真实 BenchmarkDotNet：
 ```bash

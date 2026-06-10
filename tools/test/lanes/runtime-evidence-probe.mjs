@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
@@ -64,6 +65,48 @@ function statusCounts(samples) {
 function writeJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`)
+}
+
+function booleanEnv(...names) {
+  for (const name of names) {
+    const value = process.env[name]
+    if (value === undefined || value === '') continue
+    if (['1', 'true', 'yes', 'on'].includes(value.toLowerCase())) return true
+    if (['0', 'false', 'no', 'off'].includes(value.toLowerCase())) return false
+  }
+  return null
+}
+
+function performanceBaselineMetadata(overrides = {}) {
+  const cpus = os.cpus()
+  const postgresLocal = process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME || process.env.FSUSBLOG_PG_CONTAINER
+  const redisLocal = process.env.FSUSBLOG_REDIS_CONTAINER_NAME || process.env.FSUSBLOG_REDIS_CONTAINER
+  return {
+    date: new Date().toISOString().slice(0, 10),
+    mode: 'kestrel-only',
+    process_count: 1,
+    reverse_proxy: false,
+    cdn: false,
+    response_compression_proxy: false,
+    native_aot: booleanEnv('FSUSBLOG_NATIVE_AOT') ?? false,
+    ready_to_run: booleanEnv('DOTNET_ReadyToRun', 'COMPlus_ReadyToRun', 'FSUSBLOG_PERF_READYTORUN'),
+    tiered_pgo: booleanEnv('DOTNET_TieredPGO', 'COMPlus_TieredPGO'),
+    runtime: 'dotnet-10',
+    database: postgresLocal ? 'postgres docker-local' : 'postgres unknown',
+    redis: redisLocal ? 'redis docker-local' : 'redis unknown',
+    machine: `${os.platform()} ${os.release()} ${os.arch()} cpu=${cpus[0]?.model ?? 'unknown'} cores=${cpus.length} memoryMiB=${Math.round(os.totalmem() / 1024 / 1024)}`,
+    ...overrides
+  }
+}
+
+function optionalDeploymentLayerMetadata() {
+  const reverseProxy = process.env.FSUSBLOG_OPTIONAL_REVERSE_PROXY || process.env.FSUSBLOG_PERF_REVERSE_PROXY || 'none'
+  return {
+    reverse_proxy: reverseProxy,
+    proxy_cache: booleanEnv('FSUSBLOG_OPTIONAL_PROXY_CACHE', 'FSUSBLOG_PERF_PROXY_CACHE') ?? false,
+    proxy_compression: booleanEnv('FSUSBLOG_OPTIONAL_PROXY_COMPRESSION', 'FSUSBLOG_PERF_PROXY_COMPRESSION') ?? false,
+    counted_as_project_baseline: false
+  }
 }
 
 async function fetchSample(relativePath) {
@@ -192,6 +235,8 @@ async function backendQps(mode, outFile) {
     status: 'ok',
     scenario: mode,
     evidenceType: 'runtime-http-probe',
+    performance_baseline: performanceBaselineMetadata(),
+    optional_deployment_layer: optionalDeploymentLayerMetadata(),
     route: paths[0],
     actualPaths: paths,
     generatedAt: probe.generatedAt,
@@ -229,6 +274,8 @@ async function loadProfile(profile, outFile) {
     status: 'ok',
     profile,
     namespace,
+    performance_baseline: performanceBaselineMetadata(),
+    optional_deployment_layer: optionalDeploymentLayerMetadata(),
     metrics: {
       rps: probe.rps,
       p50Ms: probe.latencyMs.p50,

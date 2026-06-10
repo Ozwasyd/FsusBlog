@@ -190,6 +190,8 @@ jq -s \
   '{
     status: (if any(.[]; .status != "ok") then "blocked" else "ok" end),
     generatedAt: $generatedAt,
+    performance_baseline: (map(select(.performance_baseline != null))[0].performance_baseline // null),
+    optional_deployment_layer: (map(select(.optional_deployment_layer != null))[0].optional_deployment_layer // null),
     artifactDir: ".tmp/perf/backend-qps",
     results: .
   }' "$OUT_DIR"/*.json > "$SUMMARY_FILE"

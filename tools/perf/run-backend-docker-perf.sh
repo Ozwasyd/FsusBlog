@@ -388,11 +388,44 @@ try {
 } catch {
 }
 
+function booleanEnv(...names) {
+  for (const name of names) {
+    const value = process.env[name]
+    if (value === undefined || value === '') continue
+    if (['1', 'true', 'yes', 'on'].includes(value.toLowerCase())) return true
+    if (['0', 'false', 'no', 'off'].includes(value.toLowerCase())) return false
+  }
+  return null
+}
+
+const reverseProxy = process.env.FSUSBLOG_OPTIONAL_REVERSE_PROXY || process.env.FSUSBLOG_PERF_REVERSE_PROXY || 'none'
+
 writeFileSync(join(outDir, 'summary.json'), JSON.stringify({
   generatedAtUtc: new Date().toISOString(),
   baseUrl,
   imageTag,
   testSessionId,
+  performance_baseline: {
+    date: new Date().toISOString().slice(0, 10),
+    mode: 'kestrel-only',
+    process_count: 1,
+    reverse_proxy: false,
+    cdn: false,
+    response_compression_proxy: false,
+    native_aot: false,
+    ready_to_run: readyToRunMode === '0' ? false : true,
+    tiered_pgo: booleanEnv('DOTNET_TieredPGO', 'COMPlus_TieredPGO'),
+    runtime: 'dotnet-10',
+    database: 'postgres docker-local',
+    redis: 'redis docker-local',
+    machine: `${process.platform} ${process.arch}`
+  },
+  optional_deployment_layer: {
+    reverse_proxy: reverseProxy,
+    proxy_cache: booleanEnv('FSUSBLOG_OPTIONAL_PROXY_CACHE', 'FSUSBLOG_PERF_PROXY_CACHE') ?? false,
+    proxy_compression: booleanEnv('FSUSBLOG_OPTIONAL_PROXY_COMPRESSION', 'FSUSBLOG_PERF_PROXY_COMPRESSION') ?? false,
+    counted_as_project_baseline: false
+  },
   readyToRun: {
     comPlusReadyToRun: readyToRunMode,
     conclusion: readyToRunMode === '0'

@@ -7,18 +7,25 @@
 FsusBlog 是一个单体全栈系统，以"公开内容首屏速度 + 运行时一致性 + 安全链路完整性"为核心约束。
 
 ```text
+项目内性能基线（Kestrel-only / single process）
 Browser
-  ├── 公开页首访  → Nginx 静态文件 → AOT HTML shell（命中缓存）
-  │                                → 未命中 → SPA index.html + 客户端 hydration
+  ├── 公开页首访  → Kestrel → Public AOT HTML shell / SPA index.html + 客户端 hydration
   ├── SPA 路由    → Vue Router     → Pinia Store → API / Binary / Worker
   └── Service Worker               → 本地搜索索引（离线可用）
 
-Nginx → Kestrel (ASP.NET Core 10)
+Kestrel (ASP.NET Core 10)
   ├── Auth / Rate Limiting / CORS
   ├── Redis L2 缓存
   ├── PostgreSQL（SqlSugar ORM）
   └── 静态文件服务（AOT cache 卷）
+
+可选部署层（不计入项目内 QPS 基线）
+Browser
+  → Nginx / Caddy / CDN / 反向代理（TLS、边缘缓存、运营商压缩等）
+  → Kestrel
 ```
+
+性能证据默认只声明项目内基线：单进程、Kestrel-only、无 nginx/CDN/reverse-proxy cache、无外部压缩层。生产部署可以在 Kestrel 前放置 nginx、Caddy 或 CDN，但这属于 operator deployment layer；如果压测经过该层，证据必须单独标注，并且不得计入 FsusBlog 内部优化的 QPS 结论。
 
 ## 模块边界
 
@@ -99,15 +106,18 @@ FsusBlog 只维护应用语义 alias，底层颜色、阴影、过渡和缓动�
 
 ```text
 Browser
-  → Nginx（静态文件优先）
-    → 命中 AOT 缓存卷（/aot-cache/*.html）→ 直接返回预渲染 HTML
-    → 未命中 → 转发 Kestrel
-      → Kestrel 尝试读取 Public AOT document cache
-        → 命中且 renderer/assets version 匹配 → 直接输出 HTML
-        → 过期但 version 兼容 → 输出 stale HTML + 排队 refresh
-        → 未命中或 version 不兼容 → 返回 SPA index.html + 排队 backfill
-        → backfill worker → bootstrap provider → Node/Vue SSR worker pool → document cache
-      → SPA index.html fallback：客户端 hydration 接管
+  → Kestrel（项目内基线）
+    → Kestrel 尝试读取 Public AOT document cache
+      → 命中且 renderer/assets version 匹配 → 直接输出 HTML
+      → 过期但 version 兼容 → 输出 stale HTML + 排队 refresh
+      → 未命中或 version 不兼容 → 返回 SPA index.html + 排队 backfill
+      → backfill worker → bootstrap provider → Node/Vue SSR worker pool → document cache
+    → SPA index.html fallback：客户端 hydration 接管
+
+可选部署：
+Browser
+  → Nginx / CDN / 反向代理（静态文件、TLS、proxy cache、压缩均为部署层能力）
+  → Kestrel（项目内基线仍从这里开始）
 ```
 
 ### Public AOT 单一渲染链
@@ -352,13 +362,15 @@ Binary 文章列表缓存使用 `core:v3:{public|admin}:...:{status}` 身份隔�
 
 ```text
 docker-compose.yml
-├── fsus-nginx          # 反向代理 + 静态文件 + SSL 终端
+├── fsus-nginx          # 可选部署层：反向代理 + 静态文件 + SSL 终端；不计入项目内 QPS 基线
 ├── fsus-server         # ASP.NET Core 10 API（Alpine）
 │   ├── 挂载: fsus-aot-cache（AOT HTML shell）
 │   └── 挂载: fsus-logs（Serilog 滚动日志）
 ├── fsus-postgres       # PostgreSQL（持久化卷）
 └── fsus-redis          # Redis（持久化卷）
 ```
+
+上述编排是生产部署参考，不改变性能证据口径。项目内部 benchmark、`backend-qps` 与 issue 验收默认使用 Kestrel-only single-process baseline；若单独评估 nginx/CDN/reverse proxy，应在证据中写入 `optional_deployment_layer`，并标记 `counted_as_project_baseline=false`。
 
 健康检查入口：
 
