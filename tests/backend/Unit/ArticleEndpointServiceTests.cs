@@ -54,11 +54,18 @@ public sealed class ArticleEndpointServiceTests
         IArticleCoreService core,
         IArticleDetailAedsArtifactStore artifacts,
         IArticleDetailAedsArtifactBackfillScheduler scheduler)
-        => new(
+    {
+        var hotVersion = Substitute.For<IHotArticlesCacheVersionProvider>();
+        hotVersion.BuildVersionedHotArticlesIdentity(Arg.Any<string>())
+            .Returns(call => $"v1:{call.Arg<string>()}");
+
+        return new ArticleEndpointService(
             core,
             Substitute.For<IArticleService>(),
             Substitute.For<IUnifiedCache>(),
             new AedsEncoder(),
             artifacts,
-            scheduler);
+            scheduler,
+            hotVersion);
+    }
 }

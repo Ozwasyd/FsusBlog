@@ -99,6 +99,7 @@ public sealed record CacheDiagnosticsResponse(
     SearchIndexDiagnosticsResponse Search,
     DistributionDiagnosticsResponse Distribution,
     CacheInvalidationRuntimeSnapshot CommentCache,
+    HotStatsInvalidationSnapshot HotStatsInvalidation,
     OutputCacheDiagnosticsResponse OutputCache,
     PublicHotReadCounterSnapshot PublicHotReadCounters,
     ArticleCacheDiagnosisResponse? Article);

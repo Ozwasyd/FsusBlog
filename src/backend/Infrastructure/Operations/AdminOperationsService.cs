@@ -26,6 +26,7 @@ public sealed class AdminOperationsService(
     PublicHotReadCounters publicHotReadCounters,
     PublicAotInvalidationTracker publicAotInvalidationTracker,
     CacheInvalidationRuntimeState cacheInvalidationRuntime,
+    IHotStatsInvalidationCoalescer hotStatsInvalidation,
     AuditLogRuntimeState auditLogRuntime,
     StartupRuntimeState startupRuntime,
     ScheduledPublishRuntimeState scheduledPublishRuntime,
@@ -158,6 +159,7 @@ public sealed class AdminOperationsService(
             search,
             distribution,
             cacheInvalidationRuntime.Snapshot(),
+            hotStatsInvalidation.Snapshot(),
             new OutputCacheDiagnosticsResponse(
                 "ok",
                 Enabled: true,

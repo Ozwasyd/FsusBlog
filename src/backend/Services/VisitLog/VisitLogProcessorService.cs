@@ -3,6 +3,7 @@ using System.Threading.Channels;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using IP2Location;
 using Microsoft.Extensions.ObjectPool;
@@ -269,6 +270,7 @@ public class VisitLogProcessorService : BackgroundService
                 token);
             if (inserted > 0)
             {
+                FsusObservability.RecordVisitLogFlush(inserted);
                 try
                 {
                     await ApplyArticleViewProjectionAsync(scope.ServiceProvider, batch, token);
@@ -284,7 +286,7 @@ public class VisitLogProcessorService : BackgroundService
                         "访问日志已落库但阅读量投影失败，后台 reconciliation worker 将从 visit_log 修复 article.views。");
                 }
 
-                await InvalidateStatsAfterFlushAsync(scope.ServiceProvider, batch, token);
+                MarkStatsAfterFlush(scope.ServiceProvider, batch);
             }
         }
         catch (OperationCanceledException)
@@ -310,24 +312,20 @@ public class VisitLogProcessorService : BackgroundService
         await projectionService.ApplyAsync(batch, token);
     }
 
-    private async Task InvalidateStatsAfterFlushAsync(IServiceProvider scopedServices, List<VisitLogEntity> batch, CancellationToken token)
+    private void MarkStatsAfterFlush(IServiceProvider scopedServices, List<VisitLogEntity> batch)
     {
         try
         {
-            var cacheInvalidationDispatcher = scopedServices.GetRequiredService<ICacheInvalidationDispatcher>();
-            await cacheInvalidationDispatcher.InvalidateStatsAsync(token);
+            var coalescer = scopedServices.GetRequiredService<IHotStatsInvalidationCoalescer>();
+            coalescer.MarkStatsDirty("visit-log-flush");
             if (batch.Any(static item => item.EventType == HumanReadEventTypes.ArticleRead))
             {
-                await cacheInvalidationDispatcher.InvalidateHotArticlesAsync(token);
+                coalescer.MarkHotArticlesDirty("article-read-projection");
             }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "访问日志批量写入后刷新统计缓存失败，统计结果可能等待 TTL 后自然恢复。");
+            _logger.LogError(ex, "访问日志批量写入后标记统计缓存失败，统计结果可能等待 TTL 后自然恢复。");
         }
     }
 

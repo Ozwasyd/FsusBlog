@@ -45,6 +45,25 @@ case "$MODE" in
     require_token "src/backend/Services/ArticleService.cs" "FROM (VALUES"
     require_token "src/backend/Services/ArticleService.cs" "IBatch redisBatch = _redis.CreateBatch()"
     ;;
+  visitlog-invalidation)
+    route="visit-log:hot-stats-invalidation"
+    traffic_mode="cache-invalidation-pressure"
+    checks=(dirty-coalescer versioned-hot-cache no-empty-hot-prefix-delete diagnostics-snapshot)
+    require_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "GetRequiredService<IHotStatsInvalidationCoalescer>()"
+    require_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "MarkStatsDirty(\"visit-log-flush\")"
+    require_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "MarkHotArticlesDirty(\"article-read-projection\")"
+    reject_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "InvalidateStatsAsync(token)"
+    reject_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "InvalidateHotArticlesAsync(token)"
+    require_token "src/backend/Infrastructure/Cache/HotStatsInvalidationCoalescer.cs" "HotArticlesDebounce"
+    require_token "src/backend/Infrastructure/Cache/HotStatsInvalidationCoalescer.cs" "StatsDebounce"
+    require_token "src/backend/Infrastructure/Cache/HotStatsInvalidationCoalescer.cs" "FlushPendingAsync"
+    require_token "src/backend/Services/ArticleEndpointService.cs" "BuildVersionedHotArticlesIdentity"
+    require_token "src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs" "BuildVersionedHotArticlesIdentity"
+    require_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "PublishNextHotArticlesVersion"
+    reject_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "RemoveByPrefixAsync(CachePolicyId.ArticleHot, string.Empty"
+    reject_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "RemoveByPrefixAsync(CachePolicyId.ArticleHotFrame, string.Empty"
+    require_token "src/backend/Models/Dtos/OperationsDtos.cs" "HotStatsInvalidationSnapshot"
+    ;;
   cache-hit)
     checks=(full-frame-cache article-list-frame article-hot-frame comment-frame taxonomy-frame stats-frame)
     require_token "src/backend/Infrastructure/Cache/CachePolicyId.cs" "ArticleListFrame"

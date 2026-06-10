@@ -94,6 +94,18 @@
           </el-descriptions>
         </WorkbenchPanel>
 
+        <WorkbenchPanel title="热榜 / 统计合并" eyebrow="COALESCE" title-id="cache-hot-stats-title">
+          <el-descriptions v-if="diagnostics" :column="1" border>
+            <el-descriptions-item label="hot version">{{ diagnostics.hotStatsInvalidation.hotArticlesVersion }}</el-descriptions-item>
+            <el-descriptions-item label="hot dirty/flush">{{ diagnostics.hotStatsInvalidation.hotArticlesDirtyCount }} / {{ diagnostics.hotStatsInvalidation.hotArticlesFlushCount }}</el-descriptions-item>
+            <el-descriptions-item label="hot coalesced">{{ diagnostics.hotStatsInvalidation.hotArticlesCoalescedDirtyCount }}</el-descriptions-item>
+            <el-descriptions-item label="stats dirty/flush">{{ diagnostics.hotStatsInvalidation.statsDirtyCount }} / {{ diagnostics.hotStatsInvalidation.statsFlushCount }}</el-descriptions-item>
+            <el-descriptions-item label="stats coalesced">{{ diagnostics.hotStatsInvalidation.statsCoalescedDirtyCount }}</el-descriptions-item>
+            <el-descriptions-item label="pending">{{ boolText(diagnostics.hotStatsInvalidation.hotArticlesDirty || diagnostics.hotStatsInvalidation.statsDirty) }}</el-descriptions-item>
+            <el-descriptions-item label="last">{{ diagnostics.hotStatsInvalidation.lastFlushReason ?? diagnostics.hotStatsInvalidation.lastDirtyReason ?? '-' }}</el-descriptions-item>
+          </el-descriptions>
+        </WorkbenchPanel>
+
         <WorkbenchPanel title="PublicHotRead 计数" eyebrow="COUNTERS" title-id="cache-counters-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
             <el-descriptions-item label="article hit/miss">{{ diagnostics.publicHotReadCounters.articleHit }} / {{ diagnostics.publicHotReadCounters.articleMiss }}</el-descriptions-item>

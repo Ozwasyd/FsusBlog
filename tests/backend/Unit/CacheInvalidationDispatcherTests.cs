@@ -43,6 +43,23 @@ public sealed class CacheInvalidationDispatcherTests
     }
 
     [Fact]
+    public async Task InvalidateHotArticlesAsync_PublishesVersionWithoutPrefixDelete()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
+        var versionPublisher = Substitute.For<IHotArticlesCacheVersionPublisher>();
+        versionPublisher.PublishNextHotArticlesVersion("direct-invalidation").Returns(8L);
+        var sut = new CacheInvalidationDispatcher(cache, httpCacheInvalidator, hotArticlesVersionPublisher: versionPublisher);
+
+        await sut.InvalidateHotArticlesAsync();
+
+        versionPublisher.Received(1).PublishNextHotArticlesVersion("direct-invalidation");
+        await cache.DidNotReceive().RemoveByPrefixAsync(CachePolicyId.ArticleHot, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await cache.DidNotReceive().RemoveByPrefixAsync(CachePolicyId.ArticleHotFrame, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.HotArticles);
+    }
+
+    [Fact]
     public async Task InvalidateCommentMutationAsync_WithoutScope_RemovesCommentCursorFamiliesAndStats()
     {
         var cache = Substitute.For<IUnifiedCache>();

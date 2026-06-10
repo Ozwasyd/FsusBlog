@@ -50,6 +50,16 @@ public static class FsusObservability
     private static readonly Histogram<double> AotRenderDuration = Meter.CreateHistogram<double>("fsus.aot.render.duration", "ms");
     private static readonly Histogram<double> SearchOperationDuration = Meter.CreateHistogram<double>("fsus.search.operation.duration", "ms");
     private static readonly Histogram<double> BackgroundJobDuration = Meter.CreateHistogram<double>("fsus.background.job.duration", "ms");
+    private static readonly Counter<long> VisitLogFlushCounter = Meter.CreateCounter<long>("fsus.visitlog.flush.count");
+    private static readonly Counter<long> HotArticlesDirtyCounter = Meter.CreateCounter<long>("fsus.cache.hot_articles.dirty.count");
+    private static readonly Counter<long> HotArticlesFlushCounter = Meter.CreateCounter<long>("fsus.cache.hot_articles.flush.count");
+    private static readonly Counter<long> HotArticlesCoalescedCounter = Meter.CreateCounter<long>("fsus.cache.hot_articles.flush.coalesced_batches");
+    private static readonly Counter<long> StatsDirtyCounter = Meter.CreateCounter<long>("fsus.cache.stats.dirty.count");
+    private static readonly Counter<long> StatsFlushCounter = Meter.CreateCounter<long>("fsus.cache.stats.flush.count");
+    private static long HotArticlesVersionValue;
+    private static readonly ObservableGauge<long> HotArticlesVersionGauge = Meter.CreateObservableGauge(
+        "fsus.cache.hot_articles.version",
+        static () => Volatile.Read(ref HotArticlesVersionValue));
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -194,6 +204,47 @@ public static class FsusObservability
         }
 
         BackgroundJobDuration.Record(duration.TotalMilliseconds, tags);
+    }
+
+    public static void RecordVisitLogFlush(long count)
+    {
+        if (count > 0)
+        {
+            VisitLogFlushCounter.Add(count);
+        }
+    }
+
+    public static void RecordHotStatsInvalidation(string kind, string operation, string reason, long count)
+    {
+        long value = Math.Max(1, count);
+        if (string.Equals(kind, "hot_articles", StringComparison.Ordinal))
+        {
+            if (string.Equals(operation, "dirty", StringComparison.Ordinal))
+            {
+                HotArticlesDirtyCounter.Add(value);
+                return;
+            }
+
+            HotArticlesFlushCounter.Add(1);
+            HotArticlesCoalescedCounter.Add(value);
+            return;
+        }
+
+        if (string.Equals(operation, "dirty", StringComparison.Ordinal))
+        {
+            StatsDirtyCounter.Add(value);
+            return;
+        }
+
+        StatsFlushCounter.Add(1);
+    }
+
+    public static void RecordHotArticlesVersion(long version)
+    {
+        if (version > 0)
+        {
+            Volatile.Write(ref HotArticlesVersionValue, version);
+        }
     }
 
     public static TimeSpan GetElapsed(long startTimestamp)

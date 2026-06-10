@@ -13,6 +13,40 @@ public interface ICacheInvalidationDispatcher
     Task InvalidateHotArticlesAsync(CancellationToken cancellationToken = default);
 }
 
+public interface IHotStatsInvalidationCoalescer
+{
+    void MarkStatsDirty(string reason);
+    void MarkHotArticlesDirty(string reason);
+    Task FlushPendingAsync(CancellationToken cancellationToken = default);
+    HotStatsInvalidationSnapshot Snapshot();
+}
+
+public interface IHotArticlesCacheVersionProvider
+{
+    long CurrentHotArticlesVersion { get; }
+    string BuildVersionedHotArticlesIdentity(string identity);
+}
+
+public interface IHotArticlesCacheVersionPublisher : IHotArticlesCacheVersionProvider
+{
+    long PublishNextHotArticlesVersion(string reason);
+}
+
+public sealed record HotStatsInvalidationSnapshot(
+    long HotArticlesVersion,
+    long StatsDirtyCount,
+    long StatsFlushCount,
+    long StatsCoalescedDirtyCount,
+    long HotArticlesDirtyCount,
+    long HotArticlesFlushCount,
+    long HotArticlesCoalescedDirtyCount,
+    bool StatsDirty,
+    bool HotArticlesDirty,
+    DateTimeOffset? LastDirtyAt,
+    DateTimeOffset? LastFlushAt,
+    string? LastDirtyReason,
+    string? LastFlushReason);
+
 public sealed record class CommentCacheInvalidationScope(
     int? ArticleId = null,
     long? RootId = null,
@@ -78,7 +112,8 @@ public sealed class CacheInvalidationRuntimeState
 public sealed class CacheInvalidationDispatcher(
     IUnifiedCache cache,
     IHttpCacheInvalidator httpCacheInvalidator,
-    CacheInvalidationRuntimeState? runtimeState = null) : ICacheInvalidationDispatcher
+    CacheInvalidationRuntimeState? runtimeState = null,
+    IHotArticlesCacheVersionPublisher? hotArticlesVersionPublisher = null) : ICacheInvalidationDispatcher
 {
     public async Task InvalidateArticleMutationAsync(int? articleId = null, CancellationToken cancellationToken = default)
     {
@@ -97,8 +132,9 @@ public sealed class CacheInvalidationDispatcher(
         await cache.RemoveAsync(CachePolicyId.AdminStatsFrame, "core:main", cancellationToken);
         await cache.RemoveAsync(CachePolicyId.CategoryFrame, "all", cancellationToken);
         await cache.RemoveAsync(CachePolicyId.TagFrame, "all", cancellationToken);
+        long hotVersion = PublishHotArticlesVersion("article-mutation");
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList, CacheTag.HotArticles, CacheTag.Stats);
-        runtimeState?.Record("article", articleId is > 0 ? $"article:{articleId.Value}" : "all");
+        runtimeState?.Record("article", articleId is > 0 ? $"article:{articleId.Value};hot:v{hotVersion}" : $"all;hot:v{hotVersion}");
     }
 
     public async Task InvalidateSeoAsync(CancellationToken cancellationToken = default)
@@ -183,15 +219,16 @@ public sealed class CacheInvalidationDispatcher(
             await cache.RemoveAsync(CachePolicyId.ArticleDetailFrame, $"core:v3:{articleId}", cancellationToken);
         }
 
-        await httpCacheInvalidator.InvalidateAsync(CacheTag.HotArticles, CacheTag.Stats);
         runtimeState?.Record("article_view", articleId > 0 ? $"article:{articleId}" : "unknown");
     }
 
     public async Task InvalidateHotArticlesAsync(CancellationToken cancellationToken = default)
     {
-        await cache.RemoveByPrefixAsync(CachePolicyId.ArticleHot, string.Empty, cancellationToken);
-        await cache.RemoveByPrefixAsync(CachePolicyId.ArticleHotFrame, string.Empty, cancellationToken);
+        long hotVersion = PublishHotArticlesVersion("direct-invalidation");
         await httpCacheInvalidator.InvalidateAsync(CacheTag.HotArticles);
-        runtimeState?.Record("hot_articles", "article-hot");
+        runtimeState?.Record("hot_articles", $"article-hot:v{hotVersion}");
     }
+
+    private long PublishHotArticlesVersion(string reason)
+        => hotArticlesVersionPublisher?.PublishNextHotArticlesVersion(reason) ?? 0;
 }

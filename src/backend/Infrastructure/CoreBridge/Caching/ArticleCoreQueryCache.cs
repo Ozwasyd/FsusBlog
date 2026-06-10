@@ -5,7 +5,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 
 namespace FsusBlog.Server.Infrastructure.CoreBridge.Caching;
 
-public sealed class ArticleCoreQueryCache(IUnifiedCache cache)
+public sealed class ArticleCoreQueryCache(IUnifiedCache cache, IHotArticlesCacheVersionProvider hotArticlesVersionProvider)
 {
     public async Task<CorePageResult<ArticleListCoreModel>> GetOrLoadPageListAsync(
         int page,
@@ -90,7 +90,7 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache)
 
     public async Task<IReadOnlyList<PopularArticleCoreModel>> GetOrLoadHotArticlesAsync(int count, Func<Task<IReadOnlyList<PopularArticleCoreModel>>> loader)
     {
-        string identity = $"core:v2:{count}";
+        string identity = hotArticlesVersionProvider.BuildVersionedHotArticlesIdentity($"core:v2:{count}");
         var hit = await cache.TryGetAsync(CachePolicyId.ArticleHot, identity, DecodePopularArticles);
         if (hit.Hit)
         {

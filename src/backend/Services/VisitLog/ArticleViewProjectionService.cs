@@ -14,6 +14,7 @@ public interface IArticleViewProjectionService
 public sealed class ArticleViewProjectionService(
     IArticleService articleService,
     ICacheInvalidationDispatcher dispatcher,
+    IHotStatsInvalidationCoalescer hotStatsInvalidation,
     PublicHotArtifactUpdateQueue publicHotUpdates,
     ILogger<ArticleViewProjectionService> logger) : IArticleViewProjectionService
 {
@@ -52,6 +53,9 @@ public sealed class ArticleViewProjectionService(
             await dispatcher.InvalidateArticleViewAsync(articleId, cancellationToken).ConfigureAwait(false);
             invalidated++;
         }
+
+        hotStatsInvalidation.MarkStatsDirty("article-view-projection");
+        hotStatsInvalidation.MarkHotArticlesDirty("article-view-projection");
 
         if (!publicHotUpdates.TryEnqueue(null, "article-view-projection-batch"))
         {

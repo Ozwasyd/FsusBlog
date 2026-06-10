@@ -308,6 +308,22 @@ export interface OutputCacheDiagnosticsResponse {
   detail: string
 }
 
+export interface HotStatsInvalidationSnapshot {
+  hotArticlesVersion: number
+  statsDirtyCount: number
+  statsFlushCount: number
+  statsCoalescedDirtyCount: number
+  hotArticlesDirtyCount: number
+  hotArticlesFlushCount: number
+  hotArticlesCoalescedDirtyCount: number
+  statsDirty: boolean
+  hotArticlesDirty: boolean
+  lastDirtyAt: string | null
+  lastFlushAt: string | null
+  lastDirtyReason: string | null
+  lastFlushReason: string | null
+}
+
 export interface PublicHotReadCounterSnapshot {
   articleHit: number
   articleMiss: number
@@ -336,6 +352,7 @@ export interface CacheDiagnosticsResponse {
   search: SearchIndexDiagnosticsResponse
   distribution: DistributionDiagnosticsResponse
   commentCache: CacheInvalidationRuntimeSnapshot
+  hotStatsInvalidation: HotStatsInvalidationSnapshot
   outputCache: OutputCacheDiagnosticsResponse
   publicHotReadCounters: PublicHotReadCounterSnapshot
   article: ArticleCacheDiagnosisResponse | null

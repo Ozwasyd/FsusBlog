@@ -16,7 +16,9 @@ internal interface IBinaryEndpointRequestContext
     bool TryReadMfaProof(HttpContext context, out string proofToken);
 }
 
-internal sealed class BinaryEndpointRequestContext(IBinaryRequestBinder binder) : IBinaryEndpointRequestContext
+internal sealed class BinaryEndpointRequestContext(
+    IBinaryRequestBinder binder,
+    IHotArticlesCacheVersionProvider hotArticlesVersionProvider) : IBinaryEndpointRequestContext
 {
     private const string DeviceFingerprintHeader = "X-Fsus-Device-Fp";
     private const string MfaProofHeader = "X-Fsus-Mfa-Proof";
@@ -57,7 +59,7 @@ internal sealed class BinaryEndpointRequestContext(IBinaryRequestBinder binder) 
         => $"core:v4:{(includePrivate ? "admin" : "public")}:{version}:{page}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}:{keyword}";
 
     public string BuildArticleHotCacheIdentity(int count)
-        => $"core:v2:{count}";
+        => hotArticlesVersionProvider.BuildVersionedHotArticlesIdentity($"core:v2:{count}");
 
     public string? GetDeviceFingerprint(HttpContext context)
     {

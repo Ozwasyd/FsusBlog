@@ -140,8 +140,16 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<ICacheMissCoordinator, CacheMissCoordinator>();
         services.AddSingleton<IDbConcurrencyGate, DbConcurrencyGate>();
         services.AddSingleton<CacheInvalidationRuntimeState>();
+        services.AddSingleton<HotStatsInvalidationCoalescer>();
+        services.AddSingleton<IHotStatsInvalidationCoalescer>(sp => sp.GetRequiredService<HotStatsInvalidationCoalescer>());
+        services.AddSingleton<IHotArticlesCacheVersionProvider>(sp => sp.GetRequiredService<HotStatsInvalidationCoalescer>());
+        services.AddSingleton<IHotArticlesCacheVersionPublisher>(sp => sp.GetRequiredService<HotStatsInvalidationCoalescer>());
         services.AddScoped<IHttpCacheInvalidator, HttpCacheInvalidator>();
         services.AddScoped<ICacheInvalidationDispatcher, CacheInvalidationDispatcher>();
+        if (!OpenApiExportMode.IsEnabled())
+        {
+            services.AddHostedService(sp => sp.GetRequiredService<HotStatsInvalidationCoalescer>());
+        }
         services.AddScoped<AdminOperationsService>();
         return services;
     }

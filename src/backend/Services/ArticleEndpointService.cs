@@ -18,7 +18,8 @@ public sealed class ArticleEndpointService(
     IUnifiedCache cache,
     IAedsEncoder aeds,
     IArticleDetailAedsArtifactStore detailArtifacts,
-    IArticleDetailAedsArtifactBackfillScheduler detailArtifactBackfill) : IArticleEndpointService
+    IArticleDetailAedsArtifactBackfillScheduler detailArtifactBackfill,
+    IHotArticlesCacheVersionProvider hotArticlesVersionProvider) : IArticleEndpointService
 {
     public async Task<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>> GetPageListAsync(
         int page,
@@ -134,8 +135,8 @@ public sealed class ArticleEndpointService(
     private static string NormalizeArticleListKeyword(string? keyword)
         => string.IsNullOrWhiteSpace(keyword) ? string.Empty : keyword.Trim()[..Math.Min(keyword.Trim().Length, 80)];
 
-    private static string BuildArticleHotCacheIdentity(int count)
-        => $"core:v2:{count}";
+    private string BuildArticleHotCacheIdentity(int count)
+        => hotArticlesVersionProvider.BuildVersionedHotArticlesIdentity($"core:v2:{count}");
 
     private static CreateArticleRequest ToCreateRequest(ArticleWriteRequestCoreModel request)
         => new()

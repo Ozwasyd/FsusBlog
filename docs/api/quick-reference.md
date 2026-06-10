@@ -278,7 +278,7 @@
 | GET | `/api/author/ops/health` | 👑🚦 | 运维健康：DB/Redis/audit/worker/search/backup/队列 |
 | GET | `/api/author/ops/backup` | 👑🚦 | 最近站点备份和 restore drill 状态 |
 | GET | `/api/author/ops/dangerous-operations/policy` | 👑🚦 | 管理端危险操作确认、MFA 与 diff 策略 |
-| GET | `/api/author/cache/diagnostics` | 👑🚦 | AOT/PublicHotRead/search/sitemap/feed/comment cache 状态 |
+| GET | `/api/author/cache/diagnostics` | 👑🚦 | AOT/PublicHotRead/search/sitemap/feed/comment cache 与 HotArticles/Stats 失效合并状态 |
 | POST | `/api/author/cache/actions` | 👑🚦 | 手动重建 search/AOT 或清理 output cache |
 | GET | `/api/author/integrity` | 👑🚦 | 数据一致性巡检报告 |
 | GET | `/api/author/integrity/fix-preview` | 👑🚦 | 安全修复 diff 预览 |

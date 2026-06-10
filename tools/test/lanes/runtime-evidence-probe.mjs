@@ -27,6 +27,7 @@ const safeBinaryPaths = [
 
 const backendQpsPaths = {
   'view-count-flush': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/article/hot/5.aeds'],
+  'visitlog-invalidation': ['/api/binary/article/hot/5.aeds', '/api/binary/article/list/home/1/10.aeds'],
   'cache-hit': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/system/seo'],
   'comment-cursor': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/category'],
   hotread: ['/api/binary/category', '/api/binary/tag', '/api/binary/system/seo'],
