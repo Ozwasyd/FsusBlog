@@ -292,14 +292,14 @@ export function useAdminArticleWrite() {
   const submitButtonText = computed(() => {
     if (articleForm.status === ArticlePublishStatus.Draft) return '保存草稿'
     if (articleForm.status === ArticlePublishStatus.Scheduled) return '定时发布'
-    if (articleForm.status === ArticlePublishStatus.Archived) return '存为归档'
-    return isEdit.value ? '确认更新' : '立即发布'
+    if (articleForm.status === ArticlePublishStatus.Archived) return '保存为归档'
+    return isEdit.value ? '更新文章' : '发布文章'
   })
   const submitConfirmContent = computed(() => {
-    if (articleForm.status === ArticlePublishStatus.Draft) return '确认保存为后台草稿吗？'
-    if (articleForm.status === ArticlePublishStatus.Scheduled) return '确认按所选时间发布此博文吗？'
-    if (articleForm.status === ArticlePublishStatus.Archived) return '确认保存为归档隐藏状态吗？'
-    return isEdit.value ? '确认要更新此博文版本吗？' : '确认要立即发布此博文吗？'
+    if (articleForm.status === ArticlePublishStatus.Draft) return '保存后文章保持草稿状态，不会出现在公开阅读页。'
+    if (articleForm.status === ArticlePublishStatus.Scheduled) return '到达所选时间后文章会自动公开，提交前请检查时间与 SEO 摘要。'
+    if (articleForm.status === ArticlePublishStatus.Archived) return '保存后文章进入归档隐藏状态，不会出现在公开阅读页。'
+    return isEdit.value ? '更新后会生成新的文章版本并刷新公开缓存。' : '发布后文章会进入公开阅读页并同步搜索索引。'
   })
   const draftKey = computed(() => (isEdit.value && articleId.value !== null ? `${EDIT_DRAFT_PREFIX}${articleId.value}` : CREATE_DRAFT_KEY))
   const hasLocalDraft = computed(() => pendingDraft.value !== null || draftSavedAt.value !== null)

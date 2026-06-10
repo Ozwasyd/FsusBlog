@@ -35,6 +35,9 @@ export interface CommentModerationViewItem extends CommentModerationItemResponse
   statusLabel: string
   statusCode: string
   statusClass: string
+  recommendedStatus: CommentModerationStatus
+  recommendedActionLabel: string
+  recommendedActionReason: string
   createTimeText: string
   articleLabel: string
   userLabel: string
@@ -160,6 +163,43 @@ function modelLabelText(label: string | null | undefined): string {
   return label ? labels[label] ?? label : '未评分'
 }
 
+function buildRecommendedAction(item: CommentModerationItemResponse): Pick<CommentModerationViewItem, 'recommendedStatus' | 'recommendedActionLabel' | 'recommendedActionReason'> {
+  const modelLabel = item.modelLabel?.toLowerCase() ?? ''
+  const modelConfidence = typeof item.modelConfidence === 'number' ? item.modelConfidence : 0
+  const hitReasons = new Set(item.hitReasons)
+  const hasHardPolicyHit = item.blockedRegions.length > 0 || item.regionCanPublish === false || item.regionHideUntilReviewed
+  const hasHighModelRisk = ['risky', 'blocked_candidate'].includes(modelLabel) && modelConfidence >= 0.75
+  const hasSpamSignal = hitReasons.has('spam-repeat') || hitReasons.has('malicious_ad_detected') || hitReasons.has('contact_lead_detected')
+  const needsManualReview = item.regionRequiresManualReview || hitReasons.has('manual-review') || hitReasons.has('pending-review') || modelLabel === 'suspicious'
+
+  if (hasHardPolicyHit || hasHighModelRisk || hasSpamSignal) {
+    const reason = hasHardPolicyHit
+      ? '地区策略命中或禁止公开'
+      : hasSpamSignal
+        ? '命中广告/刷屏风险'
+        : '模型高置信风险'
+    return {
+      recommendedStatus: CommentModerationStatus.Rejected,
+      recommendedActionLabel: '建议：拒绝',
+      recommendedActionReason: reason
+    }
+  }
+
+  if (needsManualReview) {
+    return {
+      recommendedStatus: CommentModerationStatus.Hidden,
+      recommendedActionLabel: '建议：隐藏',
+      recommendedActionReason: '存在复核信号，先隐藏再人工判断'
+    }
+  }
+
+  return {
+    recommendedStatus: CommentModerationStatus.Approved,
+    recommendedActionLabel: '建议：通过',
+    recommendedActionReason: '未命中敏感策略，模型信号较低'
+  }
+}
+
 function toViewItem(item: CommentModerationItemResponse): CommentModerationViewItem {
   const statusLabel = commentModerationStatusLabel(item.status)
   const statusCode = commentModerationStatusCode(item.status)
@@ -184,12 +224,14 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
       ? `审核：${TimeUtils.toFullLocalString(item.moderatedAt)} / ${item.moderatedByUserId ?? '--'}`
       : '审核：--'
   ]
+  const recommendedAction = buildRecommendedAction(item)
 
   return {
     ...item,
     statusLabel,
     statusCode,
     statusClass: commentModerationStatusClass(item.status),
+    ...recommendedAction,
     createTimeText: TimeUtils.toFullLocalString(item.createTime),
     articleLabel: `${item.articleTitle} / ${item.articleId}`,
     userLabel: `${item.userName} / ${item.userId}`,

@@ -20,7 +20,6 @@ const service = read('src/backend/Services/Authoring/AuthoringWorkflowService.cs
 const dtos = read('src/backend/Models/Dtos/AuthoringDtos.cs')
 const api = read('src/frontend/src/api/authoring.ts')
 const composable = read('src/frontend/src/composables/useAdminArticleWrite.ts')
-const sidebar = read('src/frontend/src/components/admin/article/ArticleWriteSidebar.vue')
 const writeView = read('src/frontend/src/views/admin/article/Write.vue')
 const security = read('docs/security.md')
 const operations = read('docs/operations.md')
@@ -35,8 +34,8 @@ assert(service.includes('WriteAudit(AuditSourceCatalog.Article, "author-ai-assis
 assert(!service.includes('HttpClient'), 'AI assist service must not directly send unpublished drafts to an external HTTP provider')
 assert(api.includes('generateAiAssist') && api.includes('/api/author/ai-assist'), 'frontend API must call admin AI assist endpoint')
 assert(composable.includes('requestAiAssist') && composable.includes('applyAiSuggestedTags'), 'editor composable must expose AI assist actions')
-assert(sidebar.includes('data-author-ai-assist-panel="true"'), 'sidebar must render AI assist results inside author workspace')
-assert(writeView.includes('@ai-assist="requestAiAssist"'), 'write view must wire AI assist trigger')
+assert(writeView.includes('data-author-ai-assist-panel="true"'), 'write view must render AI assist results inside content check task')
+assert(writeView.includes('@click="requestAiAssist"'), 'write view must wire AI assist trigger')
 assert(security.includes('Authoring:AiAssist:ExternalProviderReviewed'), 'security docs must cover AI assist external review gate')
 assert(operations.includes('Authoring:AiAssist:ExternalProviderReviewed'), 'operations docs must cover AI assist config gate')
 

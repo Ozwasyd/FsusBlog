@@ -46,7 +46,7 @@ export function createPublicShellViewState(input: PublicShellViewInput = {}): Pu
     hydrationKind,
     siteTitle: input.siteTitle?.trim() || PUBLIC_SHELL_DEFAULTS.siteTitle,
     activeNav: hydrationKind ? getActiveNavForKind(hydrationKind) : PUBLIC_SHELL_DEFAULTS.activeNav,
-    searchPlaceholder: isSearchRoute ? '搜索 (Ctrl+K)' : PUBLIC_SHELL_DEFAULTS.searchPlaceholder,
+    searchPlaceholder: isSearchRoute ? '搜索文章、标签或关键词 (Ctrl+K)' : PUBLIC_SHELL_DEFAULTS.searchPlaceholder,
     initialSearchQuery: isSearchRoute ? String(input.initialSearchQuery ?? '') : '',
     spaSearch: Boolean(input.spaSearch),
     showRuntime: Boolean(input.showRuntime),

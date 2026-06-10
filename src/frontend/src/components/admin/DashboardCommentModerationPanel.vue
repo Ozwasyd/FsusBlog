@@ -33,7 +33,16 @@
 
     <div class="border-t border-[var(--fsusblog-panel-border)] p-8" v-loading="loading">
       <div v-if="!loading && pendingItems.length === 0" class="flex min-h-40 items-center justify-center">
-        <el-empty description="暂无待审评论" />
+        <el-empty description="暂无待审评论">
+          <el-button
+            :tag="RouterLink"
+            :to="{ name: 'ManageModerationAudit' }"
+            type="primary"
+            size="small"
+          >
+            查看审核日志
+          </el-button>
+        </el-empty>
       </div>
 
       <div v-else class="divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]">

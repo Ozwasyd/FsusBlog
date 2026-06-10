@@ -6,6 +6,25 @@
       description="先看关键指标和访问结构，再进入内容、用户与系统处理流程。"
     />
 
+    <section class="mb-12 border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-labelledby="dashboard-today-actions-title">
+      <header class="border-b border-[var(--fsusblog-panel-border)] p-6">
+        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">今日待处理 / TODAY</div>
+        <h2 id="dashboard-today-actions-title" class="mt-3 text-2xl font-bold text-[var(--fsusblog-text-primary)]">今日待处理</h2>
+      </header>
+      <div class="grid grid-cols-1 gap-px bg-[var(--fsusblog-panel-bg-soft)] sm:grid-cols-2 xl:grid-cols-4">
+        <router-link
+          v-for="action in todayActions"
+          :key="action.label"
+          :to="action.to"
+          class="dashboard-action-card"
+        >
+          <span class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ action.label }}</span>
+          <span class="mt-3 text-3xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ action.countText }}</span>
+          <span class="mt-3 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">{{ action.helper }}</span>
+        </router-link>
+      </div>
+    </section>
+
     <DashboardStatCards :view="dashboardView" />
 
     <DashboardAuthorAnalyticsPanel :view="dashboardView" class="mb-16" />
@@ -68,7 +87,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 import { InfoFilled } from '@/fsusui/icons'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
@@ -79,10 +99,20 @@ import DashboardStatCards from '@/components/admin/DashboardStatCards.vue'
 import DashboardRecentComments from '@/components/admin/DashboardRecentComments.vue'
 import DashboardPopularArticles from '@/components/admin/DashboardPopularArticles.vue'
 import { useAdminDashboard } from '@/composables/useAdminDashboard'
+import { useCommentModerationQueue } from '@/composables/useCommentModerationQueue'
+import { CommentModerationStatus } from '@/api/authoring'
+import { messageApi } from '@/api/message'
+import { showErrorToast } from '@/utils/errorPresentation'
 
 const { loading, dashboardView, visitChartRef, regionChartRef } = useAdminDashboard()
 void visitChartRef
 void regionChartRef
+const pendingTicketsCount = ref(0)
+const cacheIncidentCount = ref(0)
+const { counters: moderationCounters, refreshQueue: refreshModerationQueue } = useCommentModerationQueue({
+  initialStatus: CommentModerationStatus.Pending,
+  limit: 1
+})
 const hasVisitChartData = computed(() =>
   dashboardView.value.visitChart.registeredVisits > 0 || dashboardView.value.visitChart.anonymousVisits > 0
 )
@@ -94,11 +124,79 @@ const regionChartSummary = computed(() => {
   const items = dashboardView.value.regionChart.labels.map((label, index) => `${label} ${dashboardView.value.regionChart.values[index] ?? 0}`)
   return items.length > 0 ? `地域访问分布：${items.join('，')}` : '地域访问分布暂无数据'
 })
+
+const pendingCommentCount = computed(() =>
+  moderationCounters.value.find((item) => item.label === '待审')?.value ?? 0
+)
+
+const todayActions = computed<ReadonlyArray<{
+  label: string
+  countText: string
+  helper: string
+  to: RouteLocationRaw
+}>>(() => [
+  {
+    label: '评论待审',
+    countText: `${pendingCommentCount.value}`,
+    helper: pendingCommentCount.value > 0 ? '进入评论审核队列' : '评论队列已处理完成',
+    to: { name: 'ManageModerationComments' }
+  },
+  {
+    label: '工单待处理',
+    countText: `${pendingTicketsCount.value}`,
+    helper: pendingTicketsCount.value > 0 ? '进入站内信处理待办' : '暂无待处理工单',
+    to: { name: 'ManageMessages' }
+  },
+  {
+    label: '缓存异常',
+    countText: `${cacheIncidentCount.value}`,
+    helper: cacheIncidentCount.value > 0 ? '查看缓存诊断' : '缓存状态暂无异常',
+    to: { name: 'ManageCacheDiagnostics' }
+  },
+  {
+    label: '写新文章',
+    countText: '新稿',
+    helper: '进入写作流程',
+    to: { name: 'ManageWriteArticle' }
+  }
+])
+
+const loadPendingTicketCount = async (): Promise<void> => {
+  try {
+    const page = await messageApi.adminGetConversations(1, 1, 'pending')
+    pendingTicketsCount.value = Number(page.total) || 0
+  } catch (error) {
+    showErrorToast(error, '待处理工单数量加载失败')
+  }
+}
+
+onMounted(() => {
+  void refreshModerationQueue()
+  void loadPendingTicketCount()
+})
 </script>
 
 <style scoped>
 .word-break-all {
   word-break: break-all;
   overflow-wrap: break-word;
+}
+
+.dashboard-action-card {
+  display: flex;
+  min-width: 0;
+  min-height: 9rem;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--fsusblog-page-bg);
+  padding: 1.5rem;
+  transition: color var(--fsus-motion-control-fast) var(--fsus-motion-standard), background var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+}
+
+.dashboard-action-card:hover,
+.dashboard-action-card:focus-visible {
+  background: var(--fsusblog-panel-bg);
+  color: var(--fsusblog-color-primary);
+  outline: none;
 }
 </style>

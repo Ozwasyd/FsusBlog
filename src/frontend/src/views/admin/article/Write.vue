@@ -19,15 +19,21 @@
           </p>
         </div>
         <div class="shrink-0 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
-          <el-radio-group
-            v-model="editorLayoutMode"
-            size="small"
-            aria-label="编辑器布局模式"
-          >
-            <el-radio-button value="standard">标准</el-radio-button>
-            <el-radio-button value="focus">专注</el-radio-button>
-            <el-radio-button value="fullscreen">全屏</el-radio-button>
-          </el-radio-group>
+          <div class="write-layout-control">
+            <el-radio-group
+              v-model="editorLayoutMode"
+              size="small"
+              aria-label="编辑器布局模式"
+              aria-describedby="article-layout-mode-description"
+            >
+              <el-radio-button value="standard">标准</el-radio-button>
+              <el-radio-button value="focus">专注</el-radio-button>
+              <el-radio-button value="fullscreen">全屏</el-radio-button>
+            </el-radio-group>
+            <p id="article-layout-mode-description" class="write-layout-description">
+              {{ layoutModeDescription }}
+            </p>
+          </div>
           <el-button @click="requestLeave" :disabled="submitting">
             返回列表
           </el-button>
@@ -116,9 +122,9 @@
           </div>
         </section>
 
-        <aside v-if="editorLayoutMode === 'standard'" class="write-side-panel" aria-label="发布与上传设置">
+        <aside v-if="editorLayoutMode === 'standard'" class="write-side-panel" aria-label="发布任务流程">
           <el-tabs v-model="sidePanelTab" class="write-side-tabs" stretch>
-            <el-tab-pane label="发布" name="publish" lazy>
+            <el-tab-pane label="发布设置" name="publish" lazy>
               <ArticleWriteSidebar
                 :form="articleForm"
                 :categories="categories"
@@ -126,15 +132,6 @@
                 :submitting="submitting"
                 :quick-creating-category="quickCreatingCategory"
                 :quick-creating-tag="quickCreatingTag"
-                :ai-assist="aiAssist"
-                :ai-assist-loading="aiAssistLoading"
-                :ai-assist-status-text="aiAssistStatusText"
-                @auto-summary="autoGenerateSummary"
-                @ai-assist="requestAiAssist"
-                @apply-ai-summary="applyAiSummary"
-                @apply-ai-title="applyAiTitleCandidate"
-                @apply-ai-tags="applyAiSuggestedTags"
-                @apply-ai-translation="applyAiTranslationDraft"
                 @open-create-category="openQuickCreateCategory"
                 @open-create-tag="openQuickCreateTag"
                 @open-cover-upload="triggerCoverInput"
@@ -142,7 +139,7 @@
               />
             </el-tab-pane>
 
-            <el-tab-pane label="SEO" name="seo" lazy>
+            <el-tab-pane label="内容检查" name="check" lazy>
               <ArticleSeoPreviewPanel
                 :preview="seoPreview"
                 :issues="seoIssues"
@@ -150,52 +147,13 @@
                 :status-text="seoStatusText"
                 @refresh="refreshPrepublishCheck"
               />
-            </el-tab-pane>
-
-            <el-tab-pane label="资产" name="assets" lazy>
-              <ArticleAssetLibraryPanel
-                :assets="assetLibrary"
-                :loading="assetLibraryLoading"
-                :status-text="assetLibraryStatusText"
-                :can-reindex="isEdit"
-                @refresh="() => refreshAssetLibrary()"
-                @reindex="reindexCurrentArticleAssets"
-                @cleanup-orphans="cleanupAssetOrphans"
-                @insert="insertAssetIntoEditor"
-              />
-            </el-tab-pane>
-
-            <el-tab-pane label="版本" name="versions" lazy>
-              <ArticleRevisionPanel
-                :is-edit="isEdit"
-                :revisions="articleRevisions"
-                :selected-revision="selectedRevision"
-                :selected-label="selectedRevisionLabel"
-                :loading="revisionLoading"
-                :rollbacking="revisionRollbacking"
-                :status-text="revisionStatusText"
-                :compare-text="revisionCompareText"
-                @refresh="() => refreshArticleRevisions()"
-                @select-revision="selectArticleRevision"
-                @rollback="rollbackSelectedRevision"
-              />
-            </el-tab-pane>
-
-            <el-tab-pane label="预览" name="preview" lazy>
-              <ArticlePrivatePreviewPanel
-                :html="privatePreview?.html ?? ''"
-                :issues="privatePreview?.issues ?? []"
-                :loading="privatePreviewLoading"
-                :status-text="privatePreviewStatusText"
-                :can-preview="canGeneratePrivatePreview"
-                @preview="generatePrivatePreview"
-              />
-            </el-tab-pane>
-
-            <el-tab-pane label="AI" name="ai" lazy>
-              <section class="write-ai-panel border-t border-[var(--fsusblog-panel-border)]" aria-label="作者 AI 辅助">
+              <section
+                class="write-ai-panel border-t border-[var(--fsusblog-panel-border)]"
+                data-author-ai-assist-panel="true"
+                aria-label="作者 AI 辅助"
+              >
                 <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
-                  <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">作者辅助 / AI</div>
+                  <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">作者辅助 / AI CHECK</div>
                 </header>
                 <div class="p-6 space-y-5">
                   <p class="text-xs leading-6 text-[var(--fsusblog-text-secondary)]" aria-live="polite">
@@ -206,7 +164,7 @@
                       生成摘要
                     </el-button>
                     <el-button type="primary" :loading="aiAssistLoading" :disabled="submitting || aiAssistLoading" @click="requestAiAssist">
-                      AI 辅助
+                      AI 辅助检查
                     </el-button>
                   </div>
                   <div v-if="aiAssist" class="space-y-4 border-t border-[var(--fsusblog-panel-border)] pt-5">
@@ -240,7 +198,44 @@
               </section>
             </el-tab-pane>
 
-            <el-tab-pane label="上传" name="upload" lazy>
+            <el-tab-pane label="预览" name="preview" lazy>
+              <ArticlePrivatePreviewPanel
+                :html="privatePreview?.html ?? ''"
+                :issues="privatePreview?.issues ?? []"
+                :loading="privatePreviewLoading"
+                :status-text="privatePreviewStatusText"
+                :can-preview="canGeneratePrivatePreview"
+                @preview="generatePrivatePreview"
+              />
+            </el-tab-pane>
+
+            <el-tab-pane label="历史版本" name="versions" lazy>
+              <ArticleRevisionPanel
+                :is-edit="isEdit"
+                :revisions="articleRevisions"
+                :selected-revision="selectedRevision"
+                :selected-label="selectedRevisionLabel"
+                :loading="revisionLoading"
+                :rollbacking="revisionRollbacking"
+                :status-text="revisionStatusText"
+                :compare-text="revisionCompareText"
+                @refresh="() => refreshArticleRevisions()"
+                @select-revision="selectArticleRevision"
+                @rollback="rollbackSelectedRevision"
+              />
+            </el-tab-pane>
+
+            <el-tab-pane label="资源" name="resources" lazy>
+              <ArticleAssetLibraryPanel
+                :assets="assetLibrary"
+                :loading="assetLibraryLoading"
+                :status-text="assetLibraryStatusText"
+                :can-reindex="isEdit"
+                @refresh="() => refreshAssetLibrary()"
+                @reindex="reindexCurrentArticleAssets"
+                @cleanup-orphans="cleanupAssetOrphans"
+                @insert="insertAssetIntoEditor"
+              />
               <details class="write-upload-disclosure border-t border-[var(--fsusblog-panel-border)]" open>
                 <summary class="write-disclosure-summary px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)] cursor-pointer outline-none">
                   <div class="flex items-center justify-between">
@@ -353,6 +348,20 @@
       :close-on-click-modal="false"
     >
       <p class="text-sm text-[var(--fsusblog-text-secondary)]">{{ submitConfirmContent }}</p>
+      <ul class="mt-5 space-y-2" aria-label="发布前 checklist">
+        <li
+          v-for="item in submitChecklist"
+          :key="item.label"
+          class="submit-checklist-item"
+          :class="`submit-checklist-item--${item.state}`"
+        >
+          <span class="submit-checklist-status">{{ item.state === 'pass' ? '通过' : '注意' }}</span>
+          <span class="min-w-0">
+            <span class="font-bold">{{ item.label }}</span>
+            <span v-if="item.detail" class="ml-1 text-[var(--fsusblog-text-muted)]">{{ item.detail }}</span>
+          </span>
+        </li>
+      </ul>
       <div v-if="prepublishWarningsNeedOverride" class="mt-5 space-y-3" aria-label="发布前警告跳过确认">
         <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布前警告 / WARNING OVERRIDE</div>
         <ul class="space-y-2">
@@ -381,7 +390,7 @@
             继续编辑
           </el-button>
           <el-button type="primary" :loading="submitting || seoChecking" @click="confirmSubmit">
-            {{ pageTitle === '编辑文章' ? '确认更新' : '确认发布' }}
+            {{ submitButtonText }}
           </el-button>
         </div>
       </template>
@@ -400,7 +409,7 @@
             继续编辑
           </el-button>
           <el-button type="primary" @click="confirmLeave">
-            确认离开
+            离开编辑器
           </el-button>
         </div>
       </template>
@@ -409,7 +418,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import ArticleAssetLibraryPanel from '@/components/admin/article/ArticleAssetLibraryPanel.vue'
 import ArticlePrivatePreviewPanel from '@/components/admin/article/ArticlePrivatePreviewPanel.vue'
@@ -419,9 +428,11 @@ import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vu
 import ArticleWriteSidebar from '@/components/admin/article/ArticleWriteSidebar.vue'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite'
+import { ArticlePublishStatus } from '@/api/article'
 import type { AssetLibraryItemResponse } from '@/api/authoring'
 
 type EditorLayoutMode = 'standard' | 'focus' | 'fullscreen'
+type SubmitChecklistState = 'pass' | 'warning'
 
 const route = useRoute()
 
@@ -519,12 +530,24 @@ const editorLayoutMode = ref<EditorLayoutMode>('standard')
 const assetLibraryLoaded = ref(false)
 const revisionsLoaded = ref(false)
 
+const layoutModeDescription = computed(() => {
+  if (editorLayoutMode.value === 'focus') {
+    return '专注：隐藏发布侧栏，仅保留编辑器'
+  }
+
+  if (editorLayoutMode.value === 'fullscreen') {
+    return '全屏：最大化编辑区，可按 Esc 退出'
+  }
+
+  return '标准：显示编辑区和发布侧栏'
+})
+
 const triggerCoverInput = (): void => {
   coverInputRef.value?.click()
 }
 
 watch(sidePanelTab, (tab) => {
-  if (tab === 'assets' && !assetLibraryLoaded.value) {
+  if (tab === 'resources' && !assetLibraryLoaded.value) {
     assetLibraryLoaded.value = true
     void refreshAssetLibrary()
   }
@@ -534,6 +557,57 @@ watch(sidePanelTab, (tab) => {
     void refreshArticleRevisions()
   }
 }, { immediate: true })
+
+const submitChecklist = computed<ReadonlyArray<{ label: string; state: SubmitChecklistState; detail?: string }>>(() => {
+  const summaryLength = articleForm.summary.trim().length
+  const seoWarning = prepublishWarningIssues.value[0]
+  return [
+    {
+      label: '标题已填写',
+      state: articleForm.title.trim().length > 0 ? 'pass' : 'warning',
+      detail: articleForm.title.trim().length > 0 ? undefined : '发布前需要补齐标题'
+    },
+    {
+      label: '已选择分类',
+      state: typeof articleForm.categoryId === 'number' ? 'pass' : 'warning',
+      detail: typeof articleForm.categoryId === 'number' ? undefined : '未选择分类会降低归档可发现性'
+    },
+    {
+      label: '已设置摘要',
+      state: summaryLength > 0 ? 'pass' : 'warning',
+      detail: summaryLength > 0 ? `${summaryLength}/250` : '未设置摘要时会使用正文开头'
+    },
+    {
+      label: 'SEO 描述长度',
+      state: summaryLength >= 50 || articleForm.status === ArticlePublishStatus.Draft ? 'pass' : 'warning',
+      detail: summaryLength >= 50 || articleForm.status === ArticlePublishStatus.Draft ? undefined : '建议至少 50 字'
+    },
+    {
+      label: '已设置封面',
+      state: articleForm.coverImageUrl.trim().length > 0 ? 'pass' : 'warning',
+      detail: articleForm.coverImageUrl.trim().length > 0 ? undefined : '未设置封面时分享预览会使用默认图'
+    },
+    {
+      label: '预发布检查',
+      state: seoWarning ? 'warning' : 'pass',
+      detail: seoWarning?.message
+    }
+  ]
+})
+
+const handleEditorEscape = (event: KeyboardEvent): void => {
+  if (event.key === 'Escape' && editorLayoutMode.value === 'fullscreen') {
+    editorLayoutMode.value = 'standard'
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleEditorEscape)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleEditorEscape)
+})
 
 const onCoverFileChange = (event: Event): void => {
   const input = event.target as HTMLInputElement
@@ -654,6 +728,42 @@ const submitQuickCreateTag = async (): Promise<void> => {
 .write-submit-button {
   display: grid;
   min-width: 8rem;
+}
+
+.write-layout-control {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.write-layout-description {
+  color: var(--fsusblog-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.submit-checklist-item {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.submit-checklist-status {
+  flex: 0 0 auto;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 800;
+}
+
+.submit-checklist-item--pass .submit-checklist-status {
+  color: var(--fsusblog-color-success);
+}
+
+.submit-checklist-item--warning .submit-checklist-status {
+  color: var(--fsusblog-color-warning);
 }
 
 .write-grid {

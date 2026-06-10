@@ -21,7 +21,7 @@ export const PUBLIC_SHELL_DEFAULTS: PublicShellState = {
   activeNav: 'none',
   authLabel: '登录',
   authHref: '/login',
-  searchPlaceholder: '搜索',
+  searchPlaceholder: '搜索文章、标签或关键词',
   initialSearchQuery: '',
   spaSearch: false,
   showRuntime: false,

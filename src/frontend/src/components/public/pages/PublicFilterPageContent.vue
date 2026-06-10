@@ -5,6 +5,14 @@
 
       <div
         v-if="showSearchSort"
+        class="mb-8 border-y border-[var(--fsusblog-panel-border)] py-4 text-[11px] font-bold leading-relaxed text-[var(--fsusblog-text-muted)]"
+        aria-live="polite"
+      >
+        搜索范围：全站文章、标签或关键词。当前结果：{{ searchResultStateText }}
+      </div>
+
+      <div
+        v-if="showSearchSort"
         class="filter-stack mb-16 border-b border-[var(--fsusblog-panel-border)] pb-10 flex items-center gap-8"
       >
         <span class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">排序</span>
@@ -126,6 +134,22 @@ const paginationContract = computed<PaginationContract>(() => ({
   },
   indicator: props.view.pagination.pageIndicatorText
 }))
+
+const searchResultStateText = computed(() => {
+  if (props.isLoadingState) {
+    return '正在检索'
+  }
+
+  if (props.invalidTarget) {
+    return '搜索目标不可用'
+  }
+
+  if (props.view.articles.length === 0) {
+    return '未找到匹配文章'
+  }
+
+  return `本页显示 ${props.view.articles.length} 篇，${props.view.pagination.pageIndicatorText}`
+})
 </script>
 
 <style scoped>

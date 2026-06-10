@@ -101,7 +101,7 @@ describe('user facing workflow contract', () => {
     expect(homeComposable).toContain('nextQuery.page = String(page)')
     expect(filterComposable).toContain('parsePageQuery(route.query.page)')
     expect(filterComposable).toContain('delete nextQuery.page')
-    expect(homeContent).toContain('站点索引')
+    expect(homeContent).toContain('快速入口')
     expect(filterContent).toContain('view.empty.actionText')
     expect(archiveContent).toContain('年份快速导航')
     expect(archiveContent).toContain('#archive-year-')

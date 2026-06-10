@@ -31,27 +31,34 @@
               <p class="mt-3 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--fsusblog-text-secondary)]">
                 {{ (item as CommentModerationViewItem).content }}
               </p>
-              <div class="mt-4 flex flex-wrap gap-2">
-                <el-tag v-for="reason in (item as CommentModerationViewItem).hitReasonLabels" :key="reason" size="small" type="info">
-                  {{ reason }}
-                </el-tag>
+              <div class="mt-4 recommendation-strip">
+                <span>{{ (item as CommentModerationViewItem).recommendedActionLabel }}</span>
+                <span>原因：{{ (item as CommentModerationViewItem).recommendedActionReason }}</span>
               </div>
-              <div class="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-[var(--fsusblog-text-muted)]">
-                <span>{{ (item as CommentModerationViewItem).regionSummary }}</span>
-                <span>{{ (item as CommentModerationViewItem).regionConfidenceLabel }}</span>
-                <span>屏蔽：{{ (item as CommentModerationViewItem).blockedRegionLabel }}</span>
-                <span>{{ (item as CommentModerationViewItem).regionReviewLabel }}</span>
-              </div>
-              <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-[var(--fsusblog-text-muted)]">
-                <span>{{ (item as CommentModerationViewItem).modelSignalLabel }}</span>
-                <span>{{ (item as CommentModerationViewItem).modelConfidenceLabel }}</span>
-                <span>{{ (item as CommentModerationViewItem).modelProviderLabel }}</span>
-              </div>
+              <details class="mt-4 moderation-detail-fold">
+                <summary>详情</summary>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <el-tag v-for="reason in (item as CommentModerationViewItem).hitReasonLabels" :key="reason" size="small" type="info">
+                    {{ reason }}
+                  </el-tag>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-[var(--fsusblog-text-muted)]">
+                  <span>{{ (item as CommentModerationViewItem).regionSummary }}</span>
+                  <span>{{ (item as CommentModerationViewItem).regionConfidenceLabel }}</span>
+                  <span>屏蔽：{{ (item as CommentModerationViewItem).blockedRegionLabel }}</span>
+                  <span>{{ (item as CommentModerationViewItem).regionReviewLabel }}</span>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-[var(--fsusblog-text-muted)]">
+                  <span>{{ (item as CommentModerationViewItem).modelSignalLabel }}</span>
+                  <span>{{ (item as CommentModerationViewItem).modelConfidenceLabel }}</span>
+                  <span>{{ (item as CommentModerationViewItem).modelProviderLabel }}</span>
+                </div>
+              </details>
               <div class="mt-4 flex flex-wrap items-center gap-2">
                 <el-button :icon="ViewIcon" size="small" @click="emit('detail', item as CommentModerationViewItem)">详情</el-button>
-                <el-button :icon="Check" size="small" type="success" :disabled="!(item as CommentModerationViewItem).regionCanApprove" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Approved)">通过</el-button>
-                <el-button :icon="Close" size="small" type="danger" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Rejected)">拒绝</el-button>
-                <el-button :icon="Hide" size="small" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Hidden)">隐藏</el-button>
+                <el-button :icon="Check" size="small" type="success" :disabled="!(item as CommentModerationViewItem).regionCanApprove" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Approved)">通过评论</el-button>
+                <el-button :icon="Hide" size="small" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Hidden)">隐藏评论</el-button>
+                <el-button :icon="Close" size="small" type="danger" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Rejected)">拒绝评论</el-button>
               </div>
             </div>
           </div>
@@ -116,6 +123,15 @@
             </template>
           </el-table-column>
 
+          <el-table-column label="推荐动作" min-width="220">
+            <template #default="{ row }: { row: CommentModerationViewItem }">
+              <div class="recommendation-strip">
+                <span>{{ row.recommendedActionLabel }}</span>
+                <span>原因：{{ row.recommendedActionReason }}</span>
+              </div>
+            </template>
+          </el-table-column>
+
           <el-table-column label="地区策略" min-width="210">
             <template #default="{ row }: { row: CommentModerationViewItem }">
               <div class="space-y-1.5 text-[11px] font-bold leading-relaxed text-[var(--fsusblog-text-muted)]">
@@ -156,9 +172,9 @@
                   </el-button>
                   <template #dropdown>
                     <el-dropdown-menu>
-                      <el-dropdown-item :icon="Check" :disabled="!row.regionCanApprove" @click="emit('apply', row, CommentModerationStatus.Approved)">通过</el-dropdown-item>
-                      <el-dropdown-item :icon="Close" @click="emit('apply', row, CommentModerationStatus.Rejected)">拒绝</el-dropdown-item>
-                      <el-dropdown-item :icon="Hide" @click="emit('apply', row, CommentModerationStatus.Hidden)">隐藏</el-dropdown-item>
+                      <el-dropdown-item :icon="Check" :disabled="!row.regionCanApprove" @click="emit('apply', row, CommentModerationStatus.Approved)">通过评论</el-dropdown-item>
+                      <el-dropdown-item :icon="Hide" @click="emit('apply', row, CommentModerationStatus.Hidden)">隐藏评论</el-dropdown-item>
+                      <el-dropdown-item :icon="Close" @click="emit('apply', row, CommentModerationStatus.Rejected)">拒绝评论</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
@@ -206,5 +222,30 @@ const toggle = (item: CommentModerationViewItem, checked: boolean): void => {
 <style scoped>
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.recommendation-strip {
+  display: grid;
+  gap: 0.25rem;
+  border-left: 2px solid var(--fsusblog-color-primary);
+  background: var(--fsusblog-page-bg-soft);
+  padding: 0.75rem 1rem;
+  color: var(--fsusblog-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.moderation-detail-fold summary {
+  cursor: pointer;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  outline: none;
+}
+
+.moderation-detail-fold summary:focus-visible {
+  border-radius: var(--fsus-radius-control-small);
+  box-shadow: 0 0 0 2px var(--fsusblog-color-focus-ring);
 }
 </style>

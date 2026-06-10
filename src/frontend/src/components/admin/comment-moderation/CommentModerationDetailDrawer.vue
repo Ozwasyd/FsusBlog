@@ -22,6 +22,10 @@
         <p class="mt-5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--fsusblog-text-secondary)]">
           {{ item.content }}
         </p>
+        <div class="mt-5 recommendation-strip">
+          <span>{{ item.recommendedActionLabel }}</span>
+          <span>原因：{{ item.recommendedActionReason }}</span>
+        </div>
       </section>
 
       <section class="grid grid-cols-1 gap-px bg-[var(--fsusblog-panel-bg-soft)] border-y border-[var(--fsusblog-panel-border)]">
@@ -128,9 +132,9 @@
       <section>
         <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核操作</div>
         <div class="mt-4 flex flex-wrap gap-3">
-          <el-button :icon="Check" type="success" :disabled="!item.regionCanApprove" :loading="processing" @click="emit('apply', item, CommentModerationStatus.Approved)">通过</el-button>
-          <el-button :icon="Close" type="danger" :loading="processing" @click="emit('apply', item, CommentModerationStatus.Rejected)">拒绝</el-button>
-          <el-button :icon="Hide" :loading="processing" @click="emit('apply', item, CommentModerationStatus.Hidden)">隐藏</el-button>
+          <el-button :icon="Check" type="success" :disabled="!item.regionCanApprove" :loading="processing" @click="emit('apply', item, CommentModerationStatus.Approved)">通过评论</el-button>
+          <el-button :icon="Hide" :loading="processing" @click="emit('apply', item, CommentModerationStatus.Hidden)">隐藏评论</el-button>
+          <el-button :icon="Close" type="danger" :loading="processing" @click="emit('apply', item, CommentModerationStatus.Rejected)">拒绝评论</el-button>
         </div>
       </section>
     </div>
@@ -158,5 +162,17 @@ const emit = defineEmits<{
 <style scoped>
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.recommendation-strip {
+  display: grid;
+  gap: 0.25rem;
+  border-left: 2px solid var(--fsusblog-color-primary);
+  background: var(--fsusblog-page-bg-soft);
+  padding: 0.75rem 1rem;
+  color: var(--fsusblog-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.45;
 }
 </style>

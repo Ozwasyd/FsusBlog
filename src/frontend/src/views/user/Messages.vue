@@ -47,7 +47,9 @@
             <el-skeleton v-if="listLoading" :rows="8" animated />
 
             <div v-else-if="conversations.length === 0" class="mail-empty">
-              <el-empty description="暂无会话" />
+              <el-empty :description="isAdminView ? '暂无待处理会话' : '暂无站内信'">
+                <el-button v-if="!isAdminView" type="primary" @click="showMobileTicketCompose = true">新建工单</el-button>
+              </el-empty>
             </div>
 
             <div v-else class="mail-scroll-region">
@@ -109,7 +111,7 @@
                 <el-form-item label="内容">
                   <el-input v-model="systemBody" name="systemBodyMobile" type="textarea" :rows="4" maxlength="4000" show-word-limit placeholder="请输入消息正文" />
                 </el-form-item>
-                <el-button type="success" :loading="processing" @click="sendSystemMessage">发送</el-button>
+                <el-button type="success" :loading="processing" @click="sendSystemMessage">发送系统消息</el-button>
               </el-form>
             </div>
 
@@ -134,7 +136,7 @@
           <header class="mail-pane-header mail-pane-header-detail">
             <div class="mail-header mail-header-detail">
               <div class="mail-detail-title-group">
-                <el-button v-if="isMobile" size="small" @click="openListPane">
+                <el-button v-if="isMobile" size="small" @click="handleMobileBackToList">
                   返回会话列表
                 </el-button>
                 <div class="mail-header-title-row">
@@ -147,9 +149,10 @@
               </div>
 
               <div v-if="isAdminView && detail" class="mail-actions">
-                <el-button size="small" @click="updateStatus('open')" :disabled="processing">处理中</el-button>
-                <el-button size="small" type="warning" @click="updateStatus('pending')" :disabled="processing">待处理</el-button>
-                <el-button size="small" type="success" @click="updateStatus('closed')" :disabled="processing">关闭</el-button>
+                <span class="mail-action-hint">状态变更会通知用户</span>
+                <el-button size="small" @click="updateStatus('open')" :disabled="processing">标记为处理中</el-button>
+                <el-button size="small" type="warning" @click="updateStatus('pending')" :disabled="processing">移回待处理</el-button>
+                <el-button size="small" type="success" @click="updateStatus('closed')" :disabled="processing">关闭会话</el-button>
               </div>
             </div>
           </header>
@@ -159,12 +162,20 @@
               v-if="isAdminView ? !adminSelectedConversation : !hasUserSelection"
               class="mail-empty"
             >
-              <el-empty :description="isAdminView ? '请选择会话' : '从左侧选择会话或创建新工单'" />
+              <el-empty :description="isAdminView ? '请选择会话' : '从左侧选择会话或创建新工单'">
+                <el-button v-if="!isAdminView" type="primary" @click="showMobileTicketCompose = true">新建工单</el-button>
+              </el-empty>
             </div>
 
             <el-skeleton v-else-if="detailLoading" :rows="10" animated />
 
             <template v-else>
+              <div v-if="detail" class="mail-context-bar">
+                <span>正在回复：{{ detail.subject }}</span>
+                <span>{{ isAdminView ? `用户 ${contextUserText}` : '当前会话' }}</span>
+                <span>状态：{{ statusLabel(detail.status) }}</span>
+              </div>
+
               <div class="mail-scroll-region mail-thread-region">
                 <div class="mail-scroll-frame">
                 <div class="mail-scrollbar mail-scrollbar-native">
@@ -197,6 +208,7 @@
               <el-divider />
 
               <div class="mail-reply-form">
+                <div class="mail-subheader">回复当前会话</div>
                 <el-form label-position="top">
                   <el-form-item :label="isAdminView ? '回复' : '回复管理员'">
                     <el-input
@@ -234,7 +246,7 @@
               <el-form-item label="内容">
                 <el-input v-model="systemBody" name="systemBodyDesktop" type="textarea" :rows="4" maxlength="4000" show-word-limit placeholder="请输入消息正文" />
               </el-form-item>
-              <el-button type="success" :loading="processing" @click="sendSystemMessage">发送</el-button>
+              <el-button type="success" :loading="processing" @click="sendSystemMessage">发送系统消息</el-button>
             </el-form>
           </div>
         </div>
@@ -273,6 +285,20 @@
         <el-button type="primary" @click="handleSaveDraftAndSwitch">保存草稿并切换</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="mobileBackConfirmVisible"
+      title="回复草稿尚未发送"
+      width="min(92vw, 28rem)"
+    >
+      <p class="mail-draft-dialog-text">
+        返回列表后当前回复草稿仍会留在此会话中，但不会发送给对方。
+      </p>
+      <template #footer>
+        <el-button @click="mobileBackConfirmVisible = false">继续回复</el-button>
+        <el-button type="primary" @click="confirmMobileBackToList">返回会话列表</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -291,6 +317,7 @@ const MESSAGE_RENDER_WINDOW = 80
 const adminCenter = useAdminMessageCenter(() => isAdminView.value)
 const userInbox = useUserMessagesInbox(() => !isAdminView.value)
 const showMobileTicketCompose = ref(false)
+const mobileBackConfirmVisible = ref(false)
 const hasPendingConversationSwitch = computed(() => Boolean(userInbox.pendingConversationId.value))
 
 const selectedConversationId = computed(() =>
@@ -401,6 +428,11 @@ const visibleMessageRows = computed(() => {
   }))
 })
 const hiddenMessageCount = computed(() => Math.max(0, (detail.value?.messages.length ?? 0) - visibleMessageRows.value.length))
+const contextUserText = computed(() => {
+  const messages = detail.value?.messages ?? []
+  const userMessage = messages.find((message) => message.senderType === 0 && message.senderName)
+  return userMessage?.senderName || '用户'
+})
 
 watch(selectedConversationId, () => {
   messageRenderLimit.value = MESSAGE_RENDER_WINDOW
@@ -438,6 +470,20 @@ const handleReply = async (): Promise<void> => {
   }
 
   await userInbox.sendReply()
+}
+
+const handleMobileBackToList = (): void => {
+  if (replyBody.value.trim()) {
+    mobileBackConfirmVisible.value = true
+    return
+  }
+
+  openListPane()
+}
+
+const confirmMobileBackToList = (): void => {
+  mobileBackConfirmVisible.value = false
+  openListPane()
 }
 
 const updateStatus = async (status: 'open' | 'pending' | 'closed'): Promise<void> => {
@@ -723,6 +769,21 @@ const formatTime = (input: string): string => {
   padding-right: 1.5rem;
 }
 
+.mail-context-bar {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  border-left: 2px solid var(--fsusblog-color-primary);
+  background: var(--fsusblog-page-bg-soft);
+  margin-bottom: 1.5rem;
+  padding: 0.85rem 1rem;
+  color: var(--fsusblog-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .mail-bubble {
   margin-bottom: 2rem;
   border-left: 2px solid var(--fsusblog-panel-border);
@@ -811,6 +872,13 @@ const formatTime = (input: string): string => {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.mail-action-hint {
+  align-self: center;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
 }
 
 @media (min-width: 1024px) {

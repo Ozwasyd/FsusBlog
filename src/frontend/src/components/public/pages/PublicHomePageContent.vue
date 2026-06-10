@@ -39,10 +39,10 @@
         <nav
           id="fsus-home-hot-articles-slot-content"
           class="min-h-[18rem] border-l border-[var(--fsusblog-panel-border)] pl-8"
-          aria-label="站点索引"
+          aria-label="快速入口"
         >
           <h2 class="mb-8 text-[10px] font-bold normal-case text-[var(--fsusblog-text-muted)]">
-            站点索引
+            快速入口
           </h2>
           <ul class="space-y-5 text-sm font-semibold">
             <li>

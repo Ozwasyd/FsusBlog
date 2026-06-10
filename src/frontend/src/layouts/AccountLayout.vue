@@ -94,9 +94,11 @@
             >
               <div
                 v-if="navGroups.length > 1"
-                class="px-1 text-[11px] font-bold uppercase tracking-normal text-[var(--fsusblog-text-muted)]"
+                class="account-nav-group-title"
+                :class="{ 'account-nav-group-title-active': currentNavGroupKey === group.key }"
               >
-                {{ group.label }}
+                <span>{{ group.label }}</span>
+                <span v-if="group.helper" class="account-nav-group-helper">{{ group.helper }}</span>
               </div>
               <router-link
                 v-for="item in group.items"
@@ -158,21 +160,39 @@
         <div class="mt-5 min-h-0 flex-1">
           <el-scrollbar>
             <nav class="space-y-2 pr-2" aria-label="移动账户导航">
-              <router-link
-                v-for="item in navItems"
-                :key="item.to"
-                :to="item.to"
-                class="account-nav-link group"
-                :class="{ 'account-nav-link-active': isNavItemActive(item) }"
-                @click="closeMobileNav"
+              <section
+                v-for="group in navGroups"
+                :key="group.key"
+                class="account-mobile-nav-group"
+                :class="{ 'account-mobile-nav-group-active': currentNavGroupKey === group.key }"
               >
-                <div class="text-[11px] font-bold uppercase">
-                  {{ item.label }}
+                <button
+                  type="button"
+                  class="account-mobile-nav-group-button"
+                  :aria-expanded="String(isMobileGroupExpanded(group.key))"
+                  @click="toggleMobileGroup(group.key)"
+                >
+                  <span>{{ group.label }}</span>
+                  <span v-if="group.helper" class="account-mobile-nav-group-helper">{{ group.helper }}</span>
+                </button>
+                <div v-show="isMobileGroupExpanded(group.key)" class="account-mobile-nav-group-items">
+                  <router-link
+                    v-for="item in group.items"
+                    :key="item.to"
+                    :to="item.to"
+                    class="account-nav-link group"
+                    :class="{ 'account-nav-link-active': isNavItemActive(item) }"
+                    @click="closeMobileNav"
+                  >
+                    <div class="text-[11px] font-bold uppercase">
+                      {{ item.label }}
+                    </div>
+                    <div v-if="item.helper" class="account-nav-link-helper">
+                      {{ item.helper }}
+                    </div>
+                  </router-link>
                 </div>
-                <div v-if="item.helper" class="account-nav-link-helper">
-                  {{ item.helper }}
-                </div>
-              </router-link>
+              </section>
             </nav>
           </el-scrollbar>
         </div>
@@ -207,7 +227,7 @@ import { useRoute } from 'vue-router'
 import { Close, Menu } from '@/fsusui/icons'
 import PolicyModal from '@/components/PolicyModal.vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
-import { accountAreaMeta, getAccountNavGroups, type AccountArea, type AccountContentMode, type AccountNavItem } from '@/layouts/accountNav'
+import { accountAreaMeta, getAccountNavGroups, type AccountArea, type AccountContentMode, type AccountNavGroupKey, type AccountNavItem } from '@/layouts/accountNav'
 import { useSiteStore } from '@/store/site'
 import { useUserStore } from '@/store/user'
 import { showErrorToast } from '@/utils/errorPresentation'
@@ -220,6 +240,7 @@ const showPolicy = ref(false)
 const policyType = ref<'privacy' | 'guidelines'>('guidelines')
 const mobileNavOpen = ref(false)
 const isLoggingOut = ref(false)
+const openMobileGroupKey = ref<AccountNavGroupKey>('self')
 const mobileNavButtonLabel = computed(() => mobileNavOpen.value ? '关闭账户导航' : '打开账户导航')
 
 const currentArea = computed<AccountArea>(() =>
@@ -236,7 +257,10 @@ const currentContentMode = computed<AccountContentMode>(() => {
 
 const areaMeta = computed(() => accountAreaMeta[currentArea.value])
 const navGroups = computed(() => getAccountNavGroups(userStore.isAdmin))
-const navItems = computed(() => navGroups.value.flatMap((group) => group.items))
+const currentNavGroupKey = computed<AccountNavGroupKey>(() => {
+  const activeGroup = navGroups.value.find((group) => group.items.some((item) => isNavItemActive(item)))
+  return activeGroup?.key ?? (currentArea.value === 'manage' ? 'content' : 'self')
+})
 
 const contentViewportClass = computed(() => {
   if (currentContentMode.value === 'wide') {
@@ -302,6 +326,12 @@ const isNavItemActive = (item: AccountNavItem): boolean => {
   return route.path === item.to || route.path.startsWith(`${item.to}/`)
 }
 
+const isMobileGroupExpanded = (key: AccountNavGroupKey): boolean => openMobileGroupKey.value === key
+
+const toggleMobileGroup = (key: AccountNavGroupKey): void => {
+  openMobileGroupKey.value = key
+}
+
 const openPolicy = (type: 'privacy' | 'guidelines') => {
   policyType.value = type
   showPolicy.value = true
@@ -339,8 +369,15 @@ watch(
   () => route.fullPath,
   () => {
     mobileNavOpen.value = false
+    openMobileGroupKey.value = currentNavGroupKey.value
   }
 )
+
+watch(mobileNavOpen, (open) => {
+  if (open) {
+    openMobileGroupKey.value = currentNavGroupKey.value
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -400,6 +437,71 @@ watch(
 
 .account-nav-link-active .account-nav-link-helper {
   @apply opacity-100;
+}
+
+.account-nav-group-title {
+  display: grid;
+  gap: 0.25rem;
+  padding-inline: 0.25rem;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.account-nav-group-title-active {
+  color: var(--fsusblog-text-primary);
+}
+
+.account-nav-group-helper {
+  color: var(--fsusblog-text-subtle);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-transform: none;
+}
+
+.account-mobile-nav-group {
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  padding-block: 0.5rem;
+}
+
+.account-mobile-nav-group-button {
+  display: grid;
+  width: 100%;
+  gap: 0.25rem;
+  padding: 0.75rem 0.25rem;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.account-mobile-nav-group-button:focus-visible {
+  border-radius: var(--fsus-radius-control-small);
+  box-shadow: 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
+}
+
+.account-mobile-nav-group-active .account-mobile-nav-group-button {
+  color: var(--fsusblog-text-primary);
+}
+
+.account-mobile-nav-group-helper {
+  color: var(--fsusblog-text-subtle);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-transform: none;
+}
+
+.account-mobile-nav-group-items {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.25rem 0 0.75rem;
 }
 
 .fade-fast-enter-active,

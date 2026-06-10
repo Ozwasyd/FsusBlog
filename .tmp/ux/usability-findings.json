@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "studyDate": "2026-06-10",
+  "status": "not-started",
+  "participants": [],
+  "tasks": [
+    {
+      "id": "find_article",
+      "title": "找到一篇关于 X 的文章",
+      "target": "public"
+    },
+    {
+      "id": "login_and_messages",
+      "title": "注册或登录并查看消息",
+      "target": "account"
+    },
+    {
+      "id": "create_draft",
+      "title": "新建一篇文章并保存草稿",
+      "target": "admin"
+    },
+    {
+      "id": "publish_with_seo",
+      "title": "发布文章并设置 SEO 摘要",
+      "target": "admin"
+    },
+    {
+      "id": "moderate_comment",
+      "title": "审核一条评论",
+      "target": "admin"
+    },
+    {
+      "id": "reply_ticket",
+      "title": "回复一个站内信工单",
+      "target": "admin"
+    },
+    {
+      "id": "mobile_restore_trash",
+      "title": "在移动端恢复一篇回收站文章",
+      "target": "mobile"
+    }
+  ],
+  "findings": []
+}

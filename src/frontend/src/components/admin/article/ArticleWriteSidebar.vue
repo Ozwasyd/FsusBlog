@@ -157,12 +157,6 @@
         <template #label>
           <div class="flex items-center justify-between w-full">
             <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">内容摘要 / SUMMARY</span>
-            <el-button link type="primary" size="small" @click="$emit('auto-summary')" :disabled="submitting">
-              智能生成
-            </el-button>
-            <el-button link type="primary" size="small" @click="$emit('ai-assist')" :loading="aiAssistLoading" :disabled="submitting || aiAssistLoading">
-              AI 辅助
-            </el-button>
           </div>
         </template>
         <div class="mt-2">
@@ -179,70 +173,6 @@
           />
         </div>
       </el-form-item>
-
-      <section
-        v-if="aiAssist"
-        class="space-y-4 border-t border-[var(--fsusblog-panel-border)] pt-6"
-        data-author-ai-assist-panel="true"
-        aria-label="作者 AI 辅助建议"
-      >
-        <div class="flex items-start justify-between gap-4">
-          <div class="min-w-0">
-            <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">AI ASSIST</div>
-            <p class="mt-1 text-[11px] leading-5 text-[var(--fsusblog-text-subtle)]">
-              {{ aiAssistStatusText || aiAssist.providerMode }}
-            </p>
-          </div>
-          <el-tag size="small" type="info">{{ aiAssist.providerMode }}</el-tag>
-        </div>
-
-        <div v-if="aiAssist.suggestedSummary" class="space-y-2">
-          <p class="text-xs leading-6 text-[var(--fsusblog-text-secondary)]">{{ aiAssist.suggestedSummary }}</p>
-          <el-button size="small" :disabled="submitting" @click="$emit('apply-ai-summary')">采用摘要</el-button>
-        </div>
-
-        <div v-if="aiAssist.suggestedTags.length > 0" class="space-y-3">
-          <div class="flex flex-wrap gap-2">
-            <el-tag v-for="tag in aiAssist.suggestedTags" :key="tag" size="small">{{ tag }}</el-tag>
-          </div>
-          <el-button size="small" :disabled="submitting" @click="$emit('apply-ai-tags')">关联已有标签</el-button>
-        </div>
-
-        <div v-if="aiAssist.titleCandidates.length > 0" class="space-y-2">
-          <div
-            v-for="title in aiAssist.titleCandidates"
-            :key="title"
-          >
-            <el-button
-              :disabled="submitting"
-              @click="$emit('apply-ai-title', title)"
-            >
-              <span class="min-w-0 whitespace-normal text-left leading-5">{{ title }}</span>
-            </el-button>
-          </div>
-        </div>
-
-        <div v-if="aiAssist.translationDraft" class="space-y-2">
-          <div class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)]">
-            <el-scrollbar max-height="8rem">
-              <div class="p-3 text-xs leading-5 text-[var(--fsusblog-text-secondary)] whitespace-pre-wrap">
-                {{ aiAssist.translationDraft }}
-              </div>
-            </el-scrollbar>
-          </div>
-          <el-button size="small" :disabled="submitting" @click="$emit('apply-ai-translation')">采用翻译草稿</el-button>
-        </div>
-
-        <ul v-if="aiAssist.structureIssues.length > 0" class="space-y-2">
-          <li
-            v-for="issue in aiAssist.structureIssues"
-            :key="`${issue.code}:${issue.message}`"
-            class="text-[11px] leading-5 text-[var(--fsusblog-text-subtle)]"
-          >
-            {{ issue.severity }} · {{ issue.message }}
-          </li>
-        </ul>
-      </section>
     </div>
   </section>
 </template>
@@ -250,7 +180,6 @@
 <script setup lang="ts">
 import { Delete, Picture } from '@/fsusui/icons';
 import { ArticlePublishStatus } from '@/api/article';
-import type { AiAssistResponse } from '@/api/authoring';
 import type { CategoryItem } from '@/api/category';
 import type { TagItem } from '@/api/tag';
 
@@ -279,18 +208,9 @@ defineProps<{
   submitting: boolean;
   quickCreatingCategory: boolean;
   quickCreatingTag: boolean;
-  aiAssist: AiAssistResponse | null;
-  aiAssistLoading: boolean;
-  aiAssistStatusText: string;
 }>();
 
 defineEmits<{
-  (e: 'auto-summary'): void;
-  (e: 'ai-assist'): void;
-  (e: 'apply-ai-summary'): void;
-  (e: 'apply-ai-title', title: string): void;
-  (e: 'apply-ai-tags'): void;
-  (e: 'apply-ai-translation'): void;
   (e: 'open-create-category'): void;
   (e: 'open-create-tag'): void;
   (e: 'open-cover-upload'): void;
