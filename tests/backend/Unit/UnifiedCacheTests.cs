@@ -1,4 +1,7 @@
 using FsusBlog.Server.Infrastructure.Cache;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests;
@@ -37,6 +40,86 @@ public sealed class UnifiedCacheTests
         IReadOnlyList<string> matches = UnifiedCache.FilterRegistryKeys("public:aot:v2:doc:1:", []);
 
         Assert.Empty(matches);
+    }
+
+    [Fact]
+    public void FilterRegistryKeysByPrefixes_MatchesAnyPrefix()
+    {
+        RedisValue[] registryEntries =
+        [
+            "fsus:blog:comment-cursor:article:42:root:1",
+            "fsus:blog:comment-cursor:article:42:page:1",
+            "fsus:blog:comment-cursor:article:7:page:1"
+        ];
+
+        IReadOnlyList<string> matches = UnifiedCache.FilterRegistryKeysByPrefixes(
+            [
+                "fsus:blog:comment-cursor:article:42:root:",
+                "fsus:blog:comment-cursor:article:42:page:"
+            ],
+            registryEntries);
+
+        Assert.Equal(
+            [
+                "fsus:blog:comment-cursor:article:42:root:1",
+                "fsus:blog:comment-cursor:article:42:page:1"
+            ],
+            matches);
+    }
+
+    [Fact]
+    public void BuildCommonPrefixForTests_ReturnsSharedPolicyPrefix()
+    {
+        string prefix = UnifiedCache.BuildCommonPrefixForTests(
+            [
+                "fsus:blog:comment-cursor:article:42:root:",
+                "fsus:blog:comment-cursor:article:42:page:"
+            ]);
+
+        Assert.Equal("fsus:blog:comment-cursor:article:42:", prefix);
+    }
+
+    [Fact]
+    public async Task RemoveManyAsync_DeletesL1RedisKeysAndRegistryMembersInBatches()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        db.KeyDeleteAsync(Arg.Any<RedisKey[]>(), Arg.Any<CommandFlags>()).Returns(Task.FromResult(2L));
+        db.SetRemoveAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue[]>(), Arg.Any<CommandFlags>()).Returns(Task.FromResult(2L));
+        UnifiedCache cache = CreateCache(memory, db);
+        string firstKey = cache.BuildKey(CachePolicyId.CommentCursor, "article:42:root:1");
+        string secondKey = cache.BuildKey(CachePolicyId.CommentCursor, "article:42:page:1");
+        memory.Set(firstKey, new byte[] { 1 });
+        memory.Set(secondKey, new byte[] { 2 });
+
+        await cache.RemoveManyAsync(
+            [
+                new(CachePolicyId.CommentCursor, "article:42:root:1"),
+                new(CachePolicyId.CommentCursor, "article:42:page:1")
+            ]);
+
+        Assert.False(memory.TryGetValue(firstKey, out _));
+        Assert.False(memory.TryGetValue(secondKey, out _));
+        await db.Received(1).KeyDeleteAsync(
+            Arg.Is<RedisKey[]>(keys => ContainsAll(keys, firstKey, secondKey)),
+            Arg.Any<CommandFlags>());
+        await db.Received(1).SetRemoveAsync(
+            Arg.Is<RedisKey>(key => key.ToString() == UnifiedCache.BuildRegistryKeyForTests(CachePolicyId.CommentCursor)),
+            Arg.Is<RedisValue[]>(values => ContainsAll(values, firstKey, secondKey)),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public void RemoveByPrefixMany_SourceGroupsByPolicyAndScansRegistryOnce()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/Cache/IUnifiedCache.cs"));
+
+        Assert.Contains("RemoveByPrefixManyAsync", source, StringComparison.Ordinal);
+        Assert.Contains("prefixes.GroupBy(static item => item.PolicyId)", source, StringComparison.Ordinal);
+        Assert.Contains("DeleteRegisteredKeysByPrefixesAsync(registryKey, resolvedPrefixes", source, StringComparison.Ordinal);
+        Assert.Contains("_db.SetScan(registryKey, pageSize: PrefixInvalidationBatchSize)", source, StringComparison.Ordinal);
+        Assert.Contains("DeleteKeysByPrefixesScanAsync(resolvedPrefixes", source, StringComparison.Ordinal);
+        Assert.Contains("BuildCommonPrefix(prefixes)", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -145,5 +228,29 @@ public sealed class UnifiedCacheTests
         }
 
         throw new DirectoryNotFoundException("repo root not found");
+    }
+
+    private static UnifiedCache CreateCache(IMemoryCache memory, IDatabase db)
+    {
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(db);
+        return new UnifiedCache(
+            memory,
+            redis,
+            new CachePolicyRegistry(),
+            new DefaultRuntimeKeyScope(),
+            NullLogger<UnifiedCache>.Instance);
+    }
+
+    private static bool ContainsAll(RedisKey[] keys, params string[] expected)
+    {
+        string[] values = keys.Select(static key => key.ToString()).ToArray();
+        return expected.All(expectedKey => values.Contains(expectedKey, StringComparer.Ordinal));
+    }
+
+    private static bool ContainsAll(RedisValue[] values, params string[] expected)
+    {
+        string[] actual = values.Select(static value => value.ToString()).ToArray();
+        return expected.All(expectedValue => actual.Contains(expectedValue, StringComparer.Ordinal));
     }
 }

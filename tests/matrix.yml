@@ -632,6 +632,24 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: backend-cache-invalidation-batch
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-qps.sh cache-invalidation-batch
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [cache-invalidation-batch-roundtrip-reduction]
+    artifacts: [.tmp/perf/backend-qps/cache-invalidation-batch.json, .tmp/release-evidence/backend-qps-summary.json]
+    evidence: [.tmp/perf/backend-qps/cache-invalidation-batch.json, .tmp/release-evidence/backend-qps-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: false
+
   - id: backend-qps-index-plan
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh index-plan
@@ -653,7 +671,7 @@ tiers:
   - id: backend-qps
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh backend-qps
-    dependsOn: [bootstrap, backend-qps-view-count-flush, backend-qps-visitlog-invalidation, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-qps-index-plan]
+    dependsOn: [bootstrap, backend-qps-view-count-flush, backend-qps-visitlog-invalidation, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-cache-invalidation-batch, backend-qps-index-plan]
     services: []
     parallelizable: true
     exclusiveResources: []

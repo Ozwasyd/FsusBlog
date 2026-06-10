@@ -37,6 +37,7 @@ const backendQpsPaths = {
   'list-pagination': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/article/list/home/1/5.aeds'],
   'article-detail-miss': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/article/featured/4.aeds'],
   'cache-registry': ['/api/binary/category', '/api/binary/tag'],
+  'cache-invalidation-batch': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/system/seo'],
   'index-plan': ['/api/binary/article/list/home/1/10.aeds', '/api/binary/category']
 }
 

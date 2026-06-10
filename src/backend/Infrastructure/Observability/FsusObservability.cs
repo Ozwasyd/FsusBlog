@@ -60,6 +60,13 @@ public static class FsusObservability
     private static readonly ObservableGauge<long> HotArticlesVersionGauge = Meter.CreateObservableGauge(
         "fsus.cache.hot_articles.version",
         static () => Volatile.Read(ref HotArticlesVersionValue));
+    private static readonly Counter<long> CacheRemoveManyKeyCounter = Meter.CreateCounter<long>("fsus.cache.remove_many.keys");
+    private static readonly Counter<long> CacheRemoveManyRedisBatchCounter = Meter.CreateCounter<long>("fsus.cache.remove_many.redis_batches");
+    private static readonly Histogram<double> CacheRemoveManyElapsed = Meter.CreateHistogram<double>("fsus.cache.remove_many.elapsed_ms", "ms");
+    private static readonly Counter<long> CacheRemovePrefixManyPrefixCounter = Meter.CreateCounter<long>("fsus.cache.remove_prefix_many.prefixes");
+    private static readonly Counter<long> CacheRemovePrefixManyRegistryScanCounter = Meter.CreateCounter<long>("fsus.cache.remove_prefix_many.registry_scans");
+    private static readonly Counter<long> CacheRemovePrefixManyDeletedKeyCounter = Meter.CreateCounter<long>("fsus.cache.remove_prefix_many.deleted_keys");
+    private static readonly Histogram<double> CacheRemovePrefixManyElapsed = Meter.CreateHistogram<double>("fsus.cache.remove_prefix_many.elapsed_ms", "ms");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -245,6 +252,21 @@ public static class FsusObservability
         {
             Volatile.Write(ref HotArticlesVersionValue, version);
         }
+    }
+
+    public static void RecordCacheRemoveMany(long keys, long redisBatches, TimeSpan elapsed)
+    {
+        CacheRemoveManyKeyCounter.Add(Math.Max(0, keys));
+        CacheRemoveManyRedisBatchCounter.Add(Math.Max(0, redisBatches));
+        CacheRemoveManyElapsed.Record(elapsed.TotalMilliseconds);
+    }
+
+    public static void RecordCacheRemovePrefixMany(long prefixes, long registryScans, long deletedKeys, TimeSpan elapsed)
+    {
+        CacheRemovePrefixManyPrefixCounter.Add(Math.Max(0, prefixes));
+        CacheRemovePrefixManyRegistryScanCounter.Add(Math.Max(0, registryScans));
+        CacheRemovePrefixManyDeletedKeyCounter.Add(Math.Max(0, deletedKeys));
+        CacheRemovePrefixManyElapsed.Record(elapsed.TotalMilliseconds);
     }
 
     public static TimeSpan GetElapsed(long startTimestamp)

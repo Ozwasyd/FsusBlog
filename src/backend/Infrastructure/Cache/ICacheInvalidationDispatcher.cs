@@ -119,19 +119,27 @@ public sealed class CacheInvalidationDispatcher(
     {
         if (articleId is > 0)
         {
-            await cache.RemoveAsync(CachePolicyId.ArticleDetail, articleId.Value.ToString(), cancellationToken);
-            await cache.RemoveAsync(CachePolicyId.ArticleDetail, $"core:v2:{articleId.Value}", cancellationToken);
-            await cache.RemoveAsync(CachePolicyId.ArticleDetail, $"core:v3:{articleId.Value}", cancellationToken);
-            await cache.RemoveAsync(CachePolicyId.ArticleDetailFrame, $"core:v3:{articleId.Value}", cancellationToken);
+            await cache.RemoveManyAsync(
+                [
+                    new(CachePolicyId.ArticleDetail, articleId.Value.ToString()),
+                    new(CachePolicyId.ArticleDetail, $"core:v2:{articleId.Value}"),
+                    new(CachePolicyId.ArticleDetail, $"core:v3:{articleId.Value}"),
+                    new(CachePolicyId.ArticleDetailFrame, $"core:v3:{articleId.Value}")
+                ],
+                cancellationToken);
         }
 
         await cache.IncrementAsync(CachePolicyId.ArticleListVersion, "main", 1, cancellationToken);
-        await cache.RemoveAsync(CachePolicyId.ArticleRss, "main", cancellationToken);
-        await cache.RemoveAsync(CachePolicyId.AdminStats, "main", cancellationToken);
-        await cache.RemoveAsync(CachePolicyId.AdminStats, "core:main", cancellationToken);
-        await cache.RemoveAsync(CachePolicyId.AdminStatsFrame, "core:main", cancellationToken);
-        await cache.RemoveAsync(CachePolicyId.CategoryFrame, "all", cancellationToken);
-        await cache.RemoveAsync(CachePolicyId.TagFrame, "all", cancellationToken);
+        await cache.RemoveManyAsync(
+            [
+                new(CachePolicyId.ArticleRss, "main"),
+                new(CachePolicyId.AdminStats, "main"),
+                new(CachePolicyId.AdminStats, "core:main"),
+                new(CachePolicyId.AdminStatsFrame, "core:main"),
+                new(CachePolicyId.CategoryFrame, "all"),
+                new(CachePolicyId.TagFrame, "all")
+            ],
+            cancellationToken);
         long hotVersion = PublishHotArticlesVersion("article-mutation");
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList, CacheTag.HotArticles, CacheTag.Stats);
         runtimeState?.Record("article", articleId is > 0 ? $"article:{articleId.Value};hot:v{hotVersion}" : $"all;hot:v{hotVersion}");
@@ -160,8 +168,12 @@ public sealed class CacheInvalidationDispatcher(
 
     public async Task InvalidateCategoryTagAsync(CancellationToken cancellationToken = default)
     {
-        await cache.RemoveAsync(CachePolicyId.CategoryFrame, "all", cancellationToken);
-        await cache.RemoveAsync(CachePolicyId.TagFrame, "all", cancellationToken);
+        await cache.RemoveManyAsync(
+            [
+                new(CachePolicyId.CategoryFrame, "all"),
+                new(CachePolicyId.TagFrame, "all")
+            ],
+            cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.Tag, CacheTag.ArticleList);
         runtimeState?.Record("taxonomy", "category-tag");
     }
@@ -170,29 +182,39 @@ public sealed class CacheInvalidationDispatcher(
     {
         if (scope is null)
         {
-            await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursor, "article:", cancellationToken);
-            await cache.RemoveByPrefixAsync(CachePolicyId.UserCommentCursor, "user:", cancellationToken);
-            await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursorFrame, "article:", cancellationToken);
-            await cache.RemoveByPrefixAsync(CachePolicyId.UserCommentCursorFrame, "user:", cancellationToken);
+            await cache.RemoveByPrefixManyAsync(
+                [
+                    new(CachePolicyId.CommentCursor, "article:"),
+                    new(CachePolicyId.UserCommentCursor, "user:"),
+                    new(CachePolicyId.CommentCursorFrame, "article:"),
+                    new(CachePolicyId.UserCommentCursorFrame, "user:")
+                ],
+                cancellationToken);
         }
         else
         {
+            var prefixes = new List<CachePrefixIdentity>(6);
             if (scope.PublicArticleChanged && scope.ArticleId is > 0)
             {
-                await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursor, $"article:{scope.ArticleId.Value}:", cancellationToken);
-                await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursorFrame, $"article:{scope.ArticleId.Value}:", cancellationToken);
+                prefixes.Add(new CachePrefixIdentity(CachePolicyId.CommentCursor, $"article:{scope.ArticleId.Value}:"));
+                prefixes.Add(new CachePrefixIdentity(CachePolicyId.CommentCursorFrame, $"article:{scope.ArticleId.Value}:"));
             }
 
             if (scope.ArticleId is > 0 && scope.RootId is > 0)
             {
-                await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursor, $"article:{scope.ArticleId.Value}:root:{scope.RootId.Value}:", cancellationToken);
-                await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursorFrame, $"article:{scope.ArticleId.Value}:root:{scope.RootId.Value}:", cancellationToken);
+                prefixes.Add(new CachePrefixIdentity(CachePolicyId.CommentCursor, $"article:{scope.ArticleId.Value}:root:{scope.RootId.Value}:"));
+                prefixes.Add(new CachePrefixIdentity(CachePolicyId.CommentCursorFrame, $"article:{scope.ArticleId.Value}:root:{scope.RootId.Value}:"));
             }
 
             if (scope.UserCommentsChanged && scope.UserId is > 0)
             {
-                await cache.RemoveByPrefixAsync(CachePolicyId.UserCommentCursor, $"user:{scope.UserId.Value}:", cancellationToken);
-                await cache.RemoveByPrefixAsync(CachePolicyId.UserCommentCursorFrame, $"user:{scope.UserId.Value}:", cancellationToken);
+                prefixes.Add(new CachePrefixIdentity(CachePolicyId.UserCommentCursor, $"user:{scope.UserId.Value}:"));
+                prefixes.Add(new CachePrefixIdentity(CachePolicyId.UserCommentCursorFrame, $"user:{scope.UserId.Value}:"));
+            }
+
+            if (prefixes.Count > 0)
+            {
+                await cache.RemoveByPrefixManyAsync(prefixes, cancellationToken);
             }
         }
 
@@ -202,9 +224,13 @@ public sealed class CacheInvalidationDispatcher(
 
     public async Task InvalidateStatsAsync(CancellationToken cancellationToken = default)
     {
-        await cache.RemoveAsync(CachePolicyId.AdminStats, "main", cancellationToken);
-        await cache.RemoveAsync(CachePolicyId.AdminStats, "core:main", cancellationToken);
-        await cache.RemoveAsync(CachePolicyId.AdminStatsFrame, "core:main", cancellationToken);
+        await cache.RemoveManyAsync(
+            [
+                new(CachePolicyId.AdminStats, "main"),
+                new(CachePolicyId.AdminStats, "core:main"),
+                new(CachePolicyId.AdminStatsFrame, "core:main")
+            ],
+            cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Stats);
         runtimeState?.Record("stats", "admin-stats");
     }
@@ -213,10 +239,14 @@ public sealed class CacheInvalidationDispatcher(
     {
         if (articleId > 0)
         {
-            await cache.RemoveAsync(CachePolicyId.ArticleDetail, articleId.ToString(), cancellationToken);
-            await cache.RemoveAsync(CachePolicyId.ArticleDetail, $"core:v2:{articleId}", cancellationToken);
-            await cache.RemoveAsync(CachePolicyId.ArticleDetail, $"core:v3:{articleId}", cancellationToken);
-            await cache.RemoveAsync(CachePolicyId.ArticleDetailFrame, $"core:v3:{articleId}", cancellationToken);
+            await cache.RemoveManyAsync(
+                [
+                    new(CachePolicyId.ArticleDetail, articleId.ToString()),
+                    new(CachePolicyId.ArticleDetail, $"core:v2:{articleId}"),
+                    new(CachePolicyId.ArticleDetail, $"core:v3:{articleId}"),
+                    new(CachePolicyId.ArticleDetailFrame, $"core:v3:{articleId}")
+                ],
+                cancellationToken);
         }
 
         runtimeState?.Record("article_view", articleId > 0 ? $"article:{articleId}" : "unknown");

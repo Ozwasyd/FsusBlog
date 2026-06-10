@@ -203,7 +203,13 @@ public sealed class CacheMissCoordinatorTests
         public Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        public Task RemoveManyAsync(IReadOnlyList<CacheKeyIdentity> keys, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
         public Task RemoveByPrefixAsync(CachePolicyId policyId, string identityPrefix, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RemoveByPrefixManyAsync(IReadOnlyList<CachePrefixIdentity> prefixes, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public async Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)

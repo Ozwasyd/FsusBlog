@@ -198,7 +198,13 @@ public sealed class RedisPowServiceTests
         public Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
+        public Task RemoveManyAsync(IReadOnlyList<CacheKeyIdentity> keys, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
         public Task RemoveByPrefixAsync(CachePolicyId policyId, string identityPrefix, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task RemoveByPrefixManyAsync(IReadOnlyList<CachePrefixIdentity> prefixes, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
         public Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)

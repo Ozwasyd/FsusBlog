@@ -133,6 +133,21 @@ case "$MODE" in
     require_token "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs" "ArticleListFrame"
     require_token "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs" "CommentCursorFrame"
     ;;
+  cache-invalidation-batch)
+    route="cache:invalidation-batch"
+    traffic_mode="cache-mutation"
+    checks=(remove-many remove-prefix-many registry-setremove-batch prefix-policy-group dispatcher-batch)
+    require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "Task RemoveManyAsync"
+    require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "Task RemoveByPrefixManyAsync"
+    require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "_db.KeyDeleteAsync(redisKeys.ToArray())"
+    require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "_db.SetRemoveAsync(ResolveRegistryKey(policyId), members.ToArray())"
+    require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "prefixes.GroupBy(static item => item.PolicyId)"
+    require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "DeleteRegisteredKeysByPrefixesAsync(registryKey, resolvedPrefixes"
+    require_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "RemoveManyAsync"
+    require_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "RemoveByPrefixManyAsync"
+    require_token "src/backend/Infrastructure/Observability/FsusObservability.cs" "fsus.cache.remove_many.keys"
+    require_token "src/backend/Infrastructure/Observability/FsusObservability.cs" "fsus.cache.remove_prefix_many.registry_scans"
+    ;;
   index-plan)
     route="db:index-plan"
     traffic_mode="db-miss"

@@ -14,13 +14,19 @@ public sealed class CacheInvalidationDispatcherTests
 
         await sut.InvalidateArticleMutationAsync(42);
 
-        await cache.Received(1).RemoveAsync(CachePolicyId.ArticleDetail, "42", Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveAsync(CachePolicyId.ArticleDetail, "core:v2:42", Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveAsync(CachePolicyId.ArticleDetail, "core:v3:42", Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
+            HasKey(keys, CachePolicyId.ArticleDetail, "42")
+            && HasKey(keys, CachePolicyId.ArticleDetail, "core:v2:42")
+            && HasKey(keys, CachePolicyId.ArticleDetail, "core:v3:42")
+            && HasKey(keys, CachePolicyId.ArticleDetailFrame, "core:v3:42")), Arg.Any<CancellationToken>());
         await cache.Received(1).IncrementAsync(CachePolicyId.ArticleListVersion, "main", 1, Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveAsync(CachePolicyId.ArticleRss, "main", Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveAsync(CachePolicyId.AdminStats, "main", Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveAsync(CachePolicyId.AdminStats, "core:main", Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
+            HasKey(keys, CachePolicyId.ArticleRss, "main")
+            && HasKey(keys, CachePolicyId.AdminStats, "main")
+            && HasKey(keys, CachePolicyId.AdminStats, "core:main")
+            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")
+            && HasKey(keys, CachePolicyId.CategoryFrame, "all")
+            && HasKey(keys, CachePolicyId.TagFrame, "all")), Arg.Any<CancellationToken>());
         await httpCacheInvalidator.Received(1).InvalidateAsync(Arg.Is<CacheTag[]>(tags =>
             tags.Contains(CacheTag.Category)
             && tags.Contains(CacheTag.ArticleList)
@@ -37,8 +43,10 @@ public sealed class CacheInvalidationDispatcherTests
 
         await sut.InvalidateStatsAsync();
 
-        await cache.Received(1).RemoveAsync(CachePolicyId.AdminStats, "main", Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveAsync(CachePolicyId.AdminStats, "core:main", Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
+            HasKey(keys, CachePolicyId.AdminStats, "main")
+            && HasKey(keys, CachePolicyId.AdminStats, "core:main")
+            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")), Arg.Any<CancellationToken>());
         await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.Stats);
     }
 
@@ -68,10 +76,15 @@ public sealed class CacheInvalidationDispatcherTests
 
         await sut.InvalidateCommentMutationAsync();
 
-        await cache.Received(1).RemoveByPrefixAsync(CachePolicyId.CommentCursor, "article:", Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveByPrefixAsync(CachePolicyId.UserCommentCursor, "user:", Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveAsync(CachePolicyId.AdminStats, "main", Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveAsync(CachePolicyId.AdminStats, "core:main", Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveByPrefixManyAsync(Arg.Is<IReadOnlyList<CachePrefixIdentity>>(prefixes =>
+            HasPrefix(prefixes, CachePolicyId.CommentCursor, "article:")
+            && HasPrefix(prefixes, CachePolicyId.UserCommentCursor, "user:")
+            && HasPrefix(prefixes, CachePolicyId.CommentCursorFrame, "article:")
+            && HasPrefix(prefixes, CachePolicyId.UserCommentCursorFrame, "user:")), Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
+            HasKey(keys, CachePolicyId.AdminStats, "main")
+            && HasKey(keys, CachePolicyId.AdminStats, "core:main")
+            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")), Arg.Any<CancellationToken>());
         await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.Stats);
         await httpCacheInvalidator.DidNotReceive().InvalidateAsync(CacheTag.Comment);
     }
@@ -90,12 +103,24 @@ public sealed class CacheInvalidationDispatcherTests
             PublicArticleChanged: true,
             UserCommentsChanged: true));
 
-        await cache.Received(1).RemoveByPrefixAsync(CachePolicyId.CommentCursor, "article:42:", Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveByPrefixAsync(CachePolicyId.CommentCursor, "article:42:root:99:", Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveByPrefixAsync(CachePolicyId.UserCommentCursor, "user:7:", Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveAsync(CachePolicyId.AdminStats, "main", Arg.Any<CancellationToken>());
-        await cache.Received(1).RemoveAsync(CachePolicyId.AdminStats, "core:main", Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveByPrefixManyAsync(Arg.Is<IReadOnlyList<CachePrefixIdentity>>(prefixes =>
+            HasPrefix(prefixes, CachePolicyId.CommentCursor, "article:42:")
+            && HasPrefix(prefixes, CachePolicyId.CommentCursorFrame, "article:42:")
+            && HasPrefix(prefixes, CachePolicyId.CommentCursor, "article:42:root:99:")
+            && HasPrefix(prefixes, CachePolicyId.CommentCursorFrame, "article:42:root:99:")
+            && HasPrefix(prefixes, CachePolicyId.UserCommentCursor, "user:7:")
+            && HasPrefix(prefixes, CachePolicyId.UserCommentCursorFrame, "user:7:")), Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
+            HasKey(keys, CachePolicyId.AdminStats, "main")
+            && HasKey(keys, CachePolicyId.AdminStats, "core:main")
+            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")), Arg.Any<CancellationToken>());
         await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.Stats);
         await httpCacheInvalidator.DidNotReceive().InvalidateAsync(CacheTag.Comment);
     }
+
+    private static bool HasKey(IReadOnlyList<CacheKeyIdentity> keys, CachePolicyId policyId, string identity)
+        => keys.Any(key => key.PolicyId == policyId && key.Identity == identity);
+
+    private static bool HasPrefix(IReadOnlyList<CachePrefixIdentity> prefixes, CachePolicyId policyId, string identityPrefix)
+        => prefixes.Any(prefix => prefix.PolicyId == policyId && prefix.IdentityPrefix == identityPrefix);
 }
