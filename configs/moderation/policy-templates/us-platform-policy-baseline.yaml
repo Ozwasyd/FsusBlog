@@ -1,0 +1,25 @@
+template_id: us-platform-policy-baseline
+version: 2026-06
+scope: region
+region: US
+region_group:
+source: fsusblog-engineering-preset
+reviewed_by: operator-review-required
+reviewed_at_utc:
+is_builtin: true
+is_enabled: true
+not_legal_advice: true
+description: US platform policy engineering preset. Does not treat ordinary political speech as illegal content.
+rules:
+  - category: threat_of_violence
+    submit_action: reject_submit
+    display_action: geo_block
+  - category: harassment
+    submit_action: manual_review
+    display_action: manual_review_no_public_display
+  - category: scam
+    submit_action: manual_review_no_public_display
+    display_action: geo_block
+  - category: child_safety
+    submit_action: reject_submit
+    display_action: geo_block

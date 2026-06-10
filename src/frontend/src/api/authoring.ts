@@ -664,6 +664,80 @@ export interface ModerationModelRuntimeRequest {
   reason?: string | null
 }
 
+export interface ModerationRegionDefinition {
+  regionCode: string
+  displayName: string
+  parentRegion: string | null
+  primaryGroup: string | null
+  policyTemplate: string | null
+  enabled: boolean
+  builtin: boolean
+  description: string | null
+}
+
+export interface ModerationRegionGroupDefinition {
+  groupCode: string
+  displayName: string
+  policyTemplate: string | null
+  builtin: boolean
+  enabled: boolean
+  regions: string[]
+  description: string | null
+}
+
+export interface ModerationPolicyTemplateRule {
+  category: string
+  submitAction: string
+  displayAction: string
+}
+
+export interface ModerationPolicyTemplateDefinition {
+  templateId: string
+  version: string
+  scope: string
+  region: string | null
+  regionGroup: string | null
+  source: string
+  reviewedBy: string
+  reviewedAtUtc: string | null
+  builtin: boolean
+  enabled: boolean
+  notLegalAdvice: boolean
+  description: string
+  checksum: string
+  rules: ModerationPolicyTemplateRule[]
+}
+
+export interface ModerationEffectivePolicyStep {
+  step: string
+  sourceId: string
+  sourceType: string
+  rules: ModerationPolicyTemplateRule[]
+}
+
+export interface ModerationEffectivePolicyRule {
+  category: string
+  submitAction: string
+  displayAction: string
+  sourceId: string
+  sourceType: string
+}
+
+export interface ModerationEffectivePolicyPreview {
+  region: string
+  displayName: string
+  regionGroups: string[]
+  inheritance: ModerationEffectivePolicyStep[]
+  rules: ModerationEffectivePolicyRule[]
+  checksum: string
+  warnings: string[]
+}
+
+export interface ModerationEffectivePolicyPreviewRequest {
+  regionCode: string
+  operatorOverrides?: ModerationPolicyTemplateRule[] | null
+}
+
 export interface ModerationReplayPreviewRequest {
   region?: string | null
   policyVersion?: string | null
@@ -1236,6 +1310,64 @@ export async function setModerationRegionState(
   })
 
   return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_runtime_region_state_failed:${response.status}`)
+}
+
+export async function listModerationRegions(config?: ApiRequestConfig): Promise<ModerationRegionDefinition[]> {
+  const response = await fetch('/api/author/moderation/regions', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<ModerationRegionDefinition[]>(response, `moderation_regions_fetch_failed:${response.status}`)
+}
+
+export async function listModerationRegionGroups(config?: ApiRequestConfig): Promise<ModerationRegionGroupDefinition[]> {
+  const response = await fetch('/api/author/moderation/region-groups', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<ModerationRegionGroupDefinition[]>(response, `moderation_region_groups_fetch_failed:${response.status}`)
+}
+
+export async function listModerationPolicyTemplates(config?: ApiRequestConfig): Promise<ModerationPolicyTemplateDefinition[]> {
+  const response = await fetch('/api/author/moderation/policy-templates', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<ModerationPolicyTemplateDefinition[]>(response, `moderation_policy_templates_fetch_failed:${response.status}`)
+}
+
+export async function getModerationEffectivePolicy(
+  regionCode: string,
+  config?: ApiRequestConfig
+): Promise<ModerationEffectivePolicyPreview> {
+  const response = await fetch(`/api/author/moderation/effective-policy/${encodeURIComponent(regionCode)}`, {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<ModerationEffectivePolicyPreview>(response, `moderation_effective_policy_fetch_failed:${response.status}`)
+}
+
+export async function previewModerationEffectivePolicy(
+  request: ModerationEffectivePolicyPreviewRequest,
+  config?: ApiRequestConfig
+): Promise<ModerationEffectivePolicyPreview> {
+  const response = await fetch('/api/author/moderation/effective-policy/preview', {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders(true, config?.mfaProofToken),
+    signal: config?.signal,
+    body: JSON.stringify(request)
+  })
+
+  return await readJsonEnvelope<ModerationEffectivePolicyPreview>(response, `moderation_effective_policy_preview_failed:${response.status}`)
 }
 
 export async function listModerationPolicies(config?: ApiRequestConfig): Promise<RegionPolicySummaryResponse[]> {

@@ -986,6 +986,11 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 | POST | `/api/author/moderation/dictionaries/{dictionaryId}/enable` | 移除指定词库的 runtime disabled override；必须携带 `X-Fsus-Mfa-Proof` |
 | POST | `/api/author/moderation/dictionaries/{dictionaryId}/disable` | 添加指定词库的 runtime disabled override；CN-MAINLAND 强制词库需要确认短语；必须携带 `X-Fsus-Mfa-Proof` |
 | GET | `/api/author/moderation/policies` | 地区策略 summary，包含 `criticalChecks`，用于校验 `CN-MAINLAND` 必需词库与动作 |
+| GET | `/api/author/moderation/regions` | 地区定义 catalog，包含内置和自定义地区、父地区、大区、模板绑定与启用状态 |
+| GET | `/api/author/moderation/region-groups` | 地区大区 catalog，包含成员地区、默认模板、内置/自定义标记 |
+| GET | `/api/author/moderation/policy-templates` | 策略模板 presets，包含 source/version/checksum/review marker 和 not-legal-advice 标记 |
+| GET | `/api/author/moderation/effective-policy/{regionCode}` | 指定地区 effective policy preview，显示继承顺序、最终规则和 checksum |
+| POST | `/api/author/moderation/effective-policy/preview` | 带 operator override rules 的 effective policy preview，不执行 replay 或持久变更 |
 | POST | `/api/author/moderation/replay/preview` | 策略回放 preview，只返回 diff 汇总和受影响评论，不执行变更 |
 | GET | `/api/author/moderation/runtime/status` | 当前审核运行时状态，包含全局状态、地区 override、禁用词库集合和模型快照 |
 | POST | `/api/author/moderation/runtime/global-state` | 设置全局审核运行状态；必须携带 `X-Fsus-Mfa-Proof`，写高价值审计并清理评论缓存 |
@@ -1016,6 +1021,10 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 `ModerationDictionaryRuntimeSnapshot` 只用于 admin 作者工作台读取当前词库运行时 metadata：`snapshotId/version/checksum/createdAtUtc/lastError`、词库 `dictionaryId/version/scope/region/category/source/reviewedBy/updatedAtUtc/checksum/evidencePolicy/termCount`，以及地区策略 `region/version/inherits/dictionaryIds/checksum/ruleCount/rules`。该响应不包含 `terms`、命中词、alias 或高风险词条明文；`evidencePolicy=redact` 时管理台只能展示 metadata。词库 action 不会从词库项下发，发布/展示动作仍由服务端地区策略执行。
 
 `RegionPolicySummaryResponse` 返回 `region/version/inherits/dictionaryIds/checksum/ruleCount/criticalChecks`。`CN-MAINLAND` 必须检查继承 `GLOBAL`、加载 `cn-mainland.political-sensitive`、`cn-mainland.porn-strict`、`cn-mainland.public-order`、`cn-mainland.national-security`，并保证 `political_sensitive` 与 `pornographic` 的 submit action 为 `reject_submit`、display action 为 `geo_block`。
+
+`ModerationRegionDefinition` 返回 `regionCode/displayName/parentRegion/primaryGroup/policyTemplate/enabled/builtin/description`；`ModerationRegionGroupDefinition` 返回 `groupCode/displayName/policyTemplate/builtin/enabled/regions/description`；`ModerationPolicyTemplateDefinition` 返回 `templateId/version/scope/region/regionGroup/source/reviewedBy/reviewedAtUtc/builtin/enabled/notLegalAdvice/description/checksum/rules`。默认模板是 engineering presets，不是法律意见；内置模板必须带 `source/version/checksum/reviewed_by/reviewed_at_utc` 字段并标记 `notLegalAdvice=true`。`GREATER_CHINA` 大区不配置 `cn-mainland-strict` 模板，`CN-HK/CN-MO/CN-TW` 默认不继承中国大陆严格策略。
+
+`ModerationEffectivePolicyPreview` 返回 `region/displayName/regionGroups/inheritance/rules/checksum/warnings`。继承顺序为 `GLOBAL baseline -> region group policy -> parent region policy -> concrete region policy -> operator overrides`，后者覆盖同 category 的前者。`GET /effective-policy/{regionCode}` 只使用当前 catalog 与地区策略 snapshot；`POST /effective-policy/preview` 可传 `operatorOverrides` 进行 dry-run，不写入配置、不重算历史评论。preview 会写普通审计 `admin.moderation.effective_policy_previewed`，执行型 replay 仍必须另走 MFA、确认短语和高价值审计。
 
 `ModerationDictionaryReloadResponse` 返回 `reloaded/snapshotId/checksum/error/reloadedAtUtc`。该端点是高风险写操作，必须先通过 action=`admin-sensitive` 的 MFA challenge 获取一次性 proof，并在请求头传入 `X-Fsus-Mfa-Proof`；失败时旧 snapshot 保持不变。
 

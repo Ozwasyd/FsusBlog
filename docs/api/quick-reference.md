@@ -228,6 +228,11 @@
 | POST | `/api/author/moderation/dictionaries/{dictionaryId}/enable` | 👑🚦 MFA | 启用运行时词库 override |
 | POST | `/api/author/moderation/dictionaries/{dictionaryId}/disable` | 👑🚦 MFA | 禁用运行时词库 override；CN-MAINLAND 强制词库需确认短语 |
 | GET | `/api/author/moderation/policies` | 👑 | 地区策略 summary 与 CN-MAINLAND 强制检查 |
+| GET | `/api/author/moderation/regions` | 👑 | 地区定义 catalog，含内置/自定义地区和模板绑定 |
+| GET | `/api/author/moderation/region-groups` | 👑 | 地区大区 catalog，含成员地区和大区模板 |
+| GET | `/api/author/moderation/policy-templates` | 👑 | 默认/自定义策略模板 presets、review marker 和 checksum |
+| GET | `/api/author/moderation/effective-policy/{regionCode}` | 👑🚦 | 指定地区 effective policy preview |
+| POST | `/api/author/moderation/effective-policy/preview` | 👑🚦 | 带 operator override 的 effective policy preview |
 | POST | `/api/author/moderation/replay/preview` | 👑🚦 | 策略回放 preview diff，不执行变更 |
 | GET | `/api/author/moderation/runtime/status` | 👑 | 审核运行时全局/地区/词库/模型状态 |
 | POST | `/api/author/moderation/runtime/global-state` | 👑🚦 MFA | 调整全局审核运行状态 |

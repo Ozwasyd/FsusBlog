@@ -129,6 +129,9 @@ const internalLinks = [
   { label: '评论审核', helper: '审核队列、模型风险信号和地区策略结果。', name: 'ManageModerationComments' },
   { label: '词库管理', helper: '只展示 metadata、checksum 和 evidence policy。', name: 'ManageModerationDictionaries' },
   { label: '地区策略', helper: '查看 policy -> dictionaries 的组合结果。', name: 'ManageModerationPolicies' },
+  { label: '地区管理', helper: '地区定义、模板绑定和 effective policy preview。', name: 'ManageModerationRegions' },
+  { label: '大区管理', helper: '地区大区成员和统一策略模板。', name: 'ManageModerationRegionGroups' },
+  { label: '策略模板', helper: '默认模板 preset、review marker 和 checksum。', name: 'ManageModerationPolicyTemplates' },
   { label: '策略回放', helper: '先 preview diff，再进入受控执行流程。', name: 'ManageModerationReplay' },
   { label: '审核模型', helper: '模型只提供风险信号，不覆盖地区策略。', name: 'ManageModerationModel' },
   { label: '审核审计', helper: '跳转通用审计日志并预置审核动作。', name: 'ManageModerationAudit' }

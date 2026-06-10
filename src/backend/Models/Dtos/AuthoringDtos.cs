@@ -1,4 +1,5 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Models.Moderation;
 
 namespace FsusBlog.Server.Models.Dtos;
 
@@ -276,6 +277,10 @@ public sealed record class ModerationModelRuntimeRequest(
     string? ModelProfile = null,
     string? ThresholdProfile = null,
     string? Reason = null);
+
+public sealed record class ModerationEffectivePolicyPreviewRequest(
+    string RegionCode,
+    IReadOnlyList<ModerationPolicyTemplateRule>? OperatorOverrides = null);
 
 public sealed record class ModerationReplayPreviewRequest(
     string? Region,

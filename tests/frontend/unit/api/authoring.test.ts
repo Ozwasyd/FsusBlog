@@ -11,6 +11,7 @@ import {
   getAuthorAnalytics,
   getArticleRevision,
   getModerationDictionarySnapshot,
+  getModerationEffectivePolicy,
   getModerationModelStatus,
   getModerationOverview,
   getModerationRuntimeStatus,
@@ -22,9 +23,13 @@ import {
   listAssetLibrary,
   listCommentModerationQueue,
   listModerationPolicies,
+  listModerationPolicyTemplates,
+  listModerationRegionGroups,
+  listModerationRegions,
   moderateComment,
   moderateCommentsBulk,
   previewModerationReplay,
+  previewModerationEffectivePolicy,
   previewArticleDraft,
   reindexArticleAssets,
   reloadModerationDictionaries,
@@ -484,6 +489,98 @@ describe('authoring API (server drafts)', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/author/moderation/policies', expect.objectContaining({
       credentials: 'include'
     }))
+  })
+
+  it('region catalog APIs fetch regions groups templates and effective policy preview', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        data: [{
+          regionCode: 'CN-MAINLAND',
+          displayName: 'Mainland China',
+          parentRegion: null,
+          primaryGroup: 'GREATER_CHINA',
+          policyTemplate: 'cn-mainland-strict',
+          enabled: true,
+          builtin: true,
+          description: 'strict'
+        }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        data: [{
+          groupCode: 'GREATER_CHINA',
+          displayName: 'Greater China',
+          policyTemplate: null,
+          builtin: true,
+          enabled: true,
+          regions: ['CN-MAINLAND', 'CN-HK', 'CN-MO', 'CN-TW'],
+          description: 'group only'
+        }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        data: [{
+          templateId: 'cn-mainland-strict',
+          version: '2026-06',
+          scope: 'region',
+          region: 'CN-MAINLAND',
+          regionGroup: null,
+          source: 'fsusblog-engineering-preset',
+          reviewedBy: 'operator-review-required',
+          reviewedAtUtc: null,
+          builtin: true,
+          enabled: true,
+          notLegalAdvice: true,
+          description: 'preset',
+          checksum: 'checksum',
+          rules: [{ category: 'political_sensitive', submitAction: 'reject_submit', displayAction: 'geo_block' }]
+        }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        data: {
+          region: 'CN-MAINLAND',
+          displayName: 'Mainland China',
+          regionGroups: ['GREATER_CHINA'],
+          inheritance: [{ step: 'region-template', sourceId: 'cn-mainland-strict', sourceType: 'template', rules: [] }],
+          rules: [{ category: 'political_sensitive', submitAction: 'reject_submit', displayAction: 'geo_block', sourceId: 'cn-mainland-strict', sourceType: 'template' }],
+          checksum: 'effective',
+          warnings: []
+        }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        data: {
+          region: 'CUSTOM-US-CAMPUS',
+          displayName: 'CUSTOM-US-CAMPUS',
+          regionGroups: [],
+          inheritance: [{ step: 'operator-preview', sourceId: 'operator-overrides', sourceType: 'operator_override', rules: [] }],
+          rules: [{ category: 'harassment', submitAction: 'manual_review', displayAction: 'manual_review_no_public_display', sourceId: 'operator-overrides', sourceType: 'operator_override' }],
+          checksum: 'preview',
+          warnings: []
+        }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const regions = await listModerationRegions()
+    const groups = await listModerationRegionGroups()
+    const templates = await listModerationPolicyTemplates()
+    const effective = await getModerationEffectivePolicy('CN-MAINLAND')
+    const preview = await previewModerationEffectivePolicy({
+      regionCode: 'CUSTOM-US-CAMPUS',
+      operatorOverrides: [{ category: 'harassment', submitAction: 'manual_review', displayAction: 'manual_review_no_public_display' }]
+    })
+
+    expect(regions[0]?.policyTemplate).toBe('cn-mainland-strict')
+    expect(groups[0]?.policyTemplate).toBeNull()
+    expect(templates[0]?.notLegalAdvice).toBe(true)
+    expect(effective.rules[0]?.displayAction).toBe('geo_block')
+    expect(preview.rules[0]?.sourceType).toBe('operator_override')
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/author/moderation/regions')
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/author/moderation/region-groups')
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/api/author/moderation/policy-templates')
+    expect(fetchMock.mock.calls[3]?.[0]).toBe('/api/author/moderation/effective-policy/CN-MAINLAND')
+    expect(fetchMock.mock.calls[4]?.[0]).toBe('/api/author/moderation/effective-policy/preview')
   })
 
   it('getModerationModelStatus fetches model boundary and latency status', async () => {

@@ -17,6 +17,8 @@ Dictionary hits produce `category`, `severity`, `reason`, and redacted evidence 
 
 ```text
 configs/moderation/
+  regions.yaml
+  policy-templates/*.yaml
   dictionaries/
     global/*.yaml
     regions/{region}/*.yaml
@@ -24,6 +26,8 @@ configs/moderation/
 ```
 
 Each dictionary must declare `dictionary_id`, `version`, `scope`, `category`, `source`, `reviewed_by`, `updated_at`, and `terms`. Checksums are computed at load time. Regional dictionaries must declare `region`.
+
+`regions.yaml` defines built-in and operator custom regions plus region groups. `policy-templates/*.yaml` defines engineering presets with `template_id`, `version`, `source`, `reviewed_by`, `reviewed_at_utc`, `not_legal_advice`, checksum-at-load, and rules. Templates are configuration presets, not legal advice; operators must review them against actual service regions, deployment location, business type, and legal counsel.
 
 Dictionary categories use the same normalized category set as model-provider signals where possible:
 
@@ -67,6 +71,20 @@ CN-MAINLAND strict actions still remain scoped through #73:
 submit_region == CN-MAINLAND
 or viewer_region == CN-MAINLAND
 ```
+
+`GREATER_CHINA` is a region group, not the CN-MAINLAND strict policy. `CN-HK`, `CN-MO`, and `CN-TW` do not inherit `cn-mainland-strict` unless an operator explicitly configures that override.
+
+Effective policy preview is resolved as:
+
+```text
+GLOBAL baseline
+  -> region group policy
+  -> parent region policy
+  -> concrete region policy
+  -> operator overrides
+```
+
+Later layers override earlier layers by category. Model providers never decide effective policy, legal region status, or `blocked_regions`.
 
 ## Admin Metadata
 

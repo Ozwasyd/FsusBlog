@@ -14,6 +14,11 @@ public sealed class ModerationConsoleContractTests
         Assert.Contains("MapPost(\"/moderation/dictionaries/{dictionaryId}/enable\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/moderation/dictionaries/{dictionaryId}/disable\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/moderation/policies\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/moderation/regions\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/moderation/region-groups\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/moderation/policy-templates\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/moderation/effective-policy/{regionCode}\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/moderation/effective-policy/preview\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/moderation/replay/preview\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/moderation/runtime/status\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/moderation/runtime/global-state\"", endpoints, StringComparison.Ordinal);
@@ -28,6 +33,7 @@ public sealed class ModerationConsoleContractTests
         Assert.Contains("admin.moderation.replay_previewed", endpoints, StringComparison.Ordinal);
         Assert.Contains("admin.moderation.runtime_region_state_changed", endpoints, StringComparison.Ordinal);
         Assert.Contains("admin.moderation.model_runtime_changed", endpoints, StringComparison.Ordinal);
+        Assert.Contains("admin.moderation.effective_policy_previewed", endpoints, StringComparison.Ordinal);
         Assert.Contains("cacheInvalidation.InvalidateCommentMutationAsync(null, cancellationToken)", endpoints, StringComparison.Ordinal);
     }
 

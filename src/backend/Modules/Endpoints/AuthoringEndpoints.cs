@@ -419,6 +419,48 @@ public static class AuthoringEndpoints
             return Results.Ok(JsonApiResponse<IReadOnlyList<RegionPolicySummaryResponse>>.Ok(policies));
         });
 
+        group.MapGet("/moderation/regions", (IModerationRegionCatalogService regionCatalog) =>
+        {
+            ModerationRegionCatalogSnapshot snapshot = regionCatalog.GetRuntimeSnapshot();
+            return Results.Ok(JsonApiResponse<IReadOnlyList<ModerationRegionDefinition>>.Ok(snapshot.Regions));
+        });
+
+        group.MapGet("/moderation/region-groups", (IModerationRegionCatalogService regionCatalog) =>
+        {
+            ModerationRegionCatalogSnapshot snapshot = regionCatalog.GetRuntimeSnapshot();
+            return Results.Ok(JsonApiResponse<IReadOnlyList<ModerationRegionGroupDefinition>>.Ok(snapshot.RegionGroups));
+        });
+
+        group.MapGet("/moderation/policy-templates", (IModerationRegionCatalogService regionCatalog) =>
+        {
+            ModerationRegionCatalogSnapshot snapshot = regionCatalog.GetRuntimeSnapshot();
+            return Results.Ok(JsonApiResponse<IReadOnlyList<ModerationPolicyTemplateDefinition>>.Ok(snapshot.PolicyTemplates));
+        });
+
+        group.MapGet("/moderation/effective-policy/{regionCode}", async (
+            string regionCode,
+            IModerationRegionCatalogService regionCatalog,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            ModerationEffectivePolicyPreview preview = regionCatalog.PreviewEffectivePolicy(regionCode);
+            await RecordEffectivePolicyPreviewAuditAsync(preview, auditEvents, cancellationToken);
+            return Results.Ok(JsonApiResponse<ModerationEffectivePolicyPreview>.Ok(preview));
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/moderation/effective-policy/preview", async (
+            ModerationEffectivePolicyPreviewRequest request,
+            IModerationRegionCatalogService regionCatalog,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            ModerationEffectivePolicyPreview preview = regionCatalog.PreviewEffectivePolicy(request.RegionCode, request.OperatorOverrides);
+            await RecordEffectivePolicyPreviewAuditAsync(preview, auditEvents, cancellationToken);
+            return Results.Ok(JsonApiResponse<ModerationEffectivePolicyPreview>.Ok(preview));
+        })
+        .RequireRateLimiting("fixed_ip");
+
         group.MapGet("/moderation/model/status", async (
             IConfiguration configuration,
             IModerationRuntimeStateService runtimeState,
@@ -1002,6 +1044,28 @@ public static class AuthoringEndpoints
 
         return app;
     }
+
+    private static Task RecordEffectivePolicyPreviewAuditAsync(
+        ModerationEffectivePolicyPreview preview,
+        IAuditEventService auditEvents,
+        CancellationToken cancellationToken)
+        => auditEvents.RecordAsync(new AuditEvent(
+            AuditSourceCatalog.Admin,
+            AuditTypeCatalog.Security,
+            "admin.moderation.effective_policy_previewed",
+            AuditOutcomeCatalog.Success,
+            preview.Warnings.Count > 0 ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Info,
+            "管理员预览地区 effective policy",
+            TargetType: "moderation_effective_policy",
+            TargetId: preview.Region,
+            Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["region"] = preview.Region,
+                ["inheritance"] = preview.Inheritance.Select(static item => item.SourceId).ToArray(),
+                ["ruleCount"] = preview.Rules.Count,
+                ["checksum"] = preview.Checksum,
+                ["warnings"] = preview.Warnings
+            }), cancellationToken);
 
     private static async Task<IResult> CompleteModerationRuntimeMutationAsync(
         Result<ModerationRuntimeSnapshot> result,

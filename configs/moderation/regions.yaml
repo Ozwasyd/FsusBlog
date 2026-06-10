@@ -1,0 +1,226 @@
+regions:
+  - region_code: GLOBAL
+    display_name: Global
+    parent_region:
+    primary_group: GLOBAL
+    policy_template: global-baseline
+    enabled: true
+    builtin: true
+    description: Global baseline policy scope.
+  - region_code: UNKNOWN
+    display_name: Unknown region
+    parent_region:
+    primary_group: GLOBAL
+    policy_template: global-baseline
+    enabled: true
+    builtin: true
+    description: Conservative fallback when IP region cannot be resolved.
+  - region_code: CN-MAINLAND
+    display_name: Mainland China
+    parent_region:
+    primary_group: GREATER_CHINA
+    policy_template: cn-mainland-strict
+    enabled: true
+    builtin: true
+    description: Mainland China strict submit/viewer policy scope.
+  - region_code: CN-HK
+    display_name: Hong Kong
+    parent_region:
+    primary_group: GREATER_CHINA
+    policy_template:
+    enabled: true
+    builtin: true
+    description: Greater China member without CN-MAINLAND strict inheritance.
+  - region_code: CN-MO
+    display_name: Macao
+    parent_region:
+    primary_group: GREATER_CHINA
+    policy_template:
+    enabled: true
+    builtin: true
+    description: Greater China member without CN-MAINLAND strict inheritance.
+  - region_code: CN-TW
+    display_name: Taiwan
+    parent_region:
+    primary_group: GREATER_CHINA
+    policy_template:
+    enabled: true
+    builtin: true
+    description: Greater China member without CN-MAINLAND strict inheritance.
+  - region_code: SG
+    display_name: Singapore
+    parent_region:
+    primary_group: SEA
+    policy_template: sg-public-harmony-baseline
+    enabled: true
+    builtin: true
+    description: Singapore public harmony baseline.
+  - region_code: JP
+    display_name: Japan
+    parent_region:
+    primary_group: APAC
+    policy_template:
+    enabled: true
+    builtin: true
+    description: Japan region preset entry.
+  - region_code: KR
+    display_name: Korea
+    parent_region:
+    primary_group: APAC
+    policy_template:
+    enabled: true
+    builtin: true
+    description: Korea region preset entry.
+  - region_code: EU
+    display_name: European Union
+    parent_region:
+    primary_group: EU
+    policy_template: eu-illegal-content-baseline
+    enabled: true
+    builtin: true
+    description: EU group policy anchor.
+  - region_code: EU-DE
+    display_name: Germany
+    parent_region: EU
+    primary_group: EU
+    policy_template:
+    enabled: true
+    builtin: true
+    description: Germany inherits EU baseline by explicit parent/group.
+  - region_code: EU-FR
+    display_name: France
+    parent_region: EU
+    primary_group: EU
+    policy_template:
+    enabled: true
+    builtin: true
+    description: France inherits EU baseline by explicit parent/group.
+  - region_code: EU-NL
+    display_name: Netherlands
+    parent_region: EU
+    primary_group: EU
+    policy_template:
+    enabled: true
+    builtin: true
+    description: Netherlands inherits EU baseline by explicit parent/group.
+  - region_code: UK
+    display_name: United Kingdom
+    parent_region:
+    primary_group: EUROPE_NON_EU
+    policy_template:
+    enabled: true
+    builtin: true
+    description: UK non-EU Europe preset entry.
+  - region_code: US
+    display_name: United States
+    parent_region:
+    primary_group: NORTH_AMERICA
+    policy_template: us-platform-policy-baseline
+    enabled: true
+    builtin: true
+    description: US platform policy baseline.
+  - region_code: US-CA
+    display_name: California
+    parent_region: US
+    primary_group: NORTH_AMERICA
+    policy_template:
+    enabled: true
+    builtin: true
+    description: US state custom policy anchor.
+  - region_code: US-TX
+    display_name: Texas
+    parent_region: US
+    primary_group: NORTH_AMERICA
+    policy_template:
+    enabled: true
+    builtin: true
+    description: US state custom policy anchor.
+  - region_code: CA
+    display_name: Canada
+    parent_region:
+    primary_group: NORTH_AMERICA
+    policy_template:
+    enabled: true
+    builtin: true
+    description: Canada region preset entry.
+  - region_code: AU
+    display_name: Australia
+    parent_region:
+    primary_group: COMMONWEALTH
+    policy_template:
+    enabled: true
+    builtin: true
+    description: Australia region preset entry.
+  - region_code: NZ
+    display_name: New Zealand
+    parent_region:
+    primary_group: COMMONWEALTH
+    policy_template:
+    enabled: true
+    builtin: true
+    description: New Zealand region preset entry.
+
+region_groups:
+  - group_code: GLOBAL
+    display_name: Global
+    policy_template: global-baseline
+    builtin: true
+    enabled: true
+    regions: [GLOBAL, UNKNOWN]
+    description: Global baseline group.
+  - group_code: GREATER_CHINA
+    display_name: Greater China
+    policy_template:
+    builtin: true
+    enabled: true
+    regions: [CN-MAINLAND, CN-HK, CN-MO, CN-TW]
+    description: Grouping only; does not propagate CN-MAINLAND strict policy.
+  - group_code: EU
+    display_name: European Union
+    policy_template: eu-illegal-content-baseline
+    builtin: true
+    enabled: true
+    regions: [EU, EU-DE, EU-FR, EU-NL]
+    description: EU illegal content baseline group.
+  - group_code: EUROPE_NON_EU
+    display_name: Europe Non-EU
+    policy_template:
+    builtin: true
+    enabled: true
+    regions: [UK]
+    description: Non-EU Europe grouping.
+  - group_code: NORTH_AMERICA
+    display_name: North America
+    policy_template:
+    builtin: true
+    enabled: true
+    regions: [US, US-CA, US-TX, CA]
+    description: North America grouping.
+  - group_code: APAC
+    display_name: APAC
+    policy_template:
+    builtin: true
+    enabled: true
+    regions: [JP, KR, SG, AU, NZ]
+    description: APAC grouping.
+  - group_code: SEA
+    display_name: Southeast Asia
+    policy_template:
+    builtin: true
+    enabled: true
+    regions: [SG]
+    description: Southeast Asia grouping.
+  - group_code: COMMONWEALTH
+    display_name: Commonwealth
+    policy_template:
+    builtin: true
+    enabled: true
+    regions: [UK, AU, NZ, CA]
+    description: Commonwealth grouping.
+  - group_code: CUSTOM
+    display_name: Custom
+    policy_template:
+    builtin: true
+    enabled: true
+    regions: []
+    description: Operator-defined regions and groups attach here by default.

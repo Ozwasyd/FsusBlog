@@ -24,6 +24,9 @@ const items = [
   { label: '评论审核', name: 'ManageModerationComments' },
   { label: '词库管理', name: 'ManageModerationDictionaries' },
   { label: '地区策略', name: 'ManageModerationPolicies' },
+  { label: '地区', name: 'ManageModerationRegions' },
+  { label: '大区', name: 'ManageModerationRegionGroups' },
+  { label: '模板', name: 'ManageModerationPolicyTemplates' },
   { label: '策略回放', name: 'ManageModerationReplay' },
   { label: '审核模型', name: 'ManageModerationModel' },
   { label: '审核审计', name: 'ManageModerationAudit' }
