@@ -1,5 +1,6 @@
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Telemetry;
+using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Modules.Endpoints;
 
@@ -13,7 +14,7 @@ public static class TelemetryEndpoints
 
         group.MapPost("/rum", async (
             RumMetricRequest request,
-            RumTelemetryService service,
+            IRumTelemetryService service,
             CancellationToken cancellationToken) =>
         {
             RumMetricIngestResponse response = await service.IngestAsync(request, cancellationToken);

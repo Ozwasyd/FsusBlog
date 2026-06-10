@@ -478,6 +478,22 @@
       ]
     },
     {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Telemetry.cs",
+      "frontendWrapper": "src/frontend/src/services/telemetryService.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/telemetryAdapter.ts",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/telemetry/rum",
+          "auth": "anonymous",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "RumMetricBatchRequest",
+          "responseFrame": "RumMetricIngestResponse",
+          "surface": "rum-telemetry"
+        }
+      ]
+    },
+    {
       "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs",
       "frontendWrapper": "src/frontend/src/api/admin.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/userAdapter.ts",
@@ -1219,5 +1235,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 93
+  "openapiOperationCount": 94
 }

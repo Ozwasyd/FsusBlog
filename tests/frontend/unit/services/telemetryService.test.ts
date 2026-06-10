@@ -1,8 +1,17 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AEDS_HEADER_LENGTH, FrameType } from '@wasm/protocol/frame'
 import { emitRumMetric } from '@/services/telemetryService'
 
 describe('emitRumMetric', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
   afterEach(() => {
+    vi.runOnlyPendingTimers()
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
     document.body.innerHTML = ''
@@ -22,27 +31,29 @@ describe('emitRumMetric', () => {
       durationMs: 1234,
       ignored: 'raw'
     })
-    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(250)
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/telemetry/rum', expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith('/api/binary/telemetry/rum', expect.objectContaining({
       method: 'POST',
       credentials: 'omit',
       keepalive: true
     }))
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    const body = JSON.parse(String(init.body))
-    expect(body).toMatchObject({
-      name: 'web_vital_lcp',
-      pageType: 'article',
-      aotSource: 'server-aot',
-      value: 1234,
-      metrics: {
-        value: 1234,
-        durationMs: 1234
-      }
-    })
-    expect(JSON.stringify(body)).not.toContain('/article/42')
-    expect(JSON.stringify(body)).not.toContain('ignored')
+    const headers = init.headers as Headers
+    expect(headers.get('Content-Type')).toBe('application/octet-stream')
+    expect(headers.get('Accept')).toBe('application/octet-stream')
+    const frame = init.body as ArrayBuffer
+    expect(readFrameType(frame)).toBe(FrameType.RumMetricBatchRequest)
+    const payloadView = new DataView(frame, AEDS_HEADER_LENGTH)
+    expect(payloadView.getInt32(0, true)).toBe(1)
+    expect(payloadView.getInt32(4, true)).toBe(2)
+    const text = new TextDecoder().decode(new Uint8Array(frame))
+    expect(text).toContain('web_vital_lcp')
+    expect(text).toContain('article')
+    expect(text).toContain('server-aot')
+    expect(text).toContain('durationMs')
+    expect(text).not.toContain('/article/42')
+    expect(text).not.toContain('ignored')
   })
 
   it('does not send RUM from private routes', async () => {
@@ -52,9 +63,18 @@ describe('emitRumMetric', () => {
     setPathname('/admin/dashboard')
 
     emitRumMetric('web_vital_cls', { value: 0.03 })
-    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(250)
 
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('does not retain JSON fallback compatibility in the telemetry service', () => {
+    const source = readFileSync(fileURLToPath(new URL('../../../../src/frontend/src/services/telemetryService.ts', import.meta.url)), 'utf8')
+
+    expect(source).not.toContain('/api/telemetry/rum')
+    expect(source).not.toContain('application/json')
+    expect(source).not.toContain('response.json')
+    expect(source).not.toContain('JSON.stringify')
   })
 })
 
@@ -65,4 +85,8 @@ function setPathname(pathname: string): void {
       pathname
     }
   })
+}
+
+function readFrameType(buffer: ArrayBuffer): number {
+  return new DataView(buffer).getUint16(8, true)
 }

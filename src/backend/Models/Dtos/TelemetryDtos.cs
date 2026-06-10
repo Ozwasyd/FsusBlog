@@ -7,5 +7,3 @@ public sealed record class RumMetricRequest(
     double? Value,
     IReadOnlyDictionary<string, double>? Metrics,
     DateTime? Timestamp);
-
-public sealed record class RumMetricIngestResponse(bool Accepted);

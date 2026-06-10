@@ -79,6 +79,7 @@ export const fsusBinaryRoutes = {
   "binary_post_read_proof_submit_aeds": "/api/binary/read-proof/submit.aeds",
   "binary_post_system_page_refresh_slug": "/api/binary/system/page/refresh/{slug}",
   "binary_post_tag": "/api/binary/tag",
+  "binary_post_telemetry_rum": "/api/binary/telemetry/rum",
   "binary_post_upload_uploadId_complete": "/api/binary/upload/{uploadId}/complete",
   "binary_post_upload_init": "/api/binary/upload/init",
   "binary_put_admin_article_id_int": "/api/binary/admin/article/{id:int}",

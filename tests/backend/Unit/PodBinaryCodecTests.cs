@@ -132,6 +132,70 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
+    public void RumMetricBatchRequest_RoundTrip_PreservesBoundedFields()
+    {
+        var timestamp = new DateTime(2026, 6, 10, 8, 30, 0, DateTimeKind.Utc);
+        var request = new RumMetricBatchRequest(
+            "article",
+            "article",
+            "server-aot",
+            [
+                new RumMetricBatchItem(
+                    "web_vital_lcp",
+                    1234,
+                    timestamp,
+                    new Dictionary<string, double>
+                    {
+                        ["value"] = 1234,
+                        ["durationMs"] = 1280
+                    },
+                    new Dictionary<string, string>
+                    {
+                        ["routeKind"] = "article",
+                        ["renderMode"] = "server-aot"
+                    })
+            ]);
+
+        byte[] encoded = PodBinaryCodec.EncodeRumMetricBatchRequest(request);
+        bool ok = PodBinaryCodec.TryDecodeRumMetricBatchRequest(encoded, out RumMetricBatchRequest decoded);
+
+        Assert.True(ok);
+        Assert.Equal("article", decoded.PageType);
+        Assert.Equal("article", decoded.RouteKey);
+        Assert.Equal("server-aot", decoded.AotSource);
+        RumMetricBatchItem item = Assert.Single(decoded.Metrics);
+        Assert.Equal("web_vital_lcp", item.Name);
+        Assert.Equal(1234, item.Value);
+        Assert.Equal(timestamp, item.Timestamp);
+        Assert.Equal(1280, item.Metrics!["durationMs"]);
+        Assert.Equal("article", item.Dimensions!["routeKind"]);
+    }
+
+    [Fact]
+    public void RumMetricIngestResponse_RoundTrip_PreservesCounts()
+    {
+        var response = new RumMetricIngestResponse(true, 2, 1);
+
+        byte[] encoded = PodBinaryCodec.EncodeRumMetricIngestResponse(response);
+        bool ok = PodBinaryCodec.TryDecodeRumMetricIngestResponse(encoded, out RumMetricIngestResponse decoded);
+
+        Assert.True(ok);
+        Assert.True(decoded.Accepted);
+        Assert.Equal(2, decoded.AcceptedCount);
+        Assert.Equal(1, decoded.RejectedCount);
+    }
+
+    [Fact]
+    public void RumMetricBatchRequest_EmptyBatch_ReturnsFalse()
+    {
+        byte[] encoded = PodBinaryCodec.EncodeRumMetricBatchRequest(new RumMetricBatchRequest("article", "article", "server-aot", []));
+
+        bool ok = PodBinaryCodec.TryDecodeRumMetricBatchRequest(encoded, out _);
+
+        Assert.False(ok);
+    }
+
+    [Fact]
     public void PublicAotBundle_RoundTrip_PreservesEntries()
     {
         var generated = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero);

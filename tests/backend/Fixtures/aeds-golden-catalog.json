@@ -81,6 +81,8 @@
     { "name": "SiteComplianceConfigUpdateRequest", "value": 72, "family": "system-request" },
     { "name": "HumanReadChallengeRequest", "value": 73, "family": "read-proof-request" },
     { "name": "HumanReadSubmitRequest", "value": 74, "family": "read-proof-request" },
+    { "name": "RumMetricBatchRequest", "value": 75, "family": "telemetry-request" },
+    { "name": "RumMetricIngestResponse", "value": 76, "family": "telemetry-response" },
     { "name": "EmptySuccess", "value": 240, "family": "common-response" },
     { "name": "MutationId", "value": 241, "family": "common-response" },
     { "name": "ApiError", "value": 251, "family": "error-response" }

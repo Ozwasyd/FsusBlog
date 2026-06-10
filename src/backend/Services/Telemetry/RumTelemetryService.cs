@@ -1,12 +1,22 @@
 using System.Text.Json;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Telemetry;
 
-public sealed class RumTelemetryService(ISqlSugarClient db)
+public interface IRumTelemetryService
 {
+    Task<RumMetricIngestResponse> IngestAsync(RumMetricRequest request, CancellationToken cancellationToken = default);
+
+    Task<RumMetricIngestResponse> IngestBatchAsync(RumMetricBatchRequest request, CancellationToken cancellationToken = default);
+}
+
+public sealed class RumTelemetryService(ISqlSugarClient db) : IRumTelemetryService
+{
+    public const int MaxFrameBytes = RumTelemetryContractLimits.MaxFrameBytes;
+
     private static readonly HashSet<string> AllowedNames = new(StringComparer.Ordinal)
     {
         "web_vital_lcp",
@@ -43,27 +53,69 @@ public sealed class RumTelemetryService(ISqlSugarClient db)
         "durationMs"
     };
 
+    private static readonly Dictionary<string, HashSet<string>> AllowedDimensionValues = new(StringComparer.Ordinal)
+    {
+        ["visibility"] = new HashSet<string>(["visible", "hidden", "prerender", "unknown"], StringComparer.Ordinal),
+        ["renderMode"] = new HashSet<string>(["server-aot", "spa", "unknown"], StringComparer.Ordinal),
+        ["routeKind"] = new HashSet<string>(["home", "article", "filter", "archive", "about", "public", "unknown"], StringComparer.Ordinal)
+    };
+
     public async Task<RumMetricIngestResponse> IngestAsync(RumMetricRequest request, CancellationToken cancellationToken = default)
     {
         RumMetricAuditContext? context = Normalize(request);
         if (context is null)
         {
-            return new RumMetricIngestResponse(false);
+            return new RumMetricIngestResponse(false, 0, 1);
         }
 
-        var metric = new FrontendRumMetric
-        {
-            Name = context.Name,
-            PageType = context.PageType,
-            AotSource = context.AotSource,
-            Value = context.Value,
-            MetricsJson = JsonSerializer.Serialize(context.Metrics),
-            OccurredAtUtc = context.Timestamp,
-            CreatedAtUtc = DateTime.UtcNow
-        };
+        var metric = CreateMetricEntity(context, DateTime.UtcNow);
 
         await db.Insertable(metric).ExecuteCommandAsync(cancellationToken);
-        return new RumMetricIngestResponse(true);
+        return new RumMetricIngestResponse(true, 1, 0);
+    }
+
+    public async Task<RumMetricIngestResponse> IngestBatchAsync(RumMetricBatchRequest request, CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<RumMetricBatchItem> items = request.Metrics ?? [];
+        if (items.Count is <= 0 or > RumTelemetryContractLimits.MaxMetricsPerBatch ||
+            (request.RouteKey?.Length ?? 0) > RumTelemetryContractLimits.MaxRouteKeyLength)
+        {
+            return new RumMetricIngestResponse(false, 0, Math.Max(items.Count, 1));
+        }
+
+        int rejected = 0;
+        DateTime createdAt = DateTime.UtcNow;
+        var entities = new List<FrontendRumMetric>(items.Count);
+        foreach (RumMetricBatchItem item in items)
+        {
+            if (!IsBatchItemShapeAllowed(item))
+            {
+                rejected++;
+                continue;
+            }
+
+            RumMetricAuditContext? context = Normalize(new RumMetricRequest(
+                item.Name,
+                request.PageType,
+                request.AotSource,
+                item.Value,
+                item.Metrics,
+                item.Timestamp));
+            if (context is null)
+            {
+                rejected++;
+                continue;
+            }
+
+            entities.Add(CreateMetricEntity(context, createdAt));
+        }
+
+        if (entities.Count > 0)
+        {
+            await db.Insertable(entities).ExecuteCommandAsync(cancellationToken);
+        }
+
+        return new RumMetricIngestResponse(entities.Count > 0, entities.Count, rejected);
     }
 
     internal static RumMetricAuditContext? Normalize(RumMetricRequest request)
@@ -131,6 +183,58 @@ public sealed class RumTelemetryService(ISqlSugarClient db)
 
         return Math.Round(Math.Clamp(value.Value, 0d, 600_000d), 4);
     }
+
+    internal static bool IsBatchItemShapeAllowed(RumMetricBatchItem item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Name) ||
+            item.Name.Length > RumTelemetryContractLimits.MaxMetricNameLength ||
+            (item.Metrics?.Count ?? 0) > RumTelemetryContractLimits.MaxMetricValuesPerMetric ||
+            (item.Dimensions?.Count ?? 0) > RumTelemetryContractLimits.MaxDimensionsPerMetric)
+        {
+            return false;
+        }
+
+        if (item.Metrics is not null)
+        {
+            foreach (string key in item.Metrics.Keys)
+            {
+                if (key.Length > RumTelemetryContractLimits.MaxDimensionKeyLength)
+                {
+                    return false;
+                }
+            }
+        }
+
+        if (item.Dimensions is null)
+        {
+            return true;
+        }
+
+        foreach ((string key, string value) in item.Dimensions)
+        {
+            if (!AllowedDimensionValues.TryGetValue(key, out HashSet<string>? allowedValues) ||
+                key.Length > RumTelemetryContractLimits.MaxDimensionKeyLength ||
+                value.Length > RumTelemetryContractLimits.MaxDimensionValueLength ||
+                !allowedValues.Contains(value))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static FrontendRumMetric CreateMetricEntity(RumMetricAuditContext context, DateTime createdAt)
+        => new()
+        {
+            Name = context.Name,
+            PageType = context.PageType,
+            AotSource = context.AotSource,
+            Value = context.Value,
+            MetricsJson = JsonSerializer.Serialize(context.Metrics),
+            OccurredAtUtc = context.Timestamp,
+            CreatedAtUtc = createdAt
+        };
 }
 
 internal sealed record RumMetricAuditContext(

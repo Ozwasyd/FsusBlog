@@ -25,7 +25,7 @@
 
 ## Current Binary API
 
-当前客户端主链优先调用 `/api/binary/**`，响应为 `application/octet-stream` AEDS v2 frame。认证、MFA、Passkey、公开读、评论、消息、上传和管理读链都通过 AEDS frame/POD 契约校验；少量 JSON 端点仅用于运维、健康检查、作者工作台辅助和兼容。
+当前客户端主链优先调用 `/api/binary/**`，响应为 `application/octet-stream` AEDS v2 frame。认证、MFA、Passkey、公开读、评论、消息、上传、RUM telemetry 和管理读链都通过 AEDS frame/POD 契约校验；少量 JSON 端点仅用于运维、健康检查、作者工作台辅助和兼容。
 
 | Family | Prefix | Auth | Notes |
 |--------|--------|------|-------|
@@ -34,6 +34,7 @@
 | Auth / MFA / Passkey | `/api/binary/auth/**` | 🔓 / 🔑 | PoW、login flow、session、MFA、WebAuthn |
 | Messages | `/api/binary/messages/**` | 🔑 | 用户站内信与已读状态 |
 | Admin messages / stats / upload | `/api/binary/admin/**`, `/api/binary/stats`, `/api/binary/upload/**` | 👑 | 管理端 Binary read/write |
+| Telemetry | `/api/binary/telemetry/rum` | 🔓 | batched AEDS RUM ingestion，旧 `/api/telemetry/rum` 仅 deprecated 兼容 |
 | Notifications | `/api/notifications/stream` | 🔓 / 🔑 | WebSocket binary notification stream，子协议 `fsus-aeds.v2` |
 
 Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS 二进制通知帧；它不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`。

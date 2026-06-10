@@ -148,6 +148,7 @@
 | GET `/api/binary/system/page/{slug}` | 🔓 📦 | `PageContent`(14) | 公开静态页内容，slug allowlist 同上 |
 | POST `/api/binary/read-proof/challenge.aeds` | 🔓 🚦 📦 | `HumanReadChallengeRequest`(73) → `HumanReadChallengeResponse`(28) | 真人阅读 challenge；受 `read_proof` 限流 |
 | POST `/api/binary/read-proof/submit.aeds` | 🔓 🚦 📦 | `HumanReadSubmitRequest`(74) → `HumanReadSubmitResponse`(29) | 真人阅读 proof 提交；拒绝状态写入统一风险信号 |
+| POST `/api/binary/telemetry/rum` | 🔓 🚦 📦 | `RumMetricBatchRequest`(75) → `RumMetricIngestResponse`(76) | 匿名 RUM 批量 ingestion；`credentials: omit` |
 
 ### 管理端 Binary
 
@@ -296,7 +297,7 @@
 |------|------|------|------|
 | GET | `/api/notifications/stream/preflight` | 🔓 | WebSocket 通知握手预检，成功返回 204 |
 | GET | `/api/notifications/stream` | 🔓 | WebSocket 通知通道（子协议 `fsus-aeds.v2`） |
-| POST | `/api/telemetry/rum` | 🔓🚦 | 匿名 RUM 性能样本 ingestion |
+| POST | `/api/telemetry/rum` | 🔓🚦 | 废弃 JSON RUM 兼容入口；生产前端使用 `/api/binary/telemetry/rum` |
 | GET | `/health/live` | 🔓 | JSON 存活探针（仅检查进程） |
 | GET | `/health/ready` | 🔓 | JSON 就绪探针（检查配置、Observability、启动状态、DB、Redis） |
 

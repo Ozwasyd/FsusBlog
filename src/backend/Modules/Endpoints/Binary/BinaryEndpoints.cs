@@ -54,6 +54,7 @@ public static partial class BinaryEndpoints
         MapBinaryFileEndpoints(group);
         MapBinaryAdminUserEndpoints(group);
         MapBinarySystemEndpoints(group);
+        MapBinaryTelemetryEndpoints(group);
         MapBinaryCommentEndpoints(group, cursorCodec);
         MapBinaryStatsEndpoints(group);
         MapBinaryUploadEndpoints(group);

@@ -85,6 +85,8 @@
     { "name": "SiteComplianceConfigUpdateRequest", "value": 72 },
     { "name": "HumanReadChallengeRequest", "value": 73 },
     { "name": "HumanReadSubmitRequest", "value": 74 },
+    { "name": "RumMetricBatchRequest", "value": 75 },
+    { "name": "RumMetricIngestResponse", "value": 76 },
     { "name": "EmptySuccess", "value": 240 },
     { "name": "MutationId", "value": 241 },
     { "name": "ApiError", "value": 251 }

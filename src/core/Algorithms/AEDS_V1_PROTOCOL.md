@@ -100,6 +100,11 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `69`: NotificationEvent
 - `70`: NotificationHeartbeat
 - `71`: PublicAotBootstrap
+- `72`: SiteComplianceConfigUpdateRequest
+- `73`: HumanReadChallengeRequest
+- `74`: HumanReadSubmitRequest
+- `75`: RumMetricBatchRequest
+- `76`: RumMetricIngestResponse
 - `240`: EmptySuccess
 - `241`: MutationId
 - `251`: ApiError
@@ -150,6 +155,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `NotificationEvent` payload: `int64 EventId`, `int64 TimestampUnixMs`, `int32 NotificationStreamEventType`, `int32 Reserved`, followed by one binary value payload.
 - `NotificationHeartbeat` payload: `int64 TimestampUnixMs`.
 - `PublicAotBootstrap` payload: one binary value payload encoded with the same tagged value layout used by notifications; HTML embeds the full AEDS frame as base64url text in `application/octet-stream` script nodes.
+- `RumMetricBatchRequest` payload: `RumMetricBatchRequestPod`, `RumMetricItemPod[count]`, `RumMetricValuePod[valueCount]`, `RumMetricDimensionPod[dimensionCount]`, followed by one UTF-8 blob for slices. The request frame is capped at 8192 bytes and carries only whitelisted names, numeric values and low-cardinality dimensions.
+- `RumMetricIngestResponse` payload: `RumMetricIngestResponsePod` (`Accepted`, `AcceptedCount`, `RejectedCount`).
 - `AdminUserList` payload: `int32 total`, `int32 count`, followed by `UserListItemPod[count]`.
 - `ArticleList` payload: `int32 total`, `int32 count`, `int32 tagRecordCount`, shared UTF-8 blob, `76B articleRecord[count]`, `12B tagRecord[tagRecordCount]`. The final 20 bytes of each article record are `int32 status`, `int64 scheduledPublishAtUnixMs`, `int64 publishedAtUnixMs`.
 - `ArticleDetail` payload: `ArticleDetailPod`, `int32 tagCount`, `TagPod[tagCount]`, text blob, cover blob, `byte isDeleted`, then optional lifecycle tail `int32 status`, `int64 scheduledPublishAtUnixMs`, `int64 publishedAtUnixMs`.

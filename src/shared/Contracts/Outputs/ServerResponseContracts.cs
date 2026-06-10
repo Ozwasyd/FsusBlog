@@ -123,6 +123,36 @@ public sealed record class HumanReadSubmitResponse(
     bool Counted,
     string Status);
 
+public static class RumTelemetryContractLimits
+{
+    public const int MaxFrameBytes = 8192;
+    public const int MaxMetricsPerBatch = 16;
+    public const int MaxMetricNameLength = 64;
+    public const int MaxRouteKeyLength = 160;
+    public const int MaxMetricValuesPerMetric = 4;
+    public const int MaxDimensionsPerMetric = 4;
+    public const int MaxDimensionKeyLength = 32;
+    public const int MaxDimensionValueLength = 64;
+}
+
+public sealed record class RumMetricBatchRequest(
+    string PageType,
+    string RouteKey,
+    string AotSource,
+    IReadOnlyList<RumMetricBatchItem> Metrics);
+
+public sealed record class RumMetricBatchItem(
+    string Name,
+    double? Value,
+    DateTime? Timestamp,
+    IReadOnlyDictionary<string, double>? Metrics,
+    IReadOnlyDictionary<string, string>? Dimensions);
+
+public sealed record class RumMetricIngestResponse(
+    bool Accepted,
+    int AcceptedCount = 0,
+    int RejectedCount = 0);
+
 public record struct UserCommentResponse
 {
     public long Id { get; init; }

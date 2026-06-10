@@ -1,5 +1,6 @@
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Telemetry;
+using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Tests;
 
@@ -48,5 +49,52 @@ public sealed class RumTelemetryServiceTests
             null,
             new Dictionary<string, double> { ["unknown"] = 1 },
             DateTime.UtcNow)));
+    }
+
+    [Fact]
+    public void BatchShape_AllowsOnlyLowCardinalityDimensions()
+    {
+        Assert.True(RumTelemetryService.IsBatchItemShapeAllowed(new RumMetricBatchItem(
+            "web_vital_lcp",
+            1234,
+            DateTime.UtcNow,
+            new Dictionary<string, double> { ["value"] = 1234 },
+            new Dictionary<string, string>
+            {
+                ["routeKind"] = "article",
+                ["renderMode"] = "server-aot"
+            })));
+
+        Assert.False(RumTelemetryService.IsBatchItemShapeAllowed(new RumMetricBatchItem(
+            "web_vital_lcp",
+            1234,
+            DateTime.UtcNow,
+            new Dictionary<string, double> { ["value"] = 1234 },
+            new Dictionary<string, string> { ["route"] = "/article/42" })));
+    }
+
+    [Fact]
+    public void BatchShape_RejectsOversizedMetricNamesAndTooManyValues()
+    {
+        Assert.False(RumTelemetryService.IsBatchItemShapeAllowed(new RumMetricBatchItem(
+            new string('a', RumTelemetryContractLimits.MaxMetricNameLength + 1),
+            1,
+            DateTime.UtcNow,
+            null,
+            null)));
+
+        Assert.False(RumTelemetryService.IsBatchItemShapeAllowed(new RumMetricBatchItem(
+            "web_vital_lcp",
+            1,
+            DateTime.UtcNow,
+            new Dictionary<string, double>
+            {
+                ["value"] = 1,
+                ["durationMs"] = 1,
+                ["domInteractive"] = 1,
+                ["responseStart"] = 1,
+                ["extra"] = 1
+            },
+            null)));
     }
 }

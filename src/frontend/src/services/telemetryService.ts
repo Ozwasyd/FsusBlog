@@ -1,5 +1,10 @@
 import { emitFrontendAudit, type FrontendAuditType } from '@/services/auditConsole'
 import { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
+import { encodeRumMetricBatchRequest, RUM_MAX_BATCH_METRICS, RUM_MAX_FRAME_BYTES, type RumMetricBatchItem } from '@/adapters/binary/telemetryAdapter'
+import { encodeAedsFrame } from '@/api/binaryFrame'
+import { AEDS_BINARY_MEDIA_TYPE, applyBinaryRequestHeaders } from '@/api/contracts'
+import { fsusBinaryRoutes } from '@/generated/fsusBinaryRoutes'
+import { FrameType } from '@wasm/protocol/frame'
 
 export type TelemetryLevel = 'info' | 'warn' | 'error';
 
@@ -16,8 +21,9 @@ const TELEMETRY_EVENT = 'fsus:telemetry';
 const BIN_FAILURE_COUNT_KEY = 'fsus.telemetry.binaryFailureCount';
 const AOT_ACTION_COUNT_KEY = 'fsus.telemetry.aotActionCount';
 const AOT_ACTION_BUCKET_KEY = 'fsus.telemetry.aotActionBuckets';
-const RUM_ENDPOINT = '/api/telemetry/rum';
+const RUM_ENDPOINT = fsusBinaryRoutes.binary_post_telemetry_rum;
 const RUM_METRIC_KEYS = ['value', 'domInteractive', 'responseStart', 'durationMs'] as const;
+const RUM_BATCH_FLUSH_MS = 250;
 
 function readCounter(): number {
   if (typeof localStorage === 'undefined') {
@@ -157,6 +163,14 @@ function onAotEvent(event: Event): void {
 
 let initialized = false;
 let vitalsInitialized = false;
+let rumFlushTimer: ReturnType<typeof setTimeout> | null = null;
+const rumQueue: PendingRumMetric[] = [];
+
+type PendingRumMetric = RumMetricBatchItem & {
+  pageType: string
+  routeKey: string
+  aotSource: string
+};
 
 export function initTelemetryService(): void {
   if (initialized || typeof window === 'undefined') {
@@ -233,27 +247,101 @@ function sendRumMetric(payload: {
   value?: number
   metrics: Record<string, number>
 }): void {
-  if (typeof navigator === 'undefined' || typeof fetch === 'undefined') {
+  if (typeof fetch === 'undefined') {
     return;
   }
 
-  const body = JSON.stringify(payload);
-  if (typeof navigator.sendBeacon === 'function') {
-    const blob = new Blob([body], { type: 'application/json' });
+  rumQueue.push({
+    name: payload.name,
+    timestamp: payload.timestamp,
+    pageType: payload.pageType,
+    routeKey: resolveRumRouteKey(payload.pageType),
+    aotSource: payload.aotSource,
+    value: payload.value,
+    metrics: payload.metrics
+  });
+
+  if (rumQueue.length >= RUM_MAX_BATCH_METRICS) {
+    flushRumMetrics();
+    return;
+  }
+
+  scheduleRumFlush();
+}
+
+function scheduleRumFlush(): void {
+  if (rumFlushTimer !== null) {
+    return;
+  }
+
+  rumFlushTimer = setTimeout(flushRumMetrics, RUM_BATCH_FLUSH_MS);
+}
+
+function flushRumMetrics(): void {
+  if (rumFlushTimer !== null) {
+    clearTimeout(rumFlushTimer);
+    rumFlushTimer = null;
+  }
+
+  const pending = rumQueue.splice(0, rumQueue.length);
+  if (pending.length === 0) {
+    return;
+  }
+
+  const grouped = new Map<string, PendingRumMetric[]>();
+  for (const metric of pending) {
+    const key = `${metric.pageType}\u0000${metric.routeKey}\u0000${metric.aotSource}`;
+    const values = grouped.get(key);
+    if (values) {
+      values.push(metric);
+    } else {
+      grouped.set(key, [metric]);
+    }
+  }
+
+  for (const metrics of grouped.values()) {
+    for (let offset = 0; offset < metrics.length; offset += RUM_MAX_BATCH_METRICS) {
+      sendRumMetricBatch(metrics.slice(offset, offset + RUM_MAX_BATCH_METRICS));
+    }
+  }
+}
+
+function sendRumMetricBatch(metrics: PendingRumMetric[]): void {
+  const first = metrics[0];
+  if (!first) {
+    return;
+  }
+
+  const payload = encodeRumMetricBatchRequest({
+    pageType: first.pageType,
+    routeKey: first.routeKey,
+    aotSource: first.aotSource,
+    metrics
+  });
+  const frame = encodeAedsFrame(FrameType.RumMetricBatchRequest, payload);
+  if (frame.byteLength > RUM_MAX_FRAME_BYTES) {
+    return;
+  }
+
+  if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+    const blob = new Blob([frame], { type: AEDS_BINARY_MEDIA_TYPE });
     if (navigator.sendBeacon(RUM_ENDPOINT, blob)) {
       return;
     }
   }
 
+  const headers = applyBinaryRequestHeaders(new Headers(), true);
   void fetch(RUM_ENDPOINT, {
     method: 'POST',
     credentials: 'omit',
     keepalive: true,
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body
+    headers,
+    body: frame
   }).catch(() => {});
+}
+
+function resolveRumRouteKey(pageType: string): string {
+  return pageType || 'unknown';
 }
 
 function pickMetricValue(detail: Record<string, unknown>): number | undefined {

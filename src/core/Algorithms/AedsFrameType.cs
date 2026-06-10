@@ -81,6 +81,8 @@ public enum AedsFrameType : ushort
     SiteComplianceConfigUpdateRequest = 72,
     HumanReadChallengeRequest = 73,
     HumanReadSubmitRequest = 74,
+    RumMetricBatchRequest = 75,
+    RumMetricIngestResponse = 76,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251
