@@ -7,8 +7,9 @@ namespace FsusBlog.Core.Services.Implementations;
 
 public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCoreService
 {
-    public async Task<Result<CorePageResult<ArticleListCoreModel>>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null, long? listCacheVersion = null)
+    public async Task<Result<CorePageResult<ArticleListCoreModel>>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null, long? listCacheVersion = null, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (page <= 0 || size <= 0)
         {
             return Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Validation, "分页参数非法");
@@ -19,17 +20,18 @@ public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCo
             return Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Validation, "文章状态非法");
         }
 
-        return Result<CorePageResult<ArticleListCoreModel>>.Success(await gateway.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, keyword, listCacheVersion));
+        return Result<CorePageResult<ArticleListCoreModel>>.Success(await gateway.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, keyword, listCacheVersion, cancellationToken));
     }
 
-    public async Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(int id, bool includePrivate = false)
+    public async Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(int id, bool includePrivate = false, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (id <= 0)
         {
             return Result<ArticleDetailCoreModel?>.Failure(ErrorCode.Validation, "文章ID非法");
         }
 
-        var data = await gateway.GetByIdAsync(id, includePrivate);
+        var data = await gateway.GetByIdAsync(id, includePrivate, cancellationToken);
         return data is null
             ? Result<ArticleDetailCoreModel?>.Failure(ErrorCode.NotFound, "文章不存在")
             : Result<ArticleDetailCoreModel?>.Success(data);
@@ -112,34 +114,37 @@ public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCo
         return Result<int>.Success(count);
     }
 
-    public async Task<Result<IReadOnlyList<ArticleListCoreModel>>> SearchArticlesAsync(string keyword)
+    public async Task<Result<IReadOnlyList<ArticleListCoreModel>>> SearchArticlesAsync(string keyword, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(keyword))
         {
             return Result<IReadOnlyList<ArticleListCoreModel>>.Failure(ErrorCode.Validation, "关键词不能为空");
         }
 
-        return Result<IReadOnlyList<ArticleListCoreModel>>.Success(await gateway.SearchArticlesAsync(keyword));
+        return Result<IReadOnlyList<ArticleListCoreModel>>.Success(await gateway.SearchArticlesAsync(keyword, cancellationToken));
     }
 
-    public async Task<Result<IReadOnlyList<PopularArticleCoreModel>>> GetHotArticlesAsync(int count = 10)
+    public async Task<Result<IReadOnlyList<PopularArticleCoreModel>>> GetHotArticlesAsync(int count = 10, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (count <= 0)
         {
             return Result<IReadOnlyList<PopularArticleCoreModel>>.Failure(ErrorCode.Validation, "数量参数非法");
         }
 
-        return Result<IReadOnlyList<PopularArticleCoreModel>>.Success(await gateway.GetHotArticlesAsync(count));
+        return Result<IReadOnlyList<PopularArticleCoreModel>>.Success(await gateway.GetHotArticlesAsync(count, cancellationToken));
     }
 
-    public async Task<Result<IReadOnlyList<FeaturedArticleCoreModel>>> GetFeaturedArticlesAsync(int count)
+    public async Task<Result<IReadOnlyList<FeaturedArticleCoreModel>>> GetFeaturedArticlesAsync(int count, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (count <= 0)
         {
             return Result<IReadOnlyList<FeaturedArticleCoreModel>>.Failure(ErrorCode.Validation, "数量参数非法");
         }
 
-        return Result<IReadOnlyList<FeaturedArticleCoreModel>>.Success(await gateway.GetFeaturedArticlesAsync(count));
+        return Result<IReadOnlyList<FeaturedArticleCoreModel>>.Success(await gateway.GetFeaturedArticlesAsync(count, cancellationToken));
     }
 
     public async ValueTask<Result> IncreaseViewCountAsync(int id)

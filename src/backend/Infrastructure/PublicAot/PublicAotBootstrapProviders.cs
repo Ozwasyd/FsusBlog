@@ -76,7 +76,7 @@ public sealed class PublicAotHomeBootstrapProvider(
     {
         const int pageSize = 10;
         PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
-        ArticleListPageReadModel page = await articleService.GetPageListAsync(1, pageSize, null, null, false);
+        ArticleListPageReadModel page = await articleService.GetPageListAsync(1, pageSize, null, null, false, cancellationToken: cancellationToken);
         return Result<PublicPageSnapshot>.Success(new PublicHomePageSnapshot(
             seo,
             Page: 1,
@@ -218,7 +218,7 @@ public sealed class PublicAotFilterBootstrapProvider(
         PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
         FilterIdentity identity = await ResolveFilterIdentityAsync(match.RouteKey, cancellationToken);
         ArticleListPageReadModel page = !identity.IsInvalidTarget
-            ? await articleService.GetPageListAsync(pageIndex, pageSize, identity.CategoryId, identity.TagId, false)
+            ? await articleService.GetPageListAsync(pageIndex, pageSize, identity.CategoryId, identity.TagId, false, cancellationToken: cancellationToken)
             : new ArticleListPageReadModel { Items = [], Total = 0 };
         string title = ResolveFilterTitle(identity);
 

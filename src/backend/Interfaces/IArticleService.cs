@@ -5,12 +5,12 @@ namespace FsusBlog.Server.Interfaces;
 
 public interface IArticleService
 {
-    Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted = false, int? status = null, bool includePrivate = false, string? keyword = null);
+    Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted = false, int? status = null, bool includePrivate = false, string? keyword = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 获取文章详情
     /// </summary>
-    Task<ArticleDetailReadModel?> GetByIdAsync(int id, bool includePrivate = false);
+    Task<ArticleDetailReadModel?> GetByIdAsync(int id, bool includePrivate = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 发布文章（包含存数据库 + 建索引）
@@ -42,18 +42,18 @@ public interface IArticleService
     /// <summary>
     /// 搜索文章（优先使用本地搜索索引链，必要时回落到数据库查）
     /// </summary>
-    Task<List<ArticleListItemReadModel>> SearchArticlesAsync(string keyword);
+    Task<List<ArticleListItemReadModel>> SearchArticlesAsync(string keyword, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 获取热门文章排行榜
     /// </summary>
     /// <param name="count">获取数量，默认 10 条</param>
-    Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync(int count = 10);
+    Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync(int count = 10, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 获取精选文章
     /// </summary>
-    Task<List<FeaturedArticleSummaryDto>> GetFeaturedArticlesAsync(int size);
+    Task<List<FeaturedArticleSummaryDto>> GetFeaturedArticlesAsync(int size, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 高性能增加阅读量：同步更新 DB、热榜 Score 并失效详情缓存

@@ -25,15 +25,25 @@ public interface IArticleEndpointService
         bool canReadDeleted,
         int? status,
         bool canReadPrivate,
-        string? keyword = null);
+        string? keyword = null,
+        CancellationToken cancellationToken = default);
 
-    Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(int id, bool canReadPrivate = false);
+    Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(
+        int id,
+        bool canReadPrivate = false,
+        CancellationToken cancellationToken = default);
 
-    Task<ArticleDetailArtifactPayload> GetPublicArtifactBackedDetailAsync(int id);
+    Task<ArticleDetailArtifactPayload> GetPublicArtifactBackedDetailAsync(
+        int id,
+        CancellationToken cancellationToken = default);
 
-    Task<ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>>> GetHotArticlesAsync(int count);
+    Task<ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>>> GetHotArticlesAsync(
+        int count,
+        CancellationToken cancellationToken = default);
 
-    Task<Result<IReadOnlyList<FeaturedArticleSummaryDto>>> GetFeaturedArticlesAsync(int count);
+    Task<Result<IReadOnlyList<FeaturedArticleSummaryDto>>> GetFeaturedArticlesAsync(
+        int count,
+        CancellationToken cancellationToken = default);
 
     Task<int> CreateAsync(ArticleWriteRequestCoreModel request);
 

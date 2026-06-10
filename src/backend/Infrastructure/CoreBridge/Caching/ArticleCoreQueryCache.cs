@@ -17,116 +17,149 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache, IHotArticlesCache
         bool includePrivate,
         string keyword,
         long? listCacheVersion,
-        Func<Task<CorePageResult<ArticleListCoreModel>>> loader)
+        Func<CancellationToken, Task<CorePageResult<ArticleListCoreModel>>> loader,
+        CancellationToken cancellationToken = default)
     {
-        long version = listCacheVersion ?? await GetListCacheVersionAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        long version = listCacheVersion ?? await GetListCacheVersionAsync(cancellationToken);
         string scope = includePrivate ? "admin" : "public";
         string identity = $"core:v4:{scope}:{version}:{page}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}:{keyword}";
-        var hit = await cache.TryGetAsync(CachePolicyId.ArticleList, identity, DecodeArticlePage);
+        var hit = await cache.TryGetAsync(CachePolicyId.ArticleList, identity, DecodeArticlePage, cancellationToken);
         if (hit.Hit && hit.Value is not null)
         {
             return hit.Value.GetValueOrDefault();
         }
 
-        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleList, identity);
-        hit = await cache.TryGetAsync(CachePolicyId.ArticleList, identity, DecodeArticlePage);
+        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleList, identity, cancellationToken);
+        hit = await cache.TryGetAsync(CachePolicyId.ArticleList, identity, DecodeArticlePage, cancellationToken);
         if (hit.Hit && hit.Value is not null)
         {
             return hit.Value.GetValueOrDefault();
         }
 
-        CorePageResult<ArticleListCoreModel> loaded = await loader();
-        await cache.SetRawAsync(CachePolicyId.ArticleList, identity, PodBinaryCodec.EncodeArticlePage(loaded), TimeSpan.FromMinutes(10));
+        CorePageResult<ArticleListCoreModel> loaded = await loader(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        byte[] encoded = PodBinaryCodec.EncodeArticlePage(loaded);
+        cancellationToken.ThrowIfCancellationRequested();
+        await cache.SetRawAsync(CachePolicyId.ArticleList, identity, encoded, TimeSpan.FromMinutes(10), cancellationToken);
         return loaded;
     }
 
-    public async Task<ArticleDetailCoreModel?> GetOrLoadByIdAsync(int id, Func<Task<ArticleDetailCoreModel?>> loader)
+    public async Task<ArticleDetailCoreModel?> GetOrLoadByIdAsync(
+        int id,
+        Func<CancellationToken, Task<ArticleDetailCoreModel?>> loader,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         string identity = $"core:v3:{id}";
-        var cached = await cache.TryGetAsync(CachePolicyId.ArticleDetail, identity, DecodeArticleDetail);
+        var cached = await cache.TryGetAsync(CachePolicyId.ArticleDetail, identity, DecodeArticleDetail, cancellationToken);
         if (cached.Hit)
         {
             return cached.Value;
         }
 
-        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleDetail, identity);
-        cached = await cache.TryGetAsync(CachePolicyId.ArticleDetail, identity, DecodeArticleDetail);
+        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleDetail, identity, cancellationToken);
+        cached = await cache.TryGetAsync(CachePolicyId.ArticleDetail, identity, DecodeArticleDetail, cancellationToken);
         if (cached.Hit)
         {
             return cached.Value;
         }
 
-        ArticleDetailCoreModel? loaded = await loader();
+        ArticleDetailCoreModel? loaded = await loader(cancellationToken);
         if (loaded is null)
         {
             return null;
         }
 
         ArticleDetailCoreModel value = loaded.Value;
-        await cache.SetRawAsync(CachePolicyId.ArticleDetail, identity, PodBinaryCodec.EncodeArticleDetail(value), TimeSpan.FromHours(1));
+        cancellationToken.ThrowIfCancellationRequested();
+        byte[] encoded = PodBinaryCodec.EncodeArticleDetail(value);
+        cancellationToken.ThrowIfCancellationRequested();
+        await cache.SetRawAsync(CachePolicyId.ArticleDetail, identity, encoded, TimeSpan.FromHours(1), cancellationToken);
         return value;
     }
 
-    public async Task<IReadOnlyList<ArticleListCoreModel>> GetOrLoadSearchAsync(string keyword, Func<Task<IReadOnlyList<ArticleListCoreModel>>> loader)
+    public async Task<IReadOnlyList<ArticleListCoreModel>> GetOrLoadSearchAsync(
+        string keyword,
+        Func<CancellationToken, Task<IReadOnlyList<ArticleListCoreModel>>> loader,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         string identity = $"core:v2:{keyword}";
-        var hit = await cache.TryGetAsync(CachePolicyId.ArticleSearch, identity, DecodeArticleSearch);
+        var hit = await cache.TryGetAsync(CachePolicyId.ArticleSearch, identity, DecodeArticleSearch, cancellationToken);
         if (hit.Hit)
         {
             return hit.Value ?? Array.Empty<ArticleListCoreModel>();
         }
 
-        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleSearch, identity);
-        hit = await cache.TryGetAsync(CachePolicyId.ArticleSearch, identity, DecodeArticleSearch);
+        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleSearch, identity, cancellationToken);
+        hit = await cache.TryGetAsync(CachePolicyId.ArticleSearch, identity, DecodeArticleSearch, cancellationToken);
         if (hit.Hit)
         {
             return hit.Value ?? Array.Empty<ArticleListCoreModel>();
         }
 
-        IReadOnlyList<ArticleListCoreModel> loaded = await loader();
-        await cache.SetRawAsync(CachePolicyId.ArticleSearch, identity, PodBinaryCodec.EncodeArticleSearch(loaded), TimeSpan.FromMinutes(10));
+        IReadOnlyList<ArticleListCoreModel> loaded = await loader(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        byte[] encoded = PodBinaryCodec.EncodeArticleSearch(loaded);
+        cancellationToken.ThrowIfCancellationRequested();
+        await cache.SetRawAsync(CachePolicyId.ArticleSearch, identity, encoded, TimeSpan.FromMinutes(10), cancellationToken);
         return loaded;
     }
 
-    public async Task<IReadOnlyList<PopularArticleCoreModel>> GetOrLoadHotArticlesAsync(int count, Func<Task<IReadOnlyList<PopularArticleCoreModel>>> loader)
+    public async Task<IReadOnlyList<PopularArticleCoreModel>> GetOrLoadHotArticlesAsync(
+        int count,
+        Func<CancellationToken, Task<IReadOnlyList<PopularArticleCoreModel>>> loader,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         string identity = hotArticlesVersionProvider.BuildVersionedHotArticlesIdentity($"core:v2:{count}");
-        var hit = await cache.TryGetAsync(CachePolicyId.ArticleHot, identity, DecodePopularArticles);
+        var hit = await cache.TryGetAsync(CachePolicyId.ArticleHot, identity, DecodePopularArticles, cancellationToken);
         if (hit.Hit)
         {
             return hit.Value ?? Array.Empty<PopularArticleCoreModel>();
         }
 
-        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleHot, identity);
-        hit = await cache.TryGetAsync(CachePolicyId.ArticleHot, identity, DecodePopularArticles);
+        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleHot, identity, cancellationToken);
+        hit = await cache.TryGetAsync(CachePolicyId.ArticleHot, identity, DecodePopularArticles, cancellationToken);
         if (hit.Hit)
         {
             return hit.Value ?? Array.Empty<PopularArticleCoreModel>();
         }
 
-        IReadOnlyList<PopularArticleCoreModel> loaded = await loader();
-        await cache.SetRawAsync(CachePolicyId.ArticleHot, identity, PodBinaryCodec.EncodePopularArticles(loaded), TimeSpan.FromMinutes(10));
+        IReadOnlyList<PopularArticleCoreModel> loaded = await loader(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        byte[] encoded = PodBinaryCodec.EncodePopularArticles(loaded);
+        cancellationToken.ThrowIfCancellationRequested();
+        await cache.SetRawAsync(CachePolicyId.ArticleHot, identity, encoded, TimeSpan.FromMinutes(10), cancellationToken);
         return loaded;
     }
 
-    public async Task<IReadOnlyList<FeaturedArticleCoreModel>> GetOrLoadFeaturedArticlesAsync(int count, Func<Task<IReadOnlyList<FeaturedArticleCoreModel>>> loader)
+    public async Task<IReadOnlyList<FeaturedArticleCoreModel>> GetOrLoadFeaturedArticlesAsync(
+        int count,
+        Func<CancellationToken, Task<IReadOnlyList<FeaturedArticleCoreModel>>> loader,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         string identity = $"core:v2:featured:{count}";
-        var hit = await cache.TryGetAsync(CachePolicyId.TopArticles, identity, DecodeFeaturedArticles);
+        var hit = await cache.TryGetAsync(CachePolicyId.TopArticles, identity, DecodeFeaturedArticles, cancellationToken);
         if (hit.Hit)
         {
             return hit.Value ?? Array.Empty<FeaturedArticleCoreModel>();
         }
 
-        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.TopArticles, identity);
-        hit = await cache.TryGetAsync(CachePolicyId.TopArticles, identity, DecodeFeaturedArticles);
+        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.TopArticles, identity, cancellationToken);
+        hit = await cache.TryGetAsync(CachePolicyId.TopArticles, identity, DecodeFeaturedArticles, cancellationToken);
         if (hit.Hit)
         {
             return hit.Value ?? Array.Empty<FeaturedArticleCoreModel>();
         }
 
-        IReadOnlyList<FeaturedArticleCoreModel> loaded = await loader();
-        await cache.SetRawAsync(CachePolicyId.TopArticles, identity, PodBinaryCodec.EncodeFeaturedArticleCoreList(loaded), TimeSpan.FromHours(2));
+        IReadOnlyList<FeaturedArticleCoreModel> loaded = await loader(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        byte[] encoded = PodBinaryCodec.EncodeFeaturedArticleCoreList(loaded);
+        cancellationToken.ThrowIfCancellationRequested();
+        await cache.SetRawAsync(CachePolicyId.TopArticles, identity, encoded, TimeSpan.FromHours(2), cancellationToken);
         return loaded;
     }
 
@@ -160,9 +193,9 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache, IHotArticlesCache
         return (success, success ? value : default);
     }
 
-    private async ValueTask<long> GetListCacheVersionAsync()
+    private async ValueTask<long> GetListCacheVersionAsync(CancellationToken cancellationToken)
     {
-        string? version = await cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main");
+        string? version = await cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", cancellationToken);
         return long.TryParse(version, out long parsed) ? parsed : 0;
     }
 }

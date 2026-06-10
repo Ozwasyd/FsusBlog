@@ -14,7 +14,7 @@ namespace FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
 
 public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryCache queryCache) : IArticleCoreGateway
 {
-    public async Task<CorePageResult<ArticleListCoreModel>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null, long? listCacheVersion = null)
+    public async Task<CorePageResult<ArticleListCoreModel>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null, long? listCacheVersion = null, CancellationToken cancellationToken = default)
     {
         string normalizedKeyword = NormalizeArticleListKeyword(keyword);
         return await queryCache.GetOrLoadPageListAsync(
@@ -27,22 +27,26 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
             includePrivate,
             normalizedKeyword,
             listCacheVersion,
-            () => LoadPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword));
+            ct => LoadPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword, ct),
+            cancellationToken);
     }
 
-    public async Task<ArticleDetailCoreModel?> GetByIdAsync(int id, bool includePrivate = false)
+    public async Task<ArticleDetailCoreModel?> GetByIdAsync(
+        int id,
+        bool includePrivate = false,
+        CancellationToken cancellationToken = default)
     {
         if (includePrivate)
         {
-            ArticleDetailReadModel? privateEntity = await service.GetByIdAsync(id, includePrivate: true);
+            ArticleDetailReadModel? privateEntity = await service.GetByIdAsync(id, includePrivate: true, cancellationToken: cancellationToken);
             return privateEntity is null ? null : ArticleProjection.ToCoreDetailModel(privateEntity);
         }
 
-        return await queryCache.GetOrLoadByIdAsync(id, async () =>
+        return await queryCache.GetOrLoadByIdAsync(id, async ct =>
         {
-            ArticleDetailReadModel? entity = await service.GetByIdAsync(id);
+            ArticleDetailReadModel? entity = await service.GetByIdAsync(id, cancellationToken: ct);
             return entity is null ? null : ArticleProjection.ToCoreDetailModel(entity);
-        });
+        }, cancellationToken);
     }
 
     public Task<int> CreateAsync(string title, string content, string? summary, string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, int status = 2, DateTime? scheduledPublishAt = null)
@@ -76,23 +80,29 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
     public Task<bool> PermanentlyDeleteArticleAsync(int id) => service.PermanentlyDeleteArticleAsync(id);
     public Task<int> ClearTrashAsync() => service.ClearTrashAsync();
 
-    public async Task<IReadOnlyList<ArticleListCoreModel>> SearchArticlesAsync(string keyword)
+    public async Task<IReadOnlyList<ArticleListCoreModel>> SearchArticlesAsync(
+        string keyword,
+        CancellationToken cancellationToken = default)
     {
-        return await queryCache.GetOrLoadSearchAsync(keyword, () => LoadSearchAsync(keyword));
+        return await queryCache.GetOrLoadSearchAsync(keyword, ct => LoadSearchAsync(keyword, ct), cancellationToken);
     }
 
-    public async Task<IReadOnlyList<PopularArticleCoreModel>> GetHotArticlesAsync(int count)
+    public async Task<IReadOnlyList<PopularArticleCoreModel>> GetHotArticlesAsync(
+        int count,
+        CancellationToken cancellationToken = default)
     {
-        return await queryCache.GetOrLoadHotArticlesAsync(count, () => LoadHotArticlesAsync(count));
+        return await queryCache.GetOrLoadHotArticlesAsync(count, ct => LoadHotArticlesAsync(count, ct), cancellationToken);
     }
 
-    public async Task<IReadOnlyList<FeaturedArticleCoreModel>> GetFeaturedArticlesAsync(int count)
+    public async Task<IReadOnlyList<FeaturedArticleCoreModel>> GetFeaturedArticlesAsync(
+        int count,
+        CancellationToken cancellationToken = default)
     {
-        return await queryCache.GetOrLoadFeaturedArticlesAsync(count, async () =>
+        return await queryCache.GetOrLoadFeaturedArticlesAsync(count, async ct =>
         {
-            IReadOnlyList<FeaturedArticleSummaryDto> source = await service.GetFeaturedArticlesAsync(count);
+            IReadOnlyList<FeaturedArticleSummaryDto> source = await service.GetFeaturedArticlesAsync(count, ct);
             return source.Select(ToFeaturedCoreModel).ToList();
-        });
+        }, cancellationToken);
     }
 
     public ValueTask IncreaseViewCountAsync(int id) => service.IncreaseViewCountAsync(id);
@@ -102,21 +112,30 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
         CancellationToken cancellationToken = default)
         => service.IncreaseViewCountsAsync(articleCounts, cancellationToken);
 
-    private async Task<CorePageResult<ArticleListCoreModel>> LoadPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword)
+    private async Task<CorePageResult<ArticleListCoreModel>> LoadPageListAsync(
+        int page,
+        int size,
+        int? categoryId,
+        int? tagId,
+        bool isDeleted,
+        int? status,
+        bool includePrivate,
+        string keyword,
+        CancellationToken cancellationToken)
     {
-        ArticleListPageReadModel source = await service.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, keyword);
+        ArticleListPageReadModel source = await service.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, keyword, cancellationToken);
         return new CorePageResult<ArticleListCoreModel>(source.Items.Select(ArticleProjection.ToCoreListModel).ToList(), source.Total);
     }
 
-    private async Task<IReadOnlyList<ArticleListCoreModel>> LoadSearchAsync(string keyword)
+    private async Task<IReadOnlyList<ArticleListCoreModel>> LoadSearchAsync(string keyword, CancellationToken cancellationToken)
     {
-        IReadOnlyList<ArticleListItemReadModel> source = await service.SearchArticlesAsync(keyword);
+        IReadOnlyList<ArticleListItemReadModel> source = await service.SearchArticlesAsync(keyword, cancellationToken);
         return source.Select(ArticleProjection.ToCoreListModel).ToList();
     }
 
-    private async Task<IReadOnlyList<PopularArticleCoreModel>> LoadHotArticlesAsync(int count)
+    private async Task<IReadOnlyList<PopularArticleCoreModel>> LoadHotArticlesAsync(int count, CancellationToken cancellationToken)
     {
-        IReadOnlyList<PopularArticleSummaryDto> source = await service.GetHotArticlesAsync(count);
+        IReadOnlyList<PopularArticleSummaryDto> source = await service.GetHotArticlesAsync(count, cancellationToken);
         return source.Select(item => new PopularArticleCoreModel(
             PodProjector.ProjectPopularArticle(item.Id, item.Title, item.Views),
             item.Id,

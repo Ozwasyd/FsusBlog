@@ -38,7 +38,8 @@ public static partial class BinaryEndpoints
             bool? isDeleted,
             HttpContext httpContext,
             IArticleEndpointService articles,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             int pageValue = Math.Max(page ?? 1, 1);
             int sizeValue = Math.Clamp(size ?? 10, 1, 100);
@@ -55,7 +56,17 @@ public static partial class BinaryEndpoints
             }
 
             bool deleted = (isDeleted ?? false) || status == (int)ArticleStatus.Deleted;
-            var payloadResult = await articles.GetPageListAsync(pageValue, sizeValue, categoryId, tagId, deleted, canReadDeleted: true, status, canReadPrivate: true, keyword: keyword);
+            var payloadResult = await articles.GetPageListAsync(
+                pageValue,
+                sizeValue,
+                categoryId,
+                tagId,
+                deleted,
+                canReadDeleted: true,
+                status,
+                canReadPrivate: true,
+                keyword: keyword,
+                cancellationToken: cancellationToken);
             if (payloadResult.HasCachedFrame)
             {
                 return BinaryResults.PreencodedFrame(payloadResult.CachedFrame);
@@ -68,9 +79,10 @@ public static partial class BinaryEndpoints
         group.MapGet("/admin/article/{id:int}", static async Task<IResult> (
             int id,
             IArticleEndpointService articles,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
-            var result = await articles.GetByIdAsync(id, canReadPrivate: true);
+            var result = await articles.GetByIdAsync(id, canReadPrivate: true, cancellationToken);
             if (!result.IsSuccess || result.Value is null)
             {
                 return BinaryResults.FromError(result.Error.Code == ErrorCode.None
@@ -86,10 +98,11 @@ public static partial class BinaryEndpoints
         group.MapGet("/admin/article/hot", static async Task<IResult> (
             int? size,
             IArticleEndpointService articles,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             int count = Math.Clamp(size ?? 10, 1, 50);
-            var payloadResult = await articles.GetHotArticlesAsync(count);
+            var payloadResult = await articles.GetHotArticlesAsync(count, cancellationToken);
             if (payloadResult.HasCachedFrame)
             {
                 return BinaryResults.PreencodedFrame(payloadResult.CachedFrame);
@@ -107,10 +120,11 @@ public static partial class BinaryEndpoints
         group.MapGet("/admin/article/featured", static async Task<BinaryFrameResult> (
             int? size,
             IArticleEndpointService articles,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             int count = Math.Clamp(size ?? 3, 1, 10);
-            var result = await articles.GetFeaturedArticlesAsync(count);
+            var result = await articles.GetFeaturedArticlesAsync(count, cancellationToken);
             if (!result.IsSuccess)
             {
                 return BinaryResults.FromError(result.Error, aeds);

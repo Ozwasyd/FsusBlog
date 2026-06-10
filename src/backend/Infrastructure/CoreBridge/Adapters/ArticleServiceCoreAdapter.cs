@@ -9,9 +9,9 @@ namespace FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 
 public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArticleService
 {
-    public async Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted = false, int? status = null, bool includePrivate = false, string? keyword = null)
+    public async Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted = false, int? status = null, bool includePrivate = false, string? keyword = null, CancellationToken cancellationToken = default)
     {
-        var result = await core.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, keyword);
+        var result = await core.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, keyword, cancellationToken: cancellationToken);
         if (!result.IsSuccess)
         {
             return new ArticleListPageReadModel { Items = [], Total = 0 };
@@ -24,9 +24,9 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
         };
     }
 
-    public async Task<ArticleDetailReadModel?> GetByIdAsync(int id, bool includePrivate = false)
+    public async Task<ArticleDetailReadModel?> GetByIdAsync(int id, bool includePrivate = false, CancellationToken cancellationToken = default)
     {
-        var result = await core.GetByIdAsync(id, includePrivate);
+        var result = await core.GetByIdAsync(id, includePrivate, cancellationToken);
         if (!result.IsSuccess || result.Value is null)
         {
             return null;
@@ -56,9 +56,9 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
         return result.IsSuccess ? result.Value : 0;
     }
 
-    public async Task<List<ArticleListItemReadModel>> SearchArticlesAsync(string keyword)
+    public async Task<List<ArticleListItemReadModel>> SearchArticlesAsync(string keyword, CancellationToken cancellationToken = default)
     {
-        var result = await core.SearchArticlesAsync(keyword);
+        var result = await core.SearchArticlesAsync(keyword, cancellationToken);
         if (!result.IsSuccess || result.Value is null)
         {
             return [];
@@ -67,9 +67,9 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
         return result.Value.Select(ToArticleListReadModel).ToList();
     }
 
-    public async Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync(int count = 10)
+    public async Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync(int count = 10, CancellationToken cancellationToken = default)
     {
-        var result = await core.GetHotArticlesAsync(count);
+        var result = await core.GetHotArticlesAsync(count, cancellationToken);
         if (!result.IsSuccess || result.Value is null)
         {
             return [];
@@ -78,7 +78,7 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
         return result.Value.Select(item => new PopularArticleSummaryDto(item.Id, item.Title, item.Views)).ToList();
     }
 
-    public async Task<List<FeaturedArticleSummaryDto>> GetFeaturedArticlesAsync(int size)
+    public async Task<List<FeaturedArticleSummaryDto>> GetFeaturedArticlesAsync(int size, CancellationToken cancellationToken = default)
     {
         int count = size switch
         {
@@ -86,7 +86,7 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
             > 20 => 20,
             _ => size
         };
-        var result = await core.GetFeaturedArticlesAsync(count);
+        var result = await core.GetFeaturedArticlesAsync(count, cancellationToken);
         return result.IsSuccess && result.Value is not null
             ? result.Value.Select(ToFeaturedArticleSummaryDto).ToList()
             : [];

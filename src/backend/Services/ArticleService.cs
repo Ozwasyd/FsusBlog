@@ -56,6 +56,9 @@ public class ArticleService(
 
     private CancellationToken Ct => _httpContextAccessor.HttpContext?.RequestAborted ?? CancellationToken.None;
 
+    private CancellationToken ResolveCancellationToken(CancellationToken cancellationToken)
+        => cancellationToken.CanBeCanceled ? cancellationToken : Ct;
+
     public async ValueTask IncreaseViewCountAsync(int id)
         => await IncreaseViewCountAsync(id, 1);
 
@@ -150,8 +153,10 @@ public class ArticleService(
         return updatedIds;
     }
 
-    public async Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null)
+    public async Task<ArticleListPageReadModel> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null, CancellationToken cancellationToken = default)
     {
+        CancellationToken effectiveCt = ResolveCancellationToken(cancellationToken);
+        effectiveCt.ThrowIfCancellationRequested();
         page = page < 1 ? 1 : page;
         size = size switch
         {
@@ -161,7 +166,7 @@ public class ArticleService(
         };
 
         string normalizedKeyword = NormalizeArticleListKeyword(keyword);
-        long version = await GetListCacheVersionAsync();
+        long version = await GetListCacheVersionAsync(effectiveCt);
         string cacheIdentity = BuildArticleListIdentity(version, page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword);
 
         return await _cacheMissCoordinator.CoordinateAsync(
@@ -173,7 +178,10 @@ public class ArticleService(
                     async gateCt =>
                     {
                         ArticleListPageReadModel result = await LoadArticleListPageFromDbAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword, gateCt);
-                        await _cache.SetRawAsync(CachePolicyId.ArticleList, cacheIdentity, ServerCacheBinaryCodec.EncodeArticleListPage(result), null, gateCt);
+                        gateCt.ThrowIfCancellationRequested();
+                        byte[] encoded = ServerCacheBinaryCodec.EncodeArticleListPage(result);
+                        gateCt.ThrowIfCancellationRequested();
+                        await _cache.SetRawAsync(CachePolicyId.ArticleList, cacheIdentity, encoded, null, gateCt);
                         return result;
                     },
                     async gateCt =>
@@ -188,17 +196,19 @@ public class ArticleService(
                     },
                     ct),
                 "article-list",
-                Ct)
+                effectiveCt)
             .ConfigureAwait(false)
             ?? new ArticleListPageReadModel { Items = [], Total = 0 };
     }
 
-    public async Task<ArticleDetailReadModel?> GetByIdAsync(int id, bool includePrivate = false)
+    public async Task<ArticleDetailReadModel?> GetByIdAsync(int id, bool includePrivate = false, CancellationToken cancellationToken = default)
     {
+        CancellationToken effectiveCt = ResolveCancellationToken(cancellationToken);
+        effectiveCt.ThrowIfCancellationRequested();
         string cacheIdentity = id.ToString();
         if (!includePrivate)
         {
-            var detailCache = await _cache.TryGetAsync(CachePolicyId.ArticleDetail, cacheIdentity, ServerCacheBinaryCodec.DecodeArticleDetail, Ct);
+            var detailCache = await _cache.TryGetAsync(CachePolicyId.ArticleDetail, cacheIdentity, ServerCacheBinaryCodec.DecodeArticleDetail, effectiveCt);
             if (detailCache.Hit)
             {
                 ArticleDetailReadModel? cached = detailCache.Value;
@@ -212,7 +222,7 @@ public class ArticleService(
                     return cached;
                 }
 
-                string healedContent = await LoadArticleContentAsync(id);
+                string healedContent = await LoadArticleContentAsync(id, effectiveCt);
                 if (string.IsNullOrWhiteSpace(healedContent))
                 {
                     healedContent = cached.Summary ?? string.Empty;
@@ -231,7 +241,10 @@ public class ArticleService(
                     EstimatedReadingMinutes = Math.Max(1, (healedWordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
                     ShowReadingNotice = healedWordCount > LongReadThreshold
                 };
-                await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, ServerCacheBinaryCodec.EncodeArticleDetail(healed), null, Ct);
+                effectiveCt.ThrowIfCancellationRequested();
+                byte[] encodedHealed = ServerCacheBinaryCodec.EncodeArticleDetail(healed);
+                effectiveCt.ThrowIfCancellationRequested();
+                await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, encodedHealed, null, effectiveCt);
                 return healed;
             }
         }
@@ -252,9 +265,10 @@ public class ArticleService(
 
         var sqlObj = query.ToSql();
         ArticleDetailReadModel? article = null;
+        effectiveCt.ThrowIfCancellationRequested();
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
         {
-            if (await reader.ReadAsync(Ct))
+            if (await reader.ReadAsync(effectiveCt))
             {
                 int fId = reader.GetOrdinal("Id"), fTitle = reader.GetOrdinal("Title"),
                     fSum = reader.GetOrdinal("Summary"), fCover = reader.GetOrdinal("CoverImageUrl"),
@@ -283,7 +297,7 @@ public class ArticleService(
 
         if (article != null)
         {
-            string content = await LoadArticleContentAsync(id);
+            string content = await LoadArticleContentAsync(id, effectiveCt);
             if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(article.Summary))
             {
                 content = article.Summary;
@@ -292,7 +306,7 @@ public class ArticleService(
             int estimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute);
             bool showReadingNotice = wordCount > LongReadThreshold;
 
-            var tags = await LoadArticleTagsAsync(id);
+            var tags = await LoadArticleTagsAsync(id, effectiveCt);
             article = article with
             {
                 Content = content,
@@ -303,38 +317,44 @@ public class ArticleService(
             };
             if (!includePrivate)
             {
-                await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, ServerCacheBinaryCodec.EncodeArticleDetail(article), null, Ct);
+                effectiveCt.ThrowIfCancellationRequested();
+                byte[] encoded = ServerCacheBinaryCodec.EncodeArticleDetail(article);
+                effectiveCt.ThrowIfCancellationRequested();
+                await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, encoded, null, effectiveCt);
             }
         }
         else if (!includePrivate)
         {
-            await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, Array.Empty<byte>(), TimeSpan.FromMinutes(5), Ct);
+            effectiveCt.ThrowIfCancellationRequested();
+            await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, Array.Empty<byte>(), TimeSpan.FromMinutes(5), effectiveCt);
         }
 
         return article;
     }
 
-    private async Task<string> LoadArticleContentAsync(int articleId)
+    private async Task<string> LoadArticleContentAsync(int articleId, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         string content = await _db.Queryable<ArticleBody>()
             .Where(it => it.ArticleId == articleId)
             .Select(it => it.MarkdownContent)
-            .FirstAsync() ?? string.Empty;
+            .FirstAsync(cancellationToken) ?? string.Empty;
 
         if (!string.IsNullOrWhiteSpace(content))
         {
             return content;
         }
 
-        if (!await LegacyArticleContentColumnExistsAsync())
+        if (!await LegacyArticleContentColumnExistsAsync(cancellationToken))
         {
             return content;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
             "SELECT COALESCE(content, '') AS content FROM article WHERE id = @id LIMIT 1;",
             new[] { new SugarParameter("@id", articleId) });
-        if (await reader.ReadAsync(Ct) && !reader.IsDBNull(0))
+        if (await reader.ReadAsync(cancellationToken) && !reader.IsDBNull(0))
         {
             return reader.GetString(0);
         }
@@ -342,7 +362,7 @@ public class ArticleService(
         return string.Empty;
     }
 
-    private async Task<bool> LegacyArticleContentColumnExistsAsync()
+    private async Task<bool> LegacyArticleContentColumnExistsAsync(CancellationToken cancellationToken)
     {
         int state = Volatile.Read(ref s_legacyArticleContentColumnState);
         if (state != 0)
@@ -350,12 +370,14 @@ public class ArticleService(
             return state == 1;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         int exists = await _db.Ado.GetIntAsync("""
             SELECT COUNT(1)
             FROM information_schema.columns
             WHERE table_name = 'article'
               AND column_name = 'content';
             """);
+        cancellationToken.ThrowIfCancellationRequested();
         bool existsInSchema = exists > 0;
         Volatile.Write(ref s_legacyArticleContentColumnState, existsInSchema ? 1 : 2);
         return existsInSchema;
@@ -693,8 +715,10 @@ public class ArticleService(
         return -1;
     }
 
-    public async Task<List<ArticleListItemReadModel>> SearchArticlesAsync(string keyword)
+    public async Task<List<ArticleListItemReadModel>> SearchArticlesAsync(string keyword, CancellationToken cancellationToken = default)
     {
+        CancellationToken effectiveCt = ResolveCancellationToken(cancellationToken);
+        effectiveCt.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(keyword))
         {
             return [];
@@ -717,7 +741,10 @@ public class ArticleService(
                     async gateCt =>
                     {
                         List<ArticleListItemReadModel> result = await LoadSearchArticlesFromSourceAsync(keyword, gateCt);
-                        await _cache.SetRawAsync(CachePolicyId.ArticleSearch, cacheIdentity, ServerCacheBinaryCodec.EncodeArticleSearch(result), null, gateCt);
+                        gateCt.ThrowIfCancellationRequested();
+                        byte[] encoded = ServerCacheBinaryCodec.EncodeArticleSearch(result);
+                        gateCt.ThrowIfCancellationRequested();
+                        await _cache.SetRawAsync(CachePolicyId.ArticleSearch, cacheIdentity, encoded, null, gateCt);
                         return result;
                     },
                     async gateCt =>
@@ -732,13 +759,15 @@ public class ArticleService(
                     },
                     ct),
                 "article-search",
-                Ct)
+                effectiveCt)
             .ConfigureAwait(false)
             ?? [];
     }
 
-    public async Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync(int count = 10)
+    public async Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync(int count = 10, CancellationToken cancellationToken = default)
     {
+        CancellationToken effectiveCt = ResolveCancellationToken(cancellationToken);
+        effectiveCt.ThrowIfCancellationRequested();
         count = count switch
         {
             < 1 => 10,
@@ -766,7 +795,7 @@ public class ArticleService(
                     },
                     ct),
                 "article-hot-seed",
-                Ct)
+                effectiveCt)
             .ConfigureAwait(false)
             ?? [];
 
@@ -776,6 +805,7 @@ public class ArticleService(
         }
 
         DateTime now = DateTime.UtcNow;
+        effectiveCt.ThrowIfCancellationRequested();
         var sqlObj = _db.Queryable<Article>()
             .In(ids)
             .Where(a => !a.IsDeleted
@@ -788,7 +818,7 @@ public class ArticleService(
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
         {
             int fId = reader.GetOrdinal("Id"), fTitle = reader.GetOrdinal("Title"), fViews = reader.GetOrdinal("Views");
-            while (await reader.ReadAsync(Ct))
+            while (await reader.ReadAsync(effectiveCt))
             {
                 articles.Add(new PopularArticleSummaryDto(reader.GetInt32(fId), reader.GetString(fTitle), reader.GetInt32(fViews)));
             }
@@ -796,8 +826,10 @@ public class ArticleService(
         return OrderHotArticles(ids, articles);
     }
 
-    public async Task<List<FeaturedArticleSummaryDto>> GetFeaturedArticlesAsync(int size)
+    public async Task<List<FeaturedArticleSummaryDto>> GetFeaturedArticlesAsync(int size, CancellationToken cancellationToken = default)
     {
+        CancellationToken effectiveCt = ResolveCancellationToken(cancellationToken);
+        effectiveCt.ThrowIfCancellationRequested();
         size = size switch
         {
             < 1 => 3,
@@ -827,7 +859,7 @@ public class ArticleService(
                     },
                     ct),
                 "article-hot-seed",
-                Ct)
+                effectiveCt)
             .ConfigureAwait(false)
             ?? [];
 
@@ -837,6 +869,7 @@ public class ArticleService(
         }
 
         DateTime now = DateTime.UtcNow;
+        effectiveCt.ThrowIfCancellationRequested();
         var sqlObj = _db.Queryable<Article>()
             .LeftJoin<Category>((a, c) => a.CategoryId == c.Id)
             .In(a => a.Id, ids)
@@ -856,7 +889,7 @@ public class ArticleService(
                 fViews = reader.GetOrdinal("Views"), fCreateTime = reader.GetOrdinal("CreateTime"),
                 fCatId = reader.GetOrdinal("CategoryId"), fCatName = reader.GetOrdinal("CategoryName");
 
-            while (await reader.ReadAsync(Ct))
+            while (await reader.ReadAsync(effectiveCt))
             {
                 articles.Add(new FeaturedArticleSummaryDto(
                     reader.GetInt32(fId),
@@ -993,7 +1026,7 @@ public class ArticleService(
             await ReadArticleListItemsAsync(reader, list, cancellationToken);
         }
 
-        await AttachArticleListTagsAsync(list);
+        await AttachArticleListTagsAsync(list, cancellationToken);
 
         return new ArticleListPageReadModel { Items = list, Total = totalCount };
     }
@@ -1061,7 +1094,7 @@ public class ArticleService(
             cursorId = last.Id;
         }
 
-        await AttachArticleListTagsAsync(pageItems);
+        await AttachArticleListTagsAsync(pageItems, cancellationToken);
         return new ArticleListPageReadModel { Items = pageItems, Total = totalCount };
     }
 
@@ -1123,7 +1156,7 @@ public class ArticleService(
         }
     }
 
-    private async Task AttachArticleListTagsAsync(List<ArticleListItemReadModel> list)
+    private async Task AttachArticleListTagsAsync(List<ArticleListItemReadModel> list, CancellationToken cancellationToken)
     {
         if (list.Count == 0)
         {
@@ -1136,7 +1169,7 @@ public class ArticleService(
             ids.Add(list[i].Id);
         }
 
-        var tagDict = await LoadArticleTagMapAsync(ids);
+        var tagDict = await LoadArticleTagMapAsync(ids, cancellationToken);
         AttachTags(list, tagDict);
     }
 
@@ -1179,7 +1212,9 @@ public class ArticleService(
 
     private async Task<List<ArticleListItemReadModel>> LoadSearchArticlesFromSourceAsync(string keyword, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var searchResults = await _searchIndex.SearchAsync(keyword);
+        cancellationToken.ThrowIfCancellationRequested();
         if (searchResults.Count == 0)
         {
             return [];
@@ -1214,6 +1249,7 @@ public class ArticleService(
             .ToSql();
 
         var metadataFromDb = new Dictionary<int, (string Summary, string? Cover, int Views, DateTime Time, int CatId, string CatName, bool IsDel)>(ids.Count);
+        cancellationToken.ThrowIfCancellationRequested();
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
         {
             int fId = reader.GetOrdinal("Id");
@@ -1238,7 +1274,7 @@ public class ArticleService(
             }
         }
 
-        var tagDict = await LoadArticleTagMapAsync(ids);
+        var tagDict = await LoadArticleTagMapAsync(ids, cancellationToken);
         var resultList = new List<ArticleListItemReadModel>(ids.Count);
         for (int i = 0; i < boundedCount; i++)
         {
@@ -1272,6 +1308,7 @@ public class ArticleService(
     {
         cancellationToken.ThrowIfCancellationRequested();
         RedisValue[] topIds = await _redis.SortedSetRangeByRankAsync(redisKey, 0, count - 1, Order.Descending);
+        cancellationToken.ThrowIfCancellationRequested();
         List<int> ids = ExtractOrderedArticleIds(topIds);
         return ids.Count == 0
             ? new CacheReadResult<List<int>>(false, default)
@@ -1305,7 +1342,9 @@ public class ArticleService(
             ids.Add(topFromDb[i].Id);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         await _redis.SortedSetAddAsync(redisKey, entries);
+        cancellationToken.ThrowIfCancellationRequested();
         return ids;
     }
 
@@ -1415,7 +1454,7 @@ public class ArticleService(
         }
 
         ArticleListItemReadModel articlePreview = preview;
-        List<TagReadModel> tags = await LoadArticleTagsAsync(id);
+        List<TagReadModel> tags = await LoadArticleTagsAsync(id, Ct);
         return ArticleProjection.ToResponse(articlePreview with { Tags = tags });
     }
 
@@ -1483,19 +1522,22 @@ public class ArticleService(
         return items;
     }
 
-    private async Task<List<TagReadModel>> LoadArticleTagsAsync(int articleId)
+    private async Task<List<TagReadModel>> LoadArticleTagsAsync(int articleId, CancellationToken cancellationToken)
     {
         if (articleId <= 0)
         {
             return new List<TagReadModel>();
         }
 
-        var tagMap = await LoadArticleTagMapAsync([articleId]);
+        var tagMap = await LoadArticleTagMapAsync([articleId], cancellationToken);
         return tagMap.TryGetValue(articleId, out var tags) ? tags : new List<TagReadModel>();
     }
 
-    private async Task<Dictionary<int, List<TagReadModel>>> LoadArticleTagMapAsync(IReadOnlyCollection<int> articleIds)
+    private async Task<Dictionary<int, List<TagReadModel>>> LoadArticleTagMapAsync(
+        IReadOnlyCollection<int> articleIds,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (articleIds.Count == 0)
         {
             return new Dictionary<int, List<TagReadModel>>();
@@ -1514,7 +1556,7 @@ public class ArticleService(
             .InnerJoin<Tag>((at, t) => at.TagId == t.Id)
             .Where(at => ids.Contains(at.ArticleId))
             .Select((at, t) => new { at.ArticleId, t.Id, t.Name })
-            .ToListAsync(Ct);
+            .ToListAsync(cancellationToken);
 
         var tagMap = new Dictionary<int, List<TagReadModel>>(ids.Count);
         foreach (var row in tagRows)
@@ -1597,9 +1639,9 @@ public class ArticleService(
         return content[..len];
     }
 
-    private async ValueTask<long> GetListCacheVersionAsync()
+    private async ValueTask<long> GetListCacheVersionAsync(CancellationToken cancellationToken)
     {
-        string? ver = await _cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Ct);
+        string? ver = await _cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", cancellationToken);
         return long.TryParse(ver, out long parsed) ? parsed : 0;
     }
 

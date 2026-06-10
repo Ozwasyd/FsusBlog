@@ -73,6 +73,7 @@ public sealed class UnifiedCache(
         FsusObservability.SetTag(activity, "fsus.cache.operation", "get");
         FsusObservability.SetTag(activity, "fsus.cache.policy", policyId.ToString());
         string key = BuildKey(policyId, identity);
+        cancellationToken.ThrowIfCancellationRequested();
         if (memoryCache.TryGetValue(key, out byte[]? l1Bytes) && l1Bytes is not null)
         {
             if (l1Bytes.Length == 0)
@@ -89,13 +90,17 @@ public sealed class UnifiedCache(
             }
 
             memoryCache.Remove(key);
+            cancellationToken.ThrowIfCancellationRequested();
             await _db.KeyDeleteAsync(key).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             await UnregisterKeyAsync(policyId, key).ConfigureAwait(false);
             FsusObservability.RecordCacheOperation("get", policyId.ToString(), "l1", "decode_failed", FsusObservability.GetElapsed(startedAt));
             return new CacheReadResult<T>(false, default);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         RedisValue l2Value = await _db.StringGetAsync(key).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!l2Value.HasValue)
         {
             FsusObservability.RecordCacheOperation("get", policyId.ToString(), "l2", "miss", FsusObservability.GetElapsed(startedAt));
@@ -114,6 +119,7 @@ public sealed class UnifiedCache(
         if (!success)
         {
             await _db.KeyDeleteAsync(key).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             await UnregisterKeyAsync(policyId, key).ConfigureAwait(false);
             FsusObservability.RecordCacheOperation("get", policyId.ToString(), "l2", "decode_failed", FsusObservability.GetElapsed(startedAt));
             return new CacheReadResult<T>(false, default);
@@ -134,6 +140,7 @@ public sealed class UnifiedCache(
         FsusObservability.SetTag(activity, "fsus.cache.operation", "get_raw");
         FsusObservability.SetTag(activity, "fsus.cache.policy", policyId.ToString());
         string key = BuildKey(policyId, identity);
+        cancellationToken.ThrowIfCancellationRequested();
         if (memoryCache.TryGetValue(key, out byte[]? l1Bytes) && l1Bytes is not null)
         {
             FsusObservability.RecordCacheOperation("get_raw", policyId.ToString(), "l1", "hit", FsusObservability.GetElapsed(startedAt));
@@ -141,6 +148,7 @@ public sealed class UnifiedCache(
         }
 
         RedisValue l2Value = await _db.StringGetAsync(key).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!l2Value.HasValue)
         {
             FsusObservability.RecordCacheOperation("get_raw", policyId.ToString(), "l2", "miss", FsusObservability.GetElapsed(startedAt));
@@ -163,6 +171,7 @@ public sealed class UnifiedCache(
         FsusObservability.SetTag(activity, "fsus.cache.operation", "get_raw_readonly");
         FsusObservability.SetTag(activity, "fsus.cache.policy", policyId.ToString());
         string key = BuildKey(policyId, identity);
+        cancellationToken.ThrowIfCancellationRequested();
         if (memoryCache.TryGetValue(key, out byte[]? l1Bytes) && l1Bytes is not null)
         {
             FsusObservability.RecordCacheOperation("get_raw_readonly", policyId.ToString(), "l1", "hit", FsusObservability.GetElapsed(startedAt));
@@ -170,6 +179,7 @@ public sealed class UnifiedCache(
         }
 
         RedisValue l2Value = await _db.StringGetAsync(key).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!l2Value.HasValue)
         {
             FsusObservability.RecordCacheOperation("get_raw_readonly", policyId.ToString(), "l2", "miss", FsusObservability.GetElapsed(startedAt));
@@ -194,11 +204,15 @@ public sealed class UnifiedCache(
         FsusObservability.SetTag(activity, "fsus.cache.operation", "set");
         FsusObservability.SetTag(activity, "fsus.cache.policy", policyId.ToString());
         string key = BuildKey(policyId, identity);
+        cancellationToken.ThrowIfCancellationRequested();
         CachePolicy policy = ResolvePolicy(policyId);
         TimeSpan l2Ttl = l2TtlOverride ?? ApplyDeterministicJitter(key, policy.L2Ttl, policy.L2JitterRatio);
         byte[] cachedValue = CopyRawBytes(value);
+        cancellationToken.ThrowIfCancellationRequested();
         await _db.StringSetAsync(key, cachedValue, l2Ttl).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         SetL1(policyId, key, cachedValue);
         FsusObservability.RecordCacheOperation("set", policyId.ToString(), "l2", "ok", FsusObservability.GetElapsed(startedAt));
     }

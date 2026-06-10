@@ -30,8 +30,10 @@ public sealed class ArticleEndpointService(
         bool canReadDeleted,
         int? status,
         bool canReadPrivate,
-        string? keyword = null)
+        string? keyword = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (isDeleted && !canReadDeleted)
         {
             return new(default, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Forbidden, "权限不足"));
@@ -42,33 +44,51 @@ public sealed class ArticleEndpointService(
             return new(default, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Forbidden, "权限不足"));
         }
 
-        long version = await GetArticleListCacheVersionAsync();
+        long version = await GetArticleListCacheVersionAsync(cancellationToken);
         string normalizedKeyword = NormalizeArticleListKeyword(keyword);
         string identity = BuildArticleListCacheIdentity(version, page, size, categoryId, tagId, isDeleted, status, canReadPrivate, normalizedKeyword);
-        CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleListFrame, identity);
+        CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleListFrame, identity, cancellationToken);
         if (frame.Hit && frame.Value.Length > 0)
         {
             return new(frame.Value, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
         }
 
-        Result<CorePageResult<ArticleListCoreModel>> result = await core.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, canReadPrivate, normalizedKeyword, version);
+        cancellationToken.ThrowIfCancellationRequested();
+        Result<CorePageResult<ArticleListCoreModel>> result = await core.GetPageListAsync(
+            page,
+            size,
+            categoryId,
+            tagId,
+            isDeleted,
+            status,
+            canReadPrivate,
+            normalizedKeyword,
+            version,
+            cancellationToken);
         if (!result.IsSuccess)
         {
             return new(default, result);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         byte[] payload = PodBinaryCodec.EncodeArticlePage(result.Value);
         byte[] encodedFrame = aeds.Encode(AedsFrameType.ArticleList, payload);
-        await cache.SetRawAsync(CachePolicyId.ArticleListFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
+        cancellationToken.ThrowIfCancellationRequested();
+        await cache.SetRawAsync(CachePolicyId.ArticleListFrame, identity, encodedFrame, TimeSpan.FromMinutes(10), cancellationToken);
         return new(encodedFrame, result);
     }
 
-    public Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(int id, bool canReadPrivate = false)
-        => core.GetByIdAsync(id, canReadPrivate);
+    public Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(
+        int id,
+        bool canReadPrivate = false,
+        CancellationToken cancellationToken = default)
+        => core.GetByIdAsync(id, canReadPrivate, cancellationToken);
 
-    public async Task<ArticleDetailArtifactPayload> GetPublicArtifactBackedDetailAsync(int id)
+    public async Task<ArticleDetailArtifactPayload> GetPublicArtifactBackedDetailAsync(
+        int id,
+        CancellationToken cancellationToken = default)
     {
-        var artifact = await detailArtifacts.TryReadAsync(id);
+        var artifact = await detailArtifacts.TryReadAsync(id, cancellationToken);
         if (artifact.Found)
         {
             return new ArticleDetailArtifactPayload(artifact.Frame, BackfillQueued: false);
@@ -78,30 +98,39 @@ public sealed class ArticleEndpointService(
         return new ArticleDetailArtifactPayload(default, queued);
     }
 
-    public async Task<ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>>> GetHotArticlesAsync(int count)
+    public async Task<ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>>> GetHotArticlesAsync(
+        int count,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         string identity = BuildArticleHotCacheIdentity(count);
-        CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleHotFrame, identity);
+        CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleHotFrame, identity, cancellationToken);
         if (frame.Hit && frame.Value.Length > 0)
         {
             return new(frame.Value, Result<IReadOnlyList<PopularArticleCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
         }
 
-        Result<IReadOnlyList<PopularArticleCoreModel>> result = await core.GetHotArticlesAsync(count);
+        cancellationToken.ThrowIfCancellationRequested();
+        Result<IReadOnlyList<PopularArticleCoreModel>> result = await core.GetHotArticlesAsync(count, cancellationToken);
         if (!result.IsSuccess || result.Value is null)
         {
             return new(default, result);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         byte[] payload = PodBinaryCodec.EncodePopularArticles(result.Value);
         byte[] encodedFrame = aeds.Encode(AedsFrameType.ArticleHot, payload);
-        await cache.SetRawAsync(CachePolicyId.ArticleHotFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
+        cancellationToken.ThrowIfCancellationRequested();
+        await cache.SetRawAsync(CachePolicyId.ArticleHotFrame, identity, encodedFrame, TimeSpan.FromMinutes(10), cancellationToken);
         return new(encodedFrame, result);
     }
 
-    public async Task<Result<IReadOnlyList<FeaturedArticleSummaryDto>>> GetFeaturedArticlesAsync(int count)
+    public async Task<Result<IReadOnlyList<FeaturedArticleSummaryDto>>> GetFeaturedArticlesAsync(
+        int count,
+        CancellationToken cancellationToken = default)
     {
-        List<FeaturedArticleSummaryDto> featured = await articles.GetFeaturedArticlesAsync(count);
+        cancellationToken.ThrowIfCancellationRequested();
+        List<FeaturedArticleSummaryDto> featured = await articles.GetFeaturedArticlesAsync(count, cancellationToken);
         return Result<IReadOnlyList<FeaturedArticleSummaryDto>>.Success(featured);
     }
 
@@ -123,9 +152,9 @@ public sealed class ArticleEndpointService(
     public Task<bool> PermanentlyDeleteArticleAsync(int id)
         => articles.PermanentlyDeleteArticleAsync(id);
 
-    private async ValueTask<long> GetArticleListCacheVersionAsync()
+    private async ValueTask<long> GetArticleListCacheVersionAsync(CancellationToken cancellationToken)
     {
-        string? version = await cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main");
+        string? version = await cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", cancellationToken);
         return long.TryParse(version, out long parsed) ? parsed : 0;
     }
 
