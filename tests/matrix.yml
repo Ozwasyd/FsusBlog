@@ -433,6 +433,222 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: backend-qps-view-count-flush
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-qps.sh view-count-flush
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [view-count-batch-flush]
+    artifacts: [.tmp/perf/backend-qps/view-count-flush.json, .tmp/release-evidence/backend-qps-summary.json]
+    evidence: [.tmp/perf/backend-qps/view-count-flush.json, .tmp/release-evidence/backend-qps-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-qps-cache-hit
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-qps.sh cache-hit
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [aeds-full-frame-cache-hit]
+    artifacts: [.tmp/perf/backend-qps/cache-hit.json, .tmp/release-evidence/backend-qps-summary.json]
+    evidence: [.tmp/perf/backend-qps/cache-hit.json, .tmp/release-evidence/backend-qps-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-qps-comment-cursor
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-qps.sh comment-cursor
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [comment-cursor-cache]
+    artifacts: [.tmp/perf/backend-qps/comment-cursor.json, .tmp/release-evidence/backend-qps-summary.json]
+    evidence: [.tmp/perf/backend-qps/comment-cursor.json, .tmp/release-evidence/backend-qps-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-qps-hotread
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-qps.sh hotread
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [public-hot-read-taxonomy]
+    artifacts: [.tmp/perf/backend-qps/hotread.json, .tmp/release-evidence/backend-qps-summary.json]
+    evidence: [.tmp/perf/backend-qps/hotread.json, .tmp/release-evidence/backend-qps-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-qps-cache-miss-singleflight
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-qps.sh cache-miss-singleflight
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [cache-miss-singleflight]
+    artifacts: [.tmp/perf/backend-qps/cache-miss-singleflight.json, .tmp/release-evidence/backend-qps-summary.json]
+    evidence: [.tmp/perf/backend-qps/cache-miss-singleflight.json, .tmp/release-evidence/backend-qps-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-qps-risk-filter
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-qps.sh risk-filter
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [public-read-risk-filter]
+    artifacts: [.tmp/perf/backend-qps/risk-filter.json, .tmp/release-evidence/backend-qps-summary.json]
+    evidence: [.tmp/perf/backend-qps/risk-filter.json, .tmp/release-evidence/backend-qps-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-qps-related-reading
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-qps.sh related-reading
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [related-reading-cache]
+    artifacts: [.tmp/perf/backend-qps/related-reading.json, .tmp/release-evidence/backend-qps-summary.json]
+    evidence: [.tmp/perf/backend-qps/related-reading.json, .tmp/release-evidence/backend-qps-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-qps-list-pagination
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-qps.sh list-pagination
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [public-list-deep-page]
+    artifacts: [.tmp/perf/backend-qps/list-pagination.json, .tmp/release-evidence/backend-qps-summary.json]
+    evidence: [.tmp/perf/backend-qps/list-pagination.json, .tmp/release-evidence/backend-qps-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-qps-article-detail-miss
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-qps.sh article-detail-miss
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [article-detail-artifact-miss]
+    artifacts: [.tmp/perf/backend-qps/article-detail-miss.json, .tmp/release-evidence/backend-qps-summary.json]
+    evidence: [.tmp/perf/backend-qps/article-detail-miss.json, .tmp/release-evidence/backend-qps-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-qps-cache-registry
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-qps.sh cache-registry
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [cache-registry-command-reduction]
+    artifacts: [.tmp/perf/backend-qps/cache-registry.json, .tmp/release-evidence/backend-qps-summary.json]
+    evidence: [.tmp/perf/backend-qps/cache-registry.json, .tmp/release-evidence/backend-qps-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-qps-index-plan
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-qps.sh index-plan
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [db-index-plan]
+    artifacts: [.tmp/perf/backend-qps/index-plan.json, .tmp/release-evidence/backend-qps-summary.json]
+    evidence: [.tmp/perf/backend-qps/index-plan.json, .tmp/release-evidence/backend-qps-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-qps
+    owner: ServerContractAgent
+    command: tools/test/lanes/noop.sh backend-qps
+    dependsOn: [backend-qps-view-count-flush, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-qps-index-plan]
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 15
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [backend-qps-implementation-evidence]
+    artifacts: [.tmp/perf/backend-qps, .tmp/release-evidence/backend-qps-summary.json]
+    evidence: [.tmp/release-evidence/backend-qps-summary.json]
+    ciJob: backend-qps
+    localOnly: false
+    nightlyOnly: false
+
   - id: endpoint-depth
     owner: ServerContractAgent
     command: tools/test/lanes/endpoint-depth.sh
@@ -796,7 +1012,7 @@ tiers:
   - id: production
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh production
-    dependsOn: [fast, bootstrap, release, integration, security, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, frontend-render-pressure, resilience, load, release-evidence]
+    dependsOn: [fast, bootstrap, release, integration, security, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, frontend-render-pressure, resilience, load, backend-qps, release-evidence]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [production-runtime]

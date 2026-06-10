@@ -554,6 +554,11 @@ public sealed class UnifiedCache(
 
     private async Task RegisterKeyAsync(CachePolicyId policyId, string key)
     {
+        if (!ResolvePolicy(policyId).RegisterKeysForPrefixInvalidation)
+        {
+            return;
+        }
+
         await BoundaryExecutor.ExecuteAsync(
             async () => _ = await _db.SetAddAsync(ResolveRegistryKey(policyId), key).ConfigureAwait(false),
             logger,
@@ -563,6 +568,11 @@ public sealed class UnifiedCache(
 
     private async Task UnregisterKeyAsync(CachePolicyId policyId, string key)
     {
+        if (!ResolvePolicy(policyId).RegisterKeysForPrefixInvalidation)
+        {
+            return;
+        }
+
         await BoundaryExecutor.ExecuteAsync(
             async () => _ = await _db.SetRemoveAsync(ResolveRegistryKey(policyId), key).ConfigureAwait(false),
             logger,

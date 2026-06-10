@@ -90,7 +90,7 @@ All test classes must live under `Unit/` or `Integration/`.
   - Runs lightweight public/API concurrency checks.
 - `./tools/test.sh production`
   - Industrial release gate.
-  - Runs `fast`, bootstraps `3000/5000/8080` once, then runs `integration + release + acceptance + visual + security + resilience + load` against the shared environment.
+  - Runs `fast`, bootstraps `3000/5000/8080` once, then runs `integration + release + acceptance + visual + security + resilience + load + backend-qps` against the shared environment.
   - This is the "0 errors / 0 warnings / 0 release-blocker bugs" gate.
 
 ## CI Contract

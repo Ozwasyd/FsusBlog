@@ -182,7 +182,7 @@ export async function activateMarkdownFeatures(container: HTMLElement, _result?:
 
       await processInChunks(codeBlocks, async (el) => {
         // 如果父元素已经被处理过（比如被 Shiki 替换了 pre），跳过
-        if (!el.parentElement || el.parentElement.tagName !== 'PRE') continue;
+        if (!el.parentElement || el.parentElement.tagName !== 'PRE') return;
 
         const langMatch = Array.from(el.classList).find(c => c.startsWith('language-'));
         const lang = normalizeShikiLanguage(langMatch ? langMatch.replace('language-', '') : 'text');

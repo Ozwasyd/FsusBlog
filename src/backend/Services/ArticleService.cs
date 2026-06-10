@@ -49,6 +49,7 @@ public class ArticleService(
     private const int MaxTagIds = 32;
     private const int LongReadThreshold = 5_000;
     private const int ReadingCharsPerMinute = 300;
+    private const int PublicKeysetWalkPageThreshold = 3;
 
     private readonly IDatabase _redis = _redisConnection.GetDatabase();
     private static int s_legacyArticleContentColumnState;
@@ -942,7 +943,8 @@ public class ArticleService(
         }
 
         string whereSql = string.Join(" AND ", whereClauses);
-        if (ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate))
+        if (ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate)
+            && page <= PublicKeysetWalkPageThreshold)
         {
             return await LoadPublicArticleListPageByKeysetAsync(page, size, whereSql, parameters, cancellationToken);
         }

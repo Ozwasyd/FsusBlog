@@ -2,6 +2,8 @@ using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Core.Services.Implementations;
+using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 using FsusBlog.Shared.Contracts.Outputs;
 using NSubstitute;
 
@@ -302,6 +304,42 @@ public class ArticleCoreServiceTests
     {
         _gw.IncreaseViewCountAsync(1).Returns(default(ValueTask));
         Assert.True((await Svc().IncreaseViewCountAsync(1)).IsSuccess);
+    }
+
+    [Fact]
+    public async Task IncreaseViewCounts_ValidBatch_CallsGatewayBatch()
+    {
+        IReadOnlySet<int> updated = new HashSet<int> { 1, 2 };
+        _gw.IncreaseViewCountsAsync(Arg.Any<IReadOnlyDictionary<int, int>>(), Arg.Any<CancellationToken>())
+            .Returns(updated);
+
+        var result = await Svc().IncreaseViewCountsAsync(new Dictionary<int, int>
+        {
+            [1] = 3,
+            [2] = 4
+        });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(updated, result.Value);
+        await _gw.Received(1).IncreaseViewCountsAsync(
+            Arg.Is<IReadOnlyDictionary<int, int>>(items => items[1] == 3 && items[2] == 4),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ArticleServiceCoreAdapter_CountFlush_UsesBatchInsteadOfSingleLoop()
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        core.IncreaseViewCountsAsync(Arg.Any<IReadOnlyDictionary<int, int>>(), Arg.Any<CancellationToken>())
+            .Returns(Result<IReadOnlySet<int>>.Success(new HashSet<int> { 42 }));
+        var adapter = new ArticleServiceCoreAdapter(core);
+
+        await adapter.IncreaseViewCountAsync(42, 100);
+
+        await core.Received(1).IncreaseViewCountsAsync(
+            Arg.Is<IReadOnlyDictionary<int, int>>(items => items.Count == 1 && items[42] == 100),
+            Arg.Any<CancellationToken>());
+        await core.DidNotReceive().IncreaseViewCountAsync(42);
     }
 }
 

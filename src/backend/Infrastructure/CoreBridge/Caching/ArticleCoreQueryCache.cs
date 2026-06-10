@@ -16,9 +16,10 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache)
         int? status,
         bool includePrivate,
         string keyword,
+        long? listCacheVersion,
         Func<Task<CorePageResult<ArticleListCoreModel>>> loader)
     {
-        long version = await GetListCacheVersionAsync();
+        long version = listCacheVersion ?? await GetListCacheVersionAsync();
         string scope = includePrivate ? "admin" : "public";
         string identity = $"core:v4:{scope}:{version}:{page}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}:{keyword}";
         var hit = await cache.TryGetAsync(CachePolicyId.ArticleList, identity, DecodeArticlePage);
@@ -48,6 +49,13 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache)
             return cached.Value;
         }
 
+        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleDetail, identity);
+        cached = await cache.TryGetAsync(CachePolicyId.ArticleDetail, identity, DecodeArticleDetail);
+        if (cached.Hit)
+        {
+            return cached.Value;
+        }
+
         ArticleDetailCoreModel? loaded = await loader();
         if (loaded is null)
         {
@@ -68,6 +76,13 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache)
             return hit.Value ?? Array.Empty<ArticleListCoreModel>();
         }
 
+        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleSearch, identity);
+        hit = await cache.TryGetAsync(CachePolicyId.ArticleSearch, identity, DecodeArticleSearch);
+        if (hit.Hit)
+        {
+            return hit.Value ?? Array.Empty<ArticleListCoreModel>();
+        }
+
         IReadOnlyList<ArticleListCoreModel> loaded = await loader();
         await cache.SetRawAsync(CachePolicyId.ArticleSearch, identity, PodBinaryCodec.EncodeArticleSearch(loaded), TimeSpan.FromMinutes(10));
         return loaded;
@@ -82,6 +97,13 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache)
             return hit.Value ?? Array.Empty<PopularArticleCoreModel>();
         }
 
+        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleHot, identity);
+        hit = await cache.TryGetAsync(CachePolicyId.ArticleHot, identity, DecodePopularArticles);
+        if (hit.Hit)
+        {
+            return hit.Value ?? Array.Empty<PopularArticleCoreModel>();
+        }
+
         IReadOnlyList<PopularArticleCoreModel> loaded = await loader();
         await cache.SetRawAsync(CachePolicyId.ArticleHot, identity, PodBinaryCodec.EncodePopularArticles(loaded), TimeSpan.FromMinutes(10));
         return loaded;
@@ -91,6 +113,13 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache)
     {
         string identity = $"core:v2:featured:{count}";
         var hit = await cache.TryGetAsync(CachePolicyId.TopArticles, identity, DecodeFeaturedArticles);
+        if (hit.Hit)
+        {
+            return hit.Value ?? Array.Empty<FeaturedArticleCoreModel>();
+        }
+
+        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.TopArticles, identity);
+        hit = await cache.TryGetAsync(CachePolicyId.TopArticles, identity, DecodeFeaturedArticles);
         if (hit.Hit)
         {
             return hit.Value ?? Array.Empty<FeaturedArticleCoreModel>();

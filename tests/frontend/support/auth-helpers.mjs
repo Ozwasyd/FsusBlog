@@ -500,15 +500,15 @@ function encodeOptionalBody(path, body) {
     return typeof body === 'string' ? Buffer.from(body) : Buffer.from('permission-probe');
   }
 
-  if (/^\/api\/Category(?:\/\d+)?$/u.test(path)) {
+  if (/^(?:\/api\/Category|\/api\/binary\/category)(?:\/\d+)?$/u.test(path)) {
     return encodeAedsFrame(FRAME_CATEGORY_WRITE_REQUEST, encodeNameMutationRequest(body.name ?? body));
   }
 
-  if (/^\/api\/Tag(?:\/\d+)?$/u.test(path)) {
+  if (/^(?:\/api\/Tag|\/api\/binary\/tag)(?:\/\d+)?$/u.test(path)) {
     return encodeAedsFrame(FRAME_TAG_WRITE_REQUEST, encodeNameMutationRequest(body.name ?? body));
   }
 
-  if (/^\/api\/Article(?:\/\d+)?$/u.test(path)) {
+  if (/^(?:\/api\/Article|\/api\/binary\/admin\/article)(?:\/\d+)?$/u.test(path)) {
     return encodeAedsFrame(FRAME_ARTICLE_WRITE_REQUEST, encodeArticleWriteRequest(body));
   }
 

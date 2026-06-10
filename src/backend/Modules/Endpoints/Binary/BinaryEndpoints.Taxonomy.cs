@@ -32,10 +32,18 @@ public static partial class BinaryEndpoints
 {
     private static void MapBinaryTaxonomyEndpoints(IEndpointRouteBuilder group)
     {
-        group.MapGet("/category", static async Task<BinaryFrameResult> (
+        group.MapGet("/category", static async Task<IResult> (
             ISqlSugarClient db,
+            IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
+            const string identity = "all";
+            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CategoryFrame, identity);
+            if (frame.Hit && frame.Value.Length > 0)
+            {
+                return BinaryResults.PreencodedFrame(frame.Value);
+            }
+
             DateTime now = DateTime.UtcNow;
             var query = db.Queryable<Category>()
                 .LeftJoin<Article>((c, a) => c.Id == a.CategoryId
@@ -70,17 +78,28 @@ public static partial class BinaryEndpoints
                 }
             }
 
-            return BinaryResults.Frame(aeds, AedsFrameType.CategoryList, writer => PodBinaryCodec.WriteCategoryList(result, writer));
+            byte[] payload = PodBinaryCodec.EncodeCategoryList(result);
+            byte[] encodedFrame = aeds.Encode(AedsFrameType.CategoryList, payload);
+            await cache.SetRawAsync(CachePolicyId.CategoryFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
+            return BinaryResults.PreencodedFrame(encodedFrame);
         })
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .AddEndpointFilter<RiskAwarePublicReadFilter>()
         .CacheOutput(HttpCachePolicyCatalog.ApplyCategoryList);
 
-        group.MapGet("/tag", static async Task<BinaryFrameResult> (
+        group.MapGet("/tag", static async Task<IResult> (
             ISqlSugarClient db,
+            IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
+            const string identity = "all";
+            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.TagFrame, identity);
+            if (frame.Hit && frame.Value.Length > 0)
+            {
+                return BinaryResults.PreencodedFrame(frame.Value);
+            }
+
             DateTime now = DateTime.UtcNow;
             var query = db.Queryable<Tag>()
                 .LeftJoin<ArticleTag>((t, at) => t.Id == at.TagId)
@@ -116,18 +135,17 @@ public static partial class BinaryEndpoints
                 }
             }
 
-            return BinaryResults.Frame(aeds, AedsFrameType.TagList, writer => PodBinaryCodec.WriteTagWithCountList(result, writer));
+            byte[] payload = PodBinaryCodec.EncodeTagWithCountList(result);
+            byte[] encodedFrame = aeds.Encode(AedsFrameType.TagList, payload);
+            await cache.SetRawAsync(CachePolicyId.TagFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
+            return BinaryResults.PreencodedFrame(encodedFrame);
         })
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .AddEndpointFilter<RiskAwarePublicReadFilter>()
         .CacheOutput(HttpCachePolicyCatalog.ApplyTagList);
 
-        var taxonomyWriteGroup = group.MapGroup("")
-            .RequireAuthorization(policy => policy.RequireRole("admin"))
-            .AddEndpointFilter<RequiresPowFilter>();
-
-        taxonomyWriteGroup.MapPost("/category", static async Task<BinaryFrameResult> (
+        group.MapPost("/category", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
@@ -168,9 +186,11 @@ public static partial class BinaryEndpoints
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
             publicHotUpdates.TryEnqueue(null, "taxonomy-category-created");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
-        });
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .AddEndpointFilter<RequiresPowFilter>();
 
-        taxonomyWriteGroup.MapPut("/category/{id:int}", static async Task<BinaryFrameResult> (
+        group.MapPut("/category/{id:int}", static async Task<BinaryFrameResult> (
             int id,
             HttpContext httpContext,
             ISqlSugarClient db,
@@ -217,9 +237,11 @@ public static partial class BinaryEndpoints
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
             publicHotUpdates.TryEnqueue(null, "taxonomy-category-updated");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
-        });
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .AddEndpointFilter<RequiresPowFilter>();
 
-        taxonomyWriteGroup.MapDelete("/category/{id:int}", static async Task<BinaryFrameResult> (
+        group.MapDelete("/category/{id:int}", static async Task<BinaryFrameResult> (
             int id,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
@@ -246,9 +268,11 @@ public static partial class BinaryEndpoints
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
             publicHotUpdates.TryEnqueue(null, "taxonomy-category-deleted");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
-        });
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .AddEndpointFilter<RequiresPowFilter>();
 
-        taxonomyWriteGroup.MapPost("/tag", static async Task<BinaryFrameResult> (
+        group.MapPost("/tag", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
@@ -288,9 +312,11 @@ public static partial class BinaryEndpoints
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
             publicHotUpdates.TryEnqueue(null, "taxonomy-tag-created");
             return BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(newId, writer));
-        });
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .AddEndpointFilter<RequiresPowFilter>();
 
-        taxonomyWriteGroup.MapPut("/tag/{id:int}", static async Task<BinaryFrameResult> (
+        group.MapPut("/tag/{id:int}", static async Task<BinaryFrameResult> (
             int id,
             HttpContext httpContext,
             ISqlSugarClient db,
@@ -337,9 +363,11 @@ public static partial class BinaryEndpoints
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
             publicHotUpdates.TryEnqueue(null, "taxonomy-tag-updated");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
-        });
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .AddEndpointFilter<RequiresPowFilter>();
 
-        taxonomyWriteGroup.MapDelete("/tag/{id:int}", static async Task<BinaryFrameResult> (
+        group.MapDelete("/tag/{id:int}", static async Task<BinaryFrameResult> (
             int id,
             ISqlSugarClient db,
             IHttpCacheInvalidator httpCacheInvalidator,
@@ -366,6 +394,8 @@ public static partial class BinaryEndpoints
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
             publicHotUpdates.TryEnqueue(null, "taxonomy-tag-deleted");
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
-        });
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .AddEndpointFilter<RequiresPowFilter>();
     }
 }

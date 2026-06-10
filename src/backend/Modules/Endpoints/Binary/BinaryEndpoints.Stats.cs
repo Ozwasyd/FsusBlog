@@ -31,12 +31,28 @@ public static partial class BinaryEndpoints
 {
     private static void MapBinaryStatsEndpoints(IEndpointRouteBuilder group)
     {
-        group.MapGet("/stats", static async Task<BinaryFrameResult> (
+        group.MapGet("/stats", static async Task<IResult> (
             IStatsCoreService core,
+            IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
+            const string identity = "core:main";
+            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.AdminStatsFrame, identity);
+            if (frame.Hit && frame.Value.Length > 0)
+            {
+                return BinaryResults.PreencodedFrame(frame.Value);
+            }
+
             var result = await core.GetAdminStatsAsync();
-            return BinaryResults.FromResult(result, aeds, AedsFrameType.AdminStats, static (value, writer) => PodBinaryCodec.WriteSiteStats(value, writer));
+            if (!result.IsSuccess)
+            {
+                return BinaryResults.FromError(result.Error, aeds);
+            }
+
+            byte[] payload = PodBinaryCodec.EncodeSiteStats(result.Value);
+            byte[] encodedFrame = aeds.Encode(AedsFrameType.AdminStats, payload);
+            await cache.SetRawAsync(CachePolicyId.AdminStatsFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
+            return BinaryResults.PreencodedFrame(encodedFrame);
         }).RequireAuthorization(policy => policy.RequireRole("admin"));
 
         group.MapGet("/stats/recent-comments", static async Task<BinaryFrameResult> (

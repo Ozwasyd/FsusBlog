@@ -1,0 +1,67 @@
+import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const repoRoot = path.resolve(__dirname, '../../..')
+const clientRoot = path.join(repoRoot, 'src', 'frontend')
+
+function decodeFixtureValue(value) {
+  try {
+    return Buffer.from(String(value ?? ''), 'base64url').toString('utf8')
+  } catch {
+    return ''
+  }
+}
+
+function readFixtureFile() {
+  const candidates = [
+    process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE,
+    path.resolve(process.cwd(), '.playwright-fixtures.aeds'),
+    path.resolve(process.cwd(), 'src/frontend/.playwright-fixtures.aeds'),
+    path.join(clientRoot, '.playwright-fixtures.aeds'),
+  ].filter(Boolean)
+
+  const fixturePath = candidates.find((candidate) => existsSync(candidate))
+  if (!fixturePath) {
+    return {}
+  }
+
+  const values = {}
+  const raw = readFileSync(fixturePath, 'utf8')
+  for (const line of raw.split(/\r?\n/u)) {
+    if (!line.trim()) {
+      continue
+    }
+
+    const [key, encoded] = line.split('\t')
+    if (!key || encoded == null) {
+      continue
+    }
+
+    values[key] = decodeFixtureValue(encoded)
+  }
+
+  const expectedBaseUrl = String(process.env.FSUSBLOG_BASE_URL ?? '').trim().replace(/\/+$/u, '')
+  const fixtureBaseUrl = String(values.baseUrl ?? '').trim().replace(/\/+$/u, '')
+  if (expectedBaseUrl && fixtureBaseUrl && expectedBaseUrl !== fixtureBaseUrl) {
+    return {}
+  }
+
+  return values
+}
+
+function positiveInt(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? ''), 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+export function readPublicFixtureIds(defaults = {}) {
+  const fixtures = readFixtureFile()
+  return {
+    articleId: positiveInt(fixtures.articleId, positiveInt(defaults.articleId, 1)),
+    categoryId: positiveInt(fixtures.categoryId, positiveInt(defaults.categoryId, 1)),
+    tagId: positiveInt(fixtures.tagId, positiveInt(defaults.tagId, 1)),
+  }
+}

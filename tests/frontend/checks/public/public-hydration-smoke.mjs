@@ -2,11 +2,13 @@
 
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs';
 import { decodePublicAotPayload, readAedsResponse } from '../../support/aeds-envelope.mjs';
+import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:8080';
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000);
 const aotSettleTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_PUBLIC_AOT_SETTLE_TIMEOUT_MS, 15000);
 const settleRetryDelayMs = 400;
+const publicFixtureIds = readPublicFixtureIds();
 
 function assert(condition, message) {
   if (!condition) {
@@ -270,7 +272,8 @@ async function main() {
   expectIncludes(home, 'id="fsus-home-hot-articles-slot"', 'home hot articles slot');
   expectIncludes(home, 'id="fsus-home-hot-articles-slot-content"', 'home hot articles slot content');
 
-  const article = await fetchHtmlUntil('/article/1', (html) => {
+  const articlePath = `/article/${publicFixtureIds.articleId}`;
+  const article = await fetchHtmlUntil(articlePath, (html) => {
     assertSharedHydrationMarkers(html, 'ArticleDetail');
     assertDeferredSpaOnly(html, 'article');
   }, 'article shell contract');
@@ -302,8 +305,8 @@ async function main() {
   const articleBootstrap = readBinaryScript(article, 'fsus-aot-bootstrap');
   assert(articlePayload.pageKind === 'ArticleDetail', 'article payload pageKind mismatch');
   assert(articleBootstrap.kind === 'ArticleDetail', 'article bootstrap kind mismatch');
-  assert(articlePayload.routeKey === 'article:1', 'article payload routeKey mismatch');
-  assert(articlePayload.articleId === 1, 'article payload articleId mismatch');
+  assert(articlePayload.routeKey === `article:${publicFixtureIds.articleId}`, 'article payload routeKey mismatch');
+  assert(articlePayload.articleId === publicFixtureIds.articleId, 'article payload articleId mismatch');
   assert(articlePayload.detailView?.header?.title?.length > 0, 'article payload header title missing');
   assert(articlePayload.detailView?.relatedReading, 'article payload related-reading contract missing');
   assert(Array.isArray(articlePayload.detailView.relatedReading.items), 'article payload related-reading items must be an array');

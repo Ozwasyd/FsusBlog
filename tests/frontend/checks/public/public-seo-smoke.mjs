@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs';
 import { readAedsResponse } from '../../support/aeds-envelope.mjs';
+import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:8080';
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000);
 const aotSettleTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_PUBLIC_AOT_SETTLE_TIMEOUT_MS, 15000);
+const publicFixtureIds = readPublicFixtureIds();
 
 const checks = [
   { name: 'home', path: '/', expectedHydrationKind: 'Home' },
@@ -12,7 +14,7 @@ const checks = [
   { name: 'archive', path: '/archive', expectedHydrationKind: 'Archive' },
   {
     name: 'article_detail',
-    path: '/article/1',
+    path: `/article/${publicFixtureIds.articleId}`,
     expectedHydrationKind: 'ArticleDetail'
   }
 ];

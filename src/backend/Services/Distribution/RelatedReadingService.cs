@@ -1,12 +1,18 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using Microsoft.Extensions.Caching.Memory;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Distribution;
 
-public sealed class RelatedReadingService(ISqlSugarClient db)
+public sealed class RelatedReadingService(
+    ISqlSugarClient db,
+    IUnifiedCache cache,
+    IMemoryCache memoryCache)
 {
     private const int RelatedLimit = 6;
     private const int CandidateWindow = 120;
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
     private static readonly HashSet<string> StopWords = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -15,6 +21,18 @@ public sealed class RelatedReadingService(ISqlSugarClient db)
 
     public async Task<RelatedReadingResponse?> BuildAsync(int articleId, CancellationToken cancellationToken = default)
     {
+        if (articleId <= 0)
+        {
+            return null;
+        }
+
+        long version = await GetArticleListVersionAsync(cancellationToken);
+        string cacheKey = $"related-reading:{version}:{articleId}";
+        if (memoryCache.TryGetValue(cacheKey, out RelatedReadingResponse? cached) && cached is not null)
+        {
+            return cached;
+        }
+
         DateTime now = DateTime.UtcNow;
         RelatedArticleRow? article = await db.Queryable<Article>()
             .LeftJoin<ArticleBody>((candidate, body) => candidate.Id == body.ArticleId)
@@ -83,10 +101,18 @@ public sealed class RelatedReadingService(ISqlSugarClient db)
         RelatedArticleRow? previous = await LoadAdjacentAsync(article, newer: false, now, cancellationToken);
         RelatedArticleRow? next = await LoadAdjacentAsync(article, newer: true, now, cancellationToken);
 
-        return new RelatedReadingResponse(
+        var response = new RelatedReadingResponse(
             related,
             previous is null ? null : ToItem(previous, "上一篇"),
             next is null ? null : ToItem(next, "下一篇"));
+        memoryCache.Set(cacheKey, response, CacheTtl);
+        return response;
+    }
+
+    private async ValueTask<long> GetArticleListVersionAsync(CancellationToken cancellationToken)
+    {
+        string? version = await cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", cancellationToken);
+        return long.TryParse(version, out long parsed) ? parsed : 0;
     }
 
     private async Task<Dictionary<int, HashSet<int>>> LoadTagMapAsync(int[] articleIds, CancellationToken cancellationToken)

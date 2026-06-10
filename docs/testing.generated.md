@@ -26,7 +26,7 @@ Version: `fsusblog-test-matrix-v2`
 | `resilience` | `resilience-runtime` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 35m | `src/frontend/test-results/playwright/resilience` |
 | `load` | `load-smoke` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 25m | `.tmp/perf` |
 | `release-evidence` | `release-evidence` | - | - | 1 | 10m | `.tmp/release-evidence` |
-| `production` | `production-summary` | `fast`, `bootstrap`, `release`, `integration`, `security`, `acceptance`, `cross-browser-smoke`, `visual`, `ux-viewport-smoke`, `frontend-render-pressure`, `resilience`, `load`, `release-evidence` | postgres, redis, backend, frontend, preview | 1 | 120m | `.tmp/release-evidence` |
+| `production` | `production-summary` | `fast`, `bootstrap`, `release`, `integration`, `security`, `acceptance`, `cross-browser-smoke`, `visual`, `ux-viewport-smoke`, `frontend-render-pressure`, `resilience`, `load`, `backend-qps`, `release-evidence` | postgres, redis, backend, frontend, preview | 1 | 120m | `.tmp/release-evidence` |
 
 ## Coverage Tiers
 
@@ -42,6 +42,18 @@ Version: `fsusblog-test-matrix-v2`
 
 | Tier | CI job | Depends on | Services | Shards | Timeout | Evidence |
 |---|---|---|---|---:|---:|---|
+| `backend-qps-view-count-flush` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/view-count-flush.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-cache-hit` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-hit.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-comment-cursor` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/comment-cursor.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-hotread` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/hotread.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-cache-miss-singleflight` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-miss-singleflight.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-risk-filter` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/risk-filter.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-related-reading` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/related-reading.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-list-pagination` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/list-pagination.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-article-detail-miss` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/article-detail-miss.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-cache-registry` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-registry.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-index-plan` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/index-plan.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps` | `backend-qps` | `backend-qps-view-count-flush`, `backend-qps-cache-hit`, `backend-qps-comment-cursor`, `backend-qps-hotread`, `backend-qps-cache-miss-singleflight`, `backend-qps-risk-filter`, `backend-qps-related-reading`, `backend-qps-list-pagination`, `backend-qps-article-detail-miss`, `backend-qps-cache-registry`, `backend-qps-index-plan` | - | 1 | 15m | `.tmp/release-evidence/backend-qps-summary.json` |
 | `endpoint-depth` | `cross-stack-contract` | - | - | 1 | 20m | `.tmp/release-evidence/endpoint-depth-summary.json` |
 | `data-scale-xs` | `integration-runtime` | - | postgres, redis | 1 | 15m | `.tmp/release-evidence/data-scale-summary.json` |
 | `data-scale-s` | `integration-runtime` | - | postgres, redis | 1 | 20m | `.tmp/release-evidence/data-scale-summary.json` |

@@ -213,7 +213,7 @@ reset_security_runtime_state() {
   local deleted
   local redis_container="${FSUSBLOG_REDIS_CONTAINER_NAME:-fsusblog-redis}"
   local namespace_pattern="${FSUSBLOG_TEST_NAMESPACE:-local}"
-  deleted="$(docker exec "$redis_container" sh -c "redis-cli --scan --pattern '*${namespace_pattern}*fsus:sec:pow-risk:*' | xargs -r redis-cli DEL" 2>/dev/null || true)"
+  deleted="$(docker exec "$redis_container" sh -c "{ redis-cli --scan --pattern '*${namespace_pattern}*fsus:sec:pow-risk:*'; redis-cli --scan --pattern 'fsus:sec:pow-risk:*'; } | sort -u | xargs -r redis-cli DEL" 2>/dev/null || true)"
   deleted="${deleted:-0}"
   if [[ "$deleted" =~ ^[0-9]+$ ]] && (( deleted > 0 )); then
     log "${label}: reset local security PoW risk keys: ${deleted}"

@@ -172,7 +172,7 @@ public static class ServiceCollectionExtensions
             options.AddPolicy("public_read", httpContext =>
             {
                 string clientIp = httpContext.GetClientIp();
-                string path = httpContext.Request.Path.Value?.ToLowerInvariant() ?? "/";
+                string path = GetPublicReadPartitionPath(httpContext);
 
                 if (IsVerifiedCrawlerPublicRead(httpContext))
                 {
@@ -195,6 +195,17 @@ public static class ServiceCollectionExtensions
         => httpContext.Items.TryGetValue("VerifiedCrawler", out object? value)
             && value is true
             && (HttpMethods.IsGet(httpContext.Request.Method) || HttpMethods.IsHead(httpContext.Request.Method));
+
+    private static string GetPublicReadPartitionPath(HttpContext httpContext)
+    {
+        Endpoint? endpoint = httpContext.GetEndpoint();
+        if (!string.IsNullOrWhiteSpace(endpoint?.DisplayName))
+        {
+            return endpoint.DisplayName;
+        }
+
+        return httpContext.Request.Path.Value ?? "/";
+    }
 
     private static RateLimitPartition<string> CreateFixedWindowPartition(string key, int permitLimit, int queueLimit)
         => RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions

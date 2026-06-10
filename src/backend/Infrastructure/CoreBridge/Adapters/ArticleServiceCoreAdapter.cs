@@ -96,32 +96,27 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
 
     public async ValueTask IncreaseViewCountAsync(int id, int count)
     {
-        for (int i = 0; i < count; i++)
+        if (count <= 0)
         {
-            _ = await core.IncreaseViewCountAsync(id);
+            return;
         }
+
+        _ = await core.IncreaseViewCountsAsync(new Dictionary<int, int> { [id] = count });
     }
 
     public async ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync(
         IReadOnlyDictionary<int, int> articleCounts,
         CancellationToken cancellationToken = default)
     {
-        var updated = new HashSet<int>();
-        foreach ((int articleId, int count) in articleCounts)
+        if (articleCounts.Count == 0)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            for (int i = 0; i < count; i++)
-            {
-                _ = await core.IncreaseViewCountAsync(articleId);
-            }
-
-            if (count > 0)
-            {
-                updated.Add(articleId);
-            }
+            return new HashSet<int>();
         }
 
-        return updated;
+        var result = await core.IncreaseViewCountsAsync(articleCounts, cancellationToken);
+        return result.IsSuccess && result.Value is not null
+            ? result.Value
+            : new HashSet<int>();
     }
 
     private static ArticleListItemReadModel ToArticleListReadModel(ArticleListCoreModel model)

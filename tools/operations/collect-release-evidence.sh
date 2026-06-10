@@ -274,6 +274,7 @@ HYDRATION_LONG_SMOKE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence
 UX_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/ux" ux)"
 UX_VIEWPORT_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json" ux-viewport-summary.json)"
 FRONTEND_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json" frontend-render-pressure-summary.json)"
+BACKEND_QPS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json" backend-qps-summary.json)"
 DOC_SYNC_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json" doc-sync-summary.json)"
 DOM_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/dom-budget.json" dom-budget.json)"
 ROUTE_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/route-render-pressure.json" route-render-pressure.json)"
@@ -320,6 +321,7 @@ AUTHENTICATED_DAST_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/authent
 WASM_FUZZ_STATUS_VALUE="$(json_status_or_missing "$FUZZ_DIR/wasm/summary.json")"
 UX_VIEWPORT_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json")"
 FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json")"
+BACKEND_QPS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json")"
 DOC_SYNC_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json")"
 
 MANIFEST_STATUS="collected-ok"
@@ -339,6 +341,7 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$SLO_STATUS_VALUE" != "ok" \
   || "$SLO_CRITICAL_COUNT" != "0" \
   || "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE" != "ok" \
+  || "$BACKEND_QPS_STATUS_VALUE" != "ok" \
   || "$DOC_SYNC_STATUS_VALUE" != "ok" \
   || "$IMAGE_DIGEST_STATUS" != "present" ]]; then
   MANIFEST_STATUS="collected-blocked"
@@ -388,6 +391,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "ux": $UX_ARTIFACT,
     "uxViewportSummary": $UX_VIEWPORT_SUMMARY,
     "frontendRenderPressureSummary": $FRONTEND_RENDER_PRESSURE_SUMMARY,
+    "backendQpsSummary": $BACKEND_QPS_SUMMARY,
     "docSyncSummary": $DOC_SYNC_SUMMARY,
     "domBudgetSummary": $DOM_BUDGET_SUMMARY,
     "routeRenderPressureSummary": $ROUTE_RENDER_PRESSURE_SUMMARY,
@@ -427,6 +431,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
       "visualGateSkip": $VISUAL_GATE_SKIP,
       "uxViewport": "$UX_VIEWPORT_STATUS_VALUE",
       "frontendRenderPressure": "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE",
+      "backendQps": "$BACKEND_QPS_STATUS_VALUE",
       "docSync": "$DOC_SYNC_STATUS_VALUE"
     },
     "security": {

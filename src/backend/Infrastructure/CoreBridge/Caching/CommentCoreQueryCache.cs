@@ -12,8 +12,15 @@ public sealed class CommentCoreQueryCache(IUnifiedCache cache)
         int limit,
         Func<Task<CoreCursorResult<CommentQueryCoreModel>>> loader)
     {
-        string identity = $"article:{articleId}:threads:{cursor?.ToString() ?? "0"}:{limit}";
+        string identity = $"article:{articleId}:roots:{cursor?.ToString() ?? "0"}:{limit}:1";
         var hit = await cache.TryGetAsync(CachePolicyId.CommentCursor, identity, DecodeCommentCursor);
+        if (hit.Hit && hit.Value is not null)
+        {
+            return hit.Value.GetValueOrDefault();
+        }
+
+        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.CommentCursor, identity);
+        hit = await cache.TryGetAsync(CachePolicyId.CommentCursor, identity, DecodeCommentCursor);
         if (hit.Hit && hit.Value is not null)
         {
             return hit.Value.GetValueOrDefault();
@@ -30,8 +37,15 @@ public sealed class CommentCoreQueryCache(IUnifiedCache cache)
         int limit,
         Func<Task<CoreCursorResult<UserCommentCoreModel>>> loader)
     {
-        string identity = $"user:{userId}:{cursor?.ToString() ?? "0"}:{limit}";
+        string identity = $"user:{userId}:comments:{cursor?.ToString() ?? "0"}:{limit}";
         var hit = await cache.TryGetAsync(CachePolicyId.UserCommentCursor, identity, DecodeUserCommentCursor);
+        if (hit.Hit && hit.Value is not null)
+        {
+            return hit.Value.GetValueOrDefault();
+        }
+
+        await using IAsyncDisposable guard = await cache.AcquireSingleFlightAsync(CachePolicyId.UserCommentCursor, identity);
+        hit = await cache.TryGetAsync(CachePolicyId.UserCommentCursor, identity, DecodeUserCommentCursor);
         if (hit.Hit && hit.Value is not null)
         {
             return hit.Value.GetValueOrDefault();

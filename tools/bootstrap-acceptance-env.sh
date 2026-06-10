@@ -53,6 +53,7 @@ RELEASE_PREVIEW_PORT="${FSUSBLOG_RELEASE_PREVIEW_PORT:-$(find_free_port 51001 56
 DEBUG_FRONTEND_URL="${FSUSBLOG_DEBUG_FRONTEND_URL:-http://127.0.0.1:${DEBUG_FRONTEND_PORT}}"
 DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:${DEBUG_BACKEND_PORT}}"
 RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:${RELEASE_PREVIEW_PORT}}"
+CORS_ALLOWED_HOSTS_VALUE="${CORS_ALLOWED_HOSTS:-${DEBUG_FRONTEND_URL},${RELEASE_PREVIEW_URL},http://localhost:${DEBUG_FRONTEND_PORT},http://localhost:${RELEASE_PREVIEW_PORT}}"
 POSTGRES_CONTAINER="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-fsusblog-postgres-$NS_SLUG}"
 REDIS_CONTAINER="${FSUSBLOG_REDIS_CONTAINER_NAME:-fsusblog-redis-$NS_SLUG}"
 TEST_DATA_ROOT="${FSUSBLOG_DATA_ROOT:-$ROOT_DIR/.tmp/data/$NS_SLUG}"
@@ -81,6 +82,8 @@ ConnectionStrings__Redis=$REDIS_CONNECTION
 RedisOptions__Configuration=$REDIS_CONNECTION
 RedisOptions__InstanceName=FsusBlog_${NS_SLUG}_
 ASPNETCORE_URLS=http://127.0.0.1:$DEBUG_BACKEND_PORT
+ASPNETCORE_ENVIRONMENT=Development
+CORS_ALLOWED_HOSTS=$CORS_ALLOWED_HOSTS_VALUE
 EOF
 }
 
@@ -234,7 +237,7 @@ reset_security_test_state() {
   fi
 
   local deleted
-  deleted="$(docker exec "$REDIS_CONTAINER" sh -c "redis-cli --scan --pattern '*${NS_SLUG}*fsus:sec:pow-risk:*' | xargs -r redis-cli DEL" 2>/dev/null || true)"
+  deleted="$(docker exec "$REDIS_CONTAINER" sh -c "{ redis-cli --scan --pattern '*${NS_SLUG}*fsus:sec:pow-risk:*'; redis-cli --scan --pattern 'fsus:sec:pow-risk:*'; } | sort -u | xargs -r redis-cli DEL" 2>/dev/null || true)"
   deleted="${deleted:-0}"
   if [[ "$deleted" =~ ^[0-9]+$ ]] && (( deleted > 0 )); then
     log "reset local security PoW risk keys: ${deleted}"
@@ -267,7 +270,7 @@ ensure_backend() {
   kill_pid_if_running "$managed_pid"
 
   log 'starting managed debug backend'
-  nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile" >"$log_file" 2>&1 < /dev/null &
+  nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} ASPNETCORE_ENVIRONMENT=Development CORS_ALLOWED_HOSTS=$(printf '%q' "$CORS_ALLOWED_HOSTS_VALUE") && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile" >"$log_file" 2>&1 < /dev/null &
   echo $! >"$pid_file"
 
   wait_for_binary_url 'debug backend' "$DEBUG_BACKEND_URL/api/binary/system/seo" 120
@@ -322,7 +325,7 @@ ensure_debug_frontend() {
     "$DEBUG_FRONTEND_URL/" \
     "$TMP_DIR/dev-server.pid" \
     "$TMP_DIR/dev-server.log" \
-    npm exec -- vite --host 0.0.0.0 --port "$DEBUG_FRONTEND_PORT"
+    env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm exec -- vite --host 0.0.0.0 --port "$DEBUG_FRONTEND_PORT"
 }
 
 ensure_release_preview() {
@@ -346,7 +349,7 @@ ensure_release_preview() {
   log 'building release preview bundle'
   (
     cd "$CLIENT_DIR"
-    npm run build:release >/dev/null
+    VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm run build:release >/dev/null
   )
   printf '%s\n' "$next_fingerprint" >"$fingerprint_file"
 
@@ -360,13 +363,15 @@ ensure_release_preview() {
     "$RELEASE_PREVIEW_URL/" \
     "$TMP_DIR/preview.pid" \
     "$TMP_DIR/preview.log" \
-    npm exec -- vite preview --host 0.0.0.0 --port "$RELEASE_PREVIEW_PORT"
+    env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm exec -- vite preview --host 0.0.0.0 --port "$RELEASE_PREVIEW_PORT"
 }
 
 sync_backend_wwwroot_from_client_dist() {
   log 'syncing backend wwwroot with release preview bundle'
+  local search_source=""
   rm -rf \
     "$SERVER_WWWROOT_DIR/.vite" \
+    "$SERVER_WWWROOT_DIR/aot-cache" \
     "$SERVER_WWWROOT_DIR/assets" \
     "$SERVER_WWWROOT_DIR/dist" \
     "$SERVER_WWWROOT_DIR/wasm" \
@@ -376,16 +381,22 @@ sync_backend_wwwroot_from_client_dist() {
     "$SERVER_WWWROOT_DIR/vite.svg"
   mkdir -p "$SERVER_WWWROOT_DIR"
   cp -a "$CLIENT_DIR/dist/." "$SERVER_WWWROOT_DIR/"
+
+  search_source="$(find "$ROOT_DIR/src/backend/bin" -path '*/wwwroot/search' -type d 2>/dev/null | sort | tail -1 || true)"
+  if [[ -n "$search_source" && -d "$search_source" ]]; then
+    rm -rf "$SERVER_WWWROOT_DIR/search"
+    cp -a "$search_source" "$SERVER_WWWROOT_DIR/search"
+  fi
 }
 
 prepare_fixtures() {
   log 'preparing auth users and playwright fixtures'
   (
     cd "$CLIENT_DIR"
-    npm run prepare:binary-smoke:auth-users >/dev/null
-    npm run prepare:playwright:fixtures >/dev/null
+    FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL" FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER" FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER" npm run prepare:binary-smoke:auth-users >/dev/null
+    FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL" FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER" FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER" npm run prepare:playwright:fixtures >/dev/null
     if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
-      npm run prepare:playwright:sessions >/dev/null
+      FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL" FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER" FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER" npm run prepare:playwright:sessions >/dev/null
     fi
   )
 }
@@ -417,6 +428,7 @@ wait_for_pow_ready() {
 
 main() {
   command -v docker >/dev/null 2>&1 || { log 'docker is required'; exit 1; }
+  mkdir -p "$SERVER_WWWROOT_DIR"
   ensure_postgres
   ensure_redis
   reset_security_test_state

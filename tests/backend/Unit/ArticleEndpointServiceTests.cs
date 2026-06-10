@@ -1,4 +1,5 @@
 using FsusBlog.Core.Common;
+using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -57,6 +58,7 @@ public sealed class ArticleEndpointServiceTests
             core,
             Substitute.For<IArticleService>(),
             Substitute.For<IUnifiedCache>(),
+            new AedsEncoder(),
             artifacts,
             scheduler);
 }

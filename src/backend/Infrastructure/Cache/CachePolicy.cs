@@ -9,7 +9,8 @@ public sealed record CachePolicy(
     TimeSpan? NegativeTtl = null,
     CacheTag[]? InvalidationTags = null,
     bool SecurityCritical = false,
-    double L2JitterRatio = 0d)
+    double L2JitterRatio = 0d,
+    bool RegisterKeysForPrefixInvalidation = true)
 {
     public string BuildKey(string identity, string? version = null)
     {

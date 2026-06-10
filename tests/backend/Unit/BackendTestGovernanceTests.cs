@@ -18,7 +18,7 @@ public sealed class BackendTestGovernanceTests
         foreach (JsonObject profile in profiles.Select(static node => node!.AsObject()))
         {
             Assert.StartsWith("backend-", profile["id"]!.GetValue<string>(), StringComparison.Ordinal);
-            Assert.StartsWith("./tools/test.sh backend-", profile["command"]!.GetValue<string>(), StringComparison.Ordinal);
+            Assert.StartsWith("tools/test/", profile["command"]!.GetValue<string>(), StringComparison.Ordinal);
             Assert.False(string.IsNullOrWhiteSpace(profile["risk"]!.GetValue<string>()));
 
             JsonArray requirements = profile["requirements"]!.AsArray();

@@ -166,6 +166,14 @@ printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/slo-alert-fixture.json"
 printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/retention-cleanup.json"
 printf '{"summary":{"linecoverage":100,"branchcoverage":100,"methodcoverage":100,"assemblies":1,"classes":1,"files":1}}\n' > "$COVERAGE_DIR/merged/Summary.json"
 printf '{"summary":{"linecoverage":100,"branchcoverage":100,"methodcoverage":100,"assemblies":1,"classes":1,"files":1}}\n' > "$COVERAGE_DIR/backend-merged/Summary.json"
+mkdir -p "$ROOT_DIR/.tmp/frontend" "$ROOT_DIR/.tmp/release-evidence"
+printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json"
+printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json"
+printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/dom-budget.json"
+printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/route-render-pressure.json"
+printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/markdown-render-budget.json"
+printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/dom-depth-static.json"
+printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json"
 
 FSUSBLOG_RELEASE_STAMP=fixture \
 FSUSBLOG_RELEASE_EVIDENCE_DIR="$OUT_DIR" \
@@ -188,6 +196,7 @@ jq -e '
   and .artifacts.productionExposureRequest == "production-exposure-evidence-request.json"
   and .artifacts.firewallPolicy == "production-firewall-policy.json"
   and .artifacts.coverage == "coverage"
+  and .artifacts.backendQpsSummary == "backend-qps-summary.json"
   and .artifactDigests.productionExposureStatus.algorithm == "sha256"
   and (.artifactDigests.productionExposureStatus.value | test("^[0-9a-f]{64}$"))
   and .artifactDigests.productionExposureRequest.algorithm == "sha256"
@@ -230,6 +239,7 @@ jq -e '
   and .evidenceSummary.operations.sloCriticalFiring == 0
   and .evidenceSummary.operations.runtimeTuning.nonDefaultPresetsRequireBenchmarkEvidence == true
   and .evidenceSummary.operations.runtimeTuning.rollback == "unset RuntimeTuning/DOTNET_* overrides and restart on the same image"
+  and .evidenceSummary.gates.backendQps == "ok"
   and .evidenceSummary.security.attackMatrix == "ok"
   and .evidenceSummary.security.permissionMatrix == "ok"
   and .evidenceSummary.security.supplyChain == "ok"

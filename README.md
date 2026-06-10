@@ -1,7 +1,6 @@
 # Fsu's Blog
 
 一个面向真实部署的高性能个人内容系统。
-它不是"演示型博客模板"，而是把公开首屏、Binary 传输、AOT 输出、本地搜索、浏览器边缘缓存、安全链路和后台治理一起做进主链的**单体全栈工程**。
 
 > **v1.0.0** — 2026-04-27 · 后端 .NET 10 / C# 14 · 前端 Vue 3.5 · Wasm C++23
 
@@ -19,7 +18,7 @@
 | 实时通知 | WebSocket binary notification stream（`/api/notifications/stream`，子协议 `fsus-aeds.v2`） |
 | 站内消息 | 用户收发对话，管理员广播，对话状态管理 |
 | 管理后台 | 用户管理、内容审核、站点统计（Binary 读链） |
-| 多分层测试 | `tests/matrix.yml` 驱动的 DAG，覆盖 fast / coverage-gate / runtime / visual / security / resilience / load / production |
+| 多分层测试 | `tests/matrix.yml` 驱动的 DAG，覆盖 fast / coverage-gate / runtime / visual / security / resilience / load / backend-qps / production |
 
 ## 项目定位
 
@@ -195,7 +194,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 
 详细规则见 [tests/backend/TESTING.md](tests/backend/TESTING.md)。
 
-`production` 是 production-ci-gate：要求 0 编译警告、0 类型错误、0 Vite build warning、0 测试失败、0 运行时 error/warning，并覆盖匿名/登录/admin、Binary API、作者工作台/read-proof/health JSON、WebSocket binary notification stream、AOT hydration、PoW/MFA/Passkey/session、视觉、弹性与轻量负载。它会校验 release evidence schema，但允许 manifest 处于 `collected-blocked` 来表达外部生产证据尚未回传；真正可发布的 release-closeout-gate 必须另跑 `./tools/test.sh release-closeout` 或 `tools/operations/check-release-evidence-manifest.mjs --require-ok`，要求 manifest 为 `collected-ok`。GitHub Actions `Quality Gate` 会在 PR、`main` / `master` push 和手动触发时运行 production-ci-gate；仓库 secret 需要配置 `GITHUB_PACKAGES_TOKEN`。
+`production` 是 production-ci-gate：要求 0 编译警告、0 类型错误、0 Vite build warning、0 测试失败、0 运行时 error/warning，并覆盖匿名/登录/admin、Binary API、作者工作台/read-proof/health JSON、WebSocket binary notification stream、AOT hydration、PoW/MFA/Passkey/session、视觉、弹性、轻量负载与 backend-qps 热路径证据。它会校验 release evidence schema，但允许 manifest 处于 `collected-blocked` 来表达外部生产证据尚未回传；真正可发布的 release-closeout-gate 必须另跑 `./tools/test.sh release-closeout` 或 `tools/operations/check-release-evidence-manifest.mjs --require-ok`，要求 manifest 为 `collected-ok`。GitHub Actions `Quality Gate` 会在 PR、`main` / `master` push 和手动触发时运行 production-ci-gate；仓库 secret 需要配置 `GITHUB_PACKAGES_TOKEN`。
 
 ## 文档索引
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
@@ -9,6 +10,7 @@ import {
   loginWithPow,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
+import { fetchWithTimeout } from '../../support/http.mjs';
 import { buildMarkdownExtremeCorpus } from '../../support/markdown-extreme-corpus.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
 
@@ -21,6 +23,8 @@ const repoRoot = resolve(process.cwd(), '..', '..');
 const evidenceDir = process.env.FSUSBLOG_SECURITY_EVIDENCE_DIR || resolve(repoRoot, '.tmp/security');
 const require = createRequire(import.meta.url);
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }));
+const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
+  || ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find((candidate) => existsSync(candidate));
 
 const DENIED_STATUSES = new Set([400, 401, 403, 404, 405, 409, 413, 415, 422, 428, 429]);
 
@@ -66,6 +70,19 @@ function toItemArray(payload) {
     return data.data;
   }
   return [];
+}
+
+async function fetchAdminAuthorCategories(adminSession, label = 'admin author category list') {
+  const response = await fetchWithTimeout(`${baseUrl}/api/author/taxonomy/categories`, {
+    headers: {
+      Accept: 'application/json',
+      Cookie: adminSession.cookieHeader,
+      'X-Fsus-Device-Fp': 'permission-admin-author-taxonomy',
+      ...testSessionHeaders()
+    }
+  }, requestTimeoutMs);
+  assertAllowed(label, response);
+  return toItemArray(await response.json());
 }
 
 function payloadContains(value, needle) {
@@ -250,7 +267,11 @@ async function assertStaticAuthorizationBoundaries() {
 }
 
 async function assertGuestAndRoleRoutes() {
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  const browser = await chromium.launch({
+    headless: true,
+    ...(executablePath ? { executablePath } : {}),
+    args: ['--no-sandbox', '--disable-dev-shm-usage']
+  });
 
   try {
     const guest = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
@@ -814,12 +835,8 @@ async function assertAdminPositivePowCrud(adminSession) {
   });
   const createdTagId = Number(unwrap(createTag.payload)?.id ?? unwrap(createTag.payload));
 
-  const categories = await expectAllowed('category list after admin create', '/api/Category', {
-    method: 'GET',
-    cookieHeader: adminSession.cookieHeader,
-    deviceFingerprint: 'permission-admin-category-list'
-  });
-  const createdCategory = toItemArray(categories.payload).find((item) => item.name === createdCategoryName);
+  const categories = await fetchAdminAuthorCategories(adminSession, 'category list after admin create');
+  const createdCategory = categories.find((item) => item.name === createdCategoryName);
   assert(createdCategory?.id, 'created category not visible after creation');
 
   try {

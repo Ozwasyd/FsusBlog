@@ -91,6 +91,21 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public void CachePolicyRegistry_DisablesRegistryForExactAndVersionedHotPathCaches()
+    {
+        var registry = new CachePolicyRegistry();
+
+        Assert.True(registry.TryGet(CachePolicyId.ArticleListFrame, out CachePolicy articleListFrame));
+        Assert.False(articleListFrame.RegisterKeysForPrefixInvalidation);
+
+        Assert.True(registry.TryGet(CachePolicyId.SecurityPowRisk, out CachePolicy securityRisk));
+        Assert.False(securityRisk.RegisterKeysForPrefixInvalidation);
+
+        Assert.True(registry.TryGet(CachePolicyId.CommentCursorFrame, out CachePolicy commentFrame));
+        Assert.True(commentFrame.RegisterKeysForPrefixInvalidation);
+    }
+
+    [Fact]
     public async Task SingleFlightEntry_RetireAfterReference_DoesNotDisposeSemaphoreUntilReleased()
     {
         var entry = new UnifiedCache.SingleFlightEntry();

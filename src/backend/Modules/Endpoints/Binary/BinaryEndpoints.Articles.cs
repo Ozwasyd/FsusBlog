@@ -56,9 +56,9 @@ public static partial class BinaryEndpoints
 
             bool deleted = (isDeleted ?? false) || status == (int)ArticleStatus.Deleted;
             var payloadResult = await articles.GetPageListAsync(pageValue, sizeValue, categoryId, tagId, deleted, canReadDeleted: true, status, canReadPrivate: true, keyword: keyword);
-            if (payloadResult.HasCachedPayload)
+            if (payloadResult.HasCachedFrame)
             {
-                return BinaryResults.FrameRaw(aeds, AedsFrameType.ArticleList, payloadResult.CachedPayload);
+                return BinaryResults.PreencodedFrame(payloadResult.CachedFrame);
             }
 
             return BinaryResults.FromResult(payloadResult.Result, aeds, AedsFrameType.ArticleList, static (value, writer) => PodBinaryCodec.WriteArticlePage(value, writer));
@@ -90,9 +90,9 @@ public static partial class BinaryEndpoints
         {
             int count = Math.Clamp(size ?? 10, 1, 50);
             var payloadResult = await articles.GetHotArticlesAsync(count);
-            if (payloadResult.HasCachedPayload)
+            if (payloadResult.HasCachedFrame)
             {
-                return BinaryResults.FrameRaw(aeds, AedsFrameType.ArticleHot, payloadResult.CachedPayload);
+                return BinaryResults.PreencodedFrame(payloadResult.CachedFrame);
             }
 
             return BinaryResults.FromResult(

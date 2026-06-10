@@ -15,6 +15,7 @@ using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.Sse;
 using FsusBlog.Server.Services.VisitLog;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.ObjectPool;
@@ -37,7 +38,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddIdentityRuntime();
         services.AddBackgroundRuntime();
         services.AddSpaRuntime();
-        services.AddObjectPools();
+        services.AddObjectPools(configuration);
 
         return services;
     }
@@ -170,10 +171,19 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddObjectPools(this IServiceCollection services)
+    private static IServiceCollection AddObjectPools(this IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddSingleton<ObjectPoolProvider, DefaultObjectPoolProvider>();
-        services.AddSingleton(CreateIp2LocationPool);
+        string? binPath = ProductionResourcePaths.ResolveIp2LocationBinPath(AppContext.BaseDirectory);
+        bool isDevelopment = string.Equals(
+            configuration["ASPNETCORE_ENVIRONMENT"],
+            Environments.Development,
+            StringComparison.OrdinalIgnoreCase);
+        if (!string.IsNullOrEmpty(binPath) || !isDevelopment)
+        {
+            services.AddSingleton(CreateIp2LocationPool);
+        }
+
         return services;
     }
 

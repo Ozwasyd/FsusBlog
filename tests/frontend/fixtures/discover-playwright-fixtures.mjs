@@ -156,6 +156,26 @@ function formatFixtureSummary(fixtures) {
     .join(' ')
 }
 
+function buildSeededArticleFallback(seeded) {
+  return {
+    article: {
+      id: Number(seeded.articleId),
+      title: seedArticleTitle,
+      category: { id: Number(seeded.categoryId), name: seedCategoryName },
+      tags: [{ id: Number(seeded.tagId), name: seedTagName }]
+    },
+    detail: {
+      title: seedArticleTitle,
+      content: seedArticleMarkdown,
+      showReadingNotice: false,
+      wordCount: seedArticleMarkdown.trim().split(/\s+/u).filter(Boolean).length,
+      estimatedReadingMinutes: 1
+    },
+    categories: [{ id: Number(seeded.categoryId), name: seedCategoryName }],
+    tags: [{ id: Number(seeded.tagId), name: seedTagName }]
+  }
+}
+
 function escapeSqlLiteral(value) {
   return String(value).replaceAll("'", "''")
 }
@@ -238,8 +258,8 @@ existing_article AS (
   LIMIT 1
 ),
 inserted_article AS (
-  INSERT INTO article(title, summary, categoryid, views, createtime, isdeleted)
-  SELECT '${articleTitle}', '${articleSummary}', (SELECT id FROM category_row), 12, NOW(), false
+  INSERT INTO article(title, summary, categoryid, views, createtime, status, published_at, isdeleted)
+  SELECT '${articleTitle}', '${articleSummary}', (SELECT id FROM category_row), 12, NOW(), 2, NOW(), false
   WHERE NOT EXISTS (SELECT 1 FROM existing_article)
   RETURNING id
 ),
@@ -253,6 +273,8 @@ updated_article AS (
   UPDATE article
   SET categoryid = (SELECT id FROM category_row),
       summary = '${articleSummary}',
+      status = 2,
+      published_at = COALESCE(published_at, NOW()),
       isdeleted = false
   WHERE id = (SELECT id FROM final_article)
   RETURNING id
@@ -349,6 +371,7 @@ async function main() {
   let page = await fetchPublicArticlePage(1, publicArticlePageSize)
   let categories = await fetchApiBinary('/api/Category')
   let tags = await fetchApiBinary('/api/Tag')
+  let seededFallback = null
 
   if (!page?.items?.[0]?.id || !Array.isArray(categories) || categories.length === 0 || !pickArticleTag(page?.items?.[0], Array.isArray(tags) ? tags : [])) {
     try {
@@ -357,6 +380,7 @@ async function main() {
     } catch (apiSeedError) {
       console.warn(`[discover-playwright-fixtures] admin API seeding failed, falling back to direct DB seed: ${apiSeedError instanceof Error ? apiSeedError.message : String(apiSeedError)}`)
       const seeded = seedPublicFixtures()
+      seededFallback = seeded
       console.log(`[discover-playwright-fixtures] seeded minimal public fixtures via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
     }
 
@@ -384,6 +408,7 @@ async function main() {
 
   if (!firstArticle?.id) {
     const seeded = seedPublicFixtures()
+    seededFallback = seeded
     console.log(`[discover-playwright-fixtures] seeded replacement public fixture via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
     await new Promise((resolve) => setTimeout(resolve, 1000))
     page = await fetchPublicArticlePage(1, publicArticlePageSize)
@@ -402,6 +427,15 @@ async function main() {
         // Keep scanning; the list can contain stale cache entries while the acceptance environment is reused.
       }
     }
+  }
+
+  if (!firstArticle?.id && seededFallback) {
+    const fallback = buildSeededArticleFallback(seededFallback)
+    firstArticle = fallback.article
+    articleDetail = fallback.detail
+    categories = Array.isArray(categories) && categories.length > 0 ? categories : fallback.categories
+    tags = Array.isArray(tags) && tags.length > 0 ? tags : fallback.tags
+    console.warn('[discover-playwright-fixtures] using direct DB fixture fallback while public hot-read snapshot refreshes')
   }
 
   assert(firstArticle?.id, 'playwright fixture discovery failed: no public article found')

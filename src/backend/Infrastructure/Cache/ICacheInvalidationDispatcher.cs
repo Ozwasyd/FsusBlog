@@ -84,12 +84,16 @@ public sealed class CacheInvalidationDispatcher(
             await cache.RemoveAsync(CachePolicyId.ArticleDetail, articleId.Value.ToString(), cancellationToken);
             await cache.RemoveAsync(CachePolicyId.ArticleDetail, $"core:v2:{articleId.Value}", cancellationToken);
             await cache.RemoveAsync(CachePolicyId.ArticleDetail, $"core:v3:{articleId.Value}", cancellationToken);
+            await cache.RemoveAsync(CachePolicyId.ArticleDetailFrame, $"core:v3:{articleId.Value}", cancellationToken);
         }
 
         await cache.IncrementAsync(CachePolicyId.ArticleListVersion, "main", 1, cancellationToken);
         await cache.RemoveAsync(CachePolicyId.ArticleRss, "main", cancellationToken);
         await cache.RemoveAsync(CachePolicyId.AdminStats, "main", cancellationToken);
         await cache.RemoveAsync(CachePolicyId.AdminStats, "core:main", cancellationToken);
+        await cache.RemoveAsync(CachePolicyId.AdminStatsFrame, "core:main", cancellationToken);
+        await cache.RemoveAsync(CachePolicyId.CategoryFrame, "all", cancellationToken);
+        await cache.RemoveAsync(CachePolicyId.TagFrame, "all", cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList, CacheTag.HotArticles, CacheTag.Stats);
         runtimeState?.Record("article", articleId is > 0 ? $"article:{articleId.Value}" : "all");
     }
@@ -110,6 +114,8 @@ public sealed class CacheInvalidationDispatcher(
 
     public async Task InvalidateCategoryTagAsync(CancellationToken cancellationToken = default)
     {
+        await cache.RemoveAsync(CachePolicyId.CategoryFrame, "all", cancellationToken);
+        await cache.RemoveAsync(CachePolicyId.TagFrame, "all", cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.Tag, CacheTag.ArticleList);
         runtimeState?.Record("taxonomy", "category-tag");
     }
@@ -120,22 +126,27 @@ public sealed class CacheInvalidationDispatcher(
         {
             await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursor, "article:", cancellationToken);
             await cache.RemoveByPrefixAsync(CachePolicyId.UserCommentCursor, "user:", cancellationToken);
+            await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursorFrame, "article:", cancellationToken);
+            await cache.RemoveByPrefixAsync(CachePolicyId.UserCommentCursorFrame, "user:", cancellationToken);
         }
         else
         {
             if (scope.PublicArticleChanged && scope.ArticleId is > 0)
             {
                 await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursor, $"article:{scope.ArticleId.Value}:", cancellationToken);
+                await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursorFrame, $"article:{scope.ArticleId.Value}:", cancellationToken);
             }
 
             if (scope.ArticleId is > 0 && scope.RootId is > 0)
             {
                 await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursor, $"article:{scope.ArticleId.Value}:root:{scope.RootId.Value}:", cancellationToken);
+                await cache.RemoveByPrefixAsync(CachePolicyId.CommentCursorFrame, $"article:{scope.ArticleId.Value}:root:{scope.RootId.Value}:", cancellationToken);
             }
 
             if (scope.UserCommentsChanged && scope.UserId is > 0)
             {
                 await cache.RemoveByPrefixAsync(CachePolicyId.UserCommentCursor, $"user:{scope.UserId.Value}:", cancellationToken);
+                await cache.RemoveByPrefixAsync(CachePolicyId.UserCommentCursorFrame, $"user:{scope.UserId.Value}:", cancellationToken);
             }
         }
 
@@ -147,6 +158,7 @@ public sealed class CacheInvalidationDispatcher(
     {
         await cache.RemoveAsync(CachePolicyId.AdminStats, "main", cancellationToken);
         await cache.RemoveAsync(CachePolicyId.AdminStats, "core:main", cancellationToken);
+        await cache.RemoveAsync(CachePolicyId.AdminStatsFrame, "core:main", cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Stats);
         runtimeState?.Record("stats", "admin-stats");
     }
@@ -158,6 +170,7 @@ public sealed class CacheInvalidationDispatcher(
             await cache.RemoveAsync(CachePolicyId.ArticleDetail, articleId.ToString(), cancellationToken);
             await cache.RemoveAsync(CachePolicyId.ArticleDetail, $"core:v2:{articleId}", cancellationToken);
             await cache.RemoveAsync(CachePolicyId.ArticleDetail, $"core:v3:{articleId}", cancellationToken);
+            await cache.RemoveAsync(CachePolicyId.ArticleDetailFrame, $"core:v3:{articleId}", cancellationToken);
         }
 
         await httpCacheInvalidator.InvalidateAsync(CacheTag.HotArticles, CacheTag.Stats);
@@ -167,6 +180,7 @@ public sealed class CacheInvalidationDispatcher(
     public async Task InvalidateHotArticlesAsync(CancellationToken cancellationToken = default)
     {
         await cache.RemoveByPrefixAsync(CachePolicyId.ArticleHot, string.Empty, cancellationToken);
+        await cache.RemoveByPrefixAsync(CachePolicyId.ArticleHotFrame, string.Empty, cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.HotArticles);
         runtimeState?.Record("hot_articles", "article-hot");
     }

@@ -29,5 +29,14 @@ public enum CachePolicyId
     SecurityPasskeyRegChallenge = 24,
     SecurityPasskeyAuthChallenge = 25,
     HumanReadProof = 26,
-    SecurityPowProof = 27
+    SecurityPowProof = 27,
+    ArticleListFrame = 28,
+    ArticleDetailFrame = 29,
+    ArticleHotFrame = 30,
+    TopArticlesFrame = 31,
+    CommentCursorFrame = 32,
+    UserCommentCursorFrame = 33,
+    CategoryFrame = 34,
+    TagFrame = 35,
+    AdminStatsFrame = 36
 }

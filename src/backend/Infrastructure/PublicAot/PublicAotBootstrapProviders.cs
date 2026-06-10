@@ -45,12 +45,13 @@ public sealed class PublicAotHomeBootstrapProvider(
 
     public override async Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
+        const int pageSize = 10;
         SeoConfigReadModel seo = await LoadSeoAsync();
-        ArticleListPageReadModel page = await articleService.GetPageListAsync(1, 8, null, null, false);
+        ArticleListPageReadModel page = await articleService.GetPageListAsync(1, pageSize, null, null, false);
         return Result<PublicPageSnapshot>.Success(new PublicHomePageSnapshot(
             ToSeoSnapshot(seo),
             Page: 1,
-            Size: 8,
+            pageSize,
             page.Total,
             page.Items.Select(ToArticleSummarySnapshot).ToArray()));
     }

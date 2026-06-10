@@ -65,18 +65,19 @@ public class VisitLogProcessorService : BackgroundService
 {
     private const int BatchSize = 500;
     private const int MaxIpLength = 64;
+    private const string UnknownRegion = "Unknown";
     internal static readonly TimeSpan FlushWindow = TimeSpan.FromMilliseconds(200);
 
     private readonly VisitLogChannel _channel;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<VisitLogProcessorService> _logger;
-    private readonly ObjectPool<Component> _ipPool;
+    private ObjectPool<Component>? _ipPool;
 
     public VisitLogProcessorService(
         VisitLogChannel channel,
         IServiceProvider serviceProvider,
         ILogger<VisitLogProcessorService> logger,
-        ObjectPool<Component> ipPool)
+        ObjectPool<Component>? ipPool = null)
     {
         _channel = channel;
         _serviceProvider = serviceProvider;
@@ -209,24 +210,32 @@ public class VisitLogProcessorService : BackgroundService
 
         Component? ipObj = null;
         string region;
-        try
+        ObjectPool<Component>? ipPool = _ipPool ??= _serviceProvider.GetService<ObjectPool<Component>>();
+        if (ipPool is null)
         {
-            ipObj = _ipPool.Get();
-            // 注：IP2Location 的 BIN 内存模式查询耗时在 1 纳秒级，属于纯 CPU 寻址，不会引起 I/O 消费雪崩
-            var res = ipObj.IPQuery(ip);
-            region = CreateRegionString(res);
+            region = UnknownRegion;
         }
-        finally
+        else
         {
-            if (ipObj is not null)
+            try
             {
-                try
+                ipObj = ipPool.Get();
+                // 注：IP2Location 的 BIN 内存模式查询耗时在 1 纳秒级，属于纯 CPU 寻址，不会引起 I/O 消费雪崩
+                var res = ipObj.IPQuery(ip);
+                region = CreateRegionString(res);
+            }
+            finally
+            {
+                if (ipObj is not null)
                 {
-                    _ipPool.Return(ipObj);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "归还 IP2Location 对象到对象池失败。");
+                    try
+                    {
+                        ipPool.Return(ipObj);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "归还 IP2Location 对象到对象池失败。");
+                    }
                 }
             }
         }

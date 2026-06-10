@@ -135,6 +135,29 @@ public sealed class PublicHotReadFastPathTests
         AssertNoStore(context);
     }
 
+    [Theory]
+    [InlineData("/api/binary/category")]
+    [InlineData("/api/binary/tag")]
+    public async Task TryServeAsync_TaxonomyWritePath_PassesThroughToNormalPipeline(string path)
+    {
+        var context = CreateContext(path);
+        context.Request.Method = HttpMethods.Post;
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            new PublicHotReadStore(),
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.True(nextCalled);
+    }
+
     [Fact]
     public async Task TryServeAsync_BadAccept_Returns406BeforeSnapshotLookup()
     {
@@ -311,6 +334,36 @@ public sealed class PublicHotReadFastPathTests
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.Equal("\"category\"", context.Response.Headers.ETag);
+        Assert.Equal(frame, ((MemoryStream)context.Response.Body).ToArray());
+    }
+
+    [Theory]
+    [InlineData("/api/binary/category")]
+    [InlineData("/api/binary/category.aeds")]
+    [InlineData("/api/binary/tag")]
+    [InlineData("/api/binary/tag.aeds")]
+    public async Task TryServeAsync_TaxonomyRoutes_HitPreencodedArtifacts(string path)
+    {
+        bool isCategory = path.Contains("category", StringComparison.Ordinal);
+        byte[] frame = CreateFrame(isCategory ? AedsFrameType.CategoryList : AedsFrameType.TagList);
+        var store = new PublicHotReadStore();
+        store.Publish(new PublicHotReadSnapshot(
+            1,
+            FrozenDictionary<int, PublicBinaryArtifact>.Empty,
+            FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+            isCategory ? new PublicBinaryArtifact(frame, "\"category\"", "public,max-age=60", 1, AedsFrameType.CategoryList) : default,
+            isCategory ? default : new PublicBinaryArtifact(frame, "\"tag\"", "public,max-age=60", 1, AedsFrameType.TagList),
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty));
+        var context = CreateContext(path);
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.Equal(frame, ((MemoryStream)context.Response.Body).ToArray());
     }
 

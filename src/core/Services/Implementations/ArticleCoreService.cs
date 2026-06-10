@@ -7,7 +7,7 @@ namespace FsusBlog.Core.Services.Implementations;
 
 public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCoreService
 {
-    public async Task<Result<CorePageResult<ArticleListCoreModel>>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null)
+    public async Task<Result<CorePageResult<ArticleListCoreModel>>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null, long? listCacheVersion = null)
     {
         if (page <= 0 || size <= 0)
         {
@@ -19,7 +19,7 @@ public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCo
             return Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.Validation, "文章状态非法");
         }
 
-        return Result<CorePageResult<ArticleListCoreModel>>.Success(await gateway.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, keyword));
+        return Result<CorePageResult<ArticleListCoreModel>>.Success(await gateway.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, keyword, listCacheVersion));
     }
 
     public async Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(int id, bool includePrivate = false)
@@ -151,5 +151,46 @@ public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCo
 
         await gateway.IncreaseViewCountAsync(id);
         return Result.Success();
+    }
+
+    public async ValueTask<Result<IReadOnlySet<int>>> IncreaseViewCountsAsync(
+        IReadOnlyDictionary<int, int> articleCounts,
+        CancellationToken cancellationToken = default)
+    {
+        if (articleCounts is null || articleCounts.Count == 0)
+        {
+            return Result<IReadOnlySet<int>>.Success(new HashSet<int>());
+        }
+
+        Dictionary<int, int> normalized = new(articleCounts.Count);
+        foreach ((int articleId, int count) in articleCounts)
+        {
+            if (articleId <= 0)
+            {
+                return Result<IReadOnlySet<int>>.Failure(ErrorCode.Validation, "文章ID非法");
+            }
+
+            if (count < 0)
+            {
+                return Result<IReadOnlySet<int>>.Failure(ErrorCode.Validation, "阅读量增量非法");
+            }
+
+            if (count == 0)
+            {
+                continue;
+            }
+
+            normalized[articleId] = normalized.TryGetValue(articleId, out int existing)
+                ? checked(existing + count)
+                : count;
+        }
+
+        if (normalized.Count == 0)
+        {
+            return Result<IReadOnlySet<int>>.Success(new HashSet<int>());
+        }
+
+        IReadOnlySet<int> updated = await gateway.IncreaseViewCountsAsync(normalized, cancellationToken);
+        return Result<IReadOnlySet<int>>.Success(updated);
     }
 }

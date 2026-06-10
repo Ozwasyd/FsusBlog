@@ -16,9 +16,14 @@
  *   FSUSBLOG_BASE_URL=http://127.0.0.1:5000 node ../../tests/frontend/checks/public/check-public-refresh-hydration.mjs
  */
 import { createRequire } from 'node:module'
+import { existsSync } from 'node:fs'
+import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
+const publicFixtureIds = readPublicFixtureIds()
+const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
+  || ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find((candidate) => existsSync(candidate))
 
 const PUBLIC_HYDRATION_TIMEOUT_MS = 12000
 const PUBLIC_RUNTIME_TIMEOUT_MS = 10000
@@ -64,7 +69,7 @@ const PUBLIC_SEO_SCENARIOS = [
   },
   {
     name: 'article',
-    route: '/article/1',
+    route: `/article/${publicFixtureIds.articleId}`,
     expectedKind: 'ArticleDetail',
     interact: async (page, helpers) => {
       await helpers.clickPublicNav('archive', '/archive', 'Archive')
@@ -73,13 +78,13 @@ const PUBLIC_SEO_SCENARIOS = [
   },
   {
     name: 'category',
-    route: '/category/1',
+    route: `/category/${publicFixtureIds.categoryId}`,
     expectedKind: 'Filter',
     interact: interactListToArticleScenario,
   },
   {
     name: 'tag',
-    route: '/tag/1',
+    route: `/tag/${publicFixtureIds.tagId}`,
     expectedKind: 'Filter',
     interact: interactListToArticleScenario,
   },
@@ -559,7 +564,11 @@ async function runScenario(page, baseUrl, route) {
 }
 
 async function runRoute(baseUrl, route, viewportSize) {
-  const browser = await chromium.launch({ headless: true })
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...(executablePath ? { executablePath } : {}),
+  })
   const context = await browser.newContext({ viewport: viewportSize, javaScriptEnabled: true })
   const page = await context.newPage()
 

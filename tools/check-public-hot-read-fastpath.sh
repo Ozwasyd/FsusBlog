@@ -60,7 +60,9 @@ const fs = require('node:fs');
 const source = fs.readFileSync(process.argv[2], 'utf8');
 const required = [
   'private const string CategoryPath = "/api/binary/category.aeds"',
+  'private const string CategoryPathWithoutSuffix = "/api/binary/category"',
   'private const string TagPath = "/api/binary/tag.aeds"',
+  'private const string TagPathWithoutSuffix = "/api/binary/tag"',
   'path.StartsWith(ArticlePrefix + "/"',
   'StatusCodes.Status503ServiceUnavailable',
   'Retry-After',

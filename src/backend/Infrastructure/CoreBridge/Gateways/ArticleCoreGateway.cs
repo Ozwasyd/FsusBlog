@@ -14,7 +14,7 @@ namespace FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
 
 public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryCache queryCache) : IArticleCoreGateway
 {
-    public async Task<CorePageResult<ArticleListCoreModel>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null)
+    public async Task<CorePageResult<ArticleListCoreModel>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null, long? listCacheVersion = null)
     {
         string normalizedKeyword = NormalizeArticleListKeyword(keyword);
         return await queryCache.GetOrLoadPageListAsync(
@@ -26,6 +26,7 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
             status,
             includePrivate,
             normalizedKeyword,
+            listCacheVersion,
             () => LoadPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword));
     }
 
@@ -95,6 +96,11 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
     }
 
     public ValueTask IncreaseViewCountAsync(int id) => service.IncreaseViewCountAsync(id);
+
+    public ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync(
+        IReadOnlyDictionary<int, int> articleCounts,
+        CancellationToken cancellationToken = default)
+        => service.IncreaseViewCountsAsync(articleCounts, cancellationToken);
 
     private async Task<CorePageResult<ArticleListCoreModel>> LoadPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword)
     {

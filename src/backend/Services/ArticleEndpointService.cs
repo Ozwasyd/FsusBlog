@@ -1,6 +1,8 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
@@ -14,6 +16,7 @@ public sealed class ArticleEndpointService(
     IArticleCoreService core,
     IArticleService articles,
     IUnifiedCache cache,
+    IAedsEncoder aeds,
     IArticleDetailAedsArtifactStore detailArtifacts,
     IArticleDetailAedsArtifactBackfillScheduler detailArtifactBackfill) : IArticleEndpointService
 {
@@ -41,13 +44,22 @@ public sealed class ArticleEndpointService(
         long version = await GetArticleListCacheVersionAsync();
         string normalizedKeyword = NormalizeArticleListKeyword(keyword);
         string identity = BuildArticleListCacheIdentity(version, page, size, categoryId, tagId, isDeleted, status, canReadPrivate, normalizedKeyword);
-        CacheReadResult<ReadOnlyMemory<byte>> raw = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleList, identity);
-        if (raw.Hit && raw.Value.Length > 0)
+        CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleListFrame, identity);
+        if (frame.Hit && frame.Value.Length > 0)
         {
-            return new(raw.Value, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
+            return new(frame.Value, Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
         }
 
-        return new(default, await core.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, canReadPrivate, normalizedKeyword));
+        Result<CorePageResult<ArticleListCoreModel>> result = await core.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, canReadPrivate, normalizedKeyword, version);
+        if (!result.IsSuccess)
+        {
+            return new(default, result);
+        }
+
+        byte[] payload = PodBinaryCodec.EncodeArticlePage(result.Value);
+        byte[] encodedFrame = aeds.Encode(AedsFrameType.ArticleList, payload);
+        await cache.SetRawAsync(CachePolicyId.ArticleListFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
+        return new(encodedFrame, result);
     }
 
     public Task<Result<ArticleDetailCoreModel?>> GetByIdAsync(int id, bool canReadPrivate = false)
@@ -68,13 +80,22 @@ public sealed class ArticleEndpointService(
     public async Task<ArticleEndpointPayload<IReadOnlyList<PopularArticleCoreModel>>> GetHotArticlesAsync(int count)
     {
         string identity = BuildArticleHotCacheIdentity(count);
-        CacheReadResult<ReadOnlyMemory<byte>> raw = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleHot, identity);
-        if (raw.Hit && raw.Value.Length > 0)
+        CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleHotFrame, identity);
+        if (frame.Hit && frame.Value.Length > 0)
         {
-            return new(raw.Value, Result<IReadOnlyList<PopularArticleCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
+            return new(frame.Value, Result<IReadOnlyList<PopularArticleCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
         }
 
-        return new(default, await core.GetHotArticlesAsync(count));
+        Result<IReadOnlyList<PopularArticleCoreModel>> result = await core.GetHotArticlesAsync(count);
+        if (!result.IsSuccess || result.Value is null)
+        {
+            return new(default, result);
+        }
+
+        byte[] payload = PodBinaryCodec.EncodePopularArticles(result.Value);
+        byte[] encodedFrame = aeds.Encode(AedsFrameType.ArticleHot, payload);
+        await cache.SetRawAsync(CachePolicyId.ArticleHotFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
+        return new(encodedFrame, result);
     }
 
     public async Task<Result<IReadOnlyList<FeaturedArticleSummaryDto>>> GetFeaturedArticlesAsync(int count)

@@ -4,7 +4,7 @@
   "profiles": [
     {
       "id": "backend-api-integration",
-      "command": "./tools/test.sh backend-api-integration",
+      "command": "tools/test/legacy-test.sh backend-api-integration",
       "risk": "critical",
       "requirements": [
         "BACKEND-ENDPOINT-HTTP-PIPELINE",
@@ -18,7 +18,7 @@
     },
     {
       "id": "backend-auth-state-machine",
-      "command": "./tools/test.sh backend-auth-state-machine",
+      "command": "tools/test/legacy-test.sh backend-auth-state-machine",
       "risk": "critical",
       "requirements": [
         "BACKEND-AUTH-STATE-MACHINE",
@@ -31,7 +31,7 @@
     },
     {
       "id": "backend-concurrency",
-      "command": "./tools/test.sh backend-concurrency",
+      "command": "tools/test/legacy-test.sh backend-concurrency",
       "risk": "high",
       "requirements": [
         "BACKEND-CONCURRENCY-RACES",
@@ -43,7 +43,7 @@
     },
     {
       "id": "backend-property",
-      "command": "./tools/test.sh backend-property",
+      "command": "tools/test/legacy-test.sh backend-property",
       "risk": "high",
       "requirements": [
         "BACKEND-PROPERTY-TESTING",
@@ -56,7 +56,7 @@
     },
     {
       "id": "backend-golden",
-      "command": "./tools/test.sh backend-golden",
+      "command": "tools/test/legacy-test.sh backend-golden",
       "risk": "high",
       "requirements": [
         "BACKEND-AEDS-GOLDEN",
@@ -71,7 +71,7 @@
     },
     {
       "id": "backend-test-governance",
-      "command": "./tools/test.sh backend-test-governance",
+      "command": "tools/test/legacy-test.sh backend-test-governance",
       "risk": "critical",
       "requirements": [
         "BACKEND-TRACEABILITY",
@@ -87,7 +87,7 @@
     },
     {
       "id": "backend-perf",
-      "command": "./tools/test.sh backend-perf",
+      "command": "tools/test/lanes/perf-regression.sh",
       "risk": "high",
       "requirements": [
         "BACKEND-PERF-BENCHMARKS",
@@ -100,7 +100,7 @@
     },
     {
       "id": "backend-mutation",
-      "command": "./tools/test.sh backend-mutation",
+      "command": "tools/test/legacy-test.sh backend-mutation",
       "risk": "high",
       "requirements": [
         "BACKEND-MUTATION-TESTING"
@@ -112,7 +112,7 @@
     },
     {
       "id": "backend-chaos",
-      "command": "./tools/test.sh backend-chaos",
+      "command": "tools/test/legacy-test.sh backend-chaos",
       "risk": "high",
       "requirements": [
         "BACKEND-REDIS-DB-FAULTS",
@@ -126,7 +126,7 @@
     },
     {
       "id": "backend-nightly",
-      "command": "./tools/test.sh backend-nightly",
+      "command": "tools/test/legacy-test.sh backend-nightly",
       "risk": "critical",
       "requirements": [
         "BACKEND-NIGHTLY-EXHAUSTIVE",
@@ -397,7 +397,7 @@
       "risk": "medium",
       "coverage": "long run mixed read/write, continuous SSE, upload churn, Redis cache churn, search rebuild churn",
       "evidencePaths": [
-        "TODO.md",
+        "tools/test/lanes/soak.sh",
         "tests/backend/Fixtures/backend-test-requirements.json"
       ]
     },

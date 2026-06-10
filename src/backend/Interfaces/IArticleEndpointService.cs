@@ -4,9 +4,9 @@ using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Interfaces;
 
-public readonly record struct ArticleEndpointPayload<T>(ReadOnlyMemory<byte> CachedPayload, Result<T> Result)
+public readonly record struct ArticleEndpointPayload<T>(ReadOnlyMemory<byte> CachedFrame, Result<T> Result)
 {
-    public bool HasCachedPayload => !CachedPayload.IsEmpty;
+    public bool HasCachedFrame => !CachedFrame.IsEmpty;
 }
 
 public readonly record struct ArticleDetailArtifactPayload(ReadOnlyMemory<byte> PreencodedFrame, bool BackfillQueued)

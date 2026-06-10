@@ -60,7 +60,10 @@ public static class DistributionEndpoints
         })
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
-        .AddEndpointFilter<RiskAwarePublicReadFilter>();
+        .AddEndpointFilter<RiskAwarePublicReadFilter>()
+        .CacheOutput(static builder => builder
+            .Expire(TimeSpan.FromMinutes(1))
+            .Tag(CacheTag.ArticleList.ToOutputCacheTag()));
 
         return app;
     }

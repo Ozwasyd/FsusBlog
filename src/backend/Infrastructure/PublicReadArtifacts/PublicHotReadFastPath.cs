@@ -445,7 +445,9 @@ public static class PublicHotReadFastPath
 {
     private const string ArticlePrefix = "/api/binary/article";
     private const string CategoryPath = "/api/binary/category.aeds";
+    private const string CategoryPathWithoutSuffix = "/api/binary/category";
     private const string TagPath = "/api/binary/tag.aeds";
+    private const string TagPathWithoutSuffix = "/api/binary/tag";
     private const string BinaryContentType = "application/octet-stream";
     private const string HtmlMediaType = "text/html";
     private const string HtmlContentType = "text/html; charset=utf-8";
@@ -472,6 +474,11 @@ public static class PublicHotReadFastPath
 
         if (!HttpMethods.IsGet(ctx.Request.Method) && !HttpMethods.IsHead(ctx.Request.Method))
         {
+            if (IsTaxonomyCollectionPath(path))
+            {
+                return next(ctx);
+            }
+
             return WriteStatus(ctx, StatusCodes.Status405MethodNotAllowed);
         }
 
@@ -507,12 +514,12 @@ public static class PublicHotReadFastPath
         }
 
         PublicHotReadSnapshot snapshot = store.Current;
-        if (path.Length == CategoryPath.Length && string.Equals(path, CategoryPath, StringComparison.Ordinal))
+        if (IsCategoryPath(path))
         {
             return ServeCategory(ctx, snapshot, counters, options);
         }
 
-        if (path.Length == TagPath.Length && string.Equals(path, TagPath, StringComparison.Ordinal))
+        if (IsTagPath(path))
         {
             return ServeTag(ctx, snapshot, counters, options);
         }
@@ -547,10 +554,18 @@ public static class PublicHotReadFastPath
     }
 
     private static bool IsPublicHotReadPath(string path)
-        => string.Equals(path, CategoryPath, StringComparison.Ordinal)
-            || string.Equals(path, TagPath, StringComparison.Ordinal)
+        => IsCategoryPath(path)
+            || IsTagPath(path)
             || string.Equals(path, ArticlePrefix, StringComparison.Ordinal)
             || path.StartsWith(ArticlePrefix + "/", StringComparison.Ordinal);
+
+    private static bool IsCategoryPath(string path)
+        => string.Equals(path, CategoryPath, StringComparison.Ordinal)
+            || string.Equals(path, CategoryPathWithoutSuffix, StringComparison.Ordinal);
+
+    private static bool IsTagPath(string path)
+        => string.Equals(path, TagPath, StringComparison.Ordinal)
+            || string.Equals(path, TagPathWithoutSuffix, StringComparison.Ordinal);
 
     private static bool IsArticleHtmlPath(ReadOnlySpan<char> path)
         => path.StartsWith("/api/binary/article/html/", StringComparison.Ordinal);
@@ -710,6 +725,10 @@ public static class PublicHotReadFastPath
         ValueTask<FlushResult> write = response.BodyWriter.WriteAsync(frame, ctx.RequestAborted);
         return write.IsCompletedSuccessfully ? Completed : AwaitWrite(write);
     }
+
+    private static bool IsTaxonomyCollectionPath(string path)
+        => path.Equals(CategoryPathWithoutSuffix, StringComparison.OrdinalIgnoreCase)
+           || path.Equals(TagPathWithoutSuffix, StringComparison.OrdinalIgnoreCase);
 
     private static Task WriteStatus(HttpContext ctx, int statusCode)
     {
