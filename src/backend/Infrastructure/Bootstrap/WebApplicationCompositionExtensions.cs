@@ -311,8 +311,6 @@ public static class WebApplicationCompositionExtensions
             || string.Equals(requestPath, "/manifest.webmanifest", StringComparison.Ordinal))
         {
             headers["Cache-Control"] = "no-cache";
-            headers.Remove("ETag");
-            headers.Remove("Last-Modified");
             return;
         }
 

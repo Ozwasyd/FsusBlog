@@ -1,5 +1,13 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using System.Reflection;
+using System.Text;
 
 namespace FsusBlog.Server.Tests;
 
@@ -51,11 +59,80 @@ public sealed class WebApplicationCompositionExtensionsTests
     [Fact]
     public void HotPathCompositionSource_AvoidsRegexAndFullPageReplaceForStaticAndFallback()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "Bootstrap", "WebApplicationCompositionExtensions.cs"));
+        string source = ReadCompositionSource();
 
         Assert.DoesNotContain("Regex.IsMatch", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Replace(\"</head>\"", source, StringComparison.Ordinal);
         Assert.Contains("SpaHtmlByteTemplate", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StaticNoCacheEntryAssets_PreserveValidatorsForConditionalRequests()
+    {
+        string source = ReadCompositionSource();
+        string branch = ExtractStaticNoCacheEntryBranch(source);
+
+        Assert.Contains("headers[\"Cache-Control\"] = \"no-cache\";", branch, StringComparison.Ordinal);
+        Assert.Contains("/sw.js", branch, StringComparison.Ordinal);
+        Assert.Contains("/search/index.manifest.aeds", branch, StringComparison.Ordinal);
+        Assert.Contains("/search/index.bin", branch, StringComparison.Ordinal);
+        Assert.Contains("/favicon.svg", branch, StringComparison.Ordinal);
+        Assert.Contains("/manifest.webmanifest", branch, StringComparison.Ordinal);
+        Assert.DoesNotContain("headers.Remove(\"ETag\")", branch, StringComparison.Ordinal);
+        Assert.DoesNotContain("headers.Remove(\"Last-Modified\")", branch, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("/sw.js", "self.__fsus_test = 1;")]
+    [InlineData("/search/index.manifest.aeds", "manifest-v1")]
+    [InlineData("/search/index.bin", "legacy-index-v1")]
+    [InlineData("/favicon.svg", "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>")]
+    [InlineData("/manifest.webmanifest", "{\"name\":\"FsusBlog\"}")]
+    public async Task StaticNoCacheEntryAssets_ReturnNotModifiedWhenEtagMatches(string path, string contents)
+    {
+        using var site = StaticAssetTestSite.Create();
+        site.Write(path, contents);
+
+        DefaultHttpContext first = await site.GetAsync(path);
+
+        Assert.Equal(StatusCodes.Status200OK, first.Response.StatusCode);
+        Assert.Equal("no-cache", first.Response.Headers["Cache-Control"].ToString());
+        string etag = first.Response.Headers["ETag"].ToString();
+        Assert.False(string.IsNullOrWhiteSpace(etag));
+        Assert.False(string.IsNullOrWhiteSpace(first.Response.Headers["Last-Modified"].ToString()));
+
+        DefaultHttpContext second = await site.GetAsync(path, etag);
+
+        Assert.Equal(StatusCodes.Status304NotModified, second.Response.StatusCode);
+        Assert.Equal(0, second.Response.Body.Length);
+    }
+
+    [Fact]
+    public void ImmutableStaticAssets_KeepLongCacheWithoutValidators()
+    {
+        string source = ReadCompositionSource();
+        int immutableBranchStart = source.IndexOf("if (requestPath.StartsWith(\"/search/patches/\"", StringComparison.Ordinal);
+
+        Assert.True(immutableBranchStart >= 0, "Unable to locate immutable search asset branch.");
+
+        string immutableBranch = source[immutableBranchStart..];
+        Assert.Contains("headers[\"Cache-Control\"] = \"public,max-age=31536000,immutable\";", immutableBranch, StringComparison.Ordinal);
+        Assert.Contains("headers.Remove(\"ETag\")", immutableBranch, StringComparison.Ordinal);
+        Assert.Contains("headers.Remove(\"Last-Modified\")", immutableBranch, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ImmutableSearchShardKeepsLongCacheAndRemovesValidators()
+    {
+        using var site = StaticAssetTestSite.Create();
+        site.Write("/search/index.core.0123456789abcdef.bin", "core-shard");
+
+        DefaultHttpContext result = await site.GetAsync("/search/index.core.0123456789abcdef.bin");
+
+        Assert.Equal(StatusCodes.Status200OK, result.Response.StatusCode);
+        Assert.Equal("public,max-age=31536000,immutable", result.Response.Headers["Cache-Control"].ToString());
+        Assert.True(string.IsNullOrEmpty(result.Response.Headers["ETag"].ToString()));
+        Assert.True(string.IsNullOrEmpty(result.Response.Headers["Last-Modified"].ToString()));
     }
 
     private static string FindRepoRoot()
@@ -78,5 +155,119 @@ public sealed class WebApplicationCompositionExtensionsTests
         }
 
         throw new DirectoryNotFoundException("Unable to locate repository root.");
+    }
+
+    private static string ReadCompositionSource()
+    {
+        return File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "backend",
+            "Infrastructure",
+            "Bootstrap",
+            "WebApplicationCompositionExtensions.cs"));
+    }
+
+    private static string ExtractStaticNoCacheEntryBranch(string source)
+    {
+        int branchStart = source.IndexOf("if (string.Equals(requestPath, \"/sw.js\"", StringComparison.Ordinal);
+        int branchEnd = source.IndexOf("if (requestPath.StartsWith(\"/search/patches/\"", branchStart, StringComparison.Ordinal);
+
+        Assert.True(branchStart >= 0, "Unable to locate no-cache static entry branch.");
+        Assert.True(branchEnd > branchStart, "Unable to locate end of no-cache static entry branch.");
+
+        return source[branchStart..branchEnd];
+    }
+
+    private sealed class StaticAssetTestSite : IDisposable
+    {
+        private static readonly Action<StaticFileResponseContext> StaticAssetResponseCallback =
+            CreateStaticAssetResponseCallback();
+
+        private readonly string _root;
+        private readonly PhysicalFileProvider _fileProvider;
+        private readonly StaticFileMiddleware _middleware;
+
+        private StaticAssetTestSite(string root)
+        {
+            _root = root;
+            Directory.CreateDirectory(root);
+            _fileProvider = new PhysicalFileProvider(root);
+            var contentTypeProvider = new FileExtensionContentTypeProvider();
+            contentTypeProvider.Mappings[".aeds"] = "application/octet-stream";
+            contentTypeProvider.Mappings[".bin"] = "application/octet-stream";
+            contentTypeProvider.Mappings[".webmanifest"] = "application/manifest+json";
+            var options = Options.Create(new StaticFileOptions
+            {
+                FileProvider = _fileProvider,
+                ContentTypeProvider = contentTypeProvider,
+                OnPrepareResponse = StaticAssetResponseCallback
+            });
+
+            _middleware = new StaticFileMiddleware(
+                _ => Task.CompletedTask,
+                new TestWebHostEnvironment(root, _fileProvider),
+                options,
+                NullLoggerFactory.Instance);
+        }
+
+        public static StaticAssetTestSite Create()
+        {
+            return new StaticAssetTestSite(Path.Combine(Path.GetTempPath(), $"fsus-static-{Guid.NewGuid():N}"));
+        }
+
+        public void Write(string requestPath, string contents)
+        {
+            string relativePath = requestPath.TrimStart('/');
+            string filePath = Path.Combine(_root, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            File.WriteAllBytes(filePath, Encoding.UTF8.GetBytes(contents));
+        }
+
+        public async Task<DefaultHttpContext> GetAsync(string path, string? ifNoneMatch = null)
+        {
+            var context = new DefaultHttpContext();
+            context.Request.Method = HttpMethods.Get;
+            context.Request.Path = path;
+            context.Response.Body = new MemoryStream();
+            if (!string.IsNullOrWhiteSpace(ifNoneMatch))
+            {
+                context.Request.Headers["If-None-Match"] = ifNoneMatch;
+            }
+
+            await _middleware.Invoke(context);
+            return context;
+        }
+
+        public void Dispose()
+        {
+            _fileProvider.Dispose();
+            Directory.Delete(_root, recursive: true);
+        }
+
+        private static Action<StaticFileResponseContext> CreateStaticAssetResponseCallback()
+        {
+            MethodInfo? method = typeof(WebApplicationCompositionExtensions).GetMethod(
+                "PrepareStaticAssetResponse",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            if (method is null)
+            {
+                throw new MissingMethodException(
+                    typeof(WebApplicationCompositionExtensions).FullName,
+                    "PrepareStaticAssetResponse");
+            }
+
+            return ctx => method.Invoke(null, [ctx]);
+        }
+    }
+
+    private sealed class TestWebHostEnvironment(string root, IFileProvider fileProvider) : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "FsusBlog.Server.Tests";
+        public IFileProvider ContentRootFileProvider { get; set; } = fileProvider;
+        public string ContentRootPath { get; set; } = root;
+        public string EnvironmentName { get; set; } = "Production";
+        public string WebRootPath { get; set; } = root;
+        public IFileProvider WebRootFileProvider { get; set; } = fileProvider;
     }
 }
