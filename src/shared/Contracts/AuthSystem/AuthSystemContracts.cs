@@ -38,7 +38,25 @@ public readonly record struct SeoConfigContract(
     string Keywords,
     string Author,
     string OgImage,
-    string BaseUrl);
+    string BaseUrl,
+    string FaviconSvgUrl,
+    string FaviconIcoUrl,
+    string FaviconPngUrl,
+    string AppleTouchIconUrl,
+    string ManifestName,
+    string ManifestShortName,
+    string PwaIcon192Url,
+    string PwaIcon512Url,
+    string PwaMaskableIconUrl,
+    string ThemeColor,
+    string BackgroundColor,
+    string SiteLogoUrl,
+    string SiteLogoDarkUrl,
+    string SiteWordmarkUrl,
+    string AdminLogoUrl,
+    string AdminCollapsedIconUrl,
+    string LoginLogoUrl,
+    string LoginIconUrl);
 
 public readonly record struct SiteComplianceConfigContract(
     bool Enabled,

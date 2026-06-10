@@ -640,16 +640,38 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 
 ### `SeoConfigContract`
 
+`SeoConfig` 同时用于公开 SEO/head/PWA manifest、admin 统一 SEO 设置页和运行时品牌资产。公开端点为 `GET /api/binary/system/seo`，admin 读取为 `GET /api/binary/system/admin/seo`，保存为 `PUT /api/binary/system/seo` + `SeoConfigUpdateRequest`，写入必须携带 PoW。保存后必须失效 system SEO cache、Public AOT shell、动态 `manifest.webmanifest` 和公开 shell hydration。
+
 ```json
 {
-  "siteName": "Fsu's Blog",
+  "title": "Fsu's Blog",
   "description": "站点描述",
   "keywords": "博客,技术,写作",
   "author": "Fsu",
   "ogImage": "/og-image.jpg",
-  "twitterHandle": "@fsu"
+  "baseUrl": "https://fsus.blog",
+  "faviconSvgUrl": "/favicon.svg",
+  "faviconIcoUrl": "/favicon.ico",
+  "faviconPngUrl": "/icons/favicon-96.png",
+  "appleTouchIconUrl": "/apple-touch-icon.png",
+  "manifestName": "Fsus Blog",
+  "manifestShortName": "Fsus",
+  "pwaIcon192Url": "/icons/icon-192.png",
+  "pwaIcon512Url": "/icons/icon-512.png",
+  "pwaMaskableIconUrl": "/icons/maskable-512.png",
+  "themeColor": "#0f0f11",
+  "backgroundColor": "#fcfcfc",
+  "siteLogoUrl": "/brand/site-logo.svg",
+  "siteLogoDarkUrl": "/brand/site-logo-dark.svg",
+  "siteWordmarkUrl": "/brand/site-wordmark.svg",
+  "adminLogoUrl": "/brand/admin-logo.svg",
+  "adminCollapsedIconUrl": "/brand/admin-icon.svg",
+  "loginLogoUrl": "/brand/login-logo.svg",
+  "loginIconUrl": "/brand/login-icon.svg"
 }
 ```
+
+URL 字段只接受空值、站内绝对路径 `/...` 或 `http/https` 绝对 URL；`javascript:`、`data:`、协议相对 URL 和空字节会被后端归一化为默认值或空值。`themeColor` 与 `backgroundColor` 只接受 `#RGB` / `#RRGGBB`。后台不得新增 `/system/brand` 并行主配置端点，品牌资产必须挂在同一个 SEO 配置模型上。
 
 ### `SiteComplianceConfigContract`
 

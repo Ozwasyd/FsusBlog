@@ -18,6 +18,35 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.Span);
     }
 
+    public static void WriteSeoConfig(SeoConfigAdminDto dto, IBufferWriter<byte> destination)
+        => WriteSeoConfig(new SeoConfigPublicDto
+        {
+            Title = dto.Title,
+            Description = dto.Description,
+            Keywords = dto.Keywords,
+            Author = dto.Author,
+            OgImage = dto.OgImage,
+            BaseUrl = dto.BaseUrl,
+            FaviconSvgUrl = dto.FaviconSvgUrl,
+            FaviconIcoUrl = dto.FaviconIcoUrl,
+            FaviconPngUrl = dto.FaviconPngUrl,
+            AppleTouchIconUrl = dto.AppleTouchIconUrl,
+            ManifestName = dto.ManifestName,
+            ManifestShortName = dto.ManifestShortName,
+            PwaIcon192Url = dto.PwaIcon192Url,
+            PwaIcon512Url = dto.PwaIcon512Url,
+            PwaMaskableIconUrl = dto.PwaMaskableIconUrl,
+            ThemeColor = dto.ThemeColor,
+            BackgroundColor = dto.BackgroundColor,
+            SiteLogoUrl = dto.SiteLogoUrl,
+            SiteLogoDarkUrl = dto.SiteLogoDarkUrl,
+            SiteWordmarkUrl = dto.SiteWordmarkUrl,
+            AdminLogoUrl = dto.AdminLogoUrl,
+            AdminCollapsedIconUrl = dto.AdminCollapsedIconUrl,
+            LoginLogoUrl = dto.LoginLogoUrl,
+            LoginIconUrl = dto.LoginIconUrl
+        }, destination);
+
     public static byte[] EncodeSeoConfig(SeoConfigPublicDto dto)
         => EncodeToArray(1024, writer => WriteSeoConfig(dto, writer));
 
@@ -37,7 +66,25 @@ public static partial class PodBinaryCodec
             Keywords = PodUtf8Codec.FromFixed256(pod.Keywords),
             Author = PodUtf8Codec.FromFixed64(pod.Author),
             OgImage = PodUtf8Codec.FromFixed256(pod.OgImage),
-            BaseUrl = PodUtf8Codec.FromFixed256(pod.BaseUrl)
+            BaseUrl = PodUtf8Codec.FromFixed256(pod.BaseUrl),
+            FaviconSvgUrl = PodUtf8Codec.FromFixed256(pod.FaviconSvgUrl),
+            FaviconIcoUrl = PodUtf8Codec.FromFixed256(pod.FaviconIcoUrl),
+            FaviconPngUrl = PodUtf8Codec.FromFixed256(pod.FaviconPngUrl),
+            AppleTouchIconUrl = PodUtf8Codec.FromFixed256(pod.AppleTouchIconUrl),
+            ManifestName = PodUtf8Codec.FromFixed128(pod.ManifestName),
+            ManifestShortName = PodUtf8Codec.FromFixed128(pod.ManifestShortName),
+            PwaIcon192Url = PodUtf8Codec.FromFixed256(pod.PwaIcon192Url),
+            PwaIcon512Url = PodUtf8Codec.FromFixed256(pod.PwaIcon512Url),
+            PwaMaskableIconUrl = PodUtf8Codec.FromFixed256(pod.PwaMaskableIconUrl),
+            ThemeColor = PodUtf8Codec.FromFixed32(pod.ThemeColor),
+            BackgroundColor = PodUtf8Codec.FromFixed32(pod.BackgroundColor),
+            SiteLogoUrl = PodUtf8Codec.FromFixed256(pod.SiteLogoUrl),
+            SiteLogoDarkUrl = PodUtf8Codec.FromFixed256(pod.SiteLogoDarkUrl),
+            SiteWordmarkUrl = PodUtf8Codec.FromFixed256(pod.SiteWordmarkUrl),
+            AdminLogoUrl = PodUtf8Codec.FromFixed256(pod.AdminLogoUrl),
+            AdminCollapsedIconUrl = PodUtf8Codec.FromFixed256(pod.AdminCollapsedIconUrl),
+            LoginLogoUrl = PodUtf8Codec.FromFixed256(pod.LoginLogoUrl),
+            LoginIconUrl = PodUtf8Codec.FromFixed256(pod.LoginIconUrl)
         };
         return reader.IsConsumed;
     }
@@ -120,7 +167,25 @@ public static partial class PodBinaryCodec
             Keywords = PodUtf8Codec.ToFixed256(dto.Keywords),
             Author = PodUtf8Codec.ToFixed64(dto.Author),
             OgImage = PodUtf8Codec.ToFixed256(dto.OgImage),
-            BaseUrl = PodUtf8Codec.ToFixed256(dto.BaseUrl)
+            BaseUrl = PodUtf8Codec.ToFixed256(dto.BaseUrl),
+            FaviconSvgUrl = PodUtf8Codec.ToFixed256(dto.FaviconSvgUrl),
+            FaviconIcoUrl = PodUtf8Codec.ToFixed256(dto.FaviconIcoUrl),
+            FaviconPngUrl = PodUtf8Codec.ToFixed256(dto.FaviconPngUrl),
+            AppleTouchIconUrl = PodUtf8Codec.ToFixed256(dto.AppleTouchIconUrl),
+            ManifestName = PodUtf8Codec.ToFixed128(dto.ManifestName),
+            ManifestShortName = PodUtf8Codec.ToFixed128(dto.ManifestShortName),
+            PwaIcon192Url = PodUtf8Codec.ToFixed256(dto.PwaIcon192Url),
+            PwaIcon512Url = PodUtf8Codec.ToFixed256(dto.PwaIcon512Url),
+            PwaMaskableIconUrl = PodUtf8Codec.ToFixed256(dto.PwaMaskableIconUrl),
+            ThemeColor = PodUtf8Codec.ToFixed32(dto.ThemeColor),
+            BackgroundColor = PodUtf8Codec.ToFixed32(dto.BackgroundColor),
+            SiteLogoUrl = PodUtf8Codec.ToFixed256(dto.SiteLogoUrl),
+            SiteLogoDarkUrl = PodUtf8Codec.ToFixed256(dto.SiteLogoDarkUrl),
+            SiteWordmarkUrl = PodUtf8Codec.ToFixed256(dto.SiteWordmarkUrl),
+            AdminLogoUrl = PodUtf8Codec.ToFixed256(dto.AdminLogoUrl),
+            AdminCollapsedIconUrl = PodUtf8Codec.ToFixed256(dto.AdminCollapsedIconUrl),
+            LoginLogoUrl = PodUtf8Codec.ToFixed256(dto.LoginLogoUrl),
+            LoginIconUrl = PodUtf8Codec.ToFixed256(dto.LoginIconUrl)
         };
 
         payload = bytes.WrittenMemory;
@@ -174,6 +239,24 @@ public static partial class PodBinaryCodec
         public Utf8Fixed64 Author;
         public Utf8Fixed256 OgImage;
         public Utf8Fixed256 BaseUrl;
+        public Utf8Fixed256 FaviconSvgUrl;
+        public Utf8Fixed256 FaviconIcoUrl;
+        public Utf8Fixed256 FaviconPngUrl;
+        public Utf8Fixed256 AppleTouchIconUrl;
+        public Utf8Fixed128 ManifestName;
+        public Utf8Fixed128 ManifestShortName;
+        public Utf8Fixed256 PwaIcon192Url;
+        public Utf8Fixed256 PwaIcon512Url;
+        public Utf8Fixed256 PwaMaskableIconUrl;
+        public Utf8Fixed32 ThemeColor;
+        public Utf8Fixed32 BackgroundColor;
+        public Utf8Fixed256 SiteLogoUrl;
+        public Utf8Fixed256 SiteLogoDarkUrl;
+        public Utf8Fixed256 SiteWordmarkUrl;
+        public Utf8Fixed256 AdminLogoUrl;
+        public Utf8Fixed256 AdminCollapsedIconUrl;
+        public Utf8Fixed256 LoginLogoUrl;
+        public Utf8Fixed256 LoginIconUrl;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

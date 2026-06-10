@@ -12,9 +12,15 @@
         <div class="flex min-w-0 items-center gap-4 sm:gap-6">
           <router-link
             to="/"
-            class="truncate text-lg font-bold transition-opacity hover:opacity-60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
+            class="flex min-w-0 items-center gap-2 truncate text-lg font-bold transition-opacity hover:opacity-60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
           >
-            {{ siteStore.siteInfo.title }}
+            <img
+              v-if="adminBrandImageUrl"
+              :src="adminBrandImageUrl"
+              :alt="siteStore.siteInfo.title"
+              class="h-8 max-w-[11rem] object-contain"
+            />
+            <span v-else class="truncate">{{ siteStore.siteInfo.title }}</span>
           </router-link>
           <div class="hidden h-4 w-px bg-[var(--fsusblog-panel-border-strong)] sm:block" aria-hidden="true"></div>
           <div class="hidden min-w-0 sm:block">
@@ -256,6 +262,13 @@ const currentContentMode = computed<AccountContentMode>(() => {
 })
 
 const areaMeta = computed(() => accountAreaMeta[currentArea.value])
+const adminBrandImageUrl = computed(() =>
+  siteStore.siteInfo.adminLogoUrl?.trim()
+  || siteStore.siteInfo.adminCollapsedIconUrl?.trim()
+  || siteStore.siteInfo.siteWordmarkUrl?.trim()
+  || siteStore.siteInfo.siteLogoUrl?.trim()
+  || ''
+)
 const navGroups = computed(() => getAccountNavGroups(userStore.isAdmin))
 const currentNavGroupKey = computed<AccountNavGroupKey>(() => {
   const activeGroup = navGroups.value.find((group) => group.items.some((item) => isNavItemActive(item)))

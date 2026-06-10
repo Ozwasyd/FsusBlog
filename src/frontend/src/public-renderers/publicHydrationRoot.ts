@@ -68,6 +68,9 @@ export function createPublicHydrationRoot(payload: PublicHydrationPayload): VNod
   return renderPublicAotShell({
     kind: payload.pageKind,
     siteTitle: getSiteTitle(payload),
+    siteLogoUrl: payload.siteLogoUrl ?? null,
+    siteLogoDarkUrl: payload.siteLogoDarkUrl ?? null,
+    siteWordmarkUrl: payload.siteWordmarkUrl ?? null,
     compliance: payload.compliance ?? null,
     page
   })

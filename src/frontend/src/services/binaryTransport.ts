@@ -126,7 +126,7 @@ type PendingDecodeRequest = {
 };
 
 const pendingRequests = new Map<number, PendingDecodeRequest>();
-const MAIN_THREAD_DECODE_MAX_BYTES = 4096;
+const MAIN_THREAD_DECODE_MAX_BYTES = 8192;
 const ABORT_RACE_SETTLE_MS = 50;
 const DECODE_WORKER_ACTIVE_LIMIT = 2;
 const DECODE_WORKER_QUEUE_LIMIT = 32;

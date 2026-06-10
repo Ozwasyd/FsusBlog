@@ -21,7 +21,12 @@ public sealed record PublicAotSeoSnapshot(
     string SiteDescription,
     string? BaseUrl,
     PublicAotSiteComplianceSnapshot? Compliance = null,
-    string? SiteAuthor = null);
+    string? SiteAuthor = null,
+    string? SiteLogoUrl = null,
+    string? SiteLogoDarkUrl = null,
+    string? SiteWordmarkUrl = null,
+    string? LoginLogoUrl = null,
+    string? LoginIconUrl = null);
 
 public sealed record PublicAotArticleCategorySnapshot(
     int Id,

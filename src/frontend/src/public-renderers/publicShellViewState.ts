@@ -7,6 +7,9 @@ import type { SiteComplianceConfigPublic } from '@/api/system'
 export type PublicShellViewInput = Readonly<{
   hydrationKind?: PublicPageKind | null
   siteTitle?: string | null
+  siteLogoUrl?: string | null
+  siteLogoDarkUrl?: string | null
+  siteWordmarkUrl?: string | null
   isSearchRoute?: boolean
   initialSearchQuery?: string | null
   spaSearch?: boolean
@@ -45,6 +48,9 @@ export function createPublicShellViewState(input: PublicShellViewInput = {}): Pu
   return createPublicShellState({
     hydrationKind,
     siteTitle: input.siteTitle?.trim() || PUBLIC_SHELL_DEFAULTS.siteTitle,
+    siteLogoUrl: input.siteLogoUrl?.trim() || '',
+    siteLogoDarkUrl: input.siteLogoDarkUrl?.trim() || '',
+    siteWordmarkUrl: input.siteWordmarkUrl?.trim() || '',
     activeNav: hydrationKind ? getActiveNavForKind(hydrationKind) : PUBLIC_SHELL_DEFAULTS.activeNav,
     searchPlaceholder: isSearchRoute ? '搜索文章、标签或关键词 (Ctrl+K)' : PUBLIC_SHELL_DEFAULTS.searchPlaceholder,
     initialSearchQuery: isSearchRoute ? String(input.initialSearchQuery ?? '') : '',

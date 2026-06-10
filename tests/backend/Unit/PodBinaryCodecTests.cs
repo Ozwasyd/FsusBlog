@@ -1384,7 +1384,25 @@ public class PodBinaryCodecTests
             Keywords = "blog,aeds",
             Author = "Fsu",
             OgImage = "/og.webp",
-            BaseUrl = "https://example.test"
+            BaseUrl = "https://example.test",
+            FaviconSvgUrl = "/favicon.svg",
+            FaviconIcoUrl = "/favicon.ico",
+            FaviconPngUrl = "/favicon.png",
+            AppleTouchIconUrl = "/apple-touch-icon.png",
+            ManifestName = "Fsus Manifest",
+            ManifestShortName = "Fsus",
+            PwaIcon192Url = "/icon-192.png",
+            PwaIcon512Url = "/icon-512.png",
+            PwaMaskableIconUrl = "/maskable-512.png",
+            ThemeColor = "#0f0f11",
+            BackgroundColor = "#fcfcfc",
+            SiteLogoUrl = "/site-logo.svg",
+            SiteLogoDarkUrl = "/site-logo-dark.svg",
+            SiteWordmarkUrl = "/wordmark.svg",
+            AdminLogoUrl = "/admin-logo.svg",
+            AdminCollapsedIconUrl = "/admin-icon.svg",
+            LoginLogoUrl = "/login-logo.svg",
+            LoginIconUrl = "/login-icon.svg"
         };
 
         byte[] encoded = PodBinaryCodec.EncodeSeoConfig(dto);
@@ -1394,6 +1412,11 @@ public class PodBinaryCodecTests
         Assert.Equal(dto.Title, decoded.Title);
         Assert.Equal(dto.Description, decoded.Description);
         Assert.Equal(dto.BaseUrl, decoded.BaseUrl);
+        Assert.Equal(dto.FaviconSvgUrl, decoded.FaviconSvgUrl);
+        Assert.Equal(dto.ManifestName, decoded.ManifestName);
+        Assert.Equal(dto.ThemeColor, decoded.ThemeColor);
+        Assert.Equal(dto.SiteWordmarkUrl, decoded.SiteWordmarkUrl);
+        Assert.Equal(dto.LoginIconUrl, decoded.LoginIconUrl);
     }
 
     [Fact]

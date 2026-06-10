@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+using System.Net;
 using System.Text;
+using System.Text.Json;
 using System.Security.Cryptography;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -21,6 +23,8 @@ using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
@@ -160,6 +164,19 @@ public static class WebApplicationCompositionExtensions
     private static void UseFsusStaticAssets(this WebApplication app)
     {
         var provider = CreateStaticFileContentTypeProvider();
+        app.Use(async (ctx, next) =>
+        {
+            if (IsManifestRequest(ctx.Request))
+            {
+                var systemService = ctx.RequestServices.GetRequiredService<ISystemService>();
+                SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
+                await WriteDynamicManifestAsync(ctx, seo);
+                return;
+            }
+
+            await next();
+        });
+
         app.UseStaticFiles(new StaticFileOptions
         {
             ContentTypeProvider = provider,
@@ -255,18 +272,20 @@ public static class WebApplicationCompositionExtensions
             HttpContext ctx,
             IPublicAotShellService shellService,
             ISpaAssetManifestService assetService,
+            ISystemService systemService,
             IWebHostEnvironment env,
             StartupRuntimeState runtimeState,
-            CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, env, runtimeState, ct))
+            CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, systemService, env, runtimeState, ct))
             .AllowAnonymous()
             .WithMetadata(new FsusRouteKindMetadata("public"));
         app.MapFallback((
             HttpContext ctx,
             IPublicAotShellService shellService,
             ISpaAssetManifestService assetService,
+            ISystemService systemService,
             IWebHostEnvironment env,
             StartupRuntimeState runtimeState,
-            CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, env, runtimeState, ct))
+            CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, systemService, env, runtimeState, ct))
             .WithMetadata(new FsusRouteKindMetadata("public"));
     }
 
@@ -347,6 +366,61 @@ public static class WebApplicationCompositionExtensions
         }
     }
 
+    private static bool IsManifestRequest(HttpRequest request)
+        => (HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method))
+            && string.Equals(request.Path.Value, "/manifest.webmanifest", StringComparison.Ordinal);
+
+    private static async Task WriteDynamicManifestAsync(HttpContext ctx, SeoConfigReadModel seo)
+    {
+        var icons = new List<Dictionary<string, string>>(3);
+        AddManifestIcon(icons, seo.PwaIcon192Url, "192x192", "image/png", "any");
+        AddManifestIcon(icons, seo.PwaIcon512Url, "512x512", "image/png", "any");
+        AddManifestIcon(icons, seo.PwaMaskableIconUrl, "512x512", "image/png", "maskable");
+
+        var manifest = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["name"] = string.IsNullOrWhiteSpace(seo.ManifestName) ? seo.Title : seo.ManifestName,
+            ["short_name"] = string.IsNullOrWhiteSpace(seo.ManifestShortName) ? seo.Title : seo.ManifestShortName,
+            ["description"] = seo.Description,
+            ["start_url"] = "/",
+            ["scope"] = "/",
+            ["display"] = "standalone",
+            ["background_color"] = seo.BackgroundColor,
+            ["theme_color"] = seo.ThemeColor,
+            ["icons"] = icons
+        };
+
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(manifest);
+        ctx.Response.StatusCode = StatusCodes.Status200OK;
+        ctx.Response.ContentType = "application/manifest+json; charset=utf-8";
+        ctx.Response.ContentLength = bytes.Length;
+        ctx.Response.Headers["Cache-Control"] = "no-cache";
+        ctx.Response.Headers.Remove("ETag");
+        ctx.Response.Headers.Remove("Last-Modified");
+        if (HttpMethods.IsHead(ctx.Request.Method))
+        {
+            return;
+        }
+
+        await ctx.Response.BodyWriter.WriteAsync(bytes, ctx.RequestAborted);
+    }
+
+    private static void AddManifestIcon(List<Dictionary<string, string>> icons, string src, string sizes, string type, string purpose)
+    {
+        if (string.IsNullOrWhiteSpace(src))
+        {
+            return;
+        }
+
+        icons.Add(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["src"] = src,
+            ["sizes"] = sizes,
+            ["type"] = type,
+            ["purpose"] = purpose
+        });
+    }
+
     private static void UseDevelopmentClientAssetFiles(WebApplication app, FileExtensionContentTypeProvider provider)
     {
         string[] devClientAssetCandidates =
@@ -382,6 +456,7 @@ public static class WebApplicationCompositionExtensions
         HttpContext ctx,
         IPublicAotShellService shellService,
         ISpaAssetManifestService assetService,
+        ISystemService systemService,
         IWebHostEnvironment env,
         StartupRuntimeState runtimeState,
         CancellationToken ct)
@@ -449,6 +524,8 @@ public static class WebApplicationCompositionExtensions
         }
 
         ReadOnlyMemory<byte> templateBytes = await PublicSpaTemplateLocator.ReadIndexTemplateBytesAsync(env, ct, preferSourceTemplate);
+        SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
+        ReadOnlyMemory<byte> seoHeadInjection = BuildSeoBrandHeadInjection(seo);
 
         string path = ctx.Request.Path.Value ?? string.Empty;
         if (templateBytes.Length > 0)
@@ -461,19 +538,19 @@ public static class WebApplicationCompositionExtensions
                     assetService.GetFrontendAssetVersion(),
                     path,
                     preloads);
-                await WriteSpaHtmlResponseAsync(ctx, env, templateBytes, headInjection, ct);
+                await WriteSpaHtmlResponseAsync(ctx, env, templateBytes, CombineHeadInjections(seoHeadInjection, headInjection), ct);
                 return TypedResults.Empty;
             }
             if (publicAssetSet is not null)
             {
                 string routeKey = isPublicAotRoute ? aotMatch.RouteKey : path;
                 ReadOnlyMemory<byte> headInjection = GetCachedPublicAssetHeadInjection(routeKey, publicAssetSet);
-                await WriteSpaHtmlResponseAsync(ctx, env, templateBytes, headInjection, ct);
+                await WriteSpaHtmlResponseAsync(ctx, env, templateBytes, CombineHeadInjections(seoHeadInjection, headInjection), ct);
                 return TypedResults.Empty;
             }
         }
 
-        await WriteSpaHtmlResponseAsync(ctx, env, templateBytes, EmptyBytes, ct);
+        await WriteSpaHtmlResponseAsync(ctx, env, templateBytes, seoHeadInjection, ct);
 
         return TypedResults.Empty;
     }
@@ -710,13 +787,13 @@ public static class WebApplicationCompositionExtensions
 
     private static string BuildStaticCsp(IWebHostEnvironment env)
         => env.IsDevelopment()
-            ? "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 http://127.0.0.1:5000 http://localhost:5000 ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:5000 ws://localhost:5000; worker-src 'self' blob:;"
-            : "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:;";
+            ? "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob: http: https:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 http://127.0.0.1:5000 http://localhost:5000 ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:5000 ws://localhost:5000; worker-src 'self' blob:;"
+            : "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob: http: https:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:;";
 
     private static string BuildHtmlCsp(IWebHostEnvironment env, string nonce)
         => env.IsDevelopment()
-            ? $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 http://127.0.0.1:5000 http://localhost:5000 ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:5000 ws://localhost:5000; worker-src 'self' blob:;"
-            : $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:;";
+            ? $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob: http: https:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 http://127.0.0.1:5000 http://localhost:5000 ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:5000 ws://localhost:5000; worker-src 'self' blob:;"
+            : $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob: http: https:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:;";
 
     private static string EnsureCspNonce(HttpContext ctx)
     {
@@ -883,6 +960,9 @@ public static class WebApplicationCompositionExtensions
     internal static ReadOnlyMemory<byte> GetPublicAssetHeadInjectionForTests(string routeKey, SpaAssetSet publicAssetSet)
         => GetCachedPublicAssetHeadInjection(routeKey, publicAssetSet);
 
+    internal static ReadOnlyMemory<byte> GetSeoBrandHeadInjectionForTests(SeoConfigReadModel seo)
+        => BuildSeoBrandHeadInjection(seo);
+
     internal static async Task<string> RenderSpaHtmlForTestsAsync(
         string templateHtml,
         ReadOnlyMemory<byte> headInjection,
@@ -938,6 +1018,87 @@ public static class WebApplicationCompositionExtensions
         }
 
         return sb.Length == 0 ? EmptyBytes : Encoding.UTF8.GetBytes(sb.ToString());
+    }
+
+    private static ReadOnlyMemory<byte> BuildSeoBrandHeadInjection(SeoConfigReadModel seo)
+    {
+        var sb = new StringBuilder(512);
+        AppendMeta(sb, "theme-color", seo.ThemeColor);
+        AppendLink(sb, "icon", seo.FaviconSvgUrl, "image/svg+xml");
+        AppendLink(sb, "icon", seo.FaviconIcoUrl, "image/x-icon");
+        AppendLink(sb, "icon", seo.FaviconPngUrl, "image/png");
+        AppendLink(sb, "apple-touch-icon", seo.AppleTouchIconUrl, null);
+        AppendMetaProperty(sb, "og:image", seo.OgImage);
+        AppendMeta(sb, "twitter:image", seo.OgImage);
+        return sb.Length == 0 ? EmptyBytes : Encoding.UTF8.GetBytes(sb.ToString());
+    }
+
+    private static ReadOnlyMemory<byte> CombineHeadInjections(ReadOnlyMemory<byte> first, ReadOnlyMemory<byte> second)
+    {
+        if (first.IsEmpty)
+        {
+            return second;
+        }
+
+        if (second.IsEmpty)
+        {
+            return first;
+        }
+
+        byte[] bytes = new byte[first.Length + second.Length];
+        first.Span.CopyTo(bytes);
+        second.Span.CopyTo(bytes.AsSpan(first.Length));
+        return bytes;
+    }
+
+    private static void AppendMeta(StringBuilder sb, string name, string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return;
+        }
+
+        sb.Append("    <meta name=\"")
+            .Append(WebUtility.HtmlEncode(name))
+            .Append("\" content=\"")
+            .Append(WebUtility.HtmlEncode(content))
+            .AppendLine("\" data-fsusblog-seo=\"runtime\" />");
+    }
+
+    private static void AppendMetaProperty(StringBuilder sb, string property, string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return;
+        }
+
+        sb.Append("    <meta property=\"")
+            .Append(WebUtility.HtmlEncode(property))
+            .Append("\" content=\"")
+            .Append(WebUtility.HtmlEncode(content))
+            .AppendLine("\" data-fsusblog-seo=\"runtime\" />");
+    }
+
+    private static void AppendLink(StringBuilder sb, string rel, string href, string? type)
+    {
+        if (string.IsNullOrWhiteSpace(href))
+        {
+            return;
+        }
+
+        sb.Append("    <link rel=\"")
+            .Append(WebUtility.HtmlEncode(rel))
+            .Append('"');
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            sb.Append(" type=\"")
+                .Append(WebUtility.HtmlEncode(type))
+                .Append('"');
+        }
+
+        sb.Append(" href=\"")
+            .Append(WebUtility.HtmlEncode(href))
+            .AppendLine("\" data-fsusblog-seo=\"runtime\" />");
     }
 
     private static ReadOnlyMemory<byte> BuildPublicAssetHeadInjection(SpaAssetSet publicAssetSet)

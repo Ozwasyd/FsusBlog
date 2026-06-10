@@ -13,14 +13,17 @@ describe('publicPageModel local route binding', () => {
       .filter((entry) => entry.seoEligible)
       .map((entry) => entry.kind as PublicPageKind)
 
-    expect(seoKinds).toEqual(['Home', 'ArticleDetail', 'Filter', 'Archive', 'About'])
+    expect(seoKinds).toEqual(['Home', 'ArticleDetail', 'Filter', 'Archive', 'About', 'Privacy', 'Guidelines', 'Copyright'])
 
     const expectedActiveNavByKind: Record<PublicPageKind, string> = {
       Home: 'home',
       ArticleDetail: 'none',
       Filter: 'none',
       Archive: 'archive',
-      About: 'about'
+      About: 'about',
+      Privacy: 'none',
+      Guidelines: 'none',
+      Copyright: 'none'
     }
 
     for (const kind of seoKinds) {

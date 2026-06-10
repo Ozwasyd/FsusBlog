@@ -36,7 +36,7 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds) =>
         {
             var data = await systemService.GetSeoConfigAsync();
-            var dto = SystemProjection.ToPublicDto(data);
+            var dto = SystemProjection.ToAdminDto(data);
             return BinaryResults.Frame(aeds, AedsFrameType.SeoConfig, writer => PodBinaryCodec.WriteSeoConfig(dto, writer));
         })
         .AllowAnonymous()
@@ -76,7 +76,25 @@ public static partial class BinaryEndpoints
                 Keywords = dto.Keywords,
                 Author = dto.Author,
                 OgImage = dto.OgImage,
-                BaseUrl = dto.BaseUrl
+                BaseUrl = dto.BaseUrl,
+                FaviconSvgUrl = dto.FaviconSvgUrl,
+                FaviconIcoUrl = dto.FaviconIcoUrl,
+                FaviconPngUrl = dto.FaviconPngUrl,
+                AppleTouchIconUrl = dto.AppleTouchIconUrl,
+                ManifestName = dto.ManifestName,
+                ManifestShortName = dto.ManifestShortName,
+                PwaIcon192Url = dto.PwaIcon192Url,
+                PwaIcon512Url = dto.PwaIcon512Url,
+                PwaMaskableIconUrl = dto.PwaMaskableIconUrl,
+                ThemeColor = dto.ThemeColor,
+                BackgroundColor = dto.BackgroundColor,
+                SiteLogoUrl = dto.SiteLogoUrl,
+                SiteLogoDarkUrl = dto.SiteLogoDarkUrl,
+                SiteWordmarkUrl = dto.SiteWordmarkUrl,
+                AdminLogoUrl = dto.AdminLogoUrl,
+                AdminCollapsedIconUrl = dto.AdminCollapsedIconUrl,
+                LoginLogoUrl = dto.LoginLogoUrl,
+                LoginIconUrl = dto.LoginIconUrl
             });
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })

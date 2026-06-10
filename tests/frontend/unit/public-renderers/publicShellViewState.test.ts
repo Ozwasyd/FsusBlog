@@ -58,7 +58,7 @@ describe('createPublicShellViewState', () => {
       activeNav: 'home',
       authLabel: '登录',
       authHref: '/login',
-      searchPlaceholder: '搜索',
+      searchPlaceholder: '搜索文章、标签或关键词',
       initialSearchQuery: '',
       spaSearch: false,
       showRuntime: false
@@ -112,7 +112,7 @@ describe('createPublicShellViewState', () => {
       showRuntime: true
     })
 
-    expect(state.searchPlaceholder).toBe('搜索 (Ctrl+K)')
+    expect(state.searchPlaceholder).toBe('搜索文章、标签或关键词 (Ctrl+K)')
     expect(state.initialSearchQuery).toBe('vue hydration')
     expect(state.spaSearch).toBe(true)
     expect(state.showRuntime).toBe(true)

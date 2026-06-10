@@ -485,7 +485,25 @@ public sealed partial class AedsProtocolCrossLanguageTests
             Keywords = "blog,aeds,hydration",
             Author = "Fsu",
             OgImage = "/images/og.png",
-            BaseUrl = "https://fsus.example"
+            BaseUrl = "https://fsus.example",
+            FaviconSvgUrl = "/favicon.svg",
+            FaviconIcoUrl = "/favicon.ico",
+            FaviconPngUrl = "/icons/favicon-96.png",
+            AppleTouchIconUrl = "/apple-touch-icon.png",
+            ManifestName = "Fsus Blog",
+            ManifestShortName = "Fsus",
+            PwaIcon192Url = "/icons/icon-192.png",
+            PwaIcon512Url = "/icons/icon-512.png",
+            PwaMaskableIconUrl = "/icons/maskable-512.png",
+            ThemeColor = "#0f0f11",
+            BackgroundColor = "#fcfcfc",
+            SiteLogoUrl = "/brand/site-logo.svg",
+            SiteLogoDarkUrl = "/brand/site-logo-dark.svg",
+            SiteWordmarkUrl = "/brand/site-wordmark.svg",
+            AdminLogoUrl = "/brand/admin-logo.svg",
+            AdminCollapsedIconUrl = "/brand/admin-icon.svg",
+            LoginLogoUrl = "/brand/login-logo.svg",
+            LoginIconUrl = "/brand/login-icon.svg"
         };
 
         byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.SeoConfig, PodBinaryCodec.EncodeSeoConfig(dto));

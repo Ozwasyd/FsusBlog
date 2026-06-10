@@ -12,6 +12,24 @@ public readonly struct SeoConfigPod
     public readonly Utf8Fixed64 Author;
     public readonly Utf8Fixed256 OgImage;
     public readonly Utf8Fixed256 BaseUrl;
+    public readonly Utf8Fixed256 FaviconSvgUrl;
+    public readonly Utf8Fixed256 FaviconIcoUrl;
+    public readonly Utf8Fixed256 FaviconPngUrl;
+    public readonly Utf8Fixed256 AppleTouchIconUrl;
+    public readonly Utf8Fixed128 ManifestName;
+    public readonly Utf8Fixed128 ManifestShortName;
+    public readonly Utf8Fixed256 PwaIcon192Url;
+    public readonly Utf8Fixed256 PwaIcon512Url;
+    public readonly Utf8Fixed256 PwaMaskableIconUrl;
+    public readonly Utf8Fixed32 ThemeColor;
+    public readonly Utf8Fixed32 BackgroundColor;
+    public readonly Utf8Fixed256 SiteLogoUrl;
+    public readonly Utf8Fixed256 SiteLogoDarkUrl;
+    public readonly Utf8Fixed256 SiteWordmarkUrl;
+    public readonly Utf8Fixed256 AdminLogoUrl;
+    public readonly Utf8Fixed256 AdminCollapsedIconUrl;
+    public readonly Utf8Fixed256 LoginLogoUrl;
+    public readonly Utf8Fixed256 LoginIconUrl;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

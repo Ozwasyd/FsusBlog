@@ -60,7 +60,25 @@ describe('system API', () => {
       keywords: 'blog',
       author: 'Fsu',
       ogImage: '/og.webp',
-      baseUrl: 'https://example.test'
+      baseUrl: 'https://example.test',
+      faviconSvgUrl: '/favicon.svg',
+      faviconIcoUrl: '/favicon.ico',
+      faviconPngUrl: '/favicon.png',
+      appleTouchIconUrl: '/apple-touch-icon.png',
+      manifestName: 'Fsus Manifest',
+      manifestShortName: 'Fsus',
+      pwaIcon192Url: '/icon-192.png',
+      pwaIcon512Url: '/icon-512.png',
+      pwaMaskableIconUrl: '/maskable-512.png',
+      themeColor: '#0f0f11',
+      backgroundColor: '#fcfcfc',
+      siteLogoUrl: '/site-logo.svg',
+      siteLogoDarkUrl: '/site-logo-dark.svg',
+      siteWordmarkUrl: '/wordmark.svg',
+      adminLogoUrl: '/admin-logo.svg',
+      adminCollapsedIconUrl: '/admin-icon.svg',
+      loginLogoUrl: '/login-logo.svg',
+      loginIconUrl: '/login-icon.svg'
     })
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({

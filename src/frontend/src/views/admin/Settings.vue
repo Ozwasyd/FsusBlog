@@ -128,6 +128,108 @@
                 </div>
               </el-form-item>
 
+              <section class="mt-12 border-t border-[var(--fsusblog-panel-border)] pt-10" aria-label="浏览器与 PWA 资产">
+                <header class="mb-8">
+                  <h4 class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-primary)]">浏览器与 PWA</h4>
+                  <p class="mt-3 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">这些字段会写入 favicon、Apple Touch Icon 与 manifest.webmanifest。</p>
+                </header>
+                <div class="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+                  <el-form-item label="SVG favicon">
+                    <el-input v-model="siteForm.faviconSvgUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/favicon.svg" />
+                  </el-form-item>
+                  <el-form-item label="ICO favicon">
+                    <el-input v-model="siteForm.faviconIcoUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/favicon.ico" />
+                  </el-form-item>
+                  <el-form-item label="PNG favicon">
+                    <el-input v-model="siteForm.faviconPngUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/icons/favicon-96.png" />
+                  </el-form-item>
+                  <el-form-item label="Apple Touch Icon">
+                    <el-input v-model="siteForm.appleTouchIconUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/apple-touch-icon.png" />
+                  </el-form-item>
+                  <el-form-item label="PWA 名称">
+                    <el-input v-model="siteForm.manifestName" maxlength="128" show-word-limit :disabled="siteFormDisabled" placeholder="FsusBlog" />
+                  </el-form-item>
+                  <el-form-item label="PWA 短名称">
+                    <el-input v-model="siteForm.manifestShortName" maxlength="128" show-word-limit :disabled="siteFormDisabled" placeholder="FsusBlog" />
+                  </el-form-item>
+                  <el-form-item label="PWA 192 图标">
+                    <el-input v-model="siteForm.pwaIcon192Url" maxlength="256" :disabled="siteFormDisabled" placeholder="/icons/icon-192.png" />
+                  </el-form-item>
+                  <el-form-item label="PWA 512 图标">
+                    <el-input v-model="siteForm.pwaIcon512Url" maxlength="256" :disabled="siteFormDisabled" placeholder="/icons/icon-512.png" />
+                  </el-form-item>
+                  <el-form-item label="PWA maskable 图标">
+                    <el-input v-model="siteForm.pwaMaskableIconUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/icons/maskable-512.png" />
+                  </el-form-item>
+                  <div class="grid grid-cols-2 gap-4">
+                    <el-form-item label="主题色">
+                      <el-input v-model="siteForm.themeColor" maxlength="7" :disabled="siteFormDisabled" placeholder="#0f0f11">
+                        <template #prepend>
+                          <span class="inline-block h-4 w-4 border border-[var(--fsusblog-panel-border)]" :style="{ backgroundColor: siteForm.themeColor }" />
+                        </template>
+                      </el-input>
+                    </el-form-item>
+                    <el-form-item label="启动背景">
+                      <el-input v-model="siteForm.backgroundColor" maxlength="7" :disabled="siteFormDisabled" placeholder="#fcfcfc">
+                        <template #prepend>
+                          <span class="inline-block h-4 w-4 border border-[var(--fsusblog-panel-border)]" :style="{ backgroundColor: siteForm.backgroundColor }" />
+                        </template>
+                      </el-input>
+                    </el-form-item>
+                  </div>
+                </div>
+              </section>
+
+              <section class="mt-12 border-t border-[var(--fsusblog-panel-border)] pt-10" aria-label="品牌资产">
+                <header class="mb-8">
+                  <h4 class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-primary)]">品牌资产</h4>
+                  <p class="mt-3 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">公开页、管理后台与登录页会优先使用这些图片；留空时回退为文字站名。</p>
+                </header>
+                <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
+                  <section class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5">
+                    <div class="mb-5 flex min-h-12 items-center border-b border-[var(--fsusblog-panel-border)] pb-4">
+                      <img v-if="logoPreviewUrl" :src="logoPreviewUrl" alt="站点品牌预览" class="max-h-10 max-w-full object-contain" />
+                      <span v-else class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ siteForm.title || "Fsu's Blog" }}</span>
+                    </div>
+                    <el-form-item label="站点 Logo">
+                      <el-input v-model="siteForm.siteLogoUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/uploads/logo.svg" />
+                    </el-form-item>
+                    <el-form-item label="深色站点 Logo">
+                      <el-input v-model="siteForm.siteLogoDarkUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="可留空" />
+                    </el-form-item>
+                    <el-form-item label="站点字标">
+                      <el-input v-model="siteForm.siteWordmarkUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="可留空" />
+                    </el-form-item>
+                  </section>
+
+                  <section class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5">
+                    <div class="mb-5 flex min-h-12 items-center border-b border-[var(--fsusblog-panel-border)] pb-4">
+                      <img v-if="adminLogoPreviewUrl" :src="adminLogoPreviewUrl" alt="后台品牌预览" class="max-h-10 max-w-full object-contain" />
+                      <span v-else class="text-sm font-bold text-[var(--fsusblog-text-primary)]">后台管理</span>
+                    </div>
+                    <el-form-item label="后台 Logo">
+                      <el-input v-model="siteForm.adminLogoUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="可留空" />
+                    </el-form-item>
+                    <el-form-item label="后台折叠图标">
+                      <el-input v-model="siteForm.adminCollapsedIconUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="可留空" />
+                    </el-form-item>
+                  </section>
+
+                  <section class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5">
+                    <div class="mb-5 flex min-h-12 items-center border-b border-[var(--fsusblog-panel-border)] pb-4">
+                      <img v-if="loginLogoPreviewUrl" :src="loginLogoPreviewUrl" alt="登录品牌预览" class="max-h-10 max-w-full object-contain" />
+                      <span v-else class="text-sm font-bold text-[var(--fsusblog-text-primary)]">登录</span>
+                    </div>
+                    <el-form-item label="登录 Logo">
+                      <el-input v-model="siteForm.loginLogoUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="可留空" />
+                    </el-form-item>
+                    <el-form-item label="登录图标">
+                      <el-input v-model="siteForm.loginIconUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="可留空" />
+                    </el-form-item>
+                  </section>
+                </div>
+              </section>
+
               <section class="mt-12 border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5" aria-label="SEO 与社交分享预览">
                 <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">搜索结果预览</div>
                 <div class="space-y-2">
@@ -409,6 +511,9 @@ const {
   pageContent,
   pageTargets,
   displayUrl,
+  logoPreviewUrl,
+  adminLogoPreviewUrl,
+  loginLogoPreviewUrl,
   hasOgImage,
   computedKeywords,
   normalizedBaseUrl,

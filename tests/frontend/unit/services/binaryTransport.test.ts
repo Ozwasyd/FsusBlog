@@ -677,6 +677,24 @@ describe('binaryTransport ApiError mapping', () => {
       author: string;
       ogImage: string;
       baseUrl: string;
+      faviconSvgUrl: string;
+      faviconIcoUrl: string;
+      faviconPngUrl: string;
+      appleTouchIconUrl: string;
+      manifestName: string;
+      manifestShortName: string;
+      pwaIcon192Url: string;
+      pwaIcon512Url: string;
+      pwaMaskableIconUrl: string;
+      themeColor: string;
+      backgroundColor: string;
+      siteLogoUrl: string;
+      siteLogoDarkUrl: string;
+      siteWordmarkUrl: string;
+      adminLogoUrl: string;
+      adminCollapsedIconUrl: string;
+      loginLogoUrl: string;
+      loginIconUrl: string;
     }>({
       binaryUrl: '/api/binary/system/seo',
       frameType: FrameType.SeoConfig
@@ -686,7 +704,25 @@ describe('binaryTransport ApiError mapping', () => {
       keywords: 'blog,aeds,hydration',
       author: 'Fsu',
       ogImage: '/images/og.png',
-      baseUrl: 'https://fsus.example'
+      baseUrl: 'https://fsus.example',
+      faviconSvgUrl: '/favicon.svg',
+      faviconIcoUrl: '/favicon.ico',
+      faviconPngUrl: '/icons/favicon-96.png',
+      appleTouchIconUrl: '/apple-touch-icon.png',
+      manifestName: 'Fsus Blog',
+      manifestShortName: 'Fsus',
+      pwaIcon192Url: '/icons/icon-192.png',
+      pwaIcon512Url: '/icons/icon-512.png',
+      pwaMaskableIconUrl: '/icons/maskable-512.png',
+      themeColor: '#0f0f11',
+      backgroundColor: '#fcfcfc',
+      siteLogoUrl: '/brand/site-logo.svg',
+      siteLogoDarkUrl: '/brand/site-logo-dark.svg',
+      siteWordmarkUrl: '/brand/site-wordmark.svg',
+      adminLogoUrl: '/brand/admin-logo.svg',
+      adminCollapsedIconUrl: '/brand/admin-icon.svg',
+      loginLogoUrl: '/brand/login-logo.svg',
+      loginIconUrl: '/brand/login-icon.svg'
     })
   })
 

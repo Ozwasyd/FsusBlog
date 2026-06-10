@@ -307,6 +307,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 类型 | 字节数 |
 |------|--------|
 | `SystemPod` | ~128 |
+| `SeoConfigPod` | 5000 |
 | `SiteComplianceConfigPod` | 1709 |
 
 ### 统计 POD

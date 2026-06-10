@@ -168,6 +168,8 @@ SPA 接管后由 hydration 层用同一份 Bundle 数据初始化状态，无需
 
 公开 footer 合规信息来自 `SiteComplianceConfig` AEDS frame。空配置不得输出备案号占位；admin 保存合规配置后必须同时失效 system compliance cache、SEO/distribution cache 和 Public AOT 静态页，使 sitemap/RSS/footer 在无重启情况下收敛。
 
+统一 SEO 与品牌资产来自同一个 `SeoConfig` AEDS frame，不新增 `/system/brand` 并行主端点。`/api/binary/system/seo` 同时承载基础 SEO、OpenGraph 预览图、favicon/browser icon、Apple Touch Icon、PWA manifest 名称/图标/theme/background、公开站点 logo/wordmark、后台 logo/折叠图标和登录 logo/icon。保存后必须通过 SEO 配置失效链路刷新 HTML head、动态 `manifest.webmanifest`、Public AOT shell、公开 shell hydration、后台与登录页品牌展示；旧配置缺失新增字段时按默认静态路径或空值补齐。资产 URL 只接受站内绝对路径或 `http/https` 绝对 URL，不接受 `javascript:`、`data:` 或协议相对 URL。
+
 公开 Binary 读模型与 HTML AOT 一样按 artifact 边界治理。`/api/binary/article/{id}.aeds`、`/api/binary/article/list/home/{page}/{size}.aeds`、`/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds`、`/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds`、`/api/binary/article/hot/{size}.aeds`、`/api/binary/category.aeds`、`/api/binary/tag.aeds` 等匿名热点路径由 `PublicHotReadFastPath` 在常规应用管线前读取内存快照并直接写出完整预编码 frame；hit 路径不查询 PostgreSQL、Redis、IMemoryCache、OutputCache 或文件系统。artifact miss 只返回可降级状态码，DB fallback 只能出现在后台 projector、修复任务或 admin/private 读取路径。L1/L2/OutputCache 仍是加速层，不等价于 CQRS read model。
 
 公开 GET 不默认要求 PoW，以免伤害 SEO、RSS、分享卡片和无 JS 阅读；但公开评论读取、公开 taxonomy、related-reading 等动态 API 会进入 `public_read` 限流和 `RiskAwarePublicReadFilter`。风险分由 Shield、RateLimiter、PoW 与 ReadProof 拒绝事件写入；达到阈值时动态 API 要求 `X-Fsus-Pow-Proof`，持续高风险返回 429。PublicHotRead artifact 命中保持零 DB/零 Redis/零 filter 快路径。

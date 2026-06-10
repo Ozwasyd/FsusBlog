@@ -313,7 +313,25 @@ public class SystemProjectionTests
             Keywords = "kw",
             Author = "Auth",
             OgImage = "img.jpg",
-            BaseUrl = "https://example.com"
+            BaseUrl = "https://example.com",
+            FaviconSvgUrl = "/favicon.svg",
+            FaviconIcoUrl = "/favicon.ico",
+            FaviconPngUrl = "/favicon.png",
+            AppleTouchIconUrl = "/apple-touch-icon.png",
+            ManifestName = "MyBlog Manifest",
+            ManifestShortName = "MyBlog",
+            PwaIcon192Url = "/icon-192.png",
+            PwaIcon512Url = "/icon-512.png",
+            PwaMaskableIconUrl = "/maskable-512.png",
+            ThemeColor = "#111111",
+            BackgroundColor = "#ffffff",
+            SiteLogoUrl = "/site-logo.svg",
+            SiteLogoDarkUrl = "/site-logo-dark.svg",
+            SiteWordmarkUrl = "/wordmark.svg",
+            AdminLogoUrl = "/admin-logo.svg",
+            AdminCollapsedIconUrl = "/admin-icon.svg",
+            LoginLogoUrl = "/login-logo.svg",
+            LoginIconUrl = "/login-icon.svg"
         };
 
     [Fact]
@@ -323,6 +341,8 @@ public class SystemProjectionTests
         Assert.Equal("MyBlog", dto.Title);
         Assert.Equal("Desc", dto.Description);
         Assert.Equal("https://example.com", dto.BaseUrl);
+        Assert.Equal("/favicon.svg", dto.FaviconSvgUrl);
+        Assert.Equal("/site-logo.svg", dto.SiteLogoUrl);
     }
 
     [Fact]
@@ -331,6 +351,8 @@ public class SystemProjectionTests
         var dto = SystemProjection.ToAdminDto(MakeSeoModel());
         Assert.Equal("Auth", dto.Author);
         Assert.Equal("img.jpg", dto.OgImage);
+        Assert.Equal("/admin-logo.svg", dto.AdminLogoUrl);
+        Assert.Equal("/login-logo.svg", dto.LoginLogoUrl);
     }
 
     [Fact]
@@ -339,6 +361,7 @@ public class SystemProjectionTests
         var contract = SystemProjection.ToContract(MakeSeoModel());
         Assert.Equal("MyBlog", contract.Title);
         Assert.Equal("kw", contract.Keywords);
+        Assert.Equal("/wordmark.svg", contract.SiteWordmarkUrl);
     }
 
     [Fact]

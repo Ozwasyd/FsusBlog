@@ -14,7 +14,25 @@ public static class SystemProjection
             Keywords = model.Keywords,
             Author = model.Author,
             OgImage = model.OgImage,
-            BaseUrl = model.BaseUrl
+            BaseUrl = model.BaseUrl,
+            FaviconSvgUrl = model.FaviconSvgUrl,
+            FaviconIcoUrl = model.FaviconIcoUrl,
+            FaviconPngUrl = model.FaviconPngUrl,
+            AppleTouchIconUrl = model.AppleTouchIconUrl,
+            ManifestName = model.ManifestName,
+            ManifestShortName = model.ManifestShortName,
+            PwaIcon192Url = model.PwaIcon192Url,
+            PwaIcon512Url = model.PwaIcon512Url,
+            PwaMaskableIconUrl = model.PwaMaskableIconUrl,
+            ThemeColor = model.ThemeColor,
+            BackgroundColor = model.BackgroundColor,
+            SiteLogoUrl = model.SiteLogoUrl,
+            SiteLogoDarkUrl = model.SiteLogoDarkUrl,
+            SiteWordmarkUrl = model.SiteWordmarkUrl,
+            AdminLogoUrl = model.AdminLogoUrl,
+            AdminCollapsedIconUrl = model.AdminCollapsedIconUrl,
+            LoginLogoUrl = model.LoginLogoUrl,
+            LoginIconUrl = model.LoginIconUrl
         };
 
     public static SeoConfigAdminDto ToAdminDto(SeoConfigReadModel model)
@@ -25,11 +43,53 @@ public static class SystemProjection
             Keywords = model.Keywords,
             Author = model.Author,
             OgImage = model.OgImage,
-            BaseUrl = model.BaseUrl
+            BaseUrl = model.BaseUrl,
+            FaviconSvgUrl = model.FaviconSvgUrl,
+            FaviconIcoUrl = model.FaviconIcoUrl,
+            FaviconPngUrl = model.FaviconPngUrl,
+            AppleTouchIconUrl = model.AppleTouchIconUrl,
+            ManifestName = model.ManifestName,
+            ManifestShortName = model.ManifestShortName,
+            PwaIcon192Url = model.PwaIcon192Url,
+            PwaIcon512Url = model.PwaIcon512Url,
+            PwaMaskableIconUrl = model.PwaMaskableIconUrl,
+            ThemeColor = model.ThemeColor,
+            BackgroundColor = model.BackgroundColor,
+            SiteLogoUrl = model.SiteLogoUrl,
+            SiteLogoDarkUrl = model.SiteLogoDarkUrl,
+            SiteWordmarkUrl = model.SiteWordmarkUrl,
+            AdminLogoUrl = model.AdminLogoUrl,
+            AdminCollapsedIconUrl = model.AdminCollapsedIconUrl,
+            LoginLogoUrl = model.LoginLogoUrl,
+            LoginIconUrl = model.LoginIconUrl
         };
 
     public static SeoConfigContract ToContract(SeoConfigReadModel model)
-        => new(model.Title, model.Description, model.Keywords, model.Author, model.OgImage, model.BaseUrl);
+        => new(
+            model.Title,
+            model.Description,
+            model.Keywords,
+            model.Author,
+            model.OgImage,
+            model.BaseUrl,
+            model.FaviconSvgUrl,
+            model.FaviconIcoUrl,
+            model.FaviconPngUrl,
+            model.AppleTouchIconUrl,
+            model.ManifestName,
+            model.ManifestShortName,
+            model.PwaIcon192Url,
+            model.PwaIcon512Url,
+            model.PwaMaskableIconUrl,
+            model.ThemeColor,
+            model.BackgroundColor,
+            model.SiteLogoUrl,
+            model.SiteLogoDarkUrl,
+            model.SiteWordmarkUrl,
+            model.AdminLogoUrl,
+            model.AdminCollapsedIconUrl,
+            model.LoginLogoUrl,
+            model.LoginIconUrl);
 
     public static SiteComplianceConfigPublicDto ToPublicDto(SiteComplianceConfigReadModel model)
         => new()

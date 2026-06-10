@@ -50,7 +50,7 @@ public sealed class PublicAotDocumentService(
             string canonicalUrl = string.Concat(NormalizeBaseUrl(entry.BaseUrl) ?? _configuredBaseUrl, ResolveCanonicalPath(entry));
             PublicPageKind kind = PublicAotPageCatalog.GetRequired(entry.PageId).Kind;
             string shell = PublicAotDocumentComposer.EnsureShellRoot(NormalizeHtml(entry.Html, entry.ArticleId), kind);
-            string headLinks = BuildHeadLinks(rawTemplate, assetSet);
+            string headLinks = BuildHeadLinks(rawTemplate, assetSet, seo);
 
             return Result<string>.Success(PublicAotDocumentComposer.ComposeDocument(new PublicAotDocumentModel(
                 kind,
@@ -74,9 +74,17 @@ public sealed class PublicAotDocumentService(
         }
     }
 
-    private static string BuildHeadLinks(string rawTemplate, SpaAssetSet assetSet)
+    private static string BuildHeadLinks(string rawTemplate, SpaAssetSet assetSet, SeoConfigReadModel seo)
     {
         var builder = new StringBuilder();
+        AppendRuntimeMeta(builder, "theme-color", seo.ThemeColor);
+        AppendRuntimeLink(builder, "icon", seo.FaviconSvgUrl, "image/svg+xml");
+        AppendRuntimeLink(builder, "icon", seo.FaviconIcoUrl, "image/x-icon");
+        AppendRuntimeLink(builder, "icon", seo.FaviconPngUrl, "image/png");
+        AppendRuntimeLink(builder, "apple-touch-icon", seo.AppleTouchIconUrl, null);
+        AppendRuntimeMetaProperty(builder, "og:image", seo.OgImage);
+        AppendRuntimeMeta(builder, "twitter:image", seo.OgImage);
+
         foreach (string preload in assetSet.ModulePreloads.Where(static href => !string.IsNullOrWhiteSpace(href)).Distinct(StringComparer.Ordinal))
         {
             if (!rawTemplate.Contains($"href=\"{preload}\"", StringComparison.Ordinal))
@@ -98,6 +106,56 @@ public sealed class PublicAotDocumentService(
         }
 
         return builder.ToString().TrimEnd();
+    }
+
+    private static void AppendRuntimeMeta(StringBuilder builder, string name, string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return;
+        }
+
+        builder.Append("    <meta name=\"")
+            .Append(WebUtility.HtmlEncode(name))
+            .Append("\" content=\"")
+            .Append(WebUtility.HtmlEncode(content))
+            .AppendLine("\" data-fsusblog-seo=\"runtime\" />");
+    }
+
+    private static void AppendRuntimeMetaProperty(StringBuilder builder, string property, string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return;
+        }
+
+        builder.Append("    <meta property=\"")
+            .Append(WebUtility.HtmlEncode(property))
+            .Append("\" content=\"")
+            .Append(WebUtility.HtmlEncode(content))
+            .AppendLine("\" data-fsusblog-seo=\"runtime\" />");
+    }
+
+    private static void AppendRuntimeLink(StringBuilder builder, string rel, string href, string? type)
+    {
+        if (string.IsNullOrWhiteSpace(href))
+        {
+            return;
+        }
+
+        builder.Append("    <link rel=\"")
+            .Append(WebUtility.HtmlEncode(rel))
+            .Append('"');
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            builder.Append(" type=\"")
+                .Append(WebUtility.HtmlEncode(type))
+                .Append('"');
+        }
+
+        builder.Append(" href=\"")
+            .Append(WebUtility.HtmlEncode(href))
+            .AppendLine("\" data-fsusblog-seo=\"runtime\" />");
     }
 
     private static string ResolveTitle(PublicAotShellEntryContract entry, DecodedEntryPayloads payloads, string fallback)

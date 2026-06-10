@@ -22,7 +22,25 @@ public sealed class SystemServiceCoreAdapter(ISystemCoreService core) : ISystemS
             Keywords = result.Value.Keywords,
             Author = result.Value.Author,
             OgImage = result.Value.OgImage,
-            BaseUrl = result.Value.BaseUrl
+            BaseUrl = result.Value.BaseUrl,
+            FaviconSvgUrl = result.Value.FaviconSvgUrl,
+            FaviconIcoUrl = result.Value.FaviconIcoUrl,
+            FaviconPngUrl = result.Value.FaviconPngUrl,
+            AppleTouchIconUrl = result.Value.AppleTouchIconUrl,
+            ManifestName = result.Value.ManifestName,
+            ManifestShortName = result.Value.ManifestShortName,
+            PwaIcon192Url = result.Value.PwaIcon192Url,
+            PwaIcon512Url = result.Value.PwaIcon512Url,
+            PwaMaskableIconUrl = result.Value.PwaMaskableIconUrl,
+            ThemeColor = result.Value.ThemeColor,
+            BackgroundColor = result.Value.BackgroundColor,
+            SiteLogoUrl = result.Value.SiteLogoUrl,
+            SiteLogoDarkUrl = result.Value.SiteLogoDarkUrl,
+            SiteWordmarkUrl = result.Value.SiteWordmarkUrl,
+            AdminLogoUrl = result.Value.AdminLogoUrl,
+            AdminCollapsedIconUrl = result.Value.AdminCollapsedIconUrl,
+            LoginLogoUrl = result.Value.LoginLogoUrl,
+            LoginIconUrl = result.Value.LoginIconUrl
         };
     }
 
@@ -33,7 +51,25 @@ public sealed class SystemServiceCoreAdapter(ISystemCoreService core) : ISystemS
             dto.Keywords,
             dto.Author,
             dto.OgImage,
-            dto.BaseUrl));
+            dto.BaseUrl,
+            dto.FaviconSvgUrl,
+            dto.FaviconIcoUrl,
+            dto.FaviconPngUrl,
+            dto.AppleTouchIconUrl,
+            dto.ManifestName,
+            dto.ManifestShortName,
+            dto.PwaIcon192Url,
+            dto.PwaIcon512Url,
+            dto.PwaMaskableIconUrl,
+            dto.ThemeColor,
+            dto.BackgroundColor,
+            dto.SiteLogoUrl,
+            dto.SiteLogoDarkUrl,
+            dto.SiteWordmarkUrl,
+            dto.AdminLogoUrl,
+            dto.AdminCollapsedIconUrl,
+            dto.LoginLogoUrl,
+            dto.LoginIconUrl));
 
     public async Task<SiteComplianceConfigReadModel> GetSiteComplianceConfigAsync()
     {

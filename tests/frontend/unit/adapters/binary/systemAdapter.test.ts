@@ -3,7 +3,7 @@ import { mapPageContentFromPayload, mapSeoConfigFromPayload } from '@/adapters/b
 
 describe('system binary adapter', () => {
   it('maps seo config payload', () => {
-    const b = new Uint8Array(1096 + 4 + 'Forward'.length)
+    const b = new Uint8Array(5000 + 4 + 'Forward'.length)
     writeFixedUtf8(b, 0, 256, 'Fsus')
     writeInt32(b, 256, 0)
     writeInt32(b, 260, 'Forward'.length)
@@ -11,7 +11,25 @@ describe('system binary adapter', () => {
     writeFixedUtf8(b, 520, 64, 'Fsu')
     writeFixedUtf8(b, 584, 256, '/og.webp')
     writeFixedUtf8(b, 840, 256, 'https://example.test')
-    writeBlob(b, 1096, 'Forward')
+    writeFixedUtf8(b, 1096, 256, '/favicon.svg')
+    writeFixedUtf8(b, 1352, 256, '/favicon.ico')
+    writeFixedUtf8(b, 1608, 256, '/favicon.png')
+    writeFixedUtf8(b, 1864, 256, '/apple-touch-icon.png')
+    writeFixedUtf8(b, 2120, 128, 'Fsus Manifest')
+    writeFixedUtf8(b, 2248, 128, 'Fsus')
+    writeFixedUtf8(b, 2376, 256, '/icon-192.png')
+    writeFixedUtf8(b, 2632, 256, '/icon-512.png')
+    writeFixedUtf8(b, 2888, 256, '/maskable-512.png')
+    writeFixedUtf8(b, 3144, 32, '#0f0f11')
+    writeFixedUtf8(b, 3176, 32, '#fcfcfc')
+    writeFixedUtf8(b, 3208, 256, '/site-logo.svg')
+    writeFixedUtf8(b, 3464, 256, '/site-logo-dark.svg')
+    writeFixedUtf8(b, 3720, 256, '/wordmark.svg')
+    writeFixedUtf8(b, 3976, 256, '/admin-logo.svg')
+    writeFixedUtf8(b, 4232, 256, '/admin-icon.svg')
+    writeFixedUtf8(b, 4488, 256, '/login-logo.svg')
+    writeFixedUtf8(b, 4744, 256, '/login-icon.svg')
+    writeBlob(b, 5000, 'Forward')
 
     expect(mapSeoConfigFromPayload(b)).toEqual({
       title: 'Fsus',
@@ -19,16 +37,34 @@ describe('system binary adapter', () => {
       keywords: 'blog,aeds',
       author: 'Fsu',
       ogImage: '/og.webp',
-      baseUrl: 'https://example.test'
+      baseUrl: 'https://example.test',
+      faviconSvgUrl: '/favicon.svg',
+      faviconIcoUrl: '/favicon.ico',
+      faviconPngUrl: '/favicon.png',
+      appleTouchIconUrl: '/apple-touch-icon.png',
+      manifestName: 'Fsus Manifest',
+      manifestShortName: 'Fsus',
+      pwaIcon192Url: '/icon-192.png',
+      pwaIcon512Url: '/icon-512.png',
+      pwaMaskableIconUrl: '/maskable-512.png',
+      themeColor: '#0f0f11',
+      backgroundColor: '#fcfcfc',
+      siteLogoUrl: '/site-logo.svg',
+      siteLogoDarkUrl: '/site-logo-dark.svg',
+      siteWordmarkUrl: '/wordmark.svg',
+      adminLogoUrl: '/admin-logo.svg',
+      adminCollapsedIconUrl: '/admin-icon.svg',
+      loginLogoUrl: '/login-logo.svg',
+      loginIconUrl: '/login-icon.svg'
     })
   })
 
   it('throws when seo payload has trailing bytes', () => {
-    const b = new Uint8Array(1096 + 4 + 'Forward'.length + 1)
+    const b = new Uint8Array(5000 + 4 + 'Forward'.length + 1)
     writeFixedUtf8(b, 0, 256, 'Fsus')
     writeInt32(b, 256, 0)
     writeInt32(b, 260, 'Forward'.length)
-    writeBlob(b, 1096, 'Forward')
+    writeBlob(b, 5000, 'Forward')
     b[b.length - 1] = 1
 
     expect(() => mapSeoConfigFromPayload(b)).toThrow()

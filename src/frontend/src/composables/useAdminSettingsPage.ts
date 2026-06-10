@@ -22,6 +22,7 @@ import { useImageUploadPreferences } from '@/composables/useImageUploadPreferenc
 import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime'
 import { useImageUploadFlow } from '@/composables/useImageUploadFlow'
 import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
+import { DEFAULT_SITE_BRAND_CONFIG } from '@/store/site'
 
 export function useAdminSettingsPage() {
   const baseURL = import.meta.env.VITE_API_BASE_URL || window.location.origin
@@ -49,7 +50,25 @@ export function useAdminSettingsPage() {
     keywords: '',
     author: '',
     ogImage: '',
-    baseUrl: ''
+    baseUrl: '',
+    faviconSvgUrl: DEFAULT_SITE_BRAND_CONFIG.faviconSvgUrl,
+    faviconIcoUrl: DEFAULT_SITE_BRAND_CONFIG.faviconIcoUrl,
+    faviconPngUrl: DEFAULT_SITE_BRAND_CONFIG.faviconPngUrl,
+    appleTouchIconUrl: DEFAULT_SITE_BRAND_CONFIG.appleTouchIconUrl,
+    manifestName: DEFAULT_SITE_BRAND_CONFIG.manifestName,
+    manifestShortName: DEFAULT_SITE_BRAND_CONFIG.manifestShortName,
+    pwaIcon192Url: DEFAULT_SITE_BRAND_CONFIG.pwaIcon192Url,
+    pwaIcon512Url: DEFAULT_SITE_BRAND_CONFIG.pwaIcon512Url,
+    pwaMaskableIconUrl: DEFAULT_SITE_BRAND_CONFIG.pwaMaskableIconUrl,
+    themeColor: DEFAULT_SITE_BRAND_CONFIG.themeColor,
+    backgroundColor: DEFAULT_SITE_BRAND_CONFIG.backgroundColor,
+    siteLogoUrl: DEFAULT_SITE_BRAND_CONFIG.siteLogoUrl,
+    siteLogoDarkUrl: DEFAULT_SITE_BRAND_CONFIG.siteLogoDarkUrl,
+    siteWordmarkUrl: DEFAULT_SITE_BRAND_CONFIG.siteWordmarkUrl,
+    adminLogoUrl: DEFAULT_SITE_BRAND_CONFIG.adminLogoUrl,
+    adminCollapsedIconUrl: DEFAULT_SITE_BRAND_CONFIG.adminCollapsedIconUrl,
+    loginLogoUrl: DEFAULT_SITE_BRAND_CONFIG.loginLogoUrl,
+    loginIconUrl: DEFAULT_SITE_BRAND_CONFIG.loginIconUrl
   })
   const complianceForm = reactive<SiteComplianceConfigAdmin>({
     enabled: false,
@@ -118,7 +137,8 @@ export function useAdminSettingsPage() {
         keywords: '',
         author: '',
         ogImage: '',
-        baseUrl: ''
+        baseUrl: '',
+        ...DEFAULT_SITE_BRAND_CONFIG
       }
     }
 
@@ -129,7 +149,25 @@ export function useAdminSettingsPage() {
       keywords: readStringField(source, 'keywords', 'Keywords'),
       author: readStringField(source, 'author', 'Author'),
       ogImage: readStringField(source, 'ogImage', 'OgImage'),
-      baseUrl: readStringField(source, 'baseUrl', 'BaseUrl')
+      baseUrl: readStringField(source, 'baseUrl', 'BaseUrl'),
+      faviconSvgUrl: readStringField(source, 'faviconSvgUrl', 'FaviconSvgUrl') || DEFAULT_SITE_BRAND_CONFIG.faviconSvgUrl,
+      faviconIcoUrl: readStringField(source, 'faviconIcoUrl', 'FaviconIcoUrl') || DEFAULT_SITE_BRAND_CONFIG.faviconIcoUrl,
+      faviconPngUrl: readStringField(source, 'faviconPngUrl', 'FaviconPngUrl'),
+      appleTouchIconUrl: readStringField(source, 'appleTouchIconUrl', 'AppleTouchIconUrl') || DEFAULT_SITE_BRAND_CONFIG.appleTouchIconUrl,
+      manifestName: readStringField(source, 'manifestName', 'ManifestName') || DEFAULT_SITE_BRAND_CONFIG.manifestName,
+      manifestShortName: readStringField(source, 'manifestShortName', 'ManifestShortName') || DEFAULT_SITE_BRAND_CONFIG.manifestShortName,
+      pwaIcon192Url: readStringField(source, 'pwaIcon192Url', 'PwaIcon192Url') || DEFAULT_SITE_BRAND_CONFIG.pwaIcon192Url,
+      pwaIcon512Url: readStringField(source, 'pwaIcon512Url', 'PwaIcon512Url') || DEFAULT_SITE_BRAND_CONFIG.pwaIcon512Url,
+      pwaMaskableIconUrl: readStringField(source, 'pwaMaskableIconUrl', 'PwaMaskableIconUrl') || DEFAULT_SITE_BRAND_CONFIG.pwaMaskableIconUrl,
+      themeColor: readStringField(source, 'themeColor', 'ThemeColor') || DEFAULT_SITE_BRAND_CONFIG.themeColor,
+      backgroundColor: readStringField(source, 'backgroundColor', 'BackgroundColor') || DEFAULT_SITE_BRAND_CONFIG.backgroundColor,
+      siteLogoUrl: readStringField(source, 'siteLogoUrl', 'SiteLogoUrl'),
+      siteLogoDarkUrl: readStringField(source, 'siteLogoDarkUrl', 'SiteLogoDarkUrl'),
+      siteWordmarkUrl: readStringField(source, 'siteWordmarkUrl', 'SiteWordmarkUrl'),
+      adminLogoUrl: readStringField(source, 'adminLogoUrl', 'AdminLogoUrl'),
+      adminCollapsedIconUrl: readStringField(source, 'adminCollapsedIconUrl', 'AdminCollapsedIconUrl'),
+      loginLogoUrl: readStringField(source, 'loginLogoUrl', 'LoginLogoUrl'),
+      loginIconUrl: readStringField(source, 'loginIconUrl', 'LoginIconUrl')
     }
   }
 
@@ -174,8 +212,19 @@ export function useAdminSettingsPage() {
     }
     return siteForm.ogImage.startsWith('http') ? siteForm.ogImage : `${baseURL}${siteForm.ogImage}`
   })
+  const resolveAssetDisplayUrl = (value: string): string => {
+    const url = value.trim()
+    if (!url) {
+      return ''
+    }
+
+    return url.startsWith('http') ? url : `${baseURL}${url}`
+  }
 
   const normalizedBaseUrl = computed(() => siteForm.baseUrl.trim().replace(/\/+$/, ''))
+  const logoPreviewUrl = computed(() => resolveAssetDisplayUrl(siteForm.siteLogoUrl || siteForm.siteWordmarkUrl))
+  const adminLogoPreviewUrl = computed(() => resolveAssetDisplayUrl(siteForm.adminLogoUrl || siteForm.adminCollapsedIconUrl))
+  const loginLogoPreviewUrl = computed(() => resolveAssetDisplayUrl(siteForm.loginLogoUrl || siteForm.loginIconUrl))
   const computedKeywords = computed(() =>
     siteForm.keywords ? siteForm.keywords.split(',').map((value) => value.trim()).filter((value) => value) : [])
   const hasOgImage = computed(() => Boolean(siteForm.ogImage))
@@ -217,7 +266,25 @@ export function useAdminSettingsPage() {
     keywords: siteForm.keywords.trim(),
     author: siteForm.author.trim(),
     ogImage: siteForm.ogImage.trim(),
-    baseUrl: normalizedBaseUrl.value
+    baseUrl: normalizedBaseUrl.value,
+    faviconSvgUrl: siteForm.faviconSvgUrl.trim(),
+    faviconIcoUrl: siteForm.faviconIcoUrl.trim(),
+    faviconPngUrl: siteForm.faviconPngUrl.trim(),
+    appleTouchIconUrl: siteForm.appleTouchIconUrl.trim(),
+    manifestName: siteForm.manifestName.trim(),
+    manifestShortName: siteForm.manifestShortName.trim(),
+    pwaIcon192Url: siteForm.pwaIcon192Url.trim(),
+    pwaIcon512Url: siteForm.pwaIcon512Url.trim(),
+    pwaMaskableIconUrl: siteForm.pwaMaskableIconUrl.trim(),
+    themeColor: siteForm.themeColor.trim(),
+    backgroundColor: siteForm.backgroundColor.trim(),
+    siteLogoUrl: siteForm.siteLogoUrl.trim(),
+    siteLogoDarkUrl: siteForm.siteLogoDarkUrl.trim(),
+    siteWordmarkUrl: siteForm.siteWordmarkUrl.trim(),
+    adminLogoUrl: siteForm.adminLogoUrl.trim(),
+    adminCollapsedIconUrl: siteForm.adminCollapsedIconUrl.trim(),
+    loginLogoUrl: siteForm.loginLogoUrl.trim(),
+    loginIconUrl: siteForm.loginIconUrl.trim()
   })
   const serializeComplianceForm = (): string => JSON.stringify({
     enabled: complianceForm.enabled,
@@ -251,7 +318,25 @@ export function useAdminSettingsPage() {
       keywords: '关键词',
       author: '作者名称',
       ogImage: '社交分享图',
-      baseUrl: '站点基础 URL'
+      baseUrl: '站点基础 URL',
+      faviconSvgUrl: 'SVG favicon',
+      faviconIcoUrl: 'ICO favicon',
+      faviconPngUrl: 'PNG favicon',
+      appleTouchIconUrl: 'Apple Touch Icon',
+      manifestName: 'PWA 名称',
+      manifestShortName: 'PWA 短名称',
+      pwaIcon192Url: 'PWA 192 图标',
+      pwaIcon512Url: 'PWA 512 图标',
+      pwaMaskableIconUrl: 'PWA maskable 图标',
+      themeColor: '主题色',
+      backgroundColor: '启动背景色',
+      siteLogoUrl: '站点 Logo',
+      siteLogoDarkUrl: '深色站点 Logo',
+      siteWordmarkUrl: '站点字标',
+      adminLogoUrl: '后台 Logo',
+      adminCollapsedIconUrl: '后台折叠图标',
+      loginLogoUrl: '登录 Logo',
+      loginIconUrl: '登录图标'
     }
 
     return Object.keys(labels).filter((key) => before[key] !== after[key]).map((key) => labels[key])
@@ -289,6 +374,25 @@ export function useAdminSettingsPage() {
     return !value || validateBaseUrl(value)
   }
 
+  const validateAssetUrl = (url: string): boolean => {
+    const value = url.trim()
+    if (!value) {
+      return true
+    }
+
+    if (value.startsWith('//') || value.includes('\u0000')) {
+      return false
+    }
+
+    if (value.startsWith('/')) {
+      return value.length > 1
+    }
+
+    return validateBaseUrl(value)
+  }
+
+  const validateHexColor = (color: string): boolean => /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/iu.test(color.trim())
+
   const collectComplianceWarnings = (): string[] => {
     const warnings: string[] = []
     const icp = complianceForm.icpRecordNumber.trim()
@@ -311,6 +415,24 @@ export function useAdminSettingsPage() {
           throw createAppError(AppErrorCode.Validation, 'BASEURL_PROTOCOL_INVALID')
         }
       }
+      siteForm.faviconSvgUrl = siteForm.faviconSvgUrl.trim()
+      siteForm.faviconIcoUrl = siteForm.faviconIcoUrl.trim()
+      siteForm.faviconPngUrl = siteForm.faviconPngUrl.trim()
+      siteForm.appleTouchIconUrl = siteForm.appleTouchIconUrl.trim()
+      siteForm.manifestName = siteForm.manifestName.trim()
+      siteForm.manifestShortName = siteForm.manifestShortName.trim()
+      siteForm.pwaIcon192Url = siteForm.pwaIcon192Url.trim()
+      siteForm.pwaIcon512Url = siteForm.pwaIcon512Url.trim()
+      siteForm.pwaMaskableIconUrl = siteForm.pwaMaskableIconUrl.trim()
+      siteForm.themeColor = siteForm.themeColor.trim().toLowerCase()
+      siteForm.backgroundColor = siteForm.backgroundColor.trim().toLowerCase()
+      siteForm.siteLogoUrl = siteForm.siteLogoUrl.trim()
+      siteForm.siteLogoDarkUrl = siteForm.siteLogoDarkUrl.trim()
+      siteForm.siteWordmarkUrl = siteForm.siteWordmarkUrl.trim()
+      siteForm.adminLogoUrl = siteForm.adminLogoUrl.trim()
+      siteForm.adminCollapsedIconUrl = siteForm.adminCollapsedIconUrl.trim()
+      siteForm.loginLogoUrl = siteForm.loginLogoUrl.trim()
+      siteForm.loginIconUrl = siteForm.loginIconUrl.trim()
 
       await updateSiteConfig({ ...siteForm }, signal ? buildSignalConfig(signal) : undefined)
       previousOgImage.value = siteForm.ogImage
@@ -436,6 +558,36 @@ export function useAdminSettingsPage() {
       showWarningToast('请提供合法的站点基础 URL (http/https)', '请提供合法的站点基础 URL (http/https)')
       return
     }
+    if (!siteForm.manifestName.trim() || !siteForm.manifestShortName.trim()) {
+      showWarningToast('PWA 名称和短名称不可为空', 'PWA 名称和短名称不可为空')
+      return
+    }
+
+    const assetUrls = [
+      siteForm.ogImage,
+      siteForm.faviconSvgUrl,
+      siteForm.faviconIcoUrl,
+      siteForm.faviconPngUrl,
+      siteForm.appleTouchIconUrl,
+      siteForm.pwaIcon192Url,
+      siteForm.pwaIcon512Url,
+      siteForm.pwaMaskableIconUrl,
+      siteForm.siteLogoUrl,
+      siteForm.siteLogoDarkUrl,
+      siteForm.siteWordmarkUrl,
+      siteForm.adminLogoUrl,
+      siteForm.adminCollapsedIconUrl,
+      siteForm.loginLogoUrl,
+      siteForm.loginIconUrl
+    ]
+    if (assetUrls.some((url) => !validateAssetUrl(url))) {
+      showWarningToast('品牌资产 URL 仅支持站内路径或 http/https', '品牌资产 URL 仅支持站内路径或 http/https')
+      return
+    }
+    if (!validateHexColor(siteForm.themeColor) || !validateHexColor(siteForm.backgroundColor)) {
+      showWarningToast('主题色和背景色需使用 #RGB 或 #RRGGBB', '主题色和背景色需使用 #RGB 或 #RRGGBB')
+      return
+    }
 
     savingSite.value = true
     try {
@@ -460,12 +612,7 @@ export function useAdminSettingsPage() {
         }
 
         const normalized = normalizeSiteConfig(data)
-        siteForm.title = normalized.title
-        siteForm.description = normalized.description
-        siteForm.keywords = normalized.keywords
-        siteForm.author = normalized.author
-        siteForm.ogImage = normalized.ogImage
-        siteForm.baseUrl = normalized.baseUrl
+        Object.assign(siteForm, normalized)
         previousOgImage.value = siteForm.ogImage
         sanitizeKeywords()
         originalSiteSnapshot.value = serializeSiteForm()
@@ -688,6 +835,9 @@ export function useAdminSettingsPage() {
     pageContent,
     pageTargets,
     displayUrl,
+    logoPreviewUrl,
+    adminLogoPreviewUrl,
+    loginLogoPreviewUrl,
     hasOgImage,
     computedKeywords,
     normalizedBaseUrl,

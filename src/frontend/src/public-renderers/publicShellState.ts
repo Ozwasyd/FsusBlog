@@ -5,6 +5,9 @@ export type PublicActiveNav = 'home' | 'archive' | 'about' | 'none'
 export type PublicShellState = Readonly<{
   hydrationKind?: string | null
   siteTitle: string
+  siteLogoUrl: string
+  siteLogoDarkUrl: string
+  siteWordmarkUrl: string
   activeNav: PublicActiveNav
   authLabel: string
   authHref: string
@@ -18,6 +21,9 @@ export type PublicShellState = Readonly<{
 export const PUBLIC_SHELL_DEFAULTS: PublicShellState = {
   hydrationKind: null,
   siteTitle: "Fsu's Blog",
+  siteLogoUrl: '',
+  siteLogoDarkUrl: '',
+  siteWordmarkUrl: '',
   activeNav: 'none',
   authLabel: '登录',
   authHref: '/login',

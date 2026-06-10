@@ -32,6 +32,11 @@ type BaseBootstrapPayload<K extends PublicAotBootstrapKind> = Readonly<{
   query?: string
   siteTitle?: string
   siteDescription?: string
+  siteLogoUrl?: string | null
+  siteLogoDarkUrl?: string | null
+  siteWordmarkUrl?: string | null
+  loginLogoUrl?: string | null
+  loginIconUrl?: string | null
   compliance?: SiteComplianceConfigPublic | null
   title?: string
   generatedAt?: string
@@ -115,6 +120,11 @@ type BaseHydrationPayload<K extends PublicPageKind> = Readonly<{
   siteTitle?: string | null
   siteDescription?: string | null
   baseUrl?: string | null
+  siteLogoUrl?: string | null
+  siteLogoDarkUrl?: string | null
+  siteWordmarkUrl?: string | null
+  loginLogoUrl?: string | null
+  loginIconUrl?: string | null
   compliance?: SiteComplianceConfigPublic | null
 }>
 

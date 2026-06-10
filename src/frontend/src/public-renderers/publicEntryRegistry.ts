@@ -65,6 +65,11 @@ type PublicEntryScope<K extends PublicPageKind = PublicPageKind> = Readonly<{
   routeKey: string
   siteTitle: string
   siteDescription: string
+  siteLogoUrl: string
+  siteLogoDarkUrl: string
+  siteWordmarkUrl: string
+  loginLogoUrl: string
+  loginIconUrl: string
   compliance: SiteComplianceConfigPublic | null
   baseUrlInput: unknown
   baseUrlText: string
@@ -118,6 +123,11 @@ function normalizeComplianceConfig(value: unknown): SiteComplianceConfigPublic |
 function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: PublicEntryBuildOptions, routeKey: string): PublicEntryScope<K> {
   const siteTitle = toText(options.siteTitle, PUBLIC_SHELL_DEFAULTS.siteTitle)
   const siteDescription = toText(options.siteDescription, '')
+  const siteLogoUrl = toText(options.siteLogoUrl, '')
+  const siteLogoDarkUrl = toText(options.siteLogoDarkUrl, '')
+  const siteWordmarkUrl = toText(options.siteWordmarkUrl, '')
+  const loginLogoUrl = toText(options.loginLogoUrl, '')
+  const loginIconUrl = toText(options.loginIconUrl, '')
   const compliance = normalizeComplianceConfig(options.compliance)
   const baseUrlInput = options.baseUrl
   const baseUrlText = toText(baseUrlInput, '')
@@ -126,6 +136,11 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
     siteTitle,
     siteDescription,
     baseUrl: baseUrlInput,
+    siteLogoUrl,
+    siteLogoDarkUrl,
+    siteWordmarkUrl,
+    loginLogoUrl,
+    loginIconUrl,
     compliance
   })
 
@@ -134,11 +149,20 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
     routeKey,
     siteTitle,
     siteDescription,
+    siteLogoUrl,
+    siteLogoDarkUrl,
+    siteWordmarkUrl,
+    loginLogoUrl,
+    loginIconUrl,
     compliance,
     baseUrlInput,
     baseUrlText,
     baseModel,
-    renderShell: async (page) => await renderShell(kind, siteTitle, page, compliance),
+    renderShell: async (page) => await renderShell(kind, siteTitle, page, compliance, {
+      siteLogoUrl,
+      siteLogoDarkUrl,
+      siteWordmarkUrl
+    }),
     createEntry: (html, bootstrap, hydration, entryOptions) => createEntry(kind, routeKey, html, bootstrap, hydration, {
       ...entryOptions,
       baseUrl: entryOptions?.baseUrl ?? baseUrlText

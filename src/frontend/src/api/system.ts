@@ -10,16 +10,27 @@ export interface SeoConfigPublic {
   author: string      // 作者名
   ogImage: string     // 社交分享封面图 URL
   baseUrl : string    // URL
+  faviconSvgUrl: string
+  faviconIcoUrl: string
+  faviconPngUrl: string
+  appleTouchIconUrl: string
+  manifestName: string
+  manifestShortName: string
+  pwaIcon192Url: string
+  pwaIcon512Url: string
+  pwaMaskableIconUrl: string
+  themeColor: string
+  backgroundColor: string
+  siteLogoUrl: string
+  siteLogoDarkUrl: string
+  siteWordmarkUrl: string
+  adminLogoUrl: string
+  adminCollapsedIconUrl: string
+  loginLogoUrl: string
+  loginIconUrl: string
 }
 
-export interface SeoConfigAdmin {
-  title: string
-  description: string
-  keywords: string
-  author: string
-  ogImage: string
-  baseUrl: string
-}
+export type SeoConfigAdmin = SeoConfigPublic
 
 export interface SiteComplianceConfigPublic {
   enabled: boolean
@@ -174,7 +185,8 @@ export const deleteImage = (url: string, config?: ApiRequestConfig) =>
 
 function encodeSeoConfigPayload(data: SeoConfigAdmin): Uint8Array {
   const description = new TextEncoder().encode(data.description ?? '')
-  const bytes = new Uint8Array(1096 + 4 + description.byteLength)
+  const podSize = 5000
+  const bytes = new Uint8Array(podSize + 4 + description.byteLength)
   writeFixedUtf8(bytes, 0, 256, data.title ?? '')
   writeInt32(bytes, 256, 0)
   writeInt32(bytes, 260, description.byteLength)
@@ -182,8 +194,26 @@ function encodeSeoConfigPayload(data: SeoConfigAdmin): Uint8Array {
   writeFixedUtf8(bytes, 520, 64, data.author ?? '')
   writeFixedUtf8(bytes, 584, 256, data.ogImage ?? '')
   writeFixedUtf8(bytes, 840, 256, data.baseUrl ?? '')
-  writeInt32(bytes, 1096, description.byteLength)
-  bytes.set(description, 1100)
+  writeFixedUtf8(bytes, 1096, 256, data.faviconSvgUrl ?? '')
+  writeFixedUtf8(bytes, 1352, 256, data.faviconIcoUrl ?? '')
+  writeFixedUtf8(bytes, 1608, 256, data.faviconPngUrl ?? '')
+  writeFixedUtf8(bytes, 1864, 256, data.appleTouchIconUrl ?? '')
+  writeFixedUtf8(bytes, 2120, 128, data.manifestName ?? '')
+  writeFixedUtf8(bytes, 2248, 128, data.manifestShortName ?? '')
+  writeFixedUtf8(bytes, 2376, 256, data.pwaIcon192Url ?? '')
+  writeFixedUtf8(bytes, 2632, 256, data.pwaIcon512Url ?? '')
+  writeFixedUtf8(bytes, 2888, 256, data.pwaMaskableIconUrl ?? '')
+  writeFixedUtf8(bytes, 3144, 32, data.themeColor ?? '')
+  writeFixedUtf8(bytes, 3176, 32, data.backgroundColor ?? '')
+  writeFixedUtf8(bytes, 3208, 256, data.siteLogoUrl ?? '')
+  writeFixedUtf8(bytes, 3464, 256, data.siteLogoDarkUrl ?? '')
+  writeFixedUtf8(bytes, 3720, 256, data.siteWordmarkUrl ?? '')
+  writeFixedUtf8(bytes, 3976, 256, data.adminLogoUrl ?? '')
+  writeFixedUtf8(bytes, 4232, 256, data.adminCollapsedIconUrl ?? '')
+  writeFixedUtf8(bytes, 4488, 256, data.loginLogoUrl ?? '')
+  writeFixedUtf8(bytes, 4744, 256, data.loginIconUrl ?? '')
+  writeInt32(bytes, podSize, description.byteLength)
+  bytes.set(description, podSize + 4)
   return bytes
 }
 

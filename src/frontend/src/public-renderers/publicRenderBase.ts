@@ -11,6 +11,11 @@ export type PublicRenderBase = Readonly<{
     siteTitle: string
     siteDescription: string
     baseUrl: unknown
+    siteLogoUrl?: string | null
+    siteLogoDarkUrl?: string | null
+    siteWordmarkUrl?: string | null
+    loginLogoUrl?: string | null
+    loginIconUrl?: string | null
     compliance: SiteComplianceConfigPublic | null
   }>
   bootstrapBase: Readonly<{
@@ -20,6 +25,11 @@ export type PublicRenderBase = Readonly<{
     rendererVersion: string
     siteTitle: string
     siteDescription: string
+    siteLogoUrl?: string | null
+    siteLogoDarkUrl?: string | null
+    siteWordmarkUrl?: string | null
+    loginLogoUrl?: string | null
+    loginIconUrl?: string | null
     compliance: SiteComplianceConfigPublic | null
   }>
 }>
@@ -32,6 +42,11 @@ export function createPublicRenderBase(
     siteTitle: string
     siteDescription: string
     baseUrl?: unknown
+    siteLogoUrl?: string | null
+    siteLogoDarkUrl?: string | null
+    siteWordmarkUrl?: string | null
+    loginLogoUrl?: string | null
+    loginIconUrl?: string | null
     compliance?: SiteComplianceConfigPublic | null
   }>
 ): PublicRenderBase {
@@ -43,6 +58,11 @@ export function createPublicRenderBase(
       siteTitle: options.siteTitle,
       siteDescription: options.siteDescription,
       baseUrl: options.baseUrl ?? null,
+      siteLogoUrl: options.siteLogoUrl ?? null,
+      siteLogoDarkUrl: options.siteLogoDarkUrl ?? null,
+      siteWordmarkUrl: options.siteWordmarkUrl ?? null,
+      loginLogoUrl: options.loginLogoUrl ?? null,
+      loginIconUrl: options.loginIconUrl ?? null,
       compliance: options.compliance ?? null
     },
     bootstrapBase: {
@@ -52,6 +72,11 @@ export function createPublicRenderBase(
       rendererVersion: options.rendererVersion,
       siteTitle: options.siteTitle,
       siteDescription: options.siteDescription,
+      siteLogoUrl: options.siteLogoUrl ?? null,
+      siteLogoDarkUrl: options.siteLogoDarkUrl ?? null,
+      siteWordmarkUrl: options.siteWordmarkUrl ?? null,
+      loginLogoUrl: options.loginLogoUrl ?? null,
+      loginIconUrl: options.loginIconUrl ?? null,
       compliance: options.compliance ?? null
     }
   }

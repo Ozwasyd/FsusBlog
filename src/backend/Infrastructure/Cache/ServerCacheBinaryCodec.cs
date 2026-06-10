@@ -116,6 +116,24 @@ internal static class ServerCacheBinaryCodec
         WriteString(writer, value.Author);
         WriteString(writer, value.OgImage);
         WriteString(writer, value.BaseUrl);
+        WriteString(writer, value.FaviconSvgUrl);
+        WriteString(writer, value.FaviconIcoUrl);
+        WriteString(writer, value.FaviconPngUrl);
+        WriteString(writer, value.AppleTouchIconUrl);
+        WriteString(writer, value.ManifestName);
+        WriteString(writer, value.ManifestShortName);
+        WriteString(writer, value.PwaIcon192Url);
+        WriteString(writer, value.PwaIcon512Url);
+        WriteString(writer, value.PwaMaskableIconUrl);
+        WriteString(writer, value.ThemeColor);
+        WriteString(writer, value.BackgroundColor);
+        WriteString(writer, value.SiteLogoUrl);
+        WriteString(writer, value.SiteLogoDarkUrl);
+        WriteString(writer, value.SiteWordmarkUrl);
+        WriteString(writer, value.AdminLogoUrl);
+        WriteString(writer, value.AdminCollapsedIconUrl);
+        WriteString(writer, value.LoginLogoUrl);
+        WriteString(writer, value.LoginIconUrl);
         return stream.ToArray();
     }
 
@@ -136,7 +154,25 @@ internal static class ServerCacheBinaryCodec
                 Keywords = ReadString(reader),
                 Author = ReadString(reader),
                 OgImage = ReadString(reader),
-                BaseUrl = ReadString(reader)
+                BaseUrl = ReadString(reader),
+                FaviconSvgUrl = ReadString(reader),
+                FaviconIcoUrl = ReadString(reader),
+                FaviconPngUrl = ReadString(reader),
+                AppleTouchIconUrl = ReadString(reader),
+                ManifestName = ReadString(reader),
+                ManifestShortName = ReadString(reader),
+                PwaIcon192Url = ReadString(reader),
+                PwaIcon512Url = ReadString(reader),
+                PwaMaskableIconUrl = ReadString(reader),
+                ThemeColor = ReadString(reader),
+                BackgroundColor = ReadString(reader),
+                SiteLogoUrl = ReadString(reader),
+                SiteLogoDarkUrl = ReadString(reader),
+                SiteWordmarkUrl = ReadString(reader),
+                AdminLogoUrl = ReadString(reader),
+                AdminCollapsedIconUrl = ReadString(reader),
+                LoginLogoUrl = ReadString(reader),
+                LoginIconUrl = ReadString(reader)
             };
             return EnsureFullyRead(reader) ? (true, value) : (false, null);
         }

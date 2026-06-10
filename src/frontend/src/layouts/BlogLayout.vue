@@ -59,6 +59,9 @@ const routeComponentKey = computed(() => route.name ? String(route.name) : route
 const shellState = computed(() => createPublicShellViewState({
   hydrationKind: hydrationKind.value,
   siteTitle: siteStore.siteInfo.title,
+  siteLogoUrl: siteStore.siteInfo.siteLogoUrl,
+  siteLogoDarkUrl: siteStore.siteInfo.siteLogoDarkUrl,
+  siteWordmarkUrl: siteStore.siteInfo.siteWordmarkUrl,
   compliance: siteStore.complianceInfo,
   isSearchRoute: isSearchRoute.value,
   initialSearchQuery: isSearchRoute.value ? String(route.query.q || '') : '',

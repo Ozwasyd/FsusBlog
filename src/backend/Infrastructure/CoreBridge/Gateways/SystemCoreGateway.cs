@@ -10,7 +10,31 @@ public sealed class SystemCoreGateway(SystemService service) : ISystemCoreGatewa
     public async Task<SeoConfigContract> GetSeoConfigAsync()
     {
         var dto = await service.GetSeoConfigAsync();
-        return new SeoConfigContract(dto.Title, dto.Description, dto.Keywords, dto.Author, dto.OgImage, dto.BaseUrl);
+        return new SeoConfigContract(
+            dto.Title,
+            dto.Description,
+            dto.Keywords,
+            dto.Author,
+            dto.OgImage,
+            dto.BaseUrl,
+            dto.FaviconSvgUrl,
+            dto.FaviconIcoUrl,
+            dto.FaviconPngUrl,
+            dto.AppleTouchIconUrl,
+            dto.ManifestName,
+            dto.ManifestShortName,
+            dto.PwaIcon192Url,
+            dto.PwaIcon512Url,
+            dto.PwaMaskableIconUrl,
+            dto.ThemeColor,
+            dto.BackgroundColor,
+            dto.SiteLogoUrl,
+            dto.SiteLogoDarkUrl,
+            dto.SiteWordmarkUrl,
+            dto.AdminLogoUrl,
+            dto.AdminCollapsedIconUrl,
+            dto.LoginLogoUrl,
+            dto.LoginIconUrl);
     }
 
     public Task UpdateSeoConfigAsync(SeoConfigContract dto)
@@ -21,7 +45,25 @@ public sealed class SystemCoreGateway(SystemService service) : ISystemCoreGatewa
             Keywords = dto.Keywords,
             Author = dto.Author,
             OgImage = dto.OgImage,
-            BaseUrl = dto.BaseUrl
+            BaseUrl = dto.BaseUrl,
+            FaviconSvgUrl = dto.FaviconSvgUrl,
+            FaviconIcoUrl = dto.FaviconIcoUrl,
+            FaviconPngUrl = dto.FaviconPngUrl,
+            AppleTouchIconUrl = dto.AppleTouchIconUrl,
+            ManifestName = dto.ManifestName,
+            ManifestShortName = dto.ManifestShortName,
+            PwaIcon192Url = dto.PwaIcon192Url,
+            PwaIcon512Url = dto.PwaIcon512Url,
+            PwaMaskableIconUrl = dto.PwaMaskableIconUrl,
+            ThemeColor = dto.ThemeColor,
+            BackgroundColor = dto.BackgroundColor,
+            SiteLogoUrl = dto.SiteLogoUrl,
+            SiteLogoDarkUrl = dto.SiteLogoDarkUrl,
+            SiteWordmarkUrl = dto.SiteWordmarkUrl,
+            AdminLogoUrl = dto.AdminLogoUrl,
+            AdminCollapsedIconUrl = dto.AdminCollapsedIconUrl,
+            LoginLogoUrl = dto.LoginLogoUrl,
+            LoginIconUrl = dto.LoginIconUrl
         });
 
     public async Task<SiteComplianceConfigContract> GetSiteComplianceConfigAsync()

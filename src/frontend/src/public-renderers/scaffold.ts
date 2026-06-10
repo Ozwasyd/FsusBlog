@@ -19,6 +19,9 @@ export type PublicAotPageAssembly = Readonly<{
 export type PublicAotShellAssembly = Readonly<{
   kind: PublicPageKind
   siteTitle: string
+  siteLogoUrl?: string | null
+  siteLogoDarkUrl?: string | null
+  siteWordmarkUrl?: string | null
   compliance?: SiteComplianceConfigPublic | null
   page: PublicAotPageAssembly
 }>
@@ -35,6 +38,9 @@ export function renderPublicAotShell(assembly: PublicAotShellAssembly): VNode {
     default: () => h(PublicBlogLayoutShell, createPublicShellViewState({
       hydrationKind: assembly.kind,
       siteTitle: assembly.siteTitle,
+      siteLogoUrl: assembly.siteLogoUrl ?? null,
+      siteLogoDarkUrl: assembly.siteLogoDarkUrl ?? null,
+      siteWordmarkUrl: assembly.siteWordmarkUrl ?? null,
       compliance: assembly.compliance ?? null,
       spaSearch: false,
       showRuntime: false

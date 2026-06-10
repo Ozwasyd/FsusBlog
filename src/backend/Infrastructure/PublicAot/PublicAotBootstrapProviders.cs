@@ -28,11 +28,25 @@ public abstract class PublicAotBootstrapProviderBase(ISystemService systemServic
             seo.Description,
             NormalizeBaseUrl(seo.BaseUrl),
             ToComplianceSnapshot(compliance),
-            seo.Author);
+            seo.Author,
+            seo.SiteLogoUrl,
+            seo.SiteLogoDarkUrl,
+            seo.SiteWordmarkUrl,
+            seo.LoginLogoUrl,
+            seo.LoginIconUrl);
     }
 
     protected static PublicAotSeoSnapshot ToSeoSnapshot(SeoConfigReadModel seo)
-        => new(seo.Title, seo.Description, NormalizeBaseUrl(seo.BaseUrl));
+        => new(
+            seo.Title,
+            seo.Description,
+            NormalizeBaseUrl(seo.BaseUrl),
+            SiteAuthor: seo.Author,
+            SiteLogoUrl: seo.SiteLogoUrl,
+            SiteLogoDarkUrl: seo.SiteLogoDarkUrl,
+            SiteWordmarkUrl: seo.SiteWordmarkUrl,
+            LoginLogoUrl: seo.LoginLogoUrl,
+            LoginIconUrl: seo.LoginIconUrl);
 
     protected static PublicAotSiteComplianceSnapshot ToComplianceSnapshot(SiteComplianceConfigReadModel compliance)
         => new(

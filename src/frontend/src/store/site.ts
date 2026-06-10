@@ -8,6 +8,27 @@ import {
 } from '@/api/system'
 import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap'
 
+export const DEFAULT_SITE_BRAND_CONFIG = {
+  faviconSvgUrl: '/favicon.svg',
+  faviconIcoUrl: '/favicon.ico',
+  faviconPngUrl: '',
+  appleTouchIconUrl: '/apple-touch-icon.png',
+  manifestName: 'FsusBlog',
+  manifestShortName: 'FsusBlog',
+  pwaIcon192Url: '/icons/icon-192.png',
+  pwaIcon512Url: '/icons/icon-512.png',
+  pwaMaskableIconUrl: '/icons/maskable-512.png',
+  themeColor: '#0f0f11',
+  backgroundColor: '#fcfcfc',
+  siteLogoUrl: '',
+  siteLogoDarkUrl: '',
+  siteWordmarkUrl: '',
+  adminLogoUrl: '',
+  adminCollapsedIconUrl: '',
+  loginLogoUrl: '',
+  loginIconUrl: ''
+} as const
+
 function resolveBaseUrl(): string {
   if (typeof window === 'undefined') {
     return 'https://fsus.blog'
@@ -26,7 +47,13 @@ export const useSiteStore = defineStore('site', () => {
     keywords: "Minimalism, Blog, Fsu",
     author: "Fsu",
     ogImage: "",
-    baseUrl: payload?.baseUrl || resolveBaseUrl()
+    baseUrl: payload?.baseUrl || resolveBaseUrl(),
+    ...DEFAULT_SITE_BRAND_CONFIG,
+    siteLogoUrl: payload?.siteLogoUrl || DEFAULT_SITE_BRAND_CONFIG.siteLogoUrl,
+    siteLogoDarkUrl: payload?.siteLogoDarkUrl || DEFAULT_SITE_BRAND_CONFIG.siteLogoDarkUrl,
+    siteWordmarkUrl: payload?.siteWordmarkUrl || DEFAULT_SITE_BRAND_CONFIG.siteWordmarkUrl,
+    loginLogoUrl: payload?.loginLogoUrl || DEFAULT_SITE_BRAND_CONFIG.loginLogoUrl,
+    loginIconUrl: payload?.loginIconUrl || DEFAULT_SITE_BRAND_CONFIG.loginIconUrl
   })
   const complianceInfo = shallowRef<SiteComplianceConfigPublic | null>(payload?.compliance ?? null)
 
@@ -64,7 +91,7 @@ export const useSiteStore = defineStore('site', () => {
           })
         ])
         if (res) {
-          siteInfo.value = { ...res }
+          siteInfo.value = { ...DEFAULT_SITE_BRAND_CONFIG, ...res }
         }
         if (compliance) {
           complianceInfo.value = { ...compliance }

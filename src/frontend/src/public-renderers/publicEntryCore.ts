@@ -114,11 +114,24 @@ export async function renderShell(
   kind: PublicPageKind,
   siteTitle: string,
   page: PublicAotPageAssembly,
-  compliance: SiteComplianceConfigPublic | null = null
+  compliance: SiteComplianceConfigPublic | null = null,
+  brand: Readonly<{
+    siteLogoUrl?: string | null
+    siteLogoDarkUrl?: string | null
+    siteWordmarkUrl?: string | null
+  }> = {}
 ): Promise<string> {
   const Root: Component = {
     render() {
-      return renderPublicAotShell({ kind, siteTitle, compliance, page })
+      return renderPublicAotShell({
+        kind,
+        siteTitle,
+        siteLogoUrl: brand.siteLogoUrl ?? null,
+        siteLogoDarkUrl: brand.siteLogoDarkUrl ?? null,
+        siteWordmarkUrl: brand.siteWordmarkUrl ?? null,
+        compliance,
+        page
+      })
     }
   }
 

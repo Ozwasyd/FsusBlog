@@ -86,6 +86,11 @@ internal static class PublicAotRendererPayloadMapper
             ["siteTitle"] = seo.SiteTitle,
             ["siteDescription"] = seo.SiteDescription,
             ["baseUrl"] = seo.BaseUrl,
+            ["siteLogoUrl"] = seo.SiteLogoUrl,
+            ["siteLogoDarkUrl"] = seo.SiteLogoDarkUrl,
+            ["siteWordmarkUrl"] = seo.SiteWordmarkUrl,
+            ["loginLogoUrl"] = seo.LoginLogoUrl,
+            ["loginIconUrl"] = seo.LoginIconUrl,
             ["compliance"] = seo.Compliance is null ? null : ToCompliancePayload(seo.Compliance)
         };
 

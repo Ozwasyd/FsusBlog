@@ -34,6 +34,24 @@ public partial class SystemService(
     private const string Key_Author = "Seo_Author";
     private const string Key_OgImage = "Seo_OgImage";
     private const string Key_BaseUrl = "Seo_BaseUrl";
+    private const string Key_FaviconSvgUrl = "Seo_FaviconSvgUrl";
+    private const string Key_FaviconIcoUrl = "Seo_FaviconIcoUrl";
+    private const string Key_FaviconPngUrl = "Seo_FaviconPngUrl";
+    private const string Key_AppleTouchIconUrl = "Seo_AppleTouchIconUrl";
+    private const string Key_ManifestName = "Seo_ManifestName";
+    private const string Key_ManifestShortName = "Seo_ManifestShortName";
+    private const string Key_PwaIcon192Url = "Seo_PwaIcon192Url";
+    private const string Key_PwaIcon512Url = "Seo_PwaIcon512Url";
+    private const string Key_PwaMaskableIconUrl = "Seo_PwaMaskableIconUrl";
+    private const string Key_ThemeColor = "Seo_ThemeColor";
+    private const string Key_BackgroundColor = "Seo_BackgroundColor";
+    private const string Key_SiteLogoUrl = "Seo_SiteLogoUrl";
+    private const string Key_SiteLogoDarkUrl = "Seo_SiteLogoDarkUrl";
+    private const string Key_SiteWordmarkUrl = "Seo_SiteWordmarkUrl";
+    private const string Key_AdminLogoUrl = "Seo_AdminLogoUrl";
+    private const string Key_AdminCollapsedIconUrl = "Seo_AdminCollapsedIconUrl";
+    private const string Key_LoginLogoUrl = "Seo_LoginLogoUrl";
+    private const string Key_LoginIconUrl = "Seo_LoginIconUrl";
     private const string Key_ComplianceEnabled = "Compliance_Enabled";
     private const string Key_ComplianceRegionMode = "Compliance_RegionMode";
     private const string Key_ComplianceCopyrightOwner = "Compliance_CopyrightOwner";
@@ -51,6 +69,14 @@ public partial class SystemService(
     private const string MissingPageContent = "页面内容正在准备中，请稍后再试。";
     private const string DefaultIcpRecordUrl = "https://beian.miit.gov.cn/";
     private const string DefaultPoliceRecordUrl = "https://beian.mps.gov.cn/";
+    private const string DefaultFaviconSvgUrl = "/favicon.svg";
+    private const string DefaultFaviconIcoUrl = "/favicon.ico";
+    private const string DefaultAppleTouchIconUrl = "/apple-touch-icon.png";
+    private const string DefaultPwaIcon192Url = "/icons/icon-192.png";
+    private const string DefaultPwaIcon512Url = "/icons/icon-512.png";
+    private const string DefaultPwaMaskableIconUrl = "/icons/maskable-512.png";
+    private const string DefaultThemeColor = "#0f0f11";
+    private const string DefaultBackgroundColor = "#fcfcfc";
 
     private const int MaxSlugLength = 64;
     private const int MaxPageContentLength = 200_000;
@@ -102,14 +128,33 @@ public partial class SystemService(
 
     public async Task UpdateSeoConfigAsync(UpdateSeoConfigRequest dto)
     {
+        SeoConfigReadModel normalized = NormalizeSeoConfig(dto);
         SystemConfig[] configs =
         [
-            new() { Key = Key_Title, Value = dto.Title },
-            new() { Key = Key_Desc, Value = dto.Description },
-            new() { Key = Key_Keywords, Value = dto.Keywords },
-            new() { Key = Key_Author, Value = dto.Author },
-            new() { Key = Key_OgImage, Value = dto.OgImage },
-            new() { Key = Key_BaseUrl, Value = dto.BaseUrl }
+            new() { Key = Key_Title, Value = normalized.Title },
+            new() { Key = Key_Desc, Value = normalized.Description },
+            new() { Key = Key_Keywords, Value = normalized.Keywords },
+            new() { Key = Key_Author, Value = normalized.Author },
+            new() { Key = Key_OgImage, Value = normalized.OgImage },
+            new() { Key = Key_BaseUrl, Value = normalized.BaseUrl },
+            new() { Key = Key_FaviconSvgUrl, Value = normalized.FaviconSvgUrl },
+            new() { Key = Key_FaviconIcoUrl, Value = normalized.FaviconIcoUrl },
+            new() { Key = Key_FaviconPngUrl, Value = normalized.FaviconPngUrl },
+            new() { Key = Key_AppleTouchIconUrl, Value = normalized.AppleTouchIconUrl },
+            new() { Key = Key_ManifestName, Value = normalized.ManifestName },
+            new() { Key = Key_ManifestShortName, Value = normalized.ManifestShortName },
+            new() { Key = Key_PwaIcon192Url, Value = normalized.PwaIcon192Url },
+            new() { Key = Key_PwaIcon512Url, Value = normalized.PwaIcon512Url },
+            new() { Key = Key_PwaMaskableIconUrl, Value = normalized.PwaMaskableIconUrl },
+            new() { Key = Key_ThemeColor, Value = normalized.ThemeColor },
+            new() { Key = Key_BackgroundColor, Value = normalized.BackgroundColor },
+            new() { Key = Key_SiteLogoUrl, Value = normalized.SiteLogoUrl },
+            new() { Key = Key_SiteLogoDarkUrl, Value = normalized.SiteLogoDarkUrl },
+            new() { Key = Key_SiteWordmarkUrl, Value = normalized.SiteWordmarkUrl },
+            new() { Key = Key_AdminLogoUrl, Value = normalized.AdminLogoUrl },
+            new() { Key = Key_AdminCollapsedIconUrl, Value = normalized.AdminCollapsedIconUrl },
+            new() { Key = Key_LoginLogoUrl, Value = normalized.LoginLogoUrl },
+            new() { Key = Key_LoginIconUrl, Value = normalized.LoginIconUrl }
         ];
 
         await _db.Storageable(configs).ExecuteCommandAsync();
@@ -330,6 +375,41 @@ public partial class SystemService(
         return content.Length > MaxPageContentLength ? content[..MaxPageContentLength] : content;
     }
 
+    private static SeoConfigReadModel NormalizeSeoConfig(UpdateSeoConfigRequest dto)
+    {
+        string title = TrimUtf8Bytes(dto.Title, 50);
+        string author = TrimUtf8Bytes(dto.Author, 20);
+        string baseUrl = NormalizeHttpUrlOrDefault(dto.BaseUrl, "https://fsus.blog", 256).TrimEnd('/');
+
+        return new SeoConfigReadModel
+        {
+            Title = string.IsNullOrWhiteSpace(title) ? "Fsu's Blog" : title,
+            Description = TrimText(dto.Description, 200),
+            Keywords = TrimUtf8Bytes(dto.Keywords, 256),
+            Author = string.IsNullOrWhiteSpace(author) ? "Fsu" : author,
+            OgImage = NormalizeOptionalAssetUrl(dto.OgImage, 256),
+            BaseUrl = baseUrl.Length == 0 ? "https://fsus.blog" : baseUrl,
+            FaviconSvgUrl = NormalizeAssetUrlOrDefault(dto.FaviconSvgUrl, DefaultFaviconSvgUrl, 256),
+            FaviconIcoUrl = NormalizeAssetUrlOrDefault(dto.FaviconIcoUrl, DefaultFaviconIcoUrl, 256),
+            FaviconPngUrl = NormalizeOptionalAssetUrl(dto.FaviconPngUrl, 256),
+            AppleTouchIconUrl = NormalizeAssetUrlOrDefault(dto.AppleTouchIconUrl, DefaultAppleTouchIconUrl, 256),
+            ManifestName = NormalizeManifestText(dto.ManifestName, string.IsNullOrWhiteSpace(title) ? "FsusBlog" : title, 128),
+            ManifestShortName = NormalizeManifestText(dto.ManifestShortName, "FsusBlog", 128),
+            PwaIcon192Url = NormalizeAssetUrlOrDefault(dto.PwaIcon192Url, DefaultPwaIcon192Url, 256),
+            PwaIcon512Url = NormalizeAssetUrlOrDefault(dto.PwaIcon512Url, DefaultPwaIcon512Url, 256),
+            PwaMaskableIconUrl = NormalizeAssetUrlOrDefault(dto.PwaMaskableIconUrl, DefaultPwaMaskableIconUrl, 256),
+            ThemeColor = NormalizeHexColor(dto.ThemeColor, DefaultThemeColor),
+            BackgroundColor = NormalizeHexColor(dto.BackgroundColor, DefaultBackgroundColor),
+            SiteLogoUrl = NormalizeOptionalAssetUrl(dto.SiteLogoUrl, 256),
+            SiteLogoDarkUrl = NormalizeOptionalAssetUrl(dto.SiteLogoDarkUrl, 256),
+            SiteWordmarkUrl = NormalizeOptionalAssetUrl(dto.SiteWordmarkUrl, 256),
+            AdminLogoUrl = NormalizeOptionalAssetUrl(dto.AdminLogoUrl, 256),
+            AdminCollapsedIconUrl = NormalizeOptionalAssetUrl(dto.AdminCollapsedIconUrl, 256),
+            LoginLogoUrl = NormalizeOptionalAssetUrl(dto.LoginLogoUrl, 256),
+            LoginIconUrl = NormalizeOptionalAssetUrl(dto.LoginIconUrl, 256)
+        };
+    }
+
     private static SiteComplianceConfigReadModel NormalizeComplianceConfig(UpdateSiteComplianceConfigRequest dto)
     {
         int currentYear = DateTime.UtcNow.Year;
@@ -374,6 +454,74 @@ public partial class SystemService(
             (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
                 ? normalized
                 : string.Empty;
+    }
+
+    private static string NormalizeAssetUrlOrDefault(string? value, string defaultValue, int maxUtf8Bytes)
+    {
+        string normalized = NormalizeOptionalAssetUrl(value, maxUtf8Bytes);
+        return normalized.Length == 0 ? defaultValue : normalized;
+    }
+
+    private static string NormalizeOptionalAssetUrl(string? value, int maxUtf8Bytes)
+    {
+        string normalized = TrimUtf8Bytes(value, maxUtf8Bytes);
+        if (normalized.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        if (normalized.StartsWith("//", StringComparison.Ordinal)
+            || normalized.Contains('\u0000'))
+        {
+            return string.Empty;
+        }
+
+        if (normalized.StartsWith("/", StringComparison.Ordinal))
+        {
+            return normalized.Length > 1 && !normalized.StartsWith("/\\", StringComparison.Ordinal)
+                ? normalized
+                : string.Empty;
+        }
+
+        if (!Uri.TryCreate(normalized, UriKind.Absolute, out Uri? uri))
+        {
+            return string.Empty;
+        }
+
+        return uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps
+            ? normalized
+            : string.Empty;
+    }
+
+    private static string NormalizeManifestText(string? value, string fallback, int maxUtf8Bytes)
+    {
+        string normalized = TrimUtf8Bytes(value, maxUtf8Bytes);
+        return normalized.Length == 0 ? TrimUtf8Bytes(fallback, maxUtf8Bytes) : normalized;
+    }
+
+    private static string NormalizeHexColor(string? value, string fallback)
+    {
+        string normalized = TrimUtf8Bytes(value, 32).ToLowerInvariant();
+        return IsHexColor(normalized) ? normalized : fallback;
+    }
+
+    private static bool IsHexColor(string value)
+    {
+        if (value.Length is not (4 or 7) || value[0] != '#')
+        {
+            return false;
+        }
+
+        for (int i = 1; i < value.Length; i++)
+        {
+            char ch = value[i];
+            if (ch is not ((>= '0' and <= '9') or (>= 'a' and <= 'f')))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static string TrimText(string? value, int maxLength)
@@ -459,7 +607,7 @@ public partial class SystemService(
             .Select(c => new { c.Key, c.Value });
 
         var sqlObj = query.ToSql();
-        var configs = new List<ConfigItem>(8);
+        var configs = new List<ConfigItem>(32);
 
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
         {
@@ -474,15 +622,33 @@ public partial class SystemService(
             }
         }
 
-        return new SeoConfigReadModel
+        return NormalizeSeoConfig(new UpdateSeoConfigRequest
         {
             Title = GetValue(configs, Key_Title, "Fsu's Blog"),
             Description = GetValue(configs, Key_Desc, "记录技术与生活"),
             Keywords = GetValue(configs, Key_Keywords, "C#, .NET, Vue"),
             Author = GetValue(configs, Key_Author, "Fsu"),
             OgImage = GetValue(configs, Key_OgImage, string.Empty),
-            BaseUrl = GetValue(configs, Key_BaseUrl, "https://fsus.blog")
-        };
+            BaseUrl = GetValue(configs, Key_BaseUrl, "https://fsus.blog"),
+            FaviconSvgUrl = GetValue(configs, Key_FaviconSvgUrl, DefaultFaviconSvgUrl),
+            FaviconIcoUrl = GetValue(configs, Key_FaviconIcoUrl, DefaultFaviconIcoUrl),
+            FaviconPngUrl = GetValue(configs, Key_FaviconPngUrl, string.Empty),
+            AppleTouchIconUrl = GetValue(configs, Key_AppleTouchIconUrl, DefaultAppleTouchIconUrl),
+            ManifestName = GetValue(configs, Key_ManifestName, "FsusBlog"),
+            ManifestShortName = GetValue(configs, Key_ManifestShortName, "FsusBlog"),
+            PwaIcon192Url = GetValue(configs, Key_PwaIcon192Url, DefaultPwaIcon192Url),
+            PwaIcon512Url = GetValue(configs, Key_PwaIcon512Url, DefaultPwaIcon512Url),
+            PwaMaskableIconUrl = GetValue(configs, Key_PwaMaskableIconUrl, DefaultPwaMaskableIconUrl),
+            ThemeColor = GetValue(configs, Key_ThemeColor, DefaultThemeColor),
+            BackgroundColor = GetValue(configs, Key_BackgroundColor, DefaultBackgroundColor),
+            SiteLogoUrl = GetValue(configs, Key_SiteLogoUrl, string.Empty),
+            SiteLogoDarkUrl = GetValue(configs, Key_SiteLogoDarkUrl, string.Empty),
+            SiteWordmarkUrl = GetValue(configs, Key_SiteWordmarkUrl, string.Empty),
+            AdminLogoUrl = GetValue(configs, Key_AdminLogoUrl, string.Empty),
+            AdminCollapsedIconUrl = GetValue(configs, Key_AdminCollapsedIconUrl, string.Empty),
+            LoginLogoUrl = GetValue(configs, Key_LoginLogoUrl, string.Empty),
+            LoginIconUrl = GetValue(configs, Key_LoginIconUrl, string.Empty)
+        });
     }
 
     private async Task<SiteComplianceConfigReadModel> LoadComplianceConfigFromDbAsync(CancellationToken cancellationToken)

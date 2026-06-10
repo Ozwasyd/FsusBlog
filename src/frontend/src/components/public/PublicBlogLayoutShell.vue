@@ -29,7 +29,23 @@
       @search="handleSearch"
     >
       <template #brand>
-        {{ siteTitleText }}<span class="text-[var(--fsusblog-text-muted)]">.</span>
+        <span v-if="hasBrandImage" class="public-brand-mark">
+          <img
+            v-if="brandImageLight"
+            :src="brandImageLight"
+            :alt="siteTitleText"
+            class="public-brand-image public-brand-image--light"
+          />
+          <img
+            v-if="brandImageDark"
+            :src="brandImageDark"
+            :alt="siteTitleText"
+            class="public-brand-image public-brand-image--dark"
+          />
+        </span>
+        <template v-else>
+          {{ siteTitleText }}<span class="text-[var(--fsusblog-text-muted)]">.</span>
+        </template>
       </template>
 
       <template #desktop-actions>
@@ -90,6 +106,9 @@ const SHELL_DEFAULTS = {
 const props = withDefaults(defineProps<{
   hydrationKind?: string | null
   siteTitle?: string | null
+  siteLogoUrl?: string | null
+  siteLogoDarkUrl?: string | null
+  siteWordmarkUrl?: string | null
   activeNav?: PublicActiveNav
   authLabel?: string
   authHref?: string
@@ -101,6 +120,9 @@ const props = withDefaults(defineProps<{
 }>(), {
   hydrationKind: null,
   siteTitle: "Fsu's Blog",
+  siteLogoUrl: '',
+  siteLogoDarkUrl: '',
+  siteWordmarkUrl: '',
   activeNav: 'none',
   authLabel: '登录',
   authHref: '/login',
@@ -117,6 +139,9 @@ const emit = defineEmits<{
 }>()
 
 const siteTitleText = computed(() => props.siteTitle?.trim() || SHELL_DEFAULTS.siteTitle)
+const brandImageLight = computed(() => props.siteWordmarkUrl?.trim() || props.siteLogoUrl?.trim() || props.siteLogoDarkUrl?.trim() || '')
+const brandImageDark = computed(() => props.siteWordmarkUrl?.trim() || props.siteLogoDarkUrl?.trim() || props.siteLogoUrl?.trim() || '')
+const hasBrandImage = computed(() => Boolean(brandImageLight.value || brandImageDark.value))
 const compliance = computed(() => props.compliance ?? null)
 const searchQuery = ref(props.initialSearchQuery)
 const FullAppRuntime = defineAsyncComponent(() => import('@/components/runtime/AppRuntime.vue'))
@@ -138,4 +163,32 @@ function handleSearch(query: string): void {
 
 <style scoped>
 @reference "@/assets/main.css";
+
+.public-brand-mark {
+  display: inline-flex;
+  min-width: 0;
+  max-width: min(14rem, 42vw);
+  align-items: center;
+}
+
+.public-brand-image {
+  display: block;
+  max-height: 1.75rem;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.public-brand-image--dark {
+  display: none;
+}
+
+:global(html.dark) .public-brand-image--light,
+:global(html[data-theme-resolved='dark']) .public-brand-image--light {
+  display: none;
+}
+
+:global(html.dark) .public-brand-image--dark,
+:global(html[data-theme-resolved='dark']) .public-brand-image--dark {
+  display: block;
+}
 </style>

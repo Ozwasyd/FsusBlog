@@ -3,9 +3,10 @@
     <nav class="mx-auto flex h-16 w-full max-w-6xl items-center px-5 sm:h-20 sm:px-8">
       <router-link
         to="/"
-        class="rounded-[var(--fsus-radius-control)] text-lg font-bold text-[var(--fsusblog-text-primary)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] "
+        class="flex min-w-0 items-center gap-2 rounded-[var(--fsus-radius-control)] text-lg font-bold text-[var(--fsusblog-text-primary)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] "
       >
-        {{ siteStore.siteInfo.title }}
+        <img v-if="loginBrandImageUrl" :src="loginBrandImageUrl" :alt="siteStore.siteInfo.title" class="h-9 max-w-[12rem] object-contain" />
+        <span v-else class="truncate">{{ siteStore.siteInfo.title }}</span>
       </router-link>
     </nav>
 
@@ -211,6 +212,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Key } from '@/fsusui/icons'
 import { useAuthLogin } from '@/composables/useAuthLogin'
 import { usePasskeyLogin } from '@/composables/usePasskeyLogin'
@@ -232,6 +234,14 @@ const {
 } = useAuthLogin()
 
 const { loading: passkeyLoading, error: passkeyError, loginWithPasskey } = usePasskeyLogin()
+
+const loginBrandImageUrl = computed(() =>
+  siteStore.siteInfo.loginLogoUrl?.trim()
+  || siteStore.siteInfo.loginIconUrl?.trim()
+  || siteStore.siteInfo.siteWordmarkUrl?.trim()
+  || siteStore.siteInfo.siteLogoUrl?.trim()
+  || ''
+)
 
 const handlePasskeyLogin = () => loginWithPasskey(rememberMe.value)
 </script>
