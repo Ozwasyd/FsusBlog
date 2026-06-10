@@ -1,5 +1,6 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.Extensions.Caching.Memory;
 using SqlSugar;
 
@@ -306,15 +307,3 @@ public sealed class RelatedReadingService(
 
     private sealed record ScoredRelatedArticle(RelatedArticleRow Row, int Score, int PublishedDistance, string Reason);
 }
-
-public sealed record RelatedReadingResponse(
-    IReadOnlyList<RelatedReadingItem> Related,
-    RelatedReadingItem? Previous,
-    RelatedReadingItem? Next);
-
-public sealed record RelatedReadingItem(
-    int Id,
-    string Title,
-    string? Summary,
-    DateTime CreateTime,
-    string Reason);

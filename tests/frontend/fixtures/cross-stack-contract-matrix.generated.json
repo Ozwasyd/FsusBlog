@@ -400,6 +400,13 @@
           "responseFrame": "ArticleFeatured"
         },
         {
+          "method": "GET",
+          "path": "/article/{articleId:int}/related.aeds",
+          "auth": "anonymous",
+          "responseFrame": "ArticleRelatedReading",
+          "surface": "public-related-reading"
+        },
+        {
           "method": "POST",
           "path": "/admin/article",
           "auth": "admin",
@@ -1187,5 +1194,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 90
+  "openapiOperationCount": 91
 }

@@ -86,6 +86,18 @@ public record struct ArticleDetailResponse
     }
 }
 
+public sealed record RelatedReadingResponse(
+    IReadOnlyList<RelatedReadingItem> Related,
+    RelatedReadingItem? Previous,
+    RelatedReadingItem? Next);
+
+public sealed record RelatedReadingItem(
+    int Id,
+    string Title,
+    string? Summary,
+    DateTime CreateTime,
+    string Reason);
+
 public record struct UserCommentResponse
 {
     public long Id { get; init; }

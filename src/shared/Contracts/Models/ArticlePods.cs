@@ -74,6 +74,28 @@ public readonly struct FeaturedArticlePod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct RelatedReadingHeaderPod
+{
+    public readonly int RelatedCount;
+    public readonly byte HasPrevious;
+    public readonly byte HasNext;
+    public readonly ushort Reserved0;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct RelatedReadingItemPod
+{
+    public readonly int Id;
+    public readonly long CreateTimeUnixMs;
+    public readonly byte HasSummary;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
+    public readonly Utf8SliceRef Title;
+    public readonly Utf8SliceRef Summary;
+    public readonly Utf8SliceRef Reason;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct ArticleNoticePod
 {
     public readonly int ArticleId;

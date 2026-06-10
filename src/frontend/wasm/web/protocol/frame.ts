@@ -28,6 +28,7 @@ export enum FrameType {
   UploadPartMap = 24,
   AuthSessionList = 25,
   SiteComplianceConfig = 26,
+  ArticleRelatedReading = 27,
   PowChallenge = 30,
   UploadInitRequest = 31,
   UploadCompleteRequest = 32,

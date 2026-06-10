@@ -453,6 +453,128 @@ public static partial class PodBinaryCodec
             && reader.IsConsumed;
     }
 
+    public static void WriteRelatedReading(RelatedReadingResponse response, IBufferWriter<byte> destination)
+    {
+        IReadOnlyList<RelatedReadingItem> related = response.Related;
+        var blob = new List<byte>(Math.Max(128, related.Count * 96));
+        var records = new List<RelatedReadingItemPod>(
+            related.Count
+            + (response.Previous is null ? 0 : 1)
+            + (response.Next is null ? 0 : 1));
+
+        foreach (RelatedReadingItem item in related)
+        {
+            records.Add(BuildRelatedReadingItemPod(item, blob));
+        }
+
+        if (response.Previous is not null)
+        {
+            records.Add(BuildRelatedReadingItemPod(response.Previous, blob));
+        }
+
+        if (response.Next is not null)
+        {
+            records.Add(BuildRelatedReadingItemPod(response.Next, blob));
+        }
+
+        var header = new MutableRelatedReadingHeaderPod
+        {
+            RelatedCount = related.Count,
+            HasPrevious = response.Previous is null ? (byte)0 : (byte)1,
+            HasNext = response.Next is null ? (byte)0 : (byte)1
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(Cast<MutableRelatedReadingHeaderPod, RelatedReadingHeaderPod>(header));
+        foreach (RelatedReadingItemPod record in records)
+        {
+            writer.WritePod(record);
+        }
+
+        writer.WriteBytes(CollectionsMarshal.AsSpan(blob));
+    }
+
+    public static byte[] EncodeRelatedReading(RelatedReadingResponse response)
+        => EncodeToArray(256 + response.Related.Count * 128, writer => WriteRelatedReading(response, writer));
+
+    public static bool TryDecodeRelatedReading(ReadOnlyMemory<byte> bytes, out RelatedReadingResponse response)
+    {
+        var reader = new BinaryPodReader(bytes.Span);
+        if (!reader.TryReadPod(out RelatedReadingHeaderPod header) ||
+            header.RelatedCount < 0 ||
+            header.HasPrevious > 1 ||
+            header.HasNext > 1)
+        {
+            response = new RelatedReadingResponse([], null, null);
+            return false;
+        }
+
+        int recordCount = header.RelatedCount + header.HasPrevious + header.HasNext;
+        var pods = new List<RelatedReadingItemPod>(recordCount);
+        for (int i = 0; i < recordCount; i++)
+        {
+            if (!reader.TryReadPod(out RelatedReadingItemPod pod) || pod.HasSummary > 1)
+            {
+                response = new RelatedReadingResponse([], null, null);
+                return false;
+            }
+
+            pods.Add(pod);
+        }
+
+        if (!reader.TryReadBytes(out ReadOnlySpan<byte> blob))
+        {
+            response = new RelatedReadingResponse([], null, null);
+            return false;
+        }
+
+        var related = new List<RelatedReadingItem>(header.RelatedCount);
+        for (int i = 0; i < header.RelatedCount; i++)
+        {
+            related.Add(BuildRelatedReadingItem(pods[i], blob));
+        }
+
+        int optionalIndex = header.RelatedCount;
+        RelatedReadingItem? previous = null;
+        if (header.HasPrevious == 1)
+        {
+            previous = BuildRelatedReadingItem(pods[optionalIndex], blob);
+            optionalIndex++;
+        }
+
+        RelatedReadingItem? next = null;
+        if (header.HasNext == 1)
+        {
+            next = BuildRelatedReadingItem(pods[optionalIndex], blob);
+        }
+
+        response = new RelatedReadingResponse(related, previous, next);
+        return reader.IsConsumed;
+    }
+
+    private static RelatedReadingItemPod BuildRelatedReadingItemPod(RelatedReadingItem item, List<byte> blob)
+    {
+        var mutable = new MutableRelatedReadingItemPod
+        {
+            Id = item.Id,
+            CreateTimeUnixMs = PodTimeCodec.ToUnixMs(item.CreateTime),
+            HasSummary = item.Summary is null ? (byte)0 : (byte)1,
+            Title = PodUtf8Codec.AppendSlice(item.Title ?? string.Empty, blob),
+            Summary = item.Summary is null ? default : PodUtf8Codec.AppendSlice(item.Summary, blob),
+            Reason = PodUtf8Codec.AppendSlice(item.Reason ?? string.Empty, blob)
+        };
+
+        return Cast<MutableRelatedReadingItemPod, RelatedReadingItemPod>(mutable);
+    }
+
+    private static RelatedReadingItem BuildRelatedReadingItem(RelatedReadingItemPod pod, ReadOnlySpan<byte> blob)
+        => new(
+            pod.Id,
+            PodUtf8Codec.ReadSlice(pod.Title, blob),
+            pod.HasSummary == 1 ? PodUtf8Codec.ReadSlice(pod.Summary, blob) : null,
+            PodTimeCodec.FromUnixMs(pod.CreateTimeUnixMs),
+            PodUtf8Codec.ReadSlice(pod.Reason, blob));
+
     private static bool TryReadArticlePublicationTail(
         ref BinaryPodReader reader,
         out int status,
@@ -799,5 +921,27 @@ public static partial class PodBinaryCodec
         Span<byte> bytes = stackalloc byte[Marshal.SizeOf<TrashClearResponsePod>()];
         MemoryMarshal.Write(bytes, in count);
         return MemoryMarshal.Read<TrashClearResponsePod>(bytes);
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableRelatedReadingHeaderPod
+    {
+        public int RelatedCount;
+        public byte HasPrevious;
+        public byte HasNext;
+        public ushort Reserved0;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableRelatedReadingItemPod
+    {
+        public int Id;
+        public long CreateTimeUnixMs;
+        public byte HasSummary;
+        public byte Reserved0;
+        public ushort Reserved1;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Title;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Summary;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Reason;
     }
 }

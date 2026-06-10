@@ -33,6 +33,7 @@
     { "name": "UploadPartMap", "value": 24 },
     { "name": "AuthSessionList", "value": 25 },
     { "name": "SiteComplianceConfig", "value": 26 },
+    { "name": "ArticleRelatedReading", "value": 27 },
     { "name": "PowChallenge", "value": 30 },
     { "name": "UploadInitRequest", "value": 31 },
     { "name": "UploadCompleteRequest", "value": 32 },

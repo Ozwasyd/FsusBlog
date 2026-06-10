@@ -1,8 +1,6 @@
 import type { ApiRequestConfig } from './requestConfig';
 import { FrameType } from '@wasm/protocol/frame';
 import { requestBinaryOnly } from '@/services/binaryTransport';
-import { buildBinaryPowHeaders } from '@/api/binaryApiClient';
-import { AppErrorCode, createAppError } from '@/utils/appError';
 import { encodeAedsFrame } from './binaryFrame';
 
 // ================= 基础类型 =================
@@ -155,45 +153,13 @@ export const getArticleById = (id: number, config?: ApiRequestConfig) => {
   });
 }
 
-type JsonApiResponse<T> = {
-  success: boolean
-  data?: T | null
-  message?: string | null
-}
-
-async function readJsonEnvelope<T>(response: Response, fallbackMessage: string): Promise<T> {
-  const contentType = response.headers.get('content-type') ?? ''
-  if (!contentType.toLowerCase().includes('application/json')) {
-    throw createAppError(AppErrorCode.ProtocolFailure, fallbackMessage, { status: response.status })
-  }
-
-  let envelope: JsonApiResponse<T>
-  try {
-    envelope = await response.json() as JsonApiResponse<T>
-  } catch {
-    throw createAppError(AppErrorCode.ProtocolFailure, fallbackMessage, { status: response.status })
-  }
-
-  if (!response.ok || !envelope.success || envelope.data == null) {
-    throw createAppError(AppErrorCode.ProtocolFailure, envelope.message || fallbackMessage, { status: response.status })
-  }
-
-  return envelope.data
-}
-
-export const getRelatedReading = async (id: number, config?: ApiRequestConfig): Promise<RelatedReadingResponse> => {
-  const powHeaders = await buildBinaryPowHeaders()
-  const response = await fetch(`/api/public/articles/${id}/related`, {
-    method: 'GET',
-    credentials: 'same-origin',
-    headers: {
-      Accept: 'application/json',
-      ...powHeaders
-    },
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<RelatedReadingResponse>(response, `related_reading_failed:${response.status}`)
+export const getRelatedReading = (id: number, config?: ApiRequestConfig): Promise<RelatedReadingResponse> => {
+  return requestBinaryOnly<RelatedReadingResponse>({
+    binaryUrl: `/api/binary/article/${normalizePositiveInt(id, 1)}/related.aeds`,
+    frameType: FrameType.ArticleRelatedReading,
+    requestOptions: { credentials: 'omit', requiresPow: true },
+    signal: config?.signal as AbortSignal | undefined
+  });
 }
 
 /** 热门排行 */

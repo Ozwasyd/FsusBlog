@@ -1012,6 +1012,40 @@ public class PodBinaryCodecTests
         Assert.False(ok);
     }
 
+    // ── RelatedReading round-trip ───────────────────────────────────────────
+
+    [Fact]
+    public void RelatedReading_RoundTrip_PreservesCompositeNavigation()
+    {
+        var createTime = new DateTime(2026, 5, 17, 12, 0, 0, DateTimeKind.Utc);
+        var response = new RelatedReadingResponse(
+            [
+                new RelatedReadingItem(10, "AEDS public reads", "Binary contract", createTime, "同分类"),
+                new RelatedReadingItem(11, "Hydration notes", null, createTime.AddDays(1), "全文关键词")
+            ],
+            new RelatedReadingItem(9, "Previous article", "previous summary", createTime.AddDays(-1), "上一篇"),
+            new RelatedReadingItem(12, "Next article", null, createTime.AddDays(2), "下一篇"));
+
+        byte[] encoded = PodBinaryCodec.EncodeRelatedReading(response);
+        bool ok = PodBinaryCodec.TryDecodeRelatedReading(encoded, out RelatedReadingResponse decoded);
+
+        Assert.True(ok);
+        Assert.Equal(2, decoded.Related.Count);
+        Assert.Equal("AEDS public reads", decoded.Related[0].Title);
+        Assert.Equal("Binary contract", decoded.Related[0].Summary);
+        Assert.Null(decoded.Related[1].Summary);
+        Assert.Equal("上一篇", decoded.Previous?.Reason);
+        Assert.Equal(12, decoded.Next?.Id);
+        Assert.Null(decoded.Next?.Summary);
+    }
+
+    [Fact]
+    public void RelatedReading_EmptyBytes_ReturnsFalse()
+    {
+        bool ok = PodBinaryCodec.TryDecodeRelatedReading(ReadOnlyMemory<byte>.Empty, out _);
+        Assert.False(ok);
+    }
+
     // ── ArticleSearch round-trip ─────────────────────────────────────────────
 
     [Fact]

@@ -78,6 +78,23 @@ public sealed partial class BackendApiIntegrationContractTests
         Assert.Contains("AddEndpointFilter<RequiresPowFilter>()", users, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PublicRelatedReadingBinaryEndpoint_RetainsPublicReadBoundariesAndApiError()
+    {
+        string root = FindRepoRoot();
+        string articles = File.ReadAllText(Path.Combine(root, "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs"));
+
+        Assert.Contains("\"/article/{articleId:int}/related.aeds\"", articles, StringComparison.Ordinal);
+        Assert.Contains("RelatedReadingService service", articles, StringComparison.Ordinal);
+        Assert.Contains("AedsFrameType.ArticleRelatedReading", articles, StringComparison.Ordinal);
+        Assert.Contains("PodBinaryCodec.WriteRelatedReading", articles, StringComparison.Ordinal);
+        Assert.Contains("ErrorCode.NotFound, \"article_not_found\"", articles, StringComparison.Ordinal);
+        Assert.Contains(".AllowAnonymous()", articles, StringComparison.Ordinal);
+        Assert.Contains("RequireRateLimiting(\"public_read\")", articles, StringComparison.Ordinal);
+        Assert.Contains("AddEndpointFilter<RiskAwarePublicReadFilter>()", articles, StringComparison.Ordinal);
+        Assert.Contains("CacheTag.ArticleList.ToOutputCacheTag()", articles, StringComparison.Ordinal);
+    }
+
     [GeneratedRegex(@"AedsFrameType\.([A-Za-z0-9_]+)", RegexOptions.CultureInvariant)]
     private static partial Regex AedsFrameTypeRegex();
 

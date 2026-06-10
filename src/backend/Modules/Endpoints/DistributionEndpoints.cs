@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Distribution;
+using FsusBlog.Shared.Contracts.Outputs;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;

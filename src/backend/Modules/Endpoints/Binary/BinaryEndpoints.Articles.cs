@@ -17,6 +17,7 @@ using FsusBlog.Server.Models;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
@@ -29,6 +30,24 @@ public static partial class BinaryEndpoints
 {
     private static void MapBinaryArticleEndpoints(IEndpointRouteBuilder group)
     {
+        group.MapGet("/article/{articleId:int}/related.aeds", static async Task<BinaryFrameResult> (
+            int articleId,
+            RelatedReadingService service,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            RelatedReadingResponse? response = await service.BuildAsync(articleId, cancellationToken);
+            return response is null
+                ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "article_not_found"), aeds)
+                : BinaryResults.Frame(aeds, AedsFrameType.ArticleRelatedReading, writer => PodBinaryCodec.WriteRelatedReading(response, writer));
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .AddEndpointFilter<RiskAwarePublicReadFilter>()
+        .CacheOutput(static builder => builder
+            .Expire(TimeSpan.FromMinutes(1))
+            .Tag(CacheTag.ArticleList.ToOutputCacheTag()));
+
         group.MapGet("/admin/article", static async Task<IResult> (
             int? page,
             int? size,

@@ -336,6 +336,54 @@
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/articleAdapter.ts"
       }
     },
+    "/api/binary/article/{articleId:int}/related.aeds": {
+      "get": {
+        "operationId": "binary_get_article_articleId_int_related_aeds",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "public-related-reading",
+        "responses": {
+          "200": {
+            "description": "ArticleRelatedReading AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ArticleRelatedReading",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "public-read",
+        "x-fsus-rate-limit": "public_read",
+        "x-fsus-test-surface": "public-related-reading",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/article.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/articleAdapter.ts"
+      }
+    },
     "/api/binary/admin/article/trash": {
       "delete": {
         "operationId": "binary_delete_admin_article_trash",

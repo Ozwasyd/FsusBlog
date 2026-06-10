@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapUserSessionsFromPayload } from '@/adapters/binary/authAdapter'
 import { mapConversationDetailFromPayload, mapConversationListFromPayload, mapConversationMessageFromPayload } from '@/adapters/binary/messageAdapter'
-import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload } from '@/adapters/binary/articleAdapter'
+import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapRelatedReadingFromPodPayload } from '@/adapters/binary/articleAdapter'
 import { mapCommentCursorFromPodPayload } from '@/adapters/binary/commentAdapter'
 import { mapRecentCommentsFromPodPayload, mapRegionsFromPodPayload, mapSiteStatsFromPodPayload } from '@/adapters/binary/statsAdapter'
 import { mapPageContentFromPayload, mapSeoConfigFromPayload } from '@/adapters/binary/systemAdapter'
@@ -401,6 +401,49 @@ describe('AEDS cross-stack contract fixture', () => {
       { id: 11, title: 'Hot 1', views: 999 },
       { id: 22, title: 'Hot 2', views: 888 }
     ])
+  })
+
+  it('decodes the checked-in backend ArticleRelatedReading frame with the real frontend decoder', async () => {
+    const { decode } = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+    const buffer = readProtocolFixtureBuffer('article-related-reading-frame.hex')
+
+    const result = decode(buffer)
+
+    expect(result.ok).toBe(true)
+    expect(result.frameType).toBe(FrameType.ArticleRelatedReading)
+
+    expect(mapRelatedReadingFromPodPayload(result.payloadView)).toEqual({
+      related: [
+        {
+          id: 10,
+          title: 'AEDS public reads',
+          summary: 'Binary contract',
+          createTime: '2026-05-17T12:00:00.000Z',
+          reason: '同分类'
+        },
+        {
+          id: 11,
+          title: 'Hydration notes',
+          summary: null,
+          createTime: '2026-05-18T12:00:00.000Z',
+          reason: '全文关键词'
+        }
+      ],
+      previous: {
+        id: 9,
+        title: 'Previous article',
+        summary: 'previous summary',
+        createTime: '2026-05-16T12:00:00.000Z',
+        reason: '上一篇'
+      },
+      next: {
+        id: 12,
+        title: 'Next article',
+        summary: null,
+        createTime: '2026-05-19T12:00:00.000Z',
+        reason: '下一篇'
+      }
+    })
   })
 
   it('decodes the checked-in backend ArticleSearch frame with the real frontend decoder', async () => {

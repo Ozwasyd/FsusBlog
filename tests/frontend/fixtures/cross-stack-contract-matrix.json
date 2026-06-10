@@ -234,6 +234,7 @@
         { "method": "GET", "path": "/admin/article/{id:int}", "auth": "admin", "responseFrame": "ArticleDetail" },
         { "method": "GET", "path": "/admin/article/hot", "auth": "admin", "responseFrame": "ArticleHot" },
         { "method": "GET", "path": "/admin/article/featured", "auth": "admin", "responseFrame": "ArticleFeatured" },
+        { "method": "GET", "path": "/article/{articleId:int}/related.aeds", "auth": "anonymous", "responseFrame": "ArticleRelatedReading", "surface": "public-related-reading" },
         { "method": "POST", "path": "/admin/article", "auth": "admin", "pow": true, "requestFrame": "ArticleWriteRequest", "responseFrame": "MutationId" },
         { "method": "PUT", "path": "/admin/article/{id:int}", "auth": "admin", "pow": true, "requestFrame": "ArticleWriteRequest", "responseFrame": "MutationId" },
         { "method": "DELETE", "path": "/admin/article/trash", "auth": "admin", "pow": true, "responseFrame": "TrashClearResponse" },

@@ -19,7 +19,7 @@
 |------|-------------|-------|---------|
 | **AEDS Binary** | `application/octet-stream` | TypeScript adapter / C++23 Wasm Worker | `/api/binary/...` |
 
-旧文本业务 API 不再注册；`/api/**` 非 binary 业务路径统一返回 `ApiError` AEDS frame。客户端不得把解码失败回退为文本 API 请求。例外只限 [AEDS-only policy](aeds-only-policy.md) 登记的标准协议、健康探针、工具入口和迁移期兼容层；其中 `/api/author/**`、`/api/read-proof/**`、`/api/telemetry/rum`、`/api/admin/security/**`、`/api/public/articles/{id}/related` 和通知 preflight JSON error envelope 都是必须迁移的内部应用 API，不得继续扩散新的 JSON 调用点。
+旧文本业务 API 不再注册；`/api/**` 非 binary 业务路径统一返回 `ApiError` AEDS frame。客户端不得把解码失败回退为文本 API 请求。例外只限 [AEDS-only policy](aeds-only-policy.md) 登记的标准协议、健康探针、工具入口和迁移期兼容层；其中 `/api/author/**`、`/api/read-proof/**`、`/api/telemetry/rum`、`/api/admin/security/**` 和通知 preflight JSON error envelope 都是必须迁移的内部应用 API，不得继续扩散新的 JSON 调用点。`/api/public/articles/{id}/related` 仅作为废弃兼容端点登记，生产前端必须使用 `/api/binary/article/{id}/related.aeds`。
 
 HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提供，包含 method/path/status/content-type/security 与 `x-fsus-*` 扩展；AEDS payload、frame 编号、POD schema 和 golden fixture 仍由 `aeds-protocol.json`、POD 契约和 fixture 负责。
 

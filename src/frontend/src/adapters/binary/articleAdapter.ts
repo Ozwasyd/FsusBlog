@@ -1,10 +1,10 @@
-import type { ArticleDetailResponse, ArticleListItemResponse, FeaturedArticleItem, PageResponse, PopularArticleSummaryResponse } from '@/api/article';
+import type { ArticleDetailResponse, ArticleListItemResponse, FeaturedArticleItem, PageResponse, PopularArticleSummaryResponse, RelatedReadingItemResponse, RelatedReadingResponse } from '@/api/article';
 import type { TrashClearResponse } from '@/api/stats';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { BinaryReader, readBlobText, readCountChecked, readFixedUtf8, readInt32, readInt64Number, readIsoDate64, readSliceRef, readSliceText } from './reader';
 import { readCategoryPod, readFeaturedArticleItem, readTagList } from './podReaders';
 import { readArrayEnvelope } from './envelopeReaders';
-import { ARTICLE_DETAIL_POD_SIZE, ARTICLE_LIST_ITEM_POD_SIZE } from './types';
+import { ARTICLE_DETAIL_POD_SIZE, ARTICLE_LIST_ITEM_POD_SIZE, RELATED_READING_HEADER_POD_SIZE, RELATED_READING_ITEM_POD_SIZE } from './types';
 
 export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse> {
   const reader = new BinaryReader(payload);
@@ -218,6 +218,57 @@ export function mapArticleHotFromPodPayload(payload: Uint8Array): PopularArticle
 export function mapArticleFeaturedFromPodPayload(payload: Uint8Array): FeaturedArticleItem[] {
   const reader = new BinaryReader(payload);
   return readArrayEnvelope(reader, () => readFeaturedArticleItem(reader), 'article_featured_count_invalid', 'article_featured_trailing_payload_invalid');
+}
+
+export function mapRelatedReadingFromPodPayload(payload: Uint8Array): RelatedReadingResponse {
+  const reader = new BinaryReader(payload);
+  const header = reader.readSpan(RELATED_READING_HEADER_POD_SIZE);
+  const relatedCount = readInt32(header, 0);
+  const hasPrevious = header[4] ?? 0;
+  const hasNext = header[5] ?? 0;
+  if (relatedCount < 0 || hasPrevious > 1 || hasNext > 1) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'related_reading_header_invalid');
+  }
+
+  const recordCount = relatedCount + hasPrevious + hasNext;
+  const records: Uint8Array[] = [];
+  for (let i = 0; i < recordCount; i += 1) {
+    records.push(reader.readSpan(RELATED_READING_ITEM_POD_SIZE));
+  }
+
+  const blob = reader.readBlob();
+  if (reader.remaining() !== 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'related_reading_trailing_payload_invalid');
+  }
+
+  const related: RelatedReadingItemResponse[] = [];
+  for (let i = 0; i < relatedCount; i += 1) {
+    related.push(readRelatedReadingItem(records[i], blob));
+  }
+
+  let optionalIndex = relatedCount;
+  const previous = hasPrevious === 1 ? readRelatedReadingItem(records[optionalIndex++], blob) : null;
+  const next = hasNext === 1 ? readRelatedReadingItem(records[optionalIndex], blob) : null;
+  return { related, previous, next };
+}
+
+function readRelatedReadingItem(record: Uint8Array | undefined, blob: Uint8Array): RelatedReadingItemResponse {
+  if (!record) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'related_reading_item_missing');
+  }
+
+  const hasSummary = record[12] ?? 0;
+  if (hasSummary > 1) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'related_reading_summary_flag_invalid');
+  }
+
+  return {
+    id: readInt32(record, 0),
+    createTime: new Date(readInt64Number(record, 4)).toISOString(),
+    title: readSliceText(blob, readSliceRef(record, 16)),
+    summary: hasSummary === 1 ? readSliceText(blob, readSliceRef(record, 24)) : null,
+    reason: readSliceText(blob, readSliceRef(record, 32))
+  };
 }
 
 export function mapTrashClearResponseFromPodPayload(payload: Uint8Array): TrashClearResponse {

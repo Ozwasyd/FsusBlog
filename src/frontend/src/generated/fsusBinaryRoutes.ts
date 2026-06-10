@@ -16,6 +16,7 @@ export const fsusBinaryRoutes = {
   "binary_get_admin_messages_conversations": "/api/binary/admin/messages/conversations",
   "binary_get_admin_messages_conversations_id_long": "/api/binary/admin/messages/conversations/{id:long}",
   "binary_get_admin_users": "/api/binary/admin/users",
+  "binary_get_article_articleId_int_related_aeds": "/api/binary/article/{articleId:int}/related.aeds",
   "binary_get_article_id_aeds": "/api/binary/article/{id}.aeds",
   "binary_get_article_featured_size_aeds": "/api/binary/article/featured/{size}.aeds",
   "binary_get_article_hot_size_aeds": "/api/binary/article/hot/{size}.aeds",

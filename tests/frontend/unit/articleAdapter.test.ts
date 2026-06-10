@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   mapArticleDetailFromPodPayload,
   mapArticlePageFromPodPayload,
+  mapRelatedReadingFromPodPayload,
   mapArticleSearchFromPodPayload
 } from '@/adapters/binary/articleAdapter'
 
@@ -14,6 +15,71 @@ const enc = new TextEncoder()
 
 function writeStr(buf: Uint8Array, offset: number, text: string): void {
   buf.set(enc.encode(text), offset)
+}
+
+type RelatedReadingFixtureItem = {
+  id: number
+  title: string
+  summary?: string | null
+  createTimeMs: bigint
+  reason: string
+}
+
+function buildRelatedReadingPayload(opts: {
+  related: RelatedReadingFixtureItem[]
+  previous?: RelatedReadingFixtureItem | null
+  next?: RelatedReadingFixtureItem | null
+}): Uint8Array {
+  const entries = [
+    ...opts.related,
+    ...(opts.previous ? [opts.previous] : []),
+    ...(opts.next ? [opts.next] : [])
+  ]
+  const blobChunks: Uint8Array[] = []
+  let blobLength = 0
+  const appendText = (text: string) => {
+    const bytes = enc.encode(text)
+    const slice = { offset: blobLength, length: bytes.length }
+    blobChunks.push(bytes)
+    blobLength += bytes.length
+    return slice
+  }
+  const refs = entries.map((entry) => ({
+    title: appendText(entry.title),
+    summary: entry.summary == null ? { offset: 0, length: 0 } : appendText(entry.summary),
+    reason: appendText(entry.reason)
+  }))
+  const totalSize = 8 + entries.length * 40 + 4 + blobLength
+  const buf = new Uint8Array(totalSize)
+  const dv = new DataView(buf.buffer)
+  dv.setInt32(0, opts.related.length, true)
+  buf[4] = opts.previous ? 1 : 0
+  buf[5] = opts.next ? 1 : 0
+
+  let pos = 8
+  for (let i = 0; i < entries.length; i += 1) {
+    const entry = entries[i]!
+    const ref = refs[i]!
+    dv.setInt32(pos, entry.id, true)
+    dv.setBigInt64(pos + 4, entry.createTimeMs, true)
+    buf[pos + 12] = entry.summary == null ? 0 : 1
+    dv.setInt32(pos + 16, ref.title.offset, true)
+    dv.setInt32(pos + 20, ref.title.length, true)
+    dv.setInt32(pos + 24, ref.summary.offset, true)
+    dv.setInt32(pos + 28, ref.summary.length, true)
+    dv.setInt32(pos + 32, ref.reason.offset, true)
+    dv.setInt32(pos + 36, ref.reason.length, true)
+    pos += 40
+  }
+
+  dv.setInt32(pos, blobLength, true)
+  pos += 4
+  for (const chunk of blobChunks) {
+    buf.set(chunk, pos)
+    pos += chunk.length
+  }
+
+  return buf
 }
 
 /**
@@ -130,6 +196,75 @@ function buildArticleDetailPayload(opts: {
 // ---------------------------------------------------------------------------
 // ArticleDetail adapter tests
 // ---------------------------------------------------------------------------
+
+describe('mapRelatedReadingFromPodPayload', () => {
+  it('decodes related, previous, next and nullable summary', () => {
+    const firstTime = 1_715_299_200_000n
+    const payload = buildRelatedReadingPayload({
+      related: [
+        {
+          id: 10,
+          title: 'AEDS public reads',
+          summary: 'Binary contract',
+          createTimeMs: firstTime,
+          reason: '同分类'
+        },
+        {
+          id: 11,
+          title: 'Hydration notes',
+          summary: null,
+          createTimeMs: firstTime + 86_400_000n,
+          reason: '全文关键词'
+        }
+      ],
+      previous: {
+        id: 9,
+        title: 'Previous article',
+        summary: 'previous summary',
+        createTimeMs: firstTime - 86_400_000n,
+        reason: '上一篇'
+      },
+      next: {
+        id: 12,
+        title: 'Next article',
+        summary: null,
+        createTimeMs: firstTime + 172_800_000n,
+        reason: '下一篇'
+      }
+    })
+
+    const result = mapRelatedReadingFromPodPayload(payload)
+
+    expect(result.related).toHaveLength(2)
+    expect(result.related[0]).toEqual({
+      id: 10,
+      title: 'AEDS public reads',
+      summary: 'Binary contract',
+      createTime: new Date(Number(firstTime)).toISOString(),
+      reason: '同分类'
+    })
+    expect(result.related[1]?.summary).toBeNull()
+    expect(result.previous?.reason).toBe('上一篇')
+    expect(result.next?.id).toBe(12)
+  })
+
+  it('rejects invalid summary flag', () => {
+    const payload = buildRelatedReadingPayload({
+      related: [
+        {
+          id: 1,
+          title: 'Broken',
+          summary: 'bad',
+          createTimeMs: 1_715_299_200_000n,
+          reason: '同分类'
+        }
+      ]
+    })
+    payload[8 + 12] = 2
+
+    expect(() => mapRelatedReadingFromPodPayload(payload)).toThrow()
+  })
+})
 
 describe('mapArticleDetailFromPodPayload', () => {
   it('reads category.id from offset 20, not from Reserved0 at offset 16', () => {

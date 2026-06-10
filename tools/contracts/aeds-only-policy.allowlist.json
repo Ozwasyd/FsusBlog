@@ -29,24 +29,14 @@
       "reason": "Build/backfill tooling manifest, protected by optional manifest token; not browser runtime application API."
     },
     {
-      "id": "public-related-reading-json-migration",
+      "id": "public-related-reading-json-deprecated",
       "classification": "must-migrate",
-      "scope": "cross-stack",
+      "scope": "backend",
       "file": "src/backend/Modules/Endpoints/DistributionEndpoints.cs",
       "patterns": ["JsonApiResponse<RelatedReadingResponse>", "/api/public/articles"],
       "routes": ["/api/public/articles/{articleId}/related"],
-      "issue": "#98",
-      "reason": "Public related-reading is an internal public runtime API and must move to an AEDS frame contract."
-    },
-    {
-      "id": "frontend-related-reading-json-migration",
-      "classification": "must-migrate",
-      "scope": "frontend",
-      "file": "src/frontend/src/api/article.ts",
-      "patterns": ["JsonApiResponse", "response.json", "application/json", "/api/public/articles"],
-      "routes": ["/api/public/articles/{articleId}/related"],
-      "issue": "#98",
-      "reason": "Frontend related-reading adapter is kept only until the AEDS migration lands."
+      "issue": "#105",
+      "reason": "Deprecated compatibility endpoint retained after #98; frontend runtime uses /api/binary/article/{articleId}/related.aeds and this JSON endpoint is tracked for removal."
     },
     {
       "id": "read-proof-json-migration-backend",

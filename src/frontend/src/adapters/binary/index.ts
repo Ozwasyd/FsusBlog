@@ -1,7 +1,7 @@
 import { FrameType } from '@wasm/protocol/frame';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { mapEmptySuccessFromPayload, mapMutationIdFromPayload } from './commonAdapter';
-import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapTrashClearResponseFromPodPayload } from './articleAdapter';
+import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapRelatedReadingFromPodPayload, mapTrashClearResponseFromPodPayload } from './articleAdapter';
 import { mapCommentCursorFromPodPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from './commentAdapter';
 import { mapRecentCommentsFromPodPayload, mapRegionsFromPodPayload, mapSiteStatsFromPodPayload } from './statsAdapter';
 import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceConfigFromPayload } from './systemAdapter';
@@ -18,6 +18,7 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.ArticleHot]: mapArticleHotFromPodPayload,
   [FrameType.ArticleSearch]: mapArticleSearchFromPodPayload,
   [FrameType.ArticleFeatured]: mapArticleFeaturedFromPodPayload,
+  [FrameType.ArticleRelatedReading]: mapRelatedReadingFromPodPayload,
   [FrameType.TrashClearResponse]: mapTrashClearResponseFromPodPayload,
   [FrameType.AdminUserList]: mapAdminUserPageFromPayload,
   [FrameType.AuthLoginFlow]: mapAuthLoginFlowFromPayload,

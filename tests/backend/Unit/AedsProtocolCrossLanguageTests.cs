@@ -379,6 +379,23 @@ public sealed partial class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    public void BackendEncoder_MatchesSharedArticleRelatedReadingFixture()
+    {
+        var createTime = new DateTime(2026, 5, 17, 12, 0, 0, DateTimeKind.Utc);
+        var response = new RelatedReadingResponse(
+            [
+                new RelatedReadingItem(10, "AEDS public reads", "Binary contract", createTime, "同分类"),
+                new RelatedReadingItem(11, "Hydration notes", null, createTime.AddDays(1), "全文关键词")
+            ],
+            new RelatedReadingItem(9, "Previous article", "previous summary", createTime.AddDays(-1), "上一篇"),
+            new RelatedReadingItem(12, "Next article", null, createTime.AddDays(2), "下一篇"));
+
+        byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.ArticleRelatedReading, PodBinaryCodec.EncodeRelatedReading(response));
+
+        Assert.Equal(ReadProtocolFixtureBytes("article-related-reading-frame.hex"), encoded);
+    }
+
+    [Fact]
     public void BackendEncoder_MatchesSharedArticleSearchFixture()
     {
         var searchCreateTime = new DateTime(2026, 5, 12, 12, 34, 56, DateTimeKind.Utc);

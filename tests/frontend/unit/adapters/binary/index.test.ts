@@ -36,6 +36,10 @@ describe('mapFramePayloadToViewModel', () => {
     expect(() => mapFramePayloadToViewModel(FrameType.ArticleFeatured, new Uint8Array(0))).toThrow()
   })
 
+  it('calls mapper for ArticleRelatedReading (throws on empty payload, confirms routing)', () => {
+    expect(() => mapFramePayloadToViewModel(FrameType.ArticleRelatedReading, new Uint8Array(0))).toThrow()
+  })
+
   it('calls mapper for TrashClearResponse (throws on empty payload, confirms routing)', () => {
     expect(() => mapFramePayloadToViewModel(FrameType.TrashClearResponse, new Uint8Array(0))).toThrow()
   })

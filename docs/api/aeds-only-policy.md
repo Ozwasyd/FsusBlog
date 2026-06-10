@@ -49,7 +49,7 @@ error:    AedsFrameType.ApiError
 
 | 范围 | 当前路径 | 迁移 issue |
 |------|----------|------------|
-| Public related reading | `/api/public/articles/{articleId}/related` | #98 |
+| Deprecated public related-reading JSON compatibility | `/api/public/articles/{articleId}/related` | #105 |
 | Human read proof | `/api/read-proof/challenge`, `/api/read-proof/submit` | #99 |
 | RUM telemetry | `/api/telemetry/rum` | #101 |
 | Authoring / moderation / ops | `/api/author/**` | #102 |

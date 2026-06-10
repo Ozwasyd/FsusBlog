@@ -12,6 +12,7 @@ import {
   getAdminArticleById,
   getArticleById,
   getFeaturedArticles,
+  getRelatedReading,
   getHotArticles,
   createArticle,
   updateArticle,
@@ -84,6 +85,15 @@ describe('article API (binary)', () => {
       binaryUrl: '/api/binary/article/featured/4.aeds',
       requestOptions: expect.objectContaining({ credentials: 'omit' }),
       frameType: expect.any(Number)
+    }))
+  })
+
+  it('getRelatedReading calls binary related-reading endpoint without JSON fallback', async () => {
+    await getRelatedReading(42)
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/article/42/related.aeds',
+      requestOptions: expect.objectContaining({ credentials: 'omit', requiresPow: true }),
+      frameType: FrameType.ArticleRelatedReading
     }))
   })
 })

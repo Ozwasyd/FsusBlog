@@ -412,6 +412,46 @@ describe('binaryTransport ApiError mapping', () => {
     ])
   })
 
+  it('maps an ArticleRelatedReading frame into the expected view model', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-related-reading-frame.hex'))
+
+    await expect(requestBinaryOnly<any>({
+      binaryUrl: '/api/binary/article/10/related.aeds',
+      frameType: FrameType.ArticleRelatedReading
+    })).resolves.toEqual({
+      related: [
+        {
+          id: 10,
+          title: 'AEDS public reads',
+          summary: 'Binary contract',
+          createTime: '2026-05-17T12:00:00.000Z',
+          reason: '同分类'
+        },
+        {
+          id: 11,
+          title: 'Hydration notes',
+          summary: null,
+          createTime: '2026-05-18T12:00:00.000Z',
+          reason: '全文关键词'
+        }
+      ],
+      previous: {
+        id: 9,
+        title: 'Previous article',
+        summary: 'previous summary',
+        createTime: '2026-05-16T12:00:00.000Z',
+        reason: '上一篇'
+      },
+      next: {
+        id: 12,
+        title: 'Next article',
+        summary: null,
+        createTime: '2026-05-19T12:00:00.000Z',
+        reason: '下一篇'
+      }
+    })
+  })
+
   it('maps an ArticleSearch frame into the expected page response', async () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-search-frame.hex'))
 
