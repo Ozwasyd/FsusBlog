@@ -148,6 +148,11 @@ describe('mapFramePayloadToViewModel', () => {
     expect(() => mapFramePayloadToViewModel(FrameType.UploadPartMap, new Uint8Array(0))).toThrow()
   })
 
+  it('maps security JSON bridge frames', () => {
+    const payload = new TextEncoder().encode('{"snapshotId":"sec-1"}')
+    expect(mapFramePayloadToViewModel(FrameType.AntiCrawlerPolicySnapshot, payload)).toEqual({ snapshotId: 'sec-1' })
+  })
+
   it('maps EmptySuccess payload', () => {
     expect(mapFramePayloadToViewModel(FrameType.EmptySuccess, new Uint8Array([1, 0, 0, 0]))).toBeNull()
   })

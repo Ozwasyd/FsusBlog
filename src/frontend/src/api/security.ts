@@ -1,7 +1,10 @@
 import type { ApiRequestConfig } from './requestConfig'
+import { FrameType } from '@wasm/protocol/frame'
+import { requestBinaryOnly } from '@/services/binaryTransport'
+import { encodeAedsFrame } from './binaryFrame'
+import { encodeSecurityJsonRequest } from '@/adapters/binary/securityAdapter'
 import { FSUS_HEADERS } from './contracts'
 import { getBrowserFp } from '@/utils/fingerprint'
-import { AppErrorCode, appErrorFromStatus, createAppError } from '@/utils/appError'
 
 export type SecurityMode = 'disabled' | 'observe' | 'enforce' | 'strict'
 
@@ -246,45 +249,51 @@ export interface SecurityRiskResetResponse {
   resetAtUtc: string
 }
 
-type JsonApiResponse<T> = {
-  success: boolean
-  data?: T | null
-  message?: string | null
+const ADMIN_SENSITIVE_MFA_HEADER = 'X-Fsus-Mfa-Proof'
+const BINARY_API_PREFIX = '/api/binary'
+
+type SecurityBinaryRequestOptions = {
+  method?: string
+  requestFrame?: FrameType
+  request?: unknown
 }
 
-const ADMIN_SENSITIVE_MFA_HEADER = 'X-Fsus-Mfa-Proof'
-
-const jsonHeaders = (hasBody: boolean, mfaProofToken?: string | null): Headers => {
+const securityHeaders = (mfaProofToken?: string | null): Headers => {
   const headers = new Headers()
-  headers.set('Accept', 'application/json')
   headers.set(FSUS_HEADERS.deviceFingerprint, getBrowserFp())
-  if (hasBody) headers.set('Content-Type', 'application/json')
 
   const proofToken = mfaProofToken?.trim()
   if (proofToken) headers.set(ADMIN_SENSITIVE_MFA_HEADER, proofToken)
   return headers
 }
 
-async function readJsonEnvelope<T>(response: Response, fallbackMessage: string): Promise<T> {
-  const envelope = await response.json() as JsonApiResponse<T>
-  if (!response.ok || !envelope.success || envelope.data == null) {
-    const message = envelope.message || fallbackMessage
-    if (!response.ok) throw appErrorFromStatus(response.status, message)
-    throw createAppError(AppErrorCode.ProtocolFailure, message, { status: response.status })
-  }
-
-  return envelope.data
+function securityBody(frameType: FrameType, request: unknown): ArrayBuffer {
+  return encodeAedsFrame(frameType, encodeSecurityJsonRequest(request))
 }
 
-async function requestJson<T>(url: string, init: RequestInit = {}, config?: ApiRequestConfig): Promise<T> {
-  const hasBody = init.body != null
-  const response = await fetch(url, {
-    ...init,
+function requestSecurityBinary<T>(
+  path: string,
+  frameType: FrameType,
+  config?: ApiRequestConfig,
+  options: SecurityBinaryRequestOptions = {}
+): Promise<T> {
+  const requestOptions: RequestInit = {
     credentials: 'include',
-    headers: jsonHeaders(hasBody, config?.mfaProofToken),
-    signal: config?.signal
+    headers: securityHeaders(config?.mfaProofToken)
+  }
+  if (options.method) {
+    requestOptions.method = options.method
+  }
+  if (options.requestFrame !== undefined) {
+    requestOptions.body = securityBody(options.requestFrame, options.request)
+  }
+
+  return requestBinaryOnly<T>({
+    binaryUrl: `${BINARY_API_PREFIX}/admin/security${path}`,
+    frameType,
+    requestOptions,
+    signal: config?.signal as AbortSignal | undefined
   })
-  return await readJsonEnvelope<T>(response, `security_request_failed:${response.status}`)
 }
 
 const query = (params: Record<string, string | number | null | undefined>): string => {
@@ -297,88 +306,95 @@ const query = (params: Record<string, string | number | null | undefined>): stri
 }
 
 export const getSecurityOverview = (config?: ApiRequestConfig) =>
-  requestJson<SecurityOverviewResponse>('/api/admin/security/overview', {}, config)
+  requestSecurityBinary<SecurityOverviewResponse>('/overview', FrameType.SecurityOverview, config)
 
 export const getAntiCrawlerOverview = (config?: ApiRequestConfig) =>
-  requestJson<AntiCrawlerOverviewResponse>('/api/admin/security/anti-crawler/overview', {}, config)
+  requestSecurityBinary<AntiCrawlerOverviewResponse>('/anti-crawler/overview', FrameType.AntiCrawlerOverview, config)
 
 export const getAntiCrawlerOptions = (config?: ApiRequestConfig) =>
-  requestJson<AntiCrawlerPolicySnapshot>('/api/admin/security/anti-crawler/options', {}, config)
+  requestSecurityBinary<AntiCrawlerPolicySnapshot>('/anti-crawler/options', FrameType.AntiCrawlerPolicySnapshot, config)
 
 export const updateAntiCrawlerOptions = (request: AntiCrawlerOptionsUpdateRequest, config?: ApiRequestConfig) =>
-  requestJson<AntiCrawlerPolicySnapshot>('/api/admin/security/anti-crawler/options', {
+  requestSecurityBinary<AntiCrawlerPolicySnapshot>('/anti-crawler/options', FrameType.AntiCrawlerPolicySnapshot, config, {
     method: 'PUT',
-    body: JSON.stringify(request)
-  }, config)
+    requestFrame: FrameType.AntiCrawlerOptionsUpdateRequest,
+    request
+  })
 
 export const rollbackAntiCrawlerOptions = (config?: ApiRequestConfig) =>
-  requestJson<AntiCrawlerPolicySnapshot>('/api/admin/security/anti-crawler/options/rollback', { method: 'POST' }, config)
+  requestSecurityBinary<AntiCrawlerPolicySnapshot>('/anti-crawler/options/rollback', FrameType.AntiCrawlerPolicySnapshot, config, { method: 'POST' })
 
 export const getCrawlerRangesStatus = (config?: ApiRequestConfig) =>
-  requestJson<CrawlerRangesAdminStatus>('/api/admin/security/anti-crawler/crawler-ranges/status', {}, config)
+  requestSecurityBinary<CrawlerRangesAdminStatus>('/anti-crawler/crawler-ranges/status', FrameType.CrawlerRangesAdminStatus, config)
 
 export const syncCrawlerRanges = (config?: ApiRequestConfig) =>
-  requestJson<CrawlerRangeSyncResponse>('/api/admin/security/anti-crawler/crawler-ranges/sync', { method: 'POST' }, config)
+  requestSecurityBinary<CrawlerRangeSyncResponse>('/anti-crawler/crawler-ranges/sync', FrameType.CrawlerRangeSyncResponse, config, { method: 'POST' })
 
 export const listSecurityRiskEvents = (params: { source?: string | null; reason?: string | null; limit?: number } = {}, config?: ApiRequestConfig) =>
-  requestJson<AntiCrawlerRiskEventResponse[]>(`/api/admin/security/risk/events${query(params)}`, {}, config)
+  requestSecurityBinary<AntiCrawlerRiskEventResponse[]>(`/risk/events${query(params)}`, FrameType.SecurityRiskEventList, config)
 
 export const listSecurityRiskSnapshots = (limit = 100, config?: ApiRequestConfig) =>
-  requestJson<SecurityRiskSnapshotResponse[]>(`/api/admin/security/risk/snapshots${query({ limit })}`, {}, config)
+  requestSecurityBinary<SecurityRiskSnapshotResponse[]>(`/risk/snapshots${query({ limit })}`, FrameType.SecurityRiskSnapshotList, config)
 
 export const resetSecurityRisk = (request: SecurityRiskResetRequest, config?: ApiRequestConfig) =>
-  requestJson<SecurityRiskResetResponse>('/api/admin/security/risk/ip/reset', {
+  requestSecurityBinary<SecurityRiskResetResponse>('/risk/ip/reset', FrameType.SecurityRiskResetResponse, config, {
     method: 'POST',
-    body: JSON.stringify(request)
-  }, config)
+    requestFrame: FrameType.SecurityRiskResetRequest,
+    request
+  })
 
 export const listAntiCrawlerRules = (config?: ApiRequestConfig) =>
-  requestJson<AntiCrawlerRuleResponse[]>('/api/admin/security/anti-crawler/rules', {}, config)
+  requestSecurityBinary<AntiCrawlerRuleResponse[]>('/anti-crawler/rules', FrameType.AntiCrawlerRuleList, config)
 
 export const createAntiCrawlerRule = (request: AntiCrawlerRuleRequest, config?: ApiRequestConfig) =>
-  requestJson<AntiCrawlerRuleResponse>('/api/admin/security/anti-crawler/rules', {
+  requestSecurityBinary<AntiCrawlerRuleResponse>('/anti-crawler/rules', FrameType.AntiCrawlerRuleResponse, config, {
     method: 'POST',
-    body: JSON.stringify(request)
-  }, config)
+    requestFrame: FrameType.AntiCrawlerRuleRequest,
+    request
+  })
 
 export const updateAntiCrawlerRule = (id: string, request: AntiCrawlerRuleRequest, config?: ApiRequestConfig) =>
-  requestJson<AntiCrawlerRuleResponse>(`/api/admin/security/anti-crawler/rules/${encodeURIComponent(id)}`, {
+  requestSecurityBinary<AntiCrawlerRuleResponse>(`/anti-crawler/rules/${encodeURIComponent(id)}`, FrameType.AntiCrawlerRuleResponse, config, {
     method: 'PUT',
-    body: JSON.stringify(request)
-  }, config)
+    requestFrame: FrameType.AntiCrawlerRuleRequest,
+    request
+  })
 
 export const deleteAntiCrawlerRule = (id: string, config?: ApiRequestConfig) =>
-  requestJson<{ deleted: boolean }>(`/api/admin/security/anti-crawler/rules/${encodeURIComponent(id)}`, { method: 'DELETE' }, config)
+  requestSecurityBinary<{ deleted: boolean }>(`/anti-crawler/rules/${encodeURIComponent(id)}`, FrameType.AntiCrawlerRuleDeleteResponse, config, { method: 'DELETE' })
 
 export const listAntiCrawlerEntries = (listType: 'allowlist' | 'blocklist', config?: ApiRequestConfig) =>
-  requestJson<AntiCrawlerListEntryResponse[]>(`/api/admin/security/anti-crawler/${listType}`, {}, config)
+  requestSecurityBinary<AntiCrawlerListEntryResponse[]>(`/anti-crawler/${listType}`, FrameType.AntiCrawlerListEntryList, config)
 
 export const createAntiCrawlerEntry = (listType: 'allowlist' | 'blocklist', request: AntiCrawlerListEntryRequest, config?: ApiRequestConfig) =>
-  requestJson<AntiCrawlerListEntryResponse>(`/api/admin/security/anti-crawler/${listType}`, {
+  requestSecurityBinary<AntiCrawlerListEntryResponse>(`/anti-crawler/${listType}`, FrameType.AntiCrawlerListEntryResponse, config, {
     method: 'POST',
-    body: JSON.stringify(request)
-  }, config)
+    requestFrame: FrameType.AntiCrawlerListEntryRequest,
+    request
+  })
 
 export const deleteAntiCrawlerEntry = (listType: 'allowlist' | 'blocklist', id: string, config?: ApiRequestConfig) =>
-  requestJson<{ deleted: boolean }>(`/api/admin/security/anti-crawler/${listType}/${encodeURIComponent(id)}`, { method: 'DELETE' }, config)
+  requestSecurityBinary<{ deleted: boolean }>(`/anti-crawler/${listType}/${encodeURIComponent(id)}`, FrameType.AntiCrawlerListEntryDeleteResponse, config, { method: 'DELETE' })
 
 export const simulateAntiCrawlerPolicy = (request: AntiCrawlerSimulationRequest, config?: ApiRequestConfig) =>
-  requestJson<AntiCrawlerSimulationResult>('/api/admin/security/anti-crawler/simulate', {
+  requestSecurityBinary<AntiCrawlerSimulationResult>('/anti-crawler/simulate', FrameType.AntiCrawlerSimulationResult, config, {
     method: 'POST',
-    body: JSON.stringify(request)
-  }, config)
+    requestFrame: FrameType.AntiCrawlerSimulationRequest,
+    request
+  })
 
 export const getPowOverview = (config?: ApiRequestConfig) =>
-  requestJson<PowOverviewResponse>('/api/admin/security/pow/overview', {}, config)
+  requestSecurityBinary<PowOverviewResponse>('/pow/overview', FrameType.PowOverview, config)
 
 export const getPowOptions = (config?: ApiRequestConfig) =>
-  requestJson<PowPolicySnapshot>('/api/admin/security/pow/options', {}, config)
+  requestSecurityBinary<PowPolicySnapshot>('/pow/options', FrameType.PowPolicySnapshot, config)
 
 export const updatePowOptions = (request: PowOptionsUpdateRequest, config?: ApiRequestConfig) =>
-  requestJson<PowPolicySnapshot>('/api/admin/security/pow/options', {
+  requestSecurityBinary<PowPolicySnapshot>('/pow/options', FrameType.PowPolicySnapshot, config, {
     method: 'PUT',
-    body: JSON.stringify(request)
-  }, config)
+    requestFrame: FrameType.PowOptionsUpdateRequest,
+    request
+  })
 
 export const rollbackPowOptions = (config?: ApiRequestConfig) =>
-  requestJson<PowPolicySnapshot>('/api/admin/security/pow/options/rollback', { method: 'POST' }, config)
+  requestSecurityBinary<PowPolicySnapshot>('/pow/options/rollback', FrameType.PowPolicySnapshot, config, { method: 'POST' })

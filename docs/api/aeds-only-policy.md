@@ -53,11 +53,11 @@ error:    AedsFrameType.ApiError
 | Deprecated human read-proof JSON compatibility | `/api/read-proof/challenge`, `/api/read-proof/submit` | #105 |
 | Deprecated RUM telemetry JSON compatibility | `/api/telemetry/rum` | #97 |
 | Deprecated authoring/moderation/ops JSON compatibility | `/api/author/**` | #97 |
-| Admin security console | `/api/admin/security/**` | #103 |
+| Deprecated admin security JSON compatibility | `/api/admin/security/**` | #103 |
 | Notification preflight error envelope | `/api/notifications/stream/preflight` | #105 |
 | Subscription form API | `/api/subscriptions` | #105 |
 
-这些路径可以继续使用 `JsonApiResponse<T>`，但只能在 allowlist 中登记的文件和 pattern 内出现。RUM 生产前端已迁移到 `/api/binary/telemetry/rum`；authoring/moderation/ops 生产前端已迁移到 `/api/binary/author/**`，旧 JSON 入口只保留后端兼容层。迁移完成后必须删除对应 allowlist 项。
+这些路径可以继续使用 `JsonApiResponse<T>`，但只能在 allowlist 中登记的文件和 pattern 内出现。RUM 生产前端已迁移到 `/api/binary/telemetry/rum`；authoring/moderation/ops 生产前端已迁移到 `/api/binary/author/**`；admin security 生产前端已迁移到 `/api/binary/admin/security/**`。旧 JSON 入口只保留后端兼容层。迁移完成后必须删除对应 allowlist 项。
 
 ## 新端点选择规则
 

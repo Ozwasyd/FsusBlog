@@ -247,6 +247,9 @@
 | POST | `/api/author/moderation/model/runtime` | 👑🚦 MFA | 热切换模型 provider/profile/启停状态 |
 | POST | `/api/author/moderation/model/reload` | 👑🚦 MFA | 从配置热重载模型运行快照 |
 | POST | `/api/author/moderation/model/rollback` | 👑🚦 MFA | 回滚上一份模型运行快照 |
+
+> Admin security 生产前端使用 `/api/binary/admin/security/**` AEDS v2 入口，路径后缀与下列旧 `/api/admin/security/**` 兼容端点一致；旧 JSON 路径仅作为 deprecated 后端兼容层。
+
 | GET | `/api/admin/security/overview` | 👑 | 安全系统总览：AntiCrawler、PoW、SecurityRisk |
 | GET | `/api/admin/security/anti-crawler/overview` | 👑 | 反爬虫总览、CIDR、风险事件、规则与 list |
 | GET | `/api/admin/security/anti-crawler/options` | 👑 | 反爬虫运行策略快照 |

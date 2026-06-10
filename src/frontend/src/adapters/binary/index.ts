@@ -13,6 +13,7 @@ import { mapConversationDetailFromPayload, mapConversationListFromPayload, mapCo
 import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload } from './passkeyAdapter';
 import { mapHumanReadChallengeFromPayload, mapHumanReadSubmitFromPayload } from './readProofAdapter';
 import { mapAuthoringJsonFromPayload } from './authoringAdapter';
+import { mapSecurityJsonFromPayload } from './securityAdapter';
 
 const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.ArticleList]: mapArticlePageFromPodPayload,
@@ -97,6 +98,23 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.RegionPolicySummaryList]: mapAuthoringJsonFromPayload,
   [FrameType.ModerationModelStatus]: mapAuthoringJsonFromPayload,
   [FrameType.ModerationReplayPreview]: mapAuthoringJsonFromPayload,
+  [FrameType.SecurityOverview]: mapSecurityJsonFromPayload,
+  [FrameType.AntiCrawlerOverview]: mapSecurityJsonFromPayload,
+  [FrameType.AntiCrawlerPolicySnapshot]: mapSecurityJsonFromPayload,
+  [FrameType.CrawlerRangesAdminStatus]: mapSecurityJsonFromPayload,
+  [FrameType.CrawlerRangeSyncResponse]: mapSecurityJsonFromPayload,
+  [FrameType.SecurityRiskEventList]: mapSecurityJsonFromPayload,
+  [FrameType.SecurityRiskSnapshotList]: mapSecurityJsonFromPayload,
+  [FrameType.SecurityRiskResetResponse]: mapSecurityJsonFromPayload,
+  [FrameType.AntiCrawlerRuleList]: mapSecurityJsonFromPayload,
+  [FrameType.AntiCrawlerRuleResponse]: mapSecurityJsonFromPayload,
+  [FrameType.AntiCrawlerRuleDeleteResponse]: mapSecurityJsonFromPayload,
+  [FrameType.AntiCrawlerListEntryList]: mapSecurityJsonFromPayload,
+  [FrameType.AntiCrawlerListEntryResponse]: mapSecurityJsonFromPayload,
+  [FrameType.AntiCrawlerListEntryDeleteResponse]: mapSecurityJsonFromPayload,
+  [FrameType.AntiCrawlerSimulationResult]: mapSecurityJsonFromPayload,
+  [FrameType.PowOverview]: mapSecurityJsonFromPayload,
+  [FrameType.PowPolicySnapshot]: mapSecurityJsonFromPayload,
   [FrameType.EmptySuccess]: mapEmptySuccessFromPayload,
   [FrameType.MutationId]: mapMutationIdFromPayload
 };

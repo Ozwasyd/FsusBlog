@@ -26,7 +26,7 @@
 
 ## 基础包装结构
 
-运行时主 API 已收敛到 AEDS Binary：`/api/binary/**` 响应使用 AEDS v2 frame，错误也通过 `ApiError` frame 表达，不再通过旧文本响应包装。所有内部应用 API 按 [aeds-only-policy.md](aeds-only-policy.md) 治理；仍在使用 `JsonApiResponse<T>` 的 security console、notification preflight、subscription API、废弃 authoring JSON endpoint、废弃 RUM JSON endpoint、废弃 read-proof JSON endpoint 和废弃 related-reading JSON endpoint 只属于登记的迁移期兼容层。
+运行时主 API 已收敛到 AEDS Binary：`/api/binary/**` 响应使用 AEDS v2 frame，错误也通过 `ApiError` frame 表达，不再通过旧文本响应包装。所有内部应用 API 按 [aeds-only-policy.md](aeds-only-policy.md) 治理；仍在使用 `JsonApiResponse<T>` 的 notification preflight、subscription API、废弃 authoring JSON endpoint、废弃 security JSON endpoint、废弃 RUM JSON endpoint、废弃 read-proof JSON endpoint 和废弃 related-reading JSON endpoint 只属于登记的迁移期兼容层。
 
 HTTP 层契约源是 `src/shared/Contracts/Validation/fsusblog.openapi.json`。该 OpenAPI snapshot 描述 method/path/status/content-type/security 与 `x-fsus-*` AEDS metadata；AEDS frame 名称、header magic/version/size 仍以 `src/shared/Contracts/Validation/aeds-protocol.json` 为权威来源。cross-stack matrix、前端 route constants、runtime contract smoke 与 release evidence 通过 `tools/contracts/*` 从这两个源校验或生成。
 
@@ -1046,7 +1046,9 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 ### Admin 安全系统
 
-`/api/admin/security/**` 全部要求 admin 角色，统一返回 `JsonApiResponse<T>`。写入型和高价值操作必须携带 action=`admin-sensitive` 的一次性 `X-Fsus-Mfa-Proof`，并写入高价值安全审计。
+生产前端使用 `/api/binary/admin/security/**`，路径后缀与旧 `/api/admin/security/**` 保持一致，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AntiCrawlerOptionsUpdateRequest`、`SecurityRiskResetRequest`、`AntiCrawlerRuleRequest`、`PowOptionsUpdateRequest`），响应使用 route-specific response frame（如 `SecurityOverview`、`AntiCrawlerPolicySnapshot`、`SecurityRiskEventList`、`PowPolicySnapshot`）；payload 当前承载类型化 JSON DTO bytes，不再使用 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。`SecurityBinaryBridgeMiddleware` 复用旧 admin endpoint 的 admin role、MFA、fixed_ip rate limit、device fingerprint、审计和运行时策略更新边界。旧 `/api/admin/security/**` JSON endpoint 仅作为 deprecated 后端兼容层保留。
+
+`/api/binary/admin/security/**` 全部要求 admin 角色。写入型和高价值操作必须携带 action=`admin-sensitive` 的一次性 `X-Fsus-Mfa-Proof`，并写入高价值安全审计。
 
 安全系统 IA 与 API 边界：
 

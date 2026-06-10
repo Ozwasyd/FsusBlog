@@ -6752,6 +6752,1386 @@
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
       }
     },
+    "/api/binary/admin/security/overview": {
+      "get": {
+        "operationId": "binary_get_admin_security_overview",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "SecurityOverview AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "SecurityOverview",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/overview": {
+      "get": {
+        "operationId": "binary_get_admin_security_anti_crawler_overview",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerOverview AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AntiCrawlerOverview",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/options": {
+      "get": {
+        "operationId": "binary_get_admin_security_anti_crawler_options",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerPolicySnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AntiCrawlerPolicySnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      },
+      "put": {
+        "operationId": "binary_put_admin_security_anti_crawler_options",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerPolicySnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "AntiCrawlerOptionsUpdateRequest",
+        "x-fsus-response-frame": "AntiCrawlerPolicySnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/options/rollback": {
+      "post": {
+        "operationId": "binary_post_admin_security_anti_crawler_options_rollback",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerPolicySnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AntiCrawlerPolicySnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/crawler-ranges/status": {
+      "get": {
+        "operationId": "binary_get_admin_security_anti_crawler_crawler_ranges_status",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "CrawlerRangesAdminStatus AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "CrawlerRangesAdminStatus",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/crawler-ranges/sync": {
+      "post": {
+        "operationId": "binary_post_admin_security_anti_crawler_crawler_ranges_sync",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "CrawlerRangeSyncResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "CrawlerRangeSyncResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/events": {
+      "get": {
+        "operationId": "binary_get_admin_security_anti_crawler_events",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "SecurityRiskEventList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "SecurityRiskEventList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/risk-events": {
+      "get": {
+        "operationId": "binary_get_admin_security_anti_crawler_risk_events",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "SecurityRiskEventList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "SecurityRiskEventList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/risk/events": {
+      "get": {
+        "operationId": "binary_get_admin_security_risk_events",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "SecurityRiskEventList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "SecurityRiskEventList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/risk/snapshots": {
+      "get": {
+        "operationId": "binary_get_admin_security_risk_snapshots",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "SecurityRiskSnapshotList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "SecurityRiskSnapshotList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/risk/{dimension}/reset": {
+      "post": {
+        "operationId": "binary_post_admin_security_risk_dimension_reset",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "SecurityRiskResetResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "SecurityRiskResetRequest",
+        "x-fsus-response-frame": "SecurityRiskResetResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/rules": {
+      "get": {
+        "operationId": "binary_get_admin_security_anti_crawler_rules",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerRuleList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AntiCrawlerRuleList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      },
+      "post": {
+        "operationId": "binary_post_admin_security_anti_crawler_rules",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerRuleResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "AntiCrawlerRuleRequest",
+        "x-fsus-response-frame": "AntiCrawlerRuleResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/rules/{id}": {
+      "put": {
+        "operationId": "binary_put_admin_security_anti_crawler_rules_id",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerRuleResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "AntiCrawlerRuleRequest",
+        "x-fsus-response-frame": "AntiCrawlerRuleResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      },
+      "delete": {
+        "operationId": "binary_delete_admin_security_anti_crawler_rules_id",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerRuleDeleteResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AntiCrawlerRuleDeleteResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/allowlist": {
+      "get": {
+        "operationId": "binary_get_admin_security_anti_crawler_allowlist",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerListEntryList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AntiCrawlerListEntryList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      },
+      "post": {
+        "operationId": "binary_post_admin_security_anti_crawler_allowlist",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerListEntryResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "AntiCrawlerListEntryRequest",
+        "x-fsus-response-frame": "AntiCrawlerListEntryResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/allowlist/{id}": {
+      "delete": {
+        "operationId": "binary_delete_admin_security_anti_crawler_allowlist_id",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerListEntryDeleteResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AntiCrawlerListEntryDeleteResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/blocklist": {
+      "get": {
+        "operationId": "binary_get_admin_security_anti_crawler_blocklist",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerListEntryList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AntiCrawlerListEntryList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      },
+      "post": {
+        "operationId": "binary_post_admin_security_anti_crawler_blocklist",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerListEntryResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "AntiCrawlerListEntryRequest",
+        "x-fsus-response-frame": "AntiCrawlerListEntryResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/blocklist/{id}": {
+      "delete": {
+        "operationId": "binary_delete_admin_security_anti_crawler_blocklist_id",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerListEntryDeleteResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AntiCrawlerListEntryDeleteResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/anti-crawler/simulate": {
+      "post": {
+        "operationId": "binary_post_admin_security_anti_crawler_simulate",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerSimulationResult AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "AntiCrawlerSimulationRequest",
+        "x-fsus-response-frame": "AntiCrawlerSimulationResult",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/pow/overview": {
+      "get": {
+        "operationId": "binary_get_admin_security_pow_overview",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "PowOverview AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "PowOverview",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/pow/options": {
+      "get": {
+        "operationId": "binary_get_admin_security_pow_options",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "PowPolicySnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "PowPolicySnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      },
+      "put": {
+        "operationId": "binary_put_admin_security_pow_options",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "PowPolicySnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "PowOptionsUpdateRequest",
+        "x-fsus-response-frame": "PowPolicySnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/pow/options/rollback": {
+      "post": {
+        "operationId": "binary_post_admin_security_pow_options_rollback",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "PowPolicySnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "PowPolicySnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/pow/events": {
+      "get": {
+        "operationId": "binary_get_admin_security_pow_events",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "SecurityRiskEventList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "SecurityRiskEventList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
+    "/api/binary/admin/security/pow/simulate": {
+      "post": {
+        "operationId": "binary_post_admin_security_pow_simulate",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "admin-security-console",
+        "responses": {
+          "200": {
+            "description": "AntiCrawlerSimulationResult AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "AntiCrawlerSimulationRequest",
+        "x-fsus-response-frame": "AntiCrawlerSimulationResult",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "admin-security-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/security.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/securityAdapter.ts"
+      }
+    },
     "/api/binary/article/list/home/{page}/{size}.aeds": {
       "get": {
         "operationId": "binary_get_article_list_home_page_size_aeds",

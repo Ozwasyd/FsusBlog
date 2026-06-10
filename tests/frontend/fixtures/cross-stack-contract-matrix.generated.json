@@ -1425,6 +1425,212 @@
           "rateLimit": "fixed_ip"
         }
       ]
+    },
+    {
+      "source": "src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs",
+      "frontendWrapper": "src/frontend/src/api/security.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/securityAdapter.ts",
+      "id": "admin-security-console",
+      "routes": [
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/overview",
+          "responseFrame": "SecurityOverview"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/anti-crawler/overview",
+          "responseFrame": "AntiCrawlerOverview"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/anti-crawler/options",
+          "responseFrame": "AntiCrawlerPolicySnapshot"
+        },
+        {
+          "auth": "admin",
+          "method": "PUT",
+          "path": "/admin/security/anti-crawler/options",
+          "requestFrame": "AntiCrawlerOptionsUpdateRequest",
+          "responseFrame": "AntiCrawlerPolicySnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/admin/security/anti-crawler/options/rollback",
+          "responseFrame": "AntiCrawlerPolicySnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/anti-crawler/crawler-ranges/status",
+          "responseFrame": "CrawlerRangesAdminStatus"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/admin/security/anti-crawler/crawler-ranges/sync",
+          "responseFrame": "CrawlerRangeSyncResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/anti-crawler/events",
+          "responseFrame": "SecurityRiskEventList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/anti-crawler/risk-events",
+          "responseFrame": "SecurityRiskEventList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/risk/events",
+          "responseFrame": "SecurityRiskEventList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/risk/snapshots",
+          "responseFrame": "SecurityRiskSnapshotList"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/admin/security/risk/{dimension}/reset",
+          "requestFrame": "SecurityRiskResetRequest",
+          "responseFrame": "SecurityRiskResetResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/anti-crawler/rules",
+          "responseFrame": "AntiCrawlerRuleList"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/admin/security/anti-crawler/rules",
+          "requestFrame": "AntiCrawlerRuleRequest",
+          "responseFrame": "AntiCrawlerRuleResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "PUT",
+          "path": "/admin/security/anti-crawler/rules/{id}",
+          "requestFrame": "AntiCrawlerRuleRequest",
+          "responseFrame": "AntiCrawlerRuleResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "DELETE",
+          "path": "/admin/security/anti-crawler/rules/{id}",
+          "responseFrame": "AntiCrawlerRuleDeleteResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/anti-crawler/allowlist",
+          "responseFrame": "AntiCrawlerListEntryList"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/admin/security/anti-crawler/allowlist",
+          "requestFrame": "AntiCrawlerListEntryRequest",
+          "responseFrame": "AntiCrawlerListEntryResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "DELETE",
+          "path": "/admin/security/anti-crawler/allowlist/{id}",
+          "responseFrame": "AntiCrawlerListEntryDeleteResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/anti-crawler/blocklist",
+          "responseFrame": "AntiCrawlerListEntryList"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/admin/security/anti-crawler/blocklist",
+          "requestFrame": "AntiCrawlerListEntryRequest",
+          "responseFrame": "AntiCrawlerListEntryResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "DELETE",
+          "path": "/admin/security/anti-crawler/blocklist/{id}",
+          "responseFrame": "AntiCrawlerListEntryDeleteResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/admin/security/anti-crawler/simulate",
+          "requestFrame": "AntiCrawlerSimulationRequest",
+          "responseFrame": "AntiCrawlerSimulationResult",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/pow/overview",
+          "responseFrame": "PowOverview"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/pow/options",
+          "responseFrame": "PowPolicySnapshot"
+        },
+        {
+          "auth": "admin",
+          "method": "PUT",
+          "path": "/admin/security/pow/options",
+          "requestFrame": "PowOptionsUpdateRequest",
+          "responseFrame": "PowPolicySnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/admin/security/pow/options/rollback",
+          "responseFrame": "PowPolicySnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/admin/security/pow/events",
+          "responseFrame": "SecurityRiskEventList"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/admin/security/pow/simulate",
+          "requestFrame": "AntiCrawlerSimulationRequest",
+          "responseFrame": "AntiCrawlerSimulationResult",
+          "rateLimit": "fixed_ip"
+        }
+      ]
     }
   ],
   "coherenceProfiles": [
@@ -1605,5 +1811,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 147
+  "openapiOperationCount": 176
 }

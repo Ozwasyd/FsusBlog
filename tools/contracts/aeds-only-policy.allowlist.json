@@ -76,17 +76,7 @@
       "patterns": ["JsonApiResponse", "Results.Json", "/api/admin/security"],
       "routes": ["/api/admin/security/**"],
       "issue": "#103",
-      "reason": "Admin security console APIs are internal application APIs and must move to AEDS."
-    },
-    {
-      "id": "security-json-migration-frontend",
-      "classification": "must-migrate",
-      "scope": "frontend",
-      "file": "src/frontend/src/api/security.ts",
-      "patterns": ["JsonApiResponse", "response.json", "application/json", "JSON.stringify", "/api/admin/security"],
-      "routes": ["/api/admin/security/**"],
-      "issue": "#103",
-      "reason": "Frontend admin security JSON client is kept only as a tracked compatibility layer."
+      "reason": "Deprecated compatibility endpoints retained after #103; production frontend security runtime uses /api/binary/admin/security/** AEDS frames through SecurityBinaryBridgeMiddleware."
     },
     {
       "id": "notification-preflight-json-migration-backend",

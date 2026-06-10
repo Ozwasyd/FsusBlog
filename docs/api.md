@@ -25,7 +25,7 @@
 
 ## Current Binary API
 
-当前客户端主链优先调用 `/api/binary/**`，响应为 `application/octet-stream` AEDS v2 frame。认证、MFA、Passkey、公开读、评论、消息、上传、RUM telemetry、作者工作台和管理读链都通过 AEDS frame/POD 契约校验；少量 JSON 端点仅用于健康检查、外部标准协议和废弃兼容。
+当前客户端主链优先调用 `/api/binary/**`，响应为 `application/octet-stream` AEDS v2 frame。认证、MFA、Passkey、公开读、评论、消息、上传、RUM telemetry、作者工作台、安全后台和管理读链都通过 AEDS frame/POD 契约校验；少量 JSON 端点仅用于健康检查、外部标准协议和废弃兼容。
 
 | Family | Prefix | Auth | Notes |
 |--------|--------|------|-------|
@@ -35,6 +35,7 @@
 | Messages | `/api/binary/messages/**` | 🔑 | 用户站内信与已读状态 |
 | Admin messages / stats / upload | `/api/binary/admin/**`, `/api/binary/stats`, `/api/binary/upload/**` | 👑 | 管理端 Binary read/write |
 | Authoring / moderation console | `/api/binary/author/**` | 👑 | 作者工作台、审核、审计、运维、cache/integrity 通过 AEDS bridge；旧 `/api/author/**` 仅 deprecated 兼容 |
+| Admin security console | `/api/binary/admin/security/**` | 👑 | 安全总览、AntiCrawler、PoW、风险分与规则/list 管理通过 AEDS bridge；旧 `/api/admin/security/**` 仅 deprecated 兼容 |
 | Telemetry | `/api/binary/telemetry/rum` | 🔓 | batched AEDS RUM ingestion，旧 `/api/telemetry/rum` 仅 deprecated 兼容 |
 | Notifications | `/api/notifications/stream` | 🔓 / 🔑 | WebSocket binary notification stream，子协议 `fsus-aeds.v2` |
 

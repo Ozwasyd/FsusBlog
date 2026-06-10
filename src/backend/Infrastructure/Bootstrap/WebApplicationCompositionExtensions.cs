@@ -153,6 +153,7 @@ public static class WebApplicationCompositionExtensions
         app.UseMiddleware<ShieldMiddleware>();
         app.UseMiddleware<GlobalExceptionMiddleware>();
         app.UseMiddleware<AuthoringBinaryBridgeMiddleware>();
+        app.UseMiddleware<SecurityBinaryBridgeMiddleware>();
         app.UseMiddleware<ApiBinaryResponseMiddleware>();
     }
 
