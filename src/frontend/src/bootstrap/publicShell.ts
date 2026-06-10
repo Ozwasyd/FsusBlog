@@ -15,6 +15,48 @@ function isModifiedEvent(event: MouseEvent): boolean {
   return event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
 }
 
+function prefersReducedMotion(): boolean {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+function resolveHashTarget(hash: string): HTMLElement | null {
+  if (!hash || hash === '#') {
+    return null
+  }
+
+  const rawId = hash.slice(1)
+  const id = (() => {
+    try {
+      return decodeURIComponent(rawId)
+    } catch {
+      return rawId
+    }
+  })()
+
+  const byId = document.getElementById(id)
+  if (byId) {
+    return byId
+  }
+
+  const named = document.getElementsByName(id)[0]
+  return named instanceof HTMLElement ? named : null
+}
+
+function scrollToHashOrTop(href: string): void {
+  const url = new URL(href, window.location.origin)
+  const target = resolveHashTarget(url.hash)
+  if (!target) {
+    window.scrollTo({ left: 0, top: 0, behavior: 'auto' })
+    return
+  }
+
+  window.scrollTo({
+    left: 0,
+    top: Math.max(0, window.scrollY + target.getBoundingClientRect().top - 88),
+    behavior: prefersReducedMotion() ? 'auto' : 'smooth'
+  })
+}
+
 function isInternalAppLink(anchor: HTMLAnchorElement): boolean {
   if (anchor.target && anchor.target !== '_self') {
     return false
@@ -686,11 +728,15 @@ async function applyPublicNavigationDocument(
 
   if (historyMode === 'push') {
     history.pushState({ __fsusPublicShell: true, scrollX: 0, scrollY: 0 }, '', href)
-    window.scrollTo({ left: 0, top: 0, behavior: 'auto' })
+    scrollToHashOrTop(href)
   } else if (historyMode === 'replace') {
     history.replaceState({ __fsusPublicShell: true, ...getRestoreScrollPosition(popState) }, '', href)
     const { left, top } = getRestoreScrollPosition(popState)
-    window.scrollTo({ left, top, behavior: 'auto' })
+    if (new URL(href, window.location.origin).hash) {
+      scrollToHashOrTop(href)
+    } else {
+      window.scrollTo({ left, top, behavior: 'auto' })
+    }
   }
 }
 

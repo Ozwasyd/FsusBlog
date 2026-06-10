@@ -1,0 +1,47 @@
+<template>
+  <div class="article-reading-progress" aria-hidden="true">
+    <div
+      class="article-reading-progress__bar"
+      :style="{ transform: `scaleX(${progress})` }"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useArticleReadingProgress } from '@/composables/article/useArticleReadingProgress'
+
+const props = defineProps<{
+  contentRoot: HTMLElement | null
+}>()
+
+const { progress: rawProgress } = useArticleReadingProgress(() => props.contentRoot)
+const progress = computed(() => rawProgress.value.toFixed(4))
+</script>
+
+<style scoped>
+.article-reading-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  width: 100%;
+  height: 2px;
+  background: color-mix(in srgb, var(--fsusblog-panel-border) 72%, transparent);
+  pointer-events: none;
+}
+
+.article-reading-progress__bar {
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  background: color-mix(in srgb, var(--fsusblog-text-primary) 62%, transparent);
+  transition: transform 120ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .article-reading-progress__bar {
+    transition: none;
+  }
+}
+</style>

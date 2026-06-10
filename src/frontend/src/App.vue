@@ -101,10 +101,6 @@ const onDocumentClick = (event: MouseEvent): void => {
   const url = new URL(anchor.href, window.location.origin)
   event.preventDefault()
   void router.push(`${url.pathname}${url.search}${url.hash}`)
-    .then(() => {
-      // Ensure top reset for shell-to-SPA anchor navigation in all runtime phases.
-      window.scrollTo({ left: 0, top: 0, behavior: 'auto' })
-    })
     .catch(() => {})
 }
 

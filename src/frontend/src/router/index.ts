@@ -87,6 +87,11 @@ type RouterFactoryOptions = Readonly<{
   ssr?: boolean
 }>
 
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
 function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): void {
   router.beforeEach(async (to) => {
     if (!options.ssr) {
@@ -154,9 +159,6 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     void loadProgressBar().then((progress) => {
       progress.done()
     })
-    // Ensure scroll to top on every navigation completion
-    // (covers both SPA and shell routes, regardless of runtime gate state)
-    window.scrollTo({ left: 0, top: 0, behavior: 'auto' })
   })
 }
 
@@ -170,7 +172,25 @@ export function createAppRouter(options: RouterFactoryOptions = {}): Router {
   const router = createRouter({
     history,
     routes,
-    scrollBehavior: () => ({ top: 0 })
+    scrollBehavior: (to, _from, savedPosition) => {
+      if (savedPosition) {
+        return savedPosition
+      }
+
+      if (to.hash === '#top') {
+        return { left: 0, top: 0, behavior: 'auto' }
+      }
+
+      if (to.hash) {
+        return {
+          el: to.hash,
+          top: 88,
+          behavior: prefersReducedMotion() ? 'auto' : 'smooth'
+        }
+      }
+
+      return { left: 0, top: 0, behavior: 'auto' }
+    }
   })
 
   applyRouteGuards(router, options)

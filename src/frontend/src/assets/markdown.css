@@ -208,6 +208,54 @@
   box-shadow: var(--fsus-shadow-panel-light);
 }
 
+.markdown-body .fsus-article-heading-anchor {
+  scroll-margin-top: 6rem;
+}
+
+.markdown-body .fsus-code-copy-host {
+  position: relative;
+}
+
+.markdown-body .fsus-code-copy-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  min-height: 1.75rem;
+  border: 1px solid var(--fsusblog-reading-code-border);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--fsusblog-page-bg) 86%, transparent);
+  color: var(--fsusblog-text-muted);
+  padding: 0 0.5rem;
+  font-size: 0.625rem;
+  line-height: 1;
+  opacity: 0;
+  transition:
+    opacity var(--fsus-motion-control-fast),
+    color var(--fsus-motion-control-fast),
+    border-color var(--fsus-motion-control-fast);
+}
+
+.markdown-body .fsus-code-copy-host:hover .fsus-code-copy-button,
+.markdown-body .fsus-code-copy-button:focus-visible {
+  opacity: 1;
+}
+
+.markdown-body .fsus-code-copy-button:hover,
+.markdown-body .fsus-code-copy-button:focus-visible {
+  border-color: color-mix(in srgb, var(--fsusblog-text-primary) 40%, transparent);
+  color: var(--fsusblog-text-primary);
+  outline: none;
+}
+
+.markdown-body .fsus-article-preview-image {
+  cursor: zoom-in;
+}
+
+.markdown-body .fsus-article-preview-image:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--fsusblog-text-primary) 45%, transparent);
+  outline-offset: 4px;
+}
+
 .markdown-body hr {
   border: none;
   border-top: 1px solid var(--fsusblog-reading-rule);
@@ -409,4 +457,18 @@
 
 .markdown-body .footnote-backref:hover {
   opacity: 1;
+}
+
+@media (pointer: coarse) {
+  .markdown-body .fsus-code-copy-button {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .markdown-body .fsus-code-copy-button,
+  .markdown-body .footnote-backref,
+  .markdown-body a {
+    transition: none;
+  }
 }

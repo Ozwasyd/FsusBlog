@@ -29,6 +29,7 @@
 
     <header :class="themeTokens.articleDetail.header">
       <ArticleDetailHeader :view="detailView.header" :link-mode="linkMode" />
+      <slot name="header-actions" />
     </header>
 
     <section itemprop="articleBody" class="mt-20 sm:mt-24">
