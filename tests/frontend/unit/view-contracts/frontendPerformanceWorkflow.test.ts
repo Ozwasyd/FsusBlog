@@ -18,7 +18,7 @@ describe('frontend performance workflow contract', () => {
   const publicCommentIsland = readRepoFile('src/frontend/src/public-renderers/PublicArticleCommentsIsland.vue')
   const messagesPage = readRepoFile('src/frontend/src/views/user/Messages.vue')
   const markdownAdapter = readRepoFile('src/frontend/src/components/ui/MarkdownEditorAdapter.vue')
-  const markdownActivation = readRepoFile('src/frontend/src/services/markdownActivationService.ts')
+  const markdownRenderer = readRepoFile('src/frontend/src/components/ui/MarkdownRenderer.vue')
   const packageJson = readRepoFile('src/frontend/package.json')
 
   it('keeps normal AEDS worker aborts on a cancel protocol instead of worker reset', () => {
@@ -89,9 +89,10 @@ describe('frontend performance workflow contract', () => {
     expect(markdownAdapter).toContain('LARGE_PREVIEW_CONTENT_BYTES = 80 * 1024')
     expect(markdownAdapter).toContain('v-if="isPreviewMounted"')
     expect(markdownAdapter).toContain('refreshManualPreview')
-    expect(markdownActivation).toContain('collectMarkdownFeatureTargets')
-    expect(markdownActivation).toContain('processInChunks')
-    expect(markdownActivation).toContain('shikiHtmlCache')
+    expect(markdownRenderer).toContain('@features-activated')
+    expect(markdownRenderer).toContain("emit('features-activated'")
+    expect(markdownRenderer).not.toContain('markdownActivationService')
+    expect(packageJson).toContain('"@ozwasyd/element-plus": "1.5.0"')
 
     expect(commentList).toContain('COMMENT_CONTENT_CONSTRAINT.rootRenderLimit')
     expect(commentList).toContain('visibleThreadItems')

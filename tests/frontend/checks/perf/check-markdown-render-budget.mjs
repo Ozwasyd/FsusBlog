@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const adapterFile = path.join(root, 'src/frontend/src/components/ui/MarkdownEditorAdapter.vue')
-const activationFile = path.join(root, 'src/frontend/src/services/markdownActivationService.ts')
+const rendererFile = path.join(root, 'src/frontend/src/components/ui/MarkdownRenderer.vue')
+const fsusuiMarkdownFile = path.join(root, 'src/frontend/src/fsusui/markdown.ts')
+const packageFile = path.join(root, 'src/frontend/package.json')
 const outFile = path.join(root, '.tmp/frontend/markdown-render-budget.json')
 const releaseSummaryFile = path.join(root, '.tmp/release-evidence/frontend-render-pressure-summary.json')
 
@@ -63,7 +65,9 @@ function writeReleaseSummary(summary) {
 }
 
 const adapter = read(adapterFile)
-const activation = read(activationFile)
+const renderer = read(rendererFile)
+const fsusuiMarkdown = read(fsusuiMarkdownFile)
+const packageJson = JSON.parse(read(packageFile))
 const combinedCorpus = Object.values(corpus).join('\n\n')
 const requirements = [
   ['preview debounced at 250ms', adapter.includes('MARKDOWN_PREVIEW_DEBOUNCE_MS = 250')],
@@ -72,10 +76,10 @@ const requirements = [
   ['preview pane uses v-if', /v-if="isPreviewMounted"/u.test(adapter)],
   ['manual refresh for stale large preview', adapter.includes('refreshManualPreview')],
   ['CSS content visibility containment', adapter.includes('content-visibility: auto') && adapter.includes('contain-intrinsic-size: 900px')],
-  ['single TreeWalker markdown scan', activation.includes('createTreeWalker') && activation.includes('collectMarkdownFeatureTargets')],
-  ['chunked activation scheduler', activation.includes('processInChunks') && activation.includes('yieldToBrowser')],
-  ['Shiki HTML cache', activation.includes('shikiHtmlCache') && activation.includes('rememberShikiHtml')],
-  ['Mermaid render budget', activation.includes('MERMAID_RENDER_BUDGET')]
+  ['FsusUI 1.5 markdown renderer dependency', packageJson.dependencies?.['@ozwasyd/element-plus'] === '1.5.0'],
+  ['MarkdownRenderer forwards FsusUI activation events', renderer.includes('@features-activated') && renderer.includes("emit('features-activated'")],
+  ['MarkdownRenderer has no downstream activation import', !renderer.includes('markdownActivationService') && !renderer.includes('queueFeatureActivation')],
+  ['FsusUI default markdown adapters are the runtime source', fsusuiMarkdown.includes('defaultMermaidAdapter') && fsusuiMarkdown.includes('defaultLatexAdapter') && fsusuiMarkdown.includes('defaultCodeHighlightAdapter')]
 ]
 const failures = requirements.filter(([, ok]) => !ok).map(([label]) => label)
 const summary = {

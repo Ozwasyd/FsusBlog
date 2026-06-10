@@ -6,6 +6,7 @@ const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '
 const srcRoot = path.join(repoRoot, 'src/frontend/src')
 const fsusuiRoot = path.join(srcRoot, 'fsusui')
 const uiIndexPath = path.join(srcRoot, 'components/ui/index.ts')
+const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const strict = process.argv.includes('--strict') || process.env.FSUSBLOG_FSUSUI_BOUNDARY_STRICT === '1'
 
 const sourceExtensions = new Set(['.css', '.js', '.mjs', '.scss', '.ts', '.tsx', '.vue'])
@@ -94,6 +95,48 @@ function checkVisualRewriteClasses(file, content) {
   }
 }
 
+function checkMarkdownActivationOwnership(file, content) {
+  const fileRel = rel(file)
+  if (fileRel === 'src/frontend/src/fsusui/markdown.ts') {
+    return
+  }
+
+  const blocked = [
+    [/import\s*\(\s*['"]mermaid['"]\s*\)/g, 'direct-mermaid-import'],
+    [/import\s*\(\s*['"]katex['"]\s*\)/g, 'direct-katex-import'],
+    [/import\s*\(\s*['"]shiki(?:\/[^'"]*)?['"]\s*\)/g, 'direct-shiki-import'],
+    [/@\/services\/shikiHighlighter/g, 'local-shiki-highlighter'],
+    [/markdownActivationService/g, 'local-markdown-activation'],
+    [/data-mermaid-placeholder/g, 'manual-mermaid-placeholder'],
+    [/data-latex-placeholder/g, 'manual-latex-placeholder'],
+    [/pre\s*>\s*code\[class\*=["']language-["']\]/g, 'manual-code-highlight-selector'],
+    [/Node\.prototype\.(?:appendChild|insertBefore)/g, 'dom-nonce-monkey-patch']
+  ]
+
+  for (const [pattern, rule] of blocked) {
+    if (pattern.test(content)) {
+      warn(file, rule, 'generic Markdown feature activation belongs to FsusUI')
+    }
+  }
+}
+
+function checkPackageMarkdownDependencies() {
+  if (!fs.existsSync(packageJsonPath)) {
+    return
+  }
+
+  const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+  for (const name of ['mermaid', 'katex', 'shiki']) {
+    if (pkg.dependencies?.[name] || pkg.devDependencies?.[name]) {
+      warn(packageJsonPath, 'direct-markdown-feature-package', `${name} must be provided by @ozwasyd/element-plus`)
+    }
+  }
+
+  if (pkg.dependencies?.['@ozwasyd/element-plus'] !== '1.5.0') {
+    warn(packageJsonPath, 'fsusui-version', '@ozwasyd/element-plus must stay on 1.5.0 for Markdown feature ownership')
+  }
+}
+
 function checkRequiredAdapters() {
   const required = [
     'index.ts',
@@ -136,8 +179,10 @@ for (const file of walk(srcRoot)) {
   checkProgrammaticImports(file, content)
   checkInternalSelectors(file, content)
   checkVisualRewriteClasses(file, content)
+  checkMarkdownActivationOwnership(file, content)
 }
 
+checkPackageMarkdownDependencies()
 checkRequiredAdapters()
 checkUiIndexSurface()
 
