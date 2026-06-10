@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+TIER="${1:-scale-xs}"
+OUT_DIR="$ROOT_DIR/.tmp/scale/$TIER"
+mkdir -p "$OUT_DIR"
+
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/lanes/runtime-evidence-probe.mjs" data-scale "$TIER" "$OUT_DIR/summary.json"
+printf '[data-scale:probe] wrote %s\n' "$OUT_DIR/summary.json"

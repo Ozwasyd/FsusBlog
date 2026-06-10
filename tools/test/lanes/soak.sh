@@ -11,35 +11,6 @@ case "$MODE" in
   *) printf '[soak] unsupported FSUSBLOG_SOAK_MODE=%s\n' "$MODE" >&2; exit 1 ;;
 esac
 
-jq -n \
-  --arg mode "$MODE" \
-  --arg namespace "${FSUSBLOG_TEST_NAMESPACE:-local}" \
-  '{
-    status: "ok",
-    mode: $mode,
-    namespace: $namespace,
-    scenarios: [
-      "mixed-public-read",
-      "authenticated-write",
-      "refresh-token-rotation",
-      "continuous-notification-stream",
-      "upload-churn",
-      "cache-churn",
-      "search-rebuild",
-      "aot-backfill"
-    ],
-    resourceCurve: {
-      rssSlope: 0,
-      managedHeapSlope: 0,
-      gcPauseMsP99: 0,
-      threadCountMax: 0,
-      socketCountMax: 0,
-      dbPoolSaturationMs: 0,
-      redisLatencyP99Ms: 0,
-      sseReconnectSuccessRate: 1
-    },
-    errorRate: 0,
-    generatedAt: now | todate
-  }' > "$OUT_DIR/summary.json"
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/lanes/runtime-evidence-probe.mjs" soak "$MODE" "$OUT_DIR/summary.json"
 
 printf '[soak] wrote %s\n' "$OUT_DIR/summary.json"

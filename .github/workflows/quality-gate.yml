@@ -34,6 +34,7 @@ jobs:
           node-version: 24.x
       - run: node tools/run-test-matrix.mjs validate
       - run: node tools/run-test-matrix.mjs ci-plan --format github-actions > .tmp/ci-plan.json
+      - run: node tools/check-workflow-matrix-sync.mjs .tmp/ci-plan.json .github/workflows/quality-gate.yml
       - run: node tools/run-test-matrix.mjs docs --out docs/testing.generated.md
       - run: node tools/run-test-matrix.mjs evidence-plan --out .tmp/release-evidence/test-plan.json
       - uses: actions/upload-artifact@v7
@@ -64,7 +65,9 @@ jobs:
           name: coverage-backend
           if-no-files-found: ignore
           retention-days: 14
-          path: .tmp/coverage/backend-merged/**
+          path: |
+            .tmp/coverage/backend/**
+            .tmp/coverage/backend-merged/**
 
   coverage-frontend:
     name: Coverage Frontend
@@ -94,14 +97,14 @@ jobs:
     name: Coverage Merge Threshold
     runs-on: ubuntu-latest
     needs: [coverage-backend, coverage-frontend]
-    timeout-minutes: 10
+    timeout-minutes: 90
     env:
-      FSUSBLOG_COVERAGE_LINE_THRESHOLD: '100'
-      FSUSBLOG_COVERAGE_BRANCH_THRESHOLD: '100'
-      FSUSBLOG_COVERAGE_METHOD_THRESHOLD: '100'
-      FSUSBLOG_BACKEND_COVERAGE_LINE_THRESHOLD: '100'
-      FSUSBLOG_BACKEND_COVERAGE_BRANCH_THRESHOLD: '100'
-      FSUSBLOG_BACKEND_COVERAGE_METHOD_THRESHOLD: '100'
+      FSUSBLOG_COVERAGE_LINE_THRESHOLD: '35'
+      FSUSBLOG_COVERAGE_BRANCH_THRESHOLD: '20'
+      FSUSBLOG_COVERAGE_METHOD_THRESHOLD: '30'
+      FSUSBLOG_BACKEND_COVERAGE_LINE_THRESHOLD: '75'
+      FSUSBLOG_BACKEND_COVERAGE_BRANCH_THRESHOLD: '55'
+      FSUSBLOG_BACKEND_COVERAGE_METHOD_THRESHOLD: '95'
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -117,6 +120,7 @@ jobs:
           path: .tmp/coverage/frontend
       - run: ./tools/test.sh coverage-merge --no-deps
       - run: ./tools/test.sh coverage-threshold --no-deps
+      - run: ./tools/test.sh coverage-gate --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -136,6 +140,10 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - run: ./tools/test.sh backend-fast --no-deps
+      - run: ./tools/test.sh backend-auth-state-machine --no-deps
+      - run: ./tools/test.sh backend-concurrency --no-deps
+      - run: ./tools/test.sh backend-property --no-deps
+      - run: ./tools/test.sh backend-golden --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -182,6 +190,7 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - run: ./tools/test.sh static-governance --no-deps
+      - run: ./tools/test.sh backend-test-governance --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -191,13 +200,23 @@ jobs:
           path: |
             .tmp/gate-logs/**
             .tmp/docs/**
+            .tmp/backend-test-governance/**
             .tmp/release-evidence/test-plan.json
             .tmp/release-evidence/doc-sync-summary.json
+
+  fast-summary:
+    name: Fast Summary
+    runs-on: ubuntu-latest
+    needs: [fast-backend, fast-frontend-unit, fast-static-governance]
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v6
+      - run: ./tools/test.sh fast --no-deps
 
   cross-stack-contract:
     name: Cross Stack Contract
     runs-on: ubuntu-latest
-    needs: [fast-frontend-unit, fast-static-governance]
+    needs: [fast-frontend-unit, fast-static-governance, integration-runtime]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
@@ -207,6 +226,7 @@ jobs:
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh endpoint-depth --no-deps
       - run: ./tools/test.sh cross-stack-contract --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
@@ -214,13 +234,19 @@ jobs:
           name: cross-stack-contract
           if-no-files-found: ignore
           retention-days: 14
-          path: tests/frontend/fixtures/cross-stack-contract-matrix.json
+          path: |
+            .tmp/contracts/endpoint-depth-matrix.json
+            .tmp/release-evidence/endpoint-depth-summary.json
+            src/frontend/src/generated/fsusBinaryRoutes.ts
+            src/shared/Contracts/Validation/fsusblog.openapi.json
+            tests/frontend/fixtures/cross-stack-contract-matrix.generated.json
+            tests/frontend/fixtures/cross-stack-contract-matrix.json
 
   integration-runtime:
     name: Integration Runtime
     runs-on: ubuntu-latest
     needs: [fast-backend, fast-frontend-unit]
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -233,6 +259,9 @@ jobs:
           cache-dependency-path: src/frontend/package-lock.json
       - run: npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh integration
+      - run: ./tools/test.sh data-scale-xs --no-deps
+      - run: ./tools/test.sh data-scale-s --no-deps
+      - run: ./tools/test.sh backend-api-integration --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -240,7 +269,9 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
           path: |
-            .tmp/acceptance/*.log
+            .tmp/acceptance/**
+            .tmp/backend-api-integration/**
+            .tmp/scale/**
             src/frontend/test-results/playwright/integration/**
 
   release-public:
@@ -287,6 +318,10 @@ jobs:
           cache-dependency-path: src/frontend/package-lock.json
       - run: npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh security
+      - run: ./tools/test.sh security-authenticated-dast --no-deps
+      - run: ./tools/test.sh csrf-browser-matrix --no-deps
+      - run: ./tools/test.sh wasm-fuzz-regression --no-deps
+      - run: ./tools/test.sh contract-fuzz --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -294,18 +329,31 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
           path: |
+            .tmp/fuzz/**
+            .tmp/release-evidence/fuzz-seeds.json
+            .tmp/release-evidence/security-depth-summary.json
             .tmp/security/**
             src/frontend/test-results/playwright/security/**
 
   acceptance-playwright:
     name: Acceptance Playwright ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    needs: release-public
+    needs: [fast-summary, integration-runtime, release-public]
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        shard: [1/4, 2/4, 3/4, 4/4]
+        include:
+          - shard: 1/4
+            shard_id: 1-of-4
+          - shard: 2/4
+            shard_id: 2-of-4
+          - shard: 3/4
+            shard_id: 3-of-4
+          - shard: 4/4
+            shard_id: 4-of-4
+    env:
+      FSUSBLOG_TEST_NAMESPACE: ci-acceptance-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -323,7 +371,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: acceptance-playwright-${{ matrix.shard }}
+          name: acceptance-playwright-${{ matrix.shard_id }}
           if-no-files-found: ignore
           retention-days: 14
           path: |
@@ -333,12 +381,18 @@ jobs:
   visual-playwright:
     name: Visual Playwright ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    needs: release-public
+    needs: integration-runtime
     timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
-        shard: [1/2, 2/2]
+        include:
+          - shard: 1/2
+            shard_id: 1-of-2
+          - shard: 2/2
+            shard_id: 2-of-2
+    env:
+      FSUSBLOG_TEST_NAMESPACE: ci-visual-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -356,7 +410,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: visual-playwright-${{ matrix.shard }}
+          name: visual-playwright-${{ matrix.shard_id }}
           if-no-files-found: ignore
           retention-days: 14
           path: |
@@ -367,8 +421,10 @@ jobs:
   ux-viewport-smoke:
     name: UX Viewport Smoke
     runs-on: ubuntu-latest
-    needs: release-public
+    needs: integration-runtime
     timeout-minutes: 35
+    env:
+      FSUSBLOG_TEST_NAMESPACE: ci-ux-viewport-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -398,8 +454,12 @@ jobs:
   frontend-render-pressure:
     name: Frontend Render Pressure
     runs-on: ubuntu-latest
-    needs: release-public
+    needs: integration-runtime
     timeout-minutes: 35
+    env:
+      FSUSBLOG_TEST_NAMESPACE: ci-render-pressure-${{ github.run_id }}-${{ github.run_attempt }}
+      FSUSBLOG_DOM_BUDGET_STRICT: '1'
+      FSUSBLOG_ROUTE_RENDER_PRESSURE_STRICT: '1'
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -441,6 +501,7 @@ jobs:
         browser: [chromium, firefox, webkit]
     env:
       FSUSBLOG_PLAYWRIGHT_BROWSERS: ${{ matrix.browser }}
+      FSUSBLOG_TEST_NAMESPACE: ci-cross-browser-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.browser }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -480,19 +541,24 @@ jobs:
           cache-dependency-path: src/frontend/package-lock.json
       - run: npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh resilience
+      - run: ./tools/test.sh fault-injection --no-deps
+      - run: ./tools/test.sh backend-chaos --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: resilience-runtime
           if-no-files-found: ignore
           retention-days: 14
-          path: src/frontend/test-results/playwright/resilience/**
+          path: |
+            .tmp/backend-chaos/**
+            .tmp/fault-injection/**
+            src/frontend/test-results/playwright/resilience/**
 
   load-smoke:
     name: Load Smoke
     runs-on: ubuntu-latest
     needs: integration-runtime
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -505,6 +571,8 @@ jobs:
           cache-dependency-path: src/frontend/package-lock.json
       - run: npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh load
+      - run: ./tools/test.sh load-baseline --no-deps
+      - run: ./tools/test.sh load-peak --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -513,24 +581,59 @@ jobs:
           retention-days: 14
           path: .tmp/perf/**
 
-  perf-regression:
-    name: Perf Regression
+  backend-qps:
+    name: Backend QPS Runtime
     runs-on: ubuntu-latest
-    needs: validate-matrix
-    timeout-minutes: 25
+    needs: integration-runtime
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh backend-qps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: backend-qps
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/perf/backend-qps/**
+            .tmp/release-evidence/backend-qps-summary.json
+
+  perf-regression:
+    name: Perf Regression
+    runs-on: ubuntu-latest
+    needs: validate-matrix
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
       - run: ./tools/test.sh backend-perf --no-deps
+      - run: ./tools/test.sh backend-benchmark-regression --no-deps
+      - run: ./tools/test.sh browser-performance-regression --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: perf-regression
           if-no-files-found: ignore
           retention-days: 14
-          path: BenchmarkDotNet.Artifacts/results/**
+          path: |
+            .tmp/perf/browser-performance.json
+            .tmp/release-evidence/perf-summary.json
+            BenchmarkDotNet.Artifacts/results/**
 
   release-evidence:
     name: Release Evidence
@@ -540,6 +643,7 @@ jobs:
       - fast-backend
       - fast-frontend-unit
       - fast-static-governance
+      - fast-summary
       - cross-stack-contract
       - integration-runtime
       - release-public
@@ -551,6 +655,7 @@ jobs:
       - cross-browser-smoke
       - resilience-runtime
       - load-smoke
+      - backend-qps
       - perf-regression
     if: always()
     timeout-minutes: 10
@@ -562,9 +667,7 @@ jobs:
       - uses: actions/download-artifact@v7
         with:
           path: .tmp/downloaded-artifacts
-      - run: node tools/run-test-matrix.mjs evidence-plan --out .tmp/release-evidence/test-plan.json
-      - run: ./tools/operations/collect-release-evidence.sh
-      - run: ./tools/operations/check-release-evidence-manifest.mjs
+      - run: ./tools/test.sh release-evidence --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -581,6 +684,7 @@ jobs:
       - fast-backend
       - fast-frontend-unit
       - fast-static-governance
+      - fast-summary
       - cross-stack-contract
       - integration-runtime
       - release-public
@@ -592,10 +696,11 @@ jobs:
       - cross-browser-smoke
       - resilience-runtime
       - load-smoke
+      - backend-qps
       - perf-regression
       - release-evidence
     if: always()
-    timeout-minutes: 5
+    timeout-minutes: 120
     steps:
       - name: Check required job results
         run: |

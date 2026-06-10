@@ -14,26 +14,19 @@ case "$TIER" in
   *) printf '[data-scale] unknown tier %s\n' "$TIER" >&2; exit 1 ;;
 esac
 
-jq -n \
-  --arg tier "$TIER" \
-  --arg namespace "${FSUSBLOG_TEST_NAMESPACE:-local}" \
-  --argjson articles "$articles" \
-  --argjson comments "$comments" \
-  '{
-    status: "ok",
-    tier: $tier,
-    namespace: $namespace,
-    seedManifest: {articles: $articles, comments: $comments},
-    db: {articleRows: $articles, commentRows: $comments, sizeBytes: 0},
-    redis: {keyCount: 0},
-    search: {indexSizeBytes: 0},
-    aot: {cacheSizeBytes: 0},
-    latencyMs: {p50: 0, p95: 0, p99: 0},
-    resources: {cpuPercent: 0, rssBytes: 0, gcCount: 0},
-    cleanup: {status: "ok"},
-    generatedAt: now | todate
-  }' > "$OUT_DIR/summary.json"
+"$ROOT_DIR/tools/data-scale/seed.sh" "$TIER"
+"$ROOT_DIR/tools/data-scale/probe.sh" "$TIER"
+"$ROOT_DIR/tools/data-scale/cleanup.sh" "$TIER"
 
 mkdir -p "$ROOT_DIR/.tmp/release-evidence"
-jq -n --arg tier "$TIER" --arg file ".tmp/scale/$TIER/summary.json" '{status:"ok", tier:$tier, summary:$file, generatedAt: now | todate}' > "$ROOT_DIR/.tmp/release-evidence/data-scale-summary.json"
+jq -n \
+  --arg tier "$TIER" \
+  --arg file ".tmp/scale/$TIER/summary.json" \
+  --argjson articles "$articles" \
+  --argjson comments "$comments" \
+  --slurpfile seed "$OUT_DIR/seed.json" \
+  --slurpfile summary "$OUT_DIR/summary.json" \
+  --slurpfile cleanup "$OUT_DIR/cleanup.json" \
+  '{status:"ok", tier:$tier, summary:$file, expectedSeed:{articles:$articles, comments:$comments}, seed:$seed[0], observed:$summary[0], cleanup:$cleanup[0], generatedAt: now | todate}' \
+  > "$ROOT_DIR/.tmp/release-evidence/data-scale-summary.json"
 printf '[data-scale] wrote %s\n' "$OUT_DIR/summary.json"

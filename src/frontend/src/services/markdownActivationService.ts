@@ -257,28 +257,31 @@ function collectMarkdownFeatureTargets(container: HTMLElement): MarkdownFeatureT
     headingEls: [],
     hashLinks: []
   };
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT);
+  const ownerDocument = container.ownerDocument;
+  const showElement = ownerDocument.defaultView?.NodeFilter?.SHOW_ELEMENT ?? 1;
+  const walker = ownerDocument.createTreeWalker(container, showElement);
   let current = walker.currentNode;
 
   while (current) {
-    if (current instanceof HTMLElement) {
-      if (current.dataset.mermaidPlaceholder === 'true') {
-        targets.mermaidPlaceholders.push(current);
-      } else if (current.dataset.latexPlaceholder === 'true') {
-        targets.latexPlaceholders.push(current);
+    if (current.nodeType === 1) {
+      const element = current as HTMLElement;
+      if (element.dataset.mermaidPlaceholder === 'true') {
+        targets.mermaidPlaceholders.push(element);
+      } else if (element.dataset.latexPlaceholder === 'true') {
+        targets.latexPlaceholders.push(element);
       } else if (
-        current.tagName === 'CODE'
-        && current.parentElement?.tagName === 'PRE'
-        && current.dataset.mermaidPlaceholder !== 'true'
-        && current.dataset.latexPlaceholder !== 'true'
+        element.tagName === 'CODE'
+        && element.parentElement?.tagName === 'PRE'
+        && element.dataset.mermaidPlaceholder !== 'true'
+        && element.dataset.latexPlaceholder !== 'true'
       ) {
-        targets.codeBlocks.push(current);
-      } else if (/^H[1-6]$/u.test(current.tagName)) {
-        targets.headingEls.push(current);
+        targets.codeBlocks.push(element);
+      } else if (/^H[1-6]$/u.test(element.tagName)) {
+        targets.headingEls.push(element);
       }
 
-      if (current instanceof HTMLAnchorElement && current.getAttribute('href')?.startsWith('#')) {
-        targets.hashLinks.push(current);
+      if (element.tagName === 'A' && element.getAttribute('href')?.startsWith('#')) {
+        targets.hashLinks.push(element as HTMLAnchorElement);
       }
     }
 

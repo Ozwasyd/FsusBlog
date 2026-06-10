@@ -103,7 +103,7 @@ tiers:
     defaultShards: 1
     risk: high
     coverage: [backend-coverage]
-    artifacts: [.tmp/coverage/backend-merged]
+    artifacts: [.tmp/coverage/backend, .tmp/coverage/backend-merged]
     evidence: [.tmp/coverage/backend-merged/Summary.json]
     ciJob: coverage-backend
     localOnly: false
@@ -188,7 +188,7 @@ tiers:
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [docker-compose, local-ports, redis-test-state]
-    timeoutMinutes: 15
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
@@ -232,7 +232,7 @@ tiers:
     artifacts: [.tmp/acceptance/*.log, .tmp/gate-logs]
     evidence: [.tmp/acceptance/*.log, .tmp/gate-logs]
     ciJob: ci-summary
-    localOnly: false
+    localOnly: true
     nightlyOnly: false
 
   - id: release
@@ -342,6 +342,7 @@ tiers:
     ciJob: ux-viewport-visual
     localOnly: false
     nightlyOnly: false
+    manualOnly: true
 
   - id: ux-viewport-boundaries
     owner: InteropGlueAgent
@@ -634,11 +635,11 @@ tiers:
   - id: backend-qps
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh backend-qps
-    dependsOn: [backend-qps-view-count-flush, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-qps-index-plan]
+    dependsOn: [bootstrap, backend-qps-view-count-flush, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-qps-index-plan]
     services: []
     parallelizable: true
     exclusiveResources: []
-    timeoutMinutes: 15
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
@@ -652,7 +653,7 @@ tiers:
   - id: endpoint-depth
     owner: ServerContractAgent
     command: tools/test/lanes/endpoint-depth.sh
-    dependsOn: []
+    dependsOn: [bootstrap]
     services: []
     parallelizable: true
     exclusiveResources: []
@@ -670,7 +671,7 @@ tiers:
   - id: data-scale-xs
     owner: ServerContractAgent
     command: tools/test/lanes/data-scale.sh scale-xs
-    dependsOn: []
+    dependsOn: [bootstrap]
     services: [postgres, redis]
     parallelizable: true
     exclusiveResources: []
@@ -688,7 +689,7 @@ tiers:
   - id: data-scale-s
     owner: ServerContractAgent
     command: tools/test/lanes/data-scale.sh scale-s
-    dependsOn: []
+    dependsOn: [bootstrap]
     services: [postgres, redis]
     parallelizable: false
     exclusiveResources: [scale-data]
@@ -706,7 +707,7 @@ tiers:
   - id: data-scale-m
     owner: ServerContractAgent
     command: tools/test/lanes/data-scale.sh scale-m
-    dependsOn: []
+    dependsOn: [bootstrap]
     services: [postgres, redis]
     parallelizable: false
     exclusiveResources: [scale-data]
@@ -724,7 +725,7 @@ tiers:
   - id: data-scale-nightly
     owner: ServerContractAgent
     command: tools/test/lanes/data-scale.sh scale-l-nightly
-    dependsOn: []
+    dependsOn: [bootstrap]
     services: [postgres, redis]
     parallelizable: false
     exclusiveResources: [scale-data-nightly]
@@ -742,7 +743,7 @@ tiers:
   - id: load-baseline
     owner: ServerContractAgent
     command: tools/test/lanes/load-profile.sh baseline
-    dependsOn: []
+    dependsOn: [bootstrap]
     services: [backend, redis, postgres]
     parallelizable: false
     exclusiveResources: [load-runtime]
@@ -760,7 +761,7 @@ tiers:
   - id: load-peak
     owner: ServerContractAgent
     command: tools/test/lanes/load-profile.sh expected-peak
-    dependsOn: []
+    dependsOn: [bootstrap]
     services: [backend, redis, postgres]
     parallelizable: false
     exclusiveResources: [load-runtime]
@@ -778,7 +779,7 @@ tiers:
   - id: load-2x-peak
     owner: ServerContractAgent
     command: tools/test/lanes/load-profile.sh 2x-peak
-    dependsOn: []
+    dependsOn: [bootstrap]
     services: [backend, redis, postgres]
     parallelizable: false
     exclusiveResources: [load-runtime]
@@ -796,7 +797,7 @@ tiers:
   - id: load-burst
     owner: ServerContractAgent
     command: tools/test/lanes/load-profile.sh burst
-    dependsOn: []
+    dependsOn: [bootstrap]
     services: [backend, redis, postgres]
     parallelizable: false
     exclusiveResources: [load-runtime]
@@ -868,7 +869,7 @@ tiers:
   - id: fault-injection
     owner: ServerContractAgent
     command: tools/test/lanes/fault-injection.sh
-    dependsOn: []
+    dependsOn: [bootstrap]
     services: [postgres, redis, backend]
     parallelizable: false
     exclusiveResources: [fault-runtime]
@@ -886,7 +887,7 @@ tiers:
   - id: soak
     owner: ServerContractAgent
     command: tools/test/lanes/soak.sh
-    dependsOn: []
+    dependsOn: [bootstrap]
     services: [postgres, redis, backend, frontend]
     parallelizable: false
     exclusiveResources: [soak-runtime]
@@ -1008,6 +1009,7 @@ tiers:
     ciJob: release-evidence
     localOnly: false
     nightlyOnly: false
+    manualOnly: true
 
   - id: production
     owner: ServerContractAgent

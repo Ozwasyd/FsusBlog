@@ -31,7 +31,10 @@ public static class WebApplicationBuilderCompositionExtensions
     {
         FsusHostRuntimeTuningReport runtimeTuningReport = FsusHostRuntimeTuning.Apply(builder.Configuration);
         builder.Services.AddSingleton(runtimeTuningReport);
-        builder.Services.AddHostedService<FsusHostRuntimeTuningLogService>();
+        if (!OpenApiExportMode.IsEnabled(builder.Configuration))
+        {
+            builder.Services.AddHostedService<FsusHostRuntimeTuningLogService>();
+        }
 
         builder.Host.UseSerilog((context, services, configuration) => configuration
             .ReadFrom.Configuration(context.Configuration)

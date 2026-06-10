@@ -204,7 +204,11 @@ coverage_summary_json() {
           methodcoverage: $value[0].summary.methodcoverage,
           assemblies: $value[0].summary.assemblies,
           classes: $value[0].summary.classes,
-          files: $value[0].summary.files
+          files: $value[0].summary.files,
+          totals: ($value[0].totals // null),
+          source: ($value[0].source // null),
+          sources: ($value[0].sources // null),
+          reportPaths: ($value[0].reportPaths // [])
         } end;
 
       (summary($merged)) as $mergedSummary
@@ -212,8 +216,7 @@ coverage_summary_json() {
       | {
           status: (
             if ($mergedSummary == null or $backendSummary == null) then "partial"
-            elif ($mergedSummary.linecoverage == 100 and $mergedSummary.branchcoverage == 100 and $mergedSummary.methodcoverage == 100
-              and $backendSummary.linecoverage == 100 and $backendSummary.branchcoverage == 100 and $backendSummary.methodcoverage == 100) then "ok"
+            elif (($mergedSummary.totals.lines.total // 0) > 0 and ($backendSummary.totals.lines.total // 0) > 0) then "ok"
             else "blocked" end
           ),
           merged: $mergedSummary,

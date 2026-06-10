@@ -62,7 +62,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<SseConnectionManager>();
         services.AddSingleton<SseBacklogStore>();
         services.AddSingleton<SseLocalFanoutQueue>();
-        services.AddHostedService<SseLocalFanoutWorker>();
+        if (!OpenApiExportMode.IsEnabled())
+        {
+            services.AddHostedService<SseLocalFanoutWorker>();
+        }
         services.AddSingleton<ISsePublisher, RedisSsePublisher>();
         return services;
     }
@@ -71,7 +74,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     {
         services.AddSingleton<CrawlerDetectorService>();
         services.AddSingleton<ICrawlerRiskService, CrawlerRiskService>();
-        services.AddHostedService<CrawlerUpdateWorker>();
+        if (!OpenApiExportMode.IsEnabled())
+        {
+            services.AddHostedService<CrawlerUpdateWorker>();
+        }
         services.AddSingleton<ISearchIndexService, SearchIndexService>();
         return services;
     }
@@ -81,7 +87,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<UploadSessionCleanupQueue>();
         services.AddScoped<FileService>();
         services.AddScoped<IFileService>(sp => sp.GetRequiredService<FileService>());
-        services.AddHostedService<UploadSessionCleanupWorker>();
+        if (!OpenApiExportMode.IsEnabled())
+        {
+            services.AddHostedService<UploadSessionCleanupWorker>();
+        }
         services.AddSingleton<AuthCookieService>();
         services.AddScoped<IHumanReadProofEndpointAdapter, HumanReadProofEndpointAdapter>();
         return services;
@@ -98,7 +107,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddScoped<IAuditEventService, AuditEventService>();
         services.AddScoped<AuditQueryService>();
         services.AddScoped<IAuditLogStore, AuditLogStore>();
-        services.AddHostedService<AuditLogWriterWorker>();
+        if (!OpenApiExportMode.IsEnabled())
+        {
+            services.AddHostedService<AuditLogWriterWorker>();
+        }
         return services;
     }
 
@@ -132,14 +144,20 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<PublicHotReadStore>();
         services.AddSingleton<PublicHotReadCounters>();
         services.AddSingleton<PublicHotArtifactUpdateQueue>();
-        services.AddHostedService<PublicHotReadMetricFlushWorker>();
-        services.AddHostedService<PublicHotReadStartupWarmupService>();
-        services.AddHostedService<PublicHotArtifactUpdateWorker>();
+        if (!OpenApiExportMode.IsEnabled(configuration))
+        {
+            services.AddHostedService<PublicHotReadMetricFlushWorker>();
+            services.AddHostedService<PublicHotReadStartupWarmupService>();
+            services.AddHostedService<PublicHotArtifactUpdateWorker>();
+        }
         services.AddScoped<IPublicHotArtifactProjector, PublicHotArtifactProjector>();
         services.AddSingleton<IArticleDetailAedsArtifactStore, ArticleDetailAedsFileArtifactStore>();
         services.AddSingleton<ArticleDetailAedsArtifactBackfillScheduler>();
         services.AddSingleton<IArticleDetailAedsArtifactBackfillScheduler>(sp => sp.GetRequiredService<ArticleDetailAedsArtifactBackfillScheduler>());
-        services.AddHostedService<ArticleDetailAedsArtifactBackfillWorker>();
+        if (!OpenApiExportMode.IsEnabled(configuration))
+        {
+            services.AddHostedService<ArticleDetailAedsArtifactBackfillWorker>();
+        }
         services.AddScoped<IArticleDetailAedsArtifactProjector, ArticleDetailAedsArtifactProjector>();
         return services;
     }
@@ -155,13 +173,22 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     {
         services.AddSingleton<VisitLogChannel>();
         services.AddScoped<IArticleViewProjectionService, ArticleViewProjectionService>();
-        services.AddHostedService<VisitLogProcessorService>();
-        services.AddHostedService<ArticleViewProjectionRepairWorker>();
+        if (!OpenApiExportMode.IsEnabled())
+        {
+            services.AddHostedService<VisitLogProcessorService>();
+            services.AddHostedService<ArticleViewProjectionRepairWorker>();
+        }
         services.AddSingleton(TimeProvider.System);
-        services.AddHostedService<LogCleanupService>();
-        services.AddHostedService<ArticleMutationOutboxDispatcher>();
+        if (!OpenApiExportMode.IsEnabled())
+        {
+            services.AddHostedService<LogCleanupService>();
+            services.AddHostedService<ArticleMutationOutboxDispatcher>();
+        }
         services.AddSingleton<ScheduledPublishRuntimeState>();
-        services.AddHostedService<ScheduledPublishWorker>();
+        if (!OpenApiExportMode.IsEnabled())
+        {
+            services.AddHostedService<ScheduledPublishWorker>();
+        }
         return services;
     }
 

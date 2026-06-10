@@ -9,7 +9,11 @@ const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url))
 const matrixFile = path.join(root, 'tests/matrix.yml')
 const schemaFile = path.join(root, 'tests/matrix.schema.json')
 const aliases = new Map([
-  ['coverage', 'coverage-gate']
+  ['coverage', 'coverage-gate'],
+  ['backend-qps-runtime', 'backend-qps'],
+  ['endpoint-depth-matrix-generate', 'endpoint-depth'],
+  ['endpoint-depth-runtime-smoke', 'endpoint-depth'],
+  ['endpoint-depth-runtime-full', 'endpoint-depth']
 ])
 
 const requiredFields = [
@@ -154,6 +158,9 @@ function validateMatrix(matrix) {
     for (const field of ['parallelizable', 'shardable', 'localOnly', 'nightlyOnly']) {
       if (typeof tier[field] !== 'boolean') errors.push(`${tier.id}.${field} must be boolean`)
     }
+    if ('manualOnly' in tier && typeof tier.manualOnly !== 'boolean') {
+      errors.push(`${tier.id}.manualOnly must be boolean`)
+    }
     for (const field of ['timeoutMinutes', 'defaultShards']) {
       if (typeof tier[field] !== 'number' || tier[field] < 1) errors.push(`${tier.id}.${field} must be a positive number`)
     }
@@ -223,16 +230,20 @@ function printPlan(tiers) {
 }
 
 function namespaceFor(tier, shard) {
-  if (process.env.FSUSBLOG_TEST_NAMESPACE) return process.env.FSUSBLOG_TEST_NAMESPACE
+  if (process.env.FSUSBLOG_TEST_NAMESPACE) return namespaceSlug(process.env.FSUSBLOG_TEST_NAMESPACE)
   const runId = process.env.GITHUB_RUN_ID || 'local'
   const attempt = process.env.GITHUB_RUN_ATTEMPT || '0'
   const job = process.env.MATRIX_JOB || tier.ciJob || tier.id
   const shardValue = shard ?? process.env.MATRIX_SHARD ?? '0'
-  return `${runId}-${attempt}-${job}-${shardValue}`.replace(/[^A-Za-z0-9_.-]/g, '-')
+  return namespaceSlug(`${runId}-${attempt}-${job}-${shardValue}`)
+}
+
+function namespaceSlug(value) {
+  return String(value).replace(/[^A-Za-z0-9_.-]/g, '-')
 }
 
 function loadNamespaceEnv(namespace) {
-  const envFile = path.join(root, '.tmp/env', `${namespace}.env`)
+  const envFile = path.join(root, '.tmp/env', `${namespaceSlug(namespace)}.env`)
   if (!fs.existsSync(envFile)) return {}
   const values = {}
   for (const line of fs.readFileSync(envFile, 'utf8').split(/\r?\n/)) {
@@ -273,15 +284,17 @@ function runTier(matrix, tierId, args) {
     return
   }
 
+  const target = all[all.length - 1]
+  const runNamespace = namespaceFor(target, options.shard)
+
   for (const tier of all) {
-    const namespace = namespaceFor(tier, options.shard)
-    const namespaceEnv = loadNamespaceEnv(namespace)
+    const namespaceEnv = loadNamespaceEnv(runNamespace)
     const env = {
       ...process.env,
       ...namespaceEnv,
       CURRENT_TIER: tier.id,
       MATRIX_JOB: tier.ciJob,
-      FSUSBLOG_TEST_NAMESPACE: namespace
+      FSUSBLOG_TEST_NAMESPACE: runNamespace
     }
     if (options.shard) {
       const [index, total] = options.shard.split('/')

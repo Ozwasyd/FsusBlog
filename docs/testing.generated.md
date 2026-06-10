@@ -13,7 +13,7 @@ Version: `fsusblog-test-matrix-v2`
 | `backend-fast` | `fast-backend` | - | - | 1 | 35m | `tests/backend/Fixtures/backend-test-requirements.json` |
 | `static-governance` | `fast-static-governance` | `validate-matrix` | - | 1 | 10m | `.tmp/gate-logs`<br>`.tmp/docs`<br>`.tmp/release-evidence/test-plan.json`<br>`.tmp/release-evidence/doc-sync-summary.json` |
 | `fast` | `fast-summary` | `frontend-fast`, `backend-fast`, `static-governance` | - | 1 | 50m | `.tmp/gate-logs`<br>`src/frontend/coverage` |
-| `bootstrap` | `integration-runtime` | - | postgres, redis, backend, frontend, preview | 1 | 15m | `.tmp/acceptance/*.log` |
+| `bootstrap` | `integration-runtime` | - | postgres, redis, backend, frontend, preview | 1 | 45m | `.tmp/acceptance/*.log` |
 | `integration` | `integration-runtime` | `bootstrap` | postgres, redis, backend, frontend | 1 | 25m | `.tmp/acceptance/*.log` |
 | `ci` | `ci-summary` | `fast`, `integration` | postgres, redis, backend, frontend | 1 | 70m | `.tmp/acceptance/*.log`<br>`.tmp/gate-logs` |
 | `release` | `release-public` | `bootstrap` | backend, preview | 1 | 25m | `.tmp/acceptance/*.log` |
@@ -53,12 +53,12 @@ Version: `fsusblog-test-matrix-v2`
 | `backend-qps-article-detail-miss` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/article-detail-miss.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
 | `backend-qps-cache-registry` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-registry.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
 | `backend-qps-index-plan` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/index-plan.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps` | `backend-qps` | `backend-qps-view-count-flush`, `backend-qps-cache-hit`, `backend-qps-comment-cursor`, `backend-qps-hotread`, `backend-qps-cache-miss-singleflight`, `backend-qps-risk-filter`, `backend-qps-related-reading`, `backend-qps-list-pagination`, `backend-qps-article-detail-miss`, `backend-qps-cache-registry`, `backend-qps-index-plan` | - | 1 | 15m | `.tmp/release-evidence/backend-qps-summary.json` |
-| `endpoint-depth` | `cross-stack-contract` | - | - | 1 | 20m | `.tmp/release-evidence/endpoint-depth-summary.json` |
-| `data-scale-xs` | `integration-runtime` | - | postgres, redis | 1 | 15m | `.tmp/release-evidence/data-scale-summary.json` |
-| `data-scale-s` | `integration-runtime` | - | postgres, redis | 1 | 20m | `.tmp/release-evidence/data-scale-summary.json` |
-| `data-scale-m` | `backend-nightly` | - | postgres, redis | 1 | 45m | `.tmp/release-evidence/data-scale-summary.json` |
-| `data-scale-nightly` | `backend-nightly` | - | postgres, redis | 1 | 120m | `.tmp/release-evidence/data-scale-summary.json` |
+| `backend-qps` | `backend-qps` | `bootstrap`, `backend-qps-view-count-flush`, `backend-qps-cache-hit`, `backend-qps-comment-cursor`, `backend-qps-hotread`, `backend-qps-cache-miss-singleflight`, `backend-qps-risk-filter`, `backend-qps-related-reading`, `backend-qps-list-pagination`, `backend-qps-article-detail-miss`, `backend-qps-cache-registry`, `backend-qps-index-plan` | - | 1 | 45m | `.tmp/release-evidence/backend-qps-summary.json` |
+| `endpoint-depth` | `cross-stack-contract` | `bootstrap` | - | 1 | 20m | `.tmp/release-evidence/endpoint-depth-summary.json` |
+| `data-scale-xs` | `integration-runtime` | `bootstrap` | postgres, redis | 1 | 15m | `.tmp/release-evidence/data-scale-summary.json` |
+| `data-scale-s` | `integration-runtime` | `bootstrap` | postgres, redis | 1 | 20m | `.tmp/release-evidence/data-scale-summary.json` |
+| `data-scale-m` | `backend-nightly` | `bootstrap` | postgres, redis | 1 | 45m | `.tmp/release-evidence/data-scale-summary.json` |
+| `data-scale-nightly` | `backend-nightly` | `bootstrap` | postgres, redis | 1 | 120m | `.tmp/release-evidence/data-scale-summary.json` |
 | `backend-perf` | `perf-regression` | - | - | 1 | 25m | `BenchmarkDotNet.Artifacts/results` |
 | `backend-benchmark-regression` | `perf-regression` | - | - | 1 | 35m | `.tmp/release-evidence/perf-summary.json` |
 | `backend-api-integration` | `integration-runtime` | - | - | 1 | 20m | `tests/backend/Fixtures/backend-test-requirements.json` |
@@ -87,13 +87,13 @@ Version: `fsusblog-test-matrix-v2`
 |---|---|---|---|---:|---:|---|
 | `ux-viewport-visual` | `ux-viewport-visual` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 45m | `.tmp/ux/viewport-visual.json`<br>`.tmp/ux/screenshots/visual`<br>`.tmp/release-evidence/ux-viewport-summary.json` |
 | `ux-viewport-boundaries` | `ux-viewport-boundaries` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 90m | `.tmp/ux/viewport-boundaries.json`<br>`.tmp/ux/screenshots/boundaries`<br>`.tmp/release-evidence/ux-viewport-summary.json` |
-| `load-baseline` | `load-smoke` | - | backend, redis, postgres | 1 | 20m | `.tmp/release-evidence/perf-summary.json` |
-| `load-peak` | `load-smoke` | - | backend, redis, postgres | 1 | 35m | `.tmp/release-evidence/perf-summary.json` |
-| `load-2x-peak` | `backend-nightly` | - | backend, redis, postgres | 1 | 45m | `.tmp/release-evidence/perf-summary.json` |
-| `load-burst` | `backend-nightly` | - | backend, redis, postgres | 1 | 20m | `.tmp/release-evidence/perf-summary.json` |
+| `load-baseline` | `load-smoke` | `bootstrap` | backend, redis, postgres | 1 | 20m | `.tmp/release-evidence/perf-summary.json` |
+| `load-peak` | `load-smoke` | `bootstrap` | backend, redis, postgres | 1 | 35m | `.tmp/release-evidence/perf-summary.json` |
+| `load-2x-peak` | `backend-nightly` | `bootstrap` | backend, redis, postgres | 1 | 45m | `.tmp/release-evidence/perf-summary.json` |
+| `load-burst` | `backend-nightly` | `bootstrap` | backend, redis, postgres | 1 | 20m | `.tmp/release-evidence/perf-summary.json` |
 | `browser-performance-regression` | `perf-regression` | - | frontend, backend | 1 | 20m | `.tmp/release-evidence/perf-summary.json` |
-| `fault-injection` | `resilience-runtime` | - | postgres, redis, backend | 1 | 30m | `.tmp/fault-injection/summary.json` |
-| `soak` | `backend-nightly` | - | postgres, redis, backend, frontend | 1 | 30m | `.tmp/soak` |
+| `fault-injection` | `resilience-runtime` | `bootstrap` | postgres, redis, backend | 1 | 30m | `.tmp/fault-injection/summary.json` |
+| `soak` | `backend-nightly` | `bootstrap` | postgres, redis, backend, frontend | 1 | 30m | `.tmp/soak` |
 
 ## Manual Closeout Tiers
 

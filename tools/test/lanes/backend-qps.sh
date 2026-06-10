@@ -133,39 +133,23 @@ esac
 artifact="$OUT_DIR/$MODE.json"
 checks_csv="$(IFS=,; echo "${checks[*]}")"
 generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-commit_sha="$(git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
 
-jq -n \
-  --arg status "ok" \
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/lanes/runtime-evidence-probe.mjs" backend-qps "$MODE" "$artifact"
+checks_json="$(printf '%s\n' "${checks[@]}" | jq -R . | jq -s .)"
+tmp_artifact="$artifact.tmp"
+jq \
   --arg route "$route" \
   --arg mode "$traffic_mode" \
-  --arg scenario "$MODE" \
   --arg generatedAt "$generated_at" \
-  --arg commitSha "$commit_sha" \
-  --arg checks "$checks_csv" \
-  --arg artifact ".tmp/perf/backend-qps/$MODE.json" \
-  '{
-    status: $status,
-    scenario: $scenario,
-    route: $route,
-    mode: $mode,
-    generatedAt: $generatedAt,
-    commitSha: $commitSha,
-    evidenceType: "static-qps-implementation-guard",
-    checks: ($checks | split(",") | map(select(length > 0))),
-    artifact: $artifact,
-    rps: 0,
-    p50Ms: 0,
-    p95Ms: 0,
-    p99Ms: 0,
-    allocBytesPerRequest: 0,
-    dbCommandsPerRequest: 0,
-    redisCommandsPerRequest: 0,
-    cacheHitRatio: 0,
-    aedsCrcComputesPerRequest: 0,
-    threadPoolAvailableWorkerThreads: 0,
-    dbGateWaiting: 0
-  }' > "$artifact"
+  --arg checksCsv "$checks_csv" \
+  --argjson checks "$checks_json" \
+  '.route = $route
+    | .mode = $mode
+    | .generatedAt = $generatedAt
+    | .checks = $checks
+    | .staticImplementationChecks = ($checksCsv | split(",") | map(select(length > 0)))' \
+  "$artifact" > "$tmp_artifact"
+mv "$tmp_artifact" "$artifact"
 
 jq -s \
   --arg generatedAt "$generated_at" \

@@ -2,6 +2,10 @@
 set -euo pipefail
 
 workers="${FSUSBLOG_CONSOLE_VISUAL_WORKERS:-1}"
+shard_args=()
+if [[ -n "${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-}" ]]; then
+  shard_args+=("$FSUSBLOG_PLAYWRIGHT_SHARD_ARG")
+fi
 groups=(
   'console visual \(desktop, light\)'
   'console visual \(desktop, dark\)'
@@ -21,5 +25,5 @@ groups=(
 
 for group in "${groups[@]}"; do
   echo "[console-visual] group=${group}"
-  env -u NO_COLOR NODE_PATH=./node_modules npx playwright test visual/console-visual.spec.ts --grep "${group}" --workers="${workers}"
+  env -u NO_COLOR NODE_PATH=./node_modules npx playwright test "${shard_args[@]}" visual/console-visual.spec.ts --grep "${group}" --workers="${workers}"
 done

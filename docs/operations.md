@@ -22,7 +22,7 @@ Coverage is enforced as a separate hard gate:
 ./tools/test.sh coverage-gate
 ```
 
-This gate collects backend + frontend coverage, merges reports, and enforces both merged and backend-only thresholds. Frontend collection defaults its local Vitest thresholds to `0` so the artifact step cannot fail on files outside the curated gate denominator; the hard threshold is applied after merge. Current merged/backend defaults are line, branch, and method `100%` for the scoped coverage set (overridable via `FSUSBLOG_COVERAGE_*` env vars).
+This gate collects backend + frontend coverage, merges reports, and enforces both merged and backend-only thresholds. Frontend collection defaults its local Vitest thresholds to `0` so the artifact step cannot fail on files outside the curated gate denominator; the hard threshold is applied after merge. Current defaults are merged line/branch/method `35%/20%/30%` and backend line/branch/method `75%/55%/95%` for the scoped coverage set (overridable via `FSUSBLOG_COVERAGE_*` env vars).
 
 If VSCode integrated terminal picks an older Node than expected, run:
 

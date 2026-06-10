@@ -3,7 +3,45 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP_ROOT="$(mktemp -d)"
-trap 'rm -rf "$TMP_ROOT"' EXIT
+RESTORE_DIR="$TMP_ROOT/restore"
+TRACKED_TMP_FILES=(
+  ".tmp/release-evidence/frontend-render-pressure-summary.json"
+  ".tmp/release-evidence/doc-sync-summary.json"
+  ".tmp/release-evidence/backend-qps-summary.json"
+  ".tmp/frontend/dom-budget.json"
+  ".tmp/frontend/route-render-pressure.json"
+  ".tmp/frontend/markdown-render-budget.json"
+  ".tmp/frontend/dom-depth-static.json"
+)
+
+preserve_tracked_tmp_files() {
+  local relative
+  for relative in "${TRACKED_TMP_FILES[@]}"; do
+    if [[ -f "$ROOT_DIR/$relative" ]]; then
+      mkdir -p "$RESTORE_DIR/$(dirname "$relative")"
+      cp "$ROOT_DIR/$relative" "$RESTORE_DIR/$relative"
+    else
+      mkdir -p "$RESTORE_DIR/$(dirname "$relative")"
+      touch "$RESTORE_DIR/$relative.__missing"
+    fi
+  done
+}
+
+restore_tracked_tmp_files() {
+  local relative
+  for relative in "${TRACKED_TMP_FILES[@]}"; do
+    if [[ -f "$RESTORE_DIR/$relative" ]]; then
+      mkdir -p "$(dirname "$ROOT_DIR/$relative")"
+      cp "$RESTORE_DIR/$relative" "$ROOT_DIR/$relative"
+    elif [[ -f "$RESTORE_DIR/$relative.__missing" ]]; then
+      rm -f "$ROOT_DIR/$relative"
+    fi
+  done
+  rm -rf "$TMP_ROOT"
+}
+
+trap restore_tracked_tmp_files EXIT
+preserve_tracked_tmp_files
 
 SECURITY_DIR="$TMP_ROOT/security"
 OPERATIONS_DIR="$TMP_ROOT/operations"
@@ -164,8 +202,8 @@ printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/backup-restore-drill.json"
 printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/post-deploy-smoke.json"
 printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/slo-alert-fixture.json"
 printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/retention-cleanup.json"
-printf '{"summary":{"linecoverage":100,"branchcoverage":100,"methodcoverage":100,"assemblies":1,"classes":1,"files":1}}\n' > "$COVERAGE_DIR/merged/Summary.json"
-printf '{"summary":{"linecoverage":100,"branchcoverage":100,"methodcoverage":100,"assemblies":1,"classes":1,"files":1}}\n' > "$COVERAGE_DIR/backend-merged/Summary.json"
+printf '{"summary":{"linecoverage":80,"branchcoverage":60,"methodcoverage":95,"assemblies":1,"classes":1,"files":1},"totals":{"lines":{"covered":80,"total":100},"branches":{"covered":60,"total":100},"methods":{"covered":95,"total":100}},"sources":{"mergeMethod":"covered-over-total-weighted"}}\n' > "$COVERAGE_DIR/merged/Summary.json"
+printf '{"summary":{"linecoverage":78,"branchcoverage":58,"methodcoverage":96,"assemblies":1,"classes":1,"files":1},"totals":{"lines":{"covered":78,"total":100},"branches":{"covered":58,"total":100},"methods":{"covered":96,"total":100}},"source":"backend-cobertura","reportPaths":["coverage/backend/fixture.cobertura.xml"]}\n' > "$COVERAGE_DIR/backend-merged/Summary.json"
 mkdir -p "$ROOT_DIR/.tmp/frontend" "$ROOT_DIR/.tmp/release-evidence"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json"

@@ -13,7 +13,10 @@ internal static class RuntimePublicAotServiceCollectionExtensions
         services.AddSingleton<PublicAotBackfillScheduler>();
         services.AddSingleton<IPublicAotBackfillScheduler>(sp => sp.GetRequiredService<PublicAotBackfillScheduler>());
         services.AddSingleton<PublicAotInvalidationTracker>();
-        services.AddHostedService<PublicAotBackfillWorker>();
+        if (!OpenApiExportMode.IsEnabled())
+        {
+            services.AddHostedService<PublicAotBackfillWorker>();
+        }
 
         services.AddSingleton<IContentFilterService, ContentFilterService>();
         services.AddScoped<ProductionReadinessProbe>();

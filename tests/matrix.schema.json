@@ -47,7 +47,8 @@
           "evidence": { "type": "array", "items": { "type": "string" } },
           "ciJob": { "type": "string" },
           "localOnly": { "type": "boolean" },
-          "nightlyOnly": { "type": "boolean" }
+          "nightlyOnly": { "type": "boolean" },
+          "manualOnly": { "type": "boolean" }
         },
         "additionalProperties": false
       }

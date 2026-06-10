@@ -37,6 +37,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITestSessionContext, TestSessionContext>();
         services.AddSingleton<IRuntimeKeyScope, TestAwareRuntimeKeyScope>();
         services.AddEndpointsApiExplorer();
+        services.AddOpenApi();
 
         services.AddRedis(configuration);
         services.AddSqlSugar();

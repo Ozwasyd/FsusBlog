@@ -20,6 +20,16 @@ run(['plan', 'production'])
 run(['ci-plan', '--format', 'github-actions'])
 run(['docs', '--out', '.tmp/docs/run-test-matrix-docs-compat.md'])
 
+{
+  const result = spawnSync('node', ['tools/check-workflow-matrix-sync.mjs'], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  if (result.stdout) process.stdout.write(result.stdout)
+  if (result.stderr) process.stderr.write(result.stderr)
+  if (result.status !== 0) process.exit(result.status ?? 1)
+}
+
 for (const script of [
   'tools/docs/generate-testing-docs.mjs',
   'tools/docs/check-time-budget-sync.mjs'

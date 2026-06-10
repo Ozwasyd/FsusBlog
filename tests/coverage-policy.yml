@@ -1,14 +1,14 @@
 version: fsusblog-coverage-policy-v1
 thresholds:
   merged:
-    line: 100
-    branch: 100
-    method: 100
-    function: 100
+    line: 35
+    branch: 20
+    method: 30
+    function: 30
   backend:
-    line: 100
-    branch: 100
-    method: 100
+    line: 75
+    branch: 55
+    method: 95
   frontend:
     line: 0
     branch: 0

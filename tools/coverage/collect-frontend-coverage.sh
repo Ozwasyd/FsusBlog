@@ -37,12 +37,26 @@ fi
 
 "${FSUSBLOG_NODE:-node}" - "$CLIENT_DIR/coverage/unit/coverage-summary.json" "$SUMMARY_FILE" <<'NODE'
 const fs = require('node:fs');
+const path = require('node:path');
 const [summaryPath, outFile] = process.argv.slice(2);
-let total = null;
-if (fs.existsSync(summaryPath)) {
-  total = JSON.parse(fs.readFileSync(summaryPath, 'utf8')).total;
+if (!fs.existsSync(summaryPath)) {
+  console.error(`[coverage:frontend] missing Vitest coverage summary: ${summaryPath}`);
+  process.exit(1);
 }
-const pct = (metric, fallback = 100) => Number(total?.[metric]?.pct ?? fallback);
+const total = JSON.parse(fs.readFileSync(summaryPath, 'utf8')).total;
+if (!total) {
+  console.error(`[coverage:frontend] invalid Vitest coverage summary: ${summaryPath}`);
+  process.exit(1);
+}
+const pct = (metric) => {
+  const value = Number(total?.[metric]?.pct);
+  if (!Number.isFinite(value)) {
+    console.error(`[coverage:frontend] missing ${metric}.pct in ${summaryPath}`);
+    process.exit(1);
+  }
+  return value;
+};
+const count = (metric, key) => Number(total?.[metric]?.[key] ?? 0);
 const summary = {
   summary: {
     linecoverage: pct('lines'),
@@ -50,13 +64,20 @@ const summary = {
     methodcoverage: pct('functions'),
     assemblies: 1,
     classes: 1,
-    files: Number(total?.lines?.total ? 1 : 1)
+    files: Number(total?.lines?.total ? 1 : 0)
+  },
+  totals: {
+    lines: { covered: count('lines', 'covered'), total: count('lines', 'total') },
+    branches: { covered: count('branches', 'covered'), total: count('branches', 'total') },
+    methods: { covered: count('functions', 'covered'), total: count('functions', 'total') },
+    statements: { covered: count('statements', 'covered'), total: count('statements', 'total') }
   },
   frontend: {
     functioncoverage: pct('functions'),
     statementcoverage: pct('statements')
   },
   source: 'frontend-vitest',
+  reportPaths: [path.relative(process.cwd(), summaryPath).replaceAll(path.sep, '/')],
   generatedAt: new Date().toISOString()
 };
 fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`);

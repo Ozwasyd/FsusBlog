@@ -30,8 +30,11 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddSingleton<ISchemaModelInspector, SchemaModelInspector>();
         services.AddSingleton<ISchemaMigrationLock, SchemaMigrationLock>();
         services.AddScoped<ISchemaMigrationRunner, SchemaMigrationRunner>();
-        services.AddHostedService<ProductionStartupValidationHostedService>();
-        services.AddHostedService<LifecycleHostedBootstrapService>();
+        if (!OpenApiExportMode.IsEnabled(configuration))
+        {
+            services.AddHostedService<ProductionStartupValidationHostedService>();
+            services.AddHostedService<LifecycleHostedBootstrapService>();
+        }
 
         return services;
     }

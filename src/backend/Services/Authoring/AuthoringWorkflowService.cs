@@ -1873,7 +1873,15 @@ fsusMetadataJson: {encodedMetadata}
                 if (values.TryGetValue("cover", out string? rawCover)) cover = NormalizeNullable(rawCover, 512);
                 if (values.TryGetValue("categoryId", out string? rawCategory) && int.TryParse(rawCategory, out int parsedCategory)) categoryId = Math.Max(1, parsedCategory);
                 if (values.TryGetValue("status", out string? rawStatus) && int.TryParse(rawStatus, out int parsedStatus) && Enum.IsDefined(typeof(ArticleStatus), parsedStatus)) status = (ArticleStatus)parsedStatus;
-                if (values.TryGetValue("scheduledPublishAt", out string? rawScheduled) && DateTime.TryParse(rawScheduled, out DateTime parsedScheduled)) scheduledPublishAt = parsedScheduled;
+                if (values.TryGetValue("scheduledPublishAt", out string? rawScheduled)
+                    && DateTime.TryParse(
+                        rawScheduled,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.RoundtripKind,
+                        out DateTime parsedScheduled))
+                {
+                    scheduledPublishAt = parsedScheduled;
+                }
                 if (values.TryGetValue("tagIds", out string? rawTagIds)) tagIds = ParseTagIds(rawTagIds);
             }
         }
