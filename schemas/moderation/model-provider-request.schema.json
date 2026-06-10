@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fsusblog.local/schemas/moderation/model-provider-request.schema.json",
+  "title": "FsusBlog Moderation Provider Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "request_id",
+    "content_type",
+    "text"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": "fsusblog-moderation-provider-v1"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "content_type": {
+      "type": "string",
+      "enum": [
+        "comment",
+        "article",
+        "profile",
+        "message"
+      ]
+    },
+    "text": {
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 20000
+    },
+    "language": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 35,
+      "pattern": "^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$"
+    },
+    "region_hint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 2,
+      "maxLength": 64,
+      "pattern": "^[A-Z0-9][A-Z0-9-]*$"
+    },
+    "threshold_profile": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "max_evidence_items": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 32
+    },
+    "metadata": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_.:-]{1,64}$"
+      },
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+          "null"
+        ]
+      }
+    }
+  }
+}

@@ -93,6 +93,7 @@ FsusBlog/
 │   ├── development.md        # 本地开发指南
 │   ├── testing.md            # 测试分层策略
 │   ├── wasm.md               # WebAssembly 开发指南
+│   ├── moderation/           # 审核模型 Provider 契约与第三方开发指南
 │   └── api/                  # API 详细文档
 │       ├── design.md         # API 设计哲学与约定
 │       ├── contracts.md      # 请求 / 响应契约完整文档
@@ -212,5 +213,6 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/development.md](docs/development.md) | 本地开发环境搭建、常用脚本说明 |
 | [docs/testing.md](docs/testing.md) | 测试 DAG、production-ci-gate、release-closeout-gate 与覆盖场景说明 |
 | [docs/wasm.md](docs/wasm.md) | WebAssembly 工具链、构建、C++/TS 接口边界 |
+| [docs/moderation/third-party-model-development.md](docs/moderation/third-party-model-development.md) | 第三方审核模型 Provider 契约、schema、CLI/HTTP 接入和 conformance 测试 |
 | [tests/backend/TESTING.md](tests/backend/TESTING.md) | 测试分层规则与洁净性约定 |
 | [src/core/Algorithms/AEDS_V1_PROTOCOL.md](src/core/Algorithms/AEDS_V1_PROTOCOL.md) | AEDS 二进制帧协议规格（当前运行时只接受 v2） |

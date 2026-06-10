@@ -1004,6 +1004,8 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 单条与批量审核都会写入 `comment-moderation` / `comment-moderation-bulk` 审计，服务层用旧 `ModerationStatus` 做 CAS 条件更新并限制状态机转换。`Pending/Rejected/Hidden -> Approved` 会通过 SSE 推送 `CommentAdded`；`Approved -> Rejected/Hidden` 和删除会推送 `CommentRemoved`。评论游标缓存按 article/root/user scope 清理，不再全局清 `CacheTag.Comment`；当 `status=Rejected|Hidden` 且 `banUser(s)=true` 时，服务端会把非 admin、非注销用户更新为封禁状态并同步黑名单缓存。误判恢复使用 `status=Approved`，不会触发封禁联动。
 
+第三方审核模型 Provider 契约由 FsusBlog 定义，Provider 只返回风险类别、置信度、严重度、证据策略和模型元数据，不得返回 `reject_submit`、`geo_block`、`blocked_regions`、发布、隐藏或地区合法性字段。HTTP/CLI JSON schema、错误响应和 conformance 工具见 [../moderation/third-party-model-development.md](../moderation/third-party-model-development.md)。
+
 内容导出使用 `ContentExportResponse`：`fileName`、`markdownWithFrontmatter`、`metadata`。frontmatter 固定写入 `fsusFormat: content-export-v1`、`sourceArticleId`、`title`、`summary`、`cover`、`categoryId`、`status`、`scheduledPublishAt`、`tagIds`、`revisionCount` 与 `fsusMetadataJson`；`fsusMetadataJson` 是 base64url 编码的 `ContentExportMetadataResponse`，用于无损恢复分类、标签、封面、文章状态和修订元数据。`GET /api/author/content/export` 返回 `ContentBackupExportResponse`，以 JSON 包含所有文章的导出结果。导入时 `publish=true` 会强制导入为 `Published`，否则按 metadata 的 `status` 恢复；`preserveRevisions=true` 会用导出包中的 revisions 替换导入时生成的初始 revision。
 
 ### 订阅
