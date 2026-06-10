@@ -26,7 +26,7 @@
 
 ## 基础包装结构
 
-运行时主 API 已收敛到 AEDS Binary：`/api/binary/**` 响应使用 AEDS v2 frame，错误也通过 `ApiError` frame 表达，不再通过旧文本响应包装。真人阅读 proof 使用 `/api/read-proof/**` JSON 包装响应，避免把计数 proof 扩展进 AEDS/Wasm 协议面。
+运行时主 API 已收敛到 AEDS Binary：`/api/binary/**` 响应使用 AEDS v2 frame，错误也通过 `ApiError` frame 表达，不再通过旧文本响应包装。所有内部应用 API 按 [aeds-only-policy.md](aeds-only-policy.md) 治理；仍在使用 `JsonApiResponse<T>` 的 read-proof、RUM、author/security console、related-reading、notification preflight 和 subscription API 只属于登记的迁移期兼容层。
 
 HTTP 层契约源是 `src/shared/Contracts/Validation/fsusblog.openapi.json`。该 OpenAPI snapshot 描述 method/path/status/content-type/security 与 `x-fsus-*` AEDS metadata；AEDS frame 名称、header magic/version/size 仍以 `src/shared/Contracts/Validation/aeds-protocol.json` 为权威来源。cross-stack matrix、前端 route constants、runtime contract smoke 与 release evidence 通过 `tools/contracts/*` 从这两个源校验或生成。
 
@@ -67,7 +67,7 @@ compact record 内所有文本字段均为 `Utf8SliceRef`，指向当前 payload
 
 payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/Conversation 等重复文本均落到单个 shared UTF-8 blob，records 只保存 `Utf8SliceRef`；前端 ArticlePage decode 不再创建 object records 数组，也不使用 `tagRecords.slice(...)` 复制 tag range。后续若引入 `ArticleListV4` category/tag dictionary，必须保持现有 frame type 的 downgrade 路径和 golden fixture。
 
-### JSON proof 包装
+### 迁移期 JSON proof 包装
 
 `/api/read-proof/**` 使用 JSON：
 
@@ -78,6 +78,8 @@ payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/
   "message": null
 }
 ```
+
+该包装仅作为 #99 迁移前的兼容层保留。新增 read-proof 能力必须使用 AEDS request/response frame；错误语义迁移到 `ApiError`。
 
 ### Passkey AEDS frames
 

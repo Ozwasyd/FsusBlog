@@ -1,0 +1,162 @@
+{
+  "version": "aeds-only-policy-v1",
+  "entries": [
+    {
+      "id": "health-probes-json",
+      "classification": "allowed-exemption",
+      "scope": "backend",
+      "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+      "patterns": ["TypedResults.Json"],
+      "routes": ["/health/live", "/health/ready"],
+      "reason": "Kubernetes/systemd/monitoring probes require JSON health documents outside the internal application API surface."
+    },
+    {
+      "id": "feed-json-standard",
+      "classification": "allowed-exemption",
+      "scope": "backend",
+      "file": "src/backend/Modules/Endpoints/DistributionEndpoints.cs",
+      "patterns": ["BuildJsonFeedAsync", "application/feed+json", "JsonSerializer.Serialize"],
+      "routes": ["/feed/feed.json"],
+      "reason": "JSON Feed is an external syndication standard and is not an internal application API."
+    },
+    {
+      "id": "public-aot-manifest-tooling-json",
+      "classification": "allowed-exemption",
+      "scope": "backend",
+      "file": "src/backend/Modules/Endpoints/PublicAotEndpoints.cs",
+      "patterns": ["JsonApiResponse<PublicAotRouteManifestResponse>", "/internal/public-aot"],
+      "routes": ["/internal/public-aot/manifest"],
+      "reason": "Build/backfill tooling manifest, protected by optional manifest token; not browser runtime application API."
+    },
+    {
+      "id": "public-related-reading-json-migration",
+      "classification": "must-migrate",
+      "scope": "cross-stack",
+      "file": "src/backend/Modules/Endpoints/DistributionEndpoints.cs",
+      "patterns": ["JsonApiResponse<RelatedReadingResponse>", "/api/public/articles"],
+      "routes": ["/api/public/articles/{articleId}/related"],
+      "issue": "#98",
+      "reason": "Public related-reading is an internal public runtime API and must move to an AEDS frame contract."
+    },
+    {
+      "id": "frontend-related-reading-json-migration",
+      "classification": "must-migrate",
+      "scope": "frontend",
+      "file": "src/frontend/src/api/article.ts",
+      "patterns": ["JsonApiResponse", "response.json", "application/json", "/api/public/articles"],
+      "routes": ["/api/public/articles/{articleId}/related"],
+      "issue": "#98",
+      "reason": "Frontend related-reading adapter is kept only until the AEDS migration lands."
+    },
+    {
+      "id": "read-proof-json-migration-backend",
+      "classification": "must-migrate",
+      "scope": "backend",
+      "file": "src/backend/Modules/Endpoints/ReadProofEndpoints.cs",
+      "patterns": ["JsonApiResponse<HumanReadChallengeResponse>", "JsonApiResponse<HumanReadSubmitResponse>", "/api/read-proof"],
+      "routes": ["/api/read-proof/challenge", "/api/read-proof/submit"],
+      "issue": "#99",
+      "reason": "Human read-proof is an internal application API and must move to request/response AEDS frames."
+    },
+    {
+      "id": "read-proof-json-migration-frontend",
+      "classification": "must-migrate",
+      "scope": "frontend",
+      "file": "src/frontend/src/api/readProof.ts",
+      "patterns": ["JsonApiResponse", "response.json", "application/json", "JSON.stringify", "/api/read-proof"],
+      "routes": ["/api/read-proof/challenge", "/api/read-proof/submit"],
+      "issue": "#99",
+      "reason": "Frontend read-proof JSON adapter is a tracked migration compatibility layer."
+    },
+    {
+      "id": "rum-json-migration-backend",
+      "classification": "must-migrate",
+      "scope": "backend",
+      "file": "src/backend/Modules/Endpoints/TelemetryEndpoints.cs",
+      "patterns": ["JsonApiResponse<RumMetricIngestResponse>", "/api/telemetry"],
+      "routes": ["/api/telemetry/rum"],
+      "issue": "#101",
+      "reason": "RUM ingestion is an internal telemetry API and must move to batched AEDS frames."
+    },
+    {
+      "id": "rum-json-migration-frontend",
+      "classification": "must-migrate",
+      "scope": "frontend",
+      "file": "src/frontend/src/services/telemetryService.ts",
+      "patterns": ["JSON.stringify", "application/json", "/api/telemetry/rum"],
+      "routes": ["/api/telemetry/rum"],
+      "issue": "#101",
+      "reason": "RUM JSON beacon/fetch path is kept only until batched AEDS ingestion lands."
+    },
+    {
+      "id": "author-json-migration-backend",
+      "classification": "must-migrate",
+      "scope": "backend",
+      "file": "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+      "patterns": ["JsonApiResponse", "Results.Json", "/api/author"],
+      "routes": ["/api/author/**"],
+      "issue": "#102",
+      "reason": "Authoring, moderation, ops, cache and integrity console APIs are tracked as one AEDS migration surface."
+    },
+    {
+      "id": "author-json-migration-frontend",
+      "classification": "must-migrate",
+      "scope": "frontend",
+      "file": "src/frontend/src/api/authoring.ts",
+      "patterns": ["JsonApiResponse", "response.json", "application/json", "JSON.stringify", "/api/author"],
+      "routes": ["/api/author/**"],
+      "issue": "#102",
+      "reason": "Frontend authoring JSON client is kept only as a tracked compatibility layer."
+    },
+    {
+      "id": "security-json-migration-backend",
+      "classification": "must-migrate",
+      "scope": "backend",
+      "file": "src/backend/Modules/Endpoints/SecurityEndpoints.cs",
+      "patterns": ["JsonApiResponse", "Results.Json", "/api/admin/security"],
+      "routes": ["/api/admin/security/**"],
+      "issue": "#103",
+      "reason": "Admin security console APIs are internal application APIs and must move to AEDS."
+    },
+    {
+      "id": "security-json-migration-frontend",
+      "classification": "must-migrate",
+      "scope": "frontend",
+      "file": "src/frontend/src/api/security.ts",
+      "patterns": ["JsonApiResponse", "response.json", "application/json", "JSON.stringify", "/api/admin/security"],
+      "routes": ["/api/admin/security/**"],
+      "issue": "#103",
+      "reason": "Frontend admin security JSON client is kept only as a tracked compatibility layer."
+    },
+    {
+      "id": "notification-preflight-json-migration-backend",
+      "classification": "must-migrate",
+      "scope": "backend",
+      "file": "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs",
+      "patterns": ["ValidateNotificationStreamPreflightAsync", "TypedResults.Json", "X-Fsus-Sse-Error-Code"],
+      "routes": ["/api/notifications/stream/preflight"],
+      "issue": "#105",
+      "reason": "Notification preflight error envelope must converge to ApiError frame semantics."
+    },
+    {
+      "id": "notification-preflight-json-migration-frontend",
+      "classification": "must-migrate",
+      "scope": "frontend",
+      "file": "src/frontend/src/services/sseRuntime.ts",
+      "patterns": ["response.json", "/api/notifications/stream/preflight"],
+      "routes": ["/api/notifications/stream/preflight"],
+      "issue": "#105",
+      "reason": "Frontend preflight JSON parsing is kept only for the tracked residual cleanup."
+    },
+    {
+      "id": "subscription-json-migration",
+      "classification": "must-migrate",
+      "scope": "backend",
+      "file": "src/backend/Modules/Endpoints/SubscriptionEndpoints.cs",
+      "patterns": ["JsonApiResponse<object>", "/api/subscriptions"],
+      "routes": ["/api/subscriptions"],
+      "issue": "#105",
+      "reason": "Subscription form API is an internal application API and belongs to the residual JSON cleanup backlog."
+    }
+  ]
+}
