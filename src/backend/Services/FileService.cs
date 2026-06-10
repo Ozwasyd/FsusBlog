@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
@@ -15,6 +16,8 @@ public sealed partial class FileService : IFileService
 {
     private const int DefaultChunkSize = 512 * 1024;
     private const int MaxChunkSize = 2 * 1024 * 1024;
+    private const int UploadStreamBufferSize = 81920;
+    private const int ImageSignatureHeaderLength = 16;
     private const long MaxUploadBytes = 20 * 1024 * 1024;
     private const uint UploadSessionMagic = 0x53505546; // FUPS
     private const byte UploadSessionVersion = 1;
@@ -274,22 +277,14 @@ public sealed partial class FileService : IFileService
                 return Result<UploadPartAckDto>.Failure(ErrorCode.Validation, "分片哈希格式不正确");
             }
 
+            string expectedPayloadHash = NormalizeHash(payloadHash);
             string partPath = GetPartPath(uploadId, partNumber);
-            Result writeResult = await BoundaryExecutor.ExecuteResultAsync(
-                async () =>
-                {
-                    Directory.CreateDirectory(GetPartsPath(uploadId));
-
-                    await using var stream = new FileStream(partPath, new FileStreamOptions
-                    {
-                        Mode = FileMode.Create,
-                        Access = FileAccess.Write,
-                        Share = FileShare.None,
-                        BufferSize = 81920,
-                        Options = FileOptions.Asynchronous
-                    });
-                    await part.CopyToAsync(stream, cancellationToken);
-                },
+            Result<string> writeResult = await BoundaryExecutor.ExecuteResultAsync(
+                async () => await WritePartAndComputeHashAsync(
+                    part,
+                    partPath,
+                    computeHash: expectedPayloadHash.Length > 0,
+                    cancellationToken),
                 _ => ErrorDetail.Create(ErrorCode.InfraFailure, "分片写入失败"),
                 _logger,
                 $"upload-part:{uploadId}:{partNumber}");
@@ -298,14 +293,11 @@ public sealed partial class FileService : IFileService
                 return Result<UploadPartAckDto>.Failure(writeResult.Error);
             }
 
-            if (!string.IsNullOrWhiteSpace(payloadHash))
+            if (expectedPayloadHash.Length > 0
+                && !writeResult.Value!.Equals(expectedPayloadHash, StringComparison.OrdinalIgnoreCase))
             {
-                string actual = await ComputeSha256Async(partPath, cancellationToken);
-                if (!actual.Equals(payloadHash, StringComparison.OrdinalIgnoreCase))
-                {
-                    File.Delete(partPath);
-                    return Result<UploadPartAckDto>.Failure(ErrorCode.Validation, "分片校验失败");
-                }
+                File.Delete(partPath);
+                return Result<UploadPartAckDto>.Failure(ErrorCode.Validation, "分片校验失败");
             }
 
             bool isNewPart = !record.UploadedParts.Contains(partNumber);
@@ -368,33 +360,19 @@ public sealed partial class FileService : IFileService
             string finalPath = Path.Combine(_folderPath, fileName);
             string relativeUrl = $"{_cleanSubFolderWeb}/{fileName}";
             string tempPath = Path.Combine(GetSessionPath(uploadId), $"assembled{extension}");
+            string expectedHash = NormalizeHash(sha256);
+            if (expectedHash.Length == 0)
+            {
+                expectedHash = NormalizeHash(record.Sha256);
+            }
 
-            Result assembleResult = await BoundaryExecutor.ExecuteResultAsync(
-                async () =>
-                {
-                    await using var output = new FileStream(tempPath, new FileStreamOptions
-                    {
-                        Mode = FileMode.Create,
-                        Access = FileAccess.Write,
-                        Share = FileShare.None,
-                        BufferSize = 81920,
-                        Options = FileOptions.Asynchronous
-                    });
-
-                    foreach (int partNumber in orderedParts)
-                    {
-                        string partPath = GetPartPath(uploadId, partNumber);
-                        await using var input = new FileStream(partPath, new FileStreamOptions
-                        {
-                            Mode = FileMode.Open,
-                            Access = FileAccess.Read,
-                            Share = FileShare.Read,
-                            BufferSize = 81920,
-                            Options = FileOptions.Asynchronous
-                        });
-                        await input.CopyToAsync(output, cancellationToken);
-                    }
-                },
+            Result<AssembledUploadFile> assembleResult = await BoundaryExecutor.ExecuteResultAsync(
+                async () => await AssembleUploadAsync(
+                    uploadId,
+                    orderedParts,
+                    tempPath,
+                    computeHash: expectedHash.Length > 0,
+                    cancellationToken),
                 _ => ErrorDetail.Create(ErrorCode.InfraFailure, "上传文件合并失败"),
                 _logger,
                 $"upload-complete:{uploadId}");
@@ -403,29 +381,21 @@ public sealed partial class FileService : IFileService
                 return Result<UploadCompleteDto>.Failure(assembleResult.Error);
             }
 
-            string expectedHash = NormalizeHash(sha256);
-            if (expectedHash.Length == 0)
+            AssembledUploadFile assembled = assembleResult.Value!;
+            if (expectedHash.Length > 0
+                && !assembled.Sha256.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
             {
-                expectedHash = NormalizeHash(record.Sha256);
-            }
-            if (expectedHash.Length > 0)
-            {
-                string finalHash = await ComputeSha256Async(tempPath, cancellationToken);
-                if (!finalHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
-                {
-                    File.Delete(tempPath);
-                    return Result<UploadCompleteDto>.Failure(ErrorCode.Validation, "上传文件校验失败");
-                }
+                File.Delete(tempPath);
+                return Result<UploadCompleteDto>.Failure(ErrorCode.Validation, "上传文件校验失败");
             }
 
-            long actualLength = new FileInfo(tempPath).Length;
-            if (actualLength != record.TotalBytes)
+            if (assembled.Length != record.TotalBytes)
             {
                 File.Delete(tempPath);
                 return Result<UploadCompleteDto>.Failure(ErrorCode.Conflict, "合并文件大小异常");
             }
 
-            if (!await ValidateImageSignatureAsync(tempPath, record.TargetFormat, cancellationToken))
+            if (!ValidateImageSignature(assembled.Header.AsSpan(0, assembled.HeaderLength), record.TargetFormat))
             {
                 File.Delete(tempPath);
                 return Result<UploadCompleteDto>.Failure(ErrorCode.Validation, "文件签名与目标格式不一致");
@@ -1065,6 +1035,108 @@ public sealed partial class FileService : IFileService
         return Convert.ToHexStringLower(hash);
     }
 
+    private static async Task<string> WritePartAndComputeHashAsync(
+        IFormFile part,
+        string partPath,
+        bool computeHash,
+        CancellationToken cancellationToken)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(partPath)!);
+        await using Stream input = part.OpenReadStream();
+        await using var output = new FileStream(partPath, new FileStreamOptions
+        {
+            Mode = FileMode.Create,
+            Access = FileAccess.Write,
+            Share = FileShare.None,
+            BufferSize = UploadStreamBufferSize,
+            Options = FileOptions.Asynchronous
+        });
+        using IncrementalHash? hasher = computeHash
+            ? IncrementalHash.CreateHash(HashAlgorithmName.SHA256)
+            : null;
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(UploadStreamBufferSize);
+        try
+        {
+            int read;
+            while ((read = await input.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
+            {
+                hasher?.AppendData(buffer.AsSpan(0, read));
+                await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+            }
+
+            return hasher is null
+                ? string.Empty
+                : Convert.ToHexStringLower(hasher.GetHashAndReset());
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private async Task<AssembledUploadFile> AssembleUploadAsync(
+        string uploadId,
+        IReadOnlyList<int> orderedParts,
+        string tempPath,
+        bool computeHash,
+        CancellationToken cancellationToken)
+    {
+        await using var output = new FileStream(tempPath, new FileStreamOptions
+        {
+            Mode = FileMode.Create,
+            Access = FileAccess.Write,
+            Share = FileShare.None,
+            BufferSize = UploadStreamBufferSize,
+            Options = FileOptions.Asynchronous
+        });
+        using IncrementalHash? hasher = computeHash
+            ? IncrementalHash.CreateHash(HashAlgorithmName.SHA256)
+            : null;
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(UploadStreamBufferSize);
+        byte[] header = new byte[ImageSignatureHeaderLength];
+        long totalWritten = 0;
+        int headerLength = 0;
+        try
+        {
+            foreach (int partNumber in orderedParts)
+            {
+                string partPath = GetPartPath(uploadId, partNumber);
+                await using var input = new FileStream(partPath, new FileStreamOptions
+                {
+                    Mode = FileMode.Open,
+                    Access = FileAccess.Read,
+                    Share = FileShare.Read,
+                    BufferSize = UploadStreamBufferSize,
+                    Options = FileOptions.Asynchronous
+                });
+
+                int read;
+                while ((read = await input.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
+                {
+                    hasher?.AppendData(buffer.AsSpan(0, read));
+                    if (headerLength < header.Length)
+                    {
+                        int copyLength = Math.Min(read, header.Length - headerLength);
+                        buffer.AsSpan(0, copyLength).CopyTo(header.AsSpan(headerLength));
+                        headerLength += copyLength;
+                    }
+
+                    await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                    totalWritten += read;
+                }
+            }
+
+            string sha256 = hasher is null
+                ? string.Empty
+                : Convert.ToHexStringLower(hasher.GetHashAndReset());
+            return new AssembledUploadFile(totalWritten, sha256, header, headerLength);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
     private static async Task<bool> ValidateImageSignatureAsync(string filePath, string targetFormat, CancellationToken cancellationToken)
     {
         byte[] header = new byte[16];
@@ -1078,11 +1150,17 @@ public sealed partial class FileService : IFileService
         });
 
         int read = await stream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken);
-        if (read < 4)
+        return ValidateImageSignature(header.AsSpan(0, read), targetFormat);
+    }
+
+    private static bool ValidateImageSignature(ReadOnlySpan<byte> header, string targetFormat)
+    {
+        if (header.Length < 4)
         {
             return false;
         }
 
+        int read = header.Length;
         string format = targetFormat.TrimStart('.').ToLowerInvariant();
         return format switch
         {
@@ -1098,6 +1176,12 @@ public sealed partial class FileService : IFileService
             _ => false
         };
     }
+
+    private sealed record AssembledUploadFile(
+        long Length,
+        string Sha256,
+        byte[] Header,
+        int HeaderLength);
 
     [LoggerMessage(EventId = 1, Level = LogLevel.Error, Message = "插图磁盘写入异常。目标路径: {FilePath}")]
     private partial void LogWriteError(Exception ex, string filePath);

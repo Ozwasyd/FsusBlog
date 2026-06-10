@@ -119,6 +119,102 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task UploadPartAsync_HashMismatchDeletesPartAndDoesNotPersistProgress()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            byte[] payload = [0x89, 0x50, 0x4E, 0x47, 1, 2, 3, 4];
+            string wrongSha256 = new('0', 64);
+
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "sample.png",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = payload.Length,
+                ChunkSize = payload.Length
+            });
+
+            Assert.True(init.IsSuccess);
+            Result<UploadPartAckDto> upload = await service.UploadPartAsync(
+                init.Value!.UploadId,
+                0,
+                0,
+                CreateFormFile(payload, "chunk"),
+                wrongSha256);
+
+            Assert.False(upload.IsSuccess);
+            Assert.False(File.Exists(GetPartPath(root, init.Value.UploadId, 0)));
+            UploadSessionRecord record = await ReadManifestAsync(root, init.Value.UploadId);
+            Assert.Empty(record.UploadedParts);
+            Assert.Equal(0, record.UploadedBytes);
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task UploadPartAsync_ConcurrentDistinctPartsCompleteSuccessfully()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            byte[] part0 = new byte[64 * 1024];
+            byte[] part1 = new byte[64 * 1024];
+            byte[] pngHeader = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+            pngHeader.CopyTo(part0, 0);
+            Array.Fill<byte>(part0, 0x11, pngHeader.Length, part0.Length - pngHeader.Length);
+            Array.Fill<byte>(part1, 0x22);
+            byte[] payload = [.. part0, .. part1];
+            string finalSha256 = Convert.ToHexStringLower(SHA256.HashData(payload));
+
+            Result<UploadInitDto> init = await service.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "sample.png",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = payload.Length,
+                ChunkSize = part0.Length,
+                Sha256 = finalSha256
+            });
+
+            Assert.True(init.IsSuccess);
+            Task<Result<UploadPartAckDto>> first = service.UploadPartAsync(
+                init.Value!.UploadId,
+                0,
+                0,
+                CreateFormFile(part0, "chunk0"),
+                Convert.ToHexStringLower(SHA256.HashData(part0)));
+            Task<Result<UploadPartAckDto>> second = service.UploadPartAsync(
+                init.Value.UploadId,
+                1,
+                part0.Length,
+                CreateFormFile(part1, "chunk1"),
+                Convert.ToHexStringLower(SHA256.HashData(part1)));
+
+            Result<UploadPartAckDto>[] uploads = await Task.WhenAll(first, second);
+
+            Assert.All(uploads, upload => Assert.True(upload.IsSuccess, upload.Error.Message));
+            Result<UploadCompleteDto> complete = await service.CompleteUploadAsync(init.Value.UploadId, finalSha256);
+            Assert.True(complete.IsSuccess, complete.Error.Message);
+            Assert.Equal(payload.Length, complete.Value!.TotalBytes);
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task GetUploadStatusAsync_RecomputesUploadedBytesForPersistedManifest()
     {
         ResetSessionLocks();
@@ -498,6 +594,95 @@ public sealed class FileServiceTests
         }
     }
 
+    [Fact]
+    public async Task CompleteUploadAsync_FinalHashMismatchDeletesAssembledTemp()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+            byte[] payload = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4];
+            string partSha256 = Convert.ToHexStringLower(SHA256.HashData(payload));
+            string wrongSha256 = new('f', 64);
+            var init = await svc.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "test.png",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = payload.Length,
+                ChunkSize = payload.Length
+            });
+
+            Assert.True(init.IsSuccess);
+            Result<UploadPartAckDto> upload = await svc.UploadPartAsync(init.Value!.UploadId, 0, 0, CreateFormFile(payload, "chunk"), partSha256);
+            Assert.True(upload.IsSuccess);
+
+            Result<UploadCompleteDto> complete = await svc.CompleteUploadAsync(init.Value.UploadId, wrongSha256);
+
+            Assert.False(complete.IsSuccess);
+            Assert.False(File.Exists(Path.Combine(GetSessionPath(root, init.Value.UploadId), "assembled.png")));
+            Assert.True(Directory.Exists(GetSessionPath(root, init.Value.UploadId)));
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task CompleteUploadAsync_SignatureMismatchDeletesAssembledTemp()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+            byte[] payload = [0x42, 0x41, 0x44, 0x21, 0x0D, 0x0A, 0x1A, 0x0A];
+            string sha256 = Convert.ToHexStringLower(SHA256.HashData(payload));
+            var init = await svc.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "test.png",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = payload.Length,
+                ChunkSize = payload.Length,
+                Sha256 = sha256
+            });
+
+            Assert.True(init.IsSuccess);
+            Result<UploadPartAckDto> upload = await svc.UploadPartAsync(init.Value!.UploadId, 0, 0, CreateFormFile(payload, "chunk"), sha256);
+            Assert.True(upload.IsSuccess);
+
+            Result<UploadCompleteDto> complete = await svc.CompleteUploadAsync(init.Value.UploadId, sha256);
+
+            Assert.False(complete.IsSuccess);
+            Assert.False(File.Exists(Path.Combine(GetSessionPath(root, init.Value.UploadId), "assembled.png")));
+            Assert.Empty(Directory.EnumerateFiles(Path.Combine(root, "wwwroot", "uploads", "illustration")));
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void UploadHotPathSource_DoesNotReopenWrittenFilesForHashOrSignature()
+    {
+        string source = ReadFileServiceSource();
+        string uploadPart = ExtractMethodBlock(source, "public async Task<Result<UploadPartAckDto>> UploadPartAsync");
+        string complete = ExtractMethodBlock(source, "public async Task<Result<UploadCompleteDto>> CompleteUploadAsync");
+
+        Assert.DoesNotContain("ComputeSha256Async(partPath", uploadPart, StringComparison.Ordinal);
+        Assert.DoesNotContain("ComputeSha256Async(tempPath", complete, StringComparison.Ordinal);
+        Assert.DoesNotContain("ValidateImageSignatureAsync(tempPath", complete, StringComparison.Ordinal);
+        Assert.Contains("WritePartAndComputeHashAsync", uploadPart, StringComparison.Ordinal);
+        Assert.Contains("AssembleUploadAsync", complete, StringComparison.Ordinal);
+        Assert.Contains("ValidateImageSignature(assembled.Header", complete, StringComparison.Ordinal);
+    }
+
     private static FormFile CreateFormFile(byte[] payload, string name)
     {
         var stream = new MemoryStream(payload, writable: false);
@@ -537,6 +722,9 @@ public sealed class FileServiceTests
     private static string GetManifestPath(string root, string uploadId)
         => Path.Combine(GetSessionPath(root, uploadId), "manifest.aeds");
 
+    private static string GetPartPath(string root, string uploadId, int partNumber)
+        => Path.Combine(GetSessionPath(root, uploadId), "parts", $"{partNumber:D8}.part");
+
     private static async Task<UploadSessionRecord> ReadManifestAsync(string root, string uploadId)
     {
         byte[] payload = await File.ReadAllBytesAsync(GetManifestPath(root, uploadId));
@@ -556,6 +744,60 @@ public sealed class FileServiceTests
         string path = Path.Combine(Path.GetTempPath(), "fsus-file-service-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private static string ReadFileServiceSource()
+    {
+        return File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Services", "FileService.cs"));
+    }
+
+    private static string FindRepoRoot()
+    {
+        string current = AppContext.BaseDirectory;
+        while (!string.IsNullOrWhiteSpace(current))
+        {
+            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
+            {
+                return current;
+            }
+
+            DirectoryInfo? parent = Directory.GetParent(current);
+            if (parent is null)
+            {
+                break;
+            }
+
+            current = parent.FullName;
+        }
+
+        throw new DirectoryNotFoundException("Unable to locate repository root.");
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
+
+        int depth = 0;
+        for (int i = braceStart; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+            {
+                depth++;
+            }
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(i + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 
     private sealed class TestWebHostEnvironment(string root) : IWebHostEnvironment
