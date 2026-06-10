@@ -50,11 +50,28 @@
         </div>
       </header>
 
+      <AdminTaskFeedbackBar
+        class="mx-4 mb-8"
+        :phase="taskFeedbackPhase"
+        :message="taskFeedbackMessage"
+        :detail="taskFeedbackDetail"
+        :aria-message="taskFeedbackAriaMessage"
+        :assertive-message="taskFeedbackAssertiveMessage"
+        :busy="taskFeedbackBusy"
+      />
+
       <el-form
         ref="formRef"
         :model="articleForm"
         :rules="rules"
-        class="write-validation-form"
+        class="write-validation-form blog-motion-task-region"
+        :class="{
+          'blog-motion-task-region--pending': taskFeedbackBusy,
+          'blog-motion-task-region--settled': isTaskHighlighted('article-submit')
+            || isTaskHighlighted('article-prepublish')
+            || isTaskHighlighted('article-revision')
+            || isTaskHighlighted('article-assets')
+        }"
         label-position="top"
         @submit.prevent="requestSubmit"
       >
@@ -421,6 +438,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import ArticleAssetLibraryPanel from '@/components/admin/article/ArticleAssetLibraryPanel.vue'
+import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import ArticlePrivatePreviewPanel from '@/components/admin/article/ArticlePrivatePreviewPanel.vue'
 import ArticleRevisionPanel from '@/components/admin/article/ArticleRevisionPanel.vue'
 import ArticleSeoPreviewPanel from '@/components/admin/article/ArticleSeoPreviewPanel.vue'
@@ -438,6 +456,7 @@ const route = useRoute()
 
 const {
   formRef,
+  taskFeedback,
   pageLoading,
   submitting,
   categories,
@@ -513,6 +532,15 @@ const {
   resumeImageUpload,
   leaveEditor
 } = useAdminArticleWrite()
+const {
+  phase: taskFeedbackPhase,
+  message: taskFeedbackMessage,
+  detail: taskFeedbackDetail,
+  assertiveMessage: taskFeedbackAssertiveMessage,
+  busy: taskFeedbackBusy,
+  ariaMessage: taskFeedbackAriaMessage,
+  isHighlighted: isTaskHighlighted
+} = taskFeedback
 
 void formRef
 

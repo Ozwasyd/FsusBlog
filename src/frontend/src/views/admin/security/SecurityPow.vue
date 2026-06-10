@@ -18,8 +18,23 @@
       </div>
     </WorkbenchPanel>
 
+    <AdminTaskFeedbackBar
+      :phase="taskFeedbackPhase"
+      :message="taskFeedbackMessage"
+      :detail="taskFeedbackDetail"
+      :aria-message="taskFeedbackAriaMessage"
+      :assertive-message="taskFeedbackAssertiveMessage"
+      :busy="taskFeedbackBusy"
+    />
+
     <section class="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-      <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
+      <div
+        class="blog-motion-task-region border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]"
+        :class="{
+          'blog-motion-task-region--pending': saving,
+          'blog-motion-task-region--settled': isTaskHighlighted('security-pow-options')
+        }"
+      >
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
             <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行策略</div>
@@ -94,10 +109,12 @@ import {
   type SecurityMode
 } from '@/api/security'
 import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { Refresh } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
+import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 
 const AdminSensitiveAction = 'admin-sensitive'
 const modes: SecurityMode[] = ['disabled', 'observe', 'enforce', 'strict']
@@ -105,6 +122,16 @@ const modes: SecurityMode[] = ['disabled', 'observe', 'enforce', 'strict']
 const loading = shallowRef(false)
 const saving = shallowRef(false)
 const overview = shallowRef<PowOverviewResponse | null>(null)
+const taskFeedback = useAdminTaskFeedback()
+const {
+  phase: taskFeedbackPhase,
+  message: taskFeedbackMessage,
+  detail: taskFeedbackDetail,
+  assertiveMessage: taskFeedbackAssertiveMessage,
+  busy: taskFeedbackBusy,
+  ariaMessage: taskFeedbackAriaMessage,
+  isHighlighted: isTaskHighlighted
+} = taskFeedback
 
 const draft = reactive<PowPolicyOptions>({
   mode: 'enforce',
@@ -188,12 +215,15 @@ const saveOptions = async (): Promise<void> => {
       inputValidator: (value: string) => value.trim().length > 0 || '请输入变更原因'
     })
     if (!reason) return
+    taskFeedback.begin('正在保存 PoW 策略', reason, 'security-pow-options')
     const mfaProofToken = await ensureAdminSensitiveProof()
     const snapshot = await updatePowOptions({ ...draft, reason }, { mfaProofToken })
     assignDraft(snapshot.options)
+    taskFeedback.succeed('PoW 策略已更新', `difficulty=${snapshot.options.defaultDifficulty}`, 'security-pow-options')
     toast.success('PoW 策略已更新')
     await loadPow()
   } catch (error) {
+    taskFeedback.fail('PoW 策略保存失败', error, 'PoW 策略保存失败', 'security-pow-options')
     showErrorToast(error, 'PoW 策略保存失败')
   } finally {
     saving.value = false
@@ -202,13 +232,16 @@ const saveOptions = async (): Promise<void> => {
 
 const rollbackOptions = async (): Promise<void> => {
   saving.value = true
+  taskFeedback.begin('正在回滚 PoW 策略', '需要管理员二次验证', 'security-pow-options')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     const snapshot = await rollbackPowOptions({ mfaProofToken })
     assignDraft(snapshot.options)
+    taskFeedback.succeed('PoW 策略已回滚', `difficulty=${snapshot.options.defaultDifficulty}`, 'security-pow-options')
     toast.success('PoW 策略已回滚')
     await loadPow()
   } catch (error) {
+    taskFeedback.fail('PoW 策略回滚失败', error, 'PoW 策略回滚失败', 'security-pow-options')
     showErrorToast(error, 'PoW 策略回滚失败')
   } finally {
     saving.value = false

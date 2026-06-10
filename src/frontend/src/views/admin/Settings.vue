@@ -24,7 +24,26 @@
       </p>
     </section>
 
-    <el-tabs v-model="activeTab">
+    <AdminTaskFeedbackBar
+      class="mb-10"
+      :phase="taskFeedbackPhase"
+      :message="taskFeedbackMessage"
+      :detail="taskFeedbackDetail"
+      :aria-message="taskFeedbackAriaMessage"
+      :assertive-message="taskFeedbackAssertiveMessage"
+      :busy="taskFeedbackBusy"
+    />
+
+    <el-tabs
+      v-model="activeTab"
+      class="blog-motion-task-region"
+      :class="{
+        'blog-motion-task-region--pending': savingSite || savingCompliance || savingPage || refreshingPage,
+        'blog-motion-task-region--settled': isTaskHighlighted('settings-site')
+          || isTaskHighlighted('settings-compliance')
+          || isTaskHighlighted('settings-page')
+      }"
+    >
       <el-tab-pane label="站点信息" name="site">
         <div class="mt-10 space-y-14 md:space-y-16">
           <!-- 站点元信息 -->
@@ -489,12 +508,16 @@
 <script setup lang="ts">
 import { Delete, Plus, Warning } from '@/fsusui/icons'
 import { confirmWarning } from '@/fsusui/feedback'
+import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import SettingsPageEditor from '@/components/admin/settings/SettingsPageEditor.vue'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
 import { useAdminSettingsPage } from '@/composables/useAdminSettingsPage'
 
 const {
   activeTab,
+  taskFeedback,
+  savingSite,
+  savingCompliance,
   savingPage,
   refreshingPage,
   loadingSite,
@@ -551,6 +574,15 @@ const {
   discardPageChangesAndSwitch,
   savePageAndSwitch
 } = useAdminSettingsPage()
+const {
+  phase: taskFeedbackPhase,
+  message: taskFeedbackMessage,
+  detail: taskFeedbackDetail,
+  assertiveMessage: taskFeedbackAssertiveMessage,
+  busy: taskFeedbackBusy,
+  ariaMessage: taskFeedbackAriaMessage,
+  isHighlighted: isTaskHighlighted
+} = taskFeedback
 
 const confirmImageRemove = async (): Promise<void> => {
   const confirmed = await confirmWarning('这只会从待保存配置中移除当前预览图，点击保存同步后才会影响公开站点。', '移除预览图', {

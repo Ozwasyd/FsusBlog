@@ -7,6 +7,7 @@ import {
 } from '@/api/authoring'
 import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
 import { commentModerationStatusLabel } from '@/composables/useCommentModerationQueue'
+import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 import { AppErrorCode, isAppError } from '@/utils/appError'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { promptText, toast } from '@/fsusui/feedback'
@@ -64,6 +65,7 @@ export function useCommentModerationActions() {
   const processingId = ref<string | null>(null)
   const processingBulk = ref(false)
   const isProcessing = computed(() => processingBulk.value || processingId.value !== null)
+  const taskFeedback = useAdminTaskFeedback()
 
   const toggleSelection = (id: string, checked: boolean): void => {
     selectedIds.value = checked
@@ -119,6 +121,8 @@ export function useCommentModerationActions() {
     afterSuccess?: () => Promise<void> | void
   ): Promise<boolean> => {
     processingId.value = comment.id
+    const targetStatus = commentModerationStatusLabel(status)
+    taskFeedback.begin('正在审核评论', `#${comment.id} -> ${targetStatus}`, comment.id)
     try {
       const mfaProofToken = await ensureAdminSensitiveProof()
       await moderateComment(comment.id, {
@@ -128,11 +132,14 @@ export function useCommentModerationActions() {
       }, {
         mfaProofToken
       })
+      taskFeedback.succeed('评论审核状态已更新', `#${comment.id} -> ${targetStatus}`, comment.id)
       toast.success('评论审核状态已更新')
       await afterSuccess?.()
       return true
     } catch (error: unknown) {
-      showErrorToast(moderationErrorMessage(error, '评论审核操作失败'), '评论审核操作失败')
+      const message = moderationErrorMessage(error, '评论审核操作失败')
+      taskFeedback.fail('评论审核操作失败', message, message, comment.id)
+      showErrorToast(message, '评论审核操作失败')
       return false
     } finally {
       processingId.value = null
@@ -149,6 +156,9 @@ export function useCommentModerationActions() {
     }
 
     processingBulk.value = true
+    const selectedCount = selectedIds.value.length
+    const targetStatus = commentModerationStatusLabel(status)
+    taskFeedback.begin('正在批量审核评论', `${selectedCount} 条 -> ${targetStatus}`, 'moderation-bulk')
     try {
       const mfaProofToken = await ensureAdminSensitiveProof()
       const result = await moderateCommentsBulk({
@@ -159,12 +169,19 @@ export function useCommentModerationActions() {
       }, {
         mfaProofToken
       })
+      if (result.updated === selectedCount) {
+        taskFeedback.succeed('批量审核完成', `已处理 ${result.updated} 条评论`, 'moderation-bulk')
+      } else {
+        taskFeedback.partial('批量审核部分完成', `已处理 ${result.updated}/${selectedCount} 条评论`, 'moderation-bulk')
+      }
       toast.success(`已处理 ${result.updated} 条评论`)
       selectedIds.value = []
       await afterSuccess?.()
       return true
     } catch (error: unknown) {
-      showErrorToast(moderationErrorMessage(error, '批量审核操作失败'), '批量审核操作失败')
+      const message = moderationErrorMessage(error, '批量审核操作失败')
+      taskFeedback.fail('批量审核操作失败', message, message, 'moderation-bulk')
+      showErrorToast(message, '批量审核操作失败')
       return false
     } finally {
       processingBulk.value = false
@@ -178,6 +195,7 @@ export function useCommentModerationActions() {
     processingId,
     processingBulk,
     isProcessing,
+    taskFeedback,
     toggleSelection,
     clearSelection,
     pruneSelection,

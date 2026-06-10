@@ -181,7 +181,7 @@
                   <span>{{ group.label }}</span>
                   <span v-if="group.helper" class="account-mobile-nav-group-helper">{{ group.helper }}</span>
                 </button>
-                <div v-show="isMobileGroupExpanded(group.key)" class="account-mobile-nav-group-items">
+                <div v-if="isMobileGroupExpanded(group.key)" class="account-mobile-nav-group-items">
                   <router-link
                     v-for="item in group.items"
                     :key="item.to"

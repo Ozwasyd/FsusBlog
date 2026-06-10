@@ -1,6 +1,21 @@
 <template>
   <div class="space-y-8">
-    <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
+    <AdminTaskFeedbackBar
+      :phase="taskFeedbackPhase"
+      :message="taskFeedbackMessage"
+      :detail="taskFeedbackDetail"
+      :aria-message="taskFeedbackAriaMessage"
+      :assertive-message="taskFeedbackAssertiveMessage"
+      :busy="taskFeedbackBusy"
+    />
+
+    <section
+      class="blog-motion-task-region border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]"
+      :class="{
+        'blog-motion-task-region--pending': reloading || rollingBack,
+        'blog-motion-task-region--settled': isTaskHighlighted('moderation-dictionaries-runtime')
+      }"
+    >
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库管理 / DICTIONARIES</div>
@@ -35,7 +50,7 @@
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="filteredDictionaries" row-key="dictionaryId">
+      <el-table v-loading="loading" :data="filteredDictionaries" row-key="dictionaryId" :row-class-name="rowClassName">
         <el-table-column label="Dictionary ID" min-width="230">
           <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
             <div class="font-semibold text-[var(--fsusblog-text-primary)]">{{ row.dictionaryId }}</div>
@@ -126,9 +141,11 @@ import {
   type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
 import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { Check, Close, CopyDocument, Refresh, RefreshLeft, RefreshRight, View } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
+import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 
 const AdminSensitiveAction = 'admin-sensitive'
 const MainlandChangeConfirmPhrase = 'CONFIRM CN-MAINLAND MODERATION CHANGE'
@@ -141,6 +158,16 @@ const snapshot = shallowRef<ModerationDictionaryRuntimeSnapshot | null>(null)
 const runtime = shallowRef<ModerationRuntimeStatusResponse | null>(null)
 const detail = shallowRef<ModerationDictionaryRuntimeItem | null>(null)
 const detailVisible = shallowRef(false)
+const taskFeedback = useAdminTaskFeedback()
+const {
+  phase: taskFeedbackPhase,
+  message: taskFeedbackMessage,
+  detail: taskFeedbackDetail,
+  assertiveMessage: taskFeedbackAssertiveMessage,
+  busy: taskFeedbackBusy,
+  ariaMessage: taskFeedbackAriaMessage,
+  isHighlighted: isTaskHighlighted
+} = taskFeedback
 
 const filters = reactive({
   scope: '',
@@ -273,12 +300,15 @@ const ensureAdminSensitiveProof = async (): Promise<string> => {
 
 const reloadSnapshot = async (): Promise<void> => {
   reloading.value = true
+  taskFeedback.begin('正在 reload 词库 runtime', '重新加载词库 metadata 与 checksum', 'moderation-dictionaries-runtime')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     const result = await reloadModerationDictionaries({ mfaProofToken })
+    taskFeedback.succeed('词库 runtime 已 reload', result.snapshotId, 'moderation-dictionaries-runtime')
     toast.success(`词库已重载 ${result.snapshotId}`)
     await loadSnapshot()
   } catch (error) {
+    taskFeedback.fail('词库 reload 失败', error, '词库 reload 失败', 'moderation-dictionaries-runtime')
     showErrorToast(error, '词库 reload 失败')
   } finally {
     reloading.value = false
@@ -287,13 +317,16 @@ const reloadSnapshot = async (): Promise<void> => {
 
 const rollbackSnapshot = async (): Promise<void> => {
   rollingBack.value = true
+  taskFeedback.begin('正在 rollback 词库 runtime', '恢复上一份可用快照', 'moderation-dictionaries-runtime')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     const result = await rollbackModerationDictionaries({ mfaProofToken })
     snapshot.value = result
     runtime.value = await getModerationRuntimeStatus()
+    taskFeedback.succeed('词库 runtime 已 rollback', result.snapshotId, 'moderation-dictionaries-runtime')
     toast.success(`词库已回滚 ${result.snapshotId}`)
   } catch (error) {
+    taskFeedback.fail('词库 rollback 失败', error, '词库 rollback 失败', 'moderation-dictionaries-runtime')
     showErrorToast(error, '词库 rollback 失败')
   } finally {
     rollingBack.value = false
@@ -315,9 +348,11 @@ const resolveDictionaryConfirmPhrase = async (item: ModerationDictionaryRuntimeI
 
 const setDictionaryEnabled = async (item: ModerationDictionaryRuntimeItem, enabled: boolean): Promise<void> => {
   runtimeActionId.value = item.dictionaryId
+  taskFeedback.begin(enabled ? '正在启用词库' : '正在禁用词库', item.dictionaryId, item.dictionaryId)
   try {
     const confirmPhrase = await resolveDictionaryConfirmPhrase(item, enabled)
     if (!enabled && item.dictionaryId.startsWith('cn-mainland.') && confirmPhrase !== MainlandChangeConfirmPhrase) {
+      taskFeedback.partial('词库变更已取消', '确认短语不匹配', item.dictionaryId)
       return
     }
 
@@ -325,8 +360,10 @@ const setDictionaryEnabled = async (item: ModerationDictionaryRuntimeItem, enabl
     runtime.value = enabled
       ? await enableModerationDictionary(item.dictionaryId, { reason: 'dictionary_runtime_enable' }, { mfaProofToken })
       : await disableModerationDictionary(item.dictionaryId, { reason: 'dictionary_runtime_disable', confirmPhrase }, { mfaProofToken })
+    taskFeedback.succeed(enabled ? '词库已启用' : '词库已禁用', item.dictionaryId, item.dictionaryId)
     toast.success(`${item.dictionaryId} ${enabled ? '已启用' : '已禁用'}`)
   } catch (error) {
+    taskFeedback.fail(enabled ? '词库启用失败' : '词库禁用失败', error, enabled ? '词库启用失败' : '词库禁用失败', item.dictionaryId)
     showErrorToast(error, enabled ? '词库启用失败' : '词库禁用失败')
   } finally {
     runtimeActionId.value = null
@@ -342,6 +379,9 @@ const copyChecksum = async (item: ModerationDictionaryRuntimeItem): Promise<void
   await navigator.clipboard?.writeText(item.checksum)
   toast.success('checksum 已复制')
 }
+
+const rowClassName = ({ row }: { row: ModerationDictionaryRuntimeItem }): string =>
+  isTaskHighlighted(row.dictionaryId) ? 'blog-motion-task-region blog-motion-task-region--settled' : 'blog-motion-task-region'
 
 function formatTime(value: string): string {
   return value ? new Date(value).toLocaleString() : '-'

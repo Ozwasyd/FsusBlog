@@ -10,6 +10,7 @@ import { useNotificationStreamStore } from '@/store/notificationStream'
 import type { NotificationStreamInboxRenderPatch } from '@/services/notificationStreamTypes'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
+import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 
 const PAGE_SIZE = 30
 
@@ -48,6 +49,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
   const loading = ref(false)
   const loadingDetail = ref(false)
   const processing = ref(false)
+  const taskFeedback = useAdminTaskFeedback()
 
   const filter = ref<ConversationFilter>('open')
   const conversations = shallowRef<ConversationListItemResponse[]>([])
@@ -125,10 +127,12 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
   const reply = async (): Promise<void> => {
     if (!selectedConversationId.value || !replyBody.value.trim() || processing.value) return
     processing.value = true
+    const conversationId = selectedConversationId.value
+    taskFeedback.begin('正在发送站内信回复', conversationId, conversationId)
     try {
-      const message = await messageApi.adminReplyConversation(selectedConversationId.value, { body: replyBody.value })
+      const message = await messageApi.adminReplyConversation(conversationId, { body: replyBody.value })
       replyBody.value = ''
-      if (detail.value && detail.value.conversationId === selectedConversationId.value) {
+      if (detail.value && detail.value.conversationId === conversationId) {
         detail.value = {
           ...detail.value,
           messages: [...detail.value.messages, message],
@@ -136,11 +140,13 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
         }
       }
       const listSynced = await loadConversations(true)
+      taskFeedback.succeed('站内信回复已发送', listSynced ? conversationId : '列表同步失败，请稍后刷新', conversationId)
       toast.success('回复已发送')
       if (!listSynced) {
         showWarningToast('回复已发送，但会话列表同步失败，请稍后刷新', '回复已发送，但会话列表同步失败，请稍后刷新')
       }
     } catch (error) {
+      taskFeedback.fail('发送回复失败', error, '发送回复失败', conversationId)
       showErrorToast(error, '发送回复失败')
     } finally {
       processing.value = false
@@ -150,17 +156,19 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
   const updateStatus = async (status: 'open' | 'pending' | 'closed'): Promise<void> => {
     if (!selectedConversationId.value || processing.value) return
     processing.value = true
+    const conversationId = selectedConversationId.value
+    taskFeedback.begin('正在更新会话状态', `${conversationId} -> ${status}`, conversationId)
     try {
-      await messageApi.adminUpdateConversationStatus(selectedConversationId.value, { status })
+      await messageApi.adminUpdateConversationStatus(conversationId, { status })
       const nextStatus = status === 'open' ? 0 : status === 'pending' ? 1 : 2
-      if (detail.value && detail.value.conversationId === selectedConversationId.value) {
+      if (detail.value && detail.value.conversationId === conversationId) {
         detail.value = {
           ...detail.value,
           status: nextStatus
         }
       }
       const currentList = conversations.value.slice()
-      const index = currentList.findIndex((it) => it.conversationId === selectedConversationId.value)
+      const index = currentList.findIndex((it) => it.conversationId === conversationId)
       if (index >= 0) {
         currentList[index] = {
           ...currentList[index]!,
@@ -169,12 +177,18 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
         conversations.value = currentList
       }
       const listSynced = await loadConversations(true)
-      const detailSynced = await loadDetail(selectedConversationId.value, true)
+      const detailSynced = await loadDetail(conversationId, true)
+      if (listSynced && detailSynced) {
+        taskFeedback.succeed('会话状态已更新', `${conversationId} -> ${status}`, conversationId)
+      } else {
+        taskFeedback.partial('会话状态已更新', '列表或详情同步失败，请稍后刷新', conversationId)
+      }
       toast.success('状态已更新')
       if (!listSynced || !detailSynced) {
         showWarningToast('状态已更新，但列表或详情同步失败，请稍后刷新', '状态已更新，但列表或详情同步失败，请稍后刷新')
       }
     } catch (error) {
+      taskFeedback.fail('状态更新失败', error, '状态更新失败', conversationId)
       showErrorToast(error, '状态更新失败')
     } finally {
       processing.value = false
@@ -191,6 +205,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     }
 
     processing.value = true
+    taskFeedback.begin('正在发送系统消息', `用户 ${parsedTargetUserId}`, 'admin-system-message')
     try {
       const created = await messageApi.adminSendSystemMessage({
         targetUserId: parsedTargetUserId,
@@ -204,11 +219,13 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
       list.unshift(toConversationListItem(created))
       conversations.value = list
       const listSynced = await loadConversations(true)
+      taskFeedback.succeed('系统消息已发送', listSynced ? `用户 ${parsedTargetUserId}` : '列表同步失败，请稍后刷新', 'admin-system-message')
       toast.success('系统消息已发送')
       if (!listSynced) {
         showWarningToast('系统消息已发送，但会话列表同步失败，请稍后刷新', '系统消息已发送，但会话列表同步失败，请稍后刷新')
       }
     } catch (error) {
+      taskFeedback.fail('系统消息发送失败', error, '系统消息发送失败', 'admin-system-message')
       showErrorToast(error, '系统消息发送失败')
     } finally {
       processing.value = false
@@ -275,6 +292,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
   })
 
   return {
+    taskFeedback,
     loading,
     loadingDetail,
     processing,

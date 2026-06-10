@@ -1,5 +1,14 @@
 <template>
   <div class="space-y-8">
+    <AdminTaskFeedbackBar
+      :phase="taskFeedbackPhase"
+      :message="taskFeedbackMessage"
+      :detail="taskFeedbackDetail"
+      :aria-message="taskFeedbackAriaMessage"
+      :assertive-message="taskFeedbackAssertiveMessage"
+      :busy="taskFeedbackBusy"
+    />
+
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -24,7 +33,13 @@
     </section>
 
     <section class="grid gap-8 lg:grid-cols-2">
-      <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
+      <section
+        class="blog-motion-task-region border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]"
+        :class="{
+          'blog-motion-task-region--pending': saving || reloading || rollingBack,
+          'blog-motion-task-region--settled': isTaskHighlighted('moderation-model-runtime')
+        }"
+      >
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
           <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">观测</div>
         </div>
@@ -112,9 +127,11 @@ import {
   type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
 import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { Connection, Cpu, Refresh, RefreshLeft, RefreshRight, Warning } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
+import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 
 const AdminSensitiveAction = 'admin-sensitive'
 
@@ -124,6 +141,16 @@ const reloading = shallowRef(false)
 const rollingBack = shallowRef(false)
 const status = shallowRef<ModerationModelStatusResponse | null>(null)
 const runtime = shallowRef<ModerationRuntimeStatusResponse | null>(null)
+const taskFeedback = useAdminTaskFeedback()
+const {
+  phase: taskFeedbackPhase,
+  message: taskFeedbackMessage,
+  detail: taskFeedbackDetail,
+  assertiveMessage: taskFeedbackAssertiveMessage,
+  busy: taskFeedbackBusy,
+  ariaMessage: taskFeedbackAriaMessage,
+  isHighlighted: isTaskHighlighted
+} = taskFeedback
 
 const form = reactive({
   enabled: false,
@@ -214,6 +241,7 @@ const ensureAdminSensitiveProof = async (): Promise<string> => {
 
 const saveRuntime = async (): Promise<void> => {
   saving.value = true
+  taskFeedback.begin('正在保存模型 runtime', `${form.provider} / ${form.modelProfile || 'default'}`, 'moderation-model-runtime')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     runtime.value = await setModerationModelRuntime({
@@ -223,9 +251,11 @@ const saveRuntime = async (): Promise<void> => {
       thresholdProfile: form.thresholdProfile.trim() || null,
       reason: 'model_runtime_update'
     }, { mfaProofToken })
+    taskFeedback.succeed('模型 runtime 已保存', runtime.value.model.snapshotId, 'moderation-model-runtime')
     toast.success('模型 runtime 已保存')
     await loadStatus()
   } catch (error) {
+    taskFeedback.fail('模型 runtime 保存失败', error, '模型 runtime 保存失败', 'moderation-model-runtime')
     showErrorToast(error, '模型 runtime 保存失败')
   } finally {
     saving.value = false
@@ -234,12 +264,15 @@ const saveRuntime = async (): Promise<void> => {
 
 const reloadRuntime = async (): Promise<void> => {
   reloading.value = true
+  taskFeedback.begin('正在 reload 模型 runtime', '重新载入模型配置快照', 'moderation-model-runtime')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     runtime.value = await reloadModerationModel({ mfaProofToken })
+    taskFeedback.succeed('模型 runtime 已 reload', runtime.value.model.snapshotId, 'moderation-model-runtime')
     toast.success('模型 runtime 已 reload')
     await loadStatus()
   } catch (error) {
+    taskFeedback.fail('模型 reload 失败', error, '模型 reload 失败', 'moderation-model-runtime')
     showErrorToast(error, '模型 reload 失败')
   } finally {
     reloading.value = false
@@ -248,12 +281,15 @@ const reloadRuntime = async (): Promise<void> => {
 
 const rollbackRuntime = async (): Promise<void> => {
   rollingBack.value = true
+  taskFeedback.begin('正在 rollback 模型 runtime', '恢复上一份模型配置', 'moderation-model-runtime')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     runtime.value = await rollbackModerationModel({ mfaProofToken })
+    taskFeedback.succeed('模型 runtime 已 rollback', runtime.value.model.snapshotId, 'moderation-model-runtime')
     toast.success('模型 runtime 已 rollback')
     await loadStatus()
   } catch (error) {
+    taskFeedback.fail('模型 rollback 失败', error, '模型 rollback 失败', 'moderation-model-runtime')
     showErrorToast(error, '模型 rollback 失败')
   } finally {
     rollingBack.value = false

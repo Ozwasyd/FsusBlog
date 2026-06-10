@@ -43,6 +43,7 @@ import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { useImageUploadPreferences } from '@/composables/useImageUploadPreferences'
 import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime'
 import { useImageUploadFlow } from '@/composables/useImageUploadFlow'
+import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 import { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 
 interface ArticleParams {
@@ -372,6 +373,7 @@ export function useAdminArticleWrite() {
   const prepublishTask = useAbortableTask()
   const aiAssistTask = useAbortableTask()
   const assetTask = useAbortableTask()
+  const taskFeedback = useAdminTaskFeedback()
   const imageUploadFlow = useImageUploadFlow({
     runtime: imageUploadRuntime,
     getOptions: () => imageUploadOptions.value,
@@ -416,6 +418,7 @@ export function useAdminArticleWrite() {
 
   const handleCoverUpload = async (files: File[]): Promise<void> => {
     if (files.length === 0) return
+    taskFeedback.begin('正在上传文章头图', `待同步 ${files.length} 个文件`, 'article-cover')
     await imageUploadFlow.startUpload({
       files: [files[0]],
       maxFiles: 1,
@@ -427,9 +430,11 @@ export function useAdminArticleWrite() {
       onSuccess: (urls) => {
         if (urls.length > 0) {
           articleForm.coverImageUrl = urls[0]
+          taskFeedback.succeed('文章头图已更新', '头图已进入待保存配置', 'article-cover')
         }
       },
       onError: (message) => {
+        taskFeedback.fail('文章头图上传失败', message, message, 'article-cover')
         showErrorToast(message, message)
       }
     })
@@ -808,11 +813,13 @@ export function useAdminArticleWrite() {
     }
 
     revisionRollbacking.value = true
+    taskFeedback.begin('正在回滚历史版本', `目标版本 ${selectedRevision.value.revisionNo}`, 'article-revision')
     try {
       const revisionNo = selectedRevision.value.revisionNo
       const rolledBack = await rollbackArticleRevision(articleId.value, selectedRevision.value.id)
       if (!rolledBack) {
         showWarningToast('历史版本不存在或已被清理', '历史版本不存在或已被清理')
+        taskFeedback.partial('历史版本回滚未执行', '目标版本不存在或已被清理', 'article-revision')
         return
       }
 
@@ -828,8 +835,10 @@ export function useAdminArticleWrite() {
       await refreshArticleRevisions()
       selectedRevision.value = null
       revisionStatusText.value = `已回滚到版本 ${revisionNo}`
+      taskFeedback.succeed('历史版本回滚完成', `已回滚到版本 ${revisionNo}`, 'article-revision')
       toast.success(`已回滚到版本 ${revisionNo}`)
     } catch (error: unknown) {
+      taskFeedback.fail('历史版本回滚失败', error, '历史版本回滚失败，请稍后重试', 'article-revision')
       showErrorToast(error, '历史版本回滚失败，请稍后重试')
     } finally {
       suppressDraftSave = false
@@ -844,6 +853,7 @@ export function useAdminArticleWrite() {
     }
 
     privatePreviewLoading.value = true
+    taskFeedback.begin('正在生成私有预览', '预览不会发布到公开站点', 'article-preview')
     try {
       await previewTask.run(async (signal) => {
         const snapshot = buildDraftSnapshot('server')
@@ -857,9 +867,11 @@ export function useAdminArticleWrite() {
         privatePreviewStatusText.value = errorCount > 0
           ? `已生成预览，存在 ${errorCount} 个发布阻断项`
           : `已生成预览，正文 ${preview.plainText.length} 字符`
+        taskFeedback.succeed('私有预览已生成', privatePreviewStatusText.value, 'article-preview')
       })
     } catch (error: unknown) {
       if (!isAbortError(error)) {
+        taskFeedback.fail('私有预览生成失败', error, '私有预览生成失败，请稍后重试', 'article-preview')
         showErrorToast(error, '私有预览生成失败，请稍后重试')
         privatePreviewStatusText.value = '私有预览暂不可用'
       }
@@ -891,6 +903,7 @@ export function useAdminArticleWrite() {
 
   const refreshPrepublishCheck = async (warningOverrideReason?: string): Promise<boolean> => {
     seoChecking.value = true
+    taskFeedback.begin('正在运行发布前检查', warningOverrideReason ? '包含 warning override 审计理由' : '检查 SEO 与发布阻断项', 'article-prepublish')
     try {
       let canPublish = true
       await prepublishTask.run(async (signal) => {
@@ -914,10 +927,16 @@ export function useAdminArticleWrite() {
           : warningCount > 0
             ? `发现 ${warningCount} 个发布提醒项`
             : '发布前检查通过'
+        if (errorCount > 0) {
+          taskFeedback.partial('发布前检查完成', seoStatusText.value, 'article-prepublish')
+        } else {
+          taskFeedback.succeed('发布前检查完成', seoStatusText.value, 'article-prepublish')
+        }
       })
       return canPublish
     } catch (error: unknown) {
       if (!isAbortError(error)) {
+        taskFeedback.fail('发布前检查失败', error, '发布前检查失败，请稍后重试', 'article-prepublish')
         showErrorToast(error, '发布前检查失败，请稍后重试')
         seoStatusText.value = '发布前检查暂不可用'
       }
@@ -955,6 +974,7 @@ export function useAdminArticleWrite() {
     }
 
     assetLibraryLoading.value = true
+    taskFeedback.begin('正在重建资产索引', `文章 ${articleId.value}`, 'article-assets')
     try {
       await assetTask.run(async (signal) => {
         const assets = await reindexArticleAssets(articleId.value!, buildSignalConfig(signal))
@@ -964,10 +984,12 @@ export function useAdminArticleWrite() {
 
         assetLibrary.value = assets
         assetLibraryStatusText.value = `资产库已重建，当前 ${assets.length} 项`
+        taskFeedback.succeed('资产索引已重建', assetLibraryStatusText.value, 'article-assets')
         toast.success('资产库已重建')
       })
     } catch (error: unknown) {
       if (!isAbortError(error)) {
+        taskFeedback.fail('资产索引重建失败', error, '资产索引重建失败，请稍后重试', 'article-assets')
         showErrorToast(error, '资产索引重建失败，请稍后重试')
       }
     } finally {
@@ -977,6 +999,7 @@ export function useAdminArticleWrite() {
 
   const cleanupAssetOrphans = async (): Promise<void> => {
     assetLibraryLoading.value = true
+    taskFeedback.begin('正在清理孤儿资产', '仅清理无引用资源', 'article-assets')
     try {
       await assetTask.run(async (signal) => {
         const deleted = await cleanupOrphanAssets(buildSignalConfig(signal))
@@ -985,10 +1008,12 @@ export function useAdminArticleWrite() {
         }
 
         await refreshAssetLibrary(signal)
+        taskFeedback.succeed('孤儿资产清理完成', `已清理 ${deleted} 个孤儿资产`, 'article-assets')
         toast.success(`已清理 ${deleted} 个孤儿资产`)
       })
     } catch (error: unknown) {
       if (!isAbortError(error)) {
+        taskFeedback.fail('孤儿资产清理失败', error, '孤儿资产清理失败，请稍后重试', 'article-assets')
         showErrorToast(error, '孤儿资产清理失败，请稍后重试')
       }
     } finally {
@@ -1024,6 +1049,7 @@ export function useAdminArticleWrite() {
     }
 
     quickCreatingCategory.value = true
+    taskFeedback.begin('正在创建分类', trimmed, 'article-taxonomy')
     try {
       await taxonomyTask.run(async (signal) => {
         await createCategory(trimmed, buildSignalConfig(signal))
@@ -1033,10 +1059,12 @@ export function useAdminArticleWrite() {
           articleForm.categoryId = created.id
         }
       })
+      taskFeedback.succeed('分类已创建并选中', trimmed, 'article-taxonomy')
       toast.success('分类已创建并选中')
       return true
     } catch (error: unknown) {
       if (!isAbortError(error)) {
+        taskFeedback.fail('分类创建失败', error, '分类创建失败，请稍后重试', 'article-taxonomy')
         showErrorToast(error, '分类创建失败，请稍后重试')
       }
       return false
@@ -1053,6 +1081,7 @@ export function useAdminArticleWrite() {
     }
 
     quickCreatingTag.value = true
+    taskFeedback.begin('正在创建标签', trimmed, 'article-taxonomy')
     try {
       await taxonomyTask.run(async (signal) => {
         await createTag(trimmed, buildSignalConfig(signal))
@@ -1062,10 +1091,12 @@ export function useAdminArticleWrite() {
           articleForm.tagIds = [...articleForm.tagIds, created.id]
         }
       })
+      taskFeedback.succeed('标签已创建并关联', trimmed, 'article-taxonomy')
       toast.success('标签已创建并关联')
       return true
     } catch (error: unknown) {
       if (!isAbortError(error)) {
+        taskFeedback.fail('标签创建失败', error, '标签创建失败，请稍后重试', 'article-taxonomy')
         showErrorToast(error, '标签创建失败，请稍后重试')
       }
       return false
@@ -1158,6 +1189,7 @@ export function useAdminArticleWrite() {
 
     try {
       submitting.value = true
+      taskFeedback.begin(`${submitButtonText.value}处理中`, '正在写入文章并同步相关缓存', 'article-submit')
       await submitTask.run(async (signal) => {
         const config: ApiRequestConfig = { signal }
         const articlePayload: ArticleWriteRequest = {
@@ -1194,6 +1226,7 @@ export function useAdminArticleWrite() {
         }
 
         toast.success(successMessage)
+        taskFeedback.succeed(successMessage, '文章写入完成，准备返回列表', 'article-submit')
 
         suppressDraftSave = true
         await clearDraftAfterSubmit()
@@ -1202,6 +1235,7 @@ export function useAdminArticleWrite() {
       })
     } catch (error: unknown) {
       if (!isAbortError(error)) {
+        taskFeedback.fail(isEdit.value ? '博文更新失败' : '博文发布失败', error, isEdit.value ? '博文更新失败，请稍后重试' : '博文发布失败，请稍后重试', 'article-submit')
         showErrorToast(error, isEdit.value ? '博文更新失败，请稍后重试' : '博文发布失败，请稍后重试')
         console.error('[Article Submit] Critical Error:', error)
       }
@@ -1237,6 +1271,7 @@ export function useAdminArticleWrite() {
 
     aiAssistLoading.value = true
     aiAssistStatusText.value = '正在生成作者辅助建议'
+    taskFeedback.begin('正在生成作者辅助建议', '摘要、标签、标题候选与结构建议', 'article-ai-assist')
     try {
       await aiAssistTask.run(async (signal) => {
         const response = await generateAiAssist({
@@ -1252,10 +1287,12 @@ export function useAdminArticleWrite() {
         if (!articleForm.summary.trim() && response.suggestedSummary.trim()) {
           articleForm.summary = response.suggestedSummary.trim()
         }
+        taskFeedback.succeed('作者辅助建议已生成', aiAssistStatusText.value, 'article-ai-assist')
         toast.success('作者辅助建议已生成')
       })
     } catch (error: unknown) {
       if (!isAbortError(error)) {
+        taskFeedback.fail('作者辅助建议生成失败', error, '作者辅助建议生成失败', 'article-ai-assist')
         showErrorToast(error, '作者辅助建议生成失败')
       }
     } finally {
@@ -1360,6 +1397,7 @@ export function useAdminArticleWrite() {
 
   return {
     formRef,
+    taskFeedback,
     pageLoading,
     submitting,
     categories,

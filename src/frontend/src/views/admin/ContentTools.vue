@@ -6,8 +6,24 @@
       description="执行全站内容备份、单篇文章导出与 Markdown/frontmatter 导入。"
     />
 
+    <AdminTaskFeedbackBar
+      class="mb-8"
+      :phase="taskFeedbackPhase"
+      :message="taskFeedbackMessage"
+      :detail="taskFeedbackDetail"
+      :aria-message="taskFeedbackAriaMessage"
+      :assertive-message="taskFeedbackAssertiveMessage"
+      :busy="taskFeedbackBusy"
+    />
+
     <div class="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <section class="border-t border-[var(--fsusblog-panel-border)]">
+      <section
+        class="blog-motion-task-region border-t border-[var(--fsusblog-panel-border)]"
+        :class="{
+          'blog-motion-task-region--pending': exporting,
+          'blog-motion-task-region--settled': isTaskHighlighted('content-export')
+        }"
+      >
         <header class="border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-4 py-3">
           <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">导出 / EXPORT</div>
         </header>
@@ -29,7 +45,13 @@
         </div>
       </section>
 
-      <section class="border-t border-[var(--fsusblog-panel-border)]">
+      <section
+        class="blog-motion-task-region border-t border-[var(--fsusblog-panel-border)]"
+        :class="{
+          'blog-motion-task-region--pending': importing,
+          'blog-motion-task-region--settled': isTaskHighlighted('content-import')
+        }"
+      >
         <header class="border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-4 py-3">
           <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">导入 / IMPORT</div>
         </header>
@@ -55,7 +77,11 @@
             </el-button>
           </el-form>
 
-          <div v-if="importResult" class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
+          <div
+            v-if="importResult"
+            class="blog-motion-task-region border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]"
+            :class="{ 'blog-motion-task-region--settled': isTaskHighlighted('content-import') }"
+          >
             <p>导入文章 ID：<span class="tabular-nums">{{ importResult.articleId }}</span></p>
             <p>恢复修订数：<span class="tabular-nums">{{ importResult.restoredRevisionCount }}</span></p>
           </div>
@@ -76,8 +102,10 @@ import {
   type ContentImportResponse
 } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
+import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 
 const articleId = ref('')
 const markdown = ref('')
@@ -86,6 +114,16 @@ const preserveRevisions = ref(true)
 const exporting = ref(false)
 const importing = ref(false)
 const importResult = ref<ContentImportResponse | null>(null)
+const taskFeedback = useAdminTaskFeedback()
+const {
+  phase: taskFeedbackPhase,
+  message: taskFeedbackMessage,
+  detail: taskFeedbackDetail,
+  assertiveMessage: taskFeedbackAssertiveMessage,
+  busy: taskFeedbackBusy,
+  ariaMessage: taskFeedbackAriaMessage,
+  isHighlighted: isTaskHighlighted
+} = taskFeedback
 
 const parseArticleId = (): number | null => {
   const parsed = Number.parseInt(articleId.value.trim(), 10)
@@ -114,10 +152,14 @@ const downloadText = (fileName: string, content: string, type: string): void => 
 
 const downloadBackup = async (): Promise<void> => {
   exporting.value = true
+  taskFeedback.begin('正在导出全站内容备份', '生成 JSON 备份文件', 'content-export')
   try {
-    downloadJson(await exportContentBackup())
+    const payload = await exportContentBackup()
+    downloadJson(payload)
+    taskFeedback.succeed('全站内容备份已生成', payload.fileName, 'content-export')
     toast.success('全站内容备份已生成')
   } catch (error) {
+    taskFeedback.fail('全站内容备份导出失败', error, '全站内容备份导出失败', 'content-export')
     showErrorToast(error, '全站内容备份导出失败')
   } finally {
     exporting.value = false
@@ -132,10 +174,14 @@ const downloadArticle = async (): Promise<void> => {
   }
 
   exporting.value = true
+  taskFeedback.begin('正在导出单篇 Markdown', `文章 ${id}`, 'content-export')
   try {
-    downloadMarkdown(await exportArticleContent(id))
+    const payload = await exportArticleContent(id)
+    downloadMarkdown(payload)
+    taskFeedback.succeed('单篇文章已导出', payload.fileName, 'content-export')
     toast.success('单篇文章已导出')
   } catch (error) {
+    taskFeedback.fail('单篇文章导出失败', error, '单篇文章导出失败', 'content-export')
     showErrorToast(error, '单篇文章导出失败')
   } finally {
     exporting.value = false
@@ -150,14 +196,17 @@ const importContent = async (): Promise<void> => {
   }
 
   importing.value = true
+  taskFeedback.begin('正在导入内容', publish.value ? '导入后发布' : '导入为草稿', 'content-import')
   try {
     importResult.value = await importArticleContent({
       markdownWithFrontmatter: content,
       publish: publish.value,
       preserveRevisions: preserveRevisions.value
     })
+    taskFeedback.succeed('内容导入完成', `文章 ${importResult.value.articleId}，恢复修订 ${importResult.value.restoredRevisionCount}`, 'content-import')
     toast.success('内容导入完成')
   } catch (error) {
+    taskFeedback.fail('内容导入失败', error, '内容导入失败', 'content-import')
     showErrorToast(error, '内容导入失败')
   } finally {
     importing.value = false

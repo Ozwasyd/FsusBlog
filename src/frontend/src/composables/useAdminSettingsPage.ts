@@ -21,6 +21,7 @@ import { toast } from '@/fsusui/feedback'
 import { useImageUploadPreferences } from '@/composables/useImageUploadPreferences'
 import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime'
 import { useImageUploadFlow } from '@/composables/useImageUploadFlow'
+import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 import { DEFAULT_SITE_BRAND_CONFIG } from '@/store/site'
 
@@ -91,6 +92,7 @@ export function useAdminSettingsPage() {
   const complianceTask = useAbortableTask()
   const pageTask = useAbortableTask()
   const initialLoadTask = useAbortableTask()
+  const taskFeedback = useAdminTaskFeedback()
   const imageUploadFlow = useImageUploadFlow({
     runtime: imageUploadRuntime,
     getOptions: () => imageUploadOptions.value,
@@ -590,13 +592,19 @@ export function useAdminSettingsPage() {
     }
 
     savingSite.value = true
+    taskFeedback.begin('正在保存站点信息', '保存后将清理 AOT 缓存', 'settings-site')
     try {
       await siteTask.run(async (signal) => {
         await syncSeoConfig(signal)
         if (!signal.aborted) {
+          taskFeedback.succeed('站点信息已保存', 'SEO 配置已同步并刷新缓存', 'settings-site')
           toast.success('SEO 配置同步成功')
         }
       })
+    } catch (error: unknown) {
+      if (!isAbortError(error)) {
+        taskFeedback.fail('站点信息保存失败', error, '站点信息保存失败', 'settings-site')
+      }
     } finally {
       savingSite.value = false
     }
@@ -675,14 +683,21 @@ export function useAdminSettingsPage() {
     }
 
     savingCompliance.value = true
+    taskFeedback.begin('正在保存大陆合规信息', '保存后将刷新公开 footer、RSS 和 AOT 缓存', 'settings-compliance')
     try {
       await complianceTask.run(async (signal) => {
         await updateSiteComplianceConfig({ ...complianceForm }, buildSignalConfig(signal))
         if (!signal.aborted) {
           originalComplianceSnapshot.value = serializeComplianceForm()
+          taskFeedback.succeed('大陆合规信息已保存', '公开 footer 与缓存已刷新', 'settings-compliance')
           toast.success('合规信息已保存并刷新公开缓存')
         }
       })
+    } catch (error: unknown) {
+      if (!isAbortError(error)) {
+        taskFeedback.fail('大陆合规信息保存失败', error, '大陆合规信息保存失败', 'settings-compliance')
+        showErrorToast(error, '大陆合规信息保存失败')
+      }
     } finally {
       savingCompliance.value = false
     }
@@ -710,10 +725,15 @@ export function useAdminSettingsPage() {
   const savePageContent = async (): Promise<void> => {
     try {
       savingPage.value = true
+      taskFeedback.begin('正在发布静态页面', currentPageTarget.value.label, 'settings-page')
       await updatePageData({ slug: currentSlug.value, content: pageContent.value })
       await refreshPageData(currentSlug.value)
       originalPageContent.value = pageContent.value
+      taskFeedback.succeed('静态页面已发布', currentPageTarget.value.label, 'settings-page')
       toast.success('发布并刷新缓存成功')
+    } catch (error: unknown) {
+      taskFeedback.fail('静态页面发布失败', error, '静态页面发布失败', 'settings-page')
+      showErrorToast(error, '静态页面发布失败')
     } finally {
       savingPage.value = false
     }
@@ -721,10 +741,13 @@ export function useAdminSettingsPage() {
 
   const refreshPageCache = async (): Promise<void> => {
     refreshingPage.value = true
+    taskFeedback.begin('正在刷新页面缓存', currentPageTarget.value.label, 'settings-page')
     try {
       await refreshPageData(currentSlug.value)
+      taskFeedback.succeed('页面缓存已刷新', currentPageTarget.value.label, 'settings-page')
       toast.success('页面缓存已刷新')
     } catch (error: unknown) {
+      taskFeedback.fail('页面缓存刷新失败', error, '页面缓存刷新失败', 'settings-page')
       showErrorToast(error, '页面缓存刷新失败')
     } finally {
       refreshingPage.value = false
@@ -817,6 +840,7 @@ export function useAdminSettingsPage() {
 
   return {
     activeTab,
+    taskFeedback,
     savingSite,
     savingCompliance,
     savingPage,

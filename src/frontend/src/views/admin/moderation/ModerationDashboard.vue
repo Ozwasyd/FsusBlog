@@ -18,7 +18,22 @@
       </div>
     </WorkbenchPanel>
 
-    <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
+    <AdminTaskFeedbackBar
+      :phase="taskFeedbackPhase"
+      :message="taskFeedbackMessage"
+      :detail="taskFeedbackDetail"
+      :aria-message="taskFeedbackAriaMessage"
+      :assertive-message="taskFeedbackAssertiveMessage"
+      :busy="taskFeedbackBusy"
+    />
+
+    <section
+      class="blog-motion-task-region border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]"
+      :class="{
+        'blog-motion-task-region--pending': savingGlobalState,
+        'blog-motion-task-region--settled': isTaskHighlighted('moderation-global-runtime')
+      }"
+    >
       <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-5">
         <div v-for="item in runtimeRows" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-5">
           <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</div>
@@ -105,10 +120,12 @@ import {
   type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
 import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { Connection, Refresh } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
+import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 
 const AdminSensitiveAction = 'admin-sensitive'
 
@@ -117,6 +134,16 @@ const savingGlobalState = shallowRef(false)
 const overview = shallowRef<ModerationOverviewResponse | null>(null)
 const runtime = shallowRef<ModerationRuntimeStatusResponse | null>(null)
 const globalStateDraft = shallowRef('enabled')
+const taskFeedback = useAdminTaskFeedback()
+const {
+  phase: taskFeedbackPhase,
+  message: taskFeedbackMessage,
+  detail: taskFeedbackDetail,
+  assertiveMessage: taskFeedbackAssertiveMessage,
+  busy: taskFeedbackBusy,
+  ariaMessage: taskFeedbackAriaMessage,
+  isHighlighted: isTaskHighlighted
+} = taskFeedback
 
 const globalStateOptions = [
   { label: 'enabled', value: 'enabled' },
@@ -211,6 +238,7 @@ const ensureAdminSensitiveProof = async (): Promise<string> => {
 
 const saveGlobalState = async (): Promise<void> => {
   savingGlobalState.value = true
+  taskFeedback.begin('正在更新全局审核 runtime', globalStateDraft.value, 'moderation-global-runtime')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     runtime.value = await setModerationGlobalState({
@@ -218,9 +246,11 @@ const saveGlobalState = async (): Promise<void> => {
       reason: 'global_runtime_state_update'
     }, { mfaProofToken })
     globalStateDraft.value = runtime.value.globalState
+    taskFeedback.succeed('全局审核 runtime 已更新', runtime.value.globalState, 'moderation-global-runtime')
     toast.success('全局审核 runtime 已更新')
     await loadDashboard()
   } catch (error) {
+    taskFeedback.fail('全局 runtime 状态更新失败', error, '全局 runtime 状态更新失败', 'moderation-global-runtime')
     showErrorToast(error, '全局 runtime 状态更新失败')
   } finally {
     savingGlobalState.value = false

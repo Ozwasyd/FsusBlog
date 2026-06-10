@@ -35,7 +35,19 @@
       @update:date-range="filters.dateRange = $event"
     />
 
+    <AdminTaskFeedbackBar
+      class="border-t border-[var(--fsusblog-panel-border)]"
+      :phase="taskFeedbackPhase"
+      :message="taskFeedbackMessage"
+      :detail="taskFeedbackDetail"
+      :aria-message="taskFeedbackAriaMessage"
+      :assertive-message="taskFeedbackAssertiveMessage"
+      :busy="taskFeedbackBusy"
+    />
+
     <CommentModerationBulkActions
+      class="blog-motion-task-region"
+      :class="{ 'blog-motion-task-region--pending': processingBulk }"
       :selected-count="selectedIds.length"
       :reason="actionReason"
       :ban-users="banUsers"
@@ -51,6 +63,7 @@
       :selected-ids="selectedIds"
       :loading="loading"
       :processing-id="processingId"
+      :highlighted-ids="taskFeedbackHighlightedIds"
       @toggle="toggleSelection"
       @detail="openDetail"
       @apply="(item, status) => applySingle(item, status, refreshAndPrune)"
@@ -68,6 +81,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import CommentModerationBulkActions from '@/components/admin/comment-moderation/CommentModerationBulkActions.vue'
 import CommentModerationDetailDrawer from '@/components/admin/comment-moderation/CommentModerationDetailDrawer.vue'
 import CommentModerationQueue from '@/components/admin/comment-moderation/CommentModerationQueue.vue'
@@ -110,12 +124,22 @@ const {
   processingId,
   processingBulk,
   isProcessing,
+  taskFeedback,
   toggleSelection,
   clearSelection,
   pruneSelection,
   applySingle,
   applyBulk
 } = useCommentModerationActions()
+const {
+  phase: taskFeedbackPhase,
+  message: taskFeedbackMessage,
+  detail: taskFeedbackDetail,
+  assertiveMessage: taskFeedbackAssertiveMessage,
+  busy: taskFeedbackBusy,
+  ariaMessage: taskFeedbackAriaMessage,
+  highlightedKeys: taskFeedbackHighlightedIds
+} = taskFeedback
 
 const detailVisible = ref(false)
 const detailItem = ref<CommentModerationViewItem | null>(null)

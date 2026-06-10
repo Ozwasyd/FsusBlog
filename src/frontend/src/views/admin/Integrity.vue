@@ -7,7 +7,26 @@
       compact
     />
 
-    <WorkbenchPanel class="mb-8" title="巡检结果" eyebrow="REPORT" title-id="integrity-report-title">
+    <AdminTaskFeedbackBar
+      class="mb-8"
+      :phase="taskFeedbackPhase"
+      :message="taskFeedbackMessage"
+      :detail="taskFeedbackDetail"
+      :aria-message="taskFeedbackAriaMessage"
+      :assertive-message="taskFeedbackAssertiveMessage"
+      :busy="taskFeedbackBusy"
+    />
+
+    <WorkbenchPanel
+      class="blog-motion-task-region mb-8"
+      :class="{
+        'blog-motion-task-region--pending': loading || fixing,
+        'blog-motion-task-region--settled': isTaskHighlighted('integrity-report')
+      }"
+      title="巡检结果"
+      eyebrow="REPORT"
+      title-id="integrity-report-title"
+    >
       <template #actions>
         <div class="flex flex-wrap items-center justify-end gap-2">
           <el-button :icon="Refresh" :loading="loading" @click="loadAll">一键检查</el-button>
@@ -126,10 +145,12 @@ import {
   type IntegrityReportResponse
 } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { Download, Refresh, Tools } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
+import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 
 const loading = ref(false)
 const fixing = ref(false)
@@ -138,9 +159,20 @@ const preview = shallowRef<IntegrityFixPreviewResponse | null>(null)
 const policy = shallowRef<DangerousOperationPolicyResponse | null>(null)
 const confirmPhrase = ref('')
 const mfaProof = ref('')
+const taskFeedback = useAdminTaskFeedback()
+const {
+  phase: taskFeedbackPhase,
+  message: taskFeedbackMessage,
+  detail: taskFeedbackDetail,
+  assertiveMessage: taskFeedbackAssertiveMessage,
+  busy: taskFeedbackBusy,
+  ariaMessage: taskFeedbackAriaMessage,
+  isHighlighted: isTaskHighlighted
+} = taskFeedback
 
 const loadAll = async (): Promise<void> => {
   loading.value = true
+  taskFeedback.begin('正在执行数据巡检', '检查文章、评论、session、上传文件、搜索与 sitemap', 'integrity-report')
   try {
     const [nextReport, nextPreview, nextPolicy] = await Promise.all([
       inspectIntegrity(),
@@ -150,7 +182,14 @@ const loadAll = async (): Promise<void> => {
     report.value = nextReport
     preview.value = nextPreview
     policy.value = nextPolicy
+    const detail = `检查项 ${nextReport.checkCount}，问题项 ${nextReport.issueCount}`
+    if (nextReport.issueCount > 0) {
+      taskFeedback.partial('数据巡检完成', detail, 'integrity-report')
+    } else {
+      taskFeedback.succeed('数据巡检完成', detail, 'integrity-report')
+    }
   } catch (error) {
+    taskFeedback.fail('数据巡检加载失败', error, '数据巡检加载失败', 'integrity-report')
     showErrorToast(error, '数据巡检加载失败')
   } finally {
     loading.value = false
@@ -177,14 +216,17 @@ const applyFix = async (): Promise<void> => {
   }
 
   fixing.value = true
+  taskFeedback.begin('正在应用安全修复', '执行 APPLY_SAFE_FIXES', 'integrity-report')
   try {
     const response = await applyIntegrityFix(
       { codes: null, confirmPhrase: confirmPhrase.value.trim() },
       { mfaProofToken: mfaProof.value.trim() || null }
     )
+    taskFeedback.succeed('安全修复完成', `已应用 ${response.appliedCount} 项`, 'integrity-report')
     toast.success(`安全修复完成：${response.appliedCount}`)
     await loadAll()
   } catch (error) {
+    taskFeedback.fail('安全修复失败', error, '安全修复失败', 'integrity-report')
     showErrorToast(error, '安全修复失败')
   } finally {
     fixing.value = false

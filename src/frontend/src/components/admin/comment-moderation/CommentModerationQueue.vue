@@ -12,7 +12,10 @@
       aria-label="评论审核列表"
     >
       <template #card="{ item }">
-        <article class="bg-[var(--fsusblog-page-bg)] p-6">
+        <article
+          class="blog-motion-task-region bg-[var(--fsusblog-page-bg)] p-6"
+          :class="{ 'blog-motion-task-region--settled': isHighlighted(item as CommentModerationViewItem) }"
+        >
           <div class="flex items-start gap-4">
             <el-checkbox
               :model-value="isSelected(item as CommentModerationViewItem)"
@@ -73,6 +76,7 @@
         <el-table
           :data="items"
           :row-key="getRowKey"
+          :row-class-name="rowClassName"
         >
           <el-table-column width="56" align="center">
             <template #default="{ row }: { row: CommentModerationViewItem }">
@@ -202,6 +206,7 @@ const props = defineProps<{
   selectedIds: readonly string[]
   loading: boolean
   processingId: string | null
+  highlightedIds?: readonly string[]
 }>()
 
 const emit = defineEmits<{
@@ -213,6 +218,10 @@ const emit = defineEmits<{
 const getRowKey = (row: CommentModerationViewItem): string => row.id
 
 const isSelected = (item: CommentModerationViewItem): boolean => props.selectedIds.includes(item.id)
+const isHighlighted = (item: CommentModerationViewItem): boolean => (props.highlightedIds ?? []).includes(item.id)
+
+const rowClassName = ({ row }: { row: CommentModerationViewItem }): string =>
+  isHighlighted(row) ? 'blog-motion-task-region blog-motion-task-region--settled' : 'blog-motion-task-region'
 
 const toggle = (item: CommentModerationViewItem, checked: boolean): void => {
   emit('toggle', item.id, checked)

@@ -8,6 +8,17 @@
         </p>
       </header>
 
+    <AdminTaskFeedbackBar
+      v-if="isAdminView"
+      class="mb-8"
+      :phase="adminTaskFeedbackPhase"
+      :message="adminTaskFeedbackMessage"
+      :detail="adminTaskFeedbackDetail"
+      :aria-message="adminTaskFeedbackAriaMessage"
+      :assertive-message="adminTaskFeedbackAssertiveMessage"
+      :busy="adminTaskFeedbackBusy"
+    />
+
     <div class="mail-layout">
       <section v-if="!isMobile || showListPane" class="mail-pane mail-list-pane">
         <div class="mail-flat-pane">
@@ -64,8 +75,11 @@
                     >
                     <button
                       type="button"
-                      class="mail-item"
-                      :class="{ active: item.conversationId === selectedConversationId }"
+                      class="mail-item blog-motion-task-region"
+                      :class="{
+                        active: item.conversationId === selectedConversationId,
+                        'blog-motion-task-region--settled': isAdminConversationHighlighted(item.conversationId)
+                      }"
                       :aria-current="item.conversationId === selectedConversationId ? 'true' : undefined"
                       :aria-pressed="item.conversationId === selectedConversationId"
                       :aria-label="item.ariaLabel"
@@ -305,6 +319,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import { useInboxSplitView } from '@/composables/useInboxSplitView'
 import { useUserMessagesInbox } from '@/composables/useUserMessagesInbox'
@@ -316,6 +331,15 @@ const MESSAGE_RENDER_WINDOW = 80
 
 const adminCenter = useAdminMessageCenter(() => isAdminView.value)
 const userInbox = useUserMessagesInbox(() => !isAdminView.value)
+const {
+  phase: adminTaskFeedbackPhase,
+  message: adminTaskFeedbackMessage,
+  detail: adminTaskFeedbackDetail,
+  assertiveMessage: adminTaskFeedbackAssertiveMessage,
+  busy: adminTaskFeedbackBusy,
+  ariaMessage: adminTaskFeedbackAriaMessage,
+  isHighlighted: isAdminTaskHighlighted
+} = adminCenter.taskFeedback
 const showMobileTicketCompose = ref(false)
 const mobileBackConfirmVisible = ref(false)
 const hasPendingConversationSwitch = computed(() => Boolean(userInbox.pendingConversationId.value))
@@ -411,6 +435,8 @@ const systemBody = computed({
 
 const creating = computed(() => userInbox.creating.value)
 const processing = computed(() => adminCenter.processing.value)
+const isAdminConversationHighlighted = (conversationId: string): boolean =>
+  isAdminView.value && isAdminTaskHighlighted(conversationId)
 const visibleConversationRows = computed(() => conversations.value.slice(0, conversationRenderLimit.value).map((item) => ({
   ...item,
   lastMessageAtText: formatTime(item.lastMessageAt),

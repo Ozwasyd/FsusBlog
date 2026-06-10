@@ -24,6 +24,7 @@ Do not add bare `160ms`, `300ms`, `ease` or `cubic-bezier(...)` in business comp
 - `blog-motion-page-enter`: page-level settle.
 - `blog-motion-panel-enter`: panel/drawer settle.
 - `blog-motion-state-change`: color, border and opacity feedback.
+- `blog-motion-task-region`: pending/settled task region feedback.
 - `blog-motion-highlight`: short row or region update highlight.
 - `blog-motion-safe-transform`: transform transition wrapper.
 - `blog-motion-media-hover`: restrained media hover scale.
@@ -58,6 +59,18 @@ import { resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
 
 window.scrollTo({ top: 0, behavior: resolveMotionScrollBehavior() })
 ```
+
+## Admin Task Feedback
+
+Admin mutations use `useAdminTaskFeedback()` plus `AdminTaskFeedbackBar` for a consistent lifecycle:
+
+```text
+idle -> pending -> success | error | partial -> settled
+```
+
+Use it for save, publish, audit, reload, rollback, sync, repair, import, export and admin message actions. The visible feedback bar is paired with `aria-live="polite"`; destructive or failed operations also publish an assertive live message. Buttons still use their local loading state, but loading must not be the only signal.
+
+Use `blog-motion-task-region` on the affected form, row, panel or summary. Use `blog-motion-task-region--pending` while the mutation is running and `blog-motion-task-region--settled` for a short success or partial highlight. Batch actions should highlight only the summary area, not every row in a large list.
 
 ## Budget
 

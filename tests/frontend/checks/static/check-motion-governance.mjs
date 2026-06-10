@@ -49,6 +49,7 @@ for (const token of [
   '.blog-motion-page-enter',
   '.blog-motion-panel-enter',
   '.blog-motion-state-change',
+  '.blog-motion-task-region',
   '.blog-motion-highlight',
   '.blog-motion-safe-transform',
   '.blog-motion-row-nudge'

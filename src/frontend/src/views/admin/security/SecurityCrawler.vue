@@ -18,8 +18,23 @@
       </div>
     </WorkbenchPanel>
 
+    <AdminTaskFeedbackBar
+      :phase="taskFeedbackPhase"
+      :message="taskFeedbackMessage"
+      :detail="taskFeedbackDetail"
+      :aria-message="taskFeedbackAriaMessage"
+      :assertive-message="taskFeedbackAssertiveMessage"
+      :busy="taskFeedbackBusy"
+    />
+
     <section class="grid gap-8 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-      <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
+      <div
+        class="blog-motion-task-region border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]"
+        :class="{
+          'blog-motion-task-region--pending': saving,
+          'blog-motion-task-region--settled': isTaskHighlighted('security-crawler-options')
+        }"
+      >
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
             <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行策略</div>
@@ -54,7 +69,13 @@
         </div>
       </div>
 
-      <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
+      <div
+        class="blog-motion-task-region border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]"
+        :class="{
+          'blog-motion-task-region--pending': syncing,
+          'blog-motion-task-region--settled': isTaskHighlighted('security-crawler-ranges')
+        }"
+      >
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
             <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">Crawler ranges</div>
@@ -77,7 +98,7 @@
           <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险事件</div>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[52rem] text-left text-[12px]">
+          <table class="w-full min-w-full md:min-w-[52rem] text-left text-[12px]">
             <thead class="text-[11px] uppercase text-[var(--fsusblog-text-muted)]">
               <tr class="border-b border-[var(--fsusblog-panel-border)]">
                 <th class="px-5 py-3">Time</th>
@@ -88,14 +109,14 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="event in events" :key="event.id" class="border-b border-[var(--fsusblog-panel-border)]">
-                <td class="px-5 py-3">{{ formatTime(event.occurredAtUtc) }}</td>
+              <tr v-for="event in eventRows" :key="event.id" class="border-b border-[var(--fsusblog-panel-border)]">
+                <td class="px-5 py-3">{{ event.formattedOccurredAt }}</td>
                 <td class="px-5 py-3">{{ event.source }}</td>
                 <td class="px-5 py-3">{{ event.reason }}</td>
                 <td class="px-5 py-3 tabular-nums">{{ event.scoreDelta }} / {{ event.totalScore }}</td>
                 <td class="px-5 py-3">{{ event.path }}</td>
               </tr>
-              <tr v-if="events.length === 0">
+              <tr v-if="eventRows.length === 0">
                 <td colspan="5" class="px-5 py-10 text-center text-[var(--fsusblog-text-muted)]">暂无风险事件</td>
               </tr>
             </tbody>
@@ -108,7 +129,12 @@
           <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险快照</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
-          <div v-for="snapshot in snapshots" :key="snapshot.subject" class="flex items-center justify-between gap-3 p-5">
+          <div
+            v-for="snapshot in snapshots"
+            :key="snapshot.subject"
+            class="blog-motion-task-region flex items-center justify-between gap-3 p-5"
+            :class="{ 'blog-motion-task-region--settled': isTaskHighlighted(`risk:${snapshot.subject}`) }"
+          >
             <div class="min-w-0">
               <div class="break-all text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ snapshot.subject }}</div>
               <div class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ snapshot.lastSource }} / {{ snapshot.lastReason }}</div>
@@ -209,10 +235,12 @@ import {
   type SecurityRiskSnapshotResponse
 } from '@/api/security'
 import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { Refresh } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
+import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 
 const AdminSensitiveAction = 'admin-sensitive'
 const modes: SecurityMode[] = ['disabled', 'observe', 'enforce', 'strict']
@@ -224,6 +252,16 @@ const simulating = shallowRef(false)
 const overview = shallowRef<AntiCrawlerOverviewResponse | null>(null)
 const snapshots = shallowRef<SecurityRiskSnapshotResponse[]>([])
 const simulationResult = shallowRef<AntiCrawlerSimulationResult | null>(null)
+const taskFeedback = useAdminTaskFeedback()
+const {
+  phase: taskFeedbackPhase,
+  message: taskFeedbackMessage,
+  detail: taskFeedbackDetail,
+  assertiveMessage: taskFeedbackAssertiveMessage,
+  busy: taskFeedbackBusy,
+  ariaMessage: taskFeedbackAriaMessage,
+  isHighlighted: isTaskHighlighted
+} = taskFeedback
 
 const draft = reactive<AntiCrawlerPolicyOptions>({
   mode: 'enforce',
@@ -293,6 +331,8 @@ const rules = computed<AntiCrawlerRuleResponse[]>(() => overview.value?.rules ??
 const allowlist = computed<AntiCrawlerListEntryResponse[]>(() => overview.value?.allowlist ?? [])
 const blocklist = computed<AntiCrawlerListEntryResponse[]>(() => overview.value?.blocklist ?? [])
 
+const formatTime = (value: string | null | undefined): string => value ? new Date(value).toLocaleString() : '-'
+
 const rangeRows = computed(() => [
   { label: 'Auto update', value: ranges.value?.autoUpdateEnabled ? 'enabled' : 'disabled' },
   { label: 'Interval', value: `${ranges.value?.updateIntervalMinutes ?? '-'} min` },
@@ -309,7 +349,10 @@ const listPanels = computed(() => [
   { type: 'blocklist' as const, title: 'Blocklist', items: blocklist.value }
 ])
 
-const formatTime = (value: string | null | undefined): string => value ? new Date(value).toLocaleString() : '-'
+const eventRows = computed(() => events.value.map((event) => ({
+  ...event,
+  formattedOccurredAt: formatTime(event.occurredAtUtc)
+})))
 
 const assignDraft = (options: AntiCrawlerPolicyOptions): void => {
   Object.assign(draft, options)
@@ -361,12 +404,15 @@ const saveOptions = async (): Promise<void> => {
       inputValidator: (value: string) => value.trim().length > 0 || '请输入变更原因'
     })
     if (!reason) return
+    taskFeedback.begin('正在保存反爬虫策略', reason, 'security-crawler-options')
     const mfaProofToken = await ensureAdminSensitiveProof()
     const snapshot = await updateAntiCrawlerOptions({ ...draft, reason }, { mfaProofToken })
     assignDraft(snapshot.options)
+    taskFeedback.succeed('反爬虫策略已更新', `mode=${snapshot.options.mode}`, 'security-crawler-options')
     toast.success('反爬虫策略已更新')
     await loadCrawler()
   } catch (error) {
+    taskFeedback.fail('反爬虫策略保存失败', error, '反爬虫策略保存失败', 'security-crawler-options')
     showErrorToast(error, '反爬虫策略保存失败')
   } finally {
     saving.value = false
@@ -375,13 +421,16 @@ const saveOptions = async (): Promise<void> => {
 
 const rollbackOptions = async (): Promise<void> => {
   saving.value = true
+  taskFeedback.begin('正在回滚反爬虫策略', '需要管理员二次验证', 'security-crawler-options')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     const snapshot = await rollbackAntiCrawlerOptions({ mfaProofToken })
     assignDraft(snapshot.options)
+    taskFeedback.succeed('反爬虫策略已回滚', `mode=${snapshot.options.mode}`, 'security-crawler-options')
     toast.success('反爬虫策略已回滚')
     await loadCrawler()
   } catch (error) {
+    taskFeedback.fail('反爬虫策略回滚失败', error, '反爬虫策略回滚失败', 'security-crawler-options')
     showErrorToast(error, '反爬虫策略回滚失败')
   } finally {
     saving.value = false
@@ -390,12 +439,15 @@ const rollbackOptions = async (): Promise<void> => {
 
 const syncRanges = async (): Promise<void> => {
   syncing.value = true
+  taskFeedback.begin('正在同步 crawler ranges', '同步 Google/Bing CIDR 来源', 'security-crawler-ranges')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     await syncCrawlerRanges({ mfaProofToken })
+    taskFeedback.succeed('CIDR 同步已完成', 'crawler ranges 已刷新', 'security-crawler-ranges')
     toast.success('CIDR 同步已完成')
     await loadCrawler()
   } catch (error) {
+    taskFeedback.fail('CIDR 同步失败', error, 'CIDR 同步失败', 'security-crawler-ranges')
     showErrorToast(error, 'CIDR 同步失败')
   } finally {
     syncing.value = false
@@ -403,12 +455,15 @@ const syncRanges = async (): Promise<void> => {
 }
 
 const resetRisk = async (subject: string): Promise<void> => {
+  taskFeedback.begin('正在重置风险分', subject, `risk:${subject}`)
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     await resetSecurityRisk({ subject, reason: 'admin_reset_from_security_console' }, { mfaProofToken })
+    taskFeedback.succeed('风险分已重置', subject, `risk:${subject}`)
     toast.success('风险分已重置')
     await loadCrawler()
   } catch (error) {
+    taskFeedback.fail('风险分重置失败', error, '风险分重置失败', `risk:${subject}`)
     showErrorToast(error, '风险分重置失败')
   }
 }
@@ -422,20 +477,26 @@ const addListEntry = async (type: 'allowlist' | 'blocklist'): Promise<void> => {
       inputValidator: (input: string) => input.trim().length > 0 || '请输入条目值'
     })
     if (!value) return
+    taskFeedback.begin('正在新增反爬虫列表条目', `${type}: ${value}`, 'security-crawler-options')
     const mfaProofToken = await ensureAdminSensitiveProof()
     await createAntiCrawlerEntry(type, { value, scope: 'ip', reason: 'admin_list_entry', enabled: true }, { mfaProofToken })
+    taskFeedback.succeed('反爬虫列表条目已新增', `${type}: ${value}`, 'security-crawler-options')
     await loadCrawler()
   } catch (error) {
+    taskFeedback.fail('List 条目新增失败', error, 'List 条目新增失败', 'security-crawler-options')
     showErrorToast(error, 'List 条目新增失败')
   }
 }
 
 const deleteListEntry = async (type: 'allowlist' | 'blocklist', id: string): Promise<void> => {
+  taskFeedback.begin('正在删除反爬虫列表条目', `${type}: ${id}`, 'security-crawler-options')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     await deleteAntiCrawlerEntry(type, id, { mfaProofToken })
+    taskFeedback.succeed('反爬虫列表条目已删除', `${type}: ${id}`, 'security-crawler-options')
     await loadCrawler()
   } catch (error) {
+    taskFeedback.fail('List 条目删除失败', error, 'List 条目删除失败', 'security-crawler-options')
     showErrorToast(error, 'List 条目删除失败')
   }
 }
@@ -449,6 +510,7 @@ const addRule = async (): Promise<void> => {
       inputValidator: (value: string) => value.trim().length > 0 || '请输入匹配表达式'
     })
     if (!pattern) return
+    taskFeedback.begin('正在新增反爬虫规则', pattern, 'security-crawler-options')
     const mfaProofToken = await ensureAdminSensitiveProof()
     await createAntiCrawlerRule({
       name: `custom:${pattern.slice(0, 24)}`,
@@ -459,18 +521,23 @@ const addRule = async (): Promise<void> => {
       score: 10,
       notes: 'admin_custom_rule'
     }, { mfaProofToken })
+    taskFeedback.succeed('反爬虫规则已新增', pattern, 'security-crawler-options')
     await loadCrawler()
   } catch (error) {
+    taskFeedback.fail('规则新增失败', error, '规则新增失败', 'security-crawler-options')
     showErrorToast(error, '规则新增失败')
   }
 }
 
 const deleteRuleItem = async (id: string): Promise<void> => {
+  taskFeedback.begin('正在删除反爬虫规则', id, 'security-crawler-options')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     await deleteAntiCrawlerRule(id, { mfaProofToken })
+    taskFeedback.succeed('反爬虫规则已删除', id, 'security-crawler-options')
     await loadCrawler()
   } catch (error) {
+    taskFeedback.fail('规则删除失败', error, '规则删除失败', 'security-crawler-options')
     showErrorToast(error, '规则删除失败')
   }
 }

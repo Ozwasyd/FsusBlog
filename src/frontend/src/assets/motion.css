@@ -29,6 +29,21 @@
     opacity var(--blog-motion-fast) var(--blog-motion-ease);
 }
 
+.blog-motion-task-region {
+  transition:
+    background-color var(--blog-motion-fast) var(--blog-motion-ease),
+    border-color var(--blog-motion-fast) var(--blog-motion-ease),
+    opacity var(--blog-motion-fast) var(--blog-motion-ease);
+}
+
+.blog-motion-task-region--pending {
+  opacity: 0.74;
+}
+
+.blog-motion-task-region--settled {
+  animation: blog-motion-highlight calc(var(--blog-motion-panel) * 2) var(--blog-motion-ease) both;
+}
+
 .blog-motion-highlight {
   animation: blog-motion-highlight calc(var(--blog-motion-panel) * 2) var(--blog-motion-ease) both;
 }
@@ -103,6 +118,9 @@
   .blog-motion-page-enter,
   .blog-motion-panel-enter,
   .blog-motion-state-change,
+  .blog-motion-task-region,
+  .blog-motion-task-region--pending,
+  .blog-motion-task-region--settled,
   .blog-motion-highlight,
   .blog-motion-safe-transform,
   .blog-motion-media-hover,
