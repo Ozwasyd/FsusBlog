@@ -17,13 +17,14 @@ export function createAboutPageViewContract(options: {
   siteTitle: string;
   currentYear: number;
   content: string;
+  title?: string;
 }): AboutPageViewContract {
   return {
     header: {
-      title: '关于',
+      title: options.title?.trim() || '关于',
       currentYear: options.currentYear,
-      manifestoLabel: 'MANIFESTO',
-      readmeLabel: 'README.MD'
+      manifestoLabel: '公开页面',
+      readmeLabel: '内容文档'
     },
     body: {
       content: options.content

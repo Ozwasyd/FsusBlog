@@ -1,3 +1,5 @@
+import type { SiteComplianceConfigPublic } from '@/api/system'
+
 export type PublicActiveNav = 'home' | 'archive' | 'about' | 'none'
 
 export type PublicShellState = Readonly<{
@@ -10,6 +12,7 @@ export type PublicShellState = Readonly<{
   initialSearchQuery: string
   spaSearch: boolean
   showRuntime: boolean
+  compliance: SiteComplianceConfigPublic | null
 }>
 
 export const PUBLIC_SHELL_DEFAULTS: PublicShellState = {
@@ -21,7 +24,8 @@ export const PUBLIC_SHELL_DEFAULTS: PublicShellState = {
   searchPlaceholder: '搜索',
   initialSearchQuery: '',
   spaSearch: false,
-  showRuntime: false
+  showRuntime: false,
+  compliance: null
 }
 
 export function createPublicShellState(overrides: Partial<PublicShellState> = {}): PublicShellState {

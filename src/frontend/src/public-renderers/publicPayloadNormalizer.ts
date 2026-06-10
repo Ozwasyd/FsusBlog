@@ -10,8 +10,11 @@ import {
   buildPublicAboutRouteKey,
   buildPublicArchiveRouteKey,
   buildPublicArticleRouteKey,
+  buildPublicCopyrightRouteKey,
   buildPublicFilterRouteKey,
+  buildPublicGuidelinesRouteKey,
   buildPublicHomeRouteKey,
+  buildPublicPrivacyRouteKey,
   parsePublicFilterRouteKey
 } from './publicRouteIdentity';
 
@@ -40,6 +43,13 @@ function normalizeRouteKey(payload: PublicHydrationPayload): string {
         searchKeyword: payload.filterName
       });
     case 'About':
+      return buildPublicAboutRouteKey();
+    case 'Privacy':
+      return buildPublicPrivacyRouteKey();
+    case 'Guidelines':
+      return buildPublicGuidelinesRouteKey();
+    case 'Copyright':
+      return buildPublicCopyrightRouteKey();
     default:
       return buildPublicAboutRouteKey();
   }
@@ -102,6 +112,9 @@ export const normalizePublicHydrationPayload: PublicPayloadNormalizer = (payload
       } as PublicFilterHydrationPayload;
       }
     case 'About':
+    case 'Privacy':
+    case 'Guidelines':
+    case 'Copyright':
     default:
       return {
         ...payload,

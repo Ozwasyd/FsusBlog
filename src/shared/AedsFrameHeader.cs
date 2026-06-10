@@ -49,6 +49,7 @@ public enum AedsFrameType : ushort
     UploadComplete = 23,
     UploadPartMap = 24,
     AuthSessionList = 25,
+    SiteComplianceConfig = 26,
     PowChallenge = 30,
     UploadInitRequest = 31,
     UploadCompleteRequest = 32,
@@ -92,6 +93,7 @@ public enum AedsFrameType : ushort
     NotificationEvent = 69,
     NotificationHeartbeat = 70,
     PublicAotBootstrap = 71,
+    SiteComplianceConfigUpdateRequest = 72,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

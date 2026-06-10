@@ -25,6 +25,7 @@ public sealed class BlogDistributionService(
             new XElement("link", snapshot.BaseUrl),
             new XElement("description", snapshot.Seo.Description),
             new XElement("language", "zh-CN"),
+            new XElement("copyright", ResolveCopyrightText(snapshot.Seo, snapshot.Compliance)),
             new XElement("lastBuildDate", FormatRfc822(snapshot.UpdatedAt)),
             snapshot.Articles.Select(article => new XElement(
                 "item",
@@ -100,7 +101,10 @@ public sealed class BlogDistributionService(
         {
             ($"{snapshot.BaseUrl}/", snapshot.UpdatedAt, "1.0"),
             ($"{snapshot.BaseUrl}/archive", snapshot.UpdatedAt, "0.7"),
-            ($"{snapshot.BaseUrl}/about", snapshot.UpdatedAt, "0.6")
+            ($"{snapshot.BaseUrl}/about", snapshot.UpdatedAt, "0.6"),
+            ($"{snapshot.BaseUrl}/privacy", snapshot.UpdatedAt, "0.4"),
+            ($"{snapshot.BaseUrl}/guidelines", snapshot.UpdatedAt, "0.4"),
+            ($"{snapshot.BaseUrl}/copyright", snapshot.UpdatedAt, "0.4")
         };
         urls.AddRange(snapshot.Articles.Select(article => (article.CanonicalUrl, article.UpdatedAt, "0.9")));
         urls.AddRange(categories.Select(category => ($"{snapshot.BaseUrl}/category/{category.Id}", snapshot.UpdatedAt, "0.5")));
@@ -144,6 +148,7 @@ public sealed class BlogDistributionService(
     private async Task<DistributionSnapshot> LoadSnapshotAsync(CancellationToken cancellationToken)
     {
         SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
+        SiteComplianceConfigReadModel compliance = await systemService.GetSiteComplianceConfigAsync();
         string baseUrl = NormalizeBaseUrl(seo.BaseUrl);
         DateTime now = DateTime.UtcNow;
         List<DistributionArticleRow> rows = await db.Queryable<Article, Category>((article, category) => article.CategoryId == category.Id)
@@ -171,6 +176,7 @@ public sealed class BlogDistributionService(
             : rows.Max(static row => new DateTimeOffset(row.UpdatedAt, TimeSpan.Zero));
         return new DistributionSnapshot(
             seo,
+            compliance,
             baseUrl,
             updatedAt,
             rows.Select(row => new DistributionArticle(
@@ -226,11 +232,30 @@ public sealed class BlogDistributionService(
             ? url
             : string.Concat(baseUrl, "/", url.TrimStart('/'));
 
+    private static string ResolveCopyrightText(SeoConfigReadModel seo, SiteComplianceConfigReadModel compliance)
+    {
+        int currentYear = DateTime.UtcNow.Year;
+        string owner = !string.IsNullOrWhiteSpace(compliance.CopyrightOwner)
+            ? compliance.CopyrightOwner.Trim()
+            : !string.IsNullOrWhiteSpace(seo.Title)
+                ? seo.Title.Trim()
+                : "FsusBlog";
+        string yearRange = compliance.CopyrightStartYear is > 0 && compliance.CopyrightStartYear < currentYear
+            ? $"{compliance.CopyrightStartYear}-{currentYear}"
+            : currentYear.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string text = !string.IsNullOrWhiteSpace(compliance.CopyrightText)
+            ? compliance.CopyrightText.Trim()
+            : "保留所有权利。";
+
+        return $"© {yearRange} {owner}。{text}";
+    }
+
     private static string FormatRfc822(DateTimeOffset value)
         => value.ToUniversalTime().ToString("r", System.Globalization.CultureInfo.InvariantCulture);
 
     private sealed record DistributionSnapshot(
         SeoConfigReadModel Seo,
+        SiteComplianceConfigReadModel Compliance,
         string BaseUrl,
         DateTimeOffset UpdatedAt,
         IReadOnlyList<DistributionArticle> Articles);

@@ -49,6 +49,13 @@ public static class HttpCachePolicyCatalog
             .Tag(CacheTag.Seo.ToOutputCacheTag());
     }
 
+    public static void ApplySystemCompliance(OutputCachePolicyBuilder builder)
+    {
+        builder
+            .Expire(TimeSpan.FromMinutes(10))
+            .Tag(CacheTag.Seo.ToOutputCacheTag());
+    }
+
     public static void ApplySystemPage(OutputCachePolicyBuilder builder)
     {
         builder

@@ -36,7 +36,7 @@ public static partial class BinaryEndpoints
     private const string UploadPayloadHashHeader = "X-Fsus-Upload-Payload-Hash";
     private static readonly HashSet<string> AllowedPageSlugs = new(StringComparer.OrdinalIgnoreCase)
     {
-        "about", "privacy", "guidelines"
+        "about", "privacy", "guidelines", "copyright"
     };
 
     public static void MapBinaryEndpoints(this IEndpointRouteBuilder app)

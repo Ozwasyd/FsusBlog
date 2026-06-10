@@ -7,10 +7,16 @@ describe('publicRoutePaths shared path bridge', () => {
     expect(buildPublicFixedPath('Home')).toBe('/')
     expect(buildPublicFixedPath('About')).toBe('/about')
     expect(buildPublicFixedPath('Archive')).toBe('/archive')
+    expect(buildPublicFixedPath('Privacy')).toBe('/privacy')
+    expect(buildPublicFixedPath('Guidelines')).toBe('/guidelines')
+    expect(buildPublicFixedPath('Copyright')).toBe('/copyright')
     expect(PUBLIC_FIXED_PATHS).toEqual({
       home: '/',
       archive: '/archive',
-      about: '/about'
+      about: '/about',
+      privacy: '/privacy',
+      guidelines: '/guidelines',
+      copyright: '/copyright'
     })
     expect(PUBLIC_ROUTE_PATHS).toEqual({
       ...PUBLIC_FIXED_PATHS,
@@ -26,6 +32,9 @@ describe('publicRoutePaths shared path bridge', () => {
       articleDetail: `${PUBLIC_ROUTE_IDENTITY_TOKENS.articlePathPrefix.slice(1)}:id`,
       archive: 'archive',
       about: 'about',
+      privacy: 'privacy',
+      guidelines: 'guidelines',
+      copyright: 'copyright',
       category: `${PUBLIC_ROUTE_IDENTITY_TOKENS.categoryPathPrefix.slice(1)}:id(\\d+)`,
       tagById: `${PUBLIC_ROUTE_IDENTITY_TOKENS.tagPathPrefix.slice(1)}:id(\\d+)`,
       tag: `${PUBLIC_ROUTE_IDENTITY_TOKENS.tagPathPrefix.slice(1)}:id`,

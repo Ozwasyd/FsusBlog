@@ -4,11 +4,14 @@ import type { ApiRequestConfig } from '@/api/requestConfig'
 import {
   deleteImage,
   getAdminPageData,
+  getAdminSiteComplianceConfig,
   getAdminSiteConfig,
   refreshPageData,
   updatePageData,
+  updateSiteComplianceConfig,
   updateSiteConfig,
-  type SeoConfigAdmin
+  type SeoConfigAdmin,
+  type SiteComplianceConfigAdmin
 } from '@/api/system'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { isAbortError } from '@/utils/errors'
@@ -25,11 +28,13 @@ export function useAdminSettingsPage() {
 
   const activeTab = ref('site')
   const savingSite = ref(false)
+  const savingCompliance = ref(false)
   const savingPage = ref(false)
   const refreshingPage = ref(false)
   const pageLoading = ref(false)
   const imageLoading = ref(false)
   const siteLoadFailed = ref(false)
+  const complianceLoadFailed = ref(false)
   const {
     options: imageUploadOptions,
     wasmOnlyMode,
@@ -46,8 +51,25 @@ export function useAdminSettingsPage() {
     ogImage: '',
     baseUrl: ''
   })
+  const complianceForm = reactive<SiteComplianceConfigAdmin>({
+    enabled: false,
+    regionMode: 'global',
+    copyrightOwner: '',
+    copyrightStartYear: null,
+    copyrightText: '',
+    contentLicenseName: '',
+    contentLicenseUrl: '',
+    icpRecordNumber: '',
+    icpRecordUrl: 'https://beian.miit.gov.cn/',
+    policeRecordNumber: '',
+    policeRecordUrl: 'https://beian.mps.gov.cn/',
+    policeBadgeIconUrl: '',
+    operatorName: '',
+    contactEmail: ''
+  })
 
   const siteTask = useAbortableTask()
+  const complianceTask = useAbortableTask()
   const pageTask = useAbortableTask()
   const initialLoadTask = useAbortableTask()
   const imageUploadFlow = useImageUploadFlow({
@@ -63,6 +85,7 @@ export function useAdminSettingsPage() {
 
   const previousOgImage = ref('')
   const originalSiteSnapshot = ref('')
+  const originalComplianceSnapshot = ref('')
   const currentSlug = ref('about')
   const pageContent = ref('')
   const originalPageContent = ref('')
@@ -71,12 +94,13 @@ export function useAdminSettingsPage() {
   const pageTargets = [
     { value: 'about', label: '关于我' },
     { value: 'privacy', label: '隐私政策' },
-    { value: 'guidelines', label: '用户守则' }
+    { value: 'guidelines', label: '用户守则' },
+    { value: 'copyright', label: '版权声明' }
   ] as const
 
   const buildSignalConfig = (signal: AbortSignal): ApiRequestConfig => ({ signal })
 
-  const readStringField = (source: Record<string, unknown>, camel: keyof SeoConfigAdmin, pascal: string): string => {
+  const readStringField = (source: Record<string, unknown>, camel: string, pascal: string): string => {
     const camelValue = source[camel]
     if (typeof camelValue === 'string') {
       return camelValue
@@ -109,6 +133,41 @@ export function useAdminSettingsPage() {
     }
   }
 
+  const readBooleanField = (source: Record<string, unknown>, camel: string, pascal: string): boolean => {
+    const value = source[camel] ?? source[pascal]
+    return value === true || value === 'true'
+  }
+
+  const readNullableNumberField = (source: Record<string, unknown>, camel: string, pascal: string): number | null => {
+    const value = source[camel] ?? source[pascal]
+    const parsed = Number(value)
+    return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : null
+  }
+
+  const normalizeComplianceConfig = (value: unknown): SiteComplianceConfigAdmin => {
+    if (!value || typeof value !== 'object') {
+      return { ...complianceForm }
+    }
+
+    const source = value as Record<string, unknown>
+    return {
+      enabled: readBooleanField(source, 'enabled', 'Enabled'),
+      regionMode: readStringField(source, 'regionMode', 'RegionMode') === 'mainland-cn' ? 'mainland-cn' : 'global',
+      copyrightOwner: readStringField(source, 'copyrightOwner', 'CopyrightOwner'),
+      copyrightStartYear: readNullableNumberField(source, 'copyrightStartYear', 'CopyrightStartYear'),
+      copyrightText: readStringField(source, 'copyrightText', 'CopyrightText'),
+      contentLicenseName: readStringField(source, 'contentLicenseName', 'ContentLicenseName'),
+      contentLicenseUrl: readStringField(source, 'contentLicenseUrl', 'ContentLicenseUrl'),
+      icpRecordNumber: readStringField(source, 'icpRecordNumber', 'IcpRecordNumber'),
+      icpRecordUrl: readStringField(source, 'icpRecordUrl', 'IcpRecordUrl') || 'https://beian.miit.gov.cn/',
+      policeRecordNumber: readStringField(source, 'policeRecordNumber', 'PoliceRecordNumber'),
+      policeRecordUrl: readStringField(source, 'policeRecordUrl', 'PoliceRecordUrl') || 'https://beian.mps.gov.cn/',
+      policeBadgeIconUrl: readStringField(source, 'policeBadgeIconUrl', 'PoliceBadgeIconUrl'),
+      operatorName: readStringField(source, 'operatorName', 'OperatorName'),
+      contactEmail: readStringField(source, 'contactEmail', 'ContactEmail')
+    }
+  }
+
   const displayUrl = computed(() => {
     if (!siteForm.ogImage) {
       return ''
@@ -121,8 +180,11 @@ export function useAdminSettingsPage() {
     siteForm.keywords ? siteForm.keywords.split(',').map((value) => value.trim()).filter((value) => value) : [])
   const hasOgImage = computed(() => Boolean(siteForm.ogImage))
   const loadingSite = computed(() => initialLoadTask.isRunning.value)
+  const loadingCompliance = computed(() => complianceTask.isRunning.value)
   const siteFormDisabled = computed(() => loadingSite.value || savingSite.value || siteLoadFailed.value)
+  const complianceFormDisabled = computed(() => loadingCompliance.value || savingCompliance.value || complianceLoadFailed.value)
   const siteSubmitText = computed(() => (savingSite.value ? '保存中...' : '保存同步'))
+  const complianceSubmitText = computed(() => (savingCompliance.value ? '保存中...' : '保存合规信息'))
   const pageSubmitText = computed(() => (savingPage.value ? '发布中...' : '发布更新'))
   const isPageDirty = computed(() => pageContent.value !== originalPageContent.value)
   const currentPageTarget = computed(() => pageTargets.find((item) => item.value === currentSlug.value) ?? pageTargets[0])
@@ -132,6 +194,22 @@ export function useAdminSettingsPage() {
     url: normalizedBaseUrl.value || 'https://fsus.blog',
     description: siteForm.description.trim() || '站点描述将在这里显示。'
   }))
+  const compliancePreview = computed(() => ({
+    copyright: `© ${resolveComplianceYearText()} ${complianceForm.copyrightOwner.trim() || siteForm.title.trim() || "Fsu's Blog"}。${complianceForm.copyrightText.trim() || '保留所有权利。'}`,
+    icp: complianceForm.icpRecordNumber.trim(),
+    police: complianceForm.policeRecordNumber.trim(),
+    license: complianceForm.contentLicenseName.trim()
+  }))
+  const mainlandLaunchChecklist = computed(() => [
+    { label: '基础 URL 已配置', done: Boolean(siteForm.baseUrl.trim()) },
+    { label: 'ICP 备案号已配置', done: Boolean(complianceForm.icpRecordNumber.trim()) },
+    { label: '公安备案号已配置', done: Boolean(complianceForm.policeRecordNumber.trim()) },
+    { label: '隐私政策已纳入页面编辑', done: pageTargets.some((item) => item.value === 'privacy') },
+    { label: '用户守则已纳入页面编辑', done: pageTargets.some((item) => item.value === 'guidelines') },
+    { label: '版权声明已纳入页面编辑', done: pageTargets.some((item) => item.value === 'copyright') },
+    { label: 'RSS 公开入口可访问', done: true },
+    { label: 'sitemap 与 robots 公开分发已启用', done: true }
+  ])
 
   const serializeSiteForm = (): string => JSON.stringify({
     title: siteForm.title.trim(),
@@ -141,8 +219,25 @@ export function useAdminSettingsPage() {
     ogImage: siteForm.ogImage.trim(),
     baseUrl: normalizedBaseUrl.value
   })
+  const serializeComplianceForm = (): string => JSON.stringify({
+    enabled: complianceForm.enabled,
+    regionMode: complianceForm.regionMode,
+    copyrightOwner: complianceForm.copyrightOwner.trim(),
+    copyrightStartYear: complianceForm.copyrightStartYear,
+    copyrightText: complianceForm.copyrightText.trim(),
+    contentLicenseName: complianceForm.contentLicenseName.trim(),
+    contentLicenseUrl: complianceForm.contentLicenseUrl.trim(),
+    icpRecordNumber: complianceForm.icpRecordNumber.trim(),
+    icpRecordUrl: complianceForm.icpRecordUrl.trim(),
+    policeRecordNumber: complianceForm.policeRecordNumber.trim(),
+    policeRecordUrl: complianceForm.policeRecordUrl.trim(),
+    policeBadgeIconUrl: complianceForm.policeBadgeIconUrl.trim(),
+    operatorName: complianceForm.operatorName.trim(),
+    contactEmail: complianceForm.contactEmail.trim()
+  })
 
   const isSiteDirty = computed(() => serializeSiteForm() !== originalSiteSnapshot.value)
+  const isComplianceDirty = computed(() => serializeComplianceForm() !== originalComplianceSnapshot.value)
   const siteChangeSummary = computed(() => {
     if (!originalSiteSnapshot.value) {
       return []
@@ -155,7 +250,7 @@ export function useAdminSettingsPage() {
       description: 'SEO 描述',
       keywords: '关键词',
       author: '作者名称',
-      ogImage: 'OG 图',
+      ogImage: '社交分享图',
       baseUrl: '站点基础 URL'
     }
 
@@ -181,6 +276,30 @@ export function useAdminSettingsPage() {
     } catch {
       return false
     }
+  }
+
+  const resolveComplianceYearText = (): string => {
+    const currentYear = new Date().getFullYear()
+    const startYear = complianceForm.copyrightStartYear
+    return startYear && startYear < currentYear ? `${startYear}-${currentYear}` : `${currentYear}`
+  }
+
+  const validateOptionalHttpUrl = (url: string): boolean => {
+    const value = url.trim()
+    return !value || validateBaseUrl(value)
+  }
+
+  const collectComplianceWarnings = (): string[] => {
+    const warnings: string[] = []
+    const icp = complianceForm.icpRecordNumber.trim()
+    const police = complianceForm.policeRecordNumber.trim()
+    if (icp && !/^[\u4e00-\u9fa5]ICP备\d{8,12}号(-\d+)?$/u.test(icp)) {
+      warnings.push('ICP 备案号格式需要人工复核')
+    }
+    if (police && !/^[\u4e00-\u9fa5]公网安备\d{14}号$/u.test(police)) {
+      warnings.push('公安备案号格式需要人工复核')
+    }
+    return warnings
   }
 
   const syncSeoConfig = async (signal?: AbortSignal): Promise<void> => {
@@ -359,6 +478,69 @@ export function useAdminSettingsPage() {
     }
   }
 
+  const loadComplianceConfig = async (): Promise<void> => {
+    try {
+      complianceLoadFailed.value = false
+      await complianceTask.run(async (signal) => {
+        const data = await getAdminSiteComplianceConfig(buildSignalConfig(signal))
+        if (!data || signal.aborted) {
+          return
+        }
+
+        Object.assign(complianceForm, normalizeComplianceConfig(data))
+        originalComplianceSnapshot.value = serializeComplianceForm()
+      })
+    } catch (error: unknown) {
+      if (!isAbortError(error)) {
+        complianceLoadFailed.value = true
+        console.error('[Settings] Compliance fetch error:', error)
+      }
+    }
+  }
+
+  const saveComplianceConfig = async (): Promise<void> => {
+    if (loadingCompliance.value) {
+      showWarningToast('合规配置仍在加载，请稍后保存', '合规配置仍在加载，请稍后保存')
+      return
+    }
+
+    const currentYear = new Date().getFullYear()
+    const startYear = complianceForm.copyrightStartYear
+    if (startYear !== null && (startYear < 1990 || startYear > currentYear)) {
+      showWarningToast(`版权起始年份需在 1990 到 ${currentYear} 之间`, `版权起始年份需在 1990 到 ${currentYear} 之间`)
+      return
+    }
+
+    const urls = [
+      complianceForm.icpRecordUrl,
+      complianceForm.policeRecordUrl,
+      complianceForm.policeBadgeIconUrl,
+      complianceForm.contentLicenseUrl
+    ]
+    if (urls.some((url) => !validateOptionalHttpUrl(url))) {
+      showWarningToast('链接只支持 http/https 协议', '链接只支持 http/https 协议')
+      return
+    }
+
+    const warnings = collectComplianceWarnings()
+    if (warnings.length > 0) {
+      showWarningToast(warnings.join('，'), warnings.join('，'))
+    }
+
+    savingCompliance.value = true
+    try {
+      await complianceTask.run(async (signal) => {
+        await updateSiteComplianceConfig({ ...complianceForm }, buildSignalConfig(signal))
+        if (!signal.aborted) {
+          originalComplianceSnapshot.value = serializeComplianceForm()
+          toast.success('合规信息已保存并刷新公开缓存')
+        }
+      })
+    } finally {
+      savingCompliance.value = false
+    }
+  }
+
   const loadPage = async (slug: string): Promise<void> => {
     pageLoading.value = true
     try {
@@ -473,11 +655,13 @@ export function useAdminSettingsPage() {
   onMounted(() => {
     window.addEventListener('beforeunload', handleBeforeUnload)
     void loadSiteConfig()
+    void loadComplianceConfig()
   })
 
   onUnmounted(() => {
     window.removeEventListener('beforeunload', handleBeforeUnload)
     siteTask.cancel()
+    complianceTask.cancel()
     pageTask.cancel()
     initialLoadTask.cancel()
     imageUploadFlow.cancel()
@@ -487,14 +671,19 @@ export function useAdminSettingsPage() {
   return {
     activeTab,
     savingSite,
+    savingCompliance,
     savingPage,
     refreshingPage,
     loadingSite,
+    loadingCompliance,
     siteFormDisabled,
+    complianceFormDisabled,
     siteLoadFailed,
+    complianceLoadFailed,
     pageLoading,
     imageLoading,
     siteForm,
+    complianceForm,
     currentSlug,
     pageContent,
     pageTargets,
@@ -503,9 +692,13 @@ export function useAdminSettingsPage() {
     computedKeywords,
     normalizedBaseUrl,
     isSiteDirty,
+    isComplianceDirty,
     siteChangeSummary,
     siteSearchPreview,
+    compliancePreview,
+    mainlandLaunchChecklist,
     siteSubmitText,
+    complianceSubmitText,
     pageSubmitText,
     isPageDirty,
     currentPageTarget,
@@ -522,7 +715,9 @@ export function useAdminSettingsPage() {
     handleImageRemove,
     handleImageDelete,
     loadSiteConfig,
+    loadComplianceConfig,
     saveSiteConfig,
+    saveComplianceConfig,
     savePageContent,
     refreshPageCache,
     requestPageSwitch,

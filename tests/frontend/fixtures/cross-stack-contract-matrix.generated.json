@@ -187,6 +187,11 @@
       "coverage": "AEDS protocol JSON, backend enum, frontend decoder, backend golden catalog stay in sync"
     },
     {
+      "id": "CROSS-AEDS-FLAGS-RESERVED",
+      "risk": "high",
+      "coverage": "request frame flags stay zero, non-zero flags are rejected, response-only flags require negative/downgrade matrix before adoption"
+    },
+    {
       "id": "CROSS-SSE-BUSINESS-EVENTS",
       "risk": "high",
       "coverage": "article/comment/message events, cursor replay, target fanout, private channel security"
@@ -517,6 +522,26 @@
           "auth": "admin",
           "pow": true,
           "requestFrame": "SeoConfigUpdateRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "GET",
+          "path": "/system/compliance",
+          "auth": "anonymous",
+          "responseFrame": "SiteComplianceConfig"
+        },
+        {
+          "method": "GET",
+          "path": "/system/admin/compliance",
+          "auth": "admin",
+          "responseFrame": "SiteComplianceConfig"
+        },
+        {
+          "method": "PUT",
+          "path": "/system/compliance",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "SiteComplianceConfigUpdateRequest",
           "responseFrame": "EmptySuccess"
         },
         {
@@ -1117,10 +1142,14 @@
     {
       "id": "perf",
       "requirements": [
-        "CROSS-PERFORMANCE"
+        "CROSS-PERFORMANCE",
+        "CROSS-AEDS-FLAGS-RESERVED"
       ],
       "surfaces": [
         "aeds-encode-decode",
+        "aeds-frame-cost",
+        "aeds-compression-profile",
+        "aeds-flags-reserved",
         "public-cache-render",
         "search-build-query",
         "upload-part",
@@ -1128,6 +1157,9 @@
         "aot-hydration"
       ],
       "evidencePaths": [
+        "tests/frontend/checks/perf/check-aeds-decode-budget.mjs",
+        "tools/test/lanes/aeds-frame-cost.sh",
+        "tools/test/lanes/aeds-compression-profile.sh",
         "tests/frontend/checks/load/check-cross-stack-performance.mjs",
         "tests/frontend/checks/load/check-load-public-api.mjs"
       ]
@@ -1155,5 +1187,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 87
+  "openapiOperationCount": 90
 }

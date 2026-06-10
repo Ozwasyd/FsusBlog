@@ -243,6 +243,9 @@ public sealed class PublicAotShellServiceTests
         yield return new StubBootstrapProvider(PublicPageKind.ArticleDetail);
         yield return new StubBootstrapProvider(PublicPageKind.Filter);
         yield return new StubBootstrapProvider(PublicPageKind.About);
+        yield return new StubBootstrapProvider(PublicPageKind.Privacy);
+        yield return new StubBootstrapProvider(PublicPageKind.Guidelines);
+        yield return new StubBootstrapProvider(PublicPageKind.Copyright);
         yield return new StubBootstrapProvider(PublicPageKind.Archive);
     }
 

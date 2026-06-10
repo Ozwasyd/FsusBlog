@@ -5,6 +5,9 @@ export {
   renderPublicAboutEntry,
   renderPublicArchiveEntry,
   renderPublicArticleDetailEntry,
+  renderPublicCopyrightEntry,
   renderPublicFilterEntry,
-  renderPublicHomeEntry
+  renderPublicGuidelinesEntry,
+  renderPublicHomeEntry,
+  renderPublicPrivacyEntry
 } from '@/public-renderers/publicEntryRegistry'

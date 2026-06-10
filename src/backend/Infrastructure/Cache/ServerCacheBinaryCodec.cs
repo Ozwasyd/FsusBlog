@@ -11,6 +11,7 @@ internal static class ServerCacheBinaryCodec
     private const uint ArticleDetailMagic = 0x44434146; // FACD
     private const uint ArticleSearchMagic = 0x53434146; // FACS
     private const uint SeoMagic = 0x4F455346; // FSEO
+    private const uint ComplianceMagic = 0x504D4F43; // COMP
     private const uint AdminStatsMagic = 0x41545346; // FSTA
     private const uint Version = 2;
     private const int MaxStringBytes = 2 * 1024 * 1024;
@@ -136,6 +137,63 @@ internal static class ServerCacheBinaryCodec
                 Author = ReadString(reader),
                 OgImage = ReadString(reader),
                 BaseUrl = ReadString(reader)
+            };
+            return EnsureFullyRead(reader) ? (true, value) : (false, null);
+        }
+        catch
+        {
+            return (false, null);
+        }
+    }
+
+    internal static byte[] EncodeCompliance(SiteComplianceConfigReadModel value)
+    {
+        using var stream = new MemoryStream();
+        using var writer = CreateWriter(stream);
+        WriteHeader(writer, ComplianceMagic);
+        writer.Write(value.Enabled);
+        WriteString(writer, value.RegionMode);
+        WriteString(writer, value.CopyrightOwner);
+        writer.Write(value.CopyrightStartYear ?? 0);
+        WriteString(writer, value.CopyrightText);
+        WriteString(writer, value.ContentLicenseName);
+        WriteString(writer, value.ContentLicenseUrl);
+        WriteString(writer, value.IcpRecordNumber);
+        WriteString(writer, value.IcpRecordUrl);
+        WriteString(writer, value.PoliceRecordNumber);
+        WriteString(writer, value.PoliceRecordUrl);
+        WriteString(writer, value.PoliceBadgeIconUrl);
+        WriteString(writer, value.OperatorName);
+        WriteString(writer, value.ContactEmail);
+        return stream.ToArray();
+    }
+
+    internal static (bool Success, SiteComplianceConfigReadModel? Value) DecodeCompliance(ReadOnlyMemory<byte> bytes)
+    {
+        try
+        {
+            using var reader = CreateReader(bytes);
+            if (!ReadHeader(reader, ComplianceMagic))
+            {
+                return (false, null);
+            }
+
+            var value = new SiteComplianceConfigReadModel
+            {
+                Enabled = reader.ReadBoolean(),
+                RegionMode = ReadString(reader),
+                CopyrightOwner = ReadString(reader),
+                CopyrightStartYear = NormalizeNullableYear(reader.ReadInt32()),
+                CopyrightText = ReadString(reader),
+                ContentLicenseName = ReadString(reader),
+                ContentLicenseUrl = ReadString(reader),
+                IcpRecordNumber = ReadString(reader),
+                IcpRecordUrl = ReadString(reader),
+                PoliceRecordNumber = ReadString(reader),
+                PoliceRecordUrl = ReadString(reader),
+                PoliceBadgeIconUrl = ReadString(reader),
+                OperatorName = ReadString(reader),
+                ContactEmail = ReadString(reader)
             };
             return EnsureFullyRead(reader) ? (true, value) : (false, null);
         }
@@ -411,4 +469,7 @@ internal static class ServerCacheBinaryCodec
 
         return count;
     }
+
+    private static int? NormalizeNullableYear(int value)
+        => value > 0 ? value : null;
 }

@@ -47,6 +47,9 @@ public sealed class PublicRouteIdentityTests
     [InlineData("/category/7", PublicPageKind.Filter)]
     [InlineData("/tag/demo", PublicPageKind.Filter)]
     [InlineData("/about", PublicPageKind.About)]
+    [InlineData("/privacy", PublicPageKind.Privacy)]
+    [InlineData("/guidelines", PublicPageKind.Guidelines)]
+    [InlineData("/copyright", PublicPageKind.Copyright)]
     [InlineData("/archive", PublicPageKind.Archive)]
     public void TryResolveKind_UsesSharedPathRules(string path, PublicPageKind expectedKind)
     {

@@ -58,6 +58,18 @@ export function buildPublicAboutRouteKey(): string {
   return PUBLIC_FIXED_ROUTE_KEYS.about
 }
 
+export function buildPublicPrivacyRouteKey(): string {
+  return PUBLIC_FIXED_ROUTE_KEYS.privacy
+}
+
+export function buildPublicGuidelinesRouteKey(): string {
+  return PUBLIC_FIXED_ROUTE_KEYS.guidelines
+}
+
+export function buildPublicCopyrightRouteKey(): string {
+  return PUBLIC_FIXED_ROUTE_KEYS.copyright
+}
+
 export function buildPublicArchiveRouteKey(): string {
   return PUBLIC_FIXED_ROUTE_KEYS.archive
 }
@@ -154,6 +166,15 @@ function toCanonicalPublicPath(routeKey: string): string {
   }
   if (normalizedRouteKey === PUBLIC_FIXED_ROUTE_KEYS.archive) {
     return PUBLIC_FIXED_PATHS.archive
+  }
+  if (normalizedRouteKey === PUBLIC_FIXED_ROUTE_KEYS.privacy) {
+    return PUBLIC_FIXED_PATHS.privacy
+  }
+  if (normalizedRouteKey === PUBLIC_FIXED_ROUTE_KEYS.guidelines) {
+    return PUBLIC_FIXED_PATHS.guidelines
+  }
+  if (normalizedRouteKey === PUBLIC_FIXED_ROUTE_KEYS.copyright) {
+    return PUBLIC_FIXED_PATHS.copyright
   }
   if (normalizedRouteKey.startsWith(ARTICLE_ROUTE_PREFIX)) {
     return `${ARTICLE_PATH_PREFIX}${normalizedRouteKey.slice(ARTICLE_ROUTE_PREFIX.length)}`

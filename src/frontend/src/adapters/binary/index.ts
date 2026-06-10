@@ -4,7 +4,7 @@ import { mapEmptySuccessFromPayload, mapMutationIdFromPayload } from './commonAd
 import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapTrashClearResponseFromPodPayload } from './articleAdapter';
 import { mapCommentCursorFromPodPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from './commentAdapter';
 import { mapRecentCommentsFromPodPayload, mapRegionsFromPodPayload, mapSiteStatsFromPodPayload } from './statsAdapter';
-import { mapPageContentFromPayload, mapSeoConfigFromPayload } from './systemAdapter';
+import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceConfigFromPayload } from './systemAdapter';
 import { mapCategoryListFromPayload, mapTagListFromPayload } from './taxonomyAdapter';
 import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from './uploadAdapter';
 import { mapAdminUserPageFromPayload } from './userAdapter';
@@ -44,6 +44,7 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.RegionStats]: mapRegionsFromPodPayload,
   [FrameType.SeoConfig]: mapSeoConfigFromPayload,
   [FrameType.PageContent]: mapPageContentFromPayload,
+  [FrameType.SiteComplianceConfig]: mapSiteComplianceConfigFromPayload,
   [FrameType.UploadInit]: mapUploadInitFromPayload,
   [FrameType.UploadStatus]: mapUploadStatusFromPayload,
   [FrameType.UploadPartAck]: mapUploadPartAckFromPayload,

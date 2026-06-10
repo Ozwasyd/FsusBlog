@@ -26,6 +26,9 @@ internal static class PublicAotPageCatalog
             [PublicPageKind.Filter] = new("筛选", "筛选列表", LocalRouteTopology.DynamicFilter),
             [PublicPageKind.About] = new("关于", "关于", LocalRouteTopology.StaticSeoPage),
             [PublicPageKind.Archive] = new("归档", "归档", LocalRouteTopology.StaticSeoPage),
+            [PublicPageKind.Privacy] = new("隐私政策", "隐私政策", LocalRouteTopology.StaticSeoPage),
+            [PublicPageKind.Guidelines] = new("用户守则", "用户守则", LocalRouteTopology.StaticSeoPage),
+            [PublicPageKind.Copyright] = new("版权声明", "版权声明", LocalRouteTopology.StaticSeoPage),
             [PublicPageKind.Account] = new("账户中心", "账户中心", LocalRouteTopology.AccountFixedPath)
         }.ToFrozenDictionary();
 
@@ -53,6 +56,12 @@ internal static class PublicAotPageCatalog
     internal static PublicAotPageDescriptor About => GetRequired(PublicPageKind.About);
 
     internal static PublicAotPageDescriptor Archive => GetRequired(PublicPageKind.Archive);
+
+    internal static PublicAotPageDescriptor Privacy => GetRequired(PublicPageKind.Privacy);
+
+    internal static PublicAotPageDescriptor Guidelines => GetRequired(PublicPageKind.Guidelines);
+
+    internal static PublicAotPageDescriptor Copyright => GetRequired(PublicPageKind.Copyright);
 
     internal static PublicAotPageDescriptor Account => GetRequired(PublicPageKind.Account);
 

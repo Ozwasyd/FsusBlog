@@ -4,6 +4,7 @@ public interface ICacheInvalidationDispatcher
 {
     Task InvalidateArticleMutationAsync(int? articleId = null, CancellationToken cancellationToken = default);
     Task InvalidateSeoAsync(CancellationToken cancellationToken = default);
+    Task InvalidateComplianceAsync(CancellationToken cancellationToken = default);
     Task InvalidateSystemPageAsync(string slug, CancellationToken cancellationToken = default);
     Task InvalidateCategoryTagAsync(CancellationToken cancellationToken = default);
     Task InvalidateCommentMutationAsync(CommentCacheInvalidationScope? scope = null, CancellationToken cancellationToken = default);
@@ -22,6 +23,7 @@ public sealed record class CommentCacheInvalidationScope(
 public sealed record CacheInvalidationRuntimeSnapshot(
     long ArticleMutationCount,
     long SeoCount,
+    long ComplianceCount,
     long SystemPageCount,
     long CategoryTagCount,
     long CommentMutationCount,
@@ -35,7 +37,7 @@ public sealed record CacheInvalidationRuntimeSnapshot(
 public sealed class CacheInvalidationRuntimeState
 {
     private readonly object _gate = new();
-    private CacheInvalidationRuntimeSnapshot _snapshot = new(0, 0, 0, 0, 0, 0, 0, 0, null, null, null);
+    private CacheInvalidationRuntimeSnapshot _snapshot = new(0, 0, 0, 0, 0, 0, 0, 0, 0, null, null, null);
 
     public void Record(string kind, string? detail = null)
     {
@@ -45,6 +47,7 @@ public sealed class CacheInvalidationRuntimeState
             {
                 "article" => _snapshot with { ArticleMutationCount = _snapshot.ArticleMutationCount + 1 },
                 "seo" => _snapshot with { SeoCount = _snapshot.SeoCount + 1 },
+                "compliance" => _snapshot with { ComplianceCount = _snapshot.ComplianceCount + 1 },
                 "system_page" => _snapshot with { SystemPageCount = _snapshot.SystemPageCount + 1 },
                 "taxonomy" => _snapshot with { CategoryTagCount = _snapshot.CategoryTagCount + 1 },
                 "comment" => _snapshot with { CommentMutationCount = _snapshot.CommentMutationCount + 1 },
@@ -103,6 +106,13 @@ public sealed class CacheInvalidationDispatcher(
         await cache.RemoveAsync(CachePolicyId.SystemSeo, "main", cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Seo);
         runtimeState?.Record("seo", "system-seo");
+    }
+
+    public async Task InvalidateComplianceAsync(CancellationToken cancellationToken = default)
+    {
+        await cache.RemoveAsync(CachePolicyId.SystemCompliance, "main", cancellationToken);
+        await httpCacheInvalidator.InvalidateAsync(CacheTag.Seo);
+        runtimeState?.Record("compliance", "site-compliance");
     }
 
     public async Task InvalidateSystemPageAsync(string slug, CancellationToken cancellationToken = default)

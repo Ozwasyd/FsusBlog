@@ -6,6 +6,8 @@ public interface ISystemCoreGateway
 {
     Task<SeoConfigContract> GetSeoConfigAsync();
     Task UpdateSeoConfigAsync(SeoConfigContract dto);
+    Task<SiteComplianceConfigContract> GetSiteComplianceConfigAsync();
+    Task UpdateSiteComplianceConfigAsync(SiteComplianceConfigContract dto);
     Task<PageContentContract> GetPageContentAsync(string slug);
     Task<bool> UpdatePageContentAsync(PageContentContract dto);
     Task<bool> RefreshPageCacheAsync(string slug);

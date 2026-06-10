@@ -18,8 +18,37 @@ public abstract class PublicAotBootstrapProviderBase(ISystemService systemServic
     protected async Task<SeoConfigReadModel> LoadSeoAsync()
         => await systemService.GetSeoConfigAsync();
 
+    protected async Task<PublicAotSeoSnapshot> LoadSeoSnapshotAsync()
+    {
+        SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
+        SiteComplianceConfigReadModel compliance = await systemService.GetSiteComplianceConfigAsync();
+        return new PublicAotSeoSnapshot(
+            seo.Title,
+            seo.Description,
+            NormalizeBaseUrl(seo.BaseUrl),
+            ToComplianceSnapshot(compliance),
+            seo.Author);
+    }
+
     protected static PublicAotSeoSnapshot ToSeoSnapshot(SeoConfigReadModel seo)
         => new(seo.Title, seo.Description, NormalizeBaseUrl(seo.BaseUrl));
+
+    protected static PublicAotSiteComplianceSnapshot ToComplianceSnapshot(SiteComplianceConfigReadModel compliance)
+        => new(
+            compliance.Enabled,
+            compliance.RegionMode,
+            compliance.CopyrightOwner,
+            compliance.CopyrightStartYear,
+            compliance.CopyrightText,
+            compliance.ContentLicenseName,
+            compliance.ContentLicenseUrl,
+            compliance.IcpRecordNumber,
+            compliance.IcpRecordUrl,
+            compliance.PoliceRecordNumber,
+            compliance.PoliceRecordUrl,
+            compliance.PoliceBadgeIconUrl,
+            compliance.OperatorName,
+            compliance.ContactEmail);
 
     protected static string? NormalizeBaseUrl(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim().TrimEnd('/');
@@ -46,10 +75,10 @@ public sealed class PublicAotHomeBootstrapProvider(
     public override async Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
         const int pageSize = 10;
-        SeoConfigReadModel seo = await LoadSeoAsync();
+        PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
         ArticleListPageReadModel page = await articleService.GetPageListAsync(1, pageSize, null, null, false);
         return Result<PublicPageSnapshot>.Success(new PublicHomePageSnapshot(
-            ToSeoSnapshot(seo),
+            seo,
             Page: 1,
             pageSize,
             page.Total,
@@ -79,16 +108,16 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
             return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_article_not_found");
         }
 
-        SeoConfigReadModel seo = await LoadSeoAsync();
+        PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
         RelatedReadingResponse? relatedReading = await relatedReadingService.BuildAsync(articleId, cancellationToken);
         return Result<PublicPageSnapshot>.Success(new PublicArticlePageSnapshot(
-            ToSeoSnapshot(seo),
+            seo,
             article.Id,
             article.Title,
             article.Content,
             article.Summary ?? string.Empty,
             article.Views,
-            string.IsNullOrWhiteSpace(seo.Author) ? seo.Title : seo.Author,
+            string.IsNullOrWhiteSpace(seo.SiteAuthor) ? seo.SiteTitle : seo.SiteAuthor,
             article.CreateTime,
             new PublicAotArticleCategorySnapshot(article.CategoryId, article.CategoryName),
             article.Tags,
@@ -186,7 +215,7 @@ public sealed class PublicAotFilterBootstrapProvider(
     {
         const int pageIndex = 1;
         const int pageSize = 10;
-        SeoConfigReadModel seo = await LoadSeoAsync();
+        PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
         FilterIdentity identity = await ResolveFilterIdentityAsync(match.RouteKey, cancellationToken);
         ArticleListPageReadModel page = !identity.IsInvalidTarget
             ? await articleService.GetPageListAsync(pageIndex, pageSize, identity.CategoryId, identity.TagId, false)
@@ -194,7 +223,7 @@ public sealed class PublicAotFilterBootstrapProvider(
         string title = ResolveFilterTitle(identity);
 
         return Result<PublicPageSnapshot>.Success(new PublicFilterPageSnapshot(
-            ToSeoSnapshot(seo),
+            seo,
             match.RouteKey,
             identity.FilterType,
             identity.FilterKey,
@@ -259,28 +288,48 @@ public sealed class PublicAotFilterBootstrapProvider(
         bool IsInvalidTarget);
 }
 
-public sealed class PublicAotAboutBootstrapProvider : PublicAotBootstrapProviderBase
+public abstract class PublicAotStaticPageBootstrapProvider : PublicAotBootstrapProviderBase
 {
     private readonly ISystemService _systemService;
+    private readonly PublicPageKind _kind;
+    private readonly string _title;
 
-    public PublicAotAboutBootstrapProvider(ISystemService systemService) : base(systemService)
+    protected PublicAotStaticPageBootstrapProvider(
+        ISystemService systemService,
+        PublicPageKind kind,
+        string title) : base(systemService)
     {
         _systemService = systemService;
+        _kind = kind;
+        _title = title;
     }
 
-    public override PublicPageKind Kind => PublicPageKind.About;
+    public override PublicPageKind Kind => _kind;
 
     public override async Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
-        SeoConfigReadModel seo = await LoadSeoAsync();
-        PageContentReadModel about = await _systemService.GetPageContentAsync(PublicAotPageIdentity.GetCanonicalSlug(PublicPageKind.About));
-        return Result<PublicPageSnapshot>.Success(new PublicAboutPageSnapshot(
-            ToSeoSnapshot(seo),
-            about.Content ?? string.Empty,
-            about.Slug ?? string.Empty,
-            "关于"));
+        PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
+        PageContentReadModel page = await _systemService.GetPageContentAsync(PublicAotPageIdentity.GetCanonicalSlug(_kind));
+        return Result<PublicPageSnapshot>.Success(new PublicStaticPageSnapshot(
+            _kind,
+            seo,
+            page.Content ?? string.Empty,
+            page.Slug ?? string.Empty,
+            _title));
     }
 }
+
+public sealed class PublicAotAboutBootstrapProvider(ISystemService systemService)
+    : PublicAotStaticPageBootstrapProvider(systemService, PublicPageKind.About, "关于");
+
+public sealed class PublicAotPrivacyBootstrapProvider(ISystemService systemService)
+    : PublicAotStaticPageBootstrapProvider(systemService, PublicPageKind.Privacy, "隐私政策");
+
+public sealed class PublicAotGuidelinesBootstrapProvider(ISystemService systemService)
+    : PublicAotStaticPageBootstrapProvider(systemService, PublicPageKind.Guidelines, "用户守则");
+
+public sealed class PublicAotCopyrightBootstrapProvider(ISystemService systemService)
+    : PublicAotStaticPageBootstrapProvider(systemService, PublicPageKind.Copyright, "版权声明");
 
 public sealed class PublicAotArchiveBootstrapProvider(
     ISystemService systemService,
@@ -290,10 +339,10 @@ public sealed class PublicAotArchiveBootstrapProvider(
 
     public override async Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
-        SeoConfigReadModel seo = await LoadSeoAsync();
+        PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
         IReadOnlyList<ArchiveArticleAotProjection> articles = await ListPublicArchiveArticlesAsync(cancellationToken);
         return Result<PublicPageSnapshot>.Success(new PublicArchivePageSnapshot(
-            ToSeoSnapshot(seo),
+            seo,
             articles.Select(static article => new PublicArchiveArticleSnapshot(article.Id, article.Title, article.CreateTime)).ToArray(),
             "归档"));
     }

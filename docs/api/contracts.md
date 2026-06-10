@@ -61,6 +61,7 @@ AEDS v2 frame header 固定 16 字节，字段顺序为 `Magic:uint32`、`Versio
 | `ArticleHot` | `count:int32` + shared UTF-8 blob + 16B article records |
 | `CategoryList` / `TagList` | `count:int32` + shared UTF-8 blob + 16B taxonomy records |
 | `AdminStats` | `SiteStatsPod` + shared UTF-8 blob + 16B popular records + 32B recent-comment records + 12B region records |
+| `SiteComplianceConfig` | `SiteComplianceConfigPod`，固定宽度 UTF-8 字段；空配置不写占位备案号 |
 
 compact record 内所有文本字段均为 `Utf8SliceRef`，指向当前 payload 的共享 blob。`ArticleList` 的 76B record 在原 56B 公开字段后追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`publishedAtUnixMs:int64`。写请求、Passkey、上传、`ArticleDetail` 和复杂评论游标仍使用 v2 header 包裹的 POD + blob 结构，但不再允许旧 v1 header。
 
@@ -639,6 +640,31 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 }
 ```
 
+### `SiteComplianceConfigContract`
+
+`SiteComplianceConfig` 同时用于公开 footer 与 admin 表单。公开端点为 `GET /api/binary/system/compliance`，admin 读取为 `GET /api/binary/system/admin/compliance`，保存为 `PUT /api/binary/system/compliance` + `SiteComplianceConfigUpdateRequest`，写入必须携带 PoW。
+
+```json
+{
+  "enabled": true,
+  "regionMode": "mainland-cn",
+  "copyrightOwner": "Fsu",
+  "copyrightStartYear": 2024,
+  "copyrightText": "保留所有权利。",
+  "contentLicenseName": "CC BY-NC-SA 4.0",
+  "contentLicenseUrl": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+  "icpRecordNumber": "京ICP备00000000号-1",
+  "icpRecordUrl": "https://beian.miit.gov.cn/",
+  "policeRecordNumber": "京公网安备00000000000000号",
+  "policeRecordUrl": "https://beian.mps.gov.cn/",
+  "policeBadgeIconUrl": "/assets/police-badge.png",
+  "operatorName": "站点运营者",
+  "contactEmail": "contact@example.com"
+}
+```
+
+当 `enabled=false` 或备案字段为空时，公开 footer 不输出备案占位文案，只保留真实存在的版权、许可和静态页链接。保存成功后服务端会失效 `SystemCompliance` L1/L2/OutputCache、SEO/distribution cache 与相关 Public AOT 静态页，并通过 SSE `CacheControl` 通知 shell 失效。
+
 ### `PageContentContract`
 
 ```json
@@ -650,7 +676,7 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 }
 ```
 
-静态页面当前是固定页集合，读写范围必须一致：`about`、`privacy`、`guidelines`。匿名读取 `/api/binary/system/page/{slug}`、admin 读取 `/api/binary/system/admin/page/{slug}`、admin 写入 `/api/binary/system/page` 与缓存刷新 `/api/binary/system/page/refresh/{slug}` 都必须拒绝 allowlist 之外的 slug。页面保存后服务端会刷新相关缓存；刷新端点是管理端强制刷新入口，前端设置页可手动调用。
+静态页面当前是固定页集合，读写范围必须一致：`about`、`privacy`、`guidelines`、`copyright`。匿名读取 `/api/binary/system/page/{slug}`、admin 读取 `/api/binary/system/admin/page/{slug}`、admin 写入 `/api/binary/system/page` 与缓存刷新 `/api/binary/system/page/refresh/{slug}` 都必须拒绝 allowlist 之外的 slug。页面保存后服务端会刷新相关缓存和对应 Public AOT 静态页；刷新端点是管理端强制刷新入口，前端设置页可手动调用。
 
 ---
 
@@ -681,6 +707,10 @@ SiteStatsPod、共享 UTF-8 blob、popular article records、recent comment reco
 | 3 | `Filter` | `"category:{id}"`、`"tag:{id}"`、`"tag-name:{name}"` |
 | 4 | `Archive` | `"archive"` |
 | 5 | `About` | `"about"` |
+| 6 | `Account` | `"account"`，非 SEO |
+| 7 | `Privacy` | `"privacy"` |
+| 8 | `Guidelines` | `"guidelines"` |
+| 9 | `Copyright` | `"copyright"` |
 
 ### Public AOT 单一产物要求
 
@@ -720,7 +750,7 @@ HTML bootstrap、hydration props 和 islands payload 均以 `script type="applic
 
 | 参数 | 说明 |
 |------|------|
-| `scope=all` | 默认，列出 Home / About / Archive / 全部公开文章 / 有公开文章的分类与标签 |
+| `scope=all` | 默认，列出 Home / About / Privacy / Guidelines / Copyright / Archive / 全部公开文章 / 有公开文章的分类与标签 |
 | `scope=hot` | 列出固定页与最近公开文章相关 route，用于轻量预热 |
 | `changedSince=<ISO-8601>` | 列出指定时间后变更/发布的公开文章及其关联分类、标签 route |
 
@@ -748,7 +778,7 @@ HTML bootstrap、hydration props 和 islands payload 均以 `script type="applic
 }
 ```
 
-`dependencyKeys` 是预生成和失效收敛的稳定键：`article:{id}`、`category:{id}`、`tag:{id}`、`tag-name:{name}`、`article:list`、`seo`。内容变更后服务端会根据已知依赖主动调度 Home、Archive、ArticleDetail、Category/Tag Filter 的 AOT backfill；SEO 变更会按 manifest 调度所有 public routes。
+`dependencyKeys` 是预生成和失效收敛的稳定键：`article:{id}`、`category:{id}`、`tag:{id}`、`tag-name:{name}`、`article:list`、`seo`、`compliance`。内容变更后服务端会根据已知依赖主动调度 Home、Archive、ArticleDetail、Category/Tag Filter 与静态页的 AOT backfill；SEO 或 compliance 变更会按 manifest 调度所有 public routes。
 
 ### `PublicAotShellEntryContract`
 
@@ -865,11 +895,11 @@ X-Fsus-Pow-Answer: <nonce 值>
 | GET | `/api/Article/rss` | `application/rss+xml` | 历史兼容路径，内容等同 `/feed/rss.xml` |
 | GET | `/feed/atom.xml` | `application/atom+xml` | Atom feed |
 | GET | `/feed/feed.json` | `application/feed+json` | JSON Feed 1.1 |
-| GET | `/sitemap.xml` | `application/xml` | 首页、文章、归档、关于、分类、标签；排除登录、用户、admin |
+| GET | `/sitemap.xml` | `application/xml` | 首页、文章、归档、关于、隐私政策、用户守则、版权声明、分类、标签；排除登录、用户、admin |
 | GET | `/robots.txt` | `text/plain` | 声明 sitemap，并拒绝私有路由 |
 | GET | `/api/public/articles/{articleId}/related` | `JsonApiResponse<RelatedReadingResponse>` | 基于分类、标签、全文关键词和发布时间的公开延伸阅读 |
 
-feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 和 body ETag；客户端提交匹配的 `If-None-Match` 时返回 `304 Not Modified`。`robots.txt` 明确禁止 `/api/`、`/user`、`/admin`、搜索索引二进制与 patch 目录，同时保留 `/api/public/`、`/feed/`、`/sitemap.xml` 与公开页面可抓取。
+feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 和 body ETag；客户端提交匹配的 `If-None-Match` 时返回 `304 Not Modified`。RSS channel 的 copyright 来源于合规配置；`robots.txt` 明确禁止 `/api/`、`/user`、`/admin`、搜索索引二进制与 patch 目录，同时保留 `/api/public/`、`/feed/`、`/sitemap.xml` 与公开页面可抓取。
 
 公开评论读取、公开 taxonomy 与 `related-reading` 受 `public_read` 限流和风险感知过滤保护。风险分达到 50 时动态 API 要求 `X-Fsus-Pow-Proof`，达到 100 时返回 429；verified crawler 走独立高额度，social preview bot 不允许访问 `/api/**`。
 
@@ -893,7 +923,7 @@ feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale
 
 ### SEO Discovery
 
-`PublicAotDocumentComposer` 为 AOT 公开页输出 canonical、description、OpenGraph、Twitter card 与 feed discovery。JSON-LD 使用单个 `@graph`，必须包含站点级 `WebSite` + `SearchAction`、页面路径 `BreadcrumbList`，文章详情页额外包含 `BlogPosting`。`check:public-seo-smoke` 会对 home、article detail、archive、about、category、tag 的 AOT 命中和 shell-only SPA fallback 做一致性校验。
+`PublicAotDocumentComposer` 为 AOT 公开页输出 canonical、description、OpenGraph、Twitter card 与 feed discovery。JSON-LD 使用单个 `@graph`，必须包含站点级 `WebSite` + `SearchAction`、页面路径 `BreadcrumbList`，文章详情页额外包含 `BlogPosting`。`check:public-seo-smoke` 会对 home、article detail、archive、about、privacy、guidelines、copyright、category、tag 的 AOT 命中和 shell-only SPA fallback 做一致性校验。
 
 ### 文章生命周期
 

@@ -9,7 +9,10 @@ public enum PublicPageId
     Filter = 3,
     Archive = 4,
     About = 5,
-    Account = 6
+    Account = 6,
+    Privacy = 7,
+    Guidelines = 8,
+    Copyright = 9
 }
 
 public readonly record struct PublicPageDescriptor(
@@ -99,6 +102,27 @@ public static class PublicPageRegistry
         AotShellReady: true,
         DeferSpaBoot: true);
 
+    public static readonly PublicPageDescriptor Privacy = new(
+        PublicPageId.Privacy,
+        "privacy",
+        SeoEligible: true,
+        AotShellReady: true,
+        DeferSpaBoot: true);
+
+    public static readonly PublicPageDescriptor Guidelines = new(
+        PublicPageId.Guidelines,
+        "guidelines",
+        SeoEligible: true,
+        AotShellReady: true,
+        DeferSpaBoot: true);
+
+    public static readonly PublicPageDescriptor Copyright = new(
+        PublicPageId.Copyright,
+        "copyright",
+        SeoEligible: true,
+        AotShellReady: true,
+        DeferSpaBoot: true);
+
     public static readonly PublicPageDescriptor[] All =
     [
         Home,
@@ -106,7 +130,10 @@ public static class PublicPageRegistry
         Filter,
         Archive,
         About,
-        Account
+        Account,
+        Privacy,
+        Guidelines,
+        Copyright
     ];
 
     private static readonly FrozenDictionary<PublicPageId, PublicPageDescriptor> ById =

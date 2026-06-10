@@ -107,12 +107,19 @@
 
 ---
 
-## 系统 — `/api/System`
+## 系统配置 — `/api/binary/system`
 
 | 方法 | 路径 | 权限 | 缓存 | 说明 |
 |------|------|------|------|------|
-| GET | `/api/System/seo` | 🔓 | 🗄️ | 站点 SEO 配置 |
-| GET | `/api/System/page/{slug}` | 🔓 | 🗄️ | 指定 slug 的静态页面内容；当前只支持 `about/privacy/guidelines` |
+| GET | `/api/binary/system/seo` | 🔓 | 🗄️ | 站点 SEO 配置，`SeoConfig` frame |
+| GET | `/api/binary/system/compliance` | 🔓 | 🗄️ | 公开页 footer 合规配置，`SiteComplianceConfig` frame |
+| GET | `/api/binary/system/page/{slug}` | 🔓 | 🗄️ | 指定 slug 的静态页面内容；当前只支持 `about/privacy/guidelines/copyright` |
+| GET | `/api/binary/system/admin/seo` | 👑 | — | admin 读取 SEO 配置 |
+| GET | `/api/binary/system/admin/compliance` | 👑 | — | admin 读取完整合规配置 |
+| PUT | `/api/binary/system/seo` | 👑🚦 | — | admin 保存 SEO 配置，`SeoConfigUpdateRequest` |
+| PUT | `/api/binary/system/compliance` | 👑🚦 | — | admin 保存大陆合规配置，`SiteComplianceConfigUpdateRequest` |
+| PUT | `/api/binary/system/page` | 👑🚦 | — | admin 保存静态页面内容 |
+| POST | `/api/binary/system/page/refresh/{slug}` | 👑🚦 | — | 强制刷新静态页面缓存 / AOT |
 
 ---
 
@@ -136,6 +143,9 @@
 | GET `/api/binary/comment/{articleId}` | 🔓 📦 | `CommentArticleCursor`(5) | 文章评论 |
 | GET `/api/binary/comment/{articleId}/thread/{rootId}` | 🔓 📦 | `CommentThreadReplyCursor`(8) | 评论线程 |
 | GET `/api/binary/comment/me` | 🔑 📦 | `CommentUserCursor`(6) | 用户评论历史 |
+| GET `/api/binary/system/seo` | 🔓 📦 | `SeoConfig`(13) | 公开 SEO 配置 |
+| GET `/api/binary/system/compliance` | 🔓 📦 | `SiteComplianceConfig`(26) | 公开合规 footer 配置 |
+| GET `/api/binary/system/page/{slug}` | 🔓 📦 | `PageContent`(14) | 公开静态页内容，slug allowlist 同上 |
 
 ### 管理端 Binary
 

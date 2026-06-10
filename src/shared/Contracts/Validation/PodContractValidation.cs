@@ -95,6 +95,7 @@ public static class PodContractValidation
             && IsReferenceFree<PasskeyCredentialSummaryPod>()
             && IsReferenceFree<SeoConfigPod>()
             && IsReferenceFree<PageContentPod>()
+            && IsReferenceFree<SiteComplianceConfigPod>()
             && IsReferenceFree<PopularArticlePod>()
             && IsReferenceFree<RecentCommentPod>()
             && IsReferenceFree<RegionDistributionPod>()

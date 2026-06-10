@@ -13,6 +13,9 @@ public sealed class PublicAotRouteManifestTests
         [
             PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Home, 0),
             PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.About, 10),
+            PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Privacy, 11),
+            PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Guidelines, 12),
+            PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Copyright, 13),
             PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Archive, 20),
             PublicAotRouteManifestProvider.CreateArticleRoute(42, 7, [3, 9], 100),
             PublicAotRouteManifestProvider.CreateCategoryRoute(7, 200),

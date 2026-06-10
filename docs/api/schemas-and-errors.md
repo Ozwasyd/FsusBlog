@@ -200,14 +200,29 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 6 | `CommentUserCursor` | `CommentPod` | `GET /api/Comment/me` |
 | 7 | `AdminStats` | `AdminStatsPod` | — |
 | 8 | `CommentThreadReplyCursor` | `CommentPod` | `GET /api/Comment/{articleId}/thread/{rootId}` |
+| 9 | `CategoryList` | compact taxonomy records | `GET /api/binary/category` / `category.aeds` |
+| 10 | `TagList` | compact taxonomy records | `GET /api/binary/tag` / `tag.aeds` |
+| 11 | `RecentCommentStats` | compact stats records | `GET /api/binary/stats/recent-comments` |
+| 12 | `RegionStats` | compact stats records | `GET /api/binary/stats/regions` |
+| 13 | `SeoConfig` | `SeoConfigPod` | `GET /api/binary/system/seo` |
+| 14 | `PageContent` | `PageContentPod` | `GET /api/binary/system/page/{slug}` |
+| 15 | `ArticleFeatured` | compact article records | `GET /api/binary/article/featured/{size}.aeds` |
+| 16 | `TrashClearResponse` | `TrashClearResponsePod` | `DELETE /api/binary/admin/article/trash` |
+| 17 | `AdminUserList` | compact user records | `GET /api/binary/admin/users` |
+| 18 | `AuthLoginFlow` | auth login payload | `POST /api/binary/auth/login` |
+| 19 | `CurrentUserSnapshot` | user snapshot payload | `GET /api/binary/auth/me` |
 | 20 | `UploadInit` | `UploadInitPod` | `POST /api/binary/upload/init` |
 | 21 | `UploadStatus` | `UploadStatusPod` | `GET /api/binary/upload/{id}` |
 | 22 | `UploadPartAck` | `UploadPartAckPod` | `PUT /api/binary/upload/{id}/part/{n}` |
 | 23 | `UploadComplete` | `UploadCompletePod` | `POST /api/binary/upload/{id}/complete` |
 | 24 | `UploadPartMap` | `UploadPartMapPod` | `GET /api/binary/upload/{id}/parts` |
+| 25 | `AuthSessionList` | session list payload | `GET /api/binary/auth/sessions` |
+| 26 | `SiteComplianceConfig` | `SiteComplianceConfigPod` | `GET /api/binary/system/compliance` |
 | 30 | `PowChallenge` | `PowChallengePod` | `GET /api/binary/auth/pow-challenge` |
 | 31 | `UploadInitRequest` | `UploadInitRequestPod` | `POST /api/binary/upload/init` 请求体 |
 | 32 | `UploadCompleteRequest` | `UploadCompleteRequestPod` | `POST /api/binary/upload/{id}/complete` 请求体 |
+| 35 | `SeoConfigUpdateRequest` | `SeoConfigPod` | `PUT /api/binary/system/seo` 请求体 |
+| 36 | `PageContentUpdateRequest` | `PageContentPod` | `PUT /api/binary/system/page` 请求体 |
 | 63 | `PasskeyRegisterBegin` | `PasskeyRegisterBeginPod` | `POST /api/binary/auth/passkey/register/begin` |
 | 64 | `PasskeyLoginBegin` | `PasskeyLoginBeginPod` | `POST /api/binary/auth/passkey/login/begin` |
 | 65 | `PasskeyCredentialList` | `PasskeyCredentialSummaryPod[]` | `GET /api/binary/auth/passkey/credentials` |
@@ -217,6 +232,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 69 | `NotificationEvent` | binary notification value | `/api/notifications/stream` WebSocket 事件 |
 | 70 | `NotificationHeartbeat` | `int64 timestampUnixMs` | `/api/notifications/stream` WebSocket 心跳 |
 | 71 | `PublicAotBootstrap` | binary tagged value | Public AOT HTML bootstrap / hydration |
+| 72 | `SiteComplianceConfigUpdateRequest` | `SiteComplianceConfigPod` | `PUT /api/binary/system/compliance` 请求体 |
 | 240 | `EmptySuccess` | `EmptySuccessPod` | 通用空成功响应 |
 | 241 | `MutationId` | `MutationIdPod` | 通用变更 ID 响应 |
 | 251 | `ApiError` | `ApiErrorPod` | 二进制错误响应 |
@@ -291,6 +307,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 类型 | 字节数 |
 |------|--------|
 | `SystemPod` | ~128 |
+| `SiteComplianceConfigPod` | 1709 |
 
 ### 统计 POD
 

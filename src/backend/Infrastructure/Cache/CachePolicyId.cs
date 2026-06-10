@@ -38,5 +38,6 @@ public enum CachePolicyId
     UserCommentCursorFrame = 33,
     CategoryFrame = 34,
     TagFrame = 35,
-    AdminStatsFrame = 36
+    AdminStatsFrame = 36,
+    SystemCompliance = 37
 }

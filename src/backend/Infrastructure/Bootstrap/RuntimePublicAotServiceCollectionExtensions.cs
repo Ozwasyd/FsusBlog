@@ -29,6 +29,9 @@ internal static class RuntimePublicAotServiceCollectionExtensions
         services.AddScoped<IPublicAotBootstrapProvider, PublicAotFilterBootstrapProvider>();
         services.AddScoped<IPublicAotBootstrapProvider, PublicAotAboutBootstrapProvider>();
         services.AddScoped<IPublicAotBootstrapProvider, PublicAotArchiveBootstrapProvider>();
+        services.AddScoped<IPublicAotBootstrapProvider, PublicAotPrivacyBootstrapProvider>();
+        services.AddScoped<IPublicAotBootstrapProvider, PublicAotGuidelinesBootstrapProvider>();
+        services.AddScoped<IPublicAotBootstrapProvider, PublicAotCopyrightBootstrapProvider>();
         services.AddScoped<IPublicAotDocumentService, PublicAotDocumentService>();
         services.AddSingleton<IPublicAotEntryRenderer, PublicAotNodeSsrRenderer>();
         services.AddScoped<PublicAotShellService>();

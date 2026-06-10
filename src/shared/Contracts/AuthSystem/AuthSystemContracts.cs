@@ -40,4 +40,20 @@ public readonly record struct SeoConfigContract(
     string OgImage,
     string BaseUrl);
 
+public readonly record struct SiteComplianceConfigContract(
+    bool Enabled,
+    string RegionMode,
+    string CopyrightOwner,
+    int? CopyrightStartYear,
+    string CopyrightText,
+    string ContentLicenseName,
+    string ContentLicenseUrl,
+    string IcpRecordNumber,
+    string IcpRecordUrl,
+    string PoliceRecordNumber,
+    string PoliceRecordUrl,
+    string PoliceBadgeIconUrl,
+    string OperatorName,
+    string ContactEmail);
+
 public readonly record struct PageContentContract(string? Slug, string? Content);

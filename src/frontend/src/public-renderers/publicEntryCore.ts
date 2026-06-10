@@ -1,6 +1,7 @@
 import { createSSRApp, type Component } from 'vue'
 import { renderToString } from '@vue/server-renderer'
 import type { ArticleDetailResponse, ArticleListItemResponse, Tag } from '@/api/article'
+import type { SiteComplianceConfigPublic } from '@/api/system'
 import { encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
 import { getSharedPublicPageManifestEntry } from '@/public-renderers/generated/publicPageManifest'
@@ -109,10 +110,15 @@ function encodePayload(value: unknown): string {
   return encodePublicAotPayload(value)
 }
 
-export async function renderShell(kind: PublicPageKind, siteTitle: string, page: PublicAotPageAssembly): Promise<string> {
+export async function renderShell(
+  kind: PublicPageKind,
+  siteTitle: string,
+  page: PublicAotPageAssembly,
+  compliance: SiteComplianceConfigPublic | null = null
+): Promise<string> {
   const Root: Component = {
     render() {
-      return renderPublicAotShell({ kind, siteTitle, page })
+      return renderPublicAotShell({ kind, siteTitle, compliance, page })
     }
   }
 

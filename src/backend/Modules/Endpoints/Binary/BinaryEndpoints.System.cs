@@ -83,6 +83,66 @@ public static partial class BinaryEndpoints
         .RequireAuthorization(policy => policy.RequireRole("admin"))
         .AddEndpointFilter<RequiresPowFilter>();
 
+        group.MapGet("/system/compliance", static async Task<BinaryFrameResult> (
+            ISystemService systemService,
+            IAedsEncoder aeds) =>
+        {
+            var data = await systemService.GetSiteComplianceConfigAsync();
+            var dto = SystemProjection.ToPublicDto(data);
+            return BinaryResults.Frame(aeds, AedsFrameType.SiteComplianceConfig, writer => PodBinaryCodec.WriteSiteComplianceConfig(dto, writer));
+        })
+        .AllowAnonymous()
+        .CacheOutput(HttpCachePolicyCatalog.ApplySystemCompliance);
+
+        group.MapGet("/system/admin/compliance", static async Task<BinaryFrameResult> (
+            ISystemService systemService,
+            IAedsEncoder aeds) =>
+        {
+            var data = await systemService.GetSiteComplianceConfigAsync();
+            var dto = SystemProjection.ToAdminDto(data);
+            return BinaryResults.Frame(aeds, AedsFrameType.SiteComplianceConfig, writer => PodBinaryCodec.WriteSiteComplianceConfig(dto, writer));
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"));
+
+        group.MapPut("/system/compliance", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            ISystemService systemService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.SiteComplianceConfigUpdateRequest, cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            if (!PodBinaryCodec.TryDecodeSiteComplianceConfig(payload.Payload, out var dto))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "合规配置请求体非法"), aeds);
+            }
+
+            await systemService.UpdateSiteComplianceConfigAsync(new UpdateSiteComplianceConfigRequest
+            {
+                Enabled = dto.Enabled,
+                RegionMode = dto.RegionMode,
+                CopyrightOwner = dto.CopyrightOwner,
+                CopyrightStartYear = dto.CopyrightStartYear,
+                CopyrightText = dto.CopyrightText,
+                ContentLicenseName = dto.ContentLicenseName,
+                ContentLicenseUrl = dto.ContentLicenseUrl,
+                IcpRecordNumber = dto.IcpRecordNumber,
+                IcpRecordUrl = dto.IcpRecordUrl,
+                PoliceRecordNumber = dto.PoliceRecordNumber,
+                PoliceRecordUrl = dto.PoliceRecordUrl,
+                PoliceBadgeIconUrl = dto.PoliceBadgeIconUrl,
+                OperatorName = dto.OperatorName,
+                ContactEmail = dto.ContactEmail
+            });
+            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"))
+        .AddEndpointFilter<RequiresPowFilter>();
+
         group.MapGet("/system/page/{slug}", static async Task<BinaryFrameResult> (
             string slug,
             ISystemService systemService,

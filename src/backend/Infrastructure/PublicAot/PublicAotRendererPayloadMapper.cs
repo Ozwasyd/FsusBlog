@@ -61,10 +61,10 @@ internal static class PublicAotRendererPayloadMapper
                 common["articles"] = filter.Articles.Select(ToArticleSummaryPayload).ToArray();
                 common["title"] = filter.Title;
                 return common;
-            case PublicAboutPageSnapshot about:
-                common["content"] = about.Content;
-                common["slug"] = about.Slug;
-                common["title"] = about.Title;
+            case PublicStaticPageSnapshot page:
+                common["content"] = page.Content;
+                common["slug"] = page.Slug;
+                common["title"] = page.Title;
                 return common;
             case PublicArchivePageSnapshot archive:
                 common["articles"] = archive.Articles.Select(static article => new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -85,7 +85,27 @@ internal static class PublicAotRendererPayloadMapper
         {
             ["siteTitle"] = seo.SiteTitle,
             ["siteDescription"] = seo.SiteDescription,
-            ["baseUrl"] = seo.BaseUrl
+            ["baseUrl"] = seo.BaseUrl,
+            ["compliance"] = seo.Compliance is null ? null : ToCompliancePayload(seo.Compliance)
+        };
+
+    private static Dictionary<string, object?> ToCompliancePayload(PublicAotSiteComplianceSnapshot compliance)
+        => new(StringComparer.Ordinal)
+        {
+            ["enabled"] = compliance.Enabled,
+            ["regionMode"] = compliance.RegionMode,
+            ["copyrightOwner"] = compliance.CopyrightOwner,
+            ["copyrightStartYear"] = compliance.CopyrightStartYear,
+            ["copyrightText"] = compliance.CopyrightText,
+            ["contentLicenseName"] = compliance.ContentLicenseName,
+            ["contentLicenseUrl"] = compliance.ContentLicenseUrl,
+            ["icpRecordNumber"] = compliance.IcpRecordNumber,
+            ["icpRecordUrl"] = compliance.IcpRecordUrl,
+            ["policeRecordNumber"] = compliance.PoliceRecordNumber,
+            ["policeRecordUrl"] = compliance.PoliceRecordUrl,
+            ["policeBadgeIconUrl"] = compliance.PoliceBadgeIconUrl,
+            ["operatorName"] = compliance.OperatorName,
+            ["contactEmail"] = compliance.ContactEmail
         };
 
     private static Dictionary<string, object?> ToArticleSummaryPayload(PublicAotArticleSummarySnapshot article)

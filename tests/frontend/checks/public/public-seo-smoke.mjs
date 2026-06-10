@@ -11,6 +11,9 @@ const publicFixtureIds = readPublicFixtureIds();
 const checks = [
   { name: 'home', path: '/', expectedHydrationKind: 'Home' },
   { name: 'about', path: '/about', expectedHydrationKind: 'About' },
+  { name: 'privacy', path: '/privacy', expectedHydrationKind: 'Privacy' },
+  { name: 'guidelines', path: '/guidelines', expectedHydrationKind: 'Guidelines' },
+  { name: 'copyright', path: '/copyright', expectedHydrationKind: 'Copyright' },
   { name: 'archive', path: '/archive', expectedHydrationKind: 'Archive' },
   {
     name: 'article_detail',

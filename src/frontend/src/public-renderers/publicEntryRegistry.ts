@@ -7,6 +7,7 @@ import type { RelatedReadingItemResponse, RelatedReadingResponse } from '@/api/a
 import { createAboutPageViewContract } from '@/view-contracts/aboutPage'
 import { createArchivePageViewContract } from '@/view-contracts/archive'
 import { createFilterPageViewContract } from '@/view-contracts/filterView'
+import type { SiteComplianceConfigPublic } from '@/api/system'
 import {
   createEntry,
   normalizeArticleDetail,
@@ -47,8 +48,11 @@ import {
   buildPublicArchiveRouteKey,
   buildPublicArticleHref,
   buildPublicArticleRouteKey,
+  buildPublicCopyrightRouteKey,
   buildPublicFilterRouteKey,
-  buildPublicHomeRouteKey
+  buildPublicGuidelinesRouteKey,
+  buildPublicHomeRouteKey,
+  buildPublicPrivacyRouteKey
 } from '@/public-renderers/publicRouteIdentity'
 import { PUBLIC_SHELL_DEFAULTS } from '@/public-renderers/publicShellState'
 
@@ -61,6 +65,7 @@ type PublicEntryScope<K extends PublicPageKind = PublicPageKind> = Readonly<{
   routeKey: string
   siteTitle: string
   siteDescription: string
+  compliance: SiteComplianceConfigPublic | null
   baseUrlInput: unknown
   baseUrlText: string
   baseModel: PublicRenderBase
@@ -83,16 +88,45 @@ type DefinedPublicEntry<K extends PublicPageKind = PublicPageKind> = Readonly<{
   build: PublicEntryBuilder
 }>
 
+function normalizeComplianceConfig(value: unknown): SiteComplianceConfigPublic | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const source = value as Record<string, unknown>
+  const text = (key: string): string => toText(source[key], '')
+  const startYear = toNumber(source.copyrightStartYear, 0)
+
+  return {
+    enabled: Boolean(source.enabled),
+    regionMode: text('regionMode') === 'mainland-cn' ? 'mainland-cn' : 'global',
+    copyrightOwner: text('copyrightOwner'),
+    copyrightStartYear: startYear > 0 ? startYear : null,
+    copyrightText: text('copyrightText'),
+    contentLicenseName: text('contentLicenseName'),
+    contentLicenseUrl: text('contentLicenseUrl'),
+    icpRecordNumber: text('icpRecordNumber'),
+    icpRecordUrl: text('icpRecordUrl') || 'https://beian.miit.gov.cn/',
+    policeRecordNumber: text('policeRecordNumber'),
+    policeRecordUrl: text('policeRecordUrl') || 'https://beian.mps.gov.cn/',
+    policeBadgeIconUrl: text('policeBadgeIconUrl'),
+    operatorName: text('operatorName'),
+    contactEmail: text('contactEmail')
+  }
+}
+
 function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: PublicEntryBuildOptions, routeKey: string): PublicEntryScope<K> {
   const siteTitle = toText(options.siteTitle, PUBLIC_SHELL_DEFAULTS.siteTitle)
   const siteDescription = toText(options.siteDescription, '')
+  const compliance = normalizeComplianceConfig(options.compliance)
   const baseUrlInput = options.baseUrl
   const baseUrlText = toText(baseUrlInput, '')
   const baseModel = createPublicRenderBase(kind, routeKey, {
     rendererVersion: PUBLIC_RENDERER_VERSION,
     siteTitle,
     siteDescription,
-    baseUrl: baseUrlInput
+    baseUrl: baseUrlInput,
+    compliance
   })
 
   return {
@@ -100,10 +134,11 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
     routeKey,
     siteTitle,
     siteDescription,
+    compliance,
     baseUrlInput,
     baseUrlText,
     baseModel,
-    renderShell: async (page) => await renderShell(kind, siteTitle, page),
+    renderShell: async (page) => await renderShell(kind, siteTitle, page, compliance),
     createEntry: (html, bootstrap, hydration, entryOptions) => createEntry(kind, routeKey, html, bootstrap, hydration, {
       ...entryOptions,
       baseUrl: entryOptions?.baseUrl ?? baseUrlText
@@ -236,40 +271,59 @@ const articleDetailEntryDefinition = definePublicEntry({
   }
 })
 
-const aboutEntryDefinition = definePublicEntry({
-  kind: 'About',
-  async build(createScope, options) {
-    const scope = createScope(buildPublicAboutRouteKey())
-    const content = toText(options.content, '')
-    const view = createAboutPageViewContract({ siteTitle: scope.siteTitle, currentYear: new Date().getFullYear(), content })
-    const bodyHtml = await renderAotBodyHtml(content, scope.baseUrlText)
-    const hydration = {
-      ...scope.baseModel.hydrationBase,
-      title: toText(options.title, '关于'),
-      bodyHtml,
-      view,
-      about: {
-        slug: toText(options.slug, getSharedPublicPageManifestEntry('About').canonicalSlug),
+function createStaticPageEntryDefinition<K extends Extract<PublicPageKind, 'About' | 'Privacy' | 'Guidelines' | 'Copyright'>>(
+  kind: K,
+  buildRouteKey: () => string,
+  defaultTitle: string
+): DefinedPublicEntry<K> {
+  return definePublicEntry({
+    kind,
+    async build(createScope, options) {
+      const scope = createScope(buildRouteKey())
+      const content = toText(options.content, '')
+      const title = toText(options.title, defaultTitle)
+      const slug = toText(options.slug, getSharedPublicPageManifestEntry(kind).canonicalSlug)
+      const view = createAboutPageViewContract({
+        siteTitle: scope.siteTitle,
+        currentYear: new Date().getFullYear(),
+        content,
+        title
+      })
+      const bodyHtml = await renderAotBodyHtml(content, scope.baseUrlText)
+      const staticPage = {
+        slug,
         content
       }
+      const hydration = {
+        ...scope.baseModel.hydrationBase,
+        title,
+        bodyHtml,
+        view,
+        staticPage
+      }
+      const bootstrap = {
+        ...scope.baseModel.bootstrapBase,
+        title: hydration.title,
+        bodyHtml,
+        staticPage
+      }
+      const html = await scope.renderShell(createPublicAboutPageAssembly({
+        view,
+        content,
+        bodyHtml,
+        baseUrl: scope.baseUrlText
+      }))
+      return scope.createEntry(html, bootstrap, hydration, {
+        title: hydration.title
+      })
     }
-    const bootstrap = {
-      ...scope.baseModel.bootstrapBase,
-      title: hydration.title,
-      bodyHtml,
-      about: hydration.about
-    }
-    const html = await scope.renderShell(createPublicAboutPageAssembly({
-      view,
-      content,
-      bodyHtml,
-      baseUrl: scope.baseUrlText
-    }))
-    return scope.createEntry(html, bootstrap, hydration, {
-      title: hydration.title
-    })
-  }
-})
+  })
+}
+
+const aboutEntryDefinition = createStaticPageEntryDefinition('About', buildPublicAboutRouteKey, '关于')
+const privacyEntryDefinition = createStaticPageEntryDefinition('Privacy', buildPublicPrivacyRouteKey, '隐私政策')
+const guidelinesEntryDefinition = createStaticPageEntryDefinition('Guidelines', buildPublicGuidelinesRouteKey, '用户守则')
+const copyrightEntryDefinition = createStaticPageEntryDefinition('Copyright', buildPublicCopyrightRouteKey, '版权声明')
 
 const archiveEntryDefinition = definePublicEntry({
   kind: 'Archive',
@@ -381,6 +435,9 @@ const PUBLIC_ENTRY_DEFINITIONS = [
   homeEntryDefinition,
   articleDetailEntryDefinition,
   aboutEntryDefinition,
+  privacyEntryDefinition,
+  guidelinesEntryDefinition,
+  copyrightEntryDefinition,
   archiveEntryDefinition,
   filterEntryDefinition
 ] as const satisfies readonly DefinedPublicEntry[]
@@ -405,6 +462,9 @@ if (missingEntryBuilders.length > 0) {
 export const renderPublicHomeEntry = homeEntryDefinition.build
 export const renderPublicArticleDetailEntry = articleDetailEntryDefinition.build
 export const renderPublicAboutEntry = aboutEntryDefinition.build
+export const renderPublicPrivacyEntry = privacyEntryDefinition.build
+export const renderPublicGuidelinesEntry = guidelinesEntryDefinition.build
+export const renderPublicCopyrightEntry = copyrightEntryDefinition.build
 export const renderPublicArchiveEntry = archiveEntryDefinition.build
 export const renderPublicFilterEntry = filterEntryDefinition.build
 

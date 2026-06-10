@@ -92,6 +92,7 @@ public static class PodSizeCatalog
 
     public static readonly int SeoConfigPod = PodContractValidation.SizeOf<SeoConfigPod>();
     public static readonly int PageContentPod = PodContractValidation.SizeOf<PageContentPod>();
+    public static readonly int SiteComplianceConfigPod = PodContractValidation.SizeOf<SiteComplianceConfigPod>();
 
     public static readonly int PopularArticlePod = PodContractValidation.SizeOf<PopularArticlePod>();
     public static readonly int RecentCommentPod = PodContractValidation.SizeOf<RecentCommentPod>();

@@ -20,7 +20,10 @@ describe('publicEntryRegistry shared coverage', () => {
       { kind: 'ArticleDetail', options: { id: 1, title: 'Article', content: 'Body', summary: 'Summary', siteTitle: 'FsusBlog', siteDescription: 'desc' } },
       { kind: 'Filter', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', filterType: 'search', routeKey: 'search', title: '搜索', total: 0, articles: [] } },
       { kind: 'Archive', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', total: 0, articles: [] } },
-      { kind: 'About', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', content: 'About content' } }
+      { kind: 'About', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', content: 'About content' } },
+      { kind: 'Privacy', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', content: 'Privacy content' } },
+      { kind: 'Guidelines', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', content: 'Guidelines content' } },
+      { kind: 'Copyright', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', content: 'Copyright content' } }
     ] as const
 
     const renderShellMock = vi.mocked(renderShell)
@@ -43,16 +46,29 @@ describe('publicEntryRegistry shared coverage', () => {
     })
   })
 
-  it('reuses the shared About canonical slug when payload options omit it', async () => {
+  it('emits the shared staticPage payload for About when options omit slug', async () => {
     const result = await buildPublicEntry('About', {
       siteTitle: 'FsusBlog',
       siteDescription: 'desc',
       content: 'About content'
     })
 
-    const hydration = decodePublicAotPayload<{ about?: { slug?: string } }>(result.entry.hydrationPropsPayload)
+    const hydration = decodePublicAotPayload<{ staticPage?: { slug?: string }; about?: unknown }>(result.entry.hydrationPropsPayload)
 
-    expect(hydration?.about?.slug).toBe(getSharedPublicPageManifestEntry('About').canonicalSlug)
+    expect(hydration?.staticPage?.slug).toBe(getSharedPublicPageManifestEntry('About').canonicalSlug)
+    expect(hydration?.about).toBeUndefined()
+  })
+
+  it('emits shared staticPage payload for public policy pages', async () => {
+    const result = await buildPublicEntry('Privacy', {
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      content: 'Privacy content'
+    })
+
+    const hydration = decodePublicAotPayload<{ staticPage?: { slug?: string } }>(result.entry.hydrationPropsPayload)
+
+    expect(hydration?.staticPage?.slug).toBe(getSharedPublicPageManifestEntry('Privacy').canonicalSlug)
   })
 
   it('keeps article hydration bodyHtml aligned with SSR body markup instead of raw markdown', async () => {

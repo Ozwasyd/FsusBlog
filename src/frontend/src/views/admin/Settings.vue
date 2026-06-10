@@ -17,7 +17,7 @@
         <span class="text-[var(--fsusblog-color-warning-text)]">
           <el-icon><Warning /></el-icon>
         </span>
-        <span id="settings-privileged-mode-title" class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-color-warning-text)]">高权限管理模式 (Privileged Mode)</span>
+        <span id="settings-privileged-mode-title" class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-color-warning-text)]">高权限管理模式</span>
       </div>
       <p class="text-[13px] leading-relaxed text-[var(--fsusblog-color-warning-text)] font-medium">
         变更站点全局配置将立即触发物理磁盘 AOT 缓存清理。若同步失败，系统将执行原子化回滚。
@@ -63,7 +63,7 @@
                 </div>
               </el-form-item>
 
-              <el-form-item label="社交媒体预览图 (OgImage)">
+              <el-form-item label="社交分享预览图">
                 <div class="flex max-w-full flex-col items-stretch gap-12 mt-4 md:flex-row md:items-start">
                   <el-upload
                     class="w-full max-w-xs"
@@ -82,7 +82,7 @@
                         <span class="text-[11px] mt-2 font-black normal-case tracking-normal">上传预览图</span>
                       </div>
                       <div class="image-replace-overlay absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span class="text-[11px] font-black normal-case tracking-normal">点击更换 / REPLACE</span>
+                        <span class="text-[11px] font-black normal-case tracking-normal">点击更换</span>
                       </div>
                     </div>
                   </el-upload>
@@ -129,7 +129,7 @@
               </el-form-item>
 
               <section class="mt-12 border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5" aria-label="SEO 与社交分享预览">
-                <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">预览 / PREVIEW</div>
+                <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">搜索结果预览</div>
                 <div class="space-y-2">
                   <p class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ siteSearchPreview.title }}</p>
                   <p class="text-[12px] text-[var(--fsusblog-color-success)] break-all">{{ siteSearchPreview.url }}</p>
@@ -151,6 +151,135 @@
               </div>
               </el-form>
             </div>
+          </section>
+        </div>
+      </el-tab-pane>
+
+      <el-tab-pane label="大陆合规" name="compliance">
+        <div class="mt-10 space-y-14 md:space-y-16">
+          <section class="profile-section">
+            <header class="mb-12">
+              <h3 class="section-title">大陆合规信息</h3>
+              <p class="section-caption mt-4">维护公开 footer、RSS 版权和大陆部署检查清单。备案信息只负责展示，请以工信部和公安备案平台审核结果为准。</p>
+            </header>
+
+            <div v-if="complianceLoadFailed" class="mb-8 border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] p-5 text-[12px] text-[var(--fsusblog-color-error)]">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <span class="font-bold">合规配置加载失败，已暂停保存以避免覆盖线上配置。</span>
+                <el-button size="small" :disabled="loadingCompliance" @click="loadComplianceConfig">重试</el-button>
+              </div>
+            </div>
+
+            <el-form v-loading="loadingCompliance" :model="complianceForm" label-position="top" @submit.prevent novalidate>
+              <div class="grid grid-cols-1 gap-x-16 lg:grid-cols-[minmax(0,1fr)_22rem]">
+                <div class="min-w-0">
+                  <el-form-item label="启用公开合规展示">
+                    <el-switch
+                      v-model="complianceForm.enabled"
+                      :disabled="complianceFormDisabled"
+                      active-text="启用"
+                      inactive-text="关闭"
+                    />
+                    <div class="text-[11px] font-bold text-[var(--fsusblog-text-muted)] mt-4 normal-case tracking-normal">
+                      关闭时不展示备案号和许可说明；基础版权与页脚导航仍会保留。
+                    </div>
+                  </el-form-item>
+
+                  <el-form-item label="部署区域">
+                    <el-radio-group v-model="complianceForm.regionMode" :disabled="complianceFormDisabled">
+                      <el-radio-button value="global">通用</el-radio-button>
+                      <el-radio-button value="mainland-cn">中国大陆</el-radio-button>
+                    </el-radio-group>
+                  </el-form-item>
+
+                  <div class="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+                    <el-form-item label="ICP 备案号">
+                      <el-input v-model="complianceForm.icpRecordNumber" maxlength="64" show-word-limit :disabled="complianceFormDisabled" placeholder="京ICP备2026000000号-1" />
+                    </el-form-item>
+                    <el-form-item label="ICP 链接">
+                      <el-input v-model="complianceForm.icpRecordUrl" :disabled="complianceFormDisabled" placeholder="https://beian.miit.gov.cn/" />
+                    </el-form-item>
+                    <el-form-item label="公安备案号">
+                      <el-input v-model="complianceForm.policeRecordNumber" maxlength="64" show-word-limit :disabled="complianceFormDisabled" placeholder="京公网安备11000002000000号" />
+                    </el-form-item>
+                    <el-form-item label="公安备案链接">
+                      <el-input v-model="complianceForm.policeRecordUrl" :disabled="complianceFormDisabled" placeholder="https://beian.mps.gov.cn/" />
+                    </el-form-item>
+                  </div>
+
+                  <el-form-item label="公安备案图标">
+                    <el-input v-model="complianceForm.policeBadgeIconUrl" :disabled="complianceFormDisabled" placeholder="可留空，或填写公安备案图标 URL" />
+                  </el-form-item>
+
+                  <div class="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+                    <el-form-item label="版权主体">
+                      <el-input v-model="complianceForm.copyrightOwner" maxlength="128" show-word-limit :disabled="complianceFormDisabled" placeholder="Fsu's Blog" />
+                    </el-form-item>
+                    <el-form-item label="版权起始年份">
+                      <el-input-number
+                        v-model="complianceForm.copyrightStartYear"
+                        :min="1990"
+                        :max="new Date().getFullYear()"
+                        :disabled="complianceFormDisabled"
+                        controls-position="right"
+                      />
+                    </el-form-item>
+                  </div>
+
+                  <el-form-item label="版权说明">
+                    <el-input v-model="complianceForm.copyrightText" type="textarea" :rows="3" maxlength="512" show-word-limit :disabled="complianceFormDisabled" placeholder="保留所有权利。" />
+                  </el-form-item>
+
+                  <div class="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+                    <el-form-item label="内容许可名称">
+                      <el-input v-model="complianceForm.contentLicenseName" maxlength="128" show-word-limit :disabled="complianceFormDisabled" placeholder="CC BY-NC-SA 4.0" />
+                    </el-form-item>
+                    <el-form-item label="内容许可链接">
+                      <el-input v-model="complianceForm.contentLicenseUrl" :disabled="complianceFormDisabled" placeholder="https://creativecommons.org/licenses/by-nc-sa/4.0/" />
+                    </el-form-item>
+                    <el-form-item label="运营主体">
+                      <el-input v-model="complianceForm.operatorName" maxlength="128" show-word-limit :disabled="complianceFormDisabled" placeholder="可留空" />
+                    </el-form-item>
+                    <el-form-item label="联系邮箱">
+                      <el-input v-model="complianceForm.contactEmail" maxlength="128" show-word-limit :disabled="complianceFormDisabled" placeholder="name@example.com" />
+                    </el-form-item>
+                  </div>
+                </div>
+
+                <aside class="mt-10 space-y-8 lg:mt-0">
+                  <section class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5" aria-label="页脚合规预览">
+                    <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">页脚预览</div>
+                    <div class="space-y-3 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">
+                      <p class="font-bold text-[var(--fsusblog-text-primary)]">{{ compliancePreview.copyright }}</p>
+                      <p v-if="compliancePreview.license">许可：{{ compliancePreview.license }}</p>
+                      <p v-if="compliancePreview.icp">ICP：{{ compliancePreview.icp }}</p>
+                      <p v-if="compliancePreview.police">公安备案：{{ compliancePreview.police }}</p>
+                      <p v-if="!compliancePreview.icp && !compliancePreview.police">未配置备案号时，公开页不会展示备案占位。</p>
+                    </div>
+                  </section>
+
+                  <section class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5" aria-label="大陆上线检查清单">
+                    <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">大陆上线检查清单</div>
+                    <ul class="space-y-3 text-[12px] leading-relaxed">
+                      <li v-for="item in mainlandLaunchChecklist" :key="item.label" class="flex items-start gap-3">
+                        <span class="mt-0.5 h-2 w-2 shrink-0 rounded-full" :class="item.done ? 'bg-[var(--fsusblog-color-success)]' : 'bg-[var(--fsusblog-text-muted)]'" />
+                        <span :class="item.done ? 'text-[var(--fsusblog-text-primary)]' : 'text-[var(--fsusblog-text-muted)]'">{{ item.label }}</span>
+                      </li>
+                    </ul>
+                  </section>
+                </aside>
+              </div>
+
+              <div class="mt-16 flex justify-end">
+                <el-button
+                  type="primary"
+                  :disabled="complianceFormDisabled || !isComplianceDirty"
+                  @click.prevent="confirmComplianceSave"
+                >
+                  {{ complianceSubmitText }}
+                </el-button>
+              </div>
+            </el-form>
           </section>
         </div>
       </el-tab-pane>
@@ -187,7 +316,7 @@
             <header class="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12 pb-8 border-b border-[var(--fsusblog-panel-border)]">
               <div class="min-w-0">
                 <h3 class="section-title section-title--inline">页面编辑</h3>
-                <p class="text-[13px] text-[var(--fsusblog-text-tertiary)] font-medium">维护关于、隐私政策与用户守则页面的发布内容。</p>
+                <p class="text-[13px] text-[var(--fsusblog-text-tertiary)] font-medium">维护关于、隐私政策、用户守则与版权声明页面的发布内容。</p>
                 <p class="mt-3 text-[11px] font-bold normal-case tracking-normal" :class="isPageDirty ? 'text-[var(--fsusblog-color-warning-text)]' : 'text-[var(--fsusblog-text-muted)]'">
                   {{ currentPageTarget.label }} · {{ pageContentLength }} 字 · {{ isPageDirty ? '有未发布修改' : '已同步' }}
                 </p>
@@ -267,11 +396,15 @@ const {
   savingPage,
   refreshingPage,
   loadingSite,
+  loadingCompliance,
   siteFormDisabled,
+  complianceFormDisabled,
   siteLoadFailed,
+  complianceLoadFailed,
   pageLoading,
   imageLoading,
   siteForm,
+  complianceForm,
   currentSlug,
   pageContent,
   pageTargets,
@@ -280,9 +413,13 @@ const {
   computedKeywords,
   normalizedBaseUrl,
   isSiteDirty,
+  isComplianceDirty,
   siteChangeSummary,
   siteSearchPreview,
+  compliancePreview,
+  mainlandLaunchChecklist,
   siteSubmitText,
+  complianceSubmitText,
   pageSubmitText,
   isPageDirty,
   currentPageTarget,
@@ -299,7 +436,9 @@ const {
   handleImageRemove,
   handleImageDelete,
   loadSiteConfig,
+  loadComplianceConfig,
   saveSiteConfig,
+  saveComplianceConfig,
   savePageContent,
   refreshPageCache,
   requestPageSwitch,
@@ -340,6 +479,17 @@ const confirmSiteSave = async (): Promise<void> => {
     return
   }
   await saveSiteConfig()
+}
+
+const confirmComplianceSave = async (): Promise<void> => {
+  const confirmed = await confirmWarning('保存后将刷新公开 footer、RSS 版权和 AOT 缓存。备案信息仅用于展示，请确认已通过官方平台审核。', '保存大陆合规信息', {
+    confirmButtonText: '保存合规信息',
+    cancelButtonText: '取消'
+  })
+  if (!confirmed) {
+    return
+  }
+  await saveComplianceConfig()
 }
 
 const confirmPagePublish = async (): Promise<void> => {

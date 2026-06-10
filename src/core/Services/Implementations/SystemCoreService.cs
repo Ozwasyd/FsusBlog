@@ -15,6 +15,15 @@ public sealed class SystemCoreService(ISystemCoreGateway gateway) : ISystemCoreS
         return Result.Success();
     }
 
+    public async Task<Result<SiteComplianceConfigContract>> GetSiteComplianceConfigAsync()
+        => Result<SiteComplianceConfigContract>.Success(await gateway.GetSiteComplianceConfigAsync());
+
+    public async Task<Result> UpdateSiteComplianceConfigAsync(SiteComplianceConfigContract dto)
+    {
+        await gateway.UpdateSiteComplianceConfigAsync(dto);
+        return Result.Success();
+    }
+
     public async Task<Result<PageContentContract>> GetPageContentAsync(string slug)
     {
         if (string.IsNullOrWhiteSpace(slug))

@@ -108,6 +108,42 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
+    public void SiteComplianceConfig_RoundTrip_PreservesFooterFields()
+    {
+        var dto = new SiteComplianceConfigPublicDto
+        {
+            Enabled = true,
+            RegionMode = "mainland-cn",
+            CopyrightOwner = "Fsus",
+            CopyrightStartYear = 2024,
+            CopyrightText = "保留所有权利。",
+            ContentLicenseName = "CC BY-NC-SA 4.0",
+            ContentLicenseUrl = "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+            IcpRecordNumber = "京ICP备2026000000号-1",
+            IcpRecordUrl = "https://beian.miit.gov.cn/",
+            PoliceRecordNumber = "京公网安备11000002000000号",
+            PoliceRecordUrl = "https://beian.mps.gov.cn/",
+            PoliceBadgeIconUrl = "/beian.png",
+            OperatorName = "Fsus",
+            ContactEmail = "name@example.test"
+        };
+
+        byte[] encoded = PodBinaryCodec.EncodeSiteComplianceConfig(dto);
+        bool ok = PodBinaryCodec.TryDecodeSiteComplianceConfig(encoded, out SiteComplianceConfigPublicDto decoded);
+
+        Assert.True(ok);
+        Assert.True(decoded.Enabled);
+        Assert.Equal("mainland-cn", decoded.RegionMode);
+        Assert.Equal("Fsus", decoded.CopyrightOwner);
+        Assert.Equal(2024, decoded.CopyrightStartYear);
+        Assert.Equal("保留所有权利。", decoded.CopyrightText);
+        Assert.Equal("CC BY-NC-SA 4.0", decoded.ContentLicenseName);
+        Assert.Equal("京ICP备2026000000号-1", decoded.IcpRecordNumber);
+        Assert.Equal("京公网安备11000002000000号", decoded.PoliceRecordNumber);
+        Assert.Equal("name@example.test", decoded.ContactEmail);
+    }
+
+    [Fact]
     public void NameMutationRequest_CorruptedBytes_ReturnsFalse()
     {
         bool ok = PodBinaryCodec.TryDecodeNameMutationRequest(new byte[2], out _);

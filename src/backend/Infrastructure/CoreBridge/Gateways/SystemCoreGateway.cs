@@ -24,6 +24,45 @@ public sealed class SystemCoreGateway(SystemService service) : ISystemCoreGatewa
             BaseUrl = dto.BaseUrl
         });
 
+    public async Task<SiteComplianceConfigContract> GetSiteComplianceConfigAsync()
+    {
+        var dto = await service.GetSiteComplianceConfigAsync();
+        return new SiteComplianceConfigContract(
+            dto.Enabled,
+            dto.RegionMode,
+            dto.CopyrightOwner,
+            dto.CopyrightStartYear,
+            dto.CopyrightText,
+            dto.ContentLicenseName,
+            dto.ContentLicenseUrl,
+            dto.IcpRecordNumber,
+            dto.IcpRecordUrl,
+            dto.PoliceRecordNumber,
+            dto.PoliceRecordUrl,
+            dto.PoliceBadgeIconUrl,
+            dto.OperatorName,
+            dto.ContactEmail);
+    }
+
+    public Task UpdateSiteComplianceConfigAsync(SiteComplianceConfigContract dto)
+        => service.UpdateSiteComplianceConfigAsync(new UpdateSiteComplianceConfigRequest
+        {
+            Enabled = dto.Enabled,
+            RegionMode = dto.RegionMode,
+            CopyrightOwner = dto.CopyrightOwner,
+            CopyrightStartYear = dto.CopyrightStartYear,
+            CopyrightText = dto.CopyrightText,
+            ContentLicenseName = dto.ContentLicenseName,
+            ContentLicenseUrl = dto.ContentLicenseUrl,
+            IcpRecordNumber = dto.IcpRecordNumber,
+            IcpRecordUrl = dto.IcpRecordUrl,
+            PoliceRecordNumber = dto.PoliceRecordNumber,
+            PoliceRecordUrl = dto.PoliceRecordUrl,
+            PoliceBadgeIconUrl = dto.PoliceBadgeIconUrl,
+            OperatorName = dto.OperatorName,
+            ContactEmail = dto.ContactEmail
+        });
+
     public async Task<PageContentContract> GetPageContentAsync(string slug)
     {
         var dto = await service.GetPageContentAsync(slug);

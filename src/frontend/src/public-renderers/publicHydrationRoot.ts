@@ -41,9 +41,12 @@ function createHydrationPageAssembly(payload: PublicHydrationPayload): PublicAot
         bodyHtml: payload.bodyHtml ?? ''
       })
     case 'About':
+    case 'Privacy':
+    case 'Guidelines':
+    case 'Copyright':
       return createPublicAboutPageAssembly({
         view: payload.view!,
-        content: payload.about?.content ?? '',
+        content: payload.staticPage?.content ?? '',
         bodyHtml: payload.bodyHtml ?? '',
         baseUrl: payload.baseUrl ?? null
       })
@@ -65,6 +68,7 @@ export function createPublicHydrationRoot(payload: PublicHydrationPayload): VNod
   return renderPublicAotShell({
     kind: payload.pageKind,
     siteTitle: getSiteTitle(payload),
+    compliance: payload.compliance ?? null,
     page
   })
 }

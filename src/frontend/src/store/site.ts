@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, shallowRef } from 'vue'
-import { getSiteConfig, type SeoConfigPublic } from '@/api/system'
+import {
+  getSiteComplianceConfig,
+  getSiteConfig,
+  type SeoConfigPublic,
+  type SiteComplianceConfigPublic
+} from '@/api/system'
 import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap'
 
 function resolveBaseUrl(): string {
@@ -23,6 +28,7 @@ export const useSiteStore = defineStore('site', () => {
     ogImage: "",
     baseUrl: payload?.baseUrl || resolveBaseUrl()
   })
+  const complianceInfo = shallowRef<SiteComplianceConfigPublic | null>(payload?.compliance ?? null)
 
   const isLoaded = ref(Boolean(payload))
 
@@ -50,9 +56,20 @@ export const useSiteStore = defineStore('site', () => {
 
     fetchPromise = (async () => {
       try {
-        const res = await getSiteConfig()
+        const [res, compliance] = await Promise.all([
+          getSiteConfig(),
+          getSiteComplianceConfig().catch((error) => {
+            console.error('[SiteStore] 获取合规配置失败:', error)
+            return null
+          })
+        ])
         if (res) {
           siteInfo.value = { ...res }
+        }
+        if (compliance) {
+          complianceInfo.value = { ...compliance }
+        }
+        if (res || compliance) {
           isLoaded.value = true
         }
       } catch (error) {
@@ -67,6 +84,7 @@ export const useSiteStore = defineStore('site', () => {
 
   return {
     siteInfo,
+    complianceInfo,
     isLoaded,
     isMobileSearchOpen,
     fetchSiteInfo,

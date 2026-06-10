@@ -89,10 +89,27 @@ public sealed class PublicAotInvalidationService(
     }
 
     public async Task InvalidateAboutAsync(CancellationToken cancellationToken = default)
+        => await InvalidateStaticPageAsync(PublicPageKind.About, cancellationToken);
+
+    public async Task InvalidateStaticPageAsync(PublicPageKind kind, CancellationToken cancellationToken = default)
     {
-        await InvalidateRouteAsync(PublicPageId.About, "about", cancellationToken);
-        ScheduleRoute(PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.About, 10));
+        PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(kind);
+        string routeKey = descriptor.FixedRouteKey ?? PublicAotPageIdentity.GetCanonicalSlug(kind);
+        await InvalidateRouteAsync(descriptor.PageId, routeKey, cancellationToken);
+        ScheduleRoute(PublicAotRouteManifestProvider.CreateStaticRoute(kind, ResolveStaticPagePriority(kind)));
     }
+
+    private static int ResolveStaticPagePriority(PublicPageKind kind)
+        => kind switch
+        {
+            PublicPageKind.Home => 0,
+            PublicPageKind.About => 10,
+            PublicPageKind.Privacy => 11,
+            PublicPageKind.Guidelines => 12,
+            PublicPageKind.Copyright => 13,
+            PublicPageKind.Archive => 20,
+            _ => 50
+        };
 
     private async Task InvalidateListingsAsync(
         IEnumerable<int>? categoryIds,

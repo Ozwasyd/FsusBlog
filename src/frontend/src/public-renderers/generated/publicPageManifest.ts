@@ -49,6 +49,30 @@ export const PUBLIC_PAGE_MANIFEST = Object.freeze({
     seoEligible: false,
     aotShellReady: true,
     deferSpaBoot: true
+  },
+  Privacy: {
+    kind: 'Privacy',
+    pageId: 7,
+    canonicalSlug: 'privacy',
+    seoEligible: true,
+    aotShellReady: true,
+    deferSpaBoot: true
+  },
+  Guidelines: {
+    kind: 'Guidelines',
+    pageId: 8,
+    canonicalSlug: 'guidelines',
+    seoEligible: true,
+    aotShellReady: true,
+    deferSpaBoot: true
+  },
+  Copyright: {
+    kind: 'Copyright',
+    pageId: 9,
+    canonicalSlug: 'copyright',
+    seoEligible: true,
+    aotShellReady: true,
+    deferSpaBoot: true
   }
 } as const)
 

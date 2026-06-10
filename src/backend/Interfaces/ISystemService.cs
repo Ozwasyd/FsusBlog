@@ -16,6 +16,16 @@ public interface ISystemService
     Task UpdateSeoConfigAsync(UpdateSeoConfigRequest request);
 
     /// <summary>
+    /// 获取公开合规配置
+    /// </summary>
+    Task<SiteComplianceConfigReadModel> GetSiteComplianceConfigAsync();
+
+    /// <summary>
+    /// 更新公开合规配置
+    /// </summary>
+    Task UpdateSiteComplianceConfigAsync(UpdateSiteComplianceConfigRequest request);
+
+    /// <summary>
     /// 获取页面
     /// </summary>
     Task<PageContentReadModel> GetPageContentAsync(string slug);

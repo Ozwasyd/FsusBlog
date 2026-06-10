@@ -11,8 +11,8 @@ describe('createAboutPageViewContract', () => {
 
     expect(contract.header.title).toBe('关于')
     expect(contract.header.currentYear).toBe(2025)
-    expect(contract.header.manifestoLabel).toBe('MANIFESTO')
-    expect(contract.header.readmeLabel).toBe('README.MD')
+    expect(contract.header.manifestoLabel).toBe('公开页面')
+    expect(contract.header.readmeLabel).toBe('内容文档')
     expect(contract.body.content).toBe('About content')
     expect(contract.footer.siteTitle).toBe("Fsu's Blog")
   })
@@ -24,6 +24,16 @@ describe('createAboutPageViewContract', () => {
       content: ''
     })
     expect(contract.header.currentYear).toBe(2024)
+  })
+
+  it('allows static pages to override the title', () => {
+    const contract = createAboutPageViewContract({
+      siteTitle: 'Blog',
+      currentYear: 2026,
+      content: '',
+      title: '隐私政策'
+    })
+    expect(contract.header.title).toBe('隐私政策')
   })
 
   it('passes empty content', () => {

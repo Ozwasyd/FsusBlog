@@ -28,6 +28,7 @@ function resolvePageContent(payload: unknown): string {
 export function useAboutPage() {
   const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('About')
   const initialHydrationView = initialHydrationPayload?.view ?? null
+  const initialStaticPage = initialHydrationPayload?.staticPage ?? initialBootstrap?.staticPage
   const initialBodyHtml = typeof initialHydrationPayload?.bodyHtml === 'string'
     ? initialHydrationPayload.bodyHtml
     : typeof initialBootstrap?.bodyHtml === 'string'
@@ -47,8 +48,8 @@ export function useAboutPage() {
   if (initialHydrationView) {
     rawMarkdown.value = initialHydrationView.body.content || FALLBACK_CONTENT
     loading.value = false
-  } else if (typeof initialBootstrap?.about?.content === 'string') {
-    rawMarkdown.value = initialBootstrap.about.content || FALLBACK_CONTENT
+  } else if (typeof initialStaticPage?.content === 'string') {
+    rawMarkdown.value = initialStaticPage.content || FALLBACK_CONTENT
     loading.value = false
   }
 

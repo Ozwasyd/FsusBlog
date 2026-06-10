@@ -2,6 +2,7 @@ import type { PublicHomeRouteKey } from '@/public-renderers/publicFixedPageSeman
 import type { PublicFilterType } from '@/public-renderers/publicFilterSemantics'
 import type { PublicPageKind } from '@/public-renderers/publicRenderBase'
 import type { RelatedReadingResponse } from '@/api/article'
+import type { SiteComplianceConfigPublic } from '@/api/system'
 import type { AboutPageViewContract } from '@/view-contracts/aboutPage'
 import type { ArchivePageViewContract } from '@/view-contracts/archive'
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
@@ -31,6 +32,7 @@ type BaseBootstrapPayload<K extends PublicAotBootstrapKind> = Readonly<{
   query?: string
   siteTitle?: string
   siteDescription?: string
+  compliance?: SiteComplianceConfigPublic | null
   title?: string
   generatedAt?: string
 }>
@@ -42,7 +44,28 @@ export type PublicAotBootstrapPayloadByKind = {
   }>
   About: BaseBootstrapPayload<'About'> & Readonly<{
     bodyHtml?: string | null
-    about?: Readonly<{
+    staticPage?: Readonly<{
+      slug?: string
+      content?: string
+    }>
+  }>
+  Privacy: BaseBootstrapPayload<'Privacy'> & Readonly<{
+    bodyHtml?: string | null
+    staticPage?: Readonly<{
+      slug?: string
+      content?: string
+    }>
+  }>
+  Guidelines: BaseBootstrapPayload<'Guidelines'> & Readonly<{
+    bodyHtml?: string | null
+    staticPage?: Readonly<{
+      slug?: string
+      content?: string
+    }>
+  }>
+  Copyright: BaseBootstrapPayload<'Copyright'> & Readonly<{
+    bodyHtml?: string | null
+    staticPage?: Readonly<{
       slug?: string
       content?: string
     }>
@@ -92,6 +115,7 @@ type BaseHydrationPayload<K extends PublicPageKind> = Readonly<{
   siteTitle?: string | null
   siteDescription?: string | null
   baseUrl?: string | null
+  compliance?: SiteComplianceConfigPublic | null
 }>
 
 export type PublicHydrationPayloadByKind = {
@@ -116,7 +140,31 @@ export type PublicHydrationPayloadByKind = {
   About: BaseHydrationPayload<'About'> & Readonly<{
     bodyHtml?: string | null
     view?: AboutPageViewContract
-    about?: Readonly<{
+    staticPage?: Readonly<{
+      slug?: string | null
+      content?: string | null
+    }> | null
+  }>
+  Privacy: BaseHydrationPayload<'Privacy'> & Readonly<{
+    bodyHtml?: string | null
+    view?: AboutPageViewContract
+    staticPage?: Readonly<{
+      slug?: string | null
+      content?: string | null
+    }> | null
+  }>
+  Guidelines: BaseHydrationPayload<'Guidelines'> & Readonly<{
+    bodyHtml?: string | null
+    view?: AboutPageViewContract
+    staticPage?: Readonly<{
+      slug?: string | null
+      content?: string | null
+    }> | null
+  }>
+  Copyright: BaseHydrationPayload<'Copyright'> & Readonly<{
+    bodyHtml?: string | null
+    view?: AboutPageViewContract
+    staticPage?: Readonly<{
       slug?: string | null
       content?: string | null
     }> | null
@@ -158,7 +206,11 @@ export type PublicHydrationPayloadByKind = {
 
 export type PublicHomeHydrationPayload = PublicHydrationPayloadByKind['Home']
 export type PublicArticleDetailHydrationPayload = PublicHydrationPayloadByKind['ArticleDetail']
-export type PublicPassiveHydrationPayload = PublicHydrationPayloadByKind['About']
+export type PublicPassiveHydrationPayload =
+  | PublicHydrationPayloadByKind['About']
+  | PublicHydrationPayloadByKind['Privacy']
+  | PublicHydrationPayloadByKind['Guidelines']
+  | PublicHydrationPayloadByKind['Copyright']
 export type PublicArchiveHydrationPayload = PublicHydrationPayloadByKind['Archive']
 export type PublicFilterHydrationPayload = PublicHydrationPayloadByKind['Filter']
 

@@ -42,7 +42,7 @@
           aria-label="站点索引"
         >
           <h2 class="mb-8 text-[10px] font-bold normal-case text-[var(--fsusblog-text-muted)]">
-            站点索引 / INDEX
+            站点索引
           </h2>
           <ul class="space-y-5 text-sm font-semibold">
             <li>

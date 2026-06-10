@@ -35,6 +35,50 @@ public sealed class SystemServiceCoreAdapter(ISystemCoreService core) : ISystemS
             dto.OgImage,
             dto.BaseUrl));
 
+    public async Task<SiteComplianceConfigReadModel> GetSiteComplianceConfigAsync()
+    {
+        var result = await core.GetSiteComplianceConfigAsync();
+        if (!result.IsSuccess)
+        {
+            return new SiteComplianceConfigReadModel();
+        }
+
+        return new SiteComplianceConfigReadModel
+        {
+            Enabled = result.Value.Enabled,
+            RegionMode = result.Value.RegionMode,
+            CopyrightOwner = result.Value.CopyrightOwner,
+            CopyrightStartYear = result.Value.CopyrightStartYear,
+            CopyrightText = result.Value.CopyrightText,
+            ContentLicenseName = result.Value.ContentLicenseName,
+            ContentLicenseUrl = result.Value.ContentLicenseUrl,
+            IcpRecordNumber = result.Value.IcpRecordNumber,
+            IcpRecordUrl = result.Value.IcpRecordUrl,
+            PoliceRecordNumber = result.Value.PoliceRecordNumber,
+            PoliceRecordUrl = result.Value.PoliceRecordUrl,
+            PoliceBadgeIconUrl = result.Value.PoliceBadgeIconUrl,
+            OperatorName = result.Value.OperatorName,
+            ContactEmail = result.Value.ContactEmail
+        };
+    }
+
+    public async Task UpdateSiteComplianceConfigAsync(UpdateSiteComplianceConfigRequest dto)
+        => _ = await core.UpdateSiteComplianceConfigAsync(new(
+            dto.Enabled,
+            dto.RegionMode,
+            dto.CopyrightOwner,
+            dto.CopyrightStartYear,
+            dto.CopyrightText,
+            dto.ContentLicenseName,
+            dto.ContentLicenseUrl,
+            dto.IcpRecordNumber,
+            dto.IcpRecordUrl,
+            dto.PoliceRecordNumber,
+            dto.PoliceRecordUrl,
+            dto.PoliceBadgeIconUrl,
+            dto.OperatorName,
+            dto.ContactEmail));
+
     public async Task<PageContentReadModel> GetPageContentAsync(string slug)
     {
         var result = await core.GetPageContentAsync(slug);

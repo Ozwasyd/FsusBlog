@@ -18,6 +18,7 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             [CachePolicyId.UserCommentCursor] = new(CachePolicyId.UserCommentCursor, "blog", "user-comment-cursor", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5), null, [CacheTag.Stats]),
             [CachePolicyId.SystemSeo] = new(CachePolicyId.SystemSeo, "sys", "seo", TimeSpan.FromMinutes(10), TimeSpan.FromHours(24), null, [CacheTag.Seo], false, 0.10d, false),
             [CachePolicyId.SystemPage] = new(CachePolicyId.SystemPage, "sys", "page", TimeSpan.FromMinutes(10), TimeSpan.FromHours(24), TimeSpan.FromMinutes(2), [CacheTag.SystemPage], false, 0.10d, false),
+            [CachePolicyId.SystemCompliance] = new(CachePolicyId.SystemCompliance, "sys", "compliance", TimeSpan.FromMinutes(10), TimeSpan.FromHours(24), null, [CacheTag.Seo], false, 0.10d, false),
             [CachePolicyId.AdminStats] = new(CachePolicyId.AdminStats, "admin", "stats", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.Stats], false, 0.10d, false),
             [CachePolicyId.MessageUnread] = new(CachePolicyId.MessageUnread, "msg", "unread", TimeSpan.FromMinutes(2), TimeSpan.FromDays(3), null, null, false, 0d, false),
             [CachePolicyId.MessageGlobalVersion] = new(CachePolicyId.MessageGlobalVersion, "msg", "global-version", TimeSpan.FromMinutes(2), TimeSpan.FromDays(3), null, null, false, 0d, false),

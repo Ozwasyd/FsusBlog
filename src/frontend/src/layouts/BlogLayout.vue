@@ -8,9 +8,10 @@
       <component
         :is="Component"
         v-if="isSeoShellRoute"
+        :key="routeComponentKey"
       />
       <transition v-else name="fade-fast" mode="out-in">
-        <component :is="Component" />
+        <component :is="Component" :key="routeComponentKey" />
       </transition>
     </router-view>
   </PublicBlogLayoutShell>
@@ -53,10 +54,12 @@ const hydrationKind = computed(() => {
 
 const isSeoShellRoute = computed(() => isPublicSeoRouteName(route.name))
 const isSearchRoute = computed(() => isPublicSearchRouteName(route.name))
+const routeComponentKey = computed(() => route.name ? String(route.name) : route.fullPath)
 
 const shellState = computed(() => createPublicShellViewState({
   hydrationKind: hydrationKind.value,
   siteTitle: siteStore.siteInfo.title,
+  compliance: siteStore.complianceInfo,
   isSearchRoute: isSearchRoute.value,
   initialSearchQuery: isSearchRoute.value ? String(route.query.q || '') : '',
   spaSearch: isMounted.value && runtimeReady.value,

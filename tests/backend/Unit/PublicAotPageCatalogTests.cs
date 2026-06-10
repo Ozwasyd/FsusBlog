@@ -40,7 +40,13 @@ public sealed class PublicAotPageCatalogTests
 
             Assert.Equal(shared.Id.ToString(), descriptor.HydrationKind);
 
-            if (descriptor.Kind is PublicPageKind.Home or PublicPageKind.About or PublicPageKind.Archive or PublicPageKind.Account)
+            if (descriptor.Kind is PublicPageKind.Home
+                or PublicPageKind.About
+                or PublicPageKind.Archive
+                or PublicPageKind.Privacy
+                or PublicPageKind.Guidelines
+                or PublicPageKind.Copyright
+                or PublicPageKind.Account)
             {
                 Assert.Equal(shared.CanonicalSlug, descriptor.FixedRouteKey);
             }

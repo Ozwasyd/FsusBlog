@@ -36,6 +36,15 @@ const PUBLIC_ROUTE_DEFINITIONS = {
   },
   About: {
     activeNav: 'about'
+  },
+  Privacy: {
+    activeNav: 'none'
+  },
+  Guidelines: {
+    activeNav: 'none'
+  },
+  Copyright: {
+    activeNav: 'none'
   }
 } as const satisfies Record<PublicPageKind, LocalPublicRouteDefinition>
 

@@ -15,6 +15,9 @@ public sealed class PublicAotRouteRegistryTests
     [InlineData("/tag/9", PublicPageKind.Filter, PublicPageId.Filter, "tag:9", "/tag/9")]
     [InlineData("/tag/CSharp", PublicPageKind.Filter, PublicPageId.Filter, "tag-name:CSharp", "/tag/CSharp")]
     [InlineData("/about", PublicPageKind.About, PublicPageId.About, "about", "/about")]
+    [InlineData("/privacy", PublicPageKind.Privacy, PublicPageId.Privacy, "privacy", "/privacy")]
+    [InlineData("/guidelines", PublicPageKind.Guidelines, PublicPageId.Guidelines, "guidelines", "/guidelines")]
+    [InlineData("/copyright", PublicPageKind.Copyright, PublicPageId.Copyright, "copyright", "/copyright")]
     [InlineData("/archive", PublicPageKind.Archive, PublicPageId.Archive, "archive", "/archive")]
     public void TryResolve_PublicRoutes_ReturnsStableIdentity(
         string path,

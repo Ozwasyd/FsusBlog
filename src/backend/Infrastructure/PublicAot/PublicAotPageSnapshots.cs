@@ -1,9 +1,27 @@
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
+public sealed record PublicAotSiteComplianceSnapshot(
+    bool Enabled,
+    string RegionMode,
+    string CopyrightOwner,
+    int? CopyrightStartYear,
+    string CopyrightText,
+    string ContentLicenseName,
+    string ContentLicenseUrl,
+    string IcpRecordNumber,
+    string IcpRecordUrl,
+    string PoliceRecordNumber,
+    string PoliceRecordUrl,
+    string PoliceBadgeIconUrl,
+    string OperatorName,
+    string ContactEmail);
+
 public sealed record PublicAotSeoSnapshot(
     string SiteTitle,
     string SiteDescription,
-    string? BaseUrl);
+    string? BaseUrl,
+    PublicAotSiteComplianceSnapshot? Compliance = null,
+    string? SiteAuthor = null);
 
 public sealed record PublicAotArticleCategorySnapshot(
     int Id,
@@ -75,12 +93,13 @@ public sealed record PublicFilterPageSnapshot(
     string Title)
     : PublicPageSnapshot(PublicPageKind.Filter, Seo);
 
-public sealed record PublicAboutPageSnapshot(
+public sealed record PublicStaticPageSnapshot(
+    PublicPageKind StaticKind,
     PublicAotSeoSnapshot Seo,
     string Content,
     string Slug,
     string Title)
-    : PublicPageSnapshot(PublicPageKind.About, Seo);
+    : PublicPageSnapshot(StaticKind, Seo);
 
 public sealed record PublicArchiveArticleSnapshot(
     int Id,

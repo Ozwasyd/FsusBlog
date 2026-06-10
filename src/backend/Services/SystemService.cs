@@ -34,7 +34,23 @@ public partial class SystemService(
     private const string Key_Author = "Seo_Author";
     private const string Key_OgImage = "Seo_OgImage";
     private const string Key_BaseUrl = "Seo_BaseUrl";
+    private const string Key_ComplianceEnabled = "Compliance_Enabled";
+    private const string Key_ComplianceRegionMode = "Compliance_RegionMode";
+    private const string Key_ComplianceCopyrightOwner = "Compliance_CopyrightOwner";
+    private const string Key_ComplianceCopyrightStartYear = "Compliance_CopyrightStartYear";
+    private const string Key_ComplianceCopyrightText = "Compliance_CopyrightText";
+    private const string Key_ComplianceContentLicenseName = "Compliance_ContentLicenseName";
+    private const string Key_ComplianceContentLicenseUrl = "Compliance_ContentLicenseUrl";
+    private const string Key_ComplianceIcpRecordNumber = "Compliance_IcpRecordNumber";
+    private const string Key_ComplianceIcpRecordUrl = "Compliance_IcpRecordUrl";
+    private const string Key_CompliancePoliceRecordNumber = "Compliance_PoliceRecordNumber";
+    private const string Key_CompliancePoliceRecordUrl = "Compliance_PoliceRecordUrl";
+    private const string Key_CompliancePoliceBadgeIconUrl = "Compliance_PoliceBadgeIconUrl";
+    private const string Key_ComplianceOperatorName = "Compliance_OperatorName";
+    private const string Key_ComplianceContactEmail = "Compliance_ContactEmail";
     private const string MissingPageContent = "页面内容正在准备中，请稍后再试。";
+    private const string DefaultIcpRecordUrl = "https://beian.miit.gov.cn/";
+    private const string DefaultPoliceRecordUrl = "https://beian.mps.gov.cn/";
 
     private const int MaxSlugLength = 64;
     private const int MaxPageContentLength = 200_000;
@@ -101,6 +117,74 @@ public partial class SystemService(
         await InvalidateSeoPublicAotAsync("update-seo");
         await _messageService.PushCacheControlAsync(new CacheControlPayload("shell.invalidate", "seo"));
         LogSeoUpdateSuccess();
+    }
+
+    public async Task<SiteComplianceConfigReadModel> GetSiteComplianceConfigAsync()
+    {
+        return await _cacheMissCoordinator.CoordinateAsync(
+                CachePolicyId.SystemCompliance,
+                "main",
+                ct => BoundaryExecutor.ExecuteValueAsync(
+                    () => _cache.TryGetAsync(CachePolicyId.SystemCompliance, "main", ServerCacheBinaryCodec.DecodeCompliance, ct),
+                    _ => new CacheReadResult<SiteComplianceConfigReadModel>(false, default),
+                    _logger,
+                    "compliance-cache-read",
+                    LogLevel.Warning),
+                async ct => await _dbConcurrencyGate.ExecuteAsync(
+                    "system-compliance",
+                    async gateCt =>
+                    {
+                        SiteComplianceConfigReadModel dto = await LoadComplianceConfigFromDbAsync(gateCt);
+                        await BoundaryExecutor.ExecuteAsync(
+                            () => _cache.SetRawAsync(CachePolicyId.SystemCompliance, "main", ServerCacheBinaryCodec.EncodeCompliance(dto), null, gateCt),
+                            _logger,
+                            "compliance-cache-write",
+                            LogLevel.Error);
+                        return dto;
+                    },
+                    async gateCt =>
+                    {
+                        CacheReadResult<SiteComplianceConfigReadModel> retry = await _cache.TryGetAsync(CachePolicyId.SystemCompliance, "main", ServerCacheBinaryCodec.DecodeCompliance, gateCt);
+                        if (retry.Hit && retry.Value is not null)
+                        {
+                            return retry.Value;
+                        }
+
+                        throw new TimeoutException("db-gate-timeout:system-compliance");
+                    },
+                    ct),
+                "system-compliance",
+                cancellationToken: default)
+            .ConfigureAwait(false)
+            ?? new SiteComplianceConfigReadModel();
+    }
+
+    public async Task UpdateSiteComplianceConfigAsync(UpdateSiteComplianceConfigRequest dto)
+    {
+        SiteComplianceConfigReadModel normalized = NormalizeComplianceConfig(dto);
+        SystemConfig[] configs =
+        [
+            new() { Key = Key_ComplianceEnabled, Value = normalized.Enabled ? "true" : "false" },
+            new() { Key = Key_ComplianceRegionMode, Value = normalized.RegionMode },
+            new() { Key = Key_ComplianceCopyrightOwner, Value = normalized.CopyrightOwner },
+            new() { Key = Key_ComplianceCopyrightStartYear, Value = normalized.CopyrightStartYear?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty },
+            new() { Key = Key_ComplianceCopyrightText, Value = normalized.CopyrightText },
+            new() { Key = Key_ComplianceContentLicenseName, Value = normalized.ContentLicenseName },
+            new() { Key = Key_ComplianceContentLicenseUrl, Value = normalized.ContentLicenseUrl },
+            new() { Key = Key_ComplianceIcpRecordNumber, Value = normalized.IcpRecordNumber },
+            new() { Key = Key_ComplianceIcpRecordUrl, Value = normalized.IcpRecordUrl },
+            new() { Key = Key_CompliancePoliceRecordNumber, Value = normalized.PoliceRecordNumber },
+            new() { Key = Key_CompliancePoliceRecordUrl, Value = normalized.PoliceRecordUrl },
+            new() { Key = Key_CompliancePoliceBadgeIconUrl, Value = normalized.PoliceBadgeIconUrl },
+            new() { Key = Key_ComplianceOperatorName, Value = normalized.OperatorName },
+            new() { Key = Key_ComplianceContactEmail, Value = normalized.ContactEmail }
+        ];
+
+        await _db.Storageable(configs).ExecuteCommandAsync();
+        await _cacheInvalidationDispatcher.InvalidateComplianceAsync();
+        await InvalidateSeoPublicAotAsync("update-compliance");
+        await _messageService.PushCacheControlAsync(new CacheControlPayload("shell.invalidate", "compliance"));
+        LogComplianceUpdateSuccess();
     }
 
     // ================= 2. 动态内容页面 (Page Content) =================
@@ -246,6 +330,93 @@ public partial class SystemService(
         return content.Length > MaxPageContentLength ? content[..MaxPageContentLength] : content;
     }
 
+    private static SiteComplianceConfigReadModel NormalizeComplianceConfig(UpdateSiteComplianceConfigRequest dto)
+    {
+        int currentYear = DateTime.UtcNow.Year;
+        int? startYear = dto.CopyrightStartYear is >= 1990 && dto.CopyrightStartYear <= currentYear
+            ? dto.CopyrightStartYear
+            : null;
+
+        return new SiteComplianceConfigReadModel
+        {
+            Enabled = dto.Enabled,
+            RegionMode = NormalizeRegionMode(dto.RegionMode),
+            CopyrightOwner = TrimUtf8Bytes(dto.CopyrightOwner, 128),
+            CopyrightStartYear = startYear,
+            CopyrightText = TrimText(dto.CopyrightText, 512),
+            ContentLicenseName = TrimUtf8Bytes(dto.ContentLicenseName, 128),
+            ContentLicenseUrl = NormalizeOptionalHttpUrl(dto.ContentLicenseUrl, 256),
+            IcpRecordNumber = TrimUtf8Bytes(dto.IcpRecordNumber, 64),
+            IcpRecordUrl = NormalizeHttpUrlOrDefault(dto.IcpRecordUrl, DefaultIcpRecordUrl, 256),
+            PoliceRecordNumber = TrimUtf8Bytes(dto.PoliceRecordNumber, 64),
+            PoliceRecordUrl = NormalizeHttpUrlOrDefault(dto.PoliceRecordUrl, DefaultPoliceRecordUrl, 256),
+            PoliceBadgeIconUrl = NormalizeOptionalHttpUrl(dto.PoliceBadgeIconUrl, 256),
+            OperatorName = TrimUtf8Bytes(dto.OperatorName, 128),
+            ContactEmail = TrimUtf8Bytes(dto.ContactEmail, 128)
+        };
+    }
+
+    private static string NormalizeRegionMode(string? value)
+        => string.Equals(value?.Trim(), "mainland-cn", StringComparison.OrdinalIgnoreCase)
+            ? "mainland-cn"
+            : "global";
+
+    private static string NormalizeHttpUrlOrDefault(string? value, string defaultValue, int maxUtf8Bytes)
+    {
+        string normalized = NormalizeOptionalHttpUrl(value, maxUtf8Bytes);
+        return normalized.Length == 0 ? defaultValue : normalized;
+    }
+
+    private static string NormalizeOptionalHttpUrl(string? value, int maxUtf8Bytes)
+    {
+        string normalized = TrimUtf8Bytes(value, maxUtf8Bytes);
+        return Uri.TryCreate(normalized, UriKind.Absolute, out Uri? uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+                ? normalized
+                : string.Empty;
+    }
+
+    private static string TrimText(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        string normalized = value.Trim();
+        return normalized.Length > maxLength ? normalized[..maxLength] : normalized;
+    }
+
+    private static string TrimUtf8Bytes(string? value, int maxBytes)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        string normalized = value.Trim();
+        if (Encoding.UTF8.GetByteCount(normalized) <= maxBytes)
+        {
+            return normalized;
+        }
+
+        StringBuilder builder = new(normalized.Length);
+        int bytes = 0;
+        foreach (Rune rune in normalized.EnumerateRunes())
+        {
+            int runeBytes = Encoding.UTF8.GetByteCount(rune.ToString());
+            if (bytes + runeBytes > maxBytes)
+            {
+                break;
+            }
+
+            builder.Append(rune);
+            bytes += runeBytes;
+        }
+
+        return builder.ToString();
+    }
+
     private async Task InvalidateSeoPublicAotAsync(string operation)
     {
         await BoundaryExecutor.ExecuteAsync(
@@ -256,15 +427,29 @@ public partial class SystemService(
 
     private async Task InvalidatePagePublicAotAsync(string slug, string operation)
     {
-        if (!string.Equals(slug, "about", StringComparison.Ordinal))
+        if (!TryResolveStaticPageKind(slug, out PublicPageKind kind))
         {
             return;
         }
 
         await BoundaryExecutor.ExecuteAsync(
-            () => _publicAotInvalidationService.InvalidateAboutAsync(),
+            () => _publicAotInvalidationService.InvalidateStaticPageAsync(kind),
             _logger,
-            $"invalidate-about-aot:{operation}");
+            $"invalidate-static-page-aot:{slug}:{operation}");
+    }
+
+    private static bool TryResolveStaticPageKind(string slug, out PublicPageKind kind)
+    {
+        kind = slug switch
+        {
+            "about" => PublicPageKind.About,
+            "privacy" => PublicPageKind.Privacy,
+            "guidelines" => PublicPageKind.Guidelines,
+            "copyright" => PublicPageKind.Copyright,
+            _ => PublicPageKind.Unknown
+        };
+
+        return kind != PublicPageKind.Unknown;
     }
 
     private async Task<SeoConfigReadModel> LoadSeoConfigFromDbAsync(CancellationToken cancellationToken)
@@ -300,6 +485,61 @@ public partial class SystemService(
         };
     }
 
+    private async Task<SiteComplianceConfigReadModel> LoadComplianceConfigFromDbAsync(CancellationToken cancellationToken)
+    {
+        var query = _db.Queryable<SystemConfig>()
+            .Where(c => c.Key.StartsWith("Compliance_"))
+            .Select(c => new { c.Key, c.Value });
+
+        var sqlObj = query.ToSql();
+        var configs = new List<ConfigItem>(16);
+
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        {
+            int fKey = reader.GetOrdinal("Key");
+            int fValue = reader.GetOrdinal("Value");
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                configs.Add(new ConfigItem(
+                    reader.GetString(fKey),
+                    reader.IsDBNull(fValue) ? string.Empty : reader.GetString(fValue)));
+            }
+        }
+
+        return new SiteComplianceConfigReadModel
+        {
+            Enabled = ParseBool(GetValue(configs, Key_ComplianceEnabled, "false")),
+            RegionMode = NormalizeRegionMode(GetValue(configs, Key_ComplianceRegionMode, "global")),
+            CopyrightOwner = TrimUtf8Bytes(GetValue(configs, Key_ComplianceCopyrightOwner, string.Empty), 128),
+            CopyrightStartYear = ParseStartYear(GetValue(configs, Key_ComplianceCopyrightStartYear, string.Empty)),
+            CopyrightText = TrimText(GetValue(configs, Key_ComplianceCopyrightText, string.Empty), 512),
+            ContentLicenseName = TrimUtf8Bytes(GetValue(configs, Key_ComplianceContentLicenseName, string.Empty), 128),
+            ContentLicenseUrl = NormalizeOptionalHttpUrl(GetValue(configs, Key_ComplianceContentLicenseUrl, string.Empty), 256),
+            IcpRecordNumber = TrimUtf8Bytes(GetValue(configs, Key_ComplianceIcpRecordNumber, string.Empty), 64),
+            IcpRecordUrl = NormalizeHttpUrlOrDefault(GetValue(configs, Key_ComplianceIcpRecordUrl, DefaultIcpRecordUrl), DefaultIcpRecordUrl, 256),
+            PoliceRecordNumber = TrimUtf8Bytes(GetValue(configs, Key_CompliancePoliceRecordNumber, string.Empty), 64),
+            PoliceRecordUrl = NormalizeHttpUrlOrDefault(GetValue(configs, Key_CompliancePoliceRecordUrl, DefaultPoliceRecordUrl), DefaultPoliceRecordUrl, 256),
+            PoliceBadgeIconUrl = NormalizeOptionalHttpUrl(GetValue(configs, Key_CompliancePoliceBadgeIconUrl, string.Empty), 256),
+            OperatorName = TrimUtf8Bytes(GetValue(configs, Key_ComplianceOperatorName, string.Empty), 128),
+            ContactEmail = TrimUtf8Bytes(GetValue(configs, Key_ComplianceContactEmail, string.Empty), 128)
+        };
+    }
+
+    private static bool ParseBool(string value)
+        => bool.TryParse(value, out bool parsed) && parsed;
+
+    private static int? ParseStartYear(string value)
+    {
+        if (!int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int year))
+        {
+            return null;
+        }
+
+        int currentYear = DateTime.UtcNow.Year;
+        return year is >= 1990 && year <= currentYear ? year : null;
+    }
+
     private async Task<CacheReadResult<string>> TryGetPageContentCacheAsync(string slug, CancellationToken cancellationToken)
     {
         CacheReadResult<string> read = await _cache.TryGetAsync<string>(
@@ -330,6 +570,9 @@ public partial class SystemService(
 
     [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "全站 SEO 配置更新成功，缓存已失效重置")]
     private partial void LogSeoUpdateSuccess();
+
+    [LoggerMessage(EventId = 9, Level = LogLevel.Information, Message = "公开合规配置更新成功，缓存已失效重置")]
+    private partial void LogComplianceUpdateSuccess();
 
     [LoggerMessage(EventId = 5, Level = LogLevel.Warning, Message = "动态页面内容缓存读取失败 | Slug: {Slug}")]
     private partial void LogPageCacheReadError(Exception ex, string slug);

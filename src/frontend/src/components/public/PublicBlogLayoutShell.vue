@@ -3,6 +3,12 @@
     id="fsus-aot-shell"
     :data-public-hydration-kind="hydrationKind || undefined"
   >
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[1000] focus:inline-flex focus:min-h-10 focus:items-center focus:bg-[var(--fsusblog-text-primary)] focus:px-4 focus:text-[var(--fsusblog-page-bg)]"
+    >
+      跳到主要内容
+    </a>
     <el-public-shell
       :hydration-kind="hydrationKind || undefined"
       :brand="siteTitleText"
@@ -34,29 +40,16 @@
         <ThemeModeToggle :compact="true" visibility="mobile" />
       </template>
 
-      <slot />
+      <main id="main-content" tabindex="-1">
+        <slot />
+      </main>
       <FullAppRuntime v-if="showRuntime" />
 
       <template #footer>
-        <div class="flex flex-col sm:flex-row justify-between items-start gap-12 sm:gap-8">
-          <div class="flex flex-row items-center justify-between w-full sm:w-auto sm:flex-col sm:items-start sm:gap-6">
-            <div class="text-[1.25rem] font-bold tracking-normal">
-              {{ siteTitleText }}<span class="text-[var(--fsusblog-text-muted)]">.</span>
-            </div>
-            <div class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-              &copy; {{ currentYear }} {{ siteTitleText }}. 保留所有权利。
-            </div>
-          </div>
-
-          <div class="flex flex-wrap gap-x-10 gap-y-6 text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-            <a href="/feed/rss.xml" class="blog-link-state">RSS 订阅</a>
-            <a :href="PUBLIC_FIXED_PATHS.archive" class="blog-link-state">归档</a>
-            <a :href="PUBLIC_FIXED_PATHS.about" class="blog-link-state">关于</a>
-            <a href="#top" class="blog-link-state flex items-center gap-2 group">
-              回到顶部 <el-icon class="transition-transform" aria-hidden="true"><Top /></el-icon>
-            </a>
-          </div>
-        </div>
+        <PublicComplianceFooter
+          :site-title="siteTitleText"
+          :compliance="compliance"
+        />
       </template>
     </el-public-shell>
   </div>
@@ -65,9 +58,10 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref } from 'vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
+import PublicComplianceFooter from '@/components/public/PublicComplianceFooter.vue'
 import { PUBLIC_FIXED_PATHS, PUBLIC_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
 import type { PublicActiveNav } from '@/public-renderers/publicShellState'
-import { Top } from '@/fsusui/icons'
+import type { SiteComplianceConfigPublic } from '@/api/system'
 
 const SHELL_DEFAULTS = {
   hydrationKind: null,
@@ -78,7 +72,8 @@ const SHELL_DEFAULTS = {
   searchPlaceholder: '搜索',
   initialSearchQuery: '',
   spaSearch: false,
-  showRuntime: false
+  showRuntime: false,
+  compliance: null
 } satisfies {
   hydrationKind: string | null
   siteTitle: string
@@ -89,6 +84,7 @@ const SHELL_DEFAULTS = {
   initialSearchQuery: string
   spaSearch: boolean
   showRuntime: boolean
+  compliance: SiteComplianceConfigPublic | null
 }
 
 const props = withDefaults(defineProps<{
@@ -101,6 +97,7 @@ const props = withDefaults(defineProps<{
   initialSearchQuery?: string
   spaSearch?: boolean
   showRuntime?: boolean
+  compliance?: SiteComplianceConfigPublic | null
 }>(), {
   hydrationKind: null,
   siteTitle: "Fsu's Blog",
@@ -110,7 +107,8 @@ const props = withDefaults(defineProps<{
   searchPlaceholder: '搜索',
   initialSearchQuery: '',
   spaSearch: false,
-  showRuntime: false
+  showRuntime: false,
+  compliance: null
 })
 
 const emit = defineEmits<{
@@ -118,8 +116,8 @@ const emit = defineEmits<{
   (event: 'search', query: string): void
 }>()
 
-const currentYear = new Date().getFullYear()
 const siteTitleText = computed(() => props.siteTitle?.trim() || SHELL_DEFAULTS.siteTitle)
+const compliance = computed(() => props.compliance ?? null)
 const searchQuery = ref(props.initialSearchQuery)
 const FullAppRuntime = defineAsyncComponent(() => import('@/components/runtime/AppRuntime.vue'))
 const PUBLIC_NAV_ITEMS = [

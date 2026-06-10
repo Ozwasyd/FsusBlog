@@ -17,6 +17,9 @@ export const PUBLIC_SEO_ROUTE_NAMES = Object.freeze({
   articleDetail: 'ArticleDetail',
   archive: 'Archive',
   about: 'About',
+  privacy: 'Privacy',
+  guidelines: 'Guidelines',
+  copyright: 'Copyright',
   ...PUBLIC_FILTER_ROUTE_NAMES
 } as const)
 
@@ -31,6 +34,7 @@ type PublicSeoRouteDefinition = Readonly<{
   kind: SharedSeoEligiblePublicPageKind
   path: string
   component: RouteRecordRaw['component']
+  props?: RouteRecordRaw['props']
   meta?: RouteRecordRaw['meta']
 }>
 
@@ -67,8 +71,33 @@ const PUBLIC_SEO_ROUTE_DEFINITIONS = Object.freeze([
     name: PUBLIC_SEO_ROUTE_NAMES.about,
     kind: 'About',
     path: PUBLIC_ROUTE_PATH_PATTERNS.about,
-    component: () => import('@/views/About.vue'),
-    meta: { title: '关于我' }
+    component: () => import('@/views/PublicDynamicPage.vue'),
+    props: { pageKind: 'About', slug: 'about', title: '关于' },
+    meta: { title: '关于' }
+  },
+  {
+    name: PUBLIC_SEO_ROUTE_NAMES.privacy,
+    kind: 'Privacy',
+    path: PUBLIC_ROUTE_PATH_PATTERNS.privacy,
+    component: () => import('@/views/PublicDynamicPage.vue'),
+    props: { pageKind: 'Privacy', slug: 'privacy', title: '隐私政策' },
+    meta: { title: '隐私政策' }
+  },
+  {
+    name: PUBLIC_SEO_ROUTE_NAMES.guidelines,
+    kind: 'Guidelines',
+    path: PUBLIC_ROUTE_PATH_PATTERNS.guidelines,
+    component: () => import('@/views/PublicDynamicPage.vue'),
+    props: { pageKind: 'Guidelines', slug: 'guidelines', title: '用户守则' },
+    meta: { title: '用户守则' }
+  },
+  {
+    name: PUBLIC_SEO_ROUTE_NAMES.copyright,
+    kind: 'Copyright',
+    path: PUBLIC_ROUTE_PATH_PATTERNS.copyright,
+    component: () => import('@/views/PublicDynamicPage.vue'),
+    props: { pageKind: 'Copyright', slug: 'copyright', title: '版权声明' },
+    meta: { title: '版权声明' }
   },
   {
     name: PUBLIC_FILTER_ROUTE_NAMES.category,
@@ -148,6 +177,7 @@ export const PUBLIC_BLOG_CHILD_ROUTES = Object.freeze(
     path: definition.path,
     name: definition.name,
     component: definition.component,
+    props: 'props' in definition ? definition.props : undefined,
     meta: definition.meta
   }))
 ) as readonly RouteRecordRaw[]

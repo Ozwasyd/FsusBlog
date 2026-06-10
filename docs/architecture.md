@@ -108,7 +108,7 @@ Browser
 
 ### Public AOT 单一渲染链
 
-公开页的 `Home / ArticleDetail / Filter / Archive / About` 统一遵循一条渲染流水线：
+公开页的 `Home / ArticleDetail / Filter / Archive / About / Privacy / Guidelines / Copyright` 统一遵循一条渲染流水线：
 
 ```text
 IPublicAotRouteRegistry
@@ -151,6 +151,9 @@ IPublicAotRouteRegistry
 | 标签筛选（名称） | `tag-name:{name}` | `/tag/{name}` |
 | 归档 | `archive` | `/archive` |
 | 关于 | `about` | `/about` |
+| 隐私政策 | `privacy` | `/privacy` |
+| 用户守则 | `guidelines` | `/guidelines` |
+| 版权声明 | `copyright` | `/copyright` |
 
 `filterKey` 是筛选页稳定身份，`routeKey` 是公开页缓存/渲染身份。对分类与标签页，二者通常一致；对无效目标和兼容场景，也必须由统一 identity 层产出。
 
@@ -203,6 +206,8 @@ Client
 运行时缓存只通过 `IUnifiedCache`、`CachePolicyRegistry`、`CachePolicyId` 与 `ICacheInvalidationDispatcher` 进入。`TryGetRawAsync` 保持 caller-owned 防御性复制语义；只读公开 payload 使用 `TryGetRawReadonlyAsync`，调用方只能把不可变 buffer 同步写出到 response，不能把 backing array 暴露为可写状态。旧的 `Core.Cache.CacheManager` / `ILevel1CacheStore` / `ILevel2CacheStore` 双层抽象已移除，core benchmark 覆盖 POD/AEDS codec、raw cache-hit decode/readonly cache hit、search rebuild/query 和 Public AOT bundle 编解码，不再模拟第二套 cache manager。
 
 缓存失效优先使用 Redis registry 精确删除 prefix 命中的 key；registry 缺失时，`RemoveByPrefixAsync` 会记录 `registry_missing` 警告并执行 Redis keyspace scan fallback 回收现存 key，扫描失败则降级为可观测 warning，让后续写入自然修复 registry。AOT cache 文件失效仍走专用 Public AOT cache 服务，不在统一 Redis prefix 失效路径里全盘扫描。热点 miss singleflight 等待使用指数退避，避免固定间隔轮询放大 Redis 与 GC 压力。
+
+站点合规配置使用 `CachePolicyId.SystemCompliance` 进入 L1/L2/raw binary cache。admin 保存后由 `ICacheInvalidationDispatcher.InvalidateComplianceAsync` 清除 compliance cache、SEO/distribution output cache 与相关 AOT 静态页，并推送 `CacheControl` shell invalidate 事件；因此 ICP/公安备案、版权与许可 footer、RSS copyright 和 sitemap 静态页可在不重启服务的情况下收敛。
 
 评论缓存失效由 `ICacheInvalidationDispatcher.InvalidateCommentMutationAsync(CommentCacheInvalidationScope)` 承载：公开可见性变化只删除 `CommentCursor` 的 `article:{articleId}:` 前缀，特定回复树变化可额外删除 `article:{articleId}:root:{rootId}:`，个人评论历史只删除 `UserCommentCursor` 的 `user:{userId}:` 前缀；不得再用空 prefix 或 `CacheTag.Comment` 全局清除公开评论 output cache。公开评论线程/回复端点不挂 HTTP OutputCache，避免审核 SSE 与浏览器缓存产生状态分叉。
 

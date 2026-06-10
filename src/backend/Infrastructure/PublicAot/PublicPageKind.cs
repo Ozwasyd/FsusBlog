@@ -8,5 +8,8 @@ public enum PublicPageKind
     Filter,
     About,
     Archive,
+    Privacy,
+    Guidelines,
+    Copyright,
     Account
 }

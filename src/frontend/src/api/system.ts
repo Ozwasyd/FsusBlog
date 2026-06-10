@@ -21,6 +21,25 @@ export interface SeoConfigAdmin {
   baseUrl: string
 }
 
+export interface SiteComplianceConfigPublic {
+  enabled: boolean
+  regionMode: 'global' | 'mainland-cn'
+  copyrightOwner: string
+  copyrightStartYear: number | null
+  copyrightText: string
+  contentLicenseName: string
+  contentLicenseUrl: string
+  icpRecordNumber: string
+  icpRecordUrl: string
+  policeRecordNumber: string
+  policeRecordUrl: string
+  policeBadgeIconUrl: string
+  operatorName: string
+  contactEmail: string
+}
+
+export type SiteComplianceConfigAdmin = SiteComplianceConfigPublic
+
 export interface PageContentPublic {
   slug: string        // 页面唯一标识 (例如: 'about' 或 'privacy')
   content: string     // Markdown 格式的内容文本
@@ -64,6 +83,32 @@ export const updateSiteConfig = (data: SeoConfigAdmin, config?: ApiRequestConfig
       method: 'PUT',
       requiresPow: true,
       body: encodeAedsFrame(FrameType.SeoConfigUpdateRequest, encodeSeoConfigPayload(data))
+    }
+  })
+
+export const getSiteComplianceConfig = (config?: ApiRequestConfig) =>
+  requestBinaryOnly<SiteComplianceConfigPublic>({
+    binaryUrl: '/api/binary/system/compliance',
+    frameType: FrameType.SiteComplianceConfig,
+    signal: config?.signal as AbortSignal | undefined
+  })
+
+export const getAdminSiteComplianceConfig = (config?: ApiRequestConfig) =>
+  requestBinaryOnly<SiteComplianceConfigAdmin>({
+    binaryUrl: '/api/binary/system/admin/compliance',
+    frameType: FrameType.SiteComplianceConfig,
+    signal: config?.signal as AbortSignal | undefined
+  })
+
+export const updateSiteComplianceConfig = (data: SiteComplianceConfigAdmin, config?: ApiRequestConfig) =>
+  requestBinaryOnly<null>({
+    binaryUrl: '/api/binary/system/compliance',
+    frameType: FrameType.EmptySuccess,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'PUT',
+      requiresPow: true,
+      body: encodeAedsFrame(FrameType.SiteComplianceConfigUpdateRequest, encodeSiteCompliancePayload(data))
     }
   })
 
@@ -150,6 +195,30 @@ function encodePageContentPayload(data: PageContentAdmin): Uint8Array {
   writeInt32(bytes, 132, content.byteLength)
   writeInt32(bytes, 136, content.byteLength)
   bytes.set(content, 140)
+  return bytes
+}
+
+function encodeSiteCompliancePayload(data: SiteComplianceConfigAdmin): Uint8Array {
+  const copyrightText = new TextEncoder().encode(data.copyrightText ?? '')
+  const podSize = 1709
+  const bytes = new Uint8Array(podSize + 4 + copyrightText.byteLength)
+  bytes[0] = data.enabled ? 1 : 0
+  writeFixedUtf8(bytes, 1, 32, data.regionMode ?? 'global')
+  writeInt32(bytes, 33, data.copyrightStartYear ?? 0)
+  writeFixedUtf8(bytes, 37, 128, data.copyrightOwner ?? '')
+  writeInt32(bytes, 165, 0)
+  writeInt32(bytes, 169, copyrightText.byteLength)
+  writeFixedUtf8(bytes, 173, 128, data.contentLicenseName ?? '')
+  writeFixedUtf8(bytes, 301, 256, data.contentLicenseUrl ?? '')
+  writeFixedUtf8(bytes, 557, 64, data.icpRecordNumber ?? '')
+  writeFixedUtf8(bytes, 621, 256, data.icpRecordUrl ?? '')
+  writeFixedUtf8(bytes, 877, 64, data.policeRecordNumber ?? '')
+  writeFixedUtf8(bytes, 941, 256, data.policeRecordUrl ?? '')
+  writeFixedUtf8(bytes, 1197, 256, data.policeBadgeIconUrl ?? '')
+  writeFixedUtf8(bytes, 1453, 128, data.operatorName ?? '')
+  writeFixedUtf8(bytes, 1581, 128, data.contactEmail ?? '')
+  writeInt32(bytes, podSize, copyrightText.byteLength)
+  bytes.set(copyrightText, podSize + 4)
   return bytes
 }
 

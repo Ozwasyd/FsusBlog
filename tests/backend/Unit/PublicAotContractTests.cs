@@ -30,9 +30,9 @@ public class PublicPageRegistryTests
     }
 
     [Fact]
-    public void All_ContainsSixPages()
+    public void All_ContainsNinePages()
     {
-        Assert.Equal(6, PublicPageRegistry.All.Length);
+        Assert.Equal(9, PublicPageRegistry.All.Length);
     }
 
     [Fact]
@@ -40,13 +40,16 @@ public class PublicPageRegistryTests
     {
         var all = PublicPageRegistry.All;
         var ids = new HashSet<PublicPageId>(all.Select(p => p.Id));
-        Assert.Equal(6, ids.Count);
+        Assert.Equal(9, ids.Count);
         Assert.Contains(PublicPageId.Home, ids);
         Assert.Contains(PublicPageId.ArticleDetail, ids);
         Assert.Contains(PublicPageId.Archive, ids);
         Assert.Contains(PublicPageId.About, ids);
         Assert.Contains(PublicPageId.Account, ids);
         Assert.Contains(PublicPageId.Filter, ids);
+        Assert.Contains(PublicPageId.Privacy, ids);
+        Assert.Contains(PublicPageId.Guidelines, ids);
+        Assert.Contains(PublicPageId.Copyright, ids);
     }
 
     [Fact]

@@ -71,6 +71,33 @@ function publicExpectations() {
       ]
     },
     {
+      path: '/privacy',
+      expectedUrl: '/privacy',
+      label: 'public-privacy',
+      selectors: [
+        (page) => page.getByRole('heading', { name: /隐私政策/i }),
+        (page) => page.locator('main')
+      ]
+    },
+    {
+      path: '/guidelines',
+      expectedUrl: '/guidelines',
+      label: 'public-guidelines',
+      selectors: [
+        (page) => page.getByRole('heading', { name: /用户守则/i }),
+        (page) => page.locator('main')
+      ]
+    },
+    {
+      path: '/copyright',
+      expectedUrl: '/copyright',
+      label: 'public-copyright',
+      selectors: [
+        (page) => page.getByRole('heading', { name: /版权声明/i }),
+        (page) => page.locator('main')
+      ]
+    },
+    {
       path: `/category/${fixtures.categoryId}`,
       expectedUrl: `/category/${fixtures.categoryId}`,
       label: 'public-category',

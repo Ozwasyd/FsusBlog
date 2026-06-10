@@ -32,6 +32,7 @@
     { "name": "UploadComplete", "value": 23 },
     { "name": "UploadPartMap", "value": 24 },
     { "name": "AuthSessionList", "value": 25 },
+    { "name": "SiteComplianceConfig", "value": 26 },
     { "name": "PowChallenge", "value": 30 },
     { "name": "UploadInitRequest", "value": 31 },
     { "name": "UploadCompleteRequest", "value": 32 },
@@ -78,6 +79,7 @@
     { "name": "NotificationEvent", "value": 69 },
     { "name": "NotificationHeartbeat", "value": 70 },
     { "name": "PublicAotBootstrap", "value": 71 },
+    { "name": "SiteComplianceConfigUpdateRequest", "value": 72 },
     { "name": "EmptySuccess", "value": 240 },
     { "name": "MutationId", "value": 241 },
     { "name": "ApiError", "value": 251 }

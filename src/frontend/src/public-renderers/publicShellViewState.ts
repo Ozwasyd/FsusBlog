@@ -2,6 +2,7 @@ import type { PublicPageKind } from '@/public-renderers/publicRenderBase'
 import { getActiveNavForKind } from '@/public-renderers/publicPageModel'
 import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
 import { createPublicShellState, PUBLIC_SHELL_DEFAULTS, type PublicShellState } from '@/public-renderers/publicShellState'
+import type { SiteComplianceConfigPublic } from '@/api/system'
 
 export type PublicShellViewInput = Readonly<{
   hydrationKind?: PublicPageKind | null
@@ -10,6 +11,7 @@ export type PublicShellViewInput = Readonly<{
   initialSearchQuery?: string | null
   spaSearch?: boolean
   showRuntime?: boolean
+  compliance?: SiteComplianceConfigPublic | null
   isRuntimeAuthResolved?: boolean
   isLoggedIn?: boolean
   isAdmin?: boolean
@@ -48,6 +50,7 @@ export function createPublicShellViewState(input: PublicShellViewInput = {}): Pu
     initialSearchQuery: isSearchRoute ? String(input.initialSearchQuery ?? '') : '',
     spaSearch: Boolean(input.spaSearch),
     showRuntime: Boolean(input.showRuntime),
+    compliance: input.compliance ?? null,
     ...resolveAuthState(input)
   })
 }

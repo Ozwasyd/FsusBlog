@@ -31,6 +31,61 @@ public static class SystemProjection
     public static SeoConfigContract ToContract(SeoConfigReadModel model)
         => new(model.Title, model.Description, model.Keywords, model.Author, model.OgImage, model.BaseUrl);
 
+    public static SiteComplianceConfigPublicDto ToPublicDto(SiteComplianceConfigReadModel model)
+        => new()
+        {
+            Enabled = model.Enabled,
+            RegionMode = model.RegionMode,
+            CopyrightOwner = model.CopyrightOwner,
+            CopyrightStartYear = model.CopyrightStartYear,
+            CopyrightText = model.CopyrightText,
+            ContentLicenseName = model.ContentLicenseName,
+            ContentLicenseUrl = model.ContentLicenseUrl,
+            IcpRecordNumber = model.IcpRecordNumber,
+            IcpRecordUrl = model.IcpRecordUrl,
+            PoliceRecordNumber = model.PoliceRecordNumber,
+            PoliceRecordUrl = model.PoliceRecordUrl,
+            PoliceBadgeIconUrl = model.PoliceBadgeIconUrl,
+            OperatorName = model.OperatorName,
+            ContactEmail = model.ContactEmail
+        };
+
+    public static SiteComplianceConfigAdminDto ToAdminDto(SiteComplianceConfigReadModel model)
+        => new()
+        {
+            Enabled = model.Enabled,
+            RegionMode = model.RegionMode,
+            CopyrightOwner = model.CopyrightOwner,
+            CopyrightStartYear = model.CopyrightStartYear,
+            CopyrightText = model.CopyrightText,
+            ContentLicenseName = model.ContentLicenseName,
+            ContentLicenseUrl = model.ContentLicenseUrl,
+            IcpRecordNumber = model.IcpRecordNumber,
+            IcpRecordUrl = model.IcpRecordUrl,
+            PoliceRecordNumber = model.PoliceRecordNumber,
+            PoliceRecordUrl = model.PoliceRecordUrl,
+            PoliceBadgeIconUrl = model.PoliceBadgeIconUrl,
+            OperatorName = model.OperatorName,
+            ContactEmail = model.ContactEmail
+        };
+
+    public static SiteComplianceConfigContract ToContract(SiteComplianceConfigReadModel model)
+        => new(
+            model.Enabled,
+            model.RegionMode,
+            model.CopyrightOwner,
+            model.CopyrightStartYear,
+            model.CopyrightText,
+            model.ContentLicenseName,
+            model.ContentLicenseUrl,
+            model.IcpRecordNumber,
+            model.IcpRecordUrl,
+            model.PoliceRecordNumber,
+            model.PoliceRecordUrl,
+            model.PoliceBadgeIconUrl,
+            model.OperatorName,
+            model.ContactEmail);
+
     public static PageContentPublicDto ToPublicDto(PageContentReadModel model)
         => new() { Slug = model.Slug, Content = model.Content };
 

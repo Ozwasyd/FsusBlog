@@ -17,12 +17,15 @@ vi.mock('@/api/index', () => ({
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import {
   getAdminPageData,
+  getAdminSiteComplianceConfig,
   getAdminSiteConfig,
   deleteImage,
   getPageData,
+  getSiteComplianceConfig,
   getSiteConfig,
   refreshPageData,
   updatePageData,
+  updateSiteComplianceConfig,
   updateSiteConfig
 } from '@/api/system'
 
@@ -62,6 +65,51 @@ describe('system API', () => {
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/system/seo',
+      frameType: FrameType.EmptySuccess,
+      requestOptions: expect.objectContaining({
+        method: 'PUT',
+        requiresPow: true,
+        body: expect.any(ArrayBuffer)
+      })
+    }))
+  })
+
+  it('getSiteComplianceConfig uses binary compliance frame', async () => {
+    await getSiteComplianceConfig()
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/system/compliance',
+      frameType: FrameType.SiteComplianceConfig
+    }))
+  })
+
+  it('getAdminSiteComplianceConfig uses admin binary compliance frame', async () => {
+    await getAdminSiteComplianceConfig()
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/system/admin/compliance',
+      frameType: FrameType.SiteComplianceConfig
+    }))
+  })
+
+  it('updateSiteComplianceConfig sends binary compliance update request', async () => {
+    await updateSiteComplianceConfig({
+      enabled: true,
+      regionMode: 'mainland-cn',
+      copyrightOwner: 'Fsus',
+      copyrightStartYear: 2024,
+      copyrightText: '保留所有权利。',
+      contentLicenseName: 'CC BY-NC-SA 4.0',
+      contentLicenseUrl: 'https://creativecommons.org/licenses/by-nc-sa/4.0/',
+      icpRecordNumber: '京ICP备2026000000号-1',
+      icpRecordUrl: 'https://beian.miit.gov.cn/',
+      policeRecordNumber: '京公网安备11000002000000号',
+      policeRecordUrl: 'https://beian.mps.gov.cn/',
+      policeBadgeIconUrl: '',
+      operatorName: '',
+      contactEmail: 'name@example.test'
+    })
+
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/system/compliance',
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'PUT',

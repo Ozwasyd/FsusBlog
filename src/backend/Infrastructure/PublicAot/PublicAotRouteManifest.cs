@@ -73,6 +73,9 @@ public sealed class PublicAotRouteManifestProvider(
         [
             CreateStaticRoute(PublicPageKind.Home, 0),
             CreateStaticRoute(PublicPageKind.About, 10),
+            CreateStaticRoute(PublicPageKind.Privacy, 11),
+            CreateStaticRoute(PublicPageKind.Guidelines, 12),
+            CreateStaticRoute(PublicPageKind.Copyright, 13),
             CreateStaticRoute(PublicPageKind.Archive, 20)
         ];
 

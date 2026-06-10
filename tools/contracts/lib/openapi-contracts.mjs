@@ -226,6 +226,5 @@ export function generateFrontendRoutes(openapi = loadOpenApi()) {
   lines.push('} as const')
   lines.push('')
   lines.push('export type FsusBinaryOperationId = keyof typeof fsusBinaryRoutes')
-  lines.push('')
   return `${lines.join('\n')}\n`
 }
