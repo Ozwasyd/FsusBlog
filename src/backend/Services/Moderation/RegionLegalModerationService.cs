@@ -11,13 +11,16 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
 {
     public const string CurrentPolicyVersion = "region-policy-v2026-06";
     private readonly IModerationDictionaryService? _dictionaryService;
+    private readonly IModerationRuntimeStateService? _runtimeState;
     private readonly AuditLogChannel? _auditLogChannel;
 
     public RegionLegalModerationService(
         IModerationDictionaryService? dictionaryService = null,
+        IModerationRuntimeStateService? runtimeState = null,
         AuditLogChannel? auditLogChannel = null)
     {
         _dictionaryService = dictionaryService;
+        _runtimeState = runtimeState;
         _auditLogChannel = auditLogChannel;
     }
 
@@ -103,6 +106,24 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
     public RegionModerationDecision EvaluateOnSubmit(RegionModerationRequest request)
     {
         string submitRegion = NormalizeRegion(request.SubmitRegion);
+        if (_runtimeState?.ShouldRejectNewComment(submitRegion, out string publicReason) == true)
+        {
+            return new RegionModerationDecision(
+                CanPublish: false,
+                SubmitRegion: submitRegion,
+                SubmitRegionConfidence: Math.Clamp(request.SubmitRegionConfidence, 0d, 1d),
+                RegionProvider: string.IsNullOrWhiteSpace(request.RegionProvider) ? "unknown" : request.RegionProvider,
+                SubmitIpHash: request.SubmitIpHash,
+                BlockedRegions: [],
+                RiskLabels: [],
+                RuleHits: [],
+                PolicyVersion: CurrentPolicyVersion,
+                DecisionReason: "moderation_runtime_read_only",
+                PublicReason: publicReason,
+                RequiresManualReview: false,
+                HideUntilReviewed: false);
+        }
+
         var blockedRegions = new SortedSet<string>(StringComparer.Ordinal);
         var riskLabels = new SortedSet<string>(StringComparer.Ordinal);
         var hits = new List<RegionRuleHit>();
@@ -146,19 +167,27 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
         }
 
         bool unknownSubmit = submitRegion == RegionCodes.Unknown;
+        bool runtimeManualReview = _runtimeState?.ShouldForceManualReview(submitRegion) == true;
+        bool runtimeHideUntilReviewed = _runtimeState?.ShouldHideUntilReviewed(submitRegion) == true;
         requiresManualReview |= unknownSubmit;
+        requiresManualReview |= runtimeManualReview;
         hideUntilReviewed |= unknownSubmit;
+        hideUntilReviewed |= runtimeHideUntilReviewed;
         string decisionReason = submitRejected
             ? "submit_region_policy_reject"
             : unknownSubmit
                 ? "unknown_submit_region_manual_review_no_public_display"
-                : hideUntilReviewed
-                    ? "submit_region_manual_review_no_public_display"
-                    : requiresManualReview
-                        ? "submit_region_manual_review"
-                        : blockedRegions.Count > 0
-                            ? "viewer_region_geo_block"
-                            : "region_policy_allow";
+                : runtimeHideUntilReviewed
+                    ? "moderation_runtime_no_public_display"
+                    : runtimeManualReview
+                        ? "moderation_runtime_manual_review_only"
+                        : hideUntilReviewed
+                            ? "submit_region_manual_review_no_public_display"
+                            : requiresManualReview
+                                ? "submit_region_manual_review"
+                                : blockedRegions.Count > 0
+                                    ? "viewer_region_geo_block"
+                                    : "region_policy_allow";
 
         return new RegionModerationDecision(
             CanPublish: !submitRejected,

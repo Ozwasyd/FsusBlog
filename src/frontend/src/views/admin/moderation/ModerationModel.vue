@@ -53,14 +53,46 @@
           <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">受控动作</div>
         </div>
         <div class="space-y-4 p-5">
-          <el-button :icon="Connection" disabled>测试连接</el-button>
+          <div class="grid gap-3 md:grid-cols-2">
+            <label class="space-y-2">
+              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Provider</span>
+              <el-select v-model="form.provider" placeholder="provider" aria-label="model provider">
+                <el-option label="none" value="none" />
+                <el-option label="mock" value="mock" />
+                <el-option label="http-json" value="http-json" />
+                <el-option label="fsus-cli" value="fsus-cli" />
+              </el-select>
+            </label>
+            <label class="space-y-2">
+              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Enabled</span>
+              <div class="flex h-8 items-center">
+                <el-switch v-model="form.enabled" />
+              </div>
+            </label>
+            <label class="space-y-2">
+              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Model Profile</span>
+              <el-input v-model="form.modelProfile" placeholder="model profile" />
+            </label>
+            <label class="space-y-2">
+              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Threshold Profile</span>
+              <el-input v-model="form.thresholdProfile" placeholder="threshold profile" />
+            </label>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <el-button type="primary" :icon="Connection" :loading="saving" @click="saveRuntime">保存 runtime</el-button>
+            <el-button :icon="RefreshRight" type="warning" :loading="reloading" @click="reloadRuntime">reload</el-button>
+            <el-button :icon="RefreshLeft" type="warning" :loading="rollingBack" @click="rollbackRuntime">rollback</el-button>
+          </div>
+          <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-2">
+            <div v-for="item in runtimeRows" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-4">
+              <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</div>
+              <div class="mt-2 break-all text-[12px] font-bold text-[var(--fsusblog-text-primary)]">{{ item.value }}</div>
+            </div>
+          </div>
           <el-button :icon="Cpu" disabled>测试样本文本评分</el-button>
           <RouterLink :to="{ name: 'ManageAuditLog', query: { action: 'model_moderation_scored' } }" class="inline-flex">
             <el-button :icon="Warning">查看最近模型错误</el-button>
           </RouterLink>
-          <p class="text-[12px] leading-6 text-[var(--fsusblog-text-muted)]">
-            测试连接和样本文本评分属于运行时模型控制面；执行前需要 #77 的全局/地区开关、MFA 与审计保护。
-          </p>
         </div>
       </section>
     </section>
@@ -68,17 +100,37 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, shallowRef } from 'vue'
+import { computed, onMounted, reactive, shallowRef } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   getModerationModelStatus,
-  type ModerationModelStatusResponse
+  getModerationRuntimeStatus,
+  reloadModerationModel,
+  rollbackModerationModel,
+  setModerationModelRuntime,
+  type ModerationModelStatusResponse,
+  type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
-import { Connection, Cpu, Refresh, Warning } from '@/fsusui/icons'
+import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import { Connection, Cpu, Refresh, RefreshLeft, RefreshRight, Warning } from '@/fsusui/icons'
+import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
 
+const AdminSensitiveAction = 'admin-sensitive'
+
 const loading = shallowRef(false)
+const saving = shallowRef(false)
+const reloading = shallowRef(false)
+const rollingBack = shallowRef(false)
 const status = shallowRef<ModerationModelStatusResponse | null>(null)
+const runtime = shallowRef<ModerationRuntimeStatusResponse | null>(null)
+
+const form = reactive({
+  enabled: false,
+  provider: 'none',
+  modelProfile: '',
+  thresholdProfile: ''
+})
 
 const statusRows = computed(() => [
   { label: 'Enabled', value: status.value?.enabled ? 'enabled' : 'disabled' },
@@ -91,14 +143,120 @@ const statusRows = computed(() => [
   { label: 'External Review', value: status.value?.externalProviderReviewed ? 'reviewed' : 'not reviewed' }
 ])
 
+const runtimeRows = computed(() => [
+  { label: 'Snapshot', value: runtime.value?.model.snapshotId ?? '-' },
+  { label: 'Checksum', value: runtime.value?.model.configChecksum ?? '-' },
+  { label: 'Loaded By', value: runtime.value?.model.loadedBy ?? '-' },
+  { label: 'Loaded At', value: formatTime(runtime.value?.model.loadedAtUtc) }
+])
+
+const applyRuntimeToForm = (): void => {
+  const model = runtime.value?.model
+  if (!model) {
+    return
+  }
+
+  form.enabled = model.enabled
+  form.provider = model.provider
+  form.modelProfile = model.modelProfile
+  form.thresholdProfile = model.thresholdProfile
+}
+
 const loadStatus = async (): Promise<void> => {
   loading.value = true
   try {
-    status.value = await getModerationModelStatus()
+    const [modelStatus, runtimeStatus] = await Promise.all([
+      getModerationModelStatus(),
+      getModerationRuntimeStatus()
+    ])
+    status.value = modelStatus
+    runtime.value = runtimeStatus
+    applyRuntimeToForm()
   } catch (error) {
     showErrorToast(error, '审核模型状态加载失败')
   } finally {
     loading.value = false
+  }
+}
+
+const ensureAdminSensitiveProof = async (): Promise<string> => {
+  const challenge = await startMfaChallenge(AdminSensitiveAction)
+  if (challenge.verified && challenge.proofToken) {
+    return challenge.proofToken
+  }
+
+  const challengeToken = challenge.proofToken
+  if (!challengeToken) {
+    throw new Error('MFA_CHALLENGE_REQUIRED')
+  }
+
+  const code = await promptText('输入 MFA 验证码或恢复码', '模型 runtime 验证', {
+    confirmButtonText: '确认',
+    cancelButtonText: '取消',
+    inputPlaceholder: '验证码或恢复码',
+    inputValidator: (value: string) => value.trim().length > 0 || '请输入验证码或恢复码'
+  })
+  if (!code) {
+    throw new Error('MFA_CHALLENGE_CANCELLED')
+  }
+
+  const proof = await verifyMfaChallenge({
+    challengeToken,
+    code,
+    action: AdminSensitiveAction
+  })
+  if (!proof.verified || !proof.proofToken) {
+    throw new Error('MFA_PROOF_REQUIRED')
+  }
+
+  return proof.proofToken
+}
+
+const saveRuntime = async (): Promise<void> => {
+  saving.value = true
+  try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    runtime.value = await setModerationModelRuntime({
+      enabled: form.enabled,
+      provider: form.provider,
+      modelProfile: form.modelProfile.trim() || null,
+      thresholdProfile: form.thresholdProfile.trim() || null,
+      reason: 'model_runtime_update'
+    }, { mfaProofToken })
+    toast.success('模型 runtime 已保存')
+    await loadStatus()
+  } catch (error) {
+    showErrorToast(error, '模型 runtime 保存失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+const reloadRuntime = async (): Promise<void> => {
+  reloading.value = true
+  try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    runtime.value = await reloadModerationModel({ mfaProofToken })
+    toast.success('模型 runtime 已 reload')
+    await loadStatus()
+  } catch (error) {
+    showErrorToast(error, '模型 reload 失败')
+  } finally {
+    reloading.value = false
+  }
+}
+
+const rollbackRuntime = async (): Promise<void> => {
+  rollingBack.value = true
+  try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    runtime.value = await rollbackModerationModel({ mfaProofToken })
+    toast.success('模型 runtime 已 rollback')
+    await loadStatus()
+  } catch (error) {
+    showErrorToast(error, '模型 rollback 失败')
+  } finally {
+    rollingBack.value = false
   }
 }
 

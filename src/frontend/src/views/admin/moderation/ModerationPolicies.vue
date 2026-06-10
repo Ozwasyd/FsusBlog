@@ -52,6 +52,26 @@
             <el-tag :type="policyStatusType(row)">{{ policyStatus(row) }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="Runtime" width="190">
+          <template #default="{ row }: { row: RegionPolicySummaryResponse }">
+            <el-select v-model="regionStateDrafts[row.region]" size="small" aria-label="region runtime state">
+              <el-option v-for="option in regionStateOptions" :key="option.value" :label="option.label" :value="option.value" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" align="right">
+          <template #default="{ row }: { row: RegionPolicySummaryResponse }">
+            <el-button
+              link
+              type="primary"
+              :icon="Connection"
+              :loading="runtimeActionRegion === row.region"
+              @click="saveRegionState(row)"
+            >
+              应用
+            </el-button>
+          </template>
+        </el-table-column>
         <el-table-column label="Checksum" min-width="180">
           <template #default="{ row }: { row: RegionPolicySummaryResponse }">
             <code class="block truncate text-[11px]">{{ row.checksum }}</code>
@@ -78,18 +98,36 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, shallowRef } from 'vue'
+import { computed, onMounted, reactive, shallowRef } from 'vue'
 import {
+  getModerationRuntimeStatus,
   listModerationPolicies,
+  setModerationRegionState,
+  type ModerationRuntimeStatusResponse,
   type RegionPolicySummaryResponse
 } from '@/api/authoring'
-import { Refresh } from '@/fsusui/icons'
+import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import { Connection, Refresh } from '@/fsusui/icons'
+import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
 
+const AdminSensitiveAction = 'admin-sensitive'
+const MainlandChangeConfirmPhrase = 'CONFIRM CN-MAINLAND MODERATION CHANGE'
+
 const loading = shallowRef(false)
+const runtimeActionRegion = shallowRef<string | null>(null)
 const policies = shallowRef<RegionPolicySummaryResponse[]>([])
+const runtime = shallowRef<ModerationRuntimeStatusResponse | null>(null)
+const regionStateDrafts = reactive<Record<string, string>>({})
 
 const mainlandPolicy = computed(() => policies.value.find((item) => item.region === 'CN-MAINLAND') ?? null)
+const regionStateOptions = [
+  { label: 'enabled', value: 'enabled' },
+  { label: 'manual_review_only', value: 'manual_review_only' },
+  { label: 'no_public_display', value: 'no_public_display' },
+  { label: 'read_only', value: 'read_only' },
+  { label: 'disabled', value: 'disabled' }
+] as const
 
 const checkType = (status: string): 'success' | 'warning' | 'danger' | 'info' => {
   if (status === 'ok') return 'success'
@@ -115,11 +153,90 @@ const policyStatusType = (policy: RegionPolicySummaryResponse): 'success' | 'war
 const loadPolicies = async (): Promise<void> => {
   loading.value = true
   try {
-    policies.value = await listModerationPolicies()
+    const [policyRows, runtimeStatus] = await Promise.all([
+      listModerationPolicies(),
+      getModerationRuntimeStatus()
+    ])
+    policies.value = policyRows
+    runtime.value = runtimeStatus
+    for (const policy of policyRows) {
+      regionStateDrafts[policy.region] = runtimeStatus.regionStates[policy.region] ?? 'enabled'
+    }
   } catch (error) {
     showErrorToast(error, '地区策略加载失败')
   } finally {
     loading.value = false
+  }
+}
+
+const ensureAdminSensitiveProof = async (): Promise<string> => {
+  const challenge = await startMfaChallenge(AdminSensitiveAction)
+  if (challenge.verified && challenge.proofToken) {
+    return challenge.proofToken
+  }
+
+  const challengeToken = challenge.proofToken
+  if (!challengeToken) {
+    throw new Error('MFA_CHALLENGE_REQUIRED')
+  }
+
+  const code = await promptText('输入 MFA 验证码或恢复码', '地区策略 runtime 验证', {
+    confirmButtonText: '确认',
+    cancelButtonText: '取消',
+    inputPlaceholder: '验证码或恢复码',
+    inputValidator: (value: string) => value.trim().length > 0 || '请输入验证码或恢复码'
+  })
+  if (!code) {
+    throw new Error('MFA_CHALLENGE_CANCELLED')
+  }
+
+  const proof = await verifyMfaChallenge({
+    challengeToken,
+    code,
+    action: AdminSensitiveAction
+  })
+  if (!proof.verified || !proof.proofToken) {
+    throw new Error('MFA_PROOF_REQUIRED')
+  }
+
+  return proof.proofToken
+}
+
+const resolveRegionConfirmPhrase = async (region: string, state: string): Promise<string | null> => {
+  if (region !== 'CN-MAINLAND' || state === 'enabled') {
+    return null
+  }
+
+  return await promptText(`输入 ${MainlandChangeConfirmPhrase}`, 'CN-MAINLAND 策略确认', {
+    confirmButtonText: '确认',
+    cancelButtonText: '取消',
+    inputPlaceholder: MainlandChangeConfirmPhrase,
+    inputValidator: (value: string) => value.trim() === MainlandChangeConfirmPhrase || '确认短语不匹配'
+  })
+}
+
+const saveRegionState = async (policy: RegionPolicySummaryResponse): Promise<void> => {
+  runtimeActionRegion.value = policy.region
+  try {
+    const state = regionStateDrafts[policy.region] ?? 'enabled'
+    const confirmPhrase = await resolveRegionConfirmPhrase(policy.region, state)
+    if (policy.region === 'CN-MAINLAND' && state !== 'enabled' && confirmPhrase !== MainlandChangeConfirmPhrase) {
+      return
+    }
+
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    runtime.value = await setModerationRegionState({
+      region: policy.region,
+      state,
+      reason: 'region_runtime_state_update',
+      confirmPhrase
+    }, { mfaProofToken })
+    regionStateDrafts[policy.region] = runtime.value.regionStates[policy.region] ?? 'enabled'
+    toast.success(`${policy.region} runtime 已更新`)
+  } catch (error) {
+    showErrorToast(error, '地区 runtime 状态更新失败')
+  } finally {
+    runtimeActionRegion.value = null
   }
 }
 

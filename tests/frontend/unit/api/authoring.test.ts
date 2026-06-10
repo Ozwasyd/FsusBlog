@@ -3,7 +3,9 @@ import {
   checkArticlePrepublish,
   cleanupOrphanAssets,
   CommentModerationStatus,
+  disableModerationDictionary,
   discardServerDraft,
+  enableModerationDictionary,
   exportArticleContent,
   exportContentBackup,
   getAuthorAnalytics,
@@ -11,6 +13,7 @@ import {
   getModerationDictionarySnapshot,
   getModerationModelStatus,
   getModerationOverview,
+  getModerationRuntimeStatus,
   getServerDraft,
   importArticleContent,
   listAdminCategories,
@@ -25,11 +28,49 @@ import {
   previewArticleDraft,
   reindexArticleAssets,
   reloadModerationDictionaries,
+  reloadModerationModel,
   rollbackArticleRevision,
+  rollbackModerationDictionaries,
+  rollbackModerationModel,
+  setModerationGlobalState,
+  setModerationModelRuntime,
+  setModerationRegionState,
   saveServerDraft
 } from '@/api/authoring'
 
 const fetchMock = vi.fn()
+
+function runtimeStatus(overrides: Record<string, unknown> = {}) {
+  return {
+    snapshotId: 'moderation-runtime:runtime:abc',
+    globalState: 'enabled',
+    regionStates: { SG: 'manual_review_only' },
+    disabledDictionaryIds: ['global.scam'],
+    model: {
+      snapshotId: 'moderation-runtime:model:def',
+      enabled: true,
+      provider: 'mock',
+      modelProfile: 'mock-v1',
+      thresholdProfile: 'default',
+      contractVersion: 'fsusblog-moderation-provider-v1',
+      configChecksum: 'checksum',
+      loadedAtUtc: '2026-06-10T00:00:00Z',
+      loadedBy: 'admin',
+      status: 'loaded',
+      timeoutMs: 800,
+      failOpen: true,
+      externalProviderAllowed: false,
+      externalProviderReviewed: false,
+      lastError: null
+    },
+    changedAtUtc: '2026-06-10T00:00:00Z',
+    changedBy: 'admin',
+    reason: null,
+    expiresAtUtc: null,
+    lastError: null,
+    ...overrides
+  }
+}
 
 describe('authoring API (server drafts)', () => {
   beforeEach(() => {
@@ -495,6 +536,134 @@ describe('authoring API (server drafts)', () => {
     }))
     const headers = (fetchMock.mock.calls[0]?.[1] as RequestInit).headers as Headers
     expect(headers.get('X-Fsus-Mfa-Proof')).toBe('proof-reload')
+  })
+
+  it('moderation runtime status exposes global, region, dictionary, and model state', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: runtimeStatus()
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const runtime = await getModerationRuntimeStatus()
+
+    expect(runtime.globalState).toBe('enabled')
+    expect(runtime.regionStates.SG).toBe('manual_review_only')
+    expect(runtime.disabledDictionaryIds).toContain('global.scam')
+    expect(runtime.model.provider).toBe('mock')
+    expect(fetchMock).toHaveBeenCalledWith('/api/author/moderation/runtime/status', expect.objectContaining({
+      credentials: 'include'
+    }))
+  })
+
+  it('setModerationGlobalState posts safe global runtime state with admin MFA proof header', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: runtimeStatus({ globalState: 'disabled_to_pending' })
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const runtime = await setModerationGlobalState(
+      { state: 'disabled_to_pending', reason: 'incident' },
+      { mfaProofToken: 'proof-global' }
+    )
+
+    expect(runtime.globalState).toBe('disabled_to_pending')
+    expect(fetchMock).toHaveBeenCalledWith('/api/author/moderation/runtime/global-state', expect.objectContaining({
+      method: 'POST',
+      credentials: 'include',
+      body: JSON.stringify({ state: 'disabled_to_pending', reason: 'incident' })
+    }))
+    const headers = (fetchMock.mock.calls[0]?.[1] as RequestInit).headers as Headers
+    expect(headers.get('X-Fsus-Mfa-Proof')).toBe('proof-global')
+  })
+
+  it('setModerationRegionState posts CN-MAINLAND confirmation phrase', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: runtimeStatus({ regionStates: { 'CN-MAINLAND': 'no_public_display' } })
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const runtime = await setModerationRegionState({
+      region: 'CN-MAINLAND',
+      state: 'no_public_display',
+      reason: 'strict mode',
+      confirmPhrase: 'CONFIRM CN-MAINLAND MODERATION CHANGE'
+    }, { mfaProofToken: 'proof-region' })
+
+    expect(runtime.regionStates['CN-MAINLAND']).toBe('no_public_display')
+    expect(fetchMock).toHaveBeenCalledWith('/api/author/moderation/runtime/region-state', expect.objectContaining({
+      method: 'POST',
+      body: expect.stringContaining('"confirmPhrase":"CONFIRM CN-MAINLAND MODERATION CHANGE"')
+    }))
+    const headers = (fetchMock.mock.calls[0]?.[1] as RequestInit).headers as Headers
+    expect(headers.get('X-Fsus-Mfa-Proof')).toBe('proof-region')
+  })
+
+  it('dictionary runtime controls use separate enable disable and rollback endpoints', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        data: runtimeStatus({ disabledDictionaryIds: [] })
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        data: runtimeStatus({ disabledDictionaryIds: ['cn-mainland.political-sensitive'] })
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        data: {
+          snapshotId: 'moderation-dictionaries:rollback',
+          version: 'GLOBAL-v2026-06',
+          checksum: 'rollback',
+          createdAtUtc: '2026-06-10T00:00:00Z',
+          dictionaries: [],
+          regionPolicies: [],
+          lastError: null
+        }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    await enableModerationDictionary('global.scam', { reason: 'restore' }, { mfaProofToken: 'proof-dict' })
+    await disableModerationDictionary(
+      'cn-mainland.political-sensitive',
+      { reason: 'test', confirmPhrase: 'CONFIRM CN-MAINLAND MODERATION CHANGE' },
+      { mfaProofToken: 'proof-dict' }
+    )
+    const rollback = await rollbackModerationDictionaries({ mfaProofToken: 'proof-dict' })
+
+    expect(rollback.snapshotId).toBe('moderation-dictionaries:rollback')
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/author/moderation/dictionaries/global.scam/enable')
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/author/moderation/dictionaries/cn-mainland.political-sensitive/disable')
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/api/author/moderation/dictionaries/rollback')
+  })
+
+  it('model runtime controls update reload and rollback with admin MFA proof header', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        data: runtimeStatus({ model: { ...runtimeStatus().model, enabled: false, provider: 'none' } })
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        data: runtimeStatus({ model: { ...runtimeStatus().model, status: 'loaded' } })
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        data: runtimeStatus({ model: { ...runtimeStatus().model, status: 'rolled_back' } })
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const updated = await setModerationModelRuntime(
+      { enabled: false, provider: 'none', reason: 'maintenance' },
+      { mfaProofToken: 'proof-model' }
+    )
+    await reloadModerationModel({ mfaProofToken: 'proof-model' })
+    const rolledBack = await rollbackModerationModel({ mfaProofToken: 'proof-model' })
+
+    expect(updated.model.provider).toBe('none')
+    expect(rolledBack.model.status).toBe('rolled_back')
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/author/moderation/model/runtime')
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/author/moderation/model/reload')
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/api/author/moderation/model/rollback')
+    const headers = (fetchMock.mock.calls[0]?.[1] as RequestInit).headers as Headers
+    expect(headers.get('X-Fsus-Mfa-Proof')).toBe('proof-model')
   })
 
   it('previewModerationReplay posts scoped preview request without executing replay', async () => {

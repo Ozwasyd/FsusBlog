@@ -606,6 +606,64 @@ export interface ModerationDictionaryReloadResponse {
   reloadedAtUtc: string
 }
 
+export interface ModerationModelRuntimeResponse {
+  snapshotId: string
+  enabled: boolean
+  provider: string
+  modelProfile: string
+  thresholdProfile: string
+  contractVersion: string
+  configChecksum: string
+  loadedAtUtc: string
+  loadedBy: string
+  status: string
+  timeoutMs: number
+  failOpen: boolean
+  externalProviderAllowed: boolean
+  externalProviderReviewed: boolean
+  lastError: string | null
+}
+
+export interface ModerationRuntimeStatusResponse {
+  snapshotId: string
+  globalState: string
+  regionStates: Record<string, string>
+  disabledDictionaryIds: string[]
+  model: ModerationModelRuntimeResponse
+  changedAtUtc: string
+  changedBy: string
+  reason: string | null
+  expiresAtUtc: string | null
+  lastError: string | null
+}
+
+export interface ModerationRuntimeGlobalStateRequest {
+  state: string
+  reason?: string | null
+  expiresAtUtc?: string | null
+}
+
+export interface ModerationRuntimeRegionStateRequest {
+  region: string
+  state: string
+  reason?: string | null
+  expiresAtUtc?: string | null
+  confirmPhrase?: string | null
+}
+
+export interface ModerationDictionaryStateRequest {
+  reason?: string | null
+  confirmPhrase?: string | null
+}
+
+export interface ModerationModelRuntimeRequest {
+  enabled?: boolean | null
+  provider?: string | null
+  modelProfile?: string | null
+  thresholdProfile?: string | null
+  reason?: string | null
+}
+
 export interface ModerationReplayPreviewRequest {
   region?: string | null
   policyVersion?: string | null
@@ -1097,6 +1155,89 @@ export async function reloadModerationDictionaries(config?: ApiRequestConfig): P
   return await readJsonEnvelope<ModerationDictionaryReloadResponse>(response, `moderation_dictionary_reload_failed:${response.status}`)
 }
 
+export async function rollbackModerationDictionaries(config?: ApiRequestConfig): Promise<ModerationDictionaryRuntimeSnapshot> {
+  const response = await fetch('/api/author/moderation/dictionaries/rollback', {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders(false, config?.mfaProofToken),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<ModerationDictionaryRuntimeSnapshot>(response, `moderation_dictionary_rollback_failed:${response.status}`)
+}
+
+export async function enableModerationDictionary(
+  dictionaryId: string,
+  request: ModerationDictionaryStateRequest = {},
+  config?: ApiRequestConfig
+): Promise<ModerationRuntimeStatusResponse> {
+  const response = await fetch(`/api/author/moderation/dictionaries/${encodeURIComponent(dictionaryId)}/enable`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders(true, config?.mfaProofToken),
+    signal: config?.signal,
+    body: JSON.stringify(request)
+  })
+
+  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_dictionary_enable_failed:${response.status}`)
+}
+
+export async function disableModerationDictionary(
+  dictionaryId: string,
+  request: ModerationDictionaryStateRequest = {},
+  config?: ApiRequestConfig
+): Promise<ModerationRuntimeStatusResponse> {
+  const response = await fetch(`/api/author/moderation/dictionaries/${encodeURIComponent(dictionaryId)}/disable`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders(true, config?.mfaProofToken),
+    signal: config?.signal,
+    body: JSON.stringify(request)
+  })
+
+  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_dictionary_disable_failed:${response.status}`)
+}
+
+export async function getModerationRuntimeStatus(config?: ApiRequestConfig): Promise<ModerationRuntimeStatusResponse> {
+  const response = await fetch('/api/author/moderation/runtime/status', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_runtime_status_fetch_failed:${response.status}`)
+}
+
+export async function setModerationGlobalState(
+  request: ModerationRuntimeGlobalStateRequest,
+  config?: ApiRequestConfig
+): Promise<ModerationRuntimeStatusResponse> {
+  const response = await fetch('/api/author/moderation/runtime/global-state', {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders(true, config?.mfaProofToken),
+    signal: config?.signal,
+    body: JSON.stringify(request)
+  })
+
+  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_runtime_global_state_failed:${response.status}`)
+}
+
+export async function setModerationRegionState(
+  request: ModerationRuntimeRegionStateRequest,
+  config?: ApiRequestConfig
+): Promise<ModerationRuntimeStatusResponse> {
+  const response = await fetch('/api/author/moderation/runtime/region-state', {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders(true, config?.mfaProofToken),
+    signal: config?.signal,
+    body: JSON.stringify(request)
+  })
+
+  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_runtime_region_state_failed:${response.status}`)
+}
+
 export async function listModerationPolicies(config?: ApiRequestConfig): Promise<RegionPolicySummaryResponse[]> {
   const response = await fetch('/api/author/moderation/policies', {
     credentials: 'include',
@@ -1115,6 +1256,43 @@ export async function getModerationModelStatus(config?: ApiRequestConfig): Promi
   })
 
   return await readJsonEnvelope<ModerationModelStatusResponse>(response, `moderation_model_status_fetch_failed:${response.status}`)
+}
+
+export async function setModerationModelRuntime(
+  request: ModerationModelRuntimeRequest,
+  config?: ApiRequestConfig
+): Promise<ModerationRuntimeStatusResponse> {
+  const response = await fetch('/api/author/moderation/model/runtime', {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders(true, config?.mfaProofToken),
+    signal: config?.signal,
+    body: JSON.stringify(request)
+  })
+
+  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_model_runtime_failed:${response.status}`)
+}
+
+export async function reloadModerationModel(config?: ApiRequestConfig): Promise<ModerationRuntimeStatusResponse> {
+  const response = await fetch('/api/author/moderation/model/reload', {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders(false, config?.mfaProofToken),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_model_reload_failed:${response.status}`)
+}
+
+export async function rollbackModerationModel(config?: ApiRequestConfig): Promise<ModerationRuntimeStatusResponse> {
+  const response = await fetch('/api/author/moderation/model/rollback', {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders(false, config?.mfaProofToken),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_model_rollback_failed:${response.status}`)
 }
 
 export async function previewModerationReplay(

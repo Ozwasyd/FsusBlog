@@ -12,7 +12,8 @@ public sealed class ModerationDictionaryService(
     IWebHostEnvironment environment,
     IConfiguration configuration,
     ILogger<ModerationDictionaryService> logger,
-    AuditLogChannel? auditLogChannel = null) : IModerationDictionaryService
+    AuditLogChannel? auditLogChannel = null,
+    IModerationRuntimeStateService? runtimeState = null) : IModerationDictionaryService
 {
     private static readonly string[] MainlandMandatoryDictionaryIds =
     [
@@ -24,6 +25,7 @@ public sealed class ModerationDictionaryService(
 
     private readonly Lock _reloadLock = new();
     private ModerationDictionarySnapshot _snapshot = ModerationDictionarySnapshot.Empty;
+    private ModerationDictionarySnapshot? _previousSnapshot;
     private string? _lastError;
 
     public ModerationDictionarySnapshot CurrentSnapshot
@@ -80,6 +82,11 @@ public sealed class ModerationDictionaryService(
 
             ModerationDictionarySnapshot next = result.Value!;
             ModerationDictionarySnapshot previous = Volatile.Read(ref _snapshot);
+            if (!ReferenceEquals(previous, ModerationDictionarySnapshot.Empty))
+            {
+                _previousSnapshot = previous;
+            }
+
             Volatile.Write(ref _snapshot, next);
             Volatile.Write(ref _lastError, null);
             WriteLoadedAudit(next);
@@ -108,6 +115,37 @@ public sealed class ModerationDictionaryService(
         }
     }
 
+    public Result Rollback()
+    {
+        lock (_reloadLock)
+        {
+            if (_previousSnapshot is null)
+            {
+                return Result.Failure(ErrorCode.Conflict, "moderation_dictionary_rollback_snapshot_missing");
+            }
+
+            ModerationDictionarySnapshot current = Volatile.Read(ref _snapshot);
+            ModerationDictionarySnapshot rollback = _previousSnapshot;
+            _previousSnapshot = ReferenceEquals(current, ModerationDictionarySnapshot.Empty) ? null : current;
+            Volatile.Write(ref _snapshot, rollback);
+            Volatile.Write(ref _lastError, null);
+            WriteAudit(
+                "dictionary_rollback",
+                AuditOutcomeCatalog.Success,
+                AuditSeverityCatalog.Warning,
+                "moderation_dictionary_snapshot",
+                rollback.SnapshotId,
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["snapshotId"] = rollback.SnapshotId,
+                    ["checksum"] = rollback.Checksum,
+                    ["previousSnapshotId"] = current.SnapshotId,
+                    ["previousChecksum"] = current.Checksum
+                });
+            return Result.Success();
+        }
+    }
+
     public IReadOnlyList<ModerationDictionaryMatch> Match(string content, string region)
     {
         if (string.IsNullOrWhiteSpace(content))
@@ -117,10 +155,10 @@ public sealed class ModerationDictionaryService(
 
         ModerationDictionarySnapshot snapshot = CurrentSnapshot;
         string normalizedRegion = NormalizeRegion(region);
-        string[] dictionaryIds = ResolveDictionaryIds(snapshot, normalizedRegion);
+        string[] dictionaryIds = ResolveRuntimeDictionaryIds(snapshot, normalizedRegion);
         if (dictionaryIds.Length == 0 && normalizedRegion != RegionCodes.Global)
         {
-            dictionaryIds = ResolveDictionaryIds(snapshot, RegionCodes.Global);
+            dictionaryIds = ResolveRuntimeDictionaryIds(snapshot, RegionCodes.Global);
         }
 
         var matches = new List<ModerationDictionaryMatch>();
@@ -162,7 +200,10 @@ public sealed class ModerationDictionaryService(
     {
         ModerationDictionarySnapshot snapshot = CurrentSnapshot;
         string normalizedRegion = NormalizeRegion(region);
-        ModerationRegionPolicyRule? rule = ResolvePolicyRules(snapshot, normalizedRegion)
+        string effectiveRegion = runtimeState?.IsRegionPolicyDisabled(normalizedRegion) == true
+            ? RegionCodes.Global
+            : normalizedRegion;
+        ModerationRegionPolicyRule? rule = ResolvePolicyRules(snapshot, effectiveRegion)
             .LastOrDefault(item => string.Equals(item.Category, category, StringComparison.Ordinal));
         return rule is null
             ? new ModerationPolicyAction(ModerationDictionaryActions.Allow, ModerationDictionaryActions.Allow)
@@ -464,6 +505,16 @@ public sealed class ModerationDictionaryService(
 
     private static string[] ResolveDictionaryIds(ModerationDictionarySnapshot snapshot, string region)
         => ResolveDictionaryIds(snapshot.Dictionaries, snapshot.RegionPolicies, region);
+
+    private string[] ResolveRuntimeDictionaryIds(ModerationDictionarySnapshot snapshot, string region)
+    {
+        string effectiveRegion = runtimeState?.IsRegionPolicyDisabled(region) == true
+            ? RegionCodes.Global
+            : region;
+        return ResolveDictionaryIds(snapshot, effectiveRegion)
+            .Where(id => runtimeState?.IsDictionaryEnabled(id) != false)
+            .ToArray();
+    }
 
     private static string[] ResolveDictionaryIds(
         IReadOnlyDictionary<string, ModerationDictionaryDefinition> dictionaries,

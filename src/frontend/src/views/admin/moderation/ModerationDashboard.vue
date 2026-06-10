@@ -7,7 +7,7 @@
       title-id="moderation-overview-title"
     >
       <template #actions>
-        <el-button :icon="Refresh" :loading="loading" @click="loadOverview">刷新</el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
       </template>
 
       <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-5">
@@ -17,6 +17,24 @@
         </div>
       </div>
     </WorkbenchPanel>
+
+    <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
+      <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-5">
+        <div v-for="item in runtimeRows" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-5">
+          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</div>
+          <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.value }}</div>
+        </div>
+      </div>
+      <div class="flex flex-col gap-3 border-t border-[var(--fsusblog-panel-border)] p-5 md:flex-row md:items-end">
+        <label class="w-full space-y-2 md:max-w-xs">
+          <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Global Runtime State</span>
+          <el-select v-model="globalStateDraft" aria-label="global moderation runtime state">
+            <el-option v-for="option in globalStateOptions" :key="option.value" :label="option.label" :value="option.value" />
+          </el-select>
+        </label>
+        <el-button type="primary" :icon="Connection" :loading="savingGlobalState" @click="saveGlobalState">应用全局状态</el-button>
+      </div>
+    </section>
 
     <section class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.7fr)]">
       <div class="space-y-8">
@@ -79,13 +97,33 @@
 <script setup lang="ts">
 import { computed, onMounted, shallowRef } from 'vue'
 import { RouterLink } from 'vue-router'
-import { getModerationOverview, type ModerationOverviewResponse } from '@/api/authoring'
+import {
+  getModerationOverview,
+  getModerationRuntimeStatus,
+  setModerationGlobalState,
+  type ModerationOverviewResponse,
+  type ModerationRuntimeStatusResponse
+} from '@/api/authoring'
+import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
-import { Refresh } from '@/fsusui/icons'
+import { Connection, Refresh } from '@/fsusui/icons'
+import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
 
+const AdminSensitiveAction = 'admin-sensitive'
+
 const loading = shallowRef(false)
+const savingGlobalState = shallowRef(false)
 const overview = shallowRef<ModerationOverviewResponse | null>(null)
+const runtime = shallowRef<ModerationRuntimeStatusResponse | null>(null)
+const globalStateDraft = shallowRef('enabled')
+
+const globalStateOptions = [
+  { label: 'enabled', value: 'enabled' },
+  { label: 'read_only', value: 'read_only' },
+  { label: 'disabled_to_pending', value: 'disabled_to_pending' },
+  { label: 'emergency_lockdown', value: 'emergency_lockdown' }
+] as const
 
 const internalLinks = [
   { label: '评论审核', helper: '审核队列、模型风险信号和地区策略结果。', name: 'ManageModerationComments' },
@@ -104,16 +142,30 @@ const metrics = computed(() => [
   { label: '地区策略', value: overview.value?.regionPolicyCount ?? '-' }
 ])
 
+const runtimeRows = computed(() => [
+  { label: 'Global State', value: runtime.value?.globalState ?? '-' },
+  { label: 'Region Overrides', value: Object.keys(runtime.value?.regionStates ?? {}).length },
+  { label: 'Disabled Dictionaries', value: runtime.value?.disabledDictionaryIds.length ?? '-' },
+  { label: 'Model Snapshot', value: runtime.value?.model.snapshotId ?? '-' },
+  { label: 'Changed By', value: runtime.value?.changedBy ?? '-' }
+])
+
 const mainlandStatusType = computed(() => {
   if (overview.value?.mainlandStrictStatus === 'enabled') return 'success'
   if (overview.value?.mainlandStrictStatus === 'invalid') return 'danger'
   return 'warning'
 })
 
-const loadOverview = async (): Promise<void> => {
+const loadDashboard = async (): Promise<void> => {
   loading.value = true
   try {
-    overview.value = await getModerationOverview()
+    const [overviewResponse, runtimeResponse] = await Promise.all([
+      getModerationOverview(),
+      getModerationRuntimeStatus()
+    ])
+    overview.value = overviewResponse
+    runtime.value = runtimeResponse
+    globalStateDraft.value = runtimeResponse.globalState
   } catch (error) {
     showErrorToast(error, '审核系统总览加载失败')
   } finally {
@@ -121,8 +173,59 @@ const loadOverview = async (): Promise<void> => {
   }
 }
 
+const ensureAdminSensitiveProof = async (): Promise<string> => {
+  const challenge = await startMfaChallenge(AdminSensitiveAction)
+  if (challenge.verified && challenge.proofToken) {
+    return challenge.proofToken
+  }
+
+  const challengeToken = challenge.proofToken
+  if (!challengeToken) {
+    throw new Error('MFA_CHALLENGE_REQUIRED')
+  }
+
+  const code = await promptText('输入 MFA 验证码或恢复码', '全局审核 runtime 验证', {
+    confirmButtonText: '确认',
+    cancelButtonText: '取消',
+    inputPlaceholder: '验证码或恢复码',
+    inputValidator: (value: string) => value.trim().length > 0 || '请输入验证码或恢复码'
+  })
+  if (!code) {
+    throw new Error('MFA_CHALLENGE_CANCELLED')
+  }
+
+  const proof = await verifyMfaChallenge({
+    challengeToken,
+    code,
+    action: AdminSensitiveAction
+  })
+  if (!proof.verified || !proof.proofToken) {
+    throw new Error('MFA_PROOF_REQUIRED')
+  }
+
+  return proof.proofToken
+}
+
+const saveGlobalState = async (): Promise<void> => {
+  savingGlobalState.value = true
+  try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    runtime.value = await setModerationGlobalState({
+      state: globalStateDraft.value,
+      reason: 'global_runtime_state_update'
+    }, { mfaProofToken })
+    globalStateDraft.value = runtime.value.globalState
+    toast.success('全局审核 runtime 已更新')
+    await loadDashboard()
+  } catch (error) {
+    showErrorToast(error, '全局 runtime 状态更新失败')
+  } finally {
+    savingGlobalState.value = false
+  }
+}
+
 onMounted(() => {
-  void loadOverview()
+  void loadDashboard()
 })
 </script>
 

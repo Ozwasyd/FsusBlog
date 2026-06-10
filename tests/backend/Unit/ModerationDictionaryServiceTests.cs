@@ -117,6 +117,49 @@ public sealed class ModerationDictionaryServiceTests
     }
 
     [Fact]
+    public void Rollback_RestoresPreviousSuccessfulSnapshot()
+    {
+        using TestRoot root = TestRoot.FromRepoConfig();
+        var service = BuildService(root.Path);
+        ModerationDictionarySnapshot previous = service.CurrentSnapshot;
+        File.AppendAllText(
+            Path.Combine(root.Path, "dictionaries", "global", "scam.yaml"),
+            "\n  - value: rollback_marker\n    aliases: []\n    severity: high\n    reason: scam_detected\n    evidence_policy: show_category_only\n");
+
+        var reload = service.Reload();
+        ModerationDictionarySnapshot changed = service.CurrentSnapshot;
+        var rollback = service.Rollback();
+
+        Assert.True(reload.IsSuccess);
+        Assert.NotSame(previous, changed);
+        Assert.True(rollback.IsSuccess);
+        Assert.Same(previous, service.CurrentSnapshot);
+    }
+
+    [Fact]
+    public void ResolveAction_WhenRegionalPolicyDisabled_FallsBackToGlobalBaseline()
+    {
+        using TestRoot root = TestRoot.FromRepoConfig();
+        var runtimeState = new ModerationRuntimeStateService(new ConfigurationBuilder().Build(), new TestWebHostEnvironment(root.Path));
+        var disabled = runtimeState.SetRegionState(
+            RegionCodes.Singapore,
+            ModerationRegionStates.Disabled,
+            "unit-test",
+            null,
+            confirmPhrase: null,
+            changedBy: "admin");
+        var service = BuildService(root.Path, runtimeState: runtimeState);
+
+        ModerationPolicyAction action = service.ResolveAction(RegionCodes.Singapore, "advertising");
+        IReadOnlyList<ModerationDictionaryMatch> matches = service.Match("私聊赚钱", RegionCodes.Singapore);
+
+        Assert.True(disabled.IsSuccess);
+        Assert.Equal(ModerationDictionaryActions.ManualReview, action.SubmitAction);
+        Assert.Equal(ModerationDictionaryActions.ManualReviewNoPublicDisplay, action.DisplayAction);
+        Assert.Contains(matches, static item => item.DictionaryId == "global.advertising");
+    }
+
+    [Fact]
     public void ContentFilterService_LoadsGlobalYamlHardSecurityDictionaryWithoutRegionalLeakage()
     {
         using TestRoot root = TestRoot.FromRepoConfig();
@@ -174,7 +217,10 @@ public sealed class ModerationDictionaryServiceTests
         Assert.Equal("region_policy_allow", unitedStates.DecisionReason);
     }
 
-    private static ModerationDictionaryService BuildService(string dictionaryRoot, AuditLogChannel? auditLogChannel = null)
+    private static ModerationDictionaryService BuildService(
+        string dictionaryRoot,
+        AuditLogChannel? auditLogChannel = null,
+        IModerationRuntimeStateService? runtimeState = null)
     {
         IConfiguration config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -186,7 +232,8 @@ public sealed class ModerationDictionaryServiceTests
             new TestWebHostEnvironment(dictionaryRoot),
             config,
             NullLogger<ModerationDictionaryService>.Instance,
-            auditLogChannel);
+            auditLogChannel,
+            runtimeState);
     }
 
     private static IReadOnlyList<AuditRecord> Drain(AuditLogChannel channel)

@@ -224,9 +224,18 @@
 | GET | `/api/author/moderation/overview` | 👑 | 审核系统总览 |
 | GET | `/api/author/moderation/dictionaries` | 👑 | 只读审核词库和地区策略 snapshot metadata |
 | POST | `/api/author/moderation/dictionaries/reload` | 👑🚦 MFA | 手动 reload 审核词库和地区策略 snapshot |
+| POST | `/api/author/moderation/dictionaries/rollback` | 👑🚦 MFA | 回滚到上一份成功加载的词库/地区策略 snapshot |
+| POST | `/api/author/moderation/dictionaries/{dictionaryId}/enable` | 👑🚦 MFA | 启用运行时词库 override |
+| POST | `/api/author/moderation/dictionaries/{dictionaryId}/disable` | 👑🚦 MFA | 禁用运行时词库 override；CN-MAINLAND 强制词库需确认短语 |
 | GET | `/api/author/moderation/policies` | 👑 | 地区策略 summary 与 CN-MAINLAND 强制检查 |
 | POST | `/api/author/moderation/replay/preview` | 👑🚦 | 策略回放 preview diff，不执行变更 |
+| GET | `/api/author/moderation/runtime/status` | 👑 | 审核运行时全局/地区/词库/模型状态 |
+| POST | `/api/author/moderation/runtime/global-state` | 👑🚦 MFA | 调整全局审核运行状态 |
+| POST | `/api/author/moderation/runtime/region-state` | 👑🚦 MFA | 调整地区审核运行状态并清理评论 frame 缓存 |
 | GET | `/api/author/moderation/model/status` | 👑 | 审核模型配置与 latency/error 观测 |
+| POST | `/api/author/moderation/model/runtime` | 👑🚦 MFA | 热切换模型 provider/profile/启停状态 |
+| POST | `/api/author/moderation/model/reload` | 👑🚦 MFA | 从配置热重载模型运行快照 |
+| POST | `/api/author/moderation/model/rollback` | 👑🚦 MFA | 回滚上一份模型运行快照 |
 | GET | `/api/author/content/export` | 👑 | 全站内容备份包 |
 | GET | `/api/author/articles/{articleId}/export` | 👑 | 导出 Markdown + frontmatter |
 | POST | `/api/author/articles/import` | 👑 | 导入 Markdown + frontmatter |

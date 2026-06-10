@@ -12,6 +12,7 @@
           <el-tag v-else type="success">loaded</el-tag>
           <el-button :icon="Refresh" :loading="loading" @click="loadSnapshot">刷新</el-button>
           <el-button :icon="RefreshRight" type="warning" :loading="reloading" @click="reloadSnapshot">手动 reload</el-button>
+          <el-button :icon="RefreshLeft" type="warning" :loading="rollingBack" @click="rollbackSnapshot">rollback</el-button>
         </div>
       </div>
 
@@ -69,6 +70,26 @@
         <el-table-column label="操作" width="190" align="right" fixed="right">
           <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
             <el-button link type="primary" :icon="View" @click="openDetail(row)">详情</el-button>
+            <el-button
+              v-if="isDictionaryDisabled(row)"
+              link
+              type="success"
+              :icon="Check"
+              :loading="runtimeActionId === row.dictionaryId"
+              @click="setDictionaryEnabled(row, true)"
+            >
+              启用
+            </el-button>
+            <el-button
+              v-else
+              link
+              type="danger"
+              :icon="Close"
+              :loading="runtimeActionId === row.dictionaryId"
+              @click="setDictionaryEnabled(row, false)"
+            >
+              禁用
+            </el-button>
             <el-button link :icon="CopyDocument" @click="copyChecksum(row)">checksum</el-button>
           </template>
         </el-table-column>
@@ -94,21 +115,30 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, shallowRef } from 'vue'
 import {
+  disableModerationDictionary,
+  enableModerationDictionary,
   getModerationDictionarySnapshot,
+  getModerationRuntimeStatus,
   reloadModerationDictionaries,
+  rollbackModerationDictionaries,
   type ModerationDictionaryRuntimeItem,
-  type ModerationDictionaryRuntimeSnapshot
+  type ModerationDictionaryRuntimeSnapshot,
+  type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
 import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
-import { CopyDocument, Refresh, RefreshRight, View } from '@/fsusui/icons'
+import { Check, Close, CopyDocument, Refresh, RefreshLeft, RefreshRight, View } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
 
 const AdminSensitiveAction = 'admin-sensitive'
+const MainlandChangeConfirmPhrase = 'CONFIRM CN-MAINLAND MODERATION CHANGE'
 
 const loading = shallowRef(false)
 const reloading = shallowRef(false)
+const rollingBack = shallowRef(false)
+const runtimeActionId = shallowRef<string | null>(null)
 const snapshot = shallowRef<ModerationDictionaryRuntimeSnapshot | null>(null)
+const runtime = shallowRef<ModerationRuntimeStatusResponse | null>(null)
 const detail = shallowRef<ModerationDictionaryRuntimeItem | null>(null)
 const detailVisible = shallowRef(false)
 
@@ -122,6 +152,7 @@ const filters = reactive({
 })
 
 const dictionaries = computed(() => snapshot.value?.dictionaries ?? [])
+const disabledDictionaryIds = computed(() => new Set(runtime.value?.disabledDictionaryIds ?? []))
 const regionOptions = computed(() => [...new Set(dictionaries.value.map((item) => item.region ?? 'GLOBAL'))].sort())
 const categoryOptions = computed(() => [...new Set(dictionaries.value.map((item) => item.category))].sort())
 
@@ -140,11 +171,20 @@ const isHighRisk = (item: ModerationDictionaryRuntimeItem): boolean =>
   || item.region === 'CN-MAINLAND'
   || highRiskCategories.has(item.category)
 
-const dictionaryStatus = (item: ModerationDictionaryRuntimeItem): string =>
-  item.termCount > 0 && item.checksum.length > 0 ? 'loaded' : 'invalid'
+const isDictionaryDisabled = (item: ModerationDictionaryRuntimeItem): boolean =>
+  disabledDictionaryIds.value.has(item.dictionaryId)
 
-const dictionaryStatusType = (item: ModerationDictionaryRuntimeItem): 'success' | 'danger' =>
-  dictionaryStatus(item) === 'loaded' ? 'success' : 'danger'
+const dictionaryStatus = (item: ModerationDictionaryRuntimeItem): string =>
+  isDictionaryDisabled(item)
+    ? 'runtime_disabled'
+    : item.termCount > 0 && item.checksum.length > 0 ? 'loaded' : 'invalid'
+
+const dictionaryStatusType = (item: ModerationDictionaryRuntimeItem): 'success' | 'danger' | 'info' =>
+  dictionaryStatus(item) === 'loaded'
+    ? 'success'
+    : dictionaryStatus(item) === 'runtime_disabled'
+      ? 'info'
+      : 'danger'
 
 const evidenceType = (policy: string): 'success' | 'warning' | 'danger' | 'info' => {
   if (policy === 'redact') return 'danger'
@@ -185,7 +225,12 @@ const detailRows = computed(() => {
 const loadSnapshot = async (): Promise<void> => {
   loading.value = true
   try {
-    snapshot.value = await getModerationDictionarySnapshot()
+    const [dictionarySnapshot, runtimeStatus] = await Promise.all([
+      getModerationDictionarySnapshot(),
+      getModerationRuntimeStatus()
+    ])
+    snapshot.value = dictionarySnapshot
+    runtime.value = runtimeStatus
   } catch (error) {
     showErrorToast(error, '词库 metadata 加载失败')
   } finally {
@@ -237,6 +282,54 @@ const reloadSnapshot = async (): Promise<void> => {
     showErrorToast(error, '词库 reload 失败')
   } finally {
     reloading.value = false
+  }
+}
+
+const rollbackSnapshot = async (): Promise<void> => {
+  rollingBack.value = true
+  try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    const result = await rollbackModerationDictionaries({ mfaProofToken })
+    snapshot.value = result
+    runtime.value = await getModerationRuntimeStatus()
+    toast.success(`词库已回滚 ${result.snapshotId}`)
+  } catch (error) {
+    showErrorToast(error, '词库 rollback 失败')
+  } finally {
+    rollingBack.value = false
+  }
+}
+
+const resolveDictionaryConfirmPhrase = async (item: ModerationDictionaryRuntimeItem, enabled: boolean): Promise<string | null> => {
+  if (enabled || !item.dictionaryId.startsWith('cn-mainland.')) {
+    return null
+  }
+
+  return await promptText(`输入 ${MainlandChangeConfirmPhrase}`, 'CN-MAINLAND 词库确认', {
+    confirmButtonText: '确认',
+    cancelButtonText: '取消',
+    inputPlaceholder: MainlandChangeConfirmPhrase,
+    inputValidator: (value: string) => value.trim() === MainlandChangeConfirmPhrase || '确认短语不匹配'
+  })
+}
+
+const setDictionaryEnabled = async (item: ModerationDictionaryRuntimeItem, enabled: boolean): Promise<void> => {
+  runtimeActionId.value = item.dictionaryId
+  try {
+    const confirmPhrase = await resolveDictionaryConfirmPhrase(item, enabled)
+    if (!enabled && item.dictionaryId.startsWith('cn-mainland.') && confirmPhrase !== MainlandChangeConfirmPhrase) {
+      return
+    }
+
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    runtime.value = enabled
+      ? await enableModerationDictionary(item.dictionaryId, { reason: 'dictionary_runtime_enable' }, { mfaProofToken })
+      : await disableModerationDictionary(item.dictionaryId, { reason: 'dictionary_runtime_disable', confirmPhrase }, { mfaProofToken })
+    toast.success(`${item.dictionaryId} ${enabled ? '已启用' : '已禁用'}`)
+  } catch (error) {
+    showErrorToast(error, enabled ? '词库启用失败' : '词库禁用失败')
+  } finally {
+    runtimeActionId.value = null
   }
 }
 

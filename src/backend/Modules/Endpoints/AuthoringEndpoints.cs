@@ -1,5 +1,6 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
@@ -162,11 +163,83 @@ public static class AuthoringEndpoints
         group.MapGet("/moderation/dictionaries", (IModerationDictionaryService dictionaryService) =>
             Results.Ok(JsonApiResponse<ModerationDictionaryRuntimeSnapshot>.Ok(dictionaryService.GetRuntimeSnapshot())));
 
+        group.MapGet("/moderation/runtime/status", (IModerationRuntimeStateService runtimeState) =>
+            Results.Ok(JsonApiResponse<ModerationRuntimeStatusResponse>.Ok(ToModerationRuntimeStatusResponse(runtimeState.Current))));
+
+        group.MapPost("/moderation/runtime/global-state", async (
+            ModerationRuntimeGlobalStateRequest request,
+            HttpContext context,
+            IMfaChallengeService mfaChallengeService,
+            IModerationRuntimeStateService runtimeState,
+            IAuditEventService auditEvents,
+            ICacheInvalidationDispatcher cacheInvalidation,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            Result<ModerationRuntimeSnapshot> result = runtimeState.SetGlobalState(
+                request.State,
+                request.Reason,
+                request.ExpiresAtUtc,
+                context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return await CompleteModerationRuntimeMutationAsync(
+                result,
+                auditEvents,
+                cacheInvalidation,
+                "admin.moderation.runtime_global_state_changed",
+                "管理员调整评论审核全局运行状态",
+                "moderation_runtime",
+                result.IsSuccess ? result.Value!.SnapshotId : "global",
+                request.Reason ?? request.State,
+                cancellationToken);
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/moderation/runtime/region-state", async (
+            ModerationRuntimeRegionStateRequest request,
+            HttpContext context,
+            IMfaChallengeService mfaChallengeService,
+            IModerationRuntimeStateService runtimeState,
+            IAuditEventService auditEvents,
+            ICacheInvalidationDispatcher cacheInvalidation,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            Result<ModerationRuntimeSnapshot> result = runtimeState.SetRegionState(
+                request.Region,
+                request.State,
+                request.Reason,
+                request.ExpiresAtUtc,
+                request.ConfirmPhrase,
+                context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return await CompleteModerationRuntimeMutationAsync(
+                result,
+                auditEvents,
+                cacheInvalidation,
+                "admin.moderation.runtime_region_state_changed",
+                "管理员调整评论审核地区运行状态",
+                "moderation_region_runtime",
+                request.Region,
+                request.Reason ?? request.State,
+                cancellationToken);
+        })
+        .RequireRateLimiting("fixed_ip");
+
         group.MapPost("/moderation/dictionaries/reload", async (
             HttpContext context,
             IMfaChallengeService mfaChallengeService,
             IModerationDictionaryService dictionaryService,
             IAuditEventService auditEvents,
+            ICacheInvalidationDispatcher cacheInvalidation,
             CancellationToken cancellationToken) =>
         {
             IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
@@ -202,11 +275,133 @@ public static class AuthoringEndpoints
                     ["error"] = response.Error
                 }), cancellationToken);
 
+            if (result.IsSuccess)
+            {
+                await cacheInvalidation.InvalidateCommentMutationAsync(null, cancellationToken);
+            }
+
             return result.IsSuccess
                 ? Results.Ok(JsonApiResponse<ModerationDictionaryReloadResponse>.Ok(response))
                 : Results.Json(
                     JsonApiResponse<ModerationDictionaryReloadResponse>.Fail("moderation_dictionary_reload_failed"),
                     statusCode: StatusCodes.Status500InternalServerError);
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/moderation/dictionaries/rollback", async (
+            HttpContext context,
+            IMfaChallengeService mfaChallengeService,
+            IModerationDictionaryService dictionaryService,
+            IAuditEventService auditEvents,
+            ICacheInvalidationDispatcher cacheInvalidation,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            Result result = dictionaryService.Rollback();
+            ModerationDictionaryRuntimeSnapshot snapshot = dictionaryService.GetRuntimeSnapshot();
+            await auditEvents.RecordHighValueAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Security,
+                "admin.moderation.dictionary_rolled_back",
+                result.IsSuccess ? AuditOutcomeCatalog.Success : AuditOutcomeCatalog.Failure,
+                result.IsSuccess ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Error,
+                "管理员回滚审核词库快照",
+                TargetType: "moderation_dictionary_snapshot",
+                TargetId: snapshot.SnapshotId,
+                ReasonCode: result.IsSuccess ? "dictionary_rollback" : result.Error.Message,
+                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["snapshotId"] = snapshot.SnapshotId,
+                    ["checksum"] = snapshot.Checksum,
+                    ["dictionaryCount"] = snapshot.Dictionaries.Count,
+                    ["regionPolicyCount"] = snapshot.RegionPolicies.Count,
+                    ["error"] = result.IsSuccess ? null : result.Error.Message
+                }), cancellationToken);
+
+            if (result.IsSuccess)
+            {
+                await cacheInvalidation.InvalidateCommentMutationAsync(null, cancellationToken);
+                return Results.Ok(JsonApiResponse<ModerationDictionaryRuntimeSnapshot>.Ok(snapshot));
+            }
+
+            return Results.Json(
+                JsonApiResponse<ModerationDictionaryRuntimeSnapshot>.Fail(result.Error.Message),
+                statusCode: ToHttpStatusCode(result.Error.Code));
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/moderation/dictionaries/{dictionaryId}/enable", async (
+            string dictionaryId,
+            ModerationDictionaryStateRequest request,
+            HttpContext context,
+            IMfaChallengeService mfaChallengeService,
+            IModerationRuntimeStateService runtimeState,
+            IAuditEventService auditEvents,
+            ICacheInvalidationDispatcher cacheInvalidation,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            Result<ModerationRuntimeSnapshot> result = runtimeState.SetDictionaryState(
+                dictionaryId,
+                enabled: true,
+                request.Reason,
+                request.ConfirmPhrase,
+                context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return await CompleteModerationRuntimeMutationAsync(
+                result,
+                auditEvents,
+                cacheInvalidation,
+                "admin.moderation.dictionary_enabled",
+                "管理员启用审核词库",
+                "moderation_dictionary",
+                dictionaryId,
+                request.Reason ?? "dictionary_enable",
+                cancellationToken);
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/moderation/dictionaries/{dictionaryId}/disable", async (
+            string dictionaryId,
+            ModerationDictionaryStateRequest request,
+            HttpContext context,
+            IMfaChallengeService mfaChallengeService,
+            IModerationRuntimeStateService runtimeState,
+            IAuditEventService auditEvents,
+            ICacheInvalidationDispatcher cacheInvalidation,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            Result<ModerationRuntimeSnapshot> result = runtimeState.SetDictionaryState(
+                dictionaryId,
+                enabled: false,
+                request.Reason,
+                request.ConfirmPhrase,
+                context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return await CompleteModerationRuntimeMutationAsync(
+                result,
+                auditEvents,
+                cacheInvalidation,
+                "admin.moderation.dictionary_disabled",
+                "管理员禁用审核词库",
+                "moderation_dictionary",
+                dictionaryId,
+                request.Reason ?? "dictionary_disable",
+                cancellationToken);
         })
         .RequireRateLimiting("fixed_ip");
 
@@ -226,9 +421,11 @@ public static class AuthoringEndpoints
 
         group.MapGet("/moderation/model/status", async (
             IConfiguration configuration,
+            IModerationRuntimeStateService runtimeState,
             ISqlSugarClient db,
             CancellationToken cancellationToken) =>
         {
+            ModerationModelRuntimeSnapshot runtimeModel = runtimeState.CurrentModel;
             List<DateTime> lastSuccess = await db.Queryable<CommentModerationSignal>()
                 .Where(static signal => signal.Status == "ok")
                 .OrderBy(static signal => signal.CreatedAtUtc, OrderByType.Desc)
@@ -252,14 +449,14 @@ public static class AuthoringEndpoints
                 .ToListAsync(cancellationToken);
 
             var response = new ModerationModelStatusResponse(
-                configuration.GetValue<bool>("Moderation:AntiSpamModel:Enabled"),
-                NormalizeModerationProvider(configuration["Moderation:AntiSpamModel:Provider"]),
+                runtimeState.IsModelEnabled,
+                NormalizeModerationProvider(runtimeModel.Provider),
                 configuration["Moderation:AntiSpamModel:Mode"] ?? "score-only",
-                configuration["Moderation:AntiSpamModel:ContractVersion"] ?? AntiSpamModerationContract.DefaultVersion,
-                Math.Clamp(configuration.GetValue<int?>("Moderation:AntiSpamModel:TimeoutMs") ?? 800, 100, 10_000),
-                configuration.GetValue<bool?>("Moderation:AntiSpamModel:FailOpen") ?? true,
-                configuration.GetValue<bool>("Moderation:AntiSpamModel:AllowExternalProvider"),
-                configuration.GetValue<bool>("Moderation:AntiSpamModel:ExternalProviderReviewed"),
+                runtimeModel.ContractVersion,
+                runtimeModel.TimeoutMs,
+                runtimeModel.FailOpen,
+                runtimeModel.ExternalProviderAllowed,
+                runtimeModel.ExternalProviderReviewed,
                 lastSuccess.Count > 0 ? lastSuccess[0] : null,
                 lastError.Count > 0 ? lastError[0].ErrorCode : null,
                 lastError.Count > 0 ? lastError[0].CreatedAtUtc : null,
@@ -267,6 +464,94 @@ public static class AuthoringEndpoints
                 ResolveP95Latency(latencies));
             return Results.Ok(JsonApiResponse<ModerationModelStatusResponse>.Ok(response));
         });
+
+        group.MapPost("/moderation/model/runtime", async (
+            ModerationModelRuntimeRequest request,
+            HttpContext context,
+            IMfaChallengeService mfaChallengeService,
+            IModerationRuntimeStateService runtimeState,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            Result<ModerationRuntimeSnapshot> result = runtimeState.SetModelRuntime(
+                request.Enabled,
+                request.Provider,
+                request.ModelProfile,
+                request.ThresholdProfile,
+                request.Reason,
+                context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return await CompleteModerationRuntimeMutationAsync(
+                result,
+                auditEvents,
+                null,
+                "admin.moderation.model_runtime_changed",
+                "管理员调整反垃圾模型运行状态",
+                "moderation_model_runtime",
+                result.IsSuccess ? result.Value!.Model.SnapshotId : "model",
+                request.Reason ?? request.Provider ?? "model_runtime",
+                cancellationToken);
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/moderation/model/reload", async (
+            HttpContext context,
+            IMfaChallengeService mfaChallengeService,
+            IModerationRuntimeStateService runtimeState,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            Result<ModerationRuntimeSnapshot> result = runtimeState.ReloadModel(context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return await CompleteModerationRuntimeMutationAsync(
+                result,
+                auditEvents,
+                null,
+                "admin.moderation.model_reloaded",
+                "管理员重载反垃圾模型运行快照",
+                "moderation_model_runtime",
+                result.IsSuccess ? result.Value!.Model.SnapshotId : "model",
+                "model_reload",
+                cancellationToken);
+        })
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/moderation/model/rollback", async (
+            HttpContext context,
+            IMfaChallengeService mfaChallengeService,
+            IModerationRuntimeStateService runtimeState,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            Result<ModerationRuntimeSnapshot> result = runtimeState.RollbackModel(context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return await CompleteModerationRuntimeMutationAsync(
+                result,
+                auditEvents,
+                null,
+                "admin.moderation.model_rolled_back",
+                "管理员回滚反垃圾模型运行快照",
+                "moderation_model_runtime",
+                result.IsSuccess ? result.Value!.Model.SnapshotId : "model",
+                "model_rollback",
+                cancellationToken);
+        })
+        .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/moderation/replay/preview", async (
             ModerationReplayPreviewRequest request,
@@ -717,6 +1002,100 @@ public static class AuthoringEndpoints
 
         return app;
     }
+
+    private static async Task<IResult> CompleteModerationRuntimeMutationAsync(
+        Result<ModerationRuntimeSnapshot> result,
+        IAuditEventService auditEvents,
+        ICacheInvalidationDispatcher? cacheInvalidation,
+        string action,
+        string eventInfo,
+        string targetType,
+        string targetId,
+        string? reasonCode,
+        CancellationToken cancellationToken)
+    {
+        await auditEvents.RecordHighValueAsync(new AuditEvent(
+            AuditSourceCatalog.Admin,
+            AuditTypeCatalog.Security,
+            action,
+            result.IsSuccess ? AuditOutcomeCatalog.Success : AuditOutcomeCatalog.Failure,
+            result.IsSuccess ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Error,
+            eventInfo,
+            TargetType: targetType,
+            TargetId: targetId,
+            ReasonCode: result.IsSuccess ? reasonCode : result.Error.Message,
+            Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["targetType"] = targetType,
+                ["targetId"] = targetId,
+                ["reason"] = reasonCode,
+                ["errorCode"] = result.IsSuccess ? null : result.Error.Code.ToString(),
+                ["error"] = result.IsSuccess ? null : result.Error.Message,
+                ["snapshotId"] = result.IsSuccess ? result.Value!.SnapshotId : null,
+                ["globalState"] = result.IsSuccess ? result.Value!.GlobalState : null,
+                ["regionStateCount"] = result.IsSuccess ? result.Value!.RegionStates.Count : null,
+                ["disabledDictionaryCount"] = result.IsSuccess ? result.Value!.DisabledDictionaryIds.Count : null,
+                ["modelProvider"] = result.IsSuccess ? result.Value!.Model.Provider : null,
+                ["modelEnabled"] = result.IsSuccess ? result.Value!.Model.Enabled : null
+            }), cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return Results.Json(
+                JsonApiResponse<ModerationRuntimeStatusResponse>.Fail(result.Error.Message),
+                statusCode: ToHttpStatusCode(result.Error.Code));
+        }
+
+        if (cacheInvalidation is not null)
+        {
+            await cacheInvalidation.InvalidateCommentMutationAsync(null, cancellationToken);
+        }
+
+        return Results.Ok(JsonApiResponse<ModerationRuntimeStatusResponse>.Ok(ToModerationRuntimeStatusResponse(result.Value!)));
+    }
+
+    private static ModerationRuntimeStatusResponse ToModerationRuntimeStatusResponse(ModerationRuntimeSnapshot snapshot)
+        => new(
+            snapshot.SnapshotId,
+            snapshot.GlobalState,
+            new Dictionary<string, string>(snapshot.RegionStates, StringComparer.Ordinal),
+            snapshot.DisabledDictionaryIds.OrderBy(static item => item, StringComparer.Ordinal).ToArray(),
+            ToModerationModelRuntimeResponse(snapshot.Model),
+            snapshot.ChangedAtUtc,
+            snapshot.ChangedBy,
+            snapshot.Reason,
+            snapshot.ExpiresAtUtc,
+            snapshot.LastError);
+
+    private static ModerationModelRuntimeResponse ToModerationModelRuntimeResponse(ModerationModelRuntimeSnapshot model)
+        => new(
+            model.SnapshotId,
+            model.Enabled,
+            model.Provider,
+            model.ModelProfile,
+            model.ThresholdProfile,
+            model.ContractVersion,
+            model.ConfigChecksum,
+            model.LoadedAtUtc,
+            model.LoadedBy,
+            model.Status,
+            model.TimeoutMs,
+            model.FailOpen,
+            model.ExternalProviderAllowed,
+            model.ExternalProviderReviewed,
+            model.LastError);
+
+    private static int ToHttpStatusCode(ErrorCode code)
+        => code switch
+        {
+            ErrorCode.Validation => StatusCodes.Status400BadRequest,
+            ErrorCode.Unauthorized => StatusCodes.Status401Unauthorized,
+            ErrorCode.Forbidden => StatusCodes.Status403Forbidden,
+            ErrorCode.NotFound => StatusCodes.Status404NotFound,
+            ErrorCode.Conflict => StatusCodes.Status409Conflict,
+            ErrorCode.InfraFailure => StatusCodes.Status500InternalServerError,
+            _ => StatusCodes.Status500InternalServerError
+        };
 
     private static AuditLogQueryRequest BuildAuditLogQuery(
         int? page,

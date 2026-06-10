@@ -16,7 +16,8 @@ public sealed class AntiSpamModerationService(
     IConfiguration configuration,
     IHttpClientFactory httpClientFactory,
     AuditLogChannel auditLogChannel,
-    ILogger<AntiSpamModerationService> logger) : IAntiSpamModerationService
+    ILogger<AntiSpamModerationService> logger,
+    IModerationRuntimeStateService? runtimeState = null) : IAntiSpamModerationService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -71,33 +72,35 @@ public sealed class AntiSpamModerationService(
 
     public async Task ScoreCommentAsync(AntiSpamCommentModerationContext context, CancellationToken cancellationToken = default)
     {
-        if (!configuration.GetValue<bool>("Moderation:AntiSpamModel:Enabled"))
+        ModerationModelRuntimeSnapshot? runtimeModel = runtimeState?.CurrentModel;
+        bool enabled = runtimeState?.IsModelEnabled ?? configuration.GetValue<bool>("Moderation:AntiSpamModel:Enabled");
+        if (!enabled)
         {
             return;
         }
 
-        string provider = NormalizeProvider(configuration["Moderation:AntiSpamModel:Provider"]);
+        string provider = NormalizeProvider(runtimeModel?.Provider ?? configuration["Moderation:AntiSpamModel:Provider"]);
         if (provider == AntiSpamModerationProviders.None)
         {
             return;
         }
 
-        int timeoutMs = Math.Clamp(configuration.GetValue<int?>("Moderation:AntiSpamModel:TimeoutMs") ?? 800, 100, 10_000);
+        int timeoutMs = Math.Clamp(runtimeModel?.TimeoutMs ?? configuration.GetValue<int?>("Moderation:AntiSpamModel:TimeoutMs") ?? 800, 100, 10_000);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromMilliseconds(timeoutMs));
         AntiSpamModerationResult result;
         try
         {
-            result = await ScoreWithProviderAsync(provider, context, timeout.Token).ConfigureAwait(false);
+            result = await ScoreWithProviderAsync(provider, context, runtimeModel, timeout.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            result = BuildUnavailableResult(provider, "model_timeout", AntiSpamModerationStatuses.Timeout, TimeSpan.FromMilliseconds(timeoutMs));
+            result = BuildUnavailableResult(provider, "model_timeout", AntiSpamModerationStatuses.Timeout, TimeSpan.FromMilliseconds(timeoutMs), runtimeModel);
         }
-        catch (Exception ex) when (configuration.GetValue<bool?>("Moderation:AntiSpamModel:FailOpen") ?? true)
+        catch (Exception ex) when (runtimeModel?.FailOpen ?? configuration.GetValue<bool?>("Moderation:AntiSpamModel:FailOpen") ?? true)
         {
             logger.LogWarning(ex, "anti-spam moderation provider failed open | Provider: {Provider} | CommentId: {CommentId}", provider, context.CommentId);
-            result = BuildUnavailableResult(provider, "model_provider_error", AntiSpamModerationStatuses.Error, TimeSpan.Zero);
+            result = BuildUnavailableResult(provider, "model_provider_error", AntiSpamModerationStatuses.Error, TimeSpan.Zero, runtimeModel);
         }
 
         try
@@ -114,19 +117,20 @@ public sealed class AntiSpamModerationService(
     private async Task<AntiSpamModerationResult> ScoreWithProviderAsync(
         string provider,
         AntiSpamCommentModerationContext context,
+        ModerationModelRuntimeSnapshot? runtimeModel,
         CancellationToken cancellationToken)
     {
-        AntiSpamModerationRequest request = BuildRequest(context);
+        AntiSpamModerationRequest request = BuildRequest(context, runtimeModel);
         return provider switch
         {
             AntiSpamModerationProviders.Mock => ScoreMock(request),
-            AntiSpamModerationProviders.HttpJson => await ScoreHttpJsonAsync(request, cancellationToken).ConfigureAwait(false),
-            AntiSpamModerationProviders.FsusCli => BuildUnavailableResult(provider, "fsus_cli_provider_not_configured", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero),
-            _ => BuildUnavailableResult(provider, "model_provider_unknown", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero)
+            AntiSpamModerationProviders.HttpJson => await ScoreHttpJsonAsync(request, runtimeModel, cancellationToken).ConfigureAwait(false),
+            AntiSpamModerationProviders.FsusCli => BuildUnavailableResult(provider, "fsus_cli_provider_not_configured", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero, runtimeModel),
+            _ => BuildUnavailableResult(provider, "model_provider_unknown", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero, runtimeModel)
         };
     }
 
-    private AntiSpamModerationRequest BuildRequest(AntiSpamCommentModerationContext context)
+    private AntiSpamModerationRequest BuildRequest(AntiSpamCommentModerationContext context, ModerationModelRuntimeSnapshot? runtimeModel)
     {
         int maxChars = Math.Clamp(configuration.GetValue<int?>("Moderation:AntiSpamModel:MaxContentChars") ?? 2_000, 1, 20_000);
         string content = context.Content.Length <= maxChars ? context.Content : context.Content[..maxChars];
@@ -142,7 +146,7 @@ public sealed class AntiSpamModerationService(
             null,
             context.SubmittedAtUtc,
             context.RegionHint,
-            configuration["Moderation:AntiSpamModel:ThresholdProfile"],
+            runtimeModel?.ThresholdProfile ?? configuration["Moderation:AntiSpamModel:ThresholdProfile"],
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["source"] = "fsusblog",
@@ -186,24 +190,28 @@ public sealed class AntiSpamModerationService(
             });
     }
 
-    private async Task<AntiSpamModerationResult> ScoreHttpJsonAsync(AntiSpamModerationRequest request, CancellationToken cancellationToken)
+    private async Task<AntiSpamModerationResult> ScoreHttpJsonAsync(
+        AntiSpamModerationRequest request,
+        ModerationModelRuntimeSnapshot? runtimeModel,
+        CancellationToken cancellationToken)
     {
-        bool allowExternal = configuration.GetValue<bool>("Moderation:AntiSpamModel:AllowExternalProvider");
-        bool reviewed = configuration.GetValue<bool>("Moderation:AntiSpamModel:ExternalProviderReviewed");
+        bool allowExternal = runtimeModel?.ExternalProviderAllowed ?? configuration.GetValue<bool>("Moderation:AntiSpamModel:AllowExternalProvider");
+        bool reviewed = runtimeModel?.ExternalProviderReviewed ?? configuration.GetValue<bool>("Moderation:AntiSpamModel:ExternalProviderReviewed");
         if (!allowExternal || !reviewed)
         {
-            return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, "external_provider_not_reviewed", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero);
+            return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, "external_provider_not_reviewed", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero, runtimeModel);
         }
 
         string? endpoint = configuration["Moderation:AntiSpamModel:Providers:http-json:Endpoint"];
         if (string.IsNullOrWhiteSpace(endpoint))
         {
-            return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, "http_endpoint_missing", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero);
+            return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, "http_endpoint_missing", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero, runtimeModel);
         }
 
+        string contractVersion = ResolveContractVersion(runtimeModel);
         var payload = new
         {
-            contract_version = ResolveContractVersion(),
+            contract_version = contractVersion,
             request_id = request.RequestId,
             content_type = request.ContentType,
             text = request.Content,
@@ -220,17 +228,17 @@ public sealed class AntiSpamModerationService(
         stopwatch.Stop();
         if (!response.IsSuccessStatusCode)
         {
-            return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, $"http_{(int)response.StatusCode}", AntiSpamModerationStatuses.Unavailable, stopwatch.Elapsed);
+            return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, $"http_{(int)response.StatusCode}", AntiSpamModerationStatuses.Unavailable, stopwatch.Elapsed, runtimeModel);
         }
 
         try
         {
-            return ValidateProviderResultJson(json, ResolveContractVersion(), AntiSpamModerationProviders.HttpJson, stopwatch.Elapsed);
+            return ValidateProviderResultJson(json, contractVersion, AntiSpamModerationProviders.HttpJson, stopwatch.Elapsed);
         }
         catch (InvalidOperationException ex)
         {
             logger.LogWarning(ex, "anti-spam provider contract invalid");
-            return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, "provider_contract_invalid", AntiSpamModerationStatuses.ContractInvalid, stopwatch.Elapsed);
+            return BuildUnavailableResult(AntiSpamModerationProviders.HttpJson, "provider_contract_invalid", AntiSpamModerationStatuses.ContractInvalid, stopwatch.Elapsed, runtimeModel);
         }
     }
 
@@ -371,12 +379,17 @@ public sealed class AntiSpamModerationService(
             ContextJson: context));
     }
 
-    private AntiSpamModerationResult BuildUnavailableResult(string provider, string errorCode, string status, TimeSpan latency)
+    private AntiSpamModerationResult BuildUnavailableResult(
+        string provider,
+        string errorCode,
+        string status,
+        TimeSpan latency,
+        ModerationModelRuntimeSnapshot? runtimeModel = null)
         => new(
             false,
             provider,
             "unavailable",
-            ResolveContractVersion(),
+            ResolveContractVersion(runtimeModel),
             "suspicious",
             0d,
             "medium",
@@ -388,11 +401,13 @@ public sealed class AntiSpamModerationService(
             latency,
             status,
             errorCode,
-            configuration["Moderation:AntiSpamModel:ThresholdProfile"],
+            runtimeModel?.ThresholdProfile ?? configuration["Moderation:AntiSpamModel:ThresholdProfile"],
             new Dictionary<string, string>(StringComparer.Ordinal));
 
-    private string ResolveContractVersion()
-        => configuration["Moderation:AntiSpamModel:ContractVersion"] ?? AntiSpamModerationContract.DefaultVersion;
+    private string ResolveContractVersion(ModerationModelRuntimeSnapshot? runtimeModel = null)
+        => runtimeModel?.ContractVersion
+            ?? configuration["Moderation:AntiSpamModel:ContractVersion"]
+            ?? AntiSpamModerationContract.DefaultVersion;
 
     private static string NormalizeProvider(string? provider)
         => (provider ?? AntiSpamModerationProviders.None).Trim().ToLowerInvariant() switch
@@ -401,7 +416,7 @@ public sealed class AntiSpamModerationService(
             "mock" => AntiSpamModerationProviders.Mock,
             "http" or "http-json" => AntiSpamModerationProviders.HttpJson,
             "cli" or "fsus-cli" or "cli-json" => AntiSpamModerationProviders.FsusCli,
-            "none" => AntiSpamModerationProviders.None,
+            "none" or "disabled" => AntiSpamModerationProviders.None,
             var value => value
         };
 

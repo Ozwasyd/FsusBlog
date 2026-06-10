@@ -225,6 +225,58 @@ public sealed record class ModerationDictionaryReloadResponse(
     string? Error,
     DateTime ReloadedAtUtc);
 
+public sealed record class ModerationModelRuntimeResponse(
+    string SnapshotId,
+    bool Enabled,
+    string Provider,
+    string ModelProfile,
+    string ThresholdProfile,
+    string ContractVersion,
+    string ConfigChecksum,
+    DateTime LoadedAtUtc,
+    string LoadedBy,
+    string Status,
+    int TimeoutMs,
+    bool FailOpen,
+    bool ExternalProviderAllowed,
+    bool ExternalProviderReviewed,
+    string? LastError);
+
+public sealed record class ModerationRuntimeStatusResponse(
+    string SnapshotId,
+    string GlobalState,
+    IReadOnlyDictionary<string, string> RegionStates,
+    IReadOnlyList<string> DisabledDictionaryIds,
+    ModerationModelRuntimeResponse Model,
+    DateTime ChangedAtUtc,
+    string ChangedBy,
+    string? Reason,
+    DateTime? ExpiresAtUtc,
+    string? LastError);
+
+public sealed record class ModerationRuntimeGlobalStateRequest(
+    string State,
+    string? Reason = null,
+    DateTime? ExpiresAtUtc = null);
+
+public sealed record class ModerationRuntimeRegionStateRequest(
+    string Region,
+    string State,
+    string? Reason = null,
+    DateTime? ExpiresAtUtc = null,
+    string? ConfirmPhrase = null);
+
+public sealed record class ModerationDictionaryStateRequest(
+    string? Reason = null,
+    string? ConfirmPhrase = null);
+
+public sealed record class ModerationModelRuntimeRequest(
+    bool? Enabled = null,
+    string? Provider = null,
+    string? ModelProfile = null,
+    string? ThresholdProfile = null,
+    string? Reason = null);
+
 public sealed record class ModerationReplayPreviewRequest(
     string? Region,
     string? PolicyVersion,

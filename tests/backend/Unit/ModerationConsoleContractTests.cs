@@ -10,13 +10,25 @@ public sealed class ModerationConsoleContractTests
         Assert.Contains("MapGet(\"/moderation/overview\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/moderation/dictionaries\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/moderation/dictionaries/reload\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/moderation/dictionaries/rollback\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/moderation/dictionaries/{dictionaryId}/enable\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/moderation/dictionaries/{dictionaryId}/disable\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/moderation/policies\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/moderation/replay/preview\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/moderation/runtime/status\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/moderation/runtime/global-state\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/moderation/runtime/region-state\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/moderation/model/status\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/moderation/model/runtime\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/moderation/model/reload\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/moderation/model/rollback\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("RequireAdminSensitiveStepUpAsync(context, mfaChallengeService)", endpoints, StringComparison.Ordinal);
         Assert.Contains("RecordHighValueAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("admin.moderation.dictionary_reloaded", endpoints, StringComparison.Ordinal);
         Assert.Contains("admin.moderation.replay_previewed", endpoints, StringComparison.Ordinal);
+        Assert.Contains("admin.moderation.runtime_region_state_changed", endpoints, StringComparison.Ordinal);
+        Assert.Contains("admin.moderation.model_runtime_changed", endpoints, StringComparison.Ordinal);
+        Assert.Contains("cacheInvalidation.InvalidateCommentMutationAsync(null, cancellationToken)", endpoints, StringComparison.Ordinal);
     }
 
     [Fact]

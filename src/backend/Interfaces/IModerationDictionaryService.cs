@@ -12,4 +12,5 @@ public interface IModerationDictionaryService
     IReadOnlyList<ModerationDictionaryTerm> GetGlobalHardFilterTerms();
     ModerationDictionaryRuntimeSnapshot GetRuntimeSnapshot();
     Result Reload();
+    Result Rollback();
 }
