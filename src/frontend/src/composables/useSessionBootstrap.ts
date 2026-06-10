@@ -28,6 +28,11 @@ export function useSessionBootstrap() {
     appShellStore.syncAuthPhase()
   }
 
+  const ensureUserInfoFresh = async (options?: { maxAgeMs?: number; forceWhenUnknown?: boolean }): Promise<void> => {
+    await userStore.ensureUserInfoFresh(options)
+    appShellStore.syncAuthPhase()
+  }
+
   const syncDocumentTitle = (routeOrTitle?: RouteLocationNormalizedLoaded | string | null): string => {
     const pageTitle = typeof routeOrTitle === 'string'
       ? routeOrTitle
@@ -51,6 +56,7 @@ export function useSessionBootstrap() {
     ensureBootstrap,
     ensureSiteInfo,
     ensureUserInfo,
+    ensureUserInfoFresh,
     syncDocumentTitle,
     syncAuthPhase: appShellStore.syncAuthPhase,
     setRuntimePhase: appShellStore.setRuntimePhase,

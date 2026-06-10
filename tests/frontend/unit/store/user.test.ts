@@ -97,6 +97,7 @@ describe('useUserStore', () => {
     await store.fetchUserInfo()
     expect(store.userInfo).toEqual(mockUser)
     expect(store.isAuthChecked).toBe(true)
+    expect(store.lastFetchedAt).toBeGreaterThan(0)
   })
 
   it('fetchUserInfo sets checked on 401 error', async () => {
@@ -107,6 +108,7 @@ describe('useUserStore', () => {
     await store.fetchUserInfo()
     expect(store.userInfo).toBeNull()
     expect(store.isAuthChecked).toBe(true)
+    expect(store.lastFetchedAt).toBeGreaterThan(0)
   })
 
   it('fetchUserInfo does nothing if already checked', async () => {
@@ -125,6 +127,42 @@ describe('useUserStore', () => {
     store.userInfo = null
 
     await store.fetchUserInfo()
+
+    expect(mockGetMe).toHaveBeenCalledTimes(1)
+    expect(store.userInfo).toEqual(mockUser)
+  })
+
+  it('ensureUserInfoFresh reuses recent user info', async () => {
+    const store = useUserStore()
+    store.setUserInfo({ id: 1, username: 'admin', role: 'admin', status: 0, banReason: null } as never)
+
+    await store.ensureUserInfoFresh({ maxAgeMs: 30_000 })
+
+    expect(mockGetMe).not.toHaveBeenCalled()
+  })
+
+  it('ensureUserInfoFresh refreshes stale user info', async () => {
+    const mockUser = { id: 2, username: 'admin', role: 'admin', status: 0, banReason: null }
+    mockGetMe.mockResolvedValueOnce(mockUser as never)
+    const store = useUserStore()
+    store.setUserInfo({ id: 1, username: 'old', role: 'admin', status: 0, banReason: null } as never)
+    store.lastFetchedAt = Date.now() - 31_000
+
+    await store.ensureUserInfoFresh({ maxAgeMs: 30_000 })
+
+    expect(mockGetMe).toHaveBeenCalledTimes(1)
+    expect(store.userInfo).toEqual(mockUser)
+  })
+
+  it('ensureUserInfoFresh fetches when only auth marker is known', async () => {
+    const mockUser = { id: 3, username: 'fresh', role: 'user', status: 0, banReason: null }
+    mockGetMe.mockResolvedValueOnce(mockUser as never)
+    const store = useUserStore()
+    store.isAuthChecked = true
+    store.userInfo = null
+    store.lastFetchedAt = 0
+
+    await store.ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })
 
     expect(mockGetMe).toHaveBeenCalledTimes(1)
     expect(store.userInfo).toEqual(mockUser)

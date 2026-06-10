@@ -13,7 +13,11 @@ import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
 import { PUBLIC_BLOG_CHILD_ROUTES } from '@/public-renderers/publicRouteRegistry'
 
 type ProgressModule = typeof import('nprogress')
+const PROGRESS_DELAY_MS = 120
 let progressModulePromise: Promise<ProgressModule> | null = null
+let progressTimer: ReturnType<typeof window.setTimeout> | undefined
+let progressVisible = false
+let progressRequestId = 0
 
 function loadProgressBar(): Promise<ProgressModule> {
   if (!progressModulePromise) {
@@ -27,6 +31,44 @@ function loadProgressBar(): Promise<ProgressModule> {
   }
 
   return progressModulePromise
+}
+
+function scheduleProgressForSlowNavigation(): void {
+  if (typeof window === 'undefined') return
+
+  const requestId = ++progressRequestId
+  if (progressTimer) {
+    window.clearTimeout(progressTimer)
+  }
+
+  progressTimer = window.setTimeout(() => {
+    progressTimer = undefined
+    void loadProgressBar().then((progress) => {
+      if (requestId !== progressRequestId) {
+        return
+      }
+
+      progressVisible = true
+      progress.start()
+    })
+  }, PROGRESS_DELAY_MS)
+}
+
+function finishProgressNavigation(): void {
+  if (typeof window === 'undefined') return
+
+  progressRequestId++
+  if (progressTimer) {
+    window.clearTimeout(progressTimer)
+    progressTimer = undefined
+  }
+
+  if (progressVisible && progressModulePromise) {
+    progressVisible = false
+    void progressModulePromise.then((progress) => {
+      progress.done()
+    })
+  }
 }
 
 const routes: RouteRecordRaw[] = [
@@ -123,12 +165,6 @@ function prefersReducedMotion(): boolean {
 
 function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): void {
   router.beforeEach(async (to) => {
-    if (!options.ssr) {
-      void loadProgressBar().then((progress) => {
-        progress.start()
-      })
-    }
-
     const sessionBootstrap = useSessionBootstrap()
     const { userStore, siteStore } = sessionBootstrap
     const appRoot = typeof document !== 'undefined' ? document.getElementById('app') : null
@@ -136,6 +172,10 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       !options.ssr
       && isPublicSeoRouteName(to.name)
       && hasServerAotShell(appRoot)
+
+    if (!options.ssr && !shouldDeferPublicBootstrap) {
+      scheduleProgressForSlowNavigation()
+    }
 
     if (!options.ssr && !shouldDeferPublicBootstrap && sessionBootstrap.needsBootstrap()) {
       await sessionBootstrap.ensureBootstrap()
@@ -146,7 +186,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     }
 
     if (!options.ssr && (to.path.startsWith('/user/manage') || Boolean(to.meta.roles))) {
-      await userStore.fetchUserInfo(true)
+      await userStore.ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })
     }
 
     const { isLoggedIn, isAdmin, userInfo } = userStore
@@ -185,9 +225,11 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
   }
 
   router.afterEach(() => {
-    void loadProgressBar().then((progress) => {
-      progress.done()
-    })
+    finishProgressNavigation()
+  })
+
+  router.onError(() => {
+    finishProgressNavigation()
   })
 }
 

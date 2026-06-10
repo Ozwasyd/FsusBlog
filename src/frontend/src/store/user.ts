@@ -40,6 +40,7 @@ export const useUserStore = defineStore('user', () => {
     const isAuthChecked = ref(false)
     const isLoading = ref(false)
     const isLoggingOut = ref(false)
+    const lastFetchedAt = ref(0)
 
     let fetchPromise: Promise<void> | null = null
     let abortController: AbortController | null = null
@@ -65,6 +66,7 @@ export const useUserStore = defineStore('user', () => {
         userInfo.value = null
         isAuthChecked.value = false
         isLoading.value = false
+        lastFetchedAt.value = 0
         fetchPromise = null
 
         sseStore.dispose()
@@ -85,6 +87,7 @@ export const useUserStore = defineStore('user', () => {
         }
         userInfo.value = info
         isAuthChecked.value = true
+        lastFetchedAt.value = Date.now()
     }
 
     const fetchUserInfo = async (force = false) => {
@@ -108,6 +111,7 @@ export const useUserStore = defineStore('user', () => {
                 if (currentController === abortController) {
                     userInfo.value = res
                     isAuthChecked.value = true
+                    lastFetchedAt.value = Date.now()
                 }
             } catch (error: unknown) {
                 if (isAbortError(error)) return;
@@ -115,6 +119,7 @@ export const useUserStore = defineStore('user', () => {
                 if (isAuthFailureError(error)) {
                     userInfo.value = null;
                     isAuthChecked.value = true; // 标记握手完成，身份确认：游客
+                    lastFetchedAt.value = Date.now()
                 } else {
                     const info = getKnownErrorInfo(error, 'auth_handshake_failed')
                     console.error('[UserStore] Auth handshake failed:', info.message);
@@ -130,6 +135,25 @@ export const useUserStore = defineStore('user', () => {
         })()
 
         return fetchPromise
+    }
+
+    const ensureUserInfoFresh = async (options?: { maxAgeMs?: number; forceWhenUnknown?: boolean }) => {
+        const maxAgeMs = options?.maxAgeMs ?? 30_000
+        const forceWhenUnknown = options?.forceWhenUnknown ?? true
+
+        if (!isAuthChecked.value) {
+            return fetchUserInfo(false)
+        }
+
+        if (lastFetchedAt.value <= 0) {
+            return fetchUserInfo(forceWhenUnknown)
+        }
+
+        if (Date.now() - lastFetchedAt.value <= maxAgeMs) {
+            return
+        }
+
+        return fetchUserInfo(true)
     }
 
     const logout = async () => {
@@ -163,12 +187,14 @@ export const useUserStore = defineStore('user', () => {
         userInfo,
         isLoading,
         isAuthChecked,
+        lastFetchedAt,
         isLoggedIn,
         isAdmin,
         isBanned,
         isDeleted,
         setUserInfo,
         fetchUserInfo,
+        ensureUserInfoFresh,
         logout,
         updateStatus
     }
