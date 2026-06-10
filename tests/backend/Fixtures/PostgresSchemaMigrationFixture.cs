@@ -12,6 +12,7 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         _containerName = $"fsus-schema-migration-{Guid.NewGuid():N}";
+        string postgresImage = Environment.GetEnvironmentVariable("FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE") ?? "postgres:18-alpine";
 
         string containerId = await RunDockerAsync(
             "run",
@@ -22,7 +23,7 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
             "-e", "POSTGRES_PASSWORD=postgres",
             "-e", "POSTGRES_DB=postgres",
             "-p", "127.0.0.1::5432",
-            "postgres:16-alpine").ConfigureAwait(false);
+            postgresImage).ConfigureAwait(false);
 
         if (string.IsNullOrWhiteSpace(containerId))
         {
@@ -88,6 +89,70 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
         return (T)Convert.ChangeType(value!, typeof(T))!;
     }
 
+    public async Task RestoreCustomDumpAsync(string connectionString, string dumpPath)
+    {
+        var builder = new NpgsqlConnectionStringBuilder(connectionString);
+        string host = builder.Host ?? "127.0.0.1";
+        string password = builder.Password ?? "postgres";
+        string username = builder.Username ?? "postgres";
+        string database = builder.Database ?? throw new InvalidOperationException("Connection string database is required for dump restore.");
+        var environment = new Dictionary<string, string?>
+        {
+            ["PGPASSWORD"] = password
+        };
+
+        string[] args =
+        [
+            "--clean",
+            "--if-exists",
+            "--no-owner",
+            "--no-privileges",
+            "-h", host,
+            "-p", builder.Port.ToString(),
+            "-U", username,
+            "-d", database,
+            dumpPath
+        ];
+
+        try
+        {
+            await RunProcessAsync("pg_restore", args, throwOnNonZeroExitCode: true, environment).ConfigureAwait(false);
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            await RestoreCustomDumpInsidePostgresContainerAsync(dumpPath, username, password, database).ConfigureAwait(false);
+        }
+    }
+
+    private async Task RestoreCustomDumpInsidePostgresContainerAsync(
+        string dumpPath,
+        string username,
+        string password,
+        string database)
+    {
+        if (string.IsNullOrWhiteSpace(_containerName))
+        {
+            throw new InvalidOperationException("PostgreSQL container is not initialized and local pg_restore is unavailable.");
+        }
+
+        const string containerDumpPath = "/tmp/fsus-legacy-20260517.pgcustom";
+        await RunDockerAsync("cp", dumpPath, $"{_containerName}:{containerDumpPath}").ConfigureAwait(false);
+        await RunDockerAsync(
+            "exec",
+            "-e", $"PGPASSWORD={password}",
+            _containerName,
+            "pg_restore",
+            "--clean",
+            "--if-exists",
+            "--no-owner",
+            "--no-privileges",
+            "-h", "127.0.0.1",
+            "-p", "5432",
+            "-U", username,
+            "-d", database,
+            containerDumpPath).ConfigureAwait(false);
+    }
+
     public async Task<bool> ColumnExistsAsync(string connectionString, string tableName, string columnName)
         => await QueryScalarAsync<int>(
             connectionString,
@@ -151,12 +216,16 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
     }
 
     private static Task<string> TryRunDockerAsync(params string[] args)
-        => RunProcessAsync("docker", args, throwOnNonZeroExitCode: false);
+        => RunProcessAsync("docker", args, throwOnNonZeroExitCode: false, environment: null);
 
     private static Task<string> RunDockerAsync(params string[] args)
-        => RunProcessAsync("docker", args, throwOnNonZeroExitCode: true);
+        => RunProcessAsync("docker", args, throwOnNonZeroExitCode: true, environment: null);
 
-    private static async Task<string> RunProcessAsync(string fileName, string[] args, bool throwOnNonZeroExitCode)
+    private static async Task<string> RunProcessAsync(
+        string fileName,
+        string[] args,
+        bool throwOnNonZeroExitCode,
+        IReadOnlyDictionary<string, string?>? environment)
     {
         using var process = new Process
         {
@@ -172,6 +241,17 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
         for (int i = 0; i < args.Length; i++)
         {
             process.StartInfo.ArgumentList.Add(args[i]);
+        }
+
+        if (environment is not null)
+        {
+            foreach ((string key, string? value) in environment)
+            {
+                if (value is not null)
+                {
+                    process.StartInfo.Environment[key] = value;
+                }
+            }
         }
 
         process.Start();

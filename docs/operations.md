@@ -165,6 +165,15 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore
 tools/operations/backup-restore-drill.sh
 ```
 
+Legacy PostgreSQL upgrades from the 2026-05-17 profile are documented in `docs/database-migration.md`. When a real legacy dump is available, run:
+
+```bash
+FSUS_LEGACY_20260517_DUMP_GZ=.tmp/db_blog_20260517000000fjyfe.sql.gz \
+  tools/db/verify-legacy-upgrade-20260517.sh
+```
+
+The verifier restores the dump into the schema migration integration test container, runs `SchemaMigrationRunner.RunAsync()` twice, and checks content, messaging, visit-log, refresh-token cleanup, length alignment and migration-history idempotency.
+
 `/user/manage/integrity` is the post-migration drift check for article bodies/revisions, taxonomy references, comment chains, sessions and assets. Do not mark a migration complete while it reports unresolved error-severity checks unless the release note documents the accepted manual repair.
 
 ## Supply Chain

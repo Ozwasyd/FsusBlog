@@ -11,6 +11,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
     [
         BuildUserSessionCompatPreMigration(),
         BuildCommentThreadCompatMigration(),
+        BuildLegacy20260517ProfileCompatibilityMigration(),
         BuildContentCompatMigration(),
         BuildCommentThreadIndexMigration(),
         BuildContentCleanupMigration(),
@@ -112,6 +113,155 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                             UPDATE comment
                             SET is_deleted = false
                             WHERE is_deleted IS NULL;
+                        END IF;
+                    END $$;
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildLegacy20260517ProfileCompatibilityMigration()
+        => new SchemaMigrationDescriptor(
+            "20260517-pre-legacy-profile-compat",
+            "Align the 20260517 legacy PostgreSQL profile before CodeFirst shrink/expand operations.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new RawSqlStep("""
+                    DO $$
+                    DECLARE
+                        affected_count bigint;
+                        observed_max integer;
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'article' AND column_name = 'title'
+                        ) THEN
+                            ALTER TABLE article ALTER COLUMN title TYPE varchar(256);
+                        END IF;
+
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'article' AND column_name = 'summary'
+                        ) THEN
+                            ALTER TABLE article ALTER COLUMN summary TYPE varchar(512);
+                        END IF;
+
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'username'
+                        ) THEN
+                            ALTER TABLE sys_user ALTER COLUMN username TYPE varchar(64);
+                        END IF;
+
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'sys_visit_log'
+                        ) THEN
+                            ALTER TABLE sys_visit_log ADD COLUMN IF NOT EXISTS event_type varchar(32);
+                            ALTER TABLE sys_visit_log ADD COLUMN IF NOT EXISTS route_key varchar(200) NULL;
+                            ALTER TABLE sys_visit_log ADD COLUMN IF NOT EXISTS article_id integer NULL;
+                            ALTER TABLE sys_visit_log ADD COLUMN IF NOT EXISTS viewer_key_hash varchar(64) NULL;
+                            ALTER TABLE sys_visit_log ADD COLUMN IF NOT EXISTS proof_id varchar(64) NULL;
+                            ALTER TABLE sys_visit_log ADD COLUMN IF NOT EXISTS dwell_ms integer;
+
+                            UPDATE sys_visit_log
+                            SET event_type = COALESCE(event_type, 'site_read'),
+                                dwell_ms = COALESCE(dwell_ms, 0);
+
+                            ALTER TABLE sys_visit_log ALTER COLUMN event_type SET DEFAULT 'site_read';
+                            ALTER TABLE sys_visit_log ALTER COLUMN event_type SET NOT NULL;
+                            ALTER TABLE sys_visit_log ALTER COLUMN dwell_ms SET DEFAULT 0;
+                            ALTER TABLE sys_visit_log ALTER COLUMN dwell_ms SET NOT NULL;
+                        END IF;
+
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'category' AND column_name = 'name'
+                        ) THEN
+                            SELECT COUNT(1), COALESCE(MAX(length(name)), 0)
+                            INTO affected_count, observed_max
+                            FROM category
+                            WHERE name IS NOT NULL AND length(name) > 128;
+
+                            IF affected_count > 0 THEN
+                                RAISE EXCEPTION 'Legacy 20260517 length check failed: table=category column=name row_count=% max_length=% expected_max=128',
+                                    affected_count,
+                                    observed_max;
+                            END IF;
+
+                            ALTER TABLE category ALTER COLUMN name TYPE varchar(128);
+                        END IF;
+
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'tag' AND column_name = 'name'
+                        ) THEN
+                            SELECT COUNT(1), COALESCE(MAX(length(name)), 0)
+                            INTO affected_count, observed_max
+                            FROM tag
+                            WHERE name IS NOT NULL AND length(name) > 128;
+
+                            IF affected_count > 0 THEN
+                                RAISE EXCEPTION 'Legacy 20260517 length check failed: table=tag column=name row_count=% max_length=% expected_max=128',
+                                    affected_count,
+                                    observed_max;
+                            END IF;
+
+                            ALTER TABLE tag ALTER COLUMN name TYPE varchar(128);
+                        END IF;
+
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'sys_systemconfig' AND column_name = 'key'
+                        ) THEN
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.tables
+                                WHERE table_schema = 'public' AND table_name = 'page_content'
+                            ) THEN
+                                INSERT INTO page_content(slug, content, updated_at)
+                                SELECT lower(replace(substr(key, 10), '_', '-')), value, now()
+                                FROM sys_systemconfig
+                                WHERE key LIKE 'sys:page:%'
+                                  AND NOT EXISTS (
+                                    SELECT 1 FROM page_content p
+                                    WHERE p.slug = lower(replace(substr(sys_systemconfig.key, 10), '_', '-'))
+                                  );
+
+                                DELETE FROM sys_systemconfig
+                                WHERE key LIKE 'Page_%'
+                                   OR key LIKE 'sys:page:%';
+                            END IF;
+
+                            SELECT COUNT(1), COALESCE(MAX(length(key)), 0)
+                            INTO affected_count, observed_max
+                            FROM sys_systemconfig
+                            WHERE key IS NOT NULL AND length(key) > 64;
+
+                            IF affected_count > 0 THEN
+                                RAISE EXCEPTION 'Legacy 20260517 length check failed: table=sys_systemconfig column=key row_count=% max_length=% expected_max=64',
+                                    affected_count,
+                                    observed_max;
+                            END IF;
+
+                            ALTER TABLE sys_systemconfig ALTER COLUMN key TYPE varchar(64);
+                        END IF;
+
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'sys_systemconfig' AND column_name = 'value'
+                        ) THEN
+                            SELECT COUNT(1), COALESCE(MAX(length(value)), 0)
+                            INTO affected_count, observed_max
+                            FROM sys_systemconfig
+                            WHERE value IS NOT NULL AND length(value) > 512;
+
+                            IF affected_count > 0 THEN
+                                RAISE EXCEPTION 'Legacy 20260517 length check failed: table=sys_systemconfig column=value row_count=% max_length=% expected_max=512',
+                                    affected_count,
+                                    observed_max;
+                            END IF;
+
+                            ALTER TABLE sys_systemconfig ALTER COLUMN value TYPE varchar(512);
                         END IF;
                     END $$;
                     """)

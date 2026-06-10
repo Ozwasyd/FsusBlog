@@ -28,6 +28,7 @@ public sealed class SchemaMigrationRegistryTests
 
         Assert.Contains("20260418-pre-user-session-compat", migrationIds);
         Assert.Contains("20260418-pre-comment-threading-compat", migrationIds);
+        Assert.Contains("20260517-pre-legacy-profile-compat", migrationIds);
         Assert.Contains("20260418-post-comment-threading-indexes", migrationIds);
         Assert.Contains("20260418-pre-content-compat", migrationIds);
         Assert.Contains("20260418-post-content-cleanup", migrationIds);
