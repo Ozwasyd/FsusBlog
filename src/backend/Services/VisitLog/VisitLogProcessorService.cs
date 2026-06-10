@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Diagnostics;
+using System.Net;
 using System.Threading.Channels;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -68,6 +69,7 @@ public class VisitLogProcessorService : BackgroundService
     private const int MaxIpLength = 64;
     private const string UnknownRegion = "Unknown";
     internal static readonly TimeSpan FlushWindow = TimeSpan.FromMilliseconds(200);
+    private static readonly long FlushWindowStopwatchTicks = Math.Max(1, (long)(FlushWindow.TotalSeconds * Stopwatch.Frequency));
 
     private readonly VisitLogChannel _channel;
     private readonly IServiceProvider _serviceProvider;
@@ -143,11 +145,18 @@ public class VisitLogProcessorService : BackgroundService
 
     private async Task DrainBatchWithFlushWindowAsync(List<VisitLogEntity> batch, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
+        long flushDeadline = 0;
         while (batch.Count < BatchSize)
         {
             while (batch.Count < BatchSize && _channel.Reader.TryRead(out var msg))
             {
+                bool wasEmpty = batch.Count == 0;
                 TryProcessSingleMessage(msg, batch);
+                if (wasEmpty && batch.Count > 0)
+                {
+                    flushDeadline = CreateFlushDeadline();
+                }
             }
 
             if (batch.Count >= BatchSize || batch.Count == 0)
@@ -155,20 +164,58 @@ public class VisitLogProcessorService : BackgroundService
                 return;
             }
 
-            using var flushCts = CancellationTokenSource.CreateLinkedTokenSource(token);
-            flushCts.CancelAfter(FlushWindow);
-            try
+            if (flushDeadline == 0)
             {
-                if (!await _channel.Reader.WaitToReadAsync(flushCts.Token))
+                flushDeadline = CreateFlushDeadline();
+            }
+
+            TimeSpan remaining = ResolveFlushWindowRemaining(flushDeadline);
+            if (remaining <= TimeSpan.Zero)
+            {
+                return;
+            }
+
+            ValueTask<bool> read = _channel.Reader.WaitToReadAsync(token);
+            if (read.IsCompletedSuccessfully)
+            {
+                if (!read.Result)
                 {
                     return;
                 }
+
+                continue;
             }
-            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+
+            Task<bool> readTask = read.AsTask();
+            Task delayTask = Task.Delay(remaining);
+            Task completed = await Task.WhenAny(readTask, delayTask).ConfigureAwait(false);
+            if (completed == delayTask)
+            {
+                return;
+            }
+
+            if (!await readTask.ConfigureAwait(false))
             {
                 return;
             }
         }
+    }
+
+    private static long CreateFlushDeadline()
+        => Stopwatch.GetTimestamp() + FlushWindowStopwatchTicks;
+
+    private static TimeSpan ResolveFlushWindowRemaining(long flushDeadline)
+    {
+        long remainingStopwatchTicks = flushDeadline - Stopwatch.GetTimestamp();
+        if (remainingStopwatchTicks <= 0)
+        {
+            return TimeSpan.Zero;
+        }
+
+        long remainingTimeSpanTicks = Math.Max(
+            1,
+            remainingStopwatchTicks * TimeSpan.TicksPerSecond / Stopwatch.Frequency);
+        return TimeSpan.FromTicks(remainingTimeSpanTicks);
     }
 
     private void TryProcessSingleMessage(VisitLogMessage msg, List<VisitLogEntity> batch)
