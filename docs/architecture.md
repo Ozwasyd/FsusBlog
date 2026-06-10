@@ -160,7 +160,7 @@ IPublicAotRouteRegistry
 Client
   → AEDS Binary（Accept: application/octet-stream）
     → Kestrel → 公开读 artifact fast path（article detail *.aeds）
-      → 命中 → 直接搬运预编码 AEDS frame → 返回 application/octet-stream
+      → 命中 → 直接搬运预编码 raw/br/gzip AEDS frame variant → 返回 application/octet-stream
       → 未命中 → singleflight 排队后台 rebuild → 503/stale/SPA fallback，不在请求内同步打 PostgreSQL
     → 其他公开列表/聚合 → L1 readonly raw cache
       → 命中 → AedsBinaryWriter 写 header + payload，避免 L1 hit 的 byte[] 防御性复制
@@ -217,15 +217,15 @@ FsusBlog 运行时 API 只维护 AEDS binary 链：
 **失败逻辑**：Wasm Worker 解码失败时，客户端可切到 TypeScript binary decoder 或展示协议错误；不得重发文本 API 请求。
 
 **v2 写出与缓存路径**：
-- 帧头固定 16 字节，服务端通过 `Response.BodyWriter` 分段写出 header + payload，避免构造完整 frame 副本。
+- 帧头固定 16 字节，动态响应通过 `AedsFrameBufferWriter` 预留 header 并在同一 pooled buffer 中写 payload，`Seal()` 后回填 header/CRC，避免先构造 payload 再复制到完整 frame。
 - `/api/binary/**` 在完成 Accept 与 binary request content-type 校验后直接进入 endpoint 写出链路，不再被 API binary response middleware 捕获到临时缓冲。
 - 非 binary `/api/**` 请求只有在客户端显式接受 binary envelope 时才进入捕获/转换路径；普通 JSON 成功响应和真人阅读 proof 写入请求不再被无差别缓冲。
 - 非上传 binary 请求使用 pooled frame buffer 读取，默认最大 frame 为 8 MiB；解码后的 payload 以 buffer slice 传递给端点，buffer 生命周期挂到 response completion，不再为 payload 额外 `ToArray()`。
 - 上传分片继续走 raw stream，端点用 request body backed `IFormFile` 交给文件服务，不再把整个分片读入 `MemoryStream` 后克隆成数组。
 - PostgreSQL/ORM entity/command service 是 write model；Public AOT HTML、article detail `.aeds`、search index、list/category/tag/hot snapshot 是 artifact-backed read model；L1/L2/OutputCache 只是加速层，不能作为 CQRS read model 的替代。
-- 公开热点 GET（article list、hot articles、category、tag、detail、公开 HTML）优先由 `PublicHotReadFastPath` 在 `UseFsusApplicationPipeline` 之前命中不可变快照并写出完整预编码 bytes；hit 路径不访问 PostgreSQL、Redis、`IMemoryCache`、OutputCache、文件系统、OpenTelemetry span 或 AEDS encoder。DB fallback 只允许在后台 projector、修复任务或 `/api/binary/admin/article/**` 管理端路径发生。快照状态（`NotStarted` / `Building` / `Ready` / `Failed`）通过 readiness 暴露；未 Ready 时 L0 路径返回 `503` + `Retry-After`，写入链路不等待完整重建。HTML artifact 的 `routeKey` 会先映射为 URL-safe `pathKey`，`/api/binary/article/html/{pathKey}.html` 只作为诊断/预览命中路径，不计入真实公开页 QPS。
+- 公开热点 GET（article list、hot articles、category、tag、detail、公开 HTML）优先由 `PublicHotReadFastPath` 在 `UseFsusApplicationPipeline` 之前命中不可变快照并写出完整预编码 bytes；binary artifact 在构建阶段生成 raw/br/gzip variant，请求时按 `Accept-Encoding` 选择，并支持 variant-aware `ETag` / `If-None-Match` / `304`。hit 路径不访问 PostgreSQL、Redis、`IMemoryCache`、OutputCache、文件系统、OpenTelemetry span 或 AEDS encoder。DB fallback 只允许在后台 projector、修复任务或 `/api/binary/admin/article/**` 管理端路径发生。快照状态（`NotStarted` / `Building` / `Ready` / `Failed`）通过 readiness 暴露；未 Ready 时 L0 路径返回 `503` + `Retry-After`，写入链路不等待完整重建。HTML artifact 的 `routeKey` 会先映射为 URL-safe `pathKey`，`/api/binary/article/html/{pathKey}.html` 只作为诊断/预览命中路径，不计入真实公开页 QPS。
 - 浏览计数不在读取链路产生，而由独立真人阅读 proof 事件更新。
-- compact payload 使用共享 UTF-8 blob + 固定数值记录，减少列表、分类、标签和 stats 的包体。
+- compact payload 使用共享 UTF-8 blob + 固定数值记录，作为当前兼容的 payload 字典化落点，减少列表、分类、标签、conversation 和 stats 的重复文本包体。
 - SSE notification payload 写出优先走已知契约的 typed writer；只有新增且尚未登记的 payload 才允许进入反射兜底。
 - 管理端 stats 对外收敛为 `AdminStatsQueryDto` / `AdminStats` 聚合 query model。`/api/binary/stats` 同帧携带 overview、recent comments 与 regions，dashboard 首屏从单次请求派生视图区块；recent/region 窄端点仅作为兼容入口。
 - 前端 4 KiB 及以下 payload 默认主线程 TypeScript decode，大 payload 交给 Worker / Wasm decode。

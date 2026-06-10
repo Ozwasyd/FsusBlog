@@ -23,6 +23,14 @@ This file keeps the historical path for existing links, but the current wire pro
 - CRC16 uses polynomial `0xA001` with initial value `0xffff`.
 - v2 does not include a header CRC. Header integrity is validated by magic, version, header length, frame type, payload length, and transport framing.
 
+## Flags Registry
+
+- `0x0000`: current production value for request and response frames.
+- `0x0001`: reserved for a possible response-only `NoPayloadCrc` flag. It is not active; request frames with any non-zero flags are rejected.
+- `0x0002`: reserved for possible protocol-level payload compression on non-HTTP transports. HTTP hot-read uses `Content-Encoding: br|gzip` around the complete AEDS frame instead, so payload bytes and CRC semantics stay unchanged after browser fetch decompression.
+
+Any non-zero flag must first be added to `aeds-protocol.json`, the negative contract matrix, TypeScript/Worker/Wasm decoders, and this document before production use.
+
 ## FrameType Mapping
 
 - `1`: ArticleList
@@ -155,6 +163,12 @@ This file keeps the historical path for existing links, but the current wire pro
 - `PageContent` payload: `PageContentPod` followed by blob payload for markdown content.
 - `ArticleFeatured` payload: `int32 count` followed by `FeaturedArticlePod + blob` items; the blob contains the cover image URL slice.
 - `TrashClearResponse` payload: `TrashClearResponsePod` (`int32 Count`).
+
+## Payload Dictionary Compatibility
+
+The current compatible dictionary mechanism is the shared UTF-8 blob plus `Utf8SliceRef` records. Article list/search/category/tag/conversation payloads reuse one blob per payload and keep records fixed-width for cache-friendly decode. Frontend ArticlePage decode materializes final items directly from typed arrays and copies tag ranges with a tight loop instead of `records.map(...)` plus `tagRecords.slice(...)`.
+
+A future `ArticleListV4` category/tag dictionary may add explicit category/tag dictionaries, but it must be introduced as a registered payload version with golden fixtures and downgrade/negative matrix coverage. It must not silently reinterpret the existing unflagged `ArticleList` record layout.
 
 ### Notification Binary Value
 

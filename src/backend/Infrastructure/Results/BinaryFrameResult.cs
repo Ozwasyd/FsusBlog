@@ -1,13 +1,12 @@
 using System.Buffers;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
-using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Binary;
+using Microsoft.Extensions.Primitives;
 
 namespace FsusBlog.Server.Infrastructure.Results;
 
 public sealed class BinaryFrameResult(
-    IAedsEncoder encoder,
     AedsFrameType frameType,
     Action<IBufferWriter<byte>> writePayload,
     int? statusCode = null) : IResult
@@ -15,7 +14,6 @@ public sealed class BinaryFrameResult(
     private static readonly byte[] EmptySuccessPayload = PodBinaryCodec.EncodeEmptySuccess();
     private static readonly ReadOnlyMemory<byte> EmptySuccessFrame =
         new AedsEncoder().Encode(AedsFrameType.EmptySuccess, EmptySuccessPayload);
-    private readonly IAedsEncoder _encoder = encoder;
     private readonly AedsFrameType _frameType = frameType;
     private readonly Action<IBufferWriter<byte>> _writePayload = writePayload;
     private readonly int? _statusCode = statusCode;
@@ -30,11 +28,12 @@ public sealed class BinaryFrameResult(
             return;
         }
 
-        using var payloadWriter = new PooledByteBufferWriter(1024);
-        _writePayload(payloadWriter);
+        using var frameWriter = new AedsFrameBufferWriter(1024);
+        _writePayload(frameWriter.PayloadWriter);
+        frameWriter.Seal(_frameType);
 
-        envelopePolicy.ApplyFrameResponse(httpContext.Response, payloadWriter.WrittenCount, _statusCode);
-        _encoder.WriteFrame(_frameType, payloadWriter.WrittenSpan, httpContext.Response.BodyWriter);
+        envelopePolicy.ApplyFrameResponse(httpContext.Response, frameWriter.PayloadLength, _statusCode);
+        await httpContext.Response.BodyWriter.WriteAsync(frameWriter.WrittenFrame, httpContext.RequestAborted);
         await httpContext.Response.BodyWriter.FlushAsync(httpContext.RequestAborted);
     }
 
@@ -65,10 +64,21 @@ public sealed class BinaryFramePayloadResult(
         => httpContext.RequestServices?.GetService<IBinaryEnvelopePolicy>() ?? new BinaryEnvelopePolicy();
 }
 
-public sealed class BinaryPreencodedFrameResult(ReadOnlyMemory<byte> frame, int? statusCode = null) : IResult
+public sealed record BinaryFrameResponseMetadata(
+    string? ETag = null,
+    string? CacheControl = null,
+    string? ContentEncoding = null,
+    bool AcceptRangesNone = true,
+    bool VaryAcceptEncoding = false);
+
+public sealed class BinaryPreencodedFrameResult(
+    ReadOnlyMemory<byte> frame,
+    int? statusCode = null,
+    BinaryFrameResponseMetadata? metadata = null) : IResult
 {
     private readonly ReadOnlyMemory<byte> _frame = frame;
     private readonly int? _statusCode = statusCode;
+    private readonly BinaryFrameResponseMetadata? _metadata = metadata;
 
     public async Task ExecuteAsync(HttpContext httpContext)
     {
@@ -79,7 +89,85 @@ public sealed class BinaryPreencodedFrameResult(ReadOnlyMemory<byte> frame, int?
         }
 
         httpContext.Response.Headers["X-Fsus-Frame-Version"] = AedsFrameHeader.CurrentVersion.ToString();
+        ApplyMetadata(httpContext.Response, _metadata);
+        if (MatchesIfNoneMatch(httpContext.Request.Headers.IfNoneMatch, _metadata?.ETag))
+        {
+            httpContext.Response.StatusCode = StatusCodes.Status304NotModified;
+            httpContext.Response.ContentLength = 0;
+            return;
+        }
+
         httpContext.Response.ContentLength = _frame.Length;
+        if (HttpMethods.IsHead(httpContext.Request.Method))
+        {
+            return;
+        }
+
         await httpContext.Response.BodyWriter.WriteAsync(_frame, httpContext.RequestAborted);
+    }
+
+    private static void ApplyMetadata(HttpResponse response, BinaryFrameResponseMetadata? metadata)
+    {
+        if (metadata is null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.ETag))
+        {
+            response.Headers.ETag = metadata.ETag;
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.CacheControl))
+        {
+            response.Headers.CacheControl = metadata.CacheControl;
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.ContentEncoding))
+        {
+            response.Headers.ContentEncoding = metadata.ContentEncoding;
+        }
+
+        if (metadata.AcceptRangesNone)
+        {
+            response.Headers.AcceptRanges = "none";
+        }
+
+        if (metadata.VaryAcceptEncoding)
+        {
+            response.Headers.Vary = "Accept-Encoding";
+        }
+    }
+
+    private static bool MatchesIfNoneMatch(StringValues values, string? etag)
+    {
+        if (string.IsNullOrWhiteSpace(etag) || values.Count == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < values.Count; i++)
+        {
+            ReadOnlySpan<char> header = (values[i] ?? string.Empty).AsSpan();
+            while (true)
+            {
+                int comma = header.IndexOf(',');
+                ReadOnlySpan<char> candidate = (comma >= 0 ? header[..comma] : header).Trim();
+                if (candidate.Equals("*", StringComparison.Ordinal)
+                    || candidate.Equals(etag.AsSpan(), StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                if (comma < 0)
+                {
+                    break;
+                }
+
+                header = header[(comma + 1)..];
+            }
+        }
+
+        return false;
     }
 }

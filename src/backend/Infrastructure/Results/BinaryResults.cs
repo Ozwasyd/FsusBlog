@@ -45,12 +45,15 @@ public static class BinaryResults
     public static BinaryPreencodedFrameResult PreencodedFrame(ReadOnlyMemory<byte> frame)
         => new(frame);
 
+    public static BinaryPreencodedFrameResult PreencodedFrame(ReadOnlyMemory<byte> frame, BinaryFrameResponseMetadata metadata)
+        => new(frame, metadata: metadata);
+
     public static BinaryFrameResult Frame(
         IAedsEncoder aeds,
         AedsFrameType frameType,
         Action<IBufferWriter<byte>> writePayload)
     {
-        return new BinaryFrameResult(aeds, frameType, writePayload);
+        return new BinaryFrameResult(frameType, writePayload);
     }
 
     public static BinaryFrameResult Frame(
@@ -59,7 +62,7 @@ public static class BinaryResults
         Action<IBufferWriter<byte>> writePayload,
         int statusCode)
     {
-        return new BinaryFrameResult(aeds, frameType, writePayload, statusCode);
+        return new BinaryFrameResult(frameType, writePayload, statusCode);
     }
 
     public static int MapStatusCode(in ErrorDetail error)

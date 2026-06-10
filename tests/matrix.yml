@@ -650,6 +650,42 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: aeds-frame-cost
+    owner: ServerContractAgent
+    command: tools/test/lanes/aeds-frame-cost.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [aeds-single-buffer-copy-crc-cost]
+    artifacts: [.tmp/perf/aeds-frame-cost/summary.json, .tmp/release-evidence/aeds-frame-cost-summary.json]
+    evidence: [.tmp/perf/aeds-frame-cost/summary.json, .tmp/release-evidence/aeds-frame-cost-summary.json]
+    ciJob: perf-regression
+    localOnly: false
+    nightlyOnly: false
+
+  - id: aeds-compression-profile
+    owner: ServerContractAgent
+    command: tools/test/lanes/aeds-compression-profile.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [aeds-hot-read-precompression]
+    artifacts: [.tmp/perf/aeds-compression-profile/summary.json, .tmp/release-evidence/aeds-compression-profile-summary.json]
+    evidence: [.tmp/perf/aeds-compression-profile/summary.json, .tmp/release-evidence/aeds-compression-profile-summary.json]
+    ciJob: perf-regression
+    localOnly: false
+    nightlyOnly: false
+
   - id: endpoint-depth
     owner: ServerContractAgent
     command: tools/test/lanes/endpoint-depth.sh

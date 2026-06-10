@@ -88,6 +88,7 @@
     "check:dom-budget": "node ../../tests/frontend/checks/perf/check-dom-budget.mjs",
     "check:route-render-pressure": "node ../../tests/frontend/checks/perf/check-route-render-pressure.mjs",
     "check:markdown-render-budget": "node ../../tests/frontend/checks/perf/check-markdown-render-budget.mjs",
+    "check:aeds-decode-budget": "node ../../tests/frontend/checks/perf/check-aeds-decode-budget.mjs",
     "check:views-constraints": "node ../../tests/frontend/checks/static/check-views-constraints.mjs && npm run check:dom-depth-static && npm run check:fsusui-boundary",
     "check:public-aot-contracts": "node ../../tests/frontend/checks/public/check-public-aot-contracts.mjs",
     "check:aot": "npm run check:image-codec-wasm && npm run check:image-codec-wasm-runtime && npm run check:public-aot-contracts && node ../../tests/frontend/checks/public/aot-regression.mjs",

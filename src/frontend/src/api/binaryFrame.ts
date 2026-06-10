@@ -1,17 +1,45 @@
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
 
+const textEncoder = new TextEncoder()
+const crc16Table = createCrc16Table()
+
+export interface AedsEncodeCostMetrics {
+  frameBytes: number
+  payloadBytes: number
+  crcMs: number
+  totalMs: number
+  copiedPayloadBytes: number
+}
+
 export function encodeAedsFrame(frameType: FrameType, payload: Uint8Array): ArrayBuffer {
+  return encodeAedsFrameWithMetrics(frameType, payload).buffer
+}
+
+export function encodeAedsFrameWithMetrics(frameType: FrameType, payload: Uint8Array): { buffer: ArrayBuffer; metrics: AedsEncodeCostMetrics } {
+  const started = now()
   const frame = new Uint8Array(AEDS_HEADER_LENGTH + payload.byteLength)
   const view = new DataView(frame.buffer)
+  const crcStarted = now()
+  const crc = crc16(payload)
+  const crcMs = now() - crcStarted
   view.setUint32(0, AEDS_MAGIC, true)
   view.setUint8(4, AEDS_VERSION)
   view.setUint8(5, AEDS_HEADER_LENGTH)
   view.setUint16(6, 0, true)
   view.setUint16(8, frameType, true)
   view.setUint32(10, payload.byteLength, true)
-  view.setUint16(14, crc16(payload), true)
+  view.setUint16(14, crc, true)
   frame.set(payload, AEDS_HEADER_LENGTH)
-  return frame.buffer
+  return {
+    buffer: frame.buffer,
+    metrics: {
+      frameBytes: frame.byteLength,
+      payloadBytes: payload.byteLength,
+      crcMs,
+      totalMs: now() - started,
+      copiedPayloadBytes: payload.byteLength
+    }
+  }
 }
 
 export function encodeNameMutationRequest(name: string): Uint8Array {
@@ -21,7 +49,7 @@ export function encodeNameMutationRequest(name: string): Uint8Array {
 }
 
 export function encodeStringMutationRequest(value: string): Uint8Array {
-  const encoded = new TextEncoder().encode(value)
+  const encoded = textEncoder.encode(value)
   const bytes = new Uint8Array(8 + 4 + encoded.byteLength)
   const view = new DataView(bytes.buffer)
   view.setInt32(0, 0, true)
@@ -32,17 +60,30 @@ export function encodeStringMutationRequest(value: string): Uint8Array {
 }
 
 export function writeFixedUtf8(target: Uint8Array, offset: number, length: number, value: string): void {
-  const encoded = new TextEncoder().encode(value)
+  const encoded = textEncoder.encode(value)
   target.set(encoded.subarray(0, length), offset)
 }
 
-function crc16(bytes: Uint8Array): number {
+export function crc16(bytes: Uint8Array): number {
   let crc = 0xffff
   for (let i = 0; i < bytes.byteLength; i += 1) {
-    crc ^= bytes[i] ?? 0
+    crc = (crc >>> 8) ^ crc16Table[(crc ^ (bytes[i] ?? 0)) & 0xff]
+  }
+  return crc & 0xffff
+}
+
+function createCrc16Table(): Uint16Array {
+  const table = new Uint16Array(256)
+  for (let i = 0; i < table.length; i += 1) {
+    let crc = i
     for (let bit = 0; bit < 8; bit += 1) {
       crc = (crc & 1) !== 0 ? ((crc >>> 1) ^ 0xa001) : (crc >>> 1)
     }
+    table[i] = crc & 0xffff
   }
-  return crc & 0xffff
+  return table
+}
+
+function now(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now()
 }

@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Buffers.Binary;
 using System.Diagnostics.Metrics;
+using System.IO.Compression;
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -10,6 +11,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 
@@ -49,7 +51,16 @@ public readonly record struct PublicBinaryArtifact(
     string ETag,
     string CacheControl,
     long Version,
-    AedsFrameType FrameType);
+    AedsFrameType FrameType,
+    ReadOnlyMemory<byte> BrotliFrame = default,
+    string BrotliETag = "",
+    ReadOnlyMemory<byte> GzipFrame = default,
+    string GzipETag = "");
+
+public readonly record struct PublicBinaryArtifactVariant(
+    ReadOnlyMemory<byte> Frame,
+    string ETag,
+    string ContentEncoding);
 
 public readonly record struct PublicHtmlArtifact(
     ReadOnlyMemory<byte> Bytes,
@@ -78,6 +89,8 @@ public sealed class PublicHotReadOptions
     public int MaxPreloadSize { get; set; } = 100;
     public int MaxArticleFrames { get; set; } = 100_000;
     public int MaxFrameBytes { get; set; } = 2 * 1024 * 1024;
+    public bool EnablePrecompressedBinaryVariants { get; set; } = true;
+    public int MinPrecompressedFrameBytes { get; set; } = 256;
     public bool ValidateFramesOnPublish { get; set; } = true;
     public bool FailOpenWhenNotReady { get; set; }
     public bool EnableDiagnosticHeaders { get; set; }
@@ -677,6 +690,12 @@ public static class PublicHotReadFastPath
             response.Headers["ETag"] = html.ETag;
         }
         WriteDiagnosticHeaders(response, options, snapshot.Version, "html", routeKey);
+        if (MatchesIfNoneMatch(ctx.Request, html.ETag))
+        {
+            response.StatusCode = StatusCodes.Status304NotModified;
+            response.ContentLength = 0;
+            return Completed;
+        }
 
         if (HttpMethods.IsHead(ctx.Request.Method))
         {
@@ -694,28 +713,51 @@ public static class PublicHotReadFastPath
         string artifactKind,
         string artifactKey)
     {
-        ReadOnlyMemory<byte> frame = artifact.Frame;
+        if (!TrySelectBinaryVariant(ctx.Request, artifact, out PublicBinaryArtifactVariant variant))
+        {
+            return WriteStatus(ctx, StatusCodes.Status406NotAcceptable);
+        }
+
+        ReadOnlyMemory<byte> frame = variant.Frame;
         HttpResponse response = ctx.Response;
         response.StatusCode = StatusCodes.Status200OK;
         response.ContentType = BinaryContentType;
         response.ContentLength = frame.Length;
         response.Headers["X-Fsus-Frame-Version"] = AedsFrameHeader.CurrentVersion.ToString(System.Globalization.CultureInfo.InvariantCulture);
         response.Headers["X-Content-Type-Options"] = "nosniff";
+        response.Headers["Vary"] = "Accept-Encoding";
         response.Headers["Cache-Control"] = string.IsNullOrWhiteSpace(artifact.CacheControl)
             ? (string.IsNullOrWhiteSpace(options.CacheControl) ? "public,max-age=60" : options.CacheControl)
             : artifact.CacheControl;
         response.Headers["Accept-Ranges"] = "none";
-        if (!string.IsNullOrWhiteSpace(artifact.ETag))
+        if (!string.IsNullOrWhiteSpace(variant.ETag))
         {
-            response.Headers["ETag"] = artifact.ETag;
+            response.Headers["ETag"] = variant.ETag;
         }
         else
         {
             response.Headers.Remove("ETag");
         }
         response.Headers.Remove("Last-Modified");
-        response.Headers.Remove("Content-Encoding");
+        if (string.IsNullOrWhiteSpace(variant.ContentEncoding))
+        {
+            response.Headers.Remove("Content-Encoding");
+        }
+        else
+        {
+            response.Headers["Content-Encoding"] = variant.ContentEncoding;
+        }
+
+        response.Headers["X-Fsus-Frame-Encoding"] = string.IsNullOrWhiteSpace(variant.ContentEncoding)
+            ? "identity"
+            : variant.ContentEncoding;
         WriteDiagnosticHeaders(response, options, artifact.Version, artifactKind, artifactKey);
+        if (MatchesIfNoneMatch(ctx.Request, variant.ETag))
+        {
+            response.StatusCode = StatusCodes.Status304NotModified;
+            response.ContentLength = 0;
+            return Completed;
+        }
 
         if (HttpMethods.IsHead(ctx.Request.Method))
         {
@@ -724,6 +766,194 @@ public static class PublicHotReadFastPath
 
         ValueTask<FlushResult> write = response.BodyWriter.WriteAsync(frame, ctx.RequestAborted);
         return write.IsCompletedSuccessfully ? Completed : AwaitWrite(write);
+    }
+
+    private static bool TrySelectBinaryVariant(
+        HttpRequest request,
+        PublicBinaryArtifact artifact,
+        out PublicBinaryArtifactVariant variant)
+    {
+        BinaryEncodingQuality quality = ParseAcceptEncoding(request.Headers.AcceptEncoding);
+        double identity = quality.Identity;
+        double gzip = quality.Gzip;
+        double br = quality.Brotli;
+
+        variant = default;
+        double best = -1;
+        if (identity > 0 && !artifact.Frame.IsEmpty)
+        {
+            variant = new PublicBinaryArtifactVariant(artifact.Frame, artifact.ETag, string.Empty);
+            best = identity;
+        }
+
+        if (gzip > best && gzip > 0 && !artifact.GzipFrame.IsEmpty)
+        {
+            variant = new PublicBinaryArtifactVariant(artifact.GzipFrame, artifact.GzipETag, "gzip");
+            best = gzip;
+        }
+
+        if (br >= best && br > 0 && !artifact.BrotliFrame.IsEmpty)
+        {
+            variant = new PublicBinaryArtifactVariant(artifact.BrotliFrame, artifact.BrotliETag, "br");
+            best = br;
+        }
+
+        return best > 0 && !variant.Frame.IsEmpty;
+    }
+
+    private readonly record struct BinaryEncodingQuality(double Identity, double Gzip, double Brotli);
+
+    private static BinaryEncodingQuality ParseAcceptEncoding(StringValues values)
+    {
+        if (values.Count == 0)
+        {
+            return new BinaryEncodingQuality(1, 0, 0);
+        }
+
+        bool saw = false;
+        double identity = -1;
+        double gzip = -1;
+        double br = -1;
+        double wildcard = -1;
+        for (int i = 0; i < values.Count; i++)
+        {
+            ReadOnlySpan<char> header = (values[i] ?? string.Empty).AsSpan();
+            while (true)
+            {
+                int comma = header.IndexOf(',');
+                ReadOnlySpan<char> segment = comma >= 0 ? header[..comma] : header;
+                ReadEncodingSegment(segment, ref saw, ref identity, ref gzip, ref br, ref wildcard);
+                if (comma < 0)
+                {
+                    break;
+                }
+
+                header = header[(comma + 1)..];
+            }
+        }
+
+        if (!saw)
+        {
+            return new BinaryEncodingQuality(1, 0, 0);
+        }
+
+        if (identity < 0)
+        {
+            identity = wildcard >= 0 ? wildcard : 1;
+        }
+
+        if (gzip < 0)
+        {
+            gzip = wildcard >= 0 ? wildcard : 0;
+        }
+
+        if (br < 0)
+        {
+            br = wildcard >= 0 ? wildcard : 0;
+        }
+
+        return new BinaryEncodingQuality(identity, gzip, br);
+    }
+
+    private static void ReadEncodingSegment(
+        ReadOnlySpan<char> segment,
+        ref bool saw,
+        ref double identity,
+        ref double gzip,
+        ref double br,
+        ref double wildcard)
+    {
+        segment = segment.Trim();
+        if (segment.IsEmpty)
+        {
+            return;
+        }
+
+        saw = true;
+        int semicolon = segment.IndexOf(';');
+        ReadOnlySpan<char> name = (semicolon >= 0 ? segment[..semicolon] : segment).Trim();
+        double quality = semicolon >= 0 ? ParseQuality(segment[(semicolon + 1)..]) : 1;
+        if (name.Equals("identity", StringComparison.OrdinalIgnoreCase))
+        {
+            identity = quality;
+        }
+        else if (name.Equals("gzip", StringComparison.OrdinalIgnoreCase))
+        {
+            gzip = quality;
+        }
+        else if (name.Equals("br", StringComparison.OrdinalIgnoreCase))
+        {
+            br = quality;
+        }
+        else if (name.Equals("*", StringComparison.OrdinalIgnoreCase))
+        {
+            wildcard = quality;
+        }
+    }
+
+    private static double ParseQuality(ReadOnlySpan<char> parameters)
+    {
+        while (!parameters.IsEmpty)
+        {
+            int semicolon = parameters.IndexOf(';');
+            ReadOnlySpan<char> parameter = (semicolon >= 0 ? parameters[..semicolon] : parameters).Trim();
+            if (parameter.StartsWith("q=", StringComparison.OrdinalIgnoreCase)
+                && double.TryParse(
+                    parameter[2..],
+                    System.Globalization.NumberStyles.AllowDecimalPoint,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out double quality))
+            {
+                return Math.Clamp(quality, 0, 1);
+            }
+
+            if (semicolon < 0)
+            {
+                break;
+            }
+
+            parameters = parameters[(semicolon + 1)..];
+        }
+
+        return 1;
+    }
+
+    private static bool MatchesIfNoneMatch(HttpRequest request, string etag)
+    {
+        if (string.IsNullOrWhiteSpace(etag))
+        {
+            return false;
+        }
+
+        StringValues values = request.Headers.IfNoneMatch;
+        if (values.Count == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < values.Count; i++)
+        {
+            ReadOnlySpan<char> header = (values[i] ?? string.Empty).AsSpan();
+            while (true)
+            {
+                int comma = header.IndexOf(',');
+                ReadOnlySpan<char> candidate = (comma >= 0 ? header[..comma] : header).Trim();
+                if (candidate.Equals("*", StringComparison.Ordinal)
+                    || candidate.Equals(etag.AsSpan(), StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                if (comma < 0)
+                {
+                    break;
+                }
+
+                header = header[(comma + 1)..];
+            }
+        }
+
+        return false;
     }
 
     private static bool IsTaxonomyCollectionPath(string path)
@@ -1317,8 +1547,58 @@ internal static class PublicHotReadBinaryArtifactFactory
             throw new InvalidOperationException($"public hot-read frame validation failed: {frameType}");
         }
 
-        string etag = string.Concat("\"", Convert.ToHexString(SHA256.HashData(frame)).AsSpan(0, 16).ToString().ToLowerInvariant(), "\"");
-        return new PublicBinaryArtifact(frame, etag, cacheControl, version, frameType);
+        string etag = CreateEtag(frame);
+        ReadOnlyMemory<byte> brotliFrame = default;
+        string brotliEtag = string.Empty;
+        ReadOnlyMemory<byte> gzipFrame = default;
+        string gzipEtag = string.Empty;
+        if (options.EnablePrecompressedBinaryVariants && frame.Length >= options.MinPrecompressedFrameBytes)
+        {
+            byte[]? compressedBrotli = TryCompress(frame, "br");
+            if (compressedBrotli is { Length: > 0 })
+            {
+                brotliFrame = compressedBrotli;
+                brotliEtag = CreateEtag(compressedBrotli);
+            }
+
+            byte[]? compressedGzip = TryCompress(frame, "gzip");
+            if (compressedGzip is { Length: > 0 })
+            {
+                gzipFrame = compressedGzip;
+                gzipEtag = CreateEtag(compressedGzip);
+            }
+        }
+
+        return new PublicBinaryArtifact(frame, etag, cacheControl, version, frameType, brotliFrame, brotliEtag, gzipFrame, gzipEtag);
+    }
+
+    private static string CreateEtag(ReadOnlySpan<byte> bytes)
+        => string.Concat("\"", Convert.ToHexString(SHA256.HashData(bytes)).AsSpan(0, 16).ToString().ToLowerInvariant(), "\"");
+
+    private static byte[]? TryCompress(ReadOnlySpan<byte> frame, string encoding)
+    {
+        using var output = new MemoryStream();
+        if (encoding == "br")
+        {
+            using (var brotli = new BrotliStream(output, CompressionLevel.SmallestSize, leaveOpen: true))
+            {
+                brotli.Write(frame);
+            }
+        }
+        else
+        {
+            using (var gzip = new GZipStream(output, CompressionLevel.SmallestSize, leaveOpen: true))
+            {
+                gzip.Write(frame);
+            }
+        }
+
+        if (output.Length >= frame.Length)
+        {
+            return null;
+        }
+
+        return output.ToArray();
     }
 
     internal static bool LooksLikeExpectedAedsFrame(ReadOnlySpan<byte> frame, AedsFrameType expectedFrameType)

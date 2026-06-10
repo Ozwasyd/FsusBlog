@@ -87,6 +87,8 @@ Version: `fsusblog-test-matrix-v2`
 |---|---|---|---|---:|---:|---|
 | `ux-viewport-visual` | `ux-viewport-visual` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 45m | `.tmp/ux/viewport-visual.json`<br>`.tmp/ux/screenshots/visual`<br>`.tmp/release-evidence/ux-viewport-summary.json` |
 | `ux-viewport-boundaries` | `ux-viewport-boundaries` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 90m | `.tmp/ux/viewport-boundaries.json`<br>`.tmp/ux/screenshots/boundaries`<br>`.tmp/release-evidence/ux-viewport-summary.json` |
+| `aeds-frame-cost` | `perf-regression` | - | - | 1 | 10m | `.tmp/perf/aeds-frame-cost/summary.json`<br>`.tmp/release-evidence/aeds-frame-cost-summary.json` |
+| `aeds-compression-profile` | `perf-regression` | - | - | 1 | 10m | `.tmp/perf/aeds-compression-profile/summary.json`<br>`.tmp/release-evidence/aeds-compression-profile-summary.json` |
 | `load-baseline` | `load-smoke` | `bootstrap` | backend, redis, postgres | 1 | 20m | `.tmp/release-evidence/perf-summary.json` |
 | `load-peak` | `load-smoke` | `bootstrap` | backend, redis, postgres | 1 | 35m | `.tmp/release-evidence/perf-summary.json` |
 | `load-2x-peak` | `backend-nightly` | `bootstrap` | backend, redis, postgres | 1 | 45m | `.tmp/release-evidence/perf-summary.json` |

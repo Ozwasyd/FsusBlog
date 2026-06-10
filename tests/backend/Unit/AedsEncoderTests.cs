@@ -2,6 +2,8 @@ using System.Buffers;
 using System.Buffers.Binary;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Results;
+using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -276,6 +278,73 @@ public sealed class AedsEncoderTests
         _enc.WriteFrame(AedsFrameType.CommentArticleCursor, payload, writer);
 
         Assert.Equal(encoded, writer.WrittenMemory.ToArray());
+    }
+
+    [Fact]
+    public void FrameBufferWriter_SealsSameFrameAsEncode()
+    {
+        byte[] payload = [10, 20, 30, 40, 50];
+        byte[] encoded = _enc.Encode(AedsFrameType.ArticleDetail, payload);
+
+        using var writer = new AedsFrameBufferWriter(32);
+        writer.Write(payload);
+        writer.Seal(AedsFrameType.ArticleDetail);
+
+        Assert.Equal(payload.Length, writer.PayloadLength);
+        Assert.Equal(encoded, writer.WrittenFrame.ToArray());
+    }
+
+    [Fact]
+    public void FrameBufferWriter_ReservesHeaderBeforePayload()
+    {
+        byte[] payload = [1, 2, 3];
+
+        using var writer = new AedsFrameBufferWriter(17);
+        writer.PayloadWriter.GetSpan(payload.Length)[..payload.Length].Fill(0xFE);
+        writer.PayloadWriter.Write(payload);
+        writer.Seal(AedsFrameType.MutationId);
+
+        byte[] frame = writer.WrittenFrame.ToArray();
+        Assert.Equal(payload, frame.AsSpan(AedsFrameHeader.Size).ToArray());
+        Assert.Equal((uint)payload.Length, BinaryPrimitives.ReadUInt32LittleEndian(frame.AsSpan(10, 4)));
+    }
+
+    [Fact]
+    public void FrameBufferWriter_RejectsWritesAfterSeal()
+    {
+        using var writer = new AedsFrameBufferWriter();
+        writer.Write([1, 2, 3]);
+        writer.Seal(AedsFrameType.EmptySuccess);
+
+        Assert.Throws<InvalidOperationException>(() => writer.Write([4]));
+    }
+
+    [Fact]
+    public async Task PreencodedFrameResult_AppliesMetadataAndHonorsIfNoneMatch()
+    {
+        byte[] frame = _enc.Encode(AedsFrameType.ArticleDetail, [1, 2, 3]);
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+        context.Request.Headers.IfNoneMatch = "\"frame-etag\"";
+
+        var result = new BinaryPreencodedFrameResult(
+            frame,
+            metadata: new BinaryFrameResponseMetadata(
+                ETag: "\"frame-etag\"",
+                CacheControl: "public,max-age=60",
+                ContentEncoding: "br",
+                VaryAcceptEncoding: true));
+
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status304NotModified, context.Response.StatusCode);
+        Assert.Equal(0, context.Response.ContentLength);
+        Assert.Equal("\"frame-etag\"", context.Response.Headers.ETag);
+        Assert.Equal("public,max-age=60", context.Response.Headers.CacheControl);
+        Assert.Equal("br", context.Response.Headers.ContentEncoding);
+        Assert.Equal("Accept-Encoding", context.Response.Headers.Vary);
+        Assert.Equal("none", context.Response.Headers.AcceptRanges);
+        Assert.Empty(((MemoryStream)context.Response.Body).ToArray());
     }
 
     // ─── Round-trip via AedsDecoderValidator ─────────────────────────────

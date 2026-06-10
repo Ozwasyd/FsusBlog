@@ -70,6 +70,59 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
+    public async Task TryServeAsync_DetailHit_PrefersPrecompressedBrotliVariant()
+    {
+        var options = new PublicHotReadOptions { MinPrecompressedFrameBytes = 1 };
+        byte[] payload = Enumerable.Repeat((byte)'a', 2048).ToArray();
+        PublicBinaryArtifact artifact = PublicHotReadBinaryArtifactFactory.FromPayload(
+            new AedsEncoder(),
+            AedsFrameType.ArticleDetail,
+            payload,
+            "public,max-age=60",
+            1,
+            options);
+        Assert.False(artifact.BrotliFrame.IsEmpty);
+        var store = CreateReadyStoreWithArticle(42, artifact);
+        var context = CreateContext("/api/binary/article/42.aeds");
+        context.Request.Headers.AcceptEncoding = "gzip, br";
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            options,
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal("br", context.Response.Headers["Content-Encoding"]);
+        Assert.Equal("Accept-Encoding", context.Response.Headers.Vary);
+        Assert.Equal("br", context.Response.Headers["X-Fsus-Frame-Encoding"]);
+        Assert.Equal(artifact.BrotliETag, context.Response.Headers.ETag);
+        Assert.Equal(artifact.BrotliFrame.Length, context.Response.ContentLength);
+        Assert.Equal(artifact.BrotliFrame.ToArray(), ((MemoryStream)context.Response.Body).ToArray());
+    }
+
+    [Fact]
+    public async Task TryServeAsync_DetailHit_Returns304ForMatchingIfNoneMatch()
+    {
+        byte[] frame = CreateFrame(AedsFrameType.ArticleDetail);
+        var store = CreateReadyStoreWithArticle(42, frame);
+        var context = CreateContext("/api/binary/article/42.aeds");
+        context.Request.Headers.IfNoneMatch = "\"detail\"";
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status304NotModified, context.Response.StatusCode);
+        Assert.Equal("\"detail\"", context.Response.Headers.ETag);
+        Assert.Empty(((MemoryStream)context.Response.Body).ToArray());
+    }
+
+    [Fact]
     public async Task TryServeAsync_NotReadyPublicPath_Returns503WithRetryAfter()
     {
         var context = CreateContext("/api/binary/article/42.aeds");
@@ -638,11 +691,14 @@ public sealed class PublicHotReadFastPathTests
     }
 
     private static PublicHotReadStore CreateReadyStoreWithArticle(int articleId, byte[] frame)
+        => CreateReadyStoreWithArticle(articleId, new PublicBinaryArtifact(frame, "\"detail\"", "public,max-age=60", 1, AedsFrameType.ArticleDetail));
+
+    private static PublicHotReadStore CreateReadyStoreWithArticle(int articleId, PublicBinaryArtifact artifact)
     {
         var store = new PublicHotReadStore();
         var articles = new Dictionary<int, PublicBinaryArtifact>
         {
-            [articleId] = new(frame, "\"detail\"", "public,max-age=60", 1, AedsFrameType.ArticleDetail)
+            [articleId] = artifact
         }.ToFrozenDictionary();
         store.Publish(new PublicHotReadSnapshot(
             1,

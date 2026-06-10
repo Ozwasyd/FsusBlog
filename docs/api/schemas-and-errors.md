@@ -145,6 +145,12 @@ PayloadCrc16 = CRC16(payload_bytes)
 
 CRC16 使用 Modbus 多项式 `0xA001`，初始值 `0xffff`。v2 删除 header CRC；header 只做字段边界与版本校验。
 
+### Flags 登记
+
+当前生产协议不启用 `NoPayloadCrc` 或协议内 `PayloadCompressed`。request frame 必须写 `Flags = 0`，服务端请求 binder 对非零 flags 返回协议校验失败；response frame 默认也写 `0`。如果后续采用 response-only flag，必须同步更新 `aeds-protocol.json`、负向 contract matrix、TypeScript/Worker/Wasm decoder 与本文件。
+
+HTTP `Content-Encoding: br|gzip` 是 artifact-level transport compression，不占用 AEDS flags；浏览器 fetch 解压后，客户端仍按原始 AEDS frame 计算 payload CRC16。
+
 ### 解码校验流程
 
 1. 读取 16 字节帧头
@@ -172,6 +178,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 - `Category` / `Tag`：`count:int32`、共享 blob、每条 16B record。
 - `AdminStats`：`SiteStatsPod`、共享 blob、popular 16B record、recent comment 32B record、region 12B record。
 - 写请求、认证、上传和少量复杂详情 frame 仍使用 v2 header 包裹的 POD + blob 结构；线格式只接受 v2。
+
+当前兼容的 payload 字典化落点是 shared UTF-8 blob + `Utf8SliceRef`：ArticleList/ArticleSearch/Conversation records 不重复内嵌文本，category/tag/title/summary/body 均通过 slice 引用共享 blob。后续若新增 ArticleList category/tag dictionary layout，应以新版本 payload/golden fixture 登记，不复用未标记的旧 record layout。
 
 ---
 

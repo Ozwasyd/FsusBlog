@@ -43,7 +43,7 @@ const groupDefinitions = [
   },
   {
     title: 'Performance And Resilience Depth Tiers',
-    match: (tier) => tier.id.startsWith('load-') || [
+    match: (tier) => tier.id.startsWith('load-') || tier.id.startsWith('aeds-') || [
       'backend-benchmark-regression',
       'browser-performance-regression',
       'fault-injection',

@@ -191,6 +191,61 @@ function validateEndpointDepth() {
   }
 }
 
+function validateAedsFrameCost() {
+  const summary = readJson('.tmp/perf/aeds-frame-cost/summary.json', true)
+    ?? readJson('.tmp/release-evidence/aeds-frame-cost-summary.json', true)
+  if (!summary) return
+  assert(summary.status === 'ok', 'aeds-frame-cost.status must be ok')
+  assert(summary.measurementSource === 'local-aeds-frame-cost-profiler', 'aeds-frame-cost.measurementSource must be local profiler')
+  assert(Array.isArray(summary.results) && summary.results.length >= 10, 'aeds-frame-cost.results must cover required frame types')
+  const scenarios = new Set(summary.results.map((item) => item.scenario))
+  for (const required of ['EmptySuccess', 'ApiError', 'ArticleList10', 'ArticleList50', 'ArticleList100', 'ArticleDetailLarge', 'CommentCursor', 'ConversationDetail', 'UploadStatus', 'PublicAotBootstrap']) {
+    assert(scenarios.has(required), `aeds-frame-cost.results missing ${required}`)
+  }
+  assert(summary.results.some((item) => item.serverCopyBytesBefore > item.serverCopyBytesAfter), 'aeds-frame-cost must prove copy bytes decreased')
+  for (const result of summary.results) {
+    const label = `aeds-frame-cost:${result.scenario}`
+    positiveNumber(result.rawFrameBytes, `${label}.rawFrameBytes`)
+    positiveNumber(result.serverEncodeMs, `${label}.serverEncodeMs`)
+    positiveNumber(result.serverEncodeP95Ms, `${label}.serverEncodeP95Ms`)
+    positiveNumber(result.serverCrcMs, `${label}.serverCrcMs`)
+    assert(Number.isFinite(result.serverCopyBytesAfter) && result.serverCopyBytesAfter >= 0, `${label}.serverCopyBytesAfter must be >= 0`)
+    assert(Number.isFinite(result.allocBytesPerRequestAfter) && result.allocBytesPerRequestAfter >= 0, `${label}.allocBytesPerRequestAfter must be >= 0`)
+  }
+}
+
+function validateAedsCompressionProfile() {
+  const summary = readJson('.tmp/perf/aeds-compression-profile/summary.json', true)
+    ?? readJson('.tmp/release-evidence/aeds-compression-profile-summary.json', true)
+  if (!summary) return
+  assert(summary.status === 'ok', 'aeds-compression-profile.status must be ok')
+  assert(summary.measurementSource === 'local-aeds-compression-profiler', 'aeds-compression-profile.measurementSource must be local profiler')
+  assert(Array.isArray(summary.results) && summary.results.length >= 8, 'aeds-compression-profile.results must be non-empty')
+  const variants = new Set(summary.results.map((item) => item.variant))
+  assert(variants.has('br') && variants.has('gzip'), 'aeds-compression-profile must include br and gzip')
+  for (const result of summary.results) {
+    const label = `aeds-compression-profile:${result.scenario}:${result.variant}`
+    positiveNumber(result.rawFrameBytes, `${label}.rawFrameBytes`)
+    positiveNumber(result.encodedFrameBytes, `${label}.encodedFrameBytes`)
+    assert(result.encodedFrameBytes < result.rawFrameBytes, `${label}.encodedFrameBytes must be smaller than rawFrameBytes`)
+    positiveNumber(result.bytesSaved, `${label}.bytesSaved`)
+  }
+}
+
+function validateAedsDecodeBudget() {
+  const summary = readJson('.tmp/frontend/aeds-decode-budget/summary.json', true)
+    ?? readJson('.tmp/release-evidence/aeds-decode-budget-summary.json', true)
+  if (!summary) return
+  assert(summary.status === 'ok', 'aeds-decode-budget.status must be ok')
+  positiveNumber(summary.frameBytes, 'aeds-decode-budget.frameBytes')
+  positiveNumber(summary.payloadBytes, 'aeds-decode-budget.payloadBytes')
+  positiveNumber(summary.clientEnvelopeDecodeMs, 'aeds-decode-budget.clientEnvelopeDecodeMs')
+  positiveNumber(summary.clientPayloadMapMs, 'aeds-decode-budget.clientPayloadMapMs')
+  positiveNumber(summary.clientStructuredCloneMs, 'aeds-decode-budget.clientStructuredCloneMs')
+  assert(summary.copyCount === 0, 'aeds-decode-budget.copyCount must be zero')
+  assert(Number.isFinite(summary.allocBytesPerDecode) && summary.allocBytesPerDecode >= 0, 'aeds-decode-budget.allocBytesPerDecode must be >= 0')
+}
+
 function main() {
   validateBackendQps()
   validateDataScale()
@@ -199,6 +254,9 @@ function main() {
   validateSoak()
   validateCoverage()
   validateEndpointDepth()
+  validateAedsFrameCost()
+  validateAedsCompressionProfile()
+  validateAedsDecodeBudget()
   console.log('[evidence-metrics] ok')
 }
 

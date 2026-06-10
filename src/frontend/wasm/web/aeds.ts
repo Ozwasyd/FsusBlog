@@ -37,6 +37,7 @@ export interface DecodeResultView {
   ok: boolean;
   frameType: FrameType;
   payloadView: Uint8Array;
+  flags?: number;
   error?: string;
 }
 
@@ -69,7 +70,7 @@ function readCString(memory: WebAssembly.Memory, ptr: number, len: number): stri
   return textDecoder.decode(view);
 }
 
-function decodeWithHeaderFallback(buffer: Uint8Array): DecodeResultView {
+export function decodeAedsEnvelopeNoCopy(buffer: Uint8Array): DecodeResultView {
   if (buffer.byteLength < AEDS_HEADER_LENGTH) {
     return { ok: false, frameType: FrameType.Unknown, payloadView: new Uint8Array(0), error: 'frame_too_short' };
   }
@@ -91,7 +92,6 @@ function decodeWithHeaderFallback(buffer: Uint8Array): DecodeResultView {
   }
 
   const flags = dv.getUint16(6, true);
-  void flags;
   const payloadLength = dv.getUint32(10, true);
   const payloadCrc = dv.getUint16(14, true);
   const payloadOffset = AEDS_HEADER_LENGTH;
@@ -107,17 +107,27 @@ function decodeWithHeaderFallback(buffer: Uint8Array): DecodeResultView {
   return {
     ok: true,
     frameType,
+    flags,
     payloadView
   };
 }
 
-function crc16(bytes: Uint8Array): number {
-  let crc = 0xffff;
-  for (let i = 0; i < bytes.byteLength; i += 1) {
-    crc ^= bytes[i] ?? 0;
+const CRC16_TABLE = (() => {
+  const table = new Uint16Array(256);
+  for (let i = 0; i < table.length; i += 1) {
+    let crc = i;
     for (let bit = 0; bit < 8; bit += 1) {
       crc = (crc & 1) !== 0 ? ((crc >>> 1) ^ 0xa001) : (crc >>> 1);
     }
+    table[i] = crc & 0xffff;
+  }
+  return table;
+})();
+
+export function crc16(bytes: Uint8Array): number {
+  let crc = 0xffff;
+  for (let i = 0; i < bytes.byteLength; i += 1) {
+    crc = (crc >>> 8) ^ CRC16_TABLE[(crc ^ (bytes[i] ?? 0)) & 0xff];
   }
 
   return crc & 0xffff;
@@ -170,8 +180,9 @@ export async function initWasm(wasmUrl = AEDS_WASM_URL): Promise<boolean> {
 
 export function decode(buffer: ArrayBuffer): DecodeResultView {
   const input = new Uint8Array(buffer);
-  if (!exportsRef) {
-    return decodeWithHeaderFallback(input);
+  const noCopy = decodeAedsEnvelopeNoCopy(input);
+  if (noCopy.ok || !exportsRef) {
+    return noCopy;
   }
 
   const ptr = exportsRef.alloc_buffer(input.byteLength);

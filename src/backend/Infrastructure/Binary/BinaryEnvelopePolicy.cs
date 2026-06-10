@@ -62,13 +62,13 @@ internal sealed class BinaryEnvelopePolicy : IBinaryEnvelopePolicy
 
     public async Task WriteApiErrorAsync(HttpContext context, Stream responseBody, ErrorDetail error, int statusCode)
     {
-        var encoder = context.RequestServices?.GetService<IAedsEncoder>() ?? new AedsEncoder();
-        using var payloadWriter = new PooledByteBufferWriter(256);
-        PodBinaryCodec.WriteApiError(error, payloadWriter, statusCode);
+        using var frameWriter = new AedsFrameBufferWriter(256);
+        PodBinaryCodec.WriteApiError(error, frameWriter.PayloadWriter, statusCode);
+        frameWriter.Seal(AedsFrameType.ApiError);
 
         context.Response.Body = responseBody;
-        ApplyFrameResponse(context.Response, payloadWriter.WrittenCount, statusCode);
-        encoder.WriteFrame(AedsFrameType.ApiError, payloadWriter.WrittenSpan, context.Response.BodyWriter);
+        ApplyFrameResponse(context.Response, frameWriter.PayloadLength, statusCode);
+        await context.Response.BodyWriter.WriteAsync(frameWriter.WrittenFrame, context.RequestAborted);
         await context.Response.BodyWriter.FlushAsync(context.RequestAborted);
     }
 }

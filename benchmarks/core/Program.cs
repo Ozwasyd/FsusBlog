@@ -1,4 +1,8 @@
+using System.Buffers;
+using System.Diagnostics;
+using System.IO.Compression;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Runtime.Intrinsics;
@@ -8,6 +12,7 @@ using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
+using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -20,6 +25,16 @@ if (args.Contains("--verify-contract", StringComparer.Ordinal))
 if (args.Contains("--compare-http", StringComparer.Ordinal))
 {
     return await HttpParityVerifier.RunAsync(args);
+}
+
+if (args.Contains("--aeds-frame-cost", StringComparer.Ordinal))
+{
+    return AedsFrameCostProfiler.Run(args);
+}
+
+if (args.Contains("--aeds-compression-profile", StringComparer.Ordinal))
+{
+    return AedsCompressionProfiler.Run(args);
 }
 
 BenchmarkSwitcher
@@ -175,6 +190,25 @@ public class PodMappingBenchmarks
     }
 
     [Benchmark]
+    public int Aeds_Dynamic_TwoBuffer_WriteFrame()
+    {
+        using var payload = new PooledByteBufferWriter(1024);
+        PodBinaryCodec.WriteArticlePage(_pageResult, payload);
+        var frame = new ArrayBufferWriter<byte>(payload.WrittenCount + AedsFrameHeader.Size);
+        _aedsEncoder.WriteFrame(AedsFrameType.ArticleList, payload.WrittenSpan, frame);
+        return frame.WrittenCount;
+    }
+
+    [Benchmark]
+    public int Aeds_Dynamic_SingleBuffer_FrameWriter()
+    {
+        using var frame = new AedsFrameBufferWriter(1024);
+        PodBinaryCodec.WriteArticlePage(_pageResult, frame.PayloadWriter);
+        frame.Seal(AedsFrameType.ArticleList);
+        return frame.WrittenFrame.Length;
+    }
+
+    [Benchmark]
     public int PublicAotBundle_Encode()
     {
         byte[] bytes = PodBinaryCodec.EncodePublicAotBundle(_aotBundle);
@@ -247,6 +281,264 @@ public class PodMappingBenchmarks
         return score;
     }
 }
+
+internal static class AedsFrameCostProfiler
+{
+    public static int Run(string[] args)
+    {
+        string outFile = ProfilerSupport.OptionValue(args, "--out", ".tmp/perf/aeds-frame-cost/summary.json");
+        int iterations = Math.Max(10, ProfilerSupport.IntOptionValue(args, "--iterations", 80));
+        var encoder = new AedsEncoder();
+        var results = new List<object>();
+
+        foreach (var scenario in ProfilerSupport.BuildFrameScenarios(includeTinyFrames: true))
+        {
+            ProfileMeasurement twoBuffer = ProfilerSupport.Measure(iterations, () =>
+            {
+                var payload = new ArrayBufferWriter<byte>(Math.Max(1, scenario.Payload.Length));
+                payload.Write(scenario.Payload);
+                var frame = new ArrayBufferWriter<byte>(payload.WrittenCount + AedsFrameHeader.Size);
+                encoder.WriteFrame(scenario.FrameType, payload.WrittenSpan, frame);
+                return frame.WrittenCount;
+            });
+
+            ProfileMeasurement singleBuffer = ProfilerSupport.Measure(iterations, () =>
+            {
+                using var frame = new AedsFrameBufferWriter(Math.Max(256, scenario.Payload.Length + AedsFrameHeader.Size));
+                frame.PayloadWriter.Write(scenario.Payload);
+                frame.Seal(scenario.FrameType);
+                return frame.WrittenFrame.Length;
+            });
+
+            ProfileMeasurement crc = ProfilerSupport.Measure(iterations, () => AedsCrc16.Compute(scenario.Payload));
+
+            results.Add(new
+            {
+                scenario = scenario.Name,
+                frameType = scenario.FrameType.ToString(),
+                itemCount = scenario.ItemCount,
+                variant = "single-buffer",
+                rawPayloadBytes = scenario.Payload.Length,
+                rawFrameBytes = singleBuffer.LastValue,
+                serverEncodeMs = singleBuffer.AverageMs,
+                serverEncodeP95Ms = singleBuffer.P95Ms,
+                serverCrcMs = crc.AverageMs,
+                serverCrcP95Ms = crc.P95Ms,
+                serverCopyBytes = 0,
+                serverCopyBytesBefore = scenario.Payload.Length,
+                serverCopyBytesAfter = 0,
+                dynamicResponseCopiesPerRequestBefore = scenario.Payload.Length == 0 ? 0 : 1,
+                dynamicResponseCopiesPerRequestAfter = 0,
+                allocBytesPerRequestBefore = twoBuffer.AllocatedBytesPerIteration,
+                allocBytesPerRequestAfter = singleBuffer.AllocatedBytesPerIteration,
+                beforeP95Ms = twoBuffer.P95Ms,
+                afterP95Ms = singleBuffer.P95Ms,
+                p95DeltaMs = singleBuffer.P95Ms - twoBuffer.P95Ms
+            });
+        }
+
+        var summary = new
+        {
+            status = "ok",
+            generatedAt = DateTimeOffset.UtcNow,
+            measurementSource = "local-aeds-frame-cost-profiler",
+            iterations,
+            implementation = new
+            {
+                dynamicWriter = nameof(AedsFrameBufferWriter),
+                oldPath = "payload-buffer-then-AedsEncoder.WriteFrame",
+                newPath = "reserved-header-single-pooled-frame-buffer"
+            },
+            results
+        };
+
+        ProfilerSupport.WriteJson(outFile, summary);
+        Console.WriteLine($"[aeds-frame-cost] wrote {outFile}");
+        return 0;
+    }
+}
+
+internal static class AedsCompressionProfiler
+{
+    public static int Run(string[] args)
+    {
+        string outFile = ProfilerSupport.OptionValue(args, "--out", ".tmp/perf/aeds-compression-profile/summary.json");
+        var encoder = new AedsEncoder();
+        var results = new List<object>();
+
+        foreach (var scenario in ProfilerSupport.BuildFrameScenarios(includeTinyFrames: false))
+        {
+            byte[] frame = encoder.Encode(scenario.FrameType, scenario.Payload);
+            foreach ((string variant, string contentEncoding, byte[] encoded) in new[]
+                     {
+                         ("br", "br", ProfilerSupport.CompressBrotli(frame)),
+                         ("gzip", "gzip", ProfilerSupport.CompressGzip(frame))
+                     })
+            {
+                results.Add(new
+                {
+                    scenario = scenario.Name,
+                    frameType = scenario.FrameType.ToString(),
+                    itemCount = scenario.ItemCount,
+                    variant,
+                    contentEncoding,
+                    rawFrameBytes = frame.Length,
+                    encodedFrameBytes = encoded.Length,
+                    ratio = Math.Round((double)encoded.Length / frame.Length, 4),
+                    bytesSaved = frame.Length - encoded.Length,
+                    etag = ProfilerSupport.StrongETag(encoded),
+                    selectedByHotRead = encoded.Length < frame.Length,
+                    status = encoded.Length < frame.Length ? "ok" : "blocked"
+                });
+            }
+        }
+
+        var summary = new
+        {
+            status = results.All(static result =>
+                result.GetType().GetProperty("status")?.GetValue(result)?.Equals("ok") == true)
+                ? "ok"
+                : "blocked",
+            generatedAt = DateTimeOffset.UtcNow,
+            measurementSource = "local-aeds-compression-profiler",
+            transportCompression = "artifact-level-precompression",
+            results
+        };
+
+        ProfilerSupport.WriteJson(outFile, summary);
+        Console.WriteLine($"[aeds-compression-profile] wrote {outFile}");
+        return summary.status == "ok" ? 0 : 1;
+    }
+}
+
+internal static class ProfilerSupport
+{
+    public static IReadOnlyList<AedsFrameScenario> BuildFrameScenarios(bool includeTinyFrames)
+    {
+        var scenarios = new List<AedsFrameScenario>();
+        if (includeTinyFrames)
+        {
+            scenarios.Add(new("EmptySuccess", AedsFrameType.EmptySuccess, [], 0));
+            scenarios.Add(new("ApiError", AedsFrameType.ApiError, Payload("ApiError", 768, 1), 1));
+        }
+
+        scenarios.Add(new("ArticleList10", AedsFrameType.ArticleList, ArticleListPayload(10), 10));
+        scenarios.Add(new("ArticleList50", AedsFrameType.ArticleList, ArticleListPayload(50), 50));
+        scenarios.Add(new("ArticleList100", AedsFrameType.ArticleList, ArticleListPayload(100), 100));
+        scenarios.Add(new("ArticleDetailSmall", AedsFrameType.ArticleDetail, Payload("ArticleDetailSmall", 12 * 1024, 1), 1));
+        scenarios.Add(new("ArticleDetailMedium", AedsFrameType.ArticleDetail, Payload("ArticleDetailMedium", 80 * 1024, 1), 1));
+        scenarios.Add(new("ArticleDetailLarge", AedsFrameType.ArticleDetail, Payload("ArticleDetailLarge", 320 * 1024, 1), 1));
+        scenarios.Add(new("CommentCursor", AedsFrameType.CommentArticleCursor, RepeatedRows("CommentCursor", 40, 256), 40));
+        scenarios.Add(new("ConversationDetail", AedsFrameType.ConversationDetail, RepeatedRows("ConversationDetail", 64, 512), 64));
+        scenarios.Add(new("UploadStatus", AedsFrameType.UploadStatus, Payload("UploadStatus", 2 * 1024, 1), 1));
+        scenarios.Add(new("PublicAotBootstrap", AedsFrameType.PublicAotBootstrap, Payload("PublicAotBootstrap", 96 * 1024, 1), 1));
+        return scenarios;
+    }
+
+    public static ProfileMeasurement Measure(int iterations, Func<int> action)
+    {
+        _ = action();
+        var samples = new double[iterations];
+        long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+        int lastValue = 0;
+        for (int i = 0; i < iterations; i++)
+        {
+            long start = Stopwatch.GetTimestamp();
+            lastValue = action();
+            samples[i] = Math.Max(Stopwatch.GetElapsedTime(start).TotalMilliseconds, 0.0001d);
+        }
+
+        long allocatedAfter = GC.GetAllocatedBytesForCurrentThread();
+        Array.Sort(samples);
+        return new ProfileMeasurement(
+            AverageMs: Math.Round(samples.Average(), 6),
+            P95Ms: Math.Round(samples[Math.Min(samples.Length - 1, (int)Math.Ceiling(samples.Length * 0.95d) - 1)], 6),
+            AllocatedBytesPerIteration: Math.Max(0, (allocatedAfter - allocatedBefore) / Math.Max(1, iterations)),
+            LastValue: lastValue);
+    }
+
+    public static byte[] CompressBrotli(byte[] bytes)
+    {
+        using var output = new MemoryStream();
+        using (var stream = new BrotliStream(output, CompressionLevel.SmallestSize, leaveOpen: true))
+        {
+            stream.Write(bytes);
+        }
+
+        return output.ToArray();
+    }
+
+    public static byte[] CompressGzip(byte[] bytes)
+    {
+        using var output = new MemoryStream();
+        using (var stream = new GZipStream(output, CompressionLevel.SmallestSize, leaveOpen: true))
+        {
+            stream.Write(bytes);
+        }
+
+        return output.ToArray();
+    }
+
+    public static string StrongETag(byte[] bytes)
+        => $"\"sha256-{Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant()}\"";
+
+    public static string OptionValue(string[] args, string name, string fallback)
+    {
+        int index = Array.IndexOf(args, name);
+        return index >= 0 && index + 1 < args.Length ? args[index + 1] : fallback;
+    }
+
+    public static int IntOptionValue(string[] args, string name, int fallback)
+        => int.TryParse(OptionValue(args, name, string.Empty), out int value) ? value : fallback;
+
+    public static void WriteJson(string outFile, object value)
+    {
+        string fullPath = Path.GetFullPath(outFile);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        File.WriteAllText(fullPath, $"{JsonSerializer.Serialize(value, new JsonSerializerOptions { WriteIndented = true })}\n");
+    }
+
+    private static byte[] ArticleListPayload(int count)
+        => RepeatedRows("ArticleList", count, 384);
+
+    private static byte[] RepeatedRows(string label, int rowCount, int rowBytes)
+    {
+        var builder = new StringBuilder(rowCount * rowBytes);
+        for (int i = 0; i < rowCount; i++)
+        {
+            builder.Append(label)
+                .Append("|category=engineering|tags=aeds,binary,fsus|title=")
+                .Append(i)
+                .Append('|')
+                .Append("This row intentionally repeats category and tag strings so dictionary and transport compression evidence has stable signal. ");
+            while (Encoding.UTF8.GetByteCount(builder.ToString()) < (i + 1) * rowBytes)
+            {
+                builder.Append("payload text repeat ");
+            }
+            builder.Append('\n');
+        }
+
+        return Encoding.UTF8.GetBytes(builder.ToString());
+    }
+
+    private static byte[] Payload(string label, int targetBytes, int itemCount)
+    {
+        var builder = new StringBuilder(targetBytes);
+        while (Encoding.UTF8.GetByteCount(builder.ToString()) < targetBytes)
+        {
+            builder.Append(label)
+                .Append("|item-count=")
+                .Append(itemCount)
+                .Append("|markdown=AEDS frame payload repeated text for stable compression and CRC benchmarking.\n");
+        }
+
+        return Encoding.UTF8.GetBytes(builder.ToString())[..targetBytes];
+    }
+}
+
+internal readonly record struct AedsFrameScenario(string Name, AedsFrameType FrameType, byte[] Payload, int ItemCount);
+
+internal readonly record struct ProfileMeasurement(double AverageMs, double P95Ms, long AllocatedBytesPerIteration, int LastValue);
 
 internal static class ContractVerifier
 {

@@ -46,84 +46,94 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
             return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, $"请求帧超过 {FormatBytes(frameLimit)} 上限"));
         }
 
-        byte[] headerBuffer = ArrayPool<byte>.Shared.Rent(AedsFrameHeader.Size);
-        try
+        ReadResult headerResult = await httpContext.Request.BodyReader.ReadAtLeastAsync(AedsFrameHeader.Size, cancellationToken);
+        ReadOnlySequence<byte> headerBuffer = headerResult.Buffer;
+        if (headerBuffer.Length < AedsFrameHeader.Size)
         {
-            if (!await ReadExactAsync(httpContext.Request.BodyReader, headerBuffer.AsMemory(0, AedsFrameHeader.Size), cancellationToken))
-            {
-                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS frame too short"));
-            }
-
-            ReadOnlySpan<byte> header = headerBuffer.AsSpan(0, AedsFrameHeader.Size);
-            uint magic = BinaryPrimitives.ReadUInt32LittleEndian(header[0..4]);
-            byte version = header[4];
-            byte headerLength = header[5];
-            ushort frameTypeRaw = BinaryPrimitives.ReadUInt16LittleEndian(header[8..10]);
-            uint payloadLength = BinaryPrimitives.ReadUInt32LittleEndian(header[10..14]);
-            ushort expectedPayloadCrc = BinaryPrimitives.ReadUInt16LittleEndian(header[14..16]);
-
-            if (magic != AedsEncoder.Magic)
-            {
-                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS magic mismatch"));
-            }
-
-            if (version != AedsFrameHeader.CurrentVersion)
-            {
-                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS version unsupported"));
-            }
-
-            if (headerLength != AedsFrameHeader.Size)
-            {
-                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS header length mismatch"));
-            }
-
-            if (frameTypeRaw != (ushort)expectedFrameType)
-            {
-                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "请求帧类型不匹配"));
-            }
-
-            if (payloadLength > frameLimit - AedsFrameHeader.Size)
-            {
-                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, $"请求帧超过 {FormatBytes(frameLimit)} 上限"));
-            }
-
-            long expectedFrameLength = AedsFrameHeader.Size + (long)payloadLength;
-            if (httpContext.Request.ContentLength.HasValue && httpContext.Request.ContentLength.Value != expectedFrameLength)
-            {
-                return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS payload length mismatch"));
-            }
-
-            if (payloadLength == 0)
-            {
-                return expectedPayloadCrc == AedsCrc16.Compute(ReadOnlySpan<byte>.Empty)
-                    ? BinaryRequestPayload.Success(ReadOnlyMemory<byte>.Empty)
-                    : BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS payload crc mismatch"));
-            }
-
-            byte[] payloadBuffer = ArrayPool<byte>.Shared.Rent((int)payloadLength);
-            ErrorDetail payloadError = await ReadPayloadAndValidateAsync(
-                    httpContext,
-                    payloadBuffer,
-                    (int)payloadLength,
-                    expectedPayloadCrc,
-                    cancellationToken);
-            if (payloadError.Code != ErrorCode.None)
-            {
-                return BinaryRequestPayload.Failure(payloadError);
-            }
-
-            httpContext.Response.OnCompleted(static state =>
-            {
-                ArrayPool<byte>.Shared.Return((byte[])state, clearArray: true);
-                return Task.CompletedTask;
-            }, payloadBuffer);
-
-            return BinaryRequestPayload.Success(new ReadOnlyMemory<byte>(payloadBuffer, 0, (int)payloadLength));
+            httpContext.Request.BodyReader.AdvanceTo(headerBuffer.End);
+            return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS frame too short"));
         }
-        finally
+
+        var headerReader = new SequenceReader<byte>(headerBuffer.Slice(0, AedsFrameHeader.Size));
+        if (!TryReadHeader(
+                ref headerReader,
+                out uint magic,
+                out byte version,
+                out byte headerLength,
+                out ushort flags,
+                out ushort frameTypeRaw,
+                out uint payloadLength,
+                out ushort expectedPayloadCrc))
         {
-            ArrayPool<byte>.Shared.Return(headerBuffer, clearArray: true);
+            httpContext.Request.BodyReader.AdvanceTo(headerBuffer.End);
+            return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS header length mismatch"));
         }
+
+        SequencePosition headerConsumed = headerBuffer.GetPosition(AedsFrameHeader.Size);
+        httpContext.Request.BodyReader.AdvanceTo(headerConsumed, headerConsumed);
+
+        if (magic != AedsEncoder.Magic)
+        {
+            return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS magic mismatch"));
+        }
+
+        if (version != AedsFrameHeader.CurrentVersion)
+        {
+            return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS version unsupported"));
+        }
+
+        if (headerLength != AedsFrameHeader.Size)
+        {
+            return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS header length mismatch"));
+        }
+
+        if (flags != 0)
+        {
+            return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS request flags unsupported"));
+        }
+
+        if (frameTypeRaw != (ushort)expectedFrameType)
+        {
+            return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "请求帧类型不匹配"));
+        }
+
+        if (payloadLength > frameLimit - AedsFrameHeader.Size)
+        {
+            return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, $"请求帧超过 {FormatBytes(frameLimit)} 上限"));
+        }
+
+        long expectedFrameLength = AedsFrameHeader.Size + (long)payloadLength;
+        if (httpContext.Request.ContentLength.HasValue && httpContext.Request.ContentLength.Value != expectedFrameLength)
+        {
+            return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS payload length mismatch"));
+        }
+
+        if (payloadLength == 0)
+        {
+            return expectedPayloadCrc == AedsCrc16.Compute(ReadOnlySpan<byte>.Empty)
+                ? BinaryRequestPayload.Success(ReadOnlyMemory<byte>.Empty)
+                : BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS payload crc mismatch"));
+        }
+
+        byte[] payloadBuffer = ArrayPool<byte>.Shared.Rent((int)payloadLength);
+        ErrorDetail payloadError = await ReadPayloadAndValidateAsync(
+                httpContext,
+                payloadBuffer,
+                (int)payloadLength,
+                expectedPayloadCrc,
+                cancellationToken);
+        if (payloadError.Code != ErrorCode.None)
+        {
+            return BinaryRequestPayload.Failure(payloadError);
+        }
+
+        httpContext.Response.OnCompleted(static state =>
+        {
+            ArrayPool<byte>.Shared.Return((byte[])state, clearArray: true);
+            return Task.CompletedTask;
+        }, payloadBuffer);
+
+        return BinaryRequestPayload.Success(new ReadOnlyMemory<byte>(payloadBuffer, 0, (int)payloadLength));
     }
 
     private static async Task<ErrorDetail> ReadPayloadAndValidateAsync(
@@ -180,6 +190,43 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
             }
         }
 
+        return true;
+    }
+
+    private static bool TryReadHeader(
+        ref SequenceReader<byte> reader,
+        out uint magic,
+        out byte version,
+        out byte headerLength,
+        out ushort flags,
+        out ushort frameTypeRaw,
+        out uint payloadLength,
+        out ushort expectedPayloadCrc)
+    {
+        magic = 0;
+        version = 0;
+        headerLength = 0;
+        flags = 0;
+        frameTypeRaw = 0;
+        payloadLength = 0;
+        expectedPayloadCrc = 0;
+
+        if (!reader.TryReadLittleEndian(out int magicRaw)
+            || !reader.TryRead(out version)
+            || !reader.TryRead(out headerLength)
+            || !reader.TryReadLittleEndian(out short flagsRaw)
+            || !reader.TryReadLittleEndian(out short frameTypeRawSigned)
+            || !reader.TryReadLittleEndian(out int payloadLengthRaw)
+            || !reader.TryReadLittleEndian(out short payloadCrcRaw))
+        {
+            return false;
+        }
+
+        magic = unchecked((uint)magicRaw);
+        flags = unchecked((ushort)flagsRaw);
+        frameTypeRaw = unchecked((ushort)frameTypeRawSigned);
+        payloadLength = unchecked((uint)payloadLengthRaw);
+        expectedPayloadCrc = unchecked((ushort)payloadCrcRaw);
         return true;
     }
 

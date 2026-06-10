@@ -278,10 +278,14 @@ UX_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/ux" ux)"
 UX_VIEWPORT_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json" ux-viewport-summary.json)"
 FRONTEND_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json" frontend-render-pressure-summary.json)"
 BACKEND_QPS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json" backend-qps-summary.json)"
+AEDS_FRAME_COST_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json" aeds-frame-cost-summary.json)"
+AEDS_COMPRESSION_PROFILE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json" aeds-compression-profile-summary.json)"
+AEDS_DECODE_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-decode-budget-summary.json" aeds-decode-budget-summary.json)"
 DOC_SYNC_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json" doc-sync-summary.json)"
 DOM_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/dom-budget.json" dom-budget.json)"
 ROUTE_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/route-render-pressure.json" route-render-pressure.json)"
 MARKDOWN_RENDER_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/markdown-render-budget.json" markdown-render-budget.json)"
+AEDS_DECODE_BUDGET_FRONTEND_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/aeds-decode-budget/summary.json" aeds-decode-budget-frontend-summary.json)"
 DOM_DEPTH_STATIC_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/dom-depth-static.json" dom-depth-static.json)"
 FAULT_ARTIFACT="$(copy_if_present "$FAULT_DIR" fault-injection)"
 SOAK_ARTIFACT="$(copy_if_present "$SOAK_DIR" soak)"
@@ -325,6 +329,9 @@ WASM_FUZZ_STATUS_VALUE="$(json_status_or_missing "$FUZZ_DIR/wasm/summary.json")"
 UX_VIEWPORT_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json")"
 FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json")"
 BACKEND_QPS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json")"
+AEDS_FRAME_COST_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json")"
+AEDS_COMPRESSION_PROFILE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json")"
+AEDS_DECODE_BUDGET_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-decode-budget-summary.json")"
 DOC_SYNC_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json")"
 
 MANIFEST_STATUS="collected-ok"
@@ -395,10 +402,14 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "uxViewportSummary": $UX_VIEWPORT_SUMMARY,
     "frontendRenderPressureSummary": $FRONTEND_RENDER_PRESSURE_SUMMARY,
     "backendQpsSummary": $BACKEND_QPS_SUMMARY,
+    "aedsFrameCostSummary": $AEDS_FRAME_COST_SUMMARY,
+    "aedsCompressionProfileSummary": $AEDS_COMPRESSION_PROFILE_SUMMARY,
+    "aedsDecodeBudgetSummary": $AEDS_DECODE_BUDGET_SUMMARY,
     "docSyncSummary": $DOC_SYNC_SUMMARY,
     "domBudgetSummary": $DOM_BUDGET_SUMMARY,
     "routeRenderPressureSummary": $ROUTE_RENDER_PRESSURE_SUMMARY,
     "markdownRenderBudgetSummary": $MARKDOWN_RENDER_BUDGET_SUMMARY,
+    "aedsDecodeBudgetFrontendSummary": $AEDS_DECODE_BUDGET_FRONTEND_SUMMARY,
     "domDepthStaticSummary": $DOM_DEPTH_STATIC_SUMMARY,
     "faultInjection": $FAULT_ARTIFACT,
     "soak": $SOAK_ARTIFACT,
@@ -435,6 +446,9 @@ cat > "$OUT_DIR/manifest.json" <<JSON
       "uxViewport": "$UX_VIEWPORT_STATUS_VALUE",
       "frontendRenderPressure": "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE",
       "backendQps": "$BACKEND_QPS_STATUS_VALUE",
+      "aedsFrameCost": "$AEDS_FRAME_COST_STATUS_VALUE",
+      "aedsCompressionProfile": "$AEDS_COMPRESSION_PROFILE_STATUS_VALUE",
+      "aedsDecodeBudget": "$AEDS_DECODE_BUDGET_STATUS_VALUE",
       "docSync": "$DOC_SYNC_STATUS_VALUE"
     },
     "security": {

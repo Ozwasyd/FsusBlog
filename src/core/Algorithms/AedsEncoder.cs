@@ -92,7 +92,7 @@ public sealed class AedsEncoder : IAedsEncoder
         payload.CopyTo(frame[AedsFrameHeader.Size..]);
     }
 
-    private static void WriteHeaderInto(AedsFrameType frameType, ReadOnlySpan<byte> payload, ushort version, uint flags, Span<byte> header)
+    internal static void WriteHeaderInto(AedsFrameType frameType, ReadOnlySpan<byte> payload, ushort version, uint flags, Span<byte> header)
     {
         if (version != AedsFrameHeader.CurrentVersion)
         {

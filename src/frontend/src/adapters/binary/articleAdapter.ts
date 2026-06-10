@@ -18,52 +18,47 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
     throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_record_layout_invalid');
   }
 
-  const records: Array<{
-    id: number;
-    views: number;
-    createTimeUnixMs: number;
-    categoryId: number;
-    categoryNameOffset: number;
-    categoryNameLength: number;
-    titleOffset: number;
-    titleLength: number;
-    summaryOffset: number;
-    summaryLength: number;
-    tagStart: number;
-    tagCount: number;
-    isDeleted: boolean | undefined;
-    status: number;
-    scheduledPublishAtUnixMs: number;
-    publishedAtUnixMs: number;
-    hasPublicationTail: boolean;
-  }> = [];
+  const ids = new Int32Array(count);
+  const views = new Int32Array(count);
+  const createTimeUnixMs = new Float64Array(count);
+  const categoryIds = new Int32Array(count);
+  const categoryNameOffsets = new Int32Array(count);
+  const categoryNameLengths = new Int32Array(count);
+  const titleOffsets = new Int32Array(count);
+  const titleLengths = new Int32Array(count);
+  const summaryOffsets = new Int32Array(count);
+  const summaryLengths = new Int32Array(count);
+  const tagStarts = new Int32Array(count);
+  const tagCounts = new Int32Array(count);
+  const isDeletedFlags = new Uint8Array(count);
+  const hasIsDeletedFlags = new Uint8Array(count);
+  const statuses = new Int32Array(count);
+  const scheduledPublishAtUnixMs = new Float64Array(count);
+  const publishedAtUnixMs = new Float64Array(count);
+  const hasPublicationTail = itemRecordSize === 76;
 
   for (let i = 0; i < count; i += 1) {
     const record = reader.readSpan(itemRecordSize);
     const categoryName = readSliceRef(record, 20);
     const title = readSliceRef(record, 28);
     const summary = readSliceRef(record, 36);
-    const isDeletedFlag = record[52] ?? 0;
-    const hasIsDeleted = record[53] ?? 0;
-    records.push({
-      id: readInt32(record, 0),
-      views: readInt32(record, 4),
-      createTimeUnixMs: readInt64Number(record, 8),
-      categoryId: readInt32(record, 16),
-      categoryNameOffset: categoryName.offset,
-      categoryNameLength: categoryName.length,
-      titleOffset: title.offset,
-      titleLength: title.length,
-      summaryOffset: summary.offset,
-      summaryLength: summary.length,
-      tagStart: readInt32(record, 44),
-      tagCount: readInt32(record, 48),
-      isDeleted: hasIsDeleted === 1 ? isDeletedFlag === 1 : undefined,
-      status: itemRecordSize === 76 ? readInt32(record, 56) : 2,
-      scheduledPublishAtUnixMs: itemRecordSize === 76 ? readInt64Number(record, 60) : 0,
-      publishedAtUnixMs: itemRecordSize === 76 ? readInt64Number(record, 68) : 0,
-      hasPublicationTail: itemRecordSize === 76
-    });
+    ids[i] = readInt32(record, 0);
+    views[i] = readInt32(record, 4);
+    createTimeUnixMs[i] = readInt64Number(record, 8);
+    categoryIds[i] = readInt32(record, 16);
+    categoryNameOffsets[i] = categoryName.offset;
+    categoryNameLengths[i] = categoryName.length;
+    titleOffsets[i] = title.offset;
+    titleLengths[i] = title.length;
+    summaryOffsets[i] = summary.offset;
+    summaryLengths[i] = summary.length;
+    tagStarts[i] = readInt32(record, 44);
+    tagCounts[i] = readInt32(record, 48);
+    isDeletedFlags[i] = record[52] ?? 0;
+    hasIsDeletedFlags[i] = record[53] ?? 0;
+    statuses[i] = hasPublicationTail ? readInt32(record, 56) : 2;
+    scheduledPublishAtUnixMs[i] = hasPublicationTail ? readInt64Number(record, 60) : 0;
+    publishedAtUnixMs[i] = hasPublicationTail ? readInt64Number(record, 68) : 0;
   }
 
   const tagRecords: ArticleListItemResponse['tags'] = [];
@@ -75,29 +70,35 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
     });
   }
 
-  const items = records.map((record) => {
+  const items: ArticleListItemResponse[] = new Array(count);
+  for (let i = 0; i < count; i += 1) {
+    const tags: ArticleListItemResponse['tags'] = new Array(tagCounts[i] ?? 0);
+    for (let tagIndex = 0; tagIndex < tags.length; tagIndex += 1) {
+      tags[tagIndex] = tagRecords[(tagStarts[i] ?? 0) + tagIndex] ?? { id: 0, name: '' };
+    }
+
     const item: ArticleListItemResponse = {
-      id: record.id,
-      title: readSliceText(blob, { offset: record.titleOffset, length: record.titleLength }),
-      summary: readSliceText(blob, { offset: record.summaryOffset, length: record.summaryLength }),
-      views: record.views,
-      createTime: new Date(record.createTimeUnixMs).toISOString(),
+      id: ids[i] ?? 0,
+      title: readSliceText(blob, { offset: titleOffsets[i] ?? 0, length: titleLengths[i] ?? 0 }),
+      summary: readSliceText(blob, { offset: summaryOffsets[i] ?? 0, length: summaryLengths[i] ?? 0 }),
+      views: views[i] ?? 0,
+      createTime: new Date(createTimeUnixMs[i] ?? 0).toISOString(),
       category: {
-        id: record.categoryId,
-        name: readSliceText(blob, { offset: record.categoryNameOffset, length: record.categoryNameLength })
+        id: categoryIds[i] ?? 0,
+        name: readSliceText(blob, { offset: categoryNameOffsets[i] ?? 0, length: categoryNameLengths[i] ?? 0 })
       },
-      tags: tagRecords.slice(record.tagStart, record.tagStart + record.tagCount)
+      tags
     };
-    if (record.hasPublicationTail && record.isDeleted !== undefined) {
-      item.isDeleted = record.isDeleted;
+    if (hasPublicationTail && hasIsDeletedFlags[i] === 1) {
+      item.isDeleted = isDeletedFlags[i] === 1;
     }
-    if (record.hasPublicationTail) {
-      item.status = record.status as ArticleListItemResponse['status'];
-      item.scheduledPublishAt = unixMsToIsoOrNull(record.scheduledPublishAtUnixMs);
-      item.publishedAt = unixMsToIsoOrNull(record.publishedAtUnixMs);
+    if (hasPublicationTail) {
+      item.status = (statuses[i] ?? 2) as ArticleListItemResponse['status'];
+      item.scheduledPublishAt = unixMsToIsoOrNull(scheduledPublishAtUnixMs[i] ?? 0);
+      item.publishedAt = unixMsToIsoOrNull(publishedAtUnixMs[i] ?? 0);
     }
-    return item;
-  });
+    items[i] = item;
+  }
 
   return { items, total };
 }

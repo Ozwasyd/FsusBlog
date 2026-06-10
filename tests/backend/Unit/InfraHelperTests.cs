@@ -155,6 +155,30 @@ public class BinaryRequestBinderTests
         Assert.False(result.IsSuccess);
         Assert.Contains("8 MiB", result.Error.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task ReadFrameAsync_NonZeroRequestFlagsAreRejected()
+    {
+        byte[] frame = new AedsEncoder().Encode(AedsFrameType.AuthLoginRequest, [0x01, 0x02]);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frame.AsSpan(6, 2), 1);
+
+        var context = new DefaultHttpContext();
+        context.Request.ContentType = "application/octet-stream";
+        context.Request.ContentLength = frame.Length;
+        context.Request.Body = new MemoryStream(frame);
+        await using var body = new MemoryStream();
+        context.Response.Body = body;
+
+        var binder = new BinaryRequestBinder();
+        BinaryRequestPayload result = await binder.ReadFrameAsync(
+            context,
+            new AedsEncoder(),
+            AedsFrameType.AuthLoginRequest,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("flags", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 public class BackgroundWorkflowSourceTests
