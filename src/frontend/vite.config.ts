@@ -335,6 +335,11 @@ export default defineConfig(({ mode }) => {
                 '@ozwasyd/element-plus/es/wasm/runtime/utf8.mjs'
             ]
         },
+        ssr: isPublicSsrBuild
+            ? {
+                noExternal: true
+            }
+            : undefined,
         build: {
             // 核心修复(2026-02-21)：生产环境禁用 sourcemap
             // 逻辑自洽：消除 Wasm 胶水代码在 Worker 线程中引发的 URL 解析错误

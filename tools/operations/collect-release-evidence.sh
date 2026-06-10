@@ -277,6 +277,7 @@ HYDRATION_LONG_SMOKE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence
 UX_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/ux" ux)"
 UX_VIEWPORT_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json" ux-viewport-summary.json)"
 FRONTEND_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json" frontend-render-pressure-summary.json)"
+PUBLISH_ARTIFACTS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json" publish-artifacts-summary.json)"
 BACKEND_QPS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json" backend-qps-summary.json)"
 AEDS_FRAME_COST_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json" aeds-frame-cost-summary.json)"
 AEDS_COMPRESSION_PROFILE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json" aeds-compression-profile-summary.json)"
@@ -328,6 +329,7 @@ AUTHENTICATED_DAST_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/authent
 WASM_FUZZ_STATUS_VALUE="$(json_status_or_missing "$FUZZ_DIR/wasm/summary.json")"
 UX_VIEWPORT_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json")"
 FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json")"
+PUBLISH_ARTIFACTS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json")"
 BACKEND_QPS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json")"
 AEDS_FRAME_COST_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json")"
 AEDS_COMPRESSION_PROFILE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json")"
@@ -370,6 +372,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "workflow": "${GITHUB_WORKFLOW:-unknown}"
   },
   "imageDigest": "$IMAGE_DIGEST_VALUE",
+  "publishArtifacts": $(if [[ -f "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json" ]]; then jq -c '.' "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json"; else jq -n -c '{status: "missing", wwwrootBytes: 0, clientRuntimeBytes: 0, totalPublishBytes: 0, fileCount: 0, largestFiles: []}'; fi),
   "artifacts": {
     "productionExposureStatus": $PRODUCTION_STATUS,
     "productionExposureRequest": $PRODUCTION_REQUEST,
@@ -401,6 +404,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "ux": $UX_ARTIFACT,
     "uxViewportSummary": $UX_VIEWPORT_SUMMARY,
     "frontendRenderPressureSummary": $FRONTEND_RENDER_PRESSURE_SUMMARY,
+    "publishArtifactsSummary": $PUBLISH_ARTIFACTS_SUMMARY,
     "backendQpsSummary": $BACKEND_QPS_SUMMARY,
     "aedsFrameCostSummary": $AEDS_FRAME_COST_SUMMARY,
     "aedsCompressionProfileSummary": $AEDS_COMPRESSION_PROFILE_SUMMARY,
@@ -445,6 +449,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
       "visualGateSkip": $VISUAL_GATE_SKIP,
       "uxViewport": "$UX_VIEWPORT_STATUS_VALUE",
       "frontendRenderPressure": "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE",
+      "publishArtifacts": "$PUBLISH_ARTIFACTS_STATUS_VALUE",
       "backendQps": "$BACKEND_QPS_STATUS_VALUE",
       "aedsFrameCost": "$AEDS_FRAME_COST_STATUS_VALUE",
       "aedsCompressionProfile": "$AEDS_COMPRESSION_PROFILE_STATUS_VALUE",

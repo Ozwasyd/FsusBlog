@@ -38,6 +38,7 @@ const requiredArtifacts = [
   'coverage',
   'uxViewportSummary',
   'frontendRenderPressureSummary',
+  'publishArtifactsSummary',
   'docSyncSummary',
   'domBudgetSummary',
   'routeRenderPressureSummary',

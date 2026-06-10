@@ -3,6 +3,7 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
 run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/run-test-matrix.mjs" evidence-plan --out "$ROOT_DIR/.tmp/release-evidence/test-plan.json"
+run "$ROOT_DIR/tools/operations/check-publish-artifact-slimness.mjs"
 run "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
 run "$ROOT_DIR/tools/operations/check-evidence-metrics.mjs"
 if [[ -n "${FSUSBLOG_RELEASE_EVIDENCE_CHECK_ARGS:-}" ]]; then
