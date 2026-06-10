@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Spa;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -64,6 +65,124 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.DoesNotContain("Regex.IsMatch", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Replace(\"</head>\"", source, StringComparison.Ordinal);
         Assert.Contains("SpaHtmlByteTemplate", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SpaFallbackHeadInjectionCache_ReusesRouteBytesForSameVersionAndRoute()
+    {
+        WebApplicationCompositionExtensions.ResetSpaHeadInjectionCacheForTests();
+        string[] preloads =
+        [
+            "/assets/route-admin.abc.js",
+            "/assets/route-admin.abc.css"
+        ];
+
+        ReadOnlyMemory<byte> first = WebApplicationCompositionExtensions.GetRoutePreloadHeadInjectionForTests(
+            "asset-v1",
+            "/admin/articles",
+            preloads);
+        ReadOnlyMemory<byte> second = WebApplicationCompositionExtensions.GetRoutePreloadHeadInjectionForTests(
+            "asset-v1",
+            "/admin/articles",
+            ["/assets/should-not-rebuild.js"]);
+
+        string html = Encoding.UTF8.GetString(second.Span);
+        Assert.Equal(Encoding.UTF8.GetString(first.Span), html);
+        Assert.Contains("<link rel=\"modulepreload\" href=\"/assets/route-admin.abc.js\">", html, StringComparison.Ordinal);
+        Assert.Contains("<link rel=\"stylesheet\" href=\"/assets/route-admin.abc.css\">", html, StringComparison.Ordinal);
+        var stats = WebApplicationCompositionExtensions.GetSpaHeadInjectionCacheStatsForTests();
+        Assert.Equal(1, stats.EntryCount);
+        Assert.Equal(1, stats.BuildCount);
+        Assert.Equal(1, stats.HitCount);
+    }
+
+    [Fact]
+    public void SpaFallbackHeadInjectionCache_MissesWhenAssetVersionChanges()
+    {
+        WebApplicationCompositionExtensions.ResetSpaHeadInjectionCacheForTests();
+
+        ReadOnlyMemory<byte> first = WebApplicationCompositionExtensions.GetRoutePreloadHeadInjectionForTests(
+            "asset-v1",
+            "/login",
+            ["/assets/auth.v1.js"]);
+        ReadOnlyMemory<byte> second = WebApplicationCompositionExtensions.GetRoutePreloadHeadInjectionForTests(
+            "asset-v2",
+            "/login",
+            ["/assets/auth.v2.js"]);
+
+        Assert.Contains("auth.v1.js", Encoding.UTF8.GetString(first.Span), StringComparison.Ordinal);
+        Assert.Contains("auth.v2.js", Encoding.UTF8.GetString(second.Span), StringComparison.Ordinal);
+        var stats = WebApplicationCompositionExtensions.GetSpaHeadInjectionCacheStatsForTests();
+        Assert.Equal(2, stats.EntryCount);
+        Assert.Equal(2, stats.BuildCount);
+        Assert.Equal(0, stats.HitCount);
+    }
+
+    [Fact]
+    public void SpaFallbackHeadInjectionCache_ReusesPublicAssetSetBytes()
+    {
+        WebApplicationCompositionExtensions.ResetSpaHeadInjectionCacheForTests();
+        var assets = new SpaAssetSet(
+            "/assets/fsus-spa-entry.js",
+            ["/assets/public-page.abc.css"],
+            ["/assets/entry-runtime.abc.js"],
+            "asset-v1",
+            UsesSourceAssets: false);
+
+        ReadOnlyMemory<byte> first = WebApplicationCompositionExtensions.GetPublicAssetHeadInjectionForTests("home", assets);
+        ReadOnlyMemory<byte> second = WebApplicationCompositionExtensions.GetPublicAssetHeadInjectionForTests("home", assets);
+
+        string html = Encoding.UTF8.GetString(second.Span);
+        Assert.Equal(Encoding.UTF8.GetString(first.Span), html);
+        Assert.Contains("<link rel=\"modulepreload\" crossorigin href=\"/assets/entry-runtime.abc.js\">", html, StringComparison.Ordinal);
+        Assert.Contains("<link rel=\"stylesheet\" href=\"/assets/public-page.abc.css\">", html, StringComparison.Ordinal);
+        var stats = WebApplicationCompositionExtensions.GetSpaHeadInjectionCacheStatsForTests();
+        Assert.Equal(1, stats.EntryCount);
+        Assert.Equal(1, stats.BuildCount);
+        Assert.Equal(1, stats.HitCount);
+    }
+
+    [Fact]
+    public void SpaFallbackHeadInjectionCache_DoesNotCacheEmptyPreloadSet()
+    {
+        WebApplicationCompositionExtensions.ResetSpaHeadInjectionCacheForTests();
+
+        ReadOnlyMemory<byte> headInjection = WebApplicationCompositionExtensions.GetRoutePreloadHeadInjectionForTests(
+            "asset-v1",
+            "/plain",
+            []);
+
+        Assert.True(headInjection.IsEmpty);
+        var stats = WebApplicationCompositionExtensions.GetSpaHeadInjectionCacheStatsForTests();
+        Assert.Equal(0, stats.EntryCount);
+        Assert.Equal(0, stats.BuildCount);
+        Assert.Equal(0, stats.HitCount);
+    }
+
+    [Fact]
+    public async Task SpaFallbackHeadInjectionCache_DoesNotCacheCspNonce()
+    {
+        WebApplicationCompositionExtensions.ResetSpaHeadInjectionCacheForTests();
+        ReadOnlyMemory<byte> headInjection = WebApplicationCompositionExtensions.GetRoutePreloadHeadInjectionForTests(
+            "asset-v1",
+            "/admin",
+            ["/assets/route-admin.abc.js"]);
+
+        string first = await WebApplicationCompositionExtensions.RenderSpaHtmlForTestsAsync(
+            "<html><head><script type=\"module\"></script></head><body></body></html>",
+            headInjection,
+            "nonce-a");
+        string second = await WebApplicationCompositionExtensions.RenderSpaHtmlForTestsAsync(
+            "<html><head><script type=\"module\"></script></head><body></body></html>",
+            headInjection,
+            "nonce-b");
+
+        string cachedHead = Encoding.UTF8.GetString(headInjection.Span);
+        Assert.DoesNotContain("nonce-a", cachedHead, StringComparison.Ordinal);
+        Assert.DoesNotContain("nonce-b", cachedHead, StringComparison.Ordinal);
+        Assert.Contains("nonce=\"nonce-a\"", first, StringComparison.Ordinal);
+        Assert.Contains("nonce=\"nonce-b\"", second, StringComparison.Ordinal);
+        Assert.DoesNotContain("nonce=\"nonce-a\"", second, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using System.Security.Cryptography;
 using System.Runtime.CompilerServices;
@@ -77,9 +78,15 @@ public static class WebApplicationCompositionExtensions
     private const string CspNonceContextKey = "__fsusblog_csp_nonce";
     private const string CspNonceTemplatePlaceholder = "%%FSUSBLOG_CSP_NONCE%%";
     private const string HtmlContentType = "text/html; charset=utf-8";
+    private const int DefaultSpaHeadInjectionCacheMaxEntries = 256;
+    private const string HeadInjectionKindRoutePreload = "route-preload";
+    private const string HeadInjectionKindPublicAssetSet = "public-asset-set";
     private static readonly byte[] EmptyBytes = [];
     private static readonly ConditionalWeakTable<string, CspNonceHtmlTemplate> CspNonceHtmlTemplates = new();
     private static readonly ConditionalWeakTable<byte[], SpaHtmlByteTemplate> SpaHtmlByteTemplates = new();
+    private static readonly ConcurrentDictionary<HeadInjectionCacheKey, CachedHeadInjection> SpaHeadInjectionCache = new();
+    private static long SpaHeadInjectionBuildCount;
+    private static long SpaHeadInjectionHitCount;
 
     public static void UseFsusApplicationPipeline(this WebApplication app)
     {
@@ -460,13 +467,17 @@ public static class WebApplicationCompositionExtensions
             SpaAssetSet? publicAssetSet = isPublicAotRoute ? assetService.GetPublicAssetSet(ctx) : null;
             if (preloads.Count > 0)
             {
-                ReadOnlyMemory<byte> headInjection = BuildRoutePreloadHeadInjection(preloads);
+                ReadOnlyMemory<byte> headInjection = GetCachedRoutePreloadHeadInjection(
+                    assetService.GetFrontendAssetVersion(),
+                    path,
+                    preloads);
                 await WriteSpaHtmlResponseAsync(ctx, env, templateBytes, headInjection, ct);
                 return TypedResults.Empty;
             }
             if (publicAssetSet is not null)
             {
-                ReadOnlyMemory<byte> headInjection = BuildPublicAssetHeadInjection(publicAssetSet);
+                string routeKey = isPublicAotRoute ? aotMatch.RouteKey : path;
+                ReadOnlyMemory<byte> headInjection = GetCachedPublicAssetHeadInjection(routeKey, publicAssetSet);
                 await WriteSpaHtmlResponseAsync(ctx, env, templateBytes, headInjection, ct);
                 return TypedResults.Empty;
             }
@@ -662,6 +673,115 @@ public static class WebApplicationCompositionExtensions
         string nonce = EnsureCspNonce(ctx);
         string encodedNonce = System.Net.WebUtility.HtmlEncode(nonce);
         return Encoding.UTF8.GetBytes(encodedNonce);
+    }
+
+    private static ReadOnlyMemory<byte> GetCachedRoutePreloadHeadInjection(
+        string assetVersion,
+        string routeKey,
+        IReadOnlyList<string> preloads)
+    {
+        if (preloads.Count == 0)
+        {
+            return EmptyBytes;
+        }
+
+        var key = new HeadInjectionCacheKey(
+            NormalizeHeadInjectionCacheSegment(assetVersion, "missing-manifest"),
+            NormalizeHeadInjectionCacheSegment(routeKey, "/"),
+            HeadInjectionKindRoutePreload);
+        CachedHeadInjection cached = GetOrAddHeadInjection(
+            key,
+            preloads.Count,
+            () => BuildRoutePreloadHeadInjection(preloads));
+        return cached.Bytes;
+    }
+
+    private static ReadOnlyMemory<byte> GetCachedPublicAssetHeadInjection(string routeKey, SpaAssetSet publicAssetSet)
+    {
+        int assetCount = publicAssetSet.ModulePreloads.Count + publicAssetSet.Stylesheets.Count;
+        if (assetCount == 0)
+        {
+            return EmptyBytes;
+        }
+
+        var key = new HeadInjectionCacheKey(
+            NormalizeHeadInjectionCacheSegment(publicAssetSet.FrontendAssetVersion, "missing-manifest"),
+            NormalizeHeadInjectionCacheSegment(routeKey, "/"),
+            HeadInjectionKindPublicAssetSet);
+        CachedHeadInjection cached = GetOrAddHeadInjection(
+            key,
+            assetCount,
+            () => BuildPublicAssetHeadInjection(publicAssetSet));
+        return cached.Bytes;
+    }
+
+    private static CachedHeadInjection GetOrAddHeadInjection(
+        HeadInjectionCacheKey key,
+        int assetCount,
+        Func<ReadOnlyMemory<byte>> build)
+    {
+        if (SpaHeadInjectionCache.TryGetValue(key, out CachedHeadInjection cached))
+        {
+            Interlocked.Increment(ref SpaHeadInjectionHitCount);
+            return cached;
+        }
+
+        if (SpaHeadInjectionCache.Count >= DefaultSpaHeadInjectionCacheMaxEntries)
+        {
+            SpaHeadInjectionCache.Clear();
+        }
+
+        return SpaHeadInjectionCache.GetOrAdd(
+            key,
+            static (cacheKey, state) =>
+            {
+                Interlocked.Increment(ref SpaHeadInjectionBuildCount);
+                return new CachedHeadInjection(state.Build(), state.AssetCount, cacheKey.AssetVersion);
+            },
+            (Build: build, AssetCount: assetCount));
+    }
+
+    private static string NormalizeHeadInjectionCacheSegment(string value, string fallback)
+    {
+        string normalized = value.Trim();
+        return normalized.Length == 0 ? fallback : normalized;
+    }
+
+    internal static void ResetSpaHeadInjectionCacheForTests()
+    {
+        SpaHeadInjectionCache.Clear();
+        Interlocked.Exchange(ref SpaHeadInjectionBuildCount, 0);
+        Interlocked.Exchange(ref SpaHeadInjectionHitCount, 0);
+    }
+
+    internal static SpaHeadInjectionCacheStats GetSpaHeadInjectionCacheStatsForTests()
+        => new(
+            SpaHeadInjectionCache.Count,
+            Volatile.Read(ref SpaHeadInjectionBuildCount),
+            Volatile.Read(ref SpaHeadInjectionHitCount));
+
+    internal static ReadOnlyMemory<byte> GetRoutePreloadHeadInjectionForTests(
+        string assetVersion,
+        string routeKey,
+        IReadOnlyList<string> preloads)
+        => GetCachedRoutePreloadHeadInjection(assetVersion, routeKey, preloads);
+
+    internal static ReadOnlyMemory<byte> GetPublicAssetHeadInjectionForTests(string routeKey, SpaAssetSet publicAssetSet)
+        => GetCachedPublicAssetHeadInjection(routeKey, publicAssetSet);
+
+    internal static async Task<string> RenderSpaHtmlForTestsAsync(
+        string templateHtml,
+        ReadOnlyMemory<byte> headInjection,
+        string nonce)
+    {
+        SpaHtmlByteTemplate template = GetSpaHtmlByteTemplate(Encoding.UTF8.GetBytes(templateHtml));
+        string encodedNonce = System.Net.WebUtility.HtmlEncode(nonce);
+        await using var output = new MemoryStream();
+        PipeWriter writer = PipeWriter.Create(output);
+        template.Write(writer, Encoding.UTF8.GetBytes(encodedNonce), headInjection.Span);
+        await writer.FlushAsync();
+        await writer.CompleteAsync();
+        return Encoding.UTF8.GetString(output.ToArray());
     }
 
     private static ReadOnlyMemory<byte> BuildRoutePreloadHeadInjection(IReadOnlyList<string> preloads)
@@ -967,6 +1087,21 @@ public static class WebApplicationCompositionExtensions
         bytes.CopyTo(writer.GetSpan(bytes.Length));
         writer.Advance(bytes.Length);
     }
+
+    private readonly record struct HeadInjectionCacheKey(
+        string AssetVersion,
+        string RouteKey,
+        string Kind);
+
+    private readonly record struct CachedHeadInjection(
+        ReadOnlyMemory<byte> Bytes,
+        int AssetCount,
+        string AssetVersion);
+
+    internal readonly record struct SpaHeadInjectionCacheStats(
+        int EntryCount,
+        long BuildCount,
+        long HitCount);
 
     private sealed record CspNonceHtmlTemplate(string Html, bool HasPlaceholders)
     {
