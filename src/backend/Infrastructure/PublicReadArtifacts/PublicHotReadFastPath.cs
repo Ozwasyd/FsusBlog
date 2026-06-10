@@ -62,6 +62,24 @@ public readonly record struct PublicBinaryArtifactVariant(
     string ETag,
     string ContentEncoding);
 
+internal enum PublicHotReadRouteKind : byte
+{
+    None = 0,
+    Category = 1,
+    Tag = 2,
+    ArticleDetail = 3,
+    ArticleList = 4,
+    ArticleHot = 5,
+    ArticleFeatured = 6,
+    ArticleHtml = 7
+}
+
+internal readonly record struct PublicHotReadRoute(
+    PublicHotReadRouteKind Kind,
+    int ArticleId = 0,
+    PublicListKey ListKey = default,
+    string HtmlRouteKey = "");
+
 public readonly record struct PublicHtmlArtifact(
     ReadOnlyMemory<byte> Bytes,
     string ContentType,
@@ -514,7 +532,8 @@ public static class PublicHotReadFastPath
             return WriteStatus(ctx, StatusCodes.Status404NotFound);
         }
 
-        bool isHtmlPath = IsArticleHtmlPath(span);
+        bool classified = TryClassifyRoute(span, path, out PublicHotReadRoute route);
+        bool isHtmlPath = route.Kind == PublicHotReadRouteKind.ArticleHtml || IsArticleHtmlPath(span);
         if (!AcceptsArtifact(ctx, isHtmlPath))
         {
             return WriteStatus(ctx, StatusCodes.Status406NotAcceptable);
@@ -527,43 +546,22 @@ public static class PublicHotReadFastPath
         }
 
         PublicHotReadSnapshot snapshot = store.Current;
-        if (IsCategoryPath(path))
+        if (classified)
         {
-            return ServeCategory(ctx, snapshot, counters, options);
+            return route.Kind switch
+            {
+                PublicHotReadRouteKind.Category => ServeCategory(ctx, snapshot, counters, options),
+                PublicHotReadRouteKind.Tag => ServeTag(ctx, snapshot, counters, options),
+                PublicHotReadRouteKind.ArticleDetail => ServeArticle(ctx, snapshot, counters, route.ArticleId, options),
+                PublicHotReadRouteKind.ArticleList => ServeList(ctx, snapshot, counters, route.ListKey, options),
+                PublicHotReadRouteKind.ArticleHot => ServeList(ctx, snapshot, counters, route.ListKey, options),
+                PublicHotReadRouteKind.ArticleFeatured => ServeList(ctx, snapshot, counters, route.ListKey, options),
+                PublicHotReadRouteKind.ArticleHtml => ServeHtml(ctx, snapshot, counters, route.HtmlRouteKey, options),
+                _ => WriteRejected(ctx, counters)
+            };
         }
 
-        if (IsTagPath(path))
-        {
-            return ServeTag(ctx, snapshot, counters, options);
-        }
-
-        if (TryMatchArticleDetail(span, out int articleId))
-        {
-            return ServeArticle(ctx, snapshot, counters, articleId, options);
-        }
-
-        if (TryMatchArticleList(span, out PublicListKey listKey))
-        {
-            return ServeList(ctx, snapshot, counters, listKey, options);
-        }
-
-        if (TryMatchArticleHot(span, out PublicListKey hotKey))
-        {
-            return ServeList(ctx, snapshot, counters, hotKey, options);
-        }
-
-        if (TryMatchArticleFeatured(span, out PublicListKey featuredKey))
-        {
-            return ServeList(ctx, snapshot, counters, featuredKey, options);
-        }
-
-        if (TryMatchArticleHtml(span, path, out string? htmlPath))
-        {
-            return ServeHtml(ctx, snapshot, counters, htmlPath, options);
-        }
-
-        counters.Rejected();
-        return WriteStatus(ctx, StatusCodes.Status404NotFound);
+        return WriteRejected(ctx, counters);
     }
 
     private static bool IsPublicHotReadPath(string path)
@@ -584,7 +582,66 @@ public static class PublicHotReadFastPath
         => path.StartsWith("/api/binary/article/html/", StringComparison.Ordinal);
 
     private static bool AcceptsArtifact(HttpContext ctx, bool html)
-        => HttpAcceptNegotiation.Accepts(ctx.Request.Headers.Accept, html ? HtmlMediaType : BinaryContentType);
+    {
+        StringValues accept = ctx.Request.Headers.Accept;
+        if (TryAcceptArtifactCommon(accept, html, out bool accepted))
+        {
+            return accepted;
+        }
+
+        return HttpAcceptNegotiation.Accepts(accept, html ? HtmlMediaType : BinaryContentType);
+    }
+
+    internal static bool AcceptsArtifactForTests(StringValues accept, bool html)
+        => TryAcceptArtifactCommon(accept, html, out bool accepted)
+            ? accepted
+            : HttpAcceptNegotiation.Accepts(accept, html ? HtmlMediaType : BinaryContentType);
+
+    private static bool TryAcceptArtifactCommon(StringValues values, bool html, out bool accepted)
+    {
+        accepted = false;
+        if (values.Count == 0)
+        {
+            accepted = true;
+            return true;
+        }
+
+        if (values.Count != 1)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> header = (values[0] ?? string.Empty).AsSpan().Trim();
+        if (header.IsEmpty || header.Equals("*/*", StringComparison.OrdinalIgnoreCase))
+        {
+            accepted = true;
+            return true;
+        }
+
+        ReadOnlySpan<char> mediaType = html ? HtmlMediaType.AsSpan() : BinaryContentType.AsSpan();
+        if (header.Equals(mediaType, StringComparison.OrdinalIgnoreCase)
+            || EqualsCommaPair(header, mediaType, "*/*".AsSpan()))
+        {
+            accepted = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool EqualsCommaPair(ReadOnlySpan<char> value, ReadOnlySpan<char> first, ReadOnlySpan<char> second)
+    {
+        int comma = value.IndexOf(',');
+        return comma > 0
+            && value[..comma].Trim().Equals(first, StringComparison.OrdinalIgnoreCase)
+            && value[(comma + 1)..].Trim().Equals(second, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static Task WriteRejected(HttpContext ctx, PublicHotReadCounters counters)
+    {
+        counters.Rejected();
+        return WriteStatus(ctx, StatusCodes.Status404NotFound);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool ContainsRejectedPathChar(ReadOnlySpan<char> path)
@@ -772,8 +829,25 @@ public static class PublicHotReadFastPath
         HttpRequest request,
         PublicBinaryArtifact artifact,
         out PublicBinaryArtifactVariant variant)
+        => TrySelectBinaryVariant(request.Headers.AcceptEncoding, artifact, out variant);
+
+    internal static bool TrySelectBinaryVariantForTests(
+        StringValues acceptEncoding,
+        PublicBinaryArtifact artifact,
+        out PublicBinaryArtifactVariant variant)
+        => TrySelectBinaryVariant(acceptEncoding, artifact, out variant);
+
+    private static bool TrySelectBinaryVariant(
+        StringValues acceptEncoding,
+        PublicBinaryArtifact artifact,
+        out PublicBinaryArtifactVariant variant)
     {
-        BinaryEncodingQuality quality = ParseAcceptEncoding(request.Headers.AcceptEncoding);
+        if (TrySelectCommonBinaryVariant(acceptEncoding, artifact, out variant))
+        {
+            return true;
+        }
+
+        BinaryEncodingQuality quality = ParseAcceptEncoding(acceptEncoding);
         double identity = quality.Identity;
         double gzip = quality.Gzip;
         double br = quality.Brotli;
@@ -799,6 +873,106 @@ public static class PublicHotReadFastPath
         }
 
         return best > 0 && !variant.Frame.IsEmpty;
+    }
+
+    private static bool TrySelectCommonBinaryVariant(
+        StringValues values,
+        PublicBinaryArtifact artifact,
+        out PublicBinaryArtifactVariant variant)
+    {
+        variant = default;
+        if (values.Count == 0)
+        {
+            return TrySelectIdentity(artifact, out variant);
+        }
+
+        if (values.Count != 1)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> header = (values[0] ?? string.Empty).AsSpan().Trim();
+        if (header.IsEmpty)
+        {
+            return TrySelectIdentity(artifact, out variant);
+        }
+
+        if (header.IndexOf(';') >= 0)
+        {
+            return false;
+        }
+
+        if (header.Equals("br", StringComparison.OrdinalIgnoreCase))
+        {
+            return TrySelectBrotliGzipIdentity(artifact, out variant);
+        }
+
+        if (header.Equals("gzip", StringComparison.OrdinalIgnoreCase))
+        {
+            return TrySelectGzipIdentity(artifact, out variant);
+        }
+
+        if (EqualsCommaPair(header, "gzip".AsSpan(), "br".AsSpan())
+            || EqualsCommaPair(header, "br".AsSpan(), "gzip".AsSpan())
+            || EqualsCommaTriple(header, "gzip".AsSpan(), "deflate".AsSpan(), "br".AsSpan()))
+        {
+            return TrySelectBrotliGzipIdentity(artifact, out variant);
+        }
+
+        return false;
+    }
+
+    private static bool TrySelectBrotliGzipIdentity(PublicBinaryArtifact artifact, out PublicBinaryArtifactVariant variant)
+    {
+        if (!artifact.BrotliFrame.IsEmpty)
+        {
+            variant = new PublicBinaryArtifactVariant(artifact.BrotliFrame, artifact.BrotliETag, "br");
+            return true;
+        }
+
+        return TrySelectGzipIdentity(artifact, out variant);
+    }
+
+    private static bool TrySelectGzipIdentity(PublicBinaryArtifact artifact, out PublicBinaryArtifactVariant variant)
+    {
+        if (!artifact.GzipFrame.IsEmpty)
+        {
+            variant = new PublicBinaryArtifactVariant(artifact.GzipFrame, artifact.GzipETag, "gzip");
+            return true;
+        }
+
+        return TrySelectIdentity(artifact, out variant);
+    }
+
+    private static bool TrySelectIdentity(PublicBinaryArtifact artifact, out PublicBinaryArtifactVariant variant)
+    {
+        variant = default;
+        if (artifact.Frame.IsEmpty)
+        {
+            return false;
+        }
+
+        variant = new PublicBinaryArtifactVariant(artifact.Frame, artifact.ETag, string.Empty);
+        return true;
+    }
+
+    private static bool EqualsCommaTriple(
+        ReadOnlySpan<char> value,
+        ReadOnlySpan<char> first,
+        ReadOnlySpan<char> second,
+        ReadOnlySpan<char> third)
+    {
+        int firstComma = value.IndexOf(',');
+        if (firstComma <= 0 || !value[..firstComma].Trim().Equals(first, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> rest = value[(firstComma + 1)..];
+        int secondComma = rest.IndexOf(',');
+        return secondComma > 0
+            && rest[..secondComma].Trim().Equals(second, StringComparison.OrdinalIgnoreCase)
+            && rest[(secondComma + 1)..].Trim().Equals(third, StringComparison.OrdinalIgnoreCase);
     }
 
     private readonly record struct BinaryEncodingQuality(double Identity, double Gzip, double Brotli);
@@ -919,16 +1093,21 @@ public static class PublicHotReadFastPath
     }
 
     private static bool MatchesIfNoneMatch(HttpRequest request, string etag)
+        => MatchesIfNoneMatch(request.Headers.IfNoneMatch, etag);
+
+    internal static bool MatchesIfNoneMatchForTests(StringValues ifNoneMatch, string etag)
+        => MatchesIfNoneMatch(ifNoneMatch, etag);
+
+    private static bool MatchesIfNoneMatch(StringValues values, string etag)
     {
         if (string.IsNullOrWhiteSpace(etag))
         {
             return false;
         }
 
-        StringValues values = request.Headers.IfNoneMatch;
-        if (values.Count == 0)
+        if (TryMatchesIfNoneMatchCommon(values, etag, out bool matched))
         {
-            return false;
+            return matched;
         }
 
         for (int i = 0; i < values.Count; i++)
@@ -954,6 +1133,30 @@ public static class PublicHotReadFastPath
         }
 
         return false;
+    }
+
+    private static bool TryMatchesIfNoneMatchCommon(StringValues values, string etag, out bool matched)
+    {
+        matched = false;
+        if (values.Count == 0)
+        {
+            return true;
+        }
+
+        if (values.Count != 1)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> header = (values[0] ?? string.Empty).AsSpan().Trim();
+        if (header.IndexOf(',') >= 0)
+        {
+            return false;
+        }
+
+        matched = header.Equals("*", StringComparison.Ordinal)
+            || header.Equals(etag.AsSpan(), StringComparison.Ordinal);
+        return true;
     }
 
     private static bool IsTaxonomyCollectionPath(string path)
@@ -1023,85 +1226,133 @@ public static class PublicHotReadFastPath
     private static async Task AwaitWrite(ValueTask<FlushResult> write)
         => _ = await write.ConfigureAwait(false);
 
-    internal static bool TryMatchArticleDetail(ReadOnlySpan<char> path, out int articleId)
+    internal static bool TryClassifyRouteForTests(string path, out PublicHotReadRoute route)
+        => TryClassifyRoute(path.AsSpan(), path, out route);
+
+    private static bool TryClassifyRoute(ReadOnlySpan<char> path, string pathValue, out PublicHotReadRoute route)
     {
-        const string prefix = "/api/binary/article/";
-        articleId = 0;
-        if (!path.StartsWith(prefix, StringComparison.Ordinal) || !path.EndsWith(".aeds", StringComparison.Ordinal))
+        route = default;
+        if (path.Equals(CategoryPath.AsSpan(), StringComparison.Ordinal)
+            || path.Equals(CategoryPathWithoutSuffix.AsSpan(), StringComparison.Ordinal))
         {
-            return false;
-        }
-
-        ReadOnlySpan<char> idSpan = path[prefix.Length..^5];
-        return TryParsePositiveInt(idSpan, out articleId);
-    }
-
-    internal static bool TryMatchArticleList(ReadOnlySpan<char> path, out PublicListKey key)
-    {
-        key = default;
-        const string homePrefix = "/api/binary/article/list/home/";
-        const string archivePrefix = "/api/binary/article/list/archive/";
-        const string categoryPrefix = "/api/binary/article/list/category/";
-        const string tagPrefix = "/api/binary/article/list/tag/";
-
-        if (TryMatchPagedList(path, homePrefix, PublicListKind.Home, 0, out key)
-            || TryMatchPagedList(path, archivePrefix, PublicListKind.Archive, 0, out key))
-        {
+            route = new PublicHotReadRoute(PublicHotReadRouteKind.Category);
             return true;
         }
 
-        return TryMatchTargetedPagedList(path, categoryPrefix, PublicListKind.Category, out key)
-            || TryMatchTargetedPagedList(path, tagPrefix, PublicListKind.Tag, out key);
-    }
+        if (path.Equals(TagPath.AsSpan(), StringComparison.Ordinal)
+            || path.Equals(TagPathWithoutSuffix.AsSpan(), StringComparison.Ordinal))
+        {
+            route = new PublicHotReadRoute(PublicHotReadRouteKind.Tag);
+            return true;
+        }
 
-    internal static bool TryMatchArticleHot(ReadOnlySpan<char> path, out PublicListKey key)
-    {
-        key = default;
-        const string prefix = "/api/binary/article/hot/";
-        if (!path.StartsWith(prefix, StringComparison.Ordinal) || !path.EndsWith(".aeds", StringComparison.Ordinal))
+        const string articlePrefix = "/api/binary/article/";
+        if (!path.StartsWith(articlePrefix, StringComparison.Ordinal))
         {
             return false;
         }
 
-        ReadOnlySpan<char> sizeSpan = path[prefix.Length..^5];
-        if (!TryParseByteSize(sizeSpan, out byte size))
+        ReadOnlySpan<char> rest = path[articlePrefix.Length..];
+        if (rest.StartsWith("list/".AsSpan(), StringComparison.Ordinal))
+        {
+            return TryClassifyArticleList(rest["list/".Length..], out route);
+        }
+
+        if (rest.StartsWith("hot/".AsSpan(), StringComparison.Ordinal))
+        {
+            return TryClassifySizeList(rest["hot/".Length..], PublicHotReadRouteKind.ArticleHot, PublicListKind.Hot, out route);
+        }
+
+        if (rest.StartsWith("featured/".AsSpan(), StringComparison.Ordinal))
+        {
+            return TryClassifySizeList(rest["featured/".Length..], PublicHotReadRouteKind.ArticleFeatured, PublicListKind.Featured, out route);
+        }
+
+        if (rest.StartsWith("html/".AsSpan(), StringComparison.Ordinal))
+        {
+            return TryClassifyHtml(rest["html/".Length..], pathValue, out route);
+        }
+
+        if (!rest.EndsWith(".aeds".AsSpan(), StringComparison.Ordinal)
+            || !TryParsePositiveInt(rest[..^5], out int articleId))
         {
             return false;
         }
 
-        key = new PublicListKey(PublicListKind.Hot, 0, 1, size);
+        route = new PublicHotReadRoute(PublicHotReadRouteKind.ArticleDetail, ArticleId: articleId);
         return true;
     }
 
-    internal static bool TryMatchArticleFeatured(ReadOnlySpan<char> path, out PublicListKey key)
+    private static bool TryClassifyArticleList(ReadOnlySpan<char> rest, out PublicHotReadRoute route)
     {
-        key = default;
-        const string prefix = "/api/binary/article/featured/";
-        if (!path.StartsWith(prefix, StringComparison.Ordinal) || !path.EndsWith(".aeds", StringComparison.Ordinal))
+        route = default;
+        if (rest.StartsWith("home/".AsSpan(), StringComparison.Ordinal))
+        {
+            return TryClassifyPagedListTail(
+                rest["home/".Length..],
+                PublicHotReadRouteKind.ArticleList,
+                PublicListKind.Home,
+                0,
+                out route);
+        }
+
+        if (rest.StartsWith("archive/".AsSpan(), StringComparison.Ordinal))
+        {
+            return TryClassifyPagedListTail(
+                rest["archive/".Length..],
+                PublicHotReadRouteKind.ArticleList,
+                PublicListKind.Archive,
+                0,
+                out route);
+        }
+
+        if (rest.StartsWith("category/".AsSpan(), StringComparison.Ordinal))
+        {
+            return TryClassifyTargetedPagedListTail(
+                rest["category/".Length..],
+                PublicHotReadRouteKind.ArticleList,
+                PublicListKind.Category,
+                out route);
+        }
+
+        if (rest.StartsWith("tag/".AsSpan(), StringComparison.Ordinal))
+        {
+            return TryClassifyTargetedPagedListTail(
+                rest["tag/".Length..],
+                PublicHotReadRouteKind.ArticleList,
+                PublicListKind.Tag,
+                out route);
+        }
+
+        return false;
+    }
+
+    private static bool TryClassifySizeList(
+        ReadOnlySpan<char> rest,
+        PublicHotReadRouteKind routeKind,
+        PublicListKind listKind,
+        out PublicHotReadRoute route)
+    {
+        route = default;
+        if (!rest.EndsWith(".aeds".AsSpan(), StringComparison.Ordinal)
+            || !TryParseByteSize(rest[..^5], out byte size))
         {
             return false;
         }
 
-        ReadOnlySpan<char> sizeSpan = path[prefix.Length..^5];
-        if (!TryParseByteSize(sizeSpan, out byte size))
-        {
-            return false;
-        }
-
-        key = new PublicListKey(PublicListKind.Featured, 0, 1, size);
+        route = new PublicHotReadRoute(routeKind, ListKey: new PublicListKey(listKind, 0, 1, size));
         return true;
     }
 
-    internal static bool TryMatchArticleHtml(ReadOnlySpan<char> path, string pathValue, out string routeKey)
+    private static bool TryClassifyHtml(ReadOnlySpan<char> rest, string pathValue, out PublicHotReadRoute route)
     {
-        routeKey = string.Empty;
-        const string prefix = "/api/binary/article/html/";
-        if (!path.StartsWith(prefix, StringComparison.Ordinal) || !path.EndsWith(".html", StringComparison.Ordinal))
+        route = default;
+        if (!rest.EndsWith(".html".AsSpan(), StringComparison.Ordinal))
         {
             return false;
         }
 
-        ReadOnlySpan<char> keySpan = path[prefix.Length..^5];
+        ReadOnlySpan<char> keySpan = rest[..^5];
         if (keySpan.IsEmpty
             || keySpan.IndexOf('/') >= 0
             || !PublicHotReadRouteKeys.IsSafePathKey(keySpan))
@@ -1109,43 +1360,53 @@ public static class PublicHotReadFastPath
             return false;
         }
 
-        routeKey = pathValue;
+        route = new PublicHotReadRoute(PublicHotReadRouteKind.ArticleHtml, HtmlRouteKey: pathValue);
         return true;
     }
 
-    private static bool TryMatchPagedList(ReadOnlySpan<char> path, string prefix, PublicListKind kind, int targetId, out PublicListKey key)
+    private static bool TryClassifyPagedListTail(
+        ReadOnlySpan<char> rest,
+        PublicHotReadRouteKind routeKind,
+        PublicListKind listKind,
+        int targetId,
+        out PublicHotReadRoute route)
     {
-        key = default;
-        if (!path.StartsWith(prefix, StringComparison.Ordinal) || !path.EndsWith(".aeds", StringComparison.Ordinal))
+        route = default;
+        if (!rest.EndsWith(".aeds".AsSpan(), StringComparison.Ordinal))
         {
             return false;
         }
 
-        ReadOnlySpan<char> rest = path[prefix.Length..^5];
+        rest = rest[..^5];
         int slash = rest.IndexOf('/');
         if (slash <= 0 || slash == rest.Length - 1)
         {
             return false;
         }
 
-        if (!TryParseUShort(rest[..slash], out ushort page) || !TryParseByteSize(rest[(slash + 1)..], out byte size))
+        if (!TryParseUShort(rest[..slash], out ushort page)
+            || !TryParseByteSize(rest[(slash + 1)..], out byte size))
         {
             return false;
         }
 
-        key = new PublicListKey(kind, targetId, page, size);
+        route = new PublicHotReadRoute(routeKind, ListKey: new PublicListKey(listKind, targetId, page, size));
         return true;
     }
 
-    private static bool TryMatchTargetedPagedList(ReadOnlySpan<char> path, string prefix, PublicListKind kind, out PublicListKey key)
+    private static bool TryClassifyTargetedPagedListTail(
+        ReadOnlySpan<char> rest,
+        PublicHotReadRouteKind routeKind,
+        PublicListKind listKind,
+        out PublicHotReadRoute route)
     {
-        key = default;
-        if (!path.StartsWith(prefix, StringComparison.Ordinal) || !path.EndsWith(".aeds", StringComparison.Ordinal))
+        route = default;
+        if (!rest.EndsWith(".aeds".AsSpan(), StringComparison.Ordinal))
         {
             return false;
         }
 
-        ReadOnlySpan<char> rest = path[prefix.Length..^5];
+        rest = rest[..^5];
         int first = rest.IndexOf('/');
         if (first <= 0 || first == rest.Length - 1)
         {
@@ -1166,7 +1427,72 @@ public static class PublicHotReadFastPath
             return false;
         }
 
-        key = new PublicListKey(kind, targetId, page, size);
+        route = new PublicHotReadRoute(routeKind, ListKey: new PublicListKey(listKind, targetId, page, size));
+        return true;
+    }
+
+    internal static bool TryMatchArticleDetail(ReadOnlySpan<char> path, out int articleId)
+    {
+        articleId = 0;
+        if (!TryClassifyRoute(path, string.Empty, out PublicHotReadRoute route)
+            || route.Kind != PublicHotReadRouteKind.ArticleDetail)
+        {
+            return false;
+        }
+
+        articleId = route.ArticleId;
+        return true;
+    }
+
+    internal static bool TryMatchArticleList(ReadOnlySpan<char> path, out PublicListKey key)
+    {
+        key = default;
+        if (!TryClassifyRoute(path, string.Empty, out PublicHotReadRoute route)
+            || route.Kind != PublicHotReadRouteKind.ArticleList)
+        {
+            return false;
+        }
+
+        key = route.ListKey;
+        return true;
+    }
+
+    internal static bool TryMatchArticleHot(ReadOnlySpan<char> path, out PublicListKey key)
+    {
+        key = default;
+        if (!TryClassifyRoute(path, string.Empty, out PublicHotReadRoute route)
+            || route.Kind != PublicHotReadRouteKind.ArticleHot)
+        {
+            return false;
+        }
+
+        key = route.ListKey;
+        return true;
+    }
+
+    internal static bool TryMatchArticleFeatured(ReadOnlySpan<char> path, out PublicListKey key)
+    {
+        key = default;
+        if (!TryClassifyRoute(path, string.Empty, out PublicHotReadRoute route)
+            || route.Kind != PublicHotReadRouteKind.ArticleFeatured)
+        {
+            return false;
+        }
+
+        key = route.ListKey;
+        return true;
+    }
+
+    internal static bool TryMatchArticleHtml(ReadOnlySpan<char> path, string pathValue, out string routeKey)
+    {
+        routeKey = string.Empty;
+        if (!TryClassifyRoute(path, pathValue, out PublicHotReadRoute route)
+            || route.Kind != PublicHotReadRouteKind.ArticleHtml)
+        {
+            return false;
+        }
+
+        routeKey = route.HtmlRouteKey;
         return true;
     }
 

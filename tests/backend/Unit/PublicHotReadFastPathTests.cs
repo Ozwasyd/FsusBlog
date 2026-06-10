@@ -4,6 +4,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -102,6 +103,76 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal(artifact.BrotliFrame.ToArray(), ((MemoryStream)context.Response.Body).ToArray());
     }
 
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("br", "br")]
+    [InlineData("gzip", "gzip")]
+    [InlineData("gzip, br", "br")]
+    [InlineData("br, gzip", "br")]
+    [InlineData("gzip, deflate, br", "br")]
+    public async Task TryServeAsync_DetailHit_CommonAcceptEncodingValuesUseFastVariantSelection(
+        string acceptEncoding,
+        string expectedEncoding)
+    {
+        PublicBinaryArtifact artifact = CreateCompressibleArtifact();
+        var store = CreateReadyStoreWithArticle(42, artifact);
+        var context = CreateContext("/api/binary/article/42.aeds");
+        if (acceptEncoding.Length > 0)
+        {
+            context.Request.Headers.AcceptEncoding = acceptEncoding;
+        }
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            new PublicHotReadOptions { MinPrecompressedFrameBytes = 1 },
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal(expectedEncoding, context.Response.Headers["Content-Encoding"].ToString());
+        Assert.Equal(string.IsNullOrEmpty(expectedEncoding) ? "identity" : expectedEncoding, context.Response.Headers["X-Fsus-Frame-Encoding"].ToString());
+    }
+
+    [Fact]
+    public async Task TryServeAsync_DetailHit_QValueFallbackStillHonorsQuality()
+    {
+        PublicBinaryArtifact artifact = CreateCompressibleArtifact();
+        var store = CreateReadyStoreWithArticle(42, artifact);
+        var context = CreateContext("/api/binary/article/42.aeds");
+        context.Request.Headers.AcceptEncoding = "br;q=0, gzip;q=1, identity;q=0.1";
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            new PublicHotReadOptions { MinPrecompressedFrameBytes = 1 },
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal("gzip", context.Response.Headers["Content-Encoding"].ToString());
+        Assert.Equal(artifact.GzipETag, context.Response.Headers.ETag);
+    }
+
+    [Fact]
+    public async Task TryServeAsync_DetailHit_IdentityQZeroWithoutAvailableCompressedVariantReturns406()
+    {
+        byte[] frame = CreateFrame(AedsFrameType.ArticleDetail);
+        var store = CreateReadyStoreWithArticle(42, frame);
+        var context = CreateContext("/api/binary/article/42.aeds");
+        context.Request.Headers.AcceptEncoding = "identity;q=0";
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status406NotAcceptable, context.Response.StatusCode);
+        AssertNoStore(context);
+    }
+
     [Fact]
     public async Task TryServeAsync_DetailHit_Returns304ForMatchingIfNoneMatch()
     {
@@ -120,6 +191,16 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal(StatusCodes.Status304NotModified, context.Response.StatusCode);
         Assert.Equal("\"detail\"", context.Response.Headers.ETag);
         Assert.Empty(((MemoryStream)context.Response.Body).ToArray());
+    }
+
+    [Fact]
+    public void IfNoneMatchCommonAndFallbackCases_MatchExpectedEtags()
+    {
+        Assert.False(PublicHotReadFastPath.MatchesIfNoneMatchForTests(StringValues.Empty, "\"detail\""));
+        Assert.True(PublicHotReadFastPath.MatchesIfNoneMatchForTests(new StringValues("\"detail\""), "\"detail\""));
+        Assert.False(PublicHotReadFastPath.MatchesIfNoneMatchForTests(new StringValues("\"other\""), "\"detail\""));
+        Assert.True(PublicHotReadFastPath.MatchesIfNoneMatchForTests(new StringValues("*"), "\"detail\""));
+        Assert.True(PublicHotReadFastPath.MatchesIfNoneMatchForTests(new StringValues("\"other\", \"detail\""), "\"detail\""));
     }
 
     [Fact]
@@ -256,6 +337,23 @@ public sealed class PublicHotReadFastPathTests
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.Equal(frame, ((MemoryStream)context.Response.Body).ToArray());
+    }
+
+    [Theory]
+    [InlineData(false, "", true)]
+    [InlineData(false, "*/*", true)]
+    [InlineData(false, "application/octet-stream", true)]
+    [InlineData(false, "application/octet-stream,*/*", true)]
+    [InlineData(false, "application/json", false)]
+    [InlineData(true, "text/html", true)]
+    [InlineData(true, "text/html,*/*", true)]
+    [InlineData(true, "*/*", true)]
+    [InlineData(true, "application/octet-stream", false)]
+    public void AcceptCommonValues_ShortCircuitToExpectedArtifactDecision(bool html, string accept, bool expected)
+    {
+        bool actual = PublicHotReadFastPath.AcceptsArtifactForTests(new StringValues(accept), html);
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -502,6 +600,35 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
+    public void TryClassifyRoute_ParsesPublicHotReadRoutesInOnePass()
+    {
+        Assert.True(PublicHotReadFastPath.TryClassifyRouteForTests("/api/binary/category.aeds", out PublicHotReadRoute category));
+        Assert.Equal(PublicHotReadRouteKind.Category, category.Kind);
+
+        Assert.True(PublicHotReadFastPath.TryClassifyRouteForTests("/api/binary/tag", out PublicHotReadRoute tag));
+        Assert.Equal(PublicHotReadRouteKind.Tag, tag.Kind);
+
+        Assert.True(PublicHotReadFastPath.TryClassifyRouteForTests("/api/binary/article/42.aeds", out PublicHotReadRoute detail));
+        Assert.Equal(PublicHotReadRouteKind.ArticleDetail, detail.Kind);
+        Assert.Equal(42, detail.ArticleId);
+
+        Assert.True(PublicHotReadFastPath.TryClassifyRouteForTests("/api/binary/article/list/category/7/1/5.aeds", out PublicHotReadRoute list));
+        Assert.Equal(PublicHotReadRouteKind.ArticleList, list.Kind);
+        Assert.Equal(new PublicListKey(PublicListKind.Category, 7, 1, 5), list.ListKey);
+
+        Assert.True(PublicHotReadFastPath.TryClassifyRouteForTests("/api/binary/article/featured/4.aeds", out PublicHotReadRoute featured));
+        Assert.Equal(PublicHotReadRouteKind.ArticleFeatured, featured.Kind);
+        Assert.Equal(new PublicListKey(PublicListKind.Featured, 0, 1, 4), featured.ListKey);
+
+        string htmlPath = PublicHotReadRouteKeys.HtmlPath("home");
+        Assert.True(PublicHotReadFastPath.TryClassifyRouteForTests(htmlPath, out PublicHotReadRoute html));
+        Assert.Equal(PublicHotReadRouteKind.ArticleHtml, html.Kind);
+        Assert.Equal(htmlPath, html.HtmlRouteKey);
+
+        Assert.False(PublicHotReadFastPath.TryClassifyRouteForTests("/api/binary/article/list/home/0/10.aeds", out _));
+    }
+
+    [Fact]
     public void PublicHotReadRouteKeys_MapsUnsafeRouteKeysToStableSafeHtmlPaths()
     {
         Assert.Equal("/api/binary/article/html/article-42.html", PublicHotReadRouteKeys.HtmlPath("article:42"));
@@ -667,6 +794,60 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
+    public void FastPathSource_UsesRouteClassifierInsteadOfMatcherChain()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs"));
+        int start = source.IndexOf("public static Task TryServeAsync", StringComparison.Ordinal);
+        int end = source.IndexOf("private static bool IsPublicHotReadPath", start, StringComparison.Ordinal);
+        string tryServe = source[start..end];
+
+        Assert.Contains("TryClassifyRoute", tryServe, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryMatchArticleDetail", tryServe, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryMatchArticleList", tryServe, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryMatchArticleHot", tryServe, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryMatchArticleFeatured", tryServe, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryMatchArticleHtml", tryServe, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CommonHeaderAndRouteProbe_AvoidsPerRequestAllocationsAfterWarmup()
+    {
+        PublicBinaryArtifact artifact = CreateCompressibleArtifact();
+        StringValues acceptEncoding = new("gzip, br");
+        StringValues accept = new("application/octet-stream,*/*");
+        StringValues ifNoneMatch = new("\"detail\"");
+        const string route = "/api/binary/article/list/home/1/10.aeds";
+
+        _ = PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out _);
+        _ = PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false);
+        _ = PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"");
+        _ = PublicHotReadFastPath.TryClassifyRouteForTests(route, out _);
+        for (int i = 0; i < 1000; i++)
+        {
+            _ = PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out _);
+            _ = PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false);
+            _ = PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"");
+            _ = PublicHotReadFastPath.TryClassifyRouteForTests(route, out _);
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        bool ok = true;
+        for (int i = 0; i < 1000; i++)
+        {
+            ok &= PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out PublicBinaryArtifactVariant variant)
+                && variant.ContentEncoding == "br"
+                && PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false)
+                && PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"")
+                && PublicHotReadFastPath.TryClassifyRouteForTests(route, out PublicHotReadRoute parsed)
+                && parsed.ListKey.Equals(new PublicListKey(PublicListKind.Home, 0, 1, 10));
+        }
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.True(ok);
+        Assert.True(allocated <= 512, $"expected steady-state common hot path to stay allocation-free; measured {allocated} bytes over 1000 iterations");
+    }
+
+    [Fact]
     public void ProjectorSource_UsesDeterministicPublicListOrdering()
     {
         string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"));
@@ -708,6 +889,19 @@ public sealed class PublicHotReadFastPathTests
             default,
             FrozenDictionary<string, PublicHtmlArtifact>.Empty));
         return store;
+    }
+
+    private static PublicBinaryArtifact CreateCompressibleArtifact()
+    {
+        var options = new PublicHotReadOptions { MinPrecompressedFrameBytes = 1 };
+        byte[] payload = Enumerable.Repeat((byte)'a', 2048).ToArray();
+        return PublicHotReadBinaryArtifactFactory.FromPayload(
+            new AedsEncoder(),
+            AedsFrameType.ArticleDetail,
+            payload,
+            "public,max-age=60",
+            1,
+            options);
     }
 
     private static byte[] CreateFrame(AedsFrameType frameType, byte[]? payload = null)
