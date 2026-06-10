@@ -64,7 +64,7 @@ FsusBlog 审核链路的优先级固定为：
 | `none` | 默认关闭，不调用外部模型 |
 | `mock` | 测试和开发环境模拟信号 |
 | `http-json` | 第三方 HTTP JSON 模型服务 |
-| `cli-json` | 本地 CLI 模型进程 |
+| `fsus-cli` | 预留给 `FsusAntiSpamModel` 稳定评分命令的本地 CLI 模型进程 |
 | `grpc` | 预留，不在第一版强制实现 |
 
 生产默认建议：

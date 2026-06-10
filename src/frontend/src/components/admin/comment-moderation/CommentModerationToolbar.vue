@@ -108,6 +108,44 @@
         </el-select>
       </div>
 
+      <div class="lg:col-span-2">
+        <el-select
+          :model-value="filters.modelLabel"
+          name="commentModerationModelLabel"
+          aria-label="按模型标签筛选评论"
+          placeholder="模型标签"
+          clearable
+          :disabled="loading || modelLabelOptions.length === 0"
+          @update:model-value="onModelLabelChange"
+        >
+          <el-option
+            v-for="option in modelLabelOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </div>
+
+      <div class="lg:col-span-2">
+        <el-select
+          :model-value="filters.modelProvider"
+          name="commentModerationModelProvider"
+          aria-label="按模型 Provider 筛选评论"
+          placeholder="模型 Provider"
+          clearable
+          :disabled="loading || modelProviderOptions.length === 0"
+          @update:model-value="onModelProviderChange"
+        >
+          <el-option
+            v-for="option in modelProviderOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </div>
+
       <div class="lg:col-span-3">
         <el-date-picker
           :model-value="filters.dateRange"
@@ -161,6 +199,8 @@ defineProps<{
   counters: ReadonlyArray<{ label: string; value: number }>
   hitReasonOptions: ReadonlyArray<{ value: string; label: string }>
   blockedRegionOptions: ReadonlyArray<{ value: string; label: string }>
+  modelLabelOptions: ReadonlyArray<{ value: string; label: string }>
+  modelProviderOptions: ReadonlyArray<{ value: string; label: string }>
   activeFilters: ReadonlyArray<{ key: CommentModerationFilterKey; label: string }>
 }>()
 
@@ -175,6 +215,8 @@ const emit = defineEmits<{
   'update:user': [value: string]
   'update:hitReason': [value: string]
   'update:blockedRegion': [value: string]
+  'update:modelLabel': [value: string]
+  'update:modelProvider': [value: string]
   'update:dateRange': [value: [string, string] | null]
 }>()
 
@@ -188,6 +230,14 @@ const onHitReasonChange = (value: string | null): void => {
 
 const onBlockedRegionChange = (value: string | null): void => {
   emit('update:blockedRegion', value ?? '')
+}
+
+const onModelLabelChange = (value: string | null): void => {
+  emit('update:modelLabel', value ?? '')
+}
+
+const onModelProviderChange = (value: string | null): void => {
+  emit('update:modelProvider', value ?? '')
 }
 
 const onDateRangeChange = (value: unknown): void => {

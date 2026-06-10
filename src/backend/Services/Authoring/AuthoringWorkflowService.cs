@@ -420,6 +420,14 @@ public sealed class AuthoringWorkflowService(
                 RegionHideUntilReviewed = rc.HideUntilReviewed
             })
             .ToListAsync(cancellationToken);
+        IReadOnlyDictionary<long, CommentModerationModelSignalResponse> latestSignals = await LoadLatestModelSignalsAsync(rows, cancellationToken);
+        foreach (CommentModerationQueueRow row in rows)
+        {
+            if (latestSignals.TryGetValue(row.Id, out CommentModerationModelSignalResponse? signal))
+            {
+                row.ModelSignals = [signal];
+            }
+        }
 
         int pending = await db.Queryable<Comment>().Where(static item => item.ModerationStatus == CommentModerationStatus.Pending && !item.IsDeleted).CountAsync(cancellationToken);
         int rejected = await db.Queryable<Comment>().Where(static item => item.ModerationStatus == CommentModerationStatus.Rejected && !item.IsDeleted).CountAsync(cancellationToken);
@@ -677,7 +685,9 @@ public sealed class AuthoringWorkflowService(
         => new(item.Id, item.Url, item.AltText, item.SourceArticleId, item.ReferenceCount, item.Sha256, item.UpdatedAt);
 
     private CommentModerationItemResponse ToCommentModerationItem(CommentModerationQueueRow row)
-        => new(
+    {
+        CommentModerationModelSignalResponse? latestSignal = row.ModelSignals.FirstOrDefault();
+        return new CommentModerationItemResponse(
             row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
             row.ArticleId,
             string.IsNullOrWhiteSpace(row.ArticleTitle) ? "未命名文章" : row.ArticleTitle,
@@ -691,6 +701,7 @@ public sealed class AuthoringWorkflowService(
             row.ModeratedAt,
             [.. DetectCommentHitReasons(row.Content, row.Reason)
                 .Concat(ParseCommaList(row.RegionRiskLabels).Select(static label => $"region:{label}"))
+                .Concat(row.ModelSignals.SelectMany(static signal => signal.RiskCategories.Select(static category => $"model:{category}")))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(static label => label, StringComparer.OrdinalIgnoreCase)],
             row.SubmitRegion,
@@ -700,7 +711,14 @@ public sealed class AuthoringWorkflowService(
             row.RegionDecisionReason,
             row.RegionComplianceId <= 0 || row.RegionCanPublish,
             row.RegionRequiresManualReview,
-            row.RegionHideUntilReviewed);
+            row.RegionHideUntilReviewed,
+            row.ModelSignals,
+            latestSignal?.Label,
+            latestSignal?.Confidence,
+            latestSignal?.PrimaryReason,
+            latestSignal?.Provider,
+            latestSignal is not null && !string.Equals(latestSignal.Status, "ok", StringComparison.Ordinal));
+    }
 
     internal IReadOnlyList<string> DetectCommentHitReasons(string? content, string? storedReason)
     {
@@ -739,6 +757,46 @@ public sealed class AuthoringWorkflowService(
 
         return reasons.Count == 0 ? ["manual-review"] : reasons.ToArray();
     }
+
+    private async Task<IReadOnlyDictionary<long, CommentModerationModelSignalResponse>> LoadLatestModelSignalsAsync(
+        IReadOnlyList<CommentModerationQueueRow> rows,
+        CancellationToken cancellationToken)
+    {
+        long[] commentIds = [.. rows.Select(static row => row.Id).Where(static id => id > 0).Distinct()];
+        if (commentIds.Length == 0)
+        {
+            return new Dictionary<long, CommentModerationModelSignalResponse>();
+        }
+
+        List<CommentModerationSignal> signals = await db.Queryable<CommentModerationSignal>()
+            .Where(signal => commentIds.Contains(signal.CommentId))
+            .OrderByDescending(static signal => signal.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+        return signals
+            .GroupBy(static signal => signal.CommentId)
+            .ToDictionary(
+                static group => group.Key,
+                group => ToModelSignalResponse(group.First()));
+    }
+
+    private static CommentModerationModelSignalResponse ToModelSignalResponse(CommentModerationSignal signal)
+        => new(
+            signal.Provider,
+            signal.Model,
+            signal.ContractVersion,
+            signal.Label,
+            Math.Clamp(signal.Confidence, 0d, 1d),
+            signal.Severity,
+            signal.PrimaryReason,
+            signal.NeedsSecondRound,
+            ParseCommaList(signal.RiskCategories),
+            signal.EvidenceJson,
+            signal.RawReason,
+            Math.Max(0, signal.LatencyMs),
+            signal.Status,
+            signal.ErrorCode,
+            signal.ThresholdProfile,
+            signal.CreatedAtUtc);
 
     private async Task<int> BanModerationUsersAsync(IEnumerable<long> commentIds, string? reason, CancellationToken cancellationToken)
     {
@@ -1413,6 +1471,7 @@ public sealed class AuthoringWorkflowService(
         public bool RegionCanPublish { get; set; }
         public bool RegionRequiresManualReview { get; set; }
         public bool RegionHideUntilReviewed { get; set; }
+        public IReadOnlyList<CommentModerationModelSignalResponse> ModelSignals { get; set; } = [];
     }
 
     private sealed class CommentModerationStateRow

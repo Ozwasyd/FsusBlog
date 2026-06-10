@@ -114,6 +114,24 @@ public sealed record class AuthorAnalyticsResponse(
 
 public sealed record class CommentModerationRequest(CommentModerationStatus Status, string? Reason, bool BanUser = false);
 
+public sealed record class CommentModerationModelSignalResponse(
+    string Provider,
+    string Model,
+    string ContractVersion,
+    string Label,
+    double Confidence,
+    string Severity,
+    string? PrimaryReason,
+    bool NeedsSecondRound,
+    IReadOnlyList<string> RiskCategories,
+    string? EvidenceJson,
+    string? RawReason,
+    int LatencyMs,
+    string Status,
+    string? ErrorCode,
+    string? ThresholdProfile,
+    DateTime CreatedAtUtc);
+
 public sealed record class CommentModerationItemResponse(
     string Id,
     int ArticleId,
@@ -134,7 +152,13 @@ public sealed record class CommentModerationItemResponse(
     string? RegionDecisionReason,
     bool RegionCanPublish,
     bool RegionRequiresManualReview,
-    bool RegionHideUntilReviewed);
+    bool RegionHideUntilReviewed,
+    IReadOnlyList<CommentModerationModelSignalResponse> ModelSignals,
+    string? ModelLabel,
+    double? ModelConfidence,
+    string? ModelPrimaryReason,
+    string? ModelProvider,
+    bool ModelUnavailable);
 
 public sealed record class CommentModerationQueueResponse(
     IReadOnlyList<CommentModerationItemResponse> Items,

@@ -16,6 +16,8 @@
       :counters="counters"
       :hit-reason-options="hitReasonOptions"
       :blocked-region-options="blockedRegionOptions"
+      :model-label-options="modelLabelOptions"
+      :model-provider-options="modelProviderOptions"
       :active-filters="activeFilterChips"
       @refresh="refreshAndPrune"
       @search="refreshAndPrune"
@@ -27,6 +29,8 @@
       @update:user="filters.user = $event"
       @update:hit-reason="filters.hitReason = $event"
       @update:blocked-region="filters.blockedRegion = $event"
+      @update:model-label="filters.modelLabel = $event"
+      @update:model-provider="filters.modelProvider = $event"
       @update:date-range="filters.dateRange = $event"
     />
 
@@ -83,6 +87,8 @@ const {
   counters,
   hitReasonOptions,
   blockedRegionOptions,
+  modelLabelOptions,
+  modelProviderOptions,
   activeFilterChips,
   refreshQueue,
   setStatus,

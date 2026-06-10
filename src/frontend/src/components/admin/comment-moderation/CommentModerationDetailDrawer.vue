@@ -74,6 +74,29 @@
 
       <section class="border-y border-[var(--fsusblog-panel-border)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
+          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">模型信号</div>
+        </div>
+        <div class="grid grid-cols-1 gap-px bg-[var(--fsusblog-panel-bg-soft)]">
+          <div class="bg-[var(--fsusblog-page-bg)] p-5">
+            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">建议标签</div>
+            <div class="mt-2 text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.modelSignalLabel }}</div>
+            <div class="mt-2 text-[12px] font-bold text-[var(--fsusblog-text-muted)]">{{ item.modelConfidenceLabel }}</div>
+          </div>
+          <div class="bg-[var(--fsusblog-page-bg)] p-5">
+            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">Provider</div>
+            <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.modelProviderLabel }}</div>
+            <div class="mt-2 text-[12px] font-bold text-[var(--fsusblog-text-muted)]">{{ item.modelSeverityLabel }}</div>
+          </div>
+          <div class="bg-[var(--fsusblog-page-bg)] p-5">
+            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">原因</div>
+            <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.modelReasonLabel }}</div>
+            <div class="mt-2 break-words text-[12px] text-[var(--fsusblog-text-muted)]">{{ item.modelSignals[0]?.rawReason || '--' }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="border-y border-[var(--fsusblog-panel-border)]">
+        <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
           <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核历史</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">

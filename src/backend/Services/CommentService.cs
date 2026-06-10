@@ -21,7 +21,8 @@ public partial class CommentService(
     IMessageRealtimePublisher messageService,
     IMessageCommandService messageCommandService,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
-    IRegionLegalModerationService regionLegalModerationService) : ICommentService, ICommentEndpointService
+    IRegionLegalModerationService regionLegalModerationService,
+    IAntiSpamModerationService? antiSpamModerationService = null) : ICommentService, ICommentEndpointService
 {
     private const int DefaultReplyPreviewLimit = 3;
     private const string DeletedPlaceholder = "该回复已删除";
@@ -211,6 +212,21 @@ public partial class CommentService(
         }
 
         comment.Id = generatedId;
+        if (antiSpamModerationService is not null)
+        {
+            await antiSpamModerationService.ScoreCommentAsync(
+                new AntiSpamCommentModerationContext(
+                    comment.Id,
+                    comment.ArticleId,
+                    comment.UserId,
+                    comment.Content,
+                    comment.ParentId,
+                    regionDecision.SubmitIpHash,
+                    regionDecision.SubmitRegion,
+                    regionDecision.PolicyVersion,
+                    comment.CreateTime),
+                CancellationToken.None);
+        }
 
         await cacheInvalidationDispatcher.InvalidateCommentMutationAsync(
             new CommentCacheInvalidationScope(

@@ -49,17 +49,21 @@ describe('admin comment moderation workflow contract', () => {
     expect(page).toContain('applyBulk(status, refreshAndPrune)')
   })
 
-  it('exposes status, article, user, text, hit reason, and date range filters', () => {
+  it('exposes status, article, user, text, hit reason, model, and date range filters', () => {
     expect(toolbar).toContain('评论审核状态筛选')
     expect(toolbar).toContain('commentModerationKeyword')
     expect(toolbar).toContain('commentModerationArticle')
     expect(toolbar).toContain('commentModerationUser')
     expect(toolbar).toContain('commentModerationHitReason')
+    expect(toolbar).toContain('commentModerationModelLabel')
+    expect(toolbar).toContain('commentModerationModelProvider')
     expect(toolbar).toContain('el-date-picker')
     expect(queueComposable).toContain('filters.keyword')
     expect(queueComposable).toContain('filters.article')
     expect(queueComposable).toContain('filters.user')
     expect(queueComposable).toContain('filters.hitReason')
+    expect(queueComposable).toContain('filters.modelLabel')
+    expect(queueComposable).toContain('filters.modelProvider')
     expect(queueComposable).toContain('filters.dateRange')
   })
 
@@ -69,6 +73,8 @@ describe('admin comment moderation workflow contract', () => {
     expect(queue).toContain('CommentModerationStatus.Hidden')
     expect(drawer).toContain('审核历史')
     expect(drawer).toContain('审计事件')
+    expect(drawer).toContain('模型信号')
+    expect(queue).toContain('modelSignalLabel')
     expect(bulkActions).toContain('联动封禁用户')
     expect(actionsComposable).toContain('startMfaChallenge(AdminSensitiveAction)')
     expect(actionsComposable).toContain('verifyMfaChallenge')

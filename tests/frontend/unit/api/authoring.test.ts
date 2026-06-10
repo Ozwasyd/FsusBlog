@@ -298,7 +298,38 @@ describe('authoring API (server drafts)', () => {
           reason: 'pending_review',
           moderatedByUserId: null,
           moderatedAt: null,
-          hitReasons: ['pending-review']
+          hitReasons: ['pending-review', 'model:spam_repeat'],
+          submitRegion: 'CN-MAINLAND',
+          submitRegionConfidence: 0.95,
+          blockedRegions: [],
+          regionPolicyVersion: 'region-policy-v2026-06',
+          regionDecisionReason: 'region_policy_allow',
+          regionCanPublish: true,
+          regionRequiresManualReview: false,
+          regionHideUntilReviewed: false,
+          modelSignals: [{
+            provider: 'mock',
+            model: 'fsusblog-mock-moderation',
+            contractVersion: 'fsusblog-moderation-provider-v1',
+            label: 'risky',
+            confidence: 0.92,
+            severity: 'high',
+            primaryReason: 'spam_repeat',
+            needsSecondRound: true,
+            riskCategories: ['spam_repeat'],
+            evidenceJson: null,
+            rawReason: 'mock risk signal',
+            latencyMs: 3,
+            status: 'ok',
+            errorCode: null,
+            thresholdProfile: 'default',
+            createdAtUtc: '2026-05-18T18:00:01Z'
+          }],
+          modelLabel: 'risky',
+          modelConfidence: 0.92,
+          modelPrimaryReason: 'spam_repeat',
+          modelProvider: 'mock',
+          modelUnavailable: false
         }],
         pendingCount: 1,
         rejectedCount: 0,
@@ -308,7 +339,8 @@ describe('authoring API (server drafts)', () => {
 
     const queue = await listCommentModerationQueue(CommentModerationStatus.Pending, 25)
 
-    expect(queue.items[0]?.hitReasons).toEqual(['pending-review'])
+    expect(queue.items[0]?.hitReasons).toEqual(['pending-review', 'model:spam_repeat'])
+    expect(queue.items[0]?.modelLabel).toBe('risky')
     expect(fetchMock).toHaveBeenCalledWith('/api/author/comments/moderation?status=0&limit=25', expect.objectContaining({
       credentials: 'include'
     }))

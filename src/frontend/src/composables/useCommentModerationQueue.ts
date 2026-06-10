@@ -15,6 +15,8 @@ export type CommentModerationFilterKey =
   | 'user'
   | 'hitReason'
   | 'blockedRegion'
+  | 'modelLabel'
+  | 'modelProvider'
   | 'dateRange'
 
 export interface CommentModerationFilters {
@@ -24,6 +26,8 @@ export interface CommentModerationFilters {
   user: string
   hitReason: string
   blockedRegion: string
+  modelLabel: string
+  modelProvider: string
   dateRange: [string, string] | null
 }
 
@@ -41,6 +45,11 @@ export interface CommentModerationViewItem extends CommentModerationItemResponse
   regionReviewLabel: string
   regionConfidenceLabel: string
   regionCanApprove: boolean
+  modelSignalLabel: string
+  modelConfidenceLabel: string
+  modelProviderLabel: string
+  modelReasonLabel: string
+  modelSeverityLabel: string
   auditEvents: string[]
 }
 
@@ -141,6 +150,16 @@ function normalizeSearchText(value: string): string {
   return value.trim().toLowerCase()
 }
 
+function modelLabelText(label: string | null | undefined): string {
+  const labels: Record<string, string> = {
+    clean: '低风险',
+    suspicious: '可疑',
+    risky: '高风险',
+    blocked_candidate: '强风险候选'
+  }
+  return label ? labels[label] ?? label : '未评分'
+}
+
 function toViewItem(item: CommentModerationItemResponse): CommentModerationViewItem {
   const statusLabel = commentModerationStatusLabel(item.status)
   const statusCode = commentModerationStatusCode(item.status)
@@ -155,6 +174,9 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
       : '无额外复核'
   const confidence = typeof item.submitRegionConfidence === 'number'
     ? Math.round(Math.min(1, Math.max(0, item.submitRegionConfidence)) * 100)
+    : null
+  const modelConfidence = typeof item.modelConfidence === 'number'
+    ? Math.round(Math.min(1, Math.max(0, item.modelConfidence)) * 100)
     : null
   const auditEvents = [
     `提交：${TimeUtils.toFullLocalString(item.createTime)}`,
@@ -178,6 +200,11 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
     regionReviewLabel,
     regionConfidenceLabel: confidence === null ? '置信度未记录' : `置信度：${confidence}%`,
     regionCanApprove: item.regionCanPublish !== false,
+    modelSignalLabel: item.modelUnavailable ? '模型不可用' : modelLabelText(item.modelLabel),
+    modelConfidenceLabel: modelConfidence === null ? '模型置信度未记录' : `模型置信度：${modelConfidence}%`,
+    modelProviderLabel: item.modelProvider ? `Provider：${item.modelProvider}` : 'Provider 未记录',
+    modelReasonLabel: item.modelPrimaryReason ? `原因：${item.modelPrimaryReason}` : '原因未记录',
+    modelSeverityLabel: item.modelSignals[0]?.severity ? `严重度：${item.modelSignals[0].severity}` : '严重度未记录',
     auditEvents
   }
 }
@@ -194,6 +221,8 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     user: '',
     hitReason: '',
     blockedRegion: '',
+    modelLabel: '',
+    modelProvider: '',
     dateRange: null
   })
 
@@ -220,12 +249,34 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     return Array.from(regions.entries()).map(([value, label]) => ({ value, label }))
   })
 
+  const modelLabelOptions = computed(() => {
+    const labels = new Map<string, string>()
+    for (const item of rawItems.value) {
+      if (item.modelLabel) {
+        labels.set(item.modelLabel, modelLabelText(item.modelLabel))
+      }
+    }
+    return Array.from(labels.entries()).map(([value, label]) => ({ value, label }))
+  })
+
+  const modelProviderOptions = computed(() => {
+    const providers = new Map<string, string>()
+    for (const item of rawItems.value) {
+      if (item.modelProvider) {
+        providers.set(item.modelProvider, item.modelProvider)
+      }
+    }
+    return Array.from(providers.entries()).map(([value, label]) => ({ value, label }))
+  })
+
   const filteredItems = computed(() => {
     const keyword = normalizeSearchText(filters.keyword)
     const article = normalizeSearchText(filters.article)
     const user = normalizeSearchText(filters.user)
     const hitReason = filters.hitReason
     const blockedRegion = filters.blockedRegion
+    const modelLabel = filters.modelLabel
+    const modelProvider = filters.modelProvider
     const dateRange = filters.dateRange
     const fromTime = dateRange?.[0] ? new Date(`${dateRange[0]}T00:00:00`).getTime() : null
     const toTime = dateRange?.[1] ? new Date(`${dateRange[1]}T23:59:59`).getTime() : null
@@ -257,6 +308,14 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
       }
 
       if (blockedRegion && !item.blockedRegions.includes(blockedRegion)) {
+        return false
+      }
+
+      if (modelLabel && item.modelLabel !== modelLabel) {
+        return false
+      }
+
+      if (modelProvider && item.modelProvider !== modelProvider) {
         return false
       }
 
@@ -298,6 +357,12 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     }
     if (filters.blockedRegion) {
       chips.push({ key: 'blockedRegion', label: `屏蔽地区：${commentRegionLabel(filters.blockedRegion)}` })
+    }
+    if (filters.modelLabel) {
+      chips.push({ key: 'modelLabel', label: `模型：${modelLabelText(filters.modelLabel)}` })
+    }
+    if (filters.modelProvider) {
+      chips.push({ key: 'modelProvider', label: `Provider：${filters.modelProvider}` })
     }
     if (filters.dateRange) {
       chips.push({ key: 'dateRange', label: `时间：${filters.dateRange[0]} - ${filters.dateRange[1]}` })
@@ -341,6 +406,8 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     filters.user = ''
     filters.hitReason = ''
     filters.blockedRegion = ''
+    filters.modelLabel = ''
+    filters.modelProvider = ''
     filters.dateRange = null
     await refreshQueue()
   }
@@ -357,6 +424,8 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     if (key === 'user') filters.user = ''
     if (key === 'hitReason') filters.hitReason = ''
     if (key === 'blockedRegion') filters.blockedRegion = ''
+    if (key === 'modelLabel') filters.modelLabel = ''
+    if (key === 'modelProvider') filters.modelProvider = ''
     if (key === 'dateRange') filters.dateRange = null
   }
 
@@ -371,6 +440,8 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     filteredItems,
     hitReasonOptions,
     blockedRegionOptions,
+    modelLabelOptions,
+    modelProviderOptions,
     counters,
     activeFilterChips,
     refreshQueue,

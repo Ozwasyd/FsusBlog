@@ -437,6 +437,25 @@ export const CommentModerationStatus = {
 export type CommentModerationStatus =
   (typeof CommentModerationStatus)[keyof typeof CommentModerationStatus]
 
+export interface CommentModerationModelSignalResponse {
+  provider: string
+  model: string
+  contractVersion: string
+  label: string
+  confidence: number
+  severity: string
+  primaryReason: string | null
+  needsSecondRound: boolean
+  riskCategories: string[]
+  evidenceJson: string | null
+  rawReason: string | null
+  latencyMs: number
+  status: string
+  errorCode: string | null
+  thresholdProfile: string | null
+  createdAtUtc: string
+}
+
 export interface CommentModerationItemResponse {
   id: string
   articleId: number
@@ -458,6 +477,12 @@ export interface CommentModerationItemResponse {
   regionCanPublish: boolean
   regionRequiresManualReview: boolean
   regionHideUntilReviewed: boolean
+  modelSignals: CommentModerationModelSignalResponse[]
+  modelLabel: string | null
+  modelConfidence: number | null
+  modelPrimaryReason: string | null
+  modelProvider: string | null
+  modelUnavailable: boolean
 }
 
 export interface CommentModerationQueueResponse {

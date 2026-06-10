@@ -19,6 +19,7 @@ public sealed class SchemaModelInspectorTests
         Assert.Contains("msg_conversation", snapshot.Tables.Keys);
         Assert.Contains("sys_audit_log", snapshot.Tables.Keys);
         Assert.Contains("frontend_rum_metric", snapshot.Tables.Keys);
+        Assert.Contains("comment_moderation_signal", snapshot.Tables.Keys);
 
         SchemaTableModel article = snapshot.Tables["article"];
         Assert.Contains("title", article.Columns.Keys);
@@ -47,5 +48,13 @@ public sealed class SchemaModelInspectorTests
         Assert.Contains("name", rumMetric.Columns.Keys);
         Assert.Contains("page_type", rumMetric.Columns.Keys);
         Assert.Contains("metrics_json", rumMetric.Columns.Keys);
+
+        SchemaTableModel modelSignal = snapshot.Tables["comment_moderation_signal"];
+        Assert.Contains("comment_id", modelSignal.Columns.Keys);
+        Assert.Contains("provider", modelSignal.Columns.Keys);
+        Assert.Contains("contract_version", modelSignal.Columns.Keys);
+        Assert.Contains("label", modelSignal.Columns.Keys);
+        Assert.Contains("confidence", modelSignal.Columns.Keys);
+        Assert.Contains("status", modelSignal.Columns.Keys);
     }
 }

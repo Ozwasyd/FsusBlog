@@ -42,6 +42,11 @@
                 <span>屏蔽：{{ (item as CommentModerationViewItem).blockedRegionLabel }}</span>
                 <span>{{ (item as CommentModerationViewItem).regionReviewLabel }}</span>
               </div>
+              <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-[var(--fsusblog-text-muted)]">
+                <span>{{ (item as CommentModerationViewItem).modelSignalLabel }}</span>
+                <span>{{ (item as CommentModerationViewItem).modelConfidenceLabel }}</span>
+                <span>{{ (item as CommentModerationViewItem).modelProviderLabel }}</span>
+              </div>
               <div class="mt-4 flex flex-wrap items-center gap-2">
                 <el-button :icon="ViewIcon" size="small" @click="emit('detail', item as CommentModerationViewItem)">详情</el-button>
                 <el-button :icon="Check" size="small" type="success" :disabled="!(item as CommentModerationViewItem).regionCanApprove" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Approved)">通过</el-button>
@@ -118,6 +123,16 @@
                 <div>{{ row.regionConfidenceLabel }}</div>
                 <div class="break-words">屏蔽：{{ row.blockedRegionLabel }}</div>
                 <div>{{ row.regionReviewLabel }}</div>
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="模型信号" min-width="190">
+            <template #default="{ row }: { row: CommentModerationViewItem }">
+              <div class="space-y-1.5 text-[11px] font-bold leading-relaxed text-[var(--fsusblog-text-muted)]">
+                <div>{{ row.modelSignalLabel }}</div>
+                <div>{{ row.modelConfidenceLabel }}</div>
+                <div class="break-words">{{ row.modelProviderLabel }}</div>
               </div>
             </template>
           </el-table-column>

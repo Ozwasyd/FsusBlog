@@ -26,6 +26,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
     {
         services.AddScoped<ArticleService>();
         services.AddScoped<CommentService>();
+        services.AddScoped<IAntiSpamModerationService, AntiSpamModerationService>();
         services.AddSingleton<IModerationDictionaryService, ModerationDictionaryService>();
         services.AddScoped<IRegionLegalModerationService, RegionLegalModerationService>();
         services.AddScoped<IClientRegionResolver, ClientRegionResolver>();
