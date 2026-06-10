@@ -70,7 +70,7 @@
                 <article
                   v-for="article in monthGroup.items"
                   :key="article.id"
-                  class="relative group"
+                  class="blog-motion-row-nudge relative group"
                 >
                   <a
                     :href="`/article/${article.route.params.id}`"
@@ -138,13 +138,6 @@ function handleNavigate(event: MouseEvent, articleId: string): void {
 
 @media (max-width: 640px) {
   .sticky { top: 64px; }
-}
-
-@media (hover: hover) {
-  .group {
-    transition: transform var(--fsus-motion-control) var(--fsus-motion-standard);
-  }
-  .group:hover { transform: translateX(4px); }
 }
 
 .tabular-nums { font-variant-numeric: tabular-nums; }

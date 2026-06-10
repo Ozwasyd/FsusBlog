@@ -55,7 +55,7 @@
             <img
               :src="form.coverImageUrl"
               alt="当前文章头图预览"
-              class="h-full w-full object-cover transition-transform duration-[var(--fsus-motion-control-fast)] group-hover:scale-105"
+              class="blog-motion-media-hover h-full w-full object-cover"
             />
             <div class="cover-action-overlay absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
               <el-button

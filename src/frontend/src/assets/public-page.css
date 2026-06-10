@@ -189,13 +189,8 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
 
 #fsus-aot-shell .animate-fade-in {
   --stagger-delay: calc(var(--fsus-motion-control-fast) / 4);
-  animation: slide-up var(--fsus-motion-panel) var(--fsus-motion-standard) both;
+  animation: blog-motion-page-enter var(--blog-motion-panel) var(--blog-motion-ease) both;
   animation-delay: calc(min(var(--index, 0), 20) * var(--stagger-delay));
-}
-
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 #fsus-aot-shell .line-clamp-3 {
@@ -271,10 +266,6 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
     .animate-fade-in,
     [class*="fade-in"],
     [class*="slide-in"],
-    [class*="hover:scale"],
-    [class*="group-hover:scale"],
-    [class*="hover:translate"],
-    [class*="group-hover:translate"],
     [class*="animate-"]
   ),
   #fsus-aot-shell :where(
@@ -282,10 +273,6 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
     .animate-fade-in,
     [class*="fade-in"],
     [class*="slide-in"],
-    [class*="hover:scale"],
-    [class*="group-hover:scale"],
-    [class*="hover:translate"],
-    [class*="group-hover:translate"],
     [class*="animate-"]
   ) {
     animation: none !important;

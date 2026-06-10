@@ -149,6 +149,7 @@ import { useArticleToc } from '@/composables/article/useArticleToc'
 import { useCodeBlockCopy } from '@/composables/article/useCodeBlockCopy'
 import { useArticleDetailView } from '@/composables/useArticleDetailView'
 import { useHumanReadProof } from '@/composables/useHumanReadProof'
+import { resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
 import { readPublicHydrationSeed } from '@/public-renderers/pageSeed'
 import { buildPublicArticleRouteKey } from '@/public-renderers/publicRouteIdentity'
 import { useSiteStore } from '@/store/site'
@@ -349,11 +350,10 @@ const navigateToComments = (): void => {
 }
 
 const scrollToArticleTop = (): void => {
-  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   window.history.replaceState(window.history.state, '', route.fullPath.split('#')[0] || route.path)
   window.scrollTo({
     top: 0,
-    behavior: prefersReducedMotion ? 'auto' : 'smooth'
+    behavior: resolveMotionScrollBehavior()
   })
 }
 
@@ -369,13 +369,8 @@ onMounted(() => {
 <style scoped>
 @reference "@/assets/main.css";
 
-@keyframes loading-bar {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
 .animate-loading-bar {
-  animation: loading-bar calc(var(--fsus-motion-panel) * 4) infinite;
+  animation: blog-motion-loading-bar calc(var(--blog-motion-panel) * 4) linear infinite;
 }
 
 .state-fade-enter-active,

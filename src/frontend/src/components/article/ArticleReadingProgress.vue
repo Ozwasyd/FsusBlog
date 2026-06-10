@@ -36,7 +36,7 @@ const progress = computed(() => rawProgress.value.toFixed(4))
   height: 100%;
   transform-origin: left center;
   background: color-mix(in srgb, var(--fsusblog-text-primary) 62%, transparent);
-  transition: transform 120ms linear;
+  transition: transform var(--blog-motion-fast) linear;
 }
 
 @media (prefers-reduced-motion: reduce) {

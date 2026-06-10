@@ -61,19 +61,7 @@
 }
 
 .account-motion-enter {
-  animation: account-motion-enter var(--fsus-motion-panel) var(--fsus-motion-standard);
-}
-
-@keyframes account-motion-enter {
-  from {
-    opacity: 0;
-    transform: translateY(0.75rem);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  animation: blog-motion-page-enter var(--blog-motion-panel) var(--blog-motion-ease) both;
 }
 
 .account-section-title {
@@ -158,11 +146,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .account-shell .account-motion-enter,
-  .account-shell [class*="hover:scale"],
-  .account-shell [class*="group-hover:scale"],
-  .account-shell [class*="hover:translate"],
-  .account-shell [class*="group-hover:translate"] {
+  .account-shell .account-motion-enter {
     animation: none !important;
     transition: none !important;
     transform: none !important;

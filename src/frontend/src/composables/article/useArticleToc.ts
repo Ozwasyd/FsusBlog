@@ -1,4 +1,5 @@
 import { nextTick, onUnmounted, ref, type MaybeRefOrGetter, toValue, watch } from 'vue'
+import { resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
 
 export type ArticleTocItem = Readonly<{
   id: string
@@ -95,11 +96,10 @@ export function useArticleToc(contentRoot: MaybeRefOrGetter<HTMLElement | null>)
       return
     }
 
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#${encodeURIComponent(id)}`)
     window.scrollTo({
       top: window.scrollY + target.getBoundingClientRect().top - 88,
-      behavior: prefersReducedMotion ? 'auto' : 'smooth'
+      behavior: resolveMotionScrollBehavior()
     })
     activeId.value = id
   }

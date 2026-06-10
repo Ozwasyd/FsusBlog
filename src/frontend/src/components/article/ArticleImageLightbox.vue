@@ -149,7 +149,7 @@ onUnmounted(() => {
 
 .article-lightbox-fade-enter-active,
 .article-lightbox-fade-leave-active {
-  transition: opacity 120ms ease;
+  transition: opacity var(--blog-motion-fast) var(--blog-motion-ease);
 }
 
 .article-lightbox-fade-enter-from,

@@ -6,6 +6,7 @@ import {
   type RouterHistory,
   type RouteRecordRaw
 } from 'vue-router'
+import { resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { hasServerAotShell } from '@/bootstrap/publicShellPrimitives'
 import { isPublicSeoRouteName } from '@/public-renderers/publicPageModel'
@@ -158,11 +159,6 @@ type RouterFactoryOptions = Readonly<{
   ssr?: boolean
 }>
 
-function prefersReducedMotion(): boolean {
-  return typeof window !== 'undefined'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
 function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): void {
   router.beforeEach(async (to) => {
     const sessionBootstrap = useSessionBootstrap()
@@ -256,7 +252,7 @@ export function createAppRouter(options: RouterFactoryOptions = {}): Router {
         return {
           el: to.hash,
           top: 88,
-          behavior: prefersReducedMotion() ? 'auto' : 'smooth'
+          behavior: resolveMotionScrollBehavior()
         }
       }
 

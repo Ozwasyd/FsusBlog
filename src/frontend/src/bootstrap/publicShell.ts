@@ -10,13 +10,10 @@ import { mountArticleCommentsIsland, unmountArticleCommentsIsland } from '@/publ
 import { mountHomeHotArticlesIsland, unmountHomeHotArticlesIsland } from '@/public-renderers/homeHotArticlesIsland'
 import { bootstrapFullApp } from '@/bootstrap/fullApp'
 import { AEDS_BINARY_MEDIA_TYPE } from '@/api/contracts'
+import { getPrefersReducedMotion, resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
 
 function isModifiedEvent(event: MouseEvent): boolean {
   return event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
-}
-
-function prefersReducedMotion(): boolean {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 function resolveHashTarget(hash: string): HTMLElement | null {
@@ -53,7 +50,7 @@ function scrollToHashOrTop(href: string): void {
   window.scrollTo({
     left: 0,
     top: Math.max(0, window.scrollY + target.getBoundingClientRect().top - 88),
-    behavior: prefersReducedMotion() ? 'auto' : 'smooth'
+    behavior: resolveMotionScrollBehavior(getPrefersReducedMotion())
   })
 }
 
@@ -127,6 +124,11 @@ const CRITICAL_STYLE_FALLBACKS: CriticalStyleLink[] = [
     key: 'markdown',
     href: import.meta.env.DEV ? '/src/assets/markdown.css?direct' : null,
     marker: 'markdown.css'
+  },
+  {
+    key: 'motion',
+    href: import.meta.env.DEV ? '/src/assets/motion.css?direct' : null,
+    marker: 'motion.css'
   },
   {
     key: 'public-page',

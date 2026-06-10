@@ -57,7 +57,7 @@
                 <img
                   :src="articles[0].coverImageUrl"
                   :alt="articles[0].title"
-                  class="h-full w-full object-cover transition-transform duration-[var(--fsus-motion-control-fast)] group-hover:scale-105"
+                  class="blog-motion-media-hover h-full w-full object-cover"
                   loading="lazy"
                 />
               </div>
@@ -99,7 +99,7 @@
                   <img
                     :src="article.coverImageUrl"
                     :alt="article.title"
-                    class="h-full w-full object-cover transition-transform duration-[var(--fsus-motion-control-fast)] group-hover:scale-105"
+                    class="blog-motion-media-hover h-full w-full object-cover"
                     loading="lazy"
                   />
                 </div>

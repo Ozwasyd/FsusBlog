@@ -37,7 +37,7 @@
         :to="{ name: 'ManageArticleList' }"
         class="group flex items-center gap-3 text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-color-primary)]"
       >
-        进入内容管理 <el-icon class="group-hover:translate-x-1 transition-transform" aria-hidden="true"><ArrowRight /></el-icon>
+        进入内容管理 <el-icon class="blog-motion-icon-nudge" aria-hidden="true"><ArrowRight /></el-icon>
       </router-link>
     </footer>
   </section>

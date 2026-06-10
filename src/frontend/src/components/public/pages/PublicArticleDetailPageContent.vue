@@ -23,7 +23,7 @@
       <img
         :src="detailView.header.coverImageUrl"
         :alt="`${detailView.header.title} — 题图`"
-        class="aspect-video w-full rounded-[var(--fsus-radius-panel)] object-cover shadow-none transition-transform duration-[var(--fsus-motion-control-fast)] hover:scale-[1.01]"
+        class="blog-motion-media-hover aspect-video w-full rounded-[var(--fsus-radius-panel)] object-cover shadow-none"
       />
     </div>
 
