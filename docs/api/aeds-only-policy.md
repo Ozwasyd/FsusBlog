@@ -37,27 +37,29 @@ error:    AedsFrameType.ApiError
 | Health | `/health/live`, `/health/ready` | Kubernetes/systemd/监控探针消费 JSON |
 | Feed | `/feed/rss.xml`, `/feed/atom.xml`, `/feed/feed.json` | RSS/Atom/JSON Feed 标准协议 |
 | SEO | `/sitemap.xml`, `/robots.txt` | 搜索引擎标准入口 |
+| Ops probe | `/api/ops/crawler-ranges/status` | admin-only 运维诊断；后台生产 UI 使用 `/api/binary/admin/security/anti-crawler/crawler-ranges/status` |
 | PublicAOT tooling | `/internal/public-aot/manifest` | 构建/backfill 工具 manifest，非浏览器运行时 API |
+| Internal bridge implementation | `/_fsus/internal/binary-bridge/author/**`, `/_fsus/internal/binary-bridge/admin/security/**` | 仅 `AuthoringBinaryBridgeMiddleware` / `SecurityBinaryBridgeMiddleware` 可达，外部 `/api/author/**` 与 `/api/admin/security/**` 已移除 |
 | Third-party moderation provider | HTTP JSON provider contract | 外部 provider 兼容协议 |
 | Evidence/tool/docs | `.tmp/release-evidence/**`, `tools/**`, `docs/**`, tests | 构建、测试、审计、证据文件，不是 runtime API |
 
 豁免不得使用宽泛通配。每个登记项必须绑定具体文件、路径/范围、匹配 pattern 和理由。
 
-## 必须迁移清单
+## #105 收敛结果
 
-当前允许作为迁移期兼容层存在的内部 JSON API：
+`must-migrate` 清单必须为空。#105 后以下旧内部 JSON 路径不再作为外部 API 暴露：
 
-| 范围 | 当前路径 | 迁移 issue |
-|------|----------|------------|
-| Deprecated public related-reading JSON compatibility | `/api/public/articles/{articleId}/related` | #105 |
-| Deprecated human read-proof JSON compatibility | `/api/read-proof/challenge`, `/api/read-proof/submit` | #105 |
-| Deprecated RUM telemetry JSON compatibility | `/api/telemetry/rum` | #97 |
-| Deprecated authoring/moderation/ops JSON compatibility | `/api/author/**` | #97 |
-| Deprecated admin security JSON compatibility | `/api/admin/security/**` | #103 |
-| Notification preflight error envelope | `/api/notifications/stream/preflight` | #105 |
-| Subscription form API | `/api/subscriptions` | #105 |
+| 旧路径 | 当前入口 |
+|--------|----------|
+| `/api/public/articles/{articleId}/related` | `/api/binary/article/{articleId}/related.aeds` |
+| `/api/read-proof/challenge`, `/api/read-proof/submit` | `/api/binary/read-proof/challenge.aeds`, `/api/binary/read-proof/submit.aeds` |
+| `/api/telemetry/rum` | `/api/binary/telemetry/rum` |
+| `/api/subscriptions` | `/api/binary/subscriptions` |
+| `/api/author/**` | `/api/binary/author/**` |
+| `/api/admin/security/**` | `/api/binary/admin/security/**` |
+| `/api/notifications/stream/preflight` JSON failure envelope | `204` success 或 AEDS `ApiError` failure frame |
 
-这些路径可以继续使用 `JsonApiResponse<T>`，但只能在 allowlist 中登记的文件和 pattern 内出现。RUM 生产前端已迁移到 `/api/binary/telemetry/rum`；authoring/moderation/ops 生产前端已迁移到 `/api/binary/author/**`；admin security 生产前端已迁移到 `/api/binary/admin/security/**`。旧 JSON 入口只保留后端兼容层。迁移完成后必须删除对应 allowlist 项。
+`JsonApiResponse<T>` 只允许在登记的工具/compat 文件内出现。author/security 仍有一个受保护的 internal bridge implementation：它挂在 `/_fsus/internal/binary-bridge/**`，由 `BinaryBridgeInternalOnlyFilter` 阻断直接访问，只服务 binary bridge flattening，不能作为新 endpoint 模板。
 
 ## 新端点选择规则
 
@@ -108,7 +110,8 @@ tools/check-aeds-only-policy.sh
 | 分类 | 含义 | Gate 行为 |
 |------|------|-----------|
 | `allowed-exemption` | 标准协议、健康探针、工具专用 JSON | 允许 |
-| `must-migrate` | 已登记的迁移期内部 JSON | 允许，但必须绑定 issue |
+| `migration-legacy-temporary` | 受保护的内部 bridge 兼容实现，不能直接暴露给浏览器 | 允许，但必须绑定具体文件和退出原因 |
+| `must-migrate` | 已登记但仍未完成的内部 JSON | 阻断 |
 | `test-tool-docs-only` | 测试/工具/文档 JSON | 允许，不扫描 runtime |
 | `unknown` | 未登记 JSON 残留 | 阻断 |
 

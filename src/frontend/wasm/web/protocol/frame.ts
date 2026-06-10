@@ -159,6 +159,8 @@ export enum FrameType {
   AntiCrawlerSimulationResult = 154,
   PowOverview = 155,
   PowPolicySnapshot = 156,
+  SiteSubscriptionRequest = 157,
+  SiteSubscriptionResponse = 158,
   EmptySuccess = 240,
   MutationId = 241,
   ApiError = 251,

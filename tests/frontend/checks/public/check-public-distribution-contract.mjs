@@ -43,8 +43,7 @@ for (const route of [
   '/feed/atom.xml',
   '/feed/feed.json',
   '/sitemap.xml',
-  '/robots.txt',
-  '/api/public/articles/{articleId:int}/related'
+  '/robots.txt'
 ]) {
   assert(endpoints.includes(route), `missing distribution route: ${route}`)
 }
@@ -64,7 +63,7 @@ assert(endpoints.includes('CacheTag.Seo'), 'distribution cache must tag SEO inva
 assert(service.includes('article.Status == ArticleStatus.Published'), 'distribution snapshot must filter to published articles')
 assert(service.includes('article.PublishedAt <= now'), 'distribution snapshot must respect PublishedAt')
 assert(service.includes('article.ScheduledPublishAt <= now'), 'distribution snapshot must respect ScheduledPublishAt')
-assert(endpoints.includes('JsonApiResponse<RelatedReadingResponse>'), 'deprecated related-reading JSON endpoint must keep the composite response contract until #105 cleanup')
+assert(!endpoints.includes('JsonApiResponse<RelatedReadingResponse>'), 'deprecated related-reading JSON endpoint must be removed after #105 cleanup')
 assert(binaryArticleEndpoints.includes('"/article/{articleId:int}/related.aeds"'), 'related-reading must expose an AEDS endpoint')
 assert(binaryArticleEndpoints.includes('AedsFrameType.ArticleRelatedReading'), 'related-reading AEDS endpoint must use ArticleRelatedReading frame')
 assert(binaryArticleEndpoints.includes('PodBinaryCodec.WriteRelatedReading'), 'related-reading AEDS endpoint must encode the related-reading POD payload')

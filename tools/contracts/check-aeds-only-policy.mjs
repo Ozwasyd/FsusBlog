@@ -8,7 +8,7 @@ const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url))
 const allowlistPath = path.join(root, 'tools/contracts/aeds-only-policy.allowlist.json')
 const reportPath = path.join(root, '.tmp/gate-logs/aeds-only-policy-inventory.json')
 
-const validClassifications = new Set(['allowed-exemption', 'must-migrate', 'test-tool-docs-only'])
+const validClassifications = new Set(['allowed-exemption', 'migration-legacy-temporary', 'must-migrate', 'removed', 'test-tool-docs-only'])
 
 const signalDefinitions = [
   {
@@ -163,7 +163,7 @@ function summarize(matches) {
   const unknown = matches.filter((match) => match.classification === 'unknown')
   const mustMigrate = matches.filter((match) => match.classification === 'must-migrate')
   return {
-    status: unknown.length === 0 ? 'ok' : 'blocked',
+    status: unknown.length === 0 && mustMigrate.length === 0 ? 'ok' : 'blocked',
     generatedAt: new Date().toISOString(),
     policy: 'Internal Application API AEDS-only',
     allowlist: path.relative(root, allowlistPath),
@@ -185,11 +185,14 @@ try {
   const matches = scan(entries)
   const report = summarize(matches)
   writeReport(report)
-  if (report.unknown.length > 0) {
+  if (report.unknown.length > 0 || report.mustMigrate.length > 0) {
     for (const item of report.unknown.slice(0, 20)) {
       console.error(`[aeds-only-policy] unknown ${item.file}:${item.lineNumber} ${item.signal}: ${item.line}`)
     }
-    console.error(`[aeds-only-policy] blocked unknown=${report.unknown.length} report=${path.relative(root, reportPath)}`)
+    for (const item of report.mustMigrate.slice(0, 20)) {
+      console.error(`[aeds-only-policy] must-migrate ${item.file}:${item.lineNumber} ${item.signal}: ${item.line}`)
+    }
+    console.error(`[aeds-only-policy] blocked unknown=${report.unknown.length} mustMigrate=${report.mustMigrate.length} report=${path.relative(root, reportPath)}`)
     process.exit(1)
   }
   console.log(`[aeds-only-policy] ok matches=${report.matchCount} mustMigrate=${report.counts['must-migrate'] ?? 0} report=${path.relative(root, reportPath)}`)

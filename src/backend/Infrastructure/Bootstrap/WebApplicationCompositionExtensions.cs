@@ -236,17 +236,15 @@ public static class WebApplicationCompositionExtensions
     private static void MapFsusApiRoutes(this WebApplication app)
     {
         app.MapBinaryEndpoints();
-        app.MapReadProofEndpoints();
         app.MapAuthoringEndpoints();
         app.MapSecurityEndpoints();
-        app.MapSubscriptionEndpoints();
-        app.MapTelemetryEndpoints();
         app.MapPublicAotEndpoints();
 
         app.MapGet("/api/notifications/stream/preflight", (
             HttpContext ctx,
             INotificationStreamHandshakeService handshakeService,
-            CancellationToken ct) => ValidateNotificationStreamPreflightAsync(ctx, handshakeService, ct))
+            IAedsEncoder aeds,
+            CancellationToken ct) => ValidateNotificationStreamPreflightAsync(ctx, handshakeService, aeds, ct))
             .AllowAnonymous()
             .WithMetadata(new FsusRouteKindMetadata("notification-stream"));
         app.MapGet("/api/notifications/stream", (
@@ -292,6 +290,7 @@ public static class WebApplicationCompositionExtensions
     private static async Task<IResult> ValidateNotificationStreamPreflightAsync(
         HttpContext ctx,
         INotificationStreamHandshakeService handshakeService,
+        IAedsEncoder aeds,
         CancellationToken ct)
     {
         NotificationStreamHandshakeResult result = await handshakeService.ValidateAsync(ctx, ct, requireWebSocket: false);
@@ -306,16 +305,7 @@ public static class WebApplicationCompositionExtensions
             result.StatusCode,
             result.ErrorCode ?? "notification_handshake_failed",
             ctx.TraceIdentifier);
-        return TypedResults.Json(
-            new
-            {
-                ok = false,
-                statusCode = result.StatusCode,
-                errorCode = result.ErrorCode ?? "notification_handshake_failed",
-                message = error.Message,
-                data = (object?)null
-            },
-            statusCode: result.StatusCode);
+        return BinaryResults.FromError(error, aeds, result.StatusCode);
     }
 
     private static FileExtensionContentTypeProvider CreateStaticFileContentTypeProvider()

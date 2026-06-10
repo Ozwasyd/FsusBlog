@@ -1,5 +1,6 @@
 using System.Globalization;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
@@ -16,9 +17,10 @@ public static class SecurityEndpoints
 
     public static IEndpointRouteBuilder MapSecurityEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/admin/security")
+        var group = app.MapGroup(BinaryBridgeInternalRequest.SecurityPrefix)
             .WithTags("Security")
-            .RequireAuthorization(policy => policy.RequireRole("admin"));
+            .RequireAuthorization(policy => policy.RequireRole("admin"))
+            .AddEndpointFilter<BinaryBridgeInternalOnlyFilter>();
 
         group.MapGet("/overview", (
             ISecurityAdminPolicyService policy,

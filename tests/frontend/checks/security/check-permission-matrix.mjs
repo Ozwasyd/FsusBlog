@@ -10,6 +10,7 @@ import {
   loginWithPow,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
+import { decodeAedsFrame } from '../../support/aeds-envelope.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
 import { buildMarkdownExtremeCorpus } from '../../support/markdown-extreme-corpus.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
@@ -73,16 +74,17 @@ function toItemArray(payload) {
 }
 
 async function fetchAdminAuthorCategories(adminSession, label = 'admin author category list') {
-  const response = await fetchWithTimeout(`${baseUrl}/api/author/taxonomy/categories`, {
+  const response = await fetchWithTimeout(`${baseUrl}/api/binary/author/taxonomy/categories`, {
     headers: {
-      Accept: 'application/json',
+      Accept: 'application/octet-stream',
       Cookie: adminSession.cookieHeader,
       'X-Fsus-Device-Fp': 'permission-admin-author-taxonomy',
       ...testSessionHeaders()
     }
   }, requestTimeoutMs);
   assertAllowed(label, response);
-  return toItemArray(await response.json());
+  const frame = decodeAedsFrame(await response.arrayBuffer());
+  return toItemArray(JSON.parse(new TextDecoder().decode(frame.payload)));
 }
 
 function payloadContains(value, needle) {

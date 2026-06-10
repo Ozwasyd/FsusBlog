@@ -672,6 +672,100 @@
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/telemetryAdapter.ts"
       }
     },
+    "/api/binary/subscriptions": {
+      "post": {
+        "operationId": "binary_post_subscriptions",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "site-subscription-subscribe",
+        "responses": {
+          "200": {
+            "description": "SiteSubscriptionResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "SiteSubscriptionRequest",
+        "x-fsus-response-frame": "SiteSubscriptionResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "public-read",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "site-subscription-subscribe",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Subscriptions.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/subscription.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/subscriptionAdapter.ts"
+      },
+      "delete": {
+        "operationId": "binary_delete_subscriptions",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "site-subscription-unsubscribe",
+        "responses": {
+          "200": {
+            "description": "SiteSubscriptionResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "SiteSubscriptionRequest",
+        "x-fsus-response-frame": "SiteSubscriptionResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "public-read",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "site-subscription-unsubscribe",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Subscriptions.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/subscription.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/subscriptionAdapter.ts"
+      }
+    },
     "/api/binary/admin/users": {
       "get": {
         "operationId": "binary_get_admin_users",

@@ -1,6 +1,6 @@
 import type { PowParams, NotificationStreamCursor, NotificationStreamEventV2, NotificationStreamFailureCode } from '@/services/notificationStreamTypes'
 import { NotificationStreamEventType, NotificationStreamFailureCodes } from '@/services/notificationStreamTypes'
-import { decodeNotificationFrame } from '@/adapters/binary/notificationAdapter'
+import { decodeNotificationApiErrorFrame, decodeNotificationFrame } from '@/adapters/binary/notificationAdapter'
 import { encodeNotificationStreamPowProof } from '@/services/powProofCodec'
 
 const RECENT_EVENT_WINDOW = 512
@@ -158,6 +158,7 @@ class NotificationStreamRuntime {
       const response = await fetch(preflightUrl, {
         credentials: 'include',
         headers: {
+          'Accept': 'application/octet-stream',
           'X-Fsus-Notification-Stream-Protocol': 'fsus-aeds.v2'
         }
       })
@@ -165,8 +166,12 @@ class NotificationStreamRuntime {
         return null
       }
 
-      const payload = await response.json().catch(() => null) as { errorCode?: string } | null
-      return normalizeHandshakeFailure(payload?.errorCode, response.status, this.currentMode)
+      const errorCode = response.headers.get('X-Fsus-Notification-Stream-Error-Code')
+      const buffer = await response.arrayBuffer().catch(() => null)
+      if (buffer) {
+        decodeNotificationApiErrorFrame(buffer)
+      }
+      return normalizeHandshakeFailure(errorCode, response.status, this.currentMode)
     } catch {
       return NotificationStreamFailureCodes.NetworkError
     }

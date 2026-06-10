@@ -39,6 +39,8 @@ public static class PodSizeCatalog
     public static readonly int RumMetricValuePod = PodContractValidation.SizeOf<RumMetricValuePod>();
     public static readonly int RumMetricDimensionPod = PodContractValidation.SizeOf<RumMetricDimensionPod>();
     public static readonly int RumMetricIngestResponsePod = PodContractValidation.SizeOf<RumMetricIngestResponsePod>();
+    public static readonly int SiteSubscriptionRequestPod = PodContractValidation.SizeOf<SiteSubscriptionRequestPod>();
+    public static readonly int SiteSubscriptionResponsePod = PodContractValidation.SizeOf<SiteSubscriptionResponsePod>();
     public static readonly int TagPod = PodContractValidation.SizeOf<TagPod>();
     public static readonly int TagWithCountPod = PodContractValidation.SizeOf<TagWithCountPod>();
     public static readonly int CategoryPod = PodContractValidation.SizeOf<CategoryPod>();

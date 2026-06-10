@@ -33,7 +33,7 @@
 
 - 基础策略：`fixed_ip`（固定窗口，按客户端 IP 计数），作为认证、PoW、写入和审核端点的 fallback。
 - 公开读策略：`public_read` 按 `IP + path` 分区；verified search crawler 使用独立高额度分区，social preview bot 使用低额度公开 HTML/静态资源分区，普通匿名公开 API 使用中等配额。
-- 真人阅读策略：`read_proof` 专门保护 `/api/binary/read-proof/challenge.aeds` 与 `/api/binary/read-proof/submit.aeds`，按 `IP + route` 或 `IP + deviceFp + route` 分区，避免匿名 challenge/submit 被无限打。旧 `/api/read-proof/**` JSON 路径只作为废弃兼容层保留。
+- 真人阅读策略：`read_proof` 专门保护 `/api/binary/read-proof/challenge.aeds` 与 `/api/binary/read-proof/submit.aeds`，按 `IP + route` 或 `IP + deviceFp + route` 分区，避免匿名 challenge/submit 被无限打。旧 `/api/read-proof/**` JSON 路径已移除。
 - 超限响应：`429 Too Many Requests`，响应头携带 `Retry-After`，并通过 `ISecurityRiskSignalSink` 写入 `RateLimited` 风险事件。
 - 客户端 IP 提取：`GetClientIp()` 只读取 `ForwardedHeadersMiddleware` 按 `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` 处理后的 `Connection.RemoteIpAddress`；业务代码不得直接信任原始 `X-Forwarded-For` / `X-Real-IP` 请求头。
 - 受保护端点：PoW 挑战、注册、密码登录、Token 续签、Passkey 登录开始/完成、评论审核队列和单条/批量审核写入、ReadProof challenge/submit、公开评论读取、公开 taxonomy 与 related-reading。
@@ -46,7 +46,7 @@
 - social preview bot：`Twitterbot`、`facebookexternalhit`、`Discordbot`、`Slackbot`、`TelegramBot`、`LinkedInBot`、`WhatsApp` 只允许公开 HTML、OG/静态资源、`robots.txt` 的 GET/HEAD，不允许访问 `/api/**`。
 - unknown bot、工具型 UA、空 UA：返回轻量 403，记录 `fsus.security.event.count`，并向风险分写入原因；路径穿越、双斜杠、反斜杠和双重编码路径仍直接 `Abort()`，同时记录指标。
 
-`CrawlerUpdateWorker` 按运行时策略快照加载搜索引擎 CIDR：远程官方 JSON（Google `googlebot.json`、Bing `bingbot.json`）→ 本地 last-known-good snapshot → `Security:CrawlerCidrs:*` 配置 → empty degraded。默认更新间隔为 1440 分钟，后台可热更新 `CidrAutoUpdateEnabled`、`CidrUpdateIntervalMinutes`、`CidrMinUpdateIntervalMinutes`、Google/Bing URL 和 snapshot path；最小间隔默认 30 分钟，避免管理员误设过低造成外部请求风暴。状态通过 admin-only `GET /api/ops/crawler-ranges/status` 和生产前端 `/api/binary/admin/security/anti-crawler/crawler-ranges/status` 暴露；后者额外返回自动更新开关、当前/最小 interval、下次同步时间和 worker 运行状态，并支持 `POST /api/binary/admin/security/anti-crawler/crawler-ranges/sync` 手动同步。旧 `/api/admin/security/anti-crawler/crawler-ranges/**` JSON 路径仅作为 deprecated 后端兼容层。
+`CrawlerUpdateWorker` 按运行时策略快照加载搜索引擎 CIDR：远程官方 JSON（Google `googlebot.json`、Bing `bingbot.json`）→ 本地 last-known-good snapshot → `Security:CrawlerCidrs:*` 配置 → empty degraded。默认更新间隔为 1440 分钟，后台可热更新 `CidrAutoUpdateEnabled`、`CidrUpdateIntervalMinutes`、`CidrMinUpdateIntervalMinutes`、Google/Bing URL 和 snapshot path；最小间隔默认 30 分钟，避免管理员误设过低造成外部请求风暴。状态通过 admin-only ops probe `GET /api/ops/crawler-ranges/status` 和生产前端 `/api/binary/admin/security/anti-crawler/crawler-ranges/status` 暴露；后者额外返回自动更新开关、当前/最小 interval、下次同步时间和 worker 运行状态，并支持 `POST /api/binary/admin/security/anti-crawler/crawler-ranges/sync` 手动同步。
 
 统一安全风险由 `ISecurityRiskSignalSink`、`ISecurityRiskScoreReader` 和 `ISecurityRiskPolicyProvider` 抽象承载；旧 `CrawlerRiskService` 只是兼容实现，不再代表反爬虫子系统。Shield 写入 `anti-crawler` 来源信号，RateLimiter 写入 `rate-limiter`，PoW 写入 `pow`，HumanReadProof 写入 `human-read-proof`，公开读过滤器写入 `public-read`。风险分仍落在 `SecurityPowRisk` key 上以保持 `AdaptivePowGovernor` 兼容；`RiskAwarePublicReadFilter` 只读取 `SecurityRiskPolicySnapshot`，在风险分达到 `RequireChallengeScore` 时引用 `security.pow` challenge，达到 `BlockScore` 时返回 429。该策略只作用于动态公开 API，不影响 PublicHotRead artifact 命中路径。
 
@@ -56,7 +56,7 @@
 - `/user/manage/security/crawler`：反爬虫系统，管理模式、局部开关、CIDR 更新、风险事件、allow/blocklist、规则和模拟器。
 - `/user/manage/security/pow`：PoW 系统，管理独立模式、默认 difficulty、proof TTL、replay 防护和风险分联动。
 
-安全后台生产 API 全部使用 `/api/binary/admin/security/**` AEDS v2 frame；旧 `/api/admin/security/**` JSON endpoint 只作为 deprecated 后端兼容层。`SecurityBinaryBridgeMiddleware` 复用原 admin endpoint 的 role authorization、`fixed_ip` 限流、`X-Fsus-Mfa-Proof` step-up、device fingerprint header 和高价值安全审计，失败统一编码为 `ApiError` frame。
+安全后台生产 API 全部使用 `/api/binary/admin/security/**` AEDS v2 frame；被 bridge 复用的 JSON envelope 只挂在受保护的 `/_fsus/internal/binary-bridge/admin/security/**`，外部 `/api/admin/security/**` 已移除。`SecurityBinaryBridgeMiddleware` 复用原 endpoint 的 role authorization、`fixed_ip` 限流、`X-Fsus-Mfa-Proof` step-up、device fingerprint header 和高价值安全审计，失败统一编码为 `ApiError` frame。
 
 AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关闭 crawler 类处置和 crawler 风险写入，不关闭 PoW、认证、授权、CORS、Fetch Metadata、路径穿越硬拦截等基础安全能力；`observe` 记录事件但不拦截、不触发 public read challenge 升级；`enforce` 是生产默认策略；`strict` 会提高 crawler 类风险分。局部开关包括 public read challenge、search crawler verification、social preview guard、risk scoring、event persistence、dashboard aggregation、CIDR auto update 和 illegal path hard abort。PoW 使用独立 `PowPolicySnapshot`，不受 AntiCrawler mode 直接控制。
 
@@ -81,7 +81,7 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 ## 实时通知通道
 
 - 通道：`/api/notifications/stream` 使用 WebSocket，子协议固定为 `fsus-aeds.v2`
-- 预检：`/api/notifications/stream/preflight` 复用认证、PoW、cursor 和协议校验，不要求 WebSocket upgrade；成功返回 204，失败返回 JSON 错误信封与 `X-Fsus-Notification-Stream-*` 头
+- 预检：`/api/notifications/stream/preflight` 复用认证、PoW、cursor 和协议校验，不要求 WebSocket upgrade；成功返回 204，失败返回 AEDS `ApiError` frame 与 `X-Fsus-Notification-Stream-*` 头
 - 载荷：所有通知、心跳和正式 WebSocket 握手失败均为 AEDS binary frame；握手失败返回 `ApiError` frame
 - 匿名订阅：必须携带 `pow` query 参数，值为二进制 FPOW 证明的 base64 文本形式
 - 登录订阅：复用同站点认证 Cookie，不接受文本事件流降级
@@ -196,7 +196,7 @@ FsusBlog 采用三级角色体系：
 
 ## 作者工作台、订阅与 RUM 隐私
 
-- `/api/binary/author/**` 全部要求 admin role；草稿、预览、修订、资产、评论审核、导入导出和 AI 辅助不得匿名访问。旧 `/api/author/**` JSON endpoint 仅作为 deprecated 后端兼容层，生产前端不得调用。
+- `/api/binary/author/**` 全部要求 admin role；草稿、预览、修订、资产、评论审核、导入导出和 AI 辅助不得匿名访问。被 bridge 复用的 JSON envelope 只挂在受保护的 `/_fsus/internal/binary-bridge/author/**`，外部 `/api/author/**` 已移除。
 - 服务端草稿按 `ownerUserId + draftKey` 唯一保存，浏览器本地缓存仅作为断网兜底；跨设备恢复必须通过 admin cookie 读取 `/api/binary/author/drafts/{draftKey}`，不得落入公开 AOT、Service Worker shell cache 或搜索索引。
 - 修订历史正文详情只允许 admin 在作者工作台读取；回滚必须走正式文章更新服务以写入新修订、审计记录和分发缓存失效，不允许通过 SQL/API 直接覆盖公开正文。
 - 未发布正文只允许出现在 admin-only JSON 响应中；预览 HTML 带 `data-preview-only=true` 和 `data-markdown-renderer=server-preview`，所有 Markdown HTML 输入先转义，前端写入 `srcdoc` 前再次剥离可执行标签/事件属性，并仅以 sandboxed unique-origin iframe 展示，不得写入 PublicAOT cache、search index、feed、sitemap 或 related-reading。
@@ -214,8 +214,8 @@ FsusBlog 采用三级角色体系：
 - 作者 AI 辅助默认 `Authoring:AiAssist:Enabled=false`；默认路径只做本地摘要/标签/结构建议，不把未发布正文发往外部 provider。外部 provider 只有在 `Authoring:AiAssist:Enabled=true`、`Authoring:AiAssist:Provider` 非 `local`、`Authoring:AiAssist:AllowExternalProvider=true` 且 `Authoring:AiAssist:ExternalProviderReviewed=true` 同时满足时才标记为 allowed；当前服务不直接持有 `HttpClient` 外发正文，每次调用都会写入 `author-ai-assist` 审计事件。
 - `site_subscription` 只保存 `SHA256(email)`、channel、启用状态和退订时间，不保存明文 email，不构建读者画像或社交关系链。默认实现不接入 SMTP、第三方邮件或 Web Push provider；RSS/Atom/JSON Feed 是主订阅通道，`channel=email` 仅记录显式订阅偏好，后续外发能力必须先补配置开关、退订 smoke 和安全评审。
 - PWA Service Worker 只缓存公开 shell 路由；`/user`、`/admin`、`/login` 和 `/api/binary/**` 不进入 shell cache。离线公开页必须带 `X-Fsus-Offline-Stale`。
-- RUM 仅采集公开页 `pageType`、`aotSource`、LCP、CLS、hydration time、Wasm decode/render timing、navigation timing 等匿名性能指标；私有页面不发送 Core Web Vitals，payload 不包含账号、email、token、cookie、正文输入。生产前端只调用 `POST /api/binary/telemetry/rum`，使用 `credentials: omit`、batched AEDS `RumMetricBatchRequest` frame、8192 bytes 帧上限和 `fixed_ip` 限流；服务端只允许固定 metric 名称、`value/domInteractive/responseStart/durationMs` 数值字段与低基数 dimension 白名单，未知字段会被丢弃或计入 rejectedCount。旧 `/api/telemetry/rum` JSON endpoint 仅作为 deprecated 兼容入口保留；净化后写入独立 `frontend_rum_metric` 表，不再混入安全审计表。
-- 安全后台 dashboard、AntiCrawler、PoW、风险分重置、规则与 allow/blocklist 管理只允许 admin 通过 `/api/binary/admin/security/**` 访问；策略更新、CIDR 手动同步、风险重置、规则/list 写入和 PoW 策略更新继续要求一次性 `X-Fsus-Mfa-Proof`，并写入 high-value security audit。旧 `/api/admin/security/**` JSON endpoint 不允许生产前端调用。
+- RUM 仅采集公开页 `pageType`、`aotSource`、LCP、CLS、hydration time、Wasm decode/render timing、navigation timing 等匿名性能指标；私有页面不发送 Core Web Vitals，payload 不包含账号、email、token、cookie、正文输入。生产前端只调用 `POST /api/binary/telemetry/rum`，使用 `credentials: omit`、batched AEDS `RumMetricBatchRequest` frame、8192 bytes 帧上限和 `fixed_ip` 限流；服务端只允许固定 metric 名称、`value/domInteractive/responseStart/durationMs` 数值字段与低基数 dimension 白名单，未知字段会被丢弃或计入 rejectedCount。旧 `/api/telemetry/rum` JSON endpoint 已移除；净化后写入独立 `frontend_rum_metric` 表，不再混入安全审计表。
+- 安全后台 dashboard、AntiCrawler、PoW、风险分重置、规则与 allow/blocklist 管理只允许 admin 通过 `/api/binary/admin/security/**` 访问；策略更新、CIDR 手动同步、风险重置、规则/list 写入和 PoW 策略更新继续要求一次性 `X-Fsus-Mfa-Proof`，并写入 high-value security audit。外部 `/api/admin/security/**` JSON endpoint 已移除。
 - 结构化审计写入 `sys_audit_log`：保留 `source/type/action/outcome/severity/actor/target`、trace/path/method、原因码和低基数 context；IP、User-Agent、session id、设备指纹只保存 SHA-256 hash。高价值 admin/security/audit 事件通过 `IAuditEventService` 同步写库，失败时写入 `FSUSBLOG_DATA_ROOT/audit-fallback/critical-audit-*.jsonl`，避免关键审计静默丢失。每条审计生成 `record_hash`，配置 `Audit:TamperEvidenceKey` 或 `Security:AuditTamperEvidenceKey` 时额外生成 `record_mac`；`/user/manage/audit` 可查询详情并校验单条防篡改证据。
 - OpenTelemetry 自定义属性只允许 `fsus.*` 枚举字段，覆盖 route kind、状态码、组件、缓存 policy、AOT source、搜索模式、后台任务计数等低基数维度；不得写入原始路径参数、请求/响应正文、Authorization、Cookie、token、email、用户名、IP 或 User-Agent。`X-Fsus-Trace-Id` 仅用于用户报告和日志/trace 关联，不表示认证身份。
 
@@ -229,11 +229,11 @@ tools/operations/backup-site.sh
 
 - `Jwt__SecretKey`：生成新 secret 后滚动重启应用；旧 JWT 立即失效，依赖 refresh cookie 的会话也应通过用户 session 撤销或强制重新登录收口。
 - DataProtection keyring：默认追加新 key，不删除旧 key；只有确认旧 cookie、MFA pending payload 和恢复窗口全部过期后，才在离线维护窗口清理旧 key。迁移服务器时必须恢复 `data-protection-keyring.tar.gz`，否则受保护 cookie/MFA payload 不可读。
-- Redis password：先更新 Redis ACL/密码，再更新 `ConnectionStrings__Redis` / `RedisOptions__Configuration`，重启后用 `/api/author/ops/health` 验证 Redis 状态。Redis 数据不作为业务恢复来源。
+- Redis password：先更新 Redis ACL/密码，再更新 `ConnectionStrings__Redis` / `RedisOptions__Configuration`，重启后用 `/api/binary/author/ops/health` 验证 Redis 状态。Redis 数据不作为业务恢复来源。
 - PostgreSQL password：先创建或切换数据库凭据，再更新 `ConnectionStrings__DefaultConnection`，重启前保留旧凭据到 readiness 通过。失败时恢复旧连接串或用最近数据库 dump 恢复。
 - 域名/服务器迁移：同步恢复数据库、uploads、DataProtection keyring 和必要配置；更新 `SITE_BASEURL`、`CORS_ALLOWED_HOSTS`、`APP_ALLOWED_HOSTS`、Fido2/WebAuthn domain/origin 后，执行 `/health/ready`、`/user/manage/ops`、sitemap/feed 和登录/MFA smoke。
 
-Secret 轮换、站点备份导出、数据巡检修复、批量封禁、密码重置等高价值操作必须写结构化审计。管理 UI 的危险操作策略来自 `/api/author/ops/dangerous-operations/policy`：系统设置、导入、revision rollback、taxonomy 修改和 integrity fix 必须先展示 changed-fields diff；批量封禁、重置密码、站点备份导出和 integrity fix 必须使用 MFA step-up。
+Secret 轮换、站点备份导出、数据巡检修复、批量封禁、密码重置等高价值操作必须写结构化审计。管理 UI 的危险操作策略来自 `/api/binary/author/ops/dangerous-operations/policy`：系统设置、导入、revision rollback、taxonomy 修改和 integrity fix 必须先展示 changed-fields diff；批量封禁、重置密码、站点备份导出和 integrity fix 必须使用 MFA step-up。
 
 ## 安全测试矩阵
 

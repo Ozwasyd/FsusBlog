@@ -34,9 +34,9 @@
 | Auth / MFA / Passkey | `/api/binary/auth/**` | 🔓 / 🔑 | PoW、login flow、session、MFA、WebAuthn |
 | Messages | `/api/binary/messages/**` | 🔑 | 用户站内信与已读状态 |
 | Admin messages / stats / upload | `/api/binary/admin/**`, `/api/binary/stats`, `/api/binary/upload/**` | 👑 | 管理端 Binary read/write |
-| Authoring / moderation console | `/api/binary/author/**` | 👑 | 作者工作台、审核、审计、运维、cache/integrity 通过 AEDS bridge；旧 `/api/author/**` 仅 deprecated 兼容 |
-| Admin security console | `/api/binary/admin/security/**` | 👑 | 安全总览、AntiCrawler、PoW、风险分与规则/list 管理通过 AEDS bridge；旧 `/api/admin/security/**` 仅 deprecated 兼容 |
-| Telemetry | `/api/binary/telemetry/rum` | 🔓 | batched AEDS RUM ingestion，旧 `/api/telemetry/rum` 仅 deprecated 兼容 |
+| Authoring / moderation console | `/api/binary/author/**` | 👑 | 作者工作台、审核、审计、运维、cache/integrity 通过 AEDS bridge；外部 `/api/author/**` 已移除 |
+| Admin security console | `/api/binary/admin/security/**` | 👑 | 安全总览、AntiCrawler、PoW、风险分与规则/list 管理通过 AEDS bridge；外部 `/api/admin/security/**` 已移除 |
+| Telemetry | `/api/binary/telemetry/rum` | 🔓 | batched AEDS RUM ingestion；旧 `/api/telemetry/rum` 已移除 |
 | Notifications | `/api/notifications/stream` | 🔓 / 🔑 | WebSocket binary notification stream，子协议 `fsus-aeds.v2` |
 
 Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS 二进制通知帧；它不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`。

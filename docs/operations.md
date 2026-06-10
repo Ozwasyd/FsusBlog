@@ -153,7 +153,7 @@ FSUSBLOG_SITE_BACKUP_PACKAGE=backups/fsusblog-site-YYYYmmddTHHMMSSZ.tar.gz \
 
 The admin UI surfaces backup and drill status in `/user/manage/ops`; cache/AOT/search/sitemap status and manual rebuild controls live in `/user/manage/cache`; data drift checks, diff preview and safe fix application live in `/user/manage/integrity`.
 
-Authoring-level content export is a lighter recovery path for editorial mistakes, not a replacement for database and upload backups. `GET /api/author/articles/{articleId}/export` returns one Markdown document with frontmatter and base64url metadata; `GET /api/author/content/export` returns a JSON package of all article exports. The metadata preserves category id, tag ids, cover URL, article status, scheduled publish time and revision records. Restore through `POST /api/author/articles/import`; use `publish=false,preserveRevisions=true` for parity restores, or `publish=true` only when intentionally bringing the restored article online immediately.
+Authoring-level content export is a lighter recovery path for editorial mistakes, not a replacement for database and upload backups. `GET /api/binary/author/articles/{articleId}/export` returns one Markdown document with frontmatter and base64url metadata; `GET /api/binary/author/content/export` returns a JSON package of all article exports. The metadata preserves category id, tag ids, cover URL, article status, scheduled publish time and revision records. Restore through `POST /api/binary/author/articles/import`; use `publish=false,preserveRevisions=true` for parity restores, or `publish=true` only when intentionally bringing the restored article online immediately.
 
 ## Migration Recovery
 
@@ -273,7 +273,7 @@ Use dry-run cleanup to verify retention behavior before deleting local artifacts
 tools/operations/cleanup-retention.sh
 ```
 
-The retention script records intended cleanup for release/security evidence, coverage, upload sessions and historical AOT/search files. It must not delete article-referenced assets or the only copy of audit/security evidence required by the current release. Author asset cleanup is narrower: `/api/author/assets/orphans` removes only zero-reference `asset_library_item` rows after an admin reindex/audit, and does not remove files under `/uploads/illustration/`.
+The retention script records intended cleanup for release/security evidence, coverage, upload sessions and historical AOT/search files. It must not delete article-referenced assets or the only copy of audit/security evidence required by the current release. Author asset cleanup is narrower: `/api/binary/author/assets/orphans` removes only zero-reference `asset_library_item` rows after an admin reindex/audit, and does not remove files under `/uploads/illustration/`.
 
 Upload asset file deletion is opt-in and guarded. Set `FSUSBLOG_RETENTION_SCAN_UPLOAD_ASSETS=1` only with a non-empty `FSUSBLOG_RETENTION_REFERENCED_ASSETS` file containing `/uploads/illustration/*` URLs; referenced files are counted as `assetGuard.protectedReferencedAssets` and are never deleted. The fixture test `tools/operations/test-retention-cleanup-fixture.sh` proves an old referenced asset survives while an old unreferenced fixture asset is removed.
 

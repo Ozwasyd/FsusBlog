@@ -153,6 +153,15 @@ public sealed record class RumMetricIngestResponse(
     int AcceptedCount = 0,
     int RejectedCount = 0);
 
+public sealed record class SiteSubscriptionBinaryRequest(
+    string Email,
+    string? Channel);
+
+public sealed record class SiteSubscriptionBinaryResponse(
+    bool Subscribed,
+    bool Unsubscribed,
+    string Channel);
+
 public record struct UserCommentResponse
 {
     public long Id { get; init; }

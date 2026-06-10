@@ -78,7 +78,8 @@ for (const forbidden of ['document.cookie', 'localStorage.getItem(\'token\')', '
 assert(subscription.includes('SHA256.HashData'), 'subscription must hash email before storage')
 assert(!subscription.includes('email ='), 'subscription responses must not echo raw email')
 
-assert(authorPreviewEndpoint.includes('app.MapGroup("/api/author")'), 'author private preview endpoint must stay under /api/author')
+assert(authorPreviewEndpoint.includes('BinaryBridgeInternalRequest.AuthoringPrefix'), 'author bridge implementation must move off the public /api/author prefix')
+assert(authorPreviewEndpoint.includes('AddEndpointFilter<BinaryBridgeInternalOnlyFilter>'), 'author bridge implementation must require the internal bridge filter')
 assert(authorPreviewEndpoint.includes('.RequireAuthorization(policy => policy.RequireRole("admin"))'), 'author private preview endpoint group must require admin authorization')
 assert(authorPreviewEndpoint.includes('group.MapPost("/preview"'), 'author private preview route must stay inside the admin authoring group')
 

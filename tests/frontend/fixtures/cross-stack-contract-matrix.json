@@ -494,6 +494,31 @@
       ]
     },
     {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Subscriptions.cs",
+      "frontendWrapper": "src/frontend/src/api/subscription.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/subscriptionAdapter.ts",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/subscriptions",
+          "auth": "anonymous",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "SiteSubscriptionRequest",
+          "responseFrame": "SiteSubscriptionResponse",
+          "surface": "site-subscription-subscribe"
+        },
+        {
+          "method": "DELETE",
+          "path": "/subscriptions",
+          "auth": "anonymous",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "SiteSubscriptionRequest",
+          "responseFrame": "SiteSubscriptionResponse",
+          "surface": "site-subscription-unsubscribe"
+        }
+      ]
+    },
+    {
       "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs",
       "frontendWrapper": "src/frontend/src/api/admin.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/userAdapter.ts",

@@ -26,7 +26,7 @@
 
 ## 基础包装结构
 
-运行时主 API 已收敛到 AEDS Binary：`/api/binary/**` 响应使用 AEDS v2 frame，错误也通过 `ApiError` frame 表达，不再通过旧文本响应包装。所有内部应用 API 按 [aeds-only-policy.md](aeds-only-policy.md) 治理；仍在使用 `JsonApiResponse<T>` 的 notification preflight、subscription API、废弃 authoring JSON endpoint、废弃 security JSON endpoint、废弃 RUM JSON endpoint、废弃 read-proof JSON endpoint 和废弃 related-reading JSON endpoint 只属于登记的迁移期兼容层。
+运行时主 API 已收敛到 AEDS Binary：`/api/binary/**` 响应使用 AEDS v2 frame，错误也通过 `ApiError` frame 表达，不再通过旧文本响应包装。所有内部应用 API 按 [aeds-only-policy.md](aeds-only-policy.md) 治理；`JsonApiResponse<T>` 只允许出现在 public AOT tooling 和受保护的 author/security internal bridge implementation 中，不能作为浏览器运行时 API 暴露。
 
 HTTP 层契约源是 `src/shared/Contracts/Validation/fsusblog.openapi.json`。该 OpenAPI snapshot 描述 method/path/status/content-type/security 与 `x-fsus-*` AEDS metadata；AEDS frame 名称、header magic/version/size 仍以 `src/shared/Contracts/Validation/aeds-protocol.json` 为权威来源。cross-stack matrix、前端 route constants、runtime contract smoke 与 release evidence 通过 `tools/contracts/*` 从这两个源校验或生成。
 
@@ -69,7 +69,7 @@ payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/
 
 ### Read-proof AEDS frames
 
-`/api/binary/read-proof/**` 使用 request/response AEDS frame；错误语义统一为 `ApiError`。旧 `/api/read-proof/**` JSON endpoint 只作为 #105 废弃兼容层保留，前端运行时不得调用。
+`/api/binary/read-proof/**` 使用 request/response AEDS frame；错误语义统一为 `ApiError`。旧 `/api/read-proof/**` JSON endpoint 已移除，前端运行时不得调用或回退。
 
 | FrameType | 值 | POD | 用途 |
 |-----------|----|-----|------|
@@ -80,7 +80,7 @@ payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/
 
 ### RUM telemetry AEDS frames
 
-生产前端只向 `/api/binary/telemetry/rum` 发送 RUM，使用 `credentials: omit`、`Content-Type: application/octet-stream` 和 `Accept: application/octet-stream`。旧 `/api/telemetry/rum` JSON endpoint 仅作为 deprecated 后端兼容入口登记在 AEDS-only allowlist，不允许生产前端回退。
+生产前端只向 `/api/binary/telemetry/rum` 发送 RUM，使用 `credentials: omit`、`Content-Type: application/octet-stream` 和 `Accept: application/octet-stream`。旧 `/api/telemetry/rum` JSON endpoint 已移除，不允许生产前端回退。
 
 | Frame | Value | Payload | 用途 |
 |-------|-------|---------|------|
@@ -341,7 +341,7 @@ Submit 同样受 `read_proof` 专用限流保护。`proof_replayed`、`proof_bin
 | `counted` | bool | 是否写入真人阅读事件 |
 | `status` | string | `counted`、`paused`、`duplicate_viewer`、`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid`、`fingerprint_missing` 等状态 |
 
-旧 JSON 端点 `GET /api/read-proof/challenge` 与 `POST /api/read-proof/submit` 保留为 #105 废弃兼容层；生产前端不得调用，也不得作为 AEDS 解码失败 fallback。
+旧 JSON 端点 `GET /api/read-proof/challenge` 与 `POST /api/read-proof/submit` 已移除；生产前端不得调用，也不得作为 AEDS 解码失败 fallback。
 
 `counted=false` 表示 proof 被拒绝或重复提交；内容读取不受影响。
 
@@ -419,7 +419,7 @@ Submit 同样受 `read_proof` 专用限流保护。`proof_replayed`、`proof_bin
 }
 ```
 
-公开 `CategoryList` / `TagList` 的 `articleCount` 只统计公开可见文章，不能作为后台删除判断。管理端 taxonomy 读取必须使用 `/api/author/taxonomy/categories` 与 `/api/author/taxonomy/tags`，返回真实阻断引用：
+公开 `CategoryList` / `TagList` 的 `articleCount` 只统计公开可见文章，不能作为后台删除判断。管理端 taxonomy 读取必须使用 `/api/binary/author/taxonomy/categories` 与 `/api/binary/author/taxonomy/tags`，返回真实阻断引用：
 
 ```ts
 interface AdminCategoryItemResponse {
@@ -505,14 +505,14 @@ GET /api/notifications/stream/preflight?pow=<base64-fpow>&cursor=<last-event-id>
 X-Fsus-Notification-Stream-Protocol: fsus-aeds.v2
 ```
 
-成功时返回 `204 No Content`，不返回 body。失败时返回统一 JSON 错误信封，并带上可观测头：
+成功时返回 `204 No Content`，不返回 body。失败时返回 AEDS `ApiError` frame，并带上可观测头：
 
 ```http
 X-Fsus-Notification-Stream-Error-Code: account_blocked
 X-Fsus-Notification-Stream-Status-Code: 423
 ```
 
-失败 body 保持统一响应信封：
+失败 body 使用 `AedsFrameType.ApiError` payload，前端通过 `X-Fsus-Notification-Stream-Error-Code` 映射业务失败码：
 
 ```json
 {
@@ -931,7 +931,6 @@ X-Fsus-Pow-Answer: <nonce 值>
 | GET | `/sitemap.xml` | `application/xml` | 首页、文章、归档、关于、隐私政策、用户守则、版权声明、分类、标签；排除登录、用户、admin |
 | GET | `/robots.txt` | `text/plain` | 声明 sitemap，并拒绝私有路由 |
 | GET | `/api/binary/article/{articleId}/related.aeds` | `AedsFrameType.ArticleRelatedReading` | 基于分类、标签、全文关键词和发布时间的公开延伸阅读 |
-| GET | `/api/public/articles/{articleId}/related` | `JsonApiResponse<RelatedReadingResponse>` | 废弃兼容路径；生产前端不得调用，删除跟踪见 #105 |
 
 feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 和 body ETag；客户端提交匹配的 `If-None-Match` 时返回 `304 Not Modified`。RSS channel 的 copyright 来源于合规配置；`robots.txt` 明确禁止 `/api/`、`/user`、`/admin`、搜索索引二进制与 patch 目录，同时保留 `/api/public/`、`/feed/`、`/sitemap.xml` 与公开页面可抓取。
 
@@ -944,6 +943,17 @@ feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale
 | GET | `/api/ops/crawler-ranges/status` | admin | 返回 Google/Bing CIDR 数量、最近同步时间、最近成功时间、来源和错误摘要 |
 
 该状态来自 `CrawlerUpdateWorker` 的远程官方 JSON → last-known-good snapshot → 配置项 → empty degraded 加载链，只用于运维诊断，不返回客户端 IP、User-Agent 或用户数据。
+
+### Site Subscription
+
+订阅表单使用 AEDS，不保存明文 email；服务端只写入 `SHA256(normalizedEmail)` 与归一化 channel。
+
+| 方法 | 路径 | 请求帧 | 响应帧 | 说明 |
+|------|------|--------|--------|------|
+| POST | `/api/binary/subscriptions` | `SiteSubscriptionRequest` | `SiteSubscriptionResponse` | 启用订阅，响应只包含 `subscribed=true` 与归一化 channel |
+| DELETE | `/api/binary/subscriptions` | `SiteSubscriptionRequest` | `SiteSubscriptionResponse` | 退订，响应只包含 `unsubscribed` 与归一化 channel |
+
+`SiteSubscriptionRequest` payload 是 `SiteSubscriptionRequestPod`：fixed UTF-8 `Email(256)` + `Channel(32)`。`SiteSubscriptionResponse` payload 是 `SiteSubscriptionResponsePod`：`subscribed:byte`、`unsubscribed:byte`、reserved、fixed UTF-8 `Channel(32)`。非法 email 返回 HTTP 400 + `ApiError` frame，响应不得回显明文 email。
 
 `ArticleRelatedReading` frame payload 使用 `RelatedReadingHeaderPod` + `RelatedReadingItemPod[]` + UTF-8 blob 编码；业务视图为 `RelatedReadingResponse`：
 
@@ -990,63 +1000,63 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 ### Admin 作者工作台
 
-生产前端使用 `/api/binary/author/**`，路径后缀与旧 `/api/author/**` 保持一致，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，不再使用 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。`AuthoringBinaryBridgeMiddleware` 复用旧 admin endpoint 的授权、MFA、fixed_ip rate limit、审计和缓存失效边界。旧 `/api/author/**` JSON endpoint 仅作为 deprecated 后端兼容层保留：
+生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。`AuthoringBinaryBridgeMiddleware` 复用 authoring endpoint 逻辑的授权、MFA、fixed_ip rate limit、审计和缓存失效边界；被复用的 JSON envelope 只挂在 `/_fsus/internal/binary-bridge/author/**`，受 `BinaryBridgeInternalOnlyFilter` 保护。外部 `/api/author/**` JSON endpoint 已移除：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/author/drafts` | 保存服务端草稿，按 `ownerUserId + draftKey` 幂等覆盖；payload 包含 `status` 与 `scheduledPublishAt` |
-| GET | `/api/author/drafts/{draftKey}` | 读取服务端草稿；不存在时返回 `success=true,data=null`，存在时返回 `updatedAt`、`clientRevision`、发布状态与定时发布时间 |
-| DELETE | `/api/author/drafts/{draftKey}` | 丢弃服务端草稿；编辑器同步清除浏览器本地兜底缓存 |
-| POST | `/api/author/preview` | admin-only 私有预览，输出经过转义的 Markdown/AOT-like HTML，根节点带 `data-preview-only=true`、`data-markdown-renderer=server-preview`，不写 PublicAOT cache |
-| POST | `/api/author/prepublish-check` | 发布前检查标题、SEO 描述、封面 URL、Markdown 结构、链接、图片 alt 与危险 HTML |
-| GET | `/api/author/articles/{articleId}/revisions` | 最近 50 条修订摘要 |
-| GET | `/api/author/articles/{articleId}/revisions/{revisionId}` | 单个修订详情，包含标题、摘要、正文、分类、标签和审计时间，用于编辑器内比较 |
-| POST | `/api/author/articles/{articleId}/revisions/{revisionId}/rollback` | 回滚到指定修订并触发文章更新链 |
-| POST | `/api/author/articles/{articleId}/assets/reindex` | 从正文和封面重建资产引用 |
-| GET | `/api/author/assets` | 资产库列表 |
-| DELETE | `/api/author/assets/orphans` | 删除引用计数为 0 的孤儿资产库记录 |
-| GET | `/api/author/taxonomy/categories` | 管理端分类真实引用计数和删除锁定状态 |
-| GET | `/api/author/taxonomy/tags` | 管理端标签真实引用计数和删除锁定状态 |
-| GET | `/api/author/analytics` | 单作者公开内容与真实阅读事件概览 |
-| GET | `/api/author/comments/moderation?status={0..3}&limit={1..100}` | 评论审核队列，默认读取待审项 |
-| POST | `/api/author/comments/moderation/bulk` | 批量通过、拒绝或隐藏评论，可联动封禁用户；必须携带 `X-Fsus-Mfa-Proof` |
-| POST | `/api/author/comments/{commentId}/moderation` | 评论审核状态更新；必须携带 `X-Fsus-Mfa-Proof` |
-| GET | `/api/author/moderation/overview` | 审核系统总览，返回队列计数、词库/地区策略数量、`CN-MAINLAND` strict policy 状态和模型配置摘要 |
-| GET | `/api/author/moderation/dictionaries` | 只读词库/地区策略 snapshot metadata，不返回高风险词条明文 |
-| POST | `/api/author/moderation/dictionaries/reload` | 手动 reload 词库/地区策略 snapshot；必须携带 `X-Fsus-Mfa-Proof`，写高价值审计 |
-| POST | `/api/author/moderation/dictionaries/rollback` | 回滚上一份成功加载的词库/地区策略 snapshot；必须携带 `X-Fsus-Mfa-Proof`，写高价值审计 |
-| POST | `/api/author/moderation/dictionaries/{dictionaryId}/enable` | 移除指定词库的 runtime disabled override；必须携带 `X-Fsus-Mfa-Proof` |
-| POST | `/api/author/moderation/dictionaries/{dictionaryId}/disable` | 添加指定词库的 runtime disabled override；CN-MAINLAND 强制词库需要确认短语；必须携带 `X-Fsus-Mfa-Proof` |
-| GET | `/api/author/moderation/policies` | 地区策略 summary，包含 `criticalChecks`，用于校验 `CN-MAINLAND` 必需词库与动作 |
-| GET | `/api/author/moderation/regions` | 地区定义 catalog，包含内置和自定义地区、父地区、大区、模板绑定与启用状态 |
-| GET | `/api/author/moderation/region-groups` | 地区大区 catalog，包含成员地区、默认模板、内置/自定义标记 |
-| GET | `/api/author/moderation/policy-templates` | 策略模板 presets，包含 source/version/checksum/review marker 和 not-legal-advice 标记 |
-| GET | `/api/author/moderation/effective-policy/{regionCode}` | 指定地区 effective policy preview，显示继承顺序、最终规则和 checksum |
-| POST | `/api/author/moderation/effective-policy/preview` | 带 operator override rules 的 effective policy preview，不执行 replay 或持久变更 |
-| POST | `/api/author/moderation/replay/preview` | 策略回放 preview，只返回 diff 汇总和受影响评论，不执行变更 |
-| GET | `/api/author/moderation/runtime/status` | 当前审核运行时状态，包含全局状态、地区 override、禁用词库集合和模型快照 |
-| POST | `/api/author/moderation/runtime/global-state` | 设置全局审核运行状态；必须携带 `X-Fsus-Mfa-Proof`，写高价值审计并清理评论缓存 |
-| POST | `/api/author/moderation/runtime/region-state` | 设置地区审核运行状态；CN-MAINLAND 非 enabled 需要确认短语；必须携带 `X-Fsus-Mfa-Proof`，写高价值审计并清理评论缓存 |
-| GET | `/api/author/moderation/model/status` | 反垃圾模型状态，返回 provider/mode/contract/timeout/failOpen 和最近成功/错误/latency 指标 |
-| POST | `/api/author/moderation/model/runtime` | 热切换模型 enabled/provider/modelProfile/thresholdProfile；必须携带 `X-Fsus-Mfa-Proof` |
-| POST | `/api/author/moderation/model/reload` | 从配置热重载模型运行快照，provider/schema 校验失败时保留旧快照；必须携带 `X-Fsus-Mfa-Proof` |
-| POST | `/api/author/moderation/model/rollback` | 回滚上一份模型运行快照；必须携带 `X-Fsus-Mfa-Proof` |
-| GET | `/api/author/content/export` | 全站内容备份包，包含每篇 Markdown + frontmatter |
-| GET | `/api/author/articles/{articleId}/export` | Markdown + frontmatter 导出 |
-| POST | `/api/author/articles/import` | Markdown + frontmatter 导入 |
-| GET | `/api/author/audit` | 结构化审计日志列表，支持 actor/action/target/outcome/severity/time 过滤 |
-| GET | `/api/author/audit/summary` | 当前过滤条件下的审计 facet 与写入 runtime |
-| GET | `/api/author/audit/{id}` | 审计详情、context JSON 与防篡改校验结果 |
-| GET | `/api/author/audit/{id}/verify` | 单条审计 `record_hash` / `record_mac` 校验 |
-| GET | `/api/author/ops/health` | 运维健康面板数据：PostgreSQL、Redis、audit、Crawler CIDR、备份、PublicHotRead、search、worker、队列和最近错误 |
-| GET | `/api/author/ops/backup` | 最近站点备份状态，扫描 database/uploads/DataProtection keyring/config/site-package/restore-drill artifacts |
-| GET | `/api/author/ops/dangerous-operations/policy` | 管理端危险操作等级、MFA step-up、强确认和 diff 策略 |
-| GET | `/api/author/cache/diagnostics?articleId={id}` | AOT/PublicHotRead/search/sitemap/feed/comment cache/output cache 诊断，可选单文章定位 |
-| POST | `/api/author/cache/actions` | 手动维护动作：`search-rebuild`、`aot-rebuild`、`public-hot-rebuild`、`output-cache-clear`、`sitemap-feed-refresh` |
-| GET | `/api/author/integrity` | 数据一致性巡检报告，覆盖文章正文/修订、taxonomy、评论链、session、uploads/assets、search/sitemap visibility |
-| GET | `/api/author/integrity/fix-preview` | 安全修复 diff 预览；当前只预览无效 `article_tag` 和注销用户 session 撤销 |
-| POST | `/api/author/integrity/fix` | 应用安全修复，必须携带 `X-Fsus-Mfa-Proof` 且 `confirmPhrase=APPLY_SAFE_FIXES` |
-| POST | `/api/author/ai-assist` | 作者 AI 辅助；默认 provider disabled/local fallback，不把未发布正文发往外部服务 |
+| POST | `/api/binary/author/drafts` | 保存服务端草稿，按 `ownerUserId + draftKey` 幂等覆盖；payload 包含 `status` 与 `scheduledPublishAt` |
+| GET | `/api/binary/author/drafts/{draftKey}` | 读取服务端草稿；不存在时返回 `success=true,data=null`，存在时返回 `updatedAt`、`clientRevision`、发布状态与定时发布时间 |
+| DELETE | `/api/binary/author/drafts/{draftKey}` | 丢弃服务端草稿；编辑器同步清除浏览器本地兜底缓存 |
+| POST | `/api/binary/author/preview` | admin-only 私有预览，输出经过转义的 Markdown/AOT-like HTML，根节点带 `data-preview-only=true`、`data-markdown-renderer=server-preview`，不写 PublicAOT cache |
+| POST | `/api/binary/author/prepublish-check` | 发布前检查标题、SEO 描述、封面 URL、Markdown 结构、链接、图片 alt 与危险 HTML |
+| GET | `/api/binary/author/articles/{articleId}/revisions` | 最近 50 条修订摘要 |
+| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 单个修订详情，包含标题、摘要、正文、分类、标签和审计时间，用于编辑器内比较 |
+| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 回滚到指定修订并触发文章更新链 |
+| POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 从正文和封面重建资产引用 |
+| GET | `/api/binary/author/assets` | 资产库列表 |
+| DELETE | `/api/binary/author/assets/orphans` | 删除引用计数为 0 的孤儿资产库记录 |
+| GET | `/api/binary/author/taxonomy/categories` | 管理端分类真实引用计数和删除锁定状态 |
+| GET | `/api/binary/author/taxonomy/tags` | 管理端标签真实引用计数和删除锁定状态 |
+| GET | `/api/binary/author/analytics` | 单作者公开内容与真实阅读事件概览 |
+| GET | `/api/binary/author/comments/moderation?status={0..3}&limit={1..100}` | 评论审核队列，默认读取待审项 |
+| POST | `/api/binary/author/comments/moderation/bulk` | 批量通过、拒绝或隐藏评论，可联动封禁用户；必须携带 `X-Fsus-Mfa-Proof` |
+| POST | `/api/binary/author/comments/{commentId}/moderation` | 评论审核状态更新；必须携带 `X-Fsus-Mfa-Proof` |
+| GET | `/api/binary/author/moderation/overview` | 审核系统总览，返回队列计数、词库/地区策略数量、`CN-MAINLAND` strict policy 状态和模型配置摘要 |
+| GET | `/api/binary/author/moderation/dictionaries` | 只读词库/地区策略 snapshot metadata，不返回高风险词条明文 |
+| POST | `/api/binary/author/moderation/dictionaries/reload` | 手动 reload 词库/地区策略 snapshot；必须携带 `X-Fsus-Mfa-Proof`，写高价值审计 |
+| POST | `/api/binary/author/moderation/dictionaries/rollback` | 回滚上一份成功加载的词库/地区策略 snapshot；必须携带 `X-Fsus-Mfa-Proof`，写高价值审计 |
+| POST | `/api/binary/author/moderation/dictionaries/{dictionaryId}/enable` | 移除指定词库的 runtime disabled override；必须携带 `X-Fsus-Mfa-Proof` |
+| POST | `/api/binary/author/moderation/dictionaries/{dictionaryId}/disable` | 添加指定词库的 runtime disabled override；CN-MAINLAND 强制词库需要确认短语；必须携带 `X-Fsus-Mfa-Proof` |
+| GET | `/api/binary/author/moderation/policies` | 地区策略 summary，包含 `criticalChecks`，用于校验 `CN-MAINLAND` 必需词库与动作 |
+| GET | `/api/binary/author/moderation/regions` | 地区定义 catalog，包含内置和自定义地区、父地区、大区、模板绑定与启用状态 |
+| GET | `/api/binary/author/moderation/region-groups` | 地区大区 catalog，包含成员地区、默认模板、内置/自定义标记 |
+| GET | `/api/binary/author/moderation/policy-templates` | 策略模板 presets，包含 source/version/checksum/review marker 和 not-legal-advice 标记 |
+| GET | `/api/binary/author/moderation/effective-policy/{regionCode}` | 指定地区 effective policy preview，显示继承顺序、最终规则和 checksum |
+| POST | `/api/binary/author/moderation/effective-policy/preview` | 带 operator override rules 的 effective policy preview，不执行 replay 或持久变更 |
+| POST | `/api/binary/author/moderation/replay/preview` | 策略回放 preview，只返回 diff 汇总和受影响评论，不执行变更 |
+| GET | `/api/binary/author/moderation/runtime/status` | 当前审核运行时状态，包含全局状态、地区 override、禁用词库集合和模型快照 |
+| POST | `/api/binary/author/moderation/runtime/global-state` | 设置全局审核运行状态；必须携带 `X-Fsus-Mfa-Proof`，写高价值审计并清理评论缓存 |
+| POST | `/api/binary/author/moderation/runtime/region-state` | 设置地区审核运行状态；CN-MAINLAND 非 enabled 需要确认短语；必须携带 `X-Fsus-Mfa-Proof`，写高价值审计并清理评论缓存 |
+| GET | `/api/binary/author/moderation/model/status` | 反垃圾模型状态，返回 provider/mode/contract/timeout/failOpen 和最近成功/错误/latency 指标 |
+| POST | `/api/binary/author/moderation/model/runtime` | 热切换模型 enabled/provider/modelProfile/thresholdProfile；必须携带 `X-Fsus-Mfa-Proof` |
+| POST | `/api/binary/author/moderation/model/reload` | 从配置热重载模型运行快照，provider/schema 校验失败时保留旧快照；必须携带 `X-Fsus-Mfa-Proof` |
+| POST | `/api/binary/author/moderation/model/rollback` | 回滚上一份模型运行快照；必须携带 `X-Fsus-Mfa-Proof` |
+| GET | `/api/binary/author/content/export` | 全站内容备份包，包含每篇 Markdown + frontmatter |
+| GET | `/api/binary/author/articles/{articleId}/export` | Markdown + frontmatter 导出 |
+| POST | `/api/binary/author/articles/import` | Markdown + frontmatter 导入 |
+| GET | `/api/binary/author/audit` | 结构化审计日志列表，支持 actor/action/target/outcome/severity/time 过滤 |
+| GET | `/api/binary/author/audit/summary` | 当前过滤条件下的审计 facet 与写入 runtime |
+| GET | `/api/binary/author/audit/{id}` | 审计详情、context JSON 与防篡改校验结果 |
+| GET | `/api/binary/author/audit/{id}/verify` | 单条审计 `record_hash` / `record_mac` 校验 |
+| GET | `/api/binary/author/ops/health` | 运维健康面板数据：PostgreSQL、Redis、audit、Crawler CIDR、备份、PublicHotRead、search、worker、队列和最近错误 |
+| GET | `/api/binary/author/ops/backup` | 最近站点备份状态，扫描 database/uploads/DataProtection keyring/config/site-package/restore-drill artifacts |
+| GET | `/api/binary/author/ops/dangerous-operations/policy` | 管理端危险操作等级、MFA step-up、强确认和 diff 策略 |
+| GET | `/api/binary/author/cache/diagnostics?articleId={id}` | AOT/PublicHotRead/search/sitemap/feed/comment cache/output cache 诊断，可选单文章定位 |
+| POST | `/api/binary/author/cache/actions` | 手动维护动作：`search-rebuild`、`aot-rebuild`、`public-hot-rebuild`、`output-cache-clear`、`sitemap-feed-refresh` |
+| GET | `/api/binary/author/integrity` | 数据一致性巡检报告，覆盖文章正文/修订、taxonomy、评论链、session、uploads/assets、search/sitemap visibility |
+| GET | `/api/binary/author/integrity/fix-preview` | 安全修复 diff 预览；当前只预览无效 `article_tag` 和注销用户 session 撤销 |
+| POST | `/api/binary/author/integrity/fix` | 应用安全修复，必须携带 `X-Fsus-Mfa-Proof` 且 `confirmPhrase=APPLY_SAFE_FIXES` |
+| POST | `/api/binary/author/ai-assist` | 作者 AI 辅助；默认 provider disabled/local fallback，不把未发布正文发往外部服务 |
 
 `ModerationOverviewResponse` 返回 `pendingCount/rejectedCount/hiddenCount/dictionaryCount/regionPolicyCount/mainlandStrictStatus/dictionaryLastError/modelEnabled/modelProvider/modelMode/modelContractVersion/modelTimeoutMs`。`mainlandStrictStatus` 为 `enabled/disabled/invalid`，用于管理台提示大陆严格策略是否完整。
 
@@ -1068,23 +1078,23 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 ### Admin 安全系统
 
-生产前端使用 `/api/binary/admin/security/**`，路径后缀与旧 `/api/admin/security/**` 保持一致，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AntiCrawlerOptionsUpdateRequest`、`SecurityRiskResetRequest`、`AntiCrawlerRuleRequest`、`PowOptionsUpdateRequest`），响应使用 route-specific response frame（如 `SecurityOverview`、`AntiCrawlerPolicySnapshot`、`SecurityRiskEventList`、`PowPolicySnapshot`）；payload 当前承载类型化 JSON DTO bytes，不再使用 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。`SecurityBinaryBridgeMiddleware` 复用旧 admin endpoint 的 admin role、MFA、fixed_ip rate limit、device fingerprint、审计和运行时策略更新边界。旧 `/api/admin/security/**` JSON endpoint 仅作为 deprecated 后端兼容层保留。
+生产前端使用 `/api/binary/admin/security/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AntiCrawlerOptionsUpdateRequest`、`SecurityRiskResetRequest`、`AntiCrawlerRuleRequest`、`PowOptionsUpdateRequest`），响应使用 route-specific response frame（如 `SecurityOverview`、`AntiCrawlerPolicySnapshot`、`SecurityRiskEventList`、`PowPolicySnapshot`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。`SecurityBinaryBridgeMiddleware` 复用 security endpoint 逻辑的 admin role、MFA、fixed_ip rate limit、device fingerprint、审计和运行时策略更新边界；被复用的 JSON envelope 只挂在 `/_fsus/internal/binary-bridge/admin/security/**`，受 `BinaryBridgeInternalOnlyFilter` 保护。外部 `/api/admin/security/**` JSON endpoint 已移除。
 
 `/api/binary/admin/security/**` 全部要求 admin 角色。写入型和高价值操作必须携带 action=`admin-sensitive` 的一次性 `X-Fsus-Mfa-Proof`，并写入高价值安全审计。
 
 安全系统 IA 与 API 边界：
 
-- `GET /api/admin/security/overview` 返回 `SecurityOverviewResponse(status, checkedAtUtc, antiCrawler, pow, risk)`。
-- `GET /api/admin/security/anti-crawler/overview` 返回 `AntiCrawlerOverviewResponse(policy, summary, crawlerRanges, recentEvents, rules, allowlist, blocklist)`。
-- `GET|PUT /api/admin/security/anti-crawler/options` 读取或更新 `AntiCrawlerPolicySnapshot`。
-- `POST /api/admin/security/anti-crawler/options/rollback` 回滚上一份反爬虫策略快照。
-- `GET|POST /api/admin/security/anti-crawler/crawler-ranges/status|sync` 查看 CIDR worker 状态或手动同步。
-- `GET /api/admin/security/anti-crawler/risk-events`、`GET /api/admin/security/risk/events`、`GET /api/admin/security/risk/snapshots` 分别读取反爬虫事件、统一风险事件和风险主体快照。
-- `GET|POST|PUT|DELETE /api/admin/security/anti-crawler/rules` 管理运行时反爬虫规则。
-- `GET|POST|DELETE /api/admin/security/anti-crawler/allowlist|blocklist` 管理运行时 allow/blocklist。
-- `POST /api/admin/security/anti-crawler/simulate` 只返回 dry-run 结果，不修改策略或风险分。
-- `GET|PUT /api/admin/security/pow/options` 和 `GET /api/admin/security/pow/overview` 管理 PoW 独立策略。
-- `POST /api/admin/security/risk/ip/reset` 重置指定 IP 的统一风险分。
+- `GET /api/binary/admin/security/overview` 返回 `SecurityOverviewResponse(status, checkedAtUtc, antiCrawler, pow, risk)`。
+- `GET /api/binary/admin/security/anti-crawler/overview` 返回 `AntiCrawlerOverviewResponse(policy, summary, crawlerRanges, recentEvents, rules, allowlist, blocklist)`。
+- `GET|PUT /api/binary/admin/security/anti-crawler/options` 读取或更新 `AntiCrawlerPolicySnapshot`。
+- `POST /api/binary/admin/security/anti-crawler/options/rollback` 回滚上一份反爬虫策略快照。
+- `GET|POST /api/binary/admin/security/anti-crawler/crawler-ranges/status|sync` 查看 CIDR worker 状态或手动同步。
+- `GET /api/binary/admin/security/anti-crawler/risk-events`、`GET /api/binary/admin/security/risk/events`、`GET /api/binary/admin/security/risk/snapshots` 分别读取反爬虫事件、统一风险事件和风险主体快照。
+- `GET|POST|PUT|DELETE /api/binary/admin/security/anti-crawler/rules` 管理运行时反爬虫规则。
+- `GET|POST|DELETE /api/binary/admin/security/anti-crawler/allowlist|blocklist` 管理运行时 allow/blocklist。
+- `POST /api/binary/admin/security/anti-crawler/simulate` 只返回 dry-run 结果，不修改策略或风险分。
+- `GET|PUT /api/binary/admin/security/pow/options` 和 `GET /api/binary/admin/security/pow/overview` 管理 PoW 独立策略。
+- `POST /api/binary/admin/security/risk/ip/reset` 重置指定 IP 的统一风险分。
 
 `AntiCrawlerPolicyOptions` 包含 `mode`（`disabled|observe|enforce|strict`）、局部开关 `publicReadChallengeEnabled/searchCrawlerVerificationEnabled/socialPreviewGuardEnabled/riskScoringEnabled/eventPersistenceEnabled/dashboardAggregationEnabled/cidrAutoUpdateEnabled/illegalPathHardAbortEnabled`、阈值 `requireChallengeScore/blockScore/maxRiskScore`、TTL、crawler-aware rate limiter 额度、CIDR 更新时间和 Google/Bing URL。`disabled` 只关闭 crawler 类处置，不关闭 PoW、认证、授权、CORS、Fetch Metadata 或基础路径安全；`observe` 记录事件但不拦截、不触发 public read challenge 升级；`strict` 提高 crawler 类风险分。更新时间运行时热更新，最小间隔默认 30 分钟。
 
@@ -1096,15 +1106,15 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 `ArticlePreviewResponse` 只用于作者工作台内嵌预览：`html` 是服务端按公开阅读页常用 Markdown block/inline 语义生成的安全片段，前端放入 sandboxed iframe；`plainText` 用于字数和摘要提示；`issues` 复用发布前检查结果。该响应不得被缓存为公开 AOT、不得进入 feed/sitemap/search/related-reading，也不得被匿名接口返回。
 
-编辑器侧栏必须基于当前表单和 `SeoConfigContract.baseUrl` 实时给出搜索/分享预览：标题、description、canonical URL、OG image 与当前公开路由 slug。提交 `Published` 或 `Scheduled` 前必须调用 `/api/author/prepublish-check`；`severity=error` 阻断提交，`severity=warning` 必须在确认发布弹窗中要求作者填写 `warningOverrideReason` 后才能跳过，服务端写入 `prepublish-warning-override` 审计事件。检查项覆盖标题/摘要/封面、危险 HTML 标签和事件属性、Markdown 未闭合代码块、超大/密集 Markdown 结构、正文图片 alt text、空链接、不安全协议、私有站内路径以及 `/article|category|tag/{id}` 格式错误。当前真实公开文章路由仍以 `/article/{id}` 为准，新文章在落库前只显示 draft-preview slug，不新增持久化 slug 字段。
+编辑器侧栏必须基于当前表单和 `SeoConfigContract.baseUrl` 实时给出搜索/分享预览：标题、description、canonical URL、OG image 与当前公开路由 slug。提交 `Published` 或 `Scheduled` 前必须调用 `/api/binary/author/prepublish-check`；`severity=error` 阻断提交，`severity=warning` 必须在确认发布弹窗中要求作者填写 `warningOverrideReason` 后才能跳过，服务端写入 `prepublish-warning-override` 审计事件。检查项覆盖标题/摘要/封面、危险 HTML 标签和事件属性、Markdown 未闭合代码块、超大/密集 Markdown 结构、正文图片 alt text、空链接、不安全协议、私有站内路径以及 `/article|category|tag/{id}` 格式错误。当前真实公开文章路由仍以 `/article/{id}` 为准，新文章在落库前只显示 draft-preview slug，不新增持久化 slug 字段。
 
-`AssetLibraryItemResponse` 暴露 `id`、`url`、`altText`、`sourceArticleId`、`referenceCount`、`sha256`、`updatedAt`。重建资产索引会扫描所有文章正文中的 Markdown 图片和文章封面，只接受 `/uploads/illustration/*` 图片 URL；正文图片的 alt text 写入资产库，封面作为可复用资产参与引用计数。仍被正文或封面引用的资产 `referenceCount > 0`，失去引用的资产先保留为 `referenceCount=0` 供作者审计，只有 `DELETE /api/author/assets/orphans` 会删除这些孤儿资产库行；该清理不删除上传文件本体。物理删除文件必须走 `/api/binary/file/delete`，并由管理 UI 通过二次确认区分“仅移除配置/索引”和“删除服务器文件”。
+`AssetLibraryItemResponse` 暴露 `id`、`url`、`altText`、`sourceArticleId`、`referenceCount`、`sha256`、`updatedAt`。重建资产索引会扫描所有文章正文中的 Markdown 图片和文章封面，只接受 `/uploads/illustration/*` 图片 URL；正文图片的 alt text 写入资产库，封面作为可复用资产参与引用计数。仍被正文或封面引用的资产 `referenceCount > 0`，失去引用的资产先保留为 `referenceCount=0` 供作者审计，只有 `DELETE /api/binary/author/assets/orphans` 会删除这些孤儿资产库行；该清理不删除上传文件本体。物理删除文件必须走 `/api/binary/file/delete`，并由管理 UI 通过二次确认区分“仅移除配置/索引”和“删除服务器文件”。
 
-`AuditLogListResponse` 返回 `items`、`total`、`page`、`pageSize` 和 `runtime`。列表查询参数包括 `source`、`type`、`actor`、`action`、`targetType`、`targetId`、`outcome`、`severity`、`fromUtc`、`toUtc`；`actor` 会匹配 actor id/type/role，target 可按 type 和 id 分别过滤。`AuditLogItemResponse` 暴露 `source/type/action/outcome/severity/isHighValue`、`actorType/actorId/actorRole`、`targetType/targetId`、`reasonCode`、`eventInfo`、trace/path/method、`ipHash/userAgentHash/sessionIdHash/deviceFingerprintHash` 和 `chainId/prevHash/recordHash/recordMac`。`AuditLogDetailResponse` 额外返回 `contextJson` 与 `tamperEvidenceValid`；`AuditTamperVerifyResponse` 用于单条校验。所有审计查询端点位于 admin-only `/api/author/**`，并会写入 `admin.audit.queried` 审计事件。
+`AuditLogListResponse` 返回 `items`、`total`、`page`、`pageSize` 和 `runtime`。列表查询参数包括 `source`、`type`、`actor`、`action`、`targetType`、`targetId`、`outcome`、`severity`、`fromUtc`、`toUtc`；`actor` 会匹配 actor id/type/role，target 可按 type 和 id 分别过滤。`AuditLogItemResponse` 暴露 `source/type/action/outcome/severity/isHighValue`、`actorType/actorId/actorRole`、`targetType/targetId`、`reasonCode`、`eventInfo`、trace/path/method、`ipHash/userAgentHash/sessionIdHash/deviceFingerprintHash` 和 `chainId/prevHash/recordHash/recordMac`。`AuditLogDetailResponse` 额外返回 `contextJson` 与 `tamperEvidenceValid`；`AuditTamperVerifyResponse` 用于单条校验。所有审计查询端点位于 admin-only `/api/binary/author/audit/**`，并会写入 `admin.audit.queried` 审计事件。
 
 `OpsHealthResponse` 的 `services` 至少包含 `postgres`、`redis`、`audit`、`crawler-cidr`、`backup`、`public-hot-read`、`search-index`；`workers` 包含 `scheduled-publish` 和启动任务快照；`queueBacklog` 包含 `articleMutationPending`、`articleMutationFailed`、`auditQueued`、`auditDropped`；`backup` 内嵌 `BackupStatusResponse`，用于 `/user/manage/ops` 的后台状态展示。`BackupStatusResponse` 只暴露 artifact 路径、mtime、size 和状态，不返回 secret 内容。
 
-`CacheDiagnosticsResponse` 返回 `aot`、`search`、`distribution`、`commentCache`、`hotStatsInvalidation`、`outputCache`、`publicHotReadCounters` 和可选 `article`。`aot` 来自 `PublicHotReadStore` 和 `PublicAotInvalidationTracker`；`search` 读取 `/search/index.manifest.aeds` 的 schema/version/shard count；`distribution` 通过实际生成 sitemap/rss 统计 URL/item 数；`commentCache` 来自 `CacheInvalidationRuntimeState`。`hotStatsInvalidation` 来自 `IHotStatsInvalidationCoalescer`，暴露当前 HotArticles version、dirty/flush 次数、coalesced dirty 数、pending 状态和最近 dirty/flush reason，用于 VisitLog 驱动失效压力 evidence。`POST /api/author/cache/actions` 会写入 `admin.cache.action_executed` 高价值审计。
+`CacheDiagnosticsResponse` 返回 `aot`、`search`、`distribution`、`commentCache`、`hotStatsInvalidation`、`outputCache`、`publicHotReadCounters` 和可选 `article`。`aot` 来自 `PublicHotReadStore` 和 `PublicAotInvalidationTracker`；`search` 读取 `/search/index.manifest.aeds` 的 schema/version/shard count；`distribution` 通过实际生成 sitemap/rss 统计 URL/item 数；`commentCache` 来自 `CacheInvalidationRuntimeState`。`hotStatsInvalidation` 来自 `IHotStatsInvalidationCoalescer`，暴露当前 HotArticles version、dirty/flush 次数、coalesced dirty 数、pending 状态和最近 dirty/flush reason，用于 VisitLog 驱动失效压力 evidence。`POST /api/binary/author/cache/actions` 会写入 `admin.cache.action_executed` 高价值审计。
 
 `IntegrityReportResponse` 返回 `checks`，每项包含 `code/title/status/severity/count/autoFixAvailable/detail/sampleKeys/previewDiffs`。巡检覆盖 `article_missing_body`、`article_body_without_revision`、`article_missing_category`、`article_tag_missing_tag`、`article_tag_missing_article`、`comment_missing_article`、`comment_chain_invalid`、`session_deleted_user`、`upload_untracked`、`asset_missing_file`、`sitemap_visibility`、`search_visibility`、`taxonomy_count_runtime`。`IntegrityFixPreviewResponse` 和 `IntegrityFixResponse` 使用 `AdminDiffResponse(field,before,after)` 表示变更摘要；实际修复端点只应用 safe fixes，并写入 `admin.integrity.safe_fix_applied` 高价值审计。
 
@@ -1118,13 +1128,13 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 第三方审核模型 Provider 契约由 FsusBlog 定义，Provider 只返回风险类别、置信度、严重度、证据策略和模型元数据，不得返回 `reject_submit`、`geo_block`、`blocked_regions`、发布、隐藏或地区合法性字段。`comment_moderation_signal` 存储 `provider/model/contract_version/label/severity/confidence/primary_reason/needs_second_round/risk_categories/evidence_json/raw_reason/latency_ms/status/error_code/threshold_profile/created_at_utc`；`status=ok|timeout|unavailable|contract_invalid|error` 均 fail-open，不阻断评论进入 Pending。模型 runtime reload 会校验 provider/schema/checksum；失败时保留旧模型快照，rollback 只恢复上一份成功模型快照。模型 runtime 禁用只停止模型风险信号，不禁用硬词库、地区策略或人工审核。HTTP/CLI JSON schema、错误响应和 conformance 工具见 [../moderation/third-party-model-development.md](../moderation/third-party-model-development.md)，运行时配置见 [../moderation.md](../moderation.md)。
 
-硬词库和地区策略由 `configs/moderation/**` 加载为 immutable snapshot。词库只输出 `category/severity/reason/evidence_policy`，地区策略负责把 category 映射为 `submit_action/display_action`；reload 构建失败时保留旧 snapshot 并记录 `lastError`，rollback 只回到上一份成功 snapshot。运行时禁用某个词库只从匹配集合移除该词库，不禁用模型或地区策略；运行时禁用某个地区策略时必须回落到 `GLOBAL` baseline，不进入无审核状态。`GET /api/author/moderation/dictionaries` 返回 `snapshotId/version/checksum/createdAtUtc/lastError`、词库 metadata（id/version/scope/region/category/source/reviewedBy/checksum/termCount）和地区策略 metadata（region/version/inherits/dictionaryIds/checksum/ruleCount）。详见 [../moderation/dictionary-architecture.md](../moderation/dictionary-architecture.md)。
+硬词库和地区策略由 `configs/moderation/**` 加载为 immutable snapshot。词库只输出 `category/severity/reason/evidence_policy`，地区策略负责把 category 映射为 `submit_action/display_action`；reload 构建失败时保留旧 snapshot 并记录 `lastError`，rollback 只回到上一份成功 snapshot。运行时禁用某个词库只从匹配集合移除该词库，不禁用模型或地区策略；运行时禁用某个地区策略时必须回落到 `GLOBAL` baseline，不进入无审核状态。`GET /api/binary/author/moderation/dictionaries` 返回 `snapshotId/version/checksum/createdAtUtc/lastError`、词库 metadata（id/version/scope/region/category/source/reviewedBy/checksum/termCount）和地区策略 metadata（region/version/inherits/dictionaryIds/checksum/ruleCount）。详见 [../moderation/dictionary-architecture.md](../moderation/dictionary-architecture.md)。
 
-内容导出使用 `ContentExportResponse`：`fileName`、`markdownWithFrontmatter`、`metadata`。frontmatter 固定写入 `fsusFormat: content-export-v1`、`sourceArticleId`、`title`、`summary`、`cover`、`categoryId`、`status`、`scheduledPublishAt`、`tagIds`、`revisionCount` 与 `fsusMetadataJson`；`fsusMetadataJson` 是 base64url 编码的 `ContentExportMetadataResponse`，用于无损恢复分类、标签、封面、文章状态和修订元数据。`GET /api/author/content/export` 返回 `ContentBackupExportResponse`，以 JSON 包含所有文章的导出结果。导入时 `publish=true` 会强制导入为 `Published`，否则按 metadata 的 `status` 恢复；`preserveRevisions=true` 会用导出包中的 revisions 替换导入时生成的初始 revision。
+内容导出使用 `ContentExportResponse`：`fileName`、`markdownWithFrontmatter`、`metadata`。frontmatter 固定写入 `fsusFormat: content-export-v1`、`sourceArticleId`、`title`、`summary`、`cover`、`categoryId`、`status`、`scheduledPublishAt`、`tagIds`、`revisionCount` 与 `fsusMetadataJson`；`fsusMetadataJson` 是 base64url 编码的 `ContentExportMetadataResponse`，用于无损恢复分类、标签、封面、文章状态和修订元数据。`GET /api/binary/author/content/export` 返回 `ContentBackupExportResponse`，以 JSON 包含所有文章的导出结果。导入时 `publish=true` 会强制导入为 `Published`，否则按 metadata 的 `status` 恢复；`preserveRevisions=true` 会用导出包中的 revisions 替换导入时生成的初始 revision。
 
 ### 订阅
 
-`POST /api/subscriptions` 与 `DELETE /api/subscriptions` 只保存 `SHA256(email)`、`channel`、启用状态和退订时间，不保存明文 email。订阅能力是 RSS/Atom 的增强，不构成关注、点赞、收藏或社交关系链。默认实现不发送邮件或 Web Push；`channel=email` 只记录读者显式偏好，外发增强必须以后续配置开关和退订 smoke 为准。
+`POST /api/binary/subscriptions` 与 `DELETE /api/binary/subscriptions` 使用 `SiteSubscriptionRequest` / `SiteSubscriptionResponse` AEDS frame，只保存 `SHA256(email)`、`channel`、启用状态和退订时间，不保存明文 email。订阅能力是 RSS/Atom 的增强，不构成关注、点赞、收藏或社交关系链。默认实现不发送邮件或 Web Push；`channel=email` 只记录读者显式偏好，外发增强必须以后续配置开关和退订 smoke 为准。
 
 ---
 

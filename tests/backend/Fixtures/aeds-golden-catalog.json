@@ -163,6 +163,8 @@
     { "name": "AntiCrawlerSimulationResult", "value": 154, "family": "security-response" },
     { "name": "PowOverview", "value": 155, "family": "security-response" },
     { "name": "PowPolicySnapshot", "value": 156, "family": "security-response" },
+    { "name": "SiteSubscriptionRequest", "value": 157, "family": "subscription-request" },
+    { "name": "SiteSubscriptionResponse", "value": 158, "family": "subscription-response" },
     { "name": "EmptySuccess", "value": 240, "family": "common-response" },
     { "name": "MutationId", "value": 241, "family": "common-response" },
     { "name": "ApiError", "value": 251, "family": "error-response" }

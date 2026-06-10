@@ -88,7 +88,7 @@ Later layers override earlier layers by category. Model providers never decide e
 
 ## Admin Metadata
 
-`GET /api/author/moderation/dictionaries` returns snapshot metadata only: dictionary ids, versions, scope, region, category, source, reviewer marker, checksum, term counts, policy ids, and `lastError`. High-risk term text is not exposed by this endpoint.
+`GET /api/binary/author/moderation/dictionaries` returns snapshot metadata only: dictionary ids, versions, scope, region, category, source, reviewer marker, checksum, term counts, policy ids, and `lastError`. High-risk term text is not exposed by this endpoint.
 
 ## Audit
 

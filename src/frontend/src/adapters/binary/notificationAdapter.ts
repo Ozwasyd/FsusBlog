@@ -1,6 +1,7 @@
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
 import type { NotificationStreamEventV2 } from '@/services/notificationStreamTypes'
 import { AppErrorCode, createAppError } from '@/utils/appError'
+import { readFixedUtf8, readInt32 } from './reader'
 
 const decoder = new TextDecoder()
 
@@ -41,6 +42,19 @@ export function decodeNotificationFrame(buffer: ArrayBuffer): NotificationDecode
   return {
     kind: 'event',
     event: { id, ts, type, payload } as NotificationStreamEventV2
+  }
+}
+
+export function decodeNotificationApiErrorFrame(buffer: ArrayBuffer): { status: number; message: string; traceId: string } | null {
+  const frame = decodeNotificationAedsFrame(buffer)
+  if (frame.frameType !== FrameType.ApiError || frame.payloadView.byteLength !== 584) {
+    return null
+  }
+
+  return {
+    status: readInt32(frame.payloadView, 4),
+    message: readFixedUtf8(frame.payloadView, 8, 256),
+    traceId: readFixedUtf8(frame.payloadView, 520, 64)
   }
 }
 

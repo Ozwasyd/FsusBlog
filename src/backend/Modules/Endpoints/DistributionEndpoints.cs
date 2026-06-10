@@ -1,8 +1,5 @@
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Filters;
-using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Distribution;
-using FsusBlog.Shared.Contracts.Outputs;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -45,26 +42,6 @@ public static class DistributionEndpoints
             await BuildCachedTextResultAsync(ctx, () => service.BuildRobotsAsync(cancellationToken), "text/plain; charset=utf-8"))
             .AllowAnonymous()
             .CacheOutput(static builder => ApplyDistributionCache(builder));
-
-        app.MapGet("/api/public/articles/{articleId:int}/related", async (
-            int articleId,
-            RelatedReadingService service,
-            CancellationToken cancellationToken) =>
-        {
-            RelatedReadingResponse? response = await service.BuildAsync(articleId, cancellationToken);
-            if (response is null)
-            {
-                return Results.NotFound(JsonApiResponse<RelatedReadingResponse>.Fail("article_not_found"));
-            }
-
-            return Results.Ok(JsonApiResponse<RelatedReadingResponse>.Ok(response));
-        })
-        .AllowAnonymous()
-        .RequireRateLimiting("public_read")
-        .AddEndpointFilter<RiskAwarePublicReadFilter>()
-        .CacheOutput(static builder => builder
-            .Expire(TimeSpan.FromMinutes(1))
-            .Tag(CacheTag.ArticleList.ToOutputCacheTag()));
 
         return app;
     }

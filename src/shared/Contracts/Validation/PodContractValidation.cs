@@ -30,6 +30,8 @@ public static class PodContractValidation
             && IsReferenceFree<RumMetricValuePod>()
             && IsReferenceFree<RumMetricDimensionPod>()
             && IsReferenceFree<RumMetricIngestResponsePod>()
+            && IsReferenceFree<SiteSubscriptionRequestPod>()
+            && IsReferenceFree<SiteSubscriptionResponsePod>()
             && IsReferenceFree<ArticleCategoryViewPod>()
             && IsReferenceFree<TagPod>()
             && IsReferenceFree<TagWithCountPod>()

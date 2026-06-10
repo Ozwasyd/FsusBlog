@@ -1,6 +1,7 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
@@ -27,9 +28,10 @@ public static class AuthoringEndpoints
 
     public static IEndpointRouteBuilder MapAuthoringEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/author")
+        var group = app.MapGroup(BinaryBridgeInternalRequest.AuthoringPrefix)
             .WithTags("Authoring")
-            .RequireAuthorization(policy => policy.RequireRole("admin"));
+            .RequireAuthorization(policy => policy.RequireRole("admin"))
+            .AddEndpointFilter<BinaryBridgeInternalOnlyFilter>();
 
         group.MapPost("/drafts", async (
             ServerDraftSaveRequest request,

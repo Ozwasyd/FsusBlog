@@ -2,13 +2,31 @@
   "version": "aeds-only-policy-v1",
   "entries": [
     {
-      "id": "health-probes-json",
+      "id": "health-live-json",
       "classification": "allowed-exemption",
       "scope": "backend",
       "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
-      "patterns": ["TypedResults.Json"],
-      "routes": ["/health/live", "/health/ready"],
-      "reason": "Kubernetes/systemd/monitoring probes require JSON health documents outside the internal application API surface."
+      "patterns": ["ProductionLivenessProbe.CreateReport"],
+      "routes": ["/health/live"],
+      "reason": "Kubernetes/systemd/monitoring liveness probes require a JSON health document outside the internal application API surface."
+    },
+    {
+      "id": "health-ready-json",
+      "classification": "allowed-exemption",
+      "scope": "backend",
+      "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+      "patterns": ["TypedResults.Json(report"],
+      "routes": ["/health/ready"],
+      "reason": "Kubernetes/systemd/monitoring readiness probes require a JSON health document outside the internal application API surface."
+    },
+    {
+      "id": "ops-crawler-ranges-json",
+      "classification": "allowed-exemption",
+      "scope": "backend",
+      "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+      "patterns": ["TypedResults.Json(new"],
+      "routes": ["/api/ops/crawler-ranges/status"],
+      "reason": "Crawler range status is an authenticated ops probe; the production admin UI uses /api/binary/admin/security/anti-crawler/crawler-ranges/status."
     },
     {
       "id": "feed-json-standard",
@@ -29,84 +47,24 @@
       "reason": "Build/backfill tooling manifest, protected by optional manifest token; not browser runtime application API."
     },
     {
-      "id": "public-related-reading-json-deprecated",
-      "classification": "must-migrate",
-      "scope": "backend",
-      "file": "src/backend/Modules/Endpoints/DistributionEndpoints.cs",
-      "patterns": ["JsonApiResponse<RelatedReadingResponse>", "/api/public/articles"],
-      "routes": ["/api/public/articles/{articleId}/related"],
-      "issue": "#105",
-      "reason": "Deprecated compatibility endpoint retained after #98; frontend runtime uses /api/binary/article/{articleId}/related.aeds and this JSON endpoint is tracked for removal."
-    },
-    {
-      "id": "read-proof-json-deprecated",
-      "classification": "must-migrate",
-      "scope": "backend",
-      "file": "src/backend/Modules/Endpoints/ReadProofEndpoints.cs",
-      "patterns": ["JsonApiResponse<HumanReadChallengeResponse>", "JsonApiResponse<HumanReadSubmitResponse>", "/api/read-proof"],
-      "routes": ["/api/read-proof/challenge", "/api/read-proof/submit"],
-      "issue": "#105",
-      "reason": "Deprecated compatibility endpoints retained after #99; frontend runtime uses /api/binary/read-proof/*.aeds and this JSON surface is tracked for removal."
-    },
-    {
-      "id": "rum-json-deprecated-backend",
-      "classification": "must-migrate",
-      "scope": "backend",
-      "file": "src/backend/Modules/Endpoints/TelemetryEndpoints.cs",
-      "patterns": ["JsonApiResponse<RumMetricIngestResponse>", "/api/telemetry"],
-      "routes": ["/api/telemetry/rum"],
-      "issue": "#97",
-      "reason": "Deprecated compatibility endpoint retained after #101; production frontend runtime uses /api/binary/telemetry/rum with RumMetricBatchRequest/RumMetricIngestResponse AEDS frames."
-    },
-    {
-      "id": "author-json-migration-backend",
-      "classification": "must-migrate",
+      "id": "authoring-internal-binary-bridge-json",
+      "classification": "migration-legacy-temporary",
       "scope": "backend",
       "file": "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
-      "patterns": ["JsonApiResponse", "Results.Json", "/api/author"],
-      "routes": ["/api/author/**"],
-      "issue": "#97",
-      "reason": "Deprecated compatibility endpoints retained after #102; production frontend authoring runtime uses /api/binary/author/** AEDS frames through AuthoringBinaryBridgeMiddleware."
+      "patterns": ["JsonApiResponse", "Results.Json"],
+      "routes": ["/_fsus/internal/binary-bridge/author/**"],
+      "issue": "#105",
+      "reason": "Authoring JSON envelopes are protected by BinaryBridgeInternalOnlyFilter and only reachable from AuthoringBinaryBridgeMiddleware while the bridge is flattened."
     },
     {
-      "id": "security-json-migration-backend",
-      "classification": "must-migrate",
+      "id": "security-internal-binary-bridge-json",
+      "classification": "migration-legacy-temporary",
       "scope": "backend",
       "file": "src/backend/Modules/Endpoints/SecurityEndpoints.cs",
-      "patterns": ["JsonApiResponse", "Results.Json", "/api/admin/security"],
-      "routes": ["/api/admin/security/**"],
-      "issue": "#103",
-      "reason": "Deprecated compatibility endpoints retained after #103; production frontend security runtime uses /api/binary/admin/security/** AEDS frames through SecurityBinaryBridgeMiddleware."
-    },
-    {
-      "id": "notification-preflight-json-migration-backend",
-      "classification": "must-migrate",
-      "scope": "backend",
-      "file": "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs",
-      "patterns": ["ValidateNotificationStreamPreflightAsync", "TypedResults.Json", "X-Fsus-Notification-Stream-Error-Code"],
-      "routes": ["/api/notifications/stream/preflight"],
+      "patterns": ["JsonApiResponse", "Results.Json"],
+      "routes": ["/_fsus/internal/binary-bridge/admin/security/**"],
       "issue": "#105",
-      "reason": "Notification preflight error envelope must converge to ApiError frame semantics."
-    },
-    {
-      "id": "notification-preflight-json-migration-frontend",
-      "classification": "must-migrate",
-      "scope": "frontend",
-      "file": "src/frontend/src/services/notificationStreamRuntime.ts",
-      "patterns": ["response.json", "/api/notifications/stream/preflight"],
-      "routes": ["/api/notifications/stream/preflight"],
-      "issue": "#105",
-      "reason": "Frontend preflight JSON parsing is kept only for the tracked residual cleanup."
-    },
-    {
-      "id": "subscription-json-migration",
-      "classification": "must-migrate",
-      "scope": "backend",
-      "file": "src/backend/Modules/Endpoints/SubscriptionEndpoints.cs",
-      "patterns": ["JsonApiResponse<object>", "/api/subscriptions"],
-      "routes": ["/api/subscriptions"],
-      "issue": "#105",
-      "reason": "Subscription form API is an internal application API and belongs to the residual JSON cleanup backlog."
+      "reason": "Security JSON envelopes are protected by BinaryBridgeInternalOnlyFilter and only reachable from SecurityBinaryBridgeMiddleware while the bridge is flattened."
     }
   ]
 }

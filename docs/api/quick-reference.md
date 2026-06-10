@@ -203,96 +203,95 @@
 | GET | `/sitemap.xml` | 🔓 | 公开 sitemap，排除私有路由 |
 | GET | `/robots.txt` | 🔓 | robots + sitemap 声明 |
 | GET | `/api/binary/article/{articleId}/related.aeds` | 🔓 🚦 | AEDS 延伸阅读：相关文章 / 上一篇 / 下一篇；受 `public_read` 风险感知限流 |
-| GET | `/api/public/articles/{articleId}/related` | 🔓 🚦 | 废弃 JSON 兼容路径；生产前端不得调用 |
 | GET | `/api/ops/crawler-ranges/status` | 🔐 admin | Crawler CIDR 同步状态 |
 | GET | `/internal/public-aot/manifest` | 🔓 | Public AOT route manifest；配置 `PublicAot:ManifestToken` 时需 `X-Fsus-Public-Aot-Token` |
-| POST | `/api/subscriptions` | 🔓 | 更新订阅，保存 email hash |
-| DELETE | `/api/subscriptions` | 🔓 | 退订 |
+| POST | `/api/binary/subscriptions` | 🔓 | AEDS 更新订阅，保存 email hash |
+| DELETE | `/api/binary/subscriptions` | 🔓 | AEDS 退订 |
 
-> 作者工作台生产前端调用 `/api/binary/author/**` AEDS bridge，后缀与下列旧 `/api/author/**` 路径一致；旧 JSON 路径仅保留为 deprecated 后端兼容层。
-| POST | `/api/author/drafts` | 👑 | 保存服务端草稿 |
-| GET | `/api/author/drafts/{draftKey}` | 👑 | 读取服务端草稿 |
-| DELETE | `/api/author/drafts/{draftKey}` | 👑 | 丢弃服务端草稿 |
-| POST | `/api/author/preview` | 👑 | admin-only 私有 Markdown/AOT-like 预览 |
-| POST | `/api/author/prepublish-check` | 👑 | 发布前 SEO/内容质量检查 |
-| GET | `/api/author/articles/{articleId}/revisions` | 👑 | 文章修订列表 |
-| GET | `/api/author/articles/{articleId}/revisions/{revisionId}` | 👑 | 文章修订详情 |
-| POST | `/api/author/articles/{articleId}/revisions/{revisionId}/rollback` | 👑 | 回滚修订 |
-| POST | `/api/author/articles/{articleId}/assets/reindex` | 👑 | 重建资产引用 |
-| GET | `/api/author/assets` | 👑 | 资产库列表 |
-| DELETE | `/api/author/assets/orphans` | 👑 | 删除孤儿资产库记录 |
-| GET | `/api/author/taxonomy/categories` | 👑 | 管理端分类真实引用计数 |
-| GET | `/api/author/taxonomy/tags` | 👑 | 管理端标签真实引用计数 |
-| GET | `/api/author/analytics` | 👑 | 单作者分析 |
-| GET | `/api/author/comments/moderation` | 👑 | 评论审核队列 |
-| POST | `/api/author/comments/moderation/bulk` | 👑 | 批量评论审核 |
-| POST | `/api/author/comments/{commentId}/moderation` | 👑 | 评论审核 |
-| GET | `/api/author/moderation/overview` | 👑 | 审核系统总览 |
-| GET | `/api/author/moderation/dictionaries` | 👑 | 只读审核词库和地区策略 snapshot metadata |
-| POST | `/api/author/moderation/dictionaries/reload` | 👑🚦 MFA | 手动 reload 审核词库和地区策略 snapshot |
-| POST | `/api/author/moderation/dictionaries/rollback` | 👑🚦 MFA | 回滚到上一份成功加载的词库/地区策略 snapshot |
-| POST | `/api/author/moderation/dictionaries/{dictionaryId}/enable` | 👑🚦 MFA | 启用运行时词库 override |
-| POST | `/api/author/moderation/dictionaries/{dictionaryId}/disable` | 👑🚦 MFA | 禁用运行时词库 override；CN-MAINLAND 强制词库需确认短语 |
-| GET | `/api/author/moderation/policies` | 👑 | 地区策略 summary 与 CN-MAINLAND 强制检查 |
-| GET | `/api/author/moderation/regions` | 👑 | 地区定义 catalog，含内置/自定义地区和模板绑定 |
-| GET | `/api/author/moderation/region-groups` | 👑 | 地区大区 catalog，含成员地区和大区模板 |
-| GET | `/api/author/moderation/policy-templates` | 👑 | 默认/自定义策略模板 presets、review marker 和 checksum |
-| GET | `/api/author/moderation/effective-policy/{regionCode}` | 👑🚦 | 指定地区 effective policy preview |
-| POST | `/api/author/moderation/effective-policy/preview` | 👑🚦 | 带 operator override 的 effective policy preview |
-| POST | `/api/author/moderation/replay/preview` | 👑🚦 | 策略回放 preview diff，不执行变更 |
-| GET | `/api/author/moderation/runtime/status` | 👑 | 审核运行时全局/地区/词库/模型状态 |
-| POST | `/api/author/moderation/runtime/global-state` | 👑🚦 MFA | 调整全局审核运行状态 |
-| POST | `/api/author/moderation/runtime/region-state` | 👑🚦 MFA | 调整地区审核运行状态并清理评论 frame 缓存 |
-| GET | `/api/author/moderation/model/status` | 👑 | 审核模型配置与 latency/error 观测 |
-| POST | `/api/author/moderation/model/runtime` | 👑🚦 MFA | 热切换模型 provider/profile/启停状态 |
-| POST | `/api/author/moderation/model/reload` | 👑🚦 MFA | 从配置热重载模型运行快照 |
-| POST | `/api/author/moderation/model/rollback` | 👑🚦 MFA | 回滚上一份模型运行快照 |
+> 作者工作台生产前端调用 `/api/binary/author/**` AEDS bridge；被 bridge 复用的 JSON envelope 只挂在受保护的 `/_fsus/internal/binary-bridge/author/**`，外部 `/api/author/**` 已移除。
+| POST | `/api/binary/author/drafts` | 👑 | 保存服务端草稿 |
+| GET | `/api/binary/author/drafts/{draftKey}` | 👑 | 读取服务端草稿 |
+| DELETE | `/api/binary/author/drafts/{draftKey}` | 👑 | 丢弃服务端草稿 |
+| POST | `/api/binary/author/preview` | 👑 | admin-only 私有 Markdown/AOT-like 预览 |
+| POST | `/api/binary/author/prepublish-check` | 👑 | 发布前 SEO/内容质量检查 |
+| GET | `/api/binary/author/articles/{articleId}/revisions` | 👑 | 文章修订列表 |
+| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 👑 | 文章修订详情 |
+| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 👑 | 回滚修订 |
+| POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 👑 | 重建资产引用 |
+| GET | `/api/binary/author/assets` | 👑 | 资产库列表 |
+| DELETE | `/api/binary/author/assets/orphans` | 👑 | 删除孤儿资产库记录 |
+| GET | `/api/binary/author/taxonomy/categories` | 👑 | 管理端分类真实引用计数 |
+| GET | `/api/binary/author/taxonomy/tags` | 👑 | 管理端标签真实引用计数 |
+| GET | `/api/binary/author/analytics` | 👑 | 单作者分析 |
+| GET | `/api/binary/author/comments/moderation` | 👑 | 评论审核队列 |
+| POST | `/api/binary/author/comments/moderation/bulk` | 👑 | 批量评论审核 |
+| POST | `/api/binary/author/comments/{commentId}/moderation` | 👑 | 评论审核 |
+| GET | `/api/binary/author/moderation/overview` | 👑 | 审核系统总览 |
+| GET | `/api/binary/author/moderation/dictionaries` | 👑 | 只读审核词库和地区策略 snapshot metadata |
+| POST | `/api/binary/author/moderation/dictionaries/reload` | 👑🚦 MFA | 手动 reload 审核词库和地区策略 snapshot |
+| POST | `/api/binary/author/moderation/dictionaries/rollback` | 👑🚦 MFA | 回滚到上一份成功加载的词库/地区策略 snapshot |
+| POST | `/api/binary/author/moderation/dictionaries/{dictionaryId}/enable` | 👑🚦 MFA | 启用运行时词库 override |
+| POST | `/api/binary/author/moderation/dictionaries/{dictionaryId}/disable` | 👑🚦 MFA | 禁用运行时词库 override；CN-MAINLAND 强制词库需确认短语 |
+| GET | `/api/binary/author/moderation/policies` | 👑 | 地区策略 summary 与 CN-MAINLAND 强制检查 |
+| GET | `/api/binary/author/moderation/regions` | 👑 | 地区定义 catalog，含内置/自定义地区和模板绑定 |
+| GET | `/api/binary/author/moderation/region-groups` | 👑 | 地区大区 catalog，含成员地区和大区模板 |
+| GET | `/api/binary/author/moderation/policy-templates` | 👑 | 默认/自定义策略模板 presets、review marker 和 checksum |
+| GET | `/api/binary/author/moderation/effective-policy/{regionCode}` | 👑🚦 | 指定地区 effective policy preview |
+| POST | `/api/binary/author/moderation/effective-policy/preview` | 👑🚦 | 带 operator override 的 effective policy preview |
+| POST | `/api/binary/author/moderation/replay/preview` | 👑🚦 | 策略回放 preview diff，不执行变更 |
+| GET | `/api/binary/author/moderation/runtime/status` | 👑 | 审核运行时全局/地区/词库/模型状态 |
+| POST | `/api/binary/author/moderation/runtime/global-state` | 👑🚦 MFA | 调整全局审核运行状态 |
+| POST | `/api/binary/author/moderation/runtime/region-state` | 👑🚦 MFA | 调整地区审核运行状态并清理评论 frame 缓存 |
+| GET | `/api/binary/author/moderation/model/status` | 👑 | 审核模型配置与 latency/error 观测 |
+| POST | `/api/binary/author/moderation/model/runtime` | 👑🚦 MFA | 热切换模型 provider/profile/启停状态 |
+| POST | `/api/binary/author/moderation/model/reload` | 👑🚦 MFA | 从配置热重载模型运行快照 |
+| POST | `/api/binary/author/moderation/model/rollback` | 👑🚦 MFA | 回滚上一份模型运行快照 |
 
-> Admin security 生产前端使用 `/api/binary/admin/security/**` AEDS v2 入口，路径后缀与下列旧 `/api/admin/security/**` 兼容端点一致；旧 JSON 路径仅作为 deprecated 后端兼容层。
+> Admin security 生产前端使用 `/api/binary/admin/security/**` AEDS v2 入口；被 bridge 复用的 JSON envelope 只挂在受保护的 `/_fsus/internal/binary-bridge/admin/security/**`，外部 `/api/admin/security/**` 已移除。
 
-| GET | `/api/admin/security/overview` | 👑 | 安全系统总览：AntiCrawler、PoW、SecurityRisk |
-| GET | `/api/admin/security/anti-crawler/overview` | 👑 | 反爬虫总览、CIDR、风险事件、规则与 list |
-| GET | `/api/admin/security/anti-crawler/options` | 👑 | 反爬虫运行策略快照 |
-| PUT | `/api/admin/security/anti-crawler/options` | 👑🚦 MFA | 更新 AntiCrawler mode、局部开关、阈值、限流额度和 CIDR 更新配置 |
-| POST | `/api/admin/security/anti-crawler/options/rollback` | 👑🚦 MFA | 回滚上一份反爬虫策略快照 |
-| GET | `/api/admin/security/anti-crawler/crawler-ranges/status` | 👑 | CIDR worker 状态、更新时间、下次同步和 range 数量 |
-| POST | `/api/admin/security/anti-crawler/crawler-ranges/sync` | 👑🚦 MFA | 手动同步 Google/Bing crawler CIDR |
-| GET | `/api/admin/security/anti-crawler/risk-events` | 👑 | 反爬虫风险事件列表 |
-| GET | `/api/admin/security/anti-crawler/rules` | 👑 | 反爬虫规则列表 |
-| POST | `/api/admin/security/anti-crawler/rules` | 👑🚦 MFA | 新增反爬虫规则 |
-| PUT | `/api/admin/security/anti-crawler/rules/{id}` | 👑🚦 MFA | 更新反爬虫规则 |
-| DELETE | `/api/admin/security/anti-crawler/rules/{id}` | 👑🚦 MFA | 删除反爬虫规则 |
-| GET | `/api/admin/security/anti-crawler/allowlist` | 👑 | 反爬虫 allowlist |
-| POST | `/api/admin/security/anti-crawler/allowlist` | 👑🚦 MFA | 新增 allowlist 条目 |
-| DELETE | `/api/admin/security/anti-crawler/allowlist/{id}` | 👑🚦 MFA | 删除 allowlist 条目 |
-| GET | `/api/admin/security/anti-crawler/blocklist` | 👑 | 反爬虫 blocklist |
-| POST | `/api/admin/security/anti-crawler/blocklist` | 👑🚦 MFA | 新增 blocklist 条目 |
-| DELETE | `/api/admin/security/anti-crawler/blocklist/{id}` | 👑🚦 MFA | 删除 blocklist 条目 |
-| POST | `/api/admin/security/anti-crawler/simulate` | 👑🚦 | 反爬虫策略模拟器，不执行变更 |
-| GET | `/api/admin/security/pow/overview` | 👑 | PoW 系统总览 |
-| GET | `/api/admin/security/pow/options` | 👑 | PoW 独立策略快照 |
-| PUT | `/api/admin/security/pow/options` | 👑🚦 MFA | 更新 PoW mode、difficulty、TTL、replay 和风险联动 |
-| POST | `/api/admin/security/pow/options/rollback` | 👑🚦 MFA | 回滚上一份 PoW 策略快照 |
-| GET | `/api/admin/security/pow/events` | 👑 | PoW 风险事件 |
-| GET | `/api/admin/security/risk/events` | 👑 | 统一安全风险事件 |
-| GET | `/api/admin/security/risk/snapshots` | 👑 | 统一安全风险主体快照 |
-| POST | `/api/admin/security/risk/ip/reset` | 👑🚦 MFA | 重置指定 IP 风险分 |
-| GET | `/api/author/content/export` | 👑 | 全站内容备份包 |
-| GET | `/api/author/articles/{articleId}/export` | 👑 | 导出 Markdown + frontmatter |
-| POST | `/api/author/articles/import` | 👑 | 导入 Markdown + frontmatter |
-| GET | `/api/author/audit` | 👑🚦 | 审计日志列表，支持 actor/action/target/outcome/time 过滤 |
-| GET | `/api/author/audit/summary` | 👑🚦 | 审计 facet 汇总与写入 runtime |
-| GET | `/api/author/audit/{id}` | 👑🚦 | 审计详情与 context |
-| GET | `/api/author/audit/{id}/verify` | 👑🚦 | 单条防篡改证据校验 |
-| GET | `/api/author/ops/health` | 👑🚦 | 运维健康：DB/Redis/audit/worker/search/backup/队列 |
-| GET | `/api/author/ops/backup` | 👑🚦 | 最近站点备份和 restore drill 状态 |
-| GET | `/api/author/ops/dangerous-operations/policy` | 👑🚦 | 管理端危险操作确认、MFA 与 diff 策略 |
-| GET | `/api/author/cache/diagnostics` | 👑🚦 | AOT/PublicHotRead/search/sitemap/feed/comment cache 与 HotArticles/Stats 失效合并状态 |
-| POST | `/api/author/cache/actions` | 👑🚦 | 手动重建 search/AOT 或清理 output cache |
-| GET | `/api/author/integrity` | 👑🚦 | 数据一致性巡检报告 |
-| GET | `/api/author/integrity/fix-preview` | 👑🚦 | 安全修复 diff 预览 |
-| POST | `/api/author/integrity/fix` | 👑🚦 MFA | 应用安全修复，要求确认短语和 MFA proof |
-| POST | `/api/author/ai-assist` | 👑 | 默认关闭的作者 AI 辅助 |
+| GET | `/api/binary/admin/security/overview` | 👑 | 安全系统总览：AntiCrawler、PoW、SecurityRisk |
+| GET | `/api/binary/admin/security/anti-crawler/overview` | 👑 | 反爬虫总览、CIDR、风险事件、规则与 list |
+| GET | `/api/binary/admin/security/anti-crawler/options` | 👑 | 反爬虫运行策略快照 |
+| PUT | `/api/binary/admin/security/anti-crawler/options` | 👑🚦 MFA | 更新 AntiCrawler mode、局部开关、阈值、限流额度和 CIDR 更新配置 |
+| POST | `/api/binary/admin/security/anti-crawler/options/rollback` | 👑🚦 MFA | 回滚上一份反爬虫策略快照 |
+| GET | `/api/binary/admin/security/anti-crawler/crawler-ranges/status` | 👑 | CIDR worker 状态、更新时间、下次同步和 range 数量 |
+| POST | `/api/binary/admin/security/anti-crawler/crawler-ranges/sync` | 👑🚦 MFA | 手动同步 Google/Bing crawler CIDR |
+| GET | `/api/binary/admin/security/anti-crawler/risk-events` | 👑 | 反爬虫风险事件列表 |
+| GET | `/api/binary/admin/security/anti-crawler/rules` | 👑 | 反爬虫规则列表 |
+| POST | `/api/binary/admin/security/anti-crawler/rules` | 👑🚦 MFA | 新增反爬虫规则 |
+| PUT | `/api/binary/admin/security/anti-crawler/rules/{id}` | 👑🚦 MFA | 更新反爬虫规则 |
+| DELETE | `/api/binary/admin/security/anti-crawler/rules/{id}` | 👑🚦 MFA | 删除反爬虫规则 |
+| GET | `/api/binary/admin/security/anti-crawler/allowlist` | 👑 | 反爬虫 allowlist |
+| POST | `/api/binary/admin/security/anti-crawler/allowlist` | 👑🚦 MFA | 新增 allowlist 条目 |
+| DELETE | `/api/binary/admin/security/anti-crawler/allowlist/{id}` | 👑🚦 MFA | 删除 allowlist 条目 |
+| GET | `/api/binary/admin/security/anti-crawler/blocklist` | 👑 | 反爬虫 blocklist |
+| POST | `/api/binary/admin/security/anti-crawler/blocklist` | 👑🚦 MFA | 新增 blocklist 条目 |
+| DELETE | `/api/binary/admin/security/anti-crawler/blocklist/{id}` | 👑🚦 MFA | 删除 blocklist 条目 |
+| POST | `/api/binary/admin/security/anti-crawler/simulate` | 👑🚦 | 反爬虫策略模拟器，不执行变更 |
+| GET | `/api/binary/admin/security/pow/overview` | 👑 | PoW 系统总览 |
+| GET | `/api/binary/admin/security/pow/options` | 👑 | PoW 独立策略快照 |
+| PUT | `/api/binary/admin/security/pow/options` | 👑🚦 MFA | 更新 PoW mode、difficulty、TTL、replay 和风险联动 |
+| POST | `/api/binary/admin/security/pow/options/rollback` | 👑🚦 MFA | 回滚上一份 PoW 策略快照 |
+| GET | `/api/binary/admin/security/pow/events` | 👑 | PoW 风险事件 |
+| GET | `/api/binary/admin/security/risk/events` | 👑 | 统一安全风险事件 |
+| GET | `/api/binary/admin/security/risk/snapshots` | 👑 | 统一安全风险主体快照 |
+| POST | `/api/binary/admin/security/risk/ip/reset` | 👑🚦 MFA | 重置指定 IP 风险分 |
+| GET | `/api/binary/author/content/export` | 👑 | 全站内容备份包 |
+| GET | `/api/binary/author/articles/{articleId}/export` | 👑 | 导出 Markdown + frontmatter |
+| POST | `/api/binary/author/articles/import` | 👑 | 导入 Markdown + frontmatter |
+| GET | `/api/binary/author/audit` | 👑🚦 | 审计日志列表，支持 actor/action/target/outcome/time 过滤 |
+| GET | `/api/binary/author/audit/summary` | 👑🚦 | 审计 facet 汇总与写入 runtime |
+| GET | `/api/binary/author/audit/{id}` | 👑🚦 | 审计详情与 context |
+| GET | `/api/binary/author/audit/{id}/verify` | 👑🚦 | 单条防篡改证据校验 |
+| GET | `/api/binary/author/ops/health` | 👑🚦 | 运维健康：DB/Redis/audit/worker/search/backup/队列 |
+| GET | `/api/binary/author/ops/backup` | 👑🚦 | 最近站点备份和 restore drill 状态 |
+| GET | `/api/binary/author/ops/dangerous-operations/policy` | 👑🚦 | 管理端危险操作确认、MFA 与 diff 策略 |
+| GET | `/api/binary/author/cache/diagnostics` | 👑🚦 | AOT/PublicHotRead/search/sitemap/feed/comment cache 与 HotArticles/Stats 失效合并状态 |
+| POST | `/api/binary/author/cache/actions` | 👑🚦 | 手动重建 search/AOT 或清理 output cache |
+| GET | `/api/binary/author/integrity` | 👑🚦 | 数据一致性巡检报告 |
+| GET | `/api/binary/author/integrity/fix-preview` | 👑🚦 | 安全修复 diff 预览 |
+| POST | `/api/binary/author/integrity/fix` | 👑🚦 MFA | 应用安全修复，要求确认短语和 MFA proof |
+| POST | `/api/binary/author/ai-assist` | 👑 | 默认关闭的作者 AI 辅助 |
 
 ---
 
@@ -302,7 +301,7 @@
 |------|------|------|------|
 | GET | `/api/notifications/stream/preflight` | 🔓 | WebSocket 通知握手预检，成功返回 204 |
 | GET | `/api/notifications/stream` | 🔓 | WebSocket 通知通道（子协议 `fsus-aeds.v2`） |
-| POST | `/api/telemetry/rum` | 🔓🚦 | 废弃 JSON RUM 兼容入口；生产前端使用 `/api/binary/telemetry/rum` |
+| POST | `/api/binary/telemetry/rum` | 🔓🚦 | AEDS RUM 批量遥测入口 |
 | GET | `/health/live` | 🔓 | JSON 存活探针（仅检查进程） |
 | GET | `/health/ready` | 🔓 | JSON 就绪探针（检查配置、Observability、启动状态、DB、Redis） |
 

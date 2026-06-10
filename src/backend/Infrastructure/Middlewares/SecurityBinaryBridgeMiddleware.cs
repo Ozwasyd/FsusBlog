@@ -3,6 +3,7 @@ using System.Text.Json;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Filters;
 using Microsoft.Extensions.Primitives;
 
 namespace FsusBlog.Server.Infrastructure.Middlewares;
@@ -13,7 +14,7 @@ public sealed class SecurityBinaryBridgeMiddleware
     private const string BinaryContentType = "application/octet-stream";
     private const string JsonContentType = "application/json";
     private const string BinaryPrefix = "/api/binary/admin/security";
-    private const string LegacyPrefix = "/api/admin/security";
+    private const string LegacyPrefix = BinaryBridgeInternalRequest.SecurityPrefix;
     private static readonly byte[] JsonNullPayload = "null"u8.ToArray();
 
     private readonly RequestDelegate _next;
@@ -77,12 +78,14 @@ public sealed class SecurityBinaryBridgeMiddleware
         long? originalContentLength = context.Request.ContentLength;
         StringValues originalAccept = context.Request.Headers.Accept;
         Stream originalResponseBody = context.Response.Body;
+        bool hadBridgeMarker = context.Items.TryGetValue(BinaryBridgeInternalRequest.ItemKey, out object? originalBridgeMarker);
 
         await using var capture = new MemoryStream();
         try
         {
             context.Request.Path = new PathString($"{LegacyPrefix}{remaining}");
             context.Request.Headers.Accept = JsonContentType;
+            context.Items[BinaryBridgeInternalRequest.ItemKey] = true;
             if (requestJson is { } json)
             {
                 context.Request.Body = new MemoryStream(json.ToArray());
@@ -111,6 +114,14 @@ public sealed class SecurityBinaryBridgeMiddleware
             context.Request.ContentLength = originalContentLength;
             context.Request.Headers.Accept = originalAccept;
             context.Response.Body = originalResponseBody;
+            if (hadBridgeMarker)
+            {
+                context.Items[BinaryBridgeInternalRequest.ItemKey] = originalBridgeMarker!;
+            }
+            else
+            {
+                context.Items.Remove(BinaryBridgeInternalRequest.ItemKey);
+            }
         }
     }
 

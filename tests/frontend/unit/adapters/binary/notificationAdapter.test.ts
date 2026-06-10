@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
-import { encodeAedsFrame } from '@/api/binaryFrame'
-import { decodeNotificationFrame } from '@/adapters/binary/notificationAdapter'
+import { encodeAedsFrame, writeFixedUtf8 } from '@/api/binaryFrame'
+import { decodeNotificationApiErrorFrame, decodeNotificationFrame } from '@/adapters/binary/notificationAdapter'
 import { NotificationStreamEventType } from '@/services/notificationStreamTypes'
 
 const encoder = new TextEncoder()
@@ -97,5 +97,21 @@ describe('binary notification adapter', () => {
     writeInt64(payload, Date.now())
     const frame = encodeAedsFrame(FrameType.NotificationHeartbeat, new Uint8Array(payload))
     expect(decodeNotificationFrame(frame)).toEqual({ kind: 'heartbeat' })
+  })
+
+  it('decodes preflight ApiError frames', () => {
+    const payload = new Uint8Array(584)
+    const view = new DataView(payload.buffer)
+    view.setInt32(4, 403, true)
+    writeFixedUtf8(payload, 8, 256, 'notification_pow_required')
+    writeFixedUtf8(payload, 520, 64, 'trace-preflight-1')
+
+    const frame = encodeAedsFrame(FrameType.ApiError, payload)
+
+    expect(decodeNotificationApiErrorFrame(frame)).toEqual({
+      status: 403,
+      message: 'notification_pow_required',
+      traceId: 'trace-preflight-1'
+    })
   })
 })

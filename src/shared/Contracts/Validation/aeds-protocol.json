@@ -167,6 +167,8 @@
     { "name": "AntiCrawlerSimulationResult", "value": 154 },
     { "name": "PowOverview", "value": 155 },
     { "name": "PowPolicySnapshot", "value": 156 },
+    { "name": "SiteSubscriptionRequest", "value": 157 },
+    { "name": "SiteSubscriptionResponse", "value": 158 },
     { "name": "EmptySuccess", "value": 240 },
     { "name": "MutationId", "value": 241 },
     { "name": "ApiError", "value": 251 }

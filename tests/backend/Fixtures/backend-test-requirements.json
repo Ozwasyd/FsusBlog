@@ -498,13 +498,6 @@
       ]
     },
     {
-      "path": "src/backend/Modules/Endpoints/ReadProofEndpoints.cs",
-      "requirements": [
-        "BACKEND-ENDPOINT-HTTP-PIPELINE",
-        "BACKEND-SECURITY-MATRIX"
-      ]
-    },
-    {
       "path": "src/backend/Modules/Endpoints/SubscriptionEndpoints.cs",
       "requirements": [
         "BACKEND-ENDPOINT-HTTP-PIPELINE",
@@ -512,10 +505,11 @@
       ]
     },
     {
-      "path": "src/backend/Modules/Endpoints/TelemetryEndpoints.cs",
+      "path": "src/backend/Modules/Endpoints/SecurityEndpoints.cs",
       "requirements": [
-        "BACKEND-ENDPOINT-HTTP-PIPELINE",
-        "BACKEND-OBSERVABILITY-PRIVACY"
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AUDIT-GOLDEN"
       ]
     },
     {
@@ -587,6 +581,14 @@
       ]
     },
     {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Subscriptions.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-OBSERVABILITY-PRIVACY",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
       "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs",
       "requirements": [
         "BACKEND-ENDPOINT-AUTH-MATRIX",
@@ -598,6 +600,14 @@
       "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs",
       "requirements": [
         "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Telemetry.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-OBSERVABILITY-PRIVACY",
         "BACKEND-AEDS-GOLDEN"
       ]
     },

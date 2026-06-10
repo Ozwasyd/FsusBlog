@@ -14,6 +14,7 @@ import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, m
 import { mapHumanReadChallengeFromPayload, mapHumanReadSubmitFromPayload } from './readProofAdapter';
 import { mapAuthoringJsonFromPayload } from './authoringAdapter';
 import { mapSecurityJsonFromPayload } from './securityAdapter';
+import { mapSiteSubscriptionResponseFromPayload } from './subscriptionAdapter';
 
 const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.ArticleList]: mapArticlePageFromPodPayload,
@@ -115,6 +116,7 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.AntiCrawlerSimulationResult]: mapSecurityJsonFromPayload,
   [FrameType.PowOverview]: mapSecurityJsonFromPayload,
   [FrameType.PowPolicySnapshot]: mapSecurityJsonFromPayload,
+  [FrameType.SiteSubscriptionResponse]: mapSiteSubscriptionResponseFromPayload,
   [FrameType.EmptySuccess]: mapEmptySuccessFromPayload,
   [FrameType.MutationId]: mapMutationIdFromPayload
 };
