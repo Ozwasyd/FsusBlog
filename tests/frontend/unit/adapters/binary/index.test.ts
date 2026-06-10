@@ -40,6 +40,11 @@ describe('mapFramePayloadToViewModel', () => {
     expect(() => mapFramePayloadToViewModel(FrameType.ArticleRelatedReading, new Uint8Array(0))).toThrow()
   })
 
+  it('calls mapper for human read proof frames (throws on empty payload, confirms routing)', () => {
+    expect(() => mapFramePayloadToViewModel(FrameType.HumanReadChallengeResponse, new Uint8Array(0))).toThrow()
+    expect(() => mapFramePayloadToViewModel(FrameType.HumanReadSubmitResponse, new Uint8Array(0))).toThrow()
+  })
+
   it('calls mapper for TrashClearResponse (throws on empty payload, confirms routing)', () => {
     expect(() => mapFramePayloadToViewModel(FrameType.TrashClearResponse, new Uint8Array(0))).toThrow()
   })

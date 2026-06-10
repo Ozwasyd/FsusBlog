@@ -98,6 +98,31 @@ public sealed record RelatedReadingItem(
     DateTime CreateTime,
     string Reason);
 
+public sealed record class HumanReadChallengeResponse(
+    string Token,
+    string Scope,
+    string RouteKey,
+    int? ArticleId,
+    int MinDwellMs,
+    DateTimeOffset IssuedAt,
+    DateTimeOffset ExpiresAt);
+
+public sealed record class HumanReadChallengeRequest(
+    string Scope,
+    string RouteKey,
+    int? ArticleId);
+
+public sealed record class HumanReadSubmitRequest(
+    string Token,
+    string Scope,
+    string RouteKey,
+    int? ArticleId,
+    int DwellMs);
+
+public sealed record class HumanReadSubmitResponse(
+    bool Counted,
+    string Status);
+
 public record struct UserCommentResponse
 {
     public long Id { get; init; }

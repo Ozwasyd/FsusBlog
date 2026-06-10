@@ -33,7 +33,7 @@
 
 - 基础策略：`fixed_ip`（固定窗口，按客户端 IP 计数），作为认证、PoW、写入和审核端点的 fallback。
 - 公开读策略：`public_read` 按 `IP + path` 分区；verified search crawler 使用独立高额度分区，social preview bot 使用低额度公开 HTML/静态资源分区，普通匿名公开 API 使用中等配额。
-- 真人阅读策略：`read_proof` 专门保护 `/api/read-proof/challenge` 与 `/api/read-proof/submit`，按 `IP + route` 或 `IP + deviceFp + route` 分区，避免匿名 challenge/submit 被无限打。
+- 真人阅读策略：`read_proof` 专门保护 `/api/binary/read-proof/challenge.aeds` 与 `/api/binary/read-proof/submit.aeds`，按 `IP + route` 或 `IP + deviceFp + route` 分区，避免匿名 challenge/submit 被无限打。旧 `/api/read-proof/**` JSON 路径只作为废弃兼容层保留。
 - 超限响应：`429 Too Many Requests`，响应头携带 `Retry-After`，并通过 `ISecurityRiskSignalSink` 写入 `RateLimited` 风险事件。
 - 客户端 IP 提取：`GetClientIp()` 只读取 `ForwardedHeadersMiddleware` 按 `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` 处理后的 `Connection.RemoteIpAddress`；业务代码不得直接信任原始 `X-Forwarded-For` / `X-Real-IP` 请求头。
 - 受保护端点：PoW 挑战、注册、密码登录、Token 续签、Passkey 登录开始/完成、评论审核队列和单条/批量审核写入、ReadProof challenge/submit、公开评论读取、公开 taxonomy 与 related-reading。
@@ -64,8 +64,8 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 
 浏览计数不再由公开 GET 请求副作用产生。文章 `Views` 和后台访问统计统一来自 `HumanReadProofService` 接受的真人阅读事件：
 
-- Challenge：`GET /api/read-proof/challenge?scope=site|article&routeKey=...&articleId=...`
-- Submit：`POST /api/read-proof/submit`
+- Challenge：`POST /api/binary/read-proof/challenge.aeds`，请求体为 `HumanReadChallengeRequest` frame。
+- Submit：`POST /api/binary/read-proof/submit.aeds`，请求体为 `HumanReadSubmitRequest` frame。
 - 客户端要求：SPA hydration 后，主内容进入视口并累计可见停留至少 8 秒，再携带 `X-Fsus-Device-Fp` 提交 proof。
 - 服务端绑定：HMAC token 绑定 scope、routeKey、articleId、设备指纹哈希、IP 哈希、UA 哈希、签发时间、过期时间、最小停留时间和 nonce。
 - 拒绝条件：无 JS/AOT 未 hydration、直接 API 请求、缺失 Fetch Metadata、跨站 Origin/Referer、爬虫 UA、已验证 crawler、停留不足、过期 token、篡改 token、重放 proof。

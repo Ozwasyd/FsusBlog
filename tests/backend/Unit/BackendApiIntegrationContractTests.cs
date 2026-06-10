@@ -95,6 +95,29 @@ public sealed partial class BackendApiIntegrationContractTests
         Assert.Contains("CacheTag.ArticleList.ToOutputCacheTag()", articles, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void HumanReadProofBinaryEndpoints_RetainSecurityBoundariesAndApiError()
+    {
+        string root = FindRepoRoot();
+        string readProof = File.ReadAllText(Path.Combine(root, "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.ReadProof.cs"));
+
+        Assert.Contains("\"/read-proof/challenge.aeds\"", readProof, StringComparison.Ordinal);
+        Assert.Contains("\"/read-proof/submit.aeds\"", readProof, StringComparison.Ordinal);
+        Assert.Contains("AedsFrameType.HumanReadChallengeRequest", readProof, StringComparison.Ordinal);
+        Assert.Contains("AedsFrameType.HumanReadChallengeResponse", readProof, StringComparison.Ordinal);
+        Assert.Contains("AedsFrameType.HumanReadSubmitRequest", readProof, StringComparison.Ordinal);
+        Assert.Contains("AedsFrameType.HumanReadSubmitResponse", readProof, StringComparison.Ordinal);
+        Assert.Contains("PodBinaryCodec.TryDecodeHumanReadChallengeRequest", readProof, StringComparison.Ordinal);
+        Assert.Contains("PodBinaryCodec.TryDecodeHumanReadSubmitRequest", readProof, StringComparison.Ordinal);
+        Assert.Contains("BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, \"read_proof_challenge_request_invalid\")", readProof, StringComparison.Ordinal);
+        Assert.Contains("BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, \"read_proof_submit_request_invalid\")", readProof, StringComparison.Ordinal);
+        Assert.Contains("RequireRateLimiting(\"read_proof\")", readProof, StringComparison.Ordinal);
+        Assert.Contains("IHumanReadProofEndpointAdapter", readProof, StringComparison.Ordinal);
+        Assert.Contains("ISecurityRiskSignalSink", readProof, StringComparison.Ordinal);
+        Assert.Contains("SecurityRiskSources.HumanReadProof", readProof, StringComparison.Ordinal);
+        Assert.Contains("SecurityRiskReason.ReadProofRejected", readProof, StringComparison.Ordinal);
+    }
+
     [GeneratedRegex(@"AedsFrameType\.([A-Za-z0-9_]+)", RegexOptions.CultureInvariant)]
     private static partial Regex AedsFrameTypeRegex();
 

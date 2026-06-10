@@ -146,6 +146,8 @@
 | GET `/api/binary/system/seo` | 🔓 📦 | `SeoConfig`(13) | 公开 SEO 配置 |
 | GET `/api/binary/system/compliance` | 🔓 📦 | `SiteComplianceConfig`(26) | 公开合规 footer 配置 |
 | GET `/api/binary/system/page/{slug}` | 🔓 📦 | `PageContent`(14) | 公开静态页内容，slug allowlist 同上 |
+| POST `/api/binary/read-proof/challenge.aeds` | 🔓 🚦 📦 | `HumanReadChallengeRequest`(73) → `HumanReadChallengeResponse`(28) | 真人阅读 challenge；受 `read_proof` 限流 |
+| POST `/api/binary/read-proof/submit.aeds` | 🔓 🚦 📦 | `HumanReadSubmitRequest`(74) → `HumanReadSubmitResponse`(29) | 真人阅读 proof 提交；拒绝状态写入统一风险信号 |
 
 ### 管理端 Binary
 

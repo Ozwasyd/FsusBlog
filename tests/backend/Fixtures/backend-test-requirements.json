@@ -541,6 +541,14 @@
       ]
     },
     {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.ReadProof.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AEDS-GOLDEN"
+      ]
+    },
+    {
       "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
       "requirements": [
         "BACKEND-AUTH-STATE-MACHINE",

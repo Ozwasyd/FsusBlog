@@ -33,6 +33,8 @@ public enum AedsFrameType : ushort
     AuthSessionList = 25,
     SiteComplianceConfig = 26,
     ArticleRelatedReading = 27,
+    HumanReadChallengeResponse = 28,
+    HumanReadSubmitResponse = 29,
     PowChallenge = 30,
     UploadInitRequest = 31,
     UploadCompleteRequest = 32,
@@ -77,6 +79,8 @@ public enum AedsFrameType : ushort
     NotificationHeartbeat = 70,
     PublicAotBootstrap = 71,
     SiteComplianceConfigUpdateRequest = 72,
+    HumanReadChallengeRequest = 73,
+    HumanReadSubmitRequest = 74,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

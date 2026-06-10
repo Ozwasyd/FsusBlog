@@ -26,7 +26,7 @@
 
 ## 基础包装结构
 
-运行时主 API 已收敛到 AEDS Binary：`/api/binary/**` 响应使用 AEDS v2 frame，错误也通过 `ApiError` frame 表达，不再通过旧文本响应包装。所有内部应用 API 按 [aeds-only-policy.md](aeds-only-policy.md) 治理；仍在使用 `JsonApiResponse<T>` 的 read-proof、RUM、author/security console、notification preflight、subscription API 和废弃 related-reading JSON endpoint 只属于登记的迁移期兼容层。
+运行时主 API 已收敛到 AEDS Binary：`/api/binary/**` 响应使用 AEDS v2 frame，错误也通过 `ApiError` frame 表达，不再通过旧文本响应包装。所有内部应用 API 按 [aeds-only-policy.md](aeds-only-policy.md) 治理；仍在使用 `JsonApiResponse<T>` 的 RUM、author/security console、notification preflight、subscription API、废弃 read-proof JSON endpoint 和废弃 related-reading JSON endpoint 只属于登记的迁移期兼容层。
 
 HTTP 层契约源是 `src/shared/Contracts/Validation/fsusblog.openapi.json`。该 OpenAPI snapshot 描述 method/path/status/content-type/security 与 `x-fsus-*` AEDS metadata；AEDS frame 名称、header magic/version/size 仍以 `src/shared/Contracts/Validation/aeds-protocol.json` 为权威来源。cross-stack matrix、前端 route constants、runtime contract smoke 与 release evidence 通过 `tools/contracts/*` 从这两个源校验或生成。
 
@@ -67,19 +67,16 @@ compact record 内所有文本字段均为 `Utf8SliceRef`，指向当前 payload
 
 payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/Conversation 等重复文本均落到单个 shared UTF-8 blob，records 只保存 `Utf8SliceRef`；前端 ArticlePage decode 不再创建 object records 数组，也不使用 `tagRecords.slice(...)` 复制 tag range。后续若引入 `ArticleListV4` category/tag dictionary，必须保持现有 frame type 的 downgrade 路径和 golden fixture。
 
-### 迁移期 JSON proof 包装
+### Read-proof AEDS frames
 
-`/api/read-proof/**` 使用 JSON：
+`/api/binary/read-proof/**` 使用 request/response AEDS frame；错误语义统一为 `ApiError`。旧 `/api/read-proof/**` JSON endpoint 只作为 #105 废弃兼容层保留，前端运行时不得调用。
 
-```json
-{
-  "success": true,
-  "data": {},
-  "message": null
-}
-```
-
-该包装仅作为 #99 迁移前的兼容层保留。新增 read-proof 能力必须使用 AEDS request/response frame；错误语义迁移到 `ApiError`。
+| FrameType | 值 | POD | 用途 |
+|-----------|----|-----|------|
+| `HumanReadChallengeResponse` | 28 | `HumanReadChallengeResponsePod` + UTF-8 blob | challenge 响应 |
+| `HumanReadSubmitResponse` | 29 | `HumanReadSubmitResponsePod` + UTF-8 blob | submit 响应 |
+| `HumanReadChallengeRequest` | 73 | `HumanReadChallengeRequestPod` + UTF-8 blob | challenge 请求体 |
+| `HumanReadSubmitRequest` | 74 | `HumanReadSubmitRequestPod` + UTF-8 blob | submit 请求体 |
 
 ### Passkey AEDS frames
 
@@ -284,60 +281,56 @@ Article POD 为定长结构体，字段按 C++ 内存对齐排列：
 
 ## 真人阅读 proof 契约
 
-浏览计数不由文章详情 GET 触发。前端 hydration 后通过 JSON proof 端点产生真人阅读事件。
+浏览计数不由文章详情 GET 触发。前端 hydration 后通过 AEDS proof 端点产生真人阅读事件。
 
-### `GET /api/read-proof/challenge`
+### `POST /api/binary/read-proof/challenge.aeds`
 
-Query：
+请求 frame：`HumanReadChallengeRequest` (`73`)
 
-| 参数 | 说明 |
-|------|------|
-| `scope` | `site` 或 `article` |
-| `routeKey` | 公开页 route key，例如 `home`、`article:42` |
-| `articleId` | `scope=article` 时必填 |
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `scope` | string | `site` 或 `article` |
+| `routeKey` | string | 公开页 route key，例如 `home`、`article:42` |
+| `articleId` | int? | `scope=article` 时必填 |
 
 请求头必须包含浏览器上下文：`X-Fsus-Device-Fp`、`Sec-Fetch-Site`、`Sec-Fetch-Mode`、`Sec-Fetch-Dest`，并由可信 `Origin` 或 `Referer` 发起。
 
 该端点受 `read_proof` 专用限流保护。被拒绝的 challenge 不产生有效 token，拒绝原因会进入 crawler risk 分，但公开内容访问不会因此被阻断。
 
-响应 `data`：
+响应 frame：`HumanReadChallengeResponse` (`28`)
 
-```json
-{
-  "token": "hmac-bound-token",
-  "scope": "article",
-  "routeKey": "article:42",
-  "articleId": 42,
-  "minDwellMs": 8000,
-  "issuedAt": "2026-05-13T00:00:00Z",
-  "expiresAt": "2026-05-13T00:05:00Z"
-}
-```
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `token` | string | HMAC-bound proof token；拒绝时为空字符串 |
+| `scope` | string | 规范化后的 `site` 或 `article` |
+| `routeKey` | string | 规范化后的公开页 route key |
+| `articleId` | int? | 文章阅读对应 article id |
+| `minDwellMs` | int | 最小可见停留时间，默认 8000 |
+| `issuedAt` | unix ms | 签发时间 |
+| `expiresAt` | unix ms | 过期时间 |
 
-### `POST /api/read-proof/submit`
+### `POST /api/binary/read-proof/submit.aeds`
 
-请求体：
+请求 frame：`HumanReadSubmitRequest` (`74`)
 
-```json
-{
-  "token": "hmac-bound-token",
-  "scope": "article",
-  "routeKey": "article:42",
-  "articleId": 42,
-  "dwellMs": 9000
-}
-```
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `token` | string | challenge 返回的 proof token |
+| `scope` | string | `site` 或 `article` |
+| `routeKey` | string | 与 challenge 绑定的 route key |
+| `articleId` | int? | 与 challenge 绑定的 article id |
+| `dwellMs` | int | 客户端累计可见停留毫秒数 |
 
 Submit 同样受 `read_proof` 专用限流保护。`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid`、`fingerprint_missing` 等拒绝状态会写入 crawler risk；`duplicate_viewer` 只表示 24 小时去重，不计入风险。
 
-响应 `data`：
+响应 frame：`HumanReadSubmitResponse` (`29`)
 
-```json
-{
-  "counted": true,
-  "status": "counted"
-}
-```
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `counted` | bool | 是否写入真人阅读事件 |
+| `status` | string | `counted`、`paused`、`duplicate_viewer`、`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid`、`fingerprint_missing` 等状态 |
+
+旧 JSON 端点 `GET /api/read-proof/challenge` 与 `POST /api/read-proof/submit` 保留为 #105 废弃兼容层；生产前端不得调用，也不得作为 AEDS 解码失败 fallback。
 
 `counted=false` 表示 proof 被拒绝或重复提交；内容读取不受影响。
 

@@ -34,6 +34,8 @@
     { "name": "AuthSessionList", "value": 25, "family": "auth-response" },
     { "name": "SiteComplianceConfig", "value": 26, "family": "system-response" },
     { "name": "ArticleRelatedReading", "value": 27, "family": "public-article-response" },
+    { "name": "HumanReadChallengeResponse", "value": 28, "family": "read-proof-response" },
+    { "name": "HumanReadSubmitResponse", "value": 29, "family": "read-proof-response" },
     { "name": "PowChallenge", "value": 30, "family": "auth-response" },
     { "name": "UploadInitRequest", "value": 31, "family": "upload-request" },
     { "name": "UploadCompleteRequest", "value": 32, "family": "upload-request" },
@@ -77,6 +79,8 @@
     { "name": "NotificationHeartbeat", "value": 70, "family": "sse-response" },
     { "name": "PublicAotBootstrap", "value": 71, "family": "public-aot-response" },
     { "name": "SiteComplianceConfigUpdateRequest", "value": 72, "family": "system-request" },
+    { "name": "HumanReadChallengeRequest", "value": 73, "family": "read-proof-request" },
+    { "name": "HumanReadSubmitRequest", "value": 74, "family": "read-proof-request" },
     { "name": "EmptySuccess", "value": 240, "family": "common-response" },
     { "name": "MutationId", "value": 241, "family": "common-response" },
     { "name": "ApiError", "value": 251, "family": "error-response" }

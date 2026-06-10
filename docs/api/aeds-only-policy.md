@@ -50,7 +50,7 @@ error:    AedsFrameType.ApiError
 | 范围 | 当前路径 | 迁移 issue |
 |------|----------|------------|
 | Deprecated public related-reading JSON compatibility | `/api/public/articles/{articleId}/related` | #105 |
-| Human read proof | `/api/read-proof/challenge`, `/api/read-proof/submit` | #99 |
+| Deprecated human read-proof JSON compatibility | `/api/read-proof/challenge`, `/api/read-proof/submit` | #105 |
 | RUM telemetry | `/api/telemetry/rum` | #101 |
 | Authoring / moderation / ops | `/api/author/**` | #102 |
 | Admin security console | `/api/admin/security/**` | #103 |

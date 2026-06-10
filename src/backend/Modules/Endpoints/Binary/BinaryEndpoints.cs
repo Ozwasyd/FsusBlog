@@ -49,6 +49,7 @@ public static partial class BinaryEndpoints
         MapBinaryAuthEndpoints(group);
         MapBinaryMessageEndpoints(group);
         MapBinaryArticleEndpoints(group);
+        MapBinaryReadProofEndpoints(group);
         MapBinaryTaxonomyEndpoints(group);
         MapBinaryFileEndpoints(group);
         MapBinaryAdminUserEndpoints(group);

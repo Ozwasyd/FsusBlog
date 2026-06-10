@@ -238,7 +238,7 @@ FsusBlog 运行时 API 只维护 AEDS binary 链：
 **v2 写出与缓存路径**：
 - 帧头固定 16 字节，动态响应通过 `AedsFrameBufferWriter` 预留 header 并在同一 pooled buffer 中写 payload，`Seal()` 后回填 header/CRC，避免先构造 payload 再复制到完整 frame。
 - `/api/binary/**` 在完成 Accept 与 binary request content-type 校验后直接进入 endpoint 写出链路，不再被 API binary response middleware 捕获到临时缓冲。
-- 非 binary `/api/**` 请求只有在客户端显式接受 binary envelope 时才进入捕获/转换路径；普通 JSON 成功响应和真人阅读 proof 写入请求不再被无差别缓冲。
+- 非 binary `/api/**` 请求只有在客户端显式接受 binary envelope 时才进入捕获/转换路径；普通 JSON 成功响应不再被无差别缓冲。真人阅读 proof 运行时路径已迁移到 `/api/binary/read-proof/*.aeds`。
 - 非上传 binary 请求使用 pooled frame buffer 读取，默认最大 frame 为 8 MiB；解码后的 payload 以 buffer slice 传递给端点，buffer 生命周期挂到 response completion，不再为 payload 额外 `ToArray()`。
 - 上传分片继续走 raw stream，端点用 request body backed `IFormFile` 交给文件服务，不再把整个分片读入 `MemoryStream` 后克隆成数组。
 - PostgreSQL/ORM entity/command service 是 write model；Public AOT HTML、article detail `.aeds`、search index、list/category/tag/hot snapshot 是 artifact-backed read model；L1/L2/OutputCache 只是加速层，不能作为 CQRS read model 的替代。
@@ -276,9 +276,9 @@ Client
 
 ```text
 SPA hydration
-  → /api/read-proof/challenge
+  → /api/binary/read-proof/challenge.aeds
   → 主内容可见停留 ≥ 8s
-  → /api/read-proof/submit
+  → /api/binary/read-proof/submit.aeds
   → VisitLogChannel(HumanReadEvent)
   → sys_visit_log + Article.Views 投影 + Redis hot articles + stats/cache invalidation
 ```

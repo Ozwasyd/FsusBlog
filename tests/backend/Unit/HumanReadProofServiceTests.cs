@@ -1,9 +1,9 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.VisitLog;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;

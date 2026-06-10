@@ -453,6 +453,31 @@
       ]
     },
     {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.ReadProof.cs",
+      "frontendWrapper": "src/frontend/src/api/readProof.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/readProofAdapter.ts",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/read-proof/challenge.aeds",
+          "auth": "anonymous",
+          "rateLimit": "read_proof",
+          "requestFrame": "HumanReadChallengeRequest",
+          "responseFrame": "HumanReadChallengeResponse",
+          "surface": "human-read-proof-challenge"
+        },
+        {
+          "method": "POST",
+          "path": "/read-proof/submit.aeds",
+          "auth": "anonymous",
+          "rateLimit": "read_proof",
+          "requestFrame": "HumanReadSubmitRequest",
+          "responseFrame": "HumanReadSubmitResponse",
+          "surface": "human-read-proof-submit"
+        }
+      ]
+    },
+    {
       "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs",
       "frontendWrapper": "src/frontend/src/api/admin.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/userAdapter.ts",
@@ -1194,5 +1219,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 91
+  "openapiOperationCount": 93
 }

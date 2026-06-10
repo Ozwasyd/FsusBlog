@@ -11,6 +11,7 @@ import { mapAdminUserPageFromPayload } from './userAdapter';
 import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapMfaSetupVerifyFromPayload, mapPowChallengeFromPayload, mapUserSessionsFromPayload } from './authAdapter';
 import { mapConversationDetailFromPayload, mapConversationListFromPayload, mapConversationMessageFromPayload } from './messageAdapter';
 import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload } from './passkeyAdapter';
+import { mapHumanReadChallengeFromPayload, mapHumanReadSubmitFromPayload } from './readProofAdapter';
 
 const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.ArticleList]: mapArticlePageFromPodPayload,
@@ -19,6 +20,8 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.ArticleSearch]: mapArticleSearchFromPodPayload,
   [FrameType.ArticleFeatured]: mapArticleFeaturedFromPodPayload,
   [FrameType.ArticleRelatedReading]: mapRelatedReadingFromPodPayload,
+  [FrameType.HumanReadChallengeResponse]: mapHumanReadChallengeFromPayload,
+  [FrameType.HumanReadSubmitResponse]: mapHumanReadSubmitFromPayload,
   [FrameType.TrashClearResponse]: mapTrashClearResponseFromPodPayload,
   [FrameType.AdminUserList]: mapAdminUserPageFromPayload,
   [FrameType.AuthLoginFlow]: mapAuthLoginFlowFromPayload,

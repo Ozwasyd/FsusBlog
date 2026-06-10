@@ -69,6 +69,69 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
+    public void HumanReadChallengeRequest_RoundTrip_PreservesScopeRouteAndArticle()
+    {
+        var request = new HumanReadChallengeRequest("article", "article:42", 42);
+
+        byte[] encoded = PodBinaryCodec.EncodeHumanReadChallengeRequest(request);
+        bool ok = PodBinaryCodec.TryDecodeHumanReadChallengeRequest(encoded, out HumanReadChallengeRequest decoded);
+
+        Assert.True(ok);
+        Assert.Equal("article", decoded.Scope);
+        Assert.Equal("article:42", decoded.RouteKey);
+        Assert.Equal(42, decoded.ArticleId);
+    }
+
+    [Fact]
+    public void HumanReadChallengeResponse_RoundTrip_PreservesTokenAndDates()
+    {
+        var issued = new DateTimeOffset(2026, 5, 20, 8, 30, 0, TimeSpan.Zero);
+        var expires = issued.AddMinutes(5);
+        var response = new HumanReadChallengeResponse("token-1", "article", "article:42", 42, 8000, issued, expires);
+
+        byte[] encoded = PodBinaryCodec.EncodeHumanReadChallengeResponse(response);
+        bool ok = PodBinaryCodec.TryDecodeHumanReadChallengeResponse(encoded, out HumanReadChallengeResponse decoded);
+
+        Assert.True(ok);
+        Assert.Equal("token-1", decoded.Token);
+        Assert.Equal("article", decoded.Scope);
+        Assert.Equal("article:42", decoded.RouteKey);
+        Assert.Equal(42, decoded.ArticleId);
+        Assert.Equal(8000, decoded.MinDwellMs);
+        Assert.Equal(issued, decoded.IssuedAt);
+        Assert.Equal(expires, decoded.ExpiresAt);
+    }
+
+    [Fact]
+    public void HumanReadSubmitRequest_RoundTrip_PreservesNullableArticleAndDwell()
+    {
+        var request = new HumanReadSubmitRequest("token-2", "site", "home", null, 9000);
+
+        byte[] encoded = PodBinaryCodec.EncodeHumanReadSubmitRequest(request);
+        bool ok = PodBinaryCodec.TryDecodeHumanReadSubmitRequest(encoded, out HumanReadSubmitRequest decoded);
+
+        Assert.True(ok);
+        Assert.Equal("token-2", decoded.Token);
+        Assert.Equal("site", decoded.Scope);
+        Assert.Equal("home", decoded.RouteKey);
+        Assert.Null(decoded.ArticleId);
+        Assert.Equal(9000, decoded.DwellMs);
+    }
+
+    [Fact]
+    public void HumanReadSubmitResponse_RoundTrip_PreservesStatus()
+    {
+        var response = new HumanReadSubmitResponse(true, "counted");
+
+        byte[] encoded = PodBinaryCodec.EncodeHumanReadSubmitResponse(response);
+        bool ok = PodBinaryCodec.TryDecodeHumanReadSubmitResponse(encoded, out HumanReadSubmitResponse decoded);
+
+        Assert.True(ok);
+        Assert.True(decoded.Counted);
+        Assert.Equal("counted", decoded.Status);
+    }
+
+    [Fact]
     public void PublicAotBundle_RoundTrip_PreservesEntries()
     {
         var generated = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero);

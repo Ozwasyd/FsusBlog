@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Modules.Endpoints;
 

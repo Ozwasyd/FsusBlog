@@ -75,6 +75,8 @@ export const fsusBinaryRoutes = {
   "binary_post_messages_conversations": "/api/binary/messages/conversations",
   "binary_post_messages_conversations_id_long_read": "/api/binary/messages/conversations/{id:long}/read",
   "binary_post_messages_conversations_id_long_reply": "/api/binary/messages/conversations/{id:long}/reply",
+  "binary_post_read_proof_challenge_aeds": "/api/binary/read-proof/challenge.aeds",
+  "binary_post_read_proof_submit_aeds": "/api/binary/read-proof/submit.aeds",
   "binary_post_system_page_refresh_slug": "/api/binary/system/page/refresh/{slug}",
   "binary_post_tag": "/api/binary/tag",
   "binary_post_upload_uploadId_complete": "/api/binary/upload/{uploadId}/complete",
