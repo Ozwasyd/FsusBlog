@@ -13,7 +13,7 @@
           <el-button :icon="Refresh" size="small" :loading="loading" @click="refreshQueue">刷新</el-button>
           <el-button
             :tag="RouterLink"
-            :to="{ name: 'ManageCommentModeration' }"
+            :to="{ name: 'ManageModerationComments' }"
             type="primary"
             size="small"
             :icon="ArrowRight"

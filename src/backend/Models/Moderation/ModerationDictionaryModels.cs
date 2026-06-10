@@ -102,6 +102,7 @@ public sealed record ModerationDictionaryRuntimeItem(
     string ReviewedBy,
     DateTime UpdatedAtUtc,
     string Checksum,
+    string EvidencePolicy,
     int TermCount);
 
 public sealed record ModerationRegionPolicyRuntimeItem(
@@ -110,4 +111,5 @@ public sealed record ModerationRegionPolicyRuntimeItem(
     IReadOnlyList<string> Inherits,
     IReadOnlyList<string> DictionaryIds,
     string Checksum,
-    int RuleCount);
+    int RuleCount,
+    IReadOnlyList<ModerationRegionPolicyRule> Rules);

@@ -1,6 +1,7 @@
 <template>
   <div class="account-page comment-moderation-page account-motion-enter w-full">
     <AccountPageHeader
+      v-if="!embedded"
       eyebrow="管理 / MODERATION"
       title="评论审核"
       description="集中处理评论队列、筛选风险命中项，并执行需要管理员二次验证的审核操作。"
@@ -78,6 +79,12 @@ import {
   useCommentModerationQueue
 } from '@/composables/useCommentModerationQueue'
 import type { CommentModerationStatus } from '@/api/authoring'
+
+withDefaults(defineProps<{
+  embedded?: boolean
+}>(), {
+  embedded: false
+})
 
 const {
   loading,

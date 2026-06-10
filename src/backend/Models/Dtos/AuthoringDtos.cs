@@ -174,6 +174,91 @@ public sealed record class CommentModerationBulkRequest(
 
 public sealed record class CommentModerationBulkResponse(int Updated, int BannedUsers);
 
+public sealed record class ModerationOverviewResponse(
+    int PendingCount,
+    int RejectedCount,
+    int HiddenCount,
+    int DictionaryCount,
+    int RegionPolicyCount,
+    string MainlandStrictStatus,
+    string? DictionaryLastError,
+    bool ModelEnabled,
+    string ModelProvider,
+    string ModelMode,
+    string ModelContractVersion,
+    int ModelTimeoutMs);
+
+public sealed record class RegionPolicyCheckResponse(
+    string Code,
+    string Label,
+    string Status,
+    string Detail);
+
+public sealed record class RegionPolicySummaryResponse(
+    string Region,
+    string Version,
+    IReadOnlyList<string> Inherits,
+    IReadOnlyList<string> DictionaryIds,
+    string Checksum,
+    int RuleCount,
+    IReadOnlyList<RegionPolicyCheckResponse> CriticalChecks);
+
+public sealed record class ModerationModelStatusResponse(
+    bool Enabled,
+    string Provider,
+    string Mode,
+    string ContractVersion,
+    int TimeoutMs,
+    bool FailOpen,
+    bool ExternalProviderAllowed,
+    bool ExternalProviderReviewed,
+    DateTime? LastSuccessAtUtc,
+    string? LastErrorCode,
+    DateTime? LastErrorAtUtc,
+    double AverageLatencyMs,
+    int P95LatencyMs);
+
+public sealed record class ModerationDictionaryReloadResponse(
+    bool Reloaded,
+    string SnapshotId,
+    string Checksum,
+    string? Error,
+    DateTime ReloadedAtUtc);
+
+public sealed record class ModerationReplayPreviewRequest(
+    string? Region,
+    string? PolicyVersion,
+    string? DictionaryId,
+    int? Limit);
+
+public sealed record class ModerationReplayPreviewItemResponse(
+    long CommentId,
+    string PreviousPolicyVersion,
+    string NextPolicyVersion,
+    IReadOnlyList<string> AddedBlockedRegions,
+    IReadOnlyList<string> RemovedBlockedRegions,
+    IReadOnlyList<string> AddedRiskLabels,
+    IReadOnlyList<string> RemovedRiskLabels,
+    bool PublishabilityChanged,
+    bool ManualReviewChanged,
+    bool PublicVisibilityChanged);
+
+public sealed record class ModerationReplayPreviewResponse(
+    string? Region,
+    string? PolicyVersion,
+    string? DictionaryId,
+    int ScannedCount,
+    int AffectedCommentCount,
+    int AddedBlockedRegionCount,
+    int RemovedBlockedRegionCount,
+    int AddedRiskLabelCount,
+    int RemovedRiskLabelCount,
+    int PublishabilityChangedCount,
+    int ManualReviewChangedCount,
+    int PublicVisibilityChangedCount,
+    int HighRiskChangeCount,
+    IReadOnlyList<ModerationReplayPreviewItemResponse> Items);
+
 public sealed record class ContentRevisionExportResponse(
     int RevisionNo,
     string Title,

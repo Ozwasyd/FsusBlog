@@ -9,6 +9,8 @@ import {
   getAuthorAnalytics,
   getArticleRevision,
   getModerationDictionarySnapshot,
+  getModerationModelStatus,
+  getModerationOverview,
   getServerDraft,
   importArticleContent,
   listAdminCategories,
@@ -16,10 +18,13 @@ import {
   listArticleRevisions,
   listAssetLibrary,
   listCommentModerationQueue,
+  listModerationPolicies,
   moderateComment,
   moderateCommentsBulk,
+  previewModerationReplay,
   previewArticleDraft,
   reindexArticleAssets,
+  reloadModerationDictionaries,
   rollbackArticleRevision,
   saveServerDraft
 } from '@/api/authoring'
@@ -364,6 +369,7 @@ describe('authoring API (server drafts)', () => {
           reviewedBy: 'engineering-preset',
           updatedAtUtc: '2026-06-01T00:00:00Z',
           checksum: 'dict',
+          evidencePolicy: 'redact',
           termCount: 1
         }],
         regionPolicies: [{
@@ -372,7 +378,8 @@ describe('authoring API (server drafts)', () => {
           inherits: ['GLOBAL'],
           dictionaryIds: ['cn-mainland.political-sensitive'],
           checksum: 'policy',
-          ruleCount: 1
+          ruleCount: 1,
+          rules: [{ category: 'political_sensitive', submitAction: 'reject_submit', displayAction: 'geo_block' }]
         }],
         lastError: null
       }
@@ -381,9 +388,164 @@ describe('authoring API (server drafts)', () => {
     const snapshot = await getModerationDictionarySnapshot()
 
     expect(snapshot.dictionaries[0]?.termCount).toBe(1)
+    expect(snapshot.dictionaries[0]?.evidencePolicy).toBe('redact')
+    expect(snapshot.regionPolicies[0]?.rules[0]?.displayAction).toBe('geo_block')
     expect(snapshot.regionPolicies[0]?.dictionaryIds).toEqual(['cn-mainland.political-sensitive'])
     expect(fetchMock).toHaveBeenCalledWith('/api/author/moderation/dictionaries', expect.objectContaining({
       credentials: 'include'
+    }))
+  })
+
+  it('getModerationOverview fetches moderation console counters', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: {
+        pendingCount: 2,
+        rejectedCount: 3,
+        hiddenCount: 1,
+        dictionaryCount: 12,
+        regionPolicyCount: 5,
+        mainlandStrictStatus: 'enabled',
+        dictionaryLastError: null,
+        modelEnabled: true,
+        modelProvider: 'mock',
+        modelMode: 'score-only',
+        modelContractVersion: 'fsusblog-moderation-provider-v1',
+        modelTimeoutMs: 800
+      }
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const overview = await getModerationOverview()
+
+    expect(overview.mainlandStrictStatus).toBe('enabled')
+    expect(fetchMock).toHaveBeenCalledWith('/api/author/moderation/overview', expect.objectContaining({
+      credentials: 'include'
+    }))
+  })
+
+  it('listModerationPolicies fetches region policy checks', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: [{
+        region: 'CN-MAINLAND',
+        version: 'CN-MAINLAND-v2026-06',
+        inherits: ['GLOBAL'],
+        dictionaryIds: ['cn-mainland.political-sensitive'],
+        checksum: 'policy',
+        ruleCount: 1,
+        criticalChecks: [{ code: 'inherits-global', label: '继承 GLOBAL', status: 'ok', detail: 'CN-MAINLAND policy inherits GLOBAL' }]
+      }]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const policies = await listModerationPolicies()
+
+    expect(policies[0]?.criticalChecks[0]?.status).toBe('ok')
+    expect(fetchMock).toHaveBeenCalledWith('/api/author/moderation/policies', expect.objectContaining({
+      credentials: 'include'
+    }))
+  })
+
+  it('getModerationModelStatus fetches model boundary and latency status', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: {
+        enabled: true,
+        provider: 'mock',
+        mode: 'score-only',
+        contractVersion: 'fsusblog-moderation-provider-v1',
+        timeoutMs: 800,
+        failOpen: true,
+        externalProviderAllowed: false,
+        externalProviderReviewed: false,
+        lastSuccessAtUtc: '2026-06-10T00:00:00Z',
+        lastErrorCode: null,
+        lastErrorAtUtc: null,
+        averageLatencyMs: 3,
+        p95LatencyMs: 5
+      }
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const status = await getModerationModelStatus()
+
+    expect(status.contractVersion).toBe('fsusblog-moderation-provider-v1')
+    expect(status.p95LatencyMs).toBe(5)
+    expect(fetchMock).toHaveBeenCalledWith('/api/author/moderation/model/status', expect.objectContaining({
+      credentials: 'include'
+    }))
+  })
+
+  it('reloadModerationDictionaries posts with admin MFA proof header', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: {
+        reloaded: true,
+        snapshotId: 'moderation-dictionaries:abc',
+        checksum: 'abc',
+        error: null,
+        reloadedAtUtc: '2026-06-10T00:00:00Z'
+      }
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const response = await reloadModerationDictionaries({ mfaProofToken: 'proof-reload' })
+
+    expect(response.reloaded).toBe(true)
+    expect(fetchMock).toHaveBeenCalledWith('/api/author/moderation/dictionaries/reload', expect.objectContaining({
+      method: 'POST',
+      credentials: 'include'
+    }))
+    const headers = (fetchMock.mock.calls[0]?.[1] as RequestInit).headers as Headers
+    expect(headers.get('X-Fsus-Mfa-Proof')).toBe('proof-reload')
+  })
+
+  it('previewModerationReplay posts scoped preview request without executing replay', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: {
+        region: 'CN-MAINLAND',
+        policyVersion: 'region-policy-v2026-05',
+        dictionaryId: 'cn-mainland.political-sensitive',
+        scannedCount: 10,
+        affectedCommentCount: 1,
+        addedBlockedRegionCount: 1,
+        removedBlockedRegionCount: 0,
+        addedRiskLabelCount: 1,
+        removedRiskLabelCount: 0,
+        publishabilityChangedCount: 0,
+        manualReviewChangedCount: 0,
+        publicVisibilityChangedCount: 1,
+        highRiskChangeCount: 1,
+        items: [{
+          commentId: 1001,
+          previousPolicyVersion: 'region-policy-v2026-05',
+          nextPolicyVersion: 'region-policy-v2026-06',
+          addedBlockedRegions: ['CN-MAINLAND'],
+          removedBlockedRegions: [],
+          addedRiskLabels: ['cn_mainland_political_sensitive'],
+          removedRiskLabels: [],
+          publishabilityChanged: false,
+          manualReviewChanged: false,
+          publicVisibilityChanged: true
+        }]
+      }
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    const preview = await previewModerationReplay({
+      region: 'CN-MAINLAND',
+      policyVersion: 'region-policy-v2026-05',
+      dictionaryId: 'cn-mainland.political-sensitive',
+      limit: 10
+    })
+
+    expect(preview.highRiskChangeCount).toBe(1)
+    expect(fetchMock).toHaveBeenCalledWith('/api/author/moderation/replay/preview', expect.objectContaining({
+      method: 'POST',
+      credentials: 'include',
+      body: JSON.stringify({
+        region: 'CN-MAINLAND',
+        policyVersion: 'region-policy-v2026-05',
+        dictionaryId: 'cn-mainland.political-sensitive',
+        limit: 10
+      })
     }))
   })
 

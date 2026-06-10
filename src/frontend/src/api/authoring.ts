@@ -510,6 +510,21 @@ export interface CommentModerationBulkResponse {
   bannedUsers: number
 }
 
+export interface ModerationOverviewResponse {
+  pendingCount: number
+  rejectedCount: number
+  hiddenCount: number
+  dictionaryCount: number
+  regionPolicyCount: number
+  mainlandStrictStatus: string
+  dictionaryLastError: string | null
+  modelEnabled: boolean
+  modelProvider: string
+  modelMode: string
+  modelContractVersion: string
+  modelTimeoutMs: number
+}
+
 export interface ModerationDictionaryRuntimeItem {
   dictionaryId: string
   version: string
@@ -520,7 +535,14 @@ export interface ModerationDictionaryRuntimeItem {
   reviewedBy: string
   updatedAtUtc: string
   checksum: string
+  evidencePolicy: string
   termCount: number
+}
+
+export interface ModerationRegionPolicyRule {
+  category: string
+  submitAction: string
+  displayAction: string
 }
 
 export interface ModerationRegionPolicyRuntimeItem {
@@ -530,6 +552,7 @@ export interface ModerationRegionPolicyRuntimeItem {
   dictionaryIds: string[]
   checksum: string
   ruleCount: number
+  rules: ModerationRegionPolicyRule[]
 }
 
 export interface ModerationDictionaryRuntimeSnapshot {
@@ -540,6 +563,84 @@ export interface ModerationDictionaryRuntimeSnapshot {
   dictionaries: ModerationDictionaryRuntimeItem[]
   regionPolicies: ModerationRegionPolicyRuntimeItem[]
   lastError: string | null
+}
+
+export interface RegionPolicyCheckResponse {
+  code: string
+  label: string
+  status: string
+  detail: string
+}
+
+export interface RegionPolicySummaryResponse {
+  region: string
+  version: string
+  inherits: string[]
+  dictionaryIds: string[]
+  checksum: string
+  ruleCount: number
+  criticalChecks: RegionPolicyCheckResponse[]
+}
+
+export interface ModerationModelStatusResponse {
+  enabled: boolean
+  provider: string
+  mode: string
+  contractVersion: string
+  timeoutMs: number
+  failOpen: boolean
+  externalProviderAllowed: boolean
+  externalProviderReviewed: boolean
+  lastSuccessAtUtc: string | null
+  lastErrorCode: string | null
+  lastErrorAtUtc: string | null
+  averageLatencyMs: number
+  p95LatencyMs: number
+}
+
+export interface ModerationDictionaryReloadResponse {
+  reloaded: boolean
+  snapshotId: string
+  checksum: string
+  error: string | null
+  reloadedAtUtc: string
+}
+
+export interface ModerationReplayPreviewRequest {
+  region?: string | null
+  policyVersion?: string | null
+  dictionaryId?: string | null
+  limit?: number | null
+}
+
+export interface ModerationReplayPreviewItemResponse {
+  commentId: number
+  previousPolicyVersion: string
+  nextPolicyVersion: string
+  addedBlockedRegions: string[]
+  removedBlockedRegions: string[]
+  addedRiskLabels: string[]
+  removedRiskLabels: string[]
+  publishabilityChanged: boolean
+  manualReviewChanged: boolean
+  publicVisibilityChanged: boolean
+}
+
+export interface ModerationReplayPreviewResponse {
+  region: string | null
+  policyVersion: string | null
+  dictionaryId: string | null
+  scannedCount: number
+  affectedCommentCount: number
+  addedBlockedRegionCount: number
+  removedBlockedRegionCount: number
+  addedRiskLabelCount: number
+  removedRiskLabelCount: number
+  publishabilityChangedCount: number
+  manualReviewChangedCount: number
+  publicVisibilityChangedCount: number
+  highRiskChangeCount: number
+  items: ModerationReplayPreviewItemResponse[]
 }
 
 export interface ContentRevisionExportResponse {
@@ -965,6 +1066,16 @@ export async function listCommentModerationQueue(
   return await readJsonEnvelope<CommentModerationQueueResponse>(response, `comment_moderation_fetch_failed:${response.status}`)
 }
 
+export async function getModerationOverview(config?: ApiRequestConfig): Promise<ModerationOverviewResponse> {
+  const response = await fetch('/api/author/moderation/overview', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<ModerationOverviewResponse>(response, `moderation_overview_fetch_failed:${response.status}`)
+}
+
 export async function getModerationDictionarySnapshot(config?: ApiRequestConfig): Promise<ModerationDictionaryRuntimeSnapshot> {
   const response = await fetch('/api/author/moderation/dictionaries', {
     credentials: 'include',
@@ -973,6 +1084,52 @@ export async function getModerationDictionarySnapshot(config?: ApiRequestConfig)
   })
 
   return await readJsonEnvelope<ModerationDictionaryRuntimeSnapshot>(response, `moderation_dictionary_fetch_failed:${response.status}`)
+}
+
+export async function reloadModerationDictionaries(config?: ApiRequestConfig): Promise<ModerationDictionaryReloadResponse> {
+  const response = await fetch('/api/author/moderation/dictionaries/reload', {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders(true, config?.mfaProofToken),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<ModerationDictionaryReloadResponse>(response, `moderation_dictionary_reload_failed:${response.status}`)
+}
+
+export async function listModerationPolicies(config?: ApiRequestConfig): Promise<RegionPolicySummaryResponse[]> {
+  const response = await fetch('/api/author/moderation/policies', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<RegionPolicySummaryResponse[]>(response, `moderation_policies_fetch_failed:${response.status}`)
+}
+
+export async function getModerationModelStatus(config?: ApiRequestConfig): Promise<ModerationModelStatusResponse> {
+  const response = await fetch('/api/author/moderation/model/status', {
+    credentials: 'include',
+    headers: jsonHeaders(false),
+    signal: config?.signal
+  })
+
+  return await readJsonEnvelope<ModerationModelStatusResponse>(response, `moderation_model_status_fetch_failed:${response.status}`)
+}
+
+export async function previewModerationReplay(
+  request: ModerationReplayPreviewRequest,
+  config?: ApiRequestConfig
+): Promise<ModerationReplayPreviewResponse> {
+  const response = await fetch('/api/author/moderation/replay/preview', {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders(true, config?.mfaProofToken),
+    signal: config?.signal,
+    body: JSON.stringify(request)
+  })
+
+  return await readJsonEnvelope<ModerationReplayPreviewResponse>(response, `moderation_replay_preview_failed:${response.status}`)
 }
 
 export async function moderateComment(

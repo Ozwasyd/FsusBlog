@@ -127,7 +127,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="模型信号" min-width="190">
+          <el-table-column label="模型风险信号" min-width="190">
             <template #default="{ row }: { row: CommentModerationViewItem }">
               <div class="space-y-1.5 text-[11px] font-bold leading-relaxed text-[var(--fsusblog-text-muted)]">
                 <div>{{ row.modelSignalLabel }}</div>

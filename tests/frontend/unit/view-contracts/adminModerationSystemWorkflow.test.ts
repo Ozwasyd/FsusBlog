@@ -1,0 +1,87 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
+const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
+
+describe('admin moderation system workflow contract', () => {
+  const router = readRepoFile('src/frontend/src/router/index.ts')
+  const tabs = readRepoFile('src/frontend/src/components/admin/moderation/ModerationSystemTabs.vue')
+  const layout = readRepoFile('src/frontend/src/views/admin/moderation/ModerationLayout.vue')
+  const dashboard = readRepoFile('src/frontend/src/views/admin/moderation/ModerationDashboard.vue')
+  const dictionaries = readRepoFile('src/frontend/src/views/admin/moderation/ModerationDictionaries.vue')
+  const policies = readRepoFile('src/frontend/src/views/admin/moderation/ModerationPolicies.vue')
+  const replay = readRepoFile('src/frontend/src/views/admin/moderation/ModerationReplay.vue')
+  const model = readRepoFile('src/frontend/src/views/admin/moderation/ModerationModel.vue')
+  const audit = readRepoFile('src/frontend/src/views/admin/moderation/ModerationAudit.vue')
+  const api = readRepoFile('src/frontend/src/api/authoring.ts')
+  const endpoints = readRepoFile('src/backend/Modules/Endpoints/AuthoringEndpoints.cs')
+  const runtimeModels = readRepoFile('src/backend/Models/Moderation/ModerationDictionaryModels.cs')
+
+  it('registers one moderation console with all required child routes', () => {
+    expect(router).toContain("name: 'ManageModerationSystem'")
+    expect(router).toContain("name: 'ManageModerationDashboard'")
+    expect(router).toContain("name: 'ManageModerationComments'")
+    expect(router).toContain("name: 'ManageModerationDictionaries'")
+    expect(router).toContain("name: 'ManageModerationPolicies'")
+    expect(router).toContain("name: 'ManageModerationReplay'")
+    expect(router).toContain("name: 'ManageModerationModel'")
+    expect(router).toContain("name: 'ManageModerationAudit'")
+    expect(router).toContain("redirect: { name: 'ManageModerationComments' }")
+    expect(tabs).toContain('总览')
+    expect(tabs).toContain('评论审核')
+    expect(tabs).toContain('词库管理')
+    expect(tabs).toContain('地区策略')
+    expect(tabs).toContain('策略回放')
+    expect(tabs).toContain('审核模型')
+    expect(tabs).toContain('审核审计')
+  })
+
+  it('keeps policy and model boundaries visible in the console', () => {
+    expect(layout).toContain('地区法律策略优先级高于反垃圾模型。')
+    expect(dashboard).toContain('https://github.com/Ozwasyd/FsusBlog/issues/76')
+    expect(dashboard).toContain('https://github.com/Ozwasyd/FsusBlog/issues/77')
+    expect(model).toContain('模型风险信号')
+    expect(model).toContain('模型输出不得作为最终审核决定')
+    expect(model).toContain('地区策略和硬词库优先级高于模型建议')
+    expect(model).toContain('lastSuccessAtUtc')
+    expect(model).toContain('p95LatencyMs')
+  })
+
+  it('shows dictionary metadata only and protects high-risk operations', () => {
+    expect(runtimeModels).toContain('string EvidencePolicy')
+    expect(api).toContain('evidencePolicy: string')
+    expect(dictionaries).toContain('raw terms 默认不可见')
+    expect(dictionaries).toContain('Raw Terms')
+    expect(dictionaries).toContain('redacted')
+    expect(dictionaries).toContain('reloadModerationDictionaries')
+    expect(dictionaries).toContain('startMfaChallenge(AdminSensitiveAction)')
+    expect(dictionaries).not.toContain('.terms')
+  })
+
+  it('surfaces CN-MAINLAND mandatory policy checks and preview-only replay', () => {
+    expect(policies).toContain('CN-MAINLAND mandatory checks')
+    expect(policies).toContain('criticalChecks')
+    expect(policies).toContain('policy -> dictionaries')
+    expect(replay).toContain('previewModerationReplay')
+    expect(replay).toContain('生成 preview')
+    expect(replay).toContain('replay execute 当前不提供直接按钮')
+    expect(replay).toContain('MFA step-up')
+  })
+
+  it('indexes moderation audit actions and exposes backend endpoints', () => {
+    expect(audit).toContain('dictionary_loaded')
+    expect(audit).toContain('dictionary_reload_failed')
+    expect(audit).toContain('region_policy_replay_completed')
+    expect(audit).toContain('model_moderation_scored')
+    expect(endpoints).toContain('MapGet("/moderation/overview"')
+    expect(endpoints).toContain('MapGet("/moderation/dictionaries"')
+    expect(endpoints).toContain('MapPost("/moderation/dictionaries/reload"')
+    expect(endpoints).toContain('MapGet("/moderation/policies"')
+    expect(endpoints).toContain('MapPost("/moderation/replay/preview"')
+    expect(endpoints).toContain('MapGet("/moderation/model/status"')
+    expect(endpoints).toContain('RequireAdminSensitiveStepUpAsync')
+    expect(endpoints).toContain('RecordHighValueAsync')
+  })
+})

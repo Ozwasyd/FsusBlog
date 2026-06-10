@@ -180,6 +180,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   getAuditLogDetail,
   getAuditLogSummary,
@@ -198,6 +199,8 @@ import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 
 type AuditDateRange = [Date, Date] | null
+
+const route = useRoute()
 
 const emptyRuntime: AuditLogRuntimeResponse = {
   queuedCount: 0,
@@ -340,7 +343,15 @@ const severityTagType = (value: string): 'success' | 'danger' | 'warning' | 'inf
   return 'info'
 }
 
+const applyRouteQueryFilters = (): void => {
+  filters.action = typeof route.query.action === 'string' ? route.query.action : ''
+  filters.source = typeof route.query.source === 'string' ? route.query.source : filters.source
+  filters.type = typeof route.query.type === 'string' ? route.query.type : filters.type
+  filters.targetType = typeof route.query.targetType === 'string' ? route.query.targetType : filters.targetType
+}
+
 onMounted(() => {
+  applyRouteQueryFilters()
   void loadAudit()
 })
 </script>

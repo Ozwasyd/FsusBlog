@@ -198,6 +198,7 @@ public sealed class ModerationDictionaryService(
                     item.ReviewedBy,
                     item.UpdatedAtUtc,
                     item.Checksum,
+                    ResolveEvidencePolicy(item.Terms),
                     item.Terms.Count))
                 .ToArray(),
             snapshot.RegionPolicies.Values
@@ -208,9 +209,25 @@ public sealed class ModerationDictionaryService(
                     item.Inherits,
                     item.DictionaryIds,
                     item.Checksum,
-                    item.Rules.Count))
+                    item.Rules.Count,
+                    item.Rules))
                 .ToArray(),
             LastError);
+    }
+
+    private static string ResolveEvidencePolicy(IReadOnlyList<ModerationDictionaryTerm> terms)
+    {
+        if (terms.Any(static item => item.EvidencePolicy == ModerationEvidencePolicies.Redact))
+        {
+            return ModerationEvidencePolicies.Redact;
+        }
+
+        if (terms.Any(static item => item.EvidencePolicy == ModerationEvidencePolicies.ShowCategoryOnly))
+        {
+            return ModerationEvidencePolicies.ShowCategoryOnly;
+        }
+
+        return ModerationEvidencePolicies.ShowFull;
     }
 
     private Result<ModerationDictionarySnapshot> BuildSnapshot()
