@@ -9,7 +9,7 @@ CLOUD_FIREWALL_NORMALIZER_SCRIPT="$ROOT_DIR/tools/security/normalize-cloud-firew
 DNS_DELEGATION_SCRIPT="$ROOT_DIR/tools/security/check-production-dns-delegation.sh"
 DNS_READINESS_SCRIPT="$ROOT_DIR/tools/security/check-production-dns-readiness.sh"
 STATUS_SCRIPT="$ROOT_DIR/tools/security/report-production-exposure-status.sh"
-CLOSEOUT_SCRIPT="$ROOT_DIR/tools/security/close-production-exposure-todo.sh"
+CLOSEOUT_SCRIPT="$ROOT_DIR/tools/security/verify-production-exposure-closeout.sh"
 COMPLETE_SCRIPT="$ROOT_DIR/tools/security/complete-production-exposure-closeout.sh"
 RETURNED_COMPLETE_SCRIPT="$ROOT_DIR/tools/security/complete-production-exposure-from-returned-evidence.sh"
 RETURNED_HANDOFF_COMPLETE_SCRIPT="$ROOT_DIR/tools/security/complete-production-exposure-from-returned-handoff-bundle.sh"
@@ -81,10 +81,10 @@ jq -e '
   and any(.requiredEvidence[]?; .key == "firewallPolicy" and .sourceSha256Required == true)
   and (.requiredEvidence | map(.key) | sort) == ["dnsDelegation","dnsReadiness","firewallPolicy","liveExposure","statusReport"]
   and all(.requiredEvidence[]; .requiredForCloseout == true and (.artifactName | test("^production-.*\\.json$")))
-  and any(.verificationCommands[]?; .name == "complete-closeout" and .closesTodoWhenPassing == true)
+  and any(.verificationCommands[]?; .name == "complete-closeout" and .requiredForCloseout == true)
   and any(.verificationCommands[]?; .name == "verify-returned-evidence" and .requiredBeforeReturnedCloseout == true)
-  and any(.verificationCommands[]?; .name == "complete-returned-evidence" and .closesTodoWhenPassing == true)
-  and any(.verificationCommands[]?; .name == "complete-returned-handoff" and .closesTodoWhenPassing == true)
+  and any(.verificationCommands[]?; .name == "complete-returned-evidence" and .requiredForCloseout == true)
+  and any(.verificationCommands[]?; .name == "complete-returned-handoff" and .requiredForCloseout == true)
   and any(.verificationCommands[]?; .name == "handoff-check" and .requiredBeforeExternalHandoff == true)
   and any(.handoffChecks[]?; .id == "request-status-manifest-alignment" and .requiredBeforeExternalHandoff == true)
   and .currentStatus.status == "missing"
@@ -631,47 +631,35 @@ done
 jq '.requiredHosts = ["fsus.blog", "www.fsus.blog"]' "$tmp_dir/dns-readiness-ok.json" >"$tmp_dir/dns-readiness-array-hosts-ok.json"
 jq '.delegationDomains = ["fsus.blog"]' "$tmp_dir/dns-delegation-ok.json" >"$tmp_dir/dns-delegation-array-domains-ok.json"
 
-cat >"$tmp_dir/TODO.fixture.md" <<'EOF'
-# FsusBlog 次世代单作者博客执行计划
+cat >"$tmp_dir/closeout.fixture.md" <<'EOF'
+# Production Exposure Closeout Fixture
 
-## 进度索引
-
-- 生产可信闭环：`4/5`
-
-## Wave 1 - 生产可信闭环
-
-- [ ] `NB-P0-001` `P0` `production-exposure-closeout`
-  Scope: 完成真实生产域名 DNS delegation/readiness、firewall/security-group evidence、HTTPS/HSTS、禁止公网 SSH/Redis/PostgreSQL 的最终证据闭环。
-  Dependencies: `tools/security/complete-production-exposure-closeout.sh`、真实云安全组或主机防火墙导出、真实生产 DNS。
-  Done when: `complete-production-exposure-closeout.sh` 通过，`TODO.md` 外部生产项可由机器证据关闭，status report 为 `ok`。
-  Gates: `tools/security/check-production-network-baseline.sh`; `tools/security/report-production-exposure-status.sh`; `./tools/test.sh security`.
-  Comment: old production exposure comment
+status: pending
 EOF
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.complete.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.complete-refresh-after-delegation-failure.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.complete-missing-delegation.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.complete-missing-readiness.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.direct-missing-delegation.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.direct-missing-readiness.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.array-required-hosts.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.array-dns-fields.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.complete-cloud.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.complete-ufw.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-complete.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-handoff-dir.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-handoff-tar.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-handoff-empty.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-handoff-blocked-tar.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-handoff-symlink-tar.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-handoff-path-traversal-tar.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-handoff-tampered-checklist.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-direct-parent-tampered-checklist.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-blocked.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-missing-manifest.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-narrow-request.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-narrow-manifest.fixture.md"
-cp "$tmp_dir/TODO.fixture.md" "$tmp_dir/TODO.returned-unblock-plan.fixture.md"
-sed '/^  Comment:/d' "$tmp_dir/TODO.fixture.md" >"$tmp_dir/TODO.no-comment.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.complete.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.complete-refresh-after-delegation-failure.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.complete-missing-delegation.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.complete-missing-readiness.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.direct-missing-delegation.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.direct-missing-readiness.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.array-required-hosts.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.array-dns-fields.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.complete-cloud.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.complete-ufw.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-complete.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-handoff-dir.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-handoff-tar.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-handoff-empty.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-handoff-blocked-tar.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-handoff-symlink-tar.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-handoff-path-traversal-tar.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-handoff-tampered-checklist.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-direct-parent-tampered-checklist.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-blocked.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-missing-manifest.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-narrow-request.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-narrow-manifest.fixture.md"
+cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-unblock-plan.fixture.md"
 
 if "$VERIFY_SCRIPT" "$tmp_dir/failed-dns.json" >/dev/null 2>&1; then
   fail "failed DNS evidence unexpectedly passed verifier"
@@ -980,89 +968,75 @@ fi
 if FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$tmp_dir/firewall-other-host.json" \
   FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/dns-readiness-ok.json" \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/dns-delegation-ok.json" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.fixture.md" \
   "$CLOSEOUT_SCRIPT" "$tmp_dir/ok.json" >/dev/null 2>&1; then
   fail "closeout accepted firewall policy that does not apply to evidence requiredHosts"
 fi
 
-before="$(sha256sum "$tmp_dir/TODO.fixture.md" | awk '{print $1}')"
+before="$(sha256sum "$tmp_dir/closeout.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$tmp_dir/firewall-ok.json" \
   FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/dns-readiness-ok.json" \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/dns-delegation-ok.json" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.fixture.md" \
   "$CLOSEOUT_SCRIPT" "$tmp_dir/failed-dns.json" >/dev/null 2>&1; then
   fail "closeout unexpectedly accepted failed DNS evidence"
 fi
-after="$(sha256sum "$tmp_dir/TODO.fixture.md" | awk '{print $1}')"
-[[ "$before" == "$after" ]] || fail "closeout modified TODO fixture after failed evidence"
+after="$(sha256sum "$tmp_dir/closeout.fixture.md" | awk '{print $1}')"
+[[ "$before" == "$after" ]] || fail "closeout modified closeout fixture after failed evidence"
 
-direct_missing_delegation_before="$(sha256sum "$tmp_dir/TODO.direct-missing-delegation.fixture.md" | awk '{print $1}')"
+direct_missing_delegation_before="$(sha256sum "$tmp_dir/closeout.direct-missing-delegation.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$tmp_dir/firewall-ok.json" \
   FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/dns-readiness-ok.json" \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/missing-dns-delegation.json" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.direct-missing-delegation.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.direct-missing-delegation.fixture.md" \
   "$CLOSEOUT_SCRIPT" "$tmp_dir/ok.json" >/dev/null 2>&1; then
   fail "direct closeout unexpectedly accepted missing DNS delegation evidence"
 fi
-direct_missing_delegation_after="$(sha256sum "$tmp_dir/TODO.direct-missing-delegation.fixture.md" | awk '{print $1}')"
-[[ "$direct_missing_delegation_before" == "$direct_missing_delegation_after" ]] || fail "direct closeout modified TODO fixture after missing DNS delegation evidence"
+direct_missing_delegation_after="$(sha256sum "$tmp_dir/closeout.direct-missing-delegation.fixture.md" | awk '{print $1}')"
+[[ "$direct_missing_delegation_before" == "$direct_missing_delegation_after" ]] || fail "direct closeout modified closeout fixture after missing DNS delegation evidence"
 
-direct_missing_readiness_before="$(sha256sum "$tmp_dir/TODO.direct-missing-readiness.fixture.md" | awk '{print $1}')"
+direct_missing_readiness_before="$(sha256sum "$tmp_dir/closeout.direct-missing-readiness.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$tmp_dir/firewall-ok.json" \
   FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/missing-dns-readiness.json" \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/dns-delegation-ok.json" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.direct-missing-readiness.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.direct-missing-readiness.fixture.md" \
   "$CLOSEOUT_SCRIPT" "$tmp_dir/ok.json" >/dev/null 2>&1; then
   fail "direct closeout unexpectedly accepted missing DNS readiness evidence"
 fi
-direct_missing_readiness_after="$(sha256sum "$tmp_dir/TODO.direct-missing-readiness.fixture.md" | awk '{print $1}')"
-[[ "$direct_missing_readiness_before" == "$direct_missing_readiness_after" ]] || fail "direct closeout modified TODO fixture after missing DNS readiness evidence"
-
-no_comment_before="$(sha256sum "$tmp_dir/TODO.no-comment.fixture.md" | awk '{print $1}')"
-if FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$tmp_dir/firewall-ok.json" \
-  FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/dns-readiness-ok.json" \
-  FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/dns-delegation-ok.json" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.no-comment.fixture.md" \
-  "$CLOSEOUT_SCRIPT" "$tmp_dir/ok.json" >/dev/null 2>&1; then
-  fail "direct closeout accepted NB-P0-001 without a Comment field"
-fi
-no_comment_after="$(sha256sum "$tmp_dir/TODO.no-comment.fixture.md" | awk '{print $1}')"
-[[ "$no_comment_before" == "$no_comment_after" ]] || fail "direct closeout modified TODO fixture without a Comment field"
+direct_missing_readiness_after="$(sha256sum "$tmp_dir/closeout.direct-missing-readiness.fixture.md" | awk '{print $1}')"
+[[ "$direct_missing_readiness_before" == "$direct_missing_readiness_after" ]] || fail "direct closeout modified closeout fixture after missing DNS readiness evidence"
 
 FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$tmp_dir/firewall-ok.json" \
   FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/dns-readiness-ok.json" \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/dns-delegation-ok.json" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.array-required-hosts.fixture.md" \
+  FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$tmp_dir/direct-array-required-hosts-status.json" \
   "$CLOSEOUT_SCRIPT" "$tmp_dir/ok-array-required-hosts.json" >/dev/null
 
-grep -Fq -- '- [x] `NB-P0-001` `P0` `production-exposure-closeout`' "$tmp_dir/TODO.array-required-hosts.fixture.md" \
+jq -e '.status == "ok" and (.blockers | length) == 0' "$tmp_dir/direct-array-required-hosts-status.json" >/dev/null \
   || fail "direct closeout did not accept array requiredHosts live evidence"
 
 FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$tmp_dir/firewall-ok.json" \
   FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/dns-readiness-array-hosts-ok.json" \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/dns-delegation-array-domains-ok.json" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.array-dns-fields.fixture.md" \
+  FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$tmp_dir/direct-array-dns-status.json" \
   "$CLOSEOUT_SCRIPT" "$tmp_dir/ok.json" >/dev/null
 
-grep -Fq -- '- [x] `NB-P0-001` `P0` `production-exposure-closeout`' "$tmp_dir/TODO.array-dns-fields.fixture.md" \
+jq -e '.status == "ok" and (.blockers | length) == 0' "$tmp_dir/direct-array-dns-status.json" >/dev/null \
   || fail "direct closeout did not accept array DNS readiness/delegation evidence"
 
+direct_ok_before="$(sha256sum "$tmp_dir/closeout.fixture.md" | awk '{print $1}')"
 FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$tmp_dir/firewall-ok.json" \
   FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/dns-readiness-ok.json" \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/dns-delegation-ok.json" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.fixture.md" \
+  FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$tmp_dir/direct-ok-status.json" \
   "$CLOSEOUT_SCRIPT" "$tmp_dir/ok.json" >/dev/null
 
-grep -Fq -- '- [x] `NB-P0-001` `P0` `production-exposure-closeout`' "$tmp_dir/TODO.fixture.md" \
-  || fail "NB-P0-001 was not closed after valid evidence"
-if grep -Eq '^- \[ \] `NB-P0-001` `P0` `production-exposure-closeout`' "$tmp_dir/TODO.fixture.md"; then
-  fail "unchecked NB-P0-001 remained after valid evidence"
-fi
-grep -Fq -- '- 生产可信闭环：`5/5`' "$tmp_dir/TODO.fixture.md" \
-  || fail "production progress index was not updated after valid evidence"
-grep -Fq 'firewall policy, DNS readiness/delegation, live evidence, and status report verified' "$tmp_dir/TODO.fixture.md" || fail "closeout did not write evidence comment"
+direct_ok_after="$(sha256sum "$tmp_dir/closeout.fixture.md" | awk '{print $1}')"
+[[ "$direct_ok_before" == "$direct_ok_after" ]] || fail "direct closeout modified closeout fixture after valid evidence"
+jq -e '.status == "ok" and (.blockers | length) == 0' "$tmp_dir/direct-ok-status.json" >/dev/null \
+  || fail "direct closeout did not write ok status after valid evidence"
 
-complete_before="$(sha256sum "$tmp_dir/TODO.complete.fixture.md" | awk '{print $1}')"
+complete_before="$(sha256sum "$tmp_dir/closeout.complete.fixture.md" | awk '{print $1}')"
 complete_failed_status="$tmp_dir/complete-failed-status.json"
 complete_failed_request="$tmp_dir/complete-failed-request.json"
 if FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
@@ -1074,12 +1048,12 @@ if FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/dns-delegation-ok.json" \
   FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$complete_failed_status" \
   FSUSBLOG_PRODUCTION_EXPOSURE_REQUEST="$complete_failed_request" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.complete.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.complete.fixture.md" \
   "$COMPLETE_SCRIPT" >/dev/null 2>&1; then
   fail "complete closeout unexpectedly accepted failed DNS evidence"
 fi
-complete_after="$(sha256sum "$tmp_dir/TODO.complete.fixture.md" | awk '{print $1}')"
-[[ "$complete_before" == "$complete_after" ]] || fail "complete closeout modified TODO fixture after failed evidence"
+complete_after="$(sha256sum "$tmp_dir/closeout.complete.fixture.md" | awk '{print $1}')"
+[[ "$complete_before" == "$complete_after" ]] || fail "complete closeout modified closeout fixture after failed evidence"
 [[ -f "$complete_failed_status" ]] || fail "complete closeout did not write status report after failed evidence"
 [[ -f "$complete_failed_request" ]] || fail "complete closeout did not write evidence request after failed evidence"
 jq -e '
@@ -1302,10 +1276,10 @@ jq -n \
 	                and .requiredBeforeReturnedCloseout == true)
 	              or (.name == "complete-returned-evidence"
 	                and .command == "tools/security/complete-production-exposure-from-returned-evidence.sh <returned-evidence-dir>"
-	                and .closesTodoWhenPassing == true)
+	                and .requiredForCloseout == true)
 	              or (.name == "complete-returned-handoff"
 	                and .command == "tools/security/complete-production-exposure-from-returned-handoff-bundle.sh <handoff-dir-or-tar.gz>"
-	                and .closesTodoWhenPassing == true)
+	                and .requiredForCloseout == true)
 	            )
 	        ] | length),
 	        closeoutCommands: {
@@ -1440,17 +1414,17 @@ grep -Fq 'not a passing production closeout signal' "$complete_failed_handoff_bu
   || fail "handoff bundle README did not describe blocked closeout rule"
 FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 "$HANDOFF_BUNDLE_CHECK_SCRIPT" "$complete_failed_handoff_bundle" >/dev/null
 FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 "$HANDOFF_BUNDLE_CHECK_SCRIPT" "$complete_failed_handoff_bundle.tar.gz" >/dev/null
-returned_empty_handoff_todo_before="$(sha256sum "$tmp_dir/TODO.returned-handoff-empty.fixture.md" | awk '{print $1}')"
+returned_empty_handoff_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-handoff-empty.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-handoff-empty.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-handoff-empty.fixture.md" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-handoff-empty-closeout-release" \
   "$RETURNED_HANDOFF_COMPLETE_SCRIPT" "$complete_failed_handoff_bundle" >/dev/null 2>&1; then
   fail "returned handoff bundle closeout accepted an empty returned-evidence slot"
 fi
-returned_empty_handoff_todo_after="$(sha256sum "$tmp_dir/TODO.returned-handoff-empty.fixture.md" | awk '{print $1}')"
-[[ "$returned_empty_handoff_todo_before" == "$returned_empty_handoff_todo_after" ]] \
-  || fail "returned handoff bundle closeout modified TODO after empty returned-evidence slot"
+returned_empty_handoff_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-handoff-empty.fixture.md" | awk '{print $1}')"
+[[ "$returned_empty_handoff_closeout_before" == "$returned_empty_handoff_closeout_after" ]] \
+  || fail "returned handoff bundle closeout modified closeout after empty returned-evidence slot"
 relocated_handoff_archive_dir="$tmp_dir/relocated-handoff-archive"
 mkdir -p "$relocated_handoff_archive_dir"
 cp "$complete_failed_handoff_bundle.tar.gz" "$relocated_handoff_archive_dir/handoff.tar.gz"
@@ -1680,17 +1654,17 @@ cp "$returned_ok_dir/production-firewall-policy.json" "$returned_missing_manifes
 cp "$returned_ok_dir/production-dns-readiness.json" "$returned_missing_manifest_dir/production-dns-readiness.json"
 cp "$returned_ok_dir/production-dns-delegation.json" "$returned_missing_manifest_dir/production-dns-delegation.json"
 cp "$returned_ok_dir/production-exposure-live.json" "$returned_missing_manifest_dir/production-exposure-live.json"
-returned_missing_manifest_todo_before="$(sha256sum "$tmp_dir/TODO.returned-missing-manifest.fixture.md" | awk '{print $1}')"
+returned_missing_manifest_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-missing-manifest.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-missing-manifest.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-missing-manifest.fixture.md" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-missing-manifest-closeout-release" \
   "$RETURNED_COMPLETE_SCRIPT" "$returned_missing_manifest_dir" >/dev/null 2>&1; then
   fail "returned evidence complete closeout accepted missing expected evidence manifest"
 fi
-returned_missing_manifest_todo_after="$(sha256sum "$tmp_dir/TODO.returned-missing-manifest.fixture.md" | awk '{print $1}')"
-[[ "$returned_missing_manifest_todo_before" == "$returned_missing_manifest_todo_after" ]] \
-  || fail "returned evidence complete closeout modified TODO after missing expected evidence manifest"
+returned_missing_manifest_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-missing-manifest.fixture.md" | awk '{print $1}')"
+[[ "$returned_missing_manifest_closeout_before" == "$returned_missing_manifest_closeout_after" ]] \
+  || fail "returned evidence complete closeout modified closeout after missing expected evidence manifest"
 tampered_returned_handoff_checklist_dir="$tmp_dir/returned-handoff-tampered-checklist"
 cp -a "$complete_failed_handoff_bundle" "$tampered_returned_handoff_checklist_dir"
 cp "$returned_ok_dir/production-firewall-policy.json" "$tampered_returned_handoff_checklist_dir/returned-evidence/production-firewall-policy.json"
@@ -1704,28 +1678,28 @@ jq 'del(.checklist[] | select(.source == "live-evidence"))' \
   cd "$tampered_returned_handoff_checklist_dir"
   find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
 )
-returned_handoff_tampered_checklist_todo_before="$(sha256sum "$tmp_dir/TODO.returned-handoff-tampered-checklist.fixture.md" | awk '{print $1}')"
+returned_handoff_tampered_checklist_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-handoff-tampered-checklist.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-handoff-tampered-checklist.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-handoff-tampered-checklist.fixture.md" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-handoff-tampered-checklist-release" \
   "$RETURNED_HANDOFF_COMPLETE_SCRIPT" "$tampered_returned_handoff_checklist_dir" >/dev/null 2>&1; then
   fail "returned handoff bundle closeout accepted tampered operator checklist"
 fi
-returned_handoff_tampered_checklist_todo_after="$(sha256sum "$tmp_dir/TODO.returned-handoff-tampered-checklist.fixture.md" | awk '{print $1}')"
-[[ "$returned_handoff_tampered_checklist_todo_before" == "$returned_handoff_tampered_checklist_todo_after" ]] \
-  || fail "returned handoff bundle closeout modified TODO after tampered operator checklist"
-returned_direct_parent_tampered_checklist_todo_before="$(sha256sum "$tmp_dir/TODO.returned-direct-parent-tampered-checklist.fixture.md" | awk '{print $1}')"
+returned_handoff_tampered_checklist_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-handoff-tampered-checklist.fixture.md" | awk '{print $1}')"
+[[ "$returned_handoff_tampered_checklist_closeout_before" == "$returned_handoff_tampered_checklist_closeout_after" ]] \
+  || fail "returned handoff bundle closeout modified closeout after tampered operator checklist"
+returned_direct_parent_tampered_checklist_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-direct-parent-tampered-checklist.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-direct-parent-tampered-checklist.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-direct-parent-tampered-checklist.fixture.md" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-direct-parent-tampered-checklist-release" \
   "$RETURNED_COMPLETE_SCRIPT" "$tampered_returned_handoff_checklist_dir/returned-evidence" >/dev/null 2>&1; then
   fail "returned evidence direct closeout accepted tampered parent handoff bundle"
 fi
-returned_direct_parent_tampered_checklist_todo_after="$(sha256sum "$tmp_dir/TODO.returned-direct-parent-tampered-checklist.fixture.md" | awk '{print $1}')"
-[[ "$returned_direct_parent_tampered_checklist_todo_before" == "$returned_direct_parent_tampered_checklist_todo_after" ]] \
-  || fail "returned evidence direct closeout modified TODO after tampered parent handoff bundle"
+returned_direct_parent_tampered_checklist_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-direct-parent-tampered-checklist.fixture.md" | awk '{print $1}')"
+[[ "$returned_direct_parent_tampered_checklist_closeout_before" == "$returned_direct_parent_tampered_checklist_closeout_after" ]] \
+  || fail "returned evidence direct closeout modified closeout after tampered parent handoff bundle"
 returned_handoff_dir="$tmp_dir/returned-handoff-dir"
 mkdir -p "$returned_handoff_dir/returned-evidence"
 cp "$returned_ok_dir/production-firewall-policy.json" "$returned_handoff_dir/returned-evidence/production-firewall-policy.json"
@@ -1735,13 +1709,10 @@ cp "$returned_ok_dir/production-exposure-live.json" "$returned_handoff_dir/retur
 cp "$returned_ok_dir/expected-evidence-manifest.json" "$returned_handoff_dir/returned-evidence/expected-evidence-manifest.json"
 FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-handoff-dir.fixture.md" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-handoff-dir-release" \
   "$RETURNED_HANDOFF_COMPLETE_SCRIPT" "$returned_handoff_dir" >/dev/null
-grep -q -- '- \[x\] `NB-P0-001`' "$tmp_dir/TODO.returned-handoff-dir.fixture.md" \
-  || fail "returned handoff directory closeout did not mark TODO complete"
-grep -q -- '生产可信闭环：`5/5`' "$tmp_dir/TODO.returned-handoff-dir.fixture.md" \
-  || fail "returned handoff directory closeout did not update progress index"
+jq -e '.status == "ok" and (.blockers | length) == 0' "$returned_handoff_dir/returned-evidence/production-exposure-status.json" >/dev/null \
+  || fail "returned handoff directory closeout did not preserve ok status"
 returned_handoff_tar_source="$tmp_dir/returned-handoff-tar-source"
 mkdir -p "$returned_handoff_tar_source/returned-evidence"
 cp "$returned_ok_dir/production-firewall-policy.json" "$returned_handoff_tar_source/returned-evidence/production-firewall-policy.json"
@@ -1757,13 +1728,10 @@ tar -czf "$returned_handoff_tar" -C "$(dirname "$returned_handoff_tar_source")" 
 )
 FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-handoff-tar.fixture.md" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-handoff-tar-release" \
   "$RETURNED_HANDOFF_COMPLETE_SCRIPT" "$returned_handoff_tar" >/dev/null
-grep -q -- '- \[x\] `NB-P0-001`' "$tmp_dir/TODO.returned-handoff-tar.fixture.md" \
-  || fail "returned handoff tarball closeout did not mark TODO complete"
-grep -q -- '生产可信闭环：`5/5`' "$tmp_dir/TODO.returned-handoff-tar.fixture.md" \
-  || fail "returned handoff tarball closeout did not update progress index"
+jq -e '.evidenceSummary.externalExposure.valid == true and .evidenceSummary.externalExposure.request.currentStatus == "ok"' "$tmp_dir/returned-handoff-tar-release/manifest.json" >/dev/null \
+  || fail "returned handoff tarball closeout did not write ok release manifest"
 returned_handoff_blocked_tar_source="$tmp_dir/returned-handoff-blocked-tar-source"
 mkdir -p "$returned_handoff_blocked_tar_source/returned-evidence"
 cp "$returned_ok_dir/production-firewall-policy.json" "$returned_handoff_blocked_tar_source/returned-evidence/production-firewall-policy.json"
@@ -1777,19 +1745,19 @@ tar -czf "$returned_handoff_blocked_tar" -C "$(dirname "$returned_handoff_blocke
   cd "$(dirname "$returned_handoff_blocked_tar")"
   sha256sum "$(basename "$returned_handoff_blocked_tar")" >"$(basename "$returned_handoff_blocked_tar").sha256"
 )
-returned_handoff_blocked_todo_before="$(sha256sum "$tmp_dir/TODO.returned-handoff-blocked-tar.fixture.md" | awk '{print $1}')"
+returned_handoff_blocked_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-handoff-blocked-tar.fixture.md" | awk '{print $1}')"
 returned_handoff_preserve_root="$tmp_dir/returned-handoff-preserved"
 if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-handoff-blocked-tar.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-handoff-blocked-tar.fixture.md" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-handoff-blocked-tar-release" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_HANDOFF_PRESERVE_ROOT="$returned_handoff_preserve_root" \
   "$RETURNED_HANDOFF_COMPLETE_SCRIPT" "$returned_handoff_blocked_tar" >/dev/null 2>&1; then
   fail "returned handoff tarball closeout accepted blocked returned evidence"
 fi
-returned_handoff_blocked_todo_after="$(sha256sum "$tmp_dir/TODO.returned-handoff-blocked-tar.fixture.md" | awk '{print $1}')"
-[[ "$returned_handoff_blocked_todo_before" == "$returned_handoff_blocked_todo_after" ]] \
-  || fail "returned handoff tarball closeout modified TODO after blocked returned evidence"
+returned_handoff_blocked_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-handoff-blocked-tar.fixture.md" | awk '{print $1}')"
+[[ "$returned_handoff_blocked_closeout_before" == "$returned_handoff_blocked_closeout_after" ]] \
+  || fail "returned handoff tarball closeout modified closeout after blocked returned evidence"
 mapfile -t preserved_handoff_dirs < <(find "$returned_handoff_preserve_root" -mindepth 1 -maxdepth 1 -type d | sort)
 (( ${#preserved_handoff_dirs[@]} == 1 )) \
   || fail "returned handoff tarball closeout did not preserve exactly one extracted evidence directory"
@@ -1804,19 +1772,19 @@ tar -czf "$returned_handoff_symlink_tar" -C "$(dirname "$returned_handoff_symlin
   cd "$(dirname "$returned_handoff_symlink_tar")"
   sha256sum "$(basename "$returned_handoff_symlink_tar")" >"$(basename "$returned_handoff_symlink_tar").sha256"
 )
-returned_handoff_symlink_todo_before="$(sha256sum "$tmp_dir/TODO.returned-handoff-symlink-tar.fixture.md" | awk '{print $1}')"
+returned_handoff_symlink_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-handoff-symlink-tar.fixture.md" | awk '{print $1}')"
 returned_handoff_symlink_preserve_root="$tmp_dir/returned-handoff-symlink-preserved"
 if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-handoff-symlink-tar.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-handoff-symlink-tar.fixture.md" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-handoff-symlink-tar-release" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_HANDOFF_PRESERVE_ROOT="$returned_handoff_symlink_preserve_root" \
   "$RETURNED_HANDOFF_COMPLETE_SCRIPT" "$returned_handoff_symlink_tar" >/dev/null 2>&1; then
   fail "returned handoff tarball closeout accepted symlinked returned-evidence"
 fi
-returned_handoff_symlink_todo_after="$(sha256sum "$tmp_dir/TODO.returned-handoff-symlink-tar.fixture.md" | awk '{print $1}')"
-[[ "$returned_handoff_symlink_todo_before" == "$returned_handoff_symlink_todo_after" ]] \
-  || fail "returned handoff tarball closeout modified TODO after symlinked returned-evidence"
+returned_handoff_symlink_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-handoff-symlink-tar.fixture.md" | awk '{print $1}')"
+[[ "$returned_handoff_symlink_closeout_before" == "$returned_handoff_symlink_closeout_after" ]] \
+  || fail "returned handoff tarball closeout modified closeout after symlinked returned-evidence"
 if [[ -d "$returned_handoff_symlink_preserve_root" ]] \
   && find "$returned_handoff_symlink_preserve_root" -mindepth 1 -print -quit | grep -q .; then
   fail "returned handoff tarball closeout extracted unsupported symlink archive member before failing"
@@ -1833,17 +1801,17 @@ tar -czf "$returned_handoff_path_traversal_tar" \
   cd "$(dirname "$returned_handoff_path_traversal_tar")"
   sha256sum "$(basename "$returned_handoff_path_traversal_tar")" >"$(basename "$returned_handoff_path_traversal_tar").sha256"
 )
-returned_handoff_path_traversal_todo_before="$(sha256sum "$tmp_dir/TODO.returned-handoff-path-traversal-tar.fixture.md" | awk '{print $1}')"
+returned_handoff_path_traversal_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-handoff-path-traversal-tar.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-handoff-path-traversal-tar.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-handoff-path-traversal-tar.fixture.md" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-handoff-path-traversal-release" \
   "$RETURNED_HANDOFF_COMPLETE_SCRIPT" "$returned_handoff_path_traversal_tar" >/dev/null 2>&1; then
   fail "returned handoff tarball closeout accepted archive path traversal member"
 fi
-returned_handoff_path_traversal_todo_after="$(sha256sum "$tmp_dir/TODO.returned-handoff-path-traversal-tar.fixture.md" | awk '{print $1}')"
-[[ "$returned_handoff_path_traversal_todo_before" == "$returned_handoff_path_traversal_todo_after" ]] \
-  || fail "returned handoff tarball closeout modified TODO after archive path traversal member"
+returned_handoff_path_traversal_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-handoff-path-traversal-tar.fixture.md" | awk '{print $1}')"
+[[ "$returned_handoff_path_traversal_closeout_before" == "$returned_handoff_path_traversal_closeout_after" ]] \
+  || fail "returned handoff tarball closeout modified closeout after archive path traversal member"
 returned_narrow_request_dir="$tmp_dir/returned-narrow-request"
 mkdir -p "$returned_narrow_request_dir"
 cp "$tmp_dir/firewall-ok.json" "$returned_narrow_request_dir/production-firewall-policy.json"
@@ -1863,17 +1831,17 @@ if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   "$RETURNED_EVIDENCE_SCRIPT" "$returned_narrow_request_dir" >/dev/null 2>&1; then
   fail "returned evidence verifier accepted a narrowed returned request scope"
 fi
-returned_narrow_todo_before="$(sha256sum "$tmp_dir/TODO.returned-narrow-request.fixture.md" | awk '{print $1}')"
+returned_narrow_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-narrow-request.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-narrow-request.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-narrow-request.fixture.md" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-narrow-request-closeout-release" \
   "$RETURNED_COMPLETE_SCRIPT" "$returned_narrow_request_dir" >/dev/null 2>&1; then
   fail "returned evidence complete closeout accepted a narrowed returned request scope"
 fi
-returned_narrow_todo_after="$(sha256sum "$tmp_dir/TODO.returned-narrow-request.fixture.md" | awk '{print $1}')"
-[[ "$returned_narrow_todo_before" == "$returned_narrow_todo_after" ]] \
-  || fail "returned evidence complete closeout modified TODO after narrowed returned request"
+returned_narrow_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-narrow-request.fixture.md" | awk '{print $1}')"
+[[ "$returned_narrow_closeout_before" == "$returned_narrow_closeout_after" ]] \
+  || fail "returned evidence complete closeout modified closeout after narrowed returned request"
 returned_narrow_manifest_dir="$tmp_dir/returned-narrow-manifest"
 mkdir -p "$returned_narrow_manifest_dir"
 cp "$tmp_dir/firewall-ok.json" "$returned_narrow_manifest_dir/production-firewall-policy.json"
@@ -1887,17 +1855,17 @@ if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   "$RETURNED_EVIDENCE_SCRIPT" "$returned_narrow_manifest_dir" >/dev/null 2>&1; then
   fail "returned evidence verifier accepted a narrowed expected evidence manifest"
 fi
-returned_narrow_manifest_todo_before="$(sha256sum "$tmp_dir/TODO.returned-narrow-manifest.fixture.md" | awk '{print $1}')"
+returned_narrow_manifest_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-narrow-manifest.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-narrow-manifest.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-narrow-manifest.fixture.md" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-narrow-manifest-closeout-release" \
   "$RETURNED_COMPLETE_SCRIPT" "$returned_narrow_manifest_dir" >/dev/null 2>&1; then
   fail "returned evidence complete closeout accepted a narrowed expected evidence manifest"
 fi
-	returned_narrow_manifest_todo_after="$(sha256sum "$tmp_dir/TODO.returned-narrow-manifest.fixture.md" | awk '{print $1}')"
-	[[ "$returned_narrow_manifest_todo_before" == "$returned_narrow_manifest_todo_after" ]] \
-	  || fail "returned evidence complete closeout modified TODO after narrowed expected evidence manifest"
+	returned_narrow_manifest_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-narrow-manifest.fixture.md" | awk '{print $1}')"
+	[[ "$returned_narrow_manifest_closeout_before" == "$returned_narrow_manifest_closeout_after" ]] \
+	  || fail "returned evidence complete closeout modified closeout after narrowed expected evidence manifest"
 	returned_unblock_plan_drift_dir="$tmp_dir/returned-unblock-plan-drift"
 	cp -a "$returned_ok_dir" "$returned_unblock_plan_drift_dir"
 	jq 'del(.unblockPlan[] | select(.source == "live-evidence"))' \
@@ -1909,17 +1877,17 @@ fi
 	  "$RETURNED_EVIDENCE_SCRIPT" "$returned_unblock_plan_drift_dir" >/dev/null 2>&1; then
 	  fail "returned evidence verifier accepted expected manifest unblockPlan drift"
 	fi
-	returned_unblock_plan_todo_before="$(sha256sum "$tmp_dir/TODO.returned-unblock-plan.fixture.md" | awk '{print $1}')"
+	returned_unblock_plan_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-unblock-plan.fixture.md" | awk '{print $1}')"
 	if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
 	  FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-	  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-unblock-plan.fixture.md" \
+	  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-unblock-plan.fixture.md" \
 	  FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-unblock-plan-closeout-release" \
 	  "$RETURNED_COMPLETE_SCRIPT" "$returned_unblock_plan_drift_dir" >/dev/null 2>&1; then
 	  fail "returned evidence complete closeout accepted expected manifest unblockPlan drift"
 	fi
-	returned_unblock_plan_todo_after="$(sha256sum "$tmp_dir/TODO.returned-unblock-plan.fixture.md" | awk '{print $1}')"
-	[[ "$returned_unblock_plan_todo_before" == "$returned_unblock_plan_todo_after" ]] \
-	  || fail "returned evidence complete closeout modified TODO after expected manifest unblockPlan drift"
+	returned_unblock_plan_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-unblock-plan.fixture.md" | awk '{print $1}')"
+	[[ "$returned_unblock_plan_closeout_before" == "$returned_unblock_plan_closeout_after" ]] \
+	  || fail "returned evidence complete closeout modified closeout after expected manifest unblockPlan drift"
 	returned_unblock_plan_file_drift_dir="$tmp_dir/returned-unblock-plan-file-drift"
 	cp -a "$returned_ok_dir" "$returned_unblock_plan_file_drift_dir"
 	jq '(.unblockPlan[] | select(.source == "live-evidence") | .evidenceFiles) = ["wrong-production-exposure-live.json"]' \
@@ -1931,17 +1899,17 @@ fi
 	  "$RETURNED_EVIDENCE_SCRIPT" "$returned_unblock_plan_file_drift_dir" >/dev/null 2>&1; then
 	  fail "returned evidence verifier accepted expected manifest unblockPlan evidenceFiles drift"
 	fi
-	returned_unblock_plan_file_todo_before="$(sha256sum "$tmp_dir/TODO.returned-unblock-plan.fixture.md" | awk '{print $1}')"
+	returned_unblock_plan_file_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-unblock-plan.fixture.md" | awk '{print $1}')"
 	if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
 	  FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-	  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-unblock-plan.fixture.md" \
+	  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-unblock-plan.fixture.md" \
 	  FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-unblock-plan-file-closeout-release" \
 	  "$RETURNED_COMPLETE_SCRIPT" "$returned_unblock_plan_file_drift_dir" >/dev/null 2>&1; then
 	  fail "returned evidence complete closeout accepted expected manifest unblockPlan evidenceFiles drift"
 	fi
-	returned_unblock_plan_file_todo_after="$(sha256sum "$tmp_dir/TODO.returned-unblock-plan.fixture.md" | awk '{print $1}')"
-	[[ "$returned_unblock_plan_file_todo_before" == "$returned_unblock_plan_file_todo_after" ]] \
-	  || fail "returned evidence complete closeout modified TODO after expected manifest unblockPlan evidenceFiles drift"
+	returned_unblock_plan_file_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-unblock-plan.fixture.md" | awk '{print $1}')"
+	[[ "$returned_unblock_plan_file_closeout_before" == "$returned_unblock_plan_file_closeout_after" ]] \
+	  || fail "returned evidence complete closeout modified closeout after expected manifest unblockPlan evidenceFiles drift"
 	returned_unblock_plan_command_drift_dir="$tmp_dir/returned-unblock-plan-command-drift"
 	cp -a "$returned_ok_dir" "$returned_unblock_plan_command_drift_dir"
 	jq '(.unblockPlan[] | select(.source == "firewall-policy") | .commands) = ["tools/security/check-production-exposure-live.sh"]' \
@@ -1953,17 +1921,17 @@ fi
 	  "$RETURNED_EVIDENCE_SCRIPT" "$returned_unblock_plan_command_drift_dir" >/dev/null 2>&1; then
 	  fail "returned evidence verifier accepted expected manifest unblockPlan command drift"
 	fi
-	returned_unblock_plan_command_todo_before="$(sha256sum "$tmp_dir/TODO.returned-unblock-plan.fixture.md" | awk '{print $1}')"
+	returned_unblock_plan_command_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-unblock-plan.fixture.md" | awk '{print $1}')"
 	if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
 	  FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-	  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-unblock-plan.fixture.md" \
+	  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-unblock-plan.fixture.md" \
 	  FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-unblock-plan-command-closeout-release" \
 	  "$RETURNED_COMPLETE_SCRIPT" "$returned_unblock_plan_command_drift_dir" >/dev/null 2>&1; then
 	  fail "returned evidence complete closeout accepted expected manifest unblockPlan command drift"
 	fi
-	returned_unblock_plan_command_todo_after="$(sha256sum "$tmp_dir/TODO.returned-unblock-plan.fixture.md" | awk '{print $1}')"
-	[[ "$returned_unblock_plan_command_todo_before" == "$returned_unblock_plan_command_todo_after" ]] \
-	  || fail "returned evidence complete closeout modified TODO after expected manifest unblockPlan command drift"
+	returned_unblock_plan_command_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-unblock-plan.fixture.md" | awk '{print $1}')"
+	[[ "$returned_unblock_plan_command_closeout_before" == "$returned_unblock_plan_command_closeout_after" ]] \
+	  || fail "returned evidence complete closeout modified closeout after expected manifest unblockPlan command drift"
 	returned_manifest_source_drift_dir="$tmp_dir/returned-manifest-source-drift"
 	cp -a "$returned_ok_dir" "$returned_manifest_source_drift_dir"
 	jq 'del(.sourceRequestSha256)' \
@@ -1975,17 +1943,17 @@ fi
 	  "$RETURNED_EVIDENCE_SCRIPT" "$returned_manifest_source_drift_dir" >/dev/null 2>&1; then
 	  fail "returned evidence verifier accepted expected manifest source metadata drift"
 	fi
-	returned_manifest_source_todo_before="$(sha256sum "$tmp_dir/TODO.returned-unblock-plan.fixture.md" | awk '{print $1}')"
+	returned_manifest_source_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-unblock-plan.fixture.md" | awk '{print $1}')"
 	if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
 	  FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-	  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-unblock-plan.fixture.md" \
+	  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-unblock-plan.fixture.md" \
 	  FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-manifest-source-closeout-release" \
 	  "$RETURNED_COMPLETE_SCRIPT" "$returned_manifest_source_drift_dir" >/dev/null 2>&1; then
 	  fail "returned evidence complete closeout accepted expected manifest source metadata drift"
 	fi
-	returned_manifest_source_todo_after="$(sha256sum "$tmp_dir/TODO.returned-unblock-plan.fixture.md" | awk '{print $1}')"
-	[[ "$returned_manifest_source_todo_before" == "$returned_manifest_source_todo_after" ]] \
-	  || fail "returned evidence complete closeout modified TODO after expected manifest source metadata drift"
+	returned_manifest_source_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-unblock-plan.fixture.md" | awk '{print $1}')"
+	[[ "$returned_manifest_source_closeout_before" == "$returned_manifest_source_closeout_after" ]] \
+	  || fail "returned evidence complete closeout modified closeout after expected manifest source metadata drift"
 	returned_blocked_dir="$tmp_dir/returned-blocked"
 	mkdir -p "$returned_blocked_dir"
 cp "$tmp_dir/firewall-ok.json" "$returned_blocked_dir/production-firewall-policy.json"
@@ -2004,25 +1972,21 @@ jq -e '.evidenceSummary.externalExposure.valid == false and .evidenceSummary.ext
   || fail "returned evidence verifier did not preserve blocked manifest"
 FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-complete.fixture.md" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-complete-release" \
   "$RETURNED_COMPLETE_SCRIPT" "$returned_ok_dir" >/dev/null
-if grep -Eq '^\- \[ \]' "$tmp_dir/TODO.returned-complete.fixture.md"; then
-  fail "returned evidence complete closeout left unchecked TODO items after valid returned evidence"
-fi
-grep -Fq -- '- 生产可信闭环：`5/5`' "$tmp_dir/TODO.returned-complete.fixture.md" \
-  || fail "returned evidence complete closeout did not update progress index"
-returned_blocked_todo_before="$(sha256sum "$tmp_dir/TODO.returned-blocked.fixture.md" | awk '{print $1}')"
+jq -e '.status == "ok" and (.blockers | length) == 0' "$returned_ok_dir/production-exposure-status.json" >/dev/null \
+  || fail "returned evidence complete closeout did not preserve ok status"
+returned_blocked_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-blocked.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.returned-blocked.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.returned-blocked.fixture.md" \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-blocked-closeout-release" \
   "$RETURNED_COMPLETE_SCRIPT" "$returned_blocked_dir" >/dev/null 2>&1; then
   fail "returned evidence complete closeout accepted blocked returned evidence"
 fi
-returned_blocked_todo_after="$(sha256sum "$tmp_dir/TODO.returned-blocked.fixture.md" | awk '{print $1}')"
-[[ "$returned_blocked_todo_before" == "$returned_blocked_todo_after" ]] \
-  || fail "returned evidence complete closeout modified TODO after blocked returned evidence"
+returned_blocked_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-blocked.fixture.md" | awk '{print $1}')"
+[[ "$returned_blocked_closeout_before" == "$returned_blocked_closeout_after" ]] \
+  || fail "returned evidence complete closeout modified closeout after blocked returned evidence"
 complete_failed_request_digest_mismatch="$tmp_dir/complete-failed-request-digest-mismatch.json"
 jq '.artifactDigests.productionExposureRequest.value = "0000000000000000000000000000000000000000000000000000000000000000"' "$complete_failed_manifest" >"$complete_failed_request_digest_mismatch"
 	if FSUSBLOG_PRODUCTION_EXPOSURE_REQUEST="$complete_failed_request" \
@@ -2177,7 +2141,7 @@ fi
 jq -e '.status == "blocked" and any(.blockers[]?; .source == "live-evidence")' "$complete_failed_status" >/dev/null \
   || fail "complete closeout failure status did not record live-evidence blocker"
 
-complete_refresh_before="$(sha256sum "$tmp_dir/TODO.complete-refresh-after-delegation-failure.fixture.md" | awk '{print $1}')"
+complete_refresh_before="$(sha256sum "$tmp_dir/closeout.complete-refresh-after-delegation-failure.fixture.md" | awk '{print $1}')"
 complete_refresh_status="$tmp_dir/complete-refresh-after-delegation-failure-status.json"
 complete_refresh_readiness="$tmp_dir/complete-refresh-after-delegation-failure-readiness.json"
 complete_refresh_delegation="$tmp_dir/complete-refresh-after-delegation-failure-delegation.json"
@@ -2194,12 +2158,12 @@ if FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
   FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$complete_refresh_status" \
   FSUSBLOG_LIVE_TARGETS=fsus.blog=127.0.0.1,www.fsus.blog=127.0.0.1 \
   FSUSBLOG_LIVE_CONNECT_TIMEOUT=1 \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.complete-refresh-after-delegation-failure.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.complete-refresh-after-delegation-failure.fixture.md" \
   "$COMPLETE_SCRIPT" >/dev/null 2>&1; then
   fail "complete closeout unexpectedly accepted failed DNS delegation while refreshing later evidence"
 fi
-complete_refresh_after="$(sha256sum "$tmp_dir/TODO.complete-refresh-after-delegation-failure.fixture.md" | awk '{print $1}')"
-[[ "$complete_refresh_before" == "$complete_refresh_after" ]] || fail "complete closeout modified TODO fixture while refreshing failed evidence"
+complete_refresh_after="$(sha256sum "$tmp_dir/closeout.complete-refresh-after-delegation-failure.fixture.md" | awk '{print $1}')"
+[[ "$complete_refresh_before" == "$complete_refresh_after" ]] || fail "complete closeout modified closeout fixture while refreshing failed evidence"
 jq -e '.requiredHosts == "fsus.blog www.fsus.blog" and any(.results[]?; .check == "dns" and .status == "ok")' "$complete_refresh_readiness" >/dev/null \
   || fail "complete closeout did not refresh DNS readiness after DNS delegation failure"
 jq -e '.requiredHosts == "fsus.blog www.fsus.blog" and any(.results[]?; .check == "tcp/80")' "$complete_refresh_live" >/dev/null \
@@ -2207,7 +2171,7 @@ jq -e '.requiredHosts == "fsus.blog www.fsus.blog" and any(.results[]?; .check =
 jq -e '.status == "blocked" and any(.blockers[]?; .source == "dns-delegation") and any(.blockers[]?; .source == "live-evidence")' "$complete_refresh_status" >/dev/null \
   || fail "complete closeout refreshed status did not include DNS delegation and live blockers"
 
-complete_missing_delegation_before="$(sha256sum "$tmp_dir/TODO.complete-missing-delegation.fixture.md" | awk '{print $1}')"
+complete_missing_delegation_before="$(sha256sum "$tmp_dir/closeout.complete-missing-delegation.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
   FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$tmp_dir/firewall-ok.json" \
@@ -2215,14 +2179,14 @@ if FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
   FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE="$tmp_dir/ok.json" \
   FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/dns-readiness-ok.json" \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/missing-dns-delegation.json" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.complete-missing-delegation.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.complete-missing-delegation.fixture.md" \
   "$COMPLETE_SCRIPT" >/dev/null 2>&1; then
   fail "complete closeout unexpectedly accepted missing DNS delegation evidence"
 fi
-complete_missing_delegation_after="$(sha256sum "$tmp_dir/TODO.complete-missing-delegation.fixture.md" | awk '{print $1}')"
-[[ "$complete_missing_delegation_before" == "$complete_missing_delegation_after" ]] || fail "complete closeout modified TODO fixture after missing DNS delegation evidence"
+complete_missing_delegation_after="$(sha256sum "$tmp_dir/closeout.complete-missing-delegation.fixture.md" | awk '{print $1}')"
+[[ "$complete_missing_delegation_before" == "$complete_missing_delegation_after" ]] || fail "complete closeout modified closeout fixture after missing DNS delegation evidence"
 
-complete_missing_readiness_before="$(sha256sum "$tmp_dir/TODO.complete-missing-readiness.fixture.md" | awk '{print $1}')"
+complete_missing_readiness_before="$(sha256sum "$tmp_dir/closeout.complete-missing-readiness.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
   FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$tmp_dir/firewall-ok.json" \
@@ -2230,12 +2194,12 @@ if FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
   FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE="$tmp_dir/ok.json" \
   FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/missing-dns-readiness.json" \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/dns-delegation-ok.json" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.complete-missing-readiness.fixture.md" \
+  FSUSBLOG_CLOSEOUT_FIXTURE_FILE="$tmp_dir/closeout.complete-missing-readiness.fixture.md" \
   "$COMPLETE_SCRIPT" >/dev/null 2>&1; then
   fail "complete closeout unexpectedly accepted missing DNS readiness evidence"
 fi
-complete_missing_readiness_after="$(sha256sum "$tmp_dir/TODO.complete-missing-readiness.fixture.md" | awk '{print $1}')"
-[[ "$complete_missing_readiness_before" == "$complete_missing_readiness_after" ]] || fail "complete closeout modified TODO fixture after missing DNS readiness evidence"
+complete_missing_readiness_after="$(sha256sum "$tmp_dir/closeout.complete-missing-readiness.fixture.md" | awk '{print $1}')"
+[[ "$complete_missing_readiness_before" == "$complete_missing_readiness_after" ]] || fail "complete closeout modified closeout fixture after missing DNS readiness evidence"
 
 FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
   FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
@@ -2244,12 +2208,11 @@ FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
   FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE="$tmp_dir/ok.json" \
   FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/dns-readiness-ok.json" \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/dns-delegation-ok.json" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.complete.fixture.md" \
+  FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$tmp_dir/complete-ok-status.json" \
   "$COMPLETE_SCRIPT" >/dev/null
 
-if grep -Eq '^\- \[ \]' "$tmp_dir/TODO.complete.fixture.md"; then
-  fail "complete closeout left unchecked TODO items after valid evidence"
-fi
+jq -e '.status == "ok" and (.blockers | length) == 0' "$tmp_dir/complete-ok-status.json" >/dev/null \
+  || fail "complete closeout did not write ok status after valid evidence"
 
 FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
   FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
@@ -2260,12 +2223,11 @@ FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
   FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE="$tmp_dir/ok.json" \
   FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/dns-readiness-ok.json" \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/dns-delegation-ok.json" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.complete-cloud.fixture.md" \
+  FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$tmp_dir/complete-cloud-status.json" \
   "$COMPLETE_SCRIPT" >/dev/null
 
-if grep -Eq '^\- \[ \]' "$tmp_dir/TODO.complete-cloud.fixture.md"; then
-  fail "complete closeout with cloud firewall source left unchecked TODO items"
-fi
+jq -e '.status == "ok" and (.blockers | length) == 0' "$tmp_dir/complete-cloud-status.json" >/dev/null \
+  || fail "complete closeout with cloud firewall source did not write ok status"
 
 FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
   FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
@@ -2277,11 +2239,10 @@ FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
   FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE="$tmp_dir/ok.json" \
   FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/dns-readiness-ok.json" \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/dns-delegation-ok.json" \
-  FSUSBLOG_TODO_FILE="$tmp_dir/TODO.complete-ufw.fixture.md" \
+  FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$tmp_dir/complete-ufw-status.json" \
   "$COMPLETE_SCRIPT" >/dev/null
 
-if grep -Eq '^\- \[ \]' "$tmp_dir/TODO.complete-ufw.fixture.md"; then
-  fail "complete closeout with host firewall collector left unchecked TODO items"
-fi
+jq -e '.status == "ok" and (.blockers | length) == 0' "$tmp_dir/complete-ufw-status.json" >/dev/null \
+  || fail "complete closeout with host firewall collector did not write ok status"
 
 printf '[production-exposure-tools-test] ok\n'

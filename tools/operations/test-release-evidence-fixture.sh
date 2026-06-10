@@ -110,7 +110,7 @@ jq -n \
     {
       name: "complete-closeout",
       command: "tools/security/complete-production-exposure-closeout.sh",
-      closesTodoWhenPassing: true
+      requiredForCloseout: true
     },
     {
       name: "verify-returned-evidence",
@@ -120,12 +120,12 @@ jq -n \
     {
       name: "complete-returned-evidence",
       command: "tools/security/complete-production-exposure-from-returned-evidence.sh <returned-evidence-dir>",
-      closesTodoWhenPassing: true
+      requiredForCloseout: true
     },
     {
       name: "complete-returned-handoff",
       command: "tools/security/complete-production-exposure-from-returned-handoff-bundle.sh <handoff-dir-or-tar.gz>",
-      closesTodoWhenPassing: true
+      requiredForCloseout: true
     },
     {
       name: "release-evidence",

@@ -3,7 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RETURNED_DIR="${1:-${FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_DIR:-}}"
-TODO_FILE="${FSUSBLOG_TODO_FILE:-$ROOT_DIR/TODO.md}"
 
 fail() {
   printf '[production-exposure-returned-closeout] failed\n' >&2
@@ -37,16 +36,8 @@ export FSUSBLOG_DNS_DELEGATION_EVIDENCE="$RETURNED_DIR/production-dns-delegation
 export FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE="$RETURNED_DIR/production-exposure-live.json"
 export FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$RETURNED_DIR/production-exposure-status.json"
 export FSUSBLOG_PRODUCTION_EXPOSURE_REQUEST="$RETURNED_DIR/production-exposure-evidence-request.json"
-export FSUSBLOG_TODO_FILE="$TODO_FILE"
 
 "$ROOT_DIR/tools/security/verify-production-exposure-returned-evidence.sh" "$RETURNED_DIR" >/dev/null
-"$ROOT_DIR/tools/security/close-production-exposure-todo.sh" "$FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE" >/dev/null
-
-if rg -n '^\- \[ \]' "$TODO_FILE" >/dev/null; then
-  printf '[production-exposure-returned-closeout] failed\n' >&2
-  printf -- '- TODO.md still contains unchecked items after returned evidence closeout\n' >&2
-  rg -n '^\- \[ \]' "$TODO_FILE" >&2
-  exit 1
-fi
+"$ROOT_DIR/tools/security/verify-production-exposure-closeout.sh" "$FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE" >/dev/null
 
 printf '[production-exposure-returned-closeout] ok\n'

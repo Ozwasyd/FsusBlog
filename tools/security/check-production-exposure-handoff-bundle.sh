@@ -277,10 +277,10 @@ if (( ${#failures[@]} == 0 )); then
               and .requiredBeforeReturnedCloseout == true)
             or (.name == "complete-returned-evidence"
               and .command == "tools/security/complete-production-exposure-from-returned-evidence.sh <returned-evidence-dir>"
-              and .closesTodoWhenPassing == true)
+              and .requiredForCloseout == true)
             or (.name == "complete-returned-handoff"
               and .command == "tools/security/complete-production-exposure-from-returned-handoff-bundle.sh <handoff-dir-or-tar.gz>"
-              and .closesTodoWhenPassing == true)
+              and .requiredForCloseout == true)
           )
       ] | length;
     .artifacts.productionExposureRequest == "production-exposure-evidence-request.json"

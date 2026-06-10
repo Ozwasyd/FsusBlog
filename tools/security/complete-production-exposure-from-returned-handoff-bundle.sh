@@ -3,7 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 INPUT_PATH="${1:-${FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_HANDOFF:-}}"
-TODO_FILE="${FSUSBLOG_TODO_FILE:-$ROOT_DIR/TODO.md}"
 PRESERVE_ROOT="${FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_HANDOFF_PRESERVE_ROOT:-$ROOT_DIR/.tmp/security/production-exposure-returned-handoff}"
 WORK_DIR=""
 INPUT_DIR=""
@@ -147,8 +146,7 @@ fi
 [[ -f "$RETURNED_DIR/expected-evidence-manifest.json" ]] || fail "returned evidence is missing expected-evidence-manifest.json: $RETURNED_DIR"
 
 closeout_rc=0
-FSUSBLOG_TODO_FILE="$TODO_FILE" \
-  "$ROOT_DIR/tools/security/complete-production-exposure-from-returned-evidence.sh" "$RETURNED_DIR" >/dev/null \
+"$ROOT_DIR/tools/security/complete-production-exposure-from-returned-evidence.sh" "$RETURNED_DIR" >/dev/null \
   || closeout_rc=$?
 
 if (( closeout_rc != 0 )); then

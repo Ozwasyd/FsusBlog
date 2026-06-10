@@ -87,7 +87,7 @@ jq -n \
       verificationCommands: ($requestData.verificationCommands // []),
       handoffChecks: ($requestData.handoffChecks // []),
       nextActions: ($requestData.nextActions // []),
-      closeoutRule: ($requestData.closeoutRule // "TODO may be checked only after complete closeout succeeds and statusReport.status is ok")
+      closeoutRule: ($requestData.closeoutRule // "Production exposure closeout is complete only after complete closeout succeeds and statusReport.status is ok")
     }
 ' >"$OUT_DIR/handoff-summary.json"
 
@@ -174,7 +174,7 @@ jq -n \
       verifyReturnedEvidenceCommand: ($requestData.returnedEvidenceVerifierCommand // "tools/security/verify-production-exposure-returned-evidence.sh <returned-evidence-dir>"),
       closeoutCommand: ($requestData.returnedEvidenceCloseoutCommand // "tools/security/complete-production-exposure-from-returned-evidence.sh <returned-evidence-dir>"),
       handoffCloseoutCommand: ($requestData.returnedHandoffCloseoutCommand // "tools/security/complete-production-exposure-from-returned-handoff-bundle.sh <handoff-dir-or-tar.gz>"),
-      closeoutRule: ($requestData.closeoutRule // "TODO may be checked only after complete closeout succeeds and statusReport.status is ok")
+      closeoutRule: ($requestData.closeoutRule // "Production exposure closeout is complete only after complete closeout succeeds and statusReport.status is ok")
     }
 ' >"$OUT_DIR/operator-checklist.json"
 
@@ -196,7 +196,7 @@ Validate the directory first:
 tools/security/verify-production-exposure-returned-evidence.sh <returned-evidence-dir>
 \`\`\`
 
-Only after that command reports \`ok\`, close the TODO item:
+Only after that command reports \`ok\`, complete the returned production exposure closeout:
 
 \`\`\`bash
 tools/security/complete-production-exposure-from-returned-evidence.sh <returned-evidence-dir>

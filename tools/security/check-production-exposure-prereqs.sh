@@ -21,7 +21,7 @@ required_scripts=(
   tools/security/verify-production-firewall-policy-evidence.sh
   tools/security/verify-production-exposure-evidence.sh
   tools/security/verify-production-exposure-returned-evidence.sh
-  tools/security/close-production-exposure-todo.sh
+  tools/security/verify-production-exposure-closeout.sh
   tools/security/complete-production-exposure-closeout.sh
   tools/security/complete-production-exposure-from-returned-evidence.sh
   tools/security/complete-production-exposure-from-returned-handoff-bundle.sh

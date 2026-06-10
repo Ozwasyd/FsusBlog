@@ -176,10 +176,10 @@ check_request_handoff_schema() {
   fi
 
   if ! jq -e '
-    any(.verificationCommands[]?; .name == "complete-closeout" and .command == "tools/security/complete-production-exposure-closeout.sh" and .closesTodoWhenPassing == true)
+    any(.verificationCommands[]?; .name == "complete-closeout" and .command == "tools/security/complete-production-exposure-closeout.sh" and .requiredForCloseout == true)
     and any(.verificationCommands[]?; .name == "verify-returned-evidence" and .command == "tools/security/verify-production-exposure-returned-evidence.sh <returned-evidence-dir>" and .requiredBeforeReturnedCloseout == true)
-    and any(.verificationCommands[]?; .name == "complete-returned-evidence" and .command == "tools/security/complete-production-exposure-from-returned-evidence.sh <returned-evidence-dir>" and .closesTodoWhenPassing == true)
-    and any(.verificationCommands[]?; .name == "complete-returned-handoff" and .command == "tools/security/complete-production-exposure-from-returned-handoff-bundle.sh <handoff-dir-or-tar.gz>" and .closesTodoWhenPassing == true)
+    and any(.verificationCommands[]?; .name == "complete-returned-evidence" and .command == "tools/security/complete-production-exposure-from-returned-evidence.sh <returned-evidence-dir>" and .requiredForCloseout == true)
+    and any(.verificationCommands[]?; .name == "complete-returned-handoff" and .command == "tools/security/complete-production-exposure-from-returned-handoff-bundle.sh <handoff-dir-or-tar.gz>" and .requiredForCloseout == true)
     and any(.verificationCommands[]?; .name == "release-evidence" and .command == "tools/operations/collect-release-evidence.sh" and .outputPattern == ".tmp/release-evidence/<timestamp>/manifest.json")
     and any(.verificationCommands[]?; .name == "handoff-check" and .command == "tools/security/check-production-exposure-handoff.sh <manifest.json>" and .requiredBeforeExternalHandoff == true)
     and any(.handoffChecks[]?; .id == "request-status-manifest-alignment" and .requiredBeforeExternalHandoff == true)
@@ -348,10 +348,10 @@ if [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" && -f "$REQUEST_FILE" ]]; then
               and .requiredBeforeReturnedCloseout == true)
             or (.name == "complete-returned-evidence"
               and .command == "tools/security/complete-production-exposure-from-returned-evidence.sh <returned-evidence-dir>"
-              and .closesTodoWhenPassing == true)
+              and .requiredForCloseout == true)
             or (.name == "complete-returned-handoff"
               and .command == "tools/security/complete-production-exposure-from-returned-handoff-bundle.sh <handoff-dir-or-tar.gz>"
-              and .closesTodoWhenPassing == true)
+              and .requiredForCloseout == true)
           )
       ] | length;
     .evidenceSummary.externalExposure.status == ($status[0].status // null)

@@ -1,4 +1,4 @@
-# Public SEO TODO
+# Public SEO Checklist
 
 - [x] 首访公共页允许服务端 AOT shell 先显示，再延迟接管 Vue SPA
 - [x] About 页纳入公开页范围

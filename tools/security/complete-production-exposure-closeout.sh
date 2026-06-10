@@ -8,7 +8,6 @@ DNS_READINESS_FILE="${FSUSBLOG_DNS_READINESS_EVIDENCE:-$ROOT_DIR/.tmp/security/p
 DNS_DELEGATION_FILE="${FSUSBLOG_DNS_DELEGATION_EVIDENCE:-$ROOT_DIR/.tmp/security/production-dns-delegation.json}"
 STATUS_FILE="${FSUSBLOG_PRODUCTION_EXPOSURE_STATUS:-$ROOT_DIR/.tmp/security/production-exposure-status.json}"
 REQUEST_FILE="${FSUSBLOG_PRODUCTION_EXPOSURE_REQUEST:-$ROOT_DIR/.tmp/security/production-exposure-evidence-request.json}"
-TODO_FILE="${FSUSBLOG_TODO_FILE:-$ROOT_DIR/TODO.md}"
 STATUS_REPORTED=0
 closeout_failures=()
 
@@ -18,7 +17,6 @@ export FSUSBLOG_DNS_READINESS_EVIDENCE="$DNS_READINESS_FILE"
 export FSUSBLOG_DNS_DELEGATION_EVIDENCE="$DNS_DELEGATION_FILE"
 export FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$STATUS_FILE"
 export FSUSBLOG_PRODUCTION_EXPOSURE_REQUEST="$REQUEST_FILE"
-export FSUSBLOG_TODO_FILE="$TODO_FILE"
 
 run_status_report() {
   set +e
@@ -95,13 +93,6 @@ if (( ${#closeout_failures[@]} > 0 )); then
   exit 1
 fi
 
-"$ROOT_DIR/tools/security/close-production-exposure-todo.sh" "$EVIDENCE_FILE"
-
-if rg -n '^\- \[ \]' "$TODO_FILE" >/dev/null; then
-  printf '[production-exposure-complete-closeout] failed\n' >&2
-  printf -- '- TODO.md still contains unchecked items after production exposure closeout\n' >&2
-  rg -n '^\- \[ \]' "$TODO_FILE" >&2
-  exit 1
-fi
+"$ROOT_DIR/tools/security/verify-production-exposure-closeout.sh" "$EVIDENCE_FILE" >/dev/null
 
 printf '[production-exposure-complete-closeout] ok\n'
