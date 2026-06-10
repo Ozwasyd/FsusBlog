@@ -47,6 +47,33 @@
 
       <section class="border-y border-[var(--fsusblog-panel-border)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
+          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">地区策略</div>
+        </div>
+        <div class="grid grid-cols-1 gap-px bg-[var(--fsusblog-panel-bg-soft)]">
+          <div class="bg-[var(--fsusblog-page-bg)] p-5">
+            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">提交地区</div>
+            <div class="mt-2 text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.regionSummary }}</div>
+            <div class="mt-2 text-[12px] font-bold text-[var(--fsusblog-text-muted)]">{{ item.regionConfidenceLabel }}</div>
+          </div>
+          <div class="bg-[var(--fsusblog-page-bg)] p-5">
+            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">屏蔽地区</div>
+            <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.blockedRegionLabel }}</div>
+          </div>
+          <div class="bg-[var(--fsusblog-page-bg)] p-5">
+            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略版本</div>
+            <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.regionPolicyLabel }}</div>
+          </div>
+          <div class="bg-[var(--fsusblog-page-bg)] p-5">
+            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">复核状态</div>
+            <div class="mt-2 text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.regionReviewLabel }}</div>
+            <div class="mt-2 text-[12px] font-bold text-[var(--fsusblog-text-muted)]">可通过：{{ item.regionCanApprove ? '是' : '否' }}</div>
+            <div class="mt-2 break-words text-[12px] text-[var(--fsusblog-text-muted)]">原因：{{ item.regionDecisionReason || '--' }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="border-y border-[var(--fsusblog-panel-border)]">
+        <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
           <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核历史</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
@@ -70,7 +97,7 @@
       <section>
         <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核操作</div>
         <div class="mt-4 flex flex-wrap gap-3">
-          <el-button :icon="Check" type="success" :loading="processing" @click="emit('apply', item, CommentModerationStatus.Approved)">通过</el-button>
+          <el-button :icon="Check" type="success" :disabled="!item.regionCanApprove" :loading="processing" @click="emit('apply', item, CommentModerationStatus.Approved)">通过</el-button>
           <el-button :icon="Close" type="danger" :loading="processing" @click="emit('apply', item, CommentModerationStatus.Rejected)">拒绝</el-button>
           <el-button :icon="Hide" :loading="processing" @click="emit('apply', item, CommentModerationStatus.Hidden)">隐藏</el-button>
         </div>

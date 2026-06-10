@@ -126,7 +126,15 @@ public sealed record class CommentModerationItemResponse(
     string? Reason,
     int? ModeratedByUserId,
     DateTime? ModeratedAt,
-    IReadOnlyList<string> HitReasons);
+    IReadOnlyList<string> HitReasons,
+    string? SubmitRegion,
+    double? SubmitRegionConfidence,
+    IReadOnlyList<string> BlockedRegions,
+    string? RegionPolicyVersion,
+    string? RegionDecisionReason,
+    bool RegionCanPublish,
+    bool RegionRequiresManualReview,
+    bool RegionHideUntilReviewed);
 
 public sealed record class CommentModerationQueueResponse(
     IReadOnlyList<CommentModerationItemResponse> Items,

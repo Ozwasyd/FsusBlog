@@ -15,6 +15,7 @@
       :filtered-total="filteredItems.length"
       :counters="counters"
       :hit-reason-options="hitReasonOptions"
+      :blocked-region-options="blockedRegionOptions"
       :active-filters="activeFilterChips"
       @refresh="refreshAndPrune"
       @search="refreshAndPrune"
@@ -25,6 +26,7 @@
       @update:article="filters.article = $event"
       @update:user="filters.user = $event"
       @update:hit-reason="filters.hitReason = $event"
+      @update:blocked-region="filters.blockedRegion = $event"
       @update:date-range="filters.dateRange = $event"
     />
 
@@ -80,6 +82,7 @@ const {
   filteredItems,
   counters,
   hitReasonOptions,
+  blockedRegionOptions,
   activeFilterChips,
   refreshQueue,
   setStatus,

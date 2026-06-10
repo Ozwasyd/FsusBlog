@@ -17,6 +17,7 @@ using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
@@ -36,6 +37,8 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             ICommentEndpointService commentService,
             IContentFilterService contentFilterService,
+            IClientRegionResolver regionResolver,
+            IRegionLegalModerationService regionLegalModerationService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -73,6 +76,22 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, validation.Message), aeds);
             }
 
+            ClientRegionResolution submitRegion = regionResolver.Resolve(httpContext);
+            RegionModerationDecision regionDecision = regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
+                content,
+                request.ArticleId,
+                userId,
+                submitRegion.Region,
+                submitRegion.Confidence,
+                submitRegion.Provider,
+                submitRegion.ClientIpHash,
+                httpContext.Request.Headers.UserAgent.ToString(),
+                DateTime.UtcNow));
+            if (!regionDecision.CanPublish)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, regionDecision.PublicReason), aeds);
+            }
+
             var dto = new CommentDto
             {
                 ArticleId = request.ArticleId,
@@ -80,7 +99,8 @@ public static partial class BinaryEndpoints
                 ParentId = request.ParentId,
                 RootId = request.RootId,
                 ReplyToCommentId = request.ReplyToCommentId,
-                ReplyToUserId = request.ReplyToUserId
+                ReplyToUserId = request.ReplyToUserId,
+                RegionDecision = regionDecision
             };
 
             bool success = await commentService.CreateCommentAsync(userId, dto);
@@ -96,6 +116,7 @@ public static partial class BinaryEndpoints
             int articleId,
             HttpContext httpContext,
             ICommentEndpointService commentService,
+            IClientRegionResolver regionResolver,
             IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
@@ -105,14 +126,15 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"), aeds);
             }
 
-            string identity = BuildCommentThreadFrameIdentity(articleId, bind.Request, previewLimit: 3);
+            string viewerRegion = regionResolver.Resolve(httpContext).Region;
+            string identity = BuildCommentThreadFrameIdentity(articleId, bind.Request, previewLimit: 3, viewerRegion);
             CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CommentCursorFrame, identity);
             if (frame.Hit && frame.Value.Length > 0)
             {
                 return BinaryResults.PreencodedFrame(frame.Value);
             }
 
-            var result = await commentService.GetCommentThreadsByCursorAsync(articleId, bind.Request);
+            var result = await commentService.GetCommentThreadsByCursorAsync(articleId, bind.Request, viewerRegion: viewerRegion);
             byte[] payload = PodBinaryCodec.EncodeCommentThreadCursor(result);
             byte[] encodedFrame = aeds.Encode(AedsFrameType.CommentArticleCursor, payload);
             await cache.SetRawAsync(CachePolicyId.CommentCursorFrame, identity, encodedFrame, TimeSpan.FromMinutes(5), httpContext.RequestAborted);
@@ -127,6 +149,7 @@ public static partial class BinaryEndpoints
             long rootId,
             HttpContext httpContext,
             ICommentEndpointService commentService,
+            IClientRegionResolver regionResolver,
             IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
@@ -136,14 +159,15 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"), aeds);
             }
 
-            string identity = BuildCommentReplyFrameIdentity(articleId, rootId, bind.Request);
+            string viewerRegion = regionResolver.Resolve(httpContext).Region;
+            string identity = BuildCommentReplyFrameIdentity(articleId, rootId, bind.Request, viewerRegion);
             CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CommentCursorFrame, identity);
             if (frame.Hit && frame.Value.Length > 0)
             {
                 return BinaryResults.PreencodedFrame(frame.Value);
             }
 
-            var result = await commentService.GetThreadRepliesByCursorAsync(articleId, rootId, bind.Request);
+            var result = await commentService.GetThreadRepliesByCursorAsync(articleId, rootId, bind.Request, viewerRegion);
             byte[] payload = PodBinaryCodec.EncodeCommentReplyCursor(rootId, result);
             byte[] encodedFrame = aeds.Encode(AedsFrameType.CommentThreadReplyCursor, payload);
             await cache.SetRawAsync(CachePolicyId.CommentCursorFrame, identity, encodedFrame, TimeSpan.FromMinutes(5), httpContext.RequestAborted);
@@ -214,12 +238,23 @@ public static partial class BinaryEndpoints
             && content.Length <= CommentLimits.ContentMaxChars
             && Encoding.UTF8.GetByteCount(content) <= CommentLimits.ContentMaxUtf8Bytes;
 
-    private static string BuildCommentThreadFrameIdentity(int articleId, CursorPageRequest<long> request, int previewLimit)
-        => $"article:{articleId}:roots:{request.Cursor?.ToString() ?? "0"}:{request.Limit}:{previewLimit}";
+    private static string BuildCommentThreadFrameIdentity(int articleId, CursorPageRequest<long> request, int previewLimit, string viewerRegion)
+        => $"article:{articleId}:roots:{request.Cursor?.ToString() ?? "0"}:{request.Limit}:{previewLimit}:region:{NormalizeCommentFrameRegion(viewerRegion)}";
 
-    private static string BuildCommentReplyFrameIdentity(int articleId, long rootId, CursorPageRequest<long> request)
-        => $"article:{articleId}:root:{rootId}:replies:{request.Cursor?.ToString() ?? "0"}:{request.Limit}";
+    private static string BuildCommentReplyFrameIdentity(int articleId, long rootId, CursorPageRequest<long> request, string viewerRegion)
+        => $"article:{articleId}:root:{rootId}:replies:{request.Cursor?.ToString() ?? "0"}:{request.Limit}:region:{NormalizeCommentFrameRegion(viewerRegion)}";
 
     private static string BuildUserCommentFrameIdentity(int userId, CursorPageRequest<long> request)
         => $"user:{userId}:comments:{request.Cursor?.ToString() ?? "0"}:{request.Limit}";
+
+    private static string NormalizeCommentFrameRegion(string? viewerRegion)
+    {
+        string value = (viewerRegion ?? RegionCodes.Unknown).Trim().ToUpperInvariant();
+        if (value.Length == 0)
+        {
+            return RegionCodes.Unknown;
+        }
+
+        return value.Replace(':', '_').Replace('/', '_');
+    }
 }

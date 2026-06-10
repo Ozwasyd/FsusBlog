@@ -36,9 +36,15 @@
                   {{ reason }}
                 </el-tag>
               </div>
+              <div class="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-[var(--fsusblog-text-muted)]">
+                <span>{{ (item as CommentModerationViewItem).regionSummary }}</span>
+                <span>{{ (item as CommentModerationViewItem).regionConfidenceLabel }}</span>
+                <span>屏蔽：{{ (item as CommentModerationViewItem).blockedRegionLabel }}</span>
+                <span>{{ (item as CommentModerationViewItem).regionReviewLabel }}</span>
+              </div>
               <div class="mt-4 flex flex-wrap items-center gap-2">
                 <el-button :icon="ViewIcon" size="small" @click="emit('detail', item as CommentModerationViewItem)">详情</el-button>
-                <el-button :icon="Check" size="small" type="success" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Approved)">通过</el-button>
+                <el-button :icon="Check" size="small" type="success" :disabled="!(item as CommentModerationViewItem).regionCanApprove" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Approved)">通过</el-button>
                 <el-button :icon="Close" size="small" type="danger" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Rejected)">拒绝</el-button>
                 <el-button :icon="Hide" size="small" :loading="processingId === (item as CommentModerationViewItem).id" @click="emit('apply', item as CommentModerationViewItem, CommentModerationStatus.Hidden)">隐藏</el-button>
               </div>
@@ -105,6 +111,17 @@
             </template>
           </el-table-column>
 
+          <el-table-column label="地区策略" min-width="210">
+            <template #default="{ row }: { row: CommentModerationViewItem }">
+              <div class="space-y-1.5 text-[11px] font-bold leading-relaxed text-[var(--fsusblog-text-muted)]">
+                <div>{{ row.regionSummary }}</div>
+                <div>{{ row.regionConfidenceLabel }}</div>
+                <div class="break-words">屏蔽：{{ row.blockedRegionLabel }}</div>
+                <div>{{ row.regionReviewLabel }}</div>
+              </div>
+            </template>
+          </el-table-column>
+
           <el-table-column label="状态" width="112" align="center">
             <template #default="{ row }: { row: CommentModerationViewItem }">
               <span class="inline-flex flex-col items-center gap-1">
@@ -124,7 +141,7 @@
                   </el-button>
                   <template #dropdown>
                     <el-dropdown-menu>
-                      <el-dropdown-item :icon="Check" @click="emit('apply', row, CommentModerationStatus.Approved)">通过</el-dropdown-item>
+                      <el-dropdown-item :icon="Check" :disabled="!row.regionCanApprove" @click="emit('apply', row, CommentModerationStatus.Approved)">通过</el-dropdown-item>
                       <el-dropdown-item :icon="Close" @click="emit('apply', row, CommentModerationStatus.Rejected)">拒绝</el-dropdown-item>
                       <el-dropdown-item :icon="Hide" @click="emit('apply', row, CommentModerationStatus.Hidden)">隐藏</el-dropdown-item>
                     </el-dropdown-menu>

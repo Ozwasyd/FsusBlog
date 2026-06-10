@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Moderation;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
@@ -22,7 +23,8 @@ public class CommentServiceValidationTests
             logger: NullLogger<CommentService>.Instance,
             messageService: Substitute.For<IMessageRealtimePublisher>(),
             messageCommandService: Substitute.For<IMessageCommandService>(),
-            cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>());
+            cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
+            regionLegalModerationService: new RegionLegalModerationService());
     }
 
     private static CursorPageRequest<long> MakeRequest(int limit = 10)

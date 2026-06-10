@@ -5,6 +5,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Distribution;
+using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Telemetry;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
@@ -25,6 +26,8 @@ internal static class RuntimeDomainServiceCollectionExtensions
     {
         services.AddScoped<ArticleService>();
         services.AddScoped<CommentService>();
+        services.AddScoped<IRegionLegalModerationService, RegionLegalModerationService>();
+        services.AddScoped<IClientRegionResolver, ClientRegionResolver>();
         services.AddScoped<ArticleSearchProjector>();
         services.AddScoped<ArticleRealtimeNotifier>();
         services.AddScoped<ArticleAssetCleanupPolicy>();

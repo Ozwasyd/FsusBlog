@@ -42,6 +42,7 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260518-post-authoring-workspace-tables", migrationIds);
         Assert.Contains("20260518-post-authoring-draft-lifecycle", migrationIds);
         Assert.Contains("20260518-pre-comment-moderation", migrationIds);
+        Assert.Contains("20260610-post-comment-region-compliance", migrationIds);
         Assert.Contains("20260603-post-comment-public-hot-path-indexes", migrationIds);
     }
 }

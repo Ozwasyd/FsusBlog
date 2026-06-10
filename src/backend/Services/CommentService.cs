@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Text;
+using System.Text.Json;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -7,7 +8,9 @@ using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Services.Moderation;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services;
@@ -17,7 +20,8 @@ public partial class CommentService(
     ILogger<CommentService> logger,
     IMessageRealtimePublisher messageService,
     IMessageCommandService messageCommandService,
-    ICacheInvalidationDispatcher cacheInvalidationDispatcher) : ICommentService, ICommentEndpointService
+    ICacheInvalidationDispatcher cacheInvalidationDispatcher,
+    IRegionLegalModerationService regionLegalModerationService) : ICommentService, ICommentEndpointService
 {
     private const int DefaultReplyPreviewLimit = 3;
     private const string DeletedPlaceholder = "该回复已删除";
@@ -154,6 +158,21 @@ public partial class CommentService(
             depth = Math.Max(1, parent.Depth + 1);
         }
 
+        RegionModerationDecision regionDecision = dto.RegionDecision ?? regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
+            normalizedContent,
+            dto.ArticleId,
+            userId,
+            RegionCodes.Unknown,
+            0d,
+            "fallback",
+            null,
+            null,
+            DateTime.UtcNow));
+        if (!regionDecision.CanPublish)
+        {
+            return false;
+        }
+
         var comment = new Comment
         {
             ArticleId = dto.ArticleId,
@@ -169,12 +188,25 @@ public partial class CommentService(
             DeleteReason = null,
             DeleteTime = null,
             ModerationStatus = CommentModerationStatus.Pending,
-            ModerationReason = "pending_review"
+            ModerationReason = regionDecision.HideUntilReviewed
+                ? "region_policy:manual_review_no_public_display"
+                : "pending_review"
         };
 
-        long generatedId = await db.Insertable(comment).ExecuteReturnSnowflakeIdAsync();
-        if (generatedId <= 0)
+        long generatedId = 0;
+        var insertResult = await db.Ado.UseTranAsync(async () =>
         {
+            generatedId = await db.Insertable(comment).ExecuteReturnSnowflakeIdAsync();
+            if (generatedId <= 0)
+            {
+                throw new InvalidOperationException("Failed to create comment id.");
+            }
+
+            await db.Insertable(BuildRegionCompliance(generatedId, regionDecision)).ExecuteCommandAsync();
+        });
+        if (!insertResult.IsSuccess || generatedId <= 0)
+        {
+            logger.LogWarning(insertResult.ErrorException, "评论创建或地区合规记录写入失败 | Article: {ArticleId} | User: {UserId}", dto.ArticleId, userId);
             return false;
         }
 
@@ -200,7 +232,8 @@ public partial class CommentService(
     public async Task<CursorResponse<CommentThreadItemDto>> GetCommentThreadsByCursorAsync(
         int articleId,
         CursorPageRequest<long> request,
-        int previewLimit = DefaultReplyPreviewLimit)
+        int previewLimit = DefaultReplyPreviewLimit,
+        string viewerRegion = RegionCodes.Global)
     {
         if (articleId <= 0)
         {
@@ -209,10 +242,20 @@ public partial class CommentService(
 
         int normalizedPreviewLimit = Math.Clamp(previewLimit, 1, 10);
 
+        string normalizedViewerRegion = regionLegalModerationService.NormalizeRegion(viewerRegion);
+        string blockedToken = RegionLegalModerationService.SerializeRegions([normalizedViewerRegion]);
+        bool conservativeUnknownViewer = normalizedViewerRegion == RegionCodes.Unknown;
+
         var roots = await db.Queryable<Comment, User>((c, u) => c.UserId == u.Id)
             .Where((c, u) => c.ArticleId == articleId && c.ParentId == null)
             .Where((c, u) => c.ModerationStatus == CommentModerationStatus.Approved)
             .Where((c, u) => !c.IsDeleted)
+            .Where((c, u) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
+                .Where(rc => rc.CommentId == c.Id
+                    && (conservativeUnknownViewer
+                        ? rc.BlockedRegions != string.Empty
+                        : rc.BlockedRegions.Contains(blockedToken)))
+                .Any())
             .WhereIF(request.Cursor.HasValue, (c, u) => c.Id < request.Cursor!.Value)
             .OrderByDescending((c, u) => c.Id)
             .Take(request.Limit + 1)
@@ -235,7 +278,7 @@ public partial class CommentService(
             rootIds[i] = roots[i].Id;
         }
 
-        Dictionary<long, List<CommentReplyPreviewItemDto>> previewMap = await QueryThreadRepliesPreviewMapAsync(articleId, rootIds, normalizedPreviewLimit + 1);
+        Dictionary<long, List<CommentReplyPreviewItemDto>> previewMap = await QueryThreadRepliesPreviewMapAsync(articleId, rootIds, normalizedPreviewLimit + 1, normalizedViewerRegion);
 
         return CursorPagination.SliceMapToResponse(roots, request.Limit, root => root.Id, root =>
         {
@@ -260,15 +303,29 @@ public partial class CommentService(
         }, CursorCodec);
     }
 
-    public async Task<CursorResponse<CommentReplyItemDto>> GetThreadRepliesByCursorAsync(int articleId, long rootId, CursorPageRequest<long> request)
+    public async Task<CursorResponse<CommentReplyItemDto>> GetThreadRepliesByCursorAsync(
+        int articleId,
+        long rootId,
+        CursorPageRequest<long> request,
+        string viewerRegion = RegionCodes.Global)
     {
         if (articleId <= 0 || rootId <= 0)
         {
             return new CursorResponse<CommentReplyItemDto> { Data = [], NextCursor = null, HasMore = false };
         }
 
+        string normalizedViewerRegion = regionLegalModerationService.NormalizeRegion(viewerRegion);
+        string blockedToken = RegionLegalModerationService.SerializeRegions([normalizedViewerRegion]);
+        bool conservativeUnknownViewer = normalizedViewerRegion == RegionCodes.Unknown;
+
         bool rootExists = await db.Queryable<Comment>()
             .Where(c => c.Id == rootId && c.ArticleId == articleId && c.ParentId == null && c.ModerationStatus == CommentModerationStatus.Approved && !c.IsDeleted)
+            .Where(c => !SqlFunc.Subqueryable<CommentRegionCompliance>()
+                .Where(rc => rc.CommentId == c.Id
+                    && (conservativeUnknownViewer
+                        ? rc.BlockedRegions != string.Empty
+                        : rc.BlockedRegions.Contains(blockedToken)))
+                .Any())
             .AnyAsync();
         if (!rootExists)
         {
@@ -283,6 +340,12 @@ public partial class CommentService(
             .Where((c, u, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
             .Where((c, u, ru) => c.ModerationStatus == CommentModerationStatus.Approved)
             .Where((c, u, ru) => !c.IsDeleted)
+            .Where((c, u, ru) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
+                .Where(rc => rc.CommentId == c.Id
+                    && (conservativeUnknownViewer
+                        ? rc.BlockedRegions != string.Empty
+                        : rc.BlockedRegions.Contains(blockedToken)))
+                .Any())
             .WhereIF(request.Cursor.HasValue, (c, u, ru) => c.Id > request.Cursor!.Value)
             .OrderBy((c, u, ru) => c.Id)
             .Take(request.Limit + 1)
@@ -471,7 +534,11 @@ public partial class CommentService(
         return rows.Select(MapReplyPreviewRow).ToList();
     }
 
-    private async Task<Dictionary<long, List<CommentReplyPreviewItemDto>>> QueryThreadRepliesPreviewMapAsync(int articleId, long[] rootIds, int limit)
+    private async Task<Dictionary<long, List<CommentReplyPreviewItemDto>>> QueryThreadRepliesPreviewMapAsync(
+        int articleId,
+        long[] rootIds,
+        int limit,
+        string viewerRegion)
     {
         if (rootIds.Length == 0)
         {
@@ -512,11 +579,14 @@ FROM (
       AND c.root_id IS NOT NULL
       AND c.root_id IN (
 """);
-        var parameters = new List<SugarParameter>(rootIds.Length + 3)
+        string normalizedViewerRegion = regionLegalModerationService.NormalizeRegion(viewerRegion);
+        var parameters = new List<SugarParameter>(rootIds.Length + 5)
         {
             new("@ArticleId", articleId),
             new("@Approved", (int)CommentModerationStatus.Approved),
-            new("@PreviewLimit", limit)
+            new("@PreviewLimit", limit),
+            new("@BlockedToken", RegionLegalModerationService.SerializeRegions([normalizedViewerRegion])),
+            new("@ConservativeUnknownViewer", normalizedViewerRegion == RegionCodes.Unknown)
         };
         for (int i = 0; i < rootIds.Length; i++)
         {
@@ -535,6 +605,15 @@ FROM (
       AND c.parent_id IS NOT NULL
       AND c.moderation_status = @Approved
       AND c.is_deleted = false
+      AND NOT EXISTS (
+          SELECT 1
+          FROM comment_region_compliance crc
+          WHERE crc.comment_id = c.id
+            AND (
+                (@ConservativeUnknownViewer = true AND crc.blocked_regions <> '')
+                OR (@ConservativeUnknownViewer = false AND position(@BlockedToken in crc.blocked_regions) > 0)
+            )
+      )
 ) x
 WHERE x.rn <= @PreviewLimit
 ORDER BY x.root_id, x.id;
@@ -645,6 +724,33 @@ ORDER BY x.root_id, x.id;
 
         string trimmed = value.Trim();
         return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
+    }
+
+    private static CommentRegionCompliance BuildRegionCompliance(long commentId, RegionModerationDecision decision)
+    {
+        DateTime now = DateTime.UtcNow;
+        return new CommentRegionCompliance
+        {
+            CommentId = commentId,
+            SubmitRegion = NormalizeNullable(decision.SubmitRegion, 64) ?? RegionCodes.Unknown,
+            SubmitRegionConfidence = Math.Clamp(decision.SubmitRegionConfidence, 0d, 1d),
+            RegionProvider = NormalizeNullable(decision.RegionProvider, 64) ?? "unknown",
+            SubmitIpHash = NormalizeNullable(decision.SubmitIpHash, 64),
+            PolicyVersion = NormalizeNullable(decision.PolicyVersion, 64) ?? RegionLegalModerationService.CurrentPolicyVersion,
+            CanPublish = decision.CanPublish,
+            RequiresManualReview = decision.RequiresManualReview,
+            HideUntilReviewed = decision.HideUntilReviewed,
+            BlockedRegions = RegionLegalModerationService.SerializeRegions(decision.BlockedRegions),
+            RiskLabels = string.Join(',', decision.RiskLabels
+                .Where(static label => !string.IsNullOrWhiteSpace(label))
+                .Select(static label => label.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(static label => label, StringComparer.Ordinal)),
+            DecisionReason = NormalizeNullable(decision.DecisionReason, 256),
+            RuleHitsJson = decision.RuleHits.Count == 0 ? null : JsonSerializer.Serialize(decision.RuleHits),
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
     }
 
     private async Task NotifyDeletionAsync(int userId, string articleTitle, string commentSnippet, string reason)

@@ -450,6 +450,14 @@ export interface CommentModerationItemResponse {
   moderatedByUserId: number | null
   moderatedAt: string | null
   hitReasons: string[]
+  submitRegion: string | null
+  submitRegionConfidence: number | null
+  blockedRegions: string[]
+  regionPolicyVersion: string | null
+  regionDecisionReason: string | null
+  regionCanPublish: boolean
+  regionRequiresManualReview: boolean
+  regionHideUntilReviewed: boolean
 }
 
 export interface CommentModerationQueueResponse {

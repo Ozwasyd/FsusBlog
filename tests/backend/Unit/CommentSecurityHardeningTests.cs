@@ -35,6 +35,28 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    public void CommentRegionCompliance_AppliesSubmitAndViewerRegionPolicy()
+    {
+        string endpointSource = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
+        string serviceSource = ReadRepoFile("src/backend/Services/CommentService.cs");
+        string authoringSource = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+
+        Assert.Contains("IClientRegionResolver regionResolver", endpointSource);
+        Assert.Contains("regionLegalModerationService.EvaluateOnSubmit", endpointSource);
+        Assert.Contains("RegionDecision = regionDecision", endpointSource);
+        Assert.Contains(":region:{NormalizeCommentFrameRegion(viewerRegion)}", endpointSource);
+
+        Assert.Contains("CommentRegionCompliance", serviceSource);
+        Assert.Contains("BlockedRegions = RegionLegalModerationService.SerializeRegions", serviceSource);
+        Assert.Contains("RegionLegalModerationService.SerializeRegions([normalizedViewerRegion])", serviceSource);
+        Assert.Contains("comment_region_compliance crc", serviceSource);
+
+        Assert.Contains("IsRegionApprovalAllowed", authoringSource);
+        Assert.Contains("RegionCanPublish", authoringSource);
+        Assert.Contains("RegionLegalModerationService.DeserializeRegions", authoringSource);
+    }
+
+    [Fact]
     public void CommentModerationEndpoints_RequireRateLimitAndAdminSensitiveMfaProof()
     {
         string source = ReadRepoFile("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
@@ -81,6 +103,8 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("idx_comment_public_replies", source);
         Assert.Contains("idx_comment_public_reply_count", source);
         Assert.Contains("idx_comment_public_create_time_desc", source);
+        Assert.Contains("idx_comment_region_compliance_comment", source);
+        Assert.Contains("idx_comment_region_compliance_submit_region", source);
         Assert.Contains("WHERE parent_id IS NULL AND moderation_status = 1 AND is_deleted = false", source);
         Assert.Contains("WHERE parent_id IS NOT NULL AND moderation_status = 1 AND is_deleted = false", source);
     }

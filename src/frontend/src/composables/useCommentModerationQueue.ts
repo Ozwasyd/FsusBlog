@@ -14,6 +14,7 @@ export type CommentModerationFilterKey =
   | 'article'
   | 'user'
   | 'hitReason'
+  | 'blockedRegion'
   | 'dateRange'
 
 export interface CommentModerationFilters {
@@ -22,6 +23,7 @@ export interface CommentModerationFilters {
   article: string
   user: string
   hitReason: string
+  blockedRegion: string
   dateRange: [string, string] | null
 }
 
@@ -33,6 +35,12 @@ export interface CommentModerationViewItem extends CommentModerationItemResponse
   articleLabel: string
   userLabel: string
   hitReasonLabels: string[]
+  regionSummary: string
+  blockedRegionLabel: string
+  regionPolicyLabel: string
+  regionReviewLabel: string
+  regionConfidenceLabel: string
+  regionCanApprove: boolean
   auditEvents: string[]
 }
 
@@ -106,6 +114,29 @@ export function commentModerationHitReasonLabel(reason: string): string {
   return labels[reason] ?? reason
 }
 
+function commentRegionLabel(region: string | null | undefined): string {
+  const value = region?.trim()
+  if (!value) {
+    return '未记录'
+  }
+
+  const labels: Record<string, string> = {
+    GLOBAL: 'GLOBAL',
+    UNKNOWN: 'UNKNOWN',
+    'CN-MAINLAND': 'CN-MAINLAND',
+    'CN-HK': 'CN-HK',
+    'CN-MO': 'CN-MO',
+    'CN-TW': 'CN-TW',
+    SG: 'SG',
+    US: 'US',
+    EU: 'EU',
+    'EU-DE': 'EU-DE',
+    JP: 'JP',
+    KR: 'KR'
+  }
+  return labels[value] ?? value
+}
+
 function normalizeSearchText(value: string): string {
   return value.trim().toLowerCase()
 }
@@ -114,6 +145,17 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
   const statusLabel = commentModerationStatusLabel(item.status)
   const statusCode = commentModerationStatusCode(item.status)
   const hitReasonLabels = item.hitReasons.map(commentModerationHitReasonLabel)
+  const blockedRegionLabel = item.blockedRegions.length > 0
+    ? item.blockedRegions.map(commentRegionLabel).join(' / ')
+    : '无屏蔽地区'
+  const regionReviewLabel = item.regionHideUntilReviewed
+    ? '公开前复核'
+    : item.regionRequiresManualReview
+      ? '需要复核'
+      : '无额外复核'
+  const confidence = typeof item.submitRegionConfidence === 'number'
+    ? Math.round(Math.min(1, Math.max(0, item.submitRegionConfidence)) * 100)
+    : null
   const auditEvents = [
     `提交：${TimeUtils.toFullLocalString(item.createTime)}`,
     item.moderatedAt
@@ -130,6 +172,12 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
     articleLabel: `${item.articleTitle} / ${item.articleId}`,
     userLabel: `${item.userName} / ${item.userId}`,
     hitReasonLabels,
+    regionSummary: `提交地区：${commentRegionLabel(item.submitRegion)}`,
+    blockedRegionLabel,
+    regionPolicyLabel: item.regionPolicyVersion ?? '策略未记录',
+    regionReviewLabel,
+    regionConfidenceLabel: confidence === null ? '置信度未记录' : `置信度：${confidence}%`,
+    regionCanApprove: item.regionCanPublish !== false,
     auditEvents
   }
 }
@@ -145,6 +193,7 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     article: '',
     user: '',
     hitReason: '',
+    blockedRegion: '',
     dateRange: null
   })
 
@@ -161,11 +210,22 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     return Array.from(reasons.entries()).map(([value, label]) => ({ value, label }))
   })
 
+  const blockedRegionOptions = computed(() => {
+    const regions = new Map<string, string>()
+    for (const item of rawItems.value) {
+      for (const region of item.blockedRegions) {
+        regions.set(region, commentRegionLabel(region))
+      }
+    }
+    return Array.from(regions.entries()).map(([value, label]) => ({ value, label }))
+  })
+
   const filteredItems = computed(() => {
     const keyword = normalizeSearchText(filters.keyword)
     const article = normalizeSearchText(filters.article)
     const user = normalizeSearchText(filters.user)
     const hitReason = filters.hitReason
+    const blockedRegion = filters.blockedRegion
     const dateRange = filters.dateRange
     const fromTime = dateRange?.[0] ? new Date(`${dateRange[0]}T00:00:00`).getTime() : null
     const toTime = dateRange?.[1] ? new Date(`${dateRange[1]}T23:59:59`).getTime() : null
@@ -193,6 +253,10 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
       }
 
       if (hitReason && !item.hitReasons.includes(hitReason)) {
+        return false
+      }
+
+      if (blockedRegion && !item.blockedRegions.includes(blockedRegion)) {
         return false
       }
 
@@ -231,6 +295,9 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     }
     if (filters.hitReason) {
       chips.push({ key: 'hitReason', label: `命中：${commentModerationHitReasonLabel(filters.hitReason)}` })
+    }
+    if (filters.blockedRegion) {
+      chips.push({ key: 'blockedRegion', label: `屏蔽地区：${commentRegionLabel(filters.blockedRegion)}` })
     }
     if (filters.dateRange) {
       chips.push({ key: 'dateRange', label: `时间：${filters.dateRange[0]} - ${filters.dateRange[1]}` })
@@ -273,6 +340,7 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     filters.article = ''
     filters.user = ''
     filters.hitReason = ''
+    filters.blockedRegion = ''
     filters.dateRange = null
     await refreshQueue()
   }
@@ -288,6 +356,7 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     if (key === 'article') filters.article = ''
     if (key === 'user') filters.user = ''
     if (key === 'hitReason') filters.hitReason = ''
+    if (key === 'blockedRegion') filters.blockedRegion = ''
     if (key === 'dateRange') filters.dateRange = null
   }
 
@@ -301,6 +370,7 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     allItems,
     filteredItems,
     hitReasonOptions,
+    blockedRegionOptions,
     counters,
     activeFilterChips,
     refreshQueue,

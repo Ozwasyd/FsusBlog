@@ -89,6 +89,25 @@
         </el-select>
       </div>
 
+      <div class="lg:col-span-2">
+        <el-select
+          :model-value="filters.blockedRegion"
+          name="commentModerationBlockedRegion"
+          aria-label="按屏蔽地区筛选评论"
+          placeholder="屏蔽地区"
+          clearable
+          :disabled="loading || blockedRegionOptions.length === 0"
+          @update:model-value="onBlockedRegionChange"
+        >
+          <el-option
+            v-for="option in blockedRegionOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </div>
+
       <div class="lg:col-span-3">
         <el-date-picker
           :model-value="filters.dateRange"
@@ -141,6 +160,7 @@ defineProps<{
   filteredTotal: number
   counters: ReadonlyArray<{ label: string; value: number }>
   hitReasonOptions: ReadonlyArray<{ value: string; label: string }>
+  blockedRegionOptions: ReadonlyArray<{ value: string; label: string }>
   activeFilters: ReadonlyArray<{ key: CommentModerationFilterKey; label: string }>
 }>()
 
@@ -154,6 +174,7 @@ const emit = defineEmits<{
   'update:article': [value: string]
   'update:user': [value: string]
   'update:hitReason': [value: string]
+  'update:blockedRegion': [value: string]
   'update:dateRange': [value: [string, string] | null]
 }>()
 
@@ -163,6 +184,10 @@ const onStatusChange = (value: string | number | boolean): void => {
 
 const onHitReasonChange = (value: string | null): void => {
   emit('update:hitReason', value ?? '')
+}
+
+const onBlockedRegionChange = (value: string | null): void => {
+  emit('update:blockedRegion', value ?? '')
 }
 
 const onDateRangeChange = (value: unknown): void => {

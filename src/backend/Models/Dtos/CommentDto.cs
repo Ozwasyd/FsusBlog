@@ -1,4 +1,5 @@
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Moderation;
 using System.ComponentModel.DataAnnotations;
 
 namespace FsusBlog.Server.Models.Dtos;
@@ -28,6 +29,7 @@ public sealed record class CommentDto : ICheckableContent
     public string? RootId { get; init; }
     public string? ReplyToCommentId { get; init; }
     public int? ReplyToUserId { get; init; }
+    public RegionModerationDecision? RegionDecision { get; init; }
 
     public string GetTextToCheck() => Content;
 }

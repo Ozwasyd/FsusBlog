@@ -12,6 +12,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
+using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Telemetry;
 using SqlSugar;
 using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
@@ -385,15 +386,16 @@ public sealed class AuthoringWorkflowService(
     {
         CommentModerationStatus resolvedStatus = status ?? CommentModerationStatus.Pending;
         int normalizedLimit = Math.Clamp(limit, 1, 100);
-        List<CommentModerationQueueRow> rows = await db.Queryable<Comment, Article, User>((c, a, u) => new object[]
+        List<CommentModerationQueueRow> rows = await db.Queryable<Comment, Article, User, CommentRegionCompliance>((c, a, u, rc) => new object[]
             {
                 JoinType.Left, c.ArticleId == a.Id,
-                JoinType.Left, c.UserId == u.Id
+                JoinType.Left, c.UserId == u.Id,
+                JoinType.Left, c.Id == rc.CommentId
             })
-            .Where((c, a, u) => c.ModerationStatus == resolvedStatus && !c.IsDeleted)
-            .OrderByDescending((c, a, u) => c.CreateTime)
+            .Where((c, a, u, rc) => c.ModerationStatus == resolvedStatus && !c.IsDeleted)
+            .OrderByDescending((c, a, u, rc) => c.CreateTime)
             .Take(normalizedLimit)
-            .Select((c, a, u) => new CommentModerationQueueRow
+            .Select((c, a, u, rc) => new CommentModerationQueueRow
             {
                 Id = c.Id,
                 ArticleId = c.ArticleId,
@@ -405,7 +407,17 @@ public sealed class AuthoringWorkflowService(
                 Status = c.ModerationStatus,
                 Reason = c.ModerationReason,
                 ModeratedByUserId = c.ModeratedByUserId,
-                ModeratedAt = c.ModeratedAt
+                ModeratedAt = c.ModeratedAt,
+                RegionComplianceId = rc.Id,
+                SubmitRegion = rc.SubmitRegion,
+                SubmitRegionConfidence = rc.SubmitRegionConfidence,
+                BlockedRegions = rc.BlockedRegions,
+                RegionPolicyVersion = rc.PolicyVersion,
+                RegionDecisionReason = rc.DecisionReason,
+                RegionRiskLabels = rc.RiskLabels,
+                RegionCanPublish = rc.CanPublish,
+                RegionRequiresManualReview = rc.RequiresManualReview,
+                RegionHideUntilReviewed = rc.HideUntilReviewed
             })
             .ToListAsync(cancellationToken);
 
@@ -429,6 +441,11 @@ public sealed class AuthoringWorkflowService(
 
         CommentModerationStateRow? current = await LoadCommentModerationStateAsync(commentId, cancellationToken);
         if (current is null || !IsAllowedModerationTransition(current.Status, request.Status))
+        {
+            return false;
+        }
+
+        if (request.Status == CommentModerationStatus.Approved && !IsRegionApprovalAllowed(current))
         {
             return false;
         }
@@ -487,6 +504,11 @@ public sealed class AuthoringWorkflowService(
         foreach (CommentModerationStateRow row in rows)
         {
             if (!IsAllowedModerationTransition(row.Status, request.Status))
+            {
+                continue;
+            }
+
+            if (request.Status == CommentModerationStatus.Approved && !IsRegionApprovalAllowed(row))
             {
                 continue;
             }
@@ -667,7 +689,18 @@ public sealed class AuthoringWorkflowService(
             row.Reason,
             row.ModeratedByUserId,
             row.ModeratedAt,
-            DetectCommentHitReasons(row.Content, row.Reason));
+            [.. DetectCommentHitReasons(row.Content, row.Reason)
+                .Concat(ParseCommaList(row.RegionRiskLabels).Select(static label => $"region:{label}"))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(static label => label, StringComparer.OrdinalIgnoreCase)],
+            row.SubmitRegion,
+            row.RegionComplianceId <= 0 ? null : row.SubmitRegionConfidence,
+            RegionLegalModerationService.DeserializeRegions(row.BlockedRegions),
+            row.RegionPolicyVersion,
+            row.RegionDecisionReason,
+            row.RegionComplianceId <= 0 || row.RegionCanPublish,
+            row.RegionRequiresManualReview,
+            row.RegionHideUntilReviewed);
 
     internal IReadOnlyList<string> DetectCommentHitReasons(string? content, string? storedReason)
     {
@@ -754,14 +787,15 @@ public sealed class AuthoringWorkflowService(
     }
 
     private async Task<CommentModerationStateRow?> LoadCommentModerationStateAsync(long commentId, CancellationToken cancellationToken)
-        => await db.Queryable<Comment, Article, User, User>((c, a, u, ru) => new object[]
+        => await db.Queryable<Comment, Article, User, User, CommentRegionCompliance>((c, a, u, ru, rc) => new object[]
             {
                 JoinType.Left, c.ArticleId == a.Id,
                 JoinType.Left, c.UserId == u.Id,
-                JoinType.Left, c.ReplyToUserId == ru.Id
+                JoinType.Left, c.ReplyToUserId == ru.Id,
+                JoinType.Left, c.Id == rc.CommentId
             })
-            .Where((c, a, u, ru) => c.Id == commentId && !c.IsDeleted)
-            .Select((c, a, u, ru) => new CommentModerationStateRow
+            .Where((c, a, u, ru, rc) => c.Id == commentId && !c.IsDeleted)
+            .Select((c, a, u, ru, rc) => new CommentModerationStateRow
             {
                 Id = c.Id,
                 ArticleId = c.ArticleId,
@@ -776,7 +810,9 @@ public sealed class AuthoringWorkflowService(
                 ReplyToUserName = ru.Username,
                 ReplyToCommentId = c.ReplyToCommentId,
                 Depth = c.Depth,
-                Status = c.ModerationStatus
+                Status = c.ModerationStatus,
+                RegionComplianceId = rc.Id,
+                RegionCanPublish = rc.CanPublish
             })
             .FirstAsync(cancellationToken);
 
@@ -787,14 +823,15 @@ public sealed class AuthoringWorkflowService(
             return [];
         }
 
-        return await db.Queryable<Comment, Article, User, User>((c, a, u, ru) => new object[]
+        return await db.Queryable<Comment, Article, User, User, CommentRegionCompliance>((c, a, u, ru, rc) => new object[]
             {
                 JoinType.Left, c.ArticleId == a.Id,
                 JoinType.Left, c.UserId == u.Id,
-                JoinType.Left, c.ReplyToUserId == ru.Id
+                JoinType.Left, c.ReplyToUserId == ru.Id,
+                JoinType.Left, c.Id == rc.CommentId
             })
-            .Where((c, a, u, ru) => commentIds.Contains(c.Id) && !c.IsDeleted)
-            .Select((c, a, u, ru) => new CommentModerationStateRow
+            .Where((c, a, u, ru, rc) => commentIds.Contains(c.Id) && !c.IsDeleted)
+            .Select((c, a, u, ru, rc) => new CommentModerationStateRow
             {
                 Id = c.Id,
                 ArticleId = c.ArticleId,
@@ -809,7 +846,9 @@ public sealed class AuthoringWorkflowService(
                 ReplyToUserName = ru.Username,
                 ReplyToCommentId = c.ReplyToCommentId,
                 Depth = c.Depth,
-                Status = c.ModerationStatus
+                Status = c.ModerationStatus,
+                RegionComplianceId = rc.Id,
+                RegionCanPublish = rc.CanPublish
             })
             .ToListAsync(cancellationToken);
     }
@@ -911,6 +950,16 @@ public sealed class AuthoringWorkflowService(
                     or CommentModerationStatus.Rejected,
                 _ => false
             };
+
+    private static bool IsRegionApprovalAllowed(CommentModerationStateRow row)
+        => row.RegionComplianceId <= 0 || row.RegionCanPublish;
+
+    private static IReadOnlyList<string> ParseCommaList(string? value)
+        => (value ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static item => item, StringComparer.Ordinal)
+            .ToArray();
 
     private static IReadOnlyList<AuthorAnalyticsMetricResponse> BuildRankedMetrics(IEnumerable<string?> values)
         => values
@@ -1354,6 +1403,16 @@ public sealed class AuthoringWorkflowService(
         public string? Reason { get; set; }
         public int? ModeratedByUserId { get; set; }
         public DateTime? ModeratedAt { get; set; }
+        public long RegionComplianceId { get; set; }
+        public string? SubmitRegion { get; set; }
+        public double SubmitRegionConfidence { get; set; }
+        public string? BlockedRegions { get; set; }
+        public string? RegionPolicyVersion { get; set; }
+        public string? RegionDecisionReason { get; set; }
+        public string? RegionRiskLabels { get; set; }
+        public bool RegionCanPublish { get; set; }
+        public bool RegionRequiresManualReview { get; set; }
+        public bool RegionHideUntilReviewed { get; set; }
     }
 
     private sealed class CommentModerationStateRow
@@ -1372,6 +1431,8 @@ public sealed class AuthoringWorkflowService(
         public long? ReplyToCommentId { get; init; }
         public int Depth { get; init; }
         public CommentModerationStatus Status { get; init; }
+        public long RegionComplianceId { get; init; }
+        public bool RegionCanPublish { get; init; }
     }
 
     private enum LinkValidationResult
