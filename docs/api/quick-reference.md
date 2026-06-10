@@ -208,6 +208,8 @@
 | GET | `/internal/public-aot/manifest` | 🔓 | Public AOT route manifest；配置 `PublicAot:ManifestToken` 时需 `X-Fsus-Public-Aot-Token` |
 | POST | `/api/subscriptions` | 🔓 | 更新订阅，保存 email hash |
 | DELETE | `/api/subscriptions` | 🔓 | 退订 |
+
+> 作者工作台生产前端调用 `/api/binary/author/**` AEDS bridge，后缀与下列旧 `/api/author/**` 路径一致；旧 JSON 路径仅保留为 deprecated 后端兼容层。
 | POST | `/api/author/drafts` | 👑 | 保存服务端草稿 |
 | GET | `/api/author/drafts/{draftKey}` | 👑 | 读取服务端草稿 |
 | DELETE | `/api/author/drafts/{draftKey}` | 👑 | 丢弃服务端草稿 |

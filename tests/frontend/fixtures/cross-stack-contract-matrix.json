@@ -171,31 +171,131 @@
     }
   ],
   "requirements": [
-    { "id": "CROSS-BINARY-ENDPOINT-MATRIX", "risk": "critical", "coverage": "all /api/binary endpoint method/path/request/response/auth/PoW/cache/header matrix" },
-    { "id": "CROSS-FRONTEND-BACKEND-API-PARITY", "risk": "critical", "coverage": "frontend API wrappers and binary adapters map to backend endpoint matrix or server-only marker" },
-    { "id": "CROSS-FRAME-SCHEMA-SYNC", "risk": "critical", "coverage": "AEDS protocol JSON, backend enum, frontend decoder, backend golden catalog stay in sync" },
-    { "id": "CROSS-AEDS-FLAGS-RESERVED", "risk": "high", "coverage": "request frame flags stay zero, non-zero flags are rejected, response-only flags require negative/downgrade matrix before adoption" },
-    { "id": "CROSS-NOTIFICATION-STREAM-BUSINESS-EVENTS", "risk": "high", "coverage": "article/comment/message events, cursor replay, target fanout, private channel security" },
-    { "id": "CROSS-UPLOAD-COMPLETE-ASSET", "risk": "high", "coverage": "init/part/complete/public URL/asset library/reference/error/idempotency coherence" },
-    { "id": "CROSS-AOT-SEARCH-FEED-SITEMAP", "risk": "high", "coverage": "article lifecycle, taxonomy, settings, page content and stale marker distribution coherence" },
-    { "id": "CROSS-AUTH-SESSION-MFA-PASSKEY", "risk": "high", "coverage": "register/login/refresh/revoke/logout/MFA/passkey UI and backend session coherence" },
-    { "id": "CROSS-RUNTIME-COHERENCE", "risk": "high", "coverage": "debug backend, Vite SPA, release preview, static assets, AOT and search runtime surfaces" },
-    { "id": "CROSS-CONSUMER-CONTRACT", "risk": "medium", "coverage": "frontend consumed fields and backend response frames share consumer contract evidence" },
-    { "id": "CROSS-GOLDEN-FIXTURES", "risk": "medium", "coverage": "AEDS, hydration, feed, sitemap and search manifest golden fixture governance" },
-    { "id": "CROSS-NEGATIVE-MATRIX", "risk": "high", "coverage": "all mutation endpoint negative cases return stable HTTP status and ApiError without 5xx leak" },
-    { "id": "CROSS-FIXTURE-FAMILIES", "risk": "medium", "coverage": "versioned fixture families for public content, auth users, messages, upload, search, permission and unicode" },
-    { "id": "CROSS-SEARCH-COHERENCE", "risk": "medium", "coverage": "backend search index generation and frontend search runtime ranking/recall/version coherence" },
-    { "id": "CROSS-SEO-FEED-SITEMAP", "risk": "medium", "coverage": "RSS/Atom/JSON feed, sitemap, canonical, OG/Twitter, JSON-LD and public API payload cross-checks" },
-    { "id": "CROSS-PERMISSION-UI-BACKEND", "risk": "high", "coverage": "UI visible actions and backend permission boundaries align for anonymous/user/admin/banned/deleted/MFA partial" },
-    { "id": "CROSS-ERROR-CONTRACT", "risk": "high", "coverage": "validation/unauthorized/forbidden/not-found/conflict/rate-limit/PoW/MFA/banned/deleted/protocol errors map across stack" },
-    { "id": "CROSS-SW-BACKEND-CACHE", "risk": "medium", "coverage": "Service Worker cache, backend distribution version, auth cookie and offline public/private policies" },
-    { "id": "CROSS-OBSERVABILITY-AUDIT", "risk": "medium", "coverage": "RUM, traceId, ApiError, audit, notification stream event id and upload session correlation without PII" },
-    { "id": "CROSS-CONTRACT-FUZZ", "risk": "medium", "coverage": "random AEDS/query/Unicode/upload/WebSocket/cursor/hydration fuzz with reproducible seeds" },
-    { "id": "CROSS-GENERATIVE-CONTRACTS", "risk": "medium", "coverage": "generated contract matrix, API parity, binary golden and permission matrix from shared schema" },
-    { "id": "CROSS-ARTIFACT-DRIFT", "risk": "medium", "coverage": "release static assets, StaticWebAssets, renderer version, distribution version and public manifest drift checks" },
-    { "id": "CROSS-BROWSER-PROTOCOL", "risk": "medium", "coverage": "WebAuthn, WebSocket binary, Service Worker cache, file upload and AOT hydration across browsers" },
-    { "id": "CROSS-PERFORMANCE", "risk": "medium", "coverage": "cross-stack AEDS encode/decode, public cache/render, search, upload, notification stream and AOT/hydration latency evidence" },
-    { "id": "CROSS-FLAKY-EVENTUAL-GOVERNANCE", "risk": "medium", "coverage": "eventually timeout, attempt count, slow-success evidence and flake classification" }
+    {
+      "id": "CROSS-BINARY-ENDPOINT-MATRIX",
+      "risk": "critical",
+      "coverage": "all /api/binary endpoint method/path/request/response/auth/PoW/cache/header matrix"
+    },
+    {
+      "id": "CROSS-FRONTEND-BACKEND-API-PARITY",
+      "risk": "critical",
+      "coverage": "frontend API wrappers and binary adapters map to backend endpoint matrix or server-only marker"
+    },
+    {
+      "id": "CROSS-FRAME-SCHEMA-SYNC",
+      "risk": "critical",
+      "coverage": "AEDS protocol JSON, backend enum, frontend decoder, backend golden catalog stay in sync"
+    },
+    {
+      "id": "CROSS-AEDS-FLAGS-RESERVED",
+      "risk": "high",
+      "coverage": "request frame flags stay zero, non-zero flags are rejected, response-only flags require negative/downgrade matrix before adoption"
+    },
+    {
+      "id": "CROSS-NOTIFICATION-STREAM-BUSINESS-EVENTS",
+      "risk": "high",
+      "coverage": "article/comment/message events, cursor replay, target fanout, private channel security"
+    },
+    {
+      "id": "CROSS-UPLOAD-COMPLETE-ASSET",
+      "risk": "high",
+      "coverage": "init/part/complete/public URL/asset library/reference/error/idempotency coherence"
+    },
+    {
+      "id": "CROSS-AOT-SEARCH-FEED-SITEMAP",
+      "risk": "high",
+      "coverage": "article lifecycle, taxonomy, settings, page content and stale marker distribution coherence"
+    },
+    {
+      "id": "CROSS-AUTH-SESSION-MFA-PASSKEY",
+      "risk": "high",
+      "coverage": "register/login/refresh/revoke/logout/MFA/passkey UI and backend session coherence"
+    },
+    {
+      "id": "CROSS-RUNTIME-COHERENCE",
+      "risk": "high",
+      "coverage": "debug backend, Vite SPA, release preview, static assets, AOT and search runtime surfaces"
+    },
+    {
+      "id": "CROSS-CONSUMER-CONTRACT",
+      "risk": "medium",
+      "coverage": "frontend consumed fields and backend response frames share consumer contract evidence"
+    },
+    {
+      "id": "CROSS-GOLDEN-FIXTURES",
+      "risk": "medium",
+      "coverage": "AEDS, hydration, feed, sitemap and search manifest golden fixture governance"
+    },
+    {
+      "id": "CROSS-NEGATIVE-MATRIX",
+      "risk": "high",
+      "coverage": "all mutation endpoint negative cases return stable HTTP status and ApiError without 5xx leak"
+    },
+    {
+      "id": "CROSS-FIXTURE-FAMILIES",
+      "risk": "medium",
+      "coverage": "versioned fixture families for public content, auth users, messages, upload, search, permission and unicode"
+    },
+    {
+      "id": "CROSS-SEARCH-COHERENCE",
+      "risk": "medium",
+      "coverage": "backend search index generation and frontend search runtime ranking/recall/version coherence"
+    },
+    {
+      "id": "CROSS-SEO-FEED-SITEMAP",
+      "risk": "medium",
+      "coverage": "RSS/Atom/JSON feed, sitemap, canonical, OG/Twitter, JSON-LD and public API payload cross-checks"
+    },
+    {
+      "id": "CROSS-PERMISSION-UI-BACKEND",
+      "risk": "high",
+      "coverage": "UI visible actions and backend permission boundaries align for anonymous/user/admin/banned/deleted/MFA partial"
+    },
+    {
+      "id": "CROSS-ERROR-CONTRACT",
+      "risk": "high",
+      "coverage": "validation/unauthorized/forbidden/not-found/conflict/rate-limit/PoW/MFA/banned/deleted/protocol errors map across stack"
+    },
+    {
+      "id": "CROSS-SW-BACKEND-CACHE",
+      "risk": "medium",
+      "coverage": "Service Worker cache, backend distribution version, auth cookie and offline public/private policies"
+    },
+    {
+      "id": "CROSS-OBSERVABILITY-AUDIT",
+      "risk": "medium",
+      "coverage": "RUM, traceId, ApiError, audit, notification stream event id and upload session correlation without PII"
+    },
+    {
+      "id": "CROSS-CONTRACT-FUZZ",
+      "risk": "medium",
+      "coverage": "random AEDS/query/Unicode/upload/WebSocket/cursor/hydration fuzz with reproducible seeds"
+    },
+    {
+      "id": "CROSS-GENERATIVE-CONTRACTS",
+      "risk": "medium",
+      "coverage": "generated contract matrix, API parity, binary golden and permission matrix from shared schema"
+    },
+    {
+      "id": "CROSS-ARTIFACT-DRIFT",
+      "risk": "medium",
+      "coverage": "release static assets, StaticWebAssets, renderer version, distribution version and public manifest drift checks"
+    },
+    {
+      "id": "CROSS-BROWSER-PROTOCOL",
+      "risk": "medium",
+      "coverage": "WebAuthn, WebSocket binary, Service Worker cache, file upload and AOT hydration across browsers"
+    },
+    {
+      "id": "CROSS-PERFORMANCE",
+      "risk": "medium",
+      "coverage": "cross-stack AEDS encode/decode, public cache/render, search, upload, notification stream and AOT/hydration latency evidence"
+    },
+    {
+      "id": "CROSS-FLAKY-EVENTUAL-GOVERNANCE",
+      "risk": "medium",
+      "coverage": "eventually timeout, attempt count, slow-success evidence and flake classification"
+    }
   ],
   "fixtureFamilies": [
     "public-content-rich",
@@ -214,15 +314,60 @@
     "unicode-boundary"
   ],
   "publicArtifactRoutes": [
-    { "method": "GET", "path": "/api/binary/article/list/home/{page}/{size}.aeds", "responseFrame": "ArticleList", "surface": "public-list" },
-    { "method": "GET", "path": "/api/binary/article/{id}.aeds", "responseFrame": "ArticleDetail", "surface": "public-detail" },
-    { "method": "GET", "path": "/api/binary/article/hot/{size}.aeds", "responseFrame": "ArticleHot", "surface": "public-hot" },
-    { "method": "GET", "path": "/api/binary/article/featured/{size}.aeds", "responseFrame": "ArticleFeatured", "surface": "public-featured" },
-    { "method": "GET", "path": "/api/binary/category.aeds", "responseFrame": "CategoryList", "surface": "public-category" },
-    { "method": "GET", "path": "/api/binary/tag.aeds", "responseFrame": "TagList", "surface": "public-tag" },
-    { "method": "GET", "path": "/api/binary/comment/{articleId}?limit={limit}", "responseFrame": "CommentArticleCursor", "surface": "public-comments" },
-    { "method": "GET", "path": "/api/binary/system/seo", "responseFrame": "SeoConfig", "surface": "public-seo" },
-    { "method": "GET", "path": "/api/binary/system/page/{slug}", "responseFrame": "PageContent", "surface": "public-pages" }
+    {
+      "method": "GET",
+      "path": "/api/binary/article/list/home/{page}/{size}.aeds",
+      "responseFrame": "ArticleList",
+      "surface": "public-list"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/article/{id}.aeds",
+      "responseFrame": "ArticleDetail",
+      "surface": "public-detail"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/article/hot/{size}.aeds",
+      "responseFrame": "ArticleHot",
+      "surface": "public-hot"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/article/featured/{size}.aeds",
+      "responseFrame": "ArticleFeatured",
+      "surface": "public-featured"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/category.aeds",
+      "responseFrame": "CategoryList",
+      "surface": "public-category"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/tag.aeds",
+      "responseFrame": "TagList",
+      "surface": "public-tag"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/comment/{articleId}?limit={limit}",
+      "responseFrame": "CommentArticleCursor",
+      "surface": "public-comments"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/system/seo",
+      "responseFrame": "SeoConfig",
+      "surface": "public-seo"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/system/page/{slug}",
+      "responseFrame": "PageContent",
+      "surface": "public-pages"
+    }
   ],
   "endpointFamilies": [
     {
@@ -230,17 +375,81 @@
       "frontendWrapper": "src/frontend/src/api/article.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/articleAdapter.ts",
       "routes": [
-        { "method": "GET", "path": "/admin/article", "auth": "admin", "responseFrame": "ArticleList" },
-        { "method": "GET", "path": "/admin/article/{id:int}", "auth": "admin", "responseFrame": "ArticleDetail" },
-        { "method": "GET", "path": "/admin/article/hot", "auth": "admin", "responseFrame": "ArticleHot" },
-        { "method": "GET", "path": "/admin/article/featured", "auth": "admin", "responseFrame": "ArticleFeatured" },
-        { "method": "GET", "path": "/article/{articleId:int}/related.aeds", "auth": "anonymous", "responseFrame": "ArticleRelatedReading", "surface": "public-related-reading" },
-        { "method": "POST", "path": "/admin/article", "auth": "admin", "pow": true, "requestFrame": "ArticleWriteRequest", "responseFrame": "MutationId" },
-        { "method": "PUT", "path": "/admin/article/{id:int}", "auth": "admin", "pow": true, "requestFrame": "ArticleWriteRequest", "responseFrame": "MutationId" },
-        { "method": "DELETE", "path": "/admin/article/trash", "auth": "admin", "pow": true, "responseFrame": "TrashClearResponse" },
-        { "method": "DELETE", "path": "/admin/article/{id:int}", "auth": "admin", "pow": true, "responseFrame": "EmptySuccess" },
-        { "method": "PUT", "path": "/admin/article/restore/{id:int}", "auth": "admin", "pow": true, "responseFrame": "EmptySuccess" },
-        { "method": "DELETE", "path": "/admin/article/permanent/{id:int}", "auth": "admin", "pow": true, "responseFrame": "EmptySuccess" }
+        {
+          "method": "GET",
+          "path": "/admin/article",
+          "auth": "admin",
+          "responseFrame": "ArticleList"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/article/{id:int}",
+          "auth": "admin",
+          "responseFrame": "ArticleDetail"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/article/hot",
+          "auth": "admin",
+          "responseFrame": "ArticleHot"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/article/featured",
+          "auth": "admin",
+          "responseFrame": "ArticleFeatured"
+        },
+        {
+          "method": "GET",
+          "path": "/article/{articleId:int}/related.aeds",
+          "auth": "anonymous",
+          "responseFrame": "ArticleRelatedReading",
+          "surface": "public-related-reading"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/article",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "ArticleWriteRequest",
+          "responseFrame": "MutationId"
+        },
+        {
+          "method": "PUT",
+          "path": "/admin/article/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "ArticleWriteRequest",
+          "responseFrame": "MutationId"
+        },
+        {
+          "method": "DELETE",
+          "path": "/admin/article/trash",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "TrashClearResponse"
+        },
+        {
+          "method": "DELETE",
+          "path": "/admin/article/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "PUT",
+          "path": "/admin/article/restore/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "DELETE",
+          "path": "/admin/article/permanent/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "EmptySuccess"
+        }
       ]
     },
     {
@@ -248,8 +457,24 @@
       "frontendWrapper": "src/frontend/src/api/readProof.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/readProofAdapter.ts",
       "routes": [
-        { "method": "POST", "path": "/read-proof/challenge.aeds", "auth": "anonymous", "rateLimit": "read_proof", "requestFrame": "HumanReadChallengeRequest", "responseFrame": "HumanReadChallengeResponse", "surface": "human-read-proof-challenge" },
-        { "method": "POST", "path": "/read-proof/submit.aeds", "auth": "anonymous", "rateLimit": "read_proof", "requestFrame": "HumanReadSubmitRequest", "responseFrame": "HumanReadSubmitResponse", "surface": "human-read-proof-submit" }
+        {
+          "method": "POST",
+          "path": "/read-proof/challenge.aeds",
+          "auth": "anonymous",
+          "rateLimit": "read_proof",
+          "requestFrame": "HumanReadChallengeRequest",
+          "responseFrame": "HumanReadChallengeResponse",
+          "surface": "human-read-proof-challenge"
+        },
+        {
+          "method": "POST",
+          "path": "/read-proof/submit.aeds",
+          "auth": "anonymous",
+          "rateLimit": "read_proof",
+          "requestFrame": "HumanReadSubmitRequest",
+          "responseFrame": "HumanReadSubmitResponse",
+          "surface": "human-read-proof-submit"
+        }
       ]
     },
     {
@@ -257,7 +482,15 @@
       "frontendWrapper": "src/frontend/src/services/telemetryService.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/telemetryAdapter.ts",
       "routes": [
-        { "method": "POST", "path": "/telemetry/rum", "auth": "anonymous", "rateLimit": "fixed_ip", "requestFrame": "RumMetricBatchRequest", "responseFrame": "RumMetricIngestResponse", "surface": "rum-telemetry" }
+        {
+          "method": "POST",
+          "path": "/telemetry/rum",
+          "auth": "anonymous",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "RumMetricBatchRequest",
+          "responseFrame": "RumMetricIngestResponse",
+          "surface": "rum-telemetry"
+        }
       ]
     },
     {
@@ -265,9 +498,28 @@
       "frontendWrapper": "src/frontend/src/api/admin.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/userAdapter.ts",
       "routes": [
-        { "method": "GET", "path": "/admin/users", "auth": "admin", "responseFrame": "AdminUserList" },
-        { "method": "PUT", "path": "/admin/users/status", "auth": "admin", "pow": true, "requestFrame": "AdminChangeUserStatusRequest", "responseFrame": "EmptySuccess" },
-        { "method": "POST", "path": "/admin/users/reset-pwd", "auth": "admin", "pow": true, "requestFrame": "AdminResetUserPasswordRequest", "responseFrame": "EmptySuccess" }
+        {
+          "method": "GET",
+          "path": "/admin/users",
+          "auth": "admin",
+          "responseFrame": "AdminUserList"
+        },
+        {
+          "method": "PUT",
+          "path": "/admin/users/status",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "AdminChangeUserStatusRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/users/reset-pwd",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "AdminResetUserPasswordRequest",
+          "responseFrame": "EmptySuccess"
+        }
       ]
     },
     {
@@ -275,9 +527,24 @@
       "frontendWrapper": "src/frontend/src/api/stats.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/statsAdapter.ts",
       "routes": [
-        { "method": "GET", "path": "/stats", "auth": "admin", "responseFrame": "AdminStats" },
-        { "method": "GET", "path": "/stats/recent-comments", "auth": "admin", "responseFrame": "RecentCommentStats" },
-        { "method": "GET", "path": "/stats/regions", "auth": "admin", "responseFrame": "RegionStats" }
+        {
+          "method": "GET",
+          "path": "/stats",
+          "auth": "admin",
+          "responseFrame": "AdminStats"
+        },
+        {
+          "method": "GET",
+          "path": "/stats/recent-comments",
+          "auth": "admin",
+          "responseFrame": "RecentCommentStats"
+        },
+        {
+          "method": "GET",
+          "path": "/stats/regions",
+          "auth": "admin",
+          "responseFrame": "RegionStats"
+        }
       ]
     },
     {
@@ -285,16 +552,73 @@
       "frontendWrapper": "src/frontend/src/api/system.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/systemAdapter.ts",
       "routes": [
-        { "method": "GET", "path": "/system/seo", "auth": "anonymous", "responseFrame": "SeoConfig" },
-        { "method": "GET", "path": "/system/admin/seo", "auth": "admin", "responseFrame": "SeoConfig" },
-        { "method": "PUT", "path": "/system/seo", "auth": "admin", "pow": true, "requestFrame": "SeoConfigUpdateRequest", "responseFrame": "EmptySuccess" },
-        { "method": "GET", "path": "/system/compliance", "auth": "anonymous", "responseFrame": "SiteComplianceConfig" },
-        { "method": "GET", "path": "/system/admin/compliance", "auth": "admin", "responseFrame": "SiteComplianceConfig" },
-        { "method": "PUT", "path": "/system/compliance", "auth": "admin", "pow": true, "requestFrame": "SiteComplianceConfigUpdateRequest", "responseFrame": "EmptySuccess" },
-        { "method": "GET", "path": "/system/page/{slug}", "auth": "anonymous", "responseFrame": "PageContent" },
-        { "method": "GET", "path": "/system/admin/page/{slug}", "auth": "admin", "responseFrame": "PageContent" },
-        { "method": "PUT", "path": "/system/page", "auth": "admin", "pow": true, "requestFrame": "PageContentUpdateRequest", "responseFrame": "EmptySuccess" },
-        { "method": "POST", "path": "/system/page/refresh/{slug}", "auth": "admin", "pow": true, "responseFrame": "EmptySuccess" }
+        {
+          "method": "GET",
+          "path": "/system/seo",
+          "auth": "anonymous",
+          "responseFrame": "SeoConfig"
+        },
+        {
+          "method": "GET",
+          "path": "/system/admin/seo",
+          "auth": "admin",
+          "responseFrame": "SeoConfig"
+        },
+        {
+          "method": "PUT",
+          "path": "/system/seo",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "SeoConfigUpdateRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "GET",
+          "path": "/system/compliance",
+          "auth": "anonymous",
+          "responseFrame": "SiteComplianceConfig"
+        },
+        {
+          "method": "GET",
+          "path": "/system/admin/compliance",
+          "auth": "admin",
+          "responseFrame": "SiteComplianceConfig"
+        },
+        {
+          "method": "PUT",
+          "path": "/system/compliance",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "SiteComplianceConfigUpdateRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "GET",
+          "path": "/system/page/{slug}",
+          "auth": "anonymous",
+          "responseFrame": "PageContent"
+        },
+        {
+          "method": "GET",
+          "path": "/system/admin/page/{slug}",
+          "auth": "admin",
+          "responseFrame": "PageContent"
+        },
+        {
+          "method": "PUT",
+          "path": "/system/page",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "PageContentUpdateRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/system/page/refresh/{slug}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "EmptySuccess"
+        }
       ]
     },
     {
@@ -302,14 +626,64 @@
       "frontendWrapper": "src/frontend/src/api/category.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/taxonomyAdapter.ts",
       "routes": [
-        { "method": "GET", "path": "/category", "auth": "anonymous", "responseFrame": "CategoryList" },
-        { "method": "GET", "path": "/tag", "auth": "anonymous", "responseFrame": "TagList" },
-        { "method": "POST", "path": "/category", "auth": "admin", "pow": true, "requestFrame": "CategoryWriteRequest", "responseFrame": "EmptySuccess" },
-        { "method": "PUT", "path": "/category/{id:int}", "auth": "admin", "pow": true, "requestFrame": "CategoryWriteRequest", "responseFrame": "EmptySuccess" },
-        { "method": "DELETE", "path": "/category/{id:int}", "auth": "admin", "pow": true, "responseFrame": "EmptySuccess" },
-        { "method": "POST", "path": "/tag", "auth": "admin", "pow": true, "requestFrame": "TagWriteRequest", "responseFrame": "MutationId" },
-        { "method": "PUT", "path": "/tag/{id:int}", "auth": "admin", "pow": true, "requestFrame": "TagWriteRequest", "responseFrame": "EmptySuccess" },
-        { "method": "DELETE", "path": "/tag/{id:int}", "auth": "admin", "pow": true, "responseFrame": "EmptySuccess" }
+        {
+          "method": "GET",
+          "path": "/category",
+          "auth": "anonymous",
+          "responseFrame": "CategoryList"
+        },
+        {
+          "method": "GET",
+          "path": "/tag",
+          "auth": "anonymous",
+          "responseFrame": "TagList"
+        },
+        {
+          "method": "POST",
+          "path": "/category",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "CategoryWriteRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "PUT",
+          "path": "/category/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "CategoryWriteRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "DELETE",
+          "path": "/category/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/tag",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "TagWriteRequest",
+          "responseFrame": "MutationId"
+        },
+        {
+          "method": "PUT",
+          "path": "/tag/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "TagWriteRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "DELETE",
+          "path": "/tag/{id:int}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "EmptySuccess"
+        }
       ]
     },
     {
@@ -317,34 +691,191 @@
       "frontendWrapper": "src/frontend/src/api/auth.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/authAdapter.ts",
       "routes": [
-        { "method": "GET", "path": "/auth/pow-challenge", "auth": "anonymous", "responseFrame": "PowChallenge", "cache": "no-store" },
-        { "method": "POST", "path": "/auth/login", "auth": "anonymous", "pow": true, "requestFrame": "AuthLoginRequest", "responseFrame": "AuthLoginFlow" },
-        { "method": "POST", "path": "/auth/register", "auth": "anonymous", "pow": true, "requestFrame": "AuthRegisterRequest", "responseFrame": "AuthLoginFlow" },
-        { "method": "GET", "path": "/auth/me", "auth": "optional", "responseFrame": "CurrentUserSnapshot" },
-        { "method": "GET", "path": "/auth/{id:int}", "auth": "admin", "responseFrame": "CurrentUserSnapshot" },
-        { "method": "GET", "path": "/auth/find/{username}", "auth": "admin", "responseFrame": "CurrentUserSnapshot" },
-        { "method": "PUT", "path": "/auth/update-username", "auth": "user", "requestFrame": "AuthUpdateUsernameRequest", "responseFrame": "EmptySuccess" },
-        { "method": "PUT", "path": "/auth/update-password", "auth": "user", "requestFrame": "AuthUpdatePasswordRequest", "responseFrame": "EmptySuccess" },
-        { "method": "POST", "path": "/auth/delete-account", "auth": "user", "pow": true, "requestFrame": "AuthDeleteAccountRequest", "responseFrame": "EmptySuccess" },
-        { "method": "GET", "path": "/auth/sessions", "auth": "user", "responseFrame": "AuthSessionList" },
-        { "method": "POST", "path": "/auth/sessions/{id}/revoke", "auth": "user", "responseFrame": "EmptySuccess" },
-        { "method": "POST", "path": "/auth/sessions/revoke-others", "auth": "user", "responseFrame": "EmptySuccess" },
-        { "method": "POST", "path": "/auth/mfa/setup/start", "auth": "user", "responseFrame": "MfaSetupStart" },
-        { "method": "GET", "path": "/auth/mfa/profile", "auth": "user", "responseFrame": "MfaProfile" },
-        { "method": "POST", "path": "/auth/mfa/setup/verify", "auth": "user", "requestFrame": "MfaSetupVerifyRequest", "responseFrame": "MfaSetupVerify" },
-        { "method": "POST", "path": "/auth/mfa/disable", "auth": "user", "requestFrame": "MfaPasswordProofRequest", "responseFrame": "EmptySuccess" },
-        { "method": "POST", "path": "/auth/mfa/recovery/regenerate", "auth": "user", "requestFrame": "MfaPasswordProofRequest", "responseFrame": "MfaSetupVerify" },
-        { "method": "POST", "path": "/auth/mfa/challenge/start", "auth": "anonymous", "requestFrame": "MfaChallengeStartRequest", "responseFrame": "MfaChallengeResult" },
-        { "method": "POST", "path": "/auth/mfa/challenge", "auth": "anonymous", "requestFrame": "MfaChallengeVerifyRequest", "responseFrame": "MfaChallengeResult" },
-        { "method": "POST", "path": "/auth/refresh-token", "auth": "anonymous", "responseFrame": "CurrentUserSnapshot" },
-        { "method": "POST", "path": "/auth/logout", "auth": "anonymous", "responseFrame": "EmptySuccess" },
-        { "method": "POST", "path": "/auth/passkey/register/begin", "auth": "user", "responseFrame": "PasskeyRegisterBegin" },
-        { "method": "POST", "path": "/auth/passkey/register/complete", "auth": "user", "requestFrame": "PasskeyRegisterCompleteRequest", "responseFrame": "EmptySuccess" },
-        { "method": "POST", "path": "/auth/passkey/login/begin", "auth": "anonymous", "responseFrame": "PasskeyLoginBegin" },
-        { "method": "POST", "path": "/auth/passkey/login/complete", "auth": "anonymous", "requestFrame": "PasskeyLoginCompleteRequest", "responseFrame": "AuthLoginFlow" },
-        { "method": "GET", "path": "/auth/passkey/credentials", "auth": "user", "responseFrame": "PasskeyCredentialList" },
-        { "method": "DELETE", "path": "/auth/passkey/credentials/{id:int}", "auth": "user", "responseFrame": "EmptySuccess" },
-        { "method": "PUT", "path": "/auth/passkey/credentials/{id:int}/name", "auth": "user", "requestFrame": "PasskeyRenameRequest", "responseFrame": "EmptySuccess" }
+        {
+          "method": "GET",
+          "path": "/auth/pow-challenge",
+          "auth": "anonymous",
+          "responseFrame": "PowChallenge",
+          "cache": "no-store"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/login",
+          "auth": "anonymous",
+          "pow": true,
+          "requestFrame": "AuthLoginRequest",
+          "responseFrame": "AuthLoginFlow"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/register",
+          "auth": "anonymous",
+          "pow": true,
+          "requestFrame": "AuthRegisterRequest",
+          "responseFrame": "AuthLoginFlow"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/me",
+          "auth": "optional",
+          "responseFrame": "CurrentUserSnapshot"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/{id:int}",
+          "auth": "admin",
+          "responseFrame": "CurrentUserSnapshot"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/find/{username}",
+          "auth": "admin",
+          "responseFrame": "CurrentUserSnapshot"
+        },
+        {
+          "method": "PUT",
+          "path": "/auth/update-username",
+          "auth": "user",
+          "requestFrame": "AuthUpdateUsernameRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "PUT",
+          "path": "/auth/update-password",
+          "auth": "user",
+          "requestFrame": "AuthUpdatePasswordRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/delete-account",
+          "auth": "user",
+          "pow": true,
+          "requestFrame": "AuthDeleteAccountRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/sessions",
+          "auth": "user",
+          "responseFrame": "AuthSessionList"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/sessions/{id}/revoke",
+          "auth": "user",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/sessions/revoke-others",
+          "auth": "user",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/mfa/setup/start",
+          "auth": "user",
+          "responseFrame": "MfaSetupStart"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/mfa/profile",
+          "auth": "user",
+          "responseFrame": "MfaProfile"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/mfa/setup/verify",
+          "auth": "user",
+          "requestFrame": "MfaSetupVerifyRequest",
+          "responseFrame": "MfaSetupVerify"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/mfa/disable",
+          "auth": "user",
+          "requestFrame": "MfaPasswordProofRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/mfa/recovery/regenerate",
+          "auth": "user",
+          "requestFrame": "MfaPasswordProofRequest",
+          "responseFrame": "MfaSetupVerify"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/mfa/challenge/start",
+          "auth": "anonymous",
+          "requestFrame": "MfaChallengeStartRequest",
+          "responseFrame": "MfaChallengeResult"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/mfa/challenge",
+          "auth": "anonymous",
+          "requestFrame": "MfaChallengeVerifyRequest",
+          "responseFrame": "MfaChallengeResult"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/refresh-token",
+          "auth": "anonymous",
+          "responseFrame": "CurrentUserSnapshot"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/logout",
+          "auth": "anonymous",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/passkey/register/begin",
+          "auth": "user",
+          "responseFrame": "PasskeyRegisterBegin"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/passkey/register/complete",
+          "auth": "user",
+          "requestFrame": "PasskeyRegisterCompleteRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/passkey/login/begin",
+          "auth": "anonymous",
+          "responseFrame": "PasskeyLoginBegin"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/passkey/login/complete",
+          "auth": "anonymous",
+          "requestFrame": "PasskeyLoginCompleteRequest",
+          "responseFrame": "AuthLoginFlow"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/passkey/credentials",
+          "auth": "user",
+          "responseFrame": "PasskeyCredentialList"
+        },
+        {
+          "method": "DELETE",
+          "path": "/auth/passkey/credentials/{id:int}",
+          "auth": "user",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "PUT",
+          "path": "/auth/passkey/credentials/{id:int}/name",
+          "auth": "user",
+          "requestFrame": "PasskeyRenameRequest",
+          "responseFrame": "EmptySuccess"
+        }
       ]
     },
     {
@@ -352,7 +883,14 @@
       "frontendWrapper": "src/frontend/src/api/upload.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/uploadAdapter.ts",
       "routes": [
-        { "method": "DELETE", "path": "/file/delete", "auth": "admin", "pow": true, "requestFrame": "FileDeleteRequest", "responseFrame": "EmptySuccess" }
+        {
+          "method": "DELETE",
+          "path": "/file/delete",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "FileDeleteRequest",
+          "responseFrame": "EmptySuccess"
+        }
       ]
     },
     {
@@ -360,11 +898,37 @@
       "frontendWrapper": "src/frontend/src/api/comment.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/commentAdapter.ts",
       "routes": [
-        { "method": "POST", "path": "/comment", "auth": "user", "requestFrame": "CommentCreateRequest", "responseFrame": "EmptySuccess" },
-        { "method": "GET", "path": "/comment/{articleId:int}", "auth": "anonymous", "responseFrame": "CommentArticleCursor" },
-        { "method": "GET", "path": "/comment/{articleId:int}/thread/{rootId:long}", "auth": "anonymous", "responseFrame": "CommentThreadReplyCursor" },
-        { "method": "GET", "path": "/comment/me", "auth": "user", "responseFrame": "CommentUserCursor" },
-        { "method": "DELETE", "path": "/comment/{id:long}", "auth": "user", "responseFrame": "EmptySuccess" }
+        {
+          "method": "POST",
+          "path": "/comment",
+          "auth": "user",
+          "requestFrame": "CommentCreateRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "GET",
+          "path": "/comment/{articleId:int}",
+          "auth": "anonymous",
+          "responseFrame": "CommentArticleCursor"
+        },
+        {
+          "method": "GET",
+          "path": "/comment/{articleId:int}/thread/{rootId:long}",
+          "auth": "anonymous",
+          "responseFrame": "CommentThreadReplyCursor"
+        },
+        {
+          "method": "GET",
+          "path": "/comment/me",
+          "auth": "user",
+          "responseFrame": "CommentUserCursor"
+        },
+        {
+          "method": "DELETE",
+          "path": "/comment/{id:long}",
+          "auth": "user",
+          "responseFrame": "EmptySuccess"
+        }
       ]
     },
     {
@@ -373,12 +937,51 @@
       "frontendWrapper": "src/frontend/src/api/upload.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/uploadAdapter.ts",
       "routes": [
-        { "method": "POST", "path": "/upload/init", "auth": "admin", "pow": true, "requestFrame": "UploadInitRequest", "responseFrame": "UploadInit" },
-        { "method": "GET", "path": "/upload/{uploadId}/status", "auth": "admin", "pow": true, "responseFrame": "UploadStatus" },
-        { "method": "GET", "path": "/upload/{uploadId}/status/parts", "auth": "admin", "pow": true, "responseFrame": "UploadPartMap" },
-        { "method": "PUT", "path": "/upload/{uploadId}/part", "auth": "admin", "pow": true, "responseFrame": "UploadPartAck", "contentType": "application/octet-stream" },
-        { "method": "POST", "path": "/upload/{uploadId}/complete", "auth": "admin", "pow": true, "requestFrame": "UploadCompleteRequest", "responseFrame": "UploadComplete" },
-        { "method": "DELETE", "path": "/upload/{uploadId}", "auth": "admin", "pow": true, "responseFrame": "UploadStatus" }
+        {
+          "method": "POST",
+          "path": "/upload/init",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "UploadInitRequest",
+          "responseFrame": "UploadInit"
+        },
+        {
+          "method": "GET",
+          "path": "/upload/{uploadId}/status",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "UploadStatus"
+        },
+        {
+          "method": "GET",
+          "path": "/upload/{uploadId}/status/parts",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "UploadPartMap"
+        },
+        {
+          "method": "PUT",
+          "path": "/upload/{uploadId}/part",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "UploadPartAck",
+          "contentType": "application/octet-stream"
+        },
+        {
+          "method": "POST",
+          "path": "/upload/{uploadId}/complete",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "UploadCompleteRequest",
+          "responseFrame": "UploadComplete"
+        },
+        {
+          "method": "DELETE",
+          "path": "/upload/{uploadId}",
+          "auth": "admin",
+          "pow": true,
+          "responseFrame": "UploadStatus"
+        }
       ]
     },
     {
@@ -386,65 +989,616 @@
       "frontendWrapper": "src/frontend/src/api/message.ts",
       "frontendAdapter": "src/frontend/src/adapters/binary/messageAdapter.ts",
       "routes": [
-        { "method": "GET", "path": "/messages/conversations", "auth": "user", "responseFrame": "ConversationList" },
-        { "method": "GET", "path": "/messages/conversations/{id:long}", "auth": "user", "responseFrame": "ConversationDetail" },
-        { "method": "POST", "path": "/messages/conversations", "auth": "user", "requestFrame": "ConversationCreateRequest", "responseFrame": "ConversationDetail" },
-        { "method": "POST", "path": "/messages/conversations/{id:long}/reply", "auth": "user", "requestFrame": "ConversationReplyRequest", "responseFrame": "ConversationMessage" },
-        { "method": "POST", "path": "/messages/conversations/{id:long}/read", "auth": "user", "responseFrame": "EmptySuccess" },
-        { "method": "GET", "path": "/admin/messages/conversations", "auth": "admin", "responseFrame": "ConversationList" },
-        { "method": "GET", "path": "/admin/messages/conversations/{id:long}", "auth": "admin", "responseFrame": "ConversationDetail" },
-        { "method": "POST", "path": "/admin/messages/conversations/{id:long}/reply", "auth": "admin", "requestFrame": "ConversationReplyRequest", "responseFrame": "ConversationMessage" },
-        { "method": "POST", "path": "/admin/messages/conversations/{id:long}/status", "auth": "admin", "requestFrame": "ConversationStatusRequest", "responseFrame": "EmptySuccess" },
-        { "method": "POST", "path": "/admin/messages/system-send", "auth": "admin", "requestFrame": "SystemMessageRequest", "responseFrame": "ConversationDetail" }
+        {
+          "method": "GET",
+          "path": "/messages/conversations",
+          "auth": "user",
+          "responseFrame": "ConversationList"
+        },
+        {
+          "method": "GET",
+          "path": "/messages/conversations/{id:long}",
+          "auth": "user",
+          "responseFrame": "ConversationDetail"
+        },
+        {
+          "method": "POST",
+          "path": "/messages/conversations",
+          "auth": "user",
+          "requestFrame": "ConversationCreateRequest",
+          "responseFrame": "ConversationDetail"
+        },
+        {
+          "method": "POST",
+          "path": "/messages/conversations/{id:long}/reply",
+          "auth": "user",
+          "requestFrame": "ConversationReplyRequest",
+          "responseFrame": "ConversationMessage"
+        },
+        {
+          "method": "POST",
+          "path": "/messages/conversations/{id:long}/read",
+          "auth": "user",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/messages/conversations",
+          "auth": "admin",
+          "responseFrame": "ConversationList"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/messages/conversations/{id:long}",
+          "auth": "admin",
+          "responseFrame": "ConversationDetail"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/messages/conversations/{id:long}/reply",
+          "auth": "admin",
+          "requestFrame": "ConversationReplyRequest",
+          "responseFrame": "ConversationMessage"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/messages/conversations/{id:long}/status",
+          "auth": "admin",
+          "requestFrame": "ConversationStatusRequest",
+          "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/admin/messages/system-send",
+          "auth": "admin",
+          "requestFrame": "SystemMessageRequest",
+          "responseFrame": "ConversationDetail"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+      "frontendWrapper": "src/frontend/src/api/authoring.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/authoringAdapter.ts",
+      "id": "authoring-console",
+      "routes": [
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/drafts",
+          "requestFrame": "AuthorDraftSaveRequest",
+          "responseFrame": "AuthorDraftResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/drafts/{draftKey}",
+          "responseFrame": "AuthorDraftResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "DELETE",
+          "path": "/author/drafts/{draftKey}",
+          "responseFrame": "AuthorDraftDiscardResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/preview",
+          "requestFrame": "ArticlePreviewRequest",
+          "responseFrame": "ArticlePreviewResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/prepublish-check",
+          "requestFrame": "PrepublishCheckRequest",
+          "responseFrame": "PrepublishCheckResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/ai-assist",
+          "requestFrame": "AiAssistRequest",
+          "responseFrame": "AiAssistResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/assets",
+          "responseFrame": "AssetLibraryList"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/articles/{articleId:int}/assets/reindex",
+          "responseFrame": "AssetLibraryList"
+        },
+        {
+          "auth": "admin",
+          "method": "DELETE",
+          "path": "/author/assets/orphans",
+          "responseFrame": "AssetCleanupResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/taxonomy/categories",
+          "responseFrame": "AuthorTaxonomyCategoryList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/taxonomy/tags",
+          "responseFrame": "AuthorTaxonomyTagList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/analytics",
+          "responseFrame": "AuthorAnalytics"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/articles/{articleId:int}/revisions",
+          "responseFrame": "ArticleRevisionList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/articles/{articleId:int}/revisions/{revisionId:long}",
+          "responseFrame": "ArticleRevisionDetail"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/articles/{articleId:int}/revisions/{revisionId:long}/rollback",
+          "responseFrame": "ArticleRevisionRollbackResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/overview",
+          "responseFrame": "ModerationOverview",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/dictionaries",
+          "responseFrame": "ModerationDictionarySnapshot"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/dictionaries/reload",
+          "responseFrame": "ModerationDictionaryReloadResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/dictionaries/rollback",
+          "responseFrame": "ModerationDictionarySnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/dictionaries/{dictionaryId}/enable",
+          "requestFrame": "ModerationDictionaryStateRequest",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/dictionaries/{dictionaryId}/disable",
+          "requestFrame": "ModerationDictionaryStateRequest",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/runtime/status",
+          "responseFrame": "ModerationRuntimeStatus"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/runtime/global-state",
+          "requestFrame": "ModerationRuntimeGlobalStateRequest",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/runtime/region-state",
+          "requestFrame": "ModerationRuntimeRegionStateRequest",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/regions",
+          "responseFrame": "ModerationRegionList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/region-groups",
+          "responseFrame": "ModerationRegionGroupList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/policy-templates",
+          "responseFrame": "ModerationPolicyTemplateList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/effective-policy/{regionCode}",
+          "responseFrame": "ModerationEffectivePolicy",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/effective-policy/preview",
+          "requestFrame": "ModerationEffectivePolicyPreviewRequest",
+          "responseFrame": "ModerationEffectivePolicy",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/policies",
+          "responseFrame": "RegionPolicySummaryList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/model/status",
+          "responseFrame": "ModerationModelStatus"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/model/runtime",
+          "requestFrame": "ModerationModelRuntimeRequest",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/model/reload",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/model/rollback",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/replay/preview",
+          "requestFrame": "ModerationReplayPreviewRequest",
+          "responseFrame": "ModerationReplayPreview",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/comments/moderation",
+          "responseFrame": "CommentModerationQueue",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/comments/moderation/bulk",
+          "requestFrame": "CommentModerationBulkRequest",
+          "responseFrame": "CommentModerationBulkResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/comments/{commentId:long}/moderation",
+          "requestFrame": "CommentModerationRequest",
+          "responseFrame": "CommentModerationResult",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/content/export",
+          "responseFrame": "ContentBackupExport"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/articles/{articleId:int}/export",
+          "responseFrame": "ContentExport"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/articles/import",
+          "requestFrame": "ContentImportRequest",
+          "responseFrame": "ContentImportResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/audit",
+          "responseFrame": "AuditLogList",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/audit/summary",
+          "responseFrame": "AuditLogSummary",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/audit/{id:long}",
+          "responseFrame": "AuditLogDetail",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/audit/{id:long}/verify",
+          "responseFrame": "AuditTamperVerifyResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/health",
+          "responseFrame": "OpsHealth",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/backup",
+          "responseFrame": "BackupStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/dangerous-operations/policy",
+          "responseFrame": "DangerousOperationPolicy",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/cache/diagnostics",
+          "responseFrame": "CacheDiagnostics",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/cache/actions",
+          "requestFrame": "AdminCacheActionRequest",
+          "responseFrame": "AdminCacheActionResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/integrity",
+          "responseFrame": "IntegrityReport",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/integrity/fix-preview",
+          "responseFrame": "IntegrityFixPreview",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/integrity/fix",
+          "requestFrame": "IntegrityFixRequest",
+          "responseFrame": "IntegrityFixResponse",
+          "rateLimit": "fixed_ip"
+        }
       ]
     }
   ],
   "coherenceProfiles": [
     {
       "id": "runtime-matrix",
-      "requirements": [ "CROSS-RUNTIME-COHERENCE", "CROSS-ARTIFACT-DRIFT" ],
-      "surfaces": [ "debug-backend-binary", "vite-spa", "release-preview-html", "hydration-payload", "search-index", "feed-sitemap", "static-asset-version", "distribution-version", "aot-renderer-version" ],
-      "evidencePaths": [ "tests/frontend/checks/runtime/runtime-coherence-matrix.mjs", "tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs" ]
+      "requirements": [
+        "CROSS-RUNTIME-COHERENCE",
+        "CROSS-ARTIFACT-DRIFT"
+      ],
+      "surfaces": [
+        "debug-backend-binary",
+        "vite-spa",
+        "release-preview-html",
+        "hydration-payload",
+        "search-index",
+        "feed-sitemap",
+        "static-asset-version",
+        "distribution-version",
+        "aot-renderer-version"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/runtime/runtime-coherence-matrix.mjs",
+        "tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs"
+      ]
     },
     {
       "id": "distribution-full",
-      "requirements": [ "CROSS-AOT-SEARCH-FEED-SITEMAP", "CROSS-SEO-FEED-SITEMAP", "CROSS-SEARCH-COHERENCE" ],
-      "surfaces": [ "public-list", "detail", "rss", "atom", "json-feed", "sitemap", "aot-category", "aot-tag", "search-index", "related-reading" ],
-      "evidencePaths": [ "tests/frontend/checks/runtime/distribution-coherence-full.mjs", "tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs" ]
+      "requirements": [
+        "CROSS-AOT-SEARCH-FEED-SITEMAP",
+        "CROSS-SEO-FEED-SITEMAP",
+        "CROSS-SEARCH-COHERENCE"
+      ],
+      "surfaces": [
+        "public-list",
+        "detail",
+        "rss",
+        "atom",
+        "json-feed",
+        "sitemap",
+        "aot-category",
+        "aot-tag",
+        "search-index",
+        "related-reading"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/runtime/distribution-coherence-full.mjs",
+        "tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs"
+      ]
     },
     {
       "id": "notification-stream-events",
-      "requirements": [ "CROSS-NOTIFICATION-STREAM-BUSINESS-EVENTS", "CROSS-OBSERVABILITY-AUDIT" ],
-      "surfaces": [ "article-events", "comment-events", "message-events", "cursor-replay", "duplicate-event-id", "private-channel-security" ],
-      "evidencePaths": [ "tests/frontend/checks/runtime/notification-stream-business-events.mjs", "tests/frontend/checks/runtime/notification-stream-live-smoke.mjs" ]
+      "requirements": [
+        "CROSS-NOTIFICATION-STREAM-BUSINESS-EVENTS",
+        "CROSS-OBSERVABILITY-AUDIT"
+      ],
+      "surfaces": [
+        "article-events",
+        "comment-events",
+        "message-events",
+        "cursor-replay",
+        "duplicate-event-id",
+        "private-channel-security"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/runtime/notification-stream-business-events.mjs",
+        "tests/frontend/checks/runtime/notification-stream-live-smoke.mjs"
+      ]
     },
     {
       "id": "upload-complete",
-      "requirements": [ "CROSS-UPLOAD-COMPLETE-ASSET" ],
-      "surfaces": [ "init", "part", "complete", "public-url", "asset-library", "article-reference", "cover-og-image", "wrong-sha", "abort", "dedupe" ],
-      "evidencePaths": [ "tests/frontend/checks/resilience/check-upload-complete-coherence.mjs", "tests/frontend/checks/resilience/check-upload-resilience.mjs" ]
+      "requirements": [
+        "CROSS-UPLOAD-COMPLETE-ASSET"
+      ],
+      "surfaces": [
+        "init",
+        "part",
+        "complete",
+        "public-url",
+        "asset-library",
+        "article-reference",
+        "cover-og-image",
+        "wrong-sha",
+        "abort",
+        "dedupe"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/resilience/check-upload-complete-coherence.mjs",
+        "tests/frontend/checks/resilience/check-upload-resilience.mjs"
+      ]
     },
     {
       "id": "auth-state",
-      "requirements": [ "CROSS-AUTH-SESSION-MFA-PASSKEY", "CROSS-PERMISSION-UI-BACKEND" ],
-      "surfaces": [ "register", "login", "refresh", "revoke", "logout", "mfa-required", "recovery-code", "passkey-list", "frontend-store", "backend-me" ],
-      "evidencePaths": [ "tests/frontend/checks/runtime/auth-state-coherence.mjs", "tests/frontend/checks/runtime/auth-session-smoke.mjs" ]
+      "requirements": [
+        "CROSS-AUTH-SESSION-MFA-PASSKEY",
+        "CROSS-PERMISSION-UI-BACKEND"
+      ],
+      "surfaces": [
+        "register",
+        "login",
+        "refresh",
+        "revoke",
+        "logout",
+        "mfa-required",
+        "recovery-code",
+        "passkey-list",
+        "frontend-store",
+        "backend-me"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/runtime/auth-state-coherence.mjs",
+        "tests/frontend/checks/runtime/auth-session-smoke.mjs"
+      ]
     },
     {
       "id": "sw-cache",
-      "requirements": [ "CROSS-SW-BACKEND-CACHE" ],
-      "surfaces": [ "public-asset-cache", "private-route-deny", "search-index-cache", "asset-clear", "aot-update", "offline-public", "auth-cookie-change" ],
-      "evidencePaths": [ "tests/frontend/checks/public/check-sw-backend-cache-coherence.mjs", "tests/frontend/checks/public/check-pwa-offline-policy.mjs" ]
+      "requirements": [
+        "CROSS-SW-BACKEND-CACHE"
+      ],
+      "surfaces": [
+        "public-asset-cache",
+        "private-route-deny",
+        "search-index-cache",
+        "asset-clear",
+        "aot-update",
+        "offline-public",
+        "auth-cookie-change"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/public/check-sw-backend-cache-coherence.mjs",
+        "tests/frontend/checks/public/check-pwa-offline-policy.mjs"
+      ]
     },
     {
       "id": "perf",
-      "requirements": [ "CROSS-PERFORMANCE", "CROSS-AEDS-FLAGS-RESERVED" ],
-      "surfaces": [ "aeds-encode-decode", "aeds-frame-cost", "aeds-compression-profile", "aeds-flags-reserved", "public-cache-render", "search-build-query", "upload-part", "notification-stream-fanout-patch", "aot-hydration" ],
-      "evidencePaths": [ "tests/frontend/checks/perf/check-aeds-decode-budget.mjs", "tools/test/lanes/aeds-frame-cost.sh", "tools/test/lanes/aeds-compression-profile.sh", "tests/frontend/checks/load/check-cross-stack-performance.mjs", "tests/frontend/checks/load/check-load-public-api.mjs" ]
+      "requirements": [
+        "CROSS-PERFORMANCE",
+        "CROSS-AEDS-FLAGS-RESERVED"
+      ],
+      "surfaces": [
+        "aeds-encode-decode",
+        "aeds-frame-cost",
+        "aeds-compression-profile",
+        "aeds-flags-reserved",
+        "public-cache-render",
+        "search-build-query",
+        "upload-part",
+        "notification-stream-fanout-patch",
+        "aot-hydration"
+      ],
+      "evidencePaths": [
+        "tests/frontend/checks/perf/check-aeds-decode-budget.mjs",
+        "tools/test/lanes/aeds-frame-cost.sh",
+        "tools/test/lanes/aeds-compression-profile.sh",
+        "tests/frontend/checks/load/check-cross-stack-performance.mjs",
+        "tests/frontend/checks/load/check-load-public-api.mjs"
+      ]
     }
   ],
   "eventualConsistency": {
-    "requiredFields": [ "timeoutMs", "attempts", "elapsedMs", "surface", "mutationId", "classification" ],
-    "classifications": [ "data-setup", "cache-delay", "notification-stream-delay", "aot-delay", "search-index-delay", "feed-delay" ]
+    "requiredFields": [
+      "timeoutMs",
+      "attempts",
+      "elapsedMs",
+      "surface",
+      "mutationId",
+      "classification"
+    ],
+    "classifications": [
+      "data-setup",
+      "cache-delay",
+      "notification-stream-delay",
+      "aot-delay",
+      "search-index-delay",
+      "feed-delay"
+    ]
   }
 }

@@ -4210,6 +4210,2548 @@
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/messageAdapter.ts"
       }
     },
+    "/api/binary/author/drafts": {
+      "post": {
+        "operationId": "binary_post_author_drafts",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AuthorDraftResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "AuthorDraftSaveRequest",
+        "x-fsus-response-frame": "AuthorDraftResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/drafts/{draftKey}": {
+      "get": {
+        "operationId": "binary_get_author_drafts_draftKey",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AuthorDraftResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AuthorDraftResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      },
+      "delete": {
+        "operationId": "binary_delete_author_drafts_draftKey",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AuthorDraftDiscardResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AuthorDraftDiscardResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/preview": {
+      "post": {
+        "operationId": "binary_post_author_preview",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ArticlePreviewResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "ArticlePreviewRequest",
+        "x-fsus-response-frame": "ArticlePreviewResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/prepublish-check": {
+      "post": {
+        "operationId": "binary_post_author_prepublish_check",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "PrepublishCheckResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "PrepublishCheckRequest",
+        "x-fsus-response-frame": "PrepublishCheckResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/ai-assist": {
+      "post": {
+        "operationId": "binary_post_author_ai_assist",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AiAssistResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "AiAssistRequest",
+        "x-fsus-response-frame": "AiAssistResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/assets": {
+      "get": {
+        "operationId": "binary_get_author_assets",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AssetLibraryList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AssetLibraryList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/articles/{articleId:int}/assets/reindex": {
+      "post": {
+        "operationId": "binary_post_author_articles_articleId_int_assets_reindex",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AssetLibraryList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AssetLibraryList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/assets/orphans": {
+      "delete": {
+        "operationId": "binary_delete_author_assets_orphans",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AssetCleanupResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AssetCleanupResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/taxonomy/categories": {
+      "get": {
+        "operationId": "binary_get_author_taxonomy_categories",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AuthorTaxonomyCategoryList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AuthorTaxonomyCategoryList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/taxonomy/tags": {
+      "get": {
+        "operationId": "binary_get_author_taxonomy_tags",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AuthorTaxonomyTagList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AuthorTaxonomyTagList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/analytics": {
+      "get": {
+        "operationId": "binary_get_author_analytics",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AuthorAnalytics AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AuthorAnalytics",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/articles/{articleId:int}/revisions": {
+      "get": {
+        "operationId": "binary_get_author_articles_articleId_int_revisions",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ArticleRevisionList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ArticleRevisionList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/articles/{articleId:int}/revisions/{revisionId:long}": {
+      "get": {
+        "operationId": "binary_get_author_articles_articleId_int_revisions_revisionId_long",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ArticleRevisionDetail AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ArticleRevisionDetail",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/articles/{articleId:int}/revisions/{revisionId:long}/rollback": {
+      "post": {
+        "operationId": "binary_post_author_articles_articleId_int_revisions_revisionId_long_rollback",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ArticleRevisionRollbackResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ArticleRevisionRollbackResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/overview": {
+      "get": {
+        "operationId": "binary_get_author_moderation_overview",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationOverview AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ModerationOverview",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/dictionaries": {
+      "get": {
+        "operationId": "binary_get_author_moderation_dictionaries",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationDictionarySnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ModerationDictionarySnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/dictionaries/reload": {
+      "post": {
+        "operationId": "binary_post_author_moderation_dictionaries_reload",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationDictionaryReloadResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ModerationDictionaryReloadResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/dictionaries/rollback": {
+      "post": {
+        "operationId": "binary_post_author_moderation_dictionaries_rollback",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationDictionarySnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ModerationDictionarySnapshot",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/dictionaries/{dictionaryId}/enable": {
+      "post": {
+        "operationId": "binary_post_author_moderation_dictionaries_dictionaryId_enable",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationRuntimeStatus AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "ModerationDictionaryStateRequest",
+        "x-fsus-response-frame": "ModerationRuntimeStatus",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/dictionaries/{dictionaryId}/disable": {
+      "post": {
+        "operationId": "binary_post_author_moderation_dictionaries_dictionaryId_disable",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationRuntimeStatus AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "ModerationDictionaryStateRequest",
+        "x-fsus-response-frame": "ModerationRuntimeStatus",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/runtime/status": {
+      "get": {
+        "operationId": "binary_get_author_moderation_runtime_status",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationRuntimeStatus AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ModerationRuntimeStatus",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/runtime/global-state": {
+      "post": {
+        "operationId": "binary_post_author_moderation_runtime_global_state",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationRuntimeStatus AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "ModerationRuntimeGlobalStateRequest",
+        "x-fsus-response-frame": "ModerationRuntimeStatus",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/runtime/region-state": {
+      "post": {
+        "operationId": "binary_post_author_moderation_runtime_region_state",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationRuntimeStatus AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "ModerationRuntimeRegionStateRequest",
+        "x-fsus-response-frame": "ModerationRuntimeStatus",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/regions": {
+      "get": {
+        "operationId": "binary_get_author_moderation_regions",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationRegionList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ModerationRegionList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/region-groups": {
+      "get": {
+        "operationId": "binary_get_author_moderation_region_groups",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationRegionGroupList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ModerationRegionGroupList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/policy-templates": {
+      "get": {
+        "operationId": "binary_get_author_moderation_policy_templates",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationPolicyTemplateList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ModerationPolicyTemplateList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/effective-policy/{regionCode}": {
+      "get": {
+        "operationId": "binary_get_author_moderation_effective_policy_regionCode",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationEffectivePolicy AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ModerationEffectivePolicy",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/effective-policy/preview": {
+      "post": {
+        "operationId": "binary_post_author_moderation_effective_policy_preview",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationEffectivePolicy AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "ModerationEffectivePolicyPreviewRequest",
+        "x-fsus-response-frame": "ModerationEffectivePolicy",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/policies": {
+      "get": {
+        "operationId": "binary_get_author_moderation_policies",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "RegionPolicySummaryList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "RegionPolicySummaryList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/model/status": {
+      "get": {
+        "operationId": "binary_get_author_moderation_model_status",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationModelStatus AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ModerationModelStatus",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/model/runtime": {
+      "post": {
+        "operationId": "binary_post_author_moderation_model_runtime",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationRuntimeStatus AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "ModerationModelRuntimeRequest",
+        "x-fsus-response-frame": "ModerationRuntimeStatus",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/model/reload": {
+      "post": {
+        "operationId": "binary_post_author_moderation_model_reload",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationRuntimeStatus AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ModerationRuntimeStatus",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/model/rollback": {
+      "post": {
+        "operationId": "binary_post_author_moderation_model_rollback",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationRuntimeStatus AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ModerationRuntimeStatus",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/moderation/replay/preview": {
+      "post": {
+        "operationId": "binary_post_author_moderation_replay_preview",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ModerationReplayPreview AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "ModerationReplayPreviewRequest",
+        "x-fsus-response-frame": "ModerationReplayPreview",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/comments/moderation": {
+      "get": {
+        "operationId": "binary_get_author_comments_moderation",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "CommentModerationQueue AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "CommentModerationQueue",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/comments/moderation/bulk": {
+      "post": {
+        "operationId": "binary_post_author_comments_moderation_bulk",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "CommentModerationBulkResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "CommentModerationBulkRequest",
+        "x-fsus-response-frame": "CommentModerationBulkResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/comments/{commentId:long}/moderation": {
+      "post": {
+        "operationId": "binary_post_author_comments_commentId_long_moderation",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "CommentModerationResult AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "CommentModerationRequest",
+        "x-fsus-response-frame": "CommentModerationResult",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/content/export": {
+      "get": {
+        "operationId": "binary_get_author_content_export",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ContentBackupExport AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ContentBackupExport",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/articles/{articleId:int}/export": {
+      "get": {
+        "operationId": "binary_get_author_articles_articleId_int_export",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ContentExport AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ContentExport",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/articles/import": {
+      "post": {
+        "operationId": "binary_post_author_articles_import",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ContentImportResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "ContentImportRequest",
+        "x-fsus-response-frame": "ContentImportResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/audit": {
+      "get": {
+        "operationId": "binary_get_author_audit",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AuditLogList AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AuditLogList",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/audit/summary": {
+      "get": {
+        "operationId": "binary_get_author_audit_summary",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AuditLogSummary AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AuditLogSummary",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/audit/{id:long}": {
+      "get": {
+        "operationId": "binary_get_author_audit_id_long",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AuditLogDetail AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AuditLogDetail",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/audit/{id:long}/verify": {
+      "get": {
+        "operationId": "binary_get_author_audit_id_long_verify",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AuditTamperVerifyResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "AuditTamperVerifyResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/ops/health": {
+      "get": {
+        "operationId": "binary_get_author_ops_health",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "OpsHealth AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "OpsHealth",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/ops/backup": {
+      "get": {
+        "operationId": "binary_get_author_ops_backup",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "BackupStatus AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "BackupStatus",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/ops/dangerous-operations/policy": {
+      "get": {
+        "operationId": "binary_get_author_ops_dangerous_operations_policy",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "DangerousOperationPolicy AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "DangerousOperationPolicy",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/cache/diagnostics": {
+      "get": {
+        "operationId": "binary_get_author_cache_diagnostics",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "CacheDiagnostics AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "CacheDiagnostics",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/cache/actions": {
+      "post": {
+        "operationId": "binary_post_author_cache_actions",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "AdminCacheActionResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "AdminCacheActionRequest",
+        "x-fsus-response-frame": "AdminCacheActionResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/integrity": {
+      "get": {
+        "operationId": "binary_get_author_integrity",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "IntegrityReport AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "IntegrityReport",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/integrity/fix-preview": {
+      "get": {
+        "operationId": "binary_get_author_integrity_fix_preview",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "IntegrityFixPreview AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "IntegrityFixPreview",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
+    "/api/binary/author/integrity/fix": {
+      "post": {
+        "operationId": "binary_post_author_integrity_fix",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "IntegrityFixResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "IntegrityFixRequest",
+        "x-fsus-response-frame": "IntegrityFixResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
     "/api/binary/article/list/home/{page}/{size}.aeds": {
       "get": {
         "operationId": "binary_get_article_list_home_page_size_aeds",

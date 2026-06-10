@@ -194,19 +194,19 @@ FsusBlog 采用三级角色体系：
 
 ## 作者工作台、订阅与 RUM 隐私
 
-- `/api/author/**` 全部要求 admin role；草稿、预览、修订、资产、评论审核、导入导出和 AI 辅助不得匿名访问。
-- 服务端草稿按 `ownerUserId + draftKey` 唯一保存，浏览器本地缓存仅作为断网兜底；跨设备恢复必须通过 admin cookie 读取 `/api/author/drafts/{draftKey}`，不得落入公开 AOT、Service Worker shell cache 或搜索索引。
+- `/api/binary/author/**` 全部要求 admin role；草稿、预览、修订、资产、评论审核、导入导出和 AI 辅助不得匿名访问。旧 `/api/author/**` JSON endpoint 仅作为 deprecated 后端兼容层，生产前端不得调用。
+- 服务端草稿按 `ownerUserId + draftKey` 唯一保存，浏览器本地缓存仅作为断网兜底；跨设备恢复必须通过 admin cookie 读取 `/api/binary/author/drafts/{draftKey}`，不得落入公开 AOT、Service Worker shell cache 或搜索索引。
 - 修订历史正文详情只允许 admin 在作者工作台读取；回滚必须走正式文章更新服务以写入新修订、审计记录和分发缓存失效，不允许通过 SQL/API 直接覆盖公开正文。
 - 未发布正文只允许出现在 admin-only JSON 响应中；预览 HTML 带 `data-preview-only=true` 和 `data-markdown-renderer=server-preview`，所有 Markdown HTML 输入先转义，前端写入 `srcdoc` 前再次剥离可执行标签/事件属性，并仅以 sandboxed unique-origin iframe 展示，不得写入 PublicAOT cache、search index、feed、sitemap 或 related-reading。
 - related-reading 只基于公开文章的分类、标签、正文关键词和发布时间生成，不使用点赞、收藏、关注、登录用户、订阅邮箱或用户画像；端点和 PublicAOT 共用同一服务，防止 SPA/AOT 暴露面分叉。
 - SEO 预览只读取当前表单和站点 SEO 配置；canonical/slug/OG image 预览不得对外生成路由或缓存。发布/定时发布前检查返回的 `error` 必须阻断提交，覆盖危险 HTML、未闭合代码块、不安全协议、私有站内路径和无效 public route 格式；`warning` 只能在作者填写跳过理由后继续提交，并由服务端记录 `prepublish-warning-override` 审计事件，不能自动降级为公开可见内容。
 - 资产库只在 admin-only 作者工作台可见；重建索引只采集 `/uploads/illustration/*` 正文图片与封面 URL，孤儿清理只删除 `referenceCount=0` 的资产库索引行，不删除上传文件本体，也不得暴露为匿名目录浏览能力。运维保留期脚本默认也不删除上传资产；若显式启用上传资产扫描，必须提供 `FSUSBLOG_RETENTION_REFERENCED_ASSETS`，脚本会保护仍被文章引用的 `/uploads/illustration/*` 文件并在 `assetGuard.protectedReferencedAssets` 中记录证据。
 - PWA 离线缓存仅限公开 shell 路由和搜索索引；`/user`、`/admin`、`/login` 与私有 API 不得被 service worker 离线命中。离线公开文章 smoke 通过 `check:pwa-offline-smoke` 验证 `X-Fsus-Offline-Stale: 1`，并验证私有 console 路由在离线时失败。
-- 作者分析 dashboard 只读取 admin-only `/api/author/analytics`。后端聚合 `VisitLog.routeKey`、`dwellMs` 和 PublicAOT miss 审计；公开搜索词与 404 路径会被截断并聚合展示，不采集正文输入、账号、email、token、cookie 或可识别行为链。
+- 作者分析 dashboard 只读取 admin-only `/api/binary/author/analytics`。后端聚合 `VisitLog.routeKey`、`dwellMs` 和 PublicAOT miss 审计；公开搜索词与 404 路径会被截断并聚合展示，不采集正文输入、账号、email、token、cookie 或可识别行为链。
 - 评论创建默认进入待审状态，公开评论 API 只返回 `Approved` 且未被 viewer region 屏蔽的项。创建入口必须先做 endpoint payload 上限、字符数和 UTF-8 字节数校验，再进入内容过滤，避免超大正文消耗过滤器；回复只能挂到同文章、未删除且已通过的父评论/根评论。submit/viewer region 从连接 IP 或可信代理地区头解析，IP 只以 HMAC hash 写入 `comment_region_compliance`；CN-MAINLAND 严格策略只作用于 CN-MAINLAND submit/viewer，不自动外溢到 CN-HK/CN-MO/CN-TW。submit region 未知时评论进入待审且公开不可见；viewer region 未知时对非空 `blocked_regions` 保守隐藏。
 - 多地区审核词库是 FsusBlog 自有硬规则层，位于模型 provider 之前。`configs/moderation/**` 只输出 `category/severity/reason/evidence`，并支持 `evidence_policy=redact`；`submit_action`、`display_action`、`blocked_regions` 只能由 `RegionLegalModerationService` 结合地区策略计算。CN-MAINLAND 必须加载 `political-sensitive`、`porn-strict`、`public-order`、`national-security`，但严格动作只作用于 CN-MAINLAND submit/viewer。词库加载、reload 失败、checksum 变化和 replay preview 写入结构化审计，context 只含版本/checksum/数量等 metadata，不记录词条明文。
 - 可选反垃圾模型只在 `Moderation:AntiSpamModel:Enabled=true` 时调用，默认 `Provider=none`。`mock` 仅用于测试；`http-json` 外部 provider 必须同时配置 `AllowExternalProvider=true` 和 `ExternalProviderReviewed=true`，否则写 unavailable signal 并 fail-open。Provider 响应在持久化前会拒绝 `allow/reject_submit/geo_block/blocked_regions/submit_action/display_action` 等最终动作字段；模型超时、不可用或契约错误都不能绕过 Pending 人审。
-- 审核队列、单条审核、批量审核和封禁联动全部位于 admin-only `/api/author/comments/**`。审核读取和写入受 `fixed_ip` 限流；单条/批量审核还必须提交当前 admin 会话一次性 `X-Fsus-Mfa-Proof`，proof action 固定为 `admin-sensitive`，缺失或消费失败返回 step-up required。审核动作写入 `comment-moderation` / `comment-moderation-bulk` 审计；拒绝/隐藏时的封禁联动只作用于非 admin、非注销用户，并同步黑名单缓存。
+- 审核队列、单条审核、批量审核和封禁联动全部位于 admin-only `/api/binary/author/comments/**`。审核读取和写入受 `fixed_ip` 限流；单条/批量审核还必须提交当前 admin 会话一次性 `X-Fsus-Mfa-Proof`，proof action 固定为 `admin-sensitive`，缺失或消费失败返回 step-up required。审核动作写入 `comment-moderation` / `comment-moderation-bulk` 审计；拒绝/隐藏时的封禁联动只作用于非 admin、非注销用户，并同步黑名单缓存。
 - 第三方审核模型 Provider 只允许提供风险信号，不得决定 `reject_submit`、`geo_block`、`blocked_regions`、发布、隐藏或地区合法性。FsusBlog 负责硬词库、地区策略、viewer 过滤、策略 replay diff 和管理员最终动作；Provider 契约、schema、CLI/HTTP 示例和 conformance 工具见 [moderation/third-party-model-development.md](moderation/third-party-model-development.md)。
 - 作者 AI 辅助默认 `Authoring:AiAssist:Enabled=false`；默认路径只做本地摘要/标签/结构建议，不把未发布正文发往外部 provider。外部 provider 只有在 `Authoring:AiAssist:Enabled=true`、`Authoring:AiAssist:Provider` 非 `local`、`Authoring:AiAssist:AllowExternalProvider=true` 且 `Authoring:AiAssist:ExternalProviderReviewed=true` 同时满足时才标记为 allowed；当前服务不直接持有 `HttpClient` 外发正文，每次调用都会写入 `author-ai-assist` 审计事件。
 - `site_subscription` 只保存 `SHA256(email)`、channel、启用状态和退订时间，不保存明文 email，不构建读者画像或社交关系链。默认实现不接入 SMTP、第三方邮件或 Web Push provider；RSS/Atom/JSON Feed 是主订阅通道，`channel=email` 仅记录显式订阅偏好，后续外发能力必须先补配置开关、退订 smoke 和安全评审。

@@ -65,18 +65,8 @@
       "file": "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
       "patterns": ["JsonApiResponse", "Results.Json", "/api/author"],
       "routes": ["/api/author/**"],
-      "issue": "#102",
-      "reason": "Authoring, moderation, ops, cache and integrity console APIs are tracked as one AEDS migration surface."
-    },
-    {
-      "id": "author-json-migration-frontend",
-      "classification": "must-migrate",
-      "scope": "frontend",
-      "file": "src/frontend/src/api/authoring.ts",
-      "patterns": ["JsonApiResponse", "response.json", "application/json", "JSON.stringify", "/api/author"],
-      "routes": ["/api/author/**"],
-      "issue": "#102",
-      "reason": "Frontend authoring JSON client is kept only as a tracked compatibility layer."
+      "issue": "#97",
+      "reason": "Deprecated compatibility endpoints retained after #102; production frontend authoring runtime uses /api/binary/author/** AEDS frames through AuthoringBinaryBridgeMiddleware."
     },
     {
       "id": "security-json-migration-backend",

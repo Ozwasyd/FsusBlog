@@ -15,6 +15,8 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public class PodBinaryCodecTests
 {
+    private sealed record AuthoringPayload(string Title, int Status, string[] Tags);
+
     // ── helpers ─────────────────────────────────────────────────────────────
 
     private static ArticleListCoreModel MakeListItem(int id = 1, string title = "Test Title", string? summary = null)
@@ -38,6 +40,20 @@ public class PodBinaryCodecTests
 
         Assert.True(ok);
         Assert.Equal("Category A", name);
+    }
+
+    [Fact]
+    public void JsonPayload_RoundTrip_PreservesAuthoringDtoShape()
+    {
+        var request = new AuthoringPayload("Draft", 0, ["aeds", "authoring"]);
+        byte[] encoded = PodBinaryCodec.EncodeJsonPayload(request);
+        bool ok = PodBinaryCodec.TryDecodeJsonPayload(encoded, out AuthoringPayload? decoded);
+
+        Assert.True(ok);
+        Assert.NotNull(decoded);
+        Assert.Equal(request.Title, decoded.Title);
+        Assert.Equal(request.Status, decoded.Status);
+        Assert.Equal(request.Tags, decoded.Tags);
     }
 
     [Fact]

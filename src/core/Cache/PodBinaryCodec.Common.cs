@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Codecs;
 using FsusBlog.Shared.Contracts.Models;
@@ -10,6 +11,30 @@ namespace FsusBlog.Core.Cache;
 public static partial class PodBinaryCodec
 {
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
+    private static readonly JsonSerializerOptions AedsJsonPayloadOptions = new(JsonSerializerDefaults.Web);
+
+    public static void WriteJsonPayload<T>(T value, IBufferWriter<byte> target)
+    {
+        using var writer = new Utf8JsonWriter(target);
+        JsonSerializer.Serialize(writer, value, AedsJsonPayloadOptions);
+    }
+
+    public static byte[] EncodeJsonPayload<T>(T value)
+        => JsonSerializer.SerializeToUtf8Bytes(value, AedsJsonPayloadOptions);
+
+    public static bool TryDecodeJsonPayload<T>(ReadOnlyMemory<byte> source, out T? value)
+    {
+        try
+        {
+            value = JsonSerializer.Deserialize<T>(source.Span, AedsJsonPayloadOptions);
+            return true;
+        }
+        catch (JsonException)
+        {
+            value = default;
+            return false;
+        }
+    }
 
     public static void WriteEmptySuccess(IBufferWriter<byte> target)
     {

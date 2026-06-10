@@ -1055,6 +1055,376 @@
           "responseFrame": "ConversationDetail"
         }
       ]
+    },
+    {
+      "source": "src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs",
+      "frontendWrapper": "src/frontend/src/api/authoring.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/authoringAdapter.ts",
+      "id": "authoring-console",
+      "routes": [
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/drafts",
+          "requestFrame": "AuthorDraftSaveRequest",
+          "responseFrame": "AuthorDraftResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/drafts/{draftKey}",
+          "responseFrame": "AuthorDraftResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "DELETE",
+          "path": "/author/drafts/{draftKey}",
+          "responseFrame": "AuthorDraftDiscardResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/preview",
+          "requestFrame": "ArticlePreviewRequest",
+          "responseFrame": "ArticlePreviewResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/prepublish-check",
+          "requestFrame": "PrepublishCheckRequest",
+          "responseFrame": "PrepublishCheckResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/ai-assist",
+          "requestFrame": "AiAssistRequest",
+          "responseFrame": "AiAssistResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/assets",
+          "responseFrame": "AssetLibraryList"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/articles/{articleId:int}/assets/reindex",
+          "responseFrame": "AssetLibraryList"
+        },
+        {
+          "auth": "admin",
+          "method": "DELETE",
+          "path": "/author/assets/orphans",
+          "responseFrame": "AssetCleanupResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/taxonomy/categories",
+          "responseFrame": "AuthorTaxonomyCategoryList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/taxonomy/tags",
+          "responseFrame": "AuthorTaxonomyTagList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/analytics",
+          "responseFrame": "AuthorAnalytics"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/articles/{articleId:int}/revisions",
+          "responseFrame": "ArticleRevisionList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/articles/{articleId:int}/revisions/{revisionId:long}",
+          "responseFrame": "ArticleRevisionDetail"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/articles/{articleId:int}/revisions/{revisionId:long}/rollback",
+          "responseFrame": "ArticleRevisionRollbackResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/overview",
+          "responseFrame": "ModerationOverview",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/dictionaries",
+          "responseFrame": "ModerationDictionarySnapshot"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/dictionaries/reload",
+          "responseFrame": "ModerationDictionaryReloadResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/dictionaries/rollback",
+          "responseFrame": "ModerationDictionarySnapshot",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/dictionaries/{dictionaryId}/enable",
+          "requestFrame": "ModerationDictionaryStateRequest",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/dictionaries/{dictionaryId}/disable",
+          "requestFrame": "ModerationDictionaryStateRequest",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/runtime/status",
+          "responseFrame": "ModerationRuntimeStatus"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/runtime/global-state",
+          "requestFrame": "ModerationRuntimeGlobalStateRequest",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/runtime/region-state",
+          "requestFrame": "ModerationRuntimeRegionStateRequest",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/regions",
+          "responseFrame": "ModerationRegionList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/region-groups",
+          "responseFrame": "ModerationRegionGroupList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/policy-templates",
+          "responseFrame": "ModerationPolicyTemplateList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/effective-policy/{regionCode}",
+          "responseFrame": "ModerationEffectivePolicy",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/effective-policy/preview",
+          "requestFrame": "ModerationEffectivePolicyPreviewRequest",
+          "responseFrame": "ModerationEffectivePolicy",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/policies",
+          "responseFrame": "RegionPolicySummaryList"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/moderation/model/status",
+          "responseFrame": "ModerationModelStatus"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/model/runtime",
+          "requestFrame": "ModerationModelRuntimeRequest",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/model/reload",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/model/rollback",
+          "responseFrame": "ModerationRuntimeStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/moderation/replay/preview",
+          "requestFrame": "ModerationReplayPreviewRequest",
+          "responseFrame": "ModerationReplayPreview",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/comments/moderation",
+          "responseFrame": "CommentModerationQueue",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/comments/moderation/bulk",
+          "requestFrame": "CommentModerationBulkRequest",
+          "responseFrame": "CommentModerationBulkResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/comments/{commentId:long}/moderation",
+          "requestFrame": "CommentModerationRequest",
+          "responseFrame": "CommentModerationResult",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/content/export",
+          "responseFrame": "ContentBackupExport"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/articles/{articleId:int}/export",
+          "responseFrame": "ContentExport"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/articles/import",
+          "requestFrame": "ContentImportRequest",
+          "responseFrame": "ContentImportResponse"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/audit",
+          "responseFrame": "AuditLogList",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/audit/summary",
+          "responseFrame": "AuditLogSummary",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/audit/{id:long}",
+          "responseFrame": "AuditLogDetail",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/audit/{id:long}/verify",
+          "responseFrame": "AuditTamperVerifyResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/health",
+          "responseFrame": "OpsHealth",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/backup",
+          "responseFrame": "BackupStatus",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/ops/dangerous-operations/policy",
+          "responseFrame": "DangerousOperationPolicy",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/cache/diagnostics",
+          "responseFrame": "CacheDiagnostics",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/cache/actions",
+          "requestFrame": "AdminCacheActionRequest",
+          "responseFrame": "AdminCacheActionResponse",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/integrity",
+          "responseFrame": "IntegrityReport",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "GET",
+          "path": "/author/integrity/fix-preview",
+          "responseFrame": "IntegrityFixPreview",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "auth": "admin",
+          "method": "POST",
+          "path": "/author/integrity/fix",
+          "requestFrame": "IntegrityFixRequest",
+          "responseFrame": "IntegrityFixResponse",
+          "rateLimit": "fixed_ip"
+        }
+      ]
     }
   ],
   "coherenceProfiles": [
@@ -1235,5 +1605,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 94
+  "openapiOperationCount": 147
 }

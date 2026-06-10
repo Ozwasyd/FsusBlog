@@ -1,7 +1,10 @@
 import type { ApiRequestConfig } from './requestConfig'
+import { FrameType } from '@wasm/protocol/frame'
+import { requestBinaryOnly } from '@/services/binaryTransport'
+import { encodeAedsFrame } from './binaryFrame'
+import { encodeAuthoringJsonRequest } from '@/adapters/binary/authoringAdapter'
 import { FSUS_HEADERS } from './contracts'
 import { getBrowserFp } from '@/utils/fingerprint'
-import { AppErrorCode, appErrorFromStatus, createAppError } from '@/utils/appError'
 
 export interface ServerDraftSaveRequest {
   draftKey: string
@@ -863,22 +866,18 @@ export interface AiAssistResponse {
   structureIssues: PrepublishIssue[]
 }
 
-type JsonApiResponse<T> = {
-  success: boolean
-  data?: T | null
-  message?: string | null
+const ADMIN_SENSITIVE_MFA_HEADER = 'X-Fsus-Mfa-Proof'
+const BINARY_API_PREFIX = '/api/binary'
+
+type AuthoringBinaryRequestOptions = {
+  method?: string
+  requestFrame?: FrameType
+  request?: unknown
 }
 
-const ADMIN_SENSITIVE_MFA_HEADER = 'X-Fsus-Mfa-Proof'
-
-const jsonHeaders = (hasBody: boolean, mfaProofToken?: string | null): Headers => {
+const authoringHeaders = (mfaProofToken?: string | null): Headers => {
   const headers = new Headers()
-  headers.set('Accept', 'application/json')
   headers.set(FSUS_HEADERS.deviceFingerprint, getBrowserFp())
-  if (hasBody) {
-    headers.set('Content-Type', 'application/json')
-  }
-
   const proofToken = mfaProofToken?.trim()
   if (proofToken) {
     headers.set(ADMIN_SENSITIVE_MFA_HEADER, proofToken)
@@ -887,59 +886,54 @@ const jsonHeaders = (hasBody: boolean, mfaProofToken?: string | null): Headers =
   return headers
 }
 
-async function readJsonEnvelope<T>(response: Response, fallbackMessage: string): Promise<T> {
-  const envelope = await response.json() as JsonApiResponse<T>
-  if (!response.ok || !envelope.success || envelope.data == null) {
-    const message = envelope.message || fallbackMessage
-    if (!response.ok) {
-      throw appErrorFromStatus(response.status, message)
-    }
+function authoringBody(frameType: FrameType, request: unknown): ArrayBuffer {
+  return encodeAedsFrame(frameType, encodeAuthoringJsonRequest(request))
+}
 
-    throw createAppError(AppErrorCode.ProtocolFailure, message, { status: response.status })
+function requestAuthoringBinary<T>(
+  path: string,
+  frameType: FrameType,
+  config?: ApiRequestConfig,
+  options: AuthoringBinaryRequestOptions = {}
+): Promise<T> {
+  const requestOptions: RequestInit = {
+    credentials: 'include',
+    headers: authoringHeaders(config?.mfaProofToken)
+  }
+  if (options.method) {
+    requestOptions.method = options.method
+  }
+  if (options.requestFrame !== undefined) {
+    requestOptions.body = authoringBody(options.requestFrame, options.request)
   }
 
-  return envelope.data
+  return requestBinaryOnly<T>({
+    binaryUrl: `${BINARY_API_PREFIX}/author${path}`,
+    frameType,
+    requestOptions,
+    signal: config?.signal as AbortSignal | undefined
+  })
 }
 
 export async function saveServerDraft(
   draft: ServerDraftSaveRequest,
   config?: ApiRequestConfig
 ): Promise<ServerDraftResponse> {
-  const response = await fetch('/api/author/drafts', {
+  return requestAuthoringBinary<ServerDraftResponse>('/drafts', FrameType.AuthorDraftResponse, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true),
-    signal: config?.signal,
-    body: JSON.stringify(draft)
+    requestFrame: FrameType.AuthorDraftSaveRequest,
+    request: draft
   })
-
-  return await readJsonEnvelope<ServerDraftResponse>(response, `server_draft_save_failed:${response.status}`)
 }
 
 export async function getServerDraft(draftKey: string, config?: ApiRequestConfig): Promise<ServerDraftResponse | null> {
-  const response = await fetch(`/api/author/drafts/${encodeURIComponent(draftKey)}`, {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  const envelope = await response.json() as JsonApiResponse<ServerDraftResponse>
-  if (!response.ok || !envelope.success) {
-    const message = envelope.message || `server_draft_fetch_failed:${response.status}`
-    throw appErrorFromStatus(response.status, message)
-  }
-
-  return envelope.data ?? null
+  return requestAuthoringBinary<ServerDraftResponse | null>(`/drafts/${encodeURIComponent(draftKey)}`, FrameType.AuthorDraftResponse, config)
 }
 
 export async function discardServerDraft(draftKey: string, config?: ApiRequestConfig): Promise<boolean> {
-  const response = await fetch(`/api/author/drafts/${encodeURIComponent(draftKey)}`, {
-    method: 'DELETE',
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
+  const result = await requestAuthoringBinary<{ discarded?: boolean }>(`/drafts/${encodeURIComponent(draftKey)}`, FrameType.AuthorDraftDiscardResponse, config, {
+    method: 'DELETE'
   })
-  const result = await readJsonEnvelope<{ discarded?: boolean }>(response, `server_draft_discard_failed:${response.status}`)
   return result.discarded === true
 }
 
@@ -947,110 +941,65 @@ export async function previewArticleDraft(
   draft: ServerDraftSaveRequest,
   config?: ApiRequestConfig
 ): Promise<ArticlePreviewResponse> {
-  const response = await fetch('/api/author/preview', {
+  return requestAuthoringBinary<ArticlePreviewResponse>('/preview', FrameType.ArticlePreviewResponse, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true),
-    signal: config?.signal,
-    body: JSON.stringify(draft)
+    requestFrame: FrameType.ArticlePreviewRequest,
+    request: draft
   })
-
-  return await readJsonEnvelope<ArticlePreviewResponse>(response, `article_preview_failed:${response.status}`)
 }
 
 export async function checkArticlePrepublish(
   draft: ServerDraftSaveRequest,
   config?: ApiRequestConfig
 ): Promise<PrepublishCheckResponse> {
-  const response = await fetch('/api/author/prepublish-check', {
+  return requestAuthoringBinary<PrepublishCheckResponse>('/prepublish-check', FrameType.PrepublishCheckResponse, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true),
-    signal: config?.signal,
-    body: JSON.stringify(draft)
+    requestFrame: FrameType.PrepublishCheckRequest,
+    request: draft
   })
-
-  return await readJsonEnvelope<PrepublishCheckResponse>(response, `article_prepublish_check_failed:${response.status}`)
 }
 
 export async function generateAiAssist(
   request: AiAssistRequest,
   config?: ApiRequestConfig
 ): Promise<AiAssistResponse> {
-  const response = await fetch('/api/author/ai-assist', {
+  return requestAuthoringBinary<AiAssistResponse>('/ai-assist', FrameType.AiAssistResponse, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true),
-    signal: config?.signal,
-    body: JSON.stringify(request)
+    requestFrame: FrameType.AiAssistRequest,
+    request
   })
-
-  return await readJsonEnvelope<AiAssistResponse>(response, `author_ai_assist_failed:${response.status}`)
 }
 
 export async function listAssetLibrary(config?: ApiRequestConfig): Promise<AssetLibraryItemResponse[]> {
-  const response = await fetch('/api/author/assets', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<AssetLibraryItemResponse[]>(response, `asset_library_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<AssetLibraryItemResponse[]>('/assets', FrameType.AssetLibraryList, config)
 }
 
 export async function reindexArticleAssets(
   articleId: number,
   config?: ApiRequestConfig
 ): Promise<AssetLibraryItemResponse[]> {
-  const response = await fetch(`/api/author/articles/${articleId}/assets/reindex`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
+  return requestAuthoringBinary<AssetLibraryItemResponse[]>(`/articles/${articleId}/assets/reindex`, FrameType.AssetLibraryList, config, {
+    method: 'POST'
   })
-
-  return await readJsonEnvelope<AssetLibraryItemResponse[]>(response, `asset_library_reindex_failed:${response.status}`)
 }
 
 export async function cleanupOrphanAssets(config?: ApiRequestConfig): Promise<number> {
-  const response = await fetch('/api/author/assets/orphans', {
-    method: 'DELETE',
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
+  const result = await requestAuthoringBinary<{ deleted?: number }>('/assets/orphans', FrameType.AssetCleanupResponse, config, {
+    method: 'DELETE'
   })
-  const result = await readJsonEnvelope<{ deleted?: number }>(response, `asset_orphan_cleanup_failed:${response.status}`)
   return Number(result.deleted ?? 0)
 }
 
 export async function listAdminCategories(config?: ApiRequestConfig): Promise<AdminCategoryItemResponse[]> {
-  const response = await fetch('/api/author/taxonomy/categories', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<AdminCategoryItemResponse[]>(response, `admin_category_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<AdminCategoryItemResponse[]>('/taxonomy/categories', FrameType.AuthorTaxonomyCategoryList, config)
 }
 
 export async function listAdminTags(config?: ApiRequestConfig): Promise<AdminTagItemResponse[]> {
-  const response = await fetch('/api/author/taxonomy/tags', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<AdminTagItemResponse[]>(response, `admin_tag_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<AdminTagItemResponse[]>('/taxonomy/tags', FrameType.AuthorTaxonomyTagList, config)
 }
 
 export async function getAuthorAnalytics(config?: ApiRequestConfig): Promise<AuthorAnalyticsResponse> {
-  const response = await fetch('/api/author/analytics', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<AuthorAnalyticsResponse>(response, `author_analytics_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<AuthorAnalyticsResponse>('/analytics', FrameType.AuthorAnalytics, config)
 }
 
 export async function listAuditLogs(
@@ -1058,13 +1007,7 @@ export async function listAuditLogs(
   config?: ApiRequestConfig
 ): Promise<AuditLogListResponse> {
   const search = buildAuditSearch(params)
-  const response = await fetch(`/api/author/audit?${search.toString()}`, {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<AuditLogListResponse>(response, `audit_log_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<AuditLogListResponse>(`/audit?${search.toString()}`, FrameType.AuditLogList, config)
 }
 
 export async function getAuditLogSummary(
@@ -1072,63 +1015,27 @@ export async function getAuditLogSummary(
   config?: ApiRequestConfig
 ): Promise<AuditLogSummaryResponse> {
   const search = buildAuditSearch(params)
-  const response = await fetch(`/api/author/audit/summary?${search.toString()}`, {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<AuditLogSummaryResponse>(response, `audit_summary_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<AuditLogSummaryResponse>(`/audit/summary?${search.toString()}`, FrameType.AuditLogSummary, config)
 }
 
 export async function getAuditLogDetail(id: number, config?: ApiRequestConfig): Promise<AuditLogDetailResponse> {
-  const response = await fetch(`/api/author/audit/${id}`, {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<AuditLogDetailResponse>(response, `audit_detail_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<AuditLogDetailResponse>(`/audit/${id}`, FrameType.AuditLogDetail, config)
 }
 
 export async function verifyAuditLog(id: number, config?: ApiRequestConfig): Promise<AuditTamperVerifyResponse> {
-  const response = await fetch(`/api/author/audit/${id}/verify`, {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<AuditTamperVerifyResponse>(response, `audit_verify_failed:${response.status}`)
+  return requestAuthoringBinary<AuditTamperVerifyResponse>(`/audit/${id}/verify`, FrameType.AuditTamperVerifyResponse, config)
 }
 
 export async function getOpsHealth(config?: ApiRequestConfig): Promise<OpsHealthResponse> {
-  const response = await fetch('/api/author/ops/health', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<OpsHealthResponse>(response, `ops_health_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<OpsHealthResponse>('/ops/health', FrameType.OpsHealth, config)
 }
 
 export async function getBackupStatus(config?: ApiRequestConfig): Promise<BackupStatusResponse> {
-  const response = await fetch('/api/author/ops/backup', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<BackupStatusResponse>(response, `backup_status_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<BackupStatusResponse>('/ops/backup', FrameType.BackupStatus, config)
 }
 
 export async function getDangerousOperationPolicy(config?: ApiRequestConfig): Promise<DangerousOperationPolicyResponse> {
-  const response = await fetch('/api/author/ops/dangerous-operations/policy', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<DangerousOperationPolicyResponse>(response, `dangerous_policy_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<DangerousOperationPolicyResponse>('/ops/dangerous-operations/policy', FrameType.DangerousOperationPolicy, config)
 }
 
 export async function getCacheDiagnostics(articleId?: number | null, config?: ApiRequestConfig): Promise<CacheDiagnosticsResponse> {
@@ -1138,63 +1045,37 @@ export async function getCacheDiagnostics(articleId?: number | null, config?: Ap
   }
 
   const query = search.toString()
-  const response = await fetch(`/api/author/cache/diagnostics${query ? `?${query}` : ''}`, {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<CacheDiagnosticsResponse>(response, `cache_diagnostics_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<CacheDiagnosticsResponse>(`/cache/diagnostics${query ? `?${query}` : ''}`, FrameType.CacheDiagnostics, config)
 }
 
 export async function runCacheAction(
   request: AdminCacheActionRequest,
   config?: ApiRequestConfig
 ): Promise<AdminCacheActionResponse> {
-  const response = await fetch('/api/author/cache/actions', {
+  return requestAuthoringBinary<AdminCacheActionResponse>('/cache/actions', FrameType.AdminCacheActionResponse, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true),
-    signal: config?.signal,
-    body: JSON.stringify(request)
+    requestFrame: FrameType.AdminCacheActionRequest,
+    request
   })
-
-  return await readJsonEnvelope<AdminCacheActionResponse>(response, `cache_action_failed:${response.status}`)
 }
 
 export async function inspectIntegrity(config?: ApiRequestConfig): Promise<IntegrityReportResponse> {
-  const response = await fetch('/api/author/integrity', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<IntegrityReportResponse>(response, `integrity_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<IntegrityReportResponse>('/integrity', FrameType.IntegrityReport, config)
 }
 
 export async function previewIntegrityFix(config?: ApiRequestConfig): Promise<IntegrityFixPreviewResponse> {
-  const response = await fetch('/api/author/integrity/fix-preview', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<IntegrityFixPreviewResponse>(response, `integrity_fix_preview_failed:${response.status}`)
+  return requestAuthoringBinary<IntegrityFixPreviewResponse>('/integrity/fix-preview', FrameType.IntegrityFixPreview, config)
 }
 
 export async function applyIntegrityFix(
   request: IntegrityFixRequest,
   config?: ApiRequestConfig
 ): Promise<IntegrityFixResponse> {
-  const response = await fetch('/api/author/integrity/fix', {
+  return requestAuthoringBinary<IntegrityFixResponse>('/integrity/fix', FrameType.IntegrityFixResponse, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true, config?.mfaProofToken),
-    signal: config?.signal,
-    body: JSON.stringify(request)
+    requestFrame: FrameType.IntegrityFixRequest,
+    request
   })
-
-  return await readJsonEnvelope<IntegrityFixResponse>(response, `integrity_fix_failed:${response.status}`)
 }
 
 export async function listCommentModerationQueue(
@@ -1206,55 +1087,27 @@ export async function listCommentModerationQueue(
     status: String(status),
     limit: String(limit)
   })
-  const response = await fetch(`/api/author/comments/moderation?${search.toString()}`, {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<CommentModerationQueueResponse>(response, `comment_moderation_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<CommentModerationQueueResponse>(`/comments/moderation?${search.toString()}`, FrameType.CommentModerationQueue, config)
 }
 
 export async function getModerationOverview(config?: ApiRequestConfig): Promise<ModerationOverviewResponse> {
-  const response = await fetch('/api/author/moderation/overview', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<ModerationOverviewResponse>(response, `moderation_overview_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<ModerationOverviewResponse>('/moderation/overview', FrameType.ModerationOverview, config)
 }
 
 export async function getModerationDictionarySnapshot(config?: ApiRequestConfig): Promise<ModerationDictionaryRuntimeSnapshot> {
-  const response = await fetch('/api/author/moderation/dictionaries', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<ModerationDictionaryRuntimeSnapshot>(response, `moderation_dictionary_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<ModerationDictionaryRuntimeSnapshot>('/moderation/dictionaries', FrameType.ModerationDictionarySnapshot, config)
 }
 
 export async function reloadModerationDictionaries(config?: ApiRequestConfig): Promise<ModerationDictionaryReloadResponse> {
-  const response = await fetch('/api/author/moderation/dictionaries/reload', {
-    method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true, config?.mfaProofToken),
-    signal: config?.signal
+  return requestAuthoringBinary<ModerationDictionaryReloadResponse>('/moderation/dictionaries/reload', FrameType.ModerationDictionaryReloadResponse, config, {
+    method: 'POST'
   })
-
-  return await readJsonEnvelope<ModerationDictionaryReloadResponse>(response, `moderation_dictionary_reload_failed:${response.status}`)
 }
 
 export async function rollbackModerationDictionaries(config?: ApiRequestConfig): Promise<ModerationDictionaryRuntimeSnapshot> {
-  const response = await fetch('/api/author/moderation/dictionaries/rollback', {
-    method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(false, config?.mfaProofToken),
-    signal: config?.signal
+  return requestAuthoringBinary<ModerationDictionaryRuntimeSnapshot>('/moderation/dictionaries/rollback', FrameType.ModerationDictionarySnapshot, config, {
+    method: 'POST'
   })
-
-  return await readJsonEnvelope<ModerationDictionaryRuntimeSnapshot>(response, `moderation_dictionary_rollback_failed:${response.status}`)
 }
 
 export async function enableModerationDictionary(
@@ -1262,15 +1115,11 @@ export async function enableModerationDictionary(
   request: ModerationDictionaryStateRequest = {},
   config?: ApiRequestConfig
 ): Promise<ModerationRuntimeStatusResponse> {
-  const response = await fetch(`/api/author/moderation/dictionaries/${encodeURIComponent(dictionaryId)}/enable`, {
+  return requestAuthoringBinary<ModerationRuntimeStatusResponse>(`/moderation/dictionaries/${encodeURIComponent(dictionaryId)}/enable`, FrameType.ModerationRuntimeStatus, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true, config?.mfaProofToken),
-    signal: config?.signal,
-    body: JSON.stringify(request)
+    requestFrame: FrameType.ModerationDictionaryStateRequest,
+    request
   })
-
-  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_dictionary_enable_failed:${response.status}`)
 }
 
 export async function disableModerationDictionary(
@@ -1278,185 +1127,109 @@ export async function disableModerationDictionary(
   request: ModerationDictionaryStateRequest = {},
   config?: ApiRequestConfig
 ): Promise<ModerationRuntimeStatusResponse> {
-  const response = await fetch(`/api/author/moderation/dictionaries/${encodeURIComponent(dictionaryId)}/disable`, {
+  return requestAuthoringBinary<ModerationRuntimeStatusResponse>(`/moderation/dictionaries/${encodeURIComponent(dictionaryId)}/disable`, FrameType.ModerationRuntimeStatus, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true, config?.mfaProofToken),
-    signal: config?.signal,
-    body: JSON.stringify(request)
+    requestFrame: FrameType.ModerationDictionaryStateRequest,
+    request
   })
-
-  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_dictionary_disable_failed:${response.status}`)
 }
 
 export async function getModerationRuntimeStatus(config?: ApiRequestConfig): Promise<ModerationRuntimeStatusResponse> {
-  const response = await fetch('/api/author/moderation/runtime/status', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_runtime_status_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<ModerationRuntimeStatusResponse>('/moderation/runtime/status', FrameType.ModerationRuntimeStatus, config)
 }
 
 export async function setModerationGlobalState(
   request: ModerationRuntimeGlobalStateRequest,
   config?: ApiRequestConfig
 ): Promise<ModerationRuntimeStatusResponse> {
-  const response = await fetch('/api/author/moderation/runtime/global-state', {
+  return requestAuthoringBinary<ModerationRuntimeStatusResponse>('/moderation/runtime/global-state', FrameType.ModerationRuntimeStatus, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true, config?.mfaProofToken),
-    signal: config?.signal,
-    body: JSON.stringify(request)
+    requestFrame: FrameType.ModerationRuntimeGlobalStateRequest,
+    request
   })
-
-  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_runtime_global_state_failed:${response.status}`)
 }
 
 export async function setModerationRegionState(
   request: ModerationRuntimeRegionStateRequest,
   config?: ApiRequestConfig
 ): Promise<ModerationRuntimeStatusResponse> {
-  const response = await fetch('/api/author/moderation/runtime/region-state', {
+  return requestAuthoringBinary<ModerationRuntimeStatusResponse>('/moderation/runtime/region-state', FrameType.ModerationRuntimeStatus, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true, config?.mfaProofToken),
-    signal: config?.signal,
-    body: JSON.stringify(request)
+    requestFrame: FrameType.ModerationRuntimeRegionStateRequest,
+    request
   })
-
-  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_runtime_region_state_failed:${response.status}`)
 }
 
 export async function listModerationRegions(config?: ApiRequestConfig): Promise<ModerationRegionDefinition[]> {
-  const response = await fetch('/api/author/moderation/regions', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<ModerationRegionDefinition[]>(response, `moderation_regions_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<ModerationRegionDefinition[]>('/moderation/regions', FrameType.ModerationRegionList, config)
 }
 
 export async function listModerationRegionGroups(config?: ApiRequestConfig): Promise<ModerationRegionGroupDefinition[]> {
-  const response = await fetch('/api/author/moderation/region-groups', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<ModerationRegionGroupDefinition[]>(response, `moderation_region_groups_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<ModerationRegionGroupDefinition[]>('/moderation/region-groups', FrameType.ModerationRegionGroupList, config)
 }
 
 export async function listModerationPolicyTemplates(config?: ApiRequestConfig): Promise<ModerationPolicyTemplateDefinition[]> {
-  const response = await fetch('/api/author/moderation/policy-templates', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<ModerationPolicyTemplateDefinition[]>(response, `moderation_policy_templates_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<ModerationPolicyTemplateDefinition[]>('/moderation/policy-templates', FrameType.ModerationPolicyTemplateList, config)
 }
 
 export async function getModerationEffectivePolicy(
   regionCode: string,
   config?: ApiRequestConfig
 ): Promise<ModerationEffectivePolicyPreview> {
-  const response = await fetch(`/api/author/moderation/effective-policy/${encodeURIComponent(regionCode)}`, {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<ModerationEffectivePolicyPreview>(response, `moderation_effective_policy_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<ModerationEffectivePolicyPreview>(`/moderation/effective-policy/${encodeURIComponent(regionCode)}`, FrameType.ModerationEffectivePolicy, config)
 }
 
 export async function previewModerationEffectivePolicy(
   request: ModerationEffectivePolicyPreviewRequest,
   config?: ApiRequestConfig
 ): Promise<ModerationEffectivePolicyPreview> {
-  const response = await fetch('/api/author/moderation/effective-policy/preview', {
+  return requestAuthoringBinary<ModerationEffectivePolicyPreview>('/moderation/effective-policy/preview', FrameType.ModerationEffectivePolicy, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true, config?.mfaProofToken),
-    signal: config?.signal,
-    body: JSON.stringify(request)
+    requestFrame: FrameType.ModerationEffectivePolicyPreviewRequest,
+    request
   })
-
-  return await readJsonEnvelope<ModerationEffectivePolicyPreview>(response, `moderation_effective_policy_preview_failed:${response.status}`)
 }
 
 export async function listModerationPolicies(config?: ApiRequestConfig): Promise<RegionPolicySummaryResponse[]> {
-  const response = await fetch('/api/author/moderation/policies', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<RegionPolicySummaryResponse[]>(response, `moderation_policies_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<RegionPolicySummaryResponse[]>('/moderation/policies', FrameType.RegionPolicySummaryList, config)
 }
 
 export async function getModerationModelStatus(config?: ApiRequestConfig): Promise<ModerationModelStatusResponse> {
-  const response = await fetch('/api/author/moderation/model/status', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<ModerationModelStatusResponse>(response, `moderation_model_status_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<ModerationModelStatusResponse>('/moderation/model/status', FrameType.ModerationModelStatus, config)
 }
 
 export async function setModerationModelRuntime(
   request: ModerationModelRuntimeRequest,
   config?: ApiRequestConfig
 ): Promise<ModerationRuntimeStatusResponse> {
-  const response = await fetch('/api/author/moderation/model/runtime', {
+  return requestAuthoringBinary<ModerationRuntimeStatusResponse>('/moderation/model/runtime', FrameType.ModerationRuntimeStatus, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true, config?.mfaProofToken),
-    signal: config?.signal,
-    body: JSON.stringify(request)
+    requestFrame: FrameType.ModerationModelRuntimeRequest,
+    request
   })
-
-  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_model_runtime_failed:${response.status}`)
 }
 
 export async function reloadModerationModel(config?: ApiRequestConfig): Promise<ModerationRuntimeStatusResponse> {
-  const response = await fetch('/api/author/moderation/model/reload', {
-    method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(false, config?.mfaProofToken),
-    signal: config?.signal
+  return requestAuthoringBinary<ModerationRuntimeStatusResponse>('/moderation/model/reload', FrameType.ModerationRuntimeStatus, config, {
+    method: 'POST'
   })
-
-  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_model_reload_failed:${response.status}`)
 }
 
 export async function rollbackModerationModel(config?: ApiRequestConfig): Promise<ModerationRuntimeStatusResponse> {
-  const response = await fetch('/api/author/moderation/model/rollback', {
-    method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(false, config?.mfaProofToken),
-    signal: config?.signal
+  return requestAuthoringBinary<ModerationRuntimeStatusResponse>('/moderation/model/rollback', FrameType.ModerationRuntimeStatus, config, {
+    method: 'POST'
   })
-
-  return await readJsonEnvelope<ModerationRuntimeStatusResponse>(response, `moderation_model_rollback_failed:${response.status}`)
 }
 
 export async function previewModerationReplay(
   request: ModerationReplayPreviewRequest,
   config?: ApiRequestConfig
 ): Promise<ModerationReplayPreviewResponse> {
-  const response = await fetch('/api/author/moderation/replay/preview', {
+  return requestAuthoringBinary<ModerationReplayPreviewResponse>('/moderation/replay/preview', FrameType.ModerationReplayPreview, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true, config?.mfaProofToken),
-    signal: config?.signal,
-    body: JSON.stringify(request)
+    requestFrame: FrameType.ModerationReplayPreviewRequest,
+    request
   })
-
-  return await readJsonEnvelope<ModerationReplayPreviewResponse>(response, `moderation_replay_preview_failed:${response.status}`)
 }
 
 export async function moderateComment(
@@ -1464,14 +1237,11 @@ export async function moderateComment(
   request: CommentModerationRequest,
   config?: ApiRequestConfig
 ): Promise<boolean> {
-  const response = await fetch(`/api/author/comments/${commentId}/moderation`, {
+  const result = await requestAuthoringBinary<{ moderated?: boolean }>(`/comments/${commentId}/moderation`, FrameType.CommentModerationResult, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true, config?.mfaProofToken),
-    signal: config?.signal,
-    body: JSON.stringify(request)
+    requestFrame: FrameType.CommentModerationRequest,
+    request
   })
-  const result = await readJsonEnvelope<{ moderated?: boolean }>(response, `comment_moderation_failed:${response.status}`)
   return result.moderated === true
 }
 
@@ -1479,66 +1249,40 @@ export async function moderateCommentsBulk(
   request: CommentModerationBulkRequest,
   config?: ApiRequestConfig
 ): Promise<CommentModerationBulkResponse> {
-  const response = await fetch('/api/author/comments/moderation/bulk', {
+  return requestAuthoringBinary<CommentModerationBulkResponse>('/comments/moderation/bulk', FrameType.CommentModerationBulkResponse, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true, config?.mfaProofToken),
-    signal: config?.signal,
-    body: JSON.stringify(request)
+    requestFrame: FrameType.CommentModerationBulkRequest,
+    request
   })
-
-  return await readJsonEnvelope<CommentModerationBulkResponse>(response, `comment_moderation_bulk_failed:${response.status}`)
 }
 
 export async function exportArticleContent(
   articleId: number,
   config?: ApiRequestConfig
 ): Promise<ContentExportResponse> {
-  const response = await fetch(`/api/author/articles/${articleId}/export`, {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<ContentExportResponse>(response, `content_export_failed:${response.status}`)
+  return requestAuthoringBinary<ContentExportResponse>(`/articles/${articleId}/export`, FrameType.ContentExport, config)
 }
 
 export async function exportContentBackup(config?: ApiRequestConfig): Promise<ContentBackupExportResponse> {
-  const response = await fetch('/api/author/content/export', {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<ContentBackupExportResponse>(response, `content_backup_export_failed:${response.status}`)
+  return requestAuthoringBinary<ContentBackupExportResponse>('/content/export', FrameType.ContentBackupExport, config)
 }
 
 export async function importArticleContent(
   request: ContentImportRequest,
   config?: ApiRequestConfig
 ): Promise<ContentImportResponse> {
-  const response = await fetch('/api/author/articles/import', {
+  return requestAuthoringBinary<ContentImportResponse>('/articles/import', FrameType.ContentImportResponse, config, {
     method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(true),
-    signal: config?.signal,
-    body: JSON.stringify(request)
+    requestFrame: FrameType.ContentImportRequest,
+    request
   })
-
-  return await readJsonEnvelope<ContentImportResponse>(response, `content_import_failed:${response.status}`)
 }
 
 export async function listArticleRevisions(
   articleId: number,
   config?: ApiRequestConfig
 ): Promise<ArticleRevisionSummaryResponse[]> {
-  const response = await fetch(`/api/author/articles/${articleId}/revisions`, {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<ArticleRevisionSummaryResponse[]>(response, `article_revisions_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<ArticleRevisionSummaryResponse[]>(`/articles/${articleId}/revisions`, FrameType.ArticleRevisionList, config)
 }
 
 export async function getArticleRevision(
@@ -1546,13 +1290,7 @@ export async function getArticleRevision(
   revisionId: number,
   config?: ApiRequestConfig
 ): Promise<ArticleRevisionDetailResponse> {
-  const response = await fetch(`/api/author/articles/${articleId}/revisions/${revisionId}`, {
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
-  })
-
-  return await readJsonEnvelope<ArticleRevisionDetailResponse>(response, `article_revision_fetch_failed:${response.status}`)
+  return requestAuthoringBinary<ArticleRevisionDetailResponse>(`/articles/${articleId}/revisions/${revisionId}`, FrameType.ArticleRevisionDetail, config)
 }
 
 export async function rollbackArticleRevision(
@@ -1560,13 +1298,9 @@ export async function rollbackArticleRevision(
   revisionId: number,
   config?: ApiRequestConfig
 ): Promise<boolean> {
-  const response = await fetch(`/api/author/articles/${articleId}/revisions/${revisionId}/rollback`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: jsonHeaders(false),
-    signal: config?.signal
+  const result = await requestAuthoringBinary<{ rolledBack?: boolean }>(`/articles/${articleId}/revisions/${revisionId}/rollback`, FrameType.ArticleRevisionRollbackResponse, config, {
+    method: 'POST'
   })
-  const result = await readJsonEnvelope<{ rolledBack?: boolean }>(response, `article_revision_rollback_failed:${response.status}`)
   return result.rolledBack === true
 }
 

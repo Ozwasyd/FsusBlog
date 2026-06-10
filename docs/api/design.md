@@ -19,7 +19,7 @@
 |------|-------------|-------|---------|
 | **AEDS Binary** | `application/octet-stream` | TypeScript adapter / C++23 Wasm Worker | `/api/binary/...` |
 
-旧文本业务 API 不再注册；`/api/**` 非 binary 业务路径统一返回 `ApiError` AEDS frame。客户端不得把解码失败回退为文本 API 请求。例外只限 [AEDS-only policy](aeds-only-policy.md) 登记的标准协议、健康探针、工具入口和迁移期兼容层；其中 `/api/author/**`、`/api/admin/security/**` 和通知 preflight JSON error envelope 都是必须迁移的内部应用 API，不得继续扩散新的 JSON 调用点。`/api/read-proof/**`、`/api/public/articles/{id}/related` 与 `/api/telemetry/rum` 仅作为废弃兼容端点登记，生产前端必须分别使用 `/api/binary/read-proof/*.aeds`、`/api/binary/article/{id}/related.aeds` 与 `/api/binary/telemetry/rum`。
+旧文本业务 API 不再注册；`/api/**` 非 binary 业务路径统一返回 `ApiError` AEDS frame。客户端不得把解码失败回退为文本 API 请求。例外只限 [AEDS-only policy](aeds-only-policy.md) 登记的标准协议、健康探针、工具入口和迁移期兼容层；其中 `/api/admin/security/**` 和通知 preflight JSON error envelope 仍是必须迁移的内部应用 API，不得继续扩散新的 JSON 调用点。`/api/author/**`、`/api/read-proof/**`、`/api/public/articles/{id}/related` 与 `/api/telemetry/rum` 仅作为废弃兼容端点登记，生产前端必须分别使用 `/api/binary/author/**`、`/api/binary/read-proof/*.aeds`、`/api/binary/article/{id}/related.aeds` 与 `/api/binary/telemetry/rum`。
 
 HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提供，包含 method/path/status/content-type/security 与 `x-fsus-*` 扩展；AEDS payload、frame 编号、POD schema 和 golden fixture 仍由 `aeds-protocol.json`、POD 契约和 fixture 负责。
 
@@ -40,7 +40,7 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 | Binary 端点统一前缀 `/api/binary/` + 小写资源名；公开热点 article 使用无 query 的 artifact 路径 | `/api/binary/article/list/home/1/10.aeds`、`/api/binary/comment/{id}` |
 | 消息系统使用 binary 消息路径 | `/api/binary/messages/conversations` |
 | 管理端以 binary admin 资源路径区分 | `/api/binary/admin/users`、`/api/binary/stats` |
-| 作者工作台 JSON 端点限定 admin 后台工作流 | `/api/author/drafts`、`/api/author/audit`、`/api/author/moderation/overview` |
+| 作者工作台 legacy JSON 端点仅作后端兼容；生产前端使用 AEDS bridge | `/api/binary/author/drafts`、`/api/binary/author/audit`、`/api/binary/author/moderation/overview` |
 | 健康检查与通知独立于业务路径 | `/health/live`、`/api/notifications/stream` |
 
 ---
@@ -192,7 +192,7 @@ Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayloa
 
 公开 article Binary 端点不再按身份混合语义。匿名公开读只能使用 `/api/binary/article/**.aeds` artifact 路径，客户端必须省略 credentials；admin/private 读写统一使用 `/api/binary/admin/article/**`，可读取所有非删除状态，并可用 `status=0/1/2/3/4` 精确管理 draft、scheduled、published、archived、deleted。任何旧 query 公开路径或匿名管理查询都不得退回文本 API 或泄露未发布标题。
 
-作者工作台 API 放在 `/api/author/**`，全部使用 admin 授权和统一响应包装；预览、草稿、修订、管理端 taxonomy、资产、AI 辅助都属于作者私有能力。私有预览走 `/api/author/preview`，由服务端把草稿 Markdown 渲染成带 `data-preview-only=true`、`data-markdown-renderer=server-preview` 的 AOT-like HTML，前端只放进 sandboxed iframe，不进入公开路由或缓存。服务端草稿以 `ownerUserId + draftKey` 隔离并持久化正文、分类标签、发布状态和定时发布时间；编辑器发现服务端草稿比本地缓存更新时必须先提示恢复/丢弃，不能用本地缓存静默覆盖。文章修订历史必须通过 admin-only API 读取摘要和单条正文详情，编辑器只在作者工作台内比较当前表单与历史版本，回滚复用正式文章更新链路而不是直接写表。未发布正文不得进入 feed、search、sitemap、PublicAOT cache，也不得默认发送到外部 AI provider。
+作者工作台生产 API 放在 `/api/binary/author/**`，全部使用 admin 授权和 AEDS frame；旧 `/api/author/**` 只保留为后端兼容层。预览、草稿、修订、管理端 taxonomy、资产、AI 辅助都属于作者私有能力。私有预览走 `/api/binary/author/preview`，由服务端把草稿 Markdown 渲染成带 `data-preview-only=true`、`data-markdown-renderer=server-preview` 的 AOT-like HTML，前端只放进 sandboxed iframe，不进入公开路由或缓存。服务端草稿以 `ownerUserId + draftKey` 隔离并持久化正文、分类标签、发布状态和定时发布时间；编辑器发现服务端草稿比本地缓存更新时必须先提示恢复/丢弃，不能用本地缓存静默覆盖。文章修订历史必须通过 admin-only API 读取摘要和单条正文详情，编辑器只在作者工作台内比较当前表单与历史版本，回滚复用正式文章更新链路而不是直接写表。未发布正文不得进入 feed、search、sitemap、PublicAOT cache，也不得默认发送到外部 AI provider。
 
 单作者运维能力也归入 `/api/author/**`，不得新增多作者协作或复杂 RBAC。`/api/author/ops/**` 只返回运行时健康、备份 artifact 状态和危险操作策略；`/api/author/cache/**` 暴露 AOT/PublicHotRead/search/sitemap/feed/comment cache 诊断、VisitLog 驱动 HotArticles/Stats 失效合并状态与手动重建入口；`/api/author/integrity/**` 暴露数据一致性巡检、diff 预览和带 MFA 的 safe-fix 应用。所有写入型维护动作必须写高价值审计；不可逆或跨表修复必须先返回 diff，并通过统一危险操作策略要求强确认或 MFA proof。
 
