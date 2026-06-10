@@ -6,6 +6,7 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiplexer redis) : IPublicAotShellCache
 {
+    private const int InvalidationBatchSize = 256;
     private readonly IDatabase _db = redis.GetDatabase();
 
     public async Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
@@ -39,18 +40,24 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
 
     public async Task RemoveAsync(string cacheKey, CancellationToken cancellationToken = default)
     {
-        await cache.RemoveAsync(CachePolicyId.PublicAotDocument, cacheKey, cancellationToken);
+        await RemoveManyCacheEntriesAsync([cacheKey], cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task RemoveManyCacheEntriesAsync(
+        IReadOnlyCollection<string> cacheKeys,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
-        if (PublicAotCacheRegistry.TryParseCacheKey(cacheKey, out PublicPageId pageId, out string routeKey))
+        string[] distinctKeys = [.. cacheKeys.Where(static key => !string.IsNullOrWhiteSpace(key)).Distinct(StringComparer.Ordinal)];
+        if (distinctKeys.Length == 0)
         {
-            foreach (string registryKey in PublicAotCacheRegistry.GetRegistryKeys(pageId, routeKey))
-            {
-                _ = await _db.SetRemoveAsync(registryKey, cacheKey);
-            }
             return;
         }
 
-        _ = await _db.SetRemoveAsync(PublicAotCacheRegistry.GlobalRegistryKey, cacheKey);
+        await cache.RemoveManyAsync(
+            [.. distinctKeys.Select(static key => new CacheKeyIdentity(CachePolicyId.PublicAotDocument, key))],
+            cancellationToken).ConfigureAwait(false);
+        await UnregisterKeysAsync(distinctKeys).ConfigureAwait(false);
     }
 
     public async Task RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
@@ -89,10 +96,7 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
 
         if (keysToDelete.Count > 0)
         {
-            foreach (string key in keysToDelete)
-            {
-                await cache.RemoveAsync(CachePolicyId.PublicAotDocument, key, cancellationToken);
-            }
+            await RemoveManyCacheEntriesAsync(keysToDelete, cancellationToken).ConfigureAwait(false);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -121,6 +125,7 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
         CancellationToken cancellationToken)
     {
         int removed = 0;
+        List<string> batch = new(InvalidationBatchSize);
         foreach (RedisValue key in _db.SetScan(registryKey, pageSize: 256))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -135,11 +140,71 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
                 continue;
             }
 
-            await RemoveAsync(value, cancellationToken).ConfigureAwait(false);
-            removed++;
+            batch.Add(value);
+            if (batch.Count >= InvalidationBatchSize)
+            {
+                removed += await FlushInvalidationBatchAsync(batch, cancellationToken).ConfigureAwait(false);
+                batch.Clear();
+            }
+        }
+
+        return removed + await FlushInvalidationBatchAsync(batch, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<int> FlushInvalidationBatchAsync(
+        IReadOnlyCollection<string> cacheKeys,
+        CancellationToken cancellationToken)
+    {
+        if (cacheKeys.Count == 0)
+        {
+            return 0;
+        }
+
+        await RemoveManyCacheEntriesAsync(cacheKeys, cancellationToken).ConfigureAwait(false);
+        return cacheKeys.Count;
+    }
+
+    private async Task<long> UnregisterKeysAsync(IReadOnlyCollection<string> cacheKeys)
+    {
+        if (cacheKeys.Count == 0)
+        {
+            return 0;
+        }
+
+        Dictionary<string, List<RedisValue>> grouped = new(StringComparer.Ordinal);
+        foreach (string cacheKey in cacheKeys)
+        {
+            if (PublicAotCacheRegistry.TryParseCacheKey(cacheKey, out PublicPageId pageId, out string routeKey))
+            {
+                foreach (string registryKey in PublicAotCacheRegistry.GetRegistryKeys(pageId, routeKey))
+                {
+                    AddRegistryMember(grouped, registryKey, cacheKey);
+                }
+
+                continue;
+            }
+
+            AddRegistryMember(grouped, PublicAotCacheRegistry.GlobalRegistryKey, cacheKey);
+        }
+
+        long removed = 0;
+        foreach ((string registryKey, List<RedisValue> members) in grouped)
+        {
+            removed += await _db.SetRemoveAsync((RedisKey)registryKey, [.. members]).ConfigureAwait(false);
         }
 
         return removed;
+    }
+
+    private static void AddRegistryMember(Dictionary<string, List<RedisValue>> grouped, string registryKey, string cacheKey)
+    {
+        if (!grouped.TryGetValue(registryKey, out List<RedisValue>? members))
+        {
+            members = [];
+            grouped[registryKey] = members;
+        }
+
+        members.Add(cacheKey);
     }
 
     private static (bool Success, PublicAotCacheEntry? Value) DecodeEntry(ReadOnlyMemory<byte> bytes)

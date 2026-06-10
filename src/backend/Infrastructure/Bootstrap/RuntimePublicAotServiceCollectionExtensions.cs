@@ -20,7 +20,12 @@ internal static class RuntimePublicAotServiceCollectionExtensions
 
         services.AddSingleton<IContentFilterService, ContentFilterService>();
         services.AddScoped<ProductionReadinessProbe>();
-        services.AddSingleton<IPublicAotShellCache, PublicAotFileShellCache>();
+        services.AddSingleton<PublicAotFileShellCache>();
+        services.AddSingleton<IPublicAotShellCache>(sp => sp.GetRequiredService<PublicAotFileShellCache>());
+        if (!OpenApiExportMode.IsEnabled())
+        {
+            services.AddHostedService<PublicAotFileShellCacheInvalidationSubscriber>();
+        }
         services.AddScoped<IPublicAotCacheWriter, PublicAotCacheWriter>();
         services.AddSingleton<IPublicAotRouteRegistry, PublicAotRouteRegistry>();
         services.AddScoped<IPublicAotRouteManifestProvider, PublicAotRouteManifestProvider>();

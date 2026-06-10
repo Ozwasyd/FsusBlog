@@ -16,7 +16,7 @@ public sealed class PublicAotFileShellCache(
     IConnectionMultiplexer redis,
     ILogger<PublicAotFileShellCache> logger) : IPublicAotShellCache
 {
-    private const string InvalidationChannel = "public:aot:v2:invalidate";
+    private const int InvalidationBatchSize = 256;
     private readonly IDatabase _db = redis.GetDatabase();
     private readonly string _cacheRoot = ResolveCacheRoot(env);
     private readonly ConcurrentDictionary<string, MemoryCacheEntry> _memoryCache = new(StringComparer.Ordinal);
@@ -56,18 +56,10 @@ public sealed class PublicAotFileShellCache(
     public async Task RemoveAsync(string cacheKey, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        _memoryCache.TryRemove(cacheKey, out _);
-        foreach (string path in EnumerateEntryPathsForKey(cacheKey))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
-
-        await UnregisterKeyAsync(cacheKey).ConfigureAwait(false);
-        await PublishInvalidationAsync(cacheKey).ConfigureAwait(false);
+        long started = Stopwatch.GetTimestamp();
+        PublicAotBatchInvalidationStats stats = await RemoveManyLocalAsync([cacheKey], cancellationToken).ConfigureAwait(false);
+        await PublishInvalidationAsync(PublicAotInvalidationMessage.Key(cacheKey)).ConfigureAwait(false);
+        RecordInvalidation("key", stats.WithPublish(), Stopwatch.GetElapsedTime(started));
     }
 
     public async Task RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
@@ -78,37 +70,42 @@ public sealed class PublicAotFileShellCache(
             return;
         }
 
+        long started = Stopwatch.GetTimestamp();
         string registryKey = ResolveRegistryKey(prefix, out bool requiresPrefixFilter);
-        int removed = await RemoveRegisteredKeysAsync(registryKey, prefix, requiresPrefixFilter, cancellationToken).ConfigureAwait(false);
-        if (removed == 0)
+        PublicAotBatchInvalidationStats stats = await RemoveRegisteredKeysBatchAsync(registryKey, prefix, requiresPrefixFilter, cancellationToken).ConfigureAwait(false);
+        if (stats.InvalidatedKeys == 0)
         {
             if (!string.Equals(registryKey, PublicAotCacheRegistry.GlobalRegistryKey, StringComparison.Ordinal))
             {
-                removed = await RemoveRegisteredKeysAsync(PublicAotCacheRegistry.GlobalRegistryKey, prefix, requiresPrefixFilter: true, cancellationToken).ConfigureAwait(false);
+                stats = stats.Add(await RemoveRegisteredKeysBatchAsync(PublicAotCacheRegistry.GlobalRegistryKey, prefix, requiresPrefixFilter: true, cancellationToken).ConfigureAwait(false));
             }
 
-            if (removed == 0)
+            if (stats.InvalidatedKeys == 0)
             {
                 logger.LogInformation(
                     "public-aot-prefix-invalidation-registry-missing {Prefix}; skipped disk scan",
                     prefix);
-                await PublishInvalidationAsync(prefix).ConfigureAwait(false);
-                return;
             }
         }
+
+        await PublishInvalidationAsync(PublicAotInvalidationMessage.Prefix(prefix)).ConfigureAwait(false);
+        RecordInvalidation("prefix", stats.WithPublish(), Stopwatch.GetElapsedTime(started));
     }
 
     public async Task InvalidateAllAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        long started = Stopwatch.GetTimestamp();
         Interlocked.Increment(ref _memoryGeneration);
         _memoryCache.Clear();
+        int deletedFiles = 0;
         if (Directory.Exists(_cacheRoot))
         {
             foreach (string file in EnumerateEntryFiles())
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 File.Delete(file);
+                deletedFiles++;
             }
         }
 
@@ -124,7 +121,8 @@ public sealed class PublicAotFileShellCache(
             logger,
             "public-aot-clear-registry");
 
-        await PublishInvalidationAsync("all").ConfigureAwait(false);
+        await PublishInvalidationAsync(PublicAotInvalidationMessage.All()).ConfigureAwait(false);
+        RecordInvalidation("all", new PublicAotBatchInvalidationStats(0, deletedFiles, 0, 1), Stopwatch.GetElapsedTime(started));
     }
 
     private async Task<PublicAotCacheEntry?> TryReadCachedEntryAsync(
@@ -473,13 +471,14 @@ public sealed class PublicAotFileShellCache(
         return Path.Combine(webRoot, "aot-cache", "frontend", SanitizePathSegment(frontendAssetVersion), pageId.ToString(), hash[..2], $"{hash}.aeds");
     }
 
-    private async Task<int> RemoveRegisteredKeysAsync(
+    private async Task<PublicAotBatchInvalidationStats> RemoveRegisteredKeysBatchAsync(
         string registryKey,
         string prefix,
         bool requiresPrefixFilter,
         CancellationToken cancellationToken)
     {
-        int removed = 0;
+        PublicAotBatchInvalidationStats stats = PublicAotBatchInvalidationStats.Empty;
+        List<string> batch = new(InvalidationBatchSize);
         try
         {
             foreach (RedisValue key in _db.SetScan(registryKey, pageSize: 256))
@@ -496,8 +495,17 @@ public sealed class PublicAotFileShellCache(
                     continue;
                 }
 
-                await RemoveAsync(cacheKey, cancellationToken).ConfigureAwait(false);
-                removed++;
+                batch.Add(cacheKey);
+                if (batch.Count >= InvalidationBatchSize)
+                {
+                    stats = stats.Add(await FlushInvalidationBatchAsync(batch, cancellationToken).ConfigureAwait(false));
+                    batch.Clear();
+                }
+            }
+
+            if (batch.Count > 0)
+            {
+                stats = stats.Add(await FlushInvalidationBatchAsync(batch, cancellationToken).ConfigureAwait(false));
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -505,7 +513,141 @@ public sealed class PublicAotFileShellCache(
             logger.LogWarning(ex, "public-aot-read-registry-failed {RegistryKey}", registryKey);
         }
 
+        return stats;
+    }
+
+    private async Task<PublicAotBatchInvalidationStats> FlushInvalidationBatchAsync(
+        IReadOnlyCollection<string> cacheKeys,
+        CancellationToken cancellationToken)
+        => cacheKeys.Count == 0
+            ? PublicAotBatchInvalidationStats.Empty
+            : await RemoveManyLocalAsync(cacheKeys, cancellationToken).ConfigureAwait(false);
+
+    private async Task<PublicAotBatchInvalidationStats> RemoveManyLocalAsync(
+        IReadOnlyCollection<string> cacheKeys,
+        CancellationToken cancellationToken)
+    {
+        if (cacheKeys.Count == 0)
+        {
+            return PublicAotBatchInvalidationStats.Empty;
+        }
+
+        string[] distinctKeys = [.. cacheKeys.Where(static key => !string.IsNullOrWhiteSpace(key)).Distinct(StringComparer.Ordinal)];
+        int deletedFiles = 0;
+        foreach (string cacheKey in distinctKeys)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _memoryCache.TryRemove(cacheKey, out _);
+            deletedFiles += DeleteEntryFilesForKey(cacheKey, cancellationToken);
+        }
+
+        long registryRemoved = await UnregisterKeysAsync(distinctKeys).ConfigureAwait(false);
+        return new PublicAotBatchInvalidationStats(distinctKeys.Length, deletedFiles, registryRemoved, 0);
+    }
+
+    private int DeleteEntryFilesForKey(string cacheKey, CancellationToken cancellationToken)
+    {
+        int deleted = 0;
+        foreach (string path in EnumerateEntryPathsForKey(cacheKey))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                deleted++;
+            }
+        }
+
+        return deleted;
+    }
+
+    private long RemoveMemoryByPrefix(string prefix)
+    {
+        long removed = 0;
+        foreach (string cacheKey in _memoryCache.Keys)
+        {
+            if (cacheKey.StartsWith(prefix, StringComparison.Ordinal)
+                && _memoryCache.TryRemove(cacheKey, out _))
+            {
+                removed++;
+            }
+        }
+
         return removed;
+    }
+
+    private int DeleteEntryFilesByPrefix(string prefix)
+    {
+        if (!Directory.Exists(_cacheRoot))
+        {
+            return 0;
+        }
+
+        int deleted = 0;
+        foreach (string file in EnumerateEntryFiles())
+        {
+            try
+            {
+                PublicAotCacheEntry? entry = PublicAotCacheEntryBinaryCodec.Decode(File.ReadAllBytes(file));
+                if (entry is not null && entry.CacheKey.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    File.Delete(file);
+                    deleted++;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                logger.LogDebug(ex, "public_aot_remote_prefix_delete_failed {Path}", file);
+            }
+        }
+
+        return deleted;
+    }
+
+    private async Task<long> UnregisterKeysAsync(IReadOnlyCollection<string> cacheKeys)
+    {
+        if (cacheKeys.Count == 0)
+        {
+            return 0;
+        }
+
+        Dictionary<string, List<RedisValue>> grouped = new(StringComparer.Ordinal);
+        foreach (string cacheKey in cacheKeys)
+        {
+            if (PublicAotCacheRegistry.TryParseCacheKey(cacheKey, out PublicPageId pageId, out string routeKey))
+            {
+                foreach (string registryKey in PublicAotCacheRegistry.GetRegistryKeys(pageId, routeKey))
+                {
+                    AddRegistryMember(grouped, registryKey, cacheKey);
+                }
+            }
+            else
+            {
+                AddRegistryMember(grouped, PublicAotCacheRegistry.GlobalRegistryKey, cacheKey);
+            }
+        }
+
+        long removed = 0;
+        foreach ((string registryKey, List<RedisValue> members) in grouped)
+        {
+            await BoundaryExecutor.ExecuteAsync(
+                async () => removed += await _db.SetRemoveAsync((RedisKey)registryKey, [.. members]).ConfigureAwait(false),
+                logger,
+                $"public-aot-unregister-batch:{registryKey}:{members.Count}");
+        }
+
+        return removed;
+    }
+
+    private static void AddRegistryMember(Dictionary<string, List<RedisValue>> grouped, string registryKey, string cacheKey)
+    {
+        if (!grouped.TryGetValue(registryKey, out List<RedisValue>? members))
+        {
+            members = [];
+            grouped[registryKey] = members;
+        }
+
+        members.Add(cacheKey);
     }
 
     private async Task RegisterKeyAsync(string cacheKey)
@@ -531,23 +673,7 @@ public sealed class PublicAotFileShellCache(
 
     private async Task UnregisterKeyAsync(string cacheKey)
     {
-        if (PublicAotCacheRegistry.TryParseCacheKey(cacheKey, out PublicPageId pageId, out string routeKey))
-        {
-            foreach (string registryKey in PublicAotCacheRegistry.GetRegistryKeys(pageId, routeKey))
-            {
-                await BoundaryExecutor.ExecuteAsync(
-                    async () => _ = await _db.SetRemoveAsync(registryKey, cacheKey).ConfigureAwait(false),
-                    logger,
-                    $"public-aot-unregister:{registryKey}:{cacheKey}");
-            }
-
-            return;
-        }
-
-        await BoundaryExecutor.ExecuteAsync(
-            async () => _ = await _db.SetRemoveAsync(PublicAotCacheRegistry.GlobalRegistryKey, cacheKey).ConfigureAwait(false),
-            logger,
-            $"public-aot-unregister:{cacheKey}");
+        _ = await UnregisterKeysAsync([cacheKey]).ConfigureAwait(false);
     }
 
     private static string ResolveRegistryKey(string prefix, out bool requiresPrefixFilter)
@@ -561,18 +687,78 @@ public sealed class PublicAotFileShellCache(
         return PublicAotCacheRegistry.GlobalRegistryKey;
     }
 
-    private async Task PublishInvalidationAsync(string cacheKey)
+    internal PublicAotBatchInvalidationStats ApplyRemoteInvalidationForTests(PublicAotInvalidationMessage message)
+        => ApplyRemoteInvalidation(message);
+
+    internal PublicAotBatchInvalidationStats ApplyRemoteInvalidation(PublicAotInvalidationMessage message)
+    {
+        long started = Stopwatch.GetTimestamp();
+        PublicAotBatchInvalidationStats stats = message.Type switch
+        {
+            PublicAotInvalidationMessage.TypeAll => ApplyRemoteAllInvalidation(),
+            PublicAotInvalidationMessage.TypePrefix when !string.IsNullOrWhiteSpace(message.Value) => ApplyRemotePrefixInvalidation(message.Value),
+            PublicAotInvalidationMessage.TypeKey when !string.IsNullOrWhiteSpace(message.Value) => ApplyRemoteKeyInvalidation(message.Value),
+            _ => PublicAotBatchInvalidationStats.Empty
+        };
+        RecordInvalidation($"remote-{message.Type}", stats, Stopwatch.GetElapsedTime(started));
+        return stats;
+    }
+
+    private PublicAotBatchInvalidationStats ApplyRemoteAllInvalidation()
+    {
+        Interlocked.Increment(ref _memoryGeneration);
+        _memoryCache.Clear();
+        int deletedFiles = 0;
+        if (Directory.Exists(_cacheRoot))
+        {
+            foreach (string file in EnumerateEntryFiles())
+            {
+                File.Delete(file);
+                deletedFiles++;
+            }
+        }
+
+        return new PublicAotBatchInvalidationStats(0, deletedFiles, 0, 0);
+    }
+
+    private PublicAotBatchInvalidationStats ApplyRemotePrefixInvalidation(string prefix)
+    {
+        int removedMemory = checked((int)Math.Min(int.MaxValue, RemoveMemoryByPrefix(prefix)));
+        int deletedFiles = DeleteEntryFilesByPrefix(prefix);
+        return new PublicAotBatchInvalidationStats(removedMemory, deletedFiles, 0, 0);
+    }
+
+    private PublicAotBatchInvalidationStats ApplyRemoteKeyInvalidation(string cacheKey)
+    {
+        _memoryCache.TryRemove(cacheKey, out _);
+        int deletedFiles = DeleteEntryFilesForKey(cacheKey, CancellationToken.None);
+        return new PublicAotBatchInvalidationStats(1, deletedFiles, 0, 0);
+    }
+
+    private async Task PublishInvalidationAsync(PublicAotInvalidationMessage message)
     {
         await BoundaryExecutor.ExecuteAsync(
             async () =>
             {
                 _ = await redis.GetSubscriber()
-                    .PublishAsync(RedisChannel.Literal(InvalidationChannel), cacheKey)
+                    .PublishAsync(RedisChannel.Literal(PublicAotInvalidationMessage.Channel), message.ToPayload())
                     .ConfigureAwait(false);
             },
             logger,
-            $"public-aot-publish:{cacheKey}",
+            $"public-aot-publish:{message.Type}:{message.Value}",
             LogLevel.Debug);
+    }
+
+    private static void RecordInvalidation(string scope, PublicAotBatchInvalidationStats stats, TimeSpan elapsed)
+    {
+        _ = scope;
+        FsusObservability.RecordPublicAotInvalidation(
+            scopes: 1,
+            stats.InvalidatedKeys,
+            stats.DeletedFiles,
+            stats.RegistryRemovedMembers,
+            stats.PublishCount,
+            elapsed);
     }
 
     private sealed record MemoryCacheEntry(

@@ -243,6 +243,131 @@ public sealed class PublicAotFileShellCacheTests
     }
 
     [Fact]
+    public async Task RemoveAsync_RemovesExactKey_AndPublishesSingleKeyInvalidation()
+    {
+        using CacheFixture fixture = BuildCacheFixture(Environments.Production);
+        var first = CreateEntry("public:aot:v2:doc:2:article:42");
+        var second = CreateEntry("public:aot:v2:doc:2:article:43", "article:43", PublicPageId.ArticleDetail);
+        await fixture.Cache.SetAsync(first);
+        await fixture.Cache.SetAsync(second);
+
+        await fixture.Cache.RemoveAsync(first.CacheKey);
+
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, first)));
+        Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, second)));
+        Assert.Null(await fixture.Cache.TryGetEntryAsync(first.CacheKey, first.FrontendAssetVersion));
+        Assert.NotNull(await fixture.Cache.TryGetEntryAsync(second.CacheKey, second.FrontendAssetVersion));
+        await fixture.Subscriber.Received(1).PublishAsync(
+            Arg.Any<RedisChannel>(),
+            Arg.Is<RedisValue>(payload => PayloadContains(payload, "\"type\":\"key\"") && PayloadContains(payload, first.CacheKey)),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public async Task RemoveByPrefixAsync_RemovesRegistryMatches_AndPublishesOneScopedMessage()
+    {
+        using CacheFixture fixture = BuildCacheFixture(Environments.Production);
+        const string prefix = "public:aot:v2:doc:2:article:";
+        var first = CreateEntry("public:aot:v2:doc:2:article:42");
+        var second = CreateEntry("public:aot:v2:doc:2:article:43", "article:43", PublicPageId.ArticleDetail);
+        var other = CreateEntry("public:aot:v2:doc:5:about", "about", PublicPageId.About);
+        await fixture.Cache.SetAsync(first);
+        await fixture.Cache.SetAsync(second);
+        await fixture.Cache.SetAsync(other);
+        ConfigureSetScan(
+            fixture.Database,
+            PublicAotCacheRegistry.BuildRouteRegistryKey(PublicPageId.ArticleDetail, "article"),
+            first.CacheKey,
+            second.CacheKey);
+
+        await fixture.Cache.RemoveByPrefixAsync(prefix);
+
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, first)));
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, second)));
+        Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, other)));
+        await fixture.Subscriber.Received(1).PublishAsync(
+            Arg.Any<RedisChannel>(),
+            Arg.Is<RedisValue>(payload => PayloadContains(payload, "\"type\":\"prefix\"") && PayloadContains(payload, prefix)),
+            Arg.Any<CommandFlags>());
+        await fixture.Database.Received().SetRemoveAsync(
+            Arg.Is<RedisKey>(key => key == (RedisKey)PublicAotCacheRegistry.GlobalRegistryKey),
+            Arg.Is<RedisValue[]>(values => ContainsAll(values, first.CacheKey, second.CacheKey)),
+            Arg.Any<CommandFlags>());
+        await fixture.Database.Received().SetRemoveAsync(
+            Arg.Is<RedisKey>(key => key == (RedisKey)PublicAotCacheRegistry.BuildPageRegistryKey(PublicPageId.ArticleDetail)),
+            Arg.Is<RedisValue[]>(values => ContainsAll(values, first.CacheKey, second.CacheKey)),
+            Arg.Any<CommandFlags>());
+        await fixture.Database.Received().SetRemoveAsync(
+            Arg.Is<RedisKey>(key => key == (RedisKey)PublicAotCacheRegistry.BuildRouteRegistryKey(PublicPageId.ArticleDetail, "article")),
+            Arg.Is<RedisValue[]>(values => ContainsAll(values, first.CacheKey, second.CacheKey)),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public async Task ApplyRemoteInvalidationForTests_Prefix_RemovesSiblingLocalArtifactsWithoutPublishing()
+    {
+        using CacheFixture fixture = BuildCacheFixture(Environments.Production);
+        const string prefix = "public:aot:v2:doc:2:article:";
+        var first = CreateEntry("public:aot:v2:doc:2:article:42");
+        var second = CreateEntry("public:aot:v2:doc:2:article:43", "article:43", PublicPageId.ArticleDetail);
+        var other = CreateEntry("public:aot:v2:doc:5:about", "about", PublicPageId.About);
+        await fixture.Cache.SetAsync(first);
+        await fixture.Cache.SetAsync(second);
+        await fixture.Cache.SetAsync(other);
+
+        PublicAotBatchInvalidationStats stats = fixture.Cache.ApplyRemoteInvalidationForTests(
+            PublicAotInvalidationMessage.Prefix(prefix));
+
+        Assert.Equal(2, stats.InvalidatedKeys);
+        Assert.Equal(2, stats.DeletedFiles);
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, first)));
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, second)));
+        Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, other)));
+        await fixture.Subscriber.DidNotReceive().PublishAsync(
+            Arg.Any<RedisChannel>(),
+            Arg.Any<RedisValue>(),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public async Task RemoveByPrefixAsync_HonorsCancellationBeforeMutation()
+    {
+        using CacheFixture fixture = BuildCacheFixture(Environments.Production);
+        const string prefix = "public:aot:v2:doc:2:article:";
+        var entry = CreateEntry("public:aot:v2:doc:2:article:42");
+        await fixture.Cache.SetAsync(entry);
+        ConfigureSetScan(
+            fixture.Database,
+            PublicAotCacheRegistry.BuildRouteRegistryKey(PublicPageId.ArticleDetail, "article"),
+            entry.CacheKey);
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.Cache.RemoveByPrefixAsync(prefix, cts.Token));
+
+        Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, entry)));
+        await fixture.Subscriber.DidNotReceive().PublishAsync(
+            Arg.Any<RedisChannel>(),
+            Arg.Any<RedisValue>(),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public void PublicAotInvalidationMessage_TryParse_AcceptsScopedAndLegacyPayloads()
+    {
+        Assert.True(PublicAotInvalidationMessage.TryParse(PublicAotInvalidationMessage.Prefix("prefix").ToPayload(), out PublicAotInvalidationMessage scoped));
+        Assert.Equal(PublicAotInvalidationMessage.TypePrefix, scoped.Type);
+        Assert.Equal("prefix", scoped.Value);
+
+        Assert.True(PublicAotInvalidationMessage.TryParse("all", out PublicAotInvalidationMessage all));
+        Assert.Equal(PublicAotInvalidationMessage.TypeAll, all.Type);
+
+        Assert.True(PublicAotInvalidationMessage.TryParse("legacy-key", out PublicAotInvalidationMessage legacy));
+        Assert.Equal(PublicAotInvalidationMessage.TypeKey, legacy.Type);
+        Assert.Equal("legacy-key", legacy.Value);
+    }
+
+    [Fact]
     public void Source_UsesTrueAsyncReadAndHotPathMetrics()
     {
         string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs"));
@@ -259,14 +384,33 @@ public sealed class PublicAotFileShellCacheTests
         Assert.Contains("public_aot_cache_stale_compatible", source);
         Assert.Contains("public_aot_cache_read_error", source);
         Assert.Contains("ResolveVersionedEntryPathForTests", source);
+        Assert.Contains("RemoveRegisteredKeysBatchAsync", source);
+        Assert.Contains("PublicAotInvalidationMessage.Prefix", source);
+        Assert.Contains("ApplyRemoteInvalidation", source);
+        Assert.DoesNotContain("await RemoveAsync(value", source);
+
+        string observability = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/Observability/FsusObservability.cs"));
+        Assert.Contains("public_aot_invalidation_scope", observability);
+        Assert.Contains("public_aot_invalidated_keys", observability);
+        Assert.Contains("public_aot_deleted_files", observability);
+        Assert.Contains("public_aot_registry_removed_members", observability);
+        Assert.Contains("public_aot_publish_count", observability);
+        Assert.Contains("public_aot_invalidation_duration_ms", observability);
+
+        string redisBackedCache = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicAot/PublicAotShellCache.cs"));
+        Assert.Contains("RemoveManyAsync", redisBackedCache);
+        Assert.DoesNotContain("await RemoveAsync(value", redisBackedCache);
     }
 
     private static PublicAotCacheEntry CreateEntry(string cacheKey)
+        => CreateEntry(cacheKey, "article:42", PublicPageId.ArticleDetail);
+
+    private static PublicAotCacheEntry CreateEntry(string cacheKey, string routeKey, PublicPageId pageId)
         => new()
         {
             CacheKey = cacheKey,
-            RouteKey = "article:42",
-            PageId = PublicPageId.ArticleDetail,
+            RouteKey = routeKey,
+            PageId = pageId,
             Source = PublicAotWriteSource.ServerSsrBackfill,
             GeneratedAtUtc = DateTimeOffset.UtcNow.AddSeconds(-1),
             ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(30),
@@ -285,10 +429,41 @@ public sealed class PublicAotFileShellCacheTests
             NullLogger<PublicAotFileShellCache>.Instance);
     }
 
+    private static CacheFixture BuildCacheFixture(string environmentName)
+        => new(environmentName);
+
+    private static void ConfigureSetScan(IDatabase database, string registryKey, params string[] cacheKeys)
+    {
+        database.SetScan(
+                Arg.Is<RedisKey>(key => key == (RedisKey)registryKey),
+                Arg.Any<RedisValue>(),
+                Arg.Any<int>(),
+                Arg.Any<long>(),
+                Arg.Any<int>(),
+                Arg.Any<CommandFlags>())
+            .Returns([.. cacheKeys.Select(static key => (RedisValue)key)]);
+    }
+
     private static string ResolveEntryPath(string webRoot, string cacheKey)
     {
         string hash = PublicAotFileShellCache.ToHashForTests(cacheKey);
         return Path.Combine(webRoot, "aot-cache", hash[..2], $"{hash}.aeds");
+    }
+
+    private static string ResolveVersionedEntryPath(string webRoot, PublicAotCacheEntry entry)
+        => PublicAotFileShellCache.ResolveVersionedEntryPathForTests(
+            webRoot,
+            entry.CacheKey,
+            entry.FrontendAssetVersion,
+            entry.PageId);
+
+    private static bool PayloadContains(RedisValue payload, string expected)
+        => payload.ToString().Contains(expected, StringComparison.Ordinal);
+
+    private static bool ContainsAll(RedisValue[] values, params string[] expected)
+    {
+        HashSet<string> actual = values.Select(static value => value.ToString()).ToHashSet(StringComparer.Ordinal);
+        return expected.All(actual.Contains);
     }
 
     private static string FindRepoRoot()
@@ -333,6 +508,36 @@ public sealed class PublicAotFileShellCacheTests
             catch
             {
             }
+        }
+    }
+
+    private sealed class CacheFixture : IDisposable
+    {
+        public TempDirectory Temp { get; } = new();
+        public IDatabase Database { get; } = Substitute.For<IDatabase>();
+        public ISubscriber Subscriber { get; } = Substitute.For<ISubscriber>();
+        public PublicAotFileShellCache Cache { get; }
+
+        public CacheFixture(string environmentName)
+        {
+            var redis = Substitute.For<IConnectionMultiplexer>();
+            redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Database);
+            redis.GetSubscriber(Arg.Any<object?>()).Returns(Subscriber);
+            Database.SetAddAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
+                .Returns(Task.FromResult(true));
+            Database.SetRemoveAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue[]>(), Arg.Any<CommandFlags>())
+                .Returns(call => Task.FromResult((long)call.ArgAt<RedisValue[]>(1).Length));
+            Subscriber.PublishAsync(Arg.Any<RedisChannel>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
+                .Returns(Task.FromResult(1L));
+            Cache = new PublicAotFileShellCache(
+                new TestWebHostEnvironment(Temp.Root, environmentName),
+                redis,
+                NullLogger<PublicAotFileShellCache>.Instance);
+        }
+
+        public void Dispose()
+        {
+            Temp.Dispose();
         }
     }
 

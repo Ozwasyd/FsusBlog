@@ -67,6 +67,12 @@ public static class FsusObservability
     private static readonly Counter<long> CacheRemovePrefixManyRegistryScanCounter = Meter.CreateCounter<long>("fsus.cache.remove_prefix_many.registry_scans");
     private static readonly Counter<long> CacheRemovePrefixManyDeletedKeyCounter = Meter.CreateCounter<long>("fsus.cache.remove_prefix_many.deleted_keys");
     private static readonly Histogram<double> CacheRemovePrefixManyElapsed = Meter.CreateHistogram<double>("fsus.cache.remove_prefix_many.elapsed_ms", "ms");
+    private static readonly Counter<long> PublicAotInvalidationScopeCounter = Meter.CreateCounter<long>("public_aot_invalidation_scope");
+    private static readonly Counter<long> PublicAotInvalidatedKeyCounter = Meter.CreateCounter<long>("public_aot_invalidated_keys");
+    private static readonly Counter<long> PublicAotDeletedFileCounter = Meter.CreateCounter<long>("public_aot_deleted_files");
+    private static readonly Counter<long> PublicAotRegistryRemovedMemberCounter = Meter.CreateCounter<long>("public_aot_registry_removed_members");
+    private static readonly Counter<long> PublicAotPublishCounter = Meter.CreateCounter<long>("public_aot_publish_count");
+    private static readonly Histogram<double> PublicAotInvalidationDuration = Meter.CreateHistogram<double>("public_aot_invalidation_duration_ms", "ms");
 
     public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
 
@@ -267,6 +273,22 @@ public static class FsusObservability
         CacheRemovePrefixManyRegistryScanCounter.Add(Math.Max(0, registryScans));
         CacheRemovePrefixManyDeletedKeyCounter.Add(Math.Max(0, deletedKeys));
         CacheRemovePrefixManyElapsed.Record(elapsed.TotalMilliseconds);
+    }
+
+    public static void RecordPublicAotInvalidation(
+        long scopes,
+        long invalidatedKeys,
+        long deletedFiles,
+        long registryRemovedMembers,
+        long publishCount,
+        TimeSpan elapsed)
+    {
+        PublicAotInvalidationScopeCounter.Add(Math.Max(0, scopes));
+        PublicAotInvalidatedKeyCounter.Add(Math.Max(0, invalidatedKeys));
+        PublicAotDeletedFileCounter.Add(Math.Max(0, deletedFiles));
+        PublicAotRegistryRemovedMemberCounter.Add(Math.Max(0, registryRemovedMembers));
+        PublicAotPublishCounter.Add(Math.Max(0, publishCount));
+        PublicAotInvalidationDuration.Record(elapsed.TotalMilliseconds);
     }
 
     public static TimeSpan GetElapsed(long startTimestamp)
