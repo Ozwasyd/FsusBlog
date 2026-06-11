@@ -42,6 +42,11 @@ EOF
 console.log('production summary ok')
 EOF
 
+  cat > "$temp_dir/tools/ci/check-job-summaries.mjs" <<'EOF'
+#!/usr/bin/env node
+console.log('[job-summary-check] ok')
+EOF
+
   cat > "$temp_dir/tools/test/legacy-test.sh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
@@ -84,6 +89,7 @@ EOF
     "$temp_dir/tools/test.sh" \
     "$temp_dir/tools/run-test-matrix.mjs" \
     "$temp_dir/tools/ci/summarize-quality-gate.mjs" \
+    "$temp_dir/tools/ci/check-job-summaries.mjs" \
     "$temp_dir/tools/test/legacy-test.sh" \
     "$temp_dir/tools/ok.sh" \
     "$temp_dir/tools/check-gate-integrity.sh" \
@@ -420,6 +426,7 @@ const requiredPaths = [
   'tools/test/legacy-test.sh',
   'tools/run-test-matrix.mjs',
   'tools/ci/summarize-quality-gate.mjs',
+  'tools/ci/check-job-summaries.mjs',
   'tools/check-gate-integrity.sh',
   'tests/matrix.yml',
   'tests/matrix.schema.json',
@@ -429,7 +436,7 @@ const requiredPaths = [
   'tools/coverage/check-scope-snapshot.sh',
   'tools/coverage/check-threshold.sh'
 ];
-const requiredExecutablePaths = new Set(requiredPaths.filter((rel) => rel.startsWith('tools/') && rel !== 'tools/ci/summarize-quality-gate.mjs'));
+const requiredExecutablePaths = new Set(requiredPaths.filter((rel) => rel.startsWith('tools/') && !rel.startsWith('tools/ci/')));
 for (const rel of requiredPaths) {
   requirePath(rel, requiredExecutablePaths.has(rel));
 }

@@ -36,6 +36,7 @@ const requiredArtifacts = [
   'postDeploySmoke',
   'backupRestoreDrill',
   'coverage',
+  'jobSummaries',
   'uxViewportSummary',
   'frontendRenderPressureSummary',
   'publishArtifactsSummary',

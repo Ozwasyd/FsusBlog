@@ -307,6 +307,18 @@ node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-pla
 
 不要用 shell 重定向写 `.tmp/ci-plan.json`，因为缺失父目录时会在脚本外失败，错误信息不可操作。`production-summary` 会把非成功作业分成 earliest root non-success jobs 与 downstream fan-out：前者是应优先修复的真实根失败，后者通常是上游失败导致的 skipped/cancelled，仍然会让门禁失败，但不应被误判为通过。
 
+#### Release evidence 与 job summary
+
+每个 matrix tier 执行时都会更新对应 CI job 的机器摘要：
+
+```text
+.tmp/release-evidence/jobs/<job-id>.json
+```
+
+摘要使用 `fsusblog.ci.job-result.v1`，包含 `status`、`failureStage`、`rootCause`、`tierIds`、`artifacts`、`localReproduction`、`commit`、`runId` 和 `attempt`。CI matrix shard 使用稳定 artifact 名称，例如 `acceptance-playwright-1-of-4`、`visual-playwright-1-of-2`、`cross-browser-smoke-chromium`；基础 `ciJob` 仍保留在 `ciJob` 字段中。
+
+失败后先看 `production-summary` 的 root failure 分组；若对应 job summary 已下载，它会附带 `failureStage`、`rootCause`、`reproduce` 和 summary artifact 路径。完整发布证据在 `.tmp/release-evidence/<stamp>/manifest.json`，其中 `artifacts.jobSummaries` 指向收集到的 `job-summaries/` 目录。`release-evidence` 在 CI 中会校验 required job summary 是否存在、schema 是否正确，以及 matrix 声明的生成型 artifact/evidence 是否由对应 job 上传。
+
 ### `release-closeout` — release-closeout-gate
 
 `release-closeout` 只用于最终发布收口，必须要求 release evidence manifest 为 `collected-ok`：

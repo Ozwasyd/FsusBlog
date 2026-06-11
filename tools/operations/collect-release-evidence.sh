@@ -30,6 +30,10 @@ restore_downloaded_artifacts() {
         cp -a "$artifact_dir/$name/." "$ROOT_DIR/.tmp/$name/"
       fi
     done
+    if [[ -d "$artifact_dir/jobs" ]]; then
+      mkdir -p "$ROOT_DIR/.tmp/release-evidence/jobs"
+      cp -a "$artifact_dir/jobs/." "$ROOT_DIR/.tmp/release-evidence/jobs/"
+    fi
   done
 }
 
@@ -266,6 +270,7 @@ RETENTION_CLEANUP="$(copy_if_present "$OPERATIONS_DIR/retention-cleanup.json" re
 COVERAGE_ARTIFACT="$(copy_if_present "$COVERAGE_DIR" coverage)"
 PERF_ARTIFACT="$(copy_if_present "$PERF_DIR" perf)"
 TEST_PLAN_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/test-plan.json" test-plan.json)"
+JOB_SUMMARIES="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/jobs" job-summaries)"
 ENDPOINT_DEPTH_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/endpoint-depth-summary.json" endpoint-depth-summary.json)"
 DATA_SCALE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/data-scale-summary.json" data-scale-summary.json)"
 PERF_SUMMARY_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/perf-summary.json" perf-summary.json)"
@@ -393,6 +398,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "coverage": $COVERAGE_ARTIFACT,
     "perf": $PERF_ARTIFACT,
     "testPlan": $TEST_PLAN_ARTIFACT,
+    "jobSummaries": $JOB_SUMMARIES,
     "endpointDepthSummary": $ENDPOINT_DEPTH_SUMMARY,
     "dataScaleSummary": $DATA_SCALE_SUMMARY,
     "perfSummary": $PERF_SUMMARY_ARTIFACT,

@@ -284,6 +284,54 @@ function ciJobReproductionCommand(jobId) {
   return `./tools/test.sh ci-job ${jobId}`
 }
 
+function jobSummaryPath(jobId) {
+  return path.join(root, '.tmp/release-evidence/jobs', `${jobId}.json`)
+}
+
+function readExistingJobSummary(jobId) {
+  const file = jobSummaryPath(jobId)
+  if (!fs.existsSync(file)) return null
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
+  const jobId = details.jobId ?? tier.ciJob
+  const existing = readExistingJobSummary(jobId)
+  const jobTiers = matrix.tiers
+    .filter((item) => item.ciJob === tier.ciJob && item.localOnly !== true && item.nightlyOnly !== true && item.manualOnly !== true)
+    .map((item) => item.id)
+  const tierIds = [...new Set([...(existing?.tierIds ?? []), ...jobTiers.filter((id) => id === tier.id), tier.id])].filter(Boolean)
+  const artifacts = [...new Set([
+    ...(existing?.artifacts ?? []),
+    ...(tier.artifacts ?? []),
+    ...(tier.evidence ?? []).filter((item) => String(item).startsWith('.tmp/'))
+  ])].sort()
+  const durationMs = Math.max(0, Number(existing?.durationMs ?? 0)) + Math.max(0, Date.now() - startedAt)
+  const summary = {
+    schema: 'fsusblog.ci.job-result.v1',
+    jobId,
+    ciJob: tier.ciJob,
+    tierIds,
+    status,
+    failureStage: status === 'success' ? null : (details.failureStage ?? tier.id),
+    rootCause: status === 'success' ? null : (details.rootCause ?? `${tier.id} exited non-zero`),
+    durationMs,
+    artifacts,
+    localReproduction: ciJobReproductionCommand(tier.ciJob),
+    commit: git(['rev-parse', 'HEAD']) ?? 'unknown',
+    runId: process.env.GITHUB_RUN_ID ?? 'local',
+    attempt: process.env.GITHUB_RUN_ATTEMPT ?? '0',
+    generatedAt: new Date().toISOString()
+  }
+  const outFile = jobSummaryPath(jobId)
+  fs.mkdirSync(path.dirname(outFile), { recursive: true })
+  fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`)
+}
+
 function emitTierReproductionHint(tier, options) {
   console.error(`[matrix:${tier.id}] To reproduce tier locally: ${tierReproductionCommand(tier, options)}`)
   console.error(`[matrix:${tier.id}] To reproduce CI job locally: ${ciJobReproductionCommand(tier.ciJob)}`)
@@ -309,6 +357,7 @@ function runTier(matrix, tierId, args) {
   const runNamespace = namespaceFor(target, options.shard)
 
   for (const tier of all) {
+    const startedAt = Date.now()
     const namespaceEnv = loadNamespaceEnv(runNamespace)
     const env = {
       ...process.env,
@@ -333,8 +382,13 @@ function runTier(matrix, tierId, args) {
       stdio: 'inherit'
     })
     if (result.status !== 0) {
+      writeJobSummary(matrix, tier, 'failure', startedAt, {
+        failureStage: tier.id,
+        rootCause: `${tier.command} exited ${result.status ?? 1}`
+      })
       process.exit(result.status ?? 1)
     }
+    writeJobSummary(matrix, tier, 'success', startedAt)
   }
 }
 
@@ -610,10 +664,20 @@ function preflight(matrix) {
   }
 
   if (errors.length > 0) {
+    writeJobSummary(matrix, tierMap(matrix).get('validate-matrix'), 'failure', Date.now(), {
+      failureStage: 'preflight',
+      rootCause: errors[0],
+      jobId: 'validate-matrix'
+    })
     for (const error of errors) console.error(`[matrix:preflight] ${error}`)
     process.exit(1)
   }
 
+  writeJobSummary(matrix, tierMap(matrix).get('validate-matrix'), 'success', Date.now(), {
+    failureStage: null,
+    rootCause: null,
+    jobId: 'validate-matrix'
+  })
   console.log(`[matrix:preflight] ok (${checkedDirectories.length} directories, ${checkedFiles.length} files)`)
   console.log(`[matrix:preflight] wrote ${relativeToRoot(preflightLogFile)}`)
   console.log('[matrix:preflight] To reproduce locally: ./tools/test.sh ci-tier validate-matrix')

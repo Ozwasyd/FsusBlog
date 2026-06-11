@@ -47,6 +47,7 @@ jobs:
           path: |
             .tmp/ci-plan.json
             .tmp/gate-logs/preflight.json
+            .tmp/release-evidence/jobs/**
             .tmp/release-evidence/test-plan.json
             docs/testing.generated.md
 
@@ -70,6 +71,7 @@ jobs:
           path: |
             .tmp/coverage/backend/**
             .tmp/coverage/backend-merged/**
+            .tmp/release-evidence/jobs/**
 
   coverage-frontend:
     name: Coverage Frontend
@@ -93,6 +95,7 @@ jobs:
           retention-days: 14
           path: |
             .tmp/coverage/frontend/**
+            .tmp/release-evidence/jobs/**
             src/frontend/coverage/**
 
   coverage-merge-threshold:
@@ -129,7 +132,9 @@ jobs:
           name: coverage-merge-threshold
           if-no-files-found: ignore
           retention-days: 14
-          path: .tmp/coverage/**
+          path: |
+            .tmp/coverage/**
+            .tmp/release-evidence/jobs/**
 
   fast-backend:
     name: Fast Backend
@@ -158,6 +163,7 @@ jobs:
             .tmp/backend-concurrency/**
             .tmp/backend-golden/**
             .tmp/backend-property/**
+            .tmp/release-evidence/jobs/**
 
   fast-frontend-unit:
     name: Fast Frontend Unit
@@ -182,6 +188,7 @@ jobs:
           path: |
             src/frontend/coverage/**
             .tmp/frontend/**
+            .tmp/release-evidence/jobs/**
 
   fast-static-governance:
     name: Fast Static Governance
@@ -210,6 +217,7 @@ jobs:
             .tmp/backend-test-governance/**
             .tmp/release-evidence/test-plan.json
             .tmp/release-evidence/doc-sync-summary.json
+            .tmp/release-evidence/jobs/**
 
   fast-summary:
     name: Fast Summary
@@ -227,6 +235,7 @@ jobs:
           retention-days: 14
           path: |
             .tmp/gate-logs/**
+            .tmp/release-evidence/jobs/**
             src/frontend/coverage/**
 
   cross-stack-contract:
@@ -253,6 +262,7 @@ jobs:
           path: |
             .tmp/contracts/endpoint-depth-matrix.json
             .tmp/release-evidence/endpoint-depth-summary.json
+            .tmp/release-evidence/jobs/**
             src/frontend/src/generated/fsusBinaryRoutes.ts
             src/shared/Contracts/Validation/fsusblog.openapi.json
             tests/frontend/fixtures/cross-stack-contract-matrix.generated.json
@@ -289,6 +299,7 @@ jobs:
             .tmp/backend-api-integration/**
             .tmp/scale/**
             .tmp/release-evidence/data-scale-summary.json
+            .tmp/release-evidence/jobs/**
             src/frontend/test-results/playwright/integration/**
 
   release-public:
@@ -316,6 +327,7 @@ jobs:
           retention-days: 14
           path: |
             .tmp/acceptance/*.log
+            .tmp/release-evidence/jobs/**
             src/frontend/test-results/playwright/release/**
 
   security-runtime:
@@ -349,6 +361,7 @@ jobs:
             .tmp/fuzz/**
             .tmp/release-evidence/fuzz-seeds.json
             .tmp/release-evidence/security-depth-summary.json
+            .tmp/release-evidence/jobs/**
             .tmp/security/**
             src/frontend/test-results/playwright/security/**
 
@@ -394,6 +407,7 @@ jobs:
           path: |
             src/frontend/test-results/playwright/acceptance/**
             src/frontend/playwright-report/**
+            .tmp/release-evidence/jobs/**
 
   visual-playwright:
     name: Visual Playwright ${{ matrix.shard }}
@@ -434,6 +448,7 @@ jobs:
             src/frontend/test-results/playwright/visual/**
             src/frontend/playwright-report/**
             .tmp/gate-logs/visual-gate-skip.json
+            .tmp/release-evidence/jobs/**
 
   ux-viewport-smoke:
     name: UX Viewport Smoke
@@ -465,6 +480,7 @@ jobs:
           path: |
             .tmp/ux/**
             .tmp/release-evidence/ux-viewport-summary.json
+            .tmp/release-evidence/jobs/**
             src/frontend/test-results/playwright/ux-viewport-smoke/**
             src/frontend/playwright-report/**
 
@@ -504,6 +520,7 @@ jobs:
             .tmp/frontend/markdown-render-budget.json
             .tmp/frontend/dom-depth-static.json
             .tmp/release-evidence/frontend-render-pressure-summary.json
+            .tmp/release-evidence/jobs/**
             src/frontend/test-results/playwright/**
             src/frontend/playwright-report/**
 
@@ -539,7 +556,9 @@ jobs:
           name: cross-browser-smoke-${{ matrix.browser }}
           if-no-files-found: ignore
           retention-days: 14
-          path: src/frontend/test-results/playwright/cross-browser/**
+          path: |
+            src/frontend/test-results/playwright/cross-browser/**
+            .tmp/release-evidence/jobs/**
 
   resilience-runtime:
     name: Resilience Runtime
@@ -569,6 +588,7 @@ jobs:
           path: |
             .tmp/backend-chaos/**
             .tmp/fault-injection/**
+            .tmp/release-evidence/jobs/**
             src/frontend/test-results/playwright/resilience/**
 
   load-smoke:
@@ -599,6 +619,7 @@ jobs:
           path: |
             .tmp/perf/**
             .tmp/release-evidence/perf-summary.json
+            .tmp/release-evidence/jobs/**
 
   backend-qps:
     name: Backend QPS Runtime
@@ -626,6 +647,7 @@ jobs:
           path: |
             .tmp/perf/backend-qps/**
             .tmp/release-evidence/backend-qps-summary.json
+            .tmp/release-evidence/jobs/**
 
   perf-regression:
     name: Perf Regression
@@ -658,6 +680,7 @@ jobs:
             .tmp/release-evidence/aeds-frame-cost-summary.json
             .tmp/release-evidence/aeds-compression-profile-summary.json
             .tmp/release-evidence/perf-summary.json
+            .tmp/release-evidence/jobs/**
             BenchmarkDotNet.Artifacts/results/**
 
   release-evidence:
@@ -734,7 +757,17 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
+      - uses: actions/download-artifact@v7
+        with:
+          path: .tmp/downloaded-artifacts
       - name: Check required job results
         env:
           QUALITY_GATE_NEEDS_JSON: ${{ toJson(needs) }}
         run: node tools/ci/summarize-quality-gate.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: production-summary
+          if-no-files-found: ignore
+          retention-days: 14
+          path: .tmp/release-evidence/jobs/**
