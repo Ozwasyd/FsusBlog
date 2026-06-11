@@ -31,7 +31,7 @@ The screenshots use fictional sample content only:
 
 ## Brand And Asset Rights
 
-The screenshots do not include a separate logo file, trademark artwork, generated bitmap illustration, or production brand asset. The visible `FsusBlog` wordmark is rendered as plain text for documentation context. Code is covered by the repository license once the public-preview license is committed; screenshots and brand usage should be treated as documentation examples unless a later brand policy says otherwise.
+The screenshots do not include a separate logo file, trademark artwork, generated bitmap illustration, or production brand asset. The visible `FsusBlog` wordmark is rendered as plain text for documentation context. Code is covered by the repository license; screenshots and brand usage should be treated as documentation examples unless a later brand policy says otherwise.
 
 ## Regeneration
 

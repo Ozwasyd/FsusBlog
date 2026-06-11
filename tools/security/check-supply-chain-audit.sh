@@ -29,6 +29,9 @@ mapfile -d '' NUGET_PROJECTS < <(find "$ROOT_DIR" \
   -name '*.csproj' \
   ! -path '*/bin/*' \
   ! -path '*/obj/*' \
+  ! -path '*/.tmp/*' \
+  ! -path '*/tmp/*' \
+  ! -path '*/release-evidence/*' \
   -print0 | sort -z)
 
 if [[ "${#NUGET_PROJECTS[@]}" -eq 0 ]]; then
@@ -211,7 +214,7 @@ cat > "$OUT_DIR/summary.json" <<JSON
 {
   "status": "ok",
   "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "nugetAudit": "nuget-vulnerable.json",
+  "nugetAudit": "nuget/",
   "npmAudit": "npm-audit.json",
   "lockFiles": {
     "npm": "src/frontend/package-lock.json",

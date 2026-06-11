@@ -20,6 +20,8 @@ Common prerequisites:
 - Docker and Docker Compose for PostgreSQL and Redis
 - `GITHUB_PACKAGES_TOKEN` when installing the private FsusUI package
 
+By participating in this project, follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Repository code is licensed under [Apache-2.0](LICENSE); do not contribute code or assets that cannot be redistributed under compatible terms.
+
 ## Test Commands
 
 Use the smallest command that proves the change, then broaden when the risk crosses module boundaries.

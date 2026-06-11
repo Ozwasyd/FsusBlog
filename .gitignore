@@ -210,3 +210,4 @@ PUBLIC_AOT_SERVER_FIRST_TODO.md
 PUBLIC_AOT_TODO.md
 /tmp/
 /.tmp/
+/.tmp/db_blog_*.sql.gz

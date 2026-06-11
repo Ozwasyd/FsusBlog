@@ -12,6 +12,9 @@
 | Known limitations | [docs/known-limitations.md](docs/known-limitations.md) |
 | Security policy | [SECURITY.md](SECURITY.md) |
 | Contributing guide | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+| License | [Apache-2.0](LICENSE) |
+| Open source readiness | [docs/open-source-readiness.md](docs/open-source-readiness.md) |
 
 ## 功能特性
 
@@ -148,6 +151,7 @@ cp .env.example .env
 | Demo data | [docs/development/demo-data.md](docs/development/demo-data.md) |
 | Troubleshooting | [docs/troubleshooting.md](docs/troubleshooting.md) |
 | Known limitations | [docs/known-limitations.md](docs/known-limitations.md) |
+| Example config | `.env.example`, `appsettings.example.json`, `appsettings.Production.example.json` |
 
 停止前后端进程按 `Ctrl+C`；清理本地开发数据库和 Redis volume：
 
@@ -266,5 +270,14 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/known-limitations.md](docs/known-limitations.md) | public-preview 已知限制、可尝试范围和不应依赖的内部契约 |
 | [docs/assets/screenshots/](docs/assets/screenshots/) | sanitized public-preview screenshots 和截图安全/品牌说明 |
 | [docs/releases/v1.1.0-public-preview.md](docs/releases/v1.1.0-public-preview.md) | public-preview release notes、能力范围、限制和路线链接 |
+| [docs/open-source-readiness.md](docs/open-source-readiness.md) | 开源预览许可证、行为准则、安全配置、secret/history scan、dependency license audit 与 supply-chain audit 证据入口 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献流程、Issue/PR 模板、测试证据与 public-preview 稳定性边界 |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 社区行为准则和执行路径 |
 | [SECURITY.md](SECURITY.md) | 私密漏洞报告入口、安全报告范围与公开 issue 禁止事项 |
+| [LICENSE](LICENSE) | Apache-2.0 repository code license |
+
+## 开源预览边界
+
+FsusBlog 代码以 Apache-2.0 许可发布；贡献流程、安全报告、行为准则、已知限制、路线图和 release notes 均在上方 public-preview entry 与文档索引中列出。v1.1.0 不承诺生产 SLA、稳定第三方客户端兼容或稳定内部 AEDS/admin/database 契约。
+
+开源 readiness 证据位于 `release-evidence/open-source-readiness/`，包含 secret/history/issue scan、dependency license audit、supply-chain audit 和最终 checklist。公开截图与 demo seed data 使用 fictional content；仓库不包含真实生产域名、邮箱、IP、日志、token、私有标识、独立商标图稿或生产品牌资产。
