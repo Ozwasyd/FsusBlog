@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability report
+    url: https://github.com/Ozwasyd/FsusBlog/security/advisories/new
+    about: Do not file security vulnerabilities as public issues. Use SECURITY.md and GitHub private vulnerability reporting instead.
+  - name: Contribution workflow
+    url: https://github.com/Ozwasyd/FsusBlog/blob/master/CONTRIBUTING.md
+    about: Read the contribution workflow before opening broad or cross-cutting issues.
