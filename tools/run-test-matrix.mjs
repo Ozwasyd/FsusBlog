@@ -25,6 +25,11 @@ const requiredFields = [
   'services',
   'parallelizable',
   'exclusiveResources',
+  'phase',
+  'cost',
+  'resourceClass',
+  'maxParallel',
+  'requiresBootstrap',
   'timeoutMinutes',
   'shardable',
   'defaultShards',
@@ -166,11 +171,24 @@ function validateMatrix(matrix) {
     if ('manualOnly' in tier && typeof tier.manualOnly !== 'boolean') {
       errors.push(`${tier.id}.manualOnly must be boolean`)
     }
-    for (const field of ['timeoutMinutes', 'defaultShards']) {
+    for (const field of ['timeoutMinutes', 'defaultShards', 'maxParallel']) {
       if (typeof tier[field] !== 'number' || tier[field] < 1) errors.push(`${tier.id}.${field} must be a positive number`)
     }
+    if (typeof tier.phase === 'number' && tier.phase < 0) errors.push(`${tier.id}.phase must be zero or greater`)
     if (!['low', 'medium', 'high', 'critical'].includes(tier.risk)) {
       errors.push(`${tier.id}.risk is invalid: ${tier.risk}`)
+    }
+    if (!['low', 'medium', 'high', 'very-high'].includes(tier.cost)) {
+      errors.push(`${tier.id}.cost is invalid: ${tier.cost}`)
+    }
+    if (!['cpu', 'io', 'browser', 'network', 'benchmark', 'database'].includes(tier.resourceClass)) {
+      errors.push(`${tier.id}.resourceClass is invalid: ${tier.resourceClass}`)
+    }
+    if (!['none', 'frontend', 'backend', 'full'].includes(tier.requiresBootstrap)) {
+      errors.push(`${tier.id}.requiresBootstrap is invalid: ${tier.requiresBootstrap}`)
+    }
+    if (tier.parallelizable === false && Number(tier.maxParallel) !== 1) {
+      errors.push(`${tier.id} is not parallelizable but maxParallel is ${tier.maxParallel}`)
     }
     for (const dep of tier.dependsOn ?? []) {
       if (!byId.has(dep)) errors.push(`${tier.id} depends on missing tier ${dep}`)
@@ -229,7 +247,7 @@ function printPlan(tiers) {
   for (const [index, tier] of tiers.entries()) {
     const deps = tier.dependsOn.length > 0 ? ` deps=${tier.dependsOn.join(',')}` : ''
     const shard = tier.shardable ? ` shards=${tier.defaultShards}` : ''
-    console.log(`${index + 1}. ${tier.id} [job=${tier.ciJob} timeout=${tier.timeoutMinutes}m risk=${tier.risk}${shard}]${deps}`)
+    console.log(`${index + 1}. ${tier.id} [job=${tier.ciJob} phase=${tier.phase} resource=${tier.resourceClass} cost=${tier.cost} timeout=${tier.timeoutMinutes}m risk=${tier.risk}${shard}]${deps}`)
     console.log(`   ${tier.command}`)
   }
 }
@@ -476,8 +494,10 @@ function buildCiPlan(matrix, format) {
       artifacts: new Set(),
       evidence: new Set()
     }
-    job.tiers.push(tier.id)
-    job.timeoutMinutes = Math.max(job.timeoutMinutes, tier.timeoutMinutes)
+      job.tiers.push(tier.id)
+      job.timeoutMinutes = Math.max(job.timeoutMinutes, tier.timeoutMinutes)
+      job.phase = Math.max(job.phase ?? 0, tier.phase)
+      job.maxParallel = Math.max(job.maxParallel ?? 1, tier.maxParallel)
     for (const artifact of tier.artifacts) job.artifacts.add(artifact)
     for (const evidence of tier.evidence) job.evidence.add(evidence)
     jobs.set(tier.ciJob, job)
@@ -497,6 +517,8 @@ function buildCiPlan(matrix, format) {
       id: job.id,
       tiers: job.tiers,
       timeoutMinutes: job.timeoutMinutes,
+      phase: job.phase ?? 0,
+      maxParallel: job.maxParallel ?? 1,
       needs: [...job.needs].sort(),
       artifacts: [...job.artifacts].sort(),
       evidence: [...job.evidence].sort()
@@ -516,14 +538,18 @@ function docs(matrix, outFile) {
     '',
     `Version: \`${matrix.version}\``,
     '',
-    '| Tier | CI job | Local command | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
-    '|---|---|---|---|---|---:|---:|---|---|'
+    '| Tier | CI job | Local command | Phase | Resource | Cost | Max parallel | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---:|---|---|---:|---|---|---:|---:|---|---|'
   ]
   for (const tier of matrix.tiers) {
     lines.push([
       `\`${tier.id}\``,
       `\`${tier.ciJob}\``,
       `\`./tools/test.sh ci-tier ${tier.id}\``,
+      String(tier.phase),
+      tier.resourceClass,
+      tier.cost,
+      String(tier.maxParallel),
       tier.dependsOn.length > 0 ? tier.dependsOn.map((id) => `\`${id}\``).join(', ') : '-',
       tier.services.length > 0 ? tier.services.join(', ') : '-',
       tier.shardable ? String(tier.defaultShards) : '1',
@@ -563,6 +589,11 @@ function evidencePlan(matrix, outFile) {
       command: tier.command,
       dependsOn: tier.dependsOn,
       timeoutMinutes: tier.timeoutMinutes,
+      phase: tier.phase,
+      cost: tier.cost,
+      resourceClass: tier.resourceClass,
+      maxParallel: tier.maxParallel,
+      requiresBootstrap: tier.requiresBootstrap,
       shardable: tier.shardable,
       defaultShards: tier.defaultShards,
       artifacts: tier.artifacts,

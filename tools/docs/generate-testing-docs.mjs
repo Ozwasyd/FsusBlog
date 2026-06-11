@@ -79,6 +79,11 @@ function tierRow(tier) {
     `\`${tier.id}\``,
     `\`${tier.ciJob}\``,
     localTierCommand(tier),
+    String(tier.phase),
+    tier.resourceClass,
+    tier.cost,
+    String(tier.maxParallel),
+    tier.requiresBootstrap,
     tier.dependsOn.length > 0 ? tier.dependsOn.map((id) => `\`${id}\``).join(', ') : '-',
     tier.services.length > 0 ? tier.services.join(', ') : '-',
     tier.shardable ? String(tier.defaultShards) : '1',
@@ -90,8 +95,8 @@ function tierRow(tier) {
 
 function tableFor(tiers) {
   const lines = [
-    '| Tier | CI job | Local command | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
-    '|---|---|---|---|---|---:|---:|---|---|'
+    '| Tier | CI job | Local command | Phase | Resource | Cost | Max parallel | Bootstrap | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---:|---|---|---:|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of tiers) {
     lines.push(tierRow(tier))
@@ -110,20 +115,24 @@ function ciJobRows(matrix) {
     job.tiers.push(tier)
     job.timeoutMinutes = Math.max(job.timeoutMinutes, Number(tier.timeoutMinutes) || 0)
     job.shards = Math.max(job.shards, tier.shardable ? Number(tier.defaultShards) || 1 : 1)
+    job.phase = Math.max(job.phase ?? 0, Number(tier.phase) || 0)
+    job.maxParallel = Math.max(job.maxParallel ?? 1, Number(tier.maxParallel) || 1)
     jobs.set(job.id, job)
   }
 
   const lines = [
-    '| CI job | Local reproduction command | Matrix tiers | Max timeout | Max shards |',
-    '|---|---|---|---:|---:|'
+    '| CI job | Local reproduction command | Matrix tiers | Phase | Max timeout | Max shards | Max parallel |',
+    '|---|---|---|---:|---:|---:|---:|'
   ]
   for (const job of [...jobs.values()].sort((left, right) => left.id.localeCompare(right.id))) {
     lines.push([
       `\`${job.id}\``,
       `\`./tools/test.sh ci-job ${job.id}\``,
       job.tiers.map((tier) => `\`${tier.id}\``).join(', '),
+      String(job.phase ?? 0),
       `${job.timeoutMinutes}m`,
-      String(job.shards)
+      String(job.shards),
+      String(job.maxParallel ?? 1)
     ].join(' | ').replace(/^/u, '| ').replace(/$/u, ' |'))
   }
   return lines

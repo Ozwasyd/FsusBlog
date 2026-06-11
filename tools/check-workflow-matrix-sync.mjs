@@ -113,7 +113,7 @@ function parseWorkflow(text) {
       currentJob = jobMatch[1]
       collectingNeeds = null
       collectingPath = null
-      jobs.set(currentJob, { needs: new Set(), runs: [], timeoutMinutes: null, uploadPaths: new Set() })
+      jobs.set(currentJob, { needs: new Set(), runs: [], timeoutMinutes: null, maxParallel: null, uploadPaths: new Set() })
       continue
     }
     if (!currentJob) continue
@@ -139,6 +139,12 @@ function parseWorkflow(text) {
     const timeoutMatch = rawLine.match(/^    timeout-minutes:\s*(\d+)\s*$/)
     if (timeoutMatch) {
       jobs.get(currentJob).timeoutMinutes = Number(timeoutMatch[1])
+      continue
+    }
+
+    const maxParallelMatch = rawLine.match(/^\s+max-parallel:\s*(\d+)\s*$/)
+    if (maxParallelMatch) {
+      jobs.get(currentJob).maxParallel = Number(maxParallelMatch[1])
       continue
     }
 
@@ -281,8 +287,13 @@ function main() {
 
     const actualNeeds = workflowJobs.get(job.id).needs
     const actualTimeout = workflowJobs.get(job.id).timeoutMinutes
+    const actualMaxParallel = workflowJobs.get(job.id).maxParallel
     if (actualTimeout !== Number(job.timeoutMinutes)) {
       errors.push(`workflow job ${job.id} timeout-minutes ${actualTimeout ?? 'missing'} does not match ci-plan ${job.timeoutMinutes}`)
+    }
+    const jobHasShards = job.tiers.some((tierId) => tiersById.get(tierId)?.shardable === true)
+    if (jobHasShards && actualMaxParallel !== Number(job.maxParallel)) {
+      errors.push(`workflow job ${job.id} max-parallel ${actualMaxParallel ?? 'missing'} does not match ci-plan ${job.maxParallel}`)
     }
 
     for (const need of job.needs.filter((id) => requiredJobIds.has(id))) {

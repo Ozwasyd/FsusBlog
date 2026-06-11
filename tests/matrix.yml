@@ -8,6 +8,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 0
+    cost: high
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -26,6 +31,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 1
+    cost: high
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 35
     shardable: false
     defaultShards: 1
@@ -44,6 +54,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 1
+    cost: high
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 35
     shardable: false
     defaultShards: 1
@@ -62,6 +77,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 1
+    cost: high
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 10
     shardable: false
     defaultShards: 1
@@ -80,6 +100,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 1
+    cost: high
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 50
     shardable: false
     defaultShards: 1
@@ -98,6 +123,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 2
+    cost: high
+    resourceClass: io
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 45
     shardable: false
     defaultShards: 1
@@ -116,6 +146,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 2
+    cost: high
+    resourceClass: io
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 45
     shardable: false
     defaultShards: 1
@@ -134,6 +169,11 @@ tiers:
     services: []
     parallelizable: false
     exclusiveResources: [coverage-root]
+    phase: 4
+    cost: medium
+    resourceClass: io
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 10
     shardable: false
     defaultShards: 1
@@ -152,6 +192,11 @@ tiers:
     services: []
     parallelizable: false
     exclusiveResources: [coverage-root]
+    phase: 4
+    cost: high
+    resourceClass: io
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 10
     shardable: false
     defaultShards: 1
@@ -170,6 +215,11 @@ tiers:
     services: []
     parallelizable: false
     exclusiveResources: [coverage-root]
+    phase: 4
+    cost: very-high
+    resourceClass: io
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 90
     shardable: false
     defaultShards: 1
@@ -188,6 +238,11 @@ tiers:
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [docker-compose, local-ports, redis-test-state]
+    phase: 2
+    cost: high
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 45
     shardable: false
     defaultShards: 1
@@ -206,6 +261,11 @@ tiers:
     services: [postgres, redis, backend, frontend]
     parallelizable: false
     exclusiveResources: [debug-runtime]
+    phase: 2
+    cost: medium
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 25
     shardable: false
     defaultShards: 1
@@ -224,6 +284,11 @@ tiers:
     services: [postgres, redis, backend, frontend]
     parallelizable: false
     exclusiveResources: [debug-runtime]
+    phase: 3
+    cost: high
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 70
     shardable: false
     defaultShards: 1
@@ -242,6 +307,11 @@ tiers:
     services: [backend, preview]
     parallelizable: false
     exclusiveResources: [release-preview]
+    phase: 2
+    cost: medium
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 25
     shardable: false
     defaultShards: 1
@@ -260,6 +330,11 @@ tiers:
     services: [postgres, redis, backend, frontend]
     parallelizable: false
     exclusiveResources: [security-runtime-state, redis-test-state]
+    phase: 3
+    cost: high
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 40
     shardable: false
     defaultShards: 1
@@ -278,6 +353,11 @@ tiers:
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: true
     exclusiveResources: [playwright-session]
+    phase: 3
+    cost: high
+    resourceClass: browser
+    maxParallel: 2
+    requiresBootstrap: full
     timeoutMinutes: 45
     shardable: true
     defaultShards: 4
@@ -296,6 +376,11 @@ tiers:
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: true
     exclusiveResources: [visual-baselines]
+    phase: 3
+    cost: high
+    resourceClass: browser
+    maxParallel: 2
+    requiresBootstrap: full
     timeoutMinutes: 35
     shardable: true
     defaultShards: 2
@@ -314,6 +399,11 @@ tiers:
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: true
     exclusiveResources: [playwright-ux-viewport]
+    phase: 3
+    cost: high
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 35
     shardable: false
     defaultShards: 1
@@ -332,6 +422,11 @@ tiers:
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [playwright-ux-viewport, visual-baselines]
+    phase: 3
+    cost: high
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 45
     shardable: false
     defaultShards: 1
@@ -351,6 +446,11 @@ tiers:
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [playwright-ux-viewport, visual-baselines]
+    phase: 3
+    cost: very-high
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 90
     shardable: false
     defaultShards: 1
@@ -369,6 +469,11 @@ tiers:
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [playwright-render-pressure]
+    phase: 3
+    cost: high
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 35
     shardable: false
     defaultShards: 1
@@ -387,6 +492,11 @@ tiers:
     services: [preview]
     parallelizable: true
     exclusiveResources: [playwright-browser]
+    phase: 3
+    cost: high
+    resourceClass: browser
+    maxParallel: 2
+    requiresBootstrap: frontend
     timeoutMinutes: 20
     shardable: true
     defaultShards: 3
@@ -405,6 +515,11 @@ tiers:
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [runtime-fault-state]
+    phase: 3
+    cost: high
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 35
     shardable: false
     defaultShards: 1
@@ -423,6 +538,11 @@ tiers:
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [load-runtime]
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 25
     shardable: false
     defaultShards: 1
@@ -441,6 +561,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -459,6 +584,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -477,6 +607,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -495,6 +630,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -513,6 +653,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -531,6 +676,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -549,6 +699,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -567,6 +722,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -585,6 +745,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -603,6 +768,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -621,6 +791,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -639,6 +814,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -657,6 +837,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 5
     shardable: false
     defaultShards: 1
@@ -675,6 +860,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: high
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 45
     shardable: false
     defaultShards: 1
@@ -693,6 +883,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 1
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 10
     shardable: false
     defaultShards: 1
@@ -711,6 +906,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 1
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 10
     shardable: false
     defaultShards: 1
@@ -729,6 +929,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 2
+    cost: high
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: full
     timeoutMinutes: 20
     shardable: false
     defaultShards: 1
@@ -747,6 +952,11 @@ tiers:
     services: [postgres, redis]
     parallelizable: true
     exclusiveResources: []
+    phase: 2
+    cost: medium
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 15
     shardable: false
     defaultShards: 1
@@ -765,6 +975,11 @@ tiers:
     services: [postgres, redis]
     parallelizable: false
     exclusiveResources: [scale-data]
+    phase: 2
+    cost: medium
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 20
     shardable: false
     defaultShards: 1
@@ -783,6 +998,11 @@ tiers:
     services: [postgres, redis]
     parallelizable: false
     exclusiveResources: [scale-data]
+    phase: 5
+    cost: high
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 45
     shardable: false
     defaultShards: 1
@@ -801,6 +1021,11 @@ tiers:
     services: [postgres, redis]
     parallelizable: false
     exclusiveResources: [scale-data-nightly]
+    phase: 5
+    cost: very-high
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 120
     shardable: false
     defaultShards: 1
@@ -819,6 +1044,11 @@ tiers:
     services: [backend, redis, postgres]
     parallelizable: false
     exclusiveResources: [load-runtime]
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 20
     shardable: false
     defaultShards: 1
@@ -837,6 +1067,11 @@ tiers:
     services: [backend, redis, postgres]
     parallelizable: false
     exclusiveResources: [load-runtime]
+    phase: 3
+    cost: high
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 35
     shardable: false
     defaultShards: 1
@@ -855,6 +1090,11 @@ tiers:
     services: [backend, redis, postgres]
     parallelizable: false
     exclusiveResources: [load-runtime]
+    phase: 3
+    cost: high
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 45
     shardable: false
     defaultShards: 1
@@ -873,6 +1113,11 @@ tiers:
     services: [backend, redis, postgres]
     parallelizable: false
     exclusiveResources: [load-runtime]
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 20
     shardable: false
     defaultShards: 1
@@ -891,6 +1136,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 25
     shardable: false
     defaultShards: 1
@@ -909,6 +1159,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: high
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 35
     shardable: false
     defaultShards: 1
@@ -927,6 +1182,11 @@ tiers:
     services: [frontend, backend]
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 20
     shardable: false
     defaultShards: 1
@@ -945,6 +1205,11 @@ tiers:
     services: [postgres, redis, backend]
     parallelizable: false
     exclusiveResources: [fault-runtime]
+    phase: 3
+    cost: high
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 30
     shardable: false
     defaultShards: 1
@@ -963,6 +1228,11 @@ tiers:
     services: [postgres, redis, backend, frontend]
     parallelizable: false
     exclusiveResources: [soak-runtime]
+    phase: 5
+    cost: high
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 30
     shardable: false
     defaultShards: 1
@@ -981,6 +1251,11 @@ tiers:
     services: [backend, frontend]
     parallelizable: false
     exclusiveResources: [dast-target]
+    phase: 3
+    cost: high
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 30
     shardable: false
     defaultShards: 1
@@ -999,6 +1274,11 @@ tiers:
     services: [frontend, backend]
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 20
     shardable: false
     defaultShards: 1
@@ -1017,6 +1297,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: network
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 20
     shardable: false
     defaultShards: 1
@@ -1035,6 +1320,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: medium
+    resourceClass: network
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 20
     shardable: false
     defaultShards: 1
@@ -1053,6 +1343,11 @@ tiers:
     services: []
     parallelizable: false
     exclusiveResources: [release-evidence]
+    phase: 4
+    cost: high
+    resourceClass: io
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 10
     shardable: false
     defaultShards: 1
@@ -1071,6 +1366,11 @@ tiers:
     services: []
     parallelizable: false
     exclusiveResources: [release-evidence]
+    phase: 2
+    cost: high
+    resourceClass: cpu
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 10
     shardable: false
     defaultShards: 1
@@ -1090,6 +1390,11 @@ tiers:
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [production-runtime]
+    phase: 4
+    cost: very-high
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
     timeoutMinutes: 120
     shardable: false
     defaultShards: 1
@@ -1108,6 +1413,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 2
+    cost: high
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 20
     shardable: false
     defaultShards: 1
@@ -1126,6 +1436,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 1
+    cost: high
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 15
     shardable: false
     defaultShards: 1
@@ -1144,6 +1459,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 1
+    cost: medium
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 15
     shardable: false
     defaultShards: 1
@@ -1162,6 +1482,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 1
+    cost: medium
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 15
     shardable: false
     defaultShards: 1
@@ -1180,6 +1505,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 1
+    cost: medium
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 15
     shardable: false
     defaultShards: 1
@@ -1198,6 +1528,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 1
+    cost: high
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 10
     shardable: false
     defaultShards: 1
@@ -1216,6 +1551,11 @@ tiers:
     services: []
     parallelizable: false
     exclusiveResources: [stryker]
+    phase: 5
+    cost: very-high
+    resourceClass: cpu
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 120
     shardable: false
     defaultShards: 1
@@ -1234,6 +1574,11 @@ tiers:
     services: []
     parallelizable: false
     exclusiveResources: [chaos-fixture]
+    phase: 3
+    cost: medium
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 25
     shardable: false
     defaultShards: 1
@@ -1252,6 +1597,11 @@ tiers:
     services: []
     parallelizable: false
     exclusiveResources: [nightly]
+    phase: 5
+    cost: very-high
+    resourceClass: cpu
+    maxParallel: 1
+    requiresBootstrap: none
     timeoutMinutes: 180
     shardable: false
     defaultShards: 1
@@ -1270,6 +1620,11 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
+    phase: 3
+    cost: high
+    resourceClass: network
+    maxParallel: 4
+    requiresBootstrap: none
     timeoutMinutes: 20
     shardable: false
     defaultShards: 1
