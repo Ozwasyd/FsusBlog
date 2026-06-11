@@ -3,6 +3,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using SqlSugar;
@@ -52,6 +53,8 @@ public sealed class ScheduledPublishWorker(
                     ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
                     IDbConcurrencyGate dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
                     ICacheInvalidationDispatcher invalidation = scope.ServiceProvider.GetRequiredService<ICacheInvalidationDispatcher>();
+                    IPublicAotInvalidationService publicAotInvalidation =
+                        scope.ServiceProvider.GetRequiredService<IPublicAotInvalidationService>();
                     ISearchIndexService searchIndex = scope.ServiceProvider.GetRequiredService<ISearchIndexService>();
                     PublicHotArtifactUpdateQueue publicHotUpdates = scope.ServiceProvider.GetRequiredService<PublicHotArtifactUpdateQueue>();
                     DateTime now = timeProvider.GetUtcNow().UtcDateTime;
@@ -107,7 +110,20 @@ public sealed class ScheduledPublishWorker(
                                     .FirstAsync(gateCt),
                                 _ => Task.FromResult(string.Empty),
                                 cancellationToken);
+                            List<int> tagIds = await dbGate.ExecuteAsync(
+                                "scheduled-publish-tags-query",
+                                gateCt => db.Queryable<ArticleTag>()
+                                    .Where(articleTag => articleTag.ArticleId == article.Id)
+                                    .Select(articleTag => articleTag.TagId)
+                                    .ToListAsync(gateCt),
+                                _ => Task.FromResult(new List<int>()),
+                                cancellationToken);
                             await searchIndex.AddOrUpdateIndexAsync(article);
+                            await publicAotInvalidation.InvalidateArticleMutationAsync(
+                                article.Id,
+                                [article.CategoryId],
+                                tagIds,
+                                cancellationToken);
                             await invalidation.InvalidateArticleMutationAsync(article.Id, cancellationToken);
                             published++;
                         }

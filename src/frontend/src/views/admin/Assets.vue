@@ -25,24 +25,24 @@
       </template>
     </WorkbenchPanel>
 
-    <section class="border-t border-[var(--fsusblog-panel-border)]">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-4 py-3">
-        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">资产列表 / MEDIA LIBRARY</div>
-        <div class="flex flex-wrap items-center gap-2">
-          <el-input
-            v-model="keyword"
-            class="asset-filter-input"
-            clearable
-            placeholder="搜索 URL / SHA"
-            aria-label="搜索资产"
-            :prefix-icon="Search"
-          />
-          <el-checkbox v-model="orphanOnly">仅孤儿资产</el-checkbox>
+    <section class="admin-data-surface">
+      <div class="admin-data-surface__toolbar admin-data-surface__toolbar--stacked">
+        <div class="admin-data-surface__toolbar-row">
+          <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">资产列表 / MEDIA LIBRARY</div>
+          <div class="flex flex-wrap items-center gap-2">
+            <el-input
+              v-model="keyword"
+              class="asset-filter-input"
+              clearable
+              placeholder="搜索 URL / SHA"
+              aria-label="搜索资产"
+              :prefix-icon="Search"
+            />
+            <el-checkbox v-model="orphanOnly">仅孤儿资产</el-checkbox>
+          </div>
         </div>
-      </div>
 
-      <div class="border-b border-[var(--fsusblog-panel-border)] px-4 py-4">
-        <el-form inline @submit.prevent="reindexCurrentArticle">
+        <el-form class="admin-data-surface__action-row asset-reindex-form" inline @submit.prevent="reindexCurrentArticle">
           <el-form-item label="文章 ID">
             <el-input v-model="reindexArticleId" class="article-id-input" placeholder="输入文章 ID" />
           </el-form-item>
@@ -248,5 +248,9 @@ onMounted(() => {
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.asset-reindex-form :deep(.el-form-item) {
+  margin-bottom: 0;
 }
 </style>

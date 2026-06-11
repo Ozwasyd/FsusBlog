@@ -43,4 +43,13 @@ describe('emitFrontendAudit', () => {
     expect(warn).toHaveBeenCalledTimes(1)
     expect(error).toHaveBeenCalledTimes(1)
   })
+
+  it('does not throw when the browser console transport is disconnected', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {
+      throw new Error('send was called before connect')
+    })
+
+    expect(() => emitFrontendAudit(baseRecord({ level: 'warn' }))).not.toThrow()
+    expect(warn).toHaveBeenCalledTimes(1)
+  })
 })

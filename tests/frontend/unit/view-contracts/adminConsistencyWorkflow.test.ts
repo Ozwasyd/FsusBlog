@@ -38,6 +38,8 @@ describe('admin consistency workflow contract', () => {
     expect(assetsPage).toContain('cleanupOrphanAssets')
     expect(assetsPage).toContain('reindexArticleAssets')
     expect(assetsPage).toContain('deleteImage(asset.url)')
+    expect(assetsPage).toContain('admin-data-surface__toolbar--stacked')
+    expect(assetsPage).toContain('asset-reindex-form')
     expect(contentToolsPage).toContain('exportContentBackup')
     expect(contentToolsPage).toContain('exportArticleContent')
     expect(contentToolsPage).toContain('importArticleContent')

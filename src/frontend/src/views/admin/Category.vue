@@ -30,8 +30,8 @@
       </template>
     </WorkbenchPanel>
 
-    <section class="border-t border-[var(--fsusblog-panel-border)]">
-      <div class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] flex flex-wrap items-center justify-between gap-3">
+    <section class="admin-data-surface">
+      <div class="admin-data-surface__toolbar">
         <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">分类列表 / CATEGORY LIST</div>
         <div class="flex flex-wrap items-center gap-2">
           <el-input
@@ -50,7 +50,7 @@
         v-loading="loading"
         :data="filteredList"
         :row-key="getCategoryRowKey"
-        >
+      >
         <el-table-column v-if="!isCompact" prop="id" label="ID" width="100" align="center">
           <template #default="{ row }: { row: AdminCategoryItemResponse }">
             <span class="tabular-nums">{{ row.id }}</span>

@@ -1,6 +1,7 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using SqlSugar;
 
@@ -40,6 +41,8 @@ public sealed class ArticleMutationOutboxDispatcher(
             ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
             IDbConcurrencyGate dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
             ICacheInvalidationDispatcher cacheInvalidation = scope.ServiceProvider.GetRequiredService<ICacheInvalidationDispatcher>();
+            IPublicAotInvalidationService publicAotInvalidation =
+                scope.ServiceProvider.GetRequiredService<IPublicAotInvalidationService>();
             IArticleMutationSideEffectCoordinator coordinator =
                 scope.ServiceProvider.GetRequiredService<IArticleMutationSideEffectCoordinator>();
 
@@ -60,7 +63,7 @@ public sealed class ArticleMutationOutboxDispatcher(
             foreach (ArticleMutationOutboxEvent item in pending)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                bool ok = await ProcessOneAsync(db, dbGate, cacheInvalidation, coordinator, item, cancellationToken)
+                bool ok = await ProcessOneAsync(db, dbGate, cacheInvalidation, publicAotInvalidation, coordinator, item, cancellationToken)
                     .ConfigureAwait(false);
                 if (ok)
                 {
@@ -85,6 +88,7 @@ public sealed class ArticleMutationOutboxDispatcher(
         ISqlSugarClient db,
         IDbConcurrencyGate dbGate,
         ICacheInvalidationDispatcher cacheInvalidation,
+        IPublicAotInvalidationService publicAotInvalidation,
         IArticleMutationSideEffectCoordinator coordinator,
         ArticleMutationOutboxEvent item,
         CancellationToken cancellationToken)
@@ -109,6 +113,14 @@ public sealed class ArticleMutationOutboxDispatcher(
 
         try
         {
+            ArticleMutationAotScope aotScope = await LoadAotScopeAsync(db, dbGate, item.AggregateId, cancellationToken)
+                .ConfigureAwait(false);
+            await publicAotInvalidation.InvalidateArticleMutationAsync(
+                    item.AggregateId,
+                    aotScope.CategoryIds,
+                    aotScope.TagIds,
+                    cancellationToken)
+                .ConfigureAwait(false);
             await cacheInvalidation.InvalidateArticleMutationAsync(item.AggregateId, cancellationToken)
                 .ConfigureAwait(false);
             await coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, cancellationToken)
@@ -160,6 +172,48 @@ public sealed class ArticleMutationOutboxDispatcher(
         }
     }
 
+    private static async Task<ArticleMutationAotScope> LoadAotScopeAsync(
+        ISqlSugarClient db,
+        IDbConcurrencyGate dbGate,
+        int articleId,
+        CancellationToken cancellationToken)
+    {
+        if (articleId <= 0)
+        {
+            return ArticleMutationAotScope.Empty;
+        }
+
+        int categoryId = await dbGate.ExecuteAsync(
+                "article-outbox-aot-scope-category",
+                gateCt => db.Queryable<Article>()
+                    .ClearFilter()
+                    .Where(article => article.Id == articleId)
+                    .Select(article => article.CategoryId)
+                    .FirstAsync(gateCt),
+                _ => Task.FromResult(0),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        List<int> tagIds = await dbGate.ExecuteAsync(
+                "article-outbox-aot-scope-tags",
+                gateCt => db.Queryable<ArticleTag>()
+                    .Where(articleTag => articleTag.ArticleId == articleId)
+                    .Select(articleTag => articleTag.TagId)
+                    .ToListAsync(gateCt),
+                _ => Task.FromResult(new List<int>()),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return new ArticleMutationAotScope(
+            categoryId > 0 ? [categoryId] : [],
+            tagIds);
+    }
+
     private static TimeSpan ComputeBackoff(int retryCount)
         => TimeSpan.FromSeconds(Math.Min(300, Math.Pow(2, Math.Clamp(retryCount, 1, 8))));
+
+    private sealed record ArticleMutationAotScope(IReadOnlyList<int> CategoryIds, IReadOnlyList<int> TagIds)
+    {
+        public static readonly ArticleMutationAotScope Empty = new([], []);
+    }
 }

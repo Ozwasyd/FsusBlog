@@ -24,6 +24,11 @@ const AOT_ACTION_BUCKET_KEY = 'fsus.telemetry.aotActionBuckets';
 const RUM_ENDPOINT = fsusBinaryRoutes.binary_post_telemetry_rum;
 const RUM_METRIC_KEYS = ['value', 'domInteractive', 'responseStart', 'durationMs'] as const;
 const RUM_BATCH_FLUSH_MS = 250;
+const BINARY_FAILURE_TELEMETRY_WINDOW_MS = 15000;
+const BINARY_FAILURE_TELEMETRY_LIMIT = 3;
+
+let binaryFailureTelemetryWindowStartedAt = 0;
+let binaryFailureTelemetryWindowCount = 0;
 
 function readCounter(): number {
   if (typeof localStorage === 'undefined') {
@@ -107,7 +112,11 @@ export function emitTelemetry(name: string, detail?: Record<string, unknown>, le
     detail
   };
 
-  window.dispatchEvent(new window.CustomEvent(TELEMETRY_EVENT, { detail: payload }));
+  try {
+    window.dispatchEvent(new window.CustomEvent(TELEMETRY_EVENT, { detail: payload }));
+  } catch {
+    // Telemetry is best-effort; disconnected console/dev transports must not affect runtime.
+  }
 }
 
 export function emitRumMetric(name: string, detail: Record<string, unknown>): void {
@@ -119,10 +128,24 @@ function onBinaryFailure(event: Event): void {
   const next = readCounter() + 1;
   writeCounter(next);
 
+  if (!shouldEmitBinaryFailureTelemetry()) {
+    return;
+  }
+
   emitTelemetry('binary_failure', {
     ...custom.detail,
     count: next
   }, 'warn');
+}
+
+function shouldEmitBinaryFailureTelemetry(now = Date.now()): boolean {
+  if (now - binaryFailureTelemetryWindowStartedAt > BINARY_FAILURE_TELEMETRY_WINDOW_MS) {
+    binaryFailureTelemetryWindowStartedAt = now;
+    binaryFailureTelemetryWindowCount = 0;
+  }
+
+  binaryFailureTelemetryWindowCount += 1;
+  return binaryFailureTelemetryWindowCount <= BINARY_FAILURE_TELEMETRY_LIMIT;
 }
 
 function onTelemetry(event: Event): void {
@@ -132,14 +155,18 @@ function onTelemetry(event: Event): void {
     return;
   }
 
-  emitFrontendAudit({
-    source: 'frontend',
-    type: classifyTelemetryType(payload),
-    occurredAtUtc: payload.timestamp,
-    eventInfo: payload.name,
-    context: payload.detail ?? {},
-    level: payload.level
-  });
+  try {
+    emitFrontendAudit({
+      source: 'frontend',
+      type: classifyTelemetryType(payload),
+      occurredAtUtc: payload.timestamp,
+      eventInfo: payload.name,
+      context: payload.detail ?? {},
+      level: payload.level
+    });
+  } catch {
+    // Audit output is non-critical and must not recurse during transport loss.
+  }
 }
 
 function onAotEvent(event: Event): void {

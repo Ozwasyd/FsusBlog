@@ -30,8 +30,8 @@
       </template>
     </WorkbenchPanel>
 
-    <section class="border-t border-[var(--fsusblog-panel-border)]">
-      <div class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] flex flex-wrap items-center justify-between gap-3">
+    <section class="admin-data-surface">
+      <div class="admin-data-surface__toolbar">
         <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">标签列表 / TAG LIST</div>
         <div class="flex flex-wrap items-center gap-2">
           <el-input

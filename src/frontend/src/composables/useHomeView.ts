@@ -15,6 +15,10 @@ import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 import { createArticleListViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList'
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
 
+const HOME_FEATURED_ARTICLE_COUNT = 3
+const HOME_HOT_ARTICLE_PREFETCH_COUNT = 10
+const HOME_HOT_ARTICLE_DISPLAY_COUNT = 5
+
 const parsePageQuery = (value: unknown): number => {
   const raw = Array.isArray(value) ? value[0] : value
   const parsed = Number.parseInt(String(raw ?? ''), 10)
@@ -192,8 +196,8 @@ export function useHomeView() {
     try {
       const [featured, hot] = await featuredTask.run(
         async (signal) => await Promise.all([
-          getFeaturedArticles(3, { signal }),
-          getHotArticles(8, { signal }) // 多取一点用于去重
+          getFeaturedArticles(HOME_FEATURED_ARTICLE_COUNT, { signal }),
+          getHotArticles(HOME_HOT_ARTICLE_PREFETCH_COUNT, { signal })
         ])
       )
 
@@ -204,7 +208,7 @@ export function useHomeView() {
         const featuredIds = new Set(featuredArticles.value.map(a => a.id))
         hotArticles.value = (hot || [])
           .filter(a => !featuredIds.has(a.id))
-          .slice(0, 5)
+          .slice(0, HOME_HOT_ARTICLE_DISPLAY_COUNT)
       }
     } catch (caught: unknown) {
       if (isAbortError(caught)) {

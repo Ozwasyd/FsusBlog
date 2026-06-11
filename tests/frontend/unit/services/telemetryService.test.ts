@@ -2,11 +2,12 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AEDS_HEADER_LENGTH, FrameType } from '@wasm/protocol/frame'
-import { emitRumMetric } from '@/services/telemetryService'
+import { emitRumMetric, initTelemetryService } from '@/services/telemetryService'
 
 describe('emitRumMetric', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    localStorage.clear()
   })
 
   afterEach(() => {
@@ -75,6 +76,41 @@ describe('emitRumMetric', () => {
     expect(source).not.toContain('application/json')
     expect(source).not.toContain('response.json')
     expect(source).not.toContain('JSON.stringify')
+  })
+
+  it('throttles binary failure audit output during backend outage storms', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.setSystemTime(new Date('2026-06-11T12:24:42.000Z'))
+    initTelemetryService()
+
+    for (let i = 0; i < 10; i += 1) {
+      window.dispatchEvent(new window.CustomEvent('fsus:binary:failure', {
+        detail: {
+          kind: 'network',
+          message: 'Failed to fetch',
+          url: '/api/binary/auth/pow-challenge'
+        }
+      }))
+    }
+
+    expect(warn).toHaveBeenCalledTimes(3)
+    expect(localStorage.getItem('fsus.telemetry.binaryFailureCount')).toBe('10')
+  })
+
+  it('keeps binary failure event handling non-throwing when console forwarding fails', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {
+      throw new Error('send was called before connect')
+    })
+    vi.setSystemTime(new Date('2026-06-11T12:25:12.000Z'))
+    initTelemetryService()
+
+    expect(() => window.dispatchEvent(new window.CustomEvent('fsus:binary:failure', {
+      detail: {
+        kind: 'network',
+        message: 'Failed to fetch',
+        url: '/api/binary/auth/pow-challenge'
+      }
+    }))).not.toThrow()
   })
 })
 

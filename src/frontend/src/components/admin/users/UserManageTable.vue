@@ -1,5 +1,5 @@
 <template>
-  <section class="bg-[var(--fsusblog-page-bg)] border-y border-[var(--fsusblog-panel-border)]">
+  <section class="admin-data-surface">
     <el-table
       v-if="!isMobile"
       class="user-table"
@@ -168,8 +168,7 @@
       <el-empty v-if="!loading && list.length === 0" description="暂无用户记录" />
     </div>
 
-    <div class="p-8 border-t border-[var(--fsusblog-panel-border)] flex flex-col sm:flex-row items-center justify-between gap-6 bg-[var(--fsusblog-panel-bg)]">
-      <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">用户目录 / Database</span>
+    <div class="admin-data-surface__footer">
       <el-pagination
         :current-page="currentPage"
         :page-size="pageSize"

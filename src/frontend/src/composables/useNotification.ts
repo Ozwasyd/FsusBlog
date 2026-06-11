@@ -14,9 +14,12 @@ import { isAbortError } from '@/utils/errors'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 import { decodePowCache, encodePowCache } from '@/services/powProofCodec'
+import { safeConsoleError, safeConsoleWarn } from '@/services/safeConsole'
 
 const currentMode = ref<'auth' | 'guest' | ''>('')
 const isInitializing = ref(false)
+
+const NOTIFICATION_RECOVERY_RETRY_MS = 5000
 
 let lastReauthTime = 0
 let memoryPowCache: PowParams | null = null
@@ -198,11 +201,7 @@ export function useNotification() {
         }
 
         if (isCalculating.value) {
-            clearReauthRetryTimer()
-            reauthRetryTimer = setTimeout(() => {
-                reauthRetryTimer = null
-                void handleReauthAndRestart(failureCode)
-            }, 2000)
+            scheduleReauthRetry(failureCode, 2000)
             return
         }
 
@@ -214,16 +213,24 @@ export function useNotification() {
             currentMode.value = 'guest'
         } catch (error) {
             if (isAbortError(error)) {
-                clearReauthRetryTimer()
-                reauthRetryTimer = setTimeout(() => {
-                    reauthRetryTimer = null
-                    void handleReauthAndRestart(failureCode)
-                }, 2000)
+                scheduleReauthRetry(failureCode, 2000)
                 return
             }
 
-            console.error('[NotificationStream] 恢复访客流失败:', error)
+            safeConsoleError('[NotificationStream] 恢复访客流失败:', error)
+            scheduleReauthRetry(failureCode)
         }
+    }
+
+    function scheduleReauthRetry(
+        failureCode: NotificationStreamFailureCode,
+        delayMs = NOTIFICATION_RECOVERY_RETRY_MS
+    ): void {
+        clearReauthRetryTimer()
+        reauthRetryTimer = setTimeout(() => {
+            reauthRetryTimer = null
+            void handleReauthAndRestart(failureCode)
+        }, delayMs)
     }
 
     const ensureBindings = (): void => {
@@ -244,7 +251,7 @@ export function useNotification() {
             notificationStreamStore.recordDuplicateEvent()
         }
         notificationStreamRuntime.onProtocolError = (reason) => {
-            console.warn('[NotificationStream] protocol_error', reason)
+            safeConsoleWarn('[NotificationStream] protocol_error', reason)
             notificationStreamStore.recordProtocolError()
         }
         notificationStreamRuntime.onHandshakeFailure = (code) => {
@@ -311,7 +318,7 @@ export function useNotification() {
                     return
                 }
 
-                console.error('[NotificationStream] 初始化失败:', error)
+                safeConsoleError('[NotificationStream] 初始化失败:', error)
                 currentMode.value = ''
             } finally {
                 isInitializing.value = false

@@ -34,6 +34,7 @@ public sealed class AdminOperationsService(
     BlogDistributionService distributionService,
     ISearchIndexService searchIndexService,
     PublicHotArtifactUpdateQueue publicHotArtifactUpdateQueue,
+    IPublicAotInvalidationService publicAotInvalidationService,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
     ILogger<AdminOperationsService> logger)
 {
@@ -179,8 +180,17 @@ public sealed class AdminOperationsService(
                 return ActionResult(action, "ok", "search index rebuild completed");
             case "public-hot-rebuild":
             case "aot-rebuild":
+                if (request.ArticleId is > 0)
+                {
+                    await publicAotInvalidationService.InvalidateArticleMutationAsync(request.ArticleId, null, null, cancellationToken);
+                }
+                else
+                {
+                    await publicAotInvalidationService.InvalidateAllAsync(cancellationToken);
+                }
+
                 bool queued = publicHotArtifactUpdateQueue.TryEnqueue(request.ArticleId, "admin-cache-action");
-                return ActionResult(action, queued ? "queued" : "degraded", queued ? "public hot/AOT rebuild queued" : "public hot/AOT rebuild queue rejected");
+                return ActionResult(action, queued ? "queued" : "degraded", queued ? "public hot/AOT rebuild queued" : "AOT invalidated; public hot rebuild queue rejected");
             case "output-cache-clear":
                 await cacheInvalidationDispatcher.InvalidateArticleMutationAsync(request.ArticleId, cancellationToken);
                 await cacheInvalidationDispatcher.InvalidateSeoAsync(cancellationToken);

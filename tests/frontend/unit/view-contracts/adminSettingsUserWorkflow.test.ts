@@ -86,6 +86,9 @@ describe('admin settings and user governance workflow contract', () => {
     expect(userTable).toContain('row.roleLabel')
     expect(userTable).toContain('row.statusText')
     expect(userTable).toContain("'total, sizes, prev, pager, next'")
+    expect(userTable).toContain('admin-data-surface__footer')
+    expect(userTable).not.toContain('用户目录 / Database')
+    expect(userTable).not.toContain('p-8 border-t')
   })
 
   it('requires strong reset-password confirmation and safe password handling', () => {

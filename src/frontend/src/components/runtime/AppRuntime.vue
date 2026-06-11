@@ -4,6 +4,7 @@ import { useNotification } from '@/composables/useNotification'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { markStartup, measureStartup } from '@/bootstrap/startupProfiler'
 import { isPublicSeoPath } from '@/bootstrap/publicShellPrimitives'
+import { safeConsoleWarn } from '@/services/safeConsole'
 
 const { userStore, ensureSiteInfo, ensureUserInfo, syncAuthPhase } = useSessionBootstrap()
 const { initNotification, stopNotification } = useNotification()
@@ -71,7 +72,7 @@ const requestNotificationInit = (loggedIn: boolean, errorLabel: string): void =>
       return
     }
 
-    initNotification(mode).catch((error) => console.warn(errorLabel, error))
+    initNotification(mode).catch((error) => safeConsoleWarn(errorLabel, error))
   })
 }
 

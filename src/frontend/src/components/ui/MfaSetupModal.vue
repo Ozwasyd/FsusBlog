@@ -29,17 +29,30 @@
       </div>
 
       <div>
-        <div class="text-[11px] font-semibold text-[var(--fsusblog-text-secondary)] mb-1 normal-case tracking-normal">手动密钥 (Manual Entry)</div>
+        <div class="mb-2 flex items-center justify-between gap-3">
+          <div class="text-[11px] font-semibold text-[var(--fsusblog-text-secondary)] normal-case tracking-normal">手动密钥 (Manual Entry)</div>
+          <el-button
+            v-if="secret"
+            size="small"
+            link
+            :icon="CopyDocument"
+            @click="copySecret"
+          >
+            复制
+          </el-button>
+        </div>
         <div class="px-3 py-2 bg-[var(--fsusblog-panel-bg)] border border-[var(--fsusblog-panel-border)] rounded-[var(--fsus-radius-control)] text-[12px] tabular-nums text-[var(--fsusblog-text-secondary)] break-all">{{ secret || '-' }}</div>
       </div>
 
-      <a
-        v-if="otpAuthUrl"
-        :href="otpAuthUrl"
-        class="inline-flex text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)] transition-colors border-b border-current pb-0.5"
-      >
-        在 App 中直接打开
-      </a>
+      <div v-if="otpAuthUrl" class="flex flex-wrap items-center gap-3">
+        <el-button
+          size="small"
+          :icon="CopyDocument"
+          @click="copyOtpAuthUrl"
+        >
+          复制绑定链接
+        </el-button>
+      </div>
 
       <div v-if="!recoveryCodes.length">
         <label for="mfa-setup-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">验证码</label>
@@ -102,6 +115,7 @@
 import { computed, ref, watch } from 'vue'
 import QrcodeVue from 'qrcode.vue'
 import { toast } from '@/fsusui/feedback'
+import { CopyDocument } from '@/fsusui/icons'
 
 const props = withDefaults(defineProps<{
   visible: boolean
@@ -139,11 +153,35 @@ const close = () => {
 }
 
 const copyRecoveryCodes = async (): Promise<void> => {
+  if (!recoveryCodesText.value) {
+    return
+  }
+
+  await copyText(recoveryCodesText.value, '恢复码已复制', '复制失败，请手动保存恢复码')
+}
+
+const copySecret = async (): Promise<void> => {
+  if (!props.secret) {
+    return
+  }
+
+  await copyText(props.secret, '密钥已复制', '复制失败，请手动复制密钥')
+}
+
+const copyOtpAuthUrl = async (): Promise<void> => {
+  if (!props.otpAuthUrl) {
+    return
+  }
+
+  await copyText(props.otpAuthUrl, '绑定链接已复制', '复制失败，请手动输入密钥')
+}
+
+const copyText = async (text: string, successMessage: string, failureMessage: string): Promise<void> => {
   try {
-    await navigator.clipboard.writeText(recoveryCodesText.value)
-    toast.success('恢复码已复制')
+    await navigator.clipboard.writeText(text)
+    toast.success(successMessage)
   } catch {
-    toast.error('复制失败，请手动保存恢复码')
+    toast.error(failureMessage)
   }
 }
 

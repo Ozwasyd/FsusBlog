@@ -305,7 +305,11 @@ function reportTransportEvent(name: string, detail: Record<string, unknown>): vo
     return;
   }
 
-  window.dispatchEvent(new CustomEvent(name, { detail }));
+  try {
+    window.dispatchEvent(new window.CustomEvent(name, { detail }));
+  } catch {
+    // Binary transport failures must never fail the original request path.
+  }
 }
 
 function binaryFailureKindFromStatus(status: number): TransportFailureKind {

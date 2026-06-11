@@ -870,6 +870,24 @@ describe('binaryTransport ApiError mapping', () => {
 
     expect(dispatchSpy).not.toHaveBeenCalled()
   })
+
+  it('keeps the original transport error when failure telemetry dispatch is unavailable', async () => {
+    mockBinaryRequest.mockRejectedValue(new TypeError('Failed to fetch'))
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent').mockImplementation(() => {
+      throw new Error('send was called before connect')
+    })
+
+    await expect(requestBinaryOnly({
+      binaryUrl: '/api/binary/auth/pow-challenge',
+      frameType: FrameType.PowChallenge
+    })).rejects.toMatchObject({
+      name: 'BinaryTransportError',
+      kind: 'network',
+      code: AppErrorCode.InfraFailure
+    })
+
+    expect(dispatchSpy).toHaveBeenCalledTimes(2)
+  })
 })
 
 function readProtocolFixtureBuffer(fileName: string): ArrayBuffer {

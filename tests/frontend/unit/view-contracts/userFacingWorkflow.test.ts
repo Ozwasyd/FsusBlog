@@ -99,6 +99,9 @@ describe('user facing workflow contract', () => {
   it('syncs public list/filter pagination and exposes useful empty/navigation affordances', () => {
     expect(homeComposable).toContain('parsePageQuery(route.query.page)')
     expect(homeComposable).toContain('nextQuery.page = String(page)')
+    expect(homeComposable).toContain('HOME_HOT_ARTICLE_PREFETCH_COUNT = 10')
+    expect(homeComposable).toContain('HOME_HOT_ARTICLE_DISPLAY_COUNT = 5')
+    expect(homeComposable).not.toContain('getHotArticles(8')
     expect(filterComposable).toContain('parsePageQuery(route.query.page)')
     expect(filterComposable).toContain('delete nextQuery.page')
     expect(homeContent).toContain('快速入口')
@@ -114,6 +117,10 @@ describe('user facing workflow contract', () => {
     expect(profileComposable).toContain('mfaSetupState.recoveryCodes = response.recoveryCodes')
     expect(mfaSetupModal).toContain('copyRecoveryCodes')
     expect(mfaSetupModal).toContain('downloadRecoveryCodes')
+    expect(mfaSetupModal).toContain('copyOtpAuthUrl')
+    expect(mfaSetupModal).toContain('copySecret')
+    expect(mfaSetupModal).not.toContain(':href="otpAuthUrl"')
+    expect(mfaSetupModal).not.toContain('在 App 中直接打开')
     expect(mfaSetupModal).toContain('我已保存恢复码')
   })
 

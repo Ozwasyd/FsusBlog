@@ -1,3 +1,5 @@
+import { safeConsoleError, safeConsoleInfo, safeConsoleWarn } from '@/services/safeConsole'
+
 type FrontendAuditLevel = 'info' | 'warn' | 'error'
 export type FrontendAuditType =
   | 'audit'
@@ -18,16 +20,18 @@ export type FrontendAuditRecord = {
   level?: FrontendAuditLevel
 }
 
-function resolveConsole(level: FrontendAuditLevel | undefined, type: FrontendAuditType): typeof console.info {
+type AuditConsoleWriter = (...data: unknown[]) => void
+
+function resolveConsole(level: FrontendAuditLevel | undefined, type: FrontendAuditType): AuditConsoleWriter {
   if (level === 'error' || type === 'exception') {
-    return console.error
+    return safeConsoleError
   }
 
   if (level === 'warn' || type === 'security') {
-    return console.warn
+    return safeConsoleWarn
   }
 
-  return console.info
+  return safeConsoleInfo
 }
 
 export function emitFrontendAudit(record: FrontendAuditRecord): void {
