@@ -257,7 +257,7 @@ dotnet run -c Release
 
 ### `production` — production-ci-gate
 
-`production` 是 PR/CI 的 production-ci-gate。它执行当前 production DAG 并校验 release evidence schema，但允许 manifest 为 schema-valid `collected-blocked`，用于表达外部生产证据尚未回传；这不等于可以发布。
+`production` 是 PR/CI 的 production-ci-gate。它执行当前 production DAG 并校验 release evidence schema，但允许 manifest 为 schema-valid `collected-blocked`，用于表达外部生产证据尚未回传或占位证据仍是 `scheduled`；这不等于可以发布。
 
 执行顺序请以机器输出为准：
 
@@ -270,7 +270,7 @@ dotnet run -c Release
 1. `fast`：Debug build `-warnaserror`、服务端非集成测试、`vue-tsc`、前端 release build warning-as-error、静态治理脚本。
 2. 强制 bootstrap：启动或重启 PostgreSQL、Redis、Debug 后端、Vite 前端、Release Preview。`fast` 会重新生成前端 release 资源并同步到后端 StaticWebAssets，production 门禁必须在这里重启运行时，避免旧进程继续服务上一代代码或静态资源。
 3. 复用同一套运行环境执行 `release`、`integration`、`security`、`acceptance`、`cross-browser-smoke`、`visual`、`ux-viewport-smoke`、`frontend-render-pressure`、`resilience`、`load`、`backend-qps`。
-4. 收集 release evidence 并运行 schema check；此处不使用 `--require-ok`。
+4. 收集 release evidence 并运行 schema/semantic check；此处不使用 `--require-ok`。
 
 ```bash
 ./tools/test.sh production
@@ -336,7 +336,7 @@ node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-pla
 tools/operations/check-release-evidence-manifest.mjs --require-ok
 ```
 
-`collected-blocked` 是合法的 CI 证据状态，但不是可发布凭据。
+`collected-blocked` 是合法的 CI 证据状态，但不是可发布凭据。dry-run backup restore、dry-run smoke、manual-only smoke checklist、未执行 authenticated DAST、零 seed Wasm fuzz、observed-only fault injection 和空 short soak 都必须保持 blocked/scheduled，不能写成最终发布通过。
 
 ### `release-final` — final publish credential
 
@@ -352,7 +352,7 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 - release runtime lanes：admin console、auth flow、authoring flow、private preview、error boundary、RBAC negative path 都绑定 release artifact。
 - release AOT lanes：generation、consumption、static asset digest coherence 分开验证。
 - release load/scale/stability lanes：peak、burst、scale-m、soak-min、memory leak budget、open handle budget、critical mutation slice。
-- strict evidence：manifest 必须为 `collected-ok`，visual skip 不能产生 clean pass，live exposure/firewall/DNS evidence 必须存在，job summary 必须覆盖所有 acceptance/visual shard 与 cross-browser browser combination。
+- strict evidence：manifest 必须为 `collected-ok`，visual skip 不能产生 clean pass，live exposure/firewall/DNS evidence 必须存在，backup restore 必须是 real drill，post-deploy smoke 必须是 deployed endpoint 自动覆盖，authenticated DAST/Wasm fuzz/fault injection/short soak 必须真实执行，job summary 必须覆盖所有 acceptance/visual shard 与 cross-browser browser combination。
 - artifact binding：`tools/release/check-release-final.mjs` 要求 manifest commit、job summary commit 与 `sha256:` image digest 一致。
 - test-quality lint：`tools/ci/check-test-quality.mjs` 阻断无断言测试、HTTP 200-only 弱断言和关键路径 snapshot-only 测试。
 
@@ -424,7 +424,7 @@ tools/operations/test-release-evidence-fixture.sh
 tools/operations/cleanup-retention.sh
 ```
 
-这些检查覆盖文章公开可见性、SEO discovery/JSON-LD、分发版本一致性、schema migration registry、OpenTelemetry collector 开关与无 PII tag 白名单、AI provider 默认关闭、PWA 私有路由不缓存、RUM 不采集私有页与敏感字段、备份/烟测/证据/保留期脚本。完整发布仍必须回到 `./tools/test.sh production` 与 `./tools/test.sh coverage-gate`。
+这些检查覆盖文章公开可见性、SEO discovery/JSON-LD、分发版本一致性、schema migration registry、OpenTelemetry collector 开关与无 PII tag 白名单、AI provider 默认关闭、PWA 私有路由不缓存、RUM 不采集私有页与敏感字段、备份/烟测/证据/保留期脚本。这里的 backup restore 与 post-deploy smoke dry-run 只验证脚本调度，会写入 `status=scheduled`，不能作为发布收口证据。完整发布仍必须回到 `./tools/test.sh production` 与 `./tools/test.sh coverage-gate`，最终发布还必须跑 `./tools/test.sh release-final`。
 
 作者 AI 辅助的静态门禁为 `npm --prefix src/frontend run check:author-ai-assist`，覆盖 admin-only endpoint、actor audit、provider review config、编辑器接线和文档同步。后端行为由 `AuthoringWorkflowServiceTests` 覆盖默认 disabled 与 provider-enabled review-blocked 分支。
 

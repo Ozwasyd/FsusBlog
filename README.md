@@ -241,7 +241,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 
 详细规则见 [tests/backend/TESTING.md](tests/backend/TESTING.md)。
 
-`production` 是 production-ci-gate：要求 0 编译警告、0 类型错误、0 Vite build warning、0 测试失败、0 运行时 error/warning，并覆盖匿名/登录/admin、Binary API、作者工作台/read-proof/health JSON、WebSocket binary notification stream、AOT hydration、PoW/MFA/Passkey/session、视觉、弹性、轻量负载与 backend-qps 热路径证据。它会校验 release evidence schema，但允许 manifest 处于 `collected-blocked` 来表达外部生产证据尚未回传；`release-closeout` 要求 manifest 为 `collected-ok`；最终发布候选必须另跑 `./tools/test.sh release-final`，它会额外阻断 visual skip、缺失 live exposure、缺失 shard/browser summary、覆盖率不足、changed-code coverage 不足、critical flaky quarantine 和 artifact digest 不一致。GitHub Actions `Quality Gate` 会在 PR、`main` / `master` push 和手动触发时运行 production-ci-gate；仓库 secret 需要配置 `GITHUB_PACKAGES_TOKEN`。
+`production` 是 production-ci-gate：要求 0 编译警告、0 类型错误、0 Vite build warning、0 测试失败、0 运行时 error/warning，并覆盖匿名/登录/admin、Binary API、作者工作台/read-proof/health JSON、WebSocket binary notification stream、AOT hydration、PoW/MFA/Passkey/session、视觉、弹性、轻量负载与 backend-qps 热路径证据。它会校验 release evidence schema/semantic，但允许 manifest 处于 `collected-blocked` 来表达外部生产证据尚未回传或占位证据仍是 `scheduled`；`release-closeout` 要求 manifest 为 `collected-ok`；最终发布候选必须另跑 `./tools/test.sh release-final`，它会额外阻断 visual skip、dry-run backup/smoke、未执行 DAST/fuzz/fault/soak、缺失 live exposure、缺失 shard/browser summary、覆盖率不足、changed-code coverage 不足、critical flaky quarantine 和 artifact digest 不一致。GitHub Actions `Quality Gate` 会在 PR、`main` / `master` push 和手动触发时运行 production-ci-gate；仓库 secret 需要配置 `GITHUB_PACKAGES_TOKEN`。
 
 ## 文档索引
 

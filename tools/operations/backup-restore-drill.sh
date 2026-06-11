@@ -368,6 +368,7 @@ run_smoke_checks() {
 }
 
 run_dry_run() {
+  status="scheduled"
   checks=(
     "postgres:planned"
     "redis:planned"
@@ -428,4 +429,4 @@ case "$MODE" in
 esac
 
 write_report
-[[ "$status" == "ok" ]]
+[[ "$status" == "ok" || "$status" == "scheduled" ]]

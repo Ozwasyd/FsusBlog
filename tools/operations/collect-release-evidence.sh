@@ -83,6 +83,91 @@ json_status_or_missing() {
   jq -r '.status // "present"' "$file" 2>/dev/null || printf 'invalid'
 }
 
+semantic_status_or_missing() {
+  local file="$1"
+  local predicate="$2"
+  if [[ ! -f "$file" ]]; then
+    printf 'missing'
+    return
+  fi
+
+  if jq -e "$predicate" "$file" >/dev/null 2>&1; then
+    printf 'ok'
+    return
+  fi
+
+  jq -r '
+    if .status == "scheduled" then "scheduled"
+    elif .status == "ok" then "blocked"
+    else (.status // "invalid") end
+  ' "$file" 2>/dev/null || printf 'invalid'
+}
+
+backup_restore_status_or_missing() {
+  semantic_status_or_missing "$1" '
+    (.status == "ok")
+    and (.mode == "real")
+    and (.timings.rpoSeconds != null)
+    and (.timings.rtoSeconds != null)
+    and (([
+      "postgres-restore:ok",
+      "redis-restore:ok",
+      "webroot-artifact-restore:ok",
+      "restored-backend-start:ok",
+      "public-page:ok",
+      "binary-api:ok",
+      "search-index:ok",
+      "notification-stream-live:ok",
+      "admin-login:ok"
+    ] - (.checks // [])) | length == 0)
+  '
+}
+
+post_deploy_smoke_status_or_missing() {
+  semantic_status_or_missing "$1" '
+    (.status == "ok")
+    and (.dryRun == false)
+    and ((.blockers // []) | length == 0)
+    and (([
+      "anonymous-public",
+      "feed-rss",
+      "feed-atom",
+      "feed-json",
+      "sitemap",
+      "robots",
+      "health-live",
+      "health-ready"
+    ] - (.verifiedCoverage // [])) | length == 0)
+  '
+}
+
+authenticated_dast_status_or_missing() {
+  semantic_status_or_missing "$1" '(.status == "ok") and (.activeScan.executed == true)'
+}
+
+wasm_fuzz_status_or_missing() {
+  semantic_status_or_missing "$1" '(.status == "ok") and ((.seedsRun // 0) > 0)'
+}
+
+fault_injection_status_or_missing() {
+  semantic_status_or_missing "$1" '
+    (.status == "ok")
+    and ((.caseCount // 0) > 0)
+    and ((.cases // []) | length > 0)
+    and all(.cases[]?; .status == "ok" and .injection == "injected")
+  '
+}
+
+short_soak_status_or_missing() {
+  semantic_status_or_missing "$1" '
+    (.status == "ok")
+    and (.mode == "short")
+    and ((.durationSeconds // 0) > 0)
+    and ((.sampleCount // 0) > 0)
+    and ((.latencyMs.p95 // 0) > 0)
+  '
+}
+
 result_status_or_missing() {
   local file="$1"
   if [[ ! -f "$file" ]]; then
@@ -317,8 +402,8 @@ ATTACK_MATRIX_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/attack-matri
 PERMISSION_MATRIX_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/permission-matrix.json")"
 SUPPLY_CHAIN_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/supply-chain/summary.json")"
 SBOM_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/sbom/summary.json")"
-BACKUP_RESTORE_STATUS_VALUE="$(json_status_or_missing "$OPERATIONS_DIR/backup-restore-drill.json")"
-POST_DEPLOY_SMOKE_STATUS_VALUE="$(json_status_or_missing "$OPERATIONS_DIR/post-deploy-smoke.json")"
+BACKUP_RESTORE_STATUS_VALUE="$(backup_restore_status_or_missing "$OPERATIONS_DIR/backup-restore-drill.json")"
+POST_DEPLOY_SMOKE_STATUS_VALUE="$(post_deploy_smoke_status_or_missing "$OPERATIONS_DIR/post-deploy-smoke.json")"
 SLO_STATUS_VALUE="$(json_status_or_missing "$OPERATIONS_DIR/slo-alert-fixture.json")"
 SLO_CRITICAL_COUNT="$(slo_critical_count_or_zero "$OPERATIONS_DIR/slo-alert-fixture.json")"
 RETENTION_STATUS_VALUE="$(json_status_or_missing "$OPERATIONS_DIR/retention-cleanup.json")"
@@ -329,9 +414,10 @@ REQUEST_SUMMARY="$(request_summary_json)"
 COVERAGE_SUMMARY="$(coverage_summary_json)"
 COVERAGE_STATUS_VALUE="$(jq -r '.status // "missing"' <<<"$COVERAGE_SUMMARY" 2>/dev/null || printf 'invalid')"
 ZAP_STATUS_VALUE="$(zap_status_or_missing "$SECURITY_DIR/zap")"
-FAULT_STATUS_VALUE="$(json_status_or_missing "$FAULT_DIR/summary.json")"
-AUTHENTICATED_DAST_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/authenticated-dast/summary.json")"
-WASM_FUZZ_STATUS_VALUE="$(json_status_or_missing "$FUZZ_DIR/wasm/summary.json")"
+FAULT_STATUS_VALUE="$(fault_injection_status_or_missing "$FAULT_DIR/summary.json")"
+SOAK_STATUS_VALUE="$(short_soak_status_or_missing "$SOAK_DIR/short/summary.json")"
+AUTHENTICATED_DAST_STATUS_VALUE="$(authenticated_dast_status_or_missing "$SECURITY_DIR/authenticated-dast/summary.json")"
+WASM_FUZZ_STATUS_VALUE="$(wasm_fuzz_status_or_missing "$FUZZ_DIR/wasm/summary.json")"
 UX_VIEWPORT_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json")"
 FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json")"
 PUBLISH_ARTIFACTS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json")"
@@ -357,6 +443,10 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$POST_DEPLOY_SMOKE_STATUS_VALUE" != "ok" \
   || "$SLO_STATUS_VALUE" != "ok" \
   || "$SLO_CRITICAL_COUNT" != "0" \
+  || "$FAULT_STATUS_VALUE" != "ok" \
+  || "$SOAK_STATUS_VALUE" != "ok" \
+  || "$AUTHENTICATED_DAST_STATUS_VALUE" != "ok" \
+  || "$WASM_FUZZ_STATUS_VALUE" != "ok" \
   || "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE" != "ok" \
   || "$BACKEND_QPS_STATUS_VALUE" != "ok" \
   || "$DOC_SYNC_STATUS_VALUE" != "ok" \
@@ -473,7 +563,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     },
     "resilienceDepth": {
       "faultInjection": "$FAULT_STATUS_VALUE",
-      "soak": $SOAK_ARTIFACT
+      "soak": "$SOAK_STATUS_VALUE"
     },
     "externalExposure": {
       "status": "$PRODUCTION_STATUS_VALUE",

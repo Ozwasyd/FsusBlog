@@ -49,6 +49,9 @@ COVERAGE_DIR="$TMP_ROOT/coverage"
 OUT_DIR="$TMP_ROOT/release-evidence"
 PERF_DIR="$TMP_ROOT/perf"
 GATE_LOG_DIR="$TMP_ROOT/gate-logs"
+FAULT_DIR="$TMP_ROOT/fault-injection"
+SOAK_DIR="$TMP_ROOT/soak"
+FUZZ_DIR="$TMP_ROOT/fuzz"
 mkdir -p "$SECURITY_DIR/zap/run-1" "$SECURITY_DIR/supply-chain" "$SECURITY_DIR/sbom" "$OPERATIONS_DIR" "$COVERAGE_DIR/merged" "$COVERAGE_DIR/backend-merged" "$PERF_DIR" "$GATE_LOG_DIR"
 
 printf '{"status":"blocked","requiredHosts":["fsus.blog"],"delegationDomains":["fsus.blog"],"blockers":[{"source":"fixture","message":"synthetic"}]}\n' > "$SECURITY_DIR/production-exposure-status.json"
@@ -198,8 +201,44 @@ printf '{"status":"ok","checks":["synthetic-permission"]}\n' > "$SECURITY_DIR/pe
 printf '{"site":"frontend","status":"ok"}\n' > "$SECURITY_DIR/zap/run-1/zap.json"
 printf '{"status":"ok"}\n' > "$SECURITY_DIR/supply-chain/summary.json"
 printf '{"status":"ok"}\n' > "$SECURITY_DIR/sbom/summary.json"
-printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/backup-restore-drill.json"
-printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/post-deploy-smoke.json"
+cat > "$OPERATIONS_DIR/backup-restore-drill.json" <<'JSON'
+{
+  "status": "ok",
+  "mode": "real",
+  "timings": { "rpoSeconds": 1, "rtoSeconds": 1 },
+  "checks": [
+    "postgres-restore:ok",
+    "redis-restore:ok",
+    "webroot-artifact-restore:ok",
+    "restored-backend-start:ok",
+    "public-page:ok",
+    "binary-api:ok",
+    "search-index:ok",
+    "notification-stream-live:ok",
+    "admin-login:ok"
+  ],
+  "blockers": []
+}
+JSON
+cat > "$OPERATIONS_DIR/post-deploy-smoke.json" <<'JSON'
+{
+  "status": "ok",
+  "dryRun": false,
+  "verifiedCoverage": [
+    "anonymous-public",
+    "feed-rss",
+    "feed-atom",
+    "feed-json",
+    "sitemap",
+    "robots",
+    "health-live",
+    "health-ready"
+  ],
+  "manualChecklist": ["admin-login", "binary-api", "notification-stream", "upload", "passkey-mfa"],
+  "manualChecklistCompleted": false,
+  "blockers": []
+}
+JSON
 printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/slo-alert-fixture.json"
 printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/retention-cleanup.json"
 printf '{"summary":{"linecoverage":80,"branchcoverage":60,"methodcoverage":95,"assemblies":1,"classes":1,"files":1},"totals":{"lines":{"covered":80,"total":100},"branches":{"covered":60,"total":100},"methods":{"covered":95,"total":100}},"sources":{"mergeMethod":"covered-over-total-weighted"}}\n' > "$COVERAGE_DIR/merged/Summary.json"
@@ -212,6 +251,11 @@ printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/markdown-render-budget.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/dom-depth-static.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json"
+mkdir -p "$SECURITY_DIR/authenticated-dast" "$FUZZ_DIR/wasm" "$FAULT_DIR" "$SOAK_DIR/short"
+printf '{"status":"ok","activeScan":{"executed":true}}\n' > "$SECURITY_DIR/authenticated-dast/summary.json"
+printf '{"status":"ok","seedsRun":1,"crashes":[]}\n' > "$FUZZ_DIR/wasm/summary.json"
+printf '{"status":"ok","caseCount":1,"cases":[{"case":"redis-restart","status":"ok","injection":"injected","recoveryTimeMs":1}]}\n' > "$FAULT_DIR/summary.json"
+printf '{"status":"ok","mode":"short","durationSeconds":1,"sampleCount":1,"latencyMs":{"p95":1}}\n' > "$SOAK_DIR/short/summary.json"
 
 FSUSBLOG_RELEASE_STAMP=fixture \
 FSUSBLOG_RELEASE_EVIDENCE_DIR="$OUT_DIR" \
@@ -219,6 +263,9 @@ FSUSBLOG_SECURITY_EVIDENCE_SOURCE_DIR="$SECURITY_DIR" \
 FSUSBLOG_OPERATIONS_EVIDENCE_SOURCE_DIR="$OPERATIONS_DIR" \
 FSUSBLOG_COVERAGE_EVIDENCE_DIR="$COVERAGE_DIR" \
 FSUSBLOG_PERF_EVIDENCE_DIR="$PERF_DIR" \
+FSUSBLOG_FAULT_EVIDENCE_DIR="$FAULT_DIR" \
+FSUSBLOG_SOAK_EVIDENCE_DIR="$SOAK_DIR" \
+FSUSBLOG_FUZZ_EVIDENCE_DIR="$FUZZ_DIR" \
 FSUSBLOG_GATE_LOG_SOURCE_DIR="$GATE_LOG_DIR" \
   "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
 
@@ -234,6 +281,10 @@ jq -e '
   and .artifacts.productionExposureRequest == "production-exposure-evidence-request.json"
   and .artifacts.firewallPolicy == "production-firewall-policy.json"
   and .artifacts.coverage == "coverage"
+  and .artifacts.authenticatedDast == "authenticated-dast"
+  and .artifacts.fuzz == "fuzz"
+  and .artifacts.faultInjection == "fault-injection"
+  and .artifacts.soak == "soak"
   and .artifacts.backendQpsSummary == "backend-qps-summary.json"
   and .artifactDigests.productionExposureStatus.algorithm == "sha256"
   and (.artifactDigests.productionExposureStatus.value | test("^[0-9a-f]{64}$"))
@@ -283,7 +334,13 @@ jq -e '
   and .evidenceSummary.security.supplyChain == "ok"
   and .evidenceSummary.security.sbom == "ok"
   and .evidenceSummary.security.dastZap == "ok"
+  and .evidenceSummary.security.authenticatedDast == "ok"
+  and .evidenceSummary.security.wasmFuzz == "ok"
+  and .evidenceSummary.resilienceDepth.faultInjection == "ok"
+  and .evidenceSummary.resilienceDepth.soak == "ok"
   and (.securityEvidenceIndex | map(.kind) | index("dast") != null)
+  and (.securityEvidenceIndex | map(.kind) | index("authenticated-dast") != null)
+  and (.securityEvidenceIndex | map(.kind) | index("wasm-fuzz") != null)
   and (.securityEvidenceIndex | map(.kind) | index("attack-matrix") != null)
   and (.securityEvidenceIndex | map(.kind) | index("permission-matrix") != null)
   and (.securityEvidenceIndex | map(.kind) | index("production-exposure-status") != null)

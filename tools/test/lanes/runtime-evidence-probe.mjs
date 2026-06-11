@@ -365,8 +365,13 @@ async function faultInjection(outDir) {
       }
     }
     const after = await runHttpProbe(['/api/binary/system/seo', '/api/binary/article/list/home/1/10.aeds'], { iterations: 3, concurrency: 1 })
+    const resultStatus = injection.status === 'blocked'
+      ? 'blocked'
+      : injection.status === 'observed-only'
+        ? 'scheduled'
+        : 'ok'
     const result = {
-      status: injection.status === 'blocked' ? 'blocked' : 'ok',
+      status: resultStatus,
       case: caseName,
       namespace,
       injection,
@@ -386,7 +391,11 @@ async function faultInjection(outDir) {
     results.push(result)
   }
   writeJson(path.join(outDir, 'summary.json'), {
-    status: results.some((item) => item.status !== 'ok') ? 'blocked' : 'ok',
+    status: results.some((item) => item.status === 'blocked')
+      ? 'blocked'
+      : results.some((item) => item.status === 'scheduled')
+        ? 'scheduled'
+        : 'ok',
     namespace,
     caseCount: results.length,
     generatedAt: new Date().toISOString(),

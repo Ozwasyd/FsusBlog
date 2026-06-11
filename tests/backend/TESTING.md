@@ -94,7 +94,7 @@ All test classes must live under `Unit/` or `Integration/`.
   - Allows schema-valid `collected-blocked` release evidence for external production handoff; this is not a final publish credential.
 - `./tools/test.sh release-final`
   - Final publish credential for manual release candidates.
-  - Adds strict coverage, changed-code coverage, release runtime lanes, AOT generation/consumption, peak/burst/scale/soak/mutation/resource budgets, strict shard completeness, no visual skip, live exposure evidence, flaky release-final governance, and artifact digest binding.
+  - Adds strict coverage, changed-code coverage, release runtime lanes, AOT generation/consumption, peak/burst/scale/soak/mutation/resource budgets, strict shard completeness, no visual skip, live exposure evidence, real backup restore, deployed post-smoke coverage, authenticated DAST/Wasm fuzz/fault-injection/short-soak semantic evidence, flaky release-final governance, and artifact digest binding.
   - This is the only gate that may be treated as the "zero known release-blocker bugs inside the declared release matrix" proof.
 
 ## CI Contract

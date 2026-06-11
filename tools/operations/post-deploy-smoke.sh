@@ -21,6 +21,29 @@ paths=(
 
 status="ok"
 blockers=()
+verified_coverage=()
+manual_checklist=(
+  "admin-login"
+  "binary-api"
+  "notification-stream"
+  "upload"
+  "passkey-mfa"
+)
+
+json_array() {
+  if (( "$#" == 0 )); then
+    printf '[]'
+    return
+  fi
+
+  printf '%s\n' "$@" | jq -R . | jq -s .
+}
+
+if [[ "$DRY_RUN" == "1" ]]; then
+  status="scheduled"
+  blockers+=("dry-run")
+fi
+
 for path in "${paths[@]}"; do
   if [[ "$DRY_RUN" == "1" ]]; then
     continue
@@ -30,21 +53,43 @@ for path in "${paths[@]}"; do
   if [[ "$code" != "200" && "$code" != "204" ]]; then
     status="blocked"
     blockers+=("$path:$code")
+  else
+    case "$path" in
+      "/") verified_coverage+=("anonymous-public") ;;
+      "/feed/rss.xml") verified_coverage+=("feed-rss") ;;
+      "/feed/atom.xml") verified_coverage+=("feed-atom") ;;
+      "/feed/feed.json") verified_coverage+=("feed-json") ;;
+      "/sitemap.xml") verified_coverage+=("sitemap") ;;
+      "/robots.txt") verified_coverage+=("robots") ;;
+      "/health/live") verified_coverage+=("health-live") ;;
+      "/health/ready") verified_coverage+=("health-ready") ;;
+    esac
   fi
 done
 
-printf '{\n' > "$OUT_FILE"
-printf '  "status": "%s",\n' "$status" >> "$OUT_FILE"
-printf '  "baseUrl": "%s",\n' "$BASE_URL" >> "$OUT_FILE"
-printf '  "dryRun": %s,\n' "$([[ "$DRY_RUN" == "1" ]] && echo true || echo false)" >> "$OUT_FILE"
-printf '  "generatedAt": "%s",\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$OUT_FILE"
-printf '  "coverage": ["anonymous-public","feed","sitemap","robots","production-health","admin-login-manual","binary-api-manual","notification-stream-manual","upload-manual","passkey-mfa-manual"],\n' >> "$OUT_FILE"
-printf '  "blockers": [' >> "$OUT_FILE"
-for i in "${!blockers[@]}"; do
-  [[ "$i" == "0" ]] || printf ', ' >> "$OUT_FILE"
-  printf '"%s"' "${blockers[$i]}" >> "$OUT_FILE"
-done
-printf ']\n}\n' >> "$OUT_FILE"
+verified_coverage_json="$(json_array "${verified_coverage[@]}")"
+manual_checklist_json="$(json_array "${manual_checklist[@]}")"
+blockers_json="$(json_array "${blockers[@]}")"
+
+jq -n \
+  --arg status "$status" \
+  --arg baseUrl "$BASE_URL" \
+  --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --argjson dryRun "$([[ "$DRY_RUN" == "1" ]] && echo true || echo false)" \
+  --argjson manualChecklistCompleted "$([[ "${FSUSBLOG_SMOKE_MANUAL_CHECKLIST_COMPLETED:-0}" == "1" ]] && echo true || echo false)" \
+  --argjson verifiedCoverage "$verified_coverage_json" \
+  --argjson manualChecklist "$manual_checklist_json" \
+  --argjson blockers "$blockers_json" \
+  '{
+    status: $status,
+    baseUrl: $baseUrl,
+    dryRun: $dryRun,
+    generatedAt: $generatedAt,
+    verifiedCoverage: $verifiedCoverage,
+    manualChecklist: $manualChecklist,
+    manualChecklistCompleted: $manualChecklistCompleted,
+    blockers: $blockers
+  }' > "$OUT_FILE"
 
 echo "[post-deploy-smoke] wrote $OUT_FILE"
-[[ "$status" == "ok" ]]
+[[ "$status" == "ok" || "$status" == "scheduled" ]]

@@ -13,7 +13,7 @@ FSUSBLOG_DRILL_MODE=dry-run \
   "$ROOT_DIR/tools/operations/backup-restore-drill.sh"
 
 jq -e '
-  .status == "ok"
+  .status == "scheduled"
   and .mode == "dry-run"
   and (.checks | index("postgres:planned") != null)
 ' "$OUT_DIR/backup-restore-drill.json" >/dev/null
