@@ -15,9 +15,10 @@ function run(args) {
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
+run(['preflight'])
 run(['validate'])
 run(['plan', 'production'])
-run(['ci-plan', '--format', 'github-actions'])
+run(['ci-plan', '--format', 'github-actions', '--out', '.tmp/docs/run-test-matrix-ci-plan-compat.json'])
 run(['docs', '--out', '.tmp/docs/run-test-matrix-docs-compat.md'])
 
 {

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const matrixFile = path.join(root, 'tests/matrix.yml')
 const schemaFile = path.join(root, 'tests/matrix.schema.json')
+const preflightLogFile = path.join(root, '.tmp/gate-logs/preflight.json')
 const aliases = new Map([
   ['coverage', 'coverage-gate'],
   ['backend-qps-runtime', 'backend-qps'],
@@ -98,6 +99,10 @@ function loadMatrix() {
     throw new Error(`missing ${path.relative(root, matrixFile)}`)
   }
   return parseMatrix(fs.readFileSync(matrixFile, 'utf8'))
+}
+
+function relativeToRoot(filePath) {
+  return path.relative(root, filePath).replaceAll(path.sep, '/')
 }
 
 function tierMap(matrix) {
@@ -328,7 +333,23 @@ function listTiers(matrix) {
   }
 }
 
-function ciPlan(matrix, format) {
+function ensureOutputDirectory(filePath) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+}
+
+function writeTextOutput(text, outFile, label) {
+  if (!outFile) {
+    process.stdout.write(text)
+    return
+  }
+
+  const abs = path.resolve(root, outFile)
+  ensureOutputDirectory(abs)
+  fs.writeFileSync(abs, text)
+  console.log(`[${label}] wrote ${relativeToRoot(abs)}`)
+}
+
+function buildCiPlan(matrix, format) {
   const jobs = new Map()
   for (const tier of matrix.tiers) {
     const job = jobs.get(tier.ciJob) ?? {
@@ -351,7 +372,7 @@ function ciPlan(matrix, format) {
       if (depJob && depJob !== tier.ciJob) job.needs.add(depJob)
     }
   }
-  const output = {
+  return {
     format,
     generatedAt: new Date().toISOString(),
     jobs: [...jobs.values()].map((job) => ({
@@ -362,7 +383,10 @@ function ciPlan(matrix, format) {
       artifacts: [...job.artifacts].sort()
     })).sort((a, b) => a.id.localeCompare(b.id))
   }
-  console.log(JSON.stringify(output, null, 2))
+}
+
+function ciPlan(matrix, format, outFile) {
+  writeTextOutput(`${JSON.stringify(buildCiPlan(matrix, format), null, 2)}\n`, outFile, 'matrix:ci-plan')
 }
 
 function docs(matrix, outFile) {
@@ -389,14 +413,7 @@ function docs(matrix, outFile) {
   }
   lines.push('')
   const text = `${lines.join('\n')}\n`
-  if (outFile) {
-    const abs = path.resolve(root, outFile)
-    fs.mkdirSync(path.dirname(abs), { recursive: true })
-    fs.writeFileSync(abs, text)
-    console.log(`[matrix:docs] wrote ${path.relative(root, abs)}`)
-  } else {
-    process.stdout.write(text)
-  }
+  writeTextOutput(text, outFile, 'matrix:docs')
 }
 
 function evidencePlan(matrix, outFile) {
@@ -425,6 +442,101 @@ function evidencePlan(matrix, outFile) {
   console.log(`[matrix:evidence] wrote ${path.relative(root, abs)}`)
 }
 
+function preflight(matrix) {
+  const checkedDirectories = [
+    '.tmp',
+    '.tmp/release-evidence',
+    '.tmp/gate-logs',
+    '.tmp/env',
+    '.tmp/docs'
+  ]
+  const checkedFiles = [
+    'tests/matrix.yml',
+    'tests/matrix.schema.json',
+    '.github/workflows/quality-gate.yml',
+    'tools/run-test-matrix.mjs',
+    'tools/check-workflow-matrix-sync.mjs',
+    'tools/test.sh'
+  ]
+  const errors = []
+
+  for (const rel of checkedDirectories) {
+    const abs = path.join(root, rel)
+    try {
+      fs.mkdirSync(abs, { recursive: true })
+      fs.accessSync(abs, fs.constants.W_OK)
+    } catch (error) {
+      errors.push(`${rel} is not writable: ${error.message}`)
+    }
+  }
+
+  for (const rel of checkedFiles) {
+    if (!fs.existsSync(path.join(root, rel))) {
+      errors.push(`missing required file: ${rel}`)
+    }
+  }
+
+  const nodeMajor = Number(process.versions.node.split('.')[0])
+  if (!Number.isFinite(nodeMajor) || nodeMajor < 20) {
+    errors.push(`Node.js 20 or newer is required, got ${process.versions.node}`)
+  }
+
+  const gitRoot = git(['rev-parse', '--show-toplevel'])
+  if (!gitRoot) {
+    errors.push('git metadata is unavailable; run from a checked-out repository')
+  } else if (path.resolve(gitRoot) !== root) {
+    errors.push(`git root mismatch: expected ${root}, got ${gitRoot}`)
+  }
+
+  for (const matrixError of validateMatrix(matrix)) {
+    errors.push(`matrix validation: ${matrixError}`)
+  }
+
+  const writeChecks = [
+    '.tmp/ci-plan.json',
+    '.tmp/release-evidence/test-plan.json',
+    '.tmp/gate-logs/preflight.json'
+  ]
+  for (const rel of writeChecks) {
+    const abs = path.join(root, rel)
+    try {
+      ensureOutputDirectory(abs)
+      const probe = `${abs}.write-check`
+      fs.writeFileSync(probe, 'ok\n')
+      fs.unlinkSync(probe)
+    } catch (error) {
+      errors.push(`cannot write ${rel}: ${error.message}`)
+    }
+  }
+
+  const log = {
+    schema: 'fsusblog.ci-preflight.v1',
+    generatedAt: new Date().toISOString(),
+    ok: errors.length === 0,
+    node: process.versions.node,
+    gitHead: git(['rev-parse', 'HEAD']),
+    checkedDirectories,
+    checkedFiles,
+    writeChecks,
+    errors
+  }
+
+  try {
+    ensureOutputDirectory(preflightLogFile)
+    fs.writeFileSync(preflightLogFile, `${JSON.stringify(log, null, 2)}\n`)
+  } catch (error) {
+    errors.push(`cannot write ${relativeToRoot(preflightLogFile)}: ${error.message}`)
+  }
+
+  if (errors.length > 0) {
+    for (const error of errors) console.error(`[matrix:preflight] ${error}`)
+    process.exit(1)
+  }
+
+  console.log(`[matrix:preflight] ok (${checkedDirectories.length} directories, ${checkedFiles.length} files)`)
+  console.log(`[matrix:preflight] wrote ${relativeToRoot(preflightLogFile)}`)
+}
+
 function git(args) {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' })
   return result.status === 0 ? result.stdout.trim() : null
@@ -433,10 +545,11 @@ function git(args) {
 function usage() {
   console.log(`Usage:
   node tools/run-test-matrix.mjs validate
+  node tools/run-test-matrix.mjs preflight
   node tools/run-test-matrix.mjs list
   node tools/run-test-matrix.mjs plan <tier>
   node tools/run-test-matrix.mjs run <tier> [--plan-only] [--no-deps] [--shard i/n]
-  node tools/run-test-matrix.mjs ci-plan [--format github-actions]
+  node tools/run-test-matrix.mjs ci-plan [--format github-actions] [--out .tmp/ci-plan.json]
   node tools/run-test-matrix.mjs docs [--out docs/testing.generated.md]
   node tools/run-test-matrix.mjs evidence-plan [--out .tmp/release-evidence/test-plan.json]
 
@@ -474,6 +587,10 @@ function main() {
     console.log(`[matrix] ok (${matrix.tiers.length} tiers)`)
     return
   }
+  if (command === 'preflight') {
+    preflight(matrix)
+    return
+  }
   if (command === 'list') {
     listTiers(matrix)
     return
@@ -487,7 +604,7 @@ function main() {
     return
   }
   if (command === 'ci-plan') {
-    ciPlan(matrix, optionValue(args, 'format', 'json'))
+    ciPlan(matrix, optionValue(args, 'format', 'json'), optionValue(args, 'out'))
     return
   }
   if (command === 'docs') {

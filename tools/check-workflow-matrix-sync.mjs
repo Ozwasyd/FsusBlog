@@ -169,7 +169,7 @@ function planTierClosure(tiersById, targetId, noDeps) {
 function coveredTiersForWorkflowJob(job, tiersById) {
   const covered = new Set()
   for (const command of job.runs) {
-    if (command === 'node tools/run-test-matrix.mjs validate') {
+    if (command === 'node tools/run-test-matrix.mjs validate' || command === 'node tools/run-test-matrix.mjs preflight') {
       covered.add('validate-matrix')
       continue
     }

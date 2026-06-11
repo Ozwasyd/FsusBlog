@@ -14,6 +14,7 @@ run_self_test() {
     "$temp_dir/src/frontend" \
     "$temp_dir/tests/backend" \
     "$temp_dir/tests" \
+    "$temp_dir/tools/ci" \
     "$temp_dir/tools/test/lanes" \
     "$temp_dir/tools/coverage"
 
@@ -29,6 +30,11 @@ EOF
   cat > "$temp_dir/tools/run-test-matrix.mjs" <<'EOF'
 #!/usr/bin/env node
 console.log('[matrix] ok')
+EOF
+
+  cat > "$temp_dir/tools/ci/summarize-quality-gate.mjs" <<'EOF'
+#!/usr/bin/env node
+console.log('production summary ok')
 EOF
 
   cat > "$temp_dir/tools/test/legacy-test.sh" <<'EOF'
@@ -72,6 +78,7 @@ EOF
   for file in \
     "$temp_dir/tools/test.sh" \
     "$temp_dir/tools/run-test-matrix.mjs" \
+    "$temp_dir/tools/ci/summarize-quality-gate.mjs" \
     "$temp_dir/tools/test/legacy-test.sh" \
     "$temp_dir/tools/ok.sh" \
     "$temp_dir/tools/check-gate-integrity.sh" \
@@ -110,7 +117,9 @@ on:
 jobs:
   validate-matrix:
     steps:
+      - run: node tools/run-test-matrix.mjs preflight
       - run: node tools/run-test-matrix.mjs validate
+      - run: node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json
   coverage:
     steps:
       - run: ./tools/test.sh coverage-backend
@@ -122,7 +131,7 @@ jobs:
       - run: ./tools/test.sh production
   production-summary:
     steps:
-      - run: echo ok
+      - run: node tools/ci/summarize-quality-gate.mjs
 EOF
 
   cat > "$temp_dir/README.md" <<'EOF'
@@ -271,7 +280,9 @@ function scanToolsTest() {
 function scanMatrix() {
   const source = 'tests/matrix.yml';
   const text = readRequired(source);
-  addRefsFromText(text, source);
+  for (const line of text.split(/\r?\n/).filter((value) => /^\s+command:\s+/.test(value))) {
+    addRefsFromText(line, source);
+  }
   for (const required of [
     'tools/coverage/collect-backend-coverage.sh',
     'tools/coverage/collect-frontend-coverage.sh',
@@ -323,8 +334,20 @@ function scanWorkflow(file) {
     if (!text.includes('production-summary:')) {
       addError(`${file} is missing production-summary job`);
     }
+    if (!text.includes('node tools/run-test-matrix.mjs preflight')) {
+      addError(`${file} does not run matrix preflight`);
+    }
     if (!text.includes('node tools/run-test-matrix.mjs validate')) {
       addError(`${file} does not validate tests/matrix.yml`);
+    }
+    if (!text.includes('node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json')) {
+      addError(`${file} must write the CI plan with run-test-matrix --out`);
+    }
+    if (text.includes('> .tmp/ci-plan.json')) {
+      addError(`${file} must not write .tmp/ci-plan.json with shell redirection`);
+    }
+    if (!text.includes('node tools/ci/summarize-quality-gate.mjs')) {
+      addError(`${file} does not use the quality gate summary classifier`);
     }
   }
 
@@ -382,10 +405,11 @@ function requirePath(rel, executable = false) {
   addRef(rel, 'required', executable);
 }
 
-for (const rel of [
+const requiredPaths = [
   'tools/test.sh',
   'tools/test/legacy-test.sh',
   'tools/run-test-matrix.mjs',
+  'tools/ci/summarize-quality-gate.mjs',
   'tools/check-gate-integrity.sh',
   'tests/matrix.yml',
   'tests/matrix.schema.json',
@@ -394,8 +418,10 @@ for (const rel of [
   'tools/coverage/merge-coverage.sh',
   'tools/coverage/check-scope-snapshot.sh',
   'tools/coverage/check-threshold.sh'
-]) {
-  requirePath(rel, true);
+];
+const requiredExecutablePaths = new Set(requiredPaths.filter((rel) => rel.startsWith('tools/') && rel !== 'tools/ci/summarize-quality-gate.mjs'));
+for (const rel of requiredPaths) {
+  requirePath(rel, requiredExecutablePaths.has(rel));
 }
 
 scanToolsTest();

@@ -1,6 +1,6 @@
 # 测试策略
 
-FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑源，`tools/run-test-matrix.mjs` 负责 `validate` / `list` / `plan` / `run` / `ci-plan` / `docs` / `evidence-plan`，`tools/test.sh` 仅保留兼容入口并代理到 runner。
+FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑源，`tools/run-test-matrix.mjs` 负责 `preflight` / `validate` / `list` / `plan` / `run` / `ci-plan` / `docs` / `evidence-plan`，`tools/test.sh` 仅保留兼容入口并代理到 runner。
 
 ---
 
@@ -277,6 +277,24 @@ curl -fsS http://127.0.0.1:8080/health/ready
 
 GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push、手动 `workflow_dispatch` 触发同一条 `./tools/test.sh production` 门控。CI 需要配置 `GITHUB_PACKAGES_TOKEN` secret，用于安装 `@ozwasyd` 私有包。CI 默认 `FSUSBLOG_PLAYWRIGHT_WORKERS=1`，本地可按机器资源显式覆盖。
 
+#### Root CI setup 与 fail-fast 诊断
+
+`validate-matrix` 是 Quality Gate 的根作业。它先运行：
+
+```bash
+node tools/run-test-matrix.mjs preflight
+```
+
+`preflight` 会创建并验证 `.tmp/`、`.tmp/release-evidence/`、`.tmp/gate-logs/`、`.tmp/env/`、`.tmp/docs/`，确认 test matrix、workflow、runner 脚本和 Git metadata 可用，并写出 `.tmp/gate-logs/preflight.json`。本地排查 CI 根失败时先运行同一条命令；如果失败，修复该输出里的缺失目录、权限或 matrix 错误后再看下游测试。
+
+`ci-plan` 必须使用 `--out` 写文件：
+
+```bash
+node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json
+```
+
+不要用 shell 重定向写 `.tmp/ci-plan.json`，因为缺失父目录时会在脚本外失败，错误信息不可操作。`production-summary` 会把非成功作业分成 earliest root non-success jobs 与 downstream fan-out：前者是应优先修复的真实根失败，后者通常是上游失败导致的 skipped/cancelled，仍然会让门禁失败，但不应被误判为通过。
+
 ### `release-closeout` — release-closeout-gate
 
 `release-closeout` 只用于最终发布收口，必须要求 release evidence manifest 为 `collected-ok`：
@@ -300,7 +318,7 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 2. **默认固定本地端口**：当前本地 acceptance/bootstrap 默认使用 3000/5000/8080/5432/6379 与固定容器名前缀，可通过环境变量覆盖；在 #51 的动态端口与 namespace 完全落地前，不保证同机多套 acceptance 并行
 3. **无真实 IO 在单元测试中**：数据库、Redis、文件系统访问全部通过接口 Mock
 4. **测试隔离**：`fast` 层测试不依赖任何运行中的服务
-5. **失败即停**：CI 中任一层失败立即中止，不继续运行后续层
+5. **失败即停**：CI 中任一层失败会阻断下游层；下游 skipped 会由 `production-summary` 归类为 downstream fan-out，不视为成功
 
 ---
 

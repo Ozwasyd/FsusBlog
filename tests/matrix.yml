@@ -3,7 +3,7 @@ namespaceTemplate: ${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${MATRIX_JOB
 tiers:
   - id: validate-matrix
     owner: ServerContractAgent
-    command: node tools/run-test-matrix.mjs validate
+    command: node tools/run-test-matrix.mjs preflight
     dependsOn: []
     services: []
     parallelizable: true
