@@ -25,6 +25,9 @@ Do not add bare `160ms`, `300ms`, `ease` or `cubic-bezier(...)` in business comp
 - `blog-motion-panel-enter`: panel/drawer settle.
 - `blog-motion-state-change`: color, border and opacity feedback.
 - `blog-motion-task-region`: pending/settled task region feedback.
+- `blog-motion-reading-control`: article reading controls, copy buttons and TOC state.
+- `blog-motion-mobile-bar`: mobile reading action bar opacity/4px translate settle.
+- `blog-motion-reading-target`: hash or TOC target highlight.
 - `blog-motion-highlight`: short row or region update highlight.
 - `blog-motion-safe-transform`: transform transition wrapper.
 - `blog-motion-media-hover`: restrained media hover scale.
@@ -71,6 +74,14 @@ idle -> pending -> success | error | partial -> settled
 Use it for save, publish, audit, reload, rollback, sync, repair, import, export and admin message actions. The visible feedback bar is paired with `aria-live="polite"`; destructive or failed operations also publish an assertive live message. Buttons still use their local loading state, but loading must not be the only signal.
 
 Use `blog-motion-task-region` on the affected form, row, panel or summary. Use `blog-motion-task-region--pending` while the mutation is running and `blog-motion-task-region--settled` for a short success or partial highlight. Batch actions should highlight only the summary area, not every row in a large list.
+
+## Public Reading Aids
+
+Article reading aids must not move the article body layout. Reading progress uses `transform: scaleX(...)`, never width animation. TOC active state uses color/border/background changes with `aria-current`; it must not translate, scale or stagger entries.
+
+Copy controls use text feedback plus toast feedback. Runtime code block copy buttons use `blog-motion-reading-control` and a copied state class, so the label change remains visible on touch devices and screen readers.
+
+Lightbox overlay enter/leave uses `--blog-motion-overlay`; the figure uses `--blog-motion-panel`. Reduced motion disables transitions and must not introduce zoom or scale. Mobile reading actions use `blog-motion-mobile-bar`, respect `safe-area-inset-bottom`, and limit translate to 4px. Hash and comments navigation should call the shared reading target helper so smooth scroll becomes auto under reduced motion and the destination gets a short `blog-motion-reading-target` highlight.
 
 ## Budget
 

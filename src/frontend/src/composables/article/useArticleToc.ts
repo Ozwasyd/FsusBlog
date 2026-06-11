@@ -1,5 +1,5 @@
 import { nextTick, onUnmounted, ref, type MaybeRefOrGetter, toValue, watch } from 'vue'
-import { resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
+import { scrollToArticleTarget } from '@/composables/article/useArticleReadingTarget'
 
 export type ArticleTocItem = Readonly<{
   id: string
@@ -97,10 +97,7 @@ export function useArticleToc(contentRoot: MaybeRefOrGetter<HTMLElement | null>)
     }
 
     history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#${encodeURIComponent(id)}`)
-    window.scrollTo({
-      top: window.scrollY + target.getBoundingClientRect().top - 88,
-      behavior: resolveMotionScrollBehavior()
-    })
+    scrollToArticleTarget(target)
     activeId.value = id
   }
 

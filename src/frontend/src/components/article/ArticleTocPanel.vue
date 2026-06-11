@@ -10,11 +10,12 @@
         v-for="item in items"
         :key="item.id"
         type="button"
-        class="article-toc-panel__item"
+        class="article-toc-panel__item blog-motion-reading-control"
         :class="{
           'article-toc-panel__item--h3': item.level === 3,
           'article-toc-panel__item--active': item.id === activeId
         }"
+        :aria-current="item.id === activeId ? 'location' : undefined"
         @click="emit('navigate', item.id)"
       >
         {{ item.text }}
@@ -34,11 +35,12 @@
         v-for="item in items"
         :key="item.id"
         type="button"
-        class="article-toc-drawer__item"
+        class="article-toc-drawer__item blog-motion-reading-control"
         :class="{
           'article-toc-drawer__item--h3': item.level === 3,
           'article-toc-drawer__item--active': item.id === activeId
         }"
+        :aria-current="item.id === activeId ? 'location' : undefined"
         @click="handleDrawerNavigate(item.id)"
       >
         {{ item.text }}
@@ -110,9 +112,6 @@ const handleDrawerNavigate = (id: string): void => {
   text-align: left;
   font-size: 0.75rem;
   line-height: 1.45;
-  transition:
-    border-color var(--fsus-motion-control-fast),
-    color var(--fsus-motion-control-fast);
 }
 
 .article-toc-panel__item--h3,

@@ -144,6 +144,7 @@ import ArticleShareActions from '@/components/article/ArticleShareActions.vue'
 import ArticleTocPanel from '@/components/article/ArticleTocPanel.vue'
 import PublicArticleDetailPageContent from '@/components/public/pages/PublicArticleDetailPageContent.vue'
 import { useArticleImageLightbox } from '@/composables/article/useArticleImageLightbox'
+import { scrollToArticleTarget } from '@/composables/article/useArticleReadingTarget'
 import { useArticleShare } from '@/composables/article/useArticleShare'
 import { useArticleToc } from '@/composables/article/useArticleToc'
 import { useCodeBlockCopy } from '@/composables/article/useCodeBlockCopy'
@@ -347,6 +348,10 @@ const handleArticleRenderComplete = (): void => {
 const navigateToComments = (): void => {
   const basePath = route.fullPath.split('#')[0] || route.path
   void router.replace(`${basePath}#comments`)
+  const target = document.getElementById('fsus-comments-island') ?? document.getElementById('comments')
+  if (target instanceof HTMLElement) {
+    scrollToArticleTarget(target)
+  }
 }
 
 const scrollToArticleTop = (): void => {

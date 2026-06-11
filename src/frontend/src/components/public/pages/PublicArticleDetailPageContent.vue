@@ -18,7 +18,7 @@
 
     <div
       v-if="detailView.header.coverImageUrl"
-      class="mb-16 animate-in fade-in slide-in-from-bottom-4 duration-[var(--fsus-motion-control-fast)]"
+      class="mb-16 blog-motion-state-change"
     >
       <img
         :src="detailView.header.coverImageUrl"
@@ -89,7 +89,7 @@
           <a
             v-if="detailView.relatedReading.previous"
             :href="detailView.relatedReading.previous.href"
-            class="group border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-5 py-4 transition-colors duration-[var(--fsus-motion-control-fast)] hover:border-[var(--fsusblog-text-primary)]/40"
+            class="group blog-motion-state-change border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-5 py-4 hover:border-[var(--fsusblog-text-primary)]/40"
             data-related-role="previous"
           >
             <span class="block text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
@@ -107,7 +107,7 @@
           <a
             v-if="detailView.relatedReading.next"
             :href="detailView.relatedReading.next.href"
-            class="group border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-5 py-4 transition-colors duration-[var(--fsus-motion-control-fast)] hover:border-[var(--fsusblog-text-primary)]/40 sm:text-right"
+            class="group blog-motion-state-change border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-5 py-4 hover:border-[var(--fsusblog-text-primary)]/40 sm:text-right"
             data-related-role="next"
           >
             <span class="block text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">

@@ -230,9 +230,10 @@
   line-height: 1;
   opacity: 0;
   transition:
-    opacity var(--fsus-motion-control-fast),
-    color var(--fsus-motion-control-fast),
-    border-color var(--fsus-motion-control-fast);
+    opacity var(--blog-motion-fast) var(--blog-motion-ease),
+    color var(--blog-motion-fast) var(--blog-motion-ease),
+    border-color var(--blog-motion-fast) var(--blog-motion-ease),
+    background-color var(--blog-motion-fast) var(--blog-motion-ease);
 }
 
 .markdown-body .fsus-code-copy-host:hover .fsus-code-copy-button,
@@ -245,6 +246,13 @@
   border-color: color-mix(in srgb, var(--fsusblog-text-primary) 40%, transparent);
   color: var(--fsusblog-text-primary);
   outline: none;
+}
+
+.markdown-body .fsus-code-copy-button--copied {
+  border-color: color-mix(in srgb, var(--fsusblog-text-primary) 46%, transparent);
+  background: var(--fsusblog-panel-bg);
+  color: var(--fsusblog-text-primary);
+  opacity: 1;
 }
 
 .markdown-body .fsus-article-preview-image {

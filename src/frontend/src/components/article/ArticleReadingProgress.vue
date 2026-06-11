@@ -1,8 +1,8 @@
 <template>
-  <div class="article-reading-progress" aria-hidden="true">
+  <div class="article-reading-progress" data-reading-progress="true" aria-hidden="true">
     <div
       class="article-reading-progress__bar"
-      :style="{ transform: `scaleX(${progress})` }"
+      :style="{ '--article-reading-progress': progress }"
     />
   </div>
 </template>
@@ -34,9 +34,10 @@ const progress = computed(() => rawProgress.value.toFixed(4))
 .article-reading-progress__bar {
   width: 100%;
   height: 100%;
+  transform: scaleX(var(--article-reading-progress, 0));
   transform-origin: left center;
   background: color-mix(in srgb, var(--fsusblog-text-primary) 62%, transparent);
-  transition: transform var(--blog-motion-fast) linear;
+  transition: transform var(--blog-motion-fast) var(--blog-motion-ease);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -25,9 +25,15 @@ async function writeClipboard(text: string): Promise<void> {
 
 export function useCodeBlockCopy(contentRoot: MaybeRefOrGetter<HTMLElement | null>) {
   const insertedButtons = new Set<HTMLButtonElement>()
+  const resetTimers = new WeakMap<HTMLButtonElement, ReturnType<typeof setTimeout>>()
 
   const cleanup = (): void => {
     for (const button of insertedButtons) {
+      const resetTimer = resetTimers.get(button)
+      if (resetTimer) {
+        globalThis.clearTimeout(resetTimer)
+        resetTimers.delete(button)
+      }
       button.remove()
     }
     insertedButtons.clear()
@@ -58,19 +64,30 @@ export function useCodeBlockCopy(contentRoot: MaybeRefOrGetter<HTMLElement | nul
 
       const button = document.createElement('button')
       button.type = 'button'
-      button.className = 'fsus-code-copy-button'
+      button.className = 'fsus-code-copy-button blog-motion-reading-control'
       button.textContent = '复制'
       button.setAttribute('aria-label', '复制代码块')
+      button.setAttribute('aria-live', 'polite')
       button.addEventListener('click', async (event) => {
         event.preventDefault()
         event.stopPropagation()
         try {
           await writeClipboard(source)
           button.textContent = '已复制'
+          button.setAttribute('aria-label', '代码已复制')
+          button.classList.add('fsus-code-copy-button--copied')
           toast.success('已复制', 1200)
-          window.setTimeout(() => {
+          const previousTimer = resetTimers.get(button)
+          if (previousTimer) {
+            globalThis.clearTimeout(previousTimer)
+          }
+          const resetTimer = globalThis.setTimeout(() => {
             button.textContent = '复制'
+            button.setAttribute('aria-label', '复制代码块')
+            button.classList.remove('fsus-code-copy-button--copied')
+            resetTimers.delete(button)
           }, 1400)
+          resetTimers.set(button, resetTimer)
         } catch {
           toast.error('复制失败', 2200)
         }

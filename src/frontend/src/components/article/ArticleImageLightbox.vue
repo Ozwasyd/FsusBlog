@@ -5,6 +5,7 @@
         v-if="open && activeImage"
         ref="dialogRef"
         class="article-image-lightbox"
+        data-article-lightbox="true"
         role="dialog"
         aria-modal="true"
         aria-label="查看大图"
@@ -149,7 +150,12 @@ onUnmounted(() => {
 
 .article-lightbox-fade-enter-active,
 .article-lightbox-fade-leave-active {
-  transition: opacity var(--blog-motion-fast) var(--blog-motion-ease);
+  transition: opacity var(--blog-motion-overlay) var(--blog-motion-ease);
+}
+
+.article-lightbox-fade-enter-active .article-image-lightbox__figure,
+.article-lightbox-fade-leave-active .article-image-lightbox__figure {
+  transition: opacity var(--blog-motion-panel) var(--blog-motion-ease);
 }
 
 .article-lightbox-fade-enter-from,
@@ -157,9 +163,16 @@ onUnmounted(() => {
   opacity: 0;
 }
 
+.article-lightbox-fade-enter-from .article-image-lightbox__figure,
+.article-lightbox-fade-leave-to .article-image-lightbox__figure {
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .article-lightbox-fade-enter-active,
-  .article-lightbox-fade-leave-active {
+  .article-lightbox-fade-leave-active,
+  .article-lightbox-fade-enter-active .article-image-lightbox__figure,
+  .article-lightbox-fade-leave-active .article-image-lightbox__figure {
     transition: none;
   }
 }

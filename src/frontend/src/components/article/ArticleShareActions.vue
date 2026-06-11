@@ -2,7 +2,7 @@
   <div class="article-share-actions">
     <button
       type="button"
-      class="article-share-actions__button"
+      class="article-share-actions__button blog-motion-reading-control"
       aria-label="复制当前文章链接"
       @click="copyLink"
     >
@@ -39,10 +39,6 @@ const { copyLink } = useArticleShare({
   padding: 0 0.875rem;
   font-size: 0.75rem;
   line-height: 1;
-  transition:
-    border-color var(--fsus-motion-control-fast),
-    color var(--fsus-motion-control-fast),
-    background-color var(--fsus-motion-control-fast);
 }
 
 .article-share-actions__button:hover,

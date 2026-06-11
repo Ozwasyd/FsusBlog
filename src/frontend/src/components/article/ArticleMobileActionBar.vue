@@ -1,9 +1,10 @@
 <template>
-  <nav class="article-mobile-action-bar" aria-label="文章快捷操作">
+  <Transition name="article-mobile-action-bar-motion" appear>
+    <nav class="article-mobile-action-bar blog-motion-mobile-bar" data-mobile-reading-actions="true" aria-label="文章快捷操作">
     <button
       v-if="hasToc"
       type="button"
-      class="article-mobile-action-bar__button"
+      class="article-mobile-action-bar__button blog-motion-reading-control"
       aria-label="打开文章目录"
       @click="emit('toc')"
     >
@@ -11,7 +12,7 @@
     </button>
     <button
       type="button"
-      class="article-mobile-action-bar__button"
+      class="article-mobile-action-bar__button blog-motion-reading-control"
       aria-label="跳转到评论区"
       @click="emit('comments')"
     >
@@ -19,7 +20,7 @@
     </button>
     <button
       type="button"
-      class="article-mobile-action-bar__button"
+      class="article-mobile-action-bar__button blog-motion-reading-control"
       aria-label="分享或复制文章链接"
       @click="emit('share')"
     >
@@ -27,13 +28,14 @@
     </button>
     <button
       type="button"
-      class="article-mobile-action-bar__button"
+      class="article-mobile-action-bar__button blog-motion-reading-control"
       aria-label="回到文章顶部"
       @click="emit('top')"
     >
       顶部
     </button>
-  </nav>
+    </nav>
+  </Transition>
 </template>
 
 <script setup lang="ts">
@@ -82,9 +84,35 @@ const emit = defineEmits<{
   outline-offset: -3px;
 }
 
+.article-mobile-action-bar-motion-enter-active,
+.article-mobile-action-bar-motion-leave-active {
+  transition:
+    opacity var(--blog-motion-fast) var(--blog-motion-ease),
+    transform var(--blog-motion-fast) var(--blog-motion-ease);
+}
+
+.article-mobile-action-bar-motion-enter-from,
+.article-mobile-action-bar-motion-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
 @media (min-width: 768px) {
   .article-mobile-action-bar {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .article-mobile-action-bar-motion-enter-active,
+  .article-mobile-action-bar-motion-leave-active {
+    transition: none;
+  }
+
+  .article-mobile-action-bar-motion-enter-from,
+  .article-mobile-action-bar-motion-leave-to {
+    opacity: 1;
+    transform: none;
   }
 }
 </style>
