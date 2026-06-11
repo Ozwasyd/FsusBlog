@@ -30,6 +30,7 @@
       :is-mobile="isMobile"
       :is-processing="isProcessing"
       :processing-id="processingId"
+      :row-motion-class="rowMotion.classFor"
       @refresh="fetchData"
       @open-reset="openResetDialog"
       @toggle-status="handleToggleStatus"
@@ -90,6 +91,7 @@ const {
   resetDialog,
   banDialog,
   activeFilterChips,
+  rowMotion,
   resetPasswordPolicy,
   canSubmitResetPassword,
   banReasonValidation,

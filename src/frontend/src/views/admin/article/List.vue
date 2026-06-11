@@ -127,6 +127,14 @@
       <div class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] flex items-center justify-between">
         <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章列表 / ARTICLE LIST</div>
       </div>
+      <p
+        v-if="rowMotion.summary.value"
+        class="blog-motion-summary-enter border-b border-[var(--fsusblog-panel-border)] px-4 py-2 text-[11px] font-bold text-[var(--fsusblog-text-muted)]"
+        role="status"
+        aria-live="polite"
+      >
+        {{ rowMotion.summary.value }}
+      </p>
       <el-responsive-collection
         v-loading="loading"
         :items="articleListView"
@@ -137,6 +145,7 @@
         <template #card="{ item }">
           <AdminArticleCompactCard
             :row="item as ArticleListViewItem"
+            :class="articleRowMotionClass((item as ArticleListViewItem).id)"
             @edit="handleEdit"
             @view="handleViewArticle"
             @move-to-trash="handleMoveToTrash"
@@ -151,6 +160,7 @@
           <el-table
             :data="articleListView"
             :row-key="getArticleRowKey"
+            :row-class-name="articleTableRowClassName"
           >
             <el-table-column prop="id" label="ID" width="80" align="center">
               <template #default="{ row }: { row: ArticleListViewItem }">
@@ -301,6 +311,7 @@ const {
   pageSizeOptions,
   statusFilters,
   activeFilterChips,
+  rowMotion,
   queryParam,
   setStatusFilter,
   setCategoryFilter,
@@ -315,6 +326,8 @@ const {
 } = useAdminArticleList()
 
 const getArticleRowKey = (row: unknown): string => String((row as ArticleListViewItem).id)
+const articleRowMotionClass = (id: number): string => rowMotion.classFor(id)
+const articleTableRowClassName = ({ row }: { row: ArticleListViewItem }): string => articleRowMotionClass(row.id)
 const isCompactPagination = useMediaQuery('(max-width: 639px)')
 const handleStatusFilterChange = (value: string | number | boolean): void => {
   setStatusFilter(typeof value === 'number' ? value as Parameters<typeof setStatusFilter>[0] : undefined)

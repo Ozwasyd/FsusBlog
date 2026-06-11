@@ -64,6 +64,14 @@
             </div>
 
             <div v-else class="mail-scroll-region">
+              <p
+                v-if="conversationMotion.summary.value"
+                class="blog-motion-summary-enter mail-motion-summary"
+                role="status"
+                aria-live="polite"
+              >
+                {{ conversationMotion.summary.value }}
+              </p>
               <div class="mail-scroll-frame">
                 <div class="mail-scrollbar mail-scrollbar-native">
                   <ul class="mail-item-stack" aria-label="会话列表">
@@ -71,15 +79,12 @@
                       v-for="item in visibleConversationRows"
                       :key="item.conversationId"
                       class="mail-item-entry"
-                      v-memo="[item.conversationId, item.subject, item.lastMessageAtText, item.unreadCount, item.status]"
+                      v-memo="[item.conversationId, item.subject, item.lastMessageAtText, item.unreadCount, item.status, conversationMotion.stateFor(item.conversationId), isAdminConversationHighlighted(item.conversationId)]"
                     >
                     <button
                       type="button"
-                      class="mail-item blog-motion-task-region"
-                      :class="{
-                        active: item.conversationId === selectedConversationId,
-                        'blog-motion-task-region--settled': isAdminConversationHighlighted(item.conversationId)
-                      }"
+                      class="mail-item"
+                      :class="conversationRowClass(item)"
                       :aria-current="item.conversationId === selectedConversationId ? 'true' : undefined"
                       :aria-pressed="item.conversationId === selectedConversationId"
                       :aria-label="item.ariaLabel"
@@ -193,12 +198,20 @@
               <div class="mail-scroll-region mail-thread-region">
                 <div class="mail-scroll-frame">
                 <div class="mail-scrollbar mail-scrollbar-native">
+                    <p
+                      v-if="messageMotion.summary.value"
+                      class="blog-motion-summary-enter mail-motion-summary"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {{ messageMotion.summary.value }}
+                    </p>
                     <div
                       v-for="msg in visibleMessageRows"
                       :key="msg.messageId"
                       class="mail-bubble"
-                      :class="msg.bubbleClassName"
-                      v-memo="[msg.messageId, msg.body, msg.createdAtText]"
+                      :class="[msg.bubbleClassName, messageMotion.classFor(msg.messageId)]"
+                      v-memo="[msg.messageId, msg.body, msg.createdAtText, messageMotion.stateFor(msg.messageId)]"
                     >
                       <div class="mail-bubble-meta">
                         <span data-visual-dynamic>{{ msg.senderText }}</span>
@@ -322,15 +335,19 @@ import { useRoute } from 'vue-router'
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import { useInboxSplitView } from '@/composables/useInboxSplitView'
+import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { useUserMessagesInbox } from '@/composables/useUserMessagesInbox'
 
 const route = useRoute()
 const isAdminView = computed(() => route.name === 'ManageMessages')
 const CONVERSATION_RENDER_WINDOW = 80
 const MESSAGE_RENDER_WINDOW = 80
+const ROW_MOTION_VISIBLE_LIMIT = 20
 
 const adminCenter = useAdminMessageCenter(() => isAdminView.value)
 const userInbox = useUserMessagesInbox(() => !isAdminView.value)
+const conversationMotion = useRowStateMotion({ visibleLimit: ROW_MOTION_VISIBLE_LIMIT })
+const messageMotion = useRowStateMotion({ visibleLimit: ROW_MOTION_VISIBLE_LIMIT })
 const {
   phase: adminTaskFeedbackPhase,
   message: adminTaskFeedbackMessage,
@@ -454,6 +471,12 @@ const visibleMessageRows = computed(() => {
   }))
 })
 const hiddenMessageCount = computed(() => Math.max(0, (detail.value?.messages.length ?? 0) - visibleMessageRows.value.length))
+const conversationSignature = computed(() => visibleConversationRows.value
+  .map((item) => `${item.conversationId}:${item.status}:${item.unreadCount}:${item.lastMessageAt}`)
+  .join('|'))
+const messageSignature = computed(() => visibleMessageRows.value
+  .map((message) => `${message.messageId}:${message.createdAt}:${message.body}`)
+  .join('|'))
 const contextUserText = computed(() => {
   const messages = detail.value?.messages ?? []
   const userMessage = messages.find((message) => message.senderType === 0 && message.senderName)
@@ -466,6 +489,29 @@ watch(selectedConversationId, () => {
 
 watch(conversations, () => {
   conversationRenderLimit.value = CONVERSATION_RENDER_WINDOW
+})
+
+watch(conversationSignature, (_next, previous) => {
+  if (!previous) {
+    return
+  }
+  const visibleIds = visibleConversationRows.value
+    .slice(0, ROW_MOTION_VISIBLE_LIMIT)
+    .map((item) => item.conversationId)
+  if (visibleIds.length > 0) {
+    conversationMotion.markUpdated(visibleIds, `会话列表已更新：${visibleIds.length} 项`)
+  }
+})
+
+watch(messageSignature, (_next, previous) => {
+  if (!previous) {
+    return
+  }
+  const visibleRows = visibleMessageRows.value
+  const latest = visibleRows[visibleRows.length - 1]
+  if (latest) {
+    messageMotion.markUpdated(latest.messageId, '消息线程已更新')
+  }
 })
 
 const handleSelectConversation = async (conversationId: string): Promise<void> => {
@@ -513,7 +559,14 @@ const confirmMobileBackToList = (): void => {
 }
 
 const updateStatus = async (status: 'open' | 'pending' | 'closed'): Promise<void> => {
+  const conversationId = selectedConversationId.value
+  if (conversationId) {
+    conversationMotion.markPending(conversationId, '正在更新会话状态')
+  }
   await adminCenter.updateStatus(status)
+  if (conversationId) {
+    conversationMotion.markUpdated(conversationId, '会话状态流程已结束')
+  }
 }
 
 const sendSystemMessage = async (): Promise<void> => {
@@ -560,6 +613,12 @@ const conversationAriaLabel = (item: {
   ].filter(Boolean)
   return parts.join('，')
 }
+
+const conversationRowClass = (item: { conversationId: string }): string[] => [
+  conversationMotion.classFor(item.conversationId),
+  item.conversationId === selectedConversationId.value ? 'active' : '',
+  isAdminConversationHighlighted(item.conversationId) ? 'blog-motion-row-updated' : ''
+].filter(Boolean)
 
 const senderLabel = (senderType: number): string => {
   if (senderType === 1) return '管理员'

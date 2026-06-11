@@ -75,7 +75,16 @@
         </el-tag>
       </div>
 
-      <el-table v-loading="loading" :data="items" row-key="id">
+      <p
+        v-if="auditRowMotion.summary.value"
+        class="blog-motion-summary-enter border-b border-[var(--fsusblog-panel-border)] px-4 py-2 text-[11px] font-bold text-[var(--fsusblog-text-muted)]"
+        role="status"
+        aria-live="polite"
+      >
+        {{ auditRowMotion.summary.value }}
+      </p>
+
+      <el-table v-loading="loading" :data="items" row-key="id" :row-class-name="auditRowClassName">
         <el-table-column label="时间" width="190">
           <template #default="{ row }: { row: AuditLogItemResponse }">
             <time :datetime="row.occurredAtUtc">{{ formatTime(row.occurredAtUtc) }}</time>
@@ -194,6 +203,7 @@ import {
 } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { Aim, Lock, Operation, Refresh, RefreshLeft, Search, User, View } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
@@ -233,6 +243,7 @@ const total = ref(0)
 const loading = ref(false)
 const verifyingId = ref<number | null>(null)
 const detailVisible = ref(false)
+const auditRowMotion = useRowStateMotion({ visibleLimit: 20 })
 
 const runtime = computed(() => summary.value?.runtime ?? emptyRuntime)
 const formattedContext = computed(() => {
@@ -273,6 +284,7 @@ const loadAudit = async (): Promise<void> => {
     items.value = list.items
     total.value = list.total
     summary.value = facets
+    auditRowMotion.markUpdated(list.items.slice(0, 20).map((item) => item.id), `审计日志已刷新：${list.items.length} 条可见记录`)
   } catch (error) {
     showErrorToast(error, '审计日志加载失败')
   } finally {
@@ -314,14 +326,18 @@ const openDetail = async (row: AuditLogItemResponse): Promise<void> => {
 
 const verifyRow = async (row: AuditLogItemResponse): Promise<void> => {
   verifyingId.value = row.id
+  auditRowMotion.markPending(row.id, '正在校验证据')
   try {
     const result = await verifyAuditLog(row.id)
     if (result.valid) {
+      auditRowMotion.markUpdated(row.id, '防篡改证据有效')
       toast.success('防篡改证据有效')
     } else {
+      auditRowMotion.markError(row.id, '防篡改证据无效')
       showWarningToast('防篡改证据无效', '防篡改证据无效')
     }
   } catch (error) {
+    auditRowMotion.markError(row.id, '防篡改校验失败')
     showErrorToast(error, '防篡改校验失败')
   } finally {
     verifyingId.value = null
@@ -329,6 +345,7 @@ const verifyRow = async (row: AuditLogItemResponse): Promise<void> => {
 }
 
 const formatTime = (value: string): string => new Date(value).toLocaleString()
+const auditRowClassName = ({ row }: { row: AuditLogItemResponse }): string => auditRowMotion.classFor(row.id)
 
 const outcomeTagType = (value: string): 'success' | 'danger' | 'warning' | 'info' => {
   if (value === 'success') return 'success'

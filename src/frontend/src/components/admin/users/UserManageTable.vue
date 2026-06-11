@@ -6,6 +6,7 @@
       v-loading="loading"
       :data="tableRows"
       :row-key="(row: UserListViewItem) => String(row.id)"
+      :row-class-name="rowClassName"
     >
       <el-table-column prop="id" label="ID" min-width="80" align="center">
         <template #default="{ row }: { row: UserListViewItem }">
@@ -112,7 +113,8 @@
         v-for="row in list"
         :key="row.id"
         class="user-mobile-card p-6 bg-[var(--fsusblog-page-bg)] transition-colors hover:bg-[var(--fsusblog-panel-bg)]"
-        v-memo="[row.id, row.username, row.status, row.lastLoginTime]"
+        :class="rowMotionClass(row.id)"
+        v-memo="[row.id, row.username, row.status, row.lastLoginTime, rowMotionClass(row.id)]"
       >
         <div class="flex items-center gap-4 mb-6">
           <div class="shrink-0">
@@ -199,6 +201,7 @@ interface Props {
   isMobile: boolean
   isProcessing: boolean
   processingId: number | null
+  rowMotionClass?: (id: number) => string
 }
 
 const props = defineProps<Props>()
@@ -209,6 +212,8 @@ const statusColumnWidth = computed(() => (props.isMobile ? 56 : 124))
 const actionColumnWidth = computed(() => (props.isMobile ? 56 : 132))
 const hasWideTable = useMediaQuery('(min-width: 1024px)', true)
 const tableRows = computed(() => props.list)
+const rowMotionClass = (id: number): string => props.rowMotionClass?.(id) ?? 'blog-motion-row-state'
+const rowClassName = ({ row }: { row: UserListViewItem }): string => rowMotionClass(row.id)
 
 const emit = defineEmits<{
   refresh: []

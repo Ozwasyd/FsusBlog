@@ -10,6 +10,7 @@ import {
 import { getCategories, type CategoryItem } from '@/api/category'
 import { getTags, type TagItem } from '@/api/tag'
 import { useMutationFlow } from '@/composables/useMutationFlow'
+import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { useViewTask } from '@/composables/useViewTask'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { TimeUtils } from '@/utils/time'
@@ -148,6 +149,7 @@ export function useAdminArticleList() {
   const loadTask = useViewTask()
   const taxonomyTask = useViewTask()
   const mutation = useMutationFlow()
+  const rowMotion = useRowStateMotion({ visibleLimit: 20 })
   const articleListView = computed<AdminArticleListViewItem[]>(() => {
     const nowMs = Date.now()
     return articleList.value.map((item) => {
@@ -253,6 +255,7 @@ export function useAdminArticleList() {
 
       articleList.value = Object.freeze(response.items) as ArticleListItemResponse[]
       total.value = Number(response.total) || 0
+      rowMotion.markUpdated(response.items.slice(0, 20).map((item) => item.id), `文章列表已刷新：${response.items.length} 条可见记录`)
     } finally {
       loading.value = false
     }
@@ -348,6 +351,7 @@ export function useAdminArticleList() {
       }
 
       loading.value = true
+      rowMotion.markPending(row.id, '正在移入回收站')
       try {
         await mutation.confirmThenRun({
           message: `确定要将文章《${row.title}》移入回收站吗？文章会从公开列表下线，仍可在回收站恢复。`,
@@ -362,6 +366,7 @@ export function useAdminArticleList() {
           onSuccess: loadData
         })
       } finally {
+        rowMotion.clear(row.id)
         loading.value = false
       }
     })()
@@ -416,6 +421,7 @@ export function useAdminArticleList() {
     pageSizeOptions: PAGE_SIZE_OPTIONS,
     statusFilters: STATUS_FILTERS,
     activeFilterChips,
+    rowMotion,
     queryParam,
     setStatusFilter,
     setCategoryFilter,

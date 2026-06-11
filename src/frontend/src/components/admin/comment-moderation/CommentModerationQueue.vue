@@ -13,8 +13,8 @@
     >
       <template #card="{ item }">
         <article
-          class="blog-motion-task-region bg-[var(--fsusblog-page-bg)] p-6"
-          :class="{ 'blog-motion-task-region--settled': isHighlighted(item as CommentModerationViewItem) }"
+          class="bg-[var(--fsusblog-page-bg)] p-6"
+          :class="rowMotionClass(item as CommentModerationViewItem)"
         >
           <div class="flex items-start gap-4">
             <el-checkbox
@@ -220,8 +220,14 @@ const getRowKey = (row: CommentModerationViewItem): string => row.id
 const isSelected = (item: CommentModerationViewItem): boolean => props.selectedIds.includes(item.id)
 const isHighlighted = (item: CommentModerationViewItem): boolean => (props.highlightedIds ?? []).includes(item.id)
 
+const rowMotionClass = (item: CommentModerationViewItem): string => [
+  'blog-motion-row-state',
+  props.processingId === item.id ? 'blog-motion-row-pending' : '',
+  isHighlighted(item) ? 'blog-motion-row-updated' : ''
+].filter(Boolean).join(' ')
+
 const rowClassName = ({ row }: { row: CommentModerationViewItem }): string =>
-  isHighlighted(row) ? 'blog-motion-task-region blog-motion-task-region--settled' : 'blog-motion-task-region'
+  rowMotionClass(row)
 
 const toggle = (item: CommentModerationViewItem, checked: boolean): void => {
   emit('toggle', item.id, checked)

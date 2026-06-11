@@ -28,6 +28,11 @@ Do not add bare `160ms`, `300ms`, `ease` or `cubic-bezier(...)` in business comp
 - `blog-motion-reading-control`: article reading controls, copy buttons and TOC state.
 - `blog-motion-mobile-bar`: mobile reading action bar opacity/4px translate settle.
 - `blog-motion-reading-target`: hash or TOC target highlight.
+- `blog-motion-row-state`: high-density row/list item state wrapper.
+- `blog-motion-row-pending`: row-level mutation is running.
+- `blog-motion-row-updated`: short visible-row update highlight.
+- `blog-motion-row-error`: row-level mutation failed.
+- `blog-motion-summary-enter`: summary-only feedback for bulk operations.
 - `blog-motion-highlight`: short row or region update highlight.
 - `blog-motion-safe-transform`: transform transition wrapper.
 - `blog-motion-media-hover`: restrained media hover scale.
@@ -82,6 +87,12 @@ Article reading aids must not move the article body layout. Reading progress use
 Copy controls use text feedback plus toast feedback. Runtime code block copy buttons use `blog-motion-reading-control` and a copied state class, so the label change remains visible on touch devices and screen readers.
 
 Lightbox overlay enter/leave uses `--blog-motion-overlay`; the figure uses `--blog-motion-panel`. Reduced motion disables transitions and must not introduce zoom or scale. Mobile reading actions use `blog-motion-mobile-bar`, respect `safe-area-inset-bottom`, and limit translate to 4px. Hash and comments navigation should call the shared reading target helper so smooth scroll becomes auto under reduced motion and the destination gets a short `blog-motion-reading-target` highlight.
+
+## Row State Motion
+
+Dense lists and tables use `useRowStateMotion()` with `blog-motion-row-*` classes. Single-row mutations may mark one visible row as pending, updated or error. Bulk changes over 20 rows must publish a summary bar or container state instead of animating every row.
+
+Do not use row height, width, top, left, filter or blur transitions. Do not stagger table rows. Element Plus table internals remain untouched; app code may only provide `row-class-name` or classes on app-owned card/list wrappers.
 
 ## Budget
 

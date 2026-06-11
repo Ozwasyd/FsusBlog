@@ -3,6 +3,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { adminChangeStatus, adminResetPassword, getAdminUserList, type UserListItem, type UserQueryDto } from '@/api/admin'
 import { usePow } from '@/composables/usePow'
 import { useMutationFlow } from '@/composables/useMutationFlow'
+import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { useViewTask } from '@/composables/useViewTask'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { TimeUtils } from '@/utils/time'
@@ -68,6 +69,7 @@ export function useAdminUserManage() {
   const powProvider = usePow()
   const loadTask = useViewTask()
   const mutation = useMutationFlow()
+  const rowMotion = useRowStateMotion({ visibleLimit: 20 })
 
   const buildSignalConfig = (signal: AbortSignal) => ({ signal })
 
@@ -260,6 +262,7 @@ export function useAdminUserManage() {
     if (res) {
       list.value = res.items
       total.value = res.total
+      rowMotion.markUpdated(res.items.slice(0, 20).map((item) => item.id), `用户列表已刷新：${res.items.length} 条可见记录`)
     }
 
     return res !== undefined
@@ -343,7 +346,9 @@ export function useAdminUserManage() {
 
     processingId.value = row.id
     submitting.value = true
+    rowMotion.markPending(row.id, '正在变更用户状态')
 
+    let completed = false
     try {
       await mutation.confirmThenRun({
         message: `确定要为用户 "${row.username}" 解除封禁吗？当前接口未返回封禁原因，请确认已核对审计记录。`,
@@ -355,9 +360,15 @@ export function useAdminUserManage() {
         fallbackMessage: '操作失败',
         successMessage: `用户 ${row.username} 已解封`,
         postSuccessWarningMessage: `用户 ${row.username} 已解封，但列表同步失败，请稍后刷新`,
-        onSuccess: fetchData
+        onSuccess: async () => {
+          completed = true
+          return await fetchData()
+        }
       })
     } finally {
+      if (!completed) {
+        rowMotion.clear(row.id)
+      }
       processingId.value = null
       submitting.value = false
     }
@@ -380,7 +391,9 @@ export function useAdminUserManage() {
 
     processingId.value = targetUser.id
     submitting.value = true
+    rowMotion.markPending(targetUser.id, '正在封禁用户')
 
+    let completed = false
     try {
       await mutation.run(async (signal) =>
         await adminChangeStatus(
@@ -396,11 +409,15 @@ export function useAdminUserManage() {
         successMessage: `用户 ${targetUser.username} 已封禁`,
         postSuccessWarningMessage: `用户 ${targetUser.username} 已封禁，但列表同步失败，请稍后刷新`,
         onSuccess: async () => {
+          completed = true
           banDialog.visible = false
           return await fetchData()
         }
       })
     } finally {
+      if (!completed) {
+        rowMotion.clear(targetUser.id)
+      }
       processingId.value = null
       submitting.value = false
     }
@@ -433,8 +450,11 @@ export function useAdminUserManage() {
       return
     }
 
+    processingId.value = targetUser.id
     submitting.value = true
+    rowMotion.markPending(targetUser.id, '正在重置密码')
 
+    let completed = false
     try {
       await mutation.run(async (signal) =>
         await adminResetPassword(
@@ -448,10 +468,16 @@ export function useAdminUserManage() {
         fallbackMessage: '操作失败',
         successMessage: '密码已重置，用户已强制下线',
         onSuccess: () => {
+          completed = true
+          rowMotion.markUpdated(targetUser.id, '密码已重置')
           resetDialog.visible = false
         }
       })
     } finally {
+      if (!completed) {
+        rowMotion.clear(targetUser.id)
+      }
+      processingId.value = null
       submitting.value = false
     }
   }
@@ -498,6 +524,7 @@ export function useAdminUserManage() {
     banDialog,
     statusFilterLabel,
     activeFilterChips,
+    rowMotion,
     resetPasswordPolicy,
     canSubmitResetPassword,
     banReasonValidation,
