@@ -15,10 +15,25 @@ function run(args) {
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
+function runTestSh(args) {
+  const result = spawnSync('bash', ['tools/test.sh', ...args], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  if (result.stdout) process.stdout.write(result.stdout)
+  if (result.stderr) process.stderr.write(result.stderr)
+  if (result.status !== 0) process.exit(result.status ?? 1)
+}
+
 run(['preflight'])
 run(['validate'])
 run(['plan', 'production'])
+run(['ci-job', 'fast-backend', '--plan-only'])
+run(['ci-tier', 'backend-fast', '--plan-only'])
+run(['ci-fast', '--plan-only'])
+run(['ci-production', '--plan-only'])
 run(['ci-plan', '--format', 'github-actions', '--out', '.tmp/docs/run-test-matrix-ci-plan-compat.json'])
+runTestSh(['ci-plan', '--out', '.tmp/docs/test-sh-ci-plan-compat.json'])
 run(['docs', '--out', '.tmp/docs/run-test-matrix-docs-compat.md'])
 
 {

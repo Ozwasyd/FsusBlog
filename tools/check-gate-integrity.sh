@@ -24,6 +24,11 @@ run_self_test() {
   cat > "$temp_dir/tools/test.sh" <<'EOF'
 #!/usr/bin/env bash
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+case "${1:-}" in
+  ci-fast|ci-production|ci-job|ci-tier|ci-plan)
+    exec node "$ROOT_DIR/tools/run-test-matrix.mjs" "$@"
+    ;;
+esac
 exec node "$ROOT_DIR/tools/run-test-matrix.mjs" run "$@"
 EOF
 
@@ -269,7 +274,12 @@ function scanToolsTest() {
   }
 
   for (const needle of [
-    'tools/run-test-matrix.mjs'
+    'tools/run-test-matrix.mjs',
+    'ci-fast',
+    'ci-production',
+    'ci-job',
+    'ci-tier',
+    'ci-plan'
   ]) {
     if (!text.includes(needle)) {
       addError(`tools/test.sh does not reference ${needle}`);

@@ -12,4 +12,13 @@ fi
 tier="$1"
 shift || true
 
+case "$tier" in
+  ci-fast|ci-production|ci-job|ci-tier)
+    exec "$NODE_BIN" "$ROOT_DIR/tools/run-test-matrix.mjs" "$tier" "$@"
+    ;;
+  ci-plan)
+    exec "$NODE_BIN" "$ROOT_DIR/tools/run-test-matrix.mjs" ci-plan --format github-actions "$@"
+    ;;
+esac
+
 exec "$NODE_BIN" "$ROOT_DIR/tools/run-test-matrix.mjs" run "$tier" "$@"

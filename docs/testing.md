@@ -19,6 +19,18 @@ node tools/docs/generate-testing-docs.mjs --out docs/testing.generated.md
 node tools/docs/generate-testing-docs.mjs --check
 ```
 
+本地与 GitHub Actions 使用同一个 matrix 元数据。常用复现入口：
+
+```bash
+./tools/test.sh ci-fast
+./tools/test.sh ci-production
+./tools/test.sh ci-job fast-backend
+./tools/test.sh ci-tier backend-fast
+./tools/test.sh ci-plan --out .tmp/ci-plan.json
+```
+
+`ci-job <job>` 按 `ciJob` 聚合运行该 Actions job 里的 required matrix tiers；`ci-tier <tier>` 运行单个 tier，默认包含它的 matrix 依赖，可继续传 `--no-deps` 或 `--shard i/n`。每个 tier 执行前都会在日志里打印对应的本地复现命令。完整 tier 与 CI job 对照见 [testing.generated.md](testing.generated.md)。
+
 `coverage-gate` 与 `production` 是两个 independent required checks：coverage 负责阈值和合并覆盖率，production 负责运行时风险 DAG。
 
 `load` 与 WebSocket pressure 检查会写入 `.tmp/perf/load-public-api.json` 和 `.tmp/perf/notification-stream-pressure.json`，release evidence 会把 `.tmp/perf/` 作为性能证据归档。默认参数来自 `tests/perf/perf-policy.yml`：HTTP load baseline 为 `concurrency=10`、`rounds=6`、`durationMs=30000`；WebSocket pressure 为 `connections=50`、`durationMs=30000`。

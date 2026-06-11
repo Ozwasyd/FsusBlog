@@ -6,101 +6,129 @@ Version: `fsusblog-test-matrix-v2`
 
 ## Primary Release Tiers
 
-| Tier | CI job | Depends on | Services | Shards | Timeout | Evidence |
-|---|---|---|---|---:|---:|---|
-| `validate-matrix` | `validate-matrix` | - | - | 1 | 5m | `.tmp/release-evidence/test-plan.json` |
-| `frontend-fast` | `fast-frontend-unit` | - | - | 1 | 35m | `src/frontend/coverage`<br>`.tmp/frontend` |
-| `backend-fast` | `fast-backend` | - | - | 1 | 35m | `tests/backend/Fixtures/backend-test-requirements.json` |
-| `static-governance` | `fast-static-governance` | `validate-matrix` | - | 1 | 10m | `.tmp/gate-logs`<br>`.tmp/docs`<br>`.tmp/release-evidence/test-plan.json`<br>`.tmp/release-evidence/doc-sync-summary.json` |
-| `fast` | `fast-summary` | `frontend-fast`, `backend-fast`, `static-governance` | - | 1 | 50m | `.tmp/gate-logs`<br>`src/frontend/coverage` |
-| `bootstrap` | `integration-runtime` | - | postgres, redis, backend, frontend, preview | 1 | 45m | `.tmp/acceptance/*.log` |
-| `integration` | `integration-runtime` | `bootstrap` | postgres, redis, backend, frontend | 1 | 25m | `.tmp/acceptance/*.log` |
-| `ci` | `ci-summary` | `fast`, `integration` | postgres, redis, backend, frontend | 1 | 70m | `.tmp/acceptance/*.log`<br>`.tmp/gate-logs` |
-| `release` | `release-public` | `bootstrap` | backend, preview | 1 | 25m | `.tmp/acceptance/*.log` |
-| `security` | `security-runtime` | `bootstrap` | postgres, redis, backend, frontend | 1 | 40m | `.tmp/security` |
-| `acceptance` | `acceptance-playwright` | `fast`, `integration`, `release` | postgres, redis, backend, frontend, preview | 4 | 45m | `src/frontend/test-results/playwright/acceptance` |
-| `visual` | `visual-playwright` | `bootstrap` | postgres, redis, backend, frontend, preview | 2 | 35m | `src/frontend/test-results/playwright/visual`<br>`.tmp/gate-logs/visual-gate-skip.json` |
-| `ux-viewport-smoke` | `ux-viewport-smoke` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 35m | `.tmp/ux/viewport-smoke.json`<br>`.tmp/release-evidence/ux-viewport-summary.json` |
-| `frontend-render-pressure` | `frontend-render-pressure` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 35m | `.tmp/frontend/dom-budget.json`<br>`.tmp/frontend/route-render-pressure.json`<br>`.tmp/frontend/markdown-render-budget.json`<br>`.tmp/frontend/dom-depth-static.json`<br>`.tmp/release-evidence/frontend-render-pressure-summary.json` |
-| `cross-browser-smoke` | `cross-browser-smoke` | `release` | preview | 3 | 20m | `src/frontend/test-results/playwright/cross-browser` |
-| `resilience` | `resilience-runtime` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 35m | `src/frontend/test-results/playwright/resilience` |
-| `load` | `load-smoke` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 25m | `.tmp/perf` |
-| `release-evidence` | `release-evidence` | - | - | 1 | 10m | `.tmp/release-evidence` |
-| `production` | `production-summary` | `fast`, `bootstrap`, `release`, `integration`, `security`, `acceptance`, `cross-browser-smoke`, `visual`, `ux-viewport-smoke`, `frontend-render-pressure`, `resilience`, `load`, `backend-qps`, `release-evidence` | postgres, redis, backend, frontend, preview | 1 | 120m | `.tmp/release-evidence` |
+| Tier | CI job | Local command | Depends on | Services | Shards | Timeout | Artifacts | Evidence |
+|---|---|---|---|---|---:|---:|---|---|
+| `validate-matrix` | `validate-matrix` | `./tools/test.sh ci-tier validate-matrix` | - | - | 1 | 5m | `.tmp/release-evidence/test-plan.json` | `.tmp/release-evidence/test-plan.json` |
+| `frontend-fast` | `fast-frontend-unit` | `./tools/test.sh ci-tier frontend-fast` | - | - | 1 | 35m | `src/frontend/coverage`<br>`.tmp/frontend` | `src/frontend/coverage`<br>`.tmp/frontend` |
+| `backend-fast` | `fast-backend` | `./tools/test.sh ci-tier backend-fast` | - | - | 1 | 35m | `.tmp/gate-logs` | `tests/backend/Fixtures/backend-test-requirements.json` |
+| `static-governance` | `fast-static-governance` | `./tools/test.sh ci-tier static-governance` | `validate-matrix` | - | 1 | 10m | `.tmp/gate-logs`<br>`.tmp/docs`<br>`.tmp/release-evidence/test-plan.json`<br>`.tmp/release-evidence/doc-sync-summary.json` | `.tmp/gate-logs`<br>`.tmp/docs`<br>`.tmp/release-evidence/test-plan.json`<br>`.tmp/release-evidence/doc-sync-summary.json` |
+| `fast` | `fast-summary` | `./tools/test.sh ci-tier fast` | `frontend-fast`, `backend-fast`, `static-governance` | - | 1 | 50m | `.tmp/gate-logs`<br>`src/frontend/coverage` | `.tmp/gate-logs`<br>`src/frontend/coverage` |
+| `bootstrap` | `integration-runtime` | `./tools/test.sh ci-tier bootstrap` | - | postgres, redis, backend, frontend, preview | 1 | 45m | `.tmp/acceptance` | `.tmp/acceptance/*.log` |
+| `integration` | `integration-runtime` | `./tools/test.sh ci-tier integration` | `bootstrap` | postgres, redis, backend, frontend | 1 | 25m | `.tmp/acceptance/*.log`<br>`src/frontend/test-results/playwright/integration` | `.tmp/acceptance/*.log` |
+| `ci` | `ci-summary` | `./tools/test.sh ci-tier ci` | `fast`, `integration` | postgres, redis, backend, frontend | 1 | 70m | `.tmp/acceptance/*.log`<br>`.tmp/gate-logs` | `.tmp/acceptance/*.log`<br>`.tmp/gate-logs` |
+| `release` | `release-public` | `./tools/test.sh ci-tier release` | `bootstrap` | backend, preview | 1 | 25m | `.tmp/acceptance/*.log`<br>`src/frontend/test-results/playwright/release` | `.tmp/acceptance/*.log` |
+| `security` | `security-runtime` | `./tools/test.sh ci-tier security` | `bootstrap` | postgres, redis, backend, frontend | 1 | 40m | `.tmp/security`<br>`src/frontend/test-results/playwright/security` | `.tmp/security` |
+| `acceptance` | `acceptance-playwright` | `./tools/test.sh ci-tier acceptance` | `fast`, `integration`, `release` | postgres, redis, backend, frontend, preview | 4 | 45m | `src/frontend/test-results/playwright/acceptance`<br>`src/frontend/playwright-report` | `src/frontend/test-results/playwright/acceptance` |
+| `visual` | `visual-playwright` | `./tools/test.sh ci-tier visual` | `bootstrap` | postgres, redis, backend, frontend, preview | 2 | 35m | `src/frontend/test-results/playwright/visual`<br>`src/frontend/playwright-report`<br>`.tmp/gate-logs/visual-gate-skip.json` | `src/frontend/test-results/playwright/visual`<br>`.tmp/gate-logs/visual-gate-skip.json` |
+| `ux-viewport-smoke` | `ux-viewport-smoke` | `./tools/test.sh ci-tier ux-viewport-smoke` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 35m | `.tmp/ux/viewport-smoke.json`<br>`.tmp/release-evidence/ux-viewport-summary.json`<br>`src/frontend/test-results/playwright/ux-viewport-smoke` | `.tmp/ux/viewport-smoke.json`<br>`.tmp/release-evidence/ux-viewport-summary.json` |
+| `frontend-render-pressure` | `frontend-render-pressure` | `./tools/test.sh ci-tier frontend-render-pressure` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 35m | `.tmp/frontend/dom-budget.json`<br>`.tmp/frontend/dom-budget`<br>`.tmp/frontend/route-render-pressure.json`<br>`.tmp/frontend/markdown-render-budget.json`<br>`.tmp/frontend/dom-depth-static.json`<br>`.tmp/release-evidence/frontend-render-pressure-summary.json` | `.tmp/frontend/dom-budget.json`<br>`.tmp/frontend/route-render-pressure.json`<br>`.tmp/frontend/markdown-render-budget.json`<br>`.tmp/frontend/dom-depth-static.json`<br>`.tmp/release-evidence/frontend-render-pressure-summary.json` |
+| `cross-browser-smoke` | `cross-browser-smoke` | `./tools/test.sh ci-tier cross-browser-smoke` | `release` | preview | 3 | 20m | `src/frontend/test-results/playwright/cross-browser` | `src/frontend/test-results/playwright/cross-browser` |
+| `resilience` | `resilience-runtime` | `./tools/test.sh ci-tier resilience` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 35m | `src/frontend/test-results/playwright/resilience` | `src/frontend/test-results/playwright/resilience` |
+| `load` | `load-smoke` | `./tools/test.sh ci-tier load` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 25m | `.tmp/perf` | `.tmp/perf` |
+| `release-evidence` | `release-evidence` | `./tools/test.sh ci-tier release-evidence` | - | - | 1 | 10m | `.tmp/release-evidence` | `.tmp/release-evidence` |
+| `production` | `production-summary` | `./tools/test.sh ci-tier production` | `fast`, `bootstrap`, `release`, `integration`, `security`, `acceptance`, `cross-browser-smoke`, `visual`, `ux-viewport-smoke`, `frontend-render-pressure`, `resilience`, `load`, `backend-qps`, `release-evidence` | postgres, redis, backend, frontend, preview | 1 | 120m | `.tmp/release-evidence`<br>`.tmp/security`<br>`.tmp/perf`<br>`src/frontend/test-results` | `.tmp/release-evidence` |
 
 ## Coverage Tiers
 
-| Tier | CI job | Depends on | Services | Shards | Timeout | Evidence |
-|---|---|---|---|---:|---:|---|
-| `coverage-backend` | `coverage-backend` | - | - | 1 | 45m | `.tmp/coverage/backend-merged/Summary.json` |
-| `coverage-frontend` | `coverage-frontend` | - | - | 1 | 45m | `.tmp/coverage/frontend/Summary.json` |
-| `coverage-merge` | `coverage-merge-threshold` | `coverage-backend`, `coverage-frontend` | - | 1 | 10m | `.tmp/coverage/merged/Summary.json` |
-| `coverage-threshold` | `coverage-merge-threshold` | `coverage-merge` | - | 1 | 10m | `.tmp/coverage/scope-snapshot.json` |
-| `coverage-gate` | `coverage-merge-threshold` | `coverage-threshold` | - | 1 | 90m | `.tmp/coverage` |
+| Tier | CI job | Local command | Depends on | Services | Shards | Timeout | Artifacts | Evidence |
+|---|---|---|---|---|---:|---:|---|---|
+| `coverage-backend` | `coverage-backend` | `./tools/test.sh ci-tier coverage-backend` | - | - | 1 | 45m | `.tmp/coverage/backend`<br>`.tmp/coverage/backend-merged` | `.tmp/coverage/backend-merged/Summary.json` |
+| `coverage-frontend` | `coverage-frontend` | `./tools/test.sh ci-tier coverage-frontend` | - | - | 1 | 45m | `.tmp/coverage/frontend`<br>`src/frontend/coverage` | `.tmp/coverage/frontend/Summary.json` |
+| `coverage-merge` | `coverage-merge-threshold` | `./tools/test.sh ci-tier coverage-merge` | `coverage-backend`, `coverage-frontend` | - | 1 | 10m | `.tmp/coverage/merged` | `.tmp/coverage/merged/Summary.json` |
+| `coverage-threshold` | `coverage-merge-threshold` | `./tools/test.sh ci-tier coverage-threshold` | `coverage-merge` | - | 1 | 10m | `.tmp/coverage/scope-snapshot.json` | `.tmp/coverage/scope-snapshot.json` |
+| `coverage-gate` | `coverage-merge-threshold` | `./tools/test.sh ci-tier coverage-gate` | `coverage-threshold` | - | 1 | 90m | `.tmp/coverage` | `.tmp/coverage` |
 
 ## Backend Specialty Tiers
 
-| Tier | CI job | Depends on | Services | Shards | Timeout | Evidence |
-|---|---|---|---|---:|---:|---|
-| `backend-qps-view-count-flush` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/view-count-flush.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps-visitlog-invalidation` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/visitlog-invalidation.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps-cache-hit` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-hit.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps-comment-cursor` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/comment-cursor.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps-hotread` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/hotread.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps-cache-miss-singleflight` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-miss-singleflight.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps-risk-filter` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/risk-filter.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps-related-reading` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/related-reading.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps-list-pagination` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/list-pagination.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps-article-detail-miss` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/article-detail-miss.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps-cache-registry` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-registry.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-cache-invalidation-batch` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-invalidation-batch.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps-index-plan` | `backend-qps` | - | - | 1 | 5m | `.tmp/perf/backend-qps/index-plan.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
-| `backend-qps` | `backend-qps` | `bootstrap`, `backend-qps-view-count-flush`, `backend-qps-visitlog-invalidation`, `backend-qps-cache-hit`, `backend-qps-comment-cursor`, `backend-qps-hotread`, `backend-qps-cache-miss-singleflight`, `backend-qps-risk-filter`, `backend-qps-related-reading`, `backend-qps-list-pagination`, `backend-qps-article-detail-miss`, `backend-qps-cache-registry`, `backend-cache-invalidation-batch`, `backend-qps-index-plan` | - | 1 | 45m | `.tmp/release-evidence/backend-qps-summary.json` |
-| `endpoint-depth` | `cross-stack-contract` | `bootstrap` | - | 1 | 20m | `.tmp/release-evidence/endpoint-depth-summary.json` |
-| `data-scale-xs` | `integration-runtime` | `bootstrap` | postgres, redis | 1 | 15m | `.tmp/release-evidence/data-scale-summary.json` |
-| `data-scale-s` | `integration-runtime` | `bootstrap` | postgres, redis | 1 | 20m | `.tmp/release-evidence/data-scale-summary.json` |
-| `data-scale-m` | `backend-nightly` | `bootstrap` | postgres, redis | 1 | 45m | `.tmp/release-evidence/data-scale-summary.json` |
-| `data-scale-nightly` | `backend-nightly` | `bootstrap` | postgres, redis | 1 | 120m | `.tmp/release-evidence/data-scale-summary.json` |
-| `backend-perf` | `perf-regression` | - | - | 1 | 25m | `BenchmarkDotNet.Artifacts/results` |
-| `backend-benchmark-regression` | `perf-regression` | - | - | 1 | 35m | `.tmp/release-evidence/perf-summary.json` |
-| `backend-api-integration` | `integration-runtime` | - | - | 1 | 20m | `tests/backend/Fixtures/backend-test-requirements.json` |
-| `backend-auth-state-machine` | `fast-backend` | - | - | 1 | 15m | `tests/backend/Unit/BackendAuthStateMachineTests.cs` |
-| `backend-concurrency` | `fast-backend` | - | - | 1 | 15m | `tests/backend/Unit/BackendConcurrencyModelTests.cs` |
-| `backend-property` | `fast-backend` | - | - | 1 | 15m | `tests/backend/Unit/BackendPropertyTests.cs` |
-| `backend-golden` | `fast-backend` | - | - | 1 | 15m | `tests/backend/Fixtures/aeds-golden-catalog.json` |
-| `backend-test-governance` | `fast-static-governance` | - | - | 1 | 10m | `tests/backend/Fixtures/backend-test-requirements.json` |
-| `backend-mutation` | `backend-mutation` | - | - | 1 | 120m | `.tmp/mutation/backend` |
-| `backend-chaos` | `resilience-runtime` | - | - | 1 | 25m | `tests/backend/Fixtures/backend-test-requirements.json` |
-| `backend-nightly` | `backend-nightly` | `backend-property`, `backend-golden`, `backend-concurrency`, `backend-auth-state-machine`, `backend-api-integration`, `backend-perf` | - | 1 | 180m | `tests/backend/Fixtures/backend-test-requirements.json` |
+| Tier | CI job | Local command | Depends on | Services | Shards | Timeout | Artifacts | Evidence |
+|---|---|---|---|---|---:|---:|---|---|
+| `backend-qps-view-count-flush` | `backend-qps` | `./tools/test.sh ci-tier backend-qps-view-count-flush` | - | - | 1 | 5m | `.tmp/perf/backend-qps/view-count-flush.json`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/perf/backend-qps/view-count-flush.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-visitlog-invalidation` | `backend-qps` | `./tools/test.sh ci-tier backend-qps-visitlog-invalidation` | - | - | 1 | 5m | `.tmp/perf/backend-qps/visitlog-invalidation.json`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/perf/backend-qps/visitlog-invalidation.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-cache-hit` | `backend-qps` | `./tools/test.sh ci-tier backend-qps-cache-hit` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-hit.json`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/perf/backend-qps/cache-hit.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-comment-cursor` | `backend-qps` | `./tools/test.sh ci-tier backend-qps-comment-cursor` | - | - | 1 | 5m | `.tmp/perf/backend-qps/comment-cursor.json`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/perf/backend-qps/comment-cursor.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-hotread` | `backend-qps` | `./tools/test.sh ci-tier backend-qps-hotread` | - | - | 1 | 5m | `.tmp/perf/backend-qps/hotread.json`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/perf/backend-qps/hotread.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-cache-miss-singleflight` | `backend-qps` | `./tools/test.sh ci-tier backend-qps-cache-miss-singleflight` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-miss-singleflight.json`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/perf/backend-qps/cache-miss-singleflight.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-risk-filter` | `backend-qps` | `./tools/test.sh ci-tier backend-qps-risk-filter` | - | - | 1 | 5m | `.tmp/perf/backend-qps/risk-filter.json`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/perf/backend-qps/risk-filter.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-related-reading` | `backend-qps` | `./tools/test.sh ci-tier backend-qps-related-reading` | - | - | 1 | 5m | `.tmp/perf/backend-qps/related-reading.json`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/perf/backend-qps/related-reading.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-list-pagination` | `backend-qps` | `./tools/test.sh ci-tier backend-qps-list-pagination` | - | - | 1 | 5m | `.tmp/perf/backend-qps/list-pagination.json`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/perf/backend-qps/list-pagination.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-article-detail-miss` | `backend-qps` | `./tools/test.sh ci-tier backend-qps-article-detail-miss` | - | - | 1 | 5m | `.tmp/perf/backend-qps/article-detail-miss.json`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/perf/backend-qps/article-detail-miss.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-cache-registry` | `backend-qps` | `./tools/test.sh ci-tier backend-qps-cache-registry` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-registry.json`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/perf/backend-qps/cache-registry.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-cache-invalidation-batch` | `backend-qps` | `./tools/test.sh ci-tier backend-cache-invalidation-batch` | - | - | 1 | 5m | `.tmp/perf/backend-qps/cache-invalidation-batch.json`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/perf/backend-qps/cache-invalidation-batch.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps-index-plan` | `backend-qps` | `./tools/test.sh ci-tier backend-qps-index-plan` | - | - | 1 | 5m | `.tmp/perf/backend-qps/index-plan.json`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/perf/backend-qps/index-plan.json`<br>`.tmp/release-evidence/backend-qps-summary.json` |
+| `backend-qps` | `backend-qps` | `./tools/test.sh ci-tier backend-qps` | `bootstrap`, `backend-qps-view-count-flush`, `backend-qps-visitlog-invalidation`, `backend-qps-cache-hit`, `backend-qps-comment-cursor`, `backend-qps-hotread`, `backend-qps-cache-miss-singleflight`, `backend-qps-risk-filter`, `backend-qps-related-reading`, `backend-qps-list-pagination`, `backend-qps-article-detail-miss`, `backend-qps-cache-registry`, `backend-cache-invalidation-batch`, `backend-qps-index-plan` | - | 1 | 45m | `.tmp/perf/backend-qps`<br>`.tmp/release-evidence/backend-qps-summary.json` | `.tmp/release-evidence/backend-qps-summary.json` |
+| `endpoint-depth` | `cross-stack-contract` | `./tools/test.sh ci-tier endpoint-depth` | `bootstrap` | - | 1 | 20m | `.tmp/contracts/endpoint-depth-matrix.json`<br>`.tmp/release-evidence/endpoint-depth-summary.json` | `.tmp/release-evidence/endpoint-depth-summary.json` |
+| `data-scale-xs` | `integration-runtime` | `./tools/test.sh ci-tier data-scale-xs` | `bootstrap` | postgres, redis | 1 | 15m | `.tmp/scale/scale-xs/summary.json` | `.tmp/release-evidence/data-scale-summary.json` |
+| `data-scale-s` | `integration-runtime` | `./tools/test.sh ci-tier data-scale-s` | `bootstrap` | postgres, redis | 1 | 20m | `.tmp/scale/scale-s/summary.json` | `.tmp/release-evidence/data-scale-summary.json` |
+| `data-scale-m` | `backend-nightly` | `./tools/test.sh ci-tier data-scale-m` | `bootstrap` | postgres, redis | 1 | 45m | `.tmp/scale/scale-m/summary.json` | `.tmp/release-evidence/data-scale-summary.json` |
+| `data-scale-nightly` | `backend-nightly` | `./tools/test.sh ci-tier data-scale-nightly` | `bootstrap` | postgres, redis | 1 | 120m | `.tmp/scale/scale-l-nightly/summary.json` | `.tmp/release-evidence/data-scale-summary.json` |
+| `backend-perf` | `perf-regression` | `./tools/test.sh ci-tier backend-perf` | - | - | 1 | 25m | `BenchmarkDotNet.Artifacts/results` | `BenchmarkDotNet.Artifacts/results` |
+| `backend-benchmark-regression` | `perf-regression` | `./tools/test.sh ci-tier backend-benchmark-regression` | - | - | 1 | 35m | `BenchmarkDotNet.Artifacts/results/fsusblog-benchmark-regression.json` | `.tmp/release-evidence/perf-summary.json` |
+| `backend-api-integration` | `integration-runtime` | `./tools/test.sh ci-tier backend-api-integration` | - | - | 1 | 20m | `.tmp/backend-api-integration` | `tests/backend/Fixtures/backend-test-requirements.json` |
+| `backend-auth-state-machine` | `fast-backend` | `./tools/test.sh ci-tier backend-auth-state-machine` | - | - | 1 | 15m | `.tmp/backend-auth-state-machine` | `tests/backend/Unit/BackendAuthStateMachineTests.cs` |
+| `backend-concurrency` | `fast-backend` | `./tools/test.sh ci-tier backend-concurrency` | - | - | 1 | 15m | `.tmp/backend-concurrency` | `tests/backend/Unit/BackendConcurrencyModelTests.cs` |
+| `backend-property` | `fast-backend` | `./tools/test.sh ci-tier backend-property` | - | - | 1 | 15m | `.tmp/backend-property` | `tests/backend/Unit/BackendPropertyTests.cs` |
+| `backend-golden` | `fast-backend` | `./tools/test.sh ci-tier backend-golden` | - | - | 1 | 15m | `.tmp/backend-golden` | `tests/backend/Fixtures/aeds-golden-catalog.json` |
+| `backend-test-governance` | `fast-static-governance` | `./tools/test.sh ci-tier backend-test-governance` | - | - | 1 | 10m | `.tmp/backend-test-governance` | `tests/backend/Fixtures/backend-test-requirements.json` |
+| `backend-mutation` | `backend-mutation` | `./tools/test.sh ci-tier backend-mutation` | - | - | 1 | 120m | `.tmp/mutation/backend` | `.tmp/mutation/backend` |
+| `backend-chaos` | `resilience-runtime` | `./tools/test.sh ci-tier backend-chaos` | - | - | 1 | 25m | `.tmp/backend-chaos` | `tests/backend/Fixtures/backend-test-requirements.json` |
+| `backend-nightly` | `backend-nightly` | `./tools/test.sh ci-tier backend-nightly` | `backend-property`, `backend-golden`, `backend-concurrency`, `backend-auth-state-machine`, `backend-api-integration`, `backend-perf` | - | 1 | 180m | `.tmp/backend-nightly`<br>`BenchmarkDotNet.Artifacts/results` | `tests/backend/Fixtures/backend-test-requirements.json` |
 
 ## Cross-Stack And Fuzz Tiers
 
-| Tier | CI job | Depends on | Services | Shards | Timeout | Evidence |
-|---|---|---|---|---:|---:|---|
-| `security-authenticated-dast` | `security-runtime` | - | backend, frontend | 1 | 30m | `.tmp/security/authenticated-dast/summary.json` |
-| `csrf-browser-matrix` | `security-runtime` | - | frontend, backend | 1 | 20m | `.tmp/release-evidence/security-depth-summary.json` |
-| `wasm-fuzz-regression` | `security-runtime` | - | - | 1 | 20m | `.tmp/fuzz/wasm/summary.json` |
-| `contract-fuzz` | `security-runtime` | - | - | 1 | 20m | `.tmp/release-evidence/fuzz-seeds.json` |
-| `cross-stack-contract` | `cross-stack-contract` | - | - | 1 | 20m | `tests/frontend/fixtures/cross-stack-contract-matrix.json`<br>`tests/frontend/fixtures/cross-stack-contract-matrix.generated.json`<br>`src/shared/Contracts/Validation/fsusblog.openapi.json`<br>`src/frontend/src/generated/fsusBinaryRoutes.ts` |
+| Tier | CI job | Local command | Depends on | Services | Shards | Timeout | Artifacts | Evidence |
+|---|---|---|---|---|---:|---:|---|---|
+| `security-authenticated-dast` | `security-runtime` | `./tools/test.sh ci-tier security-authenticated-dast` | - | backend, frontend | 1 | 30m | `.tmp/security/authenticated-dast` | `.tmp/security/authenticated-dast/summary.json` |
+| `csrf-browser-matrix` | `security-runtime` | `./tools/test.sh ci-tier csrf-browser-matrix` | - | frontend, backend | 1 | 20m | `.tmp/release-evidence/security-depth-summary.json` | `.tmp/release-evidence/security-depth-summary.json` |
+| `wasm-fuzz-regression` | `security-runtime` | `./tools/test.sh ci-tier wasm-fuzz-regression` | - | - | 1 | 20m | `.tmp/fuzz/wasm` | `.tmp/fuzz/wasm/summary.json` |
+| `contract-fuzz` | `security-runtime` | `./tools/test.sh ci-tier contract-fuzz` | - | - | 1 | 20m | `.tmp/fuzz/contract`<br>`.tmp/release-evidence/fuzz-seeds.json` | `.tmp/release-evidence/fuzz-seeds.json` |
+| `cross-stack-contract` | `cross-stack-contract` | `./tools/test.sh ci-tier cross-stack-contract` | - | - | 1 | 20m | `tests/frontend/fixtures/cross-stack-contract-matrix.json`<br>`tests/frontend/fixtures/cross-stack-contract-matrix.generated.json`<br>`src/shared/Contracts/Validation/fsusblog.openapi.json`<br>`src/frontend/src/generated/fsusBinaryRoutes.ts` | `tests/frontend/fixtures/cross-stack-contract-matrix.json`<br>`tests/frontend/fixtures/cross-stack-contract-matrix.generated.json`<br>`src/shared/Contracts/Validation/fsusblog.openapi.json`<br>`src/frontend/src/generated/fsusBinaryRoutes.ts` |
 
 ## Performance And Resilience Depth Tiers
 
-| Tier | CI job | Depends on | Services | Shards | Timeout | Evidence |
-|---|---|---|---|---:|---:|---|
-| `ux-viewport-visual` | `ux-viewport-visual` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 45m | `.tmp/ux/viewport-visual.json`<br>`.tmp/ux/screenshots/visual`<br>`.tmp/release-evidence/ux-viewport-summary.json` |
-| `ux-viewport-boundaries` | `ux-viewport-boundaries` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 90m | `.tmp/ux/viewport-boundaries.json`<br>`.tmp/ux/screenshots/boundaries`<br>`.tmp/release-evidence/ux-viewport-summary.json` |
-| `aeds-frame-cost` | `perf-regression` | - | - | 1 | 10m | `.tmp/perf/aeds-frame-cost/summary.json`<br>`.tmp/release-evidence/aeds-frame-cost-summary.json` |
-| `aeds-compression-profile` | `perf-regression` | - | - | 1 | 10m | `.tmp/perf/aeds-compression-profile/summary.json`<br>`.tmp/release-evidence/aeds-compression-profile-summary.json` |
-| `load-baseline` | `load-smoke` | `bootstrap` | backend, redis, postgres | 1 | 20m | `.tmp/release-evidence/perf-summary.json` |
-| `load-peak` | `load-smoke` | `bootstrap` | backend, redis, postgres | 1 | 35m | `.tmp/release-evidence/perf-summary.json` |
-| `load-2x-peak` | `backend-nightly` | `bootstrap` | backend, redis, postgres | 1 | 45m | `.tmp/release-evidence/perf-summary.json` |
-| `load-burst` | `backend-nightly` | `bootstrap` | backend, redis, postgres | 1 | 20m | `.tmp/release-evidence/perf-summary.json` |
-| `browser-performance-regression` | `perf-regression` | - | frontend, backend | 1 | 20m | `.tmp/release-evidence/perf-summary.json` |
-| `fault-injection` | `resilience-runtime` | `bootstrap` | postgres, redis, backend | 1 | 30m | `.tmp/fault-injection/summary.json` |
-| `soak` | `backend-nightly` | `bootstrap` | postgres, redis, backend, frontend | 1 | 30m | `.tmp/soak` |
+| Tier | CI job | Local command | Depends on | Services | Shards | Timeout | Artifacts | Evidence |
+|---|---|---|---|---|---:|---:|---|---|
+| `ux-viewport-visual` | `ux-viewport-visual` | `./tools/test.sh ci-tier ux-viewport-visual` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 45m | `.tmp/ux/viewport-visual.json`<br>`.tmp/ux/screenshots/visual`<br>`.tmp/release-evidence/ux-viewport-summary.json`<br>`src/frontend/test-results/playwright/ux-viewport-visual` | `.tmp/ux/viewport-visual.json`<br>`.tmp/ux/screenshots/visual`<br>`.tmp/release-evidence/ux-viewport-summary.json` |
+| `ux-viewport-boundaries` | `ux-viewport-boundaries` | `./tools/test.sh ci-tier ux-viewport-boundaries` | `bootstrap` | postgres, redis, backend, frontend, preview | 1 | 90m | `.tmp/ux/viewport-boundaries.json`<br>`.tmp/ux/screenshots/boundaries`<br>`.tmp/release-evidence/ux-viewport-summary.json`<br>`src/frontend/test-results/playwright/ux-viewport-boundaries` | `.tmp/ux/viewport-boundaries.json`<br>`.tmp/ux/screenshots/boundaries`<br>`.tmp/release-evidence/ux-viewport-summary.json` |
+| `aeds-frame-cost` | `perf-regression` | `./tools/test.sh ci-tier aeds-frame-cost` | - | - | 1 | 10m | `.tmp/perf/aeds-frame-cost/summary.json`<br>`.tmp/release-evidence/aeds-frame-cost-summary.json` | `.tmp/perf/aeds-frame-cost/summary.json`<br>`.tmp/release-evidence/aeds-frame-cost-summary.json` |
+| `aeds-compression-profile` | `perf-regression` | `./tools/test.sh ci-tier aeds-compression-profile` | - | - | 1 | 10m | `.tmp/perf/aeds-compression-profile/summary.json`<br>`.tmp/release-evidence/aeds-compression-profile-summary.json` | `.tmp/perf/aeds-compression-profile/summary.json`<br>`.tmp/release-evidence/aeds-compression-profile-summary.json` |
+| `load-baseline` | `load-smoke` | `./tools/test.sh ci-tier load-baseline` | `bootstrap` | backend, redis, postgres | 1 | 20m | `.tmp/perf/load-baseline/summary.json` | `.tmp/release-evidence/perf-summary.json` |
+| `load-peak` | `load-smoke` | `./tools/test.sh ci-tier load-peak` | `bootstrap` | backend, redis, postgres | 1 | 35m | `.tmp/perf/load-expected-peak/summary.json` | `.tmp/release-evidence/perf-summary.json` |
+| `load-2x-peak` | `backend-nightly` | `./tools/test.sh ci-tier load-2x-peak` | `bootstrap` | backend, redis, postgres | 1 | 45m | `.tmp/perf/load-2x-peak/summary.json` | `.tmp/release-evidence/perf-summary.json` |
+| `load-burst` | `backend-nightly` | `./tools/test.sh ci-tier load-burst` | `bootstrap` | backend, redis, postgres | 1 | 20m | `.tmp/perf/load-burst/summary.json` | `.tmp/release-evidence/perf-summary.json` |
+| `browser-performance-regression` | `perf-regression` | `./tools/test.sh ci-tier browser-performance-regression` | - | frontend, backend | 1 | 20m | `.tmp/perf/browser-performance.json` | `.tmp/release-evidence/perf-summary.json` |
+| `fault-injection` | `resilience-runtime` | `./tools/test.sh ci-tier fault-injection` | `bootstrap` | postgres, redis, backend | 1 | 30m | `.tmp/fault-injection` | `.tmp/fault-injection/summary.json` |
+| `soak` | `backend-nightly` | `./tools/test.sh ci-tier soak` | `bootstrap` | postgres, redis, backend, frontend | 1 | 30m | `.tmp/soak` | `.tmp/soak` |
 
 ## Manual Closeout Tiers
 
-| Tier | CI job | Depends on | Services | Shards | Timeout | Evidence |
-|---|---|---|---|---:|---:|---|
-| `release-closeout` | `release-evidence` | `release-evidence` | - | 1 | 10m | `.tmp/release-evidence` |
+| Tier | CI job | Local command | Depends on | Services | Shards | Timeout | Artifacts | Evidence |
+|---|---|---|---|---|---:|---:|---|---|
+| `release-closeout` | `release-evidence` | `./tools/test.sh ci-tier release-closeout` | `release-evidence` | - | 1 | 10m | `.tmp/release-evidence` | `.tmp/release-evidence` |
+
+## CI Job Reproduction Commands
+
+| CI job | Local reproduction command | Matrix tiers | Max timeout | Max shards |
+|---|---|---|---:|---:|
+| `acceptance-playwright` | `./tools/test.sh ci-job acceptance-playwright` | `acceptance` | 45m | 4 |
+| `backend-qps` | `./tools/test.sh ci-job backend-qps` | `backend-qps-view-count-flush`, `backend-qps-visitlog-invalidation`, `backend-qps-cache-hit`, `backend-qps-comment-cursor`, `backend-qps-hotread`, `backend-qps-cache-miss-singleflight`, `backend-qps-risk-filter`, `backend-qps-related-reading`, `backend-qps-list-pagination`, `backend-qps-article-detail-miss`, `backend-qps-cache-registry`, `backend-cache-invalidation-batch`, `backend-qps-index-plan`, `backend-qps` | 45m | 1 |
+| `coverage-backend` | `./tools/test.sh ci-job coverage-backend` | `coverage-backend` | 45m | 1 |
+| `coverage-frontend` | `./tools/test.sh ci-job coverage-frontend` | `coverage-frontend` | 45m | 1 |
+| `coverage-merge-threshold` | `./tools/test.sh ci-job coverage-merge-threshold` | `coverage-merge`, `coverage-threshold`, `coverage-gate` | 90m | 1 |
+| `cross-browser-smoke` | `./tools/test.sh ci-job cross-browser-smoke` | `cross-browser-smoke` | 20m | 3 |
+| `cross-stack-contract` | `./tools/test.sh ci-job cross-stack-contract` | `endpoint-depth`, `cross-stack-contract` | 20m | 1 |
+| `fast-backend` | `./tools/test.sh ci-job fast-backend` | `backend-fast`, `backend-auth-state-machine`, `backend-concurrency`, `backend-property`, `backend-golden` | 35m | 1 |
+| `fast-frontend-unit` | `./tools/test.sh ci-job fast-frontend-unit` | `frontend-fast` | 35m | 1 |
+| `fast-static-governance` | `./tools/test.sh ci-job fast-static-governance` | `static-governance`, `backend-test-governance` | 10m | 1 |
+| `fast-summary` | `./tools/test.sh ci-job fast-summary` | `fast` | 50m | 1 |
+| `frontend-render-pressure` | `./tools/test.sh ci-job frontend-render-pressure` | `frontend-render-pressure` | 35m | 1 |
+| `integration-runtime` | `./tools/test.sh ci-job integration-runtime` | `bootstrap`, `integration`, `data-scale-xs`, `data-scale-s`, `backend-api-integration` | 45m | 1 |
+| `load-smoke` | `./tools/test.sh ci-job load-smoke` | `load`, `load-baseline`, `load-peak` | 35m | 1 |
+| `perf-regression` | `./tools/test.sh ci-job perf-regression` | `aeds-frame-cost`, `aeds-compression-profile`, `backend-perf`, `backend-benchmark-regression`, `browser-performance-regression` | 35m | 1 |
+| `production-summary` | `./tools/test.sh ci-job production-summary` | `production` | 120m | 1 |
+| `release-evidence` | `./tools/test.sh ci-job release-evidence` | `release-evidence` | 10m | 1 |
+| `release-public` | `./tools/test.sh ci-job release-public` | `release` | 25m | 1 |
+| `resilience-runtime` | `./tools/test.sh ci-job resilience-runtime` | `resilience`, `fault-injection`, `backend-chaos` | 35m | 1 |
+| `security-runtime` | `./tools/test.sh ci-job security-runtime` | `security`, `security-authenticated-dast`, `csrf-browser-matrix`, `wasm-fuzz-regression`, `contract-fuzz` | 40m | 1 |
+| `ux-viewport-smoke` | `./tools/test.sh ci-job ux-viewport-smoke` | `ux-viewport-smoke` | 35m | 1 |
+| `validate-matrix` | `./tools/test.sh ci-job validate-matrix` | `validate-matrix` | 5m | 1 |
+| `visual-playwright` | `./tools/test.sh ci-job visual-playwright` | `visual` | 35m | 2 |

@@ -66,25 +66,65 @@ function evidenceCell(tier) {
   return tier.evidence.length > 0 ? tier.evidence.map((item) => `\`${item}\``).join('<br>') : '-'
 }
 
+function artifactsCell(tier) {
+  return tier.artifacts.length > 0 ? tier.artifacts.map((item) => `\`${item}\``).join('<br>') : '-'
+}
+
+function localTierCommand(tier) {
+  return `\`./tools/test.sh ci-tier ${tier.id}\``
+}
+
 function tierRow(tier) {
   return [
     `\`${tier.id}\``,
     `\`${tier.ciJob}\``,
+    localTierCommand(tier),
     tier.dependsOn.length > 0 ? tier.dependsOn.map((id) => `\`${id}\``).join(', ') : '-',
     tier.services.length > 0 ? tier.services.join(', ') : '-',
     tier.shardable ? String(tier.defaultShards) : '1',
     `${tier.timeoutMinutes}m`,
+    artifactsCell(tier),
     evidenceCell(tier)
   ].map(cell).join(' | ').replace(/^/u, '| ').replace(/$/u, ' |')
 }
 
 function tableFor(tiers) {
   const lines = [
-    '| Tier | CI job | Depends on | Services | Shards | Timeout | Evidence |',
-    '|---|---|---|---|---:|---:|---|'
+    '| Tier | CI job | Local command | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of tiers) {
     lines.push(tierRow(tier))
+  }
+  return lines
+}
+
+function isWorkflowTier(tier) {
+  return tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true
+}
+
+function ciJobRows(matrix) {
+  const jobs = new Map()
+  for (const tier of matrix.tiers.filter(isWorkflowTier)) {
+    const job = jobs.get(tier.ciJob) ?? { id: tier.ciJob, tiers: [], timeoutMinutes: 0, shards: 1 }
+    job.tiers.push(tier)
+    job.timeoutMinutes = Math.max(job.timeoutMinutes, Number(tier.timeoutMinutes) || 0)
+    job.shards = Math.max(job.shards, tier.shardable ? Number(tier.defaultShards) || 1 : 1)
+    jobs.set(job.id, job)
+  }
+
+  const lines = [
+    '| CI job | Local reproduction command | Matrix tiers | Max timeout | Max shards |',
+    '|---|---|---|---:|---:|'
+  ]
+  for (const job of [...jobs.values()].sort((left, right) => left.id.localeCompare(right.id))) {
+    lines.push([
+      `\`${job.id}\``,
+      `\`./tools/test.sh ci-job ${job.id}\``,
+      job.tiers.map((tier) => `\`${tier.id}\``).join(', '),
+      `${job.timeoutMinutes}m`,
+      String(job.shards)
+    ].join(' | ').replace(/^/u, '| ').replace(/$/u, ' |'))
   }
   return lines
 }
@@ -110,6 +150,11 @@ export function renderTestingDocs(matrix) {
     sections.push(...tableFor(remaining))
     sections.push('')
   }
+
+  sections.push('## CI Job Reproduction Commands')
+  sections.push('')
+  sections.push(...ciJobRows(matrix))
+  sections.push('')
 
   return [
     '# Generated Test Matrix',

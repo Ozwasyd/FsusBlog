@@ -273,6 +273,22 @@ function parseRunOptions(args) {
   return options
 }
 
+function tierReproductionCommand(tier, options = {}) {
+  const args = [`./tools/test.sh ci-tier ${tier.id}`]
+  if (options.noDeps) args.push('--no-deps')
+  if (options.shard) args.push(`--shard ${options.shard}`)
+  return args.join(' ')
+}
+
+function ciJobReproductionCommand(jobId) {
+  return `./tools/test.sh ci-job ${jobId}`
+}
+
+function emitTierReproductionHint(tier, options) {
+  console.error(`[matrix:${tier.id}] To reproduce tier locally: ${tierReproductionCommand(tier, options)}`)
+  console.error(`[matrix:${tier.id}] To reproduce CI job locally: ${ciJobReproductionCommand(tier.ciJob)}`)
+}
+
 function runTier(matrix, tierId, args) {
   const options = parseRunOptions(args)
   const all = options.noDeps ? [tierMap(matrix).get(normalizeTierId(tierId))] : planTier(matrix, tierId)
@@ -308,6 +324,7 @@ function runTier(matrix, tierId, args) {
       env.FSUSBLOG_TEST_SHARD_TOTAL = total
     }
 
+    emitTierReproductionHint(tier, options)
     console.error(`[matrix:${tier.id}] ${tier.command}`)
     const result = spawnSync(tier.command, {
       cwd: root,
@@ -318,6 +335,51 @@ function runTier(matrix, tierId, args) {
     if (result.status !== 0) {
       process.exit(result.status ?? 1)
     }
+  }
+}
+
+function parseCiJobOptions(args) {
+  const options = { planOnly: false, shard: null }
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]
+    if (arg === '--plan-only') options.planOnly = true
+    else if (arg === '--shard') options.shard = args[++index]
+    else if (arg.startsWith('--shard=')) options.shard = arg.slice('--shard='.length)
+    else throw new Error(`unknown ci-job option: ${arg}`)
+  }
+  return options
+}
+
+function ciJobTiers(matrix, jobId) {
+  return matrix.tiers.filter((tier) => tier.ciJob === jobId && tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true)
+}
+
+function printCiJobPlan(matrix, jobId) {
+  const tiers = ciJobTiers(matrix, jobId)
+  if (tiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
+  console.log(`To reproduce GitHub Actions job "${jobId}" locally:`)
+  console.log(`  ${ciJobReproductionCommand(jobId)}`)
+  console.log('')
+  for (const tier of tiers) {
+    const shard = tier.shardable ? ` --shard 1/${tier.defaultShards}` : ''
+    console.log(`- ${tier.id}: ${tierReproductionCommand(tier, { noDeps: true })}${shard}`)
+    console.log(`  matrix command: ${tier.command}`)
+  }
+}
+
+function runCiJob(matrix, jobId, args) {
+  const options = parseCiJobOptions(args)
+  const tiers = ciJobTiers(matrix, jobId)
+  if (tiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
+  if (options.planOnly) {
+    printCiJobPlan(matrix, jobId)
+    return
+  }
+
+  for (const tier of tiers) {
+    const runArgs = ['--no-deps']
+    if (options.shard && tier.shardable) runArgs.push('--shard', options.shard)
+    runTier(matrix, tier.id, runArgs)
   }
 }
 
@@ -357,11 +419,13 @@ function buildCiPlan(matrix, format) {
       tiers: [],
       timeoutMinutes: 0,
       needs: new Set(),
-      artifacts: new Set()
+      artifacts: new Set(),
+      evidence: new Set()
     }
     job.tiers.push(tier.id)
     job.timeoutMinutes = Math.max(job.timeoutMinutes, tier.timeoutMinutes)
     for (const artifact of tier.artifacts) job.artifacts.add(artifact)
+    for (const evidence of tier.evidence) job.evidence.add(evidence)
     jobs.set(tier.ciJob, job)
   }
   const byId = tierMap(matrix)
@@ -380,7 +444,8 @@ function buildCiPlan(matrix, format) {
       tiers: job.tiers,
       timeoutMinutes: job.timeoutMinutes,
       needs: [...job.needs].sort(),
-      artifacts: [...job.artifacts].sort()
+      artifacts: [...job.artifacts].sort(),
+      evidence: [...job.evidence].sort()
     })).sort((a, b) => a.id.localeCompare(b.id))
   }
 }
@@ -397,19 +462,35 @@ function docs(matrix, outFile) {
     '',
     `Version: \`${matrix.version}\``,
     '',
-    '| Tier | CI job | Depends on | Services | Shards | Timeout | Evidence |',
-    '|---|---|---|---|---:|---:|---|'
+    '| Tier | CI job | Local command | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of matrix.tiers) {
     lines.push([
       `\`${tier.id}\``,
       `\`${tier.ciJob}\``,
+      `\`./tools/test.sh ci-tier ${tier.id}\``,
       tier.dependsOn.length > 0 ? tier.dependsOn.map((id) => `\`${id}\``).join(', ') : '-',
       tier.services.length > 0 ? tier.services.join(', ') : '-',
       tier.shardable ? String(tier.defaultShards) : '1',
       `${tier.timeoutMinutes}m`,
-      tier.evidence.map((item) => `\`${item}\``).join('<br>')
+      tier.artifacts.length > 0 ? tier.artifacts.map((item) => `\`${item}\``).join('<br>') : '-',
+      tier.evidence.length > 0 ? tier.evidence.map((item) => `\`${item}\``).join('<br>') : '-'
     ].join(' | ').replace(/^/, '| ').replace(/$/, ' |'))
+  }
+  const jobs = new Map()
+  for (const tier of matrix.tiers.filter((item) => item.localOnly !== true && item.nightlyOnly !== true && item.manualOnly !== true)) {
+    const job = jobs.get(tier.ciJob) ?? []
+    job.push(tier.id)
+    jobs.set(tier.ciJob, job)
+  }
+  lines.push('')
+  lines.push('## CI Job Reproduction Commands')
+  lines.push('')
+  lines.push('| CI job | Local reproduction command | Matrix tiers |')
+  lines.push('|---|---|---|')
+  for (const [jobId, tiers] of [...jobs.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+    lines.push(`| \`${jobId}\` | \`./tools/test.sh ci-job ${jobId}\` | ${tiers.map((id) => `\`${id}\``).join(', ')} |`)
   }
   lines.push('')
   const text = `${lines.join('\n')}\n`
@@ -535,6 +616,7 @@ function preflight(matrix) {
 
   console.log(`[matrix:preflight] ok (${checkedDirectories.length} directories, ${checkedFiles.length} files)`)
   console.log(`[matrix:preflight] wrote ${relativeToRoot(preflightLogFile)}`)
+  console.log('[matrix:preflight] To reproduce locally: ./tools/test.sh ci-tier validate-matrix')
 }
 
 function git(args) {
@@ -549,6 +631,10 @@ function usage() {
   node tools/run-test-matrix.mjs list
   node tools/run-test-matrix.mjs plan <tier>
   node tools/run-test-matrix.mjs run <tier> [--plan-only] [--no-deps] [--shard i/n]
+  node tools/run-test-matrix.mjs ci-tier <tier> [--plan-only] [--no-deps] [--shard i/n]
+  node tools/run-test-matrix.mjs ci-job <job> [--plan-only] [--shard i/n]
+  node tools/run-test-matrix.mjs ci-fast [--plan-only]
+  node tools/run-test-matrix.mjs ci-production [--plan-only]
   node tools/run-test-matrix.mjs ci-plan [--format github-actions] [--out .tmp/ci-plan.json]
   node tools/run-test-matrix.mjs docs [--out docs/testing.generated.md]
   node tools/run-test-matrix.mjs evidence-plan [--out .tmp/release-evidence/test-plan.json]
@@ -601,6 +687,22 @@ function main() {
   }
   if (command === 'run') {
     runTier(matrix, args[0], args.slice(1))
+    return
+  }
+  if (command === 'ci-tier') {
+    runTier(matrix, args[0], args.slice(1))
+    return
+  }
+  if (command === 'ci-job') {
+    runCiJob(matrix, args[0], args.slice(1))
+    return
+  }
+  if (command === 'ci-fast') {
+    runTier(matrix, 'fast', args)
+    return
+  }
+  if (command === 'ci-production') {
+    runTier(matrix, 'production', args)
     return
   }
   if (command === 'ci-plan') {

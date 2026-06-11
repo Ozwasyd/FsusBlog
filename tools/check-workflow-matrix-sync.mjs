@@ -99,6 +99,7 @@ function parseWorkflow(text) {
   let inJobs = false
   let currentJob = null
   let collectingNeeds = null
+  let collectingPath = null
 
   for (const rawLine of text.split(/\r?\n/)) {
     if (/^jobs:\s*$/.test(rawLine)) {
@@ -111,10 +112,29 @@ function parseWorkflow(text) {
     if (jobMatch) {
       currentJob = jobMatch[1]
       collectingNeeds = null
-      jobs.set(currentJob, { needs: new Set(), runs: [], timeoutMinutes: null })
+      collectingPath = null
+      jobs.set(currentJob, { needs: new Set(), runs: [], timeoutMinutes: null, uploadPaths: new Set() })
       continue
     }
     if (!currentJob) continue
+
+    const pathMatch = rawLine.match(/^(\s*)path:\s*(.*?)\s*$/)
+    if (pathMatch) {
+      const [, indent, value] = pathMatch
+      collectingPath = value === '|' ? { job: currentJob, indent: indent.length } : null
+      if (value && value !== '|') jobs.get(currentJob).uploadPaths.add(value.trim())
+      continue
+    }
+
+    if (collectingPath?.job === currentJob) {
+      const indent = rawLine.match(/^(\s*)/)?.[1].length ?? 0
+      if (rawLine.trim() === '') continue
+      if (indent > collectingPath.indent) {
+        jobs.get(currentJob).uploadPaths.add(rawLine.trim())
+        continue
+      }
+      collectingPath = null
+    }
 
     const timeoutMatch = rawLine.match(/^    timeout-minutes:\s*(\d+)\s*$/)
     if (timeoutMatch) {
@@ -150,6 +170,45 @@ function parseWorkflow(text) {
   }
 
   return jobs
+}
+
+function normalizeArtifactPath(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/\/+$/g, '')
+}
+
+function baseBeforeGlob(value) {
+  const normalized = normalizeArtifactPath(value)
+  const globIndex = normalized.search(/[*{]/)
+  if (globIndex < 0) return normalized
+  return normalized.slice(0, globIndex).replace(/\/+$/g, '')
+}
+
+function pathPatternCovers(uploadPattern, expectedPath) {
+  const upload = normalizeArtifactPath(uploadPattern)
+  const expected = normalizeArtifactPath(expectedPath)
+  if (!upload || !expected) return false
+  if (upload === expected) return true
+
+  const uploadBase = baseBeforeGlob(upload)
+  const expectedBase = baseBeforeGlob(expected)
+  if (upload.includes('*') || upload.includes('{')) {
+    return expected === uploadBase || expected.startsWith(`${uploadBase}/`) || expectedBase === uploadBase || expectedBase.startsWith(`${uploadBase}/`)
+  }
+  if (expected.includes('*') || expected.includes('{')) {
+    return upload === expectedBase || upload.startsWith(`${expectedBase}/`)
+  }
+  return false
+}
+
+function requiresUpload(pathValue) {
+  const value = normalizeArtifactPath(pathValue)
+  return value.startsWith('.tmp/')
+    || value.startsWith('src/frontend/test-results/')
+    || value.startsWith('src/frontend/playwright-report')
+    || value.startsWith('BenchmarkDotNet.Artifacts/')
 }
 
 function planTierClosure(tiersById, targetId, noDeps) {
@@ -208,6 +267,12 @@ function main() {
   const requiredPlanJobs = plan.jobs.filter((job) => job.tiers.some(isWorkflowRequiredTier))
   const requiredJobIds = new Set(requiredPlanJobs.map((job) => job.id))
 
+  for (const jobId of workflowJobs.keys()) {
+    if (!requiredJobIds.has(jobId)) {
+      errors.push(`workflow job ${jobId} is not declared by required matrix ciJob metadata`)
+    }
+  }
+
   for (const job of requiredPlanJobs) {
     if (!workflowJobs.has(job.id)) {
       errors.push(`workflow is missing matrix ciJob: ${job.id} (tiers: ${job.tiers.join(', ')})`)
@@ -233,6 +298,27 @@ function main() {
           errors.push(`workflow job ${job.id} does not run matrix tier: ${tier}`)
         }
       }
+
+      const uploadPaths = workflowJobs.get(job.id).uploadPaths
+      for (const artifact of job.artifacts) {
+        if (![...uploadPaths].some((uploadPath) => pathPatternCovers(uploadPath, artifact))) {
+          errors.push(`workflow job ${job.id} does not upload matrix artifact: ${artifact}`)
+        }
+      }
+      for (const evidence of job.evidence.filter(requiresUpload)) {
+        if (![...uploadPaths].some((uploadPath) => pathPatternCovers(uploadPath, evidence))) {
+          errors.push(`workflow job ${job.id} does not upload generated matrix evidence: ${evidence}`)
+        }
+      }
+    }
+  }
+
+  for (const [jobId, workflowJob] of workflowJobs.entries()) {
+    for (const tierId of coveredTiersForWorkflowJob(workflowJob, tiersById)) {
+      const tier = tiersById.get(tierId)
+      if (tier?.localOnly === true) errors.push(`workflow job ${jobId} runs local-only matrix tier: ${tierId}`)
+      if (tier?.nightlyOnly === true) errors.push(`workflow job ${jobId} runs nightly-only matrix tier: ${tierId}`)
+      if (tier?.manualOnly === true) errors.push(`workflow job ${jobId} runs manual-only matrix tier: ${tierId}`)
     }
   }
 

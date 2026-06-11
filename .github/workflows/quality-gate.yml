@@ -152,7 +152,12 @@ jobs:
           name: fast-backend
           if-no-files-found: ignore
           retention-days: 14
-          path: .tmp/gate-logs/**
+          path: |
+            .tmp/gate-logs/**
+            .tmp/backend-auth-state-machine/**
+            .tmp/backend-concurrency/**
+            .tmp/backend-golden/**
+            .tmp/backend-property/**
 
   fast-frontend-unit:
     name: Fast Frontend Unit
@@ -214,6 +219,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - run: ./tools/test.sh fast --no-deps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fast-summary
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/gate-logs/**
+            src/frontend/coverage/**
 
   cross-stack-contract:
     name: Cross Stack Contract
@@ -274,6 +288,7 @@ jobs:
             .tmp/acceptance/**
             .tmp/backend-api-integration/**
             .tmp/scale/**
+            .tmp/release-evidence/data-scale-summary.json
             src/frontend/test-results/playwright/integration/**
 
   release-public:
@@ -581,7 +596,9 @@ jobs:
           name: load-smoke
           if-no-files-found: ignore
           retention-days: 14
-          path: .tmp/perf/**
+          path: |
+            .tmp/perf/**
+            .tmp/release-evidence/perf-summary.json
 
   backend-qps:
     name: Backend QPS Runtime
