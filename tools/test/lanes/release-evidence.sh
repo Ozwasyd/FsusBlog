@@ -8,6 +8,7 @@ if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
 else
   run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/check-job-summaries.mjs"
 fi
+run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/check-flaky-evidence.mjs"
 run "$ROOT_DIR/tools/operations/check-publish-artifact-slimness.mjs"
 run "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
 run "$ROOT_DIR/tools/operations/check-evidence-metrics.mjs"

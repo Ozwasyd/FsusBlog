@@ -52,6 +52,21 @@ EOF
 console.log('[ci-stage] ok')
 EOF
 
+  cat > "$temp_dir/tools/ci/check-flaky-registry.mjs" <<'EOF'
+#!/usr/bin/env node
+console.log('[flaky-registry] ok')
+EOF
+
+  cat > "$temp_dir/tools/ci/check-flaky-evidence.mjs" <<'EOF'
+#!/usr/bin/env node
+console.log('[flaky-evidence] ok')
+EOF
+
+  cat > "$temp_dir/tools/ci/run-flaky-governed.mjs" <<'EOF'
+#!/usr/bin/env node
+console.log('[flaky] ok')
+EOF
+
   cat > "$temp_dir/tools/test/legacy-test.sh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
@@ -80,6 +95,11 @@ EOF
 {}
 EOF
 
+  cat > "$temp_dir/tests/flaky.yml" <<'EOF'
+version: fsusblog-flaky-v1
+entries: []
+EOF
+
   cat > "$temp_dir/tools/ok.sh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
@@ -96,6 +116,9 @@ EOF
     "$temp_dir/tools/ci/summarize-quality-gate.mjs" \
     "$temp_dir/tools/ci/check-job-summaries.mjs" \
     "$temp_dir/tools/ci/run-stage.mjs" \
+    "$temp_dir/tools/ci/check-flaky-registry.mjs" \
+    "$temp_dir/tools/ci/check-flaky-evidence.mjs" \
+    "$temp_dir/tools/ci/run-flaky-governed.mjs" \
     "$temp_dir/tools/test/legacy-test.sh" \
     "$temp_dir/tools/ok.sh" \
     "$temp_dir/tools/check-gate-integrity.sh" \
@@ -434,9 +457,13 @@ const requiredPaths = [
   'tools/ci/summarize-quality-gate.mjs',
   'tools/ci/check-job-summaries.mjs',
   'tools/ci/run-stage.mjs',
+  'tools/ci/check-flaky-registry.mjs',
+  'tools/ci/check-flaky-evidence.mjs',
+  'tools/ci/run-flaky-governed.mjs',
   'tools/check-gate-integrity.sh',
   'tests/matrix.yml',
   'tests/matrix.schema.json',
+  'tests/flaky.yml',
   'tools/coverage/collect-backend-coverage.sh',
   'tools/coverage/collect-frontend-coverage.sh',
   'tools/coverage/merge-coverage.sh',

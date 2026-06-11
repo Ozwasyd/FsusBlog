@@ -103,8 +103,8 @@ tiers:
     defaultShards: 1
     risk: critical
     coverage: [gate-integrity, matrix-integrity, evidence-schema]
-    artifacts: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json]
-    evidence: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json]
+    artifacts: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/flaky/registry.json]
+    evidence: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/flaky/registry.json]
     ciJob: fast-static-governance
     localOnly: false
     nightlyOnly: false

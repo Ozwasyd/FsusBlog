@@ -223,6 +223,7 @@ jobs:
             .tmp/release-evidence/test-plan.json
             .tmp/release-evidence/doc-sync-summary.json
             .tmp/release-evidence/jobs/**
+            .tmp/release-evidence/flaky/**
 
   fast-summary:
     name: Fast Summary
@@ -423,7 +424,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
       - run: ./tools/test.sh bootstrap --no-deps
-      - run: ./tools/test.sh acceptance --no-deps --shard ${{ matrix.shard }}
+      - run: node tools/ci/run-flaky-governed.mjs --suite acceptance-playwright --test acceptance-shard-${{ matrix.shard_id }} -- ./tools/test.sh acceptance --no-deps --shard ${{ matrix.shard }}
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -434,6 +435,7 @@ jobs:
             src/frontend/test-results/playwright/acceptance/**
             src/frontend/playwright-report/**
             .tmp/release-evidence/jobs/**
+            .tmp/release-evidence/flaky/**
 
   visual-playwright:
     name: Visual Playwright ${{ matrix.shard }}
@@ -472,7 +474,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
       - run: ./tools/test.sh bootstrap --no-deps
-      - run: ./tools/test.sh visual --no-deps --shard ${{ matrix.shard }}
+      - run: node tools/ci/run-flaky-governed.mjs --suite visual-playwright --test visual-shard-${{ matrix.shard_id }} -- ./tools/test.sh visual --no-deps --shard ${{ matrix.shard }}
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -484,6 +486,7 @@ jobs:
             src/frontend/playwright-report/**
             .tmp/gate-logs/visual-gate-skip.json
             .tmp/release-evidence/jobs/**
+            .tmp/release-evidence/flaky/**
 
   ux-viewport-smoke:
     name: UX Viewport Smoke
@@ -513,7 +516,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
       - run: ./tools/test.sh bootstrap --no-deps
-      - run: ./tools/test.sh ux-viewport-smoke --no-deps
+      - run: node tools/ci/run-flaky-governed.mjs --suite ux-viewport-smoke --test viewport-smoke -- ./tools/test.sh ux-viewport-smoke --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -524,6 +527,7 @@ jobs:
             .tmp/ux/**
             .tmp/release-evidence/ux-viewport-summary.json
             .tmp/release-evidence/jobs/**
+            .tmp/release-evidence/flaky/**
             src/frontend/test-results/playwright/ux-viewport-smoke/**
             src/frontend/playwright-report/**
 
@@ -604,7 +608,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps ${{ matrix.browser }}
       - run: ./tools/test.sh bootstrap --no-deps
-      - run: ./tools/test.sh cross-browser-smoke --no-deps --shard 1/3
+      - run: node tools/ci/run-flaky-governed.mjs --suite cross-browser-smoke --test ${{ matrix.browser }} -- ./tools/test.sh cross-browser-smoke --no-deps --shard 1/3
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -614,6 +618,7 @@ jobs:
           path: |
             src/frontend/test-results/playwright/cross-browser/**
             .tmp/release-evidence/jobs/**
+            .tmp/release-evidence/flaky/**
 
   resilience-runtime:
     name: Resilience Runtime

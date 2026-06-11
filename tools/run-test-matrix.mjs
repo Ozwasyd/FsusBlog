@@ -693,7 +693,11 @@ function preflight(matrix) {
     '.github/workflows/quality-gate.yml',
     'tools/run-test-matrix.mjs',
     'tools/check-workflow-matrix-sync.mjs',
-    'tools/test.sh'
+    'tools/test.sh',
+    'tools/ci/check-flaky-registry.mjs',
+    'tools/ci/check-flaky-evidence.mjs',
+    'tools/ci/run-flaky-governed.mjs',
+    'tests/flaky.yml'
   ]
   const errors = []
 

@@ -129,6 +129,7 @@ function annotateWorkflowJob(job) {
     && /key:\s*playwright-\$\{\{\s*runner\.os\s*\}\}-\$\{\{\s*hashFiles\('src\/frontend\/package-lock\.json'\)/.test(text)
   job.npmCiCommands = job.runs.filter((command) => /(?:^|\s)npm\s+--prefix\s+src\/frontend\s+ci(?:\s|$)/.test(command))
   job.playwrightInstallCommands = job.runs.filter((command) => /playwright\s+install/.test(command))
+  job.flakyGovernedCommands = job.runs.filter((command) => /tools\/ci\/run-flaky-governed\.mjs/.test(command))
   return job
 }
 
@@ -367,6 +368,11 @@ function validateWorkflowSetup(jobId, workflowJob, requirements, errors) {
     if (requirements.requiresPlaywright === 'all' && !/\$\{\{\s*matrix\.browser\s*\}\}/.test(installCommand)) {
       errors.push(`workflow job ${jobId} must install the matrix browser for requiresPlaywright=all`)
     }
+    if (workflowJob.flakyGovernedCommands.length === 0) {
+      errors.push(`workflow job ${jobId} requires Playwright but does not run through tools/ci/run-flaky-governed.mjs`)
+    }
+  } else if (workflowJob.flakyGovernedCommands.length > 0) {
+    errors.push(`workflow job ${jobId} uses flaky retry governance without requiresPlaywright metadata`)
   }
 }
 

@@ -38,6 +38,26 @@ function loadJobSummaries() {
   return summaries
 }
 
+function loadFlakyEvidence() {
+  const roots = [
+    path.join(root, '.tmp/release-evidence/flaky'),
+    path.join(root, '.tmp/downloaded-artifacts')
+  ]
+  const evidence = []
+  for (const searchRoot of roots) {
+    for (const file of findFiles(searchRoot, (candidate) => candidate.endsWith('.json') && candidate.includes(`${path.sep}flaky${path.sep}`))) {
+      try {
+        const item = JSON.parse(fs.readFileSync(file, 'utf8'))
+        if (item.schema !== 'fsusblog.ci.flaky.v1') continue
+        evidence.push({ item, file })
+      } catch {
+        // Ignore unrelated JSON artifacts.
+      }
+    }
+  }
+  return evidence.sort((left, right) => `${left.item.suite}:${left.item.test}`.localeCompare(`${right.item.suite}:${right.item.test}`))
+}
+
 function parseInlineList(value) {
   const trimmed = value.trim()
   if (!trimmed) return []
@@ -121,7 +141,7 @@ function writeStepSummary(lines) {
   fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`)
 }
 
-function writeProductionSummary(status, rootFailures = [], rootCause = null) {
+function writeProductionSummary(status, rootFailures = [], rootCause = null, flakyEvidence = []) {
   const outFile = path.join(root, '.tmp/release-evidence/jobs/production-summary.json')
   fs.mkdirSync(path.dirname(outFile), { recursive: true })
   const stageDurationsMs = {
@@ -143,6 +163,17 @@ function writeProductionSummary(status, rootFailures = [], rootCause = null) {
     rootCause: status === 'success' ? null : (rootCause ?? rootFailures.map((item) => `${item.name}:${item.value.result}`).join(', ')),
     durationMs: 0,
     stageDurationsMs,
+    flaky: {
+      passedAfterRetry: flakyEvidence
+        .filter(({ item }) => item.finalStatus === 'passed-after-retry')
+        .map(({ item }) => ({
+          suite: item.suite,
+          test: item.test,
+          classification: item.classification,
+          retryCount: item.retryCount,
+          issue: item.issue
+        }))
+    },
     artifacts: ['.tmp/release-evidence/jobs/production-summary.json'],
     localReproduction: './tools/test.sh ci-production --plan-only',
     commit: process.env.GITHUB_SHA ?? 'unknown',
@@ -161,14 +192,23 @@ function main() {
   const needs = JSON.parse(rawNeeds)
   const workflowNeeds = parseWorkflowNeeds(fs.readFileSync(workflowPath, 'utf8'))
   const jobSummaries = loadJobSummaries()
+  const flakyEvidence = loadFlakyEvidence()
+  const passedAfterRetry = flakyEvidence.filter(({ item }) => item.finalStatus === 'passed-after-retry')
   const nonSuccess = Object.entries(needs)
     .filter(([, value]) => value.result !== 'success')
     .sort(([left], [right]) => left.localeCompare(right))
 
   if (nonSuccess.length === 0) {
     console.log('production summary ok')
-    writeStepSummary(['## Quality Gate', '', 'All required jobs completed successfully.'])
-    writeProductionSummary('success')
+    const lines = ['## Quality Gate', '', 'All required jobs completed successfully.']
+    if (passedAfterRetry.length > 0) {
+      lines.push('', '### Passed After Retry')
+      for (const { item } of passedAfterRetry) {
+        lines.push(`- ${item.suite}: ${item.test ?? 'suite'} (${item.classification}, retries=${item.retryCount})`)
+      }
+    }
+    writeStepSummary(lines)
+    writeProductionSummary('success', [], null, flakyEvidence)
     return
   }
 
@@ -195,6 +235,13 @@ function main() {
     for (const item of rootFailures) lines.push(...rootFailureLines(item, jobSummaries))
     lines.push('')
   }
+  if (passedAfterRetry.length > 0) {
+    lines.push('### Passed After Retry')
+    for (const { item } of passedAfterRetry) {
+      lines.push(`- ${item.suite}: ${item.test ?? 'suite'} (${item.classification}, retries=${item.retryCount})`)
+    }
+    lines.push('')
+  }
   if (downstreamFanout.length > 0) {
     lines.push('### Downstream fan-out')
     for (const item of downstreamFanout) {
@@ -206,14 +253,14 @@ function main() {
 
   for (const line of lines.filter(Boolean)) console.error(line.replace(/^### /, '').replace(/^## /, ''))
   writeStepSummary(lines)
-  writeProductionSummary('failure', rootFailures)
+  writeProductionSummary('failure', rootFailures, null, flakyEvidence)
   process.exit(1)
 }
 
 try {
   main()
 } catch (error) {
-  writeProductionSummary('failure', [], error.message)
+  writeProductionSummary('failure', [], error.message, [])
   console.error(`[quality-gate-summary] ${error.message}`)
   process.exit(1)
 }

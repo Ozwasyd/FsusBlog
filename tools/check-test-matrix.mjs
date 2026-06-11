@@ -47,6 +47,8 @@ run(['docs', '--out', '.tmp/docs/run-test-matrix-docs-compat.md'])
 }
 
 for (const script of [
+  'tools/ci/check-flaky-registry.mjs',
+  'tools/ci/check-flaky-evidence.mjs',
   'tools/docs/generate-testing-docs.mjs',
   'tools/docs/check-time-budget-sync.mjs'
 ]) {
