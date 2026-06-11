@@ -39,6 +39,12 @@ FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核
 - **安全前置**：PoW、JWT、多会话、MFA、Passkey、风控、注销、缓存治理都按基础设施能力建设。
 - **前端性能优先**：浏览器本地搜索、Service Worker 边缘缓存、Wasm 渲染与解码进入正式主链。
 
+## Screenshots
+
+![FsusBlog public preview home](docs/assets/screenshots/public-home-light.png)
+
+更多 sanitized public-preview screenshots 见 [docs/assets/screenshots/](docs/assets/screenshots/)。这些截图使用 fictional demo content，不包含真实生产域名、邮箱、IP、日志、token 或私有标识。当前限制见 [docs/known-limitations.md](docs/known-limitations.md)。
+
 ## 架构概览
 
 ### 技术栈
@@ -257,5 +263,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [src/core/Algorithms/AEDS_V1_PROTOCOL.md](src/core/Algorithms/AEDS_V1_PROTOCOL.md) | AEDS 二进制帧协议规格（当前运行时只接受 v2） |
 | [ROADMAP.md](ROADMAP.md) | v1.1.0 public preview、v1.2.0 i18n、v1.3.0 分布式和后续生态路线 |
 | [docs/known-limitations.md](docs/known-limitations.md) | public-preview 已知限制、可尝试范围和不应依赖的内部契约 |
+| [docs/assets/screenshots/](docs/assets/screenshots/) | sanitized public-preview screenshots 和截图安全/品牌说明 |
+| [docs/releases/v1.1.0-public-preview.md](docs/releases/v1.1.0-public-preview.md) | public-preview release notes、能力范围、限制和路线链接 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献流程、Issue/PR 模板、测试证据与 public-preview 稳定性边界 |
 | [SECURITY.md](SECURITY.md) | 私密漏洞报告入口、安全报告范围与公开 issue 禁止事项 |

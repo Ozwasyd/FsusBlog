@@ -2,6 +2,8 @@
 
 FsusBlog v1.1.0-public-preview is not stable production software.
 
+v1.1.0 is public preview, not stable production release.
+
 It is suitable for:
 
 - development
