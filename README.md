@@ -2,7 +2,16 @@
 
 一个面向真实部署的高性能个人内容系统。
 
-> **v1.0.0** — 2026-04-27 · 后端 .NET 10 / C# 14 · 前端 Vue 3.5 · Wasm C++23
+> **v1.1.0-public-preview** — FsusBlog 当前处于公开预览阶段，可用于开发、自托管实验和代码审查，但在 v1.2.0 前 API、部署契约、数据模型、后台工作流和性能 profile 仍可能发生破坏性变更。不应将 v1.1.0-public-preview 视为稳定生产版。
+
+| Public preview entry | Link |
+|----------------------|------|
+| Architecture overview | [docs/architecture/overview.md](docs/architecture/overview.md) |
+| Roadmap | [ROADMAP.md](ROADMAP.md) |
+| API stability | [docs/api/stability.md](docs/api/stability.md) |
+| Known limitations | [docs/known-limitations.md](docs/known-limitations.md) |
+| Security policy | [SECURITY.md](SECURITY.md) |
+| Contributing guide | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ## 功能特性
 
@@ -202,7 +211,9 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | 文档 | 说明 |
 |------|------|
 | [docs/architecture.md](docs/architecture.md) | 系统架构、缓存分层、双读链、安全链路全景 |
+| [docs/architecture/overview.md](docs/architecture/overview.md) | 面向外部贡献者的短版架构概览、运行基线、AEDS / HotRead / AOT 定位 |
 | [docs/api.md](docs/api.md) | API 端点快速参考（路由 / 认证要求 / 速率限制） |
+| [docs/api/stability.md](docs/api/stability.md) | v1.1.x public-preview API 稳定性、实验性内部契约和标准协议豁免 |
 | [docs/api/design.md](docs/api/design.md) | API 设计哲学、响应格式约定、双链路决策 |
 | [docs/api/contracts.md](docs/api/contracts.md) | 请求/响应 DTO 完整契约、通知 WebSocket 契约、AOT 契约 |
 | [docs/api/quick-reference.md](docs/api/quick-reference.md) | 所有端点路由速查表（含认证 / 限流 / Binary 对照） |
@@ -216,5 +227,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/moderation/third-party-model-development.md](docs/moderation/third-party-model-development.md) | 第三方审核模型 Provider 契约、schema、CLI/HTTP 接入和 conformance 测试 |
 | [tests/backend/TESTING.md](tests/backend/TESTING.md) | 测试分层规则与洁净性约定 |
 | [src/core/Algorithms/AEDS_V1_PROTOCOL.md](src/core/Algorithms/AEDS_V1_PROTOCOL.md) | AEDS 二进制帧协议规格（当前运行时只接受 v2） |
+| [ROADMAP.md](ROADMAP.md) | v1.1.0 public preview、v1.2.0 i18n、v1.3.0 分布式和后续生态路线 |
+| [docs/known-limitations.md](docs/known-limitations.md) | public-preview 已知限制、可尝试范围和不应依赖的内部契约 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献流程、Issue/PR 模板、测试证据与 public-preview 稳定性边界 |
 | [SECURITY.md](SECURITY.md) | 私密漏洞报告入口、安全报告范围与公开 issue 禁止事项 |
