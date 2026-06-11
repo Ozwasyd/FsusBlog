@@ -586,8 +586,8 @@ tiers:
     requiresPlaywright: all
     cacheProfile: frontend
     timeoutMinutes: 20
-    shardable: true
-    defaultShards: 3
+    shardable: false
+    defaultShards: 1
     risk: high
     coverage: [cross-browser-smoke]
     artifacts: [src/frontend/test-results/playwright/cross-browser]
@@ -1619,6 +1619,622 @@ tiers:
     artifacts: [.tmp/release-evidence]
     evidence: [.tmp/release-evidence]
     ciJob: release-evidence
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: changed-code-coverage
+    owner: ServerContractAgent
+    command: tools/test/lanes/changed-code-coverage.sh
+    dependsOn: [coverage-merge]
+    services: []
+    parallelizable: false
+    exclusiveResources: [coverage-root]
+    phase: 4
+    cost: medium
+    resourceClass: io
+    maxParallel: 1
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [changed-code-coverage]
+    artifacts: [.tmp/coverage/changed-code/Summary.json]
+    evidence: [.tmp/coverage/changed-code/Summary.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: coverage-gate-strict
+    owner: ServerContractAgent
+    command: tools/test/lanes/coverage-gate-strict.sh
+    dependsOn: [coverage-gate, changed-code-coverage]
+    services: []
+    parallelizable: false
+    exclusiveResources: [coverage-root]
+    phase: 5
+    cost: high
+    resourceClass: io
+    maxParallel: 1
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-final-coverage-thresholds]
+    artifacts: [.tmp/coverage]
+    evidence: [.tmp/coverage/backend-merged/Summary.json, .tmp/coverage/frontend/Summary.json, .tmp/coverage/changed-code/Summary.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-admin-console
+    owner: InteropGlueAgent
+    command: tools/test/lanes/release-runtime-flow.sh admin-console
+    dependsOn: [bootstrap, release]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [release-runtime]
+    phase: 5
+    cost: high
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: chromium
+    cacheProfile: full
+    timeoutMinutes: 45
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-admin-console]
+    artifacts: [src/frontend/test-results/playwright/acceptance, src/frontend/playwright-report]
+    evidence: [src/frontend/test-results/playwright/acceptance]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-auth-flow
+    owner: InteropGlueAgent
+    command: tools/test/lanes/release-runtime-flow.sh auth-flow
+    dependsOn: [bootstrap, release]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [release-runtime]
+    phase: 5
+    cost: high
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: chromium
+    cacheProfile: full
+    timeoutMinutes: 45
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-auth-flow]
+    artifacts: [src/frontend/test-results/playwright/acceptance, src/frontend/playwright-report]
+    evidence: [src/frontend/test-results/playwright/acceptance]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-authoring-flow
+    owner: InteropGlueAgent
+    command: tools/test/lanes/release-runtime-flow.sh authoring-flow
+    dependsOn: [bootstrap, release]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [release-runtime]
+    phase: 5
+    cost: high
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: chromium
+    cacheProfile: full
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-authoring-flow]
+    artifacts: [.tmp/release-evidence/test-quality-summary.json]
+    evidence: [.tmp/release-evidence/test-quality-summary.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-private-preview
+    owner: InteropGlueAgent
+    command: tools/test/lanes/release-runtime-flow.sh private-preview
+    dependsOn: [bootstrap, release]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [release-runtime]
+    phase: 5
+    cost: medium
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: chromium
+    cacheProfile: full
+    timeoutMinutes: 25
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-private-preview]
+    artifacts: [.tmp/release-evidence/test-quality-summary.json]
+    evidence: [.tmp/release-evidence/test-quality-summary.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-error-boundary
+    owner: InteropGlueAgent
+    command: tools/test/lanes/release-runtime-flow.sh error-boundary
+    dependsOn: [release]
+    services: [preview]
+    parallelizable: false
+    exclusiveResources: [release-runtime]
+    phase: 5
+    cost: medium
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: frontend
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: chromium
+    cacheProfile: frontend
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [release-error-boundary]
+    artifacts: [.tmp/release-evidence/test-quality-summary.json]
+    evidence: [.tmp/release-evidence/test-quality-summary.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-rbac-negative
+    owner: InteropGlueAgent
+    command: tools/test/lanes/release-runtime-flow.sh rbac-negative
+    dependsOn: [bootstrap, release, security]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [release-runtime]
+    phase: 5
+    cost: high
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: chromium
+    cacheProfile: full
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-rbac-negative]
+    artifacts: [.tmp/security]
+    evidence: [.tmp/security]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-aot-generation
+    owner: InteropGlueAgent
+    command: tools/test/lanes/release-aot-coherence.sh generation
+    dependsOn: [release]
+    services: [preview]
+    parallelizable: false
+    exclusiveResources: [release-aot]
+    phase: 5
+    cost: medium
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: frontend
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: frontend
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-aot-generation]
+    artifacts: [.tmp/release-evidence]
+    evidence: [.tmp/release-evidence]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-aot-consumption
+    owner: InteropGlueAgent
+    command: tools/test/lanes/release-aot-coherence.sh consumption
+    dependsOn: [release]
+    services: [preview]
+    parallelizable: false
+    exclusiveResources: [release-aot]
+    phase: 5
+    cost: medium
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: frontend
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: chromium
+    cacheProfile: frontend
+    timeoutMinutes: 25
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-aot-consumption]
+    artifacts: [src/frontend/test-results/playwright, .tmp/release-evidence]
+    evidence: [src/frontend/test-results/playwright, .tmp/release-evidence]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-static-asset-digest-coherence
+    owner: InteropGlueAgent
+    command: tools/test/lanes/release-aot-coherence.sh static-asset-digest
+    dependsOn: [release]
+    services: [preview]
+    parallelizable: false
+    exclusiveResources: [release-aot]
+    phase: 5
+    cost: medium
+    resourceClass: io
+    maxParallel: 1
+    requiresBootstrap: frontend
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: frontend
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-static-asset-digest-coherence]
+    artifacts: [.tmp/release-evidence/publish-artifacts-summary.json]
+    evidence: [.tmp/release-evidence/publish-artifacts-summary.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-soak-min
+    owner: ServerContractAgent
+    command: FSUSBLOG_SOAK_MODE=short tools/test/lanes/soak.sh
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend]
+    parallelizable: false
+    exclusiveResources: [soak-runtime]
+    phase: 5
+    cost: high
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: full
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-soak-min]
+    artifacts: [.tmp/soak]
+    evidence: [.tmp/soak]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-load-peak
+    owner: ServerContractAgent
+    command: tools/test/lanes/load-profile.sh expected-peak
+    dependsOn: [bootstrap]
+    services: [backend, redis, postgres]
+    parallelizable: false
+    exclusiveResources: [load-runtime]
+    phase: 5
+    cost: high
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: false
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: backend
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-load-peak]
+    artifacts: [.tmp/perf/load-expected-peak/summary.json]
+    evidence: [.tmp/release-evidence/perf-summary.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-load-burst
+    owner: ServerContractAgent
+    command: tools/test/lanes/load-profile.sh burst
+    dependsOn: [bootstrap]
+    services: [backend, redis, postgres]
+    parallelizable: false
+    exclusiveResources: [load-runtime]
+    phase: 5
+    cost: high
+    resourceClass: benchmark
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: false
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: backend
+    timeoutMinutes: 25
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-load-burst]
+    artifacts: [.tmp/perf/load-burst/summary.json]
+    evidence: [.tmp/release-evidence/perf-summary.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-data-scale-m
+    owner: ServerContractAgent
+    command: tools/test/lanes/data-scale.sh scale-m
+    dependsOn: [bootstrap]
+    services: [postgres, redis]
+    parallelizable: false
+    exclusiveResources: [scale-data]
+    phase: 5
+    cost: high
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: false
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: backend
+    timeoutMinutes: 45
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-data-scale-m]
+    artifacts: [.tmp/scale/scale-m/summary.json]
+    evidence: [.tmp/release-evidence/data-scale-summary.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-mutation-critical-slice
+    owner: ServerContractAgent
+    command: tools/test/legacy-test.sh backend-mutation
+    dependsOn: []
+    services: []
+    parallelizable: false
+    exclusiveResources: [stryker]
+    phase: 5
+    cost: very-high
+    resourceClass: cpu
+    maxParallel: 1
+    requiresBootstrap: none
+    requiresNode: false
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: backend
+    timeoutMinutes: 120
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-mutation-critical-slice]
+    artifacts: [.tmp/mutation/backend]
+    evidence: [.tmp/mutation/backend]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-memory-leak-budget
+    owner: ServerContractAgent
+    command: tools/test/lanes/release-resource-budget.sh memory-leak
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend]
+    parallelizable: false
+    exclusiveResources: [soak-runtime]
+    phase: 5
+    cost: high
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: full
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-memory-leak-budget]
+    artifacts: [.tmp/release-resource-budget/memory-leak.json]
+    evidence: [.tmp/release-evidence/memory-leak-summary.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-open-handle-budget
+    owner: ServerContractAgent
+    command: tools/test/lanes/release-resource-budget.sh open-handle
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend]
+    parallelizable: false
+    exclusiveResources: [soak-runtime]
+    phase: 5
+    cost: high
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: full
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-open-handle-budget]
+    artifacts: [.tmp/release-resource-budget/open-handle.json]
+    evidence: [.tmp/release-evidence/open-handle-summary.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-final-flaky-governance
+    owner: ServerContractAgent
+    command: node tools/ci/check-flaky-registry.mjs --release-final
+    dependsOn: [validate-matrix]
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 5
+    cost: low
+    resourceClass: cpu
+    maxParallel: 1
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-final-flaky-governance]
+    artifacts: [.tmp/release-evidence/flaky/registry.json]
+    evidence: [.tmp/release-evidence/flaky/registry.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-final-shard-completeness
+    owner: ServerContractAgent
+    command: node tools/ci/check-job-summaries.mjs --require-plan --tier production --strict-shards
+    dependsOn: [release-evidence]
+    services: []
+    parallelizable: false
+    exclusiveResources: [release-evidence]
+    phase: 5
+    cost: low
+    resourceClass: io
+    maxParallel: 1
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-final-shard-completeness]
+    artifacts: [.tmp/release-evidence/jobs]
+    evidence: [.tmp/release-evidence/jobs]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: test-quality-lint
+    owner: ServerContractAgent
+    command: tools/test/lanes/test-quality-lint.sh
+    dependsOn: [validate-matrix]
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 5
+    cost: medium
+    resourceClass: cpu
+    maxParallel: 1
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [test-quality-lint]
+    artifacts: [.tmp/release-evidence/test-quality-summary.json]
+    evidence: [.tmp/release-evidence/test-quality-summary.json]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+
+  - id: release-final
+    owner: ServerContractAgent
+    command: tools/test/lanes/release-final.sh
+    dependsOn: [coverage-gate-strict, production, release-closeout, release-admin-console, release-auth-flow, release-authoring-flow, release-private-preview, release-error-boundary, release-rbac-negative, release-aot-generation, release-aot-consumption, release-static-asset-digest-coherence, release-soak-min, release-load-peak, release-load-burst, release-data-scale-m, release-mutation-critical-slice, release-memory-leak-budget, release-open-handle-budget, release-final-flaky-governance, release-final-shard-completeness, test-quality-lint]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [release-final]
+    phase: 6
+    cost: very-high
+    resourceClass: io
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: all
+    cacheProfile: full
+    timeoutMinutes: 240
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    coverage: [release-final-publish-credential]
+    artifacts: [.tmp/release-evidence]
+    evidence: [.tmp/release-evidence]
+    ciJob: release-final
     localOnly: false
     nightlyOnly: false
     manualOnly: true

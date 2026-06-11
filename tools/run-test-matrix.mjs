@@ -342,9 +342,32 @@ function stageForTier(tier, details = {}) {
   if (details.stage) return details.stage
   if (tier.id === 'validate-matrix') return 'setup'
   if (tier.id === 'bootstrap' || String(tier.command).includes('bootstrap-acceptance-env')) return 'bootstrap'
-  if (tier.id === 'release-evidence' || tier.id === 'release-closeout') return 'artifact'
+  if (tier.id === 'release-evidence' || tier.id === 'release-closeout' || tier.id === 'release-final') return 'artifact'
   if (tier.id === 'production') return 'summary'
   return 'test'
+}
+
+function matrixShardId(value) {
+  const match = String(value ?? '').match(/^(\d+)\/(\d+)$/)
+  return match ? `${match[1]}-of-${match[2]}` : null
+}
+
+function safeMatrixValue(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/[^A-Za-z0-9_.-]/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function summaryJobIdForTier(tier, details = {}) {
+  if (details.jobId) return details.jobId
+
+  const parts = [tier.ciJob]
+  const browser = tier.requiresPlaywright === 'all' ? safeMatrixValue(process.env.FSUSBLOG_PLAYWRIGHT_BROWSERS) : ''
+  const shard = matrixShardId(process.env.MATRIX_SHARD)
+  if (browser && !browser.includes('-') && !browser.includes(',')) parts.push(browser)
+  if (shard) parts.push(shard)
+  return parts.filter(Boolean).join('-')
 }
 
 function mergeStageDurations(existing, stage, durationMs) {
@@ -356,7 +379,7 @@ function mergeStageDurations(existing, stage, durationMs) {
 }
 
 function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
-  const jobId = details.jobId ?? tier.ciJob
+  const jobId = summaryJobIdForTier(tier, details)
   const existing = readExistingJobSummary(jobId)
   const jobTiers = matrix.tiers
     .filter((item) => item.ciJob === tier.ciJob && item.localOnly !== true && item.nightlyOnly !== true && item.manualOnly !== true)
@@ -670,7 +693,9 @@ function evidencePlan(matrix, outFile) {
       artifacts: tier.artifacts,
       evidence: tier.evidence,
       risk: tier.risk,
-      nightlyOnly: tier.nightlyOnly
+      localOnly: tier.localOnly,
+      nightlyOnly: tier.nightlyOnly,
+      manualOnly: tier.manualOnly === true
     }))
   }
   const abs = path.resolve(root, outFile ?? '.tmp/release-evidence/test-plan.json')
@@ -807,6 +832,7 @@ function usage() {
   node tools/run-test-matrix.mjs ci-job <job> [--plan-only] [--shard i/n]
   node tools/run-test-matrix.mjs ci-fast [--plan-only]
   node tools/run-test-matrix.mjs ci-production [--plan-only]
+  node tools/run-test-matrix.mjs ci-release-final [--plan-only]
   node tools/run-test-matrix.mjs ci-plan [--format github-actions] [--out .tmp/ci-plan.json]
   node tools/run-test-matrix.mjs docs [--out docs/testing.generated.md]
   node tools/run-test-matrix.mjs evidence-plan [--out .tmp/release-evidence/test-plan.json]
@@ -816,6 +842,7 @@ Compatibility:
   "./tools/test.sh production --plan-only" prints the DAG without executing it.
   "./tools/test.sh production" is the production-ci-gate: release evidence may be schema-valid collected-blocked.
   "./tools/test.sh release-closeout" is the release-closeout-gate: it requires check-release-evidence-manifest.mjs --require-ok.
+  "./tools/test.sh release-final" is the final publish credential: no skip, no collected-blocked, strict coverage, strict shards, artifact-bound evidence.
 `)
 }
 
@@ -875,6 +902,10 @@ function main() {
   }
   if (command === 'ci-production') {
     runTier(matrix, 'production', args)
+    return
+  }
+  if (command === 'ci-release-final') {
+    runTier(matrix, 'release-final', args)
     return
   }
   if (command === 'ci-plan') {

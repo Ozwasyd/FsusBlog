@@ -70,6 +70,7 @@ function isIsoDate(value) {
 
 function validateRegistry(registry) {
   const errors = []
+  const releaseFinal = process.argv.includes('--release-final')
   if (registry.version !== 'fsusblog-flaky-v1') errors.push(`version must be fsusblog-flaky-v1, got ${registry.version ?? 'missing'}`)
   if (!Array.isArray(registry.entries)) errors.push('entries must be an array')
 
@@ -93,6 +94,27 @@ function validateRegistry(registry) {
     if (!allowedClassifications.has(entry.classification)) errors.push(`${id}: classification must be one of ${[...allowedClassifications].join(', ')}`)
     if (entry.mode === 'skip-with-evidence' && String(entry.reason).length < 12) {
       errors.push(`${id}: skip-with-evidence requires a specific reason`)
+    }
+    if (entry.linkedIssue !== undefined && (!Number.isInteger(entry.linkedIssue) || entry.linkedIssue <= 0)) {
+      errors.push(`${id}: linkedIssue must be a positive integer when present`)
+    }
+    if (entry.expiresAt !== undefined && !isIsoDate(entry.expiresAt)) {
+      errors.push(`${id}: expiresAt must use YYYY-MM-DD when present`)
+    }
+    if (entry.maxQuarantineDays !== undefined && (!Number.isInteger(entry.maxQuarantineDays) || entry.maxQuarantineDays < 1)) {
+      errors.push(`${id}: maxQuarantineDays must be a positive integer when present`)
+    }
+    if (releaseFinal) {
+      const criticalSuite = /security|static|contract|migration|coverage|release/i.test(String(entry.suite ?? ''))
+      if (criticalSuite && Number(entry.allowedRetries) > 0) {
+        errors.push(`${id}: release-final forbids retry quarantine for critical suite ${entry.suite}`)
+      }
+      if (entry.releaseBlocker === true || criticalSuite) {
+        errors.push(`${id}: release-final blocks critical flaky quarantine`)
+      }
+      if (entry.mode === 'skip-with-evidence') {
+        errors.push(`${id}: release-final does not allow skip-with-evidence quarantine`)
+      }
     }
   }
   return errors

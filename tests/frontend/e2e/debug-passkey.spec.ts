@@ -14,8 +14,9 @@ test.describe('passkey login debugging', () => {
       await session.page.goto('/login', { waitUntil: 'domcontentloaded' })
       await waitForAppReady(session.page)
 
-      // 点击通行密钥登录按钮
-      await session.page.getByRole('button', { name: /使用通行密钥登录/ }).click()
+      const passkeyButton = session.page.getByRole('button', { name: /使用通行密钥登录/ })
+      await expect(passkeyButton).toBeVisible()
+      await passkeyButton.click()
 
       // 我们预期代码会打印 debug 日志
       // 如果它工作了，它应该会尝试调用 WebAuthn
@@ -27,6 +28,8 @@ test.describe('passkey login debugging', () => {
       await session.page.waitForTimeout(5000)
       const logs = await session.page.evaluate(() => (window as any).__passkey_logs || [])
       console.log('Browser Passkey Logs:', logs)
+      expect(Array.isArray(logs)).toBe(true)
+      await expect(session.page).toHaveURL(/\/login/)
 
     } finally {
       await session.close()

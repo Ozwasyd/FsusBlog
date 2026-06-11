@@ -33,6 +33,7 @@ function validate(item, file) {
 }
 
 function main() {
+  const releaseFinal = process.argv.includes('--release-final')
   const roots = [
     path.join(root, '.tmp/release-evidence/flaky'),
     path.join(root, '.tmp/downloaded-artifacts')
@@ -51,6 +52,9 @@ function main() {
     if (item.schema !== 'fsusblog.ci.flaky.v1') continue
     count += 1
     errors.push(...validate(item, path.relative(root, file)))
+    if (releaseFinal) {
+      errors.push(`${path.relative(root, file)}: release-final does not accept flaky retry/skip evidence (${item.finalStatus})`)
+    }
   }
   if (errors.length > 0) {
     for (const error of errors) console.error(`[flaky-evidence] ${error}`)

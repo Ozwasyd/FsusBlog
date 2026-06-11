@@ -608,7 +608,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps ${{ matrix.browser }}
       - run: ./tools/test.sh bootstrap --no-deps
-      - run: node tools/ci/run-flaky-governed.mjs --suite cross-browser-smoke --test ${{ matrix.browser }} -- ./tools/test.sh cross-browser-smoke --no-deps --shard 1/3
+      - run: node tools/ci/run-flaky-governed.mjs --suite cross-browser-smoke --test ${{ matrix.browser }} -- ./tools/test.sh cross-browser-smoke --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:

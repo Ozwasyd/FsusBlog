@@ -18,3 +18,21 @@ excludedGeneratedFiles:
   - src/shared/Contracts/Validation/*.g.*
   - src/frontend/src/generated/**
 temporaryExceptions: []
+releaseFinal:
+  backend:
+    line: 85
+    branch: 75
+  frontend:
+    line: 75
+    branch: 65
+  changedCode:
+    line: 90
+  criticalBackendModules:
+    branch: 90
+    exceptionRequired: true
+    paths:
+      - src/backend/Infrastructure/Auth/**
+      - src/backend/Infrastructure/Middlewares/**
+      - src/backend/Infrastructure/Operations/**
+      - src/backend/Modules/Endpoints/Binary/**
+    approvedExceptions: []

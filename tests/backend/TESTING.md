@@ -89,14 +89,19 @@ All test classes must live under `Unit/` or `Integration/`.
   - Requires the acceptance environment.
   - Runs lightweight public/API concurrency checks.
 - `./tools/test.sh production`
-  - Industrial release gate.
+  - Production CI gate.
   - Runs `fast`, bootstraps `3000/5000/8080` once, then runs `integration + release + acceptance + visual + security + resilience + load + backend-qps` against the shared environment.
-  - This is the "0 errors / 0 warnings / 0 release-blocker bugs" gate.
+  - Allows schema-valid `collected-blocked` release evidence for external production handoff; this is not a final publish credential.
+- `./tools/test.sh release-final`
+  - Final publish credential for manual release candidates.
+  - Adds strict coverage, changed-code coverage, release runtime lanes, AOT generation/consumption, peak/burst/scale/soak/mutation/resource budgets, strict shard completeness, no visual skip, live exposure evidence, flaky release-final governance, and artifact digest binding.
+  - This is the only gate that may be treated as the "zero known release-blocker bugs inside the declared release matrix" proof.
 
 ## CI Contract
 
 - `.github/workflows/quality-gate.yml` runs `./tools/test.sh production` on `pull_request`, `main` / `master` push, and manual dispatch.
 - The same workflow also runs `./tools/test.sh coverage-gate` as the coverage blocker.
+- `release-final` is `manualOnly` in `tests/matrix.yml`; it is intentionally not part of ordinary PR CI.
 - CI must provide `GITHUB_PACKAGES_TOKEN` so `src/frontend/.npmrc` can install the private `@ozwasyd` package.
 - On failure, inspect `.tmp/acceptance/*.log` and `src/frontend/test-results/playwright/`; CI uploads both as `quality-gate-artifacts`.
 

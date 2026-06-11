@@ -15,8 +15,8 @@ for (const tier of matrix.tiers) {
   if (!Number.isInteger(tier.timeoutMinutes) || tier.timeoutMinutes < 1) {
     errors.push(`${tier.id}.timeoutMinutes must be a positive integer`)
   }
-  if (tier.timeoutMinutes > 180) {
-    errors.push(`${tier.id}.timeoutMinutes exceeds the documented 180m ceiling`)
+  if (tier.timeoutMinutes > 240) {
+    errors.push(`${tier.id}.timeoutMinutes exceeds the documented 240m ceiling`)
   }
 }
 
@@ -33,7 +33,7 @@ const summary = {
   budgets: Object.fromEntries(matrix.tiers.map((tier) => [tier.id, {
     target: `${tier.timeoutMinutes}m`,
     hardTimeout: `${tier.timeoutMinutes}m`,
-    source: tier.nightlyOnly ? 'nightly' : 'github-actions',
+    source: tier.manualOnly ? 'manual' : tier.nightlyOnly ? 'nightly' : 'github-actions',
     ciJob: tier.ciJob
   }])),
   errors

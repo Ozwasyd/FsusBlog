@@ -13,7 +13,7 @@ tier="$1"
 shift || true
 
 case "$tier" in
-  ci-fast|ci-production|ci-job|ci-tier)
+  ci-fast|ci-production|ci-release-final|ci-job|ci-tier)
     exec "$NODE_BIN" "$ROOT_DIR/tools/run-test-matrix.mjs" "$tier" "$@"
     ;;
   ci-plan)
