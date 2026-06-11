@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const summariesDir = path.join(root, '.tmp/release-evidence/jobs')
 const planFile = path.join(root, '.tmp/release-evidence/test-plan.json')
+const allowedFailureStages = ['setup', 'restore', 'install', 'bootstrap', 'test', 'artifact', 'summary']
 
 function fail(errors) {
   for (const error of errors) console.error(`[job-summary-check] ${error}`)
@@ -36,7 +37,17 @@ function validateSummary(summary, file) {
   if (!Array.isArray(summary.artifacts)) errors.push(`${file}: artifacts must be an array`)
   if (typeof summary.durationMs !== 'number') errors.push(`${file}: durationMs must be a number`)
   if (summary.status !== 'success' && !summary.failureStage) errors.push(`${file}: failureStage is required for non-success`)
+  if (summary.failureStage && !allowedFailureStages.includes(summary.failureStage)) {
+    errors.push(`${file}: failureStage must be one of ${allowedFailureStages.join(', ')}`)
+  }
   if (summary.status !== 'success' && !summary.rootCause) errors.push(`${file}: rootCause is required for non-success`)
+  if (!summary.stageDurationsMs || typeof summary.stageDurationsMs !== 'object' || Array.isArray(summary.stageDurationsMs)) {
+    errors.push(`${file}: stageDurationsMs is required`)
+  } else {
+    for (const stage of allowedFailureStages) {
+      if (typeof summary.stageDurationsMs[stage] !== 'number') errors.push(`${file}: stageDurationsMs.${stage} must be a number`)
+    }
+  }
   return errors
 }
 

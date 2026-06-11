@@ -47,6 +47,11 @@ EOF
 console.log('[job-summary-check] ok')
 EOF
 
+  cat > "$temp_dir/tools/ci/run-stage.mjs" <<'EOF'
+#!/usr/bin/env node
+console.log('[ci-stage] ok')
+EOF
+
   cat > "$temp_dir/tools/test/legacy-test.sh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
@@ -90,6 +95,7 @@ EOF
     "$temp_dir/tools/run-test-matrix.mjs" \
     "$temp_dir/tools/ci/summarize-quality-gate.mjs" \
     "$temp_dir/tools/ci/check-job-summaries.mjs" \
+    "$temp_dir/tools/ci/run-stage.mjs" \
     "$temp_dir/tools/test/legacy-test.sh" \
     "$temp_dir/tools/ok.sh" \
     "$temp_dir/tools/check-gate-integrity.sh" \
@@ -427,6 +433,7 @@ const requiredPaths = [
   'tools/run-test-matrix.mjs',
   'tools/ci/summarize-quality-gate.mjs',
   'tools/ci/check-job-summaries.mjs',
+  'tools/ci/run-stage.mjs',
   'tools/check-gate-integrity.sh',
   'tests/matrix.yml',
   'tests/matrix.schema.json',

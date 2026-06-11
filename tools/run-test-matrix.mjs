@@ -9,6 +9,7 @@ const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url))
 const matrixFile = path.join(root, 'tests/matrix.yml')
 const schemaFile = path.join(root, 'tests/matrix.schema.json')
 const preflightLogFile = path.join(root, '.tmp/gate-logs/preflight.json')
+const summaryStages = ['setup', 'restore', 'install', 'bootstrap', 'test', 'artifact', 'summary']
 const aliases = new Map([
   ['coverage', 'coverage-gate'],
   ['backend-qps-runtime', 'backend-qps'],
@@ -30,6 +31,10 @@ const requiredFields = [
   'resourceClass',
   'maxParallel',
   'requiresBootstrap',
+  'requiresNode',
+  'requiresDotnet',
+  'requiresPlaywright',
+  'cacheProfile',
   'timeoutMinutes',
   'shardable',
   'defaultShards',
@@ -165,7 +170,7 @@ function validateMatrix(matrix) {
     for (const field of ['dependsOn', 'services', 'exclusiveResources', 'coverage', 'artifacts', 'evidence']) {
       if (!Array.isArray(tier[field])) errors.push(`${tier.id}.${field} must be an array`)
     }
-    for (const field of ['parallelizable', 'shardable', 'localOnly', 'nightlyOnly']) {
+    for (const field of ['parallelizable', 'shardable', 'localOnly', 'nightlyOnly', 'requiresNode', 'requiresDotnet']) {
       if (typeof tier[field] !== 'boolean') errors.push(`${tier.id}.${field} must be boolean`)
     }
     if ('manualOnly' in tier && typeof tier.manualOnly !== 'boolean') {
@@ -186,6 +191,23 @@ function validateMatrix(matrix) {
     }
     if (!['none', 'frontend', 'backend', 'full'].includes(tier.requiresBootstrap)) {
       errors.push(`${tier.id}.requiresBootstrap is invalid: ${tier.requiresBootstrap}`)
+    }
+    if (!['none', 'chromium', 'all'].includes(tier.requiresPlaywright)) {
+      errors.push(`${tier.id}.requiresPlaywright is invalid: ${tier.requiresPlaywright}`)
+    }
+    if (!['none', 'frontend', 'backend', 'full'].includes(tier.cacheProfile)) {
+      errors.push(`${tier.id}.cacheProfile is invalid: ${tier.cacheProfile}`)
+    }
+    const cacheNeedsFrontend = tier.cacheProfile === 'frontend' || tier.cacheProfile === 'full'
+    const cacheNeedsBackend = tier.cacheProfile === 'backend' || tier.cacheProfile === 'full'
+    if (cacheNeedsFrontend && tier.requiresNode !== true) {
+      errors.push(`${tier.id}.cacheProfile ${tier.cacheProfile} requires requiresNode=true`)
+    }
+    if (cacheNeedsBackend && tier.requiresDotnet !== true) {
+      errors.push(`${tier.id}.cacheProfile ${tier.cacheProfile} requires requiresDotnet=true`)
+    }
+    if (tier.requiresPlaywright !== 'none' && tier.requiresNode !== true) {
+      errors.push(`${tier.id}.requiresPlaywright requires requiresNode=true`)
     }
     if (tier.parallelizable === false && Number(tier.maxParallel) !== 1) {
       errors.push(`${tier.id} is not parallelizable but maxParallel is ${tier.maxParallel}`)
@@ -316,28 +338,50 @@ function readExistingJobSummary(jobId) {
   }
 }
 
+function stageForTier(tier, details = {}) {
+  if (details.stage) return details.stage
+  if (tier.id === 'validate-matrix') return 'setup'
+  if (tier.id === 'bootstrap' || String(tier.command).includes('bootstrap-acceptance-env')) return 'bootstrap'
+  if (tier.id === 'release-evidence' || tier.id === 'release-closeout') return 'artifact'
+  if (tier.id === 'production') return 'summary'
+  return 'test'
+}
+
+function mergeStageDurations(existing, stage, durationMs) {
+  const durations = Object.fromEntries(summaryStages.map((name) => [name, Number(existing?.stageDurationsMs?.[name] ?? 0)]))
+  if (summaryStages.includes(stage)) {
+    durations[stage] += Math.max(0, durationMs)
+  }
+  return durations
+}
+
 function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
   const jobId = details.jobId ?? tier.ciJob
   const existing = readExistingJobSummary(jobId)
   const jobTiers = matrix.tiers
     .filter((item) => item.ciJob === tier.ciJob && item.localOnly !== true && item.nightlyOnly !== true && item.manualOnly !== true)
     .map((item) => item.id)
-  const tierIds = [...new Set([...(existing?.tierIds ?? []), ...jobTiers.filter((id) => id === tier.id), tier.id])].filter(Boolean)
+  const knownTierIds = new Set(matrix.tiers.map((item) => item.id))
+  const existingTierIds = (existing?.tierIds ?? []).filter((id) => knownTierIds.has(id))
+  const tierIds = [...new Set([...existingTierIds, ...jobTiers.filter((id) => id === tier.id), tier.id])].filter(Boolean)
   const artifacts = [...new Set([
     ...(existing?.artifacts ?? []),
     ...(tier.artifacts ?? []),
     ...(tier.evidence ?? []).filter((item) => String(item).startsWith('.tmp/'))
   ])].sort()
-  const durationMs = Math.max(0, Number(existing?.durationMs ?? 0)) + Math.max(0, Date.now() - startedAt)
+  const deltaMs = Math.max(0, Date.now() - startedAt)
+  const durationMs = Math.max(0, Number(existing?.durationMs ?? 0)) + deltaMs
+  const stage = stageForTier(tier, details)
   const summary = {
     schema: 'fsusblog.ci.job-result.v1',
     jobId,
     ciJob: tier.ciJob,
     tierIds,
     status,
-    failureStage: status === 'success' ? null : (details.failureStage ?? tier.id),
+    failureStage: status === 'success' ? null : (details.failureStage ?? stage),
     rootCause: status === 'success' ? null : (details.rootCause ?? `${tier.id} exited non-zero`),
     durationMs,
+    stageDurationsMs: mergeStageDurations(existing, stage, deltaMs),
     artifacts,
     localReproduction: ciJobReproductionCommand(tier.ciJob),
     commit: git(['rev-parse', 'HEAD']) ?? 'unknown',
@@ -401,7 +445,7 @@ function runTier(matrix, tierId, args) {
     })
     if (result.status !== 0) {
       writeJobSummary(matrix, tier, 'failure', startedAt, {
-        failureStage: tier.id,
+        failureStage: stageForTier(tier),
         rootCause: `${tier.command} exited ${result.status ?? 1}`
       })
       process.exit(result.status ?? 1)
@@ -484,6 +528,11 @@ function writeTextOutput(text, outFile, label) {
 }
 
 function buildCiPlan(matrix, format) {
+  const combineCacheProfile = (left, right) => {
+    const frontend = left === 'frontend' || left === 'full' || right === 'frontend' || right === 'full'
+    const backend = left === 'backend' || left === 'full' || right === 'backend' || right === 'full'
+    return frontend && backend ? 'full' : frontend ? 'frontend' : backend ? 'backend' : 'none'
+  }
   const jobs = new Map()
   for (const tier of matrix.tiers) {
     const job = jobs.get(tier.ciJob) ?? {
@@ -492,12 +541,21 @@ function buildCiPlan(matrix, format) {
       timeoutMinutes: 0,
       needs: new Set(),
       artifacts: new Set(),
-      evidence: new Set()
+      evidence: new Set(),
+      requiresNode: false,
+      requiresDotnet: false,
+      requiresPlaywright: 'none',
+      cacheProfile: 'none'
     }
       job.tiers.push(tier.id)
       job.timeoutMinutes = Math.max(job.timeoutMinutes, tier.timeoutMinutes)
-      job.phase = Math.max(job.phase ?? 0, tier.phase)
-      job.maxParallel = Math.max(job.maxParallel ?? 1, tier.maxParallel)
+    job.phase = Math.max(job.phase ?? 0, tier.phase)
+    job.maxParallel = Math.max(job.maxParallel ?? 1, tier.maxParallel)
+    job.requiresNode = job.requiresNode || tier.requiresNode
+    job.requiresDotnet = job.requiresDotnet || tier.requiresDotnet
+    if (tier.requiresPlaywright === 'all') job.requiresPlaywright = 'all'
+    else if (tier.requiresPlaywright === 'chromium' && job.requiresPlaywright === 'none') job.requiresPlaywright = 'chromium'
+    job.cacheProfile = combineCacheProfile(job.cacheProfile, tier.cacheProfile)
     for (const artifact of tier.artifacts) job.artifacts.add(artifact)
     for (const evidence of tier.evidence) job.evidence.add(evidence)
     jobs.set(tier.ciJob, job)
@@ -519,6 +577,10 @@ function buildCiPlan(matrix, format) {
       timeoutMinutes: job.timeoutMinutes,
       phase: job.phase ?? 0,
       maxParallel: job.maxParallel ?? 1,
+      requiresNode: job.requiresNode,
+      requiresDotnet: job.requiresDotnet,
+      requiresPlaywright: job.requiresPlaywright,
+      cacheProfile: job.cacheProfile,
       needs: [...job.needs].sort(),
       artifacts: [...job.artifacts].sort(),
       evidence: [...job.evidence].sort()
@@ -538,8 +600,8 @@ function docs(matrix, outFile) {
     '',
     `Version: \`${matrix.version}\``,
     '',
-    '| Tier | CI job | Local command | Phase | Resource | Cost | Max parallel | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
-    '|---|---|---|---:|---|---|---:|---|---|---:|---:|---|---|'
+    '| Tier | CI job | Local command | Phase | Resource | Cost | Max parallel | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---:|---|---|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of matrix.tiers) {
     lines.push([
@@ -550,6 +612,11 @@ function docs(matrix, outFile) {
       tier.resourceClass,
       tier.cost,
       String(tier.maxParallel),
+      tier.requiresBootstrap,
+      tier.requiresNode ? 'yes' : 'no',
+      tier.requiresDotnet ? 'yes' : 'no',
+      tier.requiresPlaywright,
+      tier.cacheProfile,
       tier.dependsOn.length > 0 ? tier.dependsOn.map((id) => `\`${id}\``).join(', ') : '-',
       tier.services.length > 0 ? tier.services.join(', ') : '-',
       tier.shardable ? String(tier.defaultShards) : '1',
@@ -594,6 +661,10 @@ function evidencePlan(matrix, outFile) {
       resourceClass: tier.resourceClass,
       maxParallel: tier.maxParallel,
       requiresBootstrap: tier.requiresBootstrap,
+      requiresNode: tier.requiresNode,
+      requiresDotnet: tier.requiresDotnet,
+      requiresPlaywright: tier.requiresPlaywright,
+      cacheProfile: tier.cacheProfile,
       shardable: tier.shardable,
       defaultShards: tier.defaultShards,
       artifacts: tier.artifacts,
@@ -696,7 +767,8 @@ function preflight(matrix) {
 
   if (errors.length > 0) {
     writeJobSummary(matrix, tierMap(matrix).get('validate-matrix'), 'failure', Date.now(), {
-      failureStage: 'preflight',
+      failureStage: 'setup',
+      stage: 'setup',
       rootCause: errors[0],
       jobId: 'validate-matrix'
     })
@@ -707,6 +779,7 @@ function preflight(matrix) {
   writeJobSummary(matrix, tierMap(matrix).get('validate-matrix'), 'success', Date.now(), {
     failureStage: null,
     rootCause: null,
+    stage: 'setup',
     jobId: 'validate-matrix'
   })
   console.log(`[matrix:preflight] ok (${checkedDirectories.length} directories, ${checkedFiles.length} files)`)

@@ -61,6 +61,10 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - run: ./tools/test.sh coverage-backend --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
@@ -85,7 +89,7 @@ jobs:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh coverage-frontend --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
@@ -146,6 +150,10 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - run: ./tools/test.sh backend-fast --no-deps
       - run: ./tools/test.sh backend-auth-state-machine --no-deps
       - run: ./tools/test.sh backend-concurrency --no-deps
@@ -177,7 +185,7 @@ jobs:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh frontend-fast --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
@@ -200,9 +208,6 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
-      - uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 10.0.x
       - run: ./tools/test.sh static-governance --no-deps
       - run: ./tools/test.sh backend-test-governance --no-deps
       - uses: actions/upload-artifact@v7
@@ -250,7 +255,7 @@ jobs:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh endpoint-depth --no-deps
       - run: ./tools/test.sh cross-stack-contract --no-deps
       - uses: actions/upload-artifact@v7
@@ -278,12 +283,16 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh integration
       - run: ./tools/test.sh data-scale-xs --no-deps
       - run: ./tools/test.sh data-scale-s --no-deps
@@ -312,12 +321,16 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh release
       - uses: actions/upload-artifact@v7
         if: always()
@@ -340,12 +353,16 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh security
       - run: ./tools/test.sh security-authenticated-dast --no-deps
       - run: ./tools/test.sh csrf-browser-matrix --no-deps
@@ -390,13 +407,21 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
-      - run: npm --prefix src/frontend exec -- playwright install --with-deps chromium
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
       - run: ./tools/test.sh bootstrap --no-deps
       - run: ./tools/test.sh acceptance --no-deps --shard ${{ matrix.shard }}
       - uses: actions/upload-artifact@v7
@@ -431,13 +456,21 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
-      - run: npm --prefix src/frontend exec -- playwright install --with-deps chromium
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
       - run: ./tools/test.sh bootstrap --no-deps
       - run: ./tools/test.sh visual --no-deps --shard ${{ matrix.shard }}
       - uses: actions/upload-artifact@v7
@@ -464,13 +497,21 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
-      - run: npm --prefix src/frontend exec -- playwright install --with-deps chromium
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
       - run: ./tools/test.sh bootstrap --no-deps
       - run: ./tools/test.sh ux-viewport-smoke --no-deps
       - uses: actions/upload-artifact@v7
@@ -500,13 +541,16 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
-      - run: npm --prefix src/frontend exec -- playwright install --with-deps chromium
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh bootstrap --no-deps
       - run: ./tools/test.sh frontend-render-pressure --no-deps
       - uses: actions/upload-artifact@v7
@@ -544,13 +588,21 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
-      - run: npm --prefix src/frontend exec -- playwright install --with-deps ${{ matrix.browser }}
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps ${{ matrix.browser }}
       - run: ./tools/test.sh bootstrap --no-deps
       - run: ./tools/test.sh cross-browser-smoke --no-deps --shard 1/3
       - uses: actions/upload-artifact@v7
@@ -573,12 +625,16 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh resilience
       - run: ./tools/test.sh fault-injection --no-deps
       - run: ./tools/test.sh backend-chaos --no-deps
@@ -604,12 +660,16 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh load
       - run: ./tools/test.sh load-baseline --no-deps
       - run: ./tools/test.sh load-peak --no-deps
@@ -634,12 +694,16 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
-      - run: npm --prefix src/frontend ci --no-audit --progress=false
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh backend-qps
       - uses: actions/upload-artifact@v7
         if: always()
@@ -662,9 +726,10 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
-      - uses: actions/setup-node@v6
+      - uses: actions/cache@v4
         with:
-          node-version: 24.x
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - run: ./tools/test.sh aeds-frame-cost --no-deps
       - run: ./tools/test.sh aeds-compression-profile --no-deps
       - run: ./tools/test.sh backend-perf --no-deps

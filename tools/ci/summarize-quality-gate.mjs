@@ -124,6 +124,15 @@ function writeStepSummary(lines) {
 function writeProductionSummary(status, rootFailures = [], rootCause = null) {
   const outFile = path.join(root, '.tmp/release-evidence/jobs/production-summary.json')
   fs.mkdirSync(path.dirname(outFile), { recursive: true })
+  const stageDurationsMs = {
+    setup: 0,
+    restore: 0,
+    install: 0,
+    bootstrap: 0,
+    test: 0,
+    artifact: 0,
+    summary: 0
+  }
   fs.writeFileSync(outFile, `${JSON.stringify({
     schema: 'fsusblog.ci.job-result.v1',
     jobId: 'production-summary',
@@ -133,6 +142,7 @@ function writeProductionSummary(status, rootFailures = [], rootCause = null) {
     failureStage: status === 'success' ? null : 'summary',
     rootCause: status === 'success' ? null : (rootCause ?? rootFailures.map((item) => `${item.name}:${item.value.result}`).join(', ')),
     durationMs: 0,
+    stageDurationsMs,
     artifacts: ['.tmp/release-evidence/jobs/production-summary.json'],
     localReproduction: './tools/test.sh ci-production --plan-only',
     commit: process.env.GITHUB_SHA ?? 'unknown',

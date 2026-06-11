@@ -84,6 +84,10 @@ function tierRow(tier) {
     tier.cost,
     String(tier.maxParallel),
     tier.requiresBootstrap,
+    tier.requiresNode ? 'yes' : 'no',
+    tier.requiresDotnet ? 'yes' : 'no',
+    tier.requiresPlaywright,
+    tier.cacheProfile,
     tier.dependsOn.length > 0 ? tier.dependsOn.map((id) => `\`${id}\``).join(', ') : '-',
     tier.services.length > 0 ? tier.services.join(', ') : '-',
     tier.shardable ? String(tier.defaultShards) : '1',
@@ -95,8 +99,8 @@ function tierRow(tier) {
 
 function tableFor(tiers) {
   const lines = [
-    '| Tier | CI job | Local command | Phase | Resource | Cost | Max parallel | Bootstrap | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
-    '|---|---|---|---:|---|---|---:|---|---|---|---:|---:|---|---|'
+    '| Tier | CI job | Local command | Phase | Resource | Cost | Max parallel | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---:|---|---|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of tiers) {
     lines.push(tierRow(tier))
@@ -109,20 +113,30 @@ function isWorkflowTier(tier) {
 }
 
 function ciJobRows(matrix) {
+  const combineCacheProfile = (left, right) => {
+    const frontend = left === 'frontend' || left === 'full' || right === 'frontend' || right === 'full'
+    const backend = left === 'backend' || left === 'full' || right === 'backend' || right === 'full'
+    return frontend && backend ? 'full' : frontend ? 'frontend' : backend ? 'backend' : 'none'
+  }
   const jobs = new Map()
   for (const tier of matrix.tiers.filter(isWorkflowTier)) {
-    const job = jobs.get(tier.ciJob) ?? { id: tier.ciJob, tiers: [], timeoutMinutes: 0, shards: 1 }
+    const job = jobs.get(tier.ciJob) ?? { id: tier.ciJob, tiers: [], timeoutMinutes: 0, shards: 1, requiresPlaywright: 'none', cacheProfile: 'none' }
     job.tiers.push(tier)
     job.timeoutMinutes = Math.max(job.timeoutMinutes, Number(tier.timeoutMinutes) || 0)
     job.shards = Math.max(job.shards, tier.shardable ? Number(tier.defaultShards) || 1 : 1)
     job.phase = Math.max(job.phase ?? 0, Number(tier.phase) || 0)
     job.maxParallel = Math.max(job.maxParallel ?? 1, Number(tier.maxParallel) || 1)
+    job.requiresNode = job.requiresNode || tier.requiresNode === true
+    job.requiresDotnet = job.requiresDotnet || tier.requiresDotnet === true
+    if (tier.requiresPlaywright === 'all') job.requiresPlaywright = 'all'
+    else if (tier.requiresPlaywright === 'chromium' && job.requiresPlaywright === 'none') job.requiresPlaywright = 'chromium'
+    job.cacheProfile = combineCacheProfile(job.cacheProfile, tier.cacheProfile)
     jobs.set(job.id, job)
   }
 
   const lines = [
-    '| CI job | Local reproduction command | Matrix tiers | Phase | Max timeout | Max shards | Max parallel |',
-    '|---|---|---|---:|---:|---:|---:|'
+    '| CI job | Local reproduction command | Matrix tiers | Phase | Setup/cache | Max timeout | Max shards | Max parallel |',
+    '|---|---|---|---:|---|---:|---:|---:|'
   ]
   for (const job of [...jobs.values()].sort((left, right) => left.id.localeCompare(right.id))) {
     lines.push([
@@ -130,6 +144,12 @@ function ciJobRows(matrix) {
       `\`./tools/test.sh ci-job ${job.id}\``,
       job.tiers.map((tier) => `\`${tier.id}\``).join(', '),
       String(job.phase ?? 0),
+      [
+        job.requiresNode ? 'node' : null,
+        job.requiresDotnet ? 'dotnet' : null,
+        job.requiresPlaywright !== 'none' ? `playwright:${job.requiresPlaywright}` : null,
+        job.cacheProfile !== 'none' ? `cache:${job.cacheProfile}` : null
+      ].filter(Boolean).join(', ') || 'none',
       `${job.timeoutMinutes}m`,
       String(job.shards),
       String(job.maxParallel ?? 1)

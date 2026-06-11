@@ -94,6 +94,44 @@ function parseInlineList(value) {
   return [trimmed]
 }
 
+function normalizeYamlScalar(value) {
+  return String(value ?? '').trim().replace(/^['"]|['"]$/g, '')
+}
+
+function combineCacheProfile(left, right) {
+  const frontend = left === 'frontend' || left === 'full' || right === 'frontend' || right === 'full'
+  const backend = left === 'backend' || left === 'full' || right === 'backend' || right === 'full'
+  return frontend && backend ? 'full' : frontend ? 'frontend' : backend ? 'backend' : 'none'
+}
+
+function combinePlaywrightRequirement(left, right) {
+  if (left === 'all' || right === 'all') return 'all'
+  if (left === 'chromium' || right === 'chromium') return 'chromium'
+  return 'none'
+}
+
+function annotateWorkflowJob(job) {
+  const text = job.lines.join('\n')
+  job.hasSetupNode = /uses:\s*actions\/setup-node@/.test(text)
+  job.hasSetupDotnet = /uses:\s*actions\/setup-dotnet@/.test(text)
+  job.nodeCacheDependencyPaths = new Set([...text.matchAll(/cache-dependency-path:\s*(.*?)\s*$/gm)].map((match) => normalizeYamlScalar(match[1])))
+  job.hasNpmLockCache = /cache:\s*npm/.test(text) && job.nodeCacheDependencyPaths.has('src/frontend/package-lock.json')
+  job.hasNugetCache = /uses:\s*actions\/cache@v4/.test(text)
+    && /path:\s*~\/\.nuget\/packages/.test(text)
+    && /key:\s*nuget-\$\{\{\s*runner\.os\s*\}\}-\$\{\{\s*hashFiles\(/.test(text)
+    && text.includes('**/*.csproj')
+    && text.includes('**/*.props')
+    && text.includes('**/*.targets')
+    && text.includes('global.json')
+    && text.includes('NuGet.config')
+  job.hasPlaywrightCache = /uses:\s*actions\/cache@v4/.test(text)
+    && /path:\s*~\/\.cache\/ms-playwright/.test(text)
+    && /key:\s*playwright-\$\{\{\s*runner\.os\s*\}\}-\$\{\{\s*hashFiles\('src\/frontend\/package-lock\.json'\)/.test(text)
+  job.npmCiCommands = job.runs.filter((command) => /(?:^|\s)npm\s+--prefix\s+src\/frontend\s+ci(?:\s|$)/.test(command))
+  job.playwrightInstallCommands = job.runs.filter((command) => /playwright\s+install/.test(command))
+  return job
+}
+
 function parseWorkflow(text) {
   const jobs = new Map()
   let inJobs = false
@@ -113,10 +151,11 @@ function parseWorkflow(text) {
       currentJob = jobMatch[1]
       collectingNeeds = null
       collectingPath = null
-      jobs.set(currentJob, { needs: new Set(), runs: [], timeoutMinutes: null, maxParallel: null, uploadPaths: new Set() })
+      jobs.set(currentJob, { needs: new Set(), runs: [], timeoutMinutes: null, maxParallel: null, uploadPaths: new Set(), lines: [] })
       continue
     }
     if (!currentJob) continue
+    jobs.get(currentJob).lines.push(rawLine)
 
     const pathMatch = rawLine.match(/^(\s*)path:\s*(.*?)\s*$/)
     if (pathMatch) {
@@ -175,6 +214,7 @@ function parseWorkflow(text) {
     }
   }
 
+  for (const job of jobs.values()) annotateWorkflowJob(job)
   return jobs
 }
 
@@ -252,6 +292,84 @@ function coveredTiersForWorkflowJob(job, tiersById) {
   return covered
 }
 
+function setupRequirementsForTiers(tierIds, tiersById) {
+  const requirements = {
+    requiresNode: false,
+    requiresDotnet: false,
+    requiresPlaywright: 'none',
+    cacheProfile: 'none',
+    requiresBootstrap: 'none'
+  }
+  for (const tierId of tierIds) {
+    const tier = tiersById.get(tierId)
+    if (!tier) continue
+    requirements.requiresNode = requirements.requiresNode || tier.requiresNode === true
+    requirements.requiresDotnet = requirements.requiresDotnet || tier.requiresDotnet === true
+    requirements.requiresPlaywright = combinePlaywrightRequirement(requirements.requiresPlaywright, tier.requiresPlaywright)
+    requirements.cacheProfile = combineCacheProfile(requirements.cacheProfile, tier.cacheProfile)
+    requirements.requiresBootstrap = combineCacheProfile(requirements.requiresBootstrap, tier.requiresBootstrap)
+  }
+  return requirements
+}
+
+function bootstrapExecutionsForWorkflowJob(job, tiersById) {
+  let count = 0
+  for (const command of job.runs) {
+    const testMatch = command.match(/(?:^|\s)(?:\.\/)?tools\/test\.sh\s+([A-Za-z0-9_-]+)/)
+    if (!testMatch) continue
+
+    const tierId = testMatch[1]
+    const noDeps = /(?:^|\s)--no-deps(?:\s|$)/.test(command)
+    if (noDeps) {
+      if (tierId === 'bootstrap') count += 1
+      continue
+    }
+    if (planTierClosure(tiersById, tierId, false).has('bootstrap')) count += 1
+  }
+  return count
+}
+
+function validateWorkflowSetup(jobId, workflowJob, requirements, errors) {
+  const needsFrontendCache = requirements.cacheProfile === 'frontend' || requirements.cacheProfile === 'full'
+  const needsBackendCache = requirements.cacheProfile === 'backend' || requirements.cacheProfile === 'full'
+
+  if (requirements.requiresNode && !workflowJob.hasSetupNode) {
+    errors.push(`workflow job ${jobId} requires Node but has no actions/setup-node step`)
+  }
+  if (workflowJob.npmCiCommands.length > 0 && !workflowJob.hasNpmLockCache) {
+    errors.push(`workflow job ${jobId} runs npm ci without setup-node npm cache keyed by src/frontend/package-lock.json`)
+  }
+  for (const command of [...workflowJob.npmCiCommands, ...workflowJob.playwrightInstallCommands]) {
+    if (!/node\s+tools\/ci\/run-stage\.mjs\s+--stage\s+install\s+--/.test(command)) {
+      errors.push(`workflow job ${jobId} install command is not timed through tools/ci/run-stage.mjs: ${command}`)
+    }
+  }
+  if (needsFrontendCache && workflowJob.npmCiCommands.length === 0) {
+    errors.push(`workflow job ${jobId} declares frontend cacheProfile but does not run npm --prefix src/frontend ci`)
+  }
+  if (requirements.requiresDotnet && !workflowJob.hasSetupDotnet) {
+    errors.push(`workflow job ${jobId} requires .NET but has no actions/setup-dotnet step`)
+  }
+  if (needsBackendCache && !workflowJob.hasNugetCache) {
+    errors.push(`workflow job ${jobId} declares backend cacheProfile but does not use deterministic NuGet cache`)
+  }
+  if (requirements.requiresPlaywright !== 'none') {
+    if (!workflowJob.hasPlaywrightCache) {
+      errors.push(`workflow job ${jobId} requires Playwright but does not cache ~/.cache/ms-playwright with src/frontend/package-lock.json`)
+    }
+    if (workflowJob.playwrightInstallCommands.length === 0) {
+      errors.push(`workflow job ${jobId} requires Playwright but has no playwright install step`)
+    }
+    const installCommand = workflowJob.playwrightInstallCommands.join(' && ')
+    if (requirements.requiresPlaywright === 'chromium' && !/playwright\s+install\s+--with-deps\s+chromium(?:\s|$)/.test(installCommand)) {
+      errors.push(`workflow job ${jobId} must install only chromium for requiresPlaywright=chromium`)
+    }
+    if (requirements.requiresPlaywright === 'all' && !/\$\{\{\s*matrix\.browser\s*\}\}/.test(installCommand)) {
+      errors.push(`workflow job ${jobId} must install the matrix browser for requiresPlaywright=all`)
+    }
+  }
+}
+
 function main() {
   const planPath = path.resolve(root, process.argv[2] ?? defaultPlanPath)
   const workflowPath = path.resolve(root, process.argv[3] ?? defaultWorkflowPath)
@@ -286,6 +404,7 @@ function main() {
     }
 
     const actualNeeds = workflowJobs.get(job.id).needs
+    const workflowJob = workflowJobs.get(job.id)
     const actualTimeout = workflowJobs.get(job.id).timeoutMinutes
     const actualMaxParallel = workflowJobs.get(job.id).maxParallel
     if (actualTimeout !== Number(job.timeoutMinutes)) {
@@ -303,7 +422,12 @@ function main() {
     }
 
     if (job.id !== 'production-summary') {
-      const coveredTiers = coveredTiersForWorkflowJob(workflowJobs.get(job.id), tiersById)
+      const coveredTiers = coveredTiersForWorkflowJob(workflowJob, tiersById)
+      validateWorkflowSetup(job.id, workflowJob, setupRequirementsForTiers(coveredTiers, tiersById), errors)
+      const bootstrapCount = bootstrapExecutionsForWorkflowJob(workflowJob, tiersById)
+      if (bootstrapCount > 1) {
+        errors.push(`workflow job ${job.id} runs bootstrap ${bootstrapCount} times; bootstrap must run at most once per job`)
+      }
       for (const tier of job.tiers.filter(isWorkflowRequiredTier)) {
         if (!coveredTiers.has(tier)) {
           errors.push(`workflow job ${job.id} does not run matrix tier: ${tier}`)
