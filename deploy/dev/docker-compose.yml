@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: fsusblog-dev-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${FSUSBLOG_DEV_POSTGRES_DB:-fsusblog}
+      POSTGRES_USER: ${FSUSBLOG_DEV_POSTGRES_USER:-fsusblog}
+      POSTGRES_PASSWORD: ${FSUSBLOG_DEV_POSTGRES_PASSWORD:-fsusblog_dev}
+    ports:
+      - "${FSUSBLOG_DEV_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - fsusblog-dev-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${FSUSBLOG_DEV_POSTGRES_USER:-fsusblog} -d ${FSUSBLOG_DEV_POSTGRES_DB:-fsusblog}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: fsusblog-dev-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${FSUSBLOG_DEV_REDIS_PORT:-6379}:6379"
+    volumes:
+      - fsusblog-dev-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  fsusblog-dev-postgres:
+  fsusblog-dev-redis:

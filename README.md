@@ -123,6 +123,32 @@ FsusBlog/
 - Emscripten SDK（可选，仅在本地重新构建 Wasm 时需要）
 - `GITHUB_PACKAGES_TOKEN` 环境变量（用于安装私有 FsusUI 组件库）
 
+### Public Preview Quickstart
+
+```bash
+git clone https://github.com/Ozwasyd/FsusBlog.git
+cd FsusBlog
+cp .env.example .env
+./tools/dev/start.sh --seed-demo
+```
+
+该命令会启动本地 PostgreSQL、Redis、ASP.NET Core backend 和 Vite frontend，并在后端完成迁移后写入 deterministic fictional demo data。
+
+| 项目 | 地址 / 说明 |
+|------|-------------|
+| Frontend | `http://127.0.0.1:3000` |
+| Backend | `http://127.0.0.1:5000` |
+| Demo admin | `demo-admin` / `ChangeMe123!` |
+| Demo data | [docs/development/demo-data.md](docs/development/demo-data.md) |
+| Troubleshooting | [docs/troubleshooting.md](docs/troubleshooting.md) |
+| Known limitations | [docs/known-limitations.md](docs/known-limitations.md) |
+
+停止前后端进程按 `Ctrl+C`；清理本地开发数据库和 Redis volume：
+
+```bash
+./tools/dev/start.sh --cleanup
+```
+
 ### FsusUI 依赖
 
 客户端组件库通过 GitHub Packages 分发。安装前需设置：
@@ -136,20 +162,20 @@ export GITHUB_PACKAGES_TOKEN=your_github_packages_token
 - `@ozwasyd:registry=https://npm.pkg.github.com`
 - `//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}`
 
-### 启动方式
+### 手动启动方式
 
-**第一步**：启动后端依赖与 API 服务
+一键入口不可用时，可以拆开执行：
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d
+docker compose -f deploy/dev/docker-compose.yml up -d postgres redis
+dotnet run --project src/backend/FsusBlog.Server.csproj --urls http://127.0.0.1:5000
 ```
 
-**第二步**：安装前端依赖并启动开发服务器
+另开终端启动前端：
 
 ```bash
-cd src/frontend
-npm ci
-npm run dev:debug
+npm --prefix src/frontend ci
+npm --prefix src/frontend run dev:debug
 ```
 
 **常用地址**
@@ -222,6 +248,8 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/production.md](docs/production.md) | 生产部署、环境变量、健康检查 |
 | [docs/operations.md](docs/operations.md) | 运维手册：发布门控、回滚、备份、事故处置 |
 | [docs/development.md](docs/development.md) | 本地开发环境搭建、常用脚本说明 |
+| [docs/development/demo-data.md](docs/development/demo-data.md) | deterministic fictional demo seed data、默认本地账号和重置方法 |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | SDK、Node/npm、PostgreSQL、Redis、端口、AEDS/Wasm、WebAuthn、cookie、migration、AOT 常见故障排查 |
 | [docs/testing.md](docs/testing.md) | 测试 DAG、production-ci-gate、release-closeout-gate 与覆盖场景说明 |
 | [docs/wasm.md](docs/wasm.md) | WebAssembly 工具链、构建、C++/TS 接口边界 |
 | [docs/moderation/third-party-model-development.md](docs/moderation/third-party-model-development.md) | 第三方审核模型 Provider 契约、schema、CLI/HTTP 接入和 conformance 测试 |

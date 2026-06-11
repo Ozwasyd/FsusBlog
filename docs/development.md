@@ -57,32 +57,48 @@ npm run build:wasm
 
 ## 启动开发环境
 
-### 第一步：启动后端依赖
+### 一键启动（推荐）
 
 ```bash
-# 启动 PostgreSQL + Redis（+ 可选的后端容器）
-docker compose -f docker-compose.dev.yml up -d
+./tools/dev/start.sh --seed-demo
 ```
 
-`docker-compose.dev.yml` 会启动：
-- PostgreSQL（5432 端口）
-- Redis（6379 端口）
-- 可选：后端 API 容器（调试 Release 构建用）
+该入口会启动：
 
-ASP.NET Core 后端也可在本地直接运行（更快的 C# 迭代）：
+- PostgreSQL（默认 `127.0.0.1:5432`）
+- Redis（默认 `127.0.0.1:6379`）
+- ASP.NET Core backend（`http://127.0.0.1:5000`）
+- Vite frontend（`http://127.0.0.1:3000`）
+- 可选 deterministic fictional demo data（`--seed-demo`）
+
+清理本地开发容器和 volume：
 
 ```bash
-cd src/backend
-dotnet run
+./tools/dev/start.sh --cleanup
+```
+
+Demo seed 详情见 [development/demo-data.md](development/demo-data.md)。
+
+### 手动启动后端依赖
+
+一键入口不可用时，可先启动本地依赖：
+
+```bash
+docker compose -f deploy/dev/docker-compose.yml up -d postgres redis
+```
+
+随后启动 ASP.NET Core 后端：
+
+```bash
+dotnet run --project src/backend/FsusBlog.Server.csproj --urls http://127.0.0.1:5000
 # 或通过 Visual Studio / Rider 的 "Debug / NativeServer" 配置启动
 ```
 
-### 第二步：启动前端开发服务器
+### 手动启动前端开发服务器
 
 ```bash
-cd src/frontend
-npm ci                 # 首次或依赖变更后需执行
-npm run dev:debug      # Vite HMR，监听 0.0.0.0:3000
+npm --prefix src/frontend ci                 # 首次或依赖变更后需执行
+npm --prefix src/frontend run dev:debug      # Vite HMR，监听 0.0.0.0:3000
 ```
 
 ### 常用访问地址
@@ -253,4 +269,6 @@ cd src/frontend && npm run ensure:wasm
 - [testing.md](testing.md) — 完整测试分层策略
 - [wasm.md](wasm.md) — WebAssembly 工具链与构建指南
 - [production.md](production.md) — 生产部署配置
+- [development/demo-data.md](development/demo-data.md) — 本地 demo seed data
+- [troubleshooting.md](troubleshooting.md) — 常见开发环境故障排查
 - [../README.md](../README.md) — 项目概述与快速开始
