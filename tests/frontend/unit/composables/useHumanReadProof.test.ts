@@ -1,4 +1,4 @@
-import { mount, flushPromises } from '@vue/test-utils'
+import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
 import { computed, defineComponent, h, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useHumanReadProof } from '@/composables/useHumanReadProof'
@@ -12,6 +12,7 @@ vi.mock('@/api/readProof', () => ({
 type ObserverEntry = { isIntersecting: boolean; intersectionRatio: number }
 let observerCallback: ((entries: ObserverEntry[]) => void) | null = null
 let nowMs = 0
+let mountedWrappers: VueWrapper[] = []
 
 class FakeIntersectionObserver {
   constructor(callback: (entries: ObserverEntry[]) => void) {
@@ -28,6 +29,7 @@ describe('useHumanReadProof', () => {
     vi.clearAllMocks()
     observerCallback = null
     nowMs = 0
+    mountedWrappers = []
     vi.spyOn(performance, 'now').mockImplementation(() => nowMs)
     vi.mocked(requestHumanReadChallenge).mockResolvedValue({
       token: 'proof-token',
@@ -44,17 +46,33 @@ describe('useHumanReadProof', () => {
   })
 
   afterEach(() => {
+    for (const wrapper of mountedWrappers) {
+      wrapper.unmount()
+    }
+    mountedWrappers = []
     vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
+    document.body.innerHTML = ''
     observerCallback = null
+  })
+
+  it('does not request a challenge before the readable root becomes visible', async () => {
+    mountHarness()
+    await waitForObserver()
+
+    await vi.advanceTimersByTimeAsync(5000)
+    await flushPromises()
+
+    expect(requestHumanReadChallenge).not.toHaveBeenCalled()
+    expect(submitHumanReadProof).not.toHaveBeenCalled()
   })
 
   it('submits after visible dwell reaches the challenge minimum', async () => {
     mountHarness()
     await waitForObserver()
 
-    observerCallback?.([{ isIntersecting: true, intersectionRatio: 0.5 }])
+    await triggerReadableRootVisible()
     nowMs = 1000
     await vi.advanceTimersByTimeAsync(1000)
     await flushPromises()
@@ -72,7 +90,7 @@ describe('useHumanReadProof', () => {
     mountHarness()
     await waitForObserver()
 
-    observerCallback?.([{ isIntersecting: true, intersectionRatio: 0.5 }])
+    await triggerReadableRootVisible()
     nowMs = 750
     await vi.advanceTimersByTimeAsync(750)
     await flushPromises()
@@ -80,7 +98,7 @@ describe('useHumanReadProof', () => {
     expect(submitHumanReadProof).not.toHaveBeenCalled()
   })
 
-  it('does not observe or submit when the challenge is rejected with an empty token', async () => {
+  it('does not submit when the visible challenge is rejected with an empty token', async () => {
     vi.mocked(requestHumanReadChallenge).mockResolvedValueOnce({
       token: '',
       scope: 'site',
@@ -92,9 +110,11 @@ describe('useHumanReadProof', () => {
     })
 
     mountHarness()
-    await flushPromises()
+    await waitForObserver()
+    expect(requestHumanReadChallenge).not.toHaveBeenCalled()
 
-    expect(observerCallback).toBeNull()
+    await triggerReadableRootVisible()
+    expect(requestHumanReadChallenge).toHaveBeenCalledTimes(1)
     nowMs = 2000
     await vi.advanceTimersByTimeAsync(2000)
     await flushPromises()
@@ -107,7 +127,7 @@ describe('useHumanReadProof', () => {
     mountHarness(routeKey)
     await waitForObserver()
 
-    observerCallback?.([{ isIntersecting: true, intersectionRatio: 0.5 }])
+    await triggerReadableRootVisible()
     nowMs = 1000
     await vi.advanceTimersByTimeAsync(1000)
     await flushPromises()
@@ -116,7 +136,7 @@ describe('useHumanReadProof', () => {
     observerCallback = null
     nowMs = 0
     await waitForObserver()
-    observerCallback?.([{ isIntersecting: true, intersectionRatio: 0.5 }])
+    await triggerReadableRootVisible()
     nowMs = 1000
     await vi.advanceTimersByTimeAsync(1000)
     await flushPromises()
@@ -125,7 +145,54 @@ describe('useHumanReadProof', () => {
     expect(submitHumanReadProof).toHaveBeenCalledTimes(2)
     expect(vi.mocked(submitHumanReadProof).mock.calls[1][0].routeKey).toBe('archive')
   })
+
+  it('pauses dwell while the document is hidden and resumes after it becomes visible', async () => {
+    mountHarness()
+    await waitForObserver()
+
+    await triggerReadableRootVisible()
+    nowMs = 400
+    setDocumentVisibility('hidden')
+    nowMs = 700
+    setDocumentVisibility('visible')
+
+    nowMs = 1299
+    await vi.advanceTimersByTimeAsync(599)
+    await flushPromises()
+    expect(submitHumanReadProof).not.toHaveBeenCalled()
+
+    nowMs = 1300
+    await vi.advanceTimersByTimeAsync(1)
+    await flushPromises()
+
+    expect(submitHumanReadProof).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(submitHumanReadProof).mock.calls[0][0].dwellMs).toBe(1000)
+  })
+
+  it('cancels a deferred challenge request on unmount', async () => {
+    const wrapper = mountHarness()
+    await waitForObserver()
+
+    observerCallback?.([{ isIntersecting: true, intersectionRatio: 0.5 }])
+    wrapper.unmount()
+    await vi.advanceTimersByTimeAsync(0)
+    await flushPromises()
+
+    expect(requestHumanReadChallenge).not.toHaveBeenCalled()
+    expect(submitHumanReadProof).not.toHaveBeenCalled()
+  })
 })
+
+async function triggerReadableRootVisible(): Promise<void> {
+  observerCallback?.([{ isIntersecting: true, intersectionRatio: 0.5 }])
+  await vi.advanceTimersByTimeAsync(0)
+  await flushPromises()
+}
+
+function setDocumentVisibility(value: DocumentVisibilityState): void {
+  Object.defineProperty(document, 'visibilityState', { configurable: true, value })
+  document.dispatchEvent(new window.Event('visibilitychange'))
+}
 
 async function waitForObserver(): Promise<void> {
   for (let attempt = 0; attempt < 5 && !observerCallback; attempt += 1) {
@@ -136,7 +203,7 @@ async function waitForObserver(): Promise<void> {
 }
 
 function mountHarness(routeKey = ref('home')) {
-  return mount(defineComponent({
+  const wrapper = mount(defineComponent({
     setup() {
       useHumanReadProof({
         scope: computed(() => 'site'),
@@ -148,4 +215,6 @@ function mountHarness(routeKey = ref('home')) {
   }), {
     attachTo: document.body
   })
+  mountedWrappers.push(wrapper)
+  return wrapper
 }

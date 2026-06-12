@@ -64,13 +64,13 @@ public sealed class AntiCrawlerSecurityContractTests
     {
         string comments = Read("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
         string taxonomy = Read("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs");
-        string distribution = Read("src/backend/Modules/Endpoints/DistributionEndpoints.cs");
-        string readProof = Read("src/backend/Modules/Endpoints/ReadProofEndpoints.cs");
+        string readProof = Read("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.ReadProof.cs");
         string pow = Read("src/backend/Infrastructure/Filters/PowValidationLogic.cs");
 
+        Assert.Contains("RequireRateLimiting(\"public_read\")", comments, StringComparison.Ordinal);
         Assert.Contains("AddEndpointFilter<RiskAwarePublicReadFilter>()", comments, StringComparison.Ordinal);
         Assert.Contains("RequireRateLimiting(\"public_read\")", taxonomy, StringComparison.Ordinal);
-        Assert.Contains("AddEndpointFilter<RiskAwarePublicReadFilter>()", distribution, StringComparison.Ordinal);
+        Assert.Contains("AddEndpointFilter<RiskAwarePublicReadFilter>()", taxonomy, StringComparison.Ordinal);
         Assert.Contains("RequireRateLimiting(\"read_proof\")", readProof, StringComparison.Ordinal);
         Assert.Contains("ISecurityRiskSignalSink", readProof, StringComparison.Ordinal);
         Assert.Contains("SecurityRiskSources.HumanReadProof", readProof, StringComparison.Ordinal);
@@ -85,12 +85,17 @@ public sealed class AntiCrawlerSecurityContractTests
     public void SecurityAdminConsole_SeparatesAntiCrawlerPowAndSecurityRisk()
     {
         string endpoints = Read("src/backend/Modules/Endpoints/SecurityEndpoints.cs");
+        string bridge = Read("src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs");
+        string internalFilter = Read("src/backend/Infrastructure/Filters/BinaryBridgeInternalOnlyFilter.cs");
         string models = Read("src/backend/Models/Security/SecurityAdminModels.cs");
         string abstractions = Read("src/backend/Infrastructure/Security/SecurityRiskAbstractions.cs");
         string service = Read("src/backend/Services/Security/SecurityAdminPolicyService.cs");
         string registration = Read("src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
 
-        Assert.Contains("/api/admin/security", endpoints, StringComparison.Ordinal);
+        Assert.Contains("BinaryBridgeInternalRequest.SecurityPrefix", endpoints, StringComparison.Ordinal);
+        Assert.Contains("AddEndpointFilter<BinaryBridgeInternalOnlyFilter>()", endpoints, StringComparison.Ordinal);
+        Assert.Contains("\"/api/binary/admin/security\"", bridge, StringComparison.Ordinal);
+        Assert.Contains("\"/_fsus/internal/binary-bridge/admin/security\"", internalFilter, StringComparison.Ordinal);
         Assert.Contains("/anti-crawler/overview", endpoints, StringComparison.Ordinal);
         Assert.Contains("/anti-crawler/options", endpoints, StringComparison.Ordinal);
         Assert.Contains("/pow/overview", endpoints, StringComparison.Ordinal);
