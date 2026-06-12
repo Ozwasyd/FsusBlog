@@ -180,6 +180,7 @@ describe('frontend performance workflow contract', () => {
     expect(homeView).not.toContain('void loadFeaturedArticles(!hasServerHydrationView)')
 
     expect(publicHomeContent).toContain('id="fsus-home-secondary-content-sentinel"')
-    expect(publicHomeContent.indexOf('<PublicArticleList')).toBeLessThan(publicHomeContent.indexOf('<slot name="featured" />'))
+    expect(publicHomeContent.indexOf('id="fsus-home-secondary-content-sentinel"')).toBeLessThan(publicHomeContent.indexOf('<slot name="featured" />'))
+    expect(publicHomeContent.indexOf('<slot name="featured" />')).toBeLessThan(publicHomeContent.indexOf('<PublicArticleList'))
   })
 })
