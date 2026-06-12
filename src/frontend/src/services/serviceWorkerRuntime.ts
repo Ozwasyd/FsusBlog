@@ -17,6 +17,14 @@ const listeners = new Set<SwMessageListener>()
 let registrationPromise: Promise<ServiceWorkerRegistration | null> | null = null
 let listenerBound = false
 let unregisterPromise: Promise<void> | null = null
+let updateScheduled = false
+
+type ServiceWorkerIdleWindow = Window & typeof globalThis & {
+  requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+}
+
+const SERVICE_WORKER_UPDATE_IDLE_TIMEOUT_MS = 30_000
+const SERVICE_WORKER_UPDATE_FALLBACK_DELAY_MS = 1_500
 
 function bindListener(): void {
   if (listenerBound || typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -49,13 +57,8 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
       scope: '/',
       type: 'module',
       updateViaCache: 'none'
-    }).then(async (registration) => {
-      try {
-        await registration.update()
-      } catch {
-        // Ignore transient update failures; next navigation will retry.
-      }
-
+    }).then((registration) => {
+      scheduleServiceWorkerUpdate(registration)
       return registration
     }).catch((error) => {
       emitTelemetry('service_worker_register_failed', {
@@ -67,6 +70,38 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
 
   return await registrationPromise
+}
+
+function scheduleServiceWorkerUpdate(registration: ServiceWorkerRegistration): void {
+  if (updateScheduled || typeof window === 'undefined') {
+    return
+  }
+
+  updateScheduled = true
+  const scheduleIdleUpdate = (): void => {
+    const idleWindow = window as ServiceWorkerIdleWindow
+    const runUpdate = (): void => {
+      void registration.update().catch((error) => {
+        emitTelemetry('service_worker_update_failed', {
+          error: error instanceof Error ? error.message : String(error)
+        }, 'warn')
+      })
+    }
+
+    if (typeof idleWindow.requestIdleCallback === 'function') {
+      idleWindow.requestIdleCallback(runUpdate, { timeout: SERVICE_WORKER_UPDATE_IDLE_TIMEOUT_MS })
+      return
+    }
+
+    window.setTimeout(runUpdate, SERVICE_WORKER_UPDATE_FALLBACK_DELAY_MS)
+  }
+
+  if (document.readyState === 'complete') {
+    scheduleIdleUpdate()
+    return
+  }
+
+  window.addEventListener('load', scheduleIdleUpdate, { once: true })
 }
 
 async function unregisterDevServiceWorkers(): Promise<void> {

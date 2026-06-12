@@ -17,7 +17,7 @@ import { isAbortError } from '@/utils/errors'
 import type { ArticleListCardViewContract } from '@/view-contracts/articleList'
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
 import { createFilterPageViewContract } from '@/view-contracts/filterView'
-import { loadDeepSearchIndex, searchIndex, type SearchSortMode } from '@/services/localSearch'
+import { searchIndex, type SearchSortMode } from '@/services/localSearch'
 import {
   getPublicFilterLabel,
   PUBLIC_FILTER_TYPE,
@@ -299,7 +299,6 @@ export function useFilterView() {
 
       let response: PageResponse<ArticleListItemResponse> | ArticleListItemResponse[]
       if (isSearch) {
-        await loadDeepSearchIndex(signal)
         response = await searchIndex(keyword, searchSortMode.value, currentPage.value, pageSize.value, signal)
       } else {
         response = await getArticles(

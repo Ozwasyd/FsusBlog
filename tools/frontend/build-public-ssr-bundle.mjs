@@ -5,7 +5,8 @@ import { copyFile, mkdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
 const clientRoot = process.cwd()
-const viteBin = join(clientRoot, 'node_modules/.bin/vite')
+const binExtension = process.platform === 'win32' ? '.cmd' : ''
+const viteBin = join(clientRoot, 'node_modules', '.bin', `vite${binExtension}`)
 const distServerDir = join(clientRoot, 'dist', 'server')
 const sourceEntry = join(distServerDir, 'renderPublicPage.js')
 const stableEntry = join(distServerDir, 'public-ssr.mjs')
@@ -21,13 +22,16 @@ function log(message) {
 
 function run(command, args) {
   return new Promise((resolve, reject) => {
+    const useShell = process.platform === 'win32' && command.toLowerCase().endsWith('.cmd')
     const child = spawn(command, args, {
       cwd: clientRoot,
       env: {
         ...process.env,
         FSUSBLOG_PUBLIC_SSR_BUILD: '1'
       },
-      stdio: 'inherit'
+      stdio: 'inherit',
+      shell: useShell,
+      windowsHide: true
     })
 
     child.on('error', reject)

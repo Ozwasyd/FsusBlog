@@ -1,7 +1,6 @@
 export type SafeConsoleLevel = 'log' | 'info' | 'warn' | 'error'
 
 type SafeConsoleWriter = (...data: unknown[]) => void
-const GUARDED_CONSOLE_LEVELS: SafeConsoleLevel[] = ['log', 'info', 'warn', 'error']
 
 let consoleGuardInstalled = false
 
@@ -33,7 +32,13 @@ export function installSafeConsoleGuard(): void {
   }
 
   consoleGuardInstalled = true
-  for (const level of GUARDED_CONSOLE_LEVELS) {
+  const guardedConsoleLevels: SafeConsoleLevel[] = ['log', 'info', 'warn', 'error']
+  for (let index = 0; index < guardedConsoleLevels.length; index += 1) {
+    const level = guardedConsoleLevels[index]
+    if (!level) {
+      continue
+    }
+
     const original = console[level]
     if (typeof original !== 'function') {
       continue

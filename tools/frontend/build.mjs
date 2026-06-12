@@ -9,8 +9,9 @@ const clientRoot = process.cwd();
 const ensureWasmScript = fileURLToPath(new URL('./ensure-wasm.mjs', import.meta.url));
 const generatePublicPageManifestScript = fileURLToPath(new URL('./generate-public-page-manifest.mjs', import.meta.url));
 const buildPublicSsrBundleScript = fileURLToPath(new URL('./build-public-ssr-bundle.mjs', import.meta.url));
-const vueTscBin = join(clientRoot, 'node_modules/.bin/vue-tsc');
-const viteBin = join(clientRoot, 'node_modules/.bin/vite');
+const binExtension = process.platform === 'win32' ? '.cmd' : '';
+const vueTscBin = join(clientRoot, 'node_modules', '.bin', `vue-tsc${binExtension}`);
+const viteBin = join(clientRoot, 'node_modules', '.bin', `vite${binExtension}`);
 const distAssetsDir = join(clientRoot, 'dist', 'assets');
 const distRoot = join(clientRoot, 'dist');
 const backendWebRoot = join(clientRoot, '..', 'backend', 'wwwroot');
@@ -31,10 +32,13 @@ function log(message) {
 function runStage(name, command, args) {
   return new Promise((resolve, reject) => {
     log(`starting ${name}`);
+    const useShell = process.platform === 'win32' && command.toLowerCase().endsWith('.cmd');
     const child = spawn(command, args, {
       stdio: ['inherit', 'pipe', 'pipe'],
       env: process.env,
-      cwd: clientRoot
+      cwd: clientRoot,
+      shell: useShell,
+      windowsHide: true
     });
 
     const forwardOutput = (stream, writer) => {

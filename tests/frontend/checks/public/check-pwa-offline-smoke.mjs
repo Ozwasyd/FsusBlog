@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module'
+import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const require = createRequire(import.meta.url)
@@ -8,6 +9,14 @@ const { chromium } = require(require.resolve('@playwright/test', { paths: [resol
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:8080'
 const articlePath = process.env.FSUSBLOG_PWA_OFFLINE_ARTICLE_PATH || '/article/1'
+const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
+  || [
+    'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser'
+  ].find((candidate) => existsSync(candidate))
 
 function assert(condition, message) {
   if (!condition) {
@@ -19,8 +28,13 @@ async function waitForController(page) {
   await page.waitForFunction(() => 'serviceWorker' in navigator, null, { timeout: 10_000 })
   await page.waitForFunction(async () => {
     const registration = await navigator.serviceWorker.ready
-    return Boolean(registration?.active && navigator.serviceWorker.controller)
+    return Boolean(registration?.active)
   }, null, { timeout: 10_000 })
+  const controlled = await page.evaluate(() => Boolean(navigator.serviceWorker.controller))
+  if (!controlled) {
+    await page.reload({ waitUntil: 'networkidle' })
+  }
+  await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller), null, { timeout: 10_000 })
 }
 
 async function expectOfflineNavigationFailure(page, path) {
@@ -35,10 +49,15 @@ async function expectOfflineNavigationFailure(page, path) {
 }
 
 async function main() {
-  const browser = await chromium.launch({
+  const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage']
-  })
+  }
+  if (executablePath) {
+    launchOptions.executablePath = executablePath
+  }
+
+  const browser = await chromium.launch(launchOptions)
   const context = await browser.newContext({
     baseURL: baseUrl,
     serviceWorkers: 'allow'

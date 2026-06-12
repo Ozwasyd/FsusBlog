@@ -3,6 +3,7 @@ import { withBinaryAccept } from '@/api/contracts'
 import { mapArticleSearchFromPodPayload } from '@/adapters/binary/articleAdapter'
 import { rankSearchPage } from '@/services/searchRanking'
 import { subscribeServiceWorkerMessages } from '@/services/serviceWorkerRuntime'
+import { emitTelemetry } from '@/services/telemetryBus'
 import { AppErrorCode, appErrorFromStatus, createAppError } from '@/utils/appError'
 import { isAbortError } from '@/utils/errors'
 import { initSearchRuntime, loadSearchEntry, loadSearchIndex as loadSearchIndexIntoRuntime, searchIndexBinary, type SearchSortMode } from '@wasm/search'
@@ -39,16 +40,22 @@ const SEARCH_MANIFEST_BINARY_VERSION = 1
 const SEARCH_PACKAGE_MAGIC = 0x4b505346
 const SEARCH_PACKAGE_VERSION = 3
 const DOTNET_EPOCH_OFFSET_MS = 62135596800000
+const SEARCH_ASSET_FETCH_CONCURRENCY = 2
+const SEARCH_BACKGROUND_IDLE_TIMEOUT_MS = 2_000
+const SEARCH_DEEP_IDLE_TIMEOUT_MS = 6_000
 const textDecoder = new TextDecoder()
 
 let loadPromise: Promise<void> | null = null
 let loaded = false
 let loadedVersion: string | null = null
 let loadedEntryKeys = new Set<string>()
+let activeManifest: SearchManifest | null = null
 let activeGeneration = 0
 let activeSearchController: AbortController | null = null
 let activeLoadController: AbortController | null = null
 let backgroundPreloadController: AbortController | null = null
+let deepPreloadController: AbortController | null = null
+let deepPreloadPromise: Promise<void> | null = null
 let runtimeReloadPromise: Promise<void> = Promise.resolve()
 
 async function fetchManifestBytes(url: string, signal?: AbortSignal): Promise<Uint8Array> {
@@ -111,6 +118,45 @@ function normalizeShardRole(role: SearchShardRoleValue): SearchShardRole | null 
 
 function roleCacheKey(kind: 'shard' | 'patch', role: SearchShardRole): string {
   return `${kind}:${role}`
+}
+
+function normalizeRequestedRoles(roles: readonly string[]): SearchShardRole[] {
+  const normalized: SearchShardRole[] = []
+  const seen = new Set<SearchShardRole>()
+  for (const role of roles) {
+    const normalizedRole = role === 'core' || role === 'recent' || role === 'archive' ? role : null
+    if (normalizedRole && !seen.has(normalizedRole)) {
+      seen.add(normalizedRole)
+      normalized.push(normalizedRole)
+    }
+  }
+
+  return normalized
+}
+
+function selectInitialRoles(manifest: SearchManifest): SearchShardRole[] {
+  const deferredRoles = new Set(normalizeRequestedRoles([
+    ...manifest.backgroundRoles,
+    ...manifest.deepRoles
+  ]))
+  const roles = normalizeRequestedRoles(manifest.initialRoles)
+    .filter((role) => !deferredRoles.has(role))
+  return roles.length > 0 ? roles : normalizeRequestedRoles(manifest.initialRoles)
+}
+
+function selectBackgroundRoles(manifest: SearchManifest): SearchShardRole[] {
+  return normalizeRequestedRoles(manifest.backgroundRoles)
+}
+
+function selectDeepRoles(manifest: SearchManifest): SearchShardRole[] {
+  return normalizeRequestedRoles(manifest.deepRoles)
+}
+
+function selectDeepIntentRoles(manifest: SearchManifest): SearchShardRole[] {
+  return normalizeRequestedRoles([
+    ...manifest.backgroundRoles,
+    ...manifest.deepRoles
+  ])
 }
 
 function align(value: number, alignment: number): number {
@@ -248,6 +294,26 @@ function decodeSearchManifest(bytes: Uint8Array): SearchManifest {
   return manifest
 }
 
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+  const workerCount = Math.min(Math.max(1, limit), items.length)
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex
+      nextIndex += 1
+      results[index] = await mapper(items[index], index)
+    }
+  })
+
+  await Promise.all(workers)
+  return results
+}
+
 async function loadAssetsForRoles(manifest: SearchManifest, roles: readonly string[], signal?: AbortSignal): Promise<Map<string, Uint8Array>> {
   const results = new Map<string, Uint8Array>()
   const shardsByRole = new Map<SearchShardRole, SearchShardManifest>()
@@ -258,20 +324,21 @@ async function loadAssetsForRoles(manifest: SearchManifest, roles: readonly stri
     }
   }
 
-  const entries = await Promise.all(roles.map(async (role) => {
-    const normalizedRole = role === 'core' || role === 'recent' || role === 'archive' ? role : null
-    if (!normalizedRole) {
-      return null
-    }
-
+  const requestedRoles = normalizeRequestedRoles(roles)
+  const entries = await mapWithConcurrency(requestedRoles, SEARCH_ASSET_FETCH_CONCURRENCY, async (normalizedRole) => {
     const shard = shardsByRole.get(normalizedRole)
     if (!shard) {
       return null
     }
 
+    const cacheKey = roleCacheKey('shard', normalizedRole)
+    if (loadedEntryKeys.has(cacheKey)) {
+      return null
+    }
+
     const shardBytes = await fetchBytes(shard.fullUrl, signal)
-    return [roleCacheKey('shard', normalizedRole), shardBytes] as const
-  }))
+    return [cacheKey, shardBytes] as const
+  })
 
   for (const entry of entries) {
     if (entry) {
@@ -331,10 +398,13 @@ function combineAbortSignals(...signals: Array<AbortSignal | undefined>): Combin
 function abortInFlightLoads(): void {
   activeLoadController?.abort()
   backgroundPreloadController?.abort()
+  deepPreloadController?.abort()
   activeSearchController?.abort()
   activeLoadController = null
   backgroundPreloadController = null
+  deepPreloadController = null
   activeSearchController = null
+  deepPreloadPromise = null
 }
 
 function withCallerAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
@@ -454,7 +524,11 @@ function shouldPreloadBackgroundShard(): boolean {
   return typeof searchNavigator.deviceMemory !== 'number' || searchNavigator.deviceMemory > 4
 }
 
-function waitForSearchIdle(signal: AbortSignal): Promise<void> {
+function waitForSearchIdle(
+  signal: AbortSignal,
+  timeoutMs = SEARCH_BACKGROUND_IDLE_TIMEOUT_MS,
+  fallbackDelayMs = 250
+): Promise<void> {
   if (signal.aborted) {
     return Promise.reject(createAbortError('The operation was aborted.'))
   }
@@ -488,15 +562,56 @@ function waitForSearchIdle(signal: AbortSignal): Promise<void> {
 
     signal.addEventListener('abort', abortHandler, { once: true })
     if (typeof idleWindow.requestIdleCallback === 'function') {
-      idleHandle = idleWindow.requestIdleCallback(() => complete(), { timeout: 2000 })
+      idleHandle = idleWindow.requestIdleCallback(() => complete(), { timeout: timeoutMs })
       return
     }
 
-    timeoutHandle = setTimeout(complete, 250)
+    timeoutHandle = setTimeout(complete, fallbackDelayMs)
   })
 }
 
-async function preloadBackgroundShard(manifest: SearchManifest, generation: number): Promise<void> {
+function emitSearchPhaseMetric(
+  phase: 'initial' | 'background' | 'deep',
+  startedAt: number,
+  roles: readonly SearchShardRole[],
+  version: string,
+  entryCount: number
+): void {
+  const durationMs = typeof performance !== 'undefined'
+    ? Math.max(0, Math.round(performance.now() - startedAt))
+    : 0
+  emitTelemetry('search_index_phase_loaded', {
+    phase,
+    version,
+    roles: roles.join(','),
+    roleCount: roles.length,
+    entryCount,
+    durationMs
+  })
+}
+
+async function loadDeferredSearchRoles(
+  manifest: SearchManifest,
+  roles: readonly SearchShardRole[],
+  generation: number,
+  controller: AbortController,
+  phase: 'background' | 'deep'
+): Promise<void> {
+  if (roles.length === 0 || !isGenerationActive(generation, controller)) {
+    return
+  }
+
+  const startedAt = typeof performance !== 'undefined' ? performance.now() : 0
+  const extra = await loadAssetsForRoles(manifest, roles, controller.signal)
+  if (!isGenerationActive(generation, controller)) {
+    return
+  }
+
+  loadedEntryKeys = await loadIncrementalEntries(extra, generation, controller)
+  emitSearchPhaseMetric(phase, startedAt, roles, manifest.currentVersion, extra.size)
+}
+
+async function preloadBackgroundSearchPhase(manifest: SearchManifest, generation: number): Promise<void> {
   if (!isGenerationActive(generation)) {
     return
   }
@@ -512,7 +627,7 @@ async function preloadBackgroundShard(manifest: SearchManifest, generation: numb
     return
   }
 
-  const roles = manifest.backgroundRoles.filter((role): role is SearchShardRole => role === 'archive')
+  const roles = selectBackgroundRoles(manifest)
   if (roles.length === 0) {
     if (backgroundPreloadController === controller) {
       backgroundPreloadController = null
@@ -521,17 +636,12 @@ async function preloadBackgroundShard(manifest: SearchManifest, generation: numb
   }
 
   try {
-    await waitForSearchIdle(controller.signal)
+    await waitForSearchIdle(controller.signal, SEARCH_BACKGROUND_IDLE_TIMEOUT_MS)
     if (!isGenerationActive(generation, controller)) {
       return
     }
 
-    const extra = await loadAssetsForRoles(manifest, roles, controller.signal)
-    if (!isGenerationActive(generation, controller)) {
-      return
-    }
-
-    loadedEntryKeys = await loadIncrementalEntries(extra, generation, controller)
+    await loadDeferredSearchRoles(manifest, roles, generation, controller, 'background')
   } catch (error) {
     if (!isAbortError(error)) {
       throw error
@@ -541,6 +651,36 @@ async function preloadBackgroundShard(manifest: SearchManifest, generation: numb
       backgroundPreloadController = null
     }
   }
+}
+
+function scheduleDeepSearchPhase(manifest: SearchManifest, generation: number): void {
+  if (deepPreloadPromise || selectDeepRoles(manifest).length === 0 || !shouldPreloadBackgroundShard()) {
+    return
+  }
+
+  deepPreloadController?.abort()
+  const controller = new AbortController()
+  deepPreloadController = controller
+  const roles = selectDeepRoles(manifest)
+  deepPreloadPromise = (async () => {
+    try {
+      await waitForSearchIdle(controller.signal, SEARCH_DEEP_IDLE_TIMEOUT_MS, 1_000)
+      await loadDeferredSearchRoles(manifest, roles, generation, controller, 'deep')
+    } catch (error) {
+      if (!isAbortError(error)) {
+        throw error
+      }
+    } finally {
+      if (deepPreloadController === controller) {
+        deepPreloadController = null
+      }
+      if (deepPreloadPromise) {
+        deepPreloadPromise = null
+      }
+    }
+  })()
+
+  void deepPreloadPromise.catch(() => {})
 }
 
 function ensureLoadPromise(): Promise<void> {
@@ -555,12 +695,14 @@ function ensureLoadPromise(): Promise<void> {
   const currentLoad = { promise: null as Promise<void> | null }
   const promise = (async () => {
     try {
+      const initialStartedAt = typeof performance !== 'undefined' ? performance.now() : 0
       const manifest = await loadManifest(controller.signal)
       if (!isGenerationActive(generation, controller)) {
         return
       }
 
-      const initialRoles = manifest.initialRoles.filter((role): role is SearchShardRole => role === 'core' || role === 'recent' || role === 'archive')
+      activeManifest = manifest
+      const initialRoles = selectInitialRoles(manifest)
       const entries = await loadAssetsForRoles(manifest, initialRoles, controller.signal)
       if (!isGenerationActive(generation, controller)) {
         return
@@ -574,7 +716,9 @@ function ensureLoadPromise(): Promise<void> {
       loadedEntryKeys = new Set(entries.keys())
       loaded = true
       loadedVersion = manifest.currentVersion
-      void preloadBackgroundShard(manifest, generation).catch(() => {})
+      emitSearchPhaseMetric('initial', initialStartedAt, initialRoles, manifest.currentVersion, entries.size)
+      void preloadBackgroundSearchPhase(manifest, generation).catch(() => {})
+      scheduleDeepSearchPhase(manifest, generation)
     } catch (error) {
       if (!controller.signal.aborted) {
         throw error
@@ -614,6 +758,7 @@ export function invalidateSearchIndexMemory(): void {
   loaded = false
   loadedVersion = null
   loadedEntryKeys = new Set<string>()
+  activeManifest = null
 }
 
 async function loadSearchIndex(signal?: AbortSignal): Promise<void> {
@@ -626,6 +771,44 @@ async function loadSearchIndex(signal?: AbortSignal): Promise<void> {
 
 export async function loadDeepSearchIndex(signal?: AbortSignal): Promise<void> {
   await loadSearchIndex(signal)
+  const manifest = activeManifest
+  if (!manifest) {
+    return
+  }
+
+  const roles = selectDeepIntentRoles(manifest)
+  if (roles.length === 0) {
+    return
+  }
+
+  backgroundPreloadController?.abort()
+  deepPreloadController?.abort()
+  deepPreloadPromise = null
+  const generation = activeGeneration
+  const controller = new AbortController()
+  deepPreloadController = controller
+  const abortFromCaller = (): void => controller.abort()
+  if (signal?.aborted) {
+    controller.abort()
+  } else {
+    signal?.addEventListener('abort', abortFromCaller, { once: true })
+  }
+
+  try {
+    const startedAt = typeof performance !== 'undefined' ? performance.now() : 0
+    const extra = await loadAssetsForRoles(manifest, roles, controller.signal)
+    if (!isGenerationActive(generation, controller)) {
+      return
+    }
+
+    loadedEntryKeys = await loadIncrementalEntries(extra, generation, controller)
+    emitSearchPhaseMetric('deep', startedAt, roles, manifest.currentVersion, extra.size)
+  } finally {
+    signal?.removeEventListener('abort', abortFromCaller)
+    if (deepPreloadController === controller) {
+      deepPreloadController = null
+    }
+  }
 }
 
 export async function searchIndex(
