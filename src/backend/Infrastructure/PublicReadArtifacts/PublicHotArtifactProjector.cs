@@ -539,6 +539,7 @@ public sealed class PublicHotArtifactProjector(
     private async Task<IReadOnlyList<FeaturedArticleCoreModel>> LoadFeaturedArticlesFromDbAsync(int count, CancellationToken ct)
     {
         count = Math.Clamp(count, 1, 20);
+        int candidateLimit = MaxHotArticlesCount;
         DateTime now = DateTime.UtcNow;
         var rows = await db.Queryable<Article>()
             .LeftJoin<Category>((a, c) => a.CategoryId == c.Id)
@@ -550,7 +551,7 @@ public sealed class PublicHotArtifactProjector(
                 && a.CoverImageUrl != "")
             .OrderByDescending(a => a.Views)
             .OrderByDescending(a => a.Id)
-            .Take(count)
+            .Take(candidateLimit)
             .Select((a, c) => new
             {
                 a.Id,
@@ -564,13 +565,16 @@ public sealed class PublicHotArtifactProjector(
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        return rows.Select(row => new FeaturedArticleCoreModel(
-            row.Id,
-            row.Title ?? string.Empty,
-            row.CoverImageUrl ?? string.Empty,
-            row.Views,
-            row.CreateTime,
-            new ArticleCategoryCoreModel(row.CategoryId, row.CategoryName ?? string.Empty))).ToList();
+        return rows
+            .Where(static row => !string.IsNullOrWhiteSpace(row.CoverImageUrl))
+            .Take(count)
+            .Select(row => new FeaturedArticleCoreModel(
+                row.Id,
+                row.Title ?? string.Empty,
+                row.CoverImageUrl!.Trim(),
+                row.Views,
+                row.CreateTime,
+                new ArticleCategoryCoreModel(row.CategoryId, row.CategoryName ?? string.Empty))).ToList();
     }
 
     private async Task<string> LoadArticleContentAsync(int articleId, CancellationToken ct)

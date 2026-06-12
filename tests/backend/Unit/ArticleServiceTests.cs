@@ -37,6 +37,17 @@ public sealed class ArticleServiceTests
         Assert.Empty(ordered);
     }
 
+    [Theory]
+    [InlineData("/uploads/cover.webp", true)]
+    [InlineData("  /uploads/cover.webp  ", true)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    [InlineData(null, false)]
+    public void HasUsableFeaturedCoverForTests_RequiresNonWhitespaceCover(string? coverImageUrl, bool expected)
+    {
+        Assert.Equal(expected, ArticleService.HasUsableFeaturedCoverForTests(coverImageUrl));
+    }
+
     [Fact]
     public void AttachTagsForTests_AssignsTagsByArticleId()
     {

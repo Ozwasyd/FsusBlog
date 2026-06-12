@@ -665,13 +665,17 @@ function resolveArticleCommentsIslandId(payload: PublicHydrationPayload): number
 }
 
 function resolveHomeHotArticlesTarget(): HTMLElement | null {
+  const slot = document.getElementById('fsus-home-hot-articles-slot-content')
+  if (!(slot instanceof HTMLElement)) {
+    return null
+  }
+
   const sentinel = document.getElementById(HOME_HOT_ARTICLES_SENTINEL_ID)
   if (sentinel instanceof HTMLElement) {
     return sentinel
   }
 
-  const slot = document.getElementById('fsus-home-hot-articles-slot-content')
-  return slot instanceof HTMLElement ? slot : null
+  return slot
 }
 
 function scheduleHomeHotArticlesIsland(payload: PublicHydrationPayload): void {

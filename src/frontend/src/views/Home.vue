@@ -6,6 +6,7 @@
     :loading="loading"
     :is-error="isError"
     :spa-navigation="true"
+    :show-aside="homeSecondaryLayout === 'spotlight'"
     @retry="loadArticles(true)"
     @navigate="navigateToArticle"
     @page-prev="handlePageChange(currentPage - 1)"
@@ -15,10 +16,14 @@
       <!-- Only render featured section after data is loaded or explicitly ready.
            Avoid rendering during hydration window to prevent DOM mismatch. -->
       <FeaturedArticlesSection
-        v-if="featuredLoading || featuredArticles.length > 0 || hotArticles.length > 0"
-        :articles="featuredArticles"
+        v-if="homeSecondaryLayout === 'loading' || homeSecondaryLayout === 'spotlight'"
+        :articles="spotlightArticles"
         :hot-articles="hotArticles"
         :loading="featuredLoading"
+      />
+      <HomeTextFirstRecommendations
+        v-else-if="homeSecondaryLayout === 'text-first'"
+        :articles="hotArticles"
       />
     </template>
   </PublicHomePageContent>
@@ -28,10 +33,12 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import FeaturedArticlesSection from '@/components/home/FeaturedArticlesSection.vue'
+import HomeTextFirstRecommendations from '@/components/home/HomeTextFirstRecommendations.vue'
 import PublicHomePageContent from '@/components/public/pages/PublicHomePageContent.vue'
 import { useHomeView } from '@/composables/useHomeView'
 import { useHumanReadProof } from '@/composables/useHumanReadProof'
 import { buildPublicHomeRouteKey } from '@/public-renderers/publicRouteIdentity'
+import { resolveHomeSecondaryLayout, selectHomeSpotlightCandidates } from '@/view-contracts/homeSpotlight'
 
 const {
   siteTitleText,
@@ -48,6 +55,12 @@ const {
   loadArticles
 } = useHomeView()
 const router = useRouter()
+const spotlightArticles = computed(() => selectHomeSpotlightCandidates(featuredArticles.value))
+const homeSecondaryLayout = computed(() => resolveHomeSecondaryLayout({
+  loading: featuredLoading.value,
+  spotlightCandidates: spotlightArticles.value,
+  hotArticles: hotArticles.value
+}))
 useHumanReadProof({
   scope: computed(() => 'site'),
   routeKey: computed(() => buildPublicHomeRouteKey()),

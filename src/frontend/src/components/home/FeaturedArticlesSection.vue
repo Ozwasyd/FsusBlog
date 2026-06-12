@@ -1,5 +1,5 @@
 <template>
-  <section class="featured-articles-section mb-20 animate-in fade-in slide-in-from-bottom-6 duration-[var(--fsus-motion-control-fast)]">
+  <section v-if="loading || articles.length > 0" class="featured-articles-section mb-20 animate-in fade-in slide-in-from-bottom-6 duration-[var(--fsus-motion-control-fast)]">
     <header class="mb-10">
       <div class="text-[10px] tabular-nums font-bold normal-case text-[var(--fsusblog-text-muted)]">
         聚焦 / SPOTLIGHT
@@ -42,7 +42,7 @@
       </template>
     </el-skeleton>
 
-    <div v-else-if="articles.length > 0 || hotArticles.length > 0" class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
+    <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
       <div class="lg:col-span-8 space-y-16">
         <article v-if="articles[0]" class="relative">
           <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(articles[0].id)">

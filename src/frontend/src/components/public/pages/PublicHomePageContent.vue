@@ -1,5 +1,5 @@
 <template>
-  <HomeFeedSurface>
+  <HomeFeedSurface :show-aside="showAside">
     <template #main>
       <div>
         <header class="mb-16 sm:mb-24">
@@ -88,6 +88,7 @@ defineProps<{
   loading?: boolean
   isError?: boolean
   spaNavigation?: boolean
+  showAside?: boolean
 }>()
 
 const emit = defineEmits<{

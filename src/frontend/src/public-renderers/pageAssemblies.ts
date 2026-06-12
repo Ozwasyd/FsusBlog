@@ -16,6 +16,7 @@ export function createPublicHomePageAssembly(input: {
   siteTitleText: string
   siteDescriptionText: string
   view: ArticleListViewContract
+  showAside?: boolean
 }): PublicAotPageAssembly {
   return {
     component: PublicHomePageContent,
@@ -25,7 +26,8 @@ export function createPublicHomePageAssembly(input: {
       view: input.view,
       loading: false,
       isError: false,
-      spaNavigation: false
+      spaNavigation: false,
+      showAside: input.showAside ?? false
     },
     slots: {
       featured: () => createCommentVNode('v-if', true)

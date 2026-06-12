@@ -14,6 +14,7 @@ import { isAbortError } from '@/utils/errors'
 import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 import { createArticleListViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList'
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
+import { selectHomeSpotlightCandidates } from '@/view-contracts/homeSpotlight'
 
 const HOME_FEATURED_ARTICLE_COUNT = 3
 const HOME_HOT_ARTICLE_PREFETCH_COUNT = 10
@@ -229,7 +230,7 @@ export function useHomeView() {
       )
 
       if (lifecycle.isActive()) {
-        featuredArticles.value = featured || []
+        featuredArticles.value = selectHomeSpotlightCandidates(featured || [], HOME_FEATURED_ARTICLE_COUNT)
 
         // 去重逻辑：如果文章已经出现在精选位，则不再出现在热门排行中
         const featuredIds = new Set(featuredArticles.value.map(a => a.id))

@@ -48,6 +48,16 @@
           </el-descriptions>
         </WorkbenchPanel>
 
+        <WorkbenchPanel title="首页 Spotlight" eyebrow="HOME" title-id="cache-home-spotlight-title">
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="status">
+              <el-tag :type="statusType(spotlightHealthStatus)">{{ spotlightHealthStatus }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="candidates">{{ spotlightCandidateCountText }}</el-descriptions-item>
+            <el-descriptions-item label="detail">{{ spotlightHealthDetail }}</el-descriptions-item>
+          </el-descriptions>
+        </WorkbenchPanel>
+
         <WorkbenchPanel title="搜索索引" eyebrow="SEARCH" title-id="cache-search-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
             <el-descriptions-item label="version">{{ diagnostics.search.version ?? '-' }}</el-descriptions-item>
@@ -120,7 +130,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, shallowRef } from 'vue'
+import { computed, onMounted, ref, shallowRef } from 'vue'
+import { getFeaturedArticles } from '@/api/article'
 import {
   getCacheDiagnostics,
   runCacheAction,
@@ -138,6 +149,29 @@ const actionLoading = ref('')
 const articleId = ref('')
 const diagnostics = shallowRef<CacheDiagnosticsResponse | null>(null)
 const lastAction = shallowRef<AdminCacheActionResponse | null>(null)
+const spotlightCandidateCount = ref<number | null>(null)
+const spotlightDiagnosticsError = ref('')
+
+const spotlightHealthStatus = computed(() => {
+  if (spotlightDiagnosticsError.value) return 'degraded'
+  if (spotlightCandidateCount.value === null) return 'unknown'
+  return spotlightCandidateCount.value > 0 ? 'ok' : 'missing'
+})
+const spotlightCandidateCountText = computed(() =>
+  spotlightCandidateCount.value === null ? '-' : String(spotlightCandidateCount.value))
+const spotlightHealthDetail = computed(() => {
+  if (spotlightDiagnosticsError.value) {
+    return spotlightDiagnosticsError.value
+  }
+
+  if (spotlightCandidateCount.value === null) {
+    return '等待诊断'
+  }
+
+  return spotlightCandidateCount.value > 0
+    ? '当前存在可展示的已发布有头图文章'
+    : '当前没有可展示的聚焦文章；请为热门文章设置头图、手动调整热度，或关闭首页聚焦区'
+})
 
 const parseArticleId = (): number | null => {
   const parsed = Number.parseInt(articleId.value.trim(), 10)
@@ -147,7 +181,25 @@ const parseArticleId = (): number | null => {
 const loadDiagnostics = async (): Promise<void> => {
   loading.value = true
   try {
-    diagnostics.value = await getCacheDiagnostics(parseArticleId())
+    const [cacheDiagnostics, spotlightCandidates] = await Promise.allSettled([
+      getCacheDiagnostics(parseArticleId()),
+      getFeaturedArticles(3)
+    ])
+
+    if (cacheDiagnostics.status !== 'fulfilled') {
+      throw cacheDiagnostics.reason
+    }
+
+    diagnostics.value = cacheDiagnostics.value
+    if (spotlightCandidates.status === 'fulfilled') {
+      spotlightCandidateCount.value = spotlightCandidates.value
+        .filter((article) => article.coverImageUrl.trim().length > 0)
+        .length
+      spotlightDiagnosticsError.value = ''
+    } else {
+      spotlightCandidateCount.value = null
+      spotlightDiagnosticsError.value = 'Spotlight 候选诊断加载失败'
+    }
   } catch (error) {
     showErrorToast(error, '缓存诊断加载失败')
   } finally {

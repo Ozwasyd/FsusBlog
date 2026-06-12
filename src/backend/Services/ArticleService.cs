@@ -891,10 +891,16 @@ public class ArticleService(
 
             while (await reader.ReadAsync(effectiveCt))
             {
+                string coverImageUrl = reader.IsDBNull(fCover) ? string.Empty : reader.GetString(fCover);
+                if (!HasUsableFeaturedCover(coverImageUrl))
+                {
+                    continue;
+                }
+
                 articles.Add(new FeaturedArticleSummaryDto(
                     reader.GetInt32(fId),
                     reader.GetString(fTitle),
-                    reader.GetString(fCover),
+                    coverImageUrl.Trim(),
                     reader.GetInt32(fViews),
                     reader.GetDateTime(fCreateTime),
                     new ArticleCategoryView(reader.GetInt32(fCatId), reader.IsDBNull(fCatName) ? string.Empty : reader.GetString(fCatName))
@@ -918,6 +924,12 @@ public class ArticleService(
 
         return articles.Take(size).ToList();
     }
+
+    internal static bool HasUsableFeaturedCoverForTests(string? coverImageUrl)
+        => HasUsableFeaturedCover(coverImageUrl);
+
+    private static bool HasUsableFeaturedCover(string? coverImageUrl)
+        => !string.IsNullOrWhiteSpace(coverImageUrl);
 
     private async Task<ArticleListPageReadModel> LoadArticleListPageFromDbAsync(
         int page,
