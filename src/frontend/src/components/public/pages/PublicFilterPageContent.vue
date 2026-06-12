@@ -13,7 +13,9 @@
 
       <div
         v-if="showSearchSort"
+        v-motion="{ name: fsusBlogMotionPresets.searchDialog, once: true }"
         class="filter-stack mb-16 border-b border-[var(--fsusblog-panel-border)] pb-10 flex items-center gap-8"
+        data-fsus-motion-surface="search-panel"
       >
         <span class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">排序</span>
         <el-radio-group
@@ -84,6 +86,7 @@ import FilterHeader from '@/components/filter/FilterHeader.vue'
 import FilterArticleLoadingState from '@/components/filter/FilterArticleLoadingState.vue'
 import { PUBLIC_FIXED_PATHS } from '@/public-renderers/publicRoutePaths'
 import { Back } from '@/fsusui/icons'
+import { fsusBlogMotionPresets, vMotion } from '@/fsusui/motion'
 import type { FilterPageViewContract } from '@/view-contracts/filterView'
 
 const props = defineProps<{

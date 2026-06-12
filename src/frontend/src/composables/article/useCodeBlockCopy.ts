@@ -1,5 +1,6 @@
 import { nextTick, onUnmounted, type MaybeRefOrGetter, toValue, watch } from 'vue'
 import { toast } from '@/fsusui/feedback'
+import { fsusBlogScrollRevealOptions, useScrollReveal } from '@/fsusui/motion'
 
 const ENHANCED_ATTR = 'data-fsus-code-copy'
 
@@ -26,8 +27,10 @@ async function writeClipboard(text: string): Promise<void> {
 export function useCodeBlockCopy(contentRoot: MaybeRefOrGetter<HTMLElement | null>) {
   const insertedButtons = new Set<HTMLButtonElement>()
   const resetTimers = new WeakMap<HTMLButtonElement, ReturnType<typeof setTimeout>>()
+  const revealControls = useScrollReveal({ ...fsusBlogScrollRevealOptions })
 
   const cleanup = (): void => {
+    revealControls.kill()
     for (const button of insertedButtons) {
       const resetTimer = resetTimers.get(button)
       if (resetTimer) {
@@ -41,6 +44,7 @@ export function useCodeBlockCopy(contentRoot: MaybeRefOrGetter<HTMLElement | nul
     root?.querySelectorAll<HTMLElement>(`pre[${ENHANCED_ATTR}]`).forEach((pre) => {
       pre.removeAttribute(ENHANCED_ATTR)
       pre.classList.remove('fsus-code-copy-host')
+      pre.removeAttribute('data-fsus-motion-surface')
     })
   }
 
@@ -61,6 +65,8 @@ export function useCodeBlockCopy(contentRoot: MaybeRefOrGetter<HTMLElement | nul
       const source = code?.textContent ?? pre.textContent ?? ''
       pre.setAttribute(ENHANCED_ATTR, 'true')
       pre.classList.add('fsus-code-copy-host')
+      pre.setAttribute('data-fsus-motion-surface', 'article-code-block')
+      revealControls.reveal(pre, fsusBlogScrollRevealOptions)
 
       const button = document.createElement('button')
       button.type = 'button'

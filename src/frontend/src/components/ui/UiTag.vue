@@ -4,6 +4,7 @@
       :type="tagType"
       :effect="tagEffect"
       size="small"
+      data-fsus-motion-surface="tag-chip"
     >
       <slot>{{ label }}</slot>
     </el-tag>
@@ -13,6 +14,7 @@
     :type="tagType"
     :effect="tagEffect"
     size="small"
+    data-fsus-motion-surface="tag-chip"
   >
     <slot>{{ label }}</slot>
   </el-tag>

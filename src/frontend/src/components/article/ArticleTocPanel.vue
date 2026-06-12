@@ -29,6 +29,7 @@
     direction="btt"
     size="62%"
     class="article-toc-drawer"
+    data-fsus-motion-surface="mobile-drawer"
   >
     <nav class="article-toc-drawer__nav" aria-label="文章目录">
       <button

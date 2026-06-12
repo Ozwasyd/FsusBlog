@@ -1,5 +1,6 @@
 import { h } from 'vue'
 import { ElButton, ElMessage, ElMessageBox } from '@ozwasyd/element-plus'
+import { fsusBlogMotionPresets } from '@/fsusui/motion'
 import { isFsusUiOk } from '@/fsusui/result'
 
 type MessageBoxOptions = Record<string, unknown>
@@ -28,7 +29,8 @@ export const showToast = (options: ToastOptions | string): ToastHandle => {
 
   const messageOptions: Record<string, unknown> = {
     message: messageVNode,
-    type: elType as any
+    type: elType as any,
+    customClass: `fsusblog-motion-toast fsusblog-motion-toast--${fsusBlogMotionPresets.toast}`
   }
 
   if (opts.duration !== undefined) {

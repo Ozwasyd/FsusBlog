@@ -11,6 +11,8 @@ import { runtimePhase, runtimeReady } from '@/bootstrap/runtimeGate'
 import { isPublicSeoRouteName, isPublicShellRouteName } from '@/public-renderers/publicPageModel'
 import { useThemeRuntime } from '@/services/themeRuntime'
 import { FSUSBLOG_RENDER_PIPELINE_CONFIG } from '@/fsusui/renderPipeline'
+import FsusBlogRouteTransition from '@/components/ui/FsusBlogRouteTransition.vue'
+import { FsuTransition, fsusBlogMotionPresets } from '@/fsusui/motion'
 
 const router = useRouter()
 const route = useRoute()
@@ -141,7 +143,7 @@ onUnmounted(() => {
   >
     <RouterView v-if="isPublicSeoRoute" />
     <div v-else class="app-wrapper w-full min-h-screen flex flex-col overflow-x-hidden">
-      <transition name="banner-slide">
+      <FsuTransition :name="fsusBlogMotionPresets.banner">
         <div
           v-if="userStore.isAuthChecked && userStore.isLoggedIn && userStore.isBanned"
           class="banned-user-banner w-full py-2 px-6 flex items-center justify-center gap-6 z-200 relative"
@@ -153,12 +155,12 @@ onUnmounted(() => {
             查看详情
           </router-link>
         </div>
-      </transition>
+      </FsuTransition>
 
       <router-view v-slot="{ Component }">
-        <transition name="page-fade" mode="out-in">
+        <FsusBlogRouteTransition :name="fsusBlogMotionPresets.route">
           <component :is="Component" />
-        </transition>
+        </FsusBlogRouteTransition>
       </router-view>
       <FullAppRuntime v-if="runtimeReady" />
     </div>
@@ -175,35 +177,8 @@ html, body {
 </style>
 
 <style scoped>
-.page-fade-enter-active,
-.page-fade-leave-active {
-  transition: opacity var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.page-fade-enter-from,
-.page-fade-leave-to {
-  opacity: 0;
-}
-
-.banner-slide-enter-active, .banner-slide-leave-active {
-  transition: transform var(--fsus-motion-control) var(--fsus-motion-standard);
-}
-
-.banner-slide-enter-from, .banner-slide-leave-to {
-  transform: translateY(-100%);
-}
-
 .banned-user-banner {
   background: var(--fsusblog-text-primary);
   color: var(--fsusblog-page-bg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .page-fade-enter-active,
-  .page-fade-leave-active,
-  .banner-slide-enter-active,
-  .banner-slide-leave-active {
-    transition: none;
-  }
 }
 </style>

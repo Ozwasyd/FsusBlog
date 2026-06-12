@@ -32,6 +32,7 @@ const shareActions = read('src/frontend/src/components/article/ArticleShareActio
 const targetHelper = read('src/frontend/src/composables/article/useArticleReadingTarget.ts')
 const tocComposable = read('src/frontend/src/composables/article/useArticleToc.ts')
 const codeCopy = read('src/frontend/src/composables/article/useCodeBlockCopy.ts')
+const imageLightboxComposable = read('src/frontend/src/composables/article/useArticleImageLightbox.ts')
 const articleDetail = read('src/frontend/src/views/ArticleDetail.vue')
 
 for (const token of [
@@ -54,14 +55,15 @@ expectNotMatches(toc, /\b(?:translate|scale|stagger)\b/i, 'ArticleTocPanel.vue m
 expectIncludes(mobileBar, 'data-mobile-reading-actions="true"', 'ArticleMobileActionBar.vue')
 expectIncludes(mobileBar, 'blog-motion-mobile-bar', 'ArticleMobileActionBar.vue')
 expectIncludes(mobileBar, 'env(safe-area-inset-bottom, 0px)', 'ArticleMobileActionBar.vue')
-expectIncludes(mobileBar, 'translateY(4px)', 'ArticleMobileActionBar.vue')
-expectIncludes(mobileBar, '@media (prefers-reduced-motion: reduce)', 'ArticleMobileActionBar.vue')
-expectNotMatches(mobileBar, /translateY\(([5-9]|\d{2,})px\)/, 'ArticleMobileActionBar.vue translateY must stay <= 4px')
+expectIncludes(mobileBar, '<FsuTransition', 'ArticleMobileActionBar.vue')
+expectIncludes(mobileBar, 'fsusBlogMotionPresets.mobileBar', 'ArticleMobileActionBar.vue')
+expectIncludes(mobileBar, 'fsusBlogMotionPresets.backToTop', 'ArticleMobileActionBar.vue')
+expectNotMatches(mobileBar, /translateY\(/, 'ArticleMobileActionBar.vue must not define local mobile bar translate motion')
 
 expectIncludes(lightbox, 'data-article-lightbox="true"', 'ArticleImageLightbox.vue')
-expectIncludes(lightbox, '--blog-motion-overlay', 'ArticleImageLightbox.vue')
-expectIncludes(lightbox, '--blog-motion-panel', 'ArticleImageLightbox.vue')
-expectIncludes(lightbox, '@media (prefers-reduced-motion: reduce)', 'ArticleImageLightbox.vue')
+expectIncludes(lightbox, '<FsuTransition', 'ArticleImageLightbox.vue')
+expectIncludes(lightbox, 'fsusBlogMotionPresets.mediaOverlay', 'ArticleImageLightbox.vue')
+expectNotMatches(lightbox, /article-lightbox-fade/, 'ArticleImageLightbox.vue must use FsusUI transition instead of local fade CSS')
 expectNotMatches(lightbox, /scale\(/, 'ArticleImageLightbox.vue must not use zoom/scale')
 
 expectIncludes(shareActions, 'blog-motion-reading-control', 'ArticleShareActions.vue')
@@ -75,8 +77,12 @@ expectIncludes(articleDetail, "document.getElementById('fsus-comments-island')",
 expectIncludes(articleDetail, 'scrollToArticleTarget(target)', 'ArticleDetail.vue')
 
 expectIncludes(codeCopy, 'fsus-code-copy-button--copied', 'useCodeBlockCopy.ts')
+expectIncludes(codeCopy, 'useScrollReveal', 'useCodeBlockCopy.ts')
+expectIncludes(codeCopy, "'article-code-block'", 'useCodeBlockCopy.ts')
 expectIncludes(codeCopy, "button.setAttribute('aria-live', 'polite')", 'useCodeBlockCopy.ts')
 expectIncludes(codeCopy, 'globalThis.setTimeout', 'useCodeBlockCopy.ts')
+expectIncludes(imageLightboxComposable, 'useScrollReveal', 'useArticleImageLightbox.ts')
+expectIncludes(imageLightboxComposable, "'article-body-image'", 'useArticleImageLightbox.ts')
 expectIncludes(markdownCss, '.fsus-code-copy-button--copied', 'markdown.css')
 expectIncludes(markdownCss, 'var(--blog-motion-fast) var(--blog-motion-ease)', 'markdown.css')
 

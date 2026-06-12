@@ -1,4 +1,5 @@
 import { nextTick, onUnmounted, ref, type MaybeRefOrGetter, toValue, watch } from 'vue'
+import { fsusBlogScrollRevealOptions, useScrollReveal } from '@/fsusui/motion'
 
 export type ArticleLightboxImage = Readonly<{
   src: string
@@ -16,12 +17,15 @@ export function useArticleImageLightbox(contentRoot: MaybeRefOrGetter<HTMLElemen
   const activeIndex = ref(0)
   const open = ref(false)
   const listeners: ListenerRecord[] = []
+  const revealControls = useScrollReveal({ ...fsusBlogScrollRevealOptions })
 
   const cleanup = (): void => {
+    revealControls.kill()
     for (const record of listeners.splice(0)) {
       record.image.removeEventListener('click', record.click)
       record.image.removeEventListener('keydown', record.keydown)
       record.image.classList.remove('fsus-article-preview-image')
+      record.image.removeAttribute('data-fsus-motion-surface')
       record.image.removeAttribute('role')
       record.image.removeAttribute('tabindex')
       record.image.removeAttribute('aria-label')
@@ -69,11 +73,13 @@ export function useArticleImageLightbox(contentRoot: MaybeRefOrGetter<HTMLElemen
       }
 
       image.classList.add('fsus-article-preview-image')
+      image.setAttribute('data-fsus-motion-surface', 'article-body-image')
       image.setAttribute('role', 'button')
       image.setAttribute('tabindex', '0')
       image.setAttribute('aria-label', image.alt?.trim() ? `查看大图：${image.alt.trim()}` : '查看大图')
       image.addEventListener('click', click)
       image.addEventListener('keydown', keydown)
+      revealControls.reveal(image, fsusBlogScrollRevealOptions)
       listeners.push({ image, click, keydown })
     })
   }

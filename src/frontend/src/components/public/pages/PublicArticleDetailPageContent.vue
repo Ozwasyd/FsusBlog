@@ -18,7 +18,9 @@
 
     <div
       v-if="detailView.header.coverImageUrl"
+      v-scroll-reveal="fsusBlogScrollRevealMotion"
       class="mb-16 blog-motion-state-change"
+      data-fsus-motion-surface="article-cover"
     >
       <img
         :src="detailView.header.coverImageUrl"
@@ -33,7 +35,11 @@
       />
     </div>
 
-    <header :class="themeTokens.articleDetail.header">
+    <header
+      v-motion="{ name: fsusBlogMotionPresets.articleTitle, once: true }"
+      :class="themeTokens.articleDetail.header"
+      data-fsus-motion-surface="article-title"
+    >
       <ArticleDetailHeader :view="detailView.header" :link-mode="linkMode" />
       <slot name="header-actions" />
     </header>
@@ -192,6 +198,12 @@ import ArticleDetailTagsFooter from '@/components/article/ArticleDetailTagsFoote
 import ArticleDetailBody from '@/components/public/ArticleDetailBody.vue'
 import ArticleDetailCommentsPlaceholder from '@/components/public/ArticleDetailCommentsPlaceholder.vue'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
+import {
+  fsusBlogMotionPresets,
+  fsusBlogScrollRevealMotion,
+  vMotion,
+  vScrollReveal
+} from '@/fsusui/motion'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
 

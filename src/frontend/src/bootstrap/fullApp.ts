@@ -6,6 +6,7 @@ import ElementPlus from '@ozwasyd/element-plus'
 import App from '@/App.vue'
 import router from '@/router'
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
+import { FsuMotion } from '@/fsusui/motion'
 import { scheduleNonCriticalResources } from '@/bootstrap/nonCriticalResources'
 import { scheduleFullAppRuntime } from '@/bootstrap/runtimeGate'
 import { removeGlobalLoader } from '@/bootstrap/publicShellPrimitives'
@@ -49,6 +50,7 @@ export function bootstrapFullApp(options?: { deferRuntime?: boolean; hydrate?: b
     app.use(pinia)
     app.use(router)
     app.use(ElementPlus)
+    app.use(FsuMotion)
     provideFsusUiAppContext(app)
     authSessionRuntime.init(pinia)
 

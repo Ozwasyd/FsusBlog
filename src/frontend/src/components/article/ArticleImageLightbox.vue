@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <Transition name="article-lightbox-fade">
+    <FsuTransition :name="fsusBlogMotionPresets.mediaOverlay">
       <div
         v-if="open && activeImage"
         ref="dialogRef"
@@ -49,13 +49,14 @@
           下一张
         </button>
       </div>
-    </Transition>
+    </FsuTransition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import type { ArticleLightboxImage } from '@/composables/article/useArticleImageLightbox'
+import { FsuTransition, fsusBlogMotionPresets } from '@/fsusui/motion'
 
 const props = defineProps<{
   open: boolean
@@ -148,34 +149,6 @@ onUnmounted(() => {
   right: 1rem;
 }
 
-.article-lightbox-fade-enter-active,
-.article-lightbox-fade-leave-active {
-  transition: opacity var(--blog-motion-overlay) var(--blog-motion-ease);
-}
-
-.article-lightbox-fade-enter-active .article-image-lightbox__figure,
-.article-lightbox-fade-leave-active .article-image-lightbox__figure {
-  transition: opacity var(--blog-motion-panel) var(--blog-motion-ease);
-}
-
-.article-lightbox-fade-enter-from,
-.article-lightbox-fade-leave-to {
-  opacity: 0;
-}
-
-.article-lightbox-fade-enter-from .article-image-lightbox__figure,
-.article-lightbox-fade-leave-to .article-image-lightbox__figure {
-  opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .article-lightbox-fade-enter-active,
-  .article-lightbox-fade-leave-active,
-  .article-lightbox-fade-enter-active .article-image-lightbox__figure,
-  .article-lightbox-fade-leave-active .article-image-lightbox__figure {
-    transition: none;
-  }
-}
 </style>
 
 <style>

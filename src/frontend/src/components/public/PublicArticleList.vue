@@ -1,10 +1,13 @@
 <template>
   <div :class="themeTokens.articleList.container">
     <article
-      v-for="item in items"
+      v-for="(item, index) in items"
       :key="item.id"
+      v-motion="{ name: fsusBlogMotionPresets.articleCards, index, once: true }"
       v-memo="[item.id, item.title, item.summary, item.meta.displayTime, item.meta.categoryName]"
       :class="themeTokens.articleList.card"
+      :data-fsus-motion-index="index"
+      data-fsus-motion-surface="article-card"
     >
       <div :class="themeTokens.articleList.metaRow">
         <time :datetime="item.meta.isoTime" :title="item.meta.fullTime" class="tabular-nums">
@@ -81,6 +84,7 @@
 import { UiTag } from '@/components/ui';
 import { themeTokens } from '@/ui-tokens/themeTokens';
 import { ArrowRight } from '@/fsusui/icons';
+import { fsusBlogMotionPresets, vMotion } from '@/fsusui/motion';
 import type { ArticleListCardViewContract } from '@/view-contracts/articleList';
 import type { PaginationContract } from '@/ui-contracts/primitives';
 

@@ -2,7 +2,11 @@
   <HomeFeedSurface :show-aside="showAside">
     <template #main>
       <div>
-        <header class="mb-16 sm:mb-24">
+        <header
+          v-motion="{ name: fsusBlogMotionPresets.homeHero, once: true }"
+          class="mb-16 sm:mb-24"
+          data-fsus-motion-surface="home-hero"
+        >
           <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--fsusblog-text-primary)] tracking-normal leading-[1.1]">
             {{ siteTitleText }}<span class="text-[var(--fsusblog-text-muted)]">.</span>
           </h1>
@@ -79,6 +83,7 @@ import HomeArticleErrorState from '@/components/home/HomeArticleErrorState.vue'
 import HomeArticleEmptyState from '@/components/home/HomeArticleEmptyState.vue'
 import HomeFeedSurface from '@/components/public/HomeFeedSurface.vue'
 import PublicArticleList from '@/components/public/PublicArticleList.vue'
+import { fsusBlogMotionPresets, vMotion } from '@/fsusui/motion'
 import type { ArticleListViewContract } from '@/view-contracts/articleList'
 
 defineProps<{

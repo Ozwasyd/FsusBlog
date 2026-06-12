@@ -1,6 +1,22 @@
 # FsusBlog Motion Guidelines
 
-FsusBlog motion is functional feedback, not decoration. Application pages use `--blog-motion-*` aliases and semantic classes from `src/frontend/src/assets/motion.css`; FsusUI and Element Plus keep ownership of low-level component motion.
+FsusBlog motion is functional feedback, not decoration. Preset motion must enter the app through `src/frontend/src/fsusui/motion.ts`, which re-exports FsusUI motion components, directives and composables from `@ozwasyd/element-plus`. Application-owned `--blog-motion-*` aliases and semantic classes remain only for state feedback that FsusUI does not expose as a preset.
+
+## FsusUI Preset Adoption
+
+Use FsusUI motion primitives for page and interaction presets:
+
+- Home hero: `v-motion` with `fsusBlogMotionPresets.homeHero` (`fade-up`).
+- Article cards: `v-motion` with `fsusBlogMotionPresets.articleCards` (`list-stagger`) and explicit list indexes.
+- Search panel/dialog surfaces: `fsusBlogMotionPresets.searchDialog` (`scale-fade`).
+- Mobile drawer/menu surfaces: FsusUI `el-drawer` plus `fsusBlogMotionPresets.mobileDrawer` boundary metadata.
+- Toast surfaces: FsusUI `ElMessage`, tagged by `fsusBlogMotionPresets.toast` (`slide-up`).
+- Article title: `v-motion` with `fsusBlogMotionPresets.articleTitle` (`fade-up`).
+- Article body images and code blocks: `useScrollReveal()` with `fsusBlogScrollRevealOptions`; do not animate ordinary paragraphs.
+- Media overlay and back-to-top: `mediaOverlay` / `backToTop` (`scale-fade`).
+- Route transitions: `FsusBlogRouteTransition` uses FsusUI `runMotion(route-fade)` and `useMotionRouteCleanup()`.
+
+Do not import `@element-plus/motion`, `motion-dom`, or `gsap` directly from FsusBlog business code. If a new surface needs preset motion, add a named mapping to `fsusBlogMotionPresets` and use the FsusUI adapter.
 
 ## Allowed And Forbidden
 
@@ -105,4 +121,4 @@ Do not use row height, width, top, left, filter or blur transitions. Do not stag
 
 ## FsusUI Boundary
 
-Application pages may wrap FsusUI components with layout classes, but they must not rewrite internal `.el-*` motion through page-level `:deep(.el-*)`. If a component needs different motion, add a semantic wrapper or request the token in FsusUI.
+Application pages may wrap FsusUI components with layout classes, but they must not rewrite internal `.el-*` motion through page-level `:deep(.el-*)`. If a component needs different motion, add a semantic wrapper or request the token in FsusUI. FsusBlog must not add local GSAP timelines or duplicate FsusUI preset definitions.

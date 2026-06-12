@@ -1,5 +1,5 @@
 <template>
-  <Transition name="article-mobile-action-bar-motion" appear>
+  <FsuTransition :name="fsusBlogMotionPresets.mobileBar" appear>
     <nav class="article-mobile-action-bar blog-motion-mobile-bar" data-mobile-reading-actions="true" aria-label="文章快捷操作">
     <button
       v-if="hasToc"
@@ -30,15 +30,19 @@
       type="button"
       class="article-mobile-action-bar__button blog-motion-reading-control"
       aria-label="回到文章顶部"
+      v-motion="{ name: fsusBlogMotionPresets.backToTop, once: true }"
+      data-fsus-motion-surface="back-to-top"
       @click="emit('top')"
     >
       顶部
     </button>
     </nav>
-  </Transition>
+  </FsuTransition>
 </template>
 
 <script setup lang="ts">
+import { FsuTransition, fsusBlogMotionPresets, vMotion } from '@/fsusui/motion'
+
 defineProps<{
   hasToc: boolean
 }>()
@@ -84,35 +88,10 @@ const emit = defineEmits<{
   outline-offset: -3px;
 }
 
-.article-mobile-action-bar-motion-enter-active,
-.article-mobile-action-bar-motion-leave-active {
-  transition:
-    opacity var(--blog-motion-fast) var(--blog-motion-ease),
-    transform var(--blog-motion-fast) var(--blog-motion-ease);
-}
-
-.article-mobile-action-bar-motion-enter-from,
-.article-mobile-action-bar-motion-leave-to {
-  opacity: 0;
-  transform: translateY(4px);
-}
-
 @media (min-width: 768px) {
   .article-mobile-action-bar {
     display: none;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .article-mobile-action-bar-motion-enter-active,
-  .article-mobile-action-bar-motion-leave-active {
-    transition: none;
-  }
-
-  .article-mobile-action-bar-motion-enter-from,
-  .article-mobile-action-bar-motion-leave-to {
-    opacity: 1;
-    transform: none;
-  }
-}
 </style>

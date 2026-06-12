@@ -1,5 +1,10 @@
 <template>
-  <section v-if="loading || articles.length > 0" class="featured-articles-section mb-20 animate-in fade-in slide-in-from-bottom-6 duration-[var(--fsus-motion-control-fast)]">
+  <section
+    v-if="loading || articles.length > 0"
+    v-motion="{ name: fsusBlogMotionPresets.articleCards, once: true }"
+    class="featured-articles-section mb-20"
+    data-fsus-motion-surface="home-featured-articles"
+  >
     <header class="mb-10">
       <div class="text-[10px] tabular-nums font-bold normal-case text-[var(--fsusblog-text-muted)]">
         聚焦 / SPOTLIGHT
@@ -161,6 +166,7 @@
 
 <script setup lang="ts">
 import { ArrowRight } from '@/fsusui/icons'
+import { fsusBlogMotionPresets, vMotion } from '@/fsusui/motion'
 import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
 import { TimeUtils } from '@/utils/time'
 

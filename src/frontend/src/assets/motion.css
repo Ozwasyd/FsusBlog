@@ -1,8 +1,9 @@
 /*
  * FsusBlog motion governance.
  *
- * Application surfaces use --blog-motion-* aliases. The underlying timing and
- * easing values stay owned by FsusUI / Element Plus tokens.
+ * Preset enter/leave/reveal motion is owned by FsusUI via
+ * src/frontend/src/fsusui/motion.ts. These aliases are reserved for
+ * application state feedback that is not exposed as an FsusUI preset.
  */
 
 :root {
