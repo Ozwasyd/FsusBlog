@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Buffers;
+using System.IO.Compression;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -31,6 +33,7 @@ using FsusBlog.Server.Services;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Primitives;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
@@ -83,6 +86,7 @@ public static class WebApplicationCompositionExtensions
     private const string CspNonceTemplatePlaceholder = "%%FSUSBLOG_CSP_NONCE%%";
     private const string HtmlContentType = "text/html; charset=utf-8";
     private const int DefaultSpaHeadInjectionCacheMaxEntries = 256;
+    private const int SpaFallbackCompressionMinBytes = 1024;
     private const string HeadInjectionKindRoutePreload = "route-preload";
     private const string HeadInjectionKindPublicAssetSet = "public-asset-set";
     private static readonly byte[] EmptyBytes = [];
@@ -664,7 +668,7 @@ public static class WebApplicationCompositionExtensions
         headers["Cache-Control"] = string.IsNullOrWhiteSpace(document.CacheControl)
             ? PublicAotHtmlArtifactOptions.DefaultCacheControl
             : document.CacheControl;
-        headers["Vary"] = "Accept-Encoding";
+        EnsureAcceptEncodingVary(headers);
         headers["Accept-Ranges"] = "none";
         headers.Remove("Last-Modified");
     }
@@ -821,14 +825,110 @@ public static class WebApplicationCompositionExtensions
         int contentLength = template.GetLength(nonceBytes.Length, headInjection.Length);
 
         ctx.Response.ContentType = HtmlContentType;
-        ctx.Response.ContentLength = contentLength;
-        if (HttpMethods.IsHead(ctx.Request.Method) || contentLength == 0)
+        EnsureAcceptEncodingVary(ctx.Response.Headers);
+
+        ArrayBufferWriter<byte> output = new(Math.Max(contentLength, 0));
+        template.Write(output, nonceBytes.Span, headInjection.Span);
+        if (!TrySelectSpaHtmlResponseVariant(
+                ctx.Request.Headers.AcceptEncoding,
+                output.WrittenMemory,
+                out PublicAotHtmlArtifactVariant variant))
+        {
+            ctx.Response.StatusCode = StatusCodes.Status406NotAcceptable;
+            ctx.Response.ContentLength = 0;
+            ctx.Response.Headers.Remove("Content-Encoding");
+            return;
+        }
+
+        ctx.Response.ContentLength = variant.Bytes.Length;
+        if (string.IsNullOrWhiteSpace(variant.ContentEncoding))
+        {
+            ctx.Response.Headers.Remove("Content-Encoding");
+        }
+        else
+        {
+            ctx.Response.Headers["Content-Encoding"] = variant.ContentEncoding;
+        }
+
+        if (HttpMethods.IsHead(ctx.Request.Method) || variant.Bytes.IsEmpty)
         {
             return;
         }
 
-        template.Write(ctx.Response.BodyWriter, nonceBytes.Span, headInjection.Span);
-        await ctx.Response.BodyWriter.FlushAsync(cancellationToken);
+        ValueTask<FlushResult> write = ctx.Response.BodyWriter.WriteAsync(variant.Bytes, cancellationToken);
+        if (!write.IsCompletedSuccessfully)
+        {
+            await write;
+        }
+    }
+
+    private static bool TrySelectSpaHtmlResponseVariant(
+        StringValues acceptEncoding,
+        ReadOnlyMemory<byte> identityBytes,
+        out PublicAotHtmlArtifactVariant variant)
+    {
+        ReadOnlyMemory<byte> brotliBytes = EmptyBytes;
+        ReadOnlyMemory<byte> gzipBytes = EmptyBytes;
+        if (identityBytes.Length >= SpaFallbackCompressionMinBytes)
+        {
+            brotliBytes = TryCompressSpaHtml(identityBytes.Span, "br") ?? EmptyBytes;
+            gzipBytes = TryCompressSpaHtml(identityBytes.Span, "gzip") ?? EmptyBytes;
+        }
+
+        var document = new PublicAotHtmlArtifact(
+            identityBytes,
+            string.Empty,
+            brotliBytes,
+            string.Empty,
+            gzipBytes,
+            string.Empty,
+            HtmlContentType,
+            PublicAotHtmlArtifactOptions.DefaultCacheControl,
+            string.Empty,
+            string.Empty,
+            RequiresCspNonceMutation: false);
+        return PublicAotHtmlResponseNegotiation.TrySelectVariant(acceptEncoding, document, out variant);
+    }
+
+    private static byte[]? TryCompressSpaHtml(ReadOnlySpan<byte> bytes, string encoding)
+    {
+        using var output = new MemoryStream();
+        if (encoding == "br")
+        {
+            using (var brotli = new BrotliStream(output, CompressionLevel.Fastest, leaveOpen: true))
+            {
+                brotli.Write(bytes);
+            }
+        }
+        else
+        {
+            using (var gzip = new GZipStream(output, CompressionLevel.Fastest, leaveOpen: true))
+            {
+                gzip.Write(bytes);
+            }
+        }
+
+        return output.Length < bytes.Length ? output.ToArray() : null;
+    }
+
+    private static void EnsureAcceptEncodingVary(IHeaderDictionary headers)
+    {
+        string existing = headers.Vary.ToString();
+        if (string.IsNullOrWhiteSpace(existing))
+        {
+            headers["Vary"] = "Accept-Encoding";
+            return;
+        }
+
+        foreach (string segment in existing.Split(','))
+        {
+            if (string.Equals(segment.Trim(), "Accept-Encoding", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+        }
+
+        headers["Vary"] = string.Concat(existing, ", Accept-Encoding");
     }
 
     private static SpaHtmlByteTemplate GetSpaHtmlByteTemplate(ReadOnlyMemory<byte> templateBytes)
@@ -967,6 +1067,18 @@ public static class WebApplicationCompositionExtensions
         await writer.CompleteAsync();
         return Encoding.UTF8.GetString(output.ToArray());
     }
+
+    internal static Task WriteSpaHtmlResponseForTestsAsync(
+        HttpContext ctx,
+        IWebHostEnvironment env,
+        string templateHtml,
+        ReadOnlyMemory<byte> headInjection)
+        => WriteSpaHtmlResponseAsync(
+            ctx,
+            env,
+            Encoding.UTF8.GetBytes(templateHtml),
+            headInjection,
+            CancellationToken.None);
 
     internal static Task WritePublicAotHtmlEntryForTestsAsync(
         HttpContext ctx,
@@ -1281,7 +1393,7 @@ public static class WebApplicationCompositionExtensions
                 + headInjectionLength
                 + _headCloseAndAfter.GetLength(nonceLength);
 
-        public void Write(PipeWriter writer, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> headInjection)
+        public void Write(IBufferWriter<byte> writer, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> headInjection)
         {
             _beforeHeadClose.Write(writer, nonce);
             WriteBytes(writer, headInjection);
@@ -1344,7 +1456,7 @@ public static class WebApplicationCompositionExtensions
         public int GetLength(int nonceLength)
             => _lengthWithoutNonce + _placeholderCount * nonceLength;
 
-        public void Write(PipeWriter writer, ReadOnlySpan<byte> nonce)
+        public void Write(IBufferWriter<byte> writer, ReadOnlySpan<byte> nonce)
         {
             for (int i = 0; i < _segments.Length; i++)
             {
@@ -1357,7 +1469,7 @@ public static class WebApplicationCompositionExtensions
         }
     }
 
-    private static void WriteBytes(PipeWriter writer, ReadOnlySpan<byte> bytes)
+    private static void WriteBytes(IBufferWriter<byte> writer, ReadOnlySpan<byte> bytes)
     {
         if (bytes.IsEmpty)
         {

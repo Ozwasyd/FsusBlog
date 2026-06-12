@@ -10,6 +10,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 
@@ -186,6 +187,84 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Contains("nonce=\"nonce-a\"", first, StringComparison.Ordinal);
         Assert.Contains("nonce=\"nonce-b\"", second, StringComparison.Ordinal);
         Assert.DoesNotContain("nonce=\"nonce-a\"", second, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SpaFallbackHtmlResponse_CompressesBrotliAndPreservesNonceAndHeadInjection()
+    {
+        DefaultHttpContext context = CreateSpaFallbackContext(HttpMethods.Get, "br, gzip");
+        context.Items["__fsusblog_csp_nonce"] = "spa-nonce";
+        ReadOnlyMemory<byte> headInjection = Encoding.UTF8.GetBytes("<link rel=\"modulepreload\" href=\"/assets/route-admin.js\">\n");
+
+        await WebApplicationCompositionExtensions.WriteSpaHtmlResponseForTestsAsync(
+            context,
+            CreateTestEnv(),
+            CreateLargeSpaTemplate("brotli"),
+            headInjection);
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal("br", context.Response.Headers["Content-Encoding"].ToString());
+        Assert.Equal("Accept-Encoding", context.Response.Headers["Vary"].ToString());
+        Assert.Equal(context.Response.Body.Length, context.Response.ContentLength);
+
+        string rendered = DecodeSpaFallbackBody(context);
+        Assert.Contains("nonce=\"spa-nonce\"", rendered, StringComparison.Ordinal);
+        Assert.Contains("<meta property=\"csp-nonce\" nonce=\"spa-nonce\" />", rendered, StringComparison.Ordinal);
+        Assert.Contains("<link rel=\"modulepreload\" href=\"/assets/route-admin.js\">", rendered, StringComparison.Ordinal);
+        Assert.True(context.Response.Body.Length < Encoding.UTF8.GetByteCount(rendered));
+    }
+
+    [Fact]
+    public async Task SpaFallbackHtmlResponse_HonorsGzipNegotiation()
+    {
+        DefaultHttpContext context = CreateSpaFallbackContext(HttpMethods.Get, "gzip;q=1, br;q=0, identity;q=0");
+
+        await WebApplicationCompositionExtensions.WriteSpaHtmlResponseForTestsAsync(
+            context,
+            CreateTestEnv(),
+            CreateLargeSpaTemplate("gzip"),
+            ReadOnlyMemory<byte>.Empty);
+
+        Assert.Equal("gzip", context.Response.Headers["Content-Encoding"].ToString());
+        Assert.Equal("Accept-Encoding", context.Response.Headers["Vary"].ToString());
+        Assert.Equal(context.Response.Body.Length, context.Response.ContentLength);
+        Assert.Contains("gzip fallback payload", DecodeSpaFallbackBody(context), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SpaFallbackHtmlResponse_HeadNegotiatesCompressionWithoutWritingBody()
+    {
+        DefaultHttpContext context = CreateSpaFallbackContext(HttpMethods.Head, "br, gzip");
+
+        await WebApplicationCompositionExtensions.WriteSpaHtmlResponseForTestsAsync(
+            context,
+            CreateTestEnv(),
+            CreateLargeSpaTemplate("head"),
+            ReadOnlyMemory<byte>.Empty);
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal("br", context.Response.Headers["Content-Encoding"].ToString());
+        Assert.Equal("Accept-Encoding", context.Response.Headers["Vary"].ToString());
+        Assert.True(context.Response.ContentLength > 0);
+        Assert.Equal(0, context.Response.Body.Length);
+    }
+
+    [Fact]
+    public async Task SpaFallbackHtmlResponse_SkipsCompressionForSmallHtml()
+    {
+        DefaultHttpContext context = CreateSpaFallbackContext(HttpMethods.Get, "br, gzip");
+
+        await WebApplicationCompositionExtensions.WriteSpaHtmlResponseForTestsAsync(
+            context,
+            CreateTestEnv(),
+            "<html><head><script type=\"module\"></script></head><body>tiny</body></html>",
+            ReadOnlyMemory<byte>.Empty);
+
+        Assert.True(string.IsNullOrEmpty(context.Response.Headers["Content-Encoding"].ToString()));
+        Assert.Equal("Accept-Encoding", context.Response.Headers["Vary"].ToString());
+        Assert.Equal(context.Response.Body.Length, context.Response.ContentLength);
+        string rendered = Encoding.UTF8.GetString(((MemoryStream)context.Response.Body).ToArray());
+        Assert.Contains("<body>tiny</body>", rendered, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -479,6 +558,37 @@ public sealed class WebApplicationCompositionExtensionsTests
         context.Request.Headers.AcceptEncoding = acceptEncoding;
         context.Response.Body = new MemoryStream();
         return context;
+    }
+
+    private static DefaultHttpContext CreateSpaFallbackContext(string method, string acceptEncoding)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = method;
+        context.Request.Path = "/user/manage";
+        context.Request.Headers.AcceptEncoding = acceptEncoding;
+        context.Response.Body = new MemoryStream();
+        return context;
+    }
+
+    private static string CreateLargeSpaTemplate(string marker)
+        => string.Concat(
+            "<!doctype html><html><head><script type=\"module\"></script></head><body><div id=\"app\">",
+            string.Concat(Enumerable.Repeat($"<p>{marker} fallback payload</p>", 320)),
+            "</div></body></html>");
+
+    private static string DecodeSpaFallbackBody(DefaultHttpContext context)
+    {
+        byte[] bytes = ((MemoryStream)context.Response.Body).ToArray();
+        using var input = new MemoryStream(bytes);
+        string encoding = context.Response.Headers["Content-Encoding"].ToString();
+        using Stream decoded = encoding switch
+        {
+            "br" => new BrotliStream(input, CompressionMode.Decompress),
+            "gzip" => new GZipStream(input, CompressionMode.Decompress),
+            _ => input
+        };
+        using var reader = new StreamReader(decoded, Encoding.UTF8);
+        return reader.ReadToEnd();
     }
 
     private static IWebHostEnvironment CreateTestEnv()
