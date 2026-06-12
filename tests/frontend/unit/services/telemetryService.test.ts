@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AEDS_HEADER_LENGTH, FrameType } from '@wasm/protocol/frame'
 import { emitRumMetric, initTelemetryService } from '@/services/telemetryService'
+import { emitRumMetric as emitRumMetricFromBus } from '@/services/telemetryBus'
 
 describe('emitRumMetric', () => {
   beforeEach(() => {
@@ -32,6 +33,7 @@ describe('emitRumMetric', () => {
       durationMs: 1234,
       ignored: 'raw'
     })
+    initTelemetryService()
     await vi.advanceTimersByTimeAsync(250)
 
     expect(fetchMock).toHaveBeenCalledWith('/api/binary/telemetry/rum', expect.objectContaining({
@@ -64,6 +66,7 @@ describe('emitRumMetric', () => {
     setPathname('/admin/dashboard')
 
     emitRumMetric('web_vital_cls', { value: 0.03 })
+    initTelemetryService()
     await vi.advanceTimersByTimeAsync(250)
 
     expect(fetchMock).not.toHaveBeenCalled()
@@ -95,6 +98,27 @@ describe('emitRumMetric', () => {
 
     expect(warn).toHaveBeenCalledTimes(3)
     expect(localStorage.getItem('fsus.telemetry.binaryFailureCount')).toBe('10')
+  })
+
+  it('drains lightweight bus RUM emitted before full telemetry initializes', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('navigator', { sendBeacon: vi.fn().mockReturnValue(false) })
+    setPathname('/')
+
+    emitRumMetricFromBus('navigation_timing', {
+      domInteractive: 120,
+      responseStart: 20
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    initTelemetryService()
+    await vi.advanceTimersByTimeAsync(250)
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/binary/telemetry/rum', expect.objectContaining({
+      method: 'POST',
+      keepalive: true
+    }))
   })
 
   it('keeps binary failure event handling non-throwing when console forwarding fails', () => {

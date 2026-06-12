@@ -4,7 +4,7 @@ import {
   isPublicSeoPath,
   removeGlobalLoader
 } from '@/bootstrap/publicShellPrimitives'
-import { emitRumMetric, emitTelemetry } from '@/services/telemetryService'
+import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus'
 import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime'
 import { mountArticleCommentsIsland, unmountArticleCommentsIsland } from '@/public-renderers/commentsIsland'
 import { mountHomeHotArticlesIsland, unmountHomeHotArticlesIsland } from '@/public-renderers/homeHotArticlesIsland'

@@ -1,4 +1,4 @@
-import { emitTelemetry } from '@/services/telemetryService'
+import { emitTelemetry } from '@/services/telemetryBus'
 import type { CacheControlPayload, SearchIndexUpdatePayload } from '@/services/notificationStreamTypes'
 
 export type SwControlMessage =

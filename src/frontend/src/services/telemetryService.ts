@@ -4,20 +4,22 @@ import { encodeRumMetricBatchRequest, RUM_MAX_BATCH_METRICS, RUM_MAX_FRAME_BYTES
 import { encodeAedsFrame } from '@/api/binaryFrame'
 import { AEDS_BINARY_MEDIA_TYPE, applyBinaryRequestHeaders } from '@/api/contracts'
 import { fsusBinaryRoutes } from '@/generated/fsusBinaryRoutes'
+import {
+  drainPendingRumMetrics,
+  drainPendingTelemetry,
+  emitTelemetry,
+  RUM_METRIC_EVENT,
+  TELEMETRY_EVENT,
+  type RumMetricPayload,
+  type TelemetryPayload
+} from '@/services/telemetryBus'
 import { FrameType } from '@wasm/protocol/frame'
 
-export type TelemetryLevel = 'info' | 'warn' | 'error';
-
-export type TelemetryPayload = {
-  name: string;
-  level?: TelemetryLevel;
-  timestamp: string;
-  detail?: Record<string, unknown>;
-};
+export { emitRumMetric, emitTelemetry } from '@/services/telemetryBus'
+export type { TelemetryLevel, TelemetryPayload } from '@/services/telemetryBus'
 
 const BIN_FAILURE_EVENT = 'fsus:binary:failure';
 const AOT_EVENT = 'fsus:aot:event';
-const TELEMETRY_EVENT = 'fsus:telemetry';
 const BIN_FAILURE_COUNT_KEY = 'fsus.telemetry.binaryFailureCount';
 const AOT_ACTION_COUNT_KEY = 'fsus.telemetry.aotActionCount';
 const AOT_ACTION_BUCKET_KEY = 'fsus.telemetry.aotActionBuckets';
@@ -100,29 +102,6 @@ function writeAotBuckets(value: Record<string, number>): void {
   localStorage.setItem(AOT_ACTION_BUCKET_KEY, encodePublicAotPayload(value));
 }
 
-export function emitTelemetry(name: string, detail?: Record<string, unknown>, level: TelemetryLevel = 'info'): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  const payload: TelemetryPayload = {
-    name,
-    level,
-    timestamp: new Date().toISOString(),
-    detail
-  };
-
-  try {
-    window.dispatchEvent(new window.CustomEvent(TELEMETRY_EVENT, { detail: payload }));
-  } catch {
-    // Telemetry is best-effort; disconnected console/dev transports must not affect runtime.
-  }
-}
-
-export function emitRumMetric(name: string, detail: Record<string, unknown>): void {
-  emitPerformanceTelemetry(name, detail);
-}
-
 function onBinaryFailure(event: Event): void {
   const custom = event as CustomEvent<Record<string, unknown>>;
   const next = readCounter() + 1;
@@ -151,6 +130,10 @@ function shouldEmitBinaryFailureTelemetry(now = Date.now()): boolean {
 function onTelemetry(event: Event): void {
   const custom = event as CustomEvent<TelemetryPayload>;
   const payload = custom.detail;
+  handleTelemetryPayload(payload);
+}
+
+function handleTelemetryPayload(payload: TelemetryPayload | undefined): void {
   if (!payload) {
     return;
   }
@@ -167,6 +150,19 @@ function onTelemetry(event: Event): void {
   } catch {
     // Audit output is non-critical and must not recurse during transport loss.
   }
+}
+
+function onRumMetric(event: Event): void {
+  const custom = event as CustomEvent<RumMetricPayload>;
+  handleRumMetricPayload(custom.detail);
+}
+
+function handleRumMetricPayload(payload: RumMetricPayload | undefined): void {
+  if (!payload || typeof payload.name !== 'string' || !payload.detail) {
+    return;
+  }
+
+  emitPerformanceTelemetry(payload.name, payload.detail, payload.timestamp);
 }
 
 function onAotEvent(event: Event): void {
@@ -207,6 +203,13 @@ export function initTelemetryService(): void {
   window.addEventListener(BIN_FAILURE_EVENT, onBinaryFailure as EventListener);
   window.addEventListener(AOT_EVENT, onAotEvent as EventListener);
   window.addEventListener(TELEMETRY_EVENT, onTelemetry as EventListener);
+  window.addEventListener(RUM_METRIC_EVENT, onRumMetric as EventListener);
+  for (const payload of drainPendingTelemetry()) {
+    handleTelemetryPayload(payload);
+  }
+  for (const payload of drainPendingRumMetrics()) {
+    handleRumMetricPayload(payload);
+  }
   initCoreWebVitalsTelemetry();
   initialized = true;
 }
@@ -241,13 +244,12 @@ function initCoreWebVitalsTelemetry(): void {
   });
 }
 
-function emitPerformanceTelemetry(name: string, detail: Record<string, unknown>): void {
+function emitPerformanceTelemetry(name: string, detail: Record<string, unknown>, timestamp = new Date().toISOString()): void {
   const pageType = resolvePublicPageType();
   if (pageType === 'private') {
     return;
   }
 
-  const timestamp = new Date().toISOString();
   const aotSource = resolveAotSource();
   const enrichedDetail = {
     ...detail,

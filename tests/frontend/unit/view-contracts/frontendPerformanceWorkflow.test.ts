@@ -19,6 +19,12 @@ describe('frontend performance workflow contract', () => {
   const messagesPage = readRepoFile('src/frontend/src/views/user/Messages.vue')
   const markdownAdapter = readRepoFile('src/frontend/src/components/ui/MarkdownEditorAdapter.vue')
   const markdownRenderer = readRepoFile('src/frontend/src/components/ui/MarkdownRenderer.vue')
+  const entry = readRepoFile('src/frontend/src/bootstrap/entry.ts')
+  const publicShell = readRepoFile('src/frontend/src/bootstrap/publicShell.ts')
+  const nonCriticalResources = readRepoFile('src/frontend/src/bootstrap/nonCriticalResources.ts')
+  const serviceWorkerRuntime = readRepoFile('src/frontend/src/services/serviceWorkerRuntime.ts')
+  const telemetryBus = readRepoFile('src/frontend/src/services/telemetryBus.ts')
+  const telemetryService = readRepoFile('src/frontend/src/services/telemetryService.ts')
   const packageJson = readRepoFile('src/frontend/package.json')
 
   it('keeps normal AEDS worker aborts on a cancel protocol instead of worker reset', () => {
@@ -101,5 +107,27 @@ describe('frontend performance workflow contract', () => {
     expect(messagesPage).toContain('MESSAGE_RENDER_WINDOW')
     expect(messagesPage).toContain('visibleConversationRows')
     expect(messagesPage).not.toContain('v-show="showDetailPane"')
+  })
+
+  it('keeps the public telemetry cold path on the lightweight event bus', () => {
+    expect(telemetryBus).toContain("export const TELEMETRY_EVENT = 'fsus:telemetry'")
+    expect(telemetryBus).toContain("export const RUM_METRIC_EVENT = 'fsus:rum-metric'")
+    expect(telemetryBus).toContain('drainPendingTelemetry')
+    expect(telemetryBus).toContain('drainPendingRumMetrics')
+    expect(telemetryBus).not.toContain('@/api/')
+    expect(telemetryBus).not.toContain('@/generated/')
+    expect(telemetryBus).not.toContain('@wasm/')
+
+    expect(entry).toContain("import { registerServiceWorker } from '@/services/serviceWorkerRuntime'")
+    expect(entry).not.toContain('@/services/telemetryService')
+    expect(publicShell).toContain("from '@/services/telemetryBus'")
+    expect(publicShell).not.toContain('@/services/telemetryService')
+    expect(serviceWorkerRuntime).toContain("from '@/services/telemetryBus'")
+    expect(serviceWorkerRuntime).not.toContain('@/services/telemetryService')
+
+    expect(nonCriticalResources).toContain("import('@/services/telemetryService')")
+    expect(telemetryService).toContain("from '@/services/telemetryBus'")
+    expect(telemetryService).toContain('drainPendingTelemetry')
+    expect(telemetryService).toContain('drainPendingRumMetrics')
   })
 })
