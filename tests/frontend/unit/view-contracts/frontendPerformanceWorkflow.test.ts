@@ -130,4 +130,17 @@ describe('frontend performance workflow contract', () => {
     expect(telemetryService).toContain('drainPendingTelemetry')
     expect(telemetryService).toContain('drainPendingRumMetrics')
   })
+
+  it('unblocks public loader removal from non-critical stylesheet readiness', () => {
+    expect(publicShell).toContain('const CRITICAL_STYLE_READY_TIMEOUT_MS = 450')
+    expect(publicShell).toContain('const FULL_STYLESHEET_VALIDATION_TIMEOUT_MS = 1500')
+    expect(publicShell).toContain('function listCriticalShellStylesheets')
+    expect(publicShell).toContain('function ensureCriticalPublicShellStylesReady')
+    expect(publicShell).toContain('function validatePublicShellStylesheetsInBackground')
+    expect(publicShell).toContain('await ensureCriticalPublicShellStylesReady(styleLinks)')
+    expect(publicShell).toContain('validatePublicShellStylesheetsInBackground(styleLinks)')
+    expect(publicShell).toContain("readiness: 'background'")
+    expect(publicShell).toContain('ensureEmergencyPublicShellStyle()')
+    expect(publicShell).not.toContain('await Promise.all(styleLinks.map((link) => waitForStylesheet(link)))')
+  })
 })

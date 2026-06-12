@@ -103,37 +103,46 @@ type CriticalStyleLink = {
   key: string
   href: string | null
   marker: string
+  readiness: 'critical' | 'markdown' | 'background'
 }
 
 type CspNonceWindow = Window & {
   __FSUSBLOG_CSP_NONCE__?: string
 }
 
-const CRITICAL_STYLE_FALLBACKS: CriticalStyleLink[] = [
+const CRITICAL_STYLE_READY_TIMEOUT_MS = 450
+const FULL_STYLESHEET_VALIDATION_TIMEOUT_MS = 1500
+
+const PUBLIC_STYLE_FALLBACKS: CriticalStyleLink[] = [
   {
     key: 'public-shell-critical',
     href: import.meta.env.DEV ? '/src/assets/public-shell-critical.css?direct' : null,
-    marker: 'public-shell-critical.css'
+    marker: 'public-shell-critical.css',
+    readiness: 'critical'
   },
   {
     key: 'tailwind',
     href: import.meta.env.DEV ? '/src/assets/tailwind.css?direct' : null,
-    marker: 'tailwind.css'
+    marker: 'tailwind.css',
+    readiness: 'critical'
   },
   {
     key: 'markdown',
     href: import.meta.env.DEV ? '/src/assets/markdown.css?direct' : null,
-    marker: 'markdown.css'
+    marker: 'markdown.css',
+    readiness: 'markdown'
   },
   {
     key: 'motion',
     href: import.meta.env.DEV ? '/src/assets/motion.css?direct' : null,
-    marker: 'motion.css'
+    marker: 'motion.css',
+    readiness: 'background'
   },
   {
     key: 'public-page',
     href: import.meta.env.DEV ? '/src/assets/public-page.css?direct' : null,
-    marker: 'public-page.css'
+    marker: 'public-page.css',
+    readiness: 'critical'
   }
 ]
 const PUBLIC_NAVIGATION_RETRY_DELAYS_MS = [250, 500, 750, 1000]
@@ -176,6 +185,36 @@ function dedupeStylesheetLinks(links: HTMLLinkElement[]): HTMLLinkElement[] {
   return ordered
 }
 
+function isMarkdownCriticalPath(pathname = window.location.pathname): boolean {
+  return /^\/article\/\d+\/?$/i.test(pathname)
+    || /^\/about\/?$/i.test(pathname)
+    || /^\/privacy\/?$/i.test(pathname)
+    || /^\/guidelines\/?$/i.test(pathname)
+    || /^\/copyright\/?$/i.test(pathname)
+}
+
+function shouldWaitForStyleCandidate(candidate: CriticalStyleLink): boolean {
+  return candidate.readiness === 'critical'
+    || (candidate.readiness === 'markdown' && isMarkdownCriticalPath())
+}
+
+function stylesheetMatchesCandidate(link: HTMLLinkElement, candidate: CriticalStyleLink): boolean {
+  const marker = (link.dataset.fsusblogStyle ?? '').trim()
+  if (marker === candidate.key) {
+    return true
+  }
+
+  const href = link.getAttribute('href') ?? ''
+  return href.includes(candidate.marker)
+}
+
+function listCriticalShellStylesheets(links: HTMLLinkElement[]): HTMLLinkElement[] {
+  const criticalCandidates = PUBLIC_STYLE_FALLBACKS.filter(shouldWaitForStyleCandidate)
+  return dedupeStylesheetLinks(
+    links.filter((link) => criticalCandidates.some((candidate) => stylesheetMatchesCandidate(link, candidate)))
+  )
+}
+
 function ensureFallbackStylesheets(): HTMLLinkElement[] {
   const head = document.head ?? document.getElementsByTagName('head')[0]
   if (!head) {
@@ -183,7 +222,7 @@ function ensureFallbackStylesheets(): HTMLLinkElement[] {
   }
 
   const presentLinks = listRenderableStylesheets()
-  const requiredLinks = CRITICAL_STYLE_FALLBACKS.map((candidate) => {
+  const requiredLinks = PUBLIC_STYLE_FALLBACKS.map((candidate) => {
     const existing = document.querySelector<HTMLLinkElement>(
       `link[rel="stylesheet"][data-fsusblog-style="${candidate.key}"]`
     )
@@ -214,7 +253,7 @@ function ensureFallbackStylesheets(): HTMLLinkElement[] {
   return dedupeStylesheetLinks([...presentLinks, ...requiredLinks])
 }
 
-function waitForStylesheet(link: HTMLLinkElement, timeoutMs = 1500): Promise<boolean> {
+function waitForStylesheet(link: HTMLLinkElement, timeoutMs = FULL_STYLESHEET_VALIDATION_TIMEOUT_MS): Promise<boolean> {
   if (link.sheet) {
     return Promise.resolve(true)
   }
@@ -301,11 +340,37 @@ export async function ensurePublicShellStylesReady(): Promise<void> {
     return
   }
 
-  const loadedStates = await Promise.all(styleLinks.map((link) => waitForStylesheet(link)))
-  const hasRenderableSheet = listRenderableStylesheets().some((link) => Boolean(link.sheet))
+  await ensureCriticalPublicShellStylesReady(styleLinks)
+  validatePublicShellStylesheetsInBackground(styleLinks)
+}
+
+async function ensureCriticalPublicShellStylesReady(styleLinks: HTMLLinkElement[]): Promise<void> {
+  const criticalLinks = listCriticalShellStylesheets(styleLinks)
+  if (criticalLinks.length === 0) {
+    ensureEmergencyPublicShellStyle()
+    return
+  }
+
+  const loadedStates = await Promise.all(
+    criticalLinks.map((link) => waitForStylesheet(link, CRITICAL_STYLE_READY_TIMEOUT_MS))
+  )
+  const hasRenderableSheet = criticalLinks.some((link) => Boolean(link.sheet))
   if (!hasRenderableSheet || loadedStates.every((loaded) => !loaded)) {
     ensureEmergencyPublicShellStyle()
   }
+}
+
+function validatePublicShellStylesheetsInBackground(styleLinks: HTMLLinkElement[]): void {
+  void Promise.all(styleLinks.map((link) => waitForStylesheet(link, FULL_STYLESHEET_VALIDATION_TIMEOUT_MS)))
+    .then((loadedStates) => {
+      const hasRenderableSheet = listRenderableStylesheets().some((link) => Boolean(link.sheet))
+      if (!hasRenderableSheet || loadedStates.every((loaded) => !loaded)) {
+        ensureEmergencyPublicShellStyle()
+      }
+    })
+    .catch(() => {
+      ensureEmergencyPublicShellStyle()
+    })
 }
 
 let preBootstrapNavigationBound = false
