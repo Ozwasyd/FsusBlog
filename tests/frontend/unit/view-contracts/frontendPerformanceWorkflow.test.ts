@@ -21,6 +21,7 @@ describe('frontend performance workflow contract', () => {
   const markdownRenderer = readRepoFile('src/frontend/src/components/ui/MarkdownRenderer.vue')
   const entry = readRepoFile('src/frontend/src/bootstrap/entry.ts')
   const publicShell = readRepoFile('src/frontend/src/bootstrap/publicShell.ts')
+  const appRuntime = readRepoFile('src/frontend/src/components/runtime/AppRuntime.vue')
   const nonCriticalResources = readRepoFile('src/frontend/src/bootstrap/nonCriticalResources.ts')
   const serviceWorkerRuntime = readRepoFile('src/frontend/src/services/serviceWorkerRuntime.ts')
   const telemetryBus = readRepoFile('src/frontend/src/services/telemetryBus.ts')
@@ -142,5 +143,20 @@ describe('frontend performance workflow contract', () => {
     expect(publicShell).toContain("readiness: 'background'")
     expect(publicShell).toContain('ensureEmergencyPublicShellStyle()')
     expect(publicShell).not.toContain('await Promise.all(styleLinks.map((link) => waitForStylesheet(link)))')
+  })
+
+  it('keeps article comments and PoW prewarm out of the public article first screen', () => {
+    expect(publicShell).not.toContain("import { mountArticleCommentsIsland")
+    expect(publicShell).toContain("import('@/public-renderers/commentsIsland')")
+    expect(publicShell).toContain('function scheduleArticleCommentsIsland')
+    expect(publicShell).toContain("payload.pageKind === 'ArticleDetail'")
+    expect(publicShell).toContain("window.location.hash === '#comments'")
+    expect(publicShell).toContain('new IntersectionObserver')
+    expect(publicShell).toContain("rootMargin: '900px 0px 900px 0px'")
+    expect(publicShell).toContain('scheduleDynamicIslands(payload)')
+
+    expect(appRuntime).toContain('if (!isPublicRouteNow())')
+    expect(appRuntime).toContain("import('@/composables/usePow')")
+    expect(appRuntime.indexOf('if (!isPublicRouteNow())')).toBeLessThan(appRuntime.indexOf("import('@/composables/usePow')"))
   })
 })

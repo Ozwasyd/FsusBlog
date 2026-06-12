@@ -6,7 +6,6 @@ import {
 } from '@/bootstrap/publicShellPrimitives'
 import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus'
 import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime'
-import { mountArticleCommentsIsland, unmountArticleCommentsIsland } from '@/public-renderers/commentsIsland'
 import { mountHomeHotArticlesIsland, unmountHomeHotArticlesIsland } from '@/public-renderers/homeHotArticlesIsland'
 import { bootstrapFullApp } from '@/bootstrap/fullApp'
 import { AEDS_BINARY_MEDIA_TYPE } from '@/api/contracts'
@@ -380,9 +379,12 @@ let activeNavigationController: AbortController | null = null
 let activeNavigationToken = 0
 let hotArticlesIdleTask: number | null = null
 let commentsIdleTask: number | null = null
+let commentsIntersectionObserver: IntersectionObserver | null = null
+let commentsActivationVersion = 0
 let publicTakeoverStarted = false
 let publicTakeoverCompleted = false
 let publicTakeoverPromise: Promise<void> | null = null
+let commentsIslandModulePromise: Promise<typeof import('@/public-renderers/commentsIsland')> | null = null
 
 type PublicSeedSnapshotWindow = Window & typeof globalThis & {
   __FSUS_PUBLIC_AOT_BOOTSTRAP_RAW__?: string | null
@@ -415,6 +417,50 @@ function clearIdleTask(taskId: number | null): void {
   }
 
   window.clearTimeout(taskId)
+}
+
+function loadCommentsIslandModule(): Promise<typeof import('@/public-renderers/commentsIsland')> {
+  commentsIslandModulePromise ??= import('@/public-renderers/commentsIsland')
+  return commentsIslandModulePromise
+}
+
+async function mountArticleCommentsIslandLazy(
+  articleId: number | string,
+  reason: 'viewport' | 'request',
+  activationVersion = commentsActivationVersion
+): Promise<void> {
+  const module = await loadCommentsIslandModule()
+  if (activationVersion !== commentsActivationVersion) {
+    return
+  }
+
+  await module.mountArticleCommentsIsland(articleId)
+  emitTelemetry('public_comments_island_loaded', { reason }, 'info')
+}
+
+function unmountArticleCommentsIslandLazy(): void {
+  if (!commentsIslandModulePromise) {
+    return
+  }
+
+  void commentsIslandModulePromise
+    .then((module) => module.unmountArticleCommentsIsland())
+    .catch(() => {})
+}
+
+function clearArticleCommentsIslandActivation(): void {
+  commentsActivationVersion += 1
+  commentsIntersectionObserver?.disconnect()
+  commentsIntersectionObserver = null
+  clearIdleTask(commentsIdleTask)
+  commentsIdleTask = null
+}
+
+function stopArticleCommentsIslandObserver(): void {
+  commentsIntersectionObserver?.disconnect()
+  commentsIntersectionObserver = null
+  clearIdleTask(commentsIdleTask)
+  commentsIdleTask = null
 }
 
 function clearPublicFirstPaintFlag(): void {
@@ -547,17 +593,62 @@ function resolveShellActionNavigation(actionNode: HTMLElement): string | null {
 function clearDynamicIslands(): void {
   clearIdleTask(hotArticlesIdleTask)
   hotArticlesIdleTask = null
-  clearIdleTask(commentsIdleTask)
-  commentsIdleTask = null
-  unmountArticleCommentsIsland()
+  clearArticleCommentsIslandActivation()
+  unmountArticleCommentsIslandLazy()
   unmountHomeHotArticlesIsland()
+}
+
+function resolveArticleCommentsIslandId(payload: PublicHydrationPayload): number | null {
+  if (payload.pageKind !== 'ArticleDetail') {
+    return null
+  }
+
+  const articleId = Number(payload.articleId)
+  return Number.isFinite(articleId) && articleId > 0 ? Math.trunc(articleId) : null
+}
+
+function scheduleArticleCommentsIsland(payload: PublicHydrationPayload): void {
+  const articleId = resolveArticleCommentsIslandId(payload)
+  if (articleId === null) {
+    return
+  }
+
+  const host = document.getElementById('fsus-comments-island')
+  if (!(host instanceof HTMLElement)) {
+    return
+  }
+
+  const activationVersion = ++commentsActivationVersion
+  const activate = (reason: 'viewport' | 'request') => {
+    stopArticleCommentsIslandObserver()
+    void mountArticleCommentsIslandLazy(articleId, reason, activationVersion)
+  }
+
+  if (window.location.hash === '#comments') {
+    activate('request')
+    return
+  }
+
+  if (typeof IntersectionObserver === 'undefined') {
+    return
+  }
+
+  commentsIntersectionObserver = new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+      activate('viewport')
+    }
+  }, {
+    root: null,
+    rootMargin: '900px 0px 900px 0px',
+    threshold: 0
+  })
+  commentsIntersectionObserver.observe(host)
 }
 
 function scheduleDynamicIslands(payload: PublicHydrationPayload | null): void {
   clearIdleTask(hotArticlesIdleTask)
   hotArticlesIdleTask = null
-  clearIdleTask(commentsIdleTask)
-  commentsIdleTask = null
+  clearArticleCommentsIslandActivation()
 
   if (!payload) {
     return
@@ -570,6 +661,9 @@ function scheduleDynamicIslands(payload: PublicHydrationPayload | null): void {
     })
   }
 
+  if (payload.pageKind === 'ArticleDetail') {
+    scheduleArticleCommentsIsland(payload)
+  }
 }
 
 function getCurrentShell(): HTMLElement | null {
@@ -906,7 +1000,9 @@ async function handleShellAction(actionNode: HTMLElement, anchor: HTMLAnchorElem
     const articleId = hydratedPayload?.pageKind === 'ArticleDetail'
       ? hydratedPayload.articleId
       : Number(actionNode.dataset.aotValue ?? actionNode.dataset.aotId ?? '0')
-    await mountArticleCommentsIsland(articleId)
+    const activationVersion = ++commentsActivationVersion
+    stopArticleCommentsIslandObserver()
+    await mountArticleCommentsIslandLazy(articleId, 'request', activationVersion)
     return
   }
 
@@ -1006,6 +1102,7 @@ async function hydratePublicShell(): Promise<void> {
   hydratedPayload = payload
   const startedAt = performance.now()
   await hydratePublicPage(payload)
+  scheduleDynamicIslands(payload)
   const durationMs = Math.round(performance.now() - startedAt)
   emitRumMetric('hydration_time', {
     value: durationMs,
