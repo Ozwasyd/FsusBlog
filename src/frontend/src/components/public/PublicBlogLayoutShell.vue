@@ -35,12 +35,20 @@
             :src="brandImageLight"
             :alt="siteTitleText"
             class="public-brand-image public-brand-image--light"
+            width="224"
+            height="44"
+            loading="eager"
+            decoding="async"
           />
           <img
             v-if="brandImageDark"
             :src="brandImageDark"
             :alt="siteTitleText"
             class="public-brand-image public-brand-image--dark"
+            width="224"
+            height="44"
+            loading="eager"
+            decoding="async"
           />
         </span>
         <template v-else>

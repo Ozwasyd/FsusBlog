@@ -22,7 +22,12 @@ export type FrontendAuditRecord = {
 
 type AuditConsoleWriter = (...data: unknown[]) => void
 
-function resolveConsole(level: FrontendAuditLevel | undefined, type: FrontendAuditType): AuditConsoleWriter {
+function isInfoAuditConsoleEnabled(): boolean {
+  const raw = import.meta.env.VITE_FSUSBLOG_AUDIT_CONSOLE_INFO
+  return raw === '1' || raw?.toLowerCase() === 'true'
+}
+
+function resolveConsole(level: FrontendAuditLevel | undefined, type: FrontendAuditType): AuditConsoleWriter | null {
   if (level === 'error' || type === 'exception') {
     return safeConsoleError
   }
@@ -31,11 +36,15 @@ function resolveConsole(level: FrontendAuditLevel | undefined, type: FrontendAud
     return safeConsoleWarn
   }
 
-  return safeConsoleInfo
+  return isInfoAuditConsoleEnabled() ? safeConsoleInfo : null
 }
 
 export function emitFrontendAudit(record: FrontendAuditRecord): void {
   const write = resolveConsole(record.level, record.type)
+  if (!write) {
+    return
+  }
+
   write(
     `[${record.source}] [${record.type}] [${record.occurredAtUtc}] ${record.eventInfo}`,
     record.context ?? {}

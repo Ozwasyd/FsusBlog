@@ -30,6 +30,9 @@ const routeBudgets = [
   { id: 'manage-dashboard', path: '/user/manage', nodeSoft: 3000, nodeHard: 5200, depthHard: 38 },
   { id: 'admin-article-list', path: '/user/manage/article/list', nodeSoft: 3000, nodeHard: 5200, depthHard: 38 },
   { id: 'article-write', path: '/user/manage/article/write', nodeSoft: 3500, nodeHard: 6800, depthHard: 42 },
+  { id: 'manage-moderation', path: '/user/manage/moderation', nodeSoft: 3000, nodeHard: 5400, depthHard: 40 },
+  { id: 'manage-moderation-comments', path: '/user/manage/moderation/comments', nodeSoft: 3400, nodeHard: 6200, depthHard: 42 },
+  { id: 'manage-security', path: '/user/manage/security', nodeSoft: 3200, nodeHard: 5800, depthHard: 40 },
   { id: 'manage-settings', path: '/user/manage/settings', nodeSoft: 2600, nodeHard: 4600, depthHard: 36 },
   { id: 'manage-users', path: '/user/manage/users', nodeSoft: 3000, nodeHard: 5200, depthHard: 38 },
   { id: 'manage-messages', path: '/user/manage/messages', nodeSoft: 2800, nodeHard: 5000, depthHard: 38 }

@@ -40,7 +40,10 @@
             :src="record.icon"
             alt="公安备案"
             class="h-4 w-4 shrink-0 object-contain"
+            width="16"
+            height="16"
             loading="lazy"
+            decoding="async"
           />
           <span>{{ record.label }}</span>
         </a>

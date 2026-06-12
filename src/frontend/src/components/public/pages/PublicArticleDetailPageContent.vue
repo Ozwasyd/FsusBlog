@@ -24,6 +24,12 @@
         :src="detailView.header.coverImageUrl"
         :alt="`${detailView.header.title} — 题图`"
         class="blog-motion-media-hover aspect-video w-full rounded-[var(--fsus-radius-panel)] object-cover shadow-none"
+        width="1200"
+        height="675"
+        sizes="(min-width: 1024px) 56rem, calc(100vw - 3rem)"
+        loading="eager"
+        decoding="async"
+        fetchpriority="high"
       />
     </div>
 

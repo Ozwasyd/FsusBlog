@@ -15,7 +15,16 @@ const budgets = {
   jsGzipBytes: Number(process.env.FSUSBLOG_ASSET_JS_GZIP_BUDGET_BYTES || 300 * 1024),
   jsBrotliBytes: Number(process.env.FSUSBLOG_ASSET_JS_BROTLI_BUDGET_BYTES || 260 * 1024),
   wasmGzipBytes: Number(process.env.FSUSBLOG_ASSET_WASM_GZIP_BUDGET_BYTES || 110 * 1024),
-  wasmBrotliBytes: Number(process.env.FSUSBLOG_ASSET_WASM_BROTLI_BUDGET_BYTES || 95 * 1024)
+  wasmBrotliBytes: Number(process.env.FSUSBLOG_ASSET_WASM_BROTLI_BUDGET_BYTES || 95 * 1024),
+  adminRouteChunkBytes: Number(process.env.FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_BUDGET_BYTES || 430 * 1024),
+  adminRouteChunkGzipBytes: Number(process.env.FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_GZIP_BUDGET_BYTES || 120 * 1024),
+  adminRouteChunkBrotliBytes: Number(process.env.FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_BROTLI_BUDGET_BYTES || 95 * 1024),
+  echartsVendorBytes: Number(process.env.FSUSBLOG_ASSET_ECHARTS_VENDOR_BUDGET_BYTES || 430 * 1024),
+  echartsVendorGzipBytes: Number(process.env.FSUSBLOG_ASSET_ECHARTS_VENDOR_GZIP_BUDGET_BYTES || 135 * 1024),
+  echartsVendorBrotliBytes: Number(process.env.FSUSBLOG_ASSET_ECHARTS_VENDOR_BROTLI_BUDGET_BYTES || 115 * 1024),
+  elementPlusVendorBytes: Number(process.env.FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BUDGET_BYTES || 1220 * 1024),
+  elementPlusVendorGzipBytes: Number(process.env.FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_GZIP_BUDGET_BYTES || 370 * 1024),
+  elementPlusVendorBrotliBytes: Number(process.env.FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BROTLI_BUDGET_BYTES || 310 * 1024)
 }
 
 async function walk(dir, files = []) {
@@ -36,6 +45,9 @@ async function walk(dir, files = []) {
 }
 
 function budgetFor(file) {
+  if (isAdminRouteChunk(file)) return budgets.adminRouteChunkBytes
+  if (isEchartsVendorChunk(file)) return budgets.echartsVendorBytes
+  if (isElementPlusVendorChunk(file)) return budgets.elementPlusVendorBytes
   if (file.ext === '.js') return budgets.jsBytes
   if (file.ext === '.css') return budgets.cssBytes
   if (file.ext === '.wasm') return budgets.wasmBytes
@@ -43,11 +55,29 @@ function budgetFor(file) {
 }
 
 function compressedBudgetFor(file, kind) {
+  if (isAdminRouteChunk(file) && kind === 'gzip') return budgets.adminRouteChunkGzipBytes
+  if (isAdminRouteChunk(file) && kind === 'brotli') return budgets.adminRouteChunkBrotliBytes
+  if (isEchartsVendorChunk(file) && kind === 'gzip') return budgets.echartsVendorGzipBytes
+  if (isEchartsVendorChunk(file) && kind === 'brotli') return budgets.echartsVendorBrotliBytes
+  if (isElementPlusVendorChunk(file) && kind === 'gzip') return budgets.elementPlusVendorGzipBytes
+  if (isElementPlusVendorChunk(file) && kind === 'brotli') return budgets.elementPlusVendorBrotliBytes
   if (file.ext === '.js' && kind === 'gzip') return budgets.jsGzipBytes
   if (file.ext === '.js' && kind === 'brotli') return budgets.jsBrotliBytes
   if (file.ext === '.wasm' && kind === 'gzip') return budgets.wasmGzipBytes
   if (file.ext === '.wasm' && kind === 'brotli') return budgets.wasmBrotliBytes
   return null
+}
+
+function isAdminRouteChunk(file) {
+  return file.ext === '.js' && /(?:^|\/)route-admin(?:-[a-z0-9]+)?-[A-Za-z0-9_-]+\.js$/u.test(file.path)
+}
+
+function isEchartsVendorChunk(file) {
+  return file.ext === '.js' && /(?:^|\/)(?:vendor-echarts|echartsRuntime\.bundle)-[A-Za-z0-9_-]+\.js$/u.test(file.path)
+}
+
+function isElementPlusVendorChunk(file) {
+  return file.ext === '.js' && /(?:^|\/)vendor-element-plus-[A-Za-z0-9_-]+\.js$/u.test(file.path)
 }
 
 const files = await walk(distDir)

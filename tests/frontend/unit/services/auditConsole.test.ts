@@ -13,9 +13,10 @@ const baseRecord = (overrides: Partial<FrontendAuditRecord> = {}): FrontendAudit
 describe('emitFrontendAudit', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllEnvs()
   })
 
-  it('writes normal performance telemetry as info instead of warning', () => {
+  it('does not write high-frequency info telemetry by default', () => {
     const info = vi.spyOn(console, 'info').mockImplementation(() => undefined)
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
@@ -26,9 +27,22 @@ describe('emitFrontendAudit', () => {
       level: 'info'
     }))
 
-    expect(info).toHaveBeenCalledTimes(1)
+    expect(info).not.toHaveBeenCalled()
     expect(warn).not.toHaveBeenCalled()
     expect(error).not.toHaveBeenCalled()
+  })
+
+  it('can opt into info telemetry console output with an explicit flag', () => {
+    vi.stubEnv('VITE_FSUSBLOG_AUDIT_CONSOLE_INFO', '1')
+    const info = vi.spyOn(console, 'info').mockImplementation(() => undefined)
+
+    emitFrontendAudit(baseRecord({
+      type: 'performance',
+      eventInfo: 'web_vital_lcp',
+      level: 'info'
+    }))
+
+    expect(info).toHaveBeenCalledTimes(1)
   })
 
   it('keeps explicit warning and exception records on warning/error channels', () => {

@@ -26,6 +26,9 @@ const routes = [
   '/user/manage',
   '/user/manage/article/list',
   '/user/manage/article/write',
+  '/user/manage/moderation',
+  '/user/manage/moderation/comments',
+  '/user/manage/security',
   '/user/manage/settings',
   '/user/manage/users',
   '/user/manage/messages'

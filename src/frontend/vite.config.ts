@@ -7,8 +7,74 @@ import { fileURLToPath, URL } from 'node:url'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 
+function resolveAdminManualChunk(id: string): string | undefined {
+    if (
+        id.includes('/src/views/admin/article/') ||
+        id.includes('/src/components/admin/article/') ||
+        id.includes('/src/composables/useAdminArticle')
+    ) {
+        return 'route-admin-article'
+    }
+    if (
+        id.includes('/src/views/admin/moderation/') ||
+        id.includes('/src/components/admin/comment-moderation/') ||
+        id.includes('/src/components/admin/moderation/')
+    ) {
+        return 'route-admin-moderation'
+    }
+    if (
+        id.includes('/src/views/admin/security/') ||
+        id.includes('/src/components/admin/security/')
+    ) {
+        return 'route-admin-security'
+    }
+    if (
+        id.includes('/src/views/admin/UserManage.vue') ||
+        id.includes('/src/components/admin/users/')
+    ) {
+        return 'route-admin-users'
+    }
+    if (
+        id.includes('/src/views/admin/OpsHealth.vue') ||
+        id.includes('/src/views/admin/CacheDiagnostics.vue') ||
+        id.includes('/src/views/admin/Integrity.vue') ||
+        id.includes('/src/views/admin/AuditLog.vue')
+    ) {
+        return 'route-admin-ops'
+    }
+    if (
+        id.includes('/src/views/admin/Dashboard.vue') ||
+        id.includes('/src/components/admin/Dashboard') ||
+        id.includes('/src/composables/useAdminDashboard')
+    ) {
+        return 'route-admin-dashboard'
+    }
+    if (
+        id.includes('/src/views/admin/Settings.vue') ||
+        id.includes('/src/views/admin/Category.vue') ||
+        id.includes('/src/views/admin/Tag.vue') ||
+        id.includes('/src/views/admin/Assets.vue') ||
+        id.includes('/src/views/admin/ContentTools.vue')
+    ) {
+        return 'route-admin-content'
+    }
+    if (
+        id.includes('/src/views/admin/MessageCenter.vue') ||
+        id.includes('/src/composables/useAdminMessage')
+    ) {
+        return 'route-admin-messages'
+    }
+
+    return undefined
+}
+
 function resolveManualChunk(id: string): string | undefined {
     if (!id.includes('node_modules')) {
+        const adminChunk = resolveAdminManualChunk(id)
+        if (adminChunk) {
+            return adminChunk
+        }
+
         if (
             id.includes('/src/views/user/') ||
             id.includes('/src/layouts/AccountLayout.vue') ||
