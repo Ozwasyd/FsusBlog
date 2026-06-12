@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
@@ -620,6 +621,18 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal(PublicHotReadRouteKind.ArticleFeatured, featured.Kind);
         Assert.Equal(new PublicListKey(PublicListKind.Featured, 0, 1, 4), featured.ListKey);
 
+        Assert.True(PublicHotReadFastPath.TryClassifyRouteForTests("/", out PublicHotReadRoute homeHtml));
+        Assert.Equal(PublicHotReadRouteKind.PublicHtml, homeHtml.Kind);
+        Assert.Equal(PublicHotReadRouteKeys.HtmlPath("home"), homeHtml.HtmlRouteKey);
+
+        Assert.True(PublicHotReadFastPath.TryClassifyRouteForTests("/category/7", out PublicHotReadRoute categoryHtml));
+        Assert.Equal(PublicHotReadRouteKind.PublicHtml, categoryHtml.Kind);
+        Assert.Equal(PublicHotReadRouteKeys.HtmlPath("category:7"), categoryHtml.HtmlRouteKey);
+
+        Assert.True(PublicHotReadFastPath.TryClassifyRouteForTests("/tag/9/", out PublicHotReadRoute tagHtml));
+        Assert.Equal(PublicHotReadRouteKind.PublicHtml, tagHtml.Kind);
+        Assert.Equal(PublicHotReadRouteKeys.HtmlPath("tag:9"), tagHtml.HtmlRouteKey);
+
         string htmlPath = PublicHotReadRouteKeys.HtmlPath("home");
         Assert.True(PublicHotReadFastPath.TryClassifyRouteForTests(htmlPath, out PublicHotReadRoute html));
         Assert.Equal(PublicHotReadRouteKind.ArticleHtml, html.Kind);
@@ -666,6 +679,176 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.Equal("text/html; charset=utf-8", context.Response.ContentType);
         Assert.Equal("none", context.Response.Headers["Accept-Ranges"]);
+    }
+
+    [Fact]
+    public async Task TryServeAsync_PublicHtmlHomeHit_ServesArtifactBeforeNormalPipeline()
+    {
+        var store = CreateReadyEmptyStore();
+        PublicHtmlArtifact html = CreateHtmlArtifact("home");
+        store.PublishHtml("home", PublicPageId.Home, html);
+        var context = CreateContext("/");
+        context.Request.Headers.Accept = "text/html";
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal("text/html; charset=utf-8", context.Response.ContentType);
+        Assert.Equal(html.ETag, context.Response.Headers.ETag);
+        Assert.Equal(html.Bytes.Length, context.Response.ContentLength);
+        Assert.Equal(html.Bytes.ToArray(), ((MemoryStream)context.Response.Body).ToArray());
+        AssertHtmlSecurityHeaders(context);
+    }
+
+    [Fact]
+    public async Task TryServeAsync_PublicHtmlArticleHit_Returns304ForMatchingIfNoneMatch()
+    {
+        var store = CreateReadyEmptyStore();
+        PublicHtmlArtifact html = CreateHtmlArtifact("article");
+        string routeKey = PublicRouteIdentity.BuildArticleRouteKey(42);
+        store.PublishHtml(routeKey, PublicPageId.ArticleDetail, html);
+        var context = CreateContext("/article/42");
+        context.Request.Headers.Accept = "text/html";
+        context.Request.Headers.IfNoneMatch = html.ETag;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status304NotModified, context.Response.StatusCode);
+        Assert.Equal(html.ETag, context.Response.Headers.ETag);
+        Assert.Equal(0, context.Response.ContentLength);
+        Assert.Empty(((MemoryStream)context.Response.Body).ToArray());
+        AssertHtmlSecurityHeaders(context);
+    }
+
+    [Fact]
+    public async Task TryServeAsync_PublicHtmlArchiveHeadHit_WritesHeadersWithoutBody()
+    {
+        var store = CreateReadyEmptyStore();
+        PublicHtmlArtifact html = CreateHtmlArtifact("archive");
+        store.PublishHtml("archive", PublicPageId.Archive, html);
+        var context = CreateContext("/archive");
+        context.Request.Method = HttpMethods.Head;
+        context.Request.Headers.Accept = "text/html";
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal(html.Bytes.Length, context.Response.ContentLength);
+        Assert.Equal(html.ETag, context.Response.Headers.ETag);
+        Assert.Empty(((MemoryStream)context.Response.Body).ToArray());
+        AssertHtmlSecurityHeaders(context);
+    }
+
+    [Fact]
+    public async Task TryServeAsync_PublicHtmlMissingOrRemovedArtifact_FallsThroughToNormalPipeline()
+    {
+        var store = CreateReadyEmptyStore();
+        store.PublishHtml("about", PublicPageId.About, CreateHtmlArtifact("about"));
+        store.RemoveHtml("about");
+        var context = CreateContext("/about");
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.True(nextCalled);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Empty(((MemoryStream)context.Response.Body).ToArray());
+    }
+
+    [Fact]
+    public async Task TryServeAsync_PublicHtmlNotReady_FallsThroughToNormalPipeline()
+    {
+        var context = CreateContext("/archive");
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            new PublicHotReadStore(),
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.True(nextCalled);
+        Assert.False(context.Response.Headers.ContainsKey("Retry-After"));
+    }
+
+    [Fact]
+    public async Task TryServeAsync_PublicHtmlBinaryAccept_Returns406BeforeNormalPipeline()
+    {
+        var store = CreateReadyEmptyStore();
+        store.PublishHtml("home", PublicPageId.Home, CreateHtmlArtifact("home"));
+        var context = CreateContext("/");
+        context.Request.Headers.Accept = "application/octet-stream";
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status406NotAcceptable, context.Response.StatusCode);
+        AssertNoStore(context);
+    }
+
+    [Fact]
+    public async Task TryServeAsync_PublicHtmlUnsupportedPublicShape_FallsThrough()
+    {
+        var context = CreateContext("/article/abc");
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            CreateReadyEmptyStore(),
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.True(nextCalled);
     }
 
     [Fact]
@@ -907,12 +1090,29 @@ public sealed class PublicHotReadFastPathTests
     private static byte[] CreateFrame(AedsFrameType frameType, byte[]? payload = null)
         => new AedsEncoder().Encode(frameType, payload ?? []);
 
+    private static PublicHtmlArtifact CreateHtmlArtifact(string label)
+        => PublicHotReadHtmlArtifactFactory.FromHtml(
+            $"<!doctype html><html><body>{label} public hot read artifact</body></html>",
+            "public,max-age=60");
+
     private static void AssertNoStore(DefaultHttpContext context)
     {
         Assert.Equal("no-store", context.Response.Headers.CacheControl);
         Assert.Equal("no-cache", context.Response.Headers.Pragma);
         Assert.Equal("0", context.Response.Headers.Expires);
         Assert.Equal("none", context.Response.Headers["Accept-Ranges"]);
+    }
+
+    private static void AssertHtmlSecurityHeaders(DefaultHttpContext context)
+    {
+        Assert.Equal("nosniff", context.Response.Headers["X-Content-Type-Options"]);
+        Assert.Equal("strict-origin-when-cross-origin", context.Response.Headers["Referrer-Policy"]);
+        Assert.Equal("camera=(), microphone=(), geolocation=(), browsing-topics=()", context.Response.Headers["Permissions-Policy"]);
+        Assert.Equal("DENY", context.Response.Headers["X-Frame-Options"]);
+        Assert.Equal("credentialless", context.Response.Headers["Cross-Origin-Embedder-Policy"]);
+        Assert.Equal("same-origin", context.Response.Headers["Cross-Origin-Opener-Policy"]);
+        Assert.Equal("same-origin", context.Response.Headers["Cross-Origin-Resource-Policy"]);
+        Assert.Contains("default-src 'self'", context.Response.Headers["Content-Security-Policy"].ToString(), StringComparison.Ordinal);
     }
 
     private static string FindRepoRoot()

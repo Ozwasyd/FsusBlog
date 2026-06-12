@@ -9,6 +9,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -71,7 +72,8 @@ internal enum PublicHotReadRouteKind : byte
     ArticleList = 4,
     ArticleHot = 5,
     ArticleFeatured = 6,
-    ArticleHtml = 7
+    ArticleHtml = 7,
+    PublicHtml = 8
 }
 
 internal readonly record struct PublicHotReadRoute(
@@ -503,8 +505,35 @@ public static class PublicHotReadFastPath
             return next(ctx);
         }
 
+        ReadOnlySpan<char> span = path.AsSpan();
+        bool publicHtmlCandidate = IsPublicHtmlCandidatePath(span);
+        if (ContainsRejectedPathChar(span))
+        {
+            if (publicHtmlCandidate)
+            {
+                return next(ctx);
+            }
+
+            counters.Rejected();
+            return WriteStatus(ctx, StatusCodes.Status404NotFound);
+        }
+
+        bool classified = TryClassifyRoute(span, path, out PublicHotReadRoute route);
+        bool isPublicHtmlRoute = route.Kind == PublicHotReadRouteKind.PublicHtml;
+        if (publicHtmlCandidate && !isPublicHtmlRoute)
+        {
+            return next(ctx);
+        }
+
+        bool isHtmlPath = route.Kind == PublicHotReadRouteKind.ArticleHtml || isPublicHtmlRoute || IsArticleHtmlPath(span);
+
         if (!HttpMethods.IsGet(ctx.Request.Method) && !HttpMethods.IsHead(ctx.Request.Method))
         {
+            if (isPublicHtmlRoute)
+            {
+                return next(ctx);
+            }
+
             if (IsTaxonomyCollectionPath(path))
             {
                 return next(ctx);
@@ -521,19 +550,15 @@ public static class PublicHotReadFastPath
 
         if (ctx.Request.ContentLength.GetValueOrDefault() > 0 || ctx.Request.QueryString.HasValue)
         {
+            if (isPublicHtmlRoute)
+            {
+                return next(ctx);
+            }
+
             WriteLegacyRouteHint(ctx, path);
             return WriteStatus(ctx, StatusCodes.Status400BadRequest);
         }
 
-        ReadOnlySpan<char> span = path.AsSpan();
-        if (ContainsRejectedPathChar(span))
-        {
-            counters.Rejected();
-            return WriteStatus(ctx, StatusCodes.Status404NotFound);
-        }
-
-        bool classified = TryClassifyRoute(span, path, out PublicHotReadRoute route);
-        bool isHtmlPath = route.Kind == PublicHotReadRouteKind.ArticleHtml || IsArticleHtmlPath(span);
         if (!AcceptsArtifact(ctx, isHtmlPath))
         {
             return WriteStatus(ctx, StatusCodes.Status406NotAcceptable);
@@ -541,6 +566,11 @@ public static class PublicHotReadFastPath
 
         if (!store.IsReadyFast && !options.FailOpenWhenNotReady)
         {
+            if (isPublicHtmlRoute)
+            {
+                return next(ctx);
+            }
+
             ctx.Response.Headers["Retry-After"] = "1";
             return WriteStatus(ctx, StatusCodes.Status503ServiceUnavailable);
         }
@@ -557,18 +587,20 @@ public static class PublicHotReadFastPath
                 PublicHotReadRouteKind.ArticleHot => ServeList(ctx, snapshot, counters, route.ListKey, options),
                 PublicHotReadRouteKind.ArticleFeatured => ServeList(ctx, snapshot, counters, route.ListKey, options),
                 PublicHotReadRouteKind.ArticleHtml => ServeHtml(ctx, snapshot, counters, route.HtmlRouteKey, options),
+                PublicHotReadRouteKind.PublicHtml => ServePublicHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options),
                 _ => WriteRejected(ctx, counters)
             };
         }
 
-        return WriteRejected(ctx, counters);
+        return isPublicHtmlRoute ? next(ctx) : WriteRejected(ctx, counters);
     }
 
     private static bool IsPublicHotReadPath(string path)
         => IsCategoryPath(path)
             || IsTagPath(path)
             || string.Equals(path, ArticlePrefix, StringComparison.Ordinal)
-            || path.StartsWith(ArticlePrefix + "/", StringComparison.Ordinal);
+            || path.StartsWith(ArticlePrefix + "/", StringComparison.Ordinal)
+            || IsPublicHtmlCandidatePath(path.AsSpan());
 
     private static bool IsCategoryPath(string path)
         => string.Equals(path, CategoryPath, StringComparison.Ordinal)
@@ -580,6 +612,16 @@ public static class PublicHotReadFastPath
 
     private static bool IsArticleHtmlPath(ReadOnlySpan<char> path)
         => path.StartsWith("/api/binary/article/html/", StringComparison.Ordinal);
+
+    private static bool IsPublicHtmlCandidatePath(ReadOnlySpan<char> path)
+    {
+        path = TrimPublicHtmlPath(path);
+        return path.Equals("/".AsSpan(), StringComparison.Ordinal)
+            || PublicAotPageCatalog.TryGetByStaticPath(path, out _)
+            || path.StartsWith(PublicRouteIdentityRegistry.ArticlePathPrefix.AsSpan(), StringComparison.Ordinal)
+            || path.StartsWith(PublicRouteIdentityRegistry.CategoryPathPrefix.AsSpan(), StringComparison.Ordinal)
+            || path.StartsWith(PublicRouteIdentityRegistry.TagPathPrefix.AsSpan(), StringComparison.Ordinal);
+    }
 
     private static bool AcceptsArtifact(HttpContext ctx, bool html)
     {
@@ -738,9 +780,8 @@ public static class PublicHotReadFastPath
         response.StatusCode = StatusCodes.Status200OK;
         response.ContentType = string.IsNullOrWhiteSpace(html.ContentType) ? HtmlContentType : html.ContentType;
         response.ContentLength = html.Bytes.Length;
-        response.Headers["X-Content-Type-Options"] = "nosniff";
+        ApplyStaticPublicSecurityHeaders(response);
         response.Headers["Cache-Control"] = string.IsNullOrWhiteSpace(html.CacheControl) ? "public,max-age=60" : html.CacheControl;
-        response.Headers["Content-Security-Policy"] = StaticPublicCsp;
         response.Headers["Accept-Ranges"] = "none";
         if (!string.IsNullOrWhiteSpace(html.ETag))
         {
@@ -761,6 +802,35 @@ public static class PublicHotReadFastPath
 
         ValueTask<FlushResult> write = response.BodyWriter.WriteAsync(html.Bytes, ctx.RequestAborted);
         return write.IsCompletedSuccessfully ? Completed : AwaitWrite(write);
+    }
+
+    private static void ApplyStaticPublicSecurityHeaders(HttpResponse response)
+    {
+        response.Headers["X-Content-Type-Options"] = "nosniff";
+        response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+        response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), browsing-topics=()";
+        response.Headers["X-Frame-Options"] = "DENY";
+        response.Headers["Cross-Origin-Embedder-Policy"] = "credentialless";
+        response.Headers["Cross-Origin-Opener-Policy"] = "same-origin";
+        response.Headers["Cross-Origin-Resource-Policy"] = "same-origin";
+        response.Headers["Content-Security-Policy"] = StaticPublicCsp;
+    }
+
+    private static Task ServePublicHtml(
+        HttpContext ctx,
+        RequestDelegate next,
+        PublicHotReadSnapshot snapshot,
+        PublicHotReadCounters counters,
+        string routeKey,
+        PublicHotReadOptions options)
+    {
+        if (!snapshot.TryGetHtml(routeKey, out _))
+        {
+            counters.HtmlMiss();
+            return next(ctx);
+        }
+
+        return ServeHtml(ctx, snapshot, counters, routeKey, options);
     }
 
     private static Task WriteBinaryFrame(
@@ -1232,6 +1302,11 @@ public static class PublicHotReadFastPath
     private static bool TryClassifyRoute(ReadOnlySpan<char> path, string pathValue, out PublicHotReadRoute route)
     {
         route = default;
+        if (TryClassifyPublicHtmlRoute(path, out route))
+        {
+            return true;
+        }
+
         if (path.Equals(CategoryPath.AsSpan(), StringComparison.Ordinal)
             || path.Equals(CategoryPathWithoutSuffix.AsSpan(), StringComparison.Ordinal))
         {
@@ -1361,6 +1436,105 @@ public static class PublicHotReadFastPath
         }
 
         route = new PublicHotReadRoute(PublicHotReadRouteKind.ArticleHtml, HtmlRouteKey: pathValue);
+        return true;
+    }
+
+    private static bool TryClassifyPublicHtmlRoute(ReadOnlySpan<char> path, out PublicHotReadRoute route)
+    {
+        route = default;
+        path = TrimPublicHtmlPath(path);
+
+        if (PublicAotPageCatalog.TryGetByStaticPath(path, out PublicAotPageDescriptor descriptor)
+            && !string.IsNullOrWhiteSpace(descriptor.FixedRouteKey))
+        {
+            route = new PublicHotReadRoute(
+                PublicHotReadRouteKind.PublicHtml,
+                HtmlRouteKey: PublicHotReadRouteKeys.HtmlPath(descriptor.FixedRouteKey));
+            return true;
+        }
+
+        if (path.StartsWith(PublicRouteIdentityRegistry.ArticlePathPrefix.AsSpan(), StringComparison.Ordinal)
+            && TryParseSinglePositiveIntPathTail(path[PublicRouteIdentityRegistry.ArticlePathPrefix.Length..], out int articleId))
+        {
+            route = new PublicHotReadRoute(
+                PublicHotReadRouteKind.PublicHtml,
+                ArticleId: articleId,
+                HtmlRouteKey: PublicHotReadRouteKeys.HtmlPath(PublicRouteIdentity.BuildArticleRouteKey(articleId)));
+            return true;
+        }
+
+        if (path.StartsWith(PublicRouteIdentityRegistry.CategoryPathPrefix.AsSpan(), StringComparison.Ordinal)
+            && TryParseSinglePositiveIntPathTail(path[PublicRouteIdentityRegistry.CategoryPathPrefix.Length..], out int categoryId))
+        {
+            route = new PublicHotReadRoute(
+                PublicHotReadRouteKind.PublicHtml,
+                HtmlRouteKey: PublicHotReadRouteKeys.HtmlPath(PublicRouteIdentity.BuildCategoryRouteKey(categoryId)));
+            return true;
+        }
+
+        if (!path.StartsWith(PublicRouteIdentityRegistry.TagPathPrefix.AsSpan(), StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> tagTail = path[PublicRouteIdentityRegistry.TagPathPrefix.Length..];
+        if (TryParseSinglePositiveIntPathTail(tagTail, out int tagId))
+        {
+            route = new PublicHotReadRoute(
+                PublicHotReadRouteKind.PublicHtml,
+                HtmlRouteKey: PublicHotReadRouteKeys.HtmlPath(PublicRouteIdentity.BuildTagIdRouteKey(tagId)));
+            return true;
+        }
+
+        if (IsSafePublicTagNameTail(tagTail))
+        {
+            route = new PublicHotReadRoute(
+                PublicHotReadRouteKind.PublicHtml,
+                HtmlRouteKey: PublicHotReadRouteKeys.HtmlPath(PublicRouteIdentity.BuildTagNameRouteKey(tagTail.ToString())));
+            return true;
+        }
+
+        return false;
+    }
+
+    private static ReadOnlySpan<char> TrimPublicHtmlPath(ReadOnlySpan<char> path)
+    {
+        while (path.Length > 1 && path[^1] == '/')
+        {
+            path = path[..^1];
+        }
+
+        return path;
+    }
+
+    private static bool TryParseSinglePositiveIntPathTail(ReadOnlySpan<char> tail, out int id)
+    {
+        id = 0;
+        return tail.IndexOf('/') < 0 && TryParsePositiveInt(tail, out id);
+    }
+
+    private static bool IsSafePublicTagNameTail(ReadOnlySpan<char> tail)
+    {
+        if (tail.IsEmpty || tail.IndexOf('/') >= 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < tail.Length; i++)
+        {
+            char c = tail[i];
+            if ((uint)(c - 'A') <= 25
+                || (uint)(c - 'a') <= 25
+                || (uint)(c - '0') <= 9
+                || c == '-'
+                || c == '_')
+            {
+                continue;
+            }
+
+            return false;
+        }
+
         return true;
     }
 
