@@ -6,6 +6,11 @@
       description="先看关键指标和访问结构，再进入内容、用户与系统处理流程。"
     />
 
+    <ConsoleWelcomeCallout
+      class="mb-12"
+      :user-key="consoleWelcomeUserKey"
+    />
+
     <section class="mb-12 border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-labelledby="dashboard-today-actions-title">
       <header class="border-b border-[var(--fsusblog-panel-border)] p-6">
         <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">今日待处理 / TODAY</div>
@@ -92,6 +97,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import { InfoFilled } from '@/fsusui/icons'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import ConsoleWelcomeCallout from '@/components/admin/ConsoleWelcomeCallout.vue'
 import DashboardAuthorAnalyticsPanel from '@/components/admin/DashboardAuthorAnalyticsPanel.vue'
 import DashboardCommentModerationPanel from '@/components/admin/DashboardCommentModerationPanel.vue'
 import DashboardOperationsPanel from '@/components/admin/DashboardOperationsPanel.vue'
@@ -102,11 +108,13 @@ import { useAdminDashboard } from '@/composables/useAdminDashboard'
 import { useCommentModerationQueue } from '@/composables/useCommentModerationQueue'
 import { CommentModerationStatus } from '@/api/authoring'
 import { messageApi } from '@/api/message'
+import { useUserStore } from '@/store/user'
 import { showErrorToast } from '@/utils/errorPresentation'
 
 const { loading, dashboardView, visitChartRef, regionChartRef } = useAdminDashboard()
 void visitChartRef
 void regionChartRef
+const userStore = useUserStore()
 const pendingTicketsCount = ref(0)
 const cacheIncidentCount = ref(0)
 const { counters: moderationCounters, refreshQueue: refreshModerationQueue } = useCommentModerationQueue({
@@ -117,6 +125,9 @@ const hasVisitChartData = computed(() =>
   dashboardView.value.visitChart.registeredVisits > 0 || dashboardView.value.visitChart.anonymousVisits > 0
 )
 const hasRegionChartData = computed(() => dashboardView.value.regionChart.labels.length > 0)
+const consoleWelcomeUserKey = computed(() => (
+  userStore.userInfo?.username || userStore.userInfo?.id || 'local'
+))
 const visitChartSummary = computed(() =>
   `访客来源构成，注册用户 ${dashboardView.value.visitChart.registeredVisits}，匿名访客 ${dashboardView.value.visitChart.anonymousVisits}`
 )
