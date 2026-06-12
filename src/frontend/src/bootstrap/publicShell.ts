@@ -6,7 +6,6 @@ import {
 } from '@/bootstrap/publicShellPrimitives'
 import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus'
 import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime'
-import { mountHomeHotArticlesIsland, unmountHomeHotArticlesIsland } from '@/public-renderers/homeHotArticlesIsland'
 import { bootstrapFullApp } from '@/bootstrap/fullApp'
 import { AEDS_BINARY_MEDIA_TYPE } from '@/api/contracts'
 import { getPrefersReducedMotion, resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
@@ -111,6 +110,9 @@ type CspNonceWindow = Window & {
 
 const CRITICAL_STYLE_READY_TIMEOUT_MS = 450
 const FULL_STYLESHEET_VALIDATION_TIMEOUT_MS = 1500
+const HOME_HOT_ARTICLES_SENTINEL_ID = 'fsus-home-secondary-content-sentinel'
+const HOME_HOT_ARTICLES_ROOT_MARGIN = '600px 0px 600px 0px'
+const HOME_HOT_ARTICLES_FALLBACK_DELAY_MS = 2500
 
 const PUBLIC_STYLE_FALLBACKS: CriticalStyleLink[] = [
   {
@@ -378,12 +380,16 @@ let hydratedPayload: PublicHydrationPayload | null = null
 let activeNavigationController: AbortController | null = null
 let activeNavigationToken = 0
 let hotArticlesIdleTask: number | null = null
+let hotArticlesFallbackTimer: number | null = null
+let hotArticlesIntersectionObserver: IntersectionObserver | null = null
+let hotArticlesActivationVersion = 0
 let commentsIdleTask: number | null = null
 let commentsIntersectionObserver: IntersectionObserver | null = null
 let commentsActivationVersion = 0
 let publicTakeoverStarted = false
 let publicTakeoverCompleted = false
 let publicTakeoverPromise: Promise<void> | null = null
+let homeHotArticlesIslandModulePromise: Promise<typeof import('@/public-renderers/homeHotArticlesIsland')> | null = null
 let commentsIslandModulePromise: Promise<typeof import('@/public-renderers/commentsIsland')> | null = null
 
 type PublicSeedSnapshotWindow = Window & typeof globalThis & {
@@ -424,6 +430,35 @@ function loadCommentsIslandModule(): Promise<typeof import('@/public-renderers/c
   return commentsIslandModulePromise
 }
 
+function loadHomeHotArticlesIslandModule(): Promise<typeof import('@/public-renderers/homeHotArticlesIsland')> {
+  homeHotArticlesIslandModulePromise ??= import('@/public-renderers/homeHotArticlesIsland')
+  return homeHotArticlesIslandModulePromise
+}
+
+async function mountHomeHotArticlesIslandLazy(
+  routeKey: string,
+  reason: 'viewport' | 'fallback',
+  activationVersion = hotArticlesActivationVersion
+): Promise<void> {
+  const module = await loadHomeHotArticlesIslandModule()
+  if (activationVersion !== hotArticlesActivationVersion) {
+    return
+  }
+
+  await module.mountHomeHotArticlesIsland(routeKey)
+  emitTelemetry('public_home_hot_articles_island_loaded', { reason }, 'info')
+}
+
+function unmountHomeHotArticlesIslandLazy(): void {
+  if (!homeHotArticlesIslandModulePromise) {
+    return
+  }
+
+  void homeHotArticlesIslandModulePromise
+    .then((module) => module.unmountHomeHotArticlesIsland())
+    .catch(() => {})
+}
+
 async function mountArticleCommentsIslandLazy(
   articleId: number | string,
   reason: 'viewport' | 'request',
@@ -456,11 +491,34 @@ function clearArticleCommentsIslandActivation(): void {
   commentsIdleTask = null
 }
 
+function clearHomeHotArticlesIslandActivation(): void {
+  hotArticlesActivationVersion += 1
+  hotArticlesIntersectionObserver?.disconnect()
+  hotArticlesIntersectionObserver = null
+  clearIdleTask(hotArticlesIdleTask)
+  hotArticlesIdleTask = null
+  if (hotArticlesFallbackTimer !== null) {
+    window.clearTimeout(hotArticlesFallbackTimer)
+    hotArticlesFallbackTimer = null
+  }
+}
+
 function stopArticleCommentsIslandObserver(): void {
   commentsIntersectionObserver?.disconnect()
   commentsIntersectionObserver = null
   clearIdleTask(commentsIdleTask)
   commentsIdleTask = null
+}
+
+function stopHomeHotArticlesIslandObserver(): void {
+  hotArticlesIntersectionObserver?.disconnect()
+  hotArticlesIntersectionObserver = null
+  clearIdleTask(hotArticlesIdleTask)
+  hotArticlesIdleTask = null
+  if (hotArticlesFallbackTimer !== null) {
+    window.clearTimeout(hotArticlesFallbackTimer)
+    hotArticlesFallbackTimer = null
+  }
 }
 
 function clearPublicFirstPaintFlag(): void {
@@ -591,11 +649,10 @@ function resolveShellActionNavigation(actionNode: HTMLElement): string | null {
 }
 
 function clearDynamicIslands(): void {
-  clearIdleTask(hotArticlesIdleTask)
-  hotArticlesIdleTask = null
+  clearHomeHotArticlesIslandActivation()
   clearArticleCommentsIslandActivation()
   unmountArticleCommentsIslandLazy()
-  unmountHomeHotArticlesIsland()
+  unmountHomeHotArticlesIslandLazy()
 }
 
 function resolveArticleCommentsIslandId(payload: PublicHydrationPayload): number | null {
@@ -605,6 +662,55 @@ function resolveArticleCommentsIslandId(payload: PublicHydrationPayload): number
 
   const articleId = Number(payload.articleId)
   return Number.isFinite(articleId) && articleId > 0 ? Math.trunc(articleId) : null
+}
+
+function resolveHomeHotArticlesTarget(): HTMLElement | null {
+  const sentinel = document.getElementById(HOME_HOT_ARTICLES_SENTINEL_ID)
+  if (sentinel instanceof HTMLElement) {
+    return sentinel
+  }
+
+  const slot = document.getElementById('fsus-home-hot-articles-slot-content')
+  return slot instanceof HTMLElement ? slot : null
+}
+
+function scheduleHomeHotArticlesIsland(payload: PublicHydrationPayload): void {
+  if (payload.pageKind !== 'Home') {
+    return
+  }
+
+  const target = resolveHomeHotArticlesTarget()
+  if (!target) {
+    return
+  }
+
+  const activationVersion = ++hotArticlesActivationVersion
+  const activate = (reason: 'viewport' | 'fallback') => {
+    stopHomeHotArticlesIslandObserver()
+    hotArticlesIdleTask = scheduleIdleTask(() => {
+      hotArticlesIdleTask = null
+      void mountHomeHotArticlesIslandLazy(payload.routeKey, reason, activationVersion)
+    })
+  }
+
+  if (typeof IntersectionObserver === 'undefined') {
+    hotArticlesFallbackTimer = window.setTimeout(() => {
+      hotArticlesFallbackTimer = null
+      void mountHomeHotArticlesIslandLazy(payload.routeKey, 'fallback', activationVersion)
+    }, HOME_HOT_ARTICLES_FALLBACK_DELAY_MS)
+    return
+  }
+
+  hotArticlesIntersectionObserver = new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+      activate('viewport')
+    }
+  }, {
+    root: null,
+    rootMargin: HOME_HOT_ARTICLES_ROOT_MARGIN,
+    threshold: 0
+  })
+  hotArticlesIntersectionObserver.observe(target)
 }
 
 function scheduleArticleCommentsIsland(payload: PublicHydrationPayload): void {
@@ -646,8 +752,7 @@ function scheduleArticleCommentsIsland(payload: PublicHydrationPayload): void {
 }
 
 function scheduleDynamicIslands(payload: PublicHydrationPayload | null): void {
-  clearIdleTask(hotArticlesIdleTask)
-  hotArticlesIdleTask = null
+  clearHomeHotArticlesIslandActivation()
   clearArticleCommentsIslandActivation()
 
   if (!payload) {
@@ -655,10 +760,7 @@ function scheduleDynamicIslands(payload: PublicHydrationPayload | null): void {
   }
 
   if (payload.pageKind === 'Home') {
-    hotArticlesIdleTask = scheduleIdleTask(() => {
-      hotArticlesIdleTask = null
-      void mountHomeHotArticlesIsland(payload.routeKey)
-    })
+    scheduleHomeHotArticlesIsland(payload)
   }
 
   if (payload.pageKind === 'ArticleDetail') {

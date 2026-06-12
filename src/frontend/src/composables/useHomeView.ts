@@ -1,4 +1,4 @@
-import { computed, onMounted, ref, watch, onUnmounted } from 'vue'
+import { computed, nextTick, onMounted, ref, watch, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getArticles, getFeaturedArticles, getHotArticles, type ArticleListItemResponse, type FeaturedArticleItem, type PopularArticleSummaryResponse } from '@/api/article'
 import { toBootstrapArticleListItem } from '@/bootstrap/publicAotBootstrap'
@@ -18,6 +18,9 @@ import { createStableArticleCardMapper } from '@/view-contracts/articleListStabl
 const HOME_FEATURED_ARTICLE_COUNT = 3
 const HOME_HOT_ARTICLE_PREFETCH_COUNT = 10
 const HOME_HOT_ARTICLE_DISPLAY_COUNT = 5
+const HOME_SECONDARY_CONTENT_SENTINEL_ID = 'fsus-home-secondary-content-sentinel'
+const HOME_SECONDARY_LIST_ROOT_MARGIN = '600px 0px 600px 0px'
+const HOME_SECONDARY_LIST_FALLBACK_DELAY_MS = 2500
 
 const parsePageQuery = (value: unknown): number => {
   const raw = Array.isArray(value) ? value[0] : value
@@ -32,7 +35,6 @@ export function useHomeView() {
   const notificationStreamStore = useNotificationStreamStore()
   const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Home')
   const initialHydrationView = initialHydrationPayload?.view ?? null
-  const hasServerHydrationView = Boolean(initialHydrationView)
   const initialSiteTitleText = initialHydrationPayload?.siteTitle?.trim()
     || initialBootstrap?.siteTitle?.trim()
     || `Fsu's Blog`
@@ -43,7 +45,7 @@ export function useHomeView() {
   const articleItems = ref<ArticleListItemResponse[]>([])
   const featuredArticles = ref<FeaturedArticleItem[]>([])
   const hotArticles = ref<PopularArticleSummaryResponse[]>([])
-  const featuredLoading = ref(!hasServerHydrationView)
+  const featuredLoading = ref(false)
   const initialViewItems = ref<readonly ArticleListCardViewContract[] | null>(
     initialHydrationView && Array.isArray(initialHydrationView.items)
       ? initialHydrationView.items
@@ -98,6 +100,10 @@ export function useHomeView() {
   const articleTask = useAbortableTask()
   const featuredTask = useAbortableTask()
   let featuredDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  let secondaryListObserver: IntersectionObserver | null = null
+  let secondaryListFallbackTimer: ReturnType<typeof setTimeout> | null = null
+  let secondaryListsLoaded = false
+  let secondaryListRequestInFlight = false
 
   const lifecycle = usePublicPageLifecycle({
     onDispose: () => {
@@ -106,6 +112,8 @@ export function useHomeView() {
       if (featuredDebounceTimer) {
         clearTimeout(featuredDebounceTimer)
       }
+      clearSecondaryListFallbackTimer()
+      disconnectSecondaryListObserver()
     }
   })
 
@@ -188,7 +196,26 @@ export function useHomeView() {
     }
   }
 
+  const clearSecondaryListFallbackTimer = (): void => {
+    if (!secondaryListFallbackTimer) {
+      return
+    }
+
+    clearTimeout(secondaryListFallbackTimer)
+    secondaryListFallbackTimer = null
+  }
+
+  const disconnectSecondaryListObserver = (): void => {
+    secondaryListObserver?.disconnect()
+    secondaryListObserver = null
+  }
+
   const loadFeaturedArticles = async (showLoading = true): Promise<void> => {
+    if (secondaryListRequestInFlight) {
+      return
+    }
+
+    secondaryListRequestInFlight = true
     if (showLoading) {
       featuredLoading.value = true
     }
@@ -209,6 +236,7 @@ export function useHomeView() {
         hotArticles.value = (hot || [])
           .filter(a => !featuredIds.has(a.id))
           .slice(0, HOME_HOT_ARTICLE_DISPLAY_COUNT)
+        secondaryListsLoaded = true
       }
     } catch (caught: unknown) {
       if (isAbortError(caught)) {
@@ -216,13 +244,61 @@ export function useHomeView() {
       }
       console.error('[Home] Featured articles load error:', caught)
     } finally {
+      secondaryListRequestInFlight = false
       if (lifecycle.isActive()) {
         featuredLoading.value = false
       }
     }
   }
 
+  const triggerSecondaryListLoad = (showLoading = true): void => {
+    clearSecondaryListFallbackTimer()
+    disconnectSecondaryListObserver()
+    void loadFeaturedArticles(showLoading)
+  }
+
+  const scheduleSecondaryListLoad = async (): Promise<void> => {
+    if (secondaryListsLoaded || secondaryListRequestInFlight || secondaryListObserver || secondaryListFallbackTimer) {
+      return
+    }
+
+    await nextTick()
+    if (!lifecycle.isActive() || loading.value || isError.value || listView.value.items.length === 0) {
+      return
+    }
+
+    const target = typeof document === 'undefined'
+      ? null
+      : document.getElementById(HOME_SECONDARY_CONTENT_SENTINEL_ID)
+    if (!target) {
+      return
+    }
+
+    if (typeof IntersectionObserver === 'undefined') {
+      secondaryListFallbackTimer = setTimeout(() => {
+        secondaryListFallbackTimer = null
+        triggerSecondaryListLoad(true)
+      }, HOME_SECONDARY_LIST_FALLBACK_DELAY_MS)
+      return
+    }
+
+    secondaryListObserver = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+        triggerSecondaryListLoad(true)
+      }
+    }, {
+      root: null,
+      rootMargin: HOME_SECONDARY_LIST_ROOT_MARGIN,
+      threshold: 0
+    })
+    secondaryListObserver.observe(target)
+  }
+
   const dispatchFeaturedUpdate = (): void => {
+    if (!secondaryListsLoaded && !secondaryListRequestInFlight) {
+      return
+    }
+
     if (featuredDebounceTimer) {
       clearTimeout(featuredDebounceTimer)
     }
@@ -341,11 +417,7 @@ export function useHomeView() {
   )
 
   onMounted(() => {
-    // Defer featured articles loading significantly to avoid hydration mismatch
-    // Featured data should not change during hydration phase
-    setTimeout(() => {
-      void loadFeaturedArticles(!hasServerHydrationView)
-    }, 500)
+    void scheduleSecondaryListLoad()
 
     if (!initialBootstrap || currentPage.value > 1) {
       initialViewItems.value = null
@@ -353,10 +425,20 @@ export function useHomeView() {
     }
   })
 
+  watch(
+    () => [loading.value, isError.value, listView.value.items.length] as const,
+    () => {
+      void scheduleSecondaryListLoad()
+    },
+    { flush: 'post' }
+  )
+
   onUnmounted(() => {
     if (featuredDebounceTimer) {
       clearTimeout(featuredDebounceTimer)
     }
+    clearSecondaryListFallbackTimer()
+    disconnectSecondaryListObserver()
   })
 
   return {

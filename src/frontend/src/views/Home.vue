@@ -15,7 +15,7 @@
       <!-- Only render featured section after data is loaded or explicitly ready.
            Avoid rendering during hydration window to prevent DOM mismatch. -->
       <FeaturedArticlesSection
-        v-if="featuredArticles.length > 0 || hotArticles.length > 0"
+        v-if="featuredLoading || featuredArticles.length > 0 || hotArticles.length > 0"
         :articles="featuredArticles"
         :hot-articles="hotArticles"
         :loading="featuredLoading"

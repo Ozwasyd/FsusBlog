@@ -16,8 +16,6 @@
         <HomeArticleErrorState v-else-if="isError" @retry="emit('retry')" />
 
         <template v-else>
-          <slot name="featured" />
-
           <PublicArticleList
             v-if="view.items.length > 0"
             :items="view.items"
@@ -30,6 +28,14 @@
           />
 
           <HomeArticleEmptyState v-else />
+
+          <div
+            id="fsus-home-secondary-content-sentinel"
+            class="h-px w-px overflow-hidden opacity-0"
+            aria-hidden="true"
+          />
+
+          <slot name="featured" />
         </template>
       </div>
     </template>
