@@ -211,7 +211,8 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Contains("nonce=\"spa-nonce\"", rendered, StringComparison.Ordinal);
         Assert.Contains("<meta property=\"csp-nonce\" nonce=\"spa-nonce\" />", rendered, StringComparison.Ordinal);
         Assert.Contains("<link rel=\"modulepreload\" href=\"/assets/route-admin.js\">", rendered, StringComparison.Ordinal);
-        Assert.True(context.Response.Body.Length < Encoding.UTF8.GetByteCount(rendered));
+        long identityBytes = Encoding.UTF8.GetByteCount(rendered);
+        Assert.True(context.Response.Body.Length <= identityBytes * 0.8, $"brotli fallback body should be at least 20% smaller than identity. identity={identityBytes} actual={context.Response.Body.Length}");
     }
 
     [Fact]
@@ -228,7 +229,10 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Equal("gzip", context.Response.Headers["Content-Encoding"].ToString());
         Assert.Equal("Accept-Encoding", context.Response.Headers["Vary"].ToString());
         Assert.Equal(context.Response.Body.Length, context.Response.ContentLength);
-        Assert.Contains("gzip fallback payload", DecodeSpaFallbackBody(context), StringComparison.Ordinal);
+        string rendered = DecodeSpaFallbackBody(context);
+        long identityBytes = Encoding.UTF8.GetByteCount(rendered);
+        Assert.True(context.Response.Body.Length <= identityBytes * 0.8, $"gzip fallback body should be at least 20% smaller than identity. identity={identityBytes} actual={context.Response.Body.Length}");
+        Assert.Contains("gzip fallback payload", rendered, StringComparison.Ordinal);
     }
 
     [Fact]

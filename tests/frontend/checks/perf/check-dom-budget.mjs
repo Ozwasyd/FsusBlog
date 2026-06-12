@@ -22,6 +22,8 @@ const routeBudgets = [
   { id: 'public-archive', path: '/archive', nodeSoft: 1200, nodeHard: 2200, depthHard: 28 },
   { id: 'article-detail-normal', path: `/article/${process.env.FSUSBLOG_DOM_BUDGET_ARTICLE_ID || '1'}`, nodeSoft: 1800, nodeHard: 3600, depthHard: 34 },
   { id: 'article-detail-markdown-heavy', path: `/article/${process.env.FSUSBLOG_DOM_BUDGET_ARTICLE_ID || '1'}?domBudget=markdown-heavy`, nodeSoft: 3500, nodeHard: 6500, depthHard: 40 },
+  { id: 'public-category', path: `/category/${process.env.FSUSBLOG_DOM_BUDGET_CATEGORY_ID || '1'}`, nodeSoft: 1800, nodeHard: 3200, depthHard: 32 },
+  { id: 'public-tag', path: `/tag/${process.env.FSUSBLOG_DOM_BUDGET_TAG_ID || '1'}`, nodeSoft: 1800, nodeHard: 3200, depthHard: 32 },
   { id: 'search', path: `/search?q=${encodeURIComponent(process.env.FSUSBLOG_DOM_BUDGET_QUERY || 'markdown')}`, nodeSoft: 1800, nodeHard: 3200, depthHard: 32 },
   { id: 'login', path: '/login', nodeSoft: 1400, nodeHard: 2600, depthHard: 30 },
   { id: 'user-profile', path: '/user/profile', nodeSoft: 1800, nodeHard: 3200, depthHard: 32 },

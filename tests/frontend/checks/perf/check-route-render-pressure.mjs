@@ -18,6 +18,8 @@ const routes = [
   '/',
   '/archive',
   `/article/${process.env.FSUSBLOG_ROUTE_PRESSURE_ARTICLE_ID || '1'}`,
+  `/category/${process.env.FSUSBLOG_ROUTE_PRESSURE_CATEGORY_ID || '1'}`,
+  `/tag/${process.env.FSUSBLOG_ROUTE_PRESSURE_TAG_ID || '1'}`,
   `/search?q=${encodeURIComponent(process.env.FSUSBLOG_ROUTE_PRESSURE_QUERY || 'markdown')}`,
   '/login',
   '/user/profile',
