@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
@@ -20,14 +21,14 @@ public sealed class SpaAssetManifestServiceTests
             var context = new DefaultHttpContext();
             context.Request.Host = new HostString("localhost:3000");
 
-            SpaAssetSet assets = service.GetPublicAssetSet(context);
+            SpaAssetSet assets = service.GetPublicAssetSet(context, PublicPageId.Home);
 
             Assert.True(assets.UsesSourceAssets);
             Assert.Equal("/src/bootstrap/entry.ts", assets.EntryScript);
             Assert.Contains("/src/assets/public-shell-critical.css", assets.Stylesheets);
             Assert.Contains("/src/assets/tailwind.css", assets.Stylesheets);
-            Assert.Contains("/src/assets/markdown.css", assets.Stylesheets);
             Assert.Contains("/src/assets/public-page.css?direct", assets.Stylesheets);
+            Assert.DoesNotContain("/src/assets/markdown.css", assets.Stylesheets);
         }
         finally
         {
@@ -45,21 +46,50 @@ public sealed class SpaAssetManifestServiceTests
             var env = new TestWebHostEnvironment(root, Environments.Production);
             var service = new SpaAssetManifestService(env, NullLogger<SpaAssetManifestService>.Instance);
 
-            SpaAssetSet assets = service.GetPublicAssetSet();
+            SpaAssetSet assets = service.GetPublicAssetSet(pageId: PublicPageId.Home);
 
             Assert.False(assets.UsesSourceAssets);
             Assert.Equal("/assets/fsus-spa-entry.js", assets.EntryScript);
             Assert.Collection(
                 assets.Stylesheets,
+                href => Assert.Equal("/assets/public-shell-critical-a.css", href),
                 href => Assert.Equal("/assets/tailwind-a.css", href),
-                href => Assert.Equal("/assets/vendor-element-plus-a.css", href),
-                href => Assert.Equal("/assets/markdown-a.css", href),
-                href => Assert.Equal("/assets/public-page-a.css", href),
-                href => Assert.Equal("/assets/full-app-core-a.css", href));
+                href => Assert.Equal("/assets/public-page-a.css", href));
             Assert.Contains("/assets/public-page-a.css", assets.Stylesheets);
-            Assert.Contains("/assets/entry-runtime-a.js", assets.ModulePreloads);
+            Assert.DoesNotContain(assets.Stylesheets, static href => href.Contains("vendor-element-plus", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(assets.Stylesheets, static href => href.Contains("full-app-core", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(assets.Stylesheets, static href => href.Contains("markdown", StringComparison.OrdinalIgnoreCase));
+            Assert.Empty(assets.ModulePreloads);
             Assert.DoesNotContain(assets.ModulePreloads, static href => href.EndsWith(".css", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains("/assets/entry-runtime-a.js", assets.FullAppTakeover.ModulePreloads);
+            Assert.Contains("/assets/full-app-core-a.js", assets.FullAppTakeover.ModulePreloads);
+            Assert.Contains("/assets/vendor-element-plus-a.js", assets.FullAppTakeover.ModulePreloads);
+            Assert.Contains("/assets/vendor-element-plus-a.css", assets.FullAppTakeover.Stylesheets);
+            Assert.Contains("/assets/full-app-core-a.css", assets.FullAppTakeover.Stylesheets);
             Assert.NotEqual("missing-manifest", assets.FrontendAssetVersion);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetPublicAssetSet_ArticleManifest_IncludesMarkdownCssWithoutFullAppAssets()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css");
+            var env = new TestWebHostEnvironment(root, Environments.Production);
+            var service = new SpaAssetManifestService(env, NullLogger<SpaAssetManifestService>.Instance);
+
+            SpaAssetSet assets = service.GetPublicAssetSet(pageId: PublicPageId.ArticleDetail);
+
+            Assert.Contains("/assets/markdown-a.css", assets.Stylesheets);
+            Assert.DoesNotContain(assets.Stylesheets, static href => href.Contains("vendor-element-plus", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(assets.Stylesheets, static href => href.Contains("full-app-core", StringComparison.OrdinalIgnoreCase));
+            Assert.Empty(assets.ModulePreloads);
         }
         finally
         {
@@ -132,6 +162,7 @@ public sealed class SpaAssetManifestServiceTests
     "name": "route-public",
     "css": [
       "assets/full-app-core-a.css",
+      "assets/public-shell-critical-a.css",
       "assets/tailwind-a.css",
       "assets/vendor-element-plus-a.css",
       "assets/markdown-a.css",
@@ -139,7 +170,16 @@ public sealed class SpaAssetManifestServiceTests
     ]
   },
   "_entry-runtime-a.js": {
-    "file": "assets/entry-runtime-a.js"
+    "file": "assets/entry-runtime-a.js",
+    "name": "entry-runtime"
+  },
+  "_full-app-core-a.js": {
+    "file": "assets/full-app-core-a.js",
+    "name": "full-app-core"
+  },
+  "_vendor-element-plus-a.js": {
+    "file": "assets/vendor-element-plus-a.js",
+    "name": "vendor-element-plus"
   },
   "_full-app-core-a.css": {
     "file": "assets/full-app-core-a.css"

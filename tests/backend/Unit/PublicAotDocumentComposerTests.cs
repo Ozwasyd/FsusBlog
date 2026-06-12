@@ -95,6 +95,23 @@ public sealed class PublicAotDocumentComposerTests
     }
 
     [Fact]
+    public void BuildDeferredSpaBootScript_WithTakeoverAssets_DefersPreloadsUntilIdleOrIntent()
+    {
+        string result = PublicAotDocumentComposer.BuildDeferredSpaBootScript(
+            "<html></html>",
+            "/assets/entry.js",
+            ["/assets/full-app-core.js", "/assets/vendor-element-plus.js"],
+            ["/assets/full-app-core.css"]);
+
+        Assert.Contains("const takeoverModulePreloads = [\"/assets/full-app-core.js\",\"/assets/vendor-element-plus.js\"]", result);
+        Assert.Contains("const takeoverStylesheets = [\"/assets/full-app-core.css\"]", result);
+        Assert.Contains("requestIdleCallback", result);
+        Assert.Contains("window.addEventListener('pointerdown', onIntent", result);
+        Assert.Contains("warmPreload();", result);
+        Assert.DoesNotContain("window.requestAnimationFrame(() => {\n        warmPreload();", result);
+    }
+
+    [Fact]
     public void BuildDeferredSpaBootScript_NoEntryScript_ReturnsEmpty()
     {
         string result = PublicAotDocumentComposer.BuildDeferredSpaBootScript("<html></html>", null);
@@ -188,7 +205,8 @@ public sealed class PublicAotDocumentComposerTests
 
         Assert.Contains("<title>Public title - Blog</title>", html);
         Assert.Contains("<body class=\"source-body\" data-fsusblog-public-first-paint=\"true\" data-fsusblog-public-shell=\"true\">", html);
-        Assert.Contains("<div id=\"app\">\n    <main>shell</main>\n</div>", html);
+        string normalizedHtml = html.Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert.Contains("<div id=\"app\">\n    <main>shell</main>\n</div>", normalizedHtml);
     }
 
     [Fact]

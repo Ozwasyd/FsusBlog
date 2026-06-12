@@ -521,7 +521,7 @@ public static class WebApplicationCompositionExtensions
         if (templateBytes.Length > 0)
         {
             var preloads = assetService.GetPreloadsForPath(path, ctx);
-            SpaAssetSet? publicAssetSet = isPublicAotRoute ? assetService.GetPublicAssetSet(ctx) : null;
+            SpaAssetSet? publicAssetSet = isPublicAotRoute ? assetService.GetPublicAssetSet(ctx, aotMatch.PageId) : null;
             if (preloads.Count > 0)
             {
                 ReadOnlyMemory<byte> headInjection = GetCachedRoutePreloadHeadInjection(

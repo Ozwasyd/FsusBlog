@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Infrastructure.Spa;
@@ -9,7 +10,7 @@ public interface ISpaAssetManifestService
 {
     IReadOnlyList<string> GetPreloadsForPath(string path, HttpContext? context = null);
 
-    SpaAssetSet GetPublicAssetSet(HttpContext? context = null);
+    SpaAssetSet GetPublicAssetSet(HttpContext? context = null, PublicPageId? pageId = null);
 
     string GetFrontendAssetVersion();
 }
@@ -17,22 +18,41 @@ public interface ISpaAssetManifestService
 public sealed class SpaAssetManifestService : ISpaAssetManifestService
 {
     private const string StableSpaEntry = "/assets/fsus-spa-entry.js";
-    private static readonly string[] PublicCriticalCssNames =
+    private static readonly string[] PublicBaseCssNames =
     [
         "public-shell-critical",
         "tailwind",
-        "vendor-element-plus",
-        "markdown",
-        "public-page",
-        "full-app-core",
-        "entry-runtime",
-        "vendor-progress"
+        "public-page"
     ];
-    private static readonly string[] PublicPrimaryCssNames =
+
+    private static readonly string[] PublicMarkdownCssNames =
     [
-        "index",
-        "main",
+        "markdown"
+    ];
+
+    private static readonly string[] FullAppTakeoverModuleNames =
+    [
+        "entry-runtime",
         "public-page-runtime",
+        "full-app-core",
+        "vendor-runtime",
+        "vendor-vue",
+        "vendor-element-plus",
+        "vendor-progress",
+        "markdown-runtime"
+    ];
+
+    private static readonly string[] FullAppTakeoverCssNames =
+    [
+        "full-app-core",
+        "vendor-element-plus",
+        "vendor-progress",
+        "route-user",
+        "route-admin",
+        "route-auth",
+        "route-error",
+        "index",
+        "main"
     ];
     private static readonly Regex StringPropertyRegex = new(
         "\"(?<name>[^\"]+)\"\\s*:\\s*\"(?<value>[^\"]*)\"",
@@ -103,25 +123,35 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         return [];
     }
 
-    public SpaAssetSet GetPublicAssetSet(HttpContext? context = null)
+    public SpaAssetSet GetPublicAssetSet(HttpContext? context = null, PublicPageId? pageId = null)
     {
         if (ShouldUseSourceAssets(context))
         {
-            return new SpaAssetSet(
-                "/src/bootstrap/entry.ts",
-                [
+            string[] sourceStylesheets = ShouldIncludeMarkdownCss(pageId)
+                ? [
                     "/src/assets/public-shell-critical.css",
                     "/src/assets/tailwind.css",
-                    "/src/assets/markdown.css",
+                    "/src/assets/public-page.css?direct",
+                    "/src/assets/markdown.css"
+                ]
+                : [
+                    "/src/assets/public-shell-critical.css",
+                    "/src/assets/tailwind.css",
                     "/src/assets/public-page.css?direct"
-                ],
+                ];
+
+            return new SpaAssetSet(
+                "/src/bootstrap/entry.ts",
+                sourceStylesheets,
                 [],
                 GetFrontendAssetVersion(),
                 UsesSourceAssets: true);
         }
 
         LoadManifest();
-        return _publicAssetSet;
+        return pageId is null
+            ? _publicAssetSet
+            : CreatePublicAssetSet(_manifestByKey, _frontendAssetVersion, pageId);
     }
 
     public string GetFrontendAssetVersion()
@@ -167,7 +197,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             if (string.IsNullOrWhiteSpace(manifestPath) || !File.Exists(manifestPath))
             {
                 _frontendAssetVersion = ComputeFallbackAssetVersion();
-                _publicAssetSet = CreatePublicAssetSet(FrozenDictionary<string, ManifestAsset>.Empty, _frontendAssetVersion);
+                _publicAssetSet = CreatePublicAssetSet(FrozenDictionary<string, ManifestAsset>.Empty, _frontendAssetVersion, pageId: null);
                 _manifestLoaded = !isDevelopment;
                 return;
             }
@@ -227,7 +257,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
                 _manifestPath = manifestPath;
                 _lastManifestWriteTime = lastWrite;
                 _frontendAssetVersion = ComputeAssetVersion(manifestPath);
-                _publicAssetSet = CreatePublicAssetSet(manifestSnapshot, _frontendAssetVersion);
+                _publicAssetSet = CreatePublicAssetSet(manifestSnapshot, _frontendAssetVersion, pageId: null);
                 _manifestLoaded = !isDevelopment;
                 _logger.LogInformation("SPA manifest loaded from {ManifestPath}. chunks={ChunkCount}", manifestPath, _manifestByKey.Count);
             }
@@ -235,7 +265,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             {
                 _logger.LogError(ex, "Failed to load SPA asset manifest from {ManifestPath}", manifestPath);
                 _frontendAssetVersion = ComputeFallbackAssetVersion();
-                _publicAssetSet = CreatePublicAssetSet(_manifestByKey, _frontendAssetVersion);
+                _publicAssetSet = CreatePublicAssetSet(_manifestByKey, _frontendAssetVersion, pageId: null);
                 _manifestLoaded = !isDevelopment;
             }
         }
@@ -243,13 +273,22 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
 
     private SpaAssetSet CreatePublicAssetSet(
         IReadOnlyDictionary<string, ManifestAsset> manifest,
-        string frontendAssetVersion)
-        => new(
+        string frontendAssetVersion,
+        PublicPageId? pageId)
+    {
+        IReadOnlyList<string> publicStylesheets = PickPublicStylesheets(manifest, pageId);
+        return new SpaAssetSet(
             StableSpaEntry,
-            PickPublicStylesheets(manifest),
-            PickPublicModulePreloads(manifest),
+            publicStylesheets,
+            [],
             frontendAssetVersion,
-            UsesSourceAssets: false);
+            UsesSourceAssets: false)
+        {
+            FullAppTakeover = new FullAppTakeoverAssetSet(
+                PickFullAppTakeoverModulePreloads(manifest),
+                PickFullAppTakeoverStylesheets(manifest, publicStylesheets))
+        };
+    }
 
     private string ResolveCurrentManifestPath()
     {
@@ -279,14 +318,17 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         return candidates.FirstOrDefault(File.Exists) ?? string.Empty;
     }
 
-    private IReadOnlyList<string> PickPublicStylesheets(IReadOnlyDictionary<string, ManifestAsset> manifest)
+    private IReadOnlyList<string> PickPublicStylesheets(IReadOnlyDictionary<string, ManifestAsset> manifest, PublicPageId? pageId)
     {
         var styles = new List<string>();
-        foreach (string needle in PublicCriticalCssNames.Concat(PublicPrimaryCssNames))
+        IEnumerable<string> allowedNames = ShouldIncludeMarkdownCss(pageId)
+            ? PublicBaseCssNames.Concat(PublicMarkdownCssNames)
+            : PublicBaseCssNames;
+        IReadOnlyList<string> cssHrefs = EnumerateCssHrefs(manifest).ToArray();
+
+        foreach (string name in allowedNames)
         {
-            string? css = manifest.Values
-                .SelectMany(static asset => asset.Css)
-                .FirstOrDefault(href => href.Contains(needle, StringComparison.OrdinalIgnoreCase));
+            string? css = cssHrefs.FirstOrDefault(href => AssetFileNameMatches(href, name));
             if (!string.IsNullOrWhiteSpace(css) && !styles.Contains(css, StringComparer.Ordinal))
             {
                 styles.Add(css);
@@ -295,23 +337,34 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
 
         if (styles.Count == 0)
         {
-            styles.AddRange(PickCssFromAssetsDirectory());
+            styles.AddRange(PickCssFromAssetsDirectory(pageId));
         }
 
         return styles.ToArray();
     }
 
-    private static IReadOnlyList<string> PickPublicModulePreloads(IReadOnlyDictionary<string, ManifestAsset> manifest)
+    private static IReadOnlyList<string> PickFullAppTakeoverModulePreloads(IReadOnlyDictionary<string, ManifestAsset> manifest)
         => manifest.Values
             .Where(static asset => !string.IsNullOrWhiteSpace(asset.File) &&
                 asset.File.EndsWith(".js", StringComparison.OrdinalIgnoreCase) &&
-                (asset.File.Contains("entry-runtime-", StringComparison.OrdinalIgnoreCase) ||
-                 asset.File.Contains("full-app-core-", StringComparison.OrdinalIgnoreCase)))
+                FullAppTakeoverModuleNames.Any(name => AssetNameMatches(asset, name)))
             .Select(static asset => asset.File)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
-    private IEnumerable<string> PickCssFromAssetsDirectory()
+    private static IReadOnlyList<string> PickFullAppTakeoverStylesheets(
+        IReadOnlyDictionary<string, ManifestAsset> manifest,
+        IReadOnlyList<string> publicStylesheets)
+    {
+        var publicSet = publicStylesheets.ToHashSet(StringComparer.Ordinal);
+        return EnumerateCssHrefs(manifest)
+            .Where(href => !publicSet.Contains(href) &&
+                FullAppTakeoverCssNames.Any(name => AssetFileNameMatches(href, name)))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private IEnumerable<string> PickCssFromAssetsDirectory(PublicPageId? pageId)
     {
         string assetsRoot = Path.Combine(string.IsNullOrWhiteSpace(_env.WebRootPath)
             ? Path.Combine(_env.ContentRootPath, "wwwroot")
@@ -321,7 +374,10 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             yield break;
         }
 
-        foreach (string prefix in PublicCriticalCssNames.Concat(PublicPrimaryCssNames))
+        IEnumerable<string> allowedNames = ShouldIncludeMarkdownCss(pageId)
+            ? PublicBaseCssNames.Concat(PublicMarkdownCssNames)
+            : PublicBaseCssNames;
+        foreach (string prefix in allowedNames)
         {
             string? file = Directory.GetFiles(assetsRoot, $"{prefix}*.css", SearchOption.TopDirectoryOnly)
                 .Select(Path.GetFileName)
@@ -333,6 +389,48 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
                 yield return $"/assets/{file}";
             }
         }
+    }
+
+    private static IEnumerable<string> EnumerateCssHrefs(IReadOnlyDictionary<string, ManifestAsset> manifest)
+    {
+        foreach (ManifestAsset asset in manifest.Values)
+        {
+            if (asset.File.EndsWith(".css", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return asset.File;
+            }
+
+            foreach (string css in asset.Css)
+            {
+                yield return css;
+            }
+        }
+    }
+
+    private static bool ShouldIncludeMarkdownCss(PublicPageId? pageId)
+        => pageId is null
+            or PublicPageId.ArticleDetail
+            or PublicPageId.About
+            or PublicPageId.Privacy
+            or PublicPageId.Guidelines
+            or PublicPageId.Copyright;
+
+    private static bool AssetNameMatches(ManifestAsset asset, string expectedName)
+        => string.Equals(asset.Name, expectedName, StringComparison.OrdinalIgnoreCase)
+            || AssetFileNameMatches(asset.File, expectedName)
+            || AssetFileNameMatches(asset.Key, expectedName)
+            || AssetFileNameMatches(asset.Src, expectedName);
+
+    private static bool AssetFileNameMatches(string href, string expectedName)
+    {
+        if (string.IsNullOrWhiteSpace(href))
+        {
+            return false;
+        }
+
+        string fileName = Path.GetFileNameWithoutExtension(href.Replace('\\', '/'));
+        return string.Equals(fileName, expectedName, StringComparison.OrdinalIgnoreCase)
+            || fileName.StartsWith(expectedName + "-", StringComparison.OrdinalIgnoreCase);
     }
 
     private string ComputeFallbackAssetVersion()

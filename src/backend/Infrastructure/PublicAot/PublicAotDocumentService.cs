@@ -41,7 +41,7 @@ public sealed class PublicAotDocumentService(
         {
             SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
             string rawTemplate = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, cancellationToken);
-            SpaAssetSet assetSet = assetManifest.GetPublicAssetSet();
+            SpaAssetSet assetSet = assetManifest.GetPublicAssetSet(pageId: entry.PageId);
             string preparedTemplate = PublicAotDocumentComposer.PreparePublicDocumentTemplate(rawTemplate);
             DecodedEntryPayloads payloads = DecodeEntryPayloads(entry);
             string title = ResolveTitle(entry, payloads, seo.Title);
@@ -65,7 +65,10 @@ public sealed class PublicAotDocumentService(
                 NormalizeOptionalText(entry.HydrationPropsPayload ?? string.Empty, entry.ArticleId),
                 NormalizeOptionalText(entry.IslandsPayload ?? string.Empty, entry.ArticleId),
                 assetSet.EntryScript,
-                headLinks)));
+                headLinks)
+            {
+                FullAppTakeover = assetSet.FullAppTakeover
+            }));
         }
         catch (Exception ex)
         {

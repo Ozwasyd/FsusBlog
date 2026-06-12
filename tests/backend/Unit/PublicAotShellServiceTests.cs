@@ -304,7 +304,7 @@ public sealed class PublicAotShellServiceTests
     {
         public IReadOnlyList<string> GetPreloadsForPath(string path, HttpContext? context = null) => [];
 
-        public SpaAssetSet GetPublicAssetSet(HttpContext? context = null)
+        public SpaAssetSet GetPublicAssetSet(HttpContext? context = null, PublicPageId? pageId = null)
             => new("/assets/public.js", [], [], frontendAssetVersion, UsesSourceAssets: false);
 
         public string GetFrontendAssetVersion() => frontendAssetVersion;

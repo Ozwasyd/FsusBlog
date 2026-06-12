@@ -1,4 +1,5 @@
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Server.Infrastructure.Spa;
 using System.Buffers.Binary;
 using System.Net;
 using System.Text.Encodings.Web;
@@ -6,7 +7,7 @@ using System.Text.RegularExpressions;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
-internal readonly record struct PublicAotDocumentModel(
+internal sealed record class PublicAotDocumentModel(
     PublicPageKind Kind,
     string RawTemplate,
     string PreparedTemplate,
@@ -19,7 +20,10 @@ internal readonly record struct PublicAotDocumentModel(
     string HydrationPropsPayload,
     string IslandsPayload,
     string SpaEntryScript,
-    string HeadLinks);
+    string HeadLinks)
+{
+    public FullAppTakeoverAssetSet FullAppTakeover { get; init; } = FullAppTakeoverAssetSet.Empty;
+}
 
 internal static class PublicAotDocumentComposer
 {
@@ -132,7 +136,11 @@ internal static class PublicAotDocumentComposer
         string islandsScript = string.IsNullOrWhiteSpace(model.IslandsPayload)
             ? string.Empty
             : BuildBinaryPayloadScript("fsus-aot-islands", model.IslandsPayload);
-        string deferredSpaBoot = BuildDeferredSpaBootScript(model.RawTemplate, model.SpaEntryScript);
+        string deferredSpaBoot = BuildDeferredSpaBootScript(
+            model.RawTemplate,
+            model.SpaEntryScript,
+            model.FullAppTakeover.ModulePreloads,
+            model.FullAppTakeover.Stylesheets);
 
         string payloadScripts = string.Join(
             "\n    ",
@@ -232,7 +240,11 @@ internal static class PublicAotDocumentComposer
 </script>
 """;
 
-    internal static string BuildDeferredSpaBootScript(string template, string? entryScriptOverride = null)
+    internal static string BuildDeferredSpaBootScript(
+        string template,
+        string? entryScriptOverride = null,
+        IReadOnlyList<string>? takeoverModulePreloads = null,
+        IReadOnlyList<string>? takeoverStylesheets = null)
     {
         string entryScriptSrc = string.IsNullOrWhiteSpace(entryScriptOverride)
             ? TryExtractSpaEntryScriptSrc(template)
@@ -243,9 +255,13 @@ internal static class PublicAotDocumentComposer
         }
 
         string encodedSrc = JavaScriptEncoder.Default.Encode(entryScriptSrc);
+        string encodedModulePreloads = BuildJavaScriptStringArray(takeoverModulePreloads);
+        string encodedStylesheets = BuildJavaScriptStringArray(takeoverStylesheets);
         return $@"<script id=""fsus-spa-boot"" data-fsusblog-spa-entry=""{Encode(entryScriptSrc)}"">
   (() => {{
     const entrySrc = ""{encodedSrc}"";
+    const takeoverModulePreloads = {encodedModulePreloads};
+    const takeoverStylesheets = {encodedStylesheets};
     const mark = (name) => {{
       try {{
         if (window.performance && typeof window.performance.mark === 'function') {{
@@ -268,22 +284,63 @@ internal static class PublicAotDocumentComposer
     let injectScheduled = false;
     let forcedInjectTimer = 0;
 
+    const appendHeadLink = (selector, configure) => {{
+      if (document.querySelector(selector)) {{
+        return;
+      }}
+
+      const link = document.createElement('link');
+      configure(link);
+      (document.head || document.body).appendChild(link);
+    }};
+
     const warmPreload = () => {{
       if (preloadWarmed) {{
         return;
       }}
       preloadWarmed = true;
 
-      if (!document.querySelector('link[rel=""modulepreload""][href=""' + entrySrc + '""]')) {{
-        const preload = document.createElement('link');
-        preload.rel = 'modulepreload';
-        preload.crossOrigin = 'anonymous';
-        preload.href = entrySrc;
-        preload.fetchPriority = 'low';
-        preload.dataset.fsusblogSpaPreload = 'deferred';
-        (document.head || document.body).appendChild(preload);
-      }}
+      [entrySrc, ...takeoverModulePreloads].forEach((href) => {{
+        if (!href) {{
+          return;
+        }}
+
+        appendHeadLink('link[rel=""modulepreload""][href=""' + href + '""]', (preload) => {{
+          preload.rel = 'modulepreload';
+          preload.crossOrigin = 'anonymous';
+          preload.href = href;
+          preload.fetchPriority = 'low';
+          preload.dataset.fsusblogSpaPreload = 'deferred';
+        }});
+      }});
+      takeoverStylesheets.forEach((href) => {{
+        if (!href) {{
+          return;
+        }}
+
+        appendHeadLink('link[rel=""preload""][as=""style""][href=""' + href + '""]', (preload) => {{
+          preload.rel = 'preload';
+          preload.as = 'style';
+          preload.href = href;
+          preload.fetchPriority = 'low';
+          preload.dataset.fsusblogSpaPreload = 'deferred';
+        }});
+      }});
       mark('server-spa-preload');
+    }};
+
+    const activateTakeoverStyles = () => {{
+      takeoverStylesheets.forEach((href) => {{
+        if (!href) {{
+          return;
+        }}
+
+        appendHeadLink('link[rel=""stylesheet""][href=""' + href + '""]', (stylesheet) => {{
+          stylesheet.rel = 'stylesheet';
+          stylesheet.href = href;
+          stylesheet.dataset.fsusblogSpaStyle = 'deferred';
+        }});
+      }});
     }};
 
     const loadSpaEntry = () => {{
@@ -294,6 +351,8 @@ internal static class PublicAotDocumentComposer
       }}
 
       mark('server-spa-entry-injected');
+      warmPreload();
+      activateTakeoverStyles();
       const script = document.createElement('script');
       script.type = 'module';
       script.crossOrigin = 'anonymous';
@@ -345,7 +404,6 @@ internal static class PublicAotDocumentComposer
 
     const kickoff = () => {{
       window.requestAnimationFrame(() => {{
-        warmPreload();
         scheduleInject();
         scheduleForcedInject();
       }});
@@ -580,6 +638,33 @@ internal static class PublicAotDocumentComposer
         {
             return false;
         }
+    }
+
+    private static string BuildJavaScriptStringArray(IReadOnlyList<string>? values)
+    {
+        if (values is null || values.Count == 0)
+        {
+            return "[]";
+        }
+
+        var builder = new System.Text.StringBuilder(values.Count * 32);
+        builder.Append('[');
+        bool first = true;
+        foreach (string value in values.Where(static item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.Ordinal))
+        {
+            if (!first)
+            {
+                builder.Append(',');
+            }
+
+            first = false;
+            builder.Append('"');
+            builder.Append(JavaScriptEncoder.Default.Encode(value));
+            builder.Append('"');
+        }
+
+        builder.Append(']');
+        return builder.ToString();
     }
 
     private static string Encode(string? value)
