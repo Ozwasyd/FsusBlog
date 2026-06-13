@@ -32,7 +32,7 @@ The public-preview gate records evidence under `release-evidence/open-source-rea
 | Secret/history/issue scan | `node tools/security/open-source-secret-scan.mjs` |
 | Dependency license audit | `node tools/security/open-source-license-audit.mjs` |
 | Supply-chain vulnerability audit | `FSUSBLOG_SUPPLY_CHAIN_AUDIT_DIR=release-evidence/open-source-readiness/supply-chain tools/security/check-supply-chain-audit.sh` |
-| CodeQL code scanning | `.github/workflows/codeql.yml` |
+| CodeQL SARIF analysis | `.github/workflows/codeql.yml` |
 | OpenSSF Scorecard posture scan | `.github/workflows/scorecard.yml` |
 | Branch protection and workflow permissions | [docs/repository-governance.md](repository-governance.md) |
 | Final checklist | `release-evidence/open-source-readiness/readiness-checklist.md` |
@@ -45,11 +45,11 @@ The supply-chain audit verifies npm and NuGet lock files, runs `dotnet list pack
 
 GitHub-native posture checks are part of public-preview readiness:
 
-- CodeQL scans C# backend/shared/core source and JavaScript/TypeScript frontend source on pull requests, default-branch pushes, weekly schedule, and manual dispatch.
+- CodeQL scans C# backend/shared/core source and JavaScript/TypeScript frontend source on pull requests, default-branch pushes, weekly schedule, and manual dispatch. It stores SARIF artifacts while this private repository has code scanning disabled.
 - OpenSSF Scorecard runs on default-branch governance changes, weekly schedule, and manual dispatch. It stores a SARIF artifact without Code Scanning upload while this private repository has code scanning disabled; no Scorecard checks are ignored.
 - Branch protection expectations, required merge checks, and workflow permission rules are maintained in [docs/repository-governance.md](repository-governance.md).
 
-Workflow permissions default to `contents: read`. Write scopes must be justified by workflow purpose, such as `security-events: write` for CodeQL code scanning uploads, `actions: read` for CodeQL/Scorecard metadata, `pull-requests: read` for Dependency Review and private-repository Scorecard metadata, `issues: read` / `checks: read` for private-repository Scorecard metadata, or `packages: read` for trusted Quality Gate package access. Secret-dependent workflows must not execute untrusted fork PR code.
+Workflow permissions default to `contents: read`. Write scopes must be justified by workflow purpose, such as `actions: read` for Scorecard metadata, `pull-requests: read` for Dependency Review and private-repository Scorecard metadata, `issues: read` / `checks: read` for private-repository Scorecard metadata, or `packages: read` for trusted Quality Gate package access. CodeQL and Scorecard remain read-only artifact workflows until code scanning is enabled. Secret-dependent workflows must not execute untrusted fork PR code.
 
 ## Brand And Demo Content
 

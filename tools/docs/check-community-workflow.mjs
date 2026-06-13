@@ -79,8 +79,10 @@ includes('.github/PULL_REQUEST_TEMPLATE.md', contents.get('.github/PULL_REQUEST_
 includes('.github/PULL_REQUEST_TEMPLATE.md', contents.get('.github/PULL_REQUEST_TEMPLATE.md'), 'CODEOWNERS')
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'github/codeql-action/init@v4')
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'github/codeql-action/analyze@v4')
-includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'security-events: write')
-includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'actions: read')
+includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'actions/upload-artifact@v7')
+includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'upload: false')
+includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'upload-database: false')
+includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), '.tmp/codeql-results/${{ matrix.language }}')
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'language: csharp')
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'language: javascript-typescript')
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'src/backend/**')
@@ -130,7 +132,7 @@ includes('.github/ISSUE_TEMPLATE/config.yml', contents.get('.github/ISSUE_TEMPLA
 includes('docs/open-source-readiness.md', contents.get('docs/open-source-readiness.md'), 'Issue form taxonomy')
 includes('docs/open-source-readiness.md', contents.get('docs/open-source-readiness.md'), 'Support routing')
 includes('docs/open-source-readiness.md', contents.get('docs/open-source-readiness.md'), 'Repository governance')
-includes('docs/open-source-readiness.md', contents.get('docs/open-source-readiness.md'), 'CodeQL code scanning')
+includes('docs/open-source-readiness.md', contents.get('docs/open-source-readiness.md'), 'CodeQL scans C# backend/shared/core source')
 includes('docs/open-source-readiness.md', contents.get('docs/open-source-readiness.md'), 'OpenSSF Scorecard posture scan')
 includes('docs/open-source-readiness.md', contents.get('docs/open-source-readiness.md'), 'Workflow permissions default to `contents: read`')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Require a pull request before merge')
@@ -143,7 +145,7 @@ includes('docs/repository-governance.md', contents.get('docs/repository-governan
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'private repositories to evaluate review and branch-protection signals')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'does not upload to Code Scanning while this private repository has code scanning disabled')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'checks: read')
-includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'CodeQL code scanning')
+includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'CodeQL analysis')
 includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'OpenSSF Scorecard posture scan')
 includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'Branch protection expectations')
 includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'Workflow permissions policy')
@@ -168,6 +170,14 @@ if (/pull_request/.test(contents.get('.github/workflows/scorecard.yml'))) {
 
 if (/secrets\./.test(contents.get('.github/workflows/codeql.yml'))) {
   errors.push('.github/workflows/codeql.yml must not read repository secrets')
+}
+
+if (/security-events:\s*write/.test(contents.get('.github/workflows/codeql.yml'))) {
+  errors.push('.github/workflows/codeql.yml must stay read-only until code scanning is enabled')
+}
+
+if (!/upload:\s*false/.test(contents.get('.github/workflows/codeql.yml'))) {
+  errors.push('.github/workflows/codeql.yml must keep CodeQL upload disabled while code scanning is unavailable')
 }
 
 if (/secrets\./.test(contents.get('.github/workflows/scorecard.yml'))) {

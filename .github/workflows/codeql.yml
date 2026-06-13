@@ -34,10 +34,6 @@ jobs:
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    permissions:
-      contents: read
-      actions: read
-      security-events: write
     strategy:
       fail-fast: false
       matrix:
@@ -75,3 +71,15 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.language }}
+          upload: false
+          upload-database: false
+          output: .tmp/codeql-results/${{ matrix.language }}
+
+      - name: Upload CodeQL artifact
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: codeql-${{ matrix.language }}-results
+          if-no-files-found: error
+          retention-days: 14
+          path: .tmp/codeql-results/${{ matrix.language }}/**
