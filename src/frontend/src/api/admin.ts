@@ -3,6 +3,8 @@ import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import { encodeAedsFrame } from './binaryFrame'
 
+const ADMIN_SENSITIVE_MFA_HEADER = 'X-Fsus-Mfa-Proof'
+
 // ================= 类型定义 =================
 
 /**
@@ -114,6 +116,7 @@ export const adminChangeStatus = async (
     requestOptions: {
       method: 'PUT',
       requiresPow: true,
+      headers: adminHeaders(config?.mfaProofToken),
       body: encodeAedsFrame(FrameType.AdminChangeUserStatusRequest, encodeAdminChangeStatusRequest(data))
     }
   })
@@ -134,9 +137,21 @@ export const adminResetPassword = async (
     requestOptions: {
       method: 'POST',
       requiresPow: true,
+      headers: adminHeaders(config?.mfaProofToken),
       body: encodeAedsFrame(FrameType.AdminResetUserPasswordRequest, encodeAdminResetPasswordRequest(data))
     }
   })
+}
+
+function adminHeaders(mfaProofToken?: string | null): Headers | undefined {
+  const proofToken = mfaProofToken?.trim()
+  if (!proofToken) {
+    return undefined
+  }
+
+  const headers = new Headers()
+  headers.set(ADMIN_SENSITIVE_MFA_HEADER, proofToken)
+  return headers
 }
 
 function encodeAdminChangeStatusRequest(data: AdminChangeStatusDto): Uint8Array {

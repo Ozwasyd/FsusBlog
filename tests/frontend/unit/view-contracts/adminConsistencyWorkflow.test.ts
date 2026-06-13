@@ -18,6 +18,7 @@ describe('admin consistency workflow contract', () => {
   const articleListPage = readRepoFile('src/frontend/src/views/admin/article/List.vue')
   const compactCard = readRepoFile('src/frontend/src/components/admin/article/AdminArticleCompactCard.vue')
   const writePage = readRepoFile('src/frontend/src/views/admin/article/Write.vue')
+  const userManageComposable = readRepoFile('src/frontend/src/composables/useAdminUserManage.ts')
 
   it('splits admin message center from personal messagebox', () => {
     expect(router).toContain("path: 'manage/messages'")
@@ -43,6 +44,15 @@ describe('admin consistency workflow contract', () => {
     expect(contentToolsPage).toContain('exportContentBackup')
     expect(contentToolsPage).toContain('exportArticleContent')
     expect(contentToolsPage).toContain('importArticleContent')
+  })
+
+  it('requires admin-sensitive MFA proof for high-value admin user and backup operations', () => {
+    expect(userManageComposable).toContain('useAdminSensitiveProof')
+    expect(userManageComposable).toContain('ensureAdminSensitiveProof()')
+    expect(userManageComposable).toContain('mfaProofToken')
+    expect(contentToolsPage).toContain('useAdminSensitiveProof')
+    expect(contentToolsPage).toContain('ensureAdminSensitiveProof()')
+    expect(contentToolsPage).toContain('exportContentBackup({ mfaProofToken })')
   })
 
   it('keeps system messages single-target and rejects nullable target at the endpoint', () => {

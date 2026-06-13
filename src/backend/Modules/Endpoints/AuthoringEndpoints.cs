@@ -724,10 +724,18 @@ public static class AuthoringEndpoints
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/content/export", async (
+            HttpContext context,
             AuthoringWorkflowService service,
+            IMfaChallengeService mfaChallengeService,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
             ContentBackupExportResponse response = await service.ExportContentBackupAsync(cancellationToken);
             await auditEvents.RecordHighValueAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,

@@ -27,29 +27,35 @@ describe('admin API binary mutations', () => {
     }))
   })
 
-  it('adminChangeStatus sends binary status request', async () => {
-    await adminChangeStatus({ userId: 10, status: 1, reason: 'spam' })
+  it('adminChangeStatus sends binary status request with MFA proof', async () => {
+    await adminChangeStatus({ userId: 10, status: 1, reason: 'spam' }, { mfaProofToken: 'proof-status' })
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/admin/users/status',
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'PUT',
         requiresPow: true,
+        headers: expect.any(Headers),
         body: expect.any(ArrayBuffer)
       })
     }))
+    const call = mockBinary.mock.calls[0]?.[0]
+    expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-status')
   })
 
-  it('adminResetPassword sends binary password reset request', async () => {
-    await adminResetPassword({ userId: 10, newPassword: 'P@ssw0rd!' })
+  it('adminResetPassword sends binary password reset request with MFA proof', async () => {
+    await adminResetPassword({ userId: 10, newPassword: 'P@ssw0rd!' }, { mfaProofToken: 'proof-reset' })
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/admin/users/reset-pwd',
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'POST',
         requiresPow: true,
+        headers: expect.any(Headers),
         body: expect.any(ArrayBuffer)
       })
     }))
+    const call = mockBinary.mock.calls[0]?.[0]
+    expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-reset')
   })
 })

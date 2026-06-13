@@ -509,6 +509,14 @@ public static partial class BinaryEndpoints
 
             if (!user.Value.MfaEnabled)
             {
+                if (IsAdminSensitiveAction(action))
+                {
+                    return BinaryResults.FromError(
+                        ErrorDetail.Create(ErrorCode.Forbidden, "MFA_REQUIRED"),
+                        aeds,
+                        StatusCodes.Status403Forbidden);
+                }
+
                 string proofToken = await challengeService.CreateProofTokenAsync(user.Value.Id, action, TimeSpan.FromMinutes(5));
                 var noMfa = new MfaChallengeResultDto(true, action, proofToken, null);
                 return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(noMfa, writer));

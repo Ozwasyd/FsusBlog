@@ -6,6 +6,7 @@ import { useMutationFlow } from '@/composables/useMutationFlow'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { useViewTask } from '@/composables/useViewTask'
 import { useMediaQuery } from '@/composables/useMediaQuery'
+import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { TimeUtils } from '@/utils/time'
 import { showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
@@ -70,6 +71,7 @@ export function useAdminUserManage() {
   const loadTask = useViewTask()
   const mutation = useMutationFlow()
   const rowMotion = useRowStateMotion({ visibleLimit: 20 })
+  const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 
   const buildSignalConfig = (signal: AbortSignal) => ({ signal })
 
@@ -355,7 +357,8 @@ export function useAdminUserManage() {
         title: '操作确认',
         confirmButtonText: '立即解封'
       }, async (signal) => {
-        await adminChangeStatus({ userId: row.id, status: 0 }, buildSignalConfig(signal))
+        const mfaProofToken = await ensureAdminSensitiveProof()
+        await adminChangeStatus({ userId: row.id, status: 0 }, { ...buildSignalConfig(signal), mfaProofToken })
       }, {
         fallbackMessage: '操作失败',
         successMessage: `用户 ${row.username} 已解封`,
@@ -395,16 +398,17 @@ export function useAdminUserManage() {
 
     let completed = false
     try {
-      await mutation.run(async (signal) =>
+      await mutation.run(async (signal) => {
+        const mfaProofToken = await ensureAdminSensitiveProof()
         await adminChangeStatus(
           {
             userId: targetUser.id,
             status: 1,
             reason: banDialog.reason.trim()
           },
-          buildSignalConfig(signal)
+          { ...buildSignalConfig(signal), mfaProofToken }
         )
-      , {
+      }, {
         fallbackMessage: '封禁操作失败',
         successMessage: `用户 ${targetUser.username} 已封禁`,
         postSuccessWarningMessage: `用户 ${targetUser.username} 已封禁，但列表同步失败，请稍后刷新`,
@@ -456,15 +460,16 @@ export function useAdminUserManage() {
 
     let completed = false
     try {
-      await mutation.run(async (signal) =>
+      await mutation.run(async (signal) => {
+        const mfaProofToken = await ensureAdminSensitiveProof()
         await adminResetPassword(
           {
             userId: targetUser.id,
             newPassword
           },
-          buildSignalConfig(signal)
+          { ...buildSignalConfig(signal), mfaProofToken }
         )
-      , {
+      }, {
         fallbackMessage: '操作失败',
         successMessage: '密码已重置，用户已强制下线',
         onSuccess: () => {

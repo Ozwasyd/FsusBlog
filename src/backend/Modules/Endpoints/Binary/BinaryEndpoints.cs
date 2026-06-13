@@ -31,6 +31,8 @@ namespace FsusBlog.Server.Modules.Endpoints.Binary;
 public static partial class BinaryEndpoints
 {
     private const string BinaryContentType = "application/octet-stream";
+    private const string AdminSensitiveAction = "admin-sensitive";
+    private const string MfaProofHeader = "X-Fsus-Mfa-Proof";
     private const string UploadPartHeader = "X-Fsus-Upload-Part";
     private const string UploadOffsetHeader = "X-Fsus-Upload-Offset";
     private const string UploadPayloadHashHeader = "X-Fsus-Upload-Payload-Hash";
@@ -77,6 +79,36 @@ public static partial class BinaryEndpoints
 
     private static bool IsBinaryContentType(string? contentType)
         => contentType?.StartsWith(BinaryContentType, StringComparison.OrdinalIgnoreCase) == true;
+
+    private static bool IsAdminSensitiveAction(string action)
+        => string.Equals(action.Trim(), AdminSensitiveAction, StringComparison.Ordinal);
+
+    private static async Task<(ErrorDetail Error, int StatusCode)?> RequireAdminSensitiveStepUpAsync(
+        HttpContext httpContext,
+        IMfaChallengeService mfaChallengeService)
+    {
+        int userId = httpContext.User.GetUserId();
+        if (userId <= 0)
+        {
+            return (ErrorDetail.Create(ErrorCode.Unauthorized, "UNAUTHORIZED"), StatusCodes.Status401Unauthorized);
+        }
+
+        if (!httpContext.User.IsMfaVerified())
+        {
+            return (ErrorDetail.Create(ErrorCode.Forbidden, "MFA_REQUIRED"), StatusCodes.Status403Forbidden);
+        }
+
+        string proofToken = httpContext.Request.Headers.TryGetValue(MfaProofHeader, out var values)
+            ? values.ToString().Trim()
+            : string.Empty;
+        if (string.IsNullOrWhiteSpace(proofToken) ||
+            !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(userId, AdminSensitiveAction, proofToken))
+        {
+            return (ErrorDetail.Create(ErrorCode.Forbidden, "MFA_PROOF_REQUIRED"), StatusCodes.Status428PreconditionRequired);
+        }
+
+        return null;
+    }
 
     private static bool TryNormalizeImageDeletePath(string url, out string ioRelativePath, out string? errorMessage)
     {

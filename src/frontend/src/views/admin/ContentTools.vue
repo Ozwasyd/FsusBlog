@@ -106,6 +106,7 @@ import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
+import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 
 const articleId = ref('')
 const markdown = ref('')
@@ -115,6 +116,7 @@ const exporting = ref(false)
 const importing = ref(false)
 const importResult = ref<ContentImportResponse | null>(null)
 const taskFeedback = useAdminTaskFeedback()
+const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 const {
   phase: taskFeedbackPhase,
   message: taskFeedbackMessage,
@@ -154,7 +156,8 @@ const downloadBackup = async (): Promise<void> => {
   exporting.value = true
   taskFeedback.begin('正在导出全站内容备份', '生成 JSON 备份文件', 'content-export')
   try {
-    const payload = await exportContentBackup()
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    const payload = await exportContentBackup({ mfaProofToken })
     downloadJson(payload)
     taskFeedback.succeed('全站内容备份已生成', payload.fileName, 'content-export')
     toast.success('全站内容备份已生成')

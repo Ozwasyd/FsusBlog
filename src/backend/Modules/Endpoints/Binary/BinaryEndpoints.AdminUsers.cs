@@ -50,9 +50,16 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IUserService userService,
             IAuditEventService auditEvents,
+            IMfaChallengeService mfaChallengeService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, mfaChallengeService);
+            if (stepUp is { } stepUpError)
+            {
+                return BinaryResults.FromError(stepUpError.Error, aeds, stepUpError.StatusCode);
+            }
+
             var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.AdminChangeUserStatusRequest, cancellationToken);
             if (!payload.IsSuccess)
             {
@@ -103,9 +110,16 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IUserService userService,
             IAuditEventService auditEvents,
+            IMfaChallengeService mfaChallengeService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, mfaChallengeService);
+            if (stepUp is { } stepUpError)
+            {
+                return BinaryResults.FromError(stepUpError.Error, aeds, stepUpError.StatusCode);
+            }
+
             var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.AdminResetUserPasswordRequest, cancellationToken);
             if (!payload.IsSuccess)
             {
