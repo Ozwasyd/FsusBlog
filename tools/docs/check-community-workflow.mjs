@@ -80,6 +80,7 @@ includes('.github/PULL_REQUEST_TEMPLATE.md', contents.get('.github/PULL_REQUEST_
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'github/codeql-action/init@v4')
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'github/codeql-action/analyze@v4')
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'actions/upload-artifact@v7')
+includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'actions: read')
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'upload: false')
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'upload-database: false')
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), '.tmp/codeql-results/${{ matrix.language }}')

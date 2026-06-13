@@ -49,7 +49,7 @@ GitHub-native posture checks are part of public-preview readiness:
 - OpenSSF Scorecard runs on default-branch governance changes, weekly schedule, and manual dispatch. It stores a SARIF artifact without Code Scanning upload while this private repository has code scanning disabled; no Scorecard checks are ignored.
 - Branch protection expectations, required merge checks, and workflow permission rules are maintained in [docs/repository-governance.md](repository-governance.md).
 
-Workflow permissions default to `contents: read`. Write scopes must be justified by workflow purpose, such as `actions: read` for Scorecard metadata, `pull-requests: read` for Dependency Review and private-repository Scorecard metadata, `issues: read` / `checks: read` for private-repository Scorecard metadata, or `packages: read` for trusted Quality Gate package access. CodeQL and Scorecard remain read-only artifact workflows until code scanning is enabled. Secret-dependent workflows must not execute untrusted fork PR code.
+Workflow permissions default to `contents: read`. Write scopes must be justified by workflow purpose, such as `actions: read` for CodeQL/Scorecard metadata, `pull-requests: read` for Dependency Review and private-repository Scorecard metadata, `issues: read` / `checks: read` for private-repository Scorecard metadata, or `packages: read` for trusted Quality Gate package access. CodeQL and Scorecard remain read-only artifact workflows until code scanning is enabled. Secret-dependent workflows must not execute untrusted fork PR code.
 
 ## Brand And Demo Content
 
