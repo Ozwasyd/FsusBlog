@@ -88,14 +88,11 @@ includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'src/shared/**')
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), '/p:PublishClientAssets=false')
 includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'ossf/scorecard-action@v2.4.3')
-includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'github/codeql-action/upload-sarif@v4')
-includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'security-events: write')
-includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'id-token: write')
 includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'actions: read')
 includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'issues: read')
 includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'pull-requests: read')
 includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'checks: read')
-includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'publish_results: true')
+includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'publish_results: false')
 includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'results_format: sarif')
 includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'schedule:')
 includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), '* @Ozwasyd')
@@ -144,7 +141,7 @@ includes('docs/repository-governance.md', contents.get('docs/repository-governan
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Do not use repository write tokens in workflows that execute code from fork pull requests')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'No checks are ignored')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'private repositories to evaluate review and branch-protection signals')
-includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Scorecard SARIF upload uses workflow-run metadata')
+includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'does not upload to Code Scanning while this private repository has code scanning disabled')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'checks: read')
 includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'CodeQL code scanning')
 includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'OpenSSF Scorecard posture scan')
@@ -175,6 +172,18 @@ if (/secrets\./.test(contents.get('.github/workflows/codeql.yml'))) {
 
 if (/secrets\./.test(contents.get('.github/workflows/scorecard.yml'))) {
   errors.push('.github/workflows/scorecard.yml must not read repository secrets')
+}
+
+if (/github\/codeql-action\/upload-sarif/.test(contents.get('.github/workflows/scorecard.yml'))) {
+  errors.push('.github/workflows/scorecard.yml must not upload SARIF until code scanning is enabled')
+}
+
+if (/security-events:\s*write/.test(contents.get('.github/workflows/scorecard.yml'))) {
+  errors.push('.github/workflows/scorecard.yml must stay read-only except documented metadata reads')
+}
+
+if (/id-token:\s*write/.test(contents.get('.github/workflows/scorecard.yml'))) {
+  errors.push('.github/workflows/scorecard.yml must not request OIDC unless publish_results is enabled')
 }
 
 contents.get('.github/CODEOWNERS').split('\n').forEach((line, index) => {

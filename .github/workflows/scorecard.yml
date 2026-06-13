@@ -35,8 +35,6 @@ jobs:
       issues: read
       pull-requests: read
       checks: read
-      security-events: write
-      id-token: write
 
     steps:
       - name: Checkout
@@ -49,12 +47,7 @@ jobs:
         with:
           results_file: scorecard-results.sarif
           results_format: sarif
-          publish_results: true
-
-      - name: Upload Scorecard SARIF
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: scorecard-results.sarif
+          publish_results: false
 
       - name: Upload Scorecard artifact
         uses: actions/upload-artifact@v7

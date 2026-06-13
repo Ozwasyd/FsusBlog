@@ -34,7 +34,7 @@ Release target: v1.1.0-public-preview
 | Supply-chain vulnerability audit | OK | `release-evidence/open-source-readiness/supply-chain-audit.md`, `release-evidence/open-source-readiness/supply-chain/summary.json` |
 | GitHub dependency review policy | OK | `.github/workflows/dependency-review.yml` denies AGPL/GPL/LGPL/SSPL families |
 | CodeQL code scanning | OK | `.github/workflows/codeql.yml` scans C# and JavaScript/TypeScript on PRs, default-branch pushes, weekly schedule, and manual dispatch |
-| OpenSSF Scorecard posture scan | OK | `.github/workflows/scorecard.yml` runs on default-branch governance changes, weekly schedule, and manual dispatch, then uploads SARIF |
+| OpenSSF Scorecard posture scan | OK | `.github/workflows/scorecard.yml` runs on default-branch governance changes, weekly schedule, and manual dispatch, then stores a SARIF artifact without Code Scanning upload while code scanning is disabled |
 | Branch protection expectations | OK | `docs/repository-governance.md` lists required status checks, stale review refresh, force-push restriction, and merge strategy policy |
 | Workflow permissions policy | OK | `docs/repository-governance.md` documents default `contents: read`, justified write/read exceptions, and untrusted PR secret rules |
 | Privacy, identity, and brand scrub | OK | `docs/open-source-readiness.md`, `docs/assets/screenshots/README.md`, sanitized screenshots, fictional demo data |

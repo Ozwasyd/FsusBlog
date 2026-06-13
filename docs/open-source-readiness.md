@@ -46,10 +46,10 @@ The supply-chain audit verifies npm and NuGet lock files, runs `dotnet list pack
 GitHub-native posture checks are part of public-preview readiness:
 
 - CodeQL scans C# backend/shared/core source and JavaScript/TypeScript frontend source on pull requests, default-branch pushes, weekly schedule, and manual dispatch.
-- OpenSSF Scorecard runs on default-branch governance changes, weekly schedule, and manual dispatch. It publishes SARIF and Scorecard results; no Scorecard checks are ignored.
+- OpenSSF Scorecard runs on default-branch governance changes, weekly schedule, and manual dispatch. It stores a SARIF artifact without Code Scanning upload while this private repository has code scanning disabled; no Scorecard checks are ignored.
 - Branch protection expectations, required merge checks, and workflow permission rules are maintained in [docs/repository-governance.md](repository-governance.md).
 
-Workflow permissions default to `contents: read`. Write scopes must be justified by workflow purpose, such as `security-events: write` for code scanning uploads, `id-token: write` for Scorecard publishing, `actions: read` for CodeQL/Scorecard code scanning integration, `pull-requests: read` for Dependency Review and private-repository Scorecard metadata, `issues: read` / `checks: read` for private-repository Scorecard metadata, or `packages: read` for trusted Quality Gate package access. Secret-dependent workflows must not execute untrusted fork PR code.
+Workflow permissions default to `contents: read`. Write scopes must be justified by workflow purpose, such as `security-events: write` for CodeQL code scanning uploads, `actions: read` for CodeQL/Scorecard metadata, `pull-requests: read` for Dependency Review and private-repository Scorecard metadata, `issues: read` / `checks: read` for private-repository Scorecard metadata, or `packages: read` for trusted Quality Gate package access. Secret-dependent workflows must not execute untrusted fork PR code.
 
 ## Brand And Demo Content
 

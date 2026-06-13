@@ -34,7 +34,7 @@ The default branch rule should require these repository-security and quality che
 | `Dependency Review / Dependency Review` | Blocks high-severity dependency changes and denied license families on dependency-changing PRs. |
 | `CodeQL / Analyze (csharp)` | Runs CodeQL over the backend, shared contracts, and core C# source. |
 | `CodeQL / Analyze (javascript-typescript)` | Runs CodeQL over the frontend TypeScript source. |
-| `OpenSSF Scorecard / Scorecard` | Publishes weekly/default-branch repository security posture results. |
+| `OpenSSF Scorecard / Scorecard` | Records weekly/default-branch repository security posture results. |
 
 When GitHub branch protection cannot express the full `Quality Gate` dependency graph, requiring `Quality Gate / Production Summary` is the minimum safe branch rule because that job evaluates all required upstream jobs from the workflow's `needs` payload.
 
@@ -51,7 +51,7 @@ CodeQL runs on pull requests and default-branch pushes that touch the monorepo s
 
 It also runs on a weekly schedule from the default branch. C# uses a manual backend build with `/p:PublishClientAssets=false` so CodeQL traces backend, shared, and core source without requiring the private frontend package install. JavaScript/TypeScript uses no-build analysis for `src/frontend/`.
 
-OpenSSF Scorecard runs on default-branch pushes that touch repository governance files and on a weekly schedule. It uploads SARIF to code scanning and publishes Scorecard results. No checks are ignored. Known interpretation notes:
+OpenSSF Scorecard runs on default-branch pushes that touch repository governance files and on a weekly schedule. It stores SARIF as a workflow artifact and does not upload to Code Scanning while this private repository has code scanning disabled. No checks are ignored. Known interpretation notes:
 
 - The Branch-Protection score should be evaluated against this document and the actual default-branch rule; classic branch protection visibility can differ from repository rules.
 - Signed-Commits may score below perfect while this project intentionally keeps signing unenforced during public preview.
@@ -71,9 +71,8 @@ Allowed exceptions:
 | `issues: read` | `scorecard.yml` | Scorecard needs read-only issue metadata in private repositories for maintainer/security posture checks. |
 | `checks: read` | `scorecard.yml` | Scorecard needs read-only check metadata in private repositories to detect SAST and branch-protection signals. |
 | `packages: read` | `quality-gate.yml` | Quality Gate may install the private `@ozwasyd` frontend package in trusted CI contexts. |
-| `actions: read` | `codeql.yml`, `scorecard.yml` | CodeQL may read workflow metadata while uploading code scanning results. Scorecard SARIF upload uses workflow-run metadata for code scanning integration. |
-| `security-events: write` | `codeql.yml`, `scorecard.yml` | CodeQL and Scorecard upload code scanning SARIF/results. |
-| `id-token: write` | `scorecard.yml` | Scorecard requires OIDC when `publish_results: true` is enabled. |
+| `actions: read` | `codeql.yml`, `scorecard.yml` | CodeQL may read workflow metadata while uploading code scanning results. Scorecard uses read-only workflow metadata for private-repository posture checks. |
+| `security-events: write` | `codeql.yml` | CodeQL uploads code scanning results. Scorecard remains read-only until code scanning is enabled for this repository. |
 
 Rules for untrusted code:
 
