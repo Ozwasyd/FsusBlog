@@ -71,7 +71,7 @@ Allowed exceptions:
 | `issues: read` | `scorecard.yml` | Scorecard needs read-only issue metadata in private repositories for maintainer/security posture checks. |
 | `checks: read` | `scorecard.yml` | Scorecard needs read-only check metadata in private repositories to detect SAST and branch-protection signals. |
 | `packages: read` | `quality-gate.yml` | Quality Gate may install the private `@ozwasyd` frontend package in trusted CI contexts. |
-| `actions: read` | `codeql.yml` | CodeQL may read workflow metadata while uploading code scanning results. |
+| `actions: read` | `codeql.yml`, `scorecard.yml` | CodeQL may read workflow metadata while uploading code scanning results. Scorecard SARIF upload uses workflow-run metadata for code scanning integration. |
 | `security-events: write` | `codeql.yml`, `scorecard.yml` | CodeQL and Scorecard upload code scanning SARIF/results. |
 | `id-token: write` | `scorecard.yml` | Scorecard requires OIDC when `publish_results: true` is enabled. |
 
