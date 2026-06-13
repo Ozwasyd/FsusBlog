@@ -13,6 +13,7 @@
 | Security policy | [SECURITY.md](SECURITY.md) |
 | Support routing | [SUPPORT.md](SUPPORT.md) |
 | Contributing guide | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Repository governance | [docs/repository-governance.md](docs/repository-governance.md) |
 | Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | License | [Apache-2.0](LICENSE) |
 | Open source readiness | [docs/open-source-readiness.md](docs/open-source-readiness.md) |
@@ -273,6 +274,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/releases/v1.1.0-public-preview.md](docs/releases/v1.1.0-public-preview.md) | public-preview release notes、能力范围、限制和路线链接 |
 | [docs/open-source-readiness.md](docs/open-source-readiness.md) | 开源预览许可证、行为准则、安全配置、secret/history scan、dependency license audit 与 supply-chain audit 证据入口 |
 | [docs/repository-labels.md](docs/repository-labels.md) | GitHub issue / PR label taxonomy、路径 labeler、issue triage 策略 |
+| [docs/repository-governance.md](docs/repository-governance.md) | 默认分支保护、required checks、CodeQL / Scorecard posture checks 与 GitHub Actions 权限策略 |
 | [SUPPORT.md](SUPPORT.md) | 使用、部署、自托管支持路由；公开 issue 中禁止发布的敏感信息 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献流程、Issue/PR 模板、测试证据与 public-preview 稳定性边界 |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 社区行为准则和执行路径 |
@@ -283,4 +285,4 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 
 FsusBlog 代码以 Apache-2.0 许可发布；贡献流程、安全报告、行为准则、已知限制、路线图和 release notes 均在上方 public-preview entry 与文档索引中列出。v1.1.0 不承诺生产 SLA、稳定第三方客户端兼容或稳定内部 AEDS/admin/database 契约。
 
-开源 readiness 证据位于 `release-evidence/open-source-readiness/`，包含 secret/history/issue scan、dependency license audit、supply-chain audit 和最终 checklist。公开截图与 demo seed data 使用 fictional content；仓库不包含真实生产域名、邮箱、IP、日志、token、私有标识、独立商标图稿或生产品牌资产。
+开源 readiness 证据位于 `release-evidence/open-source-readiness/`，包含 secret/history/issue scan、dependency license audit、supply-chain audit、CodeQL/Scorecard posture checks、repository governance 和最终 checklist。公开截图与 demo seed data 使用 fictional content；仓库不包含真实生产域名、邮箱、IP、日志、token、私有标识、独立商标图稿或生产品牌资产。

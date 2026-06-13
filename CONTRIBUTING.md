@@ -75,6 +75,8 @@ Keep PRs reviewable. Split unrelated API, UI, database, and security changes unl
 
 `.github/CODEOWNERS` routes review responsibility for touched paths, but it does not replace the PR checklist, linked issue, tests, screenshots, or risk notes.
 
+Default-branch merge expectations, required status checks, CodeQL/Scorecard posture checks, and GitHub Actions permission rules are documented in [docs/repository-governance.md](docs/repository-governance.md).
+
 ## Public-Preview Stability Policy
 
 During the v1.1.x public-preview phase:

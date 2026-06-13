@@ -1,0 +1,77 @@
+name: CodeQL
+
+on:
+  pull_request:
+    paths:
+      - src/backend/**
+      - src/frontend/**
+      - src/shared/**
+      - src/core/**
+      - .github/workflows/codeql.yml
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - src/backend/**
+      - src/frontend/**
+      - src/shared/**
+      - src/core/**
+      - .github/workflows/codeql.yml
+  schedule:
+    - cron: '31 4 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: csharp
+            build-mode: manual
+            source-root: src
+          - language: javascript-typescript
+            build-mode: none
+            source-root: src/frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          source-root: ${{ matrix.source-root }}
+          queries: +security-and-quality
+
+      - name: Setup .NET
+        if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build backend for CodeQL
+        if: matrix.language == 'csharp'
+        run: dotnet build src/backend/FsusBlog.Server.csproj -c Release /p:PublishClientAssets=false
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}

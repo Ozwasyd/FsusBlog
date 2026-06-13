@@ -12,6 +12,7 @@ FsusBlog v1.1.0 is a public-preview release for development, evaluation, code re
 | Contribution workflow | [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Issue form taxonomy | [.github/ISSUE_TEMPLATE/](../.github/ISSUE_TEMPLATE/) |
 | Label taxonomy | [docs/repository-labels.md](repository-labels.md) |
+| Repository governance | [docs/repository-governance.md](repository-governance.md) |
 | Code of conduct | [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) |
 | Known limitations | [docs/known-limitations.md](known-limitations.md) |
 | Release notes | [docs/releases/v1.1.0-public-preview.md](releases/v1.1.0-public-preview.md) |
@@ -31,11 +32,24 @@ The public-preview gate records evidence under `release-evidence/open-source-rea
 | Secret/history/issue scan | `node tools/security/open-source-secret-scan.mjs` |
 | Dependency license audit | `node tools/security/open-source-license-audit.mjs` |
 | Supply-chain vulnerability audit | `FSUSBLOG_SUPPLY_CHAIN_AUDIT_DIR=release-evidence/open-source-readiness/supply-chain tools/security/check-supply-chain-audit.sh` |
+| CodeQL code scanning | `.github/workflows/codeql.yml` |
+| OpenSSF Scorecard posture scan | `.github/workflows/scorecard.yml` |
+| Branch protection and workflow permissions | [docs/repository-governance.md](repository-governance.md) |
 | Final checklist | `release-evidence/open-source-readiness/readiness-checklist.md` |
 
 The secret scan covers the tracked tree, git history, public GitHub issue text, issue comments, and a documentation image inventory. It blocks unapproved private keys, tokens, production-looking credentials, public IPs, and personal email patterns.
 
 The supply-chain audit verifies npm and NuGet lock files, runs `dotnet list package --vulnerable --include-transitive`, runs `npm audit --omit=dev --audit-level=high`, and blocks high or critical vulnerabilities.
+
+## Repository Security Posture
+
+GitHub-native posture checks are part of public-preview readiness:
+
+- CodeQL scans C# backend/shared/core source and JavaScript/TypeScript frontend source on pull requests, default-branch pushes, weekly schedule, and manual dispatch.
+- OpenSSF Scorecard runs on default-branch governance changes, weekly schedule, and manual dispatch. It publishes SARIF and Scorecard results; no Scorecard checks are ignored.
+- Branch protection expectations, required merge checks, and workflow permission rules are maintained in [docs/repository-governance.md](repository-governance.md).
+
+Workflow permissions default to `contents: read`. Write scopes must be justified by workflow purpose, such as `security-events: write` for code scanning uploads, `id-token: write` for Scorecard publishing, `pull-requests: read` for Dependency Review, or `packages: read` for trusted Quality Gate package access. Secret-dependent workflows must not execute untrusted fork PR code.
 
 ## Brand And Demo Content
 

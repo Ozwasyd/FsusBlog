@@ -3,6 +3,7 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
 run "$ROOT_DIR/tools/check-aeds-only-policy.sh"
+run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-community-workflow.mjs"
 run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-github-label-governance.mjs"
 run_tier "static-governance" run_backend_test_governance_only
 run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test
