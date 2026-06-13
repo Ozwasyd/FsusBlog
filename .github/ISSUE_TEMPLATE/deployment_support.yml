@@ -1,0 +1,85 @@
+name: Deployment / self-hosting report
+description: Report local, Docker, reverse proxy, CDN, or production-like setup problems.
+title: "[Deployment] "
+labels: ["question", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report security vulnerabilities here. Use `SECURITY.md` and GitHub private vulnerability reporting.
+        Remove secrets, tokens, cookies, private domains, real IPs, real emails, production logs, and database exports before posting publicly.
+  - type: dropdown
+    id: deployment-mode
+    attributes:
+      label: Deployment mode
+      options:
+        - Local development
+        - Docker Compose
+        - Kestrel-only
+        - Reverse proxy
+        - CDN
+        - Production-like
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: runtime-versions
+    attributes:
+      label: OS and runtime versions
+      description: Include OS, .NET SDK/runtime, Node/npm, Docker, browser, and host architecture.
+      placeholder: "Ubuntu 24.04, .NET 10 SDK, Node 24, npm 10, Docker 27, amd64"
+    validations:
+      required: true
+  - type: textarea
+    id: postgres-redis
+    attributes:
+      label: PostgreSQL and Redis mode
+      description: State versions, local/container/managed mode, and whether data is fresh demo seed data.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Relevant environment variables
+      description: Paste only sanitized keys and non-secret values. Replace secrets with `<redacted>`.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or command output
+      description: Paste the smallest sanitized excerpt. Remove tokens, domains, IPs, emails, cookies, and production data.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: fresh-demo
+    attributes:
+      label: Reproduces on fresh demo seed data?
+      options:
+        - "Yes"
+        - "No"
+        - "Not tested"
+        - "Not applicable"
+    validations:
+      required: true
+  - type: dropdown
+    id: security-sensitive
+    attributes:
+      label: Could this involve a security vulnerability or sensitive private deployment detail?
+      options:
+        - "No"
+        - "Unsure, please help route me"
+        - "Yes, I will stop and use SECURITY.md instead"
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Public report confirmation
+      options:
+        - label: This is not a security vulnerability report.
+          required: true
+        - label: I removed secrets, tokens, cookies, private domains, real IP addresses, real emails, production logs, and database exports.
+          required: true

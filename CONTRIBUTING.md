@@ -4,7 +4,14 @@ FsusBlog is currently a public-preview project. Contributions should keep change
 
 ## Before Opening An Issue
 
-- Use the bug, feature, or performance issue templates in `.github/ISSUE_TEMPLATE/`.
+- Use the dedicated issue templates in `.github/ISSUE_TEMPLATE/`:
+  - bug reports for reproducible code defects
+  - feature requests for focused product or engineering changes
+  - performance reports for measured latency, throughput, resource, or browser regressions
+  - documentation reports for stale, missing, confusing, or incorrect docs
+  - deployment/self-hosting reports for local, Docker, Kestrel, reverse proxy, CDN, or production-like setup problems
+  - accessibility/UI reports for keyboard, screen reader, reduced-motion, dark-mode, mobile, or responsive defects
+  - governance/process reports for public-preview policy, test gate, release evidence, contribution workflow, and issue/PR routing drift
 - Do not file security vulnerabilities as public GitHub issues. Follow [SECURITY.md](SECURITY.md).
 - Include a commit SHA or version, deployment mode, and sanitized evidence.
 - For performance reports, state whether the measurement is the Kestrel-only baseline or includes a reverse proxy, CDN, or other deployment layer.
