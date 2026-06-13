@@ -13,6 +13,8 @@ FsusBlog is currently a public-preview project. Contributions should keep change
   - accessibility/UI reports for keyboard, screen reader, reduced-motion, dark-mode, mobile, or responsive defects
   - governance/process reports for public-preview policy, test gate, release evidence, contribution workflow, and issue/PR routing drift
 - Do not file security vulnerabilities as public GitHub issues. Follow [SECURITY.md](SECURITY.md).
+- For setup, usage, deployment, or self-hosting routing, start with [SUPPORT.md](SUPPORT.md) and then use the matching issue form only when the report is actionable.
+- Never put security vulnerability details or private deployment data in public support threads, issue comments, or PRs.
 - Include a commit SHA or version, deployment mode, and sanitized evidence.
 - For performance reports, state whether the measurement is the Kestrel-only baseline or includes a reverse proxy, CDN, or other deployment layer.
 

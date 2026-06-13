@@ -8,6 +8,7 @@ FsusBlog v1.1.0 is a public-preview release for development, evaluation, code re
 |------|------|
 | Repository license | [LICENSE](../LICENSE) |
 | Security reporting | [SECURITY.md](../SECURITY.md) |
+| Support routing | [SUPPORT.md](../SUPPORT.md) |
 | Contribution workflow | [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Issue form taxonomy | [.github/ISSUE_TEMPLATE/](../.github/ISSUE_TEMPLATE/) |
 | Code of conduct | [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) |

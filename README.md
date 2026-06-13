@@ -11,6 +11,7 @@
 | API stability | [docs/api/stability.md](docs/api/stability.md) |
 | Known limitations | [docs/known-limitations.md](docs/known-limitations.md) |
 | Security policy | [SECURITY.md](SECURITY.md) |
+| Support routing | [SUPPORT.md](SUPPORT.md) |
 | Contributing guide | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | License | [Apache-2.0](LICENSE) |
@@ -271,6 +272,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/assets/screenshots/](docs/assets/screenshots/) | sanitized public-preview screenshots 和截图安全/品牌说明 |
 | [docs/releases/v1.1.0-public-preview.md](docs/releases/v1.1.0-public-preview.md) | public-preview release notes、能力范围、限制和路线链接 |
 | [docs/open-source-readiness.md](docs/open-source-readiness.md) | 开源预览许可证、行为准则、安全配置、secret/history scan、dependency license audit 与 supply-chain audit 证据入口 |
+| [SUPPORT.md](SUPPORT.md) | 使用、部署、自托管支持路由；公开 issue 中禁止发布的敏感信息 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献流程、Issue/PR 模板、测试证据与 public-preview 稳定性边界 |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 社区行为准则和执行路径 |
 | [SECURITY.md](SECURITY.md) | 私密漏洞报告入口、安全报告范围与公开 issue 禁止事项 |

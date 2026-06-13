@@ -32,6 +32,7 @@ const required = [
   '.github/ISSUE_TEMPLATE/config.yml',
   '.github/PULL_REQUEST_TEMPLATE.md',
   'CONTRIBUTING.md',
+  'SUPPORT.md',
   'SECURITY.md'
 ]
 
@@ -74,12 +75,24 @@ includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'documentation repo
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'deployment/self-hosting reports')
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'accessibility/UI reports')
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'governance/process reports')
+includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'SUPPORT.md')
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'Public-Preview Stability Policy')
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'SECURITY.md')
+includes('SUPPORT.md', contents.get('SUPPORT.md'), 'no production SLA')
+includes('SUPPORT.md', contents.get('SUPPORT.md'), 'SECURITY.md')
+includes('SUPPORT.md', contents.get('SUPPORT.md'), 'Deployment / self-hosting report')
+includes('SUPPORT.md', contents.get('SUPPORT.md'), 'tokens, API keys, passwords, session IDs, cookies')
+includes('SUPPORT.md', contents.get('SUPPORT.md'), 'production domains')
+includes('SUPPORT.md', contents.get('SUPPORT.md'), 'real IP addresses')
+includes('SUPPORT.md', contents.get('SUPPORT.md'), 'real email addresses')
+includes('SUPPORT.md', contents.get('SUPPORT.md'), 'production logs')
+includes('SUPPORT.md', contents.get('SUPPORT.md'), 'database exports')
 includes('SECURITY.md', contents.get('SECURITY.md'), 'Do not report security vulnerabilities as public GitHub issues')
 includes('.github/ISSUE_TEMPLATE/config.yml', contents.get('.github/ISSUE_TEMPLATE/config.yml'), 'security/advisories/new')
+includes('.github/ISSUE_TEMPLATE/config.yml', contents.get('.github/ISSUE_TEMPLATE/config.yml'), 'SUPPORT.md')
 includes('.github/ISSUE_TEMPLATE/config.yml', contents.get('.github/ISSUE_TEMPLATE/config.yml'), 'blank_issues_enabled: false')
 includes('docs/open-source-readiness.md', read('docs/open-source-readiness.md'), 'Issue form taxonomy')
+includes('docs/open-source-readiness.md', read('docs/open-source-readiness.md'), 'Support routing')
 
 for (const [path, source] of contents) {
   if (path.includes('ISSUE_TEMPLATE') && /security vulnerabilities as public issues[\s\S]*title:/i.test(source)) {
