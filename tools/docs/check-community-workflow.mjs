@@ -30,6 +30,7 @@ const required = [
   '.github/ISSUE_TEMPLATE/accessibility_ui.yml',
   '.github/ISSUE_TEMPLATE/governance_process.yml',
   '.github/ISSUE_TEMPLATE/config.yml',
+  '.github/CODEOWNERS',
   '.github/PULL_REQUEST_TEMPLATE.md',
   'CONTRIBUTING.md',
   'SUPPORT.md',
@@ -70,12 +71,23 @@ includes('.github/ISSUE_TEMPLATE/governance_process.yml', contents.get('.github/
 includes('.github/PULL_REQUEST_TEMPLATE.md', contents.get('.github/PULL_REQUEST_TEMPLATE.md'), 'AEDS frame / binary contract')
 includes('.github/PULL_REQUEST_TEMPLATE.md', contents.get('.github/PULL_REQUEST_TEMPLATE.md'), 'Database migration')
 includes('.github/PULL_REQUEST_TEMPLATE.md', contents.get('.github/PULL_REQUEST_TEMPLATE.md'), 'Security, auth, moderation, PoW, or privacy')
+includes('.github/PULL_REQUEST_TEMPLATE.md', contents.get('.github/PULL_REQUEST_TEMPLATE.md'), 'CODEOWNERS')
+includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), '* @Ozwasyd')
+includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), '.github/ @Ozwasyd')
+includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'src/backend/ @Ozwasyd')
+includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'src/frontend/ @Ozwasyd')
+includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'docs/ @Ozwasyd')
+includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'tools/ @Ozwasyd')
+includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'release-evidence/ @Ozwasyd')
+includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'SECURITY.md @Ozwasyd')
+includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'src/backend/Infrastructure/Auth/ @Ozwasyd')
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'docs/development.md')
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'documentation reports')
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'deployment/self-hosting reports')
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'accessibility/UI reports')
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'governance/process reports')
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'SUPPORT.md')
+includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'CODEOWNERS')
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'Public-Preview Stability Policy')
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'SECURITY.md')
 includes('SUPPORT.md', contents.get('SUPPORT.md'), 'no production SLA')
@@ -103,6 +115,17 @@ for (const [path, source] of contents) {
     includes(path, source, 'I removed secrets')
   }
 }
+
+contents.get('.github/CODEOWNERS').split('\n').forEach((line, index) => {
+  const trimmed = line.trim()
+  if (!trimmed || trimmed.startsWith('#')) {
+    return
+  }
+  const parts = trimmed.split(/\s+/)
+  if (parts.length < 2 || !parts.slice(1).every((owner) => owner.startsWith('@'))) {
+    errors.push(`.github/CODEOWNERS:${index + 1} invalid CODEOWNERS rule`)
+  }
+})
 
 if (errors.length > 0) {
   for (const error of errors) {

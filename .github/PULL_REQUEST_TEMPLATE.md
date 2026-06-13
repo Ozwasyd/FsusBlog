@@ -31,4 +31,4 @@ Closes #
 
 ## Notes For Reviewers
 
-Mention rollout steps, limitations, follow-up issues, or intentionally deferred work.
+CODEOWNERS may request the configured maintainer for touched paths, but it does not replace the checklist above. Mention rollout steps, limitations, follow-up issues, or intentionally deferred work.

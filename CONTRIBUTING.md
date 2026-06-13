@@ -72,6 +72,8 @@ Use [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md). Every 
 
 Keep PRs reviewable. Split unrelated API, UI, database, and security changes unless one issue explicitly requires them together.
 
+`.github/CODEOWNERS` routes review responsibility for touched paths, but it does not replace the PR checklist, linked issue, tests, screenshots, or risk notes.
+
 ## Public-Preview Stability Policy
 
 During the v1.1.x public-preview phase:

@@ -1,0 +1,34 @@
+# Default owner
+* @Ozwasyd
+
+# GitHub and community workflow
+.github/ @Ozwasyd
+CONTRIBUTING.md @Ozwasyd
+SECURITY.md @Ozwasyd
+CODE_OF_CONDUCT.md @Ozwasyd
+SUPPORT.md @Ozwasyd
+
+# Backend, shared contracts, and backend tests
+src/backend/ @Ozwasyd
+src/shared/ @Ozwasyd
+src/core/ @Ozwasyd
+tests/backend/ @Ozwasyd
+
+# Frontend, public hydration, and frontend tests
+src/frontend/ @Ozwasyd
+tests/frontend/ @Ozwasyd
+
+# Contracts, tools, documentation, and release evidence
+tools/ @Ozwasyd
+docs/ @Ozwasyd
+release-evidence/ @Ozwasyd
+
+# Security-sensitive areas
+src/backend/Modules/Endpoints/ @Ozwasyd
+src/backend/Infrastructure/Auth/ @Ozwasyd
+src/backend/Infrastructure/Helpers/JwtHelper.cs @Ozwasyd
+src/backend/Infrastructure/Filters/BannedUserFilter.cs @Ozwasyd
+src/backend/Infrastructure/Operations/ProductionStartupValidator.cs @Ozwasyd
+src/backend/Services/ @Ozwasyd
+src/frontend/src/api/ @Ozwasyd
+src/frontend/src/bootstrap/ @Ozwasyd
