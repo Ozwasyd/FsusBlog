@@ -65,8 +65,7 @@ public sealed class ScheduledPublishWorker(
                             .Where(article => !article.IsDeleted
                                 && article.Status == ArticleStatus.Scheduled
                                 && article.ScheduledPublishAt <= now)
-                            .OrderBy(article => article.ScheduledPublishAt)
-                            .OrderBy(article => article.Id)
+                            .OrderBy(article => new { article.ScheduledPublishAt, article.Id })
                             .Take(100)
                             .ToListAsync(gateCt),
                         _ => Task.FromResult(new List<Article>()),
@@ -77,6 +76,44 @@ public sealed class ScheduledPublishWorker(
                         resultForMetrics = "empty";
                         return 0;
                     }
+
+                    int[] dueArticleIds = [.. due.Select(static article => article.Id)];
+                    List<ArticleBody> bodies = await dbGate.ExecuteAsync(
+                        "scheduled-publish-body-batch-query",
+                        gateCt => db.Queryable<ArticleBody>()
+                            .Where(body => dueArticleIds.Contains(body.ArticleId))
+                            .Select(body => new ArticleBody
+                            {
+                                ArticleId = body.ArticleId,
+                                MarkdownContent = body.MarkdownContent
+                            })
+                            .ToListAsync(gateCt),
+                        _ => Task.FromResult(new List<ArticleBody>()),
+                        cancellationToken);
+                    Dictionary<int, string> bodyByArticleId = bodies
+                        .GroupBy(static body => body.ArticleId)
+                        .ToDictionary(
+                            static group => group.Key,
+                            static group => group.First().MarkdownContent,
+                            EqualityComparer<int>.Default);
+                    List<ArticleTag> articleTags = await dbGate.ExecuteAsync(
+                        "scheduled-publish-tags-batch-query",
+                        gateCt => db.Queryable<ArticleTag>()
+                            .Where(articleTag => dueArticleIds.Contains(articleTag.ArticleId))
+                            .Select(articleTag => new ArticleTag
+                            {
+                                ArticleId = articleTag.ArticleId,
+                                TagId = articleTag.TagId
+                            })
+                            .ToListAsync(gateCt),
+                        _ => Task.FromResult(new List<ArticleTag>()),
+                        cancellationToken);
+                    Dictionary<int, List<int>> tagIdsByArticleId = articleTags
+                        .GroupBy(static articleTag => articleTag.ArticleId)
+                        .ToDictionary(
+                            static group => group.Key,
+                            static group => group.Select(static articleTag => articleTag.TagId).ToList(),
+                            EqualityComparer<int>.Default);
 
                     int published = 0;
                     int failed = 0;
@@ -102,22 +139,8 @@ public sealed class ScheduledPublishWorker(
                             article.Status = ArticleStatus.Published;
                             article.PublishedAt = now;
                             article.ScheduledPublishAt = null;
-                            article.Content = await dbGate.ExecuteAsync(
-                                "scheduled-publish-body-query",
-                                gateCt => db.Queryable<ArticleBody>()
-                                    .Where(it => it.ArticleId == article.Id)
-                                    .Select(it => it.MarkdownContent)
-                                    .FirstAsync(gateCt),
-                                _ => Task.FromResult(string.Empty),
-                                cancellationToken);
-                            List<int> tagIds = await dbGate.ExecuteAsync(
-                                "scheduled-publish-tags-query",
-                                gateCt => db.Queryable<ArticleTag>()
-                                    .Where(articleTag => articleTag.ArticleId == article.Id)
-                                    .Select(articleTag => articleTag.TagId)
-                                    .ToListAsync(gateCt),
-                                _ => Task.FromResult(new List<int>()),
-                                cancellationToken);
+                            article.Content = bodyByArticleId.GetValueOrDefault(article.Id, string.Empty);
+                            List<int> tagIds = tagIdsByArticleId.GetValueOrDefault(article.Id, []);
                             await searchIndex.AddOrUpdateIndexAsync(article);
                             await publicAotInvalidation.InvalidateArticleMutationAsync(
                                 article.Id,

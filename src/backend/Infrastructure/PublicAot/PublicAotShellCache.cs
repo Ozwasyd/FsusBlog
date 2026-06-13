@@ -45,7 +45,8 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
 
     private async Task RemoveManyCacheEntriesAsync(
         IReadOnlyCollection<string> cacheKeys,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool unregisterKeys = true)
     {
         cancellationToken.ThrowIfCancellationRequested();
         string[] distinctKeys = [.. cacheKeys.Where(static key => !string.IsNullOrWhiteSpace(key)).Distinct(StringComparer.Ordinal)];
@@ -57,7 +58,10 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
         await cache.RemoveManyAsync(
             [.. distinctKeys.Select(static key => new CacheKeyIdentity(CachePolicyId.PublicAotDocument, key))],
             cancellationToken).ConfigureAwait(false);
-        await UnregisterKeysAsync(distinctKeys).ConfigureAwait(false);
+        if (unregisterKeys)
+        {
+            await UnregisterKeysAsync(distinctKeys).ConfigureAwait(false);
+        }
     }
 
     public async Task RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
@@ -96,7 +100,7 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
 
         if (keysToDelete.Count > 0)
         {
-            await RemoveManyCacheEntriesAsync(keysToDelete, cancellationToken).ConfigureAwait(false);
+            await RemoveManyCacheEntriesAsync(keysToDelete, cancellationToken, unregisterKeys: false).ConfigureAwait(false);
         }
 
         cancellationToken.ThrowIfCancellationRequested();

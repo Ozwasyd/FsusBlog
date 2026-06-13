@@ -23,6 +23,7 @@ describe('frontend performance workflow contract', () => {
   const entry = readRepoFile('src/frontend/src/bootstrap/entry.ts')
   const publicShell = readRepoFile('src/frontend/src/bootstrap/publicShell.ts')
   const appRuntime = readRepoFile('src/frontend/src/components/runtime/AppRuntime.vue')
+  const fullApp = readRepoFile('src/frontend/src/bootstrap/fullApp.ts')
   const homeView = readRepoFile('src/frontend/src/composables/useHomeView.ts')
   const publicHomeContent = readRepoFile('src/frontend/src/components/public/pages/PublicHomePageContent.vue')
   const humanReadProof = readRepoFile('src/frontend/src/composables/useHumanReadProof.ts')
@@ -120,6 +121,13 @@ describe('frontend performance workflow contract', () => {
     expect(messagesPage).toContain('MESSAGE_RENDER_WINDOW')
     expect(messagesPage).toContain('visibleConversationRows')
     expect(messagesPage).not.toContain('v-show="showDetailPane"')
+  })
+
+  it('keeps full app FsusUI registration scoped to required plugins', () => {
+    expect(fullApp).toContain("import { ElLoading } from '@ozwasyd/element-plus'")
+    expect(fullApp).toContain('app.use(ElLoading)')
+    expect(fullApp).not.toContain("import ElementPlus from '@ozwasyd/element-plus'")
+    expect(fullApp).not.toContain('app.use(ElementPlus)')
   })
 
   it('keeps the public telemetry cold path on the lightweight event bus', () => {

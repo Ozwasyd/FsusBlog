@@ -28,7 +28,11 @@ public sealed class PublicContentInvalidationFlowTests
         string method = Slice(source, "internal async Task<int> PublishDueArticlesAsync", "        finally");
 
         Assert.Contains("IPublicAotInvalidationService publicAotInvalidation", source, StringComparison.Ordinal);
-        Assert.Contains("\"scheduled-publish-tags-query\"", method, StringComparison.Ordinal);
+        Assert.Contains(".OrderBy(article => new { article.ScheduledPublishAt, article.Id })", method, StringComparison.Ordinal);
+        Assert.Contains("\"scheduled-publish-body-batch-query\"", method, StringComparison.Ordinal);
+        Assert.Contains("\"scheduled-publish-tags-batch-query\"", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"scheduled-publish-body-query\"", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"scheduled-publish-tags-query\"", method, StringComparison.Ordinal);
         Assert.Contains("publicAotInvalidation.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
 
         int searchProjection = method.IndexOf("searchIndex.AddOrUpdateIndexAsync(article)", StringComparison.Ordinal);
@@ -55,6 +59,23 @@ public sealed class PublicContentInvalidationFlowTests
 
         Assert.True(aotAll >= 0);
         Assert.True(publicHotQueue > aotAll);
+    }
+
+    [Fact]
+    public void RedisBackedPublicAotInvalidateAll_SkipsPerMemberRegistryUnregister()
+    {
+        string source = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotShellCache.cs");
+        string invalidateAll = Slice(source, "public async Task InvalidateAllAsync", "    private static string ResolveRegistryKey");
+        string removeMany = Slice(source, "private async Task RemoveManyCacheEntriesAsync", "    public async Task RemoveByPrefixAsync");
+
+        Assert.Contains("bool unregisterKeys = true", removeMany, StringComparison.Ordinal);
+        Assert.Contains("if (unregisterKeys)", removeMany, StringComparison.Ordinal);
+        Assert.Contains("unregisterKeys: false", invalidateAll, StringComparison.Ordinal);
+
+        int removeDocuments = invalidateAll.IndexOf("RemoveManyCacheEntriesAsync(keysToDelete, cancellationToken, unregisterKeys: false)", StringComparison.Ordinal);
+        int removeRegistries = invalidateAll.IndexOf("_db.KeyDeleteAsync(registryKeys)", StringComparison.Ordinal);
+        Assert.True(removeDocuments >= 0);
+        Assert.True(removeRegistries > removeDocuments);
     }
 
     private static string Slice(string source, string startMarker, string endMarker)
