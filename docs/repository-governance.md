@@ -65,9 +65,11 @@ Allowed exceptions:
 
 | Scope | Allowed workflow | Justification |
 |-------|------------------|---------------|
-| `pull-requests: read` | `dependency-review.yml` | Dependency Review needs PR metadata to inspect dependency changes. |
+| `pull-requests: read` | `dependency-review.yml`, `scorecard.yml` | Dependency Review needs PR metadata to inspect dependency changes. Scorecard needs read-only PR metadata in private repositories to evaluate review and branch-protection signals. |
 | `pull-requests: write` | `labeler.yml` | The path labeler applies labels to pull requests; it does not check out or execute PR code. |
 | `issues: write` | `issue-triage.yml` | Issue triage applies labels and status labels to public issue forms. |
+| `issues: read` | `scorecard.yml` | Scorecard needs read-only issue metadata in private repositories for maintainer/security posture checks. |
+| `checks: read` | `scorecard.yml` | Scorecard needs read-only check metadata in private repositories to detect SAST and branch-protection signals. |
 | `packages: read` | `quality-gate.yml` | Quality Gate may install the private `@ozwasyd` frontend package in trusted CI contexts. |
 | `actions: read` | `codeql.yml` | CodeQL may read workflow metadata while uploading code scanning results. |
 | `security-events: write` | `codeql.yml`, `scorecard.yml` | CodeQL and Scorecard upload code scanning SARIF/results. |
