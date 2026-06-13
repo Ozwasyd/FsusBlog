@@ -118,9 +118,9 @@ for (const token of ['runMotion', 'mode="out-in"', "phase: MotionPhase"]) {
   }
 }
 
-const homePage = expectIncludes('src/frontend/src/components/public/pages/PublicHomePageContent.vue', 'v-motion', 'home hero v-motion')
-if (!homePage.includes('fsusBlogMotionPresets.homeHero')) {
-  errors.push('PublicHomePageContent.vue: home hero must use fsusBlogMotionPresets.homeHero')
+const homePage = expectIncludes('src/frontend/src/components/public/pages/PublicHomePageContent.vue', 'data-fsus-motion-surface="home-hero"', 'home hero motion surface metadata')
+if (homePage.includes('fsusBlogMotionPresets.homeHero') || /<header[\s\S]*?\bv-motion=/.test(homePage)) {
+  errors.push('PublicHomePageContent.vue: home hero must not animate by default')
 }
 
 const articleList = expectIncludes('src/frontend/src/components/public/PublicArticleList.vue', 'fsusBlogMotionPresets.articleCards', 'article card motion preset')

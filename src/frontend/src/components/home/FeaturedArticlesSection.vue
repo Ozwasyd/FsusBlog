@@ -1,7 +1,6 @@
 <template>
   <section
     v-if="loading || articles.length > 0"
-    v-motion="{ name: fsusBlogMotionPresets.articleCards, once: true }"
     class="featured-articles-section mb-20"
     data-fsus-motion-surface="home-featured-articles"
   >
@@ -53,12 +52,12 @@
           <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(articles[0].id)">
             <a
               :href="href"
-              class="group flex flex-col gap-8 rounded-[var(--fsus-radius-panel)] outline-none md:flex-row md:items-center focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
+              class="group flex flex-col gap-8 rounded-[var(--fsusblog-reading-radius-panel)] outline-none md:flex-row md:items-center focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
               :aria-label="`阅读全文：${articles[0].title}`"
               @click="navigate"
               @keydown.space.prevent="navigate()"
             >
-              <div class="w-full md:w-[50%] aspect-[4/3] overflow-hidden rounded-[var(--fsus-radius-panel)] border border-[var(--fsusblog-panel-border)] shadow-none transition-[background-color,border-color,color,opacity,transform] duration-[var(--fsus-motion-control-fast)] group-hover:border-[var(--fsusblog-color-primary)]/20">
+              <div class="w-full md:w-[50%] aspect-[4/3] overflow-hidden rounded-[var(--fsusblog-reading-radius-media)] border border-[var(--fsusblog-panel-border)] shadow-none transition-[background-color,border-color,color,opacity,transform] duration-[var(--fsus-motion-control-fast)] group-hover:border-[var(--fsusblog-color-primary)]/20">
                 <img
                   :src="articles[0].coverImageUrl"
                   :alt="articles[0].title"
@@ -99,12 +98,12 @@
             <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(article.id)">
               <a
                 :href="href"
-                class="group block rounded-[var(--fsus-radius-panel)] outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
+                class="group block rounded-[var(--fsusblog-reading-radius-panel)] outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
                 :aria-label="`阅读全文：${article.title}`"
                 @click="navigate"
                 @keydown.space.prevent="navigate()"
               >
-                <div class="aspect-video w-full overflow-hidden rounded-[var(--fsus-radius-panel)] border border-[var(--fsusblog-panel-border)] mb-5 shadow-none transition-[background-color,border-color,color,opacity,transform] duration-[var(--fsus-motion-control-fast)] group-hover:border-[var(--fsusblog-color-primary)]/20">
+                <div class="aspect-video w-full overflow-hidden rounded-[var(--fsusblog-reading-radius-media)] border border-[var(--fsusblog-panel-border)] mb-5 shadow-none transition-[background-color,border-color,color,opacity,transform] duration-[var(--fsus-motion-control-fast)] group-hover:border-[var(--fsusblog-color-primary)]/20">
                   <img
                     :src="article.coverImageUrl"
                     :alt="article.title"
@@ -166,7 +165,6 @@
 
 <script setup lang="ts">
 import { ArrowRight } from '@/fsusui/icons'
-import { fsusBlogMotionPresets, vMotion } from '@/fsusui/motion'
 import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
 import { TimeUtils } from '@/utils/time'
 

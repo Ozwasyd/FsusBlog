@@ -29,13 +29,13 @@ export type FsusBlogMotionSurface =
   | 'banner'
 
 export const fsusBlogMotionPresets = {
-  homeHero: 'fade-up',
-  articleCards: 'list-stagger',
+  homeHero: 'fade-in',
+  articleCards: 'fade-in',
   searchDialog: 'scale-fade',
   mobileDrawer: 'slide-right',
   mobileBar: 'slide-up',
   toast: 'slide-up',
-  articleTitle: 'fade-up',
+  articleTitle: 'fade-in',
   mediaOverlay: 'scale-fade',
   backToTop: 'scale-fade',
   route: 'route-fade',
@@ -43,12 +43,12 @@ export const fsusBlogMotionPresets = {
 } as const satisfies Record<FsusBlogMotionSurface, MotionPresetName>
 
 export const fsusBlogScrollRevealMotion = {
-  name: 'fade-up',
+  name: 'fade-in',
   once: true
 } as const satisfies MotionDirectiveValue
 
 export const fsusBlogScrollRevealOptions = {
-  name: 'fade-up',
+  name: 'fade-in',
   once: true,
   start: 'top 88%'
 } as const satisfies ScrollRevealRunOptions

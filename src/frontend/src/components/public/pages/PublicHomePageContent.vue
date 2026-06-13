@@ -3,7 +3,6 @@
     <template #main>
       <div>
         <header
-          v-motion="{ name: fsusBlogMotionPresets.homeHero, once: true }"
           class="mb-16 sm:mb-24"
           data-fsus-motion-surface="home-hero"
         >
@@ -83,7 +82,6 @@ import HomeArticleErrorState from '@/components/home/HomeArticleErrorState.vue'
 import HomeArticleEmptyState from '@/components/home/HomeArticleEmptyState.vue'
 import HomeFeedSurface from '@/components/public/HomeFeedSurface.vue'
 import PublicArticleList from '@/components/public/PublicArticleList.vue'
-import { fsusBlogMotionPresets, vMotion } from '@/fsusui/motion'
 import type { ArticleListViewContract } from '@/view-contracts/articleList'
 
 defineProps<{

@@ -15,7 +15,7 @@ function createAsideHtml(items: Array<{ id: number; title: string; views: number
           ${String(index + 1).padStart(2, '0')}
         </span>
         <div class="flex-auto flex flex-col gap-1.5">
-          <a href="${buildPublicArticleHref(article.id)}" class="rounded-[var(--fsus-radius-control)] text-sm font-medium text-[var(--fsusblog-text-primary)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors duration-[var(--fsus-motion-control)] leading-relaxed line-clamp-2 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]">
+          <a href="${buildPublicArticleHref(article.id)}" class="rounded-[var(--fsusblog-reading-radius-control)] text-sm font-medium text-[var(--fsusblog-text-primary)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors duration-[var(--fsus-motion-control)] leading-relaxed line-clamp-2 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]">
             ${article.title}
           </a>
           <p class="text-xs text-[var(--fsusblog-text-muted)] font-medium">

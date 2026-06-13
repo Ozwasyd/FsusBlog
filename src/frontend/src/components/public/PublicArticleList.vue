@@ -3,7 +3,7 @@
     <article
       v-for="(item, index) in items"
       :key="item.id"
-      v-motion="{ name: fsusBlogMotionPresets.articleCards, index, once: true }"
+      v-motion="{ name: fsusBlogMotionPresets.articleCards, once: true }"
       v-memo="[item.id, item.title, item.summary, item.meta.displayTime, item.meta.categoryName]"
       :class="themeTokens.articleList.card"
       :data-fsus-motion-index="index"

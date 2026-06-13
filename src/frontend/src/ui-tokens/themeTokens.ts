@@ -9,12 +9,11 @@ const lineBorder = 'border-[var(--fsusblog-panel-border)]';
 const lineBorderStrong = 'border-[var(--fsusblog-panel-border-strong)]';
 const surface = 'bg-[var(--fsusblog-panel-bg)]';
 const surfaceSoft = 'bg-[var(--fsusblog-panel-bg-soft)]';
-const pageSurfaceTranslucent = 'bg-[var(--fsusblog-page-bg)]/50';
 const focusRing = 'focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]';
 const primaryHover = 'hover:text-[var(--fsusblog-color-primary)]';
 const colorTransition = 'transition-colors duration-[var(--fsus-motion-control-fast)] ease-[var(--fsus-motion-standard)]';
 const stateTransition = 'transition-[background-color,border-color,color,opacity] duration-[var(--fsus-motion-control-fast)] ease-[var(--fsus-motion-standard)]';
-const microRadius = 'rounded-[var(--fsus-radius-control)]';
+const microRadius = 'rounded-[var(--fsusblog-reading-radius-control)]';
 const metadataText = `text-[10px] sm:text-[11px] font-bold ${textMuted} uppercase tracking-normal`;
 const numericText = 'tabular-nums';
 
@@ -44,7 +43,7 @@ export const themeTokens: ThemeTokenContract = {
     tagLink: `text-[11px] sm:text-xs font-bold uppercase tracking-normal ${textMuted} hover:text-[var(--fsusblog-text-primary)] ${colorTransition} outline-none ${focusRing}`,
     commentsRoot: `mt-24 sm:mt-32 pt-16 border-t ${lineBorder} pb-32`,
     commentsHeading: `text-[11px] font-black ${textMuted} uppercase tracking-normal mb-12`,
-    commentsPlaceholderRoot: `min-h-[6rem] border ${lineBorder} ${pageSurfaceTranslucent} px-8 py-8 sm:px-10 sm:py-10 backdrop-blur-[var(--fsus-backdrop-blur-soft)]`,
+    commentsPlaceholderRoot: `min-h-[6rem] rounded-[var(--fsusblog-reading-radius-panel)] border ${lineBorder} ${surface} px-8 py-8 sm:px-10 sm:py-10 shadow-none`,
     commentsPlaceholderTitle: `text-base sm:text-lg font-bold ${textPrimary} tracking-normal`,
     commentsPlaceholderBody: `mt-3 text-sm sm:text-base ${textSecondary} leading-relaxed font-light`,
     commentsPlaceholderHint: `mt-4 text-[10px] font-bold uppercase tracking-normal ${textSubtle}`

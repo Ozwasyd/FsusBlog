@@ -1,8 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
-const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../..')
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const srcRoot = path.join(repoRoot, 'src/frontend/src')
 const fsusuiRoot = path.join(srcRoot, 'fsusui')
 const uiIndexPath = path.join(srcRoot, 'components/ui/index.ts')
