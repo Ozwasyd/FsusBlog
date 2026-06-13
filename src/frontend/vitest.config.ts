@@ -1,16 +1,23 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
+import { createFsusUiAliases, resolveLocalFsusUiRoot } from './scripts/fsusui-local'
 
 const unitSetupFile = fileURLToPath(new URL('./tests/frontend/unit/setup.ts', import.meta.url))
+const disableLocalFsusUi = process.env.FSUSBLOG_USE_LOCAL_FSUSUI === '0'
+  || process.env.FSUSBLOG_USE_LOCAL_FSUSUI?.toLowerCase() === 'false'
+const localFsusUiRoot = disableLocalFsusUi
+  ? null
+  : resolveLocalFsusUiRoot(process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT)
 
 export default defineConfig({
   plugins: [vue()],
   resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@wasm': fileURLToPath(new URL('./wasm/web', import.meta.url))
-    }
+    alias: [
+      ...createFsusUiAliases(localFsusUiRoot),
+      { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },
+      { find: '@wasm', replacement: fileURLToPath(new URL('./wasm/web', import.meta.url)) }
+    ]
   },
   test: {
     environment: 'node',

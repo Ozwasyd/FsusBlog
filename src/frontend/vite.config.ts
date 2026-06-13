@@ -6,6 +6,7 @@ import path from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
+import { createFsusUiAliases, resolveFsusUiWasmDist, resolveLocalFsusUiRoot } from './scripts/fsusui-local'
 
 function resolveAdminManualChunk(id: string): string | undefined {
     if (
@@ -198,8 +199,7 @@ function fixViteClientWorkerDocumentGuard() {
     }
 }
 
-function serveFsusUiOptimizedWasmAssets() {
-    const fsusUiWasmDist = fileURLToPath(new URL('./node_modules/@ozwasyd/element-plus/es/wasm/dist/', import.meta.url))
+function serveFsusUiOptimizedWasmAssets(fsusUiWasmDist: string) {
     const servedFiles = new Set([
         'markdown_simd.js',
         'markdown_simd.wasm',
@@ -264,7 +264,7 @@ function applyDevelopmentSecurityHeaders() {
 }
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
     const env = loadEnv(mode, process.cwd())
     const apiBaseUrl = env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:5000'
     const enableVueHydrationMismatchDetails = process.env.FSUSBLOG_VUE_HYDRATION_DETAILS === '1'
@@ -277,6 +277,13 @@ export default defineConfig(({ mode }) => {
     const enablePublicShellProxy = hasProxyFlag
         ? env.VITE_PUBLIC_SHELL_PROXY === '1' || env.VITE_PUBLIC_SHELL_PROXY?.toLowerCase() === 'true'
         : true
+    const disableLocalFsusUi = process.env.FSUSBLOG_USE_LOCAL_FSUSUI === '0'
+        || process.env.FSUSBLOG_USE_LOCAL_FSUSUI?.toLowerCase() === 'false'
+    const localFsusUiRoot = command === 'serve' && !disableLocalFsusUi
+        ? resolveLocalFsusUiRoot(process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT)
+        : null
+    const fsusUiAliases = createFsusUiAliases(localFsusUiRoot)
+    const fsusUiWasmDist = resolveFsusUiWasmDist(localFsusUiRoot)
 
     const publicSeoProxy = {
         target: apiBaseUrl,
@@ -361,7 +368,7 @@ export default defineConfig(({ mode }) => {
         plugins: [
             applyDevelopmentSecurityHeaders(),
             fixViteClientWorkerDocumentGuard(),
-            serveFsusUiOptimizedWasmAssets(),
+            serveFsusUiOptimizedWasmAssets(fsusUiWasmDist),
             tailwindcss(),
             vue(),
             AutoImport({
@@ -384,11 +391,11 @@ export default defineConfig(({ mode }) => {
             }),
         ],
         resolve: {
-            alias: {
-                '@': fileURLToPath(new URL('./src', import.meta.url)),
-                '@wasm': fileURLToPath(new URL('./wasm/web', import.meta.url)),
-                'element-plus': '@ozwasyd/element-plus',
-            }
+            alias: [
+                ...fsusUiAliases,
+                { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },
+                { find: '@wasm', replacement: fileURLToPath(new URL('./wasm/web', import.meta.url)) },
+            ]
         },
         optimizeDeps: {
             exclude: [
@@ -493,6 +500,16 @@ export default defineConfig(({ mode }) => {
         server: {
             host: '0.0.0.0',
             port: 3000, // 前端运行端口
+            ...(localFsusUiRoot
+                ? {
+                    fs: {
+                        allow: [
+                            fileURLToPath(new URL('./', import.meta.url)),
+                            localFsusUiRoot
+                        ]
+                    }
+                }
+                : {}),
             proxy: {
                 ...(enablePublicShellProxy
                     ? {
