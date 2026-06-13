@@ -11,6 +11,7 @@ FsusBlog v1.1.0 is a public-preview release for development, evaluation, code re
 | Support routing | [SUPPORT.md](../SUPPORT.md) |
 | Contribution workflow | [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Issue form taxonomy | [.github/ISSUE_TEMPLATE/](../.github/ISSUE_TEMPLATE/) |
+| Label taxonomy | [docs/repository-labels.md](repository-labels.md) |
 | Code of conduct | [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) |
 | Known limitations | [docs/known-limitations.md](known-limitations.md) |
 | Release notes | [docs/releases/v1.1.0-public-preview.md](releases/v1.1.0-public-preview.md) |

@@ -1,7 +1,7 @@
 name: Deployment / self-hosting report
 description: Report local, Docker, reverse proxy, CDN, or production-like setup problems.
 title: "[Deployment] "
-labels: ["question", "triage"]
+labels: ["type:maintenance", "area:deployment", "status:triage", "evidence:needs-repro"]
 body:
   - type: markdown
     attributes:

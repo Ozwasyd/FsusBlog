@@ -1,7 +1,7 @@
 name: Performance report
 description: Report a measurable performance regression or benchmark result.
 title: "[Performance] "
-labels: ["performance", "triage"]
+labels: ["type:performance", "status:triage"]
 body:
   - type: markdown
     attributes:

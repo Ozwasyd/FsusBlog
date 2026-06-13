@@ -1,7 +1,7 @@
 name: Documentation report
 description: Report stale, missing, confusing, or incorrect project documentation.
 title: "[Docs] "
-labels: ["documentation", "triage"]
+labels: ["type:docs", "area:docs", "status:triage", "evidence:needs-docs"]
 body:
   - type: markdown
     attributes:

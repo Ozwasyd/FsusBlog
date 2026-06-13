@@ -1,7 +1,7 @@
 name: Accessibility / UI report
 description: Report accessibility, keyboard, reduced-motion, dark-mode, or responsive layout defects.
 title: "[A11y/UI] "
-labels: ["bug", "triage"]
+labels: ["type:bug", "area:frontend", "area:public-site", "status:triage", "evidence:needs-screenshot"]
 body:
   - type: markdown
     attributes:

@@ -1,7 +1,7 @@
 name: Bug report
 description: Report a reproducible FsusBlog defect.
 title: "[Bug] "
-labels: ["bug", "triage"]
+labels: ["type:bug", "status:triage", "evidence:needs-repro"]
 body:
   - type: markdown
     attributes:

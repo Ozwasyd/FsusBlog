@@ -1,0 +1,78 @@
+name: Issue Triage
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+      - reopened
+
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    name: Keep issue taxonomy labels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply issue taxonomy labels
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const existing = new Set(issue.labels.map((label) => label.name));
+            const labels = new Set();
+            const title = issue.title || '';
+            const body = issue.body || '';
+
+            const statusLabels = [...existing].filter((label) => label.startsWith('status:'));
+            const targetStatus = /_No response_/i.test(body)
+              ? 'status:needs-info'
+              : statusLabels.length === 0
+                ? 'status:triage'
+                : null;
+
+            if (targetStatus) {
+              labels.add(targetStatus);
+            }
+
+            const titleRules = [
+              [/^\[Bug\]/i, ['type:bug', 'evidence:needs-repro']],
+              [/^\[Feature\]/i, ['type:feature']],
+              [/^\[Performance\]/i, ['type:performance']],
+              [/^\[Docs\]/i, ['type:docs', 'area:docs', 'evidence:needs-docs']],
+              [/^\[Deployment\]/i, ['type:maintenance', 'area:deployment', 'evidence:needs-repro']],
+              [/^\[A11y\/UI\]/i, ['type:bug', 'area:frontend', 'area:public-site', 'evidence:needs-screenshot']],
+              [/^\[Governance\]/i, ['type:maintenance', 'area:github', 'risk:public-preview-policy', 'evidence:needs-docs']]
+            ];
+
+            for (const [pattern, ruleLabels] of titleRules) {
+              if (pattern.test(title)) {
+                for (const label of ruleLabels) labels.add(label);
+                break;
+              }
+            }
+
+            if (targetStatus) {
+              for (const label of statusLabels.filter((label) => label !== targetStatus)) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  name: label
+                });
+              }
+            }
+
+            const labelsToAdd = [...labels].filter((label) => !existing.has(label));
+            if (labelsToAdd.length === 0) {
+              core.info('No issue taxonomy labels to add.');
+              return;
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              labels: labelsToAdd
+            });

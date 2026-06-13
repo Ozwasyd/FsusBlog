@@ -1,7 +1,7 @@
 name: Governance / process report
 description: Report public-preview policy, test gate, release evidence, contribution workflow, or issue/PR process drift.
 title: "[Governance] "
-labels: ["documentation", "triage"]
+labels: ["type:maintenance", "area:github", "risk:public-preview-policy", "status:triage", "evidence:needs-docs"]
 body:
   - type: markdown
     attributes:

@@ -17,6 +17,7 @@ FsusBlog is currently a public-preview project. Contributions should keep change
 - Never put security vulnerability details or private deployment data in public support threads, issue comments, or PRs.
 - Include a commit SHA or version, deployment mode, and sanitized evidence.
 - For performance reports, state whether the measurement is the Kestrel-only baseline or includes a reverse proxy, CDN, or other deployment layer.
+- New issues and pull requests use the namespaced label taxonomy in [docs/repository-labels.md](docs/repository-labels.md).
 
 ## Development Setup
 
