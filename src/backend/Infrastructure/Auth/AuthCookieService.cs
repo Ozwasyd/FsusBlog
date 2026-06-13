@@ -78,10 +78,21 @@ public sealed class AuthCookieService
         context.Response.Cookies.Delete(AccessTokenCookieName, options);
         context.Response.Cookies.Delete(RefreshTokenCookieName, options);
         context.Response.Cookies.Delete(SessionIdCookieName, options);
-        context.Response.Cookies.Delete(HostAccessTokenCookieName, options);
-        context.Response.Cookies.Delete(HostRefreshTokenCookieName, options);
-        context.Response.Cookies.Delete(HostSessionIdCookieName, options);
+
+        CookieOptions hostOptions = CreateHostPrefixedDeleteOptions();
+        context.Response.Cookies.Delete(HostAccessTokenCookieName, hostOptions);
+        context.Response.Cookies.Delete(HostRefreshTokenCookieName, hostOptions);
+        context.Response.Cookies.Delete(HostSessionIdCookieName, hostOptions);
     }
+
+    private static CookieOptions CreateHostPrefixedDeleteOptions()
+        => new()
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Path = "/"
+        };
 
     public string? ReadRefreshToken(HttpContext context)
         => ReadCookie(context, RefreshTokenCookieName, HostRefreshTokenCookieName);

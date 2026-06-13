@@ -68,6 +68,21 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
+    public void ClearTokenCookies_HostPrefixedDeletesUsePrefixCompatibleAttributes()
+    {
+        var service = new AuthCookieService(CreateConfiguration());
+        var context = new DefaultHttpContext();
+
+        service.ClearTokenCookies(context);
+
+        string[] setCookies = ReadSetCookieHeaders(context);
+
+        AssertHostPrefixedDeleteCookieAttributes(setCookies, "__Host-AccessToken");
+        AssertHostPrefixedDeleteCookieAttributes(setCookies, "__Host-RefreshToken");
+        AssertHostPrefixedDeleteCookieAttributes(setCookies, "__Host-SessionId");
+    }
+
+    [Fact]
     public void ReadRefreshToken_PrefersHostPrefixedCookieOverPlainCookie()
     {
         var service = new AuthCookieService(CreateConfiguration());
@@ -85,6 +100,17 @@ public sealed class AuthCookieServiceSecurityTests
         Assert.Contains("; secure", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("; httponly", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("; samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("; domain=", cookie, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void AssertHostPrefixedDeleteCookieAttributes(string[] setCookies, string cookieName)
+    {
+        string cookie = Assert.Single(setCookies, cookie => cookie.StartsWith(cookieName + "=", StringComparison.Ordinal));
+        Assert.Contains("; path=/", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("; secure", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("; httponly", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("; samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("expires=", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("; domain=", cookie, StringComparison.OrdinalIgnoreCase);
     }
 
