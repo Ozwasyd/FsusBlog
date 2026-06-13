@@ -3,21 +3,26 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useSiteStore } from '@/store/site'
 
 vi.mock('@/api/system', () => ({
-  getSiteConfig: vi.fn()
+  getSiteConfig: vi.fn(),
+  getSiteComplianceConfig: vi.fn()
 }))
 
-import { getSiteConfig } from '@/api/system'
+import { getSiteComplianceConfig, getSiteConfig } from '@/api/system'
 const mockGetSiteConfig = vi.mocked(getSiteConfig)
+const mockGetSiteComplianceConfig = vi.mocked(getSiteComplianceConfig)
 
 describe('useSiteStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    mockGetSiteComplianceConfig.mockResolvedValue(null as never)
   })
 
   it('has default siteInfo values', () => {
     const store = useSiteStore()
     expect(store.siteInfo.author).toBe('Fsu')
+    expect(store.siteInfo.description).toBe('工程记录、性能实验、UI 系统与 FsusBlog 构建过程。')
+    expect(store.siteInfo.keywords).toBe('.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog')
     expect(store.isLoaded).toBe(false)
     expect(store.isMobileSearchOpen).toBe(false)
   })

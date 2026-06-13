@@ -29,6 +29,9 @@ export const DEFAULT_SITE_BRAND_CONFIG = {
   loginIconUrl: ''
 } as const
 
+const DEFAULT_SITE_DESCRIPTION = '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。'
+const DEFAULT_SITE_KEYWORDS = '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog'
+
 function resolveBaseUrl(): string {
   if (typeof window === 'undefined') {
     return 'https://fsus.blog'
@@ -43,8 +46,8 @@ export const useSiteStore = defineStore('site', () => {
 
   const siteInfo = shallowRef<SeoConfigPublic>({
     title: payload?.siteTitle || payload?.title || "Fsu's Blog",
-    description: payload?.siteDescription || "极简主义个人内容发布系统",
-    keywords: "Minimalism, Blog, Fsu",
+    description: payload?.siteDescription || DEFAULT_SITE_DESCRIPTION,
+    keywords: DEFAULT_SITE_KEYWORDS,
     author: "Fsu",
     ogImage: "",
     baseUrl: payload?.baseUrl || resolveBaseUrl(),

@@ -37,6 +37,7 @@ const featured = read('src/frontend/src/components/home/FeaturedArticlesSection.
 const articleDetail = read('src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue')
 const homeFeedSurface = read('src/frontend/src/components/public/HomeFeedSurface.vue')
 const hotArticlesIsland = read('src/frontend/src/public-renderers/homeHotArticlesIsland.ts')
+const siteStore = read('src/frontend/src/store/site.ts')
 const packageJson = JSON.parse(read('src/frontend/package.json'))
 
 for (const token of [
@@ -116,6 +117,10 @@ expectNotIncludes(featured, 'fsusBlogMotionPresets.articleCards', 'FeaturedArtic
 expectIncludes(articleDetail, 'rounded-[var(--fsusblog-reading-radius-media)]', 'PublicArticleDetailPageContent.vue')
 expectIncludes(homeFeedSurface, 'rounded-[var(--fsusblog-reading-radius-panel)]', 'HomeFeedSurface.vue')
 expectIncludes(hotArticlesIsland, 'rounded-[var(--fsusblog-reading-radius-control)]', 'homeHotArticlesIsland.ts')
+expectIncludes(siteStore, '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。', 'site.ts default description')
+expectIncludes(siteStore, '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog', 'site.ts default keywords')
+expectNotIncludes(siteStore, '极简主义个人内容发布系统', 'site.ts default description')
+expectNotIncludes(siteStore, 'Minimalism, Blog, Fsu', 'site.ts default keywords')
 
 if (!packageJson.scripts?.['check:public-anti-ai-visual']) {
   errors.push('package.json missing check:public-anti-ai-visual')
