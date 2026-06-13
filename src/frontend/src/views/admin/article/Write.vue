@@ -167,21 +167,21 @@
               <section
                 class="write-ai-panel border-t border-[var(--fsusblog-panel-border)]"
                 data-author-ai-assist-panel="true"
-                aria-label="作者 AI 辅助"
+                aria-label="内容辅助"
               >
                 <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
-                  <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">作者辅助 / AI CHECK</div>
+                  <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">内容辅助 / DRAFT CHECK</div>
                 </header>
                 <div class="p-6 space-y-5">
                   <p class="text-xs leading-6 text-[var(--fsusblog-text-secondary)]" aria-live="polite">
-                    {{ aiAssistStatusText || '按当前标题与正文生成摘要、标题候选、标签和结构建议。' }}
+                    {{ aiAssistStatusText || '根据当前标题与正文生成摘要草稿、标题备选、标签匹配和结构检查结果。' }}
                   </p>
                   <div class="grid grid-cols-2 gap-3">
                     <el-button :disabled="submitting" @click="autoGenerateSummary">
-                      生成摘要
+                      生成摘要草稿
                     </el-button>
                     <el-button type="primary" :loading="aiAssistLoading" :disabled="submitting || aiAssistLoading" @click="requestAiAssist">
-                      AI 辅助检查
+                      检查草稿
                     </el-button>
                   </div>
                   <div v-if="aiAssist" class="space-y-4 border-t border-[var(--fsusblog-panel-border)] pt-5">
@@ -189,13 +189,13 @@
                       {{ aiAssist.suggestedSummary }}
                     </p>
                     <el-button v-if="aiAssist.suggestedSummary" size="small" :disabled="submitting" @click="applyAiSummary">
-                      采用摘要
+                      使用这版摘要
                     </el-button>
                     <div v-if="aiAssist.suggestedTags.length > 0" class="flex flex-wrap gap-2">
                       <el-tag v-for="tag in aiAssist.suggestedTags" :key="tag" size="small">{{ tag }}</el-tag>
                     </div>
                     <el-button v-if="aiAssist.suggestedTags.length > 0" size="small" :disabled="submitting" @click="applyAiSuggestedTags">
-                      关联已有标签
+                      匹配已有标签
                     </el-button>
                     <div v-if="aiAssist.titleCandidates.length > 0" class="grid gap-2">
                       <el-button
@@ -208,7 +208,7 @@
                       </el-button>
                     </div>
                     <el-button v-if="aiAssist.translationDraft" size="small" :disabled="submitting" @click="applyAiTranslationDraft">
-                      采用翻译草稿
+                      使用翻译草稿
                     </el-button>
                   </div>
                 </div>

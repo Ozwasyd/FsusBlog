@@ -1260,7 +1260,7 @@ export function useAdminArticleWrite() {
       .substring(0, 180)
 
     articleForm.summary = cleanStr + (cleanStr.length >= 180 ? '...' : '')
-    toast.success('摘要提取算法执行成功')
+    toast.success('摘要草稿已生成')
   }
 
   const requestAiAssist = async () => {
@@ -1270,8 +1270,8 @@ export function useAdminArticleWrite() {
     }
 
     aiAssistLoading.value = true
-    aiAssistStatusText.value = '正在生成作者辅助建议'
-    taskFeedback.begin('正在生成作者辅助建议', '摘要、标签、标题候选与结构建议', 'article-ai-assist')
+    aiAssistStatusText.value = '正在检查草稿'
+    taskFeedback.begin('正在检查草稿', '摘要草稿、标签匹配、标题备选与结构检查', 'article-ai-assist')
     try {
       await aiAssistTask.run(async (signal) => {
         const response = await generateAiAssist({
@@ -1282,18 +1282,18 @@ export function useAdminArticleWrite() {
         }, buildSignalConfig(signal))
         aiAssist.value = response
         aiAssistStatusText.value = response.externalProviderAllowed
-          ? `已生成建议，provider=${response.providerMode}`
-          : `已生成本地建议，provider=${response.providerMode}`
+          ? `已生成检查结果，provider=${response.providerMode}`
+          : `已生成本地检查结果，provider=${response.providerMode}`
         if (!articleForm.summary.trim() && response.suggestedSummary.trim()) {
           articleForm.summary = response.suggestedSummary.trim()
         }
-        taskFeedback.succeed('作者辅助建议已生成', aiAssistStatusText.value, 'article-ai-assist')
-        toast.success('作者辅助建议已生成')
+        taskFeedback.succeed('草稿检查结果已生成', aiAssistStatusText.value, 'article-ai-assist')
+        toast.success('草稿检查结果已生成')
       })
     } catch (error: unknown) {
       if (!isAbortError(error)) {
-        taskFeedback.fail('作者辅助建议生成失败', error, '作者辅助建议生成失败', 'article-ai-assist')
-        showErrorToast(error, '作者辅助建议生成失败')
+        taskFeedback.fail('草稿检查失败', error, '草稿检查失败', 'article-ai-assist')
+        showErrorToast(error, '草稿检查失败')
       }
     } finally {
       aiAssistLoading.value = false
@@ -1307,7 +1307,7 @@ export function useAdminArticleWrite() {
     }
 
     articleForm.summary = summary
-    toast.success('已采用摘要建议')
+    toast.success('已使用这版摘要')
   }
 
   const applyAiTitleCandidate = (title: string) => {
@@ -1335,7 +1335,7 @@ export function useAdminArticleWrite() {
     }
 
     articleForm.tagIds = [...new Set([...articleForm.tagIds, ...matchedIds])]
-    toast.success('已关联已有建议标签')
+    toast.success('已匹配已有标签')
   }
 
   const applyAiTranslationDraft = () => {
@@ -1345,7 +1345,7 @@ export function useAdminArticleWrite() {
     }
 
     articleForm.content = translation
-    toast.success('已采用翻译草稿')
+    toast.success('已使用翻译草稿')
   }
 
   const leaveEditor = () => {
