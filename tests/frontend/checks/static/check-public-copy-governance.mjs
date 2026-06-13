@@ -1,0 +1,244 @@
+#!/usr/bin/env node
+
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { join, relative, resolve } from 'node:path'
+
+const repoRoot = resolve(process.cwd(), '../..')
+const errors = []
+
+function repoPath(path) {
+  return resolve(repoRoot, path)
+}
+
+function read(path) {
+  return readFileSync(repoPath(path), 'utf8')
+}
+
+function rel(path) {
+  return relative(repoRoot, path).replaceAll('\\', '/')
+}
+
+function walk(dir, output = []) {
+  if (!existsSync(dir)) {
+    return output
+  }
+
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry)
+    const stat = statSync(full)
+    if (stat.isDirectory()) {
+      if (['node_modules', 'dist', 'coverage'].includes(entry)) {
+        continue
+      }
+      walk(full, output)
+      continue
+    }
+    if (/\.(vue|ts|md)$/.test(full)) {
+      output.push(full)
+    }
+  }
+  return output
+}
+
+function lineNumber(source, index) {
+  return source.slice(0, index).split('\n').length
+}
+
+function addError(file, line, message) {
+  errors.push(`${file}:${line}: ${message}`)
+}
+
+function findAll(source, token) {
+  const matches = []
+  let index = source.indexOf(token)
+  while (index !== -1) {
+    matches.push(index)
+    index = source.indexOf(token, index + token.length)
+  }
+  return matches
+}
+
+function isLikelyTechnicalLine(line) {
+  return /\b(import|export|interface|type|const|let|function|class|from)\b/.test(line)
+    || /\b(class|className|style)\s*=/.test(line)
+    || /\btransition(?:-|:)|\btransform(?:-|:|\s+var|\s*!important)/.test(line)
+    || /data-fsus-motion-surface|fsusBlogMotionPresets|homeHero/.test(line)
+}
+
+const scanRoots = [
+  'src/frontend/src/components/public',
+  'src/frontend/src/components/home',
+  'src/frontend/src/components/filter',
+  'src/frontend/src/components/account',
+  'src/frontend/src/components/user',
+  'src/frontend/src/views/auth',
+  'src/frontend/src/views/user',
+  'src/frontend/src/view-contracts',
+  'src/frontend/src/public-renderers',
+  'docs/frontend'
+]
+
+const explicitFiles = [
+  'src/frontend/src/store/site.ts',
+  'src/frontend/src/config/consoleWelcomeCallout.ts',
+  'src/frontend/src/components/admin/ConsoleWelcomeCallout.vue',
+  'src/frontend/src/views/admin/article/Write.vue',
+  'src/frontend/src/composables/useHomeView.ts',
+  'src/frontend/src/composables/useAdminArticleWrite.ts',
+  'docs/api/contracts.md',
+  'src/frontend/package.json'
+]
+
+const scannedFiles = Array.from(new Set([
+  ...scanRoots.flatMap((path) => walk(repoPath(path))).map(rel),
+  ...explicitFiles
+]))
+  .filter((path) => existsSync(repoPath(path)))
+  .sort()
+
+const exactForbidden = [
+  { token: '极简主义个人内容发布系统', reason: 'old CMS/template public default description' },
+  { token: 'Minimalism, Blog, Fsu', reason: 'old generic public default keywords' },
+  { token: 'Security verifying', reason: 'English middleware-style public loading copy' },
+  { token: 'secure check', reason: 'English middleware-style public loading copy' },
+  { token: 'verifying environment', reason: 'English middleware-style public loading copy' },
+  { token: 'checking browser', reason: 'English middleware-style public loading copy' },
+  { token: 'Welcome to FsusBlog.', reason: 'generic OSS starter callout copy' },
+  { token: 'Found a console problem or have an improvement idea?', reason: 'generic OSS starter callout copy' },
+  { token: 'send a patch', reason: 'generic OSS starter callout copy' },
+  { token: 'Contribution guide', reason: 'generic OSS starter link label' },
+  { token: 'Create GitHub issue', reason: 'generic OSS starter link label' },
+  { token: 'Project community', reason: 'generic OSS starter link label' },
+  { token: 'AI CHECK', reason: 'AI-forward authoring panel label' },
+  { token: 'AI 辅助检查', reason: 'AI-forward authoring primary action' },
+  { token: '作者辅助 / AI CHECK', reason: 'old authoring panel label' },
+  { token: '按当前标题与正文生成摘要、标题候选、标签和结构建议。', reason: 'old authoring panel description' },
+  { token: '没有找到文章。', reason: 'placeholder public empty state' },
+  { token: '无相关内容', reason: 'placeholder public empty state' },
+  { token: '筛选目标不存在', reason: 'placeholder public empty state' },
+  { token: '暂时无法加载内容', reason: 'placeholder public unavailable state' },
+  { token: '连接丢失。', reason: 'dramatic public connection copy' },
+  { token: '数据加载异常', reason: 'generic public loading error copy' }
+]
+
+const marketingTerms = [
+  'unlock',
+  'empower',
+  'transform',
+  'next-generation',
+  'future of',
+  'seamless',
+  'intelligent experience',
+  'AI-powered'
+]
+
+const requiredCopy = [
+  {
+    path: 'src/frontend/src/store/site.ts',
+    tokens: [
+      '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。',
+      '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog'
+    ]
+  },
+  {
+    path: 'src/frontend/src/view-contracts/filterView.ts',
+    tokens: ['正在完成访问校验', '这个筛选条件下暂无文章', '这个筛选条件不存在']
+  },
+  {
+    path: 'src/frontend/src/components/admin/ConsoleWelcomeCallout.vue',
+    tokens: ['控制台维护', '发现后台问题或需要记录改进项，可以从这里进入项目维护入口。']
+  },
+  {
+    path: 'src/frontend/src/config/consoleWelcomeCallout.ts',
+    tokens: ['维护说明', '新建 Issue', '讨论区']
+  },
+  {
+    path: 'src/frontend/src/views/admin/article/Write.vue',
+    tokens: ['内容辅助 / DRAFT CHECK', '检查草稿', '生成摘要草稿', '匹配已有标签']
+  }
+]
+
+const reviewTermAllowlist = new Map([
+  [
+    'src/frontend/src/components/home/FeaturedArticlesSection.vue::SPOTLIGHT',
+    'Reviewed retained public section label for the curated home spotlight block; issue #194 requires explicit allowlist while kept.'
+  ],
+  [
+    'src/frontend/src/components/home/FeaturedArticlesSection.vue::TRENDING',
+    'Reviewed retained public section label for hot-article ranking; issue #194 requires explicit allowlist while kept.'
+  ],
+  [
+    'docs/frontend/motion-guidelines.md::Home hero',
+    'Motion documentation references the page region name, not default visitor-facing product copy.'
+  ]
+])
+
+for (const path of scannedFiles) {
+  const source = read(path)
+
+  for (const { token, reason } of exactForbidden) {
+    for (const index of findAll(source, token)) {
+      addError(path, lineNumber(source, index), `forbidden copy "${token}" (${reason})`)
+    }
+  }
+
+  const lines = source.split('\n')
+  lines.forEach((line, lineIndex) => {
+    if (isLikelyTechnicalLine(line)) {
+      return
+    }
+    for (const term of marketingTerms) {
+      if (term === 'transform' && /`[^`]*transform|transform[^`]*`|transition/.test(line)) {
+        continue
+      }
+      const pattern = new RegExp(`(^|[^a-z0-9-])${term.replaceAll('-', '\\-')}([^a-z0-9-]|$)`, 'i')
+      if (pattern.test(line)) {
+        addError(path, lineIndex + 1, `review English marketing/template term "${term}"`)
+      }
+    }
+  })
+
+  if (/\.(vue|md)$/.test(path)) {
+    lines.forEach((line, lineIndex) => {
+      if (isLikelyTechnicalLine(line)) {
+        return
+      }
+      for (const token of ['SPOTLIGHT', 'TRENDING', 'DISCOVER', 'FEATURED', 'Home hero']) {
+        if (line.includes(token)) {
+          const key = `${path}::${token}`
+          if (!reviewTermAllowlist.has(key)) {
+            addError(path, lineIndex + 1, `landing-page label "${token}" requires explicit public-copy allowlist`)
+          }
+        }
+      }
+    })
+  }
+}
+
+for (const { path, tokens } of requiredCopy) {
+  const source = read(path)
+  for (const token of tokens) {
+    if (!source.includes(token)) {
+      addError(path, 1, `missing required governed copy "${token}"`)
+    }
+  }
+}
+
+const packageJson = JSON.parse(read('src/frontend/package.json'))
+if (!packageJson.scripts?.['check:public-copy-governance']) {
+  addError('src/frontend/package.json', 1, 'missing check:public-copy-governance script')
+}
+
+const viewsConstraints = packageJson.scripts?.['check:views-constraints'] ?? ''
+if (!viewsConstraints.includes('npm run check:public-copy-governance')) {
+  addError('src/frontend/package.json', 1, 'check:views-constraints must run check:public-copy-governance')
+}
+
+if (errors.length > 0) {
+  for (const error of errors) {
+    console.error(`[public-copy-governance] ${error}`)
+  }
+  process.exit(1)
+}
+
+console.log(`[public-copy-governance] ok files=${scannedFiles.length} allowlist=${reviewTermAllowlist.size}`)
