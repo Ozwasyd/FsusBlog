@@ -35,9 +35,9 @@ for (const token of [
   'window.__FSUSBLOG_CONSOLE_WELCOME_CALLOUT__',
   'shouldShowConsoleWelcomeCallout',
   'buildConsoleWelcomeCalloutLinks',
-  'Contribution guide',
-  'Create GitHub issue',
-  'Project community'
+  '维护说明',
+  '新建 Issue',
+  '讨论区'
 ]) {
   expectIncludes('src/frontend/src/config/consoleWelcomeCallout.ts', token, token)
 }
@@ -57,9 +57,11 @@ for (const token of [
   'data-console-welcome-dismiss="true"',
   'target="_blank"',
   'rel="noopener noreferrer"',
-  'Welcome to FsusBlog.',
+  '控制台反馈',
+  '控制台维护',
+  '发现后台问题或需要记录改进项，可以从这里进入项目维护入口。',
   'link.label',
-  'Dismiss welcome callout'
+  '关闭控制台反馈提示'
 ]) {
   expectIncludes('src/frontend/src/components/admin/ConsoleWelcomeCallout.vue', token, token)
 }
@@ -72,7 +74,22 @@ expectIncludes('src/frontend/package.json', 'check:console-welcome-callout', 'np
 expectIncludes('src/frontend/package.json', 'npm run check:console-welcome-callout', 'views constraints hook')
 
 expectNotIncludes('src/frontend/src/config/consoleWelcomeCallout.ts', 'diagnostic', 'diagnostic issue URL attachment')
-expectNotIncludes('src/frontend/src/components/admin/ConsoleWelcomeCallout.vue', 'GitLab', 'copied GitLab wording')
+for (const token of [
+  'GitLab',
+  'Welcome to FsusBlog.',
+  'improvement idea',
+  'send a patch'
+]) {
+  expectNotIncludes('src/frontend/src/components/admin/ConsoleWelcomeCallout.vue', token, token)
+}
+
+for (const token of [
+  'Contribution guide',
+  'Create GitHub issue',
+  'Project community'
+]) {
+  expectNotIncludes('src/frontend/src/config/consoleWelcomeCallout.ts', token, token)
+}
 
 if (errors.length > 0) {
   for (const error of errors) {

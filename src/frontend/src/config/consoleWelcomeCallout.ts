@@ -148,8 +148,8 @@ export function buildConsoleWelcomeCalloutLinks(
   }
 
   return [
-    { key: 'contribute', label: 'Contribution guide', href: config.contributeUrl },
-    { key: 'issue', label: 'Create GitHub issue', href: config.issueUrl },
-    { key: 'community', label: 'Project community', href: config.communityUrl }
+    { key: 'contribute', label: '维护说明', href: config.contributeUrl },
+    { key: 'issue', label: '新建 Issue', href: config.issueUrl },
+    { key: 'community', label: '讨论区', href: config.communityUrl }
   ].filter((link): link is ConsoleWelcomeCalloutLink => Boolean(link.href))
 }

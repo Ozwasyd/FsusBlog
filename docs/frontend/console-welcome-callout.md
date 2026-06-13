@@ -1,6 +1,12 @@
 # Console Welcome Callout
 
-The admin console welcome callout is a lightweight project feedback affordance. It is dismissible, does not block workflows, and never attaches deployment diagnostics to issue links.
+The admin console welcome callout is a lightweight maintenance and feedback entry inside the admin workspace. It is dismissible, does not block workflows, and never attaches deployment diagnostics to issue links.
+
+Default visible copy is maintenance-oriented Chinese admin copy:
+
+- title: `控制台维护`
+- body: `发现后台问题或需要记录改进项，可以从这里进入项目维护入口。`
+- links: `维护说明`, `新建 Issue`, `讨论区`
 
 ## Configuration
 

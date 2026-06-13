@@ -32,8 +32,8 @@ describe('console welcome callout', () => {
     })
 
     expect(buildConsoleWelcomeCalloutLinks(config)).toEqual([
-      { key: 'issue', label: 'Create GitHub issue', href: 'https://github.com/Ozwasyd/FsusBlog/issues/new' },
-      { key: 'community', label: 'Project community', href: 'https://github.com/Ozwasyd/FsusBlog' }
+      { key: 'issue', label: '新建 Issue', href: 'https://github.com/Ozwasyd/FsusBlog/issues/new' },
+      { key: 'community', label: '讨论区', href: 'https://github.com/Ozwasyd/FsusBlog' }
     ])
   })
 

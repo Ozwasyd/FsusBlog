@@ -6,9 +6,9 @@
     aria-labelledby="console-welcome-callout-title"
   >
     <div class="console-welcome-callout__copy">
-      <p class="console-welcome-callout__eyebrow">CONSOLE / FEEDBACK</p>
+      <p class="console-welcome-callout__eyebrow">控制台反馈</p>
       <h2 id="console-welcome-callout-title" class="console-welcome-callout__title">
-        Welcome to FsusBlog.
+        控制台维护
       </h2>
       <p class="console-welcome-callout__body">
         {{ bodyText }}
@@ -18,7 +18,7 @@
     <nav
       v-if="links.length > 0"
       class="console-welcome-callout__links"
-      aria-label="FsusBlog contribution links"
+      aria-label="FsusBlog 维护入口"
     >
       <a
         v-for="link in links"
@@ -37,7 +37,7 @@
       :icon="Close"
       class="console-welcome-callout__dismiss"
       data-console-welcome-dismiss="true"
-      aria-label="Dismiss welcome callout"
+      aria-label="关闭控制台反馈提示"
       @click="dismiss"
     />
   </section>
@@ -58,8 +58,8 @@ const { dismiss, links, visible } = useConsoleWelcomeCallout({
 
 const bodyText = computed(() => (
   links.value.length > 0
-    ? 'Found a console problem or have an improvement idea? Use these project links to report it or send a patch.'
-    : 'Found a console problem or have an improvement idea? Contact the site owner to improve this deployment.'
+    ? '发现后台问题或需要记录改进项，可以从这里进入项目维护入口。'
+    : '发现后台问题或需要记录改进项，请联系站点维护者。'
 ))
 </script>
 
