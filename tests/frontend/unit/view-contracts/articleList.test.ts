@@ -116,6 +116,6 @@ describe('createArticleListViewContract', () => {
 
   it('empty state has title', () => {
     const vc = createArticleListViewContract(response as never, { currentPage: 1, pageSize: 10 })
-    expect(vc.emptyState.title).toBe('没有找到文章。')
+    expect(vc.emptyState.title).toBe('没有匹配的文章')
   })
 })

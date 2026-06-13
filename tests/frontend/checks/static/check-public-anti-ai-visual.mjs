@@ -38,6 +38,13 @@ const articleDetail = read('src/frontend/src/components/public/pages/PublicArtic
 const homeFeedSurface = read('src/frontend/src/components/public/HomeFeedSurface.vue')
 const hotArticlesIsland = read('src/frontend/src/public-renderers/homeHotArticlesIsland.ts')
 const siteStore = read('src/frontend/src/store/site.ts')
+const filterView = read('src/frontend/src/view-contracts/filterView.ts')
+const articleListView = read('src/frontend/src/view-contracts/articleList.ts')
+const homeEmptyState = read('src/frontend/src/components/home/HomeArticleEmptyState.vue')
+const homeErrorState = read('src/frontend/src/components/home/HomeArticleErrorState.vue')
+const aboutPage = read('src/frontend/src/components/public/pages/PublicAboutPageContent.vue')
+const articleDetailState = read('src/frontend/src/view-contracts/articleDetail.ts')
+const homeViewComposable = read('src/frontend/src/composables/useHomeView.ts')
 const packageJson = JSON.parse(read('src/frontend/package.json'))
 
 for (const token of [
@@ -121,6 +128,37 @@ expectIncludes(siteStore, '工程记录、性能实验、UI 系统与 FsusBlog �
 expectIncludes(siteStore, '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog', 'site.ts default keywords')
 expectNotIncludes(siteStore, '极简主义个人内容发布系统', 'site.ts default description')
 expectNotIncludes(siteStore, 'Minimalism, Blog, Fsu', 'site.ts default keywords')
+
+const publicStateCopySources = new Map([
+  ['filterView.ts', filterView],
+  ['articleList.ts', articleListView],
+  ['HomeArticleEmptyState.vue', homeEmptyState],
+  ['HomeArticleErrorState.vue', homeErrorState],
+  ['PublicAboutPageContent.vue', aboutPage],
+  ['articleDetail.ts', articleDetailState],
+  ['useHomeView.ts', homeViewComposable]
+])
+
+expectIncludes(filterView, '正在完成访问校验', 'filterView.ts pow indicator')
+expectIncludes(filterView, '这个筛选条件下暂无文章', 'filterView.ts empty state')
+expectIncludes(articleListView, '没有匹配的文章', 'articleList.ts empty state')
+expectIncludes(homeEmptyState, '没有匹配的文章', 'HomeArticleEmptyState.vue')
+expectIncludes(homeErrorState, '内容暂时无法载入', 'HomeArticleErrorState.vue')
+expectIncludes(aboutPage, '内容连接中断', 'PublicAboutPageContent.vue')
+
+for (const [label, source] of publicStateCopySources) {
+  for (const token of [
+    'Security verifying',
+    '没有找到文章。',
+    '无相关内容',
+    '筛选目标不存在',
+    '暂时无法加载内容',
+    '连接丢失。',
+    '数据加载异常'
+  ]) {
+    expectNotIncludes(source, token, label)
+  }
+}
 
 if (!packageJson.scripts?.['check:public-anti-ai-visual']) {
   errors.push('package.json missing check:public-anti-ai-visual')

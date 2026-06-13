@@ -1,5 +1,5 @@
 <template>
-  <el-empty description="数据加载异常">
+  <el-empty description="内容暂时无法载入">
     <el-button type="primary" @click="$emit('retry')">重试</el-button>
   </el-empty>
 </template>

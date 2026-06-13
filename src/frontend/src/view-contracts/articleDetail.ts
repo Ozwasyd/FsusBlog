@@ -100,7 +100,7 @@ export type ArticleDetailPageViewContract = Readonly<{
 
 export const articleDetailStates = {
   errorState: {
-    title: '数据加载异常，请稍后重试。',
+    title: '内容暂时无法载入，请稍后重试。',
     retryText: '重载页面'
   },
   notFoundState: {

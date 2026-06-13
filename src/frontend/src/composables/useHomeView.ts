@@ -186,7 +186,7 @@ export function useHomeView() {
       if (lifecycle.isActive()) {
         const normalized = toAppError(caught, 'home_articles_load_failed')
         console.error('[Home] Data loading error:', normalized.message)
-        setError(normalized.code === AppErrorCode.ProtocolFailure ? '数据结构异常' : '数据加载异常')
+        setError(normalized.code === AppErrorCode.ProtocolFailure ? '内容结构暂时无法识别' : '内容暂时无法载入')
         articleItems.value = []
         setPageTotal(0)
       }

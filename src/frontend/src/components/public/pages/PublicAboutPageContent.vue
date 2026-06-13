@@ -55,7 +55,7 @@
 
   <section v-else class="blog-page-shell max-w-3xl mx-auto px-5 sm:px-8 min-h-screen flex grow flex-col items-center justify-center py-24 sm:py-32">
     <p class="text-xs tabular-nums font-medium normal-case text-[var(--fsusblog-text-muted)] mb-6">
-      连接丢失。
+      内容连接中断
     </p>
     <el-button
       type="primary"

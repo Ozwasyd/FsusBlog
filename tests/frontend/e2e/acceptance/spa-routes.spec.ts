@@ -499,9 +499,9 @@ test.describe('SPA route audit', () => {
       await expect(session.page.locator('body')).toContainText('排序')
       await expectAnyVisible([
         session.page.locator('article'),
-        session.page.getByText('没有找到', { exact: false }),
+        session.page.getByText('没有匹配', { exact: false }),
         session.page.getByText('暂无', { exact: false }),
-        session.page.getByText('无相关内容', { exact: false })
+        session.page.getByText('暂无文章', { exact: false })
       ], 'search result shell')
 
       for (const label of ['最新', '热度', '相关']) {

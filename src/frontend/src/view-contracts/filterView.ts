@@ -94,7 +94,7 @@ function createFilterLoadingStateViewContract(view: {
     loadingArticles: view.loadingArticles,
     isPowCalculating: view.isPowCalculating,
     skeletonCount: 3,
-    indicatorText: 'Security verifying...'
+    indicatorText: '正在完成访问校验'
   };
 }
 
@@ -106,7 +106,7 @@ function createFilterEmptyStateViewContract(
   return {
     hasError,
     isInvalidTarget,
-    title: hasError ? '暂时无法加载内容' : isInvalidTarget ? '筛选目标不存在' : '无相关内容',
+    title: hasError ? '内容暂时无法载入' : isInvalidTarget ? '这个筛选条件不存在' : '这个筛选条件下暂无文章',
     actionText: '返回首页',
     actionRoute: homeTarget.route
   };
