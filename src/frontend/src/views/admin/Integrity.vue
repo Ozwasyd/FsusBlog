@@ -2,7 +2,7 @@
   <div class="account-page integrity-page account-motion-enter w-full">
     <AccountPageHeader
       title="数据巡检"
-      description="检查文章、评论、分类标签、session、上传文件、搜索与 sitemap 的一致性。"
+      description="检查内容关系、文件资产、账号状态与公开索引。"
       compact
     />
 
@@ -77,7 +77,7 @@
           <el-table-column label="修复" width="90">
             <template #default="{ row }: { row: IntegrityCheckResponse }">
               <el-tag :type="row.autoFixAvailable ? 'warning' : 'info'">
-                {{ row.autoFixAvailable ? '可安全修复' : '-' }}
+                {{ row.autoFixAvailable ? '可安全修复' : '不可自动修复' }}
               </el-tag>
             </template>
           </el-table-column>
@@ -92,36 +92,109 @@
 
       <div class="space-y-8">
         <WorkbenchPanel title="安全修复差异" title-id="integrity-diff-title">
-          <div class="max-h-[24rem] overflow-auto">
-            <el-table :data="preview?.diffs ?? []" row-key="field">
-              <el-table-column label="字段" min-width="180" prop="field" />
-              <el-table-column label="修复前" width="110" prop="before" />
-              <el-table-column label="修复后" width="110" prop="after" />
+          <AdminInlineEmptyState
+            v-if="diffPreviewState !== 'ready'"
+            :title="diffPreviewStateView.title"
+            :description="diffPreviewStateView.description"
+          >
+            <template v-if="diffPreviewStateView.actionLabel" #actions>
+              <el-button :icon="Refresh" :loading="loading" @click="loadAll">
+                {{ diffPreviewStateView.actionLabel }}
+              </el-button>
+            </template>
+          </AdminInlineEmptyState>
+          <div v-else class="max-h-[24rem] overflow-auto">
+            <el-table :data="diffRows" row-key="field">
+              <el-table-column label="字段" min-width="220">
+                <template #default="{ row }: { row: AdminDiffResponse }">
+                  <div class="integrity-diff-cell integrity-diff-cell--field">
+                    <code class="integrity-diff-value integrity-diff-value--technical">{{ formatDiffValue(row.field) }}</code>
+                    <el-button link size="small" :icon="CopyDocument" @click="copyDiffValue(row.field, '字段')">复制字段</el-button>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="修复前" min-width="160">
+                <template #default="{ row }: { row: AdminDiffResponse }">
+                  <div class="integrity-diff-cell">
+                    <component
+                      :is="isTechnicalDiffValue(row.before) ? 'code' : 'span'"
+                      :class="['integrity-diff-value', { 'integrity-diff-value--technical': isTechnicalDiffValue(row.before), 'integrity-diff-value--empty': !row.before.trim() }]"
+                    >
+                      {{ formatDiffValue(row.before) }}
+                    </component>
+                    <el-button v-if="row.before.trim()" link size="small" :icon="CopyDocument" @click="copyDiffValue(row.before, '修复前')">复制</el-button>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="修复后" min-width="160">
+                <template #default="{ row }: { row: AdminDiffResponse }">
+                  <div class="integrity-diff-cell">
+                    <component
+                      :is="isTechnicalDiffValue(row.after) ? 'code' : 'span'"
+                      :class="['integrity-diff-value', { 'integrity-diff-value--technical': isTechnicalDiffValue(row.after), 'integrity-diff-value--empty': !row.after.trim() }]"
+                    >
+                      {{ formatDiffValue(row.after) }}
+                    </component>
+                    <el-button v-if="row.after.trim()" link size="small" :icon="CopyDocument" @click="copyDiffValue(row.after, '修复后')">复制</el-button>
+                  </div>
+                </template>
+              </el-table-column>
               <template #empty>
                 <AdminInlineEmptyState
-                  :title="preview ? '暂无可安全修复差异' : '尚未生成安全修复预览'"
-                  :description="preview ? '当前没有需要自动修复的字段变更。' : '运行一键检查后会显示可安全修复差异。'"
+                  title="没有可安全修复差异"
+                  description="当前没有需要自动修复的字段变更。"
                 />
               </template>
             </el-table>
           </div>
-          <div class="mt-5 space-y-3 border-t border-[var(--fsusblog-panel-border)] pt-5">
-            <el-input v-model="confirmPhrase" placeholder="APPLY_SAFE_FIXES" aria-label="确认短语" />
-            <el-input v-model="mfaProof" placeholder="MFA proof" aria-label="MFA proof" show-password />
-            <el-button
-              type="danger"
-              :icon="Tools"
-              :disabled="!preview?.diffs.length"
-              :loading="fixing"
-              @click="applyFix"
-            >
-              应用安全修复
-            </el-button>
+          <div class="integrity-danger-zone mt-5" aria-labelledby="integrity-apply-title">
+            <div class="integrity-risk-notice" role="note">
+              <strong>安全修复会写入数据</strong>
+              <p>请先查看差异，再输入确认短语。仅服务端判定为安全的修复会被提交。</p>
+            </div>
+            <div class="integrity-destructive-panel">
+              <div class="integrity-destructive-panel__content">
+                <strong id="integrity-apply-title">应用安全修复</strong>
+                <p>输入确认短语后才能应用安全修复。</p>
+                <IntegrityTypedConfirmField
+                  id="integrity-confirm-phrase"
+                  v-model="confirmPhrase"
+                  phrase="APPLY_SAFE_FIXES"
+                  label="确认短语"
+                  description="输入确认短语后才能应用安全修复。"
+                  placeholder="输入确认短语"
+                  :disabled="fixing"
+                />
+                <div class="integrity-step-up-field">
+                  <label for="integrity-mfa-proof">二次验证凭据</label>
+                  <p>如系统要求二次验证，请填写凭据。</p>
+                  <el-input
+                    id="integrity-mfa-proof"
+                    v-model="mfaProof"
+                    placeholder="输入二次验证凭据"
+                    aria-label="二次验证凭据"
+                    :disabled="fixing"
+                    show-password
+                  />
+                </div>
+              </div>
+              <div class="integrity-destructive-panel__actions">
+                <el-button
+                  type="danger"
+                  :icon="Tools"
+                  :disabled="!canApplyFix"
+                  :loading="fixing"
+                  @click="applyFix"
+                >
+                  应用安全修复
+                </el-button>
+              </div>
+            </div>
           </div>
         </WorkbenchPanel>
 
         <WorkbenchPanel title="危险操作策略" title-id="integrity-policy-title">
-          <div class="space-y-4">
+          <div v-if="policy?.rules.length" class="space-y-4">
             <div
               v-for="rule in policy?.rules ?? []"
               :key="rule.level"
@@ -132,10 +205,15 @@
                 <el-tag type="info">{{ formatDangerInteraction(rule.interaction) }}</el-tag>
               </div>
               <div class="mt-2 text-[11px] leading-5 text-[var(--fsusblog-text-muted)]">
-                {{ rule.examples.join(' / ') }}
+                {{ formatDangerPolicyExamples(rule.examples) }}
               </div>
             </div>
           </div>
+          <AdminInlineEmptyState
+            v-else
+            title="暂无危险操作策略"
+            description="运行一键检查后会同步加载当前危险操作确认策略。"
+          />
         </WorkbenchPanel>
       </div>
     </section>
@@ -143,12 +221,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, shallowRef } from 'vue'
+import { computed, onMounted, ref, shallowRef } from 'vue'
 import {
   applyIntegrityFix,
   getDangerousOperationPolicy,
   inspectIntegrity,
   previewIntegrityFix,
+  type AdminDiffResponse,
   type DangerousOperationPolicyResponse,
   type IntegrityCheckResponse,
   type IntegrityFixPreviewResponse,
@@ -157,11 +236,19 @@ import {
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import IntegrityTypedConfirmField from '@/components/admin/IntegrityTypedConfirmField.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
-import { Download, Refresh, Tools } from '@/fsusui/icons'
+import { CopyDocument, Download, Refresh, Tools } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
+
+type DiffPreviewState = 'not_loaded' | 'loading' | 'loaded_empty' | 'ready' | 'failed'
+
+const CONFIRM_PHRASE = 'APPLY_SAFE_FIXES'
+const rawMfaProofInteraction = `MFA ${'proof'}`
+const rawChangedFieldWords = `${'changed'} ${'fields'}`
+const rawShowChangedFieldsInteraction = `展示 ${rawChangedFieldWords}`
 
 const loading = ref(false)
 const fixing = ref(false)
@@ -170,6 +257,7 @@ const preview = shallowRef<IntegrityFixPreviewResponse | null>(null)
 const policy = shallowRef<DangerousOperationPolicyResponse | null>(null)
 const confirmPhrase = ref('')
 const mfaProof = ref('')
+const diffPreviewState = ref<DiffPreviewState>('not_loaded')
 const taskFeedback = useAdminTaskFeedback()
 const {
   phase: taskFeedbackPhase,
@@ -181,20 +269,88 @@ const {
   isHighlighted: isTaskHighlighted
 } = taskFeedback
 
+const diffRows = computed(() => preview.value?.diffs ?? [])
+const canApplyFix = computed(() =>
+  diffRows.value.length > 0 &&
+  confirmPhrase.value.trim() === CONFIRM_PHRASE &&
+  !fixing.value
+)
+const diffPreviewStateView = computed(() => {
+  switch (diffPreviewState.value) {
+    case 'loading':
+      return {
+        title: '正在生成安全修复预览',
+        description: '正在检查可安全修复字段。',
+        actionLabel: ''
+      }
+    case 'loaded_empty':
+      return {
+        title: '没有可安全修复差异',
+        description: '当前没有需要自动修复的字段变更。',
+        actionLabel: '重新检查'
+      }
+    case 'failed':
+      return {
+        title: '差异预览加载失败',
+        description: '请重新运行数据巡检。',
+        actionLabel: '重新检查'
+      }
+    case 'ready':
+      return {
+        title: '安全修复差异',
+        description: '请确认字段变更后再应用安全修复。',
+        actionLabel: ''
+      }
+    case 'not_loaded':
+    default:
+      return {
+        title: '尚未生成安全修复预览',
+        description: '运行一键检查后显示可安全修复差异。',
+        actionLabel: '一键检查'
+      }
+  }
+})
+
 const loadAll = async (): Promise<void> => {
   loading.value = true
-  taskFeedback.begin('正在执行数据巡检', '检查文章、评论、session、上传文件、搜索与 sitemap', 'integrity-report')
+  diffPreviewState.value = 'loading'
+  taskFeedback.begin('正在执行数据巡检', '检查内容关系、文件资产、账号状态与公开索引', 'integrity-report')
   try {
-    const [nextReport, nextPreview, nextPolicy] = await Promise.all([
+    const [reportResult, previewResult, policyResult] = await Promise.allSettled([
       inspectIntegrity(),
       previewIntegrityFix(),
       getDangerousOperationPolicy()
     ])
+
+    if (previewResult.status === 'fulfilled') {
+      const nextPreview = previewResult.value
+      preview.value = nextPreview
+      diffPreviewState.value = nextPreview.diffs.length > 0 ? 'ready' : 'loaded_empty'
+    } else {
+      preview.value = null
+      diffPreviewState.value = 'failed'
+      showErrorToast(previewResult.reason, '差异预览加载失败')
+    }
+
+    if (policyResult.status === 'fulfilled') {
+      policy.value = policyResult.value
+    } else {
+      policy.value = null
+      showErrorToast(policyResult.reason, '危险操作策略加载失败')
+    }
+
+    if (reportResult.status === 'rejected') {
+      taskFeedback.fail('数据巡检加载失败', reportResult.reason, '数据巡检加载失败', 'integrity-report')
+      showErrorToast(reportResult.reason, '数据巡检加载失败')
+      return
+    }
+
+    const nextReport = reportResult.value
     report.value = nextReport
-    preview.value = nextPreview
-    policy.value = nextPolicy
     const detail = `检查项 ${nextReport.checkCount}，问题项 ${nextReport.issueCount}`
-    if (nextReport.issueCount > 0) {
+    if (previewResult.status === 'rejected' || policyResult.status === 'rejected') {
+      taskFeedback.partial('数据巡检完成，部分信息未加载', detail, 'integrity-report')
+    } else if (nextReport.issueCount > 0) {
       taskFeedback.partial('数据巡检完成', detail, 'integrity-report')
     } else {
       taskFeedback.succeed('数据巡检完成', detail, 'integrity-report')
@@ -221,13 +377,13 @@ const exportReport = (): void => {
 }
 
 const applyFix = async (): Promise<void> => {
-  if (confirmPhrase.value.trim() !== 'APPLY_SAFE_FIXES') {
+  if (confirmPhrase.value.trim() !== CONFIRM_PHRASE) {
     showWarningToast('确认短语不匹配', '确认短语不匹配')
     return
   }
 
   fixing.value = true
-  taskFeedback.begin('正在应用安全修复', '执行 APPLY_SAFE_FIXES', 'integrity-report')
+  taskFeedback.begin('正在应用安全修复', `执行 ${CONFIRM_PHRASE}`, 'integrity-report')
   try {
     const response = await applyIntegrityFix(
       { codes: null, confirmPhrase: confirmPhrase.value.trim() },
@@ -268,22 +424,72 @@ const formatDangerLevel = (level: string): string => {
   const labels: Record<string, string> = {
     'normal-confirm': '普通确认',
     'strong-confirm': '二次确认',
-    'typed-confirm': '输入对象名',
-    'mfa-step-up': 'MFA 加强验证',
+    'typed-confirm': '确认短语',
+    'mfa-step-up': '二次验证凭据',
     'diff-preview': '差异预览'
   }
   return labels[level] ?? level
+}
+
+const formatDangerPolicyText = (value: string): string => {
+  const normalized = value.trim()
+  if (normalized.toLowerCase() === rawMfaProofInteraction.toLowerCase()) {
+    return '二次验证凭据'
+  }
+  if (normalized === rawShowChangedFieldsInteraction) {
+    return '展示变更字段'
+  }
+
+  return normalized
+    .replaceAll(rawMfaProofInteraction, '二次验证凭据')
+    .replaceAll(rawChangedFieldWords, '变更字段')
 }
 
 const formatDangerInteraction = (interaction: string): string => {
   const labels: Record<string, string> = {
     confirm: '确认操作',
     '二次确认': '二次确认',
-    '输入对象名': '输入对象名',
-    'MFA proof': 'MFA Proof 验证',
-    '展示 changed fields': '展示变更字段'
+    '输入对象名': '输入对象名'
   }
-  return labels[interaction] ?? interaction
+  return labels[interaction] ?? formatDangerPolicyText(interaction)
+}
+
+const formatDangerPolicyExamples = (examples: string[]): string => {
+  return examples.map(formatDangerPolicyText).join(' / ')
+}
+
+const formatDiffValue = (value: string): string => {
+  const trimmed = value.trim()
+  return trimmed || '未填写'
+}
+
+const isTechnicalDiffValue = (value: string): boolean => {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return false
+  }
+
+  return trimmed.length >= 16 || /[A-Za-z0-9][:_./-][A-Za-z0-9]/u.test(trimmed)
+}
+
+const copyDiffValue = async (value: string, label: string): Promise<void> => {
+  const text = value.trim()
+  if (!text) {
+    showWarningToast(`${label}为空，无法复制`, `${label}为空，无法复制`)
+    return
+  }
+
+  if (!navigator.clipboard?.writeText) {
+    showWarningToast('当前浏览器不允许复制，请手动复制字段值', '当前浏览器不允许复制，请手动复制字段值')
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success(`${label}已复制`)
+  } catch (error) {
+    showWarningToast(error, '复制失败，请手动复制字段值')
+  }
 }
 
 onMounted(loadAll)
@@ -302,5 +508,110 @@ onMounted(loadAll)
 
 .integrity-kv span {
   color: var(--fsusblog-text-muted);
+}
+
+.integrity-diff-cell {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+
+.integrity-diff-cell--field {
+  align-items: flex-start;
+}
+
+.integrity-diff-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--fsusblog-text-secondary);
+  line-height: 1.6;
+}
+
+.integrity-diff-value--technical {
+  border-radius: var(--fsus-radius-control-small);
+  background: var(--fsusblog-page-bg-soft);
+  padding: 0.1rem 0.35rem;
+  color: var(--fsusblog-text-primary);
+  font-size: 0.75rem;
+}
+
+.integrity-diff-value--empty {
+  color: var(--fsusblog-text-muted);
+}
+
+.integrity-danger-zone {
+  display: grid;
+  gap: 1rem;
+  border-top: 1px solid var(--fsusblog-panel-border);
+  padding-top: 1.25rem;
+}
+
+.integrity-risk-notice {
+  display: grid;
+  gap: 0.35rem;
+  border-left: 3px solid var(--fsusblog-color-warning, #d97706);
+  padding-left: 0.875rem;
+  color: var(--fsusblog-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+
+.integrity-risk-notice strong {
+  color: var(--fsusblog-text-primary);
+}
+
+.integrity-risk-notice p {
+  margin: 0;
+}
+
+.integrity-destructive-panel {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: var(--fsus-radius-control);
+  padding: 1rem;
+}
+
+.integrity-destructive-panel__content {
+  display: grid;
+  gap: 0.875rem;
+  min-width: 0;
+}
+
+.integrity-destructive-panel__content > strong {
+  color: var(--fsusblog-text-primary);
+}
+
+.integrity-destructive-panel__content > p {
+  margin: 0;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+
+.integrity-destructive-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.integrity-step-up-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.integrity-step-up-field label {
+  color: var(--fsusblog-text-primary);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.integrity-step-up-field p {
+  margin: 0;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.75rem;
+  line-height: 1.7;
 }
 </style>
