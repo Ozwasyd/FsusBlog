@@ -165,7 +165,7 @@ export function useAdminTagManage() {
 
   const relationLockReason = (row: AdminTagItemResponse): string =>
     !row.canDelete
-      ? `真实引用 ${row.totalBlockingArticleCount} 篇：公开 ${row.publicArticleCount}，草稿 ${row.draftArticleCount}，定时 ${row.scheduledArticleCount}，归档 ${row.archivedArticleCount}。请先移除引用后再删除。`
+      ? `总引用 ${row.totalBlockingArticleCount} 篇：公开 ${row.publicArticleCount}，草稿 ${row.draftArticleCount}，定时 ${row.scheduledArticleCount}，归档 ${row.archivedArticleCount}。请先移除引用后再删除。`
       : '未被引用，可删除'
 
   const viewAssociatedArticles = (row: AdminTagItemResponse): void => {

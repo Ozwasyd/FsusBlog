@@ -1,39 +1,29 @@
 <template>
   <div class="account-page tag-manage-wrapper account-motion-enter w-full">
-    <AccountPageHeader
-      eyebrow="管理"
-      title="标签管理"
-      description="维护文章的索引关键词与检索语义。标签变更需要保持可读、简洁。"
-    />
+    <header class="account-page-header account-page-header--compact">
+      <h1 class="account-page-title">标签管理</h1>
+      <p class="account-page-description">维护文章标签与检索入口。</p>
+    </header>
 
-    <WorkbenchPanel
-      class="mb-12"
-      eyebrow="索引规模"
-      title="已存标签"
-      caption="删除判断使用管理端真实引用数，高危操作将触发强制算力校验"
-      title-id="tag-scale-title"
-    >
-      <template #title>
-        已存标签
-        <span class="text-[var(--fsusblog-text-primary)] tabular-nums">
-          {{ list.length }}
-        </span>
-      </template>
-      <template #actions>
-        <el-button
-          type="primary"
-          :icon="Plus"
-          @click="openDialog()"
-        >
-          创建标签
-        </el-button>
-      </template>
-    </WorkbenchPanel>
+    <section class="mb-8 border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-label="标签状态">
+      <AdminCollectionSummary :title="tagStateText" description="删除前会检查引用关系。">
+        <template #actions>
+          <el-button
+            type="primary"
+            :icon="Plus"
+            @click="openDialog()"
+          >
+            新增标签
+          </el-button>
+        </template>
+      </AdminCollectionSummary>
+    </section>
 
-    <section class="admin-data-surface">
-      <div class="admin-data-surface__toolbar">
-        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">标签列表</div>
-        <div class="flex flex-wrap items-center gap-2">
+    <section class="admin-data-surface" aria-labelledby="tag-list-title">
+      <AdminCollectionSummary id="tag-list-title" title="标签列表" :meta="tagResultText" />
+      <AdminCollectionToolbar label="标签筛选">
+        <template #filters>
+          <div class="taxonomy-toolbar-controls">
           <el-input
             v-model="filters.keyword"
             class="taxonomy-filter-input"
@@ -44,8 +34,9 @@
           />
           <el-checkbox v-model="filters.unusedOnly">仅未引用</el-checkbox>
           <el-button text @click="resetFilters">清除筛选</el-button>
-        </div>
-      </div>
+          </div>
+        </template>
+      </AdminCollectionToolbar>
       <el-table
         v-loading="loading"
         :data="filteredList"
@@ -82,18 +73,26 @@
         <el-table-column
           v-if="!isCompact"
           prop="totalBlockingArticleCount"
-          label="真实引用"
+          label="引用数"
           :width="countColumnWidth"
           align="center"
           sortable
         >
+          <template #header>
+            <span class="inline-flex items-center justify-center gap-1">
+              引用数
+              <el-tooltip content="删除判断使用管理端完整引用数，可能高于公开文章数。" placement="top">
+                <el-icon><InfoFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <template #default="{ row }: { row: AdminTagItemResponse }">
-            <el-statistic
-              :value="row.totalBlockingArticleCount"
-            />
-            <p class="mt-1 text-[10px] text-[var(--fsusblog-text-muted)]">
-              公开 {{ row.publicArticleCount }}
-            </p>
+            <div class="taxonomy-reference-cell">
+              <strong class="tabular-nums">总引用 {{ row.totalBlockingArticleCount }}</strong>
+              <p class="mt-1 text-[10px] text-[var(--fsusblog-text-muted)]">
+                公开 {{ row.publicArticleCount }}
+              </p>
+            </div>
           </template>
         </el-table-column>
 
@@ -131,6 +130,14 @@
             </div>
           </template>
         </el-table-column>
+        <template #empty>
+          <AdminInlineEmptyState :title="tagEmptyTitle" :description="tagEmptyDescription">
+            <template #actions>
+              <el-button v-if="hasTagFilters" link type="primary" @click="resetFilters">清除筛选</el-button>
+              <el-button v-else link type="primary" @click="openDialog()">新增标签</el-button>
+            </template>
+          </AdminInlineEmptyState>
+        </template>
       </el-table>
     </section>
 
@@ -186,11 +193,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { type AdminTagItemResponse } from '@/api/authoring'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { InfoFilled, Plus, Search, View, Lock } from '@/fsusui/icons'
 import { useAdminTagManage } from '@/composables/useAdminTagManage'
 import { useMediaQuery } from '@/composables/useMediaQuery'
+import {
+  AdminCollectionSummary,
+  AdminCollectionToolbar,
+  AdminInlineEmptyState
+} from '@/components/admin/AdminCollectionPrimitives'
 
 const {
   list,
@@ -217,6 +227,13 @@ void formRef
 const getTagRowKey = (row: AdminTagItemResponse): string => String(row.id)
 
 const isCompact = useMediaQuery('(max-width: 639px)')
+const hasTagFilters = computed(() => filters.keyword.trim() !== '' || filters.unusedOnly)
+const tagStateText = computed(() => `标签 · ${list.value.length} 个`)
+const tagResultText = computed(() => `标签列表 · ${filteredList.value.length} 条结果`)
+const tagEmptyTitle = computed(() => hasTagFilters.value ? '没有匹配的标签' : '暂无标签')
+const tagEmptyDescription = computed(() => hasTagFilters.value
+  ? '调整关键词或清除筛选。'
+  : '新增标签后可用于文章检索与索引。')
 const nameColumnWidth = computed(() => (isCompact.value ? 148 : 220))
 const countColumnWidth = computed(() => (isCompact.value ? 96 : 150))
 const actionColumnWidth = computed(() => (isCompact.value ? 168 : 280))
@@ -230,5 +247,25 @@ const actionColumnWidth = computed(() => (isCompact.value ? 168 : 280))
 
 .taxonomy-filter-input {
   width: min(15rem, 100%);
+}
+
+.taxonomy-toolbar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.taxonomy-reference-cell {
+  display: grid;
+  gap: 0.125rem;
+  justify-items: center;
+}
+
+@media (max-width: 639px) {
+  .taxonomy-toolbar-controls,
+  .taxonomy-filter-input {
+    width: 100%;
+  }
 }
 </style>

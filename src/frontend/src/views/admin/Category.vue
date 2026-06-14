@@ -1,39 +1,29 @@
 <template>
   <div class="account-page category-manage-wrapper account-motion-enter w-full">
-    <AccountPageHeader
-      eyebrow="管理"
-      title="分类管理"
-      description="维护主站的目录结构与归档入口。分类变更会即时影响导航组织，因此只保留必要而清晰的操作信息。"
-    />
+    <header class="account-page-header account-page-header--compact">
+      <h1 class="account-page-title">分类管理</h1>
+      <p class="account-page-description">维护文章分类与归档入口。</p>
+    </header>
 
-    <WorkbenchPanel
-      class="mb-12"
-      eyebrow="分类状态"
-      title="现有分类"
-      caption="安全机制：删除判断使用管理端真实引用数，不复用公开分类计数"
-      title-id="category-inventory-title"
-    >
-      <template #title>
-        现有分类
-        <span class="text-[var(--fsusblog-text-primary)] tabular-nums">
-          {{ list.length }}
-        </span>
-      </template>
-      <template #actions>
-        <el-button
-          type="primary"
-          :icon="Plus"
-          @click="openDialog()"
-        >
-          新增分类
-        </el-button>
-      </template>
-    </WorkbenchPanel>
+    <section class="mb-8 border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-label="分类概况">
+      <AdminCollectionSummary :title="categoryStateText" description="删除前会检查引用关系。">
+        <template #actions>
+          <el-button
+            type="primary"
+            :icon="Plus"
+            @click="openDialog()"
+          >
+            新增分类
+          </el-button>
+        </template>
+      </AdminCollectionSummary>
+    </section>
 
-    <section class="admin-data-surface">
-      <div class="admin-data-surface__toolbar">
-        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">分类列表</div>
-        <div class="flex flex-wrap items-center gap-2">
+    <section class="admin-data-surface" aria-labelledby="category-list-title">
+      <AdminCollectionSummary id="category-list-title" title="分类列表" :meta="categoryResultText" />
+      <AdminCollectionToolbar label="分类筛选">
+        <template #filters>
+          <div class="taxonomy-toolbar-controls">
           <el-input
             v-model="filters.keyword"
             class="taxonomy-filter-input"
@@ -44,8 +34,9 @@
           />
           <el-checkbox v-model="filters.unusedOnly">仅未引用</el-checkbox>
           <el-button text @click="resetFilters">清除筛选</el-button>
-        </div>
-      </div>
+          </div>
+        </template>
+      </AdminCollectionToolbar>
       <el-table
         v-loading="loading"
         :data="filteredList"
@@ -74,18 +65,26 @@
         <el-table-column
           v-if="!isCompact"
           prop="totalBlockingArticleCount"
-          label="真实引用"
+          label="引用数"
           :width="relationColumnWidth"
           align="center"
           sortable
         >
+          <template #header>
+            <span class="inline-flex items-center justify-center gap-1">
+              引用数
+              <el-tooltip content="删除判断使用管理端完整引用数，可能高于公开文章数。" placement="top">
+                <el-icon><InfoFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <template #default="{ row }: { row: AdminCategoryItemResponse }">
-            <el-statistic
-              :value="row.totalBlockingArticleCount"
-            />
-            <p class="mt-1 text-[10px] text-[var(--fsusblog-text-muted)]">
+            <div class="taxonomy-reference-cell">
+              <strong class="tabular-nums">总引用 {{ row.totalBlockingArticleCount }}</strong>
+              <p class="mt-1 text-[10px] text-[var(--fsusblog-text-muted)]">
               公开 {{ row.publicArticleCount }}
             </p>
+            </div>
           </template>
         </el-table-column>
 
@@ -126,6 +125,14 @@
             </div>
           </template>
         </el-table-column>
+        <template #empty>
+          <AdminInlineEmptyState :title="categoryEmptyTitle" :description="categoryEmptyDescription">
+            <template #actions>
+              <el-button v-if="hasCategoryFilters" link type="primary" @click="resetFilters">清除筛选</el-button>
+              <el-button v-else link type="primary" @click="openDialog()">新增分类</el-button>
+            </template>
+          </AdminInlineEmptyState>
+        </template>
       </el-table>
     </section>
 
@@ -180,11 +187,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { type AdminCategoryItemResponse } from '@/api/authoring'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
-import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { InfoFilled, Plus, Edit, Lock, Delete, Search, View } from '@/fsusui/icons'
 import { useAdminCategoryManage } from '@/composables/useAdminCategoryManage'
 import { useMediaQuery } from '@/composables/useMediaQuery'
+import {
+  AdminCollectionSummary,
+  AdminCollectionToolbar,
+  AdminInlineEmptyState
+} from '@/components/admin/AdminCollectionPrimitives'
 
 const {
   list,
@@ -210,6 +220,13 @@ void formRef
 
 const getCategoryRowKey = (row: AdminCategoryItemResponse): string => String(row.id)
 const isCompact = useMediaQuery('(max-width: 639px)')
+const hasCategoryFilters = computed(() => filters.keyword.trim() !== '' || filters.unusedOnly)
+const categoryStateText = computed(() => `分类 · ${list.value.length} 个`)
+const categoryResultText = computed(() => `分类列表 · ${filteredList.value.length} 条结果`)
+const categoryEmptyTitle = computed(() => hasCategoryFilters.value ? '没有匹配的分类' : '暂无分类')
+const categoryEmptyDescription = computed(() => hasCategoryFilters.value
+  ? '调整关键词或清除筛选。'
+  : '新增分类后可用于文章归档与导航组织。')
 const nameColumnWidth = computed(() => (isCompact.value ? 148 : 200))
 const relationColumnWidth = computed(() => (isCompact.value ? 96 : 150))
 const actionColumnWidth = computed(() => (isCompact.value ? 156 : 300))
@@ -223,6 +240,26 @@ const actionColumnWidth = computed(() => (isCompact.value ? 156 : 300))
 
 .taxonomy-filter-input {
   width: min(15rem, 100%);
+}
+
+.taxonomy-toolbar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.taxonomy-reference-cell {
+  display: grid;
+  gap: 0.125rem;
+  justify-items: center;
+}
+
+@media (max-width: 639px) {
+  .taxonomy-toolbar-controls,
+  .taxonomy-filter-input {
+    width: 100%;
+  }
 }
 
 </style>
