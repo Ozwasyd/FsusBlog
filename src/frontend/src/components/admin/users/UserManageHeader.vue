@@ -2,15 +2,14 @@
   <section class="mb-12" aria-label="用户筛选">
     <div class="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between px-8">
       <div class="min-w-0">
-        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">管理</div>
-        <h2 class="flex flex-wrap items-center gap-6 text-2xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] sm:text-3xl">
-          筛选用户
+        <h2 class="flex flex-wrap items-center gap-4 text-[15px] font-bold tracking-normal text-[var(--fsusblog-text-primary)]">
+          用户筛选
           <span class="text-xs tabular-nums font-bold text-[var(--fsusblog-text-muted)] bg-[var(--fsusblog-panel-bg-soft)] px-3 py-1 normal-case tracking-normal">
             共 {{ total }}
           </span>
         </h2>
-        <p class="mt-6 max-w-2xl text-[12px] text-[var(--fsusblog-text-tertiary)] leading-relaxed normal-case tracking-normal font-bold">
-          高危操作（封禁/重置密码）将触发强制算力校验
+        <p class="mt-3 max-w-2xl text-[12px] text-[var(--fsusblog-text-tertiary)] leading-relaxed normal-case tracking-normal font-bold">
+          封禁与重置密码会触发强制算力校验。
         </p>
       </div>
 

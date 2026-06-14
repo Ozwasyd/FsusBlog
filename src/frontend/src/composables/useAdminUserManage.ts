@@ -45,11 +45,11 @@ export function useAdminUserManage() {
         ...item,
         initials: item.username.substring(0, 2).toUpperCase(),
         createdAtText: TimeUtils.toFullLocalString(item.createTime),
-        lastLoginText: item.lastLoginTime ? TimeUtils.toFullLocalString(item.lastLoginTime) : '--',
+        lastLoginText: item.lastLoginTime ? TimeUtils.toFullLocalString(item.lastLoginTime) : '从未登录',
         roleShort,
         roleLabel: isAdmin ? '管理员' : '用户',
         roleClass: isAdmin ? 'text-[var(--fsusblog-color-error)]' : 'text-[var(--fsusblog-text-muted)]',
-        statusText: statusLabel,
+        statusText: `${statusLabel} / ${statusCode}`,
         statusLabel,
         statusCode,
         statusClass: isDeleted ? 'text-[var(--fsusblog-text-muted)]' : isBanned ? 'text-[var(--fsusblog-color-error)]' : 'text-[var(--fsusblog-color-success)]',
@@ -489,7 +489,7 @@ export function useAdminUserManage() {
 
   const getTargetInitials = (targetUser: UserListItem | null): string => {
     if (!targetUser?.username) {
-      return '--'
+      return '用户'
     }
     return targetUser.username.substring(0, 2).toUpperCase()
   }

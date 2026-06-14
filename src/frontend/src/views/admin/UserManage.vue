@@ -3,7 +3,7 @@
     <header class="account-page-header">
       <h1 class="account-page-title">用户管理</h1>
       <p class="account-page-description">
-        筛选账户、查看状态并执行封禁、解封与密码重置等高风险操作。
+        管理账户状态、密码重置与封禁操作。
       </p>
     </header>
 
@@ -32,9 +32,11 @@
       :row-motion-class="rowMotion.classFor"
       :empty-title="userTableEmptyTitle"
       :empty-description="userTableEmptyDescription"
+      :has-active-filters="userTableHasActiveFilters"
       @refresh="fetchData"
       @open-reset="openResetDialog"
       @toggle-status="handleToggleStatus"
+      @reset-filters="resetFilters"
       @update:current-page="onPageChange"
       @update:page-size="onPageSizeChange"
     />
@@ -119,12 +121,12 @@ const {
   getTargetInitials
 } = useAdminUserManage()
 
-const hasUserFilters = computed(() => activeFilterChips.value.length > 0)
-const userTableEmptyTitle = computed(() => hasUserFilters.value ? '没有匹配的账户' : '暂无用户记录')
+const userTableHasActiveFilters = computed(() => activeFilterChips.value.length > 0)
+const userTableEmptyTitle = computed(() => userTableHasActiveFilters.value ? '没有匹配的用户' : '暂无用户记录')
 const userTableEmptyDescription = computed(() =>
-  hasUserFilters.value
-    ? '调整关键词或状态筛选后再查看，也可以重置筛选。'
-    : '新用户注册后会显示在这里，便于查看状态并执行管理操作。'
+  userTableHasActiveFilters.value
+    ? '调整关键词或清除筛选。'
+    : '创建或导入用户后会显示在这里。'
 )
 </script>
 

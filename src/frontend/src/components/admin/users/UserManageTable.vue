@@ -57,7 +57,7 @@
             </span>
             <SemanticTime :value="row.lastLoginTime" class="sr-only" />
           </div>
-          <span v-else class="text-[var(--fsusblog-text-subtle)] text-[11px] italic">--</span>
+          <span v-else class="text-[var(--fsusblog-text-subtle)] text-[11px] italic">{{ row.lastLoginText }}</span>
         </template>
       </el-table-column>
 
@@ -84,15 +84,18 @@
               :icon="Key"
               :disabled="isProcessing"
               size="small"
-              :aria-label="`重置 ${row.username} 的密码`"
+              :aria-label="`重置用户密码：${row.username}`"
               @click="emit('open-reset', row)"
-            />
+            >
+              重置密码
+            </el-button>
             <el-divider direction="vertical" />
             <el-button
               link
               :type="row.status === 0 ? 'danger' : 'success'"
               size="small"
               :loading="isProcessing && processingId === row.id"
+              :aria-label="`变更用户状态：${row.username}`"
               @click="emit('toggle-status', row)"
             >
               {{ row.status === 0 ? '封禁' : '解封' }}
@@ -104,16 +107,27 @@
       </el-table-column>
 
       <template #empty>
-        <AdminInlineEmptyState :title="emptyTitle" :description="emptyDescription" />
+        <AdminInlineEmptyState :title="emptyTitle" :description="emptyDescription">
+          <template v-if="hasActiveFilters" #actions>
+            <el-button @click="emit('reset-filters')">清除筛选</el-button>
+          </template>
+        </AdminInlineEmptyState>
       </template>
     </el-table>
 
-    <div v-else v-loading="loading" class="divide-y divide-[var(--fsusblog-panel-border)]" aria-label="用户列表">
+    <div
+      v-else
+      v-loading="loading"
+      class="user-resource-list divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]"
+      role="list"
+      aria-label="用户列表"
+    >
       <article
         v-for="row in list"
         :key="row.id"
-        class="user-mobile-card p-6 bg-[var(--fsusblog-page-bg)] transition-colors hover:bg-[var(--fsusblog-panel-bg)]"
+        class="user-resource-list-item bg-[var(--fsusblog-page-bg)] px-4 py-5"
         :class="rowMotionClass(row.id)"
+        role="listitem"
         v-memo="[row.id, row.username, row.status, row.lastLoginTime, rowMotionClass(row.id)]"
       >
         <div class="flex items-center gap-4 mb-6">
@@ -133,21 +147,23 @@
             </div>
             <div class="mt-2 flex flex-wrap items-center gap-3 text-[11px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
               <SemanticTime :value="row.createTime" :text="row.createdAtText" />
-              <span v-if="row.lastLoginTime" class="text-[var(--fsusblog-text-subtle)]">/</span>
+              <span class="text-[var(--fsusblog-text-subtle)]">/</span>
               <SemanticTime v-if="row.lastLoginTime" :value="row.lastLoginTime" :text="row.lastLoginText" />
+              <span v-else class="text-[var(--fsusblog-text-subtle)]">{{ row.lastLoginText }}</span>
             </div>
           </div>
           <div class="shrink-0 flex flex-col items-center">
-             <span class="h-1 w-1 rounded-[var(--fsus-radius-control-small)] mb-1" :class="row.statusDotClass" aria-hidden="true" />
-             <span class="text-xs font-semibold normal-case tracking-normal" :class="row.statusClass">
+            <span class="h-1 w-1 rounded-[var(--fsus-radius-control-small)] mb-1" :class="row.statusDotClass" aria-hidden="true" />
+            <span class="text-xs font-semibold normal-case tracking-normal" :class="row.statusClass">
               {{ row.statusText }}
             </span>
           </div>
         </div>
 
-        <div v-if="!row.isAdmin && !row.isDeleted" class="grid grid-cols-2 gap-2">
+        <div v-if="!row.isAdmin && !row.isDeleted" class="grid grid-cols-2 gap-2" aria-label="用户高风险操作">
           <el-button
             :disabled="isProcessing"
+            :aria-label="`重置用户密码：${row.username}`"
             @click="emit('open-reset', row)"
           >
             重置密码
@@ -155,6 +171,7 @@
           <el-button
             :type="row.status === 0 ? 'danger' : 'success'"
             :loading="isProcessing && processingId === row.id"
+            :aria-label="`变更用户状态：${row.username}`"
             @click="emit('toggle-status', row)"
           >
             {{ row.status === 0 ? '封禁' : '解封' }}
@@ -169,7 +186,11 @@
         v-if="!loading && list.length === 0"
         :title="emptyTitle"
         :description="emptyDescription"
-      />
+      >
+        <template v-if="hasActiveFilters" #actions>
+          <el-button @click="emit('reset-filters')">清除筛选</el-button>
+        </template>
+      </AdminInlineEmptyState>
     </div>
 
     <div class="admin-data-surface__footer">
@@ -208,17 +229,19 @@ interface Props {
   rowMotionClass?: (id: number) => string
   emptyTitle?: string
   emptyDescription?: string
+  hasActiveFilters?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   emptyTitle: '暂无用户记录',
-  emptyDescription: '注册账户或调整筛选条件后，可在这里查看用户状态。'
+  emptyDescription: '创建或导入用户后会显示在这里。',
+  hasActiveFilters: false
 })
 
 const userColumnWidth = computed(() => (props.isMobile ? 136 : 220))
 const roleColumnWidth = computed(() => (props.isMobile ? 44 : 116))
 const statusColumnWidth = computed(() => (props.isMobile ? 56 : 124))
-const actionColumnWidth = computed(() => (props.isMobile ? 56 : 132))
+const actionColumnWidth = computed(() => (props.isMobile ? 56 : 172))
 const hasWideTable = useMediaQuery('(min-width: 1024px)', true)
 const tableRows = computed(() => props.list)
 const rowMotionClass = (id: number): string => props.rowMotionClass?.(id) ?? 'blog-motion-row-state'
@@ -228,6 +251,7 @@ const emit = defineEmits<{
   refresh: []
   'open-reset': [row: UserListItem]
   'toggle-status': [row: UserListItem]
+  'reset-filters': []
   'update:current-page': [value: number]
   'update:page-size': [value: number]
 }>()
