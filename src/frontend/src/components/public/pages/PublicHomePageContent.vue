@@ -7,9 +7,9 @@
           data-fsus-motion-surface="home-hero"
         >
           <h1 class="text-3xl sm:text-4xl font-bold text-[var(--fsusblog-text-primary)] tracking-normal leading-[1.1]">
-            {{ siteTitleText }}<span class="text-[var(--fsusblog-text-muted)]">.</span>
+            {{ siteTitleText }}
           </h1>
-          <p class="mt-6 text-base sm:text-lg text-[var(--fsusblog-text-tertiary)] max-w-xl leading-relaxed font-light">
+          <p class="mt-6 text-base sm:text-lg text-[var(--fsusblog-text-tertiary)] max-w-xl leading-relaxed font-normal">
             {{ siteDescriptionText }}
           </p>
         </header>

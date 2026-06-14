@@ -34,7 +34,7 @@
             v-for="yearGroup in view.yearGroups"
             :key="`quick-${yearGroup.year}`"
             :href="`#archive-year-${yearGroup.year}`"
-            class="border border-[var(--fsusblog-panel-border)] px-3 py-1 text-xs font-bold tabular-nums text-[var(--fsusblog-text-secondary)] hover:border-[var(--fsusblog-color-primary)] hover:text-[var(--fsusblog-color-primary)]"
+            class="rounded-[var(--fsus-radius-control-small)] px-1 py-1 text-xs font-semibold tabular-nums text-[var(--fsusblog-text-secondary)] underline-offset-4 hover:text-[var(--fsusblog-color-primary)] hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
           >
             {{ yearGroup.year }}
           </a>
@@ -46,7 +46,7 @@
           v-for="yearGroup in view.yearGroups"
           :key="yearGroup.year"
           :id="`archive-year-${yearGroup.year}`"
-          class="relative animate-in slide-in-from-bottom-8 fade-in duration-[var(--fsus-motion-control-fast)]"
+          class="relative"
         >
           <div class="sticky top-24 z-10 bg-[var(--fsusblog-page-bg)] py-6 mb-12 sm:mb-16 border-b border-[var(--fsusblog-panel-border)]/50">
             <h2 class="text-2xl font-bold text-[var(--fsusblog-text-primary)] tabular-nums tracking-normal sm:text-3xl">
@@ -80,7 +80,7 @@
                     <time
                       :datetime="article.createTime"
                       :title="article.fullLocalTimeText"
-                      class="flex-none text-[11px] tabular-nums font-bold text-[var(--fsusblog-text-subtle)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors w-12 tabular-nums"
+                      class="flex-none text-xs tabular-nums font-semibold text-[var(--fsusblog-text-subtle)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors w-12"
                     >
                       {{ article.dayText }}
                     </time>
@@ -97,7 +97,7 @@
       </div>
 
       <div v-if="view.yearGroups.length === 0" class="py-24 sm:py-32 md:py-48 text-center">
-        <p class="text-[11px] tabular-nums font-bold text-[var(--fsusblog-text-subtle)] normal-case tracking-normal">
+        <p class="text-xs tabular-nums font-semibold text-[var(--fsusblog-text-subtle)] normal-case tracking-normal">
           {{ view.emptyState.title }}
         </p>
       </div>
@@ -130,10 +130,6 @@ function handleNavigate(event: MouseEvent, articleId: string): void {
 
 <style scoped>
 @reference "@/assets/main.css";
-
-.animate-in {
-  animation-delay: calc(var(--fsus-motion-control-fast) * 0.4);
-}
 
 @media (max-width: 640px) {
   .sticky { top: 64px; }

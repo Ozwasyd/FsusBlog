@@ -1,7 +1,7 @@
 <template>
   <section
     v-if="notice.visible"
-    class="article-notice-minimal mb-12 sm:mb-16 animate-in fade-in slide-in-from-bottom-2 duration-[var(--fsus-motion-control-fast)]"
+    class="article-notice-minimal mb-12 sm:mb-16"
     aria-label="长文阅读提示"
   >
     <div class="flex items-baseline gap-4 border-l-2 border-[var(--fsusblog-panel-border-strong)] pl-6 py-1">

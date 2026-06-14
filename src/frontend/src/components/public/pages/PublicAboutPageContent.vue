@@ -21,17 +21,15 @@
     </el-skeleton>
   </section>
 
-  <article v-else-if="!error" class="blog-page-shell max-w-3xl mx-auto px-5 sm:px-8 min-h-screen flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-[var(--fsus-motion-control-fast)]">
+  <article v-else-if="!error" class="blog-page-shell max-w-3xl mx-auto px-5 sm:px-8 min-h-screen flex flex-col">
     <header class="mb-14 border-b border-[var(--fsusblog-panel-border)] pb-10 sm:mb-20 sm:pb-12">
       <h1 class="mb-6 text-3xl font-bold leading-[1.15] tracking-normal text-[var(--fsusblog-text-primary)] sm:text-4xl">
         {{ view.header.title }}
       </h1>
 
-      <div class="flex flex-wrap items-center gap-5 text-xs tabular-nums font-semibold text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs tabular-nums font-semibold text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
         <time>{{ view.header.currentYear }}</time>
-        <span class="text-[var(--fsusblog-text-subtle)] font-thin" aria-hidden="true">/</span>
         <span class="text-[var(--fsusblog-text-tertiary)]">{{ view.header.manifestoLabel }}</span>
-        <span class="text-[var(--fsusblog-text-subtle)] font-thin" aria-hidden="true">/</span>
         <span>{{ view.header.readmeLabel }}</span>
       </div>
     </header>
@@ -46,8 +44,8 @@
       </div>
     </slot>
 
-    <footer class="mt-20 sm:mt-32 mb-16 sm:mb-20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 border-t border-[var(--fsusblog-panel-border)] pt-12 sm:pt-16 opacity-60 transition-opacity hover:opacity-100">
-      <span class="text-[10px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">
+    <footer class="mt-20 sm:mt-32 mb-16 sm:mb-20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 border-t border-[var(--fsusblog-panel-border)] pt-12 sm:pt-16">
+      <span class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">
         {{ view.footer.siteTitle }}
       </span>
     </footer>

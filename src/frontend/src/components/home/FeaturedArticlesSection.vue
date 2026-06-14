@@ -5,7 +5,7 @@
     data-fsus-motion-surface="home-featured-articles"
   >
     <header class="mb-10">
-      <div class="text-[10px] tabular-nums font-bold normal-case text-[var(--fsusblog-text-muted)]">
+      <div class="text-xs tabular-nums font-semibold normal-case text-[var(--fsusblog-text-muted)]">
         最近在写
       </div>
     </header>
@@ -71,11 +71,11 @@
               </div>
               <div class="flex-1">
                 <div class="mb-4 flex items-center gap-3">
-                  <span class="text-[10px] tabular-nums font-bold normal-case text-[var(--fsusblog-text-primary)]">
+                  <span class="text-xs tabular-nums font-semibold normal-case text-[var(--fsusblog-text-primary)]">
                     {{ articles[0].category.name }}
                   </span>
                   <span class="h-px w-8 bg-[var(--fsusblog-panel-bg-soft)]" aria-hidden="true"></span>
-                  <time :datetime="articles[0].createTime" class="text-[10px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case">
+                  <time :datetime="articles[0].createTime" class="text-xs tabular-nums text-[var(--fsusblog-text-muted)] normal-case">
                     {{ formatTime(articles[0].createTime) }}
                   </time>
                 </div>
@@ -116,7 +116,7 @@
                   />
                 </div>
                 <div class="flex items-center gap-2 mb-2">
-                  <span class="text-[9px] tabular-nums font-bold normal-case text-[var(--fsusblog-text-muted)]">
+                  <span class="text-xs tabular-nums font-semibold normal-case text-[var(--fsusblog-text-muted)]">
                     {{ article.category.name }}
                   </span>
                 </div>
