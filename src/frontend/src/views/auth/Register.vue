@@ -12,7 +12,7 @@
 
     <main class="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-start px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16">
       <section
-        class="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-[var(--fsus-motion-control-fast)]"
+        class="w-full max-w-md"
         aria-labelledby="register-title"
       >
         <header class="mb-8 sm:mb-10">

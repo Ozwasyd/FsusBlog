@@ -12,7 +12,7 @@
 
     <main class="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-start px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16">
       <section
-        class="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-[var(--fsus-motion-control-fast)]"
+        class="w-full max-w-md"
         aria-labelledby="login-title"
       >
         <header class="mb-8 sm:mb-10">
@@ -133,8 +133,11 @@
         </form>
 
         <form v-else class="space-y-6" novalidate aria-labelledby="mfa-title" @submit.prevent="handleMfaVerify">
-          <div id="mfa-title" class="rounded-[var(--fsus-radius-panel)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)]/80 px-5 py-4 text-sm leading-7 text-[var(--fsusblog-text-secondary)] shadow-[var(--fsus-shadow-panel-light)] backdrop-blur-[var(--fsus-backdrop-blur)]">
-            需要进行多因素验证。请输入 Google Authenticator 验证码，或使用恢复码。
+          <div class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] px-5 py-4">
+            <p id="mfa-title" class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">需要二次验证</p>
+            <p class="mt-1 text-sm leading-7 text-[var(--fsusblog-text-secondary)]">
+              请输入验证码或恢复码。
+            </p>
           </div>
 
           <el-radio-group v-model="mfaMode" class="w-full" aria-label="选择验证方式">

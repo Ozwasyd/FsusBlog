@@ -7,9 +7,9 @@
 .account-shell-panel {
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-panel);
-  background: var(--fsus-surface-overlay, var(--fsusblog-panel-bg));
-  box-shadow: var(--fsus-shadow-floating);
-  backdrop-filter: blur(var(--fsus-backdrop-blur)) saturate(var(--fsus-backdrop-saturate, 120%));
+  background: var(--fsusblog-page-bg);
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .account-page {

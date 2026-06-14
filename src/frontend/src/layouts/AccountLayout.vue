@@ -7,7 +7,7 @@
       跳到主要内容
     </a>
 
-    <header class="sticky top-0 z-40 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]/82 backdrop-blur-[var(--fsus-backdrop-blur)]">
+    <header class="sticky top-0 z-40 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="mx-auto flex h-16 max-w-[var(--fsusblog-container-workbench)] items-center justify-between gap-4 px-4 sm:h-[4.75rem] sm:px-6 lg:px-10">
         <div class="flex min-w-0 items-center gap-4 sm:gap-6">
           <router-link

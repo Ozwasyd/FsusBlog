@@ -67,8 +67,8 @@ const emit = defineEmits<{
   grid-auto-columns: 1fr;
   min-height: calc(3rem + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--fsusblog-panel-border);
-  background: color-mix(in srgb, var(--fsusblog-page-bg) 88%, transparent);
-  backdrop-filter: blur(var(--fsus-backdrop-blur-soft));
+  background: var(--fsusblog-page-bg);
+  backdrop-filter: none;
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
