@@ -45,15 +45,15 @@ public interface IArticleEndpointService
         int count,
         CancellationToken cancellationToken = default);
 
-    Task<int> CreateAsync(ArticleWriteRequestCoreModel request);
+    Task<int> CreateAsync(ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default);
 
-    Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel request);
+    Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default);
 
-    Task<int> ClearTrashAsync();
+    Task<int> ClearTrashAsync(CancellationToken cancellationToken = default);
 
-    Task<bool> DeleteAsync(int id);
+    Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default);
 
-    Task<bool> RestoreAsync(int id);
+    Task<bool> RestoreAsync(int id, CancellationToken cancellationToken = default);
 
-    Task<bool> PermanentlyDeleteArticleAsync(int id);
+    Task<bool> PermanentlyDeleteArticleAsync(int id, CancellationToken cancellationToken = default);
 }

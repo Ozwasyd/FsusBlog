@@ -55,7 +55,7 @@ public interface IUserService
     /// </summary>
     /// <param name="refreshToken">要作废的 Token 字符串</param>
     /// <returns>是否操作成功</returns>
-    Task<bool> RevokeRefreshTokenAsync(string refreshToken);
+    Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
 
     Task<PageResult<UserListDto>> GetAdminUserListAsync(UserQueryDto dto);
     Task<(bool Success, string Message)> AdminChangeStatusAsync(AdminChangeStatusDto dto);

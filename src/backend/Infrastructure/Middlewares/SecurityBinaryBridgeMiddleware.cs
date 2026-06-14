@@ -1,4 +1,4 @@
-using System.Text;
+using System.Buffers;
 using System.Text.Json;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
@@ -15,7 +15,7 @@ public sealed class SecurityBinaryBridgeMiddleware
     private const string JsonContentType = "application/json";
     private const string BinaryPrefix = "/api/binary/admin/security";
     private const string LegacyPrefix = BinaryBridgeInternalRequest.SecurityPrefix;
-    private static readonly byte[] JsonNullPayload = "null"u8.ToArray();
+    private static ReadOnlySpan<byte> JsonNullPayload => "null"u8;
 
     private readonly RequestDelegate _next;
 
@@ -44,10 +44,10 @@ public sealed class SecurityBinaryBridgeMiddleware
             return;
         }
 
-        ReadOnlyMemory<byte>? requestJson = null;
+        BinaryBridgeRequestPayload? requestJson = null;
         if (route.RequestFrame is not null)
         {
-            Result<ReadOnlyMemory<byte>> bodyResult = await DecodeRequestPayloadAsync(context, aeds, route.RequestFrame.Value);
+            Result<BinaryBridgeRequestPayload> bodyResult = await DecodeRequestPayloadAsync(context, aeds, route.RequestFrame.Value);
             if (bodyResult.IsFailure)
             {
                 await WriteApiErrorAsync(context, aeds, bodyResult.Error.Code, bodyResult.Error.Message, StatusCodes.Status400BadRequest);
@@ -62,7 +62,14 @@ public sealed class SecurityBinaryBridgeMiddleware
             return;
         }
 
-        await BridgeToLegacySecurityEndpointAsync(context, aeds, remaining, route, requestJson);
+        try
+        {
+            await BridgeToLegacySecurityEndpointAsync(context, aeds, remaining, route, requestJson);
+        }
+        finally
+        {
+            requestJson?.Dispose();
+        }
     }
 
     private async Task BridgeToLegacySecurityEndpointAsync(
@@ -70,7 +77,7 @@ public sealed class SecurityBinaryBridgeMiddleware
         IAedsEncoder aeds,
         PathString remaining,
         SecurityBridgeRoute route,
-        ReadOnlyMemory<byte>? requestJson)
+        BinaryBridgeRequestPayload? requestJson)
     {
         PathString originalPath = context.Request.Path;
         Stream originalRequestBody = context.Request.Body;
@@ -80,7 +87,7 @@ public sealed class SecurityBinaryBridgeMiddleware
         Stream originalResponseBody = context.Response.Body;
         bool hadBridgeMarker = context.Items.TryGetValue(BinaryBridgeInternalRequest.ItemKey, out object? originalBridgeMarker);
 
-        await using var capture = new MemoryStream();
+        using var capture = new PooledBinaryBridgeBuffer();
         try
         {
             context.Request.Path = new PathString($"{LegacyPrefix}{remaining}");
@@ -88,9 +95,9 @@ public sealed class SecurityBinaryBridgeMiddleware
             context.Items[BinaryBridgeInternalRequest.ItemKey] = true;
             if (requestJson is { } json)
             {
-                context.Request.Body = new MemoryStream(json.ToArray());
+                context.Request.Body = new ReadOnlyMemoryStream(json.Payload);
                 context.Request.ContentType = JsonContentType;
-                context.Request.ContentLength = json.Length;
+                context.Request.ContentLength = json.Payload.Length;
             }
             else
             {
@@ -99,12 +106,12 @@ public sealed class SecurityBinaryBridgeMiddleware
                 context.Request.ContentLength = null;
             }
 
-            context.Response.Body = capture;
+            context.Response.Body = capture.Stream;
 
             await _next(context);
 
             context.Response.Body = originalResponseBody;
-            await WriteLegacyEnvelopeAsAedsAsync(context, aeds, route.ResponseFrame, capture.ToArray());
+            await WriteLegacyEnvelopeAsAedsAsync(context, aeds, route.ResponseFrame, capture.WrittenMemory);
         }
         finally
         {
@@ -125,74 +132,88 @@ public sealed class SecurityBinaryBridgeMiddleware
         }
     }
 
-    private static async Task<Result<ReadOnlyMemory<byte>>> DecodeRequestPayloadAsync(
+    private static async Task<Result<BinaryBridgeRequestPayload>> DecodeRequestPayloadAsync(
         HttpContext context,
         IAedsEncoder aeds,
         AedsFrameType expectedFrame)
     {
         if (!IsBinaryContentType(context.Request.ContentType))
         {
-            return Result<ReadOnlyMemory<byte>>.Failure(ErrorCode.Validation, "binary_content_type_required");
+            return Result<BinaryBridgeRequestPayload>.Failure(ErrorCode.Validation, "binary_content_type_required");
         }
 
         if (context.Request.ContentLength.HasValue && context.Request.ContentLength.Value > MaxSecurityFrameBytes)
         {
-            return Result<ReadOnlyMemory<byte>>.Failure(ErrorCode.Validation, "security_binary_frame_too_large");
+            return Result<BinaryBridgeRequestPayload>.Failure(ErrorCode.Validation, "security_binary_frame_too_large");
         }
 
-        byte[] frame;
+        PooledBinaryBridgeBuffer frame;
         try
         {
             frame = await ReadBodyWithLimitAsync(context.Request.Body, MaxSecurityFrameBytes, context.RequestAborted);
         }
         catch (InvalidOperationException)
         {
-            return Result<ReadOnlyMemory<byte>>.Failure(ErrorCode.Validation, "security_binary_frame_too_large");
+            return Result<BinaryBridgeRequestPayload>.Failure(ErrorCode.Validation, "security_binary_frame_too_large");
         }
 
-        Result<AedsDecodeResult> decoded = aeds.TryDecode(frame);
+        Result<AedsDecodeResult> decoded = aeds.TryDecode(frame.WrittenMemory);
         if (decoded.IsFailure)
         {
-            return Result<ReadOnlyMemory<byte>>.Failure(ErrorCode.Validation, "security_binary_frame_invalid");
+            frame.Dispose();
+            return Result<BinaryBridgeRequestPayload>.Failure(ErrorCode.Validation, "security_binary_frame_invalid");
         }
 
         AedsDecodeResult decodedFrame = decoded.Value;
         if (decodedFrame.FrameType != expectedFrame)
         {
-            return Result<ReadOnlyMemory<byte>>.Failure(ErrorCode.Validation, "security_binary_frame_type_mismatch");
+            frame.Dispose();
+            return Result<BinaryBridgeRequestPayload>.Failure(ErrorCode.Validation, "security_binary_frame_type_mismatch");
         }
 
-        return Result<ReadOnlyMemory<byte>>.Success(decodedFrame.Payload);
+        return Result<BinaryBridgeRequestPayload>.Success(new BinaryBridgeRequestPayload(frame, decodedFrame.Payload));
     }
 
-    private static async Task<byte[]> ReadBodyWithLimitAsync(Stream body, int maxBytes, CancellationToken cancellationToken)
+    private static async Task<PooledBinaryBridgeBuffer> ReadBodyWithLimitAsync(Stream body, int maxBytes, CancellationToken cancellationToken)
     {
-        using var buffer = new MemoryStream();
-        byte[] chunk = new byte[16 * 1024];
-        while (true)
+        var buffer = new PooledBinaryBridgeBuffer(Math.Min(16 * 1024, maxBytes), maxBytes);
+        byte[] chunk = ArrayPool<byte>.Shared.Rent(Math.Min(16 * 1024, maxBytes));
+        try
         {
-            int read = await body.ReadAsync(chunk.AsMemory(0, chunk.Length), cancellationToken);
-            if (read == 0)
+            while (true)
             {
-                break;
+                int read = await body.ReadAsync(chunk.AsMemory(0, chunk.Length), cancellationToken);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                if (buffer.Length > maxBytes - read)
+                {
+                    throw new InvalidOperationException("security_binary_frame_too_large");
+                }
+
+                buffer.Write(chunk.AsSpan(0, read));
             }
 
-            if (buffer.Length > maxBytes - read)
-            {
-                throw new InvalidOperationException("security_binary_frame_too_large");
-            }
-
-            buffer.Write(chunk, 0, read);
+            return buffer;
         }
-
-        return buffer.ToArray();
+        catch
+        {
+            buffer.Dispose();
+            throw;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(chunk, clearArray: true);
+        }
     }
 
     private static async Task WriteLegacyEnvelopeAsAedsAsync(
         HttpContext context,
         IAedsEncoder aeds,
         AedsFrameType responseFrame,
-        byte[] legacyResponseBody)
+        ReadOnlyMemory<byte> legacyResponseBody)
     {
         ClearResponseHeaders(context);
 
@@ -237,14 +258,40 @@ public sealed class SecurityBinaryBridgeMiddleware
             }
 
             ReadOnlyMemory<byte> payload = root.TryGetProperty("data", out JsonElement dataElement) && dataElement.ValueKind != JsonValueKind.Null
-                ? Encoding.UTF8.GetBytes(dataElement.GetRawText())
-                : JsonNullPayload;
-            byte[] frame = aeds.Encode(responseFrame, payload.Span);
+                ? WriteJsonElementPayload(responseFrame, dataElement)
+                : WriteJsonLiteralPayload(responseFrame, JsonNullPayload);
             context.Response.StatusCode = StatusCodes.Status200OK;
             context.Response.ContentType = BinaryContentType;
-            context.Response.ContentLength = frame.Length;
-            await context.Response.Body.WriteAsync(frame, context.RequestAborted);
+            context.Response.ContentLength = payload.Length;
+            await context.Response.BodyWriter.WriteAsync(payload, context.RequestAborted);
         }
+    }
+
+    private static ReadOnlyMemory<byte> WriteJsonElementPayload(AedsFrameType responseFrame, JsonElement dataElement)
+    {
+        using var frameWriter = new AedsFrameBufferWriter();
+        using (var writer = new Utf8JsonWriter(frameWriter.PayloadWriter))
+        {
+            dataElement.WriteTo(writer);
+        }
+
+        frameWriter.Seal(responseFrame);
+        return frameWriter.WrittenFrame.ToArray();
+    }
+
+    private static ReadOnlyMemory<byte> WriteJsonLiteralPayload(AedsFrameType responseFrame, ReadOnlySpan<byte> payload)
+    {
+        using var frameWriter = new AedsFrameBufferWriter();
+        WriteSpan(frameWriter.PayloadWriter, payload);
+        frameWriter.Seal(responseFrame);
+        return frameWriter.WrittenFrame.ToArray();
+    }
+
+    private static void WriteSpan(IBufferWriter<byte> writer, ReadOnlySpan<byte> value)
+    {
+        Span<byte> span = writer.GetSpan(value.Length);
+        value.CopyTo(span);
+        writer.Advance(value.Length);
     }
 
     private static async Task WriteApiErrorAsync(

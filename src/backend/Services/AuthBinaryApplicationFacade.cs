@@ -56,15 +56,16 @@ public sealed class AuthBinaryApplicationFacade(
     IUserLoginWorkflowService loginWorkflow,
     IMfaChallengeService mfaChallengeService)
 {
-    public async Task<AuthBinaryFlowResult> LoginAsync(AuthLoginRequestCoreModel request, AuthBinaryClientContext client)
+    public async Task<AuthBinaryFlowResult> LoginAsync(AuthLoginRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
         {
             return Fail(ErrorCode.Validation, "用户名或密码不能为空");
         }
 
         var dto = new LoginDto { Username = request.Username, Password = request.Password, RememberMe = request.RememberMe };
-        var check = await loginWorkflow.ValidateCredentialsAsync(dto, client.ClientIp);
+        var check = await loginWorkflow.ValidateCredentialsAsync(dto, client.ClientIp, cancellationToken);
         if (!check.Success || check.User == null)
         {
             return Fail(ErrorCode.Unauthorized, check.Message);
@@ -72,7 +73,7 @@ public sealed class AuthBinaryApplicationFacade(
 
         if (check.User.Value.MfaEnabled)
         {
-            var risk = await loginWorkflow.EvaluateLoginRiskAsync(check.User.Value.Id, client.ClientIp, client.DeviceFingerprint, client.UserAgent);
+            var risk = await loginWorkflow.EvaluateLoginRiskAsync(check.User.Value.Id, client.ClientIp, client.DeviceFingerprint, client.UserAgent, cancellationToken);
             var ticket = await mfaChallengeService.CreateLoginChallengeAsync(check.User.Value.Id, risk.RequiresMfa, request.RememberMe);
             var flow = new AuthLoginFlowDto(
                 new AuthIdentitySnapshotDto(check.User.Value.Id, check.User.Value.Username, check.User.Value.Role),
@@ -82,18 +83,19 @@ public sealed class AuthBinaryApplicationFacade(
             return new AuthBinaryFlowResult(true, ErrorDetail.None, flow, null);
         }
 
-        return await CompleteLoginAsync(check.User.Value.Id, client, mfaVerified: true, request.RememberMe);
+        return await CompleteLoginAsync(check.User.Value.Id, client, mfaVerified: true, rememberMe: request.RememberMe, cancellationToken: cancellationToken);
     }
 
-    public async Task<AuthBinaryFlowResult> RegisterAsync(AuthRegisterRequestCoreModel request, AuthBinaryClientContext client)
+    public async Task<AuthBinaryFlowResult> RegisterAsync(AuthRegisterRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var dto = new RegisterDto
         {
             Username = request.Username,
             Password = request.Password,
             ConfirmPassword = request.ConfirmPassword
         };
-        var (success, message) = await registration.RegisterAsync(dto);
+        var (success, message) = await registration.RegisterAsync(dto, cancellationToken);
         if (!success)
         {
             var code = string.Equals(message, "用户名已存在", StringComparison.Ordinal) ||
@@ -109,7 +111,7 @@ public sealed class AuthBinaryApplicationFacade(
             return Fail(ErrorCode.InfraFailure, "注册成功，但初始化会话失败，请改用登录继续");
         }
 
-        var login = await CompleteLoginAsync(user.Value.Id, client, mfaVerified: true, rememberMe: false);
+        var login = await CompleteLoginAsync(user.Value.Id, client, mfaVerified: true, rememberMe: false, cancellationToken: cancellationToken);
         return login.Success
             ? login
             : Fail(ErrorCode.InfraFailure, "注册成功，但自动登录失败，请改用登录继续");
@@ -119,15 +121,18 @@ public sealed class AuthBinaryApplicationFacade(
         int userId,
         AuthBinaryClientContext client,
         bool mfaVerified,
-        bool rememberMe)
+        bool rememberMe,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var login = await loginWorkflow.CompleteLoginAsync(
             userId,
             client.ClientIp,
             client.DeviceFingerprint,
             client.UserAgent,
             mfaVerified,
-            rememberMe);
+            rememberMe,
+            cancellationToken);
         if (!login.Success || login.Data == null || login.User == null)
         {
             return Fail(ErrorCode.Unauthorized, login.Message);

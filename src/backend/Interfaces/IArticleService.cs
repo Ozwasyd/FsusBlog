@@ -15,29 +15,29 @@ public interface IArticleService
     /// <summary>
     /// 发布文章（包含存数据库 + 建索引）
     /// </summary>
-    Task<int> CreateAsync(CreateArticleRequest request);
+    Task<int> CreateAsync(CreateArticleRequest request, CancellationToken cancellationToken = default);
     /// <summary>
     /// 更新文章（包含存数据库 + 建索引）
     /// </summary>
-    Task<bool> UpdateAsync(int id, UpdateArticleRequest request);
+    Task<bool> UpdateAsync(int id, UpdateArticleRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 删除文章（包含存数据库 + 建索引）
     /// </summary>
-    Task<bool> DeleteAsync(int id);
+    Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default);
     /// <summary>
     /// 恢复文章（包含存数据库 + 建索引）
     /// </summary>
-    Task<bool> RestoreAsync(int id);
+    Task<bool> RestoreAsync(int id, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 彻底删除文章及其所有插图（不可恢复）
     /// </summary>
-    Task<bool> PermanentlyDeleteArticleAsync(int id);
+    Task<bool> PermanentlyDeleteArticleAsync(int id, CancellationToken cancellationToken = default);
     /// <summary>
     /// 清除回收站
     /// </summary>
-    Task<int> ClearTrashAsync();
+    Task<int> ClearTrashAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 搜索文章（优先使用本地搜索索引链，必要时回落到数据库查）

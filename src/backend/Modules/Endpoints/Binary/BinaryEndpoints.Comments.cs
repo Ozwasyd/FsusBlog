@@ -31,7 +31,7 @@ namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
 public static partial class BinaryEndpoints
 {
-    private static void MapBinaryCommentEndpoints(IEndpointRouteBuilder group, Int64CursorCodec cursorCodec)
+    private static void MapBinaryCommentEndpoints(IEndpointRouteBuilder group)
     {
         group.MapPost("/comment", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -112,7 +112,7 @@ public static partial class BinaryEndpoints
         .RequireRateLimiting("fixed_ip")
         .AddEndpointFilter<RequiresPowFilter>();
 
-        group.MapGet("/comment/{articleId:int}", async Task<IResult> (
+        group.MapGet("/comment/{articleId:int}", static async Task<IResult> (
             int articleId,
             HttpContext httpContext,
             ICommentEndpointService commentService,
@@ -120,7 +120,7 @@ public static partial class BinaryEndpoints
             IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
-            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.Threads, cursorCodec);
+            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.Threads, Int64CursorCodec.Instance);
             if (!bind.IsSuccess)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"), aeds);
@@ -128,15 +128,14 @@ public static partial class BinaryEndpoints
 
             string viewerRegion = regionResolver.Resolve(httpContext).Region;
             string identity = BuildCommentThreadFrameIdentity(articleId, bind.Request, previewLimit: 3, viewerRegion);
-            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CommentCursorFrame, identity);
+            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CommentCursorFrame, identity, httpContext.RequestAborted);
             if (frame.Hit && frame.Value.Length > 0)
             {
                 return BinaryResults.PreencodedFrame(frame.Value);
             }
 
             var result = await commentService.GetCommentThreadsByCursorAsync(articleId, bind.Request, viewerRegion: viewerRegion);
-            byte[] payload = PodBinaryCodec.EncodeCommentThreadCursor(result);
-            byte[] encodedFrame = aeds.Encode(AedsFrameType.CommentArticleCursor, payload);
+            byte[] encodedFrame = EncodeCachedFrame(AedsFrameType.CommentArticleCursor, writer => PodBinaryCodec.WriteCommentThreadCursor(result, writer));
             await cache.SetRawAsync(CachePolicyId.CommentCursorFrame, identity, encodedFrame, TimeSpan.FromMinutes(5), httpContext.RequestAborted);
             return BinaryResults.PreencodedFrame(encodedFrame);
         })
@@ -144,7 +143,7 @@ public static partial class BinaryEndpoints
         .RequireRateLimiting("public_read")
         .AddEndpointFilter<RiskAwarePublicReadFilter>();
 
-        group.MapGet("/comment/{articleId:int}/thread/{rootId:long}", async Task<IResult> (
+        group.MapGet("/comment/{articleId:int}/thread/{rootId:long}", static async Task<IResult> (
             int articleId,
             long rootId,
             HttpContext httpContext,
@@ -153,7 +152,7 @@ public static partial class BinaryEndpoints
             IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
-            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.Replies, cursorCodec);
+            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.Replies, Int64CursorCodec.Instance);
             if (!bind.IsSuccess)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"), aeds);
@@ -161,15 +160,14 @@ public static partial class BinaryEndpoints
 
             string viewerRegion = regionResolver.Resolve(httpContext).Region;
             string identity = BuildCommentReplyFrameIdentity(articleId, rootId, bind.Request, viewerRegion);
-            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CommentCursorFrame, identity);
+            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CommentCursorFrame, identity, httpContext.RequestAborted);
             if (frame.Hit && frame.Value.Length > 0)
             {
                 return BinaryResults.PreencodedFrame(frame.Value);
             }
 
             var result = await commentService.GetThreadRepliesByCursorAsync(articleId, rootId, bind.Request, viewerRegion);
-            byte[] payload = PodBinaryCodec.EncodeCommentReplyCursor(rootId, result);
-            byte[] encodedFrame = aeds.Encode(AedsFrameType.CommentThreadReplyCursor, payload);
+            byte[] encodedFrame = EncodeCachedFrame(AedsFrameType.CommentThreadReplyCursor, writer => PodBinaryCodec.WriteCommentReplyCursor(rootId, result, writer));
             await cache.SetRawAsync(CachePolicyId.CommentCursorFrame, identity, encodedFrame, TimeSpan.FromMinutes(5), httpContext.RequestAborted);
             return BinaryResults.PreencodedFrame(encodedFrame);
         })
@@ -177,7 +175,7 @@ public static partial class BinaryEndpoints
         .RequireRateLimiting("public_read")
         .AddEndpointFilter<RiskAwarePublicReadFilter>();
 
-        group.MapGet("/comment/me", async Task<IResult> (
+        group.MapGet("/comment/me", static async Task<IResult> (
             HttpContext httpContext,
             ICommentCoreService core,
             IUnifiedCache cache,
@@ -189,14 +187,14 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "未找到用户信息"), aeds);
             }
 
-            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.UserComments, cursorCodec);
+            CursorBindResult<long> bind = CursorPageBinder.Bind(httpContext.Request, CommentCursorPolicies.UserComments, Int64CursorCodec.Instance);
             if (!bind.IsSuccess)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"), aeds);
             }
 
             string identity = BuildUserCommentFrameIdentity(userId, bind.Request);
-            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.UserCommentCursorFrame, identity);
+            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.UserCommentCursorFrame, identity, httpContext.RequestAborted);
             if (frame.Hit && frame.Value.Length > 0)
             {
                 return BinaryResults.PreencodedFrame(frame.Value);
@@ -208,8 +206,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(result.Error, aeds);
             }
 
-            byte[] payload = PodBinaryCodec.EncodeUserCommentCursor(result.Value);
-            byte[] encodedFrame = aeds.Encode(AedsFrameType.CommentUserCursor, payload);
+            byte[] encodedFrame = EncodeCachedFrame(AedsFrameType.CommentUserCursor, writer => PodBinaryCodec.WriteUserCommentCursor(result.Value, writer));
             await cache.SetRawAsync(CachePolicyId.UserCommentCursorFrame, identity, encodedFrame, TimeSpan.FromMinutes(5), httpContext.RequestAborted);
             return BinaryResults.PreencodedFrame(encodedFrame);
         }).RequireAuthorization();
@@ -237,6 +234,14 @@ public static partial class BinaryEndpoints
         => !string.IsNullOrWhiteSpace(content)
             && content.Length <= CommentLimits.ContentMaxChars
             && Encoding.UTF8.GetByteCount(content) <= CommentLimits.ContentMaxUtf8Bytes;
+
+    private static byte[] EncodeCachedFrame(AedsFrameType frameType, Action<IBufferWriter<byte>> writePayload)
+    {
+        using var frameWriter = new AedsFrameBufferWriter();
+        writePayload(frameWriter.PayloadWriter);
+        frameWriter.Seal(frameType);
+        return frameWriter.WrittenFrame.ToArray();
+    }
 
     private static string BuildCommentThreadFrameIdentity(int articleId, CursorPageRequest<long> request, int previewLimit, string viewerRegion)
         => $"article:{articleId}:roots:{request.Cursor?.ToString() ?? "0"}:{request.Limit}:{previewLimit}:region:{NormalizeCommentFrameRegion(viewerRegion)}";

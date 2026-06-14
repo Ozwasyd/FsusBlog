@@ -46,11 +46,51 @@ public sealed class NotificationStreamFramePumpTests
         frame.Release();
     }
 
+    [Fact]
+    public async Task WriteDequeuedFrame_CopiesLargeFrameFromOwnedMemory()
+    {
+        const int frameLength = 128 * 1024;
+        var connection = new NotificationStreamConnection("conn-3", "user-3", Array.Empty<string>(), queueCapacity: 8);
+        SharedNotificationStreamFrame frame = CreateFrame(frameLength);
+        var pipe = new Pipe(new PipeOptions(pauseWriterThreshold: frameLength * 2, resumeWriterThreshold: frameLength));
+
+        frame.Retain();
+        Assert.True(connection.TryEnqueue(frame));
+        Assert.True(connection.Reader.TryRead(out SharedNotificationStreamFrame? dequeued));
+
+        int written = NotificationStreamFramePump.WriteDequeuedFrame(pipe.Writer, connection, dequeued);
+        await pipe.Writer.FlushAsync();
+        ReadResult result = await pipe.Reader.ReadAsync();
+
+        Assert.Equal(frameLength, written);
+        Assert.Equal(frameLength, result.Buffer.Length);
+        Assert.Equal(0, result.Buffer.FirstSpan[0]);
+        Assert.Equal(255, result.Buffer.Slice(frameLength - 1, 1).FirstSpan[0]);
+        Assert.Equal(0, GetPrivateInt(connection, "_queuedFrames"));
+        Assert.Equal(1, GetPrivateInt(frame, "_refCount"));
+
+        pipe.Reader.AdvanceTo(result.Buffer.End);
+        await pipe.Reader.CompleteAsync();
+        await pipe.Writer.CompleteAsync();
+        frame.Release();
+    }
+
     private static SharedNotificationStreamFrame CreateFrame(string value)
     {
         byte[] buffer = ArrayPool<byte>.Shared.Rent(value.Length);
         System.Text.Encoding.UTF8.GetBytes(value.AsSpan(), buffer);
         return SharedNotificationStreamFrame.FromOwnedBuffer(buffer, value.Length);
+    }
+
+    private static SharedNotificationStreamFrame CreateFrame(int length)
+    {
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(length);
+        for (int i = 0; i < length; i++)
+        {
+            buffer[i] = (byte)(i & 0xff);
+        }
+
+        return SharedNotificationStreamFrame.FromOwnedBuffer(buffer, length);
     }
 
     private static int GetPrivateInt(object instance, string fieldName)

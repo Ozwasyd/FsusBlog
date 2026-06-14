@@ -59,7 +59,7 @@ public static partial class BinaryEndpoints
                 return AuthBinaryResponseWriter.Error(aeds, request.Error);
             }
 
-            var result = await authFacade.LoginAsync(request.Value, AuthBinaryClientContext.From(httpContext));
+            var result = await authFacade.LoginAsync(request.Value, AuthBinaryClientContext.From(httpContext), cancellationToken);
             if (!result.Success)
             {
                 return AuthBinaryResponseWriter.Error(aeds, result.Error);
@@ -91,7 +91,7 @@ public static partial class BinaryEndpoints
                 return AuthBinaryResponseWriter.Error(aeds, request.Error);
             }
 
-            var result = await authFacade.RegisterAsync(request.Value, AuthBinaryClientContext.From(httpContext));
+            var result = await authFacade.RegisterAsync(request.Value, AuthBinaryClientContext.From(httpContext), cancellationToken);
             if (!result.Success)
             {
                 return AuthBinaryResponseWriter.Error(aeds, result.Error);
@@ -203,7 +203,7 @@ public static partial class BinaryEndpoints
                 }
             }
 
-            var (success, message, newToken) = await profileCommands.UpdateUsernameAsync(userId, newUsername);
+            var (success, message, newToken) = await profileCommands.UpdateUsernameAsync(userId, newUsername, cancellationToken);
             if (!success || newToken == null)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
@@ -253,7 +253,7 @@ public static partial class BinaryEndpoints
                 OldPassword = request.OldPassword,
                 NewPassword = request.NewPassword,
                 ConfirmPassword = request.ConfirmPassword
-            });
+            }, cancellationToken);
             if (!success)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
@@ -298,7 +298,7 @@ public static partial class BinaryEndpoints
                 ConfirmText = request.ConfirmText,
                 Code = request.Code,
                 RecoveryCode = request.RecoveryCode
-            });
+            }, cancellationToken);
             if (!result.Success)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, StatusCodes.Status422UnprocessableEntity);
@@ -315,10 +315,11 @@ public static partial class BinaryEndpoints
         group.MapGet("/auth/sessions", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserSessionCommandService sessions,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             var userContext = EndpointUserContext.From(httpContext.User);
-            var result = await sessions.GetUserSessionsAsync(userContext.UserId, userContext.SessionId);
+            var result = await sessions.GetUserSessionsAsync(userContext.UserId, userContext.SessionId, cancellationToken);
             return BinaryResults.Frame(aeds, AedsFrameType.AuthSessionList, writer => PodBinaryCodec.WriteUserSessions(result, writer));
         })
         .RequireAuthorization();
@@ -327,10 +328,11 @@ public static partial class BinaryEndpoints
             string id,
             HttpContext httpContext,
             IUserSessionCommandService sessions,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             var userContext = EndpointUserContext.From(httpContext.User);
-            bool revoked = await sessions.RevokeSessionAsync(userContext.UserId, id);
+            bool revoked = await sessions.RevokeSessionAsync(userContext.UserId, id, cancellationToken: cancellationToken);
             return revoked
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds);
@@ -340,10 +342,11 @@ public static partial class BinaryEndpoints
         group.MapPost("/auth/sessions/revoke-others", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserSessionCommandService sessions,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             var userContext = EndpointUserContext.From(httpContext.User);
-            _ = await sessions.RevokeOtherSessionsAsync(userContext.UserId, userContext.SessionId);
+            _ = await sessions.RevokeOtherSessionsAsync(userContext.UserId, userContext.SessionId, cancellationToken);
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAuthorization();
@@ -523,7 +526,7 @@ public static partial class BinaryEndpoints
             }
 
             string? deviceFp = GetDeviceFingerprint(httpContext);
-            var risk = await loginWorkflow.EvaluateLoginRiskAsync(userId, httpContext.GetClientIp(), deviceFp, httpContext.GetUserAgent());
+            var risk = await loginWorkflow.EvaluateLoginRiskAsync(userId, httpContext.GetClientIp(), deviceFp, httpContext.GetUserAgent(), cancellationToken);
             var ticket = await challengeService.CreateActionChallengeAsync(user.Value.Id, action, risk.RequiresMfa);
             var challenge = new MfaChallengeResultDto(false, action, ticket.TicketId, null);
             return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(challenge, writer));
@@ -557,7 +560,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "MFA_CHALLENGE_EXPIRED"), aeds);
             }
 
-            bool verified = await loginWorkflow.VerifyMfaOrRecoveryCodeAsync(ticket.UserId, request.Code, request.RecoveryCode, persistRecoveryConsumption: true);
+            bool verified = await loginWorkflow.VerifyMfaOrRecoveryCodeAsync(ticket.UserId, request.Code, request.RecoveryCode, persistRecoveryConsumption: true, cancellationToken: cancellationToken);
             if (!verified)
             {
                 bool locked = await challengeService.RecordFailureAsync(
@@ -579,7 +582,8 @@ public static partial class BinaryEndpoints
                     GetDeviceFingerprint(httpContext),
                     httpContext.GetUserAgent(),
                     mfaVerified: true,
-                    rememberMe: ticket.RememberMe);
+                    rememberMe: ticket.RememberMe,
+                    cancellationToken: cancellationToken);
                 if (!login.Success || login.Data == null || login.User == null)
                 {
                     return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "LOGIN_FINALIZE_FAILED"), aeds);
@@ -607,7 +611,8 @@ public static partial class BinaryEndpoints
             IUserSessionCommandService sessions,
             IWebHostEnvironment env,
             AuthCookieService authCookieService,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             string? oldRefreshToken = authCookieService.ReadRefreshToken(httpContext);
             if (string.IsNullOrEmpty(oldRefreshToken))
@@ -616,7 +621,7 @@ public static partial class BinaryEndpoints
             }
 
             string? sessionId = authCookieService.ReadSessionId(httpContext);
-            var (success, newTokens, expiresAt) = await sessions.RefreshTokenWithExpiryAsync(oldRefreshToken, sessionId);
+            var (success, newTokens, expiresAt) = await sessions.RefreshTokenWithExpiryAsync(oldRefreshToken, sessionId, cancellationToken);
             if (!success || newTokens == null)
             {
                 authCookieService.ClearTokenCookies(httpContext);
@@ -639,12 +644,13 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IUserSessionCommandService sessions,
             AuthCookieService authCookieService,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             string? refreshToken = authCookieService.ReadRefreshToken(httpContext);
             if (!string.IsNullOrEmpty(refreshToken))
             {
-                await sessions.RevokeRefreshTokenAsync(refreshToken);
+                await sessions.RevokeRefreshTokenAsync(refreshToken, cancellationToken);
             }
 
             authCookieService.ClearTokenCookies(httpContext);
@@ -658,7 +664,8 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IPasskeyService passkeyService,
             IUserAccountReader users,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             var userContext = EndpointUserContext.From(httpContext.User);
             UserAccountSnapshot? user = await users.GetAccountByIdAsync(userContext.UserId);
@@ -667,7 +674,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "用户不存在"), aeds);
             }
 
-            var (success, message, data) = await passkeyService.BeginRegistrationAsync(user.Value.Id, user.Value.Username);
+            var (success, message, data) = await passkeyService.BeginRegistrationAsync(user.Value.Id, user.Value.Username, cancellationToken);
             return success && data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.PasskeyRegisterBegin, writer => PodBinaryCodec.WritePasskeyRegisterBegin(data.Options, writer))
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
@@ -718,7 +725,7 @@ public static partial class BinaryEndpoints
                 }
             }
 
-            var (success, message) = await passkeyService.CompleteRegistrationAsync(user.Value.Id, request);
+            var (success, message) = await passkeyService.CompleteRegistrationAsync(user.Value.Id, request, cancellationToken);
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
@@ -727,9 +734,10 @@ public static partial class BinaryEndpoints
 
         group.MapPost("/auth/passkey/login/begin", static async Task<BinaryFrameResult> (
             IPasskeyService passkeyService,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
-            var (success, message, data) = await passkeyService.BeginAssertionAsync();
+            var (success, message, data) = await passkeyService.BeginAssertionAsync(cancellationToken);
             return success && data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.PasskeyLoginBegin, writer => PodBinaryCodec.WritePasskeyLoginBegin(data.Options, writer))
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, message), aeds);
@@ -763,7 +771,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "请求参数无效"), aeds);
             }
 
-            var (success, message, user) = await passkeyService.CompleteAssertionAsync(request);
+            var (success, message, user) = await passkeyService.CompleteAssertionAsync(request, cancellationToken);
             if (!success || user == null)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, message), aeds);
@@ -772,7 +780,7 @@ public static partial class BinaryEndpoints
             string clientIp = httpContext.GetClientIp();
             string? deviceFp = GetDeviceFingerprint(httpContext);
             string? userAgent = httpContext.GetUserAgent();
-            var login = await loginWorkflow.CompleteLoginAsync(user.Id, clientIp, deviceFp, userAgent, mfaVerified: true, rememberMe: request.RememberMe);
+            var login = await loginWorkflow.CompleteLoginAsync(user.Id, clientIp, deviceFp, userAgent, mfaVerified: true, rememberMe: request.RememberMe, cancellationToken: cancellationToken);
             if (!login.Success || login.Data == null || login.User == null)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, login.Message), aeds);
@@ -797,10 +805,11 @@ public static partial class BinaryEndpoints
         group.MapGet("/auth/passkey/credentials", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IPasskeyService passkeyService,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             int userId = httpContext.GetUserId();
-            var credentials = await passkeyService.GetCredentialsAsync(userId);
+            var credentials = await passkeyService.GetCredentialsAsync(userId, cancellationToken);
             return BinaryResults.Frame(aeds, AedsFrameType.PasskeyCredentialList, writer => PodBinaryCodec.WritePasskeyCredentialList([.. credentials], writer));
         })
         .RequireAuthorization();
@@ -809,10 +818,11 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IPasskeyService passkeyService,
             int id,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             int userId = httpContext.GetUserId();
-            bool deleted = await passkeyService.RemoveCredentialAsync(userId, id);
+            bool deleted = await passkeyService.RemoveCredentialAsync(userId, id, cancellationToken);
             return deleted
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "通行密钥不存在"), aeds);
@@ -839,7 +849,7 @@ public static partial class BinaryEndpoints
             }
 
             int userId = httpContext.GetUserId();
-            bool renamed = await passkeyService.RenameCredentialAsync(userId, id, name);
+            bool renamed = await passkeyService.RenameCredentialAsync(userId, id, name, cancellationToken);
             return renamed
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "通行密钥不存在"), aeds);

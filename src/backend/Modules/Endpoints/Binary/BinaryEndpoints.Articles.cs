@@ -171,7 +171,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "文章写入请求体非法"), aeds);
             }
 
-            int id = await articles.CreateAsync(request);
+            int id = await articles.CreateAsync(request, cancellationToken);
 
             return id > 0
                 ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(id, writer))
@@ -198,7 +198,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "文章写入请求体非法"), aeds);
             }
 
-            bool success = await articles.UpdateAsync(id, request);
+            bool success = await articles.UpdateAsync(id, request, cancellationToken);
 
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(id, writer))
@@ -209,9 +209,10 @@ public static partial class BinaryEndpoints
 
         group.MapDelete("/admin/article/trash", static async Task<BinaryFrameResult> (
             IArticleEndpointService articles,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
-            int count = await articles.ClearTrashAsync();
+            int count = await articles.ClearTrashAsync(cancellationToken);
             if (count < 0)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "清空回收站失败：数据库操作异常"), aeds);
@@ -230,9 +231,10 @@ public static partial class BinaryEndpoints
         group.MapDelete("/admin/article/{id:int}", static async Task<BinaryFrameResult> (
             int id,
             IArticleEndpointService articles,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
-            bool success = await articles.DeleteAsync(id);
+            bool success = await articles.DeleteAsync(id, cancellationToken);
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：资源不存在"), aeds);
@@ -243,9 +245,10 @@ public static partial class BinaryEndpoints
         group.MapPut("/admin/article/restore/{id:int}", static async Task<BinaryFrameResult> (
             int id,
             IArticleEndpointService articles,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
-            bool success = await articles.RestoreAsync(id);
+            bool success = await articles.RestoreAsync(id, cancellationToken);
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "恢复失败：资源不存在"), aeds);
@@ -256,9 +259,10 @@ public static partial class BinaryEndpoints
         group.MapDelete("/admin/article/permanent/{id:int}", static async Task<BinaryFrameResult> (
             int id,
             IArticleEndpointService articles,
-            IAedsEncoder aeds) =>
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
-            bool success = await articles.PermanentlyDeleteArticleAsync(id);
+            bool success = await articles.PermanentlyDeleteArticleAsync(id, cancellationToken);
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：资源不存在"), aeds);

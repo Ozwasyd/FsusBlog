@@ -61,7 +61,7 @@ public sealed class UserCoreGateway(UserService service) : IUserCoreGateway
             : (false, null);
     }
 
-    public Task<bool> RevokeRefreshTokenAsync(string refreshToken) => service.RevokeRefreshTokenAsync(refreshToken);
+    public Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default) => service.RevokeRefreshTokenAsync(refreshToken, cancellationToken);
 
     public async Task<AdminUserPageContract> GetAdminUserListAsync(int page, int pageSize, string? keyword, int? status)
     {

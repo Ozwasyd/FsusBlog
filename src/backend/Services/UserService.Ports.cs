@@ -34,14 +34,18 @@ public sealed class UserAccountReader(UserService users) : IUserAccountReader
 
 public sealed class UserRegistrationService(UserService users) : IUserRegistrationService
 {
-    public Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto)
-        => users.RegisterAsync(dto);
+    public Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return users.RegisterAsync(dto);
+    }
 }
 
 public sealed class UserLoginWorkflowService(UserService users) : IUserLoginWorkflowService
 {
-    public async Task<(bool Success, string Message, UserAccountSnapshot? User)> ValidateCredentialsAsync(LoginDto dto, string clientIp)
+    public async Task<(bool Success, string Message, UserAccountSnapshot? User)> ValidateCredentialsAsync(LoginDto dto, string clientIp, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var result = await users.ValidateCredentialsAsync(dto, clientIp);
         return (result.Success, result.Message, result.User is null ? null : UserAccountReader.ToAccountSnapshot(result.User));
     }
@@ -52,8 +56,10 @@ public sealed class UserLoginWorkflowService(UserService users) : IUserLoginWork
         string? deviceFingerprint,
         string? userAgent,
         bool mfaVerified,
-        bool rememberMe)
+        bool rememberMe,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         User? user = await users.GetByIdAsync(userId);
         if (user is null)
         {
@@ -64,15 +70,20 @@ public sealed class UserLoginWorkflowService(UserService users) : IUserLoginWork
         return (result.Success, result.Message, result.Data, result.UserEntity is null ? null : UserAccountReader.ToAccountSnapshot(result.UserEntity));
     }
 
-    public Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent)
-        => users.EvaluateLoginRiskAsync(userId, clientIp, deviceFingerprint, userAgent);
+    public Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return users.EvaluateLoginRiskAsync(userId, clientIp, deviceFingerprint, userAgent);
+    }
 
     public async Task<bool> VerifyMfaOrRecoveryCodeAsync(
         int userId,
         string? code,
         string? recoveryCode,
-        bool persistRecoveryConsumption)
+        bool persistRecoveryConsumption,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         User? user = await users.GetByIdAsync(userId);
         return user is not null && await users.VerifyMfaOrRecoveryCodeAsync(user, code, recoveryCode, persistRecoveryConsumption);
     }
@@ -80,49 +91,79 @@ public sealed class UserLoginWorkflowService(UserService users) : IUserLoginWork
 
 public sealed class UserProfileCommandService(UserService users) : IUserProfileCommandService
 {
-    public Task<(bool Success, string Message, TokenResponseDto? Data)> UpdateUsernameAsync(int userId, string newUsername)
-        => users.UpdateUsernameAsync(userId, newUsername);
+    public Task<(bool Success, string Message, TokenResponseDto? Data)> UpdateUsernameAsync(int userId, string newUsername, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return users.UpdateUsernameAsync(userId, newUsername);
+    }
 
-    public Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto)
-        => users.UpdatePasswordAsync(userId, dto);
+    public Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return users.UpdatePasswordAsync(userId, dto);
+    }
 
-    public Task<(bool Success, string Message)> DeleteAccountAsync(int userId, DeleteAccountRequestDto dto)
-        => users.DeleteAccountAsync(userId, dto);
+    public Task<(bool Success, string Message)> DeleteAccountAsync(int userId, DeleteAccountRequestDto dto, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return users.DeleteAccountAsync(userId, dto);
+    }
 }
 
 public sealed class UserSessionCommandService(UserService users) : IUserSessionCommandService
 {
     public async Task<(bool Success, TokenResponseDto? Data, DateTime ExpiresAt)> RefreshTokenWithExpiryAsync(
         string refreshToken,
-        string? sessionId)
+        string? sessionId,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var result = await users.RefreshTokenAsync(refreshToken, sessionId);
         if (!result.Success || result.Data is null)
         {
             return (false, null, DateTime.UtcNow);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         UserSession? session = await users.GetSessionByRefreshTokenAsync(result.Data.Value.RefreshToken);
         return (true, result.Data, session?.IdleExpiresAt ?? DateTime.UtcNow.AddDays(7));
     }
 
-    public Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId)
-        => users.RefreshTokenAsync(refreshToken, sessionId);
+    public Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return users.RefreshTokenAsync(refreshToken, sessionId);
+    }
 
-    public Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken)
-        => users.GetSessionByRefreshTokenAsync(refreshToken);
+    public Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return users.GetSessionByRefreshTokenAsync(refreshToken);
+    }
 
-    public Task<List<UserSessionSummaryDto>> GetUserSessionsAsync(int userId, string? currentSessionId)
-        => users.GetUserSessionsAsync(userId, currentSessionId);
+    public Task<List<UserSessionSummaryDto>> GetUserSessionsAsync(int userId, string? currentSessionId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return users.GetUserSessionsAsync(userId, currentSessionId);
+    }
 
-    public Task<bool> RevokeSessionAsync(int userId, string sessionId, string reason = "manual_revoke")
-        => users.RevokeSessionAsync(userId, sessionId, reason);
+    public Task<bool> RevokeSessionAsync(int userId, string sessionId, string reason = "manual_revoke", CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return users.RevokeSessionAsync(userId, sessionId, reason);
+    }
 
-    public Task<int> RevokeOtherSessionsAsync(int userId, string? currentSessionId)
-        => users.RevokeOtherSessionsAsync(userId, currentSessionId);
+    public Task<int> RevokeOtherSessionsAsync(int userId, string? currentSessionId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return users.RevokeOtherSessionsAsync(userId, currentSessionId);
+    }
 
-    public Task<bool> RevokeRefreshTokenAsync(string refreshToken)
-        => users.RevokeRefreshTokenAsync(refreshToken);
+    public Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return users.RevokeRefreshTokenAsync(refreshToken, cancellationToken);
+    }
 }
 
 public sealed class UserMfaCommandService(UserService users) : IUserMfaCommandService

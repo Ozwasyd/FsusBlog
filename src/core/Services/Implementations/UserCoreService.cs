@@ -73,9 +73,10 @@ public sealed class UserCoreService(IUserCoreGateway gateway) : IUserCoreService
             : Result<TokenPairContract>.Failure(ErrorCode.Unauthorized, "令牌刷新失败");
     }
 
-    public async Task<Result> RevokeRefreshTokenAsync(string refreshToken)
+    public async Task<Result> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
-        return await gateway.RevokeRefreshTokenAsync(refreshToken)
+        cancellationToken.ThrowIfCancellationRequested();
+        return await gateway.RevokeRefreshTokenAsync(refreshToken, cancellationToken)
             ? Result.Success()
             : Result.Failure(ErrorCode.NotFound, "RefreshToken 不存在");
     }

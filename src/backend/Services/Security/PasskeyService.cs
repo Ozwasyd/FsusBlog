@@ -12,13 +12,13 @@ namespace FsusBlog.Server.Services.Security;
 
 public interface IPasskeyService
 {
-    Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int userId, string username);
-    Task<(bool Success, string Message)> CompleteRegistrationAsync(int userId, PasskeyRegisterCompleteCoreModel request);
-    Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAssertionAsync();
-    Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request);
-    Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int userId);
-    Task<bool> RemoveCredentialAsync(int userId, int credId);
-    Task<bool> RenameCredentialAsync(int userId, int credId, string name);
+    Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int userId, string username, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message)> CompleteRegistrationAsync(int userId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAssertionAsync(CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
+    Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int userId, CancellationToken cancellationToken = default);
+    Task<bool> RemoveCredentialAsync(int userId, int credId, CancellationToken cancellationToken = default);
+    Task<bool> RenameCredentialAsync(int userId, int credId, string name, CancellationToken cancellationToken = default);
 }
 
 public sealed record PasskeyRegBeginData(PasskeyRegisterBeginCoreModel Options);
@@ -36,8 +36,9 @@ public sealed class PasskeyService(
     // Registration
     // ─────────────────────────────────────────────────────────────────────
 
-    public async Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int userId, string username)
+    public async Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int userId, string username, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var existingCreds = await db.Queryable<PasskeyCredential>()
             .Where(c => c.UserId == userId)
             .Select(c => c.CredentialId)
@@ -81,28 +82,32 @@ public sealed class PasskeyService(
             CachePolicyId.SecurityPasskeyRegChallenge,
             sessionKey,
             PodBinaryCodec.EncodePasskeyRegisterBegin(coreOptions),
-            TimeSpan.FromMinutes(5));
+            TimeSpan.FromMinutes(5),
+            cancellationToken);
 
         return (true, "已生成注册选项", new PasskeyRegBeginData(coreOptions));
     }
 
     public async Task<(bool Success, string Message)> CompleteRegistrationAsync(
         int userId,
-        PasskeyRegisterCompleteCoreModel request)
+        PasskeyRegisterCompleteCoreModel request,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var cached = await cache.TryGetAsync<PasskeyRegisterBeginCoreModel>(
             CachePolicyId.SecurityPasskeyRegChallenge,
             request.SessionKey,
             static bytes => PodBinaryCodec.TryDecodePasskeyRegisterBegin(bytes, out var options)
                 ? (true, options)
-                : (false, null));
+                : (false, null),
+            cancellationToken);
         if (!cached.Hit || cached.Value is null)
         {
             return (false, "注册会话已过期，请重新开始");
         }
 
         // 删除 challenge，防止重放
-        await cache.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge, request.SessionKey);
+        await cache.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge, request.SessionKey, cancellationToken);
 
         var options = ToCredentialCreateOptions(cached.Value);
         AuthenticatorAttestationRawResponse attestationResponse = ToAttestationResponse(request);
@@ -176,8 +181,9 @@ public sealed class PasskeyService(
     // Authentication
     // ─────────────────────────────────────────────────────────────────────
 
-    public async Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAssertionAsync()
+    public async Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAssertionAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         // Discoverable credential — no allowCredentials, usernameless flow
         var options = fido2.GetAssertionOptions(new GetAssertionOptionsParams
         {
@@ -191,25 +197,28 @@ public sealed class PasskeyService(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             challengeToken,
             PodBinaryCodec.EncodePasskeyLoginBegin(coreOptions),
-            TimeSpan.FromMinutes(5));
+            TimeSpan.FromMinutes(5),
+            cancellationToken);
 
         return (true, "已生成认证选项", new PasskeyAuthBeginData(coreOptions));
     }
 
-    public async Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request)
+    public async Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var cached = await cache.TryGetAsync<PasskeyLoginBeginCoreModel>(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             request.ChallengeToken,
             static bytes => PodBinaryCodec.TryDecodePasskeyLoginBegin(bytes, out var options)
                 ? (true, options)
-                : (false, null));
+                : (false, null),
+            cancellationToken);
         if (!cached.Hit || cached.Value is null)
         {
             return (false, "认证会话已过期，请重新开始", null);
         }
 
-        await cache.RemoveAsync(CachePolicyId.SecurityPasskeyAuthChallenge, request.ChallengeToken);
+        await cache.RemoveAsync(CachePolicyId.SecurityPasskeyAuthChallenge, request.ChallengeToken, cancellationToken);
 
         var options = ToAssertionOptions(cached.Value);
         AuthenticatorAssertionRawResponse assertionResponse = ToAssertionResponse(request);
@@ -387,8 +396,9 @@ public sealed class PasskeyService(
     // Credential management
     // ─────────────────────────────────────────────────────────────────────
 
-    public async Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int userId)
+    public async Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int userId, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var creds = await db.Queryable<PasskeyCredential>()
             .Where(c => c.UserId == userId)
             .OrderBy(c => c.CreatedAt)
@@ -404,16 +414,18 @@ public sealed class PasskeyService(
             c.BackupState)).ToList();
     }
 
-    public async Task<bool> RemoveCredentialAsync(int userId, int credId)
+    public async Task<bool> RemoveCredentialAsync(int userId, int credId, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         int deleted = await db.Deleteable<PasskeyCredential>()
             .Where(c => c.Id == credId && c.UserId == userId)
             .ExecuteCommandAsync();
         return deleted > 0;
     }
 
-    public async Task<bool> RenameCredentialAsync(int userId, int credId, string name)
+    public async Task<bool> RenameCredentialAsync(int userId, int credId, string name, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         string trimmed = (name ?? string.Empty).Trim();
         if (trimmed.Length > 64) trimmed = trimmed[..64];
 

@@ -8,58 +8,53 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
     private readonly ConcurrentDictionary<string, NotificationStreamConnection> _byConnectionId = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _byUserId = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _byGroup = new(StringComparer.Ordinal);
-    private readonly object _indexGate = new();
     private readonly int _queueCapacity = Math.Clamp(configuration.GetValue<int?>("NotificationStream:QueueCapacity") ?? 256, 32, 4096);
 
     public int ConnectionCount => _byConnectionId.Count;
 
     public NotificationStreamConnection RegisterConnection(string connectionId, string? userId, IReadOnlyCollection<string> groups)
     {
-        NotificationStreamConnection connection;
-        lock (_indexGate)
+        if (_byConnectionId.ContainsKey(connectionId))
         {
-            if (_byConnectionId.ContainsKey(connectionId))
+            throw new InvalidOperationException($"Duplicate notification stream connection id: {connectionId}");
+        }
+
+        var connection = new NotificationStreamConnection(connectionId, userId, groups, _queueCapacity);
+        if (!_byConnectionId.TryAdd(connectionId, connection))
+        {
+            connection.Complete();
+            connection.Drain();
+            throw new InvalidOperationException($"Duplicate notification stream connection id: {connectionId}");
+        }
+
+        try
+        {
+            if (!string.IsNullOrEmpty(userId))
             {
-                throw new InvalidOperationException($"Duplicate notification stream connection id: {connectionId}");
+                AddToIndex(_byUserId, userId, connectionId);
             }
 
-            connection = new NotificationStreamConnection(connectionId, userId, groups, _queueCapacity);
-            if (!_byConnectionId.TryAdd(connectionId, connection))
+            foreach (string group in connection.Groups)
             {
-                connection.Complete();
-                connection.Drain();
-                throw new InvalidOperationException($"Duplicate notification stream connection id: {connectionId}");
+                AddToIndex(_byGroup, group, connectionId);
+            }
+        }
+        catch
+        {
+            _byConnectionId.TryRemove(connectionId, out _);
+            if (!string.IsNullOrEmpty(userId))
+            {
+                RemoveFromIndex(_byUserId, userId, connectionId);
             }
 
-            try
+            foreach (string group in connection.Groups)
             {
-                if (!string.IsNullOrEmpty(userId))
-                {
-                    AddToIndex(_byUserId, userId, connectionId);
-                }
-
-                foreach (string group in connection.Groups)
-                {
-                    AddToIndex(_byGroup, group, connectionId);
-                }
+                RemoveFromIndex(_byGroup, group, connectionId);
             }
-            catch
-            {
-                _byConnectionId.TryRemove(connectionId, out _);
-                if (!string.IsNullOrEmpty(userId))
-                {
-                    RemoveFromIndex(_byUserId, userId, connectionId);
-                }
 
-                foreach (string group in connection.Groups)
-                {
-                    RemoveFromIndex(_byGroup, group, connectionId);
-                }
-
-                connection.Complete();
-                connection.Drain();
-                throw;
-            }
+            connection.Complete();
+            connection.Drain();
+            throw;
         }
 
         NotificationStreamMetrics.ConnectionOpened();
@@ -69,23 +64,19 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
 
     public void RemoveConnection(string connectionId)
     {
-        NotificationStreamConnection? connection;
-        lock (_indexGate)
+        if (!_byConnectionId.TryRemove(connectionId, out NotificationStreamConnection? connection))
         {
-            if (!_byConnectionId.TryRemove(connectionId, out connection))
-            {
-                return;
-            }
+            return;
+        }
 
-            if (!string.IsNullOrEmpty(connection.UserId))
-            {
-                RemoveFromIndex(_byUserId, connection.UserId, connectionId);
-            }
+        if (!string.IsNullOrEmpty(connection.UserId))
+        {
+            RemoveFromIndex(_byUserId, connection.UserId, connectionId);
+        }
 
-            foreach (string group in connection.Groups)
-            {
-                RemoveFromIndex(_byGroup, group, connectionId);
-            }
+        foreach (string group in connection.Groups)
+        {
+            RemoveFromIndex(_byGroup, group, connectionId);
         }
 
         connection.Complete();
@@ -98,7 +89,7 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
     public int Publish(SharedNotificationStreamFrame frame, NotificationStreamTarget target)
     {
         int delivered = 0;
-        foreach (NotificationStreamConnection connection in ResolveConnections(target))
+        foreach (NotificationStreamConnection connection in ResolveConnectionsSnapshot(target))
         {
             frame.Retain();
             if (connection.TryEnqueue(frame))
@@ -110,36 +101,46 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
         return delivered;
     }
 
-    private IEnumerable<NotificationStreamConnection> ResolveConnections(NotificationStreamTarget target)
+    private IReadOnlyList<NotificationStreamConnection> ResolveConnectionsSnapshot(NotificationStreamTarget target)
     {
         return target switch
         {
-            NotificationStreamUserTarget user => ResolveByIndex(_byUserId, user.UserId),
-            NotificationStreamGroupTarget group => ResolveByIndex(_byGroup, group.GroupName),
+            NotificationStreamUserTarget user => ResolveByIndexSnapshot(_byUserId, user.UserId),
+            NotificationStreamGroupTarget group => ResolveByIndexSnapshot(_byGroup, group.GroupName),
             NotificationStreamMultiUserTarget multi => ResolveMultiUser(multi.UserIds),
-            _ => Array.Empty<NotificationStreamConnection>()
+            _ => []
         };
     }
 
-    private IEnumerable<NotificationStreamConnection> ResolveByIndex(ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index, string key)
+    private IReadOnlyList<NotificationStreamConnection> ResolveByIndexSnapshot(ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index, string key)
     {
         if (!index.TryGetValue(key, out ConcurrentDictionary<string, byte>? connectionIds))
         {
-            yield break;
+            return [];
         }
 
-        foreach ((string connectionId, _) in connectionIds)
+        KeyValuePair<string, byte>[] snapshot = connectionIds.ToArray();
+        if (snapshot.Length == 0)
+        {
+            return [];
+        }
+
+        var connections = new List<NotificationStreamConnection>(snapshot.Length);
+        foreach ((string connectionId, _) in snapshot)
         {
             if (_byConnectionId.TryGetValue(connectionId, out NotificationStreamConnection? connection))
             {
-                yield return connection;
+                connections.Add(connection);
             }
         }
+
+        return connections;
     }
 
-    private IEnumerable<NotificationStreamConnection> ResolveMultiUser(IReadOnlyList<string> userIds)
+    private IReadOnlyList<NotificationStreamConnection> ResolveMultiUser(IReadOnlyList<string> userIds)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        List<NotificationStreamConnection>? connections = null;
 
         foreach (string userId in userIds)
         {
@@ -148,7 +149,8 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
                 continue;
             }
 
-            foreach ((string connectionId, _) in connectionIds)
+            KeyValuePair<string, byte>[] snapshot = connectionIds.ToArray();
+            foreach ((string connectionId, _) in snapshot)
             {
                 if (!seen.Add(connectionId))
                 {
@@ -157,10 +159,13 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
 
                 if (_byConnectionId.TryGetValue(connectionId, out NotificationStreamConnection? connection))
                 {
-                    yield return connection;
+                    connections ??= new List<NotificationStreamConnection>(snapshot.Length);
+                    connections.Add(connection);
                 }
             }
         }
+
+        return connections ?? [];
     }
 
     private static void AddToIndex(ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index, string key, string connectionId)

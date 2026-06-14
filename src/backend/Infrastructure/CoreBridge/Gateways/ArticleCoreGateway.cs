@@ -49,7 +49,7 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
         }, cancellationToken);
     }
 
-    public Task<int> CreateAsync(string title, string content, string? summary, string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, int status = 2, DateTime? scheduledPublishAt = null)
+    public Task<int> CreateAsync(string title, string content, string? summary, string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, int status = 2, DateTime? scheduledPublishAt = null, CancellationToken cancellationToken = default)
         => service.CreateAsync(new CreateArticleRequest
         {
             Title = title,
@@ -60,9 +60,9 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
             TagIds = CopyTagIds(tagIds),
             Status = ToArticleStatus(status),
             ScheduledPublishAt = scheduledPublishAt
-        });
+        }, cancellationToken);
 
-    public Task<bool> UpdateAsync(int id, string title, string content, string? summary, string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, int status = 2, DateTime? scheduledPublishAt = null)
+    public Task<bool> UpdateAsync(int id, string title, string content, string? summary, string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, int status = 2, DateTime? scheduledPublishAt = null, CancellationToken cancellationToken = default)
         => service.UpdateAsync(id, new UpdateArticleRequest
         {
             Title = title,
@@ -73,12 +73,12 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
             TagIds = CopyTagIds(tagIds),
             Status = ToArticleStatus(status),
             ScheduledPublishAt = scheduledPublishAt
-        });
+        }, cancellationToken);
 
-    public Task<bool> DeleteAsync(int id) => service.DeleteAsync(id);
-    public Task<bool> RestoreAsync(int id) => service.RestoreAsync(id);
-    public Task<bool> PermanentlyDeleteArticleAsync(int id) => service.PermanentlyDeleteArticleAsync(id);
-    public Task<int> ClearTrashAsync() => service.ClearTrashAsync();
+    public Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default) => service.DeleteAsync(id, cancellationToken);
+    public Task<bool> RestoreAsync(int id, CancellationToken cancellationToken = default) => service.RestoreAsync(id, cancellationToken);
+    public Task<bool> PermanentlyDeleteArticleAsync(int id, CancellationToken cancellationToken = default) => service.PermanentlyDeleteArticleAsync(id, cancellationToken);
+    public Task<int> ClearTrashAsync(CancellationToken cancellationToken = default) => service.ClearTrashAsync(cancellationToken);
 
     public async Task<IReadOnlyList<ArticleListCoreModel>> SearchArticlesAsync(
         string keyword,

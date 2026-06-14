@@ -12,7 +12,7 @@ public interface IUserCoreService
     Task<Result<TokenPairContract>> UpdateUsernameAsync(int userId, string newUsername);
     Task<Result> UpdatePasswordAsync(int userId, string oldPassword, string newPassword, string confirmPassword);
     Task<Result<TokenPairContract>> RefreshTokenAsync(string refreshToken);
-    Task<Result> RevokeRefreshTokenAsync(string refreshToken);
+    Task<Result> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<Result<AdminUserPageContract>> GetAdminUserListAsync(int page, int pageSize, string? keyword, int? status);
     Task<Result> AdminChangeStatusAsync(int userId, int status, string? reason);
     Task<Result> AdminResetPasswordAsync(int userId, string newPassword);

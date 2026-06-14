@@ -276,8 +276,9 @@ public partial class UserService(
         return await RefreshTokenAsync(refreshToken, null);
     }
 
-    public async Task<bool> RevokeRefreshTokenAsync(string refreshToken)
+    public async Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(refreshToken)) return false;
 
         string hash = HashToken(refreshToken);
@@ -287,6 +288,7 @@ public partial class UserService(
             .Where(s => s.RefreshTokenHash == hash && s.RevokedAt == null)
             .ExecuteCommandAsync();
 
+        cancellationToken.ThrowIfCancellationRequested();
         return sessionUpdated > 0;
     }
 

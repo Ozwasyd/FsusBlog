@@ -8,18 +8,14 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class NotificationStreamConnectionManagerTests
 {
     [Fact]
-    public void Source_RegistersAndRemovesConnectionsUnderIndexGate()
+    public void Source_RegistersAndRemovesConnectionsWithoutGlobalIndexGate()
     {
         string source = ReadManagerSource();
-        int duplicateCheck = source.IndexOf("_byConnectionId.ContainsKey(connectionId)", StringComparison.Ordinal);
-        int allocation = source.IndexOf("new NotificationStreamConnection(connectionId", StringComparison.Ordinal);
 
-        Assert.Contains("private readonly object _indexGate", source, StringComparison.Ordinal);
-        Assert.True(duplicateCheck >= 0, "RegisterConnection must check for a duplicate connection id before allocating the channel-backed connection.");
-        Assert.True(allocation > duplicateCheck, "NotificationStreamConnection allocation must happen after the duplicate check.");
-        Assert.Contains("lock (_indexGate)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_indexGate", source, StringComparison.Ordinal);
         Assert.Contains("AddToIndex(_byUserId, userId, connectionId)", source, StringComparison.Ordinal);
         Assert.Contains("RemoveFromIndex(_byUserId, connection.UserId, connectionId)", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveConnectionsSnapshot", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -339,6 +335,54 @@ public class NotificationStreamConnectionManagerIntegrationTests
 
         Assert.Equal(2, delivered);
         frame.Release();
+    }
+
+    [Fact]
+    public void Publish_ToConnection_PreservesPerConnectionFrameOrdering()
+    {
+        var mgr = MakeManager();
+        NotificationStreamConnection connection = mgr.RegisterConnection("ordered", "user-order", []);
+        SharedNotificationStreamFrame first = SharedNotificationStreamFrame.FromArray([0x01]);
+        SharedNotificationStreamFrame second = SharedNotificationStreamFrame.FromArray([0x02]);
+
+        Assert.Equal(1, mgr.Publish(first, new NotificationStreamUserTarget("user-order")));
+        Assert.Equal(1, mgr.Publish(second, new NotificationStreamUserTarget("user-order")));
+        first.Release();
+        second.Release();
+
+        Assert.True(connection.Reader.TryRead(out SharedNotificationStreamFrame? firstQueued));
+        Assert.True(connection.Reader.TryRead(out SharedNotificationStreamFrame? secondQueued));
+        Assert.Equal(0x01, firstQueued.Memory.Span[0]);
+        Assert.Equal(0x02, secondQueued.Memory.Span[0]);
+
+        connection.AcknowledgeDequeuedFrame();
+        firstQueued.Release();
+        connection.AcknowledgeDequeuedFrame();
+        secondQueued.Release();
+        mgr.RemoveConnection("ordered");
+    }
+
+    [Fact]
+    public async Task RegisterPublishRemove_AllowsConcurrentConnections()
+    {
+        const int count = 128;
+        var mgr = MakeManager(queueCapacity: 512);
+
+        await Task.WhenAll(Enumerable.Range(0, count).Select(i =>
+            Task.Run(() => mgr.RegisterConnection($"conn-{i}", $"user-{i % 16}", ["group-all"]))));
+
+        Assert.Equal(count, mgr.ConnectionCount);
+
+        SharedNotificationStreamFrame frame = MakeFrame();
+        int delivered = mgr.Publish(frame, new NotificationStreamGroupTarget("group-all"));
+        frame.Release();
+
+        Assert.Equal(count, delivered);
+
+        await Task.WhenAll(Enumerable.Range(0, count).Select(i =>
+            Task.Run(() => mgr.RemoveConnection($"conn-{i}"))));
+
+        Assert.Equal(0, mgr.ConnectionCount);
     }
 
     [Fact]

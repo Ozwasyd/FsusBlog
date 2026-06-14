@@ -37,8 +37,9 @@ public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCo
             : Result<ArticleDetailCoreModel?>.Success(data);
     }
 
-    public async Task<Result<int>> CreateAsync(string title, string content, string? summary, string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, int status = 2, DateTime? scheduledPublishAt = null)
+    public async Task<Result<int>> CreateAsync(string title, string content, string? summary, string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, int status = 2, DateTime? scheduledPublishAt = null, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(content) || categoryId <= 0)
         {
             return Result<int>.Failure(ErrorCode.Validation, "发布参数非法");
@@ -49,14 +50,15 @@ public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCo
             return Result<int>.Failure(ErrorCode.Validation, "文章状态非法");
         }
 
-        var id = await gateway.CreateAsync(title, content, summary, coverImageUrl, categoryId, tagIds, status, scheduledPublishAt);
+        var id = await gateway.CreateAsync(title, content, summary, coverImageUrl, categoryId, tagIds, status, scheduledPublishAt, cancellationToken);
         return id > 0
             ? Result<int>.Success(id)
             : Result<int>.Failure(ErrorCode.InfraFailure, "文章创建失败");
     }
 
-    public async Task<Result> UpdateAsync(int id, string title, string content, string? summary, string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, int status = 2, DateTime? scheduledPublishAt = null)
+    public async Task<Result> UpdateAsync(int id, string title, string content, string? summary, string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, int status = 2, DateTime? scheduledPublishAt = null, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (id <= 0 || string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(content) || categoryId <= 0)
         {
             return Result.Failure(ErrorCode.Validation, "更新参数非法");
@@ -67,50 +69,54 @@ public sealed class ArticleCoreService(IArticleCoreGateway gateway) : IArticleCo
             return Result.Failure(ErrorCode.Validation, "文章状态非法");
         }
 
-        return await gateway.UpdateAsync(id, title, content, summary, coverImageUrl, categoryId, tagIds, status, scheduledPublishAt)
+        return await gateway.UpdateAsync(id, title, content, summary, coverImageUrl, categoryId, tagIds, status, scheduledPublishAt, cancellationToken)
             ? Result.Success()
             : Result.Failure(ErrorCode.NotFound, "文章不存在或更新失败");
     }
 
-    public async Task<Result> DeleteAsync(int id)
+    public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (id <= 0)
         {
             return Result.Failure(ErrorCode.Validation, "文章ID非法");
         }
 
-        return await gateway.DeleteAsync(id)
+        return await gateway.DeleteAsync(id, cancellationToken)
             ? Result.Success()
             : Result.Failure(ErrorCode.NotFound, "文章不存在或删除失败");
     }
 
-    public async Task<Result> RestoreAsync(int id)
+    public async Task<Result> RestoreAsync(int id, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (id <= 0)
         {
             return Result.Failure(ErrorCode.Validation, "文章ID非法");
         }
 
-        return await gateway.RestoreAsync(id)
+        return await gateway.RestoreAsync(id, cancellationToken)
             ? Result.Success()
             : Result.Failure(ErrorCode.NotFound, "文章不存在或恢复失败");
     }
 
-    public async Task<Result> PermanentlyDeleteArticleAsync(int id)
+    public async Task<Result> PermanentlyDeleteArticleAsync(int id, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (id <= 0)
         {
             return Result.Failure(ErrorCode.Validation, "文章ID非法");
         }
 
-        return await gateway.PermanentlyDeleteArticleAsync(id)
+        return await gateway.PermanentlyDeleteArticleAsync(id, cancellationToken)
             ? Result.Success()
             : Result.Failure(ErrorCode.NotFound, "文章不存在或彻底删除失败");
     }
 
-    public async Task<Result<int>> ClearTrashAsync()
+    public async Task<Result<int>> ClearTrashAsync(CancellationToken cancellationToken = default)
     {
-        var count = await gateway.ClearTrashAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        var count = await gateway.ClearTrashAsync(cancellationToken);
         return Result<int>.Success(count);
     }
 

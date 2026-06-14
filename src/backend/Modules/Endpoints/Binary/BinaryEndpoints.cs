@@ -46,8 +46,6 @@ public static partial class BinaryEndpoints
         var group = app.MapGroup("api/binary")
             .WithTags("Binary-POD")
             .WithMetadata(new FsusRouteKindMetadata("binary"));
-        Int64CursorCodec cursorCodec = Int64CursorCodec.Instance;
-
         MapBinaryAuthEndpoints(group);
         MapBinaryMessageEndpoints(group);
         MapBinaryArticleEndpoints(group);
@@ -58,7 +56,7 @@ public static partial class BinaryEndpoints
         MapBinarySystemEndpoints(group);
         MapBinaryTelemetryEndpoints(group);
         MapBinarySubscriptionEndpoints(group);
-        MapBinaryCommentEndpoints(group, cursorCodec);
+        MapBinaryCommentEndpoints(group);
         MapBinaryStatsEndpoints(group);
         MapBinaryUploadEndpoints(group);
     }

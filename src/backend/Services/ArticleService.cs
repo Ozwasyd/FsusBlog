@@ -383,8 +383,10 @@ public class ArticleService(
         return existsInSchema;
     }
 
-    public async Task<int> CreateAsync(CreateArticleRequest dto)
+    public async Task<int> CreateAsync(CreateArticleRequest dto, CancellationToken cancellationToken = default)
     {
+        CancellationToken ct = ResolveCancellationToken(cancellationToken);
+        ct.ThrowIfCancellationRequested();
         var title = NormalizeText(dto.Title, MaxTitleLength);
         var content = NormalizeText(dto.Content, MaxContentLength);
         var summary = NormalizeText(dto.Summary, MaxSummaryLength);
@@ -420,11 +422,15 @@ public class ArticleService(
             return id;
         });
 
+        ct.ThrowIfCancellationRequested();
         if (result.IsSuccess)
         {
             await InvalidateCache();
+            ct.ThrowIfCancellationRequested();
             await InvalidatePublicAotAsync(null, [dto.CategoryId], tagIds, "create");
+            ct.ThrowIfCancellationRequested();
             ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(result.Data);
+            ct.ThrowIfCancellationRequested();
 
             await _mutationSideEffects.AfterCreatedAsync(article, result.Data, realtimePreview);
 
@@ -513,13 +519,16 @@ public class ArticleService(
             CreatedAt = DateTime.UtcNow
         }).ExecuteCommandAsync();
 
-    public async Task<bool> UpdateAsync(int id, UpdateArticleRequest dto)
+    public async Task<bool> UpdateAsync(int id, UpdateArticleRequest dto, CancellationToken cancellationToken = default)
     {
+        CancellationToken ct = ResolveCancellationToken(cancellationToken);
+        ct.ThrowIfCancellationRequested();
         var originalCategoryId = await _db.Queryable<Article>()
             .ClearFilter()
             .Where(it => it.Id == id)
             .Select(it => it.CategoryId)
             .FirstAsync();
+        ct.ThrowIfCancellationRequested();
         var originalTagIds = await LoadArticleTagIdsAsync(id);
         var title = NormalizeText(dto.Title, MaxTitleLength);
         var content = NormalizeText(dto.Content, MaxContentLength);
@@ -564,23 +573,29 @@ public class ArticleService(
             await RecordArticleMutationOutboxAsync(id, "updated");
         });
 
+        ct.ThrowIfCancellationRequested();
         if (result.IsSuccess && articleUpdated)
         {
             await InvalidateCache(id);
+            ct.ThrowIfCancellationRequested();
             await InvalidatePublicAotAsync(
                 id,
                 MergeIds([originalCategoryId], [dto.CategoryId]),
                 MergeIds(originalTagIds, tagIds),
                 "update");
+            ct.ThrowIfCancellationRequested();
             ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(id);
+            ct.ThrowIfCancellationRequested();
             await _mutationSideEffects.AfterUpdatedAsync(id, realtimePreview);
             return true;
         }
         return false;
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
+        CancellationToken ct = ResolveCancellationToken(cancellationToken);
+        ct.ThrowIfCancellationRequested();
         var state = await LoadArticleAotStateAsync(id);
         DateTime now = DateTime.UtcNow;
         bool success = false;
@@ -598,18 +613,23 @@ public class ArticleService(
                 await RecordArticleMutationOutboxAsync(id, "deleted");
             }
         });
+        ct.ThrowIfCancellationRequested();
         success = result.IsSuccess && success;
         if (success)
         {
             await InvalidateCache(id);
+            ct.ThrowIfCancellationRequested();
             await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "delete");
+            ct.ThrowIfCancellationRequested();
             await _mutationSideEffects.AfterDeletedAsync(id);
         }
         return success;
     }
 
-    public async Task<bool> RestoreAsync(int id)
+    public async Task<bool> RestoreAsync(int id, CancellationToken cancellationToken = default)
     {
+        CancellationToken ct = ResolveCancellationToken(cancellationToken);
+        ct.ThrowIfCancellationRequested();
         var state = await LoadArticleAotStateAsync(id);
         DateTime now = DateTime.UtcNow;
         bool success = false;
@@ -628,22 +648,30 @@ public class ArticleService(
                 await RecordArticleMutationOutboxAsync(id, "restored");
             }
         });
+        ct.ThrowIfCancellationRequested();
         success = result.IsSuccess && success;
         if (success)
         {
             await InvalidateCache(id);
+            ct.ThrowIfCancellationRequested();
             await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "restore");
+            ct.ThrowIfCancellationRequested();
             ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(id);
+            ct.ThrowIfCancellationRequested();
             await _mutationSideEffects.AfterRestoredAsync(id, realtimePreview);
         }
         return success;
     }
 
-    public async Task<bool> PermanentlyDeleteArticleAsync(int id)
+    public async Task<bool> PermanentlyDeleteArticleAsync(int id, CancellationToken cancellationToken = default)
     {
+        CancellationToken ct = ResolveCancellationToken(cancellationToken);
+        ct.ThrowIfCancellationRequested();
         var article = await _db.Queryable<Article>().ClearFilter().InSingleAsync(id);
         if (article == null) return false;
+        ct.ThrowIfCancellationRequested();
         article.Content = await _db.Queryable<ArticleBody>().Where(it => it.ArticleId == id).Select(it => it.MarkdownContent).FirstAsync() ?? string.Empty;
+        ct.ThrowIfCancellationRequested();
         var tagIds = await LoadArticleTagIdsAsync(id);
         var imageUrls = ImageHelper.ExtractIllustrationUrls(article.Content);
 
@@ -655,27 +683,33 @@ public class ArticleService(
             return await _db.Deleteable<Article>().In(id).ExecuteCommandAsync();
         });
 
+        ct.ThrowIfCancellationRequested();
         if (result.IsSuccess)
         {
             await InvalidateCache(id);
+            ct.ThrowIfCancellationRequested();
             await InvalidatePublicAotAsync(id, [article.CategoryId], tagIds, "permanent-delete");
-            await _mutationSideEffects.AfterPermanentlyDeletedAsync(id, imageUrls, Ct);
+            ct.ThrowIfCancellationRequested();
+            await _mutationSideEffects.AfterPermanentlyDeletedAsync(id, imageUrls, ct);
             return true;
         }
         return false;
     }
 
-    public async Task<int> ClearTrashAsync()
+    public async Task<int> ClearTrashAsync(CancellationToken cancellationToken = default)
     {
+        CancellationToken ct = ResolveCancellationToken(cancellationToken);
+        ct.ThrowIfCancellationRequested();
         var trashArticles = await _db.Queryable<Article>()
             .ClearFilter()
             .Where(a => a.IsDeleted)
             .Select(a => new { a.Id, a.CategoryId })
-            .ToListAsync(Ct);
+            .ToListAsync(ct);
         if (trashArticles.Count == 0) return 0;
 
         var articleIds = trashArticles.Select(a => a.Id).ToList();
         var categoryIds = trashArticles.Select(a => a.CategoryId).Distinct().ToList();
+        ct.ThrowIfCancellationRequested();
         var tagIds = articleIds.Count == 0 ? [] : await LoadArticleTagIdsAsync(articleIds);
 
         Dictionary<int, string> trashedBodyMap = articleIds.Count == 0
@@ -683,9 +717,10 @@ public class ArticleService(
             : (await _db.Queryable<ArticleBody>()
                 .Where(it => articleIds.Contains(it.ArticleId))
                 .Select(it => new { it.ArticleId, it.MarkdownContent })
-                .ToListAsync(Ct))
+                .ToListAsync(ct))
                 .ToDictionary(it => it.ArticleId, it => it.MarkdownContent);
 
+        ct.ThrowIfCancellationRequested();
         var result = await _db.Ado.UseTranAsync(async () => {
             //[修改日期 2026-03-01]
             // 物理防线：将上千个 ID 拆分为每批 500 个的块 (Chunking) 进行删除事务。
@@ -704,11 +739,14 @@ public class ArticleService(
             return articleIds.Count;
         });
 
+        ct.ThrowIfCancellationRequested();
         if (result.IsSuccess)
         {
             await InvalidateCache();
+            ct.ThrowIfCancellationRequested();
             await InvalidatePublicAotBatchAsync(articleIds, categoryIds, tagIds, "clear-trash");
-            await _mutationSideEffects.AfterTrashClearedAsync(articleIds, trashedBodyMap, Ct);
+            ct.ThrowIfCancellationRequested();
+            await _mutationSideEffects.AfterTrashClearedAsync(articleIds, trashedBodyMap, ct);
             return result.Data;
         }
         _logger.LogError("清空回收站失败 | DbError: {Error}", result.ErrorMessage);

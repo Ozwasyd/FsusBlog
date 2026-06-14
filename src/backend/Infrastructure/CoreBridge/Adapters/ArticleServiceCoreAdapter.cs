@@ -36,24 +36,24 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
         return ToArticleDetailReadModel(result.Value.Value);
     }
 
-    public async Task<int> CreateAsync(CreateArticleRequest dto)
+    public async Task<int> CreateAsync(CreateArticleRequest dto, CancellationToken cancellationToken = default)
     {
-        var result = await core.CreateAsync(dto.Title, dto.Content, dto.Summary, dto.CoverImageUrl, dto.CategoryId, TagIdsOrEmpty(dto.TagIds), (int)dto.Status, dto.ScheduledPublishAt);
+        var result = await core.CreateAsync(dto.Title, dto.Content, dto.Summary, dto.CoverImageUrl, dto.CategoryId, TagIdsOrEmpty(dto.TagIds), (int)dto.Status, dto.ScheduledPublishAt, cancellationToken);
         return result.IsSuccess && result.Value > 0 ? result.Value : 0;
     }
 
-    public async Task<bool> UpdateAsync(int id, UpdateArticleRequest dto)
-        => (await core.UpdateAsync(id, dto.Title, dto.Content, dto.Summary, dto.CoverImageUrl, dto.CategoryId, TagIdsOrEmpty(dto.TagIds), (int)dto.Status, dto.ScheduledPublishAt)).IsSuccess;
+    public async Task<bool> UpdateAsync(int id, UpdateArticleRequest dto, CancellationToken cancellationToken = default)
+        => (await core.UpdateAsync(id, dto.Title, dto.Content, dto.Summary, dto.CoverImageUrl, dto.CategoryId, TagIdsOrEmpty(dto.TagIds), (int)dto.Status, dto.ScheduledPublishAt, cancellationToken)).IsSuccess;
 
-    public async Task<bool> DeleteAsync(int id) => (await core.DeleteAsync(id)).IsSuccess;
+    public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default) => (await core.DeleteAsync(id, cancellationToken)).IsSuccess;
 
-    public async Task<bool> RestoreAsync(int id) => (await core.RestoreAsync(id)).IsSuccess;
+    public async Task<bool> RestoreAsync(int id, CancellationToken cancellationToken = default) => (await core.RestoreAsync(id, cancellationToken)).IsSuccess;
 
-    public async Task<bool> PermanentlyDeleteArticleAsync(int id) => (await core.PermanentlyDeleteArticleAsync(id)).IsSuccess;
+    public async Task<bool> PermanentlyDeleteArticleAsync(int id, CancellationToken cancellationToken = default) => (await core.PermanentlyDeleteArticleAsync(id, cancellationToken)).IsSuccess;
 
-    public async Task<int> ClearTrashAsync()
+    public async Task<int> ClearTrashAsync(CancellationToken cancellationToken = default)
     {
-        var result = await core.ClearTrashAsync();
+        var result = await core.ClearTrashAsync(cancellationToken);
         return result.IsSuccess ? result.Value : 0;
     }
 

@@ -11,7 +11,7 @@ public interface IUserCoreGateway
     Task<(bool Success, string Message, TokenPairContract? Data)> UpdateUsernameAsync(int userId, string newUsername);
     Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, string oldPassword, string newPassword, string confirmPassword);
     Task<(bool Success, TokenPairContract? Data)> RefreshTokenAsync(string refreshToken);
-    Task<bool> RevokeRefreshTokenAsync(string refreshToken);
+    Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<AdminUserPageContract> GetAdminUserListAsync(int page, int pageSize, string? keyword, int? status);
     Task<(bool Success, string Message)> AdminChangeStatusAsync(int userId, int status, string? reason);
     Task<(bool Success, string Message)> AdminResetPasswordAsync(int userId, string newPassword);

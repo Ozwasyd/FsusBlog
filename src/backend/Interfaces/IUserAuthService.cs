@@ -43,5 +43,5 @@ public interface IUserAuthService
     Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent);
     Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId);
     Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken);
-    Task<bool> RevokeRefreshTokenAsync(string refreshToken);
+    Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
 }

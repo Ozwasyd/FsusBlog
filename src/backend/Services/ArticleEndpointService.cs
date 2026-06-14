@@ -135,23 +135,41 @@ public sealed class ArticleEndpointService(
         return Result<IReadOnlyList<FeaturedArticleSummaryDto>>.Success(featured);
     }
 
-    public Task<int> CreateAsync(ArticleWriteRequestCoreModel request)
-        => articles.CreateAsync(ToCreateRequest(request));
+    public Task<int> CreateAsync(ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return articles.CreateAsync(ToCreateRequest(request), cancellationToken);
+    }
 
-    public Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel request)
-        => articles.UpdateAsync(id, ToUpdateRequest(request));
+    public Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return articles.UpdateAsync(id, ToUpdateRequest(request), cancellationToken);
+    }
 
-    public Task<int> ClearTrashAsync()
-        => articles.ClearTrashAsync();
+    public Task<int> ClearTrashAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return articles.ClearTrashAsync(cancellationToken);
+    }
 
-    public Task<bool> DeleteAsync(int id)
-        => articles.DeleteAsync(id);
+    public Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return articles.DeleteAsync(id, cancellationToken);
+    }
 
-    public Task<bool> RestoreAsync(int id)
-        => articles.RestoreAsync(id);
+    public Task<bool> RestoreAsync(int id, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return articles.RestoreAsync(id, cancellationToken);
+    }
 
-    public Task<bool> PermanentlyDeleteArticleAsync(int id)
-        => articles.PermanentlyDeleteArticleAsync(id);
+    public Task<bool> PermanentlyDeleteArticleAsync(int id, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return articles.PermanentlyDeleteArticleAsync(id, cancellationToken);
+    }
 
     private async ValueTask<long> GetArticleListCacheVersionAsync(CancellationToken cancellationToken)
     {

@@ -68,8 +68,8 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
             : (false, null);
     }
 
-    public async Task<bool> RevokeRefreshTokenAsync(string refreshToken)
-        => (await core.RevokeRefreshTokenAsync(refreshToken)).IsSuccess;
+    public async Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
+        => (await core.RevokeRefreshTokenAsync(refreshToken, cancellationToken)).IsSuccess;
 
     public async Task<PageResult<UserListDto>> GetAdminUserListAsync(UserQueryDto dto)
     {

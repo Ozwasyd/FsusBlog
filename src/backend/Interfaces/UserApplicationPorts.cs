@@ -29,12 +29,12 @@ public interface IUserAccountReader
 
 public interface IUserRegistrationService
 {
-    Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto);
+    Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto, CancellationToken cancellationToken = default);
 }
 
 public interface IUserLoginWorkflowService
 {
-    Task<(bool Success, string Message, UserAccountSnapshot? User)> ValidateCredentialsAsync(LoginDto dto, string clientIp);
+    Task<(bool Success, string Message, UserAccountSnapshot? User)> ValidateCredentialsAsync(LoginDto dto, string clientIp, CancellationToken cancellationToken = default);
 
     Task<(bool Success, string Message, SessionTokenResponseDto? Data, UserAccountSnapshot? User)> CompleteLoginAsync(
         int userId,
@@ -42,37 +42,38 @@ public interface IUserLoginWorkflowService
         string? deviceFingerprint,
         string? userAgent,
         bool mfaVerified,
-        bool rememberMe);
+        bool rememberMe,
+        CancellationToken cancellationToken = default);
 
-    Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent);
+    Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent, CancellationToken cancellationToken = default);
 
-    Task<bool> VerifyMfaOrRecoveryCodeAsync(int userId, string? code, string? recoveryCode, bool persistRecoveryConsumption);
+    Task<bool> VerifyMfaOrRecoveryCodeAsync(int userId, string? code, string? recoveryCode, bool persistRecoveryConsumption, CancellationToken cancellationToken = default);
 }
 
 public interface IUserProfileCommandService
 {
-    Task<(bool Success, string Message, TokenResponseDto? Data)> UpdateUsernameAsync(int userId, string newUsername);
+    Task<(bool Success, string Message, TokenResponseDto? Data)> UpdateUsernameAsync(int userId, string newUsername, CancellationToken cancellationToken = default);
 
-    Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto);
+    Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto, CancellationToken cancellationToken = default);
 
-    Task<(bool Success, string Message)> DeleteAccountAsync(int userId, DeleteAccountRequestDto dto);
+    Task<(bool Success, string Message)> DeleteAccountAsync(int userId, DeleteAccountRequestDto dto, CancellationToken cancellationToken = default);
 }
 
 public interface IUserSessionCommandService
 {
-    Task<(bool Success, TokenResponseDto? Data, DateTime ExpiresAt)> RefreshTokenWithExpiryAsync(string refreshToken, string? sessionId);
+    Task<(bool Success, TokenResponseDto? Data, DateTime ExpiresAt)> RefreshTokenWithExpiryAsync(string refreshToken, string? sessionId, CancellationToken cancellationToken = default);
 
-    Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId);
+    Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId, CancellationToken cancellationToken = default);
 
-    Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken);
+    Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
 
-    Task<List<UserSessionSummaryDto>> GetUserSessionsAsync(int userId, string? currentSessionId);
+    Task<List<UserSessionSummaryDto>> GetUserSessionsAsync(int userId, string? currentSessionId, CancellationToken cancellationToken = default);
 
-    Task<bool> RevokeSessionAsync(int userId, string sessionId, string reason = "manual_revoke");
+    Task<bool> RevokeSessionAsync(int userId, string sessionId, string reason = "manual_revoke", CancellationToken cancellationToken = default);
 
-    Task<int> RevokeOtherSessionsAsync(int userId, string? currentSessionId);
+    Task<int> RevokeOtherSessionsAsync(int userId, string? currentSessionId, CancellationToken cancellationToken = default);
 
-    Task<bool> RevokeRefreshTokenAsync(string refreshToken);
+    Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
 }
 
 public interface IUserMfaCommandService
