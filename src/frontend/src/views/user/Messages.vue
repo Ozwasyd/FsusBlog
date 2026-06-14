@@ -1,12 +1,11 @@
 <template>
-  <div class="account-page mail-page">
-      <header class="account-page-header">
-        <div class="account-page-eyebrow">{{ isAdminView ? '管理' : '消息' }}</div>
-        <h1 class="account-page-title">{{ isAdminView ? '站内信中心' : '我的站内信' }}</h1>
-        <p class="account-page-description">
-          {{ isAdminView ? '处理用户会话、系统通知与待跟进状态。' : '集中处理站内消息、系统通知与申诉工单。' }}
-        </p>
-      </header>
+  <div class="account-page messages-page">
+    <header class="account-page-header">
+      <h1 class="account-page-title">{{ isAdminView ? '站内信中心' : '我的站内信' }}</h1>
+      <p class="account-page-description">
+        {{ isAdminView ? '处理用户会话、系统通知与待跟进状态。' : '集中处理站内消息、系统通知与申诉工单。' }}
+      </p>
+    </header>
 
     <AdminTaskFeedbackBar
       v-if="isAdminView"
@@ -19,282 +18,91 @@
       :busy="adminTaskFeedbackBusy"
     />
 
-    <div class="mail-layout">
-      <section v-if="!isMobile || showListPane" class="mail-pane mail-list-pane">
-        <div class="mail-flat-pane">
-          <header class="mail-pane-header">
-            <div class="mail-header">
-              <div>
-                <div class="mail-header-eyebrow">会话目录</div>
-                <div class="mail-header-title">{{ isAdminView ? '处理中会话' : '消息列表' }}</div>
-              </div>
-              <div class="mail-filter">
-                <el-select v-if="isAdminView" v-model="adminFilter" name="adminConversationFilter" size="small">
-                  <el-option label="处理中" value="open" />
-                  <el-option label="待处理" value="pending" />
-                  <el-option label="已关闭" value="closed" />
-                  <el-option label="系统" value="system" />
-                  <el-option label="全部" value="all" />
-                </el-select>
-                <el-select v-else v-model="userFilter" name="userConversationFilter" size="small">
-                  <el-option label="全部" value="all" />
-                  <el-option label="未读" value="unread" />
-                  <el-option label="系统消息" value="system" />
-                  <el-option label="处理中" value="open" />
-                  <el-option label="待处理" value="pending" />
-                  <el-option label="已关闭" value="closed" />
-                </el-select>
-              </div>
-            </div>
-          </header>
+    <div class="messages-inbox-layout">
+      <MessagesConversationList
+        v-if="!isMobile || showListPane"
+        ref="conversationListRef"
+        v-model:filter="activeFilter"
+        :mode="messageMode"
+        :is-mobile="isMobile"
+        :loading="listLoading"
+        :rows="visibleConversationRows"
+        :hidden-count="hiddenConversationCount"
+        :selected-conversation-id="selectedConversationId"
+        :motion-summary="conversationMotion.summary.value"
+        :status-label="statusLabel"
+        :status-type="statusType"
+        :conversation-row-class="conversationRowClass"
+        @select="handleSelectConversation"
+        @create-ticket="showMobileTicketCompose = true"
+        @load-more="conversationRenderLimit += CONVERSATION_RENDER_WINDOW"
+      >
+        <template #mobile-compose>
+          <MessagesComposePanel
+            v-if="isMobile && isAdminView"
+            v-model:system-target-user-id="systemTargetUserId"
+            v-model:system-subject="systemSubject"
+            v-model:system-body="systemBody"
+            mode="admin"
+            mobile
+            :loading="processing"
+            @submit="sendSystemMessage"
+          />
+          <MessagesComposePanel
+            v-if="isMobile && !isAdminView && showMobileTicketCompose"
+            v-model:create-subject="createSubject"
+            v-model:create-body="createBody"
+            mode="user"
+            mobile
+            :loading="creating"
+            @submit="handleCreateTicket"
+          />
+        </template>
+      </MessagesConversationList>
 
-          <div class="mail-pane-body">
-            <div v-if="isMobile && !isAdminView" class="mail-mobile-primary">
-              <el-button type="primary" @click="showMobileTicketCompose = !showMobileTicketCompose">
-                新建工单
-              </el-button>
-            </div>
+      <div v-if="!isMobile || showDetailPane" class="messages-detail-stack">
+        <MessagesThreadPanel
+          ref="threadPanelRef"
+          v-model:reply-body="replyBody"
+          :mode="messageMode"
+          :is-mobile="isMobile"
+          :loading="detailLoading"
+          :processing="processing"
+          :detail="detail"
+          :selection-empty="threadSelectionEmpty"
+          :rows="visibleMessageRows"
+          :hidden-count="hiddenMessageCount"
+          :reply-loading="replyLoading"
+          :reply-disabled="replyDisabled"
+          :context-user-text="contextUserText"
+          :motion-summary="messageMotion.summary.value"
+          :status-label="statusLabel"
+          :status-type="statusType"
+          @back="handleMobileBackToList"
+          @create-ticket="showMobileTicketCompose = true"
+          @reply="handleReply"
+          @update-status="updateStatus"
+          @load-more="messageRenderLimit += MESSAGE_RENDER_WINDOW"
+        />
 
-            <el-skeleton v-if="listLoading" :rows="8" animated />
-
-            <div v-else-if="conversations.length === 0" class="mail-empty">
-              <el-empty :description="isAdminView ? '暂无待处理会话' : '暂无站内信'">
-                <el-button v-if="!isAdminView" type="primary" @click="showMobileTicketCompose = true">新建工单</el-button>
-              </el-empty>
-            </div>
-
-            <div v-else class="mail-scroll-region">
-              <p
-                v-if="conversationMotion.summary.value"
-                class="blog-motion-summary-enter mail-motion-summary"
-                role="status"
-                aria-live="polite"
-              >
-                {{ conversationMotion.summary.value }}
-              </p>
-              <div class="mail-scroll-frame">
-                <div class="mail-scrollbar mail-scrollbar-native">
-                  <ul class="mail-item-stack" aria-label="会话列表">
-                    <li
-                      v-for="item in visibleConversationRows"
-                      :key="item.conversationId"
-                      class="mail-item-entry"
-                      v-memo="[item.conversationId, item.subject, item.lastMessageAtText, item.unreadCount, item.status, conversationMotion.stateFor(item.conversationId), isAdminConversationHighlighted(item.conversationId)]"
-                    >
-                    <button
-                      type="button"
-                      class="mail-item"
-                      :class="conversationRowClass(item)"
-                      :aria-current="item.conversationId === selectedConversationId ? 'true' : undefined"
-                      :aria-pressed="item.conversationId === selectedConversationId"
-                      :aria-label="item.ariaLabel"
-                      @click="handleSelectConversation(item.conversationId)"
-                    >
-                      <div class="mail-item-top">
-                        <span class="mail-item-subject" data-visual-dynamic>{{ item.subject }}</span>
-                        <div class="mail-item-top-right">
-                          <el-tag v-if="item.isSystemSource" size="small">系统</el-tag>
-                          <el-tag size="small" :type="statusType(item.status)">{{ statusLabel(item.status) }}</el-tag>
-                        </div>
-                      </div>
-                      <p class="mail-item-preview" data-visual-dynamic>{{ item.lastMessage?.bodyPreview || (isAdminView ? '暂无内容' : '暂无消息内容') }}</p>
-                      <div class="mail-item-meta">
-                        <time :datetime="item.lastMessageAt" data-visual-dynamic>{{ item.lastMessageAtText }}</time>
-                        <el-badge v-if="item.unreadCount > 0" :value="item.unreadCount" />
-                      </div>
-                    </button>
-                    </li>
-                  </ul>
-                  <el-button
-                    v-if="hiddenConversationCount > 0"
-                    link
-                    type="primary"
-                    class="mail-window-more"
-                    @click="conversationRenderLimit += CONVERSATION_RENDER_WINDOW"
-                  >
-                    显示更多会话（{{ hiddenConversationCount }}）
-                  </el-button>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="isMobile && isAdminView" class="mail-mobile-compose">
-              <div class="mail-subheader">发送系统消息</div>
-              <el-form label-position="top">
-                <el-form-item label="目标用户 ID">
-                  <el-input v-model="systemTargetUserId" name="systemTargetUserIdMobile" placeholder="请输入用户 ID" />
-                </el-form-item>
-                <el-form-item label="主题">
-                  <el-input v-model="systemSubject" name="systemSubjectMobile" maxlength="160" show-word-limit placeholder="例如：系统通知" />
-                </el-form-item>
-                <el-form-item label="内容">
-                  <el-input v-model="systemBody" name="systemBodyMobile" type="textarea" :rows="4" maxlength="4000" show-word-limit placeholder="请输入消息正文" />
-                </el-form-item>
-                <el-button type="success" :loading="processing" @click="sendSystemMessage">发送系统消息</el-button>
-              </el-form>
-            </div>
-
-            <div v-if="isMobile && !isAdminView && showMobileTicketCompose" class="mail-mobile-compose">
-              <div class="mail-subheader">新建申诉工单</div>
-              <el-form label-position="top">
-                <el-form-item label="主题">
-                  <el-input v-model="createSubject" name="ticketSubjectMobile" maxlength="160" show-word-limit placeholder="例如：账号误封申诉" />
-                </el-form-item>
-                <el-form-item label="内容">
-                  <el-input v-model="createBody" name="ticketBodyMobile" type="textarea" :rows="4" maxlength="4000" show-word-limit placeholder="请描述问题与诉求" />
-                </el-form-item>
-                <el-button type="success" :loading="creating" @click="handleCreateTicket">提交工单</el-button>
-              </el-form>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section v-if="!isMobile || showDetailPane" class="mail-pane mail-detail-pane mail-detail-stack mail-thread-panel" aria-live="polite" :aria-busy="detailLoading">
-        <div class="mail-flat-pane mail-thread-flat-pane">
-          <header class="mail-pane-header mail-pane-header-detail">
-            <div class="mail-header mail-header-detail">
-              <div class="mail-detail-title-group">
-                <el-button v-if="isMobile" size="small" @click="handleMobileBackToList">
-                  返回会话列表
-                </el-button>
-                <div class="mail-header-title-row">
-                  <span class="mail-header-title" data-visual-dynamic>{{ detail?.subject || '请选择会话' }}</span>
-                  <div class="mail-item-top-right" v-if="detail">
-                    <el-tag v-if="detail.isSystemSource" size="small">系统</el-tag>
-                    <el-tag size="small" :type="statusType(detail.status)">{{ statusLabel(detail.status) }}</el-tag>
-                  </div>
-                </div>
-              </div>
-
-              <div v-if="isAdminView && detail" class="mail-actions">
-                <span class="mail-action-hint">状态变更会通知用户</span>
-                <el-button size="small" @click="updateStatus('open')" :disabled="processing">标记为处理中</el-button>
-                <el-button size="small" type="warning" @click="updateStatus('pending')" :disabled="processing">移回待处理</el-button>
-                <el-button size="small" type="success" @click="updateStatus('closed')" :disabled="processing">关闭会话</el-button>
-              </div>
-            </div>
-          </header>
-
-          <div class="mail-pane-body mail-thread-body">
-            <div
-              v-if="isAdminView ? !adminSelectedConversation : !hasUserSelection"
-              class="mail-empty"
-            >
-              <el-empty :description="isAdminView ? '请选择会话' : '从左侧选择会话或创建新工单'">
-                <el-button v-if="!isAdminView" type="primary" @click="showMobileTicketCompose = true">新建工单</el-button>
-              </el-empty>
-            </div>
-
-            <el-skeleton v-else-if="detailLoading" :rows="10" animated />
-
-            <template v-else>
-              <div v-if="detail" class="mail-context-bar">
-                <span>正在回复：{{ detail.subject }}</span>
-                <span>{{ isAdminView ? `用户 ${contextUserText}` : '当前会话' }}</span>
-                <span>状态：{{ statusLabel(detail.status) }}</span>
-              </div>
-
-              <div class="mail-scroll-region mail-thread-region">
-                <div class="mail-scroll-frame">
-                <div class="mail-scrollbar mail-scrollbar-native">
-                    <p
-                      v-if="messageMotion.summary.value"
-                      class="blog-motion-summary-enter mail-motion-summary"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      {{ messageMotion.summary.value }}
-                    </p>
-                    <div
-                      v-for="msg in visibleMessageRows"
-                      :key="msg.messageId"
-                      class="mail-bubble"
-                      :class="[msg.bubbleClassName, messageMotion.classFor(msg.messageId)]"
-                      v-memo="[msg.messageId, msg.body, msg.createdAtText, messageMotion.stateFor(msg.messageId)]"
-                    >
-                      <div class="mail-bubble-meta">
-                        <span data-visual-dynamic>{{ msg.senderText }}</span>
-                        <time :datetime="msg.createdAt" data-visual-dynamic>{{ msg.createdAtText }}</time>
-                      </div>
-                      <p class="mail-bubble-body" data-visual-dynamic>{{ msg.body }}</p>
-                    </div>
-                    <el-button
-                      v-if="hiddenMessageCount > 0"
-                      link
-                      type="primary"
-                      class="mail-window-more"
-                      @click="messageRenderLimit += MESSAGE_RENDER_WINDOW"
-                    >
-                      显示更早消息（{{ hiddenMessageCount }}）
-                    </el-button>
-                  </div>
-                </div>
-              </div>
-
-              <el-divider />
-
-              <div class="mail-reply-form">
-                <div class="mail-subheader">回复当前会话</div>
-                <el-form label-position="top">
-                  <el-form-item :label="isAdminView ? '回复' : '回复管理员'">
-                    <el-input
-                      v-model="replyBody"
-                      name="conversationReply"
-                      type="textarea"
-                      :rows="4"
-                      maxlength="4000"
-                      show-word-limit
-                      :disabled="replyDisabled"
-                      placeholder="请输入回复内容"
-                    />
-                  </el-form-item>
-                  <el-button type="primary" :loading="replyLoading" :disabled="replyDisabled || !replyBody.trim()" @click="handleReply">
-                    发送回复
-                  </el-button>
-                </el-form>
-              </div>
-            </template>
-          </div>
-        </div>
-
-        <div v-if="!isMobile && isAdminView" class="mail-flat-pane mail-compose-panel">
-          <header class="mail-pane-header">
-            <span class="mail-header-title">发送系统消息</span>
-          </header>
-          <div class="mail-pane-body">
-            <el-form label-position="top">
-              <el-form-item label="目标用户 ID">
-                <el-input v-model="systemTargetUserId" name="systemTargetUserIdDesktop" placeholder="请输入用户 ID" />
-              </el-form-item>
-              <el-form-item label="主题">
-                <el-input v-model="systemSubject" name="systemSubjectDesktop" maxlength="160" show-word-limit placeholder="例如：系统通知" />
-              </el-form-item>
-              <el-form-item label="内容">
-                <el-input v-model="systemBody" name="systemBodyDesktop" type="textarea" :rows="4" maxlength="4000" show-word-limit placeholder="请输入消息正文" />
-              </el-form-item>
-              <el-button type="success" :loading="processing" @click="sendSystemMessage">发送系统消息</el-button>
-            </el-form>
-          </div>
-        </div>
-
-        <div v-else-if="!isMobile" class="mail-flat-pane mail-compose-panel">
-          <header class="mail-pane-header">
-            <span class="mail-header-title">新建申诉工单</span>
-          </header>
-          <div class="mail-pane-body">
-            <el-form label-position="top">
-              <el-form-item label="主题">
-                <el-input v-model="createSubject" name="ticketSubjectDesktop" maxlength="160" show-word-limit placeholder="例如：账号误封申诉" />
-              </el-form-item>
-              <el-form-item label="内容">
-                <el-input v-model="createBody" name="ticketBodyDesktop" type="textarea" :rows="4" maxlength="4000" show-word-limit placeholder="请描述问题与诉求" />
-              </el-form-item>
-              <el-button type="success" :loading="creating" @click="handleCreateTicket">提交工单</el-button>
-            </el-form>
-          </div>
-        </div>
-      </section>
+        <MessagesComposePanel
+          v-if="!isMobile && isAdminView"
+          v-model:system-target-user-id="systemTargetUserId"
+          v-model:system-subject="systemSubject"
+          v-model:system-body="systemBody"
+          mode="admin"
+          :loading="processing"
+          @submit="sendSystemMessage"
+        />
+        <MessagesComposePanel
+          v-else-if="!isMobile"
+          v-model:create-subject="createSubject"
+          v-model:create-body="createBody"
+          mode="user"
+          :loading="creating"
+          @submit="handleCreateTicket"
+        />
+      </div>
     </div>
 
     <el-dialog
@@ -303,7 +111,7 @@
       width="min(92vw, 28rem)"
       @close="userInbox.cancelConversationSwitch"
     >
-      <p class="mail-draft-dialog-text">
+      <p class="messages-draft-dialog-text">
         当前会话的回复草稿会按会话保留。你可以保存草稿后切换，也可以放弃这段草稿。
       </p>
       <template #footer>
@@ -318,7 +126,7 @@
       title="回复草稿尚未发送"
       width="min(92vw, 28rem)"
     >
-      <p class="mail-draft-dialog-text">
+      <p class="messages-draft-dialog-text">
         返回列表后当前回复草稿仍会留在此会话中，但不会发送给对方。
       </p>
       <template #footer>
@@ -330,13 +138,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import type { ConversationFilter } from '@/api/message'
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
+import MessagesComposePanel from '@/components/user/messages/MessagesComposePanel.vue'
+import MessagesConversationList from '@/components/user/messages/MessagesConversationList.vue'
+import MessagesThreadPanel from '@/components/user/messages/MessagesThreadPanel.vue'
 import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import { useInboxSplitView } from '@/composables/useInboxSplitView'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { useUserMessagesInbox } from '@/composables/useUserMessagesInbox'
+
+type FocusablePane = {
+  focusPane: () => void
+}
 
 const route = useRoute()
 const isAdminView = computed(() => route.name === 'ManageMessages')
@@ -357,9 +173,12 @@ const {
   ariaMessage: adminTaskFeedbackAriaMessage,
   isHighlighted: isAdminTaskHighlighted
 } = adminCenter.taskFeedback
+const conversationListRef = ref<FocusablePane | null>(null)
+const threadPanelRef = ref<FocusablePane | null>(null)
 const showMobileTicketCompose = ref(false)
 const mobileBackConfirmVisible = ref(false)
 const hasPendingConversationSwitch = computed(() => Boolean(userInbox.pendingConversationId.value))
+const messageMode = computed<'admin' | 'user'>(() => (isAdminView.value ? 'admin' : 'user'))
 
 const selectedConversationId = computed(() =>
   isAdminView.value ? adminCenter.selectedConversationId.value : userInbox.selectedConversationId.value
@@ -389,17 +208,17 @@ const replyDisabled = computed(() =>
 )
 const hasUserSelection = computed(() => userInbox.hasSelection.value)
 const adminSelectedConversation = computed(() => adminCenter.selectedConversation.value)
+const threadSelectionEmpty = computed(() =>
+  isAdminView.value ? !adminSelectedConversation.value : !hasUserSelection.value
+)
 
-const adminFilter = computed({
-  get: () => adminCenter.filter.value,
+const activeFilter = computed<ConversationFilter>({
+  get: () => (isAdminView.value ? adminCenter.filter.value : userInbox.filter.value),
   set: (value) => {
-    adminCenter.filter.value = value
-  }
-})
-
-const userFilter = computed({
-  get: () => userInbox.filter.value,
-  set: (value) => {
+    if (isAdminView.value) {
+      adminCenter.filter.value = value
+      return
+    }
     userInbox.filter.value = value
   }
 })
@@ -467,7 +286,8 @@ const visibleMessageRows = computed(() => {
     ...message,
     createdAtText: formatTime(message.createdAt),
     senderText: message.senderName || senderLabel(message.senderType),
-    bubbleClassName: bubbleClass(message.senderType)
+    bubbleClassName: bubbleClass(message.senderType),
+    motionClass: messageMotion.classFor(message.messageId)
   }))
 })
 const hiddenMessageCount = computed(() => Math.max(0, (detail.value?.messages.length ?? 0) - visibleMessageRows.value.length))
@@ -514,16 +334,43 @@ watch(messageSignature, (_next, previous) => {
   }
 })
 
+const focusConversationList = async (): Promise<void> => {
+  if (!isMobile.value) {
+    return
+  }
+  await nextTick()
+  conversationListRef.value?.focusPane()
+}
+
+const focusThreadPanel = async (): Promise<void> => {
+  if (!isMobile.value) {
+    return
+  }
+  await nextTick()
+  threadPanelRef.value?.focusPane()
+}
+
+const openListPaneAndFocus = async (): Promise<void> => {
+  openListPane()
+  await focusConversationList()
+}
+
+const openDetailPaneAndFocus = async (): Promise<void> => {
+  openDetailPane()
+  await focusThreadPanel()
+}
+
 const handleSelectConversation = async (conversationId: string): Promise<void> => {
   if (isAdminView.value) {
     openDetailPane()
     await adminCenter.selectConversation(conversationId)
+    await focusThreadPanel()
     return
   }
 
   const switched = await userInbox.selectConversation(conversationId)
   if (switched) {
-    openDetailPane()
+    await openDetailPaneAndFocus()
   }
 }
 
@@ -531,7 +378,7 @@ const handleCreateTicket = async (): Promise<void> => {
   await userInbox.createTicket()
   if (userInbox.selectedConversationId.value) {
     showMobileTicketCompose.value = false
-    openDetailPane()
+    await openDetailPaneAndFocus()
   }
 }
 
@@ -550,12 +397,12 @@ const handleMobileBackToList = (): void => {
     return
   }
 
-  openListPane()
+  void openListPaneAndFocus()
 }
 
 const confirmMobileBackToList = (): void => {
   mobileBackConfirmVisible.value = false
-  openListPane()
+  void openListPaneAndFocus()
 }
 
 const updateStatus = async (status: 'open' | 'pending' | 'closed'): Promise<void> => {
@@ -575,13 +422,13 @@ const sendSystemMessage = async (): Promise<void> => {
 
 const handleSaveDraftAndSwitch = async (): Promise<void> => {
   if (await userInbox.saveDraftAndSwitch()) {
-    openDetailPane()
+    await openDetailPaneAndFocus()
   }
 }
 
 const handleDiscardDraftAndSwitch = async (): Promise<void> => {
   if (await userInbox.discardDraftAndSwitch()) {
-    openDetailPane()
+    await openDetailPaneAndFocus()
   }
 }
 
@@ -627,9 +474,9 @@ const senderLabel = (senderType: number): string => {
 }
 
 const bubbleClass = (senderType: number): string => {
-  if (senderType === 0) return 'mail-bubble-user'
-  if (senderType === 1) return 'mail-bubble-admin'
-  return 'mail-bubble-system'
+  if (senderType === 0) return 'messages-bubble-user'
+  if (senderType === 1) return 'messages-bubble-admin'
+  return 'messages-bubble-system'
 }
 
 const formatTime = (input: string): string => {
@@ -642,12 +489,12 @@ const formatTime = (input: string): string => {
 <style scoped>
 @reference "@/assets/main.css";
 
-.mail-page {
+.messages-page {
   min-height: 100%;
   min-width: 0;
 }
 
-.mail-layout {
+.messages-inbox-layout {
   display: grid;
   width: 100%;
   min-width: 0;
@@ -655,338 +502,33 @@ const formatTime = (input: string): string => {
   gap: 3rem;
 }
 
-.mail-pane,
-.mail-detail-stack {
-  min-height: 0;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.mail-flat-pane {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.mail-pane-header {
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid var(--fsusblog-panel-border);
-  margin-bottom: 2rem;
-}
-
-.mail-pane-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.mail-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.mail-header-eyebrow {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--fsusblog-text-muted);
-}
-
-.mail-header-title,
-.mail-subheader {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--fsusblog-text-primary);
-  letter-spacing: 0;
-}
-
-.mail-filter {
-  width: 10rem;
-}
-
-.mail-scroll-region {
-  display: flex;
-  min-height: 0;
-  min-width: 0;
-  max-width: 100%;
-  flex: 1 1 auto;
-}
-
-.mail-scroll-frame {
-  min-height: 0;
-  min-width: 0;
-  max-width: 100%;
-  flex: 1 1 auto;
-}
-
-.mail-scrollbar {
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.mail-scrollbar-native {
-  min-height: 0;
-  max-height: 100%;
-  overflow: auto;
-}
-
-.mail-item-stack {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  max-width: 100%;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.mail-item-entry {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.mail-window-more {
-  margin-top: 0.75rem;
-}
-
-.mail-item {
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  background: transparent;
-  padding: 1.25rem 0;
-  text-align: left;
-  transition: background-color var(--fsus-motion-control) var(--fsus-motion-standard),
-    border-color var(--fsus-motion-control) var(--fsus-motion-standard),
-    color var(--fsus-motion-control) var(--fsus-motion-standard);
-  border-bottom: 1px solid var(--fsusblog-panel-border);
-}
-
-.mail-item:last-child {
-  border-bottom: none;
-}
-
-.mail-item:hover {
-  @apply opacity-70;
-}
-
-.mail-item.active {
-  @apply relative;
-}
-
-.mail-item.active::before {
-  content: "";
-  @apply absolute -left-4 top-[calc(50%-1rem)] h-8 w-[3px] bg-[var(--fsusblog-color-primary)];
-}
-
-.mail-item-top,
-.mail-item-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.mail-item-top-right {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  min-width: 0;
-}
-
-.mail-item-subject {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: var(--fsusblog-text-primary);
-}
-
-.mail-item-preview,
-.mail-item-meta {
-  color: var(--fsusblog-text-tertiary);
-}
-
-.mail-item-preview {
-  margin: 0.5rem 0 0.75rem;
-  font-size: 0.875rem;
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-}
-
-.mail-item-meta {
-  font-size: 0.75rem;
-  font-family: var(--tabular-nums);
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.mail-detail-stack {
+.messages-detail-stack {
   display: flex;
   min-height: 100%;
+  min-width: 0;
+  max-width: 100%;
   flex-direction: column;
   gap: 4rem;
 }
 
-.mail-thread-flat-pane {
-  min-height: 0;
-  flex: 1 1 auto;
-}
-
-.mail-thread-region {
-  padding-right: 1.5rem;
-}
-
-.mail-context-bar {
-  display: flex;
-  min-width: 0;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  border-left: 2px solid var(--fsusblog-color-primary);
-  background: var(--fsusblog-page-bg-soft);
-  margin-bottom: 1.5rem;
-  padding: 0.85rem 1rem;
-  color: var(--fsusblog-text-secondary);
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1.5;
-}
-
-.mail-bubble {
-  margin-bottom: 2rem;
-  border-left: 2px solid var(--fsusblog-panel-border);
-  padding-left: 1.5rem;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.mail-bubble-user {
-  border-left-color: var(--fsus-state-focus-border, var(--fsusblog-color-primary));
-}
-
-.mail-bubble-admin {
-  border-left-color: var(--fsusblog-text-primary);
-}
-
-.mail-bubble-system {
-  border-left-style: dashed;
-}
-
-.mail-bubble-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  min-width: 0;
-  max-width: 100%;
-  flex-wrap: wrap;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: none;
-  letter-spacing: 0;
-  color: var(--fsusblog-text-muted);
-  margin-bottom: 0.75rem;
-}
-
-.mail-bubble-body {
-  line-height: 1.8;
-  color: var(--fsusblog-text-secondary);
-  font-size: 0.95rem;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.mail-reply-form,
-.mail-mobile-compose,
-.mail-mobile-primary {
-  margin-top: 1.5rem;
-}
-
-.mail-mobile-primary {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.mail-draft-dialog-text {
+.messages-draft-dialog-text {
   margin: 0;
   color: var(--fsusblog-text-secondary);
   line-height: 1.7;
 }
 
-.mail-empty {
-  flex: 1 1 auto;
-  display: flex;
-  justify-content: center;
-}
-
-.mail-detail-title-group {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.mail-header-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.mail-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.mail-action-hint {
-  align-self: center;
-  color: var(--fsusblog-text-muted);
-  font-size: 0.6875rem;
-  font-weight: 700;
-}
-
 @media (min-width: 1024px) {
-  .mail-layout {
+  .messages-inbox-layout {
     grid-template-columns: minmax(20rem, 24rem) minmax(0, 1fr);
     gap: 4rem;
     min-height: calc(100dvh - 8rem);
   }
-
-  .mail-list-pane {
-    border-right: 1px solid var(--fsusblog-panel-border);
-    padding-right: 4rem;
-  }
 }
 
 @media (max-width: 1023px) {
-  .mail-layout {
+  .messages-inbox-layout {
     grid-template-columns: minmax(0, 1fr);
     gap: 2.5rem;
-  }
-
-  .mail-flat-pane {
-    min-height: calc(100dvh - 10rem);
   }
 }
 </style>

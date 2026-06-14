@@ -52,7 +52,7 @@ for (const viewport of viewports) {
             path: '/user/messagebox',
             label: 'user-messagebox',
             primary: 'main',
-            screenshot: '.mail-list-pane .mail-pane-header'
+            screenshot: '.messages-list-pane .messages-pane-header'
           }
         ] as const) {
           const session = await openThemedAuditedPage(browser, theme, storageState)

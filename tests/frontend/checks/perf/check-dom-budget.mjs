@@ -94,7 +94,7 @@ async function collectRouteMetrics(page, route) {
       maxDepth: Math.max(0, ...elementList.map(depthFor)),
       hiddenMountedNodeCount: elementList.filter((element) => element instanceof HTMLElement && !visible(element)).length,
       elementPlusRootCount: document.querySelectorAll('[class*="el-"]').length,
-      tableRowCount: document.querySelectorAll('tr, .el-table__row, .user-mobile-card, .mail-item-entry').length,
+      tableRowCount: document.querySelectorAll('tr, .el-table__row, .user-mobile-card, .messages-conversation-entry').length,
       interactiveControlCount: document.querySelectorAll('button, a[href], input, textarea, select, [role="button"], .el-button').length,
       longTaskCount: window.__fsusDomBudgetLongTasks ?? 0,
       layoutShiftCount: window.__fsusDomBudgetLayoutShifts ?? 0,
