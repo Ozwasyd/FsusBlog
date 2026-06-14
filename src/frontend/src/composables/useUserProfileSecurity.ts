@@ -162,8 +162,8 @@ export function useUserProfileSecurity() {
   const usernameBannedText = '账号受限：暂无法修改资料'
   const passwordBannedText = '账号受限：安全设置已锁定'
   const mfaCredentialTitle = computed(() => {
-    if (mfaCredentialState.mode === 'setup') return '重新绑定 MFA'
-    return mfaCredentialState.mode === 'disable' ? '关闭 MFA' : '重新生成恢复码'
+    if (mfaCredentialState.mode === 'setup') return '重新绑定二次验证'
+    return mfaCredentialState.mode === 'disable' ? '关闭二次验证' : '重新生成恢复码'
   })
   const mfaCredentialDescription = computed(() =>
     mfaCredentialState.mode === 'setup'
@@ -221,7 +221,7 @@ export function useUserProfileSecurity() {
       mfaProfile.verifiedAt = profile.verifiedAt
     } catch (error) {
       if (!isAbortError(error)) {
-        toast.error(getErrorMessage(error, 'MFA 状态加载失败'))
+        toast.error(getErrorMessage(error, '二次验证状态加载失败'))
       }
     } finally {
       mfaProfile.loading = false
@@ -390,7 +390,7 @@ export function useUserProfileSecurity() {
       mfaSetupState.secret = payload.secret
       mfaSetupState.otpAuthUrl = payload.otpAuthUrl
     } catch (error) {
-      mfaSetupState.errorMessage = getErrorMessage(error, 'MFA 初始化失败')
+      mfaSetupState.errorMessage = getErrorMessage(error, '二次验证初始化失败')
     } finally {
       mfaSetupState.loading = false
     }
@@ -410,9 +410,9 @@ export function useUserProfileSecurity() {
       const payload = result as MfaSetupVerify
       mfaSetupState.recoveryCodes = payload.recoveryCodes
       await reloadMfaProfile()
-      toast.success('MFA 已启用')
+      toast.success('二次验证已启用')
     } catch (error) {
-      mfaSetupState.errorMessage = getErrorMessage(error, 'MFA 验证失败')
+      mfaSetupState.errorMessage = getErrorMessage(error, '二次验证校验失败')
     } finally {
       mfaSetupState.loading = false
     }
@@ -454,7 +454,7 @@ export function useUserProfileSecurity() {
         mfaSetupState.recoveryCodes = []
         mfaSetupState.errorMessage = ''
         mfaSetupState.visible = true
-        toast.success('MFA 重新绑定已开始')
+        toast.success('二次验证重新绑定已开始')
       } else if (mfaCredentialState.mode === 'disable') {
         await mfaTask.run(async (signal) =>
           await disableMfa(
@@ -462,7 +462,7 @@ export function useUserProfileSecurity() {
             buildSignalConfig(signal)
           )
         )
-        toast.success('MFA 已关闭')
+        toast.success('二次验证已关闭')
       } else {
         const result = await mfaTask.run(async (signal) =>
           await regenerateMfaRecoveryCodes(
@@ -483,7 +483,7 @@ export function useUserProfileSecurity() {
       closeMfaCredentialModal()
       await reloadMfaProfile()
     } catch (error) {
-      mfaCredentialState.errorMessage = getErrorMessage(error, 'MFA 操作失败')
+      mfaCredentialState.errorMessage = getErrorMessage(error, '二次验证操作失败')
     } finally {
       mfaCredentialState.loading = false
     }

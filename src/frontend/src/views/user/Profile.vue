@@ -2,23 +2,17 @@
   <div class="account-page profile-page">
     <AccountPageHeader
       title="个人资料"
-      description="管理身份信息、密码、MFA、通行密钥与活跃会话。"
+      description="更新账号信息、登录凭据与设备会话。"
     />
 
-    <nav class="profile-anchor-nav" aria-label="个人资料分区">
-      <a href="#profile-identity">身份识别</a>
-      <a href="#profile-password">安全验证</a>
-      <a href="#profile-mfa">多因素认证</a>
-      <a href="#profile-passkeys">通行密钥</a>
-      <a href="#profile-sessions">设备会话</a>
-      <a href="#profile-danger">危险操作</a>
-    </nav>
+    <ProfileSectionNav :items="profileSections" aria-label="个人资料分区" />
 
-    <div class="grid grid-cols-1 gap-x-24 gap-y-20 lg:grid-cols-2">
-      <!-- 身份识别 -->
-      <section id="profile-identity" class="profile-section scroll-mt-24">
-        <h3 class="section-title">身份识别</h3>
-        <p class="section-caption">更新用户名与公开身份标识，不改变既有账户权限。</p>
+    <div class="space-y-12">
+      <ProfileSettingsSection
+        id="profile-account"
+        title="账号信息"
+        description="更新用户名与公开身份标识，不改变既有账户权限。"
+      >
         <el-form ref="usernameFormRef" :model="usernameForm" :rules="rules" label-position="top" @submit.prevent>
           <el-form-item label="用户名" prop="newUsername">
             <el-input
@@ -49,128 +43,127 @@
             {{ usernameBannedText }}
           </p>
         </el-form>
-      </section>
+      </ProfileSettingsSection>
 
-      <!-- 安全验证 -->
-      <section id="profile-password" class="profile-section scroll-mt-24">
-        <h3 class="section-title">安全验证</h3>
-        <p class="section-caption">修改密码会立即刷新身份凭证，并要求你重新登录。</p>
-        <el-form ref="passwordFormRef" :model="passwordForm" :rules="rules" label-position="top" @submit.prevent>
-          <el-form-item label="当前密码" prop="oldPassword">
-            <el-input
-              v-model="passwordForm.oldPassword"
-              name="profileOldPassword"
-              type="password"
-              show-password
-              autocomplete="current-password"
-              :disabled="isPasswordSubmitDisabled"
-              placeholder="当前密码"
-              aria-label="当前密码"
-            />
-          </el-form-item>
+      <ProfileSettingsSection
+        id="profile-security"
+        title="安全验证"
+        description="修改密码并管理二次验证。"
+      >
+        <div class="grid gap-10 lg:grid-cols-2">
+          <el-form ref="passwordFormRef" :model="passwordForm" :rules="rules" label-position="top" @submit.prevent>
+            <el-form-item label="当前密码" prop="oldPassword">
+              <el-input
+                v-model="passwordForm.oldPassword"
+                name="profileOldPassword"
+                type="password"
+                show-password
+                autocomplete="current-password"
+                :disabled="isPasswordSubmitDisabled"
+                placeholder="当前密码"
+                aria-label="当前密码"
+              />
+            </el-form-item>
 
-          <el-form-item label="新密码" prop="newPassword">
-            <el-input
-              v-model="passwordForm.newPassword"
-              name="profileNewPassword"
-              type="password"
-              show-password
-              autocomplete="new-password"
-              :disabled="isPasswordSubmitDisabled"
-              placeholder="新密码"
-              aria-label="新密码"
-            />
-          </el-form-item>
+            <el-form-item label="新密码" prop="newPassword">
+              <el-input
+                v-model="passwordForm.newPassword"
+                name="profileNewPassword"
+                type="password"
+                show-password
+                autocomplete="new-password"
+                :disabled="isPasswordSubmitDisabled"
+                placeholder="新密码"
+                aria-label="新密码"
+              />
+            </el-form-item>
 
-          <el-form-item label="确认新密码" prop="confirmPassword">
-            <el-input
-              v-model="passwordForm.confirmPassword"
-              name="profileConfirmPassword"
-              type="password"
-              show-password
-              autocomplete="new-password"
-              :disabled="isPasswordSubmitDisabled"
-              placeholder="确认新密码"
-              aria-label="确认新密码"
-            />
-          </el-form-item>
+            <el-form-item label="确认新密码" prop="confirmPassword">
+              <el-input
+                v-model="passwordForm.confirmPassword"
+                name="profileConfirmPassword"
+                type="password"
+                show-password
+                autocomplete="new-password"
+                :disabled="isPasswordSubmitDisabled"
+                placeholder="确认新密码"
+                aria-label="确认新密码"
+              />
+            </el-form-item>
 
-          <div
-            v-if="showPasswordSubmitButton"
-            class="mt-8"
-          >
-            <el-button
-              type="primary"
-              :disabled="isPasswordSubmitDisabled"
-              :loading="isPasswordProcessing"
-              @click.prevent="requestUpdatePassword"
+            <div
+              v-if="showPasswordSubmitButton"
+              class="mt-8"
             >
-              {{ passwordSubmitText }}
-            </el-button>
+              <el-button
+                type="primary"
+                :disabled="isPasswordSubmitDisabled"
+                :loading="isPasswordProcessing"
+                @click.prevent="requestUpdatePassword"
+              >
+                {{ passwordSubmitText }}
+              </el-button>
+            </div>
+            <p
+              v-else
+              role="status"
+              class="mt-8 rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-panel-border)] px-5 py-4 text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)]"
+            >
+              {{ passwordBannedText }}
+            </p>
+          </el-form>
+
+          <div class="profile-security-card">
+            <div>
+              <h3>二次验证</h3>
+              <p>
+                状态：
+                <span class="font-bold text-[var(--fsusblog-text-primary)]">{{ mfaProfile.loading ? '加载中...' : (mfaProfile.enabled ? '已启用' : '未启用') }}</span>
+                <span v-if="mfaProfile.verifiedAt" class="ml-2 text-[var(--fsusblog-text-muted)]">
+                  最近验证：<SemanticTime :value="mfaProfile.verifiedAt" />
+                </span>
+              </p>
+            </div>
+            <div class="mt-6 flex flex-wrap gap-3">
+              <el-button
+                v-if="!mfaProfile.enabled"
+                type="primary"
+                @click="startMfaSetupFlow"
+              >
+                启用二次验证
+              </el-button>
+              <el-button
+                v-else
+                @click="openDisableMfaModal"
+              >
+                关闭二次验证
+              </el-button>
+              <el-button
+                v-if="mfaProfile.enabled"
+                @click="openRegenerateRecoveryCodesModal"
+              >
+                重新生成恢复码
+              </el-button>
+            </div>
           </div>
-          <p
-            v-else
-            role="status"
-            class="mt-8 rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-panel-border)] px-5 py-4 text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)]"
-          >
-            {{ passwordBannedText }}
-          </p>
-        </el-form>
-      </section>
-    </div>
+        </div>
+      </ProfileSettingsSection>
 
-    <!-- MFA -->
-    <section id="profile-mfa" class="profile-section mt-24 scroll-mt-24">
-      <h3 class="section-title">多因素认证</h3>
-      <p class="section-caption">
-        状态：
-        <span class="font-bold text-[var(--fsusblog-text-primary)]">{{ mfaProfile.loading ? '加载中...' : (mfaProfile.enabled ? '已启用' : '未启用') }}</span>
-        <span v-if="mfaProfile.verifiedAt" class="ml-2 text-[var(--fsusblog-text-muted)]">
-          最近验证：<SemanticTime :value="mfaProfile.verifiedAt" />
-        </span>
-      </p>
-      <div class="mt-8 flex flex-wrap gap-5">
-        <el-button
-          v-if="!mfaProfile.enabled"
-          type="primary"
-          @click="startMfaSetupFlow"
-        >
-          启用 MFA
-        </el-button>
-        <el-button
-          v-else
-          @click="openDisableMfaModal"
-        >
-          关闭 MFA
-        </el-button>
-        <el-button
-          v-if="mfaProfile.enabled"
-          @click="openRegenerateRecoveryCodesModal"
-        >
-          重新生成恢复码
-        </el-button>
-      </div>
-    </section>
-
-    <!-- 通行密钥 -->
-    <section id="profile-passkeys" class="profile-section mt-24 scroll-mt-24">
-      <h3 class="section-title">通行密钥</h3>
-      <p class="section-caption">
-        使用设备生物识别或 PIN 保护，无需密码即可安全登录。
-      </p>
-
-      <div class="mt-10">
+      <ProfileSettingsSection
+        id="profile-passkeys"
+        title="登录方式"
+        description="管理通行密钥，使用设备生物识别或 PIN 登录。"
+      >
         <div v-if="passkeyState.loading && !passkeyState.credentials.length" class="py-4 text-[12px] text-[var(--fsusblog-text-muted)]">
           加载中...
         </div>
 
-        <div v-else-if="passkeyState.credentials.length" class="mb-10 space-y-px bg-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]">
-          <div
+        <ProfileResourceList v-else-if="passkeyState.credentials.length" class="mb-6">
+          <ProfileResourceListItem
             v-for="cred in passkeyState.credentials"
             :key="cred.id"
-            class="flex flex-col gap-4 bg-[var(--fsusblog-page-bg)] py-8 sm:flex-row sm:items-center sm:justify-between"
           >
-            <div class="min-w-0 flex-1">
+            <template #title>
               <div v-if="passkeyEditingId === cred.id" class="flex items-center gap-4">
                 <div class="min-w-0 flex-1">
                   <el-input
@@ -187,119 +180,160 @@
               </div>
               <div v-else class="flex items-center gap-3">
                 <p class="truncate text-[14px] font-bold text-[var(--fsusblog-text-primary)]">
-                  {{ cred.deviceFriendlyName || '未命名密钥' }}
+                  {{ cred.deviceFriendlyName || '未命名通行密钥' }}
                 </p>
                 <el-button link @click="startEditPasskeyName(cred)">编辑</el-button>
               </div>
-              <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-                <span>创建：<SemanticTime :value="cred.createdAt" format="date" /></span>
-                <span class="h-0.5 w-0.5 rounded-[var(--fsus-radius-control-small)] bg-current opacity-30"></span>
-                <span v-if="cred.lastUsedAt">活跃：<SemanticTime :value="cred.lastUsedAt" format="date" /></span>
-                <span v-if="cred.backupEligible" class="inline-flex items-center gap-1 text-[var(--fsusblog-color-success)]">
-                  <Cloudy class="h-3 w-3" aria-hidden="true" />
-                  已同步
-                </span>
-              </div>
-            </div>
+            </template>
+            <template #meta>
+              <span>创建：<SemanticTime :value="cred.createdAt" format="date" /></span>
+              <span v-if="cred.lastUsedAt">活跃：<SemanticTime :value="cred.lastUsedAt" format="date" /></span>
+              <span v-else>活跃：未记录</span>
+              <span v-if="cred.backupEligible" class="inline-flex items-center gap-1 text-[var(--fsusblog-color-success)]">
+                <Cloudy class="h-3 w-3" aria-hidden="true" />
+                已同步
+              </span>
+            </template>
+            <template #actions>
+              <el-button
+                link
+                type="danger"
+                @click="confirmDeletePasskey(cred.id)"
+              >
+                删除
+              </el-button>
+            </template>
+          </ProfileResourceListItem>
+        </ProfileResourceList>
+        <ProfileInlineEmptyState
+          v-else
+          title="尚未添加通行密钥"
+          description="添加后可使用设备生物识别或 PIN 登录。"
+        >
+          <template #actions>
             <el-button
-              link
-              type="danger"
-              @click="confirmDeletePasskey(cred.id)"
+              type="primary"
+              :disabled="passkeyState.loading"
+              @click="passkeyRegisterVisible = true"
             >
-              删除
+              添加通行密钥
             </el-button>
-          </div>
-        </div>
-        <p v-else class="mb-10 text-[12px] text-[var(--fsusblog-text-muted)]">尚未注册任何通行密钥。</p>
+          </template>
+        </ProfileInlineEmptyState>
 
         <el-button
-          v-if="passkeyState.credentials.length < 5"
+          v-if="passkeyState.credentials.length > 0 && passkeyState.credentials.length < 5"
           type="primary"
           :disabled="passkeyState.loading"
           @click="passkeyRegisterVisible = true"
         >
           添加通行密钥
         </el-button>
-      </div>
-    </section>
+      </ProfileSettingsSection>
 
-    <!-- 会话管理 -->
-    <section id="profile-sessions" class="profile-section mt-24 scroll-mt-24">
-      <div class="flex flex-col gap-4 border-b border-[var(--fsusblog-panel-border)] pb-6 mb-10 sm:flex-row sm:items-end sm:justify-between">
-        <div class="min-w-0">
-          <h3 class="section-title section-title--inline">设备会话管理</h3>
-          <p class="text-[12px] text-[var(--fsusblog-text-tertiary)]">当前共有 {{ sessionState.list.length }} 个活跃会话</p>
-        </div>
+      <ProfileSettingsSection
+        id="profile-sessions"
+        title="登录设备"
+        description="查看当前会话，并下线不再使用的其他设备。"
+      >
+      <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <p class="m-0 text-[12px] text-[var(--fsusblog-text-tertiary)]">当前共有 {{ sessionState.list.length }} 个活跃会话</p>
         <el-button
           type="primary"
           plain
+          :disabled="otherSessions.length === 0"
           @click="revokeOtherSessionDevices"
         >
           下线其他设备
         </el-button>
       </div>
 
-      <div class="space-y-px bg-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]">
-        <div
-          v-for="session in sessionState.list"
-          :key="session.sessionId"
-          class="flex flex-col gap-5 bg-[var(--fsusblog-page-bg)] py-8 sm:flex-row sm:items-center sm:justify-between"
+      <ProfileResourceList v-if="sessionState.list.length">
+        <ProfileResourceListItem
+          v-if="currentSession"
+          :key="currentSession.sessionId"
         >
-          <div class="min-w-0">
+          <template #title>
             <div class="flex items-center gap-3">
               <p class="truncate text-[14px] font-bold text-[var(--fsusblog-text-primary)]">
-                {{ session.lastIp || 'UNKNOWN IP' }}
+                {{ formatSessionIp(currentSession.lastIp) }}
               </p>
-              <el-tag v-if="session.isCurrent" size="small">当前</el-tag>
+              <el-tag size="small">当前设备</el-tag>
             </div>
-            <p class="mt-1 truncate text-[11px] font-medium text-[var(--fsusblog-text-tertiary)] normal-case tracking-normal">
-              {{ session.deviceLabel || session.deviceFingerprint || '-' }}
-            </p>
-            <p class="mt-2 text-[11px] font-medium text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
-              最后活跃：<SemanticTime v-if="session.lastSeenAt" :value="session.lastSeenAt" /><span v-else>-</span>
-            </p>
-          </div>
-          <el-button
-            v-if="!session.isCurrent"
-            link
-            type="danger"
-            @click="revokeSessionDevice(session.sessionId)"
-          >
-            下线
-          </el-button>
-        </div>
-      </div>
-    </section>
+          </template>
+          <template #meta>
+            <span>{{ formatSessionDevice(currentSession.deviceLabel, currentSession.deviceFingerprint) }}</span>
+            <span>最后活跃：<SemanticTime v-if="currentSession.lastSeenAt" :value="currentSession.lastSeenAt" /><span v-else>未记录</span></span>
+          </template>
+        </ProfileResourceListItem>
 
-    <!-- 危险操作 -->
-    <section id="profile-danger" class="profile-section mt-32 scroll-mt-24">
-      <h3 class="section-title section-title--danger">危险操作</h3>
-      <div class="mt-10 border-l-2 border-[var(--fsusblog-color-error)] pl-8 py-2">
-        <p class="text-[13px] font-bold text-[var(--fsusblog-color-error)] normal-case tracking-normal mb-2">注销账户 (Permanent Deletion)</p>
-        <p class="text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)] max-w-2xl">
-          注销后将立即退出所有设备，账户身份会匿名化处理，且不能恢复。确认文本固定为
-          <span class="tabular-nums font-bold text-[var(--fsusblog-text-primary)] bg-[var(--fsusblog-panel-bg-soft)] px-1.5 py-0.5 rounded-[var(--fsus-radius-control-small)]">{{ deleteConfirmText }}</span>。
-        </p>
-        <div class="mt-8">
+        <ProfileResourceListItem
+          v-for="session in otherSessions"
+          :key="session.sessionId"
+        >
+          <template #title>
+            <p class="truncate text-[14px] font-bold text-[var(--fsusblog-text-primary)]">
+              {{ formatSessionIp(session.lastIp) }}
+            </p>
+          </template>
+          <template #meta>
+            <span>{{ formatSessionDevice(session.deviceLabel, session.deviceFingerprint) }}</span>
+            <span>最后活跃：<SemanticTime v-if="session.lastSeenAt" :value="session.lastSeenAt" /><span v-else>未记录</span></span>
+          </template>
+          <template #actions>
+            <el-button
+              link
+              type="danger"
+              @click="revokeSessionDevice(session.sessionId)"
+            >
+              下线
+            </el-button>
+          </template>
+        </ProfileResourceListItem>
+      </ProfileResourceList>
+
+      <ProfileInlineEmptyState
+        v-if="sessionState.list.length > 0 && otherSessions.length === 0"
+        title="暂无其他设备会话"
+        description="当前只有本设备保持登录。"
+      />
+      </ProfileSettingsSection>
+
+      <ProfileSettingsSection
+        id="profile-danger"
+        title="危险操作"
+        description="注销账号前请确认影响范围。"
+        danger
+      >
+      <div class="profile-danger-panel">
+        <div>
+          <strong>注销账户</strong>
+          <p>
+            注销后将退出所有设备，账号身份会匿名化处理，且不能恢复。确认文本固定为
+            <span class="tabular-nums font-bold text-[var(--fsusblog-text-primary)] bg-[var(--fsusblog-page-bg-soft)] px-1.5 py-0.5 rounded-[var(--fsus-radius-control-small)]">{{ deleteConfirmText }}</span>。
+          </p>
+        </div>
+        <div>
           <el-button type="danger" @click="openDeleteAccountDialog">
             注销账户
           </el-button>
         </div>
       </div>
-    </section>
+      </ProfileSettingsSection>
+    </div>
 
     <MfaChallengeModal
       v-model:visible="mfaPrompt.visible"
       :loading="mfaPrompt.loading"
       :error-message="mfaPrompt.errorMessage"
-      description="请输入 Google Authenticator 6 位验证码，或使用恢复码完成高风险操作校验。"
+      description="请输入二次验证应用中的 6 位验证码，或使用恢复码完成高风险操作校验。"
       @confirm="submitMfaPrompt"
       @cancel="closeMfaPrompt(null)"
     />
 
     <MfaSetupModal
       v-model:visible="mfaSetupState.visible"
-      :title="mfaSetupState.secret ? 'MFA 绑定' : '恢复码'"
+      :title="mfaSetupState.secret ? '二次验证绑定' : '恢复码'"
       :loading="mfaSetupState.loading"
       :secret="mfaSetupState.secret"
       :otp-auth-url="mfaSetupState.otpAuthUrl"
@@ -358,7 +392,7 @@
           aria-label="注销确认文本"
           :placeholder="`输入 ${deleteConfirmText} 确认`"
         />
-        <label v-if="mfaProfile.enabled" for="delete-account-mfa-code" class="sr-only">MFA 验证码</label>
+        <label v-if="mfaProfile.enabled" for="delete-account-mfa-code" class="sr-only">二次验证码</label>
         <el-input
           v-if="mfaProfile.enabled"
           id="delete-account-mfa-code"
@@ -366,7 +400,7 @@
           name="deleteAccountMfaCode"
           autocomplete="one-time-code"
           inputmode="numeric"
-          aria-label="MFA 验证码"
+          aria-label="二次验证码"
           placeholder="6 位验证码"
         />
         <label v-if="mfaProfile.enabled" for="delete-account-recovery-code" class="sr-only">恢复码</label>
@@ -395,17 +429,33 @@
 
 <script setup lang="ts">
 import { Cloudy } from '@/fsusui/icons'
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import MfaChallengeModal from '@/components/ui/MfaChallengeModal.vue'
 import MfaCredentialModal from '@/components/ui/MfaCredentialModal.vue'
 import MfaSetupModal from '@/components/ui/MfaSetupModal.vue'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
+import {
+  ProfileInlineEmptyState,
+  ProfileResourceList,
+  ProfileResourceListItem,
+  ProfileSectionNav,
+  ProfileSettingsSection,
+  type ProfileSectionNavItem
+} from '@/components/user/ProfileSettingsPrimitives'
 import { useUserProfileSecurity } from '@/composables/useUserProfileSecurity'
 import { usePasskeyManagement } from '@/composables/usePasskeyManagement'
 import type { PasskeyCredentialSummary } from '@/api/auth'
 import { confirmDanger } from '@/fsusui/feedback'
+
+const profileSections: ProfileSectionNavItem[] = [
+  { label: '账号信息', href: '#profile-account' },
+  { label: '安全验证', href: '#profile-security' },
+  { label: '登录方式', href: '#profile-passkeys' },
+  { label: '登录设备', href: '#profile-sessions' },
+  { label: '危险操作', href: '#profile-danger' }
+]
 
 const {
   isUsernameSubmitDisabled,
@@ -465,6 +515,8 @@ const passkeyState = {
   get loading() { return passkeyLoading.value }
 }
 
+const currentSession = computed(() => sessionState.list.find((session) => session.isCurrent) ?? null)
+const otherSessions = computed(() => sessionState.list.filter((session) => !session.isCurrent))
 const passkeyRegisterVisible = ref(false)
 const passkeyEditingId = ref<number | null>(null)
 const passkeyEditName = ref('')
@@ -496,6 +548,14 @@ const onPasskeyRegistered = async () => {
   await fetchPasskeys()
 }
 
+const formatSessionIp = (value: string | null | undefined): string => {
+  return value?.trim() || '未记录 IP'
+}
+
+const formatSessionDevice = (label: string | null | undefined, fingerprint: string | null | undefined): string => {
+  return label?.trim() || fingerprint?.trim() || '未记录设备信息'
+}
+
 onMounted(() => {
   fetchPasskeys()
 })
@@ -504,61 +564,48 @@ onMounted(() => {
 <style scoped>
 @reference "@/assets/main.css";
 
-.section-title {
-  @apply text-[11px] font-bold tracking-normal mb-10 pb-4 border-b border-[var(--fsusblog-panel-border)] text-[var(--fsusblog-text-primary)] normal-case;
-  position: relative;
-}
-
-.profile-anchor-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-bottom: 4rem;
-  border-bottom: 1px solid var(--fsusblog-panel-border);
-  padding-bottom: 1rem;
-}
-
-.profile-anchor-nav a {
+.profile-security-card {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
   border: 1px solid var(--fsusblog-panel-border);
-  padding: 0.375rem 0.625rem;
-  color: var(--fsusblog-text-secondary);
-  font-size: 0.75rem;
+  border-radius: var(--fsus-radius-control);
+  padding: 1rem;
+}
+
+.profile-security-card h3 {
+  margin: 0;
+  color: var(--fsusblog-text-primary);
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
-.profile-anchor-nav a:hover {
-  border-color: var(--fsusblog-color-primary);
-  color: var(--fsusblog-color-primary);
+.profile-security-card p {
+  margin: 0.5rem 0 0;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.8125rem;
+  line-height: 1.7;
 }
 
-.section-title::before {
-  content: "";
-  @apply absolute bottom-[-1px] left-0 h-[2px] w-8 bg-[var(--fsusblog-text-primary)];
+.profile-danger-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border: 1px solid var(--fsusblog-color-error);
+  border-radius: var(--fsus-radius-control);
+  padding: 1rem;
 }
 
-.section-title--inline {
-  @apply mb-2 border-none pb-0;
+.profile-danger-panel strong {
+  color: var(--fsusblog-color-error);
+  font-size: 0.875rem;
 }
 
-.section-title--inline::before {
-  content: none;
-}
-
-.section-title--danger {
-  @apply text-[var(--fsusblog-color-error)] border-[var(--fsusblog-color-error)]/20;
-}
-
-.section-title--danger::before {
-  @apply bg-[var(--fsusblog-color-error)];
-}
-
-.section-caption {
-  @apply text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)] mb-10;
-}
-
-@media (max-width: 640px) {
-  .section-title {
-    @apply text-[11px] tracking-normal;
-  }
+.profile-danger-panel p {
+  margin: 0.5rem 0 0;
+  max-width: 42rem;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.8125rem;
+  line-height: 1.8;
 }
 </style>
