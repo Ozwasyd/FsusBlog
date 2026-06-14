@@ -157,14 +157,28 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
         string streamKey = RouteStreamKey(route);
         Task<StreamEntry[]> firstTask = _database.StreamRangeAsync(streamKey, count: 1);
         Task<StreamEntry[]> entriesTask = _database.StreamRangeAsync(streamKey, start, "+", MaxReplayEntries);
-        await Task.WhenAll(firstTask, entriesTask).ConfigureAwait(false);
+        string cursorUpperBound = string.Create(CultureInfo.InvariantCulture, $"{cursorValue}-0");
+        Task<StreamEntry[]> cursorFloorTask = _database.StreamRangeAsync(
+            streamKey,
+            "-",
+            cursorUpperBound,
+            count: 1,
+            messageOrder: Order.Descending);
+        await Task.WhenAll(firstTask, entriesTask, cursorFloorTask).ConfigureAwait(false);
 
         StreamEntry[] first = await firstTask.ConfigureAwait(false);
+        StreamEntry[] cursorFloor = await cursorFloorTask.ConfigureAwait(false);
         bool missedGap = first.Length > 0
             && TryParseEventId(first[0].Id, out long firstEventId)
-            && firstEventId > cursorValue + 1;
+            && firstEventId > cursorValue + 1
+            && !HasRetainedCursorFloor(cursorFloor, cursorValue);
         return new RouteReplayRead(await entriesTask.ConfigureAwait(false), missedGap);
     }
+
+    private static bool HasRetainedCursorFloor(StreamEntry[] cursorFloor, long cursorValue)
+        => cursorFloor.Length > 0
+            && TryParseEventId(cursorFloor[0].Id, out long floorEventId)
+            && floorEventId <= cursorValue;
 
     private static bool TryGetField(StreamEntry entry, string fieldName, out RedisValue value)
     {

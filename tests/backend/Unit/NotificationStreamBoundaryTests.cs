@@ -106,6 +106,54 @@ public class NotificationStreamBoundaryTests
         Assert.Equal(0, manager.ConnectionCount);
     }
 
+    [Fact]
+    public async Task BacklogReplay_DoesNotMissGapWhenCursorFloorEntryIsStillRetained()
+    {
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        var database = Substitute.For<IDatabase>();
+        var keyScope = Substitute.For<IRuntimeKeyScope>();
+        redis.GetDatabase().Returns(database);
+        keyScope.PrefixKey(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        database.StreamRangeAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<int?>(),
+                Arg.Any<Order>(),
+                Arg.Any<CommandFlags>())
+            .Returns(
+                Task.FromResult(new[] { StreamEntry("100-0", [0x64]) }),
+                Task.FromResult(new[] { StreamEntry("51-0", [0x33]) }),
+                Task.FromResult(new[] { StreamEntry("50-0", [0x32]) }));
+        var store = new NotificationStreamBacklogStore(redis, keyScope, NullLogger<NotificationStreamBacklogStore>.Instance);
+
+        NotificationStreamReplayBatch replay = await store.ReplayAsync(new NotificationStreamCursor(50), "42", new HashSet<string>(StringComparer.Ordinal));
+
+        try
+        {
+            Assert.False(replay.MissedGap);
+            Assert.Single(replay.Frames);
+        }
+        finally
+        {
+            foreach (SharedNotificationStreamFrame frame in replay.Frames)
+            {
+                frame.Release();
+            }
+        }
+    }
+
+    [Fact]
+    public void BacklogReplay_MissedGapRequiresCursorFloorProbe()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamBacklogStore.cs"));
+        string method = ExtractMethodBlock(source, "private async Task<RouteReplayRead> ReadRouteReplayAsync");
+
+        Assert.Contains("cursorFloorTask", method, StringComparison.Ordinal);
+        Assert.Contains("Order.Descending", method, StringComparison.Ordinal);
+        Assert.Contains("HasRetainedCursorFloor", method, StringComparison.Ordinal);
+    }
+
     private sealed class ThrowingWebSocketFeature : IHttpWebSocketFeature
     {
         public bool IsWebSocketRequest => true;
@@ -120,5 +168,57 @@ public class NotificationStreamBoundaryTests
 
         public SharedNotificationStreamFrame EncodeEventFrame<TPayload>(long eventId, NotificationStreamEventType eventType, TPayload payload)
             => SharedNotificationStreamFrame.FromArray([0x01]);
+    }
+
+    private static StreamEntry StreamEntry(string id, byte[] payload)
+        => new(id, [new NameValueEntry("f", payload)]);
+
+    private static string FindRepoRoot()
+    {
+        string current = AppContext.BaseDirectory;
+        while (!string.IsNullOrWhiteSpace(current))
+        {
+            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
+            {
+                return current;
+            }
+
+            DirectoryInfo? parent = Directory.GetParent(current);
+            if (parent is null)
+            {
+                break;
+            }
+
+            current = parent.FullName;
+        }
+
+        throw new DirectoryNotFoundException("Unable to locate repository root.");
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
+
+        int depth = 0;
+        for (int i = braceStart; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+            {
+                depth++;
+            }
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(i + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 }
