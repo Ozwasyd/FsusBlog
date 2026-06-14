@@ -76,9 +76,35 @@ function isPublicVisitorCopyPath(path) {
     || path.startsWith('docs/frontend/')
 }
 
+function isAdminWorkspaceCopyPath(path) {
+  return path.startsWith('src/frontend/src/views/admin/')
+    || path.startsWith('src/frontend/src/components/admin/')
+    || path.startsWith('src/frontend/src/layouts/')
+    || path.startsWith('src/frontend/src/components/account/')
+    || path.startsWith('src/frontend/src/components/user/')
+    || path.startsWith('src/frontend/src/views/user/')
+    || path.startsWith('src/frontend/src/views/auth/')
+    || path.startsWith('src/frontend/src/view-contracts/')
+}
+
 function isUserFacingLine(line) {
   return !isLikelyTechnicalLine(line)
     && !/^\s*(\/\/|\/\*|\*|#)/.test(line)
+}
+
+function isCommentLine(line) {
+  return /^\s*(\/\/|\/\*|\*|#|<!--)/.test(line)
+}
+
+function isLikelyVisibleCopyLine(line) {
+  if (isCommentLine(line)) {
+    return false
+  }
+  if (hasHanText(line)) {
+    return true
+  }
+  return /(?:eyebrow|title|label|caption|description|placeholder|aria-label|helper|emptyText|message|text|toast)\s*(?:=|:)/i.test(line)
+    || />\s*[^<]*[A-Za-z][^<]*</.test(line)
 }
 
 function hasHanText(line) {
@@ -89,12 +115,31 @@ function hasSpecificStateContext(line) {
   return /(文章|文章列表|正文|分类|标签|搜索|关键词|归档|评论|延伸阅读|介绍内容|站点|内容连接|访问校验|筛选|页面)/.test(line)
 }
 
+function forEachGovernedLine(path, source, callback) {
+  const markdown = path.endsWith('.md')
+  let inCodeBlock = false
+
+  source.split('\n').forEach((line, lineIndex) => {
+    if (markdown && /^\s*(```|~~~)/.test(line)) {
+      inCodeBlock = !inCodeBlock
+      return
+    }
+    if (inCodeBlock) {
+      return
+    }
+    callback(line, lineIndex)
+  })
+}
+
 const scanRoots = [
   'src/frontend/src/components/public',
   'src/frontend/src/components/home',
   'src/frontend/src/components/filter',
+  'src/frontend/src/components/admin',
   'src/frontend/src/components/account',
   'src/frontend/src/components/user',
+  'src/frontend/src/layouts',
+  'src/frontend/src/views/admin',
   'src/frontend/src/views/auth',
   'src/frontend/src/views/user',
   'src/frontend/src/view-contracts',
@@ -206,6 +251,35 @@ const requiredCopy = [
 
 const uppercaseSuffixAllowlist = new Set(['RSS'])
 
+const technicalAcronymAllowlist = new Set([
+  'AOT',
+  'RUM',
+  'MFA',
+  'POW',
+  'CIDR',
+  'TTL',
+  'RSS',
+  'IP',
+  'UA',
+  'API',
+  'JWT',
+  'SEO',
+  'POD',
+  'AEDS',
+  'SSR',
+  'PWA',
+  'HTTP',
+  'JSON',
+  'CLI',
+  'DOM',
+  'CSRF',
+  'CORS',
+  'ID',
+  'SHA',
+  'URL',
+  'DNS'
+])
+
 const visitorDecorativeLabels = [
   'SPOTLIGHT',
   'TRENDING',
@@ -222,11 +296,78 @@ const visitorMicrocopyForbidden = [
 ]
 
 const adminDecorativeLabels = [
+  'ADMINISTRATION',
+  'TODAY',
+  'TRAFFIC',
+  'GEOGRAPHY',
+  'WORKFLOW',
+  'AUTHOR ANALYTICS',
+  'ARTICLE LIST',
   'CONTENT EDITING',
   'DRAFT CHECK',
   'IMAGE POLICY',
   'WARNING OVERRIDE'
 ]
+
+const unnaturalChineseCopy = [
+  { token: '文章成果', reason: 'awkward article empty-state copy' },
+  { token: '平台使用规范', reason: 'use 站点使用规范 for the site policy label' },
+  { token: '学术式阅读节奏', reason: 'design-document wording leaked into user-facing copy' }
+]
+
+const internalStatusPatterns = [
+  { pattern: /\bchecked\s+\$\{?formatTime/i, reason: 'raw check timestamp caption needs localization' },
+  { pattern: /\bsnapshot\s+(?:id|\$\{|[=:])/i, reason: 'raw snapshot details need localized framing or an allowlist' },
+  { pattern: /(^|[^-A-Za-z])provider=/i, reason: 'raw provider diagnostics must not appear as normal UI copy' },
+  { pattern: /(^|[^-A-Za-z])mode=/i, reason: 'raw mode diagnostics must not appear as normal UI copy' },
+  { pattern: /model\s+\$\{[^`]*modelProvider[^`]*modelMode/i, reason: 'raw model provider and mode need localized framing' },
+  { pattern: /\b(Global Runtime State|External Provider)\b/, reason: 'internal runtime/provider heading needs localization' }
+]
+
+function normalizeAcronym(token) {
+  return token.replaceAll('-', '').replaceAll('_', '').toUpperCase()
+}
+
+function isAllowedTechnicalSuffix(suffix) {
+  const words = suffix
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean)
+
+  return words.length > 0 && words.every((word) => technicalAcronymAllowlist.has(normalizeAcronym(word)))
+}
+
+function hasDisallowedUppercaseWord(suffix) {
+  return suffix
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean)
+    .some((word) => /^[A-Z][A-Z0-9_-]{2,}$/.test(word) && !technicalAcronymAllowlist.has(normalizeAcronym(word)))
+}
+
+function findBilingualUppercaseSuffixes(line) {
+  const matches = []
+  const pattern = /\/\s*([A-Za-z][A-Za-z0-9_-]*(?:\s+[A-Za-z][A-Za-z0-9_-]*)*)\b/g
+  for (const match of line.matchAll(pattern)) {
+    const suffix = match[1]
+    if (hasHanText(line) && hasDisallowedUppercaseWord(suffix) && !isAllowedTechnicalSuffix(suffix)) {
+      matches.push(suffix)
+    }
+  }
+  return matches
+}
+
+function findStandaloneUppercaseLabels(line) {
+  const matches = []
+  const pattern = /(?:eyebrow|title|label|caption|description)\s*=\s*["']([A-Z][A-Z0-9_-]*(?:\s+[A-Z][A-Z0-9_-]*)*)["']|>\s*([A-Z][A-Z0-9_-]*(?:\s+[A-Z][A-Z0-9_-]*)*)\s*</g
+  for (const match of line.matchAll(pattern)) {
+    const token = match[1] ?? match[2]
+    if (token && !isAllowedTechnicalSuffix(token)) {
+      matches.push(token)
+    }
+  }
+  return matches
+}
 
 const vagueEmptyStateTokens = [
   '暂无',
@@ -239,11 +380,26 @@ const vagueEmptyStateTokens = [
 for (const path of scannedFiles) {
   const source = read(path)
 
-  for (const { token, reason } of exactForbidden) {
-    for (const index of findAll(source, token)) {
-      addError(path, lineNumber(source, index), `forbidden copy "${token}" (${reason})`)
+  forEachGovernedLine(path, source, (line, lineIndex) => {
+    if (isCommentLine(line)) {
+      return
     }
-  }
+
+    for (const { token, reason } of exactForbidden) {
+      if (token === 'provider=' && /model-provider=/.test(line)) {
+        continue
+      }
+      if (line.includes(token)) {
+        addError(path, lineIndex + 1, `forbidden copy "${token}" (${reason})`)
+      }
+    }
+
+    for (const { token, reason } of unnaturalChineseCopy) {
+      if (line.includes(token) && isLikelyVisibleCopyLine(line)) {
+        addError(path, lineIndex + 1, `forbidden awkward copy "${token}" (${reason})`)
+      }
+    }
+  })
 
   const lines = source.split('\n')
   lines.forEach((line, lineIndex) => {
@@ -262,7 +418,7 @@ for (const path of scannedFiles) {
   })
 
   if (isPublicVisitorCopyPath(path)) {
-    lines.forEach((line, lineIndex) => {
+    forEachGovernedLine(path, source, (line, lineIndex) => {
       if (!isUserFacingLine(line)) {
         return
       }
@@ -279,10 +435,8 @@ for (const path of scannedFiles) {
         }
       }
 
-      const suffixMatches = line.matchAll(/\/\s*([A-Z][A-Z0-9]{2,}(?:\s+[A-Z][A-Z0-9]{2,})*)\b/g)
-      for (const match of suffixMatches) {
-        const suffix = match[1]
-        if (hasHanText(line) && !uppercaseSuffixAllowlist.has(suffix)) {
+      for (const suffix of findBilingualUppercaseSuffixes(line)) {
+        if (!uppercaseSuffixAllowlist.has(suffix)) {
           addError(path, lineIndex + 1, `decorative bilingual uppercase suffix "${suffix}" is not allowed in public copy`)
         }
       }
@@ -295,15 +449,29 @@ for (const path of scannedFiles) {
     })
   }
 
-  if (path === 'src/frontend/src/views/admin/article/Write.vue') {
-    lines.forEach((line, lineIndex) => {
-      if (!isUserFacingLine(line)) {
+  if (isAdminWorkspaceCopyPath(path)) {
+    forEachGovernedLine(path, source, (line, lineIndex) => {
+      if (!isLikelyVisibleCopyLine(line)) {
         return
       }
 
       for (const token of adminDecorativeLabels) {
         if (line.includes(token)) {
           addError(path, lineIndex + 1, `decorative uppercase admin label "${token}" is not allowed in normal UI copy`)
+        }
+      }
+
+      for (const suffix of findBilingualUppercaseSuffixes(line)) {
+        addError(path, lineIndex + 1, `decorative bilingual uppercase suffix "${suffix}" is not allowed in admin/account copy`)
+      }
+
+      for (const token of findStandaloneUppercaseLabels(line)) {
+        addError(path, lineIndex + 1, `standalone uppercase UI label "${token}" needs Chinese copy or an explicit acronym allowlist`)
+      }
+
+      for (const { pattern, reason } of internalStatusPatterns) {
+        if (pattern.test(line)) {
+          addError(path, lineIndex + 1, `${reason}`)
         }
       }
     })
@@ -336,4 +504,4 @@ if (errors.length > 0) {
   process.exit(1)
 }
 
-console.log(`[public-copy-governance] ok files=${scannedFiles.length} uppercaseAllowlist=${uppercaseSuffixAllowlist.size}`)
+console.log(`[public-copy-governance] ok files=${scannedFiles.length} technicalAllowlist=${technicalAcronymAllowlist.size}`)

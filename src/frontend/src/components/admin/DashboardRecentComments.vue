@@ -26,7 +26,7 @@
             </div>
             <p class="text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)] whitespace-pre-wrap word-break-all">{{ comment.content }}</p>
             <div v-if="comment.isLatest" class="mt-4">
-              <span class="inline-block px-2 py-0.5 bg-[var(--fsusblog-text-primary)] text-[11px] font-black normal-case text-[var(--fsusblog-page-bg)] tracking-normal">NEW</span>
+              <span class="inline-block px-2 py-0.5 bg-[var(--fsusblog-text-primary)] text-[11px] font-black normal-case text-[var(--fsusblog-page-bg)] tracking-normal">新</span>
             </div>
           </article>
         </div>

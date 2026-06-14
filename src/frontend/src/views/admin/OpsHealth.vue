@@ -11,7 +11,7 @@
       class="mb-8"
       eyebrow="运行时"
       title="站点状态"
-      :caption="health ? `checked ${formatTime(health.checkedAt)}` : ''"
+      :caption="health ? `检查时间：${formatTime(health.checkedAt)}` : ''"
       title-id="ops-runtime-title"
     >
       <template #actions>
@@ -28,7 +28,7 @@
           <strong>{{ health.environment }}</strong>
         </div>
         <div class="ops-kv">
-          <span>commit</span>
+          <span>提交</span>
           <strong class="truncate">{{ health.commit }}</strong>
         </div>
         <div class="ops-kv">
@@ -40,7 +40,7 @@
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
       <div class="space-y-8">
-        <WorkbenchPanel title="核心服务" eyebrow="SERVICES" title-id="ops-services-title">
+        <WorkbenchPanel title="核心服务" eyebrow="服务" title-id="ops-services-title">
           <el-table v-loading="loading" :data="health?.services ?? []" row-key="key">
             <el-table-column label="服务" min-width="160">
               <template #default="{ row }: { row: AdminServiceStatusResponse }">
@@ -68,9 +68,9 @@
           </el-table>
         </WorkbenchPanel>
 
-        <WorkbenchPanel title="后台 worker" eyebrow="WORKERS" title-id="ops-workers-title">
+        <WorkbenchPanel title="后台 worker" eyebrow="任务" title-id="ops-workers-title">
           <el-table v-loading="loading" :data="health?.workers ?? []" row-key="key">
-            <el-table-column label="worker" min-width="200" prop="label" />
+            <el-table-column label="任务" min-width="200" prop="label" />
             <el-table-column label="状态" width="130">
               <template #default="{ row }: { row: AdminServiceStatusResponse }">
                 <el-tag :type="statusType(row.status)">{{ row.status }}</el-tag>
@@ -87,7 +87,7 @@
       </div>
 
       <div class="space-y-8">
-        <WorkbenchPanel title="最近备份" eyebrow="BACKUP" title-id="ops-backup-title">
+        <WorkbenchPanel title="最近备份" eyebrow="备份" title-id="ops-backup-title">
           <div class="space-y-4">
             <div class="ops-kv">
               <span>状态</span>
@@ -112,7 +112,7 @@
           </div>
         </WorkbenchPanel>
 
-        <WorkbenchPanel title="最近错误" eyebrow="ERRORS" title-id="ops-errors-title">
+        <WorkbenchPanel title="最近错误" eyebrow="错误" title-id="ops-errors-title">
           <ul class="space-y-3 text-xs leading-6 text-[var(--fsusblog-text-secondary)]">
             <li v-for="error in health?.recentErrors ?? []" :key="error" class="break-all border-b border-[var(--fsusblog-panel-border)] pb-3">
               {{ error }}
