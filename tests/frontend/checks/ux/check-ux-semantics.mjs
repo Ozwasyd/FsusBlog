@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
-const root = resolve(new URL('../../../..', import.meta.url).pathname)
+const root = fileURLToPath(new URL('../../../..', import.meta.url))
 const read = (path) => readFileSync(resolve(root, path), 'utf8')
 const failures = []
 const expectIncludes = (path, needle, message) => {
@@ -32,11 +33,11 @@ expectIncludes('src/frontend/src/components/admin/comment-moderation/CommentMode
 expectIncludes('src/frontend/src/components/admin/comment-moderation/CommentModerationBulkActions.vue', '批量审核预演', 'bulk moderation must preview results')
 expectIncludes('src/frontend/src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue', 'recommendedActionReason', 'comment detail must carry recommendation reason')
 
-expectIncludes('src/frontend/src/views/user/Messages.vue', '正在回复：', 'message center must show current reply context')
-expectIncludes('src/frontend/src/views/user/Messages.vue', '标记为处理中', 'message status action must be result-oriented')
-expectIncludes('src/frontend/src/views/user/Messages.vue', '移回待处理', 'message status action must be result-oriented')
-expectIncludes('src/frontend/src/views/user/Messages.vue', '关闭会话', 'message close action must be result-oriented')
-expectIncludes('src/frontend/src/views/user/Messages.vue', '状态变更会通知用户', 'admin status action must explain notification consequence')
+expectIncludes('src/frontend/src/components/user/messages/MessagesThreadPanel.vue', '正在回复：', 'message center must show current reply context')
+expectIncludes('src/frontend/src/components/user/messages/MessagesThreadPanel.vue', '标记为处理中', 'message status action must be result-oriented')
+expectIncludes('src/frontend/src/components/user/messages/MessagesThreadPanel.vue', '移回待处理', 'message status action must be result-oriented')
+expectIncludes('src/frontend/src/components/user/messages/MessagesThreadPanel.vue', '关闭会话', 'message close action must be result-oriented')
+expectIncludes('src/frontend/src/components/user/messages/MessagesThreadPanel.vue', '状态变更会通知用户', 'admin status action must explain notification consequence')
 expectIncludes('src/frontend/src/views/user/Messages.vue', '回复草稿尚未发送', 'mobile back must warn about unsent draft')
 
 expectIncludes('src/frontend/src/views/admin/Dashboard.vue', '今日待处理', 'dashboard must expose action cards')

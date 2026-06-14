@@ -140,14 +140,14 @@ for (const viewport of [
         expect(ticketCreateResponse.ok(), 'ticket create request should succeed').toBe(true)
         await ticketToastPromise
         await assertToastInViewport(session.page)
-        const threadPanel = session.page.locator('.mail-thread-panel').first()
-        await expect(threadPanel.locator('.mail-header-title').first()).toContainText(unique)
-        await assertElementInViewport(session.page, threadPanel, 'mail thread panel')
+        const threadPanel = session.page.locator('.messages-thread-panel').first()
+        await expect(threadPanel.locator('.messages-header-title').first()).toContainText(unique)
+        await assertElementInViewport(session.page, threadPanel, 'messages thread panel')
         await assertNoHorizontalOverflow(session.page)
         await assertResponsiveLayoutContract(session.page, 'user-messagebox')
         await assertSectionsDoNotOverlap([
-          { locator: session.page.locator('.mail-list-pane').first(), label: 'mail list pane' },
-          { locator: threadPanel, label: 'mail detail pane' }
+          { locator: session.page.locator('.messages-list-pane').first(), label: 'messages list pane' },
+          { locator: threadPanel, label: 'messages detail pane' }
         ])
 
         session.audit.assertCleanSince(start, 'user-messagebox-create-ticket')

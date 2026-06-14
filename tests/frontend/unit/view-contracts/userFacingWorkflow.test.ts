@@ -7,6 +7,8 @@ const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf
 
 describe('user facing workflow contract', () => {
   const messagesPage = readRepoFile('src/frontend/src/views/user/Messages.vue')
+  const messagesConversationList = readRepoFile('src/frontend/src/components/user/messages/MessagesConversationList.vue')
+  const messagesThreadPanel = readRepoFile('src/frontend/src/components/user/messages/MessagesThreadPanel.vue')
   const messagesInbox = readRepoFile('src/frontend/src/composables/useUserMessagesInbox.ts')
   const loginPage = readRepoFile('src/frontend/src/views/auth/Login.vue')
   const loginComposable = readRepoFile('src/frontend/src/composables/useAuthLogin.ts')
@@ -43,10 +45,10 @@ describe('user facing workflow contract', () => {
     expect(messagesInbox).toContain('pendingConversationId')
     expect(messagesInbox).toContain("name: 'UserMessage'")
     expect(messagesInbox).toContain('query.conversation = selectedConversationId.value')
-    expect(messagesPage).toContain('replyDisabled || !replyBody.trim()')
+    expect(messagesThreadPanel).toContain('replyDisabled || !replyBody.trim()')
     expect(messagesPage).toContain('保存草稿并切换')
     expect(messagesPage).toContain('showMobileTicketCompose')
-    expect(messagesPage).toContain('新建工单')
+    expect(messagesConversationList).toContain('新建工单')
   })
 
   it('keeps auth copy and MFA modes aligned with backend expectations', () => {

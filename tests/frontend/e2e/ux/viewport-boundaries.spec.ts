@@ -92,7 +92,7 @@ function buildUxRoutes(): UxRoute[] {
     expectedUrl: route.expectedUrl,
     storage: 'user' as const,
     injectCorpus: ['user-profile', 'user-comments', 'user-messagebox'].includes(route.name),
-    screenshotSelector: route.name === 'user-messagebox' ? '.mail-list-pane, main' : 'main'
+    screenshotSelector: route.name === 'user-messagebox' ? '.messages-list-pane, main' : 'main'
   }))
 
   const adminRoutes = buildAdminRoutes(fixtures).map((route) => ({
