@@ -150,22 +150,20 @@ public sealed class AuditLogWriterWorker(
 
     private async Task FallbackHighValueRecordsAsync(IReadOnlyList<AuditRecord> batch, Exception reason, CancellationToken cancellationToken)
     {
-        foreach (AuditRecord record in batch)
+        AuditRecord[] durableRecords = [.. batch.Where(static record => record.RequiresDurableWrite)];
+        if (durableRecords.Length == 0)
         {
-            if (!record.RequiresDurableWrite)
-            {
-                continue;
-            }
+            return;
+        }
 
-            try
-            {
-                await _fallbackWriter.WriteAsync(record, reason, cancellationToken);
-            }
-            catch (Exception fallbackEx) when (fallbackEx is not OperationCanceledException)
-            {
-                using var _ = AuditLogScope.SkipPersistence();
-                _logger.LogError(fallbackEx, "audit-log critical fallback write failed. Action={Action} TargetType={TargetType} TargetId={TargetId}", record.Action, record.TargetType, record.TargetId);
-            }
+        try
+        {
+            await _fallbackWriter.WriteBatchAsync(durableRecords, reason, cancellationToken);
+        }
+        catch (Exception fallbackEx) when (fallbackEx is not OperationCanceledException)
+        {
+            using var _ = AuditLogScope.SkipPersistence();
+            _logger.LogError(fallbackEx, "audit-log critical fallback batch write failed. Count={Count}", durableRecords.Length);
         }
     }
 

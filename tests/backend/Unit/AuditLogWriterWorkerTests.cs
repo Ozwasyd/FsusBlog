@@ -121,5 +121,8 @@ public sealed class AuditLogWriterWorkerTests
     {
         public Task WriteAsync(AuditRecord record, Exception reason, CancellationToken cancellationToken)
             => Task.CompletedTask;
+
+        public Task WriteBatchAsync(IReadOnlyList<AuditRecord> records, Exception reason, CancellationToken cancellationToken)
+            => Task.CompletedTask;
     }
 }

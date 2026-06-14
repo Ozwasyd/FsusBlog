@@ -66,6 +66,19 @@ public sealed class AuditSystemContractTests
         Assert.Contains("row.PrevHash", queryService, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AuditFallbackWriter_SourceBatchesFallbackWrites()
+    {
+        string root = ResolveRepositoryRoot();
+        string fallbackWriter = File.ReadAllText(Path.Combine(root, "src/backend/Infrastructure/Audit/AuditFallbackWriter.cs"));
+        string writeAsync = ExtractMethodBlock(fallbackWriter, "public async Task WriteAsync");
+
+        Assert.Contains("WriteBatchAsync", fallbackWriter, StringComparison.Ordinal);
+        Assert.Contains("FileMode.Append", fallbackWriter, StringComparison.Ordinal);
+        Assert.DoesNotContain("File.AppendAllTextAsync", fallbackWriter, StringComparison.Ordinal);
+        Assert.DoesNotContain("Directory.CreateDirectory", writeAsync, StringComparison.Ordinal);
+    }
+
     private static string ResolveRepositoryRoot()
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
@@ -80,5 +93,32 @@ public sealed class AuditSystemContractTests
         }
 
         throw new InvalidOperationException("Repository root not found.");
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
+
+        int depth = 0;
+        for (int i = braceStart; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+            {
+                depth++;
+            }
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(i + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 }
