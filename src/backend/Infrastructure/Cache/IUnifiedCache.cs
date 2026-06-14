@@ -237,10 +237,13 @@ public sealed class UnifiedCache(
         using Activity? activity = FsusObservability.StartActivity("cache.increment", "cache", ActivityKind.Client);
         FsusObservability.SetTag(activity, "fsus.cache.operation", "increment");
         FsusObservability.SetTag(activity, "fsus.cache.policy", policyId.ToString());
+        cancellationToken.ThrowIfCancellationRequested();
         string key = BuildKey(policyId, identity);
-        long updated = await _db.StringIncrementAsync(key, value).ConfigureAwait(false);
-        await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
         memoryCache.Remove(key);
+        cancellationToken.ThrowIfCancellationRequested();
+        long updated = await _db.StringIncrementAsync(key, value).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
         FsusObservability.RecordCacheOperation("increment", policyId.ToString(), "l2", "ok", FsusObservability.GetElapsed(startedAt));
         return updated;
     }

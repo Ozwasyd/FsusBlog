@@ -214,6 +214,29 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public async Task IncrementAsync_RemovesL1BeforeRedisIncrement()
+    {
+        using var memory = new RemoveTrackingMemoryCache();
+        var db = Substitute.For<IDatabase>();
+        UnifiedCache cache = CreateCache(memory, db);
+        string key = cache.BuildKey(CachePolicyId.MessageUnread, "42");
+        db.StringIncrementAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<long>(),
+                Arg.Any<CommandFlags>())
+            .Returns(_ =>
+            {
+                Assert.True(memory.Removed);
+                Assert.Equal(key, memory.RemovedKey);
+                return Task.FromResult(5L);
+            });
+
+        long updated = await cache.IncrementAsync(CachePolicyId.MessageUnread, "42");
+
+        Assert.Equal(5L, updated);
+    }
+
+    [Fact]
     public async Task ConsumeOnceAsync_PreCanceledTokenDoesNotCreateRedisTransaction()
     {
         using var memory = new MemoryCache(new MemoryCacheOptions());
