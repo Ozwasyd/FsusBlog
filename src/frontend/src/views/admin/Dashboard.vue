@@ -3,7 +3,7 @@
     <AccountPageHeader
       eyebrow="管理"
       title="站点工作台"
-      description="先看关键指标和访问结构，再进入内容、用户与系统处理流程。"
+      description="待处理事项、内容状态、访问数据与系统配置。"
     />
 
     <ConsoleWelcomeCallout
@@ -12,9 +12,12 @@
     />
 
     <section class="mb-12 border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-labelledby="dashboard-today-actions-title">
-      <header class="border-b border-[var(--fsusblog-panel-border)] p-6">
-        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">今日待处理</div>
-        <h2 id="dashboard-today-actions-title" class="mt-3 text-2xl font-bold text-[var(--fsusblog-text-primary)]">今日待处理</h2>
+      <header class="border-b border-[var(--fsusblog-panel-border)] px-6 py-5">
+        <DashboardSectionHeader
+          class="dashboard-section-header--flush"
+          title="今日待处理"
+          title-id="dashboard-today-actions-title"
+        />
       </header>
       <div class="grid grid-cols-1 gap-px bg-[var(--fsusblog-panel-bg-soft)] sm:grid-cols-2 xl:grid-cols-4">
         <router-link
@@ -38,17 +41,16 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 border-y border-[var(--fsusblog-panel-border)] mb-16">
       <section class="lg:col-span-1 border-r border-[var(--fsusblog-panel-border)] last:border-r-0 bg-[var(--fsusblog-page-bg)] p-8 flex flex-col">
-        <header class="mb-10">
+        <header class="mb-6">
           <div class="flex items-center justify-between">
-            <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">访问来源</div>
+            <h3 class="dashboard-card-title">访客来源构成</h3>
             <el-tooltip content="对比注册用户与匿名访客的活跃度" placement="top">
               <span class="text-[var(--fsusblog-text-subtle)] cursor-help hover:text-[var(--fsusblog-color-primary)] transition-colors" aria-hidden="true">
                 <el-icon><InfoFilled /></el-icon>
               </span>
             </el-tooltip>
           </div>
-          <h3 class="mt-4 text-xl font-bold tracking-normal text-[var(--fsusblog-text-primary)]">访客来源构成</h3>
-          <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">判断当前活跃主要来自注册用户还是匿名访问。</p>
+          <p class="dashboard-card-description">注册用户与匿名访客活跃度。</p>
         </header>
         <div class="flex-1">
           <div v-if="!loading && !hasVisitChartData" class="flex h-75 items-center justify-center">
@@ -59,10 +61,9 @@
       </section>
 
       <section class="lg:col-span-2 bg-[var(--fsusblog-page-bg)] p-8 flex flex-col">
-        <header class="mb-10">
-          <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">地域分布</div>
-          <h3 class="mt-4 text-xl font-bold tracking-normal text-[var(--fsusblog-text-primary)]">地域访问分布 (Top 10)</h3>
-          <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">查看站点流量集中区域，辅助判断内容传播与读者来源。</p>
+        <header class="mb-6">
+          <h3 class="dashboard-card-title">地域访问分布 (Top 10)</h3>
+          <p class="dashboard-card-description">站点流量集中区域。</p>
         </header>
         <div class="flex-1">
           <div v-if="!loading && !hasRegionChartData" class="flex h-75 items-center justify-center">
@@ -75,9 +76,8 @@
 
     <WorkbenchPanel
       class="mb-16 border-y-0 bg-transparent"
-      eyebrow="常用入口"
       title="运营工作区"
-      caption="集中处理内容表现、近期互动和常用管理入口。"
+      caption="内容表现、近期互动和常用管理入口。"
       title-id="dashboard-workflow-title"
       :title-level="2"
       header-class="px-0 pt-0"
@@ -101,6 +101,7 @@ import ConsoleWelcomeCallout from '@/components/admin/ConsoleWelcomeCallout.vue'
 import DashboardAuthorAnalyticsPanel from '@/components/admin/DashboardAuthorAnalyticsPanel.vue'
 import DashboardCommentModerationPanel from '@/components/admin/DashboardCommentModerationPanel.vue'
 import DashboardOperationsPanel from '@/components/admin/DashboardOperationsPanel.vue'
+import DashboardSectionHeader from '@/components/admin/DashboardSectionHeader.vue'
 import DashboardStatCards from '@/components/admin/DashboardStatCards.vue'
 import DashboardRecentComments from '@/components/admin/DashboardRecentComments.vue'
 import DashboardPopularArticles from '@/components/admin/DashboardPopularArticles.vue'
@@ -209,5 +210,21 @@ onMounted(() => {
   background: var(--fsusblog-panel-bg);
   color: var(--fsusblog-color-primary);
   outline: none;
+}
+
+.dashboard-card-title {
+  margin: 0;
+  color: var(--fsusblog-text-primary);
+  font-size: 1rem;
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+.dashboard-card-description {
+  margin: 0.5rem 0 0;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.8125rem;
+  line-height: 1.6;
 }
 </style>

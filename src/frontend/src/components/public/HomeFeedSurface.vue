@@ -8,7 +8,7 @@
       v-if="showAside"
       id="fsus-home-hot-articles-slot"
       class="hidden lg:block lg:w-80 shrink-0 space-y-10 xl:space-y-12 pt-8 lg:pt-0"
-      aria-label="热门文章"
+      aria-label="快速入口"
     >
       <slot name="aside">
         <div

@@ -1,11 +1,13 @@
 <template>
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-labelledby="author-analytics-title">
-    <header class="border-b border-[var(--fsusblog-panel-border)] p-8">
-      <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">阅读与性能</div>
-      <h2 id="author-analytics-title" class="mt-4 text-3xl font-bold text-[var(--fsusblog-text-primary)]">内容与技术表现</h2>
-      <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">
-        聚合真实阅读证明、公开路由、搜索与 AOT 运行信号，不采集正文输入或账号敏感字段。
-      </p>
+    <header class="border-b border-[var(--fsusblog-panel-border)] px-8 py-6">
+      <DashboardSectionHeader
+        class="dashboard-section-header--flush"
+        title="内容与技术表现"
+        title-id="author-analytics-title"
+        description="阅读数据、搜索表现与运行状态。"
+        note="仅使用站点运行信号，不采集正文输入或账号敏感字段。"
+      />
     </header>
 
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-px bg-[var(--fsusblog-panel-bg-soft)]">
@@ -32,6 +34,7 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, type PropType } from 'vue'
+import DashboardSectionHeader from '@/components/admin/DashboardSectionHeader.vue'
 import type { AdminDashboardViewContract, AuthorAnalyticsListItem } from '@/view-contracts/adminStats'
 
 const props = defineProps<{

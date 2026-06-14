@@ -107,7 +107,7 @@ for (const viewport of [
           expectedUrl: '/user/manage',
           label: 'manage-dashboard',
           selectors: [
-            (page) => page.getByRole('heading', { name: '控制中心' }),
+            (page) => page.locator('main .account-page-title'),
             (page) => page.getByText('回收站状态', { exact: false })
           ]
         },

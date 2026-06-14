@@ -84,9 +84,9 @@
             <div class="text-[11px] font-bold uppercase tracking-normal text-[var(--fsusblog-text-muted)]">
               {{ areaMeta.eyebrow }}
             </div>
-            <h1 class="text-[2.25rem] font-bold leading-[0.9] tracking-normal text-[var(--fsusblog-text-primary)]">
+            <p class="account-shell-area-title text-[2.25rem] font-bold leading-[0.9] tracking-normal text-[var(--fsusblog-text-primary)]">
               {{ areaMeta.title }}
-            </h1>
+            </p>
             <p class="text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">
               {{ areaMeta.description }}
             </p>
