@@ -17,7 +17,7 @@
         class="filter-stack mb-16 border-b border-[var(--fsusblog-panel-border)] pb-10 flex items-center gap-8"
         data-fsus-motion-surface="search-panel"
       >
-        <span class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">排序</span>
+        <span class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">排序</span>
         <el-radio-group
           :model-value="searchSortMode"
           size="small"
@@ -68,7 +68,7 @@
       <div class="sticky top-52">
         <a
           :href="PUBLIC_FIXED_PATHS.home"
-          class="inline-flex items-center gap-6 text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)] hover:text-[var(--fsusblog-color-primary)] transition-colors group outline-none"
+          class="inline-flex items-center gap-6 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)] hover:text-[var(--fsusblog-color-primary)] transition-colors group outline-none"
         >
           <el-icon class="transition-opacity duration-[var(--fsus-motion-control-fast)] group-hover:opacity-70" aria-hidden="true"><Back /></el-icon> 回到主页
         </a>

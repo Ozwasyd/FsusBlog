@@ -3,7 +3,7 @@
     <div class="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between px-8">
       <div class="min-w-0">
         <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">管理</div>
-        <h2 class="flex flex-wrap items-center gap-6 text-4xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] sm:text-5xl">
+        <h2 class="flex flex-wrap items-center gap-6 text-2xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] sm:text-3xl">
           筛选用户
           <span class="text-xs tabular-nums font-bold text-[var(--fsusblog-text-muted)] bg-[var(--fsusblog-panel-bg-soft)] px-3 py-1 normal-case tracking-normal">
             共 {{ total }}

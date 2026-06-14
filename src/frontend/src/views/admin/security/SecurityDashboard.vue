@@ -9,9 +9,9 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadOverview">刷新</el-button>
       </template>
 
-      <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-4">
+      <div class="grid gap-3 md:grid-cols-4">
         <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
           <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
         </div>
       </div>
@@ -32,7 +32,7 @@
     <section class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.65fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">模块边界</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">模块边界</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="row in boundaryRows" :key="row.label" class="p-5">
@@ -44,11 +44,11 @@
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险摘要</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险摘要</div>
         </div>
-        <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)]">
+        <div class="grid gap-3">
           <div v-for="row in riskRows" :key="row.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ row.label }}</div>
+            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ row.label }}</div>
             <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ row.value }}</div>
           </div>
         </div>
@@ -81,21 +81,21 @@ const formatSecurityMode = (mode: string | null | undefined): string => {
     enforce: '执行',
     strict: '严格'
   }
-  return mode ? labels[mode] ?? mode : '-'
+  return mode ? labels[mode] ?? mode : '未配置'
 }
 
 const metrics = computed(() => [
   { label: '反爬虫模式', value: formatSecurityMode(overview.value?.antiCrawler.mode) },
-  { label: 'CIDR 来源', value: overview.value?.antiCrawler.cidrSource ?? '-' },
+  { label: 'CIDR 来源', value: overview.value?.antiCrawler.cidrSource ?? '未记录' },
   { label: 'PoW 模式', value: formatSecurityMode(overview.value?.pow.policy.options.mode) },
-  { label: '高风险主体', value: overview.value?.risk.highRiskSnapshotCount ?? '-' }
+  { label: '高风险主体', value: overview.value?.risk.highRiskSnapshotCount ?? '未记录' }
 ])
 
 const riskRows = computed(() => [
-  { label: '1 小时风险事件', value: overview.value?.risk.eventsLastHour ?? '-' },
-  { label: '24 小时风险事件', value: overview.value?.risk.eventsLastDay ?? '-' },
-  { label: '主要原因', value: overview.value?.risk.topReason ?? '-' },
-  { label: '主要来源', value: overview.value?.risk.topSource ?? '-' }
+  { label: '1 小时风险事件', value: overview.value?.risk.eventsLastHour ?? '未记录' },
+  { label: '24 小时风险事件', value: overview.value?.risk.eventsLastDay ?? '未记录' },
+  { label: '主要原因', value: overview.value?.risk.topReason ?? '未记录' },
+  { label: '主要来源', value: overview.value?.risk.topSource ?? '未记录' }
 ])
 
 const boundaryRows = [
@@ -104,7 +104,7 @@ const boundaryRows = [
   { label: 'ReadProof / 限流', value: '只写入各自来源的风险信号，不依赖反爬虫具体实现。' }
 ] as const
 
-const formatTime = (value: string | null | undefined): string => value ? new Date(value).toLocaleString() : '-'
+const formatTime = (value: string | null | undefined): string => value ? new Date(value).toLocaleString() : '未记录'
 
 const loadOverview = async (): Promise<void> => {
   loading.value = true

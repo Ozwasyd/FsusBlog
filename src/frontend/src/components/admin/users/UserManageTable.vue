@@ -42,7 +42,7 @@
 
       <el-table-column prop="role" label="角色" :width="roleColumnWidth" align="center">
         <template #default="{ row }: { row: UserListViewItem }">
-          <span class="text-[11px] font-black italic normal-case tracking-normal" :class="row.roleClass">
+          <span class="text-xs font-semibold italic normal-case tracking-normal" :class="row.roleClass">
             {{ row.roleLabel }}
           </span>
         </template>
@@ -65,7 +65,7 @@
         <template #default="{ row }: { row: UserListViewItem }">
           <span class="inline-flex flex-col items-center justify-center">
             <span class="mb-1 h-1 w-1 rounded-[var(--fsus-radius-control-small)]" :class="row.statusDotClass" aria-hidden="true" />
-            <span class="text-[11px] font-black normal-case tracking-normal" :class="row.statusClass">
+            <span class="text-xs font-semibold normal-case tracking-normal" :class="row.statusClass">
               {{ row.statusText }}
             </span>
           </span>
@@ -98,8 +98,8 @@
               {{ row.status === 0 ? '封禁' : '解封' }}
             </el-button>
           </div>
-          <span v-else-if="row.isDeleted" class="text-[var(--fsusblog-text-subtle)] text-[11px] font-black normal-case italic tracking-normal pr-4">已注销</span>
-          <span v-else class="text-[var(--fsusblog-text-subtle)] text-[11px] font-black normal-case italic tracking-normal pr-4">受保护</span>
+          <span v-else-if="row.isDeleted" class="text-[var(--fsusblog-text-subtle)] text-xs font-semibold normal-case italic tracking-normal pr-4">已注销</span>
+          <span v-else class="text-[var(--fsusblog-text-subtle)] text-xs font-semibold normal-case italic tracking-normal pr-4">受保护</span>
         </template>
       </el-table-column>
 
@@ -127,7 +127,7 @@
               <span class="truncate text-sm font-bold text-[var(--fsusblog-text-primary)]">
                 {{ row.username }}
               </span>
-              <span class="text-[11px] font-black italic normal-case tracking-normal px-2 py-0.5 bg-[var(--fsusblog-panel-bg-soft)]" :class="row.roleClass">
+              <span class="text-xs font-semibold italic normal-case tracking-normal px-2 py-0.5 bg-[var(--fsusblog-panel-bg-soft)]" :class="row.roleClass">
                 {{ row.roleLabel }}
               </span>
             </div>
@@ -139,7 +139,7 @@
           </div>
           <div class="shrink-0 flex flex-col items-center">
              <span class="h-1 w-1 rounded-[var(--fsus-radius-control-small)] mb-1" :class="row.statusDotClass" aria-hidden="true" />
-             <span class="text-[11px] font-black normal-case tracking-normal" :class="row.statusClass">
+             <span class="text-xs font-semibold normal-case tracking-normal" :class="row.statusClass">
               {{ row.statusText }}
             </span>
           </div>
@@ -160,7 +160,7 @@
             {{ row.status === 0 ? '封禁' : '解封' }}
           </el-button>
         </div>
-        <div v-else class="text-center py-3 bg-[var(--fsusblog-panel-bg-soft)] text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+        <div v-else class="text-center py-3 bg-[var(--fsusblog-panel-bg-soft)] text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
           {{ row.isDeleted ? '已注销账户' : '受保护账户' }}
         </div>
       </article>

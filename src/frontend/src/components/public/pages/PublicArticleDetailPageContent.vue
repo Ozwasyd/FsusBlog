@@ -54,7 +54,7 @@
           class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-10 py-16 text-center"
           aria-label="文章正文为空"
         >
-          <p class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+          <p class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
             这篇文章目前还没有正文内容
           </p>
         </div>
@@ -87,7 +87,7 @@
         <div class="flex items-center justify-between gap-6">
           <h2
             id="fsus-related-reading-heading"
-            class="text-sm font-black normal-case tracking-normal text-[var(--fsusblog-text-primary)]"
+            class="text-sm font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]"
           >
             {{ detailView.relatedReading.title }}
           </h2>
@@ -104,7 +104,7 @@
             class="group blog-motion-state-change border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-5 py-4 hover:border-[var(--fsusblog-text-primary)]/40"
             data-related-role="previous"
           >
-            <span class="block text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+            <span class="block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
               {{ detailView.relatedReading.previousLabel }}
             </span>
             <span class="mt-2 block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)] group-hover:underline">
@@ -122,7 +122,7 @@
             class="group blog-motion-state-change border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-5 py-4 hover:border-[var(--fsusblog-text-primary)]/40 sm:text-right"
             data-related-role="next"
           >
-            <span class="block text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+            <span class="block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
               {{ detailView.relatedReading.nextLabel }}
             </span>
             <span class="mt-2 block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)] group-hover:underline">
@@ -135,7 +135,7 @@
         </nav>
 
         <div v-if="detailView.relatedReading.items.length > 0">
-          <h3 class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+          <h3 class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
             {{ detailView.relatedReading.relatedLabel }}
           </h3>
           <ol class="mt-4 grid gap-4">

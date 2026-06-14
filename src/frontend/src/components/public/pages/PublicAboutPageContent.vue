@@ -22,12 +22,12 @@
   </section>
 
   <article v-else-if="!error" class="blog-page-shell max-w-3xl mx-auto px-5 sm:px-8 min-h-screen flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-[var(--fsus-motion-control-fast)]">
-    <header class="mb-16 sm:mb-24 pb-12 sm:pb-16 border-b border-[var(--fsusblog-panel-border)]">
-      <h1 class="text-4xl sm:text-6xl font-bold text-[var(--fsusblog-text-primary)] leading-[1.1] tracking-normal mb-8">
+    <header class="mb-14 border-b border-[var(--fsusblog-panel-border)] pb-10 sm:mb-20 sm:pb-12">
+      <h1 class="mb-6 text-3xl font-bold leading-[1.15] tracking-normal text-[var(--fsusblog-text-primary)] sm:text-4xl">
         {{ view.header.title }}
       </h1>
 
-      <div class="flex flex-wrap items-center gap-6 text-[10px] sm:text-[11px] tabular-nums font-bold text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
+      <div class="flex flex-wrap items-center gap-5 text-xs tabular-nums font-semibold text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
         <time>{{ view.header.currentYear }}</time>
         <span class="text-[var(--fsusblog-text-subtle)] font-thin" aria-hidden="true">/</span>
         <span class="text-[var(--fsusblog-text-tertiary)]">{{ view.header.manifestoLabel }}</span>

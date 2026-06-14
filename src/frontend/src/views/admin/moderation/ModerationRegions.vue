@@ -3,7 +3,7 @@
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">地区</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">地区</div>
           <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">地区定义与生效策略</h2>
           <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">默认策略模板是工程预设，不构成法律建议。</p>
         </div>
@@ -49,7 +49,7 @@
     <section class="grid gap-8 lg:grid-cols-[minmax(20rem,0.75fr)_minmax(0,1fr)]">
       <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">继承链</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">继承链</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="step in preview?.inheritance ?? []" :key="`${step.step}:${step.sourceId}`" class="p-5">
@@ -63,7 +63,7 @@
       <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
-            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">生效规则</div>
+            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">生效规则</div>
             <div class="mt-1 text-sm font-bold text-[var(--fsusblog-text-primary)]">地区：{{ preview?.region ?? '-' }}；校验值：{{ preview?.checksum ?? '-' }}</div>
           </div>
           <el-tag v-for="warning in preview?.warnings ?? []" :key="warning" type="warning">{{ warning }}</el-tag>

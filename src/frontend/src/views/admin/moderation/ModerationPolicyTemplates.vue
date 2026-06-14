@@ -2,7 +2,7 @@
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
     <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略模板</div>
+        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略模板</div>
         <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">默认合规模板预设</h2>
         <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">管理员需要结合实际服务地区、部署位置、业务类型和法律意见复核模板。</p>
       </div>
@@ -24,9 +24,9 @@
                 />
               </template>
             </el-table>
-            <dl class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)]">
+            <dl class="grid gap-3">
               <div v-for="item in templateRows(row)" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-4">
-                <dt class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</dt>
+                <dt class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</dt>
                 <dd class="mt-2 break-all text-[12px] font-bold text-[var(--fsusblog-text-primary)]">{{ item.value }}</dd>
               </div>
             </dl>

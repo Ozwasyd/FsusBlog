@@ -2,7 +2,7 @@
   <div class="space-y-8">
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略回放</div>
+        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略回放</div>
         <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">预览差异</h2>
         <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">回放执行前必须先生成预览；执行需要 MFA step-up、确认短语和高价值审计。</p>
       </div>
@@ -15,10 +15,10 @@
         <el-button type="primary" :icon="DocumentChecked" :loading="loading" @click="runPreview">生成预览</el-button>
       </div>
 
-      <div v-if="preview" class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-4">
+      <div v-if="preview" class="grid gap-3 md:grid-cols-4">
         <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-          <div class="mt-3 text-3xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
+          <div class="mt-3 text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
         </div>
       </div>
 

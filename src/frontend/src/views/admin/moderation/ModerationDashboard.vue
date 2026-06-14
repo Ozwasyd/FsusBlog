@@ -9,10 +9,10 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
       </template>
 
-      <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-5">
+      <div class="grid gap-3 md:grid-cols-5">
         <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-          <div class="mt-3 text-3xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
+          <div class="mt-3 text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
         </div>
       </div>
     </WorkbenchPanel>
@@ -33,9 +33,9 @@
         'blog-motion-task-region--settled': isTaskHighlighted('moderation-global-runtime')
       }"
     >
-      <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-5">
+      <div class="grid gap-3 md:grid-cols-5">
         <div v-for="item in runtimeRows" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</div>
           <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.value }}</div>
         </div>
       </div>
@@ -54,7 +54,7 @@
       <div class="space-y-8">
         <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
           <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">关键检查</div>
+            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">关键检查</div>
           </div>
           <div class="divide-y divide-[var(--fsusblog-panel-border)]">
             <div class="flex flex-wrap items-center justify-between gap-3 p-5">
@@ -87,7 +87,7 @@
 
       <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">入口</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">入口</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <RouterLink v-for="link in internalLinks" :key="link.name" :to="{ name: link.name }" class="block p-5 hover:bg-[var(--fsusblog-page-bg-soft)]">

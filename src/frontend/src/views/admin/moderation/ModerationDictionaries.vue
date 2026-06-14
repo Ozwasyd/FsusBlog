@@ -18,7 +18,7 @@
     >
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库管理</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库管理</div>
           <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">运行时词库元数据</h2>
           <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">高风险词库只展示元数据、校验值、词条数量和证据策略。</p>
         </div>
@@ -124,9 +124,9 @@
         <div class="border-l-4 border-[var(--el-color-warning)] px-4 py-3 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
           原始词条默认不可见；证据策略为 redact 时不会在管理台、toast 或日志中展示敏感词明文。
         </div>
-        <dl class="grid grid-cols-1 gap-px bg-[var(--fsusblog-panel-bg-soft)]">
+        <dl class="grid grid-cols-1 gap-3">
           <div v-for="item in detailRows" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-4">
-            <dt class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</dt>
+            <dt class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</dt>
             <dd class="mt-2 break-all text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.value }}</dd>
           </div>
         </dl>

@@ -9,9 +9,9 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadCrawler">刷新</el-button>
       </template>
 
-      <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-5">
+      <div class="grid gap-3 md:grid-cols-5">
         <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
           <div class="mt-3 break-words text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ metric.value }}</div>
         </div>
       </div>
@@ -36,7 +36,7 @@
       >
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
-            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行策略</div>
+            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行策略</div>
             <div class="mt-2 text-lg font-bold text-[var(--fsusblog-text-primary)]">反爬虫运行模式</div>
           </div>
           <div class="flex gap-2">
@@ -45,7 +45,7 @@
           </div>
         </div>
 
-        <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-2">
+        <div class="grid gap-3 md:grid-cols-2">
           <label class="bg-[var(--fsusblog-page-bg)] p-5">
             <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">运行模式</span>
             <el-select v-model="draft.mode" class="mt-2 w-full" aria-label="反爬虫运行模式">
@@ -77,14 +77,14 @@
       >
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
-            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">CIDR 来源</div>
+            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">CIDR 来源</div>
             <div class="mt-2 text-lg font-bold text-[var(--fsusblog-text-primary)]">{{ ranges?.source ?? '-' }}</div>
           </div>
           <el-button type="primary" :loading="syncing" @click="syncRanges">手动同步</el-button>
         </div>
-        <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-2">
+        <div class="grid gap-3 md:grid-cols-2">
           <div v-for="row in rangeRows" :key="row.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ row.label }}</div>
+            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ row.label }}</div>
             <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ row.value }}</div>
           </div>
         </div>
@@ -94,7 +94,7 @@
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险事件</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险事件</div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full min-w-full md:min-w-[52rem] text-left text-[12px]">
@@ -125,7 +125,7 @@
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险快照</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险快照</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div
@@ -152,7 +152,7 @@
       <div v-for="list in listPanels" :key="list.type" class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
-            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ list.title }}</div>
+            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ list.title }}</div>
           </div>
           <el-button @click="addListEntry(list.type)">新增</el-button>
         </div>
@@ -172,7 +172,7 @@
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,0.72fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">规则</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">规则</div>
           <el-button @click="addRule">新增规则</el-button>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
@@ -188,7 +188,7 @@
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略模拟器</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略模拟器</div>
         </div>
         <div class="space-y-4 p-5">
           <el-input v-model="simulation.ip" placeholder="IP" />

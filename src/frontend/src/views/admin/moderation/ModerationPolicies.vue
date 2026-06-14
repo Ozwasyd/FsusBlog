@@ -3,7 +3,7 @@
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">地区策略</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">地区策略</div>
           <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">策略与词库组合结果</h2>
           <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">地区策略结果独立于模型信号，决定提交动作、展示动作和拦截地区。</p>
         </div>
@@ -15,14 +15,14 @@
           <template #default="{ row }: { row: RegionPolicySummaryResponse }">
             <div class="grid gap-6 p-5 lg:grid-cols-2">
               <section>
-                <div class="mb-3 text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库</div>
+                <div class="mb-3 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库</div>
                 <div class="flex flex-wrap gap-2">
                   <el-tag v-for="dictionaryId in row.dictionaryIds" :key="dictionaryId" type="info">{{ dictionaryId }}</el-tag>
                   <el-tag v-if="row.dictionaryIds.length === 0" type="danger">缺失</el-tag>
                 </div>
               </section>
               <section>
-                <div class="mb-3 text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">关键检查</div>
+                <div class="mb-3 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">关键检查</div>
                 <div class="divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]">
                   <div v-for="check in row.criticalChecks" :key="check.code" class="flex flex-wrap items-center justify-between gap-3 p-3">
                     <div>
@@ -88,7 +88,7 @@
 
     <section v-if="mainlandPolicy" class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">CN-MAINLAND 必要检查</div>
+        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">CN-MAINLAND 必要检查</div>
       </div>
       <div class="divide-y divide-[var(--fsusblog-panel-border)]">
         <div v-for="check in mainlandPolicy.criticalChecks" :key="check.code" class="flex flex-wrap items-center justify-between gap-3 p-5">

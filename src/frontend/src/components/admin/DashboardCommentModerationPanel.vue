@@ -23,10 +23,10 @@
       </div>
     </header>
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-px bg-[var(--fsusblog-panel-bg-soft)]">
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <div v-for="counter in counters" :key="counter.label" class="bg-[var(--fsusblog-page-bg)] p-6">
-        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ counter.label }}</div>
-        <div class="mt-3 text-3xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ counter.value }}</div>
+        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ counter.label }}</div>
+        <div class="mt-3 text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ counter.value }}</div>
       </div>
     </div>
 
@@ -43,11 +43,11 @@
         <article v-for="comment in pendingItems" :key="comment.id" class="bg-[var(--fsusblog-page-bg)] p-5">
           <div class="flex flex-wrap items-center gap-3">
             <span class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ comment.userName }}</span>
-            <span class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]">#{{ comment.id }}</span>
-            <span class="text-[11px] font-bold text-[var(--fsusblog-text-muted)]">文章 {{ comment.articleId }} · {{ comment.articleTitle }}</span>
+            <span class="text-xs font-semibold tabular-nums text-[var(--fsusblog-text-muted)]">#{{ comment.id }}</span>
+            <span class="text-xs font-semibold text-[var(--fsusblog-text-muted)]">文章 {{ comment.articleId }} · {{ comment.articleTitle }}</span>
             <SemanticTime
               :value="comment.createTime"
-              class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]"
+              class="text-xs font-semibold tabular-nums text-[var(--fsusblog-text-muted)]"
             />
           </div>
           <p class="mt-3 line-clamp-2 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--fsusblog-text-secondary)]">{{ comment.content }}</p>

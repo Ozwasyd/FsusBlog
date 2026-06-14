@@ -1,9 +1,9 @@
 <template>
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] p-6" aria-label="评论审核筛选">
     <div class="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-      <div class="grid grid-cols-1 gap-px bg-[var(--fsusblog-panel-bg-soft)] border border-[var(--fsusblog-panel-border)] sm:grid-cols-3">
+      <div class="grid grid-cols-1 gap-3 border border-[var(--fsusblog-panel-border)] sm:grid-cols-3">
         <div v-for="counter in counters" :key="counter.label" class="bg-[var(--fsusblog-page-bg)] px-5 py-4">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ counter.label }}</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ counter.label }}</div>
           <div class="mt-2 text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ counter.value }}</div>
         </div>
       </div>

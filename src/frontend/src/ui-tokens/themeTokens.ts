@@ -42,7 +42,7 @@ export const themeTokens: ThemeTokenContract = {
     tagList: 'flex flex-wrap gap-6 sm:gap-8',
     tagLink: `text-[11px] sm:text-xs font-bold uppercase tracking-normal ${textMuted} hover:text-[var(--fsusblog-text-primary)] ${colorTransition} outline-none ${focusRing}`,
     commentsRoot: `mt-24 sm:mt-32 pt-16 border-t ${lineBorder} pb-32`,
-    commentsHeading: `text-[11px] font-black ${textMuted} uppercase tracking-normal mb-12`,
+    commentsHeading: `text-xs font-semibold ${textMuted} uppercase tracking-normal mb-12`,
     commentsPlaceholderRoot: `min-h-[6rem] rounded-[var(--fsusblog-reading-radius-panel)] border ${lineBorder} ${surface} px-8 py-8 sm:px-10 sm:py-10 shadow-none`,
     commentsPlaceholderTitle: `text-base sm:text-lg font-bold ${textPrimary} tracking-normal`,
     commentsPlaceholderBody: `mt-3 text-sm sm:text-base ${textSecondary} leading-relaxed font-light`,
@@ -52,18 +52,18 @@ export const themeTokens: ThemeTokenContract = {
     list: 'space-y-10 sm:space-y-12',
     item: `group relative pt-8 border-t ${lineBorder} first:border-t-0 sm:first:border-t`,
     itemHeader: 'flex flex-col sm:flex-row justify-between items-start gap-5 sm:gap-6 mb-5 sm:mb-6',
-    articleLabel: `text-[9px] font-black ${textMuted} uppercase tracking-normal`,
+    articleLabel: `text-xs font-semibold ${textMuted} uppercase tracking-normal`,
     articleLink: `block text-sm font-bold ${textPrimary} ${primaryHover} ${colorTransition} tracking-normal leading-snug wrap-break-word outline-none ${focusRing}`,
     time: `text-[10px] font-bold ${textSubtle} uppercase tracking-normal shrink-0 pt-0.5 ${numericText}`,
     content: `${textTertiary} text-sm leading-relaxed whitespace-pre-wrap mb-6 wrap-break-word overflow-hidden`,
     footer: `pt-12 border-t ${lineBorderStrong} flex justify-center`,
-    endHint: `text-[9px] font-black tracking-normal ${textSubtle} uppercase`
+    endHint: `text-xs font-semibold tracking-normal ${textSubtle} uppercase`
   },
   dashboard: {
-    statGrid: `mb-8 gap-px ${surfaceSoft}`,
-    statCard: `${surface} p-8 ${stateTransition} hover:bg-[var(--fsusblog-panel-bg-soft)]`,
+    statGrid: 'mb-8 gap-3',
+    statCard: `${surface} p-6`,
     statIconWrap: `shrink-0 ${textSubtle}`,
-    statLabel: `${textMuted} text-[10px] font-black mb-2 uppercase tracking-normal`,
-    statValue: `text-4xl font-bold ${textPrimary} tracking-normal ${numericText}`
+    statLabel: `${textMuted} text-xs font-semibold mb-2 uppercase tracking-normal`,
+    statValue: `text-2xl font-bold ${textPrimary} tracking-normal ${numericText}`
   }
 } as const;

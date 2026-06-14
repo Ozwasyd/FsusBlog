@@ -1,6 +1,6 @@
 <template>
   <header class="mb-12 sm:mb-20 select-none">
-    <p class="text-[10px] font-bold text-[var(--fsusblog-text-muted)] normal-case mb-6 animate-in fade-in duration-[var(--fsus-motion-control-fast)]">
+    <p class="mb-6 text-xs font-semibold normal-case text-[var(--fsusblog-text-muted)] animate-in fade-in duration-[var(--fsus-motion-control-fast)]">
       {{ view.labelText }}
     </p>
     <el-skeleton v-if="view.loadingMeta" animated>

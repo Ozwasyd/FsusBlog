@@ -10,21 +10,21 @@
       />
     </header>
 
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-px bg-[var(--fsusblog-panel-bg-soft)]">
+    <div class="grid grid-cols-1 gap-3 lg:grid-cols-4">
       <div v-for="metric in metrics" :key="metric.label" class="bg-[var(--fsusblog-page-bg)] p-8">
-        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
-        <div class="mt-5 text-4xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] tabular-nums">{{ metric.value }}</div>
+        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ metric.label }}</div>
+        <div class="mt-5 text-2xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] tabular-nums">{{ metric.value }}</div>
         <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">{{ metric.description }}</p>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-px bg-[var(--fsusblog-panel-bg-soft)] border-t border-[var(--fsusblog-panel-border)]">
+    <div class="grid grid-cols-1 gap-3 border-t border-[var(--fsusblog-panel-border)] lg:grid-cols-3">
       <AnalyticsList title="搜索关键词" empty-text="暂无搜索关键词" :items="analytics.topSearchKeywords" />
       <AnalyticsList title="来源路径" empty-text="暂无来源路径" :items="analytics.topSourceRoutes" />
       <AnalyticsList title="404 热点" empty-text="暂无 404 热点" :items="analytics.notFoundHotspots" />
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-px bg-[var(--fsusblog-panel-bg-soft)] border-t border-[var(--fsusblog-panel-border)]">
+    <div class="grid grid-cols-1 gap-3 border-t border-[var(--fsusblog-panel-border)] lg:grid-cols-3">
       <section class="bg-[var(--fsusblog-page-bg)] p-8 min-h-72">
         <h3 class="text-base font-bold leading-tight text-[var(--fsusblog-text-primary)]">Core Web Vitals</h3>
         <p class="mt-1 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">关键渲染指标。</p>

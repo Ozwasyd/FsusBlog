@@ -30,7 +30,7 @@
 
       <div>
         <div class="mb-2 flex items-center justify-between gap-3">
-          <div class="text-[11px] font-semibold text-[var(--fsusblog-text-secondary)] normal-case tracking-normal">手动密钥 (Manual Entry)</div>
+          <div class="text-xs font-semibold text-[var(--fsusblog-text-secondary)] normal-case tracking-normal">手动密钥 (Manual Entry)</div>
           <el-button
             v-if="secret"
             size="small"
@@ -70,7 +70,7 @@
       </div>
 
       <div v-else>
-        <div class="text-[11px] font-semibold text-[var(--fsusblog-text-secondary)] mb-2">恢复码（仅显示一次）</div>
+        <div class="text-xs font-semibold text-[var(--fsusblog-text-secondary)] mb-2">恢复码（仅显示一次）</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div
             v-for="code in recoveryCodes"

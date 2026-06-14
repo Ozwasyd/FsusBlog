@@ -12,7 +12,7 @@
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核模型</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核模型</div>
           <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">模型风险信号</h2>
           <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">地区策略和硬词库优先级高于模型建议；模型输出不得作为最终审核决定。</p>
         </div>
@@ -24,9 +24,9 @@
         <span class="ml-2">模型风险信号不能覆盖拦截地区、提交动作、展示动作或人工审核状态。</span>
       </div>
 
-      <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-4">
+      <div class="grid gap-3 md:grid-cols-4">
         <div v-for="item in statusRows" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</div>
           <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.value }}</div>
         </div>
       </div>
@@ -41,7 +41,7 @@
         }"
       >
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">观测</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">观测</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div class="flex items-center justify-between gap-3 p-5">
@@ -65,7 +65,7 @@
 
       <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">受控动作</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">受控动作</div>
         </div>
         <div class="space-y-4 p-5">
           <div class="grid gap-3 md:grid-cols-2">
@@ -98,9 +98,9 @@
             <el-button :icon="RefreshRight" type="warning" :loading="reloading" @click="reloadRuntime">重新载入</el-button>
             <el-button :icon="RefreshLeft" type="warning" :loading="rollingBack" @click="rollbackRuntime">回滚</el-button>
           </div>
-          <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-2">
+          <div class="grid gap-3 md:grid-cols-2">
             <div v-for="item in runtimeRows" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-4">
-              <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</div>
+              <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</div>
               <div class="mt-2 break-all text-[12px] font-bold text-[var(--fsusblog-text-primary)]">{{ item.value }}</div>
             </div>
           </div>

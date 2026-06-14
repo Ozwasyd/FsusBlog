@@ -27,7 +27,7 @@
               <div class="flex flex-wrap items-center gap-2">
                 <span class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ (item as CommentModerationViewItem).userName }}</span>
                 <span class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]">#{{ (item as CommentModerationViewItem).id }}</span>
-                <span class="text-[11px] font-black normal-case tracking-normal" :class="(item as CommentModerationViewItem).statusClass">
+                <span class="text-xs font-semibold normal-case tracking-normal" :class="(item as CommentModerationViewItem).statusClass">
                   {{ (item as CommentModerationViewItem).statusLabel }}
                 </span>
               </div>
@@ -160,7 +160,7 @@
           <el-table-column label="状态" width="112" align="center">
             <template #default="{ row }: { row: CommentModerationViewItem }">
               <span class="inline-flex flex-col items-center gap-1">
-                <span class="text-[11px] font-black normal-case tracking-normal" :class="row.statusClass">{{ row.statusLabel }}</span>
+                <span class="text-xs font-semibold normal-case tracking-normal" :class="row.statusClass">{{ row.statusLabel }}</span>
               </span>
             </template>
           </el-table-column>

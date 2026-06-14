@@ -1,7 +1,7 @@
 <template>
   <section class="bg-[var(--fsusblog-page-bg)] h-full flex flex-col">
     <header class="p-8 border-b border-[var(--fsusblog-panel-border)]">
-      <h2 class="text-3xl font-bold text-[var(--fsusblog-text-primary)]">热门文章</h2>
+      <h2 class="text-lg font-bold text-[var(--fsusblog-text-primary)]">热门文章</h2>
       <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-secondary)]">用内容表现判断哪些稿件值得继续编辑、补链或置顶处理。</p>
     </header>
     <div class="flex-1 p-2">
@@ -14,7 +14,7 @@
       <el-table v-else :data="popularArticleRows" v-loading="loading">
         <el-table-column type="index" label="Rank" width="70" align="center">
           <template #default="scope">
-            <span :class="['tabular-nums text-[11px] font-bold', scope.row.rank <= 3 ? 'text-[var(--fsusblog-text-primary)]' : 'text-[var(--fsusblog-text-subtle)]']">
+            <span :class="['tabular-nums text-xs font-semibold', scope.row.rank <= 3 ? 'text-[var(--fsusblog-text-primary)]' : 'text-[var(--fsusblog-text-subtle)]']">
               #{{ scope.row.rank }}
             </span>
           </template>
@@ -28,7 +28,7 @@
         </el-table-column>
         <el-table-column prop="views" label="阅读量" width="100" align="right">
           <template #default="{ row }">
-            <span class="tabular-nums text-[11px] font-bold text-[var(--fsusblog-text-muted)]">
+            <span class="tabular-nums text-xs font-semibold text-[var(--fsusblog-text-muted)]">
               {{ row.views }}
             </span>
           </template>
@@ -44,7 +44,7 @@
     <footer class="p-6 border-t border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg-soft)]">
       <router-link
         :to="{ name: 'ManageArticleList' }"
-        class="blog-link-state group flex items-center gap-3 text-[11px] font-black normal-case tracking-normal"
+        class="blog-link-state group flex items-center gap-3 text-xs font-semibold normal-case tracking-normal"
       >
         进入文章管理 <el-icon class="transition-transform" aria-hidden="true"><ArrowRight /></el-icon>
       </router-link>

@@ -18,11 +18,11 @@
     </el-skeleton>
 
     <div v-else class="relative pb-32 pt-16 sm:pt-24">
-      <header class="mb-24 sm:mb-32 pb-12 sm:pb-16 border-b border-[var(--fsusblog-panel-border)]">
-        <h1 class="text-5xl sm:text-7xl font-bold text-[var(--fsusblog-text-primary)] tracking-normal leading-none mb-10">
+      <header class="mb-16 border-b border-[var(--fsusblog-panel-border)] pb-10 sm:mb-20 sm:pb-12">
+        <h1 class="mb-6 text-3xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] sm:text-4xl">
           归档
         </h1>
-        <div class="flex items-center gap-6 text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+        <div class="flex items-center gap-6 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
           <span>已发布 <span class="text-[var(--fsusblog-text-primary)] tabular-nums">{{ view.total }}</span> 篇</span>
         </div>
         <nav
@@ -41,7 +41,7 @@
         </nav>
       </header>
 
-      <div class="space-y-24 sm:space-y-32">
+      <div class="space-y-16 sm:space-y-20">
         <section
           v-for="yearGroup in view.yearGroups"
           :key="yearGroup.year"
@@ -49,7 +49,7 @@
           class="relative animate-in slide-in-from-bottom-8 fade-in duration-[var(--fsus-motion-control-fast)]"
         >
           <div class="sticky top-24 z-10 bg-[var(--fsusblog-page-bg)] py-6 mb-12 sm:mb-16 border-b border-[var(--fsusblog-panel-border)]/50">
-            <h2 class="text-4xl sm:text-6xl font-bold text-[var(--fsusblog-text-primary)] tabular-nums tracking-normal">
+            <h2 class="text-2xl font-bold text-[var(--fsusblog-text-primary)] tabular-nums tracking-normal sm:text-3xl">
               {{ yearGroup.year }}
             </h2>
           </div>
@@ -60,7 +60,7 @@
               :key="monthGroup.month"
               class="relative"
             >
-              <h3 class="text-[10px] font-black text-[var(--fsusblog-text-subtle)] normal-case tracking-normal mb-10 flex items-center gap-8">
+              <h3 class="mb-8 flex items-center gap-8 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
                 {{ monthGroup.monthLabel }}
                 <span class="h-px grow bg-[var(--fsusblog-panel-bg-soft)]" aria-hidden="true"></span>
               </h3>

@@ -5,7 +5,7 @@
     aria-label="长文阅读提示"
   >
     <div class="flex items-baseline gap-4 border-l-2 border-[var(--fsusblog-panel-border-strong)] pl-6 py-1">
-      <span class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-primary)]">
+      <span class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">
         长文
       </span>
       <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-medium text-[var(--fsusblog-text-secondary)]">

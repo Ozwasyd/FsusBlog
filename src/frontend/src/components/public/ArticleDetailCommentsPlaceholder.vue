@@ -11,7 +11,7 @@
     </p>
     <div
       v-if="hint.trim()"
-      class="inline-block px-4 py-1 bg-[var(--fsusblog-panel-bg-soft)] text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]"
+      class="inline-block px-4 py-1 bg-[var(--fsusblog-panel-bg-soft)] text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]"
     >
       {{ hint }}
     </div>

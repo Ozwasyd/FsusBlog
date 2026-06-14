@@ -1,12 +1,12 @@
 <template>
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-[var(--fsusblog-panel-bg-soft)] border-y border-[var(--fsusblog-panel-border)] mb-10">
-    <div v-for="item in view.statCards" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-8 transition-colors hover:bg-[var(--fsusblog-panel-bg)] group">
+  <div class="grid grid-cols-1 gap-3 border-y border-[var(--fsusblog-panel-border)] py-3 md:grid-cols-2 lg:grid-cols-4 mb-10">
+    <div v-for="item in view.statCards" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-6">
       <div class="flex flex-col h-full">
-        <div class="flex items-center justify-between mb-6">
-          <span class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors">
+        <div class="flex items-center justify-between mb-5">
+          <span class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
             {{ item.label }}
           </span>
-          <span class="text-[var(--fsusblog-text-subtle)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors" aria-hidden="true">
+          <span class="text-[var(--fsusblog-text-subtle)]" aria-hidden="true">
             <el-icon size="18">
               <component :is="iconMap[item.iconName]" />
             </el-icon>
@@ -14,12 +14,12 @@
         </div>
 
         <div class="flex items-baseline gap-2">
-          <span class="text-5xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] tabular-nums" data-visual-dynamic>
+          <span class="text-2xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] tabular-nums" data-visual-dynamic>
             {{ item.value }}
           </span>
         </div>
 
-        <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)] max-w-[180px]">
+        <p class="mt-4 max-w-[180px] text-xs leading-relaxed text-[var(--fsusblog-text-tertiary)]">
           {{ item.description }}
         </p>
       </div>

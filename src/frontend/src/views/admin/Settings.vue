@@ -16,7 +16,7 @@
         <span class="text-[var(--fsusblog-color-warning-text)]">
           <el-icon><Warning /></el-icon>
         </span>
-        <span id="settings-privileged-mode-title" class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-color-warning-text)]">高权限管理模式</span>
+        <span id="settings-privileged-mode-title" class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-color-warning-text)]">高权限管理模式</span>
       </div>
       <p class="text-[13px] leading-relaxed text-[var(--fsusblog-color-warning-text)] font-medium">
         变更站点全局配置将立即触发物理磁盘 AOT 缓存清理。若同步失败，系统将执行原子化回滚。
@@ -97,10 +97,10 @@
                       <img v-if="displayUrl" :src="displayUrl" alt="当前社交媒体预览图" class="w-full h-full object-cover" />
                       <div v-else class="h-full flex flex-col items-center justify-center text-[var(--fsusblog-text-muted)]">
                         <el-icon size="24"><Plus /></el-icon>
-                        <span class="text-[11px] mt-2 font-black normal-case tracking-normal">上传预览图</span>
+                        <span class="text-[11px] mt-2 font-semibold normal-case tracking-normal">上传预览图</span>
                       </div>
                       <div class="image-replace-overlay absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span class="text-[11px] font-black normal-case tracking-normal">点击更换</span>
+                        <span class="text-xs font-semibold normal-case tracking-normal">点击更换</span>
                       </div>
                     </div>
                   </el-upload>
@@ -148,7 +148,7 @@
 
               <section class="mt-12 border-t border-[var(--fsusblog-panel-border)] pt-10" aria-label="浏览器与 PWA 资产">
                 <header class="mb-8">
-                  <h4 class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-primary)]">浏览器与 PWA</h4>
+                  <h4 class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">浏览器与 PWA</h4>
                   <p class="mt-3 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">这些字段会写入 favicon、Apple Touch Icon 与 manifest.webmanifest。</p>
                 </header>
                 <div class="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
@@ -200,7 +200,7 @@
 
               <section class="mt-12 border-t border-[var(--fsusblog-panel-border)] pt-10" aria-label="品牌资产">
                 <header class="mb-8">
-                  <h4 class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-primary)]">品牌资产</h4>
+                  <h4 class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">品牌资产</h4>
                   <p class="mt-3 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">公开页、管理后台与登录页会优先使用这些图片；留空时回退为文字站名。</p>
                 </header>
                 <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -249,7 +249,7 @@
               </section>
 
               <section class="mt-12 border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5" aria-label="SEO 与社交分享预览">
-                <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">搜索结果预览</div>
+                <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">搜索结果预览</div>
                 <div class="space-y-2">
                   <p class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ siteSearchPreview.title }}</p>
                   <p class="text-[12px] text-[var(--fsusblog-color-success)] break-all">{{ siteSearchPreview.url }}</p>
@@ -368,7 +368,7 @@
 
                 <aside class="mt-10 space-y-8 lg:mt-0">
                   <section class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5" aria-label="页脚合规预览">
-                    <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">页脚预览</div>
+                    <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">页脚预览</div>
                     <div class="space-y-3 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">
                       <p class="font-bold text-[var(--fsusblog-text-primary)]">{{ compliancePreview.copyright }}</p>
                       <p v-if="compliancePreview.license">许可：{{ compliancePreview.license }}</p>
@@ -379,7 +379,7 @@
                   </section>
 
                   <section class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5" aria-label="大陆上线检查清单">
-                    <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">大陆上线检查清单</div>
+                    <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">大陆上线检查清单</div>
                     <ul class="space-y-3 text-[12px] leading-relaxed">
                       <li v-for="item in mainlandLaunchChecklist" :key="item.label" class="flex items-start gap-3">
                         <span class="mt-0.5 h-2 w-2 shrink-0 rounded-full" :class="item.done ? 'bg-[var(--fsusblog-color-success)]' : 'bg-[var(--fsusblog-text-muted)]'" />

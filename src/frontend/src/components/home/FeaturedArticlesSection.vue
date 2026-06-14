@@ -82,7 +82,7 @@
                 <h2 class="text-2xl lg:text-3xl font-bold leading-tight text-[var(--fsusblog-text-primary)] transition-colors group-hover:text-[var(--fsusblog-color-primary)]">
                   {{ articles[0].title }}
                 </h2>
-                <div class="mt-8 flex items-center gap-2 text-[11px] font-bold normal-case text-[var(--fsusblog-text-muted)] transition-[background-color,border-color,color,opacity,transform] group-hover:text-[var(--fsusblog-color-primary)]">
+                <div class="mt-8 flex items-center gap-2 text-xs font-semibold normal-case text-[var(--fsusblog-text-muted)] transition-[background-color,border-color,color,opacity,transform] group-hover:text-[var(--fsusblog-color-primary)]">
                   阅读全文 <el-icon aria-hidden="true"><ArrowRight /></el-icon>
                 </div>
               </div>

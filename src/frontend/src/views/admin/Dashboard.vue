@@ -18,15 +18,15 @@
           title-id="dashboard-today-actions-title"
         />
       </header>
-      <div class="grid grid-cols-1 gap-px bg-[var(--fsusblog-panel-bg-soft)] sm:grid-cols-2 xl:grid-cols-4">
+      <div class="grid grid-cols-1 gap-3 py-3 sm:grid-cols-2 xl:grid-cols-4">
         <router-link
           v-for="action in todayActions"
           :key="action.label"
           :to="action.to"
           class="dashboard-action-card"
         >
-          <span class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ action.label }}</span>
-          <span class="mt-3 text-3xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ action.countText }}</span>
+          <span class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ action.label }}</span>
+          <span class="mt-3 text-2xl font-bold tabular-nums text-[var(--fsusblog-text-primary)]">{{ action.countText }}</span>
           <span class="mt-3 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">{{ action.helper }}</span>
         </router-link>
       </div>
@@ -105,7 +105,7 @@
       :title-level="2"
       header-class="px-0 pt-0"
     >
-      <div class="grid grid-cols-1 xl:grid-cols-3 gap-px bg-[var(--fsusblog-panel-bg-soft)] border-y border-[var(--fsusblog-panel-border)]">
+      <div class="grid grid-cols-1 gap-3 border-y border-[var(--fsusblog-panel-border)] py-3 xl:grid-cols-3">
         <DashboardOperationsPanel :view="dashboardView" />
         <DashboardPopularArticles :view="dashboardView" :loading="loading" />
         <DashboardRecentComments :view="dashboardView" :loading="loading" />
