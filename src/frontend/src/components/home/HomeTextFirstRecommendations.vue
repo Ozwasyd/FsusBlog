@@ -9,7 +9,7 @@
         id="home-text-first-recommendations-title"
         class="text-[10px] tabular-nums font-bold normal-case text-[var(--fsusblog-text-muted)]"
       >
-        推荐阅读 / RECOMMENDED
+        顺着读
       </div>
     </header>
 
@@ -31,7 +31,7 @@
                 {{ article.title }}
               </span>
               <span class="mt-3 block text-[10px] tabular-nums font-bold normal-case text-[var(--fsusblog-text-muted)]">
-                {{ formatViews(article.views) }} 浏览
+                {{ formatViews(article.views) }} 次打开
               </span>
             </span>
           </a>

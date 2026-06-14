@@ -6,7 +6,7 @@
   >
     <header class="mb-10">
       <div class="text-[10px] tabular-nums font-bold normal-case text-[var(--fsusblog-text-muted)]">
-        聚焦 / SPOTLIGHT
+        最近在写
       </div>
     </header>
 
@@ -46,8 +46,8 @@
       </template>
     </el-skeleton>
 
-    <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
-      <div class="lg:col-span-8 space-y-16">
+    <div v-else class="space-y-16">
+      <div class="space-y-16">
         <article v-if="articles[0]" class="relative">
           <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(articles[0].id)">
             <a
@@ -129,48 +129,17 @@
         </div>
       </div>
 
-      <aside v-if="hotArticles.length > 0" class="lg:col-span-4 pt-4">
-        <h3 class="text-[10px] font-bold normal-case text-[var(--fsusblog-text-muted)] mb-8 border-b border-[var(--fsusblog-panel-border)] pb-4">
-          热门排行 / TRENDING
-        </h3>
-        <ul role="list" class="space-y-8">
-          <li v-for="(article, index) in hotArticles" :key="article.id">
-            <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(article.id)">
-              <a
-                :href="href"
-                class="group flex items-start gap-4 rounded-[var(--fsus-radius-control-small)] outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
-                :aria-label="`打开热门文章第 ${index + 1} 位：${article.title}`"
-                @click="navigate"
-                @keydown.space.prevent="navigate()"
-              >
-                <span class="flex-none text-[11px] tabular-nums font-bold text-[var(--fsusblog-text-subtle)] pt-1 group-hover:text-[var(--fsusblog-color-primary)]">
-                  {{ (index + 1).toString().padStart(2, '0') }}
-                </span>
-                <div class="min-w-0">
-                  <h4 class="text-sm font-bold text-[var(--fsusblog-text-primary)] leading-snug line-clamp-2 transition-colors group-hover:text-[var(--fsusblog-color-primary)]">
-                    {{ article.title }}
-                  </h4>
-                  <p class="mt-2 text-[10px] tabular-nums font-bold normal-case text-[var(--fsusblog-text-muted)] tabular-nums">
-                    {{ formatViews(article.views) }} 浏览
-                  </p>
-                </div>
-              </a>
-            </RouterLink>
-          </li>
-        </ul>
-      </aside>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { ArrowRight } from '@/fsusui/icons'
-import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
+import type { FeaturedArticleItem } from '@/api/article'
 import { TimeUtils } from '@/utils/time'
 
 defineProps<{
   articles: FeaturedArticleItem[]
-  hotArticles: PopularArticleSummaryResponse[]
   loading?: boolean
 }>()
 
@@ -179,9 +148,6 @@ const articleHref = (id: number) => `/article/${id}`
 const formatTime = (isoString: string) => {
   return TimeUtils.toSmartTime(isoString)
 }
-
-const viewFormatter = new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' })
-const formatViews = (views: number) => viewFormatter.format(views)
 </script>
 
 <style scoped>

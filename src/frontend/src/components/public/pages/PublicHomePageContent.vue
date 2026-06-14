@@ -44,34 +44,7 @@
     </template>
 
     <template #aside>
-      <slot name="aside">
-        <nav
-          id="fsus-home-hot-articles-slot-content"
-          class="min-h-[18rem] border-l border-[var(--fsusblog-panel-border)] pl-8"
-          aria-label="快速入口"
-        >
-          <h2 class="mb-8 text-[10px] font-bold normal-case text-[var(--fsusblog-text-muted)]">
-            快速入口
-          </h2>
-          <ul class="space-y-5 text-sm font-semibold">
-            <li>
-              <a class="text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)]" href="/archive">
-                归档
-              </a>
-            </li>
-            <li>
-              <a class="text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)]" href="/search">
-                搜索
-              </a>
-            </li>
-            <li>
-              <a class="text-[var(--fsusblog-text-secondary)] hover:text-[var(--fsusblog-color-primary)]" href="/about">
-                关于
-              </a>
-            </li>
-          </ul>
-        </nav>
-      </slot>
+      <slot name="aside" />
     </template>
   </HomeFeedSurface>
 </template>

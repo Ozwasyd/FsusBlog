@@ -6,7 +6,7 @@
     :loading="loading"
     :is-error="isError"
     :spa-navigation="true"
-    :show-aside="homeSecondaryLayout === 'spotlight'"
+    :show-aside="false"
     @retry="loadArticles(true)"
     @navigate="navigateToArticle"
     @page-prev="handlePageChange(currentPage - 1)"
@@ -18,7 +18,6 @@
       <FeaturedArticlesSection
         v-if="homeSecondaryLayout === 'loading' || homeSecondaryLayout === 'spotlight'"
         :articles="spotlightArticles"
-        :hot-articles="hotArticles"
         :loading="featuredLoading"
       />
       <HomeTextFirstRecommendations

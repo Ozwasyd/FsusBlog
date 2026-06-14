@@ -19,7 +19,7 @@ function createAsideHtml(items: Array<{ id: number; title: string; views: number
             ${article.title}
           </a>
           <p class="text-xs text-[var(--fsusblog-text-muted)] font-medium">
-            ${numberFormatter.format(article.views)} Views
+            ${numberFormatter.format(article.views)} 次打开
           </p>
         </div>
       </li>
@@ -29,7 +29,7 @@ function createAsideHtml(items: Array<{ id: number; title: string; views: number
   return `
     <section class="space-y-16" data-dynamic-island="home-hot-articles">
       <div>
-        <h2 class="text-xs font-bold text-[var(--fsusblog-text-muted)] normal-case mb-8">热门文章</h2>
+        <h2 class="text-xs font-bold text-[var(--fsusblog-text-muted)] normal-case mb-8">近期被打开较多</h2>
         <ol role="list" class="space-y-6">${list}</ol>
       </div>
     </section>

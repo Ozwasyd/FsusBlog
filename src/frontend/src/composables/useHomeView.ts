@@ -41,7 +41,7 @@ export function useHomeView() {
     || `Fsu's Blog`
   const initialSiteDescriptionText = initialHydrationPayload?.siteDescription?.trim()
     || initialBootstrap?.siteDescription?.trim()
-    || '记录技术与生活'
+    || '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。'
 
   const articleItems = ref<ArticleListItemResponse[]>([])
   const featuredArticles = ref<FeaturedArticleItem[]>([])

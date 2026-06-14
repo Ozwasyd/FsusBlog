@@ -625,7 +625,7 @@ public partial class SystemService(
         return NormalizeSeoConfig(new UpdateSeoConfigRequest
         {
             Title = GetValue(configs, Key_Title, "Fsu's Blog"),
-            Description = GetValue(configs, Key_Desc, "记录技术与生活"),
+            Description = GetValue(configs, Key_Desc, "工程记录、性能实验、UI 系统与 FsusBlog 构建过程。"),
             Keywords = GetValue(configs, Key_Keywords, "C#, .NET, Vue"),
             Author = GetValue(configs, Key_Author, "Fsu"),
             OgImage = GetValue(configs, Key_OgImage, string.Empty),
