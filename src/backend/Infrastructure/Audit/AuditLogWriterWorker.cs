@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading.Channels;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
@@ -33,25 +34,7 @@ public sealed class AuditLogWriterWorker(
 
                 batch.Clear();
                 batch.Add(await ReadRecordAsync(stoppingToken));
-
-                using var flushDelay = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                flushDelay.CancelAfter(FlushWindow);
-                while (batch.Count < BatchSize)
-                {
-                    try
-                    {
-                        AuditRecord next = await ReadRecordAsync(flushDelay.Token);
-                        batch.Add(next);
-                    }
-                    catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
-                    {
-                        break;
-                    }
-                    catch (ChannelClosedException)
-                    {
-                        break;
-                    }
-                }
+                await FillBatchUntilFlushWindowAsync(batch, stoppingToken);
 
                 await PersistSafelyAsync(batch, stoppingToken);
                 LogDroppedIfAny();
@@ -146,6 +129,54 @@ public sealed class AuditLogWriterWorker(
         AuditRecord record = await _channel.Reader.ReadAsync(cancellationToken);
         _channel.MarkRead();
         return record;
+    }
+
+    private async Task FillBatchUntilFlushWindowAsync(List<AuditRecord> batch, CancellationToken stoppingToken)
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        while (batch.Count < BatchSize)
+        {
+            while (batch.Count < BatchSize && _channel.Reader.TryRead(out AuditRecord? ready))
+            {
+                _channel.MarkRead();
+                batch.Add(ready);
+            }
+
+            if (batch.Count >= BatchSize)
+            {
+                return;
+            }
+
+            TimeSpan remaining = FlushWindow - Stopwatch.GetElapsedTime(startedAt);
+            if (remaining <= TimeSpan.Zero)
+            {
+                return;
+            }
+
+            ValueTask<bool> waitToRead = _channel.Reader.WaitToReadAsync(stoppingToken);
+            if (waitToRead.IsCompletedSuccessfully)
+            {
+                if (!waitToRead.Result)
+                {
+                    return;
+                }
+
+                continue;
+            }
+
+            Task delay = Task.Delay(remaining, stoppingToken);
+            Task<bool> waitTask = waitToRead.AsTask();
+            Task completed = await Task.WhenAny(waitTask, delay);
+            if (completed == delay)
+            {
+                return;
+            }
+
+            if (!await waitTask)
+            {
+                return;
+            }
+        }
     }
 
     private async Task FallbackHighValueRecordsAsync(IReadOnlyList<AuditRecord> batch, Exception reason, CancellationToken cancellationToken)

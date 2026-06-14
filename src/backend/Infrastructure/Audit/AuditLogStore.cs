@@ -1,5 +1,6 @@
 using FsusBlog.Server.Entities;
 using SqlSugar;
+using System.Collections.Concurrent;
 using System.Text;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
@@ -11,6 +12,39 @@ public interface IAuditLogStore
 
 public sealed class AuditLogStore(ISqlSugarClient db, IConfiguration configuration) : IAuditLogStore
 {
+    private const int ColumnCount = 27;
+    private static readonly ConcurrentDictionary<int, AuditLogInsertBatchShape> InsertBatchShapes = new();
+    private static readonly string[] ParameterColumns =
+    [
+        "source",
+        "type",
+        "occurred_at_utc",
+        "actor_type",
+        "actor_id",
+        "actor_role",
+        "action",
+        "target_type",
+        "target_id",
+        "outcome",
+        "severity",
+        "is_high_value",
+        "trace_id",
+        "request_path",
+        "request_method",
+        "ip_hash",
+        "user_agent_hash",
+        "session_id_hash",
+        "device_fingerprint_hash",
+        "reason_code",
+        "event_info",
+        "context_payload",
+        "context_json",
+        "chain_id",
+        "prev_hash",
+        "record_hash",
+        "record_mac"
+    ];
+
     private readonly ISqlSugarClient _db = db;
     private readonly byte[]? _tamperKey = AuditTamperEvidence.ResolveKey(configuration);
 
@@ -21,6 +55,34 @@ public sealed class AuditLogStore(ISqlSugarClient db, IConfiguration configurati
             return;
         }
 
+        AuditLogInsertBatchShape shape = InsertBatchShapes.GetOrAdd(records.Count, BuildInsertBatchShape);
+        var parameters = new SugarParameter[records.Count * ColumnCount];
+        var chainTails = new Dictionary<string, string?>(StringComparer.Ordinal);
+        int parameterOffset = 0;
+        for (int i = 0; i < records.Count; i++)
+        {
+            AuditRecord record = EnsureContextJson(records[i]);
+            string chainId = ResolveChainId(record);
+            if (!chainTails.TryGetValue(chainId, out string? prevHash))
+            {
+                prevHash = await ResolveChainTailAsync(chainId, cancellationToken);
+            }
+
+            AuditRecord signed = SignRecord(record with
+            {
+                ChainId = chainId,
+                PrevHash = prevHash
+            });
+            chainTails[chainId] = signed.RecordHash;
+
+            AddParameters(parameters, shape.ParameterNames, ref parameterOffset, signed);
+        }
+
+        await _db.Ado.ExecuteCommandAsync(shape.Sql, parameters);
+    }
+
+    private static AuditLogInsertBatchShape BuildInsertBatchShape(int recordCount)
+    {
         var sql = new StringBuilder("""
             INSERT INTO sys_audit_log (
                 source,
@@ -52,92 +114,73 @@ public sealed class AuditLogStore(ISqlSugarClient db, IConfiguration configurati
                 record_mac
             ) VALUES
             """);
-        var parameters = new List<SugarParameter>(records.Count * 27);
-        var chainTails = new Dictionary<string, string?>(StringComparer.Ordinal);
-        for (int i = 0; i < records.Count; i++)
+        string[] parameterNames = new string[recordCount * ColumnCount];
+        int parameterOffset = 0;
+        for (int row = 0; row < recordCount; row++)
         {
-            if (i > 0)
+            if (row > 0)
             {
                 sql.Append(", ");
             }
 
-            sql.Append($"""
-                (
-                    @source_{i},
-                    @type_{i},
-                    @occurred_at_utc_{i},
-                    @actor_type_{i},
-                    @actor_id_{i},
-                    @actor_role_{i},
-                    @action_{i},
-                    @target_type_{i},
-                    @target_id_{i},
-                    @outcome_{i},
-                    @severity_{i},
-                    @is_high_value_{i},
-                    @trace_id_{i},
-                    @request_path_{i},
-                    @request_method_{i},
-                    @ip_hash_{i},
-                    @user_agent_hash_{i},
-                    @session_id_hash_{i},
-                    @device_fingerprint_hash_{i},
-                    @reason_code_{i},
-                    @event_info_{i},
-                    @context_payload_{i},
-                    @context_json_{i},
-                    @chain_id_{i},
-                    @prev_hash_{i},
-                    @record_hash_{i},
-                    @record_mac_{i}
-                )
-                """);
-
-            AuditRecord record = records[i];
-            string chainId = ResolveChainId(record);
-            if (!chainTails.TryGetValue(chainId, out string? prevHash))
+            sql.Append('(');
+            for (int column = 0; column < ParameterColumns.Length; column++)
             {
-                prevHash = await ResolveChainTailAsync(chainId, cancellationToken);
+                if (column > 0)
+                {
+                    sql.Append(", ");
+                }
+
+                string parameterName = string.Concat("@", ParameterColumns[column], "_", row);
+                parameterNames[parameterOffset++] = parameterName;
+                sql.Append(parameterName);
             }
 
-            AuditRecord signed = SignRecord(record with
-            {
-                ChainId = chainId,
-                PrevHash = prevHash
-            });
-            chainTails[chainId] = signed.RecordHash;
-
-            parameters.Add(new SugarParameter($"@source_{i}", signed.Source));
-            parameters.Add(new SugarParameter($"@type_{i}", signed.Type));
-            parameters.Add(new SugarParameter($"@occurred_at_utc_{i}", signed.OccurredAtUtc));
-            parameters.Add(new SugarParameter($"@actor_type_{i}", DbValue(signed.ActorType)));
-            parameters.Add(new SugarParameter($"@actor_id_{i}", DbValue(signed.ActorId)));
-            parameters.Add(new SugarParameter($"@actor_role_{i}", DbValue(signed.ActorRole)));
-            parameters.Add(new SugarParameter($"@action_{i}", NormalizeNonEmpty(signed.Action, AuditActionCatalog.LogRecorded)));
-            parameters.Add(new SugarParameter($"@target_type_{i}", DbValue(signed.TargetType)));
-            parameters.Add(new SugarParameter($"@target_id_{i}", DbValue(signed.TargetId)));
-            parameters.Add(new SugarParameter($"@outcome_{i}", NormalizeNonEmpty(signed.Outcome, AuditOutcomeCatalog.Unknown)));
-            parameters.Add(new SugarParameter($"@severity_{i}", NormalizeNonEmpty(signed.Severity, AuditSeverityCatalog.Info)));
-            parameters.Add(new SugarParameter($"@is_high_value_{i}", signed.IsHighValue));
-            parameters.Add(new SugarParameter($"@trace_id_{i}", DbValue(signed.TraceId)));
-            parameters.Add(new SugarParameter($"@request_path_{i}", DbValue(signed.RequestPath)));
-            parameters.Add(new SugarParameter($"@request_method_{i}", DbValue(signed.RequestMethod)));
-            parameters.Add(new SugarParameter($"@ip_hash_{i}", DbValue(signed.IpHash)));
-            parameters.Add(new SugarParameter($"@user_agent_hash_{i}", DbValue(signed.UserAgentHash)));
-            parameters.Add(new SugarParameter($"@session_id_hash_{i}", DbValue(signed.SessionIdHash)));
-            parameters.Add(new SugarParameter($"@device_fingerprint_hash_{i}", DbValue(signed.DeviceFingerprintHash)));
-            parameters.Add(new SugarParameter($"@reason_code_{i}", DbValue(signed.ReasonCode)));
-            parameters.Add(new SugarParameter($"@event_info_{i}", signed.EventInfo));
-            parameters.Add(new SugarParameter($"@context_payload_{i}", DbValue(signed.ContextPayload)));
-            parameters.Add(new SugarParameter($"@context_json_{i}", DbValue(signed.ContextJson)));
-            parameters.Add(new SugarParameter($"@chain_id_{i}", DbValue(signed.ChainId)));
-            parameters.Add(new SugarParameter($"@prev_hash_{i}", DbValue(signed.PrevHash)));
-            parameters.Add(new SugarParameter($"@record_hash_{i}", DbValue(signed.RecordHash)));
-            parameters.Add(new SugarParameter($"@record_mac_{i}", DbValue(signed.RecordMac)));
+            sql.Append(')');
         }
 
-        await _db.Ado.ExecuteCommandAsync(sql.ToString(), parameters.ToArray());
+        return new AuditLogInsertBatchShape(sql.ToString(), parameterNames);
     }
+
+    private static void AddParameters(
+        SugarParameter[] parameters,
+        string[] parameterNames,
+        ref int offset,
+        AuditRecord signed)
+    {
+        parameters[offset] = new SugarParameter(parameterNames[offset++], signed.Source);
+        parameters[offset] = new SugarParameter(parameterNames[offset++], signed.Type);
+        parameters[offset] = new SugarParameter(parameterNames[offset++], signed.OccurredAtUtc);
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.ActorType));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.ActorId));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.ActorRole));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], NormalizeNonEmpty(signed.Action, AuditActionCatalog.LogRecorded));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.TargetType));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.TargetId));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], NormalizeNonEmpty(signed.Outcome, AuditOutcomeCatalog.Unknown));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], NormalizeNonEmpty(signed.Severity, AuditSeverityCatalog.Info));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], signed.IsHighValue);
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.TraceId));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.RequestPath));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.RequestMethod));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.IpHash));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.UserAgentHash));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.SessionIdHash));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.DeviceFingerprintHash));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.ReasonCode));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], signed.EventInfo);
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.ContextPayload));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.ContextJson));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.ChainId));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.PrevHash));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.RecordHash));
+        parameters[offset] = new SugarParameter(parameterNames[offset++], DbValue(signed.RecordMac));
+    }
+
+    private static AuditRecord EnsureContextJson(AuditRecord record)
+        => record.ContextJson is not null || record.ContextPayload is not { Length: > 0 }
+            ? record
+            : record with { ContextJson = AuditContextJsonSerializer.Serialize(record.ContextPayload) };
 
     private async Task<string?> ResolveChainTailAsync(string chainId, CancellationToken cancellationToken)
         => await _db.Queryable<AuditLog>()
@@ -170,4 +213,6 @@ public sealed class AuditLogStore(ISqlSugarClient db, IConfiguration configurati
         => string.IsNullOrWhiteSpace(record.ChainId)
             ? record.OccurredAtUtc.ToUniversalTime().ToString("yyyyMMdd")
             : record.ChainId.Trim();
+
+    private sealed record AuditLogInsertBatchShape(string Sql, string[] ParameterNames);
 }

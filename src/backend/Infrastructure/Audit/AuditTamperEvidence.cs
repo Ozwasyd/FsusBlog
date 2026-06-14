@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -23,7 +24,9 @@ internal static class AuditTamperEvidence
     public static AuditTamperEvidenceResult Sign(AuditRecord record, byte[]? key)
     {
         string chainId = record.ChainId ?? record.OccurredAtUtc.ToString("yyyyMMdd");
-        byte[] canonicalBytes = Encoding.UTF8.GetBytes(BuildCanonical(record, chainId));
+        var canonical = new ArrayBufferWriter<byte>(1024);
+        WriteCanonical(record, chainId, canonical);
+        ReadOnlySpan<byte> canonicalBytes = canonical.WrittenSpan;
         string recordHash = record.RecordHash ?? Convert.ToHexStringLower(SHA256.HashData(canonicalBytes));
         string? recordMac = record.RecordMac;
         if (recordMac is null && key is { Length: > 0 })
@@ -53,34 +56,47 @@ internal static class AuditTamperEvidence
             || string.Equals(log.RecordMac, evidence.RecordMac, StringComparison.Ordinal);
     }
 
-    private static string BuildCanonical(AuditRecord record, string chainId)
-        => JsonSerializer.Serialize(new
+    private static void WriteCanonical(AuditRecord record, string chainId, IBufferWriter<byte> buffer)
+    {
+        using var writer = new Utf8JsonWriter(buffer);
+        writer.WriteStartObject();
+        writer.WriteString("Source", record.Source);
+        writer.WriteString("Type", record.Type);
+        writer.WriteString("OccurredAtUtc", record.OccurredAtUtc.ToUniversalTime().ToString("O"));
+        writer.WriteString("Action", NormalizeNonEmpty(record.Action, AuditActionCatalog.LogRecorded));
+        writer.WriteString("Outcome", NormalizeNonEmpty(record.Outcome, AuditOutcomeCatalog.Unknown));
+        writer.WriteString("Severity", NormalizeNonEmpty(record.Severity, AuditSeverityCatalog.Info));
+        WriteNullableString(writer, "ActorType", record.ActorType);
+        WriteNullableString(writer, "ActorId", record.ActorId);
+        WriteNullableString(writer, "ActorRole", record.ActorRole);
+        WriteNullableString(writer, "TargetType", record.TargetType);
+        WriteNullableString(writer, "TargetId", record.TargetId);
+        writer.WriteBoolean("IsHighValue", record.IsHighValue);
+        WriteNullableString(writer, "TraceId", record.TraceId);
+        WriteNullableString(writer, "RequestPath", record.RequestPath);
+        WriteNullableString(writer, "RequestMethod", record.RequestMethod);
+        WriteNullableString(writer, "IpHash", record.IpHash);
+        WriteNullableString(writer, "UserAgentHash", record.UserAgentHash);
+        WriteNullableString(writer, "SessionIdHash", record.SessionIdHash);
+        WriteNullableString(writer, "DeviceFingerprintHash", record.DeviceFingerprintHash);
+        WriteNullableString(writer, "ReasonCode", record.ReasonCode);
+        writer.WriteString("EventInfo", record.EventInfo);
+        WriteNullableString(writer, "ContextJson", record.ContextJson);
+        writer.WriteString("ChainId", chainId);
+        WriteNullableString(writer, "PrevHash", record.PrevHash);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteNullableString(Utf8JsonWriter writer, string propertyName, string? value)
+    {
+        if (value is null)
         {
-            record.Source,
-            record.Type,
-            OccurredAtUtc = record.OccurredAtUtc.ToUniversalTime().ToString("O"),
-            Action = NormalizeNonEmpty(record.Action, AuditActionCatalog.LogRecorded),
-            Outcome = NormalizeNonEmpty(record.Outcome, AuditOutcomeCatalog.Unknown),
-            Severity = NormalizeNonEmpty(record.Severity, AuditSeverityCatalog.Info),
-            record.ActorType,
-            record.ActorId,
-            record.ActorRole,
-            record.TargetType,
-            record.TargetId,
-            record.IsHighValue,
-            record.TraceId,
-            record.RequestPath,
-            record.RequestMethod,
-            record.IpHash,
-            record.UserAgentHash,
-            record.SessionIdHash,
-            record.DeviceFingerprintHash,
-            record.ReasonCode,
-            record.EventInfo,
-            record.ContextJson,
-            ChainId = chainId,
-            record.PrevHash
-        });
+            writer.WriteNull(propertyName);
+            return;
+        }
+
+        writer.WriteString(propertyName, value);
+    }
 
     private static AuditRecord FromLog(AuditLog log)
         => new(

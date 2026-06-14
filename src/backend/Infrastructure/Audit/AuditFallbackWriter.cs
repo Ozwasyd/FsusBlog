@@ -69,7 +69,7 @@ public sealed class AuditFallbackWriter : IAuditFallbackWriter
                     record.DeviceFingerprintHash,
                     record.ReasonCode,
                     record.EventInfo,
-                    record.ContextJson,
+                    ContextJson = record.ContextJson ?? AuditContextJsonSerializer.Serialize(record.ContextPayload),
                     record.OccurredAtUtc
                 });
             }

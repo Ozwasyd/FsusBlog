@@ -1,4 +1,3 @@
-using System.Text.Json;
 using FsusBlog.Server.Infrastructure.PublicAot;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
@@ -97,9 +96,6 @@ public sealed class AuditEventService(
         byte[]? payload = contextPayload.Count == 0
             ? null
             : PublicAotBinaryPayload.EncodeObjectFrame(contextPayload);
-        string? contextJson = contextPayload.Count == 0
-            ? null
-            : JsonSerializer.Serialize(contextPayload);
 
         return new AuditRecord(
             auditEvent.Source,
@@ -123,7 +119,6 @@ public sealed class AuditEventService(
             UserAgentHash: request?.UserAgentHash,
             SessionIdHash: request?.SessionIdHash,
             DeviceFingerprintHash: request?.DeviceFingerprintHash,
-            ReasonCode: auditEvent.ReasonCode,
-            ContextJson: contextJson);
+            ReasonCode: auditEvent.ReasonCode);
     }
 }
