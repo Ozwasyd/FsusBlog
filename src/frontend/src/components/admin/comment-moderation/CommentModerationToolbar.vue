@@ -131,8 +131,8 @@
         <el-select
           :model-value="filters.modelProvider"
           name="commentModerationModelProvider"
-          aria-label="按模型 Provider 筛选评论"
-          placeholder="模型 Provider"
+          aria-label="按模型来源筛选评论"
+          placeholder="模型来源"
           clearable
           :disabled="loading || modelProviderOptions.length === 0"
           @update:model-value="onModelProviderChange"

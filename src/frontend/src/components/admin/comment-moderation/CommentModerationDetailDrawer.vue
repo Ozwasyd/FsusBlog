@@ -16,7 +16,6 @@
       <section>
         <div class="flex flex-wrap items-center gap-2">
           <span class="text-[11px] font-black normal-case tracking-normal" :class="item.statusClass">{{ item.statusLabel }}</span>
-          <span class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]">{{ item.statusCode }}</span>
           <SemanticTime :value="item.createTime" :text="item.createTimeText" class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]" />
         </div>
         <p class="mt-5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--fsusblog-text-secondary)]">
@@ -90,7 +89,7 @@
             <div class="mt-2 text-[12px] font-bold text-[var(--fsusblog-text-muted)]">{{ item.modelConfidenceLabel }}</div>
           </div>
           <div class="bg-[var(--fsusblog-page-bg)] p-5">
-            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">Provider</div>
+            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">模型来源</div>
             <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.modelProviderLabel }}</div>
             <div class="mt-2 text-[12px] font-bold text-[var(--fsusblog-text-muted)]">{{ item.modelSeverityLabel }}</div>
           </div>
@@ -98,10 +97,10 @@
             <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">原因</div>
             <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.modelReasonLabel }}</div>
             <div class="mt-2 break-words text-[12px] text-[var(--fsusblog-text-muted)]">
-              categories: {{ item.modelSignals[0]?.riskCategories.join(', ') || '--' }}
+              {{ item.modelCategoriesLabel }}
             </div>
             <div class="mt-2 break-words text-[12px] text-[var(--fsusblog-text-muted)]">
-              profile: {{ item.modelSignals[0]?.thresholdProfile || '--' }} / status: {{ item.modelSignals[0]?.status || '--' }} / latency: {{ item.modelSignals[0]?.latencyMs ?? '--' }}ms
+              {{ item.modelProfileLabel }} / {{ item.modelStatusLabel }} / {{ item.modelLatencyLabel }}
             </div>
           </div>
         </div>

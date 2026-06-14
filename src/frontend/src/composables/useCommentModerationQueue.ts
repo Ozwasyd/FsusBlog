@@ -53,6 +53,10 @@ export interface CommentModerationViewItem extends CommentModerationItemResponse
   modelProviderLabel: string
   modelReasonLabel: string
   modelSeverityLabel: string
+  modelCategoriesLabel: string
+  modelProfileLabel: string
+  modelStatusLabel: string
+  modelLatencyLabel: string
   auditEvents: string[]
 }
 
@@ -163,6 +167,49 @@ function modelLabelText(label: string | null | undefined): string {
   return label ? labels[label] ?? label : '未评分'
 }
 
+function modelProviderText(provider: string | null | undefined): string {
+  const value = provider?.trim()
+  if (!value) {
+    return '未记录'
+  }
+  const normalized = value.toLowerCase()
+  const labels: Record<string, string> = {
+    none: '已关闭',
+    mock: '本地模拟',
+    local: '本地',
+    http_json: 'HTTP JSON',
+    fsus_cli: 'Fsus CLI'
+  }
+  return labels[normalized] ?? `来源：${value}`
+}
+
+function modelSeverityText(severity: string | null | undefined): string {
+  const labels: Record<string, string> = {
+    info: '信息',
+    low: '低',
+    medium: '中',
+    warning: '警告',
+    high: '高',
+    error: '错误',
+    critical: '严重'
+  }
+  return severity ? labels[severity.toLowerCase()] ?? severity : '未记录'
+}
+
+function modelStatusText(status: string | null | undefined): string {
+  const labels: Record<string, string> = {
+    ok: '正常',
+    success: '成功',
+    scored: '已评分',
+    skipped: '已跳过',
+    timeout: '超时',
+    unavailable: '不可用',
+    error: '异常',
+    failed: '失败'
+  }
+  return status ? labels[status.toLowerCase()] ?? status : '未记录'
+}
+
 function buildRecommendedAction(item: CommentModerationItemResponse): Pick<CommentModerationViewItem, 'recommendedStatus' | 'recommendedActionLabel' | 'recommendedActionReason'> {
   const modelLabel = item.modelLabel?.toLowerCase() ?? ''
   const modelConfidence = typeof item.modelConfidence === 'number' ? item.modelConfidence : 0
@@ -225,6 +272,7 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
       : '审核：--'
   ]
   const recommendedAction = buildRecommendedAction(item)
+  const firstModelSignal = item.modelSignals[0]
 
   return {
     ...item,
@@ -244,9 +292,13 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
     regionCanApprove: item.regionCanPublish !== false,
     modelSignalLabel: item.modelUnavailable ? '模型不可用' : modelLabelText(item.modelLabel),
     modelConfidenceLabel: modelConfidence === null ? '模型置信度未记录' : `模型置信度：${modelConfidence}%`,
-    modelProviderLabel: item.modelProvider ? `Provider：${item.modelProvider}` : 'Provider 未记录',
+    modelProviderLabel: `模型来源：${modelProviderText(item.modelProvider)}`,
     modelReasonLabel: item.modelPrimaryReason ? `原因：${item.modelPrimaryReason}` : '原因未记录',
-    modelSeverityLabel: item.modelSignals[0]?.severity ? `严重度：${item.modelSignals[0].severity}` : '严重度未记录',
+    modelSeverityLabel: `严重度：${modelSeverityText(firstModelSignal?.severity)}`,
+    modelCategoriesLabel: `风险类别：${firstModelSignal?.riskCategories.join(', ') || '未记录'}`,
+    modelProfileLabel: `阈值配置：${firstModelSignal?.thresholdProfile || '未记录'}`,
+    modelStatusLabel: `状态：${modelStatusText(firstModelSignal?.status)}`,
+    modelLatencyLabel: `耗时：${firstModelSignal?.latencyMs ?? '--'}ms`,
     auditEvents
   }
 }
@@ -305,7 +357,7 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
     const providers = new Map<string, string>()
     for (const item of rawItems.value) {
       if (item.modelProvider) {
-        providers.set(item.modelProvider, item.modelProvider)
+        providers.set(item.modelProvider, modelProviderText(item.modelProvider))
       }
     }
     return Array.from(providers.entries()).map(([value, label]) => ({ value, label }))
@@ -404,7 +456,7 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
       chips.push({ key: 'modelLabel', label: `模型：${modelLabelText(filters.modelLabel)}` })
     }
     if (filters.modelProvider) {
-      chips.push({ key: 'modelProvider', label: `Provider：${filters.modelProvider}` })
+      chips.push({ key: 'modelProvider', label: `模型来源：${modelProviderText(filters.modelProvider)}` })
     }
     if (filters.dateRange) {
       chips.push({ key: 'dateRange', label: `时间：${filters.dateRange[0]} - ${filters.dateRange[1]}` })

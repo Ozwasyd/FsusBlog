@@ -161,7 +161,6 @@
             <template #default="{ row }: { row: CommentModerationViewItem }">
               <span class="inline-flex flex-col items-center gap-1">
                 <span class="text-[11px] font-black normal-case tracking-normal" :class="row.statusClass">{{ row.statusLabel }}</span>
-                <span class="text-[10px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]">{{ row.statusCode }}</span>
               </span>
             </template>
           </el-table-column>

@@ -48,7 +48,7 @@
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="step in preview?.inheritance ?? []" :key="`${step.step}:${step.sourceId}`" class="p-5">
             <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ step.step }}</div>
-            <div class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ step.sourceType }} / {{ step.sourceId }} / {{ step.rules.length }} 条规则</div>
+            <div class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">来源：{{ step.sourceType }}；ID：{{ step.sourceId }}；规则：{{ step.rules.length }} 条</div>
           </div>
           <div v-if="!preview" class="p-5 text-[12px] text-[var(--fsusblog-text-muted)]">选择地区查看生效策略。</div>
         </div>
@@ -58,7 +58,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
             <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">生效规则</div>
-            <div class="mt-1 text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ preview?.region ?? '-' }} / {{ preview?.checksum ?? '-' }}</div>
+            <div class="mt-1 text-sm font-bold text-[var(--fsusblog-text-primary)]">地区：{{ preview?.region ?? '-' }}；校验值：{{ preview?.checksum ?? '-' }}</div>
           </div>
           <el-tag v-for="warning in preview?.warnings ?? []" :key="warning" type="warning">{{ warning }}</el-tag>
         </div>
@@ -67,7 +67,7 @@
           <el-table-column label="提交动作" width="180" prop="submitAction" />
           <el-table-column label="展示动作" width="190" prop="displayAction" />
           <el-table-column label="来源" min-width="180">
-            <template #default="{ row }: { row: ModerationEffectivePolicyRule }">{{ row.sourceType }} / {{ row.sourceId }}</template>
+            <template #default="{ row }: { row: ModerationEffectivePolicyRule }">来源：{{ row.sourceType }}；ID：{{ row.sourceId }}</template>
           </el-table-column>
         </el-table>
       </section>
