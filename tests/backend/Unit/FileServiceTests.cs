@@ -567,6 +567,24 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task DeleteImageAsync_DeletesFromWebRootUploadFolderWhenContentRootDiffers()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+            string filePath = Path.Combine(root, "wwwroot", "uploads", "illustration", "sample.png");
+            await File.WriteAllBytesAsync(filePath, [0x89, 0x50, 0x4E, 0x47]);
+
+            bool deleted = await svc.DeleteImageAsync("/uploads/illustration/sample.png");
+
+            Assert.True(deleted);
+            Assert.False(File.Exists(filePath));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
     public async Task CompleteUploadAsync_InvalidSha256_ReturnsFail()
     {
         ResetSessionLocks();

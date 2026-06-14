@@ -486,30 +486,28 @@ public sealed partial class FileService : IFileService
             return Task.FromResult(false);
         }
 
-        var baseDir = Directory.GetCurrentDirectory();
-        int startIndex = 0;
-        while (startIndex < imageUrl.Length && imageUrl[startIndex] == '/')
+        string normalizedUrl = imageUrl.Trim().Replace('\\', '/');
+        int suffixStart = normalizedUrl.IndexOfAny(['?', '#']);
+        if (suffixStart >= 0)
         {
-            startIndex++;
+            normalizedUrl = normalizedUrl[..suffixStart];
         }
-        int length = imageUrl.Length - startIndex;
 
-        string rawFilePath = string.Create(baseDir.Length + 1 + length, (baseDir, imageUrl, startIndex, length), (dst, state) =>
+        normalizedUrl = "/" + normalizedUrl.TrimStart('/');
+        string expectedPrefix = _cleanSubFolderWeb + "/";
+        if (!normalizedUrl.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            state.baseDir.AsSpan().CopyTo(dst);
-            dst[state.baseDir.Length] = Path.DirectorySeparatorChar;
+            LogSecurityWarning(normalizedUrl);
+            return Task.FromResult(false);
+        }
 
-            var rel = state.imageUrl.AsSpan(state.startIndex, state.length);
-            for (int i = 0; i < rel.Length; i++)
-            {
-                char c = rel[i];
-                dst[state.baseDir.Length + 1 + i] = (c == '/' || c == '\\')
-                    ? Path.DirectorySeparatorChar
-                    : c;
-            }
-        });
+        string relativePath = normalizedUrl[expectedPrefix.Length..];
+        if (string.IsNullOrWhiteSpace(relativePath) || relativePath.Contains('\0', StringComparison.Ordinal))
+        {
+            return Task.FromResult(false);
+        }
 
-        string filePath = Path.GetFullPath(rawFilePath);
+        string filePath = Path.GetFullPath(Path.Combine(_folderPath, relativePath.Replace('/', Path.DirectorySeparatorChar)));
         if (!filePath.StartsWith(_sandboxAbsolutePath, StringComparison.OrdinalIgnoreCase))
         {
             LogSecurityWarning(filePath);
