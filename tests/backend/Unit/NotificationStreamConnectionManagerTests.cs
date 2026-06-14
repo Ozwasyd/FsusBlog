@@ -46,7 +46,6 @@ public sealed class NotificationStreamConnectionManagerTests
     {
         const string key = "user:99";
         var bucket = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
-        bucket.TryAdd("conn-1", 0);
 
         var index = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>(StringComparer.Ordinal);
         index[key] = bucket;
@@ -55,6 +54,24 @@ public sealed class NotificationStreamConnectionManagerTests
 
         Assert.True(removed);
         Assert.False(index.ContainsKey(key));
+    }
+
+    [Fact]
+    public void TryRemoveBucketIfCurrent_DoesNotRemoveCurrentNonEmptyBucket()
+    {
+        const string key = "user:100";
+        var bucket = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+        bucket.TryAdd("conn-new", 0);
+
+        var index = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>(StringComparer.Ordinal);
+        index[key] = bucket;
+
+        bool removed = NotificationStreamConnectionManager.TryRemoveBucketIfCurrent(index, key, bucket);
+
+        Assert.False(removed);
+        Assert.True(index.TryGetValue(key, out ConcurrentDictionary<string, byte>? currentBucket));
+        Assert.Same(bucket, currentBucket);
+        Assert.True(currentBucket.ContainsKey("conn-new"));
     }
 
     [Fact]

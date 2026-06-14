@@ -165,8 +165,21 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
 
     private static void AddToIndex(ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index, string key, string connectionId)
     {
-        ConcurrentDictionary<string, byte> connections = index.GetOrAdd(key, static _ => new ConcurrentDictionary<string, byte>(StringComparer.Ordinal));
-        connections.TryAdd(connectionId, 0);
+        while (true)
+        {
+            ConcurrentDictionary<string, byte> connections = index.GetOrAdd(key, static _ => new ConcurrentDictionary<string, byte>(StringComparer.Ordinal));
+            lock (connections)
+            {
+                // The bucket may have been removed after GetOrAdd returned; never add to an orphaned bucket.
+                if (!index.TryGetValue(key, out ConcurrentDictionary<string, byte>? current) || !ReferenceEquals(current, connections))
+                {
+                    continue;
+                }
+
+                connections.TryAdd(connectionId, 0);
+                return;
+            }
+        }
     }
 
     private static void RemoveFromIndex(ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index, string key, string connectionId)
@@ -176,10 +189,13 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
             return;
         }
 
-        connections.TryRemove(connectionId, out _);
-        if (connections.IsEmpty)
+        lock (connections)
         {
-            TryRemoveBucketIfCurrent(index, key, connections);
+            connections.TryRemove(connectionId, out _);
+            if (connections.IsEmpty)
+            {
+                TryRemoveBucketIfCurrent(index, key, connections);
+            }
         }
     }
 
@@ -187,7 +203,13 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
         ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> index,
         string key,
         ConcurrentDictionary<string, byte> connections)
-        => index.TryRemove(new KeyValuePair<string, ConcurrentDictionary<string, byte>>(key, connections));
+    {
+        lock (connections)
+        {
+            return connections.IsEmpty
+                && index.TryRemove(new KeyValuePair<string, ConcurrentDictionary<string, byte>>(key, connections));
+        }
+    }
 }
 
 public sealed class NotificationStreamConnection
