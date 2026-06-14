@@ -149,7 +149,7 @@ public sealed class FileServiceTests
             Assert.False(upload.IsSuccess);
             Assert.False(File.Exists(GetPartPath(root, init.Value.UploadId, 0)));
             UploadSessionRecord record = await ReadManifestAsync(root, init.Value.UploadId);
-            Assert.Empty(record.UploadedParts);
+            Assert.Empty(record.UploadedParts is null ? Array.Empty<int>() : record.UploadedParts);
             Assert.Equal(0, record.UploadedBytes);
         }
         finally

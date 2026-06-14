@@ -9,7 +9,7 @@ public sealed record class CreateArticleRequest
     public string? Summary { get; init; }
     public string? CoverImageUrl { get; init; }
     public int CategoryId { get; init; }
-    public List<int> TagIds { get; init; } = [];
+    public List<int>? TagIds { get; init; }
     public ArticleStatus Status { get; init; } = ArticleStatus.Published;
     public DateTime? ScheduledPublishAt { get; init; }
 }
@@ -21,7 +21,7 @@ public sealed record class UpdateArticleRequest
     public string? Summary { get; init; }
     public string? CoverImageUrl { get; init; }
     public int CategoryId { get; init; }
-    public List<int> TagIds { get; init; } = [];
+    public List<int>? TagIds { get; init; }
     public ArticleStatus Status { get; init; } = ArticleStatus.Published;
     public DateTime? ScheduledPublishAt { get; init; }
 }

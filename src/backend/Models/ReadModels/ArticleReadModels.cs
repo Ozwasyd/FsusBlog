@@ -13,7 +13,7 @@ public sealed record class ArticleListItemReadModel
     public DateTime CreateTime { get; init; }
     public int CategoryId { get; init; }
     public string CategoryName { get; init; } = string.Empty;
-    public List<TagReadModel> Tags { get; init; } = [];
+    public IReadOnlyList<TagReadModel> Tags { get; init; } = ArticleReadModelCollections.EmptyTags;
     public bool? IsDeleted { get; init; }
     public ArticleStatus Status { get; init; } = ArticleStatus.Published;
     public DateTime? ScheduledPublishAt { get; init; }
@@ -34,7 +34,7 @@ public sealed record class ArticleDetailReadModel
     public DateTime CreateTime { get; init; }
     public int CategoryId { get; init; }
     public string CategoryName { get; init; } = string.Empty;
-    public List<TagReadModel> Tags { get; init; } = [];
+    public IReadOnlyList<TagReadModel> Tags { get; init; } = ArticleReadModelCollections.EmptyTags;
     public bool IsDeleted { get; init; }
     public ArticleStatus Status { get; init; } = ArticleStatus.Published;
     public DateTime? ScheduledPublishAt { get; init; }
@@ -51,4 +51,9 @@ public sealed record class ArticleListPageReadModel
 {
     public List<ArticleListItemReadModel> Items { get; init; } = [];
     public int Total { get; init; }
+}
+
+public static class ArticleReadModelCollections
+{
+    public static readonly IReadOnlyList<TagReadModel> EmptyTags = Array.Empty<TagReadModel>();
 }

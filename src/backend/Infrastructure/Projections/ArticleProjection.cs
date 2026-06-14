@@ -20,7 +20,7 @@ public static class ArticleProjection
             Views = item.Views,
             CreateTime = item.CreateTime,
             Category = new ArticleCategoryView(item.CategoryId, item.CategoryName),
-            Tags = item.Tags.Take(MaxListTags).Select(ToTagResponse).ToList(),
+            Tags = ToListTagResponses(item.Tags),
             IsDeleted = item.IsDeleted,
             Status = (int)item.Status,
             ScheduledPublishAt = item.ScheduledPublishAt,
@@ -42,7 +42,7 @@ public static class ArticleProjection
             Views = item.Views,
             CreateTime = item.CreateTime,
             Category = new ArticleCategoryView(item.CategoryId, item.CategoryName),
-            Tags = item.Tags.Select(ToTagResponse).ToList(),
+            Tags = ToDetailTagResponses(item.Tags),
             IsDeleted = item.IsDeleted,
             Status = (int)item.Status,
             ScheduledPublishAt = item.ScheduledPublishAt,
@@ -68,7 +68,15 @@ public static class ArticleProjection
         => new() { Id = id, Name = name, ArticleCount = articleCount };
 
     public static PageResponse<ArticleListItemResponse> ToResponsePage(ArticleListPageReadModel page)
-        => new() { Items = page.Items.Select(ToResponse).ToList(), Total = page.Total };
+    {
+        var items = new List<ArticleListItemResponse>(page.Items.Count);
+        for (int i = 0; i < page.Items.Count; i++)
+        {
+            items.Add(ToResponse(page.Items[i]));
+        }
+
+        return new PageResponse<ArticleListItemResponse> { Items = items, Total = page.Total };
+    }
 
     public static ArticleListCoreModel ToCoreListModel(ArticleListItemReadModel item)
     {
@@ -93,7 +101,7 @@ public static class ArticleProjection
             item.Views,
             item.CreateTime,
             new ArticleCategoryCoreModel(item.CategoryId, item.CategoryName),
-            item.Tags.Take(MaxListTags).Select(t => new TagCoreModel(t.Id, t.Name)).ToList(),
+            ToListCoreTags(item.Tags),
             item.IsDeleted,
             (int)item.Status,
             item.ScheduledPublishAt,
@@ -128,7 +136,7 @@ public static class ArticleProjection
             item.ShowReadingNotice,
             item.CreateTime,
             new ArticleCategoryCoreModel(item.CategoryId, item.CategoryName),
-            item.Tags.Select(t => new TagCoreModel(t.Id, t.Name)).ToList(),
+            ToDetailCoreTags(item.Tags),
             item.CategoryId,
             item.IsDeleted,
             (int)item.Status,
@@ -144,5 +152,63 @@ public static class ArticleProjection
         }
 
         return item.Summary?.Trim() ?? string.Empty;
+    }
+
+    private static List<TagDto> ToListTagResponses(IReadOnlyList<TagReadModel> tags)
+    {
+        int count = Math.Min(tags.Count, MaxListTags);
+        var result = new List<TagDto>(count);
+        for (int i = 0; i < count; i++)
+        {
+            result.Add(ToTagResponse(tags[i]));
+        }
+
+        return result;
+    }
+
+    private static List<TagDto> ToDetailTagResponses(IReadOnlyList<TagReadModel> tags)
+    {
+        var result = new List<TagDto>(tags.Count);
+        for (int i = 0; i < tags.Count; i++)
+        {
+            result.Add(ToTagResponse(tags[i]));
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyList<TagCoreModel> ToListCoreTags(IReadOnlyList<TagReadModel> tags)
+    {
+        int count = Math.Min(tags.Count, MaxListTags);
+        if (count == 0)
+        {
+            return Array.Empty<TagCoreModel>();
+        }
+
+        var result = new TagCoreModel[count];
+        for (int i = 0; i < count; i++)
+        {
+            TagReadModel tag = tags[i];
+            result[i] = new TagCoreModel(tag.Id, tag.Name);
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyList<TagCoreModel> ToDetailCoreTags(IReadOnlyList<TagReadModel> tags)
+    {
+        if (tags.Count == 0)
+        {
+            return Array.Empty<TagCoreModel>();
+        }
+
+        var result = new TagCoreModel[tags.Count];
+        for (int i = 0; i < tags.Count; i++)
+        {
+            TagReadModel tag = tags[i];
+            result[i] = new TagCoreModel(tag.Id, tag.Name);
+        }
+
+        return result;
     }
 }

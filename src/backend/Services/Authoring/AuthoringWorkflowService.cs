@@ -9,6 +9,7 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
@@ -1992,7 +1993,7 @@ fsusMetadataJson: {encodedMetadata}
                 if (values.TryGetValue("summary", out string? rawSummary)) summary = NormalizeNullable(rawSummary, 512);
                 if (values.TryGetValue("cover", out string? rawCover)) cover = NormalizeNullable(rawCover, 512);
                 if (values.TryGetValue("categoryId", out string? rawCategory) && int.TryParse(rawCategory, out int parsedCategory)) categoryId = Math.Max(1, parsedCategory);
-                if (values.TryGetValue("status", out string? rawStatus) && int.TryParse(rawStatus, out int parsedStatus) && Enum.IsDefined(typeof(ArticleStatus), parsedStatus)) status = (ArticleStatus)parsedStatus;
+                if (values.TryGetValue("status", out string? rawStatus) && int.TryParse(rawStatus, out int parsedStatus) && ArticleStatusProjection.IsDefined(parsedStatus)) status = (ArticleStatus)parsedStatus;
                 if (values.TryGetValue("scheduledPublishAt", out string? rawScheduled)
                     && DateTime.TryParse(
                         rawScheduled,

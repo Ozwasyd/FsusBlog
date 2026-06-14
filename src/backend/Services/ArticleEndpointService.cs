@@ -5,6 +5,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Requests;
@@ -175,7 +176,7 @@ public sealed class ArticleEndpointService(
             Summary = request.Summary,
             CoverImageUrl = request.CoverImageUrl,
             CategoryId = request.CategoryId,
-            TagIds = [.. request.TagIds],
+            TagIds = CopyTagIds(request.TagIds),
             Status = ToArticleStatus(request.Status),
             ScheduledPublishAt = request.ScheduledPublishAt
         };
@@ -188,11 +189,27 @@ public sealed class ArticleEndpointService(
             Summary = request.Summary,
             CoverImageUrl = request.CoverImageUrl,
             CategoryId = request.CategoryId,
-            TagIds = [.. request.TagIds],
+            TagIds = CopyTagIds(request.TagIds),
             Status = ToArticleStatus(request.Status),
             ScheduledPublishAt = request.ScheduledPublishAt
         };
 
     private static ArticleStatus ToArticleStatus(int status)
-        => Enum.IsDefined(typeof(ArticleStatus), status) ? (ArticleStatus)status : ArticleStatus.Published;
+        => ArticleStatusProjection.Normalize(status);
+
+    private static List<int>? CopyTagIds(IReadOnlyList<int> tagIds)
+    {
+        if (tagIds.Count == 0)
+        {
+            return null;
+        }
+
+        var copy = new List<int>(tagIds.Count);
+        for (int i = 0; i < tagIds.Count; i++)
+        {
+            copy.Add(tagIds[i]);
+        }
+
+        return copy;
+    }
 }

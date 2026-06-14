@@ -57,7 +57,7 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
             Summary = summary,
             CoverImageUrl = coverImageUrl,
             CategoryId = categoryId,
-            TagIds = [.. tagIds],
+            TagIds = CopyTagIds(tagIds),
             Status = ToArticleStatus(status),
             ScheduledPublishAt = scheduledPublishAt
         });
@@ -70,7 +70,7 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
             Summary = summary,
             CoverImageUrl = coverImageUrl,
             CategoryId = categoryId,
-            TagIds = [.. tagIds],
+            TagIds = CopyTagIds(tagIds),
             Status = ToArticleStatus(status),
             ScheduledPublishAt = scheduledPublishAt
         });
@@ -101,7 +101,7 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
         return await queryCache.GetOrLoadFeaturedArticlesAsync(count, async ct =>
         {
             IReadOnlyList<FeaturedArticleSummaryDto> source = await service.GetFeaturedArticlesAsync(count, ct);
-            return source.Select(ToFeaturedCoreModel).ToList();
+            return ToFeaturedCoreModels(source);
         }, cancellationToken);
     }
 
@@ -124,13 +124,13 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
         CancellationToken cancellationToken)
     {
         ArticleListPageReadModel source = await service.GetPageListAsync(page, size, categoryId, tagId, isDeleted, status, includePrivate, keyword, cancellationToken);
-        return new CorePageResult<ArticleListCoreModel>(source.Items.Select(ArticleProjection.ToCoreListModel).ToList(), source.Total);
+        return new CorePageResult<ArticleListCoreModel>(ToCoreListModels(source.Items), source.Total);
     }
 
     private async Task<IReadOnlyList<ArticleListCoreModel>> LoadSearchAsync(string keyword, CancellationToken cancellationToken)
     {
         IReadOnlyList<ArticleListItemReadModel> source = await service.SearchArticlesAsync(keyword, cancellationToken);
-        return source.Select(ArticleProjection.ToCoreListModel).ToList();
+        return ToCoreListModels(source);
     }
 
     private async Task<IReadOnlyList<PopularArticleCoreModel>> LoadHotArticlesAsync(int count, CancellationToken cancellationToken)
@@ -153,8 +153,46 @@ public sealed class ArticleCoreGateway(ArticleService service, ArticleCoreQueryC
             new ArticleCategoryCoreModel(item.Category.Id, item.Category.Name));
 
     private static ArticleStatus ToArticleStatus(int status)
-        => Enum.IsDefined(typeof(ArticleStatus), status) ? (ArticleStatus)status : ArticleStatus.Published;
+        => ArticleStatusProjection.Normalize(status);
 
     private static string NormalizeArticleListKeyword(string? keyword)
         => string.IsNullOrWhiteSpace(keyword) ? string.Empty : keyword.Trim()[..Math.Min(keyword.Trim().Length, 80)];
+
+    private static List<int>? CopyTagIds(IReadOnlyList<int> tagIds)
+    {
+        if (tagIds.Count == 0)
+        {
+            return null;
+        }
+
+        var copy = new List<int>(tagIds.Count);
+        for (int i = 0; i < tagIds.Count; i++)
+        {
+            copy.Add(tagIds[i]);
+        }
+
+        return copy;
+    }
+
+    private static List<ArticleListCoreModel> ToCoreListModels(IReadOnlyList<ArticleListItemReadModel> source)
+    {
+        var items = new List<ArticleListCoreModel>(source.Count);
+        for (int i = 0; i < source.Count; i++)
+        {
+            items.Add(ArticleProjection.ToCoreListModel(source[i]));
+        }
+
+        return items;
+    }
+
+    private static List<FeaturedArticleCoreModel> ToFeaturedCoreModels(IReadOnlyList<FeaturedArticleSummaryDto> source)
+    {
+        var items = new List<FeaturedArticleCoreModel>(source.Count);
+        for (int i = 0; i < source.Count; i++)
+        {
+            items.Add(ToFeaturedCoreModel(source[i]));
+        }
+
+        return items;
+    }
 }

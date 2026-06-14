@@ -51,7 +51,7 @@ public class Article
     // 导航属性: 通过中间表 ArticleTag 关联
     [SugarColumn(IsIgnore = true)]
     [Navigate(typeof(ArticleTag), nameof(ArticleTag.ArticleId), nameof(ArticleTag.TagId))]
-    public List<Tag> Tags { get; set; } = [];
+    public List<Tag> Tags { get; set; } = null!;
 
     // 正文从独立表加载；保留该属性只用于聚合读模型和搜索索引编译，不参与 article 元表持久化。
     [SugarColumn(IsIgnore = true)]

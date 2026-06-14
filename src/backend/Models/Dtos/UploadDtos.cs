@@ -29,5 +29,5 @@ internal sealed record class UploadSessionRecord
     public DateTime CreatedAt { get; init; }
     public DateTime ExpiresAt { get; set; }
     public long UploadedBytes { get; set; }
-    public List<int> UploadedParts { get; init; } = [];
+    public List<int>? UploadedParts { get; set; }
 }

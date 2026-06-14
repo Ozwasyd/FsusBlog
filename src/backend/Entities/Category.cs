@@ -17,7 +17,7 @@ public class Category
 
     // 数据库表中没有 "Articles" 这一列
     [SugarColumn(IsIgnore = true)]
-    public List<Article> Articles { get; set; } = [];
+    public List<Article> Articles { get; set; } = null!;
 }
 
 /// <summary>
@@ -35,5 +35,5 @@ public class Tag
 
     //如上
     [SugarColumn(IsIgnore = true)]
-    public List<Article> Articles { get; set; } = [];
+    public List<Article> Articles { get; set; } = null!;
 }

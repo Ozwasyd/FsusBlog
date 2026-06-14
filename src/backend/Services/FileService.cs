@@ -209,7 +209,7 @@ public sealed partial class FileService : IFileService
             UploadedBytes = uploadedBytes,
             ChunkSize = record.ChunkSize,
             TotalParts = record.TotalParts,
-            UploadedPartCount = record.UploadedParts.Count,
+            UploadedPartCount = UploadedParts(record).Count,
             NextPartHint = ResolveNextPartHint(record),
             ExpiresAt = record.ExpiresAt
         });
@@ -228,7 +228,7 @@ public sealed partial class FileService : IFileService
         return Result<UploadPartMapDto>.Success(new UploadPartMapDto
         {
             UploadId = record.UploadId,
-            UploadedRanges = BuildUploadedRanges(record.UploadedParts)
+            UploadedRanges = BuildUploadedRanges(UploadedParts(record))
         });
     }
 
@@ -300,16 +300,17 @@ public sealed partial class FileService : IFileService
                 return Result<UploadPartAckDto>.Failure(ErrorCode.Validation, "分片校验失败");
             }
 
-            bool isNewPart = !record.UploadedParts.Contains(partNumber);
+            List<int> uploadedParts = EnsureUploadedParts(record);
+            bool isNewPart = !uploadedParts.Contains(partNumber);
             if (isNewPart)
             {
-                record.UploadedParts.Add(partNumber);
+                uploadedParts.Add(partNumber);
                 record.UploadedBytes += part.Length;
             }
 
-            record.Status = record.UploadedParts.Count >= record.TotalParts ? "uploaded" : "uploading";
+            record.Status = uploadedParts.Count >= record.TotalParts ? "uploaded" : "uploading";
             record.ExpiresAt = DateTime.UtcNow.Add(SessionTtl);
-            if (!isNewPart && record.UploadedBytes == 0 && record.UploadedParts.Count > 0)
+            if (!isNewPart && record.UploadedBytes == 0 && uploadedParts.Count > 0)
             {
                 record.UploadedBytes = await ResolveUploadedBytesAsync(uploadId, record, cancellationToken);
             }
@@ -322,7 +323,7 @@ public sealed partial class FileService : IFileService
                 Offset = offset,
                 Size = checked((int)part.Length),
                 UploadedBytes = record.UploadedBytes,
-                UploadedPartCount = record.UploadedParts.Count
+                UploadedPartCount = uploadedParts.Count
             });
         }
         finally { }
@@ -340,12 +341,13 @@ public sealed partial class FileService : IFileService
                 return Result<UploadCompleteDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
             }
 
-            if (record.UploadedParts.Count != record.TotalParts)
+            IReadOnlyList<int> uploadedParts = UploadedParts(record);
+            if (uploadedParts.Count != record.TotalParts)
             {
                 return Result<UploadCompleteDto>.Failure(ErrorCode.Conflict, "上传尚未完成，无法合并成品");
             }
 
-            int[] orderedParts = [.. record.UploadedParts.OrderBy(static value => value)];
+            int[] orderedParts = [.. uploadedParts.OrderBy(static value => value)];
             foreach (int partNumber in orderedParts)
             {
                 string partPath = GetPartPath(uploadId, partNumber);
@@ -416,14 +418,21 @@ public sealed partial class FileService : IFileService
         finally { }
     }
 
+    private static IReadOnlyList<int> UploadedParts(UploadSessionRecord record)
+        => record.UploadedParts is null ? Array.Empty<int>() : record.UploadedParts;
+
+    private static List<int> EnsureUploadedParts(UploadSessionRecord record)
+        => record.UploadedParts ??= [];
+
     private static int ResolveNextPartHint(UploadSessionRecord record)
     {
-        if (record.UploadedParts.Count == 0)
+        IReadOnlyList<int> uploadedParts = UploadedParts(record);
+        if (uploadedParts.Count == 0)
         {
             return 0;
         }
 
-        HashSet<int> uploaded = [.. record.UploadedParts];
+        HashSet<int> uploaded = [.. uploadedParts];
         for (int partNumber = 0; partNumber < record.TotalParts; partNumber++)
         {
             if (!uploaded.Contains(partNumber))
@@ -714,6 +723,7 @@ public sealed partial class FileService : IFileService
 
     private static byte[] EncodeSession(UploadSessionRecord record)
     {
+        IReadOnlyList<int> uploadedParts = UploadedParts(record);
         byte[] uploadId = Encoding.UTF8.GetBytes(record.UploadId);
         byte[] fileName = Encoding.UTF8.GetBytes(record.FileName);
         byte[] mimeType = Encoding.UTF8.GetBytes(record.MimeType);
@@ -721,7 +731,7 @@ public sealed partial class FileService : IFileService
         byte[] sha256 = Encoding.UTF8.GetBytes(record.Sha256 ?? string.Empty);
         byte[] status = Encoding.UTF8.GetBytes(record.Status);
         int length = 4 + 1 + 8 + 4 + 4 + 8 + 8 + 8 + 4
-            + record.UploadedParts.Count * sizeof(int)
+            + uploadedParts.Count * sizeof(int)
             + (2 + uploadId.Length)
             + (2 + fileName.Length)
             + (2 + mimeType.Length)
@@ -738,9 +748,9 @@ public sealed partial class FileService : IFileService
         BinaryPrimitives.WriteInt64LittleEndian(span[21..29], record.CreatedAt.ToUniversalTime().Ticks);
         BinaryPrimitives.WriteInt64LittleEndian(span[29..37], record.ExpiresAt.ToUniversalTime().Ticks);
         BinaryPrimitives.WriteInt64LittleEndian(span[37..45], record.UploadedBytes);
-        BinaryPrimitives.WriteInt32LittleEndian(span[45..49], record.UploadedParts.Count);
+        BinaryPrimitives.WriteInt32LittleEndian(span[45..49], uploadedParts.Count);
         int offset = 49;
-        foreach (int part in record.UploadedParts)
+        foreach (int part in uploadedParts)
         {
             BinaryPrimitives.WriteInt32LittleEndian(span[offset..(offset + sizeof(int))], part);
             offset += sizeof(int);
@@ -771,10 +781,10 @@ public sealed partial class FileService : IFileService
         }
 
         int offset = 49;
-        var parts = new List<int>(partCount);
+        List<int>? parts = partCount == 0 ? null : new List<int>(partCount);
         for (int i = 0; i < partCount; i++)
         {
-            parts.Add(BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(offset, sizeof(int))));
+            parts!.Add(BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(offset, sizeof(int))));
             offset += sizeof(int);
         }
 
@@ -848,12 +858,13 @@ public sealed partial class FileService : IFileService
 
     private async Task<long> ResolveUploadedBytesAsync(string uploadId, UploadSessionRecord record, CancellationToken cancellationToken)
     {
-        if (record.UploadedBytes > 0 || record.UploadedParts.Count == 0)
+        IReadOnlyList<int> uploadedParts = UploadedParts(record);
+        if (record.UploadedBytes > 0 || uploadedParts.Count == 0)
         {
             return record.UploadedBytes;
         }
 
-        return await GetUploadedBytesAsync(uploadId, record.UploadedParts, cancellationToken);
+        return await GetUploadedBytesAsync(uploadId, uploadedParts, cancellationToken);
     }
 
     internal async Task CleanupExpiredSessionsAsync(CancellationToken cancellationToken)

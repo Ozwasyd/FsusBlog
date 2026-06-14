@@ -1,6 +1,7 @@
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Models.Requests;
@@ -19,7 +20,7 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
 
         return new ArticleListPageReadModel
         {
-            Items = result.Value.Items.Select(ToArticleListReadModel).ToList(),
+            Items = ToArticleListReadModels(result.Value.Items),
             Total = result.Value.Total
         };
     }
@@ -37,12 +38,12 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
 
     public async Task<int> CreateAsync(CreateArticleRequest dto)
     {
-        var result = await core.CreateAsync(dto.Title, dto.Content, dto.Summary, dto.CoverImageUrl, dto.CategoryId, dto.TagIds, (int)dto.Status, dto.ScheduledPublishAt);
+        var result = await core.CreateAsync(dto.Title, dto.Content, dto.Summary, dto.CoverImageUrl, dto.CategoryId, TagIdsOrEmpty(dto.TagIds), (int)dto.Status, dto.ScheduledPublishAt);
         return result.IsSuccess && result.Value > 0 ? result.Value : 0;
     }
 
     public async Task<bool> UpdateAsync(int id, UpdateArticleRequest dto)
-        => (await core.UpdateAsync(id, dto.Title, dto.Content, dto.Summary, dto.CoverImageUrl, dto.CategoryId, dto.TagIds, (int)dto.Status, dto.ScheduledPublishAt)).IsSuccess;
+        => (await core.UpdateAsync(id, dto.Title, dto.Content, dto.Summary, dto.CoverImageUrl, dto.CategoryId, TagIdsOrEmpty(dto.TagIds), (int)dto.Status, dto.ScheduledPublishAt)).IsSuccess;
 
     public async Task<bool> DeleteAsync(int id) => (await core.DeleteAsync(id)).IsSuccess;
 
@@ -64,7 +65,7 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
             return [];
         }
 
-        return result.Value.Select(ToArticleListReadModel).ToList();
+        return ToArticleListReadModels(result.Value);
     }
 
     public async Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync(int count = 10, CancellationToken cancellationToken = default)
@@ -75,7 +76,14 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
             return [];
         }
 
-        return result.Value.Select(item => new PopularArticleSummaryDto(item.Id, item.Title, item.Views)).ToList();
+        var items = new List<PopularArticleSummaryDto>(result.Value.Count);
+        for (int i = 0; i < result.Value.Count; i++)
+        {
+            PopularArticleCoreModel item = result.Value[i];
+            items.Add(new PopularArticleSummaryDto(item.Id, item.Title, item.Views));
+        }
+
+        return items;
     }
 
     public async Task<List<FeaturedArticleSummaryDto>> GetFeaturedArticlesAsync(int size, CancellationToken cancellationToken = default)
@@ -88,7 +96,7 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
         };
         var result = await core.GetFeaturedArticlesAsync(count, cancellationToken);
         return result.IsSuccess && result.Value is not null
-            ? result.Value.Select(ToFeaturedArticleSummaryDto).ToList()
+            ? ToFeaturedArticleSummaryDtos(result.Value)
             : [];
     }
 
@@ -132,7 +140,7 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
             CreateTime = model.CreateTime,
             CategoryId = model.Category.Id,
             CategoryName = model.Category.Name,
-            Tags = model.Tags.Select(t => new TagReadModel { Id = t.Id, Name = t.Name }).ToList(),
+            Tags = ToTagReadModels(model.Tags),
             IsDeleted = model.IsDeleted,
             Status = ToArticleStatus(model.Status),
             ScheduledPublishAt = model.ScheduledPublishAt,
@@ -156,7 +164,7 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
             CreateTime = model.CreateTime,
             CategoryId = model.CategoryId,
             CategoryName = model.Category.Name,
-            Tags = model.Tags.Select(t => new TagReadModel { Id = t.Id, Name = t.Name }).ToList(),
+            Tags = ToTagReadModels(model.Tags),
             IsDeleted = model.IsDeleted,
             Status = ToArticleStatus(model.Status),
             ScheduledPublishAt = model.ScheduledPublishAt,
@@ -165,7 +173,10 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
     }
 
     private static ArticleStatus ToArticleStatus(int status)
-        => Enum.IsDefined(typeof(ArticleStatus), status) ? (ArticleStatus)status : ArticleStatus.Published;
+        => ArticleStatusProjection.Normalize(status);
+
+    private static IReadOnlyList<int> TagIdsOrEmpty(List<int>? tagIds)
+        => tagIds is null ? Array.Empty<int>() : tagIds;
 
     private static FeaturedArticleSummaryDto ToFeaturedArticleSummaryDto(FeaturedArticleCoreModel model)
         => new(
@@ -175,4 +186,43 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
             model.Views,
             model.CreateTime,
             new ArticleCategoryView(model.Category.Id, model.Category.Name));
+
+    private static List<ArticleListItemReadModel> ToArticleListReadModels(IReadOnlyList<ArticleListCoreModel> source)
+    {
+        var items = new List<ArticleListItemReadModel>(source.Count);
+        for (int i = 0; i < source.Count; i++)
+        {
+            items.Add(ToArticleListReadModel(source[i]));
+        }
+
+        return items;
+    }
+
+    private static List<FeaturedArticleSummaryDto> ToFeaturedArticleSummaryDtos(IReadOnlyList<FeaturedArticleCoreModel> source)
+    {
+        var items = new List<FeaturedArticleSummaryDto>(source.Count);
+        for (int i = 0; i < source.Count; i++)
+        {
+            items.Add(ToFeaturedArticleSummaryDto(source[i]));
+        }
+
+        return items;
+    }
+
+    private static IReadOnlyList<TagReadModel> ToTagReadModels(IReadOnlyList<TagCoreModel> source)
+    {
+        if (source.Count == 0)
+        {
+            return ArticleReadModelCollections.EmptyTags;
+        }
+
+        var tags = new TagReadModel[source.Count];
+        for (int i = 0; i < source.Count; i++)
+        {
+            TagCoreModel tag = source[i];
+            tags[i] = new TagReadModel { Id = tag.Id, Name = tag.Name };
+        }
+
+        return tags;
+    }
 }

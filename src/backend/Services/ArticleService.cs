@@ -290,7 +290,7 @@ public class ArticleService(
                     ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : reader.GetDateTime(fScheduled),
                     PublishedAt = reader.IsDBNull(fPublished) ? null : reader.GetDateTime(fPublished),
                     CategoryName = reader.IsDBNull(fCatName) ? "默认分类" : reader.GetString(fCatName),
-                    Tags = []
+                    Tags = ArticleReadModelCollections.EmptyTags
                 };
             }
         }
@@ -1163,7 +1163,7 @@ public class ArticleService(
                 Status = (ArticleStatus)reader.GetInt32(fStatus),
                 ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : reader.GetDateTime(fScheduled),
                 PublishedAt = reader.IsDBNull(fPublished) ? null : reader.GetDateTime(fPublished),
-                Tags = []
+                Tags = ArticleReadModelCollections.EmptyTags
             });
         }
     }
@@ -1309,7 +1309,7 @@ public class ArticleService(
                 CategoryId = metadata.CatId,
                 CategoryName = metadata.CatName,
                 IsDeleted = metadata.IsDel,
-                Tags = tagDict.TryGetValue(id, out var tags) ? tags : []
+                Tags = tagDict.TryGetValue(id, out var tags) ? tags : ArticleReadModelCollections.EmptyTags
             });
         }
 
@@ -1454,7 +1454,7 @@ public class ArticleService(
                     CreateTime = reader.GetDateTime(fCreateTime),
                     CategoryId = reader.GetInt32(fCategoryId),
                     CategoryName = reader.IsDBNull(fCategoryName) ? "默认" : reader.GetString(fCategoryName),
-                    Tags = [],
+                    Tags = ArticleReadModelCollections.EmptyTags,
                     IsDeleted = reader.GetBoolean(fIsDeleted)
                 };
             }
@@ -1466,7 +1466,7 @@ public class ArticleService(
         }
 
         ArticleListItemReadModel articlePreview = preview;
-        List<TagReadModel> tags = await LoadArticleTagsAsync(id, Ct);
+        IReadOnlyList<TagReadModel> tags = await LoadArticleTagsAsync(id, Ct);
         return ArticleProjection.ToResponse(articlePreview with { Tags = tags });
     }
 
@@ -1534,15 +1534,15 @@ public class ArticleService(
         return items;
     }
 
-    private async Task<List<TagReadModel>> LoadArticleTagsAsync(int articleId, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<TagReadModel>> LoadArticleTagsAsync(int articleId, CancellationToken cancellationToken)
     {
         if (articleId <= 0)
         {
-            return new List<TagReadModel>();
+            return ArticleReadModelCollections.EmptyTags;
         }
 
         var tagMap = await LoadArticleTagMapAsync([articleId], cancellationToken);
-        return tagMap.TryGetValue(articleId, out var tags) ? tags : new List<TagReadModel>();
+        return tagMap.TryGetValue(articleId, out var tags) ? tags : ArticleReadModelCollections.EmptyTags;
     }
 
     private async Task<Dictionary<int, List<TagReadModel>>> LoadArticleTagMapAsync(
@@ -1590,7 +1590,7 @@ public class ArticleService(
         for (int i = 0; i < items.Count; i++)
         {
             var item = items[i];
-            items[i] = item with { Tags = tagMap.TryGetValue(item.Id, out var tags) ? tags : [] };
+            items[i] = item with { Tags = tagMap.TryGetValue(item.Id, out var tags) ? tags : ArticleReadModelCollections.EmptyTags };
         }
     }
 
