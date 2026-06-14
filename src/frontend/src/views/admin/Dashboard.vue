@@ -1,7 +1,6 @@
 <template>
   <div class="account-page dashboard-wrapper account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理"
       title="站点工作台"
       description="待处理事项、内容状态、访问数据与系统配置。"
     />

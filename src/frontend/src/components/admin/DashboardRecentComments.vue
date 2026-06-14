@@ -1,8 +1,7 @@
 <template>
   <section class="bg-[var(--fsusblog-page-bg)] h-full flex flex-col">
     <header class="p-8 border-b border-[var(--fsusblog-panel-border)]">
-      <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">近期互动</div>
-      <h2 class="mt-4 text-3xl font-bold text-[var(--fsusblog-text-primary)]">最新评论</h2>
+      <h2 class="text-3xl font-bold text-[var(--fsusblog-text-primary)]">最新评论</h2>
       <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">快速判断最近是否有值得跟进的读者互动，再进入内容管理继续处理。</p>
     </header>
     <div class="flex-1 min-h-0">

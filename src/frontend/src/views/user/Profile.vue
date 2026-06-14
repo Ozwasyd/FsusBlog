@@ -1,7 +1,6 @@
 <template>
   <div class="account-page profile-page">
     <AccountPageHeader
-      eyebrow="账户"
       title="个人资料"
       description="管理身份信息、密码、MFA、通行密钥与活跃会话。"
     />

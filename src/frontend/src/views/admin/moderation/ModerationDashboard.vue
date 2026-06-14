@@ -1,7 +1,6 @@
 <template>
   <div class="space-y-8">
     <WorkbenchPanel
-      eyebrow="审核总览"
       title="审核运行状态"
       :caption="overview ? `模型状态：${modelStateLabel}` : ''"
       title-id="moderation-overview-title"

@@ -1,7 +1,6 @@
 <template>
   <div class="account-page moderation-system-page account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理"
       title="审核系统"
       description="评论队列、词库资产、地区策略、回放预览、模型信号与审计证据集中治理。"
       compact

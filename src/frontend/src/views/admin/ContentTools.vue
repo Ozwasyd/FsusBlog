@@ -1,7 +1,6 @@
 <template>
   <div class="account-page content-tools-page account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理"
       title="备份与迁移"
       description="执行全站内容备份、单篇文章导出与 Markdown/frontmatter 导入。"
     />

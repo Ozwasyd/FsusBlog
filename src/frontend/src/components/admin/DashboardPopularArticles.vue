@@ -1,8 +1,7 @@
 <template>
   <section class="bg-[var(--fsusblog-page-bg)] h-full flex flex-col">
     <header class="p-8 border-b border-[var(--fsusblog-panel-border)]">
-      <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">内容表现</div>
-      <h2 class="mt-4 text-3xl font-bold text-[var(--fsusblog-text-primary)]">热门文章</h2>
+      <h2 class="text-3xl font-bold text-[var(--fsusblog-text-primary)]">热门文章</h2>
       <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-secondary)]">用内容表现判断哪些稿件值得继续编辑、补链或置顶处理。</p>
     </header>
     <div class="flex-1 p-2">

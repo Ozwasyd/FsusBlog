@@ -1,7 +1,6 @@
 <template>
   <div class="account-page profile-page account-motion-enter w-full">
     <header class="account-page-header">
-      <div class="account-page-eyebrow">管理</div>
       <h1 class="account-page-title">系统设置</h1>
       <p class="account-page-description">
         维护站点元信息、预览图与静态页面内容。高权限操作会触发明确确认，并自动同步至 AOT 缓存层。

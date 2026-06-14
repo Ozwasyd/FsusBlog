@@ -1,7 +1,6 @@
 <template>
   <div class="space-y-8">
     <WorkbenchPanel
-      eyebrow="PoW"
       title="PoW 系统"
       :caption="overview ? `快照：${overview.policy.snapshotId}` : ''"
       title-id="security-pow-title"

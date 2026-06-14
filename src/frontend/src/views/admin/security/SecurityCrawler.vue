@@ -1,7 +1,6 @@
 <template>
   <div class="space-y-8">
     <WorkbenchPanel
-      eyebrow="反爬虫"
       title="反爬虫系统"
       :caption="overview ? `快照：${overview.policy.snapshotId}` : ''"
       title-id="security-crawler-title"

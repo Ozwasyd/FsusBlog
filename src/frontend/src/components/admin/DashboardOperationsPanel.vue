@@ -1,8 +1,7 @@
 <template>
   <section class="bg-[var(--fsusblog-page-bg)] h-full flex flex-col">
     <header class="p-8 border-b border-[var(--fsusblog-panel-border)]">
-      <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">工作区</div>
-      <h2 class="mt-4 text-3xl font-bold text-[var(--fsusblog-text-primary)]">运营入口</h2>
+      <h2 class="text-3xl font-bold text-[var(--fsusblog-text-primary)]">运营入口</h2>
       <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">
         从首页直接进入常用管理路径，并优先处理需要恢复、归类和治理的内容。
       </p>
@@ -34,8 +33,7 @@
         :to="item.to"
         class="bg-[var(--fsusblog-page-bg)] p-8 transition-colors hover:bg-[var(--fsusblog-panel-bg)] group"
       >
-        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors">{{ item.eyebrow }}</div>
-        <div class="mt-4 text-base font-bold text-[var(--fsusblog-text-primary)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors">{{ item.label }}</div>
+        <div class="text-base font-bold text-[var(--fsusblog-text-primary)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors">{{ item.label }}</div>
         <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)] group-hover:text-[var(--fsusblog-text-secondary)] transition-colors">{{ item.helper }}</p>
       </router-link>
     </div>
@@ -54,43 +52,36 @@ const props = defineProps<{
 const trashCount = computed(() => props.view.statCards.find((item) => item.key === 'trashCount')?.value ?? 0)
 
 const actions: ReadonlyArray<{
-  eyebrow: string
   label: string
   helper: string
   to: RouteLocationRaw
 }> = [
   {
-    eyebrow: '内容',
     label: '新建文章',
     helper: '进入写作流程并发布新稿。',
     to: { name: 'ManageWriteArticle' }
   },
   {
-    eyebrow: '结构',
     label: '分类管理',
     helper: '维护目录结构与归档入口。',
     to: { name: 'ManageCategory' }
   },
   {
-    eyebrow: '内容',
     label: '文章管理',
     helper: '查看内容表现并继续编辑或处理互动。',
     to: { name: 'ManageArticleList' }
   },
   {
-    eyebrow: '治理',
     label: '用户管理',
     helper: '进入账号治理与风险处理工作流。',
     to: { name: 'ManageUsers' }
   },
   {
-    eyebrow: '系统',
     label: '系统设置',
     helper: '维护站点元信息与静态页面内容。',
     to: { name: 'ManageSettings' }
   },
   {
-    eyebrow: '结构',
     label: '标签管理',
     helper: '保持检索语义和文章关键词一致。',
     to: { name: 'ManageTag' }

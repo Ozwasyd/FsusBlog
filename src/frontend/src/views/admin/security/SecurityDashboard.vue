@@ -1,7 +1,6 @@
 <template>
   <div class="space-y-8">
     <WorkbenchPanel
-      eyebrow="安全总览"
       title="安全运行总览"
       :caption="overview ? `检查时间：${formatTime(overview.checkedAtUtc)}` : ''"
       title-id="security-overview-title"
@@ -25,8 +24,7 @@
         :to="{ name: link.name }"
         class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] p-5 transition hover:bg-[var(--fsusblog-page-bg-soft)]"
       >
-        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ link.eyebrow }}</div>
-        <div class="mt-3 text-xl font-bold text-[var(--fsusblog-text-primary)]">{{ link.label }}</div>
+        <div class="text-xl font-bold text-[var(--fsusblog-text-primary)]">{{ link.label }}</div>
         <p class="mt-2 text-[12px] leading-6 text-[var(--fsusblog-text-muted)]">{{ link.helper }}</p>
       </RouterLink>
     </section>
@@ -71,9 +69,9 @@ const loading = shallowRef(false)
 const overview = shallowRef<SecurityOverviewResponse | null>(null)
 
 const links = [
-  { eyebrow: '反爬虫', label: '反爬虫系统', helper: '爬虫识别、CIDR 更新、风险事件与策略模拟。', name: 'ManageSecurityCrawler' },
-  { eyebrow: 'PoW', label: 'PoW 系统', helper: '挑战签发、Proof 有效期、重放防护与风险分联动。', name: 'ManageSecurityPow' },
-  { eyebrow: '风险信号', label: '统一风险信号', helper: '反爬虫、限流、ReadProof 和 PoW 都写入统一风险总线。', name: 'ManageSecurityCrawler' }
+  { label: '反爬虫系统', helper: '爬虫识别、CIDR 更新、风险事件与策略模拟。', name: 'ManageSecurityCrawler' },
+  { label: 'PoW 系统', helper: '挑战签发、Proof 有效期、重放防护与风险分联动。', name: 'ManageSecurityPow' },
+  { label: '统一风险信号', helper: '反爬虫、限流、ReadProof 和 PoW 都写入统一风险总线。', name: 'ManageSecurityCrawler' }
 ] as const
 
 const formatSecurityMode = (mode: string | null | undefined): string => {

@@ -10,9 +10,8 @@
       v-loading="pageLoading"
       element-loading-text="正在载入数据资源..."
     >
-      <header class="write-command-bar border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] py-6 px-4 mb-8" aria-label="文章编辑操作">
+      <header class="write-command-bar border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] py-6 px-4 mb-8" aria-label="内容编辑操作">
         <div class="min-w-0">
-          <div class="account-page-eyebrow mb-2">内容编辑</div>
           <h1 id="article-write-title" class="write-command-title">{{ pageTitle }}</h1>
           <p id="article-editor-status" class="write-command-status" aria-live="polite">
             {{ editorStatusText }}

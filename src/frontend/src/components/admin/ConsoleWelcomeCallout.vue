@@ -6,7 +6,6 @@
     aria-labelledby="console-welcome-callout-title"
   >
     <div class="console-welcome-callout__copy">
-      <p class="console-welcome-callout__eyebrow">控制台反馈</p>
       <h2 id="console-welcome-callout-title" class="console-welcome-callout__title">
         控制台维护
       </h2>
@@ -78,16 +77,8 @@ const bodyText = computed(() => (
   padding-right: 2.75rem;
 }
 
-.console-welcome-callout__eyebrow {
-  margin: 0;
-  color: var(--fsusblog-text-muted);
-  font-size: 0.6875rem;
-  font-weight: 900;
-  letter-spacing: 0;
-}
-
 .console-welcome-callout__title {
-  margin: 0.5rem 0 0;
+  margin: 0;
   color: var(--fsusblog-text-primary);
   font-size: 1.25rem;
   font-weight: 800;

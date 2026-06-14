@@ -1,7 +1,6 @@
 <template>
   <section class="account-page">
     <header class="account-page-header">
-      <div class="account-page-eyebrow">交互</div>
       <h1 class="account-page-title">我的评论</h1>
       <p class="account-page-description">
         查看你在站内留下的历史互动，并在需要时移除不再保留的评论内容。

@@ -1,13 +1,12 @@
 <template>
   <div class="account-page cache-diagnostics-page account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理"
       title="缓存诊断"
       description="查看 AOT、PublicHotRead、search、sitemap/feed 与评论缓存状态。"
       compact
     />
 
-    <WorkbenchPanel class="mb-8" title="公开读链路" eyebrow="状态" title-id="cache-status-title">
+    <WorkbenchPanel class="mb-8" title="公开读链路" title-id="cache-status-title">
       <template #actions>
         <div class="flex flex-wrap items-center justify-end gap-2">
           <el-input v-model="articleId" class="w-[10rem]" placeholder="文章 ID" aria-label="文章 ID" />
@@ -38,7 +37,7 @@
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
       <div class="space-y-8">
-        <WorkbenchPanel title="AOT / PublicHotRead" eyebrow="AOT" title-id="cache-aot-title">
+        <WorkbenchPanel title="AOT / PublicHotRead" title-id="cache-aot-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
             <el-descriptions-item label="版本">{{ diagnostics.aot.version }}</el-descriptions-item>
             <el-descriptions-item label="最近构建">{{ formatTime(diagnostics.aot.lastBuildAt) }}</el-descriptions-item>
@@ -48,7 +47,7 @@
           </el-descriptions>
         </WorkbenchPanel>
 
-        <WorkbenchPanel title="首页焦点" eyebrow="首页" title-id="cache-home-spotlight-title">
+        <WorkbenchPanel title="首页焦点" title-id="cache-home-spotlight-title">
           <el-descriptions :column="1" border>
             <el-descriptions-item label="状态">
               <el-tag :type="statusType(spotlightHealthStatus)">{{ statusLabel(spotlightHealthStatus) }}</el-tag>
@@ -58,7 +57,7 @@
           </el-descriptions>
         </WorkbenchPanel>
 
-        <WorkbenchPanel title="搜索索引" eyebrow="搜索" title-id="cache-search-title">
+        <WorkbenchPanel title="搜索索引" title-id="cache-search-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
             <el-descriptions-item label="版本">{{ diagnostics.search.version ?? '-' }}</el-descriptions-item>
             <el-descriptions-item label="Schema">{{ diagnostics.search.schemaVersion }}</el-descriptions-item>
@@ -70,7 +69,7 @@
           </el-descriptions>
         </WorkbenchPanel>
 
-        <WorkbenchPanel v-if="diagnostics?.article" title="单文章诊断" eyebrow="文章" title-id="cache-article-title">
+        <WorkbenchPanel v-if="diagnostics?.article" title="单文章诊断" title-id="cache-article-title">
           <el-descriptions :column="1" border>
             <el-descriptions-item label="文章 ID">{{ diagnostics.article.articleId }}</el-descriptions-item>
             <el-descriptions-item label="公开可见">{{ boolText(diagnostics.article.publiclyVisible) }}</el-descriptions-item>
@@ -83,7 +82,7 @@
       </div>
 
       <div class="space-y-8">
-        <WorkbenchPanel title="维护动作" eyebrow="维护" title-id="cache-actions-title">
+        <WorkbenchPanel title="维护动作" title-id="cache-actions-title">
           <div class="grid gap-3">
             <el-button :icon="Refresh" :loading="actionLoading === 'aot-rebuild'" @click="runAction('aot-rebuild')">重建 AOT/PublicHotRead</el-button>
             <el-button :icon="Refresh" :loading="actionLoading === 'search-rebuild'" @click="runAction('search-rebuild')">重建搜索索引</el-button>
@@ -96,7 +95,7 @@
           </div>
         </WorkbenchPanel>
 
-        <WorkbenchPanel title="评论缓存失效" eyebrow="评论" title-id="cache-comments-title">
+        <WorkbenchPanel title="评论缓存失效" title-id="cache-comments-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
             <el-descriptions-item label="评论变更">{{ diagnostics.commentCache.commentMutationCount }}</el-descriptions-item>
             <el-descriptions-item label="统计记录">{{ diagnostics.commentCache.statsCount }}</el-descriptions-item>
@@ -104,7 +103,7 @@
           </el-descriptions>
         </WorkbenchPanel>
 
-        <WorkbenchPanel title="热榜 / 统计合并" eyebrow="合并" title-id="cache-hot-stats-title">
+        <WorkbenchPanel title="热榜 / 统计合并" title-id="cache-hot-stats-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
             <el-descriptions-item label="热榜版本">{{ diagnostics.hotStatsInvalidation.hotArticlesVersion }}</el-descriptions-item>
             <el-descriptions-item label="热榜待刷写/已刷写">{{ diagnostics.hotStatsInvalidation.hotArticlesDirtyCount }} / {{ diagnostics.hotStatsInvalidation.hotArticlesFlushCount }}</el-descriptions-item>
@@ -116,7 +115,7 @@
           </el-descriptions>
         </WorkbenchPanel>
 
-        <WorkbenchPanel title="PublicHotRead 计数" eyebrow="计数" title-id="cache-counters-title">
+        <WorkbenchPanel title="PublicHotRead 计数" title-id="cache-counters-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
             <el-descriptions-item label="文章命中/未命中">{{ diagnostics.publicHotReadCounters.articleHit }} / {{ diagnostics.publicHotReadCounters.articleMiss }}</el-descriptions-item>
             <el-descriptions-item label="列表命中/未命中">{{ diagnostics.publicHotReadCounters.listHit }} / {{ diagnostics.publicHotReadCounters.listMiss }}</el-descriptions-item>
