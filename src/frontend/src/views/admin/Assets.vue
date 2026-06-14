@@ -97,6 +97,14 @@
             </el-button>
           </template>
         </el-table-column>
+        <template #empty>
+          <AdminInlineEmptyState :title="assetEmptyTitle" :description="assetEmptyDescription">
+            <template #actions>
+              <el-button v-if="hasAssetFilters" link type="primary" @click="resetAssetFilters">清除筛选</el-button>
+              <el-button v-else link type="primary" :loading="loading" @click="loadAssets">刷新资产库</el-button>
+            </template>
+          </AdminInlineEmptyState>
+        </template>
       </el-table>
     </section>
   </div>
@@ -113,6 +121,7 @@ import {
 import { deleteImage } from '@/api/system'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { Delete, Refresh, Search } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { confirmDanger, toast } from '@/fsusui/feedback'
@@ -134,6 +143,18 @@ const filteredAssets = computed(() => {
     return !text || asset.url.toLowerCase().includes(text) || (asset.sha256 ?? '').toLowerCase().includes(text)
   })
 })
+const hasAssetFilters = computed(() => keyword.value.trim() !== '' || orphanOnly.value)
+const assetEmptyTitle = computed(() => hasAssetFilters.value ? '没有匹配的资产' : '资产库暂无文件')
+const assetEmptyDescription = computed(() =>
+  hasAssetFilters.value
+    ? '调整 URL、SHA 或孤儿资产筛选后再查看。'
+    : '上传图片或重建文章引用后，可在这里查看文件与引用关系。'
+)
+
+const resetAssetFilters = (): void => {
+  keyword.value = ''
+  orphanOnly.value = false
+}
 
 const loadAssets = async (): Promise<void> => {
   loading.value = true

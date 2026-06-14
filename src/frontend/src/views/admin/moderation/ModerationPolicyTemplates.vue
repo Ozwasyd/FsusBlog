@@ -17,6 +17,12 @@
               <el-table-column label="分类" min-width="180" prop="category" />
               <el-table-column label="提交动作" width="190" prop="submitAction" />
               <el-table-column label="展示动作" width="190" prop="displayAction" />
+              <template #empty>
+                <AdminInlineEmptyState
+                  title="模板暂无规则"
+                  description="该模板没有返回提交动作或展示动作规则。"
+                />
+              </template>
             </el-table>
             <dl class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)]">
               <div v-for="item in templateRows(row)" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-4">
@@ -48,6 +54,12 @@
           <code class="block truncate text-[11px]">{{ row.checksum }}</code>
         </template>
       </el-table-column>
+      <template #empty>
+        <AdminInlineEmptyState
+          title="暂无策略模板"
+          description="默认合规模板预设载入后，会在这里显示作用范围、版本和校验值。"
+        />
+      </template>
     </el-table>
   </section>
 </template>
@@ -55,6 +67,7 @@
 <script setup lang="ts">
 import { onMounted, shallowRef } from 'vue'
 import { listModerationPolicyTemplates, type ModerationPolicyTemplateDefinition } from '@/api/authoring'
+import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 

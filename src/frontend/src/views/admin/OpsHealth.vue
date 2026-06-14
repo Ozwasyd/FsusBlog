@@ -62,6 +62,12 @@
                 </div>
               </template>
             </el-table-column>
+            <template #empty>
+              <AdminInlineEmptyState
+                :title="health ? '核心服务状态未返回' : '尚未加载服务状态'"
+                :description="health ? '服务端未返回核心依赖状态，请刷新运维健康。' : '刷新后显示数据库、缓存与对象存储等核心依赖状态。'"
+              />
+            </template>
           </el-table>
         </WorkbenchPanel>
 
@@ -79,6 +85,12 @@
               </template>
             </el-table-column>
             <el-table-column label="详情" min-width="220" prop="detail" />
+            <template #empty>
+              <AdminInlineEmptyState
+                :title="health ? '后台 worker 状态未返回' : '尚未加载 worker 状态'"
+                :description="health ? '服务端未返回后台任务状态，请刷新运维健康。' : '刷新后显示后台任务最近心跳与运行详情。'"
+              />
+            </template>
           </el-table>
         </WorkbenchPanel>
       </div>

@@ -30,6 +30,8 @@
       :is-processing="isProcessing"
       :processing-id="processingId"
       :row-motion-class="rowMotion.classFor"
+      :empty-title="userTableEmptyTitle"
+      :empty-description="userTableEmptyDescription"
       @refresh="fetchData"
       @open-reset="openResetDialog"
       @toggle-status="handleToggleStatus"
@@ -72,6 +74,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import UserBanDialog from '@/components/admin/users/UserBanDialog.vue'
 import UserManageHeader from '@/components/admin/users/UserManageHeader.vue'
 import UserManageTable from '@/components/admin/users/UserManageTable.vue'
@@ -115,6 +118,14 @@ const {
   copyResetPassword,
   getTargetInitials
 } = useAdminUserManage()
+
+const hasUserFilters = computed(() => activeFilterChips.value.length > 0)
+const userTableEmptyTitle = computed(() => hasUserFilters.value ? '没有匹配的账户' : '暂无用户记录')
+const userTableEmptyDescription = computed(() =>
+  hasUserFilters.value
+    ? '调整关键词或状态筛选后再查看，也可以重置筛选。'
+    : '新用户注册后会显示在这里，便于查看状态并执行管理操作。'
+)
 </script>
 
 <style scoped>

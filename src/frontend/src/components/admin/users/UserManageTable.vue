@@ -104,7 +104,7 @@
       </el-table-column>
 
       <template #empty>
-        <el-empty description="暂无用户记录" />
+        <AdminInlineEmptyState :title="emptyTitle" :description="emptyDescription" />
       </template>
     </el-table>
 
@@ -165,7 +165,11 @@
         </div>
       </article>
 
-      <el-empty v-if="!loading && list.length === 0" description="暂无用户记录" />
+      <AdminInlineEmptyState
+        v-if="!loading && list.length === 0"
+        :title="emptyTitle"
+        :description="emptyDescription"
+      />
     </div>
 
     <div class="admin-data-surface__footer">
@@ -186,6 +190,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Key, Location } from '@/fsusui/icons'
+import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { UserListItem } from '@/api/admin'
 import type { UserListViewItem } from '@/composables/useAdminUserManage'
@@ -201,9 +206,14 @@ interface Props {
   isProcessing: boolean
   processingId: number | null
   rowMotionClass?: (id: number) => string
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  emptyTitle: '暂无用户记录',
+  emptyDescription: '注册账户或调整筛选条件后，可在这里查看用户状态。'
+})
 
 const userColumnWidth = computed(() => (props.isMobile ? 136 : 220))
 const roleColumnWidth = computed(() => (props.isMobile ? 44 : 116))

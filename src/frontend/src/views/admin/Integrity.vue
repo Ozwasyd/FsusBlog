@@ -81,6 +81,12 @@
               </el-tag>
             </template>
           </el-table-column>
+          <template #empty>
+            <AdminInlineEmptyState
+              :title="report ? '暂无检查项' : '尚未运行数据巡检'"
+              :description="report ? '服务端未返回巡检项目，请刷新后重试。' : '运行一键检查后显示文章、评论、资产与缓存一致性结果。'"
+            />
+          </template>
         </el-table>
       </WorkbenchPanel>
 
@@ -91,6 +97,12 @@
               <el-table-column label="字段" min-width="180" prop="field" />
               <el-table-column label="修复前" width="110" prop="before" />
               <el-table-column label="修复后" width="110" prop="after" />
+              <template #empty>
+                <AdminInlineEmptyState
+                  :title="preview ? '暂无可安全修复差异' : '尚未生成安全修复预览'"
+                  :description="preview ? '当前没有需要自动修复的字段变更。' : '运行一键检查后会显示可安全修复差异。'"
+                />
+              </template>
             </el-table>
           </div>
           <div class="mt-5 space-y-3 border-t border-[var(--fsusblog-panel-border)] pt-5">
@@ -144,6 +156,7 @@ import {
 } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
+import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import { Download, Refresh, Tools } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'

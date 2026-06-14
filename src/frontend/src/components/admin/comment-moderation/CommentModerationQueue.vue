@@ -69,7 +69,7 @@
       </template>
 
       <template #empty>
-        <el-empty description="暂无匹配的评论审核项" />
+        <AdminInlineEmptyState :title="emptyTitle" :description="emptyDescription" />
       </template>
 
       <template #table>
@@ -186,7 +186,7 @@
           </el-table-column>
 
           <template #empty>
-            <el-empty description="暂无匹配的评论审核项" />
+            <AdminInlineEmptyState :title="emptyTitle" :description="emptyDescription" />
           </template>
         </el-table>
       </template>
@@ -197,16 +197,23 @@
 <script setup lang="ts">
 import { ArrowDown, Check, Close, Hide, View as ViewIcon } from '@/fsusui/icons'
 import { CommentModerationStatus, type CommentModerationStatus as CommentModerationStatusValue } from '@/api/authoring'
+import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { CommentModerationViewItem } from '@/composables/useCommentModerationQueue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   items: readonly CommentModerationViewItem[]
   selectedIds: readonly string[]
   loading: boolean
   processingId: string | null
   highlightedIds?: readonly string[]
-}>()
+  emptyTitle?: string
+  emptyDescription?: string
+}>(), {
+  highlightedIds: () => [],
+  emptyTitle: '当前队列暂无评论',
+  emptyDescription: '新的待审核、隐藏或拒绝评论会在对应状态下出现。'
+})
 
 const emit = defineEmits<{
   toggle: [id: string, checked: boolean]

@@ -37,6 +37,12 @@
             <el-button link type="primary" :icon="View" @click="loadPreview(row.regionCode)">预览</el-button>
           </template>
         </el-table-column>
+        <template #empty>
+          <AdminInlineEmptyState
+            title="暂无地区定义"
+            description="内置或自定义地区载入后，会在这里显示生效策略入口。"
+          />
+        </template>
       </el-table>
     </section>
 
@@ -69,6 +75,12 @@
           <el-table-column label="来源" min-width="180">
             <template #default="{ row }: { row: ModerationEffectivePolicyRule }">来源：{{ row.sourceType }}；ID：{{ row.sourceId }}</template>
           </el-table-column>
+          <template #empty>
+            <AdminInlineEmptyState
+              :title="preview ? '暂无生效规则' : '选择地区查看生效规则'"
+              :description="preview ? '当前地区没有返回可展示的提交或展示动作规则。' : '选择左侧地区后显示继承链计算出的生效规则。'"
+            />
+          </template>
         </el-table>
       </section>
     </section>
@@ -84,6 +96,7 @@ import {
   type ModerationEffectivePolicyRule,
   type ModerationRegionDefinition
 } from '@/api/authoring'
+import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { Refresh, View } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 

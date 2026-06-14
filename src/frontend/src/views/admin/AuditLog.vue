@@ -138,6 +138,14 @@
             <el-button link type="primary" :icon="View" @click="openDetail(row)">查看</el-button>
           </template>
         </el-table-column>
+        <template #empty>
+          <AdminInlineEmptyState :title="auditEmptyTitle" :description="auditEmptyDescription">
+            <template #actions>
+              <el-button v-if="hasAuditFilters" link type="primary" @click="resetFilters">清除筛选</el-button>
+              <el-button v-else link type="primary" :loading="loading" @click="loadAudit">刷新审计日志</el-button>
+            </template>
+          </AdminInlineEmptyState>
+        </template>
       </el-table>
 
       <div class="flex justify-end border-t border-[var(--fsusblog-panel-border)] px-4 py-4">
@@ -201,6 +209,7 @@ import {
 } from '@/api/authoring'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
+import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { Aim, Lock, Operation, Refresh, RefreshLeft, Search, User, View } from '@/fsusui/icons'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
@@ -244,6 +253,23 @@ const detailVisible = ref(false)
 const auditRowMotion = useRowStateMotion({ visibleLimit: 20 })
 
 const runtime = computed(() => summary.value?.runtime ?? emptyRuntime)
+const hasAuditFilters = computed(() =>
+  filters.source.trim() !== ''
+  || filters.type.trim() !== ''
+  || filters.actor.trim() !== ''
+  || filters.action.trim() !== ''
+  || filters.targetType.trim() !== ''
+  || filters.targetId.trim() !== ''
+  || Boolean(filters.outcome)
+  || Boolean(filters.severity)
+  || Boolean(dateRange.value)
+)
+const auditEmptyTitle = computed(() => hasAuditFilters.value ? '没有匹配的审计事件' : '暂无审计日志')
+const auditEmptyDescription = computed(() =>
+  hasAuditFilters.value
+    ? '调整操作者、动作、目标、结果或时间范围后再查询。'
+    : '后台操作、安全事件和防篡改证据写入后会显示在这里。'
+)
 const formattedContext = computed(() => {
   if (!detail.value?.contextJson) {
     return '{}'

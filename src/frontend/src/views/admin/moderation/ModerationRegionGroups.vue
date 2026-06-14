@@ -36,6 +36,12 @@
           <el-tag :type="row.builtin ? 'info' : 'warning'">{{ row.builtin ? '内置' : '自定义' }}</el-tag>
         </template>
       </el-table-column>
+      <template #empty>
+        <AdminInlineEmptyState
+          title="暂无地区大区"
+          description="地区大区定义载入后，会在这里显示成员数量与策略模板。"
+        />
+      </template>
     </el-table>
   </section>
 </template>
@@ -43,6 +49,7 @@
 <script setup lang="ts">
 import { onMounted, shallowRef } from 'vue'
 import { listModerationRegionGroups, type ModerationRegionGroupDefinition } from '@/api/authoring'
+import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 

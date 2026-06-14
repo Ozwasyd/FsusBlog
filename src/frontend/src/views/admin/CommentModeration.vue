@@ -63,6 +63,8 @@
       :loading="loading"
       :processing-id="processingId"
       :highlighted-ids="taskFeedbackHighlightedIds"
+      :empty-title="commentQueueEmptyTitle"
+      :empty-description="commentQueueEmptyDescription"
       @toggle="toggleSelection"
       @detail="openDetail"
       @apply="(item, status) => applySingle(item, status, refreshAndPrune)"
@@ -78,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
 import CommentModerationBulkActions from '@/components/admin/comment-moderation/CommentModerationBulkActions.vue'
@@ -142,6 +144,15 @@ const {
 
 const detailVisible = ref(false)
 const detailItem = ref<CommentModerationViewItem | null>(null)
+const hasAdditionalQueueFilters = computed(() => activeFilterChips.value.length > 1)
+const commentQueueEmptyTitle = computed(() =>
+  hasAdditionalQueueFilters.value ? '没有匹配的评论审核项' : '当前队列暂无评论'
+)
+const commentQueueEmptyDescription = computed(() =>
+  hasAdditionalQueueFilters.value
+    ? '调整关键词、文章、用户或风险筛选后再查看；也可以点击上方重置。'
+    : '切换状态可查看已隐藏或已拒绝评论，新的待审核评论会自动进入队列。'
+)
 
 const pruneVisibleSelection = (): void => {
   pruneSelection(filteredItems.value.map((item) => item.id))

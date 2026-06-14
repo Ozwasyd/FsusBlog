@@ -5,9 +5,12 @@
       <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">快速判断最近是否有值得跟进的读者互动，再进入内容管理继续处理。</p>
     </header>
     <div class="flex-1 min-h-0">
-      <div v-if="!loading && view.recentComments.length === 0" class="h-75 flex flex-col items-center justify-center">
-        <el-empty description="暂无近期互动" />
-      </div>
+      <AdminInlineEmptyState
+        v-if="!loading && view.recentComments.length === 0"
+        class="flex min-h-[18.75rem] flex-col justify-center"
+        title="暂无近期互动"
+        description="读者留下新评论后会出现在这里，方便快速判断是否需要跟进。"
+      />
       <el-scrollbar v-else height="100%">
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <article
@@ -44,6 +47,7 @@
 
 <script setup lang="ts">
 import { ArrowRight } from '@/fsusui/icons';
+import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 import type { AdminDashboardViewContract } from '@/view-contracts/adminStats';
 

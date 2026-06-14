@@ -77,6 +77,12 @@
             <code class="block truncate text-[11px]">{{ row.checksum }}</code>
           </template>
         </el-table-column>
+        <template #empty>
+          <AdminInlineEmptyState
+            title="暂无地区策略"
+            description="地区策略与词库组合结果载入后，会在这里显示运行状态和校验值。"
+          />
+        </template>
       </el-table>
     </section>
 
@@ -107,6 +113,7 @@ import {
   type RegionPolicySummaryResponse
 } from '@/api/authoring'
 import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { Connection, Refresh } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'

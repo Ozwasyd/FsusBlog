@@ -108,6 +108,14 @@
             <el-button link :icon="CopyDocument" @click="copyChecksum(row)">复制校验值</el-button>
           </template>
         </el-table-column>
+        <template #empty>
+          <AdminInlineEmptyState :title="dictionaryEmptyTitle" :description="dictionaryEmptyDescription">
+            <template #actions>
+              <el-button v-if="hasDictionaryFilters" link type="primary" @click="resetDictionaryFilters">清除筛选</el-button>
+              <el-button v-else link type="primary" :loading="loading" @click="loadSnapshot">刷新词库</el-button>
+            </template>
+          </AdminInlineEmptyState>
+        </template>
       </el-table>
     </section>
 
@@ -142,6 +150,7 @@ import {
 } from '@/api/authoring'
 import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
+import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import { Check, Close, CopyDocument, Refresh, RefreshLeft, RefreshRight, View } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
@@ -182,6 +191,20 @@ const dictionaries = computed(() => snapshot.value?.dictionaries ?? [])
 const disabledDictionaryIds = computed(() => new Set(runtime.value?.disabledDictionaryIds ?? []))
 const regionOptions = computed(() => [...new Set(dictionaries.value.map((item) => item.region ?? 'GLOBAL'))].sort())
 const categoryOptions = computed(() => [...new Set(dictionaries.value.map((item) => item.category))].sort())
+const hasDictionaryFilters = computed(() =>
+  filters.scope !== ''
+  || filters.dictionaryId.trim() !== ''
+  || filters.region !== ''
+  || filters.category !== ''
+  || filters.status.trim() !== ''
+  || filters.highRiskOnly
+)
+const dictionaryEmptyTitle = computed(() => hasDictionaryFilters.value ? '没有匹配的词库' : '暂无运行时词库')
+const dictionaryEmptyDescription = computed(() =>
+  hasDictionaryFilters.value
+    ? '调整作用范围、地区、分类、状态或高风险筛选后再查看。'
+    : '运行时词库元数据载入后，会在这里显示校验值、词条数量和证据策略。'
+)
 
 const highRiskCategories = new Set([
   'political_sensitive',
@@ -229,6 +252,15 @@ const filteredDictionaries = computed(() => dictionaries.value.filter((item) => 
   if (filters.highRiskOnly && !isHighRisk(item)) return false
   return true
 }))
+
+const resetDictionaryFilters = (): void => {
+  filters.scope = ''
+  filters.dictionaryId = ''
+  filters.region = ''
+  filters.category = ''
+  filters.status = ''
+  filters.highRiskOnly = false
+}
 
 const detailRows = computed(() => {
   if (!detail.value) return []
