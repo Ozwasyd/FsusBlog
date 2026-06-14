@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Linq.Expressions;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
@@ -15,16 +17,38 @@ public class UserServiceValidationTests
 {
     private static UserService BuildService()
     {
+        return BuildService(
+            db: Substitute.For<ISqlSugarClient>(),
+            jwtHelper: Substitute.For<IJwtHelper>());
+    }
+
+    private static UserService BuildService(ISqlSugarClient db, IJwtHelper jwtHelper)
+    {
         return new UserService(
-            _db: Substitute.For<ISqlSugarClient>(),
+            _db: db,
             _logger: NullLogger<UserService>.Instance,
-            _jwtHelper: Substitute.For<IJwtHelper>(),
+            _jwtHelper: jwtHelper,
             _cache: Substitute.For<IUnifiedCache>(),
             _blacklistService: Substitute.For<IBlacklistService>(),
             _messageCommandService: Substitute.For<IMessageCommandService>(),
             _messageRealtimePublisher: Substitute.For<IMessageRealtimePublisher>(),
             _totpService: Substitute.For<ITotpService>(),
             _authRiskService: Substitute.For<IAuthRiskService>());
+    }
+
+    private static (IInsertable<UserSession> SessionInsert, IUpdateable<User> UserUpdate) ConfigureLoginPersistence(ISqlSugarClient db)
+    {
+        var sessionInsert = Substitute.For<IInsertable<UserSession>>();
+        sessionInsert.ExecuteCommandAsync().Returns(Task.FromResult(1));
+        db.Insertable(Arg.Any<UserSession>()).Returns(sessionInsert);
+
+        var userUpdate = Substitute.For<IUpdateable<User>>();
+        userUpdate.SetColumns(Arg.Any<Expression<Func<User, bool>>>()).Returns(userUpdate);
+        userUpdate.Where(Arg.Any<Expression<Func<User, bool>>>()).Returns(userUpdate);
+        userUpdate.ExecuteCommandAsync().Returns(Task.FromResult(1));
+        db.Updateable<User>().Returns(userUpdate);
+
+        return (sessionInsert, userUpdate);
     }
 
     [Fact]
@@ -282,6 +306,65 @@ public class UserServiceValidationTests
     {
         var svc = BuildService();
         Assert.Null(await svc.GetSessionByRefreshTokenAsync(null!));
+    }
+
+    [Fact]
+    public async Task CompleteLoginAsync_BannedUser_ReturnsFailureWithoutIssuingTokens()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var jwt = Substitute.For<IJwtHelper>();
+        jwt.GenerateRefreshToken().Returns("refresh-token");
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns("access-token");
+        ConfigureLoginPersistence(db);
+        var svc = BuildService(db, jwt);
+        var bannedUser = new User { Id = 42, Username = "banned-user", Role = "guest", Status = 1 };
+
+        var (success, message, data, userEntity) = await svc.CompleteLoginAsync(
+            bannedUser,
+            "127.0.0.1",
+            deviceFingerprint: "device-1",
+            userAgent: "test-agent",
+            mfaVerified: false,
+            rememberMe: false);
+
+        Assert.False(success);
+        Assert.Equal("账户已被封禁", message);
+        Assert.Null(data);
+        Assert.Null(userEntity);
+        jwt.DidNotReceive().GenerateRefreshToken();
+        jwt.DidNotReceive().GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>());
+        db.DidNotReceive().Insertable(Arg.Any<UserSession>());
+    }
+
+    [Fact]
+    public async Task CompleteLoginAsync_NormalUser_IssuesSessionToken()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var jwt = Substitute.For<IJwtHelper>();
+        jwt.GenerateRefreshToken().Returns("refresh-token");
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns("access-token");
+        var persistence = ConfigureLoginPersistence(db);
+        var svc = BuildService(db, jwt);
+        var user = new User { Id = 7, Username = "normal-user", Role = "guest", Status = 0 };
+
+        var (success, message, data, userEntity) = await svc.CompleteLoginAsync(
+            user,
+            "127.0.0.1",
+            deviceFingerprint: "device-1",
+            userAgent: "test-agent",
+            mfaVerified: true,
+            rememberMe: false);
+
+        Assert.True(success);
+        Assert.Equal("登录成功", message);
+        Assert.NotNull(data);
+        Assert.Equal("access-token", data.Value.AccessToken);
+        Assert.Equal("refresh-token", data.Value.RefreshToken);
+        Assert.Same(user, userEntity);
+        jwt.Received(1).GenerateRefreshToken();
+        jwt.Received(1).GenerateAccessToken(user, Arg.Any<string>(), true);
+        await persistence.SessionInsert.Received(1).ExecuteCommandAsync();
+        await persistence.UserUpdate.Received(1).ExecuteCommandAsync();
     }
 
     [Fact]

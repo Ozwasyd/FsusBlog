@@ -154,6 +154,7 @@ Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再
 
 - 每次登录创建会话记录（设备、IP、时间），存储于 PostgreSQL + Redis
 - 密码注册自动登录与密码登录复用同一会话创建逻辑（`CompleteLoginAsync`），默认创建非 remember-me 标准会话
+- `CompleteLoginAsync` 是 access token、refresh token 与 `UserSession` 记录的最终签发边界；即使密码、MFA 或 Passkey 已完成验证，`User.Status == Banned` 必须返回 `账户已被封禁` 且不得生成 token、写入 session 或更新最后登录时间，`Deleted` / `DeletedAt` 同理返回注销失败。
 - `GET /api/Auth/sessions`：列出当前活跃会话
 - `POST /api/Auth/sessions/{id}/revoke`：主动吊销单个会话
 - `POST /api/Auth/sessions/revoke-others`：仅保留当前会话，吊销全部其他
@@ -173,7 +174,7 @@ FsusBlog 采用三级角色体系：
 
 权限通过 ASP.NET Core `[Authorize]` / `RequireAuthorization()` 在端点级别声明。
 
-封禁用户写入限制由 `BannedUserMiddleware` 在 endpoint routing 之后执行。允许封禁用户完成的安全收尾操作必须在端点上显式声明 `AllowBannedUserWrite()` metadata，例如登出、删除账号和消息已读/回复收口；不得再通过 URL 片段、HTTP path 或 group 名称推导放行策略。
+封禁用户写入限制由 `BannedUserMiddleware` 在 endpoint routing 之后执行。该中间件是已登录请求期的纵深防御，不替代登录最终签发边界；封禁账号不得先拿到新的 access / refresh token 再依赖中间件拦截。允许封禁用户完成的安全收尾操作必须在端点上显式声明 `AllowBannedUserWrite()` metadata，例如登出、删除账号和消息已读/回复收口；不得再通过 URL 片段、HTTP path 或 group 名称推导放行策略。
 
 认证安全流响应的 `Cache-Control: no-store` 由端点 `RequireNoStoreResponse()` metadata 驱动，统一中间件在响应开始前写入 no-store / no-cache 头。PoW challenge、登录、登出、refresh、删除账号等认证端点必须同时声明该 metadata，而不是新增路径分支。
 

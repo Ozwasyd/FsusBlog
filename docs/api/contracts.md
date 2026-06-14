@@ -184,6 +184,7 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 - `mfaMode`：`"risk"` / `"standard"` / `null`
 - `challengeToken`：仅在 `authPhase = "mfa_required"` 时存在
 - `POST /api/Auth/register` 成功时同样返回该结构，并在同一响应内写入登录 Cookie，实现“注册后自动登录”
+- 密码、MFA challenge 或 Passkey 断言完成后仍必须经过服务端最终会话签发校验；封禁账号返回 `ApiError` / `Unauthorized`（消息 `账户已被封禁`），不得返回 `AuthLoginFlowDto`，也不得写入 access / refresh / session Cookie。
 
 ### `CurrentUserSnapshotDto`（当前用户信息，`GET /api/Auth/me`）
 

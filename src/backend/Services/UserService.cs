@@ -435,6 +435,7 @@ public partial class UserService(
                 new KeyValuePair<string, object?>("AuditAction", "login.banned"),
                 new KeyValuePair<string, object?>("Username", user.Username));
             LogBannedUserLogin(user.Username);
+            return (false, "账户已被封禁", null, null);
         }
 
         if (user.Status == UserStatusDeleted || user.DeletedAt.HasValue)
