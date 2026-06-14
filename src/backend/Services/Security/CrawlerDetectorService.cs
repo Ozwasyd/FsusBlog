@@ -122,7 +122,7 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
 
     private async Task<bool> VerifyByReverseDnsAsync(IPAddress ip, string ipStr)
     {
-        string cacheKey = $"crawler:verified:{ipStr}";
+        string cacheKey = BuildCrawlerVerificationCacheKey(ipStr);
 
         // A. 查缓存 (极速返回)
         if (cache.TryGetValue(cacheKey, out bool isVerified))
@@ -130,12 +130,17 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
             return isVerified;
         }
 
-        return await VerifyByReverseDnsAsync(ip, ipStr, TimeSpan.FromMilliseconds(200));
+        return await VerifyByReverseDnsAsync(ip, ipStr, TimeSpan.FromMilliseconds(200), cacheKey);
     }
 
     internal async Task<bool> VerifyByReverseDnsAsync(IPAddress ip, string ipStr, TimeSpan timeout)
     {
-        string cacheKey = $"crawler:verified:{ipStr}";
+        string cacheKey = BuildCrawlerVerificationCacheKey(ipStr);
+        return await VerifyByReverseDnsAsync(ip, ipStr, timeout, cacheKey);
+    }
+
+    private async Task<bool> VerifyByReverseDnsAsync(IPAddress ip, string ipStr, TimeSpan timeout, string cacheKey)
+    {
         using var cts = new CancellationTokenSource(timeout);
         bool acquired = false;
         bool result = false;
@@ -192,6 +197,9 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
 
         return result;
     }
+
+    internal static string BuildCrawlerVerificationCacheKey(string ipStr)
+        => string.Concat("crawler:verified:", ipStr);
 }
 
 public sealed record CrawlerRangeStatus(

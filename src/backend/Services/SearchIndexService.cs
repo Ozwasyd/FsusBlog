@@ -819,7 +819,7 @@ public sealed partial class SearchIndexService(
     }
 
     private static string ToLowerHex(byte[] value)
-        => Convert.ToHexString(value).ToLowerInvariant();
+        => Convert.ToHexStringLower(value);
 
     private static SearchCategoryDictionary BuildCategoryDictionary(List<SearchSourceArticle> articles)
     {
@@ -3042,7 +3042,7 @@ public sealed partial class SearchIndexService(
 
             LexiconEntryBuilder[] ordered = entries.Values
                 .OrderBy(it => it.Bytes.Length == 0 ? 0 : it.Bytes[0])
-                .ThenBy(it => Convert.ToHexString(it.Bytes), StringComparer.Ordinal)
+                .ThenBy(it => Convert.ToHexStringLower(it.Bytes), StringComparer.Ordinal)
                 .ToArray();
             SearchDictionaryTrieBuild trie = BuildTrie(ordered);
 

@@ -590,7 +590,7 @@ public sealed class ModerationRegionCatalogService(
     }
 
     private static string BuildChecksum(string value)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     private static ModerationRegionCatalogSnapshot EmptySnapshot()
         => new(

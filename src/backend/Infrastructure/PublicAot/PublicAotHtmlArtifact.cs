@@ -103,7 +103,11 @@ internal static class PublicAotHtmlArtifactFactory
     }
 
     internal static string CreateEtag(ReadOnlySpan<byte> bytes)
-        => string.Concat("\"", Convert.ToHexString(SHA256.HashData(bytes)).AsSpan(0, 16).ToString().ToLowerInvariant(), "\"");
+    {
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(bytes, hash);
+        return string.Concat("\"", Convert.ToHexStringLower(hash[..8]), "\"");
+    }
 
     internal static bool RequiresCspNonceMutation(string html)
     {

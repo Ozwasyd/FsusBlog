@@ -50,6 +50,6 @@ public sealed class ClientRegionResolver(
     {
         string key = configuration["Moderation:RegionPolicy:IpHashKey"] ?? "fsusblog-region-ip-hash-development-key";
         byte[] bytes = HMACSHA256.HashData(Encoding.UTF8.GetBytes(key), Encoding.UTF8.GetBytes(ip));
-        return Convert.ToHexString(bytes).ToLowerInvariant();
+        return Convert.ToHexStringLower(bytes);
     }
 }

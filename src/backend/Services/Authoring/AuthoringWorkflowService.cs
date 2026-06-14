@@ -1597,7 +1597,7 @@ public sealed class AuthoringWorkflowService(
     }
 
     private static string HashText(string text)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
+        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
 
     private static string RenderPreviewMarkdown(string markdown)
     {

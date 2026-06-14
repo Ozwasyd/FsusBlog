@@ -754,8 +754,7 @@ public sealed class ModerationDictionaryService(
 
     private static string ComputeSha256(string value)
     {
-        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(value));
-        return Convert.ToHexString(hash).ToLowerInvariant();
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     }
 
     private static string NormalizeRegion(string? region)

@@ -169,6 +169,23 @@ public sealed class ImageHelperTests
         Assert.Contains(result, static item => item.Url == "/uploads/illustration/inline.png" && item.AltText is null);
     }
 
+    [Fact]
+    public void ExtractIllustrationReferences_HandlesHtmlWhitespaceAndMalformedReferences()
+    {
+        string content = """
+            <img alt="Inline" src="/uploads/illustration/html image.jpg">
+            ![  Trimmed alt  ](/uploads/illustration/markdown-image.png "title")
+            ![broken](/uploads/illustration/not-closed.png
+            """;
+
+        var result = ImageHelper.ExtractIllustrationReferences(content);
+
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, static item => item.Url == "/uploads/illustration/html image.jpg" && item.AltText is null);
+        Assert.Contains(result, static item => item.Url == "/uploads/illustration/markdown-image.png" && item.AltText == "Trimmed alt");
+        Assert.DoesNotContain(result, static item => item.Url.Contains("not-closed", StringComparison.Ordinal));
+    }
+
     // ─── GetFirstIllustration ─────────────────────────────────────────────
 
     [Fact]

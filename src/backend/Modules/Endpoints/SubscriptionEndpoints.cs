@@ -68,7 +68,7 @@ public static class SubscriptionEndpoints
             return string.Empty;
         }
 
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized))).ToLowerInvariant();
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
     }
 
     private static string NormalizeChannel(string? channel)

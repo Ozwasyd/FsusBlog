@@ -448,7 +448,7 @@ public sealed class HumanReadProofService(
         => context.Request.Headers.UserAgent.ToString();
 
     private static string HashValue(string value)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     private static bool FixedHashEquals(string left, string right)
     {

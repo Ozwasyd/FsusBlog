@@ -2,6 +2,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Cache;
+using System.Globalization;
 
 namespace FsusBlog.Server.Infrastructure.CoreBridge.Caching;
 
@@ -23,7 +24,7 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache, IHotArticlesCache
         cancellationToken.ThrowIfCancellationRequested();
         long version = listCacheVersion ?? await GetListCacheVersionAsync(cancellationToken);
         string scope = includePrivate ? "admin" : "public";
-        string identity = $"core:v4:{scope}:{version}:{page}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}:{keyword}";
+        string identity = BuildArticleListIdentity(scope, version, page, size, categoryId, tagId, isDeleted, status, keyword);
         var hit = await cache.TryGetAsync(CachePolicyId.ArticleList, identity, DecodeArticlePage, cancellationToken);
         if (hit.Hit && hit.Value is not null)
         {
@@ -51,7 +52,7 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache, IHotArticlesCache
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string identity = $"core:v3:{id}";
+        string identity = BuildArticleDetailIdentity(id);
         var cached = await cache.TryGetAsync(CachePolicyId.ArticleDetail, identity, DecodeArticleDetail, cancellationToken);
         if (cached.Hit)
         {
@@ -85,7 +86,7 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache, IHotArticlesCache
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string identity = $"core:v2:{keyword}";
+        string identity = BuildArticleSearchIdentity(keyword);
         var hit = await cache.TryGetAsync(CachePolicyId.ArticleSearch, identity, DecodeArticleSearch, cancellationToken);
         if (hit.Hit)
         {
@@ -113,7 +114,7 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache, IHotArticlesCache
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string identity = hotArticlesVersionProvider.BuildVersionedHotArticlesIdentity($"core:v2:{count}");
+        string identity = hotArticlesVersionProvider.BuildVersionedHotArticlesIdentity(BuildHotArticlesBaseIdentity(count));
         var hit = await cache.TryGetAsync(CachePolicyId.ArticleHot, identity, DecodePopularArticles, cancellationToken);
         if (hit.Hit)
         {
@@ -141,7 +142,7 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache, IHotArticlesCache
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string identity = $"core:v2:featured:{count}";
+        string identity = BuildFeaturedArticlesIdentity(count);
         var hit = await cache.TryGetAsync(CachePolicyId.TopArticles, identity, DecodeFeaturedArticles, cancellationToken);
         if (hit.Hit)
         {
@@ -198,4 +199,30 @@ public sealed class ArticleCoreQueryCache(IUnifiedCache cache, IHotArticlesCache
         string? version = await cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", cancellationToken);
         return long.TryParse(version, out long parsed) ? parsed : 0;
     }
+
+    internal static string BuildArticleListIdentity(
+        string scope,
+        long version,
+        int page,
+        int size,
+        int? categoryId,
+        int? tagId,
+        bool isDeleted,
+        int? status,
+        string keyword)
+        => string.Create(
+            CultureInfo.InvariantCulture,
+            $"core:v4:{scope}:{version}:{page}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}:{keyword}");
+
+    internal static string BuildArticleDetailIdentity(int id)
+        => string.Create(CultureInfo.InvariantCulture, $"core:v3:{id}");
+
+    internal static string BuildArticleSearchIdentity(string keyword)
+        => string.Create(CultureInfo.InvariantCulture, $"core:v2:{keyword}");
+
+    internal static string BuildHotArticlesBaseIdentity(int count)
+        => string.Create(CultureInfo.InvariantCulture, $"core:v2:{count}");
+
+    internal static string BuildFeaturedArticlesIdentity(int count)
+        => string.Create(CultureInfo.InvariantCulture, $"core:v2:featured:{count}");
 }

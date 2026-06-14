@@ -24,11 +24,11 @@ internal static class AuditTamperEvidence
     {
         string chainId = record.ChainId ?? record.OccurredAtUtc.ToString("yyyyMMdd");
         byte[] canonicalBytes = Encoding.UTF8.GetBytes(BuildCanonical(record, chainId));
-        string recordHash = record.RecordHash ?? Convert.ToHexString(SHA256.HashData(canonicalBytes)).ToLowerInvariant();
+        string recordHash = record.RecordHash ?? Convert.ToHexStringLower(SHA256.HashData(canonicalBytes));
         string? recordMac = record.RecordMac;
         if (recordMac is null && key is { Length: > 0 })
         {
-            recordMac = Convert.ToHexString(HMACSHA256.HashData(key, canonicalBytes)).ToLowerInvariant();
+            recordMac = Convert.ToHexStringLower(HMACSHA256.HashData(key, canonicalBytes));
         }
 
         return new AuditTamperEvidenceResult(chainId, recordHash, recordMac);

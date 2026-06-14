@@ -1915,8 +1915,15 @@ internal static class PublicHotReadHtmlArtifactFactory
     {
         ValidateStaticHtml(html);
         byte[] bytes = Encoding.UTF8.GetBytes(html);
-        string etag = string.Concat("\"", Convert.ToHexString(SHA256.HashData(bytes)).AsSpan(0, 16).ToString().ToLowerInvariant(), "\"");
+        string etag = CreateEtag(bytes);
         return new PublicHtmlArtifact(bytes, "text/html; charset=utf-8", etag, cacheControl);
+    }
+
+    private static string CreateEtag(ReadOnlySpan<byte> bytes)
+    {
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(bytes, hash);
+        return string.Concat("\"", Convert.ToHexStringLower(hash[..8]), "\"");
     }
 
     private static void ValidateStaticHtml(string html)
@@ -2022,7 +2029,7 @@ internal static class PublicHotReadRouteKeys
     {
         Span<byte> hash = stackalloc byte[32];
         SHA256.HashData(Encoding.UTF8.GetBytes(routeKey), hash);
-        return Convert.ToHexString(hash[..8]).ToLowerInvariant();
+        return Convert.ToHexStringLower(hash[..8]);
     }
 }
 
@@ -2073,7 +2080,11 @@ internal static class PublicHotReadBinaryArtifactFactory
     }
 
     private static string CreateEtag(ReadOnlySpan<byte> bytes)
-        => string.Concat("\"", Convert.ToHexString(SHA256.HashData(bytes)).AsSpan(0, 16).ToString().ToLowerInvariant(), "\"");
+    {
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(bytes, hash);
+        return string.Concat("\"", Convert.ToHexStringLower(hash[..8]), "\"");
+    }
 
     private static byte[]? TryCompress(ReadOnlySpan<byte> frame, string encoding)
     {

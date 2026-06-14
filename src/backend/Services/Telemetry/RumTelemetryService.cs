@@ -1,4 +1,6 @@
+using System.Collections.Frozen;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -17,7 +19,7 @@ public sealed class RumTelemetryService(ISqlSugarClient db) : IRumTelemetryServi
 {
     public const int MaxFrameBytes = RumTelemetryContractLimits.MaxFrameBytes;
 
-    private static readonly HashSet<string> AllowedNames = new(StringComparer.Ordinal)
+    private static readonly FrozenSet<string> AllowedNames = new[]
     {
         "web_vital_lcp",
         "web_vital_cls",
@@ -25,9 +27,9 @@ public sealed class RumTelemetryService(ISqlSugarClient db) : IRumTelemetryServi
         "hydration_time",
         "wasm_decode_timing",
         "markdown_render_timing"
-    };
+    }.ToFrozenSet(StringComparer.Ordinal);
 
-    private static readonly HashSet<string> AllowedPageTypes = new(StringComparer.Ordinal)
+    private static readonly FrozenSet<string> AllowedPageTypes = new[]
     {
         "home",
         "article",
@@ -36,29 +38,29 @@ public sealed class RumTelemetryService(ISqlSugarClient db) : IRumTelemetryServi
         "about",
         "public",
         "unknown"
-    };
+    }.ToFrozenSet(StringComparer.Ordinal);
 
-    private static readonly HashSet<string> AllowedAotSources = new(StringComparer.Ordinal)
+    private static readonly FrozenSet<string> AllowedAotSources = new[]
     {
         "server-aot",
         "spa",
         "unknown"
-    };
+    }.ToFrozenSet(StringComparer.Ordinal);
 
-    private static readonly HashSet<string> AllowedMetricKeys = new(StringComparer.Ordinal)
+    private static readonly FrozenSet<string> AllowedMetricKeys = new[]
     {
         "value",
         "domInteractive",
         "responseStart",
         "durationMs"
-    };
+    }.ToFrozenSet(StringComparer.Ordinal);
 
-    private static readonly Dictionary<string, HashSet<string>> AllowedDimensionValues = new(StringComparer.Ordinal)
+    private static readonly FrozenDictionary<string, FrozenSet<string>> AllowedDimensionValues = new Dictionary<string, FrozenSet<string>>(StringComparer.Ordinal)
     {
-        ["visibility"] = new HashSet<string>(["visible", "hidden", "prerender", "unknown"], StringComparer.Ordinal),
-        ["renderMode"] = new HashSet<string>(["server-aot", "spa", "unknown"], StringComparer.Ordinal),
-        ["routeKind"] = new HashSet<string>(["home", "article", "filter", "archive", "about", "public", "unknown"], StringComparer.Ordinal)
-    };
+        ["visibility"] = new[] { "visible", "hidden", "prerender", "unknown" }.ToFrozenSet(StringComparer.Ordinal),
+        ["renderMode"] = new[] { "server-aot", "spa", "unknown" }.ToFrozenSet(StringComparer.Ordinal),
+        ["routeKind"] = new[] { "home", "article", "filter", "archive", "about", "public", "unknown" }.ToFrozenSet(StringComparer.Ordinal)
+    }.ToFrozenDictionary(StringComparer.Ordinal);
 
     public async Task<RumMetricIngestResponse> IngestAsync(RumMetricRequest request, CancellationToken cancellationToken = default)
     {
@@ -212,7 +214,7 @@ public sealed class RumTelemetryService(ISqlSugarClient db) : IRumTelemetryServi
 
         foreach ((string key, string value) in item.Dimensions)
         {
-            if (!AllowedDimensionValues.TryGetValue(key, out HashSet<string>? allowedValues) ||
+            if (!AllowedDimensionValues.TryGetValue(key, out FrozenSet<string>? allowedValues) ||
                 key.Length > RumTelemetryContractLimits.MaxDimensionKeyLength ||
                 value.Length > RumTelemetryContractLimits.MaxDimensionValueLength ||
                 !allowedValues.Contains(value))
@@ -231,7 +233,7 @@ public sealed class RumTelemetryService(ISqlSugarClient db) : IRumTelemetryServi
             PageType = context.PageType,
             AotSource = context.AotSource,
             Value = context.Value,
-            MetricsJson = JsonSerializer.Serialize(context.Metrics),
+            MetricsJson = JsonSerializer.Serialize(context.Metrics, RumTelemetryJsonContext.Default.DictionaryStringDouble),
             OccurredAtUtc = context.Timestamp,
             CreatedAtUtc = createdAt
         };
@@ -242,5 +244,8 @@ internal sealed record RumMetricAuditContext(
     string PageType,
     string AotSource,
     double? Value,
-    IReadOnlyDictionary<string, double> Metrics,
+    Dictionary<string, double> Metrics,
     DateTime Timestamp);
+
+[JsonSerializable(typeof(Dictionary<string, double>))]
+internal sealed partial class RumTelemetryJsonContext : JsonSerializerContext;

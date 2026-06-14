@@ -242,9 +242,16 @@ internal static class PublicAotBinaryPayload
 
         private void WriteStringPayload(string value)
         {
-            byte[] bytes = Encoding.UTF8.GetBytes(value);
-            WriteInt32(bytes.Length);
-            WriteBytes(bytes);
+            int byteCount = Encoding.UTF8.GetByteCount(value);
+            WriteInt32(byteCount);
+            if (byteCount == 0)
+            {
+                return;
+            }
+
+            Span<byte> span = _target.GetSpan(byteCount);
+            int written = Encoding.UTF8.GetBytes(value.AsSpan(), span);
+            _target.Advance(written);
         }
 
         private void WriteByte(byte value)

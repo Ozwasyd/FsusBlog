@@ -454,5 +454,5 @@ public sealed class ModerationRuntimeStateService(
         => $"moderation-runtime:{scope}:{BuildChecksum($"{value}:{timestamp:O}")[..12]}";
 
     private static string BuildChecksum(string value)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 }

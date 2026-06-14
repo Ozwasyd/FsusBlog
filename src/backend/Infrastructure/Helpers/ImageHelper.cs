@@ -164,28 +164,64 @@ public static partial class ImageHelper
         if (string.IsNullOrWhiteSpace(content)) return [];
 
         var references = new Dictionary<string, IllustrationReference>(StringComparer.OrdinalIgnoreCase);
-        foreach (Match match in MarkdownIllustrationRegex().Matches(content))
+        ReadOnlySpan<char> span = content.AsSpan();
+        foreach (var match in MarkdownIllustrationRegex().EnumerateMatches(span))
         {
-            string url = match.Groups["url"].Value.Trim();
+            ReadOnlySpan<char> markdown = span.Slice(match.Index, match.Length);
+            int altEnd = markdown.IndexOf("](".AsSpan());
+            if (altEnd < 2)
+            {
+                continue;
+            }
+
+            var urlMatches = IllustrationRegex().EnumerateMatches(markdown);
+            if (!urlMatches.MoveNext())
+            {
+                continue;
+            }
+
+            var urlMatch = urlMatches.Current;
+            ReadOnlySpan<char> urlSpan = markdown.Slice(urlMatch.Index, urlMatch.Length).Trim();
+            string url = urlSpan.ToString();
             if (url.Length == 0 || references.ContainsKey(url))
             {
                 continue;
             }
 
-            string alt = match.Groups["alt"].Value.Trim();
+            ReadOnlySpan<char> altSpan = markdown.Slice(2, altEnd - 2).Trim();
+            string alt = altSpan.ToString();
             references[url] = new IllustrationReference(url, alt.Length == 0 ? null : alt);
         }
 
-        foreach (Match match in IllustrationRegex().Matches(content))
+        foreach (var match in IllustrationRegex().EnumerateMatches(span))
         {
-            string url = match.Value.Trim();
-            if (url.Length > 0 && !references.ContainsKey(url))
+            ReadOnlySpan<char> urlSpan = span.Slice(match.Index, match.Length).Trim();
+            string url = urlSpan.ToString();
+            if (url.Length > 0 && !references.ContainsKey(url) && !IsInsideUnclosedMarkdownImage(span, match.Index))
             {
                 references[url] = new IllustrationReference(url, null);
             }
         }
 
         return [.. references.Values];
+    }
+
+    private static bool IsInsideUnclosedMarkdownImage(ReadOnlySpan<char> source, int urlIndex)
+    {
+        ReadOnlySpan<char> beforeUrl = source[..urlIndex];
+        int opener = beforeUrl.LastIndexOf("](".AsSpan());
+        if (opener < 0)
+        {
+            return false;
+        }
+
+        int imageStart = beforeUrl[..opener].LastIndexOf("![".AsSpan());
+        if (imageStart < 0)
+        {
+            return false;
+        }
+
+        return beforeUrl[(opener + 2)..].Trim().IsEmpty;
     }
 
     public static string? GetFirstIllustration(string content)
