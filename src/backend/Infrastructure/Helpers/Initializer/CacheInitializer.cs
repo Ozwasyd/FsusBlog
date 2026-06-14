@@ -30,7 +30,7 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
         // 1. 极速筛选 Status=1 的用户
         var bannedUsers = await _db.Queryable<User>()
                                    .Where(u => u.Status == 1)
-                                   .Select(u => new { u.Id, u.BanReason })
+                                   .Select(u => new BannedUserCacheRow { Id = u.Id, BanReason = u.BanReason })
                                    .ToListAsync();
 
         if (bannedUsers.Count == 0)
@@ -38,14 +38,7 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
             return CacheInitializationResult.Empty;
         }
 
-        var rollbackEntries = new List<CacheInitializationRollbackEntry>(bannedUsers.Count);
-        for (int i = 0; i < bannedUsers.Count; i++)
-        {
-            var user = bannedUsers[i];
-            rollbackEntries.Add(new CacheInitializationRollbackEntry(
-                user.Id,
-                await _blacklist.GetBanStateAsync(user.Id).ConfigureAwait(false)));
-        }
+        List<CacheInitializationRollbackEntry> rollbackEntries = await LoadRollbackEntriesAsync(bannedUsers).ConfigureAwait(false);
 
         // 2. 并发预热 Redis (冷启动速度优化)
         // 核心优化：避免串行 await 带来的大量 RTT (往返时间) 堆叠。
@@ -71,6 +64,38 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
         }
 
         return new CacheInitializationResult(rollbackEntries);
+    }
+
+    private async Task<List<CacheInitializationRollbackEntry>> LoadRollbackEntriesAsync(
+        IReadOnlyList<BannedUserCacheRow> bannedUsers)
+    {
+        const int BatchSize = 100;
+        var rollbackEntries = new List<CacheInitializationRollbackEntry>(bannedUsers.Count);
+        var tasks = new List<Task<CacheInitializationRollbackEntry>>(BatchSize);
+        for (int i = 0; i < bannedUsers.Count; i += BatchSize)
+        {
+            tasks.Clear();
+            int count = Math.Min(BatchSize, bannedUsers.Count - i);
+            for (int j = 0; j < count; j++)
+            {
+                int userId = bannedUsers[i + j].Id;
+                tasks.Add(LoadRollbackEntryAsync(userId));
+            }
+
+            rollbackEntries.AddRange(await Task.WhenAll(tasks).ConfigureAwait(false));
+        }
+
+        return rollbackEntries;
+    }
+
+    private async Task<CacheInitializationRollbackEntry> LoadRollbackEntryAsync(int userId)
+        => new(userId, await _blacklist.GetBanStateAsync(userId).ConfigureAwait(false));
+
+    private sealed class BannedUserCacheRow
+    {
+        public int Id { get; init; }
+
+        public string? BanReason { get; init; }
     }
 
     public async Task RollbackAsync(CacheInitializationResult result, CancellationToken cancellationToken = default)

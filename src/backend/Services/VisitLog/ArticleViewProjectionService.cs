@@ -38,20 +38,16 @@ public sealed class ArticleViewProjectionService(
         }
 
         const int MaxPerBatchViewInvalidations = 128;
-        int invalidated = 0;
-        foreach (int articleId in updatedArticleIds)
+        int invalidated = await InvalidateArticleViewsAsync(
+            updatedArticleIds,
+            MaxPerBatchViewInvalidations,
+            cancellationToken).ConfigureAwait(false);
+        if (invalidated < updatedArticleIds.Count)
         {
-            if (invalidated >= MaxPerBatchViewInvalidations)
-            {
-                logger.LogWarning(
-                    "article-view-projection-invalidation-capped {UpdatedCount} {InvalidatedCount}",
-                    updatedArticleIds.Count,
-                    invalidated);
-                break;
-            }
-
-            await dispatcher.InvalidateArticleViewAsync(articleId, cancellationToken).ConfigureAwait(false);
-            invalidated++;
+            logger.LogWarning(
+                "article-view-projection-invalidation-capped {UpdatedCount} {InvalidatedCount}",
+                updatedArticleIds.Count,
+                invalidated);
         }
 
         hotStatsInvalidation.MarkStatsDirty("article-view-projection");
@@ -61,5 +57,27 @@ public sealed class ArticleViewProjectionService(
         {
             logger.LogWarning("public-hot-read-update-enqueue-failed {ArticleId} {Reason}", null, "article-view-projection-batch");
         }
+    }
+
+    private async Task<int> InvalidateArticleViewsAsync(
+        IReadOnlySet<int> articleIds,
+        int maxPerBatchViewInvalidations,
+        CancellationToken cancellationToken)
+    {
+        int limit = Math.Min(articleIds.Count, maxPerBatchViewInvalidations);
+        var tasks = new List<Task>(limit);
+        foreach (int articleId in articleIds)
+        {
+            if (tasks.Count >= limit)
+            {
+                break;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            tasks.Add(dispatcher.InvalidateArticleViewAsync(articleId, cancellationToken));
+        }
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+        return tasks.Count;
     }
 }

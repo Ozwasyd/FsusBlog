@@ -17,18 +17,20 @@ public sealed class AuditQueryService(
     {
         int page = Math.Max(request.Page, 1);
         int pageSize = Math.Clamp(request.PageSize, 1, 200);
-        ISugarQueryable<AuditLog> filtered = ApplyFilters(_db.Queryable<AuditLog>(), request);
-
-        int total = await filtered.CountAsync(cancellationToken);
-        List<AuditLog> rows = await ApplyFilters(_db.Queryable<AuditLog>(), request)
-            .OrderByDescending(static it => it.OccurredAtUtc)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        Task<int> totalTask = QueryWithNewClientAsync(queryDb =>
+            ApplyFilters(queryDb.Queryable<AuditLog>(), request)
+                .CountAsync(cancellationToken));
+        Task<List<AuditLog>> rowsTask = QueryWithNewClientAsync(queryDb =>
+            ApplyFilters(queryDb.Queryable<AuditLog>(), request)
+                .OrderByDescending(static it => it.OccurredAtUtc)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken));
+        await Task.WhenAll(totalTask, rowsTask);
 
         return new AuditLogListResponse(
-            [.. rows.Select(ToItemResponse)],
-            total,
+            [.. rowsTask.Result.Select(ToItemResponse)],
+            totalTask.Result,
             page,
             pageSize,
             ToRuntimeResponse(_runtimeState.Snapshot()));
@@ -58,13 +60,20 @@ public sealed class AuditQueryService(
 
     public async Task<AuditLogSummaryResponse> GetSummaryAsync(AuditLogQueryRequest request, CancellationToken cancellationToken)
     {
-        int total = await ApplyFilters(_db.Queryable<AuditLog>(), request).CountAsync(cancellationToken);
+        Task<int> totalTask = QueryWithNewClientAsync(queryDb =>
+            ApplyFilters(queryDb.Queryable<AuditLog>(), request).CountAsync(cancellationToken));
+        Task<IReadOnlyList<AuditFacetResponse>> sourceTask = QueryWithNewClientAsync(queryDb => BuildSourceFacetAsync(queryDb, request, cancellationToken));
+        Task<IReadOnlyList<AuditFacetResponse>> actionTask = QueryWithNewClientAsync(queryDb => BuildActionFacetAsync(queryDb, request, cancellationToken));
+        Task<IReadOnlyList<AuditFacetResponse>> outcomeTask = QueryWithNewClientAsync(queryDb => BuildOutcomeFacetAsync(queryDb, request, cancellationToken));
+        Task<IReadOnlyList<AuditFacetResponse>> severityTask = QueryWithNewClientAsync(queryDb => BuildSeverityFacetAsync(queryDb, request, cancellationToken));
+        await Task.WhenAll(totalTask, sourceTask, actionTask, outcomeTask, severityTask);
+
         return new AuditLogSummaryResponse(
-            total,
-            await BuildSourceFacetAsync(request, cancellationToken),
-            await BuildActionFacetAsync(request, cancellationToken),
-            await BuildOutcomeFacetAsync(request, cancellationToken),
-            await BuildSeverityFacetAsync(request, cancellationToken),
+            totalTask.Result,
+            sourceTask.Result,
+            actionTask.Result,
+            outcomeTask.Result,
+            severityTask.Result,
             ToRuntimeResponse(_runtimeState.Snapshot()));
     }
 
@@ -94,8 +103,8 @@ public sealed class AuditQueryService(
         return query;
     }
 
-    private async Task<IReadOnlyList<AuditFacetResponse>> BuildSourceFacetAsync(AuditLogQueryRequest request, CancellationToken cancellationToken)
-        => [.. (await ApplyFilters(_db.Queryable<AuditLog>(), request)
+    private async Task<IReadOnlyList<AuditFacetResponse>> BuildSourceFacetAsync(ISqlSugarClient queryDb, AuditLogQueryRequest request, CancellationToken cancellationToken)
+        => [.. (await ApplyFilters(queryDb.Queryable<AuditLog>(), request)
             .GroupBy(static it => it.Source)
             .Select(static it => new AuditFacetRow { Value = it.Source, Count = SqlFunc.AggregateCount(it.Id) })
             .MergeTable()
@@ -104,8 +113,8 @@ public sealed class AuditQueryService(
             .ToListAsync(cancellationToken))
             .Select(static it => new AuditFacetResponse(it.Value, it.Count))];
 
-    private async Task<IReadOnlyList<AuditFacetResponse>> BuildActionFacetAsync(AuditLogQueryRequest request, CancellationToken cancellationToken)
-        => [.. (await ApplyFilters(_db.Queryable<AuditLog>(), request)
+    private async Task<IReadOnlyList<AuditFacetResponse>> BuildActionFacetAsync(ISqlSugarClient queryDb, AuditLogQueryRequest request, CancellationToken cancellationToken)
+        => [.. (await ApplyFilters(queryDb.Queryable<AuditLog>(), request)
             .GroupBy(static it => it.Action)
             .Select(static it => new AuditFacetRow { Value = it.Action, Count = SqlFunc.AggregateCount(it.Id) })
             .MergeTable()
@@ -114,8 +123,8 @@ public sealed class AuditQueryService(
             .ToListAsync(cancellationToken))
             .Select(static it => new AuditFacetResponse(it.Value, it.Count))];
 
-    private async Task<IReadOnlyList<AuditFacetResponse>> BuildOutcomeFacetAsync(AuditLogQueryRequest request, CancellationToken cancellationToken)
-        => [.. (await ApplyFilters(_db.Queryable<AuditLog>(), request)
+    private async Task<IReadOnlyList<AuditFacetResponse>> BuildOutcomeFacetAsync(ISqlSugarClient queryDb, AuditLogQueryRequest request, CancellationToken cancellationToken)
+        => [.. (await ApplyFilters(queryDb.Queryable<AuditLog>(), request)
             .GroupBy(static it => it.Outcome)
             .Select(static it => new AuditFacetRow { Value = it.Outcome, Count = SqlFunc.AggregateCount(it.Id) })
             .MergeTable()
@@ -124,8 +133,8 @@ public sealed class AuditQueryService(
             .ToListAsync(cancellationToken))
             .Select(static it => new AuditFacetResponse(it.Value, it.Count))];
 
-    private async Task<IReadOnlyList<AuditFacetResponse>> BuildSeverityFacetAsync(AuditLogQueryRequest request, CancellationToken cancellationToken)
-        => [.. (await ApplyFilters(_db.Queryable<AuditLog>(), request)
+    private async Task<IReadOnlyList<AuditFacetResponse>> BuildSeverityFacetAsync(ISqlSugarClient queryDb, AuditLogQueryRequest request, CancellationToken cancellationToken)
+        => [.. (await ApplyFilters(queryDb.Queryable<AuditLog>(), request)
             .GroupBy(static it => it.Severity)
             .Select(static it => new AuditFacetRow { Value = it.Severity, Count = SqlFunc.AggregateCount(it.Id) })
             .MergeTable()
@@ -203,6 +212,12 @@ public sealed class AuditQueryService(
 
     private static string? NormalizeFilter(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private async Task<T> QueryWithNewClientAsync<T>(Func<ISqlSugarClient, Task<T>> query)
+    {
+        using SqlSugarClient queryDb = _db.CopyNew();
+        return await query(queryDb);
+    }
 
     private sealed class AuditFacetRow
     {

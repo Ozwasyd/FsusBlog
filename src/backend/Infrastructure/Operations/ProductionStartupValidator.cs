@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using Microsoft.Extensions.Primitives;
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
@@ -46,6 +47,9 @@ public sealed class ProductionStartupValidationReport(
 public static class ProductionStartupValidator
 {
     private const int SchemaVersion = 3;
+    private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
+    private static readonly object CoreValidationCacheLock = new();
+    private static CoreValidationCacheEntry? s_coreValidationCache;
 
     private sealed class RequiredSettingRule(string key, Func<IConfiguration, string?> readValue)
     {
@@ -53,6 +57,13 @@ public static class ProductionStartupValidator
 
         public Func<IConfiguration, string?> ReadValue { get; } = readValue;
     }
+
+    private sealed record CoreValidationCacheEntry(
+        IConfiguration Configuration,
+        bool EnforceProductionRules,
+        DateTimeOffset ExpiresAt,
+        IChangeToken ReloadToken,
+        ProductionStartupValidationReport Report);
 
     private static readonly string[] DefaultJwtSecrets =
     [
@@ -89,7 +100,37 @@ public static class ProductionStartupValidator
     }
 
     internal static IReadOnlyList<string> ValidateCore(IConfiguration configuration, bool enforceProductionRules)
-        => CreateValidationReport(configuration, enforceProductionRules).Errors;
+        => CreateCachedValidationReport(configuration, enforceProductionRules).Errors;
+
+    private static ProductionStartupValidationReport CreateCachedValidationReport(IConfiguration configuration, bool enforceProductionRules)
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        lock (CoreValidationCacheLock)
+        {
+            if (s_coreValidationCache is { } cached
+                && ReferenceEquals(cached.Configuration, configuration)
+                && cached.EnforceProductionRules == enforceProductionRules
+                && cached.ExpiresAt > now
+                && !cached.ReloadToken.HasChanged)
+            {
+                return cached.Report;
+            }
+        }
+
+        ProductionStartupValidationReport report = CreateValidationReport(configuration, enforceProductionRules);
+        IChangeToken reloadToken = configuration.GetReloadToken();
+        lock (CoreValidationCacheLock)
+        {
+            s_coreValidationCache = new CoreValidationCacheEntry(
+                configuration,
+                enforceProductionRules,
+                now.Add(CoreValidationCacheTtl),
+                reloadToken,
+                report);
+        }
+
+        return report;
+    }
 
     internal static ProductionStartupValidationReport CreateValidationReport(IConfiguration configuration, bool enforceProductionRules)
     {

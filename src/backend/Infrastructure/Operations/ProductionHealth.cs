@@ -18,6 +18,38 @@ public sealed record ProductionHealthReport(
     DateTimeOffset CheckedAt,
     IReadOnlyDictionary<string, object?> Checks);
 
+public interface IProductionHealthCheck
+{
+    string Status { get; }
+}
+
+public sealed record ProductionDependencyHealthCheck(
+    string Status,
+    double? LatencyMs = null,
+    string? Error = null) : IProductionHealthCheck;
+
+public sealed record ProductionConfigurationHealthCheck(
+    string Status,
+    IReadOnlyList<string> Errors) : IProductionHealthCheck;
+
+public sealed record ProductionResourceHealthCheck(
+    string Status,
+    bool WebRootExists,
+    bool IndexExists,
+    bool Ip2LocationExists,
+    PublicAotSsrWorkerResourceStatus PublicAotSsrWorker) : IProductionHealthCheck;
+
+public sealed record ProductionObservabilityHealthCheck(
+    string Status,
+    bool Enabled,
+    bool ExporterEnabled,
+    string ServiceName,
+    string ServiceVersion,
+    string ActivitySource,
+    string Meter,
+    int CustomAttributeCount,
+    string? Error = null) : IProductionHealthCheck;
+
 public sealed record RuntimeHealthSnapshot(
     string Status,
     DbConcurrencyGateSnapshot? DbGate,
@@ -26,7 +58,7 @@ public sealed record RuntimeHealthSnapshot(
     StartupRuntimeSnapshot? Startup,
     ScheduledPublishRuntimeSnapshot? ScheduledPublish,
     PublicHotReadRuntimeSnapshot? PublicHotRead,
-    AuditLogRuntimeSnapshot? AuditLog);
+    AuditLogRuntimeSnapshot? AuditLog) : IProductionHealthCheck;
 
 public static class ProductionLivenessProbe
 {
@@ -46,6 +78,8 @@ public sealed class ProductionReadinessProbe(
 {
     public async Task<ProductionHealthReport> CheckAsync(CancellationToken cancellationToken)
     {
+        Task<ProductionDependencyHealthCheck> postgresTask = CheckPostgresAsync(cancellationToken);
+        Task<ProductionDependencyHealthCheck> redisTask = CheckRedisAsync(cancellationToken);
         Dictionary<string, object?> checks = new(StringComparer.Ordinal)
         {
             ["configuration"] = CheckConfiguration(),
@@ -54,8 +88,9 @@ public sealed class ProductionReadinessProbe(
             ["runtime"] = CheckRuntime()
         };
 
-        checks["postgres"] = await CheckPostgresAsync(cancellationToken);
-        checks["redis"] = await CheckRedisAsync(cancellationToken);
+        await Task.WhenAll(postgresTask, redisTask);
+        checks["postgres"] = postgresTask.Result;
+        checks["redis"] = redisTask.Result;
 
         bool healthy = checks.Values.All(IsHealthyCheck);
         return new ProductionHealthReport(
@@ -64,15 +99,15 @@ public sealed class ProductionReadinessProbe(
             checks);
     }
 
-    private object CheckConfiguration()
+    private ProductionConfigurationHealthCheck CheckConfiguration()
     {
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, environment.IsProduction());
         return errors.Count == 0
-            ? new { status = "ok" }
-            : new { status = "failed", errors };
+            ? new ProductionConfigurationHealthCheck("ok", [])
+            : new ProductionConfigurationHealthCheck("failed", errors);
     }
 
-    private object CheckResources()
+    private ProductionResourceHealthCheck CheckResources()
     {
         string webRoot = environment.WebRootPath;
         if (string.IsNullOrWhiteSpace(webRoot))
@@ -88,32 +123,37 @@ public sealed class ProductionReadinessProbe(
         bool publicAotSsrWorkerReady = !environment.IsProduction()
             || string.Equals(publicAotSsrWorker.Status, "ok", StringComparison.Ordinal);
 
-        return new
-        {
-            status = webRootExists && indexExists && ip2LocationExists && publicAotSsrWorkerReady ? "ok" : "failed",
+        return new ProductionResourceHealthCheck(
+            webRootExists && indexExists && ip2LocationExists && publicAotSsrWorkerReady ? "ok" : "failed",
             webRootExists,
             indexExists,
             ip2LocationExists,
-            publicAotSsrWorker
-        };
+            publicAotSsrWorker);
     }
 
-    private object CheckObservability()
+    private ProductionObservabilityHealthCheck CheckObservability()
     {
         ObservabilityRuntimeState? state = serviceProvider.GetService<ObservabilityRuntimeState>();
         return state is null
-            ? new { status = "failed", error = "observability_not_registered" }
-            : new
-            {
-                status = "ok",
+            ? new ProductionObservabilityHealthCheck(
+                "failed",
+                Enabled: false,
+                ExporterEnabled: false,
+                ServiceName: string.Empty,
+                ServiceVersion: string.Empty,
+                ActivitySource: FsusObservability.ActivitySourceName,
+                Meter: FsusObservability.MeterName,
+                CustomAttributeCount: FsusObservability.CustomAttributeNames.Count,
+                Error: "observability_not_registered")
+            : new ProductionObservabilityHealthCheck(
+                "ok",
                 state.Enabled,
                 state.ExporterEnabled,
                 state.ServiceName,
                 state.ServiceVersion,
-                activitySource = FsusObservability.ActivitySourceName,
-                meter = FsusObservability.MeterName,
-                customAttributeCount = FsusObservability.CustomAttributeNames.Count
-            };
+                FsusObservability.ActivitySourceName,
+                FsusObservability.MeterName,
+                FsusObservability.CustomAttributeNames.Count);
     }
 
     private RuntimeHealthSnapshot CheckRuntime()
@@ -145,7 +185,7 @@ public sealed class ProductionReadinessProbe(
             auditLog);
     }
 
-    private async Task<object> CheckPostgresAsync(CancellationToken cancellationToken)
+    private async Task<ProductionDependencyHealthCheck> CheckPostgresAsync(CancellationToken cancellationToken)
     {
         long startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
         using Activity? activity = FsusObservability.StartActivity("db.postgres.ping", "db", ActivityKind.Client);
@@ -155,7 +195,7 @@ public sealed class ProductionReadinessProbe(
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             FsusObservability.RecordDbOperation("ping", "missing_connection_string", FsusObservability.GetElapsed(startedAt));
-            return new { status = "failed", error = "missing_connection_string" };
+            return new ProductionDependencyHealthCheck("failed", Error: "missing_connection_string");
         }
 
         try
@@ -169,18 +209,18 @@ public sealed class ProductionReadinessProbe(
             TimeSpan elapsed = FsusObservability.GetElapsed(startedAt);
             FsusObservability.RecordDbOperation("ping", Convert.ToInt32(result) == 1 ? "ok" : "unexpected_result", elapsed);
             return Convert.ToInt32(result) == 1
-                ? new { status = "ok", latencyMs = elapsed.TotalMilliseconds }
-                : new { status = "failed", error = "unexpected_result" };
+                ? new ProductionDependencyHealthCheck("ok", LatencyMs: elapsed.TotalMilliseconds)
+                : new ProductionDependencyHealthCheck("failed", Error: "unexpected_result");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "postgres readiness check failed");
             FsusObservability.RecordDbOperation("ping", "failed", FsusObservability.GetElapsed(startedAt));
-            return new { status = "failed", error = ex.GetType().Name };
+            return new ProductionDependencyHealthCheck("failed", Error: ex.GetType().Name);
         }
     }
 
-    private async Task<object> CheckRedisAsync(CancellationToken cancellationToken)
+    private async Task<ProductionDependencyHealthCheck> CheckRedisAsync(CancellationToken cancellationToken)
     {
         long startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
         using Activity? activity = FsusObservability.StartActivity("cache.redis.ping", "cache", ActivityKind.Client);
@@ -193,28 +233,19 @@ public sealed class ProductionReadinessProbe(
             IDatabase database = multiplexer.GetDatabase();
             TimeSpan latency = await database.PingAsync(CommandFlags.DemandMaster);
             FsusObservability.RecordCacheOperation("ping", "redis", "l2", "ok", FsusObservability.GetElapsed(startedAt));
-            return new { status = "ok", latencyMs = latency.TotalMilliseconds };
+            return new ProductionDependencyHealthCheck("ok", LatencyMs: latency.TotalMilliseconds);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "redis readiness check failed");
             FsusObservability.RecordCacheOperation("ping", "redis", "l2", "failed", FsusObservability.GetElapsed(startedAt));
-            return new { status = "failed", error = ex.GetType().Name };
+            return new ProductionDependencyHealthCheck("failed", Error: ex.GetType().Name);
         }
     }
 
     private static bool IsHealthyCheck(object? check)
-    {
-        if (check is null)
-        {
-            return false;
-        }
-
-        object? status = check.GetType()
-            .GetProperty("status", System.Reflection.BindingFlags.IgnoreCase | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
-            ?.GetValue(check);
-        return string.Equals(Convert.ToString(status), "ok", StringComparison.Ordinal);
-    }
+        => check is IProductionHealthCheck health
+            && string.Equals(health.Status, "ok", StringComparison.Ordinal);
 }
 
 public static class ProductionHealthEndpoints

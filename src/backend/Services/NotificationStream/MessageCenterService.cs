@@ -223,9 +223,11 @@ public sealed class MessageCenterService(
             return Result<ConversationDetailResponse>.Failure(ErrorCode.InfraFailure, "会话创建后读取失败");
         }
 
-        await PublishConversationUpsertAsync(userId, detail);
-        await PublishMessageAppendAsync(detail.ConversationId, detail.Messages.Last(), conversationUnreadCount: 0, totalUnread: await RefreshUnreadCacheAsync(userId));
-        await PublishConversationUpsertToAdminsAsync(conversationId);
+        int totalUnread = await RefreshUnreadCacheAsync(userId);
+        await Task.WhenAll(
+            PublishConversationUpsertAsync(userId, detail),
+            PublishMessageAppendAsync(detail.ConversationId, detail.Messages.Last(), conversationUnreadCount: 0, totalUnread: totalUnread),
+            PublishConversationUpsertToAdminsAsync(conversationId));
         return Result<ConversationDetailResponse>.Success(detail);
     }
 
@@ -299,9 +301,10 @@ public sealed class MessageCenterService(
         }
 
         int totalUnread = await RefreshUnreadCacheAsync(userId);
-        await PublishReadUpdatedAsync(participant.UserId, conversationId, messageId, 0, totalUnread);
-        await PublishMessageAppendAsync(conversationId.ToString(), message, 0, totalUnread);
-        await PublishConversationUpsertToAdminsAsync(conversationId);
+        await Task.WhenAll(
+            PublishReadUpdatedAsync(participant.UserId, conversationId, messageId, 0, totalUnread),
+            PublishMessageAppendAsync(conversationId.ToString(), message, 0, totalUnread),
+            PublishConversationUpsertToAdminsAsync(conversationId));
         return Result<ConversationMessageResponse>.Success(message);
     }
 
@@ -396,17 +399,7 @@ public sealed class MessageCenterService(
         var participants = await db.Queryable<ConversationParticipantState>()
             .Where(it => it.ConversationId == conversationId)
             .ToListAsync();
-        foreach (var participant in participants)
-        {
-            int totalUnread = await RefreshUnreadCacheAsync(participant.UserId);
-            var item = await BuildConversationListItemForUserAsync(participant.UserId, conversationId);
-            if (item is not null)
-            {
-                await PublishConversationUpsertAsync(participant.UserId, item, totalUnread);
-            }
-            await PublishMessageAppendAsync(conversationId.ToString(), message, participant.UnreadCount + 1, totalUnread, participant.UserId);
-        }
-
+        await PublishParticipantMessageFanoutAsync(conversationId, message, participants);
         await PublishConversationUpsertToAdminsAsync(conversationId);
         return Result<ConversationMessageResponse>.Success(message);
     }
@@ -431,11 +424,14 @@ public sealed class MessageCenterService(
             .Where(it => it.ConversationId == conversationId)
             .Select(it => it.UserId)
             .ToListAsync();
-        foreach (var userId in participants)
+        var publishTasks = new List<Task>(participants.Count + 1);
+        for (int i = 0; i < participants.Count; i++)
         {
-            await PublishConversationClosedAsync(userId, conversationId, status);
+            publishTasks.Add(PublishConversationClosedAsync(participants[i], conversationId, status));
         }
-        await PublishConversationClosedToAdminsAsync(conversationId, status);
+
+        publishTasks.Add(PublishConversationClosedToAdminsAsync(conversationId, status));
+        await Task.WhenAll(publishTasks);
         return Result.Success();
     }
 
@@ -505,9 +501,9 @@ public sealed class MessageCenterService(
             return Result<ConversationDetailResponse>.Failure(ErrorCode.InfraFailure, "系统消息创建后读取失败");
         }
 
-        await PublishConversationUpsertAsync(target, detail, totalUnread);
-        await PublishMessageAppendAsync(conversationId.ToString(), detail.Messages.Last(), 1, totalUnread, target);
-        await PublishConversationUpsertToAdminsAsync(conversationId);
+        await Task.WhenAll(
+            PublishUserConversationUpsertThenMessageAppendAsync(target, detail, totalUnread),
+            PublishConversationUpsertToAdminsAsync(conversationId));
         return Result<ConversationDetailResponse>.Success(detail);
     }
 
@@ -854,6 +850,52 @@ public sealed class MessageCenterService(
             NotificationStreamEventType.InboxConversationClosed,
             new InboxConversationClosedPayload(conversationId.ToString(), status, DateTime.UtcNow),
             "inbox-conversation-closed-admin");
+
+    private async Task PublishParticipantMessageFanoutAsync(
+        long conversationId,
+        ConversationMessageResponse message,
+        IReadOnlyList<ConversationParticipantState> participants)
+    {
+        if (participants.Count == 0)
+        {
+            return;
+        }
+
+        var tasks = new List<Task>(participants.Count);
+        for (int i = 0; i < participants.Count; i++)
+        {
+            ConversationParticipantState participant = participants[i];
+            int totalUnread = await RefreshUnreadCacheAsync(participant.UserId);
+            ConversationListItemResponse? item = await BuildConversationListItemForUserAsync(participant.UserId, conversationId);
+            tasks.Add(PublishPreparedParticipantMessageAsync(conversationId, message, participant, item, totalUnread));
+        }
+
+        await Task.WhenAll(tasks);
+    }
+
+    private async Task PublishPreparedParticipantMessageAsync(
+        long conversationId,
+        ConversationMessageResponse message,
+        ConversationParticipantState participant,
+        ConversationListItemResponse? item,
+        int totalUnread)
+    {
+        if (item is not null)
+        {
+            await PublishConversationUpsertAsync(participant.UserId, item, totalUnread);
+        }
+
+        await PublishMessageAppendAsync(conversationId.ToString(), message, participant.UnreadCount + 1, totalUnread, participant.UserId);
+    }
+
+    private async Task PublishUserConversationUpsertThenMessageAppendAsync(
+        int target,
+        ConversationDetailResponse detail,
+        int totalUnread)
+    {
+        await PublishConversationUpsertAsync(target, detail, totalUnread);
+        await PublishMessageAppendAsync(detail.ConversationId, detail.Messages.Last(), 1, totalUnread, target);
+    }
 
     private async Task<int> RefreshUnreadCacheAsync(int userId)
     {

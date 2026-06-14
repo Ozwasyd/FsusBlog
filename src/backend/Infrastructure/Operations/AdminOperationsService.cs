@@ -196,8 +196,9 @@ public sealed class AdminOperationsService(
                 bool queued = publicHotArtifactUpdateQueue.TryEnqueue(request.ArticleId, "admin-cache-action");
                 return ActionResult(action, queued ? "queued" : "degraded", queued ? "public hot/AOT rebuild queued" : "AOT invalidated; public hot rebuild queue rejected");
             case "output-cache-clear":
-                await cacheInvalidationDispatcher.InvalidateArticleMutationAsync(request.ArticleId, cancellationToken);
-                await cacheInvalidationDispatcher.InvalidateSeoAsync(cancellationToken);
+                await Task.WhenAll(
+                    cacheInvalidationDispatcher.InvalidateArticleMutationAsync(request.ArticleId, cancellationToken),
+                    cacheInvalidationDispatcher.InvalidateSeoAsync(cancellationToken));
                 return ActionResult(action, "ok", "output/cache tags invalidated");
             case "sitemap-feed-refresh":
                 await cacheInvalidationDispatcher.InvalidateSeoAsync(cancellationToken);
@@ -263,27 +264,12 @@ public sealed class AdminOperationsService(
 
         if (codes.Contains("article_tag_missing_tag") || codes.Contains("article_tag_missing_article"))
         {
-            foreach (ArticleTag tag in data.ArticleTags.Where(tag => !data.TagIds.Contains(tag.TagId) || !data.ArticleIds.Contains(tag.ArticleId)))
-            {
-                await db.Deleteable<ArticleTag>()
-                    .Where(item => item.ArticleId == tag.ArticleId && item.TagId == tag.TagId)
-                    .ExecuteCommandAsync(cancellationToken);
-                diffs.Add(new AdminDiffResponse($"article_tag:{tag.ArticleId}:{tag.TagId}", "present", "deleted"));
-            }
+            diffs.AddRange(await DeleteInvalidArticleTagsAsync(data, cancellationToken));
         }
 
         if (codes.Contains("session_deleted_user"))
         {
-            DateTime now = DateTime.UtcNow;
-            foreach (UserSession session in data.Sessions.Where(session => data.DeletedOrMissingUserIds.Contains(session.UserId) && session.RevokedAt is null))
-            {
-                await db.Updateable<UserSession>()
-                    .SetColumns(item => item.RevokedAt == now)
-                    .SetColumns(item => item.RevokeReason == "integrity_safe_fix_deleted_user")
-                    .Where(item => item.SessionId == session.SessionId)
-                    .ExecuteCommandAsync(cancellationToken);
-                diffs.Add(new AdminDiffResponse($"session:{session.SessionId}", "active", "revoked"));
-            }
+            diffs.AddRange(await RevokeDeletedUserSessionsAsync(data, cancellationToken));
         }
 
         return new IntegrityFixResponse(
@@ -306,15 +292,22 @@ public sealed class AdminOperationsService(
             ["comment-bulk-moderation", "user-ban", "password-reset", "site-backup-export", "integrity-fix"],
             "single-author-v1");
 
+    private async Task<T> QueryWithNewClientAsync<T>(Func<ISqlSugarClient, Task<T>> query)
+    {
+        using SqlSugarClient queryDb = db.CopyNew();
+        return await query(queryDb);
+    }
+
     private async Task<QueueBacklogResponse> GetQueueBacklogAsync(AuditLogRuntimeSnapshot audit, CancellationToken cancellationToken)
     {
-        int pending = await db.Queryable<ArticleMutationOutboxEvent>()
+        Task<int> pendingTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<ArticleMutationOutboxEvent>()
             .Where(item => item.Status == "pending")
-            .CountAsync(cancellationToken);
-        int failed = await db.Queryable<ArticleMutationOutboxEvent>()
+            .CountAsync(cancellationToken));
+        Task<int> failedTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<ArticleMutationOutboxEvent>()
             .Where(item => item.Status == "failed")
-            .CountAsync(cancellationToken);
-        return new QueueBacklogResponse(pending, failed, audit.QueuedCount, audit.DroppedCount);
+            .CountAsync(cancellationToken));
+        await Task.WhenAll(pendingTask, failedTask);
+        return new QueueBacklogResponse(pendingTask.Result, failedTask.Result, audit.QueuedCount, audit.DroppedCount);
     }
 
     private async Task<IReadOnlyList<RecentOpsErrorResponse>> LoadRecentErrorsAsync(CancellationToken cancellationToken)
@@ -593,19 +586,91 @@ public sealed class AdminOperationsService(
 
     private async Task<IntegrityData> LoadIntegrityDataAsync(CancellationToken cancellationToken)
     {
-        List<Article> articles = await db.Queryable<Article>().ToListAsync(cancellationToken);
-        List<ArticleBody> bodies = await db.Queryable<ArticleBody>().ToListAsync(cancellationToken);
-        List<ArticleRevision> revisions = await db.Queryable<ArticleRevision>().ToListAsync(cancellationToken);
-        List<Category> categories = await db.Queryable<Category>().ToListAsync(cancellationToken);
-        List<Tag> tags = await db.Queryable<Tag>().ToListAsync(cancellationToken);
-        List<ArticleTag> articleTags = await db.Queryable<ArticleTag>().ToListAsync(cancellationToken);
-        List<Comment> comments = await db.Queryable<Comment>().ToListAsync(cancellationToken);
-        List<User> users = await db.Queryable<User>().ToListAsync(cancellationToken);
-        List<UserSession> sessions = await db.Queryable<UserSession>().ToListAsync(cancellationToken);
-        List<AssetLibraryItem> assets = await db.Queryable<AssetLibraryItem>().ToListAsync(cancellationToken);
+        Task<List<IntegrityArticleRow>> articlesTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<Article>()
+            .Select(article => new IntegrityArticleRow
+            {
+                Id = article.Id,
+                CategoryId = article.CategoryId,
+                Status = article.Status
+            })
+            .ToListAsync(cancellationToken));
+        Task<List<IntegrityArticleBodyRow>> bodiesTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<ArticleBody>()
+            .Select(body => new IntegrityArticleBodyRow { ArticleId = body.ArticleId })
+            .ToListAsync(cancellationToken));
+        Task<List<IntegrityArticleRevisionRow>> revisionsTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<ArticleRevision>()
+            .Select(revision => new IntegrityArticleRevisionRow { ArticleId = revision.ArticleId })
+            .ToListAsync(cancellationToken));
+        Task<List<IntegrityCategoryRow>> categoriesTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<Category>()
+            .Select(category => new IntegrityCategoryRow { Id = category.Id })
+            .ToListAsync(cancellationToken));
+        Task<List<IntegrityTagRow>> tagsTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<Tag>()
+            .Select(tag => new IntegrityTagRow { Id = tag.Id })
+            .ToListAsync(cancellationToken));
+        Task<List<IntegrityArticleTagRow>> articleTagsTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<ArticleTag>()
+            .Select(tag => new IntegrityArticleTagRow
+            {
+                ArticleId = tag.ArticleId,
+                TagId = tag.TagId
+            })
+            .ToListAsync(cancellationToken));
+        Task<List<IntegrityCommentRow>> commentsTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<Comment>()
+            .Select(comment => new IntegrityCommentRow
+            {
+                Id = comment.Id,
+                ArticleId = comment.ArticleId,
+                ParentId = comment.ParentId,
+                RootId = comment.RootId
+            })
+            .ToListAsync(cancellationToken));
+        Task<List<IntegrityUserRow>> usersTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<User>()
+            .Select(user => new IntegrityUserRow
+            {
+                Id = user.Id,
+                Status = user.Status,
+                DeletedAt = user.DeletedAt
+            })
+            .ToListAsync(cancellationToken));
+        Task<List<IntegritySessionRow>> sessionsTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<UserSession>()
+            .Select(session => new IntegritySessionRow
+            {
+                SessionId = session.SessionId,
+                UserId = session.UserId,
+                RevokedAt = session.RevokedAt
+            })
+            .ToListAsync(cancellationToken));
+        Task<List<IntegrityAssetRow>> assetsTask = QueryWithNewClientAsync(queryDb => queryDb.Queryable<AssetLibraryItem>()
+            .Select(asset => new IntegrityAssetRow
+            {
+                Id = asset.Id,
+                Url = asset.Url
+            })
+            .ToListAsync(cancellationToken));
+        await Task.WhenAll(
+            articlesTask,
+            bodiesTask,
+            revisionsTask,
+            categoriesTask,
+            tagsTask,
+            articleTagsTask,
+            commentsTask,
+            usersTask,
+            sessionsTask,
+            assetsTask);
+
         string webRoot = ResolveWebRoot();
 
-        return new IntegrityData(articles, bodies, revisions, categories, tags, articleTags, comments, users, sessions, assets, webRoot);
+        return new IntegrityData(
+            articlesTask.Result,
+            bodiesTask.Result,
+            revisionsTask.Result,
+            categoriesTask.Result,
+            tagsTask.Result,
+            articleTagsTask.Result,
+            commentsTask.Result,
+            usersTask.Result,
+            sessionsTask.Result,
+            assetsTask.Result,
+            webRoot);
     }
 
     private static IReadOnlyList<string> MissingBody(IntegrityData data)
@@ -691,6 +756,106 @@ public sealed class AdminOperationsService(
         diffs.AddRange(data.Sessions
             .Where(session => data.DeletedOrMissingUserIds.Contains(session.UserId) && session.RevokedAt is null)
             .Select(session => new AdminDiffResponse($"session:{session.SessionId}", "active", "revoked")));
+        return diffs;
+    }
+
+    private async Task<IReadOnlyList<AdminDiffResponse>> DeleteInvalidArticleTagsAsync(
+        IntegrityData data,
+        CancellationToken cancellationToken)
+    {
+        IntegrityArticleTagRow[] invalidTags =
+        [
+            .. data.ArticleTags.Where(tag => !data.TagIds.Contains(tag.TagId) || !data.ArticleIds.Contains(tag.ArticleId))
+        ];
+        if (invalidTags.Length == 0)
+        {
+            return [];
+        }
+
+        var diffs = new List<AdminDiffResponse>(invalidTags.Length);
+        for (int i = 0; i < invalidTags.Length; i++)
+        {
+            IntegrityArticleTagRow tag = invalidTags[i];
+            diffs.Add(new AdminDiffResponse($"article_tag:{tag.ArticleId}:{tag.TagId}", "present", "deleted"));
+        }
+
+        const int BatchSize = 500;
+        for (int offset = 0; offset < invalidTags.Length; offset += BatchSize)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int count = Math.Min(BatchSize, invalidTags.Length - offset);
+            await DeleteArticleTagBatchAsync(invalidTags, offset, count);
+        }
+
+        return diffs;
+    }
+
+    private async Task DeleteArticleTagBatchAsync(
+        IReadOnlyList<IntegrityArticleTagRow> tags,
+        int offset,
+        int count)
+    {
+        var sql = new StringBuilder("DELETE FROM article_tag WHERE ");
+        var parameters = new List<SugarParameter>(count * 2);
+        for (int i = 0; i < count; i++)
+        {
+            if (i > 0)
+            {
+                sql.Append(" OR ");
+            }
+
+            int parameterIndex = offset + i;
+            string articleParameter = $"@article_id_{parameterIndex}";
+            string tagParameter = $"@tag_id_{parameterIndex}";
+            sql.Append("(article_id = ")
+                .Append(articleParameter)
+                .Append(" AND tag_id = ")
+                .Append(tagParameter)
+                .Append(')');
+            IntegrityArticleTagRow tag = tags[parameterIndex];
+            parameters.Add(new SugarParameter(articleParameter, tag.ArticleId));
+            parameters.Add(new SugarParameter(tagParameter, tag.TagId));
+        }
+
+        await db.Ado.ExecuteCommandAsync(sql.ToString(), parameters.ToArray());
+    }
+
+    private async Task<IReadOnlyList<AdminDiffResponse>> RevokeDeletedUserSessionsAsync(
+        IntegrityData data,
+        CancellationToken cancellationToken)
+    {
+        IntegritySessionRow[] sessions =
+        [
+            .. data.Sessions.Where(session => data.DeletedOrMissingUserIds.Contains(session.UserId) && session.RevokedAt is null)
+        ];
+        if (sessions.Length == 0)
+        {
+            return [];
+        }
+
+        var diffs = new List<AdminDiffResponse>(sessions.Length);
+        for (int i = 0; i < sessions.Length; i++)
+        {
+            diffs.Add(new AdminDiffResponse($"session:{sessions[i].SessionId}", "active", "revoked"));
+        }
+
+        DateTime now = DateTime.UtcNow;
+        const int BatchSize = 500;
+        for (int offset = 0; offset < sessions.Length; offset += BatchSize)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string[] sessionIds = sessions
+                .Skip(offset)
+                .Take(Math.Min(BatchSize, sessions.Length - offset))
+                .Select(static session => session.SessionId)
+                .ToArray();
+            await db.Updateable<UserSession>()
+                .SetColumns(item => item.RevokedAt == now)
+                .SetColumns(item => item.RevokeReason == "integrity_safe_fix_deleted_user")
+                .Where(item => sessionIds.Contains(item.SessionId))
+                .ExecuteCommandAsync(cancellationToken);
+        }
+
         return diffs;
     }
 
@@ -784,33 +949,26 @@ public sealed class AdminOperationsService(
         => values.Select(static item => new AdminMetricResponse(item.Key, item.Value)).ToArray();
 
     private static string ReadinessStatus(ProductionHealthReport report, string key)
-        => report.Checks.TryGetValue(key, out object? check) ? ExtractStatus(check) : "unknown";
+        => report.Checks.TryGetValue(key, out object? check) && check is IProductionHealthCheck health
+            ? health.Status
+            : "unknown";
 
     private static string? ReadinessDetail(ProductionHealthReport report, string key)
-        => report.Checks.TryGetValue(key, out object? check) ? ExtractProperty(check, "error") ?? ExtractProperty(check, "status") : null;
+        => report.Checks.TryGetValue(key, out object? check)
+            ? check switch
+            {
+                ProductionDependencyHealthCheck dependency => dependency.Error ?? dependency.Status,
+                IProductionHealthCheck health => health.Status,
+                _ => null
+            }
+            : null;
 
     private static IReadOnlyList<AdminMetricResponse> ReadinessMetrics(ProductionHealthReport report, string key)
     {
-        if (!report.Checks.TryGetValue(key, out object? check) || check is null)
-        {
-            return [];
-        }
-
-        return check.GetType()
-            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-            .Where(static property => property.Name is not "status" and not "error")
-            .Select(property => new AdminMetricResponse(property.Name, property.GetValue(check)))
-            .ToArray();
+        return report.Checks.TryGetValue(key, out object? check) && check is ProductionDependencyHealthCheck { LatencyMs: not null } dependency
+            ? Metrics(("latencyMs", dependency.LatencyMs.Value))
+            : [];
     }
-
-    private static string ExtractStatus(object? value)
-        => ExtractProperty(value, "status") ?? "unknown";
-
-    private static string? ExtractProperty(object? value, string propertyName)
-        => value?.GetType()
-            .GetProperty(propertyName, BindingFlags.IgnoreCase | BindingFlags.Instance | BindingFlags.Public)
-            ?.GetValue(value)
-            ?.ToString();
 
     private static DateTimeOffset? ToOffset(DateTime? value)
         => value is null ? null : new DateTimeOffset(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc));
@@ -826,16 +984,16 @@ public sealed class AdminOperationsService(
             ?? "unknown";
 
     private sealed record IntegrityData(
-        List<Article> Articles,
-        List<ArticleBody> Bodies,
-        List<ArticleRevision> Revisions,
-        List<Category> Categories,
-        List<Tag> Tags,
-        List<ArticleTag> ArticleTags,
-        List<Comment> Comments,
-        List<User> Users,
-        List<UserSession> Sessions,
-        List<AssetLibraryItem> Assets,
+        List<IntegrityArticleRow> Articles,
+        List<IntegrityArticleBodyRow> Bodies,
+        List<IntegrityArticleRevisionRow> Revisions,
+        List<IntegrityCategoryRow> Categories,
+        List<IntegrityTagRow> Tags,
+        List<IntegrityArticleTagRow> ArticleTags,
+        List<IntegrityCommentRow> Comments,
+        List<IntegrityUserRow> Users,
+        List<IntegritySessionRow> Sessions,
+        List<IntegrityAssetRow> Assets,
         string WebRoot)
     {
         public HashSet<int> ArticleIds { get; } = Articles.Select(static item => item.Id).ToHashSet();
@@ -844,10 +1002,91 @@ public sealed class AdminOperationsService(
         public HashSet<int> CategoryIds { get; } = Categories.Select(static item => item.Id).ToHashSet();
         public HashSet<int> TagIds { get; } = Tags.Select(static item => item.Id).ToHashSet();
         public HashSet<long> CommentIds { get; } = Comments.Select(static item => item.Id).ToHashSet();
-        public HashSet<int> DeletedOrMissingUserIds { get; } = Sessions
-            .Select(static session => session.UserId)
-            .Where(userId => !Users.Any(user => user.Id == userId && user.Status != 2 && user.DeletedAt is null))
+
+        private HashSet<int>? _activeUserIds;
+        private HashSet<int>? _deletedOrMissingUserIds;
+
+        public HashSet<int> ActiveUserIds => _activeUserIds ??= Users
+            .Where(static user => user.Status != 2 && user.DeletedAt is null)
+            .Select(static user => user.Id)
             .ToHashSet();
+
+        public HashSet<int> DeletedOrMissingUserIds => _deletedOrMissingUserIds ??= Sessions
+            .Select(static session => session.UserId)
+            .Where(userId => !ActiveUserIds.Contains(userId))
+            .ToHashSet();
+    }
+
+    private sealed class IntegrityArticleRow
+    {
+        public int Id { get; init; }
+
+        public int CategoryId { get; init; }
+
+        public ArticleStatus Status { get; init; }
+    }
+
+    private sealed class IntegrityArticleBodyRow
+    {
+        public int ArticleId { get; init; }
+    }
+
+    private sealed class IntegrityArticleRevisionRow
+    {
+        public int ArticleId { get; init; }
+    }
+
+    private sealed class IntegrityCategoryRow
+    {
+        public int Id { get; init; }
+    }
+
+    private sealed class IntegrityTagRow
+    {
+        public int Id { get; init; }
+    }
+
+    private sealed class IntegrityArticleTagRow
+    {
+        public int ArticleId { get; init; }
+
+        public int TagId { get; init; }
+    }
+
+    private sealed class IntegrityCommentRow
+    {
+        public long Id { get; init; }
+
+        public int ArticleId { get; init; }
+
+        public long? ParentId { get; init; }
+
+        public long? RootId { get; init; }
+    }
+
+    private sealed class IntegrityUserRow
+    {
+        public int Id { get; init; }
+
+        public int Status { get; init; }
+
+        public DateTime? DeletedAt { get; init; }
+    }
+
+    private sealed class IntegritySessionRow
+    {
+        public string SessionId { get; init; } = string.Empty;
+
+        public int UserId { get; init; }
+
+        public DateTime? RevokedAt { get; init; }
+    }
+
+    private sealed class IntegrityAssetRow
+    {
+        public long Id { get; init; }
+
+        public string Url { get; init; } = string.Empty;
     }
 }
 

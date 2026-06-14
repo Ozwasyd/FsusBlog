@@ -21,8 +21,12 @@ public abstract class PublicAotBootstrapProviderBase(ISystemService systemServic
 
     protected async Task<PublicAotSeoSnapshot> LoadSeoSnapshotAsync()
     {
-        SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
-        SiteComplianceConfigReadModel compliance = await systemService.GetSiteComplianceConfigAsync();
+        Task<SeoConfigReadModel> seoTask = systemService.GetSeoConfigAsync();
+        Task<SiteComplianceConfigReadModel> complianceTask = systemService.GetSiteComplianceConfigAsync();
+        await Task.WhenAll(seoTask, complianceTask);
+
+        SeoConfigReadModel seo = seoTask.Result;
+        SiteComplianceConfigReadModel compliance = complianceTask.Result;
         return new PublicAotSeoSnapshot(
             seo.Title,
             seo.Description,
@@ -90,8 +94,12 @@ public sealed class PublicAotHomeBootstrapProvider(
     public override async Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
         const int pageSize = 10;
-        PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
-        ArticleListPageReadModel page = await articleService.GetPageListAsync(1, pageSize, null, null, false, cancellationToken: cancellationToken);
+        Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
+        Task<ArticleListPageReadModel> pageTask = articleService.GetPageListAsync(1, pageSize, null, null, false, cancellationToken: cancellationToken);
+        await Task.WhenAll(seoTask, pageTask);
+
+        PublicAotSeoSnapshot seo = seoTask.Result;
+        ArticleListPageReadModel page = pageTask.Result;
         return Result<PublicPageSnapshot>.Success(new PublicHomePageSnapshot(
             seo,
             Page: 1,
@@ -117,13 +125,17 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         }
 
         DateTime utcNow = DateTime.UtcNow;
-        ArticleDetailAotProjection? article = await LoadPublicArticleForAotAsync(articleId, utcNow, cancellationToken);
+        Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
+        Task<ArticleDetailAotProjection?> articleTask = LoadPublicArticleForAotAsync(articleId, utcNow, cancellationToken);
+        await Task.WhenAll(seoTask, articleTask);
+
+        ArticleDetailAotProjection? article = articleTask.Result;
         if (article is null)
         {
             return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_article_not_found");
         }
 
-        PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
+        PublicAotSeoSnapshot seo = seoTask.Result;
         RelatedReadingResponse? relatedReading = await relatedReadingService.BuildAsync(articleId, cancellationToken);
         return Result<PublicPageSnapshot>.Success(new PublicArticlePageSnapshot(
             seo,
@@ -230,11 +242,15 @@ public sealed class PublicAotFilterBootstrapProvider(
     {
         const int pageIndex = 1;
         const int pageSize = 10;
-        PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
+        Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
         FilterIdentity identity = await ResolveFilterIdentityAsync(match.RouteKey, cancellationToken);
-        ArticleListPageReadModel page = !identity.IsInvalidTarget
-            ? await articleService.GetPageListAsync(pageIndex, pageSize, identity.CategoryId, identity.TagId, false, cancellationToken: cancellationToken)
-            : new ArticleListPageReadModel { Items = [], Total = 0 };
+        Task<ArticleListPageReadModel> pageTask = !identity.IsInvalidTarget
+            ? articleService.GetPageListAsync(pageIndex, pageSize, identity.CategoryId, identity.TagId, false, cancellationToken: cancellationToken)
+            : Task.FromResult(new ArticleListPageReadModel { Items = [], Total = 0 });
+        await Task.WhenAll(seoTask, pageTask);
+
+        PublicAotSeoSnapshot seo = seoTask.Result;
+        ArticleListPageReadModel page = pageTask.Result;
         string title = ResolveFilterTitle(identity);
 
         return Result<PublicPageSnapshot>.Success(new PublicFilterPageSnapshot(
@@ -323,8 +339,12 @@ public abstract class PublicAotStaticPageBootstrapProvider : PublicAotBootstrapP
 
     public override async Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
-        PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
-        PageContentReadModel page = await _systemService.GetPageContentAsync(PublicAotPageIdentity.GetCanonicalSlug(_kind));
+        Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
+        Task<PageContentReadModel> pageTask = _systemService.GetPageContentAsync(PublicAotPageIdentity.GetCanonicalSlug(_kind));
+        await Task.WhenAll(seoTask, pageTask);
+
+        PublicAotSeoSnapshot seo = seoTask.Result;
+        PageContentReadModel page = pageTask.Result;
         return Result<PublicPageSnapshot>.Success(new PublicStaticPageSnapshot(
             _kind,
             seo,
@@ -354,8 +374,12 @@ public sealed class PublicAotArchiveBootstrapProvider(
 
     public override async Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
-        PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
-        IReadOnlyList<ArchiveArticleAotProjection> articles = await ListPublicArchiveArticlesAsync(cancellationToken);
+        Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
+        Task<List<ArchiveArticleAotProjection>> articlesTask = ListPublicArchiveArticlesAsync(cancellationToken);
+        await Task.WhenAll(seoTask, articlesTask);
+
+        PublicAotSeoSnapshot seo = seoTask.Result;
+        IReadOnlyList<ArchiveArticleAotProjection> articles = articlesTask.Result;
         return Result<PublicPageSnapshot>.Success(new PublicArchivePageSnapshot(
             seo,
             articles.Select(static article => new PublicArchiveArticleSnapshot(article.Id, article.Title, article.CreateTime)).ToArray(),
