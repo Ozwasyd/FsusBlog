@@ -5,11 +5,13 @@
         <span class="editor-shell__title text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-primary)]" id="markdown-editor-title">Markdown 编辑器</span>
         <span class="text-[11px] tabular-nums font-bold normal-case tracking-normal px-2 py-0.5 border border-[var(--fsusblog-panel-border)] text-[var(--fsusblog-text-muted)] rounded-[var(--fsus-radius-control-small)]">{{ provider.label }}</span>
         <span
-          v-if="loading || saving"
+          v-if="editorStatusText"
           class="text-[11px] font-bold normal-case tracking-normal "
           :class="saving ? 'text-[var(--fsusblog-color-warning-text)]' : 'text-[var(--fsusblog-text-muted)]'"
+          role="status"
+          aria-live="polite"
         >
-          {{ saving ? 'Saving...' : 'Loading...' }}
+          {{ editorStatusText }}
         </span>
       </div>
       <el-radio-group v-model="mode" size="small" :disabled="loading">
@@ -43,7 +45,8 @@
       <div v-if="isPreviewMounted" :class="['preview-panel', previewClass]" role="region" aria-label="Markdown 预览">
         <div class="preview-panel__scroll">
           <div class="preview-panel__view">
-            <div v-if="loading" class="preview-panel__loading">
+            <div v-if="loading" class="preview-panel__state preview-panel__loading" role="status" aria-live="polite">
+              <span class="preview-panel__sr-only">加载中</span>
               <el-skeleton animated>
                 <template #template>
                   <div class="preview-skeleton-line preview-skeleton-line--title">
@@ -64,14 +67,17 @@
                 </template>
               </el-skeleton>
             </div>
-            <div v-else-if="isLargePreviewContent && isManualPreviewStale" class="preview-panel__notice" role="status">
-              <p>当前文档较大，预览已暂停自动刷新以降低渲染压力。</p>
-              <el-button type="primary" @click="refreshManualPreview">刷新预览</el-button>
+            <div v-else-if="isLargePreviewContent && isManualPreviewStale" class="preview-panel__state preview-panel__notice" role="status">
+              <p class="preview-panel__state-title">预览已暂停自动刷新</p>
+              <p class="preview-panel__state-description">当前文档较大，手动刷新可以降低渲染压力。</p>
+              <div class="preview-panel__state-actions">
+                <el-button type="primary" @click="refreshManualPreview">刷新预览</el-button>
+              </div>
             </div>
-            <el-empty
-              v-else-if="!previewContent.trim()"
-              description="当前没有可预览内容"
-            />
+            <div v-else-if="!previewContent.trim()" class="preview-panel__state preview-panel__empty" role="status">
+              <p class="preview-panel__state-title">暂无预览内容</p>
+              <p class="preview-panel__state-description">开始编写后将在这里显示预览。</p>
+            </div>
             <component
               :is="provider.previewComponent"
               v-else
@@ -140,6 +146,17 @@ const isLargePreviewContent = computed(() =>
 )
 const previewContent = computed(() => isLargePreviewContent.value ? manualPreviewContent.value : debouncedPreviewContent.value)
 const isManualPreviewStale = computed(() => manualPreviewContent.value !== content.value)
+const editorStatusText = computed(() => {
+  if (props.saving) {
+    return '保存中'
+  }
+
+  if (props.loading) {
+    return '加载中'
+  }
+
+  return ''
+})
 
 const mergedToolbarsExclude = computed(() => {
   return Array.from(new Set([...(props.toolbarsExclude || []), ...provider.value.defaultToolbarsExclude]))
@@ -244,19 +261,55 @@ defineExpose({
   contain-intrinsic-size: 900px;
 }
 
+.preview-panel__state {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1.5rem 0;
+  color: var(--fsusblog-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
 .preview-panel__loading {
   padding: 24px 0;
 }
 
+.preview-panel__state-title,
+.preview-panel__state-description {
+  margin: 0;
+}
+
+.preview-panel__state-title {
+  color: var(--fsusblog-text-primary);
+  font-weight: 700;
+}
+
+.preview-panel__state-description {
+  color: var(--fsusblog-text-tertiary);
+}
+
+.preview-panel__state-actions {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .preview-panel__notice {
-  display: grid;
-  gap: 1rem;
-  padding: 1.25rem;
-  border: 1px solid var(--fsusblog-panel-border);
-  background: var(--fsusblog-page-bg-soft);
-  color: var(--fsusblog-text-secondary);
-  font-size: 0.875rem;
-  line-height: 1.7;
+  border-top: 1px solid var(--fsusblog-panel-border);
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+}
+
+.preview-panel__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .preview-skeleton-line {

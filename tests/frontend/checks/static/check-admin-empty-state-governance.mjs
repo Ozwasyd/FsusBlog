@@ -19,12 +19,7 @@ const adminAccountRoots = [
 
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 
-const directElEmptyAllowlist = new Map([
-  [
-    'src/frontend/src/components/ui/MarkdownEditorAdapter.vue',
-    'Authoring/editor preview state is tracked by FsusBlog #220.'
-  ]
-])
+const directElEmptyAllowlist = new Map()
 
 const dashPlaceholderAllowlist = [
   {
