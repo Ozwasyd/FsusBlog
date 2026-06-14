@@ -12,7 +12,8 @@ internal interface INotificationStreamSessionService
 internal sealed class NotificationStreamSessionService(
     NotificationStreamConnectionManager manager,
     NotificationStreamBacklogStore backlogStore,
-    INotificationFrameCodec frameCodec) : INotificationStreamSessionService
+    INotificationFrameCodec frameCodec,
+    ILogger<NotificationStreamSessionService> logger) : INotificationStreamSessionService
 {
     private static readonly TimeSpan HeartbeatWindow = TimeSpan.FromSeconds(25);
 
@@ -33,6 +34,10 @@ internal sealed class NotificationStreamSessionService(
         }
         catch (OperationCanceledException)
         {
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "notification-stream-session-ended-before-accept-or-pump {ConnectionId}", connectionId);
         }
         finally
         {
