@@ -185,6 +185,7 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 - `challengeToken`：仅在 `authPhase = "mfa_required"` 时存在
 - `POST /api/Auth/register` 成功时同样返回该结构，并在同一响应内写入登录 Cookie，实现“注册后自动登录”
 - 密码、MFA challenge 或 Passkey 断言完成后仍必须经过服务端最终会话签发校验；封禁账号返回 `ApiError` / `Unauthorized`（消息 `账户已被封禁`），不得返回 `AuthLoginFlowDto`，也不得写入 access / refresh / session Cookie。
+- 封禁状态以 `sys_user.Status/BanReason` 为权威来源；`SecurityBlacklistUser` Redis 缓存只做加速且不设置 L2 过期。登录、写入过滤器和 notification stream 遇到缓存 miss 时必须回查数据库，不能因 Redis 丢失而恢复封禁用户权限。
 
 ### `CurrentUserSnapshotDto`（当前用户信息，`GET /api/Auth/me`）
 
@@ -525,7 +526,7 @@ X-Fsus-Notification-Stream-Status-Code: 423
 }
 ```
 
-预检不要求 WebSocket upgrade；正式通道仍必须使用 `Sec-WebSocket-Protocol: fsus-aeds.v2`。WebSocket 主通道握手失败时继续返回 AEDS `ApiError` frame，同时写入相同的 `X-Fsus-Notification-Stream-*` 头。
+预检不要求 WebSocket upgrade；正式通道仍必须使用 `Sec-WebSocket-Protocol: fsus-aeds.v2`。WebSocket 主通道握手失败时继续返回 AEDS `ApiError` frame，同时写入相同的 `X-Fsus-Notification-Stream-*` 头。`account_blocked` 来源于持久化用户状态，Redis 黑名单缓存 miss 会先回查数据库并回填后再决定是否拒绝连接。
 
 ### `NotificationEvent`
 

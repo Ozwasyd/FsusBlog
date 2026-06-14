@@ -106,4 +106,12 @@ public class CachePolicyRegistryTests
             }
         }
     }
+
+    [Fact]
+    public void SecurityBlacklistUser_UsesNonExpiringL2Cache()
+    {
+        Assert.True(_registry.TryGet(CachePolicyId.SecurityBlacklistUser, out var policy));
+
+        Assert.Equal(Timeout.InfiniteTimeSpan, policy.L2Ttl);
+    }
 }

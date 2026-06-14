@@ -189,6 +189,30 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public async Task SetStringAsync_SecurityBlacklistUser_StoresRedisValueWithoutExpiry()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        db.StringSetAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<TimeSpan?>(),
+                Arg.Any<When>(),
+                Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(true));
+        UnifiedCache cache = CreateCache(memory, db);
+
+        await cache.SetStringAsync(CachePolicyId.SecurityBlacklistUser, "42", "spam");
+
+        await db.Received(1).StringSetAsync(
+            Arg.Is<RedisKey>(key => key.ToString() == "fsus:sec:blacklist-user:42"),
+            Arg.Any<RedisValue>(),
+            Arg.Is<TimeSpan?>(expiry => !expiry.HasValue),
+            Arg.Any<When>(),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
     public async Task SingleFlightEntry_RetireAfterReference_DoesNotDisposeSemaphoreUntilReleased()
     {
         var entry = new UnifiedCache.SingleFlightEntry();

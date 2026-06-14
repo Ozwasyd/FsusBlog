@@ -60,7 +60,10 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
             for (int j = 0; j < count; j++)
             {
                 var user = bannedUsers[i + j];
-                tasks.Add(_blacklist.BanUserAsync(user.Id, user.BanReason ?? "违反社区规定"));
+                tasks.Add(_cache.SetStringAsync(
+                    CachePolicyId.SecurityBlacklistUser,
+                    user.Id.ToString(),
+                    user.BanReason ?? "违反社区规定"));
             }
 
             // 并发执行这一批次的 Redis 写入

@@ -11,6 +11,8 @@ public class BlacklistService(
 {
     private const int MaxBanReasonLength = 256;
     private const string BanReasonCode = "manual_ban";
+    private const int UserStatusNormal = 0;
+    private const int UserStatusBanned = 1;
 
     /// <summary>
     /// 将用户加入黑名单
@@ -18,7 +20,13 @@ public class BlacklistService(
     public async Task BanUserAsync(int userId, string? reason)
     {
         var finalReason = NormalizeReason(reason);
-        await cache.SetStringAsync(CachePolicyId.SecurityBlacklistUser, userId.ToString(), finalReason, TimeSpan.FromDays(7));
+        await db.Updateable<User>()
+            .SetColumns(u => u.Status == UserStatusBanned)
+            .SetColumns(u => u.BanReason == finalReason)
+            .Where(u => u.Id == userId)
+            .ExecuteCommandAsync();
+
+        await cache.SetStringAsync(CachePolicyId.SecurityBlacklistUser, userId.ToString(), finalReason);
     }
 
     /// <summary>
@@ -28,7 +36,7 @@ public class BlacklistService(
     {
         // 1. 更新数据库状态为正常
         await db.Updateable<User>()
-            .SetColumns(u => u.Status == 0)
+            .SetColumns(u => u.Status == UserStatusNormal)
             .SetColumns(u => u.BanReason == null)
             .Where(u => u.Id == userId)
             .ExecuteCommandAsync();
@@ -42,7 +50,14 @@ public class BlacklistService(
         string? reason = await cache.GetStringAsync(CachePolicyId.SecurityBlacklistUser, userId.ToString());
         if (string.IsNullOrWhiteSpace(reason))
         {
-            return new BanStateSnapshot(false, null, null);
+            var user = await db.Queryable<User>().InSingleAsync(userId);
+            if (user is null || user.Status != UserStatusBanned)
+            {
+                return new BanStateSnapshot(false, null, null);
+            }
+
+            reason = NormalizeReason(user.BanReason);
+            await cache.SetStringAsync(CachePolicyId.SecurityBlacklistUser, userId.ToString(), reason);
         }
 
         return new BanStateSnapshot(true, BanReasonCode, reason);

@@ -118,6 +118,8 @@ Notification stream preflight 与 WebSocket 握手失败会在 `X-Fsus-Notificat
 
 ---
 
+封禁类错误不得依赖 Redis 黑名单是否命中：服务端以 `sys_user.Status/BanReason` 为真源，`SecurityBlacklistUser` 只做无过期缓存；缓存 miss 会回查数据库并回填后再返回 `AccountBanned` 或 `account_blocked`。
+
 ## AEDS v2 帧格式
 
 权威规格：`src/core/Algorithms/AEDS_V1_PROTOCOL.md`（文件名沿用历史路径，内容为当前 v2 规格）

@@ -28,7 +28,7 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             [CachePolicyId.SecurityMfaChallenge] = new(CachePolicyId.SecurityMfaChallenge, "sec", "mfa-challenge", TimeSpan.Zero, TimeSpan.FromMinutes(10), null, null, true, 0d, false),
             [CachePolicyId.SecurityMfaProof] = new(CachePolicyId.SecurityMfaProof, "sec", "mfa-proof", TimeSpan.Zero, TimeSpan.FromMinutes(10), null, null, true, 0d, false),
             [CachePolicyId.SecurityPowRisk] = new(CachePolicyId.SecurityPowRisk, "sec", "pow-risk", TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(2), null, null, true, 0d, false),
-            [CachePolicyId.SecurityBlacklistUser] = new(CachePolicyId.SecurityBlacklistUser, "sec", "blacklist-user", TimeSpan.FromMinutes(2), TimeSpan.FromDays(7), null, null, true, 0d, false),
+            [CachePolicyId.SecurityBlacklistUser] = new(CachePolicyId.SecurityBlacklistUser, "sec", "blacklist-user", TimeSpan.FromMinutes(2), Timeout.InfiniteTimeSpan, null, null, true, 0d, false),
             [CachePolicyId.VisitLock] = new(CachePolicyId.VisitLock, "sec", "visit-lock", TimeSpan.Zero, TimeSpan.FromMinutes(30), null, null, true, 0d, false),
             [CachePolicyId.ArticleViewLock] = new(CachePolicyId.ArticleViewLock, "sec", "article-view-lock", TimeSpan.Zero, TimeSpan.FromHours(1), null, null, true, 0d, false),
             [CachePolicyId.SecurityPasskeyRegChallenge] = new(CachePolicyId.SecurityPasskeyRegChallenge, "sec", "pk-reg", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),

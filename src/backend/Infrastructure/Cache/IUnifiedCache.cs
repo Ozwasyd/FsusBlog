@@ -206,10 +206,10 @@ public sealed class UnifiedCache(
         string key = BuildKey(policyId, identity);
         cancellationToken.ThrowIfCancellationRequested();
         CachePolicy policy = ResolvePolicy(policyId);
-        TimeSpan l2Ttl = l2TtlOverride ?? ApplyDeterministicJitter(key, policy.L2Ttl, policy.L2JitterRatio);
+        TimeSpan? l2Ttl = ResolveL2Expiry(key, policy, l2TtlOverride);
         byte[] cachedValue = CopyRawBytes(value);
         cancellationToken.ThrowIfCancellationRequested();
-        await _db.StringSetAsync(key, cachedValue, l2Ttl).ConfigureAwait(false);
+        await _db.StringSetAsync(key, cachedValue, l2Ttl, When.Always, CommandFlags.None).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
@@ -758,6 +758,19 @@ public sealed class UnifiedCache(
 
     internal static TimeSpan ApplyDeterministicJitterForTests(TimeSpan baseTtl, double jitterRatio, string cacheKey)
         => ApplyDeterministicJitter(cacheKey, baseTtl, jitterRatio);
+
+    private static TimeSpan? ResolveL2Expiry(string cacheKey, CachePolicy policy, TimeSpan? l2TtlOverride)
+    {
+        if (l2TtlOverride.HasValue)
+        {
+            return ToRedisExpiry(l2TtlOverride.Value);
+        }
+
+        return ToRedisExpiry(ApplyDeterministicJitter(cacheKey, policy.L2Ttl, policy.L2JitterRatio));
+    }
+
+    private static TimeSpan? ToRedisExpiry(TimeSpan ttl)
+        => ttl == Timeout.InfiniteTimeSpan ? null : ttl;
 
     internal static IReadOnlyList<string> FilterRegistryKeys(string prefix, ReadOnlySpan<RedisValue> registeredKeys)
     {
