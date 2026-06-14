@@ -16,7 +16,7 @@ public sealed class AuthoringBinaryBridgeMiddlewareTests
         var aeds = new AedsEncoder();
         var middleware = new AuthoringBinaryBridgeMiddleware(async context =>
         {
-            Assert.Equal("/api/author/drafts", context.Request.Path.Value);
+            Assert.Equal("/_fsus/internal/binary-bridge/author/drafts", context.Request.Path.Value);
             Assert.Equal("application/json", context.Request.ContentType);
             using JsonDocument request = await JsonDocument.ParseAsync(context.Request.Body);
             Assert.Equal("Draft", request.RootElement.GetProperty("title").GetString());

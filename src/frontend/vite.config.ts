@@ -1,5 +1,6 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type ProxyOptions } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import vueJsx from '@vitejs/plugin-vue-jsx'
 import tailwindcss from '@tailwindcss/vite'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -176,6 +177,27 @@ function shouldIgnoreBuildWarning(warning: { message?: string; id?: string }): b
     return false
 }
 
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function createLocalFsusUiTransformExcludes(localFsusUiRoot: string | null): RegExp[] {
+    const defaults = [
+        /[\\/]node_modules[\\/]/,
+        /[\\/]\.git[\\/]/,
+    ]
+
+    if (!localFsusUiRoot) {
+        return defaults
+    }
+
+    const normalizedRoot = localFsusUiRoot.replace(/\\/g, '/').replace(/\/+$/, '')
+    return [
+        ...defaults,
+        new RegExp(`${escapeRegExp(normalizedRoot)}/packages/`),
+    ]
+}
+
 // Vite 8 在 dev 模式下会把 HMR 客户端注入到 module worker。
 // HMR 客户端的 CSS 热更新路径直接访问 document.querySelectorAll，
 // 但 Worker 全局作用域没有 document，导致 handleMessage 抛出 ReferenceError。
@@ -249,13 +271,13 @@ function applyDevelopmentSecurityHeaders() {
     return {
         name: 'apply-development-security-headers',
         configureServer(server: any) {
-            server.middlewares.use((request: any, response: any, next: () => void) => {
+            server.middlewares.use((_request: any, response: any, next: () => void) => {
                 setDevelopmentSecurityHeaders(response)
                 next()
             })
         },
         configurePreviewServer(server: any) {
-            server.middlewares.use((request: any, response: any, next: () => void) => {
+            server.middlewares.use((_request: any, response: any, next: () => void) => {
                 setDevelopmentSecurityHeaders(response)
                 next()
             })
@@ -284,8 +306,9 @@ export default defineConfig(({ command, mode }) => {
         : null
     const fsusUiAliases = createFsusUiAliases(localFsusUiRoot)
     const fsusUiWasmDist = resolveFsusUiWasmDist(localFsusUiRoot)
+    const localFsusUiTransformExcludes = createLocalFsusUiTransformExcludes(localFsusUiRoot)
 
-    const publicSeoProxy = {
+    const publicSeoProxy: ProxyOptions = {
         target: apiBaseUrl,
         changeOrigin: false,
         configure: (proxy: any) => {
@@ -299,7 +322,7 @@ export default defineConfig(({ command, mode }) => {
         }
     }
 
-    const publicRouteProxy = enablePublicShellProxy
+    const publicRouteProxy: Record<string, ProxyOptions> = enablePublicShellProxy
         ? {
             '^/$': publicSeoProxy,
             '^/about/?$': publicSeoProxy,
@@ -314,7 +337,7 @@ export default defineConfig(({ command, mode }) => {
         }
         : {}
 
-    const sharedApiProxy = {
+    const sharedApiProxy: Record<string, ProxyOptions> = {
         '/api': {
             target: apiBaseUrl,
             ws: true,
@@ -371,7 +394,9 @@ export default defineConfig(({ command, mode }) => {
             serveFsusUiOptimizedWasmAssets(fsusUiWasmDist),
             tailwindcss(),
             vue(),
+            vueJsx(),
             AutoImport({
+                exclude: localFsusUiTransformExcludes,
                 resolvers: [
                     (name) => {
                         if (name.match(/^El[A-Z]/)) {
@@ -381,6 +406,7 @@ export default defineConfig(({ command, mode }) => {
                 ],
             }),
             Components({
+                exclude: localFsusUiTransformExcludes,
                 resolvers: [
                     (name) => {
                         if (name.match(/^El[A-Z]/)) {

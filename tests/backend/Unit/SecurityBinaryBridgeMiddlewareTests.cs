@@ -16,7 +16,7 @@ public sealed class SecurityBinaryBridgeMiddlewareTests
         var aeds = new AedsEncoder();
         var middleware = new SecurityBinaryBridgeMiddleware(async context =>
         {
-            Assert.Equal("/api/admin/security/anti-crawler/options", context.Request.Path.Value);
+            Assert.Equal("/_fsus/internal/binary-bridge/admin/security/anti-crawler/options", context.Request.Path.Value);
             Assert.Equal("application/json", context.Request.ContentType);
             Assert.Equal("application/json", context.Request.Headers.Accept.ToString());
             using JsonDocument request = await JsonDocument.ParseAsync(context.Request.Body);

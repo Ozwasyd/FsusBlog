@@ -82,7 +82,7 @@ public sealed class AuthSecurityHardeningTests
         Assert.DoesNotContain("pick: ['userInfo'", source, StringComparison.Ordinal);
         Assert.Contains("const adminRoles = ['admin'];", source, StringComparison.Ordinal);
         Assert.Contains("to.path.startsWith('/user/manage')", router, StringComparison.Ordinal);
-        Assert.Contains("fetchUserInfo(true)", router, StringComparison.Ordinal);
+        Assert.Contains("ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })", router, StringComparison.Ordinal);
     }
 
     private static string ReadSource(string relativePath)

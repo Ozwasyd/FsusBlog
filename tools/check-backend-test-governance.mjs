@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const root = resolve(new URL('..', import.meta.url).pathname)
+const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const requirementCatalogPath = 'tests/backend/Fixtures/backend-test-requirements.json'
 const aedsCatalogPath = 'tests/backend/Fixtures/aeds-golden-catalog.json'
 const requirementCatalog = JSON.parse(readFileSync(resolve(root, requirementCatalogPath), 'utf8'))
@@ -12,6 +13,16 @@ const testSh = readFileSync(resolve(root, 'tools/test.sh'), 'utf8')
 const toolManifest = JSON.parse(readFileSync(resolve(root, 'dotnet-tools.json'), 'utf8'))
 const strykerConfig = JSON.parse(readFileSync(resolve(root, 'stryker-config.json'), 'utf8'))
 const errors = []
+const testShDelegatesToMatrix = testSh.includes('tools/run-test-matrix.mjs')
+  && testSh.includes('run "$tier"')
+
+function expectedProfileCommand(profileId) {
+  if (profileId === 'backend-perf') {
+    return 'tools/test/lanes/perf-regression.sh'
+  }
+
+  return `tools/test/legacy-test.sh ${profileId}`
+}
 
 function fail(message) {
   errors.push(message)
@@ -55,6 +66,10 @@ if (aedsCatalog.version !== 'fsusblog-aeds-golden-catalog-v1') {
   fail('AEDS golden catalog version drifted')
 }
 
+if (!testShDelegatesToMatrix) {
+  fail('tools/test.sh does not delegate backend tiers to tools/run-test-matrix.mjs')
+}
+
 const requirementIds = new Set()
 for (const requirement of requirementCatalog.requirements || []) {
   if (requirementIds.has(requirement.id)) {
@@ -93,11 +108,9 @@ const requiredProfiles = new Set([
 for (const profile of requirementCatalog.profiles || []) {
   requiredProfiles.delete(profile.id)
 
-  if (!profile.command?.startsWith('./tools/test.sh backend-')) {
-    fail(`backend profile ${profile.id} has invalid command ${profile.command}`)
-  }
-  if (!testSh.includes(profile.command.replace('./tools/test.sh ', ''))) {
-    fail(`tools/test.sh does not expose ${profile.command}`)
+  const expectedCommand = expectedProfileCommand(profile.id)
+  if (profile.command !== expectedCommand) {
+    fail(`backend profile ${profile.id} has invalid command ${profile.command}; expected ${expectedCommand}`)
   }
   if (!matrix.includes(`id: ${profile.id}`)) {
     fail(`tests/matrix.yml lacks tier ${profile.id}`)
