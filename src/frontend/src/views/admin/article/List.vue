@@ -1,23 +1,22 @@
 <template>
   <div class="account-page article-list-wrapper account-motion-enter w-full">
     <header class="account-page-header account-page-header--compact">
-      <div class="account-page-eyebrow">管理</div>
       <h1 class="account-page-title">文章管理</h1>
       <p class="account-page-description">
-        搜索、预览和维护已发布文章。常用写作入口保留在当前页，便于从列表直接进入编辑流程。
+        检索文章、编辑状态与进入写作流程。
       </p>
     </header>
 
-    <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] py-6 px-4 mb-12">
-      <div class="flex flex-wrap items-center justify-between gap-6">
-        <el-form :inline="true" :model="queryParam" @submit.prevent="handleSearch">
-          <el-form-item>
-            <div class="w-64">
+    <AdminCollectionToolbar label="文章筛选" class="mb-8">
+      <template #filters>
+        <el-form class="article-list-toolbar-form" :model="queryParam" @submit.prevent="handleSearch">
+          <el-form-item class="article-list-toolbar-item !m-0">
+            <div class="article-list-toolbar-search">
               <el-input
                 v-model="queryParam.keyword"
                 name="articleKeyword"
                 aria-label="搜索文章标题"
-                placeholder="输入博文标题检索..."
+                placeholder="搜索文章标题"
                 clearable
                 :disabled="isBusy"
                 @clear="handleSearch"
@@ -32,8 +31,8 @@
             </div>
           </el-form-item>
 
-          <el-form-item>
-            <div class="w-48 sm:w-52">
+          <el-form-item class="article-list-toolbar-item !m-0">
+            <div class="article-list-toolbar-select">
               <el-select
                 v-model="queryParam.categoryId"
                 clearable
@@ -53,8 +52,8 @@
             </div>
           </el-form-item>
 
-          <el-form-item>
-            <div class="w-48 sm:w-52">
+          <el-form-item class="article-list-toolbar-item !m-0">
+            <div class="article-list-toolbar-select">
               <el-select
                 v-model="queryParam.tagId"
                 clearable
@@ -74,29 +73,26 @@
             </div>
           </el-form-item>
 
-          <el-form-item>
-            <el-radio-group
-              :model-value="queryParam.status"
-              aria-label="文章状态筛选"
-              :disabled="isBusy"
-              @update:model-value="handleStatusFilterChange"
-            >
-              <el-radio-button
-                v-for="item in statusFilters"
-                :key="item.label"
-                :value="item.value"
-              >
-                {{ item.label }}
-              </el-radio-button>
-            </el-radio-group>
+          <el-form-item class="article-list-toolbar-item article-list-status-filter !m-0">
+            <AdminFilterGroup label="状态">
+              <AdminSegmentedControl
+                :model-value="queryParam.status"
+                :items="statusFilters"
+                aria-label="文章状态筛选"
+                :disabled="isBusy"
+                @update:model-value="handleStatusFilterChange"
+              />
+            </AdminFilterGroup>
           </el-form-item>
 
-          <el-form-item>
+          <el-form-item class="article-list-toolbar-item article-list-toolbar-buttons !m-0">
             <el-button type="primary" :loading="isBusy" @click="handleSearch">搜索</el-button>
             <el-button @click="resetQuery" :disabled="isBusy">重置</el-button>
           </el-form-item>
         </el-form>
+      </template>
 
+      <template #actions>
         <el-button
           type="primary"
           :icon="Plus"
@@ -104,7 +100,7 @@
         >
           写新文章
         </el-button>
-      </div>
+      </template>
 
       <div
         v-if="activeFilterChips.length > 0"
@@ -121,15 +117,13 @@
           {{ chip.label }}
         </el-tag>
       </div>
-    </section>
+    </AdminCollectionToolbar>
 
-    <section class="border-t border-[var(--fsusblog-panel-border)]">
-      <div class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] flex items-center justify-between">
-        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章列表</div>
-      </div>
+    <section class="border-t border-[var(--fsusblog-panel-border)]" aria-labelledby="article-list-title">
+      <AdminCollectionSummary id="article-list-title" title="文章列表" :meta="articleListResultText" />
       <p
         v-if="rowMotion.summary.value"
-        class="blog-motion-summary-enter border-b border-[var(--fsusblog-panel-border)] px-4 py-2 text-[11px] font-bold text-[var(--fsusblog-text-muted)]"
+        class="sr-only blog-motion-summary-enter"
         role="status"
         aria-live="polite"
       >
@@ -153,7 +147,12 @@
         </template>
 
         <template #empty>
-          <el-empty description="没有找到匹配的文章" />
+          <AdminInlineEmptyState title="没有找到匹配的文章" description="调整筛选条件或新建文章。">
+            <template #actions>
+              <el-button link type="primary" :disabled="isBusy" @click="resetQuery">清空筛选</el-button>
+              <el-button link type="primary" @click="goToWriteArticle">写新文章</el-button>
+            </template>
+          </AdminInlineEmptyState>
         </template>
 
         <template #table>
@@ -254,7 +253,12 @@
             </el-table-column>
 
             <template #empty>
-              <el-empty description="没有找到匹配的文章" />
+              <AdminInlineEmptyState title="没有找到匹配的文章" description="调整筛选条件或新建文章。">
+                <template #actions>
+                  <el-button link type="primary" :disabled="isBusy" @click="resetQuery">清空筛选</el-button>
+                  <el-button link type="primary" @click="goToWriteArticle">写新文章</el-button>
+                </template>
+              </AdminInlineEmptyState>
             </template>
           </el-table>
         </template>
@@ -280,11 +284,19 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Search, View, Calendar, Plus, ArrowDown } from '@/fsusui/icons'
 import { type ArticleListItemResponse } from '@/api/article'
 import { useAdminArticleList } from '@/composables/useAdminArticleList'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import AdminArticleCompactCard from '@/components/admin/article/AdminArticleCompactCard.vue'
+import {
+  AdminCollectionSummary,
+  AdminCollectionToolbar,
+  AdminFilterGroup,
+  AdminInlineEmptyState,
+  AdminSegmentedControl
+} from '@/components/admin/AdminCollectionPrimitives'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
 
 type ArticleListViewItem = ArticleListItemResponse & {
@@ -329,7 +341,8 @@ const getArticleRowKey = (row: unknown): string => String((row as ArticleListVie
 const articleRowMotionClass = (id: number): string => rowMotion.classFor(id)
 const articleTableRowClassName = ({ row }: { row: ArticleListViewItem }): string => articleRowMotionClass(row.id)
 const isCompactPagination = useMediaQuery('(max-width: 639px)')
-const handleStatusFilterChange = (value: string | number | boolean): void => {
+const articleListResultText = computed(() => `文章列表 · ${total.value} 条结果`)
+const handleStatusFilterChange = (value: string | number | boolean | undefined): void => {
   setStatusFilter(typeof value === 'number' ? value as Parameters<typeof setStatusFilter>[0] : undefined)
 }
 const normalizeFilterId = (value: string | number | undefined): number | undefined => {
@@ -351,6 +364,29 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
 </script>
 
 <style scoped>
+
+.article-list-toolbar-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.article-list-toolbar-search {
+  width: min(100%, 16rem);
+}
+
+.article-list-toolbar-select {
+  width: min(100%, 13rem);
+}
+
+.article-list-status-filter {
+  min-width: 17rem;
+}
+
+.article-list-toolbar-buttons {
+  min-height: 2rem;
+}
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
@@ -378,6 +414,18 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
 }
 
 @media (max-width: 639px) {
+  .article-list-toolbar-form,
+  .article-list-toolbar-item,
+  .article-list-toolbar-search,
+  .article-list-toolbar-select,
+  .article-list-status-filter {
+    width: 100%;
+  }
+
+  .article-list-toolbar-buttons {
+    justify-content: flex-start;
+  }
+
   .article-list-pagination {
     align-items: flex-start;
     flex-direction: column;

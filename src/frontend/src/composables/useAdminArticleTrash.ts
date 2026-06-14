@@ -18,8 +18,6 @@ type AdminTrashViewItem = ArticleListItemResponse & {
   restoreActionText: string
 }
 
-const FOOTER_WATERMARK = 'FsusBlog Archive Storage / Secured'
-
 export function useAdminArticleTrash() {
   const router = useRouter()
 
@@ -44,9 +42,7 @@ export function useAdminArticleTrash() {
       restoreActionText: '恢复并重新发布'
     }))
   )
-  const pendingCountText = computed(() => `${total.value} 篇待处理`)
   const canBackToList = computed(() => !loading.value)
-  const footerWatermark = FOOTER_WATERMARK
   const isRowSubmitting = (id: number): boolean => submittingIds.value.has(id)
 
   const loadData = async (): Promise<void> => {
@@ -157,9 +153,7 @@ export function useAdminArticleTrash() {
     trashList,
     trashListView,
     total,
-    pendingCountText,
     canBackToList,
-    footerWatermark,
     submittingIds,
     isRowSubmitting,
     queryParam,

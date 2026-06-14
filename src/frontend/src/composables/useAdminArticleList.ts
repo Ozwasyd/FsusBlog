@@ -167,7 +167,7 @@ export function useAdminArticleList() {
       }
     })
   })
-  const totalText = computed(() => `检索到 ${total.value} 篇记录`)
+  const totalText = computed(() => `文章列表 · ${total.value} 条结果`)
   const isBusy = computed(() => loading.value || taxonomyTask.loading.value)
 
   const categoryNameById = computed(() => new Map(categories.value.map((item) => [item.id, item.name])))
@@ -255,7 +255,7 @@ export function useAdminArticleList() {
 
       articleList.value = Object.freeze(response.items) as ArticleListItemResponse[]
       total.value = Number(response.total) || 0
-      rowMotion.markUpdated(response.items.slice(0, 20).map((item) => item.id), `文章列表已刷新：${response.items.length} 条可见记录`)
+      rowMotion.markUpdated(response.items.slice(0, 20).map((item) => item.id), `文章列表 · ${total.value} 条结果`)
     } finally {
       loading.value = false
     }
