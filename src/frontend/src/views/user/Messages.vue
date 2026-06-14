@@ -4,7 +4,7 @@
         <div class="account-page-eyebrow">{{ isAdminView ? '管理' : '消息' }}</div>
         <h1 class="account-page-title">{{ isAdminView ? '站内信中心' : '我的站内信' }}</h1>
         <p class="account-page-description">
-          {{ isAdminView ? '在一个双栏工作台里处理用户会话、系统通知与状态流转。' : '集中处理站内消息、系统通知与申诉工单，保持账户区统一的阅读节奏。' }}
+          {{ isAdminView ? '处理用户会话、系统通知与待跟进状态。' : '集中处理站内消息、系统通知与申诉工单。' }}
         </p>
       </header>
 

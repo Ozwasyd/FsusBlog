@@ -19,18 +19,18 @@
       <div v-if="diagnostics" class="grid gap-4 md:grid-cols-4">
         <div class="cache-kv">
           <span>AOT</span>
-          <el-tag :type="statusType(diagnostics.aot.status)">{{ diagnostics.aot.status }}</el-tag>
+          <el-tag :type="statusType(diagnostics.aot.status)">{{ statusLabel(diagnostics.aot.status) }}</el-tag>
         </div>
         <div class="cache-kv">
-          <span>search</span>
-          <el-tag :type="statusType(diagnostics.search.status)">{{ diagnostics.search.status }}</el-tag>
+          <span>搜索</span>
+          <el-tag :type="statusType(diagnostics.search.status)">{{ statusLabel(diagnostics.search.status) }}</el-tag>
         </div>
         <div class="cache-kv">
-          <span>sitemap</span>
+          <span>站点地图</span>
           <strong>{{ diagnostics.distribution.sitemapUrlCount }}</strong>
         </div>
         <div class="cache-kv">
-          <span>feed</span>
+          <span>订阅条目</span>
           <strong>{{ diagnostics.distribution.feedItemCount }}</strong>
         </div>
       </div>
@@ -40,31 +40,31 @@
       <div class="space-y-8">
         <WorkbenchPanel title="AOT / PublicHotRead" eyebrow="AOT" title-id="cache-aot-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
-            <el-descriptions-item label="version">{{ diagnostics.aot.version }}</el-descriptions-item>
-            <el-descriptions-item label="lastBuildAt">{{ formatTime(diagnostics.aot.lastBuildAt) }}</el-descriptions-item>
-            <el-descriptions-item label="lastBuildStatus">{{ diagnostics.aot.lastBuildStatus ?? '-' }}</el-descriptions-item>
-            <el-descriptions-item label="stale">{{ diagnostics.aot.stalePageCount }}</el-descriptions-item>
-            <el-descriptions-item label="lastError">{{ diagnostics.aot.lastError ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label="版本">{{ diagnostics.aot.version }}</el-descriptions-item>
+            <el-descriptions-item label="最近构建">{{ formatTime(diagnostics.aot.lastBuildAt) }}</el-descriptions-item>
+            <el-descriptions-item label="构建状态">{{ statusLabel(diagnostics.aot.lastBuildStatus) }}</el-descriptions-item>
+            <el-descriptions-item label="过期页面">{{ diagnostics.aot.stalePageCount }}</el-descriptions-item>
+            <el-descriptions-item label="最近错误">{{ diagnostics.aot.lastError ?? '-' }}</el-descriptions-item>
           </el-descriptions>
         </WorkbenchPanel>
 
         <WorkbenchPanel title="首页焦点" eyebrow="首页" title-id="cache-home-spotlight-title">
           <el-descriptions :column="1" border>
-            <el-descriptions-item label="status">
-              <el-tag :type="statusType(spotlightHealthStatus)">{{ spotlightHealthStatus }}</el-tag>
+            <el-descriptions-item label="状态">
+              <el-tag :type="statusType(spotlightHealthStatus)">{{ statusLabel(spotlightHealthStatus) }}</el-tag>
             </el-descriptions-item>
-            <el-descriptions-item label="candidates">{{ spotlightCandidateCountText }}</el-descriptions-item>
-            <el-descriptions-item label="detail">{{ spotlightHealthDetail }}</el-descriptions-item>
+            <el-descriptions-item label="候选数">{{ spotlightCandidateCountText }}</el-descriptions-item>
+            <el-descriptions-item label="说明">{{ spotlightHealthDetail }}</el-descriptions-item>
           </el-descriptions>
         </WorkbenchPanel>
 
         <WorkbenchPanel title="搜索索引" eyebrow="搜索" title-id="cache-search-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
-            <el-descriptions-item label="version">{{ diagnostics.search.version ?? '-' }}</el-descriptions-item>
-            <el-descriptions-item label="schema">{{ diagnostics.search.schemaVersion }}</el-descriptions-item>
-            <el-descriptions-item label="shards">{{ diagnostics.search.shardCount }}</el-descriptions-item>
-            <el-descriptions-item label="updated">{{ formatTime(diagnostics.search.lastUpdatedAt) }}</el-descriptions-item>
-            <el-descriptions-item label="manifest">
+            <el-descriptions-item label="版本">{{ diagnostics.search.version ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label="Schema">{{ diagnostics.search.schemaVersion }}</el-descriptions-item>
+            <el-descriptions-item label="分片">{{ diagnostics.search.shardCount }}</el-descriptions-item>
+            <el-descriptions-item label="更新时间">{{ formatTime(diagnostics.search.lastUpdatedAt) }}</el-descriptions-item>
+            <el-descriptions-item label="Manifest">
               <span class="break-all">{{ diagnostics.search.manifestPath }}</span>
             </el-descriptions-item>
           </el-descriptions>
@@ -72,12 +72,12 @@
 
         <WorkbenchPanel v-if="diagnostics?.article" title="单文章诊断" eyebrow="文章" title-id="cache-article-title">
           <el-descriptions :column="1" border>
-            <el-descriptions-item label="articleId">{{ diagnostics.article.articleId }}</el-descriptions-item>
-            <el-descriptions-item label="public">{{ boolText(diagnostics.article.publiclyVisible) }}</el-descriptions-item>
-            <el-descriptions-item label="article frame">{{ boolText(diagnostics.article.articleFrameReady) }}</el-descriptions-item>
-            <el-descriptions-item label="html frame">{{ boolText(diagnostics.article.htmlFrameReady) }}</el-descriptions-item>
-            <el-descriptions-item label="search">{{ boolText(diagnostics.article.searchEligible) }}</el-descriptions-item>
-            <el-descriptions-item label="sitemap">{{ boolText(diagnostics.article.sitemapEligible) }}</el-descriptions-item>
+            <el-descriptions-item label="文章 ID">{{ diagnostics.article.articleId }}</el-descriptions-item>
+            <el-descriptions-item label="公开可见">{{ boolText(diagnostics.article.publiclyVisible) }}</el-descriptions-item>
+            <el-descriptions-item label="文章帧">{{ boolText(diagnostics.article.articleFrameReady) }}</el-descriptions-item>
+            <el-descriptions-item label="HTML 帧">{{ boolText(diagnostics.article.htmlFrameReady) }}</el-descriptions-item>
+            <el-descriptions-item label="搜索收录">{{ boolText(diagnostics.article.searchEligible) }}</el-descriptions-item>
+            <el-descriptions-item label="Sitemap 收录">{{ boolText(diagnostics.article.sitemapEligible) }}</el-descriptions-item>
           </el-descriptions>
         </WorkbenchPanel>
       </div>
@@ -91,37 +91,37 @@
             <el-button :icon="Refresh" :loading="actionLoading === 'sitemap-feed-refresh'" @click="runAction('sitemap-feed-refresh')">刷新 sitemap/feed</el-button>
           </div>
           <div v-if="lastAction" class="mt-5 border-t border-[var(--fsusblog-panel-border)] pt-4 text-xs leading-6">
-            <el-tag :type="statusType(lastAction.status)">{{ lastAction.status }}</el-tag>
+            <el-tag :type="statusType(lastAction.status)">{{ statusLabel(lastAction.status) }}</el-tag>
             <span class="ml-2">{{ lastAction.detail }}</span>
           </div>
         </WorkbenchPanel>
 
         <WorkbenchPanel title="评论缓存失效" eyebrow="评论" title-id="cache-comments-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
-            <el-descriptions-item label="comment">{{ diagnostics.commentCache.commentMutationCount }}</el-descriptions-item>
-            <el-descriptions-item label="stats">{{ diagnostics.commentCache.statsCount }}</el-descriptions-item>
-            <el-descriptions-item label="last">{{ diagnostics.commentCache.lastKind ?? '-' }} / {{ diagnostics.commentCache.lastDetail ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label="评论变更">{{ diagnostics.commentCache.commentMutationCount }}</el-descriptions-item>
+            <el-descriptions-item label="统计记录">{{ diagnostics.commentCache.statsCount }}</el-descriptions-item>
+            <el-descriptions-item label="最近事件">{{ diagnostics.commentCache.lastKind ?? '-' }} / {{ diagnostics.commentCache.lastDetail ?? '-' }}</el-descriptions-item>
           </el-descriptions>
         </WorkbenchPanel>
 
         <WorkbenchPanel title="热榜 / 统计合并" eyebrow="合并" title-id="cache-hot-stats-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
-            <el-descriptions-item label="hot version">{{ diagnostics.hotStatsInvalidation.hotArticlesVersion }}</el-descriptions-item>
-            <el-descriptions-item label="hot dirty/flush">{{ diagnostics.hotStatsInvalidation.hotArticlesDirtyCount }} / {{ diagnostics.hotStatsInvalidation.hotArticlesFlushCount }}</el-descriptions-item>
-            <el-descriptions-item label="hot coalesced">{{ diagnostics.hotStatsInvalidation.hotArticlesCoalescedDirtyCount }}</el-descriptions-item>
-            <el-descriptions-item label="stats dirty/flush">{{ diagnostics.hotStatsInvalidation.statsDirtyCount }} / {{ diagnostics.hotStatsInvalidation.statsFlushCount }}</el-descriptions-item>
-            <el-descriptions-item label="stats coalesced">{{ diagnostics.hotStatsInvalidation.statsCoalescedDirtyCount }}</el-descriptions-item>
-            <el-descriptions-item label="pending">{{ boolText(diagnostics.hotStatsInvalidation.hotArticlesDirty || diagnostics.hotStatsInvalidation.statsDirty) }}</el-descriptions-item>
-            <el-descriptions-item label="last">{{ diagnostics.hotStatsInvalidation.lastFlushReason ?? diagnostics.hotStatsInvalidation.lastDirtyReason ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label="热榜版本">{{ diagnostics.hotStatsInvalidation.hotArticlesVersion }}</el-descriptions-item>
+            <el-descriptions-item label="热榜待刷写/已刷写">{{ diagnostics.hotStatsInvalidation.hotArticlesDirtyCount }} / {{ diagnostics.hotStatsInvalidation.hotArticlesFlushCount }}</el-descriptions-item>
+            <el-descriptions-item label="热榜已合并">{{ diagnostics.hotStatsInvalidation.hotArticlesCoalescedDirtyCount }}</el-descriptions-item>
+            <el-descriptions-item label="统计待刷写/已刷写">{{ diagnostics.hotStatsInvalidation.statsDirtyCount }} / {{ diagnostics.hotStatsInvalidation.statsFlushCount }}</el-descriptions-item>
+            <el-descriptions-item label="统计已合并">{{ diagnostics.hotStatsInvalidation.statsCoalescedDirtyCount }}</el-descriptions-item>
+            <el-descriptions-item label="待处理">{{ boolText(diagnostics.hotStatsInvalidation.hotArticlesDirty || diagnostics.hotStatsInvalidation.statsDirty) }}</el-descriptions-item>
+            <el-descriptions-item label="最近原因">{{ diagnostics.hotStatsInvalidation.lastFlushReason ?? diagnostics.hotStatsInvalidation.lastDirtyReason ?? '-' }}</el-descriptions-item>
           </el-descriptions>
         </WorkbenchPanel>
 
         <WorkbenchPanel title="PublicHotRead 计数" eyebrow="计数" title-id="cache-counters-title">
           <el-descriptions v-if="diagnostics" :column="1" border>
-            <el-descriptions-item label="article hit/miss">{{ diagnostics.publicHotReadCounters.articleHit }} / {{ diagnostics.publicHotReadCounters.articleMiss }}</el-descriptions-item>
-            <el-descriptions-item label="list hit/miss">{{ diagnostics.publicHotReadCounters.listHit }} / {{ diagnostics.publicHotReadCounters.listMiss }}</el-descriptions-item>
-            <el-descriptions-item label="html hit/miss">{{ diagnostics.publicHotReadCounters.htmlHit }} / {{ diagnostics.publicHotReadCounters.htmlMiss }}</el-descriptions-item>
-            <el-descriptions-item label="bytes">{{ diagnostics.publicHotReadCounters.bytes }}</el-descriptions-item>
+            <el-descriptions-item label="文章命中/未命中">{{ diagnostics.publicHotReadCounters.articleHit }} / {{ diagnostics.publicHotReadCounters.articleMiss }}</el-descriptions-item>
+            <el-descriptions-item label="列表命中/未命中">{{ diagnostics.publicHotReadCounters.listHit }} / {{ diagnostics.publicHotReadCounters.listMiss }}</el-descriptions-item>
+            <el-descriptions-item label="HTML 命中/未命中">{{ diagnostics.publicHotReadCounters.htmlHit }} / {{ diagnostics.publicHotReadCounters.htmlMiss }}</el-descriptions-item>
+            <el-descriptions-item label="字节数">{{ diagnostics.publicHotReadCounters.bytes }}</el-descriptions-item>
           </el-descriptions>
         </WorkbenchPanel>
       </div>
@@ -227,8 +227,23 @@ const statusType = (status: string): 'success' | 'warning' | 'danger' | 'info' =
   return 'info'
 }
 
+const statusLabel = (status: string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    ok: '正常',
+    queued: '已入队',
+    failed: '失败',
+    missing: '缺失',
+    unsupported: '不支持',
+    degraded: '降级',
+    unknown: '未知',
+    ready: '就绪',
+    stale: '需刷新'
+  }
+  return status ? labels[status] ?? status : '-'
+}
+
 const formatTime = (value: string | null | undefined): string => value ? new Date(value).toLocaleString() : '-'
-const boolText = (value: boolean): string => value ? 'yes' : 'no'
+const boolText = (value: boolean): string => value ? '是' : '否'
 
 onMounted(loadDiagnostics)
 </script>

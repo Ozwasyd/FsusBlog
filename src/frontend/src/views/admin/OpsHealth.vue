@@ -21,7 +21,7 @@
       <div v-if="health" class="grid gap-4 md:grid-cols-4">
         <div class="ops-kv">
           <span>状态</span>
-          <el-tag :type="statusType(health.status)">{{ health.status }}</el-tag>
+          <el-tag :type="statusType(health.status)">{{ statusLabel(health.status) }}</el-tag>
         </div>
         <div class="ops-kv">
           <span>环境</span>
@@ -50,7 +50,7 @@
             </el-table-column>
             <el-table-column label="状态" width="130">
               <template #default="{ row }: { row: AdminServiceStatusResponse }">
-                <el-tag :type="statusType(row.status)">{{ row.status }}</el-tag>
+                <el-tag :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="更新时间" width="190">
@@ -73,7 +73,7 @@
             <el-table-column label="任务" min-width="200" prop="label" />
             <el-table-column label="状态" width="130">
               <template #default="{ row }: { row: AdminServiceStatusResponse }">
-                <el-tag :type="statusType(row.status)">{{ row.status }}</el-tag>
+                <el-tag :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="更新时间" width="190">
@@ -91,7 +91,7 @@
           <div class="space-y-4">
             <div class="ops-kv">
               <span>状态</span>
-              <el-tag :type="statusType(health?.backup.status ?? 'unknown')">{{ health?.backup.status ?? '-' }}</el-tag>
+              <el-tag :type="statusType(health?.backup.status ?? 'unknown')">{{ statusLabel(health?.backup.status) }}</el-tag>
             </div>
             <div class="break-all text-xs text-[var(--fsusblog-text-muted)]">{{ health?.backup.backupRoot ?? '-' }}</div>
             <div class="space-y-3">
@@ -102,7 +102,7 @@
               >
                 <div class="flex items-center justify-between gap-3">
                   <span class="text-xs font-semibold">{{ artifact.kind }}</span>
-                  <el-tag :type="statusType(artifact.status)">{{ artifact.status }}</el-tag>
+                  <el-tag :type="statusType(artifact.status)">{{ statusLabel(artifact.status) }}</el-tag>
                 </div>
                 <div class="mt-1 break-all text-[11px] text-[var(--fsusblog-text-muted)]">
                   {{ artifact.path ?? artifact.detail ?? '-' }}
@@ -156,6 +156,19 @@ const statusType = (status: string): 'success' | 'warning' | 'danger' | 'info' =
   if (status === 'failed' || status === 'missing' || status === 'not_ready') return 'danger'
   if (status === 'degraded') return 'warning'
   return 'info'
+}
+
+const statusLabel = (status: string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    ok: '正常',
+    ready: '就绪',
+    failed: '失败',
+    missing: '缺失',
+    not_ready: '未就绪',
+    degraded: '降级',
+    unknown: '未知'
+  }
+  return status ? labels[status] ?? status : '-'
 }
 
 const formatTime = (value: string | null | undefined): string => {

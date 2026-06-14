@@ -37,7 +37,7 @@
       <div v-if="report" class="grid gap-4 md:grid-cols-4">
         <div class="integrity-kv">
           <span>状态</span>
-          <el-tag :type="statusType(report.status)">{{ report.status }}</el-tag>
+          <el-tag :type="statusType(report.status)">{{ statusLabel(report.status) }}</el-tag>
         </div>
         <div class="integrity-kv">
           <span>检查项</span>
@@ -48,7 +48,7 @@
           <strong>{{ report.issueCount }}</strong>
         </div>
         <div class="integrity-kv">
-          <span>diff</span>
+          <span>差异</span>
           <strong>{{ preview?.diffs.length ?? 0 }}</strong>
         </div>
       </div>
@@ -65,7 +65,7 @@
           </el-table-column>
           <el-table-column label="状态" width="120">
             <template #default="{ row }: { row: IntegrityCheckResponse }">
-              <el-tag :type="statusType(row.status)">{{ row.status }}</el-tag>
+              <el-tag :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="数量" width="90" prop="count" />
@@ -79,7 +79,7 @@
           <el-table-column label="修复" width="90">
             <template #default="{ row }: { row: IntegrityCheckResponse }">
               <el-tag :type="row.autoFixAvailable ? 'warning' : 'info'">
-                {{ row.autoFixAvailable ? 'safe' : '-' }}
+                {{ row.autoFixAvailable ? '可安全修复' : '-' }}
               </el-tag>
             </template>
           </el-table-column>
@@ -87,12 +87,12 @@
       </WorkbenchPanel>
 
       <div class="space-y-8">
-        <WorkbenchPanel title="安全修复 diff" eyebrow="差异" title-id="integrity-diff-title">
+        <WorkbenchPanel title="安全修复差异" eyebrow="差异" title-id="integrity-diff-title">
           <div class="max-h-[24rem] overflow-auto">
             <el-table :data="preview?.diffs ?? []" row-key="field">
               <el-table-column label="字段" min-width="180" prop="field" />
-              <el-table-column label="before" width="110" prop="before" />
-              <el-table-column label="after" width="110" prop="after" />
+              <el-table-column label="修复前" width="110" prop="before" />
+              <el-table-column label="修复后" width="110" prop="after" />
             </el-table>
           </div>
           <div class="mt-5 space-y-3 border-t border-[var(--fsusblog-panel-border)] pt-5">
@@ -118,8 +118,8 @@
               class="border-t border-[var(--fsusblog-panel-border)] pt-4"
             >
               <div class="flex items-center justify-between gap-3">
-                <span class="text-xs font-semibold">{{ rule.level }}</span>
-                <el-tag type="info">{{ rule.interaction }}</el-tag>
+                <span class="text-xs font-semibold">{{ formatDangerLevel(rule.level) }}</span>
+                <el-tag type="info">{{ formatDangerInteraction(rule.interaction) }}</el-tag>
               </div>
               <div class="mt-2 text-[11px] leading-5 text-[var(--fsusblog-text-muted)]">
                 {{ rule.examples.join(' / ') }}
@@ -238,6 +238,41 @@ const statusType = (status: string): 'success' | 'warning' | 'danger' | 'info' =
   if (status === 'issue' || status === 'issues' || status === 'ready') return 'warning'
   if (status === 'failed') return 'danger'
   return 'info'
+}
+
+const statusLabel = (status: string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    ok: '正常',
+    empty: '无数据',
+    applied: '已应用',
+    issue: '有问题',
+    issues: '有问题',
+    ready: '待确认',
+    failed: '失败'
+  }
+  return status ? labels[status] ?? status : '-'
+}
+
+const formatDangerLevel = (level: string): string => {
+  const labels: Record<string, string> = {
+    'normal-confirm': '普通确认',
+    'strong-confirm': '二次确认',
+    'typed-confirm': '输入对象名',
+    'mfa-step-up': 'MFA 加强验证',
+    'diff-preview': '差异预览'
+  }
+  return labels[level] ?? level
+}
+
+const formatDangerInteraction = (interaction: string): string => {
+  const labels: Record<string, string> = {
+    confirm: '确认操作',
+    '二次确认': '二次确认',
+    '输入对象名': '输入对象名',
+    'MFA proof': 'MFA Proof 验证',
+    '展示 changed fields': '展示变更字段'
+  }
+  return labels[interaction] ?? interaction
 }
 
 onMounted(loadAll)

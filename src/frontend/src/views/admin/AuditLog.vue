@@ -11,7 +11,7 @@
       class="mb-8"
       eyebrow="审计运行时"
       title="写入状态"
-      caption="队列、失败与 fallback 指标来自服务端审计 runtime snapshot。"
+      caption="队列、失败与降级写入指标来自服务端审计状态快照。"
       title-id="audit-runtime-title"
     >
       <template #title>
@@ -20,10 +20,10 @@
       </template>
       <template #actions>
         <div class="flex flex-wrap items-center justify-end gap-2">
-          <el-tag type="info">queued {{ runtime.queuedCount }}</el-tag>
-          <el-tag :type="runtime.droppedCount > 0 ? 'danger' : 'success'">dropped {{ runtime.droppedCount }}</el-tag>
-          <el-tag :type="runtime.writeFailureCount > 0 ? 'warning' : 'success'">failed {{ runtime.writeFailureCount }}</el-tag>
-          <el-tag :type="runtime.fallbackWriteCount > 0 ? 'warning' : 'info'">fallback {{ runtime.fallbackWriteCount }}</el-tag>
+          <el-tag type="info">队列 {{ runtime.queuedCount }}</el-tag>
+          <el-tag :type="runtime.droppedCount > 0 ? 'danger' : 'success'">丢弃 {{ runtime.droppedCount }}</el-tag>
+          <el-tag :type="runtime.writeFailureCount > 0 ? 'warning' : 'success'">失败 {{ runtime.writeFailureCount }}</el-tag>
+          <el-tag :type="runtime.fallbackWriteCount > 0 ? 'warning' : 'info'">降级写入 {{ runtime.fallbackWriteCount }}</el-tag>
           <el-button :icon="Refresh" :loading="loading" @click="loadAudit">刷新</el-button>
         </div>
       </template>
@@ -31,31 +31,31 @@
 
     <section class="border-t border-[var(--fsusblog-panel-border)]">
       <div class="grid gap-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-4 py-4 lg:grid-cols-6">
-        <el-input v-model="filters.actor" clearable placeholder="actor" aria-label="actor" :prefix-icon="User" />
-        <el-input v-model="filters.action" clearable placeholder="action" aria-label="action" :prefix-icon="Operation" />
-        <el-input v-model="filters.targetType" clearable placeholder="target type" aria-label="target type" :prefix-icon="Aim" />
-        <el-input v-model="filters.targetId" clearable placeholder="target id" aria-label="target id" />
-        <el-select v-model="filters.outcome" clearable placeholder="outcome" aria-label="outcome">
-          <el-option label="success" value="success" />
-          <el-option label="failure" value="failure" />
-          <el-option label="denied" value="denied" />
-          <el-option label="unknown" value="unknown" />
+        <el-input v-model="filters.actor" clearable placeholder="操作者" aria-label="操作者" :prefix-icon="User" />
+        <el-input v-model="filters.action" clearable placeholder="动作代码" aria-label="动作代码" :prefix-icon="Operation" />
+        <el-input v-model="filters.targetType" clearable placeholder="目标类型" aria-label="目标类型" :prefix-icon="Aim" />
+        <el-input v-model="filters.targetId" clearable placeholder="目标 ID" aria-label="目标 ID" />
+        <el-select v-model="filters.outcome" clearable placeholder="结果" aria-label="结果">
+          <el-option label="成功" value="success" />
+          <el-option label="失败" value="failure" />
+          <el-option label="已拒绝" value="denied" />
+          <el-option label="未知" value="unknown" />
         </el-select>
-        <el-select v-model="filters.severity" clearable placeholder="severity" aria-label="severity">
-          <el-option label="info" value="info" />
-          <el-option label="warning" value="warning" />
-          <el-option label="error" value="error" />
-          <el-option label="critical" value="critical" />
+        <el-select v-model="filters.severity" clearable placeholder="严重度" aria-label="严重度">
+          <el-option label="信息" value="info" />
+          <el-option label="警告" value="warning" />
+          <el-option label="错误" value="error" />
+          <el-option label="严重" value="critical" />
         </el-select>
-        <el-input v-model="filters.source" clearable placeholder="source" aria-label="source" />
-        <el-input v-model="filters.type" clearable placeholder="type" aria-label="type" />
+        <el-input v-model="filters.source" clearable placeholder="来源" aria-label="来源" />
+        <el-input v-model="filters.type" clearable placeholder="类型" aria-label="类型" />
         <el-date-picker
           v-model="dateRange"
           class="lg:col-span-2"
           type="datetimerange"
-          start-placeholder="from"
-          end-placeholder="to"
-          aria-label="time range"
+          start-placeholder="起始时间"
+          end-placeholder="结束时间"
+          aria-label="时间范围"
         />
         <div class="flex items-center gap-2 lg:col-span-2">
           <el-button type="primary" :icon="Search" :loading="loading" @click="applyFilters">查询</el-button>
@@ -65,13 +65,13 @@
 
       <div class="flex flex-wrap gap-2 border-b border-[var(--fsusblog-panel-border)] px-4 py-3">
         <el-tag v-for="facet in summary?.actions ?? []" :key="`action-${facet.value}`" type="info">
-          {{ facet.value }} {{ facet.count }}
+          {{ formatAuditAction(facet.value) }} {{ facet.count }}
         </el-tag>
         <el-tag v-for="facet in summary?.outcomes ?? []" :key="`outcome-${facet.value}`" :type="outcomeTagType(facet.value)">
-          {{ facet.value }} {{ facet.count }}
+          {{ formatOutcome(facet.value) }} {{ facet.count }}
         </el-tag>
         <el-tag v-for="facet in summary?.severities ?? []" :key="`severity-${facet.value}`" :type="severityTagType(facet.value)">
-          {{ facet.value }} {{ facet.count }}
+          {{ formatSeverity(facet.value) }} {{ facet.count }}
         </el-tag>
       </div>
 
@@ -94,13 +94,13 @@
         <el-table-column label="动作" min-width="250">
           <template #default="{ row }: { row: AuditLogItemResponse }">
             <div class="min-w-0">
-              <div class="font-semibold text-[var(--fsusblog-text-primary)]">{{ row.action }}</div>
+              <div class="font-semibold text-[var(--fsusblog-text-primary)]">{{ formatAuditAction(row.action) }}</div>
               <p class="mt-1 truncate text-[11px] text-[var(--fsusblog-text-muted)]">{{ row.eventInfo }}</p>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column label="Actor" width="160">
+        <el-table-column label="操作者" width="160">
           <template #default="{ row }: { row: AuditLogItemResponse }">
             <div class="text-xs">
               <div>{{ row.actorType ?? '-' }}</div>
@@ -109,7 +109,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="Target" width="190">
+        <el-table-column label="目标" width="190">
           <template #default="{ row }: { row: AuditLogItemResponse }">
             <div class="text-xs">
               <div>{{ row.targetType ?? '-' }}</div>
@@ -121,8 +121,8 @@
         <el-table-column label="结果" width="150" align="center">
           <template #default="{ row }: { row: AuditLogItemResponse }">
             <div class="flex flex-col items-center gap-1">
-              <el-tag :type="outcomeTagType(row.outcome)">{{ row.outcome }}</el-tag>
-              <el-tag :type="severityTagType(row.severity)">{{ row.severity }}</el-tag>
+              <el-tag :type="outcomeTagType(row.outcome)">{{ formatOutcome(row.outcome) }}</el-tag>
+              <el-tag :type="severityTagType(row.severity)">{{ formatSeverity(row.severity) }}</el-tag>
             </div>
           </template>
         </el-table-column>
@@ -159,11 +159,11 @@
       <div v-if="detail" class="space-y-5">
         <el-descriptions :column="1" border>
           <el-descriptions-item label="ID">{{ detail.item.id }}</el-descriptions-item>
-          <el-descriptions-item label="Action">{{ detail.item.action }}</el-descriptions-item>
-          <el-descriptions-item label="Actor">{{ detail.item.actorType ?? '-' }} / {{ detail.item.actorId ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="Target">{{ detail.item.targetType ?? '-' }} / {{ detail.item.targetId ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="Trace">{{ detail.item.traceId ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="Privacy Hash">
+          <el-descriptions-item label="动作代码">{{ detail.item.action }}</el-descriptions-item>
+          <el-descriptions-item label="操作者">{{ detail.item.actorType ?? '-' }} / {{ detail.item.actorId ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="目标">{{ detail.item.targetType ?? '-' }} / {{ detail.item.targetId ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="Trace ID">{{ detail.item.traceId ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="隐私哈希">
             <div class="break-all text-xs leading-6">
               ip={{ detail.item.ipHash ?? '-' }}<br>
               ua={{ detail.item.userAgentHash ?? '-' }}<br>
@@ -171,9 +171,9 @@
               fp={{ detail.item.deviceFingerprintHash ?? '-' }}
             </div>
           </el-descriptions-item>
-          <el-descriptions-item label="Tamper">
+          <el-descriptions-item label="防篡改">
             <el-tag :type="detail.tamperEvidenceValid ? 'success' : 'danger'">
-              {{ detail.tamperEvidenceValid ? 'valid' : 'invalid' }}
+              {{ detail.tamperEvidenceValid ? '有效' : '无效' }}
             </el-tag>
             <div class="mt-2 break-all text-xs text-[var(--fsusblog-text-muted)]">
               hash={{ detail.item.recordHash ?? '-' }}<br>
@@ -346,6 +346,43 @@ const verifyRow = async (row: AuditLogItemResponse): Promise<void> => {
 
 const formatTime = (value: string): string => new Date(value).toLocaleString()
 const auditRowClassName = ({ row }: { row: AuditLogItemResponse }): string => auditRowMotion.classFor(row.id)
+
+const formatOutcome = (value: string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    success: '成功',
+    failure: '失败',
+    denied: '已拒绝',
+    unknown: '未知'
+  }
+  return value ? labels[value] ?? `结果：${value}` : '-'
+}
+
+const formatSeverity = (value: string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    info: '信息',
+    warning: '警告',
+    error: '错误',
+    critical: '严重'
+  }
+  return value ? labels[value] ?? `严重度：${value}` : '-'
+}
+
+const formatAuditAction = (value: string | null | undefined): string => {
+  if (!value) return '-'
+  const labels: Record<string, string> = {
+    dictionary_loaded: '词库已载入',
+    dictionary_reload_failed: '词库重新载入失败',
+    dictionary_checksum_changed: '词库校验值变化',
+    region_policy_loaded: '地区策略已载入',
+    region_policy_reload_failed: '地区策略重新载入失败',
+    region_policy_replay_started: '地区策略回放开始',
+    region_policy_replay_completed: '地区策略回放完成',
+    model_moderation_scored: '模型风险评分完成',
+    region_moderation_rejected: '地区策略拒绝发布',
+    region_moderation_geo_blocked: '地区策略按地区拦截'
+  }
+  return labels[value] ?? `动作代码：${value}`
+}
 
 const outcomeTagType = (value: string): 'success' | 'danger' | 'warning' | 'info' => {
   if (value === 'success') return 'success'
