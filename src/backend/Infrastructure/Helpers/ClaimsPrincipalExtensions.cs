@@ -1,5 +1,6 @@
 ﻿using System.Security.Claims;
 using System.Runtime.CompilerServices;
+using FsusBlog.Server.Infrastructure;
 
 namespace FsusBlog.Server.Infrastructure.Helpers;
 
@@ -17,17 +18,8 @@ public static class ClaimsPrincipalExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int GetUserId(this ClaimsPrincipal? user)
     {
-        if (user == null) return 0;
-
-        // 兼容性查找：优先查找标准 NameIdentifier，备选 sub 声明
-        // 直接读取底层的 FindFirst 避免额外扩展方法的调用开销
-        var claim = user.FindFirst(ClaimTypes.NameIdentifier) ?? user.FindFirst("sub");
-
-        if (claim == null || string.IsNullOrWhiteSpace(claim.Value)) return 0;
-
-        // 核心物理级优化：利用 ReadOnlySpan<char> 在栈上进行截断并直接解析
-        // 彻底消灭原代码 claim.Value.Trim() 产生的多余字符串对象分配
-        return int.TryParse(claim.Value.AsSpan().Trim(), out int id) ? id : 0;
+        long? parsed = FastUserIdProvider.TryParseUserId(user);
+        return parsed is > 0 and <= int.MaxValue ? (int)parsed.Value : 0;
     }
 
     /// <summary>

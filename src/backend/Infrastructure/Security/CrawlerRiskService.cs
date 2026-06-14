@@ -98,7 +98,7 @@ public sealed class CrawlerRiskService(
             ip,
             signal.Context.Request.Path.Value ?? "/",
             signal.Context.Request.Method,
-            signal.Context.Request.Headers.UserAgent.ToString(),
+            signal.Context.GetUserAgent(),
             signal.Detail);
         securityPolicy.RecordRiskEvent(riskEvent);
         if (scoreDelta > 0 || current > 0)

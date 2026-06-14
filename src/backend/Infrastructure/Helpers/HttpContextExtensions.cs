@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Runtime.CompilerServices;
+using FsusBlog.Server.Infrastructure;
 
 namespace FsusBlog.Server.Infrastructure.Helpers;
 
@@ -8,6 +9,8 @@ namespace FsusBlog.Server.Infrastructure.Helpers;
 /// </summary>
 public static class HttpContextExtensions
 {
+    public const int MaxUserAgentLength = 512;
+
     /// <summary>
     /// 获取客户端真实 IP 地址 (深度适配代理穿透与 IPv6)
     /// 修复日期: 2026-02-23 (引入 ReadOnlySpan<char> 零分配解析管道，拦截 RemoteIpAddress 序列化开销，修复 UserAgent 空值判断)
@@ -41,9 +44,28 @@ public static class HttpContextExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string GetUserAgent(this HttpContext context)
     {
-        // 逻辑 Bug 修复：StringValues.ToString() 在没有值时会返回 string.Empty，
-        // 导致原有的 ?? "Unknown" 永远不会触发。这里改用显式判断。
-        string ua = context.Request.Headers.UserAgent.ToString();
-        return string.IsNullOrEmpty(ua) ? "Unknown" : ua;
+        var values = context.Request.Headers.UserAgent;
+        string? first = values.Count > 0 ? values[0] : null;
+        if (string.IsNullOrWhiteSpace(first))
+        {
+            return "Unknown";
+        }
+
+        ReadOnlySpan<char> userAgent = first.AsSpan().Trim();
+        if (userAgent.IsEmpty)
+        {
+            return "Unknown";
+        }
+
+        if (userAgent.Length > MaxUserAgentLength)
+        {
+            userAgent = userAgent[..MaxUserAgentLength];
+        }
+
+        return userAgent.ToString();
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int GetUserId(this HttpContext? context)
+        => FastUserIdProvider.GetOrParseUserIdAsInt(context);
 }

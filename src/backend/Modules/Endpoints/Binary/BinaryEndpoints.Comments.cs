@@ -42,7 +42,7 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             if (userId <= 0)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "未授权的访问，请重新登录"), aeds);
@@ -85,7 +85,7 @@ public static partial class BinaryEndpoints
                 submitRegion.Confidence,
                 submitRegion.Provider,
                 submitRegion.ClientIpHash,
-                httpContext.Request.Headers.UserAgent.ToString(),
+                httpContext.GetUserAgent(),
                 DateTime.UtcNow));
             if (!regionDecision.CanPublish)
             {
@@ -183,7 +183,7 @@ public static partial class BinaryEndpoints
             IUnifiedCache cache,
             IAedsEncoder aeds) =>
         {
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             if (userId <= 0)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "未找到用户信息"), aeds);
@@ -221,7 +221,7 @@ public static partial class BinaryEndpoints
             ICommentEndpointService commentService,
             IAedsEncoder aeds) =>
         {
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             bool isAdmin = httpContext.User.IsInRole("admin");
             bool success = await commentService.DeleteCommentAsync(id, userId, isAdmin, reason ?? "不符合社区规范");
 

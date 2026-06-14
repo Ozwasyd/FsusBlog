@@ -1,7 +1,9 @@
-using System.Collections.ObjectModel;
+using System.Buffers;
+using System.Globalization;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Helpers;
 using Serilog.Context;
 
@@ -189,9 +191,14 @@ internal sealed record RequestAuditContextSnapshot(
     string? SessionIdHash,
     string? DeviceFingerprintHash)
 {
+    private const string IpHashItemKey = "__fsus.audit.ip_hash";
+    private const string UserAgentHashItemKey = "__fsus.audit.user_agent_hash";
+    private const string SessionIdHashItemKey = "__fsus.audit.session_id_hash";
+    private const string DeviceFingerprintHashItemKey = "__fsus.audit.device_fp_hash";
+
     public static RequestAuditContextSnapshot FromHttpContext(HttpContext context)
     {
-        string? userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        string? userId = FastUserIdProvider.GetOrParseUserId(context)?.ToString(CultureInfo.InvariantCulture);
         string? userRole = context.User.FindFirst(ClaimTypes.Role)?.Value;
         string actorType = string.IsNullOrWhiteSpace(userId)
             ? AuditActorTypeCatalog.Anonymous
@@ -206,15 +213,15 @@ internal sealed record RequestAuditContextSnapshot(
             context.Request.Method,
             string.IsNullOrWhiteSpace(userId) ? null : userId,
             string.IsNullOrWhiteSpace(userRole) ? null : userRole,
-            HashNullable(context.Connection.RemoteIpAddress?.ToString()),
-            HashNullable(context.Request.Headers.UserAgent.ToString()),
-            HashNullable(context.User.GetSessionId()),
-            HashNullable(context.Request.Headers["X-Fsus-Device-Fp"].ToString()));
+            HashRequestValue(context, IpHashItemKey, context.Connection.RemoteIpAddress?.ToString()),
+            HashRequestValue(context, UserAgentHashItemKey, context.GetUserAgent()),
+            HashRequestValue(context, SessionIdHashItemKey, context.User.GetSessionId()),
+            HashRequestValue(context, DeviceFingerprintHashItemKey, context.Request.Headers["X-Fsus-Device-Fp"].ToString()));
     }
 
     public IReadOnlyDictionary<string, object?> ToProperties()
     {
-        Dictionary<string, object?> values = new(StringComparer.Ordinal)
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             [AuditPropertyNames.ActorType] = ActorType,
             [AuditPropertyNames.ActorId] = UserId,
@@ -228,8 +235,21 @@ internal sealed record RequestAuditContextSnapshot(
             ["SessionIdHash"] = SessionIdHash,
             ["DeviceFingerprintHash"] = DeviceFingerprintHash
         };
+    }
 
-        return new ReadOnlyDictionary<string, object?>(values);
+    public IDisposable PushLogContext()
+        => new RequestAuditLogContextScope(this);
+
+    private static string? HashRequestValue(HttpContext context, string itemKey, string? value)
+    {
+        if (context.Items.TryGetValue(itemKey, out object? cached))
+        {
+            return cached as string;
+        }
+
+        string? hash = HashNullable(value);
+        context.Items[itemKey] = hash;
+        return hash;
     }
 
     private static string? HashNullable(string? value)
@@ -239,7 +259,82 @@ internal sealed record RequestAuditContextSnapshot(
             return null;
         }
 
-        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(value.Trim()));
-        return Convert.ToHexString(hash).ToLowerInvariant();
+        ReadOnlySpan<char> trimmed = value.AsSpan().Trim();
+        if (trimmed.IsEmpty)
+        {
+            return null;
+        }
+
+        int byteCount = Encoding.UTF8.GetByteCount(trimmed);
+        byte[]? rented = null;
+        Span<byte> bytes = byteCount <= 512
+            ? stackalloc byte[byteCount]
+            : rented = ArrayPool<byte>.Shared.Rent(byteCount);
+
+        try
+        {
+            int bytesWritten = Encoding.UTF8.GetBytes(trimmed, bytes);
+            Span<byte> hash = stackalloc byte[32];
+            SHA256.HashData(bytes[..bytesWritten], hash);
+            return Convert.ToHexStringLower(hash);
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
+    }
+
+    private sealed class RequestAuditLogContextScope : IDisposable
+    {
+        private readonly IDisposable _actorType;
+        private readonly IDisposable _actorId;
+        private readonly IDisposable _actorRole;
+        private readonly IDisposable _traceId;
+        private readonly IDisposable _requestPath;
+        private readonly IDisposable _requestMethod;
+        private readonly IDisposable _userId;
+        private readonly IDisposable _ipHash;
+        private readonly IDisposable _userAgentHash;
+        private readonly IDisposable _sessionIdHash;
+        private readonly IDisposable _deviceFingerprintHash;
+        private int _disposed;
+
+        public RequestAuditLogContextScope(RequestAuditContextSnapshot snapshot)
+        {
+            _actorType = LogContext.PushProperty(AuditPropertyNames.ActorType, snapshot.ActorType);
+            _actorId = LogContext.PushProperty(AuditPropertyNames.ActorId, snapshot.UserId);
+            _actorRole = LogContext.PushProperty(AuditPropertyNames.ActorRole, snapshot.UserRole);
+            _traceId = LogContext.PushProperty("TraceId", snapshot.TraceId);
+            _requestPath = LogContext.PushProperty("RequestPath", snapshot.RequestPath);
+            _requestMethod = LogContext.PushProperty("RequestMethod", snapshot.RequestMethod);
+            _userId = LogContext.PushProperty("UserId", snapshot.UserId);
+            _ipHash = LogContext.PushProperty("IpHash", snapshot.IpHash);
+            _userAgentHash = LogContext.PushProperty("UserAgentHash", snapshot.UserAgentHash);
+            _sessionIdHash = LogContext.PushProperty("SessionIdHash", snapshot.SessionIdHash);
+            _deviceFingerprintHash = LogContext.PushProperty("DeviceFingerprintHash", snapshot.DeviceFingerprintHash);
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            _deviceFingerprintHash.Dispose();
+            _sessionIdHash.Dispose();
+            _userAgentHash.Dispose();
+            _ipHash.Dispose();
+            _userId.Dispose();
+            _requestMethod.Dispose();
+            _requestPath.Dispose();
+            _traceId.Dispose();
+            _actorRole.Dispose();
+            _actorId.Dispose();
+            _actorType.Dispose();
+        }
     }
 }

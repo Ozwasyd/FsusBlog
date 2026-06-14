@@ -192,7 +192,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, validation.Message, validation.ReasonCode), aeds);
             }
 
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             UserAccountSnapshot? userForMfaCheck = await users.GetAccountByIdAsync(userId);
             if (userForMfaCheck != null && userForMfaCheck.Value.MfaEnabled)
             {
@@ -236,7 +236,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "修改密码请求体非法"), aeds);
             }
 
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             string clientIp = httpContext.GetClientIp();
             UserAccountSnapshot? userForMfaCheck = await users.GetAccountByIdAsync(userId);
             if (userForMfaCheck != null && userForMfaCheck.Value.MfaEnabled)
@@ -291,7 +291,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "注销账户请求体非法"), aeds);
             }
 
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             var result = await profileCommands.DeleteAccountAsync(userId, new DeleteAccountRequestDto
             {
                 Password = request.Password,
@@ -355,7 +355,7 @@ public static partial class BinaryEndpoints
             ISystemService systemService,
             IAedsEncoder aeds) =>
         {
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             string? password = null;
             string? code = null;
             string? recoveryCode = null;
@@ -395,7 +395,7 @@ public static partial class BinaryEndpoints
             IUserMfaCommandService mfaCommands,
             IAedsEncoder aeds) =>
         {
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             var profile = await mfaCommands.GetMfaProfileAsync(userId);
             return profile.HasValue
                 ? BinaryResults.Frame(aeds, AedsFrameType.MfaProfile, writer => PodBinaryCodec.WriteMfaProfile(profile.Value, writer))
@@ -421,7 +421,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "验证码不能为空"), aeds);
             }
 
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             var result = await mfaCommands.VerifyMfaSetupAsync(userId, code);
             return result.Success && result.Data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.MfaSetupVerify, writer => PodBinaryCodec.WriteMfaSetupVerify(result.Data, writer))
@@ -446,7 +446,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 禁用请求体非法"), aeds);
             }
 
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             var result = await mfaCommands.DisableMfaAsync(userId, request.Password, request.Code, request.RecoveryCode);
             return result.Success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
@@ -471,7 +471,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 恢复码请求体非法"), aeds);
             }
 
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             var result = await mfaCommands.RegenerateMfaRecoveryCodesAsync(userId, request.Password, request.Code, request.RecoveryCode);
             return result.Success && result.Data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.MfaSetupVerify, writer => PodBinaryCodec.WriteMfaSetupVerify(result.Data, writer))
@@ -500,7 +500,7 @@ public static partial class BinaryEndpoints
                 action = decodedAction;
             }
 
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             UserAccountSnapshot? user = await users.GetAccountByIdAsync(userId);
             if (user == null)
             {
@@ -523,7 +523,7 @@ public static partial class BinaryEndpoints
             }
 
             string? deviceFp = GetDeviceFingerprint(httpContext);
-            var risk = await loginWorkflow.EvaluateLoginRiskAsync(userId, httpContext.GetClientIp(), deviceFp, httpContext.Request.Headers.UserAgent.ToString());
+            var risk = await loginWorkflow.EvaluateLoginRiskAsync(userId, httpContext.GetClientIp(), deviceFp, httpContext.GetUserAgent());
             var ticket = await challengeService.CreateActionChallengeAsync(user.Value.Id, action, risk.RequiresMfa);
             var challenge = new MfaChallengeResultDto(false, action, ticket.TicketId, null);
             return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(challenge, writer));
@@ -563,7 +563,7 @@ public static partial class BinaryEndpoints
                 bool locked = await challengeService.RecordFailureAsync(
                     ticket,
                     httpContext.GetClientIp(),
-                    httpContext.Request.Headers.UserAgent.ToString());
+                    httpContext.GetUserAgent());
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Unauthorized, locked ? "MFA_CHALLENGE_LOCKED" : "MFA_CHALLENGE_INVALID"),
                     aeds);
@@ -577,7 +577,7 @@ public static partial class BinaryEndpoints
                     ticket.UserId,
                     httpContext.GetClientIp(),
                     GetDeviceFingerprint(httpContext),
-                    httpContext.Request.Headers.UserAgent.ToString(),
+                    httpContext.GetUserAgent(),
                     mfaVerified: true,
                     rememberMe: ticket.RememberMe);
                 if (!login.Success || login.Data == null || login.User == null)
@@ -771,7 +771,7 @@ public static partial class BinaryEndpoints
 
             string clientIp = httpContext.GetClientIp();
             string? deviceFp = GetDeviceFingerprint(httpContext);
-            string? userAgent = httpContext.Request.Headers.UserAgent.ToString();
+            string? userAgent = httpContext.GetUserAgent();
             var login = await loginWorkflow.CompleteLoginAsync(user.Id, clientIp, deviceFp, userAgent, mfaVerified: true, rememberMe: request.RememberMe);
             if (!login.Success || login.Data == null || login.User == null)
             {
@@ -799,7 +799,7 @@ public static partial class BinaryEndpoints
             IPasskeyService passkeyService,
             IAedsEncoder aeds) =>
         {
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             var credentials = await passkeyService.GetCredentialsAsync(userId);
             return BinaryResults.Frame(aeds, AedsFrameType.PasskeyCredentialList, writer => PodBinaryCodec.WritePasskeyCredentialList([.. credentials], writer));
         })
@@ -811,7 +811,7 @@ public static partial class BinaryEndpoints
             int id,
             IAedsEncoder aeds) =>
         {
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             bool deleted = await passkeyService.RemoveCredentialAsync(userId, id);
             return deleted
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
@@ -838,7 +838,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "名称不能为空"), aeds);
             }
 
-            int userId = httpContext.User.GetUserId();
+            int userId = httpContext.GetUserId();
             bool renamed = await passkeyService.RenameCredentialAsync(userId, id, name);
             return renamed
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)

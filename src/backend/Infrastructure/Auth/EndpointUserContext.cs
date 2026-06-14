@@ -24,5 +24,15 @@ public readonly record struct EndpointUserContext(
     }
 
     public static EndpointUserContext From(HttpContext httpContext)
-        => From(httpContext.User);
+    {
+        ClaimsPrincipal principal = httpContext.User;
+        bool isAuthenticated = principal.Identity?.IsAuthenticated == true;
+        return new EndpointUserContext(
+            httpContext.GetUserId(),
+            principal.GetUserName(),
+            principal.GetSessionId(),
+            isAuthenticated,
+            principal.IsInRole("admin"),
+            principal.IsMfaVerified());
+    }
 }

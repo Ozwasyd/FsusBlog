@@ -87,7 +87,7 @@ public static partial class BinaryEndpoints
         HttpContext httpContext,
         IMfaChallengeService mfaChallengeService)
     {
-        int userId = httpContext.User.GetUserId();
+        int userId = httpContext.GetUserId();
         if (userId <= 0)
         {
             return (ErrorDetail.Create(ErrorCode.Unauthorized, "UNAUTHORIZED"), StatusCodes.Status401Unauthorized);

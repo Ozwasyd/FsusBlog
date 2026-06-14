@@ -39,7 +39,7 @@ public static class AuthoringEndpoints
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
-            ServerDraftResponse saved = await service.SaveDraftAsync(context.User.GetUserId(), request, cancellationToken);
+            ServerDraftResponse saved = await service.SaveDraftAsync(context.GetUserId(), request, cancellationToken);
             return Results.Ok(JsonApiResponse<ServerDraftResponse>.Ok(saved));
         });
 
@@ -49,7 +49,7 @@ public static class AuthoringEndpoints
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
-            ServerDraftResponse? draft = await service.GetDraftAsync(context.User.GetUserId(), draftKey, cancellationToken);
+            ServerDraftResponse? draft = await service.GetDraftAsync(context.GetUserId(), draftKey, cancellationToken);
             return Results.Ok(JsonApiResponse<ServerDraftResponse?>.Ok(draft));
         });
 
@@ -59,7 +59,7 @@ public static class AuthoringEndpoints
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
-            bool discarded = await service.DiscardDraftAsync(context.User.GetUserId(), draftKey, cancellationToken);
+            bool discarded = await service.DiscardDraftAsync(context.GetUserId(), draftKey, cancellationToken);
             return Results.Ok(JsonApiResponse<object>.Ok(new { discarded }));
         });
 
@@ -73,7 +73,7 @@ public static class AuthoringEndpoints
                     request.Content,
                     request.Summary,
                     request.CoverImageUrl,
-                    context.User.GetUserId(),
+                    context.GetUserId(),
                     request.DraftKey,
                     request.ArticleId,
                     request.WarningOverrideReason))));
@@ -106,7 +106,7 @@ public static class AuthoringEndpoints
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
-            bool rolledBack = await service.RollbackRevisionAsync(context.User.GetUserId(), articleId, revisionId, cancellationToken);
+            bool rolledBack = await service.RollbackRevisionAsync(context.GetUserId(), articleId, revisionId, cancellationToken);
             return rolledBack
                 ? Results.Ok(JsonApiResponse<object>.Ok(new { rolledBack }))
                 : Results.NotFound(JsonApiResponse<object>.Fail("revision_not_found"));
@@ -187,7 +187,7 @@ public static class AuthoringEndpoints
                 request.State,
                 request.Reason,
                 request.ExpiresAtUtc,
-                context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+                context.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
             return await CompleteModerationRuntimeMutationAsync(
                 result,
                 auditEvents,
@@ -222,7 +222,7 @@ public static class AuthoringEndpoints
                 request.Reason,
                 request.ExpiresAtUtc,
                 request.ConfirmPhrase,
-                context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+                context.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
             return await CompleteModerationRuntimeMutationAsync(
                 result,
                 auditEvents,
@@ -358,7 +358,7 @@ public static class AuthoringEndpoints
                 enabled: true,
                 request.Reason,
                 request.ConfirmPhrase,
-                context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+                context.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
             return await CompleteModerationRuntimeMutationAsync(
                 result,
                 auditEvents,
@@ -393,7 +393,7 @@ public static class AuthoringEndpoints
                 enabled: false,
                 request.Reason,
                 request.ConfirmPhrase,
-                context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+                context.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
             return await CompleteModerationRuntimeMutationAsync(
                 result,
                 auditEvents,
@@ -529,7 +529,7 @@ public static class AuthoringEndpoints
                 request.ModelProfile,
                 request.ThresholdProfile,
                 request.Reason,
-                context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+                context.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
             return await CompleteModerationRuntimeMutationAsync(
                 result,
                 auditEvents,
@@ -556,7 +556,7 @@ public static class AuthoringEndpoints
                 return stepUp;
             }
 
-            Result<ModerationRuntimeSnapshot> result = runtimeState.ReloadModel(context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Result<ModerationRuntimeSnapshot> result = runtimeState.ReloadModel(context.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
             return await CompleteModerationRuntimeMutationAsync(
                 result,
                 auditEvents,
@@ -583,7 +583,7 @@ public static class AuthoringEndpoints
                 return stepUp;
             }
 
-            Result<ModerationRuntimeSnapshot> result = runtimeState.RollbackModel(context.User.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Result<ModerationRuntimeSnapshot> result = runtimeState.RollbackModel(context.GetUserId().ToString(System.Globalization.CultureInfo.InvariantCulture));
             return await CompleteModerationRuntimeMutationAsync(
                 result,
                 auditEvents,
@@ -663,7 +663,7 @@ public static class AuthoringEndpoints
                 return stepUp;
             }
 
-            CommentModerationBulkResponse response = await service.ModerateCommentsAsync(context.User.GetUserId(), request, cancellationToken);
+            CommentModerationBulkResponse response = await service.ModerateCommentsAsync(context.GetUserId(), request, cancellationToken);
             await auditEvents.RecordHighValueAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
                 AuditTypeCatalog.Audit,
@@ -701,7 +701,7 @@ public static class AuthoringEndpoints
                 return stepUp;
             }
 
-            bool moderated = await service.ModerateCommentAsync(context.User.GetUserId(), commentId, request, cancellationToken);
+            bool moderated = await service.ModerateCommentAsync(context.GetUserId(), commentId, request, cancellationToken);
             await auditEvents.RecordHighValueAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
                 AuditTypeCatalog.Audit,
@@ -1050,7 +1050,7 @@ public static class AuthoringEndpoints
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/ai-assist", (AiAssistRequest request, HttpContext context, AuthoringWorkflowService service) =>
-            Results.Ok(JsonApiResponse<AiAssistResponse>.Ok(service.GenerateAiAssist(context.User.GetUserId(), request))));
+            Results.Ok(JsonApiResponse<AiAssistResponse>.Ok(service.GenerateAiAssist(context.GetUserId(), request))));
 
         return app;
     }
@@ -1668,7 +1668,7 @@ public static class AuthoringEndpoints
 
     private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(HttpContext context, IMfaChallengeService mfaChallengeService)
     {
-        int userId = context.User.GetUserId();
+        int userId = context.GetUserId();
         if (userId <= 0)
         {
             return Results.Unauthorized();

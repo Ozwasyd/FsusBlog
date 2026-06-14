@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
 
 namespace FsusBlog.Server.Tests;
 
@@ -83,6 +84,36 @@ public sealed class ObservabilityTests
         FsusObservabilityOptions options = provider.GetRequiredService<IOptions<FsusObservabilityOptions>>().Value;
         Assert.Equal(16, options.HttpMetricsSampleRate);
         Assert.Equal(250, options.SlowRequestThresholdMilliseconds);
+    }
+
+    [Fact]
+    public async Task CorrelationMiddleware_DoesNotMaterializeTraceIdWhenActivityIsNotRecording()
+    {
+        using var activity = new Activity("unit-http-hot-path");
+        activity.Start();
+        activity.IsAllDataRequested = false;
+        Activity.Current = activity;
+        try
+        {
+            var context = new DefaultHttpContext();
+            context.TraceIdentifier = "request-local";
+            var middleware = new ObservabilityCorrelationMiddleware(
+                _ => Task.CompletedTask,
+                Options.Create(new FsusObservabilityOptions
+                {
+                    HttpMetricsSampleRate = 4096,
+                    SlowRequestThresholdMilliseconds = 60_000
+                }));
+
+            await middleware.InvokeAsync(context);
+
+            Assert.Equal("request-local", context.TraceIdentifier);
+        }
+        finally
+        {
+            activity.Stop();
+            Activity.Current = null;
+        }
     }
 
     private sealed class FakeEnvironment : IWebHostEnvironment

@@ -382,7 +382,7 @@ public static class SecurityEndpoints
 
     private static async Task<IResult?> RequireAdminSensitiveStepUpAsync(HttpContext context, IMfaChallengeService mfaChallengeService)
     {
-        int userId = context.User.GetUserId();
+        int userId = context.GetUserId();
         if (userId <= 0)
         {
             return Results.Unauthorized();
@@ -430,5 +430,5 @@ public static class SecurityEndpoints
             }), cancellationToken);
 
     private static string ResolveActor(HttpContext context)
-        => context.User.GetUserId().ToString(CultureInfo.InvariantCulture);
+        => context.GetUserId().ToString(CultureInfo.InvariantCulture);
 }

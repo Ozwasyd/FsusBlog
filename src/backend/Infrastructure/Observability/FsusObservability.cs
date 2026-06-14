@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
@@ -36,7 +37,7 @@ public static class FsusObservability
         "fsus.notification_stream.operation"
     ];
 
-    private static readonly HashSet<string> AllowedCustomAttributes = new(AllowedCustomAttributeNames, StringComparer.Ordinal);
+    private static readonly FrozenSet<string> AllowedCustomAttributes = AllowedCustomAttributeNames.ToFrozenSet(StringComparer.Ordinal);
 
     public static readonly ActivitySource ActivitySource = new(ActivitySourceName, ServiceVersion);
 

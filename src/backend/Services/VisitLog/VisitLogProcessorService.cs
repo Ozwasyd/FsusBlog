@@ -413,7 +413,12 @@ public class VisitLogProcessorService : BackgroundService
 
         if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
         {
-            var bytes = address.GetAddressBytes();
+            Span<byte> bytes = stackalloc byte[4];
+            if (!address.TryWriteBytes(bytes, out int bytesWritten) || bytesWritten != 4)
+            {
+                return false;
+            }
+
             if (bytes[0] == 10 ||
                 bytes[0] == 127 ||
                 bytes[0] == 169 && bytes[1] == 254 ||
@@ -427,7 +432,12 @@ public class VisitLogProcessorService : BackgroundService
 
         if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
         {
-            var bytes = address.GetAddressBytes();
+            Span<byte> bytes = stackalloc byte[16];
+            if (!address.TryWriteBytes(bytes, out int bytesWritten) || bytesWritten != 16)
+            {
+                return false;
+            }
+
             if (address.IsIPv6LinkLocal ||
                 address.IsIPv6SiteLocal ||
                 (bytes[0] & 0xFE) == 0xFC)

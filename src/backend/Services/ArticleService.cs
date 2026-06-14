@@ -483,7 +483,7 @@ public class ArticleService(
         int lastRevision = await _db.Queryable<ArticleRevision>()
             .Where(it => it.ArticleId == articleId)
             .MaxAsync(it => it.RevisionNo);
-        int actorUserId = _httpContextAccessor.HttpContext?.User.GetUserId() ?? 0;
+        int actorUserId = _httpContextAccessor.HttpContext.GetUserId();
         await _db.Insertable(new ArticleRevision
         {
             ArticleId = articleId,

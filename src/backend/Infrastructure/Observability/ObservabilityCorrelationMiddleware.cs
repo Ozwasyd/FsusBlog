@@ -3,26 +3,47 @@ using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.Observability;
 
-public sealed class ObservabilityCorrelationMiddleware(RequestDelegate next, IOptions<FsusObservabilityOptions> options)
+public sealed class ObservabilityCorrelationMiddleware
 {
-    private readonly RequestDelegate _next = next;
-    private readonly int _httpMetricsSampleRate = Math.Clamp(options.Value.HttpMetricsSampleRate, 1, 4096);
-    private readonly double _slowRequestThresholdMs = Math.Max(1, options.Value.SlowRequestThresholdMilliseconds);
+    private readonly RequestDelegate _next;
+    private readonly int _httpMetricsSampleRate;
+    private readonly double _slowRequestThresholdMs;
+    private readonly bool _traceExporterEnabled;
+
+    public ObservabilityCorrelationMiddleware(RequestDelegate next, IOptions<FsusObservabilityOptions> options)
+        : this(next, options, runtimeState: null)
+    {
+    }
+
+    public ObservabilityCorrelationMiddleware(
+        RequestDelegate next,
+        IOptions<FsusObservabilityOptions> options,
+        ObservabilityRuntimeState? runtimeState)
+    {
+        _next = next;
+        _httpMetricsSampleRate = Math.Clamp(options.Value.HttpMetricsSampleRate, 1, 4096);
+        _slowRequestThresholdMs = Math.Max(1, options.Value.SlowRequestThresholdMilliseconds);
+        _traceExporterEnabled = runtimeState?.ExporterEnabled ?? options.Value.ExporterEnabled;
+    }
 
     public async Task InvokeAsync(HttpContext context)
     {
-        string routeKind = FsusObservability.ResolveRouteKind(context);
+        string? routeKind = null;
         Activity? activity = Activity.Current;
         if (activity is not null)
         {
-            string traceId = activity.TraceId.ToString();
-            if (!string.IsNullOrWhiteSpace(traceId))
+            if (ShouldMaterializeTraceId(activity))
             {
-                context.TraceIdentifier = traceId;
+                string materializedTraceId = activity.TraceId.ToString();
+                if (!string.IsNullOrWhiteSpace(materializedTraceId))
+                {
+                    context.TraceIdentifier = materializedTraceId;
+                }
             }
 
             if (activity.IsAllDataRequested)
             {
+                routeKind = FsusObservability.ResolveRouteKind(context);
                 FsusObservability.SetTag(activity, "fsus.route_kind", routeKind);
             }
         }
@@ -45,6 +66,7 @@ public sealed class ObservabilityCorrelationMiddleware(RequestDelegate next, IOp
             int statusCode = context.Response.StatusCode;
             if (ShouldRecordHttpRequest(statusCode, duration))
             {
+                routeKind ??= FsusObservability.ResolveRouteKind(context);
                 FsusObservability.RecordHttpRequest(routeKind, statusCode, duration);
             }
 
@@ -61,4 +83,7 @@ public sealed class ObservabilityCorrelationMiddleware(RequestDelegate next, IOp
             || duration.TotalMilliseconds >= _slowRequestThresholdMs
             || _httpMetricsSampleRate <= 1
             || Random.Shared.Next(_httpMetricsSampleRate) == 0;
+
+    private bool ShouldMaterializeTraceId(Activity activity)
+        => _traceExporterEnabled || activity.IsAllDataRequested || activity.Recorded;
 }

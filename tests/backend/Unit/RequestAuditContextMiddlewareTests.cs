@@ -2,6 +2,9 @@ using System.Net;
 using System.Security.Claims;
 using FsusBlog.Server.Infrastructure.Audit;
 using Microsoft.AspNetCore.Http;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 
 namespace FsusBlog.Server.Tests;
 
@@ -33,5 +36,90 @@ public sealed class RequestAuditContextMiddlewareTests
         Assert.DoesNotContain("Username", properties.Keys);
         Assert.DoesNotContain("ClientIp", properties.Keys);
         Assert.DoesNotContain("UserAgent", properties.Keys);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_PublicAnonymousGet_SkipsAuditLogContext()
+    {
+        var sink = new CollectingSink();
+        ILogger previous = Log.Logger;
+        Log.Logger = new LoggerConfiguration()
+            .Enrich.FromLogContext()
+            .WriteTo.Sink(sink)
+            .CreateLogger();
+
+        try
+        {
+            var middleware = new RequestAuditContextMiddleware(_ =>
+            {
+                Log.Information("public read");
+                return Task.CompletedTask;
+            });
+            var context = new DefaultHttpContext();
+            context.Request.Method = HttpMethods.Get;
+            context.Request.Path = "/article/42";
+            context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.17");
+            context.Request.Headers.UserAgent = "FsusBrowser/1.0";
+
+            await middleware.InvokeAsync(context);
+
+            LogEvent logEvent = Assert.Single(sink.Events);
+            Assert.DoesNotContain(AuditPropertyNames.ActorType, logEvent.Properties.Keys);
+            Assert.DoesNotContain("IpHash", logEvent.Properties.Keys);
+        }
+        finally
+        {
+            Log.Logger = previous;
+        }
+    }
+
+    [Fact]
+    public async Task InvokeAsync_AuthenticatedAdminMutation_PushesAuditLogContext()
+    {
+        var sink = new CollectingSink();
+        ILogger previous = Log.Logger;
+        Log.Logger = new LoggerConfiguration()
+            .Enrich.FromLogContext()
+            .WriteTo.Sink(sink)
+            .CreateLogger();
+
+        try
+        {
+            var middleware = new RequestAuditContextMiddleware(_ =>
+            {
+                Log.Information("admin mutation");
+                return Task.CompletedTask;
+            });
+            var context = new DefaultHttpContext();
+            context.TraceIdentifier = "trace-admin";
+            context.Request.Method = HttpMethods.Post;
+            context.Request.Path = "/api/binary/admin/users/12";
+            context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.17");
+            context.Request.Headers.UserAgent = "FsusBrowser/1.0";
+            context.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, "12"),
+                new Claim(ClaimTypes.Role, "admin")
+            ], "test"));
+
+            await middleware.InvokeAsync(context);
+
+            LogEvent logEvent = Assert.Single(sink.Events);
+            Assert.Equal("\"admin\"", logEvent.Properties[AuditPropertyNames.ActorType].ToString());
+            Assert.Equal("\"12\"", logEvent.Properties[AuditPropertyNames.ActorId].ToString());
+            Assert.Equal("\"trace-admin\"", logEvent.Properties["TraceId"].ToString());
+            Assert.Contains("IpHash", logEvent.Properties.Keys);
+        }
+        finally
+        {
+            Log.Logger = previous;
+        }
+    }
+
+    private sealed class CollectingSink : ILogEventSink
+    {
+        public List<LogEvent> Events { get; } = [];
+
+        public void Emit(LogEvent logEvent) => Events.Add(logEvent);
     }
 }

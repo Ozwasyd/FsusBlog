@@ -259,11 +259,103 @@ public class RedisPowService : IPowService
 
     private static string BuildProofIdentity(IPowRequest req, string normalizedIp)
     {
-        string material = string.Join('\u001F', normalizedIp, req.PowSalt, req.PowNonce, req.PowTimestamp.ToString(), req.Difficulty.ToString(), req.BrowserFp);
-        Span<byte> hash = stackalloc byte[32];
-        SHA256.HashData(Encoding.UTF8.GetBytes(material), hash);
-        return Convert.ToHexString(hash);
+        int capacity = GetProofIdentityCapacity(normalizedIp, req);
+        byte[]? rented = null;
+        Span<byte> material = capacity <= 1024
+            ? stackalloc byte[capacity]
+            : rented = System.Buffers.ArrayPool<byte>.Shared.Rent(capacity);
+
+        try
+        {
+            if (!TryFormatProofIdentity(material, normalizedIp, req, out int bytesWritten))
+            {
+                return string.Empty;
+            }
+
+            Span<byte> hash = stackalloc byte[32];
+            SHA256.HashData(material[..bytesWritten], hash);
+            return Convert.ToHexString(hash);
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                System.Buffers.ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
     }
+
+    private static int GetProofIdentityCapacity(string normalizedIp, IPowRequest req)
+    {
+        const int separators = 5;
+        const int maxInt64Digits = 20;
+        const int maxInt32Digits = 11;
+        return Encoding.UTF8.GetByteCount(normalizedIp)
+            + Encoding.UTF8.GetByteCount(req.PowSalt)
+            + Encoding.UTF8.GetByteCount(req.PowNonce)
+            + Encoding.UTF8.GetByteCount(req.BrowserFp)
+            + separators
+            + maxInt64Digits
+            + maxInt32Digits;
+    }
+
+    private static bool TryFormatProofIdentity(Span<byte> destination, string normalizedIp, IPowRequest req, out int bytesWritten)
+    {
+        int offset = 0;
+        if (!TryWriteUtf8(normalizedIp, destination, ref offset) || !TryWriteUnitSeparator(destination, ref offset))
+        {
+            bytesWritten = 0;
+            return false;
+        }
+
+        if (!TryWriteUtf8(req.PowSalt, destination, ref offset) || !TryWriteUnitSeparator(destination, ref offset))
+        {
+            bytesWritten = 0;
+            return false;
+        }
+
+        if (!TryWriteUtf8(req.PowNonce, destination, ref offset) || !TryWriteUnitSeparator(destination, ref offset))
+        {
+            bytesWritten = 0;
+            return false;
+        }
+
+        if (!Utf8Formatter.TryFormat(req.PowTimestamp, destination[offset..], out int timestampBytes))
+        {
+            bytesWritten = 0;
+            return false;
+        }
+        offset += timestampBytes;
+        if (!TryWriteUnitSeparator(destination, ref offset))
+        {
+            bytesWritten = 0;
+            return false;
+        }
+
+        if (!Utf8Formatter.TryFormat(req.Difficulty, destination[offset..], out int difficultyBytes))
+        {
+            bytesWritten = 0;
+            return false;
+        }
+        offset += difficultyBytes;
+        if (!TryWriteUnitSeparator(destination, ref offset))
+        {
+            bytesWritten = 0;
+            return false;
+        }
+
+        if (!TryWriteUtf8(req.BrowserFp, destination, ref offset))
+        {
+            bytesWritten = 0;
+            return false;
+        }
+
+        bytesWritten = offset;
+        return true;
+    }
+
+    private static bool TryWriteUnitSeparator(Span<byte> destination, ref int offset)
+        => TryWriteByte(0x1F, destination, ref offset);
 
     private static TimeSpan ResolveReplayTtl(long timestamp)
     {

@@ -32,11 +32,11 @@ public class ClaimsPrincipalExtensionsTests
     }
 
     [Fact]
-    public void GetUserId_WithSubClaim_ReturnsId()
+    public void GetUserId_WithSubClaim_ReturnsZero()
     {
         var claims = new[] { new Claim("sub", "77") };
         var user = new ClaimsPrincipal(new ClaimsIdentity(claims));
-        Assert.Equal(77, user.GetUserId());
+        Assert.Equal(0, user.GetUserId());
     }
 
     [Fact]

@@ -214,7 +214,11 @@ public class IpRadixTree
                 return;
             }
 
-            uint value = BinaryPrimitives.ReadUInt32BigEndian(ip.GetAddressBytes());
+            if (!TryReadUInt32BigEndian(ip, out uint value))
+            {
+                return;
+            }
+
             uint mask = prefixLength == 0 ? 0u : uint.MaxValue << (32 - prefixLength);
             uint start = value & mask;
             uint end = start | ~mask;
@@ -230,7 +234,11 @@ public class IpRadixTree
                 return;
             }
 
-            UInt128 value = ReadUInt128BigEndian(ip.GetAddressBytes());
+            if (!TryReadUInt128BigEndian(ip, out UInt128 value))
+            {
+                return;
+            }
+
             UInt128 mask = prefixLength == 0 ? UInt128.Zero : UInt128.MaxValue << (128 - prefixLength);
             UInt128 start = value & mask;
             UInt128 end = start | ~mask;
@@ -245,13 +253,21 @@ public class IpRadixTree
         EnsureSealed();
         if (ip.AddressFamily == AddressFamily.InterNetwork)
         {
-            uint value = BinaryPrimitives.ReadUInt32BigEndian(ip.GetAddressBytes());
+            if (!TryReadUInt32BigEndian(ip, out uint value))
+            {
+                return false;
+            }
+
             return Contains(_v4Intervals, value);
         }
 
         if (ip.AddressFamily == AddressFamily.InterNetworkV6)
         {
-            UInt128 value = ReadUInt128BigEndian(ip.GetAddressBytes());
+            if (!TryReadUInt128BigEndian(ip, out UInt128 value))
+            {
+                return false;
+            }
+
             return Contains(_v6Intervals, value);
         }
 
@@ -394,10 +410,36 @@ public class IpRadixTree
         intervals.RemoveRange(write + 1, intervals.Count - write - 1);
     }
 
-    private static UInt128 ReadUInt128BigEndian(byte[] bytes)
+    private static bool TryReadUInt32BigEndian(IPAddress ip, out uint value)
     {
-        ulong high = BinaryPrimitives.ReadUInt64BigEndian(bytes.AsSpan(0, 8));
-        ulong low = BinaryPrimitives.ReadUInt64BigEndian(bytes.AsSpan(8, 8));
+        Span<byte> bytes = stackalloc byte[4];
+        if (!ip.TryWriteBytes(bytes, out int bytesWritten) || bytesWritten != 4)
+        {
+            value = 0;
+            return false;
+        }
+
+        value = BinaryPrimitives.ReadUInt32BigEndian(bytes);
+        return true;
+    }
+
+    private static bool TryReadUInt128BigEndian(IPAddress ip, out UInt128 value)
+    {
+        Span<byte> bytes = stackalloc byte[16];
+        if (!ip.TryWriteBytes(bytes, out int bytesWritten) || bytesWritten != 16)
+        {
+            value = UInt128.Zero;
+            return false;
+        }
+
+        value = ReadUInt128BigEndian(bytes);
+        return true;
+    }
+
+    private static UInt128 ReadUInt128BigEndian(ReadOnlySpan<byte> bytes)
+    {
+        ulong high = BinaryPrimitives.ReadUInt64BigEndian(bytes[..8]);
+        ulong low = BinaryPrimitives.ReadUInt64BigEndian(bytes[8..16]);
         return ((UInt128)high << 64) | low;
     }
 

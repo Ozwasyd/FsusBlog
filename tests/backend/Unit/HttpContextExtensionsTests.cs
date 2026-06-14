@@ -29,4 +29,16 @@ public sealed class HttpContextExtensionsTests
 
         Assert.Equal("127.0.0.1", clientIp);
     }
+
+    [Fact]
+    public void GetUserAgent_UsesFirstHeaderValueAndTruncates()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Headers.UserAgent = new Microsoft.Extensions.Primitives.StringValues([new string('a', 700), "second-agent"]);
+
+        string userAgent = context.GetUserAgent();
+
+        Assert.Equal(512, userAgent.Length);
+        Assert.All(userAgent, static ch => Assert.Equal('a', ch));
+    }
 }
