@@ -144,8 +144,8 @@ expectIncludes(filterView, '这个分类还没放文章', 'filterView.ts categor
 expectIncludes(filterView, '这个标签下还没有文章', 'filterView.ts tag empty state')
 expectIncludes(filterView, '换个词试试', 'filterView.ts search empty state')
 expectIncludes(articleListView, '这里还没有文章', 'articleList.ts empty state')
-expectIncludes(homeEmptyState, '这里还没有文章', 'HomeArticleEmptyState.vue')
-expectIncludes(homeErrorState, '文章列表没取回来', 'HomeArticleErrorState.vue')
+expectIncludes(homeEmptyState, '暂时还没有文章', 'HomeArticleEmptyState.vue')
+expectIncludes(homeErrorState, '文章列表暂时无法加载', 'HomeArticleErrorState.vue')
 expectIncludes(aboutPage, '内容连接中断', 'PublicAboutPageContent.vue')
 
 for (const [label, source] of publicStateCopySources) {

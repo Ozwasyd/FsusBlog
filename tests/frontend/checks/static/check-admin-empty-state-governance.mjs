@@ -21,22 +21,6 @@ const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 
 const directElEmptyAllowlist = new Map([
   [
-    'src/frontend/src/components/home/HomeArticleErrorState.vue',
-    'Public reader error state is tracked by FsusBlog #219.'
-  ],
-  [
-    'src/frontend/src/components/home/HomeArticleEmptyState.vue',
-    'Public reader empty state is tracked by FsusBlog #219.'
-  ],
-  [
-    'src/frontend/src/components/article/ArticleDetailErrorState.vue',
-    'Public article error state is tracked by FsusBlog #219.'
-  ],
-  [
-    'src/frontend/src/components/article/ArticleDetailNotFoundState.vue',
-    'Public article not-found state is tracked by FsusBlog #219.'
-  ],
-  [
     'src/frontend/src/components/ui/MarkdownEditorAdapter.vue',
     'Authoring/editor preview state is tracked by FsusBlog #220.'
   ]

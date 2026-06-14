@@ -100,12 +100,12 @@ export type ArticleDetailPageViewContract = Readonly<{
 
 export const articleDetailStates = {
   errorState: {
-    title: '文章正文没取回来，请稍后重试。',
-    retryText: '重载页面'
+    title: '文章暂时无法加载',
+    retryText: '重试'
   },
   notFoundState: {
-    title: '文章未找到。',
-    actionText: '回到主页',
+    title: '文章不存在或已不可见',
+    actionText: '返回首页',
     actionHref: '/'
   }
 } as const;
