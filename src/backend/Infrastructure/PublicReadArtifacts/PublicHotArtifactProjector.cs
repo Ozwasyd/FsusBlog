@@ -42,7 +42,19 @@ public sealed class PublicHotArtifactProjector(
         PublicHotReadSnapshot current,
         int articleId,
         CancellationToken ct)
-        => BuildSnapshotAsync(current.HtmlArtifacts, ct);
+    {
+        if (articleId <= 0 || current.ArticleFrameCount == 0)
+        {
+            return BuildSnapshotAsync(current.HtmlArtifacts, ct);
+        }
+
+        return dbConcurrencyGate.ExecuteAsync(
+            "public-hot-read-delta",
+            gateCt => BuildDeltaSnapshotCoreAsync(current, articleId, gateCt),
+            _ => Task.FromException<PublicHotReadSnapshot>(
+                new TimeoutException("db-gate-timeout:public-hot-read-delta")),
+            ct);
+    }
 
     public Task<PublicHotReadSnapshot> BuildInitialSnapshotAsync(CancellationToken ct)
         => BuildSnapshotAsync([], ct);
@@ -80,6 +92,41 @@ public sealed class PublicHotArtifactProjector(
             html);
     }
 
+    private async Task<PublicHotReadSnapshot> BuildDeltaSnapshotCoreAsync(
+        PublicHotReadSnapshot current,
+        int articleId,
+        CancellationToken ct)
+    {
+        PublicHotReadOptions value = options.Value;
+        DateTime utcNow = DateTime.UtcNow;
+        long version = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var articleFrames = current.ArticleArtifacts.ToDictionary(static pair => pair.Key, static pair => pair.Value);
+        IReadOnlyList<ArticleDetailReadModel> changedArticles = await LoadArticleDetailsFromDbAsync([articleId], ct).ConfigureAwait(false);
+        ArticleDetailReadModel? changed = changedArticles.FirstOrDefault(static article => article.Id > 0);
+        if (changed is null)
+        {
+            articleFrames.Remove(articleId);
+        }
+        else
+        {
+            ArticleDetailCoreModel core = ArticleProjection.ToCoreDetailModel(changed);
+            articleFrames[changed.Id] = EncodeFrame(AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(core), version, value);
+        }
+
+        FrozenDictionary<PublicListKey, PublicBinaryArtifact> listFrames = await BuildListFramesAsync(utcNow, version, value, ct).ConfigureAwait(false);
+        PublicBinaryArtifact categoryFrame = await BuildCategoryFrameAsync(version, value, ct).ConfigureAwait(false);
+        PublicBinaryArtifact tagFrame = await BuildTagFrameAsync(version, value, ct).ConfigureAwait(false);
+        FrozenDictionary<string, PublicHtmlArtifact> html = current.HtmlArtifacts.ToFrozenDictionary(StringComparer.Ordinal);
+
+        return new PublicHotReadSnapshot(
+            version,
+            articleFrames.ToFrozenDictionary(),
+            listFrames,
+            categoryFrame,
+            tagFrame,
+            html);
+    }
+
     private async Task<List<int>> QueryPublicArticleIdsAsync(DateTime utcNow, PublicHotReadOptions options, CancellationToken ct)
     {
         return await db.Queryable<Article>()
@@ -106,18 +153,13 @@ public sealed class PublicHotArtifactProjector(
             return FrozenDictionary<int, PublicBinaryArtifact>.Empty;
         }
 
-        var frames = new Dictionary<int, PublicBinaryArtifact>(articleIds.Count);
-        foreach (int articleId in articleIds)
+        IReadOnlyList<ArticleDetailReadModel> details = await LoadArticleDetailsFromDbAsync(articleIds, ct).ConfigureAwait(false);
+        var frames = new Dictionary<int, PublicBinaryArtifact>(details.Count);
+        foreach (ArticleDetailReadModel detail in details)
         {
             ct.ThrowIfCancellationRequested();
-            ArticleDetailReadModel? detail = await LoadArticleDetailFromDbAsync(articleId, ct).ConfigureAwait(false);
-            if (detail is null)
-            {
-                continue;
-            }
-
             ArticleDetailCoreModel core = ArticleProjection.ToCoreDetailModel(detail);
-            frames[articleId] = EncodeFrame(AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(core), version, options);
+            frames[detail.Id] = EncodeFrame(AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(core), version, options);
         }
 
         return frames.ToFrozenDictionary();
@@ -135,57 +177,19 @@ public sealed class PublicHotArtifactProjector(
         int[] hotSizes = NormalizePositive(options.HotSizes, [1, 3, 5, 10], Math.Clamp(options.MaxPreloadSize, 1, 100));
         int[] featuredSizes = NormalizePositive(options.FeaturedSizes, [3, 4, 10], Math.Clamp(options.MaxPreloadSize, 1, 100));
 
-        foreach (int page in pages)
-        {
-            foreach (int size in sizes)
-            {
-                await AddArticlePageFrameAsync(frames, new PublicListKey(PublicListKind.Home, 0, (ushort)page, (byte)size), page, size, null, null, version, options, ct).ConfigureAwait(false);
-                await AddArticlePageFrameAsync(frames, new PublicListKey(PublicListKind.Archive, 0, (ushort)page, (byte)size), page, size, null, null, version, options, ct).ConfigureAwait(false);
-            }
-        }
+        await AddArticlePageFramesAsync(frames, PublicListKind.Home, 0, pages, sizes, null, null, version, options, ct).ConfigureAwait(false);
+        await AddArticlePageFramesAsync(frames, PublicListKind.Archive, 0, pages, sizes, null, null, version, options, ct).ConfigureAwait(false);
 
         List<int> categoryIds = await QueryPublicCategoryIdsAsync(utcNow, ct).ConfigureAwait(false);
         foreach (int categoryId in categoryIds)
         {
-            foreach (int page in pages)
-            {
-                foreach (int size in sizes)
-                {
-                    await AddArticlePageFrameAsync(
-                            frames,
-                            new PublicListKey(PublicListKind.Category, categoryId, (ushort)page, (byte)size),
-                            page,
-                            size,
-                            categoryId,
-                            null,
-                            version,
-                            options,
-                            ct)
-                        .ConfigureAwait(false);
-                }
-            }
+            await AddArticlePageFramesAsync(frames, PublicListKind.Category, categoryId, pages, sizes, categoryId, null, version, options, ct).ConfigureAwait(false);
         }
 
         List<int> tagIds = await QueryPublicTagIdsAsync(utcNow, ct).ConfigureAwait(false);
         foreach (int tagId in tagIds)
         {
-            foreach (int page in pages)
-            {
-                foreach (int size in sizes)
-                {
-                    await AddArticlePageFrameAsync(
-                            frames,
-                            new PublicListKey(PublicListKind.Tag, tagId, (ushort)page, (byte)size),
-                            page,
-                            size,
-                            null,
-                            tagId,
-                            version,
-                            options,
-                            ct)
-                        .ConfigureAwait(false);
-                }
-            }
+            await AddArticlePageFramesAsync(frames, PublicListKind.Tag, tagId, pages, sizes, null, tagId, version, options, ct).ConfigureAwait(false);
         }
 
         foreach (int size in hotSizes)
@@ -227,11 +231,12 @@ public sealed class PublicHotArtifactProjector(
             .ConfigureAwait(false);
     }
 
-    private async Task AddArticlePageFrameAsync(
+    private async Task AddArticlePageFramesAsync(
         Dictionary<PublicListKey, PublicBinaryArtifact> frames,
-        PublicListKey key,
-        int page,
-        int size,
+        PublicListKind kind,
+        int targetId,
+        int[] pages,
+        int[] sizes,
         int? categoryId,
         int? tagId,
         long version,
@@ -240,12 +245,33 @@ public sealed class PublicHotArtifactProjector(
     {
         try
         {
-            CorePageResult<ArticleListCoreModel> pageResult = await LoadArticlePageFromDbAsync(page, size, categoryId, tagId, ct).ConfigureAwait(false);
-            frames[key] = EncodeFrame(AedsFrameType.ArticleList, PodBinaryCodec.EncodeArticlePage(pageResult), version, options);
+            int maxRows = checked(pages.Max() * sizes.Max());
+            CorePageResult<ArticleListCoreModel> window = await LoadArticlePageWindowFromDbAsync(
+                    offset: 0,
+                    limit: maxRows,
+                    categoryId,
+                    tagId,
+                    ct)
+                .ConfigureAwait(false);
+
+            foreach (int page in pages)
+            {
+                foreach (int size in sizes)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    int offset = (page - 1) * size;
+                    IReadOnlyList<ArticleListCoreModel> items = offset >= window.Items.Count
+                        ? []
+                        : window.Items.Skip(offset).Take(size).ToList();
+                    var result = new CorePageResult<ArticleListCoreModel>(items, window.Total);
+                    frames[new PublicListKey(kind, targetId, (ushort)page, (byte)size)] =
+                        EncodeFrame(AedsFrameType.ArticleList, PodBinaryCodec.EncodeArticlePage(result), version, options);
+                }
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogDebug(ex, "public-hot-list-project-skip {Kind} {TargetId} {Page} {Size}", key.Kind, key.TargetId, key.Page, key.Size);
+            logger.LogDebug(ex, "public-hot-list-project-skip {Kind} {TargetId}", kind, targetId);
         }
     }
 
@@ -287,19 +313,19 @@ public sealed class PublicHotArtifactProjector(
         }
     }
 
-    private async Task<CorePageResult<ArticleListCoreModel>> LoadArticlePageFromDbAsync(
-        int page,
-        int size,
+    private async Task<CorePageResult<ArticleListCoreModel>> LoadArticlePageWindowFromDbAsync(
+        int offset,
+        int limit,
         int? categoryId,
         int? tagId,
         CancellationToken ct)
     {
-        page = page < 1 ? 1 : page;
-        size = size switch
+        offset = Math.Max(0, offset);
+        limit = limit switch
         {
             < 1 => 10,
-            > MaxPageSize => MaxPageSize,
-            _ => size
+            > MaxPageSize * ushort.MaxValue => MaxPageSize * ushort.MaxValue,
+            _ => limit
         };
 
         List<string> whereClauses =
@@ -314,8 +340,8 @@ public sealed class PublicHotArtifactProjector(
             new("@IsDeleted", false),
             new("@PublishedStatus", (int)ArticleStatus.Published),
             new("@Now", DateTime.UtcNow),
-            new("@Offset", (page - 1) * size),
-            new("@Limit", size)
+            new("@Offset", offset),
+            new("@Limit", limit)
         ];
 
         if (categoryId.HasValue)
@@ -364,7 +390,7 @@ public sealed class PublicHotArtifactProjector(
             """;
 
         int totalCount = 0;
-        var list = new List<ArticleListItemReadModel>(size);
+        var list = new List<ArticleListItemReadModel>(Math.Min(limit, 1024));
         using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(combinedSql, parameters))
         {
             if (await reader.ReadAsync(ct).ConfigureAwait(false))
@@ -428,10 +454,24 @@ public sealed class PublicHotArtifactProjector(
 
     private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync(int id, CancellationToken ct)
     {
+        IReadOnlyList<ArticleDetailReadModel> articles = await LoadArticleDetailsFromDbAsync([id], ct).ConfigureAwait(false);
+        return articles.Count == 0 ? null : articles[0];
+    }
+
+    private async Task<IReadOnlyList<ArticleDetailReadModel>> LoadArticleDetailsFromDbAsync(
+        IReadOnlyCollection<int> articleIds,
+        CancellationToken ct)
+    {
+        int[] ids = [.. articleIds.Where(static id => id > 0).Distinct()];
+        if (ids.Length == 0)
+        {
+            return [];
+        }
+
         DateTime utcNow = DateTime.UtcNow;
         var query = db.Queryable<Article>()
             .LeftJoin<Category>((a, c) => a.CategoryId == c.Id)
-            .Where(a => a.Id == id
+            .Where(a => ids.Contains(a.Id)
                 && a.IsDeleted == false
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= utcNow)
@@ -453,27 +493,28 @@ public sealed class PublicHotArtifactProjector(
             });
 
         var sqlObj = query.ToSql();
-        ArticleDetailReadModel? article = null;
+        var articles = new Dictionary<int, ArticleDetailReadModel>(ids.Length);
         using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
         {
-            if (await reader.ReadAsync(ct).ConfigureAwait(false))
-            {
-                int fId = reader.GetOrdinal("Id");
-                int fTitle = reader.GetOrdinal("Title");
-                int fSum = reader.GetOrdinal("Summary");
-                int fCover = reader.GetOrdinal("CoverImageUrl");
-                int fCatId = reader.GetOrdinal("CategoryId");
-                int fViews = reader.GetOrdinal("Views");
-                int fTime = reader.GetOrdinal("CreateTime");
-                int fIsDel = reader.GetOrdinal("IsDeleted");
-                int fStatus = reader.GetOrdinal("Status");
-                int fScheduled = reader.GetOrdinal("ScheduledPublishAt");
-                int fPublished = reader.GetOrdinal("PublishedAt");
-                int fCatName = reader.GetOrdinal("CategoryName");
+            int fId = reader.GetOrdinal("Id");
+            int fTitle = reader.GetOrdinal("Title");
+            int fSum = reader.GetOrdinal("Summary");
+            int fCover = reader.GetOrdinal("CoverImageUrl");
+            int fCatId = reader.GetOrdinal("CategoryId");
+            int fViews = reader.GetOrdinal("Views");
+            int fTime = reader.GetOrdinal("CreateTime");
+            int fIsDel = reader.GetOrdinal("IsDeleted");
+            int fStatus = reader.GetOrdinal("Status");
+            int fScheduled = reader.GetOrdinal("ScheduledPublishAt");
+            int fPublished = reader.GetOrdinal("PublishedAt");
+            int fCatName = reader.GetOrdinal("CategoryName");
 
-                article = new ArticleDetailReadModel
+            while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                int articleId = reader.GetInt32(fId);
+                articles[articleId] = new ArticleDetailReadModel
                 {
-                    Id = reader.GetInt32(fId),
+                    Id = articleId,
                     Title = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle),
                     Summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum),
                     CoverImageUrl = reader.IsDBNull(fCover) ? null : reader.GetString(fCover),
@@ -490,27 +531,39 @@ public sealed class PublicHotArtifactProjector(
             }
         }
 
-        if (article is null)
+        if (articles.Count == 0)
         {
-            return null;
+            return [];
         }
 
-        string content = await LoadArticleContentAsync(id, ct).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(article.Summary))
+        IReadOnlyDictionary<int, string> contentMap = await LoadArticleContentMapAsync([.. articles.Keys], ct).ConfigureAwait(false);
+        IReadOnlyDictionary<int, List<TagReadModel>> tagMap = await LoadArticleTagMapAsync([.. articles.Keys], ct).ConfigureAwait(false);
+        var result = new List<ArticleDetailReadModel>(articles.Count);
+        foreach (int id in ids)
         {
-            content = article.Summary;
+            if (!articles.TryGetValue(id, out ArticleDetailReadModel? article))
+            {
+                continue;
+            }
+
+            string content = contentMap.TryGetValue(id, out string? mappedContent) ? mappedContent : string.Empty;
+            if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(article.Summary))
+            {
+                content = article.Summary;
+            }
+
+            int wordCount = CalculateReadableLength(content);
+            result.Add(article with
+            {
+                Content = content,
+                WordCount = wordCount,
+                EstimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
+                ShowReadingNotice = wordCount > LongReadThreshold,
+                Tags = tagMap.TryGetValue(id, out var tags) ? tags : []
+            });
         }
 
-        int wordCount = CalculateReadableLength(content);
-        IReadOnlyDictionary<int, List<TagReadModel>> tagMap = await LoadArticleTagMapAsync([id], ct).ConfigureAwait(false);
-        return article with
-        {
-            Content = content,
-            WordCount = wordCount,
-            EstimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
-            ShowReadingNotice = wordCount > LongReadThreshold,
-            Tags = tagMap.TryGetValue(id, out var tags) ? tags : []
-        };
+        return result;
     }
 
     private async Task<IReadOnlyList<PopularArticleCoreModel>> LoadHotArticlesFromDbAsync(int count, CancellationToken ct)
@@ -577,27 +630,55 @@ public sealed class PublicHotArtifactProjector(
                 new ArticleCategoryCoreModel(row.CategoryId, row.CategoryName ?? string.Empty))).ToList();
     }
 
+    private async Task<IReadOnlyDictionary<int, string>> LoadArticleContentMapAsync(
+        IReadOnlyCollection<int> articleIds,
+        CancellationToken ct)
+    {
+        int[] ids = [.. articleIds.Where(static id => id > 0).Distinct()];
+        if (ids.Length == 0)
+        {
+            return new Dictionary<int, string>();
+        }
+
+        var rows = await db.Queryable<ArticleBody>()
+            .Where(body => ids.Contains(body.ArticleId))
+            .Select(body => new { body.ArticleId, body.MarkdownContent })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var contentMap = new Dictionary<int, string>(ids.Length);
+        foreach (var row in rows)
+        {
+            contentMap[row.ArticleId] = row.MarkdownContent ?? string.Empty;
+        }
+
+        int[] missingLegacyIds =
+        [
+            .. ids.Where(id => !contentMap.TryGetValue(id, out string? content) || string.IsNullOrWhiteSpace(content))
+        ];
+        if (missingLegacyIds.Length == 0 || !await LegacyArticleContentColumnExistsAsync().ConfigureAwait(false))
+        {
+            return contentMap;
+        }
+
+        foreach (int articleId in missingLegacyIds)
+        {
+            using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                "SELECT COALESCE(content, '') AS content FROM article WHERE id = @id LIMIT 1;",
+                new[] { new SugarParameter("@id", articleId) });
+            if (await reader.ReadAsync(ct).ConfigureAwait(false) && !reader.IsDBNull(0))
+            {
+                contentMap[articleId] = reader.GetString(0);
+            }
+        }
+
+        return contentMap;
+    }
+
     private async Task<string> LoadArticleContentAsync(int articleId, CancellationToken ct)
     {
-        string content = await db.Queryable<ArticleBody>()
-            .Where(it => it.ArticleId == articleId)
-            .Select(it => it.MarkdownContent)
-            .FirstAsync() ?? string.Empty;
-
-        if (!string.IsNullOrWhiteSpace(content) || !await LegacyArticleContentColumnExistsAsync().ConfigureAwait(false))
-        {
-            return content;
-        }
-
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            "SELECT COALESCE(content, '') AS content FROM article WHERE id = @id LIMIT 1;",
-            new[] { new SugarParameter("@id", articleId) });
-        if (await reader.ReadAsync(ct).ConfigureAwait(false) && !reader.IsDBNull(0))
-        {
-            return reader.GetString(0);
-        }
-
-        return string.Empty;
+        IReadOnlyDictionary<int, string> contentMap = await LoadArticleContentMapAsync([articleId], ct).ConfigureAwait(false);
+        return contentMap.TryGetValue(articleId, out string? content) ? content : string.Empty;
     }
 
     private async Task<bool> LegacyArticleContentColumnExistsAsync()

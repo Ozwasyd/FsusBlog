@@ -123,9 +123,7 @@ internal static class PublicAotDocumentComposer
 
         if (!string.IsNullOrWhiteSpace(model.HeadLinks))
         {
-            html = html.Contains("</head>", StringComparison.OrdinalIgnoreCase)
-                ? Regex.Replace(html, "</head>", $"{model.HeadLinks}\n  </head>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
-                : html + "\n" + model.HeadLinks;
+            html = InsertBeforeHeadClose(html, model.HeadLinks);
         }
 
         const string bodyClose = "</body>";
@@ -191,6 +189,14 @@ internal static class PublicAotDocumentComposer
         return string.Concat(html.AsSpan(0, start), replacement, html.AsSpan(afterEnd));
     }
 
+    private static string InsertBeforeHeadClose(string html, string content)
+    {
+        int index = html.IndexOf("</head>", StringComparison.OrdinalIgnoreCase);
+        return index < 0
+            ? string.Concat(html, "\n", content)
+            : string.Concat(html.AsSpan(0, index), content, "\n  ", html.AsSpan(index));
+    }
+
     private static string EnsureBodyAttributes(string html)
     {
         return BodyTagRegex.Replace(
@@ -209,10 +215,43 @@ internal static class PublicAotDocumentComposer
     }
 
     private static bool HasAttribute(string attrs, string attributeName)
-        => Regex.IsMatch(
-            attrs,
-            $"\\b{Regex.Escape(attributeName)}\\s*=",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    {
+        ReadOnlySpan<char> source = attrs.AsSpan();
+        ReadOnlySpan<char> name = attributeName.AsSpan();
+        int searchStart = 0;
+        while (searchStart < source.Length)
+        {
+            int relative = source[searchStart..].IndexOf(name, StringComparison.OrdinalIgnoreCase);
+            if (relative < 0)
+            {
+                return false;
+            }
+
+            int start = searchStart + relative;
+            int afterName = start + name.Length;
+            bool validStart = start == 0 || !IsAttributeNameChar(source[start - 1]);
+            if (validStart)
+            {
+                int cursor = afterName;
+                while (cursor < source.Length && char.IsWhiteSpace(source[cursor]))
+                {
+                    cursor++;
+                }
+
+                if (cursor < source.Length && source[cursor] == '=')
+                {
+                    return true;
+                }
+            }
+
+            searchStart = Math.Max(afterName, start + 1);
+        }
+
+        return false;
+    }
+
+    private static bool IsAttributeNameChar(char value)
+        => char.IsLetterOrDigit(value) || value is '-' or '_' or ':' or '.';
 
     internal static string BuildThemeBootstrapScript() =>
         """

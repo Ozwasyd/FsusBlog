@@ -182,6 +182,9 @@ public sealed class PublicAotInvalidationTrackerTests
         public Task RemoveAsync(string cacheKey, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
+        public Task RemoveManyAsync(IReadOnlyCollection<string> cacheKeys, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
         public Task RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 

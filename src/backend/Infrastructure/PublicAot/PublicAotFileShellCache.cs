@@ -62,6 +62,35 @@ public sealed class PublicAotFileShellCache(
         RecordInvalidation("key", stats.WithPublish(), Stopwatch.GetElapsedTime(started));
     }
 
+    public async Task RemoveManyAsync(IReadOnlyCollection<string> cacheKeys, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string[] distinctKeys = [.. cacheKeys.Where(static key => !string.IsNullOrWhiteSpace(key)).Distinct(StringComparer.Ordinal)];
+        if (distinctKeys.Length == 0)
+        {
+            return;
+        }
+
+        long started = Stopwatch.GetTimestamp();
+        PublicAotBatchInvalidationStats stats = await RemoveManyLocalAsync(distinctKeys, cancellationToken).ConfigureAwait(false);
+        int publishCount = 0;
+        foreach (string cacheKey in distinctKeys)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await PublishInvalidationAsync(PublicAotInvalidationMessage.Key(cacheKey)).ConfigureAwait(false);
+            publishCount++;
+        }
+
+        RecordInvalidation(
+            "keys",
+            new PublicAotBatchInvalidationStats(
+                stats.InvalidatedKeys,
+                stats.DeletedFiles,
+                stats.RegistryRemovedMembers,
+                publishCount),
+            Stopwatch.GetElapsedTime(started));
+    }
+
     public async Task RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -561,7 +590,7 @@ public sealed class PublicAotFileShellCache(
         return deleted;
     }
 
-    private long RemoveMemoryByPrefix(string prefix)
+    private long RemoveMemoryByPrefix(string prefix, ICollection<string>? removedKeys = null)
     {
         long removed = 0;
         foreach (string cacheKey in _memoryCache.Keys)
@@ -569,39 +598,12 @@ public sealed class PublicAotFileShellCache(
             if (cacheKey.StartsWith(prefix, StringComparison.Ordinal)
                 && _memoryCache.TryRemove(cacheKey, out _))
             {
+                removedKeys?.Add(cacheKey);
                 removed++;
             }
         }
 
         return removed;
-    }
-
-    private int DeleteEntryFilesByPrefix(string prefix)
-    {
-        if (!Directory.Exists(_cacheRoot))
-        {
-            return 0;
-        }
-
-        int deleted = 0;
-        foreach (string file in EnumerateEntryFiles())
-        {
-            try
-            {
-                PublicAotCacheEntry? entry = PublicAotCacheEntryBinaryCodec.Decode(File.ReadAllBytes(file));
-                if (entry is not null && entry.CacheKey.StartsWith(prefix, StringComparison.Ordinal))
-                {
-                    File.Delete(file);
-                    deleted++;
-                }
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                logger.LogDebug(ex, "public_aot_remote_prefix_delete_failed {Path}", file);
-            }
-        }
-
-        return deleted;
     }
 
     private async Task<long> UnregisterKeysAsync(IReadOnlyCollection<string> cacheKeys)
@@ -723,9 +725,68 @@ public sealed class PublicAotFileShellCache(
 
     private PublicAotBatchInvalidationStats ApplyRemotePrefixInvalidation(string prefix)
     {
-        int removedMemory = checked((int)Math.Min(int.MaxValue, RemoveMemoryByPrefix(prefix)));
-        int deletedFiles = DeleteEntryFilesByPrefix(prefix);
-        return new PublicAotBatchInvalidationStats(removedMemory, deletedFiles, 0, 0);
+        var removedMemoryKeys = new List<string>();
+        int removedMemory = checked((int)Math.Min(int.MaxValue, RemoveMemoryByPrefix(prefix, removedMemoryKeys)));
+        int deletedMemoryFiles = 0;
+        foreach (string cacheKey in removedMemoryKeys)
+        {
+            deletedMemoryFiles += DeleteEntryFilesForKey(cacheKey, CancellationToken.None);
+        }
+
+        string registryKey = ResolveRegistryKey(prefix, out bool requiresPrefixFilter);
+        PublicAotBatchInvalidationStats stats = DeleteRegisteredEntryFilesByPrefix(registryKey, prefix, requiresPrefixFilter);
+        if (stats.InvalidatedKeys == 0 && !string.Equals(registryKey, PublicAotCacheRegistry.GlobalRegistryKey, StringComparison.Ordinal))
+        {
+            stats = stats.Add(DeleteRegisteredEntryFilesByPrefix(PublicAotCacheRegistry.GlobalRegistryKey, prefix, requiresPrefixFilter: true));
+        }
+
+        if (stats.InvalidatedKeys == 0)
+        {
+            logger.LogInformation(
+                "public-aot-remote-prefix-invalidation-registry-missing {Prefix}; skipped disk scan",
+                prefix);
+        }
+
+        return new PublicAotBatchInvalidationStats(
+            stats.InvalidatedKeys + removedMemory,
+            stats.DeletedFiles + deletedMemoryFiles,
+            0,
+            0);
+    }
+
+    private PublicAotBatchInvalidationStats DeleteRegisteredEntryFilesByPrefix(
+        string registryKey,
+        string prefix,
+        bool requiresPrefixFilter)
+    {
+        int invalidatedKeys = 0;
+        int deletedFiles = 0;
+        try
+        {
+            foreach (RedisValue key in _db.SetScan(registryKey, pageSize: 256))
+            {
+                if (key.IsNullOrEmpty)
+                {
+                    continue;
+                }
+
+                string cacheKey = key.ToString();
+                if (requiresPrefixFilter && !cacheKey.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                _memoryCache.TryRemove(cacheKey, out _);
+                deletedFiles += DeleteEntryFilesForKey(cacheKey, CancellationToken.None);
+                invalidatedKeys++;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "public-aot-remote-prefix-registry-read-failed {RegistryKey}", registryKey);
+        }
+
+        return new PublicAotBatchInvalidationStats(invalidatedKeys, deletedFiles, 0, 0);
     }
 
     private PublicAotBatchInvalidationStats ApplyRemoteKeyInvalidation(string cacheKey)

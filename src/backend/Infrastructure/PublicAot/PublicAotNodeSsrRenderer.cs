@@ -1,5 +1,7 @@
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Text;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -22,6 +24,9 @@ public sealed class PublicAotNodeSsrRenderer(
 {
     private const string DevelopmentWorkerScriptName = "server-public-ssr.vite.mjs";
     private const string ProductionWorkerScriptName = "server-public-ssr.bundle.mjs";
+    private const int MaxSsrOutputBytes = 2 * 1024 * 1024;
+    private const int MaxSsrErrorBytes = 256 * 1024;
+    private const bool WorkerProtocolSupportsMultiplexing = false;
 
     private readonly string _nodeExecutable = configuration["PublicAot:SsrNodePath"]?.Trim() is { Length: > 0 } configuredNode
         ? configuredNode
@@ -116,11 +121,15 @@ public sealed class PublicAotNodeSsrRenderer(
         await process.StandardInput.FlushAsync();
         process.StandardInput.Close();
 
-        Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync(timeoutCts.Token);
-        Task<string> stderrTask = process.StandardError.ReadToEndAsync(timeoutCts.Token);
+        Task<string> stdoutTask = ReadProcessOutputBoundedAsync(process.StandardOutput, MaxSsrOutputBytes, "stdout", timeoutCts.Token);
+        Task<string> stderrTask = ReadProcessOutputBoundedAsync(process.StandardError, MaxSsrErrorBytes, "stderr", timeoutCts.Token);
+        Task waitTask = process.WaitForExitAsync(timeoutCts.Token);
+        Task firstCompleted = await Task.WhenAny(waitTask, stdoutTask, stderrTask).ConfigureAwait(false);
+        await RethrowBoundedOutputFailureAsync(firstCompleted, stdoutTask, process).ConfigureAwait(false);
+        await RethrowBoundedOutputFailureAsync(firstCompleted, stderrTask, process).ConfigureAwait(false);
         try
         {
-            await process.WaitForExitAsync(timeoutCts.Token);
+            await waitTask.ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -137,6 +146,57 @@ public sealed class PublicAotNodeSsrRenderer(
         }
 
         return stdout;
+    }
+
+    private static async Task RethrowBoundedOutputFailureAsync(
+        Task completedTask,
+        Task<string> outputTask,
+        Process process)
+    {
+        if (!ReferenceEquals(completedTask, outputTask) || !(outputTask.IsFaulted || outputTask.IsCanceled))
+        {
+            return;
+        }
+
+        TryKill(process);
+        _ = await outputTask.ConfigureAwait(false);
+    }
+
+    private static async Task<string> ReadProcessOutputBoundedAsync(
+        TextReader reader,
+        int maxBytes,
+        string streamName,
+        CancellationToken cancellationToken)
+    {
+        var builder = new StringBuilder(Math.Min(maxBytes, 16 * 1024));
+        char[] buffer = ArrayPool<char>.Shared.Rent(4096);
+        int totalBytes = 0;
+        try
+        {
+            while (true)
+            {
+                int read = await reader.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                int bytes = Encoding.UTF8.GetByteCount(buffer.AsSpan(0, read));
+                if (totalBytes + bytes > maxBytes)
+                {
+                    throw new InvalidOperationException($"public_aot_worker_{streamName}_too_large:{maxBytes}");
+                }
+
+                totalBytes += bytes;
+                builder.Append(buffer, 0, read);
+            }
+
+            return builder.ToString();
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer, clearArray: false);
+        }
     }
 
     private static ProcessStartInfo CreateStartInfo(string clientRoot, string workerScript, string nodeExecutable)
@@ -271,6 +331,9 @@ public sealed class PublicAotNodeSsrRenderer(
 
     internal static PublicAotSsrWorkerResourceStatus CheckWorkerResourceForTests(IWebHostEnvironment env, IConfiguration configuration)
         => CheckWorkerResource(env, configuration);
+
+    internal static Task<string> ReadProcessOutputBoundedForTests(string output, int maxBytes, CancellationToken cancellationToken = default)
+        => ReadProcessOutputBoundedAsync(new StringReader(output), maxBytes, "stdout", cancellationToken);
 
     internal static PublicAotSsrWorkerResourceStatus CheckWorkerResource(IWebHostEnvironment env, IConfiguration configuration)
     {
@@ -486,7 +549,11 @@ public sealed class PublicAotNodeSsrRenderer(
         ILogger logger,
         int index) : IAsyncDisposable
     {
-        private readonly SemaphoreSlim _sendGate = new(1, 1);
+        // WorkerProtocolSupportsMultiplexing is false: request ids correlate responses,
+        // but the Node renderer executes one command at a time per worker process.
+        private readonly SemaphoreSlim _sendGate = new(
+            WorkerProtocolSupportsMultiplexing ? Environment.ProcessorCount : 1,
+            WorkerProtocolSupportsMultiplexing ? Environment.ProcessorCount : 1);
         private readonly ConcurrentDictionary<string, TaskCompletionSource<string>> _pending = new(StringComparer.Ordinal);
         private Process? _process;
         private Task? _stdoutLoop;

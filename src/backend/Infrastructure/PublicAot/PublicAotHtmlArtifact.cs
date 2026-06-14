@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
@@ -171,7 +172,8 @@ internal static class PublicAotHtmlArtifactFactory
 
     private static byte[]? TryCompress(ReadOnlySpan<byte> bytes, string encoding)
     {
-        using var output = new MemoryStream();
+        var writer = new ArrayBufferWriter<byte>(Math.Min(Math.Max(bytes.Length / 2, 256), bytes.Length));
+        using var output = new BufferWriterStream(writer);
         if (encoding == "br")
         {
             using (var brotli = new BrotliStream(output, CompressionLevel.SmallestSize, leaveOpen: true))
@@ -187,7 +189,44 @@ internal static class PublicAotHtmlArtifactFactory
             }
         }
 
-        return output.Length < bytes.Length ? output.ToArray() : null;
+        return writer.WrittenCount < bytes.Length ? writer.WrittenMemory.ToArray() : null;
+    }
+
+    private sealed class BufferWriterStream(IBufferWriter<byte> writer) : Stream
+    {
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => writer is ArrayBufferWriter<byte> arrayWriter ? arrayWriter.WrittenCount : 0;
+
+        public override long Position
+        {
+            get => Length;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+            => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin)
+            => throw new NotSupportedException();
+
+        public override void SetLength(long value)
+            => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count)
+            => Write(buffer.AsSpan(offset, count));
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            Span<byte> target = writer.GetSpan(buffer.Length);
+            buffer.CopyTo(target);
+            writer.Advance(buffer.Length);
+        }
     }
 }
 

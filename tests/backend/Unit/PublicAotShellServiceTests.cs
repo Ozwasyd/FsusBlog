@@ -282,6 +282,12 @@ public sealed class PublicAotShellServiceTests
             return Task.CompletedTask;
         }
 
+        public Task RemoveManyAsync(IReadOnlyCollection<string> cacheKeys, CancellationToken cancellationToken = default)
+        {
+            RemovedKeys.AddRange(cacheKeys);
+            return Task.CompletedTask;
+        }
+
         public Task RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 

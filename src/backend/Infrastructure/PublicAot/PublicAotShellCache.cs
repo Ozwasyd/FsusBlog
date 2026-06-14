@@ -43,6 +43,11 @@ public sealed class PublicAotShellCache(IUnifiedCache cache, IConnectionMultiple
         await RemoveManyCacheEntriesAsync([cacheKey], cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task RemoveManyAsync(IReadOnlyCollection<string> cacheKeys, CancellationToken cancellationToken = default)
+    {
+        await RemoveManyCacheEntriesAsync(cacheKeys, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task RemoveManyCacheEntriesAsync(
         IReadOnlyCollection<string> cacheKeys,
         CancellationToken cancellationToken,

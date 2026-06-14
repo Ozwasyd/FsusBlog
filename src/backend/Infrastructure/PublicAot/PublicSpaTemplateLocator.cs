@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -19,7 +20,7 @@ internal static class PublicSpaTemplateLocator
 </html>
 """;
     private static readonly byte[] MinimalIndexTemplateBytes = Encoding.UTF8.GetBytes(MinimalIndexTemplate);
-    private static readonly Lock CacheGate = new();
+    private static readonly ConcurrentDictionary<string, string> _assetPathCache = new(StringComparer.Ordinal);
     private static TemplateSnapshot? _cachedTemplate;
 
     internal static string ResolveIndexTemplatePath(IWebHostEnvironment env, bool preferSourceTemplate = false)
@@ -78,6 +79,12 @@ internal static class PublicSpaTemplateLocator
         string assetsRoot = Path.Combine(env.WebRootPath ?? string.Empty, "assets");
         if (!Directory.Exists(assetsRoot)) return string.Empty;
 
+        string cacheKey = string.Concat(Path.GetFullPath(assetsRoot), '|', prefix, '|', extension);
+        return _assetPathCache.GetOrAdd(cacheKey, _ => ResolveAssetPathUncached(assetsRoot, prefix, extension));
+    }
+
+    private static string ResolveAssetPathUncached(string assetsRoot, string prefix, string extension)
+    {
         var file = Directory.GetFiles(assetsRoot, $"{prefix}*.{extension}")
             .Select(Path.GetFileName)
             .OrderByDescending(f => f)
@@ -90,10 +97,8 @@ internal static class PublicSpaTemplateLocator
 
     internal static void ResetCacheForTests()
     {
-        lock (CacheGate)
-        {
-            _cachedTemplate = null;
-        }
+        Interlocked.Exchange(ref _cachedTemplate, null);
+        _assetPathCache.Clear();
     }
 
     private static async Task<TemplateSnapshot> GetTemplateSnapshotAsync(IWebHostEnvironment env, CancellationToken cancellationToken, bool preferSourceTemplate)
@@ -103,17 +108,15 @@ internal static class PublicSpaTemplateLocator
         string indexPath = string.Empty;
         if (canUseCachedTemplate)
         {
-            lock (CacheGate)
+            TemplateSnapshot? cachedTemplate = Volatile.Read(ref _cachedTemplate);
+            if (!isDevelopment && cachedTemplate is not null)
             {
-                if (!isDevelopment && _cachedTemplate is { } productionCachedTemplate)
-                {
-                    return productionCachedTemplate;
-                }
+                return cachedTemplate;
+            }
 
-                if (_cachedTemplate is { Path.Length: > 0 } cachedTemplate && File.Exists(cachedTemplate.Path))
-                {
-                    indexPath = cachedTemplate.Path;
-                }
+            if (cachedTemplate is { Path.Length: > 0 } && File.Exists(cachedTemplate.Path))
+            {
+                indexPath = cachedTemplate.Path;
             }
         }
 
@@ -126,10 +129,7 @@ internal static class PublicSpaTemplateLocator
         {
             if (!isDevelopment)
             {
-                lock (CacheGate)
-                {
-                    _cachedTemplate = TemplateSnapshot.Minimal;
-                }
+                Interlocked.Exchange(ref _cachedTemplate, TemplateSnapshot.Minimal);
             }
 
             return TemplateSnapshot.Minimal;
@@ -141,14 +141,12 @@ internal static class PublicSpaTemplateLocator
 
         if (canUseCachedTemplate && isDevelopment)
         {
-            lock (CacheGate)
+            TemplateSnapshot? cachedTemplate = Volatile.Read(ref _cachedTemplate);
+            if (cachedTemplate is not null
+                && string.Equals(cachedTemplate.Path, indexPath, StringComparison.Ordinal)
+                && cachedTemplate.LastWriteTimeUtc == lastWriteTimeUtc)
             {
-                if (_cachedTemplate is not null
-                    && string.Equals(_cachedTemplate.Path, indexPath, StringComparison.Ordinal)
-                    && _cachedTemplate.LastWriteTimeUtc == lastWriteTimeUtc)
-                {
-                    return _cachedTemplate;
-                }
+                return cachedTemplate;
             }
         }
 
@@ -157,15 +155,11 @@ internal static class PublicSpaTemplateLocator
             indexPath,
             lastWriteTimeUtc,
             bytes,
-            Encoding.UTF8.GetString(bytes),
             ComputeAssetVersion(bytes));
 
         if (canUseCachedTemplate)
         {
-            lock (CacheGate)
-            {
-                _cachedTemplate = snapshot;
-            }
+            Interlocked.Exchange(ref _cachedTemplate, snapshot);
         }
 
         return snapshot;
@@ -178,13 +172,16 @@ internal static class PublicSpaTemplateLocator
         return Convert.ToHexStringLower(hash);
     }
 
-    private sealed record TemplateSnapshot(string Path, DateTime LastWriteTimeUtc, byte[] Bytes, string Text, string AssetVersion)
+    private sealed record TemplateSnapshot(string Path, DateTime LastWriteTimeUtc, byte[] Bytes, string AssetVersion)
     {
         public static TemplateSnapshot Minimal { get; } = new(
             string.Empty,
             DateTime.MinValue,
             MinimalIndexTemplateBytes,
-            MinimalIndexTemplate,
             ComputeAssetVersion(MinimalIndexTemplateBytes));
+
+        private string? LazyText;
+
+        public string Text => LazyText ??= Encoding.UTF8.GetString(Bytes);
     }
 }

@@ -45,6 +45,15 @@ public sealed class PublicAotNodeWorkerScriptTests
     }
 
     [Fact]
+    public async Task BoundedOutputReader_RejectsOversizedSsrResponse()
+    {
+        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            PublicAotNodeSsrRenderer.ReadProcessOutputBoundedForTests(new string('x', 128), maxBytes: 32));
+
+        Assert.Contains("public_aot_worker_stdout_too_large", ex.Message);
+    }
+
+    [Fact]
     public void ProductionWorkerResource_RequiresPrebuiltBundle()
     {
         using var temp = new TempDirectory();

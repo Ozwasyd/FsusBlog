@@ -197,6 +197,8 @@ public sealed class PublicHotReadSnapshot
     public bool CategoryFrameReady => !_categoryFrame.Frame.IsEmpty;
     public bool TagFrameReady => !_tagFrame.Frame.IsEmpty;
     public int HtmlFrameCount => _htmlFrameCount;
+    public IEnumerable<KeyValuePair<int, PublicBinaryArtifact>> ArticleArtifacts => _articleFramesById;
+    public IEnumerable<KeyValuePair<PublicListKey, PublicBinaryArtifact>> ListArtifacts => _listFrames;
 
     public IEnumerable<KeyValuePair<string, PublicHtmlArtifact>> HtmlArtifacts
     {

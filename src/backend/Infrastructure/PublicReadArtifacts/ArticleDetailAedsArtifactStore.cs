@@ -40,6 +40,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
     IWebHostEnvironment env,
     ILogger<ArticleDetailAedsFileArtifactStore> logger) : IArticleDetailAedsArtifactStore
 {
+    private static readonly TimeSpan MemoryTtl = TimeSpan.FromSeconds(30);
     private readonly string _root = Path.Combine(env.ContentRootPath, "runtime-cache", "public", "articles");
     private readonly ConcurrentDictionary<int, CachedFrame> _memory = new();
 
@@ -52,7 +53,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
         }
 
         string path = GetPath(articleId);
-        if (TryReadMemory(articleId, path, out byte[]? frame))
+        if (TryReadMemory(articleId, out byte[]? frame))
         {
             FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "hit_memory", FsusObservability.GetElapsed(startedAt));
             return new ArticleDetailAedsArtifact(frame);
@@ -73,7 +74,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
             return default;
         }
 
-        _memory[articleId] = new CachedFrame(bytes, File.GetLastWriteTimeUtc(path));
+        _memory[articleId] = new CachedFrame(bytes, DateTimeOffset.UtcNow.Add(MemoryTtl));
         FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "hit_file", FsusObservability.GetElapsed(startedAt));
         return new ArticleDetailAedsArtifact(bytes);
     }
@@ -96,7 +97,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
         string tempPath = string.Concat(path, ".", Guid.NewGuid().ToString("N"), ".tmp");
         await File.WriteAllBytesAsync(tempPath, bytes, cancellationToken).ConfigureAwait(false);
         File.Move(tempPath, path, overwrite: true);
-        _memory[articleId] = new CachedFrame(bytes, File.GetLastWriteTimeUtc(path));
+        _memory[articleId] = new CachedFrame(bytes, DateTimeOffset.UtcNow.Add(MemoryTtl));
         FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "write", TimeSpan.Zero);
     }
 
@@ -114,7 +115,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
         return Task.CompletedTask;
     }
 
-    private bool TryReadMemory(int articleId, string path, out byte[]? frame)
+    private bool TryReadMemory(int articleId, out byte[]? frame)
     {
         frame = null;
         if (!_memory.TryGetValue(articleId, out CachedFrame? cached))
@@ -122,7 +123,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
             return false;
         }
 
-        if (!File.Exists(path) || File.GetLastWriteTimeUtc(path) != cached.LastWriteTimeUtc)
+        if (cached.ExpiresAtUtc <= DateTimeOffset.UtcNow)
         {
             _memory.TryRemove(articleId, out _);
             return false;
@@ -148,7 +149,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
             && BinaryPrimitives.ReadUInt16LittleEndian(frame[8..10]) == (ushort)AedsFrameType.ArticleDetail;
     }
 
-    private sealed record CachedFrame(byte[] Frame, DateTime LastWriteTimeUtc);
+    private sealed record CachedFrame(byte[] Frame, DateTimeOffset ExpiresAtUtc);
 }
 
 public sealed class ArticleDetailAedsArtifactBackfillScheduler(

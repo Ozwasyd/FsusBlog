@@ -10,6 +10,8 @@ public interface IPublicAotShellCache
 
     Task RemoveAsync(string cacheKey, CancellationToken cancellationToken = default);
 
+    Task RemoveManyAsync(IReadOnlyCollection<string> cacheKeys, CancellationToken cancellationToken = default);
+
     Task RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default);
 
     Task InvalidateAllAsync(CancellationToken cancellationToken = default);
