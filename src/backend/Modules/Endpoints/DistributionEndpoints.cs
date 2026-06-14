@@ -1,7 +1,5 @@
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Distribution;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 
 namespace FsusBlog.Server.Modules.Endpoints;
@@ -59,26 +57,8 @@ public static class DistributionEndpoints
 
     private static IResult BuildCachedTextResult(HttpContext ctx, string body, string contentType)
     {
-        string etag = BuildWeakEtag(body);
         ctx.Response.Headers.CacheControl = "public, max-age=60, stale-while-revalidate=300";
-        ctx.Response.Headers.ETag = etag;
-        if (RequestHasMatchingEtag(ctx, etag))
-        {
-            return Results.StatusCode(StatusCodes.Status304NotModified);
-        }
 
         return Results.Content(body, contentType);
     }
-
-    private static string BuildWeakEtag(string body)
-    {
-        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(body));
-        return $"W/\"{Convert.ToHexString(hash).ToLowerInvariant()}\"";
-    }
-
-    private static bool RequestHasMatchingEtag(HttpContext ctx, string etag)
-        => ctx.Request.Headers.IfNoneMatch
-            .ToString()
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Any(candidate => string.Equals(candidate, etag, StringComparison.Ordinal));
 }

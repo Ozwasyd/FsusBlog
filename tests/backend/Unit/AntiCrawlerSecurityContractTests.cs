@@ -123,8 +123,14 @@ public sealed class AntiCrawlerSecurityContractTests
 
         Assert.DoesNotContain("no-cache", endpoints, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("stale-while-revalidate=300", endpoints, StringComparison.Ordinal);
-        Assert.Contains("Headers.ETag", endpoints, StringComparison.Ordinal);
-        Assert.Contains("Status304NotModified", endpoints, StringComparison.Ordinal);
+        Assert.Contains("CacheOutput(static builder => ApplyDistributionCache(builder))", endpoints, StringComparison.Ordinal);
+        Assert.Contains("CacheTag.ArticleList.ToOutputCacheTag()", endpoints, StringComparison.Ordinal);
+        Assert.Contains("CacheTag.Seo.ToOutputCacheTag()", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("Headers.ETag", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("Status304NotModified", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("SHA256.HashData", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("IfNoneMatch", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Split(", endpoints, StringComparison.Ordinal);
         Assert.Contains("Disallow: /api/", service, StringComparison.Ordinal);
         Assert.Contains("Allow: /api/public/", service, StringComparison.Ordinal);
         Assert.Contains("Disallow: /search/index.bin", service, StringComparison.Ordinal);

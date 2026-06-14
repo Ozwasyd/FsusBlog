@@ -934,7 +934,7 @@ X-Fsus-Pow-Answer: <nonce 值>
 | GET | `/robots.txt` | `text/plain` | 声明 sitemap，并拒绝私有路由 |
 | GET | `/api/binary/article/{articleId}/related.aeds` | `AedsFrameType.ArticleRelatedReading` | 基于分类、标签、全文关键词和发布时间的公开延伸阅读 |
 
-feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 和 body ETag；客户端提交匹配的 `If-None-Match` 时返回 `304 Not Modified`。RSS channel 的 copyright 来源于合规配置；`robots.txt` 明确禁止 `/api/`、`/user`、`/admin`、搜索索引二进制与 patch 目录，同时保留 `/api/public/`、`/feed/`、`/sitemap.xml` 与公开路由可抓取。
+feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 并挂载 OutputCache ArticleList/Seo tag；端点不按正文手写 ETag，也不在请求线程解析 `If-None-Match`。RSS channel 的 copyright 来源于合规配置；`robots.txt` 明确禁止 `/api/`、`/user`、`/admin`、搜索索引二进制与 patch 目录，同时保留 `/api/public/`、`/feed/`、`/sitemap.xml` 与公开路由可抓取。
 
 公开评论读取、公开 taxonomy 与 `related-reading` AEDS 端点受 `public_read` 限流和风险感知过滤保护。风险分达到 50 时动态 API 要求 `X-Fsus-Pow-Proof`，达到 100 时返回 429；verified crawler 走独立高额度，social preview bot 不允许访问 `/api/**`。
 
