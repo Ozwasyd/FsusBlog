@@ -1048,7 +1048,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 | GET | `/api/binary/author/audit/summary` | 当前过滤条件下的审计 facet 与写入 runtime |
 | GET | `/api/binary/author/audit/{id}` | 审计详情、context JSON 与防篡改校验结果 |
 | GET | `/api/binary/author/audit/{id}/verify` | 单条审计 `record_hash` / `record_mac` 校验 |
-| GET | `/api/binary/author/ops/health` | 运维健康面板数据：PostgreSQL、Redis、audit、Crawler CIDR、备份、PublicHotRead、search、worker、队列和最近错误 |
+| GET | `/api/binary/author/ops/health` | 运维健康面板数据：PostgreSQL、Redis、audit、Crawler CIDR、备份、PublicHotRead、search、worker、队列和结构化最近错误 |
 | GET | `/api/binary/author/ops/backup` | 最近站点备份状态，扫描 database/uploads/DataProtection keyring/config/site-package/restore-drill artifacts |
 | GET | `/api/binary/author/ops/dangerous-operations/policy` | 管理端危险操作等级、MFA step-up、强确认和 diff 策略 |
 | GET | `/api/binary/author/cache/diagnostics?articleId={id}` | AOT/PublicHotRead/search/sitemap/feed/comment cache/output cache 诊断，可选单文章定位 |
@@ -1112,7 +1112,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 `AuditLogListResponse` 返回 `items`、`total`、`page`、`pageSize` 和 `runtime`。列表查询参数包括 `source`、`type`、`actor`、`action`、`targetType`、`targetId`、`outcome`、`severity`、`fromUtc`、`toUtc`；`actor` 会匹配 actor id/type/role，target 可按 type 和 id 分别过滤。`AuditLogItemResponse` 暴露 `source/type/action/outcome/severity/isHighValue`、`actorType/actorId/actorRole`、`targetType/targetId`、`reasonCode`、`eventInfo`、trace/path/method、`ipHash/userAgentHash/sessionIdHash/deviceFingerprintHash` 和 `chainId/prevHash/recordHash/recordMac`。`AuditLogDetailResponse` 额外返回 `contextJson` 与 `tamperEvidenceValid`；`AuditTamperVerifyResponse` 用于单条校验。所有审计查询端点位于 admin-only `/api/binary/author/audit/**`，并会写入 `admin.audit.queried` 审计事件。
 
-`OpsHealthResponse` 的 `services` 至少包含 `postgres`、`redis`、`audit`、`crawler-cidr`、`backup`、`public-hot-read`、`search-index`；`workers` 包含 `scheduled-publish` 和启动任务快照；`queueBacklog` 包含 `articleMutationPending`、`articleMutationFailed`、`auditQueued`、`auditDropped`；`backup` 内嵌 `BackupStatusResponse`，用于 `/user/manage/ops` 的后台状态展示。`BackupStatusResponse` 只暴露 artifact 路径、mtime、size 和状态，不返回 secret 内容。
+`OpsHealthResponse` 的 `services` 至少包含 `postgres`、`redis`、`audit`、`crawler-cidr`、`backup`、`public-hot-read`、`search-index`；`workers` 包含 `scheduled-publish` 和启动任务快照；`queueBacklog` 包含 `articleMutationPending`、`articleMutationFailed`、`auditQueued`、`auditDropped`；`backup` 内嵌 `BackupStatusResponse`，用于 `/user/manage/ops` 的后台状态展示。`recentErrors` 返回 `RecentOpsErrorResponse[]`，每项包含 `occurredAt`、`severity`、`action`、`message`、`detail` 和 `count`；服务端只查询审计行的原始字段，物化后清理 `CAST(...)` 等 SQL 投影残片、提取短摘要、保留可展开详情，并按 `action + normalized message` 合并重复错误。`BackupStatusResponse` 只暴露 artifact 路径、mtime、size 和状态，不返回 secret 内容。
 
 `CacheDiagnosticsResponse` 返回 `aot`、`search`、`distribution`、`commentCache`、`hotStatsInvalidation`、`outputCache`、`publicHotReadCounters` 和可选 `article`。`aot` 来自 `PublicHotReadStore` 和 `PublicAotInvalidationTracker`；`search` 读取 `/search/index.manifest.aeds` 的 schema/version/shard count；`distribution` 通过实际生成 sitemap/rss 统计 URL/item 数；`commentCache` 来自 `CacheInvalidationRuntimeState`。`hotStatsInvalidation` 来自 `IHotStatsInvalidationCoalescer`，暴露当前 HotArticles version、dirty/flush 次数、coalesced dirty 数、pending 状态和最近 dirty/flush reason，用于 VisitLog 驱动失效压力 evidence。`POST /api/binary/author/cache/actions` 会写入 `admin.cache.action_executed` 高价值审计。
 

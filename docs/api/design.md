@@ -196,7 +196,7 @@ Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayloa
 
 作者工作台生产 API 放在 `/api/binary/author/**`，全部使用 admin 授权和 AEDS frame；旧 `/api/binary/author/**` 只保留为后端兼容层。预览、草稿、修订、管理端 taxonomy、资产、AI 辅助都属于作者私有能力。私有预览走 `/api/binary/author/preview`，由服务端把草稿 Markdown 渲染成带 `data-preview-only=true`、`data-markdown-renderer=server-preview` 的 AOT-like HTML，前端只放进 sandboxed iframe，不进入公开路由或缓存。服务端草稿以 `ownerUserId + draftKey` 隔离并持久化正文、分类标签、发布状态和定时发布时间；编辑器发现服务端草稿比本地缓存更新时必须先提示恢复/丢弃，不能用本地缓存静默覆盖。文章修订历史必须通过 admin-only API 读取摘要和单条正文详情，编辑器只在作者工作台内比较当前表单与历史版本，回滚复用正式文章更新链路而不是直接写表。未发布正文不得进入 feed、search、sitemap、PublicAOT cache，也不得默认发送到外部 AI provider。
 
-单作者运维能力也归入 `/api/binary/author/**`，不得新增多作者协作或复杂 RBAC。`/api/binary/author/ops/**` 只返回运行时健康、备份 artifact 状态和危险操作策略；`/api/binary/author/cache/**` 暴露 AOT/PublicHotRead/search/sitemap/feed/comment cache 诊断、VisitLog 驱动 HotArticles/Stats 失效合并状态与手动重建入口；`/api/binary/author/integrity/**` 暴露数据一致性巡检、diff 预览和带 MFA 的 safe-fix 应用。所有写入型维护动作必须写高价值审计；不可逆或跨表修复必须先返回 diff，并通过统一危险操作策略要求强确认或 MFA proof。
+单作者运维能力也归入 `/api/binary/author/**`，不得新增多作者协作或复杂 RBAC。`/api/binary/author/ops/**` 只返回运行时健康、备份 artifact 状态、结构化最近错误和危险操作策略；最近错误必须在审计行物化后做摘要、清理和分组，不得在 ORM projection 内拼接格式化字符串或向前端泄露 SQL 表达式片段。`/api/binary/author/cache/**` 暴露 AOT/PublicHotRead/search/sitemap/feed/comment cache 诊断、VisitLog 驱动 HotArticles/Stats 失效合并状态与手动重建入口；`/api/binary/author/integrity/**` 暴露数据一致性巡检、diff 预览和带 MFA 的 safe-fix 应用。所有写入型维护动作必须写高价值审计；不可逆或跨表修复必须先返回 diff，并通过统一危险操作策略要求强确认或 MFA proof。
 
 SEO 预览是作者工作台内的发布前质量门，不是新路由模型：当前公开 canonical 仍由 `SeoConfigContract.baseUrl + /article/{id}` 生成，新文章落库前使用 draft-preview 占位。编辑器必须展示搜索结果和分享卡片预览，并在发布/定时发布前调用 `/api/binary/author/prepublish-check`；错误项阻断，摘要/封面/标题长度、图片 alt、超大 Markdown 或未知站内链接等 warning 只能在作者填写跳过理由后继续提交，理由由服务端写入审计。
 

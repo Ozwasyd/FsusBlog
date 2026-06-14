@@ -283,7 +283,7 @@
 | GET | `/api/binary/author/audit/summary` | 👑🚦 | 审计 facet 汇总与写入 runtime |
 | GET | `/api/binary/author/audit/{id}` | 👑🚦 | 审计详情与 context |
 | GET | `/api/binary/author/audit/{id}/verify` | 👑🚦 | 单条防篡改证据校验 |
-| GET | `/api/binary/author/ops/health` | 👑🚦 | 运维健康：DB/Redis/audit/worker/search/backup/队列 |
+| GET | `/api/binary/author/ops/health` | 👑🚦 | 运维健康：DB/Redis/audit/worker/search/backup/队列/结构化最近错误 |
 | GET | `/api/binary/author/ops/backup` | 👑🚦 | 最近站点备份和 restore drill 状态 |
 | GET | `/api/binary/author/ops/dangerous-operations/policy` | 👑🚦 | 管理端危险操作确认、MFA 与 diff 策略 |
 | GET | `/api/binary/author/cache/diagnostics` | 👑🚦 | AOT/PublicHotRead/search/sitemap/feed/comment cache 与 HotArticles/Stats 失效合并状态 |

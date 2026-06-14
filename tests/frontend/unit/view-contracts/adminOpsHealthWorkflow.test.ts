@@ -29,8 +29,10 @@ describe('admin ops health workflow contract', () => {
     expect(opsHealth).toContain('error.message')
     expect(opsHealth).toContain('statusLabel(error.severity)')
     expect(opsHealth).toContain('formatOpsErrorTime(error.occurredAt)')
+    expect(opsHealth).toContain('error.detail')
     expect(opsHealth).not.toContain('{{ error }}')
     expect(opsHealth).not.toContain(':key="error"')
+    expect(authoringApi).not.toContain('CAST(')
   })
 
   it('uses compact empty, grouped count, detail disclosure, and copy action', () => {
