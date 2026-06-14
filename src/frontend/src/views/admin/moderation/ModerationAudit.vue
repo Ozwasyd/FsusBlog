@@ -25,10 +25,10 @@ import { RouterLink } from 'vue-router'
 
 const events = [
   { action: 'dictionary_loaded', detail: '词库快照加载成功。' },
-  { action: 'dictionary_reload_failed', detail: '词库 reload 失败但保留旧 snapshot。' },
+  { action: 'dictionary_reload_failed', detail: '词库重新载入失败但保留旧快照。' },
   { action: 'dictionary_checksum_changed', detail: '词库 checksum 发生变化。' },
   { action: 'region_policy_loaded', detail: '地区策略加载成功。' },
-  { action: 'region_policy_reload_failed', detail: '地区策略 reload 失败。' },
+  { action: 'region_policy_reload_failed', detail: '地区策略重新载入失败。' },
   { action: 'region_policy_replay_started', detail: '地区策略回放 preview 或执行开始。' },
   { action: 'region_policy_replay_completed', detail: '地区策略回放 preview 或执行完成。' },
   { action: 'model_moderation_scored', detail: '模型风险信号评分完成。' },

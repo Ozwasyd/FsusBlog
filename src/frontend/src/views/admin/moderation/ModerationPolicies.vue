@@ -4,8 +4,8 @@
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">地区策略</div>
-          <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">policy -> dictionaries 组合结果</h2>
-          <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">地区策略结果独立于模型信号，决定 submit/display action 和 blocked_regions。</p>
+          <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">策略与词库组合结果</h2>
+          <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">地区策略结果独立于模型信号，决定提交动作、展示动作和拦截地区。</p>
         </div>
         <el-button :icon="Refresh" :loading="loading" @click="loadPolicies">刷新</el-button>
       </div>
@@ -15,46 +15,46 @@
           <template #default="{ row }: { row: RegionPolicySummaryResponse }">
             <div class="grid gap-6 p-5 lg:grid-cols-2">
               <section>
-                <div class="mb-3 text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">Dictionaries</div>
+                <div class="mb-3 text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库</div>
                 <div class="flex flex-wrap gap-2">
                   <el-tag v-for="dictionaryId in row.dictionaryIds" :key="dictionaryId" type="info">{{ dictionaryId }}</el-tag>
-                  <el-tag v-if="row.dictionaryIds.length === 0" type="danger">missing</el-tag>
+                  <el-tag v-if="row.dictionaryIds.length === 0" type="danger">缺失</el-tag>
                 </div>
               </section>
               <section>
-                <div class="mb-3 text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">Critical Checks</div>
+                <div class="mb-3 text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">关键检查</div>
                 <div class="divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]">
                   <div v-for="check in row.criticalChecks" :key="check.code" class="flex flex-wrap items-center justify-between gap-3 p-3">
                     <div>
                       <div class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ check.label }}</div>
                       <div class="mt-1 text-[11px] text-[var(--fsusblog-text-muted)]">{{ check.detail }}</div>
                     </div>
-                    <el-tag :type="checkType(check.status)">{{ check.status }}</el-tag>
+                    <el-tag :type="checkType(check.status)">{{ formatCheckStatus(check.status) }}</el-tag>
                   </div>
                 </div>
               </section>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Region" width="150" prop="region" />
-        <el-table-column label="Inherits" min-width="160">
+        <el-table-column label="地区" width="150" prop="region" />
+        <el-table-column label="继承来源" min-width="160">
           <template #default="{ row }: { row: RegionPolicySummaryResponse }">
             <span>{{ row.inherits.length ? row.inherits.join(', ') : '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Policy Version" min-width="190" prop="version" />
-        <el-table-column label="Dictionaries" width="130" align="right">
+        <el-table-column label="策略版本" min-width="190" prop="version" />
+        <el-table-column label="词库数" width="130" align="right">
           <template #default="{ row }: { row: RegionPolicySummaryResponse }">{{ row.dictionaryIds.length }}</template>
         </el-table-column>
-        <el-table-column label="Rules" width="90" align="right" prop="ruleCount" />
-        <el-table-column label="Status" width="130">
+        <el-table-column label="规则数" width="90" align="right" prop="ruleCount" />
+        <el-table-column label="状态" width="130">
           <template #default="{ row }: { row: RegionPolicySummaryResponse }">
             <el-tag :type="policyStatusType(row)">{{ policyStatus(row) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Runtime" width="190">
+        <el-table-column label="运行状态" width="190">
           <template #default="{ row }: { row: RegionPolicySummaryResponse }">
-            <el-select v-model="regionStateDrafts[row.region]" size="small" aria-label="region runtime state">
+            <el-select v-model="regionStateDrafts[row.region]" size="small" aria-label="地区运行状态">
               <el-option v-for="option in regionStateOptions" :key="option.value" :label="option.label" :value="option.value" />
             </el-select>
           </template>
@@ -72,7 +72,7 @@
             </el-button>
           </template>
         </el-table-column>
-        <el-table-column label="Checksum" min-width="180">
+        <el-table-column label="校验值" min-width="180">
           <template #default="{ row }: { row: RegionPolicySummaryResponse }">
             <code class="block truncate text-[11px]">{{ row.checksum }}</code>
           </template>
@@ -82,7 +82,7 @@
 
     <section v-if="mainlandPolicy" class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">CN-MAINLAND mandatory checks</div>
+        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">CN-MAINLAND 必要检查</div>
       </div>
       <div class="divide-y divide-[var(--fsusblog-panel-border)]">
         <div v-for="check in mainlandPolicy.criticalChecks" :key="check.code" class="flex flex-wrap items-center justify-between gap-3 p-5">
@@ -90,7 +90,7 @@
             <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ check.label }}</div>
             <p class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ check.detail }}</p>
           </div>
-          <el-tag :type="checkType(check.status)">{{ check.status }}</el-tag>
+          <el-tag :type="checkType(check.status)">{{ formatCheckStatus(check.status) }}</el-tag>
         </div>
       </div>
     </section>
@@ -122,12 +122,21 @@ const regionStateDrafts = reactive<Record<string, string>>({})
 
 const mainlandPolicy = computed(() => policies.value.find((item) => item.region === 'CN-MAINLAND') ?? null)
 const regionStateOptions = [
-  { label: 'enabled', value: 'enabled' },
-  { label: 'manual_review_only', value: 'manual_review_only' },
-  { label: 'no_public_display', value: 'no_public_display' },
-  { label: 'read_only', value: 'read_only' },
-  { label: 'disabled', value: 'disabled' }
+  { label: '已启用', value: 'enabled' },
+  { label: '仅人工审核', value: 'manual_review_only' },
+  { label: '不公开展示', value: 'no_public_display' },
+  { label: '只读', value: 'read_only' },
+  { label: '已关闭', value: 'disabled' }
 ] as const
+
+const formatCheckStatus = (status: string): string => {
+  const labels: Record<string, string> = {
+    ok: '通过',
+    warning: '提醒',
+    error: '异常'
+  }
+  return labels[status] ?? status
+}
 
 const checkType = (status: string): 'success' | 'warning' | 'danger' | 'info' => {
   if (status === 'ok') return 'success'
@@ -138,15 +147,15 @@ const checkType = (status: string): 'success' | 'warning' | 'danger' | 'info' =>
 
 const policyStatus = (policy: RegionPolicySummaryResponse): string =>
   policy.criticalChecks.some((check) => check.status === 'error')
-    ? 'invalid'
+    ? '异常'
     : policy.criticalChecks.some((check) => check.status === 'warning')
-      ? 'warning'
-      : 'loaded'
+      ? '提醒'
+      : '已载入'
 
 const policyStatusType = (policy: RegionPolicySummaryResponse): 'success' | 'warning' | 'danger' =>
-  policyStatus(policy) === 'loaded'
+  policyStatus(policy) === '已载入'
     ? 'success'
-    : policyStatus(policy) === 'warning'
+    : policyStatus(policy) === '提醒'
       ? 'warning'
       : 'danger'
 
@@ -180,7 +189,7 @@ const ensureAdminSensitiveProof = async (): Promise<string> => {
     throw new Error('MFA_CHALLENGE_REQUIRED')
   }
 
-  const code = await promptText('输入 MFA 验证码或恢复码', '地区策略 runtime 验证', {
+  const code = await promptText('输入 MFA 验证码或恢复码', '地区策略运行状态验证', {
     confirmButtonText: '确认',
     cancelButtonText: '取消',
     inputPlaceholder: '验证码或恢复码',
@@ -232,9 +241,9 @@ const saveRegionState = async (policy: RegionPolicySummaryResponse): Promise<voi
       confirmPhrase
     }, { mfaProofToken })
     regionStateDrafts[policy.region] = runtime.value.regionStates[policy.region] ?? 'enabled'
-    toast.success(`${policy.region} runtime 已更新`)
+    toast.success(`${policy.region} 运行状态已更新`)
   } catch (error) {
-    showErrorToast(error, '地区 runtime 状态更新失败')
+    showErrorToast(error, '地区运行状态更新失败')
   } finally {
     runtimeActionRegion.value = null
   }

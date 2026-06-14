@@ -3,7 +3,7 @@
     <WorkbenchPanel
       eyebrow="安全总览"
       title="安全运行总览"
-      :caption="overview ? `checked ${formatTime(overview.checkedAtUtc)}` : ''"
+      :caption="overview ? `检查时间：${formatTime(overview.checkedAtUtc)}` : ''"
       title-id="security-overview-title"
     >
       <template #actions>
@@ -71,29 +71,39 @@ const loading = shallowRef(false)
 const overview = shallowRef<SecurityOverviewResponse | null>(null)
 
 const links = [
-  { eyebrow: 'ANTI-CRAWLER', label: '反爬虫系统', helper: 'Crawler detection、CIDR 更新、风险事件、策略模拟器。', name: 'ManageSecurityCrawler' },
-  { eyebrow: 'PROOF OF WORK', label: 'PoW 系统', helper: 'Challenge、proof TTL、replay 防护与风险分联动。', name: 'ManageSecurityPow' },
-  { eyebrow: 'SECURITY RISK', label: '统一风险信号', helper: '反爬虫、限流、ReadProof 和 PoW 都写入统一风险总线。', name: 'ManageSecurityCrawler' }
+  { eyebrow: '反爬虫', label: '反爬虫系统', helper: '爬虫识别、CIDR 更新、风险事件与策略模拟。', name: 'ManageSecurityCrawler' },
+  { eyebrow: 'PoW', label: 'PoW 系统', helper: '挑战签发、Proof 有效期、重放防护与风险分联动。', name: 'ManageSecurityPow' },
+  { eyebrow: '风险信号', label: '统一风险信号', helper: '反爬虫、限流、ReadProof 和 PoW 都写入统一风险总线。', name: 'ManageSecurityCrawler' }
 ] as const
 
+const formatSecurityMode = (mode: string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    disabled: '已关闭',
+    observe: '观察',
+    enforce: '执行',
+    strict: '严格'
+  }
+  return mode ? labels[mode] ?? mode : '-'
+}
+
 const metrics = computed(() => [
-  { label: '反爬虫模式', value: overview.value?.antiCrawler.mode ?? '-' },
-  { label: 'CIDR Source', value: overview.value?.antiCrawler.cidrSource ?? '-' },
-  { label: 'PoW 模式', value: overview.value?.pow.policy.options.mode ?? '-' },
+  { label: '反爬虫模式', value: formatSecurityMode(overview.value?.antiCrawler.mode) },
+  { label: 'CIDR 来源', value: overview.value?.antiCrawler.cidrSource ?? '-' },
+  { label: 'PoW 模式', value: formatSecurityMode(overview.value?.pow.policy.options.mode) },
   { label: '高风险主体', value: overview.value?.risk.highRiskSnapshotCount ?? '-' }
 ])
 
 const riskRows = computed(() => [
-  { label: 'Risk events / 1h', value: overview.value?.risk.eventsLastHour ?? '-' },
-  { label: 'Risk events / 24h', value: overview.value?.risk.eventsLastDay ?? '-' },
-  { label: 'Top reason', value: overview.value?.risk.topReason ?? '-' },
-  { label: 'Top source', value: overview.value?.risk.topSource ?? '-' }
+  { label: '1 小时风险事件', value: overview.value?.risk.eventsLastHour ?? '-' },
+  { label: '24 小时风险事件', value: overview.value?.risk.eventsLastDay ?? '-' },
+  { label: '主要原因', value: overview.value?.risk.topReason ?? '-' },
+  { label: '主要来源', value: overview.value?.risk.topSource ?? '-' }
 ])
 
 const boundaryRows = [
-  { label: 'AntiCrawler', value: '只处理 crawler detection、crawler policy、crawler event，并向 SecurityRisk 写入信号。' },
-  { label: 'PoW', value: '只处理 challenge/proof/difficulty；它是安全系统能力，不挂在反爬虫下面。' },
-  { label: 'HumanReadProof / RateLimiter', value: '只写入各自来源的风险信号，不依赖 AntiCrawler 具体实现。' }
+  { label: '反爬虫', value: '只处理爬虫识别、爬虫策略和爬虫事件，并向 SecurityRisk 写入信号。' },
+  { label: 'PoW', value: '只处理 challenge、proof、difficulty；它是安全系统能力，不挂在反爬虫下面。' },
+  { label: 'ReadProof / 限流', value: '只写入各自来源的风险信号，不依赖反爬虫具体实现。' }
 ] as const
 
 const formatTime = (value: string | null | undefined): string => value ? new Date(value).toLocaleString() : '-'

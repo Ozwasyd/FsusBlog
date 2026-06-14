@@ -19,6 +19,13 @@ describe('admin UX task flow contract', () => {
   const profile = readRepoFile('src/frontend/src/views/user/Profile.vue')
   const login = readRepoFile('src/frontend/src/views/auth/Login.vue')
   const register = readRepoFile('src/frontend/src/views/auth/Register.vue')
+  const securityDashboard = readRepoFile('src/frontend/src/views/admin/security/SecurityDashboard.vue')
+  const securityCrawler = readRepoFile('src/frontend/src/views/admin/security/SecurityCrawler.vue')
+  const securityPow = readRepoFile('src/frontend/src/views/admin/security/SecurityPow.vue')
+  const moderationDashboard = readRepoFile('src/frontend/src/views/admin/moderation/ModerationDashboard.vue')
+  const moderationModel = readRepoFile('src/frontend/src/views/admin/moderation/ModerationModel.vue')
+  const moderationDictionaries = readRepoFile('src/frontend/src/views/admin/moderation/ModerationDictionaries.vue')
+  const moderationReplay = readRepoFile('src/frontend/src/views/admin/moderation/ModerationReplay.vue')
   const publicShellState = readRepoFile('src/frontend/src/public-renderers/publicShellState.ts')
   const homeContent = readRepoFile('src/frontend/src/components/public/pages/PublicHomePageContent.vue')
   const filterContent = readRepoFile('src/frontend/src/components/public/pages/PublicFilterPageContent.vue')
@@ -111,6 +118,40 @@ describe('admin UX task flow contract', () => {
     for (const source of [dashboard, articleList, profile, login, register]) {
       expect(source).not.toMatch(/\p{Script=Han}[^<\n'"]*\/\s+[A-Z][A-Z ]+/u)
     }
+  })
+
+  it('localizes security and moderation admin copy without leaking provider details', () => {
+    expect(securityDashboard).toContain('检查时间：')
+    expect(securityDashboard).toContain('爬虫识别、CIDR 更新、风险事件与策略模拟。')
+    expect(securityDashboard).not.toContain('ANTI-CRAWLER')
+    expect(securityDashboard).not.toContain('SECURITY RISK')
+
+    expect(securityCrawler).toContain('反爬虫运行模式')
+    expect(securityCrawler).toContain('CIDR 更新间隔（分钟）')
+    expect(securityCrawler).toContain('<th class="px-5 py-3">时间</th>')
+    expect(securityCrawler).not.toContain('AntiCrawler mode')
+    expect(securityCrawler).not.toContain('CIDR interval / minutes')
+    expect(securityCrawler).not.toContain('challenge reference')
+
+    expect(securityPow).toContain('PoW 运行模式')
+    expect(securityPow).toContain('Proof 有效期（秒）')
+    expect(securityPow).not.toContain('PROOF OF WORK')
+    expect(securityPow).not.toContain('Default difficulty')
+
+    expect(moderationDashboard).toContain('模型状态：')
+    expect(moderationDashboard).toContain('全局运行状态')
+    expect(moderationDashboard).toContain('中国大陆严格策略')
+    expect(moderationDashboard).not.toContain('model ${overview.modelProvider}')
+    expect(moderationDashboard).not.toContain('Global Runtime State')
+
+    expect(moderationModel).toContain('模型来源')
+    expect(moderationModel).toContain('启用状态')
+    expect(moderationModel).not.toContain('External Provider')
+    expect(moderationDictionaries).toContain('词库元数据')
+    expect(moderationDictionaries).toContain('已载入')
+    expect(moderationDictionaries).not.toContain('load error')
+    expect(moderationReplay).toContain('预览差异')
+    expect(moderationReplay).not.toContain('blocked_regions')
   })
 
   it('tightens public search, empty states, and UX quality gates', () => {

@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-8">
     <WorkbenchPanel
-      eyebrow="PROOF OF WORK"
+      eyebrow="PoW"
       title="PoW 系统"
-      :caption="overview ? `snapshot ${overview.policy.snapshotId}` : ''"
+      :caption="overview ? `快照：${overview.policy.snapshotId}` : ''"
       title-id="security-pow-title"
     >
       <template #actions>
@@ -38,7 +38,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
             <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行策略</div>
-            <div class="mt-2 text-lg font-bold text-[var(--fsusblog-text-primary)]">Pow mode</div>
+            <div class="mt-2 text-lg font-bold text-[var(--fsusblog-text-primary)]">PoW 运行模式</div>
           </div>
           <div class="flex gap-2">
             <el-button :loading="saving" @click="rollbackOptions">回滚</el-button>
@@ -48,17 +48,17 @@
 
         <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-2">
           <label class="bg-[var(--fsusblog-page-bg)] p-5">
-            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Mode</span>
-            <el-select v-model="draft.mode" class="mt-2 w-full" aria-label="pow mode">
-              <el-option v-for="mode in modes" :key="mode" :label="mode" :value="mode" />
+            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">运行模式</span>
+            <el-select v-model="draft.mode" class="mt-2 w-full" aria-label="PoW 运行模式">
+              <el-option v-for="mode in modes" :key="mode" :label="formatSecurityMode(mode)" :value="mode" />
             </el-select>
           </label>
           <label class="bg-[var(--fsusblog-page-bg)] p-5">
-            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Default difficulty</span>
+            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">默认难度</span>
             <el-input-number v-model="draft.defaultDifficulty" class="mt-2 w-full" :min="1" :max="12" controls-position="right" />
           </label>
           <label class="bg-[var(--fsusblog-page-bg)] p-5">
-            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Proof TTL / seconds</span>
+            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Proof 有效期（秒）</span>
             <el-input-number v-model="draft.proofTtlSeconds" class="mt-2 w-full" :min="30" :max="3600" controls-position="right" />
           </label>
           <div v-for="toggle in toggles" :key="toggle.key" class="flex items-center justify-between gap-4 bg-[var(--fsusblog-page-bg)] p-5">
@@ -119,6 +119,19 @@ import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 const AdminSensitiveAction = 'admin-sensitive'
 const modes: SecurityMode[] = ['disabled', 'observe', 'enforce', 'strict']
 
+const formatSecurityMode = (mode: SecurityMode | string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    disabled: '已关闭',
+    observe: '观察',
+    enforce: '执行',
+    strict: '严格'
+  }
+  return mode ? labels[mode] ?? mode : '-'
+}
+
+const formatEnabled = (value: boolean | null | undefined): string =>
+  value === undefined || value === null ? '-' : value ? '已启用' : '已关闭'
+
 const loading = shallowRef(false)
 const saving = shallowRef(false)
 const overview = shallowRef<PowOverviewResponse | null>(null)
@@ -145,29 +158,32 @@ const draft = reactive<PowPolicyOptions>({
 })
 
 const toggles = [
-  { key: 'adaptiveDifficultyEnabled', label: 'Adaptive difficulty', caption: '根据全局压力调整 difficulty。' },
-  { key: 'replayProtectionEnabled', label: 'Replay protection', caption: 'proof nonce 一次性消费。' },
-  { key: 'riskScoreLinkEnabled', label: 'Risk score link', caption: '读取统一安全风险分。' }
+  { key: 'adaptiveDifficultyEnabled', label: '自适应难度', caption: '根据全局压力调整难度。' },
+  { key: 'replayProtectionEnabled', label: '重放防护', caption: 'Proof nonce 一次性消费。' },
+  { key: 'riskScoreLinkEnabled', label: '风险分联动', caption: '读取统一安全风险分。' }
 ] as const
 
 const metrics = computed(() => [
-  { label: 'Mode', value: overview.value?.policy.options.mode ?? '-' },
-  { label: 'Difficulty', value: overview.value?.policy.options.defaultDifficulty ?? '-' },
-  { label: 'Failures / 1h', value: overview.value?.validationFailuresLastHour ?? '-' },
-  { label: 'Replay rejects / 1h', value: overview.value?.replayRejectsLastHour ?? '-' }
+  { label: '运行模式', value: formatSecurityMode(overview.value?.policy.options.mode) },
+  { label: '默认难度', value: overview.value?.policy.options.defaultDifficulty ?? '-' },
+  { label: '1 小时校验失败', value: overview.value?.validationFailuresLastHour ?? '-' },
+  { label: '1 小时重放拒绝', value: overview.value?.replayRejectsLastHour ?? '-' }
 ])
 
 const statusRows = computed(() => [
-  { label: 'Challenge endpoint', value: overview.value?.policy.options.challengeEndpoint ?? '-' },
-  { label: 'Endpoint status', value: overview.value?.challengeEndpointStatus ?? '-' },
-  { label: 'Verification strategy', value: overview.value?.policy.options.verificationStrategy ?? '-' },
-  { label: 'Challenge required / 1h', value: overview.value?.challengeRequiredLastHour ?? '-' }
+  { label: '挑战端点', value: overview.value?.policy.options.challengeEndpoint ?? '-' },
+  { label: '端点状态', value: overview.value?.challengeEndpointStatus ?? '-' },
+  { label: '验证策略', value: overview.value?.policy.options.verificationStrategy ?? '-' },
+  { label: '1 小时挑战次数', value: overview.value?.challengeRequiredLastHour ?? '-' },
+  { label: '自适应难度', value: formatEnabled(overview.value?.policy.options.adaptiveDifficultyEnabled) },
+  { label: '重放防护', value: formatEnabled(overview.value?.policy.options.replayProtectionEnabled) },
+  { label: '风险分联动', value: formatEnabled(overview.value?.policy.options.riskScoreLinkEnabled) }
 ])
 
 const boundaryRows = [
-  { label: 'PoW owns challenge/proof', value: 'PoW 页面只管理 challenge、proof TTL、replay 和 difficulty。' },
-  { label: 'AntiCrawler emits crawler risk', value: '反爬虫系统不会拥有 PoW；它只写入 crawler 类风险信号。' },
-  { label: 'SecurityRisk is shared', value: '公开读取过滤器读取统一风险分，再引用 security.pow 作为 challenge 能力。' }
+  { label: 'PoW 只管理挑战与 Proof', value: 'PoW 页面只管理挑战、Proof TTL、重放防护和难度。' },
+  { label: '反爬虫只写入爬虫风险', value: '反爬虫系统不会拥有 PoW；它只写入爬虫类风险信号。' },
+  { label: '风险信号共用', value: '公开读取过滤器读取统一风险分，再引用 security.pow 作为 challenge 能力。' }
 ] as const
 
 const assignDraft = (options: PowPolicyOptions): void => {
@@ -211,7 +227,7 @@ const saveOptions = async (): Promise<void> => {
     const reason = await promptText('变更原因', '保存 PoW 策略', {
       confirmButtonText: '保存',
       cancelButtonText: '取消',
-      inputPlaceholder: 'reason',
+      inputPlaceholder: '变更原因',
       inputValidator: (value: string) => value.trim().length > 0 || '请输入变更原因'
     })
     if (!reason) return
@@ -219,7 +235,7 @@ const saveOptions = async (): Promise<void> => {
     const mfaProofToken = await ensureAdminSensitiveProof()
     const snapshot = await updatePowOptions({ ...draft, reason }, { mfaProofToken })
     assignDraft(snapshot.options)
-    taskFeedback.succeed('PoW 策略已更新', `difficulty=${snapshot.options.defaultDifficulty}`, 'security-pow-options')
+    taskFeedback.succeed('PoW 策略已更新', `默认难度：${snapshot.options.defaultDifficulty}`, 'security-pow-options')
     toast.success('PoW 策略已更新')
     await loadPow()
   } catch (error) {
@@ -237,7 +253,7 @@ const rollbackOptions = async (): Promise<void> => {
     const mfaProofToken = await ensureAdminSensitiveProof()
     const snapshot = await rollbackPowOptions({ mfaProofToken })
     assignDraft(snapshot.options)
-    taskFeedback.succeed('PoW 策略已回滚', `difficulty=${snapshot.options.defaultDifficulty}`, 'security-pow-options')
+    taskFeedback.succeed('PoW 策略已回滚', `默认难度：${snapshot.options.defaultDifficulty}`, 'security-pow-options')
     toast.success('PoW 策略已回滚')
     await loadPow()
   } catch (error) {

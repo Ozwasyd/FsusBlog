@@ -21,7 +21,7 @@
 
       <div class="border-l-4 border-[var(--el-color-warning)] px-5 py-4 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
         <strong class="text-[var(--fsusblog-text-primary)]">地区法律策略优先级高于反垃圾模型。</strong>
-        <span class="ml-2">模型风险信号不能覆盖 blocked_regions、submit_action、display_action 或人工审核状态。</span>
+        <span class="ml-2">模型风险信号不能覆盖拦截地区、提交动作、展示动作或人工审核状态。</span>
       </div>
 
       <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-4">
@@ -45,19 +45,19 @@
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div class="flex items-center justify-between gap-3 p-5">
-            <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">Last Success</span>
+            <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">最近成功</span>
             <span class="text-[12px] text-[var(--fsusblog-text-muted)]">{{ formatTime(status?.lastSuccessAtUtc) }}</span>
           </div>
           <div class="flex items-center justify-between gap-3 p-5">
-            <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">Last Error</span>
+            <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">最近错误</span>
             <span class="text-[12px] text-[var(--fsusblog-text-muted)]">{{ status?.lastErrorCode ?? '-' }} / {{ formatTime(status?.lastErrorAtUtc) }}</span>
           </div>
           <div class="flex items-center justify-between gap-3 p-5">
-            <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">Average Latency</span>
+            <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">平均延迟</span>
             <span class="text-[12px] tabular-nums text-[var(--fsusblog-text-muted)]">{{ status?.averageLatencyMs ?? 0 }} ms</span>
           </div>
           <div class="flex items-center justify-between gap-3 p-5">
-            <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">P95 Latency</span>
+            <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">P95 延迟</span>
             <span class="text-[12px] tabular-nums text-[var(--fsusblog-text-muted)]">{{ status?.p95LatencyMs ?? 0 }} ms</span>
           </div>
         </div>
@@ -70,33 +70,33 @@
         <div class="space-y-4 p-5">
           <div class="grid gap-3 md:grid-cols-2">
             <label class="space-y-2">
-              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Provider</span>
-              <el-select v-model="form.provider" placeholder="provider" aria-label="model provider">
-                <el-option label="none" value="none" />
-                <el-option label="mock" value="mock" />
-                <el-option label="http-json" value="http-json" />
-                <el-option label="fsus-cli" value="fsus-cli" />
+              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">模型来源</span>
+              <el-select v-model="form.provider" placeholder="模型来源" aria-label="模型来源">
+                <el-option label="关闭外部模型" value="none" />
+                <el-option label="本地模拟" value="mock" />
+                <el-option label="HTTP JSON" value="http-json" />
+                <el-option label="Fsus CLI" value="fsus-cli" />
               </el-select>
             </label>
             <label class="space-y-2">
-              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Enabled</span>
+              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">启用模型</span>
               <div class="flex h-8 items-center">
                 <el-switch v-model="form.enabled" />
               </div>
             </label>
             <label class="space-y-2">
-              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Model Profile</span>
-              <el-input v-model="form.modelProfile" placeholder="model profile" />
+              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">模型配置</span>
+              <el-input v-model="form.modelProfile" placeholder="模型配置名" />
             </label>
             <label class="space-y-2">
-              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Threshold Profile</span>
-              <el-input v-model="form.thresholdProfile" placeholder="threshold profile" />
+              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">阈值配置</span>
+              <el-input v-model="form.thresholdProfile" placeholder="阈值配置名" />
             </label>
           </div>
           <div class="flex flex-wrap gap-2">
-            <el-button type="primary" :icon="Connection" :loading="saving" @click="saveRuntime">保存 runtime</el-button>
-            <el-button :icon="RefreshRight" type="warning" :loading="reloading" @click="reloadRuntime">reload</el-button>
-            <el-button :icon="RefreshLeft" type="warning" :loading="rollingBack" @click="rollbackRuntime">rollback</el-button>
+            <el-button type="primary" :icon="Connection" :loading="saving" @click="saveRuntime">保存运行配置</el-button>
+            <el-button :icon="RefreshRight" type="warning" :loading="reloading" @click="reloadRuntime">重新载入</el-button>
+            <el-button :icon="RefreshLeft" type="warning" :loading="rollingBack" @click="rollbackRuntime">回滚</el-button>
           </div>
           <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-2">
             <div v-for="item in runtimeRows" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-4">
@@ -159,22 +159,46 @@ const form = reactive({
   thresholdProfile: ''
 })
 
+const formatEnabled = (value: boolean | null | undefined): string => value ? '已启用' : '已关闭'
+
+const formatProvider = (value: string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    none: '关闭外部模型',
+    mock: '本地模拟',
+    'http-json': '远程 HTTP',
+    'fsus-cli': 'Fsus CLI'
+  }
+  return value ? labels[value] ?? '自定义来源' : '-'
+}
+
+const formatMode = (value: string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    local: '本地',
+    remote: '远程',
+    disabled: '已关闭',
+    observe: '观察'
+  }
+  return value ? labels[value] ?? value : '-'
+}
+
+const formatReviewed = (value: boolean | null | undefined): string => value ? '已复核' : '未复核'
+
 const statusRows = computed(() => [
-  { label: 'Enabled', value: status.value?.enabled ? 'enabled' : 'disabled' },
-  { label: 'Provider', value: status.value?.provider ?? '-' },
-  { label: 'Mode', value: status.value?.mode ?? '-' },
-  { label: 'Contract Version', value: status.value?.contractVersion ?? '-' },
-  { label: 'Timeout', value: `${status.value?.timeoutMs ?? 0} ms` },
-  { label: 'Fail Open', value: status.value?.failOpen ? 'true' : 'false' },
-  { label: 'External Provider', value: status.value?.externalProviderAllowed ? 'allowed' : 'disabled' },
-  { label: 'External Review', value: status.value?.externalProviderReviewed ? 'reviewed' : 'not reviewed' }
+  { label: '启用状态', value: formatEnabled(status.value?.enabled) },
+  { label: '模型来源', value: formatProvider(status.value?.provider) },
+  { label: '模型模式', value: formatMode(status.value?.mode) },
+  { label: '契约版本', value: status.value?.contractVersion ?? '-' },
+  { label: '超时', value: `${status.value?.timeoutMs ?? 0} ms` },
+  { label: '失败时放行', value: status.value?.failOpen ? '是' : '否' },
+  { label: '外部模型', value: status.value?.externalProviderAllowed ? '允许' : '已关闭' },
+  { label: '外部复核', value: formatReviewed(status.value?.externalProviderReviewed) }
 ])
 
 const runtimeRows = computed(() => [
-  { label: 'Snapshot', value: runtime.value?.model.snapshotId ?? '-' },
-  { label: 'Checksum', value: runtime.value?.model.configChecksum ?? '-' },
-  { label: 'Loaded By', value: runtime.value?.model.loadedBy ?? '-' },
-  { label: 'Loaded At', value: formatTime(runtime.value?.model.loadedAtUtc) }
+  { label: '快照', value: runtime.value?.model.snapshotId ?? '-' },
+  { label: '校验值', value: runtime.value?.model.configChecksum ?? '-' },
+  { label: '载入人', value: runtime.value?.model.loadedBy ?? '-' },
+  { label: '载入时间', value: formatTime(runtime.value?.model.loadedAtUtc) }
 ])
 
 const applyRuntimeToForm = (): void => {
@@ -241,7 +265,7 @@ const ensureAdminSensitiveProof = async (): Promise<string> => {
 
 const saveRuntime = async (): Promise<void> => {
   saving.value = true
-  taskFeedback.begin('正在保存模型 runtime', `${form.provider} / ${form.modelProfile || 'default'}`, 'moderation-model-runtime')
+  taskFeedback.begin('正在保存模型运行配置', `${formatProvider(form.provider)} / ${form.modelProfile || '默认配置'}`, 'moderation-model-runtime')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     runtime.value = await setModerationModelRuntime({
@@ -251,12 +275,12 @@ const saveRuntime = async (): Promise<void> => {
       thresholdProfile: form.thresholdProfile.trim() || null,
       reason: 'model_runtime_update'
     }, { mfaProofToken })
-    taskFeedback.succeed('模型 runtime 已保存', runtime.value.model.snapshotId, 'moderation-model-runtime')
-    toast.success('模型 runtime 已保存')
+    taskFeedback.succeed('模型运行配置已保存', runtime.value.model.snapshotId, 'moderation-model-runtime')
+    toast.success('模型运行配置已保存')
     await loadStatus()
   } catch (error) {
-    taskFeedback.fail('模型 runtime 保存失败', error, '模型 runtime 保存失败', 'moderation-model-runtime')
-    showErrorToast(error, '模型 runtime 保存失败')
+    taskFeedback.fail('模型运行配置保存失败', error, '模型运行配置保存失败', 'moderation-model-runtime')
+    showErrorToast(error, '模型运行配置保存失败')
   } finally {
     saving.value = false
   }
@@ -264,16 +288,16 @@ const saveRuntime = async (): Promise<void> => {
 
 const reloadRuntime = async (): Promise<void> => {
   reloading.value = true
-  taskFeedback.begin('正在 reload 模型 runtime', '重新载入模型配置快照', 'moderation-model-runtime')
+  taskFeedback.begin('正在重新载入模型配置', '重新载入模型配置快照', 'moderation-model-runtime')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     runtime.value = await reloadModerationModel({ mfaProofToken })
-    taskFeedback.succeed('模型 runtime 已 reload', runtime.value.model.snapshotId, 'moderation-model-runtime')
-    toast.success('模型 runtime 已 reload')
+    taskFeedback.succeed('模型配置已重新载入', runtime.value.model.snapshotId, 'moderation-model-runtime')
+    toast.success('模型配置已重新载入')
     await loadStatus()
   } catch (error) {
-    taskFeedback.fail('模型 reload 失败', error, '模型 reload 失败', 'moderation-model-runtime')
-    showErrorToast(error, '模型 reload 失败')
+    taskFeedback.fail('模型配置重新载入失败', error, '模型配置重新载入失败', 'moderation-model-runtime')
+    showErrorToast(error, '模型配置重新载入失败')
   } finally {
     reloading.value = false
   }
@@ -281,16 +305,16 @@ const reloadRuntime = async (): Promise<void> => {
 
 const rollbackRuntime = async (): Promise<void> => {
   rollingBack.value = true
-  taskFeedback.begin('正在 rollback 模型 runtime', '恢复上一份模型配置', 'moderation-model-runtime')
+  taskFeedback.begin('正在回滚模型配置', '恢复上一份模型配置', 'moderation-model-runtime')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     runtime.value = await rollbackModerationModel({ mfaProofToken })
-    taskFeedback.succeed('模型 runtime 已 rollback', runtime.value.model.snapshotId, 'moderation-model-runtime')
-    toast.success('模型 runtime 已 rollback')
+    taskFeedback.succeed('模型配置已回滚', runtime.value.model.snapshotId, 'moderation-model-runtime')
+    toast.success('模型配置已回滚')
     await loadStatus()
   } catch (error) {
-    taskFeedback.fail('模型 rollback 失败', error, '模型 rollback 失败', 'moderation-model-runtime')
-    showErrorToast(error, '模型 rollback 失败')
+    taskFeedback.fail('模型配置回滚失败', error, '模型配置回滚失败', 'moderation-model-runtime')
+    showErrorToast(error, '模型配置回滚失败')
   } finally {
     rollingBack.value = false
   }

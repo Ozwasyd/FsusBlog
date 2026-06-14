@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-8">
     <WorkbenchPanel
-      eyebrow="总览"
+      eyebrow="审核总览"
       title="审核运行状态"
-      :caption="overview ? `model ${overview.modelProvider} / ${overview.modelMode}` : ''"
+      :caption="overview ? `模型状态：${modelStateLabel}` : ''"
       title-id="moderation-overview-title"
     >
       <template #actions>
@@ -42,8 +42,8 @@
       </div>
       <div class="flex flex-col gap-3 border-t border-[var(--fsusblog-panel-border)] p-5 md:flex-row md:items-end">
         <label class="w-full space-y-2 md:max-w-xs">
-          <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Global Runtime State</span>
-          <el-select v-model="globalStateDraft" aria-label="global moderation runtime state">
+          <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">全局运行状态</span>
+          <el-select v-model="globalStateDraft" aria-label="全局审核运行状态">
             <el-option v-for="option in globalStateOptions" :key="option.value" :label="option.label" :value="option.value" />
           </el-select>
         </label>
@@ -60,10 +60,10 @@
           <div class="divide-y divide-[var(--fsusblog-panel-border)]">
             <div class="flex flex-wrap items-center justify-between gap-3 p-5">
               <div>
-                <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">CN-MAINLAND strict policy</div>
+                <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">中国大陆严格策略</div>
                 <p class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">大陆 IP 政治敏感与色情内容屏蔽依赖该策略。</p>
               </div>
-              <el-tag :type="mainlandStatusType">{{ overview?.mainlandStrictStatus ?? '-' }}</el-tag>
+              <el-tag :type="mainlandStatusType">{{ formatRuntimeStatus(overview?.mainlandStrictStatus) }}</el-tag>
             </div>
             <div v-if="overview?.mainlandStrictStatus !== 'enabled'" class="border-l-4 border-[var(--el-color-warning)] p-5 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
               中国大陆严格策略未启用：大陆 IP 政治敏感与色情内容屏蔽可能失效。
@@ -71,16 +71,16 @@
             <div class="flex flex-wrap items-center justify-between gap-3 p-5">
               <div>
                 <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">词库快照</div>
-                <p class="mt-1 break-all text-[12px] text-[var(--fsusblog-text-muted)]">{{ overview?.dictionaryLastError ?? 'loaded' }}</p>
+                <p class="mt-1 break-all text-[12px] text-[var(--fsusblog-text-muted)]">{{ overview?.dictionaryLastError ?? '词库已载入' }}</p>
               </div>
-              <el-tag :type="overview?.dictionaryLastError ? 'danger' : 'success'">{{ overview?.dictionaryLastError ? 'error' : 'loaded' }}</el-tag>
+              <el-tag :type="overview?.dictionaryLastError ? 'danger' : 'success'">{{ overview?.dictionaryLastError ? '异常' : '已载入' }}</el-tag>
             </div>
             <div class="flex flex-wrap items-center justify-between gap-3 p-5">
               <div>
                 <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">审核模型</div>
                 <p class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ overview?.modelContractVersion ?? '-' }} / {{ overview?.modelTimeoutMs ?? '-' }}ms</p>
               </div>
-              <el-tag :type="overview?.modelEnabled ? 'success' : 'info'">{{ overview?.modelEnabled ? 'enabled' : 'disabled' }}</el-tag>
+              <el-tag :type="overview?.modelEnabled ? 'success' : 'info'">{{ overview?.modelEnabled ? '已启用' : '已关闭' }}</el-tag>
             </div>
           </div>
         </section>
@@ -96,11 +96,11 @@
             <p class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ link.helper }}</p>
           </RouterLink>
           <a href="https://github.com/Ozwasyd/FsusBlog/issues/76" target="_blank" rel="noreferrer" class="block p-5 hover:bg-[var(--fsusblog-page-bg-soft)]">
-            <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">#76 provider contract</div>
-            <p class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">第三方模型契约与 sandbox 边界。</p>
+            <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">#76 第三方模型契约</div>
+            <p class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">第三方模型契约与隔离边界。</p>
           </a>
           <a href="https://github.com/Ozwasyd/FsusBlog/issues/77" target="_blank" rel="noreferrer" class="block p-5 hover:bg-[var(--fsusblog-page-bg-soft)]">
-            <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">#77 runtime controls</div>
+            <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">#77 运行时控制</div>
             <p class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">模型与词库运行时开关、热替换和区域禁用。</p>
           </a>
         </div>
@@ -145,21 +145,35 @@ const {
   isHighlighted: isTaskHighlighted
 } = taskFeedback
 
+const formatRuntimeStatus = (value: string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    enabled: '已启用',
+    disabled: '已关闭',
+    loaded: '已载入',
+    error: '异常',
+    invalid: '异常',
+    read_only: '只读',
+    disabled_to_pending: '转入待审',
+    emergency_lockdown: '紧急锁定'
+  }
+  return value ? labels[value] ?? value : '-'
+}
+
 const globalStateOptions = [
-  { label: 'enabled', value: 'enabled' },
-  { label: 'read_only', value: 'read_only' },
-  { label: 'disabled_to_pending', value: 'disabled_to_pending' },
-  { label: 'emergency_lockdown', value: 'emergency_lockdown' }
+  { label: '已启用', value: 'enabled' },
+  { label: '只读', value: 'read_only' },
+  { label: '转入待审', value: 'disabled_to_pending' },
+  { label: '紧急锁定', value: 'emergency_lockdown' }
 ] as const
 
 const internalLinks = [
   { label: '评论审核', helper: '审核队列、模型风险信号和地区策略结果。', name: 'ManageModerationComments' },
-  { label: '词库管理', helper: '只展示 metadata、checksum 和 evidence policy。', name: 'ManageModerationDictionaries' },
-  { label: '地区策略', helper: '查看 policy -> dictionaries 的组合结果。', name: 'ManageModerationPolicies' },
-  { label: '地区管理', helper: '地区定义、模板绑定和 effective policy preview。', name: 'ManageModerationRegions' },
+  { label: '词库管理', helper: '只展示元数据、校验值和证据策略。', name: 'ManageModerationDictionaries' },
+  { label: '地区策略', helper: '查看地区策略与词库组合结果。', name: 'ManageModerationPolicies' },
+  { label: '地区管理', helper: '地区定义、模板绑定和生效策略预览。', name: 'ManageModerationRegions' },
   { label: '大区管理', helper: '地区大区成员和统一策略模板。', name: 'ManageModerationRegionGroups' },
-  { label: '策略模板', helper: '默认模板 preset、review marker 和 checksum。', name: 'ManageModerationPolicyTemplates' },
-  { label: '策略回放', helper: '先 preview diff，再进入受控执行流程。', name: 'ManageModerationReplay' },
+  { label: '策略模板', helper: '默认模板、复核标记和校验值。', name: 'ManageModerationPolicyTemplates' },
+  { label: '策略回放', helper: '先预览差异，再进入受控执行流程。', name: 'ManageModerationReplay' },
   { label: '审核模型', helper: '模型只提供风险信号，不覆盖地区策略。', name: 'ManageModerationModel' },
   { label: '审核审计', helper: '跳转通用审计日志并预置审核动作。', name: 'ManageModerationAudit' }
 ] as const
@@ -173,12 +187,21 @@ const metrics = computed(() => [
 ])
 
 const runtimeRows = computed(() => [
-  { label: 'Global State', value: runtime.value?.globalState ?? '-' },
-  { label: 'Region Overrides', value: Object.keys(runtime.value?.regionStates ?? {}).length },
-  { label: 'Disabled Dictionaries', value: runtime.value?.disabledDictionaryIds.length ?? '-' },
-  { label: 'Model Snapshot', value: runtime.value?.model.snapshotId ?? '-' },
-  { label: 'Changed By', value: runtime.value?.changedBy ?? '-' }
+  { label: '全局状态', value: formatRuntimeStatus(runtime.value?.globalState) },
+  { label: '地区覆盖', value: Object.keys(runtime.value?.regionStates ?? {}).length },
+  { label: '已关闭词库', value: runtime.value?.disabledDictionaryIds.length ?? '-' },
+  { label: '模型快照', value: runtime.value?.model.snapshotId ?? '-' },
+  { label: '最近修改人', value: runtime.value?.changedBy ?? '-' }
 ])
+
+const modelStateLabel = computed(() => {
+  if (!overview.value?.modelEnabled) {
+    return '已关闭'
+  }
+
+  const provider = (overview.value.modelProvider ?? '').trim().toLowerCase()
+  return provider === '' || provider === 'none' || provider === 'mock' ? '本地' : '远程'
+})
 
 const mainlandStatusType = computed(() => {
   if (overview.value?.mainlandStrictStatus === 'enabled') return 'success'
@@ -238,7 +261,7 @@ const ensureAdminSensitiveProof = async (): Promise<string> => {
 
 const saveGlobalState = async (): Promise<void> => {
   savingGlobalState.value = true
-  taskFeedback.begin('正在更新全局审核 runtime', globalStateDraft.value, 'moderation-global-runtime')
+  taskFeedback.begin('正在更新全局审核状态', formatRuntimeStatus(globalStateDraft.value), 'moderation-global-runtime')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     runtime.value = await setModerationGlobalState({
@@ -246,12 +269,12 @@ const saveGlobalState = async (): Promise<void> => {
       reason: 'global_runtime_state_update'
     }, { mfaProofToken })
     globalStateDraft.value = runtime.value.globalState
-    taskFeedback.succeed('全局审核 runtime 已更新', runtime.value.globalState, 'moderation-global-runtime')
-    toast.success('全局审核 runtime 已更新')
+    taskFeedback.succeed('全局审核状态已更新', formatRuntimeStatus(runtime.value.globalState), 'moderation-global-runtime')
+    toast.success('全局审核状态已更新')
     await loadDashboard()
   } catch (error) {
-    taskFeedback.fail('全局 runtime 状态更新失败', error, '全局 runtime 状态更新失败', 'moderation-global-runtime')
-    showErrorToast(error, '全局 runtime 状态更新失败')
+    taskFeedback.fail('全局审核状态更新失败', error, '全局审核状态更新失败', 'moderation-global-runtime')
+    showErrorToast(error, '全局审核状态更新失败')
   } finally {
     savingGlobalState.value = false
   }

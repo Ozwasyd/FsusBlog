@@ -19,67 +19,67 @@
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库管理</div>
-          <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">运行时词库 metadata</h2>
-          <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">高风险词库只展示 metadata、checksum、term count 和 evidence policy。</p>
+          <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">运行时词库元数据</h2>
+          <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">高风险词库只展示元数据、校验值、词条数量和证据策略。</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <el-tag v-if="snapshot?.lastError" type="danger">load error</el-tag>
-          <el-tag v-else type="success">loaded</el-tag>
+          <el-tag v-if="snapshot?.lastError" type="danger">载入异常</el-tag>
+          <el-tag v-else type="success">已载入</el-tag>
           <el-button :icon="Refresh" :loading="loading" @click="loadSnapshot">刷新</el-button>
-          <el-button :icon="RefreshRight" type="warning" :loading="reloading" @click="reloadSnapshot">手动 reload</el-button>
-          <el-button :icon="RefreshLeft" type="warning" :loading="rollingBack" @click="rollbackSnapshot">rollback</el-button>
+          <el-button :icon="RefreshRight" type="warning" :loading="reloading" @click="reloadSnapshot">重新载入</el-button>
+          <el-button :icon="RefreshLeft" type="warning" :loading="rollingBack" @click="rollbackSnapshot">回滚</el-button>
         </div>
       </div>
 
       <div class="grid gap-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-4 md:grid-cols-6">
-        <el-select v-model="filters.scope" clearable placeholder="scope" aria-label="scope">
-          <el-option label="global" value="global" />
-          <el-option label="regional" value="regional" />
+        <el-select v-model="filters.scope" clearable placeholder="作用范围" aria-label="作用范围">
+          <el-option label="全局" value="global" />
+          <el-option label="地区" value="regional" />
         </el-select>
-        <el-input v-model="filters.dictionaryId" clearable placeholder="dictionary id" aria-label="dictionary id" />
-        <el-select v-model="filters.region" clearable placeholder="region" aria-label="region">
+        <el-input v-model="filters.dictionaryId" clearable placeholder="词库 ID" aria-label="词库 ID" />
+        <el-select v-model="filters.region" clearable placeholder="地区" aria-label="地区">
           <el-option v-for="region in regionOptions" :key="region" :label="region" :value="region" />
         </el-select>
-        <el-select v-model="filters.category" clearable placeholder="category" aria-label="category">
+        <el-select v-model="filters.category" clearable placeholder="分类" aria-label="分类">
           <el-option v-for="category in categoryOptions" :key="category" :label="category" :value="category" />
         </el-select>
-        <el-input v-model="filters.status" clearable placeholder="status" aria-label="status" />
+        <el-input v-model="filters.status" clearable placeholder="状态" aria-label="状态" />
         <div class="flex items-center gap-2">
-          <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">high risk</span>
+          <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">高风险</span>
           <el-switch v-model="filters.highRiskOnly" />
         </div>
       </div>
 
       <el-table v-loading="loading" :data="filteredDictionaries" row-key="dictionaryId" :row-class-name="rowClassName">
-        <el-table-column label="Dictionary ID" min-width="230">
+        <el-table-column label="词库 ID" min-width="230">
           <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
             <div class="font-semibold text-[var(--fsusblog-text-primary)]">{{ row.dictionaryId }}</div>
             <div class="mt-1 text-[11px] text-[var(--fsusblog-text-muted)]">{{ row.source }} / {{ row.reviewedBy }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="Scope" width="110" prop="scope" />
-        <el-table-column label="Region" width="130">
+        <el-table-column label="作用范围" width="110" prop="scope" />
+        <el-table-column label="地区" width="130">
           <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">{{ row.region ?? 'GLOBAL' }}</template>
         </el-table-column>
-        <el-table-column label="Category" min-width="170" prop="category" />
-        <el-table-column label="Version" width="140" prop="version" />
-        <el-table-column label="Evidence" width="150">
+        <el-table-column label="分类" min-width="170" prop="category" />
+        <el-table-column label="版本" width="140" prop="version" />
+        <el-table-column label="证据策略" width="150">
           <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
             <el-tag :type="evidenceType(row.evidencePolicy)">{{ row.evidencePolicy }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Terms" width="90" align="right" prop="termCount" />
-        <el-table-column label="Status" width="110">
+        <el-table-column label="词条数" width="90" align="right" prop="termCount" />
+        <el-table-column label="状态" width="110">
           <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
             <el-tag :type="dictionaryStatusType(row)">{{ dictionaryStatus(row) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Checksum" min-width="180">
+        <el-table-column label="校验值" min-width="180">
           <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
             <code class="block truncate text-[11px]">{{ row.checksum }}</code>
           </template>
         </el-table-column>
-        <el-table-column label="Updated" width="170">
+        <el-table-column label="更新时间" width="170">
           <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">{{ formatTime(row.updatedAtUtc) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="190" align="right" fixed="right">
@@ -105,16 +105,16 @@
             >
               禁用
             </el-button>
-            <el-button link :icon="CopyDocument" @click="copyChecksum(row)">checksum</el-button>
+            <el-button link :icon="CopyDocument" @click="copyChecksum(row)">复制校验值</el-button>
           </template>
         </el-table-column>
       </el-table>
     </section>
 
-    <el-drawer v-model="detailVisible" title="词库 metadata" size="min(92vw, 32rem)">
+    <el-drawer v-model="detailVisible" title="词库元数据" size="min(92vw, 32rem)">
       <div v-if="detail" class="space-y-5">
         <div class="border-l-4 border-[var(--el-color-warning)] px-4 py-3 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
-          raw terms 默认不可见；evidence_policy=redact 时不会在管理台、toast 或日志中展示敏感词明文。
+          原始词条默认不可见；证据策略为 redact 时不会在管理台、toast 或日志中展示敏感词明文。
         </div>
         <dl class="grid grid-cols-1 gap-px bg-[var(--fsusblog-panel-bg-soft)]">
           <div v-for="item in detailRows" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-4">
@@ -203,14 +203,14 @@ const isDictionaryDisabled = (item: ModerationDictionaryRuntimeItem): boolean =>
 
 const dictionaryStatus = (item: ModerationDictionaryRuntimeItem): string =>
   isDictionaryDisabled(item)
-    ? 'runtime_disabled'
-    : item.termCount > 0 && item.checksum.length > 0 ? 'loaded' : 'invalid'
+    ? '已关闭'
+    : item.termCount > 0 && item.checksum.length > 0 ? '已载入' : '异常'
 
 const dictionaryStatusType = (item: ModerationDictionaryRuntimeItem): 'success' | 'danger' | 'info' =>
-  dictionaryStatus(item) === 'loaded'
-    ? 'success'
-    : dictionaryStatus(item) === 'runtime_disabled'
-      ? 'info'
+  isDictionaryDisabled(item)
+    ? 'info'
+    : item.termCount > 0 && item.checksum.length > 0
+      ? 'success'
       : 'danger'
 
 const evidenceType = (policy: string): 'success' | 'warning' | 'danger' | 'info' => {
@@ -234,18 +234,18 @@ const detailRows = computed(() => {
   if (!detail.value) return []
   const item = detail.value
   return [
-    { label: 'Dictionary ID', value: item.dictionaryId },
-    { label: 'Scope', value: item.scope },
-    { label: 'Region', value: item.region ?? 'GLOBAL' },
-    { label: 'Category', value: item.category },
-    { label: 'Version', value: item.version },
-    { label: 'Checksum', value: item.checksum },
-    { label: 'Term Count', value: String(item.termCount) },
-    { label: 'Source', value: item.source },
-    { label: 'Reviewed By', value: item.reviewedBy },
-    { label: 'Updated At', value: formatTime(item.updatedAtUtc) },
-    { label: 'Evidence Policy', value: item.evidencePolicy },
-    { label: 'Raw Terms', value: 'redacted' }
+    { label: '词库 ID', value: item.dictionaryId },
+    { label: '作用范围', value: item.scope },
+    { label: '地区', value: item.region ?? 'GLOBAL' },
+    { label: '分类', value: item.category },
+    { label: '版本', value: item.version },
+    { label: '校验值', value: item.checksum },
+    { label: '词条数', value: String(item.termCount) },
+    { label: '来源', value: item.source },
+    { label: '复核人', value: item.reviewedBy },
+    { label: '更新时间', value: formatTime(item.updatedAtUtc) },
+    { label: '证据策略', value: item.evidencePolicy },
+    { label: '原始词条', value: '已隐藏' }
   ]
 })
 
@@ -259,7 +259,7 @@ const loadSnapshot = async (): Promise<void> => {
     snapshot.value = dictionarySnapshot
     runtime.value = runtimeStatus
   } catch (error) {
-    showErrorToast(error, '词库 metadata 加载失败')
+    showErrorToast(error, '词库元数据加载失败')
   } finally {
     loading.value = false
   }
@@ -276,7 +276,7 @@ const ensureAdminSensitiveProof = async (): Promise<string> => {
     throw new Error('MFA_CHALLENGE_REQUIRED')
   }
 
-  const code = await promptText('输入 MFA 验证码或恢复码', '词库 reload 验证', {
+  const code = await promptText('输入 MFA 验证码或恢复码', '词库重新载入验证', {
     confirmButtonText: '确认',
     cancelButtonText: '取消',
     inputPlaceholder: '验证码或恢复码',
@@ -300,16 +300,16 @@ const ensureAdminSensitiveProof = async (): Promise<string> => {
 
 const reloadSnapshot = async (): Promise<void> => {
   reloading.value = true
-  taskFeedback.begin('正在 reload 词库 runtime', '重新加载词库 metadata 与 checksum', 'moderation-dictionaries-runtime')
+  taskFeedback.begin('正在重新载入词库', '重新加载词库元数据与校验值', 'moderation-dictionaries-runtime')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     const result = await reloadModerationDictionaries({ mfaProofToken })
-    taskFeedback.succeed('词库 runtime 已 reload', result.snapshotId, 'moderation-dictionaries-runtime')
+    taskFeedback.succeed('词库已重新载入', result.snapshotId, 'moderation-dictionaries-runtime')
     toast.success(`词库已重载 ${result.snapshotId}`)
     await loadSnapshot()
   } catch (error) {
-    taskFeedback.fail('词库 reload 失败', error, '词库 reload 失败', 'moderation-dictionaries-runtime')
-    showErrorToast(error, '词库 reload 失败')
+    taskFeedback.fail('词库重新载入失败', error, '词库重新载入失败', 'moderation-dictionaries-runtime')
+    showErrorToast(error, '词库重新载入失败')
   } finally {
     reloading.value = false
   }
@@ -317,17 +317,17 @@ const reloadSnapshot = async (): Promise<void> => {
 
 const rollbackSnapshot = async (): Promise<void> => {
   rollingBack.value = true
-  taskFeedback.begin('正在 rollback 词库 runtime', '恢复上一份可用快照', 'moderation-dictionaries-runtime')
+  taskFeedback.begin('正在回滚词库', '恢复上一份可用快照', 'moderation-dictionaries-runtime')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     const result = await rollbackModerationDictionaries({ mfaProofToken })
     snapshot.value = result
     runtime.value = await getModerationRuntimeStatus()
-    taskFeedback.succeed('词库 runtime 已 rollback', result.snapshotId, 'moderation-dictionaries-runtime')
+    taskFeedback.succeed('词库已回滚', result.snapshotId, 'moderation-dictionaries-runtime')
     toast.success(`词库已回滚 ${result.snapshotId}`)
   } catch (error) {
-    taskFeedback.fail('词库 rollback 失败', error, '词库 rollback 失败', 'moderation-dictionaries-runtime')
-    showErrorToast(error, '词库 rollback 失败')
+    taskFeedback.fail('词库回滚失败', error, '词库回滚失败', 'moderation-dictionaries-runtime')
+    showErrorToast(error, '词库回滚失败')
   } finally {
     rollingBack.value = false
   }
@@ -377,7 +377,7 @@ const openDetail = (item: ModerationDictionaryRuntimeItem): void => {
 
 const copyChecksum = async (item: ModerationDictionaryRuntimeItem): Promise<void> => {
   await navigator.clipboard?.writeText(item.checksum)
-  toast.success('checksum 已复制')
+  toast.success('校验值已复制')
 }
 
 const rowClassName = ({ row }: { row: ModerationDictionaryRuntimeItem }): string =>

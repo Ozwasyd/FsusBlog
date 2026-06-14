@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-8">
     <WorkbenchPanel
-      eyebrow="ANTI-CRAWLER"
+      eyebrow="反爬虫"
       title="反爬虫系统"
-      :caption="overview ? `snapshot ${overview.policy.snapshotId}` : ''"
+      :caption="overview ? `快照：${overview.policy.snapshotId}` : ''"
       title-id="security-crawler-title"
     >
       <template #actions>
@@ -38,7 +38,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
             <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行策略</div>
-            <div class="mt-2 text-lg font-bold text-[var(--fsusblog-text-primary)]">AntiCrawler mode</div>
+            <div class="mt-2 text-lg font-bold text-[var(--fsusblog-text-primary)]">反爬虫运行模式</div>
           </div>
           <div class="flex gap-2">
             <el-button :loading="saving" @click="rollbackOptions">回滚</el-button>
@@ -48,14 +48,14 @@
 
         <div class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)] md:grid-cols-2">
           <label class="bg-[var(--fsusblog-page-bg)] p-5">
-            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Mode</span>
-            <el-select v-model="draft.mode" class="mt-2 w-full" aria-label="anti crawler mode">
-              <el-option v-for="mode in modes" :key="mode" :label="mode" :value="mode" />
+            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">运行模式</span>
+            <el-select v-model="draft.mode" class="mt-2 w-full" aria-label="反爬虫运行模式">
+              <el-option v-for="mode in modes" :key="mode" :label="formatSecurityMode(mode)" :value="mode" />
             </el-select>
           </label>
 
           <label class="bg-[var(--fsusblog-page-bg)] p-5">
-            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">CIDR interval / minutes</span>
+            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">CIDR 更新间隔（分钟）</span>
             <el-input-number v-model="draft.cidrUpdateIntervalMinutes" class="mt-2 w-full" :min="draft.cidrMinUpdateIntervalMinutes" :max="1440" controls-position="right" />
           </label>
 
@@ -78,7 +78,7 @@
       >
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
-            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">Crawler ranges</div>
+            <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">CIDR 来源</div>
             <div class="mt-2 text-lg font-bold text-[var(--fsusblog-text-primary)]">{{ ranges?.source ?? '-' }}</div>
           </div>
           <el-button type="primary" :loading="syncing" @click="syncRanges">手动同步</el-button>
@@ -101,11 +101,11 @@
           <table class="w-full min-w-full md:min-w-[52rem] text-left text-[12px]">
             <thead class="text-[11px] uppercase text-[var(--fsusblog-text-muted)]">
               <tr class="border-b border-[var(--fsusblog-panel-border)]">
-                <th class="px-5 py-3">Time</th>
-                <th class="px-5 py-3">Source</th>
-                <th class="px-5 py-3">Reason</th>
-                <th class="px-5 py-3">Score</th>
-                <th class="px-5 py-3">Path</th>
+                <th class="px-5 py-3">时间</th>
+                <th class="px-5 py-3">来源</th>
+                <th class="px-5 py-3">原因</th>
+                <th class="px-5 py-3">分数</th>
+                <th class="px-5 py-3">路径</th>
               </tr>
             </thead>
             <tbody>
@@ -180,7 +180,7 @@
           <div v-for="rule in rules" :key="rule.id" class="flex flex-wrap items-center justify-between gap-3 p-5">
             <div>
               <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ rule.name }}</div>
-              <div class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ rule.matchType }} / {{ rule.pattern }} / {{ rule.action }} / +{{ rule.score }}</div>
+              <div class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ formatRuleMatchType(rule.matchType) }} / {{ rule.pattern }} / {{ formatRuleAction(rule.action) }} / +{{ rule.score }}</div>
             </div>
             <el-button link @click="deleteRuleItem(rule.id)">删除</el-button>
           </div>
@@ -193,16 +193,16 @@
         </div>
         <div class="space-y-4 p-5">
           <el-input v-model="simulation.ip" placeholder="IP" />
-          <el-input v-model="simulation.path" placeholder="Path" />
+          <el-input v-model="simulation.path" placeholder="请求路径" />
           <el-input v-model="simulation.userAgent" type="textarea" :rows="3" placeholder="User-Agent" />
           <el-input-number v-model="simulation.currentRiskScore" class="w-full" :min="0" :max="500" controls-position="right" />
           <el-button type="primary" :loading="simulating" @click="runSimulation">模拟</el-button>
           <div v-if="simulationResult" class="border-t border-[var(--fsusblog-panel-border)] pt-5 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">
-            <div class="font-bold text-[var(--fsusblog-text-primary)]">{{ simulationResult.finalAction }} / score {{ simulationResult.resultingRiskScore }}</div>
-            <div>challenge: {{ simulationResult.wouldRequireChallenge ? 'yes' : 'no' }} / block: {{ simulationResult.wouldBlock ? 'yes' : 'no' }}</div>
-            <div>rules: {{ simulationResult.matchedRules.join(', ') || '-' }}</div>
-            <div>lists: {{ simulationResult.matchedLists.join(', ') || '-' }}</div>
-            <div>challenge reference: {{ simulationResult.securityChallengeReference }}</div>
+            <div class="font-bold text-[var(--fsusblog-text-primary)]">{{ formatRuleAction(simulationResult.finalAction) }} / 风险分 {{ simulationResult.resultingRiskScore }}</div>
+            <div>需要挑战：{{ formatBoolean(simulationResult.wouldRequireChallenge) }} / 拦截：{{ formatBoolean(simulationResult.wouldBlock) }}</div>
+            <div>命中规则：{{ simulationResult.matchedRules.join(', ') || '-' }}</div>
+            <div>命中列表：{{ simulationResult.matchedLists.join(', ') || '-' }}</div>
+            <div>挑战引用：{{ simulationResult.securityChallengeReference }}</div>
           </div>
         </div>
       </div>
@@ -244,6 +244,45 @@ import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 
 const AdminSensitiveAction = 'admin-sensitive'
 const modes: SecurityMode[] = ['disabled', 'observe', 'enforce', 'strict']
+
+const formatSecurityMode = (mode: SecurityMode | string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    disabled: '已关闭',
+    observe: '观察',
+    enforce: '执行',
+    strict: '严格'
+  }
+  return mode ? labels[mode] ?? mode : '-'
+}
+
+const formatBoolean = (value: boolean): string => value ? '是' : '否'
+
+const formatEnabled = (value: boolean | null | undefined): string =>
+  value === undefined || value === null ? '-' : value ? '已启用' : '已关闭'
+
+const formatRuleAction = (value: string): string => {
+  const labels: Record<string, string> = {
+    allow: '放行',
+    challenge: '挑战',
+    block: '拦截',
+    observe: '观察'
+  }
+  return labels[value] ?? value
+}
+
+const formatRuleMatchType = (value: string): string => {
+  const labels: Record<string, string> = {
+    ip: 'IP',
+    path: '路径',
+    'user-agent': 'User-Agent',
+    header: '请求头',
+    method: '方法'
+  }
+  return labels[value] ?? value
+}
+
+const formatListType = (type: 'allowlist' | 'blocklist'): string =>
+  type === 'allowlist' ? '放行列表' : '拦截列表'
 
 const loading = shallowRef(false)
 const saving = shallowRef(false)
@@ -307,22 +346,22 @@ const simulation = reactive({
 })
 
 const toggles = [
-  { key: 'publicReadChallengeEnabled', label: 'Public read challenge', caption: '统一风险分触发安全 challenge。' },
-  { key: 'searchCrawlerVerificationEnabled', label: 'Search crawler verification', caption: 'Google/Bing CIDR 与 Baidu/Sogou DNS 验身。' },
-  { key: 'socialPreviewGuardEnabled', label: 'Social preview guard', caption: '限制社交预览 bot 访问范围。' },
-  { key: 'riskScoringEnabled', label: 'Crawler risk scoring', caption: '写入 crawler 类风险分。' },
-  { key: 'eventPersistenceEnabled', label: 'Crawler events', caption: '保留运行时事件 ring buffer。' },
-  { key: 'dashboardAggregationEnabled', label: 'Dashboard aggregation', caption: '保留后台风险快照聚合。' },
-  { key: 'cidrAutoUpdateEnabled', label: 'CIDR auto update', caption: '自动同步搜索引擎 CIDR。' },
-  { key: 'illegalPathHardAbortEnabled', label: 'Illegal path hard abort', caption: '路径穿越等基础安全硬拦截。' }
+  { key: 'publicReadChallengeEnabled', label: '公开读取挑战', caption: '统一风险分触发安全挑战。' },
+  { key: 'searchCrawlerVerificationEnabled', label: '搜索爬虫校验', caption: 'Google/Bing CIDR 与 Baidu/Sogou DNS 验身。' },
+  { key: 'socialPreviewGuardEnabled', label: '社交预览保护', caption: '限制社交预览机器人访问范围。' },
+  { key: 'riskScoringEnabled', label: '爬虫风险计分', caption: '写入爬虫类风险分。' },
+  { key: 'eventPersistenceEnabled', label: '爬虫事件', caption: '保留运行时事件缓冲区。' },
+  { key: 'dashboardAggregationEnabled', label: '后台聚合', caption: '保留后台风险快照聚合。' },
+  { key: 'cidrAutoUpdateEnabled', label: 'CIDR 自动更新', caption: '自动同步搜索引擎 CIDR。' },
+  { key: 'illegalPathHardAbortEnabled', label: '非法路径硬拦截', caption: '路径穿越等基础安全硬拦截。' }
 ] as const
 
 const metrics = computed(() => [
-  { label: 'Mode', value: overview.value?.summary.mode ?? '-' },
-  { label: 'Events / 1h', value: overview.value?.summary.eventsLastHour ?? '-' },
-  { label: 'Fake crawler', value: overview.value?.summary.fakeCrawlerEvents ?? '-' },
-  { label: 'Unknown bot', value: overview.value?.summary.unknownBotEvents ?? '-' },
-  { label: 'Risk snapshots', value: overview.value?.summary.riskSnapshotCount ?? '-' }
+  { label: '运行模式', value: formatSecurityMode(overview.value?.summary.mode) },
+  { label: '1 小时事件', value: overview.value?.summary.eventsLastHour ?? '-' },
+  { label: '伪造爬虫', value: overview.value?.summary.fakeCrawlerEvents ?? '-' },
+  { label: '未识别爬虫', value: overview.value?.summary.unknownBotEvents ?? '-' },
+  { label: '风险快照', value: overview.value?.summary.riskSnapshotCount ?? '-' }
 ])
 
 const ranges = computed<CrawlerRangesAdminStatus | null>(() => overview.value?.crawlerRanges ?? null)
@@ -334,19 +373,19 @@ const blocklist = computed<AntiCrawlerListEntryResponse[]>(() => overview.value?
 const formatTime = (value: string | null | undefined): string => value ? new Date(value).toLocaleString() : '-'
 
 const rangeRows = computed(() => [
-  { label: 'Auto update', value: ranges.value?.autoUpdateEnabled ? 'enabled' : 'disabled' },
-  { label: 'Interval', value: `${ranges.value?.updateIntervalMinutes ?? '-'} min` },
-  { label: 'Next sync', value: formatTime(ranges.value?.nextSyncAt) },
-  { label: 'Last success', value: formatTime(ranges.value?.lastSuccessAt) },
-  { label: 'Google ranges', value: ranges.value?.googleRanges ?? '-' },
-  { label: 'Bing ranges', value: ranges.value?.bingRanges ?? '-' },
-  { label: 'Outcome', value: ranges.value?.lastOutcome ?? '-' },
-  { label: 'Last error', value: ranges.value?.lastError ?? '-' }
+  { label: '自动更新', value: formatEnabled(ranges.value?.autoUpdateEnabled) },
+  { label: '更新间隔', value: `${ranges.value?.updateIntervalMinutes ?? '-'} 分钟` },
+  { label: '下次同步', value: formatTime(ranges.value?.nextSyncAt) },
+  { label: '最近成功', value: formatTime(ranges.value?.lastSuccessAt) },
+  { label: 'Google CIDR', value: ranges.value?.googleRanges ?? '-' },
+  { label: 'Bing CIDR', value: ranges.value?.bingRanges ?? '-' },
+  { label: '结果', value: ranges.value?.lastOutcome ?? '-' },
+  { label: '最近错误', value: ranges.value?.lastError ?? '-' }
 ])
 
 const listPanels = computed(() => [
-  { type: 'allowlist' as const, title: 'Allowlist', items: allowlist.value },
-  { type: 'blocklist' as const, title: 'Blocklist', items: blocklist.value }
+  { type: 'allowlist' as const, title: '放行列表', items: allowlist.value },
+  { type: 'blocklist' as const, title: '拦截列表', items: blocklist.value }
 ])
 
 const eventRows = computed(() => events.value.map((event) => ({
@@ -408,7 +447,7 @@ const saveOptions = async (): Promise<void> => {
     const mfaProofToken = await ensureAdminSensitiveProof()
     const snapshot = await updateAntiCrawlerOptions({ ...draft, reason }, { mfaProofToken })
     assignDraft(snapshot.options)
-    taskFeedback.succeed('反爬虫策略已更新', `mode=${snapshot.options.mode}`, 'security-crawler-options')
+    taskFeedback.succeed('反爬虫策略已更新', `运行模式：${formatSecurityMode(snapshot.options.mode)}`, 'security-crawler-options')
     toast.success('反爬虫策略已更新')
     await loadCrawler()
   } catch (error) {
@@ -426,7 +465,7 @@ const rollbackOptions = async (): Promise<void> => {
     const mfaProofToken = await ensureAdminSensitiveProof()
     const snapshot = await rollbackAntiCrawlerOptions({ mfaProofToken })
     assignDraft(snapshot.options)
-    taskFeedback.succeed('反爬虫策略已回滚', `mode=${snapshot.options.mode}`, 'security-crawler-options')
+    taskFeedback.succeed('反爬虫策略已回滚', `运行模式：${formatSecurityMode(snapshot.options.mode)}`, 'security-crawler-options')
     toast.success('反爬虫策略已回滚')
     await loadCrawler()
   } catch (error) {
@@ -439,11 +478,11 @@ const rollbackOptions = async (): Promise<void> => {
 
 const syncRanges = async (): Promise<void> => {
   syncing.value = true
-  taskFeedback.begin('正在同步 crawler ranges', '同步 Google/Bing CIDR 来源', 'security-crawler-ranges')
+  taskFeedback.begin('正在同步 CIDR 来源', '同步 Google/Bing CIDR 来源', 'security-crawler-ranges')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     await syncCrawlerRanges({ mfaProofToken })
-    taskFeedback.succeed('CIDR 同步已完成', 'crawler ranges 已刷新', 'security-crawler-ranges')
+    taskFeedback.succeed('CIDR 同步已完成', 'CIDR 来源已刷新', 'security-crawler-ranges')
     toast.success('CIDR 同步已完成')
     await loadCrawler()
   } catch (error) {
@@ -470,34 +509,34 @@ const resetRisk = async (subject: string): Promise<void> => {
 
 const addListEntry = async (type: 'allowlist' | 'blocklist'): Promise<void> => {
   try {
-    const value = await promptText('条目值', type === 'allowlist' ? '新增 Allowlist' : '新增 Blocklist', {
+    const value = await promptText('条目值', `新增${formatListType(type)}条目`, {
       confirmButtonText: '新增',
       cancelButtonText: '取消',
       inputPlaceholder: 'IP / UA / Path',
       inputValidator: (input: string) => input.trim().length > 0 || '请输入条目值'
     })
     if (!value) return
-    taskFeedback.begin('正在新增反爬虫列表条目', `${type}: ${value}`, 'security-crawler-options')
+    taskFeedback.begin('正在新增反爬虫列表条目', `${formatListType(type)}：${value}`, 'security-crawler-options')
     const mfaProofToken = await ensureAdminSensitiveProof()
     await createAntiCrawlerEntry(type, { value, scope: 'ip', reason: 'admin_list_entry', enabled: true }, { mfaProofToken })
-    taskFeedback.succeed('反爬虫列表条目已新增', `${type}: ${value}`, 'security-crawler-options')
+    taskFeedback.succeed('反爬虫列表条目已新增', `${formatListType(type)}：${value}`, 'security-crawler-options')
     await loadCrawler()
   } catch (error) {
-    taskFeedback.fail('List 条目新增失败', error, 'List 条目新增失败', 'security-crawler-options')
-    showErrorToast(error, 'List 条目新增失败')
+    taskFeedback.fail('列表条目新增失败', error, '列表条目新增失败', 'security-crawler-options')
+    showErrorToast(error, '列表条目新增失败')
   }
 }
 
 const deleteListEntry = async (type: 'allowlist' | 'blocklist', id: string): Promise<void> => {
-  taskFeedback.begin('正在删除反爬虫列表条目', `${type}: ${id}`, 'security-crawler-options')
+  taskFeedback.begin('正在删除反爬虫列表条目', `${formatListType(type)}：${id}`, 'security-crawler-options')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     await deleteAntiCrawlerEntry(type, id, { mfaProofToken })
-    taskFeedback.succeed('反爬虫列表条目已删除', `${type}: ${id}`, 'security-crawler-options')
+    taskFeedback.succeed('反爬虫列表条目已删除', `${formatListType(type)}：${id}`, 'security-crawler-options')
     await loadCrawler()
   } catch (error) {
-    taskFeedback.fail('List 条目删除失败', error, 'List 条目删除失败', 'security-crawler-options')
-    showErrorToast(error, 'List 条目删除失败')
+    taskFeedback.fail('列表条目删除失败', error, '列表条目删除失败', 'security-crawler-options')
+    showErrorToast(error, '列表条目删除失败')
   }
 }
 

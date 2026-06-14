@@ -3,8 +3,8 @@
     <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略模板</div>
-        <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">默认合规模板 presets</h2>
-        <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">Operators must review templates against actual service regions, deployment location, business type, and legal counsel.</p>
+        <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">默认合规模板预设</h2>
+        <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">管理员需要结合实际服务地区、部署位置、业务类型和法律意见复核模板。</p>
       </div>
       <el-button :icon="Refresh" :loading="loading" @click="loadTemplates">刷新</el-button>
     </div>
@@ -14,9 +14,9 @@
         <template #default="{ row }: { row: ModerationPolicyTemplateDefinition }">
           <div class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.7fr)]">
             <el-table :data="row.rules" row-key="category">
-              <el-table-column label="Category" min-width="180" prop="category" />
-              <el-table-column label="Submit" width="190" prop="submitAction" />
-              <el-table-column label="Display" width="190" prop="displayAction" />
+              <el-table-column label="分类" min-width="180" prop="category" />
+              <el-table-column label="提交动作" width="190" prop="submitAction" />
+              <el-table-column label="展示动作" width="190" prop="displayAction" />
             </el-table>
             <dl class="grid gap-px bg-[var(--fsusblog-panel-bg-soft)]">
               <div v-for="item in templateRows(row)" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-4">
@@ -27,23 +27,23 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="Template" min-width="240" prop="templateId" />
-      <el-table-column label="Scope" width="130" prop="scope" />
-      <el-table-column label="Region" width="140">
+      <el-table-column label="模板" min-width="240" prop="templateId" />
+      <el-table-column label="作用范围" width="130" prop="scope" />
+      <el-table-column label="地区" width="140">
         <template #default="{ row }: { row: ModerationPolicyTemplateDefinition }">{{ row.region ?? row.regionGroup ?? '-' }}</template>
       </el-table-column>
-      <el-table-column label="Version" width="120" prop="version" />
-      <el-table-column label="Review" width="190">
+      <el-table-column label="版本" width="120" prop="version" />
+      <el-table-column label="复核" width="190">
         <template #default="{ row }: { row: ModerationPolicyTemplateDefinition }">
-          <el-tag :type="row.reviewedAtUtc ? 'success' : 'warning'">{{ row.reviewedAtUtc ? 'reviewed' : row.reviewedBy }}</el-tag>
+          <el-tag :type="row.reviewedAtUtc ? 'success' : 'warning'">{{ row.reviewedAtUtc ? '已复核' : row.reviewedBy }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="Preset" width="110">
+      <el-table-column label="预设说明" width="110">
         <template #default="{ row }: { row: ModerationPolicyTemplateDefinition }">
-          <el-tag :type="row.notLegalAdvice ? 'info' : 'danger'">{{ row.notLegalAdvice ? 'not legal advice' : 'missing' }}</el-tag>
+          <el-tag :type="row.notLegalAdvice ? 'info' : 'danger'">{{ row.notLegalAdvice ? '非法律建议' : '缺失' }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="Checksum" min-width="180">
+      <el-table-column label="校验值" min-width="180">
         <template #default="{ row }: { row: ModerationPolicyTemplateDefinition }">
           <code class="block truncate text-[11px]">{{ row.checksum }}</code>
         </template>
@@ -73,11 +73,11 @@ const loadTemplates = async (): Promise<void> => {
 }
 
 const templateRows = (template: ModerationPolicyTemplateDefinition) => [
-  { label: 'Source', value: template.source },
-  { label: 'Reviewed By', value: template.reviewedBy },
-  { label: 'Reviewed At', value: template.reviewedAtUtc ?? '-' },
-  { label: 'Description', value: template.description },
-  { label: 'Rule Count', value: String(template.rules.length) }
+  { label: '来源', value: template.source },
+  { label: '复核人', value: template.reviewedBy },
+  { label: '复核时间', value: template.reviewedAtUtc ?? '-' },
+  { label: '说明', value: template.description },
+  { label: '规则数', value: String(template.rules.length) }
 ]
 
 onMounted(() => {
