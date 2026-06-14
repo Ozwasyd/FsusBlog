@@ -287,10 +287,11 @@ public sealed class HotStatsInvalidationCoalescer(
 
     private async Task FlushHotArticlesAsync(long dirtyCount, string? reason, CancellationToken cancellationToken)
     {
-        long version = PublishNextHotArticlesVersion($"hot_articles:{reason ?? "unknown"}");
         using IServiceScope scope = scopeFactory.CreateScope();
         var httpCacheInvalidator = scope.ServiceProvider.GetRequiredService<IHttpCacheInvalidator>();
         await httpCacheInvalidator.InvalidateAsync(CacheTag.HotArticles).ConfigureAwait(false);
+
+        long version = PublishNextHotArticlesVersion($"hot_articles:{reason ?? "unknown"}");
         scope.ServiceProvider.GetService<CacheInvalidationRuntimeState>()
             ?.Record("hot_articles", $"coalesced:v{version};dirty:{dirtyCount};reason:{reason ?? "unknown"}");
 

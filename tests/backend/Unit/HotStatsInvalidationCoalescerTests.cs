@@ -45,6 +45,37 @@ public sealed class HotStatsInvalidationCoalescerTests
     }
 
     [Fact]
+    public async Task FlushPendingAsync_WhenHotArticlesInvalidationFails_DoesNotAdvanceVersion()
+    {
+        var dispatcher = Substitute.For<ICacheInvalidationDispatcher>();
+        var httpInvalidator = Substitute.For<IHttpCacheInvalidator>();
+        httpInvalidator
+            .InvalidateAsync(CacheTag.HotArticles)
+            .Returns(Task.FromException(new InvalidOperationException("hot articles cache unavailable")));
+        await using ServiceProvider provider = new ServiceCollection()
+            .AddSingleton(dispatcher)
+            .AddSingleton(httpInvalidator)
+            .AddSingleton(new CacheInvalidationRuntimeState())
+            .BuildServiceProvider();
+        var sut = new HotStatsInvalidationCoalescer(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<HotStatsInvalidationCoalescer>.Instance);
+
+        sut.MarkHotArticlesDirty("article-read-projection");
+        long beforeVersion = sut.CurrentHotArticlesVersion;
+
+        await sut.FlushPendingAsync();
+
+        HotStatsInvalidationSnapshot snapshot = sut.Snapshot();
+        Assert.Equal(beforeVersion, snapshot.HotArticlesVersion);
+        Assert.True(snapshot.HotArticlesDirty);
+        Assert.Equal(1, snapshot.HotArticlesDirtyCount);
+        Assert.Equal(0, snapshot.HotArticlesFlushCount);
+        Assert.Equal(0, snapshot.HotArticlesCoalescedDirtyCount);
+        await httpInvalidator.Received(1).InvalidateAsync(CacheTag.HotArticles);
+    }
+
+    [Fact]
     public void Source_VisitLogMarksDirtyInsteadOfDirectBroadInvalidation()
     {
         string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/VisitLog/VisitLogProcessorService.cs"));
