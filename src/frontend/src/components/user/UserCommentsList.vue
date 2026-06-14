@@ -1,7 +1,6 @@
 <template>
-  <transition name="fade-fast" appear>
-    <div :class="themeTokens.userComments.list">
-      <transition-group name="list-fade" tag="div" class="relative" role="list" aria-label="评论历史列表">
+  <div :class="themeTokens.userComments.list">
+    <div class="relative" role="list" aria-label="评论历史列表">
       <article
         v-for="item in list"
         :key="item.id"
@@ -45,7 +44,7 @@
           </el-button>
         </div>
       </article>
-    </transition-group>
+    </div>
 
     <div :class="themeTokens.userComments.footer">
       <el-button
@@ -61,7 +60,6 @@
       </span>
     </div>
   </div>
-  </transition>
 </template>
 
 <script setup lang="ts">
@@ -83,56 +81,10 @@ defineEmits<{
 }>()
 </script>
 
-  <style scoped>
-  .fade-fast-enter-active,
-  .fade-fast-leave-active {
-  transition: opacity var(--fsus-motion-control) var(--fsus-motion-standard);
-  }
-
-.fade-fast-enter-from,
-.fade-fast-leave-to {
-  opacity: 0;
-}
-
-.list-fade-enter-active,
-.list-fade-leave-active {
-  transition: opacity var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-    transform var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.list-fade-enter-from {
-  opacity: 0;
-  transform: translateY(20px);
-}
-
-.list-fade-leave-to {
-  opacity: 0;
-  transform: translateX(30px);
-}
-
-.list-fade-leave-active {
-  position: absolute;
-  width: 100%;
-}
-
+<style scoped>
 .user-comment-delete-button {
   min-width: 2.75rem;
   min-height: 2.25rem;
   padding-inline: 0.5rem;
-}
-
-@media (max-width: 640px) {
-  .list-fade-leave-active {
-    width: calc(100% - 3rem);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .fade-fast-enter-active,
-  .fade-fast-leave-active,
-  .list-fade-enter-active,
-  .list-fade-leave-active {
-    transition: none;
-  }
 }
 </style>

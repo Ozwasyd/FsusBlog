@@ -1,11 +1,19 @@
 <template>
   <div class="user-comments-empty-state" role="status" aria-live="polite">
-    <p class="user-comments-empty-state__title">暂无评论记录</p>
-    <p class="user-comments-empty-state__description">
-      你在文章下发表的评论会显示在这里，便于回看和删除不再保留的内容。
-    </p>
+    <p class="user-comments-empty-state__title">{{ title }}</p>
+    <p v-if="description" class="user-comments-empty-state__description">{{ description }}</p>
+    <div v-if="$slots.actions" class="user-comments-empty-state__actions">
+      <slot name="actions" />
+    </div>
   </div>
 </template>
+
+<script setup lang="ts">
+defineProps<{
+  title: string
+  description?: string
+}>()
+</script>
 
 <style scoped>
 .user-comments-empty-state {
@@ -27,5 +35,12 @@
   color: var(--fsusblog-text-tertiary);
   font-size: 0.8125rem;
   line-height: 1.7;
+}
+
+.user-comments-empty-state__actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 </style>
