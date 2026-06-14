@@ -154,6 +154,18 @@ public class NotificationStreamBoundaryTests
         Assert.Contains("HasRetainedCursorFloor", method, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SessionService_SourceClosesSocketUnderSendGate()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamSessionService.cs"));
+        string pump = ExtractMethodBlock(source, "private async Task PumpConnectionAsync");
+        string close = ExtractMethodBlock(source, "private static async Task CloseSocketAsync");
+
+        Assert.Contains("CloseSocketAsync(socket, sendGate)", pump, StringComparison.Ordinal);
+        Assert.Contains("sendGate.WaitAsync", close, StringComparison.Ordinal);
+        Assert.Contains("socket.CloseAsync", close, StringComparison.Ordinal);
+    }
+
     private sealed class ThrowingWebSocketFeature : IHttpWebSocketFeature
     {
         public bool IsWebSocketRequest => true;

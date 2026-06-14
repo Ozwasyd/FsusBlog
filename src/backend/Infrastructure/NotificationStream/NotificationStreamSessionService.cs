@@ -134,10 +134,7 @@ internal sealed class NotificationStreamSessionService(
             await AwaitHeartbeatLoopShutdownAsync(heartbeatTask);
         }
 
-        if (socket.State == WebSocketState.Open || socket.State == WebSocketState.CloseReceived)
-        {
-            await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", CancellationToken.None);
-        }
+        await CloseSocketAsync(socket, sendGate);
     }
 
     private async Task RunHeartbeatLoopAsync(WebSocket socket, NotificationStreamConnection connection, SemaphoreSlim sendGate, CancellationToken cancellationToken)
@@ -166,6 +163,22 @@ internal sealed class NotificationStreamSessionService(
             if (socket.State == WebSocketState.Open)
             {
                 await socket.SendAsync(frame, WebSocketMessageType.Binary, endOfMessage: true, cancellationToken);
+            }
+        }
+        finally
+        {
+            sendGate.Release();
+        }
+    }
+
+    private static async Task CloseSocketAsync(WebSocket socket, SemaphoreSlim sendGate)
+    {
+        await sendGate.WaitAsync(CancellationToken.None);
+        try
+        {
+            if (socket.State == WebSocketState.Open || socket.State == WebSocketState.CloseReceived)
+            {
+                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", CancellationToken.None);
             }
         }
         finally
