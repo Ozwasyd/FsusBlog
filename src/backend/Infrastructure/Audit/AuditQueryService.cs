@@ -42,7 +42,7 @@ public sealed class AuditQueryService(
 
         return row is null
             ? null
-            : new AuditLogDetailResponse(ToItemResponse(row), row.ContextJson, AuditTamperEvidence.Verify(row, _tamperKey));
+            : new AuditLogDetailResponse(ToItemResponse(row), row.ContextJson, await VerifyWithChainAsync(row, cancellationToken));
     }
 
     public async Task<AuditTamperVerifyResponse?> VerifyAsync(long id, CancellationToken cancellationToken)
@@ -53,7 +53,7 @@ public sealed class AuditQueryService(
 
         return row is null
             ? null
-            : new AuditTamperVerifyResponse(row.Id, AuditTamperEvidence.Verify(row, _tamperKey), row.RecordHash, row.RecordMac, row.ChainId);
+            : new AuditTamperVerifyResponse(row.Id, await VerifyWithChainAsync(row, cancellationToken), row.RecordHash, row.RecordMac, row.ChainId);
     }
 
     public async Task<AuditLogSummaryResponse> GetSummaryAsync(AuditLogQueryRequest request, CancellationToken cancellationToken)
@@ -173,6 +173,33 @@ public sealed class AuditQueryService(
             snapshot.LastWriteSuccessUtc,
             snapshot.LastWriteFailureUtc,
             snapshot.LastFallbackWriteUtc);
+
+    private async Task<bool> VerifyWithChainAsync(AuditLog row, CancellationToken cancellationToken)
+    {
+        if (!AuditTamperEvidence.Verify(row, _tamperKey))
+        {
+            return false;
+        }
+
+        string? expectedPrevHash = await ResolvePreviousHashAsync(row, cancellationToken);
+        return string.IsNullOrWhiteSpace(row.PrevHash)
+            ? expectedPrevHash is null
+            : string.Equals(row.PrevHash, expectedPrevHash, StringComparison.Ordinal);
+    }
+
+    private async Task<string?> ResolvePreviousHashAsync(AuditLog row, CancellationToken cancellationToken)
+    {
+        if (row.Id <= 0 || string.IsNullOrWhiteSpace(row.ChainId))
+        {
+            return null;
+        }
+
+        return await _db.Queryable<AuditLog>()
+            .Where(it => it.ChainId == row.ChainId && it.Id < row.Id && it.RecordHash != null)
+            .OrderByDescending(it => it.Id)
+            .Select(it => it.RecordHash)
+            .FirstAsync(cancellationToken);
+    }
 
     private static string? NormalizeFilter(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

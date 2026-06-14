@@ -54,6 +54,18 @@ public sealed class AuditSystemContractTests
         Assert.Contains("/user/manage/audit", nav, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AuditVerify_SourceChecksPreviousRecordHash()
+    {
+        string root = ResolveRepositoryRoot();
+        string queryService = File.ReadAllText(Path.Combine(root, "src/backend/Infrastructure/Audit/AuditQueryService.cs"));
+
+        Assert.Contains("VerifyWithChainAsync", queryService, StringComparison.Ordinal);
+        Assert.Contains("ResolvePreviousHashAsync", queryService, StringComparison.Ordinal);
+        Assert.Contains("it.Id < row.Id", queryService, StringComparison.Ordinal);
+        Assert.Contains("row.PrevHash", queryService, StringComparison.Ordinal);
+    }
+
     private static string ResolveRepositoryRoot()
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
