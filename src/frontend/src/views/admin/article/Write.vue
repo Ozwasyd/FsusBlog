@@ -12,7 +12,7 @@
     >
       <header class="write-command-bar border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] py-6 px-4 mb-8" aria-label="文章编辑操作">
         <div class="min-w-0">
-          <div class="account-page-eyebrow mb-2">管理 / CONTENT EDITING</div>
+          <div class="account-page-eyebrow mb-2">内容编辑</div>
           <h1 id="article-write-title" class="write-command-title">{{ pageTitle }}</h1>
           <p id="article-editor-status" class="write-command-status" aria-live="polite">
             {{ editorStatusText }}
@@ -83,7 +83,7 @@
           aria-live="polite"
         >
           <div class="min-w-0">
-            <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-color-warning-text)] mb-1">{{ pendingDraftSourceLabel }} / DRAFT</div>
+            <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-color-warning-text)] mb-1">{{ pendingDraftSourceLabel }}</div>
             <p class="text-[11px] text-[var(--fsusblog-text-tertiary)]">
               {{ draftStatusText }}。{{ pendingDraftDescription }}
             </p>
@@ -100,7 +100,7 @@
 
         <el-form-item prop="title">
           <template #label>
-            <span id="article-title-label" class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章标题 / TITLE</span>
+            <span id="article-title-label" class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">标题</span>
           </template>
           <div class="mt-4">
             <el-input
@@ -120,7 +120,7 @@
       <div class="write-grid" :class="{ 'write-grid--wide': editorLayoutMode !== 'standard' }">
         <section class="write-editor-panel border-t border-[var(--fsusblog-panel-border)]" aria-labelledby="article-content-label">
           <header class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)]">
-            <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">正文编辑器 / EDITOR</div>
+            <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">正文</div>
           </header>
           <div class="overflow-hidden">
             <el-form-item prop="content">
@@ -170,7 +170,7 @@
                 aria-label="内容辅助"
               >
                 <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
-                  <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">内容辅助 / DRAFT CHECK</div>
+                  <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">草稿检查</div>
                 </header>
                 <div class="p-6 space-y-5">
                   <p class="text-xs leading-6 text-[var(--fsusblog-text-secondary)]" aria-live="polite">
@@ -256,7 +256,7 @@
               <details class="write-upload-disclosure border-t border-[var(--fsusblog-panel-border)]" open>
                 <summary class="write-disclosure-summary px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)] cursor-pointer outline-none">
                   <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">图片上传策略 / IMAGE POLICY</span>
+                    <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">图片策略</span>
                     <span class="text-[11px] font-bold text-[var(--fsusblog-text-muted)]" aria-live="polite">{{ imageUploadRuntime.statusText }}</span>
                   </div>
                 </summary>
@@ -380,7 +380,7 @@
         </li>
       </ul>
       <div v-if="prepublishWarningsNeedOverride" class="mt-5 space-y-3" aria-label="发布前警告跳过确认">
-        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布前警告 / WARNING OVERRIDE</div>
+        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布警告处理</div>
         <ul class="space-y-2">
           <li
             v-for="issue in prepublishWarningIssues"

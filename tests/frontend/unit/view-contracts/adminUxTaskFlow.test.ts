@@ -36,6 +36,10 @@ describe('admin UX task flow contract', () => {
   })
 
   it('turns the article editor side panel into a publishing task flow', () => {
+    expect(writePage).toContain('内容编辑')
+    expect(writePage).toContain('草稿检查')
+    expect(writePage).toContain('图片策略')
+    expect(writePage).toContain('发布警告处理')
     expect(writePage).toContain('label="发布设置"')
     expect(writePage).toContain('label="内容检查"')
     expect(writePage).toContain('label="预览"')
@@ -44,9 +48,15 @@ describe('admin UX task flow contract', () => {
     expect(writePage).not.toContain('label="SEO"')
     expect(writePage).not.toContain('label="AI"')
     expect(writePage).not.toContain('label="上传"')
+    expect(writePage).not.toContain('CONTENT EDITING')
+    expect(writePage).not.toContain('DRAFT CHECK')
+    expect(writePage).not.toContain('IMAGE POLICY')
+    expect(writePage).not.toContain('WARNING OVERRIDE')
     expect(writePage).toContain('发布前 checklist')
     expect(writePage).toContain('全屏：最大化编辑区，可按 Esc 退出')
     expect(writeComposable).toContain("return isEdit.value ? '更新文章' : '发布文章'")
+    expect(writeComposable).toContain("aiAssistStatusText.value = '草稿检查完成'")
+    expect(writeComposable).not.toContain('provider=')
   })
 
   it('adds recommendation and preview semantics to comment moderation', () => {
@@ -73,7 +83,7 @@ describe('admin UX task flow contract', () => {
 
   it('tightens public search, empty states, and UX quality gates', () => {
     expect(publicShellState).toContain('搜索文章、标签或关键词')
-    expect(homeContent).toContain('快速入口')
+    expect(homeContent).toContain('HomeArticleEmptyState')
     expect(filterContent).toContain('搜索范围：全站文章、标签或关键词')
     expect(uxCheck).toContain('[ux-semantics] ok')
     expect(usabilityScript).toContain('每轮 5-8 人')

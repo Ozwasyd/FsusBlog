@@ -1281,9 +1281,7 @@ export function useAdminArticleWrite() {
           operation: 'summary-tags-title-structure-translate'
         }, buildSignalConfig(signal))
         aiAssist.value = response
-        aiAssistStatusText.value = response.externalProviderAllowed
-          ? `已生成检查结果，provider=${response.providerMode}`
-          : `已生成本地检查结果，provider=${response.providerMode}`
+        aiAssistStatusText.value = '草稿检查完成'
         if (!articleForm.summary.trim() && response.suggestedSummary.trim()) {
           articleForm.summary = response.suggestedSummary.trim()
         }

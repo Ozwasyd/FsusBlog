@@ -112,6 +112,13 @@ const exactForbidden = [
   { token: 'AI CHECK', reason: 'AI-forward authoring panel label' },
   { token: 'AI 辅助检查', reason: 'AI-forward authoring primary action' },
   { token: '作者辅助 / AI CHECK', reason: 'old authoring panel label' },
+  { token: '管理 / CONTENT EDITING', reason: 'decorative bilingual authoring label' },
+  { token: '文章标题 / TITLE', reason: 'decorative bilingual authoring label' },
+  { token: '正文编辑器 / EDITOR', reason: 'decorative bilingual authoring label' },
+  { token: '内容辅助 / DRAFT CHECK', reason: 'decorative bilingual authoring label' },
+  { token: '图片上传策略 / IMAGE POLICY', reason: 'decorative bilingual authoring label' },
+  { token: '发布前警告 / WARNING OVERRIDE', reason: 'decorative bilingual authoring label' },
+  { token: 'provider=', reason: 'internal provider diagnostics must not appear in normal authoring UI copy' },
   { token: '按当前标题与正文生成摘要、标题候选、标签和结构建议。', reason: 'old authoring panel description' },
   { token: '没有找到文章。', reason: 'placeholder public empty state' },
   { token: '没有匹配的文章', reason: 'generic public empty state' },
@@ -162,7 +169,7 @@ const requiredCopy = [
   },
   {
     path: 'src/frontend/src/views/admin/article/Write.vue',
-    tokens: ['内容辅助 / DRAFT CHECK', '检查草稿', '生成摘要草稿', '匹配已有标签']
+    tokens: ['内容编辑', '标题', '正文', '草稿检查', '图片策略', '发布警告处理', '检查草稿', '生成摘要草稿', '匹配已有标签']
   }
 ]
 
