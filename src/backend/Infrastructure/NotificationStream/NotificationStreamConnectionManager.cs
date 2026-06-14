@@ -8,26 +8,58 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
     private readonly ConcurrentDictionary<string, NotificationStreamConnection> _byConnectionId = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _byUserId = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _byGroup = new(StringComparer.Ordinal);
+    private readonly object _indexGate = new();
     private readonly int _queueCapacity = Math.Clamp(configuration.GetValue<int?>("NotificationStream:QueueCapacity") ?? 256, 32, 4096);
 
     public int ConnectionCount => _byConnectionId.Count;
 
     public NotificationStreamConnection RegisterConnection(string connectionId, string? userId, IReadOnlyCollection<string> groups)
     {
-        var connection = new NotificationStreamConnection(connectionId, userId, groups, _queueCapacity);
-        if (!_byConnectionId.TryAdd(connectionId, connection))
+        NotificationStreamConnection connection;
+        lock (_indexGate)
         {
-            throw new InvalidOperationException($"Duplicate notification stream connection id: {connectionId}");
-        }
+            if (_byConnectionId.ContainsKey(connectionId))
+            {
+                throw new InvalidOperationException($"Duplicate notification stream connection id: {connectionId}");
+            }
 
-        if (!string.IsNullOrEmpty(userId))
-        {
-            AddToIndex(_byUserId, userId, connectionId);
-        }
+            connection = new NotificationStreamConnection(connectionId, userId, groups, _queueCapacity);
+            if (!_byConnectionId.TryAdd(connectionId, connection))
+            {
+                connection.Complete();
+                connection.Drain();
+                throw new InvalidOperationException($"Duplicate notification stream connection id: {connectionId}");
+            }
 
-        foreach (string group in groups)
-        {
-            AddToIndex(_byGroup, group, connectionId);
+            try
+            {
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    AddToIndex(_byUserId, userId, connectionId);
+                }
+
+                foreach (string group in connection.Groups)
+                {
+                    AddToIndex(_byGroup, group, connectionId);
+                }
+            }
+            catch
+            {
+                _byConnectionId.TryRemove(connectionId, out _);
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    RemoveFromIndex(_byUserId, userId, connectionId);
+                }
+
+                foreach (string group in connection.Groups)
+                {
+                    RemoveFromIndex(_byGroup, group, connectionId);
+                }
+
+                connection.Complete();
+                connection.Drain();
+                throw;
+            }
         }
 
         NotificationStreamMetrics.ConnectionOpened();
@@ -37,19 +69,23 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
 
     public void RemoveConnection(string connectionId)
     {
-        if (!_byConnectionId.TryRemove(connectionId, out NotificationStreamConnection? connection))
+        NotificationStreamConnection? connection;
+        lock (_indexGate)
         {
-            return;
-        }
+            if (!_byConnectionId.TryRemove(connectionId, out connection))
+            {
+                return;
+            }
 
-        if (!string.IsNullOrEmpty(connection.UserId))
-        {
-            RemoveFromIndex(_byUserId, connection.UserId, connectionId);
-        }
+            if (!string.IsNullOrEmpty(connection.UserId))
+            {
+                RemoveFromIndex(_byUserId, connection.UserId, connectionId);
+            }
 
-        foreach (string group in connection.Groups)
-        {
-            RemoveFromIndex(_byGroup, group, connectionId);
+            foreach (string group in connection.Groups)
+            {
+                RemoveFromIndex(_byGroup, group, connectionId);
+            }
         }
 
         connection.Complete();

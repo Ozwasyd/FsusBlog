@@ -8,6 +8,21 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class NotificationStreamConnectionManagerTests
 {
     [Fact]
+    public void Source_RegistersAndRemovesConnectionsUnderIndexGate()
+    {
+        string source = ReadManagerSource();
+        int duplicateCheck = source.IndexOf("_byConnectionId.ContainsKey(connectionId)", StringComparison.Ordinal);
+        int allocation = source.IndexOf("new NotificationStreamConnection(connectionId", StringComparison.Ordinal);
+
+        Assert.Contains("private readonly object _indexGate", source, StringComparison.Ordinal);
+        Assert.True(duplicateCheck >= 0, "RegisterConnection must check for a duplicate connection id before allocating the channel-backed connection.");
+        Assert.True(allocation > duplicateCheck, "NotificationStreamConnection allocation must happen after the duplicate check.");
+        Assert.Contains("lock (_indexGate)", source, StringComparison.Ordinal);
+        Assert.Contains("AddToIndex(_byUserId, userId, connectionId)", source, StringComparison.Ordinal);
+        Assert.Contains("RemoveFromIndex(_byUserId, connection.UserId, connectionId)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TryRemoveBucketIfCurrent_DoesNotRemoveReplacedBucket()
     {
         const string key = "user:42";
@@ -59,6 +74,24 @@ public sealed class NotificationStreamConnectionManagerTests
         IReadOnlyList<string> routes = NotificationStreamTargetRouteCodec.GetStorageRoutes("m:10, 20,,30");
 
         Assert.Equal(["u:10", "u:20", "u:30"], routes);
+    }
+
+    private static string ReadManagerSource()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            string root = directory.FullName;
+            string path = Path.Combine(root, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamConnectionManager.cs");
+            if (File.Exists(path))
+            {
+                return File.ReadAllText(path);
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Unable to locate NotificationStreamConnectionManager.cs.");
     }
 }
 
