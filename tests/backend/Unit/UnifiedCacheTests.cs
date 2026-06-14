@@ -328,6 +328,17 @@ public sealed class UnifiedCacheTests
         Assert.False(entry.TryAddReference());
     }
 
+    [Fact]
+    public void AcquireSingleFlightAsync_DoesNotUseMemoryCacheEvictionForSingleFlight()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "Cache", "IUnifiedCache.cs"));
+        string method = ExtractMethodBlock(source, "public async Task<IAsyncDisposable> AcquireSingleFlightAsync");
+
+        Assert.DoesNotContain("memoryCache.GetOrCreate(lockKey", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("RegisterPostEvictionCallback", method, StringComparison.Ordinal);
+        Assert.Contains("_singleFlightEntries.GetOrAdd", method, StringComparison.Ordinal);
+    }
+
     private static string FindRepoRoot()
     {
         DirectoryInfo? current = new(AppContext.BaseDirectory);
@@ -342,6 +353,33 @@ public sealed class UnifiedCacheTests
         }
 
         throw new DirectoryNotFoundException("repo root not found");
+    }
+
+    private static string ExtractMethodBlock(string source, string signature)
+    {
+        int start = source.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
+        int braceStart = source.IndexOf('{', start);
+        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
+
+        int depth = 0;
+        for (int i = braceStart; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+            {
+                depth++;
+            }
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return source[start..(i + 1)];
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 
     private static UnifiedCache CreateCache(IMemoryCache memory, IDatabase db)

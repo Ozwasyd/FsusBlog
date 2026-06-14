@@ -221,7 +221,7 @@ Client
 
 `IUnifiedCache` 的写入/变更型操作必须先移除 L1，再提交 Redis L2 变更；`IncrementAsync`、`ConsumeOnceAsync`、`RemoveAsync` 和批量失效都遵循 L1-first 顺序，避免并发读在 L2 已变更前后重新提升 stale L1 值。L1-first 允许一次安全方向的 stale miss，但不得允许旧值在同进程内复活。
 
-缓存失效优先使用 Redis registry 精确删除 prefix 命中的 key；registry 缺失时，`RemoveByPrefixAsync` 会记录 `registry_missing` 警告并执行 Redis keyspace scan fallback 回收现存 key，扫描失败则降级为可观测 warning，让后续写入自然修复 registry。AOT cache 文件失效仍走专用 Public AOT cache 服务，不在统一 Redis prefix 失效路径里全盘扫描。热点 miss singleflight 等待使用指数退避，避免固定间隔轮询放大 Redis 与 GC 压力。
+缓存失效优先使用 Redis registry 精确删除 prefix 命中的 key；registry 缺失时，`RemoveByPrefixAsync` 会记录 `registry_missing` 警告并执行 Redis keyspace scan fallback 回收现存 key，扫描失败则降级为可观测 warning，让后续写入自然修复 registry。AOT cache 文件失效仍走专用 Public AOT cache 服务，不在统一 Redis prefix 失效路径里全盘扫描。热点 miss singleflight 等待使用指数退避，避免固定间隔轮询放大 Redis 与 GC 压力。singleflight 入口由 `ConcurrentDictionary` 和 entry 自身引用计数管理，不依赖 `IMemoryCache` eviction callback；最后一个等待者释放后才 retire 并移除 entry，避免 eviction 与等待者注册竞态造成 lost wakeup 或已释放 semaphore。
 
 缓存 miss 回填、后台 projector 和修复任务访问 PostgreSQL 时必须通过 `DbConcurrencyGate`。外层调用获得全局 slot 后会创建 reservation；同一 async flow 内的 reentrant 调用不得直接绕过 gate，也不得再消耗第二个全局 slot，而是在该 reservation 内串行执行。reservation 停止接收后，新进入的 reentrant 调用必须回到全局 gate，保证 `MaxConcurrentMisses` 对后台 DB 压力仍是有效上限。
 

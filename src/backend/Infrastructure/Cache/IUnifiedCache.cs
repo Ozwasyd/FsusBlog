@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
 using StackExchange.Redis;
@@ -49,13 +50,14 @@ public sealed class UnifiedCache(
     ICachePolicyRegistry policyRegistry,
     IRuntimeKeyScope keyScope,
     ILogger<UnifiedCache> logger) : IUnifiedCache
-    {
-        private static readonly TimeSpan MissingPolicyL2Ttl = TimeSpan.FromMinutes(5);
-        private const string RegistryKeyPrefix = "cache:registry:";
-        private const int PrefixInvalidationBatchSize = 256;
+{
+    private static readonly TimeSpan MissingPolicyL2Ttl = TimeSpan.FromMinutes(5);
+    private const string RegistryKeyPrefix = "cache:registry:";
+    private const int PrefixInvalidationBatchSize = 256;
 
     private readonly IConnectionMultiplexer _redis = redis;
     private readonly IDatabase _db = redis.GetDatabase();
+    private readonly ConcurrentDictionary<string, SingleFlightEntry> _singleFlightEntries = new(StringComparer.Ordinal);
 
     public string BuildKey(CachePolicyId policyId, string identity, string? version = null)
     {
@@ -653,35 +655,35 @@ public sealed class UnifiedCache(
         string lockKey = $"singleflight:{BuildKey(policyId, identity)}";
         while (true)
         {
-            var singleFlight = memoryCache.GetOrCreate(lockKey, entry =>
-            {
-                entry.SlidingExpiration = TimeSpan.FromMinutes(2);
-                entry.RegisterPostEvictionCallback(static (_, value, _, _) =>
-                {
-                    if (value is SingleFlightEntry singleFlightEntry)
-                    {
-                        singleFlightEntry.MarkRetired();
-                    }
-                });
-                return new SingleFlightEntry();
-            })!;
+            var singleFlight = _singleFlightEntries.GetOrAdd(lockKey, static _ => new SingleFlightEntry());
 
             if (!singleFlight.TryAddReference())
             {
+                _singleFlightEntries.TryRemove(new KeyValuePair<string, SingleFlightEntry>(lockKey, singleFlight));
                 continue;
             }
 
             try
             {
                 await singleFlight.Semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-                return new AsyncReleaser(singleFlight);
+                return new AsyncReleaser(this, lockKey, singleFlight);
             }
             catch
             {
-                singleFlight.ReleaseReference();
+                ReleaseSingleFlightReference(lockKey, singleFlight);
                 throw;
             }
         }
+    }
+
+    private void ReleaseSingleFlightReference(string lockKey, SingleFlightEntry singleFlight)
+    {
+        if (!singleFlight.ReleaseReference(retireWhenIdle: true))
+        {
+            return;
+        }
+
+        _singleFlightEntries.TryRemove(new KeyValuePair<string, SingleFlightEntry>(lockKey, singleFlight));
     }
 
     private void SetL1(CachePolicyId policyId, string key, byte[] bytes)
@@ -913,61 +915,71 @@ public sealed class UnifiedCache(
 
     internal sealed class SingleFlightEntry : IDisposable
     {
+        private readonly object _sync = new();
         private int _referenceCount;
-        private int _retired;
         private int _disposed;
+        private bool _retired;
 
         public SemaphoreSlim Semaphore { get; } = new(1, 1);
 
         public bool TryAddReference()
         {
-            while (true)
+            lock (_sync)
             {
-                if (Volatile.Read(ref _retired) == 1 || Volatile.Read(ref _disposed) == 1)
+                if (_retired || Volatile.Read(ref _disposed) == 1)
                 {
                     return false;
                 }
 
-                int current = Volatile.Read(ref _referenceCount);
-                if (Interlocked.CompareExchange(ref _referenceCount, current + 1, current) != current)
-                {
-                    continue;
-                }
-
-                if (Volatile.Read(ref _retired) == 1 || Volatile.Read(ref _disposed) == 1)
-                {
-                    ReleaseReference();
-                    return false;
-                }
-
+                _referenceCount++;
                 return true;
             }
         }
 
-        public void ReleaseReference()
+        public bool ReleaseReference(bool retireWhenIdle = false)
         {
-            Interlocked.Decrement(ref _referenceCount);
-            TryDispose();
+            bool shouldDispose;
+            lock (_sync)
+            {
+                if (_referenceCount <= 0)
+                {
+                    throw new InvalidOperationException("Single-flight reference count is already zero.");
+                }
+
+                _referenceCount--;
+                if (retireWhenIdle && _referenceCount == 0)
+                {
+                    _retired = true;
+                }
+
+                shouldDispose = _retired && _referenceCount == 0;
+            }
+
+            if (shouldDispose)
+            {
+                Dispose();
+            }
+
+            return shouldDispose;
         }
 
         public void MarkRetired()
         {
-            Volatile.Write(ref _retired, 1);
-            TryDispose();
-        }
-
-        public void Dispose() => TryDispose(force: true);
-
-        private void TryDispose(bool force = false)
-        {
-            if (!force)
+            bool shouldDispose;
+            lock (_sync)
             {
-                if (Volatile.Read(ref _retired) == 0 || Volatile.Read(ref _referenceCount) != 0)
-                {
-                    return;
-                }
+                _retired = true;
+                shouldDispose = _referenceCount == 0;
             }
 
+            if (shouldDispose)
+            {
+                Dispose();
+            }
+        }
+
+        public void Dispose()
+        {
             if (Interlocked.Exchange(ref _disposed, 1) == 0)
             {
                 Semaphore.Dispose();
@@ -975,12 +987,12 @@ public sealed class UnifiedCache(
         }
     }
 
-    private sealed class AsyncReleaser(SingleFlightEntry entry) : IAsyncDisposable
+    private sealed class AsyncReleaser(UnifiedCache owner, string lockKey, SingleFlightEntry entry) : IAsyncDisposable
     {
         public ValueTask DisposeAsync()
         {
             entry.Semaphore.Release();
-            entry.ReleaseReference();
+            owner.ReleaseSingleFlightReference(lockKey, entry);
             return ValueTask.CompletedTask;
         }
     }
