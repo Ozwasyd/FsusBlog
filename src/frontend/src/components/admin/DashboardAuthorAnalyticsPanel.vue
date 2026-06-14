@@ -25,9 +25,68 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-px bg-[var(--fsusblog-panel-bg-soft)] border-t border-[var(--fsusblog-panel-border)]">
-      <RumMetricList />
-      <AnalyticsList title="RUM 页面类型" empty-text="暂无 RUM 页面样本" :items="analytics.rumPageTypes" />
-      <AnalyticsList title="AOT 来源" empty-text="暂无 AOT 来源样本" :items="analytics.rumAotSources" />
+      <section class="bg-[var(--fsusblog-page-bg)] p-8 min-h-72">
+        <h3 class="text-base font-bold leading-tight text-[var(--fsusblog-text-primary)]">Core Web Vitals</h3>
+        <p class="mt-1 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">关键渲染指标。</p>
+        <DashboardInlineEmptyState
+          v-if="rumMetricRows.length === 0"
+          title="暂无浏览器性能样本"
+          description="有运行时样本后将在这里显示 P75 和平均值。"
+        />
+        <DashboardMetricList v-else class="mt-5" density="compact">
+          <DashboardMetricItem
+            v-for="metric in rumMetricRows"
+            :key="metric.label"
+            density="compact"
+            :label="metric.label"
+            :primary="metric.primary"
+            :secondary="metric.secondary"
+            :meta="metric.meta"
+          />
+        </DashboardMetricList>
+      </section>
+
+      <section class="bg-[var(--fsusblog-page-bg)] p-8 min-h-72">
+        <h3 class="text-base font-bold leading-tight text-[var(--fsusblog-text-primary)]">RUM 页面类型</h3>
+        <p class="mt-1 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">页面访问分布。</p>
+        <DashboardInlineEmptyState
+          v-if="rumPageTypeRows.length === 0"
+          title="暂无 RUM 页面样本"
+          description="有访问记录后将在这里显示分布。"
+        />
+        <DashboardDistributionList v-else class="mt-5" density="compact">
+          <DashboardDistributionBarRow
+            v-for="item in rumPageTypeRows"
+            :key="item.label"
+            density="compact"
+            :rank="item.rank"
+            :label="item.label"
+            :value="item.value"
+            :ratio="item.ratio"
+          />
+        </DashboardDistributionList>
+      </section>
+
+      <section class="bg-[var(--fsusblog-page-bg)] p-8 min-h-72">
+        <h3 class="text-base font-bold leading-tight text-[var(--fsusblog-text-primary)]">AOT 来源</h3>
+        <p class="mt-1 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">渲染来源分布。</p>
+        <DashboardInlineEmptyState
+          v-if="rumAotSourceRows.length === 0"
+          title="暂无 AOT 来源样本"
+          description="有 AOT 运行记录后将在这里显示分布。"
+        />
+        <DashboardDistributionList v-else class="mt-5" density="compact">
+          <DashboardDistributionBarRow
+            v-for="item in rumAotSourceRows"
+            :key="item.label"
+            density="compact"
+            :rank="item.rank"
+            :label="item.label"
+            :value="item.value"
+            :ratio="item.ratio"
+          />
+        </DashboardDistributionList>
+      </section>
     </div>
   </section>
 </template>
@@ -35,6 +94,13 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, type PropType } from 'vue'
 import DashboardSectionHeader from '@/components/admin/DashboardSectionHeader.vue'
+import {
+  DashboardDistributionBarRow,
+  DashboardDistributionList,
+  DashboardInlineEmptyState,
+  DashboardMetricItem,
+  DashboardMetricList
+} from '@/components/admin/DashboardMetricPrimitives'
 import type { AdminDashboardViewContract, AuthorAnalyticsListItem } from '@/view-contracts/adminStats'
 
 const props = defineProps<{
@@ -43,6 +109,20 @@ const props = defineProps<{
 
 const analytics = computed(() => props.view.authorAnalytics)
 const rumMetrics = computed(() => analytics.value.rumMetrics ?? [])
+
+type MetricRow = Readonly<{
+  label: string
+  primary: string
+  secondary: readonly string[]
+  meta: string
+}>
+
+type DistributionRow = Readonly<{
+  label: string
+  value: string
+  ratio: number
+  rank: number
+}>
 
 const metrics = computed(() => [
   {
@@ -67,6 +147,56 @@ const metrics = computed(() => [
   }
 ])
 
+const RUM_METRIC_LABELS: Readonly<Record<string, string>> = {
+  navigation_timing: '页面导航耗时',
+  wasm_decode_timing: 'WASM 解码耗时',
+  web_vital_cls: '累积布局偏移 (CLS)',
+  web_vital_lcp: '最大内容绘制 (LCP)'
+}
+
+const RUM_DISTRIBUTION_LABELS: Readonly<Record<string, string>> = {
+  home: '首页',
+  about: '关于页',
+  public: '公开页',
+  archive: '归档页',
+  spa: 'SPA',
+  'server-aot': 'Server AOT'
+}
+
+const formatRawLabel = (value: string): string => value
+  .split(/[-_\s]+/)
+  .filter(Boolean)
+  .map((segment) => segment.length <= 3
+    ? segment.toUpperCase()
+    : `${segment.charAt(0).toUpperCase()}${segment.slice(1)}`)
+  .join(' ')
+
+const formatRumMetricName = (name: string): string => RUM_METRIC_LABELS[name] ?? formatRawLabel(name)
+const formatDistributionLabel = (label: string): string => RUM_DISTRIBUTION_LABELS[label] ?? formatRawLabel(label)
+
+const toDistributionRows = (items: readonly AuthorAnalyticsListItem[]): readonly DistributionRow[] => {
+  const maxCount = Math.max(0, ...items.map((item) => Number(item.count) || 0))
+  return items.map((item, index) => {
+    const count = Number(item.count) || 0
+    return {
+      label: formatDistributionLabel(item.label),
+      value: String(count),
+      ratio: maxCount > 0 ? count / maxCount : 0,
+      rank: index + 1
+    }
+  })
+}
+
+const rumMetricRows = computed<readonly MetricRow[]>(() => rumMetrics.value.map((item) => ({
+  label: formatRumMetricName(item.name),
+  primary: `P75 ${item.p75Text}`,
+  secondary: [`平均 ${item.averageText}`],
+  meta: `${item.count} 次记录`
+})))
+
+const rumPageTypeRows = computed(() => toDistributionRows(analytics.value.rumPageTypes))
+const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAotSources))
+
 const AnalyticsList = defineComponent({
   name: 'AnalyticsList',
   props: {
@@ -89,26 +219,4 @@ const AnalyticsList = defineComponent({
   }
 })
 
-const RumMetricList = defineComponent({
-  name: 'RumMetricList',
-  setup() {
-    return () => h('section', { class: 'bg-[var(--fsusblog-page-bg)] p-8 min-h-72' }, [
-      h('h3', { class: 'text-sm font-bold text-[var(--fsusblog-text-primary)]' }, 'Core Web Vitals'),
-      rumMetrics.value.length === 0
-        ? h('p', { class: 'mt-8 text-[11px] text-[var(--fsusblog-text-tertiary)]' }, '暂无浏览器性能样本')
-        : h('div', { class: 'mt-6 space-y-4' }, rumMetrics.value.map((item) => h('div', {
-          class: 'border-b border-[var(--fsusblog-panel-border)] pb-3 last:border-b-0'
-        }, [
-          h('div', { class: 'flex items-center justify-between gap-4' }, [
-            h('span', { class: 'min-w-0 truncate text-xs font-bold text-[var(--fsusblog-text-secondary)]' }, item.name),
-            h('span', { class: 'shrink-0 text-xs font-bold tabular-nums text-[var(--fsusblog-text-muted)]' }, String(item.count))
-          ]),
-          h('div', { class: 'mt-2 grid grid-cols-2 gap-3 text-[11px] text-[var(--fsusblog-text-tertiary)]' }, [
-            h('span', `P75 ${item.p75Text}`),
-            h('span', `Avg ${item.averageText}`)
-          ])
-        ])))
-    ])
-  }
-})
 </script>

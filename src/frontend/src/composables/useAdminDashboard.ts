@@ -23,7 +23,6 @@ export function useAdminDashboard() {
   const statsTask = useAbortableTask()
   const { userStore, appShellStore, ensureUserInfo, syncAuthPhase } = useSessionBootstrap()
 
-  const visitChartRef = ref<HTMLElement>()
   const regionChartRef = ref<HTMLElement>()
   const createEmptyDashboardView = (): AdminDashboardViewContract => ({
     statCards: [],
@@ -98,57 +97,15 @@ export function useAdminDashboard() {
     })
     chartInstances = []
 
-    if (!visitChartRef.value || !regionChartRef.value) {
+    if (!regionChartRef.value) {
       return
     }
 
     try {
-      const visitChart = echarts.init(visitChartRef.value)
       const chartPrimary = readCssToken('--fsusblog-text-primary', 'CanvasText')
       const chartSurface = readCssToken('--fsusblog-panel-bg', 'Canvas')
-      const chartSurfaceMuted = readCssToken('--fsusblog-color-surface-muted', 'ButtonFace')
       const chartLine = readCssToken('--fsusblog-panel-border', 'GrayText')
       const chartText = readCssToken('--fsusblog-text-secondary', 'CanvasText')
-
-      visitChart.setOption({
-        aria: {
-          enabled: true,
-          description: `访客来源构成：注册用户 ${dashboardView.value.visitChart.registeredVisits}，匿名访客 ${dashboardView.value.visitChart.anonymousVisits}。`
-        },
-        tooltip: {
-          trigger: 'item',
-          backgroundColor: chartSurface,
-          borderColor: chartLine,
-          textStyle: { color: chartText }
-        },
-        legend: {
-          bottom: '5%',
-          icon: 'circle',
-          textStyle: { color: chartText }
-        },
-        series: [
-          {
-            type: 'pie',
-            radius: ['45%', '70%'],
-            center: ['50%', '45%'],
-            itemStyle: { borderRadius: 10, borderColor: chartSurface, borderWidth: 2 },
-            label: { show: false },
-            data: [
-              {
-                value: dashboardView.value.visitChart.registeredVisits,
-                name: '注册用户',
-                itemStyle: { color: chartPrimary }
-              },
-              {
-                value: dashboardView.value.visitChart.anonymousVisits,
-                name: '匿名访客',
-                itemStyle: { color: chartSurfaceMuted }
-              }
-            ]
-          }
-        ]
-      })
-      chartInstances.push(visitChart)
 
       const regionChart = echarts.init(regionChartRef.value)
       const chartData = [...dashboardView.value.regionChart.labels].map((label, index) => ({
@@ -230,7 +187,7 @@ export function useAdminDashboard() {
       return
     }
 
-    if (!visitChartRef.value || !regionChartRef.value) {
+    if (!regionChartRef.value) {
       return
     }
 
@@ -243,7 +200,7 @@ export function useAdminDashboard() {
       return
     }
 
-    const targets = [visitChartRef.value, regionChartRef.value].filter((value): value is HTMLElement => Boolean(value))
+    const targets = [regionChartRef.value].filter((value): value is HTMLElement => Boolean(value))
     if (!targets.length) {
       return
     }
@@ -333,7 +290,7 @@ export function useAdminDashboard() {
       return
     }
 
-    const targets = [visitChartRef.value, regionChartRef.value].filter((value): value is HTMLElement => Boolean(value))
+    const targets = [regionChartRef.value].filter((value): value is HTMLElement => Boolean(value))
     if (!targets.length) {
       return
     }
@@ -369,7 +326,6 @@ export function useAdminDashboard() {
   return {
     loading,
     dashboardView,
-    visitChartRef,
     regionChartRef
   }
 }

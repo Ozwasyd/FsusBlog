@@ -42,34 +42,58 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 border-y border-[var(--fsusblog-panel-border)] mb-16">
       <section class="lg:col-span-1 border-r border-[var(--fsusblog-panel-border)] last:border-r-0 bg-[var(--fsusblog-page-bg)] p-8 flex flex-col">
         <header class="mb-6">
-          <div class="flex items-center justify-between">
-            <h3 class="dashboard-card-title">访客来源构成</h3>
-            <el-tooltip content="对比注册用户与匿名访客的活跃度" placement="top">
-              <span class="text-[var(--fsusblog-text-subtle)] cursor-help hover:text-[var(--fsusblog-color-primary)] transition-colors" aria-hidden="true">
-                <el-icon><InfoFilled /></el-icon>
-              </span>
-            </el-tooltip>
-          </div>
-          <p class="dashboard-card-description">注册用户与匿名访客活跃度。</p>
+          <h3 class="dashboard-card-title">访客来源</h3>
+          <p class="dashboard-card-description">注册用户与匿名访问分布。</p>
         </header>
         <div class="flex-1">
-          <div v-if="!loading && !hasVisitChartData" class="flex h-75 items-center justify-center">
-            <el-empty description="暂无访问来源数据" />
-          </div>
-          <div v-else ref="visitChartRef" class="h-75 w-full" role="img" :aria-label="visitChartSummary" v-loading="loading"></div>
+          <DashboardInlineEmptyState
+            v-if="!loading && !hasVisitSourceData"
+            title="暂无访问来源数据"
+            description="有访问记录后将在这里显示分布。"
+          />
+          <DashboardDistributionList v-else class="mt-1" density="compact" v-loading="loading">
+            <DashboardDistributionBarRow
+              v-for="item in visitSourceRows"
+              :key="item.label"
+              density="compact"
+              :label="item.label"
+              :value="item.value"
+              :ratio="item.ratio"
+            />
+          </DashboardDistributionList>
         </div>
       </section>
 
       <section class="lg:col-span-2 bg-[var(--fsusblog-page-bg)] p-8 flex flex-col">
         <header class="mb-6">
-          <h3 class="dashboard-card-title">地域访问分布 (Top 10)</h3>
-          <p class="dashboard-card-description">站点流量集中区域。</p>
+          <h3 class="dashboard-card-title">地域访问</h3>
+          <p class="dashboard-card-description">流量来源区域分布。</p>
         </header>
         <div class="flex-1">
-          <div v-if="!loading && !hasRegionChartData" class="flex h-75 items-center justify-center">
-            <el-empty description="暂无地域访问数据" />
-          </div>
-          <div v-else ref="regionChartRef" class="h-75 w-full" role="img" :aria-label="regionChartSummary" v-loading="loading"></div>
+          <DashboardInlineEmptyState
+            v-if="!loading && !hasRegionData"
+            title="暂无地域访问数据"
+            description="有访问记录后将在这里显示分布。"
+          />
+          <div
+            v-else-if="shouldUseRegionChart"
+            ref="regionChartRef"
+            class="h-75 w-full"
+            role="img"
+            :aria-label="regionChartSummary"
+            v-loading="loading"
+          ></div>
+          <DashboardDistributionList v-else class="mt-1" density="compact" v-loading="loading">
+            <DashboardDistributionBarRow
+              v-for="item in regionRows"
+              :key="item.label"
+              density="compact"
+              :rank="item.rank"
+              :label="item.label"
+              :value="item.value"
+              :ratio="item.ratio"
+            />
+          </DashboardDistributionList>
         </div>
       </section>
     </div>
@@ -94,12 +118,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
-import { InfoFilled } from '@/fsusui/icons'
 import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
 import ConsoleWelcomeCallout from '@/components/admin/ConsoleWelcomeCallout.vue'
 import DashboardAuthorAnalyticsPanel from '@/components/admin/DashboardAuthorAnalyticsPanel.vue'
 import DashboardCommentModerationPanel from '@/components/admin/DashboardCommentModerationPanel.vue'
+import {
+  DashboardDistributionBarRow,
+  DashboardDistributionList,
+  DashboardInlineEmptyState
+} from '@/components/admin/DashboardMetricPrimitives'
 import DashboardOperationsPanel from '@/components/admin/DashboardOperationsPanel.vue'
 import DashboardSectionHeader from '@/components/admin/DashboardSectionHeader.vue'
 import DashboardStatCards from '@/components/admin/DashboardStatCards.vue'
@@ -112,8 +140,7 @@ import { messageApi } from '@/api/message'
 import { useUserStore } from '@/store/user'
 import { showErrorToast } from '@/utils/errorPresentation'
 
-const { loading, dashboardView, visitChartRef, regionChartRef } = useAdminDashboard()
-void visitChartRef
+const { loading, dashboardView, regionChartRef } = useAdminDashboard()
 void regionChartRef
 const userStore = useUserStore()
 const pendingTicketsCount = ref(0)
@@ -122,19 +149,47 @@ const { counters: moderationCounters, refreshQueue: refreshModerationQueue } = u
   initialStatus: CommentModerationStatus.Pending,
   limit: 1
 })
-const hasVisitChartData = computed(() =>
+type DistributionRow = Readonly<{
+  label: string
+  value: string
+  ratio: number
+  rank: number
+}>
+
+const toDistributionRows = (items: readonly { label: string; count: number }[]): readonly DistributionRow[] => {
+  const maxCount = Math.max(0, ...items.map((item) => Number(item.count) || 0))
+  return items.map((item, index) => {
+    const count = Number(item.count) || 0
+    return {
+      label: item.label,
+      value: String(count),
+      ratio: maxCount > 0 ? count / maxCount : 0,
+      rank: index + 1
+    }
+  })
+}
+
+const hasVisitSourceData = computed(() =>
   dashboardView.value.visitChart.registeredVisits > 0 || dashboardView.value.visitChart.anonymousVisits > 0
 )
-const hasRegionChartData = computed(() => dashboardView.value.regionChart.labels.length > 0)
+const visitSourceRows = computed(() => toDistributionRows([
+  { label: '匿名访客', count: dashboardView.value.visitChart.anonymousVisits },
+  { label: '注册用户', count: dashboardView.value.visitChart.registeredVisits }
+]))
+const regionRows = computed(() => toDistributionRows(
+  dashboardView.value.regionChart.labels.map((label, index) => ({
+    label,
+    count: dashboardView.value.regionChart.values[index] ?? 0
+  }))
+))
+const hasRegionData = computed(() => regionRows.value.length > 0)
+const shouldUseRegionChart = computed(() => regionRows.value.length >= 3)
 const consoleWelcomeUserKey = computed(() => (
   userStore.userInfo?.username || userStore.userInfo?.id || 'local'
 ))
-const visitChartSummary = computed(() =>
-  `访客来源构成，注册用户 ${dashboardView.value.visitChart.registeredVisits}，匿名访客 ${dashboardView.value.visitChart.anonymousVisits}`
-)
 const regionChartSummary = computed(() => {
-  const items = dashboardView.value.regionChart.labels.map((label, index) => `${label} ${dashboardView.value.regionChart.values[index] ?? 0}`)
-  return items.length > 0 ? `地域访问分布：${items.join('，')}` : '地域访问分布暂无数据'
+  const items = regionRows.value.map((item) => `${item.label} ${item.value}`)
+  return items.length > 0 ? `地域访问：${items.join('，')}` : '地域访问暂无数据'
 })
 
 const pendingCommentCount = computed(() =>
