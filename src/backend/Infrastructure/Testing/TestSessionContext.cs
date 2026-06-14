@@ -15,6 +15,7 @@ public interface ITestSessionKeyScope
 {
     string? SessionId { get; }
     string PrefixKey(string key);
+    IDisposable BeginScope(string? sessionId);
 }
 
 public sealed class TestSessionContext(ITestSessionKeyScope keyScope) : ITestSessionContext
@@ -33,6 +34,7 @@ public sealed class TestAwareRuntimeKeyScope(ITestSessionKeyScope keyScope) : IR
 public sealed partial class HttpTestSessionKeyScope(IHttpContextAccessor httpContextAccessor, IWebHostEnvironment environment) : ITestSessionKeyScope
 {
     public const string HeaderName = "X-Fsus-Test-Session";
+    private static readonly AsyncLocal<string?> ExplicitSessionId = new();
 
     public string? SessionId
     {
@@ -43,20 +45,37 @@ public sealed partial class HttpTestSessionKeyScope(IHttpContextAccessor httpCon
                 return null;
             }
 
-            string? raw = httpContextAccessor.HttpContext?.Request.Headers[HeaderName].FirstOrDefault();
-            if (string.IsNullOrWhiteSpace(raw))
+            if (NormalizeSessionId(ExplicitSessionId.Value) is { } explicitSession)
             {
-                return null;
+                return explicitSession;
             }
 
-            string normalized = raw.Trim().ToLowerInvariant();
-            return SessionIdPattern().IsMatch(normalized) ? normalized : null;
+            string? raw = httpContextAccessor.HttpContext?.Request.Headers[HeaderName].FirstOrDefault();
+            return NormalizeSessionId(raw);
         }
     }
 
     public string PrefixKey(string key)
     {
         return SessionId is { } session ? $"e2e:{session}:{key}" : key;
+    }
+
+    public IDisposable BeginScope(string? sessionId)
+    {
+        string? previous = ExplicitSessionId.Value;
+        ExplicitSessionId.Value = NormalizeSessionId(sessionId);
+        return new ExplicitSessionScope(previous);
+    }
+
+    private static string? NormalizeSessionId(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        string normalized = raw.Trim().ToLowerInvariant();
+        return SessionIdPattern().IsMatch(normalized) ? normalized : null;
     }
 
     public static bool IsIsolationEnabled(IWebHostEnvironment environment)
@@ -70,6 +89,14 @@ public sealed partial class HttpTestSessionKeyScope(IHttpContextAccessor httpCon
 
     [GeneratedRegex("^[a-z0-9][a-z0-9-]{0,40}$", RegexOptions.CultureInvariant)]
     private static partial Regex SessionIdPattern();
+
+    private sealed class ExplicitSessionScope(string? previous) : IDisposable
+    {
+        public void Dispose()
+        {
+            ExplicitSessionId.Value = previous;
+        }
+    }
 }
 
 public sealed class TestSessionValidationMiddleware(RequestDelegate next, IWebHostEnvironment environment)

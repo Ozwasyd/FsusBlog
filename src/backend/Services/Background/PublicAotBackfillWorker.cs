@@ -37,20 +37,10 @@ public sealed class PublicAotBackfillWorker(
     private async Task ProcessRequestAsync(PublicAotBackfillRequest request, CancellationToken stoppingToken)
     {
         await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-        IHttpContextAccessor httpContextAccessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
-        HttpContext? previousContext = httpContextAccessor.HttpContext;
+        ITestSessionKeyScope testSessionKeyScope = scope.ServiceProvider.GetRequiredService<ITestSessionKeyScope>();
+        using IDisposable testSessionScope = testSessionKeyScope.BeginScope(request.TestSessionId);
         try
         {
-            if (!string.IsNullOrWhiteSpace(request.TestSessionId))
-            {
-                var context = new DefaultHttpContext
-                {
-                    RequestServices = scope.ServiceProvider
-                };
-                context.Request.Headers[HttpTestSessionKeyScope.HeaderName] = request.TestSessionId;
-                httpContextAccessor.HttpContext = context;
-            }
-
             IPublicAotBackfillGenerator generator = scope.ServiceProvider.GetRequiredService<IPublicAotBackfillGenerator>();
             await generator.GenerateAndStoreAsync(request, stoppingToken);
             logger.LogInformation("Public AOT backfill completed: {Kind} {RouteKey}", request.Kind, request.RouteKey);
@@ -64,7 +54,6 @@ public sealed class PublicAotBackfillWorker(
         }
         finally
         {
-            httpContextAccessor.HttpContext = previousContext;
             scheduler.Complete(request);
         }
     }

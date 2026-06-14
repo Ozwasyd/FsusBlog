@@ -217,6 +217,15 @@ public sealed class PublicAotInvalidationTrackerTests
         public string? SessionId { get; } = sessionId;
 
         public string PrefixKey(string key) => SessionId is { } session ? $"e2e:{session}:{key}" : key;
+
+        public IDisposable BeginScope(string? sessionId) => new NoopScope();
+
+        private sealed class NoopScope : IDisposable
+        {
+            public void Dispose()
+            {
+            }
+        }
     }
 
     private sealed class PrefixingRuntimeKeyScope(string prefix) : IRuntimeKeyScope

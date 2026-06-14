@@ -1,6 +1,10 @@
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Services.Background;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using NSubstitute;
 
 namespace FsusBlog.Server.Tests;
 
@@ -64,5 +68,52 @@ public sealed class PublicAotBackfillSchedulerTests
     public void NormalizeBackfillConcurrency_ClampsDatabasePressure(int configured, int expected)
     {
         Assert.Equal(expected, PublicAotBackfillWorker.NormalizeBackfillConcurrency(configured));
+    }
+
+    [Fact]
+    public void PublicAotBackfillWorker_SourceDoesNotMutateSingletonHttpContextAccessor()
+    {
+        string source = ReadSource("src/backend/Services/Background/PublicAotBackfillWorker.cs");
+
+        Assert.DoesNotContain("IHttpContextAccessor", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("DefaultHttpContext", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("HttpContext =", source, StringComparison.Ordinal);
+        Assert.Contains("BeginScope(request.TestSessionId)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HttpTestSessionKeyScope_BeginScope_FlowsAcrossAwaitsAndRestores()
+    {
+        var environment = Substitute.For<IWebHostEnvironment>();
+        environment.EnvironmentName.Returns("Test");
+        var keyScope = new HttpTestSessionKeyScope(new HttpContextAccessor(), environment);
+
+        Assert.Null(keyScope.SessionId);
+        using (keyScope.BeginScope("PW-0"))
+        {
+            Assert.Equal("pw-0", keyScope.SessionId);
+            Assert.Equal("e2e:pw-0:cache:key", keyScope.PrefixKey("cache:key"));
+            await Task.Yield();
+            Assert.Equal("pw-0", keyScope.SessionId);
+        }
+
+        Assert.Null(keyScope.SessionId);
+    }
+
+    private static string ReadSource(string relativePath)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            string path = Path.Combine(directory.FullName, relativePath);
+            if (File.Exists(path))
+            {
+                return File.ReadAllText(path);
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException($"Unable to locate {relativePath}.");
     }
 }
