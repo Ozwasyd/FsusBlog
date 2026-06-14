@@ -223,6 +223,8 @@ Client
 
 缓存失效优先使用 Redis registry 精确删除 prefix 命中的 key；registry 缺失时，`RemoveByPrefixAsync` 会记录 `registry_missing` 警告并执行 Redis keyspace scan fallback 回收现存 key，扫描失败则降级为可观测 warning，让后续写入自然修复 registry。AOT cache 文件失效仍走专用 Public AOT cache 服务，不在统一 Redis prefix 失效路径里全盘扫描。热点 miss singleflight 等待使用指数退避，避免固定间隔轮询放大 Redis 与 GC 压力。
 
+缓存 miss 回填、后台 projector 和修复任务访问 PostgreSQL 时必须通过 `DbConcurrencyGate`。外层调用获得全局 slot 后会创建 reservation；同一 async flow 内的 reentrant 调用不得直接绕过 gate，也不得再消耗第二个全局 slot，而是在该 reservation 内串行执行。reservation 停止接收后，新进入的 reentrant 调用必须回到全局 gate，保证 `MaxConcurrentMisses` 对后台 DB 压力仍是有效上限。
+
 站点合规配置使用 `CachePolicyId.SystemCompliance` 进入 L1/L2/raw binary cache。admin 保存后由 `ICacheInvalidationDispatcher.InvalidateComplianceAsync` 清除 compliance cache、SEO/distribution output cache 与相关 AOT 静态页，并推送 `CacheControl` shell invalidate 事件；因此 ICP/公安备案、版权与许可 footer、RSS copyright 和 sitemap 静态页可在不重启服务的情况下收敛。
 
 评论缓存失效由 `ICacheInvalidationDispatcher.InvalidateCommentMutationAsync(CommentCacheInvalidationScope)` 承载：公开可见性变化只删除 `CommentCursor` 的 `article:{articleId}:` 前缀，特定回复树变化可额外删除 `article:{articleId}:root:{rootId}:`，个人评论历史只删除 `UserCommentCursor` 的 `user:{userId}:` 前缀；不得再用空 prefix 或 `CacheTag.Comment` 全局清除公开评论 output cache。公开评论 frame identity 包含 viewer region，保证 `comment_region_compliance.blocked_regions` 过滤后的 CN-MAINLAND/UNKNOWN/其他地区读模型不会共享同一个缓存条目。公开评论线程/回复端点不挂 HTTP OutputCache，避免审核 notification stream、地区过滤与浏览器缓存产生状态分叉。
