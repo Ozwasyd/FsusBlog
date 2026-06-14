@@ -1,7 +1,7 @@
 {
-  "name": "FsusBlog",
-  "short_name": "FsusBlog",
-  "description": "Single-author technical blog with offline public reading support.",
+  "name": "站点",
+  "short_name": "站点",
+  "description": "技术博客与离线阅读支持。",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

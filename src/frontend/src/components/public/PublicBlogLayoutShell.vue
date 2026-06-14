@@ -89,7 +89,7 @@ import type { SiteComplianceConfigPublic } from '@/api/system'
 
 const SHELL_DEFAULTS = {
   hydrationKind: null,
-  siteTitle: "Fsu's Blog",
+  siteTitle: '站点',
   activeNav: 'none',
   authLabel: '登录',
   authHref: '/login',
@@ -127,7 +127,7 @@ const props = withDefaults(defineProps<{
   compliance?: SiteComplianceConfigPublic | null
 }>(), {
   hydrationKind: null,
-  siteTitle: "Fsu's Blog",
+  siteTitle: '站点',
   siteLogoUrl: '',
   siteLogoDarkUrl: '',
   siteWordmarkUrl: '',

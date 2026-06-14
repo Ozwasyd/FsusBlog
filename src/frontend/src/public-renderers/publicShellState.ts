@@ -20,7 +20,7 @@ export type PublicShellState = Readonly<{
 
 export const PUBLIC_SHELL_DEFAULTS: PublicShellState = {
   hydrationKind: null,
-  siteTitle: "Fsu's Blog",
+  siteTitle: '站点',
   siteLogoUrl: '',
   siteLogoDarkUrl: '',
   siteWordmarkUrl: '',

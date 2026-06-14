@@ -9,7 +9,7 @@ export function useSessionBootstrap() {
   const siteStore = useSiteStore()
   const userStore = useUserStore()
 
-  const baseTitle = computed(() => siteStore.siteInfo.title || "Fsu's Blog")
+  const baseTitle = computed(() => siteStore.siteInfo.title || '站点')
 
   const needsBootstrap = (): boolean => {
     return !appShellStore.isReady || !userStore.isAuthChecked || !siteStore.isLoaded

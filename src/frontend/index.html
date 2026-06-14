@@ -11,7 +11,7 @@
     <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="/feed/rss.xml" />
     <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/feed/atom.xml" />
     <link rel="alternate" type="application/feed+json" title="JSON Feed" href="/feed/feed.json" />
-    <title>Loading...</title>
+    <title>正在加载站点</title>
     <!--fsus:aot:head-end-->
     <link rel="stylesheet" href="/src/assets/public-shell-critical.css" data-fsusblog-style="public-shell-critical" />
     <link rel="stylesheet" href="/src/assets/tailwind.css" data-fsusblog-style="tailwind" />
@@ -111,12 +111,12 @@
       }
 
       .loader-text {
-        font-family: ui-monospace, monospace;
-        font-size: 10px;
-        font-weight: 700;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 600;
         letter-spacing: 0;
         color: var(--fsusblog-text-muted);
-        text-transform: uppercase;
+        text-transform: none;
       }
 
       .loader-bar-bg {
@@ -176,11 +176,11 @@
       <div class="loader-grid-context">
         <div class="loader-header-line"></div>
         <div class="loader-branding">
-          <span class="loader-title">FsusBlog</span>
+          <span class="loader-title" data-fsus-loader-title>站点</span>
           <div class="loader-dot"></div>
         </div>
         <div class="loader-status-group">
-          <span class="loader-text">Initializing Engine</span>
+          <span class="loader-text" data-fsus-loader-status>正在加载站点</span>
           <div class="loader-bar-bg">
             <div class="loader-bar-active"></div>
           </div>

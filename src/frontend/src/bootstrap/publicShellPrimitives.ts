@@ -53,7 +53,7 @@ export function showGlobalLoader(): void {
 
   const title = readLoaderSiteTitle()
   if (title) {
-    const titleEl = loader.querySelector<HTMLElement>('.loader-title')
+    const titleEl = loader.querySelector<HTMLElement>('[data-fsus-loader-title], .loader-title')
     if (titleEl) {
       titleEl.textContent = title
     }

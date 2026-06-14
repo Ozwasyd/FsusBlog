@@ -13,8 +13,8 @@ export const DEFAULT_SITE_BRAND_CONFIG = {
   faviconIcoUrl: '/favicon.ico',
   faviconPngUrl: '',
   appleTouchIconUrl: '/apple-touch-icon.png',
-  manifestName: 'FsusBlog',
-  manifestShortName: 'FsusBlog',
+  manifestName: '站点',
+  manifestShortName: '站点',
   pwaIcon192Url: '/icons/icon-192.png',
   pwaIcon512Url: '/icons/icon-512.png',
   pwaMaskableIconUrl: '/icons/maskable-512.png',
@@ -45,7 +45,7 @@ export const useSiteStore = defineStore('site', () => {
   const payload = readPublicHydrationPayload()
 
   const siteInfo = shallowRef<SeoConfigPublic>({
-    title: payload?.siteTitle || payload?.title || "Fsu's Blog",
+    title: payload?.siteTitle || payload?.title || '站点',
     description: payload?.siteDescription || DEFAULT_SITE_DESCRIPTION,
     keywords: DEFAULT_SITE_KEYWORDS,
     author: "Fsu",

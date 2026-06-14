@@ -76,7 +76,7 @@ const props = defineProps<{
 }>()
 
 const currentYear = new Date().getFullYear()
-const siteTitleText = computed(() => props.siteTitle.trim() || `Fsu's Blog`)
+const siteTitleText = computed(() => props.siteTitle.trim() || '站点')
 const isComplianceEnabled = computed(() => Boolean(props.compliance?.enabled))
 const copyrightOwnerText = computed(() => props.compliance?.copyrightOwner?.trim() || siteTitleText.value)
 const copyrightNoticeText = computed(() => {

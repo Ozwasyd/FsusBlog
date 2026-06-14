@@ -38,7 +38,7 @@ export function useHomeView() {
   const initialHydrationView = initialHydrationPayload?.view ?? null
   const initialSiteTitleText = initialHydrationPayload?.siteTitle?.trim()
     || initialBootstrap?.siteTitle?.trim()
-    || `Fsu's Blog`
+    || '站点'
   const initialSiteDescriptionText = initialHydrationPayload?.siteDescription?.trim()
     || initialBootstrap?.siteDescription?.trim()
     || '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。'

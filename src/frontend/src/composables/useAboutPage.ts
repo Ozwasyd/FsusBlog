@@ -54,7 +54,7 @@ export function useAboutPage() {
   }
 
   const aboutView = computed(() => createAboutPageViewContract({
-    siteTitle: initialHydrationView?.footer.siteTitle?.trim() || initialBootstrap?.siteTitle?.trim() || `Fsu's Blog`,
+    siteTitle: initialHydrationView?.footer.siteTitle?.trim() || initialBootstrap?.siteTitle?.trim() || '站点',
     currentYear,
     content: rawMarkdown.value || FALLBACK_CONTENT
   }))
