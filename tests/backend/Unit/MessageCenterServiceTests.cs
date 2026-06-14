@@ -90,12 +90,52 @@ public sealed class MessageCenterServiceTests
         Assert.False(result.ContainsKey(20));
     }
 
+    [Fact]
+    public void MarkConversationReadAsync_SourceUsesAtomicLastMessageUpdate()
+    {
+        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
+        string method = ExtractMethod(
+            source,
+            "public async Task<Result> MarkConversationReadAsync",
+            "public async Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync");
+
+        Assert.Contains("LastReadMessageId = SqlFunc.Subqueryable<ConversationMessage>()", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("long? lastMessageId = await db.Queryable<ConversationMessage>()", method, StringComparison.Ordinal);
+        Assert.DoesNotContain(".OrderByDescending(it => it.Id)", method, StringComparison.Ordinal);
+    }
+
     // ── Private static helpers via reflection ──────────────────────────────────
 
     private static T InvokePrivateStatic<T>(string methodName, object?[] args)
     {
         var method = typeof(MessageCenterService).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
         return (T)method.Invoke(null, args)!;
+    }
+
+    private static string ExtractMethod(string source, string startMarker, string endMarker)
+    {
+        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing start marker: {startMarker}");
+        int end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
+        Assert.True(end > start, $"Missing end marker: {endMarker}");
+        return source[start..end];
+    }
+
+    private static string ReadSource(string relativePath)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            string path = Path.Combine(directory.FullName, relativePath);
+            if (File.Exists(path))
+            {
+                return File.ReadAllText(path);
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException($"Unable to locate {relativePath}.");
     }
 
     [Theory]

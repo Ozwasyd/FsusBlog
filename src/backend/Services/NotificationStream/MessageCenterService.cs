@@ -315,22 +315,24 @@ public sealed class MessageCenterService(
             return Result.Failure(ErrorCode.NotFound, "会话不存在");
         }
 
-        long? lastMessageId = await db.Queryable<ConversationMessage>()
-            .Where(it => it.ConversationId == conversationId)
-            .OrderByDescending(it => it.Id)
-            .Select(it => (long?)it.Id)
-            .FirstAsync();
-
+        DateTime now = DateTime.UtcNow;
         await db.Updateable<ConversationParticipantState>()
             .SetColumns(it => new ConversationParticipantState
             {
                 UnreadCount = 0,
-                LastReadMessageId = lastMessageId,
-                LastReadAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                LastReadMessageId = SqlFunc.Subqueryable<ConversationMessage>()
+                    .Where(message => message.ConversationId == conversationId)
+                    .Max(message => message.Id),
+                LastReadAt = now,
+                UpdatedAt = now
             })
             .Where(it => it.UserId == userId && it.ConversationId == conversationId)
             .ExecuteCommandAsync();
+
+        long? lastMessageId = await db.Queryable<ConversationParticipantState>()
+            .Where(it => it.UserId == userId && it.ConversationId == conversationId)
+            .Select(it => it.LastReadMessageId)
+            .FirstAsync();
 
         int totalUnread = await RefreshUnreadCacheAsync(userId);
         await PublishReadUpdatedAsync(userId, conversationId, lastMessageId, 0, totalUnread);
