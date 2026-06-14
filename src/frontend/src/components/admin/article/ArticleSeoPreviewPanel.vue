@@ -57,7 +57,7 @@
           class="seo-issue"
           :class="`seo-issue--${issue.severity}`"
         >
-          <strong>{{ issue.severity.toUpperCase() }}</strong>
+          <strong>{{ formatIssueSeverity(issue.severity) }}</strong>
           {{ issue.message }}
         </span>
       </div>
@@ -89,6 +89,16 @@ defineProps<{
 defineEmits<{
   (e: 'refresh'): void
 }>()
+
+const formatIssueSeverity = (severity: string): string => {
+  const labels: Record<string, string> = {
+    info: '信息',
+    warning: '警告',
+    error: '错误',
+    critical: '严重'
+  }
+  return labels[severity.toLowerCase()] ?? severity
+}
 </script>
 
 <style scoped>

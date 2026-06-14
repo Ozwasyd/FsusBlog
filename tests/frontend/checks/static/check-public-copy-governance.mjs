@@ -112,7 +112,7 @@ function hasHanText(line) {
 }
 
 function hasSpecificStateContext(line) {
-  return /(文章|文章列表|正文|分类|标签|搜索|关键词|归档|评论|延伸阅读|介绍内容|站点|内容连接|访问校验|筛选|页面)/.test(line)
+  return /(文章|文章列表|正文|分类|标签|搜索|关键词|来源|路径|热点|归档|评论|互动|延伸阅读|介绍内容|站点|内容连接|访问校验|筛选|页面|资产|预览|用户|记录|数据|草稿|稿件|事件|规则|成员|会话|消息|通知|审计|地区|词库|策略|队列|任务|备份|错误|异常|缓存|性能|浏览器|样本|回收站|风险|快照|条目|工单|RUM|AOT|404)/.test(line)
 }
 
 function forEachGovernedLine(path, source, callback) {
@@ -152,6 +152,8 @@ const explicitFiles = [
   'src/frontend/src/config/consoleWelcomeCallout.ts',
   'src/frontend/src/components/admin/ConsoleWelcomeCallout.vue',
   'src/frontend/src/views/admin/article/Write.vue',
+  'src/frontend/src/composables/useCommentModerationQueue.ts',
+  'src/frontend/src/composables/useAdminUserManage.ts',
   'src/frontend/src/composables/useHomeView.ts',
   'src/frontend/src/composables/useAdminArticleWrite.ts',
   'docs/api/contracts.md',
@@ -312,7 +314,9 @@ const adminDecorativeLabels = [
 const unnaturalChineseCopy = [
   { token: '文章成果', reason: 'awkward article empty-state copy' },
   { token: '平台使用规范', reason: 'use 站点使用规范 for the site policy label' },
-  { token: '学术式阅读节奏', reason: 'design-document wording leaked into user-facing copy' }
+  { token: '学术式阅读节奏', reason: 'design-document wording leaked into user-facing copy' },
+  { token: '保持账户区统一的阅读节奏', reason: 'design-document wording leaked into account copy' },
+  { token: '双栏工作台', reason: 'design-document layout wording leaked into account copy' }
 ]
 
 const internalStatusPatterns = [
@@ -368,6 +372,35 @@ function findStandaloneUppercaseLabels(line) {
   }
   return matches
 }
+
+function hasRawStatusInterpolation(line) {
+  if (!/\{\{/.test(line)) {
+    return false
+  }
+  if (/statusLabel|statusText|formatStatus|formatRuntimeStatus|formatOutcome|formatSeverity|formatIssueSeverity|formatCheckStatus|modelStatusLabel|dictionaryStatus|policyStatus/.test(line)) {
+    return false
+  }
+  if (/\?\s*['"`][^'"`]*\p{Script=Han}/u.test(line)) {
+    return false
+  }
+  return /\{\{[^}]*\.(status|outcome|severity)\b[^}]*\}\}/i.test(line)
+}
+
+const requiredScannedPaths = [
+  'src/frontend/src/views/admin',
+  'src/frontend/src/components/admin',
+  'src/frontend/src/layouts',
+  'src/frontend/src/views/user',
+  'src/frontend/src/views/auth',
+  'src/frontend/src/components/user',
+  'src/frontend/src/components/account',
+  'src/frontend/src/view-contracts',
+  'src/frontend/src/public-renderers',
+  'src/frontend/src/composables/useCommentModerationQueue.ts',
+  'src/frontend/src/composables/useAdminUserManage.ts',
+  'src/frontend/src/composables/useAdminArticleWrite.ts',
+  'src/frontend/src/composables/useHomeView.ts'
+]
 
 const vagueEmptyStateTokens = [
   '暂无',
@@ -474,7 +507,31 @@ for (const path of scannedFiles) {
           addError(path, lineIndex + 1, `${reason}`)
         }
       }
+
+      if (hasRawStatusInterpolation(line)) {
+        addError(path, lineIndex + 1, 'raw status/outcome/severity interpolation needs a readable Chinese display label or an explicit diagnostic context')
+      }
+
+      for (const token of vagueEmptyStateTokens) {
+        if (line.includes(token) && !hasSpecificStateContext(line)) {
+          addError(path, lineIndex + 1, `vague admin/account empty/error state "${token}" needs context-specific wording or an explicit check update`)
+        }
+      }
     })
+  }
+}
+
+for (const requiredPath of requiredScannedPaths) {
+  if (requiredPath.includes('.')) {
+    if (!scannedFiles.includes(requiredPath)) {
+      addError(requiredPath, 1, 'required governed copy source is not scanned')
+    }
+    continue
+  }
+
+  const normalized = requiredPath.endsWith('/') ? requiredPath : `${requiredPath}/`
+  if (!scannedFiles.some((path) => path.startsWith(normalized))) {
+    addError(requiredPath, 1, 'required governed copy root is not scanned')
   }
 }
 
