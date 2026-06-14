@@ -10,7 +10,10 @@
       v-loading="pageLoading"
       element-loading-text="正在载入数据资源..."
     >
-      <header class="write-command-bar border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] py-6 px-4 mb-8" aria-label="内容编辑操作">
+      <header class="write-command-bar border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] px-4 py-3 mb-6" aria-label="文章编辑操作">
+        <el-button text @click="requestLeave" :disabled="submitting">
+          返回
+        </el-button>
         <div class="min-w-0">
           <h1 id="article-write-title" class="write-command-title">{{ pageTitle }}</h1>
           <p id="article-editor-status" class="write-command-status" aria-live="polite">
@@ -19,22 +22,21 @@
         </div>
         <div class="shrink-0 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
           <div class="write-layout-control">
-            <el-radio-group
-              v-model="editorLayoutMode"
-              size="small"
-              aria-label="编辑器布局模式"
-              aria-describedby="article-layout-mode-description"
-            >
-              <el-radio-button value="standard">标准</el-radio-button>
-              <el-radio-button value="focus">专注</el-radio-button>
-              <el-radio-button value="fullscreen">全屏</el-radio-button>
-            </el-radio-group>
-            <p id="article-layout-mode-description" class="write-layout-description">
-              {{ layoutModeDescription }}
-            </p>
+            <el-dropdown trigger="click" @command="setEditorLayoutMode">
+              <el-button aria-label="切换编辑视图">
+                视图：{{ editorLayoutModeLabel }}
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="standard">编写</el-dropdown-item>
+                  <el-dropdown-item command="focus">专注写作</el-dropdown-item>
+                  <el-dropdown-item command="fullscreen">全屏写作</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
-          <el-button @click="requestLeave" :disabled="submitting">
-            返回列表
+          <el-button @click="openPreviewInspector" :disabled="submitting">
+            预览
           </el-button>
           <div class="write-submit-button">
             <el-button
@@ -138,24 +140,30 @@
           </div>
         </section>
 
-        <aside v-if="editorLayoutMode === 'standard'" class="write-side-panel" aria-label="发布任务流程">
-          <el-tabs v-model="sidePanelTab" class="write-side-tabs" stretch>
-            <el-tab-pane label="发布设置" name="publish" lazy>
-              <ArticleWriteSidebar
-                :form="articleForm"
-                :categories="categories"
-                :tags="tags"
-                :submitting="submitting"
-                :quick-creating-category="quickCreatingCategory"
-                :quick-creating-tag="quickCreatingTag"
-                @open-create-category="openQuickCreateCategory"
-                @open-create-tag="openQuickCreateTag"
-                @open-cover-upload="triggerCoverInput"
-                @clear-cover="articleForm.coverImageUrl = ''"
-              />
-            </el-tab-pane>
+        <aside v-if="editorLayoutMode === 'standard'" class="write-side-panel" aria-label="文章检查器">
+          <div class="write-inspector">
+            <ArticleWriteSidebar
+              :form="articleForm"
+              :categories="categories"
+              :tags="tags"
+              :submitting="submitting"
+              :quick-creating-category="quickCreatingCategory"
+              :quick-creating-tag="quickCreatingTag"
+              @open-create-category="openQuickCreateCategory"
+              @open-create-tag="openQuickCreateTag"
+              @open-cover-upload="triggerCoverInput"
+              @clear-cover="articleForm.coverImageUrl = ''"
+            />
 
-            <el-tab-pane label="内容检查" name="check" lazy>
+            <details
+              class="write-inspector-section"
+              :open="checkInspectorOpen || seoIssues.length > 0 || Boolean(aiAssist)"
+              @toggle="onCheckInspectorToggle"
+            >
+              <summary class="write-inspector-summary">
+                <span>内容检查</span>
+                <span>摘要、标题、标签和结构建议</span>
+              </summary>
               <ArticleSeoPreviewPanel
                 :preview="seoPreview"
                 :issues="seoIssues"
@@ -164,23 +172,23 @@
                 @refresh="refreshPrepublishCheck"
               />
               <section
-                class="write-ai-panel border-t border-[var(--fsusblog-panel-border)]"
-                data-author-ai-assist-panel="true"
-                aria-label="内容辅助"
+                class="write-content-check-panel border-t border-[var(--fsusblog-panel-border)]"
+                data-author-content-check-panel="true"
+                aria-label="内容检查"
               >
-                <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
-                  <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">草稿检查</div>
+                <header class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)]">
+                  <div class="text-[13px] font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">内容检查</div>
                 </header>
                 <div class="p-6 space-y-5">
                   <p class="text-xs leading-6 text-[var(--fsusblog-text-secondary)]" aria-live="polite">
-                    {{ aiAssistStatusText || '根据当前标题与正文生成摘要草稿、标题备选、标签匹配和结构检查结果。' }}
+                    {{ aiAssistStatusText || '生成可选摘要建议、标题备选和标签匹配。建议仅供参考，应用前可继续编辑。' }}
                   </p>
                   <div class="grid grid-cols-2 gap-3">
                     <el-button :disabled="submitting" @click="autoGenerateSummary">
-                      生成摘要草稿
+                      生成摘要建议
                     </el-button>
                     <el-button type="primary" :loading="aiAssistLoading" :disabled="submitting || aiAssistLoading" @click="requestAiAssist">
-                      检查草稿
+                      检查内容
                     </el-button>
                   </div>
                   <div v-if="aiAssist" class="space-y-4 border-t border-[var(--fsusblog-panel-border)] pt-5">
@@ -188,13 +196,13 @@
                       {{ aiAssist.suggestedSummary }}
                     </p>
                     <el-button v-if="aiAssist.suggestedSummary" size="small" :disabled="submitting" @click="applyAiSummary">
-                      使用这版摘要
+                      应用摘要
                     </el-button>
                     <div v-if="aiAssist.suggestedTags.length > 0" class="flex flex-wrap gap-2">
                       <el-tag v-for="tag in aiAssist.suggestedTags" :key="tag" size="small">{{ tag }}</el-tag>
                     </div>
                     <el-button v-if="aiAssist.suggestedTags.length > 0" size="small" :disabled="submitting" @click="applyAiSuggestedTags">
-                      匹配已有标签
+                      应用标签
                     </el-button>
                     <div v-if="aiAssist.titleCandidates.length > 0" class="grid gap-2">
                       <el-button
@@ -203,18 +211,26 @@
                         :disabled="submitting"
                         @click="applyAiTitleCandidate(title)"
                       >
-                        <span class="min-w-0 whitespace-normal text-left leading-5">{{ title }}</span>
+                        <span class="min-w-0 whitespace-normal text-left leading-5">应用标题：{{ title }}</span>
                       </el-button>
                     </div>
                     <el-button v-if="aiAssist.translationDraft" size="small" :disabled="submitting" @click="applyAiTranslationDraft">
-                      使用翻译草稿
+                      应用翻译建议
                     </el-button>
                   </div>
                 </div>
               </section>
-            </el-tab-pane>
+            </details>
 
-            <el-tab-pane label="预览" name="preview" lazy>
+            <details
+              class="write-inspector-section"
+              :open="previewInspectorOpen"
+              @toggle="onPreviewInspectorToggle"
+            >
+              <summary class="write-inspector-summary">
+                <span>阅读预览</span>
+                <span>按需生成私有预览</span>
+              </summary>
               <ArticlePrivatePreviewPanel
                 :html="privatePreview?.html ?? ''"
                 :issues="privatePreview?.issues ?? []"
@@ -223,9 +239,17 @@
                 :can-preview="canGeneratePrivatePreview"
                 @preview="generatePrivatePreview"
               />
-            </el-tab-pane>
+            </details>
 
-            <el-tab-pane label="历史版本" name="versions" lazy>
+            <details
+              class="write-inspector-section"
+              :open="versionsInspectorOpen"
+              @toggle="onVersionsInspectorToggle"
+            >
+              <summary class="write-inspector-summary">
+                <span>版本</span>
+                <span>查看修订和回滚</span>
+              </summary>
               <ArticleRevisionPanel
                 :is-edit="isEdit"
                 :revisions="articleRevisions"
@@ -239,9 +263,17 @@
                 @select-revision="selectArticleRevision"
                 @rollback="rollbackSelectedRevision"
               />
-            </el-tab-pane>
+            </details>
 
-            <el-tab-pane label="资源" name="resources" lazy>
+            <details
+              class="write-inspector-section"
+              :open="resourcesInspectorOpen"
+              @toggle="onResourcesInspectorToggle"
+            >
+              <summary class="write-inspector-summary">
+                <span>资源</span>
+                <span>图片资源和上传策略</span>
+              </summary>
               <ArticleAssetLibraryPanel
                 :assets="assetLibrary"
                 :loading="assetLibraryLoading"
@@ -252,11 +284,11 @@
                 @cleanup-orphans="cleanupAssetOrphans"
                 @insert="insertAssetIntoEditor"
               />
-              <details class="write-upload-disclosure border-t border-[var(--fsusblog-panel-border)]" open>
-                <summary class="write-disclosure-summary px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)] cursor-pointer outline-none">
+              <details class="write-upload-disclosure border-t border-[var(--fsusblog-panel-border)]">
+                <summary class="write-disclosure-summary px-4 py-3 border-b border-[var(--fsusblog-panel-border)] cursor-pointer outline-none">
                   <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">图片策略</span>
-                    <span class="text-[11px] font-bold text-[var(--fsusblog-text-muted)]" aria-live="polite">{{ imageUploadRuntime.statusText }}</span>
+                    <span class="text-[13px] font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">图片上传策略</span>
+                    <span class="text-[12px] font-medium text-[var(--fsusblog-text-muted)]" aria-live="polite">{{ imageUploadRuntime.statusText }}</span>
                   </div>
                 </summary>
                 <div class="p-6 bg-[var(--fsusblog-page-bg)]">
@@ -276,8 +308,8 @@
                   />
                 </div>
               </details>
-            </el-tab-pane>
-          </el-tabs>
+            </details>
+          </div>
 
           <input
             ref="coverInputRef"
@@ -434,7 +466,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import ArticleAssetLibraryPanel from '@/components/admin/article/ArticleAssetLibraryPanel.vue'
 import AdminTaskFeedbackBar from '@/components/admin/AdminTaskFeedbackBar.vue'
@@ -552,38 +584,79 @@ const coverInputRef = ref<HTMLInputElement | null>(null)
 const articleEditorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean } | null>(null)
 const submitConfirmDialog = ref(false)
 const leaveConfirmDialog = ref(false)
-const sidePanelTab = ref(route.query.preview === 'private' ? 'preview' : 'publish')
 const editorLayoutMode = ref<EditorLayoutMode>('standard')
+const checkInspectorOpen = ref(false)
+const previewInspectorOpen = ref(route.query.preview === 'private')
+const resourcesInspectorOpen = ref(false)
+const versionsInspectorOpen = ref(false)
 const assetLibraryLoaded = ref(false)
 const revisionsLoaded = ref(false)
 
-const layoutModeDescription = computed(() => {
+const editorLayoutModeLabel = computed(() => {
   if (editorLayoutMode.value === 'focus') {
-    return '专注：隐藏发布侧栏，仅保留编辑器'
+    return '专注写作'
   }
 
   if (editorLayoutMode.value === 'fullscreen') {
-    return '全屏：最大化编辑区，可按 Esc 退出'
+    return '全屏写作'
   }
 
-  return '标准：显示编辑区和发布侧栏'
+  return '编写'
 })
 
 const triggerCoverInput = (): void => {
   coverInputRef.value?.click()
 }
 
-watch(sidePanelTab, (tab) => {
-  if (tab === 'resources' && !assetLibraryLoaded.value) {
+const setEditorLayoutMode = (command: string | number | object): void => {
+  if (command === 'standard' || command === 'focus' || command === 'fullscreen') {
+    editorLayoutMode.value = command
+  }
+}
+
+const isDetailsOpen = (event: Event): boolean => (event.currentTarget as HTMLDetailsElement | null)?.open === true
+
+const onCheckInspectorToggle = (event: Event): void => {
+  checkInspectorOpen.value = isDetailsOpen(event)
+}
+
+const openPreviewInspector = (): void => {
+  previewInspectorOpen.value = true
+}
+
+const onPreviewInspectorToggle = (event: Event): void => {
+  previewInspectorOpen.value = isDetailsOpen(event)
+}
+
+const openResourcesInspector = (): void => {
+  resourcesInspectorOpen.value = true
+  if (!assetLibraryLoaded.value) {
     assetLibraryLoaded.value = true
     void refreshAssetLibrary()
   }
+}
 
-  if (tab === 'versions' && !revisionsLoaded.value) {
+const onResourcesInspectorToggle = (event: Event): void => {
+  resourcesInspectorOpen.value = isDetailsOpen(event)
+  if (resourcesInspectorOpen.value) {
+    openResourcesInspector()
+  }
+}
+
+const openVersionsInspector = (): void => {
+  versionsInspectorOpen.value = true
+  if (!revisionsLoaded.value) {
     revisionsLoaded.value = true
     void refreshArticleRevisions()
   }
-}, { immediate: true })
+}
+
+const onVersionsInspectorToggle = (event: Event): void => {
+  versionsInspectorOpen.value = isDetailsOpen(event)
+  if (versionsInspectorOpen.value) {
+    openVersionsInspector()
+  }
+}
 
 const submitChecklist = computed<ReadonlyArray<{ label: string; state: SubmitChecklistState; detail?: string }>>(() => {
   const summaryLength = articleForm.summary.trim().length
@@ -640,12 +713,8 @@ const onCoverFileChange = (event: Event): void => {
   const input = event.target as HTMLInputElement
   if (input.files && input.files.length > 0) {
     const files = Array.from(input.files)
-    const previousCoverUrl = articleForm.coverImageUrl
     void (async () => {
       await handleCoverUpload(files)
-      if (articleForm.coverImageUrl && articleForm.coverImageUrl !== previousCoverUrl) {
-        sidePanelTab.value = 'publish'
-      }
     })()
     // 重置 input 以允许再次选择同一文件
     input.value = ''
@@ -734,14 +803,14 @@ const submitQuickCreateTag = async (): Promise<void> => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.25rem;
+  gap: 1rem;
 }
 
 .write-command-title {
   color: var(--fsusblog-text-primary);
-  font-size: 2rem;
-  font-weight: 800;
-  line-height: 1.1;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.25;
   letter-spacing: 0;
 }
 
@@ -760,13 +829,6 @@ const submitQuickCreateTag = async (): Promise<void> => {
 .write-layout-control {
   display: grid;
   gap: 0.35rem;
-}
-
-.write-layout-description {
-  color: var(--fsusblog-text-muted);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  line-height: 1.4;
 }
 
 .submit-checklist-item {
@@ -817,10 +879,37 @@ const submitQuickCreateTag = async (): Promise<void> => {
   flex-direction: column;
 }
 
-.write-side-tabs {
-  min-width: 0;
+.write-inspector {
+  display: grid;
   border-top: 1px solid var(--fsusblog-panel-border);
   background: var(--fsusblog-page-bg);
+}
+
+.write-inspector-section {
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+}
+
+.write-inspector-summary {
+  display: flex;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  color: var(--fsusblog-text-primary);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.write-inspector-summary::-webkit-details-marker {
+  display: none;
+}
+
+.write-inspector-summary span + span {
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.72rem;
+  font-weight: 500;
 }
 
 .write-workspace--focus .write-command-bar,

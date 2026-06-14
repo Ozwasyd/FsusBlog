@@ -3,8 +3,8 @@
     <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
-          <div id="article-seo-preview-title" class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">SEO 与发布前检查</div>
-          <p class="mt-1 text-[11px] text-[var(--fsusblog-text-tertiary)]" aria-live="polite">{{ statusText }}</p>
+          <div id="article-seo-preview-title" class="text-[13px] font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">SEO 与发布前检查</div>
+          <p class="mt-1 text-[12px] text-[var(--fsusblog-text-tertiary)]" aria-live="polite">{{ statusText }}</p>
         </div>
         <el-button
           circle
@@ -37,15 +37,15 @@
 
       <dl class="seo-meta-grid">
         <div>
-          <dt>Slug</dt>
+          <dt>地址片段</dt>
           <dd>{{ preview.slug }}</dd>
         </div>
         <div>
-          <dt>Title</dt>
+          <dt>标题长度</dt>
           <dd>{{ preview.titleLength }}/60</dd>
         </div>
         <div>
-          <dt>Description</dt>
+          <dt>摘要长度</dt>
           <dd>{{ preview.descriptionLength }}/180</dd>
         </div>
       </dl>

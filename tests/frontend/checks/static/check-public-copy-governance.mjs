@@ -247,7 +247,7 @@ const requiredCopy = [
   },
   {
     path: 'src/frontend/src/views/admin/article/Write.vue',
-    tokens: ['内容编辑', '标题', '正文', '草稿检查', '图片策略', '发布警告处理', '检查草稿', '生成摘要草稿', '匹配已有标签']
+    tokens: ['标题', '正文', '内容检查', '图片上传策略', '发布警告处理', '检查内容', '生成摘要建议', '应用标签']
   }
 ]
 
