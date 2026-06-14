@@ -1,4 +1,6 @@
 using System.Buffers.Binary;
+using System.Buffers;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -63,12 +65,19 @@ public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChalleng
 
     public async Task<bool> RecordFailureAsync(MfaChallengeTicket ticket, string clientIp, string? userAgent)
     {
-        string ticketIdentity = $"fail:ticket:{ticket.TicketId}";
-        string userIdentity = $"fail:user:{ticket.UserId}";
-        string ipIdentity = $"fail:ip:{HashIdentity(clientIp)}";
-        long ticketFailures = await cache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, ticketIdentity);
-        long userFailures = await cache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, userIdentity);
-        long ipFailures = await cache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, ipIdentity);
+        string ticketHash = HashIdentity(ticket.TicketId);
+        string clientIpHash = HashIdentity(clientIp);
+        string userAgentHash = HashIdentity(userAgent ?? string.Empty);
+        string ticketIdentity = string.Concat("fail:ticket:", ticket.TicketId);
+        string userIdentity = string.Concat("fail:user:", ticket.UserId.ToString(CultureInfo.InvariantCulture));
+        string ipIdentity = string.Concat("fail:ip:", clientIpHash);
+        Task<long> ticketFailuresTask = cache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, ticketIdentity);
+        Task<long> userFailuresTask = cache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, userIdentity);
+        Task<long> ipFailuresTask = cache.IncrementAsync(CachePolicyId.SecurityMfaChallenge, ipIdentity);
+        await Task.WhenAll(ticketFailuresTask, userFailuresTask, ipFailuresTask).ConfigureAwait(false);
+        long ticketFailures = ticketFailuresTask.Result;
+        long userFailures = userFailuresTask.Result;
+        long ipFailures = ipFailuresTask.Result;
 
         bool locked = ticketFailures >= MaxTicketFailures ||
             userFailures >= MaxUserWindowFailures ||
@@ -79,16 +88,16 @@ public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChalleng
             AuditTypeCatalog.Security,
             new KeyValuePair<string, object?>("AuditAction", locked ? "mfa_challenge_locked" : "mfa_challenge_failed"),
             new KeyValuePair<string, object?>("UserId", ticket.UserId),
-            new KeyValuePair<string, object?>("TicketHash", HashIdentity(ticket.TicketId)),
-            new KeyValuePair<string, object?>("ClientIpHash", HashIdentity(clientIp)),
-            new KeyValuePair<string, object?>("UserAgentHash", HashIdentity(userAgent ?? string.Empty)),
+            new KeyValuePair<string, object?>("TicketHash", ticketHash),
+            new KeyValuePair<string, object?>("ClientIpHash", clientIpHash),
+            new KeyValuePair<string, object?>("UserAgentHash", userAgentHash),
             new KeyValuePair<string, object?>("TicketFailures", ticketFailures));
         if (locked)
         {
             logger.LogWarning(
                 "MFA challenge verification failed. UserId={UserId} TicketHash={TicketHash} Locked={Locked}",
                 ticket.UserId,
-                HashIdentity(ticket.TicketId),
+                ticketHash,
                 locked);
         }
         else
@@ -96,7 +105,7 @@ public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChalleng
             logger.LogInformation(
                 "MFA challenge verification failed. UserId={UserId} TicketHash={TicketHash} Locked={Locked}",
                 ticket.UserId,
-                HashIdentity(ticket.TicketId),
+                ticketHash,
                 locked);
         }
 
@@ -256,7 +265,34 @@ public sealed class MfaChallengeService(IUnifiedCache cache, ILogger<MfaChalleng
             .Replace('/', '_');
 
     private static string HashIdentity(string value)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value.Trim())))[..32];
+    {
+        ReadOnlySpan<char> trimmed = value.AsSpan().Trim();
+        if (trimmed.IsEmpty)
+        {
+            return string.Empty;
+        }
+
+        int byteCount = Encoding.UTF8.GetByteCount(trimmed);
+        byte[]? rented = null;
+        Span<byte> bytes = byteCount <= 256
+            ? stackalloc byte[byteCount]
+            : rented = ArrayPool<byte>.Shared.Rent(byteCount);
+
+        try
+        {
+            int bytesWritten = Encoding.UTF8.GetBytes(trimmed, bytes);
+            Span<byte> hash = stackalloc byte[32];
+            SHA256.HashData(bytes[..bytesWritten], hash);
+            return Convert.ToHexStringLower(hash[..16]);
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
+    }
 
     private static byte[] Base64UrlDecode(string value)
     {

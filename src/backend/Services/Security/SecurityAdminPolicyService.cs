@@ -14,7 +14,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     private AntiCrawlerPolicySnapshot? _previousAntiCrawler;
     private PowPolicySnapshot _currentPow;
     private PowPolicySnapshot? _previousPow;
-    private readonly List<AntiCrawlerRiskEventResponse> _riskEvents = new(MaxRuntimeEvents);
+    private readonly RiskEventRingBuffer _riskEvents = new(MaxRuntimeEvents);
     private readonly Dictionary<string, SecurityRiskSnapshotResponse> _riskSnapshots = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<AntiCrawlerRuleResponse> _rules;
     private readonly List<AntiCrawlerListEntryResponse> _allowlist = [];
@@ -89,16 +89,36 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
 
     public PowOverviewResponse BuildPowOverview()
     {
-        IReadOnlyList<AntiCrawlerRiskEventResponse> powEvents = ListRiskEvents(SecurityRiskSources.Pow, null, MaxRuntimeEvents);
+        IReadOnlyList<AntiCrawlerRiskEventResponse> events = ListRiskEvents(null, null, MaxRuntimeEvents);
         DateTimeOffset since = DateTimeOffset.UtcNow.AddHours(-1);
-        int validationFailures = powEvents.Count(item =>
-            item.OccurredAtUtc >= since &&
-            string.Equals(item.Reason, nameof(SecurityRiskReason.PowInvalid), StringComparison.Ordinal));
-        int replayRejects = powEvents.Count(item =>
-            item.OccurredAtUtc >= since &&
-            string.Equals(item.Reason, nameof(SecurityRiskReason.PowReplay), StringComparison.Ordinal));
-        int challengeRequired = ListRiskEvents(SecurityRiskSources.PublicRead, nameof(SecurityRiskReason.PublicReadChallengeRequired), MaxRuntimeEvents)
-            .Count(item => item.OccurredAtUtc >= since);
+        int validationFailures = 0;
+        int replayRejects = 0;
+        int challengeRequired = 0;
+        foreach (AntiCrawlerRiskEventResponse item in events)
+        {
+            if (item.OccurredAtUtc < since)
+            {
+                continue;
+            }
+
+            if (string.Equals(item.Source, SecurityRiskSources.Pow, StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.Equals(item.Reason, nameof(SecurityRiskReason.PowInvalid), StringComparison.Ordinal))
+                {
+                    validationFailures++;
+                }
+                else if (string.Equals(item.Reason, nameof(SecurityRiskReason.PowReplay), StringComparison.Ordinal))
+                {
+                    replayRejects++;
+                }
+            }
+            else if (string.Equals(item.Source, SecurityRiskSources.PublicRead, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(item.Reason, nameof(SecurityRiskReason.PublicReadChallengeRequired), StringComparison.Ordinal))
+            {
+                challengeRequired++;
+            }
+        }
+
         return new PowOverviewResponse(
             CurrentPow,
             validationFailures,
@@ -195,10 +215,6 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         lock (_gate)
         {
             _riskEvents.Add(riskEvent);
-            if (_riskEvents.Count > MaxRuntimeEvents)
-            {
-                _riskEvents.RemoveRange(0, _riskEvents.Count - MaxRuntimeEvents);
-            }
         }
     }
 
@@ -227,21 +243,28 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     {
         lock (_gate)
         {
-            IEnumerable<AntiCrawlerRiskEventResponse> query = _riskEvents;
-            if (!string.IsNullOrWhiteSpace(source))
+            AntiCrawlerRiskEventResponse[] snapshot = _riskEvents.SnapshotNewestFirst();
+            int clampedLimit = Math.Clamp(limit, 1, MaxRuntimeEvents);
+            bool hasSource = !string.IsNullOrWhiteSpace(source);
+            bool hasReason = !string.IsNullOrWhiteSpace(reason);
+            var result = new List<AntiCrawlerRiskEventResponse>(Math.Min(clampedLimit, snapshot.Length));
+            for (int i = 0; i < snapshot.Length && result.Count < clampedLimit; i++)
             {
-                query = query.Where(item => string.Equals(item.Source, source, StringComparison.OrdinalIgnoreCase));
+                AntiCrawlerRiskEventResponse item = snapshot[i];
+                if (hasSource && !string.Equals(item.Source, source, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (hasReason && !string.Equals(item.Reason, reason, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                result.Add(item);
             }
 
-            if (!string.IsNullOrWhiteSpace(reason))
-            {
-                query = query.Where(item => string.Equals(item.Reason, reason, StringComparison.OrdinalIgnoreCase));
-            }
-
-            return query
-                .OrderByDescending(static item => item.OccurredAtUtc)
-                .Take(Math.Clamp(limit, 1, MaxRuntimeEvents))
-                .ToArray();
+            return result.ToArray();
         }
     }
 
@@ -439,21 +462,18 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         DateTimeOffset hour = now.AddHours(-1);
         DateTimeOffset day = now.AddDays(-1);
         IReadOnlyList<AntiCrawlerRiskEventResponse> events = ListRiskEvents(null, null, MaxRuntimeEvents);
-        int CountSourceReason(string source, SecurityRiskReason reason, DateTimeOffset since) => events.Count(item =>
-            item.OccurredAtUtc >= since &&
-            string.Equals(item.Source, source, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(item.Reason, reason.ToString(), StringComparison.Ordinal));
+        AntiCrawlerSummaryCounters counters = BuildAntiCrawlerSummaryCounters(events, hour, day);
         return new AntiCrawlerOverviewSummary(
             SecuritySystemModes.Normalize(options.Mode),
             SecuritySystemModes.Normalize(options.Mode) != SecuritySystemModes.Disabled,
             SecuritySystemModes.IsEnforcing(options.Mode),
-            events.Count(item => item.OccurredAtUtc >= hour),
-            events.Count(item => item.OccurredAtUtc >= day),
-            events.Count(item => item.OccurredAtUtc >= day && item.Detail?.Contains("verified_crawler", StringComparison.OrdinalIgnoreCase) == true),
-            CountSourceReason(SecurityRiskSources.AntiCrawler, SecurityRiskReason.FakeCrawler, day),
-            CountSourceReason(SecurityRiskSources.AntiCrawler, SecurityRiskReason.UnknownBot, day),
-            CountSourceReason(SecurityRiskSources.AntiCrawler, SecurityRiskReason.BlockedUserAgent, day),
-            events.Count(item => item.OccurredAtUtc >= day && item.Detail?.Contains("social_preview", StringComparison.OrdinalIgnoreCase) == true),
+            counters.LastHourEvents,
+            counters.LastDayEvents,
+            counters.VerifiedCrawlerEvents,
+            counters.FakeCrawlerEvents,
+            counters.UnknownBotEvents,
+            counters.BlockedUserAgentEvents,
+            counters.SocialPreviewEvents,
             ListRiskSnapshots(MaxRuntimeSnapshots).Count,
             ranges.Source,
             ranges.GoogleRanges,
@@ -468,23 +488,192 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         IReadOnlyList<SecurityRiskSnapshotResponse> snapshots = ListRiskSnapshots(MaxRuntimeSnapshots);
         DateTimeOffset hour = DateTimeOffset.UtcNow.AddHours(-1);
         DateTimeOffset day = DateTimeOffset.UtcNow.AddDays(-1);
-        string topReason = events
-            .GroupBy(static item => item.Reason, StringComparer.Ordinal)
-            .OrderByDescending(static group => group.Count())
-            .Select(static group => group.Key)
-            .FirstOrDefault() ?? "none";
-        string topSource = events
-            .GroupBy(static item => item.Source, StringComparer.Ordinal)
-            .OrderByDescending(static group => group.Count())
-            .Select(static group => group.Key)
-            .FirstOrDefault() ?? "none";
+        SecurityRiskOverviewCounters counters = BuildRiskOverviewCounters(
+            events,
+            snapshots,
+            hour,
+            day,
+            Current.Options.RequireChallengeScore);
         return new SecurityRiskOverviewResponse(
-            events.Count(item => item.OccurredAtUtc >= hour),
-            events.Count(item => item.OccurredAtUtc >= day),
+            counters.LastHourEvents,
+            counters.LastDayEvents,
+            counters.SubjectCount,
+            counters.ChallengeSubjectCount,
+            counters.TopReason,
+            counters.TopSource);
+    }
+
+    private static AntiCrawlerSummaryCounters BuildAntiCrawlerSummaryCounters(
+        IReadOnlyList<AntiCrawlerRiskEventResponse> events,
+        DateTimeOffset hour,
+        DateTimeOffset day)
+    {
+        var counters = new AntiCrawlerSummaryCounters();
+        foreach (AntiCrawlerRiskEventResponse item in events)
+        {
+            if (item.OccurredAtUtc >= hour)
+            {
+                counters.LastHourEvents++;
+            }
+
+            if (item.OccurredAtUtc < day)
+            {
+                continue;
+            }
+
+            counters.LastDayEvents++;
+            if (item.Detail?.Contains("verified_crawler", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                counters.VerifiedCrawlerEvents++;
+            }
+
+            if (item.Detail?.Contains("social_preview", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                counters.SocialPreviewEvents++;
+            }
+
+            if (!string.Equals(item.Source, SecurityRiskSources.AntiCrawler, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (string.Equals(item.Reason, nameof(SecurityRiskReason.FakeCrawler), StringComparison.Ordinal))
+            {
+                counters.FakeCrawlerEvents++;
+            }
+            else if (string.Equals(item.Reason, nameof(SecurityRiskReason.UnknownBot), StringComparison.Ordinal))
+            {
+                counters.UnknownBotEvents++;
+            }
+            else if (string.Equals(item.Reason, nameof(SecurityRiskReason.BlockedUserAgent), StringComparison.Ordinal))
+            {
+                counters.BlockedUserAgentEvents++;
+            }
+        }
+
+        return counters;
+    }
+
+    private static SecurityRiskOverviewCounters BuildRiskOverviewCounters(
+        IReadOnlyList<AntiCrawlerRiskEventResponse> events,
+        IReadOnlyList<SecurityRiskSnapshotResponse> snapshots,
+        DateTimeOffset hour,
+        DateTimeOffset day,
+        int challengeScore)
+    {
+        var reasonCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var sourceCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        int lastHourEvents = 0;
+        int lastDayEvents = 0;
+        foreach (AntiCrawlerRiskEventResponse item in events)
+        {
+            if (item.OccurredAtUtc >= hour)
+            {
+                lastHourEvents++;
+            }
+
+            if (item.OccurredAtUtc >= day)
+            {
+                lastDayEvents++;
+            }
+
+            IncrementCounter(reasonCounts, item.Reason);
+            IncrementCounter(sourceCounts, item.Source);
+        }
+
+        int challengeSubjectCount = 0;
+        foreach (SecurityRiskSnapshotResponse snapshot in snapshots)
+        {
+            if (snapshot.Score >= challengeScore)
+            {
+                challengeSubjectCount++;
+            }
+        }
+
+        return new SecurityRiskOverviewCounters(
+            lastHourEvents,
+            lastDayEvents,
             snapshots.Count,
-            snapshots.Count(item => item.Score >= Current.Options.RequireChallengeScore),
-            topReason,
-            topSource);
+            challengeSubjectCount,
+            TopCounterKey(reasonCounts),
+            TopCounterKey(sourceCounts));
+    }
+
+    private static void IncrementCounter(Dictionary<string, int> counters, string key)
+    {
+        counters[key] = counters.TryGetValue(key, out int count) ? count + 1 : 1;
+    }
+
+    private static string TopCounterKey(Dictionary<string, int> counters)
+    {
+        string topKey = "none";
+        int topCount = 0;
+        foreach ((string key, int count) in counters)
+        {
+            if (count > topCount)
+            {
+                topKey = key;
+                topCount = count;
+            }
+        }
+
+        return topKey;
+    }
+
+    private struct AntiCrawlerSummaryCounters
+    {
+        public int LastHourEvents;
+        public int LastDayEvents;
+        public int VerifiedCrawlerEvents;
+        public int FakeCrawlerEvents;
+        public int UnknownBotEvents;
+        public int BlockedUserAgentEvents;
+        public int SocialPreviewEvents;
+    }
+
+    private readonly record struct SecurityRiskOverviewCounters(
+        int LastHourEvents,
+        int LastDayEvents,
+        int SubjectCount,
+        int ChallengeSubjectCount,
+        string TopReason,
+        string TopSource);
+
+    private sealed class RiskEventRingBuffer(int capacity)
+    {
+        private readonly AntiCrawlerRiskEventResponse?[] _items = new AntiCrawlerRiskEventResponse[capacity];
+        private int _start;
+        private int _count;
+
+        public void Add(AntiCrawlerRiskEventResponse item)
+        {
+            if (_count < _items.Length)
+            {
+                _items[(_start + _count) % _items.Length] = item;
+                _count++;
+                return;
+            }
+
+            _items[_start] = item;
+            _start = (_start + 1) % _items.Length;
+        }
+
+        public AntiCrawlerRiskEventResponse[] SnapshotNewestFirst()
+        {
+            if (_count == 0)
+            {
+                return [];
+            }
+
+            var snapshot = new AntiCrawlerRiskEventResponse[_count];
+            for (int i = 0; i < snapshot.Length; i++)
+            {
+                int index = (_start + _count - 1 - i + _items.Length) % _items.Length;
+                snapshot[i] = _items[index]!;
+            }
+
+            return snapshot;
+        }
     }
 
     private static AntiCrawlerPolicyOptions BuildDefaultAntiCrawlerOptions(IConfiguration configuration)

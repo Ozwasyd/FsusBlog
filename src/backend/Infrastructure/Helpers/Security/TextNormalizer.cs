@@ -176,9 +176,13 @@ public static class TextNormalizer
 
         if (!usePhraseMappings)
         {
-            char[] buffer = value.ToCharArray();
-            NormalizeInPlace(buffer);
-            return new string(buffer);
+            return string.Create(value.Length, value, static (buffer, source) =>
+            {
+                for (int i = 0; i < source.Length; i++)
+                {
+                    buffer[i] = _charMap[source[i]];
+                }
+            });
         }
 
         return NormalizeWithPhraseRoot(value, Volatile.Read(ref _phraseRoot));

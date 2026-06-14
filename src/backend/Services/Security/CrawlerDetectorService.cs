@@ -56,10 +56,7 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
             return false;
         }
 
-        if (userAgent.Length > MaxUserAgentLength)
-        {
-            userAgent = userAgent[..MaxUserAgentLength];
-        }
+        string normalizedUserAgent = NormalizeCrawlerUserAgent(userAgent);
 
         if (!IPAddress.TryParse(ipStr, out var ip)) return false;
 
@@ -67,24 +64,36 @@ public class CrawlerDetectorService(ILogger<CrawlerDetectorService> logger, IMem
         if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
 
         // 1. 极速 CIDR 内存前缀树匹配 (O(1) 复杂度，纳秒级无 IO)
-        if (userAgent.Contains("Googlebot", StringComparison.OrdinalIgnoreCase))
+        if (normalizedUserAgent.Contains("googlebot", StringComparison.Ordinal))
         {
             return _googleTree.Contains(ip);
         }
-        if (userAgent.Contains("bingbot", StringComparison.OrdinalIgnoreCase)
-            || userAgent.Contains("msnbot", StringComparison.OrdinalIgnoreCase))
+        if (normalizedUserAgent.Contains("bingbot", StringComparison.Ordinal)
+            || normalizedUserAgent.Contains("msnbot", StringComparison.Ordinal))
         {
             return _bingTree.Contains(ip);
         }
 
         // 2. rDNS 动态验证 (针对 Baidu/Sogou 等)
-        if (userAgent.Contains("Baiduspider", StringComparison.OrdinalIgnoreCase) ||
-            userAgent.Contains("Sogou", StringComparison.OrdinalIgnoreCase))
+        if (normalizedUserAgent.Contains("baiduspider", StringComparison.Ordinal) ||
+            normalizedUserAgent.Contains("sogou", StringComparison.Ordinal))
         {
             return await VerifyByReverseDnsAsync(ip, ipStr);
         }
 
         return false;
+    }
+
+    private static string NormalizeCrawlerUserAgent(string userAgent)
+    {
+        int length = Math.Min(userAgent.Length, MaxUserAgentLength);
+        return string.Create(length, userAgent, static (destination, source) =>
+        {
+            for (int i = 0; i < destination.Length; i++)
+            {
+                destination[i] = char.ToLowerInvariant(source[i]);
+            }
+        });
     }
 
     private static IpRadixTree BuildTree(List<string> ranges, int maxCount)

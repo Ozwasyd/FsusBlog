@@ -212,11 +212,51 @@ public class ModernAcAutomatonTests
     }
 
     [Fact]
+    public void ContainsAny_ConcurrentCompositeScans_MatchNaiveRules()
+    {
+        string[] rules =
+        [
+            "alpha+beta",
+            "alpha+gamma",
+            "缓存+redis",
+            "pow",
+            "北京+大学",
+            "delta"
+        ];
+        string[] texts =
+        [
+            "alpha only",
+            "beta then alpha",
+            "gamma with alpha",
+            "缓存命中 redis",
+            "普通文本",
+            "北京理工大学",
+            "pow challenge",
+            "delta"
+        ];
+        var ac = new ModernAcAutomaton();
+        ac.Build(rules);
+        int mismatches = 0;
+
+        Parallel.For(0, Environment.ProcessorCount * 512, i =>
+        {
+            string text = texts[i % texts.Length];
+            bool expected = NaiveContains(rules, text);
+            if (ac.ContainsAny(text) != expected)
+            {
+                Interlocked.Increment(ref mismatches);
+            }
+        });
+
+        Assert.Equal(0, mismatches);
+    }
+
+    [Fact]
     public void ModernAcAutomaton_UsesCompactDoubleArrayTransitionsInHotScan()
     {
         string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "Helpers", "Security", "ModernAcAutomaton.cs"));
         int containsStart = source.IndexOf("public bool ContainsAny", StringComparison.Ordinal);
-        int containsEnd = source.IndexOf("private int NextState", containsStart, StringComparison.Ordinal);
+        int containsEnd = source.IndexOf("private static bool UseLegacyChildRangeAutomaton", containsStart, StringComparison.Ordinal);
         Assert.True(containsStart >= 0);
         Assert.True(containsEnd > containsStart);
         string containsAnySource = source[containsStart..containsEnd];
@@ -236,7 +276,7 @@ public class ModernAcAutomatonTests
     {
         string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "Helpers", "Security", "ModernAcAutomaton.cs"));
         int containsStart = source.IndexOf("public bool ContainsAny", StringComparison.Ordinal);
-        int containsEnd = source.IndexOf("private int NextScanEpoch", containsStart, StringComparison.Ordinal);
+        int containsEnd = source.IndexOf("private static bool UseLegacyChildRangeAutomaton", containsStart, StringComparison.Ordinal);
         Assert.True(containsStart >= 0);
         Assert.True(containsEnd > containsStart);
         string containsAnySource = source[containsStart..containsEnd];

@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Moderation;
 using System.Buffers;
+using System.Collections.Frozen;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Threading.Channels;
@@ -42,11 +43,11 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         "六+四+事+件"
     ];
 
-    private static readonly HashSet<string> GlobalDictionaryHardFilterCategories = new(StringComparer.Ordinal)
+    private static readonly FrozenSet<string> GlobalDictionaryHardFilterCategories = new[]
     {
         "html_risk",
         "malicious_link"
-    };
+    }.ToFrozenSet(StringComparer.Ordinal);
 
     private enum ContentRuleKind
     {
@@ -350,7 +351,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var reader = new StreamReader(stream);
-        var lines = new List<string>();
+        var lines = new List<string>(EstimateDictionaryLineCapacity(stream.Length));
         string? line;
         while ((line = reader.ReadLine()) != null)
         {
@@ -360,7 +361,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
             }
         }
 
-        return [.. lines];
+        return lines.Count == 0 ? [] : lines.ToArray();
     }
 
     private static async Task<string[]> ReadAllLinesCoreAsync(string path, CancellationToken cancellationToken)
@@ -374,7 +375,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
             Options = FileOptions.Asynchronous | FileOptions.SequentialScan
         });
         using var reader = new StreamReader(stream);
-        var lines = new List<string>();
+        var lines = new List<string>(EstimateDictionaryLineCapacity(stream.Length));
         while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
         {
             if (!string.IsNullOrWhiteSpace(line))
@@ -383,8 +384,11 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
             }
         }
 
-        return [.. lines];
+        return lines.Count == 0 ? [] : lines.ToArray();
     }
+
+    private static int EstimateDictionaryLineCapacity(long byteLength)
+        => (int)Math.Clamp(byteLength / 24, 16, 65_536);
 
     private Result ReloadSensitiveWords()
     {
@@ -586,15 +590,12 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
                 ContentRuleKind.Ad,
                 "malicious_ad_detected",
                 "输入内容包含涉嫌引流的违规业务或恶意链接，已被拦截。"));
-        foreach (ModerationDictionaryTerm term in globalDictionaryTerms.Where(static term => GlobalDictionaryHardFilterCategories.Contains(term.Category)))
+        foreach (ModerationDictionaryTerm term in globalDictionaryTerms)
         {
-            AddRules(
-                rules,
-                NormalizeKeywords([term.Value, .. term.Aliases]),
-                new ContentRulePayload(
-                    ContentRuleKind.Ad,
-                    term.Reason,
-                    "输入内容命中站点硬词库规则，已进入安全拦截。"));
+            if (GlobalDictionaryHardFilterCategories.Contains(term.Category))
+            {
+                AddGlobalDictionaryTermRules(rules, term);
+            }
         }
         AddRules(
             rules,
@@ -629,6 +630,33 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
                 continue;
             }
 
+            rules.Add(new ModernTaggedAcRule<ContentRulePayload>(pattern, payload, (int)payload.Kind));
+        }
+    }
+
+    private static void AddGlobalDictionaryTermRules(
+        List<ModernTaggedAcRule<ContentRulePayload>> rules,
+        ModerationDictionaryTerm term)
+    {
+        var payload = new ContentRulePayload(
+            ContentRuleKind.Ad,
+            term.Reason,
+            "输入内容命中站点硬词库规则，已进入安全拦截。");
+
+        AddNormalizedRule(rules, TextNormalizer.Normalize(term.Value), payload);
+        foreach (string alias in term.Aliases)
+        {
+            AddNormalizedRule(rules, TextNormalizer.Normalize(alias), payload);
+        }
+    }
+
+    private static void AddNormalizedRule(
+        List<ModernTaggedAcRule<ContentRulePayload>> rules,
+        string pattern,
+        ContentRulePayload payload)
+    {
+        if (!string.IsNullOrWhiteSpace(pattern))
+        {
             rules.Add(new ModernTaggedAcRule<ContentRulePayload>(pattern, payload, (int)payload.Kind));
         }
     }

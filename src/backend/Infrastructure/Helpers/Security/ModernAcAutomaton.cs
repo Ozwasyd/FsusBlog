@@ -37,8 +37,17 @@ public class ModernAcAutomaton
     private int[] _componentRuleIds = [];
     private bool[] _isSingleWord = [];
     private int _totalWordCount = 0;
-    private int _scanEpoch;
     private LegacyModernAcAutomaton? _legacyFallback;
+
+    private const int MaxThreadStaticRuleScratchLength = 8192;
+
+    // ContainsAny is synchronous. These buffers are isolated per OS thread,
+    // never shared by concurrent requests, and touched slots are cleared before return.
+    [ThreadStatic]
+    private static int[]? t_ruleRemainingScratch;
+
+    [ThreadStatic]
+    private static int[]? t_touchedRuleScratch;
 
     public void Build(string[] keywords)
     {
@@ -542,21 +551,30 @@ public class ModernAcAutomaton
         int bitMapLength = (_totalWordCount + 31) >> 5;
         uint[]? rentedMap = null;
         int[]? rentedRuleRemaining = null;
-        int[]? rentedRuleEpochs = null;
+        int[]? rentedTouchedRules = null;
 
         Span<uint> hitMap = bitMapLength <= 1024
             ? stackalloc uint[bitMapLength]
             : (rentedMap = ArrayPool<uint>.Shared.Rent(bitMapLength)).AsSpan(0, bitMapLength);
         Span<int> ruleRemaining = Span<int>.Empty;
-        Span<int> ruleEpochs = Span<int>.Empty;
-        int scanEpoch = 0;
+        Span<int> touchedRules = Span<int>.Empty;
+        int touchedRuleCount = 0;
         if (_multiWordRules.Length > 0)
         {
-            rentedRuleRemaining = ArrayPool<int>.Shared.Rent(_multiWordRules.Length);
-            rentedRuleEpochs = ArrayPool<int>.Shared.Rent(_multiWordRules.Length);
-            ruleRemaining = rentedRuleRemaining.AsSpan(0, _multiWordRules.Length);
-            ruleEpochs = rentedRuleEpochs.AsSpan(0, _multiWordRules.Length);
-            scanEpoch = NextScanEpoch();
+            if (_multiWordRules.Length <= MaxThreadStaticRuleScratchLength)
+            {
+                ruleRemaining = GetThreadStaticScratch(ref t_ruleRemainingScratch, _multiWordRules.Length)
+                    .AsSpan(0, _multiWordRules.Length);
+                touchedRules = GetThreadStaticScratch(ref t_touchedRuleScratch, _multiWordRules.Length)
+                    .AsSpan(0, _multiWordRules.Length);
+            }
+            else
+            {
+                rentedRuleRemaining = ArrayPool<int>.Shared.Rent(_multiWordRules.Length);
+                rentedTouchedRules = ArrayPool<int>.Shared.Rent(_multiWordRules.Length);
+                ruleRemaining = rentedRuleRemaining.AsSpan(0, _multiWordRules.Length);
+                touchedRules = rentedTouchedRules.AsSpan(0, _multiWordRules.Length);
+            }
         }
 
         try
@@ -591,9 +609,9 @@ public class ModernAcAutomaton
                 state = NextState(state, alphabetId, ref baseRef, ref checkRef, ref failureRef);
                 if (ProcessMatches(
                     state,
-                    scanEpoch,
                     ruleRemaining,
-                    ruleEpochs,
+                    touchedRules,
+                    ref touchedRuleCount,
                     ref outputLinkRef,
                     ref matchOffsetRef,
                     ref matchCountRef,
@@ -609,6 +627,8 @@ public class ModernAcAutomaton
         }
         finally
         {
+            ClearTouchedRules(ruleRemaining, touchedRules, touchedRuleCount);
+
             if (rentedMap != null)
             {
                 ArrayPool<uint>.Shared.Return(rentedMap);
@@ -619,9 +639,9 @@ public class ModernAcAutomaton
                 ArrayPool<int>.Shared.Return(rentedRuleRemaining);
             }
 
-            if (rentedRuleEpochs != null)
+            if (rentedTouchedRules != null)
             {
-                ArrayPool<int>.Shared.Return(rentedRuleEpochs);
+                ArrayPool<int>.Shared.Return(rentedTouchedRules);
             }
         }
     }
@@ -653,9 +673,9 @@ public class ModernAcAutomaton
 
     private bool ProcessMatches(
         int state,
-        int scanEpoch,
         Span<int> ruleRemaining,
-        Span<int> ruleEpochs,
+        Span<int> touchedRules,
+        ref int touchedRuleCount,
         ref int outputLinkRef,
         ref int matchOffsetRef,
         ref ushort matchCountRef,
@@ -689,7 +709,7 @@ public class ModernAcAutomaton
 
                 hitBucket |= hitMask;
                 if (!ruleRemaining.IsEmpty &&
-                    TryMarkCompositeComponent(wordId, scanEpoch, ruleRemaining, ruleEpochs))
+                    TryMarkCompositeComponent(wordId, ruleRemaining, touchedRules, ref touchedRuleCount))
                 {
                     return true;
                 }
@@ -699,27 +719,21 @@ public class ModernAcAutomaton
         return false;
     }
 
-    private int NextScanEpoch()
-    {
-        int epoch = Interlocked.Increment(ref _scanEpoch);
-        return epoch == int.MinValue ? Interlocked.Increment(ref _scanEpoch) : epoch;
-    }
-
     private bool TryMarkCompositeComponent(
         int wordId,
-        int scanEpoch,
         Span<int> ruleRemaining,
-        Span<int> ruleEpochs)
+        Span<int> touchedRules,
+        ref int touchedRuleCount)
     {
         int start = _componentRuleOffsets[wordId];
         int end = _componentRuleOffsets[wordId + 1];
         for (int i = start; i < end; i++)
         {
             int ruleId = _componentRuleIds[i];
-            if (ruleEpochs[ruleId] != scanEpoch)
+            if (ruleRemaining[ruleId] == 0)
             {
-                ruleEpochs[ruleId] = scanEpoch;
                 ruleRemaining[ruleId] = _multiWordRules[ruleId].Count;
+                touchedRules[touchedRuleCount++] = ruleId;
             }
 
             int remaining = --ruleRemaining[ruleId];
@@ -730,6 +744,37 @@ public class ModernAcAutomaton
         }
 
         return false;
+    }
+
+    private static int[] GetThreadStaticScratch(ref int[]? scratch, int length)
+    {
+        if (scratch is null || scratch.Length < length)
+        {
+            scratch = new int[RoundUpToPowerOfTwo(length)];
+        }
+
+        return scratch;
+    }
+
+    private static int RoundUpToPowerOfTwo(int value)
+    {
+        int result = 1;
+        while (result < value)
+        {
+            result <<= 1;
+        }
+
+        return result;
+    }
+
+    private static void ClearTouchedRules(Span<int> ruleRemaining, Span<int> touchedRules, int touchedRuleCount)
+    {
+        for (int i = 0; i < touchedRuleCount; i++)
+        {
+            int ruleId = touchedRules[i];
+            ruleRemaining[ruleId] = 0;
+            touchedRules[i] = 0;
+        }
     }
 
     private static bool UseLegacyChildRangeAutomaton()
