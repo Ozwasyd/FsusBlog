@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Cache;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using StackExchange.Redis;
@@ -213,6 +214,72 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public async Task ConsumeOnceAsync_PreCanceledTokenDoesNotCreateRedisTransaction()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        var transaction = Substitute.For<ITransaction>();
+        transaction.ExecuteAsync(Arg.Any<CommandFlags>()).Returns(Task.FromResult(false));
+        db.CreateTransaction(Arg.Any<object?>()).Returns(transaction);
+        UnifiedCache cache = CreateCache(memory, db);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => cache.ConsumeOnceAsync(CachePolicyId.SecurityMfaProof, "proof-1", cts.Token));
+
+        db.DidNotReceive().CreateTransaction(Arg.Any<object?>());
+    }
+
+    [Fact]
+    public async Task ConsumeOnceAsync_RemovesL1BeforeExecutingRedisTransaction()
+    {
+        using var memory = new RemoveTrackingMemoryCache();
+        var db = Substitute.For<IDatabase>();
+        var transaction = Substitute.For<ITransaction>();
+        db.CreateTransaction(Arg.Any<object?>()).Returns(transaction);
+        UnifiedCache cache = CreateCache(memory, db);
+        string key = cache.BuildKey(CachePolicyId.SecurityMfaProof, "proof-1");
+        transaction.ExecuteAsync(Arg.Any<CommandFlags>()).Returns(_ =>
+        {
+            Assert.True(memory.Removed);
+            Assert.Equal(key, memory.RemovedKey);
+            return Task.FromResult(true);
+        });
+
+        bool consumed = await cache.ConsumeOnceAsync(CachePolicyId.SecurityMfaProof, "proof-1");
+
+        Assert.True(consumed);
+        await transaction.Received(1).ExecuteAsync(Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public async Task ConsumeOnceAsync_CancellationAfterRedisDeleteSkipsRegistryUnregister()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        db.SetRemoveAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(true));
+        var transaction = Substitute.For<ITransaction>();
+        db.CreateTransaction(Arg.Any<object?>()).Returns(transaction);
+        UnifiedCache cache = CreateCache(memory, db);
+        using var cts = new CancellationTokenSource();
+        transaction.ExecuteAsync(Arg.Any<CommandFlags>()).Returns(_ =>
+        {
+            cts.Cancel();
+            return Task.FromResult(true);
+        });
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => cache.ConsumeOnceAsync(CachePolicyId.CommentCursor, "cursor-1", cts.Token));
+
+        await db.DidNotReceive().SetRemoveAsync(
+            Arg.Any<RedisKey>(),
+            Arg.Any<RedisValue>(),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
     public async Task SingleFlightEntry_RetireAfterReference_DoesNotDisposeSemaphoreUntilReleased()
     {
         var entry = new UnifiedCache.SingleFlightEntry();
@@ -264,6 +331,48 @@ public sealed class UnifiedCacheTests
             new CachePolicyRegistry(),
             new DefaultRuntimeKeyScope(),
             NullLogger<UnifiedCache>.Instance);
+    }
+
+    private sealed class RemoveTrackingMemoryCache : IMemoryCache
+    {
+        public bool Removed { get; private set; }
+        public object? RemovedKey { get; private set; }
+
+        public bool TryGetValue(object key, out object? value)
+        {
+            value = null;
+            return false;
+        }
+
+        public ICacheEntry CreateEntry(object key)
+            => new TestCacheEntry(key);
+
+        public void Remove(object key)
+        {
+            Removed = true;
+            RemovedKey = key;
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class TestCacheEntry(object key) : ICacheEntry
+    {
+        public object Key { get; } = key;
+        public object? Value { get; set; }
+        public DateTimeOffset? AbsoluteExpiration { get; set; }
+        public TimeSpan? AbsoluteExpirationRelativeToNow { get; set; }
+        public TimeSpan? SlidingExpiration { get; set; }
+        public IList<IChangeToken> ExpirationTokens { get; } = new List<IChangeToken>();
+        public IList<PostEvictionCallbackRegistration> PostEvictionCallbacks { get; } = new List<PostEvictionCallbackRegistration>();
+        public CacheItemPriority Priority { get; set; }
+        public long? Size { get; set; }
+
+        public void Dispose()
+        {
+        }
     }
 
     private static bool ContainsAll(RedisKey[] keys, params string[] expected)

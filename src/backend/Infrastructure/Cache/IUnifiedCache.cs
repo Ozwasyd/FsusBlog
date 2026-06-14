@@ -263,15 +263,18 @@ public sealed class UnifiedCache(
         using Activity? activity = FsusObservability.StartActivity("cache.consume_once", "cache", ActivityKind.Client);
         FsusObservability.SetTag(activity, "fsus.cache.operation", "consume_once");
         FsusObservability.SetTag(activity, "fsus.cache.policy", policyId.ToString());
+        cancellationToken.ThrowIfCancellationRequested();
         string key = BuildKey(policyId, identity);
+        memoryCache.Remove(key);
+        cancellationToken.ThrowIfCancellationRequested();
         var tran = _db.CreateTransaction();
         _ = tran.AddCondition(Condition.KeyExists(key));
         _ = tran.KeyDeleteAsync(key);
-        bool ok = await tran.ExecuteAsync().ConfigureAwait(false);
+        bool ok = await tran.ExecuteAsync(CommandFlags.None).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (ok)
         {
-            memoryCache.Remove(key);
-            await UnregisterKeyAsync(policyId, key).ConfigureAwait(false);
+            await UnregisterKeyAsync(policyId, key, cancellationToken).ConfigureAwait(false);
         }
 
         FsusObservability.RecordCacheOperation("consume_once", policyId.ToString(), "l2", ok ? "consumed" : "miss", FsusObservability.GetElapsed(startedAt));
@@ -866,15 +869,21 @@ public sealed class UnifiedCache(
             LogLevel.Debug);
     }
 
-    private async Task UnregisterKeyAsync(CachePolicyId policyId, string key)
+    private async Task UnregisterKeyAsync(CachePolicyId policyId, string key, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!ResolvePolicy(policyId).RegisterKeysForPrefixInvalidation)
         {
             return;
         }
 
         await BoundaryExecutor.ExecuteAsync(
-            async () => _ = await _db.SetRemoveAsync(ResolveRegistryKey(policyId), key).ConfigureAwait(false),
+            async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                _ = await _db.SetRemoveAsync(ResolveRegistryKey(policyId), key).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+            },
             logger,
             $"cache-unregister:{policyId}:{key}",
             LogLevel.Debug);

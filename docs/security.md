@@ -121,6 +121,7 @@ Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再
 - 重新绑定流程：已启用 MFA 的用户调用 `/mfa/setup/start` 必须提交当前密码和当前 TOTP/恢复码，旧 `MfaSecretEncrypted` 与 `MfaEnabled` 在新 secret 验证前保持不变
 - 登录流程：密码验证通过后，如用户已启用 MFA，颁发临时挑战令牌，等待 TOTP 码验证
 - MFA challenge：`/auth/mfa/challenge` 受 `fixed_ip` 限流保护，并对 ticket、user、IP 三个维度记录失败次数；达到阈值后消费 challenge，所有失败返回通用错误
+- MFA proof、PoW replay proof 等安全一次性 token 通过 `IUnifiedCache.ConsumeOnceAsync` 消费。该 primitive 必须先失效进程内 L1 cache，再执行 Redis `Condition.KeyExists + KeyDelete` transaction；调用方取消时不得继续创建 Redis transaction 或执行 registry unregister，避免 L2 已删除但 L1 仍可重放的进程内窗口。
 - 恢复码：启用 MFA 时生成一批 128-bit 分组恢复码，服务端保存 per-code salt + PBKDF2-SHA256 慢哈希；恢复码单次使用，耗尽后可通过 `/mfa/recovery/regenerate` 重新生成
 - 管理员重置：`POST /api/Auth/admin/users/{id}/mfa/reset`（需 admin 角色），用于用户丢失设备时兜底
 - Passkey 免 MFA：使用 Passkey 登录的用户视为已完成双因素，直接跳过 MFA 挑战
