@@ -121,17 +121,40 @@ public sealed class ScheduledPublishWorker(
                     {
                         try
                         {
-                            int updated = await dbGate.ExecuteAsync(
-                                "scheduled-publish-update",
-                                gateCt => db.Updateable<Article>()
-                                    .SetColumns(it => it.Status == ArticleStatus.Published)
-                                    .SetColumns(it => it.PublishedAt == now)
-                                    .SetColumns(it => it.ScheduledPublishAt == null)
-                                    .Where(it => it.Id == article.Id && it.Status == ArticleStatus.Scheduled)
-                                    .ExecuteCommandAsync(gateCt),
-                                _ => Task.FromResult(0),
+                            ScheduledPublishCommit commit = await dbGate.ExecuteAsync(
+                                "scheduled-publish-commit",
+                                async gateCt =>
+                                {
+                                    int updatedRows = 0;
+                                    string outboxEventId = Guid.NewGuid().ToString("N");
+                                    var tran = await db.Ado.UseTranAsync(async () =>
+                                    {
+                                        updatedRows = await db.Updateable<Article>()
+                                            .SetColumns(it => it.Status == ArticleStatus.Published)
+                                            .SetColumns(it => it.PublishedAt == now)
+                                            .SetColumns(it => it.ScheduledPublishAt == null)
+                                            .Where(it => it.Id == article.Id && it.Status == ArticleStatus.Scheduled)
+                                            .ExecuteCommandAsync(gateCt);
+                                        if (updatedRows > 0)
+                                        {
+                                            await db.Insertable(BuildScheduledPublishOutboxEvent(article.Id, outboxEventId, now))
+                                                .ExecuteCommandAsync(gateCt);
+                                        }
+                                    });
+
+                                    bool committed = TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "scheduled-publish-commit");
+                                    return new ScheduledPublishCommit(updatedRows, outboxEventId, committed);
+                                },
+                                _ => Task.FromResult(ScheduledPublishCommit.Timeout),
                                 cancellationToken);
-                            if (updated == 0)
+                            if (!commit.Committed)
+                            {
+                                failed++;
+                                logger.LogError("Scheduled publish commit failed for article {ArticleId}; scheduled row remains eligible if unchanged.", article.Id);
+                                continue;
+                            }
+
+                            if (commit.UpdatedRows == 0)
                             {
                                 continue;
                             }
@@ -141,19 +164,31 @@ public sealed class ScheduledPublishWorker(
                             article.ScheduledPublishAt = null;
                             article.Content = bodyByArticleId.GetValueOrDefault(article.Id, string.Empty);
                             List<int> tagIds = tagIdsByArticleId.GetValueOrDefault(article.Id, []);
-                            await searchIndex.AddOrUpdateIndexAsync(article);
-                            await publicAotInvalidation.InvalidateArticleMutationAsync(
-                                article.Id,
-                                [article.CategoryId],
-                                tagIds,
-                                cancellationToken);
-                            await invalidation.InvalidateArticleMutationAsync(article.Id, cancellationToken);
                             published++;
+                            try
+                            {
+                                await searchIndex.AddOrUpdateIndexAsync(article);
+                                await publicAotInvalidation.InvalidateArticleMutationAsync(
+                                    article.Id,
+                                    [article.CategoryId],
+                                    tagIds,
+                                    cancellationToken);
+                                await invalidation.InvalidateArticleMutationAsync(article.Id, cancellationToken);
+                            }
+                            catch (Exception ex) when (ex is not OperationCanceledException)
+                            {
+                                failed++;
+                                logger.LogError(
+                                    ex,
+                                    "Scheduled publish side effects failed for article {ArticleId}; article mutation outbox {OutboxEventId} will retry.",
+                                    article.Id,
+                                    commit.OutboxEventId);
+                            }
                         }
                         catch (Exception ex) when (ex is not OperationCanceledException)
                         {
                             failed++;
-                            logger.LogError(ex, "Scheduled publish failed for article {ArticleId}; it remains scheduled for retry.", article.Id);
+                            logger.LogError(ex, "Scheduled publish failed before durable outbox for article {ArticleId}.", article.Id);
                         }
                     }
 
@@ -204,5 +239,23 @@ public sealed class ScheduledPublishWorker(
                 failedForMetrics,
                 backlogForMetrics);
         }
+    }
+
+    private static ArticleMutationOutboxEvent BuildScheduledPublishOutboxEvent(int articleId, string eventId, DateTime now)
+        => new()
+        {
+            EventId = eventId,
+            AggregateId = articleId,
+            EventType = "scheduled-published",
+            PayloadJson = $"{{\"articleId\":{articleId},\"eventType\":\"scheduled-published\"}}",
+            Status = "pending",
+            RetryCount = 0,
+            NextRetryAt = now,
+            CreatedAt = now
+        };
+
+    private sealed record ScheduledPublishCommit(int UpdatedRows, string OutboxEventId, bool Committed)
+    {
+        public static readonly ScheduledPublishCommit Timeout = new(0, string.Empty, false);
     }
 }

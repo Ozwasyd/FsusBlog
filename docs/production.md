@@ -86,7 +86,7 @@ The default compose file is tuned for a practical 2C/2G VPS baseline:
 - L1 memory cache and Redis L2 absorb public hot reads.
 - Public hot-read L0 serves preencoded `.aeds` snapshots ahead of the normal pipeline; misses and not-ready responses are `no-store` and must be watched through `/health/ready` runtime metadata.
 - DB concurrency gate protects PostgreSQL during cache misses and DB-heavy background jobs such as visit-log flush, view reconciliation, scheduled publish and PublicHot rebuild.
-- Article mutations write `article_mutation_outbox` in the same DB transaction as the primary row change; the dispatcher replays cache/search/AEDS/PublicHot/notification stream side effects with bounded retry after a crash.
+- Article mutations, including scheduled-publish status flips, write `article_mutation_outbox` in the same DB transaction as the primary row change; the dispatcher replays cache/search/AEDS/PublicHot/notification stream side effects with bounded retry after a crash or inline side-effect failure.
 - Visit-log view projection is batched and periodically reconciled from `sys_visit_log`, so a projection failure after log persistence is repairable.
 - Notification stream backlog multi-target writes are pipelined and local fanout runs from a bounded queue; frames remain bounded per connection and slow consumers are disconnected.
 - Upload-session expiration scans run in `UploadSessionCleanupWorker`, not on init/status request paths.
