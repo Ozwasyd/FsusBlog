@@ -1,15 +1,12 @@
 <template>
   <div class="account-page ops-health-page account-motion-enter w-full">
-    <AccountPageHeader
-      eyebrow="管理"
-      title="运维健康"
-      description="查看核心依赖、后台 worker、备份状态与队列积压。"
-      compact
-    />
+    <header class="account-page-header account-page-header--compact">
+      <h1 class="account-page-title">运维健康</h1>
+      <p class="account-page-description">核心依赖、后台任务、备份与队列状态。</p>
+    </header>
 
     <WorkbenchPanel
       class="mb-8"
-      eyebrow="运行时"
       title="站点状态"
       :caption="health ? `检查时间：${formatTime(health.checkedAt)}` : ''"
       title-id="ops-runtime-title"
@@ -40,7 +37,7 @@
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
       <div class="space-y-8">
-        <WorkbenchPanel title="核心服务" eyebrow="服务" title-id="ops-services-title">
+        <WorkbenchPanel title="核心服务" title-id="ops-services-title">
           <el-table v-loading="loading" :data="health?.services ?? []" row-key="key">
             <el-table-column label="服务" min-width="160">
               <template #default="{ row }: { row: AdminServiceStatusResponse }">
@@ -60,7 +57,7 @@
             </el-table-column>
             <el-table-column label="详情" min-width="240">
               <template #default="{ row }: { row: AdminServiceStatusResponse }">
-                <div class="break-all text-xs text-[var(--fsusblog-text-secondary)]">
+                <div class="break-words text-xs text-[var(--fsusblog-text-secondary)]">
                   {{ row.detail ?? '-' }}
                 </div>
               </template>
@@ -68,7 +65,7 @@
           </el-table>
         </WorkbenchPanel>
 
-        <WorkbenchPanel title="后台 worker" eyebrow="任务" title-id="ops-workers-title">
+        <WorkbenchPanel title="后台 worker" title-id="ops-workers-title">
           <el-table v-loading="loading" :data="health?.workers ?? []" row-key="key">
             <el-table-column label="任务" min-width="200" prop="label" />
             <el-table-column label="状态" width="130">
@@ -87,13 +84,13 @@
       </div>
 
       <div class="space-y-8">
-        <WorkbenchPanel title="最近备份" eyebrow="备份" title-id="ops-backup-title">
+        <WorkbenchPanel title="最近备份" title-id="ops-backup-title">
           <div class="space-y-4">
             <div class="ops-kv">
               <span>状态</span>
               <el-tag :type="statusType(health?.backup.status ?? 'unknown')">{{ statusLabel(health?.backup.status) }}</el-tag>
             </div>
-            <div class="break-all text-xs text-[var(--fsusblog-text-muted)]">{{ health?.backup.backupRoot ?? '-' }}</div>
+            <div class="break-words text-xs text-[var(--fsusblog-text-muted)]">{{ health?.backup.backupRoot ?? '-' }}</div>
             <div class="space-y-3">
               <div
                 v-for="artifact in health?.backup.artifacts ?? []"
@@ -101,24 +98,48 @@
                 class="border-t border-[var(--fsusblog-panel-border)] pt-3"
               >
                 <div class="flex items-center justify-between gap-3">
-                  <span class="text-xs font-semibold">{{ artifact.kind }}</span>
+                  <span class="text-xs font-semibold">{{ backupArtifactKindLabel(artifact.kind) }}</span>
                   <el-tag :type="statusType(artifact.status)">{{ statusLabel(artifact.status) }}</el-tag>
                 </div>
-                <div class="mt-1 break-all text-[11px] text-[var(--fsusblog-text-muted)]">
-                  {{ artifact.path ?? artifact.detail ?? '-' }}
+                <div class="mt-1 break-words text-[11px] text-[var(--fsusblog-text-muted)]">
+                  {{ backupArtifactDetail(artifact) }}
                 </div>
               </div>
             </div>
           </div>
         </WorkbenchPanel>
 
-        <WorkbenchPanel title="最近错误" eyebrow="错误" title-id="ops-errors-title">
-          <ul class="space-y-3 text-xs leading-6 text-[var(--fsusblog-text-secondary)]">
-            <li v-for="error in health?.recentErrors ?? []" :key="error" class="break-all border-b border-[var(--fsusblog-panel-border)] pb-3">
-              {{ error }}
+        <WorkbenchPanel title="最近错误" title-id="ops-errors-title">
+          <ul v-if="opsRecentErrors.length" class="ops-error-list">
+            <li
+              v-for="error in opsRecentErrors"
+              :key="opsErrorKey(error)"
+              class="ops-error-item"
+            >
+              <div class="flex min-w-0 items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <strong class="block break-words text-[13px] text-[var(--fsusblog-text-primary)]">{{ error.action }}</strong>
+                  <p class="mt-1 break-words text-sm font-semibold leading-6 text-[var(--fsusblog-text-secondary)]">
+                    {{ error.message }}
+                  </p>
+                </div>
+                <el-tag class="shrink-0" :type="statusType(error.severity)">{{ statusLabel(error.severity) }}</el-tag>
+              </div>
+
+              <p class="ops-error-meta">
+                {{ statusLabel(error.severity) }} · {{ formatOpsErrorTime(error.occurredAt) }} · {{ formatOpsErrorCount(error.count) }}
+              </p>
+
+              <div class="mt-3 flex flex-wrap items-start gap-3">
+                <details v-if="error.detail" class="ops-error-detail">
+                  <summary>详情</summary>
+                  <code>{{ error.detail }}</code>
+                </details>
+                <el-button link size="small" :icon="CopyDocument" @click="copyOpsErrorDetail(error)">复制详情</el-button>
+              </div>
             </li>
-            <li v-if="!health?.recentErrors.length" class="text-[var(--fsusblog-text-muted)]">-</li>
           </ul>
+          <AdminInlineEmptyState v-else title="暂无错误记录" />
         </WorkbenchPanel>
       </div>
     </section>
@@ -126,19 +147,23 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, shallowRef } from 'vue'
+import { computed, onMounted, shallowRef } from 'vue'
 import {
   getOpsHealth,
   type AdminServiceStatusResponse,
-  type OpsHealthResponse
+  type BackupArtifactResponse,
+  type OpsHealthResponse,
+  type RecentOpsErrorResponse
 } from '@/api/authoring'
-import AccountPageHeader from '@/components/account/AccountPageHeader.vue'
+import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
 import WorkbenchPanel from '@/components/account/WorkbenchPanel.vue'
-import { Refresh } from '@/fsusui/icons'
-import { showErrorToast } from '@/utils/errorPresentation'
+import { CopyDocument, Refresh } from '@/fsusui/icons'
+import { toast } from '@/fsusui/feedback'
+import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 
 const loading = shallowRef(false)
 const health = shallowRef<OpsHealthResponse | null>(null)
+const opsRecentErrors = computed(() => health.value?.recentErrors ?? [])
 
 const loadHealth = async (): Promise<void> => {
   loading.value = true
@@ -153,8 +178,8 @@ const loadHealth = async (): Promise<void> => {
 
 const statusType = (status: string): 'success' | 'warning' | 'danger' | 'info' => {
   if (status === 'ok' || status === 'ready') return 'success'
-  if (status === 'failed' || status === 'missing' || status === 'not_ready') return 'danger'
-  if (status === 'degraded') return 'warning'
+  if (status === 'failed' || status === 'missing' || status === 'not_ready' || status === 'error' || status === 'critical') return 'danger'
+  if (status === 'degraded' || status === 'warning') return 'warning'
   return 'info'
 }
 
@@ -166,14 +191,74 @@ const statusLabel = (status: string | null | undefined): string => {
     missing: '缺失',
     not_ready: '未就绪',
     degraded: '降级',
+    warning: '警告',
+    error: '错误',
+    critical: '严重',
     unknown: '未知'
   }
   return status ? labels[status] ?? status : '-'
 }
 
+const backupArtifactKindLabel = (kind: string): string => {
+  const labels: Record<string, string> = {
+    database: '数据库',
+    uploads: '上传文件',
+    'data-protection-keyring': '数据保护密钥',
+    config: '配置文件',
+    'site-package': '站点包',
+    'restore-drill': '恢复演练'
+  }
+  return labels[kind] ?? kind
+}
+
+const backupArtifactDetailLabel = (detail: string): string => {
+  const labels: Record<string, string> = {
+    latest: '最新备份',
+    'latest-report': '最新报告',
+    not_found: '未找到',
+    not_run: '未运行',
+    'live-keyring-not-yet-packaged': '密钥环未打包'
+  }
+  return labels[detail] ?? detail
+}
+
+const backupArtifactDetail = (artifact: BackupArtifactResponse): string =>
+  artifact.path ?? (artifact.detail ? backupArtifactDetailLabel(artifact.detail) : '-')
+
 const formatTime = (value: string | null | undefined): string => {
   if (!value) return '-'
-  return new Date(value).toLocaleString()
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString()
+}
+
+const formatOpsErrorTime = (value: string | null | undefined): string => formatTime(value)
+
+const formatOpsErrorCount = (count: number): string => `${Math.max(1, count)} 次`
+
+const opsErrorKey = (error: RecentOpsErrorResponse): string =>
+  `${error.action}:${error.message}:${error.occurredAt}:${error.count}`
+
+const copyOpsErrorDetail = async (error: RecentOpsErrorResponse): Promise<void> => {
+  const text = [
+    `动作：${error.action}`,
+    `级别：${statusLabel(error.severity)}`,
+    `时间：${formatOpsErrorTime(error.occurredAt)}`,
+    `次数：${formatOpsErrorCount(error.count)}`,
+    `摘要：${error.message}`,
+    error.detail ? `详情：${error.detail}` : ''
+  ].filter(Boolean).join('\n')
+
+  if (!navigator.clipboard?.writeText) {
+    showWarningToast('当前浏览器不允许复制，请展开详情手动复制', '当前浏览器不允许复制，请展开详情手动复制')
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success('错误详情已复制')
+  } catch (error) {
+    showWarningToast(error, '复制失败，请展开详情手动复制')
+  }
 }
 
 onMounted(loadHealth)
@@ -198,5 +283,57 @@ onMounted(loadHealth)
 .ops-kv strong {
   min-width: 0;
   font-weight: 700;
+}
+
+.ops-error-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ops-error-item {
+  min-width: 0;
+  border-top: 1px solid var(--fsusblog-panel-border);
+  padding: 1rem 0;
+}
+
+.ops-error-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.ops-error-meta {
+  margin: 0.5rem 0 0;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.ops-error-detail {
+  min-width: min(100%, 16rem);
+  max-width: 100%;
+  color: var(--fsusblog-text-muted);
+  font-size: 0.75rem;
+}
+
+.ops-error-detail summary {
+  cursor: pointer;
+  color: var(--fsusblog-text-secondary);
+  font-weight: 700;
+}
+
+.ops-error-detail code {
+  display: block;
+  max-height: 12rem;
+  overflow: auto;
+  margin-top: 0.5rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-radius: 6px;
+  background: var(--fsusblog-panel-bg-soft);
+  padding: 0.75rem;
+  color: var(--fsusblog-text-secondary);
 }
 </style>

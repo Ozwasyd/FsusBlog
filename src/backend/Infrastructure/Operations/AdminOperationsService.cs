@@ -41,6 +41,10 @@ public sealed class AdminOperationsService(
     private const uint SearchManifestMagic = 0x4D495346;
     private const uint SearchManifestBinaryVersion = 1;
     private const string IntegrityFixPhrase = "APPLY_SAFE_FIXES";
+    private const int RecentErrorQueryLimit = 50;
+    private const int RecentErrorDisplayLimit = 5;
+    private const int RecentErrorMessageMaxLength = 140;
+    private const int RecentErrorDetailMaxLength = 2000;
 
     public async Task<OpsHealthResponse> GetOpsHealthAsync(CancellationToken cancellationToken)
     {
@@ -80,7 +84,7 @@ public sealed class AdminOperationsService(
                 Metrics()));
         }
 
-        IReadOnlyList<string> recentErrors = await LoadRecentErrorsAsync(cancellationToken);
+        IReadOnlyList<RecentOpsErrorResponse> recentErrors = await LoadRecentErrorsAsync(cancellationToken);
         string status = services.Concat(workers).Any(item => item.Status is "failed" or "degraded") ? "degraded" : "ok";
         return new OpsHealthResponse(
             status,
@@ -313,13 +317,171 @@ public sealed class AdminOperationsService(
         return new QueueBacklogResponse(pending, failed, audit.QueuedCount, audit.DroppedCount);
     }
 
-    private async Task<IReadOnlyList<string>> LoadRecentErrorsAsync(CancellationToken cancellationToken)
-        => await db.Queryable<AuditLog>()
+    private async Task<IReadOnlyList<RecentOpsErrorResponse>> LoadRecentErrorsAsync(CancellationToken cancellationToken)
+    {
+        List<RecentOpsErrorAuditRow> rows = await db.Queryable<AuditLog>()
             .Where(item => item.Severity == "error" || item.Severity == "critical")
             .OrderBy(item => item.OccurredAtUtc, OrderByType.Desc)
-            .Take(5)
-            .Select(item => $"{item.OccurredAtUtc:O} {item.Action} {item.EventInfo}")
+            .Take(RecentErrorQueryLimit)
+            .Select(item => new RecentOpsErrorAuditRow
+            {
+                OccurredAtUtc = item.OccurredAtUtc,
+                Severity = item.Severity,
+                Action = item.Action,
+                EventInfo = item.EventInfo
+            })
             .ToListAsync(cancellationToken);
+
+        return BuildRecentErrorResponses(rows);
+    }
+
+    internal static IReadOnlyList<RecentOpsErrorResponse> BuildRecentErrorResponses(
+        IEnumerable<RecentOpsErrorAuditRow> rows,
+        int maxItems = RecentErrorDisplayLimit)
+        => rows.Select(MapRecentError)
+            .GroupBy(RecentErrorGroupKey, StringComparer.OrdinalIgnoreCase)
+            .Select(static group =>
+            {
+                RecentOpsErrorResponse latest = group.OrderByDescending(static item => item.OccurredAt).First();
+                return latest with { Count = group.Sum(static item => Math.Max(1, item.Count)) };
+            })
+            .OrderByDescending(static item => item.OccurredAt)
+            .Take(maxItems)
+            .ToArray();
+
+    private static RecentOpsErrorResponse MapRecentError(RecentOpsErrorAuditRow row)
+    {
+        string action = NormalizeRecentErrorToken(row.Action, "unknown");
+        string severity = NormalizeRecentErrorToken(row.Severity, "error").ToLowerInvariant();
+        string cleaned = CleanRecentErrorDetail(row.EventInfo, action);
+        (string message, string? detail) = SummarizeRecentError(cleaned);
+
+        return new RecentOpsErrorResponse(
+            ToUtcOffset(row.OccurredAtUtc),
+            severity,
+            action,
+            message,
+            detail,
+            1);
+    }
+
+    private static string RecentErrorGroupKey(RecentOpsErrorResponse error)
+        => $"{error.Action}\n{NormalizeRecentErrorToken(error.Message, string.Empty)}";
+
+    private static DateTimeOffset ToUtcOffset(DateTime value)
+    {
+        DateTime utc = value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+        return new DateTimeOffset(utc);
+    }
+
+    private static string CleanRecentErrorDetail(string? eventInfo, string action)
+    {
+        string cleaned = RemoveSqlProjectionArtifacts(CollapseWhitespace(eventInfo));
+        if (cleaned.StartsWith(action, StringComparison.OrdinalIgnoreCase))
+        {
+            cleaned = cleaned[action.Length..].TrimStart(' ', ':', '-', '|');
+        }
+
+        return string.IsNullOrWhiteSpace(cleaned) ? "未提供错误详情" : cleaned;
+    }
+
+    private static string RemoveSqlProjectionArtifacts(string value)
+    {
+        string result = value;
+        int castIndex = result.IndexOf("CAST(", StringComparison.OrdinalIgnoreCase);
+        while (castIndex >= 0)
+        {
+            int endIndex = result.IndexOf(')', castIndex);
+            if (endIndex < 0)
+            {
+                break;
+            }
+
+            result = string.Concat(result.AsSpan(0, castIndex), " ", result.AsSpan(endIndex + 1));
+            castIndex = result.IndexOf("CAST(", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return CollapseWhitespace(result);
+    }
+
+    private static (string Message, string? Detail) SummarizeRecentError(string cleaned)
+    {
+        int separatorIndex = cleaned.IndexOf(':', StringComparison.Ordinal);
+        if (separatorIndex > 0 && separatorIndex <= RecentErrorMessageMaxLength)
+        {
+            string message = TrimToLength(cleaned[..separatorIndex].Trim(), RecentErrorMessageMaxLength);
+            string detail = NormalizeRecentErrorDetail(cleaned[(separatorIndex + 1)..]);
+            return (string.IsNullOrWhiteSpace(message) ? "未提供错误详情" : message, string.IsNullOrWhiteSpace(detail) ? null : detail);
+        }
+
+        if (cleaned.Length <= RecentErrorMessageMaxLength)
+        {
+            return (cleaned, null);
+        }
+
+        return (TrimToLength(cleaned, RecentErrorMessageMaxLength), TrimToLength(cleaned, RecentErrorDetailMaxLength));
+    }
+
+    private static string NormalizeRecentErrorDetail(string value)
+    {
+        string detail = CollapseWhitespace(value).Trim();
+        if (detail.Length >= 2 && detail[0] == '"' && detail[^1] == '"')
+        {
+            detail = detail[1..^1].Trim();
+        }
+
+        return TrimToLength(detail, RecentErrorDetailMaxLength);
+    }
+
+    private static string NormalizeRecentErrorToken(string? value, string fallback)
+    {
+        string token = CollapseWhitespace(value);
+        return string.IsNullOrWhiteSpace(token) ? fallback : token;
+    }
+
+    private static string CollapseWhitespace(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(value.Length);
+        bool previousWasWhitespace = false;
+        foreach (char character in value)
+        {
+            if (char.IsWhiteSpace(character))
+            {
+                if (!previousWasWhitespace)
+                {
+                    builder.Append(' ');
+                    previousWasWhitespace = true;
+                }
+
+                continue;
+            }
+
+            builder.Append(character);
+            previousWasWhitespace = false;
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    private static string TrimToLength(string value, int maxLength)
+    {
+        if (value.Length <= maxLength)
+        {
+            return value;
+        }
+
+        return string.Concat(value.AsSpan(0, Math.Max(0, maxLength - 3)).TrimEnd(), "...");
+    }
 
     private async Task<DistributionDiagnosticsResponse> GetDistributionDiagnosticsAsync(CancellationToken cancellationToken)
     {
@@ -687,4 +849,15 @@ public sealed class AdminOperationsService(
             .Where(userId => !Users.Any(user => user.Id == userId && user.Status != 2 && user.DeletedAt is null))
             .ToHashSet();
     }
+}
+
+internal sealed class RecentOpsErrorAuditRow
+{
+    public DateTime OccurredAtUtc { get; init; }
+
+    public string Severity { get; init; } = string.Empty;
+
+    public string Action { get; init; } = string.Empty;
+
+    public string EventInfo { get; init; } = string.Empty;
 }

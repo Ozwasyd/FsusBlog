@@ -244,6 +244,15 @@ export interface QueueBacklogResponse {
   auditDropped: number
 }
 
+export interface RecentOpsErrorResponse {
+  occurredAt: string
+  severity: string
+  action: string
+  message: string
+  detail: string | null
+  count: number
+}
+
 export interface OpsHealthResponse {
   status: string
   checkedAt: string
@@ -254,7 +263,7 @@ export interface OpsHealthResponse {
   workers: AdminServiceStatusResponse[]
   queueBacklog: QueueBacklogResponse
   backup: BackupStatusResponse
-  recentErrors: string[]
+  recentErrors: RecentOpsErrorResponse[]
 }
 
 export interface AotDiagnosticsResponse {

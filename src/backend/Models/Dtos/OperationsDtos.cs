@@ -35,6 +35,14 @@ public sealed record QueueBacklogResponse(
     long AuditQueued,
     long AuditDropped);
 
+public sealed record RecentOpsErrorResponse(
+    DateTimeOffset OccurredAt,
+    string Severity,
+    string Action,
+    string Message,
+    string? Detail,
+    int Count);
+
 public sealed record OpsHealthResponse(
     string Status,
     DateTimeOffset CheckedAt,
@@ -45,7 +53,7 @@ public sealed record OpsHealthResponse(
     IReadOnlyList<AdminServiceStatusResponse> Workers,
     QueueBacklogResponse QueueBacklog,
     BackupStatusResponse Backup,
-    IReadOnlyList<string> RecentErrors);
+    IReadOnlyList<RecentOpsErrorResponse> RecentErrors);
 
 public sealed record AotDiagnosticsResponse(
     string Status,
