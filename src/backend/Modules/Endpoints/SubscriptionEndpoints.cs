@@ -20,26 +20,22 @@ public static class SubscriptionEndpoints
         }
 
         string channel = NormalizeChannel(request.Channel);
-        SiteSubscription? existing = await db.Queryable<SiteSubscription>()
-            .Where(it => it.EmailHash == hash)
-            .FirstAsync(cancellationToken);
-        if (existing is null)
-        {
-            await db.Insertable(new SiteSubscription
+        cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO site_subscription (email_hash, channel, is_enabled, created_at, unsubscribed_at)
+            VALUES (@email_hash, @channel, true, @created_at, NULL)
+            ON CONFLICT (email_hash) DO UPDATE
+            SET channel = EXCLUDED.channel,
+                is_enabled = true,
+                unsubscribed_at = NULL;
+            """,
+            new SugarParameter[]
             {
-                EmailHash = hash,
-                Channel = channel,
-                IsEnabled = true,
-                CreatedAt = DateTime.UtcNow
-            }).ExecuteCommandAsync(cancellationToken);
-        }
-        else
-        {
-            existing.IsEnabled = true;
-            existing.UnsubscribedAt = null;
-            existing.Channel = channel;
-            await db.Updateable(existing).ExecuteCommandAsync(cancellationToken);
-        }
+                new SugarParameter("@email_hash", hash),
+                new SugarParameter("@channel", channel),
+                new SugarParameter("@created_at", DateTime.UtcNow)
+            });
 
         return new SiteSubscriptionBinaryResponse(true, false, channel);
     }
