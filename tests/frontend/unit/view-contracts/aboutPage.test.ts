@@ -11,8 +11,8 @@ describe('createAboutPageViewContract', () => {
 
     expect(contract.header.title).toBe('关于')
     expect(contract.header.currentYear).toBe(2025)
-    expect(contract.header.manifestoLabel).toBe('公开页面')
-    expect(contract.header.readmeLabel).toBe('内容文档')
+    expect(contract.header.manifestoLabel).toBe('站点说明')
+    expect(contract.header.readmeLabel).toBe('持续更新')
     expect(contract.body.content).toBe('About content')
     expect(contract.footer.siteTitle).toBe("Fsu's Blog")
   })
@@ -34,6 +34,8 @@ describe('createAboutPageViewContract', () => {
       title: '隐私政策'
     })
     expect(contract.header.title).toBe('隐私政策')
+    expect(contract.header.manifestoLabel).toBe('隐私说明')
+    expect(contract.header.readmeLabel).toBe('访问边界')
   })
 
   it('passes empty content', () => {

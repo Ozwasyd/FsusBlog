@@ -398,6 +398,7 @@ const filterEntryDefinition = definePublicEntry({
     const cards = articles.map((article, index) => createArticleListCardViewContract(article, index))
     const isInvalidTarget = Boolean(options.isInvalidTarget)
     const view = createFilterPageViewContract({
+      filterType,
       labelText: getPublicFilterLabel(filterType),
       currentName: title,
       loadingMeta: false,

@@ -114,11 +114,19 @@ const exactForbidden = [
   { token: '作者辅助 / AI CHECK', reason: 'old authoring panel label' },
   { token: '按当前标题与正文生成摘要、标题候选、标签和结构建议。', reason: 'old authoring panel description' },
   { token: '没有找到文章。', reason: 'placeholder public empty state' },
+  { token: '没有匹配的文章', reason: 'generic public empty state' },
   { token: '无相关内容', reason: 'placeholder public empty state' },
   { token: '筛选目标不存在', reason: 'placeholder public empty state' },
+  { token: '这个筛选条件下暂无文章', reason: 'generic public filter empty state' },
   { token: '暂时无法加载内容', reason: 'placeholder public unavailable state' },
+  { token: '内容暂时无法载入', reason: 'generic public unavailable state' },
   { token: '连接丢失。', reason: 'dramatic public connection copy' },
-  { token: '数据加载异常', reason: 'generic public loading error copy' }
+  { token: '数据加载异常', reason: 'generic public loading error copy' },
+  { token: 'Long Read', reason: 'English public article microcopy' },
+  { token: ' Views', reason: 'English public view-count label' },
+  { token: '公开页面', reason: 'CMS meta label leaked to public static pages' },
+  { token: '内容文档', reason: 'CMS meta label leaked to public static pages' },
+  { token: '目前发布', reason: 'awkward archive count copy' }
 ]
 
 const marketingTerms = [
@@ -142,7 +150,7 @@ const requiredCopy = [
   },
   {
     path: 'src/frontend/src/view-contracts/filterView.ts',
-    tokens: ['正在完成访问校验', '这个筛选条件下暂无文章', '这个筛选条件不存在']
+    tokens: ['正在完成访问校验', '这个分类还没放文章', '这个标签下还没有文章', '换个词试试']
   },
   {
     path: 'src/frontend/src/components/admin/ConsoleWelcomeCallout.vue',

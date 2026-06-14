@@ -148,7 +148,9 @@ const searchResultStateText = computed(() => {
   }
 
   if (props.view.articles.length === 0) {
-    return '未找到匹配文章'
+    return props.view.filterType === 'search'
+      ? `${props.view.empty.title}`
+      : '本页暂时没有文章'
   }
 
   return `本页显示 ${props.view.articles.length} 篇，${props.view.pagination.pageIndicatorText}`

@@ -59,6 +59,13 @@ type ArchiveArticleCacheEntry = Readonly<{
   item: ArchiveArticleViewContract
 }>
 
+function formatArchiveMonthLabel(month: string): string {
+  const monthNumber = Number.parseInt(month, 10)
+  return Number.isInteger(monthNumber) && monthNumber >= 1 && monthNumber <= 12
+    ? `${monthNumber} 月`
+    : month
+}
+
 function createArchivePageViewContractCore(
   articles: ArticleListItemResponse[],
   total: number,
@@ -100,9 +107,7 @@ function createArchivePageViewContractCore(
         .sort((a, b) => Number(b) - Number(a))
         .map((month) => {
           const items = monthMap.get(month)!
-          const monthLabel = dayjs(`${year}-${month}-01`).isValid()
-            ? dayjs(`${year}-${month}-01`).format('MMMM')
-            : month
+          const monthLabel = formatArchiveMonthLabel(month)
 
           return {
             month,

@@ -96,7 +96,7 @@ export function createArticleListViewContract(
     },
     showPagination: totalPages > 1,
     emptyState: {
-      title: '没有匹配的文章'
+      title: '这里还没有文章'
     },
     searchKeyword: options.searchKeyword?.trim() ?? ''
   };

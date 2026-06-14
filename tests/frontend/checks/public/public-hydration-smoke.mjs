@@ -366,7 +366,7 @@ async function main() {
     assertSharedHydrationMarkers(html, 'Filter');
   }, 'invalid category shell contract');
   assertPublicChrome(invalidCategory, 'invalid category');
-  expectIncludes(invalidCategory, '这个筛选条件不存在', 'invalid category empty state');
+  expectIncludes(invalidCategory, '没有找到这个分类', 'invalid category empty state');
   expectNotIncludes(invalidCategory, 'Acceptance Public Article', 'invalid category leaked article list');
 
   const tagList = await fetchAeds('/api/binary/tag.aeds');

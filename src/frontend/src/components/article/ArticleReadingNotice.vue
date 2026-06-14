@@ -6,7 +6,7 @@
   >
     <div class="flex items-baseline gap-4 border-l-2 border-[var(--fsusblog-panel-border-strong)] pl-6 py-1">
       <span class="text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-primary)]">
-        Long Read
+        长文
       </span>
       <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-medium text-[var(--fsusblog-text-secondary)]">
         <span class="inline-flex items-center gap-1.5">

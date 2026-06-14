@@ -23,8 +23,7 @@
           归档
         </h1>
         <div class="flex items-center gap-6 text-[10px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-          <span>目前发布</span>
-          <span class="text-[var(--fsusblog-text-primary)] tabular-nums">{{ view.total }}</span>
+          <span>已发布 <span class="text-[var(--fsusblog-text-primary)] tabular-nums">{{ view.total }}</span> 篇</span>
         </div>
         <nav
           v-if="view.yearGroups.length > 1"

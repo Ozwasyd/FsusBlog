@@ -589,6 +589,7 @@ export function useFilterView() {
       }
 
       return createFilterPageViewContract({
+        filterType: filterType.value,
         labelText: labelText.value,
         currentName: currentName.value,
         loadingMeta: loadingMeta.value,
