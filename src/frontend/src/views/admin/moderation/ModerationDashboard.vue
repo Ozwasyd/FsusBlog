@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-8">
     <WorkbenchPanel
-      eyebrow="总览 / OVERVIEW"
+      eyebrow="总览"
       title="审核运行状态"
       :caption="overview ? `model ${overview.modelProvider} / ${overview.modelMode}` : ''"
       title-id="moderation-overview-title"

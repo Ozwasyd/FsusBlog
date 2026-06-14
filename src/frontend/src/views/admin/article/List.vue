@@ -1,7 +1,7 @@
 <template>
   <div class="account-page article-list-wrapper account-motion-enter w-full">
     <header class="account-page-header account-page-header--compact">
-      <div class="account-page-eyebrow">管理 / CONTENT</div>
+      <div class="account-page-eyebrow">管理</div>
       <h1 class="account-page-title">文章管理</h1>
       <p class="account-page-description">
         搜索、预览和维护已发布文章。常用写作入口保留在当前页，便于从列表直接进入编辑流程。
@@ -102,7 +102,7 @@
           :icon="Plus"
           @click="goToWriteArticle"
         >
-          发布新博文
+          写新文章
         </el-button>
       </div>
 
@@ -125,7 +125,7 @@
 
     <section class="border-t border-[var(--fsusblog-panel-border)]">
       <div class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] flex items-center justify-between">
-        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章列表 / ARTICLE LIST</div>
+        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章列表</div>
       </div>
       <p
         v-if="rowMotion.summary.value"
@@ -153,7 +153,7 @@
         </template>
 
         <template #empty>
-          <el-empty description="没有找到匹配的文章成果" />
+          <el-empty description="没有找到匹配的文章" />
         </template>
 
         <template #table>
@@ -254,7 +254,7 @@
             </el-table-column>
 
             <template #empty>
-              <el-empty description="没有找到匹配的文章成果" />
+              <el-empty description="没有找到匹配的文章" />
             </template>
           </el-table>
         </template>

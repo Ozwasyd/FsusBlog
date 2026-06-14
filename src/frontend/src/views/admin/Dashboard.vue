@@ -1,7 +1,7 @@
 <template>
   <div class="account-page dashboard-wrapper account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理 / ADMINISTRATION"
+      eyebrow="管理"
       title="站点工作台"
       description="先看关键指标和访问结构，再进入内容、用户与系统处理流程。"
     />
@@ -13,7 +13,7 @@
 
     <section class="mb-12 border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-labelledby="dashboard-today-actions-title">
       <header class="border-b border-[var(--fsusblog-panel-border)] p-6">
-        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">今日待处理 / TODAY</div>
+        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">今日待处理</div>
         <h2 id="dashboard-today-actions-title" class="mt-3 text-2xl font-bold text-[var(--fsusblog-text-primary)]">今日待处理</h2>
       </header>
       <div class="grid grid-cols-1 gap-px bg-[var(--fsusblog-panel-bg-soft)] sm:grid-cols-2 xl:grid-cols-4">
@@ -40,7 +40,7 @@
       <section class="lg:col-span-1 border-r border-[var(--fsusblog-panel-border)] last:border-r-0 bg-[var(--fsusblog-page-bg)] p-8 flex flex-col">
         <header class="mb-10">
           <div class="flex items-center justify-between">
-            <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">访问分析 / TRAFFIC</div>
+            <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">访问来源</div>
             <el-tooltip content="对比注册用户与匿名访客的活跃度" placement="top">
               <span class="text-[var(--fsusblog-text-subtle)] cursor-help hover:text-[var(--fsusblog-color-primary)] transition-colors" aria-hidden="true">
                 <el-icon><InfoFilled /></el-icon>
@@ -60,7 +60,7 @@
 
       <section class="lg:col-span-2 bg-[var(--fsusblog-page-bg)] p-8 flex flex-col">
         <header class="mb-10">
-          <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">访问分析 / GEOGRAPHY</div>
+          <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">地域分布</div>
           <h3 class="mt-4 text-xl font-bold tracking-normal text-[var(--fsusblog-text-primary)]">地域访问分布 (Top 10)</h3>
           <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">查看站点流量集中区域，辅助判断内容传播与读者来源。</p>
         </header>
@@ -75,7 +75,7 @@
 
     <WorkbenchPanel
       class="mb-16 border-y-0 bg-transparent"
-      eyebrow="工作流 / WORKFLOW"
+      eyebrow="常用入口"
       title="运营工作区"
       caption="集中处理内容表现、近期互动和常用管理入口。"
       title-id="dashboard-workflow-title"

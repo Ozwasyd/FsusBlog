@@ -20,7 +20,7 @@
             登录
           </h1>
           <p class="mt-3 max-w-sm text-sm leading-7 text-[var(--fsusblog-text-secondary)]">
-            欢迎回来，请验证你的身份信息以继续。
+            登录后可继续写作、管理评论和维护站点。
           </p>
         </header>
 

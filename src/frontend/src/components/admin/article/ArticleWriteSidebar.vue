@@ -1,13 +1,13 @@
 <template>
   <section class="article-write-sidebar border-t border-[var(--fsusblog-panel-border)]" aria-labelledby="article-publish-settings-title">
     <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
-      <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布设置 / SETTINGS</div>
+      <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布设置</div>
     </header>
 
     <div class="p-6 space-y-8">
       <el-form-item prop="status">
         <template #label>
-          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布状态 / STATUS</span>
+          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布状态</span>
         </template>
         <div class="mt-2">
           <el-select
@@ -28,7 +28,7 @@
 
       <el-form-item v-if="form.status === ArticlePublishStatus.Scheduled" prop="scheduledPublishAt">
         <template #label>
-          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布时间 / SCHEDULE</span>
+          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">发布时间</span>
         </template>
         <div class="mt-2">
           <el-date-picker
@@ -45,7 +45,7 @@
 
       <el-form-item prop="coverImageUrl">
         <template #label>
-          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章头图 / COVER IMAGE</span>
+          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">文章头图</span>
         </template>
         <div class="mt-2">
           <div
@@ -90,7 +90,7 @@
 
       <el-form-item prop="categoryId">
         <template #label>
-          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">所属分类 / CATEGORY</span>
+          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">所属分类</span>
         </template>
         <div class="quick-field-row mt-2">
           <div class="quick-field-control">
@@ -118,7 +118,7 @@
 
       <el-form-item prop="tagIds">
         <template #label>
-          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">标签索引 / TAGS</span>
+          <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">标签索引</span>
         </template>
         <div class="quick-field-row mt-2">
           <div class="quick-field-control">
@@ -156,7 +156,7 @@
       <el-form-item prop="summary">
         <template #label>
           <div class="flex items-center justify-between w-full">
-            <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">内容摘要 / SUMMARY</span>
+            <span class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">内容摘要</span>
           </div>
         </template>
         <div class="mt-2">

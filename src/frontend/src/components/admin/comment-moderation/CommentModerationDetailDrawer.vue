@@ -7,7 +7,7 @@
   >
     <template #header>
       <div v-if="item" class="min-w-0">
-        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">评论详情 / DETAIL</div>
+        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">评论详情</div>
         <div class="mt-2 truncate text-xl font-bold text-[var(--fsusblog-text-primary)]">#{{ item.id }}</div>
       </div>
     </template>

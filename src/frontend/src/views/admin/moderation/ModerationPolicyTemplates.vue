@@ -2,7 +2,7 @@
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
     <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略模板 / POLICY TEMPLATES</div>
+        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略模板</div>
         <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">默认合规模板 presets</h2>
         <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">Operators must review templates against actual service regions, deployment location, business type, and legal counsel.</p>
       </div>

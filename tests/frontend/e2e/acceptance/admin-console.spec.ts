@@ -116,7 +116,7 @@ for (const viewport of [
           expectedPathname: '/user/manage/article/list',
           label: 'manage-article-list',
           selectors: [
-            (page) => page.getByRole('button', { name: '发布新博文' }),
+            (page) => page.getByRole('button', { name: '写新文章' }),
             (page) => page.locator('.blog-scroll-x-safe .el-table')
           ]
         },
@@ -222,7 +222,7 @@ for (const viewport of [
         await session.page.goto('/user/manage', { waitUntil: 'domcontentloaded' })
         await waitForAppReady(session.page)
         await settlePage(session.page)
-        await expect(session.page.getByText('评论审核 / MODERATION')).toBeVisible()
+        await expect(session.page.getByText('评论审核')).toBeVisible()
 
         const analyticsPanel = session.page.locator('.dashboard-analytics-grid, .dashboard-analytics').first()
         const operationsPanel = session.page.locator('.dashboard-operations-panel, [data-testid=\"dashboard-operations-panel\"]').first()
@@ -337,7 +337,7 @@ for (const viewport of [
         })
         expect([401, 403], 'anonymous asset reindex request should be denied').toContain(anonymousAssetReindexResponse.status)
         await session.page.getByRole('tab', { name: '资产' }).click()
-        await expect(session.page.locator('#article-asset-library-title:visible')).toHaveText('资产库 / ASSETS')
+        await expect(session.page.locator('#article-asset-library-title:visible')).toHaveText('资产库')
         const assetReindexResponsePromise = session.page.waitForResponse((response) => {
           const request = response.request()
           const url = new URL(response.url())
@@ -417,7 +417,7 @@ for (const viewport of [
         await session.page.getByRole('button', { name: /确认提交/ }).click()
         await expectAnyToastText(session.page, /全站新分类已同步|分类已保存，但列表同步失败/)
         const categoryTable = session.page
-          .locator('section', { hasText: '分类列表 / CATEGORY LIST' })
+          .locator('section', { hasText: '分类列表' })
           .locator('.el-table')
           .first()
         await assertTableLayout(session.page, categoryTable)
@@ -430,7 +430,7 @@ for (const viewport of [
         await session.page.getByRole('button', { name: /保存变更/ }).click()
         await expectAnyToastText(session.page, /标签创建成功|标签已保存，但列表同步失败/)
         const tagTable = session.page
-          .locator('section', { hasText: '标签列表 / TAG LIST' })
+          .locator('section', { hasText: '标签列表' })
           .locator('.el-table')
           .first()
         await assertTableLayout(session.page, tagTable)

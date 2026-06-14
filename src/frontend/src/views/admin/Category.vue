@@ -1,14 +1,14 @@
 <template>
   <div class="account-page category-manage-wrapper account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理 / STRUCTURE"
+      eyebrow="管理"
       title="分类管理"
       description="维护主站的目录结构与归档入口。分类变更会即时影响导航组织，因此只保留必要而清晰的操作信息。"
     />
 
     <WorkbenchPanel
       class="mb-12"
-      eyebrow="库存状态 / INVENTORY"
+      eyebrow="分类状态"
       title="现有分类"
       caption="安全机制：删除判断使用管理端真实引用数，不复用公开分类计数"
       title-id="category-inventory-title"
@@ -32,7 +32,7 @@
 
     <section class="admin-data-surface">
       <div class="admin-data-surface__toolbar">
-        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">分类列表 / CATEGORY LIST</div>
+        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">分类列表</div>
         <div class="flex flex-wrap items-center gap-2">
           <el-input
             v-model="filters.keyword"

@@ -2,7 +2,7 @@
   <div class="space-y-8">
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略回放 / REPLAY</div>
+        <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略回放</div>
         <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">preview diff</h2>
         <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">回放执行前必须先生成 preview；执行需要 MFA step-up、确认短语和高价值审计。</p>
       </div>

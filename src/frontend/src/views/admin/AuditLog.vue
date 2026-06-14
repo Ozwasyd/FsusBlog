@@ -1,7 +1,7 @@
 <template>
   <div class="account-page audit-log-page account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理 / AUDIT"
+      eyebrow="管理"
       title="审计日志"
       description="查询结构化安全事件、后台操作和防篡改证据。"
       compact
@@ -9,7 +9,7 @@
 
     <WorkbenchPanel
       class="mb-8"
-      eyebrow="审计运行时 / RUNTIME"
+      eyebrow="审计运行时"
       title="写入状态"
       caption="队列、失败与 fallback 指标来自服务端审计 runtime snapshot。"
       title-id="audit-runtime-title"

@@ -37,7 +37,7 @@ export const accountAreaMeta: Record<AccountArea, AccountAreaMeta> = {
   manage: {
     eyebrow: '管理',
     title: '控制中心',
-    description: '维护内容、用户与系统状态，但保留与账户页一致的轻量阅读风格。'
+    description: '维护内容、用户、评论审核、安全设置与系统配置。'
   }
 }
 

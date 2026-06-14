@@ -15,6 +15,10 @@ describe('admin UX task flow contract', () => {
   const commentComposable = readRepoFile('src/frontend/src/composables/useCommentModerationQueue.ts')
   const messages = readRepoFile('src/frontend/src/views/user/Messages.vue')
   const dashboard = readRepoFile('src/frontend/src/views/admin/Dashboard.vue')
+  const articleList = readRepoFile('src/frontend/src/views/admin/article/List.vue')
+  const profile = readRepoFile('src/frontend/src/views/user/Profile.vue')
+  const login = readRepoFile('src/frontend/src/views/auth/Login.vue')
+  const register = readRepoFile('src/frontend/src/views/auth/Register.vue')
   const publicShellState = readRepoFile('src/frontend/src/public-renderers/publicShellState.ts')
   const homeContent = readRepoFile('src/frontend/src/components/public/pages/PublicHomePageContent.vue')
   const filterContent = readRepoFile('src/frontend/src/components/public/pages/PublicFilterPageContent.vue')
@@ -79,6 +83,34 @@ describe('admin UX task flow contract', () => {
     expect(dashboard).toContain('今日待处理')
     expect(dashboard).toContain('评论待审')
     expect(dashboard).toContain('工单待处理')
+    expect(dashboard).toContain('访问来源')
+    expect(dashboard).toContain('地域分布')
+    expect(dashboard).toContain('常用入口')
+    expect(dashboard).not.toContain('ADMINISTRATION')
+    expect(dashboard).not.toContain('TODAY')
+    expect(dashboard).not.toContain('TRAFFIC')
+    expect(dashboard).not.toContain('GEOGRAPHY')
+    expect(dashboard).not.toContain('WORKFLOW')
+  })
+
+  it('keeps admin and account copy operational instead of template-like', () => {
+    expect(accountNav).toContain('维护内容、用户、评论审核、安全设置与系统配置。')
+    expect(accountNav).not.toContain('轻量阅读风格')
+    expect(articleList).toContain('写新文章')
+    expect(articleList).toContain('没有找到匹配的文章')
+    expect(articleList).not.toContain('发布新博文')
+    expect(articleList).not.toContain('文章成果')
+    expect(articleList).not.toContain('ARTICLE LIST')
+    expect(profile).toContain('管理身份信息、密码、MFA、通行密钥与活跃会话。')
+    expect(profile).not.toContain('学术式阅读节奏')
+    expect(login).toContain('登录后可继续写作、管理评论和维护站点。')
+    expect(login).not.toContain('欢迎回来，请验证你的身份信息以继续。')
+    expect(register).toContain('站点使用规范')
+    expect(register).not.toContain('平台使用规范')
+
+    for (const source of [dashboard, articleList, profile, login, register]) {
+      expect(source).not.toMatch(/\p{Script=Han}[^<\n'"]*\/\s+[A-Z][A-Z ]+/u)
+    }
   })
 
   it('tightens public search, empty states, and UX quality gates', () => {

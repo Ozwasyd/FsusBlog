@@ -1,7 +1,7 @@
 <template>
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-label="评论审核队列">
     <div class="border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-6 py-3">
-      <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核队列 / COMMENT QUEUE</div>
+      <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核队列</div>
     </div>
 
     <el-responsive-collection

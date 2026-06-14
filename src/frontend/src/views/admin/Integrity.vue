@@ -1,7 +1,7 @@
 <template>
   <div class="account-page integrity-page account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理 / INTEGRITY"
+      eyebrow="管理"
       title="数据巡检"
       description="检查文章、评论、分类标签、session、上传文件、搜索与 sitemap 的一致性。"
       compact

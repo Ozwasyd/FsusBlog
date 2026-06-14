@@ -1,14 +1,14 @@
 <template>
   <div class="account-page tag-manage-wrapper account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理 / TAXONOMY"
+      eyebrow="管理"
       title="标签管理"
       description="维护文章的索引关键词与检索语义。标签变更需要保持可读、简洁。"
     />
 
     <WorkbenchPanel
       class="mb-12"
-      eyebrow="索引规模 / SCALE"
+      eyebrow="索引规模"
       title="已存标签"
       caption="删除判断使用管理端真实引用数，高危操作将触发强制算力校验"
       title-id="tag-scale-title"
@@ -32,7 +32,7 @@
 
     <section class="admin-data-surface">
       <div class="admin-data-surface__toolbar">
-        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">标签列表 / TAG LIST</div>
+        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">标签列表</div>
         <div class="flex flex-wrap items-center gap-2">
           <el-input
             v-model="filters.keyword"

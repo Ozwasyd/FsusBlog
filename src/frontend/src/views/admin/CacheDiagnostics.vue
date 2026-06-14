@@ -1,7 +1,7 @@
 <template>
   <div class="account-page cache-diagnostics-page account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理 / CACHE"
+      eyebrow="管理"
       title="缓存诊断"
       description="查看 AOT、PublicHotRead、search、sitemap/feed 与评论缓存状态。"
       compact

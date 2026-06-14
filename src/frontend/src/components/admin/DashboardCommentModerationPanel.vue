@@ -3,7 +3,7 @@
     <header class="border-b border-[var(--fsusblog-panel-border)] p-8">
       <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">评论审核 / MODERATION</div>
+          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">评论审核</div>
           <h2 id="comment-moderation-title" class="mt-4 text-3xl font-bold text-[var(--fsusblog-text-primary)]">待审摘要</h2>
           <p class="mt-4 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">
             最新待审评论优先呈现，高风险处置保持管理员二次验证边界。

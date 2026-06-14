@@ -12,7 +12,7 @@
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核模型 / MODEL SIGNALS</div>
+          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核模型</div>
           <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">模型风险信号</h2>
           <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">地区策略和硬词库优先级高于模型建议；模型输出不得作为最终审核决定。</p>
         </div>

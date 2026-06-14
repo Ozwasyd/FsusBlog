@@ -1,7 +1,7 @@
 <template>
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
     <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-      <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核审计 / AUDIT</div>
+  <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核审计</div>
       <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">审核系统事件索引</h2>
       <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">审计明细仍由通用审计日志承载，这里只保留审核系统动作入口。</p>
     </div>

@@ -1,7 +1,7 @@
 <template>
   <div class="account-page security-system-page account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理 / SECURITY"
+      eyebrow="管理"
       title="安全系统"
       description="反爬虫、PoW challenge 与统一安全风险信号在同一安全系统下并列治理。"
       compact

@@ -1,7 +1,7 @@
 <template>
   <div class="account-page content-tools-page account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理 / MIGRATION"
+      eyebrow="管理"
       title="备份与迁移"
       description="执行全站内容备份、单篇文章导出与 Markdown/frontmatter 导入。"
     />
@@ -25,7 +25,7 @@
         }"
       >
         <header class="border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-4 py-3">
-          <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">导出 / EXPORT</div>
+          <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">导出</div>
         </header>
         <div class="space-y-8 px-4 py-6">
           <el-button type="primary" :loading="exporting" @click="downloadBackup">
@@ -53,7 +53,7 @@
         }"
       >
         <header class="border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-4 py-3">
-          <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">导入 / IMPORT</div>
+          <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">导入</div>
         </header>
         <div class="space-y-8 px-4 py-6">
           <el-form label-position="top" @submit.prevent="importContent">

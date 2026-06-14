@@ -3,7 +3,7 @@
     <AccountPageHeader
       eyebrow="账户"
       title="个人资料"
-      description="管理你的身份信息、访问凭证与在线设备。所有高危操作都在同一组界面里完成，但保持与主站一致的学术式阅读节奏。"
+      description="管理身份信息、密码、MFA、通行密钥与活跃会话。"
     />
 
     <nav class="profile-anchor-nav" aria-label="个人资料分区">

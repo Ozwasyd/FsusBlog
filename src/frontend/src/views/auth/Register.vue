@@ -139,7 +139,7 @@
                 size="large"
                 @click.stop.prevent="handleGuidelinesActivator"
               >
-                平台使用规范
+                站点使用规范
               </el-button>
             </el-checkbox>
           </div>

@@ -1,7 +1,7 @@
 <template>
   <div class="account-page article-trash-wrapper account-motion-enter w-full">
     <header class="account-page-header">
-      <div class="account-page-eyebrow">管理 / ARCHIVE</div>
+      <div class="account-page-eyebrow">管理</div>
       <h1 class="account-page-title">回收站</h1>
       <p class="account-page-description">
         处理已下线稿件的恢复与永久删除。恢复后会重新对外可见，永久删除后数据不可找回。
@@ -11,7 +11,7 @@
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] py-8 px-4 mb-12">
       <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
-          <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">状态概览 / STATUS</div>
+          <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)] mb-4">状态概览</div>
           <h2 class="text-2xl font-bold text-[var(--fsusblog-text-primary)] flex items-center gap-3">
             待处理稿件
             <span class="text-[var(--fsusblog-text-primary)] tabular-nums">
@@ -34,7 +34,7 @@
 
     <section class="border-t border-[var(--fsusblog-panel-border)]">
       <div class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] flex items-center justify-between">
-        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">回收站内容 / TRASH BIN</div>
+        <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">回收站内容</div>
       </div>
       <div
         v-if="isCompact"

@@ -1,7 +1,7 @@
 <template>
   <div class="account-page ops-health-page account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理 / OPS"
+      eyebrow="管理"
       title="运维健康"
       description="查看核心依赖、后台 worker、备份状态与队列积压。"
       compact
@@ -9,7 +9,7 @@
 
     <WorkbenchPanel
       class="mb-8"
-      eyebrow="运行时 / RUNTIME"
+      eyebrow="运行时"
       title="站点状态"
       :caption="health ? `checked ${formatTime(health.checkedAt)}` : ''"
       title-id="ops-runtime-title"

@@ -3,7 +3,7 @@
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">地区 / REGIONS</div>
+          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">地区</div>
           <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">地区定义与 effective policy</h2>
           <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">Default policy templates are engineering presets. They are not legal advice.</p>
         </div>

@@ -1,14 +1,14 @@
 <template>
   <div class="account-page asset-library-page account-motion-enter w-full">
     <AccountPageHeader
-      eyebrow="管理 / MEDIA"
+      eyebrow="管理"
       title="资产库"
       description="查看上传资产、引用计数与孤儿文件，清理动作需要明确确认。"
     />
 
     <WorkbenchPanel
       class="mb-12"
-      eyebrow="媒体资产 / ASSETS"
+      eyebrow="媒体资产"
       title="资产库存"
       caption="资产库独立承载列表、文章引用重建、孤儿资产清理和物理删除。"
       title-id="asset-library-title"
@@ -28,7 +28,7 @@
     <section class="admin-data-surface">
       <div class="admin-data-surface__toolbar admin-data-surface__toolbar--stacked">
         <div class="admin-data-surface__toolbar-row">
-          <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">资产列表 / MEDIA LIBRARY</div>
+          <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">资产列表</div>
           <div class="flex flex-wrap items-center gap-2">
             <el-input
               v-model="keyword"

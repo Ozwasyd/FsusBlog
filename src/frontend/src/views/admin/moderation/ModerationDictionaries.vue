@@ -18,7 +18,7 @@
     >
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库管理 / DICTIONARIES</div>
+          <div class="text-[11px] font-black normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库管理</div>
           <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">运行时词库 metadata</h2>
           <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">高风险词库只展示 metadata、checksum、term count 和 evidence policy。</p>
         </div>

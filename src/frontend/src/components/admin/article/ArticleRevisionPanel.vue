@@ -7,7 +7,7 @@
     <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <div id="article-revision-title" class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">修订历史 / REVISIONS</div>
+          <div id="article-revision-title" class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">修订历史</div>
           <p class="mt-1 text-[11px] text-[var(--fsusblog-text-tertiary)]" aria-live="polite">{{ statusText }}</p>
         </div>
         <el-button

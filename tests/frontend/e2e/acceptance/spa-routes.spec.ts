@@ -571,7 +571,7 @@ test.describe('SPA route audit', () => {
         path: '/user/manage/article/list',
         label: 'manage-article-list',
         selectors: [
-          (page) => page.getByRole('button', { name: '发布新博文' }),
+          (page) => page.getByRole('button', { name: '写新文章' }),
           (page) => page.getByText('文章管理', { exact: false })
         ]
       },

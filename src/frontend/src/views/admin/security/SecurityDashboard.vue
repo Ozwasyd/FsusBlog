@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-8">
     <WorkbenchPanel
-      eyebrow="总览 / SECURITY"
+      eyebrow="安全总览"
       title="安全运行总览"
       :caption="overview ? `checked ${formatTime(overview.checkedAtUtc)}` : ''"
       title-id="security-overview-title"
