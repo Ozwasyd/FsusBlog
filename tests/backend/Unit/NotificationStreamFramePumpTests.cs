@@ -14,6 +14,7 @@ public sealed class NotificationStreamFramePumpTests
         var connection = new NotificationStreamConnection("conn-1", "user-1", Array.Empty<string>(), queueCapacity: 8);
         SharedNotificationStreamFrame frame = CreateFrame("hello");
 
+        frame.Retain();
         Assert.True(connection.TryEnqueue(frame));
         Assert.True(connection.Reader.TryRead(out SharedNotificationStreamFrame? dequeued));
 
@@ -32,6 +33,7 @@ public sealed class NotificationStreamFramePumpTests
         SharedNotificationStreamFrame frame = CreateFrame("world");
         var pipe = new Pipe();
 
+        frame.Retain();
         Assert.True(connection.TryEnqueue(frame));
         Assert.True(connection.Reader.TryRead(out SharedNotificationStreamFrame? dequeued));
 

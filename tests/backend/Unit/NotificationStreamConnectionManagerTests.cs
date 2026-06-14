@@ -325,6 +325,29 @@ public class NotificationStreamConnectionManagerIntegrationTests
         var conn = mgr.RegisterConnection("conn1", null, []);
         Assert.NotNull(conn);
     }
+
+    [Fact]
+    public void TryEnqueue_WhenQueueCapacityRejects_ReleasesTransferredRetain()
+    {
+        var connection = new NotificationStreamConnection("conn1", "user1", [], queueCapacity: 1);
+        SharedNotificationStreamFrame queued = MakeFrame();
+        queued.Retain();
+        Assert.True(connection.TryEnqueue(queued));
+        queued.Release();
+
+        SharedNotificationStreamFrame rejected = MakeFrame();
+        rejected.Retain();
+
+        Assert.False(connection.TryEnqueue(rejected));
+
+        rejected.Release();
+        Assert.Throws<InvalidOperationException>(() => rejected.Release());
+
+        Assert.True(connection.Reader.TryRead(out SharedNotificationStreamFrame? dequeued));
+        connection.AcknowledgeDequeuedFrame();
+        dequeued.Release();
+        Assert.Throws<InvalidOperationException>(() => queued.Release());
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

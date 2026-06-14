@@ -64,6 +64,7 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
         int delivered = 0;
         foreach (NotificationStreamConnection connection in ResolveConnections(target))
         {
+            frame.Retain();
             if (connection.TryEnqueue(frame))
             {
                 delivered++;
@@ -194,8 +195,11 @@ public sealed class NotificationStreamConnection
 
     public bool TryEnqueue(SharedNotificationStreamFrame frame)
     {
+        // Consumes one caller-transferred retain on every path:
+        // success queues it for the writer, failure releases it here.
         if (Volatile.Read(ref _closed) == 1)
         {
+            frame.Release();
             return false;
         }
 
@@ -204,10 +208,10 @@ public sealed class NotificationStreamConnection
         {
             Interlocked.Decrement(ref _queuedFrames);
             CloseSlowConsumer();
+            frame.Release();
             return false;
         }
 
-        frame.Retain();
         if (_queue.Writer.TryWrite(frame))
         {
             Touch();

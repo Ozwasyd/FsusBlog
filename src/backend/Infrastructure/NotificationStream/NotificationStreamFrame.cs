@@ -6,8 +6,9 @@ public sealed class SharedNotificationStreamFrame
 {
     private readonly byte[] _buffer;
     private readonly bool _pooled;
-    // Ownership invariant: a frame starts with one owner, publishers call Retain before fan-out,
-    // and every owner must call Release exactly once. The pooled buffer is returned only at zero.
+    // Ownership invariant: a frame starts with one owner. Publishers Retain once per fan-out
+    // target, and the target queue must either consume that retain on success or Release it
+    // on reject. The pooled buffer is returned only at zero.
     private int _refCount;
 
     private SharedNotificationStreamFrame(byte[] buffer, int length, bool pooled)
