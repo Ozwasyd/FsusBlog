@@ -62,7 +62,31 @@ function isLikelyTechnicalLine(line) {
   return /\b(import|export|interface|type|const|let|function|class|from)\b/.test(line)
     || /\b(class|className|style)\s*=/.test(line)
     || /\btransition(?:-|:)|\btransform(?:-|:|\s+var|\s*!important)/.test(line)
-    || /data-fsus-motion-surface|fsusBlogMotionPresets|homeHero/.test(line)
+    || /data-fsus-motion-surface|fsusBlogMotionPresets|homeHero|FEATURED_ARTICLE|HOME_FEATURED/.test(line)
+    || /\.Views\b|formatViews\b|views:\s*toNumber/.test(line)
+}
+
+function isPublicVisitorCopyPath(path) {
+  return path.startsWith('src/frontend/src/components/public/')
+    || path.startsWith('src/frontend/src/components/home/')
+    || path.startsWith('src/frontend/src/components/filter/')
+    || path.startsWith('src/frontend/src/view-contracts/')
+    || path.startsWith('src/frontend/src/public-renderers/')
+    || path === 'src/frontend/src/composables/useHomeView.ts'
+    || path.startsWith('docs/frontend/')
+}
+
+function isUserFacingLine(line) {
+  return !isLikelyTechnicalLine(line)
+    && !/^\s*(\/\/|\/\*|\*|#)/.test(line)
+}
+
+function hasHanText(line) {
+  return /\p{Script=Han}/u.test(line)
+}
+
+function hasSpecificStateContext(line) {
+  return /(文章|文章列表|正文|分类|标签|搜索|关键词|归档|评论|延伸阅读|介绍内容|站点|内容连接|访问校验|筛选|页面)/.test(line)
 }
 
 const scanRoots = [
@@ -109,6 +133,9 @@ const exactForbidden = [
   { token: 'Contribution guide', reason: 'generic OSS starter link label' },
   { token: 'Create GitHub issue', reason: 'generic OSS starter link label' },
   { token: 'Project community', reason: 'generic OSS starter link label' },
+  { token: 'SPOTLIGHT', reason: 'decorative uppercase public section label' },
+  { token: 'TRENDING', reason: 'decorative uppercase public section label' },
+  { token: 'RECOMMENDED', reason: 'decorative uppercase public section label' },
   { token: 'AI CHECK', reason: 'AI-forward authoring panel label' },
   { token: 'AI 辅助检查', reason: 'AI-forward authoring primary action' },
   { token: '作者辅助 / AI CHECK', reason: 'old authoring panel label' },
@@ -160,6 +187,10 @@ const requiredCopy = [
     tokens: ['正在完成访问校验', '这个分类还没放文章', '这个标签下还没有文章', '换个词试试']
   },
   {
+    path: 'src/frontend/src/view-contracts/aboutPage.ts',
+    tokens: ['站点说明', '持续更新', '隐私说明', '访问边界', '站点规范', '阅读与互动', '版权说明', '内容授权']
+  },
+  {
     path: 'src/frontend/src/components/admin/ConsoleWelcomeCallout.vue',
     tokens: ['控制台维护', '发现后台问题或需要记录改进项，可以从这里进入项目维护入口。']
   },
@@ -173,20 +204,37 @@ const requiredCopy = [
   }
 ]
 
-const reviewTermAllowlist = new Map([
-  [
-    'src/frontend/src/components/home/FeaturedArticlesSection.vue::SPOTLIGHT',
-    'Reviewed retained public section label for the curated home spotlight block; issue #194 requires explicit allowlist while kept.'
-  ],
-  [
-    'src/frontend/src/components/home/FeaturedArticlesSection.vue::TRENDING',
-    'Reviewed retained public section label for hot-article ranking; issue #194 requires explicit allowlist while kept.'
-  ],
-  [
-    'docs/frontend/motion-guidelines.md::Home hero',
-    'Motion documentation references the page region name, not default visitor-facing product copy.'
-  ]
-])
+const uppercaseSuffixAllowlist = new Set(['RSS'])
+
+const visitorDecorativeLabels = [
+  'SPOTLIGHT',
+  'TRENDING',
+  'RECOMMENDED',
+  'DISCOVER',
+  'FEATURED'
+]
+
+const visitorMicrocopyForbidden = [
+  { token: 'Views', reason: 'English public view-count label' },
+  { token: 'Long Read', reason: 'English public article microcopy' },
+  { token: '公开页面', reason: 'CMS meta label leaked to public static pages' },
+  { token: '内容文档', reason: 'CMS meta label leaked to public static pages' }
+]
+
+const adminDecorativeLabels = [
+  'CONTENT EDITING',
+  'DRAFT CHECK',
+  'IMAGE POLICY',
+  'WARNING OVERRIDE'
+]
+
+const vagueEmptyStateTokens = [
+  '暂无',
+  '没有匹配',
+  '内容暂时无法',
+  '无相关内容',
+  '没有找到'
+]
 
 for (const path of scannedFiles) {
   const source = read(path)
@@ -199,7 +247,7 @@ for (const path of scannedFiles) {
 
   const lines = source.split('\n')
   lines.forEach((line, lineIndex) => {
-    if (isLikelyTechnicalLine(line)) {
+    if (!isUserFacingLine(line)) {
       return
     }
     for (const term of marketingTerms) {
@@ -213,17 +261,49 @@ for (const path of scannedFiles) {
     }
   })
 
-  if (/\.(vue|md)$/.test(path)) {
+  if (isPublicVisitorCopyPath(path)) {
     lines.forEach((line, lineIndex) => {
-      if (isLikelyTechnicalLine(line)) {
+      if (!isUserFacingLine(line)) {
         return
       }
-      for (const token of ['SPOTLIGHT', 'TRENDING', 'DISCOVER', 'FEATURED', 'Home hero']) {
+
+      for (const token of visitorDecorativeLabels) {
         if (line.includes(token)) {
-          const key = `${path}::${token}`
-          if (!reviewTermAllowlist.has(key)) {
-            addError(path, lineIndex + 1, `landing-page label "${token}" requires explicit public-copy allowlist`)
-          }
+          addError(path, lineIndex + 1, `decorative uppercase public label "${token}" is not allowed`)
+        }
+      }
+
+      for (const { token, reason } of visitorMicrocopyForbidden) {
+        if (line.includes(token)) {
+          addError(path, lineIndex + 1, `forbidden public microcopy "${token}" (${reason})`)
+        }
+      }
+
+      const suffixMatches = line.matchAll(/\/\s*([A-Z][A-Z0-9]{2,}(?:\s+[A-Z][A-Z0-9]{2,})*)\b/g)
+      for (const match of suffixMatches) {
+        const suffix = match[1]
+        if (hasHanText(line) && !uppercaseSuffixAllowlist.has(suffix)) {
+          addError(path, lineIndex + 1, `decorative bilingual uppercase suffix "${suffix}" is not allowed in public copy`)
+        }
+      }
+
+      for (const token of vagueEmptyStateTokens) {
+        if (line.includes(token) && !hasSpecificStateContext(line)) {
+          addError(path, lineIndex + 1, `vague empty/error state "${token}" needs context-specific wording or an explicit check update`)
+        }
+      }
+    })
+  }
+
+  if (path === 'src/frontend/src/views/admin/article/Write.vue') {
+    lines.forEach((line, lineIndex) => {
+      if (!isUserFacingLine(line)) {
+        return
+      }
+
+      for (const token of adminDecorativeLabels) {
+        if (line.includes(token)) {
+          addError(path, lineIndex + 1, `decorative uppercase admin label "${token}" is not allowed in normal UI copy`)
         }
       }
     })
@@ -256,4 +336,4 @@ if (errors.length > 0) {
   process.exit(1)
 }
 
-console.log(`[public-copy-governance] ok files=${scannedFiles.length} allowlist=${reviewTermAllowlist.size}`)
+console.log(`[public-copy-governance] ok files=${scannedFiles.length} uppercaseAllowlist=${uppercaseSuffixAllowlist.size}`)
