@@ -108,11 +108,26 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 
 ### 自定义头
 
-| 头部 | 方向 | 说明 |
-|------|------|------|
-| `X-Fsus-Shield` | 请求 | ShieldMiddleware 要求的来源校验头 |
-| `X-Fsus-Pow-Answer` | 请求 | PoW 答案，用于注册/登录等敏感操作 |
-| `X-Fsus-Pow-Challenge` | 请求 | PoW 挑战令牌 |
+| 类别 | 头部 | 方向 | 说明 |
+|------|------|------|------|
+| 安全强制 | `X-Fsus-Mfa-Proof` | 请求 | admin-sensitive、高价值作者/安全写操作的一次性 MFA proof；消费语义见 [contracts.md#admin-作者工作台--安全后台二进制契约](contracts.md#admin-作者工作台--安全后台二进制契约)。 |
+| 安全强制 | `X-Fsus-Pow-Proof` | 请求 | `public_read` 风险升级后的动态公开 API PoW proof；不用于 PublicHotRead L0 artifact 命中路径。 |
+| 安全强制 | `X-Fsus-Device-Fp` | 请求 | 认证、HumanReadProof、审计和风险信号使用的设备指纹；不得包含可逆身份信息。 |
+| 通知通道 | `X-Fsus-Notification-Stream-Protocol` | 请求 | notification preflight fallback 协议头；正式 WebSocket 仍使用 `Sec-WebSocket-Protocol: fsus-aeds.v2`。 |
+| 通知通道 | `X-Fsus-Notification-Stream-Error-Code` | 响应 | notification preflight / WebSocket 握手失败业务码，例如 `account_blocked`、`auth_failed`、`pow_failed`。 |
+| 通知通道 | `X-Fsus-Notification-Stream-Status-Code` | 响应 | notification preflight / WebSocket 握手失败映射的 HTTP status。 |
+| AOT 运维 | `X-Fsus-Public-Aot-Token` | 请求 | `GET /internal/public-aot/manifest` 在配置 `PublicAot:ManifestToken` 时要求的 manifest token。 |
+| 可观测性 | `X-Fsus-Trace-Id` | 响应 | 与 `HttpContext.TraceIdentifier`、OpenTelemetry trace 和审计上下文对齐的排障 ID；不是认证凭据。 |
+| L0 artifact | `X-Fsus-Frame-Encoding` | 响应 | `.aeds` artifact 命中时标记 raw/br/gzip variant。 |
+| L0 诊断 | `X-Fsus-HotRead-Version` / `X-Fsus-HotRead-Artifact` / `X-Fsus-HotRead-Key` | 响应 | PublicHotRead 诊断头，默认关闭；只能通过 `PublicHotRead:EnableDiagnosticHeaders=true` 打开。 |
+
+不存在额外的 Shield 来源校验头或旧文本 PoW answer/challenge 头运行时契约；新增 `X-Fsus-*` 头必须先登记到本表、OpenAPI `x-fsus-*` 扩展或对应 contract 文档。
+
+### FPOW proof 信封
+
+HTTP 动态公开 API 使用 `X-Fsus-Pow-Proof`，notification stream 匿名连接使用 `pow` query 参数；两者都承载同一种 base64 文本形式的二进制 FPOW 信封。前端实现位于 `src/frontend/src/services/powProofCodec.ts`。
+
+FPOW 信封字段顺序为：`magic[4] = "FPOW"`（字节 `46 50 4f 57`）、`version:uint8 = 1`、`difficulty:int32LE`、`timestamp:int64LE`，随后是若干 `uint16LE length + utf8 bytes` 字段。HTTP header proof 字段为 `salt, nonce, signature, browserFp`；notification stream proof 字段为 `salt, nonce, signature, fp`。服务端按 proof 绑定的 challenge、时间戳、nonce、签名和设备指纹校验，不接受旧文本 PoW answer/challenge 头。
 
 ---
 
