@@ -27,6 +27,7 @@ const markdownCss = read('src/frontend/src/assets/markdown.css')
 const indexHtml = read('src/frontend/index.html')
 const publicPageCss = read('src/frontend/src/assets/public-page.css')
 const themeTokens = read('src/frontend/src/ui-tokens/themeTokens.ts')
+const accountLayout = read('src/frontend/src/layouts/AccountLayout.vue')
 const progress = read('src/frontend/src/components/article/ArticleReadingProgress.vue')
 const toc = read('src/frontend/src/components/article/ArticleTocPanel.vue')
 const mobileBar = read('src/frontend/src/components/article/ArticleMobileActionBar.vue')
@@ -108,13 +109,39 @@ expectNotMatches(
   'ArticleTocPanel.vue active/focus must use Scholarly Blue'
 )
 
+expectIncludes(
+  accountLayout,
+  'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]',
+  'AccountLayout.vue'
+)
+expectIncludes(
+  accountLayout,
+  'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);',
+  'AccountLayout.vue'
+)
+expectNotMatches(accountLayout, /\bfocus-visible:ring-1\b/, 'AccountLayout.vue must not use ring-1 focus')
+expectNotMatches(
+  accountLayout,
+  /box-shadow:\s*0 0 0 2px var\(--fsusblog-color-focus-ring\)/,
+  'AccountLayout.vue focus must use inset ring'
+)
+expectNotMatches(accountLayout, /backdrop-filter:\s*blur\(/, 'AccountLayout.vue default shell must not use blur')
+
 expectIncludes(mobileBar, 'data-mobile-reading-actions="true"', 'ArticleMobileActionBar.vue')
 expectIncludes(mobileBar, 'blog-motion-mobile-bar', 'ArticleMobileActionBar.vue')
 expectIncludes(mobileBar, 'env(safe-area-inset-bottom, 0px)', 'ArticleMobileActionBar.vue')
 expectIncludes(mobileBar, '<FsuTransition', 'ArticleMobileActionBar.vue')
 expectIncludes(mobileBar, 'fsusBlogMotionPresets.mobileBar', 'ArticleMobileActionBar.vue')
 expectIncludes(mobileBar, 'fsusBlogMotionPresets.backToTop', 'ArticleMobileActionBar.vue')
+expectIncludes(mobileBar, 'backdrop-filter: none;', 'ArticleMobileActionBar.vue')
+expectIncludes(
+  mobileBar,
+  'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);',
+  'ArticleMobileActionBar.vue'
+)
 expectNotMatches(mobileBar, /translateY\(/, 'ArticleMobileActionBar.vue must not define local mobile bar translate motion')
+expectNotMatches(mobileBar, /backdrop-filter:\s*blur\(/, 'ArticleMobileActionBar.vue must not use blur')
+expectNotMatches(mobileBar, /outline:\s*1px/, 'ArticleMobileActionBar.vue focus must not use 1px outline')
 
 expectIncludes(lightbox, 'data-article-lightbox="true"', 'ArticleImageLightbox.vue')
 expectIncludes(lightbox, '<FsuTransition', 'ArticleImageLightbox.vue')

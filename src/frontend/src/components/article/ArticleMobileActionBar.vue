@@ -81,11 +81,14 @@ const emit = defineEmits<{
   font-weight: 700;
 }
 
-.article-mobile-action-bar__button:hover,
-.article-mobile-action-bar__button:focus-visible {
+.article-mobile-action-bar__button:hover {
   color: var(--fsusblog-text-primary);
-  outline: 1px solid color-mix(in srgb, var(--fsusblog-text-primary) 32%, transparent);
-  outline-offset: -3px;
+}
+
+.article-mobile-action-bar__button:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  color: var(--fsusblog-text-primary);
+  outline: none;
 }
 
 @media (min-width: 768px) {

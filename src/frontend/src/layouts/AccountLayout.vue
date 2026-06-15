@@ -12,7 +12,7 @@
         <div class="flex min-w-0 items-center gap-4 sm:gap-6">
           <router-link
             to="/"
-            class="flex min-w-0 items-center gap-2 truncate text-lg font-bold transition-opacity hover:opacity-60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
+            class="flex min-w-0 items-center gap-2 truncate text-lg font-bold transition-opacity hover:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
           >
             <img
               v-if="adminBrandImageUrl"
@@ -398,7 +398,7 @@ watch(mobileNavOpen, (open) => {
 
 .account-header-link,
 .account-meta-link {
-  @apply inline-flex items-center rounded-[var(--fsus-radius-control-small)] text-[11px] font-bold uppercase tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-40;
+  @apply inline-flex items-center rounded-[var(--fsus-radius-control-small)] text-[11px] font-bold uppercase tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-40;
 }
 
 .account-skip-link:focus {
@@ -416,7 +416,7 @@ watch(mobileNavOpen, (open) => {
 
 .account-nav-link:focus-visible {
   border-radius: var(--fsus-radius-control-small);
-  box-shadow: 0 0 0 2px var(--fsusblog-color-focus-ring);
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
 }
 
 .account-nav-link::before {
@@ -495,7 +495,7 @@ watch(mobileNavOpen, (open) => {
 
 .account-mobile-nav-group-button:focus-visible {
   border-radius: var(--fsus-radius-control-small);
-  box-shadow: 0 0 0 2px var(--fsusblog-color-focus-ring);
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
   outline: none;
 }
 
