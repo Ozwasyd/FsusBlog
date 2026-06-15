@@ -18,6 +18,7 @@ const metadataText = `text-[10px] sm:text-[11px] font-bold ${textMuted} uppercas
 const numericText = 'tabular-nums';
 
 export const themeTokens: ThemeTokenContract = {
+  focusRing,
   articleList: {
     container: 'flex flex-col gap-20 sm:gap-28 lg:gap-32',
     card: 'ui-article-card group flex flex-col items-start gap-6 sm:gap-8',

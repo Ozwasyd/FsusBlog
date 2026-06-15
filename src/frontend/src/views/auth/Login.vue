@@ -3,7 +3,8 @@
     <nav class="mx-auto flex h-16 w-full max-w-6xl items-center px-5 sm:h-20 sm:px-8">
       <router-link
         to="/"
-        class="flex min-w-0 items-center gap-2 rounded-[var(--fsus-radius-control)] text-lg font-bold text-[var(--fsusblog-text-primary)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] "
+        class="flex min-w-0 items-center gap-2 rounded-[var(--fsus-radius-control)] text-lg font-bold text-[var(--fsusblog-text-primary)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
+        :class="focusRingClass"
       >
         <img v-if="loginBrandImageUrl" :src="loginBrandImageUrl" :alt="siteStore.siteInfo.title" class="h-9 max-w-[12rem] object-contain" />
         <span v-else class="truncate">{{ siteStore.siteInfo.title }}</span>
@@ -202,10 +203,10 @@
         </form>
 
         <footer class="mt-10 flex items-center justify-between border-t border-[var(--fsusblog-panel-border)] pt-6">
-          <router-link to="/register" class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] ">
+          <router-link to="/register" class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
             注册
           </router-link>
-          <router-link to="/" class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] ">
+          <router-link to="/" class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
             取消
           </router-link>
         </footer>
@@ -219,6 +220,9 @@ import { computed } from 'vue'
 import { Key } from '@/fsusui/icons'
 import { useAuthLogin } from '@/composables/useAuthLogin'
 import { usePasskeyLogin } from '@/composables/usePasskeyLogin'
+import { themeTokens } from '@/ui-tokens/themeTokens'
+
+const focusRingClass = themeTokens.focusRing
 
 const {
   siteStore,

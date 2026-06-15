@@ -26,6 +26,7 @@ const publicEditorialRoots = [
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const accountShellPath = path.join(repoRoot, 'src/frontend/src/assets/account-shell.css')
 const accountLayoutPath = path.join(repoRoot, 'src/frontend/src/layouts/AccountLayout.vue')
+const productionSourceRoot = path.join(repoRoot, 'src/frontend/src')
 
 const dashboardPanelPattern = /src\/frontend\/src\/(?:views\/admin\/Dashboard|components\/admin\/Dashboard|views\/admin\/security\/Security|views\/admin\/moderation\/Moderation|components\/admin\/comment-moderation\/CommentModeration)/
 const nonActionHoverPrimaryFiles = new Set([
@@ -127,12 +128,30 @@ function checkSourceFile(file, scope) {
   })
 }
 
+function checkProductionFocusRing(file) {
+  const lines = read(file).split(/\r?\n/)
+
+  lines.forEach((line, index) => {
+    if (hasAllowComment(lines, index)) {
+      return
+    }
+
+    if (/\bfocus-visible:ring-1\b/.test(line)) {
+      fail(file, index + 1, 'production focus-visible styles must use 2px inset focus rings, not ring-1')
+    }
+  })
+}
+
 for (const file of adminAccountRoots.flatMap((dir) => walk(dir))) {
   checkSourceFile(file, 'admin/account')
 }
 
 for (const file of publicEditorialRoots.flatMap((dir) => walk(dir))) {
   checkSourceFile(file, 'public editorial')
+}
+
+for (const file of walk(productionSourceRoot)) {
+  checkProductionFocusRing(file)
 }
 
 const accountShell = read(accountShellPath)

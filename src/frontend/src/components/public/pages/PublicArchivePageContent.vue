@@ -34,7 +34,8 @@
             v-for="yearGroup in view.yearGroups"
             :key="`quick-${yearGroup.year}`"
             :href="`#archive-year-${yearGroup.year}`"
-            class="rounded-[var(--fsus-radius-control-small)] px-1 py-1 text-xs font-semibold tabular-nums text-[var(--fsusblog-text-secondary)] underline-offset-4 hover:text-[var(--fsusblog-color-primary)] hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
+            class="rounded-[var(--fsus-radius-control-small)] px-1 py-1 text-xs font-semibold tabular-nums text-[var(--fsusblog-text-secondary)] underline-offset-4 hover:text-[var(--fsusblog-color-primary)] hover:underline focus-visible:outline-none"
+            :class="focusRingClass"
           >
             {{ yearGroup.year }}
           </a>
@@ -107,6 +108,7 @@
 
 <script setup lang="ts">
 import type { ArchivePageViewContract } from '@/view-contracts/archive'
+import { themeTokens } from '@/ui-tokens/themeTokens'
 
 const props = defineProps<{
   loading?: boolean
@@ -117,6 +119,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: 'navigate', href: string): void
 }>()
+
+const focusRingClass = themeTokens.focusRing
 
 function handleNavigate(event: MouseEvent, articleId: string): void {
   if (!props.spaNavigation) {

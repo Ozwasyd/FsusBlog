@@ -39,6 +39,9 @@ const tocComposable = read('src/frontend/src/composables/article/useArticleToc.t
 const codeCopy = read('src/frontend/src/composables/article/useCodeBlockCopy.ts')
 const imageLightboxComposable = read('src/frontend/src/composables/article/useArticleImageLightbox.ts')
 const articleDetail = read('src/frontend/src/views/ArticleDetail.vue')
+const featuredArticles = read('src/frontend/src/components/home/FeaturedArticlesSection.vue')
+const homeRecommendations = read('src/frontend/src/components/home/HomeTextFirstRecommendations.vue')
+const hotArticlesIsland = read('src/frontend/src/public-renderers/homeHotArticlesIsland.ts')
 
 for (const token of [
   '.blog-motion-reading-control',
@@ -105,6 +108,11 @@ expectNotMatches(
   /box-shadow:\s*inset 0 0 0 1px var\(--fsusblog-color-focus-ring\)/,
   'public-page.css public focus must use 2px ring'
 )
+
+expectIncludes(featuredArticles, '聚焦', 'FeaturedArticlesSection.vue')
+expectIncludes(homeRecommendations, '热门文章', 'HomeTextFirstRecommendations.vue')
+expectIncludes(hotArticlesIsland, '热门文章', 'homeHotArticlesIsland.ts')
+expectNotMatches(homeRecommendations, /顺着读/, 'HomeTextFirstRecommendations.vue hot fallback heading must not drift to 顺着读')
 
 expectIncludes(progress, 'data-reading-progress="true"', 'ArticleReadingProgress.vue')
 expectIncludes(progress, 'transform: scaleX(var(--article-reading-progress, 0))', 'ArticleReadingProgress.vue')

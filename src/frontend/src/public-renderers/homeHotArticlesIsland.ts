@@ -15,7 +15,7 @@ function createAsideHtml(items: Array<{ id: number; title: string; views: number
           ${String(index + 1).padStart(2, '0')}
         </span>
         <div class="flex-auto flex flex-col gap-1.5">
-          <a href="${buildPublicArticleHref(article.id)}" class="rounded-[var(--fsusblog-reading-radius-control)] text-sm font-medium text-[var(--fsusblog-text-primary)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors duration-[var(--fsus-motion-control)] leading-relaxed line-clamp-2 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]">
+          <a href="${buildPublicArticleHref(article.id)}" class="rounded-[var(--fsusblog-reading-radius-control)] text-sm font-medium text-[var(--fsusblog-text-primary)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors duration-[var(--fsus-motion-control)] leading-relaxed line-clamp-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]">
             ${article.title}
           </a>
           <p class="text-xs text-[var(--fsusblog-text-muted)] font-medium">
@@ -29,7 +29,7 @@ function createAsideHtml(items: Array<{ id: number; title: string; views: number
   return `
     <section class="space-y-16" data-dynamic-island="home-hot-articles">
       <div>
-        <h2 class="text-xs font-bold text-[var(--fsusblog-text-muted)] normal-case mb-8">近期被打开较多</h2>
+        <h2 class="text-xs font-bold text-[var(--fsusblog-text-muted)] normal-case mb-8">热门文章</h2>
         <ol role="list" class="space-y-6">${list}</ol>
       </div>
     </section>

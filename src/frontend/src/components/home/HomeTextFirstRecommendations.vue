@@ -7,9 +7,9 @@
     <header class="mb-8 border-b border-[var(--fsusblog-panel-border)] pb-4">
       <div
         id="home-text-first-recommendations-title"
-        class="text-[10px] tabular-nums font-bold normal-case text-[var(--fsusblog-text-muted)]"
+        class="text-xs tabular-nums font-bold normal-case text-[var(--fsusblog-text-muted)]"
       >
-        顺着读
+        热门文章
       </div>
     </header>
 
@@ -18,7 +18,8 @@
         <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(article.id)">
           <a
             :href="href"
-            class="group flex min-h-24 items-start gap-4 border-b border-[var(--fsusblog-panel-border)] pb-5 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
+            class="group flex min-h-24 items-start gap-4 border-b border-[var(--fsusblog-panel-border)] pb-5 outline-none transition-colors"
+            :class="focusRingClass"
             :aria-label="`阅读全文：${article.title}`"
             @click="navigate"
             @keydown.space.prevent="navigate()"
@@ -43,11 +44,13 @@
 
 <script setup lang="ts">
 import type { PopularArticleSummaryResponse } from '@/api/article'
+import { themeTokens } from '@/ui-tokens/themeTokens'
 
 defineProps<{
   articles: PopularArticleSummaryResponse[]
 }>()
 
+const focusRingClass = themeTokens.focusRing
 const articleHref = (id: number) => `/article/${id}`
 const viewFormatter = new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' })
 const formatViews = (views: number) => viewFormatter.format(views)

@@ -6,7 +6,7 @@
   >
     <header class="mb-10">
       <div class="text-xs tabular-nums font-semibold normal-case text-[var(--fsusblog-text-muted)]">
-        最近在写
+        聚焦
       </div>
     </header>
 
@@ -52,7 +52,8 @@
           <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(articles[0].id)">
             <a
               :href="href"
-              class="group flex flex-col gap-8 rounded-[var(--fsusblog-reading-radius-panel)] outline-none md:flex-row md:items-center focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
+              class="group flex flex-col gap-8 rounded-[var(--fsusblog-reading-radius-panel)] outline-none md:flex-row md:items-center"
+              :class="focusRingClass"
               :aria-label="`阅读全文：${articles[0].title}`"
               @click="navigate"
               @keydown.space.prevent="navigate()"
@@ -98,7 +99,8 @@
             <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(article.id)">
               <a
                 :href="href"
-                class="group block rounded-[var(--fsusblog-reading-radius-panel)] outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
+                class="group block rounded-[var(--fsusblog-reading-radius-panel)] outline-none"
+                :class="focusRingClass"
                 :aria-label="`阅读全文：${article.title}`"
                 @click="navigate"
                 @keydown.space.prevent="navigate()"
@@ -136,6 +138,7 @@
 <script setup lang="ts">
 import { ArrowRight } from '@/fsusui/icons'
 import type { FeaturedArticleItem } from '@/api/article'
+import { themeTokens } from '@/ui-tokens/themeTokens'
 import { TimeUtils } from '@/utils/time'
 
 defineProps<{
@@ -143,6 +146,7 @@ defineProps<{
   loading?: boolean
 }>()
 
+const focusRingClass = themeTokens.focusRing
 const articleHref = (id: number) => `/article/${id}`
 
 const formatTime = (isoString: string) => {

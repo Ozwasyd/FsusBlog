@@ -1,4 +1,5 @@
 export type ThemeTokenContract = Readonly<{
+  focusRing: string;
   articleList: Readonly<{
     container: string;
     card: string;
