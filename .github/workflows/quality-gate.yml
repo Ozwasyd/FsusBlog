@@ -164,6 +164,8 @@ jobs:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - run: ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps
+        env:
+          FSUSBLOG_CI_JOB_ID: ${{ matrix.artifact_name }}
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -237,7 +239,26 @@ jobs:
     timeout-minutes: 50
     steps:
       - uses: actions/checkout@v6
-      - run: ./tools/test.sh fast --no-deps
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: fast-backend-*
+          path: .
+          merge-multiple: true
+      - uses: actions/download-artifact@v7
+        with:
+          name: fast-frontend-unit
+          path: .
+      - uses: actions/download-artifact@v7
+        with:
+          name: fast-static-governance
+          path: .
+      - name: Aggregate fast evidence
+        env:
+          QUALITY_GATE_NEEDS_JSON: ${{ toJson(needs) }}
+        run: node tools/run-test-matrix.mjs aggregate fast-summary
       - uses: actions/upload-artifact@v7
         if: always()
         with:

@@ -328,7 +328,10 @@ function tierReproductionCommand(tier, options = {}) {
   return args.join(' ')
 }
 
-function ciJobReproductionCommand(jobId) {
+function ciJobReproductionCommand(jobId, matrix = null) {
+  if (matrix && ciJobExecutionMode(matrix, jobId) === 'aggregate') {
+    return `node tools/run-test-matrix.mjs aggregate ${jobId}`
+  }
   return `./tools/test.sh ci-job ${jobId}`
 }
 
@@ -369,6 +372,9 @@ function safeMatrixValue(value) {
 
 function summaryJobIdForTier(tier, details = {}) {
   if (details.jobId) return details.jobId
+
+  const explicitJobId = safeMatrixValue(process.env.FSUSBLOG_CI_JOB_ID)
+  if (explicitJobId) return explicitJobId
 
   const parts = [tier.ciJob]
   const browser = tier.requiresPlaywright === 'all' ? safeMatrixValue(process.env.FSUSBLOG_PLAYWRIGHT_BROWSERS) : ''
@@ -414,7 +420,7 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
     durationMs,
     stageDurationsMs: mergeStageDurations(existing, stage, deltaMs),
     artifacts,
-    localReproduction: ciJobReproductionCommand(tier.ciJob),
+    localReproduction: details.localReproduction ?? ciJobReproductionCommand(tier.ciJob, matrix),
     commit: git(['rev-parse', 'HEAD']) ?? 'unknown',
     runId: process.env.GITHUB_RUN_ID ?? 'local',
     attempt: process.env.GITHUB_RUN_ATTEMPT ?? '0',
@@ -514,6 +520,20 @@ function ciJobTiers(matrix, jobId) {
   return matrix.tiers.filter((tier) => tier.ciJob === jobId && tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true)
 }
 
+function ciJobExecutionMode(matrix, jobId) {
+  const tiers = ciJobTiers(matrix, jobId)
+  if (
+    jobId === 'fast-summary'
+    &&
+    tiers.length > 0
+    && tiers.every((tier) => String(tier.command).startsWith('tools/test/lanes/noop.sh '))
+    && tiers.some((tier) => (tier.dependsOn?.length ?? 0) > 0)
+  ) {
+    return 'aggregate'
+  }
+  return 'test'
+}
+
 function buildCiJobMatrix(matrix, jobId) {
   const tiers = ciJobTiers(matrix, jobId)
   if (tiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
@@ -556,7 +576,8 @@ function printCiJobPlan(matrix, jobId) {
   const tiers = ciJobTiers(matrix, jobId)
   if (tiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
   console.log(`To reproduce GitHub Actions job "${jobId}" locally:`)
-  console.log(`  ${ciJobReproductionCommand(jobId)}`)
+  console.log(`  ${ciJobReproductionCommand(jobId, matrix)}`)
+  console.log(`  execution mode: ${ciJobExecutionMode(matrix, jobId)}`)
   console.log('')
   for (const tier of tiers) {
     const shard = tier.shardable ? ` --shard 1/${tier.defaultShards}` : ''
@@ -579,6 +600,189 @@ function runCiJob(matrix, jobId, args) {
     if (options.shard && tier.shardable) runArgs.push('--shard', options.shard)
     runTier(matrix, tier.id, runArgs)
   }
+}
+
+function parseAggregateOptions(args) {
+  const options = { dryRun: false, outFile: null, githubNeedsJson: process.env.QUALITY_GATE_NEEDS_JSON ?? null }
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]
+    if (arg === '--dry-run') options.dryRun = true
+    else if (arg === '--out') options.outFile = args[++index]
+    else if (arg.startsWith('--out=')) options.outFile = arg.slice('--out='.length)
+    else if (arg === '--github-needs') options.githubNeedsJson = args[++index]
+    else if (arg.startsWith('--github-needs=')) options.githubNeedsJson = arg.slice('--github-needs='.length)
+    else throw new Error(`unknown aggregate option: ${arg}`)
+  }
+  return options
+}
+
+function generatedMatrixSummaryIds(matrix, jobId) {
+  if (jobId !== 'fast-backend') return [jobId]
+  return ciJobTiers(matrix, jobId).map((tier) => `${jobId}-${tier.id}`)
+}
+
+function aggregateDependencyJobs(matrix, summaryTiers) {
+  const byId = tierMap(matrix)
+  const jobs = new Set()
+  for (const tier of summaryTiers) {
+    for (const dependencyId of tier.dependsOn ?? []) {
+      const dependency = byId.get(dependencyId)
+      if (!dependency) throw new Error(`${tier.id} depends on missing tier ${dependencyId}`)
+      jobs.add(dependency.ciJob)
+    }
+  }
+  return [...jobs].sort()
+}
+
+function aggregateRequiredPaths(matrix, dependencyJobs, summaryTiers) {
+  const paths = new Set()
+  const addTierPaths = (tier) => {
+    for (const artifact of tier.artifacts ?? []) paths.add(artifact)
+    for (const evidence of tier.evidence ?? []) paths.add(evidence)
+  }
+  for (const tier of summaryTiers) addTierPaths(tier)
+  for (const jobId of dependencyJobs) {
+    for (const tier of ciJobTiers(matrix, jobId)) addTierPaths(tier)
+  }
+  return [...paths].filter(requiresAggregateArtifact).sort()
+}
+
+function requiresAggregateArtifact(value) {
+  const normalized = String(value ?? '').trim().replace(/^['"]|['"]$/g, '')
+  return normalized.startsWith('.tmp/')
+    || normalized.startsWith('src/frontend/coverage')
+    || normalized.startsWith('src/frontend/test-results/')
+    || normalized.startsWith('src/frontend/playwright-report')
+    || normalized.startsWith('BenchmarkDotNet.Artifacts/')
+}
+
+function buildAggregatePlan(matrix, jobId) {
+  const summaryTiers = ciJobTiers(matrix, jobId)
+  if (summaryTiers.length === 0) throw new Error(`unknown aggregate CI job: ${jobId}`)
+  if (ciJobExecutionMode(matrix, jobId) !== 'aggregate') throw new Error(`${jobId} is not an artifact-only aggregate job`)
+
+  const dependencyJobs = aggregateDependencyJobs(matrix, summaryTiers)
+  return {
+    schema: 'fsusblog.ci.aggregate-plan.v1',
+    jobId,
+    tierIds: summaryTiers.map((tier) => tier.id),
+    artifactOnly: true,
+    executesTestCommands: false,
+    dependencyJobs,
+    requiredJobSummaries: dependencyJobs.flatMap((dependencyJob) => generatedMatrixSummaryIds(matrix, dependencyJob)).sort(),
+    requiredArtifactPaths: aggregateRequiredPaths(matrix, dependencyJobs, summaryTiers),
+    localReproduction: `node tools/run-test-matrix.mjs aggregate ${jobId}`
+  }
+}
+
+function findFiles(dir, predicate, results = []) {
+  if (!fs.existsSync(dir)) return results
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name)
+    if (entry.isDirectory()) findFiles(file, predicate, results)
+    else if (predicate(file)) results.push(file)
+  }
+  return results
+}
+
+function loadJobSummaries() {
+  const summaries = new Map()
+  const roots = [
+    path.join(root, '.tmp/release-evidence/jobs'),
+    path.join(root, '.tmp/downloaded-artifacts')
+  ]
+  for (const searchRoot of roots) {
+    for (const file of findFiles(searchRoot, (candidate) => candidate.endsWith('.json') && candidate.includes(`${path.sep}jobs${path.sep}`))) {
+      try {
+        const summary = JSON.parse(fs.readFileSync(file, 'utf8'))
+        if (summary.schema !== 'fsusblog.ci.job-result.v1') continue
+        summaries.set(summary.jobId, { summary, file })
+        if (summary.ciJob && !summaries.has(summary.ciJob)) summaries.set(summary.ciJob, { summary, file })
+      } catch {
+        // Ignore unrelated JSON artifacts.
+      }
+    }
+  }
+  return summaries
+}
+
+function aggregatePathExists(rel) {
+  const normalized = String(rel ?? '').trim().replace(/^['"]|['"]$/g, '').replaceAll('/', path.sep)
+  if (!normalized) return false
+  const direct = path.join(root, normalized)
+  if (fs.existsSync(direct)) return true
+
+  const downloadedRoot = path.join(root, '.tmp/downloaded-artifacts')
+  const suffix = `${path.sep}${normalized}`
+  return findFiles(downloadedRoot, (candidate) => candidate.endsWith(suffix) || candidate.includes(suffix)).length > 0
+}
+
+function githubNeedsErrors(rawNeedsJson, dependencyJobs) {
+  if (!rawNeedsJson) return []
+  let needs = null
+  try {
+    needs = JSON.parse(rawNeedsJson)
+  } catch (error) {
+    return [`QUALITY_GATE_NEEDS_JSON is not valid JSON: ${error.message}`]
+  }
+
+  const errors = []
+  for (const jobId of dependencyJobs) {
+    const result = needs?.[jobId]?.result
+    if (result && result !== 'success') errors.push(`${jobId} completed with result=${result}`)
+  }
+  return errors
+}
+
+function aggregateCiJob(matrix, jobId, args) {
+  const options = parseAggregateOptions(args)
+  const plan = buildAggregatePlan(matrix, jobId)
+
+  if (options.dryRun) {
+    writeTextOutput(`${JSON.stringify(plan, null, 2)}\n`, options.outFile, 'matrix:aggregate')
+    return
+  }
+
+  const startedAt = Date.now()
+  const summaryTier = ciJobTiers(matrix, jobId)[0]
+  const errors = githubNeedsErrors(options.githubNeedsJson, plan.dependencyJobs)
+  const summaries = loadJobSummaries()
+
+  console.log(`[matrix:aggregate] ${jobId} is artifact-only; no test commands will be executed`)
+  console.log(`[matrix:aggregate] dependency jobs: ${plan.dependencyJobs.join(', ')}`)
+  console.log(`[matrix:aggregate] required job summaries: ${plan.requiredJobSummaries.join(', ')}`)
+
+  for (const summaryId of plan.requiredJobSummaries) {
+    const match = summaries.get(summaryId)
+    if (!match) {
+      errors.push(`missing job summary artifact: ${summaryId}`)
+      continue
+    }
+    if (match.summary.status !== 'success') {
+      errors.push(`${summaryId} status=${match.summary.status}`)
+    }
+  }
+
+  for (const requiredPath of plan.requiredArtifactPaths) {
+    if (!aggregatePathExists(requiredPath)) errors.push(`missing aggregate artifact path: ${requiredPath}`)
+  }
+
+  if (errors.length > 0) {
+    writeJobSummary(matrix, summaryTier, 'failure', startedAt, {
+      stage: 'summary',
+      failureStage: 'summary',
+      rootCause: errors[0],
+      localReproduction: plan.localReproduction
+    })
+    for (const error of errors) console.error(`[matrix:aggregate] ${error}`)
+    process.exit(1)
+  }
+
+  writeJobSummary(matrix, summaryTier, 'success', startedAt, {
+    stage: 'summary',
+    localReproduction: plan.localReproduction
+  })
+  console.log(`[matrix:aggregate] ok (${plan.requiredJobSummaries.length} job summaries, ${plan.requiredArtifactPaths.length} artifact paths)`)
 }
 
 function listTiers(matrix) {
@@ -716,10 +920,10 @@ function docs(matrix, outFile) {
   lines.push('')
   lines.push('## CI Job Reproduction Commands')
   lines.push('')
-  lines.push('| CI job | Local reproduction command | Matrix tiers |')
-  lines.push('|---|---|---|')
+  lines.push('| CI job | Execution | Local reproduction command | Matrix tiers |')
+  lines.push('|---|---|---|---|')
   for (const [jobId, tiers] of [...jobs.entries()].sort(([left], [right]) => left.localeCompare(right))) {
-    lines.push(`| \`${jobId}\` | \`./tools/test.sh ci-job ${jobId}\` | ${tiers.map((id) => `\`${id}\``).join(', ')} |`)
+    lines.push(`| \`${jobId}\` | \`${ciJobExecutionMode(matrix, jobId)}\` | \`${ciJobReproductionCommand(jobId, matrix)}\` | ${tiers.map((id) => `\`${id}\``).join(', ')} |`)
   }
   lines.push('')
   const text = `${lines.join('\n')}\n`
@@ -890,6 +1094,7 @@ function usage() {
   node tools/run-test-matrix.mjs ci-tier <tier> [--plan-only] [--no-deps] [--shard i/n]
   node tools/run-test-matrix.mjs ci-job <job> [--plan-only] [--shard i/n]
   node tools/run-test-matrix.mjs ci-job-matrix <job> [--out file] [--github-output file]
+  node tools/run-test-matrix.mjs aggregate <job> [--dry-run] [--out file] [--github-needs json]
   node tools/run-test-matrix.mjs ci-fast [--plan-only]
   node tools/run-test-matrix.mjs ci-production [--plan-only]
   node tools/run-test-matrix.mjs ci-release-final [--plan-only]
@@ -958,6 +1163,10 @@ function main() {
   }
   if (command === 'ci-job-matrix') {
     ciJobMatrix(matrix, args[0], args.slice(1))
+    return
+  }
+  if (command === 'aggregate') {
+    aggregateCiJob(matrix, args[0], args.slice(1))
     return
   }
   if (command === 'ci-fast') {

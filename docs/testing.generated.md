@@ -134,28 +134,28 @@ Version: `fsusblog-test-matrix-v2`
 
 ## CI Job Reproduction Commands
 
-| CI job | Local reproduction command | Matrix tiers | Phase | Setup/cache | Max timeout | Max shards | Max parallel |
-|---|---|---|---:|---|---:|---:|---:|
-| `acceptance-playwright` | `./tools/test.sh ci-job acceptance-playwright` | `acceptance` | 3 | node, dotnet, playwright:chromium, cache:full | 45m | 4 | 2 |
-| `backend-qps` | `./tools/test.sh ci-job backend-qps` | `backend-qps-view-count-flush`, `backend-qps-visitlog-invalidation`, `backend-qps-cache-hit`, `backend-qps-comment-cursor`, `backend-qps-hotread`, `backend-qps-cache-miss-singleflight`, `backend-qps-risk-filter`, `backend-qps-related-reading`, `backend-qps-list-pagination`, `backend-qps-article-detail-miss`, `backend-qps-cache-registry`, `backend-cache-invalidation-batch`, `backend-qps-index-plan`, `backend-qps` | 3 | node, dotnet, cache:backend | 45m | 1 | 4 |
-| `coverage-backend` | `./tools/test.sh ci-job coverage-backend` | `coverage-backend` | 2 | dotnet, cache:backend | 45m | 1 | 4 |
-| `coverage-frontend` | `./tools/test.sh ci-job coverage-frontend` | `coverage-frontend` | 2 | node, cache:frontend | 45m | 1 | 4 |
-| `coverage-merge-threshold` | `./tools/test.sh ci-job coverage-merge-threshold` | `coverage-merge`, `coverage-threshold`, `coverage-gate` | 4 | node | 90m | 1 | 1 |
-| `cross-browser-smoke` | `./tools/test.sh ci-job cross-browser-smoke` | `cross-browser-smoke` | 3 | node, playwright:all, cache:frontend | 20m | 1 | 2 |
-| `cross-stack-contract` | `./tools/test.sh ci-job cross-stack-contract` | `endpoint-depth`, `cross-stack-contract` | 3 | node, cache:frontend | 20m | 1 | 4 |
-| `fast-backend` | `./tools/test.sh ci-job fast-backend` | `backend-fast`, `backend-auth-state-machine`, `backend-concurrency`, `backend-property`, `backend-golden` | 1 | dotnet, cache:backend | 35m | 1 | 4 |
-| `fast-frontend-unit` | `./tools/test.sh ci-job fast-frontend-unit` | `frontend-fast` | 1 | node, cache:frontend | 35m | 1 | 4 |
-| `fast-static-governance` | `./tools/test.sh ci-job fast-static-governance` | `static-governance`, `backend-test-governance` | 1 | node | 10m | 1 | 4 |
-| `fast-summary` | `./tools/test.sh ci-job fast-summary` | `fast` | 1 | none | 50m | 1 | 4 |
-| `frontend-render-pressure` | `./tools/test.sh ci-job frontend-render-pressure` | `frontend-render-pressure` | 3 | node, dotnet, cache:full | 35m | 1 | 1 |
-| `integration-runtime` | `./tools/test.sh ci-job integration-runtime` | `bootstrap`, `integration`, `data-scale-xs`, `data-scale-s`, `backend-api-integration` | 2 | node, dotnet, cache:full | 45m | 1 | 4 |
-| `load-smoke` | `./tools/test.sh ci-job load-smoke` | `load`, `load-baseline`, `load-peak` | 3 | node, dotnet, cache:full | 35m | 1 | 1 |
-| `perf-regression` | `./tools/test.sh ci-job perf-regression` | `aeds-frame-cost`, `aeds-compression-profile`, `backend-perf`, `backend-benchmark-regression`, `browser-performance-regression` | 3 | dotnet, cache:backend | 35m | 1 | 1 |
-| `production-summary` | `./tools/test.sh ci-job production-summary` | `production` | 4 | node | 120m | 1 | 1 |
-| `release-evidence` | `./tools/test.sh ci-job release-evidence` | `release-evidence` | 4 | node | 10m | 1 | 1 |
-| `release-public` | `./tools/test.sh ci-job release-public` | `release` | 2 | node, dotnet, cache:full | 25m | 1 | 1 |
-| `resilience-runtime` | `./tools/test.sh ci-job resilience-runtime` | `resilience`, `fault-injection`, `backend-chaos` | 3 | node, dotnet, cache:full | 35m | 1 | 1 |
-| `security-runtime` | `./tools/test.sh ci-job security-runtime` | `security`, `security-authenticated-dast`, `csrf-browser-matrix`, `wasm-fuzz-regression`, `contract-fuzz` | 3 | node, dotnet, cache:full | 40m | 1 | 4 |
-| `ux-viewport-smoke` | `./tools/test.sh ci-job ux-viewport-smoke` | `ux-viewport-smoke` | 3 | node, dotnet, playwright:chromium, cache:full | 35m | 1 | 1 |
-| `validate-matrix` | `./tools/test.sh ci-job validate-matrix` | `validate-matrix` | 0 | node | 5m | 1 | 4 |
-| `visual-playwright` | `./tools/test.sh ci-job visual-playwright` | `visual` | 3 | node, dotnet, playwright:chromium, cache:full | 35m | 2 | 2 |
+| CI job | Execution | Local reproduction command | Matrix tiers | Phase | Setup/cache | Max timeout | Max shards | Max parallel |
+|---|---|---|---|---:|---|---:|---:|---:|
+| `acceptance-playwright` | `test` | `./tools/test.sh ci-job acceptance-playwright` | `acceptance` | 3 | node, dotnet, playwright:chromium, cache:full | 45m | 4 | 2 |
+| `backend-qps` | `test` | `./tools/test.sh ci-job backend-qps` | `backend-qps-view-count-flush`, `backend-qps-visitlog-invalidation`, `backend-qps-cache-hit`, `backend-qps-comment-cursor`, `backend-qps-hotread`, `backend-qps-cache-miss-singleflight`, `backend-qps-risk-filter`, `backend-qps-related-reading`, `backend-qps-list-pagination`, `backend-qps-article-detail-miss`, `backend-qps-cache-registry`, `backend-cache-invalidation-batch`, `backend-qps-index-plan`, `backend-qps` | 3 | node, dotnet, cache:backend | 45m | 1 | 4 |
+| `coverage-backend` | `test` | `./tools/test.sh ci-job coverage-backend` | `coverage-backend` | 2 | dotnet, cache:backend | 45m | 1 | 4 |
+| `coverage-frontend` | `test` | `./tools/test.sh ci-job coverage-frontend` | `coverage-frontend` | 2 | node, cache:frontend | 45m | 1 | 4 |
+| `coverage-merge-threshold` | `test` | `./tools/test.sh ci-job coverage-merge-threshold` | `coverage-merge`, `coverage-threshold`, `coverage-gate` | 4 | node | 90m | 1 | 1 |
+| `cross-browser-smoke` | `test` | `./tools/test.sh ci-job cross-browser-smoke` | `cross-browser-smoke` | 3 | node, playwright:all, cache:frontend | 20m | 1 | 2 |
+| `cross-stack-contract` | `test` | `./tools/test.sh ci-job cross-stack-contract` | `endpoint-depth`, `cross-stack-contract` | 3 | node, cache:frontend | 20m | 1 | 4 |
+| `fast-backend` | `test` | `./tools/test.sh ci-job fast-backend` | `backend-fast`, `backend-auth-state-machine`, `backend-concurrency`, `backend-property`, `backend-golden` | 1 | dotnet, cache:backend | 35m | 1 | 4 |
+| `fast-frontend-unit` | `test` | `./tools/test.sh ci-job fast-frontend-unit` | `frontend-fast` | 1 | node, cache:frontend | 35m | 1 | 4 |
+| `fast-static-governance` | `test` | `./tools/test.sh ci-job fast-static-governance` | `static-governance`, `backend-test-governance` | 1 | node | 10m | 1 | 4 |
+| `fast-summary` | `aggregate` | `node tools/run-test-matrix.mjs aggregate fast-summary` | `fast` | 1 | none | 50m | 1 | 4 |
+| `frontend-render-pressure` | `test` | `./tools/test.sh ci-job frontend-render-pressure` | `frontend-render-pressure` | 3 | node, dotnet, cache:full | 35m | 1 | 1 |
+| `integration-runtime` | `test` | `./tools/test.sh ci-job integration-runtime` | `bootstrap`, `integration`, `data-scale-xs`, `data-scale-s`, `backend-api-integration` | 2 | node, dotnet, cache:full | 45m | 1 | 4 |
+| `load-smoke` | `test` | `./tools/test.sh ci-job load-smoke` | `load`, `load-baseline`, `load-peak` | 3 | node, dotnet, cache:full | 35m | 1 | 1 |
+| `perf-regression` | `test` | `./tools/test.sh ci-job perf-regression` | `aeds-frame-cost`, `aeds-compression-profile`, `backend-perf`, `backend-benchmark-regression`, `browser-performance-regression` | 3 | dotnet, cache:backend | 35m | 1 | 1 |
+| `production-summary` | `test` | `./tools/test.sh ci-job production-summary` | `production` | 4 | node | 120m | 1 | 1 |
+| `release-evidence` | `test` | `./tools/test.sh ci-job release-evidence` | `release-evidence` | 4 | node | 10m | 1 | 1 |
+| `release-public` | `test` | `./tools/test.sh ci-job release-public` | `release` | 2 | node, dotnet, cache:full | 25m | 1 | 1 |
+| `resilience-runtime` | `test` | `./tools/test.sh ci-job resilience-runtime` | `resilience`, `fault-injection`, `backend-chaos` | 3 | node, dotnet, cache:full | 35m | 1 | 1 |
+| `security-runtime` | `test` | `./tools/test.sh ci-job security-runtime` | `security`, `security-authenticated-dast`, `csrf-browser-matrix`, `wasm-fuzz-regression`, `contract-fuzz` | 3 | node, dotnet, cache:full | 40m | 1 | 4 |
+| `ux-viewport-smoke` | `test` | `./tools/test.sh ci-job ux-viewport-smoke` | `ux-viewport-smoke` | 3 | node, dotnet, playwright:chromium, cache:full | 35m | 1 | 1 |
+| `validate-matrix` | `test` | `./tools/test.sh ci-job validate-matrix` | `validate-matrix` | 0 | node | 5m | 1 | 4 |
+| `visual-playwright` | `test` | `./tools/test.sh ci-job visual-playwright` | `visual` | 3 | node, dotnet, playwright:chromium, cache:full | 35m | 2 | 2 |

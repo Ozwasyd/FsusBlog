@@ -112,6 +112,24 @@ function isWorkflowTier(tier) {
   return tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true
 }
 
+function ciJobExecutionMode(job) {
+  if (
+    job.id === 'fast-summary'
+    &&
+    job.tiers.length > 0
+    && job.tiers.every((tier) => String(tier.command).startsWith('tools/test/lanes/noop.sh '))
+    && job.tiers.some((tier) => (tier.dependsOn?.length ?? 0) > 0)
+  ) {
+    return 'aggregate'
+  }
+  return 'test'
+}
+
+function ciJobReproductionCommand(job) {
+  if (ciJobExecutionMode(job) === 'aggregate') return `node tools/run-test-matrix.mjs aggregate ${job.id}`
+  return `./tools/test.sh ci-job ${job.id}`
+}
+
 function ciJobRows(matrix) {
   const combineCacheProfile = (left, right) => {
     const frontend = left === 'frontend' || left === 'full' || right === 'frontend' || right === 'full'
@@ -135,13 +153,14 @@ function ciJobRows(matrix) {
   }
 
   const lines = [
-    '| CI job | Local reproduction command | Matrix tiers | Phase | Setup/cache | Max timeout | Max shards | Max parallel |',
-    '|---|---|---|---:|---|---:|---:|---:|'
+    '| CI job | Execution | Local reproduction command | Matrix tiers | Phase | Setup/cache | Max timeout | Max shards | Max parallel |',
+    '|---|---|---|---|---:|---|---:|---:|---:|'
   ]
   for (const job of [...jobs.values()].sort((left, right) => left.id.localeCompare(right.id))) {
     lines.push([
       `\`${job.id}\``,
-      `\`./tools/test.sh ci-job ${job.id}\``,
+      `\`${ciJobExecutionMode(job)}\``,
+      `\`${ciJobReproductionCommand(job)}\``,
       job.tiers.map((tier) => `\`${tier.id}\``).join(', '),
       String(job.phase ?? 0),
       [

@@ -134,6 +134,10 @@ function annotateWorkflowJob(job) {
   job.usesGeneratedFastBackendMatrix = /matrix:\s*\$\{\{\s*fromJson\(needs\.validate-matrix\.outputs\.fast_backend_matrix\)\s*\}\}/.test(text)
   job.usesGeneratedFastBackendMaxParallel = /max-parallel:\s*\$\{\{\s*fromJson\(needs\.validate-matrix\.outputs\.fast_backend_max_parallel\)\s*\}\}/.test(text)
   job.generatesFastBackendMatrix = /node tools\/run-test-matrix\.mjs ci-job-matrix fast-backend --github-output "\$GITHUB_OUTPUT"/.test(text)
+  job.usesFastSummaryAggregate = /node tools\/run-test-matrix\.mjs aggregate fast-summary(?:\s|$)/.test(text)
+  job.downloadsFastBackendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /pattern:\s*fast-backend-\*/.test(text)
+  job.downloadsFastFrontendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*fast-frontend-unit/.test(text)
+  job.downloadsFastStaticArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*fast-static-governance/.test(text)
   return job
 }
 
@@ -281,6 +285,9 @@ function coveredTiersForWorkflowJob(job, tiersById, plannedTierIds = []) {
   if (job.usesMatrixTierCommand) {
     for (const tierId of plannedTierIds) covered.add(tierId)
   }
+  if (job.usesFastSummaryAggregate) {
+    for (const tierId of plannedTierIds) covered.add(tierId)
+  }
   for (const command of job.runs) {
     if (command === 'node tools/run-test-matrix.mjs validate' || command === 'node tools/run-test-matrix.mjs preflight') {
       covered.add('validate-matrix')
@@ -331,6 +338,27 @@ function validateGeneratedFastBackendMatrix(workflowJob, planJob, tiersById, err
   )
   if (serialBackendRuns.length > 1) {
     errors.push(`workflow job fast-backend serially runs ${serialBackendRuns.length} backend fast tiers instead of the generated matrix`)
+  }
+}
+
+function validateFastSummaryAggregate(workflowJob, planJob, errors) {
+  if (planJob.id !== 'fast-summary') return
+
+  const testRuns = workflowJob.runs.filter((command) => /(?:^|\s)(?:\.\/)?tools\/test\.sh(?:\s|$)/.test(command))
+  if (testRuns.length > 0) {
+    errors.push(`workflow job fast-summary must be artifact-only, but runs test commands: ${testRuns.join('; ')}`)
+  }
+  if (!workflowJob.usesFastSummaryAggregate) {
+    errors.push('workflow job fast-summary must aggregate artifacts with tools/run-test-matrix.mjs aggregate fast-summary')
+  }
+  if (!workflowJob.downloadsFastBackendArtifacts) {
+    errors.push('workflow job fast-summary must download fast-backend-* artifacts before aggregating')
+  }
+  if (!workflowJob.downloadsFastFrontendArtifacts) {
+    errors.push('workflow job fast-summary must download fast-frontend-unit artifacts before aggregating')
+  }
+  if (!workflowJob.downloadsFastStaticArtifacts) {
+    errors.push('workflow job fast-summary must download fast-static-governance artifacts before aggregating')
   }
 }
 
@@ -474,6 +502,7 @@ function main() {
 
     if (job.id !== 'production-summary') {
       validateGeneratedFastBackendMatrix(workflowJob, job, tiersById, errors)
+      validateFastSummaryAggregate(workflowJob, job, errors)
       const coveredTiers = coveredTiersForWorkflowJob(workflowJob, tiersById, job.tiers)
       validateWorkflowSetup(job.id, workflowJob, setupRequirementsForTiers(coveredTiers, tiersById), errors)
       const bootstrapCount = bootstrapExecutionsForWorkflowJob(workflowJob, tiersById)
