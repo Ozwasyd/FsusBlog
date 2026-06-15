@@ -25,7 +25,8 @@
         --fsusblog-text-primary: CanvasText;
         --fsusblog-text-muted: GrayText;
         --fsusblog-panel-border: ButtonBorder;
-        --fsusblog-loader-accent: var(--fsusblog-color-primary, var(--fsus-scholarly-blue, Highlight));
+        --fsusblog-loader-muted: var(--fsusblog-text-muted);
+        --fsusblog-loader-rule: var(--fsusblog-panel-border);
       }
 
       html.dark,
@@ -74,11 +75,9 @@
 
       .loader-header-line {
         height: 1px;
-        background: var(--fsusblog-panel-border);
+        background: var(--fsusblog-loader-rule);
         width: 100%;
         margin-bottom: 4rem;
-        transform-origin: left;
-        animation: line-grow calc(var(--fsus-motion-panel, 420ms) * 3) var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1)) forwards;
       }
 
       .loader-branding {
@@ -95,12 +94,12 @@
         color: var(--fsusblog-text-primary);
       }
 
-      .loader-dot {
-        width: 6px;
-        height: 6px;
-        background: var(--fsusblog-loader-accent);
-        border-radius: 50%;
-        animation: pulse-dot calc(var(--fsus-motion-panel, 420ms) * 5) infinite;
+      .loader-mark {
+        width: 0.375rem;
+        height: 0.375rem;
+        background: var(--fsusblog-loader-muted);
+        border-radius: 999px;
+        opacity: 0.72;
       }
 
       .loader-status-group {
@@ -119,34 +118,21 @@
         text-transform: none;
       }
 
-      .loader-bar-bg {
-        width: 48px;
+      .loader-document-placeholder {
+        display: grid;
+        width: min(18rem, 70vw);
+        gap: 0.625rem;
+      }
+
+      .loader-placeholder-line {
         height: 1px;
-        background-color: var(--fsusblog-panel-border);
-        overflow: hidden;
-        position: relative;
+        background-color: var(--fsusblog-loader-rule);
       }
 
-      .loader-bar-active {
-        position: absolute;
-        inset: 0;
-        background-color: var(--fsusblog-text-primary);
-        animation: slide-bar calc(var(--fsus-motion-panel, 420ms) * 4) var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1)) infinite;
-      }
-
-      @keyframes line-grow {
-        from { transform: scaleX(0); }
-        to { transform: scaleX(1); }
-      }
-
-      @keyframes pulse-dot {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.4; transform: scale(0.8); }
-      }
-
-      @keyframes slide-bar {
-        0% { transform: translateX(-100%); }
-        100% { transform: translateX(100%); }
+      .loader-placeholder-line--short {
+        width: 62%;
+        background-color: var(--fsusblog-loader-muted);
+        opacity: 0.42;
       }
 
       /* Base shell styles for hydration transition */
@@ -177,12 +163,14 @@
         <div class="loader-header-line"></div>
         <div class="loader-branding">
           <span class="loader-title" data-fsus-loader-title>站点</span>
-          <div class="loader-dot"></div>
+          <div class="loader-mark"></div>
         </div>
         <div class="loader-status-group">
           <span class="loader-text" data-fsus-loader-status>正在加载站点</span>
-          <div class="loader-bar-bg">
-            <div class="loader-bar-active"></div>
+          <div class="loader-document-placeholder" aria-hidden="true">
+            <div class="loader-placeholder-line"></div>
+            <div class="loader-placeholder-line"></div>
+            <div class="loader-placeholder-line loader-placeholder-line--short"></div>
           </div>
         </div>
       </div>

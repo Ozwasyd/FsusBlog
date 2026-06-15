@@ -24,6 +24,7 @@ function expectNotMatches(source, pattern, message) {
 
 const motionCss = read('src/frontend/src/assets/motion.css')
 const markdownCss = read('src/frontend/src/assets/markdown.css')
+const indexHtml = read('src/frontend/index.html')
 const progress = read('src/frontend/src/components/article/ArticleReadingProgress.vue')
 const toc = read('src/frontend/src/components/article/ArticleTocPanel.vue')
 const mobileBar = read('src/frontend/src/components/article/ArticleMobileActionBar.vue')
@@ -41,6 +42,28 @@ for (const token of [
   '.blog-motion-reading-target'
 ]) {
   expectIncludes(motionCss, token, 'motion.css')
+}
+
+for (const token of [
+  'loader-document-placeholder',
+  'loader-placeholder-line',
+  '--fsusblog-loader-muted: var(--fsusblog-text-muted)',
+  '--fsusblog-loader-rule: var(--fsusblog-panel-border)'
+]) {
+  expectIncludes(indexHtml, token, 'index.html')
+}
+
+for (const pattern of [
+  /\bpulse-dot\b/i,
+  /\bslide-bar\b/i,
+  /\bline-grow\b/i,
+  /\bshimmer\b/i,
+  /\bglow\b/i,
+  /--fsusblog-loader-accent/i,
+  /--fsusblog-color-primary[^;]*loader/i,
+  /--fsus-scholarly-blue[^;]*loader/i
+]) {
+  expectNotMatches(indexHtml, pattern, `index.html boot loader must not match ${pattern}`)
 }
 
 expectIncludes(progress, 'data-reading-progress="true"', 'ArticleReadingProgress.vue')
