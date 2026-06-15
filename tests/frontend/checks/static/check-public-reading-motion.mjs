@@ -25,6 +25,8 @@ function expectNotMatches(source, pattern, message) {
 const motionCss = read('src/frontend/src/assets/motion.css')
 const markdownCss = read('src/frontend/src/assets/markdown.css')
 const indexHtml = read('src/frontend/index.html')
+const publicPageCss = read('src/frontend/src/assets/public-page.css')
+const themeTokens = read('src/frontend/src/ui-tokens/themeTokens.ts')
 const progress = read('src/frontend/src/components/article/ArticleReadingProgress.vue')
 const toc = read('src/frontend/src/components/article/ArticleTocPanel.vue')
 const mobileBar = read('src/frontend/src/components/article/ArticleMobileActionBar.vue')
@@ -66,6 +68,30 @@ for (const pattern of [
   expectNotMatches(indexHtml, pattern, `index.html boot loader must not match ${pattern}`)
 }
 
+expectIncludes(
+  themeTokens,
+  'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]',
+  'themeTokens.ts'
+)
+expectNotMatches(
+  themeTokens,
+  /const\s+focusRing\s*=\s*['"][^'"]*\bfocus-visible:ring-1\b/,
+  'themeTokens.ts shared focusRing must not use ring-1'
+)
+
+expectIncludes(
+  publicPageCss,
+  'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);',
+  'public-page.css'
+)
+expectIncludes(publicPageCss, 'border-bottom-color: var(--fsusblog-color-primary);', 'public-page.css')
+expectIncludes(publicPageCss, 'box-shadow: inset 0 -2px 0 var(--fsusblog-color-primary);', 'public-page.css')
+expectNotMatches(
+  publicPageCss,
+  /box-shadow:\s*inset 0 0 0 1px var\(--fsusblog-color-focus-ring\)/,
+  'public-page.css public focus must use 2px ring'
+)
+
 expectIncludes(progress, 'data-reading-progress="true"', 'ArticleReadingProgress.vue')
 expectIncludes(progress, 'transform: scaleX(var(--article-reading-progress, 0))', 'ArticleReadingProgress.vue')
 expectIncludes(progress, 'transition: transform var(--blog-motion-fast) var(--blog-motion-ease)', 'ArticleReadingProgress.vue')
@@ -73,7 +99,14 @@ expectNotMatches(progress, /transition\s*:[^;]*width/s, 'ArticleReadingProgress.
 
 expectIncludes(toc, 'aria-current', 'ArticleTocPanel.vue')
 expectIncludes(toc, 'blog-motion-reading-control', 'ArticleTocPanel.vue')
+expectIncludes(toc, 'border-left-color: var(--fsusblog-color-primary);', 'ArticleTocPanel.vue')
+expectIncludes(toc, 'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);', 'ArticleTocPanel.vue')
 expectNotMatches(toc, /\b(?:translate|scale|stagger)\b/i, 'ArticleTocPanel.vue must not use translate/scale/stagger')
+expectNotMatches(
+  toc,
+  /border-left-color:\s*color-mix\(in srgb,\s*var\(--fsusblog-text-primary\)/,
+  'ArticleTocPanel.vue active/focus must use Scholarly Blue'
+)
 
 expectIncludes(mobileBar, 'data-mobile-reading-actions="true"', 'ArticleMobileActionBar.vue')
 expectIncludes(mobileBar, 'blog-motion-mobile-bar', 'ArticleMobileActionBar.vue')

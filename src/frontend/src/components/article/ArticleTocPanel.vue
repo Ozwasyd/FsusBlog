@@ -106,7 +106,8 @@ const handleDrawerNavigate = (id: string): void => {
 .article-toc-drawer__item {
   min-height: 2.25rem;
   border: 0;
-  border-left: 1px solid transparent;
+  border-left: 2px solid transparent;
+  border-radius: var(--fsusblog-reading-radius-control);
   background: transparent;
   color: var(--fsusblog-text-muted);
   padding: 0.35rem 0.25rem 0.35rem 0.625rem;
@@ -122,12 +123,17 @@ const handleDrawerNavigate = (id: string): void => {
 }
 
 .article-toc-panel__item:hover,
-.article-toc-panel__item:focus-visible,
 .article-toc-drawer__item:hover,
-.article-toc-drawer__item:focus-visible,
 .article-toc-panel__item--active,
 .article-toc-drawer__item--active {
-  border-left-color: color-mix(in srgb, var(--fsusblog-text-primary) 54%, transparent);
+  border-left-color: var(--fsusblog-color-primary);
+  color: var(--fsusblog-text-primary);
+}
+
+.article-toc-panel__item:focus-visible,
+.article-toc-drawer__item:focus-visible {
+  border-left-color: var(--fsusblog-color-primary);
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
   color: var(--fsusblog-text-primary);
   outline: none;
 }
