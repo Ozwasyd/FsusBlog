@@ -299,7 +299,11 @@ Public AOT document composer 只允许通过以下 5 个具名 sentinel 写入 A
 
 ## 单作者内容生命周期约定
 
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。高价值审计定义见 [`../security.md#审计级别`](../security.md#审计级别)。
+
 ### 文章状态枚举
+
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。
 
 文章状态的单一语义如下；AEDS `ArticleList` record 中的 `status:int32` 必须按此表解释，公开读链只承认 `Published` 且已到发布时间的数据。
 
@@ -313,21 +317,65 @@ Public AOT document composer 只允许通过以下 5 个具名 sentinel 写入 A
 
 新增公开分发端点、AOT、搜索、Binary list、feed、sitemap、related-reading 时必须复用此表，不能各自放宽过滤条件。
 
+### 公开 / 管理读写分离
+
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringBinaryBridgeMiddleware.cs`](../../src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs)。
+
 公开 article Binary 端点不再按身份混合语义。匿名公开读只能使用 `/api/binary/article/**.aeds` artifact 路径，客户端必须省略 credentials；admin/private 读写统一使用 `/api/binary/admin/article/**`，可读取所有非删除状态，并可用 `status=0/1/2/3/4` 精确管理 draft、scheduled、published、archived、deleted。任何旧 query 公开路径或匿名管理查询都不得退回文本 API 或泄露未发布标题。
 
-作者工作台生产 API 放在 `/api/binary/author/**`，全部使用 admin 授权和 AEDS frame；旧 `/api/binary/author/**` 只保留为后端兼容层。预览、草稿、修订、管理端 taxonomy、资产、AI 辅助都属于作者私有能力。私有预览走 `/api/binary/author/preview`，由服务端把草稿 Markdown 渲染成带 `data-preview-only=true`、`data-markdown-renderer=server-preview` 的 AOT-like HTML，前端只放进 sandboxed iframe，不进入公开路由或缓存。服务端草稿以 `ownerUserId + draftKey` 隔离并持久化正文、分类标签、发布状态和定时发布时间；编辑器发现服务端草稿比本地缓存更新时必须先提示恢复/丢弃，不能用本地缓存静默覆盖。文章修订历史必须通过 admin-only API 读取摘要和单条正文详情，编辑器只在作者工作台内比较当前表单与历史版本，回滚复用正式文章更新链路而不是直接写表。未发布正文不得进入 feed、search、sitemap、PublicAOT cache，也不得默认发送到外部 AI provider。
+作者工作台生产 API 放在 `/api/binary/author/**`，全部使用 admin 授权和 AEDS frame；被 bridge 复用的 JSON implementation 只保留为受保护的内部兼容层。预览、草稿、修订、管理端 taxonomy、资产、AI 辅助都属于作者私有能力。未发布正文不得进入 feed、search、sitemap、PublicAOT cache，也不得默认发送到外部 AI provider。
+
+### 预览
+
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。
+
+私有预览走 `/api/binary/author/preview`，由服务端把草稿 Markdown 渲染成带 `data-preview-only=true`、`data-markdown-renderer=server-preview` 的 AOT-like HTML，前端只放进 sandboxed iframe，不进入公开路由或缓存。
+
+### 草稿与本地缓存
+
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。
+
+服务端草稿以 `ownerUserId + draftKey` 隔离并持久化正文、分类标签、发布状态、定时发布时间和 `clientRevision`。浏览器本地缓存是 `useAdminArticleWrite.ts` 管理的 localStorage AEDS payload（`fsus:article-draft:create` / `fsus:article-draft:edit:{id}`），只作为断网和刷新恢复兜底；Pinia 表单状态不是持久草稿真相源。编辑器发现服务端草稿比本地缓存更新时必须先提示恢复/丢弃，不能用本地缓存静默覆盖服务端草稿。
+
+### 修订与回滚
+
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。
+
+文章修订历史必须通过 admin-only API 读取摘要和单条正文详情：`GET /api/binary/author/articles/{articleId}/revisions` 与 `GET /api/binary/author/articles/{articleId}/revisions/{revisionId}`。回滚使用 `POST /api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback`，服务层复用正式文章更新/失效链路写入新修订、刷新 AOT/search/feed/binary cache 并写审计；仓内不存在 issue 中提到的单数 article update 猜测路径，文档不得引用该旧猜测路径。编辑器只在作者工作台内比较当前表单与历史版本，回滚不得直接写表。
+
+### 运维与危险操作
+
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AdminOperationsService.cs`](../../src/backend/Infrastructure/Operations/AdminOperationsService.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。
 
 单作者运维能力也归入 `/api/binary/author/**`，不得新增多作者协作或复杂 RBAC。`/api/binary/author/ops/**` 只返回运行时健康、备份 artifact 状态、结构化最近错误和危险操作策略；最近错误必须在审计行物化后做摘要、清理和分组，不得在 ORM projection 内拼接格式化字符串或向前端泄露 SQL 表达式片段。`/api/binary/author/cache/**` 暴露 AOT/PublicHotRead/search/sitemap/feed/comment cache 诊断、VisitLog 驱动 HotArticles/Stats 失效合并状态与手动重建入口；`/api/binary/author/integrity/**` 暴露数据一致性巡检、diff 预览和带 MFA 的 safe-fix 应用。所有写入型维护动作必须写高价值审计；不可逆或跨表修复必须先返回 diff，并通过统一危险操作策略要求强确认或 MFA proof。
 
+### SEO 预览
+
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。
+
 SEO 预览是作者工作台内的发布前质量门，不是新路由模型：当前公开 canonical 仍由 `SeoConfigContract.baseUrl + /article/{id}` 生成，新文章落库前使用 draft-preview 占位。编辑器必须展示搜索结果和分享卡片预览，并在发布/定时发布前调用 `/api/binary/author/prepublish-check`；错误项阻断，摘要/封面/标题长度、图片 alt、超大 Markdown 或未知站内链接等 warning 只能在作者填写跳过理由后继续提交，理由由服务端写入审计。
+
+### Taxonomy
+
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`useAdminCategoryManage.ts`](../../src/frontend/src/composables/useAdminCategoryManage.ts)、[`useAdminTagManage.ts`](../../src/frontend/src/composables/useAdminTagManage.ts)。
 
 管理端分类/标签列表不得复用公开 `CategoryList` / `TagList` 的公开文章计数。作者工作台必须读取 `/api/binary/author/taxonomy/categories` 与 `/api/binary/author/taxonomy/tags`，用所有非删除状态或所有 `ArticleTag` 关联形成 `totalBlockingArticleCount` 与 `canDelete`，这样草稿、定时、归档和已删除关联不会被公开计数隐藏。标签删除采用严格锁定语义：只要仍有关联文章就拒绝删除，不静默移除文章上的标签关系。
 
+### 资产库
+
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`useImageUploadRuntime.ts`](../../src/frontend/src/composables/useImageUploadRuntime.ts)。
+
 资产库是作者工作台内的复用索引，不是公开文件浏览 API。索引只记录 `/uploads/illustration/*` 的正文图片和文章封面、alt text、来源文章、hash 与引用计数；重建操作先把失去引用的行标成 `referenceCount=0`，作者确认后再通过孤儿清理删除资产库记录。孤儿清理不删除上传文件本体；物理删除必须通过独立的文件删除动作和二次确认完成。
+
+### 评论治理
+
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`RegionLegalModerationService.cs`](../../src/backend/Services/Moderation/RegionLegalModerationService.cs)。
 
 评论治理是公开讨论区前置门禁：新评论默认进入 `Pending`，公开评论线程和回复游标只读取 `Approved`，并按 viewer IP 解析出的地区过滤 `blocked_regions`。提交时服务端按 request IP 解析 submit region；submit region 违法时直接拒绝，合法但部分 viewer region 不可展示时写入 `comment_region_compliance.blocked_regions`。`CN-MAINLAND` 严格策略只作用于 `CN-MAINLAND` 提交者或浏览者，不因 `CN-HK`、`CN-MO`、`CN-TW` 或 `GREATER_CHINA` 分组自动外溢；submit region 未知时进入待审且公开页不展示，viewer region 未知时对存在 blocked regions 的评论采用保守隐藏。作者工作台通过 `/api/binary/author/comments/moderation` 读取待审、已拒绝、已隐藏和已通过队列，展示敏感词、HTML 风险、密集链接、重复刷屏、人工原因和地区策略结果；单条或批量审核写入审计并清理评论游标缓存。误判恢复只需要把评论重新置为 `Approved`，但 `can_publish=false` 的发布地违法评论不得被管理员放行；拒绝/隐藏时可选择联动封禁非 admin 用户。
 
 ### 审核系统控制台
+
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`ModerationDictionaryService.cs`](../../src/backend/Services/Moderation/ModerationDictionaryService.cs)、[`RegionLegalModerationService.cs`](../../src/backend/Services/Moderation/RegionLegalModerationService.cs)。
 
 审核系统控制台位于 `/user/manage/moderation`，后台一级导航只保留「审核系统」，评论审核是其子栏目。控制台端点使用 `/api/binary/author/moderation/**` AEDS bridge；JSON envelope 只存在于受保护的 internal bridge implementation，浏览器不可直接访问。
 
@@ -359,6 +407,10 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 ### 第三方模型 Provider 边界
 
 第三方审核模型 Provider 只接入为风险信号层，契约由 FsusBlog 定义，不能返回最终发布、隐藏、地区屏蔽或地区合法性结论；Provider 开发入口见 [../moderation/third-party-model-development.md](../moderation/third-party-model-development.md)。
+
+### 导入导出
+
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。
 
 内容导入导出是作者工作台的恢复工具，不是匿名下载 API。单篇导出必须是 Markdown + frontmatter，frontmatter 同时保留可读字段和 `fsusMetadataJson` 机器元数据；全站内容包只是这些单篇导出的 JSON 聚合。导入默认按 metadata 恢复 draft/scheduled/published/archived 状态、分类、标签、封面和 revision 记录；只有作者显式传 `publish=true` 时才强制上线。
 
