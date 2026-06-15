@@ -130,6 +130,10 @@ function annotateWorkflowJob(job) {
   job.npmCiCommands = job.runs.filter((command) => /(?:^|\s)npm\s+--prefix\s+src\/frontend\s+ci(?:\s|$)/.test(command))
   job.playwrightInstallCommands = job.runs.filter((command) => /playwright\s+install/.test(command))
   job.flakyGovernedCommands = job.runs.filter((command) => /tools\/ci\/run-flaky-governed\.mjs/.test(command))
+  job.usesMatrixTierCommand = /(?:^|\s)(?:\.\/)?tools\/test\.sh\s+ci-tier\s+\$\{\{\s*matrix\.tier\s*\}\}\s+--no-deps(?:\s|$)/.test(text)
+  job.usesGeneratedFastBackendMatrix = /matrix:\s*\$\{\{\s*fromJson\(needs\.validate-matrix\.outputs\.fast_backend_matrix\)\s*\}\}/.test(text)
+  job.usesGeneratedFastBackendMaxParallel = /max-parallel:\s*\$\{\{\s*fromJson\(needs\.validate-matrix\.outputs\.fast_backend_max_parallel\)\s*\}\}/.test(text)
+  job.generatesFastBackendMatrix = /node tools\/run-test-matrix\.mjs ci-job-matrix fast-backend --github-output "\$GITHUB_OUTPUT"/.test(text)
   return job
 }
 
@@ -272,8 +276,11 @@ function planTierClosure(tiersById, targetId, noDeps) {
   return covered
 }
 
-function coveredTiersForWorkflowJob(job, tiersById) {
+function coveredTiersForWorkflowJob(job, tiersById, plannedTierIds = []) {
   const covered = new Set()
+  if (job.usesMatrixTierCommand) {
+    for (const tierId of plannedTierIds) covered.add(tierId)
+  }
   for (const command of job.runs) {
     if (command === 'node tools/run-test-matrix.mjs validate' || command === 'node tools/run-test-matrix.mjs preflight') {
       covered.add('validate-matrix')
@@ -291,6 +298,40 @@ function coveredTiersForWorkflowJob(job, tiersById) {
   }
 
   return covered
+}
+
+function validateGeneratedFastBackendMatrix(workflowJob, planJob, tiersById, errors) {
+  if (planJob.id !== 'fast-backend') return
+
+  const fastBackendTiers = planJob.tiers
+    .map((tierId) => tiersById.get(tierId))
+    .filter(Boolean)
+
+  if (fastBackendTiers.length <= 1) return
+
+  const canRunAsGeneratedMatrix = fastBackendTiers.every((tier) =>
+    tier.parallelizable === true
+    && (tier.exclusiveResources?.length ?? 0) === 0
+    && (tier.services?.length ?? 0) === 0
+  )
+  if (!canRunAsGeneratedMatrix) return
+
+  if (!workflowJob.usesGeneratedFastBackendMatrix) {
+    errors.push('workflow job fast-backend must use the generated fast_backend_matrix from validate-matrix outputs')
+  }
+  if (!workflowJob.usesGeneratedFastBackendMaxParallel) {
+    errors.push('workflow job fast-backend must use the generated fast_backend_max_parallel from validate-matrix outputs')
+  }
+  if (!workflowJob.usesMatrixTierCommand) {
+    errors.push('workflow job fast-backend must run exactly one ci-tier per matrix tier')
+  }
+
+  const serialBackendRuns = workflowJob.runs.filter((command) =>
+    /(?:^|\s)(?:\.\/)?tools\/test\.sh\s+(?:backend-fast|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden)\s+--no-deps(?:\s|$)/.test(command)
+  )
+  if (serialBackendRuns.length > 1) {
+    errors.push(`workflow job fast-backend serially runs ${serialBackendRuns.length} backend fast tiers instead of the generated matrix`)
+  }
 }
 
 function setupRequirementsForTiers(tierIds, tiersById) {
@@ -397,6 +438,10 @@ function main() {
   const requiredPlanJobs = plan.jobs.filter((job) => job.tiers.some(isWorkflowRequiredTier))
   const requiredJobIds = new Set(requiredPlanJobs.map((job) => job.id))
 
+  if (requiredJobIds.has('fast-backend') && !workflowJobs.get('validate-matrix')?.generatesFastBackendMatrix) {
+    errors.push('workflow job validate-matrix must generate fast_backend_matrix through tools/run-test-matrix.mjs ci-job-matrix')
+  }
+
   for (const jobId of workflowJobs.keys()) {
     if (!requiredJobIds.has(jobId)) {
       errors.push(`workflow job ${jobId} is not declared by required matrix ciJob metadata`)
@@ -428,7 +473,8 @@ function main() {
     }
 
     if (job.id !== 'production-summary') {
-      const coveredTiers = coveredTiersForWorkflowJob(workflowJob, tiersById)
+      validateGeneratedFastBackendMatrix(workflowJob, job, tiersById, errors)
+      const coveredTiers = coveredTiersForWorkflowJob(workflowJob, tiersById, job.tiers)
       validateWorkflowSetup(job.id, workflowJob, setupRequirementsForTiers(coveredTiers, tiersById), errors)
       const bootstrapCount = bootstrapExecutionsForWorkflowJob(workflowJob, tiersById)
       if (bootstrapCount > 1) {
@@ -455,7 +501,8 @@ function main() {
   }
 
   for (const [jobId, workflowJob] of workflowJobs.entries()) {
-    for (const tierId of coveredTiersForWorkflowJob(workflowJob, tiersById)) {
+    const plannedTierIds = plan.jobs.find((job) => job.id === jobId)?.tiers ?? []
+    for (const tierId of coveredTiersForWorkflowJob(workflowJob, tiersById, plannedTierIds)) {
       const tier = tiersById.get(tierId)
       if (tier?.localOnly === true) errors.push(`workflow job ${jobId} runs local-only matrix tier: ${tierId}`)
       if (tier?.nightlyOnly === true) errors.push(`workflow job ${jobId} runs nightly-only matrix tier: ${tierId}`)

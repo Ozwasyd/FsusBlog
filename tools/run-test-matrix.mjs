@@ -134,8 +134,16 @@ function isExecutableCommand(command) {
   const [first] = String(command).split(/\s+/)
   if (!first || !/^(tools|tests|src|\.\/tools|\.\/tests|\.\/src)\//.test(first)) return true
   const rel = first.replace(/^\.\//, '')
+  const filePath = path.join(root, rel)
   try {
-    return (fs.statSync(path.join(root, rel)).mode & 0o111) !== 0
+    const stat = fs.statSync(filePath)
+    if ((stat.mode & 0o111) !== 0) return true
+    if (process.platform === 'win32') {
+      if (/\.(?:sh|mjs|js)$/i.test(rel)) return true
+      const head = fs.readFileSync(filePath, 'utf8').slice(0, 2)
+      return head === '#!'
+    }
+    return false
   } catch {
     return false
   }
@@ -489,8 +497,59 @@ function parseCiJobOptions(args) {
   return options
 }
 
+function parseCiJobMatrixOptions(args) {
+  const options = { outFile: null, githubOutputFile: null }
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]
+    if (arg === '--out') options.outFile = args[++index]
+    else if (arg.startsWith('--out=')) options.outFile = arg.slice('--out='.length)
+    else if (arg === '--github-output') options.githubOutputFile = args[++index]
+    else if (arg.startsWith('--github-output=')) options.githubOutputFile = arg.slice('--github-output='.length)
+    else throw new Error(`unknown ci-job-matrix option: ${arg}`)
+  }
+  return options
+}
+
 function ciJobTiers(matrix, jobId) {
   return matrix.tiers.filter((tier) => tier.ciJob === jobId && tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true)
+}
+
+function buildCiJobMatrix(matrix, jobId) {
+  const tiers = ciJobTiers(matrix, jobId)
+  if (tiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
+
+  return {
+    include: tiers.map((tier) => ({
+      tier: tier.id,
+      ci_job: tier.ciJob,
+      resource_class: tier.resourceClass,
+      max_parallel: tier.maxParallel,
+      timeout_minutes: tier.timeoutMinutes,
+      artifact_name: `${jobId}-${tier.id}`
+    }))
+  }
+}
+
+function ciJobMatrix(matrix, jobId, args) {
+  const options = parseCiJobMatrixOptions(args)
+  const payload = buildCiJobMatrix(matrix, jobId)
+  const maxParallel = Math.max(...payload.include.map((entry) => Number(entry.max_parallel || 1)))
+
+  if (options.githubOutputFile) {
+    const abs = path.resolve(root, options.githubOutputFile)
+    ensureOutputDirectory(abs)
+    fs.appendFileSync(abs, `matrix=${JSON.stringify(payload)}\n`)
+    fs.appendFileSync(abs, `max_parallel=${maxParallel}\n`)
+    console.log(`[matrix:ci-job-matrix] wrote ${relativeToRoot(abs)} for ${jobId}`)
+    return
+  }
+
+  const text = `${JSON.stringify({
+    job: jobId,
+    max_parallel: maxParallel,
+    matrix: payload
+  }, null, 2)}\n`
+  writeTextOutput(text, options.outFile, 'matrix:ci-job-matrix')
 }
 
 function printCiJobPlan(matrix, jobId) {
@@ -830,6 +889,7 @@ function usage() {
   node tools/run-test-matrix.mjs run <tier> [--plan-only] [--no-deps] [--shard i/n]
   node tools/run-test-matrix.mjs ci-tier <tier> [--plan-only] [--no-deps] [--shard i/n]
   node tools/run-test-matrix.mjs ci-job <job> [--plan-only] [--shard i/n]
+  node tools/run-test-matrix.mjs ci-job-matrix <job> [--out file] [--github-output file]
   node tools/run-test-matrix.mjs ci-fast [--plan-only]
   node tools/run-test-matrix.mjs ci-production [--plan-only]
   node tools/run-test-matrix.mjs ci-release-final [--plan-only]
@@ -894,6 +954,10 @@ function main() {
   }
   if (command === 'ci-job') {
     runCiJob(matrix, args[0], args.slice(1))
+    return
+  }
+  if (command === 'ci-job-matrix') {
+    ciJobMatrix(matrix, args[0], args.slice(1))
     return
   }
   if (command === 'ci-fast') {
