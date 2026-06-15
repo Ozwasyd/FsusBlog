@@ -714,26 +714,26 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh view-count-flush
     dependsOn: []
-    services: []
+    services: [postgres, redis, backend, frontend]
     parallelizable: true
     exclusiveResources: []
     phase: 3
     cost: medium
     resourceClass: benchmark
     maxParallel: 1
-    requiresBootstrap: none
+    requiresBootstrap: full
     requiresNode: true
-    requiresDotnet: false
+    requiresDotnet: true
     requiresPlaywright: none
-    cacheProfile: none
-    timeoutMinutes: 5
+    cacheProfile: full
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
     coverage: [view-count-batch-flush]
-    artifacts: [.tmp/perf/backend-qps/view-count-flush.json, .tmp/release-evidence/backend-qps-summary.json]
-    evidence: [.tmp/perf/backend-qps/view-count-flush.json, .tmp/release-evidence/backend-qps-summary.json]
-    ciJob: backend-qps
+    artifacts: [.tmp/perf/backend-qps/view-count-flush.json]
+    evidence: [.tmp/perf/backend-qps/view-count-flush.json]
+    ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
 
@@ -741,26 +741,26 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh visitlog-invalidation
     dependsOn: []
-    services: []
+    services: [postgres, redis, backend, frontend]
     parallelizable: true
     exclusiveResources: []
     phase: 3
     cost: medium
     resourceClass: benchmark
     maxParallel: 1
-    requiresBootstrap: none
-    requiresNode: false
+    requiresBootstrap: full
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
-    timeoutMinutes: 5
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
     coverage: [visitlog-hot-stats-invalidation-coalescing]
-    artifacts: [.tmp/perf/backend-qps/visitlog-invalidation.json, .tmp/release-evidence/backend-qps-summary.json]
-    evidence: [.tmp/perf/backend-qps/visitlog-invalidation.json, .tmp/release-evidence/backend-qps-summary.json]
-    ciJob: backend-qps
+    artifacts: [.tmp/perf/backend-qps/visitlog-invalidation.json]
+    evidence: [.tmp/perf/backend-qps/visitlog-invalidation.json]
+    ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
 
@@ -768,26 +768,26 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh cache-hit
     dependsOn: []
-    services: []
+    services: [postgres, redis, backend, frontend]
     parallelizable: true
     exclusiveResources: []
     phase: 3
     cost: medium
     resourceClass: benchmark
     maxParallel: 1
-    requiresBootstrap: none
-    requiresNode: false
+    requiresBootstrap: full
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
-    timeoutMinutes: 5
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
     coverage: [aeds-full-frame-cache-hit]
-    artifacts: [.tmp/perf/backend-qps/cache-hit.json, .tmp/release-evidence/backend-qps-summary.json]
-    evidence: [.tmp/perf/backend-qps/cache-hit.json, .tmp/release-evidence/backend-qps-summary.json]
-    ciJob: backend-qps
+    artifacts: [.tmp/perf/backend-qps/cache-hit.json]
+    evidence: [.tmp/perf/backend-qps/cache-hit.json]
+    ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
 
@@ -795,26 +795,26 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh comment-cursor
     dependsOn: []
-    services: []
+    services: [postgres, redis, backend, frontend]
     parallelizable: true
     exclusiveResources: []
     phase: 3
     cost: medium
     resourceClass: benchmark
     maxParallel: 1
-    requiresBootstrap: none
-    requiresNode: false
+    requiresBootstrap: full
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
-    timeoutMinutes: 5
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
     coverage: [comment-cursor-cache]
-    artifacts: [.tmp/perf/backend-qps/comment-cursor.json, .tmp/release-evidence/backend-qps-summary.json]
-    evidence: [.tmp/perf/backend-qps/comment-cursor.json, .tmp/release-evidence/backend-qps-summary.json]
-    ciJob: backend-qps
+    artifacts: [.tmp/perf/backend-qps/comment-cursor.json]
+    evidence: [.tmp/perf/backend-qps/comment-cursor.json]
+    ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
 
@@ -822,26 +822,26 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh hotread
     dependsOn: []
-    services: []
+    services: [postgres, redis, backend, frontend]
     parallelizable: true
     exclusiveResources: []
     phase: 3
     cost: medium
     resourceClass: benchmark
     maxParallel: 1
-    requiresBootstrap: none
-    requiresNode: false
+    requiresBootstrap: full
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
-    timeoutMinutes: 5
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
     coverage: [public-hot-read-taxonomy]
-    artifacts: [.tmp/perf/backend-qps/hotread.json, .tmp/release-evidence/backend-qps-summary.json]
-    evidence: [.tmp/perf/backend-qps/hotread.json, .tmp/release-evidence/backend-qps-summary.json]
-    ciJob: backend-qps
+    artifacts: [.tmp/perf/backend-qps/hotread.json]
+    evidence: [.tmp/perf/backend-qps/hotread.json]
+    ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
 
@@ -849,26 +849,26 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh cache-miss-singleflight
     dependsOn: []
-    services: []
+    services: [postgres, redis, backend, frontend]
     parallelizable: true
     exclusiveResources: []
     phase: 3
     cost: medium
     resourceClass: benchmark
     maxParallel: 1
-    requiresBootstrap: none
-    requiresNode: false
+    requiresBootstrap: full
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
-    timeoutMinutes: 5
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
     coverage: [cache-miss-singleflight]
-    artifacts: [.tmp/perf/backend-qps/cache-miss-singleflight.json, .tmp/release-evidence/backend-qps-summary.json]
-    evidence: [.tmp/perf/backend-qps/cache-miss-singleflight.json, .tmp/release-evidence/backend-qps-summary.json]
-    ciJob: backend-qps
+    artifacts: [.tmp/perf/backend-qps/cache-miss-singleflight.json]
+    evidence: [.tmp/perf/backend-qps/cache-miss-singleflight.json]
+    ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
 
@@ -876,26 +876,26 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh risk-filter
     dependsOn: []
-    services: []
+    services: [postgres, redis, backend, frontend]
     parallelizable: true
     exclusiveResources: []
     phase: 3
     cost: medium
     resourceClass: benchmark
     maxParallel: 1
-    requiresBootstrap: none
-    requiresNode: false
+    requiresBootstrap: full
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
-    timeoutMinutes: 5
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
     coverage: [public-read-risk-filter]
-    artifacts: [.tmp/perf/backend-qps/risk-filter.json, .tmp/release-evidence/backend-qps-summary.json]
-    evidence: [.tmp/perf/backend-qps/risk-filter.json, .tmp/release-evidence/backend-qps-summary.json]
-    ciJob: backend-qps
+    artifacts: [.tmp/perf/backend-qps/risk-filter.json]
+    evidence: [.tmp/perf/backend-qps/risk-filter.json]
+    ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
 
@@ -903,26 +903,26 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh related-reading
     dependsOn: []
-    services: []
+    services: [postgres, redis, backend, frontend]
     parallelizable: true
     exclusiveResources: []
     phase: 3
     cost: medium
     resourceClass: benchmark
     maxParallel: 1
-    requiresBootstrap: none
-    requiresNode: false
+    requiresBootstrap: full
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
-    timeoutMinutes: 5
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
     coverage: [related-reading-cache]
-    artifacts: [.tmp/perf/backend-qps/related-reading.json, .tmp/release-evidence/backend-qps-summary.json]
-    evidence: [.tmp/perf/backend-qps/related-reading.json, .tmp/release-evidence/backend-qps-summary.json]
-    ciJob: backend-qps
+    artifacts: [.tmp/perf/backend-qps/related-reading.json]
+    evidence: [.tmp/perf/backend-qps/related-reading.json]
+    ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
 
@@ -930,26 +930,26 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh list-pagination
     dependsOn: []
-    services: []
+    services: [postgres, redis, backend, frontend]
     parallelizable: true
     exclusiveResources: []
     phase: 3
     cost: medium
     resourceClass: benchmark
     maxParallel: 1
-    requiresBootstrap: none
-    requiresNode: false
+    requiresBootstrap: full
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
-    timeoutMinutes: 5
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
     coverage: [public-list-deep-page]
-    artifacts: [.tmp/perf/backend-qps/list-pagination.json, .tmp/release-evidence/backend-qps-summary.json]
-    evidence: [.tmp/perf/backend-qps/list-pagination.json, .tmp/release-evidence/backend-qps-summary.json]
-    ciJob: backend-qps
+    artifacts: [.tmp/perf/backend-qps/list-pagination.json]
+    evidence: [.tmp/perf/backend-qps/list-pagination.json]
+    ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
 
@@ -957,26 +957,26 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh article-detail-miss
     dependsOn: []
-    services: []
+    services: [postgres, redis, backend, frontend]
     parallelizable: true
     exclusiveResources: []
     phase: 3
     cost: medium
     resourceClass: benchmark
     maxParallel: 1
-    requiresBootstrap: none
-    requiresNode: false
+    requiresBootstrap: full
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
-    timeoutMinutes: 5
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
     coverage: [article-detail-artifact-miss]
-    artifacts: [.tmp/perf/backend-qps/article-detail-miss.json, .tmp/release-evidence/backend-qps-summary.json]
-    evidence: [.tmp/perf/backend-qps/article-detail-miss.json, .tmp/release-evidence/backend-qps-summary.json]
-    ciJob: backend-qps
+    artifacts: [.tmp/perf/backend-qps/article-detail-miss.json]
+    evidence: [.tmp/perf/backend-qps/article-detail-miss.json]
+    ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
 
@@ -984,26 +984,26 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh cache-registry
     dependsOn: []
-    services: []
+    services: [postgres, redis, backend, frontend]
     parallelizable: true
     exclusiveResources: []
     phase: 3
     cost: medium
     resourceClass: benchmark
     maxParallel: 1
-    requiresBootstrap: none
-    requiresNode: false
+    requiresBootstrap: full
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
-    timeoutMinutes: 5
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
     coverage: [cache-registry-command-reduction]
-    artifacts: [.tmp/perf/backend-qps/cache-registry.json, .tmp/release-evidence/backend-qps-summary.json]
-    evidence: [.tmp/perf/backend-qps/cache-registry.json, .tmp/release-evidence/backend-qps-summary.json]
-    ciJob: backend-qps
+    artifacts: [.tmp/perf/backend-qps/cache-registry.json]
+    evidence: [.tmp/perf/backend-qps/cache-registry.json]
+    ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
 
@@ -1011,26 +1011,26 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh cache-invalidation-batch
     dependsOn: []
-    services: []
+    services: [postgres, redis, backend, frontend]
     parallelizable: true
     exclusiveResources: []
     phase: 3
     cost: medium
     resourceClass: cpu
     maxParallel: 4
-    requiresBootstrap: none
-    requiresNode: false
+    requiresBootstrap: full
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
-    timeoutMinutes: 5
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
     coverage: [cache-invalidation-batch-roundtrip-reduction]
-    artifacts: [.tmp/perf/backend-qps/cache-invalidation-batch.json, .tmp/release-evidence/backend-qps-summary.json]
-    evidence: [.tmp/perf/backend-qps/cache-invalidation-batch.json, .tmp/release-evidence/backend-qps-summary.json]
-    ciJob: backend-qps
+    artifacts: [.tmp/perf/backend-qps/cache-invalidation-batch.json]
+    evidence: [.tmp/perf/backend-qps/cache-invalidation-batch.json]
+    ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
 
@@ -1038,45 +1038,45 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/backend-qps.sh index-plan
     dependsOn: []
-    services: []
+    services: [postgres, redis, backend, frontend]
     parallelizable: true
     exclusiveResources: []
     phase: 3
     cost: medium
     resourceClass: benchmark
     maxParallel: 1
-    requiresBootstrap: none
-    requiresNode: false
+    requiresBootstrap: full
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
-    timeoutMinutes: 5
+    timeoutMinutes: 45
     shardable: false
     defaultShards: 1
     risk: high
     coverage: [db-index-plan]
-    artifacts: [.tmp/perf/backend-qps/index-plan.json, .tmp/release-evidence/backend-qps-summary.json]
-    evidence: [.tmp/perf/backend-qps/index-plan.json, .tmp/release-evidence/backend-qps-summary.json]
-    ciJob: backend-qps
+    artifacts: [.tmp/perf/backend-qps/index-plan.json]
+    evidence: [.tmp/perf/backend-qps/index-plan.json]
+    ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
 
   - id: backend-qps
     owner: ServerContractAgent
-    command: tools/test/lanes/noop.sh backend-qps
+    command: tools/test/lanes/backend-qps.sh aggregate
     dependsOn: [bootstrap, backend-qps-view-count-flush, backend-qps-visitlog-invalidation, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-cache-invalidation-batch, backend-qps-index-plan]
     services: []
-    parallelizable: true
+    parallelizable: false
     exclusiveResources: []
     phase: 3
-    cost: high
-    resourceClass: benchmark
+    cost: low
+    resourceClass: io
     maxParallel: 1
-    requiresBootstrap: full
-    requiresNode: false
-    requiresDotnet: true
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
     requiresPlaywright: none
-    cacheProfile: backend
+    cacheProfile: none
     timeoutMinutes: 45
     shardable: false
     defaultShards: 1
@@ -1504,11 +1504,11 @@ tiers:
     cost: high
     resourceClass: database
     maxParallel: 1
-    requiresBootstrap: full
+    requiresBootstrap: none
     requiresNode: true
-    requiresDotnet: true
+    requiresDotnet: false
     requiresPlaywright: none
-    cacheProfile: full
+    cacheProfile: none
     timeoutMinutes: 30
     shardable: false
     defaultShards: 1

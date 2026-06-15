@@ -288,6 +288,8 @@ npx playwright test --update-snapshots
 
 `backend-qps` 是运行时 HTTP probe 证据，默认命名口径为 `backend-qps-kestrel-only`：调用本仓库启动的 Kestrel 进程，证据中 `performance_baseline.mode=kestrel-only`。如果要对 nginx/CDN/reverse proxy 做部署层对比，使用单独 artifact 名称（例如 `backend-qps-deployment-proxy-optional`），并保持 `optional_deployment_layer.counted_as_project_baseline=false`。
 
+CI 将 `backend-qps` 拆为两个阶段：`backend-qps-collectors` 使用 matrix 并发运行 `backend-qps-*` collector tier，每个 collector 在独立 runner 中 bootstrap 本地 app stack 并只上传 `.tmp/perf/backend-qps/<mode>.json`；`backend-qps` aggregate job 等待 collectors 与 `integration-runtime`，下载 collector artifacts 后运行 `tools/test/lanes/backend-qps.sh aggregate`，统一写入 `.tmp/release-evidence/backend-qps-summary.json`。collector 不再各自写 summary，避免并发覆盖；本地 `./tools/test.sh backend-qps` 仍通过 matrix DAG 先完成 bootstrap 和 collectors，再执行 aggregate。
+
 独立运行真实 BenchmarkDotNet：
 ```bash
 cd FsusBlog.Core.Benchmarks

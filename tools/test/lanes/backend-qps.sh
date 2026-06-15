@@ -3,8 +3,23 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 MODE="${1:-}"
-OUT_DIR="$ROOT_DIR/.tmp/perf/backend-qps"
-SUMMARY_FILE="$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json"
+OUT_DIR="${FSUSBLOG_BACKEND_QPS_OUT_DIR:-$ROOT_DIR/.tmp/perf/backend-qps}"
+SUMMARY_FILE="${FSUSBLOG_BACKEND_QPS_SUMMARY_FILE:-$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json}"
+BACKEND_QPS_MODES=(
+  view-count-flush
+  visitlog-invalidation
+  cache-hit
+  comment-cursor
+  hotread
+  cache-miss-singleflight
+  risk-filter
+  related-reading
+  list-pagination
+  article-detail-miss
+  cache-registry
+  cache-invalidation-batch
+  index-plan
+)
 
 if [[ -z "$MODE" ]]; then
   echo "usage: backend-qps.sh <mode>" >&2
@@ -12,6 +27,60 @@ if [[ -z "$MODE" ]]; then
 fi
 
 mkdir -p "$OUT_DIR" "$(dirname "$SUMMARY_FILE")"
+
+aggregate_summary() {
+  local generated_at
+  generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  local files=()
+  local missing=()
+
+  for mode in "${BACKEND_QPS_MODES[@]}"; do
+    local file="$OUT_DIR/$mode.json"
+    if [[ -f "$file" ]]; then
+      files+=("$file")
+    else
+      missing+=("$mode")
+    fi
+  done
+
+  if [[ "${#missing[@]}" -gt 0 ]]; then
+    printf '[backend-qps:aggregate] missing collector artifact(s): %s\n' "${missing[*]}" >&2
+    exit 1
+  fi
+
+  "${FSUSBLOG_NODE:-node}" - "$generated_at" "$SUMMARY_FILE" "${BACKEND_QPS_MODES[@]}" -- "${files[@]}" <<'NODE'
+const fs = require('node:fs')
+
+const [, , generatedAt, summaryFile, ...args] = process.argv
+const splitIndex = args.indexOf('--')
+if (splitIndex < 0) {
+  throw new Error('missing backend-qps aggregate argument separator')
+}
+
+const expectedModes = args.slice(0, splitIndex)
+const files = args.slice(splitIndex + 1)
+const results = files.map((file) => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/u, '')))
+const summary = {
+  status: results.some((item) => item.status !== 'ok') ? 'blocked' : 'ok',
+  generatedAt,
+  performance_baseline: results.find((item) => item.performance_baseline != null)?.performance_baseline ?? null,
+  optional_deployment_layer: results.find((item) => item.optional_deployment_layer != null)?.optional_deployment_layer ?? null,
+  artifactDir: '.tmp/perf/backend-qps',
+  expectedModes,
+  resultCount: results.length,
+  results
+}
+
+fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
+NODE
+
+  printf '[backend-qps:aggregate] wrote %s\n' "$SUMMARY_FILE"
+}
+
+if [[ "$MODE" == "aggregate" ]]; then
+  aggregate_summary
+  exit 0
+fi
 
 require_token() {
   local file="$1"
@@ -184,16 +253,5 @@ jq \
     | .staticImplementationChecks = ($checksCsv | split(",") | map(select(length > 0)))' \
   "$artifact" > "$tmp_artifact"
 mv "$tmp_artifact" "$artifact"
-
-jq -s \
-  --arg generatedAt "$generated_at" \
-  '{
-    status: (if any(.[]; .status != "ok") then "blocked" else "ok" end),
-    generatedAt: $generatedAt,
-    performance_baseline: (map(select(.performance_baseline != null))[0].performance_baseline // null),
-    optional_deployment_layer: (map(select(.optional_deployment_layer != null))[0].optional_deployment_layer // null),
-    artifactDir: ".tmp/perf/backend-qps",
-    results: .
-  }' "$OUT_DIR"/*.json > "$SUMMARY_FILE"
 
 echo "[backend-qps:$MODE] wrote $artifact"

@@ -140,6 +140,7 @@ function annotateWorkflowJob(job) {
   job.downloadsFastBackendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /pattern:\s*fast-backend-\*/.test(text)
   job.downloadsFastFrontendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /pattern:\s*fast-frontend-unit-\*/.test(text)
   job.downloadsFastStaticArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*fast-static-governance/.test(text)
+  job.referencesValidateMatrixOutputs = /needs\.validate-matrix\.outputs\./.test(text)
   return job
 }
 
@@ -526,6 +527,9 @@ function main() {
 
     const actualNeeds = workflowJobs.get(job.id).needs
     const workflowJob = workflowJobs.get(job.id)
+    if (workflowJob.referencesValidateMatrixOutputs && !actualNeeds.has('validate-matrix')) {
+      errors.push(`workflow job ${job.id} reads needs.validate-matrix.outputs but does not declare validate-matrix in needs`)
+    }
     const actualTimeout = workflowJobs.get(job.id).timeoutMinutes
     const actualMaxParallel = workflowJobs.get(job.id).maxParallel
     if (actualTimeout !== Number(job.timeoutMinutes)) {

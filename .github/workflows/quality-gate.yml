@@ -39,6 +39,8 @@ jobs:
       visual_console_playwright_max_parallel: ${{ steps.visual_console_playwright_matrix.outputs.max_parallel }}
       ux_viewport_smoke_matrix: ${{ steps.ux_viewport_smoke_matrix.outputs.matrix }}
       ux_viewport_smoke_max_parallel: ${{ steps.ux_viewport_smoke_matrix.outputs.max_parallel }}
+      backend_qps_collectors_matrix: ${{ steps.backend_qps_collectors_matrix.outputs.matrix }}
+      backend_qps_collectors_max_parallel: ${{ steps.backend_qps_collectors_matrix.outputs.max_parallel }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -64,6 +66,8 @@ jobs:
         run: node tools/run-test-matrix.mjs ci-job-matrix visual-console-playwright --github-output "$GITHUB_OUTPUT"
       - id: ux_viewport_smoke_matrix
         run: node tools/run-test-matrix.mjs ci-job-matrix ux-viewport-smoke --github-output "$GITHUB_OUTPUT"
+      - id: backend_qps_collectors_matrix
+        run: node tools/run-test-matrix.mjs ci-job-matrix backend-qps-collectors --github-output "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -443,7 +447,7 @@ jobs:
   acceptance-playwright:
     name: Acceptance Playwright ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    needs: [fast-summary, integration-runtime, release-public]
+    needs: [validate-matrix, fast-summary, integration-runtime, release-public]
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -614,7 +618,7 @@ jobs:
   ux-viewport-smoke:
     name: UX Viewport Smoke ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    needs: integration-runtime
+    needs: [validate-matrix, integration-runtime]
     timeout-minutes: 35
     strategy:
       fail-fast: false
@@ -820,11 +824,17 @@ jobs:
             .tmp/release-evidence/perf-summary.json
             .tmp/release-evidence/jobs/**
 
-  backend-qps:
-    name: Backend QPS Runtime
+  backend-qps-collectors:
+    name: Backend QPS Collector ${{ matrix.shard_id }}
     runs-on: ubuntu-latest
-    needs: integration-runtime
+    needs: validate-matrix
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJson(needs.validate-matrix.outputs.backend_qps_collectors_max_parallel) }}
+      matrix: ${{ fromJson(needs.validate-matrix.outputs.backend_qps_collectors_matrix) }}
+    env:
+      FSUSBLOG_TEST_NAMESPACE: ci-backend-qps-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -840,7 +850,36 @@ jobs:
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - run: ./tools/test.sh backend-qps
+      - run: ./tools/test.sh bootstrap --no-deps
+      - run: ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps
+        env:
+          FSUSBLOG_CI_JOB_ID: ${{ matrix.artifact_name }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ${{ matrix.artifact_name }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/perf/backend-qps/**
+            .tmp/release-evidence/jobs/**
+
+  backend-qps:
+    name: Backend QPS Aggregate
+    runs-on: ubuntu-latest
+    needs: [integration-runtime, backend-qps-collectors]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: backend-qps-collectors-*
+          path: .
+          merge-multiple: true
+      - run: ./tools/test.sh ci-tier backend-qps --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:

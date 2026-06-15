@@ -1210,7 +1210,7 @@ function docs(matrix, outFile) {
     lines.push(`| \`${jobId}\` | \`${ciJobExecutionMode(matrix, jobId)}\` | \`${ciJobReproductionCommand(jobId, matrix)}\` | ${tiers.map((id) => `\`${id}\``).join(', ')} |`)
   }
   lines.push('')
-  const text = `${lines.join('\n')}\n`
+  const text = `${lines.join('\n').replace(/\n+$/u, '')}\n`
   writeTextOutput(text, outFile, 'matrix:docs')
 }
 
