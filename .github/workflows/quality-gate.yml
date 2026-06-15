@@ -308,7 +308,7 @@ jobs:
   cross-stack-contract:
     name: Cross Stack Contract
     runs-on: ubuntu-latest
-    needs: [fast-frontend-unit, fast-static-governance, integration-runtime]
+    needs: [fast-frontend-unit, fast-static-governance]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
@@ -318,7 +318,7 @@ jobs:
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - run: ./tools/test.sh endpoint-depth --no-deps
+      - run: ./tools/test.sh backend-api-integration --no-deps
       - run: ./tools/test.sh cross-stack-contract --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
@@ -327,8 +327,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
           path: |
-            .tmp/contracts/endpoint-depth-matrix.json
-            .tmp/release-evidence/endpoint-depth-summary.json
+            .tmp/backend-api-integration/**
             .tmp/release-evidence/jobs/**
             src/frontend/src/generated/fsusBinaryRoutes.ts
             src/shared/Contracts/Validation/fsusblog.openapi.json
@@ -358,7 +357,6 @@ jobs:
       - run: ./tools/test.sh integration
       - run: ./tools/test.sh data-scale-xs --no-deps
       - run: ./tools/test.sh data-scale-s --no-deps
-      - run: ./tools/test.sh backend-api-integration --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -367,11 +365,45 @@ jobs:
           retention-days: 14
           path: |
             .tmp/acceptance/**
-            .tmp/backend-api-integration/**
             .tmp/scale/**
             .tmp/release-evidence/data-scale-summary.json
             .tmp/release-evidence/jobs/**
             src/frontend/test-results/playwright/integration/**
+
+  endpoint-depth-runtime:
+    name: Endpoint Depth Runtime
+    runs-on: ubuntu-latest
+    needs: integration-runtime
+    timeout-minutes: 35
+    env:
+      FSUSBLOG_TEST_NAMESPACE: ci-endpoint-depth-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh bootstrap --no-deps
+      - run: ./tools/test.sh endpoint-depth --no-deps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: endpoint-depth-runtime
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/contracts/endpoint-depth-matrix.json
+            .tmp/release-evidence/endpoint-depth-summary.json
+            .tmp/release-evidence/jobs/**
 
   release-public:
     name: Release Public
@@ -428,8 +460,6 @@ jobs:
       - run: ./tools/test.sh security
       - run: ./tools/test.sh security-authenticated-dast --no-deps
       - run: ./tools/test.sh csrf-browser-matrix --no-deps
-      - run: ./tools/test.sh wasm-fuzz-regression --no-deps
-      - run: ./tools/test.sh contract-fuzz --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -437,12 +467,29 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
           path: |
-            .tmp/fuzz/**
-            .tmp/release-evidence/fuzz-seeds.json
             .tmp/release-evidence/security-depth-summary.json
             .tmp/release-evidence/jobs/**
             .tmp/security/**
             src/frontend/test-results/playwright/security/**
+
+  security-static-fuzz:
+    name: Security Static Fuzz
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - run: ./tools/test.sh wasm-fuzz-regression --no-deps
+      - run: ./tools/test.sh contract-fuzz --no-deps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: security-static-fuzz
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/fuzz/**
+            .tmp/release-evidence/fuzz-seeds.json
+            .tmp/release-evidence/jobs/**
 
   acceptance-playwright:
     name: Acceptance Playwright ${{ matrix.shard }}
@@ -936,9 +983,11 @@ jobs:
       - fast-static-governance
       - fast-summary
       - cross-stack-contract
+      - endpoint-depth-runtime
       - integration-runtime
       - release-public
       - security-runtime
+      - security-static-fuzz
       - acceptance-playwright
       - visual-playwright
       - ux-viewport-smoke
@@ -980,9 +1029,11 @@ jobs:
       - fast-static-governance
       - fast-summary
       - cross-stack-contract
+      - endpoint-depth-runtime
       - integration-runtime
       - release-public
       - security-runtime
+      - security-static-fuzz
       - acceptance-playwright
       - visual-playwright
       - ux-viewport-smoke

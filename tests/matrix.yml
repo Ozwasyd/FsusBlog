@@ -1146,26 +1146,26 @@ tiers:
     owner: ServerContractAgent
     command: tools/test/lanes/endpoint-depth.sh
     dependsOn: [bootstrap]
-    services: []
+    services: [postgres, redis, backend]
     parallelizable: true
     exclusiveResources: []
     phase: 2
     cost: high
-    resourceClass: cpu
-    maxParallel: 4
+    resourceClass: network
+    maxParallel: 1
     requiresBootstrap: full
-    requiresNode: false
-    requiresDotnet: false
+    requiresNode: true
+    requiresDotnet: true
     requiresPlaywright: none
-    cacheProfile: none
-    timeoutMinutes: 20
+    cacheProfile: full
+    timeoutMinutes: 35
     shardable: false
     defaultShards: 1
     risk: critical
     coverage: [endpoint-role-protocol-status-cache-error-frame]
     artifacts: [.tmp/contracts/endpoint-depth-matrix.json, .tmp/release-evidence/endpoint-depth-summary.json]
     evidence: [.tmp/release-evidence/endpoint-depth-summary.json]
-    ciJob: cross-stack-contract
+    ciJob: endpoint-depth-runtime
     localOnly: false
     nightlyOnly: false
 
@@ -1581,9 +1581,9 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
-    phase: 3
+    phase: 1
     cost: medium
-    resourceClass: network
+    resourceClass: cpu
     maxParallel: 4
     requiresBootstrap: none
     requiresNode: false
@@ -1597,7 +1597,7 @@ tiers:
     coverage: [aeds-wasm-markdown-fuzz]
     artifacts: [.tmp/fuzz/wasm]
     evidence: [.tmp/fuzz/wasm/summary.json]
-    ciJob: security-runtime
+    ciJob: security-static-fuzz
     localOnly: false
     nightlyOnly: false
 
@@ -1608,9 +1608,9 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
-    phase: 3
+    phase: 1
     cost: medium
-    resourceClass: network
+    resourceClass: cpu
     maxParallel: 4
     requiresBootstrap: none
     requiresNode: false
@@ -1624,7 +1624,7 @@ tiers:
     coverage: [contract-fuzz-invalid-inputs]
     artifacts: [.tmp/fuzz/contract, .tmp/release-evidence/fuzz-seeds.json]
     evidence: [.tmp/release-evidence/fuzz-seeds.json]
-    ciJob: security-runtime
+    ciJob: security-static-fuzz
     localOnly: false
     nightlyOnly: false
 
@@ -2310,7 +2310,7 @@ tiers:
   - id: production
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh production
-    dependsOn: [fast, bootstrap, release, integration, security, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, frontend-render-pressure, resilience, load, backend-qps, release-evidence]
+    dependsOn: [fast, bootstrap, release, integration, endpoint-depth, security, wasm-fuzz-regression, contract-fuzz, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, frontend-render-pressure, resilience, load, backend-qps, release-evidence]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [production-runtime]
@@ -2357,7 +2357,7 @@ tiers:
     coverage: [backend-endpoint-api-contract]
     artifacts: [.tmp/backend-api-integration]
     evidence: [tests/backend/Fixtures/backend-test-requirements.json]
-    ciJob: integration-runtime
+    ciJob: cross-stack-contract
     localOnly: false
     nightlyOnly: false
 

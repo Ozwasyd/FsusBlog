@@ -290,6 +290,8 @@ npx playwright test --update-snapshots
 
 CI 将 `backend-qps` 拆为两个阶段：`backend-qps-collectors` 使用 matrix 并发运行 `backend-qps-*` collector tier，每个 collector 在独立 runner 中 bootstrap 本地 app stack 并只上传 `.tmp/perf/backend-qps/<mode>.json`；`backend-qps` aggregate job 等待 collectors 与 `integration-runtime`，下载 collector artifacts 后运行 `tools/test/lanes/backend-qps.sh aggregate`，统一写入 `.tmp/release-evidence/backend-qps-summary.json`。collector 不再各自写 summary，避免并发覆盖；本地 `./tools/test.sh backend-qps` 仍通过 matrix DAG 先完成 bootstrap 和 collectors，再执行 aggregate。
 
+CI 的 file-only checks 与 app-stack checks 必须分阶段：`cross-stack-contract` 只运行 `backend-api-integration` 与 `cross-stack-contract` 这类仓库文件/生成契约检查；`security-static-fuzz` 只运行 `wasm-fuzz-regression` 与 `contract-fuzz`；需要本地 app stack 的 `endpoint-depth-runtime`、`integration-runtime`、`security-runtime` 保持独立 job。新增检查时若 `services: []` 且 `requiresBootstrap: none`，优先放入对应 file-only job，不能塞回 runtime job。
+
 独立运行真实 BenchmarkDotNet：
 ```bash
 cd FsusBlog.Core.Benchmarks
