@@ -8,6 +8,7 @@ internal interface INotificationStreamHandler
     Task HandleAsync(HttpContext context, CancellationToken cancellationToken);
 }
 
+// Design reference: docs/api/design.md "通知通道设计约定".
 internal sealed class NotificationStreamHandler(
     INotificationStreamHandshakeService handshakeService,
     INotificationStreamSessionService sessionService,

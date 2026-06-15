@@ -40,6 +40,7 @@ internal sealed record NotificationStreamHandshakeResult
     public static NotificationStreamHandshakeResult Failure(int statusCode, string errorCode) => new(null, statusCode, errorCode);
 }
 
+// Design reference: docs/api/design.md "通知通道设计约定".
 internal sealed class NotificationStreamHandshakeService(
     IPowService powService,
     AdaptivePowGovernor powGovernor,

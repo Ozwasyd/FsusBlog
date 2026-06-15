@@ -7,6 +7,7 @@ public static class BinaryBridgeInternalRequest
     public const string SecurityPrefix = "/_fsus/internal/binary-bridge/admin/security";
 }
 
+// Design reference: docs/api/design.md "桥接隔离原则".
 public sealed class BinaryBridgeInternalOnlyFilter : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)

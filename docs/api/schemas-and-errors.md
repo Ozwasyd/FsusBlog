@@ -7,6 +7,7 @@
 ## 目录
 
 - [错误码枚举](#错误码枚举)
+- [负响应](#负响应)
 - [AEDS v2 帧格式](#aeds-v2-帧格式)
 - [AedsFrameType 枚举](#aedsframetype-枚举)
 - [POD 大小目录](#pod-大小目录)
@@ -120,6 +121,12 @@ Notification stream preflight 与 WebSocket 握手失败会在 `X-Fsus-Notificat
 ---
 
 封禁类错误不得依赖 Redis 黑名单是否命中：服务端以 `sys_user.Status/BanReason` 为真源，`SecurityBlacklistUser` 只做无过期缓存；缓存 miss 会回查数据库并回填后再返回 `AccountBanned`、`account_blocked` 或写入锁 `ACCOUNT_BANNED_WRITE_LOCKED`。封禁账号可以持有受限会话完成登出、撤销会话、删除本人账号等安全收尾动作；普通业务写入统一由服务端返回 `423 Locked`，不能只依赖前端禁用按钮。
+
+## 负响应
+
+L0 artifact fast path 的负响应不写 AEDS frame body，固定 `Cache-Control: no-store`，避免缓存未就绪、方法不匹配或内容协商失败结果。`400` / `404` / `405` / `406` / `416` / `503` 的语义以 [design.md#l0-artifact-http-语义](design.md#l0-artifact-http-语义) 和 `PublicHotReadFastPath` 为准；`503` 默认带 `Retry-After: 1`，`Range` 请求返回 `416` 并声明 `Accept-Ranges: none`。
+
+常规 AEDS binary 端点的业务失败使用 `AedsFrameType.ApiError = 251`；notification stream preflight / WebSocket 握手失败还会写 `X-Fsus-Notification-Stream-Error-Code` 与 `X-Fsus-Notification-Stream-Status-Code`。
 
 ## AEDS v2 帧格式
 

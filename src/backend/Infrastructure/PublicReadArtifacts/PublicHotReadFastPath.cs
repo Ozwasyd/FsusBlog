@@ -476,6 +476,7 @@ public static class PublicHotReadFastPathExtensions
     }
 }
 
+// Design reference: docs/api/design.md "pathKey 与 routeKey 映射" and "L0 artifact HTTP 语义".
 public static class PublicHotReadFastPath
 {
     private const string ArticlePrefix = "/api/binary/article";

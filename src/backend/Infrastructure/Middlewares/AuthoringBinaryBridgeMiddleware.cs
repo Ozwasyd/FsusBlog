@@ -8,6 +8,7 @@ using Microsoft.Extensions.Primitives;
 
 namespace FsusBlog.Server.Infrastructure.Middlewares;
 
+// Design reference: docs/api/design.md "桥接隔离原则".
 public sealed class AuthoringBinaryBridgeMiddleware
 {
     internal const int MaxAuthoringFrameBytes = 8 * 1024 * 1024;

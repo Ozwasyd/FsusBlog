@@ -25,6 +25,7 @@ internal sealed record class PublicAotDocumentModel(
     public FullAppTakeoverAssetSet FullAppTakeover { get; init; } = FullAppTakeoverAssetSet.Empty;
 }
 
+// Design reference: docs/api/design.md "AOT sentinel 与 data-fsus-aot-head".
 internal static class PublicAotDocumentComposer
 {
     private const string StableSpaEntryAlias = "/assets/fsus-spa-entry.js";

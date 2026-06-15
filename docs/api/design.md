@@ -29,7 +29,13 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 所有运行时主业务响应体均为 AEDS v2 frame。成功写操作使用 `EmptySuccess` 或 `MutationId`；失败、鉴权拒绝、限流和异常兜底统一使用 `ApiError` frame。AEDS v1 frame 不再兼容，也不保留旧 frame fallback。
 
-### 4. 认证一致性
+### 4. 桥接隔离原则
+
+作者工作台 `/api/binary/author/**` 与管理端 security `/api/binary/admin/security/**` 的生产入口必须是 AEDS v2 frame；`AuthoringBinaryBridgeMiddleware` 与 `SecurityBinaryBridgeMiddleware` 只是在服务端内部复用受保护的 legacy JSON implementation，并把结果 flatten 回 route-specific AEDS response frame。
+
+`JsonApiResponse<T>`、`Results.Ok(JsonApiResponse<...>)` 与 `/_fsus/internal/binary-bridge/**` 只允许出现在登记的 internal bridge implementation 中，且对应端点必须挂 `BinaryBridgeInternalOnlyFilter`。浏览器可达的 `/api/binary/**` 端点不得直接暴露 JSON envelope；新增业务端点默认按 [aeds-only-policy.md#内部应用-api-定义](aeds-only-policy.md#内部应用-api-定义) 设计，不把 bridge 模式当作新 endpoint 模板。装载点见 `src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs`，allowlist 见 [aeds-only-policy.md#允许豁免](aeds-only-policy.md#允许豁免)。
+
+### 5. 认证一致性
 
 鉴权要求以 `/api/binary/**` 端点声明为准。公开、登录、admin、PoW、MFA、Passkey 等边界必须在 binary 端点内直接校验；不存在文本端点作为权限参照。
 
@@ -178,17 +184,42 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 
 ## 通知通道设计约定
 
-- 通知端点：`GET /api/notifications/stream`，仅接受 WebSocket upgrade
-- 握手预检：`GET /api/notifications/stream/preflight`，复用 PoW/cursor/protocol 校验但不要求 WebSocket upgrade，成功返回 204
-- 子协议：`fsus-aeds.v2`
-- 匿名用户连接时接收公开事件（GlobalNotice、CacheControl 等）
-- 已认证用户额外接收私人事件（MessageReceived、InboxConversationUpsert 等）
-- 慢消费者（背压积压）自动断开连接，客户端需实现重连逻辑
-- 每条消息均为 AEDS binary frame；WebSocket 握手失败返回 `ApiError` frame，并写入 `X-Fsus-Notification-Stream-Error-Code` / `X-Fsus-Notification-Stream-Status-Code`
-- 客户端应优先通过 preflight 区分 `account_blocked`、`account_deleted`、`auth_failed`、`pow_failed`、`websocket_required` 等失败码，再决定是否重连或提示用户
-- `account_blocked` 必须由持久化 `sys_user.Status/BanReason` 决定；Redis 黑名单只是无过期快路径，缓存 miss 必须回查数据库并回填后再放行。
-- 封禁账号认证成功后可以持有受限会话，但普通业务写入必须由服务端返回 `423 Locked` + `ACCOUNT_BANNED_WRITE_LOCKED`；客户端禁用控件只能作为体验优化，不能替代后端写锁。
-- 客户端应存储最后收到的 cursor 值，断线重连时通过 `cursor` query 参数传递
+真相源：[`NotificationStreamHandshakeService.cs`](../../src/backend/Infrastructure/NotificationStream/NotificationStreamHandshakeService.cs)、[`NotificationStreamHandler.cs`](../../src/backend/Infrastructure/NotificationStream/NotificationStreamHandler.cs)、[`NotificationStreamSessionService.cs`](../../src/backend/Infrastructure/NotificationStream/NotificationStreamSessionService.cs)。
+
+### 通道
+
+- 正式通知端点：`GET /api/notifications/stream`，仅接受 WebSocket upgrade。
+- 子协议：`Sec-WebSocket-Protocol: fsus-aeds.v2`；preflight fallback 可用 `X-Fsus-Notification-Stream-Protocol: fsus-aeds.v2`。
+- 每条业务消息都是 AEDS binary frame；事件 frame 使用 `AedsFrameType.NotificationEvent = 69`，心跳 frame 使用 `AedsFrameType.NotificationHeartbeat = 70`，错误使用 `ApiError = 251`（见 [schemas-and-errors.md#aedsframetype-枚举](schemas-and-errors.md#aedsframetype-枚举)）。
+
+### 握手预检
+
+`GET /api/notifications/stream/preflight` 复用认证、匿名 PoW、cursor 和协议校验，但不要求 WebSocket upgrade；成功返回 `204`，失败返回 AEDS `ApiError` frame，并写入 `X-Fsus-Notification-Stream-Error-Code` / `X-Fsus-Notification-Stream-Status-Code`。匿名 preflight 和匿名正式 WebSocket 都必须通过 `pow` query 参数传递 base64 FPOW 信封；公开事件不绕过 PoW。
+
+### 匿名 vs 认证
+
+匿名连接只接收公开事件（GlobalNotice、CacheControl 等），但匿名不等于零门槛：`NotificationStreamHandshakeService` 在 `!isAuthenticated` 时调用 `PowValidationLogic.ValidateFromQueryAsync`，失败映射为 `pow_failed`。已认证用户额外接收私人事件（MessageReceived、InboxConversationUpsert 等）；如果请求携带认证头但认证失败，握手返回 `auth_failed`。
+
+### 错误码与持久化对照
+
+| 失败码 | 持久化源 | 缓存层 | miss 回查 | HTTP status | AEDS frame |
+|--------|----------|--------|-----------|-------------|------------|
+| `websocket_required` | WebSocket upgrade 语义 | 无 | 无 | `426` | `ApiError` |
+| `protocol_mismatch` | `fsus-aeds.v2` 子协议 | 无 | 无 | `409` | `ApiError` |
+| `auth_failed` | JWT / cookie auth 结果 | 认证栈内部 | 认证栈处理 | `401` | `ApiError` |
+| `pow_failed` | PoW challenge / replay proof | SecurityPowProof / risk cache | PoW service 校验 | `401` 或 `400` | `ApiError` |
+| `account_blocked` | `sys_user.Status` / `BanReason` | Redis 黑名单快路径 | 必须回查 DB 并回填 | `423` | `ApiError` |
+| `account_deleted` | `sys_user` 不存在、删除或停用 | admission cache | 必须回查 DB | `401` | `ApiError` |
+
+封禁账号认证成功后可以持有受限会话完成安全收尾，但普通业务写入必须由服务端返回 `423 Locked` + `ACCOUNT_BANNED_WRITE_LOCKED`；客户端禁用控件只能作为体验优化，不能替代后端写锁。完整失败码表见 [schemas-and-errors.md#notification-stream-握手失败码](schemas-and-errors.md#notification-stream-握手失败码)。
+
+### Heartbeat 与重连
+
+服务端用 `AedsFrameType.NotificationHeartbeat = 70` 发送 `int64 timestampUnixMs` 心跳；连接 pump 通过发送锁串行写业务 frame 与 heartbeat，避免并发写 WebSocket。客户端应存储最后收到的 cursor 值，断线重连时通过 `cursor` query 参数传递；`Last-Event-ID` 只作为兼容读取，不是首选浏览器 API。
+
+### 审计与缓存清理
+
+慢消费者（背压积压）自动断开连接，客户端需实现重连逻辑。写消息、连接中断、重连和封禁/删除状态变化必须保留可观测性；公开评论审核导致已公开评论新增、隐藏、拒绝或删除时，必须同步清理 comment cursor/frame 缓存，并通过 notification stream 推送 `CommentAdded` 或 `CommentRemoved`。
 
 ---
 
@@ -296,7 +327,38 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 评论治理是公开讨论区前置门禁：新评论默认进入 `Pending`，公开评论线程和回复游标只读取 `Approved`，并按 viewer IP 解析出的地区过滤 `blocked_regions`。提交时服务端按 request IP 解析 submit region；submit region 违法时直接拒绝，合法但部分 viewer region 不可展示时写入 `comment_region_compliance.blocked_regions`。`CN-MAINLAND` 严格策略只作用于 `CN-MAINLAND` 提交者或浏览者，不因 `CN-HK`、`CN-MO`、`CN-TW` 或 `GREATER_CHINA` 分组自动外溢；submit region 未知时进入待审且公开页不展示，viewer region 未知时对存在 blocked regions 的评论采用保守隐藏。作者工作台通过 `/api/binary/author/comments/moderation` 读取待审、已拒绝、已隐藏和已通过队列，展示敏感词、HTML 风险、密集链接、重复刷屏、人工原因和地区策略结果；单条或批量审核写入审计并清理评论游标缓存。误判恢复只需要把评论重新置为 `Approved`，但 `can_publish=false` 的发布地违法评论不得被管理员放行；拒绝/隐藏时可选择联动封禁非 admin 用户。
 
-审核系统控制台位于 `/user/manage/moderation`，后台一级导航只保留「审核系统」，评论审核是其子栏目。控制台 JSON 端点使用 `/api/binary/author/moderation/**`：`overview` 汇总队列、词库、地区策略和模型状态；`dictionaries` 只返回词库 metadata、checksum、term count 和聚合 `evidencePolicy`，不返回 raw terms；`policies` 返回地区策略组合和 `CN-MAINLAND` 强制检查；`regions`、`region-groups`、`policy-templates` 和 `effective-policy/*` 返回地区 catalog、大区成员、默认模板 presets 与 effective policy 继承预览；`runtime/status` 返回全局状态、地区 override、禁用词库集合和模型运行快照；`replay/preview` 只返回 diff 汇总，不执行变更；`model/status` 只展示模型配置和 latency/error 观测。地区是具体匹配对象，大区只是策略复用工具，模板是工程预设而不是法律意见；默认模板必须带 `source/version/checksum/reviewed_by/reviewed_at_utc` 字段，内置模板必须标记 not legal advice，运营者必须按实际服务地区、部署地、业务类型和法律顾问意见复核。`GREATER_CHINA` 不是 `CN-MAINLAND`，`CN-HK/CN-MO/CN-TW` 不自动继承 `CN-MAINLAND` strict policy。词库 reload/rollback、词库启停、地区状态、全局状态和模型 runtime/reload/rollback 都是高风险写操作，必须携带 `X-Fsus-Mfa-Proof` 并写高价值审计；会影响公开评论可见性的变更必须清理评论 cursor/frame 缓存。生产可用降级只允许 `disabled_to_pending`、`manual_review_only`、`no_public_display`、`read_only`、`emergency_lockdown` 等不会公开放行的状态，`disabled_pass_through` 在 production 下拒绝，除非显式本地开发配置打开。模型禁用不禁用词库，词库禁用不禁用地区策略，地区策略禁用必须回落到 `GLOBAL` baseline；`CN-MAINLAND` 严格策略变更和强制词库禁用需要 MFA、确认短语和高价值审计。replay execute 不得绕过 preview/MFA/确认短语/审计流程。第三方审核模型 Provider 只接入为风险信号层，契约由 FsusBlog 定义，不能返回最终发布、隐藏、地区屏蔽或地区合法性结论；Provider 开发入口见 [../moderation/third-party-model-development.md](../moderation/third-party-model-development.md)。
+### 审核系统控制台
+
+审核系统控制台位于 `/user/manage/moderation`，后台一级导航只保留「审核系统」，评论审核是其子栏目。控制台端点使用 `/api/binary/author/moderation/**` AEDS bridge；JSON envelope 只存在于受保护的 internal bridge implementation，浏览器不可直接访问。
+
+### 审核端点契约表
+
+| 端点 | 语义 |
+|------|------|
+| `overview` | 汇总队列、词库、地区策略和模型状态 |
+| `dictionaries` | 只返回词库 metadata、checksum、term count 和聚合 `evidencePolicy`，不返回 raw terms |
+| `policies` | 返回地区策略组合和 `CN-MAINLAND` 强制检查 |
+| `regions` / `region-groups` | 返回地区 catalog 与大区成员 |
+| `policy-templates` / `effective-policy/*` | 返回默认模板 presets 与 effective policy 继承预览 |
+| `runtime/status` | 返回全局状态、地区 override、禁用词库集合和模型运行快照 |
+| `replay/preview` | 只返回 diff 汇总，不执行变更 |
+| `model/status` | 只展示模型配置和 latency/error 观测 |
+
+### 地区 catalog 与策略继承
+
+地区是具体匹配对象，大区只是策略复用工具，模板是工程预设而不是法律意见；默认模板必须带 `source/version/checksum/reviewed_by/reviewed_at_utc` 字段，内置模板必须标记 not legal advice，运营者必须按实际服务地区、部署地、业务类型和法律顾问意见复核。`GREATER_CHINA` 不是 `CN-MAINLAND`，`CN-HK/CN-MO/CN-TW` 不自动继承 `CN-MAINLAND` strict policy。
+
+### 词库与策略 lifecycle
+
+词库 reload/rollback、词库启停、地区状态、全局状态和模型 runtime/reload/rollback 都是高风险写操作，必须携带 `X-Fsus-Mfa-Proof` 并写高价值审计；会影响公开评论可见性的变更必须清理评论 cursor/frame 缓存。生产可用降级只允许 `disabled_to_pending`、`manual_review_only`、`no_public_display`、`read_only`、`emergency_lockdown` 等不会公开放行的状态，`disabled_pass_through` 在 production 下拒绝，除非显式本地开发配置打开。
+
+### 运行时 reload / rollback
+
+模型禁用不禁用词库，词库禁用不禁用地区策略，地区策略禁用必须回落到 `GLOBAL` baseline；`CN-MAINLAND` 严格策略变更和强制词库禁用需要 MFA、确认短语和高价值审计。`replay execute` 不得绕过 preview、MFA、确认短语和审计流程。
+
+### 第三方模型 Provider 边界
+
+第三方审核模型 Provider 只接入为风险信号层，契约由 FsusBlog 定义，不能返回最终发布、隐藏、地区屏蔽或地区合法性结论；Provider 开发入口见 [../moderation/third-party-model-development.md](../moderation/third-party-model-development.md)。
 
 内容导入导出是作者工作台的恢复工具，不是匿名下载 API。单篇导出必须是 Markdown + frontmatter，frontmatter 同时保留可读字段和 `fsusMetadataJson` 机器元数据；全站内容包只是这些单篇导出的 JSON 聚合。导入默认按 metadata 恢复 draft/scheduled/published/archived 状态、分类、标签、封面和 revision 记录；只有作者显式传 `publish=true` 时才强制上线。
 
@@ -308,7 +370,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 - `JsonApiResponse<T>` 豁免、binary bridge 隔离和 internal bridge URL：见 [`aeds-only-policy.md#允许豁免`](aeds-only-policy.md#允许豁免)、[`contracts.md#admin-作者工作台`](contracts.md#admin-作者工作台) 与 [`contracts.md#admin-安全系统`](contracts.md#admin-安全系统)。
 - 错误码、AEDS frame 编号、POD 大小和 L0 负响应结构：见 [`schemas-and-errors.md`](schemas-and-errors.md)。
-- 审计级别、高价值审计落库和 fallback 文件：见 [`../security.md#作者工作台订阅与-rum-隐私`](../security.md#作者工作台订阅与-rum-隐私)。
+- 审计级别、高价值审计落库和 fallback 文件：见 [`../security.md#审计级别`](../security.md#审计级别)。
 - 缓存分层、Public AOT 单一渲染链和请求路径：见 [`../architecture.md#public-aot-单一渲染链`](../architecture.md#public-aot-单一渲染链) 与 [`../architecture.md#缓存分层`](../architecture.md#缓存分层)。
 - 路由速查表和端点列表：见 [`quick-reference.md#开放分发与作者工作台`](quick-reference.md#开放分发与作者工作台)。
 
@@ -319,7 +381,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 - [contracts.md#基础包装结构](contracts.md#基础包装结构) — 请求/响应 DTO、AOT 契约和 bridge envelope 边界
 - [aeds-only-policy.md#允许豁免](aeds-only-policy.md#允许豁免) — 内部应用 API AEDS-only 治理、JSON 豁免与回归 gate
 - [quick-reference.md#开放分发与作者工作台](quick-reference.md#开放分发与作者工作台) — 公开分发、Public AOT manifest 与作者工作台端点速查
-- [schemas-and-errors.md#aedsframetype-枚举](schemas-and-errors.md#aedsframetype-枚举) — 错误码、AEDS frame 编号与二进制结构
+- [schemas-and-errors.md#负响应](schemas-and-errors.md#负响应) / [#AedsFrameType 枚举](schemas-and-errors.md#aedsframetype-枚举) — 负响应、错误码、AEDS frame 编号与二进制结构
 - [../security.md#proof-of-work-pow](../security.md#proof-of-work-pow) — PoW、JWT、MFA、审计和安全模型
 - [../architecture.md#public-aot-单一渲染链](../architecture.md#public-aot-单一渲染链) — Public AOT 单一渲染链、缓存分层与 AEDS binary 架构
 
@@ -329,5 +391,10 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 - [`PublicHotReadFastPath.cs`](../../src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs) — PublicHotRead fast path、pathKey hash、L0 诊断头和 artifact HTTP 语义
 - [`PublicAotEndpoints.cs`](../../src/backend/Modules/Endpoints/PublicAotEndpoints.cs) — route manifest 与 `X-Fsus-Public-Aot-Token`
 - [`DistributionEndpoints.cs`](../../src/backend/Modules/Endpoints/DistributionEndpoints.cs) — RSS / Atom / JSON Feed / sitemap / robots 缓存约束
+- [`NotificationStreamHandshakeService.cs`](../../src/backend/Infrastructure/NotificationStream/NotificationStreamHandshakeService.cs) — notification stream protocol、匿名 PoW、认证和 admission 校验
+- [`NotificationStreamHandler.cs`](../../src/backend/Infrastructure/NotificationStream/NotificationStreamHandler.cs) — notification stream 握手失败头与 AEDS `ApiError` 写出
+- [`AuthoringBinaryBridgeMiddleware.cs`](../../src/backend/Infrastructure/Middlewares/AuthoringBinaryBridgeMiddleware.cs) — 作者工作台 AEDS bridge 转换边界
+- [`SecurityBinaryBridgeMiddleware.cs`](../../src/backend/Infrastructure/Middlewares/SecurityBinaryBridgeMiddleware.cs) — 管理端 security AEDS bridge 转换边界
+- [`BinaryBridgeInternalOnlyFilter.cs`](../../src/backend/Infrastructure/Filters/BinaryBridgeInternalOnlyFilter.cs) — internal bridge URL 直接访问阻断
 - [`renderPublicPage.ts`](../../src/frontend/src/public-renderers/renderPublicPage.ts) — server SSR worker 加载的公开页 renderer 入口
 - [`publicEntryRegistry.ts`](../../src/frontend/src/public-renderers/publicEntryRegistry.ts) — 公开页 SSR entry registry 与页面 assembly 调度
