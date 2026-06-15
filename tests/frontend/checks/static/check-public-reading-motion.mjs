@@ -25,6 +25,7 @@ function expectNotMatches(source, pattern, message) {
 const motionCss = read('src/frontend/src/assets/motion.css')
 const markdownCss = read('src/frontend/src/assets/markdown.css')
 const indexHtml = read('src/frontend/index.html')
+const packageJson = JSON.parse(read('src/frontend/package.json'))
 const publicPageCss = read('src/frontend/src/assets/public-page.css')
 const themeTokens = read('src/frontend/src/ui-tokens/themeTokens.ts')
 const accountLayout = read('src/frontend/src/layouts/AccountLayout.vue')
@@ -68,6 +69,18 @@ for (const pattern of [
 ]) {
   expectNotMatches(indexHtml, pattern, `index.html boot loader must not match ${pattern}`)
 }
+
+const scripts = packageJson.scripts ?? {}
+expectIncludes(
+  String(scripts['check:public-reading-motion'] ?? ''),
+  'check-public-reading-motion.mjs',
+  'package.json check:public-reading-motion'
+)
+expectIncludes(
+  String(scripts['check:views-constraints'] ?? ''),
+  'check:public-reading-motion',
+  'package.json check:views-constraints'
+)
 
 expectIncludes(
   themeTokens,
