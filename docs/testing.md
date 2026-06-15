@@ -309,6 +309,29 @@ GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push
 
 日志必须同时能看出请求策略和最终策略：`run_fast_backend_lane()` 输出 `backend-fast selection=affected|full`，affected 脚本输出 `effective=skip|full` 与 `reason=...`。
 
+#### Backend build parallelism
+
+`backend-fast` 的 .NET build 默认仍使用 deterministic safe mode：`FSUSBLOG_DOTNET_BUILD_PARALLELISM=safe`，等价于 MSBuild `/m:1`。这保留本地 debug、release/manual full gates 与保守排障路径的单 worker 行为。
+
+PR fast-backend 可以通过 GitHub repository variable `FSUSBLOG_DOTNET_BUILD_PARALLELISM` opt in 并行 build；支持值为：
+
+- `safe` 或 `1`：使用 `/m:1`。
+- `auto`：使用 `/m`，由 MSBuild 按 runner CPU 自动选择并行度。
+- 大于 `1` 的整数：使用 `/m:N`。
+
+`run_fast_backend_lane()` 在 build 前输出 `dotnet-build parallelism=<mode> arg=<msbuild-arg>`，用于确认 CI 实际选择的模式。无效值会直接失败，避免静默回退到未知并行度。
+
+Benchmark 记录口径：在同一个 runner、同一个提交、同一份 NuGet cache 状态下分别运行 `FSUSBLOG_DOTNET_BUILD_PARALLELISM=safe ./tools/test.sh ci-tier backend-fast --no-deps` 与 `FSUSBLOG_DOTNET_BUILD_PARALLELISM=auto ./tools/test.sh ci-tier backend-fast --no-deps`，记录 wall-clock、退出码、重跑次数和是否出现非确定性失败。默认值只能在至少两轮 CI fast-backend 对比都显示 `auto` 无新增 flake 且明显降低 wall-clock 后再从 `safe` 提升；在此之前只通过 repo variable 对 PR fast gates opt in。
+
+当前本地单轮 build benchmark（2026-06-15，same checkout，warmed NuGet cache after first run）：
+
+| Mode | MSBuild arg | Wall-clock | Exit | Flake signal |
+|---|---:|---:|---:|---|
+| `safe` | `/m:1` | 53s | 0 | none observed in one run |
+| `auto` | `/m` | 12s | 0 | none observed in one run |
+
+这组数据只证明并行 build 在当前机器可用；它不是提升默认值的依据。CI 默认仍是 `safe`，直到 PR fast-backend 在 GitHub runner 上积累至少两轮 `safe`/`auto` 对比和 flake 记录。
+
 #### Root CI setup 与 fail-fast 诊断
 
 `validate-matrix` 是 Quality Gate 的根作业。它先运行：

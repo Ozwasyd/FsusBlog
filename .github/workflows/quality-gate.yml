@@ -168,6 +168,7 @@ jobs:
         env:
           FSUSBLOG_BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || 'origin/master' }}
           FSUSBLOG_CI_JOB_ID: ${{ matrix.artifact_name }}
+          FSUSBLOG_DOTNET_BUILD_PARALLELISM: ${{ vars.FSUSBLOG_DOTNET_BUILD_PARALLELISM || 'safe' }}
           FSUSBLOG_TEST_SELECTION: ${{ github.event_name == 'pull_request' && 'affected' || 'full' }}
       - uses: actions/upload-artifact@v7
         if: always()

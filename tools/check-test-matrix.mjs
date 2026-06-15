@@ -133,5 +133,25 @@ requireFileIncludes(
   'Backend affected-test selection',
   'docs/testing.md must document backend affected-test changed-file rules'
 )
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  "FSUSBLOG_DOTNET_BUILD_PARALLELISM: ${{ vars.FSUSBLOG_DOTNET_BUILD_PARALLELISM || 'safe' }}",
+  'fast-backend workflow must expose env-controlled .NET build parallelism'
+)
+requireFileIncludes(
+  'tools/test/legacy-test.sh',
+  'FSUSBLOG_DOTNET_BUILD_PARALLELISM',
+  'backend build parallelism must be configurable through FSUSBLOG_DOTNET_BUILD_PARALLELISM'
+)
+requireFileIncludes(
+  'tools/test/legacy-test.sh',
+  'dotnet-build parallelism=',
+  'backend build logs must print the selected .NET build parallelism mode'
+)
+requireFileIncludes(
+  'docs/testing.md',
+  'Backend build parallelism',
+  'docs/testing.md must document backend build parallelism policy and benchmark notes'
+)
 
 console.log('[test-matrix] ok')

@@ -21,7 +21,8 @@ POW_READY_MAX_DIFFICULTY="${FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY:-20}"
 DEBUG_FRONTEND_URL="${FSUSBLOG_DEBUG_FRONTEND_URL:-http://127.0.0.1:3000}"
 DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:5000}"
 RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:8080}"
-DOTNET_BUILD_PARALLEL_ARGS=(/m:1 /p:UseSharedCompilation=true /p:NuGetAudit=false)
+DOTNET_BUILD_SHARED_ARGS=(/p:UseSharedCompilation=true /p:NuGetAudit=false)
+DOTNET_BUILD_PARALLEL_ARGS=()
 
 default_playwright_workers() {
   if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
@@ -86,6 +87,36 @@ fail() {
   printf '[test:%s] error: %s\n' "${CURRENT_TIER:-unknown}" "$1" >&2
   print_artifact_hint
   exit 1
+}
+
+configure_dotnet_build_parallelism() {
+  local raw="${FSUSBLOG_DOTNET_BUILD_PARALLELISM:-safe}"
+  raw="${raw//[[:space:]]/}"
+  local normalized="${raw,,}"
+  local mode
+  local msbuild_arg
+
+  case "$normalized" in
+    ""|safe|single|1)
+      mode="safe"
+      msbuild_arg="/m:1"
+      ;;
+    auto)
+      mode="auto"
+      msbuild_arg="/m"
+      ;;
+    *)
+      if [[ "$normalized" =~ ^[0-9]+$ ]] && (( 10#$normalized > 1 )); then
+        mode="$((10#$normalized))"
+        msbuild_arg="/m:$mode"
+      else
+        fail "FSUSBLOG_DOTNET_BUILD_PARALLELISM must be safe, 1, auto, or an integer greater than 1 (got '$raw')"
+      fi
+      ;;
+  esac
+
+  DOTNET_BUILD_PARALLEL_ARGS=("$msbuild_arg" "${DOTNET_BUILD_SHARED_ARGS[@]}")
+  log "dotnet-build parallelism=$mode arg=$msbuild_arg"
 }
 
 namespace_slug() {
@@ -282,6 +313,7 @@ bootstrap_acceptance_env() {
 
 run_fast_backend_lane() {
   run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
+  configure_dotnet_build_parallelism
   run "$BUILD_ENV_RUNNER" dotnet build "$ROOT_DIR/FsusBlog.slnx" -c Debug -warnaserror -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
   if [[ "${FSUSBLOG_TEST_SELECTION:-}" == "affected" ]]; then
     log "backend-fast selection=affected"
@@ -323,6 +355,7 @@ run_backend_test_governance_only() {
 
 run_backend_perf_only() {
   run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
+  configure_dotnet_build_parallelism
   run "$BUILD_ENV_RUNNER" dotnet build "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" -c Release -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
 }
 
