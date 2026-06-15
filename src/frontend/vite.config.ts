@@ -286,7 +286,7 @@ function applyDevelopmentSecurityHeaders() {
 }
 
 // https://vite.dev/config/
-export default defineConfig(({ command, mode }) => {
+export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd())
     const apiBaseUrl = env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:5000'
     const enableVueHydrationMismatchDetails = process.env.FSUSBLOG_VUE_HYDRATION_DETAILS === '1'
@@ -301,7 +301,7 @@ export default defineConfig(({ command, mode }) => {
         : true
     const disableLocalFsusUi = process.env.FSUSBLOG_USE_LOCAL_FSUSUI === '0'
         || process.env.FSUSBLOG_USE_LOCAL_FSUSUI?.toLowerCase() === 'false'
-    const localFsusUiRoot = command === 'serve' && !disableLocalFsusUi
+    const localFsusUiRoot = !disableLocalFsusUi
         ? resolveLocalFsusUiRoot(process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT)
         : null
     const fsusUiAliases = createFsusUiAliases(localFsusUiRoot)

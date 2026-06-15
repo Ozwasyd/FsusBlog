@@ -62,7 +62,7 @@
                 <img
                   :src="articles[0].coverImageUrl"
                   :alt="articles[0].title"
-                  class="blog-motion-media-hover h-full w-full object-cover"
+                  class="h-full w-full object-cover"
                   width="960"
                   height="720"
                   sizes="(min-width: 768px) 32rem, calc(100vw - 3rem)"
@@ -109,7 +109,7 @@
                   <img
                     :src="article.coverImageUrl"
                     :alt="article.title"
-                    class="blog-motion-media-hover h-full w-full object-cover"
+                    class="h-full w-full object-cover"
                     width="960"
                     height="540"
                     sizes="(min-width: 640px) 20rem, calc(100vw - 3rem)"

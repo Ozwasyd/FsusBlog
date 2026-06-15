@@ -375,7 +375,7 @@ onMounted(() => {
 @reference "@/assets/main.css";
 
 .animate-loading-bar {
-  animation: blog-motion-loading-bar calc(var(--blog-motion-panel) * 4) linear infinite;
+  opacity: 0.28;
 }
 
 .state-fade-enter-active,
@@ -391,7 +391,6 @@ onMounted(() => {
   .animate-loading-bar,
   .state-fade-enter-active,
   .state-fade-leave-active {
-    animation: none !important;
     transition: none !important;
   }
 }

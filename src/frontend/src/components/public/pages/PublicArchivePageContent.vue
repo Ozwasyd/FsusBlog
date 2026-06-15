@@ -70,7 +70,7 @@
                 <article
                   v-for="article in monthGroup.items"
                   :key="article.id"
-                  class="blog-motion-row-nudge relative group"
+                  class="blog-motion-state-change relative group"
                 >
                   <a
                     :href="`/article/${article.route.params.id}`"

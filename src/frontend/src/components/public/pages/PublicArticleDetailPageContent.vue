@@ -25,7 +25,7 @@
       <img
         :src="detailView.header.coverImageUrl"
         :alt="`${detailView.header.title} — 题图`"
-        class="blog-motion-media-hover aspect-video w-full rounded-[var(--fsusblog-reading-radius-media)] object-cover shadow-none"
+        class="aspect-video w-full rounded-[var(--fsusblog-reading-radius-media)] object-cover shadow-none"
         width="1200"
         height="675"
         sizes="(min-width: 1024px) 56rem, calc(100vw - 3rem)"

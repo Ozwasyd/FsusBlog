@@ -63,11 +63,31 @@ for (const token of [
   '.blog-motion-row-state',
   '.blog-motion-summary-enter',
   '.blog-motion-highlight',
-  '.blog-motion-safe-transform',
-  '.blog-motion-row-nudge'
+  '.blog-motion-safe-transform'
 ]) {
   if (!motionCss.includes(token)) {
     errors.push(`motion.css missing ${token}`)
+  }
+}
+
+for (const forbidden of [
+  'blog-motion-media-hover',
+  'blog-motion-icon-nudge',
+  'blog-motion-row-nudge',
+  'blog-motion-loading-bar'
+]) {
+  if (motionCss.includes(forbidden)) {
+    errors.push(`motion.css must not expose generic decorative helper .${forbidden}`)
+  }
+}
+
+for (const [pattern, label] of [
+  [/\bscale\(/, 'generic scale(...)'],
+  [/\btranslateX\(/, 'horizontal nudge translateX(...)'],
+  [/\blinear\s+infinite\b/, 'linear infinite loading sweep']
+]) {
+  if (pattern.test(motionCss)) {
+    errors.push(`motion.css must not define ${label} outside a documented state whitelist`)
   }
 }
 
@@ -161,7 +181,14 @@ expectIncludes('src/frontend/src/components/article/ArticleTocPanel.vue', 'data-
 expectIncludes('src/frontend/src/fsusui/feedback.ts', 'fsusBlogMotionPresets.toast', 'toast motion preset boundary')
 
 const motionDocs = read('docs/frontend/motion-guidelines.md')
-for (const token of ['FsusUI Preset Adoption', 'src/frontend/src/fsusui/motion.ts', 'useMotionRouteCleanup()', 'useScrollReveal()']) {
+for (const token of [
+  'FsusUI Preset Adoption',
+  'src/frontend/src/fsusui/motion.ts',
+  'useMotionRouteCleanup()',
+  'useScrollReveal()',
+  'Scale, nudge and sweep helpers are not semantic motion classes',
+  'check-motion-governance.mjs'
+]) {
   if (!motionDocs.includes(token)) {
     errors.push(`docs/frontend/motion-guidelines.md: missing ${token}`)
   }
@@ -185,8 +212,12 @@ for (const file of scanned) {
     errors.push(`${rel}: use --blog-motion-ease instead of cubic-bezier`)
   }
 
+  if (/\b(?:blog-motion-media-hover|blog-motion-icon-nudge|blog-motion-row-nudge|blog-motion-loading-bar)\b/.test(source)) {
+    errors.push(`${rel}: generic decorative motion helper is not allowed`)
+  }
+
   if (!rel.endsWith('motion.css') && /\b(?:hover|group-hover):(scale|translate)/.test(source)) {
-    errors.push(`${rel}: use blog-motion-media-hover or blog-motion-icon-nudge instead of hover transform utilities`)
+    errors.push(`${rel}: hover scale/translate utilities are decorative; use state feedback or FsusUI presets`)
   }
 
   if (!rel.endsWith('motion.css') && /:hover[^{]*\{[^}]*\btransform\s*:/.test(source)) {

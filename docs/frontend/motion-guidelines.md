@@ -20,9 +20,9 @@ Do not import `@element-plus/motion`, `motion-dom`, or `gsap` directly from Fsus
 
 ## Allowed And Forbidden
 
-Allowed motion explains state: route settle, panel enter, pending to success or error, row update highlight, copy/save feedback, and restrained navigable-row affordances.
+Allowed motion explains state: route settle, panel enter, pending to success or error, row update highlight, copy/save feedback, active reading targets, and reduced-motion-safe overlay settle.
 
-Forbidden motion adds noise: long decorative loops, large scale or rotate, complex stagger, high-saturation trails, nonessential blur, page shake, and layout-moving animation on reading content.
+Forbidden motion adds noise: long decorative loops, generic loading sweeps, hover scale, icon or row nudges, large scale or rotate, complex stagger, high-saturation trails, nonessential blur, page shake, and layout-moving animation on reading content.
 
 ## Tokens
 
@@ -51,10 +51,8 @@ Do not add bare `160ms`, `300ms`, `ease` or `cubic-bezier(...)` in business comp
 - `blog-motion-summary-enter`: summary-only feedback for bulk operations.
 - `blog-motion-highlight`: short row or region update highlight.
 - `blog-motion-safe-transform`: transform transition wrapper.
-- `blog-motion-media-hover`: restrained media hover scale.
-- `blog-motion-icon-nudge`: small icon nudge in link affordances.
-- `blog-motion-row-nudge`: small list-row nudge for navigable rows.
-- `blog-motion-loading-bar`: loading indicator sweep.
+
+Scale, nudge and sweep helpers are not semantic motion classes. New work must use FsusUI presets through `src/frontend/src/fsusui/motion.ts` or add a narrow whitelist entry to `tests/frontend/checks/static/check-motion-governance.mjs` with the state it explains.
 
 ## Reduced Motion
 
@@ -71,7 +69,7 @@ Use semantic classes directly on app-owned surfaces:
   ...
 </section>
 
-<article class="blog-motion-row-nudge">
+<article class="blog-motion-row-state blog-motion-row-updated">
   ...
 </article>
 ```
@@ -108,7 +106,7 @@ Lightbox overlay enter/leave uses `--blog-motion-overlay`; the figure uses `--bl
 
 Dense lists and tables use `useRowStateMotion()` with `blog-motion-row-*` classes. Single-row mutations may mark one visible row as pending, updated or error. Bulk changes over 20 rows must publish a summary bar or container state instead of animating every row.
 
-Do not use row height, width, top, left, filter or blur transitions. Do not stagger table rows. Element Plus table internals remain untouched; app code may only provide `row-class-name` or classes on app-owned card/list wrappers.
+Do not use row height, width, top, left, transform nudge, filter or blur transitions. Do not stagger table rows. Element Plus table internals remain untouched; app code may only provide `row-class-name` or classes on app-owned card/list wrappers.
 
 ## Budget
 

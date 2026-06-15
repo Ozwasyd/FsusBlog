@@ -93,32 +93,8 @@
   animation: blog-motion-highlight calc(var(--blog-motion-panel) * 2) var(--blog-motion-ease) both;
 }
 
-.blog-motion-safe-transform,
-.blog-motion-media-hover,
-.blog-motion-icon-nudge,
-.blog-motion-row-nudge {
+.blog-motion-safe-transform {
   transition: transform var(--blog-motion-fast) var(--blog-motion-ease);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .group:hover .blog-motion-media-hover,
-  .blog-motion-media-hover:hover {
-    transform: scale(1.015);
-  }
-
-  .group:hover .blog-motion-icon-nudge,
-  .blog-motion-icon-nudge:hover {
-    transform: translateX(0.25rem);
-  }
-
-  .blog-motion-row-nudge:hover,
-  .group:hover .blog-motion-row-nudge {
-    transform: translateX(0.25rem);
-  }
-}
-
-.blog-motion-loading-bar {
-  animation: blog-motion-loading-bar calc(var(--blog-motion-panel) * 4) linear infinite;
 }
 
 @keyframes blog-motion-page-enter {
@@ -145,16 +121,6 @@
   }
 }
 
-@keyframes blog-motion-loading-bar {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(100%);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   html:focus-within {
     scroll-behavior: auto;
@@ -175,11 +141,7 @@
   .blog-motion-row-error,
   .blog-motion-summary-enter,
   .blog-motion-highlight,
-  .blog-motion-safe-transform,
-  .blog-motion-media-hover,
-  .blog-motion-icon-nudge,
-  .blog-motion-row-nudge,
-  .blog-motion-loading-bar {
+  .blog-motion-safe-transform {
     animation: none !important;
     transition: none !important;
     transform: none !important;
