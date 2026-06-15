@@ -16,7 +16,7 @@ The mandatory adapter surface is:
 - `primitiveAdapters.ts`: Blog primitive variants to FsusUI semantic variants.
 - `renderPipeline.ts`: render-pipeline contract adapter.
 - `result.ts`: FsusUI result envelope helpers.
-- `theme.ts`: FsusUI theme-mode and CSS-variable runtime.
+- `theme.ts`: FsusUI public theme-mode contract re-export. It must import `ThemeMode`, `ResolvedTheme`, `themeModes`, `normalizeThemeMode`, `syncThemeMode` and the test helpers from `@ozwasyd/element-plus/theme` instead of declaring Blog-local equivalents.
 
 Single-purpose adapters such as `motion.ts` may live here when they import FsusUI runtime APIs directly. Add them to `index.ts` only when they are intended as general Blog adapter API; otherwise import them explicitly from call sites.
 
@@ -38,6 +38,12 @@ Direct `@ozwasyd/element-plus` imports outside `fsusui/` need a narrow reason:
 
 New runtime imports should normally be added to a named `fsusui/` adapter first, then consumed through that adapter.
 
+## Theme Runtime Split
+
+`fsusui/theme.ts` owns only the FsusUI adapter contract: downstream Blog code gets the canonical `ThemeMode` type and theme-mode helpers from FsusUI through this file.
+
+`src/frontend/src/services/themeRuntime.ts` remains Blog-owned. It wraps that FsusUI contract with the Blog storage key, SSR boot order, Vue readonly state and `system` mode synchronization required by the public shell.
+
 ## Enforcement
 
-`tests/frontend/checks/static/check-fsusui-boundary.mjs` enforces this contract by checking deep imports, programmatic API ownership, internal selectors, markdown feature ownership, the mandatory adapter files, and the intentionally small `components/ui/index.ts` surface.
+`tests/frontend/checks/static/check-fsusui-boundary.mjs` enforces this contract by checking deep imports, programmatic API ownership, internal selectors, markdown feature ownership, the theme adapter source, the mandatory adapter files, and the intentionally small `components/ui/index.ts` surface.

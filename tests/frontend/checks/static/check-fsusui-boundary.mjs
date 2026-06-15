@@ -10,6 +10,7 @@ const repoRoot = path.resolve(process.env.FSUSBLOG_FSUSUI_BOUNDARY_ROOT ?? defau
 const srcRoot = path.join(repoRoot, 'src/frontend/src')
 const fsusuiRoot = path.join(srcRoot, 'fsusui')
 const boundaryDocPath = path.join(fsusuiRoot, 'README.md')
+const themeAdapterPath = path.join(fsusuiRoot, 'theme.ts')
 const uiIndexPath = path.join(srcRoot, 'components/ui/index.ts')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const strict = true
@@ -186,6 +187,28 @@ function checkBoundaryDoc() {
   }
 }
 
+function checkThemeAdapterContract() {
+  if (!fs.existsSync(themeAdapterPath)) {
+    return
+  }
+
+  const content = fs.readFileSync(themeAdapterPath, 'utf8')
+  if (!/from\s+['"]@ozwasyd\/element-plus\/theme['"]/.test(content)) {
+    warn(themeAdapterPath, 'theme-adapter-contract', 'theme.ts must import the FsusUI public theme contract')
+  }
+
+  for (const pattern of [
+    /export\s+const\s+themeModes\s*=\s*\[/,
+    /export\s+type\s+ThemeMode\s*=\s*\(typeof\s+themeModes\)\[number\]/,
+    /export\s+type\s+ResolvedTheme\s*=\s*Exclude<ThemeMode,\s*['"]system['"]>/,
+  ]) {
+    if (pattern.test(content)) {
+      warn(themeAdapterPath, 'theme-adapter-contract', 'theme.ts must not redeclare FsusUI theme-mode primitives')
+      break
+    }
+  }
+}
+
 function checkUiIndexSurface() {
   if (!fs.existsSync(uiIndexPath)) {
     return
@@ -210,6 +233,7 @@ for (const file of walk(srcRoot)) {
 checkPackageMarkdownDependencies()
 checkRequiredAdapters()
 checkBoundaryDoc()
+checkThemeAdapterContract()
 checkUiIndexSurface()
 
 if (warnings.length === 0) {
