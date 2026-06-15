@@ -5,13 +5,24 @@
     data-console-welcome-callout="true"
     aria-labelledby="console-welcome-callout-title"
   >
-    <div class="console-welcome-callout__copy">
-      <h2 id="console-welcome-callout-title" class="console-welcome-callout__title">
-        控制台维护
-      </h2>
-      <p class="console-welcome-callout__body">
-        {{ bodyText }}
-      </p>
+    <div class="console-welcome-callout__header">
+      <div class="console-welcome-callout__copy">
+        <h2 id="console-welcome-callout-title" class="console-welcome-callout__title">
+          控制台维护
+        </h2>
+        <p class="console-welcome-callout__body">
+          {{ bodyText }}
+        </p>
+      </div>
+
+      <el-button
+        circle
+        :icon="Close"
+        class="console-welcome-callout__dismiss"
+        data-console-welcome-dismiss="true"
+        aria-label="关闭控制台反馈提示"
+        @click="dismiss"
+      />
     </div>
 
     <nav
@@ -30,15 +41,6 @@
         {{ link.label }}
       </a>
     </nav>
-
-    <el-button
-      circle
-      :icon="Close"
-      class="console-welcome-callout__dismiss"
-      data-console-welcome-dismiss="true"
-      aria-label="关闭控制台反馈提示"
-      @click="dismiss"
-    />
   </section>
 </template>
 
@@ -64,7 +66,6 @@ const bodyText = computed(() => (
 
 <style scoped>
 .console-welcome-callout {
-  position: relative;
   display: grid;
   gap: 1.25rem;
   border-block: 1px solid var(--fsusblog-panel-border);
@@ -72,9 +73,16 @@ const bodyText = computed(() => (
   padding: 1.5rem;
 }
 
+.console-welcome-callout__header {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 1rem;
+}
+
 .console-welcome-callout__copy {
   min-width: 0;
-  padding-right: 2.75rem;
 }
 
 .console-welcome-callout__title {
@@ -101,6 +109,7 @@ const bodyText = computed(() => (
 }
 
 .console-welcome-callout__link {
+  box-sizing: border-box;
   display: inline-flex;
   min-height: 2.25rem;
   align-items: center;
@@ -123,15 +132,30 @@ const bodyText = computed(() => (
 }
 
 .console-welcome-callout__dismiss {
-  position: absolute;
-  right: 1rem;
-  top: 1rem;
+  flex: 0 0 auto;
+  justify-self: end;
 }
 
 @media (min-width: 768px) {
   .console-welcome-callout {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
+  }
+
+  .console-welcome-callout__links {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 360px) {
+  .console-welcome-callout {
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .console-welcome-callout__link {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>

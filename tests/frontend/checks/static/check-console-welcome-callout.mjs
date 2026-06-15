@@ -35,9 +35,7 @@ for (const token of [
   'window.__FSUSBLOG_CONSOLE_WELCOME_CALLOUT__',
   'shouldShowConsoleWelcomeCallout',
   'buildConsoleWelcomeCalloutLinks',
-  '维护说明',
-  '新建 Issue',
-  '讨论区'
+  'https://github.com/Ozwasyd/FsusBlog/issues/new/choose',
 ]) {
   expectIncludes('src/frontend/src/config/consoleWelcomeCallout.ts', token, token)
 }
@@ -47,21 +45,25 @@ for (const token of [
   'window.localStorage.setItem',
   'storageKeyFor',
   'userKey',
-  'shouldShowConsoleWelcomeCallout(config)'
+  'shouldShowConsoleWelcomeCallout(config)',
 ]) {
   expectIncludes('src/frontend/src/composables/useConsoleWelcomeCallout.ts', token, token)
 }
 
 for (const token of [
   'data-console-welcome-callout="true"',
+  'console-welcome-callout__header',
   'data-console-welcome-dismiss="true"',
   'target="_blank"',
   'rel="noopener noreferrer"',
-  '控制台反馈',
+  '关闭控制台反馈提示',
   '控制台维护',
   '发现后台问题或需要记录改进项，可以从这里进入项目维护入口。',
   'link.label',
-  '关闭控制台反馈提示'
+  'grid-template-columns: minmax(0, 1fr) auto',
+  'justify-self: end',
+  'box-sizing: border-box',
+  'width: 100%',
 ]) {
   expectIncludes('src/frontend/src/components/admin/ConsoleWelcomeCallout.vue', token, token)
 }
@@ -72,13 +74,25 @@ expectIncludes('src/frontend/src/vite-env.d.ts', '__FSUSBLOG_CONSOLE_WELCOME_CAL
 expectIncludes('docs/frontend/console-welcome-callout.md', 'ConsoleWelcomeCallout.Enabled', 'configuration docs')
 expectIncludes('src/frontend/package.json', 'check:console-welcome-callout', 'npm script')
 expectIncludes('src/frontend/package.json', 'npm run check:console-welcome-callout', 'views constraints hook')
+expectIncludes(
+  'tests/frontend/unit/composables/useConsoleWelcomeCallout.test.ts',
+  'single-link GitHub issue default',
+  'single-link default unit coverage'
+)
+expectIncludes(
+  'tests/frontend/unit/composables/useConsoleWelcomeCallout.test.ts',
+  'configured three-link maintenance order',
+  'three-link unit coverage'
+)
 
 expectNotIncludes('src/frontend/src/config/consoleWelcomeCallout.ts', 'diagnostic', 'diagnostic issue URL attachment')
 for (const token of [
   'GitLab',
   'Welcome to FsusBlog.',
   'improvement idea',
-  'send a patch'
+  'send a patch',
+  'position: absolute',
+  'padding-right: 2.75rem',
 ]) {
   expectNotIncludes('src/frontend/src/components/admin/ConsoleWelcomeCallout.vue', token, token)
 }
@@ -86,7 +100,7 @@ for (const token of [
 for (const token of [
   'Contribution guide',
   'Create GitHub issue',
-  'Project community'
+  'Project community',
 ]) {
   expectNotIncludes('src/frontend/src/config/consoleWelcomeCallout.ts', token, token)
 }

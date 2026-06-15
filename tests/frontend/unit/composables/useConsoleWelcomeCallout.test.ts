@@ -37,6 +37,30 @@ describe('console welcome callout', () => {
     ])
   })
 
+  it('uses the single-link GitHub issue default', () => {
+    expect(buildConsoleWelcomeCalloutLinks(resolveConsoleWelcomeCalloutConfig())).toEqual([
+      {
+        key: 'issue',
+        label: '新建 Issue',
+        href: 'https://github.com/Ozwasyd/FsusBlog/issues/new/choose'
+      }
+    ])
+  })
+
+  it('keeps the configured three-link maintenance order', () => {
+    const config = resolveConsoleWelcomeCalloutConfig({
+      contributeUrl: 'https://example.com/guide',
+      issueUrl: 'https://github.com/Ozwasyd/FsusBlog/issues/new/choose',
+      communityUrl: 'https://github.com/Ozwasyd/FsusBlog/discussions'
+    })
+
+    expect(buildConsoleWelcomeCalloutLinks(config)).toEqual([
+      { key: 'contribute', label: '维护说明', href: 'https://example.com/guide' },
+      { key: 'issue', label: '新建 Issue', href: 'https://github.com/Ozwasyd/FsusBlog/issues/new/choose' },
+      { key: 'community', label: '讨论区', href: 'https://github.com/Ozwasyd/FsusBlog/discussions' }
+    ])
+  })
+
   it('persists dismissal per user key', () => {
     const userKey = computed(() => 'admin-user')
     const callout = useConsoleWelcomeCallout({
