@@ -307,7 +307,7 @@ function coveredTiersForWorkflowJob(job, tiersById, plannedTierIds = []) {
       continue
     }
 
-    const testMatch = command.match(/(?:^|\s)(?:\.\/)?tools\/test\.sh\s+([A-Za-z0-9_-]+)/)
+    const testMatch = command.match(/(?:^|\s)(?:\.\/)?tools\/test\.sh\s+(?:ci-tier\s+)?([A-Za-z0-9_-]+)/)
     if (!testMatch) continue
 
     const tierId = testMatch[1]
@@ -407,7 +407,7 @@ function setupRequirementsForTiers(tierIds, tiersById) {
 function bootstrapExecutionsForWorkflowJob(job, tiersById) {
   let count = 0
   for (const command of job.runs) {
-    const testMatch = command.match(/(?:^|\s)(?:\.\/)?tools\/test\.sh\s+([A-Za-z0-9_-]+)/)
+    const testMatch = command.match(/(?:^|\s)(?:\.\/)?tools\/test\.sh\s+(?:ci-tier\s+)?([A-Za-z0-9_-]+)/)
     if (!testMatch) continue
 
     const tierId = testMatch[1]

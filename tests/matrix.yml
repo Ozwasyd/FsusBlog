@@ -434,13 +434,13 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
-  - id: visual
+  - id: visual-public
     owner: InteropGlueAgent
-    command: tools/test/lanes/visual-playwright.sh
+    command: tools/test/lanes/visual-public-playwright.sh
     dependsOn: [bootstrap]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: true
-    exclusiveResources: [visual-baselines]
+    exclusiveResources: [visual-public-screenshots]
     phase: 3
     cost: high
     resourceClass: browser
@@ -455,9 +455,64 @@ tiers:
     shardable: true
     defaultShards: 2
     risk: medium
-    coverage: [playwright-visual]
-    artifacts: [src/frontend/test-results/playwright/visual, src/frontend/playwright-report, .tmp/gate-logs/visual-gate-skip.json]
-    evidence: [src/frontend/test-results/playwright/visual, .tmp/gate-logs/visual-gate-skip.json]
+    coverage: [playwright-visual-public]
+    artifacts: [.tmp/visual/public, src/frontend/test-results/playwright/visual-public]
+    evidence: [.tmp/visual/public, src/frontend/test-results/playwright/visual-public]
+    ciJob: visual-public-playwright
+    localOnly: false
+    nightlyOnly: false
+
+  - id: visual-console
+    owner: InteropGlueAgent
+    command: tools/test/lanes/visual-console-playwright.sh
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: true
+    exclusiveResources: [visual-console-screenshots]
+    phase: 3
+    cost: high
+    resourceClass: browser
+    maxParallel: 2
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: chromium
+    playwrightWorkers: 2
+    cacheProfile: full
+    timeoutMinutes: 35
+    shardable: true
+    defaultShards: 2
+    risk: medium
+    coverage: [playwright-visual-console]
+    artifacts: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console]
+    evidence: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console]
+    ciJob: visual-console-playwright
+    localOnly: false
+    nightlyOnly: false
+
+  - id: visual
+    owner: InteropGlueAgent
+    command: tools/test/lanes/visual-screenshots-aggregate.sh
+    dependsOn: [visual-public, visual-console]
+    services: []
+    parallelizable: false
+    exclusiveResources: [visual-screenshot-aggregate]
+    phase: 3
+    cost: low
+    resourceClass: io
+    maxParallel: 1
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: medium
+    coverage: [playwright-visual-aggregate]
+    artifacts: [.tmp/visual/summary.json, .tmp/release-evidence/visual-screenshot-summary.json]
+    evidence: [.tmp/visual/summary.json, .tmp/release-evidence/visual-screenshot-summary.json]
     ciJob: visual-playwright
     localOnly: false
     nightlyOnly: false

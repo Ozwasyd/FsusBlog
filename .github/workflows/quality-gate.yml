@@ -33,6 +33,10 @@ jobs:
       fast_frontend_unit_max_parallel: ${{ steps.fast_frontend_unit_matrix.outputs.max_parallel }}
       acceptance_playwright_matrix: ${{ steps.acceptance_playwright_matrix.outputs.matrix }}
       acceptance_playwright_max_parallel: ${{ steps.acceptance_playwright_matrix.outputs.max_parallel }}
+      visual_public_playwright_matrix: ${{ steps.visual_public_playwright_matrix.outputs.matrix }}
+      visual_public_playwright_max_parallel: ${{ steps.visual_public_playwright_matrix.outputs.max_parallel }}
+      visual_console_playwright_matrix: ${{ steps.visual_console_playwright_matrix.outputs.matrix }}
+      visual_console_playwright_max_parallel: ${{ steps.visual_console_playwright_matrix.outputs.max_parallel }}
       ux_viewport_smoke_matrix: ${{ steps.ux_viewport_smoke_matrix.outputs.matrix }}
       ux_viewport_smoke_max_parallel: ${{ steps.ux_viewport_smoke_matrix.outputs.max_parallel }}
     steps:
@@ -54,6 +58,10 @@ jobs:
         run: node tools/run-test-matrix.mjs ci-job-matrix fast-frontend-unit --github-output "$GITHUB_OUTPUT"
       - id: acceptance_playwright_matrix
         run: node tools/run-test-matrix.mjs ci-job-matrix acceptance-playwright --github-output "$GITHUB_OUTPUT"
+      - id: visual_public_playwright_matrix
+        run: node tools/run-test-matrix.mjs ci-job-matrix visual-public-playwright --github-output "$GITHUB_OUTPUT"
+      - id: visual_console_playwright_matrix
+        run: node tools/run-test-matrix.mjs ci-job-matrix visual-console-playwright --github-output "$GITHUB_OUTPUT"
       - id: ux_viewport_smoke_matrix
         run: node tools/run-test-matrix.mjs ci-job-matrix ux-viewport-smoke --github-output "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
@@ -478,25 +486,18 @@ jobs:
             .tmp/release-evidence/jobs/**
             .tmp/release-evidence/flaky/**
 
-  visual-playwright:
-    name: Visual Playwright ${{ matrix.shard }}
+  visual-public-playwright:
+    name: Visual Public Playwright ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    needs: integration-runtime
+    needs: [validate-matrix, integration-runtime]
     timeout-minutes: 35
     strategy:
       fail-fast: false
-      max-parallel: 2
-      matrix:
-        include:
-          - shard: 1/2
-            shard_id: 1-of-2
-            playwright_workers: 2
-          - shard: 2/2
-            shard_id: 2-of-2
-            playwright_workers: 2
+      max-parallel: ${{ fromJson(needs.validate-matrix.outputs.visual_public_playwright_max_parallel) }}
+      matrix: ${{ fromJson(needs.validate-matrix.outputs.visual_public_playwright_matrix) }}
     env:
       FSUSBLOG_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
-      FSUSBLOG_TEST_NAMESPACE: ci-visual-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
+      FSUSBLOG_TEST_NAMESPACE: ci-visual-public-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -518,19 +519,97 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
       - run: ./tools/test.sh bootstrap --no-deps
-      - run: node tools/ci/run-flaky-governed.mjs --suite visual-playwright --test visual-shard-${{ matrix.shard_id }} -- ./tools/test.sh visual --no-deps --shard ${{ matrix.shard }}
+      - run: node tools/ci/run-flaky-governed.mjs --suite visual-public-playwright --test visual-public-${{ matrix.shard_id }} -- ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps --shard ${{ matrix.shard }}
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: visual-playwright-${{ matrix.shard_id }}
+          name: ${{ matrix.artifact_name }}
           if-no-files-found: ignore
           retention-days: 14
           path: |
-            src/frontend/test-results/playwright/visual/**
-            src/frontend/playwright-report/**
+            .tmp/visual/public/**
+            src/frontend/test-results/playwright/visual-public/**
             .tmp/gate-logs/visual-gate-skip.json
             .tmp/release-evidence/jobs/**
             .tmp/release-evidence/flaky/**
+
+  visual-console-playwright:
+    name: Visual Console Playwright ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    needs: [validate-matrix, integration-runtime]
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJson(needs.validate-matrix.outputs.visual_console_playwright_max_parallel) }}
+      matrix: ${{ fromJson(needs.validate-matrix.outputs.visual_console_playwright_matrix) }}
+    env:
+      FSUSBLOG_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
+      FSUSBLOG_TEST_NAMESPACE: ci-visual-console-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
+      - run: ./tools/test.sh bootstrap --no-deps
+      - run: node tools/ci/run-flaky-governed.mjs --suite visual-console-playwright --test visual-console-${{ matrix.shard_id }} -- ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps --shard ${{ matrix.shard }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ${{ matrix.artifact_name }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/visual/console/**
+            src/frontend/test-results/playwright/visual-console/**
+            .tmp/gate-logs/visual-gate-skip.json
+            .tmp/release-evidence/jobs/**
+            .tmp/release-evidence/flaky/**
+
+  visual-playwright:
+    name: Visual Playwright Aggregate
+    runs-on: ubuntu-latest
+    needs: [visual-public-playwright, visual-console-playwright]
+    if: always()
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: visual-public-playwright-*
+          path: .tmp/downloaded-artifacts
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: visual-console-playwright-*
+          path: .tmp/downloaded-artifacts
+      - run: ./tools/test.sh ci-tier visual --no-deps
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: visual-playwright
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/visual/summary.json
+            .tmp/release-evidence/visual-screenshot-summary.json
+            .tmp/release-evidence/jobs/**
 
   ux-viewport-smoke:
     name: UX Viewport Smoke ${{ matrix.shard }}

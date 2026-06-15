@@ -61,7 +61,7 @@ Matrix 也声明 setup/cache 元数据：`requiresNode`、`requiresDotnet`、`re
 | Lane | Scale mode | Current policy | Artifact isolation | Worker policy |
 |---|---|---|---|---|
 | `acceptance` | shard-only | `4` shards, `maxParallel=4` | `acceptance-playwright-1-of-4` ... `4-of-4` | keep `playwrightWorkers=1` |
-| `visual` | shard + worker | `2` shards, `maxParallel=2` | `visual-playwright-1-of-2` / `2-of-2` | keep `playwrightWorkers=2`; do not raise without visual baseline evidence |
+| `visual-public` / `visual-console` | shard + worker | each group uses `2` shards, `maxParallel=2`; `visual` aggregate is artifact-only | `visual-public-playwright-1-of-2` / `2-of-2`, `visual-console-playwright-1-of-2` / `2-of-2`, aggregate `visual-playwright` | keep `playwrightWorkers=2`; do not raise without visual baseline evidence |
 | `ux-viewport-smoke` | shard-only | `2` shards, `maxParallel=2` | `ux-viewport-smoke-1-of-2` / `2-of-2` | keep `playwrightWorkers=1` |
 | `cross-browser-smoke` | browser matrix | chromium/firefox/webkit matrix, no spec shard | browser-specific artifact | keep worker `1` |
 | `frontend-render-pressure` | single process | no shard; measures DOM/render pressure noise | single artifact | no Playwright worker scaling |
@@ -70,6 +70,12 @@ Matrix 也声明 setup/cache 元数据：`requiresNode`、`requiresDotnet`、`re
 Acceptance parallelism decision（2026-06-15）：在不提高 worker 的前提下采用 `maxParallel=4`。旧 `maxParallel=2` 会把 4 个 acceptance shards 排成两波；`maxParallel=4` 让 4 个独立 shard 同时开始，理论 wall-clock 从两波 shard 总和降为最慢 shard。本轮 evidence 由 `node tools/run-test-matrix.mjs ci-job-matrix acceptance-playwright` 与 `node tools/run-test-matrix.mjs ci-plan --format github-actions` 记录：4 个 `acceptance-playwright-*-of-4` shard、`playwrightWorkers=1`、job `maxParallel=4`。该变更只增加进程级 shard 并发，不提高单 shard 浏览器 worker 数；如果 per-shard job summary 或 flaky evidence 显示任一 shard 新增不稳定，回退路径是把 `tests/matrix.yml` 中的 `acceptance.maxParallel` 降回 `2`，workflow 会从 validate-matrix 输出同步回退。
 
 `ux-viewport-smoke` sharding plan：smoke 模式覆盖一组 viewport/route/content-boundary 快速断言，适合先按 Playwright 原生 `--shard 1/2`、`2/2` 分片，而不是提高 worker。`check:ux:viewport-smoke` 必须传递 `${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-}`；每个 shard 上传 `.tmp/ux/**`、`.tmp/release-evidence/ux-viewport-summary.json` 和 `src/frontend/test-results/playwright/ux-viewport-smoke/**`。`ux-viewport-visual` 与 `ux-viewport-boundaries` 保持单进程，因为它们涉及截图/边界证据，需单独评估后再 shard。
+
+### Screenshot evidence tiers
+
+截图检查拆成两个独立 CI tier：`visual-public` 只运行公开页截图检查，输出 `.tmp/visual/public/**` 与 `src/frontend/test-results/playwright/visual-public/**`；`visual-console` 只运行控制台截图检查，输出 `.tmp/visual/console/**` 与 `src/frontend/test-results/playwright/visual-console/**`。两个 tier 都写入 `fsusblog.visual.screenshot-group.v1` summary，记录独立 `durationMs`、状态、shard 参数和 Playwright output dir。
+
+`visual` tier 不再执行浏览器测试，只下载 `visual-public-playwright-*` 与 `visual-console-playwright-*` artifact 后运行 `tools/visual/aggregate-screenshot-evidence.mjs`，生成 `.tmp/visual/summary.json` 和 `.tmp/release-evidence/visual-screenshot-summary.json`。aggregate evidence 使用 `fsusblog.visual.screenshot-aggregate.v1`，保留 public/console 的 `groupDurationsMs`、job summary 路径和组合证据路径；缺少任一组 summary、job summary 非 success、或组状态为 failure 都会让 aggregate tier 失败。
 
 CI 的安装步骤必须通过 `node tools/ci/run-stage.mjs --stage install -- ...` 执行，并把耗时合并到 `.tmp/release-evidence/jobs/<job>.json`。job summary 的 `failureStage` 只能是 `setup`、`restore`、`install`、`bootstrap`、`test`、`artifact`、`summary`，`stageDurationsMs` 会保留每个阶段的 wall-clock 耗时；因此 npm/Playwright install 失败、runtime bootstrap 失败、测试失败和 release evidence 汇总失败可以在 artifact 中区分。
 
@@ -394,7 +400,7 @@ node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-pla
 .tmp/release-evidence/jobs/<job-id>.json
 ```
 
-摘要使用 `fsusblog.ci.job-result.v1`，包含 `status`、`failureStage`、`rootCause`、`tierIds`、`artifacts`、`localReproduction`、`commit`、`runId` 和 `attempt`。CI matrix shard 使用稳定 job id / artifact 名称，例如 `acceptance-playwright-1-of-4`、`visual-playwright-1-of-2`、`cross-browser-smoke-chromium`；基础 `ciJob` 仍保留在 `ciJob` 字段中。`cross-browser-smoke` 使用 browser matrix full-spec 模式，不再对每个浏览器固定执行 `--shard 1/3`。
+摘要使用 `fsusblog.ci.job-result.v1`，包含 `status`、`failureStage`、`rootCause`、`tierIds`、`artifacts`、`localReproduction`、`commit`、`runId` 和 `attempt`。CI matrix shard 使用稳定 job id / artifact 名称，例如 `acceptance-playwright-1-of-4`、`visual-public-playwright-1-of-2`、`visual-console-playwright-1-of-2`、`cross-browser-smoke-chromium`；基础 `ciJob` 仍保留在 `ciJob` 字段中。`cross-browser-smoke` 使用 browser matrix full-spec 模式，不再对每个浏览器固定执行 `--shard 1/3`。
 
 失败后先看 `production-summary` 的 root failure 分组；若对应 job summary 已下载，它会附带 `failureStage`、`rootCause`、`reproduce` 和 summary artifact 路径。完整发布证据在 `.tmp/release-evidence/<stamp>/manifest.json`，其中 `artifacts.jobSummaries` 指向收集到的 `job-summaries/` 目录。`release-evidence` 在 CI 中会校验 required job summary 是否存在、schema 是否正确，以及 matrix 声明的生成型 artifact/evidence 是否由对应 job 上传。
 

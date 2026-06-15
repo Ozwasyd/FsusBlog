@@ -92,6 +92,8 @@ run(['plan', 'production'])
 run(['ci-job-matrix', 'fast-backend', '--out', '.tmp/docs/fast-backend-matrix.json'])
 run(['ci-job-matrix', 'fast-frontend-unit', '--out', '.tmp/docs/fast-frontend-unit-matrix.json'])
 run(['ci-job-matrix', 'acceptance-playwright', '--out', '.tmp/docs/acceptance-playwright-matrix.json'])
+run(['ci-job-matrix', 'visual-public-playwright', '--out', '.tmp/docs/visual-public-playwright-matrix.json'])
+run(['ci-job-matrix', 'visual-console-playwright', '--out', '.tmp/docs/visual-console-playwright-matrix.json'])
 run(['ci-job-matrix', 'ux-viewport-smoke', '--out', '.tmp/docs/ux-viewport-smoke-matrix.json'])
 {
   const matrix = readJsonFile('.tmp/docs/fast-frontend-unit-matrix.json').matrix
@@ -127,6 +129,21 @@ run(['ci-job-matrix', 'ux-viewport-smoke', '--out', '.tmp/docs/ux-viewport-smoke
   requireCondition(
     matrix.include.every((entry) => entry.playwright_workers === 1 && /^ux-viewport-smoke-\d-of-2$/.test(entry.artifact_name)),
     'ux-viewport-smoke shard artifacts and worker policy must come from matrix metadata'
+  )
+}
+for (const [jobId, file] of [
+  ['visual-public-playwright', '.tmp/docs/visual-public-playwright-matrix.json'],
+  ['visual-console-playwright', '.tmp/docs/visual-console-playwright-matrix.json']
+]) {
+  const matrix = readJsonFile(file).matrix
+  const shards = matrix.include.map((entry) => entry.shard).filter(Boolean)
+  requireCondition(
+    shards.length === 2 && shards.includes('1/2') && shards.includes('2/2'),
+    `${jobId} matrix must expand into 2 Playwright shards`
+  )
+  requireCondition(
+    matrix.include.every((entry) => entry.playwright_workers === 2 && new RegExp(`^${jobId}-\\d-of-2$`).test(entry.artifact_name)),
+    `${jobId} shard artifacts and worker policy must come from matrix metadata`
   )
 }
 run(['aggregate', 'fast-summary', '--dry-run', '--out', '.tmp/docs/fast-summary-aggregate-plan.json'])
@@ -334,5 +351,49 @@ requireFileIncludes(
   'Browser lane scaling policy',
   'docs/testing.md must document browser lane shard/worker scaling policy and evidence'
 )
-
+requireFileIncludes(
+  'tests/matrix.yml',
+  'id: visual-public\n    owner: InteropGlueAgent\n    command: tools/test/lanes/visual-public-playwright.sh',
+  'public screenshot checks must run as a separate matrix tier'
+)
+requireFileIncludes(
+  'tests/matrix.yml',
+  'id: visual-console\n    owner: InteropGlueAgent\n    command: tools/test/lanes/visual-console-playwright.sh',
+  'console screenshot checks must run as a separate matrix tier'
+)
+requireFileIncludes(
+  'tests/matrix.yml',
+  'id: visual\n    owner: InteropGlueAgent\n    command: tools/test/lanes/visual-screenshots-aggregate.sh\n    dependsOn: [visual-public, visual-console]',
+  'visual screenshot checks must have a final aggregate tier'
+)
+requireFileIncludes(
+  'tests/matrix.yml',
+  'artifacts: [.tmp/visual/public, src/frontend/test-results/playwright/visual-public]',
+  'public screenshot artifacts must use isolated output paths'
+)
+requireFileIncludes(
+  'tests/matrix.yml',
+  'artifacts: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console]',
+  'console screenshot artifacts must use isolated output paths'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  'visual_public_playwright_matrix',
+  'visual public workflow must use generated shard matrix'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  'visual_console_playwright_matrix',
+  'visual console workflow must use generated shard matrix'
+)
+requireFileIncludes(
+  'tools/visual/aggregate-screenshot-evidence.mjs',
+  'fsusblog.visual.screenshot-aggregate.v1',
+  'visual screenshot aggregate script must emit a versioned evidence schema'
+)
+requireFileIncludes(
+  'docs/testing.md',
+  'Screenshot evidence tiers',
+  'docs/testing.md must document visual screenshot tier split and aggregate evidence'
+)
 console.log('[test-matrix] ok')

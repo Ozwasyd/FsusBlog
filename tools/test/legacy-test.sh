@@ -207,6 +207,79 @@ run_vitest_script() {
   fi
 }
 
+configure_visual_playwright_lane() {
+  local lane="$1"
+  local index="${FSUSBLOG_TEST_SHARD_INDEX:-}"
+  local total="${FSUSBLOG_TEST_SHARD_TOTAL:-}"
+
+  if [[ -z "$index" && -z "$total" ]]; then
+    unset FSUSBLOG_PLAYWRIGHT_SHARD_ARG
+    export PLAYWRIGHT_OUTPUT_DIR="test-results/playwright/$lane"
+    return
+  fi
+
+  export PLAYWRIGHT_OUTPUT_DIR="test-results/playwright/$lane/shard-${index}-of-${total}"
+  configure_playwright_shard "$lane"
+}
+
+write_visual_group_summary() {
+  local group="$1"
+  local status="$2"
+  local duration_ms="$3"
+  local output_dir="${PLAYWRIGHT_OUTPUT_DIR:-}"
+  local shard_arg="${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-}"
+  local out_file="$ROOT_DIR/.tmp/visual/$group/summary.json"
+
+  mkdir -p "$(dirname "$out_file")"
+  node - "$out_file" "$group" "$status" "$duration_ms" "$output_dir" "$shard_arg" <<'NODE'
+const fs = require('node:fs')
+const outFile = process.argv[2]
+const group = process.argv[3]
+const status = process.argv[4]
+const durationMs = Number(process.argv[5]) || 0
+const outputDir = process.argv[6] || null
+const shardArg = process.argv[7] || null
+
+fs.writeFileSync(outFile, `${JSON.stringify({
+  schema: 'fsusblog.visual.screenshot-group.v1',
+  group,
+  status,
+  durationMs,
+  outputDir,
+  shardArg,
+  generatedAt: new Date().toISOString()
+}, null, 2)}\n`)
+NODE
+}
+
+run_visual_group_check() {
+  local group="$1"
+  shift
+  local started_ms
+  started_ms="$(date +%s%3N)"
+  log "visual screenshot group start: $group"
+
+  set +e
+  run_in_client "$@"
+  local status=$?
+  set -e
+
+  local finished_ms duration_ms state
+  finished_ms="$(date +%s%3N)"
+  duration_ms=$((finished_ms - started_ms))
+  if (( status == 0 )); then
+    state="success"
+  else
+    state="failure"
+  fi
+  write_visual_group_summary "$group" "$state" "$duration_ms"
+
+  if (( status != 0 )); then
+    fail "visual screenshot group failed: $group (exit $status)"
+  fi
+  log "visual screenshot group done: $group (${duration_ms}ms)"
+}
+
 prepare_frontend_fast_group_timings() {
   mkdir -p "$(dirname "$FRONTEND_FAST_GROUP_TIMINGS_JSONL")"
   : > "$FRONTEND_FAST_GROUP_TIMINGS_JSONL"
@@ -746,20 +819,34 @@ run_acceptance() {
 
 run_visual_only() {
   log "tier=visual | dark/mobile visual gates"
-  configure_playwright_shard visual
+  run_visual_public_only
+  run_visual_console_only
+}
+
+run_visual_public_only() {
+  log "tier=visual-public | public screenshot checks"
+  configure_visual_playwright_lane visual-public
   require_debug_stack
   require_release_preview
-  reset_security_runtime_state "pre visual"
+  reset_security_runtime_state "pre visual public"
 
   export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
   export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
   export FSUSBLOG_HTTP_TIMEOUT_MS="$VISUAL_HTTP_TIMEOUT_MS"
-  run_in_client npm run check:visual:public
+  run_visual_group_check public npm run check:visual:public
+}
+
+run_visual_console_only() {
+  log "tier=visual-console | console screenshot checks"
+  configure_visual_playwright_lane visual-console
+  require_debug_stack
+  require_release_preview
+  reset_security_runtime_state "pre visual console"
 
   export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
   export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
   export FSUSBLOG_HTTP_TIMEOUT_MS="$VISUAL_HTTP_TIMEOUT_MS"
-  run_in_client npm run check:visual:console
+  run_visual_group_check console npm run check:visual:console
 }
 
 run_visual() {
