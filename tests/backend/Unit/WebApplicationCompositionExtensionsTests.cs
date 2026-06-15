@@ -72,6 +72,17 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
+    public void EndpointPipeline_AuthenticatesBeforeRateLimiterAndBannedUserChecks()
+    {
+        string source = ReadCompositionSource();
+        string endpointPipeline = ExtractEndpointPipeline(source);
+
+        AssertBefore(endpointPipeline, "app.UseAuthentication();", "app.UseRateLimiter();");
+        AssertBefore(endpointPipeline, "app.UseRateLimiter();", "app.UseMiddleware<BannedUserMiddleware>();");
+        AssertBefore(endpointPipeline, "app.UseMiddleware<BannedUserMiddleware>();", "app.UseAuthorization();");
+    }
+
+    [Fact]
     public void SpaFallbackHeadInjectionCache_ReusesRouteBytesForSameVersionAndRoute()
     {
         WebApplicationCompositionExtensions.ResetSpaHeadInjectionCacheForTests();
@@ -537,6 +548,27 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.True(branchEnd > branchStart, "Unable to locate Public AOT HTML slow-path branch.");
 
         return source[branchStart..branchEnd];
+    }
+
+    private static string ExtractEndpointPipeline(string source)
+    {
+        int branchStart = source.IndexOf("private static void UseFsusEndpointPipeline", StringComparison.Ordinal);
+        int branchEnd = source.IndexOf("private static void UseFsusEndpointMetadataHeaders", branchStart, StringComparison.Ordinal);
+
+        Assert.True(branchStart >= 0, "Unable to locate endpoint pipeline.");
+        Assert.True(branchEnd > branchStart, "Unable to locate end of endpoint pipeline.");
+
+        return source[branchStart..branchEnd];
+    }
+
+    private static void AssertBefore(string source, string first, string second)
+    {
+        int firstIndex = source.IndexOf(first, StringComparison.Ordinal);
+        int secondIndex = source.IndexOf(second, StringComparison.Ordinal);
+
+        Assert.True(firstIndex >= 0, $"Unable to locate {first}.");
+        Assert.True(secondIndex >= 0, $"Unable to locate {second}.");
+        Assert.True(firstIndex < secondIndex, $"{first} must appear before {second}.");
     }
 
     private static PublicAotCacheEntry CreateAotEntry(string html, PublicAotHtmlArtifact artifact)

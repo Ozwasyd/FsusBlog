@@ -70,6 +70,8 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 | 静态资源 | `UseFsusStaticAssets` | Public AOT cache、SPA 静态文件、fallback |
 | 端点管线 | `UseFsusEndpointPipeline` | OpenTelemetry trace correlation、crawler-aware Rate Limiting、OutputCache、API/Binary/健康路由 |
 
+`UseFsusEndpointPipeline` 的端点链路顺序必须保持 `UseAuthentication()` -> `UseRateLimiter()` -> `BannedUserMiddleware` -> `UseAuthorization()`。`fixed_ip` 限流分区需要读取已认证的 admin principal 才能应用管理端绕过；封禁写入检查仍在限流之后、授权之前执行。
+
 路由组装按 `MapFsusOperationalRoutes`、`MapFsusApiRoutes`、`MapFsusPublicRoutes` 分层，避免在新增 API 时同时触碰健康探针、notification stream、SPA fallback 和静态文件策略。
 
 运行时 DI 组合根按边界拆分：基础设施注册由 `AddBinaryRuntime`、`AddNotificationRuntime`、`AddCrawlerAndSearchRuntime`、`AddFileAndAuthRuntime`、`AddAuditRuntime`、`AddMessagingRuntime`、`AddCacheRuntime`、`AddIdentityRuntime`、`AddBackgroundRuntime`、`AddSpaRuntime`、`AddObjectPools` 分段承载；领域注册由 `AddContentRuntimeServices`、`AddUserRuntimePorts`、`AddGeneralDomainServices`、`AddCoreBridgeServices` 分段承载。新增服务应优先落入对应分组，避免把 Bootstrap 重新变成无边界注册清单。
