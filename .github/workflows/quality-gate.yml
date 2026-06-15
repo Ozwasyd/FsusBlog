@@ -31,6 +31,10 @@ jobs:
       fast_backend_max_parallel: ${{ steps.fast_backend_matrix.outputs.max_parallel }}
       fast_frontend_unit_matrix: ${{ steps.fast_frontend_unit_matrix.outputs.matrix }}
       fast_frontend_unit_max_parallel: ${{ steps.fast_frontend_unit_matrix.outputs.max_parallel }}
+      acceptance_playwright_matrix: ${{ steps.acceptance_playwright_matrix.outputs.matrix }}
+      acceptance_playwright_max_parallel: ${{ steps.acceptance_playwright_matrix.outputs.max_parallel }}
+      ux_viewport_smoke_matrix: ${{ steps.ux_viewport_smoke_matrix.outputs.matrix }}
+      ux_viewport_smoke_max_parallel: ${{ steps.ux_viewport_smoke_matrix.outputs.max_parallel }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -48,6 +52,10 @@ jobs:
         run: node tools/run-test-matrix.mjs ci-job-matrix fast-backend --github-output "$GITHUB_OUTPUT"
       - id: fast_frontend_unit_matrix
         run: node tools/run-test-matrix.mjs ci-job-matrix fast-frontend-unit --github-output "$GITHUB_OUTPUT"
+      - id: acceptance_playwright_matrix
+        run: node tools/run-test-matrix.mjs ci-job-matrix acceptance-playwright --github-output "$GITHUB_OUTPUT"
+      - id: ux_viewport_smoke_matrix
+        run: node tools/run-test-matrix.mjs ci-job-matrix ux-viewport-smoke --github-output "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -431,21 +439,8 @@ jobs:
     timeout-minutes: 45
     strategy:
       fail-fast: false
-      max-parallel: 2
-      matrix:
-        include:
-          - shard: 1/4
-            shard_id: 1-of-4
-            playwright_workers: 1
-          - shard: 2/4
-            shard_id: 2-of-4
-            playwright_workers: 1
-          - shard: 3/4
-            shard_id: 3-of-4
-            playwright_workers: 1
-          - shard: 4/4
-            shard_id: 4-of-4
-            playwright_workers: 1
+      max-parallel: ${{ fromJson(needs.validate-matrix.outputs.acceptance_playwright_max_parallel) }}
+      matrix: ${{ fromJson(needs.validate-matrix.outputs.acceptance_playwright_matrix) }}
     env:
       FSUSBLOG_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
       FSUSBLOG_TEST_NAMESPACE: ci-acceptance-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
@@ -470,11 +465,11 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
       - run: ./tools/test.sh bootstrap --no-deps
-      - run: node tools/ci/run-flaky-governed.mjs --suite acceptance-playwright --test acceptance-shard-${{ matrix.shard_id }} -- ./tools/test.sh acceptance --no-deps --shard ${{ matrix.shard }}
+      - run: node tools/ci/run-flaky-governed.mjs --suite acceptance-playwright --test acceptance-shard-${{ matrix.shard_id }} -- ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps --shard ${{ matrix.shard }}
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: acceptance-playwright-${{ matrix.shard_id }}
+          name: ${{ matrix.artifact_name }}
           if-no-files-found: ignore
           retention-days: 14
           path: |
@@ -538,13 +533,17 @@ jobs:
             .tmp/release-evidence/flaky/**
 
   ux-viewport-smoke:
-    name: UX Viewport Smoke
+    name: UX Viewport Smoke ${{ matrix.shard }}
     runs-on: ubuntu-latest
     needs: integration-runtime
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJson(needs.validate-matrix.outputs.ux_viewport_smoke_max_parallel) }}
+      matrix: ${{ fromJson(needs.validate-matrix.outputs.ux_viewport_smoke_matrix) }}
     env:
-      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
-      FSUSBLOG_TEST_NAMESPACE: ci-ux-viewport-${{ github.run_id }}-${{ github.run_attempt }}
+      FSUSBLOG_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
+      FSUSBLOG_TEST_NAMESPACE: ci-ux-viewport-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -566,11 +565,13 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
       - run: ./tools/test.sh bootstrap --no-deps
-      - run: node tools/ci/run-flaky-governed.mjs --suite ux-viewport-smoke --test viewport-smoke -- ./tools/test.sh ux-viewport-smoke --no-deps
+      - run: node tools/ci/run-flaky-governed.mjs --suite ux-viewport-smoke --test viewport-smoke-${{ matrix.shard_id }} -- ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps --shard ${{ matrix.shard }}
+        env:
+          FSUSBLOG_CI_JOB_ID: ${{ matrix.artifact_name }}
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: ux-viewport-smoke
+          name: ${{ matrix.artifact_name }}
           if-no-files-found: ignore
           retention-days: 14
           path: |

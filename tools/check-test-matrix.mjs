@@ -91,6 +91,8 @@ run(['plan', 'production'])
 }
 run(['ci-job-matrix', 'fast-backend', '--out', '.tmp/docs/fast-backend-matrix.json'])
 run(['ci-job-matrix', 'fast-frontend-unit', '--out', '.tmp/docs/fast-frontend-unit-matrix.json'])
+run(['ci-job-matrix', 'acceptance-playwright', '--out', '.tmp/docs/acceptance-playwright-matrix.json'])
+run(['ci-job-matrix', 'ux-viewport-smoke', '--out', '.tmp/docs/ux-viewport-smoke-matrix.json'])
 {
   const matrix = readJsonFile('.tmp/docs/fast-frontend-unit-matrix.json').matrix
   const shards = matrix.include.map((entry) => entry.shard).filter(Boolean)
@@ -101,6 +103,30 @@ run(['ci-job-matrix', 'fast-frontend-unit', '--out', '.tmp/docs/fast-frontend-un
   requireCondition(
     matrix.include.every((entry) => /^fast-frontend-unit-\d-of-2$/.test(entry.artifact_name)),
     'fast-frontend-unit shard artifacts must be named per shard'
+  )
+}
+{
+  const matrix = readJsonFile('.tmp/docs/acceptance-playwright-matrix.json').matrix
+  const shards = matrix.include.map((entry) => entry.shard).filter(Boolean)
+  requireCondition(
+    shards.length === 4 && ['1/4', '2/4', '3/4', '4/4'].every((shard) => shards.includes(shard)),
+    'acceptance-playwright matrix must expand acceptance into 4 Playwright shards'
+  )
+  requireCondition(
+    matrix.include.every((entry) => entry.playwright_workers === 1 && /^acceptance-playwright-\d-of-4$/.test(entry.artifact_name)),
+    'acceptance-playwright shard artifacts and worker policy must come from matrix metadata'
+  )
+}
+{
+  const matrix = readJsonFile('.tmp/docs/ux-viewport-smoke-matrix.json').matrix
+  const shards = matrix.include.map((entry) => entry.shard).filter(Boolean)
+  requireCondition(
+    shards.length === 2 && shards.includes('1/2') && shards.includes('2/2'),
+    'ux-viewport-smoke matrix must expand into 2 Playwright shards'
+  )
+  requireCondition(
+    matrix.include.every((entry) => entry.playwright_workers === 1 && /^ux-viewport-smoke-\d-of-2$/.test(entry.artifact_name)),
+    'ux-viewport-smoke shard artifacts and worker policy must come from matrix metadata'
   )
 }
 run(['aggregate', 'fast-summary', '--dry-run', '--out', '.tmp/docs/fast-summary-aggregate-plan.json'])
@@ -129,7 +155,11 @@ runTestSh(['ci-plan', '--out', '.tmp/docs/test-sh-ci-plan-compat.json'])
 run(['docs', '--out', '.tmp/docs/run-test-matrix-docs-compat.md'])
 
 {
-  const result = spawnSync('node', ['tools/check-workflow-matrix-sync.mjs'], {
+  const result = spawnSync('node', [
+    'tools/check-workflow-matrix-sync.mjs',
+    '.tmp/docs/run-test-matrix-ci-plan-compat.json',
+    '.github/workflows/quality-gate.yml'
+  ], {
     cwd: root,
     encoding: 'utf8'
   })
@@ -208,6 +238,61 @@ requireFileIncludes(
   'docs/testing.md',
   'Frontend fast Vitest sharding',
   'docs/testing.md must document frontend-fast shard reproduction and artifacts'
+)
+requireFileIncludes(
+  'tests/matrix.yml',
+  'coverage: [playwright-acceptance]\n    artifacts: [src/frontend/test-results/playwright/acceptance, src/frontend/playwright-report]',
+  'acceptance matrix entry must remain identifiable for browser shard policy checks'
+)
+requireFileIncludes(
+  'tests/matrix.yml',
+  'id: acceptance\n    owner: InteropGlueAgent\n    command: tools/test/lanes/acceptance-playwright.sh',
+  'acceptance tier must stay in the browser lane policy'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  'acceptance_playwright_matrix',
+  'acceptance-playwright workflow must use the generated shard matrix'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  'acceptance_playwright_max_parallel',
+  'acceptance-playwright workflow must run four generated shards concurrently before raising workers'
+)
+requireFileIncludes(
+  'tests/matrix.yml',
+  'id: ux-viewport-smoke\n    owner: InteropGlueAgent\n    command: tools/test/lanes/ux-viewport-smoke.sh',
+  'ux-viewport-smoke tier must stay in the browser lane policy'
+)
+requireFileIncludes(
+  'tests/matrix.yml',
+  'coverage: [ux-viewport-boundary, responsive-layout, content-boundary]\n    artifacts: [.tmp/ux/viewport-smoke.json, .tmp/release-evidence/ux-viewport-summary.json, src/frontend/test-results/playwright/ux-viewport-smoke]',
+  'ux-viewport-smoke artifacts must remain stable across shards'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  'ux_viewport_smoke_matrix',
+  'ux-viewport-smoke workflow must use the generated shard matrix'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  '${{ matrix.artifact_name }}',
+  'ux-viewport-smoke workflow must isolate artifacts per shard'
+)
+requireFileIncludes(
+  'src/frontend/package.json',
+  'npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-}',
+  'UX viewport smoke script must pass the Playwright shard argument'
+)
+requireFileIncludes(
+  'tools/run-test-matrix.mjs',
+  'env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG = `--shard=${index}/${total}`',
+  'matrix runner must pass Playwright shard arguments to direct browser lanes'
+)
+requireFileIncludes(
+  'docs/testing.md',
+  'Browser lane scaling policy',
+  'docs/testing.md must document browser lane shard/worker scaling policy and evidence'
 )
 
 console.log('[test-matrix] ok')

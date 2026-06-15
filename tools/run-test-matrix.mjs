@@ -493,6 +493,9 @@ function runTier(matrix, tierId, args) {
       env.MATRIX_SHARD = options.shard
       env.FSUSBLOG_TEST_SHARD_INDEX = index
       env.FSUSBLOG_TEST_SHARD_TOTAL = total
+      if (tier.requiresPlaywright !== 'none') {
+        env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG = `--shard=${index}/${total}`
+      }
     }
 
     emitTierReproductionHint(tier, options)

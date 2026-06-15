@@ -48,6 +48,23 @@ Matrix 也声明 setup/cache 元数据：`requiresNode`、`requiresDotnet`、`re
 
 每个 shard 上传独立 artifact：`fast-frontend-unit-1-of-2`、`fast-frontend-unit-2-of-2`。artifact 内容仍包含 `src/frontend/coverage/**`、`.tmp/frontend/**` 和 `.tmp/release-evidence/jobs/**`；fast-summary 通过 `fast-frontend-unit-*` pattern 合并下载。per-shard job summary 记录 `stageDurationsMs.test`，用于后续评估是否从 2 shards 提升到 4 shards。
 
+### Browser lane scaling policy
+
+浏览器 lane 优先通过 shard 扩展，再考虑提高 Playwright workers。shard 提供独立进程、独立 namespace、独立 artifact 和 per-shard `stageDurationsMs.test`；worker 只在 lane 已有稳定 shard 证据后提高。
+
+| Lane | Scale mode | Current policy | Artifact isolation | Worker policy |
+|---|---|---|---|---|
+| `acceptance` | shard-only | `4` shards, `maxParallel=4` | `acceptance-playwright-1-of-4` ... `4-of-4` | keep `playwrightWorkers=1` |
+| `visual` | shard + worker | `2` shards, `maxParallel=2` | `visual-playwright-1-of-2` / `2-of-2` | keep `playwrightWorkers=2`; do not raise without visual baseline evidence |
+| `ux-viewport-smoke` | shard-only | `2` shards, `maxParallel=2` | `ux-viewport-smoke-1-of-2` / `2-of-2` | keep `playwrightWorkers=1` |
+| `cross-browser-smoke` | browser matrix | chromium/firefox/webkit matrix, no spec shard | browser-specific artifact | keep worker `1` |
+| `frontend-render-pressure` | single process | no shard; measures DOM/render pressure noise | single artifact | no Playwright worker scaling |
+| `resilience` | single process | no shard; shares fault/runtime state | single artifact | no Playwright worker scaling |
+
+Acceptance parallelism decision（2026-06-15）：在不提高 worker 的前提下采用 `maxParallel=4`。旧 `maxParallel=2` 会把 4 个 acceptance shards 排成两波；`maxParallel=4` 让 4 个独立 shard 同时开始，理论 wall-clock 从两波 shard 总和降为最慢 shard。本轮 evidence 由 `node tools/run-test-matrix.mjs ci-job-matrix acceptance-playwright` 与 `node tools/run-test-matrix.mjs ci-plan --format github-actions` 记录：4 个 `acceptance-playwright-*-of-4` shard、`playwrightWorkers=1`、job `maxParallel=4`。该变更只增加进程级 shard 并发，不提高单 shard 浏览器 worker 数；如果 per-shard job summary 或 flaky evidence 显示任一 shard 新增不稳定，回退路径是把 `tests/matrix.yml` 中的 `acceptance.maxParallel` 降回 `2`，workflow 会从 validate-matrix 输出同步回退。
+
+`ux-viewport-smoke` sharding plan：smoke 模式覆盖一组 viewport/route/content-boundary 快速断言，适合先按 Playwright 原生 `--shard 1/2`、`2/2` 分片，而不是提高 worker。`check:ux:viewport-smoke` 必须传递 `${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-}`；每个 shard 上传 `.tmp/ux/**`、`.tmp/release-evidence/ux-viewport-summary.json` 和 `src/frontend/test-results/playwright/ux-viewport-smoke/**`。`ux-viewport-visual` 与 `ux-viewport-boundaries` 保持单进程，因为它们涉及截图/边界证据，需单独评估后再 shard。
+
 CI 的安装步骤必须通过 `node tools/ci/run-stage.mjs --stage install -- ...` 执行，并把耗时合并到 `.tmp/release-evidence/jobs/<job>.json`。job summary 的 `failureStage` 只能是 `setup`、`restore`、`install`、`bootstrap`、`test`、`artifact`、`summary`，`stageDurationsMs` 会保留每个阶段的 wall-clock 耗时；因此 npm/Playwright install 失败、runtime bootstrap 失败、测试失败和 release evidence 汇总失败可以在 artifact 中区分。
 
 Flaky 治理由 `tests/flaky.yml` 和 `tools/ci/check-flaky-registry.mjs` 控制。每个 quarantine 条目必须包含 `suite`、`test`、`issue`、`reason`、`expires`、`allowedRetries`、`owner`、`mode`、`classification`；过期条目会使 CI 失败。默认策略是不重试：unit、static governance、security、backend deterministic gates 都不得 silent retry。只有 browser-heavy suites 通过 `tools/ci/run-flaky-governed.mjs` 允许最多 1 次 retry 并写入 `.tmp/release-evidence/flaky/<suite>.json`；Production Summary 会把 `passed-after-retry` 和 clean pass 分开展示。Benchmark/perf 噪声不得走通用 flaky retry，必须使用独立的 `benchmark-noise` 分类和性能 evidence。`release-final` 会使用 `--release-final` 模式重新校验 registry/evidence，并拒绝任何 retry、skip 或 critical quarantine 证据。

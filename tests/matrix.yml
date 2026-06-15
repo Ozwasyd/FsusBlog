@@ -416,7 +416,7 @@ tiers:
     phase: 3
     cost: high
     resourceClass: browser
-    maxParallel: 2
+    maxParallel: 4
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
@@ -472,7 +472,7 @@ tiers:
     phase: 3
     cost: high
     resourceClass: browser
-    maxParallel: 1
+    maxParallel: 2
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
@@ -480,8 +480,8 @@ tiers:
     playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 35
-    shardable: false
-    defaultShards: 1
+    shardable: true
+    defaultShards: 2
     risk: high
     coverage: [ux-viewport-boundary, responsive-layout, content-boundary]
     artifacts: [.tmp/ux/viewport-smoke.json, .tmp/release-evidence/ux-viewport-summary.json, src/frontend/test-results/playwright/ux-viewport-smoke]
