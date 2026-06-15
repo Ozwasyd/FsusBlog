@@ -1,4 +1,4 @@
-# WebAssembly 开发指南
+﻿# WebAssembly 开发指南
 
 本文件说明 FsusBlog Wasm 模块的工具链配置、构建流程、C++/TypeScript 接口边界和调试策略。
 
@@ -387,6 +387,6 @@ npm run ensure:wasm
 
 - [development.md](development.md) — 本地环境搭建（含 Wasm 依赖安装）
 - [docs/api/schemas-and-errors.md](api/schemas-and-errors.md) — POD 大小目录与 C++ 对齐规则
-- `src/core/Algorithms/AEDS_V1_PROTOCOL.md` — 完整帧协议规格
+- `src/core/Algorithms/AEDS_V2_PROTOCOL.md` — 完整帧协议规格
 - `src/shared/Contracts/CPP_ALIGNMENT_CHECKLIST.md` — C++/C# 类型对齐检查清单
 - `src/frontend/src/wasm/CMakeLists.txt` — CMake 构建配置

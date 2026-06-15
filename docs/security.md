@@ -105,7 +105,7 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 |------|-----|
 | Access Token 有效期 | 15 分钟 |
 | Refresh Token 形式 | HttpOnly Cookie（SameSite=Strict，Secure） |
-| 续签方式 | `POST /api/Auth/refresh-token`，基于 `UserSession.RefreshTokenHash` 的原子 CAS 轮换（旧 Token 立即失效） |
+| 续签方式 | `POST /api/binary/auth/refresh-token`，基于 `UserSession.RefreshTokenHash` 的原子 CAS 轮换（旧 Token 立即失效） |
 | 签名算法 | HS256（密钥来自环境变量，生产启动时强制校验非占位值） |
 
 Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再保存明文 Refresh Token 或全局刷新过期时间。刷新请求必须同时匹配当前 session id、旧 refresh hash、未撤销状态、idle/absolute 过期窗口；CAS 失败或旧 Token 重用会撤销对应 session 并清理客户端 Cookie。
@@ -120,10 +120,10 @@ Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再
 - 启用流程：`/mfa/setup/start` 只写 `MfaPendingSecretEncrypted` / `MfaPendingCreatedAt`，展示二维码 + 密钥；`/mfa/setup/verify` 验证 pending secret 成功后才原子切换到 `MfaSecretEncrypted` 并启用 MFA
 - 重新绑定流程：已启用 MFA 的用户调用 `/mfa/setup/start` 必须提交当前密码和当前 TOTP/恢复码，旧 `MfaSecretEncrypted` 与 `MfaEnabled` 在新 secret 验证前保持不变
 - 登录流程：密码验证通过后，如用户已启用 MFA，颁发临时挑战令牌，等待 TOTP 码验证
-- MFA challenge：`/auth/mfa/challenge` 受 `fixed_ip` 限流保护，并对 ticket、user、IP 三个维度记录失败次数；达到阈值后消费 challenge，所有失败返回通用错误
+- MFA challenge：`/api/binary/auth/mfa/challenge` 受 `fixed_ip` 限流保护，并对 ticket、user、IP 三个维度记录失败次数；达到阈值后消费 challenge，所有失败返回通用错误
 - MFA proof、PoW replay proof 等安全一次性 token 通过 `IUnifiedCache.ConsumeOnceAsync` 消费。该 primitive 必须先失效进程内 L1 cache，再执行 Redis `Condition.KeyExists + KeyDelete` transaction；调用方取消时不得继续创建 Redis transaction 或执行 registry unregister，避免 L2 已删除但 L1 仍可重放的进程内窗口。
 - 恢复码：启用 MFA 时生成一批 128-bit 分组恢复码，服务端保存 per-code salt + PBKDF2-SHA256 慢哈希；恢复码单次使用，耗尽后可通过 `/mfa/recovery/regenerate` 重新生成
-- 管理员重置：`POST /api/Auth/admin/users/{id}/mfa/reset`（需 admin 角色），用于用户丢失设备时兜底
+- 管理员兜底不暴露旧文本 MFA reset 端点；账户恢复必须走受控安全流程和已登记的 `/api/binary/**` 管理端能力。
 - Passkey 免 MFA：使用 Passkey 登录的用户视为已完成双因素，直接跳过 MFA 挑战
 
 ---
@@ -157,9 +157,9 @@ Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再
 - 密码注册自动登录与密码登录复用同一会话创建逻辑（`CompleteLoginAsync`），默认创建非 remember-me 标准会话
 - `CompleteLoginAsync` 是 access token、refresh token 与 `UserSession` 记录的最终签发边界；密码、MFA 或 Passkey 已完成验证后，`User.Status == Banned` 会签发受限会话并写入 session，用于展示账号状态、登出、撤销会话、删除本人账号等安全收尾操作。`Deleted` / `DeletedAt` 仍必须返回注销失败且不得生成 token。
 - 封禁状态的业务真源是 PostgreSQL `sys_user.Status/BanReason`。`SecurityBlacklistUser` Redis key 只作为无过期加速缓存；任何缓存 miss 都必须回查 `sys_user.Status == Banned` 并重新回填缓存，不能把 Redis 过期、驱逐或 flush 解释为用户已解封。
-- `GET /api/Auth/sessions`：列出当前活跃会话
-- `POST /api/Auth/sessions/{id}/revoke`：主动吊销单个会话
-- `POST /api/Auth/sessions/revoke-others`：仅保留当前会话，吊销全部其他
+- `GET /api/binary/auth/sessions`：列出当前活跃会话
+- `POST /api/binary/auth/sessions/{id}/revoke`：主动吊销单个会话
+- `POST /api/binary/auth/sessions/revoke-others`：仅保留当前会话，吊销全部其他
 - 登出（`/logout`）：立即吊销当前 Refresh Token，清除 Cookie
 
 ---
@@ -283,7 +283,7 @@ Secret 轮换、站点备份导出、数据巡检修复、批量封禁、密码�
 - [ ] `Fido2:Origins` 包含实际部署来源
 - [ ] `Fido2:Origins` 与 `SITE_BASEURL` / `CORS_ALLOWED_HOSTS` 对齐，且生产来源全部使用 HTTPS
 - [ ] Docker compose 不把 Kestrel `8080`、Redis `6379`、PostgreSQL `5432` 暴露到公网
-- [ ] 生产 OpenResty/Nginx 默认拒绝未知 Host，并为 `/login`、`/admin`、`/api/Auth` 配置限流
+- [ ] 生产 OpenResty/Nginx 默认拒绝未知 Host，并为 `/login`、`/admin`、`/api/binary/auth` 配置限流
 - [ ] 使用 `FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog FSUSBLOG_FIREWALL_POLICY_EVIDENCE=.tmp/security/production-firewall-policy.json FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE=.tmp/security/production-exposure-live.json tools/security/complete-production-exposure-closeout.sh`，确认生产 DNS 已解析、只有 `80/443` 对公网开放、SSH 仅允许固定管理 IP/VPN/私有管理网段、`6379/5432/8080` 不可公网访问，且所有生产域名 HTTPS + HSTS 正常；脚本验证通过后会写出 `status=ok`
 
 外部云安全组、防火墙和 Redis/PostgreSQL 私网访问控制仍需在基础设施层执行；仓库内检查只能防止应用配置和部署模板回退。

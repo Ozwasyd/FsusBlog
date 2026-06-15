@@ -183,11 +183,11 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 - `authPhase`：`"authenticated"` 或 `"mfa_required"`
 - `mfaMode`：`"risk"` / `"standard"` / `null`
 - `challengeToken`：仅在 `authPhase = "mfa_required"` 时存在
-- `POST /api/Auth/register` 成功时同样返回该结构，并在同一响应内写入登录 Cookie，实现“注册后自动登录”
+- `POST /api/binary/auth/register` 成功时同样返回该结构，并在同一响应内写入登录 Cookie，实现“注册后自动登录”
 - 密码、MFA challenge 或 Passkey 断言完成后仍必须经过服务端最终会话签发校验；封禁账号在认证通过后返回 `AuthLoginFlowDto` 并写入受限会话 Cookie，用于读取账号状态、登出、撤销会话、删除本人账号等安全收尾操作。注销账号（`Deleted` / `DeletedAt`）仍不得返回该结构，也不得写入 access / refresh / session Cookie。
 - 封禁状态以 `sys_user.Status/BanReason` 为权威来源；`SecurityBlacklistUser` Redis 缓存只做加速且不设置 L2 过期。登录、写入过滤器和 notification stream 遇到缓存 miss 时必须回查数据库，不能因 Redis 丢失而恢复封禁用户权限。受限会话的普通业务写入由服务端返回 `423 Locked`，Binary `ApiError.Details = "ACCOUNT_BANNED_WRITE_LOCKED"`；客户端不得只靠前端状态拦截来实现安全边界。
 
-### `CurrentUserSnapshotDto`（当前用户信息，`GET /api/Auth/me`）
+### `CurrentUserSnapshotDto`（当前用户信息，`GET /api/binary/auth/me`）
 
 ```json
 {
@@ -894,7 +894,7 @@ HTML bootstrap、hydration props 和 islands payload 均以 `script type="applic
 
 ## PoW 契约
 
-### `PowChallenge`（`GET /api/Auth/pow-challenge`）
+### `PowChallenge`（`GET /api/binary/auth/pow-challenge`）
 
 ```json
 {

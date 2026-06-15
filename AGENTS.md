@@ -1,4 +1,4 @@
-# AGENTS.md — FsusBlog Code Agent 操作规范
+﻿# AGENTS.md — FsusBlog Code Agent 操作规范
 
 本文件是面向代码代理（Code Agent）的**唯一权威操作规范**，所有协作行为以本文件为准。
 首选语言：中文；代码名词、路径、命令保留英文。
@@ -27,7 +27,7 @@
 | `src/shared/Contracts/Envelopes/PodEnvelopes.cs` | POD 分页 / 游标信封 |
 | `src/core/Algorithms/` | AEDS 编解码算法核心 |
 | `src/core/Algorithms/AedsFrameType.cs` | 帧类型枚举（权威来源） |
-| `src/core/Algorithms/AEDS_V1_PROTOCOL.md` | 二进制帧协议规格（当前运行时只接受 v2） |
+| `src/core/Algorithms/AEDS_V2_PROTOCOL.md` | 二进制帧协议规格（当前运行时只接受 v2） |
 | `src/frontend/src/wasm/` | C++23 解码器源码（include/ + src/） |
 | `src/frontend/src/workers/wasmDecode.worker.ts` | Wasm 解码 Web Worker |
 | `src/frontend/src/wasm/aeds.ts` | C++/TS 胶水层 |
@@ -118,7 +118,7 @@
    - `Infrastructure/Operations/ProductionStartupValidator.cs`
 
 ### 二进制协议变更
-1. 阅读 `docs/api/contracts.md`、`src/core/Algorithms/AEDS_V1_PROTOCOL.md`
+1. 阅读 `docs/api/contracts.md`、`src/core/Algorithms/AEDS_V2_PROTOCOL.md`
 2. 核验三个算法文件：
    - `src/core/Algorithms/AedsFrameType.cs`
    - `src/core/Algorithms/AedsEncoder.cs`

@@ -1,4 +1,4 @@
-# API overview / selected quick reference
+﻿# API overview / selected quick reference
 
 本文档是 FsusBlog 当前 API overview / selected quick reference，不再手写声明覆盖所有端点。完整 HTTP shell 契约以 `src/shared/Contracts/Validation/fsusblog.openapi.json` 为准，AEDS frame/header 以 `src/shared/Contracts/Validation/aeds-protocol.json` 为准，路由速查表见 [api/quick-reference.md](api/quick-reference.md)。
 详细文档请参阅 [api/](api/) 子目录：
@@ -47,45 +47,44 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 
 ## Legacy Aliases
 
-## Auth — `/api/Auth`
+## Auth — `/api/binary/auth`
 
 ### PoW 与注册登录
 
 | 方法 | 路径 | 描述 | 权限 |
 |------|------|------|------|
-| GET | `/api/Auth/pow-challenge` | 获取 Proof of Work 挑战 | 🔓 🚦 |
-| POST | `/api/Auth/register` | 用户注册（需携带 PoW 解答） | 🔓 🚦 |
-| POST | `/api/Auth/login` | 密码登录（可能触发 MFA 流程） | 🔓 🚦 |
-| POST | `/api/Auth/refresh-token` | 使用 HttpOnly Cookie 续签 Access Token | 🔓 🚦 |
+| GET | `/api/binary/auth/pow-challenge` | 获取 Proof of Work 挑战 | 🔓 🚦 📦 |
+| POST | `/api/binary/auth/register` | 用户注册（需携带 AEDS PoW proof） | 🔓 🚦 📦 |
+| POST | `/api/binary/auth/login` | 密码登录（可能触发 MFA 流程） | 🔓 🚦 📦 |
+| POST | `/api/binary/auth/refresh-token` | 使用 HttpOnly Cookie 续签 Access Token | 🔓 🚦 📦 |
 
 ### 当前用户
 
 | 方法 | 路径 | 描述 | 权限 |
 |------|------|------|------|
-| GET | `/api/Auth/me` | 获取当前登录用户信息 | 🔑 |
-| POST | `/api/Auth/logout` | 安全登出（吊销 Refresh Token） | 🔑 |
-| POST | `/api/Auth/delete-account` | 注销账号 | 🔑 |
+| GET | `/api/binary/auth/me` | 获取当前登录用户信息 | 🔑 📦 |
+| POST | `/api/binary/auth/logout` | 安全登出（吊销 Refresh Token） | 🔑 📦 |
+| POST | `/api/binary/auth/delete-account` | 注销账号 | 🔑 📦 |
 
 ### 会话管理
 
 | 方法 | 路径 | 描述 | 权限 |
 |------|------|------|------|
-| GET | `/api/Auth/sessions` | 获取活跃会话列表 | 🔑 |
-| POST | `/api/Auth/sessions/{id}/revoke` | 吊销指定会话 | 🔑 |
-| POST | `/api/Auth/sessions/revoke-others` | 吊销全部其他会话 | 🔑 |
+| GET | `/api/binary/auth/sessions` | 获取活跃会话列表 | 🔑 📦 |
+| POST | `/api/binary/auth/sessions/{id}/revoke` | 吊销指定会话 | 🔑 📦 |
+| POST | `/api/binary/auth/sessions/revoke-others` | 吊销全部其他会话 | 🔑 📦 |
 
 ### MFA / TOTP
 
 | 方法 | 路径 | 描述 | 权限 |
 |------|------|------|------|
-| POST | `/api/Auth/mfa/setup/start` | 开始 MFA 设置，返回 TOTP 密钥与二维码 | 🔑 |
-| POST | `/api/Auth/mfa/setup/verify` | 验证 TOTP 码，完成 MFA 启用 | 🔑 |
-| GET | `/api/Auth/mfa/profile` | 查询 MFA 启用状态与恢复码剩余数 | 🔑 |
-| POST | `/api/Auth/mfa/disable` | 禁用 MFA | 🔑 |
-| POST | `/api/Auth/mfa/recovery/regenerate` | 重新生成恢复码 | 🔑 |
-| POST | `/api/Auth/mfa/challenge/start` | 登录后触发 MFA 挑战（返回挑战令牌） | 🔑 |
-| POST | `/api/Auth/mfa/challenge` | 提交 TOTP 码或恢复码完成 MFA | 🔓 |
-| POST | `/api/Auth/admin/users/{id}/mfa/reset` | 管理员重置指定用户的 MFA | 👑 |
+| POST | `/api/binary/auth/mfa/setup/start` | 开始 MFA 设置，返回 TOTP 密钥与二维码 | 🔑 📦 |
+| POST | `/api/binary/auth/mfa/setup/verify` | 验证 TOTP 码，完成 MFA 启用 | 🔑 📦 |
+| GET | `/api/binary/auth/mfa/profile` | 查询 MFA 启用状态与恢复码剩余数 | 🔑 📦 |
+| POST | `/api/binary/auth/mfa/disable` | 禁用 MFA | 🔑 📦 |
+| POST | `/api/binary/auth/mfa/recovery/regenerate` | 重新生成恢复码 | 🔑 📦 |
+| POST | `/api/binary/auth/mfa/challenge/start` | 登录后触发 MFA 挑战（返回挑战令牌） | 🔑 📦 |
+| POST | `/api/binary/auth/mfa/challenge` | 提交 TOTP 码或恢复码完成 MFA | 🔓 📦 |
 
 ---
 
@@ -244,4 +243,4 @@ Offset  Size  字段
 ```
 
 offset 8 是 `FrameType`，不是记录数；记录数属于各 payload 自己的 compact layout。
-协议完整规格见 [../src/core/Algorithms/AEDS_V1_PROTOCOL.md](../src/core/Algorithms/AEDS_V1_PROTOCOL.md)。
+协议完整规格见 [../src/core/Algorithms/AEDS_V2_PROTOCOL.md](../src/core/Algorithms/AEDS_V2_PROTOCOL.md)。

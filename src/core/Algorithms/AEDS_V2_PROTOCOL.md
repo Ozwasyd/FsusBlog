@@ -1,6 +1,6 @@
 # AEDS v2 Protocol (Little Endian)
 
-This file keeps the historical path for existing links, but the current wire protocol is AEDS v2 only. v1 frames are rejected by server, TypeScript, Worker, and Wasm decoders.
+This file is the current wire protocol specification. AEDS v2 is the only accepted runtime frame version; v1 frames are rejected by server, TypeScript, Worker, and Wasm decoders.
 
 ## Frame Layout
 

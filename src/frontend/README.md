@@ -1,4 +1,4 @@
-# FsusBlog Client
+﻿# FsusBlog Client
 
 Vue 3 SPA 前端，集成 WebAssembly 解码引擎、Service Worker 离线搜索和公开页静态 hydration。
 
@@ -126,4 +126,4 @@ npx playwright test tests/e2e/acceptance/
 npm run build:wasm
 ```
 
-协议规格见 [../core/Algorithms/AEDS_V1_PROTOCOL.md](../core/Algorithms/AEDS_V1_PROTOCOL.md)。
+协议规格见 [../core/Algorithms/AEDS_V2_PROTOCOL.md](../core/Algorithms/AEDS_V2_PROTOCOL.md)。

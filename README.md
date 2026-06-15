@@ -1,4 +1,4 @@
-# Fsu's Blog
+﻿# Fsu's Blog
 
 一个面向真实部署的高性能个人内容系统。
 
@@ -267,7 +267,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/wasm.md](docs/wasm.md) | WebAssembly 工具链、构建、C++/TS 接口边界 |
 | [docs/moderation/third-party-model-development.md](docs/moderation/third-party-model-development.md) | 第三方审核模型 Provider 契约、schema、CLI/HTTP 接入和 conformance 测试 |
 | [tests/backend/TESTING.md](tests/backend/TESTING.md) | 测试分层规则与洁净性约定 |
-| [src/core/Algorithms/AEDS_V1_PROTOCOL.md](src/core/Algorithms/AEDS_V1_PROTOCOL.md) | AEDS 二进制帧协议规格（当前运行时只接受 v2） |
+| [src/core/Algorithms/AEDS_V2_PROTOCOL.md](src/core/Algorithms/AEDS_V2_PROTOCOL.md) | AEDS 二进制帧协议规格（当前运行时只接受 v2） |
 | [ROADMAP.md](ROADMAP.md) | v1.1.0 public preview、v1.2.0 i18n、v1.3.0 分布式和后续生态路线 |
 | [docs/known-limitations.md](docs/known-limitations.md) | public-preview 已知限制、可尝试范围和不应依赖的内部契约 |
 | [docs/assets/screenshots/](docs/assets/screenshots/) | sanitized public-preview screenshots 和截图安全/品牌说明 |

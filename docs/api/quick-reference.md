@@ -15,45 +15,44 @@
 
 ---
 
-## 认证 — `/api/Auth`
+## 认证 — `/api/binary/auth`
 
 ### PoW 与注册登录
 
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
-| GET | `/api/Auth/pow-challenge` | 🔓 🚦 | 获取 PoW 挑战 |
-| POST | `/api/Auth/register` | 🔓 🚦 | 用户注册并自动登录（需携带 PoW 答案头） |
-| POST | `/api/Auth/login` | 🔓 🚦 | 密码登录，可能触发 MFA 流程 |
-| POST | `/api/Auth/refresh-token` | 🔓 🚦 | 用 HttpOnly Cookie 续签 Access Token |
+| GET | `/api/binary/auth/pow-challenge` | 🔓 🚦 📦 | 获取 PoW 挑战 |
+| POST | `/api/binary/auth/register` | 🔓 🚦 📦 | 用户注册并自动登录（需携带 AEDS PoW proof） |
+| POST | `/api/binary/auth/login` | 🔓 🚦 📦 | 密码登录，可能触发 MFA 流程 |
+| POST | `/api/binary/auth/refresh-token` | 🔓 🚦 📦 | 用 HttpOnly Cookie 续签 Access Token |
 
 ### 当前用户
 
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
-| GET | `/api/Auth/me` | 🔑 | 获取当前登录用户信息 |
-| POST | `/api/Auth/logout` | 🔑 | 安全登出（吊销当前 Refresh Token） |
-| POST | `/api/Auth/delete-account` | 🔑 | 注销账号 |
+| GET | `/api/binary/auth/me` | 🔑 📦 | 获取当前登录用户信息 |
+| POST | `/api/binary/auth/logout` | 🔑 📦 | 安全登出（吊销当前 Refresh Token） |
+| POST | `/api/binary/auth/delete-account` | 🔑 📦 | 注销账号 |
 
 ### 会话管理
 
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
-| GET | `/api/Auth/sessions` | 🔑 | 获取活跃会话列表 |
-| POST | `/api/Auth/sessions/{id}/revoke` | 🔑 | 吊销指定会话 |
-| POST | `/api/Auth/sessions/revoke-others` | 🔑 | 吊销全部其他会话 |
+| GET | `/api/binary/auth/sessions` | 🔑 📦 | 获取活跃会话列表 |
+| POST | `/api/binary/auth/sessions/{id}/revoke` | 🔑 📦 | 吊销指定会话 |
+| POST | `/api/binary/auth/sessions/revoke-others` | 🔑 📦 | 吊销全部其他会话 |
 
 ### MFA / TOTP
 
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
-| POST | `/api/Auth/mfa/setup/start` | 🔑 | 开始 MFA 设置，返回 TOTP 密钥与二维码 |
-| POST | `/api/Auth/mfa/setup/verify` | 🔑 | 验证 TOTP 码，完成 MFA 启用 |
-| GET | `/api/Auth/mfa/profile` | 🔑 | 查询 MFA 状态与恢复码剩余数 |
-| POST | `/api/Auth/mfa/disable` | 🔑 | 禁用 MFA |
-| POST | `/api/Auth/mfa/recovery/regenerate` | 🔑 | 重新生成恢复码 |
-| POST | `/api/Auth/mfa/challenge/start` | 🔑 | 登录后发起 MFA 挑战（返回挑战令牌） |
-| POST | `/api/Auth/mfa/challenge` | 🔓 | 提交 TOTP 码或恢复码完成 MFA |
-| POST | `/api/Auth/admin/users/{id}/mfa/reset` | 👑 | 管理员重置指定用户 MFA |
+| POST | `/api/binary/auth/mfa/setup/start` | 🔑 📦 | 开始 MFA 设置，返回 TOTP 密钥与二维码 |
+| POST | `/api/binary/auth/mfa/setup/verify` | 🔑 📦 | 验证 TOTP 码，完成 MFA 启用 |
+| GET | `/api/binary/auth/mfa/profile` | 🔑 📦 | 查询 MFA 状态与恢复码剩余数 |
+| POST | `/api/binary/auth/mfa/disable` | 🔑 📦 | 禁用 MFA |
+| POST | `/api/binary/auth/mfa/recovery/regenerate` | 🔑 📦 | 重新生成恢复码 |
+| POST | `/api/binary/auth/mfa/challenge/start` | 🔑 📦 | 登录后发起 MFA 挑战（返回挑战令牌） |
+| POST | `/api/binary/auth/mfa/challenge` | 🔓 📦 | 提交 TOTP 码或恢复码完成 MFA |
 
 ---
 
