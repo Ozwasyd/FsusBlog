@@ -41,10 +41,10 @@
         </div>
 
         <el-form class="admin-data-surface__action-row asset-reindex-form" inline @submit.prevent="reindexCurrentArticle">
-          <el-form-item label="文章 ID">
+          <el-form-item class="asset-reindex-form__item" label="文章 ID">
             <el-input v-model="reindexArticleId" class="article-id-input" placeholder="输入文章 ID" />
           </el-form-item>
-          <el-form-item>
+          <el-form-item class="asset-reindex-form__item">
             <el-button type="primary" :icon="Refresh" :loading="processing" @click="reindexCurrentArticle">
               重建文章引用
             </el-button>
@@ -269,7 +269,7 @@ onMounted(() => {
   font-variant-numeric: tabular-nums;
 }
 
-.asset-reindex-form :deep(.el-form-item) {
+.asset-reindex-form__item {
   margin-bottom: 0;
 }
 </style>

@@ -1,9 +1,14 @@
+import type { App } from 'vue'
 import { h } from 'vue'
-import { ElButton, ElMessage, ElMessageBox } from '@ozwasyd/element-plus'
+import { ElButton, ElLoading, ElMessage, ElMessageBox } from '@ozwasyd/element-plus'
 import { fsusBlogMotionPresets } from '@/fsusui/motion'
 import { isFsusUiOk } from '@/fsusui/result'
 
 type MessageBoxOptions = Record<string, unknown>
+
+export const installFsusUiLoading = (app: App): void => {
+  app.use(ElLoading)
+}
 
 export interface ToastOptions {
   message: string

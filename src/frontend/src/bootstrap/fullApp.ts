@@ -2,10 +2,10 @@ import { createApp, createSSRApp } from 'vue'
 import { createPinia } from 'pinia'
 import { createHead } from '@unhead/vue/client'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
-import { ElLoading } from '@ozwasyd/element-plus'
 import App from '@/App.vue'
 import router from '@/router'
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
+import { installFsusUiLoading } from '@/fsusui/feedback'
 import { FsuMotion } from '@/fsusui/motion'
 import { scheduleNonCriticalResources } from '@/bootstrap/nonCriticalResources'
 import { scheduleFullAppRuntime } from '@/bootstrap/runtimeGate'
@@ -49,7 +49,7 @@ export function bootstrapFullApp(options?: { deferRuntime?: boolean; hydrate?: b
     pinia.use(piniaPluginPersistedstate)
     app.use(pinia)
     app.use(router)
-    app.use(ElLoading)
+    installFsusUiLoading(app)
     app.use(FsuMotion)
     provideFsusUiAppContext(app)
     authSessionRuntime.init(pinia)

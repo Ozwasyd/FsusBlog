@@ -99,6 +99,7 @@ FsusBlog 只维护应用语义 alias，底层颜色、阴影、过渡和缓动�
 - `src/frontend/src/fsusui/primitiveAdapters.ts` 是 FsusBlog 本地 primitive 到 FsusUI 语义 variant 的适配层；`UiButton`、`UiTag`、`UiEmptyState` 只保留业务语义映射，不再各自维护基础控件状态面。
 - FsusUI 1.4.0 之后不再维护集中 `fsusui-overrides.css`。业务页不得用全局 `.el-*` 接管组件内部结构；确需响应式排布时，只能挂在当前业务壳层类或 `blog-*` utility class 上，并优先使用 FsusUI 变量和组件默认样式。
 - FsusUI 组件实例上的 `class` 只能承载布局尺寸、响应式可见性、测试/语义 hook；不得把 `bg-*`、`text-*`、`border-*`、`rounded-*`、`shadow-*` 或 `!important` 类直接挂到 `ElButton`、`ElTag`、`ElAvatar`、`ElStatistic`、`ElLink` 等组件上重画默认视觉。
+- `check:fsusui-boundary` 在 fast gate 中默认严格失败；任一 FsusUI 边界 warning 都会让 `check:views-constraints` 失败，并由 `check:fsusui-boundary-fixture` 防止退回 warning-only 模式。
 - FsusBlog 自有 utility 不占用 `.fsus-*` 类名空间；公开页链接/按钮焦点和交互态统一使用 `blog-focus-ring`、`blog-link-state`、`blog-interactive-state`。
 - `prefers-reduced-motion: reduce` 由全局样式关闭循环动画和页面过渡；组件内新增动画必须走 `--fsus-duration-*` 与 `--fsus-ease-standard`。
 

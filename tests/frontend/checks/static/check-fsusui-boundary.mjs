@@ -3,12 +3,13 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
+const defaultRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
+const repoRoot = path.resolve(process.env.FSUSBLOG_FSUSUI_BOUNDARY_ROOT ?? defaultRepoRoot)
 const srcRoot = path.join(repoRoot, 'src/frontend/src')
 const fsusuiRoot = path.join(srcRoot, 'fsusui')
 const uiIndexPath = path.join(srcRoot, 'components/ui/index.ts')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
-const strict = process.argv.includes('--strict') || process.env.FSUSBLOG_FSUSUI_BOUNDARY_STRICT === '1'
+const strict = true
 
 const sourceExtensions = new Set(['.css', '.js', '.mjs', '.scss', '.ts', '.tsx', '.vue'])
 const programmaticApis = new Set(['ElMessage', 'ElMessageBox', 'ElNotification', 'ElLoading'])
@@ -197,6 +198,4 @@ for (const item of warnings) {
   console.log(`- ${item.file}: ${item.rule}: ${item.detail}`)
 }
 
-if (strict) {
-  process.exit(1)
-}
+process.exit(1)
