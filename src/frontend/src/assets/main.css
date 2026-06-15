@@ -1,6 +1,6 @@
-@import '@/assets/public-shell-critical.css';
 @import '@/assets/tailwind.css';
 @import '@ozwasyd/element-plus/dist/index.css';
+@import '@/assets/public-shell-critical.css';
 @import '@/assets/motion.css';
 @import '@/assets/markdown.css';
 @import '@/assets/public-page.css';

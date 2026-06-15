@@ -22,6 +22,9 @@
       :search-query="searchQuery"
       :search-placeholder="searchPlaceholder"
       search-aria-label="搜索内容"
+      mobile-search-mode="trigger"
+      mobile-search-trigger-label="搜索"
+      mobile-search-cancel-label="取消"
       :spa-search="spaSearch"
       max-width="64rem"
       @search-focus="emit('search-focus')"
@@ -60,8 +63,12 @@
         <ThemeModeToggle visibility="desktop" />
       </template>
 
-      <template #mobile-actions>
-        <ThemeModeToggle :compact="true" visibility="mobile" />
+      <template #mobile-primary-actions>
+        <ThemeModeToggle
+          visibility="mobile"
+          variant="menu-button"
+          :labels="PUBLIC_THEME_MODE_LABELS"
+        />
       </template>
 
       <main id="main-content" tabindex="-1">
@@ -153,6 +160,14 @@ const hasBrandImage = computed(() => Boolean(brandImageLight.value || brandImage
 const compliance = computed(() => props.compliance ?? null)
 const searchQuery = ref(props.initialSearchQuery)
 const FullAppRuntime = defineAsyncComponent(() => import('@/components/runtime/AppRuntime.vue'))
+const PUBLIC_THEME_MODE_LABELS = {
+  light: '浅色',
+  dark: '深色',
+  system: '跟随系统',
+  lightShort: '浅',
+  darkShort: '深',
+  systemShort: '系统'
+}
 const PUBLIC_NAV_ITEMS = [
   { key: 'home', label: '首页', href: PUBLIC_FIXED_PATHS.home },
   { key: 'archive', label: '归档', href: PUBLIC_FIXED_PATHS.archive },

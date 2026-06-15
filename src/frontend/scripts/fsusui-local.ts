@@ -20,6 +20,10 @@ const requiredWasmAssets = [
   'markdown_simd.js',
   'markdown_simd.wasm',
 ]
+const requiredThemeCssAssets = [
+  'index.css',
+  'el-public-shell-critical.css',
+]
 
 const toVitePath = (value: string) => value.replace(/\\/g, '/')
 
@@ -34,6 +38,15 @@ const hasLocalWasmAssets = (root: string | null) => {
 
   const wasmDist = path.join(root, 'packages', 'wasm', 'dist')
   return requiredWasmAssets.every((fileName) => fs.existsSync(path.join(wasmDist, fileName)))
+}
+
+const hasLocalThemeCssAssets = (root: string | null) => {
+  if (!root) {
+    return false
+  }
+
+  const themeDist = path.join(root, 'packages', 'theme-chalk', 'dist')
+  return requiredThemeCssAssets.every((fileName) => fs.existsSync(path.join(themeDist, fileName)))
 }
 
 export function resolveLocalFsusUiRoot(override?: string | null): string | null {
@@ -63,6 +76,8 @@ export function createFsusUiAliases(localFsusUiRoot: string | null): AliasEntry[
   const packageRoot = `${root}/packages/element-plus`
   const packagedRoot = toVitePath(packagedFsusUiRoot)
   const localWasmReady = hasLocalWasmAssets(localFsusUiRoot)
+  const localThemeCssReady = hasLocalThemeCssAssets(localFsusUiRoot)
+  const localThemeDist = `${root}/packages/theme-chalk/dist`
 
   return [
     { find: /^@ozwasyd\/element-plus$/, replacement: `${packageRoot}/index.ts` },
@@ -73,10 +88,17 @@ export function createFsusUiAliases(localFsusUiRoot: string | null): AliasEntry[
     { find: /^@ozwasyd\/element-plus\/result$/, replacement: `${packageRoot}/result.ts` },
     { find: /^@ozwasyd\/element-plus\/theme$/, replacement: `${packageRoot}/theme.ts` },
     { find: /^@ozwasyd\/element-plus\/wasm$/, replacement: `${packageRoot}/wasm.ts` },
-    { find: /^@ozwasyd\/element-plus\/dist\/index\.css$/, replacement: `${root}/packages/theme-chalk/src/index.scss` },
+    {
+      find: /^@ozwasyd\/element-plus\/dist\/index\.css$/,
+      replacement: localThemeCssReady
+        ? `${localThemeDist}/index.css`
+        : `${packagedRoot}/dist/index.css`,
+    },
     {
       find: /^@ozwasyd\/element-plus\/dist\/public-shell-critical\.css$/,
-      replacement: `${root}/packages/theme-chalk/src/public-shell-critical.scss`,
+      replacement: localThemeCssReady
+        ? `${localThemeDist}/el-public-shell-critical.css`
+        : `${packagedRoot}/dist/public-shell-critical.css`,
     },
     { find: /^@element-plus\/icons-vue$/, replacement: `${root}/packages/icons-vue/src/index.ts` },
     { find: /^@element-plus\/icons-vue\/(.+)$/, replacement: `${root}/packages/icons-vue/src/$1` },

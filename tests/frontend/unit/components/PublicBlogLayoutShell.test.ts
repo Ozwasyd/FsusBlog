@@ -1,0 +1,40 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+const shellSource = readFileSync(
+  resolve(process.cwd(), 'src/components/public/PublicBlogLayoutShell.vue'),
+  'utf8'
+)
+const themeToggleSource = readFileSync(
+  resolve(process.cwd(), 'src/components/ui/ThemeModeToggle.vue'),
+  'utf8'
+)
+
+describe('PublicBlogLayoutShell responsive header integration', () => {
+  it('uses the FsusUI trigger mobile search model without duplicating the trigger', () => {
+    expect(shellSource).toContain('mobile-search-mode="trigger"')
+    expect(shellSource).toContain('mobile-search-trigger-label="搜索"')
+    expect(shellSource).toContain('mobile-search-cancel-label="取消"')
+    expect(shellSource).toContain('<template #mobile-primary-actions>')
+    expect(shellSource).not.toContain('<template #mobile-actions>')
+    expect(shellSource).not.toContain('PublicMobileSearchTrigger')
+  })
+
+  it('renders mobile theme mode as a localized menu button', () => {
+    expect(shellSource).toContain('variant="menu-button"')
+    expect(shellSource).toContain(':labels="PUBLIC_THEME_MODE_LABELS"')
+    expect(shellSource).toContain("light: '浅色'")
+    expect(shellSource).toContain("dark: '深色'")
+    expect(shellSource).toContain("system: '跟随系统'")
+    expect(shellSource).toContain("systemShort: '系统'")
+    expect(shellSource).not.toContain('visibility="mobile" compact')
+  })
+
+  it('passes FsusUI theme toggle variant and labels through the Blog wrapper', () => {
+    expect(themeToggleSource).toContain(':variant="variant"')
+    expect(themeToggleSource).toContain(':labels="labels"')
+    expect(themeToggleSource).toContain("variant?: 'segmented' | 'menu-button'")
+    expect(themeToggleSource).toContain('labels?: ThemeModeToggleLabels')
+  })
+})

@@ -3,6 +3,8 @@
     :model-value="mode"
     :compact="compact"
     :visibility="visibility"
+    :variant="variant"
+    :labels="labels"
     size="small"
     label="主题模式"
     @update:model-value="handleThemeModeUpdate"
@@ -12,12 +14,25 @@
 <script setup lang="ts">
 import { useThemeRuntime, type ThemeMode } from '@/services/themeRuntime'
 
+type ThemeModeToggleLabels = {
+  light?: string
+  dark?: string
+  system?: string
+  lightShort?: string
+  darkShort?: string
+  systemShort?: string
+}
+
 const props = withDefaults(defineProps<{
   compact?: boolean
   visibility?: 'always' | 'desktop' | 'mobile'
+  variant?: 'segmented' | 'menu-button'
+  labels?: ThemeModeToggleLabels
 }>(), {
   compact: true,
-  visibility: 'always'
+  visibility: 'always',
+  variant: 'segmented',
+  labels: () => ({})
 })
 
 const { mode, setThemeMode } = useThemeRuntime()
