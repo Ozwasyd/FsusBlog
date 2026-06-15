@@ -409,6 +409,38 @@ function mergeStageDurations(existing, stage, durationMs) {
   return durations
 }
 
+function frontendFastGroupEvidence(tier) {
+  if (tier.id !== 'frontend-fast') return null
+  const summaryFile = path.join(root, '.tmp/frontend/frontend-fast-groups.json')
+  const jsonlFile = path.join(root, '.tmp/frontend/frontend-fast-groups.jsonl')
+  try {
+    if (fs.existsSync(summaryFile)) {
+      const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+      return {
+        groupDurationsMs: summary.groupDurationsMs ?? {},
+        groupResults: summary.groups ?? []
+      }
+    }
+    if (fs.existsSync(jsonlFile)) {
+      const groups = fs.readFileSync(jsonlFile, 'utf8')
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .map((line) => JSON.parse(line))
+      return {
+        groupDurationsMs: Object.fromEntries(groups.map((item) => [item.group, Number(item.durationMs) || 0])),
+        groupResults: groups
+      }
+    }
+  } catch (error) {
+    return {
+      groupDurationsMs: {},
+      groupResults: [],
+      groupDurationError: error.message
+    }
+  }
+  return null
+}
+
 function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
   const jobId = summaryJobIdForTier(tier, details)
   const existing = readExistingJobSummary(jobId)
@@ -427,6 +459,7 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
   const deltaMs = Math.max(0, Date.now() - startedAt)
   const durationMs = Math.max(0, Number(existing?.durationMs ?? 0)) + deltaMs
   const stage = stageForTier(tier, details)
+  const groupEvidence = frontendFastGroupEvidence(tier)
   const summary = {
     schema: 'fsusblog.ci.job-result.v1',
     jobId,
@@ -443,7 +476,8 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
     commit: git(['rev-parse', 'HEAD']) ?? 'unknown',
     runId: process.env.GITHUB_RUN_ID ?? 'local',
     attempt: process.env.GITHUB_RUN_ATTEMPT ?? '0',
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
+    ...(groupEvidence ?? {})
   }
   const outFile = jobSummaryPath(jobId)
   fs.mkdirSync(path.dirname(outFile), { recursive: true })

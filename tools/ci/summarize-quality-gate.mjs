@@ -200,6 +200,12 @@ function rootFailureLines(item, jobSummaries) {
   const match = jobSummaries.get(item.name)
   if (!match) return lines
   const rel = path.relative(root, match.file).replaceAll(path.sep, '/')
+  if (match.summary.groupDurationsMs && typeof match.summary.groupDurationsMs === 'object') {
+    const groups = Object.entries(match.summary.groupDurationsMs)
+      .map(([group, duration]) => `${group}=${duration}ms`)
+      .join(', ')
+    if (groups) lines.push(`  groups: ${groups}`)
+  }
   if (match.summary.failureStage) lines.push(`  failureStage: ${match.summary.failureStage}`)
   if (match.summary.rootCause) lines.push(`  rootCause: ${match.summary.rootCause}`)
   if (match.summary.localReproduction) lines.push(`  reproduce: ${match.summary.localReproduction}`)

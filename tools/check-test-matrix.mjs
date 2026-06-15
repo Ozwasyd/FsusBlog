@@ -240,6 +240,46 @@ requireFileIncludes(
   'docs/testing.md must document frontend-fast shard reproduction and artifacts'
 )
 requireFileIncludes(
+  'tools/test/legacy-test.sh',
+  'run_frontend_fast_group build',
+  'frontend-fast must time the build group before post-build checks'
+)
+requireFileIncludes(
+  'tools/test/legacy-test.sh',
+  'run_parallel "frontend-fast-post-build"',
+  'frontend-fast must run independent post-build groups in parallel'
+)
+requireFileIncludes(
+  'tools/test/legacy-test.sh',
+  'tests::run_frontend_fast_tests_group',
+  'frontend-fast must expose a named tests group for failure localization'
+)
+requireFileIncludes(
+  'tools/test/legacy-test.sh',
+  'runtime-contracts::run_frontend_fast_runtime_contracts_group',
+  'frontend-fast must expose a named runtime-contracts group for failure localization'
+)
+requireFileIncludes(
+  'tools/test/legacy-test.sh',
+  'static-governance::run_frontend_fast_static_governance_group',
+  'frontend-fast must expose a named static-governance group for failure localization'
+)
+requireFileIncludes(
+  'tools/run-test-matrix.mjs',
+  'groupDurationsMs',
+  'frontend-fast group durations must be copied into the job summary'
+)
+requireFileIncludes(
+  'tools/ci/summarize-quality-gate.mjs',
+  'groups: ${groups}',
+  'quality gate summary must render frontend-fast group durations for failed jobs'
+)
+requireFileIncludes(
+  'docs/testing.md',
+  'Frontend fast group parallelism',
+  'docs/testing.md must document frontend-fast group parallelism and group duration evidence'
+)
+requireFileIncludes(
   'tests/matrix.yml',
   'coverage: [playwright-acceptance]\n    artifacts: [src/frontend/test-results/playwright/acceptance, src/frontend/playwright-report]',
   'acceptance matrix entry must remain identifiable for browser shard policy checks'

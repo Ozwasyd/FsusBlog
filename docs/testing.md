@@ -48,6 +48,12 @@ Matrix 也声明 setup/cache 元数据：`requiresNode`、`requiresDotnet`、`re
 
 每个 shard 上传独立 artifact：`fast-frontend-unit-1-of-2`、`fast-frontend-unit-2-of-2`。artifact 内容仍包含 `src/frontend/coverage/**`、`.tmp/frontend/**` 和 `.tmp/release-evidence/jobs/**`；fast-summary 通过 `fast-frontend-unit-*` pattern 合并下载。per-shard job summary 记录 `stageDurationsMs.test`，用于后续评估是否从 2 shards 提升到 4 shards。
 
+### Frontend fast group parallelism
+
+`frontend-fast` 先串行执行 `build` group，确保构建产物、manifest 与生成文件稳定后，再并行执行三个 post-build groups：`tests`、`runtime-contracts`、`static-governance`。`tests` group 内部仍按 unit/property/state/perf 顺序执行，避免多个 Vitest coverage/model/perf 进程竞争同一输出；`runtime-contracts` 覆盖 worker/a11y/binary/runtime/wasm checks；`static-governance` 覆盖 API parity、schema、copy/security/static policy 与 repo-root governance scripts。
+
+并行组失败会输出具体 group 名称，例如 `parallel group failed: frontend-fast-post-build/runtime-contracts`，避免只看到 frontend-fast 总失败。每个 group 会写入 `.tmp/frontend/frontend-fast-groups.jsonl`，成功完成时汇总为 `.tmp/frontend/frontend-fast-groups.json`；`run-test-matrix` 会把这些数据复制到 `fast-frontend-unit-*` job summary 的 `groupDurationsMs` / `groupResults` 字段中，CI summary 与 artifact 都能看到 build/tests/runtime-contracts/static-governance 的耗时。
+
 ### Browser lane scaling policy
 
 浏览器 lane 优先通过 shard 扩展，再考虑提高 Playwright workers。shard 提供独立进程、独立 namespace、独立 artifact 和 per-shard `stageDurationsMs.test`；worker 只在 lane 已有稳定 shard 证据后提高。

@@ -7,6 +7,8 @@ SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj"
 BUILD_ENV_RUNNER="$ROOT_DIR/tools/build-with-data-env.sh"
 COVERAGE_ROOT="${FSUSBLOG_COVERAGE_ROOT:-$ROOT_DIR/.tmp/coverage}"
 GATE_LOG_DIR="${FSUSBLOG_GATE_LOG_DIR:-$ROOT_DIR/.tmp/gate-logs}"
+FRONTEND_FAST_GROUP_TIMINGS_JSONL="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSONL:-$ROOT_DIR/.tmp/frontend/frontend-fast-groups.jsonl}"
+FRONTEND_FAST_GROUP_TIMINGS_JSON="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSON:-$ROOT_DIR/.tmp/frontend/frontend-fast-groups.json}"
 
 FAST_HTTP_TIMEOUT_MS="${FSUSBLOG_FAST_HTTP_TIMEOUT_MS:-15000}"
 INTEGRATION_HTTP_TIMEOUT_MS="${FSUSBLOG_INTEGRATION_HTTP_TIMEOUT_MS:-15000}"
@@ -205,11 +207,75 @@ run_vitest_script() {
   fi
 }
 
+prepare_frontend_fast_group_timings() {
+  mkdir -p "$(dirname "$FRONTEND_FAST_GROUP_TIMINGS_JSONL")"
+  : > "$FRONTEND_FAST_GROUP_TIMINGS_JSONL"
+  rm -f "$FRONTEND_FAST_GROUP_TIMINGS_JSON"
+}
+
+record_frontend_fast_group_timing() {
+  local group="$1"
+  local status="$2"
+  local duration_ms="$3"
+  printf '{"group":"%s","status":"%s","durationMs":%s}\n' "$group" "$status" "$duration_ms" >> "$FRONTEND_FAST_GROUP_TIMINGS_JSONL"
+}
+
+write_frontend_fast_group_summary() {
+  [[ -f "$FRONTEND_FAST_GROUP_TIMINGS_JSONL" ]] || return 0
+  node - "$FRONTEND_FAST_GROUP_TIMINGS_JSONL" "$FRONTEND_FAST_GROUP_TIMINGS_JSON" <<'NODE'
+const fs = require('node:fs')
+const input = process.argv[2]
+const output = process.argv[3]
+const groups = fs.readFileSync(input, 'utf8')
+  .split(/\r?\n/)
+  .filter(Boolean)
+  .map((line) => JSON.parse(line))
+const groupDurationsMs = Object.fromEntries(groups.map((item) => [item.group, Number(item.durationMs) || 0]))
+fs.mkdirSync(require('node:path').dirname(output), { recursive: true })
+fs.writeFileSync(output, `${JSON.stringify({
+  schema: 'fsusblog.frontend-fast.group-durations.v1',
+  status: groups.every((item) => item.status === 'success') ? 'success' : 'failure',
+  groupDurationsMs,
+  groups
+}, null, 2)}\n`)
+NODE
+}
+
+run_frontend_fast_group() {
+  local group="$1"
+  shift
+  local started_ms
+  started_ms="$(date +%s%3N)"
+  log "frontend-fast group start: $group"
+
+  set +e
+  "$@"
+  local status=$?
+  set -e
+
+  local finished_ms duration_ms state
+  finished_ms="$(date +%s%3N)"
+  duration_ms=$((finished_ms - started_ms))
+  if (( status == 0 )); then
+    state="success"
+  else
+    state="failure"
+  fi
+  record_frontend_fast_group_timing "$group" "$state" "$duration_ms"
+
+  if (( status != 0 )); then
+    fail "frontend-fast group failed: $group (exit $status)"
+  fi
+  log "frontend-fast group done: $group (${duration_ms}ms)"
+}
+
 run_parallel() {
   local group="$1"
   shift
   local -a pids=()
-  local -a labels=()
+  local -a status_files=()
+  local status_dir="$ROOT_DIR/.tmp/parallel-status/$(namespace_slug "$group")-$$-$RANDOM"
+  mkdir -p "$status_dir"
 
   CURRENT_STAGE="$group"
   log "parallel group start: $group ($# jobs)"
@@ -217,33 +283,50 @@ run_parallel() {
   for spec in "$@"; do
     local label="${spec%%::*}"
     local command="${spec#*::}"
-    labels+=("$label")
+    local status_file="$status_dir/$(namespace_slug "$label").status"
     (
+      set +e
       CURRENT_STAGE="$group/$label"
       log "parallel start: $label"
       eval "$command"
-      log "parallel done: $label"
+      local child_status=$?
+      if (( child_status == 0 )); then
+        log "parallel done: $label"
+      else
+        log "parallel failed: $label (exit $child_status)"
+      fi
+      printf '%s\t%s\n' "$child_status" "$label" > "$status_file"
+      exit "$child_status"
     ) &
-    pids+=("$!")
+    local pid="$!"
+    pids+=("$pid")
+    status_files+=("$status_file")
   done
 
-  set +e
-  local remaining="${#pids[@]}"
-  local status=0
-  while (( remaining > 0 )); do
-    wait -n
-    status=$?
-    remaining=$((remaining - 1))
-    if (( status != 0 )); then
-      for pid in "${pids[@]}"; do
-        kill "$pid" >/dev/null 2>&1 || true
-      done
-      wait >/dev/null 2>&1 || true
-      set -e
-      fail "parallel group failed: $group (exit $status)"
-    fi
+  local completed=0
+  while (( completed < ${#status_files[@]} )); do
+    completed=0
+    for status_file in "${status_files[@]}"; do
+      if [[ ! -f "$status_file" ]]; then
+        continue
+      fi
+
+      completed=$((completed + 1))
+      local child_status child_label
+      IFS=$'\t' read -r child_status child_label < "$status_file"
+      if [[ "$child_status" != "0" ]]; then
+        for pid in "${pids[@]}"; do
+          kill "$pid" >/dev/null 2>&1 || true
+        done
+        wait >/dev/null 2>&1 || true
+        rm -rf "$status_dir"
+        fail "parallel group failed: $group/${child_label:-unknown} (exit $child_status)"
+      fi
+    done
+    sleep 0.1
   done
-  set -e
+  wait >/dev/null 2>&1 || true
+  rm -rf "$status_dir"
 
   log "parallel group done: $group"
 }
@@ -412,24 +495,42 @@ run_cross_stack_contract_only() {
   run_in_client npm run check:cross-stack-contract
 }
 
-run_fast_frontend_lane() {
-  configure_vitest_shard
+run_frontend_fast_build_group() {
   run_in_client env FSUSBLOG_SKIP_ENSURE_WASM=1 FSUSBLOG_VITE_WARN_AS_ERROR=1 npm run build
+}
+
+run_frontend_fast_tests_group_body() {
   if node -e "const pkg=require(process.argv[1]); process.exit(pkg.scripts && pkg.scripts['test:unit:fast'] ? 0 : 1)" "$CLIENT_DIR/package.json"; then
     run_vitest_script test:unit:fast
   fi
 
   run_vitest_script test:property
   run_vitest_script check:frontend-state-machines
-  run_in_client npm run check:worker-contracts
   run_vitest_script check:frontend-perf-regression
+}
+
+run_frontend_fast_tests_group() {
+  run_frontend_fast_group tests run_frontend_fast_tests_group_body
+}
+
+run_frontend_fast_runtime_contracts_group_body() {
+  run_in_client npm run check:worker-contracts
   run_in_client npm run check:a11y:deep
-  run_in_client npm run check:frontend-test-governance
   run_in_client npm run check:contract:binary-matrix
-  run_in_client npm run check:contract:api-parity
-  run_in_client npm run check:contract:frame-schema
   run_in_client npm run check:contract:negative-matrix
   run_in_client npm run check:coherence:runtime-matrix
+  run_in_client npm run check:image-codec-wasm
+  run_in_client npm run check:image-codec-wasm-runtime
+}
+
+run_frontend_fast_runtime_contracts_group() {
+  run_frontend_fast_group runtime-contracts run_frontend_fast_runtime_contracts_group_body
+}
+
+run_frontend_fast_static_governance_group_body() {
+  run_in_client npm run check:frontend-test-governance
+  run_in_client npm run check:contract:api-parity
+  run_in_client npm run check:contract:frame-schema
   run_in_client npm run check:cross-stack-test-governance
   run_in_client npm run check:modern-standards
   run_in_client npm run check:result-boundaries
@@ -442,8 +543,6 @@ run_fast_frontend_lane() {
   run_in_client npm run check:public-aot-contracts
   run_in_client npm run check:pwa-offline-policy
   run_in_client npm run check:views-constraints
-  run_in_client npm run check:image-codec-wasm
-  run_in_client npm run check:image-codec-wasm-runtime
   run "$ROOT_DIR/tools/check-public-hot-read-fastpath.sh"
   run "$ROOT_DIR/tools/check-historical-residue.sh"
   run "$ROOT_DIR/tools/check-cache-governance.sh"
@@ -453,6 +552,21 @@ run_fast_frontend_lane() {
   run "$ROOT_DIR/tools/operations/check-slo-definition.mjs"
   run "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" --self-test
   run "$ROOT_DIR/tools/operations/check-release-slo-alerts.mjs" --self-test
+}
+
+run_frontend_fast_static_governance_group() {
+  run_frontend_fast_group static-governance run_frontend_fast_static_governance_group_body
+}
+
+run_fast_frontend_lane() {
+  configure_vitest_shard
+  prepare_frontend_fast_group_timings
+  run_frontend_fast_group build run_frontend_fast_build_group
+  run_parallel "frontend-fast-post-build" \
+    "tests::run_frontend_fast_tests_group" \
+    "runtime-contracts::run_frontend_fast_runtime_contracts_group" \
+    "static-governance::run_frontend_fast_static_governance_group"
+  write_frontend_fast_group_summary
 }
 
 run_fast_only() {
