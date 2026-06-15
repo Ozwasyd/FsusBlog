@@ -2,6 +2,8 @@
 
 本文件说明 FsusBlog API 层的设计原则与约定，是所有 API 变更的**必读前提文件**。
 
+> 最近更新：2026-06-15 — 拆分 Public AOT 公开页约定，补齐 sentinel、实现入口和跨文档参见。
+
 ---
 
 ## 核心原则
@@ -110,7 +112,7 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 
 | 类别 | 头部 | 方向 | 说明 |
 |------|------|------|------|
-| 安全强制 | `X-Fsus-Mfa-Proof` | 请求 | admin-sensitive、高价值作者/安全写操作的一次性 MFA proof；消费语义见 [contracts.md#admin-作者工作台--安全后台二进制契约](contracts.md#admin-作者工作台--安全后台二进制契约)。 |
+| 安全强制 | `X-Fsus-Mfa-Proof` | 请求 | admin-sensitive、高价值作者/安全写操作的一次性 MFA proof；消费语义见 [contracts.md#admin-作者工作台](contracts.md#admin-作者工作台) 与 [contracts.md#admin-安全系统](contracts.md#admin-安全系统)。 |
 | 安全强制 | `X-Fsus-Pow-Proof` | 请求 | `public_read` 风险升级后的动态公开 API PoW proof；不用于 PublicHotRead L0 artifact 命中路径。 |
 | 安全强制 | `X-Fsus-Device-Fp` | 请求 | 认证、HumanReadProof、审计和风险信号使用的设备指纹；不得包含可逆身份信息。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Protocol` | 请求 | notification preflight fallback 协议头；正式 WebSocket 仍使用 `Sec-WebSocket-Protocol: fsus-aeds.v2`。 |
@@ -192,33 +194,77 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 
 ## AOT 公开页约定
 
-公开页（首页、文章详情、分类、标签、归档、关于、隐私政策、用户守则、版权声明）优先从 AOT 卷命中静态 HTML + AEDS payload，
-Bundle 格式遵循 `PublicAotShellEntryContract`（见 `docs/api/contracts.md`）。
-SPA 接管后由 hydration 层用同一份 Bundle 数据初始化状态，无需二次网络请求。
+公开页（首页、文章详情、分类、标签、归档、关于、隐私政策、用户守则、版权声明）优先从 AOT 卷命中静态 HTML + AEDS payload。Bundle 格式遵循 [`PublicAotShellEntryContract`](contracts.md#aot-公开页契约)；SPA 接管后由 hydration 层用同一份 Bundle 数据初始化状态，无需二次网络请求。
+
+代码证据：[`PublicAotDocumentComposer.cs`](../../src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs)、[`PublicHotReadFastPath.cs`](../../src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs)、[`PublicAotEndpoints.cs`](../../src/backend/Modules/Endpoints/PublicAotEndpoints.cs)。
+
+### 页面输入与 SSR 真相源
 
 公开 footer 合规信息来自 `SiteComplianceConfig` AEDS frame。空配置不得输出备案号占位；admin 保存合规配置后必须同时失效 system compliance cache、SEO/distribution cache 和 Public AOT 静态页，使 sitemap/RSS/footer 在无重启情况下收敛。
 
 统一 SEO 与品牌资产来自同一个 `SeoConfig` AEDS frame，不新增 `/system/brand` 并行主端点。`/api/binary/system/seo` 同时承载基础 SEO、OpenGraph 预览图、favicon/browser icon、Apple Touch Icon、PWA manifest 名称/图标/theme/background、公开站点 logo/wordmark、后台 logo/折叠图标和登录 logo/icon。保存后必须通过 SEO 配置失效链路刷新 HTML head、动态 `manifest.webmanifest`、Public AOT shell、公开 shell hydration、后台与登录页品牌展示；旧配置缺失新增字段时按默认静态路径或空值补齐。资产 URL 只接受站内绝对路径或 `http/https` 绝对 URL，不接受 `javascript:`、`data:` 或协议相对 URL。
 
+公开页结构的 SSR 入口是 [`src/frontend/src/public-renderers/renderPublicPage.ts`](../../src/frontend/src/public-renderers/renderPublicPage.ts)，该入口向 server SSR worker 暴露 `buildPublicEntry`、payload codec 与 renderer version；具体页面组合由 `publicEntryRegistry.ts`、`pageAssemblies.ts` 与 `scaffold.ts` 维护。文档和实现不得再引入额外 helper 作为公开页结构真相源。服务端 AOT provider 只提供数据型 options，不手写 hydration props、不渲染 Markdown、不拼页面内部 HTML；Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayload`，服务端只做文档包装、缓存与降级。
+
+### feed / sitemap / robots 缓存约束
+
 feed、sitemap 与 robots 等开放分发文本端点只负责生成标准格式正文、声明 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 并挂载 OutputCache ArticleList/Seo tag；端点本身不得按响应正文手写 ETag、解析 `If-None-Match` 或绕过统一缓存失效链路。
 
-公开 Binary 读模型与 HTML AOT 一样按 artifact 边界治理。`/api/binary/article/{id}.aeds`、`/api/binary/article/list/home/{page}/{size}.aeds`、`/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds`、`/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds`、`/api/binary/article/hot/{size}.aeds`、`/api/binary/category.aeds`、`/api/binary/tag.aeds` 等匿名热点路径由 `PublicHotReadFastPath` 在常规应用管线前读取内存快照并直接写出完整预编码 frame；hit 路径不查询 PostgreSQL、Redis、IMemoryCache、OutputCache 或文件系统。artifact miss 只返回可降级状态码，DB fallback 只能出现在后台 projector、修复任务或 admin/private 读取路径。L1/L2/OutputCache 仍是加速层，不等价于 CQRS read model。
+代码证据：[`DistributionEndpoints.cs`](../../src/backend/Modules/Endpoints/DistributionEndpoints.cs)、[`BlogDistributionService.cs`](../../src/backend/Services/Distribution/BlogDistributionService.cs)；JSON/feed 豁免见 [`aeds-only-policy.md#允许豁免`](aeds-only-policy.md#允许豁免)。
+
+### 公开 AOT artifact 路径
+
+公开 Binary 读模型与 HTML AOT 一样按 artifact 边界治理。匿名热点路径包括：
+
+- `/api/binary/article/{id}.aeds`
+- `/api/binary/article/list/home/{page}/{size}.aeds`
+- `/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds`
+- `/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds`
+- `/api/binary/article/hot/{size}.aeds`
+- `/api/binary/category.aeds`
+- `/api/binary/tag.aeds`
+
+这些路径由 `PublicHotReadFastPath` 在常规应用管线前读取内存快照并直接写出完整预编码 frame；hit 路径不查询 PostgreSQL、Redis、IMemoryCache、OutputCache 或文件系统。artifact miss 只返回可降级状态码，DB fallback 只能出现在后台 projector、修复任务或 admin/private 读取路径。L1/L2/OutputCache 仍是加速层，不等价于 CQRS read model。路由清单以 [`quick-reference.md#开放分发与作者工作台`](quick-reference.md#开放分发与作者工作台) 为人工速查真相源。
 
 公开 GET 不默认要求 PoW，以免伤害 SEO、RSS、分享卡片和无 JS 阅读；但公开评论读取、公开 taxonomy、related-reading 等动态 API 会进入 `public_read` 限流和 `RiskAwarePublicReadFilter`。风险分由 Shield、RateLimiter、PoW 与 ReadProof 拒绝事件写入；达到阈值时动态 API 要求 `X-Fsus-Pow-Proof`，持续高风险返回 429。PublicHotRead artifact 命中保持零 DB/零 Redis/零 filter 快路径。
 
+### L0 artifact HTTP 语义
+
 L0 artifact 只接受 `GET`/`HEAD`；`OPTIONS` 在同源场景下返回 `405`，不在 fast path 上注入 CORS。Binary artifact 接受空 `Accept`、`*/*` 或 `application/octet-stream`；HTML artifact 只接受空 `Accept`、`*/*` 或 `text/html`；不匹配时返回 `406`。快照未进入 `Ready` 状态时返回 `503` + `Retry-After: 1`，除非显式启用 `PublicHotRead:FailOpenWhenNotReady` 降级到常规管线。`400`/`404`/`405`/`406`/`416`/`503` 等 L0 负响应固定 `Cache-Control: no-store`，`Range` 请求返回 `416`。`.aeds` 命中声明 `Accept-Ranges: none`，并可按 artifact 预生成 raw/br/gzip variant 返回 `Content-Encoding`、`Vary: Accept-Encoding` 和 variant-aware `ETag`；`If-None-Match` 命中当前 variant 时返回 `304`。HTML artifact 必须是静态 CSP 形态，不依赖 nonce placeholder 或 inline script。
 
-`/api/binary/article/html/{pathKey}.html` 是 AOT shell 的诊断/预览 artifact 命中路径，不是 `/article/{id}`、`/category/{id}` 等真实公开 URL 的替代路由；真实页面仍由 public route + AOT shell/SPA 渲染。`routeKey` 与 URL-safe `pathKey` 分离：`article:42` 映射为 `article-42`，`category:7`/`tag:9` 同理，`tag-name:*`、包含空白、斜杠或非 ASCII 的 routeKey 使用稳定 hash pathKey。可观测诊断头 `X-Fsus-HotRead-*` 默认关闭，只能通过 `PublicHotRead:EnableDiagnosticHeaders=true` 打开。
+状态码与 frame 目录见 [`schemas-and-errors.md#aedsframetype-枚举`](schemas-and-errors.md#aedsframetype-枚举)。
+
+### AOT 路由 vs 真实公开 URL
+
+`/api/binary/article/html/{pathKey}.html` 是 AOT shell 的诊断/预览 artifact 命中路径，不是 `/article/{id}`、`/category/{id}` 等真实公开 URL 的替代路由；真实页面仍由 public route + AOT shell/SPA 渲染。
+
+### pathKey 与 routeKey 映射
+
+`routeKey` 与 URL-safe `pathKey` 分离：`article:42` 映射为 `article-42`，`category:7`/`tag:9` 同理；`tag-name:*`、包含空白、斜杠或非 ASCII 的 routeKey 使用 `route-<sha256 前 8 字节 hex>` 稳定 hash pathKey。实现见 [`PublicHotReadFastPath.cs`](../../src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs) 的 `StableRouteHash`。
+
+### 诊断头 `X-Fsus-HotRead-*`
+
+可观测诊断头 `X-Fsus-HotRead-Version`、`X-Fsus-HotRead-Artifact` 与 `X-Fsus-HotRead-Key` 默认关闭，只能通过 `PublicHotRead:EnableDiagnosticHeaders=true` 打开；成功命中才写出诊断头，负响应不得泄露 artifact key。实现见 [`PublicHotReadFastPath.cs`](../../src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs)。
+
+### AOT route manifest 与 `X-Fsus-Public-Aot-Token`
 
 Public AOT 预热和内容变更驱动 backfill 必须消费后端权威 route manifest，而不是脚本猜测 URL。`GET /internal/public-aot/manifest` 只暴露公开 SEO route，支持 `scope=all`、`scope=hot` 与 `changedSince`，并通过 `dependencyKeys` 连接 `article:{id}`、`category:{id}`、`tag:{id}`、`article:list`、`seo`、`compliance` 等内容依赖。配置 `PublicAot:ManifestToken` 时，调用方必须携带 `X-Fsus-Public-Aot-Token`。
 
-Public AOT document composer 只允许通过 `<!--fsus:aot:*-->` sentinel 写入 AOT 管理区域；模板缺少 sentinel 必须失败而不是静默降级。AOT 负责维护的 description/canonical/Open Graph/Twitter/feed/JSON-LD head 节点必须统一带 `data-fsus-aot-head`，客户端 micro-navigation 只替换这些标记节点，不触碰 Vite runtime、CSP nonce 或其他非 AOT head。
+代码证据：[`PublicAotEndpoints.cs`](../../src/backend/Modules/Endpoints/PublicAotEndpoints.cs)。
 
-公开页结构的唯一真相源是 `src/frontend/src/helpers/publicAotBundle.ts` 与
-`src/frontend/src/public-renderers/renderPublicPage.ts`。服务端 AOT provider
-只提供数据型 options，不手写 hydration props、不渲染 Markdown、不拼页面内部 HTML；
-Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayload`，服务端只做
-文档包装、缓存与降级。
+### AOT sentinel 与 `data-fsus-aot-head`
+
+Public AOT document composer 只允许通过以下 5 个具名 sentinel 写入 AOT 管理区域；sentinel 是字符串相等匹配，不接受通配符。
+
+| sentinel | 用途 |
+|----------|------|
+| `<!--fsus:aot:head-start-->` | SEO/head 注入起点 |
+| `<!--fsus:aot:head-end-->` | SEO/head 注入终点 |
+| `<!--fsus:aot:app-->` | SPA/AOT shell 挂载点 |
+| `<!--fsus:aot:payloads-->` | bootstrap / hydration / islands AEDS payload 注入点 |
+| `<!--fsus:aot:spa-boot-->` | deferred SPA boot 注入点 |
+
+模板缺少任一 sentinel 必须失败而不是静默降级。AOT 负责维护的 description/canonical/Open Graph/Twitter/feed/JSON-LD head 节点必须统一带 `data-fsus-aot-head`，客户端 micro-navigation 只替换这些标记节点，不触碰 Vite runtime、CSP nonce 或其他非 AOT head。新增 sentinel 必须同步更新 [`PublicAotDocumentComposer.cs`](../../src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs)、本节列表、[`contracts.md#aot-公开页契约`](contracts.md#aot-公开页契约) 与 [`tests/frontend/checks/public/check-public-aot-contracts.mjs`](../../tests/frontend/checks/public/check-public-aot-contracts.mjs) 的完整性断言。
 
 ## 单作者内容生命周期约定
 
@@ -256,11 +302,32 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 ---
 
+## Out of Scope
+
+本文件只定义 API 设计哲学和跨模块约束，不重复维护以下真相源：
+
+- `JsonApiResponse<T>` 豁免、binary bridge 隔离和 internal bridge URL：见 [`aeds-only-policy.md#允许豁免`](aeds-only-policy.md#允许豁免)、[`contracts.md#admin-作者工作台`](contracts.md#admin-作者工作台) 与 [`contracts.md#admin-安全系统`](contracts.md#admin-安全系统)。
+- 错误码、AEDS frame 编号、POD 大小和 L0 负响应结构：见 [`schemas-and-errors.md`](schemas-and-errors.md)。
+- 审计级别、高价值审计落库和 fallback 文件：见 [`../security.md#作者工作台订阅与-rum-隐私`](../security.md#作者工作台订阅与-rum-隐私)。
+- 缓存分层、Public AOT 单一渲染链和请求路径：见 [`../architecture.md#public-aot-单一渲染链`](../architecture.md#public-aot-单一渲染链) 与 [`../architecture.md#缓存分层`](../architecture.md#缓存分层)。
+- 路由速查表和端点列表：见 [`quick-reference.md#开放分发与作者工作台`](quick-reference.md#开放分发与作者工作台)。
+
+---
+
 ## 参见
 
-- [contracts.md](contracts.md) — 所有请求/响应 DTO 的完整定义
-- [aeds-only-policy.md](aeds-only-policy.md) — 内部应用 API AEDS-only 治理、JSON 豁免与回归 gate
-- [quick-reference.md](quick-reference.md) — 端点路由速查表
-- [schemas-and-errors.md](schemas-and-errors.md) — 错误码与二进制结构
-- [../security.md](../security.md) — 安全模型（PoW / JWT / MFA）
-- [../architecture.md](../architecture.md) — 缓存分层与 AEDS binary 架构
+- [contracts.md#基础包装结构](contracts.md#基础包装结构) — 请求/响应 DTO、AOT 契约和 bridge envelope 边界
+- [aeds-only-policy.md#允许豁免](aeds-only-policy.md#允许豁免) — 内部应用 API AEDS-only 治理、JSON 豁免与回归 gate
+- [quick-reference.md#开放分发与作者工作台](quick-reference.md#开放分发与作者工作台) — 公开分发、Public AOT manifest 与作者工作台端点速查
+- [schemas-and-errors.md#aedsframetype-枚举](schemas-and-errors.md#aedsframetype-枚举) — 错误码、AEDS frame 编号与二进制结构
+- [../security.md#proof-of-work-pow](../security.md#proof-of-work-pow) — PoW、JWT、MFA、审计和安全模型
+- [../architecture.md#public-aot-单一渲染链](../architecture.md#public-aot-单一渲染链) — Public AOT 单一渲染链、缓存分层与 AEDS binary 架构
+
+### 实现参考
+
+- [`PublicAotDocumentComposer.cs`](../../src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs) — AOT 文档组装、5 个 sentinel 和 `data-fsus-aot-head` 注入
+- [`PublicHotReadFastPath.cs`](../../src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs) — PublicHotRead fast path、pathKey hash、L0 诊断头和 artifact HTTP 语义
+- [`PublicAotEndpoints.cs`](../../src/backend/Modules/Endpoints/PublicAotEndpoints.cs) — route manifest 与 `X-Fsus-Public-Aot-Token`
+- [`DistributionEndpoints.cs`](../../src/backend/Modules/Endpoints/DistributionEndpoints.cs) — RSS / Atom / JSON Feed / sitemap / robots 缓存约束
+- [`renderPublicPage.ts`](../../src/frontend/src/public-renderers/renderPublicPage.ts) — server SSR worker 加载的公开页 renderer 入口
+- [`publicEntryRegistry.ts`](../../src/frontend/src/public-renderers/publicEntryRegistry.ts) — 公开页 SSR entry registry 与页面 assembly 调度

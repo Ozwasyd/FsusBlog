@@ -3,6 +3,8 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
+> 最近更新：2026-06-15 — 同步 Public AOT sentinel 具名列表与 design.md 的 AOT 公开页约定。
+
 ---
 
 ## 目录
@@ -774,8 +776,13 @@ HTML bootstrap、hydration props 和 islands payload 均以 `script type="applic
   `X-Fsus-Public-Aot-Stale: 1` 区分 fresh 命中、SWR stale 命中和 SPA fallback。
 - AOT HTML 缓存同时校验 `rendererVersion` 与 frontend asset version；前端 `index.html` 或
   `.vite/manifest.json` 变化会自动拒绝旧缓存，并按 frontend asset version 隔离文件 artifact。
-- AOT HTML 模板通过 `<!--fsus:aot:*-->` sentinel 注入 title/SEO head、shell、AEDS payload 与
-  deferred SPA boot；由 Public AOT 管理的 SEO head 节点必须带 `data-fsus-aot-head`。
+- AOT HTML 模板只接受以下 5 个具名 sentinel；sentinel 是字符串相等匹配，不接受通配式标记：
+  - `<!--fsus:aot:head-start-->`：SEO/head 注入起点。
+  - `<!--fsus:aot:head-end-->`：SEO/head 注入终点。
+  - `<!--fsus:aot:app-->`：SPA/AOT shell 挂载点。
+  - `<!--fsus:aot:payloads-->`：bootstrap / hydration / islands AEDS payload 注入点。
+  - `<!--fsus:aot:spa-boot-->`：deferred SPA boot 注入点。
+- 由 Public AOT 管理的 SEO head 节点必须带 `data-fsus-aot-head`。新增 sentinel 必须同步 `src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs`、`docs/api/design.md` 和 `tests/frontend/checks/public/check-public-aot-contracts.mjs`。
 
 ### Public AOT Route Manifest
 

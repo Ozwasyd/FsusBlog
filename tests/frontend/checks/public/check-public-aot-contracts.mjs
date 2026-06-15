@@ -83,7 +83,7 @@ function assertStaticContracts() {
   if (warmScript.includes('/article/1') || warmScript.includes('publicPaths')) {
     fail('warm script must not hard-code public route guesses')
   }
-  for (const token of ['<!--fsus:aot:head-start-->', '<!--fsus:aot:app-->', '<!--fsus:aot:payloads-->', '<!--fsus:aot:spa-boot-->']) {
+  for (const token of ['<!--fsus:aot:head-start-->', '<!--fsus:aot:head-end-->', '<!--fsus:aot:app-->', '<!--fsus:aot:payloads-->', '<!--fsus:aot:spa-boot-->']) {
     if (!indexHtml.includes(token)) {
       fail(`index.html missing Public AOT sentinel: ${token}`)
     }

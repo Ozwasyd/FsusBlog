@@ -132,7 +132,7 @@ IPublicAotRouteRegistry
   → IPublicAotBootstrapProvider（产出 typed PublicPageSnapshot）
   → PublicAotRenderRequest + PublicAotRendererPayloadMapper
   → IPublicAotEntryRenderer（Node/Vue SSR worker pool）
-  → src/helpers/publicAotBundle.ts + src/public-renderers/renderPublicPage.ts
+  → src/public-renderers/renderPublicPage.ts（入口）+ src/public-renderers/publicEntryRegistry.ts / pageAssemblies.ts / scaffold.ts
   → PublicAotDocumentComposer
   → versioned AOT HTML document cache
 ```
