@@ -295,7 +295,19 @@ curl -fsS http://127.0.0.1:8080/health/ready
 - `src/frontend/test-results/playwright/` — Playwright trace / screenshot
 - GitHub Actions 的 `quality-gate-artifacts` artifact
 
-GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push、手动 `workflow_dispatch` 触发同一条 `./tools/test.sh production` 门控。CI 需要配置 `GITHUB_PACKAGES_TOKEN` secret，用于安装 `@ozwasyd` 私有包。CI 默认 `FSUSBLOG_PLAYWRIGHT_WORKERS=1`，本地可按机器资源显式覆盖。
+GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push、手动 `workflow_dispatch` 触发同一条 `./tools/test.sh production` 门控。CI 需要配置 `GITHUB_PACKAGES_TOKEN` secret，用于安装 `@ozwasyd` 私有包。Playwright worker 数从 `tests/matrix.yml` 的 `playwrightWorkers` tier policy 派生；本地排查时优先复用 matrix policy，只在明确验证隔离性后覆盖。
+
+#### Backend affected-test selection
+
+`Quality Gate / Fast Backend` 在 `pull_request` 上设置 `FSUSBLOG_TEST_SELECTION=affected`，并用完整 git history 计算 PR base 到当前提交的 changed files。`main` / `master` push、`workflow_dispatch`、release/manual full gates 使用 `FSUSBLOG_TEST_SELECTION=full`，继续运行完整 non-integration backend tests。
+
+`tools/dotnet-affected-tests.sh` 的 changed-file 规则保持保守：
+
+- 无变更或只改前端、文档、非 backend 路径时，记录 `selection=affected effective=skip` 并跳过 non-integration backend tests。
+- `src/backend/`、`src/shared/`、`src/core/`、`tests/backend/`、solution/build props、`global.json` 等 backend/shared/core/test 或构建输入变更时，升级为 `selection=affected effective=full`。
+- 鉴权、安全、权限相关路径，例如 `Infrastructure/Auth`、`BannedUserFilter`、`JwtHelper`、`Infrastructure/Security`、`Modules/Endpoints/Auth`、`src/shared/Contracts/Security` 以及 backend auth/security 测试变更，会记录 `reason=auth-security-sensitive` 并运行完整 non-integration backend tests；fast-backend 的独立 auth state-machine tier 仍照常运行。
+
+日志必须同时能看出请求策略和最终策略：`run_fast_backend_lane()` 输出 `backend-fast selection=affected|full`，affected 脚本输出 `effective=skip|full` 与 `reason=...`。
 
 #### Root CI setup 与 fail-fast 诊断
 

@@ -31,6 +31,8 @@ jobs:
       fast_backend_max_parallel: ${{ steps.fast_backend_matrix.outputs.max_parallel }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
@@ -164,7 +166,9 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - run: ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps
         env:
+          FSUSBLOG_BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || 'origin/master' }}
           FSUSBLOG_CI_JOB_ID: ${{ matrix.artifact_name }}
+          FSUSBLOG_TEST_SELECTION: ${{ github.event_name == 'pull_request' && 'affected' || 'full' }}
       - uses: actions/upload-artifact@v7
         if: always()
         with:

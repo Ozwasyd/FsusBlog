@@ -284,8 +284,10 @@ run_fast_backend_lane() {
   run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
   run "$BUILD_ENV_RUNNER" dotnet build "$ROOT_DIR/FsusBlog.slnx" -c Debug -warnaserror -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
   if [[ "${FSUSBLOG_TEST_SELECTION:-}" == "affected" ]]; then
+    log "backend-fast selection=affected"
     run "$ROOT_DIR/tools/dotnet-affected-tests.sh"
   else
+    log "backend-fast selection=full reason=${FSUSBLOG_TEST_SELECTION:-unset}"
     run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --no-build --filter "Category!=Integration"
   fi
 }

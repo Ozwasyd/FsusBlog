@@ -12,7 +12,7 @@ Before publishing a production image:
 
 `release-closeout-gate` is separate and must run `tools/operations/check-release-evidence-manifest.mjs --require-ok` or `./tools/test.sh release-closeout`. Only `collected-ok` is a release credential.
 
-The same gate is enforced by GitHub Actions `Quality Gate` on pull requests, pushes to `main` / `master`, and manual dispatch. CI requires `GITHUB_PACKAGES_TOKEN` for the private `@ozwasyd` npm package. CI pins `FSUSBLOG_PLAYWRIGHT_WORKERS=1`; local runs may override that value when more parallelism is safe.
+The same gate is enforced by GitHub Actions `Quality Gate` on pull requests, pushes to `main` / `master`, and manual dispatch. CI requires `GITHUB_PACKAGES_TOKEN` for the private `@ozwasyd` npm package. Playwright worker counts come from the `tests/matrix.yml` tier policy; local runs should keep that policy unless a lane has separate stability evidence for higher parallelism.
 
 ## Coverage Gate
 

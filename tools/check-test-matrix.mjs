@@ -6,6 +6,14 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 
+function requireFileIncludes(file, expected, message) {
+  const text = fs.readFileSync(path.join(root, file), 'utf8')
+  if (!text.includes(expected)) {
+    console.error(`[test-matrix] ${message}`)
+    process.exit(1)
+  }
+}
+
 function run(args) {
   const result = spawnSync('node', ['tools/run-test-matrix.mjs', ...args], {
     cwd: root,
@@ -104,5 +112,26 @@ for (const script of [
   if (result.stderr) process.stderr.write(result.stderr)
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
+
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  "FSUSBLOG_TEST_SELECTION: ${{ github.event_name == 'pull_request' && 'affected' || 'full' }}",
+  'fast-backend workflow must use affected backend selection on pull_request and full selection otherwise'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  'fetch-depth: 0',
+  'fast-backend workflow checkout must fetch enough history for affected backend selection'
+)
+requireFileIncludes(
+  'tools/dotnet-affected-tests.sh',
+  'auth-security-sensitive',
+  'affected backend selection must conservatively escalate auth/security changes'
+)
+requireFileIncludes(
+  'docs/testing.md',
+  'Backend affected-test selection',
+  'docs/testing.md must document backend affected-test changed-file rules'
+)
 
 console.log('[test-matrix] ok')

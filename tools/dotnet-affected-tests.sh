@@ -5,8 +5,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj"
 BUILD_ENV_RUNNER="$ROOT_DIR/tools/build-with-data-env.sh"
 BASE_REF="${FSUSBLOG_BASE_REF:-origin/main}"
-CACHE_DIR="$ROOT_DIR/.tmp/test-cache"
-TEST_LIST_FILE="$CACHE_DIR/dotnet-tests.txt"
 
 log() {
   printf '[dotnet:affected] %s\n' "$1"
@@ -22,8 +20,7 @@ resolve_base() {
 }
 
 collect_changed_files() {
-  local base
-  base="$(resolve_base)"
+  local base="$1"
   {
     git -C "$ROOT_DIR" diff --name-only "$base"...HEAD
     git -C "$ROOT_DIR" diff --name-only
@@ -31,32 +28,39 @@ collect_changed_files() {
   } | awk 'NF' | sort -u
 }
 
-mkdir -p "$CACHE_DIR"
-if [[ ! -s "$TEST_LIST_FILE" || "${FSUSBLOG_REFRESH_TEST_LIST:-0}" == "1" ]]; then
-  log "refreshing dotnet test list cache"
-  "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --no-build --list-tests >"$TEST_LIST_FILE" || true
-fi
-
-mapfile -t changed_files < <(collect_changed_files)
+base_ref="$(resolve_base)"
+log "selection=affected base=$base_ref"
+mapfile -t changed_files < <(collect_changed_files "$base_ref")
 
 if (( ${#changed_files[@]} == 0 )); then
-  log "no changed files detected; skipping non-integration dotnet tests"
+  log "selection=affected effective=skip reason=no-changed-files"
   exit 0
 fi
 
 requires_full=0
+auth_security_sensitive=0
 for file in "${changed_files[@]}"; do
   case "$file" in
     src/backend/*|src/shared/*|src/core/*|tests/backend/*|*.sln|*.slnx|Directory.Build.props|Directory.Packages.props|global.json)
       requires_full=1
       ;;
   esac
+  case "$file" in
+    src/backend/Infrastructure/Auth/*|src/backend/Infrastructure/Filters/BannedUserFilter.cs|src/backend/Infrastructure/Helpers/JwtHelper.cs|src/backend/Infrastructure/Security/*|src/backend/Modules/Endpoints/Auth/*|src/shared/Contracts/Security/*|tests/backend/*Auth*|tests/backend/*Security*)
+      auth_security_sensitive=1
+      requires_full=1
+      ;;
+  esac
 done
 
 if (( requires_full == 0 )); then
-  log "changes do not touch server/shared/core/test code; skipping non-integration dotnet tests"
+  log "selection=affected effective=skip reason=non-backend-changes changed=${#changed_files[@]}"
   exit 0
 fi
 
-log "server/shared/core changes detected; running full non-integration dotnet tests"
+if (( auth_security_sensitive == 1 )); then
+  log "selection=affected effective=full reason=auth-security-sensitive changed=${#changed_files[@]}"
+else
+  log "selection=affected effective=full reason=backend-shared-core-or-tests changed=${#changed_files[@]}"
+fi
 "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --no-build --filter "Category!=Integration"
