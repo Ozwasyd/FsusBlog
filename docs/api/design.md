@@ -8,7 +8,7 @@
 
 ### 1. 契约稳定性优先
 
-- 一旦端点路径发布，非 breaking 语义变更在原路径叠加；breaking 变更须新开版本段（如 `/api/v2/`）。
+- 一旦端点路径发布，非 breaking 语义变更在原路径叠加；breaking 变更须通过新 frame type、payload layout、显式 route segment 或新端点表达，不能随意复用旧路径语义。
 - 所有请求/响应字段用 `src/shared/Contracts/Outputs/ServerResponseContracts.cs` 作为唯一来源，任何业务逻辑层不得自行定义与之并行的 DTO。
 
 ### 2. AEDS Binary-only 运行时协议
@@ -49,12 +49,15 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 | 方法 | 用途 |
 |------|------|
-| `GET` | 读取资源，幂等，可缓存 |
+| `GET` | 读取资源，幂等，可缓存；AEDS read request frame 必须使用 `Flags = 0` |
+| `HEAD` | 只读取 HTTP metadata；仅用于 L0 artifact / 静态分发探测，不返回 AEDS body |
 | `POST` | 创建资源或执行动作（登录/挑战/发送） |
 | `PUT` | 全量更新单个资源属性（重命名） |
 | `DELETE` | 删除资源 |
+| `OPTIONS` | 不作为业务 API；L0 artifact fast path 在同源场景返回 `405 Method Not Allowed`，CORS 不在 fast path 注入 |
 
 Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passkey、上传和管理端写入均不得退回旧文本路径。
+Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AEDS v2 request frame；当前生产协议拒绝 request non-zero flags，`Flags = 64` 等 future flag 只能在 `aeds-protocol.json`、负向 contract matrix、TypeScript/Worker/Wasm decoder 与 [schemas-and-errors.md#flags-登记](schemas-and-errors.md#flags-登记) 同步登记后启用。
 
 ---
 
@@ -118,21 +121,30 @@ Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passke
 | 状态码 | 含义 |
 |--------|------|
 | `200 OK` | 操作成功 |
+| `204 No Content` | 预检或无 body 操作成功，例如 notification preflight 成功 |
+| `304 Not Modified` | L0 artifact 的 variant-aware `ETag` 命中当前 `Accept-Encoding` variant |
 | `400 Bad Request` | 参数无效、业务校验失败 |
 | `401 Unauthorized` | 未提供或无效的 Bearer Token |
 | `403 Forbidden` | 权限不足（已登录但角色不满足） |
 | `404 Not Found` | 资源不存在 |
+| `405 Method Not Allowed` | 方法不允许；L0 artifact 只接受 `GET` / `HEAD` |
+| `406 Not Acceptable` | `Accept` 与 artifact 类型不匹配 |
 | `409 Conflict` | 资源冲突（如用户名已存在） |
+| `416 Range Not Satisfiable` | L0 artifact 不支持 Range；`.aeds` 命中声明 `Accept-Ranges: none` |
 | `423 Locked` | 登录用户处于封禁/受限状态，notification stream 使用 `account_blocked`，普通业务写入锁使用 Binary `ApiError.Details = ACCOUNT_BANNED_WRITE_LOCKED` |
 | `429 Too Many Requests` | 速率限制触发，响应含 `Retry-After` 头 |
 | `500 Internal Server Error` | 服务端异常，错误详情不暴露给客户端 |
+| `503 Service Unavailable` | L0 快照未进入 `Ready` 状态，默认带 `Retry-After: 1`；除非显式启用 fail-open 到常规管线 |
+
+L0 artifact 的 `400` / `404` / `405` / `406` / `416` / `503` 负响应固定 `Cache-Control: no-store`，避免中间层缓存未就绪或协商失败结果。
 
 ---
 
 ## 版本管理策略
 
-当前 API 无统一版本前缀（历史遗留）。新增模块（如消息系统）采用 `/api/v1/` 前缀。
-常规业务 **Breaking Change** 应新开 `/api/v2/` 前缀，并在至少一个主版本内保持旧端点可用。AEDS wire protocol 是运行时传输层版本，当前按破兼容发布策略直接升级为 AEDS v2，不保留 v1 兼容。
+当前运行时业务 API 不使用 `/api/v1/`、`/api/v2/` 这类统一 URL 版本前缀；新模块继续落在 `/api/binary/**`、`/api/notifications/stream` 或明确登记的标准协议路径下。常规业务 **Breaking Change** 优先通过新增 frame type、payload layout、显式 route segment 或新端点表达，并在 [aeds-only-policy.md](aeds-only-policy.md) 与 [quick-reference.md](quick-reference.md) 同步登记。
+
+AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行时只接受 AEDS v2 header；AEDS v1 frame、未知版本和错误 header length 直接拒绝，服务端和前端不保留 v1 fallback。未来 wire-level 破兼容必须先进入 `aeds-protocol.json`、`schemas-and-errors.md`、golden fixture、TypeScript/Worker/Wasm decoder 与负向 contract matrix。
 
 不视为 Breaking Change 的变更：
 - 新增响应字段（客户端应忽略未知字段）
@@ -195,7 +207,19 @@ Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayloa
 
 ## 单作者内容生命周期约定
 
-文章写入 API 可以表达 `Draft`、`Scheduled`、`Published`、`Archived`、`Deleted`，但公开读链只承认 `Published` 且已到发布时间的数据。新增公开分发端点、AOT、搜索、Binary list、feed、sitemap、related-reading 时必须复用同一套可见性语义，不能各自放宽过滤条件。
+### 文章状态枚举
+
+文章状态的单一语义如下；AEDS `ArticleList` record 中的 `status:int32` 必须按此表解释，公开读链只承认 `Published` 且已到发布时间的数据。
+
+| status | 名称 | 作者/管理端含义 | 公开可读 | 公开 artifact/feed/sitemap/search |
+|--------|------|----------------|----------|----------------------------------|
+| `0` | `Draft` | 草稿，可预览、保存、发布或丢弃 | 否 | 不进入 |
+| `1` | `Scheduled` | 定时发布，未到点前只在作者/管理端可见 | 仅当调度 worker 转为 `Published` 后 | 未发布前不进入 |
+| `2` | `Published` | 已发布文章；还需满足发布时间已到 | 是 | 进入公开 Binary、AOT、feed、sitemap、search、related-reading |
+| `3` | `Archived` | 归档保留，仍可由作者/管理端管理 | 否 | 不进入 |
+| `4` | `Deleted` | 回收站 / 删除状态；仅管理端按删除语义读取 | 否 | 不进入 |
+
+新增公开分发端点、AOT、搜索、Binary list、feed、sitemap、related-reading 时必须复用此表，不能各自放宽过滤条件。
 
 公开 article Binary 端点不再按身份混合语义。匿名公开读只能使用 `/api/binary/article/**.aeds` artifact 路径，客户端必须省略 credentials；admin/private 读写统一使用 `/api/binary/admin/article/**`，可读取所有非删除状态，并可用 `status=0/1/2/3/4` 精确管理 draft、scheduled、published、archived、deleted。任何旧 query 公开路径或匿名管理查询都不得退回文本 API 或泄露未发布标题。
 
