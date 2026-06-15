@@ -40,9 +40,10 @@ internal static class ApiErrorSemanticMapper
             _ => "Request failed"
         };
 
-    public static ErrorDetail CreateError(int statusCode, string? message = null, string? traceId = null)
+    public static ErrorDetail CreateError(int statusCode, string? message = null, string? traceId = null, string? details = null)
         => ErrorDetail.Create(
             MapErrorCode(statusCode),
             string.IsNullOrWhiteSpace(message) ? MapDefaultMessage(statusCode) : message,
-            traceId: traceId);
+            details,
+            traceId);
 }

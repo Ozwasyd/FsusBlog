@@ -5,9 +5,9 @@ namespace FsusBlog.Server.Infrastructure.Results;
 
 public static class MiddlewareResults
 {
-    public static Task WriteErrorAsync(HttpContext context, string message, int statusCode, string? traceId = null)
+    public static Task WriteErrorAsync(HttpContext context, string message, int statusCode, string? traceId = null, string? details = null)
     {
-        var error = ApiErrorSemanticMapper.CreateError(statusCode, message, traceId ?? context.TraceIdentifier);
+        var error = ApiErrorSemanticMapper.CreateError(statusCode, message, traceId ?? context.TraceIdentifier, details);
         var aeds = context.RequestServices.GetService<IAedsEncoder>();
         if (aeds is not null)
         {

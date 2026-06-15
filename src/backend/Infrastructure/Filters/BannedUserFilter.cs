@@ -10,6 +10,9 @@ namespace FsusBlog.Server.Infrastructure.Filters;
 
 public class BannedUserMiddleware(RequestDelegate _next)
 {
+    private const string BannedWriteErrorCode = "ACCOUNT_BANNED_WRITE_LOCKED";
+    private const string BannedWriteMessage = "account is restricted and cannot perform this write action";
+
     private static readonly MemoryCacheEntryOptions AccountStateCacheOptions = new()
     {
         AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60)
@@ -58,7 +61,7 @@ public class BannedUserMiddleware(RequestDelegate _next)
 
         if (isWriteAction)
         {
-            if (endpoint?.Metadata.GetMetadata<BannedUserWriteBypassMetadata>() != null)
+            if (endpoint?.Metadata.GetMetadata<RestrictedAccountActionMetadata>() != null)
             {
                 await _next(context);
                 return;
@@ -72,11 +75,11 @@ public class BannedUserMiddleware(RequestDelegate _next)
 
                 if (banState.IsBanned)
                 {
-                    // 将 HTTP 状态码与业务代码从 403 改为 423 (Locked)。
-                    // 根本原因：前端的全局 Axios 拦截器一旦捕获到 403，会强制执行清空用户状态并疯狂弹出 Toast。
-                    // 状态被清空后，App.vue 失去登录标识导致横幅消失；同时触发 SignalR 以游客身份携带 PoW 尝试重连，陷入死循环。
-                    // 改用 423 Locked 可以完美绕过前端的 403 全局拦截，把封禁通知的权利完全交还给 SignalR。
-                    await MiddlewareResults.WriteErrorAsync(context, $"账号受限：{banState.Message}", 423);
+                    await MiddlewareResults.WriteErrorAsync(
+                        context,
+                        BannedWriteMessage,
+                        StatusCodes.Status423Locked,
+                        details: BannedWriteErrorCode);
                     return;
                 }
             }

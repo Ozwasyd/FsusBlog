@@ -84,7 +84,6 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAuthorization()
-        .AllowBannedUserWrite()
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPost("/messages/conversations/{id:long}/reply", static async Task<BinaryFrameResult> (
@@ -112,7 +111,6 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAuthorization()
-        .AllowBannedUserWrite()
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPost("/messages/conversations/{id:long}/read", static async Task<BinaryFrameResult> (
@@ -126,8 +124,7 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(result.Error, aeds);
         })
-        .RequireAuthorization()
-        .AllowBannedUserWrite();
+        .RequireAuthorization();
 
         group.MapGet("/admin/messages/conversations", static async Task<BinaryFrameResult> (
             int page,
@@ -180,7 +177,6 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAuthorization(policy => policy.RequireRole("admin"))
-        .AllowBannedUserWrite()
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPost("/admin/messages/conversations/{id:long}/status", static async Task<BinaryFrameResult> (

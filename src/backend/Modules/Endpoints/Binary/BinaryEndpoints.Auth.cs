@@ -308,7 +308,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAuthorization()
-        .AllowBannedUserWrite()
+        .AllowRestrictedAccountAction(RestrictedAccountAction.DeleteOwnAccount)
         .RequireNoStoreResponse()
         .AddEndpointFilter<RequiresPowFilter>();
 
@@ -337,7 +337,8 @@ public static partial class BinaryEndpoints
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds);
         })
-        .RequireAuthorization();
+        .RequireAuthorization()
+        .AllowRestrictedAccountAction(RestrictedAccountAction.RevokeOwnSession);
 
         group.MapPost("/auth/sessions/revoke-others", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -349,7 +350,8 @@ public static partial class BinaryEndpoints
             _ = await sessions.RevokeOtherSessionsAsync(userContext.UserId, userContext.SessionId, cancellationToken);
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
-        .RequireAuthorization();
+        .RequireAuthorization()
+        .AllowRestrictedAccountAction(RestrictedAccountAction.RevokeOtherSessions);
 
         group.MapPost("/auth/mfa/setup/start", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -657,7 +659,7 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireAuthorization()
-        .AllowBannedUserWrite()
+        .AllowRestrictedAccountAction(RestrictedAccountAction.Logout)
         .RequireNoStoreResponse();
 
         group.MapPost("/auth/passkey/register/begin", static async Task<BinaryFrameResult> (

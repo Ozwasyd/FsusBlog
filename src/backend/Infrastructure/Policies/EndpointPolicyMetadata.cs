@@ -2,13 +2,18 @@ using Microsoft.AspNetCore.Builder;
 
 namespace FsusBlog.Server.Infrastructure.Policies;
 
-public sealed class BannedUserWriteBypassMetadata
+public enum RestrictedAccountAction
 {
-    public static readonly BannedUserWriteBypassMetadata Instance = new();
+    Logout,
+    DeleteOwnAccount,
+    RevokeOwnSession,
+    RevokeOtherSessions,
+    Appeal
+}
 
-    private BannedUserWriteBypassMetadata()
-    {
-    }
+public sealed class RestrictedAccountActionMetadata(RestrictedAccountAction action)
+{
+    public RestrictedAccountAction Action { get; } = action;
 }
 
 public sealed class NoStoreResponseMetadata
@@ -22,10 +27,10 @@ public sealed class NoStoreResponseMetadata
 
 public static class EndpointPolicyMetadataExtensions
 {
-    public static TBuilder AllowBannedUserWrite<TBuilder>(this TBuilder builder)
+    public static TBuilder AllowRestrictedAccountAction<TBuilder>(this TBuilder builder, RestrictedAccountAction action)
         where TBuilder : IEndpointConventionBuilder
     {
-        builder.WithMetadata(BannedUserWriteBypassMetadata.Instance);
+        builder.WithMetadata(new RestrictedAccountActionMetadata(action));
         return builder;
     }
 

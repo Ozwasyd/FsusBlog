@@ -112,13 +112,14 @@ Notification stream preflight 与 WebSocket 握手失败会在 `X-Fsus-Notificat
 | `protocol_mismatch` | 409 | 缺失或不接受 `fsus-aeds.v2` 子协议 |
 | `auth_failed` | 401 | 携带认证头但认证失败 |
 | `pow_failed` | 401/400 | 匿名连接缺失或提交了无效 PoW |
-| `account_blocked` | 423 | 登录用户处于封禁状态 |
+| `account_blocked` | 423 | Notification stream 握手期登录用户处于封禁状态 |
+| `ACCOUNT_BANNED_WRITE_LOCKED` | 423 | 受限会话尝试普通业务写入，作为 Binary `ApiError.Details` 返回 |
 | `account_deleted` | 401 | 登录用户不存在、已删除或已停用 |
 | `notification_handshake_failed` | 500 | 未分类握手失败 |
 
 ---
 
-封禁类错误不得依赖 Redis 黑名单是否命中：服务端以 `sys_user.Status/BanReason` 为真源，`SecurityBlacklistUser` 只做无过期缓存；缓存 miss 会回查数据库并回填后再返回 `AccountBanned` 或 `account_blocked`。
+封禁类错误不得依赖 Redis 黑名单是否命中：服务端以 `sys_user.Status/BanReason` 为真源，`SecurityBlacklistUser` 只做无过期缓存；缓存 miss 会回查数据库并回填后再返回 `AccountBanned`、`account_blocked` 或写入锁 `ACCOUNT_BANNED_WRITE_LOCKED`。封禁账号可以持有受限会话完成登出、撤销会话、删除本人账号等安全收尾动作；普通业务写入统一由服务端返回 `423 Locked`，不能只依赖前端禁用按钮。
 
 ## AEDS v2 帧格式
 

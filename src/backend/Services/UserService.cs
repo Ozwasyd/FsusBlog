@@ -429,20 +429,19 @@ public partial class UserService(
         bool mfaVerified,
         bool rememberMe)
     {
+        if (user.Status == UserStatusDeleted || user.DeletedAt.HasValue)
+        {
+            return (false, "账户已注销", null, null);
+        }
+
         if (user.Status == UserStatusBanned)
         {
             using var _ = AuditLogScope.Push(
                 AuditSourceCatalog.Auth,
                 AuditTypeCatalog.Security,
-                new KeyValuePair<string, object?>("AuditAction", "login.banned"),
+                new KeyValuePair<string, object?>("AuditAction", "login.restricted"),
                 new KeyValuePair<string, object?>("Username", user.Username));
             LogBannedUserLogin(user.Username);
-            return (false, "账户已被封禁", null, null);
-        }
-
-        if (user.Status == UserStatusDeleted || user.DeletedAt.HasValue)
-        {
-            return (false, "账户已注销", null, null);
         }
 
         string refreshToken = _jwtHelper.GenerateRefreshToken();
@@ -608,9 +607,14 @@ public partial class UserService(
         }
 
         var user = await _db.Queryable<User>().InSingleAsync(session.UserId);
-        if (user == null || user.Status == UserStatusBanned || user.Status == UserStatusDeleted || user.DeletedAt.HasValue)
+        if (user == null || user.Status == UserStatusDeleted || user.DeletedAt.HasValue)
         {
             return (false, null);
+        }
+
+        if (user.Status == UserStatusBanned)
+        {
+            LogBannedUserTokenRefresh(user.Username);
         }
 
         string newRefreshToken = _jwtHelper.GenerateRefreshToken();

@@ -123,7 +123,7 @@ Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passke
 | `403 Forbidden` | 权限不足（已登录但角色不满足） |
 | `404 Not Found` | 资源不存在 |
 | `409 Conflict` | 资源冲突（如用户名已存在） |
-| `423 Locked` | 登录用户处于封禁状态，notification stream 使用 `account_blocked` 失败码 |
+| `423 Locked` | 登录用户处于封禁/受限状态，notification stream 使用 `account_blocked`，普通业务写入锁使用 Binary `ApiError.Details = ACCOUNT_BANNED_WRITE_LOCKED` |
 | `429 Too Many Requests` | 速率限制触发，响应含 `Retry-After` 头 |
 | `500 Internal Server Error` | 服务端异常，错误详情不暴露给客户端 |
 
@@ -158,6 +158,7 @@ Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passke
 - 每条消息均为 AEDS binary frame；WebSocket 握手失败返回 `ApiError` frame，并写入 `X-Fsus-Notification-Stream-Error-Code` / `X-Fsus-Notification-Stream-Status-Code`
 - 客户端应优先通过 preflight 区分 `account_blocked`、`account_deleted`、`auth_failed`、`pow_failed`、`websocket_required` 等失败码，再决定是否重连或提示用户
 - `account_blocked` 必须由持久化 `sys_user.Status/BanReason` 决定；Redis 黑名单只是无过期快路径，缓存 miss 必须回查数据库并回填后再放行。
+- 封禁账号认证成功后可以持有受限会话，但普通业务写入必须由服务端返回 `423 Locked` + `ACCOUNT_BANNED_WRITE_LOCKED`；客户端禁用控件只能作为体验优化，不能替代后端写锁。
 - 客户端应存储最后收到的 cursor 值，断线重连时通过 `cursor` query 参数传递
 
 ---

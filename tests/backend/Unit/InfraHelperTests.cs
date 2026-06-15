@@ -265,7 +265,12 @@ public class MiddlewareResultsTests
         await using var body = new MemoryStream();
         context.Response.Body = body;
 
-        await MiddlewareResults.WriteErrorAsync(context, "账号受限", 423, "trace-1");
+        await MiddlewareResults.WriteErrorAsync(
+            context,
+            "account is restricted and cannot perform this write action",
+            423,
+            "trace-1",
+            "ACCOUNT_BANNED_WRITE_LOCKED");
 
         Assert.Equal(423, context.Response.StatusCode);
         Assert.Equal("application/octet-stream", context.Response.ContentType);
@@ -276,7 +281,8 @@ public class MiddlewareResultsTests
         Assert.Equal(AedsFrameType.ApiError, decoded.Value.FrameType);
         Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var errorPod));
         Assert.Equal(423, errorPod.HttpStatus);
-        Assert.Equal("账号受限", PodUtf8Codec.FromFixed256(errorPod.Message));
+        Assert.Equal("account is restricted and cannot perform this write action", PodUtf8Codec.FromFixed256(errorPod.Message));
+        Assert.Equal("ACCOUNT_BANNED_WRITE_LOCKED", PodUtf8Codec.FromFixed256(errorPod.Details));
         Assert.Equal("trace-1", PodUtf8Codec.FromFixed64(errorPod.TraceId));
     }
 }

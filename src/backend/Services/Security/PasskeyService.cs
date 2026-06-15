@@ -241,11 +241,6 @@ public sealed class PasskeyService(
             return (false, "账户不存在或已注销", null);
         }
 
-        if (user.Status == 1)
-        {
-            return (false, "账户已被封禁", null);
-        }
-
         byte[] storedPublicKey = Base64Url.DecodeFromChars(storedCred.PublicKey);
 
         VerifyAssertionResult verifyResult;

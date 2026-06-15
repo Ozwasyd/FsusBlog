@@ -309,13 +309,13 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public async Task CompleteLoginAsync_BannedUser_ReturnsFailureWithoutIssuingTokens()
+    public async Task CompleteLoginAsync_BannedUser_IssuesRestrictedSessionToken()
     {
         var db = Substitute.For<ISqlSugarClient>();
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns("refresh-token");
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns("access-token");
-        ConfigureLoginPersistence(db);
+        var persistence = ConfigureLoginPersistence(db);
         var svc = BuildService(db, jwt);
         var bannedUser = new User { Id = 42, Username = "banned-user", Role = "guest", Status = 1 };
 
@@ -327,13 +327,16 @@ public class UserServiceValidationTests
             mfaVerified: false,
             rememberMe: false);
 
-        Assert.False(success);
-        Assert.Equal("账户已被封禁", message);
-        Assert.Null(data);
-        Assert.Null(userEntity);
-        jwt.DidNotReceive().GenerateRefreshToken();
-        jwt.DidNotReceive().GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>());
-        db.DidNotReceive().Insertable(Arg.Any<UserSession>());
+        Assert.True(success);
+        Assert.Equal("登录成功", message);
+        Assert.NotNull(data);
+        Assert.Equal("access-token", data.Value.AccessToken);
+        Assert.Equal("refresh-token", data.Value.RefreshToken);
+        Assert.Same(bannedUser, userEntity);
+        jwt.Received(1).GenerateRefreshToken();
+        jwt.Received(1).GenerateAccessToken(bannedUser, Arg.Any<string>(), false);
+        await persistence.SessionInsert.Received(1).ExecuteCommandAsync();
+        await persistence.UserUpdate.Received(1).ExecuteCommandAsync();
     }
 
     [Fact]
