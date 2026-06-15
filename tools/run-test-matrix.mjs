@@ -123,6 +123,10 @@ function normalizeTierId(id) {
   return aliases.get(id) ?? id
 }
 
+function playwrightWorkersForTier(tier) {
+  return tier.requiresPlaywright === 'none' ? null : Number(tier.playwrightWorkers)
+}
+
 function pathExistsForCommand(command) {
   const [first] = String(command).split(/\s+/)
   if (!first || !/^(tools|tests|src|\.\/tools|\.\/tests|\.\/src)\//.test(first)) return true
@@ -216,6 +220,15 @@ function validateMatrix(matrix) {
     }
     if (tier.requiresPlaywright !== 'none' && tier.requiresNode !== true) {
       errors.push(`${tier.id}.requiresPlaywright requires requiresNode=true`)
+    }
+    if (tier.requiresPlaywright !== 'none') {
+      if (!('playwrightWorkers' in tier)) {
+        errors.push(`${tier.id}.playwrightWorkers is required when requiresPlaywright=${tier.requiresPlaywright}`)
+      } else if (!Number.isInteger(tier.playwrightWorkers) || tier.playwrightWorkers < 1) {
+        errors.push(`${tier.id}.playwrightWorkers must be a positive integer`)
+      }
+    } else if ('playwrightWorkers' in tier && (!Number.isInteger(tier.playwrightWorkers) || tier.playwrightWorkers < 1)) {
+      errors.push(`${tier.id}.playwrightWorkers must be a positive integer`)
     }
     if (tier.parallelizable === false && Number(tier.maxParallel) !== 1) {
       errors.push(`${tier.id} is not parallelizable but maxParallel is ${tier.maxParallel}`)
@@ -406,6 +419,7 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
     ...(tier.artifacts ?? []),
     ...(tier.evidence ?? []).filter((item) => String(item).startsWith('.tmp/'))
   ])].sort()
+  const playwrightWorkers = playwrightWorkersForTier(tier)
   const deltaMs = Math.max(0, Date.now() - startedAt)
   const durationMs = Math.max(0, Number(existing?.durationMs ?? 0)) + deltaMs
   const stage = stageForTier(tier, details)
@@ -419,6 +433,7 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
     rootCause: status === 'success' ? null : (details.rootCause ?? `${tier.id} exited non-zero`),
     durationMs,
     stageDurationsMs: mergeStageDurations(existing, stage, deltaMs),
+    playwrightWorkers,
     artifacts,
     localReproduction: details.localReproduction ?? ciJobReproductionCommand(tier.ciJob, matrix),
     commit: git(['rev-parse', 'HEAD']) ?? 'unknown',
@@ -464,6 +479,10 @@ function runTier(matrix, tierId, args) {
       CURRENT_TIER: tier.id,
       MATRIX_JOB: tier.ciJob,
       FSUSBLOG_TEST_NAMESPACE: runNamespace
+    }
+    const playwrightWorkers = playwrightWorkersForTier(tier)
+    if (playwrightWorkers !== null) {
+      env.FSUSBLOG_PLAYWRIGHT_WORKERS = String(playwrightWorkers)
     }
     if (options.shard) {
       const [index, total] = options.shard.split('/')
@@ -544,6 +563,7 @@ function buildCiJobMatrix(matrix, jobId) {
       ci_job: tier.ciJob,
       resource_class: tier.resourceClass,
       max_parallel: tier.maxParallel,
+      playwright_workers: playwrightWorkersForTier(tier) ?? 1,
       timeout_minutes: tier.timeoutMinutes,
       artifact_name: `${jobId}-${tier.id}`
     }))
@@ -831,16 +851,19 @@ function buildCiPlan(matrix, format) {
       requiresNode: false,
       requiresDotnet: false,
       requiresPlaywright: 'none',
+      playwrightWorkerValues: new Set(),
       cacheProfile: 'none'
     }
-      job.tiers.push(tier.id)
-      job.timeoutMinutes = Math.max(job.timeoutMinutes, tier.timeoutMinutes)
+    job.tiers.push(tier.id)
+    job.timeoutMinutes = Math.max(job.timeoutMinutes, tier.timeoutMinutes)
     job.phase = Math.max(job.phase ?? 0, tier.phase)
     job.maxParallel = Math.max(job.maxParallel ?? 1, tier.maxParallel)
     job.requiresNode = job.requiresNode || tier.requiresNode
     job.requiresDotnet = job.requiresDotnet || tier.requiresDotnet
     if (tier.requiresPlaywright === 'all') job.requiresPlaywright = 'all'
     else if (tier.requiresPlaywright === 'chromium' && job.requiresPlaywright === 'none') job.requiresPlaywright = 'chromium'
+    const playwrightWorkers = playwrightWorkersForTier(tier)
+    if (playwrightWorkers !== null) job.playwrightWorkerValues.add(playwrightWorkers)
     job.cacheProfile = combineCacheProfile(job.cacheProfile, tier.cacheProfile)
     for (const artifact of tier.artifacts) job.artifacts.add(artifact)
     for (const evidence of tier.evidence) job.evidence.add(evidence)
@@ -866,6 +889,7 @@ function buildCiPlan(matrix, format) {
       requiresNode: job.requiresNode,
       requiresDotnet: job.requiresDotnet,
       requiresPlaywright: job.requiresPlaywright,
+      playwrightWorkers: [...job.playwrightWorkerValues].sort((left, right) => left - right),
       cacheProfile: job.cacheProfile,
       needs: [...job.needs].sort(),
       artifacts: [...job.artifacts].sort(),
@@ -886,8 +910,8 @@ function docs(matrix, outFile) {
     '',
     `Version: \`${matrix.version}\``,
     '',
-    '| Tier | CI job | Local command | Phase | Resource | Cost | Max parallel | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
-    '|---|---|---|---:|---|---|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
+    '| Tier | CI job | Local command | Phase | Resource | Cost | Max parallel | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---:|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of matrix.tiers) {
     lines.push([
@@ -898,6 +922,7 @@ function docs(matrix, outFile) {
       tier.resourceClass,
       tier.cost,
       String(tier.maxParallel),
+      playwrightWorkersForTier(tier) === null ? '-' : String(playwrightWorkersForTier(tier)),
       tier.requiresBootstrap,
       tier.requiresNode ? 'yes' : 'no',
       tier.requiresDotnet ? 'yes' : 'no',
@@ -950,6 +975,7 @@ function evidencePlan(matrix, outFile) {
       requiresNode: tier.requiresNode,
       requiresDotnet: tier.requiresDotnet,
       requiresPlaywright: tier.requiresPlaywright,
+      playwrightWorkers: playwrightWorkersForTier(tier),
       cacheProfile: tier.cacheProfile,
       shardable: tier.shardable,
       defaultShards: tier.defaultShards,

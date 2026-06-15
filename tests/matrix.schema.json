@@ -55,6 +55,7 @@
           "requiresNode": { "type": "boolean" },
           "requiresDotnet": { "type": "boolean" },
           "requiresPlaywright": { "type": "string", "enum": ["none", "chromium", "all"] },
+          "playwrightWorkers": { "type": "integer", "minimum": 1 },
           "cacheProfile": { "type": "string", "enum": ["none", "frontend", "backend", "full"] },
           "timeoutMinutes": { "type": "number", "minimum": 1 },
           "shardable": { "type": "boolean" },

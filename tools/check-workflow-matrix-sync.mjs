@@ -135,10 +135,18 @@ function annotateWorkflowJob(job) {
   job.usesGeneratedFastBackendMaxParallel = /max-parallel:\s*\$\{\{\s*fromJson\(needs\.validate-matrix\.outputs\.fast_backend_max_parallel\)\s*\}\}/.test(text)
   job.generatesFastBackendMatrix = /node tools\/run-test-matrix\.mjs ci-job-matrix fast-backend --github-output "\$GITHUB_OUTPUT"/.test(text)
   job.usesFastSummaryAggregate = /node tools\/run-test-matrix\.mjs aggregate fast-summary(?:\s|$)/.test(text)
+  job.usesMatrixPlaywrightWorkers = /FSUSBLOG_PLAYWRIGHT_WORKERS:\s*\$\{\{\s*matrix\.playwright_workers\s*\}\}/.test(text)
+  job.playwrightWorkerEnvValues = new Set([...text.matchAll(/FSUSBLOG_PLAYWRIGHT_WORKERS:\s*['"]?(\d+)['"]?/g)].map((match) => Number(match[1])))
   job.downloadsFastBackendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /pattern:\s*fast-backend-\*/.test(text)
   job.downloadsFastFrontendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*fast-frontend-unit/.test(text)
   job.downloadsFastStaticArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*fast-static-governance/.test(text)
   return job
+}
+
+function workflowHasGlobalPlaywrightWorkers(text) {
+  const jobsIndex = text.search(/^jobs:\s*$/m)
+  const header = jobsIndex >= 0 ? text.slice(0, jobsIndex) : text
+  return /^env:\s*$[\s\S]*?^  FSUSBLOG_PLAYWRIGHT_WORKERS:/m.test(header)
 }
 
 function parseWorkflow(text) {
@@ -368,7 +376,9 @@ function setupRequirementsForTiers(tierIds, tiersById) {
     requiresDotnet: false,
     requiresPlaywright: 'none',
     cacheProfile: 'none',
-    requiresBootstrap: 'none'
+    requiresBootstrap: 'none',
+    playwrightWorkerValues: new Set(),
+    missingPlaywrightWorkerTiers: []
   }
   for (const tierId of tierIds) {
     const tier = tiersById.get(tierId)
@@ -376,6 +386,13 @@ function setupRequirementsForTiers(tierIds, tiersById) {
     requirements.requiresNode = requirements.requiresNode || tier.requiresNode === true
     requirements.requiresDotnet = requirements.requiresDotnet || tier.requiresDotnet === true
     requirements.requiresPlaywright = combinePlaywrightRequirement(requirements.requiresPlaywright, tier.requiresPlaywright)
+    if (tier.requiresPlaywright !== 'none') {
+      if (Number.isInteger(tier.playwrightWorkers) && tier.playwrightWorkers >= 1) {
+        requirements.playwrightWorkerValues.add(Number(tier.playwrightWorkers))
+      } else {
+        requirements.missingPlaywrightWorkerTiers.push(tier.id)
+      }
+    }
     requirements.cacheProfile = combineCacheProfile(requirements.cacheProfile, tier.cacheProfile)
     requirements.requiresBootstrap = combineCacheProfile(requirements.requiresBootstrap, tier.requiresBootstrap)
   }
@@ -424,6 +441,21 @@ function validateWorkflowSetup(jobId, workflowJob, requirements, errors) {
     errors.push(`workflow job ${jobId} declares backend cacheProfile but does not use deterministic NuGet cache`)
   }
   if (requirements.requiresPlaywright !== 'none') {
+    const expectedWorkerValues = [...requirements.playwrightWorkerValues].sort((left, right) => left - right)
+    if (requirements.missingPlaywrightWorkerTiers.length > 0) {
+      errors.push(`workflow job ${jobId} covers Playwright tiers without playwrightWorkers: ${requirements.missingPlaywrightWorkerTiers.join(', ')}`)
+    } else if (workflowJob.usesMatrixTierCommand) {
+      if (!workflowJob.usesMatrixPlaywrightWorkers) {
+        errors.push(`workflow job ${jobId} must pass FSUSBLOG_PLAYWRIGHT_WORKERS from matrix.playwright_workers`)
+      }
+    } else if (expectedWorkerValues.length === 1) {
+      const expected = expectedWorkerValues[0]
+      if (!workflowJob.playwrightWorkerEnvValues.has(expected) && !workflowJob.usesMatrixPlaywrightWorkers) {
+        errors.push(`workflow job ${jobId} must set FSUSBLOG_PLAYWRIGHT_WORKERS=${expected} from matrix tier policy`)
+      }
+    } else if (!workflowJob.usesMatrixPlaywrightWorkers) {
+      errors.push(`workflow job ${jobId} covers multiple Playwright worker policies (${expectedWorkerValues.join(', ')}); use matrix.playwright_workers`)
+    }
     if (!workflowJob.hasPlaywrightCache) {
       errors.push(`workflow job ${jobId} requires Playwright but does not cache ~/.cache/ms-playwright with src/frontend/package-lock.json`)
     }
@@ -451,8 +483,13 @@ function main() {
   const plan = loadPlan(planPath)
   const matrix = parseMatrix(fs.readFileSync(matrixPath, 'utf8'))
   const tiersById = new Map(matrix.tiers.map((tier) => [tier.id, tier]))
-  const workflowJobs = parseWorkflow(fs.readFileSync(workflowPath, 'utf8'))
+  const workflowText = fs.readFileSync(workflowPath, 'utf8')
+  const workflowJobs = parseWorkflow(workflowText)
   const errors = []
+
+  if (workflowHasGlobalPlaywrightWorkers(workflowText)) {
+    errors.push('workflow must not set FSUSBLOG_PLAYWRIGHT_WORKERS globally; use matrix tier playwrightWorkers policy')
+  }
 
   const isWorkflowRequiredTier = (tierId) => {
     const tier = tiersById.get(tierId)

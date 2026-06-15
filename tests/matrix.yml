@@ -421,6 +421,7 @@ tiers:
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
+    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 45
     shardable: true
@@ -448,6 +449,7 @@ tiers:
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
+    playwrightWorkers: 2
     cacheProfile: full
     timeoutMinutes: 35
     shardable: true
@@ -475,6 +477,7 @@ tiers:
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
+    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 35
     shardable: false
@@ -530,6 +533,7 @@ tiers:
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
+    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 90
     shardable: false
@@ -584,6 +588,7 @@ tiers:
     requiresNode: true
     requiresDotnet: false
     requiresPlaywright: all
+    playwrightWorkers: 1
     cacheProfile: frontend
     timeoutMinutes: 20
     shardable: false
@@ -1694,6 +1699,7 @@ tiers:
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
+    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 45
     shardable: false
@@ -1722,6 +1728,7 @@ tiers:
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
+    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 45
     shardable: false
@@ -1750,6 +1757,7 @@ tiers:
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
+    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 35
     shardable: false
@@ -1778,6 +1786,7 @@ tiers:
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
+    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 25
     shardable: false
@@ -1806,6 +1815,7 @@ tiers:
     requiresNode: true
     requiresDotnet: false
     requiresPlaywright: chromium
+    playwrightWorkers: 1
     cacheProfile: frontend
     timeoutMinutes: 20
     shardable: false
@@ -1834,6 +1844,7 @@ tiers:
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
+    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 35
     shardable: false
@@ -1890,6 +1901,7 @@ tiers:
     requiresNode: true
     requiresDotnet: false
     requiresPlaywright: chromium
+    playwrightWorkers: 1
     cacheProfile: frontend
     timeoutMinutes: 25
     shardable: false
@@ -2226,6 +2238,7 @@ tiers:
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: all
+    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 240
     shardable: false

@@ -19,7 +19,6 @@ concurrency:
 env:
   DOTNET_NOLOGO: 'true'
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
-  FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
   GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
 
 jobs:
@@ -421,13 +420,18 @@ jobs:
         include:
           - shard: 1/4
             shard_id: 1-of-4
+            playwright_workers: 1
           - shard: 2/4
             shard_id: 2-of-4
+            playwright_workers: 1
           - shard: 3/4
             shard_id: 3-of-4
+            playwright_workers: 1
           - shard: 4/4
             shard_id: 4-of-4
+            playwright_workers: 1
     env:
+      FSUSBLOG_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
       FSUSBLOG_TEST_NAMESPACE: ci-acceptance-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
     steps:
       - uses: actions/checkout@v6
@@ -475,9 +479,12 @@ jobs:
         include:
           - shard: 1/2
             shard_id: 1-of-2
+            playwright_workers: 2
           - shard: 2/2
             shard_id: 2-of-2
+            playwright_workers: 2
     env:
+      FSUSBLOG_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
       FSUSBLOG_TEST_NAMESPACE: ci-visual-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
     steps:
       - uses: actions/checkout@v6
@@ -520,6 +527,7 @@ jobs:
     needs: integration-runtime
     timeout-minutes: 35
     env:
+      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
       FSUSBLOG_TEST_NAMESPACE: ci-ux-viewport-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v6
@@ -611,6 +619,7 @@ jobs:
       matrix:
         browser: [chromium, firefox, webkit]
     env:
+      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
       FSUSBLOG_PLAYWRIGHT_BROWSERS: ${{ matrix.browser }}
       FSUSBLOG_TEST_NAMESPACE: ci-cross-browser-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.browser }}
     steps:
