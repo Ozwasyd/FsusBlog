@@ -26,6 +26,7 @@ const publicEditorialRoots = [
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const accountShellPath = path.join(repoRoot, 'src/frontend/src/assets/account-shell.css')
 const accountLayoutPath = path.join(repoRoot, 'src/frontend/src/layouts/AccountLayout.vue')
+const dashboardPopularArticlesPath = path.join(repoRoot, 'src/frontend/src/components/admin/DashboardPopularArticles.vue')
 const productionSourceRoot = path.join(repoRoot, 'src/frontend/src')
 
 const dashboardPanelPattern = /src\/frontend\/src\/(?:views\/admin\/Dashboard|components\/admin\/Dashboard|views\/admin\/security\/Security|views\/admin\/moderation\/Moderation|components\/admin\/comment-moderation\/CommentModeration)/
@@ -142,6 +143,31 @@ function checkProductionFocusRing(file) {
   })
 }
 
+function checkDashboardPopularArticlesFocusContract() {
+  const source = read(dashboardPopularArticlesPath)
+  const focusRingBindings = source.match(/:class="focusRingClass"/g)?.length ?? 0
+
+  if (!source.includes("import { themeTokens } from '@/ui-tokens/themeTokens'")) {
+    fail(dashboardPopularArticlesPath, 1, 'DashboardPopularArticles links must consume the shared themeTokens.focusRing contract')
+  }
+
+  if (!source.includes('const focusRingClass = themeTokens.focusRing')) {
+    fail(dashboardPopularArticlesPath, 1, 'DashboardPopularArticles must route focus styles through themeTokens.focusRing')
+  }
+
+  if (focusRingBindings < 2) {
+    fail(dashboardPopularArticlesPath, 1, 'DashboardPopularArticles title and footer links must both bind focusRingClass')
+  }
+
+  if (/\bblog-focus-ring\b/.test(source)) {
+    fail(dashboardPopularArticlesPath, 1, 'DashboardPopularArticles must not reintroduce local blog-focus-ring helpers')
+  }
+
+  if (/box-shadow:\s*inset 0 0 0 1px var\(--fsusblog-color-focus-ring\)/.test(source)) {
+    fail(dashboardPopularArticlesPath, 1, 'DashboardPopularArticles focus-visible replacement must use the shared 2px inset contract, not local 1px box-shadow')
+  }
+}
+
 for (const file of adminAccountRoots.flatMap((dir) => walk(dir))) {
   checkSourceFile(file, 'admin/account')
 }
@@ -153,6 +179,8 @@ for (const file of publicEditorialRoots.flatMap((dir) => walk(dir))) {
 for (const file of walk(productionSourceRoot)) {
   checkProductionFocusRing(file)
 }
+
+checkDashboardPopularArticlesFocusContract()
 
 const accountShell = read(accountShellPath)
 if (/\.account-(?:page-eyebrow|section-title)[\s\S]*?text-transform:\s*uppercase/.test(accountShell)) {

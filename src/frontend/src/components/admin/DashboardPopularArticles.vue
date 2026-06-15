@@ -21,7 +21,7 @@
         </el-table-column>
         <el-table-column label="文章标题" min-width="200">
           <template #default="{ row }">
-            <router-link :to="{ name: 'ManageEditArticle', params: { id: String(row.id) } }" class="blog-focus-ring rounded-[var(--fsus-radius-control-small)] text-sm font-medium text-[var(--fsusblog-text-secondary)] transition-colors hover:text-[var(--fsusblog-color-primary)] outline-none">
+            <router-link :to="{ name: 'ManageEditArticle', params: { id: String(row.id) } }" class="rounded-[var(--fsus-radius-control-small)] text-sm font-medium text-[var(--fsusblog-text-secondary)] transition-colors hover:text-[var(--fsusblog-color-primary)] outline-none" :class="focusRingClass">
               {{ row.title }}
             </router-link>
           </template>
@@ -44,7 +44,8 @@
     <footer class="p-6 border-t border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg-soft)]">
       <router-link
         :to="{ name: 'ManageArticleList' }"
-        class="blog-link-state group flex items-center gap-3 text-xs font-semibold normal-case tracking-normal"
+        class="blog-link-state group flex items-center gap-3 text-xs font-semibold normal-case tracking-normal outline-none"
+        :class="focusRingClass"
       >
         进入文章管理 <el-icon class="transition-transform" aria-hidden="true"><ArrowRight /></el-icon>
       </router-link>
@@ -56,6 +57,7 @@
 import { computed } from 'vue';
 import { ArrowRight } from '@/fsusui/icons';
 import { AdminInlineEmptyState } from '@/components/admin/AdminCollectionPrimitives'
+import { themeTokens } from '@/ui-tokens/themeTokens'
 import type { AdminDashboardViewContract } from '@/view-contracts/adminStats';
 
 const props = defineProps<{
@@ -64,17 +66,13 @@ const props = defineProps<{
 }>();
 
 const popularArticleRows = computed(() => [...props.view.popularArticles]);
+const focusRingClass = themeTokens.focusRing
 </script>
 
 <style scoped>
 @reference "@/assets/main.css";
 
 .blog-link-state {
-  @apply rounded-[var(--fsus-radius-control-small)] text-[var(--fsusblog-text-muted)] outline-none transition-colors hover:text-[var(--fsusblog-text-primary)] focus-visible:text-[var(--fsusblog-text-primary)];
-}
-
-.blog-focus-ring:focus-visible,
-.blog-link-state:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--fsusblog-color-focus-ring);
+  @apply rounded-[var(--fsus-radius-control-small)] text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-text-primary)] focus-visible:text-[var(--fsusblog-text-primary)];
 }
 </style>
