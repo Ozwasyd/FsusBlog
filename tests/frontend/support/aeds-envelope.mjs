@@ -250,6 +250,21 @@ export function encodeAuthRegisterRequest({ username, password, confirmPassword 
   return bytes
 }
 
+export function encodeCurrentUserSnapshotFrame({ id = 1, username = 'admin', role = 'admin', status = 0, banReason = '', deletedAt = null } = {}) {
+  const bytes = new Uint8Array(CURRENT_USER_SNAPSHOT_POD_SIZE)
+  const view = new DataView(bytes.buffer)
+  view.setInt32(0, id, true)
+  view.setInt32(4, status, true)
+  if (deletedAt instanceof Date) {
+    view.setBigInt64(8, BigInt(deletedAt.getTime()), true)
+    bytes[16] = 1
+  }
+  writeFixedUtf8(bytes, 20, 64, username)
+  writeFixedUtf8(bytes, 84, 32, role)
+  writeFixedUtf8(bytes, 116, 256, banReason)
+  return encodeAedsFrame(FRAME_CURRENT_USER_SNAPSHOT, bytes)
+}
+
 export function encodeUploadInitRequest(payload) {
   const bytes = new Uint8Array(428)
   const view = new DataView(bytes.buffer)

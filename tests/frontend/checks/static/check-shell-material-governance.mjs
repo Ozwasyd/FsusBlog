@@ -10,6 +10,7 @@ const rel = (file) => path.relative(repoRoot, file).replaceAll(path.sep, '/')
 const read = (file) => fs.readFileSync(file, 'utf8')
 
 const files = {
+  publicPage: path.join(repoRoot, 'src/frontend/src/assets/public-page.css'),
   accountShell: path.join(repoRoot, 'src/frontend/src/assets/account-shell.css'),
   accountLayout: path.join(repoRoot, 'src/frontend/src/layouts/AccountLayout.vue'),
   login: path.join(repoRoot, 'src/frontend/src/views/auth/Login.vue'),
@@ -52,6 +53,42 @@ checkLines(files.accountShell, [
     message: 'account shell panels must not use backdrop-filter by default'
   }
 ])
+
+const publicPageCss = read(files.publicPage)
+const requiredPublicHeaderTokens = [
+  '--fsus-page: #f8f9f7;',
+  '--fsus-paper: #ffffff;',
+  '--fsus-ink: #0f0f11;',
+  '--fsus-dot-gray: #8e8e93;',
+  '--fsus-border: #e4e4df;',
+  '--fsus-scholarly-blue: #2a599c;',
+  '--fsusblog-header-bg: color-mix(in srgb, var(--fsus-paper) 88%, var(--fsus-page));',
+  '--fsusblog-header-border: color-mix(in srgb, var(--fsus-border) 82%, transparent);',
+  '--el-bg-color: var(--fsusblog-header-bg);',
+  '--el-bg-color-page: var(--fsus-page);',
+  '--el-border-color-lighter: var(--fsusblog-header-border);'
+]
+
+for (const token of requiredPublicHeaderTokens) {
+  if (!publicPageCss.includes(token)) {
+    fail(files.publicPage, 1, `public header material contract is missing ${token}`)
+  }
+}
+
+const publicPageLines = publicPageCss.split(/\r?\n/)
+publicPageLines.forEach((line, index) => {
+  if (/\.el-public-shell__(?:header|inner|primary-row|mobile-toolbar|mobile-primary-actions|actions|desktop-nav|mobile-nav)/.test(line)) {
+    fail(files.publicPage, index + 1, 'public header must use FsusUI tokens instead of deep PublicShell overrides')
+  }
+
+  if (/backdrop-filter:\s*(?:blur|saturate|var|url|opacity|brightness|contrast|drop-shadow|grayscale|hue-rotate|invert|sepia)/.test(line)) {
+    fail(files.publicPage, index + 1, 'public page/header material must not add backdrop-filter')
+  }
+
+  if (/box-shadow:\s*(?:var\(--fsus-shadow-floating\)|0\s+\d|0\s+0\s+\d)/.test(line)) {
+    fail(files.publicPage, index + 1, 'public page/header material must not add floating or glow shadows')
+  }
+})
 
 checkLines(files.accountLayout, [
   {
