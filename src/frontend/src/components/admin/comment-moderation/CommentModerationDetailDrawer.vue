@@ -16,7 +16,7 @@
       <section>
         <div class="flex flex-wrap items-center gap-2">
           <span class="text-xs font-semibold normal-case tracking-normal" :class="item.statusClass">{{ item.statusLabel }}</span>
-          <SemanticTime :value="item.createTime" :text="item.createTimeText" class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]" />
+          <SemanticTime :value="item.createTime" :text="item.createTimeText" class="text-xs font-medium tabular-nums text-[var(--fsusblog-text-muted)]" />
         </div>
         <p class="mt-5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--fsusblog-text-secondary)]">
           {{ item.content }}

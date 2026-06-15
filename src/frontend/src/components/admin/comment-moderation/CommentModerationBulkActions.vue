@@ -34,7 +34,7 @@
       </div>
     </div>
 
-    <p class="mt-3 text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]">
+    <p class="mt-3 text-xs font-medium tabular-nums text-[var(--fsusblog-text-muted)]">
       已选择 {{ selectedCount }} 条
     </p>
 

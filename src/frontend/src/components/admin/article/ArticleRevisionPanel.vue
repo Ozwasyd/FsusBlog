@@ -7,8 +7,8 @@
     <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <div id="article-revision-title" class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">修订历史</div>
-          <p class="mt-1 text-[11px] text-[var(--fsusblog-text-tertiary)]" aria-live="polite">{{ statusText }}</p>
+          <div id="article-revision-title" class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">修订历史</div>
+          <p class="mt-1 text-xs text-[var(--fsusblog-text-tertiary)]" aria-live="polite">{{ statusText }}</p>
         </div>
         <el-button
           circle
@@ -52,7 +52,7 @@
       <div v-if="selectedRevision" class="revision-compare border-t border-[var(--fsusblog-panel-border)] pt-4">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ selectedLabel }}</div>
+            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ selectedLabel }}</div>
             <p class="mt-1 text-xs text-[var(--fsusblog-text-secondary)]">{{ compareText }}</p>
           </div>
           <el-popconfirm
@@ -166,7 +166,7 @@ defineEmits<{
 .revision-row__meta,
 .revision-row__actor {
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
 }
 
 .revision-fields {
@@ -182,8 +182,8 @@ defineEmits<{
 
 .revision-fields dt {
   color: var(--fsusblog-text-muted);
-  font-size: 0.66rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .revision-fields dd {

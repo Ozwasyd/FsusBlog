@@ -49,6 +49,15 @@ const governedMicroLabelFiles = new Set([
   'src/frontend/src/components/home/FeaturedArticlesSection.vue',
   'src/frontend/src/components/article/ArticleReadingNotice.vue'
 ])
+const roleAuditedTypographyFiles = new Set([
+  'src/frontend/src/components/admin/article/ArticleAssetLibraryPanel.vue',
+  'src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue',
+  'src/frontend/src/components/admin/article/ArticleRevisionPanel.vue',
+  'src/frontend/src/components/admin/comment-moderation/CommentModerationBulkActions.vue',
+  'src/frontend/src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue',
+  'src/frontend/src/components/admin/comment-moderation/CommentModerationQueue.vue',
+  'src/frontend/src/components/admin/comment-moderation/CommentModerationToolbar.vue'
+])
 
 function fail(file, line, message) {
   failures.push(`${rel(file)}:${line}: ${message}`)
@@ -110,6 +119,10 @@ function checkSourceFile(file, scope) {
 
     if (governedMicroLabelFiles.has(relative) && /\btext-\[(?:9|10|11)px\]\s+font-(?:bold|semibold)\b/.test(line)) {
       fail(file, index + 1, 'governed dashboard/public labels must use 12px+ readable metadata scale')
+    }
+
+    if (roleAuditedTypographyFiles.has(relative) && /\btext-\[11px\]\b/.test(line)) {
+      fail(file, index + 1, 'audited article/comment moderation labels and metadata must use 12px+ role-specific scale')
     }
   })
 }

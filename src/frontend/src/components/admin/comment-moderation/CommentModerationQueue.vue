@@ -1,7 +1,7 @@
 <template>
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-label="评论审核队列">
     <div class="border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-6 py-3">
-      <div class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核队列</div>
+      <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核队列</div>
     </div>
 
     <el-responsive-collection
@@ -26,7 +26,7 @@
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ (item as CommentModerationViewItem).userName }}</span>
-                <span class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]">#{{ (item as CommentModerationViewItem).id }}</span>
+                <span class="text-xs font-medium tabular-nums text-[var(--fsusblog-text-muted)]">#{{ (item as CommentModerationViewItem).id }}</span>
                 <span class="text-xs font-semibold normal-case tracking-normal" :class="(item as CommentModerationViewItem).statusClass">
                   {{ (item as CommentModerationViewItem).statusLabel }}
                 </span>
@@ -45,13 +45,13 @@
                     {{ reason }}
                   </el-tag>
                 </div>
-                <div class="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-[var(--fsusblog-text-muted)]">
+                <div class="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-[var(--fsusblog-text-muted)]">
                   <span>{{ (item as CommentModerationViewItem).regionSummary }}</span>
                   <span>{{ (item as CommentModerationViewItem).regionConfidenceLabel }}</span>
                   <span>屏蔽：{{ (item as CommentModerationViewItem).blockedRegionLabel }}</span>
                   <span>{{ (item as CommentModerationViewItem).regionReviewLabel }}</span>
                 </div>
-                <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-[var(--fsusblog-text-muted)]">
+                <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-[var(--fsusblog-text-muted)]">
                   <span>{{ (item as CommentModerationViewItem).modelSignalLabel }}</span>
                   <span>{{ (item as CommentModerationViewItem).modelConfidenceLabel }}</span>
                   <span>{{ (item as CommentModerationViewItem).modelProviderLabel }}</span>
@@ -94,11 +94,11 @@
               <div class="min-w-0 py-2">
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <span class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ row.userName }}</span>
-                  <span class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]">#{{ row.id }}</span>
+                  <span class="text-xs font-medium tabular-nums text-[var(--fsusblog-text-muted)]">#{{ row.id }}</span>
                   <SemanticTime
                     :value="row.createTime"
                     :text="row.createTimeText"
-                    class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]"
+                    class="text-xs font-medium tabular-nums text-[var(--fsusblog-text-muted)]"
                   />
                 </div>
                 <p class="mt-3 line-clamp-3 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-[var(--fsusblog-text-secondary)]">
@@ -138,7 +138,7 @@
 
           <el-table-column label="地区策略" min-width="210">
             <template #default="{ row }: { row: CommentModerationViewItem }">
-              <div class="space-y-1.5 text-[11px] font-bold leading-relaxed text-[var(--fsusblog-text-muted)]">
+              <div class="space-y-1.5 text-xs font-medium leading-relaxed text-[var(--fsusblog-text-muted)]">
                 <div>{{ row.regionSummary }}</div>
                 <div>{{ row.regionConfidenceLabel }}</div>
                 <div class="break-words">屏蔽：{{ row.blockedRegionLabel }}</div>
@@ -149,7 +149,7 @@
 
           <el-table-column label="模型风险信号" min-width="190">
             <template #default="{ row }: { row: CommentModerationViewItem }">
-              <div class="space-y-1.5 text-[11px] font-bold leading-relaxed text-[var(--fsusblog-text-muted)]">
+              <div class="space-y-1.5 text-xs font-medium leading-relaxed text-[var(--fsusblog-text-muted)]">
                 <div>{{ row.modelSignalLabel }}</div>
                 <div>{{ row.modelConfidenceLabel }}</div>
                 <div class="break-words">{{ row.modelProviderLabel }}</div>
@@ -260,8 +260,8 @@ const toggle = (item: CommentModerationViewItem, checked: boolean): void => {
 .moderation-detail-fold summary {
   cursor: pointer;
   color: var(--fsusblog-text-muted);
-  font-size: 0.6875rem;
-  font-weight: 800;
+  font-size: 0.75rem;
+  font-weight: 600;
   outline: none;
 }
 

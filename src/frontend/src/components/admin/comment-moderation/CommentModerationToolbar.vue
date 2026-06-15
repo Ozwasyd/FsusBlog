@@ -174,7 +174,7 @@
       </div>
 
       <div class="flex items-center gap-3">
-        <span class="text-[11px] font-bold tabular-nums text-[var(--fsusblog-text-muted)]">匹配 {{ filteredTotal }} / {{ total }}</span>
+        <span class="text-xs font-medium tabular-nums text-[var(--fsusblog-text-muted)]">匹配 {{ filteredTotal }} / {{ total }}</span>
         <el-button type="primary" :icon="Search" :loading="loading" @click="emit('search')">查询</el-button>
         <el-button :disabled="loading || activeFilters.length <= 1" @click="emit('reset')">重置</el-button>
       </div>

@@ -3,8 +3,8 @@
     <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
-          <div id="article-private-preview-title" class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">私有预览</div>
-          <p class="mt-1 text-[11px] text-[var(--fsusblog-text-tertiary)]" aria-live="polite">{{ statusText }}</p>
+          <div id="article-private-preview-title" class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">私有预览</div>
+          <p class="mt-1 text-xs text-[var(--fsusblog-text-tertiary)]" aria-live="polite">{{ statusText }}</p>
         </div>
         <el-button
           type="primary"
@@ -107,8 +107,8 @@ const previewDocument = computed(() => `<!doctype html>
   background: var(--fsusblog-page-bg-soft);
   color: var(--fsusblog-text-secondary);
   padding: 0.3rem 0.45rem;
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .preview-issue--error {

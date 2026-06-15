@@ -3,8 +3,8 @@
     <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
-          <div id="article-asset-library-title" class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">资产库</div>
-          <p class="mt-1 text-[11px] text-[var(--fsusblog-text-tertiary)]" aria-live="polite">{{ statusText }}</p>
+          <div id="article-asset-library-title" class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">资产库</div>
+          <p class="mt-1 text-xs text-[var(--fsusblog-text-tertiary)]" aria-live="polite">{{ statusText }}</p>
         </div>
         <div class="asset-actions">
           <el-button
@@ -176,14 +176,14 @@ watch(() => props.assets, (assets, previousAssets) => {
 
 .asset-row__url {
   color: var(--fsusblog-text-primary);
-  font-size: 0.74rem;
-  font-weight: 800;
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .asset-row__sub,
 .asset-empty {
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
 }
 
 .asset-empty {
@@ -195,8 +195,8 @@ watch(() => props.assets, (assets, previousAssets) => {
   background: var(--fsusblog-page-bg-soft);
   padding: 0.55rem 0.7rem;
   color: var(--fsusblog-text-muted);
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .asset-row__insert {
