@@ -177,7 +177,8 @@ if (!mobileBar.includes('fsusBlogMotionPresets.backToTop')) {
   errors.push('ArticleMobileActionBar.vue: back-to-top must use fsusBlogMotionPresets.backToTop')
 }
 
-expectIncludes('src/frontend/src/components/article/ArticleTocPanel.vue', 'data-fsus-motion-surface="mobile-drawer"', 'mobile drawer motion surface')
+expectIncludes('src/frontend/src/components/article/ArticleTocPanel.vue', ':motion="fsusBlogMotionPresets.mobileDrawer"', 'mobile drawer public motion prop')
+expectIncludes('src/frontend/src/components/ui/UiTag.vue', ':motion="fsusBlogMotionPresets.tagChip"', 'tag chip public motion prop')
 expectIncludes('src/frontend/src/fsusui/feedback.ts', 'fsusBlogMotionPresets.toast', 'toast motion preset boundary')
 
 const motionDocs = read('docs/frontend/motion-guidelines.md')

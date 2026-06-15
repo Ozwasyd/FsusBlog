@@ -29,7 +29,7 @@
     direction="btt"
     size="62%"
     class="article-toc-drawer"
-    data-fsus-motion-surface="mobile-drawer"
+    :motion="fsusBlogMotionPresets.mobileDrawer"
   >
     <nav class="article-toc-drawer__nav" aria-label="文章目录">
       <button
@@ -53,6 +53,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ArticleTocItem } from '@/composables/article/useArticleToc'
+import { fsusBlogMotionPresets } from '@/fsusui/motion'
 
 const props = defineProps<{
   items: ArticleTocItem[]

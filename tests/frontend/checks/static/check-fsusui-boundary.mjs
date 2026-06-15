@@ -187,6 +187,17 @@ function checkBoundaryDoc() {
   }
 }
 
+function checkInternalMotionSurfaceOnFsusUiComponents(file, content) {
+  if (!file.endsWith('.vue') || isUnder(file, fsusuiRoot)) {
+    return
+  }
+
+  const directSurfacePattern = /<el-[\w-]+\b[^>]*\bdata-fsus-motion-surface=/gis
+  for (const match of content.matchAll(directSurfacePattern)) {
+    warn(file, 'internal-motion-surface', `direct ${match[0].trim()} uses a private FsusUI motion data attribute`)
+  }
+}
+
 function checkThemeAdapterContract() {
   if (!fs.existsSync(themeAdapterPath)) {
     return
@@ -227,6 +238,7 @@ for (const file of walk(srcRoot)) {
   checkProgrammaticImports(file, content)
   checkInternalSelectors(file, content)
   checkVisualRewriteClasses(file, content)
+  checkInternalMotionSurfaceOnFsusUiComponents(file, content)
   checkMarkdownActivationOwnership(file, content)
 }
 

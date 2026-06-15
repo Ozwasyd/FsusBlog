@@ -25,6 +25,7 @@ export type FsusBlogMotionSurface =
   | 'articleTitle'
   | 'mediaOverlay'
   | 'backToTop'
+  | 'tagChip'
   | 'route'
   | 'banner'
 
@@ -38,6 +39,7 @@ export const fsusBlogMotionPresets = {
   articleTitle: 'fade-in',
   mediaOverlay: 'scale-fade',
   backToTop: 'scale-fade',
+  tagChip: 'fade-in',
   route: 'route-fade',
   banner: 'fade-down'
 } as const satisfies Record<FsusBlogMotionSurface, MotionPresetName>

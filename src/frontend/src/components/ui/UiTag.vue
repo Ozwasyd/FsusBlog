@@ -3,8 +3,8 @@
     <el-tag
       :type="tagType"
       :effect="tagEffect"
+      :motion="fsusBlogMotionPresets.tagChip"
       size="small"
-      data-fsus-motion-surface="tag-chip"
     >
       <slot>{{ label }}</slot>
     </el-tag>
@@ -13,8 +13,8 @@
     v-else
     :type="tagType"
     :effect="tagEffect"
+    :motion="fsusBlogMotionPresets.tagChip"
     size="small"
-    data-fsus-motion-surface="tag-chip"
   >
     <slot>{{ label }}</slot>
   </el-tag>
@@ -24,6 +24,7 @@
 import { computed } from 'vue';
 import type { TagTone, TagVariant } from '@/ui-contracts/primitives';
 import { toFsusUiTagEffect, toFsusUiTagType } from '@/fsusui/primitiveAdapters';
+import { fsusBlogMotionPresets } from '@/fsusui/motion';
 
 const props = withDefaults(defineProps<{
   label?: string;

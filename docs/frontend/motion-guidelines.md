@@ -9,7 +9,8 @@ Use FsusUI motion primitives for page and interaction presets:
 - Home hero: `v-motion` with `fsusBlogMotionPresets.homeHero` (`fade-up`).
 - Article cards: `v-motion` with `fsusBlogMotionPresets.articleCards` (`list-stagger`) and explicit list indexes.
 - Search panel/dialog surfaces: `fsusBlogMotionPresets.searchDialog` (`scale-fade`).
-- Mobile drawer/menu surfaces: FsusUI `el-drawer` plus `fsusBlogMotionPresets.mobileDrawer` boundary metadata.
+- Mobile drawer/menu surfaces: FsusUI `el-drawer` public `motion` prop with `fsusBlogMotionPresets.mobileDrawer`.
+- Tag chips: FsusUI `el-tag` public `motion` prop with `fsusBlogMotionPresets.tagChip`.
 - Toast surfaces: FsusUI `ElMessage`, tagged by `fsusBlogMotionPresets.toast` (`slide-up`).
 - Article title: `v-motion` with `fsusBlogMotionPresets.articleTitle` (`fade-up`).
 - Article body images and code blocks: `useScrollReveal()` with `fsusBlogScrollRevealOptions`; do not animate ordinary paragraphs.
