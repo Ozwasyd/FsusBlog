@@ -1,0 +1,143 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
+const frontendRoot = path.join(repoRoot, 'src/frontend')
+const packageJsonPath = path.join(frontendRoot, 'package.json')
+const appTsconfigPath = path.join(frontendRoot, 'tsconfig.app.json')
+const publishedTsconfigPath = path.join(frontendRoot, 'tsconfig.fsusui-published.json')
+const localTsconfigPath = path.join(frontendRoot, 'tsconfig.fsusui-local.json')
+const viteAliasPath = path.join(frontendRoot, 'scripts/fsusui-local.ts')
+const localRunnerPath = path.join(frontendRoot, 'scripts/run-local-fsusui-typecheck.mjs')
+const augmentationPath = path.join(frontendRoot, 'src/fsusui/elementPlusAugmentations.d.ts')
+const contractPath = path.join(repoRoot, 'tests/frontend/typecheck/fsusui-export-contract.ts')
+const docsPath = path.join(repoRoot, 'docs/frontend/fsusui-typecheck-modes.md')
+
+const failures = []
+
+function read(file) {
+  return fs.readFileSync(file, 'utf8')
+}
+
+function readJson(file) {
+  return JSON.parse(read(file))
+}
+
+function requireFile(file) {
+  if (!fs.existsSync(file)) {
+    failures.push(`${path.relative(repoRoot, file).replaceAll(path.sep, '/')}: missing`)
+  }
+}
+
+function expectIncludes(file, content, token, detail) {
+  if (!content.includes(token)) {
+    failures.push(`${path.relative(repoRoot, file).replaceAll(path.sep, '/')}: missing ${detail}`)
+  }
+}
+
+for (const file of [
+  packageJsonPath,
+  appTsconfigPath,
+  publishedTsconfigPath,
+  localTsconfigPath,
+  viteAliasPath,
+  localRunnerPath,
+  augmentationPath,
+  contractPath,
+  docsPath,
+]) {
+  requireFile(file)
+}
+
+if (failures.length === 0) {
+  const pkg = readJson(packageJsonPath)
+  const scripts = pkg.scripts ?? {}
+  const published = readJson(publishedTsconfigPath)
+  const local = readJson(localTsconfigPath)
+  const localPaths = local.compilerOptions?.paths ?? {}
+  const viteAliases = read(viteAliasPath)
+  const localRunner = read(localRunnerPath)
+  const augmentation = read(augmentationPath)
+  const contract = read(contractPath)
+  const docs = read(docsPath)
+
+  if (scripts['typecheck:published-fsusui'] !== 'vue-tsc --noEmit -p tsconfig.fsusui-published.json') {
+    failures.push('src/frontend/package.json: typecheck:published-fsusui must run the published package tsconfig')
+  }
+  if (scripts['typecheck:local-fsusui'] !== 'node ./scripts/run-local-fsusui-typecheck.mjs') {
+    failures.push('src/frontend/package.json: typecheck:local-fsusui must run the local FsusUI runner')
+  }
+  if (scripts['check:fsusui-typecheck-modes'] !== 'node ../../tests/frontend/checks/static/check-fsusui-typecheck-modes.mjs') {
+    failures.push('src/frontend/package.json: check:fsusui-typecheck-modes script is missing')
+  }
+  if (!String(scripts['check:views-constraints'] ?? '').includes('check:fsusui-typecheck-modes')) {
+    failures.push('src/frontend/package.json: check:views-constraints must include check:fsusui-typecheck-modes')
+  }
+
+  if (!published.include?.includes('../../tests/frontend/typecheck/fsusui-export-contract.ts')) {
+    failures.push('src/frontend/tsconfig.fsusui-published.json: must include the FsusUI export contract')
+  }
+  if (published.include?.some((entry) => entry.includes('elementPlusAugmentations'))) {
+    failures.push('src/frontend/tsconfig.fsusui-published.json: must not include Blog-local package augmentations')
+  }
+
+  for (const [alias, expected] of [
+    ['@ozwasyd/element-plus', '../../../FsusUI/packages/element-plus/index.ts'],
+    ['@ozwasyd/element-plus/theme', '../../../FsusUI/packages/element-plus/theme.ts'],
+    ['@ozwasyd/element-plus/markdown-runtime', '../../../FsusUI/packages/element-plus/markdown-runtime.ts'],
+    ['@element-plus/*', '../../../FsusUI/packages/*'],
+  ]) {
+    if (!localPaths[alias]?.includes(expected)) {
+      failures.push(`src/frontend/tsconfig.fsusui-local.json: missing local path mapping ${alias} -> ${expected}`)
+    }
+  }
+
+  for (const token of [
+    'resolveLocalFsusUiRoot',
+    'createFsusUiAliases',
+    '@ozwasyd\\/element-plus',
+    '@element-plus\\/([^/]+)',
+  ]) {
+    expectIncludes(viteAliasPath, viteAliases, token, `Vite alias token ${token}`)
+  }
+  for (const token of [
+    'FSUSBLOG_LOCAL_FSUSUI_ROOT',
+    'tsconfig.fsusui-published.json',
+    '@ozwasyd/element-plus/theme',
+    '@element-plus/*',
+  ]) {
+    expectIncludes(localRunnerPath, localRunner, token, `local typecheck runner token ${token}`)
+  }
+  for (const token of [
+    'ElEmptyState',
+    'ElMarkdownEditor',
+    'FsuMotion',
+    'MotionPresetName',
+    '@ozwasyd/element-plus/theme',
+  ]) {
+    expectIncludes(contractPath, contract, token, `export contract token ${token}`)
+  }
+  for (const token of [
+    'Temporary compatibility shim',
+    'Cleanup condition',
+    'root .d.ts exports ElEmptyState directly',
+  ]) {
+    expectIncludes(augmentationPath, augmentation, token, `augmentation cleanup token ${token}`)
+  }
+  for (const token of [
+    'typecheck:published-fsusui',
+    'typecheck:local-fsusui',
+    'FSUSBLOG_LOCAL_FSUSUI_ROOT',
+    'Full App Typecheck',
+  ]) {
+    expectIncludes(docsPath, docs, token, `documentation token ${token}`)
+  }
+}
+
+if (failures.length > 0) {
+  console.error(failures.map((failure) => `[fsusui-typecheck-modes] ${failure}`).join('\n'))
+  process.exit(1)
+}
+
+console.log('[fsusui-typecheck-modes] ok')

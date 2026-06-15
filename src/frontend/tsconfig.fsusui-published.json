@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.fsusui-published.tsbuildinfo",
+    "composite": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "paths": {
+      "vue": ["./node_modules/vue"],
+      "@vue/*": ["./node_modules/@vue/*"],
+      "@ozwasyd/element-plus": ["./node_modules/@ozwasyd/element-plus"],
+      "@ozwasyd/element-plus/*": ["./node_modules/@ozwasyd/element-plus/*"]
+    }
+  },
+  "include": [
+    "../../tests/frontend/typecheck/fsusui-export-contract.ts",
+    "src/vite-env.d.ts"
+  ]
+}
