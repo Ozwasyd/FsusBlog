@@ -24,6 +24,8 @@ const publicEditorialRoots = [
 ].map((dir) => path.join(repoRoot, dir))
 
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
+const accountShellPath = path.join(repoRoot, 'src/frontend/src/assets/account-shell.css')
+const accountLayoutPath = path.join(repoRoot, 'src/frontend/src/layouts/AccountLayout.vue')
 
 const dashboardPanelPattern = /src\/frontend\/src\/(?:views\/admin\/Dashboard|components\/admin\/Dashboard|views\/admin\/security\/Security|views\/admin\/moderation\/Moderation|components\/admin\/comment-moderation\/CommentModeration)/
 const nonActionHoverPrimaryFiles = new Set([
@@ -118,6 +120,22 @@ for (const file of adminAccountRoots.flatMap((dir) => walk(dir))) {
 
 for (const file of publicEditorialRoots.flatMap((dir) => walk(dir))) {
   checkSourceFile(file, 'public editorial')
+}
+
+const accountShell = read(accountShellPath)
+if (/\.account-(?:page-eyebrow|section-title)[\s\S]*?text-transform:\s*uppercase/.test(accountShell)) {
+  fail(accountShellPath, 1, 'account page eyebrow and section title must not use uppercase text transform')
+}
+
+const accountLayout = read(accountLayoutPath)
+if (/\bfont-weight:\s*800\b/.test(accountLayout)) {
+  fail(accountLayoutPath, 1, 'account navigation group labels must not use 800 font weight')
+}
+if (/\btext-\[11px\]\s+font-(?:bold|semibold)\s+uppercase\b/.test(accountLayout)) {
+  fail(accountLayoutPath, 1, 'account navigation and eyebrow labels must not use 11px uppercase micro-labels')
+}
+if (/\baccount-nav-link-label\s*\{[\s\S]*?\btext-\[11px\]/.test(accountLayout)) {
+  fail(accountLayoutPath, 1, 'account nav item labels must use 13px readable scale')
 }
 
 const packageJson = JSON.parse(read(packageJsonPath))

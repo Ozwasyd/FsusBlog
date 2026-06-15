@@ -24,10 +24,10 @@
           </router-link>
           <div class="hidden h-4 w-px bg-[var(--fsusblog-panel-border-strong)] sm:block" aria-hidden="true"></div>
           <div class="hidden min-w-0 sm:block">
-            <div class="text-[11px] font-bold uppercase text-[var(--fsusblog-text-muted)]">
+            <div class="text-xs font-semibold normal-case text-[var(--fsusblog-text-muted)]">
               {{ areaMeta.eyebrow }}
             </div>
-            <div class="truncate text-[11px] font-medium text-[var(--fsusblog-text-tertiary)]">
+            <div class="truncate text-xs font-medium text-[var(--fsusblog-text-tertiary)]">
               {{ areaMeta.title }}
             </div>
           </div>
@@ -81,7 +81,7 @@
       <aside class="hidden lg:block lg:w-[18rem] lg:shrink-0">
         <div class="sticky top-24 space-y-12 pr-6">
           <div class="space-y-5">
-            <div class="text-[11px] font-bold uppercase tracking-normal text-[var(--fsusblog-text-muted)]">
+            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
               {{ areaMeta.eyebrow }}
             </div>
             <p class="account-shell-area-title text-[2.25rem] font-bold leading-[0.9] tracking-normal text-[var(--fsusblog-text-primary)]">
@@ -153,7 +153,7 @@
       <div id="account-mobile-drawer" class="flex h-full min-h-0 flex-col">
         <div class="flex items-start justify-between gap-4 border-b border-[var(--fsusblog-panel-border)] pb-5">
           <div>
-            <div class="text-[11px] font-bold uppercase text-[var(--fsusblog-text-muted)]">
+            <div class="text-xs font-semibold normal-case text-[var(--fsusblog-text-muted)]">
               {{ areaMeta.eyebrow }}
             </div>
             <div class="mt-2 text-[1.75rem] font-bold leading-none">
@@ -190,7 +190,7 @@
                     :class="{ 'account-nav-link-active': isNavItemActive(item) }"
                     @click="closeMobileNav"
                   >
-                    <div class="text-[11px] font-bold uppercase">
+                    <div class="text-[13px] font-semibold normal-case">
                       {{ item.label }}
                     </div>
                     <div v-if="item.helper" class="account-nav-link-helper">
@@ -398,7 +398,7 @@ watch(mobileNavOpen, (open) => {
 
 .account-header-link,
 .account-meta-link {
-  @apply inline-flex items-center rounded-[var(--fsus-radius-control-small)] text-[11px] font-bold uppercase tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-40;
+  @apply inline-flex items-center rounded-[var(--fsus-radius-control-small)] text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-40;
 }
 
 .account-skip-link:focus {
@@ -407,7 +407,7 @@ watch(mobileNavOpen, (open) => {
   color: var(--fsusblog-page-bg);
   font-size: 0.625rem;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .account-nav-link {
@@ -441,11 +441,11 @@ watch(mobileNavOpen, (open) => {
 }
 
 .account-nav-link-label {
-  @apply text-[11px] font-bold uppercase tracking-normal;
+  @apply text-[13px] font-semibold normal-case tracking-normal;
 }
 
 .account-nav-link-helper {
-  @apply mt-1 text-[11px] font-medium leading-normal opacity-50 transition-opacity group-hover:opacity-80;
+  @apply mt-1 text-xs font-normal leading-normal opacity-50 transition-opacity group-hover:opacity-80;
 }
 
 .account-nav-link-active .account-nav-link-helper {
@@ -457,10 +457,10 @@ watch(mobileNavOpen, (open) => {
   gap: 0.25rem;
   padding-inline: 0.25rem;
   color: var(--fsusblog-text-muted);
-  font-size: 0.6875rem;
-  font-weight: 800;
+  font-size: 0.75rem;
+  font-weight: 600;
   letter-spacing: 0;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .account-nav-group-title-active {
@@ -486,11 +486,11 @@ watch(mobileNavOpen, (open) => {
   gap: 0.25rem;
   padding: 0.75rem 0.25rem;
   color: var(--fsusblog-text-muted);
-  font-size: 0.6875rem;
-  font-weight: 800;
+  font-size: 0.8125rem;
+  font-weight: 600;
   letter-spacing: 0;
   text-align: left;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .account-mobile-nav-group-button:focus-visible {
