@@ -176,7 +176,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 [count/meta] [blobLength:int32 + blob] [fixed numeric records] [slice refs into blob]
 ```
 
-- `ArticleList`：`total:int32`、`count:int32`、`tagRecordCount:int32`、共享 blob、每篇 56B record、每个 tag 12B record。
+- `ArticleList`：`total:int32`、`count:int32`、`tagRecordCount:int32`、共享 blob、每篇 76B article record、每个 tag 12B record。76B record 在原公开字段后包含 `status:int32`、`scheduledPublishAtUnixMs:int64`、`publishedAtUnixMs:int64`，与 `docs/api/contracts.md` 和 `PodSizeCatalog.cs` 对齐。
 - `ArticleHot`：`count:int32`、共享 blob、每篇 16B record。
 - `Category` / `Tag`：`count:int32`、共享 blob、每条 16B record。
 - `AdminStats`：`SiteStatsPod`、共享 blob、popular 16B record、recent comment 32B record、region 12B record。
@@ -195,16 +195,16 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 值 | 名称 | POD 类型 | 对应二进制端点 / 用途 |
 |----|------|---------|----------------|
 | 0 | `Unknown` | — | — |
-| 1 | `ArticleList` | `ArticleListPod` | `GET /api/Article/` |
-| 2 | `ArticleDetail` | `ArticleDetailPod` | `GET /api/Article/{id}` |
-| 3 | `ArticleHot` | `ArticleListPod` | `GET /api/Article/hot` |
-| 4 | `ArticleSearch` | `ArticleListPod` | — |
-| 5 | `CommentArticleCursor` | `CommentPod` | `GET /api/Comment/{articleId}` |
-| 6 | `CommentUserCursor` | `CommentPod` | `GET /api/Comment/me` |
+| 1 | `ArticleList` | `ArticleListPod` | `GET /api/binary/article/list/home/{page}/{size}.aeds`；分类/标签列表见 `quick-reference.md` |
+| 2 | `ArticleDetail` | `ArticleDetailPod` | `GET /api/binary/article/{id}.aeds` |
+| 3 | `ArticleHot` | `ArticleListPod` | `GET /api/binary/article/hot/{size}.aeds` |
+| 4 | `ArticleSearch` | `ArticleListPod` | 搜索索引 / author cache 诊断，不暴露旧文本业务路径 |
+| 5 | `CommentArticleCursor` | `CommentPod` | `GET /api/binary/comment/{articleId}` |
+| 6 | `CommentUserCursor` | `CommentPod` | `GET /api/binary/comment/me` |
 | 7 | `AdminStats` | `AdminStatsPod` | — |
-| 8 | `CommentThreadReplyCursor` | `CommentPod` | `GET /api/Comment/{articleId}/thread/{rootId}` |
-| 9 | `CategoryList` | compact taxonomy records | `GET /api/binary/category` / `category.aeds` |
-| 10 | `TagList` | compact taxonomy records | `GET /api/binary/tag` / `tag.aeds` |
+| 8 | `CommentThreadReplyCursor` | `CommentPod` | `GET /api/binary/comment/{articleId}/thread/{rootId}` |
+| 9 | `CategoryList` | compact taxonomy records | `GET /api/binary/category.aeds` |
+| 10 | `TagList` | compact taxonomy records | `GET /api/binary/tag.aeds` |
 | 11 | `RecentCommentStats` | compact stats records | `GET /api/binary/stats/recent-comments` |
 | 12 | `RegionStats` | compact stats records | `GET /api/binary/stats/regions` |
 | 13 | `SeoConfig` | `SeoConfigPod` | `GET /api/binary/system/seo` |
