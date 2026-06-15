@@ -3,10 +3,13 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+// Boundary contract: src/frontend/src/fsusui/README.md
+
 const defaultRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const repoRoot = path.resolve(process.env.FSUSBLOG_FSUSUI_BOUNDARY_ROOT ?? defaultRepoRoot)
 const srcRoot = path.join(repoRoot, 'src/frontend/src')
 const fsusuiRoot = path.join(srcRoot, 'fsusui')
+const boundaryDocPath = path.join(fsusuiRoot, 'README.md')
 const uiIndexPath = path.join(srcRoot, 'components/ui/index.ts')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const strict = true
@@ -163,6 +166,26 @@ function checkRequiredAdapters() {
   }
 }
 
+function checkBoundaryDoc() {
+  if (!fs.existsSync(boundaryDocPath)) {
+    warn(boundaryDocPath, 'missing-boundary-doc', 'document the fsusui adapter vs components/ui shell split')
+    return
+  }
+
+  const content = fs.readFileSync(boundaryDocPath, 'utf8')
+  for (const token of [
+    'FsusUI Adapter Boundary',
+    'components/ui/',
+    'components/ui/index.ts',
+    'Allowed Exceptions',
+    'check-fsusui-boundary.mjs'
+  ]) {
+    if (!content.includes(token)) {
+      warn(boundaryDocPath, 'boundary-doc-content', `missing ${token}`)
+    }
+  }
+}
+
 function checkUiIndexSurface() {
   if (!fs.existsSync(uiIndexPath)) {
     return
@@ -186,6 +209,7 @@ for (const file of walk(srcRoot)) {
 
 checkPackageMarkdownDependencies()
 checkRequiredAdapters()
+checkBoundaryDoc()
 checkUiIndexSurface()
 
 if (warnings.length === 0) {
