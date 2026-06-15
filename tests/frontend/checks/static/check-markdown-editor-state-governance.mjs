@@ -10,6 +10,8 @@ const rel = (file) => path.relative(repoRoot, file).replaceAll(path.sep, '/')
 const read = (file) => fs.readFileSync(file, 'utf8')
 
 const adapterPath = path.join(repoRoot, 'src/frontend/src/components/ui/MarkdownEditorAdapter.vue')
+const markdownTextEditorPath = path.join(repoRoot, 'src/frontend/src/components/ui/MarkdownTextEditor.vue')
+const providerPath = path.join(repoRoot, 'src/frontend/src/components/ui/markdownEditorProvider.ts')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 
 function fail(file, line, message) {
@@ -18,6 +20,8 @@ function fail(file, line, message) {
 
 const adapter = read(adapterPath)
 const adapterLines = adapter.split(/\r?\n/)
+const markdownTextEditor = read(markdownTextEditorPath)
+const provider = read(providerPath)
 
 const forbiddenTokens = [
   'Saving...',
@@ -50,6 +54,37 @@ for (const token of requiredTokens) {
   if (!adapter.includes(token)) {
     fail(adapterPath, 1, `Markdown editor local-state contract is missing ${token}`)
   }
+}
+
+for (const token of [
+  "import { ElMarkdownEditor",
+  "'@ozwasyd/element-plus'",
+  '<ElMarkdownEditor',
+  ':commands="fsusUiCommands"',
+  '@upload-image="requestImageUpload"',
+  'insertMarkdownAtCursor',
+]) {
+  if (!markdownTextEditor.includes(token)) {
+    fail(markdownTextEditorPath, 1, `MarkdownTextEditor must be a thin FsusUI MarkdownEditor wrapper with ${token}`)
+  }
+}
+
+for (const pattern of [
+  /<textarea\b/,
+  /markdown-text-editor__textarea/,
+  /box-shadow:\s*inset 0 0 0 1px var\(--fsusblog-color-focus-ring\)/,
+  /\.markdown-text-editor__textarea:focus-visible/,
+]) {
+  if (pattern.test(markdownTextEditor)) {
+    fail(markdownTextEditorPath, 1, `MarkdownTextEditor must not reintroduce Blog-local textarea/focus ownership matching ${pattern}`)
+  }
+}
+
+if (!provider.includes("id: 'fsusui-markdown-editor'")) {
+  fail(providerPath, 1, 'Markdown editor provider must identify the FsusUI MarkdownEditor provider')
+}
+if (!provider.includes("label: 'FsusUI MarkdownEditor'")) {
+  fail(providerPath, 1, 'Markdown editor provider label must surface FsusUI ownership')
 }
 
 const packageJson = JSON.parse(read(packageJsonPath))

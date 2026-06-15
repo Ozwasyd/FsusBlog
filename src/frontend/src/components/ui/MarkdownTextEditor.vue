@@ -1,48 +1,49 @@
 <template>
-  <div class="markdown-text-editor">
-    <div class="markdown-text-editor__toolbar" role="toolbar" aria-label="Markdown 编辑工具栏">
-      <div
-        v-for="group in toolbarGroups"
-        :key="group.key"
-        class="markdown-text-editor__toolbar-group"
-        :aria-label="group.label"
-      >
-        <el-tooltip
-          v-for="command in group.commands"
-          :key="command.key"
-          :content="commandTooltip(command)"
-          placement="top"
-        >
-          <el-button
-            size="small"
-            :disabled="commandDisabled(command)"
-            :aria-label="command.ariaLabel || command.label"
-            @click="runToolbarCommand(command.key)"
-          >
-            {{ command.label }}
-          </el-button>
-        </el-tooltip>
-      </div>
-    </div>
-
-    <textarea
-      ref="textareaRef"
+  <div
+    ref="rootRef"
+    class="markdown-text-editor"
+    @click.capture="rememberTextareaSelectionFromEvent"
+    @focusin.capture="rememberTextareaSelectionFromEvent"
+    @keyup.capture="rememberTextareaSelectionFromEvent"
+    @select.capture="rememberTextareaSelectionFromEvent"
+    @keydown.capture="handleKeydown"
+    @paste.capture="handlePaste"
+  >
+    <ElMarkdownEditor
+      ref="editorRef"
       v-model="localValue"
-      :id="textareaId"
-      :name="textareaName"
-      class="markdown-text-editor__textarea"
-      :placeholder="placeholder"
+      class="markdown-text-editor__fsusui"
+      :commands="fsusUiCommands"
+      :default-mode="fsusUiMode"
       :disabled="editorDisabled"
-      :aria-describedby="`${helpId} ${statusId}`"
-      aria-label="Markdown 正文编辑区"
-      spellcheck="false"
-      @keydown="handleKeydown"
-      @paste="handlePaste"
-      @click="rememberSelection"
-      @keyup="rememberSelection"
-      @select="rememberSelection"
-      @focus="rememberSelection"
-    />
+      :mode="fsusUiMode"
+      :placeholder="placeholder"
+      :show-actions="showImageAction || showSaveAction"
+      :show-image-action="showImageAction"
+      :show-mode-switcher="false"
+      :show-save-action="showSaveAction"
+      :show-submit-action="false"
+      :textarea-id="textareaId"
+      :textarea-name="textareaName"
+      @save="emitSave"
+      @submit="emitSubmit"
+      @upload-image="requestImageUpload"
+    >
+      <template #status>
+        <span>模式 {{ currentModeLabel }}</span>
+        <span>行 {{ lineCount }}</span>
+        <span>字 {{ charCount }}</span>
+        <span>词 {{ wordCount }}</span>
+        <span>约 {{ readingMinutes }} 分钟</span>
+        <span>Ln {{ cursorLine }}, Col {{ cursorColumn }}</span>
+        <span>Tab 缩进，Shift+Tab 反缩进，Esc 离开编辑区</span>
+        <span>{{ saveHint }}</span>
+        <span v-if="loading">编辑器初始化中</span>
+        <span v-else-if="saving">内容正在写入</span>
+        <span v-else-if="isUploading">图片上传中，可继续编辑</span>
+        <span v-else-if="uploadError">{{ uploadError }}</span>
+      </template>
+    </ElMarkdownEditor>
 
     <input
       ref="imageInputRef"
@@ -53,29 +54,14 @@
       tabindex="-1"
       @change="handleImagePick"
     />
-
-    <div :id="statusId" class="markdown-text-editor__status" role="status" aria-live="polite">
-      <span>模式 {{ currentModeLabel }}</span>
-      <span>行 {{ lineCount }}</span>
-      <span>字 {{ charCount }}</span>
-      <span>词 {{ wordCount }}</span>
-      <span>约 {{ readingMinutes }} 分钟</span>
-      <span>Ln {{ cursorLine }}, Col {{ cursorColumn }}</span>
-      <span :id="helpId">Tab 缩进，Shift+Tab 反缩进，Esc 离开编辑区</span>
-      <span>{{ saveHint }}</span>
-      <span v-if="loading">编辑器初始化中</span>
-      <span v-else-if="saving">内容正在写入</span>
-      <span v-else-if="isUploading">图片上传中，可继续编辑</span>
-      <span v-else-if="uploadError">{{ uploadError }}</span>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import { ElMarkdownEditor, type MarkdownEditorCommand as FsusUiMarkdownEditorCommand, type MarkdownEditorMode as FsusUiMarkdownEditorMode, type MarkdownEditorSelection as FsusUiMarkdownEditorSelection } from '@ozwasyd/element-plus'
 import type {
   MarkdownEditorCommand,
-  MarkdownEditorCommandGroup,
   MarkdownEditorCommandKey,
   MarkdownEditorMode
 } from '@/ui-contracts/markdownEditor'
@@ -86,6 +72,15 @@ import {
   outdentSelection
 } from '@/components/ui/markdown-editor/commands'
 import { createSnapshot, replaceSelection, type SelectionResult, type SelectionSnapshot } from '@/components/ui/markdown-editor/selection'
+
+type FsusUiMarkdownEditorExpose = Readonly<{
+  insertMarkdownAtCursor?: (markdown: string) => boolean
+}>
+
+type BlogCommandKey = Exclude<MarkdownEditorCommandKey, 'undo' | 'redo' | 'image' | 'save'>
+type WordSegment = { isWordLike?: boolean }
+type WordSegmenter = { segment: (input: string) => Iterable<WordSegment> }
+type WordSegmenterConstructor = new (locale: string, options: { granularity: 'word' }) => WordSegmenter
 
 const props = withDefaults(defineProps<{
   modelValue: string
@@ -114,36 +109,45 @@ const emit = defineEmits<{
   (e: 'on-upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void
 }>()
 
-const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const rootRef = ref<HTMLElement | null>(null)
+const editorRef = ref<FsusUiMarkdownEditorExpose | null>(null)
 const imageInputRef = ref<HTMLInputElement | null>(null)
-const statusId = `markdown-editor-status-${Math.random().toString(36).slice(2, 9)}`
-const helpId = `markdown-editor-help-${Math.random().toString(36).slice(2, 9)}`
 const isUploading = ref(false)
 const uploadError = ref('')
 const lastSelection = ref<SelectionSnapshot | null>(null)
 const cursorState = ref({ line: 1, column: 1 })
 
-type WordSegment = { isWordLike?: boolean }
-type WordSegmenter = { segment: (input: string) => Iterable<WordSegment> }
-type WordSegmenterConstructor = new (locale: string, options: { granularity: 'word' }) => WordSegmenter
-
 const SegmenterCtor = (Intl as typeof Intl & { Segmenter?: WordSegmenterConstructor }).Segmenter
 const zhWordSegmenter = SegmenterCtor ? new SegmenterCtor('zh', { granularity: 'word' }) : null
-
-const toolbarGroupLabels: Readonly<Record<MarkdownEditorCommandGroup, string>> = {
-  text: '文本',
-  structure: '结构',
-  code: '代码与公式',
-  media: '媒体',
-  action: '操作'
-}
-const toolbarGroupOrder: readonly MarkdownEditorCommandGroup[] = ['text', 'structure', 'code', 'media', 'action']
+const fsusCommandKeys = new Set<BlogCommandKey>([
+  'h1',
+  'h2',
+  'h3',
+  'bold',
+  'italic',
+  'quote',
+  'ul',
+  'ol',
+  'task',
+  'link',
+  'code',
+  'block',
+  'latex',
+  'mermaid',
+  'table',
+  'hr'
+])
 
 const localValue = computed({
   get: () => props.modelValue,
   set: (value: string) => emit('update:modelValue', value)
 })
 
+const editorDisabled = computed(() => props.saving || props.loading)
+const excludedToolbarKeys = computed(() => new Set(props.toolbarsExclude))
+const showImageAction = computed(() => !excludedToolbarKeys.value.has('image'))
+const showSaveAction = computed(() => !excludedToolbarKeys.value.has('save'))
+const fsusUiMode = computed<FsusUiMarkdownEditorMode>(() => props.mode === 'preview' ? 'preview' : 'write')
 const lineCount = computed(() => (localValue.value ? localValue.value.split('\n').length : 1))
 const charCount = computed(() => localValue.value.length)
 const wordCount = computed(() => {
@@ -158,18 +162,6 @@ const wordCount = computed(() => {
 const readingMinutes = computed(() => Math.max(1, Math.ceil(Math.max(wordCount.value, charCount.value / 2) / 350)))
 const cursorLine = computed(() => cursorState.value.line)
 const cursorColumn = computed(() => cursorState.value.column)
-const toolbarCommands = computed(() => markdownEditorCommands.filter((command) =>
-  !props.toolbarsExclude.includes(command.key)
-  && command.key !== 'undo'
-  && command.key !== 'redo'))
-const toolbarGroups = computed(() => toolbarGroupOrder
-  .map((group) => ({
-    key: group,
-    label: toolbarGroupLabels[group],
-    commands: toolbarCommands.value.filter((command) => command.group === group)
-  }))
-  .filter((group) => group.commands.length > 0))
-const editorDisabled = computed(() => props.saving || props.loading)
 const currentModeLabel = computed(() => {
   if (props.mode === 'split') return '分屏'
   return props.mode === 'preview' ? '预览' : '编写'
@@ -185,26 +177,46 @@ const saveHint = computed(() => {
 
   return '准备编辑'
 })
+const fsusUiCommands = computed<readonly FsusUiMarkdownEditorCommand[]>(() =>
+  markdownEditorCommands
+    .filter((command) => fsusCommandKeys.has(command.key as BlogCommandKey))
+    .filter((command) => !excludedToolbarKeys.value.has(command.key))
+    .map(toFsusUiCommand))
 
-function commandTooltip(command: MarkdownEditorCommand): string {
-  const label = command.ariaLabel || command.label
-  return command.shortcut ? `${label} (${command.shortcut})` : label
+function toFsusUiCommand(command: MarkdownEditorCommand): FsusUiMarkdownEditorCommand {
+  return {
+    key: command.key,
+    label: command.label,
+    shortcut: normalizeShortcut(command.shortcut),
+    title: command.ariaLabel || command.label,
+    apply: (value, selection) => applyBlogCommand(command.key as BlogCommandKey, value, selection)
+  }
 }
 
-function commandDisabled(command: MarkdownEditorCommand): boolean {
-  if (command.key === 'save') {
-    return props.loading
+function normalizeShortcut(shortcut?: string): string | undefined {
+  if (!shortcut) {
+    return undefined
   }
 
-  return editorDisabled.value
+  return shortcut.replace(/^Ctrl\+/u, 'Mod+')
 }
 
-function snapshotFromTextarea(): SelectionSnapshot {
-  const textarea = textareaRef.value
-  const start = textarea?.selectionStart ?? localValue.value.length
-  const end = textarea?.selectionEnd ?? start
+function applyBlogCommand(
+  key: BlogCommandKey,
+  value: string,
+  selection: FsusUiMarkdownEditorSelection
+): { nextSelection?: FsusUiMarkdownEditorSelection; value: string } {
+  const result = executeMarkdownEditorCommand(key, {
+    snapshot: createSnapshot(value, selection.start, selection.end)
+  })
 
-  return createSnapshot(localValue.value, start, end)
+  return {
+    nextSelection: {
+      start: result.start,
+      end: result.end
+    },
+    value: result.value
+  }
 }
 
 function cursorFromIndex(value: string, index: number): { line: number; column: number } {
@@ -217,59 +229,58 @@ function cursorFromIndex(value: string, index: number): { line: number; column: 
   }
 }
 
-function rememberSelection(): void {
-  const textarea = textareaRef.value
-  if (!textarea) {
-    return
-  }
+function textareaFromEvent(event: Event): HTMLTextAreaElement | null {
+  const target = event.target
+  return target instanceof HTMLTextAreaElement ? target : null
+}
 
-  const snapshot = snapshotFromTextarea()
+function snapshotFromTextarea(textarea: HTMLTextAreaElement): SelectionSnapshot {
+  return createSnapshot(localValue.value, textarea.selectionStart, textarea.selectionEnd)
+}
+
+function rememberTextareaSelection(textarea: HTMLTextAreaElement): void {
+  const snapshot = snapshotFromTextarea(textarea)
   lastSelection.value = snapshot
   cursorState.value = cursorFromIndex(snapshot.value, snapshot.start)
 }
 
-async function focusResult(result: SelectionResult): Promise<void> {
-  await nextTick()
-  textareaRef.value?.focus()
-  textareaRef.value?.setSelectionRange(result.start, result.end)
-  rememberSelection()
+function rememberTextareaSelectionFromEvent(event: Event): void {
+  const textarea = textareaFromEvent(event)
+  if (textarea) {
+    rememberTextareaSelection(textarea)
+  }
 }
 
 async function applyResult(result: SelectionResult): Promise<void> {
   localValue.value = result.value
-  await focusResult(result)
+  await nextTick()
+  const textarea = rootRef.value?.querySelector('textarea')
+  textarea?.focus()
+  textarea?.setSelectionRange(result.start, result.end)
+  if (textarea) {
+    rememberTextareaSelection(textarea)
+  }
+}
+
+async function insertMarkdownFromSnapshot(markdown: string, snapshot: SelectionSnapshot): Promise<void> {
+  await applyResult(replaceSelection(snapshot, markdown))
 }
 
 function insertMarkdownAtCursor(markdown: string): boolean {
-  const snapshot = lastSelection.value
-  if (!snapshot) {
-    return false
-  }
-
-  void applyResult(replaceSelection(snapshot, markdown))
-  return true
+  return editorRef.value?.insertMarkdownAtCursor?.(markdown) === true
 }
 
-async function runToolbarCommand(key: MarkdownEditorCommandKey): Promise<void> {
-  if (key === 'image') {
-    imageInputRef.value?.click()
-    return
-  }
+function emitSave(): void {
+  emit('on-draft-save')
+  emit('on-save')
+}
 
-  if (key === 'save') {
-    emit('on-draft-save')
-    emit('on-save')
-    return
-  }
+function emitSubmit(): void {
+  emit('on-submit')
+}
 
-  if (key === 'undo' || key === 'redo') {
-    return
-  }
-
-  const result = executeMarkdownEditorCommand(key, {
-    snapshot: snapshotFromTextarea()
-  })
-  await applyResult(result)
+function requestImageUpload(): void {
+  imageInputRef.value?.click()
 }
 
 async function handleImagePick(event: Event): Promise<void> {
@@ -279,11 +290,76 @@ async function handleImagePick(event: Event): Promise<void> {
     return
   }
 
-  await uploadImages(files, snapshotFromTextarea())
+  const textarea = rootRef.value?.querySelector('textarea')
+  const snapshot = textarea ? snapshotFromTextarea(textarea) : lastSelection.value
+  if (!snapshot) {
+    return
+  }
+
+  await uploadImages(files, snapshot)
 
   if (input) {
     input.value = ''
   }
+}
+
+function handlePaste(event: ClipboardEvent): void {
+  const textarea = textareaFromEvent(event)
+  if (!textarea) {
+    return
+  }
+
+  const files = Array.from(event.clipboardData?.files || []).filter((file) => file.type.startsWith('image/'))
+  if (files.length) {
+    event.preventDefault()
+    void uploadImages(files, snapshotFromTextarea(textarea))
+    return
+  }
+
+  const text = event.clipboardData?.getData('text/plain')
+  if (!text) {
+    return
+  }
+
+  const url = text.trim()
+  if (/^https?:\/\//.test(url)) {
+    uploadError.value = ''
+  }
+}
+
+async function handleKeydown(event: KeyboardEvent): Promise<void> {
+  const textarea = textareaFromEvent(event)
+  if (!textarea) {
+    return
+  }
+
+  if (event.key === 'Tab') {
+    event.preventDefault()
+    const result = event.shiftKey
+      ? outdentSelection({ snapshot: snapshotFromTextarea(textarea) })
+      : indentSelection({ snapshot: snapshotFromTextarea(textarea) })
+    await applyResult(result)
+    return
+  }
+
+  if (event.key === 'Escape') {
+    focusNextControl(textarea)
+  }
+}
+
+function focusNextControl(textarea: HTMLTextAreaElement): void {
+  const focusableSelector = [
+    'a[href]',
+    'button:not([disabled])',
+    'textarea:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])'
+  ].join(',')
+  const focusable = Array.from(document.querySelectorAll<HTMLElement>(focusableSelector))
+    .filter((element) => !element.hasAttribute('aria-hidden') && element.offsetParent !== null)
+  const currentIndex = focusable.indexOf(textarea)
+  focusable[currentIndex + 1]?.focus()
 }
 
 function normalizeImageAlt(fileName: string): string {
@@ -306,25 +382,6 @@ function replaceUploadPlaceholders(placeholders: readonly { token: string }[], r
   localValue.value = nextValue
 }
 
-function handlePaste(event: ClipboardEvent): void {
-  const files = Array.from(event.clipboardData?.files || []).filter((file) => file.type.startsWith('image/'))
-  if (files.length) {
-    event.preventDefault()
-    void uploadImages(files, snapshotFromTextarea())
-    return
-  }
-
-  const text = event.clipboardData?.getData('text/plain')
-  if (!text) {
-    return
-  }
-
-  const url = text.trim()
-  if (/^https?:\/\//.test(url)) {
-    uploadError.value = ''
-  }
-}
-
 async function uploadImages(files: File[], snapshot: SelectionSnapshot): Promise<void> {
   isUploading.value = true
   uploadError.value = ''
@@ -338,7 +395,7 @@ async function uploadImages(files: File[], snapshot: SelectionSnapshot): Promise
     }
   })
 
-  await applyResult(replaceSelection(snapshot, placeholders.map((placeholder) => placeholder.token).join('\n')))
+  await insertMarkdownFromSnapshot(placeholders.map((placeholder) => placeholder.token).join('\n'), snapshot)
 
   emit(
     'on-upload-img',
@@ -362,53 +419,6 @@ async function uploadImages(files: File[], snapshot: SelectionSnapshot): Promise
   )
 }
 
-async function handleKeydown(event: KeyboardEvent): Promise<void> {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
-    event.preventDefault()
-    emit('on-draft-save')
-    return
-  }
-
-  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-    event.preventDefault()
-    emit('on-submit')
-    return
-  }
-
-  if (event.key === 'Tab') {
-    event.preventDefault()
-    const result = event.shiftKey
-      ? outdentSelection({ snapshot: snapshotFromTextarea() })
-      : indentSelection({ snapshot: snapshotFromTextarea() })
-    await applyResult(result)
-    return
-  }
-
-  if (event.key === 'Escape') {
-    focusNextControl()
-  }
-}
-
-function focusNextControl(): void {
-  const textarea = textareaRef.value
-  if (!textarea) {
-    return
-  }
-
-  const focusableSelector = [
-    'a[href]',
-    'button:not([disabled])',
-    'textarea:not([disabled])',
-    'input:not([disabled])',
-    'select:not([disabled])',
-    '[tabindex]:not([tabindex="-1"])'
-  ].join(',')
-  const focusable = Array.from(document.querySelectorAll<HTMLElement>(focusableSelector))
-    .filter((element) => !element.hasAttribute('aria-hidden') && element.offsetParent !== null)
-  const currentIndex = focusable.indexOf(textarea)
-  focusable[currentIndex + 1]?.focus()
-}
-
 watch(() => props.modelValue, () => {
   if (!isUploading.value) {
     uploadError.value = ''
@@ -422,84 +432,15 @@ defineExpose({
 
 <style scoped>
 .markdown-text-editor {
-  display: flex;
-  flex-direction: column;
   width: 100%;
   height: 100%;
-  background: var(--fsusblog-panel-bg);
-}
-
-.markdown-text-editor__toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
-  padding: 0.875rem 1rem;
-  border-bottom: 1px solid var(--fsusblog-panel-border);
-  background: var(--fsusblog-panel-bg);
-}
-
-.markdown-text-editor__toolbar-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
   min-width: 0;
-  padding-right: 0.75rem;
-  border-right: 1px solid var(--fsusblog-panel-border);
 }
 
-.markdown-text-editor__toolbar-group:last-child {
-  padding-right: 0;
-  border-right: none;
-}
-
-.markdown-text-editor__textarea::placeholder {
-  color: var(--fsusblog-text-muted);
-}
-
-.markdown-text-editor__textarea {
+.markdown-text-editor__fsusui {
   width: 100%;
-  flex: 1;
+  height: 100%;
   min-height: 0;
-  resize: none;
-  border: none;
-  outline: none;
-  padding: 1.5rem;
-  background: var(--fsusblog-panel-bg);
-  color: var(--fsusblog-text-primary);
-  font-family: var(--font-mono, "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
-  font-size: 0.95rem;
-  line-height: 1.75;
 }
 
-.markdown-text-editor__textarea:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--fsusblog-color-focus-ring);
-}
-
-.markdown-text-editor__status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  padding: 0.65rem 1rem;
-  border-top: 1px solid var(--fsusblog-panel-border);
-  background: var(--fsusblog-page-bg-soft);
-  color: var(--fsusblog-text-tertiary);
-  font-size: 0.72rem;
-  font-weight: 600;
-}
-
-@media (max-width: 640px) {
-  .markdown-text-editor__toolbar {
-    gap: 0.375rem;
-    padding: 0.75rem;
-  }
-
-  .markdown-text-editor__toolbar-group {
-    padding-right: 0.5rem;
-  }
-
-  .markdown-text-editor__textarea {
-    padding: 1rem;
-    font-size: 0.9rem;
-  }
-}
 </style>

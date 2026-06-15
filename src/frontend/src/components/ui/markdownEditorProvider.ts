@@ -3,8 +3,8 @@ import { AsyncMarkdownRenderer } from '@/components/ui/AsyncMarkdownRenderer'
 import MarkdownTextEditor from '@/components/ui/MarkdownTextEditor.vue'
 
 const markdownTextEditorProvider: MarkdownEditorProviderContract = {
-  id: 'markdown-text-editor',
-  label: 'markdown text editor',
+  id: 'fsusui-markdown-editor',
+  label: 'FsusUI MarkdownEditor',
   editorComponent: MarkdownTextEditor,
   previewComponent: AsyncMarkdownRenderer,
   defaultMode: 'write',
