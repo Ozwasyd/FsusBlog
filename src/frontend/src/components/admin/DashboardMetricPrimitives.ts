@@ -1,4 +1,8 @@
 import { computed, defineComponent, h, type PropType } from 'vue'
+import {
+  resolveFsusUiEmptyState,
+  toFsusUiInlineEmptyStateProps
+} from '@/fsusui/primitiveAdapters'
 
 type DashboardMetricDensity = 'default' | 'compact'
 type DashboardMetricValue = string | number
@@ -164,15 +168,15 @@ export const DashboardInlineEmptyState = defineComponent({
     }
   },
   setup(props) {
-    return () => h('div', {
+    const ElEmptyState = resolveFsusUiEmptyState()
+    const emptyStateProps = toFsusUiInlineEmptyStateProps('dashboardMetric')
+
+    return () => h(ElEmptyState, {
+      ...emptyStateProps,
       class: 'mt-5 border-t border-[var(--fsusblog-panel-border)] pt-4',
       role: 'status',
-      'aria-live': 'polite'
-    }, [
-      h('p', { class: 'm-0 text-[14px] font-bold text-[var(--fsusblog-text-secondary)]' }, props.title),
-      props.description
-        ? h('p', { class: 'mt-1 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]' }, props.description)
-        : null
-    ])
+      title: props.title,
+      description: props.description
+    })
   }
 })

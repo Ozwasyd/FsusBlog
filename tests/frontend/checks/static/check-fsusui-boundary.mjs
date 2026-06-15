@@ -11,7 +11,10 @@ const srcRoot = path.join(repoRoot, 'src/frontend/src')
 const fsusuiRoot = path.join(srcRoot, 'fsusui')
 const boundaryDocPath = path.join(fsusuiRoot, 'README.md')
 const themeAdapterPath = path.join(fsusuiRoot, 'theme.ts')
+const primitiveAdaptersPath = path.join(fsusuiRoot, 'primitiveAdapters.ts')
 const uiIndexPath = path.join(srcRoot, 'components/ui/index.ts')
+const adminCollectionPrimitivesPath = path.join(srcRoot, 'components/admin/AdminCollectionPrimitives.ts')
+const dashboardMetricPrimitivesPath = path.join(srcRoot, 'components/admin/DashboardMetricPrimitives.ts')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const strict = true
 
@@ -220,6 +223,61 @@ function checkThemeAdapterContract() {
   }
 }
 
+function checkAdminEmptyStateDelegation() {
+  const contracts = [
+    {
+      file: adminCollectionPrimitivesPath,
+      component: 'AdminInlineEmptyState',
+      context: 'adminCollection'
+    },
+    {
+      file: dashboardMetricPrimitivesPath,
+      component: 'DashboardInlineEmptyState',
+      context: 'dashboardMetric'
+    }
+  ]
+
+  const existingContracts = contracts.filter((contract) => fs.existsSync(contract.file))
+  if (existingContracts.length === 0) {
+    return
+  }
+
+  const adapterContent = fs.existsSync(primitiveAdaptersPath)
+    ? fs.readFileSync(primitiveAdaptersPath, 'utf8')
+    : ''
+
+  for (const token of [
+    'resolveFsusUiEmptyState',
+    'toFsusUiInlineEmptyStateProps',
+    "'adminCollection'",
+    "'dashboardMetric'",
+    'EmptyStateTitleTag'
+  ]) {
+    if (!adapterContent.includes(token)) {
+      warn(primitiveAdaptersPath, 'empty-state-adapter-contract', `primitiveAdapters.ts missing ${token}`)
+    }
+  }
+
+  for (const contract of existingContracts) {
+    const content = fs.readFileSync(contract.file, 'utf8')
+    if (!content.includes('resolveFsusUiEmptyState')) {
+      warn(contract.file, 'empty-state-delegation', `${contract.component} must resolve FsusUI ElEmptyState through the adapter`)
+    }
+    if (!content.includes('const ElEmptyState = resolveFsusUiEmptyState()')) {
+      warn(contract.file, 'empty-state-delegation', `${contract.component} must keep ElEmptyState resolution inside setup`)
+    }
+    if (!content.includes('toFsusUiInlineEmptyStateProps')) {
+      warn(contract.file, 'empty-state-delegation', `${contract.component} must use the FsusUI empty-state adapter`)
+    }
+    if (!content.includes(`toFsusUiInlineEmptyStateProps('${contract.context}')`)) {
+      warn(contract.file, 'empty-state-delegation', `${contract.component} must derive FsusUI props from ${contract.context}`)
+    }
+    if (!content.includes('h(ElEmptyState,')) {
+      warn(contract.file, 'empty-state-delegation', `${contract.component} must render ElEmptyState`)
+    }
+  }
+}
+
 function checkUiIndexSurface() {
   if (!fs.existsSync(uiIndexPath)) {
     return
@@ -246,6 +304,7 @@ checkPackageMarkdownDependencies()
 checkRequiredAdapters()
 checkBoundaryDoc()
 checkThemeAdapterContract()
+checkAdminEmptyStateDelegation()
 checkUiIndexSurface()
 
 if (warnings.length === 0) {

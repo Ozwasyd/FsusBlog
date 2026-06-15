@@ -1,4 +1,8 @@
 import { defineComponent, h, type PropType } from 'vue'
+import {
+  resolveFsusUiEmptyState,
+  toFsusUiInlineEmptyStateProps
+} from '@/fsusui/primitiveAdapters'
 
 type AdminSegmentedControlValue = string | number | boolean | undefined
 
@@ -156,18 +160,15 @@ export const AdminInlineEmptyState = defineComponent({
     }
   },
   setup(props, { slots }) {
-    return () => h('div', {
+    const ElEmptyState = resolveFsusUiEmptyState()
+    const emptyStateProps = toFsusUiInlineEmptyStateProps('adminCollection')
+
+    return () => h(ElEmptyState, {
+      ...emptyStateProps,
       class: 'px-4 py-6 text-left',
       role: 'status',
-      'aria-live': 'polite'
-    }, [
-      h('p', { class: 'm-0 text-[14px] font-bold text-[var(--fsusblog-text-secondary)]' }, props.title),
-      props.description
-        ? h('p', { class: 'mt-1 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]' }, props.description)
-        : null,
-      slots.actions
-        ? h('div', { class: 'mt-3 flex flex-wrap items-center gap-2' }, slots.actions())
-        : null
-    ])
+      title: props.title,
+      description: props.description
+    }, slots.actions ? { actions: () => slots.actions?.() } : undefined)
   }
 })
