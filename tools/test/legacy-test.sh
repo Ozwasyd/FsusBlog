@@ -163,6 +163,24 @@ configure_playwright_shard() {
   log "playwright shard: ${index}/${total} output=$PLAYWRIGHT_OUTPUT_DIR"
 }
 
+configure_vitest_shard() {
+  local index="${FSUSBLOG_TEST_SHARD_INDEX:-}"
+  local total="${FSUSBLOG_TEST_SHARD_TOTAL:-}"
+
+  if [[ -z "$index" && -z "$total" ]]; then
+    return
+  fi
+  if [[ ! "$index" =~ ^[0-9]+$ || ! "$total" =~ ^[0-9]+$ ]]; then
+    fail "invalid Vitest shard: index='${index:-}' total='${total:-}'"
+  fi
+  if (( index < 1 || total < 1 || index > total )); then
+    fail "invalid Vitest shard: index='$index' total='$total'"
+  fi
+
+  export FSUSBLOG_VITEST_SHARD_ARG="--shard=${index}/${total}"
+  log "vitest shard: ${index}/${total}"
+}
+
 run() {
   CURRENT_STAGE="$*"
   log "run: $*"
@@ -176,6 +194,15 @@ run_in_client() {
     cd "$CLIENT_DIR"
     "$@"
   )
+}
+
+run_vitest_script() {
+  local script="$1"
+  if [[ -n "${FSUSBLOG_VITEST_SHARD_ARG:-}" ]]; then
+    run_in_client npm run "$script" -- "$FSUSBLOG_VITEST_SHARD_ARG"
+  else
+    run_in_client npm run "$script"
+  fi
 }
 
 run_parallel() {
@@ -386,15 +413,16 @@ run_cross_stack_contract_only() {
 }
 
 run_fast_frontend_lane() {
+  configure_vitest_shard
   run_in_client env FSUSBLOG_SKIP_ENSURE_WASM=1 FSUSBLOG_VITE_WARN_AS_ERROR=1 npm run build
   if node -e "const pkg=require(process.argv[1]); process.exit(pkg.scripts && pkg.scripts['test:unit:fast'] ? 0 : 1)" "$CLIENT_DIR/package.json"; then
-    run_in_client npm run test:unit:fast
+    run_vitest_script test:unit:fast
   fi
 
-  run_in_client npm run test:property
-  run_in_client npm run check:frontend-state-machines
+  run_vitest_script test:property
+  run_vitest_script check:frontend-state-machines
   run_in_client npm run check:worker-contracts
-  run_in_client npm run check:frontend-perf-regression
+  run_vitest_script check:frontend-perf-regression
   run_in_client npm run check:a11y:deep
   run_in_client npm run check:frontend-test-governance
   run_in_client npm run check:contract:binary-matrix

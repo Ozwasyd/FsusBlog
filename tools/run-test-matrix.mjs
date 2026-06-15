@@ -376,6 +376,10 @@ function matrixShardId(value) {
   return match ? `${match[1]}-of-${match[2]}` : null
 }
 
+function shardId(index, total) {
+  return `${index}-of-${total}`
+}
+
 function safeMatrixValue(value) {
   return String(value ?? '')
     .trim()
@@ -621,16 +625,43 @@ function buildCiJobMatrix(matrix, jobId) {
   const tiers = ciJobTiers(matrix, jobId)
   if (tiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
 
-  return {
-    include: tiers.map((tier) => ({
+  const include = []
+  for (const tier of tiers) {
+    const totalShards = tier.shardable ? Number(tier.defaultShards) || 1 : 1
+    if (totalShards > 1) {
+      for (let index = 1; index <= totalShards; index += 1) {
+        const shard = `${index}/${totalShards}`
+        const shardLabel = shardId(index, totalShards)
+        include.push({
+          tier: tier.id,
+          ci_job: tier.ciJob,
+          shard,
+          shard_id: shardLabel,
+          resource_class: tier.resourceClass,
+          max_parallel: tier.maxParallel,
+          playwright_workers: playwrightWorkersForTier(tier) ?? 1,
+          timeout_minutes: tier.timeoutMinutes,
+          artifact_name: `${jobId}-${shardLabel}`
+        })
+      }
+      continue
+    }
+
+    include.push({
       tier: tier.id,
       ci_job: tier.ciJob,
+      shard: '',
+      shard_id: tier.id,
       resource_class: tier.resourceClass,
       max_parallel: tier.maxParallel,
       playwright_workers: playwrightWorkersForTier(tier) ?? 1,
       timeout_minutes: tier.timeoutMinutes,
       artifact_name: `${jobId}-${tier.id}`
-    }))
+    })
+  }
+
+  return {
+    include
   }
 }
 
@@ -818,8 +849,18 @@ function parseAggregateOptions(args) {
 }
 
 function generatedMatrixSummaryIds(matrix, jobId) {
+  const tiers = ciJobTiers(matrix, jobId)
+  const shardSummaryIds = []
+  for (const tier of tiers) {
+    const totalShards = tier.shardable ? Number(tier.defaultShards) || 1 : 1
+    if (totalShards <= 1) continue
+    for (let index = 1; index <= totalShards; index += 1) {
+      shardSummaryIds.push(`${jobId}-${shardId(index, totalShards)}`)
+    }
+  }
+  if (shardSummaryIds.length > 0) return shardSummaryIds
   if (jobId !== 'fast-backend') return [jobId]
-  return ciJobTiers(matrix, jobId).map((tier) => `${jobId}-${tier.id}`)
+  return tiers.map((tier) => `${jobId}-${tier.id}`)
 }
 
 function aggregateDependencyJobs(matrix, summaryTiers) {

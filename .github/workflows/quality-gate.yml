@@ -29,6 +29,8 @@ jobs:
     outputs:
       fast_backend_matrix: ${{ steps.fast_backend_matrix.outputs.matrix }}
       fast_backend_max_parallel: ${{ steps.fast_backend_matrix.outputs.max_parallel }}
+      fast_frontend_unit_matrix: ${{ steps.fast_frontend_unit_matrix.outputs.matrix }}
+      fast_frontend_unit_max_parallel: ${{ steps.fast_frontend_unit_matrix.outputs.max_parallel }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -44,6 +46,8 @@ jobs:
       - run: node tools/run-test-matrix.mjs evidence-plan --out .tmp/release-evidence/test-plan.json
       - id: fast_backend_matrix
         run: node tools/run-test-matrix.mjs ci-job-matrix fast-backend --github-output "$GITHUB_OUTPUT"
+      - id: fast_frontend_unit_matrix
+        run: node tools/run-test-matrix.mjs ci-job-matrix fast-frontend-unit --github-output "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -185,10 +189,14 @@ jobs:
             .tmp/release-evidence/jobs/**
 
   fast-frontend-unit:
-    name: Fast Frontend Unit
+    name: Fast Frontend Unit ${{ matrix.shard_id }}
     runs-on: ubuntu-latest
     needs: validate-matrix
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJson(needs.validate-matrix.outputs.fast_frontend_unit_max_parallel) }}
+      matrix: ${{ fromJson(needs.validate-matrix.outputs.fast_frontend_unit_matrix) }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -197,11 +205,13 @@ jobs:
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - run: ./tools/test.sh frontend-fast --no-deps
+      - run: ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps --shard ${{ matrix.shard }}
+        env:
+          FSUSBLOG_CI_JOB_ID: ${{ matrix.artifact_name }}
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: fast-frontend-unit
+          name: ${{ matrix.artifact_name }}
           if-no-files-found: ignore
           retention-days: 14
           path: |
@@ -253,8 +263,9 @@ jobs:
           merge-multiple: true
       - uses: actions/download-artifact@v7
         with:
-          name: fast-frontend-unit
+          pattern: fast-frontend-unit-*
           path: .
+          merge-multiple: true
       - uses: actions/download-artifact@v7
         with:
           name: fast-static-governance

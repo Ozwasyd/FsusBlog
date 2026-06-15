@@ -138,7 +138,7 @@ function annotateWorkflowJob(job) {
   job.usesMatrixPlaywrightWorkers = /FSUSBLOG_PLAYWRIGHT_WORKERS:\s*\$\{\{\s*matrix\.playwright_workers\s*\}\}/.test(text)
   job.playwrightWorkerEnvValues = new Set([...text.matchAll(/FSUSBLOG_PLAYWRIGHT_WORKERS:\s*['"]?(\d+)['"]?/g)].map((match) => Number(match[1])))
   job.downloadsFastBackendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /pattern:\s*fast-backend-\*/.test(text)
-  job.downloadsFastFrontendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*fast-frontend-unit/.test(text)
+  job.downloadsFastFrontendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /pattern:\s*fast-frontend-unit-\*/.test(text)
   job.downloadsFastStaticArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*fast-static-governance/.test(text)
   return job
 }
@@ -168,7 +168,7 @@ function parseWorkflow(text) {
       currentJob = jobMatch[1]
       collectingNeeds = null
       collectingPath = null
-      jobs.set(currentJob, { needs: new Set(), runs: [], timeoutMinutes: null, maxParallel: null, uploadPaths: new Set(), lines: [] })
+      jobs.set(currentJob, { needs: new Set(), runs: [], timeoutMinutes: null, maxParallel: null, maxParallelOutput: null, uploadPaths: new Set(), lines: [] })
       continue
     }
     if (!currentJob) continue
@@ -201,6 +201,11 @@ function parseWorkflow(text) {
     const maxParallelMatch = rawLine.match(/^\s+max-parallel:\s*(\d+)\s*$/)
     if (maxParallelMatch) {
       jobs.get(currentJob).maxParallel = Number(maxParallelMatch[1])
+      continue
+    }
+    const maxParallelOutputMatch = rawLine.match(/^\s+max-parallel:\s*\$\{\{\s*fromJson\(needs\.validate-matrix\.outputs\.([A-Za-z0-9_]+_max_parallel)\)\s*\}\}\s*$/)
+    if (maxParallelOutputMatch) {
+      jobs.get(currentJob).maxParallelOutput = maxParallelOutputMatch[1]
       continue
     }
 
@@ -527,7 +532,9 @@ function main() {
       errors.push(`workflow job ${job.id} timeout-minutes ${actualTimeout ?? 'missing'} does not match ci-plan ${job.timeoutMinutes}`)
     }
     const jobHasShards = job.tiers.some((tierId) => tiersById.get(tierId)?.shardable === true)
-    if (jobHasShards && actualMaxParallel !== Number(job.maxParallel)) {
+    const expectedMaxParallelOutput = `${job.id.replaceAll('-', '_')}_max_parallel`
+    const usesExpectedMaxParallelOutput = workflowJob.maxParallelOutput === expectedMaxParallelOutput
+    if (jobHasShards && actualMaxParallel !== Number(job.maxParallel) && !usesExpectedMaxParallelOutput) {
       errors.push(`workflow job ${job.id} max-parallel ${actualMaxParallel ?? 'missing'} does not match ci-plan ${job.maxParallel}`)
     }
 

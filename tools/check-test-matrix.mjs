@@ -14,6 +14,17 @@ function requireFileIncludes(file, expected, message) {
   }
 }
 
+function requireCondition(condition, message) {
+  if (!condition) {
+    console.error(`[test-matrix] ${message}`)
+    process.exit(1)
+  }
+}
+
+function readJsonFile(file) {
+  return JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'))
+}
+
 function run(args) {
   const result = spawnSync('node', ['tools/run-test-matrix.mjs', ...args], {
     cwd: root,
@@ -79,8 +90,38 @@ run(['plan', 'production'])
   }
 }
 run(['ci-job-matrix', 'fast-backend', '--out', '.tmp/docs/fast-backend-matrix.json'])
+run(['ci-job-matrix', 'fast-frontend-unit', '--out', '.tmp/docs/fast-frontend-unit-matrix.json'])
+{
+  const matrix = readJsonFile('.tmp/docs/fast-frontend-unit-matrix.json').matrix
+  const shards = matrix.include.map((entry) => entry.shard).filter(Boolean)
+  requireCondition(
+    shards.length === 2 && shards.includes('1/2') && shards.includes('2/2'),
+    'fast-frontend-unit matrix must expand frontend-fast into 2 Vitest shards'
+  )
+  requireCondition(
+    matrix.include.every((entry) => /^fast-frontend-unit-\d-of-2$/.test(entry.artifact_name)),
+    'fast-frontend-unit shard artifacts must be named per shard'
+  )
+}
 run(['aggregate', 'fast-summary', '--dry-run', '--out', '.tmp/docs/fast-summary-aggregate-plan.json'])
+{
+  const aggregatePlan = readJsonFile('.tmp/docs/fast-summary-aggregate-plan.json')
+  for (const summaryId of ['fast-frontend-unit-1-of-2', 'fast-frontend-unit-2-of-2']) {
+    requireCondition(
+      aggregatePlan.requiredJobSummaries.includes(summaryId),
+      `fast-summary aggregate plan must require ${summaryId}`
+    )
+  }
+}
 run(['ci-tier', 'backend-fast', '--plan-only'])
+{
+  const frontendPlan = output(['ci-job', 'fast-frontend-unit', '--plan-only'])
+  process.stdout.write(frontendPlan)
+  if (!frontendPlan.includes('./tools/test.sh ci-tier frontend-fast --no-deps --shard 1/2')) {
+    console.error('[test-matrix] fast-frontend-unit plan must include a shard reproduction example')
+    process.exit(1)
+  }
+}
 run(['ci-fast', '--plan-only'])
 run(['ci-production', '--plan-only'])
 run(['ci-plan', '--format', 'github-actions', '--out', '.tmp/docs/run-test-matrix-ci-plan-compat.json'])
@@ -152,6 +193,21 @@ requireFileIncludes(
   'docs/testing.md',
   'Backend build parallelism',
   'docs/testing.md must document backend build parallelism policy and benchmark notes'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  'fast_frontend_unit_matrix',
+  'validate-matrix must generate the fast-frontend-unit shard matrix'
+)
+requireFileIncludes(
+  '.github/workflows/quality-gate.yml',
+  './tools/test.sh ci-tier ${{ matrix.tier }} --no-deps --shard ${{ matrix.shard }}',
+  'fast-frontend-unit workflow must run generated frontend shard tiers'
+)
+requireFileIncludes(
+  'docs/testing.md',
+  'Frontend fast Vitest sharding',
+  'docs/testing.md must document frontend-fast shard reproduction and artifacts'
 )
 
 console.log('[test-matrix] ok')

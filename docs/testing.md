@@ -35,6 +35,19 @@ Matrix 同时声明调度元数据：`phase` 表示 CI DAG 阶段，`cost` 表�
 
 Matrix 也声明 setup/cache 元数据：`requiresNode`、`requiresDotnet`、`requiresPlaywright` 表示运行时需求，`cacheProfile` 表示依赖缓存需求。`cacheProfile=frontend` 必须使用 `actions/setup-node` 的 npm cache，并固定 `cache-dependency-path: src/frontend/package-lock.json`；`cacheProfile=backend` 必须使用 `~/.nuget/packages`，key 固定由 `*.csproj`、`*.props`、`*.targets`、`global.json`、`NuGet.config` 共同计算；`full` 同时要求两者。Playwright tier 只安装声明的浏览器：`chromium` tier 只安装 Chromium，cross-browser tier 使用 `${{ matrix.browser }}`。
 
+### Frontend fast Vitest sharding
+
+`frontend-fast` 是 shardable tier，默认 `defaultShards=2`。GitHub Actions 的 `fast-frontend-unit` job 使用 `node tools/run-test-matrix.mjs ci-job-matrix fast-frontend-unit` 生成 shard matrix，并分别运行：
+
+```bash
+./tools/test.sh ci-tier frontend-fast --no-deps --shard 1/2
+./tools/test.sh ci-tier frontend-fast --no-deps --shard 2/2
+```
+
+`--shard i/n` 会注入 `FSUSBLOG_TEST_SHARD_INDEX/TOTAL`，`run_fast_frontend_lane()` 将其转换成 Vitest `--shard=i/n`，只传给 `test:unit:fast`、`test:property`、`check:frontend-state-machines` 和 `check:frontend-perf-regression`。build、static governance、contract checks 仍保持原命令；后续若要减少重复 setup，应通过独立 tier 拆分处理。
+
+每个 shard 上传独立 artifact：`fast-frontend-unit-1-of-2`、`fast-frontend-unit-2-of-2`。artifact 内容仍包含 `src/frontend/coverage/**`、`.tmp/frontend/**` 和 `.tmp/release-evidence/jobs/**`；fast-summary 通过 `fast-frontend-unit-*` pattern 合并下载。per-shard job summary 记录 `stageDurationsMs.test`，用于后续评估是否从 2 shards 提升到 4 shards。
+
 CI 的安装步骤必须通过 `node tools/ci/run-stage.mjs --stage install -- ...` 执行，并把耗时合并到 `.tmp/release-evidence/jobs/<job>.json`。job summary 的 `failureStage` 只能是 `setup`、`restore`、`install`、`bootstrap`、`test`、`artifact`、`summary`，`stageDurationsMs` 会保留每个阶段的 wall-clock 耗时；因此 npm/Playwright install 失败、runtime bootstrap 失败、测试失败和 release evidence 汇总失败可以在 artifact 中区分。
 
 Flaky 治理由 `tests/flaky.yml` 和 `tools/ci/check-flaky-registry.mjs` 控制。每个 quarantine 条目必须包含 `suite`、`test`、`issue`、`reason`、`expires`、`allowedRetries`、`owner`、`mode`、`classification`；过期条目会使 CI 失败。默认策略是不重试：unit、static governance、security、backend deterministic gates 都不得 silent retry。只有 browser-heavy suites 通过 `tools/ci/run-flaky-governed.mjs` 允许最多 1 次 retry 并写入 `.tmp/release-evidence/flaky/<suite>.json`；Production Summary 会把 `passed-after-retry` 和 clean pass 分开展示。Benchmark/perf 噪声不得走通用 flaky retry，必须使用独立的 `benchmark-noise` 分类和性能 evidence。`release-final` 会使用 `--release-final` 模式重新校验 registry/evidence，并拒绝任何 retry、skip 或 critical quarantine 证据。

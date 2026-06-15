@@ -45,8 +45,8 @@ tiers:
     requiresPlaywright: none
     cacheProfile: frontend
     timeoutMinutes: 35
-    shardable: false
-    defaultShards: 1
+    shardable: true
+    defaultShards: 2
     risk: high
     coverage: [frontend-unit, frontend-property, frontend-static, contract-static]
     artifacts: [src/frontend/coverage, .tmp/frontend]

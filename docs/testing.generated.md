@@ -9,7 +9,7 @@ Version: `fsusblog-test-matrix-v2`
 | Tier | CI job | Local command | Phase | Resource | Cost | Max parallel | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |
 |---|---|---|---:|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|
 | `validate-matrix` | `validate-matrix` | `./tools/test.sh ci-tier validate-matrix` | 0 | cpu | high | 4 | - | none | yes | no | none | none | - | - | 1 | 5m | `.tmp/release-evidence/test-plan.json` | `.tmp/release-evidence/test-plan.json` |
-| `frontend-fast` | `fast-frontend-unit` | `./tools/test.sh ci-tier frontend-fast` | 1 | cpu | high | 4 | - | none | yes | no | none | frontend | - | - | 1 | 35m | `src/frontend/coverage`<br>`.tmp/frontend` | `src/frontend/coverage`<br>`.tmp/frontend` |
+| `frontend-fast` | `fast-frontend-unit` | `./tools/test.sh ci-tier frontend-fast` | 1 | cpu | high | 4 | - | none | yes | no | none | frontend | - | - | 2 | 35m | `src/frontend/coverage`<br>`.tmp/frontend` | `src/frontend/coverage`<br>`.tmp/frontend` |
 | `backend-fast` | `fast-backend` | `./tools/test.sh ci-tier backend-fast` | 1 | cpu | high | 4 | - | none | no | yes | none | backend | - | - | 1 | 35m | `.tmp/gate-logs` | `tests/backend/Fixtures/backend-test-requirements.json` |
 | `static-governance` | `fast-static-governance` | `./tools/test.sh ci-tier static-governance` | 1 | cpu | high | 4 | - | none | yes | no | none | none | `validate-matrix` | - | 1 | 10m | `.tmp/gate-logs`<br>`.tmp/docs`<br>`.tmp/release-evidence/test-plan.json`<br>`.tmp/release-evidence/doc-sync-summary.json`<br>`.tmp/release-evidence/flaky/registry.json` | `.tmp/gate-logs`<br>`.tmp/docs`<br>`.tmp/release-evidence/test-plan.json`<br>`.tmp/release-evidence/doc-sync-summary.json`<br>`.tmp/release-evidence/flaky/registry.json` |
 | `fast` | `fast-summary` | `./tools/test.sh ci-tier fast` | 1 | cpu | high | 4 | - | none | no | no | none | none | `frontend-fast`, `backend-fast`, `static-governance` | - | 1 | 50m | `.tmp/gate-logs`<br>`src/frontend/coverage` | `.tmp/gate-logs`<br>`src/frontend/coverage` |
@@ -144,7 +144,7 @@ Version: `fsusblog-test-matrix-v2`
 | `cross-browser-smoke` | `test` | `./tools/test.sh ci-job cross-browser-smoke` | `cross-browser-smoke` | 3 | node, playwright:all, cache:frontend | 1 | 20m | 1 | 2 |
 | `cross-stack-contract` | `test` | `./tools/test.sh ci-job cross-stack-contract` | `endpoint-depth`, `cross-stack-contract` | 3 | node, cache:frontend | - | 20m | 1 | 4 |
 | `fast-backend` | `test` | `./tools/test.sh ci-job fast-backend` | `backend-fast`, `backend-auth-state-machine`, `backend-concurrency`, `backend-property`, `backend-golden` | 1 | dotnet, cache:backend | - | 35m | 1 | 4 |
-| `fast-frontend-unit` | `test` | `./tools/test.sh ci-job fast-frontend-unit` | `frontend-fast` | 1 | node, cache:frontend | - | 35m | 1 | 4 |
+| `fast-frontend-unit` | `test` | `./tools/test.sh ci-job fast-frontend-unit` | `frontend-fast` | 1 | node, cache:frontend | - | 35m | 2 | 4 |
 | `fast-static-governance` | `test` | `./tools/test.sh ci-job fast-static-governance` | `static-governance`, `backend-test-governance` | 1 | node | - | 10m | 1 | 4 |
 | `fast-summary` | `aggregate` | `node tools/run-test-matrix.mjs aggregate fast-summary` | `fast` | 1 | none | - | 50m | 1 | 4 |
 | `frontend-render-pressure` | `test` | `./tools/test.sh ci-job frontend-render-pressure` | `frontend-render-pressure` | 3 | node, dotnet, cache:full | - | 35m | 1 | 1 |
