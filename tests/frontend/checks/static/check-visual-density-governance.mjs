@@ -137,6 +137,10 @@ if (/\btext-\[11px\]\s+font-(?:bold|semibold)\s+uppercase\b/.test(accountLayout)
 if (/\baccount-nav-link-label\s*\{[\s\S]*?\btext-\[11px\]/.test(accountLayout)) {
   fail(accountLayoutPath, 1, 'account nav item labels must use 13px readable scale')
 }
+const accountHeader = /<header[\s\S]*?<\/header>/.exec(accountLayout)?.[0] ?? ''
+if (/areaMeta\.(?:eyebrow|title)/.test(accountHeader)) {
+  fail(accountLayoutPath, 1, 'account header must not duplicate the area eyebrow/title already shown in aside')
+}
 
 const packageJson = JSON.parse(read(packageJsonPath))
 const scripts = packageJson.scripts ?? {}

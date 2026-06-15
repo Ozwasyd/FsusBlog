@@ -22,15 +22,6 @@
             />
             <span v-else class="truncate">{{ siteStore.siteInfo.title }}</span>
           </router-link>
-          <div class="hidden h-4 w-px bg-[var(--fsusblog-panel-border-strong)] sm:block" aria-hidden="true"></div>
-          <div class="hidden min-w-0 sm:block">
-            <div class="text-xs font-semibold normal-case text-[var(--fsusblog-text-muted)]">
-              {{ areaMeta.eyebrow }}
-            </div>
-            <div class="truncate text-xs font-medium text-[var(--fsusblog-text-tertiary)]">
-              {{ areaMeta.title }}
-            </div>
-          </div>
         </div>
 
         <div class="hidden items-center gap-4 lg:flex">
