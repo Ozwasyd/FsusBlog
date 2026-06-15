@@ -16,6 +16,16 @@ function run(args) {
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
+function output(args) {
+  const result = spawnSync('node', ['tools/run-test-matrix.mjs', ...args], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  if (result.stderr) process.stderr.write(result.stderr)
+  if (result.status !== 0) process.exit(result.status ?? 1)
+  return result.stdout
+}
+
 function runTestSh(args) {
   if (process.platform === 'win32') {
     const script = fs.readFileSync(path.join(root, 'tools/test.sh'), 'utf8')
@@ -42,7 +52,24 @@ function runTestSh(args) {
 run(['preflight'])
 run(['validate'])
 run(['plan', 'production'])
-run(['ci-job', 'fast-backend', '--plan-only'])
+{
+  const fastBackendPlan = output(['ci-job', 'fast-backend', '--plan-only'])
+  process.stdout.write(fastBackendPlan)
+  if (!fastBackendPlan.includes('scheduler: parallel')) {
+    console.error('[test-matrix] fast-backend ci-job plan must advertise parallel scheduler')
+    process.exit(1)
+  }
+  if (!fastBackendPlan.includes('FSUSBLOG_CI_JOB_SERIAL=1')) {
+    console.error('[test-matrix] ci-job plan must document serial debug fallback')
+    process.exit(1)
+  }
+
+  const coveragePlan = output(['ci-job', 'coverage-merge-threshold', '--plan-only'])
+  if (!coveragePlan.includes('scheduler: serial')) {
+    console.error('[test-matrix] exclusive-resource ci-job plan must remain serial')
+    process.exit(1)
+  }
+}
 run(['ci-job-matrix', 'fast-backend', '--out', '.tmp/docs/fast-backend-matrix.json'])
 run(['aggregate', 'fast-summary', '--dry-run', '--out', '.tmp/docs/fast-summary-aggregate-plan.json'])
 run(['ci-tier', 'backend-fast', '--plan-only'])

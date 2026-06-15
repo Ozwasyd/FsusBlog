@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
@@ -553,6 +553,70 @@ function ciJobExecutionMode(matrix, jobId) {
   return 'test'
 }
 
+function hasIntersection(left, right) {
+  const rightSet = new Set(right ?? [])
+  return (left ?? []).some((item) => rightSet.has(item))
+}
+
+function ciJobMaxParallel(tiers) {
+  return Math.max(1, ...tiers.map((tier) => Number(tier.maxParallel) || 1))
+}
+
+function internalCiJobDependencies(tier, tierIds) {
+  return (tier.dependsOn ?? []).filter((dependencyId) => tierIds.has(dependencyId))
+}
+
+function activeResourceClassCount(active, resourceClass) {
+  return active.filter((entry) => entry.tier.resourceClass === resourceClass).length
+}
+
+function canRunTogether(candidate, activeTier, active) {
+  if (candidate.parallelizable !== true || activeTier.parallelizable !== true) return false
+  if (hasIntersection(candidate.exclusiveResources, activeTier.exclusiveResources)) return false
+  if ((candidate.services?.length ?? 0) > 0 && (activeTier.services?.length ?? 0) > 0 && hasIntersection(candidate.services, activeTier.services)) return false
+  if (candidate.resourceClass === activeTier.resourceClass) {
+    const sameClassActive = activeResourceClassCount(active, candidate.resourceClass)
+    if (sameClassActive >= Number(candidate.maxParallel || 1)) return false
+    if (sameClassActive >= Number(activeTier.maxParallel || 1)) return false
+  }
+  return true
+}
+
+function canStartCiJobTier(candidate, activeEntries, jobMaxParallel) {
+  if (activeEntries.length >= jobMaxParallel) return false
+  return activeEntries.every((entry) => canRunTogether(candidate, entry.tier, activeEntries))
+}
+
+function ciJobHasParallelWave(tiers) {
+  const pending = [...tiers]
+  const completed = new Set()
+  const tierIds = new Set(tiers.map((tier) => tier.id))
+  let sawParallelWave = false
+
+  while (pending.length > 0) {
+    const active = []
+    for (const tier of [...pending]) {
+      const dependenciesDone = internalCiJobDependencies(tier, tierIds).every((dependencyId) => completed.has(dependencyId))
+      if (dependenciesDone && canStartCiJobTier(tier, active, ciJobMaxParallel(tiers))) {
+        active.push({ tier })
+      }
+    }
+    if (active.length === 0) return sawParallelWave
+    if (active.length > 1) sawParallelWave = true
+    for (const { tier } of active) {
+      const index = pending.findIndex((item) => item.id === tier.id)
+      if (index >= 0) pending.splice(index, 1)
+      completed.add(tier.id)
+    }
+  }
+
+  return sawParallelWave
+}
+
+function ciJobSchedulerMode(tiers) {
+  return ciJobHasParallelWave(tiers) ? 'parallel' : 'serial'
+}
+
 function buildCiJobMatrix(matrix, jobId) {
   const tiers = ciJobTiers(matrix, jobId)
   if (tiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
@@ -598,6 +662,7 @@ function printCiJobPlan(matrix, jobId) {
   console.log(`To reproduce GitHub Actions job "${jobId}" locally:`)
   console.log(`  ${ciJobReproductionCommand(jobId, matrix)}`)
   console.log(`  execution mode: ${ciJobExecutionMode(matrix, jobId)}`)
+  console.log(`  scheduler: ${ciJobSchedulerMode(tiers)} (max ${ciJobMaxParallel(tiers)}, debug fallback: FSUSBLOG_CI_JOB_SERIAL=1)`)
   console.log('')
   for (const tier of tiers) {
     const shard = tier.shardable ? ` --shard 1/${tier.defaultShards}` : ''
@@ -606,7 +671,120 @@ function printCiJobPlan(matrix, jobId) {
   }
 }
 
-function runCiJob(matrix, jobId, args) {
+function runCiJobSerial(matrix, tiers, options) {
+  for (const tier of tiers) {
+    const runArgs = ['--no-deps']
+    if (options.shard && tier.shardable) runArgs.push('--shard', options.shard)
+    runTier(matrix, tier.id, runArgs)
+  }
+}
+
+function ciJobChildArgs(tier, options) {
+  const args = [path.join(root, 'tools/run-test-matrix.mjs'), 'ci-tier', tier.id, '--no-deps']
+  if (options.shard && tier.shardable) args.push('--shard', options.shard)
+  return args
+}
+
+function stopActiveCiJobChildren(activeEntries) {
+  for (const { child, tier } of activeEntries) {
+    if (child.exitCode !== null || child.signalCode !== null) continue
+    console.error(`[matrix:ci-job] stopping ${tier.id} after sibling failure`)
+    child.kill('SIGTERM')
+    const timer = setTimeout(() => {
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
+    }, 5000)
+    timer.unref?.()
+  }
+}
+
+async function runCiJobScheduled(matrix, jobId, tiers, options) {
+  const pending = [...tiers]
+  const completed = new Set()
+  const tierIds = new Set(tiers.map((tier) => tier.id))
+  const active = new Map()
+  const jobMaxParallel = ciJobMaxParallel(tiers)
+  let firstFailure = null
+
+  console.error(`[matrix:ci-job:${jobId}] scheduler=parallel max=${jobMaxParallel}`)
+
+  return await new Promise((resolve) => {
+    const finishIfReady = () => {
+      if ((pending.length === 0 || firstFailure) && active.size === 0) {
+        resolve(firstFailure?.status ?? 0)
+      }
+    }
+
+    const startTier = (tier) => {
+      const env = {
+        ...process.env,
+        FSUSBLOG_CI_JOB_ID: `${jobId}-${tier.id}`,
+        FSUSBLOG_CI_JOB_SCHEDULER: 'parallel'
+      }
+      const child = spawn(process.execPath, ciJobChildArgs(tier, options), {
+        cwd: root,
+        env,
+        stdio: 'inherit'
+      })
+      active.set(tier.id, { child, tier })
+      console.error(`[matrix:ci-job:${jobId}] started ${tier.id} pid=${child.pid}`)
+      child.on('error', (error) => {
+        active.delete(tier.id)
+        if (!firstFailure) {
+          firstFailure = { status: 1, tier: tier.id, signal: null }
+          console.error(`[matrix:ci-job:${jobId}] ${tier.id} failed to start: ${error.message}`)
+          stopActiveCiJobChildren([...active.values()])
+        }
+        schedule()
+      })
+      child.on('exit', (code, signal) => {
+        active.delete(tier.id)
+        if (code === 0 && !signal) {
+          completed.add(tier.id)
+          console.error(`[matrix:ci-job:${jobId}] completed ${tier.id}`)
+        } else if (!firstFailure) {
+          firstFailure = {
+            status: code ?? 1,
+            tier: tier.id,
+            signal
+          }
+          console.error(`[matrix:ci-job:${jobId}] ${tier.id} failed status=${code ?? 'signal'} signal=${signal ?? 'none'}`)
+          stopActiveCiJobChildren([...active.values()])
+        }
+        schedule()
+      })
+    }
+
+    const schedule = () => {
+      if (firstFailure) {
+        finishIfReady()
+        return
+      }
+
+      let started = false
+      while (active.size < jobMaxParallel) {
+        const activeEntries = [...active.values()]
+        const nextIndex = pending.findIndex((tier) => {
+          const dependenciesDone = internalCiJobDependencies(tier, tierIds).every((dependencyId) => completed.has(dependencyId))
+          return dependenciesDone && canStartCiJobTier(tier, activeEntries, jobMaxParallel)
+        })
+        if (nextIndex < 0) break
+        const [tier] = pending.splice(nextIndex, 1)
+        startTier(tier)
+        started = true
+      }
+
+      if (!started && active.size === 0 && pending.length > 0) {
+        firstFailure = { status: 1, tier: pending[0].id, signal: null }
+        console.error(`[matrix:ci-job:${jobId}] no runnable tiers remain; check dependencies and resource metadata`)
+      }
+      finishIfReady()
+    }
+
+    schedule()
+  })
+}
+
+async function runCiJob(matrix, jobId, args) {
   const options = parseCiJobOptions(args)
   const tiers = ciJobTiers(matrix, jobId)
   if (tiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
@@ -615,11 +793,14 @@ function runCiJob(matrix, jobId, args) {
     return
   }
 
-  for (const tier of tiers) {
-    const runArgs = ['--no-deps']
-    if (options.shard && tier.shardable) runArgs.push('--shard', options.shard)
-    runTier(matrix, tier.id, runArgs)
+  if (process.env.FSUSBLOG_CI_JOB_SERIAL === '1' || ciJobSchedulerMode(tiers) === 'serial') {
+    if (process.env.FSUSBLOG_CI_JOB_SERIAL === '1') console.error(`[matrix:ci-job:${jobId}] scheduler=serial forced by FSUSBLOG_CI_JOB_SERIAL=1`)
+    runCiJobSerial(matrix, tiers, options)
+    return
   }
+
+  const status = await runCiJobScheduled(matrix, jobId, tiers, options)
+  if (status !== 0) process.exit(status)
 }
 
 function parseAggregateOptions(args) {
@@ -1146,7 +1327,7 @@ function optionValue(args, name, fallback = null) {
   return fallback
 }
 
-function main() {
+async function main() {
   const [command, ...args] = process.argv.slice(2)
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     usage()
@@ -1184,7 +1365,7 @@ function main() {
     return
   }
   if (command === 'ci-job') {
-    runCiJob(matrix, args[0], args.slice(1))
+    await runCiJob(matrix, args[0], args.slice(1))
     return
   }
   if (command === 'ci-job-matrix') {
@@ -1224,7 +1405,7 @@ function main() {
 }
 
 try {
-  main()
+  await main()
 } catch (error) {
   console.error(`[matrix] ${error.message}`)
   process.exit(1)
