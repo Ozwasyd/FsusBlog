@@ -1,4 +1,4 @@
-import { computed, ref, toValue, watch, type MaybeRefOrGetter } from 'vue'
+import { computed, getCurrentInstance, onMounted, ref, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import {
   buildConsoleWelcomeCalloutLinks,
   resolveConsoleWelcomeCalloutConfig,
@@ -40,7 +40,8 @@ export function useConsoleWelcomeCallout(options: {
 } = {}) {
   const config = options.config ?? resolveConsoleWelcomeCalloutConfig()
   const storageKey = computed(() => storageKeyFor(toValue(options.userKey)))
-  const dismissed = ref(readDismissed(storageKey.value))
+  const hasMounted = ref(false)
+  const dismissed = ref(false)
   const links = computed(() => buildConsoleWelcomeCalloutLinks(config))
   const visible = computed(() => (
     shouldShowConsoleWelcomeCallout(config)
@@ -48,8 +49,15 @@ export function useConsoleWelcomeCallout(options: {
   ))
 
   watch(storageKey, (nextKey) => {
-    dismissed.value = readDismissed(nextKey)
+    dismissed.value = hasMounted.value ? readDismissed(nextKey) : false
   })
+
+  if (getCurrentInstance()) {
+    onMounted(() => {
+      hasMounted.value = true
+      dismissed.value = readDismissed(storageKey.value)
+    })
+  }
 
   function dismiss(): void {
     dismissed.value = true

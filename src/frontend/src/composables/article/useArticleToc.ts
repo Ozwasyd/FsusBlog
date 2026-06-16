@@ -17,10 +17,19 @@ function slugifyHeading(text: string, fallback: string): string {
   return slug || fallback
 }
 
+function getDocumentOrNull(): Document | null {
+  return typeof document === 'undefined' ? null : document
+}
+
+function getWindowOrNull(): Window | null {
+  return typeof window === 'undefined' ? null : window
+}
+
 function ensureUniqueId(base: string, used: Set<string>): string {
   let candidate = base
   let index = 2
-  while (used.has(candidate) || document.getElementById(candidate)) {
+  const documentRef = getDocumentOrNull()
+  while (used.has(candidate) || documentRef?.getElementById(candidate)) {
     candidate = `${base}-${index}`
     index += 1
   }
@@ -91,12 +100,18 @@ export function useArticleToc(contentRoot: MaybeRefOrGetter<HTMLElement | null>)
   }
 
   const navigateTo = (id: string): void => {
-    const target = document.getElementById(id)
+    const documentRef = getDocumentOrNull()
+    const windowRef = getWindowOrNull()
+    if (!documentRef || !windowRef || typeof history === 'undefined') {
+      return
+    }
+
+    const target = documentRef.getElementById(id)
     if (!target) {
       return
     }
 
-    history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#${encodeURIComponent(id)}`)
+    history.replaceState(history.state, '', `${windowRef.location.pathname}${windowRef.location.search}#${encodeURIComponent(id)}`)
     scrollToArticleTarget(target)
     activeId.value = id
   }

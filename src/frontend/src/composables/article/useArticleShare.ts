@@ -1,4 +1,4 @@
-import { computed, type MaybeRefOrGetter, toValue } from 'vue'
+import { computed, getCurrentInstance, onMounted, ref, type MaybeRefOrGetter, toValue } from 'vue'
 import { toast } from '@/fsusui/feedback'
 
 type ShareInput = Readonly<{
@@ -34,8 +34,16 @@ async function copyToClipboard(text: string): Promise<void> {
 }
 
 export function useArticleShare(input: ShareInput) {
+  const mountedDocumentTitle = ref('')
+
+  if (getCurrentInstance()) {
+    onMounted(() => {
+      mountedDocumentTitle.value = typeof document !== 'undefined' ? document.title : ''
+    })
+  }
+
   const shareUrl = computed(() => toValue(input.canonicalUrl)?.trim() || currentArticleUrl())
-  const shareTitle = computed(() => toValue(input.title)?.trim() || document.title || '文章')
+  const shareTitle = computed(() => toValue(input.title)?.trim() || mountedDocumentTitle.value || '文章')
 
   const copyLink = async (): Promise<void> => {
     try {

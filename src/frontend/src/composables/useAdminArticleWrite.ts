@@ -246,6 +246,7 @@ export function useAdminArticleWrite() {
   const categories = shallowRef<CategoryItem[]>([])
   const tags = shallowRef<TagItem[]>([])
   const siteConfig = ref<SeoConfigAdmin | null>(null)
+  const mountedBrowserSeoBaseUrl = ref('')
   const assetLibrary = shallowRef<AssetLibraryItemResponse[]>([])
   const assetLibraryLoading = ref(false)
   const assetLibraryStatusText = ref('资产库等待同步')
@@ -320,8 +321,7 @@ export function useAdminArticleWrite() {
   const selectedRevisionLabel = computed(() => selectedRevision.value ? `版本 ${selectedRevision.value.revisionNo}` : '未选择历史版本')
   const canGeneratePrivatePreview = computed(() => articleForm.title.trim().length > 0 || articleForm.content.trim().length > 0)
   const seoPreview = computed<ArticleSeoPreviewState>(() => {
-    const browserOrigin = typeof window !== 'undefined' ? window.location.origin : ''
-    const baseUrl = normalizeSeoBaseUrl(siteConfig.value?.baseUrl || browserOrigin)
+    const baseUrl = normalizeSeoBaseUrl(siteConfig.value?.baseUrl || mountedBrowserSeoBaseUrl.value)
     const routePath = articleId.value ? `/article/${articleId.value}` : `/article/${slugifyTitle(articleForm.title)}`
     const title = articleForm.title.trim() || '未命名文章'
     const description = (articleForm.summary.trim() || stripMarkdownForSeo(articleForm.content) || siteConfig.value?.description || '').slice(0, 220)
@@ -1375,6 +1375,9 @@ export function useAdminArticleWrite() {
   )
 
   onMounted(() => {
+    if (typeof window !== 'undefined') {
+      mountedBrowserSeoBaseUrl.value = window.location.origin
+    }
     void initData()
   })
 

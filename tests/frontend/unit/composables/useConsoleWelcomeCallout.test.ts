@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest'
-import { computed } from 'vue'
+import { computed, createApp, h, nextTick } from 'vue'
 import {
   buildConsoleWelcomeCalloutLinks,
   resolveConsoleWelcomeCalloutConfig,
@@ -74,5 +74,45 @@ describe('console welcome callout', () => {
     callout.dismiss()
     expect(callout.visible.value).toBe(false)
     expect(localStorage.getItem(`${CONSOLE_WELCOME_DISMISS_STORAGE_PREFIX}admin-user`)).toBe('1')
+  })
+
+  it('does not let localStorage remove the initial pre-hydration render', () => {
+    localStorage.setItem(`${CONSOLE_WELCOME_DISMISS_STORAGE_PREFIX}admin-user`, '1')
+    const callout = useConsoleWelcomeCallout({
+      userKey: 'admin-user',
+      config: resolveConsoleWelcomeCalloutConfig({
+        issueUrl: 'https://github.com/Ozwasyd/FsusBlog/issues/new'
+      })
+    })
+
+    expect(callout.dismissed.value).toBe(false)
+    expect(callout.visible.value).toBe(true)
+  })
+
+  it('loads the dismissed state after component mount', async () => {
+    localStorage.setItem(`${CONSOLE_WELCOME_DISMISS_STORAGE_PREFIX}admin-user`, '1')
+    let callout: ReturnType<typeof useConsoleWelcomeCallout> | null = null
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const app = createApp({
+      setup() {
+        callout = useConsoleWelcomeCallout({
+          userKey: 'admin-user',
+          config: resolveConsoleWelcomeCalloutConfig({
+            issueUrl: 'https://github.com/Ozwasyd/FsusBlog/issues/new'
+          })
+        })
+        return () => h('div')
+      }
+    })
+
+    app.mount(host)
+    await nextTick()
+
+    expect(callout?.dismissed.value).toBe(true)
+    expect(callout?.visible.value).toBe(false)
+
+    app.unmount()
+    host.remove()
   })
 })

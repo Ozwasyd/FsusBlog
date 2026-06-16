@@ -26,7 +26,7 @@ import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 import { DEFAULT_SITE_BRAND_CONFIG } from '@/store/site'
 
 export function useAdminSettingsPage() {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || window.location.origin
+  const mountedBrowserBaseUrl = ref((import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/u, ''))
 
   const activeTab = ref('site')
   const savingSite = ref(false)
@@ -208,22 +208,27 @@ export function useAdminSettingsPage() {
     }
   }
 
-  const displayUrl = computed(() => {
-    if (!siteForm.ogImage) {
-      return ''
-    }
-    return siteForm.ogImage.startsWith('http') ? siteForm.ogImage : `${baseURL}${siteForm.ogImage}`
-  })
+  const normalizedBaseUrl = computed(() => siteForm.baseUrl.trim().replace(/\/+$/u, ''))
+
   const resolveAssetDisplayUrl = (value: string): string => {
     const url = value.trim()
     if (!url) {
       return ''
     }
 
-    return url.startsWith('http') ? url : `${baseURL}${url}`
+    if (/^https?:\/\//u.test(url)) {
+      return url
+    }
+
+    const baseURL = normalizedBaseUrl.value || mountedBrowserBaseUrl.value
+    if (!baseURL) {
+      return url
+    }
+
+    return `${baseURL}${url.startsWith('/') ? url : `/${url}`}`
   }
 
-  const normalizedBaseUrl = computed(() => siteForm.baseUrl.trim().replace(/\/+$/, ''))
+  const displayUrl = computed(() => resolveAssetDisplayUrl(siteForm.ogImage))
   const logoPreviewUrl = computed(() => resolveAssetDisplayUrl(siteForm.siteLogoUrl || siteForm.siteWordmarkUrl))
   const adminLogoPreviewUrl = computed(() => resolveAssetDisplayUrl(siteForm.adminLogoUrl || siteForm.adminCollapsedIconUrl))
   const loginLogoPreviewUrl = computed(() => resolveAssetDisplayUrl(siteForm.loginLogoUrl || siteForm.loginIconUrl))
@@ -823,6 +828,9 @@ export function useAdminSettingsPage() {
   }, { immediate: true })
 
   onMounted(() => {
+    if (!mountedBrowserBaseUrl.value && typeof window !== 'undefined') {
+      mountedBrowserBaseUrl.value = window.location.origin
+    }
     window.addEventListener('beforeunload', handleBeforeUnload)
     void loadSiteConfig()
     void loadComplianceConfig()
