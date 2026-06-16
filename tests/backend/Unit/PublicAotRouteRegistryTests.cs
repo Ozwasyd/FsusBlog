@@ -48,4 +48,23 @@ public sealed class PublicAotRouteRegistryTests
 
         Assert.False(resolved);
     }
+
+    [Theory]
+    [InlineData("/search")]
+    [InlineData("/search?q=test")]
+    [InlineData("/user/profile")]
+    [InlineData("/user/profile/messages")]
+    public void TryResolve_NonAotRoutes_ReturnsFalse(string path)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = path.Split('?')[0];
+        if (path.Contains('?', StringComparison.Ordinal))
+        {
+            context.Request.QueryString = new QueryString(path[path.IndexOf('?', StringComparison.Ordinal)..]);
+        }
+
+        bool resolved = _registry.TryResolve(context, out _);
+
+        Assert.False(resolved);
+    }
 }

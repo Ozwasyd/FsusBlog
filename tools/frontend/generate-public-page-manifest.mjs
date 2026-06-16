@@ -26,11 +26,11 @@ function parsePageIds(source) {
 }
 
 function parseDescriptors(source) {
-  const descriptorPattern = /public static readonly PublicPageDescriptor\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*new\(\s*PublicPageId\.([A-Za-z][A-Za-z0-9_]*)\s*,\s*"([^"]+)"\s*,\s*SeoEligible:\s*(true|false)\s*,\s*AotShellReady:\s*(true|false)\s*,\s*DeferSpaBoot:\s*(true|false)\s*\);/gu
+  const descriptorPattern = /public static readonly PublicPageDescriptor\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*new\(\s*PublicPageId\.([A-Za-z][A-Za-z0-9_]*)\s*,\s*"([^"]+)"\s*,\s*SeoEligible:\s*(true|false)\s*,\s*AotShellReady:\s*(true|false)\s*,\s*DeferSpaBoot:\s*(true|false)\s*,\s*RequiresUserState:\s*(true|false)\s*,\s*FallbackBehavior:\s*([A-Za-z][A-Za-z0-9_.]*)\s*\);/gu
   const descriptors = new Map()
 
   for (const match of source.matchAll(descriptorPattern)) {
-    const [, kind, pageIdName, canonicalSlug, seoEligible, aotShellReady, deferSpaBoot] = match
+    const [, kind, pageIdName, canonicalSlug, seoEligible, aotShellReady, deferSpaBoot, requiresUserState, fallbackBehaviorExpression] = match
 
     descriptors.set(kind, {
       kind,
@@ -38,7 +38,9 @@ function parseDescriptors(source) {
       canonicalSlug,
       seoEligible: seoEligible === 'true',
       aotShellReady: aotShellReady === 'true',
-      deferSpaBoot: deferSpaBoot === 'true'
+      deferSpaBoot: deferSpaBoot === 'true',
+      requiresUserState: requiresUserState === 'true',
+      fallbackBehaviorExpression
     })
   }
 
@@ -62,6 +64,9 @@ function parseRouteIdentityTokens(source) {
   }
 
   const requiredTokenNames = [
+    'PublicAotShellFallback',
+    'PublicSearchSpaFallback',
+    'UserStateRuntimeOnlyFallback',
     'SearchRouteKey',
     'SearchPath',
     'AccountPath',
@@ -128,6 +133,7 @@ function buildManifestEntries(source) {
   const pageIds = parsePageIds(source)
   const descriptors = parseDescriptors(source)
   const order = parseRegistryOrder(source, descriptors)
+  const routeIdentityTokens = parseRouteIdentityTokens(source)
 
   return order.map((kind) => {
     const descriptor = descriptors.get(kind)
@@ -150,9 +156,23 @@ function buildManifestEntries(source) {
       canonicalSlug: descriptor.canonicalSlug,
       seoEligible: descriptor.seoEligible,
       aotShellReady: descriptor.aotShellReady,
-      deferSpaBoot: descriptor.deferSpaBoot
+      deferSpaBoot: descriptor.deferSpaBoot,
+      requiresUserState: descriptor.requiresUserState,
+      fallbackBehavior: resolveFallbackBehavior(descriptor.fallbackBehaviorExpression, routeIdentityTokens)
     }
   })
+}
+
+function resolveFallbackBehavior(expression, routeIdentityTokens) {
+  const prefix = 'PublicRouteIdentityRegistry.'
+  if (expression.startsWith(prefix)) {
+    const tokenName = expression.slice(prefix.length)
+    if (typeof routeIdentityTokens[tokenName] === 'string') {
+      return routeIdentityTokens[tokenName]
+    }
+  }
+
+  fail(`unsupported fallback behavior expression: ${expression}`)
 }
 
 function renderManifest(entries, routeIdentityTokens) {
@@ -162,10 +182,15 @@ function renderManifest(entries, routeIdentityTokens) {
     canonicalSlug: '${entry.canonicalSlug}',
     seoEligible: ${entry.seoEligible},
     aotShellReady: ${entry.aotShellReady},
-    deferSpaBoot: ${entry.deferSpaBoot}
+    deferSpaBoot: ${entry.deferSpaBoot},
+    requiresUserState: ${entry.requiresUserState},
+    fallbackBehavior: '${entry.fallbackBehavior}'
   }`).join(',\n')
 
   const renderedTokens = `export const PUBLIC_ROUTE_IDENTITY_TOKENS = Object.freeze({
+  publicAotShellFallback: '${routeIdentityTokens.PublicAotShellFallback}',
+  publicSearchSpaFallback: '${routeIdentityTokens.PublicSearchSpaFallback}',
+  userStateRuntimeOnlyFallback: '${routeIdentityTokens.UserStateRuntimeOnlyFallback}',
   searchRouteKey: '${routeIdentityTokens.SearchRouteKey}',
   searchPath: '${routeIdentityTokens.SearchPath}',
   accountPath: '${routeIdentityTokens.AccountPath}',

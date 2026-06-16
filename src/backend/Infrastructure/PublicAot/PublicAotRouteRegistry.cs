@@ -13,6 +13,11 @@ public sealed class PublicAotRouteRegistry : IPublicAotRouteRegistry
         }
 
         PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(kind);
+        if (!descriptor.AotShellReady)
+        {
+            return false;
+        }
+
         string routeKey = PublicRouteIdentity.BuildRouteKey(context, kind);
         string canonicalPath = PublicRouteIdentity.BuildCanonicalPath(descriptor.PageId, routeKey, null);
         match = new PublicAotRouteMatch(

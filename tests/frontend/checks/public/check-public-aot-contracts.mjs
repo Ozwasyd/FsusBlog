@@ -218,6 +218,30 @@ function assertStaticContracts() {
       fail(`refresh hydration check missing route-phase matrix token: ${token}`)
     }
   }
+  for (const token of [
+    'routePolicies',
+    'requiresUserState',
+    'spa-public-search-fallback',
+    'user-state-runtime-only',
+    'must-not-write-public-aot-cache',
+    'routePolicies missing ${routeName}',
+    '"routeName": "Search"',
+    '"routeName": "Account"'
+  ]) {
+    if (!hydrationMatrixRegistry.includes(token) && !hydrationMatrixGovernanceCheck.includes(token)) {
+      fail(`public hydration matrix eligibility registry missing token: ${token}`)
+    }
+  }
+  for (const token of [
+    'PUBLIC_NON_AOT_ROUTE_POLICIES',
+    'getPublicNonAotRoutePolicy',
+    'PUBLIC_ROUTE_IDENTITY_TOKENS.publicSearchSpaFallback',
+    'PUBLIC_PAGE_MANIFEST.Account.fallbackBehavior'
+  ]) {
+    if (!read('src/frontend/src/public-renderers/publicRouteRegistry.ts').includes(token)) {
+      fail(`public route registry missing non-AOT eligibility token: ${token}`)
+    }
+  }
   if (refreshHydrationCheck.includes('PASS${warnSuffix}')) {
     fail('refresh hydration check must not allow hydration warnings to pass with a warning suffix')
   }

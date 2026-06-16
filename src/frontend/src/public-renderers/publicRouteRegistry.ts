@@ -1,6 +1,8 @@
 import type { RouteRecordRaw } from 'vue-router'
 import {
   PUBLIC_PAGE_MANIFEST,
+  PUBLIC_ROUTE_IDENTITY_TOKENS,
+  type SharedPublicPageKind,
   type SharedSeoEligiblePublicPageKind
 } from '@/public-renderers/generated/publicPageManifest'
 import { PUBLIC_ROUTE_PATH_PATTERNS } from '@/public-renderers/publicRoutePaths'
@@ -28,6 +30,16 @@ export type PublicSeoRouteName = typeof PUBLIC_SEO_ROUTE_NAMES[keyof typeof PUBL
 type PublicShellOnlyRouteName = typeof PUBLIC_SEARCH_ROUTE_NAME
 type PublicFilterRouteName = typeof PUBLIC_FILTER_ROUTE_NAMES[keyof typeof PUBLIC_FILTER_ROUTE_NAMES]
 export type PublicFilterRouteMode = 'search' | 'category' | 'tag-id' | 'tag'
+
+type PublicRouteEligibilityPolicy = Readonly<{
+  routeName: string
+  kind: SharedPublicPageKind | 'Search'
+  path: string
+  seoEligible: boolean
+  aotShellReady: boolean
+  requiresUserState: boolean
+  fallbackBehavior: string
+}>
 
 type PublicSeoRouteDefinition = Readonly<{
   name: PublicSeoRouteName
@@ -135,6 +147,27 @@ export const PUBLIC_SHELL_ONLY_ROUTE_NAMES = Object.freeze(
   PUBLIC_SHELL_ONLY_ROUTE_DEFINITIONS.map((definition) => definition.name)
 ) as readonly PublicShellOnlyRouteName[]
 
+export const PUBLIC_NON_AOT_ROUTE_POLICIES = Object.freeze({
+  Search: {
+    routeName: PUBLIC_SEARCH_ROUTE_NAME,
+    kind: 'Search',
+    path: PUBLIC_ROUTE_IDENTITY_TOKENS.searchPath,
+    seoEligible: false,
+    aotShellReady: false,
+    requiresUserState: false,
+    fallbackBehavior: PUBLIC_ROUTE_IDENTITY_TOKENS.publicSearchSpaFallback
+  },
+  Account: {
+    routeName: 'Account',
+    kind: 'Account',
+    path: PUBLIC_ROUTE_IDENTITY_TOKENS.accountPath,
+    seoEligible: PUBLIC_PAGE_MANIFEST.Account.seoEligible,
+    aotShellReady: PUBLIC_PAGE_MANIFEST.Account.aotShellReady,
+    requiresUserState: PUBLIC_PAGE_MANIFEST.Account.requiresUserState,
+    fallbackBehavior: PUBLIC_PAGE_MANIFEST.Account.fallbackBehavior
+  }
+} as const satisfies Record<'Search' | 'Account', PublicRouteEligibilityPolicy>)
+
 const routeDefinitionNames = [...PUBLIC_SEO_ROUTE_DEFINITIONS, ...PUBLIC_SHELL_ONLY_ROUTE_DEFINITIONS]
   .map((definition) => definition.name)
 
@@ -192,4 +225,8 @@ export function resolvePublicFilterRouteMode(routeName: unknown): PublicFilterRo
   }
 
   return PUBLIC_FILTER_ROUTE_MODES[routeName as PublicFilterRouteName] ?? null
+}
+
+export function getPublicNonAotRoutePolicy(routeName: 'Search' | 'Account'): PublicRouteEligibilityPolicy {
+  return PUBLIC_NON_AOT_ROUTE_POLICIES[routeName]
 }

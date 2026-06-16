@@ -8,7 +8,9 @@ export const PUBLIC_PAGE_MANIFEST = Object.freeze({
     canonicalSlug: 'home',
     seoEligible: true,
     aotShellReady: true,
-    deferSpaBoot: true
+    deferSpaBoot: true,
+    requiresUserState: false,
+    fallbackBehavior: 'public-aot-shell'
   },
   ArticleDetail: {
     kind: 'ArticleDetail',
@@ -16,7 +18,9 @@ export const PUBLIC_PAGE_MANIFEST = Object.freeze({
     canonicalSlug: 'article',
     seoEligible: true,
     aotShellReady: true,
-    deferSpaBoot: true
+    deferSpaBoot: true,
+    requiresUserState: false,
+    fallbackBehavior: 'public-aot-shell'
   },
   Filter: {
     kind: 'Filter',
@@ -24,7 +28,9 @@ export const PUBLIC_PAGE_MANIFEST = Object.freeze({
     canonicalSlug: 'filter',
     seoEligible: true,
     aotShellReady: true,
-    deferSpaBoot: true
+    deferSpaBoot: true,
+    requiresUserState: false,
+    fallbackBehavior: 'public-aot-shell'
   },
   Archive: {
     kind: 'Archive',
@@ -32,7 +38,9 @@ export const PUBLIC_PAGE_MANIFEST = Object.freeze({
     canonicalSlug: 'archive',
     seoEligible: true,
     aotShellReady: true,
-    deferSpaBoot: true
+    deferSpaBoot: true,
+    requiresUserState: false,
+    fallbackBehavior: 'public-aot-shell'
   },
   About: {
     kind: 'About',
@@ -40,7 +48,9 @@ export const PUBLIC_PAGE_MANIFEST = Object.freeze({
     canonicalSlug: 'about',
     seoEligible: true,
     aotShellReady: true,
-    deferSpaBoot: true
+    deferSpaBoot: true,
+    requiresUserState: false,
+    fallbackBehavior: 'public-aot-shell'
   },
   Account: {
     kind: 'Account',
@@ -48,7 +58,9 @@ export const PUBLIC_PAGE_MANIFEST = Object.freeze({
     canonicalSlug: 'account',
     seoEligible: false,
     aotShellReady: false,
-    deferSpaBoot: false
+    deferSpaBoot: false,
+    requiresUserState: true,
+    fallbackBehavior: 'user-state-runtime-only'
   },
   Privacy: {
     kind: 'Privacy',
@@ -56,7 +68,9 @@ export const PUBLIC_PAGE_MANIFEST = Object.freeze({
     canonicalSlug: 'privacy',
     seoEligible: true,
     aotShellReady: true,
-    deferSpaBoot: true
+    deferSpaBoot: true,
+    requiresUserState: false,
+    fallbackBehavior: 'public-aot-shell'
   },
   Guidelines: {
     kind: 'Guidelines',
@@ -64,7 +78,9 @@ export const PUBLIC_PAGE_MANIFEST = Object.freeze({
     canonicalSlug: 'guidelines',
     seoEligible: true,
     aotShellReady: true,
-    deferSpaBoot: true
+    deferSpaBoot: true,
+    requiresUserState: false,
+    fallbackBehavior: 'public-aot-shell'
   },
   Copyright: {
     kind: 'Copyright',
@@ -72,11 +88,16 @@ export const PUBLIC_PAGE_MANIFEST = Object.freeze({
     canonicalSlug: 'copyright',
     seoEligible: true,
     aotShellReady: true,
-    deferSpaBoot: true
+    deferSpaBoot: true,
+    requiresUserState: false,
+    fallbackBehavior: 'public-aot-shell'
   }
 } as const)
 
 export const PUBLIC_ROUTE_IDENTITY_TOKENS = Object.freeze({
+  publicAotShellFallback: 'public-aot-shell',
+  publicSearchSpaFallback: 'spa-public-search-fallback',
+  userStateRuntimeOnlyFallback: 'user-state-runtime-only',
   searchRouteKey: 'search',
   searchPath: '/search',
   accountPath: '/user/profile',

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  getPublicNonAotRoutePolicy,
   getPublicSeoRouteNamesByKind,
   PUBLIC_BLOG_CHILD_ROUTES,
   PUBLIC_FILTER_ROUTE_NAMES,
+  PUBLIC_NON_AOT_ROUTE_POLICIES,
   PUBLIC_SEARCH_ROUTE_NAME,
   PUBLIC_SHELL_ONLY_ROUTE_NAMES,
   resolvePublicFilterRouteMode
@@ -46,5 +48,26 @@ describe('publicRouteRegistry', () => {
     expect(resolvePublicFilterRouteMode(PUBLIC_FILTER_ROUTE_NAMES.tagById)).toBe('tag-id')
     expect(resolvePublicFilterRouteMode(PUBLIC_FILTER_ROUTE_NAMES.tag)).toBe('tag')
     expect(resolvePublicFilterRouteMode('Home')).toBeNull()
+  })
+
+  it('declares non-AOT route eligibility boundaries for search and account', () => {
+    expect(PUBLIC_NON_AOT_ROUTE_POLICIES.Search).toEqual({
+      routeName: 'Search',
+      kind: 'Search',
+      path: '/search',
+      seoEligible: false,
+      aotShellReady: false,
+      requiresUserState: false,
+      fallbackBehavior: 'spa-public-search-fallback'
+    })
+    expect(getPublicNonAotRoutePolicy('Account')).toEqual({
+      routeName: 'Account',
+      kind: 'Account',
+      path: '/user/profile',
+      seoEligible: false,
+      aotShellReady: false,
+      requiresUserState: true,
+      fallbackBehavior: 'user-state-runtime-only'
+    })
   })
 })

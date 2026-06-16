@@ -190,6 +190,17 @@ proxy: {
 | `npm run check:public-hydration` | 公开页 hydration 冒烟 |
 | `npm run warm:public-aot` | 预热公开页 AOT 缓存 |
 
+Public AOT eligibility 由 `src/shared/Contracts/Outputs/PublicPageContracts.cs`
+生成到 `src/frontend/src/public-renderers/generated/publicPageManifest.ts`，
+并由 `tests/frontend/checks/public/public-hydration-matrix.registry.json`
+记录 Search / Account 等非 AOT 路由策略。Home、ArticleDetail、Filter、
+Archive、About、Privacy、Guidelines、Copyright 可以生成匿名 Public AOT shell。
+`/search` 当前只允许 SPA fallback：搜索查询空间无界，直接写入 AOT 会造成
+cache explosion、搜索索引陈旧和 hydration routeKey 漂移。`/user/profile`
+以及 account/messages/auth-required 路由必须保持 runtime-only：这些页面依赖用户态，
+不得写入公开 AOT cache，也不得输出 `fsus-aot-hydration-props` 或
+`data-public-hydration-kind`。
+
 ### 测试（分层）
 
 | 命令 | 说明 |

@@ -39,6 +39,10 @@ public sealed class PublicAotPageCatalogTests
             PublicPageDescriptor shared = PublicPageRegistry.GetRequired(descriptor.PageId);
 
             Assert.Equal(shared.Id.ToString(), descriptor.HydrationKind);
+            Assert.Equal(shared.SeoEligible, descriptor.SeoEligible);
+            Assert.Equal(shared.AotShellReady, descriptor.AotShellReady);
+            Assert.Equal(shared.RequiresUserState, descriptor.RequiresUserState);
+            Assert.Equal(shared.FallbackBehavior, descriptor.FallbackBehavior);
 
             if (descriptor.Kind is PublicPageKind.Home
                 or PublicPageKind.About
@@ -53,5 +57,7 @@ public sealed class PublicAotPageCatalogTests
         }
 
         Assert.Equal(PublicRouteIdentityRegistry.AccountPath, PublicAotPageCatalog.Account.CanonicalFixedPath);
+        Assert.False(PublicAotPageCatalog.Account.AotShellReady);
+        Assert.True(PublicAotPageCatalog.Account.RequiresUserState);
     }
 }

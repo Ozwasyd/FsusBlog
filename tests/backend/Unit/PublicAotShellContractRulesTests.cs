@@ -55,6 +55,21 @@ public class PublicAotShellContractRulesTests
     }
 
     [Fact]
+    public void TryValidate_AccountEntry_ReturnsFalse()
+    {
+        var entry = MakeEntry(
+            pageId: PublicPageId.Account,
+            routeKey: "account",
+            bootstrap: Payload(("kind", "Account"), ("pageKind", "Account"), ("routeKey", "account")),
+            hydration: Payload(("pageKind", "Account"), ("routeKey", "account")));
+
+        bool ok = PublicAotShellContractRules.TryValidateEntry(entry, out _, out _, out var err);
+
+        Assert.False(ok);
+        Assert.Contains("未启用公开 shell", err);
+    }
+
+    [Fact]
     public void TryValidate_NullRendererVersion_ReturnsFalse()
     {
         var entry = MakeEntry(rendererVersion: null);

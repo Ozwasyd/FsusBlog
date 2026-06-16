@@ -20,11 +20,16 @@ public readonly record struct PublicPageDescriptor(
     string CanonicalSlug,
     bool SeoEligible,
     bool AotShellReady,
-    bool DeferSpaBoot
+    bool DeferSpaBoot,
+    bool RequiresUserState,
+    string FallbackBehavior
 );
 
 public static class PublicRouteIdentityRegistry
 {
+    public const string PublicAotShellFallback = "public-aot-shell";
+    public const string PublicSearchSpaFallback = "spa-public-search-fallback";
+    public const string UserStateRuntimeOnlyFallback = "user-state-runtime-only";
     public const string SearchRouteKey = "search";
     public const string SearchPath = "/" + SearchRouteKey;
     public const string AccountPath = "/user/profile";
@@ -65,63 +70,81 @@ public static class PublicPageRegistry
         "home",
         SeoEligible: true,
         AotShellReady: true,
-        DeferSpaBoot: true);
+        DeferSpaBoot: true,
+        RequiresUserState: false,
+        FallbackBehavior: PublicRouteIdentityRegistry.PublicAotShellFallback);
 
     public static readonly PublicPageDescriptor ArticleDetail = new(
         PublicPageId.ArticleDetail,
         "article",
         SeoEligible: true,
         AotShellReady: true,
-        DeferSpaBoot: true);
+        DeferSpaBoot: true,
+        RequiresUserState: false,
+        FallbackBehavior: PublicRouteIdentityRegistry.PublicAotShellFallback);
 
     public static readonly PublicPageDescriptor Filter = new(
         PublicPageId.Filter,
         "filter",
         SeoEligible: true,
         AotShellReady: true,
-        DeferSpaBoot: true);
+        DeferSpaBoot: true,
+        RequiresUserState: false,
+        FallbackBehavior: PublicRouteIdentityRegistry.PublicAotShellFallback);
 
     public static readonly PublicPageDescriptor Archive = new(
         PublicPageId.Archive,
         "archive",
         SeoEligible: true,
         AotShellReady: true,
-        DeferSpaBoot: true);
+        DeferSpaBoot: true,
+        RequiresUserState: false,
+        FallbackBehavior: PublicRouteIdentityRegistry.PublicAotShellFallback);
 
     public static readonly PublicPageDescriptor About = new(
         PublicPageId.About,
         "about",
         SeoEligible: true,
         AotShellReady: true,
-        DeferSpaBoot: true);
+        DeferSpaBoot: true,
+        RequiresUserState: false,
+        FallbackBehavior: PublicRouteIdentityRegistry.PublicAotShellFallback);
 
     public static readonly PublicPageDescriptor Account = new(
         PublicPageId.Account,
         "account",
         SeoEligible: false,
         AotShellReady: false,
-        DeferSpaBoot: false);
+        DeferSpaBoot: false,
+        RequiresUserState: true,
+        FallbackBehavior: PublicRouteIdentityRegistry.UserStateRuntimeOnlyFallback);
 
     public static readonly PublicPageDescriptor Privacy = new(
         PublicPageId.Privacy,
         "privacy",
         SeoEligible: true,
         AotShellReady: true,
-        DeferSpaBoot: true);
+        DeferSpaBoot: true,
+        RequiresUserState: false,
+        FallbackBehavior: PublicRouteIdentityRegistry.PublicAotShellFallback);
 
     public static readonly PublicPageDescriptor Guidelines = new(
         PublicPageId.Guidelines,
         "guidelines",
         SeoEligible: true,
         AotShellReady: true,
-        DeferSpaBoot: true);
+        DeferSpaBoot: true,
+        RequiresUserState: false,
+        FallbackBehavior: PublicRouteIdentityRegistry.PublicAotShellFallback);
 
     public static readonly PublicPageDescriptor Copyright = new(
         PublicPageId.Copyright,
         "copyright",
         SeoEligible: true,
         AotShellReady: true,
-        DeferSpaBoot: true);
+        DeferSpaBoot: true,
+        RequiresUserState: false,
+        FallbackBehavior: PublicRouteIdentityRegistry.PublicAotShellFallback);
 
     public static readonly PublicPageDescriptor[] All =
     [

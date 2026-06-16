@@ -99,13 +99,96 @@ function parsePublicPageManifest() {
     entries.push({
       kind,
       aotShellReady: /aotShellReady:\s*true/.test(body),
+      seoEligible: /seoEligible:\s*true/.test(body),
+      requiresUserState: /requiresUserState:\s*true/.test(body),
       canonicalSlug: body.match(/canonicalSlug:\s*'([^']+)'/)?.[1] ?? null,
+      fallbackBehavior: body.match(/fallbackBehavior:\s*'([^']+)'/)?.[1] ?? null,
     })
   }
   if (entries.length === 0) {
     throw new Error('could not parse PUBLIC_PAGE_MANIFEST entries')
   }
   return entries
+}
+
+function parseRouteIdentityTokens() {
+  const text = readFileSync(manifestFile, 'utf8')
+  const match = text.match(/PUBLIC_ROUTE_IDENTITY_TOKENS\s*=\s*Object\.freeze\(\{([\s\S]*?)\}\s+as const\)/)
+  if (!match) {
+    throw new Error('could not parse PUBLIC_ROUTE_IDENTITY_TOKENS')
+  }
+
+  const tokens = {}
+  for (const token of match[1].matchAll(/^\s*([A-Za-z][A-Za-z0-9]*):\s*'([^']*)',?$/gm)) {
+    tokens[token[1]] = token[2]
+  }
+
+  for (const required of ['searchPath', 'accountPath']) {
+    if (!tokens[required]) {
+      throw new Error(`missing generated route identity token ${required}`)
+    }
+  }
+
+  return tokens
+}
+
+function validateRouteEligibilityPolicies(registry, manifestEntries, errors) {
+  const routePolicies = assertArray(errors, registry, 'routePolicies')
+  const tokens = parseRouteIdentityTokens()
+  const accountManifest = manifestEntries.find((entry) => entry.kind === 'Account')
+  if (!accountManifest) {
+    errors.push('generated manifest missing Account page kind')
+    return
+  }
+
+  const requiredPolicies = {
+    Search: {
+      kind: 'Search',
+      route: tokens.searchPath,
+      seoEligible: false,
+      aotShellReady: false,
+      requiresUserState: false,
+      expectedFallbackBehavior: 'spa-public-search-fallback',
+    },
+    Account: {
+      kind: 'Account',
+      pageId: 'Account',
+      route: tokens.accountPath,
+      seoEligible: accountManifest.seoEligible,
+      aotShellReady: accountManifest.aotShellReady,
+      requiresUserState: accountManifest.requiresUserState,
+      expectedFallbackBehavior: accountManifest.fallbackBehavior,
+    },
+  }
+
+  for (const [routeName, expected] of Object.entries(requiredPolicies)) {
+    const policy = routePolicies.find((entry) => entry.routeName === routeName)
+    if (!policy) {
+      errors.push(`routePolicies missing ${routeName}`)
+      continue
+    }
+
+    if (policy.kind !== expected.kind) {
+      errors.push(`routePolicies.${routeName}.kind mismatch: ${policy.kind ?? '<missing>'}`)
+    }
+    if (expected.pageId && policy.pageId !== expected.pageId) {
+      errors.push(`routePolicies.${routeName}.pageId mismatch: ${policy.pageId ?? '<missing>'}`)
+    }
+    if (!Array.isArray(policy.routes) || !policy.routes.includes(expected.route)) {
+      errors.push(`routePolicies.${routeName}.routes must include ${expected.route}`)
+    }
+    for (const field of ['seoEligible', 'aotShellReady', 'requiresUserState']) {
+      if (policy[field] !== expected[field]) {
+        errors.push(`routePolicies.${routeName}.${field} mismatch: expected ${expected[field]}, got ${policy[field]}`)
+      }
+    }
+    if (policy.expectedFallbackBehavior !== expected.expectedFallbackBehavior) {
+      errors.push(`routePolicies.${routeName}.expectedFallbackBehavior mismatch: expected ${expected.expectedFallbackBehavior}, got ${policy.expectedFallbackBehavior ?? '<missing>'}`)
+    }
+    if (policy.aotShellReady === false && policy.cachePolicy !== 'must-not-write-public-aot-cache') {
+      errors.push(`routePolicies.${routeName}.cachePolicy must block public AOT cache writes`)
+    }
+  }
 }
 
 function assertArray(errors, owner, field) {
@@ -141,6 +224,7 @@ function validateRegistry(registry, lane, errors) {
       errors.push(`excluded page kind ${kind} is not a non-AOT manifest kind`)
     }
   }
+  validateRouteEligibilityPolicies(registry, manifestEntries, errors)
 
   const lanes = assertArray(errors, registry, 'lanes')
   const laneIds = sorted(lanes.map((entry) => entry.id))

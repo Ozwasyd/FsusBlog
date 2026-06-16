@@ -17,6 +17,8 @@ public class PublicPageRegistryTests
         Assert.True(home.SeoEligible);
         Assert.True(home.AotShellReady);
         Assert.True(home.DeferSpaBoot);
+        Assert.False(home.RequiresUserState);
+        Assert.Equal(PublicRouteIdentityRegistry.PublicAotShellFallback, home.FallbackBehavior);
     }
 
     [Fact]
@@ -27,6 +29,8 @@ public class PublicPageRegistryTests
         Assert.Equal("article", ad.CanonicalSlug);
         Assert.True(ad.SeoEligible);
         Assert.True(ad.AotShellReady);
+        Assert.False(ad.RequiresUserState);
+        Assert.Equal(PublicRouteIdentityRegistry.PublicAotShellFallback, ad.FallbackBehavior);
     }
 
     [Fact]
@@ -59,6 +63,8 @@ public class PublicPageRegistryTests
         Assert.False(account.SeoEligible);
         Assert.False(account.AotShellReady);
         Assert.False(account.DeferSpaBoot);
+        Assert.True(account.RequiresUserState);
+        Assert.Equal(PublicRouteIdentityRegistry.UserStateRuntimeOnlyFallback, account.FallbackBehavior);
     }
 
     [Fact]

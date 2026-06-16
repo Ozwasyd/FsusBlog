@@ -24,7 +24,8 @@ const checks = [
 
 const negativeChecks = [
   { name: 'login_spa_only', path: '/login' },
-  { name: 'search_spa_only', path: '/search?q=test' }
+  { name: 'search_spa_only', path: '/search?q=test' },
+  { name: 'account_spa_only', path: '/user/profile' }
 ];
 
 function assert(condition, message) {
@@ -384,9 +385,13 @@ async function main() {
       }, requestTimeoutMs);
 
       const body = await response.text();
+      const source = response.headers.get('X-Fsus-Public-Aot-Source') || '';
+      const state = response.headers.get('X-Fsus-Public-Aot-State') || '';
       assert(response.ok, `[${item.name}] expected 2xx, got ${response.status}`);
       assert(!body.includes('id="fsus-aot-shell"'), `[${item.name}] unexpected public aot shell on non-public route`);
       assert(!body.includes('id="fsus-spa-boot"'), `[${item.name}] unexpected deferred public spa boot on non-public route`);
+      assert(state !== 'fresh' && state !== 'stale', `[${item.name}] unexpected public AOT ${state} header`);
+      assert(source !== 'server-ssr', `[${item.name}] unexpected public AOT source header`);
       console.log(`[public-seo-smoke] ok: ${item.name}`);
     } catch (error) {
       failures.push(`[public-seo-smoke] fail: ${item.name}: ${error instanceof Error ? error.message : String(error)}`);

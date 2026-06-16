@@ -16,6 +16,29 @@
       "reason": "Account is not an anonymous public AOT shell and publicPageManifest marks aotShellReady=false."
     }
   ],
+  "routePolicies": [
+    {
+      "routeName": "Search",
+      "kind": "Search",
+      "routes": ["/search"],
+      "seoEligible": false,
+      "aotShellReady": false,
+      "requiresUserState": false,
+      "expectedFallbackBehavior": "spa-public-search-fallback",
+      "cachePolicy": "must-not-write-public-aot-cache"
+    },
+    {
+      "routeName": "Account",
+      "kind": "Account",
+      "pageId": "Account",
+      "routes": ["/user/profile"],
+      "seoEligible": false,
+      "aotShellReady": false,
+      "requiresUserState": true,
+      "expectedFallbackBehavior": "user-state-runtime-only",
+      "cachePolicy": "must-not-write-public-aot-cache"
+    }
+  ],
   "dimensions": [
     { "id": "route", "owner": "ServerContractAgent", "risk": "high", "lanes": ["fast", "release", "nightly-full"], "source": "src/frontend/src/public-renderers/generated/publicPageManifest.ts" },
     { "id": "phase", "owner": "InteropGlueAgent", "risk": "high", "lanes": ["fast", "release", "nightly-full"], "source": "tests/frontend/checks/public/check-public-refresh-hydration.mjs" },

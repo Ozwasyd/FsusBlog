@@ -20,6 +20,13 @@ public static class PublicAotShellContractRules
             return false;
         }
 
+        PublicPageDescriptor pageDescriptor = PublicPageRegistry.GetRequired(entry.PageId);
+        if (!pageDescriptor.AotShellReady)
+        {
+            error = $"AOT 页面类型未启用公开 shell: {entry.PageId}";
+            return false;
+        }
+
         if (string.IsNullOrWhiteSpace(entry.RendererVersion))
         {
             error = "AOT rendererVersion 为空";

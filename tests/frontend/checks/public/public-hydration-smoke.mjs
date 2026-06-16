@@ -26,7 +26,7 @@ function assert(condition, message) {
   }
 }
 
-async function fetchHtml(path) {
+async function fetchHtmlResponse(path) {
   const response = await fetchWithTimeout(`${baseUrl}${path}`, {
     headers: {
       'User-Agent': 'Mozilla/5.0',
@@ -38,7 +38,14 @@ async function fetchHtml(path) {
     response.ok,
     `${path} failed: ${response.status} (baseUrl=${baseUrl}; make sure the frontend and backend are both running)`
   );
-  return await response.text();
+  return {
+    response,
+    html: await response.text()
+  };
+}
+
+async function fetchHtml(path) {
+  return (await fetchHtmlResponse(path)).html;
 }
 
 function sleep(ms) {
@@ -390,6 +397,22 @@ function assertSharedHydrationMarkers(html, kind) {
   expectIncludes(html, `data-public-hydration-kind="${kind}"`, `${kind} hydration kind`);
 }
 
+function assertNoPublicAotHitHeaders(response, label) {
+  const source = response.headers.get('X-Fsus-Public-Aot-Source') || '';
+  const state = response.headers.get('X-Fsus-Public-Aot-State') || '';
+  assert(state !== 'fresh' && state !== 'stale', `${label} must not claim a public AOT ${state} hit`);
+  assert(source !== 'server-ssr', `${label} must not claim public AOT source ${source}`);
+}
+
+async function assertNonAotRuntimeOnlyRoute(path, label) {
+  const { response, html } = await fetchHtmlResponse(path);
+  expectNotIncludes(html, 'id="fsus-aot-hydration-props"', `${label} hydration props`);
+  expectNotIncludes(html, 'data-public-hydration-kind="Home"', `${label} home hydration shell`);
+  expectNotIncludes(html, 'data-public-hydration-kind="Filter"', `${label} filter hydration shell`);
+  expectNotIncludes(html, 'data-public-hydration-kind="Account"', `${label} account hydration shell`);
+  assertNoPublicAotHitHeaders(response, label);
+}
+
 function assertDeferredSpaOnly(html, label) {
   expectIncludes(html, 'id="fsus-spa-boot"', `${label} deferred spa boot script`);
   expectIncludes(html, 'data-fsusblog-spa-entry=', `${label} deferred spa entry marker`);
@@ -626,10 +649,8 @@ async function main() {
     }
   }
 
-  const search = await fetchHtml('/search?q=test');
-  expectNotIncludes(search, 'id="fsus-aot-hydration-props"', 'search hydration props');
-  expectNotIncludes(search, 'data-public-hydration-kind="Home"', 'search home hydration shell');
-  expectNotIncludes(search, 'data-public-hydration-kind="ArticleDetail"', 'search article hydration shell');
+  await assertNonAotRuntimeOnlyRoute('/search?q=test', 'search');
+  await assertNonAotRuntimeOnlyRoute('/user/profile', 'account profile');
 
   missingSidecarCanary = await assertMissingSidecarFailureVisible();
   assertRequiredHydrationSidecarCoverage();
