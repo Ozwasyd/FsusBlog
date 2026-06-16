@@ -91,6 +91,19 @@ describe('public takeover source contracts', () => {
     expect(blogLayout).toContain('takeoverShellSeed')
   })
 
+  it('keeps API-backed site store props out of the first public takeover shell render', () => {
+    const blogLayout = readRepoFile('src/frontend/src/layouts/BlogLayout.vue')
+
+    expect(blogLayout).toContain("publicTakeoverPhaseState.value !== 'hydrated'")
+    expect(blogLayout).toContain('siteTitle: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteTitle : siteStore.siteInfo.title')
+    expect(blogLayout).toContain('siteLogoUrl: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteLogoUrl : siteStore.siteInfo.siteLogoUrl')
+    expect(blogLayout).toContain('siteLogoDarkUrl: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteLogoDarkUrl : siteStore.siteInfo.siteLogoDarkUrl')
+    expect(blogLayout).toContain('siteWordmarkUrl: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteWordmarkUrl : siteStore.siteInfo.siteWordmarkUrl')
+    expect(blogLayout).toContain('compliance: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.compliance : siteStore.complianceInfo')
+    expect(blogLayout).toContain('renderYear: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.renderYear : runtimeRenderYear.value')
+    expect(blogLayout.indexOf('setTimeout(() =>')).toBeLessThan(blogLayout.indexOf('void ensureSiteInfo()'))
+  })
+
   it('keeps first public SPA route render on AOT-compatible navigation semantics', () => {
     for (const path of [
       'src/frontend/src/views/Home.vue',
