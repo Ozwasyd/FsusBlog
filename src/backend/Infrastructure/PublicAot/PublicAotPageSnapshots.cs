@@ -96,7 +96,14 @@ public sealed record PublicArticlePageSnapshot(
     PublicAotArticleCategorySnapshot Category,
     IReadOnlyList<PublicAotArticleTagSnapshot> Tags,
     PublicAotRelatedReadingSnapshot? RelatedReading)
-    : PublicPageSnapshot(PublicPageKind.ArticleDetail, Seo);
+    : PublicPageSnapshot(PublicPageKind.ArticleDetail, Seo)
+{
+    public string CoverImageUrl { get; init; } = string.Empty;
+
+    public DateTime? PublishedAt { get; init; }
+
+    public DateTime? UpdatedAt { get; init; }
+}
 
 public sealed record PublicFilterPageSnapshot(
     PublicAotSeoSnapshot Seo,

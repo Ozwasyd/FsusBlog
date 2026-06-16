@@ -101,6 +101,16 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    public void ValidateCore_AllowsDevelopmentConfigurationToUseLocalDefaults()
+    {
+        IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>());
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: false);
+
+        Assert.DoesNotContain(errors, static error => error.Contains("Seo:BaseUrl", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void CreateValidationReport_ExposesVersionedSchemaRequirements()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>());

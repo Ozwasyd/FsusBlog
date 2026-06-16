@@ -110,6 +110,74 @@ public sealed class PublicAotDocumentServiceTests
     }
 
     [Fact]
+    public async Task ComposeAsync_ProductionConfiguredBaseUrlOverridesDefaultEntryBaseUrl()
+    {
+        string root = CreateTempDirectory();
+        PublicSpaTemplateLocator.ResetCacheForTests();
+        try
+        {
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Seo:BaseUrl"] = "https://selfhost.example/"
+                })
+                .Build();
+            var service = new PublicAotDocumentService(
+                new TestWebHostEnvironment(root, Environments.Production),
+                configuration,
+                new FixedSystemService(baseUrl: "https://fsus.blog"),
+                new ContextAwareAssetManifest(),
+                NullLogger<PublicAotDocumentService>.Instance);
+
+            Result<string> result = await service.ComposeAsync(new PublicAotShellEntryContract
+            {
+                PageId = PublicPageId.ArticleDetail,
+                RouteKey = PublicRouteIdentity.BuildArticleRouteKey(42),
+                ArticleId = 42,
+                Html = "<article>Article</article>",
+                Title = "Article",
+                BaseUrl = "https://fsus.blog",
+                BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                {
+                    ["kind"] = "ArticleDetail"
+                }),
+                HydrationPropsPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                {
+                    ["pageKind"] = "ArticleDetail",
+                    ["routeKey"] = PublicRouteIdentity.BuildArticleRouteKey(42),
+                    ["title"] = "Outer Article",
+                    ["siteTitle"] = "Self Host",
+                    ["article"] = new Dictionary<string, object?>
+                    {
+                        ["title"] = "Nested Article",
+                        ["authorName"] = "Alice",
+                        ["coverImageUrl"] = "/uploads/cover.png",
+                        ["publishedAt"] = "2026-06-15T12:30:00.0000000Z",
+                        ["updatedAt"] = "2026-06-16T08:15:00.0000000Z"
+                    }
+                })
+            });
+
+            Assert.True(result.IsSuccess, result.Error.Message);
+            string html = result.Value!;
+            Assert.Contains("href=\"https://selfhost.example/article/42\"", html, StringComparison.Ordinal);
+            Assert.Contains("property=\"og:url\" content=\"https://selfhost.example/article/42\"", html, StringComparison.Ordinal);
+            Assert.Contains("\"url\":\"https://selfhost.example/article/42\"", html, StringComparison.Ordinal);
+            Assert.Contains("\"headline\":\"Nested Article\"", html, StringComparison.Ordinal);
+            Assert.Contains("\"datePublished\":\"2026-06-15T12:30:00.0000000Z\"", html, StringComparison.Ordinal);
+            Assert.Contains("\"dateModified\":\"2026-06-16T08:15:00.0000000Z\"", html, StringComparison.Ordinal);
+            Assert.Contains("\"name\":\"Alice\"", html, StringComparison.Ordinal);
+            Assert.Contains("\"image\":\"https://selfhost.example/uploads/cover.png\"", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("https://fsus.blog/article/42", html, StringComparison.Ordinal);
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ComposeAsync_DevelopmentViteProxy_UsesSourceAssetsInsteadOfProductionManifestChunks()
     {
         string root = CreateTempDirectory();
@@ -251,14 +319,14 @@ public sealed class PublicAotDocumentServiceTests
             => context?.Request.Headers["X-Forwarded-Host"].ToString().Contains(":3000", StringComparison.Ordinal) == true;
     }
 
-    private sealed class FixedSystemService : ISystemService
+    private sealed class FixedSystemService(string baseUrl = "https://fsus.blog") : ISystemService
     {
         public Task<SeoConfigReadModel> GetSeoConfigAsync()
             => Task.FromResult(new SeoConfigReadModel
             {
                 Title = "Fsus Blog",
                 Description = "Public AOT test",
-                BaseUrl = "https://fsus.blog"
+                BaseUrl = baseUrl
             });
 
         public Task UpdateSeoConfigAsync(UpdateSeoConfigRequest request) => Task.CompletedTask;

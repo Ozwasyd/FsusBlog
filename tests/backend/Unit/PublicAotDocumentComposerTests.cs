@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.PublicAot;
+using System.Text.Json;
 
 namespace FsusBlog.Server.Tests;
 
@@ -136,6 +137,65 @@ public sealed class PublicAotDocumentComposerTests
         Assert.Contains("\"@type\":\"SearchAction\"", result);
         Assert.Contains("https://example.com/search?q={search_term_string}", result);
         Assert.Contains("\"position\":2", result);
+    }
+
+    [Fact]
+    public void BuildSeoHeadTags_ArticleDetail_EmitsCompleteBlogPostingMetadata()
+    {
+        var publishedAt = new DateTime(2026, 06, 15, 12, 30, 0, DateTimeKind.Utc);
+        var updatedAt = new DateTime(2026, 06, 16, 8, 15, 0, DateTimeKind.Utc);
+
+        string result = PublicAotDocumentComposer.BuildSeoHeadTags(
+            PublicPageKind.ArticleDetail,
+            "标题 \"quote\" <tag> 🚀",
+            "Blog",
+            "摘要含有 <b>HTML</b> 与 CJK",
+            "https://example.com/article/42",
+            new PublicAotArticleSeoMetadata(
+                "标题 \"quote\" <tag> 🚀",
+                "摘要含有 <b>HTML</b> 与 CJK",
+                "https://example.com/article/42",
+                publishedAt,
+                updatedAt,
+                "Alice <Admin>",
+                "/uploads/cover.png",
+                "Blog",
+                "/logo.svg"));
+
+        using JsonDocument document = JsonDocument.Parse(ExtractJsonLd(result));
+        JsonElement blogPosting = document.RootElement
+            .GetProperty("@graph")
+            .EnumerateArray()
+            .Single(static item => item.GetProperty("@type").GetString() == "BlogPosting");
+
+        Assert.Equal("标题 \"quote\" <tag> 🚀", blogPosting.GetProperty("headline").GetString());
+        Assert.Equal("摘要含有 <b>HTML</b> 与 CJK", blogPosting.GetProperty("description").GetString());
+        Assert.Equal("https://example.com/article/42", blogPosting.GetProperty("url").GetString());
+        Assert.Equal("https://example.com/article/42", blogPosting.GetProperty("mainEntityOfPage").GetProperty("@id").GetString());
+        Assert.Equal(publishedAt.ToString("O"), blogPosting.GetProperty("datePublished").GetString());
+        Assert.Equal(updatedAt.ToString("O"), blogPosting.GetProperty("dateModified").GetString());
+        Assert.Equal("Alice <Admin>", blogPosting.GetProperty("author").GetProperty("name").GetString());
+        Assert.Equal("https://example.com/uploads/cover.png", blogPosting.GetProperty("image").GetString());
+        Assert.Equal("Blog", blogPosting.GetProperty("publisher").GetProperty("name").GetString());
+        Assert.Equal("https://example.com/logo.svg", blogPosting.GetProperty("publisher").GetProperty("logo").GetProperty("url").GetString());
+        Assert.DoesNotContain("draft", result, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("moderation", result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildSeoHeadTags_NonArticle_DoesNotEmitArticleOnlyJsonLdFields()
+    {
+        string result = PublicAotDocumentComposer.BuildSeoHeadTags(
+            PublicPageKind.About,
+            "About",
+            "Blog",
+            "Desc",
+            "https://example.com/about");
+
+        Assert.DoesNotContain("\"@type\":\"BlogPosting\"", result);
+        Assert.DoesNotContain("\"headline\"", result);
+        Assert.DoesNotContain("\"datePublished\"", result);
+        Assert.DoesNotContain("\"mainEntityOfPage\"", result);
     }
 
     [Fact]
@@ -322,6 +382,17 @@ public sealed class PublicAotDocumentComposerTests
         }
 
         return PublicAotBinaryPayload.EncodeObject(payload);
+    }
+
+    private static string ExtractJsonLd(string html)
+    {
+        const string startMarker = "<script type=\"application/ld+json\" data-fsus-aot-head>";
+        int start = html.IndexOf(startMarker, StringComparison.Ordinal);
+        Assert.True(start >= 0, "missing JSON-LD script");
+        start += startMarker.Length;
+        int end = html.IndexOf("</script>", start, StringComparison.Ordinal);
+        Assert.True(end > start, "malformed JSON-LD script");
+        return html[start..end];
     }
 
     private static string Template(

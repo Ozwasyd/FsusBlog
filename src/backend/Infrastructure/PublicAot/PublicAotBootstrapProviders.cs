@@ -163,7 +163,12 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
             article.CreateTime,
             new PublicAotArticleCategorySnapshot(article.CategoryId, article.CategoryName),
             article.Tags,
-            ToRelatedReadingSnapshot(relatedReading)));
+            ToRelatedReadingSnapshot(relatedReading))
+        {
+            CoverImageUrl = article.CoverImageUrl ?? string.Empty,
+            PublishedAt = article.PublishedAt,
+            UpdatedAt = article.UpdatedAt
+        });
     }
 
     private async Task<ArticleDetailAotProjection?> LoadPublicArticleForAotAsync(
@@ -185,8 +190,11 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
                 Title = a.Title,
                 Content = body.MarkdownContent,
                 Summary = a.Summary,
+                CoverImageUrl = a.CoverImageUrl,
                 Views = a.Views,
                 CreateTime = a.CreateTime,
+                PublishedAt = a.PublishedAt,
+                UpdatedAt = body.UpdatedAt,
                 CategoryId = a.CategoryId,
                 CategoryName = category.Name
             })
@@ -252,8 +260,11 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         public string Title { get; init; } = string.Empty;
         public string Content { get; set; } = string.Empty;
         public string? Summary { get; set; }
+        public string? CoverImageUrl { get; set; }
         public int Views { get; init; }
         public DateTime CreateTime { get; init; }
+        public DateTime? PublishedAt { get; init; }
+        public DateTime? UpdatedAt { get; init; }
         public int CategoryId { get; init; }
         public string CategoryName { get; set; } = string.Empty;
         public string AuthorName { get; set; } = string.Empty;

@@ -4,6 +4,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -24,7 +25,20 @@ internal sealed record class PublicAotDocumentModel(
     string HeadLinks)
 {
     public FullAppTakeoverAssetSet FullAppTakeover { get; init; } = FullAppTakeoverAssetSet.Empty;
+
+    public PublicAotArticleSeoMetadata? ArticleSeo { get; init; }
 }
+
+internal sealed record class PublicAotArticleSeoMetadata(
+    string Headline,
+    string Description,
+    string Url,
+    DateTime? DatePublished,
+    DateTime? DateModified,
+    string AuthorName,
+    string ImageUrl,
+    string PublisherName,
+    string PublisherLogoUrl);
 
 // Design reference: docs/api/design.md "AOT sentinel 与 data-fsus-aot-head".
 internal static class PublicAotDocumentComposer
@@ -44,38 +58,13 @@ internal static class PublicAotDocumentComposer
         string title,
         string siteTitle,
         string description,
-        string canonicalUrl)
+        string canonicalUrl,
+        PublicAotArticleSeoMetadata? articleSeo = null)
     {
         string ogType = kind == PublicPageKind.ArticleDetail ? "article" : "website";
         string fullTitle = string.IsNullOrWhiteSpace(siteTitle) ? title : $"{title} - {siteTitle}";
-
-        string jsonLdType = kind == PublicPageKind.ArticleDetail ? "BlogPosting" : "WebSite";
         string siteRoot = ResolveSiteRoot(canonicalUrl);
-        string breadcrumbCurrentName = kind == PublicPageKind.Home ? "Home" : fullTitle;
-        string jsonLd = string.Concat(
-            "{\"@context\":\"https://schema.org\",\"@graph\":[",
-            "{\"@type\":\"WebSite\",",
-            "\"name\":\"", JavaScriptEncoder.Default.Encode(siteTitle), "\",",
-            "\"url\":\"", JavaScriptEncoder.Default.Encode(siteRoot), "\",",
-            "\"potentialAction\":{\"@type\":\"SearchAction\",",
-            "\"target\":\"", JavaScriptEncoder.Default.Encode(siteRoot.TrimEnd('/')), "/search?q={search_term_string}\",",
-            "\"query-input\":\"required name=search_term_string\"}}",
-            ",{\"@type\":\"BreadcrumbList\",\"itemListElement\":[",
-            "{\"@type\":\"ListItem\",\"position\":1,\"name\":\"Home\",\"item\":\"", JavaScriptEncoder.Default.Encode(siteRoot), "\"}",
-            kind == PublicPageKind.Home
-                ? string.Empty
-                : string.Concat(
-                    ",{\"@type\":\"ListItem\",\"position\":2,\"name\":\"",
-                    JavaScriptEncoder.Default.Encode(breadcrumbCurrentName),
-                    "\",\"item\":\"",
-                    JavaScriptEncoder.Default.Encode(canonicalUrl),
-                    "\"}"),
-            "]}",
-            ",{\"@type\":\"", JavaScriptEncoder.Default.Encode(jsonLdType), "\",",
-            "\"name\":\"", JavaScriptEncoder.Default.Encode(fullTitle), "\",",
-            "\"url\":\"", JavaScriptEncoder.Default.Encode(canonicalUrl), "\",",
-            "\"description\":\"", JavaScriptEncoder.Default.Encode(description), "\"}",
-            "]}");
+        string jsonLd = BuildJsonLd(kind, title, fullTitle, siteTitle, description, canonicalUrl, siteRoot, articleSeo);
         return $"""
 <meta name="description" content="{Encode(description)}" data-fsus-aot-head />
 <meta property="og:title" content="{Encode(fullTitle)}" data-fsus-aot-head />
@@ -91,6 +80,190 @@ internal static class PublicAotDocumentComposer
 <link rel="alternate" type="application/feed+json" title="{Encode(siteTitle)} JSON Feed" href="/feed/feed.json" data-fsus-aot-head />
 <script type="application/ld+json" data-fsus-aot-head>{jsonLd}</script>
 """;
+    }
+
+    private static string BuildJsonLd(
+        PublicPageKind kind,
+        string title,
+        string fullTitle,
+        string siteTitle,
+        string description,
+        string canonicalUrl,
+        string siteRoot,
+        PublicAotArticleSeoMetadata? articleSeo)
+    {
+        var graph = new List<Dictionary<string, object?>>(3)
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["@type"] = "WebSite",
+                ["name"] = siteTitle,
+                ["url"] = siteRoot,
+                ["potentialAction"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["@type"] = "SearchAction",
+                    ["target"] = $"{siteRoot.TrimEnd('/')}/search?q={{search_term_string}}",
+                    ["query-input"] = "required name=search_term_string"
+                }
+            },
+            BuildBreadcrumbJsonLd(kind, fullTitle, canonicalUrl, siteRoot)
+        };
+
+        graph.Add(kind == PublicPageKind.ArticleDetail
+            ? BuildBlogPostingJsonLd(title, fullTitle, description, canonicalUrl, siteRoot, siteTitle, articleSeo)
+            : new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["@type"] = "WebSite",
+                ["name"] = fullTitle,
+                ["url"] = canonicalUrl,
+                ["description"] = description
+            });
+
+        return JsonSerializer.Serialize(
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["@context"] = "https://schema.org",
+                ["@graph"] = graph
+            },
+            new JsonSerializerOptions
+            {
+                Encoder = JavaScriptEncoder.Default
+            });
+    }
+
+    private static Dictionary<string, object?> BuildBreadcrumbJsonLd(
+        PublicPageKind kind,
+        string fullTitle,
+        string canonicalUrl,
+        string siteRoot)
+    {
+        var items = new List<Dictionary<string, object?>>(2)
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["@type"] = "ListItem",
+                ["position"] = 1,
+                ["name"] = "Home",
+                ["item"] = siteRoot
+            }
+        };
+
+        if (kind != PublicPageKind.Home)
+        {
+            items.Add(new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["@type"] = "ListItem",
+                ["position"] = 2,
+                ["name"] = fullTitle,
+                ["item"] = canonicalUrl
+            });
+        }
+
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["@type"] = "BreadcrumbList",
+            ["itemListElement"] = items
+        };
+    }
+
+    private static Dictionary<string, object?> BuildBlogPostingJsonLd(
+        string title,
+        string fullTitle,
+        string description,
+        string canonicalUrl,
+        string siteRoot,
+        string siteTitle,
+        PublicAotArticleSeoMetadata? articleSeo)
+    {
+        string headline = NullIfEmpty(articleSeo?.Headline) ?? title;
+        string articleDescription = NullIfEmpty(articleSeo?.Description) ?? description;
+        string articleUrl = NullIfEmpty(articleSeo?.Url) ?? canonicalUrl;
+        string publisherName = NullIfEmpty(articleSeo?.PublisherName) ?? siteTitle;
+        string publisherLogoUrl = MakeAbsoluteUrl(siteRoot, articleSeo?.PublisherLogoUrl ?? string.Empty);
+        var node = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["@type"] = "BlogPosting",
+            ["name"] = fullTitle,
+            ["headline"] = headline,
+            ["description"] = articleDescription,
+            ["url"] = articleUrl,
+            ["mainEntityOfPage"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["@type"] = "WebPage",
+                ["@id"] = articleUrl
+            }
+        };
+
+        if (articleSeo?.DatePublished is { } publishedAt)
+        {
+            node["datePublished"] = publishedAt.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        if (articleSeo?.DateModified is { } modifiedAt)
+        {
+            node["dateModified"] = modifiedAt.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        if (!string.IsNullOrWhiteSpace(articleSeo?.AuthorName))
+        {
+            node["author"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["@type"] = "Person",
+                ["name"] = articleSeo.AuthorName.Trim()
+            };
+        }
+
+        string imageUrl = MakeAbsoluteUrl(siteRoot, articleSeo?.ImageUrl ?? string.Empty);
+        if (!string.IsNullOrWhiteSpace(imageUrl))
+        {
+            node["image"] = imageUrl;
+        }
+
+        if (!string.IsNullOrWhiteSpace(publisherName))
+        {
+            var publisher = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["@type"] = "Organization",
+                ["name"] = publisherName
+            };
+            if (!string.IsNullOrWhiteSpace(publisherLogoUrl))
+            {
+                publisher["logo"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["@type"] = "ImageObject",
+                    ["url"] = publisherLogoUrl
+                };
+            }
+
+            node["publisher"] = publisher;
+        }
+
+        return node;
+    }
+
+    private static string? NullIfEmpty(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string MakeAbsoluteUrl(string siteRoot, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        string trimmed = value.Trim();
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out Uri? absolute) &&
+            (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps))
+        {
+            return absolute.ToString();
+        }
+
+        if (!Uri.TryCreate(siteRoot, UriKind.Absolute, out Uri? root))
+        {
+            return trimmed;
+        }
+
+        return new Uri(root, trimmed.StartsWith("/", StringComparison.Ordinal) ? trimmed : "/" + trimmed).ToString();
     }
 
     private static string ResolveSiteRoot(string canonicalUrl)
@@ -155,7 +328,7 @@ internal static class PublicAotDocumentComposer
         => $"""
 {BuildThemeBootstrapScript()}
     <title>{Encode(model.Title)}{BuildTitleSuffix(model.Title, model.SiteTitle)}</title>
-    {BuildSeoHeadTags(model.Kind, model.Title, model.SiteTitle, model.Description, model.CanonicalUrl)}
+    {BuildSeoHeadTags(model.Kind, model.Title, model.SiteTitle, model.Description, model.CanonicalUrl, model.ArticleSeo)}
 """;
 
     private static void ValidateSentinels(string template)

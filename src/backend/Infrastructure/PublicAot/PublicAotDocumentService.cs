@@ -17,11 +17,10 @@ public sealed class PublicAotDocumentService(
     ILogger<PublicAotDocumentService> logger) : IPublicAotDocumentService
 {
     private static readonly string EmptyPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>(StringComparer.Ordinal));
-    private readonly string _configuredBaseUrl = NormalizeBaseUrl(
+    private readonly string? _configuredBaseUrl = NormalizeBaseUrlOrNull(
         configuration["Seo:BaseUrl"]
         ?? configuration["Seo__BaseUrl"]
-        ?? configuration["SITE_BASEURL"]
-        ?? "https://fsus.blog");
+        ?? configuration["SITE_BASEURL"]);
 
     public async Task<Result<string>> ComposeAsync(
         PublicAotShellEntryContract entry,
@@ -54,8 +53,9 @@ public sealed class PublicAotDocumentService(
             string title = ResolveTitle(entry, payloads, seo.Title);
             string description = ResolveDescription(entry, payloads, seo.Description);
             string siteTitle = ResolvePayloadString(payloads.Hydration, "siteTitle", seo.Title);
-            string canonicalUrl = string.Concat(NormalizeBaseUrl(entry.BaseUrl) ?? _configuredBaseUrl, ResolveCanonicalPath(entry));
             PublicPageKind kind = ResolvePageKind(entry.PageId);
+            string canonicalUrl = string.Concat(ResolveCanonicalBaseUrl(entry.BaseUrl, _configuredBaseUrl), ResolveCanonicalPath(entry));
+            PublicAotArticleSeoMetadata? articleSeo = BuildArticleSeoMetadata(kind, payloads, canonicalUrl, title, description, siteTitle, seo);
             string shell = PublicAotDocumentComposer.EnsureShellRoot(NormalizeHtml(entry.Html, entry.ArticleId), kind);
             string headLinks = BuildHeadLinks(rawTemplate, assetSet, seo);
             string bootstrapPayload = NormalizeOptionalText(entry.BootstrapPayload ?? EmptyPayload, entry.ArticleId);
@@ -77,7 +77,8 @@ public sealed class PublicAotDocumentService(
                 assetSet.EntryScript,
                 headLinks)
             {
-                FullAppTakeover = assetSet.FullAppTakeover
+                FullAppTakeover = assetSet.FullAppTakeover,
+                ArticleSeo = articleSeo
             }));
         }
         catch (Exception ex)
@@ -275,6 +276,88 @@ public sealed class PublicAotDocumentService(
     private static string ResolveCanonicalPath(PublicAotShellEntryContract entry)
         => PublicRouteIdentity.BuildCanonicalPath(entry.PageId, entry.RouteKey, entry.ArticleId);
 
+    private static string ResolveCanonicalBaseUrl(string? entryBaseUrl, string? configuredBaseUrl)
+    {
+        string? configured = NormalizeBaseUrlOrNull(configuredBaseUrl);
+        string? entry = NormalizeBaseUrlOrNull(entryBaseUrl);
+        if (!string.IsNullOrWhiteSpace(configured) && (string.IsNullOrWhiteSpace(entry) || IsProjectDefaultBaseUrl(entry)))
+        {
+            return configured;
+        }
+
+        return entry ?? configured ?? "https://fsus.blog";
+    }
+
+    private static bool IsProjectDefaultBaseUrl(string value)
+        => string.Equals(value, "https://fsus.blog", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "https://blog.fsus.blog", StringComparison.OrdinalIgnoreCase);
+
+    private static PublicAotArticleSeoMetadata? BuildArticleSeoMetadata(
+        PublicPageKind kind,
+        DecodedEntryPayloads payloads,
+        string canonicalUrl,
+        string title,
+        string description,
+        string siteTitle,
+        SeoConfigReadModel seo)
+    {
+        if (kind != PublicPageKind.ArticleDetail)
+        {
+            return null;
+        }
+
+        IReadOnlyDictionary<string, object?>? payload =
+            TryResolveArticlePayload(payloads.Hydration)
+            ?? TryResolveArticlePayload(payloads.Bootstrap)
+            ?? payloads.Hydration
+            ?? payloads.Bootstrap;
+        string headline = ResolvePayloadString(payload, "title", title);
+        string author = ResolvePayloadString(payload, "authorName", seo.Author);
+        string image = ResolvePayloadString(payload, "coverImageUrl", seo.OgImage);
+        DateTime? publishedAt = ResolvePayloadDate(payload, "publishedAt") ?? ResolvePayloadDate(payload, "createTime");
+        DateTime? modifiedAt = ResolvePayloadDate(payload, "updatedAt") ?? publishedAt;
+        string publisherLogo = FirstNonEmpty(seo.SiteLogoUrl, seo.SiteLogoDarkUrl, seo.SiteWordmarkUrl, seo.LoginLogoUrl, seo.LoginIconUrl);
+
+        return new PublicAotArticleSeoMetadata(
+            headline,
+            description,
+            canonicalUrl,
+            publishedAt,
+            modifiedAt,
+            author,
+            image,
+            siteTitle,
+            publisherLogo);
+    }
+
+    private static IReadOnlyDictionary<string, object?>? TryResolveArticlePayload(IReadOnlyDictionary<string, object?>? payload)
+        => payload is null
+            ? null
+            : PublicAotBinaryPayload.TryGetObject(payload, "article");
+
+    private static DateTime? ResolvePayloadDate(IReadOnlyDictionary<string, object?>? payload, string propertyName)
+    {
+        string raw = ResolvePayloadString(payload, propertyName, string.Empty);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        if (DateTimeOffset.TryParse(
+            raw,
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+            out DateTimeOffset dateTimeOffset))
+        {
+            return dateTimeOffset.UtcDateTime;
+        }
+
+        return null;
+    }
+
+    private static string FirstNonEmpty(params string?[] values)
+        => values.FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? string.Empty;
+
     private static string Summarize(string raw, string fallback)
     {
         if (string.IsNullOrWhiteSpace(raw))
@@ -296,8 +379,21 @@ public sealed class PublicAotDocumentService(
             ? value.Replace("{{articleId}}", articleId.Value.ToString(), StringComparison.OrdinalIgnoreCase)
             : value;
 
-    private static string NormalizeBaseUrl(string? value)
-        => string.IsNullOrWhiteSpace(value) ? "https://fsus.blog" : value.Trim().TrimEnd('/');
+    private static string? NormalizeBaseUrlOrNull(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        string trimmed = value.Trim().TrimEnd('/');
+        return Uri.TryCreate(trimmed, UriKind.Absolute, out Uri? uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+            && string.IsNullOrEmpty(uri.Query)
+            && string.IsNullOrEmpty(uri.Fragment)
+                ? trimmed
+                : null;
+    }
 
     private sealed record DecodedEntryPayloads(
         IReadOnlyDictionary<string, object?>? Bootstrap,

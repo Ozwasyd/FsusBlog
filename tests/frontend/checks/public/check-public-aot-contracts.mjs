@@ -77,6 +77,7 @@ function assertStaticContracts() {
   const runtimePublicAotServices = read('src/backend/Infrastructure/Bootstrap/RuntimePublicAotServiceCollectionExtensions.cs')
   const aedsOnlyAllowlist = read('tools/contracts/aeds-only-policy.allowlist.json')
   const publicAotHealthCommand = read('tools/operations/public-aot-health.mjs')
+  const publicSeoSmoke = read('tests/frontend/checks/public/public-seo-smoke.mjs')
 
   if (prodWorker.includes("from 'vite'") || prodWorker.includes('createServer') || prodWorker.includes('ssrLoadModule')) {
     fail('production bundle worker must not import or create Vite runtime')
@@ -455,6 +456,22 @@ function assertStaticContracts() {
   for (const token of ['/internal/public-aot/health', 'X-Fsus-Public-Aot-Token', 'FSUSBLOG_PUBLIC_AOT_TOKEN']) {
     if (!publicAotHealthCommand.includes(token)) {
       fail(`Public AOT health command missing token: ${token}`)
+    }
+  }
+  for (const token of [
+    'assertDistributionCanonicalCoherence',
+    '/sitemap.xml',
+    '/feed/rss.xml',
+    '/feed/atom.xml',
+    '/feed/feed.json',
+    'mainEntityOfPage',
+    'datePublished',
+    'dateModified',
+    'BlogPosting',
+    'canonical origin mismatch'
+  ]) {
+    if (!publicSeoSmoke.includes(token)) {
+      fail(`public SEO smoke missing canonical/structured-data coherence token: ${token}`)
     }
   }
 }

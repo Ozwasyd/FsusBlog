@@ -39,9 +39,12 @@ internal static class PublicAotRendererPayloadMapper
                 common["title"] = article.Title;
                 common["bodyContent"] = article.Content;
                 common["summary"] = article.Summary;
+                common["coverImageUrl"] = article.CoverImageUrl;
                 common["views"] = article.Views;
                 common["authorName"] = article.AuthorName;
-                common["createTime"] = article.CreateTime;
+                common["createTime"] = article.CreateTime.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+                common["publishedAt"] = article.PublishedAt?.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+                common["updatedAt"] = article.UpdatedAt?.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
                 common["categoryId"] = article.Category.Id;
                 common["categoryName"] = article.Category.Name;
                 common["tags"] = article.Tags.Select(ToTagPayload).ToArray();

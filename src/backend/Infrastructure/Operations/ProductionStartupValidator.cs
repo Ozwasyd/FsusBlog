@@ -146,7 +146,7 @@ public static class ProductionStartupValidator
             requirements.Add(new ProductionStartupValidationRequirement(rule.Key, isPresent));
             values[rule.Key] = value;
 
-            if (!isPresent)
+            if (!isPresent && enforceProductionRules)
             {
                 errors.Add($"{rule.Key} is required.");
             }

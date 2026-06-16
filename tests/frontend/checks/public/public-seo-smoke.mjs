@@ -108,6 +108,111 @@ function normalizePath(path) {
   return path.endsWith('/') ? path.slice(0, -1) : path;
 }
 
+function readJsonLd(body, label) {
+  const match = body.match(/<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i);
+  assert(match?.[1], `[${label}] missing JSON-LD body`);
+  try {
+    return JSON.parse(match[1]);
+  } catch (error) {
+    throw new Error(`[${label}] JSON-LD parse failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+function hasType(node, type) {
+  const value = node?.['@type'];
+  return Array.isArray(value) ? value.includes(type) : value === type;
+}
+
+function findGraphNode(jsonLd, type) {
+  const graph = Array.isArray(jsonLd?.['@graph']) ? jsonLd['@graph'] : [];
+  return graph.find((node) => hasType(node, type)) || null;
+}
+
+function mainEntityUrl(node) {
+  const value = node?.mainEntityOfPage;
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value && typeof value === 'object') {
+    return value['@id'] || value.url || '';
+  }
+  return '';
+}
+
+function assertSameOrigin(left, right, label) {
+  assert(left.origin === right.origin, `${label} canonical origin mismatch: ${left.origin} != ${right.origin}`);
+}
+
+function assertJsonLdCoherence(body, item, canonicalUrl, ogUrl) {
+  const jsonLd = readJsonLd(body, item.name);
+  const website = findGraphNode(jsonLd, 'WebSite');
+  const breadcrumb = findGraphNode(jsonLd, 'BreadcrumbList');
+  assert(website, `[${item.name}] JSON-LD missing WebSite graph node`);
+  assert(breadcrumb, `[${item.name}] JSON-LD missing BreadcrumbList graph node`);
+
+  if (item.name === 'article_detail') {
+    const blogPosting = findGraphNode(jsonLd, 'BlogPosting');
+    assert(blogPosting, `[${item.name}] JSON-LD missing BlogPosting node`);
+    const jsonUrl = new URL(blogPosting.url || '', canonicalUrl);
+    const mainEntity = new URL(mainEntityUrl(blogPosting), canonicalUrl);
+    assertSameOrigin(canonicalUrl, jsonUrl, `[${item.name}] JSON-LD url`);
+    assertSameOrigin(canonicalUrl, mainEntity, `[${item.name}] JSON-LD mainEntityOfPage`);
+    assertSameOrigin(canonicalUrl, ogUrl, `[${item.name}] OG URL`);
+    assert(normalizePath(jsonUrl.pathname) === normalizePath(canonicalUrl.pathname), `[${item.name}] JSON-LD url path mismatch`);
+    assert(normalizePath(mainEntity.pathname) === normalizePath(canonicalUrl.pathname), `[${item.name}] JSON-LD mainEntityOfPage path mismatch`);
+    assert(blogPosting.headline, `[${item.name}] BlogPosting missing headline`);
+    assert(blogPosting.description, `[${item.name}] BlogPosting missing description`);
+    assert(blogPosting.datePublished, `[${item.name}] BlogPosting missing datePublished`);
+    assert(blogPosting.dateModified, `[${item.name}] BlogPosting missing dateModified`);
+    assert(blogPosting.author?.name, `[${item.name}] BlogPosting missing author.name`);
+    assert(!JSON.stringify(blogPosting).match(/draft|moderation|admin/i), `[${item.name}] BlogPosting leaks private article state`);
+    return;
+  }
+
+  const jsonText = JSON.stringify(jsonLd);
+  assert(!jsonText.includes('"@type":"BlogPosting"'), `[${item.name}] static page must not emit BlogPosting`);
+  assert(!jsonText.includes('"headline"'), `[${item.name}] static page must not emit article headline`);
+  assert(!jsonText.includes('"datePublished"'), `[${item.name}] static page must not emit article dates`);
+  assert(!jsonText.includes('"mainEntityOfPage"'), `[${item.name}] static page must not emit article mainEntityOfPage`);
+}
+
+async function fetchPublicText(path, accept = 'text/plain') {
+  const response = await fetchWithTimeout(`${baseUrl}${path}`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (FsusBlog Public SEO Smoke)',
+      Accept: accept
+    }
+  }, requestTimeoutMs);
+  const body = await response.text();
+  assert(response.ok, `[distribution:${path}] expected 2xx, got ${response.status}`);
+  return body;
+}
+
+async function assertDistributionCanonicalCoherence(canonical) {
+  const [sitemap, rss, atom, jsonFeedText] = await Promise.all([
+    fetchPublicText('/sitemap.xml', 'application/xml,text/xml'),
+    fetchPublicText('/feed/rss.xml', 'application/rss+xml,application/xml,text/xml'),
+    fetchPublicText('/feed/atom.xml', 'application/atom+xml,application/xml,text/xml'),
+    fetchPublicText('/feed/feed.json', 'application/feed+json,application/json')
+  ]);
+
+  assert(sitemap.includes(`<loc>${canonical}</loc>`), `[distribution] sitemap missing article canonical URL: ${canonical}`);
+  assert(rss.includes(`<link>${canonical}</link>`) || rss.includes(`isPermaLink="true">${canonical}</guid>`), `[distribution] RSS missing article canonical URL: ${canonical}`);
+  assert(atom.includes(`<id>${canonical}</id>`) || atom.includes(`href="${canonical}"`), `[distribution] Atom missing article canonical URL: ${canonical}`);
+
+  let jsonFeed;
+  try {
+    jsonFeed = JSON.parse(jsonFeedText);
+  } catch (error) {
+    throw new Error(`[distribution] JSON Feed parse failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  assert(
+    Array.isArray(jsonFeed.items) && jsonFeed.items.some((entry) => entry.url === canonical || entry.external_url === canonical),
+    `[distribution] JSON Feed missing article canonical URL: ${canonical}`
+  );
+}
+
 function assertPublicHydrationContract(body, item) {
   if (!item.expectedHydrationKind) {
     return;
@@ -177,15 +282,20 @@ async function runCheck(item) {
 
   const canonical = readMetaContent(body, /<link rel="canonical" href="([^"]+)"/, `${item.name} canonical href`);
   const ogUrl = readMetaContent(body, /<meta property="og:url" content="([^"]+)"/, `${item.name} og:url`);
-  const canonicalPath = normalizePath(new URL(canonical).pathname);
-  const ogPath = normalizePath(new URL(ogUrl).pathname);
+  const canonicalUrl = new URL(canonical);
+  const openGraphUrl = new URL(ogUrl);
+  const canonicalPath = normalizePath(canonicalUrl.pathname);
+  const ogPath = normalizePath(openGraphUrl.pathname);
   const expectedPath = normalizePath(item.path);
   assert(canonicalPath === expectedPath, `[${item.name}] canonical path mismatch: expected ${expectedPath}, got ${canonicalPath}`);
   assert(ogPath === expectedPath, `[${item.name}] og:url path mismatch: expected ${expectedPath}, got ${ogPath}`);
-  assert(!new URL(canonical).search, `[${item.name}] canonical should not include query`);
-  assert(!new URL(ogUrl).search, `[${item.name}] og:url should not include query`);
+  assertSameOrigin(canonicalUrl, openGraphUrl, `[${item.name}] OG URL`);
+  assert(!canonicalUrl.search, `[${item.name}] canonical should not include query`);
+  assert(!openGraphUrl.search, `[${item.name}] og:url should not include query`);
+  assertJsonLdCoherence(body, item, canonicalUrl, openGraphUrl);
 
   if (item.name === 'article_detail') {
+    await assertDistributionCanonicalCoherence(canonical);
     assert(body.includes('data-markdown-renderer="wasm"'), `[${item.name}] missing markdown wasm host marker`);
     assert(body.includes('markdown-renderer__body'), `[${item.name}] missing markdown renderer body class`);
     assertAotCodeBlocksAreShikiHighlighted(body, item.name);
