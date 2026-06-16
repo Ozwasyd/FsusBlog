@@ -6,7 +6,7 @@
           {{ siteTitleText }}<span class="text-[var(--fsusblog-text-muted)]">.</span>
         </div>
         <p class="leading-relaxed">
-          © {{ copyrightYearText }} {{ copyrightOwnerText }}。{{ copyrightNoticeText }}
+          ©<template v-if="copyrightYearText"> {{ copyrightYearText }}</template> {{ copyrightOwnerText }}。{{ copyrightNoticeText }}
         </p>
         <p v-if="licenseText" class="leading-relaxed">
           除特别注明外，本站内容采用
@@ -80,7 +80,10 @@ const props = defineProps<{
   renderYear?: number | null
 }>()
 
-const currentYear = computed(() => Number.isInteger(props.renderYear) ? Number(props.renderYear) : new Date().getFullYear())
+const currentYear = computed(() => {
+  const renderYear = Number(props.renderYear)
+  return Number.isInteger(renderYear) && renderYear > 0 ? renderYear : null
+})
 const normalizedCompliance = computed(() => normalizePublicComplianceConfig(props.compliance))
 const siteTitleText = computed(() => normalizePublicSiteTitle(props.siteTitle))
 const isComplianceEnabled = computed(() => Boolean(normalizedCompliance.value?.enabled))
@@ -91,10 +94,15 @@ const copyrightNoticeText = computed(() => {
 })
 const copyrightYearText = computed(() => {
   const startYear = normalizedCompliance.value?.copyrightStartYear
-  if (isComplianceEnabled.value && startYear && startYear < currentYear.value) {
-    return `${startYear}-${currentYear.value}`
+  const renderYear = currentYear.value
+  if (!renderYear) {
+    return ''
   }
-  return `${currentYear.value}`
+
+  if (isComplianceEnabled.value && startYear && startYear < renderYear) {
+    return `${startYear}-${renderYear}`
+  }
+  return `${renderYear}`
 })
 const licenseText = computed(() => {
   const value = normalizedCompliance.value?.contentLicenseName

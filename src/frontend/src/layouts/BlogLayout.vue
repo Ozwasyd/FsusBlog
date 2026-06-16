@@ -42,9 +42,11 @@ const route = useRoute()
 const takeoverShellSeed = createPublicTakeoverSeed(readPublicHydrationPayload())
 // Hydration invariant: runtime shell state remains SSR-compatible until auth and store-backed controls can update after mount.
 const isMounted = ref(false)
+const runtimeRenderYear = ref<number | null>(takeoverShellSeed?.renderYear ?? null)
 
 onMounted(() => {
   isMounted.value = true
+  runtimeRenderYear.value = new Date().getFullYear()
   // Defer site info loading to avoid hydration mismatch
   // Site info should be fetched after hydration completes
   setTimeout(() => {
@@ -69,7 +71,7 @@ const shellState = computed(() => createPublicShellViewState({
   siteLogoDarkUrl: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteLogoDarkUrl : siteStore.siteInfo.siteLogoDarkUrl,
   siteWordmarkUrl: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteWordmarkUrl : siteStore.siteInfo.siteWordmarkUrl,
   compliance: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.compliance : siteStore.complianceInfo,
-  renderYear: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.renderYear : null,
+  renderYear: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.renderYear : runtimeRenderYear.value,
   isSearchRoute: isSearchRoute.value,
   initialSearchQuery: isSearchRoute.value ? String(route.query.q || '') : '',
   spaSearch: isMounted.value && runtimeReady.value,

@@ -6,6 +6,14 @@ const shellSource = readFileSync(
   resolve(process.cwd(), 'src/components/public/PublicBlogLayoutShell.vue'),
   'utf8'
 )
+const complianceFooterSource = readFileSync(
+  resolve(process.cwd(), 'src/components/public/PublicComplianceFooter.vue'),
+  'utf8'
+)
+const blogLayoutSource = readFileSync(
+  resolve(process.cwd(), 'src/layouts/BlogLayout.vue'),
+  'utf8'
+)
 const themeToggleSource = readFileSync(
   resolve(process.cwd(), 'src/components/ui/ThemeModeToggle.vue'),
   'utf8'
@@ -53,5 +61,17 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(themeRuntimeSource).toContain('reconcileThemeRuntimeAfterHydration')
     expect(themeToggleSource).toContain('onMounted(() =>')
     expect(themeToggleSource).toContain('reconcileThemeRuntimeAfterHydration()')
+  })
+
+  it('keeps compliance footer year derived from the shell renderYear', () => {
+    expect(shellSource).toContain(':render-year="renderYear"')
+    expect(complianceFooterSource).toContain('Number(props.renderYear)')
+    expect(complianceFooterSource).toContain('Number.isInteger(renderYear)')
+    expect(complianceFooterSource).not.toContain('new Date().getFullYear()')
+    expect(blogLayoutSource).toContain('const runtimeRenderYear = ref<number | null>')
+    expect(blogLayoutSource).toContain('runtimeRenderYear.value = new Date().getFullYear()')
+    expect(blogLayoutSource.indexOf('onMounted(() =>')).toBeLessThan(
+      blogLayoutSource.indexOf('runtimeRenderYear.value = new Date().getFullYear()')
+    )
   })
 })
