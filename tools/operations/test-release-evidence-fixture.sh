@@ -8,6 +8,7 @@ TRACKED_TMP_FILES=(
   ".tmp/release-evidence/frontend-render-pressure-summary.json"
   ".tmp/release-evidence/doc-sync-summary.json"
   ".tmp/release-evidence/backend-qps-summary.json"
+  ".tmp/release-evidence/public-hydration-detector-summary.json"
   ".tmp/frontend/dom-budget.json"
   ".tmp/frontend/route-render-pressure.json"
   ".tmp/frontend/markdown-render-budget.json"
@@ -246,6 +247,7 @@ printf '{"summary":{"linecoverage":78,"branchcoverage":58,"methodcoverage":96,"a
 mkdir -p "$ROOT_DIR/.tmp/frontend" "$ROOT_DIR/.tmp/release-evidence"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json"
+printf '{"schema":"fsusblog.public-hydration-detector.v1","status":"success","fatalHydrationIssueCount":0,"routesChecked":[{"route":"/","routeName":"home","stage":"home:first-visit:hydrate","browser":"chromium","viewport":{"name":"desktop","width":1440,"height":900},"status":"success"}],"warnings":[],"errors":[]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-detector-summary.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/dom-budget.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/route-render-pressure.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/markdown-render-budget.json"
@@ -286,6 +288,7 @@ jq -e '
   and .artifacts.faultInjection == "fault-injection"
   and .artifacts.soak == "soak"
   and .artifacts.backendQpsSummary == "backend-qps-summary.json"
+  and .artifacts.publicHydrationDetectorSummary == "public-hydration-detector-summary.json"
   and .artifactDigests.productionExposureStatus.algorithm == "sha256"
   and (.artifactDigests.productionExposureStatus.value | test("^[0-9a-f]{64}$"))
   and .artifactDigests.productionExposureRequest.algorithm == "sha256"
@@ -329,6 +332,7 @@ jq -e '
   and .evidenceSummary.operations.runtimeTuning.nonDefaultPresetsRequireBenchmarkEvidence == true
   and .evidenceSummary.operations.runtimeTuning.rollback == "unset RuntimeTuning/DOTNET_* overrides and restart on the same image"
   and .evidenceSummary.gates.backendQps == "ok"
+  and .evidenceSummary.gates.publicHydrationDetector == "success"
   and .evidenceSummary.security.attackMatrix == "ok"
   and .evidenceSummary.security.permissionMatrix == "ok"
   and .evidenceSummary.security.supplyChain == "ok"

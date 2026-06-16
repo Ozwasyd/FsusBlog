@@ -181,6 +181,8 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 - `check:aot` — AOT 契约合规（`PublicAotShellEntryContract` 格式验证）
 - `check:error-code-alignment` — 前后端错误码枚举一致性
 
+`check:public-hydration` 中的 refresh hydration detector 会把匹配 Vue hydration 关键词的 `console.warn`、`console.error` 与 `pageerror` 统一视为 release-blocking failure；不得以 `PASS (n warning(s))` 形式放行 hydration warning。该 detector 每次运行都会写入 `.tmp/release-evidence/public-hydration-detector-summary.json`，schema 为 `fsusblog.public-hydration-detector.v1`，并包含 route、stage、browser、viewport、warnings/errors 与 detector canary 结果。release evidence manifest 会索引该文件；缺失或 `status != "success"` 会阻断 release closeout。
+
 ---
 
 ### `acceptance` — 全量 Playwright E2E

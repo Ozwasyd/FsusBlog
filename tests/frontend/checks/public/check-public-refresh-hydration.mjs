@@ -18,7 +18,9 @@
  *   FSUSBLOG_BASE_URL=http://127.0.0.1:5000 node ../../tests/frontend/checks/public/check-public-refresh-hydration.mjs
  */
 import { createRequire } from 'node:module'
-import { existsSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
 
 const require = createRequire(import.meta.url)
@@ -37,6 +39,10 @@ const PUBLIC_RELOAD_SETTLE_TIMEOUT_MS = parsePositiveInt(
 const PUBLIC_MUTATED_SITE_TITLE = 'Changed Site Settings After SSR'
 const PUBLIC_MUTATED_SITE_DESCRIPTION = 'This title should not be used by the first SPA takeover render.'
 const PUBLIC_SSR_ENTRY_URL = new URL('../../../../src/frontend/dist/server/renderPublicPage.js', import.meta.url)
+const PUBLIC_HYDRATION_DETECTOR_SCHEMA = 'fsusblog.public-hydration-detector.v1'
+const PUBLIC_HYDRATION_DETECTOR_SUMMARY_FILE = process.env.FSUSBLOG_PUBLIC_HYDRATION_SUMMARY_FILE
+  || fileURLToPath(new URL('../../../../.tmp/release-evidence/public-hydration-detector-summary.json', import.meta.url))
+const PUBLIC_HYDRATION_BROWSER = 'chromium'
 
 const HYDRATION_KEYWORDS = [
   'Hydration',
@@ -118,6 +124,82 @@ function parsePositiveInt(value, fallback) {
 function isHydrationIssue(text) {
   const lower = text.toLowerCase()
   return HYDRATION_KEYWORDS.some((k) => lower.includes(k.toLowerCase()))
+}
+
+function normalizeIssueType(type) {
+  return type === 'warn' ? 'warning' : type
+}
+
+function createHydrationIssueRecorder(page, initialStage = 'setup') {
+  const issues = []
+  const seenIssues = new Set()
+  let currentStage = initialStage
+
+  function recordIssue(type, text, stage = currentStage) {
+    const normalizedType = normalizeIssueType(type)
+    const normalizedText = String(text).substring(0, 500)
+    const key = `${normalizedType}:${stage}:${normalizedText}`
+    if (seenIssues.has(key)) {
+      return
+    }
+
+    seenIssues.add(key)
+    issues.push({
+      type: normalizedType,
+      text: normalizedText,
+      stage,
+      isFatalHydrationIssue: true,
+    })
+  }
+
+  page.on('console', (msg) => {
+    const text = msg.text()
+    const type = msg.type()
+    if ((type === 'warn' || type === 'warning' || type === 'error') && isHydrationIssue(text)) {
+      recordIssue(type, text)
+    }
+  })
+
+  page.on('pageerror', (err) => {
+    const text = err.message
+    if (
+      isHydrationIssue(text) ||
+      text.includes('[public-') ||
+      text.includes('remount') ||
+      text.includes('subtree rebuilt')
+    ) {
+      recordIssue('error', text)
+    }
+  })
+
+  return {
+    issues,
+    recordIssue,
+    setStage(stage) {
+      currentStage = stage
+    },
+  }
+}
+
+function issueWithContext(issue, route, viewport) {
+  return {
+    route: route.route,
+    routeName: route.name,
+    stage: issue.stage,
+    browser: PUBLIC_HYDRATION_BROWSER,
+    viewport: {
+      name: viewport.name,
+      width: viewport.width,
+      height: viewport.height,
+    },
+    type: issue.type,
+    text: issue.text,
+  }
+}
+
+function writeSummary(summary) {
+  mkdirSync(dirname(PUBLIC_HYDRATION_DETECTOR_SUMMARY_FILE), { recursive: true })
+  writeFileSync(PUBLIC_HYDRATION_DETECTOR_SUMMARY_FILE, `${JSON.stringify(summary, null, 2)}\n`)
 }
 
 async function waitForVueMount(page, maxMs = 5000) {
@@ -594,40 +676,7 @@ async function assertTakeoverIgnoresMutatedSettingsScenario(page, helpers) {
 }
 
 async function runScenario(page, baseUrl, route) {
-  const issues = []
-  const seenIssues = new Set()
-  let currentStage = 'setup'
-
-  function recordIssue(type, text, stage) {
-    const normalizedText = text.substring(0, 200)
-    const key = `${type}:${stage}:${normalizedText}`
-    if (seenIssues.has(key)) {
-      return
-    }
-
-    seenIssues.add(key)
-    issues.push({ type, text: normalizedText, stage })
-  }
-
-  page.on('console', (msg) => {
-    const text = msg.text()
-    const type = msg.type()
-    if ((type === 'warn' || type === 'error') && isHydrationIssue(text)) {
-      recordIssue(type, text, currentStage)
-    }
-  })
-
-  page.on('pageerror', (err) => {
-    const text = err.message
-    if (
-      isHydrationIssue(text) ||
-      text.includes('[public-') ||
-      text.includes('remount') ||
-      text.includes('subtree rebuilt')
-    ) {
-      recordIssue('error', text, currentStage)
-    }
-  })
+  const recorder = createHydrationIssueRecorder(page)
 
   const helpers = {
     name: route.name,
@@ -641,15 +690,15 @@ async function runScenario(page, baseUrl, route) {
       await assertShellProbeDisposedByRemount(page, marker, expectedKind)
     },
     async triggerFullSpaTakeover(expectedKind, expectedPath = null) {
-      currentStage = `${route.name}:interaction:full-spa-takeover`
+      recorder.setStage(`${route.name}:interaction:full-spa-takeover`)
       await triggerFullSpaTakeover(page, expectedKind, expectedPath)
     },
     async clickPublicNav(navKey, expectedPath, expectedKind) {
-      currentStage = `${route.name}:interaction:nav:${navKey}`
+      recorder.setStage(`${route.name}:interaction:nav:${navKey}`)
       await clickPublicNav(page, navKey, expectedPath, expectedKind)
     },
     async reloadAndWaitForHydration(expectedKind, expectedPath = null, options = {}) {
-      currentStage = `${route.name}:interaction:reload`
+      recorder.setStage(`${route.name}:interaction:reload`)
       const deadline = Date.now() + (options.allowInitialSpaFallback
         ? PUBLIC_RELOAD_SETTLE_TIMEOUT_MS
         : PUBLIC_HYDRATION_TIMEOUT_MS)
@@ -702,20 +751,20 @@ async function runScenario(page, baseUrl, route) {
     },
   }
 
-  currentStage = `${route.name}:first-visit:navigation`
+  recorder.setStage(`${route.name}:first-visit:navigation`)
   try {
     await page.goto(`${baseUrl}${route.route}`, { waitUntil: 'networkidle', timeout: 30000 })
   } catch (err) {
-    recordIssue('error', `goto failed: ${err.message}`, currentStage)
-    return issues
+    recorder.recordIssue('error', `goto failed: ${err.message}`)
+    return recorder.issues
   }
 
-  currentStage = `${route.name}:first-visit:hydrate`
+  recorder.setStage(`${route.name}:first-visit:hydrate`)
   try {
     await waitForPublicHydration(page, route.expectedKind)
   } catch (err) {
-    recordIssue('error', `hydration wait failed: ${err.message}`, currentStage)
-    return issues
+    recorder.recordIssue('error', `hydration wait failed: ${err.message}`)
+    return recorder.issues
   }
 
   const struct1 = await checkShellStructure(page, {
@@ -724,23 +773,23 @@ async function runScenario(page, baseUrl, route) {
     requireHydrationMetrics: true,
   })
   if (!struct1.ok) {
-    recordIssue('error', `DOM structure after first visit: ${struct1.reason}`, `${route.name}:first-visit:structure`)
+    recorder.recordIssue('error', `DOM structure after first visit: ${struct1.reason}`, `${route.name}:first-visit:structure`)
   }
 
-  currentStage = `${route.name}:reload:navigation`
+  recorder.setStage(`${route.name}:reload:navigation`)
   try {
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
   } catch (err) {
-    recordIssue('error', `reload failed: ${err.message}`, currentStage)
-    return issues
+    recorder.recordIssue('error', `reload failed: ${err.message}`)
+    return recorder.issues
   }
 
-  currentStage = `${route.name}:reload:hydrate`
+  recorder.setStage(`${route.name}:reload:hydrate`)
   try {
     await waitForPublicHydration(page, route.expectedKind)
   } catch (err) {
-    recordIssue('error', `reload hydration wait failed: ${err.message}`, currentStage)
-    return issues
+    recorder.recordIssue('error', `reload hydration wait failed: ${err.message}`)
+    return recorder.issues
   }
 
   const struct2 = await checkShellStructure(page, {
@@ -749,19 +798,19 @@ async function runScenario(page, baseUrl, route) {
     requireHydrationMetrics: true,
   })
   if (!struct2.ok) {
-    recordIssue('error', `DOM structure after reload: ${struct2.reason}`, `${route.name}:reload:structure`)
+    recorder.recordIssue('error', `DOM structure after reload: ${struct2.reason}`, `${route.name}:reload:structure`)
   }
 
   if (typeof route.interact === 'function') {
-    currentStage = `${route.name}:interaction:start`
+    recorder.setStage(`${route.name}:interaction:start`)
     try {
       await route.interact(page, helpers)
     } catch (err) {
-      recordIssue('error', `interaction failed: ${err.message}`, currentStage)
+      recorder.recordIssue('error', `interaction failed: ${err.message}`)
     }
   }
 
-  return issues
+  return recorder.issues
 }
 
 async function runRoute(baseUrl, route, viewportSize) {
@@ -783,22 +832,138 @@ async function runRoute(baseUrl, route, viewportSize) {
   return issues
 }
 
+async function runDetectorCanary(viewport) {
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...(executablePath ? { executablePath } : {}),
+  })
+  const context = await browser.newContext({
+    viewport: { width: viewport.width, height: viewport.height },
+    javaScriptEnabled: true,
+  })
+  const page = await context.newPage()
+  const recorder = createHydrationIssueRecorder(page, 'detector-canary:console-warn')
+
+  try {
+    await page.setContent('<!doctype html><html><body><div id="app"><span>server</span></div></body></html>')
+    await page.evaluate(() => {
+      console.warn('[Vue warn]: Hydration text content mismatch in <span>: server rendered html didn\'t match client.')
+    })
+    await page.waitForTimeout(50)
+  } finally {
+    await context.close()
+    await browser.close()
+  }
+
+  const fatalIssues = recorder.issues.filter((issue) => issue.isFatalHydrationIssue)
+  if (fatalIssues.length === 0) {
+    throw new Error('detector canary did not classify a deliberate hydration warning as fatal')
+  }
+
+  return {
+    status: 'success',
+    route: '__detector_canary__',
+    stage: 'detector-canary:console-warn',
+    browser: PUBLIC_HYDRATION_BROWSER,
+    viewport: {
+      name: viewport.name,
+      width: viewport.width,
+      height: viewport.height,
+    },
+    fatalHydrationIssueCount: fatalIssues.length,
+    warnings: fatalIssues.filter((issue) => issue.type === 'warning').map((issue) => ({
+      stage: issue.stage,
+      text: issue.text,
+    })),
+    errors: fatalIssues.filter((issue) => issue.type === 'error').map((issue) => ({
+      stage: issue.stage,
+      text: issue.text,
+    })),
+  }
+}
+
 async function main() {
   const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000'
   const viewports = [
     { name: 'desktop', width: 1440, height: 900 },
     { name: 'mobile', width: 390, height: 844 },
   ]
+  const scenarios = [...PUBLIC_SEO_SCENARIOS, ...PUBLIC_INTERACTION_ONLY_SCENARIOS]
+  const summary = {
+    schema: PUBLIC_HYDRATION_DETECTOR_SCHEMA,
+    status: 'failure',
+    baseUrl,
+    generatedAt: new Date().toISOString(),
+    fatalHydrationIssueCount: 0,
+    routesChecked: [],
+    warnings: [],
+    errors: [],
+    canary: null,
+  }
+
+  try {
+    summary.canary = await runDetectorCanary(viewports[0])
+    console.log(`Detector canary: PASS (caught ${summary.canary.fatalHydrationIssueCount} fatal hydration issue(s))`)
+  } catch (err) {
+    summary.canary = {
+      status: 'failure',
+      route: '__detector_canary__',
+      stage: 'detector-canary:console-warn',
+      browser: PUBLIC_HYDRATION_BROWSER,
+      viewport: viewports[0],
+      fatalHydrationIssueCount: 0,
+      error: err instanceof Error ? err.message : String(err),
+    }
+    summary.errors.push({
+      route: '__detector_canary__',
+      routeName: 'detector-canary',
+      stage: 'detector-canary:console-warn',
+      browser: PUBLIC_HYDRATION_BROWSER,
+      viewport: viewports[0],
+      type: 'error',
+      text: summary.canary.error,
+    })
+    summary.fatalHydrationIssueCount = summary.errors.length
+    writeSummary(summary)
+    console.error(`Detector canary failed: ${summary.canary.error}`)
+    console.error(`Hydration detector summary: ${PUBLIC_HYDRATION_DETECTOR_SUMMARY_FILE}`)
+    process.exit(1)
+  }
 
   // Quick connectivity check
   try {
     const res = await fetch(baseUrl, { signal: AbortSignal.timeout(5000) })
     if (!res.ok) {
-      console.error(`Server at ${baseUrl} returned HTTP ${res.status}. Is it running?`)
+      const text = `Server at ${baseUrl} returned HTTP ${res.status}. Is it running?`
+      summary.errors.push({
+        route: '__connectivity__',
+        routeName: 'connectivity',
+        stage: 'connectivity:fetch',
+        browser: PUBLIC_HYDRATION_BROWSER,
+        viewport: viewports[0],
+        type: 'error',
+        text,
+      })
+      summary.fatalHydrationIssueCount = summary.errors.length
+      writeSummary(summary)
+      console.error(text)
       process.exit(2)
     }
   } catch (err) {
-    console.error(`Cannot reach ${baseUrl}: ${err.message}`)
+    const text = `Cannot reach ${baseUrl}: ${err.message}`
+    summary.errors.push({
+      route: '__connectivity__',
+      routeName: 'connectivity',
+      stage: 'connectivity:fetch',
+      browser: PUBLIC_HYDRATION_BROWSER,
+      viewport: viewports[0],
+      type: 'error',
+      text,
+    })
+    summary.fatalHydrationIssueCount = summary.errors.length
+    writeSummary(summary)
+    console.error(text)
     console.error('Start the dev/preview server first.')
     process.exit(2)
   }
@@ -806,7 +971,6 @@ async function main() {
   let failedCount = 0
   let passedCount = 0
   const allResults = []
-  const scenarios = [...PUBLIC_SEO_SCENARIOS, ...PUBLIC_INTERACTION_ONLY_SCENARIOS]
 
   for (const vp of viewports) {
     for (const route of scenarios) {
@@ -814,38 +978,53 @@ async function main() {
       process.stdout.write(`Testing ${label}... `)
       const issues = await runRoute(baseUrl, route, { width: vp.width, height: vp.height })
 
-      const critical = issues.filter((i) => i.type === 'error')
-      const warnings = issues.filter((i) => i.type === 'warning')
+      const fatalHydrationIssues = issues.filter((i) => i.isFatalHydrationIssue)
+      const warnings = fatalHydrationIssues.filter((i) => i.type === 'warning')
+      const errors = fatalHydrationIssues.filter((i) => i.type === 'error')
+      summary.warnings.push(...warnings.map((issue) => issueWithContext(issue, route, vp)))
+      summary.errors.push(...errors.map((issue) => issueWithContext(issue, route, vp)))
+      summary.routesChecked.push({
+        route: route.route,
+        routeName: route.name,
+        stage: 'route:complete',
+        expectedKind: route.expectedKind,
+        browser: PUBLIC_HYDRATION_BROWSER,
+        viewport: {
+          name: vp.name,
+          width: vp.width,
+          height: vp.height,
+        },
+        status: fatalHydrationIssues.length === 0 ? 'success' : 'failure',
+        fatalHydrationIssueCount: fatalHydrationIssues.length,
+      })
 
-      if (critical.length > 0) {
+      if (fatalHydrationIssues.length > 0) {
         failedCount++
         process.stdout.write('FAIL\n')
-        critical.forEach((issue) => {
+        fatalHydrationIssues.forEach((issue) => {
           console.error(`  ✗ [${issue.stage}] ${issue.text}`)
-        })
-        warnings.forEach((issue) => {
-          process.stdout.write(`  ! [${issue.stage}] ${issue.text}\n`)
         })
       } else {
         passedCount++
-        const warnSuffix = warnings.length > 0 ? ` (${warnings.length} warning(s))` : ''
-        process.stdout.write(`PASS${warnSuffix}\n`)
-        warnings.forEach((issue) => {
-          process.stdout.write(`  ! [${issue.stage}] ${issue.text}\n`)
-        })
+        process.stdout.write('PASS\n')
       }
 
-      allResults.push({ label, issues })
+      allResults.push({ label, issues, fatalHydrationIssues })
     }
   }
 
   const total = passedCount + failedCount
+  summary.fatalHydrationIssueCount = summary.warnings.length + summary.errors.length
+  summary.status = summary.fatalHydrationIssueCount === 0 ? 'success' : 'failure'
+  writeSummary(summary)
+
   console.log(`\nResults: ${passedCount}/${total} passed`)
+  console.log(`Hydration detector summary: ${PUBLIC_HYDRATION_DETECTOR_SUMMARY_FILE}`)
 
   if (failedCount > 0) {
     console.error('\nFailed scenarios:')
     allResults
-      .filter((r) => r.issues.some((i) => i.type === 'error'))
+      .filter((r) => r.fatalHydrationIssues.length > 0)
       .forEach((r) => console.error(`  ${r.label}`))
     process.exit(1)
   }

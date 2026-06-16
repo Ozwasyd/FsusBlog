@@ -373,8 +373,8 @@ tiers:
     defaultShards: 1
     risk: high
     coverage: [release-preview-runtime, aot-hydration-pwa-seo]
-    artifacts: [.tmp/acceptance/*.log, src/frontend/test-results/playwright/release]
-    evidence: [.tmp/acceptance/*.log]
+    artifacts: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, src/frontend/test-results/playwright/release]
+    evidence: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json]
     ciJob: release-public
     localOnly: false
     nightlyOnly: false

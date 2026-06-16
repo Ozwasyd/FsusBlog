@@ -136,6 +136,14 @@ function assertStaticContracts() {
       fail(`refresh hydration check missing sidecar payload token: ${token}`)
     }
   }
+  for (const token of ['fsusblog.public-hydration-detector.v1', "type === 'warn' || type === 'warning' || type === 'error'", 'runDetectorCanary', 'writeSummary', 'fatalHydrationIssueCount', 'isFatalHydrationIssue']) {
+    if (!refreshHydrationCheck.includes(token)) {
+      fail(`refresh hydration check missing fatal detector token: ${token}`)
+    }
+  }
+  if (refreshHydrationCheck.includes('PASS${warnSuffix}')) {
+    fail('refresh hydration check must not allow hydration warnings to pass with a warning suffix')
+  }
   for (const token of ['PublicAotStateContextKey', 'IsStaleCompatibleCacheEntry', 'stale-refresh-queued']) {
     if (!shellService.includes(token)) {
       fail(`Public AOT shell service missing SWR state token: ${token}`)

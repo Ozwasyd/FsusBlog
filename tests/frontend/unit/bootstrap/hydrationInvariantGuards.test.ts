@@ -19,8 +19,14 @@ describe('public hydration invariant guards', () => {
   it('keeps the public hydration checker fatal for Vue hydration warnings', () => {
     expect(refreshHydrationCheck).toContain('HYDRATION_KEYWORDS')
     expect(refreshHydrationCheck).toContain("page.on('console'")
-    expect(refreshHydrationCheck).toContain("type === 'warn' || type === 'error'")
+    expect(refreshHydrationCheck).toContain("type === 'warn' || type === 'warning' || type === 'error'")
     expect(refreshHydrationCheck).toContain('isHydrationIssue(text)')
+    expect(refreshHydrationCheck).toContain('fsusblog.public-hydration-detector.v1')
+    expect(refreshHydrationCheck).toContain('runDetectorCanary')
+    expect(refreshHydrationCheck).toContain('writeSummary')
+    expect(refreshHydrationCheck).toContain('fatalHydrationIssueCount')
+    expect(refreshHydrationCheck).toContain('isFatalHydrationIssue')
+    expect(refreshHydrationCheck).not.toContain('PASS${warnSuffix}')
   })
 
   it('keeps ArticleDetail runtime widgets out of SSR and initial hydration DOM', () => {

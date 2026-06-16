@@ -434,6 +434,7 @@ jobs:
           retention-days: 14
           path: |
             .tmp/acceptance/*.log
+            .tmp/release-evidence/public-hydration-detector-summary.json
             .tmp/release-evidence/jobs/**
             src/frontend/test-results/playwright/release/**
 
