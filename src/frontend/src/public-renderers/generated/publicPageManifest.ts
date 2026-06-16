@@ -47,8 +47,8 @@ export const PUBLIC_PAGE_MANIFEST = Object.freeze({
     pageId: 6,
     canonicalSlug: 'account',
     seoEligible: false,
-    aotShellReady: true,
-    deferSpaBoot: true
+    aotShellReady: false,
+    deferSpaBoot: false
   },
   Privacy: {
     kind: 'Privacy',

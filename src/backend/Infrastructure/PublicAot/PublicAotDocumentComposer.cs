@@ -1,6 +1,5 @@
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Spa;
-using System.Buffers.Binary;
 using System.Net;
 using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
@@ -132,9 +131,6 @@ internal static class PublicAotDocumentComposer
         string hydrationScript = string.IsNullOrWhiteSpace(model.HydrationPropsPayload)
             ? string.Empty
             : BuildBinaryPayloadScript("fsus-aot-hydration-props", model.HydrationPropsPayload);
-        string islandsScript = string.IsNullOrWhiteSpace(model.IslandsPayload)
-            ? string.Empty
-            : BuildBinaryPayloadScript("fsus-aot-islands", model.IslandsPayload);
         string deferredSpaBoot = BuildDeferredSpaBootScript(
             model.RawTemplate,
             model.SpaEntryScript,
@@ -143,7 +139,7 @@ internal static class PublicAotDocumentComposer
 
         string payloadScripts = string.Join(
             "\n    ",
-            new[] { bootstrapScript, hydrationScript, islandsScript }.Where(static script => !string.IsNullOrWhiteSpace(script)));
+            new[] { bootstrapScript, hydrationScript }.Where(static script => !string.IsNullOrWhiteSpace(script)));
 
         html = html.Replace(AotPayloadsSentinel, payloadScripts, StringComparison.Ordinal);
         html = html.Replace(AotSpaBootSentinel, deferredSpaBoot, StringComparison.Ordinal);
@@ -667,12 +663,9 @@ internal static class PublicAotDocumentComposer
             string normalized = value.Replace('-', '+').Replace('_', '/');
             normalized = normalized.PadRight((normalized.Length + 3) / 4 * 4, '=');
             byte[] frame = Convert.FromBase64String(normalized);
-            return frame.Length >= AedsFrameHeader.Size
-                && BinaryPrimitives.ReadUInt32LittleEndian(frame.AsSpan(0, 4)) == AedsEncoder.Magic
-                && frame[4] == AedsFrameHeader.CurrentVersion
-                && frame[5] == AedsFrameHeader.Size
-                && BinaryPrimitives.ReadUInt16LittleEndian(frame.AsSpan(8, 2)) == (ushort)AedsFrameType.PublicAotBootstrap
-                && BinaryPrimitives.ReadUInt32LittleEndian(frame.AsSpan(10, 4)) == frame.Length - AedsFrameHeader.Size;
+            var decoded = new AedsEncoder().TryDecode(frame);
+            return decoded.IsSuccess
+                && decoded.Value.FrameType == AedsFrameType.PublicAotBootstrap;
         }
         catch (FormatException)
         {

@@ -40,7 +40,7 @@ function normalizeText(value: unknown): string {
   return ''
 }
 
-function parsePositiveInt(value: unknown): number {
+export function parsePositiveInt(value: unknown): number {
   const normalized = normalizeText(value)
   if (!normalized) {
     return 0

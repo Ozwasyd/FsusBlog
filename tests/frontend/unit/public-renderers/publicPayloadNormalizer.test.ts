@@ -8,7 +8,9 @@ describe('publicPayloadNormalizer', () => {
       pageKind: 'Home',
       siteTitle: 'FsusBlog',
       siteDescription: 'desc',
-      rendererVersion: 'test'
+      rendererVersion: 'test',
+      featuredArticles: [],
+      hotArticles: []
     }).routeKey).toBe('home')
 
     expect(normalizePublicHydrationPayload({
@@ -53,5 +55,38 @@ describe('publicPayloadNormalizer', () => {
       rendererVersion: 'test',
       title: 'Search'
     }).routeKey).toBe('search')
+  })
+
+  it('rejects missing required home secondary article arrays', () => {
+    expect(() => normalizePublicHydrationPayload({
+      pageKind: 'Home',
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      rendererVersion: 'test'
+    })).toThrow('public_aot_payload_missing_array:Home.featuredArticles')
+  })
+
+  it('normalizes filter payloads from the filter subobject', () => {
+    const normalized = normalizePublicHydrationPayload({
+      pageKind: 'Filter',
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      rendererVersion: 'test',
+      title: 'Category',
+      filter: {
+        filterType: 'category',
+        filterKey: 'category:7',
+        filterId: 7,
+        filterName: 'Category',
+        isInvalidTarget: false,
+        pageIndex: 2,
+        pageSize: 10,
+        total: 21
+      }
+    })
+
+    expect(normalized.routeKey).toBe('category:7')
+    expect(normalized.filter?.filterType).toBe('category')
+    expect(normalized.filter?.filterId).toBe(7)
   })
 })

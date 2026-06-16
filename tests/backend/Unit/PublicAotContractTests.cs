@@ -57,6 +57,8 @@ public class PublicPageRegistryTests
     {
         var account = PublicPageRegistry.Account;
         Assert.False(account.SeoEligible);
+        Assert.False(account.AotShellReady);
+        Assert.False(account.DeferSpaBoot);
     }
 
     [Fact]

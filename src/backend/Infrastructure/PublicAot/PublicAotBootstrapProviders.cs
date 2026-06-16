@@ -83,6 +83,18 @@ public abstract class PublicAotBootstrapProviderBase(ISystemService systemServic
                 item.CategoryId,
                 string.IsNullOrWhiteSpace(item.CategoryName) ? "未分类" : item.CategoryName),
             item.Tags.Select(static tag => new PublicAotArticleTagSnapshot(tag.Id, tag.Name)).ToArray());
+
+    protected static PublicAotFeaturedArticleSnapshot ToFeaturedArticleSnapshot(FeaturedArticleSummaryDto item)
+        => new(
+            item.Id,
+            item.Title,
+            item.CoverImageUrl,
+            item.Views,
+            item.CreateTime,
+            new PublicAotArticleCategorySnapshot(item.Category.Id, item.Category.Name));
+
+    protected static PublicAotHotArticleSnapshot ToHotArticleSnapshot(PopularArticleSummaryDto item)
+        => new(item.Id, item.Title, item.Views);
 }
 
 public sealed class PublicAotHomeBootstrapProvider(
@@ -94,9 +106,13 @@ public sealed class PublicAotHomeBootstrapProvider(
     public override async Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
         const int pageSize = 10;
+        const int featuredSize = 3;
+        const int hotSize = 5;
         Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
         Task<ArticleListPageReadModel> pageTask = articleService.GetPageListAsync(1, pageSize, null, null, false, cancellationToken: cancellationToken);
-        await Task.WhenAll(seoTask, pageTask);
+        Task<List<FeaturedArticleSummaryDto>> featuredTask = articleService.GetFeaturedArticlesAsync(featuredSize, cancellationToken);
+        Task<List<PopularArticleSummaryDto>> hotTask = articleService.GetHotArticlesAsync(hotSize, cancellationToken);
+        await Task.WhenAll(seoTask, pageTask, featuredTask, hotTask);
 
         PublicAotSeoSnapshot seo = seoTask.Result;
         ArticleListPageReadModel page = pageTask.Result;
@@ -105,7 +121,9 @@ public sealed class PublicAotHomeBootstrapProvider(
             Page: 1,
             pageSize,
             page.Total,
-            page.Items.Select(ToArticleSummarySnapshot).ToArray()));
+            page.Items.Select(ToArticleSummarySnapshot).ToArray(),
+            featuredTask.Result.Select(ToFeaturedArticleSnapshot).ToArray(),
+            hotTask.Result.Select(ToHotArticleSnapshot).ToArray()));
     }
 }
 
@@ -144,7 +162,7 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
             article.Content,
             article.Summary ?? string.Empty,
             article.Views,
-            string.IsNullOrWhiteSpace(seo.SiteAuthor) ? seo.SiteTitle : seo.SiteAuthor,
+            ResolveArticleAuthorName(article.AuthorName, seo),
             article.CreateTime,
             new PublicAotArticleCategorySnapshot(article.CategoryId, article.CategoryName),
             article.Tags,
@@ -194,10 +212,30 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         projection.Tags = tags
             .Select(static tag => new PublicAotArticleTagSnapshot(tag.Id, tag.Name))
             .ToArray();
+        ArticleAuthorAotProjection? author = await db.Queryable<ArticleRevision>()
+            .LeftJoin<User>((revision, user) => revision.CreatedByUserId == user.Id)
+            .Where((revision, user) => revision.ArticleId == articleId)
+            .OrderBy((revision, user) => revision.RevisionNo)
+            .Select((revision, user) => new ArticleAuthorAotProjection
+            {
+                Username = user.Username
+            })
+            .FirstAsync(cancellationToken);
+        projection.AuthorName = author?.Username ?? string.Empty;
         projection.Content = string.IsNullOrWhiteSpace(projection.Content) ? projection.Summary ?? string.Empty : projection.Content;
         projection.Summary ??= string.Empty;
         projection.CategoryName = string.IsNullOrWhiteSpace(projection.CategoryName) ? "未分类" : projection.CategoryName;
         return projection;
+    }
+
+    private static string ResolveArticleAuthorName(string? authorName, PublicAotSeoSnapshot seo)
+    {
+        if (!string.IsNullOrWhiteSpace(authorName))
+        {
+            return authorName.Trim();
+        }
+
+        return string.IsNullOrWhiteSpace(seo.SiteAuthor) ? seo.SiteTitle : seo.SiteAuthor.Trim();
     }
 
     private static PublicAotRelatedReadingSnapshot? ToRelatedReadingSnapshot(RelatedReadingResponse? response)
@@ -221,7 +259,13 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         public DateTime CreateTime { get; init; }
         public int CategoryId { get; init; }
         public string CategoryName { get; set; } = string.Empty;
+        public string AuthorName { get; set; } = string.Empty;
         public IReadOnlyList<PublicAotArticleTagSnapshot> Tags { get; set; } = [];
+    }
+
+    private sealed class ArticleAuthorAotProjection
+    {
+        public string? Username { get; init; }
     }
 
     private sealed class ArticleTagAotProjection

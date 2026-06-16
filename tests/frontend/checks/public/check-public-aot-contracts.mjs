@@ -176,11 +176,11 @@ function sendWorkerRequest(bundle, pageKind, options) {
 
 async function assertBundleWorkerSmoke(bundle) {
   const cases = [
-    { kind: 'Home', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', response: { total: 0, items: [] } } },
+    { kind: 'Home', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', pageIndex: 1, pageSize: 10, total: 0, articles: [], featuredArticles: [], hotArticles: [] } },
     { kind: 'About', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', content: 'About content' } },
     { kind: 'Archive', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', total: 0, articles: [] } },
-    { kind: 'ArticleDetail', options: { id: 1, title: 'Article', content: '# Heading\n\nContent', summary: 'Summary', siteTitle: 'FsusBlog', siteDescription: 'desc' } },
-    { kind: 'Filter', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', filterType: 'search', routeKey: 'search', title: '搜索', total: 0, articles: [] } }
+    { kind: 'ArticleDetail', options: { id: 1, title: 'Article', bodyContent: '# Heading\n\nContent', summary: 'Summary', siteTitle: 'FsusBlog', siteDescription: 'desc' } },
+    { kind: 'Filter', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', routeKey: 'search', title: 'Search', filter: { filterType: 'search', filterKey: 'search', filterId: 0, filterName: '', isInvalidTarget: false, pageIndex: 1, pageSize: 10, total: 0, articles: [] } } }
   ]
 
   for (const { kind, options } of cases) {

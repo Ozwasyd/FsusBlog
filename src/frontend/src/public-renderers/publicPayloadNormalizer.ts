@@ -15,6 +15,7 @@ import {
   buildPublicGuidelinesRouteKey,
   buildPublicHomeRouteKey,
   buildPublicPrivacyRouteKey,
+  parsePositiveInt,
   parsePublicFilterRouteKey
 } from './publicRouteIdentity';
 
@@ -33,15 +34,17 @@ function normalizeRouteKey(payload: PublicHydrationPayload): string {
       return buildPublicArticleRouteKey(payload.articleId);
     case 'Archive':
       return buildPublicArchiveRouteKey();
-    case 'Filter':
+    case 'Filter': {
+      const filterPayload = payload.filter ?? {};
       return buildPublicFilterRouteKey({
-        filterType: payload.filterType,
-        filterKey: payload.filterKey,
-        filterId: payload.filterId,
-        filterName: payload.filterName,
-        routeKey: payload.filter?.filterKey,
-        searchKeyword: payload.filterName
+        filterType: payload.filterType ?? filterPayload.filterType,
+        filterKey: payload.filterKey ?? filterPayload.filterKey,
+        filterId: payload.filterId ?? filterPayload.filterId,
+        filterName: payload.filterName ?? filterPayload.filterName,
+        routeKey: payload.filter?.filterKey ?? payload.routeKey,
+        searchKeyword: payload.filterName ?? filterPayload.filterName
       });
+    }
     case 'About':
       return buildPublicAboutRouteKey();
     case 'Privacy':
@@ -55,6 +58,14 @@ function normalizeRouteKey(payload: PublicHydrationPayload): string {
   }
 }
 
+function requireArray<T>(value: unknown, fieldName: string): readonly T[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`public_aot_payload_missing_array:${fieldName}`);
+  }
+
+  return value as readonly T[];
+}
+
 export const normalizePublicHydrationPayload: PublicPayloadNormalizer = (payload) => {
   const routeKey = normalizeRouteKey(payload);
 
@@ -65,13 +76,15 @@ export const normalizePublicHydrationPayload: PublicPayloadNormalizer = (payload
         routeKey,
         currentPage: Number.isFinite(payload.currentPage) && payload.currentPage > 0 ? Math.trunc(payload.currentPage) : 1,
         pageSize: Number.isFinite(payload.pageSize) && payload.pageSize > 0 ? Math.trunc(payload.pageSize) : 10,
-        total: Number.isFinite(payload.total) && payload.total >= 0 ? Math.trunc(payload.total) : 0
+        total: Number.isFinite(payload.total) && payload.total >= 0 ? Math.trunc(payload.total) : 0,
+        featuredArticles: requireArray(payload.featuredArticles, 'Home.featuredArticles'),
+        hotArticles: requireArray(payload.hotArticles, 'Home.hotArticles')
       } as PublicHomeHydrationPayload;
     case 'ArticleDetail':
       return {
         ...payload,
         routeKey,
-        articleId: Number(payload.articleId) || payload.articleId
+        articleId: parsePositiveInt(payload.articleId)
       } as PublicArticleDetailHydrationPayload;
     case 'Archive':
       return {
@@ -79,38 +92,41 @@ export const normalizePublicHydrationPayload: PublicPayloadNormalizer = (payload
         routeKey,
         total: Number.isFinite(payload.total) ? Number(payload.total) : (payload.articles?.length ?? 0)
       } as PublicArchiveHydrationPayload;
-    case 'Filter':
-      {
-        const identity = parsePublicFilterRouteKey(payload.filterKey ?? payload.routeKey)
+    case 'Filter': {
+      const filterPayload = payload.filter ?? {};
+      const identity = parsePublicFilterRouteKey(
+        payload.filterKey
+          ?? filterPayload.filterKey
+          ?? payload.routeKey
+      );
+
       return {
         ...payload,
         routeKey,
-        filterType: payload.filterType ?? identity.filterType,
-        filterKey: payload.filterKey ?? identity.filterKey,
-        filterId: Number.isFinite(payload.filterId) ? Number(payload.filterId) : identity.filterId,
-        filterName: payload.filterName ?? identity.filterName,
-        isInvalidTarget: Boolean(payload.isInvalidTarget ?? payload.filter?.isInvalidTarget),
-        filter: payload.filter
-          ? {
-              ...payload.filter,
-              filterType: payload.filter.filterType ?? payload.filterType ?? identity.filterType,
-              filterKey: payload.filter.filterKey ?? payload.filterKey ?? identity.filterKey,
-              filterId: Number.isFinite(payload.filter.filterId) ? Number(payload.filter.filterId) : Number.isFinite(payload.filterId) ? Number(payload.filterId) : identity.filterId,
-              filterName: payload.filter.filterName ?? payload.filterName ?? identity.filterName,
-              isInvalidTarget: Boolean(payload.filter.isInvalidTarget ?? payload.isInvalidTarget),
-              pageIndex: Number.isFinite(payload.filter.pageIndex) && Number(payload.filter.pageIndex) > 0
-                ? Math.trunc(Number(payload.filter.pageIndex))
-                : 1,
-              pageSize: Number.isFinite(payload.filter.pageSize) && Number(payload.filter.pageSize) > 0
-                ? Math.trunc(Number(payload.filter.pageSize))
-                : 10,
-              total: Number.isFinite(payload.filter.total) && Number(payload.filter.total) >= 0
-                ? Math.trunc(Number(payload.filter.total))
-                : 0
-            }
-          : payload.filter
+        filterType: payload.filterType ?? filterPayload.filterType ?? identity.filterType,
+        filterKey: payload.filterKey ?? filterPayload.filterKey ?? identity.filterKey,
+        filterId: Number.isFinite(payload.filterId) ? Number(payload.filterId) : Number.isFinite(filterPayload.filterId) ? Number(filterPayload.filterId) : identity.filterId,
+        filterName: payload.filterName ?? filterPayload.filterName ?? identity.filterName,
+        isInvalidTarget: Boolean(payload.isInvalidTarget ?? filterPayload.isInvalidTarget),
+        filter: {
+          ...filterPayload,
+          filterType: filterPayload.filterType ?? payload.filterType ?? identity.filterType,
+          filterKey: filterPayload.filterKey ?? payload.filterKey ?? identity.filterKey,
+          filterId: Number.isFinite(filterPayload.filterId) ? Number(filterPayload.filterId) : Number.isFinite(payload.filterId) ? Number(payload.filterId) : identity.filterId,
+          filterName: filterPayload.filterName ?? payload.filterName ?? identity.filterName,
+          isInvalidTarget: Boolean(filterPayload.isInvalidTarget ?? payload.isInvalidTarget),
+          pageIndex: Number.isFinite(filterPayload.pageIndex) && Number(filterPayload.pageIndex) > 0
+            ? Math.trunc(Number(filterPayload.pageIndex))
+            : 1,
+          pageSize: Number.isFinite(filterPayload.pageSize) && Number(filterPayload.pageSize) > 0
+            ? Math.trunc(Number(filterPayload.pageSize))
+            : 10,
+          total: Number.isFinite(filterPayload.total) && Number(filterPayload.total) >= 0
+            ? Math.trunc(Number(filterPayload.total))
+            : 0
+        }
       } as PublicFilterHydrationPayload;
-      }
+    }
     case 'About':
     case 'Privacy':
     case 'Guidelines':

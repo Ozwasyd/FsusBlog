@@ -1,7 +1,7 @@
 import type { PublicHomeRouteKey } from '@/public-renderers/publicFixedPageSemantics'
 import type { PublicFilterType } from '@/public-renderers/publicFilterSemantics'
 import type { PublicPageKind } from '@/public-renderers/publicRenderBase'
-import type { RelatedReadingResponse } from '@/api/article'
+import type { FeaturedArticleItem, PopularArticleSummaryResponse, RelatedReadingResponse } from '@/api/article'
 import type { SiteComplianceConfigPublic } from '@/api/system'
 import type { AboutPageViewContract } from '@/view-contracts/aboutPage'
 import type { ArchivePageViewContract } from '@/view-contracts/archive'
@@ -19,6 +19,7 @@ export type BootstrapArticleSummary = Readonly<{
   content?: string | null
   views?: number | null
   createTime: string
+  coverImageUrl?: string | null
   category?: string | Readonly<{ id?: number | null; name?: string | null }> | null
   tags?: readonly string[] | null
 }>
@@ -46,6 +47,8 @@ export type PublicAotBootstrapPayloadByKind = {
   Home: BaseBootstrapPayload<'Home'> & Readonly<{
     total: number
     articles: readonly BootstrapArticleSummary[]
+    featuredArticles: readonly FeaturedArticleItem[]
+    hotArticles: readonly PopularArticleSummaryResponse[]
   }>
   About: BaseBootstrapPayload<'About'> & Readonly<{
     bodyHtml?: string | null
@@ -135,12 +138,14 @@ export type PublicHydrationPayloadByKind = {
     pageSize: number
     total: number
     view: ArticleListViewContract
+    featuredArticles: readonly FeaturedArticleItem[]
+    hotArticles: readonly PopularArticleSummaryResponse[]
   }>
   ArticleDetail: BaseHydrationPayload<'ArticleDetail'> & Readonly<{
     articleId: number | string
     authorName?: string | null
     articleSummary?: string | null
-    bodyContent?: string | null
+    bodyContent: string
     bodyHtml?: string | null
     detailView: ArticleDetailPageViewContract
     commentsIsland: Readonly<{

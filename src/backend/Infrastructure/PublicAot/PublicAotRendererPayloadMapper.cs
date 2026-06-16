@@ -27,18 +27,17 @@ internal static class PublicAotRendererPayloadMapper
         switch (request.Snapshot)
         {
             case PublicHomePageSnapshot home:
-                common["page"] = home.Page;
-                common["size"] = home.Size;
-                common["response"] = new Dictionary<string, object?>(StringComparer.Ordinal)
-                {
-                    ["total"] = home.Total,
-                    ["items"] = home.Items.Select(ToArticleSummaryPayload).ToArray()
-                };
+                common["pageIndex"] = home.Page;
+                common["pageSize"] = home.Size;
+                common["total"] = home.Total;
+                common["articles"] = home.Items.Select(ToArticleSummaryPayload).ToArray();
+                common["featuredArticles"] = home.FeaturedArticles.Select(ToFeaturedArticlePayload).ToArray();
+                common["hotArticles"] = home.HotArticles.Select(ToHotArticlePayload).ToArray();
                 return common;
             case PublicArticlePageSnapshot article:
                 common["articleId"] = article.ArticleId;
                 common["title"] = article.Title;
-                common["content"] = article.Content;
+                common["bodyContent"] = article.Content;
                 common["summary"] = article.Summary;
                 common["views"] = article.Views;
                 common["authorName"] = article.AuthorName;
@@ -50,16 +49,19 @@ internal static class PublicAotRendererPayloadMapper
                 return common;
             case PublicFilterPageSnapshot filter:
                 common["routeKey"] = filter.RouteKey;
-                common["filterType"] = filter.FilterType;
-                common["filterKey"] = filter.FilterKey;
-                common["filterId"] = filter.FilterId;
-                common["filterName"] = filter.FilterName;
-                common["isInvalidTarget"] = filter.IsInvalidTarget;
-                common["pageIndex"] = filter.PageIndex;
-                common["pageSize"] = filter.PageSize;
-                common["total"] = filter.Total;
-                common["articles"] = filter.Articles.Select(ToArticleSummaryPayload).ToArray();
                 common["title"] = filter.Title;
+                common["filter"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["filterType"] = filter.FilterType,
+                    ["filterKey"] = filter.FilterKey,
+                    ["filterId"] = filter.FilterId,
+                    ["filterName"] = filter.FilterName,
+                    ["isInvalidTarget"] = filter.IsInvalidTarget,
+                    ["pageIndex"] = filter.PageIndex,
+                    ["pageSize"] = filter.PageSize,
+                    ["total"] = filter.Total,
+                    ["articles"] = filter.Articles.Select(ToArticleSummaryPayload).ToArray()
+                };
                 return common;
             case PublicStaticPageSnapshot page:
                 common["content"] = page.Content;
@@ -129,6 +131,29 @@ internal static class PublicAotRendererPayloadMapper
             ["tags"] = article.Tags.Select(ToTagPayload).ToArray()
         };
 
+    private static Dictionary<string, object?> ToFeaturedArticlePayload(PublicAotFeaturedArticleSnapshot article)
+        => new(StringComparer.Ordinal)
+        {
+            ["id"] = article.Id,
+            ["title"] = article.Title,
+            ["coverImageUrl"] = article.CoverImageUrl,
+            ["views"] = article.Views,
+            ["createTime"] = article.CreateTime.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            ["category"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["id"] = article.Category.Id,
+                ["name"] = article.Category.Name
+            }
+        };
+
+    private static Dictionary<string, object?> ToHotArticlePayload(PublicAotHotArticleSnapshot article)
+        => new(StringComparer.Ordinal)
+        {
+            ["id"] = article.Id,
+            ["title"] = article.Title,
+            ["views"] = article.Views
+        };
+
     private static Dictionary<string, object?> ToTagPayload(PublicAotArticleTagSnapshot tag)
         => new(StringComparer.Ordinal)
         {
@@ -164,7 +189,6 @@ internal static class PublicAotRendererPayloadMapper
             ["bootstrapPayload"] = entry.BootstrapPayload,
             ["hydrationPropsPayload"] = entry.HydrationPropsPayload,
             ["rendererVersion"] = entry.RendererVersion,
-            ["islandsPayload"] = entry.IslandsPayload,
             ["title"] = entry.Title,
             ["baseUrl"] = entry.BaseUrl
         };

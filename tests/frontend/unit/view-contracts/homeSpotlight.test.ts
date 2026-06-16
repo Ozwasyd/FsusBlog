@@ -79,7 +79,7 @@ describe('homeSpotlight view contract', () => {
     })).toBe('spotlight')
   })
 
-  it('keeps the text-first home shell from mounting the hot aside island', () => {
+  it('keeps the hot aside scoped to spotlight home shells', () => {
     const homeFeedSurface = readRepoFile('src/frontend/src/components/public/HomeFeedSurface.vue')
     const publicHomeContent = readRepoFile('src/frontend/src/components/public/pages/PublicHomePageContent.vue')
     const pageAssemblies = readRepoFile('src/frontend/src/public-renderers/pageAssemblies.ts')
@@ -89,8 +89,10 @@ describe('homeSpotlight view contract', () => {
     expect(homeFeedSurface).toContain('v-if="showAside"')
     expect(homeFeedSurface).toContain("showAside ? 'grow lg:w-2/3' : 'w-full'")
     expect(publicHomeContent).toContain('<HomeFeedSurface :show-aside="showAside">')
-    expect(pageAssemblies).toContain('showAside: input.showAside ?? false')
-    expect(homeView).toContain(":show-aside=\"homeSecondaryLayout === 'spotlight'\"")
+    expect(pageAssemblies).toContain('spotlightArticles.length > 0 && hotArticles.length > 0')
+    expect(pageAssemblies).toContain('h(FeaturedArticlesSection')
+    expect(pageAssemblies).toContain('h(HomeTextFirstRecommendations')
+    expect(homeView).toContain(':show-aside="false"')
     expect(publicShell.indexOf("document.getElementById('fsus-home-hot-articles-slot-content')"))
       .toBeLessThan(publicShell.indexOf('const sentinel = document.getElementById(HOME_HOT_ARTICLES_SENTINEL_ID)'))
   })

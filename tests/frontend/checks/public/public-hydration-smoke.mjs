@@ -319,8 +319,7 @@ async function main() {
   assert(articleBootstrap.article?.id === articlePayload.articleId, 'article bootstrap articleId mismatch');
   assert(articleBootstrap.relatedReading, 'article bootstrap related-reading contract missing');
   assert(articleBootstrap.article?.title === articlePayload.detailView?.header?.title, 'article shared renderer title mismatch');
-  const articleIslands = readBinaryScript(article, 'fsus-aot-islands');
-  assert(articleIslands.comments?.articleId === articlePayload.articleId, 'article islands comments articleId mismatch');
+  expectNotIncludes(article, 'id="fsus-aot-islands"', 'article islands payload');
 
   const about = await fetchHtmlUntil('/about', (html) => {
     assertSharedHydrationMarkers(html, 'About');
@@ -348,14 +347,15 @@ async function main() {
     assert(categoryPayload.routeKey === `category:${categoryId}`, 'category payload routeKey mismatch');
     assert(categoryBootstrap.routeKey === `category:${categoryId}`, 'category bootstrap routeKey mismatch');
     assert(categoryPayload.filter?.filterType === 'category', 'category payload filterType mismatch');
-    assert(categoryBootstrap.filterType === 'category', 'category bootstrap filterType mismatch');
-    assert(categoryPayload.filterKey === `category:${categoryId}`, 'category payload filterKey mismatch');
-    assert(categoryBootstrap.filterKey === `category:${categoryId}`, 'category bootstrap filterKey mismatch');
+    assert(categoryBootstrap.filter?.filterType === 'category', 'category bootstrap filterType mismatch');
+    assert(categoryPayload.filter?.filterKey === `category:${categoryId}`, 'category payload filterKey mismatch');
+    assert(categoryBootstrap.filter?.filterKey === `category:${categoryId}`, 'category bootstrap filterKey mismatch');
     assert(categoryPayload.filter?.filterId === categoryId, 'category payload filterId mismatch');
-    assert(categoryBootstrap.filterId === categoryId, 'category bootstrap filterId mismatch');
+    assert(categoryBootstrap.filter?.filterId === categoryId, 'category bootstrap filterId mismatch');
+    assert(categoryBootstrap.filterType === undefined, 'category bootstrap filterType should not be duplicated');
     if (categoryName) {
       assert(categoryPayload.filter?.filterName === categoryName, 'category payload filterName mismatch');
-      assert(categoryBootstrap.filterName === categoryName, 'category bootstrap filterName mismatch');
+      assert(categoryBootstrap.filter?.filterName === categoryName, 'category bootstrap filterName mismatch');
       assert(categoryPayload.title === categoryName, 'category payload title mismatch');
       assert(categoryBootstrap.title === categoryName, 'category bootstrap title mismatch');
       expectIncludes(category, categoryName, 'category page title text');
@@ -385,14 +385,15 @@ async function main() {
     assert(tagPayload.routeKey === `tag:${tagId}`, 'tag payload routeKey mismatch');
     assert(tagBootstrap.routeKey === `tag:${tagId}`, 'tag bootstrap routeKey mismatch');
     assert(tagPayload.filter?.filterType === 'tag', 'tag payload filterType mismatch');
-    assert(tagBootstrap.filterType === 'tag', 'tag bootstrap filterType mismatch');
-    assert(tagPayload.filterKey === `tag:${tagId}`, 'tag payload filterKey mismatch');
-    assert(tagBootstrap.filterKey === `tag:${tagId}`, 'tag bootstrap filterKey mismatch');
+    assert(tagBootstrap.filter?.filterType === 'tag', 'tag bootstrap filterType mismatch');
+    assert(tagPayload.filter?.filterKey === `tag:${tagId}`, 'tag payload filterKey mismatch');
+    assert(tagBootstrap.filter?.filterKey === `tag:${tagId}`, 'tag bootstrap filterKey mismatch');
     assert(tagPayload.filter?.filterId === tagId, 'tag payload filterId mismatch');
-    assert(tagBootstrap.filterId === tagId, 'tag bootstrap filterId mismatch');
+    assert(tagBootstrap.filter?.filterId === tagId, 'tag bootstrap filterId mismatch');
+    assert(tagBootstrap.filterType === undefined, 'tag bootstrap filterType should not be duplicated');
     if (tagName) {
       assert(tagPayload.filter?.filterName === tagName, 'tag payload filterName mismatch');
-      assert(tagBootstrap.filterName === tagName, 'tag bootstrap filterName mismatch');
+      assert(tagBootstrap.filter?.filterName === tagName, 'tag bootstrap filterName mismatch');
       assert(tagPayload.title === tagName, 'tag payload title mismatch');
       assert(tagBootstrap.title === tagName, 'tag bootstrap title mismatch');
       expectIncludes(tag, tagName, 'tag page title text');
@@ -405,10 +406,10 @@ async function main() {
       const namedTagBootstrap = readBinaryScript(namedTag, 'fsus-aot-bootstrap');
       assert(namedTagPayload.routeKey === `tag-name:${tagName}`, 'named tag payload routeKey mismatch');
       assert(namedTagBootstrap.routeKey === `tag-name:${tagName}`, 'named tag bootstrap routeKey mismatch');
-      assert(namedTagPayload.filterKey === `tag-name:${tagName}`, 'named tag payload filterKey mismatch');
-      assert(namedTagBootstrap.filterKey === `tag-name:${tagName}`, 'named tag bootstrap filterKey mismatch');
+      assert(namedTagPayload.filter?.filterKey === `tag-name:${tagName}`, 'named tag payload filterKey mismatch');
+      assert(namedTagBootstrap.filter?.filterKey === `tag-name:${tagName}`, 'named tag bootstrap filterKey mismatch');
       assert(namedTagPayload.filter?.filterName === tagName, 'named tag payload filterName mismatch');
-      assert(namedTagBootstrap.filterName === tagName, 'named tag bootstrap filterName mismatch');
+      assert(namedTagBootstrap.filter?.filterName === tagName, 'named tag bootstrap filterName mismatch');
       expectIncludes(namedTag, tagName, 'named tag page title text');
     }
   }

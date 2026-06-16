@@ -1,4 +1,7 @@
 import { createCommentVNode, h } from 'vue'
+import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
+import FeaturedArticlesSection from '@/components/home/FeaturedArticlesSection.vue'
+import HomeTextFirstRecommendations from '@/components/home/HomeTextFirstRecommendations.vue'
 import PublicAboutPageContent from '@/components/public/pages/PublicAboutPageContent.vue'
 import PublicArchivePageContent from '@/components/public/pages/PublicArchivePageContent.vue'
 import PublicArticleDetailPageContent from '@/components/public/pages/PublicArticleDetailPageContent.vue'
@@ -11,13 +14,21 @@ import type { ArchivePageViewContract } from '@/view-contracts/archive'
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
 import type { ArticleListViewContract } from '@/view-contracts/articleList'
 import type { FilterPageViewContract } from '@/view-contracts/filterView'
+import { selectHomeSpotlightCandidates } from '@/view-contracts/homeSpotlight'
 
 export function createPublicHomePageAssembly(input: {
   siteTitleText: string
   siteDescriptionText: string
   view: ArticleListViewContract
+  featuredArticles: readonly FeaturedArticleItem[]
+  hotArticles: readonly PopularArticleSummaryResponse[]
   showAside?: boolean
 }): PublicAotPageAssembly {
+  const featuredArticles = [...input.featuredArticles]
+  const hotArticles = [...input.hotArticles]
+  const spotlightArticles = selectHomeSpotlightCandidates(featuredArticles)
+  const showAside = input.showAside ?? (spotlightArticles.length > 0 && hotArticles.length > 0)
+
   return {
     component: PublicHomePageContent,
     props: {
@@ -27,10 +38,25 @@ export function createPublicHomePageAssembly(input: {
       loading: false,
       isError: false,
       spaNavigation: false,
-      showAside: input.showAside ?? false
+      showAside
     },
     slots: {
-      featured: () => createCommentVNode('v-if', true)
+      featured: () => {
+        if (spotlightArticles.length > 0) {
+          return h(FeaturedArticlesSection, {
+            articles: spotlightArticles,
+            loading: false
+          })
+        }
+
+        if (hotArticles.length > 0) {
+          return h(HomeTextFirstRecommendations, {
+            articles: hotArticles
+          })
+        }
+
+        return createCommentVNode('v-if', true)
+      }
     }
   }
 }

@@ -45,6 +45,19 @@ public sealed record PublicAotArticleSummarySnapshot(
     PublicAotArticleCategorySnapshot Category,
     IReadOnlyList<PublicAotArticleTagSnapshot> Tags);
 
+public sealed record PublicAotFeaturedArticleSnapshot(
+    int Id,
+    string Title,
+    string CoverImageUrl,
+    int Views,
+    DateTime CreateTime,
+    PublicAotArticleCategorySnapshot Category);
+
+public sealed record PublicAotHotArticleSnapshot(
+    int Id,
+    string Title,
+    int Views);
+
 public sealed record PublicAotRelatedReadingItemSnapshot(
     int Id,
     string Title,
@@ -66,7 +79,9 @@ public sealed record PublicHomePageSnapshot(
     int Page,
     int Size,
     int Total,
-    IReadOnlyList<PublicAotArticleSummarySnapshot> Items)
+    IReadOnlyList<PublicAotArticleSummarySnapshot> Items,
+    IReadOnlyList<PublicAotFeaturedArticleSnapshot> FeaturedArticles,
+    IReadOnlyList<PublicAotHotArticleSnapshot> HotArticles)
     : PublicPageSnapshot(PublicPageKind.Home, Seo);
 
 public sealed record PublicArticlePageSnapshot(

@@ -43,9 +43,20 @@ export function useHomeView() {
     || initialBootstrap?.siteDescription?.trim()
     || '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。'
 
+  const initialFeaturedArticles = Array.isArray(initialHydrationPayload?.featuredArticles)
+    ? [...initialHydrationPayload.featuredArticles]
+    : Array.isArray(initialBootstrap?.featuredArticles)
+      ? [...initialBootstrap.featuredArticles]
+      : []
+  const initialHotArticles = Array.isArray(initialHydrationPayload?.hotArticles)
+    ? [...initialHydrationPayload.hotArticles]
+    : Array.isArray(initialBootstrap?.hotArticles)
+      ? [...initialBootstrap.hotArticles]
+      : []
+
   const articleItems = ref<ArticleListItemResponse[]>([])
-  const featuredArticles = ref<FeaturedArticleItem[]>([])
-  const hotArticles = ref<PopularArticleSummaryResponse[]>([])
+  const featuredArticles = ref<FeaturedArticleItem[]>(initialFeaturedArticles)
+  const hotArticles = ref<PopularArticleSummaryResponse[]>(initialHotArticles)
   const featuredLoading = ref(false)
   const initialViewItems = ref<readonly ArticleListCardViewContract[] | null>(
     initialHydrationView && Array.isArray(initialHydrationView.items)
@@ -103,7 +114,7 @@ export function useHomeView() {
   let featuredDebounceTimer: ReturnType<typeof setTimeout> | null = null
   let secondaryListObserver: IntersectionObserver | null = null
   let secondaryListFallbackTimer: ReturnType<typeof setTimeout> | null = null
-  let secondaryListsLoaded = false
+  let secondaryListsLoaded = initialFeaturedArticles.length > 0 || initialHotArticles.length > 0
   let secondaryListRequestInFlight = false
 
   const lifecycle = usePublicPageLifecycle({

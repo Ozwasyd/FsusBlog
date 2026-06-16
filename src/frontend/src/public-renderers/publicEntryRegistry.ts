@@ -3,7 +3,7 @@ import {
   createArticleListViewContract
 } from '@/view-contracts/articleList'
 import { createArticleDetailPageViewContract, type ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
-import type { RelatedReadingItemResponse, RelatedReadingResponse } from '@/api/article'
+import type { FeaturedArticleItem, PopularArticleSummaryResponse, RelatedReadingItemResponse, RelatedReadingResponse } from '@/api/article'
 import { createAboutPageViewContract } from '@/view-contracts/aboutPage'
 import { createArchivePageViewContract } from '@/view-contracts/archive'
 import { createFilterPageViewContract } from '@/view-contracts/filterView'
@@ -120,6 +120,20 @@ function normalizeComplianceConfig(value: unknown): SiteComplianceConfigPublic |
   }
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function requireArray(value: unknown, fieldName: string): unknown[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`public_aot_payload_missing_array:${fieldName}`)
+  }
+
+  return value
+}
+
 function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: PublicEntryBuildOptions, routeKey: string): PublicEntryScope<K> {
   const siteTitle = toText(options.siteTitle, PUBLIC_SHELL_DEFAULTS.siteTitle)
   const siteDescription = toText(options.siteDescription, '')
@@ -211,14 +225,70 @@ function normalizeRelatedReadingItem(value: unknown): RelatedReadingItemResponse
   }
 }
 
+function normalizeFeaturedArticle(value: unknown): FeaturedArticleItem | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const item = value as Record<string, unknown>
+  const category = item.category && typeof item.category === 'object'
+    ? item.category as Record<string, unknown>
+    : {
+        id: item.categoryId,
+        name: item.categoryName
+      }
+  const id = toNumber(item.id ?? item.Id)
+  const title = toText(item.title ?? item.Title, '')
+  const coverImageUrl = toText(item.coverImageUrl ?? item.CoverImageUrl, '')
+  if (id <= 0 || !title || !coverImageUrl) {
+    return null
+  }
+
+  return {
+    id,
+    title,
+    coverImageUrl,
+    views: toNumber(item.views ?? item.Views),
+    createTime: toText(item.createTime ?? item.CreateTime, new Date(0).toISOString()),
+    category: {
+      id: toNumber(category.id ?? category.Id),
+      name: toText(category.name ?? category.Name, 'Uncategorized')
+    }
+  }
+}
+
+function normalizeHotArticle(value: unknown): PopularArticleSummaryResponse | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const item = value as Record<string, unknown>
+  const id = toNumber(item.id ?? item.Id)
+  const title = toText(item.title ?? item.Title, '')
+  if (id <= 0 || !title) {
+    return null
+  }
+
+  return {
+    id,
+    title,
+    views: toNumber(item.views ?? item.Views)
+  }
+}
+
 const homeEntryDefinition = definePublicEntry({
   kind: 'Home',
   async build(createScope, options) {
-    const response = options.response as Record<string, unknown> | undefined
-    const items = Array.isArray(response?.items) ? response.items.map(normalizeArticleSummary) : []
-    const currentPage = toNumber(options.page, 1)
-    const pageSize = toNumber(options.size, 8)
-    const total = toNumber(response?.total, items.length)
+    const items = requireArray(options.articles, 'Home.articles').map(normalizeArticleSummary)
+    const featuredArticles = requireArray(options.featuredArticles, 'Home.featuredArticles')
+      .map(normalizeFeaturedArticle)
+      .filter((item): item is FeaturedArticleItem => item !== null)
+    const hotArticles = requireArray(options.hotArticles, 'Home.hotArticles')
+      .map(normalizeHotArticle)
+      .filter((item): item is PopularArticleSummaryResponse => item !== null)
+    const currentPage = toNumber(options.pageIndex ?? options.page, 1)
+    const pageSize = toNumber(options.pageSize ?? options.size, 8)
+    const total = toNumber(options.total, items.length)
     const scope = createScope(buildPublicHomeRouteKey())
     const view = createArticleListViewContract({ items, total }, { currentPage, pageSize })
     const hydration = {
@@ -227,19 +297,25 @@ const homeEntryDefinition = definePublicEntry({
       currentPage,
       pageSize,
       total,
-      view
+      view,
+      featuredArticles,
+      hotArticles
     }
     const bootstrap = {
       ...scope.baseModel.bootstrapBase,
       pageIndex: currentPage,
       pageSize,
       total,
-      articles: items
+      articles: items,
+      featuredArticles,
+      hotArticles
     }
     const html = await scope.renderShell(createPublicHomePageAssembly({
       siteTitleText: scope.siteTitle,
       siteDescriptionText: scope.siteDescription,
-      view
+      view,
+      featuredArticles,
+      hotArticles
     }))
     return scope.createEntry(html, bootstrap, hydration, {
       title: scope.siteTitle
@@ -274,7 +350,6 @@ const articleDetailEntryDefinition = definePublicEntry({
       relatedReading,
       commentsPlaceholder: ''
     }
-    const islands = { comments: { articleId } }
     const html = await scope.renderShell(createPublicArticleDetailPageAssembly({
       detailView,
       articleId,
@@ -289,7 +364,6 @@ const articleDetailEntryDefinition = definePublicEntry({
     }))
     return scope.createEntry(html, bootstrap, hydration, {
       articleId,
-      islands,
       title: article.title
     })
   }
@@ -380,23 +454,24 @@ const archiveEntryDefinition = definePublicEntry({
 const filterEntryDefinition = definePublicEntry({
   kind: 'Filter',
   async build(createScope, options) {
-    const filterType: PublicFilterType = normalizePublicFilterType(options.filterType)
-    const filterName = toText(options.filterName, '')
+    const filterInput = asRecord(options.filter) ?? options
+    const filterType: PublicFilterType = normalizePublicFilterType(filterInput.filterType)
+    const filterName = toText(filterInput.filterName, '')
     const scope = createScope(buildPublicFilterRouteKey({
       routeKey: options.routeKey,
       filterType,
-      filterKey: options.filterKey,
-      filterId: options.filterId,
+      filterKey: filterInput.filterKey,
+      filterId: filterInput.filterId,
       filterName
     }))
     const title = toText(options.title, filterName || '筛选')
-    const pageIndex = toNumber(options.pageIndex, 1)
-    const pageSize = toNumber(options.pageSize, 10)
-    const total = toNumber(options.total, 0)
+    const pageIndex = toNumber(filterInput.pageIndex, 1)
+    const pageSize = toNumber(filterInput.pageSize, 10)
+    const total = toNumber(filterInput.total, 0)
     const totalPages = Math.max(1, Math.ceil(total / Math.max(1, pageSize)))
-    const articles = Array.isArray(options.articles) ? options.articles.map(normalizeArticleSummary) : []
+    const articles = Array.isArray(filterInput.articles) ? filterInput.articles.map(normalizeArticleSummary) : []
     const cards = articles.map((article, index) => createArticleListCardViewContract(article, index))
-    const isInvalidTarget = Boolean(options.isInvalidTarget)
+    const isInvalidTarget = Boolean(filterInput.isInvalidTarget)
     const view = createFilterPageViewContract({
       filterType,
       labelText: getPublicFilterLabel(filterType),
@@ -415,8 +490,8 @@ const filterEntryDefinition = definePublicEntry({
     })
     const filter = {
       filterType,
-      filterKey: toText(options.filterKey, scope.routeKey),
-      filterId: toNumber(options.filterId),
+      filterKey: toText(filterInput.filterKey, scope.routeKey),
+      filterId: toNumber(filterInput.filterId),
       filterName,
       isInvalidTarget,
       pageIndex,
@@ -427,22 +502,12 @@ const filterEntryDefinition = definePublicEntry({
     const hydration = {
       ...scope.baseModel.hydrationBase,
       title,
-      filterType,
-      filterKey: filter.filterKey,
-      filterId: filter.filterId,
-      filterName,
-      isInvalidTarget,
       view,
       filter
     }
     const bootstrap = {
       ...scope.baseModel.bootstrapBase,
       title,
-      filterType,
-      filterKey: filter.filterKey,
-      filterId: filter.filterId,
-      filterName,
-      isInvalidTarget,
       filter
     }
     const html = await scope.renderShell(createPublicFilterPageAssembly({

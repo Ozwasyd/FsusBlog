@@ -15,6 +15,18 @@ public sealed class PublicAotBootstrapProviderTests
     }
 
     [Fact]
+    public void ArticleDetailProvider_SourceResolvesArticleAuthorBeforeSeoFallback()
+    {
+        string source = ReadProviderSource();
+        string articleProviderSource = source[source.IndexOf("public sealed class PublicAotArticleDetailBootstrapProvider", StringComparison.Ordinal)..];
+
+        Assert.Contains("ArticleAuthorAotProjection", articleProviderSource);
+        Assert.Contains("CreatedByUserId", articleProviderSource);
+        Assert.Contains("user.Username", articleProviderSource);
+        Assert.Contains("ResolveArticleAuthorName(article.AuthorName, seo)", articleProviderSource);
+    }
+
+    [Fact]
     public void ArchiveProvider_SourceUsesMinimalProjectionInsteadOfFullArticleDtoPaging()
     {
         string source = ReadProviderSource();

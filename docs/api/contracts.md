@@ -831,7 +831,6 @@ HTML bootstrap、hydration props 和 islands payload 均以 `script type="applic
   "rendererVersion": "public-app-ssr@2026-05-01-1",
   "bootstrapPayload": "<base64url AEDS frame>",
   "hydrationPropsPayload": "<base64url AEDS frame>",
-  "islandsPayload": "<base64url AEDS frame>",
   "html": "<div id=\"fsus-aot-shell\">...</div>",
   "title": "文章标题",
   "baseUrl": "https://fsus.blog"
@@ -840,8 +839,27 @@ HTML bootstrap、hydration props 和 islands payload 均以 `script type="applic
 
 - `bootstrapPayload`：页面初始数据 AEDS payload，供 SPA 直接初始化 Pinia store
 - `hydrationPropsPayload`：hydration props AEDS payload，传递给客户端渲染器
-- `islandsPayload`：islands 配置 AEDS payload，定义哪些区域需要客户端接管
 - `html`：Vue SSR 产出的页面 shell HTML；上传模板仍可含占位符（如 `{{articleId}}`），写入前会规范化
+
+
+`islandsPayload` 已退役。文章评论区接管统一使用 `hydrationPropsPayload.commentsIsland.articleId`。
+
+### `Home` AOT payload shape
+
+`bootstrapPayload` 与 `hydrationPropsPayload` 使用扁平文章字段。旧的嵌套 `response.items` 结构不再属于 AOT 契约。
+
+```json
+{
+  "pageKind": "Home",
+  "routeKey": "home",
+  "pageIndex": 1,
+  "pageSize": 10,
+  "total": 12,
+  "articles": [],
+  "featuredArticles": [],
+  "hotArticles": []
+}
+```
 
 ### `Filter` 页面最小契约
 
@@ -851,19 +869,7 @@ HTML bootstrap、hydration props 和 islands payload 均以 `script type="applic
 {
   "pageKind": "Filter",
   "routeKey": "tag-name:AcceptanceTag",
-  "filterType": "tag",
-  "filterKey": "tag-name:AcceptanceTag",
-  "filterId": 1,
-  "filterName": "AcceptanceTag",
   "title": "AcceptanceTag",
-  "isInvalidTarget": false
-}
-```
-
-其中 `filter` 节点继续承载分页数据：
-
-```json
-{
   "filter": {
     "filterType": "tag",
     "filterKey": "tag-name:AcceptanceTag",
@@ -883,6 +889,22 @@ HTML bootstrap、hydration props 和 islands payload 均以 `script type="applic
 - `filterKey` 是筛选页稳定身份，必须能区分 `category:1`、`tag:1`、`tag-name:AcceptanceTag`。
 - 无效分类/标签目标必须设置 `isInvalidTarget=true`，且 `articles` 必须为空。
 - 客户端不得再从 path string 反推标题或筛选语义。
+
+
+### `ArticleDetail` AOT payload shape
+
+文章详情 hydration 使用 `bodyContent` 承载原始 Markdown，使用 `bodyHtml` 承载 SSR 渲染后的 HTML。`content` 不再是 AOT 契约字段。
+
+```json
+{
+  "pageKind": "ArticleDetail",
+  "routeKey": "article:42",
+  "articleId": 42,
+  "bodyContent": "# Heading",
+  "bodyHtml": "<h1>Heading</h1>",
+  "commentsIsland": { "articleId": 42 }
+}
+```
 
 ### `ArticleDetail` 标签链接契约
 

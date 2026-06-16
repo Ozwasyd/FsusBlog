@@ -99,8 +99,8 @@ public static class PublicPageRegistry
         PublicPageId.Account,
         "account",
         SeoEligible: false,
-        AotShellReady: true,
-        DeferSpaBoot: true);
+        AotShellReady: false,
+        DeferSpaBoot: false);
 
     public static readonly PublicPageDescriptor Privacy = new(
         PublicPageId.Privacy,

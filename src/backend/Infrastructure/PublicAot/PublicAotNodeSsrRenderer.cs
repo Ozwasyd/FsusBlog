@@ -45,10 +45,16 @@ public sealed class PublicAotNodeSsrRenderer(
             configuration["PublicAot:SsrNodePath"]?.Trim() is { Length: > 0 } configuredNode
                 ? configuredNode
                 : "node",
-            Math.Clamp(configuration.GetValue<int?>("PublicAot:SsrWorkerCount") ?? 1, 1, Math.Min(4, Environment.ProcessorCount)),
+            ResolveWorkerCount(configuration),
             TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue<int?>("PublicAot:SsrRequestTimeoutSeconds") ?? 30, 5, 180)),
             logger);
     });
+
+    private static int ResolveWorkerCount(IConfiguration configuration)
+    {
+        int maxWorkerCount = Math.Max(1, Math.Min(4, Environment.ProcessorCount));
+        return Math.Clamp(configuration.GetValue<int?>("PublicAot:SsrWorkerCount") ?? maxWorkerCount, 1, maxWorkerCount);
+    }
 
     public async Task<Result<PublicAotShellEntryContract>> BuildEntryAsync(
         PublicAotRenderRequest request,

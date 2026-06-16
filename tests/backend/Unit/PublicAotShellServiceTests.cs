@@ -331,6 +331,8 @@ public sealed class PublicAotShellServiceTests
                 1,
                 8,
                 0,
+                [],
+                [],
                 [])));
     }
 }

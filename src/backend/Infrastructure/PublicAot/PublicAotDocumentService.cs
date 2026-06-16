@@ -48,7 +48,7 @@ public sealed class PublicAotDocumentService(
             string description = ResolveDescription(entry, payloads, seo.Description);
             string siteTitle = ResolvePayloadString(payloads.Hydration, "siteTitle", seo.Title);
             string canonicalUrl = string.Concat(NormalizeBaseUrl(entry.BaseUrl) ?? _configuredBaseUrl, ResolveCanonicalPath(entry));
-            PublicPageKind kind = PublicAotPageCatalog.GetRequired(entry.PageId).Kind;
+            PublicPageKind kind = ResolvePageKind(entry.PageId);
             string shell = PublicAotDocumentComposer.EnsureShellRoot(NormalizeHtml(entry.Html, entry.ArticleId), kind);
             string headLinks = BuildHeadLinks(rawTemplate, assetSet, seo);
 
@@ -124,6 +124,21 @@ public sealed class PublicAotDocumentService(
             .Append(WebUtility.HtmlEncode(content))
             .AppendLine("\" data-fsusblog-seo=\"runtime\" />");
     }
+
+    private static PublicPageKind ResolvePageKind(PublicPageId pageId)
+        => pageId switch
+        {
+            PublicPageId.Home => PublicPageKind.Home,
+            PublicPageId.ArticleDetail => PublicPageKind.ArticleDetail,
+            PublicPageId.Filter => PublicPageKind.Filter,
+            PublicPageId.Archive => PublicPageKind.Archive,
+            PublicPageId.About => PublicPageKind.About,
+            PublicPageId.Account => PublicPageKind.Account,
+            PublicPageId.Privacy => PublicPageKind.Privacy,
+            PublicPageId.Guidelines => PublicPageKind.Guidelines,
+            PublicPageId.Copyright => PublicPageKind.Copyright,
+            _ => PublicPageKind.Home
+        };
 
     private static void AppendRuntimeMetaProperty(StringBuilder builder, string property, string content)
     {

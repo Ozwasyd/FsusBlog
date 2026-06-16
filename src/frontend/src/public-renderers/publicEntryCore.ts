@@ -70,6 +70,7 @@ export function normalizeArticleSummary(value: unknown): ArticleListItemResponse
     id: toNumber(item.id ?? item.Id),
     title: toText(item.title ?? item.Title, 'Untitled'),
     summary: toText(item.summary ?? item.Summary ?? item.snippet ?? item.Snippet, ''),
+    coverImageUrl: toText(item.coverImageUrl ?? item.CoverImageUrl, ''),
     views: toNumber(item.views ?? item.Views),
     createTime: toText(item.createTime ?? item.CreateTime, new Date(0).toISOString()),
     category: {
@@ -84,7 +85,7 @@ export function normalizeArticleDetail(options: Record<string, unknown>): Articl
   return {
     ...normalizeArticleSummary(options),
     id: toNumber(options.articleId ?? options.id),
-    content: toText(options.content, ''),
+    content: toText(options.bodyContent ?? options.content, ''),
     summary: toText(options.summary, '')
   }
 }
@@ -142,7 +143,6 @@ export async function renderShell(
 
 export function createEntry(kind: PublicPageKind, routeKey: string, html: string, bootstrap: Record<string, unknown>, hydration: Record<string, unknown>, options: {
   articleId?: number | null
-  islands?: Record<string, unknown> | null
   title?: string | null
   baseUrl?: string | null
 } = {}): RenderResult {
@@ -155,7 +155,7 @@ export function createEntry(kind: PublicPageKind, routeKey: string, html: string
       bootstrapPayload: encodePayload(bootstrap),
       hydrationPropsPayload: encodePayload(hydration),
       rendererVersion: PUBLIC_RENDERER_VERSION,
-      islandsPayload: options.islands ? encodePayload(options.islands) : null,
+      islandsPayload: null,
       title: options.title ?? toText(hydration.title, ''),
       baseUrl: options.baseUrl ?? toText(hydration.baseUrl, '')
     }

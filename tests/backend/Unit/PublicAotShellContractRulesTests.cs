@@ -235,6 +235,29 @@ public class PublicAotShellContractRulesTests
     // ─── Islands validation ──────────────────────────────────────────────────
 
     [Fact]
+    public void ValidateIslandsPayload_ArticleDetailWithoutIslands_ReturnsTrue()
+    {
+        var entry = MakeEntry(
+            pageId: PublicPageId.ArticleDetail,
+            routeKey: "article:5",
+            articleId: 5,
+            bootstrap: Payload(
+                ("kind", "ArticleDetail"),
+                ("pageKind", "ArticleDetail"),
+                ("routeKey", "article:5"),
+                ("article", new Dictionary<string, object?> { ["id"] = 5 })),
+            hydration: Payload(
+                ("pageKind", "ArticleDetail"),
+                ("routeKey", "article:5"),
+                ("articleId", 5),
+                ("commentsIsland", new Dictionary<string, object?> { ["articleId"] = 5 })));
+
+        bool ok = PublicAotShellContractRules.TryValidateEntry(entry, out _, out _, out var err);
+
+        Assert.True(ok, err);
+    }
+
+    [Fact]
     public void ValidateIslandsPayload_HomeWithIslands_ReturnsFalse()
     {
         var entry = MakeEntry(
@@ -242,7 +265,7 @@ public class PublicAotShellContractRulesTests
             islands: Payload(("comments", new Dictionary<string, object?>())));
         bool ok = PublicAotShellContractRules.TryValidateEntry(entry, out _, out _, out var err);
         Assert.False(ok);
-        Assert.Contains("非文章详情页不应携带 islands", err);
+        Assert.Contains("payload retired", err);
     }
 
     private static string Payload(params (string Key, object? Value)[] values)

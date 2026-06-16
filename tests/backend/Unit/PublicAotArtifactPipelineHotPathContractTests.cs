@@ -66,6 +66,8 @@ public sealed class PublicAotArtifactPipelineHotPathContractTests
         Assert.DoesNotContain("ReadToEndAsync", source, StringComparison.Ordinal);
         Assert.Contains("MaxSsrOutputBytes", source, StringComparison.Ordinal);
         Assert.Contains("WorkerProtocolSupportsMultiplexing = false", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveWorkerCount(configuration)", source, StringComparison.Ordinal);
+        Assert.Contains("Environment.ProcessorCount", source, StringComparison.Ordinal);
         Assert.Contains("ReadProcessOutputBoundedAsync", source, StringComparison.Ordinal);
     }
 

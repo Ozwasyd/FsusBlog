@@ -112,16 +112,17 @@ internal static class PublicAotPageCatalog
     private static PublicAotPageDescriptor CreateDescriptor(PublicPageKind kind, LocalPageMetadata metadata)
     {
         string canonicalSlug = PublicAotPageIdentity.GetCanonicalSlug(kind);
+        string? defaultFixedPath = PublicAotPageIdentity.GetDefaultFixedPath(kind);
 
         return metadata.RouteTopology switch
         {
             LocalRouteTopology.StaticSeoPage => new PublicAotPageDescriptor(
                 kind,
-                StaticPath: PublicAotPageIdentity.GetDefaultFixedPath(kind),
+                StaticPath: defaultFixedPath,
                 FixedRouteKey: canonicalSlug,
                 metadata.DefaultTitle,
                 metadata.StoredPageName,
-                CanonicalFixedPath: PublicAotPageIdentity.GetDefaultFixedPath(kind)),
+                CanonicalFixedPath: defaultFixedPath),
             LocalRouteTopology.AccountFixedPath => new PublicAotPageDescriptor(
                 kind,
                 StaticPath: null,

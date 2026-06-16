@@ -236,40 +236,15 @@ public static class PublicAotShellContractRules
     {
         error = string.Empty;
 
-        if (entry.PageId != PublicPageId.ArticleDetail)
+        if (payloadView.HasIslands)
         {
-            if (payloadView.HasIslands)
-            {
-                error = "非文章详情页不应携带 islands";
-                return false;
-            }
-
-            return true;
-        }
-
-        if (!payloadView.HasIslands)
-        {
-            error = "文章详情页 islands 缺失";
-            return false;
-        }
-
-        IReadOnlyDictionary<string, object?> root = payloadView.Islands!;
-        if (!TryGetObject(root, "comments", out IReadOnlyDictionary<string, object?> comments))
-        {
-            error = "AOT islands.comments 缺失";
-            return false;
-        }
-
-        if (!comments.TryGetValue("articleId", out object? articleIdElement) ||
-            !TryGetInt32(articleIdElement, out int articleId) ||
-            articleId != entry.ArticleId)
-        {
-            error = "AOT islands.comments.articleId 与 entry.articleId 不一致";
+            error = "AOT islands payload retired; use hydration commentsIsland";
             return false;
         }
 
         return true;
     }
+
 
     private static string? TryGetString(IReadOnlyDictionary<string, object?> payload, string propertyName)
         => payload.TryGetValue(propertyName, out object? value) && value is string text ? text : null;

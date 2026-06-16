@@ -42,6 +42,30 @@ public sealed class PublicAotDocumentComposerTests
     }
 
     [Fact]
+    public void ComposeDocument_RetiredIslandsPayload_IsNotEmbedded()
+    {
+        string template = Template();
+        string prepared = PublicAotDocumentComposer.PreparePublicDocumentTemplate(template);
+
+        string html = PublicAotDocumentComposer.ComposeDocument(new PublicAotDocumentModel(
+            PublicPageKind.ArticleDetail,
+            template,
+            prepared,
+            "Article",
+            "Blog",
+            "Desc",
+            "https://example.com/article/1",
+            "<main/>",
+            AedsPayload(("pageKind", "ArticleDetail")),
+            AedsPayload(("pageKind", "ArticleDetail"), ("routeKey", "article:1")),
+            AedsPayload(("comments", new Dictionary<string, object?> { ["articleId"] = 1 })),
+            string.Empty,
+            string.Empty));
+
+        Assert.DoesNotContain("fsus-aot-islands", html);
+    }
+
+    [Fact]
     public void BuildSeoHeadTags_NonArticle_UsesWebsiteOgType()
     {
         string result = PublicAotDocumentComposer.BuildSeoHeadTags(

@@ -525,6 +525,10 @@ function clearPublicFirstPaintFlag(): void {
   document.body.removeAttribute('data-fsusblog-public-first-paint')
 }
 
+function isPublicShellDocument(): boolean {
+  return document.body.hasAttribute('data-fsusblog-public-shell')
+}
+
 function waitForDocumentInteractive(): Promise<void> {
   if (document.readyState !== 'loading') {
     return Promise.resolve()
@@ -986,7 +990,6 @@ async function applyPublicNavigationDocument(
   syncChildNodes(currentShell, targetShell)
 
   replaceBinaryScript('fsus-aot-bootstrap', readBinaryTextById(targetDocument, 'fsus-aot-bootstrap'))
-  replaceBinaryScript('fsus-aot-islands', readBinaryTextById(targetDocument, 'fsus-aot-islands'))
 
   hydratedPayload = payload
   await hydratePublicPage(payload)
@@ -1219,7 +1222,9 @@ async function hydratePublicShell(): Promise<void> {
 
 export async function bootstrapPublicShell(): Promise<void> {
   ensureThemeRuntime()
-  document.body.setAttribute('data-fsusblog-public-first-paint', 'true')
+  if (isPublicShellDocument()) {
+    document.body.setAttribute('data-fsusblog-public-first-paint', 'true')
+  }
   bindPreBootstrapNavigation()
   bindPopStateNavigation()
   const hydrateTask = (async () => {
