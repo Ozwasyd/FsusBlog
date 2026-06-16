@@ -56,6 +56,7 @@ function assertStaticContracts() {
   const publicShell = read('src/frontend/src/bootstrap/publicShell.ts')
   const hydrationBootstrap = read('src/frontend/src/bootstrap/publicHydrationBootstrap.ts')
   const binaryPayload = read('src/frontend/src/bootstrap/publicAotBinaryPayload.ts')
+  const aotCacheResilienceCheck = read('tests/frontend/checks/public/check-aot-cache-resilience.mjs')
   const hydrationSmoke = read('tests/frontend/checks/public/public-hydration-smoke.mjs')
   const refreshHydrationCheck = read('tests/frontend/checks/public/check-public-refresh-hydration.mjs')
   const clockHydrationCheck = read('tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs')
@@ -158,6 +159,28 @@ function assertStaticContracts() {
   }
   if (!binaryPayload.includes('class BinaryWriter') || binaryPayload.includes('const payload: number[]') || !binaryPayload.includes("toString('base64url')") || !binaryPayload.includes('decodePublicAotPayloadBytes')) {
     fail('Public AOT payload encoder must use growable Uint8Array writer and Node base64url fast path')
+  }
+  for (const token of [
+    'fsusblog.public-aot-cache-resilience.v1',
+    'aot-cache-resilience-summary.json',
+    'placeholderOnly: false',
+    'fs.mkdtempSync',
+    'fs.truncateSync',
+    'fs.unlinkSync',
+    'fs.writeFileSync',
+    'sha256',
+    'corrupt-document',
+    'invalid-document-bytes',
+    'missing-sidecar',
+    'corrupt-sidecar',
+    'old-asset-version',
+    'html-payload-mismatch',
+    'sw-stale-cache-poisoning',
+    'network-recovered'
+  ]) {
+    if (!aotCacheResilienceCheck.includes(token)) {
+      fail(`AOT cache resilience check missing destructive fixture token: ${token}`)
+    }
   }
   for (const token of ['readHydrationRawPayload', 'data-aeds-src', 'arrayBuffer', "toString('base64url')"]) {
     if (!refreshHydrationCheck.includes(token)) {
@@ -332,10 +355,21 @@ function assertStaticContracts() {
   if (!releaseLane.includes('check-public-hydration-matrix-governance.mjs --lane release')) {
     fail('release lane missing public hydration matrix governance checker')
   }
+  if (!releaseLane.includes('check:aot-cache-resilience')) {
+    fail('resilience/release lane missing destructive AOT cache resilience check')
+  }
   for (const token of ['public-hydration-clock-matrix', 'public-hydration-clock-matrix-summary.json', 'public-hydration-browser-env-matrix', 'public-hydration-browser-env-summary.json', 'public-hydration-payload-fixture-matrix', 'public-hydration-payload-fixture-summary.json', 'public-hydration-dom-diff', 'public-hydration-dom-diff-summary.json', 'public-hydration-sidecar', 'public-hydration-sidecar-summary.json', 'public-hydration-fast', 'public-hydration-nightly', 'public-hydration-matrix', 'public-hydration-matrix-summary.json']) {
     if (!testMatrix.includes(token)) {
       fail(`test matrix missing public hydration release evidence token: ${token}`)
     }
+  }
+  for (const token of ['public-aot-cache-resilience', 'aot-cache-resilience-summary.json']) {
+    if (!testMatrix.includes(token)) {
+      fail(`test matrix missing AOT cache resilience evidence token: ${token}`)
+    }
+  }
+  if (!qualityGateWorkflow.includes('aot-cache-resilience-summary.json')) {
+    fail('quality gate workflow missing AOT cache resilience artifact')
   }
   if (!qualityGateWorkflow.includes('public-hydration-payload-fixture-summary.json')) {
     fail('quality gate workflow missing public hydration payload fixture artifact')
@@ -373,7 +407,11 @@ function assertStaticContracts() {
     'PUBLIC_HYDRATION_MATRIX_SUMMARY',
     'PUBLIC_HYDRATION_MATRIX_STATUS_VALUE',
     'publicHydrationMatrixSummary',
-    'publicHydrationMatrix'
+    'publicHydrationMatrix',
+    'AOT_CACHE_RESILIENCE_SUMMARY',
+    'AOT_CACHE_RESILIENCE_STATUS_VALUE',
+    'aotCacheResilienceSummary',
+    'publicAotCacheResilience'
   ]) {
     if (!releaseEvidenceCollector.includes(token)) {
       fail(`release evidence collector missing public hydration token: ${token}`)

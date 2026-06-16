@@ -429,6 +429,7 @@ UX_VIEWPORT_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evide
 FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json")"
 PUBLISH_ARTIFACTS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json")"
 BACKEND_QPS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json")"
+AOT_CACHE_RESILIENCE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aot-cache-resilience-summary.json")"
 AEDS_FRAME_COST_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json")"
 AEDS_COMPRESSION_PROFILE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json")"
 AEDS_DECODE_BUDGET_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-decode-budget-summary.json")"
@@ -462,6 +463,7 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$AUTHENTICATED_DAST_STATUS_VALUE" != "ok" \
   || "$WASM_FUZZ_STATUS_VALUE" != "ok" \
   || "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE" != "ok" \
+  || "$AOT_CACHE_RESILIENCE_STATUS_VALUE" != "success" \
   || "$PUBLIC_HYDRATION_DETECTOR_STATUS_VALUE" != "success" \
   || "$PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE" != "success" \
   || "$PUBLIC_HYDRATION_BROWSER_ENV_STATUS_VALUE" != "success" \
@@ -580,6 +582,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
       "publicHydrationDomDiff": "$PUBLIC_HYDRATION_DOM_DIFF_STATUS_VALUE",
       "publicHydrationSidecar": "$PUBLIC_HYDRATION_SIDECAR_STATUS_VALUE",
       "publicHydrationMatrix": "$PUBLIC_HYDRATION_MATRIX_STATUS_VALUE",
+      "publicAotCacheResilience": "$AOT_CACHE_RESILIENCE_STATUS_VALUE",
       "publishArtifacts": "$PUBLISH_ARTIFACTS_STATUS_VALUE",
       "backendQps": "$BACKEND_QPS_STATUS_VALUE",
       "aedsFrameCost": "$AEDS_FRAME_COST_STATUS_VALUE",

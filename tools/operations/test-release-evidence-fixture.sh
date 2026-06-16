@@ -8,6 +8,7 @@ TRACKED_TMP_FILES=(
   ".tmp/release-evidence/frontend-render-pressure-summary.json"
   ".tmp/release-evidence/doc-sync-summary.json"
   ".tmp/release-evidence/backend-qps-summary.json"
+  ".tmp/release-evidence/aot-cache-resilience-summary.json"
   ".tmp/release-evidence/public-hydration-detector-summary.json"
   ".tmp/release-evidence/public-hydration-clock-matrix-summary.json"
   ".tmp/release-evidence/public-hydration-browser-env-summary.json"
@@ -253,6 +254,24 @@ printf '{"summary":{"linecoverage":78,"branchcoverage":58,"methodcoverage":96,"a
 mkdir -p "$ROOT_DIR/.tmp/frontend" "$ROOT_DIR/.tmp/release-evidence"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json"
+cat > "$ROOT_DIR/.tmp/release-evidence/aot-cache-resilience-summary.json" <<'JSON'
+{
+  "schema": "fsusblog.public-aot-cache-resilience.v1",
+  "status": "success",
+  "gitSha": "fixture",
+  "rendererVersion": "fixture",
+  "placeholderOnly": false,
+  "cases": [
+    { "name": "corrupt-document", "route": "/article/1", "status": "success", "initialState": "fresh", "mutation": "truncate-document", "mutationVerified": true, "observedState": "fallback", "recovered": true, "durationMs": 1, "errors": [] },
+    { "name": "invalid-document-bytes", "route": "/article/1", "status": "success", "initialState": "fresh", "mutation": "overwrite-document", "mutationVerified": true, "observedState": "fallback", "recovered": true, "durationMs": 1, "errors": [] },
+    { "name": "missing-sidecar", "route": "/article/1", "status": "success", "initialState": "fresh", "mutation": "delete-sidecar", "mutationVerified": true, "observedState": "fallback", "recovered": true, "durationMs": 1, "errors": [] },
+    { "name": "corrupt-sidecar", "route": "/article/1", "status": "success", "initialState": "fresh", "mutation": "overwrite-sidecar", "mutationVerified": true, "observedState": "fallback", "recovered": true, "durationMs": 1, "errors": [] },
+    { "name": "old-asset-version", "route": "/article/1", "status": "success", "initialState": "fresh", "mutation": "seed-old-asset-version", "mutationVerified": true, "observedState": "stale", "recovered": true, "durationMs": 1, "errors": [] },
+    { "name": "html-payload-mismatch", "route": "/article/1", "status": "success", "initialState": "fresh", "mutation": "swap-sidecar-payload", "mutationVerified": true, "observedState": "blocked", "recovered": true, "durationMs": 1, "errors": [] },
+    { "name": "sw-stale-cache-poisoning", "route": "/article/1", "status": "success", "initialState": "fresh", "mutation": "prime-stale-browser-cache", "mutationVerified": true, "observedState": "network-recovered", "recovered": true, "durationMs": 1, "errors": [] }
+  ]
+}
+JSON
 printf '{"schema":"fsusblog.public-hydration-detector.v1","status":"success","fatalHydrationIssueCount":0,"routesChecked":[{"route":"/","routeName":"home","stage":"home:first-visit:hydrate","browser":"chromium","viewport":{"name":"desktop","width":1440,"height":900},"status":"success"}],"warnings":[],"errors":[]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-detector-summary.json"
 printf '{"schema":"fsusblog.public-hydration-clock-matrix.v1","status":"success","cases":[{"id":"fixture","ssrClock":"2026-06-16T12:00:00.000Z","hydrationClock":"2026-06-16T12:01:10.000Z","serverTimeZone":"UTC","browserTimeZone":"Asia/Shanghai","locale":"zh-CN","rows":[{"kind":"ArticleDetail","timestampCase":"just-now","renderTimestamp":"2026-06-16T12:00:00.000Z","renderTimeZone":"UTC","timeNodeCount":1}]}]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-clock-matrix-summary.json"
 printf '{"schema":"fsusblog.public-hydration-browser-env-matrix.v1","status":"success","coverage":{"environmentCells":4,"routesChecked":12,"routesSkipped":0,"sessionStates":["anonymous","user","admin"],"themePreferences":["empty","light","dark","system"],"storageBehaviors":["normal","unavailable","cleared-after-reload"],"motionPreferences":["normal","reduced"],"colorSchemes":["light","dark"],"viewports":["desktop","tablet","mobile","narrowMobile"]},"rows":[{"routeId":"home","status":"success","environment":{"id":"fixture","sessionState":"anonymous","themePreference":"empty"}}]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-browser-env-summary.json"
@@ -325,6 +344,7 @@ jq -e '
   and .artifacts.faultInjection == "fault-injection"
   and .artifacts.soak == "soak"
   and .artifacts.backendQpsSummary == "backend-qps-summary.json"
+  and .artifacts.aotCacheResilienceSummary == "aot-cache-resilience-summary.json"
   and .artifacts.publicHydrationDetectorSummary == "public-hydration-detector-summary.json"
   and .artifacts.publicHydrationClockMatrixSummary == "public-hydration-clock-matrix-summary.json"
   and .artifacts.publicHydrationBrowserEnvSummary == "public-hydration-browser-env-summary.json"
@@ -375,6 +395,7 @@ jq -e '
   and .evidenceSummary.operations.runtimeTuning.nonDefaultPresetsRequireBenchmarkEvidence == true
   and .evidenceSummary.operations.runtimeTuning.rollback == "unset RuntimeTuning/DOTNET_* overrides and restart on the same image"
   and .evidenceSummary.gates.backendQps == "ok"
+  and .evidenceSummary.gates.publicAotCacheResilience == "success"
   and .evidenceSummary.gates.publicHydrationDetector == "success"
   and .evidenceSummary.gates.publicHydrationClockMatrix == "success"
   and .evidenceSummary.gates.publicHydrationBrowserEnv == "success"

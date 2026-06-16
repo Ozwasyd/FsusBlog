@@ -843,6 +843,7 @@ jobs:
           path: |
             .tmp/backend-chaos/**
             .tmp/fault-injection/**
+            .tmp/release-evidence/aot-cache-resilience-summary.json
             .tmp/release-evidence/jobs/**
             src/frontend/test-results/playwright/resilience/**
 

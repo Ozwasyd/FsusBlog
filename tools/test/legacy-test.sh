@@ -921,6 +921,7 @@ run_resilience_only() {
 
   run_in_client npm run prepare:binary-smoke:auth-users
   run_in_client npm run prepare:playwright:fixtures
+  run_in_client npm run check:aot-cache-resilience
   run_in_client npm run check:resilience:runtime
   run_in_client npm run check:resilience:upload
   run_in_client npm run check:notification-stream-runtime

@@ -28,6 +28,7 @@ const requiredStatusChecks = [
   ['DNS delegation', (manifest) => manifest.evidenceSummary?.externalExposure?.dnsDelegation === 'ok'],
   ['live exposure', (manifest) => manifest.evidenceSummary?.externalExposure?.liveExposure === 'ok'],
   ['frontend render pressure', (manifest) => manifest.evidenceSummary?.gates?.frontendRenderPressure === 'ok'],
+  ['public AOT cache resilience', (manifest, context) => manifest.evidenceSummary?.gates?.publicAotCacheResilience === 'success' && publicAotCacheResilienceOk(manifest, context)],
   ['public hydration sidecar', (manifest, context) => manifest.evidenceSummary?.gates?.publicHydrationSidecar === 'success' && publicHydrationSidecarOk(manifest, context)],
   ['doc sync', (manifest) => manifest.evidenceSummary?.gates?.docSync === 'ok']
 ]
@@ -46,6 +47,7 @@ const requiredArtifacts = [
   'jobSummaries',
   'uxViewportSummary',
   'frontendRenderPressureSummary',
+  'aotCacheResilienceSummary',
   'publicHydrationSidecarSummary',
   'publishArtifactsSummary',
   'docSyncSummary',
@@ -177,6 +179,40 @@ function publicHydrationSidecarOk(manifest, context) {
         && check.mode === 'sidecar-primary'))
 }
 
+function publicAotCacheResilienceOk(manifest, context) {
+  const report = readArtifactJson(manifest, context, 'aotCacheResilienceSummary')
+  const requiredCases = [
+    'corrupt-document',
+    'invalid-document-bytes',
+    'missing-sidecar',
+    'corrupt-sidecar',
+    'old-asset-version',
+    'html-payload-mismatch',
+    'sw-stale-cache-poisoning'
+  ]
+
+  if (report?.schema !== 'fsusblog.public-aot-cache-resilience.v1' ||
+    report.status !== 'success' ||
+    report.placeholderOnly === true ||
+    !Array.isArray(report.cases) ||
+    !includesAll(report.cases.map((item) => item?.name), requiredCases)) {
+    return false
+  }
+
+  return report.cases.every((item) => item?.status === 'success'
+    && typeof item.route === 'string'
+    && item.route.length > 0
+    && typeof item.initialState === 'string'
+    && typeof item.mutation === 'string'
+    && item.mutation.length > 0
+    && typeof item.observedState === 'string'
+    && item.mutationVerified === true
+    && item.recovered === true
+    && Number(item.durationMs ?? -1) >= 0
+    && Array.isArray(item.errors)
+    && item.errors.length === 0)
+}
+
 function latestManifest() {
   const baseDir = path.join(rootDir, '.tmp', 'release-evidence')
   if (!fs.existsSync(baseDir)) {
@@ -230,7 +266,7 @@ function validateManifest(manifest, options = {}) {
     errors.push(`release closeout requires collected-ok, got ${manifest.status}`)
   }
 
-  for (const key of ['frontendRenderPressureSummary', 'publicHydrationSidecarSummary', 'docSyncSummary', 'domBudgetSummary', 'routeRenderPressureSummary', 'markdownRenderBudgetSummary', 'domDepthStaticSummary']) {
+  for (const key of ['frontendRenderPressureSummary', 'aotCacheResilienceSummary', 'publicHydrationSidecarSummary', 'docSyncSummary', 'domBudgetSummary', 'routeRenderPressureSummary', 'markdownRenderBudgetSummary', 'domDepthStaticSummary']) {
     if (manifest.artifacts?.[key] === null || manifest.artifacts?.[key] === undefined) {
       errors.push(`artifacts.${key} must point to a collected required summary`)
     }
@@ -270,6 +306,7 @@ function runSelfTest() {
       },
       gates: {
         frontendRenderPressure: 'ok',
+        publicAotCacheResilience: 'success',
         publicHydrationSidecar: 'success',
         docSync: 'ok'
       },
@@ -318,6 +355,33 @@ function runSelfTest() {
       mode: 'sidecar-primary'
     }))
   }))
+  fs.writeFileSync(path.join(tmpDir, 'aotCacheResilienceSummary.json'), JSON.stringify({
+    schema: 'fsusblog.public-aot-cache-resilience.v1',
+    status: 'success',
+    gitSha: 'fixture',
+    rendererVersion: 'fixture',
+    placeholderOnly: false,
+    cases: [
+      'corrupt-document',
+      'invalid-document-bytes',
+      'missing-sidecar',
+      'corrupt-sidecar',
+      'old-asset-version',
+      'html-payload-mismatch',
+      'sw-stale-cache-poisoning'
+    ].map((name) => ({
+      name,
+      route: '/article/1',
+      status: 'success',
+      initialState: 'fresh',
+      mutation: `fixture-${name}`,
+      mutationVerified: true,
+      observedState: name === 'old-asset-version' ? 'stale' : 'fallback',
+      recovered: true,
+      durationMs: 1,
+      errors: []
+    }))
+  }))
   fs.mkdirSync(path.join(tmpDir, 'authenticatedDast'))
   fs.writeFileSync(path.join(tmpDir, 'authenticatedDast', 'summary.json'), JSON.stringify({ status: 'ok', activeScan: { executed: true } }))
   fs.mkdirSync(path.join(tmpDir, 'fuzz', 'wasm'), { recursive: true })
@@ -358,6 +422,43 @@ function runSelfTest() {
     mode: 'real',
     timings: { rpoSeconds: 1, rtoSeconds: 1 },
     checks: ['postgres-restore:ok', 'redis-restore:ok', 'webroot-artifact-restore:ok', 'restored-backend-start:ok', 'public-page:ok', 'binary-api:ok', 'search-index:ok', 'notification-stream-live:ok', 'admin-login:ok']
+  }))
+
+  fs.writeFileSync(path.join(tmpDir, 'aotCacheResilienceSummary.json'), JSON.stringify({
+    status: 'ok',
+    placeholderOnly: true,
+    cases: ['corrupt-html', 'corrupt-json']
+  }))
+  const placeholderAotResilience = validateManifest(base, { manifestPath: manifestFile })
+  if (placeholderAotResilience.ok || !placeholderAotResilience.missingRequired.includes('public AOT cache resilience')) {
+    fail('self-test expected placeholder AOT cache resilience artifact to block release closeout')
+  }
+  fs.writeFileSync(path.join(tmpDir, 'aotCacheResilienceSummary.json'), JSON.stringify({
+    schema: 'fsusblog.public-aot-cache-resilience.v1',
+    status: 'success',
+    gitSha: 'fixture',
+    rendererVersion: 'fixture',
+    placeholderOnly: false,
+    cases: [
+      'corrupt-document',
+      'invalid-document-bytes',
+      'missing-sidecar',
+      'corrupt-sidecar',
+      'old-asset-version',
+      'html-payload-mismatch',
+      'sw-stale-cache-poisoning'
+    ].map((name) => ({
+      name,
+      route: '/article/1',
+      status: 'success',
+      initialState: 'fresh',
+      mutation: `fixture-${name}`,
+      mutationVerified: true,
+      observedState: name === 'old-asset-version' ? 'stale' : 'fallback',
+      recovered: true,
+      durationMs: 1,
+      errors: []
+    }))
   }))
 
   const missingButOk = structuredClone(base)

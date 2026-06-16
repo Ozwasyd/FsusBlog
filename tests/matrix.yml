@@ -730,9 +730,9 @@ tiers:
     shardable: false
     defaultShards: 1
     risk: high
-    coverage: [upload-search-notification-binary-resilience]
-    artifacts: [src/frontend/test-results/playwright/resilience]
-    evidence: [src/frontend/test-results/playwright/resilience]
+    coverage: [upload-search-notification-binary-resilience, public-aot-cache-resilience]
+    artifacts: [src/frontend/test-results/playwright/resilience, .tmp/release-evidence/aot-cache-resilience-summary.json]
+    evidence: [src/frontend/test-results/playwright/resilience, .tmp/release-evidence/aot-cache-resilience-summary.json]
     ciJob: resilience-runtime
     localOnly: false
     nightlyOnly: false
