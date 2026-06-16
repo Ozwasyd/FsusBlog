@@ -372,9 +372,9 @@ tiers:
     shardable: false
     defaultShards: 1
     risk: high
-    coverage: [release-preview-runtime, aot-hydration-pwa-seo, public-hydration-clock-matrix, public-hydration-browser-env-matrix, public-hydration-payload-fixture-matrix]
-    artifacts: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, .tmp/release-evidence/public-hydration-clock-matrix-summary.json, .tmp/release-evidence/public-hydration-browser-env-summary.json, .tmp/release-evidence/public-hydration-payload-fixture-summary.json, src/frontend/test-results/playwright/release]
-    evidence: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, .tmp/release-evidence/public-hydration-clock-matrix-summary.json, .tmp/release-evidence/public-hydration-browser-env-summary.json, .tmp/release-evidence/public-hydration-payload-fixture-summary.json]
+    coverage: [release-preview-runtime, aot-hydration-pwa-seo, public-hydration-clock-matrix, public-hydration-browser-env-matrix, public-hydration-payload-fixture-matrix, public-hydration-dom-diff]
+    artifacts: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, .tmp/release-evidence/public-hydration-clock-matrix-summary.json, .tmp/release-evidence/public-hydration-browser-env-summary.json, .tmp/release-evidence/public-hydration-payload-fixture-summary.json, .tmp/release-evidence/public-hydration-dom-diff-summary.json, src/frontend/test-results/playwright/release]
+    evidence: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, .tmp/release-evidence/public-hydration-clock-matrix-summary.json, .tmp/release-evidence/public-hydration-browser-env-summary.json, .tmp/release-evidence/public-hydration-payload-fixture-summary.json, .tmp/release-evidence/public-hydration-dom-diff-summary.json]
     ciJob: release-public
     localOnly: false
     nightlyOnly: false

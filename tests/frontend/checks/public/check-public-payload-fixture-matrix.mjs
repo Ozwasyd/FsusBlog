@@ -9,14 +9,14 @@ import { decodePublicAotPayload } from '../../support/aeds-envelope.mjs'
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
 
-const PAYLOAD_FIXTURE_SCHEMA = 'fsusblog.public-hydration-payload-fixture-matrix.v1'
+export const PAYLOAD_FIXTURE_SCHEMA = 'fsusblog.public-hydration-payload-fixture-matrix.v1'
 const PAYLOAD_FIXTURE_SUMMARY_FILE = process.env.FSUSBLOG_PUBLIC_HYDRATION_PAYLOAD_FIXTURE_SUMMARY_FILE
   || fileURLToPath(new URL('../../../../.tmp/release-evidence/public-hydration-payload-fixture-summary.json', import.meta.url))
 const PUBLIC_SSR_BUNDLE_FILE = fileURLToPath(new URL('../../../../src/frontend/dist/server/public-ssr.mjs', import.meta.url))
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
   || ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find((candidate) => existsSync(candidate))
 
-const REQUIRED_DIMENSIONS = [
+export const REQUIRED_DIMENSIONS = [
   'article-list:empty',
   'article-list:one-item',
   'article-list:full-page',
@@ -262,7 +262,7 @@ const richBody = [
   longInlineText,
 ].join('\n')
 
-const PUBLIC_PAYLOAD_FIXTURES = [
+export const PUBLIC_PAYLOAD_FIXTURES = [
   {
     id: 'home-empty-disabled-footer',
     route: '/',
@@ -579,6 +579,20 @@ const PUBLIC_PAYLOAD_FIXTURES = [
       title: 'Guidelines',
       slug: 'guidelines',
       content: Array.from({ length: 16 }, (_, index) => `## Section ${index + 1}\n\nLong static payload content ${index + 1}.`).join('\n\n'),
+    }),
+  },
+  {
+    id: 'static-copyright',
+    route: '/copyright',
+    kind: 'Copyright',
+    releaseSubset: false,
+    dimensions: [
+      'static:normal-content',
+    ],
+    options: commonOptions({
+      title: 'Copyright',
+      slug: 'copyright',
+      content: 'Copyright fixture content.',
     }),
   },
 ]
@@ -961,4 +975,10 @@ async function main() {
   }
 }
 
-main()
+function isMainModule() {
+  return process.argv[1] ? import.meta.url === pathToFileURL(process.argv[1]).href : false
+}
+
+if (isMainModule()) {
+  main()
+}

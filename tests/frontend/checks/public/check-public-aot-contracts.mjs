@@ -59,6 +59,7 @@ function assertStaticContracts() {
   const clockHydrationCheck = read('tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs')
   const browserEnvHydrationCheck = read('tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs')
   const payloadFixtureHydrationCheck = read('tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs')
+  const domDiffHydrationCheck = read('tests/frontend/checks/public/check-public-dom-diff-hydration.mjs')
   const releaseLane = read('tools/test/legacy-test.sh')
   const testMatrix = read('tests/matrix.yml')
   const qualityGateWorkflow = read('.github/workflows/quality-gate.yml')
@@ -79,7 +80,7 @@ function assertStaticContracts() {
       fail(`backend renderer missing production/development worker token: ${token}`)
     }
   }
-  for (const token of ['encodePublicAotPayload', 'decodePublicAotPayload', 'buildPublicEntry', 'PUBLIC_RENDERER_VERSION']) {
+  for (const token of ['encodePublicAotPayload', 'decodePublicAotPayload', 'buildPublicEntry', 'PUBLIC_RENDERER_VERSION', 'renderPublicHydrationSnapshot', 'createPublicHydrationRootComponent', 'normalizePublicHydrationPayload']) {
     if (!renderPublicPage.includes(token)) {
       fail(`SSR bundle entry must export ${token}`)
     }
@@ -220,18 +221,45 @@ function assertStaticContracts() {
       fail(`payload fixture hydration check missing matrix token: ${token}`)
     }
   }
-  for (const token of ['check-public-clock-hydration-matrix.mjs', 'check-public-browser-env-hydration-matrix.mjs', 'check-public-payload-fixture-matrix.mjs']) {
+  for (const token of [
+    'fsusblog.public-hydration-dom-diff.v1',
+    'renderPublicHydrationSnapshot',
+    'normalizeDomNode',
+    'compareNormalizedTrees',
+    'runTextMismatchCanary',
+    'id',
+    'class',
+    'href',
+    'src',
+    'alt',
+    'title',
+    'datetime',
+    'role',
+    'aria-',
+    'data-public-',
+    'data-aot-action',
+    'runtime-only islands are allowlisted explicitly',
+    'public-hydration-dom-diff-summary.json'
+  ]) {
+    if (!domDiffHydrationCheck.includes(token)) {
+      fail(`DOM diff hydration check missing matrix token: ${token}`)
+    }
+  }
+  for (const token of ['check-public-clock-hydration-matrix.mjs', 'check-public-browser-env-hydration-matrix.mjs', 'check-public-payload-fixture-matrix.mjs', 'check-public-dom-diff-hydration.mjs']) {
     if (!releaseLane.includes(token)) {
       fail(`release lane missing public hydration matrix: ${token}`)
     }
   }
-  for (const token of ['public-hydration-clock-matrix', 'public-hydration-clock-matrix-summary.json', 'public-hydration-browser-env-matrix', 'public-hydration-browser-env-summary.json', 'public-hydration-payload-fixture-matrix', 'public-hydration-payload-fixture-summary.json']) {
+  for (const token of ['public-hydration-clock-matrix', 'public-hydration-clock-matrix-summary.json', 'public-hydration-browser-env-matrix', 'public-hydration-browser-env-summary.json', 'public-hydration-payload-fixture-matrix', 'public-hydration-payload-fixture-summary.json', 'public-hydration-dom-diff', 'public-hydration-dom-diff-summary.json']) {
     if (!testMatrix.includes(token)) {
       fail(`test matrix missing public hydration release evidence token: ${token}`)
     }
   }
   if (!qualityGateWorkflow.includes('public-hydration-payload-fixture-summary.json')) {
     fail('quality gate workflow missing public hydration payload fixture artifact')
+  }
+  if (!qualityGateWorkflow.includes('public-hydration-dom-diff-summary.json')) {
+    fail('quality gate workflow missing public hydration DOM diff artifact')
   }
   for (const token of [
     'PUBLIC_HYDRATION_CLOCK_MATRIX_SUMMARY',
@@ -245,7 +273,11 @@ function assertStaticContracts() {
     'PUBLIC_HYDRATION_PAYLOAD_FIXTURE_SUMMARY',
     'PUBLIC_HYDRATION_PAYLOAD_FIXTURE_STATUS_VALUE',
     'publicHydrationPayloadFixtureSummary',
-    'publicHydrationPayloadFixture'
+    'publicHydrationPayloadFixture',
+    'PUBLIC_HYDRATION_DOM_DIFF_SUMMARY',
+    'PUBLIC_HYDRATION_DOM_DIFF_STATUS_VALUE',
+    'publicHydrationDomDiffSummary',
+    'publicHydrationDomDiff'
   ]) {
     if (!releaseEvidenceCollector.includes(token)) {
       fail(`release evidence collector missing public hydration token: ${token}`)

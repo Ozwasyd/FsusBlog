@@ -18,6 +18,7 @@ describe('public hydration invariant guards', () => {
   const clockHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs')
   const browserEnvHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs')
   const payloadFixtureHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs')
+  const domDiffHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-dom-diff-hydration.mjs')
 
   it('keeps the public hydration checker fatal for Vue hydration warnings', () => {
     expect(refreshHydrationCheck).toContain('HYDRATION_KEYWORDS')
@@ -91,6 +92,19 @@ describe('public hydration invariant guards', () => {
     expect(payloadFixtureHydrationCheck).toContain('head/title metadata')
     expect(payloadFixtureHydrationCheck).toContain('coverage.missingDimensions')
     expect(payloadFixtureHydrationCheck).toContain('public-hydration-payload-fixture-summary.json')
+  })
+
+  it('keeps public hydration normalized SSR-vs-CSR DOM diff coverage active', () => {
+    expect(domDiffHydrationCheck).toContain('fsusblog.public-hydration-dom-diff.v1')
+    expect(domDiffHydrationCheck).toContain('renderPublicHydrationSnapshot')
+    expect(domDiffHydrationCheck).toContain('normalizeDomNode')
+    expect(domDiffHydrationCheck).toContain('compareNormalizedTrees')
+    expect(domDiffHydrationCheck).toContain('runTextMismatchCanary')
+    for (const token of ['id', 'class', 'href', 'src', 'alt', 'title', 'datetime', 'role', 'aria-', 'data-public-', 'data-aot-action']) {
+      expect(domDiffHydrationCheck).toContain(token)
+    }
+    expect(domDiffHydrationCheck).toContain('runtime-only islands are allowlisted explicitly')
+    expect(domDiffHydrationCheck).toContain('public-hydration-dom-diff-summary.json')
   })
 
   it('keeps ArticleDetail runtime widgets out of SSR and initial hydration DOM', () => {

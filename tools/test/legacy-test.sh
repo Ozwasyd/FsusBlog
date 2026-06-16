@@ -776,6 +776,7 @@ run_release_only() {
   run_in_client node ../../tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs
   run_in_client node ../../tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs
   run_in_client node ../../tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs
+  run_in_client node ../../tests/frontend/checks/public/check-public-dom-diff-hydration.mjs
   run_in_client npm run check:public-seo-smoke
   run_in_client npm run check:pwa-offline-smoke
 }
