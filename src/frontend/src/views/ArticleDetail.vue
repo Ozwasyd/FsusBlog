@@ -97,6 +97,7 @@
     </PublicArticleDetailPageContent>
 
     <ArticleTocPanel
+      v-if="canRenderBodyRuntime"
       v-model:mobile-open="tocMobileOpen"
       :items="tocItems"
       :active-id="activeTocId"
@@ -104,6 +105,7 @@
     />
 
     <ArticleImageLightbox
+      v-if="canRenderBodyRuntime"
       :open="lightboxOpen"
       :images="lightboxImages"
       :active-index="lightboxActiveIndex"
@@ -113,6 +115,7 @@
     />
 
     <ArticleMobileActionBar
+      v-if="canRenderBodyRuntime"
       :has-toc="tocItems.length > 0"
       @toc="tocMobileOpen = true"
       @comments="navigateToComments"
@@ -253,6 +256,7 @@ const pageDetailView = computed(() => (
     : detailView.value
 ))
 
+// Hydration invariant: runtime-only article widgets stay out of SSR and initial hydration until Vue owns the route.
 const canRenderBodyRuntime = ref(false)
 const canRenderCommentsRuntime = computed(() => spaReady.value && runtimeReady.value)
 const tocMobileOpen = ref(false)

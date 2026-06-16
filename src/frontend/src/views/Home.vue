@@ -62,6 +62,7 @@ const router = useRouter()
 const spaNavigation = usePublicSpaNavigationMode()
 const spotlightArticles = computed(() => selectHomeSpotlightCandidates(featuredArticles.value))
 const showHomeAside = computed(() => hotArticles.value.length > 0)
+// Hydration invariant: secondary home layout uses the same pure selector for SSR, hydration, and takeover.
 const homeSecondaryLayout = computed(() => resolveHomeSecondaryLayout({
   loading: featuredLoading.value,
   spotlightCandidates: spotlightArticles.value,

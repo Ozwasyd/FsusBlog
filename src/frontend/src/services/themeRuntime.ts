@@ -112,6 +112,7 @@ function observeThemeRoot(): void {
 }
 
 export function readInitialThemeMode(): ThemeMode {
+  // Hydration invariant: public AOT starts from DOM-safe system mode, then reconciles persisted preference after mount.
   if (isHydratingPublicAotShell()) {
     return 'system'
   }

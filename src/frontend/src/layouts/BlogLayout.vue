@@ -40,7 +40,7 @@ const { siteStore, ensureSiteInfo, ensureUserInfo } = useSessionBootstrap()
 const router = useRouter()
 const route = useRoute()
 const takeoverShellSeed = createPublicTakeoverSeed(readPublicHydrationPayload())
-// Prevent auth-dependent UI from changing during hydration
+// Hydration invariant: runtime shell state remains SSR-compatible until auth and store-backed controls can update after mount.
 const isMounted = ref(false)
 
 onMounted(() => {

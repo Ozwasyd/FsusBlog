@@ -69,6 +69,7 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
     return;
   }
 
+  // Hydration invariant: strip whitespace-only SSR text nodes before Vue compares the public shell tree.
   removeWhitespaceTextNodes(container);
   markPublicAotMismatchBoundaries(container);
   const guard = captureHydrationIdentity(container, shell, payload);

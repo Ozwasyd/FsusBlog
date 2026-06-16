@@ -1,5 +1,6 @@
 <template>
-  <FsuTransition :name="fsusBlogMotionPresets.mobileBar" appear>
+  <!-- Hydration invariant: do not use Transition appear until FsusUI exposes a hydration-aware transition API. -->
+  <FsuTransition :name="fsusBlogMotionPresets.mobileBar">
     <nav class="article-mobile-action-bar blog-motion-mobile-bar" data-mobile-reading-actions="true" aria-label="文章快捷操作">
     <button
       v-if="hasToc"
