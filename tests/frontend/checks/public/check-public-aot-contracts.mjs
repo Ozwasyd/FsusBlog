@@ -58,8 +58,10 @@ function assertStaticContracts() {
   const refreshHydrationCheck = read('tests/frontend/checks/public/check-public-refresh-hydration.mjs')
   const clockHydrationCheck = read('tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs')
   const browserEnvHydrationCheck = read('tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs')
+  const payloadFixtureHydrationCheck = read('tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs')
   const releaseLane = read('tools/test/legacy-test.sh')
   const testMatrix = read('tests/matrix.yml')
+  const qualityGateWorkflow = read('.github/workflows/quality-gate.yml')
   const releaseEvidenceCollector = read('tools/operations/collect-release-evidence.sh')
   const shellService = read('src/backend/Infrastructure/PublicAot/PublicAotShellService.cs')
   const fileCache = read('src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs')
@@ -198,15 +200,38 @@ function assertStaticContracts() {
       fail(`browser environment hydration check missing matrix token: ${token}`)
     }
   }
-  for (const token of ['check-public-clock-hydration-matrix.mjs', 'check-public-browser-env-hydration-matrix.mjs']) {
+  for (const token of [
+    'fsusblog.public-hydration-payload-fixture-matrix.v1',
+    'PUBLIC_PAYLOAD_FIXTURES',
+    'article-list:empty',
+    'home-secondary:boundary-ordering',
+    'article-body:code-blocks',
+    'filter:tag-by-name',
+    'archive:large',
+    'footer:complete-config',
+    'payload:duplicate-scalars-absent',
+    'rich article body keeps wrapper, role, class contract',
+    'optional arrays missing',
+    'head/title metadata',
+    'coverage.missingDimensions',
+    'public-hydration-payload-fixture-summary.json'
+  ]) {
+    if (!payloadFixtureHydrationCheck.includes(token)) {
+      fail(`payload fixture hydration check missing matrix token: ${token}`)
+    }
+  }
+  for (const token of ['check-public-clock-hydration-matrix.mjs', 'check-public-browser-env-hydration-matrix.mjs', 'check-public-payload-fixture-matrix.mjs']) {
     if (!releaseLane.includes(token)) {
       fail(`release lane missing public hydration matrix: ${token}`)
     }
   }
-  for (const token of ['public-hydration-clock-matrix', 'public-hydration-clock-matrix-summary.json', 'public-hydration-browser-env-matrix', 'public-hydration-browser-env-summary.json']) {
+  for (const token of ['public-hydration-clock-matrix', 'public-hydration-clock-matrix-summary.json', 'public-hydration-browser-env-matrix', 'public-hydration-browser-env-summary.json', 'public-hydration-payload-fixture-matrix', 'public-hydration-payload-fixture-summary.json']) {
     if (!testMatrix.includes(token)) {
       fail(`test matrix missing public hydration release evidence token: ${token}`)
     }
+  }
+  if (!qualityGateWorkflow.includes('public-hydration-payload-fixture-summary.json')) {
+    fail('quality gate workflow missing public hydration payload fixture artifact')
   }
   for (const token of [
     'PUBLIC_HYDRATION_CLOCK_MATRIX_SUMMARY',
@@ -216,7 +241,11 @@ function assertStaticContracts() {
     'PUBLIC_HYDRATION_BROWSER_ENV_SUMMARY',
     'PUBLIC_HYDRATION_BROWSER_ENV_STATUS_VALUE',
     'publicHydrationBrowserEnvSummary',
-    'publicHydrationBrowserEnv'
+    'publicHydrationBrowserEnv',
+    'PUBLIC_HYDRATION_PAYLOAD_FIXTURE_SUMMARY',
+    'PUBLIC_HYDRATION_PAYLOAD_FIXTURE_STATUS_VALUE',
+    'publicHydrationPayloadFixtureSummary',
+    'publicHydrationPayloadFixture'
   ]) {
     if (!releaseEvidenceCollector.includes(token)) {
       fail(`release evidence collector missing public hydration token: ${token}`)

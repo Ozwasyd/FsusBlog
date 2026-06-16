@@ -17,6 +17,7 @@ describe('public hydration invariant guards', () => {
   const refreshHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-refresh-hydration.mjs')
   const clockHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs')
   const browserEnvHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs')
+  const payloadFixtureHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs')
 
   it('keeps the public hydration checker fatal for Vue hydration warnings', () => {
     expect(refreshHydrationCheck).toContain('HYDRATION_KEYWORDS')
@@ -77,6 +78,19 @@ describe('public hydration invariant guards', () => {
     expect(browserEnvHydrationCheck).toContain('auth-gated-until-after-hydration')
     expect(browserEnvHydrationCheck).toContain('storage-cleared-after-reload')
     expect(browserEnvHydrationCheck).toContain('public-hydration-browser-env-summary.json')
+  })
+
+  it('keeps public hydration payload boundary and rich-content fixtures covered', () => {
+    expect(payloadFixtureHydrationCheck).toContain('fsusblog.public-hydration-payload-fixture-matrix.v1')
+    expect(payloadFixtureHydrationCheck).toContain('PUBLIC_PAYLOAD_FIXTURES')
+    for (const dimension of ['article-list:empty', 'home-secondary:boundary-ordering', 'article-body:code-blocks', 'filter:tag-by-name', 'archive:large', 'footer:complete', 'payload:duplicate-scalars-absent']) {
+      expect(payloadFixtureHydrationCheck).toContain(dimension)
+    }
+    expect(payloadFixtureHydrationCheck).toContain('rich article body keeps wrapper, role, class contract')
+    expect(payloadFixtureHydrationCheck).toContain('optional arrays missing')
+    expect(payloadFixtureHydrationCheck).toContain('head/title metadata')
+    expect(payloadFixtureHydrationCheck).toContain('coverage.missingDimensions')
+    expect(payloadFixtureHydrationCheck).toContain('public-hydration-payload-fixture-summary.json')
   })
 
   it('keeps ArticleDetail runtime widgets out of SSR and initial hydration DOM', () => {

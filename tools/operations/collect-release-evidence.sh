@@ -367,6 +367,7 @@ HYDRATION_LONG_SMOKE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence
 PUBLIC_HYDRATION_DETECTOR_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/public-hydration-detector-summary.json" public-hydration-detector-summary.json)"
 PUBLIC_HYDRATION_CLOCK_MATRIX_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/public-hydration-clock-matrix-summary.json" public-hydration-clock-matrix-summary.json)"
 PUBLIC_HYDRATION_BROWSER_ENV_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/public-hydration-browser-env-summary.json" public-hydration-browser-env-summary.json)"
+PUBLIC_HYDRATION_PAYLOAD_FIXTURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/public-hydration-payload-fixture-summary.json" public-hydration-payload-fixture-summary.json)"
 UX_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/ux" ux)"
 UX_VIEWPORT_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json" ux-viewport-summary.json)"
 FRONTEND_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json" frontend-render-pressure-summary.json)"
@@ -432,6 +433,7 @@ DOC_SYNC_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence
 PUBLIC_HYDRATION_DETECTOR_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-detector-summary.json")"
 PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-clock-matrix-summary.json")"
 PUBLIC_HYDRATION_BROWSER_ENV_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-browser-env-summary.json")"
+PUBLIC_HYDRATION_PAYLOAD_FIXTURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-payload-fixture-summary.json")"
 
 MANIFEST_STATUS="collected-ok"
 if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
@@ -457,6 +459,7 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$PUBLIC_HYDRATION_DETECTOR_STATUS_VALUE" != "success" \
   || "$PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE" != "success" \
   || "$PUBLIC_HYDRATION_BROWSER_ENV_STATUS_VALUE" != "success" \
+  || "$PUBLIC_HYDRATION_PAYLOAD_FIXTURE_STATUS_VALUE" != "success" \
   || "$BACKEND_QPS_STATUS_VALUE" != "ok" \
   || "$DOC_SYNC_STATUS_VALUE" != "ok" \
   || "$IMAGE_DIGEST_STATUS" != "present" ]]; then
@@ -509,6 +512,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "publicHydrationDetectorSummary": $PUBLIC_HYDRATION_DETECTOR_SUMMARY,
     "publicHydrationClockMatrixSummary": $PUBLIC_HYDRATION_CLOCK_MATRIX_SUMMARY,
     "publicHydrationBrowserEnvSummary": $PUBLIC_HYDRATION_BROWSER_ENV_SUMMARY,
+    "publicHydrationPayloadFixtureSummary": $PUBLIC_HYDRATION_PAYLOAD_FIXTURE_SUMMARY,
     "ux": $UX_ARTIFACT,
     "uxViewportSummary": $UX_VIEWPORT_SUMMARY,
     "frontendRenderPressureSummary": $FRONTEND_RENDER_PRESSURE_SUMMARY,
@@ -560,6 +564,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
       "publicHydrationDetector": "$PUBLIC_HYDRATION_DETECTOR_STATUS_VALUE",
       "publicHydrationClockMatrix": "$PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE",
       "publicHydrationBrowserEnv": "$PUBLIC_HYDRATION_BROWSER_ENV_STATUS_VALUE",
+      "publicHydrationPayloadFixture": "$PUBLIC_HYDRATION_PAYLOAD_FIXTURE_STATUS_VALUE",
       "publishArtifacts": "$PUBLISH_ARTIFACTS_STATUS_VALUE",
       "backendQps": "$BACKEND_QPS_STATUS_VALUE",
       "aedsFrameCost": "$AEDS_FRAME_COST_STATUS_VALUE",

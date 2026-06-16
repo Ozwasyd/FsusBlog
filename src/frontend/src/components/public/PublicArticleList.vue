@@ -56,27 +56,27 @@
   </div>
 
   <nav v-if="showPagination" :class="themeTokens.articleList.pagination" aria-label="文章分页">
-    <el-button
-      link
-      type="primary"
+    <button
+      type="button"
+      :class="paginationButtonClass"
       :disabled="pagination.previous.disabled"
       data-aot-action="page-prev"
       :data-aot-value="pagination.previous.action?.value"
       @click="handlePrev"
     >
       {{ pagination.previous.label }}
-    </el-button>
+    </button>
     <span :class="themeTokens.articleList.paginationIndicator">{{ pagination.indicator }}</span>
-    <el-button
-      link
-      type="primary"
+    <button
+      type="button"
+      :class="paginationButtonClass"
       :disabled="pagination.next.disabled"
       data-aot-action="page-next"
       :data-aot-value="pagination.next.action?.value"
       @click="handleNext"
     >
       {{ pagination.next.label }}
-    </el-button>
+    </button>
   </nav>
 </template>
 
@@ -102,6 +102,11 @@ const emit = defineEmits<{
   (event: 'page-prev'): void;
   (event: 'page-next'): void;
 }>();
+
+const paginationButtonClass = [
+  'inline-flex min-h-10 items-center justify-center rounded-[var(--fsusblog-reading-radius-control)] px-0 text-sm font-bold tracking-normal text-[var(--fsusblog-color-primary)] outline-none transition-colors duration-[var(--fsus-motion-control-fast)] hover:text-[var(--fsusblog-text-primary)] disabled:cursor-not-allowed disabled:text-[var(--fsusblog-text-subtle)]',
+  themeTokens.focusRing
+].join(' ');
 
 function handleNavigate(event: MouseEvent, href: string): void {
   if (!props.spaNavigation) {

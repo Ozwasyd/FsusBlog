@@ -437,6 +437,7 @@ jobs:
             .tmp/release-evidence/public-hydration-detector-summary.json
             .tmp/release-evidence/public-hydration-clock-matrix-summary.json
             .tmp/release-evidence/public-hydration-browser-env-summary.json
+            .tmp/release-evidence/public-hydration-payload-fixture-summary.json
             .tmp/release-evidence/jobs/**
             src/frontend/test-results/playwright/release/**
 
