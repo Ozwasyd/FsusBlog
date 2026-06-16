@@ -103,6 +103,7 @@ const FULL_STYLESHEET_VALIDATION_TIMEOUT_MS = 1500
 const HOME_HOT_ARTICLES_SENTINEL_ID = 'fsus-home-secondary-content-sentinel'
 const HOME_HOT_ARTICLES_ROOT_MARGIN = '600px 0px 600px 0px'
 const HOME_HOT_ARTICLES_FALLBACK_DELAY_MS = 2500
+const COMMENTS_ISLAND_FALLBACK_DELAY_MS = 2500
 
 const PUBLIC_STYLE_FALLBACKS: CriticalStyleLink[] = [
   {
@@ -374,6 +375,7 @@ let hotArticlesFallbackTimer: number | null = null
 let hotArticlesIntersectionObserver: IntersectionObserver | null = null
 let hotArticlesActivationVersion = 0
 let commentsIdleTask: number | null = null
+let commentsFallbackTimer: number | null = null
 let commentsIntersectionObserver: IntersectionObserver | null = null
 let commentsActivationVersion = 0
 let publicTakeoverStarted = false
@@ -454,7 +456,7 @@ function unmountHomeHotArticlesIslandLazy(): void {
 
 async function mountArticleCommentsIslandLazy(
   articleId: number | string,
-  reason: 'viewport' | 'request',
+  reason: 'viewport' | 'request' | 'fallback',
   activationVersion = commentsActivationVersion
 ): Promise<void> {
   const module = await loadCommentsIslandModule()
@@ -482,6 +484,10 @@ function clearArticleCommentsIslandActivation(): void {
   commentsIntersectionObserver = null
   clearIdleTask(commentsIdleTask)
   commentsIdleTask = null
+  if (commentsFallbackTimer !== null) {
+    window.clearTimeout(commentsFallbackTimer)
+    commentsFallbackTimer = null
+  }
 }
 
 function clearHomeHotArticlesIslandActivation(): void {
@@ -501,6 +507,10 @@ function stopArticleCommentsIslandObserver(): void {
   commentsIntersectionObserver = null
   clearIdleTask(commentsIdleTask)
   commentsIdleTask = null
+  if (commentsFallbackTimer !== null) {
+    window.clearTimeout(commentsFallbackTimer)
+    commentsFallbackTimer = null
+  }
 }
 
 function stopHomeHotArticlesIslandObserver(): void {
@@ -735,7 +745,7 @@ function scheduleArticleCommentsIsland(payload: PublicHydrationPayload): void {
   }
 
   const activationVersion = ++commentsActivationVersion
-  const activate = (reason: 'viewport' | 'request') => {
+  const activate = (reason: 'viewport' | 'request' | 'fallback') => {
     stopArticleCommentsIslandObserver()
     void mountArticleCommentsIslandLazy(articleId, reason, activationVersion)
   }
@@ -746,6 +756,10 @@ function scheduleArticleCommentsIsland(payload: PublicHydrationPayload): void {
   }
 
   if (typeof IntersectionObserver === 'undefined') {
+    commentsFallbackTimer = window.setTimeout(() => {
+      commentsFallbackTimer = null
+      activate('fallback')
+    }, COMMENTS_ISLAND_FALLBACK_DELAY_MS)
     return
   }
 
