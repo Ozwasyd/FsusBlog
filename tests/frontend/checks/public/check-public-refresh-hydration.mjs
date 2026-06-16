@@ -9,8 +9,10 @@
  *   4. Post-click refresh – Reload destination route after SPA/public-shell navigation
  *
  * Checks for Vue hydration mismatch warnings, [public-hydration] errors,
- * uncaught JS errors, and shell remounts/rebuilds that indicate a broken
- * takeover sequence.
+ * uncaught JS errors, and unexpected shell remounts/rebuilds. Public shell
+ * micro-navigation intentionally disposes and remounts the hydrated shell; the
+ * test asserts that remount is explicit instead of silently replacing a
+ * Vue-owned subtree.
  *
  * Usage:
  *   FSUSBLOG_BASE_URL=http://127.0.0.1:5000 node ../../tests/frontend/checks/public/check-public-refresh-hydration.mjs
@@ -265,23 +267,56 @@ async function setShellProbe(page, marker) {
   }, marker)
 }
 
-async function assertShellProbePreserved(page, marker, expectedKind) {
+async function assertShellProbeDisposedByRemount(page, marker, expectedKind) {
   const result = await page.evaluate((probe) => {
     const app = document.getElementById('app')
     const shell = app?.querySelector('#fsus-aot-shell')
     return {
-      ok: Boolean(app && shell && shell.parentElement === app && shell.dataset.publicShellProbe === probe),
+      ok: Boolean(
+        app
+        && shell
+        && shell.parentElement === app
+        && shell.dataset.publicShellDisposedProbe === probe
+        && shell.dataset.publicShellRemount
+      ),
       kind: shell?.getAttribute('data-public-hydration-kind') ?? null,
+      remount: shell?.dataset.publicShellRemount ?? null,
     }
   }, marker)
 
   if (!result.ok) {
-    throw new Error(`shell probe ${marker} was lost during interaction`)
+    throw new Error(`shell probe ${marker} was not disposed by an explicit remount`)
   }
 
   if (expectedKind && result.kind !== expectedKind) {
     throw new Error(`shell kind mismatch after interaction: expected ${expectedKind}, got ${String(result.kind)}`)
   }
+}
+
+async function triggerFullSpaTakeover(page, expectedKind, expectedPath = null) {
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('fsus:public-shell:takeover'))
+  })
+
+  await page.waitForFunction(
+    ({ kind, pathname }) => {
+      const app = document.getElementById('app')
+      const shell = app?.querySelector('#fsus-aot-shell')
+      return Boolean(
+        app?.__vue_app__
+        && app.dataset.publicTakeoverDisposedShell
+        && shell
+        && shell.parentElement === app
+        && (kind == null || shell.getAttribute('data-public-hydration-kind') === kind)
+        && (pathname == null || window.location.pathname === pathname)
+      )
+    },
+    {
+      kind: expectedKind ?? null,
+      pathname: expectedPath,
+    },
+    { timeout: PUBLIC_RUNTIME_TIMEOUT_MS }
+  )
 }
 
 async function clickPublicNav(page, navKey, expectedPath, expectedKind) {
@@ -346,7 +381,25 @@ async function searchFromHome(page) {
   }
 
   if (!input) {
-    throw new Error('missing visible search input for interaction scenario')
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent('fsus:public-shell:search-focus'))
+    })
+    await page.waitForFunction(
+      () => {
+        const app = document.getElementById('app')
+        const shell = app?.querySelector('#fsus-aot-shell')
+        return Boolean(
+          app?.__vue_app__
+          && app.dataset.publicTakeoverDisposedShell
+          && shell
+          && shell.parentElement === app
+          && shell.getAttribute('data-public-hydration-kind') === 'Home'
+          && window.location.pathname === '/'
+        )
+      },
+      { timeout: PUBLIC_RUNTIME_TIMEOUT_MS }
+    )
+    return 'takeover'
   }
 
   await input.click()
@@ -367,24 +420,30 @@ async function searchFromHome(page) {
     await sortButton.click()
     await page.waitForTimeout(PUBLIC_INTERACTION_SETTLE_MS)
   }
+
+  return 'search'
 }
 
 async function interactListToArticleScenario(page, helpers) {
   await helpers.markShellProbe(`${helpers.name}-list-to-article`)
   const articlePath = await clickFirstArticleLink(page)
-  await helpers.assertShellProbePreserved(`${helpers.name}-list-to-article`, 'ArticleDetail')
+  await helpers.assertShellProbeDisposedByRemount(`${helpers.name}-list-to-article`, 'ArticleDetail')
   await helpers.reloadAndWaitForHydration('ArticleDetail', articlePath, { allowInitialSpaFallback: true })
 }
 
 async function interactHomeScenario(page, helpers) {
   await helpers.markShellProbe('home-to-article')
   const articlePath = await clickFirstArticleLink(page)
-  await helpers.assertShellProbePreserved('home-to-article', 'ArticleDetail')
+  await helpers.assertShellProbeDisposedByRemount('home-to-article', 'ArticleDetail')
   await helpers.reloadAndWaitForHydration('ArticleDetail', articlePath, { allowInitialSpaFallback: true })
+  await helpers.triggerFullSpaTakeover('ArticleDetail', articlePath)
 }
 
 async function interactSearchScenario(page, helpers) {
-  await searchFromHome(page)
+  const mode = await searchFromHome(page)
+  if (mode === 'takeover') {
+    return
+  }
 
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
   await page.waitForURL((url) => url.pathname === '/search' && url.searchParams.get('q')?.length > 0, {
@@ -440,8 +499,12 @@ async function runScenario(page, baseUrl, route) {
         throw new Error(`failed to mark shell probe: ${marker}`)
       }
     },
-    async assertShellProbePreserved(marker, expectedKind) {
-      await assertShellProbePreserved(page, marker, expectedKind)
+    async assertShellProbeDisposedByRemount(marker, expectedKind) {
+      await assertShellProbeDisposedByRemount(page, marker, expectedKind)
+    },
+    async triggerFullSpaTakeover(expectedKind, expectedPath = null) {
+      currentStage = `${route.name}:interaction:full-spa-takeover`
+      await triggerFullSpaTakeover(page, expectedKind, expectedPath)
     },
     async clickPublicNav(navKey, expectedPath, expectedKind) {
       currentStage = `${route.name}:interaction:nav:${navKey}`
@@ -528,7 +591,7 @@ async function runScenario(page, baseUrl, route) {
 
   currentStage = `${route.name}:reload:navigation`
   try {
-    await page.reload({ waitUntil: 'networkidle', timeout: 30000 })
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
   } catch (err) {
     recordIssue('error', `reload failed: ${err.message}`, currentStage)
     return issues

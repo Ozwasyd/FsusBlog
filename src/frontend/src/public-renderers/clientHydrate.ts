@@ -16,12 +16,39 @@ import { registerPublicStaticRouterLink } from './publicStaticRouterLink';
 
 const APP_SELECTOR = '#app';
 const SHELL_SELECTOR = '#fsus-aot-shell';
+const ALLOW_MISMATCH_ATTR = 'data-allow-mismatch';
+const PUBLIC_AOT_MISMATCH_SELECTORS = [
+  '#fsus-aot-shell',
+  '#fsus-aot-shell .el-input',
+  '#fsus-aot-shell .el-input__wrapper',
+  '#fsus-aot-shell .el-input__inner',
+  '#fsus-aot-shell .el-radio-group',
+  '#fsus-aot-shell .el-theme-mode-toggle',
+  '#fsus-aot-shell [data-fsus-motion-surface]'
+] as const;
 let mountedPublicShellApp: VueApp<Element> | null = null;
+
+export function disposePublicHydrationApp(): void {
+  if (!mountedPublicShellApp) {
+    return;
+  }
+
+  mountedPublicShellApp.unmount();
+  mountedPublicShellApp = null;
+}
 
 function removeWhitespaceTextNodes(container: HTMLElement): void {
   for (const node of Array.from(container.childNodes)) {
     if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
       node.remove();
+    }
+  }
+}
+
+function markPublicAotMismatchBoundaries(container: HTMLElement): void {
+  for (const selector of PUBLIC_AOT_MISMATCH_SELECTORS) {
+    for (const element of Array.from(container.querySelectorAll<HTMLElement>(selector))) {
+      element.setAttribute(ALLOW_MISMATCH_ATTR, '');
     }
   }
 }
@@ -43,6 +70,7 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
   }
 
   removeWhitespaceTextNodes(container);
+  markPublicAotMismatchBoundaries(container);
   const guard = captureHydrationIdentity(container, shell, payload);
 
   const metrics = beginHydrationMetrics(payload);

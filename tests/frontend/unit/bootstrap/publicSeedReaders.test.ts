@@ -54,6 +54,39 @@ describe('public seed readers', () => {
     expect(payload?.article?.id).toBe(1)
   })
 
+  it('consumes the bootstrap payload once and clears stale script/window cache', async () => {
+    vi.resetModules()
+
+    const rawPayload = encodePublicAotPayload({
+      kind: 'ArticleDetail',
+      pageKind: 'ArticleDetail',
+      routeKey: 'article:1',
+      article: {
+        id: 1,
+        title: 'Single-use bootstrap',
+        summary: 'summary',
+        views: 42,
+        createTime: '2026-05-11T00:00:00Z'
+      }
+    })
+
+    const script = document.createElement('script')
+    script.id = 'fsus-aot-bootstrap'
+    script.type = 'application/octet-stream'
+    script.textContent = rawPayload
+    document.body.appendChild(script)
+    ;(window as PublicSeedWindow).__FSUS_PUBLIC_AOT_BOOTSTRAP_RAW__ = rawPayload
+
+    const { consumePublicAotBootstrap } = await import('@/bootstrap/publicAotBootstrap')
+    const first = consumePublicAotBootstrap('ArticleDetail')
+    const second = consumePublicAotBootstrap('ArticleDetail')
+
+    expect(first?.article?.title).toBe('Single-use bootstrap')
+    expect(second).toBeNull()
+    expect(document.getElementById('fsus-aot-bootstrap')).toBeNull()
+    expect((window as PublicSeedWindow).__FSUS_PUBLIC_AOT_BOOTSTRAP_RAW__).toBeNull()
+  })
+
   it('falls back to the boot-time hydration snapshot when the DOM script is unavailable', async () => {
     vi.resetModules()
 

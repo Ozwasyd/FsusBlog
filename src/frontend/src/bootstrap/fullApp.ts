@@ -1,4 +1,4 @@
-import { createApp, createSSRApp } from 'vue'
+import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { createHead } from '@unhead/vue/client'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
@@ -10,6 +10,7 @@ import { FsuMotion } from '@/fsusui/motion'
 import { scheduleNonCriticalResources } from '@/bootstrap/nonCriticalResources'
 import { scheduleFullAppRuntime } from '@/bootstrap/runtimeGate'
 import { removeGlobalLoader } from '@/bootstrap/publicShellPrimitives'
+import { disposePublicHydrationApp } from '@/public-renderers/clientHydrate'
 import {
   beginPublicTakeoverHydration,
   completePublicTakeoverHydration,
@@ -21,6 +22,41 @@ import '@/assets/main.css'
 
 let bootstrapPromise: Promise<typeof router> | null = null
 
+function disposePublicShellForClientMount(): void {
+  const appRoot = document.getElementById('app')
+  if (!appRoot) {
+    return
+  }
+
+  const shell = appRoot.querySelector<HTMLElement>('#fsus-aot-shell')
+  if (shell?.dataset.publicHydrationKind) {
+    appRoot.dataset.publicTakeoverDisposedShell = shell.dataset.publicHydrationKind
+  }
+
+  disposePublicHydrationApp()
+  appRoot.replaceChildren()
+}
+
+function markDirectPublicShellReady(): void {
+  const shell = document.querySelector<HTMLElement>('#fsus-aot-shell')
+  if (shell?.dataset.publicHydrationKind) {
+    shell.dataset.publicHydrated = 'true'
+  }
+}
+
+function readCurrentBrowserRoute(): string {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}` || '/'
+}
+
+async function syncRouterToCurrentLocationForClientMount(): Promise<void> {
+  const targetRoute = readCurrentBrowserRoute()
+  if (router.currentRoute.value.fullPath === targetRoute) {
+    return
+  }
+
+  await router.replace(targetRoute).catch(() => {})
+}
+
 export function bootstrapFullApp(options?: { deferRuntime?: boolean; hydrate?: boolean; takeover?: 'public-shell' | 'direct' }): Promise<typeof router> {
   if (bootstrapPromise) {
     return bootstrapPromise
@@ -28,16 +64,13 @@ export function bootstrapFullApp(options?: { deferRuntime?: boolean; hydrate?: b
 
   bootstrapPromise = (async () => {
     markStartup('full-app-bootstrap:start')
-    const shouldHydrate = Boolean(options?.hydrate)
-    const isPublicShellTakeover = shouldHydrate && options?.takeover === 'public-shell'
+    const isPublicShellTakeover = options?.takeover === 'public-shell'
 
     if (isPublicShellTakeover) {
       beginPublicTakeoverHydration()
+      disposePublicShellForClientMount()
     }
-    const shellBeforeMount = shouldHydrate
-      ? document.querySelector<HTMLElement>('#fsus-aot-shell')
-      : null
-    const app = shouldHydrate ? createSSRApp(App) : createApp(App)
+    const app = createApp(App)
     const pinia = createPinia()
     const head = createHead()
 
@@ -54,12 +87,13 @@ export function bootstrapFullApp(options?: { deferRuntime?: boolean; hydrate?: b
     provideFsusUiAppContext(app)
     authSessionRuntime.init(pinia)
 
-    if (shouldHydrate) {
+    if (isPublicShellTakeover) {
+      await syncRouterToCurrentLocationForClientMount()
       await router.isReady()
       markStartup('full-app-bootstrap:router-ready-before-mount')
     }
 
-    app.mount('#app', shouldHydrate)
+    app.mount('#app')
     markStartup('full-app-bootstrap:mounted')
     scheduleFullAppRuntime(Boolean(options?.deferRuntime), {
       allowIdleActivation: !isPublicShellTakeover,
@@ -69,15 +103,10 @@ export function bootstrapFullApp(options?: { deferRuntime?: boolean; hydrate?: b
 
     await router.isReady()
     markStartup('full-app-bootstrap:router-ready')
-    // Only verify hydration identity if not already hydrated as public shell
-    if (shouldHydrate && shellBeforeMount) {
-      const shellAfterMount = document.querySelector<HTMLElement>('#fsus-aot-shell')
-      if (shellAfterMount !== shellBeforeMount) {
-        throw new Error('[public-hydration] full-app remount detected: #fsus-aot-shell identity changed')
-      }
-    }
     if (isPublicShellTakeover) {
       completePublicTakeoverHydration()
+    } else {
+      markDirectPublicShellReady()
     }
     measureStartup('full-app-bootstrap', 'full-app-bootstrap:start', 'full-app-bootstrap:mounted')
     measureStartup('router-ready-after-mount', 'full-app-bootstrap:mounted', 'full-app-bootstrap:router-ready')

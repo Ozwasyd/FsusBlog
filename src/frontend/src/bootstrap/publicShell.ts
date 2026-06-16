@@ -1,9 +1,11 @@
 import { readPublicHydrationPayload, replacePublicHydrationPayloadBinary } from '@/bootstrap/publicHydrationBootstrap'
 import { hydratePublicPage, type PublicHydrationPayload } from '@/public-renderers'
+import { disposePublicHydrationApp } from '@/public-renderers/clientHydrate'
 import {
   isPublicSeoPath,
   removeGlobalLoader
 } from '@/bootstrap/publicShellPrimitives'
+import { dispatchAotActionEvent } from '@/bootstrap/aotActionEvent'
 import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus'
 import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime'
 import { bootstrapFullApp } from '@/bootstrap/fullApp'
@@ -78,25 +80,6 @@ function isInternalAppLink(anchor: HTMLAnchorElement): boolean {
   }
 
   return true
-}
-
-function dispatchAotAction(actionNode: HTMLElement): void {
-  const action = actionNode.dataset.aotAction
-  if (!action) {
-    return
-  }
-
-  const rawValue = Number(actionNode.dataset.aotValue ?? actionNode.dataset.aotId ?? '0')
-  const safeValue = Number.isFinite(rawValue) ? Math.trunc(rawValue) : 0
-  const key = actionNode.dataset.aotKey
-
-  window.dispatchEvent(new CustomEvent('fsus:aot:event', {
-    detail: {
-      action,
-      value: safeValue,
-      key
-    }
-  }))
 }
 
 type CriticalStyleLink = {
@@ -391,6 +374,8 @@ let commentsActivationVersion = 0
 let publicTakeoverStarted = false
 let publicTakeoverCompleted = false
 let publicTakeoverPromise: Promise<void> | null = null
+let publicShellNavigationRemountCount = 0
+let publicTakeoverTriggersBound = false
 let authResolutionVersion = 0
 let homeHotArticlesIslandModulePromise: Promise<typeof import('@/public-renderers/homeHotArticlesIsland')> | null = null
 let commentsIslandModulePromise: Promise<typeof import('@/public-renderers/commentsIsland')> | null = null
@@ -567,7 +552,6 @@ async function startPublicTakeover(reason: 'pointerdown' | 'keydown' | 'scroll' 
   publicTakeoverStarted = true
   clearDynamicIslands()
   publicTakeoverPromise = bootstrapFullApp({
-    hydrate: true,
     deferRuntime: true,
     takeover: 'public-shell'
   }).then(() => {
@@ -596,6 +580,16 @@ export function schedulePublicTakeover(reason: 'pointerdown' | 'keydown' | 'scro
   }
 
   void startPublicTakeover(reason).catch(() => {})
+}
+
+function bindPublicTakeoverTriggers(): void {
+  if (publicTakeoverTriggersBound) {
+    return
+  }
+
+  publicTakeoverTriggersBound = true
+  window.addEventListener('fsus:public-shell:takeover', () => schedulePublicTakeover('click'))
+  window.addEventListener('fsus:public-shell:search-focus', () => schedulePublicTakeover('search-focus'))
 }
 
 function isPublicMicroRoute(href: string): boolean {
@@ -852,93 +846,23 @@ function replaceBinaryScript(id: string, rawPayload: string | null): void {
   }
 }
 
-function syncShellAttributes(target: HTMLElement, source: HTMLElement): void {
-  for (const { name } of Array.from(target.attributes)) {
-    if (name === 'id' || name === 'data-public-shell-probe') {
-      continue
-    }
-
-    if (!source.hasAttribute(name)) {
-      target.removeAttribute(name)
-    }
+function replacePublicShellForNavigation(currentShell: HTMLElement, targetShell: HTMLElement): HTMLElement {
+  const appRoot = currentShell.parentElement
+  if (!(appRoot instanceof HTMLElement) || appRoot.id !== 'app') {
+    throw new Error('invalid public shell root')
   }
 
-  for (const { name, value } of Array.from(source.attributes)) {
-    if (name === 'id') {
-      continue
-    }
-    target.setAttribute(name, value)
+  const previousProbe = currentShell.dataset.publicShellProbe
+  const nextShell = document.importNode(targetShell, true) as HTMLElement
+  nextShell.setAttribute('data-public-shell-remount', String(++publicShellNavigationRemountCount))
+  if (previousProbe) {
+    nextShell.setAttribute('data-public-shell-disposed-probe', previousProbe)
   }
+  nextShell.removeAttribute('data-public-hydrated')
 
-  target.removeAttribute('data-public-hydrated')
-}
-
-function canPatchNode(current: Node, next: Node): boolean {
-  if (current.nodeType !== next.nodeType) {
-    return false
-  }
-
-  if (current instanceof Element && next instanceof Element) {
-    return current.tagName === next.tagName
-      && current.id === next.id
-      && current.getAttribute('data-public-nav') === next.getAttribute('data-public-nav')
-      && current.getAttribute('data-public-hydration-kind') === next.getAttribute('data-public-hydration-kind')
-  }
-
-  return current.nodeType === Node.TEXT_NODE || current.nodeType === Node.COMMENT_NODE
-}
-
-function syncElementAttributes(target: Element, source: Element): void {
-  for (const { name } of Array.from(target.attributes)) {
-    if (!source.hasAttribute(name)) {
-      target.removeAttribute(name)
-    }
-  }
-
-  for (const { name, value } of Array.from(source.attributes)) {
-    if (target.getAttribute(name) !== value) {
-      target.setAttribute(name, value)
-    }
-  }
-}
-
-function patchNode(current: Node, next: Node): void {
-  if (!canPatchNode(current, next)) {
-    current.parentNode?.replaceChild(document.importNode(next, true), current)
-    return
-  }
-
-  if (current instanceof Text && next instanceof Text) {
-    if (current.data !== next.data) {
-      current.data = next.data
-    }
-    return
-  }
-
-  if (!(current instanceof Element) || !(next instanceof Element)) {
-    return
-  }
-
-  syncElementAttributes(current, next)
-  syncChildNodes(current, next)
-}
-
-function syncChildNodes(target: Element, source: Element): void {
-  const nextChildren = Array.from(source.childNodes)
-  for (let index = 0; index < nextChildren.length; index++) {
-    const next = nextChildren[index]
-    const current = target.childNodes[index]
-    if (!current) {
-      target.appendChild(document.importNode(next, true))
-      continue
-    }
-
-    patchNode(current, next)
-  }
-
-  while (target.childNodes.length > nextChildren.length) {
-    target.lastChild?.remove()
-  }
+  disposePublicHydrationApp()
+  appRoot.replaceChildren(nextShell)
+  return nextShell
 }
 
 function syncHeadFromDocument(targetDocument: Document): void {
@@ -1028,8 +952,7 @@ async function applyPublicNavigationDocument(
 
   clearDynamicIslands()
   syncHeadFromDocument(targetDocument)
-  syncShellAttributes(currentShell, targetShell)
-  syncChildNodes(currentShell, targetShell)
+  replacePublicShellForNavigation(currentShell, targetShell)
 
   replaceBinaryScript('fsus-aot-bootstrap', readBinaryTextById(targetDocument, 'fsus-aot-bootstrap'))
 
@@ -1142,13 +1065,13 @@ async function handleShellAction(actionNode: HTMLElement, anchor: HTMLAnchorElem
 
   const actionHref = resolveShellActionNavigation(actionNode)
   if (actionHref) {
-    dispatchAotAction(actionNode)
+    dispatchAotActionEvent(actionNode)
     await navigateWithinPublicShell(actionHref)
     return
   }
 
   if (action === 'activate-comments') {
-    dispatchAotAction(actionNode)
+    dispatchAotActionEvent(actionNode)
     const articleId = hydratedPayload?.pageKind === 'ArticleDetail'
       ? hydratedPayload.articleId
       : Number(actionNode.dataset.aotValue ?? actionNode.dataset.aotId ?? '0')
@@ -1158,7 +1081,7 @@ async function handleShellAction(actionNode: HTMLElement, anchor: HTMLAnchorElem
     return
   }
 
-  dispatchAotAction(actionNode)
+  dispatchAotActionEvent(actionNode)
   if (anchor instanceof HTMLAnchorElement && isInternalAppLink(anchor) && isPublicMicroRoute(anchor.href)) {
     await navigateWithinPublicShell(anchor.href)
   }
@@ -1195,6 +1118,7 @@ export function bindPreBootstrapNavigation(): void {
 
       const actionHref = resolveShellActionNavigation(actionNode)
       if (actionHref) {
+        dispatchAotActionEvent(actionNode)
         event.preventDefault()
         void navigateWithinPublicShell(actionHref)
         return
@@ -1271,6 +1195,7 @@ export async function bootstrapPublicShell(): Promise<void> {
   }
   bindPreBootstrapNavigation()
   bindPopStateNavigation()
+  bindPublicTakeoverTriggers()
   const hydrateTask = (async () => {
     await waitForDocumentInteractive()
     await hydratePublicShell()
