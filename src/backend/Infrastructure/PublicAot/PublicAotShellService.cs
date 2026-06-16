@@ -27,6 +27,7 @@ public sealed class PublicAotShellService(
     public const string PublicAotVersionContextKey = "__fsus_public_aot_version";
     public const string PublicAotBackfillContextKey = "__fsus_public_aot_backfill";
     public const string PublicAotStateContextKey = "__fsus_public_aot_state";
+    public const string PublicAotAssetModeContextKey = "__fsus_public_aot_asset_mode";
     private static readonly Action<ILogger, PublicPageKind, string, Exception?> PublicAotBackfillQueuedLog =
         LoggerMessage.Define<PublicPageKind, string>(
             LogLevel.Information,
@@ -46,7 +47,18 @@ public sealed class PublicAotShellService(
     public async Task<PublicAotCacheEntry?> RenderAsync(HttpContext context, PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
         string documentCacheKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
-        string frontendAssetVersion = assetManifest.GetFrontendAssetVersion();
+        string frontendAssetVersion = assetManifest.GetFrontendAssetVersion(context);
+        string assetMode = ResolveAssetMode(frontendAssetVersion);
+        context.Items[PublicAotAssetModeContextKey] = assetMode;
+        if (string.Equals(frontendAssetVersion, SpaAssetManifestService.DevSourceAssetVersion, StringComparison.Ordinal))
+        {
+            context.Items[PublicAotSourceContextKey] = "spa-fallback";
+            context.Items[PublicAotVersionContextKey] = PublicRendererVersion;
+            context.Items[PublicAotBackfillContextKey] = "dev-source-bypass";
+            context.Items[PublicAotStateContextKey] = "fallback";
+            return null;
+        }
+
         PublicAotCacheEntry? entry = await cache.TryGetEntryAsync(documentCacheKey, frontendAssetVersion, cancellationToken);
         if (IsRenderableCacheEntry(entry, frontendAssetVersion))
         {
@@ -182,6 +194,11 @@ public sealed class PublicAotShellService(
             && string.Equals(entry.FrontendAssetVersion, frontendAssetVersion, StringComparison.Ordinal)
             && !entry.GetDocument().Utf8Bytes.IsEmpty;
     }
+
+    private static string ResolveAssetMode(string frontendAssetVersion)
+        => string.Equals(frontendAssetVersion, SpaAssetManifestService.DevSourceAssetVersion, StringComparison.Ordinal)
+            ? SpaAssetManifestService.DevSourceAssetVersion
+            : "prod-manifest";
 
     private async Task<Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>> BuildBackfillDocumentAsync(
         PublicAotBackfillRequest request,

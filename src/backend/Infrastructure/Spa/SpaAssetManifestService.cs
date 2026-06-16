@@ -12,11 +12,12 @@ public interface ISpaAssetManifestService
 
     SpaAssetSet GetPublicAssetSet(HttpContext? context = null, PublicPageId? pageId = null);
 
-    string GetFrontendAssetVersion();
+    string GetFrontendAssetVersion(HttpContext? context = null);
 }
 
 public sealed class SpaAssetManifestService : ISpaAssetManifestService
 {
+    public const string DevSourceAssetVersion = "dev-source-assets";
     private const string StableSpaEntry = "/assets/fsus-spa-entry.js";
     private static readonly string[] PublicBaseCssNames =
     [
@@ -144,7 +145,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
                 "/src/bootstrap/entry.ts",
                 sourceStylesheets,
                 [],
-                GetFrontendAssetVersion(),
+                GetFrontendAssetVersion(context),
                 UsesSourceAssets: true);
         }
 
@@ -154,8 +155,13 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             : CreatePublicAssetSet(_manifestByKey, _frontendAssetVersion, pageId);
     }
 
-    public string GetFrontendAssetVersion()
+    public string GetFrontendAssetVersion(HttpContext? context = null)
     {
+        if (ShouldUseSourceAssets(context))
+        {
+            return DevSourceAssetVersion;
+        }
+
         LoadManifest();
         return _frontendAssetVersion;
     }

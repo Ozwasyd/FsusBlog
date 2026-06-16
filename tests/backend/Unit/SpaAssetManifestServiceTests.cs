@@ -29,6 +29,30 @@ public sealed class SpaAssetManifestServiceTests
             Assert.Contains("/src/assets/tailwind.css", assets.Stylesheets);
             Assert.Contains("/src/assets/public-page.css?direct", assets.Stylesheets);
             Assert.DoesNotContain("/src/assets/markdown.css", assets.Stylesheets);
+            Assert.Equal("dev-source-assets", assets.FrontendAssetVersion);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFrontendAssetVersion_DevelopmentForwardedViteHost_UsesSourceAssetNamespace()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            WriteManifest(root, "public-page-a.css");
+            var env = new TestWebHostEnvironment(root, Environments.Development);
+            var service = new SpaAssetManifestService(env, NullLogger<SpaAssetManifestService>.Instance);
+            var context = new DefaultHttpContext();
+            context.Request.Host = new HostString("127.0.0.1:5000");
+            context.Request.Headers["X-Forwarded-Host"] = "127.0.0.1:3000";
+
+            string version = service.GetFrontendAssetVersion(context);
+
+            Assert.Equal("dev-source-assets", version);
         }
         finally
         {

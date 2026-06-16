@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
@@ -25,6 +26,12 @@ public sealed class PublicAotDocumentService(
     public async Task<Result<string>> ComposeAsync(
         PublicAotShellEntryContract entry,
         CancellationToken cancellationToken = default)
+        => await ComposeAsync(entry, context: null, cancellationToken);
+
+    public async Task<Result<string>> ComposeAsync(
+        PublicAotShellEntryContract entry,
+        HttpContext? context,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(entry.Html))
         {
@@ -40,8 +47,8 @@ public sealed class PublicAotDocumentService(
         try
         {
             SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
-            string rawTemplate = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, cancellationToken);
-            SpaAssetSet assetSet = assetManifest.GetPublicAssetSet(pageId: entry.PageId);
+            SpaAssetSet assetSet = assetManifest.GetPublicAssetSet(context, entry.PageId);
+            string rawTemplate = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, cancellationToken, assetSet.UsesSourceAssets);
             string preparedTemplate = PublicAotDocumentComposer.PreparePublicDocumentTemplate(rawTemplate);
             DecodedEntryPayloads payloads = DecodeEntryPayloads(entry);
             string title = ResolveTitle(entry, payloads, seo.Title);

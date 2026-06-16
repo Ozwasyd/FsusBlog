@@ -477,6 +477,9 @@ public static class WebApplicationCompositionExtensions
             string state = ctx.Items.TryGetValue(PublicAotShellService.PublicAotStateContextKey, out object? stateObj)
                 ? stateObj?.ToString() ?? "unknown"
                 : "unknown";
+            string assetMode = ctx.Items.TryGetValue(PublicAotShellService.PublicAotAssetModeContextKey, out object? assetModeObj)
+                ? assetModeObj?.ToString() ?? "unknown"
+                : "unknown";
             FsusObservability.RecordAotRender(
                 source,
                 backfill,
@@ -484,14 +487,13 @@ public static class WebApplicationCompositionExtensions
                 FsusObservability.GetElapsed(aotStartedAt));
             if (aotEntry is not null)
             {
-                await WritePublicAotHtmlEntryAsync(ctx, env, aotEntry, source, version, backfill, state, ct);
+                await WritePublicAotHtmlEntryAsync(ctx, env, aotEntry, source, version, backfill, state, assetMode, ct);
                 return TypedResults.Empty;
             }
         }
 
-        bool preferSourceTemplate =
-            env.IsDevelopment()
-            && ctx.Request.Host.Value?.Contains(":3000", StringComparison.Ordinal) == true;
+        SpaAssetSet? publicAssetSet = isPublicAotRoute ? assetService.GetPublicAssetSet(ctx, aotMatch.PageId) : null;
+        bool preferSourceTemplate = publicAssetSet?.UsesSourceAssets == true || IsDevelopmentViteProxyRequest(env, ctx);
         string spaSource = ctx.Items.TryGetValue(PublicAotShellService.PublicAotSourceContextKey, out object? spaSourceObj)
             ? spaSourceObj?.ToString() ?? "spa-index"
             : "spa-index";
@@ -504,10 +506,14 @@ public static class WebApplicationCompositionExtensions
         string spaState = ctx.Items.TryGetValue(PublicAotShellService.PublicAotStateContextKey, out object? spaStateObj)
             ? spaStateObj?.ToString() ?? "fallback"
             : "fallback";
+        string spaAssetMode = ctx.Items.TryGetValue(PublicAotShellService.PublicAotAssetModeContextKey, out object? spaAssetModeObj)
+            ? spaAssetModeObj?.ToString() ?? "unknown"
+            : publicAssetSet?.UsesSourceAssets == true ? "dev-source-assets" : "unknown";
         ctx.Response.Headers["X-Fsus-Public-Aot-Source"] = spaSource;
         ctx.Response.Headers["X-Fsus-Public-Aot-Version"] = spaVersion;
         ctx.Response.Headers["X-Fsus-Public-Aot-Backfill"] = spaBackfill;
         ctx.Response.Headers["X-Fsus-Public-Aot-State"] = spaState;
+        ctx.Response.Headers["X-Fsus-Public-Aot-Asset-Mode"] = spaAssetMode;
         ctx.Response.Headers["Cache-Control"] = "no-cache";
         ctx.Response.Headers.Remove("ETag");
         ctx.Response.Headers.Remove("Last-Modified");
@@ -525,11 +531,10 @@ public static class WebApplicationCompositionExtensions
         if (templateBytes.Length > 0)
         {
             var preloads = assetService.GetPreloadsForPath(path, ctx);
-            SpaAssetSet? publicAssetSet = isPublicAotRoute ? assetService.GetPublicAssetSet(ctx, aotMatch.PageId) : null;
             if (preloads.Count > 0)
             {
                 ReadOnlyMemory<byte> headInjection = GetCachedRoutePreloadHeadInjection(
-                    assetService.GetFrontendAssetVersion(),
+                    assetService.GetFrontendAssetVersion(ctx),
                     path,
                     preloads);
                 await WriteSpaHtmlResponseAsync(ctx, env, templateBytes, CombineHeadInjections(seoHeadInjection, headInjection), ct);
@@ -549,6 +554,21 @@ public static class WebApplicationCompositionExtensions
         return TypedResults.Empty;
     }
 
+    private static bool IsDevelopmentViteProxyRequest(IWebHostEnvironment env, HttpContext ctx)
+    {
+        if (!env.IsDevelopment())
+        {
+            return false;
+        }
+
+        string forwardedHost = ctx.Request.Headers["X-Forwarded-Host"].ToString();
+        string host = string.IsNullOrWhiteSpace(forwardedHost)
+            ? ctx.Request.Host.Value ?? string.Empty
+            : forwardedHost;
+
+        return host.Contains(":3000", StringComparison.Ordinal);
+    }
+
     private static async Task WritePublicAotHtmlEntryAsync(
         HttpContext ctx,
         IWebHostEnvironment env,
@@ -557,10 +577,11 @@ public static class WebApplicationCompositionExtensions
         string version,
         string backfill,
         string state,
+        string assetMode,
         CancellationToken cancellationToken)
     {
         PublicAotHtmlArtifact document = entry.GetDocument();
-        SetPublicAotHtmlHeaders(ctx, document, source, version, backfill, state);
+        SetPublicAotHtmlHeaders(ctx, document, source, version, backfill, state, assetMode);
         EnsureHtmlCspHeader(ctx, env);
 
         if (document.RequiresCspNonceMutation)
@@ -653,13 +674,15 @@ public static class WebApplicationCompositionExtensions
         string source,
         string version,
         string backfill,
-        string state)
+        string state,
+        string assetMode)
     {
         var headers = ctx.Response.Headers;
         headers["X-Fsus-Public-Aot-Source"] = source;
         headers["X-Fsus-Public-Aot-Version"] = version;
         headers["X-Fsus-Public-Aot-Backfill"] = backfill;
         headers["X-Fsus-Public-Aot-State"] = state;
+        headers["X-Fsus-Public-Aot-Asset-Mode"] = string.IsNullOrWhiteSpace(assetMode) ? "unknown" : assetMode;
         if (string.Equals(state, "stale", StringComparison.Ordinal))
         {
             headers["X-Fsus-Public-Aot-Stale"] = "1";
@@ -1099,6 +1122,7 @@ public static class WebApplicationCompositionExtensions
             entry.RendererVersion,
             "none",
             state,
+            "prod-manifest",
             CancellationToken.None);
 
     private static ReadOnlyMemory<byte> BuildRoutePreloadHeadInjection(IReadOnlyList<string> preloads)

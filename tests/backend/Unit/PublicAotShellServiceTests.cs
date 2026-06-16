@@ -123,6 +123,45 @@ public sealed class PublicAotShellServiceTests
     }
 
     [Fact]
+    public async Task RenderAsync_DevelopmentViteProxy_DoesNotServeProductionManifestAotCache()
+    {
+        var match = HomeMatch();
+        string cacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey);
+        var cache = new RecordingAotCache
+        {
+            Entry = new PublicAotCacheEntry
+            {
+                CacheKey = cacheKey,
+                RouteKey = match.RouteKey,
+                PageId = match.PageId,
+                Source = PublicAotWriteSource.ServerSsrBackfill,
+                RendererVersion = PublicAotShellService.PublicRendererVersion,
+                FrontendAssetVersion = "prod-manifest",
+                ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(5),
+                Value = "<!doctype html><html><body><script src=\"/assets/full-app-core-prod.js\"></script></body></html>"
+            }
+        };
+        var scheduler = new RecordingBackfillScheduler();
+        PublicAotShellService sut = CreateService(
+            match,
+            cache,
+            scheduler,
+            assetManifest: new FixedAssetManifestService("prod-manifest", "dev-source-assets"));
+        var context = new DefaultHttpContext();
+        context.Request.Host = new HostString("127.0.0.1:5000");
+        context.Request.Headers["X-Forwarded-Host"] = "127.0.0.1:3000";
+
+        PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
+
+        Assert.Null(rendered);
+        Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
+        Assert.Equal("dev-source-assets", context.Items[PublicAotShellService.PublicAotAssetModeContextKey]);
+        Assert.Equal("dev-source-bypass", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
+        Assert.Empty(cache.RemovedKeys);
+        Assert.Empty(scheduler.Requests);
+    }
+
+    [Fact]
     public async Task RenderAsync_WhenCacheEntryIsExpiredButCompatible_ReturnsStaleDocument_AndQueuesRefresh()
     {
         var match = HomeMatch();
@@ -226,7 +265,8 @@ public sealed class PublicAotShellServiceTests
         PublicAotRouteMatch match,
         IPublicAotShellCache cache,
         IPublicAotBackfillScheduler scheduler,
-        IRuntimeKeyScope? runtimeKeyScope = null)
+        IRuntimeKeyScope? runtimeKeyScope = null,
+        ISpaAssetManifestService? assetManifest = null)
         => new(
             Substitute.For<IDbConcurrencyGate>(),
             new FixedRouteRegistry(match),
@@ -236,7 +276,7 @@ public sealed class PublicAotShellServiceTests
             cache,
             Substitute.For<IPublicAotCacheWriter>(),
             scheduler,
-            new FixedAssetManifestService("frontend-v1"),
+            assetManifest ?? new FixedAssetManifestService("frontend-v1"),
             runtimeKeyScope ?? new DefaultRuntimeKeyScope(),
             new PublicAotInvalidationTracker(),
             NullLogger<PublicAotShellService>.Instance);
@@ -306,14 +346,20 @@ public sealed class PublicAotShellServiceTests
         }
     }
 
-    private sealed class FixedAssetManifestService(string frontendAssetVersion) : ISpaAssetManifestService
+    private sealed class FixedAssetManifestService(
+        string frontendAssetVersion,
+        string? viteProxyFrontendAssetVersion = null) : ISpaAssetManifestService
     {
         public IReadOnlyList<string> GetPreloadsForPath(string path, HttpContext? context = null) => [];
 
         public SpaAssetSet GetPublicAssetSet(HttpContext? context = null, PublicPageId? pageId = null)
             => new("/assets/public.js", [], [], frontendAssetVersion, UsesSourceAssets: false);
 
-        public string GetFrontendAssetVersion() => frontendAssetVersion;
+        public string GetFrontendAssetVersion(HttpContext? context = null)
+            => viteProxyFrontendAssetVersion is not null
+                && context?.Request.Headers["X-Forwarded-Host"].ToString().Contains(":3000", StringComparison.Ordinal) == true
+                    ? viteProxyFrontendAssetVersion
+                    : frontendAssetVersion;
     }
 
     private sealed class PrefixRuntimeKeyScope(string prefix) : IRuntimeKeyScope

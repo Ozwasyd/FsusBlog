@@ -1,0 +1,183 @@
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Models.Requests;
+using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace FsusBlog.Server.Tests;
+
+public sealed class PublicAotDocumentServiceTests
+{
+    [Fact]
+    public async Task ComposeAsync_DevelopmentViteProxy_UsesSourceAssetsInsteadOfProductionManifestChunks()
+    {
+        string root = CreateTempDirectory();
+        PublicSpaTemplateLocator.ResetCacheForTests();
+        try
+        {
+            var context = new DefaultHttpContext();
+            context.Request.Host = new HostString("127.0.0.1:5000");
+            context.Request.Headers["X-Forwarded-Host"] = "127.0.0.1:3000";
+            var logger = new RecordingLogger<PublicAotDocumentService>();
+            var service = new PublicAotDocumentService(
+                new TestWebHostEnvironment(root, Environments.Development),
+                new ConfigurationBuilder().Build(),
+                new FixedSystemService(),
+                new ContextAwareAssetManifest(),
+                logger);
+
+            Result<string> result = await service.ComposeAsync(new PublicAotShellEntryContract
+            {
+                PageId = PublicPageId.Home,
+                RouteKey = "home",
+                Html = "<main>Home</main>",
+                Title = "Home",
+                BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                {
+                    ["siteTitle"] = "Fsus Blog",
+                    ["diagnosticPadding"] = "public-aot-document-service-dev-source-assets"
+                }),
+                HydrationPropsPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                {
+                    ["title"] = "Home",
+                    ["siteTitle"] = "Fsus Blog",
+                    ["diagnosticPadding"] = "public-aot-document-service-dev-source-assets"
+                })
+            }, context);
+
+            Assert.True(result.IsSuccess, logger.LastException?.ToString() ?? result.Error.Message);
+            string html = result.Value!;
+            Assert.Contains("/src/bootstrap/entry.ts", html, StringComparison.Ordinal);
+            Assert.Contains("/src/assets/public-page.css?direct", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("full-app-core-prod", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("route-admin-moderation-prod", html, StringComparison.Ordinal);
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static string CreateTempDirectory()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "fsus-aot-document-tests", Guid.NewGuid().ToString("N"));
+        string webRoot = Path.Combine(root, "wwwroot");
+        Directory.CreateDirectory(webRoot);
+        File.WriteAllText(Path.Combine(webRoot, "index.html"), """
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <!--fsus:aot:head-start-->
+  <title>Loading</title>
+  <!--fsus:aot:head-end-->
+</head>
+<body>
+  <div id="app"><!--fsus:aot:app--></div>
+  <!--fsus:aot:payloads-->
+  <!--fsus:aot:spa-boot-->
+</body>
+</html>
+""");
+        return root;
+    }
+
+    private sealed class ContextAwareAssetManifest : ISpaAssetManifestService
+    {
+        public IReadOnlyList<string> GetPreloadsForPath(string path, HttpContext? context = null) => [];
+
+        public SpaAssetSet GetPublicAssetSet(HttpContext? context = null, PublicPageId? pageId = null)
+            => IsViteProxy(context)
+                ? new SpaAssetSet(
+                    "/src/bootstrap/entry.ts",
+                    [
+                        "/src/assets/public-shell-critical.css",
+                        "/src/assets/tailwind.css",
+                        "/src/assets/public-page.css?direct"
+                    ],
+                    [],
+                    "dev-source-assets",
+                    UsesSourceAssets: true)
+                : new SpaAssetSet(
+                    "/assets/fsus-spa-entry.js",
+                    ["/assets/public-page-prod.css"],
+                    [],
+                    "prod-manifest",
+                    UsesSourceAssets: false)
+                {
+                    FullAppTakeover = new FullAppTakeoverAssetSet(
+                        ["/assets/full-app-core-prod.js"],
+                        ["/assets/route-admin-moderation-prod.css"])
+                };
+
+        public string GetFrontendAssetVersion(HttpContext? context = null)
+            => IsViteProxy(context) ? "dev-source-assets" : "prod-manifest";
+
+        private static bool IsViteProxy(HttpContext? context)
+            => context?.Request.Headers["X-Forwarded-Host"].ToString().Contains(":3000", StringComparison.Ordinal) == true;
+    }
+
+    private sealed class FixedSystemService : ISystemService
+    {
+        public Task<SeoConfigReadModel> GetSeoConfigAsync()
+            => Task.FromResult(new SeoConfigReadModel
+            {
+                Title = "Fsus Blog",
+                Description = "Public AOT test",
+                BaseUrl = "https://fsus.blog"
+            });
+
+        public Task UpdateSeoConfigAsync(UpdateSeoConfigRequest request) => Task.CompletedTask;
+
+        public Task<SiteComplianceConfigReadModel> GetSiteComplianceConfigAsync()
+            => Task.FromResult(new SiteComplianceConfigReadModel());
+
+        public Task UpdateSiteComplianceConfigAsync(UpdateSiteComplianceConfigRequest request) => Task.CompletedTask;
+
+        public Task<PageContentReadModel> GetPageContentAsync(string slug)
+            => Task.FromResult(new PageContentReadModel { Slug = slug, Content = string.Empty });
+
+        public Task<bool> UpdatePageContentAsync(UpdatePageContentRequest request) => Task.FromResult(true);
+
+        public Task<bool> RefreshPageCacheAsync(string slug) => Task.FromResult(true);
+    }
+
+    private sealed class TestWebHostEnvironment(string root, string environmentName) : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = nameof(PublicAotDocumentServiceTests);
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string WebRootPath { get; set; } = Path.Combine(root, "wwwroot");
+        public string EnvironmentName { get; set; } = environmentName;
+        public string ContentRootPath { get; set; } = root;
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private sealed class RecordingLogger<T> : ILogger<T>
+    {
+        public Exception? LastException { get; private set; }
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            LastException = exception;
+        }
+    }
+}
