@@ -15,6 +15,7 @@ describe('public hydration invariant guards', () => {
   const homeView = readRepoFile('src/frontend/src/views/Home.vue')
   const homeSpotlight = readRepoFile('src/frontend/src/view-contracts/homeSpotlight.ts')
   const refreshHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-refresh-hydration.mjs')
+  const clockHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs')
 
   it('keeps the public hydration checker fatal for Vue hydration warnings', () => {
     expect(refreshHydrationCheck).toContain('HYDRATION_KEYWORDS')
@@ -43,6 +44,24 @@ describe('public hydration invariant guards', () => {
       expect(refreshHydrationCheck).toContain(assertion)
     }
     expect(refreshHydrationCheck).toContain('phaseResults')
+  })
+
+  it('keeps public hydration clock, timezone, and locale drift covered', () => {
+    expect(clockHydrationCheck).toContain('fsusblog.public-hydration-clock-matrix.v1')
+    expect(clockHydrationCheck).toContain('CLOCK_CASES')
+    expect(clockHydrationCheck).toContain('near-midnight-plus-fifteen-minutes')
+    expect(clockHydrationCheck).toContain('ARTICLE_TIMESTAMPS')
+    expect(clockHydrationCheck).toContain('installSsrDomGlobals')
+    expect(clockHydrationCheck).toContain('timezoneId')
+    expect(clockHydrationCheck).toContain('locale')
+    expect(clockHydrationCheck).toContain('addInitScript')
+    expect(clockHydrationCheck).toContain('freezeClockScript')
+    expect(clockHydrationCheck).toContain('renderTimestamp')
+    expect(clockHydrationCheck).toContain('renderTimeZone')
+    expect(clockHydrationCheck).toContain('detailView.header.meta.fullTime')
+    expect(clockHydrationCheck).toContain('relatedTimes')
+    expect(clockHydrationCheck).toContain('timeNodes')
+    expect(clockHydrationCheck).toContain('public-hydration-clock-matrix-summary.json')
   })
 
   it('keeps ArticleDetail runtime widgets out of SSR and initial hydration DOM', () => {

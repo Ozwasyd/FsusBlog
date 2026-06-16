@@ -56,6 +56,10 @@ function assertStaticContracts() {
   const hydrationBootstrap = read('src/frontend/src/bootstrap/publicHydrationBootstrap.ts')
   const binaryPayload = read('src/frontend/src/bootstrap/publicAotBinaryPayload.ts')
   const refreshHydrationCheck = read('tests/frontend/checks/public/check-public-refresh-hydration.mjs')
+  const clockHydrationCheck = read('tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs')
+  const releaseLane = read('tools/test/legacy-test.sh')
+  const testMatrix = read('tests/matrix.yml')
+  const releaseEvidenceCollector = read('tools/operations/collect-release-evidence.sh')
   const shellService = read('src/backend/Infrastructure/PublicAot/PublicAotShellService.cs')
   const fileCache = read('src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs')
 
@@ -148,6 +152,40 @@ function assertStaticContracts() {
   }
   if (refreshHydrationCheck.includes('PASS${warnSuffix}')) {
     fail('refresh hydration check must not allow hydration warnings to pass with a warning suffix')
+  }
+  for (const token of [
+    'fsusblog.public-hydration-clock-matrix.v1',
+    'CLOCK_CASES',
+    'near-midnight-plus-fifteen-minutes',
+    'ARTICLE_TIMESTAMPS',
+    'installSsrDomGlobals',
+    'timezoneId',
+    'locale',
+    'addInitScript',
+    'freezeClockScript',
+    'renderTimestamp',
+    'renderTimeZone',
+    'detailView.header.meta.fullTime',
+    'relatedTimes',
+    'timeNodes',
+    'public-hydration-clock-matrix-summary.json'
+  ]) {
+    if (!clockHydrationCheck.includes(token)) {
+      fail(`clock hydration check missing deterministic matrix token: ${token}`)
+    }
+  }
+  if (!releaseLane.includes('check-public-clock-hydration-matrix.mjs')) {
+    fail('release lane must run the deterministic public hydration clock matrix')
+  }
+  for (const token of ['public-hydration-clock-matrix', 'public-hydration-clock-matrix-summary.json']) {
+    if (!testMatrix.includes(token)) {
+      fail(`test matrix missing clock hydration release evidence token: ${token}`)
+    }
+  }
+  for (const token of ['PUBLIC_HYDRATION_CLOCK_MATRIX_SUMMARY', 'PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE', 'publicHydrationClockMatrixSummary', 'publicHydrationClockMatrix']) {
+    if (!releaseEvidenceCollector.includes(token)) {
+      fail(`release evidence collector missing clock hydration token: ${token}`)
+    }
   }
   for (const token of ['PublicAotStateContextKey', 'IsStaleCompatibleCacheEntry', 'stale-refresh-queued']) {
     if (!shellService.includes(token)) {
