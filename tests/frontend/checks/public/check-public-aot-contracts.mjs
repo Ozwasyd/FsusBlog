@@ -141,6 +141,11 @@ function assertStaticContracts() {
       fail(`refresh hydration check missing fatal detector token: ${token}`)
     }
   }
+  for (const token of ['PUBLIC_PAGE_MANIFEST_FILE', 'assertScenarioCoverageAgainstPublicPageManifest', 'fsusblog.public-hydration-route-phase-matrix.v1', 'phaseResults', 'direct-first-load', 'browser-back-forward', 'hash-navigation', 'non-aot-search-fallback']) {
+    if (!refreshHydrationCheck.includes(token)) {
+      fail(`refresh hydration check missing route-phase matrix token: ${token}`)
+    }
+  }
   if (refreshHydrationCheck.includes('PASS${warnSuffix}')) {
     fail('refresh hydration check must not allow hydration warnings to pass with a warning suffix')
   }

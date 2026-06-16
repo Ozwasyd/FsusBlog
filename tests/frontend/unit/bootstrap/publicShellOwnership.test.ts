@@ -29,6 +29,14 @@ describe('public shell ownership boundary', () => {
     expect(publicShell).not.toContain('replaceChild(')
   })
 
+  it('forces public shell navigation on browser history traversal', () => {
+    expect(publicShell).toContain('force?: boolean')
+    expect(publicShell).toContain('!options.force && target.pathname === current.pathname')
+    expect(publicShell).toContain('force: true')
+    expect(publicShell.indexOf("window.addEventListener('popstate'"))
+      .toBeLessThan(publicShell.indexOf('force: true'))
+  })
+
   it('dispatches AOT action events through one shared helper', () => {
     expect(publicShell).toContain('dispatchAotActionEvent')
     expect(aotActionBridge).toContain('dispatchAotActionEvent')

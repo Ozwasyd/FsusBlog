@@ -1013,11 +1013,12 @@ async function navigateWithinPublicShell(
   options: {
     historyMode?: 'push' | 'replace' | 'none'
     popState?: unknown
+    force?: boolean
   } = {}
 ): Promise<void> {
   const target = new URL(href, window.location.origin)
   const current = new URL(window.location.href)
-  if (target.pathname === current.pathname && target.search === current.search && target.hash === current.hash) {
+  if (!options.force && target.pathname === current.pathname && target.search === current.search && target.hash === current.hash) {
     return
   }
 
@@ -1197,7 +1198,8 @@ export function bindPopStateNavigation(): void {
 
     void navigateWithinPublicShell(window.location.href, {
       historyMode: 'replace',
-      popState: event.state
+      popState: event.state,
+      force: true
     })
   })
 }

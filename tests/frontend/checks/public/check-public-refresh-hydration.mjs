@@ -19,8 +19,9 @@
  */
 import { createRequire } from 'node:module'
 import { dirname } from 'node:path'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { readAedsResponse } from '../../support/aeds-envelope.mjs'
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
 
 const require = createRequire(import.meta.url)
@@ -43,6 +44,10 @@ const PUBLIC_HYDRATION_DETECTOR_SCHEMA = 'fsusblog.public-hydration-detector.v1'
 const PUBLIC_HYDRATION_DETECTOR_SUMMARY_FILE = process.env.FSUSBLOG_PUBLIC_HYDRATION_SUMMARY_FILE
   || fileURLToPath(new URL('../../../../.tmp/release-evidence/public-hydration-detector-summary.json', import.meta.url))
 const PUBLIC_HYDRATION_BROWSER = 'chromium'
+const PUBLIC_HYDRATION_ROUTE_PHASE_MATRIX_SCHEMA = 'fsusblog.public-hydration-route-phase-matrix.v1'
+const PUBLIC_PAGE_MANIFEST_FILE = fileURLToPath(
+  new URL('../../../../src/frontend/src/public-renderers/generated/publicPageManifest.ts', import.meta.url)
+)
 
 const HYDRATION_KEYWORDS = [
   'Hydration',
@@ -61,43 +66,97 @@ const PUBLIC_SEO_SCENARIOS = [
     name: 'home',
     route: '/',
     expectedKind: 'Home',
-    interact: interactHomeScenario,
+    expectedRouteKey: 'home',
+    phases: createHomeNavigationPhases(),
   },
   {
     name: 'about',
     route: '/about',
     expectedKind: 'About',
-    interact: async (page, helpers) => {
-      await helpers.clickPublicNav('home', '/', 'Home')
-      await helpers.reloadAndWaitForHydration('Home')
-    },
+    expectedRouteKey: 'about',
+    phases: createStaticPagePhases(),
+  },
+  {
+    name: 'privacy',
+    route: '/privacy',
+    expectedKind: 'Privacy',
+    expectedRouteKey: 'privacy',
+    phases: createStaticPagePhases(),
+  },
+  {
+    name: 'guidelines',
+    route: '/guidelines',
+    expectedKind: 'Guidelines',
+    expectedRouteKey: 'guidelines',
+    phases: createStaticPagePhases(),
+  },
+  {
+    name: 'copyright',
+    route: '/copyright',
+    expectedKind: 'Copyright',
+    expectedRouteKey: 'copyright',
+    phases: createStaticPagePhases(),
   },
   {
     name: 'archive',
     route: '/archive',
     expectedKind: 'Archive',
-    interact: interactListToArticleScenario,
+    expectedRouteKey: 'archive',
+    phases: createListToArticlePhases(),
   },
   {
     name: 'article',
     route: `/article/${publicFixtureIds.articleId}`,
     expectedKind: 'ArticleDetail',
-    interact: async (page, helpers) => {
-      await helpers.clickPublicNav('archive', '/archive', 'Archive')
-      await helpers.reloadAndWaitForHydration('Archive')
-    },
+    expectedRouteKey: `article:${publicFixtureIds.articleId}`,
+    allowSpaFallback: true,
+    allowUnhydratedAotFallback: true,
+    phases: [
+      {
+        phase: 'micro-navigation',
+        run: async (page, helpers) => {
+          await helpers.clickPublicNav('archive', '/archive', 'Archive')
+        },
+      },
+      {
+        phase: 'post-navigation-reload',
+        run: async (_page, helpers) => {
+          await helpers.reloadAndWaitForHydration('Archive', '/archive')
+        },
+      },
+    ],
   },
   {
     name: 'category',
     route: `/category/${publicFixtureIds.categoryId}`,
     expectedKind: 'Filter',
-    interact: interactListToArticleScenario,
+    expectedRouteKey: `category:${publicFixtureIds.categoryId}`,
+    phases: createListToArticlePhases(),
   },
   {
     name: 'tag',
     route: `/tag/${publicFixtureIds.tagId}`,
     expectedKind: 'Filter',
-    interact: interactListToArticleScenario,
+    expectedRouteKey: `tag:${publicFixtureIds.tagId}`,
+    phases: createListToArticlePhases(),
+  },
+  {
+    name: 'invalid-category-fallback',
+    route: '/category/0',
+    expectedKind: 'Filter',
+    allowUnhydratedAotFallback: true,
+  },
+  {
+    name: 'invalid-tag-fallback',
+    route: '/tag/0',
+    expectedKind: 'Filter',
+    allowUnhydratedAotFallback: true,
+  },
+  {
+    name: 'invalid-article-aot-fallback',
+    route: '/article/0',
+    expectedKind: 'ArticleDetail',
+    allowUnhydratedAotFallback: true,
   },
 ]
 
@@ -106,13 +165,31 @@ const PUBLIC_INTERACTION_ONLY_SCENARIOS = [
     name: 'takeover-settings-drift',
     route: '/',
     expectedKind: 'Home',
-    interact: assertTakeoverIgnoresMutatedSettingsScenario,
+    expectedRouteKey: 'home',
+    phases: [
+      {
+        phase: 'full-spa-takeover',
+        run: assertTakeoverIgnoresMutatedSettingsScenario,
+      },
+    ],
   },
   {
     name: 'search-from-home',
     route: '/',
     expectedKind: 'Home',
-    interact: interactSearchScenario,
+    expectedRouteKey: 'home',
+    phases: [
+      {
+        phase: 'non-aot-search-fallback',
+        run: interactSearchScenario,
+      },
+    ],
+  },
+  {
+    name: 'search-fallback',
+    route: '/search?q=hydration',
+    expectedKind: null,
+    expectSpaFallback: true,
   },
 ]
 
@@ -197,9 +274,122 @@ function issueWithContext(issue, route, viewport) {
   }
 }
 
+function phaseWithContext(phase, route, viewport) {
+  return {
+    route: route.route,
+    routeName: route.name,
+    phase: phase.phase,
+    stage: phase.stage,
+    expectedKind: route.expectedKind,
+    expectedRouteKey: route.expectedRouteKey ?? null,
+    browser: PUBLIC_HYDRATION_BROWSER,
+    viewport: {
+      name: viewport.name,
+      width: viewport.width,
+      height: viewport.height,
+    },
+    status: phase.status,
+    assertions: phase.assertions,
+    details: phase.details ?? {},
+    error: phase.error ?? null,
+  }
+}
+
 function writeSummary(summary) {
   mkdirSync(dirname(PUBLIC_HYDRATION_DETECTOR_SUMMARY_FILE), { recursive: true })
   writeFileSync(PUBLIC_HYDRATION_DETECTOR_SUMMARY_FILE, `${JSON.stringify(summary, null, 2)}\n`)
+}
+
+function readPublicSeoAotManifestKinds() {
+  const source = readFileSync(PUBLIC_PAGE_MANIFEST_FILE, 'utf8')
+  const manifestStart = source.indexOf('export const PUBLIC_PAGE_MANIFEST')
+  const manifestEnd = source.indexOf('} as const)', manifestStart)
+  if (manifestStart < 0 || manifestEnd < 0) {
+    throw new Error('unable to locate PUBLIC_PAGE_MANIFEST block')
+  }
+
+  const manifestBlock = source.slice(manifestStart, manifestEnd)
+  const kinds = []
+  for (const match of manifestBlock.matchAll(/\n\s{2}([A-Za-z][A-Za-z0-9]*):\s*\{([\s\S]*?)\n\s{2}\}/g)) {
+    const [, fallbackKind, body] = match
+    if (!body.includes('seoEligible: true') || !body.includes('aotShellReady: true')) {
+      continue
+    }
+
+    const kindMatch = body.match(/kind:\s*'([^']+)'/)
+    kinds.push(kindMatch?.[1] ?? fallbackKind)
+  }
+
+  return kinds
+}
+
+function assertScenarioCoverageAgainstPublicPageManifest(scenarios) {
+  const requiredKinds = readPublicSeoAotManifestKinds()
+  const coveredKinds = Array.from(new Set(
+    scenarios
+      .filter((scenario) => !scenario.expectSpaFallback)
+      .map((scenario) => scenario.expectedKind)
+      .filter(Boolean)
+  ))
+  const missingKinds = requiredKinds.filter((kind) => !coveredKinds.includes(kind))
+  if (missingKinds.length > 0) {
+    throw new Error(`public hydration route matrix missing manifest AOT kinds: ${missingKinds.join(', ')}`)
+  }
+
+  return {
+    schema: PUBLIC_HYDRATION_ROUTE_PHASE_MATRIX_SCHEMA,
+    manifest: PUBLIC_PAGE_MANIFEST_FILE,
+    requiredKinds,
+    coveredKinds,
+    scenarios: scenarios.map((scenario) => ({
+      name: scenario.name,
+      route: scenario.route,
+      expectedKind: scenario.expectedKind,
+      expectedRouteKey: scenario.expectedRouteKey ?? null,
+      expectSpaFallback: Boolean(scenario.expectSpaFallback || scenario.allowSpaFallback),
+      phases: [
+        'direct-first-load',
+        'reload',
+        ...((scenario.phases ?? []).map((phase) => phase.phase)),
+      ],
+    })),
+  }
+}
+
+function createPhaseResult(route, phase, status, options = {}) {
+  return {
+    route: route.route,
+    routeName: route.name,
+    phase,
+    stage: options.stage ?? `${route.name}:${phase}`,
+    expectedKind: route.expectedKind,
+    expectedRouteKey: route.expectedRouteKey ?? null,
+    status,
+    assertions: options.assertions ?? [],
+    details: options.details ?? {},
+    error: options.error ?? null,
+  }
+}
+
+function normalizeAssertions(value) {
+  if (Array.isArray(value)) {
+    return value.filter((item) => typeof item === 'string' && item.length > 0)
+  }
+
+  if (value && typeof value === 'object' && Array.isArray(value.assertions)) {
+    return value.assertions.filter((item) => typeof item === 'string' && item.length > 0)
+  }
+
+  return []
+}
+
+function normalizePhaseDetails(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+
+  const { assertions: _assertions, ...details } = value
+  return details
 }
 
 async function waitForVueMount(page, maxMs = 5000) {
@@ -298,29 +488,43 @@ async function waitForRuntimeRoute(page, options) {
 async function checkShellStructure(page, options = {}) {
   const {
     expectedKind = null,
+    expectedRouteKey = null,
     requireKind = true,
     requireHydrationMetrics = true,
   } = options
 
   return page.evaluate((input) => {
-    const app = document.getElementById('app')
+    const assertions = []
+    const appRoots = Array.from(document.querySelectorAll('#app'))
+    if (appRoots.length !== 1) return { ok: false, reason: `#app count mismatch: ${appRoots.length}`, assertions }
+    assertions.push('single-app-root')
+
+    const app = appRoots[0]
     if (!app) return { ok: false, reason: '#app missing' }
-    const shell = app.querySelector('#fsus-aot-shell')
+    const shells = Array.from(app.querySelectorAll('#fsus-aot-shell'))
+    if (shells.length !== 1) return { ok: false, reason: `#fsus-aot-shell count mismatch inside #app: ${shells.length}`, assertions }
+    assertions.push('single-aot-shell')
+
+    const shell = shells[0]
     if (!shell) return { ok: false, reason: '#fsus-aot-shell missing inside #app' }
     if (shell.parentElement !== app) {
       return {
         ok: false,
         reason: `#fsus-aot-shell parent is <${shell.parentElement?.tagName?.toLowerCase() ?? '?'}>, expected #app directly`,
+        assertions,
       }
     }
+    assertions.push('shell-parent-is-app')
 
     const kind = shell.getAttribute('data-public-hydration-kind')
     if (input.requireKind && kind !== input.expectedKind) {
       return {
         ok: false,
         reason: `data-public-hydration-kind mismatch: expected ${String(input.expectedKind)}, got ${String(kind)}`,
+        assertions,
       }
     }
+    assertions.push('expected-hydration-kind')
 
     if (input.requireHydrationMetrics) {
       const metrics = Array.isArray(window.__FSUS_PUBLIC_HYDRATION_METRICS__)
@@ -328,22 +532,190 @@ async function checkShellStructure(page, options = {}) {
         : []
 
       if (!metrics.some((entry) => entry?.pageKind === input.expectedKind)) {
-        return { ok: false, reason: `missing hydration metrics for ${String(input.expectedKind)}` }
+        return { ok: false, reason: `missing hydration metrics for ${String(input.expectedKind)}`, assertions }
+      }
+      assertions.push('hydration-metrics-kind')
+
+      if (input.expectedRouteKey && !metrics.some((entry) => entry?.pageKind === input.expectedKind && entry?.routeKey === input.expectedRouteKey)) {
+        return {
+          ok: false,
+          reason: `missing hydration metrics routeKey ${String(input.expectedRouteKey)} for ${String(input.expectedKind)}`,
+          assertions,
+        }
+      }
+      if (input.expectedRouteKey) {
+        assertions.push('hydration-metrics-route-key')
       }
     }
+
+    for (const id of ['fsus-aot-bootstrap', 'fsus-aot-hydration-props']) {
+      const count = document.querySelectorAll(`#${id}`).length
+      if (count > 1) {
+        return { ok: false, reason: `${id} count mismatch: ${count}`, assertions }
+      }
+    }
+    assertions.push('no-duplicate-public-payload-scripts')
+
+    const managedHeadNodes = Array.from(document.head.querySelectorAll('[data-fsus-aot-head]'))
+    const headKeys = managedHeadNodes.map((node) => [
+      node.tagName,
+      node.getAttribute('name') ?? '',
+      node.getAttribute('property') ?? '',
+      node.getAttribute('rel') ?? '',
+      node.getAttribute('href') ?? '',
+      node.getAttribute('content') ?? '',
+    ].join('|'))
+    const duplicateHeadKey = headKeys.find((key, index) => headKeys.indexOf(key) !== index)
+    if (duplicateHeadKey) {
+      return { ok: false, reason: `duplicate AOT-managed head node: ${duplicateHeadKey}`, assertions }
+    }
+    assertions.push('aot-head-nodes-unique')
 
     return {
       ok: true,
       kind,
+      assertions,
       metricsCount: Array.isArray(window.__FSUS_PUBLIC_HYDRATION_METRICS__)
         ? window.__FSUS_PUBLIC_HYDRATION_METRICS__.length
         : 0,
     }
   }, {
     expectedKind,
+    expectedRouteKey,
     requireKind,
     requireHydrationMetrics,
   })
+}
+
+async function checkSpaFallbackStructure(page, route) {
+  return page.evaluate((input) => {
+    const assertions = []
+    const appRoots = Array.from(document.querySelectorAll('#app'))
+    if (appRoots.length !== 1) return { ok: false, reason: `#app count mismatch: ${appRoots.length}`, assertions }
+    assertions.push('single-app-root')
+
+    const shell = document.querySelector('#app > #fsus-aot-shell')
+    if (shell) {
+      const kind = shell.getAttribute('data-public-hydration-kind')
+      if (input.expectedKind && kind === input.expectedKind) {
+        return { ok: false, reason: `fallback route unexpectedly hydrated as ${kind}`, assertions }
+      }
+    }
+    assertions.push('no-wrong-aot-kind')
+
+    const hydrationPayload = document.getElementById('fsus-aot-hydration-props')
+    if (hydrationPayload?.textContent?.trim() && input.expectedKind == null) {
+      return { ok: false, reason: 'non-AOT fallback route unexpectedly carried hydration props', assertions }
+    }
+    assertions.push('no-stale-public-hydration-payload')
+
+    return {
+      ok: true,
+      assertions,
+      hasShell: Boolean(shell),
+      shellKind: shell?.getAttribute('data-public-hydration-kind') ?? null,
+      path: window.location.pathname,
+      search: window.location.search,
+    }
+  }, {
+    expectedKind: route.expectedKind,
+  })
+}
+
+async function checkUnhydratedAotFallbackStructure(page, route) {
+  return page.evaluate((input) => {
+    const assertions = []
+    const appRoots = Array.from(document.querySelectorAll('#app'))
+    if (appRoots.length !== 1) return { ok: false, reason: `#app count mismatch: ${appRoots.length}`, assertions }
+    assertions.push('single-app-root')
+
+    const shells = Array.from(document.querySelectorAll('#app > #fsus-aot-shell'))
+    if (shells.length !== 1) return { ok: false, reason: `#fsus-aot-shell count mismatch inside #app: ${shells.length}`, assertions }
+    assertions.push('single-aot-shell')
+
+    const shell = shells[0]
+    const kind = shell.getAttribute('data-public-hydration-kind')
+    if (kind !== input.expectedKind) {
+      return { ok: false, reason: `AOT fallback shell kind mismatch: expected ${String(input.expectedKind)}, got ${String(kind)}`, assertions }
+    }
+    assertions.push('expected-hydration-kind')
+
+    for (const id of ['fsus-aot-bootstrap', 'fsus-aot-hydration-props']) {
+      const count = document.querySelectorAll(`#${id}`).length
+      if (count > 1) {
+        return { ok: false, reason: `${id} duplicate count: ${count}`, assertions }
+      }
+    }
+    assertions.push('no-duplicate-public-payload-scripts')
+
+    const managedHeadNodes = Array.from(document.head.querySelectorAll('[data-fsus-aot-head]'))
+    const headKeys = managedHeadNodes.map((node) => [
+      node.tagName,
+      node.getAttribute('name') ?? '',
+      node.getAttribute('property') ?? '',
+      node.getAttribute('rel') ?? '',
+      node.getAttribute('href') ?? '',
+      node.getAttribute('content') ?? '',
+    ].join('|'))
+    const duplicateHeadKey = headKeys.find((key, index) => headKeys.indexOf(key) !== index)
+    if (duplicateHeadKey) {
+      return { ok: false, reason: `duplicate AOT-managed head node: ${duplicateHeadKey}`, assertions }
+    }
+    assertions.push('aot-head-nodes-unique')
+    assertions.push('unhydrated-aot-fallback-shell')
+
+    return {
+      ok: true,
+      assertions,
+      shellKind: kind,
+      path: window.location.pathname,
+      search: window.location.search,
+    }
+  }, {
+    expectedKind: route.expectedKind,
+  })
+}
+
+async function assertHydratedRouteCell(page, route) {
+  const structure = await checkShellStructure(page, {
+    expectedKind: route.expectedKind,
+    expectedRouteKey: route.expectedRouteKey ?? null,
+    requireKind: true,
+    requireHydrationMetrics: true,
+  })
+  if (!structure.ok) {
+    throw new Error(structure.reason)
+  }
+
+  return {
+    assertions: structure.assertions,
+    metricsCount: structure.metricsCount,
+  }
+}
+
+async function assertFallbackRouteCell(page, route) {
+  const structure = await checkSpaFallbackStructure(page, route)
+  if (!structure.ok) {
+    throw new Error(structure.reason)
+  }
+
+  return {
+    assertions: structure.assertions,
+    hasShell: structure.hasShell,
+    shellKind: structure.shellKind,
+  }
+}
+
+async function assertUnhydratedAotFallbackRouteCell(page, route) {
+  const structure = await checkUnhydratedAotFallbackStructure(page, route)
+  if (!structure.ok) {
+    throw new Error(structure.reason)
+  }
+
+  return {
+    assertions: structure.assertions,
+    shellKind: structure.shellKind,
+  }
 }
 
 async function setShellProbe(page, marker) {
@@ -568,8 +940,36 @@ async function clickFirstArticleLink(page) {
   return targetUrl.pathname
 }
 
+async function tryClickFirstArticleLink(page) {
+  const articleLinks = page.locator('a[data-public-link="article"]')
+  if (await articleLinks.count() === 0) {
+    return null
+  }
+
+  const articleLink = articleLinks.first()
+  const href = await articleLink.getAttribute('href', { timeout: 1000 })
+  if (!href) {
+    return null
+  }
+
+  const targetUrl = new URL(href, 'http://127.0.0.1')
+  await articleLink.click()
+  await page.waitForURL((url) => url.pathname === targetUrl.pathname, { timeout: PUBLIC_RUNTIME_TIMEOUT_MS })
+  await waitForRuntimeRoute(page, {
+    pathname: targetUrl.pathname,
+    expectedKind: 'ArticleDetail',
+    requireKind: true,
+    requireIdentity: false,
+  })
+
+  return targetUrl.pathname
+}
+
 async function searchFromHome(page) {
-  const firstTitleText = (await page.locator('a[data-public-link="article"]').first().textContent())?.trim() || 'hydrate'
+  const articleLinks = page.locator('a[data-public-link="article"]')
+  const firstTitleText = await articleLinks.count() > 0
+    ? (await articleLinks.first().textContent({ timeout: 1000 }))?.trim() || 'hydrate'
+    : 'hydration'
   const query = firstTitleText.split(/\s+/u).find((part) => part.length >= 2) || firstTitleText || 'hydrate'
   const forms = page.locator('form[action="/search"]')
   const count = await forms.count()
@@ -630,25 +1030,225 @@ async function searchFromHome(page) {
   return 'search'
 }
 
-async function interactListToArticleScenario(page, helpers) {
-  await helpers.markShellProbe(`${helpers.name}-list-to-article`)
-  const articlePath = await clickFirstArticleLink(page)
-  await helpers.assertShellProbeDisposedByRemount(`${helpers.name}-list-to-article`, 'ArticleDetail')
-  await helpers.reloadAndWaitForHydration('ArticleDetail', articlePath, { allowInitialSpaFallback: true })
+function createListToArticlePhases(options = {}) {
+  const {
+    includeBackForward = false,
+    includeTakeover = false,
+  } = options
+
+  return [
+    {
+      phase: 'micro-navigation',
+      run: async (page, helpers) => {
+        const marker = `${helpers.name}-list-to-article`
+        await helpers.markShellProbe(marker)
+        const articlePath = await tryClickFirstArticleLink(page)
+        if (!articlePath) {
+          helpers.state.articlePath = null
+          return {
+            skipped: true,
+            reason: 'route has no article links in the current fixture data',
+            assertions: ['route-empty-list-covered'],
+          }
+        }
+
+        helpers.state.articlePath = articlePath
+        await helpers.assertShellProbeDisposedByRemount(marker, 'ArticleDetail')
+        return {
+          targetPath: articlePath,
+          targetKind: 'ArticleDetail',
+          assertions: ['public-shell-micro-navigation', 'explicit-shell-remount'],
+        }
+      },
+    },
+    includeBackForward
+      ? {
+          phase: 'browser-back-forward',
+          run: async (page, helpers) => {
+            const articlePath = helpers.state.articlePath
+            if (!articlePath) {
+              throw new Error('missing articlePath from micro-navigation phase')
+            }
+
+            await page.goBack({ waitUntil: 'domcontentloaded', timeout: 30000 })
+            await waitForRuntimeRoute(page, {
+              pathname: helpers.routePathname,
+              expectedKind: helpers.expectedKind,
+              requireKind: true,
+              requireIdentity: false,
+            })
+            await assertHydratedRouteCell(page, helpers.route)
+
+            await page.goForward({ waitUntil: 'domcontentloaded', timeout: 30000 })
+            await waitForRuntimeRoute(page, {
+              pathname: articlePath,
+              expectedKind: 'ArticleDetail',
+              requireKind: true,
+              requireIdentity: false,
+            })
+
+            return {
+              targetPath: articlePath,
+              assertions: ['browser-back-restores-public-shell-route', 'browser-forward-restores-public-shell-route'],
+            }
+          },
+        }
+      : null,
+    {
+      phase: 'post-navigation-reload',
+      run: async (_page, helpers) => {
+        const articlePath = helpers.state.articlePath
+        if (!articlePath) {
+          return {
+            skipped: true,
+            reason: 'route has no article links in the current fixture data',
+            assertions: ['route-empty-list-covered'],
+          }
+        }
+
+        await helpers.reloadAndWaitForHydration('ArticleDetail', articlePath, { allowInitialSpaFallback: true })
+        return {
+          targetPath: articlePath,
+          targetKind: 'ArticleDetail',
+          assertions: ['post-navigation-reload-settled'],
+        }
+      },
+    },
+    includeTakeover
+      ? {
+          phase: 'full-spa-takeover',
+          run: async (_page, helpers) => {
+            const articlePath = helpers.state.articlePath
+            if (!articlePath) {
+              throw new Error('missing articlePath from micro-navigation phase')
+            }
+
+            await helpers.triggerFullSpaTakeover('ArticleDetail', articlePath)
+            return {
+              targetPath: articlePath,
+              targetKind: 'ArticleDetail',
+              assertions: ['full-spa-takeover-public-shell'],
+            }
+          },
+        }
+      : null,
+  ].filter(Boolean)
 }
 
-async function interactHomeScenario(page, helpers) {
-  await helpers.markShellProbe('home-to-article')
-  const articlePath = await clickFirstArticleLink(page)
-  await helpers.assertShellProbeDisposedByRemount('home-to-article', 'ArticleDetail')
-  await helpers.reloadAndWaitForHydration('ArticleDetail', articlePath, { allowInitialSpaFallback: true })
-  await helpers.triggerFullSpaTakeover('ArticleDetail', articlePath)
+function createHomeNavigationPhases() {
+  return [
+    {
+      phase: 'micro-navigation',
+      run: async (_page, helpers) => {
+        const marker = 'home-to-archive'
+        await helpers.markShellProbe(marker)
+        await helpers.clickPublicNav('archive', '/archive', 'Archive')
+        helpers.state.targetPath = '/archive'
+        helpers.state.targetKind = 'Archive'
+        await helpers.assertShellProbeDisposedByRemount(marker, 'Archive')
+        return {
+          targetPath: '/archive',
+          targetKind: 'Archive',
+          assertions: ['public-shell-micro-navigation', 'explicit-shell-remount'],
+        }
+      },
+    },
+    {
+      phase: 'browser-back-forward',
+      run: async (page, helpers) => {
+        const targetPath = helpers.state.targetPath ?? '/archive'
+        const targetKind = helpers.state.targetKind ?? 'Archive'
+
+        await page.goBack({ waitUntil: 'domcontentloaded', timeout: 30000 })
+        await waitForRuntimeRoute(page, {
+          pathname: '/',
+          expectedKind: 'Home',
+          requireKind: true,
+          requireIdentity: false,
+        })
+        await assertHydratedRouteCell(page, helpers.route)
+
+        await page.goForward({ waitUntil: 'domcontentloaded', timeout: 30000 })
+        await waitForRuntimeRoute(page, {
+          pathname: targetPath,
+          expectedKind: targetKind,
+          requireKind: true,
+          requireIdentity: false,
+        })
+
+        return {
+          targetPath,
+          targetKind,
+          assertions: ['browser-back-restores-public-shell-route', 'browser-forward-restores-public-shell-route'],
+        }
+      },
+    },
+    {
+      phase: 'post-navigation-reload',
+      run: async (_page, helpers) => {
+        await helpers.reloadAndWaitForHydration('Archive', '/archive', {
+          expectedRouteKey: 'archive',
+        })
+        return {
+          targetPath: '/archive',
+          targetKind: 'Archive',
+          assertions: ['post-navigation-reload-settled'],
+        }
+      },
+    },
+    {
+      phase: 'full-spa-takeover',
+      run: async (_page, helpers) => {
+        await helpers.triggerFullSpaTakeover('Archive', '/archive')
+        return {
+          targetPath: '/archive',
+          targetKind: 'Archive',
+          assertions: ['full-spa-takeover-public-shell'],
+        }
+      },
+    },
+  ]
+}
+
+function createStaticPagePhases() {
+  return [
+    {
+      phase: 'hash-navigation',
+      run: async (page, helpers) => {
+        await page.evaluate(() => {
+          window.location.hash = '#main-content'
+        })
+        await page.waitForFunction(() => window.location.hash === '#main-content', {
+          timeout: PUBLIC_RUNTIME_TIMEOUT_MS,
+        })
+        await assertHydratedRouteCell(page, helpers.route)
+        return {
+          hash: '#main-content',
+          assertions: ['hash-navigation-preserves-public-shell'],
+        }
+      },
+    },
+    {
+      phase: 'micro-navigation',
+      run: async (_page, helpers) => {
+        await helpers.clickPublicNav('home', '/', 'Home')
+        return {
+          targetPath: '/',
+          targetKind: 'Home',
+          assertions: ['public-shell-micro-navigation'],
+        }
+      },
+    },
+  ]
 }
 
 async function interactSearchScenario(page, helpers) {
   const mode = await searchFromHome(page)
   if (mode === 'takeover') {
-    return
+    return {
+      mode,
+      assertions: ['search-focus-triggers-safe-takeover'],
+    }
   }
 
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
@@ -658,6 +1258,12 @@ async function interactSearchScenario(page, helpers) {
   const vueReady = await waitForVueMount(page, PUBLIC_RUNTIME_TIMEOUT_MS)
   if (!vueReady) {
     throw new Error('Vue did not mount within timeout after search route reload')
+  }
+
+  await assertFallbackRouteCell(page, { ...helpers.route, expectSpaFallback: true, expectedKind: null })
+  return {
+    mode,
+    assertions: ['search-route-spa-fallback', 'no-wrong-aot-kind'],
   }
 }
 
@@ -673,13 +1279,48 @@ async function assertTakeoverIgnoresMutatedSettingsScenario(page, helpers) {
   await helpers.triggerFullSpaTakeover('Home', '/')
   const after = await readShellIdentitySignature(page)
   assertShellIdentityPreserved({ before, after })
+  return {
+    assertions: ['full-spa-takeover-public-shell', 'takeover-keeps-ssr-shell-identity'],
+  }
 }
 
 async function runScenario(page, baseUrl, route) {
   const recorder = createHydrationIssueRecorder(page)
+  const phaseResults = []
+  const routeUrl = new URL(route.route, baseUrl)
+  const routePathname = routeUrl.pathname
+
+  async function runPhase(phase, operation, options = {}) {
+    const stage = `${route.name}:${phase}`
+    recorder.setStage(stage)
+    try {
+      const result = await operation()
+      phaseResults.push(createPhaseResult(route, phase, 'success', {
+        stage,
+        assertions: normalizeAssertions(result),
+        details: normalizePhaseDetails(result),
+      }))
+      return { ok: true, result }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      recorder.recordIssue('error', `${phase} failed: ${message}`, stage)
+      phaseResults.push(createPhaseResult(route, phase, 'failure', {
+        stage,
+        error: message,
+      }))
+      if (options.stopOnFailure !== false) {
+        return { ok: false, error: err }
+      }
+      return { ok: false, error: err }
+    }
+  }
 
   const helpers = {
     name: route.name,
+    route,
+    routePathname,
+    expectedKind: route.expectedKind,
+    state: {},
     async markShellProbe(marker) {
       const applied = await setShellProbe(page, marker)
       if (!applied) {
@@ -717,6 +1358,7 @@ async function runScenario(page, baseUrl, route) {
 
           const structure = await checkShellStructure(page, {
             expectedKind,
+            expectedRouteKey: options.expectedRouteKey ?? null,
             requireKind: true,
             requireHydrationMetrics: true,
           })
@@ -751,66 +1393,108 @@ async function runScenario(page, baseUrl, route) {
     },
   }
 
-  recorder.setStage(`${route.name}:first-visit:navigation`)
-  try {
+  const direct = await runPhase('direct-first-load', async () => {
     await page.goto(`${baseUrl}${route.route}`, { waitUntil: 'networkidle', timeout: 30000 })
-  } catch (err) {
-    recorder.recordIssue('error', `goto failed: ${err.message}`)
-    return recorder.issues
-  }
 
-  recorder.setStage(`${route.name}:first-visit:hydrate`)
-  try {
-    await waitForPublicHydration(page, route.expectedKind)
-  } catch (err) {
-    recorder.recordIssue('error', `hydration wait failed: ${err.message}`)
-    return recorder.issues
-  }
+    if (route.expectSpaFallback) {
+      return await assertFallbackRouteCell(page, route)
+    }
 
-  const struct1 = await checkShellStructure(page, {
-    expectedKind: route.expectedKind,
-    requireKind: true,
-    requireHydrationMetrics: true,
-  })
-  if (!struct1.ok) {
-    recorder.recordIssue('error', `DOM structure after first visit: ${struct1.reason}`, `${route.name}:first-visit:structure`)
-  }
-
-  recorder.setStage(`${route.name}:reload:navigation`)
-  try {
-    await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
-  } catch (err) {
-    recorder.recordIssue('error', `reload failed: ${err.message}`)
-    return recorder.issues
-  }
-
-  recorder.setStage(`${route.name}:reload:hydrate`)
-  try {
-    await waitForPublicHydration(page, route.expectedKind)
-  } catch (err) {
-    recorder.recordIssue('error', `reload hydration wait failed: ${err.message}`)
-    return recorder.issues
-  }
-
-  const struct2 = await checkShellStructure(page, {
-    expectedKind: route.expectedKind,
-    requireKind: true,
-    requireHydrationMetrics: true,
-  })
-  if (!struct2.ok) {
-    recorder.recordIssue('error', `DOM structure after reload: ${struct2.reason}`, `${route.name}:reload:structure`)
-  }
-
-  if (typeof route.interact === 'function') {
-    recorder.setStage(`${route.name}:interaction:start`)
+    const hydrationTimeout = route.allowUnhydratedAotFallback || route.allowSpaFallback
+      ? Math.min(PUBLIC_HYDRATION_TIMEOUT_MS, 3000)
+      : PUBLIC_HYDRATION_TIMEOUT_MS
     try {
-      await route.interact(page, helpers)
+      await waitForPublicHydration(page, route.expectedKind, hydrationTimeout)
     } catch (err) {
-      recorder.recordIssue('error', `interaction failed: ${err.message}`)
+      if (route.allowUnhydratedAotFallback) {
+        try {
+          const fallback = await assertUnhydratedAotFallbackRouteCell(page, route)
+          return {
+            ...fallback,
+            fallbackReason: err instanceof Error ? err.message : String(err),
+          }
+        } catch (fallbackErr) {
+          if (!route.allowSpaFallback) {
+            throw fallbackErr
+          }
+        }
+      }
+      if (route.allowSpaFallback) {
+        const fallback = await assertFallbackRouteCell(page, route)
+        return {
+          ...fallback,
+          fallbackReason: err instanceof Error ? err.message : String(err),
+        }
+      }
+      throw err
+    }
+
+    return await assertHydratedRouteCell(page, route)
+  })
+  if (!direct.ok) {
+    return { issues: recorder.issues, phaseResults }
+  }
+
+  const reload = await runPhase('reload', async () => {
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
+
+    if (route.expectSpaFallback) {
+      const vueReady = await waitForVueMount(page, PUBLIC_RUNTIME_TIMEOUT_MS)
+      if (!vueReady) {
+        throw new Error('Vue did not mount within timeout after fallback reload')
+      }
+      return await assertFallbackRouteCell(page, route)
+    }
+
+    const hydrationTimeout = route.allowUnhydratedAotFallback || route.allowSpaFallback
+      ? Math.min(PUBLIC_HYDRATION_TIMEOUT_MS, 3000)
+      : PUBLIC_HYDRATION_TIMEOUT_MS
+    try {
+      await waitForPublicHydration(page, route.expectedKind, hydrationTimeout)
+    } catch (err) {
+      if (route.allowUnhydratedAotFallback) {
+        try {
+          const fallback = await assertUnhydratedAotFallbackRouteCell(page, route)
+          return {
+            ...fallback,
+            fallbackReason: err instanceof Error ? err.message : String(err),
+          }
+        } catch (fallbackErr) {
+          if (!route.allowSpaFallback) {
+            throw fallbackErr
+          }
+        }
+      }
+      if (route.allowSpaFallback) {
+        const fallback = await assertFallbackRouteCell(page, route)
+        return {
+          ...fallback,
+          fallbackReason: err instanceof Error ? err.message : String(err),
+        }
+      }
+      throw err
+    }
+
+    return await assertHydratedRouteCell(page, route)
+  })
+  if (!reload.ok) {
+    return { issues: recorder.issues, phaseResults }
+  }
+
+  if ((route.expectSpaFallback || route.allowSpaFallback) && (direct.result?.hasShell === false || reload.result?.hasShell === false)) {
+    return { issues: recorder.issues, phaseResults }
+  }
+
+  for (const phase of route.phases ?? []) {
+    const result = await runPhase(phase.phase, async () => await phase.run(page, helpers), {
+      stopOnFailure: phase.stopOnFailure !== false,
+    })
+    if (!result.ok && phase.stopOnFailure !== false) {
+      break
     }
   }
 
-  return recorder.issues
+  return { issues: recorder.issues, phaseResults }
 }
 
 async function runRoute(baseUrl, route, viewportSize) {
@@ -823,13 +1507,16 @@ async function runRoute(baseUrl, route, viewportSize) {
   const page = await context.newPage()
 
   let issues = []
+  let phaseResults = []
   try {
-    issues = await runScenario(page, baseUrl, route)
+    const result = await runScenario(page, baseUrl, route)
+    issues = result.issues
+    phaseResults = result.phaseResults
   } finally {
     await context.close()
     await browser.close()
   }
-  return issues
+  return { issues, phaseResults }
 }
 
 async function runDetectorCanary(viewport) {
@@ -883,19 +1570,71 @@ async function runDetectorCanary(viewport) {
   }
 }
 
+async function readBinaryEndpoint(baseUrl, path) {
+  try {
+    const response = await fetch(`${baseUrl}${path}`, {
+      headers: {
+        Accept: 'application/vnd.fsus.aeds,application/octet-stream',
+      },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!response.ok) {
+      return null
+    }
+
+    return await readAedsResponse(response)
+  } catch {
+    return null
+  }
+}
+
+async function resolvePublicTagName(baseUrl, tagId) {
+  const tagList = await readBinaryEndpoint(baseUrl, '/api/binary/tag.aeds')
+  if (!Array.isArray(tagList)) {
+    return ''
+  }
+
+  const tag = tagList.find((entry) => Number(entry?.id) === Number(tagId)) ?? tagList[0]
+  return String(tag?.name ?? '').trim()
+}
+
+async function buildPublicHydrationScenarios(baseUrl) {
+  const scenarios = [...PUBLIC_SEO_SCENARIOS, ...PUBLIC_INTERACTION_ONLY_SCENARIOS]
+  const tagName = await resolvePublicTagName(baseUrl, publicFixtureIds.tagId)
+  if (tagName) {
+    scenarios.splice(
+      scenarios.findIndex((scenario) => scenario.name === 'invalid-category-fallback'),
+      0,
+      {
+        name: 'tag-name',
+        route: `/tag/${encodeURIComponent(tagName)}`,
+        expectedKind: 'Filter',
+        expectedRouteKey: `tag-name:${tagName}`,
+        phases: createListToArticlePhases(),
+      }
+    )
+  }
+
+  return scenarios
+}
+
 async function main() {
   const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000'
   const viewports = [
     { name: 'desktop', width: 1440, height: 900 },
     { name: 'mobile', width: 390, height: 844 },
   ]
-  const scenarios = [...PUBLIC_SEO_SCENARIOS, ...PUBLIC_INTERACTION_ONLY_SCENARIOS]
+  const scenarios = await buildPublicHydrationScenarios(baseUrl)
+  const routeMatrix = assertScenarioCoverageAgainstPublicPageManifest(scenarios)
   const summary = {
     schema: PUBLIC_HYDRATION_DETECTOR_SCHEMA,
+    routePhaseMatrixSchema: PUBLIC_HYDRATION_ROUTE_PHASE_MATRIX_SCHEMA,
     status: 'failure',
     baseUrl,
     generatedAt: new Date().toISOString(),
     fatalHydrationIssueCount: 0,
+    routeMatrix,
+    phaseResults: [],
     routesChecked: [],
     warnings: [],
     errors: [],
@@ -974,20 +1713,23 @@ async function main() {
 
   for (const vp of viewports) {
     for (const route of scenarios) {
-      const label = `[${vp.name} ${route.route}]`
+      const label = `[${vp.name} ${route.name} ${route.route}]`
       process.stdout.write(`Testing ${label}... `)
-      const issues = await runRoute(baseUrl, route, { width: vp.width, height: vp.height })
+      const result = await runRoute(baseUrl, route, { width: vp.width, height: vp.height })
+      const { issues, phaseResults } = result
 
       const fatalHydrationIssues = issues.filter((i) => i.isFatalHydrationIssue)
       const warnings = fatalHydrationIssues.filter((i) => i.type === 'warning')
       const errors = fatalHydrationIssues.filter((i) => i.type === 'error')
       summary.warnings.push(...warnings.map((issue) => issueWithContext(issue, route, vp)))
       summary.errors.push(...errors.map((issue) => issueWithContext(issue, route, vp)))
+      summary.phaseResults.push(...phaseResults.map((phase) => phaseWithContext(phase, route, vp)))
       summary.routesChecked.push({
         route: route.route,
         routeName: route.name,
         stage: 'route:complete',
         expectedKind: route.expectedKind,
+        expectedRouteKey: route.expectedRouteKey ?? null,
         browser: PUBLIC_HYDRATION_BROWSER,
         viewport: {
           name: vp.name,
@@ -996,6 +1738,7 @@ async function main() {
         },
         status: fatalHydrationIssues.length === 0 ? 'success' : 'failure',
         fatalHydrationIssueCount: fatalHydrationIssues.length,
+        phaseCount: phaseResults.length,
       })
 
       if (fatalHydrationIssues.length > 0) {

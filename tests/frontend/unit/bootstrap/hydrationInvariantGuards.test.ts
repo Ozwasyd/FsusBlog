@@ -29,6 +29,22 @@ describe('public hydration invariant guards', () => {
     expect(refreshHydrationCheck).not.toContain('PASS${warnSuffix}')
   })
 
+  it('keeps the public hydration matrix tied to manifest route kinds and phase cells', () => {
+    expect(refreshHydrationCheck).toContain('PUBLIC_PAGE_MANIFEST_FILE')
+    expect(refreshHydrationCheck).toContain('assertScenarioCoverageAgainstPublicPageManifest')
+    expect(refreshHydrationCheck).toContain('fsusblog.public-hydration-route-phase-matrix.v1')
+    for (const route of ['/privacy', '/guidelines', '/copyright', '/search?q=hydration', '/category/0', '/tag/0', '/article/0']) {
+      expect(refreshHydrationCheck).toContain(route)
+    }
+    for (const phase of ['direct-first-load', 'reload', 'micro-navigation', 'browser-back-forward', 'hash-navigation', 'full-spa-takeover', 'non-aot-search-fallback']) {
+      expect(refreshHydrationCheck).toContain(phase)
+    }
+    for (const assertion of ['single-app-root', 'hydration-metrics-route-key', 'aot-head-nodes-unique', 'no-stale-public-hydration-payload']) {
+      expect(refreshHydrationCheck).toContain(assertion)
+    }
+    expect(refreshHydrationCheck).toContain('phaseResults')
+  })
+
   it('keeps ArticleDetail runtime widgets out of SSR and initial hydration DOM', () => {
     expect(articleDetail).toContain('const canRenderBodyRuntime = ref(false)')
     expect(articleDetail).toContain('Hydration invariant: runtime-only article widgets stay out of SSR')
