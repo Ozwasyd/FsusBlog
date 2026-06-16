@@ -57,6 +57,7 @@ function assertStaticContracts() {
   const binaryPayload = read('src/frontend/src/bootstrap/publicAotBinaryPayload.ts')
   const refreshHydrationCheck = read('tests/frontend/checks/public/check-public-refresh-hydration.mjs')
   const clockHydrationCheck = read('tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs')
+  const browserEnvHydrationCheck = read('tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs')
   const releaseLane = read('tools/test/legacy-test.sh')
   const testMatrix = read('tests/matrix.yml')
   const releaseEvidenceCollector = read('tools/operations/collect-release-evidence.sh')
@@ -177,14 +178,48 @@ function assertStaticContracts() {
   if (!releaseLane.includes('check-public-clock-hydration-matrix.mjs')) {
     fail('release lane must run the deterministic public hydration clock matrix')
   }
-  for (const token of ['public-hydration-clock-matrix', 'public-hydration-clock-matrix-summary.json']) {
-    if (!testMatrix.includes(token)) {
-      fail(`test matrix missing clock hydration release evidence token: ${token}`)
+  for (const token of [
+    'fsusblog.public-hydration-browser-env-matrix.v1',
+    'ENVIRONMENT_CELLS',
+    'themePreference',
+    'sessionState',
+    'storageBehavior',
+    'motionPreference',
+    'colorScheme',
+    'viewport',
+    'encodeCurrentUserSnapshotFrame',
+    'reducedMotion',
+    'colorScheme: cell.colorScheme',
+    'auth-gated-until-after-hydration',
+    'storage-cleared-after-reload',
+    'public-hydration-browser-env-summary.json'
+  ]) {
+    if (!browserEnvHydrationCheck.includes(token)) {
+      fail(`browser environment hydration check missing matrix token: ${token}`)
     }
   }
-  for (const token of ['PUBLIC_HYDRATION_CLOCK_MATRIX_SUMMARY', 'PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE', 'publicHydrationClockMatrixSummary', 'publicHydrationClockMatrix']) {
+  for (const token of ['check-public-clock-hydration-matrix.mjs', 'check-public-browser-env-hydration-matrix.mjs']) {
+    if (!releaseLane.includes(token)) {
+      fail(`release lane missing public hydration matrix: ${token}`)
+    }
+  }
+  for (const token of ['public-hydration-clock-matrix', 'public-hydration-clock-matrix-summary.json', 'public-hydration-browser-env-matrix', 'public-hydration-browser-env-summary.json']) {
+    if (!testMatrix.includes(token)) {
+      fail(`test matrix missing public hydration release evidence token: ${token}`)
+    }
+  }
+  for (const token of [
+    'PUBLIC_HYDRATION_CLOCK_MATRIX_SUMMARY',
+    'PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE',
+    'publicHydrationClockMatrixSummary',
+    'publicHydrationClockMatrix',
+    'PUBLIC_HYDRATION_BROWSER_ENV_SUMMARY',
+    'PUBLIC_HYDRATION_BROWSER_ENV_STATUS_VALUE',
+    'publicHydrationBrowserEnvSummary',
+    'publicHydrationBrowserEnv'
+  ]) {
     if (!releaseEvidenceCollector.includes(token)) {
-      fail(`release evidence collector missing clock hydration token: ${token}`)
+      fail(`release evidence collector missing public hydration token: ${token}`)
     }
   }
   for (const token of ['PublicAotStateContextKey', 'IsStaleCompatibleCacheEntry', 'stale-refresh-queued']) {

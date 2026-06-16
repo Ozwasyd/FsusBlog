@@ -16,6 +16,7 @@ describe('public hydration invariant guards', () => {
   const homeSpotlight = readRepoFile('src/frontend/src/view-contracts/homeSpotlight.ts')
   const refreshHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-refresh-hydration.mjs')
   const clockHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs')
+  const browserEnvHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs')
 
   it('keeps the public hydration checker fatal for Vue hydration warnings', () => {
     expect(refreshHydrationCheck).toContain('HYDRATION_KEYWORDS')
@@ -62,6 +63,20 @@ describe('public hydration invariant guards', () => {
     expect(clockHydrationCheck).toContain('relatedTimes')
     expect(clockHydrationCheck).toContain('timeNodes')
     expect(clockHydrationCheck).toContain('public-hydration-clock-matrix-summary.json')
+  })
+
+  it('keeps public hydration browser state and media environment drift covered', () => {
+    expect(browserEnvHydrationCheck).toContain('fsusblog.public-hydration-browser-env-matrix.v1')
+    expect(browserEnvHydrationCheck).toContain('ENVIRONMENT_CELLS')
+    for (const dimension of ['themePreference', 'sessionState', 'storageBehavior', 'motionPreference', 'colorScheme', 'viewport']) {
+      expect(browserEnvHydrationCheck).toContain(dimension)
+    }
+    expect(browserEnvHydrationCheck).toContain('encodeCurrentUserSnapshotFrame')
+    expect(browserEnvHydrationCheck).toContain('reducedMotion')
+    expect(browserEnvHydrationCheck).toContain('colorScheme: cell.colorScheme')
+    expect(browserEnvHydrationCheck).toContain('auth-gated-until-after-hydration')
+    expect(browserEnvHydrationCheck).toContain('storage-cleared-after-reload')
+    expect(browserEnvHydrationCheck).toContain('public-hydration-browser-env-summary.json')
   })
 
   it('keeps ArticleDetail runtime widgets out of SSR and initial hydration DOM', () => {
