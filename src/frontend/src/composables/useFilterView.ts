@@ -18,6 +18,7 @@ import type { ArticleListCardViewContract } from '@/view-contracts/articleList'
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
 import { createFilterPageViewContract } from '@/view-contracts/filterView'
 import { searchIndex, type SearchSortMode } from '@/services/localSearch'
+import { createPublicSeedRenderTimeOptions } from '@/public-renderers/publicRenderClock'
 import {
   getPublicFilterLabel,
   PUBLIC_FILTER_TYPE,
@@ -48,7 +49,9 @@ export function useFilterView() {
   const powProvider = usePow()
   const { bootstrap: initialBootstrap, hydration: initialHydrationView } = consumePublicPageSeed('Filter')
   const preferHydrationView = ref(Boolean(initialHydrationView?.view))
-  const mapArticleCards = createStableArticleCardMapper()
+  const seedRenderTimeOptions = createPublicSeedRenderTimeOptions(initialHydrationView, initialBootstrap)
+  const useSeedRenderTime = ref(Boolean(seedRenderTimeOptions))
+  const mapArticleCards = createStableArticleCardMapper(() => useSeedRenderTime.value ? seedRenderTimeOptions : undefined)
 
   const filterType = ref<PublicFilterType>(PUBLIC_FILTER_TYPE.category)
   const filterId = ref<number>(0)
@@ -315,6 +318,7 @@ export function useFilterView() {
       if (lifecycle.isActive() && !signal.aborted) {
         const items = Array.isArray(response) ? response : response.items
         const count = Array.isArray(response) ? items.length : response.total
+        useSeedRenderTime.value = false
         articleItems.value = items
         setPageTotal(count)
         hasError.value = false
@@ -557,6 +561,7 @@ export function useFilterView() {
     if (preferHydrationView.value) {
       window.requestAnimationFrame(() => {
         preferHydrationView.value = false
+        useSeedRenderTime.value = false
       })
     }
   })

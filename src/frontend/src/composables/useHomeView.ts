@@ -15,6 +15,7 @@ import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 import { createArticleListViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList'
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
 import { selectHomeSpotlightCandidates } from '@/view-contracts/homeSpotlight'
+import { createPublicSeedRenderTimeOptions } from '@/public-renderers/publicRenderClock'
 
 const HOME_FEATURED_ARTICLE_COUNT = 3
 const HOME_HOT_ARTICLE_PREFETCH_COUNT = 10
@@ -36,6 +37,8 @@ export function useHomeView() {
   const notificationStreamStore = useNotificationStreamStore()
   const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Home')
   const initialHydrationView = initialHydrationPayload?.view ?? null
+  const seedRenderTimeOptions = createPublicSeedRenderTimeOptions(initialHydrationPayload, initialBootstrap)
+  const useSeedRenderTime = ref(Boolean(seedRenderTimeOptions))
   const initialSiteTitleText = initialHydrationPayload?.siteTitle?.trim()
     || initialBootstrap?.siteTitle?.trim()
     || '站点'
@@ -63,7 +66,7 @@ export function useHomeView() {
       ? initialHydrationView.items
       : null
   )
-  const mapArticleCards = createStableArticleCardMapper()
+  const mapArticleCards = createStableArticleCardMapper(() => useSeedRenderTime.value ? seedRenderTimeOptions : undefined)
   const {
     currentPage,
     pageSize,
@@ -102,7 +105,8 @@ export function useHomeView() {
           },
           {
             currentPage: currentPage.value,
-            pageSize: pageSize.value
+            pageSize: pageSize.value,
+            time: useSeedRenderTime.value ? seedRenderTimeOptions : undefined
           }
         )
   )
@@ -182,6 +186,7 @@ export function useHomeView() {
       if (lifecycle.isActive() && response) {
         if (Array.isArray(response.items)) {
           initialViewItems.value = null
+          useSeedRenderTime.value = false
           articleItems.value = response.items
           setPageTotal(Number(response.total) || 0)
           error.value = null

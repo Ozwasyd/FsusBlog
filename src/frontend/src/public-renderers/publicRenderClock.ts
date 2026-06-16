@@ -8,6 +8,12 @@ export type PublicRenderClock = Readonly<{
   renderTimeZone: string
 }>
 
+type PublicRenderTimeOptionsSource = Readonly<{
+  renderTimestamp?: string | null
+  generatedAt?: string | null
+  renderTimeZone?: string | null
+}>
+
 function normalizeClockInput(value: unknown): string | Date | number | null {
   return typeof value === 'string' || typeof value === 'number' || value instanceof Date ? value : null
 }
@@ -27,5 +33,21 @@ export function createPublicRenderTimeOptions(clock: PublicRenderClock): TimeRen
   return {
     now: clock.renderTimestamp,
     timeZone: clock.renderTimeZone
+  }
+}
+
+export function createPublicSeedRenderTimeOptions(
+  ...sources: readonly (PublicRenderTimeOptionsSource | null | undefined)[]
+): TimeRenderOptions | undefined {
+  const source = sources.find((candidate) => Boolean(candidate?.renderTimestamp || candidate?.generatedAt))
+  if (!source) {
+    return undefined
+  }
+
+  const clock = createPublicRenderClock(source.renderTimestamp ?? source.generatedAt)
+  const renderTimeZone = source.renderTimeZone?.trim() || clock.renderTimeZone
+  return {
+    now: clock.renderTimestamp,
+    timeZone: renderTimeZone
   }
 }
