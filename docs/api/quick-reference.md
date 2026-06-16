@@ -204,6 +204,7 @@
 | GET | `/api/binary/article/{articleId}/related.aeds` | 🔓 🚦 | AEDS 延伸阅读：相关文章 / 上一篇 / 下一篇；受 `public_read` 风险感知限流 |
 | GET | `/api/ops/crawler-ranges/status` | 🔐 admin | Crawler CIDR 同步状态 |
 | GET | `/internal/public-aot/manifest` | 🔓 | Public AOT route manifest；配置 `PublicAot:ManifestToken` 时需 `X-Fsus-Public-Aot-Token` |
+| GET | `/internal/public-aot/health` | 🔓 | Public AOT SSR worker health / breaker / quarantine snapshot；配置 `PublicAot:ManifestToken` 时需 `X-Fsus-Public-Aot-Token` |
 | POST | `/api/binary/subscriptions` | 🔓 | AEDS 更新订阅，保存 email hash |
 | DELETE | `/api/binary/subscriptions` | 🔓 | AEDS 退订 |
 

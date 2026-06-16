@@ -20,6 +20,7 @@ public sealed record PublicAotSsrWorkerResourceStatus(
 public sealed class PublicAotNodeSsrRenderer(
     IWebHostEnvironment env,
     IConfiguration configuration,
+    PublicAotSsrRuntimeState runtimeState,
     ILogger<PublicAotNodeSsrRenderer> logger) : IPublicAotEntryRenderer, IAsyncDisposable
 {
     private const string DevelopmentWorkerScriptName = "server-public-ssr.vite.mjs";
@@ -47,6 +48,7 @@ public sealed class PublicAotNodeSsrRenderer(
                 : "node",
             ResolveWorkerCount(configuration),
             TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue<int?>("PublicAot:SsrRequestTimeoutSeconds") ?? 30, 5, 180)),
+            runtimeState,
             logger);
     });
 
@@ -122,6 +124,7 @@ public sealed class PublicAotNodeSsrRenderer(
         {
             throw new InvalidOperationException("failed to start public AOT SSR worker process");
         }
+        runtimeState.RecordWorkerStart();
 
         await process.StandardInput.WriteLineAsync(CreateRequestLine(Guid.NewGuid().ToString("N"), command, payload));
         await process.StandardInput.FlushAsync();
@@ -519,10 +522,17 @@ public sealed class PublicAotNodeSsrRenderer(
         private readonly NodeWorkerClient[] _workers;
         private int _next;
 
-        public NodeWorkerPool(string clientRoot, string workerScript, string nodeExecutable, int workerCount, TimeSpan requestTimeout, ILogger logger)
+        public NodeWorkerPool(
+            string clientRoot,
+            string workerScript,
+            string nodeExecutable,
+            int workerCount,
+            TimeSpan requestTimeout,
+            PublicAotSsrRuntimeState runtimeState,
+            ILogger logger)
         {
             _workers = Enumerable.Range(0, workerCount)
-                .Select(index => new NodeWorkerClient(clientRoot, workerScript, nodeExecutable, requestTimeout, logger, index))
+                .Select(index => new NodeWorkerClient(clientRoot, workerScript, nodeExecutable, requestTimeout, runtimeState, logger, index))
                 .ToArray();
         }
 
@@ -552,6 +562,7 @@ public sealed class PublicAotNodeSsrRenderer(
         string workerScript,
         string nodeExecutable,
         TimeSpan requestTimeout,
+        PublicAotSsrRuntimeState runtimeState,
         ILogger logger,
         int index) : IAsyncDisposable
     {
@@ -671,6 +682,7 @@ public sealed class PublicAotNodeSsrRenderer(
             {
                 throw new InvalidOperationException("failed to start public AOT pooled worker");
             }
+            runtimeState.RecordWorkerStart();
 
             Process process = _process;
             int generation = Interlocked.Increment(ref _generation);
@@ -718,6 +730,7 @@ public sealed class PublicAotNodeSsrRenderer(
                         break;
                     }
 
+                    runtimeState.RecordWorkerStderrWarning(line);
                     logger.LogWarning("Public AOT worker #{WorkerIndex}: {Message}", index, line);
                 }
             }

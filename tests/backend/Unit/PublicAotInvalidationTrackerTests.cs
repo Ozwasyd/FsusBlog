@@ -4,7 +4,9 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -90,6 +92,7 @@ public sealed class PublicAotInvalidationTrackerTests
             new RecordingRouteManifestProvider(),
             new PublicHotReadStore(),
             new FixedTestSessionKeyScope(null),
+            new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
             NullLogger<PublicAotInvalidationService>.Instance);
         string cacheKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Home, "home");
         string pagePrefixKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Home, string.Empty);
@@ -124,6 +127,7 @@ public sealed class PublicAotInvalidationTrackerTests
             new RecordingRouteManifestProvider(),
             new PublicHotReadStore(),
             new FixedTestSessionKeyScope("pw-0"),
+            new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
             NullLogger<PublicAotInvalidationService>.Instance);
 
         await service.InvalidateArticleMutationAsync(42, [7], [9]);
@@ -144,9 +148,9 @@ public sealed class PublicAotInvalidationTrackerTests
         Assert.Contains("GetCurrentVersion(string cacheKey, string pagePrefixKey)", source, StringComparison.Ordinal);
     }
 
-    private static string FindRepoRoot()
+    private static string FindRepoRoot([CallerFilePath] string sourceFile = "")
     {
-        string current = AppContext.BaseDirectory;
+        string current = Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory;
         while (!string.IsNullOrWhiteSpace(current))
         {
             if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))

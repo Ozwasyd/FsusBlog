@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using NSubstitute;
+using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests;
 
@@ -59,6 +60,35 @@ public sealed class PublicAotBackfillSchedulerTests
         Assert.Equal(1, scheduler.InFlightCount);
     }
 
+    [Fact]
+    public void TrySchedule_WhenSsrCircuitIsOpen_DropsWithoutLeakingInFlight()
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["PublicAot:SsrCircuitFailureThreshold"] = "1",
+                ["PublicAot:SsrCircuitCooldownSeconds"] = "60"
+            })
+            .Build();
+        var runtimeState = new PublicAotSsrRuntimeState(configuration);
+        var failed = new PublicAotBackfillRequest(PublicPageKind.Home, "home", "/", string.Empty, "cache:home");
+        runtimeState.RecordBackfillFailure(failed, PublicAotSsrFailureClass.WorkerTimeout, "public AOT pooled SSR worker timed out", TimeSpan.FromSeconds(1));
+        var scheduler = new PublicAotBackfillScheduler(configuration, runtimeState);
+
+        bool queued = scheduler.TrySchedule(new PublicAotBackfillRequest(
+            PublicPageKind.ArticleDetail,
+            "article:42",
+            "/article/42",
+            string.Empty,
+            "cache:article:42"));
+
+        Assert.False(queued);
+        Assert.Equal(0, scheduler.InFlightCount);
+        PublicAotSsrRuntimeSnapshot snapshot = runtimeState.CreateSnapshot(scheduler.InFlightCount, scheduler.QueueCapacity);
+        Assert.Equal(1, snapshot.DroppedBackfills);
+        Assert.Equal("circuit-open", snapshot.LastDropReason);
+    }
+
     [Theory]
     [InlineData(-1, 1)]
     [InlineData(0, 1)]
@@ -100,9 +130,9 @@ public sealed class PublicAotBackfillSchedulerTests
         Assert.Null(keyScope.SessionId);
     }
 
-    private static string ReadSource(string relativePath)
+    private static string ReadSource(string relativePath, [CallerFilePath] string sourceFile = "")
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory);
         while (directory is not null)
         {
             string path = Path.Combine(directory.FullName, relativePath);

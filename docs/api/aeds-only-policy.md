@@ -38,7 +38,7 @@ error:    AedsFrameType.ApiError
 | Feed | `/feed/rss.xml`, `/feed/atom.xml`, `/feed/feed.json` | RSS/Atom/JSON Feed 标准协议 |
 | SEO | `/sitemap.xml`, `/robots.txt` | 搜索引擎标准入口 |
 | Ops probe | `/api/ops/crawler-ranges/status` | admin-only 运维诊断；后台生产 UI 使用 `/api/binary/admin/security/anti-crawler/crawler-ranges/status` |
-| PublicAOT tooling | `/internal/public-aot/manifest` | 构建/backfill 工具 manifest，非浏览器运行时 API |
+| PublicAOT tooling | `/internal/public-aot/manifest`、`/internal/public-aot/health` | 构建/backfill 工具 manifest 与 SSR worker 诊断，非浏览器运行时 API |
 | Internal bridge implementation | `/_fsus/internal/binary-bridge/author/**`, `/_fsus/internal/binary-bridge/admin/security/**` | 仅 `AuthoringBinaryBridgeMiddleware` / `SecurityBinaryBridgeMiddleware` 可达，外部 `/api/author/**` 与 `/api/admin/security/**` 已移除 |
 | Third-party moderation provider | HTTP JSON provider contract | 外部 provider 兼容协议 |
 | Evidence/tool/docs | `.tmp/release-evidence/**`, `tools/**`, `docs/**`, tests | 构建、测试、审计、证据文件，不是 runtime API |

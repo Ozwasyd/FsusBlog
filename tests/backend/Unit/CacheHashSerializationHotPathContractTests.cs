@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.CoreBridge.Caching;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -139,8 +140,8 @@ public sealed class CacheHashSerializationHotPathContractTests
         Assert.Contains("Convert.ToHexStringLower", subscription, StringComparison.Ordinal);
     }
 
-    private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(FindRepoRoot(), relativePath));
+    private static string ReadRepoFile(string relativePath, [CallerFilePath] string sourceFile = "")
+        => File.ReadAllText(Path.Combine(FindRepoRoot(sourceFile), relativePath));
 
     private static int CountOccurrences(string source, string value)
     {
@@ -188,9 +189,9 @@ public sealed class CacheHashSerializationHotPathContractTests
         throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 
-    private static string FindRepoRoot()
+    private static string FindRepoRoot(string sourceFile)
     {
-        string current = AppContext.BaseDirectory;
+        string current = Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory;
         while (!string.IsNullOrWhiteSpace(current))
         {
             if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))

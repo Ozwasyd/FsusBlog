@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -132,8 +133,8 @@ public sealed class PublicAotArtifactPipelineHotPathContractTests
         Assert.DoesNotContain("output.ToArray()", tryCompress, StringComparison.Ordinal);
     }
 
-    private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(FindRepoRoot(), relativePath));
+    private static string ReadRepoFile(string relativePath, [CallerFilePath] string sourceFile = "")
+        => File.ReadAllText(Path.Combine(FindRepoRoot(sourceFile), relativePath));
 
     private static string ExtractMethodBlock(string source, string signature)
     {
@@ -163,9 +164,9 @@ public sealed class PublicAotArtifactPipelineHotPathContractTests
         throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 
-    private static string FindRepoRoot()
+    private static string FindRepoRoot(string sourceFile)
     {
-        string current = AppContext.BaseDirectory;
+        string current = Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory;
         while (!string.IsNullOrWhiteSpace(current))
         {
             if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))

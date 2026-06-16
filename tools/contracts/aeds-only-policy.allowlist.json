@@ -42,9 +42,9 @@
       "classification": "allowed-exemption",
       "scope": "backend",
       "file": "src/backend/Modules/Endpoints/PublicAotEndpoints.cs",
-      "patterns": ["JsonApiResponse<PublicAotRouteManifestResponse>", "/internal/public-aot"],
-      "routes": ["/internal/public-aot/manifest"],
-      "reason": "Build/backfill tooling manifest, protected by optional manifest token; not browser runtime application API."
+      "patterns": ["JsonApiResponse<PublicAotRouteManifestResponse>", "JsonApiResponse<PublicAotSsrHealthReport>", "/internal/public-aot"],
+      "routes": ["/internal/public-aot/manifest", "/internal/public-aot/health"],
+      "reason": "Build/backfill tooling manifest and SSR worker diagnostics, protected by optional manifest token; not browser runtime application API."
     },
     {
       "id": "authoring-internal-binary-bridge-json",

@@ -792,6 +792,8 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 
 `GET /internal/public-aot/manifest` 返回后端权威公开 SEO route 清单，供预热脚本和内容变更驱动 backfill 使用。该端点只列出公开可访问 route；文章 route 必须满足 `Published`、未删除、已到 `PublishedAt` / `ScheduledPublishAt` 时间。若配置 `PublicAot:ManifestToken`，调用方必须携带 `X-Fsus-Public-Aot-Token`，否则返回 `403`。
 
+`GET /internal/public-aot/health` 返回 Public AOT SSR worker 诊断快照，同样受 `X-Fsus-Public-Aot-Token` 保护并返回 `Cache-Control: no-store`。响应包含 resource check（client root、worker script、prebuilt bundle 与 bundle path）、Node executable probe、`validateBundle` sample worker probe、backfill queue depth/capacity、scheduled/dropped/completed/failed counters、timeout/restart/stderr warning counters、last failure、circuit breaker 状态和 route quarantine 列表。breaker 打开或 route 被 quarantine 时只阻断新的 backfill 调度；公开读必须继续通过 fresh/stale AOT 命中或 SPA fallback 服务，不能因为 SSR worker degraded 阻断匿名阅读。
+
 查询参数：
 
 | 参数 | 说明 |

@@ -70,6 +70,12 @@ function assertStaticContracts() {
   const releaseEvidenceCollector = read('tools/operations/collect-release-evidence.sh')
   const shellService = read('src/backend/Infrastructure/PublicAot/PublicAotShellService.cs')
   const fileCache = read('src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs')
+  const runtimeState = read('src/backend/Infrastructure/PublicAot/PublicAotSsrRuntimeState.cs')
+  const healthService = read('src/backend/Infrastructure/PublicAot/PublicAotSsrHealthService.cs')
+  const publicAotEndpoints = read('src/backend/Modules/Endpoints/PublicAotEndpoints.cs')
+  const runtimePublicAotServices = read('src/backend/Infrastructure/Bootstrap/RuntimePublicAotServiceCollectionExtensions.cs')
+  const aedsOnlyAllowlist = read('tools/contracts/aeds-only-policy.allowlist.json')
+  const publicAotHealthCommand = read('tools/operations/public-aot-health.mjs')
 
   if (prodWorker.includes("from 'vite'") || prodWorker.includes('createServer') || prodWorker.includes('ssrLoadModule')) {
     fail('production bundle worker must not import or create Vite runtime')
@@ -381,6 +387,36 @@ function assertStaticContracts() {
   for (const token of ['frontend', 'ResolveVersionedEntryPathForTests', 'public_aot_cache_stale_compatible', 'public_aot_cache_sidecar_hash_mismatch']) {
     if (!fileCache.includes(token)) {
       fail(`Public AOT file cache missing artifact versioning token: ${token}`)
+    }
+  }
+  for (const token of ['PublicAotSsrCircuitState', 'PublicAotSsrFailureClass', 'TryBeginBackfill', 'route-quarantined', 'half-open-probe', 'RecordBackfillFailure']) {
+    if (!runtimeState.includes(token)) {
+      fail(`Public AOT SSR runtime state missing breaker/quarantine token: ${token}`)
+    }
+  }
+  for (const token of ['PublicAotSsrHealthReport', 'ProbeNodeAsync', 'validateBundle', 'CreateSnapshot']) {
+    if (!healthService.includes(token)) {
+      fail(`Public AOT SSR health service missing diagnostic token: ${token}`)
+    }
+  }
+  for (const token of ['/internal/public-aot', '/health', 'PublicAotSsrHealthService', 'JsonApiResponse<PublicAotSsrHealthReport>', 'Cache-Control']) {
+    if (!publicAotEndpoints.includes(token)) {
+      fail(`Public AOT endpoint missing SSR health token: ${token}`)
+    }
+  }
+  for (const token of ['PublicAotSsrRuntimeState', 'PublicAotSsrHealthService']) {
+    if (!runtimePublicAotServices.includes(token)) {
+      fail(`Public AOT runtime service registration missing token: ${token}`)
+    }
+  }
+  for (const token of ['/internal/public-aot/health', 'JsonApiResponse<PublicAotSsrHealthReport>']) {
+    if (!aedsOnlyAllowlist.includes(token)) {
+      fail(`AEDS-only allowlist missing Public AOT health exemption token: ${token}`)
+    }
+  }
+  for (const token of ['/internal/public-aot/health', 'X-Fsus-Public-Aot-Token', 'FSUSBLOG_PUBLIC_AOT_TOKEN']) {
+    if (!publicAotHealthCommand.includes(token)) {
+      fail(`Public AOT health command missing token: ${token}`)
     }
   }
 }

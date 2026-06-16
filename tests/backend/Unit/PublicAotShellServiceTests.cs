@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
@@ -70,6 +71,70 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey), request.CacheKey);
         Assert.Equal(CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty), request.PagePrefixKey);
         Assert.Empty(cache.RemovedKeys);
+    }
+
+    [Fact]
+    public async Task RenderAsync_WhenSsrCircuitIsOpen_ReturnsSpaFallback_AndDropsBackfillOnly()
+    {
+        var match = HomeMatch();
+        var cache = new RecordingAotCache();
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["PublicAot:SsrCircuitFailureThreshold"] = "1",
+                ["PublicAot:SsrCircuitCooldownSeconds"] = "60"
+            })
+            .Build();
+        var runtimeState = new PublicAotSsrRuntimeState(configuration);
+        runtimeState.RecordBackfillFailure(
+            new PublicAotBackfillRequest(PublicPageKind.Home, "home", "/", string.Empty, "cache:failed"),
+            PublicAotSsrFailureClass.WorkerTimeout,
+            "public AOT pooled SSR worker timed out",
+            TimeSpan.FromSeconds(1));
+        var scheduler = new PublicAotBackfillScheduler(configuration, runtimeState);
+        PublicAotShellService sut = CreateService(match, cache, scheduler, runtimeState: runtimeState);
+        var context = new DefaultHttpContext();
+
+        PublicAotCacheEntry? rendered = await sut.RenderAsync(context, match);
+
+        Assert.Null(rendered);
+        Assert.Equal("spa-fallback", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
+        Assert.Equal("dropped", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
+        Assert.Equal("fallback", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+        PublicAotSsrRuntimeSnapshot snapshot = runtimeState.CreateSnapshot(scheduler.InFlightCount, scheduler.QueueCapacity);
+        Assert.Equal("circuit-open", snapshot.LastDropReason);
+    }
+
+    [Fact]
+    public async Task GenerateAndStoreAsync_RepeatedRendererContractFailure_QuarantinesRoute()
+    {
+        var match = HomeMatch();
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["PublicAot:SsrCircuitFailureThreshold"] = "99",
+                ["PublicAot:SsrRouteQuarantineFailureThreshold"] = "2",
+                ["PublicAot:SsrRouteQuarantineTtlSeconds"] = "60"
+            })
+            .Build();
+        var runtimeState = new PublicAotSsrRuntimeState(configuration);
+        var renderer = new FailingRenderer("public_aot_worker_invalid_aeds");
+        PublicAotShellService sut = CreateService(
+            match,
+            new RecordingAotCache(),
+            new RecordingBackfillScheduler(),
+            runtimeState: runtimeState,
+            entryRenderer: renderer,
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate());
+        var request = new PublicAotBackfillRequest(match.Kind, match.RouteKey, match.Path, match.QueryString, "cache:home");
+
+        await sut.GenerateAndStoreAsync(request);
+        await sut.GenerateAndStoreAsync(request);
+
+        PublicAotRouteQuarantineSnapshot quarantine = Assert.Single(runtimeState.CreateSnapshot(0, 32).RouteQuarantines);
+        Assert.Equal(match.Kind, quarantine.Kind);
+        Assert.Equal(match.RouteKey, quarantine.RouteKey);
+        Assert.Equal("public_aot_worker_invalid_aeds", quarantine.LastFailureReason);
     }
 
     [Fact]
@@ -247,6 +312,7 @@ public sealed class PublicAotShellServiceTests
             new FixedAssetManifestService("frontend-v1"),
             new DefaultRuntimeKeyScope(),
             new PublicAotInvalidationTracker(),
+            new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
             NullLogger<PublicAotShellService>.Instance));
 
         Assert.Contains("public_aot_provider_missing", ex.Message, StringComparison.Ordinal);
@@ -266,12 +332,15 @@ public sealed class PublicAotShellServiceTests
         IPublicAotShellCache cache,
         IPublicAotBackfillScheduler scheduler,
         IRuntimeKeyScope? runtimeKeyScope = null,
-        ISpaAssetManifestService? assetManifest = null)
+        ISpaAssetManifestService? assetManifest = null,
+        PublicAotSsrRuntimeState? runtimeState = null,
+        IPublicAotEntryRenderer? entryRenderer = null,
+        IDbConcurrencyGate? dbConcurrencyGate = null)
         => new(
-            Substitute.For<IDbConcurrencyGate>(),
+            dbConcurrencyGate ?? Substitute.For<IDbConcurrencyGate>(),
             new FixedRouteRegistry(match),
             CreateBootstrapProviders(),
-            Substitute.For<IPublicAotEntryRenderer>(),
+            entryRenderer ?? Substitute.For<IPublicAotEntryRenderer>(),
             Substitute.For<IPublicAotDocumentService>(),
             cache,
             Substitute.For<IPublicAotCacheWriter>(),
@@ -279,6 +348,7 @@ public sealed class PublicAotShellServiceTests
             assetManifest ?? new FixedAssetManifestService("frontend-v1"),
             runtimeKeyScope ?? new DefaultRuntimeKeyScope(),
             new PublicAotInvalidationTracker(),
+            runtimeState ?? new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
             NullLogger<PublicAotShellService>.Instance);
 
     private static IEnumerable<IPublicAotBootstrapProvider> CreateBootstrapProviders()
@@ -380,5 +450,28 @@ public sealed class PublicAotShellServiceTests
                 [],
                 [],
                 [])));
+    }
+
+    private sealed class FailingRenderer(string message) : IPublicAotEntryRenderer
+    {
+        public Task<Result<PublicAotShellEntryContract>> BuildEntryAsync(
+            PublicAotRenderRequest request,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(Result<PublicAotShellEntryContract>.Failure(ErrorCode.InfraFailure, message));
+
+        public Task<Result> ValidateBundleAsync(PublicAotShellBundleContract bundle, CancellationToken cancellationToken = default)
+            => Task.FromResult(Result.Failure(ErrorCode.InfraFailure, message));
+    }
+
+    private sealed class ImmediateDbConcurrencyGate : IDbConcurrencyGate
+    {
+        public async Task<T> ExecuteAsync<T>(
+            string operation,
+            Func<CancellationToken, Task<T>> action,
+            Func<CancellationToken, Task<T>> onTimeout,
+            CancellationToken cancellationToken = default)
+            => await action(cancellationToken);
+
+        public DbConcurrencyGateSnapshot GetSnapshot() => new(1, 0, 0);
     }
 }

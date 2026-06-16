@@ -41,6 +41,22 @@ public static class PublicAotEndpoints
             return Results.Ok(JsonApiResponse<PublicAotRouteManifestResponse>.Ok(response));
         });
 
+        group.MapGet("/health", async (
+            HttpContext context,
+            PublicAotSsrHealthService healthService,
+            IConfiguration configuration,
+            CancellationToken cancellationToken) =>
+        {
+            if (!IsManifestRequestAuthorized(context, configuration))
+            {
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
+
+            PublicAotSsrHealthReport report = await healthService.CheckAsync(cancellationToken).ConfigureAwait(false);
+            context.Response.Headers["Cache-Control"] = "no-store";
+            return Results.Ok(JsonApiResponse<PublicAotSsrHealthReport>.Ok(report));
+        });
+
         return app;
     }
 

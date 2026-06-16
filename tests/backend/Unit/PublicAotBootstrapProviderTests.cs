@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicAotBootstrapProviderTests
@@ -39,12 +41,12 @@ public sealed class PublicAotBootstrapProviderTests
         Assert.DoesNotContain("GetPageListAsync", archiveProviderSource);
     }
 
-    private static string ReadProviderSource()
-        => File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs"));
+    private static string ReadProviderSource([CallerFilePath] string sourceFile = "")
+        => File.ReadAllText(Path.Combine(FindRepoRoot(sourceFile), "src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs"));
 
-    private static string FindRepoRoot()
+    private static string FindRepoRoot(string sourceFile)
     {
-        string current = AppContext.BaseDirectory;
+        string current = Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory;
         while (!string.IsNullOrWhiteSpace(current))
         {
             if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))

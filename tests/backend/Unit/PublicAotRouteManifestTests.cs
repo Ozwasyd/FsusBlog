@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
+using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests;
 
@@ -59,10 +60,13 @@ public sealed class PublicAotRouteManifestTests
         string endpointSource = File.ReadAllText(Path.Combine(repoRoot, "src/backend/Modules/Endpoints/PublicAotEndpoints.cs"));
         string providerSource = File.ReadAllText(Path.Combine(repoRoot, "src/backend/Infrastructure/PublicAot/PublicAotRouteManifest.cs"));
         string invalidationSource = File.ReadAllText(Path.Combine(repoRoot, "src/backend/Infrastructure/PublicAot/PublicAotInvalidationService.cs"));
+        string diagnosticSource = File.ReadAllText(Path.Combine(repoRoot, "tools", "operations", "public-aot-health.mjs"));
 
         Assert.Contains("/internal/public-aot", endpointSource);
         Assert.Contains("/manifest", endpointSource);
+        Assert.Contains("/health", endpointSource);
         Assert.Contains("X-Fsus-Public-Aot-Token", endpointSource);
+        Assert.Contains("PublicAotSsrHealthService", endpointSource);
         Assert.Contains("ArticleStatus.Published", providerSource);
         Assert.Contains("PublishedAt", providerSource);
         Assert.Contains("ScheduledPublishAt", providerSource);
@@ -72,11 +76,13 @@ public sealed class PublicAotRouteManifestTests
         Assert.DoesNotContain("article.ScheduledPublishAt.HasValue", providerSource);
         Assert.Contains("CreateArticleRoute", invalidationSource);
         Assert.Contains("public_aot_manifest_pregenerate", invalidationSource);
+        Assert.Contains("/internal/public-aot/health", diagnosticSource);
+        Assert.Contains("X-Fsus-Public-Aot-Token", diagnosticSource);
     }
 
-    private static string FindRepoRoot()
+    private static string FindRepoRoot([CallerFilePath] string sourceFile = "")
     {
-        string current = AppContext.BaseDirectory;
+        string current = Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory;
         while (!string.IsNullOrWhiteSpace(current))
         {
             if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||

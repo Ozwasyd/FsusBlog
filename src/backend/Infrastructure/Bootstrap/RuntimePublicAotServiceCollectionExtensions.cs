@@ -10,6 +10,7 @@ internal static class RuntimePublicAotServiceCollectionExtensions
 {
     public static IServiceCollection AddFsusRuntimePublicAotServices(this IServiceCollection services)
     {
+        services.AddSingleton<PublicAotSsrRuntimeState>();
         services.AddSingleton<PublicAotBackfillScheduler>();
         services.AddSingleton<IPublicAotBackfillScheduler>(sp => sp.GetRequiredService<PublicAotBackfillScheduler>());
         services.AddSingleton<PublicAotInvalidationTracker>();
@@ -39,6 +40,7 @@ internal static class RuntimePublicAotServiceCollectionExtensions
         services.AddScoped<IPublicAotBootstrapProvider, PublicAotCopyrightBootstrapProvider>();
         services.AddScoped<IPublicAotDocumentService, PublicAotDocumentService>();
         services.AddSingleton<IPublicAotEntryRenderer, PublicAotNodeSsrRenderer>();
+        services.AddScoped<PublicAotSsrHealthService>();
         services.AddScoped<PublicAotShellService>();
         services.AddScoped<IPublicAotShellService>(sp => sp.GetRequiredService<PublicAotShellService>());
         services.AddScoped<IPublicAotBackfillGenerator>(sp => sp.GetRequiredService<PublicAotShellService>());

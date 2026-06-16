@@ -20,6 +20,7 @@ public sealed class PublicAotShellService(
     ISpaAssetManifestService assetManifest,
     IRuntimeKeyScope runtimeKeyScope,
     PublicAotInvalidationTracker invalidationTracker,
+    PublicAotSsrRuntimeState ssrRuntimeState,
     ILogger<PublicAotShellService> logger) : IPublicAotShellService, IPublicAotBackfillGenerator
 {
     public const string PublicRendererVersion = PublicAotConstants.RendererVersion;
@@ -132,10 +133,13 @@ public sealed class PublicAotShellService(
             cancellationToken);
         if (document.IsFailure)
         {
+            PublicAotSsrFailureClass failureClass = PublicAotSsrRuntimeState.ClassifyFailure(document.Error.Message);
+            ssrRuntimeState.RecordBackfillFailure(request, failureClass, document.Error.Message, TimeSpan.Zero);
             logger.LogInformation(
-                "Public AOT SSR backfill skipped due to recoverable render failure: {Kind} {RouteKey} {Message}",
+                "Public AOT SSR backfill skipped due to recoverable render failure: {Kind} {RouteKey} {FailureClass} {Message}",
                 request.Kind,
                 request.RouteKey,
+                failureClass,
                 document.Error.Message);
             return;
         }
@@ -151,21 +155,41 @@ public sealed class PublicAotShellService(
         }
 
         string frontendAssetVersion = assetManifest.GetFrontendAssetVersion();
-        await cacheWriter.WriteAsync(
-            request.CacheKey,
-            match.PageId,
-            match.RouteKey,
-            rendererVersion,
-            frontendAssetVersion,
-            html,
-            PublicAotWriteSource.ServerSsrBackfill,
-            DateTimeOffset.UtcNow,
-            TimeSpan.FromDays(30),
-            cancellationToken);
+        try
+        {
+            await cacheWriter.WriteAsync(
+                request.CacheKey,
+                match.PageId,
+                match.RouteKey,
+                rendererVersion,
+                frontendAssetVersion,
+                html,
+                PublicAotWriteSource.ServerSsrBackfill,
+                DateTimeOffset.UtcNow,
+                TimeSpan.FromDays(30),
+                cancellationToken);
+            ssrRuntimeState.RecordBackfillSuccess(request, TimeSpan.Zero);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            ssrRuntimeState.RecordBackfillFailure(
+                request,
+                PublicAotSsrFailureClass.CacheWriteFailure,
+                ex.Message,
+                TimeSpan.Zero);
+            logger.LogWarning(
+                ex,
+                "public_aot_cache_write_failed {Kind} {RouteKey} {FailureClass}",
+                request.Kind,
+                request.RouteKey,
+                PublicAotSsrFailureClass.CacheWriteFailure);
+            throw;
+        }
     }
 
     public async Task<Result> InvalidateAllAsync(CancellationToken cancellationToken = default)
     {
+        ssrRuntimeState.ClearAllRouteQuarantines();
         await cache.InvalidateAllAsync(cancellationToken);
         return Result.Success();
     }

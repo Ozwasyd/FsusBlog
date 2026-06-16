@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
+using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests;
 
@@ -102,9 +103,9 @@ public sealed class PublicAotNodeWorkerScriptTests
         Assert.Contains("public_aot_production_worker_must_use_prebuilt_bundle", status.Error);
     }
 
-    private static string FindRepoRoot()
+    private static string FindRepoRoot([CallerFilePath] string sourceFile = "")
     {
-        string current = AppContext.BaseDirectory;
+        string current = Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory;
         while (!string.IsNullOrWhiteSpace(current))
         {
             if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||

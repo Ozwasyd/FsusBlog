@@ -14,11 +14,13 @@ public sealed class PublicAotInvalidationService(
     IPublicAotRouteManifestProvider routeManifestProvider,
     PublicHotReadStore hotReadStore,
     ITestSessionKeyScope testSessionKeyScope,
+    PublicAotSsrRuntimeState ssrRuntimeState,
     ILogger<PublicAotInvalidationService> logger) : IPublicAotInvalidationService
 {
     public async Task InvalidateAllAsync(CancellationToken cancellationToken = default)
     {
         invalidationTracker.MarkAll();
+        ssrRuntimeState.ClearAllRouteQuarantines();
         await cache.InvalidateAllAsync(cancellationToken);
         hotReadStore.ClearHtml();
         await ScheduleManifestRoutesAsync(PublicAotRouteManifestScope.All, cancellationToken);
@@ -77,6 +79,7 @@ public sealed class PublicAotInvalidationService(
     public async Task InvalidateSeoAsync(CancellationToken cancellationToken = default)
     {
         invalidationTracker.MarkAll();
+        ssrRuntimeState.ClearAllRouteQuarantines();
         await cache.InvalidateAllAsync(cancellationToken);
         hotReadStore.ClearHtml();
         await ScheduleManifestRoutesAsync(PublicAotRouteManifestScope.All, cancellationToken);
@@ -157,6 +160,7 @@ public sealed class PublicAotInvalidationService(
             string cacheKey = ScopeKey(CacheKeyBuilder.PublicAotDocument(route.PageId, route.RouteKey));
             cacheKeys[i] = cacheKey;
             invalidationTracker.MarkKey(cacheKey);
+            ssrRuntimeState.ClearRouteQuarantine(PublicAotPageCatalog.GetRequired(route.PageId).Kind, route.RouteKey);
         }
 
         await cache.RemoveManyAsync(cacheKeys, cancellationToken).ConfigureAwait(false);

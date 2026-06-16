@@ -140,6 +140,8 @@ IPublicAotRouteRegistry
 关键约束：
 
 - `src/frontend/scripts/server-public-ssr.mjs` 以 AEDS 行协议 worker 模式长驻，支持 `buildEntry` / `validateBundle` / `health` / `shutdown`；`PublicAot:SsrWorkerMode=PerRequest` 可作为紧急回退。
+- `PublicAotSsrRuntimeState` 聚合 backfill queue scheduled/dropped/completed/failed counters、worker restart/stderr warning、timeout/renderer/DB gate/document compose/cache write failure 分类、circuit breaker 与 route quarantine。`/internal/public-aot/health` 复用 `X-Fsus-Public-Aot-Token`，输出 resource check、Node probe、`validateBundle` sample probe 和 runtime snapshot；`tools/operations/public-aot-health.mjs` 是 release/ops 诊断入口。
+- SSR worker circuit breaker 只保护 backfill lane：连续 worker-level failure 打开后，新 backfill 被 short-circuit；cooldown 后只允许一个 half-open probe，成功才关闭。route-level renderer/document compose 重复失败会按 `PublicPageKind + routeKey` quarantine，并在 route/content/settings invalidation 或 TTL 到期后清除。公开读路径必须继续返回 fresh/stale AOT 或 SPA fallback，不得因 breaker/quarantine 阻断匿名阅读。
 - AOT document cache 只允许由服务端 `server-ssr` backfill 写入；客户端、管理端和脚本不得上传 AOT bundle。
 - AOT document cache 按 frontend asset version 写入版本化 artifact 路径；旧版本 artifact 只能在后台清理或因 version 不兼容被拒绝，不能直接返回给公开 URL。
 - `PublicAotDocumentComposer` 只负责文档包装、SEO 头、bootstrap 脚本和 hydration sidecar marker 注入，不承担页面业务结构修复；`PublicAotDocumentService` 在 compose 周期把 hydration AEDS frame 作为 raw `.aeds` sidecar 写到 `wwwroot/aot-cache/payloads`。sidecar URL 由 payload SHA-256 content hash 派生，静态响应使用 `application/vnd.fsus.aeds` 与 `public,max-age=31536000,immutable`，因此新 HTML 永远指向新 payload，旧 payload 只需后台异步清理。

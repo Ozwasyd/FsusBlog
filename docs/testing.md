@@ -187,6 +187,8 @@ Public hydration matrix 由 `tests/frontend/checks/public/public-hydration-matri
 
 `public-hydration-smoke.mjs` 负责 sidecar 生命周期 smoke：新 AOT 页必须以 `sidecar-primary` 读取 `#fsus-aot-hydration-props[data-aeds-src]`，只有旧 artifact 允许记录 `inline-fallback`。它会 fetch raw `.aeds` bytes，校验 `application/vnd.fsus.aeds`、`public,max-age=31536000,immutable`，通过 Public AOT AEDS decoder 解码，并覆盖 Home、ArticleDetail、Archive、Filter、About、Privacy、Guidelines、Copyright。脚本写入 `.tmp/release-evidence/public-hydration-sidecar-summary.json`；release evidence 会语义校验 required page kinds、modeCounts 和 missing-sidecar canary。
 
+Public AOT SSR worker reliability 由 `PublicAotSsrRuntimeStateTests`、`PublicAotBackfillSchedulerTests`、`PublicAotShellServiceTests`、`PublicAotRouteManifestTests` 和 `PublicAotNodeWorkerScriptTests` 覆盖。测试必须证明 worker timeout / malformed renderer response 会进入分类 counters，连续 worker failure 打开 circuit breaker，cooldown 后 half-open probe 成功才关闭，重复 route failure 会 quarantine 单 route，breaker 打开时公开读仍返回 stale AOT 或 SPA fallback。运行时诊断可用 `FSUSBLOG_BASE_URL=http://127.0.0.1:5000 node tools/operations/public-aot-health.mjs` 拉取 `/internal/public-aot/health`；若配置 `PublicAot:ManifestToken`，同时设置 `FSUSBLOG_PUBLIC_AOT_TOKEN`。
+
 **Public hydration matrix 本地复现**：
 ```bash
 ./tools/test.sh ci-tier public-hydration-fast --no-deps

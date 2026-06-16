@@ -125,7 +125,7 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 | 通知通道 | `X-Fsus-Notification-Stream-Protocol` | 请求 | notification preflight fallback 协议头；正式 WebSocket 仍使用 `Sec-WebSocket-Protocol: fsus-aeds.v2`。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Error-Code` | 响应 | notification preflight / WebSocket 握手失败业务码，例如 `account_blocked`、`auth_failed`、`pow_failed`。 |
 | 通知通道 | `X-Fsus-Notification-Stream-Status-Code` | 响应 | notification preflight / WebSocket 握手失败映射的 HTTP status。 |
-| AOT 运维 | `X-Fsus-Public-Aot-Token` | 请求 | `GET /internal/public-aot/manifest` 在配置 `PublicAot:ManifestToken` 时要求的 manifest token。 |
+| AOT 运维 | `X-Fsus-Public-Aot-Token` | 请求 | `GET /internal/public-aot/manifest` 与 `GET /internal/public-aot/health` 在配置 `PublicAot:ManifestToken` 时要求的 tooling token。 |
 | 可观测性 | `X-Fsus-Trace-Id` | 响应 | 与 `HttpContext.TraceIdentifier`、OpenTelemetry trace 和审计上下文对齐的排障 ID；不是认证凭据。 |
 | L0 artifact | `X-Fsus-Frame-Encoding` | 响应 | `.aeds` artifact 命中时标记 raw/br/gzip variant。 |
 | L0 诊断 | `X-Fsus-HotRead-Version` / `X-Fsus-HotRead-Artifact` / `X-Fsus-HotRead-Key` | 响应 | PublicHotRead 诊断头，默认关闭；只能通过 `PublicHotRead:EnableDiagnosticHeaders=true` 打开。 |
@@ -280,7 +280,7 @@ L0 artifact 只接受 `GET`/`HEAD`；`OPTIONS` 在同源场景下返回 `405`，
 
 ### AOT route manifest 与 `X-Fsus-Public-Aot-Token`
 
-Public AOT 预热和内容变更驱动 backfill 必须消费后端权威 route manifest，而不是脚本猜测 URL。`GET /internal/public-aot/manifest` 只暴露公开 SEO route，支持 `scope=all`、`scope=hot` 与 `changedSince`，并通过 `dependencyKeys` 连接 `article:{id}`、`category:{id}`、`tag:{id}`、`article:list`、`seo`、`compliance` 等内容依赖。配置 `PublicAot:ManifestToken` 时，调用方必须携带 `X-Fsus-Public-Aot-Token`。
+Public AOT 预热和内容变更驱动 backfill 必须消费后端权威 route manifest，而不是脚本猜测 URL。`GET /internal/public-aot/manifest` 只暴露公开 SEO route，支持 `scope=all`、`scope=hot` 与 `changedSince`，并通过 `dependencyKeys` 连接 `article:{id}`、`category:{id}`、`tag:{id}`、`article:list`、`seo`、`compliance` 等内容依赖。`GET /internal/public-aot/health` 暴露 SSR worker resource check、Node probe、`validateBundle` sample probe、队列计数、breaker 状态和 route quarantine 快照，供 release/ops 诊断；它不是浏览器运行时 API。配置 `PublicAot:ManifestToken` 时，两个内部 tooling endpoint 都必须携带 `X-Fsus-Public-Aot-Token`。
 
 代码证据：[`PublicAotEndpoints.cs`](../../src/backend/Modules/Endpoints/PublicAotEndpoints.cs)。
 
