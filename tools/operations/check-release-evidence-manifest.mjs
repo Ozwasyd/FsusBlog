@@ -28,6 +28,7 @@ const requiredStatusChecks = [
   ['DNS delegation', (manifest) => manifest.evidenceSummary?.externalExposure?.dnsDelegation === 'ok'],
   ['live exposure', (manifest) => manifest.evidenceSummary?.externalExposure?.liveExposure === 'ok'],
   ['frontend render pressure', (manifest) => manifest.evidenceSummary?.gates?.frontendRenderPressure === 'ok'],
+  ['public hydration sidecar', (manifest, context) => manifest.evidenceSummary?.gates?.publicHydrationSidecar === 'success' && publicHydrationSidecarOk(manifest, context)],
   ['doc sync', (manifest) => manifest.evidenceSummary?.gates?.docSync === 'ok']
 ]
 
@@ -45,6 +46,7 @@ const requiredArtifacts = [
   'jobSummaries',
   'uxViewportSummary',
   'frontendRenderPressureSummary',
+  'publicHydrationSidecarSummary',
   'publishArtifactsSummary',
   'docSyncSummary',
   'domBudgetSummary',
@@ -156,6 +158,25 @@ function shortSoakOk(manifest, context) {
     && Number(report.latencyMs?.p95 ?? 0) > 0
 }
 
+function publicHydrationSidecarOk(manifest, context) {
+  const report = readArtifactJson(manifest, context, 'publicHydrationSidecarSummary')
+  const requiredKinds = ['Home', 'ArticleDetail', 'Archive', 'Filter', 'About', 'Privacy', 'Guidelines', 'Copyright']
+  return report?.schema === 'fsusblog.public-hydration-sidecar-smoke.v1'
+    && report.status === 'success'
+    && includesAll(report.requiredPageKinds, requiredKinds)
+    && Array.isArray(report.missingRequiredKinds)
+    && report.missingRequiredKinds.length === 0
+    && Number(report.modeCounts?.['sidecar-primary'] ?? 0) >= requiredKinds.length
+    && Object.hasOwn(report.modeCounts ?? {}, 'inline-fallback')
+    && report.canary?.status === 'success'
+    && Array.isArray(report.checks)
+    && requiredKinds.every((kind) => report.checks.some((check) =>
+      check.status === 'success'
+        && check.expectedPageKind === kind
+        && check.pageKind === kind
+        && check.mode === 'sidecar-primary'))
+}
+
 function latestManifest() {
   const baseDir = path.join(rootDir, '.tmp', 'release-evidence')
   if (!fs.existsSync(baseDir)) {
@@ -209,7 +230,7 @@ function validateManifest(manifest, options = {}) {
     errors.push(`release closeout requires collected-ok, got ${manifest.status}`)
   }
 
-  for (const key of ['frontendRenderPressureSummary', 'docSyncSummary', 'domBudgetSummary', 'routeRenderPressureSummary', 'markdownRenderBudgetSummary', 'domDepthStaticSummary']) {
+  for (const key of ['frontendRenderPressureSummary', 'publicHydrationSidecarSummary', 'docSyncSummary', 'domBudgetSummary', 'routeRenderPressureSummary', 'markdownRenderBudgetSummary', 'domDepthStaticSummary']) {
     if (manifest.artifacts?.[key] === null || manifest.artifacts?.[key] === undefined) {
       errors.push(`artifacts.${key} must point to a collected required summary`)
     }
@@ -249,6 +270,7 @@ function runSelfTest() {
       },
       gates: {
         frontendRenderPressure: 'ok',
+        publicHydrationSidecar: 'success',
         docSync: 'ok'
       },
       resilienceDepth: {
@@ -281,6 +303,20 @@ function runSelfTest() {
     dryRun: false,
     verifiedCoverage: ['anonymous-public', 'feed-rss', 'feed-atom', 'feed-json', 'sitemap', 'robots', 'health-live', 'health-ready'],
     blockers: []
+  }))
+  fs.writeFileSync(path.join(tmpDir, 'publicHydrationSidecarSummary.json'), JSON.stringify({
+    schema: 'fsusblog.public-hydration-sidecar-smoke.v1',
+    status: 'success',
+    requiredPageKinds: ['Home', 'ArticleDetail', 'Archive', 'Filter', 'About', 'Privacy', 'Guidelines', 'Copyright'],
+    missingRequiredKinds: [],
+    modeCounts: { 'sidecar-primary': 8, 'inline-fallback': 0 },
+    canary: { status: 'success' },
+    checks: ['Home', 'ArticleDetail', 'Archive', 'Filter', 'About', 'Privacy', 'Guidelines', 'Copyright'].map((kind) => ({
+      status: 'success',
+      expectedPageKind: kind,
+      pageKind: kind,
+      mode: 'sidecar-primary'
+    }))
   }))
   fs.mkdirSync(path.join(tmpDir, 'authenticatedDast'))
   fs.writeFileSync(path.join(tmpDir, 'authenticatedDast', 'summary.json'), JSON.stringify({ status: 'ok', activeScan: { executed: true } }))

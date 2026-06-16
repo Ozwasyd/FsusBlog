@@ -9,7 +9,8 @@ internal static class PublicAotCacheEntryBinaryCodec
 {
     private const uint Magic = 0x45434150; // PACE
     private const uint LegacyStringVersion = 1;
-    private const uint Version = 2;
+    private const uint ArtifactVersion = 2;
+    private const uint Version = 3;
     private const int MaxStringBytes = 8 * 1024 * 1024;
     private const int MaxBlobBytes = 32 * 1024 * 1024;
 
@@ -36,6 +37,9 @@ internal static class PublicAotCacheEntryBinaryCodec
         WriteBytes(writer, document.Utf8Bytes.Span);
         WriteBytes(writer, document.BrotliBytes.Span);
         WriteBytes(writer, document.GzipBytes.Span);
+        WriteString(writer, entry.HydrationSidecar.Url);
+        WriteString(writer, entry.HydrationSidecar.Sha256Hex);
+        WriteString(writer, entry.HydrationSidecar.RelativePath);
         return writer.ToArray();
     }
 
@@ -95,7 +99,7 @@ internal static class PublicAotCacheEntryBinaryCodec
                 out entry);
         }
 
-        if (version != Version)
+        if (version != ArtifactVersion && version != Version)
         {
             return false;
         }
@@ -106,6 +110,7 @@ internal static class PublicAotCacheEntryBinaryCodec
             source,
             generatedTicks,
             expiresTicks,
+            version >= Version,
             out entry);
     }
 
@@ -169,9 +174,13 @@ internal static class PublicAotCacheEntryBinaryCodec
         PublicAotWriteSource source,
         long generatedTicks,
         long expiresTicks,
+        bool includesHydrationSidecar,
         out PublicAotCacheEntry? entry)
     {
         entry = null;
+        string sidecarUrl = string.Empty;
+        string sidecarHash = string.Empty;
+        string sidecarRelativePath = string.Empty;
         if (!reader.TryReadString(out string cacheKey)
             || !reader.TryReadString(out string routeKey)
             || !reader.TryReadString(out string rendererVersion)
@@ -184,8 +193,20 @@ internal static class PublicAotCacheEntryBinaryCodec
             || !reader.TryReadBool(out bool requiresCspNonceMutation)
             || !reader.TryReadBytes(out ReadOnlyMemory<byte> utf8Bytes)
             || !reader.TryReadBytes(out ReadOnlyMemory<byte> brotliBytes)
-            || !reader.TryReadBytes(out ReadOnlyMemory<byte> gzipBytes)
-            || !reader.Consumed)
+            || !reader.TryReadBytes(out ReadOnlyMemory<byte> gzipBytes))
+        {
+            return false;
+        }
+
+        if (includesHydrationSidecar &&
+            (!reader.TryReadString(out sidecarUrl)
+                || !reader.TryReadString(out sidecarHash)
+                || !reader.TryReadString(out sidecarRelativePath)))
+        {
+            return false;
+        }
+
+        if (!reader.Consumed)
         {
             return false;
         }
@@ -214,6 +235,16 @@ internal static class PublicAotCacheEntryBinaryCodec
                 rendererVersion,
                 frontendAssetVersion,
                 requiresCspNonceMutation);
+            PublicAotHydrationSidecarReference sidecar = default;
+            if (!string.IsNullOrWhiteSpace(sidecarUrl))
+            {
+                if (!PublicAotHydrationSidecarReference.TryFromUrl(sidecarUrl, out sidecar) ||
+                    (!string.IsNullOrWhiteSpace(sidecarHash) && !string.Equals(sidecar.Sha256Hex, sidecarHash, StringComparison.Ordinal)) ||
+                    (!string.IsNullOrWhiteSpace(sidecarRelativePath) && !string.Equals(sidecar.RelativePath, sidecarRelativePath, StringComparison.Ordinal)))
+                {
+                    return false;
+                }
+            }
 
             entry = new PublicAotCacheEntry
             {
@@ -226,7 +257,8 @@ internal static class PublicAotCacheEntryBinaryCodec
                 RendererVersion = rendererVersion,
                 FrontendAssetVersion = frontendAssetVersion,
                 Value = Encoding.UTF8.GetString(utf8Bytes.Span),
-                Document = document
+                Document = document,
+                HydrationSidecar = sidecar
             };
             return true;
         }
@@ -263,6 +295,7 @@ internal static class PublicAotCacheEntryBinaryCodec
 
     private static void WriteString(PooledByteBufferWriter writer, string value)
     {
+        value ??= string.Empty;
         int byteCount = Encoding.UTF8.GetByteCount(value);
         if (byteCount > MaxStringBytes)
         {

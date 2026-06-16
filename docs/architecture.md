@@ -143,6 +143,8 @@ IPublicAotRouteRegistry
 - AOT document cache 只允许由服务端 `server-ssr` backfill 写入；客户端、管理端和脚本不得上传 AOT bundle。
 - AOT document cache 按 frontend asset version 写入版本化 artifact 路径；旧版本 artifact 只能在后台清理或因 version 不兼容被拒绝，不能直接返回给公开 URL。
 - `PublicAotDocumentComposer` 只负责文档包装、SEO 头、bootstrap 脚本和 hydration sidecar marker 注入，不承担页面业务结构修复；`PublicAotDocumentService` 在 compose 周期把 hydration AEDS frame 作为 raw `.aeds` sidecar 写到 `wwwroot/aot-cache/payloads`。sidecar URL 由 payload SHA-256 content hash 派生，静态响应使用 `application/vnd.fsus.aeds` 与 `public,max-age=31536000,immutable`，因此新 HTML 永远指向新 payload，旧 payload 只需后台异步清理。
+- AOT document cache artifact 记录 hydration sidecar 的 URL、SHA-256 和相对路径；旧 artifact 缺少 metadata 时从 HTML marker 回读。文件缓存命中前必须确认 sidecar 存在且 SHA-256 与 URL hash 一致，否则删除/淘汰 HTML entry 并走 miss 重建。key/prefix/all invalidation 删除 HTML document entry，但保留 content-hash sidecar；sidecar 没有稳定 URL 复用语义，因此不会让已失效 document 继续可达。
+- 多节点部署必须让 `wwwroot/aot-cache/frontend/**` 与 `wwwroot/aot-cache/payloads/**` 使用同一共享 artifact storage 或共享卷；否则当前 Public AOT cache 只支持单节点/共享存储一致性。v1.3 之前不把 Nginx/CDN 或跨节点复制延迟作为正确性前提，节点本地缺失或 hash mismatch 会 fail-closed 为 cache miss。
 - Provider、shell service 与 renderer 之间只传递 `PublicPageSnapshot` / `PublicAotRenderRequest`，进入 Node worker 前由 `PublicAotRendererPayloadMapper` 做唯一 dictionary payload 映射；禁止恢复匿名 object graph 或每个 provider 自行拼 payload。
 - `PublicAotDocumentService` 只在 compose 周期内解码一次 entry bootstrap/hydration payload，后续标题、描述和脚本注入复用同一解码结果。
 - 页面内部结构、hydration props 与 Markdown HTML 以 Vue public renderer/helper 为唯一真相源，禁止 C# Markdown/props 与 Vue 组件双轨并存。

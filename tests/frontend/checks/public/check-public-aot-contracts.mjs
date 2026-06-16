@@ -47,6 +47,7 @@ function assertStaticContracts() {
   const renderPublicPage = read('src/frontend/src/public-renderers/renderPublicPage.ts')
   const buildScript = read('tools/frontend/build.mjs')
   const warmScript = read('tools/frontend/warm-public-aot-cache.mjs')
+  const viteConfig = read('src/frontend/vite.config.ts')
   const indexHtml = read('src/frontend/index.html')
   const documentComposer = read('src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs')
   const documentService = read('src/backend/Infrastructure/PublicAot/PublicAotDocumentService.cs')
@@ -55,6 +56,7 @@ function assertStaticContracts() {
   const publicShell = read('src/frontend/src/bootstrap/publicShell.ts')
   const hydrationBootstrap = read('src/frontend/src/bootstrap/publicHydrationBootstrap.ts')
   const binaryPayload = read('src/frontend/src/bootstrap/publicAotBinaryPayload.ts')
+  const hydrationSmoke = read('tests/frontend/checks/public/public-hydration-smoke.mjs')
   const refreshHydrationCheck = read('tests/frontend/checks/public/check-public-refresh-hydration.mjs')
   const clockHydrationCheck = read('tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs')
   const browserEnvHydrationCheck = read('tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs')
@@ -95,6 +97,11 @@ function assertStaticContracts() {
       fail(`warm script must consume route manifest and expose bounded warm controls: ${token}`)
     }
   }
+  for (const token of ['syncHydrationSidecarsToPreviewDist', 'FSUSBLOG_SYNC_PUBLIC_AOT_SIDECARS_TO_DIST', 'aot-cache', 'payloads']) {
+    if (!warmScript.includes(token)) {
+      fail(`warm script must sync public AOT hydration sidecars into preview dist: ${token}`)
+    }
+  }
   if (warmScript.includes('/article/1') || warmScript.includes('publicPaths')) {
     fail('warm script must not hard-code public route guesses')
   }
@@ -122,6 +129,11 @@ function assertStaticContracts() {
       fail(`static asset pipeline missing public AOT sidecar serving token: ${token}`)
     }
   }
+  for (const token of ['servePublicAotHydrationSidecars', 'application/vnd.fsus.aeds', 'public,max-age=31536000,immutable', 'aot-cache', 'payloads']) {
+    if (!viteConfig.includes(token)) {
+      fail(`Vite preview must serve public AOT hydration sidecars with release headers: ${token}`)
+    }
+  }
   if (!publicShell.includes("querySelectorAll('[data-fsus-aot-head]')")) {
     fail('public shell micro-navigation must replace all Public AOT-managed head nodes')
   }
@@ -144,6 +156,26 @@ function assertStaticContracts() {
   for (const token of ['readHydrationRawPayload', 'data-aeds-src', 'arrayBuffer', "toString('base64url')"]) {
     if (!refreshHydrationCheck.includes(token)) {
       fail(`refresh hydration check missing sidecar payload token: ${token}`)
+    }
+  }
+  for (const token of [
+    'fsusblog.public-hydration-sidecar-smoke.v1',
+    'public-hydration-sidecar-summary.json',
+    'sidecar-primary',
+    'inline-fallback',
+    'readHydrationPayload',
+    'data-aeds-src',
+    'arrayBuffer',
+    "toString('base64url')",
+    'application/vnd.fsus.aeds',
+    'max-age=31536000',
+    'immutable',
+    'assertMissingSidecarFailureVisible',
+    'missing public hydration sidecar',
+    'requiredSidecarKinds'
+  ]) {
+    if (!hydrationSmoke.includes(token)) {
+      fail(`public hydration smoke missing sidecar-primary token: ${token}`)
     }
   }
   for (const token of ['fsusblog.public-hydration-detector.v1', "type === 'warn' || type === 'warning' || type === 'error'", 'runDetectorCanary', 'writeSummary', 'fatalHydrationIssueCount', 'isFatalHydrationIssue']) {
@@ -294,7 +326,7 @@ function assertStaticContracts() {
   if (!releaseLane.includes('check-public-hydration-matrix-governance.mjs --lane release')) {
     fail('release lane missing public hydration matrix governance checker')
   }
-  for (const token of ['public-hydration-clock-matrix', 'public-hydration-clock-matrix-summary.json', 'public-hydration-browser-env-matrix', 'public-hydration-browser-env-summary.json', 'public-hydration-payload-fixture-matrix', 'public-hydration-payload-fixture-summary.json', 'public-hydration-dom-diff', 'public-hydration-dom-diff-summary.json', 'public-hydration-fast', 'public-hydration-nightly', 'public-hydration-matrix', 'public-hydration-matrix-summary.json']) {
+  for (const token of ['public-hydration-clock-matrix', 'public-hydration-clock-matrix-summary.json', 'public-hydration-browser-env-matrix', 'public-hydration-browser-env-summary.json', 'public-hydration-payload-fixture-matrix', 'public-hydration-payload-fixture-summary.json', 'public-hydration-dom-diff', 'public-hydration-dom-diff-summary.json', 'public-hydration-sidecar', 'public-hydration-sidecar-summary.json', 'public-hydration-fast', 'public-hydration-nightly', 'public-hydration-matrix', 'public-hydration-matrix-summary.json']) {
     if (!testMatrix.includes(token)) {
       fail(`test matrix missing public hydration release evidence token: ${token}`)
     }
@@ -307,6 +339,9 @@ function assertStaticContracts() {
   }
   if (!qualityGateWorkflow.includes('public-hydration-matrix-summary.json') || !qualityGateWorkflow.includes('./tools/test.sh public-hydration-fast --no-deps')) {
     fail('quality gate workflow missing public hydration matrix fast lane/artifact')
+  }
+  if (!qualityGateWorkflow.includes('public-hydration-sidecar-summary.json')) {
+    fail('quality gate workflow missing public hydration sidecar artifact')
   }
   for (const token of [
     'PUBLIC_HYDRATION_CLOCK_MATRIX_SUMMARY',
@@ -325,6 +360,10 @@ function assertStaticContracts() {
     'PUBLIC_HYDRATION_DOM_DIFF_STATUS_VALUE',
     'publicHydrationDomDiffSummary',
     'publicHydrationDomDiff',
+    'PUBLIC_HYDRATION_SIDECAR_SUMMARY',
+    'PUBLIC_HYDRATION_SIDECAR_STATUS_VALUE',
+    'publicHydrationSidecarSummary',
+    'publicHydrationSidecar',
     'PUBLIC_HYDRATION_MATRIX_SUMMARY',
     'PUBLIC_HYDRATION_MATRIX_STATUS_VALUE',
     'publicHydrationMatrixSummary',
@@ -339,7 +378,7 @@ function assertStaticContracts() {
       fail(`Public AOT shell service missing SWR state token: ${token}`)
     }
   }
-  for (const token of ['frontend', 'ResolveVersionedEntryPathForTests', 'public_aot_cache_stale_compatible']) {
+  for (const token of ['frontend', 'ResolveVersionedEntryPathForTests', 'public_aot_cache_stale_compatible', 'public_aot_cache_sidecar_hash_mismatch']) {
     if (!fileCache.includes(token)) {
       fail(`Public AOT file cache missing artifact versioning token: ${token}`)
     }

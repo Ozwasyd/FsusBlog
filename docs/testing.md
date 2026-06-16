@@ -185,6 +185,8 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 
 Public hydration matrix 由 `tests/frontend/checks/public/public-hydration-matrix.registry.json` 统一声明，新增公开 AOT page kind 必须同步 registry，否则 `check-public-hydration-matrix-governance.mjs` 会因 manifest 覆盖漂移失败。`public-hydration-fast` 是 PR 级轻量治理 lane，输出 `.tmp/release-evidence/public-hydration-matrix-summary.json`；`release` lane 在 #330-#335 summary 全部生成后以 `FSUSBLOG_REQUIRE_PUBLIC_HYDRATION_ARTIFACTS=1` fail-closed 校验并写合并 summary；`public-hydration-nightly` 保留 Firefox/WebKit、更多 state/clock/fixture/cache 组合的 off-critical-path shard 策略。
 
+`public-hydration-smoke.mjs` 负责 sidecar 生命周期 smoke：新 AOT 页必须以 `sidecar-primary` 读取 `#fsus-aot-hydration-props[data-aeds-src]`，只有旧 artifact 允许记录 `inline-fallback`。它会 fetch raw `.aeds` bytes，校验 `application/vnd.fsus.aeds`、`public,max-age=31536000,immutable`，通过 Public AOT AEDS decoder 解码，并覆盖 Home、ArticleDetail、Archive、Filter、About、Privacy、Guidelines、Copyright。脚本写入 `.tmp/release-evidence/public-hydration-sidecar-summary.json`；release evidence 会语义校验 required page kinds、modeCounts 和 missing-sidecar canary。
+
 **Public hydration matrix 本地复现**：
 ```bash
 ./tools/test.sh ci-tier public-hydration-fast --no-deps

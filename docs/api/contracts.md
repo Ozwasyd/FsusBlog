@@ -765,6 +765,8 @@ HTML bootstrap 仍以 `script type="application/octet-stream"` 嵌入；hydratio
 
 Hydration sidecar HTTP 合同与运行时 `/api/binary/**` 分开：`/aot-cache/payloads/{bucket}/{sha256}.aeds` 返回 `Content-Type: application/vnd.fsus.aeds`，`Cache-Control: public,max-age=31536000,immutable`，并移除 `ETag` / `Last-Modified` validators。URL 使用 payload frame 的 SHA-256 content hash，因此内容或站点设置变化会生成新 URL；旧 sidecar 可异步清理，不允许通过稳定 URL 复用导致 HTML 与 payload 独立陈旧。
 
+AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相对路径；旧 artifact 缺少 metadata 时，读取路径必须能从 HTML marker 解析出等价引用。读取 document cache 时，如果 referenced sidecar 不存在或磁盘 bytes 的 SHA-256 与 content-hash URL 不一致，服务端必须把该 HTML entry 当作 cache miss 并触发重建，不能返回会在首访 hydration 时失败的 shell。按 key/prefix/all 失效时删除 HTML document cache entry；content-hash sidecar 可以按不可变策略保留并由后台清理，因为没有仍然可返回的 HTML 会指向已失效 document。
+
 约束：
 
 - `html`、`bootstrapPayload`、`hydrationPropsPayload` 不能分别由不同模板层独立拼装。

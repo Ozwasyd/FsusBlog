@@ -13,6 +13,7 @@ TRACKED_TMP_FILES=(
   ".tmp/release-evidence/public-hydration-browser-env-summary.json"
   ".tmp/release-evidence/public-hydration-payload-fixture-summary.json"
   ".tmp/release-evidence/public-hydration-dom-diff-summary.json"
+  ".tmp/release-evidence/public-hydration-sidecar-summary.json"
   ".tmp/release-evidence/public-hydration-matrix-summary.json"
   ".tmp/frontend/dom-budget.json"
   ".tmp/frontend/route-render-pressure.json"
@@ -257,6 +258,32 @@ printf '{"schema":"fsusblog.public-hydration-clock-matrix.v1","status":"success"
 printf '{"schema":"fsusblog.public-hydration-browser-env-matrix.v1","status":"success","coverage":{"environmentCells":4,"routesChecked":12,"routesSkipped":0,"sessionStates":["anonymous","user","admin"],"themePreferences":["empty","light","dark","system"],"storageBehaviors":["normal","unavailable","cleared-after-reload"],"motionPreferences":["normal","reduced"],"colorSchemes":["light","dark"],"viewports":["desktop","tablet","mobile","narrowMobile"]},"rows":[{"routeId":"home","status":"success","environment":{"id":"fixture","sessionState":"anonymous","themePreference":"empty"}}]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-browser-env-summary.json"
 printf '{"schema":"fsusblog.public-hydration-payload-fixture-matrix.v1","status":"success","coverage":{"dimensions":["article-list:empty","article-body:code-blocks","filter:tag-by-name","archive:large","footer:complete","payload:duplicate-scalars-absent"],"missingDimensions":[]},"fixtures":[{"id":"fixture","status":"success","route":"/","kind":"Home","dimensions":["article-list:empty"]}]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-payload-fixture-summary.json"
 printf '{"schema":"fsusblog.public-hydration-dom-diff.v1","status":"success","coverage":{"pageKinds":["Home","ArticleDetail","Archive","Filter","About","Privacy","Guidelines","Copyright"],"missingPageKinds":[]},"canary":{"status":"success","diffCount":1},"cases":[{"routeKey":"home","pageKind":"Home","diffCount":0}]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-dom-diff-summary.json"
+cat > "$ROOT_DIR/.tmp/release-evidence/public-hydration-sidecar-summary.json" <<'JSON'
+{
+  "schema": "fsusblog.public-hydration-sidecar-smoke.v1",
+  "status": "success",
+  "modeCounts": {
+    "sidecar-primary": 8,
+    "inline-fallback": 0
+  },
+  "requiredPageKinds": ["Home", "ArticleDetail", "Archive", "Filter", "About", "Privacy", "Guidelines", "Copyright"],
+  "missingRequiredKinds": [],
+  "canary": {
+    "status": "success",
+    "error": "missing public hydration sidecar: /__canary/missing-sidecar -> /aot-cache/payloads/00/0000000000000000000000000000000000000000000000000000000000000000.aeds HTTP 404"
+  },
+  "checks": [
+    { "route": "/", "expectedPageKind": "Home", "pageKind": "Home", "mode": "sidecar-primary", "status": "success" },
+    { "route": "/article/1", "expectedPageKind": "ArticleDetail", "pageKind": "ArticleDetail", "mode": "sidecar-primary", "status": "success" },
+    { "route": "/archive", "expectedPageKind": "Archive", "pageKind": "Archive", "mode": "sidecar-primary", "status": "success" },
+    { "route": "/category/0", "expectedPageKind": "Filter", "pageKind": "Filter", "mode": "sidecar-primary", "status": "success" },
+    { "route": "/about", "expectedPageKind": "About", "pageKind": "About", "mode": "sidecar-primary", "status": "success" },
+    { "route": "/privacy", "expectedPageKind": "Privacy", "pageKind": "Privacy", "mode": "sidecar-primary", "status": "success" },
+    { "route": "/guidelines", "expectedPageKind": "Guidelines", "pageKind": "Guidelines", "mode": "sidecar-primary", "status": "success" },
+    { "route": "/copyright", "expectedPageKind": "Copyright", "pageKind": "Copyright", "mode": "sidecar-primary", "status": "success" }
+  ]
+}
+JSON
 printf '{"schema":"fsusblog.public-hydration-matrix-summary.v1","status":"success","lane":"release","gitSha":"fixture","rendererVersion":"fixture","coverage":{"routes":[{"kind":"Home","route":"/","routeKey":"home"}],"pageKinds":["Home","ArticleDetail","Archive","Filter","About","Privacy","Guidelines","Copyright"],"phases":["direct-first-load","reload"],"browsers":["chromium"],"states":["anonymous","user","admin"],"fixtures":["payload-fixture-matrix"]},"requiredArtifacts":{"detector":"public-hydration-detector-summary.json","clock":"public-hydration-clock-matrix-summary.json","browserEnv":"public-hydration-browser-env-summary.json","payloadFixture":"public-hydration-payload-fixture-summary.json","domDiff":"public-hydration-dom-diff-summary.json"},"artifactStatuses":{"detector":"success","clock":"success","browserEnv":"success","payloadFixture":"success","domDiff":"success"},"cells":[{"source":"detector","route":"/","pageKind":"Home","phase":"direct-first-load","browser":"chromium","viewport":{"name":"desktop","width":1440,"height":900},"state":{"session":"anonymous"},"clock":null,"fixtureId":null,"result":"success","fatalHydrationIssueCount":0,"warnings":[],"errors":[],"durationMs":1}],"fatalHydrationIssueCount":0,"warnings":[],"errors":[]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-matrix-summary.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/dom-budget.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/route-render-pressure.json"
@@ -303,6 +330,7 @@ jq -e '
   and .artifacts.publicHydrationBrowserEnvSummary == "public-hydration-browser-env-summary.json"
   and .artifacts.publicHydrationPayloadFixtureSummary == "public-hydration-payload-fixture-summary.json"
   and .artifacts.publicHydrationDomDiffSummary == "public-hydration-dom-diff-summary.json"
+  and .artifacts.publicHydrationSidecarSummary == "public-hydration-sidecar-summary.json"
   and .artifacts.publicHydrationMatrixSummary == "public-hydration-matrix-summary.json"
   and .artifactDigests.productionExposureStatus.algorithm == "sha256"
   and (.artifactDigests.productionExposureStatus.value | test("^[0-9a-f]{64}$"))
@@ -352,6 +380,7 @@ jq -e '
   and .evidenceSummary.gates.publicHydrationBrowserEnv == "success"
   and .evidenceSummary.gates.publicHydrationPayloadFixture == "success"
   and .evidenceSummary.gates.publicHydrationDomDiff == "success"
+  and .evidenceSummary.gates.publicHydrationSidecar == "success"
   and .evidenceSummary.gates.publicHydrationMatrix == "success"
   and .evidenceSummary.security.attackMatrix == "ok"
   and .evidenceSummary.security.permissionMatrix == "ok"

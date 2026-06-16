@@ -43,7 +43,10 @@ public sealed class PublicAotCacheWriter(
             RendererVersion = rendererVersion,
             FrontendAssetVersion = frontendAssetVersion,
             Value = html,
-            Document = document
+            Document = document,
+            HydrationSidecar = PublicAotHydrationSidecarReference.TryFromHtml(html, out PublicAotHydrationSidecarReference sidecar)
+                ? sidecar
+                : default
         };
 
         await cache.SetAsync(entry, cancellationToken).ConfigureAwait(false);

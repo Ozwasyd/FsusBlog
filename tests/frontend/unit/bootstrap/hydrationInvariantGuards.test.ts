@@ -14,6 +14,7 @@ describe('public hydration invariant guards', () => {
   const mobileActionBar = readRepoFile('src/frontend/src/components/article/ArticleMobileActionBar.vue')
   const homeView = readRepoFile('src/frontend/src/views/Home.vue')
   const homeSpotlight = readRepoFile('src/frontend/src/view-contracts/homeSpotlight.ts')
+  const hydrationSmoke = readRepoFile('tests/frontend/checks/public/public-hydration-smoke.mjs')
   const refreshHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-refresh-hydration.mjs')
   const clockHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs')
   const browserEnvHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs')
@@ -33,6 +34,19 @@ describe('public hydration invariant guards', () => {
     expect(refreshHydrationCheck).toContain('fatalHydrationIssueCount')
     expect(refreshHydrationCheck).toContain('isFatalHydrationIssue')
     expect(refreshHydrationCheck).not.toContain('PASS${warnSuffix}')
+  })
+
+  it('keeps public hydration smoke sidecar-primary with inline fallback evidence', () => {
+    expect(hydrationSmoke).toContain('fsusblog.public-hydration-sidecar-smoke.v1')
+    expect(hydrationSmoke).toContain('public-hydration-sidecar-summary.json')
+    expect(hydrationSmoke).toContain('readHydrationPayload')
+    expect(hydrationSmoke).toContain('sidecar-primary')
+    expect(hydrationSmoke).toContain('inline-fallback')
+    expect(hydrationSmoke).toContain('application/vnd.fsus.aeds')
+    expect(hydrationSmoke).toContain('max-age=31536000')
+    expect(hydrationSmoke).toContain('assertMissingSidecarFailureVisible')
+    expect(hydrationSmoke).toContain('missing public hydration sidecar')
+    expect(hydrationSmoke).toContain("toString('base64url')")
   })
 
   it('keeps the public hydration matrix tied to manifest route kinds and phase cells', () => {

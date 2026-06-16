@@ -1,5 +1,7 @@
 using System.Text;
 using System.Buffers.Binary;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Hosting;
@@ -33,7 +35,8 @@ public sealed class PublicAotFileShellCacheTests
             RendererVersion = "renderer-v1",
             FrontendAssetVersion = "frontend-v1",
             Value = html,
-            Document = document
+            Document = document,
+            HydrationSidecar = CreateSidecarReference()
         };
 
         byte[] payload = PublicAotFileShellCache.SerializeEntryBytes(entry);
@@ -54,8 +57,11 @@ public sealed class PublicAotFileShellCacheTests
         Assert.Equal(document.Utf8Bytes.ToArray(), restored.Document.Value.Utf8Bytes.ToArray());
         Assert.Equal(document.BrotliBytes.ToArray(), restored.Document.Value.BrotliBytes.ToArray());
         Assert.Equal(document.GzipBytes.ToArray(), restored.Document.Value.GzipBytes.ToArray());
+        Assert.Equal(entry.HydrationSidecar.Url, restored.HydrationSidecar.Url);
+        Assert.Equal(entry.HydrationSidecar.Sha256Hex, restored.HydrationSidecar.Sha256Hex);
+        Assert.Equal(entry.HydrationSidecar.RelativePath, restored.HydrationSidecar.RelativePath);
         Assert.Equal("PACE", Encoding.ASCII.GetString(payload, 0, 4));
-        Assert.Equal(2u, BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(4, 4)));
+        Assert.Equal(3u, BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(4, 4)));
     }
 
     [Fact]
@@ -120,6 +126,7 @@ public sealed class PublicAotFileShellCacheTests
         Assert.NotNull(restored.Document);
         Assert.Equal(Encoding.UTF8.GetBytes(entry.Value), restored.Document.Value.Utf8Bytes.ToArray());
         Assert.False(string.IsNullOrWhiteSpace(restored.Document.Value.ETag));
+        Assert.True(restored.HydrationSidecar.IsEmpty);
         Assert.Equal(1u, BinaryPrimitives.ReadUInt32LittleEndian(legacyPayload.AsSpan(4, 4)));
     }
 
@@ -232,6 +239,62 @@ public sealed class PublicAotFileShellCacheTests
     }
 
     [Fact]
+    public async Task TryGetEntryAsync_MissingHydrationSidecarTreatsDocumentAsMiss()
+    {
+        using var temp = new TempDirectory();
+        PublicAotHydrationSidecarReference sidecar = CreateSidecarReference();
+        var entry = CreateEntry("public:aot:v2:doc:2:article:42") with
+        {
+            Value = CreateHtmlWithSidecar(sidecar),
+            HydrationSidecar = sidecar
+        };
+        string path = PublicAotFileShellCache.ResolveVersionedEntryPathForTests(
+            temp.WebRoot,
+            entry.CacheKey,
+            entry.FrontendAssetVersion,
+            entry.PageId);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllBytesAsync(path, PublicAotFileShellCache.SerializeEntryBytes(entry));
+
+        var cache = BuildCache(temp.Root, Environments.Production);
+
+        PublicAotCacheEntry? restored = await cache.TryGetEntryAsync(entry.CacheKey, entry.FrontendAssetVersion);
+
+        Assert.Null(restored);
+        Assert.False(File.Exists(path));
+    }
+
+    [Fact]
+    public async Task TryGetEntryAsync_HydrationSidecarHashMismatchTreatsDocumentAsMiss()
+    {
+        using var temp = new TempDirectory();
+        PublicAotHydrationSidecarReference sidecar = CreateSidecarReference([1, 2, 3, 4]);
+        var entry = CreateEntry("public:aot:v2:doc:2:article:42") with
+        {
+            Value = CreateHtmlWithSidecar(sidecar),
+            HydrationSidecar = sidecar
+        };
+        string sidecarPath = Path.Combine(temp.WebRoot, sidecar.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(sidecarPath)!);
+        await File.WriteAllBytesAsync(sidecarPath, [9, 9, 9, 9]);
+        string path = PublicAotFileShellCache.ResolveVersionedEntryPathForTests(
+            temp.WebRoot,
+            entry.CacheKey,
+            entry.FrontendAssetVersion,
+            entry.PageId);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllBytesAsync(path, PublicAotFileShellCache.SerializeEntryBytes(entry));
+
+        var cache = BuildCache(temp.Root, Environments.Production);
+
+        PublicAotCacheEntry? restored = await cache.TryGetEntryAsync(entry.CacheKey, entry.FrontendAssetVersion);
+
+        Assert.Null(restored);
+        Assert.False(File.Exists(path));
+        Assert.True(File.Exists(sidecarPath));
+    }
+
+    [Fact]
     public async Task TryGetEntryAsync_HonorsCancellationToken()
     {
         using var temp = new TempDirectory();
@@ -261,6 +324,29 @@ public sealed class PublicAotFileShellCacheTests
             Arg.Any<RedisChannel>(),
             Arg.Is<RedisValue>(payload => PayloadContains(payload, "\"type\":\"key\"") && PayloadContains(payload, first.CacheKey)),
             Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public async Task RemoveAsync_RetainsContentHashHydrationSidecarButRemovesHtmlDocument()
+    {
+        using CacheFixture fixture = BuildCacheFixture(Environments.Production);
+        byte[] sidecarBytes = [1, 2, 3, 4];
+        PublicAotHydrationSidecarReference sidecar = CreateSidecarReference(sidecarBytes);
+        var entry = CreateEntry("public:aot:v2:doc:2:article:42") with
+        {
+            Value = CreateHtmlWithSidecar(sidecar),
+            HydrationSidecar = sidecar
+        };
+        string sidecarPath = Path.Combine(fixture.Temp.WebRoot, sidecar.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(sidecarPath)!);
+        await File.WriteAllBytesAsync(sidecarPath, sidecarBytes);
+        await fixture.Cache.SetAsync(entry);
+
+        await fixture.Cache.RemoveAsync(entry.CacheKey);
+
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, entry)));
+        Assert.True(File.Exists(sidecarPath));
+        Assert.Null(await fixture.Cache.TryGetEntryAsync(entry.CacheKey, entry.FrontendAssetVersion));
     }
 
     [Fact]
@@ -382,6 +468,8 @@ public sealed class PublicAotFileShellCacheTests
         Assert.Contains("public_aot_cache_file_read_ms", source);
         Assert.Contains("public_aot_cache_stale_removed", source);
         Assert.Contains("public_aot_cache_stale_compatible", source);
+        Assert.Contains("public_aot_cache_sidecar_missing", source);
+        Assert.Contains("public_aot_cache_sidecar_hash_mismatch", source);
         Assert.Contains("public_aot_cache_read_error", source);
         Assert.Contains("ResolveVersionedEntryPathForTests", source);
         Assert.Contains("RemoveRegisteredKeysBatchAsync", source);
@@ -418,6 +506,26 @@ public sealed class PublicAotFileShellCacheTests
             FrontendAssetVersion = "frontend-v2",
             Value = "<article>async cache</article>"
         };
+
+    private static PublicAotHydrationSidecarReference CreateSidecarReference(byte[]? bytes = null)
+    {
+        string hash = Convert.ToHexStringLower(SHA256.HashData(bytes ?? [1, 2, 3, 4]));
+        return new(
+            $"/aot-cache/payloads/{hash[..2]}/{hash}.aeds",
+            hash,
+            $"aot-cache/payloads/{hash[..2]}/{hash}.aeds");
+    }
+
+    private static string CreateHtmlWithSidecar(PublicAotHydrationSidecarReference sidecar)
+        => $"""
+<!doctype html>
+<html>
+<body>
+<div id="fsus-aot-shell" data-public-hydration-kind="ArticleDetail"></div>
+<script id="fsus-aot-hydration-props" type="application/octet-stream" data-aeds-src="{sidecar.Url}"></script>
+</body>
+</html>
+""";
 
     private static PublicAotFileShellCache BuildCache(string root, string environmentName)
     {
@@ -466,24 +574,27 @@ public sealed class PublicAotFileShellCacheTests
         return expected.All(actual.Contains);
     }
 
-    private static string FindRepoRoot()
+    private static string FindRepoRoot([CallerFilePath] string sourceFile = "")
     {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
+        foreach (string start in new[] { Path.GetDirectoryName(sourceFile) ?? string.Empty, Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
         {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
-                File.Exists(Path.Combine(current, "src", "backend", "Infrastructure", "PublicAot", "PublicAotFileShellCache.cs")))
+            string current = start;
+            while (!string.IsNullOrWhiteSpace(current))
             {
-                return current;
-            }
+                if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
+                    File.Exists(Path.Combine(current, "src", "backend", "Infrastructure", "PublicAot", "PublicAotFileShellCache.cs")))
+                {
+                    return current;
+                }
 
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
+                DirectoryInfo? parent = Directory.GetParent(current);
+                if (parent is null)
+                {
+                    break;
+                }
 
-            current = parent.FullName;
+                current = parent.FullName;
+            }
         }
 
         throw new DirectoryNotFoundException("Unable to locate repository root.");

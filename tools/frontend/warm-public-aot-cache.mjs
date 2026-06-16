@@ -1,9 +1,18 @@
 #!/usr/bin/env node
 
+import { cp, mkdir, stat } from 'node:fs/promises'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const repoRoot = fileURLToPath(new URL('../../', import.meta.url))
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000'
 const timeoutMs = Number(process.env.FSUSBLOG_HTTP_TIMEOUT_MS || 15000)
 const waitMs = Number(process.env.FSUSBLOG_PUBLIC_AOT_WAIT_MS || 15000)
 const manifestToken = process.env.FSUSBLOG_PUBLIC_AOT_MANIFEST_TOKEN || ''
+const sidecarSourceDir = process.env.FSUSBLOG_PUBLIC_AOT_SIDECAR_SOURCE_DIR
+  || join(repoRoot, 'src', 'backend', 'wwwroot', 'aot-cache', 'payloads')
+const sidecarPreviewDistDir = process.env.FSUSBLOG_PUBLIC_AOT_SIDECAR_DIST_DIR
+  || join(repoRoot, 'src', 'frontend', 'dist', 'aot-cache', 'payloads')
 
 function parseArgs(argv) {
   const options = {
@@ -171,6 +180,30 @@ async function runPool(routes, concurrency, failFast) {
   return results.sort((left, right) => left.priority - right.priority || left.path.localeCompare(right.path))
 }
 
+async function pathExists(path) {
+  try {
+    await stat(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function syncHydrationSidecarsToPreviewDist() {
+  if (process.env.FSUSBLOG_SYNC_PUBLIC_AOT_SIDECARS_TO_DIST === '0') {
+    console.log('[warm-public-aot] skipped hydration sidecar dist sync')
+    return
+  }
+
+  if (!(await pathExists(sidecarSourceDir))) {
+    throw new Error(`hydration sidecar source missing: ${sidecarSourceDir}`)
+  }
+
+  await mkdir(sidecarPreviewDistDir, { recursive: true })
+  await cp(sidecarSourceDir, sidecarPreviewDistDir, { recursive: true, force: true })
+  console.log(`[warm-public-aot] synced hydration sidecars to preview dist: ${sidecarPreviewDistDir}`)
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   const routes = await fetchManifest(options)
@@ -180,6 +213,9 @@ async function main() {
 
   const results = await runPool(routes, options.concurrency, options.failFast)
   const failed = results.filter((result) => !result.ok)
+  if (failed.length === 0) {
+    await syncHydrationSidecarsToPreviewDist()
+  }
   if (options.jsonReport) {
     console.log(JSON.stringify({
       baseUrl,

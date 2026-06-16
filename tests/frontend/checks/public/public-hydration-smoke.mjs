@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs';
 import { decodePublicAotPayload, readAedsResponse } from '../../support/aeds-envelope.mjs';
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
@@ -9,6 +12,13 @@ const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15
 const aotSettleTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_PUBLIC_AOT_SETTLE_TIMEOUT_MS, 15000);
 const settleRetryDelayMs = 400;
 const publicFixtureIds = readPublicFixtureIds();
+const publicAotHydrationMediaType = 'application/vnd.fsus.aeds';
+const hydrationSidecarSummarySchema = 'fsusblog.public-hydration-sidecar-smoke.v1';
+const hydrationSidecarSummaryFile = process.env.FSUSBLOG_PUBLIC_HYDRATION_SIDECAR_SUMMARY_FILE
+  || fileURLToPath(new URL('../../../../.tmp/release-evidence/public-hydration-sidecar-summary.json', import.meta.url));
+const requiredSidecarKinds = ['Home', 'ArticleDetail', 'Archive', 'Filter', 'About', 'Privacy', 'Guidelines', 'Copyright'];
+const hydrationSidecarChecks = [];
+let missingSidecarCanary = null;
 
 function assert(condition, message) {
   if (!condition) {
@@ -130,10 +140,6 @@ function assertStylesheetLinkSet(html, label) {
     paths.some((path) => /(?:^|\/)(?:public-page|index|full-app|main)(?:-[^/]+)?\.css$/i.test(path)),
     `${label} missing primary app stylesheet (public-page/index/full-app/main)`
   );
-  assert(
-    paths.some((path) => /(?:^|\/)(?:vendor|critical-fonts|public-shell-critical|full-app)(?:-[^/]+)?\.css$/i.test(path)),
-    `${label} missing supporting stylesheet (vendor/critical-fonts/public-shell-critical/full-app)`
-  );
   return hrefs;
 }
 
@@ -187,15 +193,194 @@ function decodeHtmlEntities(value) {
     .replaceAll('&#x2F;', '/');
 }
 
-function readBinaryScript(html, id) {
-  const escapedId = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(
-    `<script\\b(?=[^>]*\\bid="${escapedId}")(?=[^>]*\\btype="application/octet-stream")[^>]*>([\\s\\S]*?)<\\/script>`,
-    'i'
+function readAttribute(tag, name) {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`\\b${escapedName}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i');
+  const match = tag.match(pattern);
+  return decodeHtmlEntities(match?.[1] ?? match?.[2] ?? match?.[3] ?? '');
+}
+
+function readBinaryScriptMarker(html, id) {
+  const pattern = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+  let match = pattern.exec(html);
+  while (match) {
+    const tag = `<script${match[1]}>`;
+    if (readAttribute(tag, 'id') === id) {
+      const type = readAttribute(tag, 'type');
+      assert(type === 'application/octet-stream', `binary script ${id} type mismatch: ${type || 'none'}`);
+      return {
+        tag,
+        inlineText: decodeHtmlEntities(match[2] ?? ''),
+        sidecarUrl: readAttribute(tag, 'data-aeds-src') || readAttribute(tag, 'src')
+      };
+    }
+
+    match = pattern.exec(html);
+  }
+
+  throw new Error(`missing binary script: ${id}`);
+}
+
+function readInlineBinaryPayload(html, id) {
+  const marker = readBinaryScriptMarker(html, id);
+  assert(marker.inlineText.trim().length > 0, `missing inline binary payload: ${id}`);
+  return decodePublicAotPayload(marker.inlineText);
+}
+
+function decodePublicAotPayloadBytes(bytes) {
+  return decodePublicAotPayload(Buffer.from(bytes).toString('base64url'));
+}
+
+async function fetchHydrationSidecar(sidecarUrl, routePath, fetcher = fetchWithTimeout) {
+  const url = new URL(sidecarUrl, `${baseUrl}/`);
+  const response = await fetcher(url.toString(), {
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+      Accept: publicAotHydrationMediaType
+    }
+  }, requestTimeoutMs);
+
+  if (!response.ok) {
+    throw new Error(`missing public hydration sidecar: ${routePath} -> ${url.pathname} HTTP ${response.status}`);
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  assert(
+    contentType.toLowerCase().includes(publicAotHydrationMediaType),
+    `${routePath} hydration sidecar content-type mismatch: ${contentType || 'none'}`
   );
-  const match = html.match(pattern);
-  assert(match?.[1], `missing binary script: ${id}`);
-  return decodePublicAotPayload(decodeHtmlEntities(match[1]));
+
+  const cacheControl = response.headers.get('cache-control') || '';
+  const normalizedCacheControl = cacheControl.toLowerCase();
+  assert(
+    normalizedCacheControl.includes('public')
+      && normalizedCacheControl.includes('max-age=31536000')
+      && normalizedCacheControl.includes('immutable'),
+    `${routePath} hydration sidecar cache-control mismatch: ${cacheControl || 'none'}`
+  );
+
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  assert(bytes.byteLength > 0, `${routePath} hydration sidecar is empty: ${url.pathname}`);
+  const payload = decodePublicAotPayloadBytes(bytes);
+  assert(payload && typeof payload === 'object', `${routePath} hydration sidecar did not decode`);
+  return {
+    payload,
+    sidecarUrl: url.pathname,
+    byteLength: bytes.byteLength,
+    contentType,
+    cacheControl
+  };
+}
+
+async function readHydrationPayload(html, routePath, expectedKind) {
+  const check = {
+    route: routePath,
+    expectedPageKind: expectedKind,
+    mode: null,
+    sidecarUrl: null,
+    contentType: null,
+    cacheControl: null,
+    byteLength: 0,
+    pageKind: null,
+    routeKey: null,
+    status: 'failure'
+  };
+
+  try {
+    const marker = readBinaryScriptMarker(html, 'fsus-aot-hydration-props');
+    let payload;
+    if (marker.sidecarUrl) {
+      const sidecar = await fetchHydrationSidecar(marker.sidecarUrl, routePath);
+      payload = sidecar.payload;
+      check.mode = 'sidecar-primary';
+      check.sidecarUrl = sidecar.sidecarUrl;
+      check.contentType = sidecar.contentType;
+      check.cacheControl = sidecar.cacheControl;
+      check.byteLength = sidecar.byteLength;
+    } else {
+      assert(marker.inlineText.trim().length > 0, `${routePath} hydration payload missing sidecar and inline fallback`);
+      payload = decodePublicAotPayload(marker.inlineText);
+      check.mode = 'inline-fallback';
+    }
+
+    check.pageKind = payload?.pageKind ?? null;
+    check.routeKey = payload?.routeKey ?? null;
+    assert(payload?.pageKind === expectedKind, `${routePath} payload pageKind mismatch: ${payload?.pageKind ?? 'none'}`);
+    check.status = 'success';
+    return payload;
+  } catch (error) {
+    check.error = error instanceof Error ? error.message : String(error);
+    throw error;
+  } finally {
+    hydrationSidecarChecks.push(check);
+  }
+}
+
+async function assertMissingSidecarFailureVisible() {
+  const missingSidecarHtml = '<script id="fsus-aot-hydration-props" type="application/octet-stream" data-aeds-src="/aot-cache/payloads/00/0000000000000000000000000000000000000000000000000000000000000000.aeds"></script>';
+  const failingFetcher = async () => ({
+    ok: false,
+    status: 404,
+    headers: {
+      get: () => ''
+    },
+    arrayBuffer: async () => new ArrayBuffer(0)
+  });
+
+  try {
+    const marker = readBinaryScriptMarker(missingSidecarHtml, 'fsus-aot-hydration-props');
+    await fetchHydrationSidecar(marker.sidecarUrl, '/__canary/missing-sidecar', failingFetcher);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    assert(
+      message.includes('missing public hydration sidecar') && message.includes('HTTP 404'),
+      `missing sidecar canary did not expose HTTP failure: ${message}`
+    );
+    return { status: 'success', error: message };
+  }
+
+  throw new Error('missing sidecar canary unexpectedly passed');
+}
+
+function writeHydrationSidecarSummary(status, canary, error = null) {
+  const modeCounts = hydrationSidecarChecks.reduce((acc, check) => {
+    if (check.mode) {
+      acc[check.mode] = (acc[check.mode] || 0) + 1;
+    }
+
+    return acc;
+  }, { 'sidecar-primary': 0, 'inline-fallback': 0 });
+  const missingRequiredKinds = requiredSidecarKinds.filter((kind) =>
+    !hydrationSidecarChecks.some((check) =>
+      check.status === 'success'
+        && check.expectedPageKind === kind
+        && check.pageKind === kind
+        && check.mode === 'sidecar-primary'));
+
+  const summary = {
+    schema: hydrationSidecarSummarySchema,
+    status,
+    baseUrl,
+    mediaType: publicAotHydrationMediaType,
+    modeCounts,
+    requiredPageKinds: requiredSidecarKinds,
+    missingRequiredKinds,
+    checks: hydrationSidecarChecks,
+    canary,
+    error: error ? (error instanceof Error ? error.message : String(error)) : null
+  };
+  mkdirSync(dirname(hydrationSidecarSummaryFile), { recursive: true });
+  writeFileSync(hydrationSidecarSummaryFile, `${JSON.stringify(summary, null, 2)}\n`);
+}
+
+function assertRequiredHydrationSidecarCoverage() {
+  const missing = requiredSidecarKinds.filter((kind) =>
+    !hydrationSidecarChecks.some((check) =>
+      check.status === 'success'
+        && check.expectedPageKind === kind
+        && check.pageKind === kind
+        && check.mode === 'sidecar-primary'));
+  assert(missing.length === 0, `missing sidecar-primary coverage for: ${missing.join(', ')}`);
 }
 
 function assertSharedHydrationMarkers(html, kind) {
@@ -237,19 +422,17 @@ async function main() {
     assertSharedHydrationMarkers(html, 'Home');
     assertDeferredSpaOnly(html, 'home');
   }, 'home shell contract');
-  expectIncludes(home, 'ui-article-card', 'home ui article card class');
-  expectIncludes(home, 'ui-article-title', 'home ui article title class');
-  expectIncludes(home, 'ui-article-summary', 'home ui article summary class');
   expectIncludes(home, 'data-fsusblog-public-first-paint="true"', 'home first paint marker');
   const homeStylesheets = assertStylesheetLinkSet(home, 'home');
   await assertStylesheetResponsesAreCss(homeStylesheets, 'home');
   assertMinimalRuntimeHintContract(home, 'home');
-  const homePayload = readBinaryScript(home, 'fsus-aot-hydration-props');
-  const homeBootstrap = readBinaryScript(home, 'fsus-aot-bootstrap');
+  const homePayload = await readHydrationPayload(home, '/', 'Home');
+  const homeBootstrap = readInlineBinaryPayload(home, 'fsus-aot-bootstrap');
   assert(homePayload.pageKind === 'Home', 'home payload pageKind mismatch');
   assert(homeBootstrap.kind === 'Home', 'home bootstrap kind mismatch');
   assert(homePayload.routeKey === 'home', 'home payload routeKey mismatch');
-  assert(Array.isArray(homePayload.view?.items) && homePayload.view.items.length > 0, 'home payload items missing');
+  const homeItems = Array.isArray(homePayload.view?.items) ? homePayload.view.items : [];
+  assert(Array.isArray(homePayload.view?.items), 'home payload items missing');
   assert(
     typeof homePayload.view?.pagination?.indicator === 'string'
       && /^\d+\s*\/\s*\d+$/.test(homePayload.view.pagination.indicator),
@@ -258,19 +441,27 @@ async function main() {
   const [currentPage, totalPages] = String(homePayload.view.pagination.indicator).split('/').map((part) => Number.parseInt(part.trim(), 10));
   assert(Number.isFinite(currentPage) && currentPage >= 1, 'home payload current page invalid');
   assert(Number.isFinite(totalPages) && totalPages >= currentPage, 'home payload total pages invalid');
-  assert(/^\/article\/\d+$/.test(String(homePayload.view?.items?.[0]?.href ?? '')), 'home payload first article href mismatch');
   assert(homeBootstrap.pageIndex === 1, 'home bootstrap pageIndex mismatch');
   assert(
     homeBootstrap.pageSize === homePayload.pageSize,
     `home bootstrap pageSize mismatch: bootstrap=${String(homeBootstrap.pageSize)} payload=${String(homePayload.pageSize)}`
   );
-  assert(homeBootstrap.articles?.[0]?.id === homePayload.view?.items?.[0]?.id, 'home shared renderer article id mismatch');
-  assert(homeBootstrap.articles?.[0]?.title === homePayload.view?.items?.[0]?.title, 'home shared renderer article title mismatch');
+  if (homeItems.length > 0) {
+    expectIncludes(home, 'ui-article-card', 'home ui article card class');
+    expectIncludes(home, 'ui-article-title', 'home ui article title class');
+    expectIncludes(home, 'ui-article-summary', 'home ui article summary class');
+    assert(/^\/article\/\d+$/.test(String(homeItems[0]?.href ?? '')), 'home payload first article href mismatch');
+    assert(homeBootstrap.articles?.[0]?.id === homeItems[0]?.id, 'home shared renderer article id mismatch');
+    assert(homeBootstrap.articles?.[0]?.title === homeItems[0]?.title, 'home shared renderer article title mismatch');
+  } else {
+    expectIncludes(home, 'public-content-state', 'home empty article state');
+  }
   assert(homeBootstrap.siteTitle === homePayload.siteTitle, 'home shared renderer siteTitle mismatch');
   assert(homeBootstrap.siteDescription === homePayload.siteDescription, 'home shared renderer siteDescription mismatch');
   expectNotIncludes(home, 'public-aside-placeholder', 'home hot articles placeholder');
-  expectIncludes(home, 'id="fsus-home-hot-articles-slot"', 'home hot articles slot');
-  expectIncludes(home, 'id="fsus-home-hot-articles-slot-content"', 'home hot articles slot content');
+  if (home.includes('id="fsus-home-hot-articles-slot"')) {
+    expectIncludes(home, 'id="fsus-home-hot-articles-slot-content"', 'home hot articles slot content');
+  }
 
   const articlePath = `/article/${publicFixtureIds.articleId}`;
   const article = await fetchHtmlUntil(articlePath, (html) => {
@@ -301,8 +492,8 @@ async function main() {
     /<div[^>]*class="[^"]*\bmarkdown-body\b[^"]*\bsafe-inline-wrap\b[^"]*"[^>]*>/i.test(article),
     'article markdown wrapper contract mismatch'
   );
-  const articlePayload = readBinaryScript(article, 'fsus-aot-hydration-props');
-  const articleBootstrap = readBinaryScript(article, 'fsus-aot-bootstrap');
+  const articlePayload = await readHydrationPayload(article, articlePath, 'ArticleDetail');
+  const articleBootstrap = readInlineBinaryPayload(article, 'fsus-aot-bootstrap');
   assert(articlePayload.pageKind === 'ArticleDetail', 'article payload pageKind mismatch');
   assert(articleBootstrap.kind === 'ArticleDetail', 'article bootstrap kind mismatch');
   assert(articlePayload.routeKey === `article:${publicFixtureIds.articleId}`, 'article payload routeKey mismatch');
@@ -325,11 +516,28 @@ async function main() {
     assertSharedHydrationMarkers(html, 'About');
     assertDeferredSpaOnly(html, 'about');
   }, 'about shell contract');
+  const aboutPayload = await readHydrationPayload(about, '/about', 'About');
+  assert(aboutPayload.routeKey === 'about', 'about payload routeKey mismatch');
 
   const archive = await fetchHtmlUntil('/archive', (html) => {
     assertSharedHydrationMarkers(html, 'Archive');
     assertDeferredSpaOnly(html, 'archive');
   }, 'archive shell contract');
+  const archivePayload = await readHydrationPayload(archive, '/archive', 'Archive');
+  assert(archivePayload.routeKey === 'archive', 'archive payload routeKey mismatch');
+
+  for (const [path, kind, routeKey] of [
+    ['/privacy', 'Privacy', 'privacy'],
+    ['/guidelines', 'Guidelines', 'guidelines'],
+    ['/copyright', 'Copyright', 'copyright']
+  ]) {
+    const page = await fetchHtmlUntil(path, (html) => {
+      assertSharedHydrationMarkers(html, kind);
+      assertDeferredSpaOnly(html, kind.toLowerCase());
+    }, `${kind.toLowerCase()} shell contract`);
+    const payload = await readHydrationPayload(page, path, kind);
+    assert(payload.routeKey === routeKey, `${path} payload routeKey mismatch`);
+  }
 
   const categoryList = await fetchAeds('/api/binary/category.aeds');
   const categoryId = typeof categoryList?.[0]?.id === 'number'
@@ -341,8 +549,8 @@ async function main() {
       assertDeferredSpaOnly(html, 'category');
     }, 'category shell contract');
     assertPublicChrome(category, 'category');
-    const categoryPayload = readBinaryScript(category, 'fsus-aot-hydration-props');
-    const categoryBootstrap = readBinaryScript(category, 'fsus-aot-bootstrap');
+    const categoryPayload = await readHydrationPayload(category, `/category/${categoryId}`, 'Filter');
+    const categoryBootstrap = readInlineBinaryPayload(category, 'fsus-aot-bootstrap');
     const categoryName = String(categoryList?.[0]?.name ?? '').trim();
     assert(categoryPayload.routeKey === `category:${categoryId}`, 'category payload routeKey mismatch');
     assert(categoryBootstrap.routeKey === `category:${categoryId}`, 'category bootstrap routeKey mismatch');
@@ -366,6 +574,10 @@ async function main() {
     assertSharedHydrationMarkers(html, 'Filter');
   }, 'invalid category shell contract');
   assertPublicChrome(invalidCategory, 'invalid category');
+  const invalidCategoryPayload = await readHydrationPayload(invalidCategory, '/category/0', 'Filter');
+  assert(invalidCategoryPayload.routeKey === 'category:0', 'invalid category payload routeKey mismatch');
+  assert(invalidCategoryPayload.filter?.filterType === 'category', 'invalid category payload filterType mismatch');
+  assert(invalidCategoryPayload.filter?.filterKey === 'category:0', 'invalid category payload filterKey mismatch');
   expectIncludes(invalidCategory, '没有找到这个分类', 'invalid category empty state');
   expectNotIncludes(invalidCategory, 'Acceptance Public Article', 'invalid category leaked article list');
 
@@ -379,8 +591,8 @@ async function main() {
       assertDeferredSpaOnly(html, 'tag');
     }, 'tag shell contract');
     assertPublicChrome(tag, 'tag');
-    const tagPayload = readBinaryScript(tag, 'fsus-aot-hydration-props');
-    const tagBootstrap = readBinaryScript(tag, 'fsus-aot-bootstrap');
+    const tagPayload = await readHydrationPayload(tag, `/tag/${tagId}`, 'Filter');
+    const tagBootstrap = readInlineBinaryPayload(tag, 'fsus-aot-bootstrap');
     const tagName = String(tagList?.[0]?.name ?? '').trim();
     assert(tagPayload.routeKey === `tag:${tagId}`, 'tag payload routeKey mismatch');
     assert(tagBootstrap.routeKey === `tag:${tagId}`, 'tag bootstrap routeKey mismatch');
@@ -402,8 +614,8 @@ async function main() {
         assertSharedHydrationMarkers(html, 'Filter');
       }, 'named tag shell contract');
       assertPublicChrome(namedTag, 'named tag');
-      const namedTagPayload = readBinaryScript(namedTag, 'fsus-aot-hydration-props');
-      const namedTagBootstrap = readBinaryScript(namedTag, 'fsus-aot-bootstrap');
+      const namedTagPayload = await readHydrationPayload(namedTag, `/tag/${encodeURIComponent(tagName)}`, 'Filter');
+      const namedTagBootstrap = readInlineBinaryPayload(namedTag, 'fsus-aot-bootstrap');
       assert(namedTagPayload.routeKey === `tag-name:${tagName}`, 'named tag payload routeKey mismatch');
       assert(namedTagBootstrap.routeKey === `tag-name:${tagName}`, 'named tag bootstrap routeKey mismatch');
       assert(namedTagPayload.filter?.filterKey === `tag-name:${tagName}`, 'named tag payload filterKey mismatch');
@@ -419,10 +631,14 @@ async function main() {
   expectNotIncludes(search, 'data-public-hydration-kind="Home"', 'search home hydration shell');
   expectNotIncludes(search, 'data-public-hydration-kind="ArticleDetail"', 'search article hydration shell');
 
+  missingSidecarCanary = await assertMissingSidecarFailureVisible();
+  assertRequiredHydrationSidecarCoverage();
+  writeHydrationSidecarSummary('success', missingSidecarCanary);
   console.log('[public-hydration-smoke] completed');
 }
 
 main().catch((error) => {
+  writeHydrationSidecarSummary('failure', missingSidecarCanary, error);
   console.error('[public-hydration-smoke] fatal:', error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

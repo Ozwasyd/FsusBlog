@@ -257,6 +257,41 @@ function serveFsusUiOptimizedWasmAssets(fsusUiWasmDist: string) {
     }
 }
 
+function servePublicAotHydrationSidecars() {
+    const sidecarPathPattern = /^\/aot-cache\/payloads\/[0-9a-f]{2}\/[0-9a-f]{64}\.aeds$/i
+    const handleSidecar = (request: any, response: any, next: () => void) => {
+        const pathname = request.url?.split(/[?#]/)[0] ?? ''
+        if (!sidecarPathPattern.test(pathname)) {
+            next()
+            return
+        }
+
+        const filePath = path.join(fileURLToPath(new URL('./dist/', import.meta.url)), pathname.slice(1))
+        if (!fs.existsSync(filePath)) {
+            next()
+            return
+        }
+
+        const stats = fs.statSync(filePath)
+        response.statusCode = 200
+        response.setHeader('Content-Length', String(stats.size))
+        response.setHeader('Content-Type', 'application/vnd.fsus.aeds')
+        response.setHeader('Cache-Control', 'public,max-age=31536000,immutable')
+        fs.createReadStream(filePath).pipe(response)
+    }
+
+    return {
+        name: 'serve-public-aot-hydration-sidecars',
+        apply: 'serve' as const,
+        configureServer(server: any) {
+            server.middlewares.use(handleSidecar)
+        },
+        configurePreviewServer(server: any) {
+            server.middlewares.use(handleSidecar)
+        }
+    }
+}
+
 function setDevelopmentSecurityHeaders(response: any) {
     response.setHeader('X-Content-Type-Options', 'nosniff')
     response.setHeader('X-Frame-Options', 'DENY')
@@ -392,6 +427,7 @@ export default defineConfig(({ mode }) => {
             applyDevelopmentSecurityHeaders(),
             fixViteClientWorkerDocumentGuard(),
             serveFsusUiOptimizedWasmAssets(fsusUiWasmDist),
+            servePublicAotHydrationSidecars(),
             tailwindcss(),
             vue(),
             vueJsx(),

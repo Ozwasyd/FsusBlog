@@ -173,6 +173,13 @@ public sealed class PublicAotFileShellCache(
                 continue;
             }
 
+            if (!IsHydrationSidecarAvailable(entry))
+            {
+                DeleteInvalidEntryFile(path);
+                RecordCacheRead("miss", "file", "public_aot_cache_sidecar_missing", cacheKey, TimeSpan.Zero);
+                continue;
+            }
+
             _memoryCache[cacheKey] = CreateMemoryCacheEntry(entry);
             if (entry.ExpiresAtUtc <= DateTimeOffset.UtcNow)
             {
@@ -204,6 +211,14 @@ public sealed class PublicAotFileShellCache(
         }
 
         value = cached.Entry;
+        if (!IsHydrationSidecarAvailable(cached.Entry))
+        {
+            _memoryCache.TryRemove(cacheKey, out _);
+            RecordCacheRead("miss", "memory", "public_aot_cache_sidecar_missing", cacheKey, TimeSpan.Zero);
+            value = null;
+            return false;
+        }
+
         if (cached.ExpiresAtUtc <= DateTimeOffset.UtcNow)
         {
             RecordCacheRead("stale", "memory", "public_aot_cache_stale_compatible", cacheKey, TimeSpan.Zero);
@@ -287,6 +302,75 @@ public sealed class PublicAotFileShellCache(
         }
     }
 
+    private bool IsHydrationSidecarAvailable(PublicAotCacheEntry entry)
+    {
+        if (!TryResolveHydrationSidecar(entry, out PublicAotHydrationSidecarReference sidecar))
+        {
+            return true;
+        }
+
+        string sidecarPath = ResolveHydrationSidecarPath(sidecar);
+        if (!File.Exists(sidecarPath))
+        {
+            logger.LogWarning(
+                "public_aot_cache_sidecar_missing {CacheKey} {RouteKey} {SidecarUrl}",
+                entry.CacheKey,
+                entry.RouteKey,
+                sidecar.Url);
+            return false;
+        }
+
+        if (!IsHydrationSidecarHashValid(sidecarPath, sidecar))
+        {
+            logger.LogWarning(
+                "public_aot_cache_sidecar_hash_mismatch {CacheKey} {RouteKey} {SidecarUrl}",
+                entry.CacheKey,
+                entry.RouteKey,
+                sidecar.Url);
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsHydrationSidecarHashValid(
+        string sidecarPath,
+        PublicAotHydrationSidecarReference sidecar)
+    {
+        try
+        {
+            using FileStream stream = File.OpenRead(sidecarPath);
+            byte[] hash = SHA256.HashData(stream);
+            return string.Equals(
+                Convert.ToHexStringLower(hash),
+                sidecar.Sha256Hex,
+                StringComparison.Ordinal);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryResolveHydrationSidecar(
+        PublicAotCacheEntry entry,
+        out PublicAotHydrationSidecarReference sidecar)
+    {
+        if (!entry.HydrationSidecar.IsEmpty)
+        {
+            sidecar = entry.HydrationSidecar;
+            return true;
+        }
+
+        return PublicAotHydrationSidecarReference.TryFromHtml(entry.GetHtml(), out sidecar);
+    }
+
+    private string ResolveHydrationSidecarPath(PublicAotHydrationSidecarReference sidecar)
+    {
+        string webRoot = Path.GetDirectoryName(_cacheRoot) ?? _cacheRoot;
+        return Path.Combine(webRoot, sidecar.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+    }
+
     private MemoryCacheEntry CreateMemoryCacheEntry(PublicAotCacheEntry entry)
         => new(entry, entry.ExpiresAtUtc, entry.RendererVersion, entry.FrontendAssetVersion, Volatile.Read(ref _memoryGeneration));
 
@@ -315,6 +399,9 @@ public sealed class PublicAotFileShellCache(
             case "public_aot_cache_stale_compatible":
                 logger.LogDebug("public_aot_cache_stale_compatible {CacheKey}", cacheKey);
                 break;
+            case "public_aot_cache_sidecar_missing":
+                logger.LogDebug("public_aot_cache_sidecar_missing {CacheKey}", cacheKey);
+                break;
             default:
                 logger.LogDebug("public_aot_cache_lookup {Result} {Layer} {CacheKey}", result, layer, cacheKey);
                 break;
@@ -337,6 +424,21 @@ public sealed class PublicAotFileShellCache(
                 logger.LogDebug(ex, "public_aot_cache_expired_delete_failed {Path}", path);
             }
         });
+    }
+
+    private void DeleteInvalidEntryFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "public_aot_cache_invalid_entry_delete_failed {Path}", path);
+        }
     }
 
     internal static byte[] SerializeEntryBytes(PublicAotCacheEntry entry)
