@@ -250,6 +250,7 @@ jobs:
         with:
           node-version: 24.x
       - run: ./tools/test.sh static-governance --no-deps
+      - run: ./tools/test.sh public-hydration-fast --no-deps
       - run: ./tools/test.sh backend-test-governance --no-deps
       - uses: actions/upload-artifact@v7
         if: always()
@@ -263,6 +264,7 @@ jobs:
             .tmp/backend-test-governance/**
             .tmp/release-evidence/test-plan.json
             .tmp/release-evidence/doc-sync-summary.json
+            .tmp/release-evidence/public-hydration-matrix-summary.json
             .tmp/release-evidence/jobs/**
             .tmp/release-evidence/flaky/**
 
@@ -439,6 +441,7 @@ jobs:
             .tmp/release-evidence/public-hydration-browser-env-summary.json
             .tmp/release-evidence/public-hydration-payload-fixture-summary.json
             .tmp/release-evidence/public-hydration-dom-diff-summary.json
+            .tmp/release-evidence/public-hydration-matrix-summary.json
             .tmp/release-evidence/jobs/**
             src/frontend/test-results/playwright/release/**
 

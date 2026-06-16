@@ -183,6 +183,15 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 
 `check:public-hydration` 中的 refresh hydration detector 会把匹配 Vue hydration 关键词的 `console.warn`、`console.error` 与 `pageerror` 统一视为 release-blocking failure；不得以 `PASS (n warning(s))` 形式放行 hydration warning。该 detector 每次运行都会写入 `.tmp/release-evidence/public-hydration-detector-summary.json`，schema 为 `fsusblog.public-hydration-detector.v1`，并包含 route、stage、browser、viewport、warnings/errors 与 detector canary 结果。release evidence manifest 会索引该文件；缺失或 `status != "success"` 会阻断 release closeout。
 
+Public hydration matrix 由 `tests/frontend/checks/public/public-hydration-matrix.registry.json` 统一声明，新增公开 AOT page kind 必须同步 registry，否则 `check-public-hydration-matrix-governance.mjs` 会因 manifest 覆盖漂移失败。`public-hydration-fast` 是 PR 级轻量治理 lane，输出 `.tmp/release-evidence/public-hydration-matrix-summary.json`；`release` lane 在 #330-#335 summary 全部生成后以 `FSUSBLOG_REQUIRE_PUBLIC_HYDRATION_ARTIFACTS=1` fail-closed 校验并写合并 summary；`public-hydration-nightly` 保留 Firefox/WebKit、更多 state/clock/fixture/cache 组合的 off-critical-path shard 策略。
+
+**Public hydration matrix 本地复现**：
+```bash
+./tools/test.sh ci-tier public-hydration-fast --no-deps
+./tools/test.sh ci-tier release
+./tools/test.sh ci-tier public-hydration-nightly --no-deps
+```
+
 ---
 
 ### `acceptance` — 全量 Playwright E2E

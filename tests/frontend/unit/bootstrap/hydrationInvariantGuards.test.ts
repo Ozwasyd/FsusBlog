@@ -19,6 +19,8 @@ describe('public hydration invariant guards', () => {
   const browserEnvHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs')
   const payloadFixtureHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs')
   const domDiffHydrationCheck = readRepoFile('tests/frontend/checks/public/check-public-dom-diff-hydration.mjs')
+  const hydrationMatrixGovernanceCheck = readRepoFile('tests/frontend/checks/public/check-public-hydration-matrix-governance.mjs')
+  const hydrationMatrixRegistry = readRepoFile('tests/frontend/checks/public/public-hydration-matrix.registry.json')
 
   it('keeps the public hydration checker fatal for Vue hydration warnings', () => {
     expect(refreshHydrationCheck).toContain('HYDRATION_KEYWORDS')
@@ -105,6 +107,25 @@ describe('public hydration invariant guards', () => {
     }
     expect(domDiffHydrationCheck).toContain('runtime-only islands are allowlisted explicitly')
     expect(domDiffHydrationCheck).toContain('public-hydration-dom-diff-summary.json')
+  })
+
+  it('keeps public hydration matrix governance tied to lanes and release evidence', () => {
+    expect(hydrationMatrixGovernanceCheck).toContain('fsusblog.public-hydration-matrix-summary.v1')
+    expect(hydrationMatrixGovernanceCheck).toContain('fsusblog.public-hydration-matrix-registry.v1')
+    expect(hydrationMatrixGovernanceCheck).toContain('public-hydration-matrix.registry.json')
+    expect(hydrationMatrixGovernanceCheck).toContain('AOT public page kind coverage drift')
+    expect(hydrationMatrixGovernanceCheck).toContain('FSUSBLOG_REQUIRE_PUBLIC_HYDRATION_ARTIFACTS')
+    for (const field of ['gitSha', 'rendererVersion', 'route', 'pageKind', 'phase', 'browser', 'viewport', 'state', 'clock', 'fixtureId', 'fatalHydrationIssueCount', 'durationMs']) {
+      expect(hydrationMatrixGovernanceCheck).toContain(field)
+    }
+    for (const lane of ['"id": "fast"', '"id": "release"', '"id": "nightly-full"']) {
+      expect(hydrationMatrixRegistry).toContain(lane)
+    }
+    expect(hydrationMatrixRegistry).toContain('"shardStrategies"')
+    expect(hydrationMatrixRegistry).toContain('"requiredArtifacts": ["detector", "clock", "browserEnv", "payloadFixture", "domDiff"]')
+    expect(hydrationMatrixRegistry).toContain('"costClass": "PR"')
+    expect(hydrationMatrixRegistry).toContain('"costClass": "release"')
+    expect(hydrationMatrixRegistry).toContain('"costClass": "nightly"')
   })
 
   it('keeps ArticleDetail runtime widgets out of SSR and initial hydration DOM', () => {

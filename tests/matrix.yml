@@ -109,10 +109,37 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: public-hydration-fast
+    owner: ServerContractAgent
+    command: tools/test/lanes/public-hydration-fast.sh
+    dependsOn: [validate-matrix]
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 1
+    cost: low
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [public-hydration-fast-matrix, public-hydration-governance]
+    artifacts: [.tmp/release-evidence/public-hydration-matrix-summary.json]
+    evidence: [.tmp/release-evidence/public-hydration-matrix-summary.json]
+    ciJob: fast-static-governance
+    localOnly: false
+    nightlyOnly: false
+
   - id: fast
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh fast
-    dependsOn: [frontend-fast, backend-fast, static-governance]
+    dependsOn: [frontend-fast, backend-fast, static-governance, public-hydration-fast]
     services: []
     parallelizable: true
     exclusiveResources: []
@@ -372,12 +399,39 @@ tiers:
     shardable: false
     defaultShards: 1
     risk: high
-    coverage: [release-preview-runtime, aot-hydration-pwa-seo, public-hydration-clock-matrix, public-hydration-browser-env-matrix, public-hydration-payload-fixture-matrix, public-hydration-dom-diff]
-    artifacts: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, .tmp/release-evidence/public-hydration-clock-matrix-summary.json, .tmp/release-evidence/public-hydration-browser-env-summary.json, .tmp/release-evidence/public-hydration-payload-fixture-summary.json, .tmp/release-evidence/public-hydration-dom-diff-summary.json, src/frontend/test-results/playwright/release]
-    evidence: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, .tmp/release-evidence/public-hydration-clock-matrix-summary.json, .tmp/release-evidence/public-hydration-browser-env-summary.json, .tmp/release-evidence/public-hydration-payload-fixture-summary.json, .tmp/release-evidence/public-hydration-dom-diff-summary.json]
+    coverage: [release-preview-runtime, aot-hydration-pwa-seo, public-hydration-clock-matrix, public-hydration-browser-env-matrix, public-hydration-payload-fixture-matrix, public-hydration-dom-diff, public-hydration-matrix]
+    artifacts: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, .tmp/release-evidence/public-hydration-clock-matrix-summary.json, .tmp/release-evidence/public-hydration-browser-env-summary.json, .tmp/release-evidence/public-hydration-payload-fixture-summary.json, .tmp/release-evidence/public-hydration-dom-diff-summary.json, .tmp/release-evidence/public-hydration-matrix-summary.json, src/frontend/test-results/playwright/release]
+    evidence: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, .tmp/release-evidence/public-hydration-clock-matrix-summary.json, .tmp/release-evidence/public-hydration-browser-env-summary.json, .tmp/release-evidence/public-hydration-payload-fixture-summary.json, .tmp/release-evidence/public-hydration-dom-diff-summary.json, .tmp/release-evidence/public-hydration-matrix-summary.json]
     ciJob: release-public
     localOnly: false
     nightlyOnly: false
+
+  - id: public-hydration-nightly
+    owner: InteropGlueAgent
+    command: tools/test/lanes/public-hydration-nightly.sh
+    dependsOn: [validate-matrix]
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 4
+    cost: very-high
+    resourceClass: browser
+    maxParallel: 1
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: high
+    coverage: [public-hydration-nightly-full-matrix, public-hydration-shard-strategy]
+    artifacts: [.tmp/release-evidence/public-hydration-matrix-summary.json]
+    evidence: [.tmp/release-evidence/public-hydration-matrix-summary.json]
+    ciJob: public-hydration-nightly
+    localOnly: false
+    nightlyOnly: true
 
   - id: security
     owner: ServerContractAgent
