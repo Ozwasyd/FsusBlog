@@ -73,7 +73,7 @@ const isDateDue = (value: string | null | undefined, nowMs: number): boolean => 
   return Number.isFinite(parsed) && parsed <= nowMs
 }
 
-const isPubliclyVisibleArticle = (item: ArticleListItemResponse, nowMs = Date.now()): boolean =>
+export const isPubliclyVisibleArticle = (item: ArticleListItemResponse, nowMs = Date.now()): boolean =>
   !item.isDeleted
   && item.status === ArticlePublishStatus.Published
   && isDateDue(item.publishedAt, nowMs)

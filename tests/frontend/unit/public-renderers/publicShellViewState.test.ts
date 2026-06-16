@@ -49,12 +49,14 @@ describe('createPublicShellViewState', () => {
   it('builds the SSR-compatible shell state for a public page', () => {
     const state = createPublicShellViewState({
       hydrationKind: 'Home',
-      siteTitle: '  My Blog  '
+      siteTitle: '  My Blog  ',
+      renderYear: 2025
     })
 
     expect(state).toMatchObject({
       hydrationKind: 'Home',
       siteTitle: 'My Blog',
+      renderYear: 2025,
       activeNav: 'home',
       authLabel: '登录',
       authHref: '/login',

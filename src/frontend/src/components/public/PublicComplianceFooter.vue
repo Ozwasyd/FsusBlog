@@ -73,9 +73,10 @@ import { Top } from '@/fsusui/icons'
 const props = defineProps<{
   siteTitle: string
   compliance?: SiteComplianceConfigPublic | null
+  renderYear?: number | null
 }>()
 
-const currentYear = new Date().getFullYear()
+const currentYear = computed(() => Number.isInteger(props.renderYear) ? Number(props.renderYear) : new Date().getFullYear())
 const siteTitleText = computed(() => props.siteTitle.trim() || '站点')
 const isComplianceEnabled = computed(() => Boolean(props.compliance?.enabled))
 const copyrightOwnerText = computed(() => props.compliance?.copyrightOwner?.trim() || siteTitleText.value)
@@ -85,10 +86,10 @@ const copyrightNoticeText = computed(() => {
 })
 const copyrightYearText = computed(() => {
   const startYear = props.compliance?.copyrightStartYear
-  if (isComplianceEnabled.value && startYear && startYear < currentYear) {
-    return `${startYear}-${currentYear}`
+  if (isComplianceEnabled.value && startYear && startYear < currentYear.value) {
+    return `${startYear}-${currentYear.value}`
   }
-  return `${currentYear}`
+  return `${currentYear.value}`
 })
 const licenseText = computed(() => {
   const value = props.compliance?.contentLicenseName?.trim()

@@ -121,6 +121,7 @@ export async function renderShell(
     siteLogoUrl?: string | null
     siteLogoDarkUrl?: string | null
     siteWordmarkUrl?: string | null
+    renderYear?: number | null
   }> = {}
 ): Promise<string> {
   const Root: Component = {
@@ -131,6 +132,7 @@ export async function renderShell(
         siteLogoUrl: brand.siteLogoUrl ?? null,
         siteLogoDarkUrl: brand.siteLogoDarkUrl ?? null,
         siteWordmarkUrl: brand.siteWordmarkUrl ?? null,
+        renderYear: brand.renderYear ?? null,
         compliance,
         page
       })

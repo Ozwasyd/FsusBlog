@@ -20,6 +20,7 @@ export type PublicAotShellAssembly = Readonly<{
   siteLogoUrl?: string | null
   siteLogoDarkUrl?: string | null
   siteWordmarkUrl?: string | null
+  renderYear?: number | null
   compliance?: SiteComplianceConfigPublic | null
   page: PublicAotPageAssembly
 }>
@@ -35,6 +36,7 @@ export function renderPublicAotShell(assembly: PublicAotShellAssembly): VNode {
     siteLogoUrl: assembly.siteLogoUrl ?? null,
     siteLogoDarkUrl: assembly.siteLogoDarkUrl ?? null,
     siteWordmarkUrl: assembly.siteWordmarkUrl ?? null,
+    renderYear: assembly.renderYear ?? null,
     compliance: assembly.compliance ?? null,
     spaSearch: false,
     showRuntime: false

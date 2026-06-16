@@ -1,6 +1,6 @@
 import type { ArticleDetailResponse, RelatedReadingItemResponse, RelatedReadingResponse } from '@/api/article';
 import { buildPublicArticleHref, buildPublicCategoryHref, buildPublicTagHref } from '@/public-renderers/publicRouteIdentity';
-import { TimeUtils } from '@/utils/time';
+import { TimeUtils, type TimeRenderOptions } from '@/utils/time';
 
 const READING_CHARS_PER_MINUTE = 300;
 const LONG_READ_THRESHOLD = 5_000;
@@ -156,7 +156,10 @@ export const emptyArticleDetailPageView: ArticleDetailPageViewContract = {
   notFoundState: articleDetailStates.notFoundState
 };
 
-export function createArticleDetailHeaderViewContract(article: ArticleDetailResponse): ArticleDetailHeaderViewContract {
+export function createArticleDetailHeaderViewContract(
+  article: ArticleDetailResponse,
+  timeOptions?: TimeRenderOptions
+): ArticleDetailHeaderViewContract {
   return {
     id: article.id,
     title: article.title,
@@ -164,8 +167,8 @@ export function createArticleDetailHeaderViewContract(article: ArticleDetailResp
     viewsText: `${article.views} 浏览`,
     meta: {
       isoTime: article.createTime,
-      displayTime: TimeUtils.toSmartTime(article.createTime),
-      fullTime: TimeUtils.toFullLocalString(article.createTime),
+      displayTime: TimeUtils.toSmartTime(article.createTime, timeOptions),
+      fullTime: TimeUtils.toFullLocalString(article.createTime, timeOptions),
       categoryName: article.category?.name || '未分类',
       categoryHref: article.category ? buildPublicCategoryHref(article.category.id) : undefined
     },
@@ -180,17 +183,18 @@ export function createArticleDetailPageViewContract(
   article: ArticleDetailResponse,
   commentCount: number,
   hasMore: boolean,
-  relatedReading?: RelatedReadingResponse | null
+  relatedReading?: RelatedReadingResponse | null,
+  timeOptions?: TimeRenderOptions
 ): ArticleDetailPageViewContract {
   const headingText = commentCount > 0 ? `评论 (${commentCount}${hasMore ? '+' : ''})` : '评论';
 
   return {
-    header: createArticleDetailHeaderViewContract(article),
+    header: createArticleDetailHeaderViewContract(article, timeOptions),
     body: {
       content: article.content,
       notice: buildReadingNotice(article.content)
     },
-    relatedReading: createRelatedReadingViewContract(relatedReading),
+    relatedReading: createRelatedReadingViewContract(relatedReading, timeOptions),
     comments: {
       title: '评论',
       headingText,
@@ -206,7 +210,8 @@ export function createArticleDetailPageViewContract(
 }
 
 function createRelatedReadingViewContract(
-  relatedReading?: RelatedReadingResponse | null
+  relatedReading?: RelatedReadingResponse | null,
+  timeOptions?: TimeRenderOptions
 ): ArticleDetailRelatedReadingViewContract {
   return {
     title: '延伸阅读',
@@ -214,19 +219,22 @@ function createRelatedReadingViewContract(
     nextLabel: '下一篇',
     relatedLabel: '相关文章',
     emptyText: '暂无延伸阅读。',
-    previous: relatedReading?.previous ? createRelatedReadingItemView(relatedReading.previous) : null,
-    next: relatedReading?.next ? createRelatedReadingItemView(relatedReading.next) : null,
-    items: (relatedReading?.related ?? []).map(createRelatedReadingItemView)
+    previous: relatedReading?.previous ? createRelatedReadingItemView(relatedReading.previous, timeOptions) : null,
+    next: relatedReading?.next ? createRelatedReadingItemView(relatedReading.next, timeOptions) : null,
+    items: (relatedReading?.related ?? []).map((item) => createRelatedReadingItemView(item, timeOptions))
   };
 }
 
-function createRelatedReadingItemView(item: RelatedReadingItemResponse): RelatedReadingItemViewContract {
+function createRelatedReadingItemView(
+  item: RelatedReadingItemResponse,
+  timeOptions?: TimeRenderOptions
+): RelatedReadingItemViewContract {
   return {
     id: item.id,
     title: item.title,
     summary: item.summary?.trim() ?? '',
     reason: item.reason,
     href: buildPublicArticleHref(item.id),
-    displayTime: TimeUtils.toSmartTime(item.createTime)
+    displayTime: TimeUtils.toSmartTime(item.createTime, timeOptions)
   };
 }

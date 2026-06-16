@@ -84,6 +84,7 @@ export function createPublicHydrationRoot(payload: PublicHydrationPayload): VNod
     siteLogoUrl: payload.siteLogoUrl ?? null,
     siteLogoDarkUrl: payload.siteLogoDarkUrl ?? null,
     siteWordmarkUrl: payload.siteWordmarkUrl ?? null,
+    renderYear: payload.renderYear ?? null,
     compliance: payload.compliance ?? null,
     page
   })

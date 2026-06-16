@@ -34,7 +34,11 @@ export function useAboutPage() {
     : typeof initialBootstrap?.bodyHtml === 'string'
       ? initialBootstrap.bodyHtml
       : ''
-  const currentYear = new Date().getFullYear()
+  const currentYear = Number.isInteger(initialHydrationPayload?.renderYear)
+    ? Number(initialHydrationPayload?.renderYear)
+    : Number.isInteger(initialBootstrap?.renderYear)
+      ? Number(initialBootstrap?.renderYear)
+      : new Date().getFullYear()
   const rawMarkdown = ref('')
   const loading = ref(true)
   const error = ref(false)

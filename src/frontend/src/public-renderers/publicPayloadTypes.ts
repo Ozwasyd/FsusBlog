@@ -41,6 +41,9 @@ type BaseBootstrapPayload<K extends PublicAotBootstrapKind> = Readonly<{
   compliance?: SiteComplianceConfigPublic | null
   title?: string
   generatedAt?: string
+  renderTimestamp?: string
+  renderYear?: number
+  renderTimeZone?: string
 }>
 
 export type PublicAotBootstrapPayloadByKind = {
@@ -129,6 +132,9 @@ type BaseHydrationPayload<K extends PublicPageKind> = Readonly<{
   loginLogoUrl?: string | null
   loginIconUrl?: string | null
   compliance?: SiteComplianceConfigPublic | null
+  renderTimestamp?: string
+  renderYear?: number
+  renderTimeZone?: string
 }>
 
 export type PublicHydrationPayloadByKind = {

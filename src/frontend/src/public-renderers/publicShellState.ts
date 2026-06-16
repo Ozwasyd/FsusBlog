@@ -16,6 +16,7 @@ export type PublicShellState = Readonly<{
   spaSearch: boolean
   showRuntime: boolean
   compliance: SiteComplianceConfigPublic | null
+  renderYear: number | null
 }>
 
 export const PUBLIC_SHELL_DEFAULTS: PublicShellState = {
@@ -31,7 +32,8 @@ export const PUBLIC_SHELL_DEFAULTS: PublicShellState = {
   initialSearchQuery: '',
   spaSearch: false,
   showRuntime: false,
-  compliance: null
+  compliance: null,
+  renderYear: null
 }
 
 export function createPublicShellState(overrides: Partial<PublicShellState> = {}): PublicShellState {

@@ -10,6 +10,21 @@ dayjs.extend(timezone);
 dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
 
+export type TimeRenderOptions = Readonly<{
+    now?: string | Date | number | null;
+    timeZone?: string | null;
+}>;
+
+function resolveDisplayTimeZone(options?: TimeRenderOptions): string | null {
+    const value = options?.timeZone?.trim();
+    return value && value.length > 0 ? value : null;
+}
+
+function applyDisplayTimeZone(value: dayjs.Dayjs, options?: TimeRenderOptions): dayjs.Dayjs {
+    const timeZone = resolveDisplayTimeZone(options);
+    return timeZone ? value.tz(timeZone) : value.local();
+}
+
 /**
  * 时间处理工具类
  * 修复日期: 2026-02-23
@@ -51,31 +66,34 @@ export const TimeUtils = {
     /**
      * 将 UTC 时间转换为相对时间（如：3分钟前）
      */
-    toRelative(utcTime: string | Date | number): string {
+    toRelative(utcTime: string | Date | number, options?: TimeRenderOptions): string {
         const d = this._parse(utcTime);
         if (!d) return '时间未知'; // 可观测性：区分解析失败
-        return d.local().fromNow();
+        const now = options?.now == null ? null : this._parse(options.now);
+        const displayTime = applyDisplayTimeZone(d, options);
+        return now ? displayTime.from(applyDisplayTimeZone(now, options)) : displayTime.fromNow();
     },
 
     /**
      * 将 UTC 时间转换为本地标准格式
      */
-    toFullLocalString(utcTime: string | Date | number): string {
+    toFullLocalString(utcTime: string | Date | number, options?: TimeRenderOptions): string {
         const d = this._parse(utcTime);
         if (!d) return '时间格式错误';
-        return d.local().format('YYYY-MM-DD HH:mm:ss');
+        return applyDisplayTimeZone(d, options).format('YYYY-MM-DD HH:mm:ss');
     },
 
     /**
      * 智能格式化：全生命周期感知
      * 解决：diff 精度问题、未来时间处理、长列表性能
      */
-    toSmartTime(utcTime: string | Date | number): string {
+    toSmartTime(utcTime: string | Date | number, options?: TimeRenderOptions): string {
         const target = this._parse(utcTime);
         if (!target) return '-';
 
-        const localTarget = target.local();
-        const now = dayjs();
+        const localTarget = applyDisplayTimeZone(target, options);
+        const parsedNow = options?.now == null ? null : this._parse(options.now);
+        const now = applyDisplayTimeZone(parsedNow ?? dayjs(), options);
 
         // 算法最优：使用分钟级 diff 提升感官精度
         const diffInMinutes = now.diff(localTarget, 'minute');
@@ -92,7 +110,7 @@ export const TimeUtils = {
 
         // 3. 24小时内 (使用相对时间)
         if (diffInMinutes < 1440) {
-            return localTarget.fromNow();
+            return localTarget.from(now);
         }
 
         // 4. 跨年处理

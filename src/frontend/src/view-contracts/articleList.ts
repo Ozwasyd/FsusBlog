@@ -1,7 +1,7 @@
 import type { ArticleListItemResponse, PageResponse } from '@/api/article';
 import { createPublicArticleDetailNavigationTarget } from '@/public-renderers/publicNavigationTargets'
 import type { CardContract, PaginationContract } from '@/ui-contracts/primitives';
-import { TimeUtils } from '@/utils/time';
+import { TimeUtils, type TimeRenderOptions } from '@/utils/time';
 
 const DEFAULT_CATEGORY = '通用类';
 const MAX_TAGS_DISPLAY = 5;
@@ -48,7 +48,8 @@ function toArticleTagView(name: string): ArticleTagViewContract {
 
 export function createArticleListCardViewContract(
   article: ArticleListItemResponse,
-  index = 0
+  index = 0,
+  timeOptions?: TimeRenderOptions
 ): ArticleListCardViewContract {
   const articleTarget = createPublicArticleDetailNavigationTarget(article.id)
   return {
@@ -62,8 +63,8 @@ export function createArticleListCardViewContract(
     summary: article.summary || '',
     meta: {
       isoTime: article.createTime,
-      displayTime: TimeUtils.toSmartTime(article.createTime),
-      fullTime: TimeUtils.toFullLocalString(article.createTime),
+      displayTime: TimeUtils.toSmartTime(article.createTime, timeOptions),
+      fullTime: TimeUtils.toFullLocalString(article.createTime, timeOptions),
       categoryName: article.category?.name || DEFAULT_CATEGORY
     },
     tags: (article.tags || []).slice(0, MAX_TAGS_DISPLAY).map((tag) => toArticleTagView(tag.name))
@@ -72,7 +73,7 @@ export function createArticleListCardViewContract(
 
 export function createArticleListViewContract(
   response: PageResponse<ArticleListItemResponse>,
-  options: { currentPage: number; pageSize: number; searchKeyword?: string }
+  options: { currentPage: number; pageSize: number; searchKeyword?: string; time?: TimeRenderOptions }
 ): ArticleListViewContract {
   const total = Number(response.total) || 0;
   const currentPage = Math.max(1, options.currentPage);
@@ -80,7 +81,7 @@ export function createArticleListViewContract(
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return {
-    items: response.items.map((article, index) => createArticleListCardViewContract(article, index)),
+    items: response.items.map((article, index) => createArticleListCardViewContract(article, index, options.time)),
     pagination: {
       previous: {
         label: '上一页',

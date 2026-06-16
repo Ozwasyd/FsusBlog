@@ -80,6 +80,7 @@
         <PublicComplianceFooter
           :site-title="siteTitleText"
           :compliance="compliance"
+          :render-year="renderYear"
         />
       </template>
     </el-public-shell>
@@ -104,7 +105,8 @@ const SHELL_DEFAULTS = {
   initialSearchQuery: '',
   spaSearch: false,
   showRuntime: false,
-  compliance: null
+  compliance: null,
+  renderYear: null
 } satisfies {
   hydrationKind: string | null
   siteTitle: string
@@ -116,6 +118,7 @@ const SHELL_DEFAULTS = {
   spaSearch: boolean
   showRuntime: boolean
   compliance: SiteComplianceConfigPublic | null
+  renderYear: number | null
 }
 
 const props = withDefaults(defineProps<{
@@ -132,6 +135,7 @@ const props = withDefaults(defineProps<{
   spaSearch?: boolean
   showRuntime?: boolean
   compliance?: SiteComplianceConfigPublic | null
+  renderYear?: number | null
 }>(), {
   hydrationKind: null,
   siteTitle: '站点',
@@ -145,7 +149,8 @@ const props = withDefaults(defineProps<{
   initialSearchQuery: '',
   spaSearch: false,
   showRuntime: false,
-  compliance: null
+  compliance: null,
+  renderYear: null
 })
 
 const emit = defineEmits<{

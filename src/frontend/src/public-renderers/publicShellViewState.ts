@@ -15,6 +15,7 @@ export type PublicShellViewInput = Readonly<{
   spaSearch?: boolean
   showRuntime?: boolean
   compliance?: SiteComplianceConfigPublic | null
+  renderYear?: number | null
   isRuntimeAuthResolved?: boolean
   isLoggedIn?: boolean
   isAdmin?: boolean
@@ -57,6 +58,7 @@ export function createPublicShellViewState(input: PublicShellViewInput = {}): Pu
     spaSearch: Boolean(input.spaSearch),
     showRuntime: Boolean(input.showRuntime),
     compliance: input.compliance ?? null,
+    renderYear: Number.isInteger(input.renderYear) ? Number(input.renderYear) : null,
     ...resolveAuthState(input)
   })
 }

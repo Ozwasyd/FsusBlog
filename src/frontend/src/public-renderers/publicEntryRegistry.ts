@@ -55,6 +55,12 @@ import {
   buildPublicPrivacyRouteKey
 } from '@/public-renderers/publicRouteIdentity'
 import { PUBLIC_SHELL_DEFAULTS } from '@/public-renderers/publicShellState'
+import {
+  createPublicRenderClock,
+  createPublicRenderTimeOptions,
+  type PublicRenderClock
+} from '@/public-renderers/publicRenderClock'
+import type { TimeRenderOptions } from '@/utils/time'
 
 export type PublicEntryBuilder = (options: PublicEntryBuildOptions) => Promise<RenderResult>
 
@@ -73,6 +79,8 @@ type PublicEntryScope<K extends PublicPageKind = PublicPageKind> = Readonly<{
   compliance: SiteComplianceConfigPublic | null
   baseUrlInput: unknown
   baseUrlText: string
+  renderClock: PublicRenderClock
+  renderTimeOptions: TimeRenderOptions
   baseModel: PublicRenderBase
   renderShell: (page: PublicAotPageAssembly) => Promise<string>
   createEntry: (
@@ -145,6 +153,8 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
   const compliance = normalizeComplianceConfig(options.compliance)
   const baseUrlInput = options.baseUrl
   const baseUrlText = toText(baseUrlInput, '')
+  const renderClock = createPublicRenderClock(options.renderTimestamp ?? options.generatedAt)
+  const renderTimeOptions = createPublicRenderTimeOptions(renderClock)
   const baseModel = createPublicRenderBase(kind, routeKey, {
     rendererVersion: PUBLIC_RENDERER_VERSION,
     siteTitle,
@@ -155,7 +165,8 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
     siteWordmarkUrl,
     loginLogoUrl,
     loginIconUrl,
-    compliance
+    compliance,
+    renderClock
   })
 
   return {
@@ -171,11 +182,14 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
     compliance,
     baseUrlInput,
     baseUrlText,
+    renderClock,
+    renderTimeOptions,
     baseModel,
     renderShell: async (page) => await renderShell(kind, siteTitle, page, compliance, {
       siteLogoUrl,
       siteLogoDarkUrl,
-      siteWordmarkUrl
+      siteWordmarkUrl,
+      renderYear: renderClock.renderYear
     }),
     createEntry: (html, bootstrap, hydration, entryOptions) => createEntry(kind, routeKey, html, bootstrap, hydration, {
       ...entryOptions,
@@ -290,7 +304,11 @@ const homeEntryDefinition = definePublicEntry({
     const pageSize = toNumber(options.pageSize ?? options.size, 8)
     const total = toNumber(options.total, items.length)
     const scope = createScope(buildPublicHomeRouteKey())
-    const view = createArticleListViewContract({ items, total }, { currentPage, pageSize })
+    const view = createArticleListViewContract({ items, total }, {
+      currentPage,
+      pageSize,
+      time: scope.renderTimeOptions
+    })
     const hydration = {
       ...scope.baseModel.hydrationBase,
       title: scope.siteTitle,
@@ -331,7 +349,13 @@ const articleDetailEntryDefinition = definePublicEntry({
     const scope = createScope(buildPublicArticleRouteKey(articleId))
     const authorName = toText(options.authorName, scope.siteTitle)
     const relatedReading = normalizeRelatedReading(options.relatedReading)
-    const detailView: ArticleDetailPageViewContract = createArticleDetailPageViewContract(article, 0, false, relatedReading)
+    const detailView: ArticleDetailPageViewContract = createArticleDetailPageViewContract(
+      article,
+      0,
+      false,
+      relatedReading,
+      scope.renderTimeOptions
+    )
     const bodyHtml = await renderAotBodyHtml(article.content, scope.baseUrlText || null)
     const hydration = {
       ...scope.baseModel.hydrationBase,
@@ -383,7 +407,7 @@ function createStaticPageEntryDefinition<K extends Extract<PublicPageKind, 'Abou
       const slug = toText(options.slug, getSharedPublicPageManifestEntry(kind).canonicalSlug)
       const view = createAboutPageViewContract({
         siteTitle: scope.siteTitle,
-        currentYear: new Date().getFullYear(),
+        currentYear: scope.renderClock.renderYear,
         content,
         title
       })
@@ -429,7 +453,7 @@ const archiveEntryDefinition = definePublicEntry({
     const scope = createScope(buildPublicArchiveRouteKey())
     const articles = Array.isArray(options.articles) ? options.articles.map(normalizeArticleSummary) : []
     const total = toNumber(options.total, articles.length)
-    const view = createArchivePageViewContract(articles, total)
+    const view = createArchivePageViewContract(articles, total, scope.renderTimeOptions)
     const hydration = {
       ...scope.baseModel.hydrationBase,
       title: toText(options.title, '归档'),
@@ -470,7 +494,7 @@ const filterEntryDefinition = definePublicEntry({
     const total = toNumber(filterInput.total, 0)
     const totalPages = Math.max(1, Math.ceil(total / Math.max(1, pageSize)))
     const articles = Array.isArray(filterInput.articles) ? filterInput.articles.map(normalizeArticleSummary) : []
-    const cards = articles.map((article, index) => createArticleListCardViewContract(article, index))
+    const cards = articles.map((article, index) => createArticleListCardViewContract(article, index, scope.renderTimeOptions))
     const isInvalidTarget = Boolean(filterInput.isInvalidTarget)
     const view = createFilterPageViewContract({
       filterType,

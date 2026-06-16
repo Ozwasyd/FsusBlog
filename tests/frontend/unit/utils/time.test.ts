@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { TimeUtils } from '@/utils/time'
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('TimeUtils._parse', () => {
   it('returns null for null input', () => {
@@ -65,6 +69,13 @@ describe('TimeUtils.toFullLocalString', () => {
   it('returns 时间格式错误 for invalid input', () => {
     expect(TimeUtils.toFullLocalString('bad')).toBe('时间格式错误')
   })
+
+  it('formats with an explicit timezone for SSR-visible strings', () => {
+    const input = '2026-01-01T00:30:00Z'
+
+    expect(TimeUtils.toFullLocalString(input, { timeZone: 'UTC' })).toBe('2026-01-01 00:30:00')
+    expect(TimeUtils.toFullLocalString(input, { timeZone: 'Asia/Shanghai' })).toBe('2026-01-01 08:30:00')
+  })
 })
 
 describe('TimeUtils.toSmartTime', () => {
@@ -93,5 +104,15 @@ describe('TimeUtils.toSmartTime', () => {
     const future = new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes ahead
     const result = TimeUtils.toSmartTime(future)
     expect(typeof result).toBe('string')
+  })
+
+  it('uses the provided render clock instead of the process clock for transition windows', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:05:00Z'))
+
+    expect(TimeUtils.toSmartTime('2026-01-01T00:00:30Z', {
+      now: '2026-01-01T00:01:00Z',
+      timeZone: 'UTC'
+    })).toBe('刚刚')
   })
 })

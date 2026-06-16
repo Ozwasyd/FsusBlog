@@ -67,7 +67,9 @@ vi.mock('@/components/ui/MarkdownRenderer.vue', () => ({
 import { decodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 import { getSharedPublicPageManifestEntry, PUBLIC_PAGE_MANIFEST } from '@/public-renderers/generated/publicPageManifest'
 import { renderShell } from '@/public-renderers/publicEntryCore'
+import { createPublicHydrationRoot } from '@/public-renderers/publicHydrationRoot'
 import { buildPublicEntry } from '@/public-renderers/publicEntryRegistry'
+import { renderPublicAotShell } from '@/public-renderers/scaffold'
 
 describe('publicEntryRegistry shared coverage', () => {
   it('builds entries for every shared SEO page kind', async () => {
@@ -178,6 +180,89 @@ describe('publicEntryRegistry shared coverage', () => {
     expect(bootstrap?.articles).toHaveLength(1)
     expect(hydration?.total).toBe(1)
     expect(hydration?.view?.items).toHaveLength(1)
+  })
+
+  it('emits one render clock for public article detail and related-reading display times', async () => {
+    const result = await buildPublicEntry('ArticleDetail', {
+      id: 1,
+      title: 'Article',
+      bodyContent: 'Body',
+      summary: 'Summary',
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      createTime: '2026-01-01T00:00:30Z',
+      renderTimestamp: '2026-01-01T00:01:00Z',
+      relatedReading: {
+        related: [
+          {
+            id: 2,
+            title: 'Related',
+            summary: 'Related summary',
+            createTime: '2026-01-01T00:00:30Z',
+            reason: '相关'
+          }
+        ]
+      }
+    })
+
+    const hydration = decodePublicAotPayload<{
+      renderTimestamp?: string
+      renderYear?: number
+      renderTimeZone?: string
+      detailView?: {
+        header?: { meta?: { displayTime?: string } }
+        relatedReading?: { items?: Array<{ displayTime?: string }> }
+      }
+    }>(result.entry.hydrationPropsPayload)
+    const bootstrap = decodePublicAotPayload<{
+      renderTimestamp?: string
+      renderYear?: number
+      renderTimeZone?: string
+    }>(result.entry.bootstrapPayload)
+
+    expect(hydration?.renderTimestamp).toBe('2026-01-01T00:01:00.000Z')
+    expect(hydration?.renderYear).toBe(2026)
+    expect(hydration?.renderTimeZone).toBe('UTC')
+    expect(bootstrap?.renderTimestamp).toBe(hydration?.renderTimestamp)
+    expect(bootstrap?.renderYear).toBe(hydration?.renderYear)
+    expect(hydration?.detailView?.header?.meta?.displayTime).toBe('刚刚')
+    expect(hydration?.detailView?.relatedReading?.items?.[0]?.displayTime).toBe('刚刚')
+  })
+
+  it('derives static page currentYear from the public render clock', async () => {
+    const result = await buildPublicEntry('About', {
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      content: 'About content',
+      renderTimestamp: '2025-12-31T23:59:30Z'
+    })
+
+    const hydration = decodePublicAotPayload<{
+      renderTimestamp?: string
+      renderYear?: number
+      view?: { header?: { currentYear?: number } }
+    }>(result.entry.hydrationPropsPayload)
+
+    expect(hydration?.renderTimestamp).toBe('2025-12-31T23:59:30.000Z')
+    expect(hydration?.renderYear).toBe(2025)
+    expect(hydration?.view?.header?.currentYear).toBe(2025)
+  })
+
+  it('passes the payload renderYear through the hydration root shell', async () => {
+    const result = await buildPublicEntry('About', {
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      content: 'About content',
+      renderTimestamp: '2025-12-31T23:59:30Z'
+    })
+    const hydration = decodePublicAotPayload<Parameters<typeof createPublicHydrationRoot>[0]>(result.entry.hydrationPropsPayload)
+    const renderShellMock = vi.mocked(renderPublicAotShell)
+
+    renderShellMock.mockClear()
+    createPublicHydrationRoot(hydration!)
+
+    expect(renderShellMock).toHaveBeenCalledTimes(1)
+    expect(renderShellMock.mock.calls[0]?.[0].renderYear).toBe(2025)
   })
 
   it('derives filter search-sort visibility from shared filter semantics', async () => {

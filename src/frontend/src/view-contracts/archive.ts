@@ -2,13 +2,15 @@ import type { ArticleListItemResponse } from '@/api/article'
 import type { PublicArticleDetailNavigationTarget } from '@/public-renderers/publicNavigationTargets'
 import { createPublicArticleDetailNavigationTarget } from '@/public-renderers/publicNavigationTargets'
 import dayjs from 'dayjs'
-import { TimeUtils } from '@/utils/time'
+import { TimeUtils, type TimeRenderOptions } from '@/utils/time'
 
 export type ArchiveArticleViewContract = Readonly<{
   id: number
   title: string
   createTime: string
   dayText: string
+  yearText: string
+  monthText: string
   fullLocalTimeText: string
   timestamp: number
   route: PublicArticleDetailNavigationTarget['route']
@@ -33,9 +35,27 @@ export type ArchivePageViewContract = Readonly<{
   }>
 }>
 
-function createArchiveArticleViewContract(article: ArticleListItemResponse): ArchiveArticleViewContract | null {
+function toArchiveDisplayTime(value: string, timeOptions?: TimeRenderOptions) {
+  const parsed = TimeUtils._parse(value)
+  if (!parsed || !parsed.isValid()) {
+    return null
+  }
+
+  const timeZone = timeOptions?.timeZone?.trim()
+  return timeZone ? parsed.tz(timeZone) : parsed.local()
+}
+
+function createArchiveArticleViewContract(
+  article: ArticleListItemResponse,
+  timeOptions?: TimeRenderOptions
+): ArchiveArticleViewContract | null {
   const parsed = TimeUtils._parse(article.createTime)
   if (!parsed || !parsed.isValid()) {
+    return null
+  }
+
+  const displayTime = toArchiveDisplayTime(article.createTime, timeOptions)
+  if (!displayTime) {
     return null
   }
 
@@ -45,8 +65,10 @@ function createArchiveArticleViewContract(article: ArticleListItemResponse): Arc
     id: article.id,
     title: article.title,
     createTime: article.createTime,
-    dayText: parsed.format('DD'),
-    fullLocalTimeText: TimeUtils.toFullLocalString(article.createTime),
+    dayText: displayTime.format('DD'),
+    yearText: displayTime.year().toString(),
+    monthText: displayTime.format('MM'),
+    fullLocalTimeText: TimeUtils.toFullLocalString(article.createTime, timeOptions),
     timestamp: parsed.valueOf(),
     route: articleTarget.route
   }
@@ -84,8 +106,8 @@ function createArchivePageViewContractCore(
       continue
     }
 
-    const year = parsed.year().toString()
-    const month = parsed.format('MM')
+    const year = item.yearText || parsed.year().toString()
+    const month = item.monthText || parsed.format('MM')
 
     if (!yearMap.has(year)) {
       yearMap.set(year, new Map())
@@ -131,8 +153,12 @@ function createArchivePageViewContractCore(
   }
 }
 
-export function createArchivePageViewContract(articles: ArticleListItemResponse[], total: number): ArchivePageViewContract {
-  return createArchivePageViewContractCore(articles, total, createArchiveArticleViewContract)
+export function createArchivePageViewContract(
+  articles: ArticleListItemResponse[],
+  total: number,
+  timeOptions?: TimeRenderOptions
+): ArchivePageViewContract {
+  return createArchivePageViewContractCore(articles, total, (article) => createArchiveArticleViewContract(article, timeOptions))
 }
 
 export function createStableArchivePageViewContractBuilder(): typeof createArchivePageViewContract {
