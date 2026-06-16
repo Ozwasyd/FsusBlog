@@ -235,7 +235,7 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 
 统一 SEO 与品牌资产来自同一个 `SeoConfig` AEDS frame，不新增 `/system/brand` 并行主端点。`/api/binary/system/seo` 同时承载基础 SEO、OpenGraph 预览图、favicon/browser icon、Apple Touch Icon、PWA manifest 名称/图标/theme/background、公开站点 logo/wordmark、后台 logo/折叠图标和登录 logo/icon。保存后必须通过 SEO 配置失效链路刷新 HTML head、动态 `manifest.webmanifest`、Public AOT shell、公开 shell hydration、后台与登录页品牌展示；旧配置缺失新增字段时按默认静态路径或空值补齐。资产 URL 只接受站内绝对路径或 `http/https` 绝对 URL，不接受 `javascript:`、`data:` 或协议相对 URL。
 
-公开页结构的 SSR 入口是 [`src/frontend/src/public-renderers/renderPublicPage.ts`](../../src/frontend/src/public-renderers/renderPublicPage.ts)，该入口向 server SSR worker 暴露 `buildPublicEntry`、payload codec 与 renderer version；具体页面组合由 `publicEntryRegistry.ts`、`pageAssemblies.ts` 与 `scaffold.ts` 维护。文档和实现不得再引入额外 helper 作为公开页结构真相源。服务端 AOT provider 只提供数据型 options，不手写 hydration props、不渲染 Markdown、不拼页面内部 HTML；Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayload`，服务端只做文档包装、缓存与降级。
+公开页结构的 SSR 入口是 [`src/frontend/src/public-renderers/renderPublicPage.ts`](../../src/frontend/src/public-renderers/renderPublicPage.ts)，该入口向 server SSR worker 暴露 `buildPublicEntry`、payload codec 与 renderer version；具体页面组合由 `publicEntryRegistry.ts`、`pageAssemblies.ts` 与 `scaffold.ts` 维护。文档和实现不得再引入额外 helper 作为公开页结构真相源。服务端 AOT provider 只提供数据型 options，不手写 hydration props、不渲染 Markdown、不拼页面内部 HTML；Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayload`，服务端只做文档包装、hydration `.aeds` sidecar 写出、缓存与降级。
 
 ### feed / sitemap / robots 缓存约束
 
@@ -292,7 +292,7 @@ Public AOT document composer 只允许通过以下 5 个具名 sentinel 写入 A
 | `<!--fsus:aot:head-start-->` | SEO/head 注入起点 |
 | `<!--fsus:aot:head-end-->` | SEO/head 注入终点 |
 | `<!--fsus:aot:app-->` | SPA/AOT shell 挂载点 |
-| `<!--fsus:aot:payloads-->` | bootstrap / hydration / islands AEDS payload 注入点 |
+| `<!--fsus:aot:payloads-->` | bootstrap AEDS 注入点与 hydration `.aeds` sidecar marker 注入点 |
 | `<!--fsus:aot:spa-boot-->` | deferred SPA boot 注入点 |
 
 模板缺少任一 sentinel 必须失败而不是静默降级。AOT 负责维护的 description/canonical/Open Graph/Twitter/feed/JSON-LD head 节点必须统一带 `data-fsus-aot-head`，客户端 micro-navigation 只替换这些标记节点，不触碰 Vite runtime、CSP nonce 或其他非 AOT head。新增 sentinel 必须同步更新 [`PublicAotDocumentComposer.cs`](../../src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs)、本节列表、[`contracts.md#aot-公开页契约`](contracts.md#aot-公开页契约) 与 [`tests/frontend/checks/public/check-public-aot-contracts.mjs`](../../tests/frontend/checks/public/check-public-aot-contracts.mjs) 的完整性断言。

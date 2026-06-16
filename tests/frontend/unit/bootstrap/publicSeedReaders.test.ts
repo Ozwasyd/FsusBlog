@@ -10,6 +10,17 @@ function setCurrentUrl(url: string): void {
   window.location.href = url
 }
 
+function base64UrlToBytes(value: string): Uint8Array {
+  const normalized = value.replaceAll('-', '+').replaceAll('_', '/')
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
+  const binary = atob(padded)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+  return bytes
+}
+
 describe('public seed readers', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
@@ -120,5 +131,54 @@ describe('public seed readers', () => {
     expect(payload).not.toBeNull()
     expect(payload?.pageKind).toBe('ArticleDetail')
     expect(payload?.routeKey).toBe('article:1')
+  })
+
+  it('fetches hydration payloads from an AEDS sidecar marker before falling back to inline text', async () => {
+    vi.resetModules()
+
+    const rawPayload = encodePublicAotPayload({
+      pageKind: 'ArticleDetail',
+      routeKey: 'article:1',
+      rendererVersion: 'test-renderer',
+      title: 'Sidecar hydration',
+      articleId: 1,
+      detailView: {
+        id: 1,
+        title: 'Sidecar hydration',
+        summary: 'summary',
+        content: 'content',
+        views: 42,
+        createTime: '2026-05-11T00:00:00Z',
+        category: {
+          id: 1,
+          name: 'Category'
+        },
+        tags: []
+      },
+      commentsIsland: {
+        articleId: 1
+      }
+    })
+    const script = document.createElement('script')
+    script.id = 'fsus-aot-hydration-props'
+    script.type = 'application/octet-stream'
+    script.dataset.aedsSrc = '/aot-cache/payloads/aa/sidecar.aeds'
+    document.body.appendChild(script)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(base64UrlToBytes(rawPayload)))
+
+    const { readPublicHydrationPayload, readPublicHydrationPayloadAsync } = await import('@/bootstrap/publicHydrationBootstrap')
+    const payload = await readPublicHydrationPayloadAsync()
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'http://127.0.0.1:5000/aot-cache/payloads/aa/sidecar.aeds',
+      expect.objectContaining({
+        credentials: 'same-origin'
+      })
+    )
+    expect(payload?.pageKind).toBe('ArticleDetail')
+    expect(payload?.routeKey).toBe('article:1')
+    expect(readPublicHydrationPayload()?.title).toBe('Sidecar hydration')
+
+    fetchSpy.mockRestore()
   })
 })

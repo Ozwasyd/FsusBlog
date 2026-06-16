@@ -49,8 +49,11 @@ function assertStaticContracts() {
   const warmScript = read('tools/frontend/warm-public-aot-cache.mjs')
   const indexHtml = read('src/frontend/index.html')
   const documentComposer = read('src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs')
+  const documentService = read('src/backend/Infrastructure/PublicAot/PublicAotDocumentService.cs')
   const publicShell = read('src/frontend/src/bootstrap/publicShell.ts')
+  const hydrationBootstrap = read('src/frontend/src/bootstrap/publicHydrationBootstrap.ts')
   const binaryPayload = read('src/frontend/src/bootstrap/publicAotBinaryPayload.ts')
+  const refreshHydrationCheck = read('tests/frontend/checks/public/check-public-refresh-hydration.mjs')
   const shellService = read('src/backend/Infrastructure/PublicAot/PublicAotShellService.cs')
   const fileCache = read('src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs')
 
@@ -94,11 +97,34 @@ function assertStaticContracts() {
   if (!documentComposer.includes('data-fsus-aot-head')) {
     fail('document composer must mark all Public AOT-managed head nodes')
   }
+  for (const token of ['BuildBinaryPayloadSidecarMarker', 'data-aeds-src', 'BuildPayloadSidecarUrl']) {
+    if (!documentComposer.includes(token)) {
+      fail(`document composer missing hydration sidecar token: ${token}`)
+    }
+  }
+  if (!documentService.includes('WriteHydrationPayloadSidecarAsync') || !documentService.includes('DecodePayloadFrameBytes')) {
+    fail('document service must write hydration payload sidecars as raw AEDS frames')
+  }
   if (!publicShell.includes("querySelectorAll('[data-fsus-aot-head]')")) {
     fail('public shell micro-navigation must replace all Public AOT-managed head nodes')
   }
-  if (!binaryPayload.includes('class BinaryWriter') || binaryPayload.includes('const payload: number[]') || !binaryPayload.includes("toString('base64url')")) {
+  for (const token of ['readBinarySidecarUrlById', 'readPublicHydrationPayloadFromUrl', 'replacePublicHydrationPayloadSnapshot']) {
+    if (!publicShell.includes(token)) {
+      fail(`public shell micro-navigation missing hydration sidecar token: ${token}`)
+    }
+  }
+  for (const token of ['readPublicHydrationPayloadAsync', 'readPublicHydrationPayloadFromUrl', 'dataset.aedsSrc']) {
+    if (!hydrationBootstrap.includes(token)) {
+      fail(`hydration bootstrap missing sidecar fetch token: ${token}`)
+    }
+  }
+  if (!binaryPayload.includes('class BinaryWriter') || binaryPayload.includes('const payload: number[]') || !binaryPayload.includes("toString('base64url')") || !binaryPayload.includes('decodePublicAotPayloadBytes')) {
     fail('Public AOT payload encoder must use growable Uint8Array writer and Node base64url fast path')
+  }
+  for (const token of ['readHydrationRawPayload', 'data-aeds-src', 'arrayBuffer', "toString('base64url')"]) {
+    if (!refreshHydrationCheck.includes(token)) {
+      fail(`refresh hydration check missing sidecar payload token: ${token}`)
+    }
   }
   for (const token of ['PublicAotStateContextKey', 'IsStaleCompatibleCacheEntry', 'stale-refresh-queued']) {
     if (!shellService.includes(token)) {

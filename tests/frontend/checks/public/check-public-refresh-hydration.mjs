@@ -363,6 +363,35 @@ async function createMutatedPublicHydrationRaw(rawPayload) {
   })
 }
 
+async function readHydrationRawPayload(page) {
+  const snapshot = await page.evaluate(() => {
+    const script = document.getElementById('fsus-aot-hydration-props')
+    return {
+      inline: script?.textContent?.trim() ?? '',
+      sidecar: script?.getAttribute('data-aeds-src') || script?.getAttribute('src') || '',
+      base: window.location.href,
+    }
+  })
+
+  if (snapshot.inline) {
+    return snapshot.inline
+  }
+
+  if (!snapshot.sidecar) {
+    return ''
+  }
+
+  const sidecarUrl = new URL(snapshot.sidecar, snapshot.base)
+  const response = await fetch(sidecarUrl, {
+    headers: { Accept: 'application/vnd.fsus.aeds' },
+  })
+  if (!response.ok) {
+    throw new Error(`failed to fetch public hydration sidecar ${sidecarUrl.pathname}: HTTP ${response.status}`)
+  }
+
+  return Buffer.from(await response.arrayBuffer()).toString('base64url')
+}
+
 async function readShellIdentitySignature(page) {
   return await page.evaluate(() => {
     const app = document.getElementById('app')
@@ -551,7 +580,7 @@ async function interactSearchScenario(page, helpers) {
 }
 
 async function assertTakeoverIgnoresMutatedSettingsScenario(page, helpers) {
-  const rawPayload = await page.evaluate(() => document.getElementById('fsus-aot-hydration-props')?.textContent?.trim() ?? '')
+  const rawPayload = await readHydrationRawPayload(page)
   if (!rawPayload) {
     throw new Error('missing public hydration payload before takeover settings drift scenario')
   }

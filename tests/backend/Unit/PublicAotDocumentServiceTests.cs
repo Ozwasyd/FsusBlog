@@ -18,6 +18,55 @@ namespace FsusBlog.Server.Tests;
 public sealed class PublicAotDocumentServiceTests
 {
     [Fact]
+    public async Task ComposeAsync_WritesHydrationPayloadSidecarAsRawAedsFrame()
+    {
+        string root = CreateTempDirectory();
+        PublicSpaTemplateLocator.ResetCacheForTests();
+        try
+        {
+            var service = new PublicAotDocumentService(
+                new TestWebHostEnvironment(root, Environments.Production),
+                new ConfigurationBuilder().Build(),
+                new FixedSystemService(),
+                new ContextAwareAssetManifest(),
+                NullLogger<PublicAotDocumentService>.Instance);
+            string hydrationPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+            {
+                ["pageKind"] = "Home",
+                ["routeKey"] = "home"
+            });
+
+            Result<string> result = await service.ComposeAsync(new PublicAotShellEntryContract
+            {
+                PageId = PublicPageId.Home,
+                RouteKey = "home",
+                Html = "<main>Home</main>",
+                Title = "Home",
+                BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                {
+                    ["kind"] = "Home"
+                }),
+                HydrationPropsPayload = hydrationPayload
+            });
+
+            Assert.True(result.IsSuccess, result.Error.Message);
+            string html = result.Value!;
+            Assert.Contains("data-aeds-src=\"/aot-cache/payloads/", html, StringComparison.Ordinal);
+            Assert.DoesNotContain(hydrationPayload, html, StringComparison.Ordinal);
+
+            string sidecarUrl = ExtractAttribute(html, "data-aeds-src");
+            string sidecarPath = Path.Combine(root, "wwwroot", sidecarUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+            Assert.True(File.Exists(sidecarPath), sidecarPath);
+            Assert.Equal(PublicAotDocumentComposer.DecodePayloadFrameBytes(hydrationPayload), await File.ReadAllBytesAsync(sidecarPath));
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ComposeAsync_DevelopmentViteProxy_UsesSourceAssetsInsteadOfProductionManifestChunks()
     {
         string root = CreateTempDirectory();
@@ -90,6 +139,17 @@ public sealed class PublicAotDocumentServiceTests
 </html>
 """);
         return root;
+    }
+
+    private static string ExtractAttribute(string html, string attribute)
+    {
+        string marker = attribute + "=\"";
+        int start = html.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing attribute {attribute}");
+        start += marker.Length;
+        int end = html.IndexOf('"', start);
+        Assert.True(end > start, $"Malformed attribute {attribute}");
+        return html[start..end];
     }
 
     private sealed class ContextAwareAssetManifest : ISpaAssetManifestService

@@ -66,6 +66,34 @@ public sealed class PublicAotDocumentComposerTests
     }
 
     [Fact]
+    public void ComposeDocument_HydrationPayload_UsesAedsSidecarMarker()
+    {
+        string template = Template();
+        string prepared = PublicAotDocumentComposer.PreparePublicDocumentTemplate(template);
+        string hydrationPayload = AedsPayload(("pageKind", "ArticleDetail"), ("routeKey", "article:1"));
+
+        string html = PublicAotDocumentComposer.ComposeDocument(new PublicAotDocumentModel(
+            PublicPageKind.ArticleDetail,
+            template,
+            prepared,
+            "Article",
+            "Blog",
+            "Desc",
+            "https://example.com/article/1",
+            "<main/>",
+            AedsPayload(("pageKind", "ArticleDetail")),
+            hydrationPayload,
+            string.Empty,
+            string.Empty,
+            string.Empty));
+
+        Assert.Contains("id=\"fsus-aot-hydration-props\"", html);
+        Assert.Contains("data-aeds-src=\"/aot-cache/payloads/", html);
+        Assert.Contains(".aeds\"", html);
+        Assert.DoesNotContain(hydrationPayload, html);
+    }
+
+    [Fact]
     public void BuildSeoHeadTags_NonArticle_UsesWebsiteOgType()
     {
         string result = PublicAotDocumentComposer.BuildSeoHeadTags(

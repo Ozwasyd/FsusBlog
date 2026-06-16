@@ -1,6 +1,8 @@
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Spa;
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 
@@ -130,7 +132,7 @@ internal static class PublicAotDocumentComposer
         string bootstrapScript = BuildBinaryPayloadScript("fsus-aot-bootstrap", model.BootstrapPayload);
         string hydrationScript = string.IsNullOrWhiteSpace(model.HydrationPropsPayload)
             ? string.Empty
-            : BuildBinaryPayloadScript("fsus-aot-hydration-props", model.HydrationPropsPayload);
+            : BuildBinaryPayloadSidecarMarker("fsus-aot-hydration-props", model.HydrationPropsPayload);
         string deferredSpaBoot = BuildDeferredSpaBootScript(
             model.RawTemplate,
             model.SpaEntryScript,
@@ -691,6 +693,24 @@ internal static class PublicAotDocumentComposer
     private static string BuildBinaryPayloadScript(string id, string payload)
         => $"<script id=\"{Encode(id)}\" type=\"application/octet-stream\">{Encode(RequirePublicAotPayload(payload))}</script>";
 
+    private static string BuildBinaryPayloadSidecarMarker(string id, string payload)
+        => $"<script id=\"{Encode(id)}\" type=\"application/octet-stream\" data-aeds-src=\"{Encode(BuildPayloadSidecarUrl(payload))}\"></script>";
+
+    internal static string BuildPayloadSidecarUrl(string payload)
+    {
+        string normalized = RequirePublicAotPayload(payload);
+        string hash = Sha256Hex(normalized);
+        return $"/aot-cache/payloads/{hash[..2]}/{hash}.aeds";
+    }
+
+    internal static byte[] DecodePayloadFrameBytes(string payload)
+    {
+        string normalized = RequirePublicAotPayload(payload);
+        string base64 = normalized.Replace('-', '+').Replace('_', '/');
+        base64 = base64.PadRight((base64.Length + 3) / 4 * 4, '=');
+        return Convert.FromBase64String(base64);
+    }
+
     private static string RequirePublicAotPayload(string payload)
     {
         if (string.IsNullOrWhiteSpace(payload))
@@ -728,6 +748,9 @@ internal static class PublicAotDocumentComposer
             return false;
         }
     }
+
+    private static string Sha256Hex(string value)
+        => Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(value)));
 
     private static string BuildJavaScriptStringArray(IReadOnlyList<string>? values)
     {

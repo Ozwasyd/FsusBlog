@@ -1,4 +1,9 @@
-import { readPublicHydrationPayload, replacePublicHydrationPayloadBinary } from '@/bootstrap/publicHydrationBootstrap'
+import {
+  readPublicHydrationPayloadAsync,
+  readPublicHydrationPayloadFromUrl,
+  replacePublicHydrationPayloadBinary,
+  replacePublicHydrationPayloadSnapshot
+} from '@/bootstrap/publicHydrationBootstrap'
 import { hydratePublicPage, type PublicHydrationPayload } from '@/public-renderers'
 import { disposePublicHydrationApp } from '@/public-renderers/clientHydrate'
 import {
@@ -911,6 +916,12 @@ function readBinaryTextById(doc: Document, id: string): string | null {
   return text ? text : null
 }
 
+function readBinarySidecarUrlById(doc: Document, id: string, baseUrl: string): string | null {
+  const element = doc.getElementById(id)
+  const raw = element?.getAttribute('data-aeds-src') || element?.getAttribute('src') || ''
+  return raw.trim() ? new URL(raw.trim(), baseUrl).toString() : null
+}
+
 function delay(ms: number, signal: AbortSignal): Promise<void> {
   if (signal.aborted) {
     return Promise.resolve()
@@ -928,24 +939,45 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
 function isHydratablePublicDocument(doc: Document): boolean {
   return Boolean(
     doc.querySelector('#app > #fsus-aot-shell')
-    && readBinaryTextById(doc, 'fsus-aot-hydration-props')
+    && (
+      readBinaryTextById(doc, 'fsus-aot-hydration-props')
+      || readBinarySidecarUrlById(doc, 'fsus-aot-hydration-props', window.location.href)
+    )
   )
+}
+
+async function resolvePublicHydrationPayloadFromDocument(
+  targetDocument: Document,
+  href: string,
+  signal: AbortSignal
+): Promise<PublicHydrationPayload | null> {
+  const inlinePayload = readBinaryTextById(targetDocument, 'fsus-aot-hydration-props')
+  if (inlinePayload) {
+    return replacePublicHydrationPayloadBinary(inlinePayload)
+  }
+
+  const sidecarUrl = readBinarySidecarUrlById(targetDocument, 'fsus-aot-hydration-props', href)
+  if (!sidecarUrl) {
+    return null
+  }
+
+  return replacePublicHydrationPayloadSnapshot(await readPublicHydrationPayloadFromUrl(sidecarUrl, signal))
 }
 
 async function applyPublicNavigationDocument(
   targetDocument: Document,
   href: string,
   historyMode: 'push' | 'replace' | 'none',
-  popState?: unknown
+  popState: unknown,
+  signal: AbortSignal
 ): Promise<void> {
   const targetShell = targetDocument.querySelector<HTMLElement>('#app > #fsus-aot-shell')
   const currentShell = getCurrentShell()
-  const hydrationPayload = readBinaryTextById(targetDocument, 'fsus-aot-hydration-props')
-  if (!targetShell || !currentShell || !hydrationPayload) {
+  if (!targetShell || !currentShell) {
     throw new Error('invalid public shell document')
   }
 
-  const payload = replacePublicHydrationPayloadBinary(hydrationPayload)
+  const payload = await resolvePublicHydrationPayloadFromDocument(targetDocument, href, signal)
   if (!payload) {
     throw new Error('invalid public hydration payload')
   }
@@ -1028,7 +1060,8 @@ async function navigateWithinPublicShell(
           nextDocument,
           target.toString(),
           options.historyMode ?? 'push',
-          options.popState
+          options.popState,
+          controller.signal
         )
         return
       }
@@ -1170,7 +1203,7 @@ export function bindPopStateNavigation(): void {
 }
 
 async function hydratePublicShell(): Promise<void> {
-  const payload = readPublicHydrationPayload()
+  const payload = await readPublicHydrationPayloadAsync()
   if (!payload) {
     return
   }

@@ -758,10 +758,10 @@ bootstrap model
   → hydration payload
   → Vue SSR renderer
   → document composer
-  → html / PublicAotBootstrap AEDS payload
+  → html / inline bootstrap AEDS / hydration .aeds sidecar
 ```
 
-HTML bootstrap、hydration props 和 islands payload 均以 `script type="application/octet-stream"` 嵌入；脚本文本是完整 `AedsFrameType.PublicAotBootstrap` frame 的 base64url 表示，不再嵌入 JSON script。
+HTML bootstrap 仍以 `script type="application/octet-stream"` 嵌入；hydration props 默认写为 raw AEDS `.aeds` sidecar，并在 HTML 中用 `#fsus-aot-hydration-props[data-aeds-src]` 轻量 marker 引用。客户端保留旧内联文本读取作为迁移 fallback，但新 AOT HTML 不再内联完整 hydration base64url frame。`islandsPayload` 已退役。
 
 约束：
 
@@ -780,7 +780,7 @@ HTML bootstrap、hydration props 和 islands payload 均以 `script type="applic
   - `<!--fsus:aot:head-start-->`：SEO/head 注入起点。
   - `<!--fsus:aot:head-end-->`：SEO/head 注入终点。
   - `<!--fsus:aot:app-->`：SPA/AOT shell 挂载点。
-  - `<!--fsus:aot:payloads-->`：bootstrap / hydration / islands AEDS payload 注入点。
+  - `<!--fsus:aot:payloads-->`：bootstrap AEDS 注入点与 hydration `.aeds` sidecar marker 注入点。
   - `<!--fsus:aot:spa-boot-->`：deferred SPA boot 注入点。
 - 由 Public AOT 管理的 SEO head 节点必须带 `data-fsus-aot-head`。新增 sentinel 必须同步 `src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs`、`docs/api/design.md` 和 `tests/frontend/checks/public/check-public-aot-contracts.mjs`。
 
@@ -838,7 +838,7 @@ HTML bootstrap、hydration props 和 islands payload 均以 `script type="applic
 ```
 
 - `bootstrapPayload`：页面初始数据 AEDS payload，供 SPA 直接初始化 Pinia store
-- `hydrationPropsPayload`：hydration props AEDS payload，传递给客户端渲染器
+- `hydrationPropsPayload`：hydration props AEDS payload，服务端 compose 时写为 `/aot-cache/payloads/{bucket}/{sha256}.aeds` raw frame，并通过 HTML marker 的 `data-aeds-src` 传递给客户端渲染器
 - `html`：Vue SSR 产出的页面 shell HTML；上传模板仍可含占位符（如 `{{articleId}}`），写入前会规范化
 
 

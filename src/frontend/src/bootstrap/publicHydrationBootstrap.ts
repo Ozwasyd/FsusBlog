@@ -1,9 +1,10 @@
 import type { PublicHydrationPayload } from '@/public-renderers';
 import { AEDS_BINARY_MEDIA_TYPE } from '@/api/contracts';
-import { decodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload';
+import { decodePublicAotPayload, decodePublicAotPayloadBytes } from '@/bootstrap/publicAotBinaryPayload';
 
 const HYDRATION_SCRIPT_ID = 'fsus-aot-hydration-props';
 let cachedPayload: PublicHydrationPayload | null | undefined;
+let pendingPayload: Promise<PublicHydrationPayload | null> | null = null;
 let serverHydrationPayloadOverride: PublicHydrationPayload | null = null;
 
 type PublicHydrationSnapshotWindow = Window & typeof globalThis & {
@@ -28,6 +29,10 @@ function writeWindowHydrationRaw(rawPayload: string | null): void {
 }
 
 function readText(): string | null {
+  if (typeof document === 'undefined') {
+    return readWindowHydrationRaw();
+  }
+
   const element = document.getElementById(HYDRATION_SCRIPT_ID);
   const text = element?.textContent?.trim();
   if (text) {
@@ -35,6 +40,25 @@ function readText(): string | null {
   }
 
   return readWindowHydrationRaw();
+}
+
+function readSidecarUrl(): string | null {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  const element = document.getElementById(HYDRATION_SCRIPT_ID);
+  const raw = element?.dataset.aedsSrc || element?.getAttribute('src') || '';
+  if (!raw.trim()) {
+    return null;
+  }
+
+  return new URL(raw.trim(), window.location.href).toString();
+}
+
+function cacheHydrationPayload(payload: PublicHydrationPayload | null): PublicHydrationPayload | null {
+  cachedPayload = payload;
+  return cachedPayload;
 }
 
 export function readPublicHydrationPayload(): PublicHydrationPayload | null {
@@ -54,17 +78,62 @@ export function readPublicHydrationPayload(): PublicHydrationPayload | null {
 
   try {
     const parsed = decodePublicAotPayload<PublicHydrationPayload>(text);
-    cachedPayload = parsed && typeof parsed === 'object' ? parsed : null;
+    cacheHydrationPayload(parsed && typeof parsed === 'object' ? parsed : null);
   } catch {
-    cachedPayload = null;
+    cacheHydrationPayload(null);
   }
 
   return cachedPayload;
 }
 
+export async function readPublicHydrationPayloadFromUrl(
+  url: string,
+  signal?: AbortSignal
+): Promise<PublicHydrationPayload | null> {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    headers: {
+      Accept: AEDS_BINARY_MEDIA_TYPE
+    },
+    signal
+  });
+  if (!response.ok) {
+    return null;
+  }
+
+  const parsed = decodePublicAotPayloadBytes<PublicHydrationPayload>(await response.arrayBuffer());
+  return parsed && typeof parsed === 'object' ? parsed : null;
+}
+
+export async function readPublicHydrationPayloadAsync(signal?: AbortSignal): Promise<PublicHydrationPayload | null> {
+  const payload = readPublicHydrationPayload();
+  if (payload || cachedPayload !== undefined) {
+    return payload;
+  }
+
+  const sidecarUrl = readSidecarUrl();
+  if (!sidecarUrl) {
+    return null;
+  }
+
+  pendingPayload ??= readPublicHydrationPayloadFromUrl(sidecarUrl, signal)
+    .then((value) => cacheHydrationPayload(value))
+    .finally(() => {
+      pendingPayload = null;
+    });
+
+  return await pendingPayload;
+}
+
 export function setServerPublicHydrationPayloadOverride(payload: PublicHydrationPayload | null): void {
   serverHydrationPayloadOverride = payload;
-  cachedPayload = payload;
+  cacheHydrationPayload(payload);
+}
+
+export function replacePublicHydrationPayloadSnapshot(payload: PublicHydrationPayload | null): PublicHydrationPayload | null {
+  document.getElementById(HYDRATION_SCRIPT_ID)?.remove();
+  writeWindowHydrationRaw(null);
+  return cacheHydrationPayload(payload);
 }
 
 export function replacePublicHydrationPayloadBinary(rawPayload: string | null): PublicHydrationPayload | null {
@@ -72,8 +141,7 @@ export function replacePublicHydrationPayloadBinary(rawPayload: string | null): 
   if (!rawPayload) {
     script?.remove();
     writeWindowHydrationRaw(null);
-    cachedPayload = null;
-    return cachedPayload;
+    return cacheHydrationPayload(null);
   }
 
   const target = script ?? (() => {
@@ -89,9 +157,9 @@ export function replacePublicHydrationPayloadBinary(rawPayload: string | null): 
 
   try {
     const parsed = decodePublicAotPayload<PublicHydrationPayload>(rawPayload);
-    cachedPayload = parsed && typeof parsed === 'object' ? parsed : null;
+    cacheHydrationPayload(parsed && typeof parsed === 'object' ? parsed : null);
   } catch {
-    cachedPayload = null;
+    cacheHydrationPayload(null);
   }
 
   return cachedPayload;

@@ -58,6 +58,9 @@ public sealed class PublicAotDocumentService(
             PublicPageKind kind = ResolvePageKind(entry.PageId);
             string shell = PublicAotDocumentComposer.EnsureShellRoot(NormalizeHtml(entry.Html, entry.ArticleId), kind);
             string headLinks = BuildHeadLinks(rawTemplate, assetSet, seo);
+            string bootstrapPayload = NormalizeOptionalText(entry.BootstrapPayload ?? EmptyPayload, entry.ArticleId);
+            string hydrationPayload = NormalizeOptionalText(entry.HydrationPropsPayload ?? string.Empty, entry.ArticleId);
+            await WriteHydrationPayloadSidecarAsync(hydrationPayload, cancellationToken).ConfigureAwait(false);
 
             return Result<string>.Success(PublicAotDocumentComposer.ComposeDocument(new PublicAotDocumentModel(
                 kind,
@@ -68,8 +71,8 @@ public sealed class PublicAotDocumentService(
                 description,
                 canonicalUrl,
                 shell,
-                NormalizeOptionalText(entry.BootstrapPayload ?? EmptyPayload, entry.ArticleId),
-                NormalizeOptionalText(entry.HydrationPropsPayload ?? string.Empty, entry.ArticleId),
+                bootstrapPayload,
+                hydrationPayload,
                 NormalizeOptionalText(entry.IslandsPayload ?? string.Empty, entry.ArticleId),
                 assetSet.EntryScript,
                 headLinks)
@@ -82,6 +85,32 @@ public sealed class PublicAotDocumentService(
             logger.LogError(ex, "Failed to compose public AOT document: {PageId} {RouteKey}", entry.PageId, entry.RouteKey);
             return Result<string>.Failure(ErrorCode.InfraFailure, "public_aot_document_compose_failed");
         }
+    }
+
+    private async Task WriteHydrationPayloadSidecarAsync(string hydrationPayload, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(hydrationPayload))
+        {
+            return;
+        }
+
+        string webRoot = string.IsNullOrWhiteSpace(env.WebRootPath)
+            ? Path.Combine(env.ContentRootPath, "wwwroot")
+            : env.WebRootPath;
+        string relativePath = PublicAotDocumentComposer.BuildPayloadSidecarUrl(hydrationPayload)
+            .TrimStart('/')
+            .Replace('/', Path.DirectorySeparatorChar);
+        string targetPath = Path.Combine(webRoot, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+
+        if (File.Exists(targetPath))
+        {
+            return;
+        }
+
+        string tempPath = Path.Combine(Path.GetDirectoryName(targetPath)!, $"{Path.GetFileName(targetPath)}.{Guid.NewGuid():N}.tmp");
+        await File.WriteAllBytesAsync(tempPath, PublicAotDocumentComposer.DecodePayloadFrameBytes(hydrationPayload), cancellationToken).ConfigureAwait(false);
+        File.Move(tempPath, targetPath, overwrite: true);
     }
 
     private static string BuildHeadLinks(string rawTemplate, SpaAssetSet assetSet, SeoConfigReadModel seo)

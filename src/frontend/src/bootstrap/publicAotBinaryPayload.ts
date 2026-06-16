@@ -26,6 +26,11 @@ export function decodePublicAotPayload<T>(text: string): T | null {
   } catch {
     return null
   }
+  return decodePublicAotPayloadBytes<T>(bytes)
+}
+
+export function decodePublicAotPayloadBytes<T>(input: Uint8Array | ArrayBuffer): T | null {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input)
   if (bytes.byteLength < AEDS_HEADER_LENGTH) {
     return null
   }
