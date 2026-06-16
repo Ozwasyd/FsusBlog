@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
+import { PUBLIC_AOT_HYDRATION_MEDIA_TYPE } from '@/api/contracts'
 
 type PublicSeedWindow = Window & typeof globalThis & {
   __FSUS_PUBLIC_AOT_BOOTSTRAP_RAW__?: string | null
@@ -172,7 +173,10 @@ describe('public seed readers', () => {
     expect(fetchSpy).toHaveBeenCalledWith(
       'http://127.0.0.1:5000/aot-cache/payloads/aa/sidecar.aeds',
       expect.objectContaining({
-        credentials: 'same-origin'
+        credentials: 'same-origin',
+        headers: {
+          Accept: PUBLIC_AOT_HYDRATION_MEDIA_TYPE
+        }
       })
     )
     expect(payload?.pageKind).toBe('ArticleDetail')

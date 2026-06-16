@@ -142,7 +142,7 @@ IPublicAotRouteRegistry
 - `src/frontend/scripts/server-public-ssr.mjs` 以 AEDS 行协议 worker 模式长驻，支持 `buildEntry` / `validateBundle` / `health` / `shutdown`；`PublicAot:SsrWorkerMode=PerRequest` 可作为紧急回退。
 - AOT document cache 只允许由服务端 `server-ssr` backfill 写入；客户端、管理端和脚本不得上传 AOT bundle。
 - AOT document cache 按 frontend asset version 写入版本化 artifact 路径；旧版本 artifact 只能在后台清理或因 version 不兼容被拒绝，不能直接返回给公开 URL。
-- `PublicAotDocumentComposer` 只负责文档包装、SEO 头、bootstrap 脚本和 hydration sidecar marker 注入，不承担页面业务结构修复；`PublicAotDocumentService` 在 compose 周期把 hydration AEDS frame 作为 raw `.aeds` sidecar 写到 `wwwroot/aot-cache/payloads`。
+- `PublicAotDocumentComposer` 只负责文档包装、SEO 头、bootstrap 脚本和 hydration sidecar marker 注入，不承担页面业务结构修复；`PublicAotDocumentService` 在 compose 周期把 hydration AEDS frame 作为 raw `.aeds` sidecar 写到 `wwwroot/aot-cache/payloads`。sidecar URL 由 payload SHA-256 content hash 派生，静态响应使用 `application/vnd.fsus.aeds` 与 `public,max-age=31536000,immutable`，因此新 HTML 永远指向新 payload，旧 payload 只需后台异步清理。
 - Provider、shell service 与 renderer 之间只传递 `PublicPageSnapshot` / `PublicAotRenderRequest`，进入 Node worker 前由 `PublicAotRendererPayloadMapper` 做唯一 dictionary payload 映射；禁止恢复匿名 object graph 或每个 provider 自行拼 payload。
 - `PublicAotDocumentService` 只在 compose 周期内解码一次 entry bootstrap/hydration payload，后续标题、描述和脚本注入复用同一解码结果。
 - 页面内部结构、hydration props 与 Markdown HTML 以 Vue public renderer/helper 为唯一真相源，禁止 C# Markdown/props 与 Vue 组件双轨并存。

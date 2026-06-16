@@ -50,6 +50,8 @@ function assertStaticContracts() {
   const indexHtml = read('src/frontend/index.html')
   const documentComposer = read('src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs')
   const documentService = read('src/backend/Infrastructure/PublicAot/PublicAotDocumentService.cs')
+  const webApplicationComposition = read('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs')
+  const apiContracts = read('src/frontend/src/api/contracts.ts')
   const publicShell = read('src/frontend/src/bootstrap/publicShell.ts')
   const hydrationBootstrap = read('src/frontend/src/bootstrap/publicHydrationBootstrap.ts')
   const binaryPayload = read('src/frontend/src/bootstrap/publicAotBinaryPayload.ts')
@@ -105,15 +107,23 @@ function assertStaticContracts() {
   if (!documentService.includes('WriteHydrationPayloadSidecarAsync') || !documentService.includes('DecodePayloadFrameBytes')) {
     fail('document service must write hydration payload sidecars as raw AEDS frames')
   }
+  for (const token of ['PublicAotHydrationSidecarMediaType', 'application/vnd.fsus.aeds', '/aot-cache/payloads/', 'ImmutableStaticAssetCacheControl']) {
+    if (!webApplicationComposition.includes(token)) {
+      fail(`static asset pipeline missing public AOT sidecar serving token: ${token}`)
+    }
+  }
   if (!publicShell.includes("querySelectorAll('[data-fsus-aot-head]')")) {
     fail('public shell micro-navigation must replace all Public AOT-managed head nodes')
+  }
+  if (!apiContracts.includes('PUBLIC_AOT_HYDRATION_MEDIA_TYPE') || !apiContracts.includes('application/vnd.fsus.aeds')) {
+    fail('frontend API contracts must expose the public AOT hydration sidecar media type separately from runtime binary APIs')
   }
   for (const token of ['readBinarySidecarUrlById', 'readPublicHydrationPayloadFromUrl', 'replacePublicHydrationPayloadSnapshot']) {
     if (!publicShell.includes(token)) {
       fail(`public shell micro-navigation missing hydration sidecar token: ${token}`)
     }
   }
-  for (const token of ['readPublicHydrationPayloadAsync', 'readPublicHydrationPayloadFromUrl', 'dataset.aedsSrc']) {
+  for (const token of ['readPublicHydrationPayloadAsync', 'readPublicHydrationPayloadFromUrl', 'dataset.aedsSrc', 'PUBLIC_AOT_HYDRATION_MEDIA_TYPE']) {
     if (!hydrationBootstrap.includes(token)) {
       fail(`hydration bootstrap missing sidecar fetch token: ${token}`)
     }

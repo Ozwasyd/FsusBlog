@@ -67,6 +67,49 @@ public sealed class PublicAotDocumentServiceTests
     }
 
     [Fact]
+    public async Task ComposeAsync_ChangedHydrationPayloadProducesNewSidecarUrl()
+    {
+        string root = CreateTempDirectory();
+        PublicSpaTemplateLocator.ResetCacheForTests();
+        try
+        {
+            var service = new PublicAotDocumentService(
+                new TestWebHostEnvironment(root, Environments.Production),
+                new ConfigurationBuilder().Build(),
+                new FixedSystemService(),
+                new ContextAwareAssetManifest(),
+                NullLogger<PublicAotDocumentService>.Instance);
+            string firstPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+            {
+                ["pageKind"] = "Home",
+                ["routeKey"] = "home",
+                ["siteTitle"] = "First"
+            });
+            string secondPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+            {
+                ["pageKind"] = "Home",
+                ["routeKey"] = "home",
+                ["siteTitle"] = "Second"
+            });
+
+            string firstHtml = (await service.ComposeAsync(CreateEntry(firstPayload))).Value!;
+            string secondHtml = (await service.ComposeAsync(CreateEntry(secondPayload))).Value!;
+
+            string firstUrl = ExtractAttribute(firstHtml, "data-aeds-src");
+            string secondUrl = ExtractAttribute(secondHtml, "data-aeds-src");
+
+            Assert.NotEqual(firstUrl, secondUrl);
+            Assert.Equal(PublicAotDocumentComposer.DecodePayloadFrameBytes(firstPayload), await ReadSidecarAsync(root, firstUrl));
+            Assert.Equal(PublicAotDocumentComposer.DecodePayloadFrameBytes(secondPayload), await ReadSidecarAsync(root, secondUrl));
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ComposeAsync_DevelopmentViteProxy_UsesSourceAssetsInsteadOfProductionManifestChunks()
     {
         string root = CreateTempDirectory();
@@ -151,6 +194,27 @@ public sealed class PublicAotDocumentServiceTests
         Assert.True(end > start, $"Malformed attribute {attribute}");
         return html[start..end];
     }
+
+    private static async Task<byte[]> ReadSidecarAsync(string root, string sidecarUrl)
+    {
+        string sidecarPath = Path.Combine(root, "wwwroot", sidecarUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+        Assert.True(File.Exists(sidecarPath), sidecarPath);
+        return await File.ReadAllBytesAsync(sidecarPath);
+    }
+
+    private static PublicAotShellEntryContract CreateEntry(string hydrationPayload)
+        => new()
+        {
+            PageId = PublicPageId.Home,
+            RouteKey = "home",
+            Html = "<main>Home</main>",
+            Title = "Home",
+            BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+            {
+                ["kind"] = "Home"
+            }),
+            HydrationPropsPayload = hydrationPayload
+        };
 
     private sealed class ContextAwareAssetManifest : ISpaAssetManifestService
     {

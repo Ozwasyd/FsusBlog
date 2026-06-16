@@ -12,6 +12,7 @@ using Microsoft.Extensions.Options;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace FsusBlog.Server.Tests;
@@ -59,6 +60,16 @@ public sealed class WebApplicationCompositionExtensionsTests
     public void IsImmutableSearchIndexAssetPath_MatchesFixedHashedShape(string path, bool expected)
     {
         Assert.Equal(expected, WebApplicationCompositionExtensions.IsImmutableSearchIndexAssetPath(path));
+    }
+
+    [Theory]
+    [InlineData("/aot-cache/payloads/aa/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.aeds", true)]
+    [InlineData("/aot-cache/payloads/aa/payload.bin", false)]
+    [InlineData("/aot-cache/frontend/version/Home/aa/0123456789abcdef.aeds", false)]
+    [InlineData("/search/index.manifest.aeds", false)]
+    public void IsPublicAotHydrationSidecarPath_MatchesPayloadSidecarsOnly(string path, bool expected)
+    {
+        Assert.Equal(expected, WebApplicationCompositionExtensions.IsPublicAotHydrationSidecarPath(path));
     }
 
     [Fact]
@@ -476,7 +487,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.True(immutableBranchStart >= 0, "Unable to locate immutable search asset branch.");
 
         string immutableBranch = source[immutableBranchStart..];
-        Assert.Contains("headers[\"Cache-Control\"] = \"public,max-age=31536000,immutable\";", immutableBranch, StringComparison.Ordinal);
+        Assert.Contains("headers[\"Cache-Control\"] = ImmutableStaticAssetCacheControl;", immutableBranch, StringComparison.Ordinal);
         Assert.Contains("headers.Remove(\"ETag\")", immutableBranch, StringComparison.Ordinal);
         Assert.Contains("headers.Remove(\"Last-Modified\")", immutableBranch, StringComparison.Ordinal);
     }
@@ -490,6 +501,24 @@ public sealed class WebApplicationCompositionExtensionsTests
         DefaultHttpContext result = await site.GetAsync("/search/index.core.0123456789abcdef.bin");
 
         Assert.Equal(StatusCodes.Status200OK, result.Response.StatusCode);
+        Assert.Equal("public,max-age=31536000,immutable", result.Response.Headers["Cache-Control"].ToString());
+        Assert.True(string.IsNullOrEmpty(result.Response.Headers["ETag"].ToString()));
+        Assert.True(string.IsNullOrEmpty(result.Response.Headers["Last-Modified"].ToString()));
+    }
+
+    [Fact]
+    public async Task PublicAotHydrationSidecarUsesVendorAedsTypeAndImmutableCache()
+    {
+        using var site = StaticAssetTestSite.Create();
+        site.Write(
+            "/aot-cache/payloads/aa/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.aeds",
+            "aeds-frame");
+
+        DefaultHttpContext result = await site.GetAsync(
+            "/aot-cache/payloads/aa/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.aeds");
+
+        Assert.Equal(StatusCodes.Status200OK, result.Response.StatusCode);
+        Assert.Equal("application/vnd.fsus.aeds", result.Response.ContentType);
         Assert.Equal("public,max-age=31536000,immutable", result.Response.Headers["Cache-Control"].ToString());
         Assert.True(string.IsNullOrEmpty(result.Response.Headers["ETag"].ToString()));
         Assert.True(string.IsNullOrEmpty(result.Response.Headers["Last-Modified"].ToString()));
@@ -517,10 +546,11 @@ public sealed class WebApplicationCompositionExtensionsTests
         throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 
-    private static string ReadCompositionSource()
+    private static string ReadCompositionSource([CallerFilePath] string callerFilePath = "")
     {
+        string repoRoot = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(callerFilePath)!, "..", "..", ".."));
         return File.ReadAllText(Path.Combine(
-            FindRepoRoot(),
+            repoRoot,
             "src",
             "backend",
             "Infrastructure",
@@ -531,7 +561,11 @@ public sealed class WebApplicationCompositionExtensionsTests
     private static string ExtractStaticNoCacheEntryBranch(string source)
     {
         int branchStart = source.IndexOf("if (string.Equals(requestPath, \"/sw.js\"", StringComparison.Ordinal);
-        int branchEnd = source.IndexOf("if (requestPath.StartsWith(\"/search/patches/\"", branchStart, StringComparison.Ordinal);
+        int branchEnd = source.IndexOf("if (IsPublicAotHydrationSidecarPath(requestPath))", branchStart, StringComparison.Ordinal);
+        if (branchEnd < 0)
+        {
+            branchEnd = source.IndexOf("if (requestPath.StartsWith(\"/search/patches/\"", branchStart, StringComparison.Ordinal);
+        }
 
         Assert.True(branchStart >= 0, "Unable to locate no-cache static entry branch.");
         Assert.True(branchEnd > branchStart, "Unable to locate end of no-cache static entry branch.");

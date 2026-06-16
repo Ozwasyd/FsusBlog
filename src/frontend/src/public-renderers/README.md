@@ -12,7 +12,7 @@ Cross-language page identity metadata is not authored here anymore. `pageId / ca
 4. Create page SSR assembly in `pageAssemblies.ts`.
 5. Register the page entry builder once in `publicEntryRegistry.ts`.
 6. Keep `renderPublicPage.ts` as a thin façade only.
-7. Server injects the inline bootstrap AEDS payload and exposes `hydrationPropsPayload` as a raw `.aeds` sidecar referenced by the public hydration marker.
+7. Server injects the inline bootstrap AEDS payload and exposes `hydrationPropsPayload` as a raw `.aeds` sidecar referenced by the public hydration marker; sidecars use `application/vnd.fsus.aeds` and content-hash immutable URLs.
 
 ## Rules
 - Never add page route/pageId/routeKey rules in multiple files.

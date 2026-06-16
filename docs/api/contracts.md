@@ -763,6 +763,8 @@ bootstrap model
 
 HTML bootstrap 仍以 `script type="application/octet-stream"` 嵌入；hydration props 默认写为 raw AEDS `.aeds` sidecar，并在 HTML 中用 `#fsus-aot-hydration-props[data-aeds-src]` 轻量 marker 引用。客户端保留旧内联文本读取作为迁移 fallback，但新 AOT HTML 不再内联完整 hydration base64url frame。`islandsPayload` 已退役。
 
+Hydration sidecar HTTP 合同与运行时 `/api/binary/**` 分开：`/aot-cache/payloads/{bucket}/{sha256}.aeds` 返回 `Content-Type: application/vnd.fsus.aeds`，`Cache-Control: public,max-age=31536000,immutable`，并移除 `ETag` / `Last-Modified` validators。URL 使用 payload frame 的 SHA-256 content hash，因此内容或站点设置变化会生成新 URL；旧 sidecar 可异步清理，不允许通过稳定 URL 复用导致 HTML 与 payload 独立陈旧。
+
 约束：
 
 - `html`、`bootstrapPayload`、`hydrationPropsPayload` 不能分别由不同模板层独立拼装。
@@ -838,7 +840,7 @@ HTML bootstrap 仍以 `script type="application/octet-stream"` 嵌入；hydratio
 ```
 
 - `bootstrapPayload`：页面初始数据 AEDS payload，供 SPA 直接初始化 Pinia store
-- `hydrationPropsPayload`：hydration props AEDS payload，服务端 compose 时写为 `/aot-cache/payloads/{bucket}/{sha256}.aeds` raw frame，并通过 HTML marker 的 `data-aeds-src` 传递给客户端渲染器
+- `hydrationPropsPayload`：hydration props AEDS payload，服务端 compose 时写为 `/aot-cache/payloads/{bucket}/{sha256}.aeds` raw frame，并通过 HTML marker 的 `data-aeds-src` 传递给客户端渲染器；该 sidecar 使用 `application/vnd.fsus.aeds` 与 immutable hash URL 缓存
 - `html`：Vue SSR 产出的页面 shell HTML；上传模板仍可含占位符（如 `{{articleId}}`），写入前会规范化
 
 

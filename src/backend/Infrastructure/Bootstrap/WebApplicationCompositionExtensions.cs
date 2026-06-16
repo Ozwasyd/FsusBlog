@@ -82,6 +82,9 @@ public sealed class StartupRuntimeState
 
 public static class WebApplicationCompositionExtensions
 {
+    private const string PublicAotHydrationSidecarMediaType = "application/vnd.fsus.aeds";
+    private const string ImmutableStaticAssetCacheControl = "public,max-age=31536000,immutable";
+
     private const string CspNonceContextKey = "__fsusblog_csp_nonce";
     private const string CspNonceTemplatePlaceholder = "%%FSUSBLOG_CSP_NONCE%%";
     private const string HtmlContentType = "text/html; charset=utf-8";
@@ -336,11 +339,20 @@ public static class WebApplicationCompositionExtensions
             return;
         }
 
+        if (IsPublicAotHydrationSidecarPath(requestPath))
+        {
+            ctx.Context.Response.ContentType = PublicAotHydrationSidecarMediaType;
+            headers["Cache-Control"] = ImmutableStaticAssetCacheControl;
+            headers.Remove("ETag");
+            headers.Remove("Last-Modified");
+            return;
+        }
+
         if (requestPath.StartsWith("/search/patches/", StringComparison.Ordinal)
             || IsImmutableSearchIndexAssetPath(requestPath.AsSpan())
             || requestPath.StartsWith("/search/dictionaries/", StringComparison.Ordinal))
         {
-            headers["Cache-Control"] = "public,max-age=31536000,immutable";
+            headers["Cache-Control"] = ImmutableStaticAssetCacheControl;
             headers.Remove("ETag");
             headers.Remove("Last-Modified");
             return;
@@ -354,11 +366,15 @@ public static class WebApplicationCompositionExtensions
             || ctx.File.Name.EndsWith(".ttf")
             || ctx.File.Name.EndsWith(".otf"))
         {
-            headers["Cache-Control"] = "public,max-age=31536000,immutable";
+            headers["Cache-Control"] = ImmutableStaticAssetCacheControl;
             headers.Remove("ETag");
             headers.Remove("Last-Modified");
         }
     }
+
+    internal static bool IsPublicAotHydrationSidecarPath(string path)
+        => path.StartsWith("/aot-cache/payloads/", StringComparison.Ordinal)
+            && path.EndsWith(".aeds", StringComparison.Ordinal);
 
     private static bool IsManifestRequest(HttpRequest request)
         => (HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method))

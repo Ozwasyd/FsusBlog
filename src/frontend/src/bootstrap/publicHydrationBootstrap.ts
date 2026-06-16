@@ -1,5 +1,5 @@
 import type { PublicHydrationPayload } from '@/public-renderers';
-import { AEDS_BINARY_MEDIA_TYPE } from '@/api/contracts';
+import { AEDS_BINARY_MEDIA_TYPE, PUBLIC_AOT_HYDRATION_MEDIA_TYPE } from '@/api/contracts';
 import { decodePublicAotPayload, decodePublicAotPayloadBytes } from '@/bootstrap/publicAotBinaryPayload';
 
 const HYDRATION_SCRIPT_ID = 'fsus-aot-hydration-props';
@@ -93,7 +93,7 @@ export async function readPublicHydrationPayloadFromUrl(
   const response = await fetch(url, {
     credentials: 'same-origin',
     headers: {
-      Accept: AEDS_BINARY_MEDIA_TYPE
+      Accept: PUBLIC_AOT_HYDRATION_MEDIA_TYPE
     },
     signal
   });

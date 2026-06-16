@@ -20,6 +20,7 @@
 | 链路 | Content-Type | 解码方 | 路径前缀 |
 |------|-------------|-------|---------|
 | **AEDS Binary** | `application/octet-stream` | TypeScript adapter / C++23 Wasm Worker | `/api/binary/...` |
+| **Public AOT hydration sidecar** | `application/vnd.fsus.aeds` | public hydration bootstrap / shell navigation | `/aot-cache/payloads/.../*.aeds` |
 
 旧文本业务 API 不再注册；`/api/**` 非 binary 业务路径统一返回 `ApiError` AEDS frame。客户端不得把解码失败回退为文本 API 请求。例外只限 [AEDS-only policy](aeds-only-policy.md) 登记的标准协议、健康探针、工具入口和受保护的 internal bridge implementation。通知 preflight 失败返回 AEDS `ApiError` frame，不再返回 JSON error envelope；`/api/read-proof/**`、`/api/public/articles/{id}/related`、`/api/telemetry/rum`、`/api/subscriptions`、`/api/author/**` 与 `/api/admin/security/**` 旧 JSON 入口已移除。
 
@@ -235,7 +236,7 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 
 统一 SEO 与品牌资产来自同一个 `SeoConfig` AEDS frame，不新增 `/system/brand` 并行主端点。`/api/binary/system/seo` 同时承载基础 SEO、OpenGraph 预览图、favicon/browser icon、Apple Touch Icon、PWA manifest 名称/图标/theme/background、公开站点 logo/wordmark、后台 logo/折叠图标和登录 logo/icon。保存后必须通过 SEO 配置失效链路刷新 HTML head、动态 `manifest.webmanifest`、Public AOT shell、公开 shell hydration、后台与登录页品牌展示；旧配置缺失新增字段时按默认静态路径或空值补齐。资产 URL 只接受站内绝对路径或 `http/https` 绝对 URL，不接受 `javascript:`、`data:` 或协议相对 URL。
 
-公开页结构的 SSR 入口是 [`src/frontend/src/public-renderers/renderPublicPage.ts`](../../src/frontend/src/public-renderers/renderPublicPage.ts)，该入口向 server SSR worker 暴露 `buildPublicEntry`、payload codec 与 renderer version；具体页面组合由 `publicEntryRegistry.ts`、`pageAssemblies.ts` 与 `scaffold.ts` 维护。文档和实现不得再引入额外 helper 作为公开页结构真相源。服务端 AOT provider 只提供数据型 options，不手写 hydration props、不渲染 Markdown、不拼页面内部 HTML；Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayload`，服务端只做文档包装、hydration `.aeds` sidecar 写出、缓存与降级。
+公开页结构的 SSR 入口是 [`src/frontend/src/public-renderers/renderPublicPage.ts`](../../src/frontend/src/public-renderers/renderPublicPage.ts)，该入口向 server SSR worker 暴露 `buildPublicEntry`、payload codec 与 renderer version；具体页面组合由 `publicEntryRegistry.ts`、`pageAssemblies.ts` 与 `scaffold.ts` 维护。文档和实现不得再引入额外 helper 作为公开页结构真相源。服务端 AOT provider 只提供数据型 options，不手写 hydration props、不渲染 Markdown、不拼页面内部 HTML；Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayload`，服务端只做文档包装、hydration `.aeds` sidecar 写出、缓存与降级。hydration sidecar 是 content-hash URL，使用 `application/vnd.fsus.aeds` 与 immutable cache；运行时 `/api/binary/**` 仍使用 `application/octet-stream`。
 
 ### feed / sitemap / robots 缓存约束
 
