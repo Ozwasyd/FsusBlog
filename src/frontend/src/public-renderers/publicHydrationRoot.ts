@@ -7,13 +7,15 @@ import {
   createPublicHomePageAssembly
 } from '@/public-renderers/pageAssemblies'
 import { renderPublicAotShell, type PublicAotPageAssembly } from '@/public-renderers/scaffold'
-import { PUBLIC_SHELL_DEFAULTS } from '@/public-renderers/publicShellState'
 import type { PublicHydrationPayload } from '@/public-renderers/types'
 import { parsePositiveInt } from '@/public-renderers/publicRouteIdentity'
+import {
+  normalizePublicComplianceConfig,
+  normalizePublicSiteTitle
+} from '@/public-renderers/publicSiteIdentity'
 
 function getSiteTitle(payload: PublicHydrationPayload): string {
-  const title = payload.siteTitle?.trim()
-  return title || PUBLIC_SHELL_DEFAULTS.siteTitle
+  return normalizePublicSiteTitle(payload.siteTitle ?? payload.title)
 }
 
 function getSiteDescription(payload: PublicHydrationPayload): string {
@@ -85,7 +87,7 @@ export function createPublicHydrationRoot(payload: PublicHydrationPayload): VNod
     siteLogoDarkUrl: payload.siteLogoDarkUrl ?? null,
     siteWordmarkUrl: payload.siteWordmarkUrl ?? null,
     renderYear: payload.renderYear ?? null,
-    compliance: payload.compliance ?? null,
+    compliance: normalizePublicComplianceConfig(payload.compliance),
     page
   })
 }

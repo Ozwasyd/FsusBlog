@@ -3,7 +3,7 @@
     :view="filterView"
     :invalid-target="invalidTarget"
     :is-loading-state="isLoadingState"
-    :spa-navigation="true"
+    :spa-navigation="spaNavigation"
     :show-search-sort="shouldShowPublicFilterSearchSort(filterType)"
     :search-sort-mode="searchSortMode"
     :search-sort-options="searchSortOptions"
@@ -18,6 +18,7 @@
 import { computed } from 'vue'
 import { useFilterView } from '@/composables/useFilterView'
 import { useHumanReadProof } from '@/composables/useHumanReadProof'
+import { usePublicSpaNavigationMode } from '@/composables/usePublicSpaNavigationMode'
 import PublicFilterPageContent from '@/components/public/pages/PublicFilterPageContent.vue'
 import { shouldShowPublicFilterSearchSort } from '@/public-renderers/publicFilterSemantics'
 import { resolvePublicFilterIdentity } from '@/public-renderers/publicRouteIdentity'
@@ -33,6 +34,7 @@ const {
   handlePageChange,
   setSearchSortMode
 } = useFilterView()
+const spaNavigation = usePublicSpaNavigationMode()
 
 useHumanReadProof({
   scope: computed(() => 'site'),

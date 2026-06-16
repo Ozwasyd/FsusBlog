@@ -54,12 +54,15 @@ import {
   buildPublicHomeRouteKey,
   buildPublicPrivacyRouteKey
 } from '@/public-renderers/publicRouteIdentity'
-import { PUBLIC_SHELL_DEFAULTS } from '@/public-renderers/publicShellState'
 import {
   createPublicRenderClock,
   createPublicRenderTimeOptions,
   type PublicRenderClock
 } from '@/public-renderers/publicRenderClock'
+import {
+  normalizePublicComplianceConfig,
+  normalizePublicSiteTitle
+} from '@/public-renderers/publicSiteIdentity'
 import type { TimeRenderOptions } from '@/utils/time'
 
 export type PublicEntryBuilder = (options: PublicEntryBuildOptions) => Promise<RenderResult>
@@ -101,33 +104,6 @@ type DefinedPublicEntry<K extends PublicPageKind = PublicPageKind> = Readonly<{
   build: PublicEntryBuilder
 }>
 
-function normalizeComplianceConfig(value: unknown): SiteComplianceConfigPublic | null {
-  if (!value || typeof value !== 'object') {
-    return null
-  }
-
-  const source = value as Record<string, unknown>
-  const text = (key: string): string => toText(source[key], '')
-  const startYear = toNumber(source.copyrightStartYear, 0)
-
-  return {
-    enabled: Boolean(source.enabled),
-    regionMode: text('regionMode') === 'mainland-cn' ? 'mainland-cn' : 'global',
-    copyrightOwner: text('copyrightOwner'),
-    copyrightStartYear: startYear > 0 ? startYear : null,
-    copyrightText: text('copyrightText'),
-    contentLicenseName: text('contentLicenseName'),
-    contentLicenseUrl: text('contentLicenseUrl'),
-    icpRecordNumber: text('icpRecordNumber'),
-    icpRecordUrl: text('icpRecordUrl') || 'https://beian.miit.gov.cn/',
-    policeRecordNumber: text('policeRecordNumber'),
-    policeRecordUrl: text('policeRecordUrl') || 'https://beian.mps.gov.cn/',
-    policeBadgeIconUrl: text('policeBadgeIconUrl'),
-    operatorName: text('operatorName'),
-    contactEmail: text('contactEmail')
-  }
-}
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -143,14 +119,14 @@ function requireArray(value: unknown, fieldName: string): unknown[] {
 }
 
 function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: PublicEntryBuildOptions, routeKey: string): PublicEntryScope<K> {
-  const siteTitle = toText(options.siteTitle, PUBLIC_SHELL_DEFAULTS.siteTitle)
-  const siteDescription = toText(options.siteDescription, '')
+  const siteTitle = normalizePublicSiteTitle(options.siteTitle)
+  const siteDescription = toText(options.siteDescription, '').trim()
   const siteLogoUrl = toText(options.siteLogoUrl, '')
   const siteLogoDarkUrl = toText(options.siteLogoDarkUrl, '')
   const siteWordmarkUrl = toText(options.siteWordmarkUrl, '')
   const loginLogoUrl = toText(options.loginLogoUrl, '')
   const loginIconUrl = toText(options.loginIconUrl, '')
-  const compliance = normalizeComplianceConfig(options.compliance)
+  const compliance = normalizePublicComplianceConfig(options.compliance)
   const baseUrlInput = options.baseUrl
   const baseUrlText = toText(baseUrlInput, '')
   const renderClock = createPublicRenderClock(options.renderTimestamp ?? options.generatedAt)

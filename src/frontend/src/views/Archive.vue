@@ -2,7 +2,7 @@
   <PublicArchivePageContent
     :loading="loading"
     :view="archiveView"
-    :spa-navigation="true"
+    :spa-navigation="spaNavigation"
     @navigate="handleNavigate"
   />
 </template>
@@ -13,10 +13,12 @@ import { useRouter } from 'vue-router'
 import PublicArchivePageContent from '@/components/public/pages/PublicArchivePageContent.vue'
 import { useArchiveView } from '@/composables/useArchiveView'
 import { useHumanReadProof } from '@/composables/useHumanReadProof'
+import { usePublicSpaNavigationMode } from '@/composables/usePublicSpaNavigationMode'
 import { buildPublicArchiveRouteKey } from '@/public-renderers/publicRouteIdentity'
 
 const { loading, archiveView } = useArchiveView()
 const router = useRouter()
+const spaNavigation = usePublicSpaNavigationMode()
 
 useHumanReadProof({
   scope: computed(() => 'site'),

@@ -7,6 +7,10 @@ import {
   type SiteComplianceConfigPublic
 } from '@/api/system'
 import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap'
+import {
+  normalizePublicComplianceConfig,
+  normalizePublicSiteTitle
+} from '@/public-renderers/publicSiteIdentity'
 
 export const DEFAULT_SITE_BRAND_CONFIG = {
   faviconSvgUrl: '/favicon.svg',
@@ -45,7 +49,7 @@ export const useSiteStore = defineStore('site', () => {
   const payload = readPublicHydrationPayload()
 
   const siteInfo = shallowRef<SeoConfigPublic>({
-    title: payload?.siteTitle || payload?.title || '站点',
+    title: normalizePublicSiteTitle(payload?.siteTitle ?? payload?.title),
     description: payload?.siteDescription || DEFAULT_SITE_DESCRIPTION,
     keywords: DEFAULT_SITE_KEYWORDS,
     author: "Fsu",
@@ -58,7 +62,7 @@ export const useSiteStore = defineStore('site', () => {
     loginLogoUrl: payload?.loginLogoUrl || DEFAULT_SITE_BRAND_CONFIG.loginLogoUrl,
     loginIconUrl: payload?.loginIconUrl || DEFAULT_SITE_BRAND_CONFIG.loginIconUrl
   })
-  const complianceInfo = shallowRef<SiteComplianceConfigPublic | null>(payload?.compliance ?? null)
+  const complianceInfo = shallowRef<SiteComplianceConfigPublic | null>(normalizePublicComplianceConfig(payload?.compliance))
 
   const isLoaded = ref(Boolean(payload))
 
@@ -94,10 +98,14 @@ export const useSiteStore = defineStore('site', () => {
           })
         ])
         if (res) {
-          siteInfo.value = { ...DEFAULT_SITE_BRAND_CONFIG, ...res }
+          siteInfo.value = {
+            ...DEFAULT_SITE_BRAND_CONFIG,
+            ...res,
+            title: normalizePublicSiteTitle(res.title)
+          }
         }
         if (compliance) {
-          complianceInfo.value = { ...compliance }
+          complianceInfo.value = normalizePublicComplianceConfig(compliance)
         }
         if (res || compliance) {
           isLoaded.value = true

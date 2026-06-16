@@ -2,6 +2,10 @@ import type { PublicPageKind } from '@/public-renderers/publicRenderBase'
 import { getActiveNavForKind } from '@/public-renderers/publicPageModel'
 import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
 import { createPublicShellState, PUBLIC_SHELL_DEFAULTS, type PublicShellState } from '@/public-renderers/publicShellState'
+import {
+  normalizePublicComplianceConfig,
+  normalizePublicSiteTitle
+} from '@/public-renderers/publicSiteIdentity'
 import type { SiteComplianceConfigPublic } from '@/api/system'
 
 export type PublicShellViewInput = Readonly<{
@@ -48,7 +52,7 @@ export function createPublicShellViewState(input: PublicShellViewInput = {}): Pu
 
   return createPublicShellState({
     hydrationKind,
-    siteTitle: input.siteTitle?.trim() || PUBLIC_SHELL_DEFAULTS.siteTitle,
+    siteTitle: normalizePublicSiteTitle(input.siteTitle),
     siteLogoUrl: input.siteLogoUrl?.trim() || '',
     siteLogoDarkUrl: input.siteLogoDarkUrl?.trim() || '',
     siteWordmarkUrl: input.siteWordmarkUrl?.trim() || '',
@@ -57,7 +61,7 @@ export function createPublicShellViewState(input: PublicShellViewInput = {}): Pu
     initialSearchQuery: isSearchRoute ? String(input.initialSearchQuery ?? '') : '',
     spaSearch: Boolean(input.spaSearch),
     showRuntime: Boolean(input.showRuntime),
-    compliance: input.compliance ?? null,
+    compliance: normalizePublicComplianceConfig(input.compliance),
     renderYear: Number.isInteger(input.renderYear) ? Number(input.renderYear) : null,
     ...resolveAuthState(input)
   })

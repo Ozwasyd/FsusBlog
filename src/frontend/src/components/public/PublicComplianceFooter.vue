@@ -68,6 +68,10 @@
 import { computed } from 'vue'
 import type { SiteComplianceConfigPublic } from '@/api/system'
 import { PUBLIC_FIXED_PATHS } from '@/public-renderers/publicRoutePaths'
+import {
+  normalizePublicComplianceConfig,
+  normalizePublicSiteTitle
+} from '@/public-renderers/publicSiteIdentity'
 import { Top } from '@/fsusui/icons'
 
 const props = defineProps<{
@@ -77,31 +81,33 @@ const props = defineProps<{
 }>()
 
 const currentYear = computed(() => Number.isInteger(props.renderYear) ? Number(props.renderYear) : new Date().getFullYear())
-const siteTitleText = computed(() => props.siteTitle.trim() || '站点')
-const isComplianceEnabled = computed(() => Boolean(props.compliance?.enabled))
-const copyrightOwnerText = computed(() => props.compliance?.copyrightOwner?.trim() || siteTitleText.value)
+const normalizedCompliance = computed(() => normalizePublicComplianceConfig(props.compliance))
+const siteTitleText = computed(() => normalizePublicSiteTitle(props.siteTitle))
+const isComplianceEnabled = computed(() => Boolean(normalizedCompliance.value?.enabled))
+const copyrightOwnerText = computed(() => normalizedCompliance.value?.copyrightOwner || siteTitleText.value)
 const copyrightNoticeText = computed(() => {
-  const text = props.compliance?.copyrightText?.trim()
+  const text = normalizedCompliance.value?.copyrightText
   return isComplianceEnabled.value && text ? text : '保留所有权利。'
 })
 const copyrightYearText = computed(() => {
-  const startYear = props.compliance?.copyrightStartYear
+  const startYear = normalizedCompliance.value?.copyrightStartYear
   if (isComplianceEnabled.value && startYear && startYear < currentYear.value) {
     return `${startYear}-${currentYear.value}`
   }
   return `${currentYear.value}`
 })
 const licenseText = computed(() => {
-  const value = props.compliance?.contentLicenseName?.trim()
+  const value = normalizedCompliance.value?.contentLicenseName
   return isComplianceEnabled.value && value ? value : ''
 })
 const licenseHref = computed(() => {
-  const value = props.compliance?.contentLicenseUrl?.trim()
+  const value = normalizedCompliance.value?.contentLicenseUrl
   return value && /^https?:\/\//u.test(value) ? value : ''
 })
 
 const recordLinks = computed(() => {
-  if (!isComplianceEnabled.value || !props.compliance) {
+  const compliance = normalizedCompliance.value
+  if (!isComplianceEnabled.value || !compliance) {
     return []
   }
 
@@ -112,14 +118,14 @@ const recordLinks = computed(() => {
     ariaLabel: string
     icon?: string
   }> = []
-  const icpNumber = props.compliance.icpRecordNumber.trim()
-  const policeNumber = props.compliance.policeRecordNumber.trim()
+  const icpNumber = compliance.icpRecordNumber
+  const policeNumber = compliance.policeRecordNumber
 
   if (icpNumber) {
     records.push({
       key: 'icp',
       label: icpNumber,
-      href: props.compliance.icpRecordUrl.trim() || 'https://beian.miit.gov.cn/',
+      href: compliance.icpRecordUrl,
       ariaLabel: '打开工信部备案系统'
     })
   }
@@ -128,9 +134,9 @@ const recordLinks = computed(() => {
     records.push({
       key: 'police',
       label: policeNumber,
-      href: props.compliance.policeRecordUrl.trim() || 'https://beian.mps.gov.cn/',
+      href: compliance.policeRecordUrl,
       ariaLabel: '打开公安备案平台',
-      icon: props.compliance.policeBadgeIconUrl.trim() || undefined
+      icon: compliance.policeBadgeIconUrl || undefined
     })
   }
 

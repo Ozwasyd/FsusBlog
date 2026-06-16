@@ -5,7 +5,7 @@
     :view="listView"
     :loading="loading"
     :is-error="isError"
-    :spa-navigation="true"
+    :spa-navigation="spaNavigation"
     :show-aside="showHomeAside"
     @retry="loadArticles(true)"
     @navigate="navigateToArticle"
@@ -40,6 +40,7 @@ import HomeTextFirstRecommendations from '@/components/home/HomeTextFirstRecomme
 import PublicHomePageContent from '@/components/public/pages/PublicHomePageContent.vue'
 import { useHomeView } from '@/composables/useHomeView'
 import { useHumanReadProof } from '@/composables/useHumanReadProof'
+import { usePublicSpaNavigationMode } from '@/composables/usePublicSpaNavigationMode'
 import { buildPublicHomeRouteKey } from '@/public-renderers/publicRouteIdentity'
 import { resolveHomeSecondaryLayout, selectHomeSpotlightCandidates } from '@/view-contracts/homeSpotlight'
 
@@ -58,6 +59,7 @@ const {
   loadArticles
 } = useHomeView()
 const router = useRouter()
+const spaNavigation = usePublicSpaNavigationMode()
 const spotlightArticles = computed(() => selectHomeSpotlightCandidates(featuredArticles.value))
 const showHomeAside = computed(() => hotArticles.value.length > 0)
 const homeSecondaryLayout = computed(() => resolveHomeSecondaryLayout({

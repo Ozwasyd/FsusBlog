@@ -1,8 +1,10 @@
-import { shallowRef } from 'vue'
+import { readonly, shallowRef } from 'vue'
 
 type PublicTakeoverPhase = 'shell' | 'hydrating' | 'hydrated'
 
 const publicTakeoverPhase = shallowRef<PublicTakeoverPhase>('shell')
+
+export const publicTakeoverPhaseState = readonly(publicTakeoverPhase)
 
 export function beginPublicTakeoverHydration(): void {
   publicTakeoverPhase.value = 'hydrating'

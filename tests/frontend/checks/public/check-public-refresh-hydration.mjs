@@ -34,6 +34,9 @@ const PUBLIC_RELOAD_SETTLE_TIMEOUT_MS = parsePositiveInt(
   process.env.FSUSBLOG_PUBLIC_AOT_SETTLE_TIMEOUT_MS,
   30000
 )
+const PUBLIC_MUTATED_SITE_TITLE = 'Changed Site Settings After SSR'
+const PUBLIC_MUTATED_SITE_DESCRIPTION = 'This title should not be used by the first SPA takeover render.'
+const PUBLIC_SSR_ENTRY_URL = new URL('../../../../src/frontend/dist/server/renderPublicPage.js', import.meta.url)
 
 const HYDRATION_KEYWORDS = [
   'Hydration',
@@ -93,6 +96,12 @@ const PUBLIC_SEO_SCENARIOS = [
 ]
 
 const PUBLIC_INTERACTION_ONLY_SCENARIOS = [
+  {
+    name: 'takeover-settings-drift',
+    route: '/',
+    expectedKind: 'Home',
+    interact: assertTakeoverIgnoresMutatedSettingsScenario,
+  },
   {
     name: 'search-from-home',
     route: '/',
@@ -319,6 +328,92 @@ async function triggerFullSpaTakeover(page, expectedKind, expectedPath = null) {
   )
 }
 
+let publicAotCodecPromise = null
+
+async function loadPublicAotCodec() {
+  publicAotCodecPromise ??= import(PUBLIC_SSR_ENTRY_URL.href)
+  const codec = await publicAotCodecPromise
+  if (typeof codec.encodePublicAotPayload !== 'function' || typeof codec.decodePublicAotPayload !== 'function') {
+    throw new Error('public SSR entry does not expose public AOT payload codec')
+  }
+  return codec
+}
+
+async function createMutatedPublicHydrationRaw(rawPayload) {
+  const { decodePublicAotPayload, encodePublicAotPayload } = await loadPublicAotCodec()
+  const payload = decodePublicAotPayload(rawPayload)
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('unable to decode current public hydration payload')
+  }
+
+  const compliance = payload.compliance && typeof payload.compliance === 'object'
+    ? {
+        ...payload.compliance,
+        copyrightOwner: 'Changed Owner',
+        icpRecordNumber: 'changed-icp-after-ssr',
+      }
+    : payload.compliance
+
+  return encodePublicAotPayload({
+    ...payload,
+    title: PUBLIC_MUTATED_SITE_TITLE,
+    siteTitle: PUBLIC_MUTATED_SITE_TITLE,
+    siteDescription: PUBLIC_MUTATED_SITE_DESCRIPTION,
+    compliance,
+  })
+}
+
+async function readShellIdentitySignature(page) {
+  return await page.evaluate(() => {
+    const app = document.getElementById('app')
+    const shell = app?.querySelector('#fsus-aot-shell')
+    const brand = shell?.querySelector('.el-public-shell__brand')
+    const footer = shell?.querySelector('.el-public-shell__footer')
+    const firstArticleLink = shell?.querySelector('[data-public-link="article"]')
+
+    return {
+      title: document.title,
+      kind: shell?.getAttribute('data-public-hydration-kind') ?? null,
+      brandText: brand?.textContent?.trim() ?? '',
+      brandHref: brand?.getAttribute('href') ?? '',
+      footerText: footer?.textContent?.replace(/\s+/gu, ' ').trim() ?? '',
+      firstArticleTag: firstArticleLink?.tagName ?? '',
+      firstArticleHref: firstArticleLink?.getAttribute('href') ?? '',
+    }
+  })
+}
+
+async function replaceHydrationRawForTakeover(page, rawPayload) {
+  await page.evaluate((raw) => {
+    const script = document.getElementById('fsus-aot-hydration-props')
+    if (script) {
+      script.textContent = raw
+    }
+    window.__FSUS_PUBLIC_HYDRATION_RAW__ = raw
+  }, rawPayload)
+}
+
+function assertShellIdentityPreserved({ before, after }) {
+  const changedFields = []
+  for (const key of ['kind', 'brandText', 'brandHref', 'firstArticleTag', 'firstArticleHref']) {
+    if (before[key] !== after[key]) {
+      changedFields.push(`${key}: expected ${JSON.stringify(before[key])}, got ${JSON.stringify(after[key])}`)
+    }
+  }
+
+  if (before.brandText && !after.footerText.includes(before.brandText)) {
+    changedFields.push(`footerText no longer contains SSR brand ${JSON.stringify(before.brandText)}`)
+  }
+
+  if (after.brandText === PUBLIC_MUTATED_SITE_TITLE || after.title.includes(PUBLIC_MUTATED_SITE_TITLE) || after.footerText.includes(PUBLIC_MUTATED_SITE_TITLE)) {
+    changedFields.push('mutated post-SSR site settings leaked into first SPA takeover shell')
+  }
+
+  if (changedFields.length > 0) {
+    throw new Error(`takeover shell identity drifted after post-SSR settings mutation: ${changedFields.join('; ')}`)
+  }
+}
+
 async function clickPublicNav(page, navKey, expectedPath, expectedKind) {
   const candidates = page.locator(`[data-public-nav="${navKey}"]`)
   const count = await candidates.count()
@@ -453,6 +548,20 @@ async function interactSearchScenario(page, helpers) {
   if (!vueReady) {
     throw new Error('Vue did not mount within timeout after search route reload')
   }
+}
+
+async function assertTakeoverIgnoresMutatedSettingsScenario(page, helpers) {
+  const rawPayload = await page.evaluate(() => document.getElementById('fsus-aot-hydration-props')?.textContent?.trim() ?? '')
+  if (!rawPayload) {
+    throw new Error('missing public hydration payload before takeover settings drift scenario')
+  }
+
+  const before = await readShellIdentitySignature(page)
+  const mutatedRaw = await createMutatedPublicHydrationRaw(rawPayload)
+  await replaceHydrationRawForTakeover(page, mutatedRaw)
+  await helpers.triggerFullSpaTakeover('Home', '/')
+  const after = await readShellIdentitySignature(page)
+  assertShellIdentityPreserved({ before, after })
 }
 
 async function runScenario(page, baseUrl, route) {
