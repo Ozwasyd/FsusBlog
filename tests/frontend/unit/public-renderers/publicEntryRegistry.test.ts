@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 
+vi.mock('@/fsusui/appContext', () => ({
+  provideFsusUiAppContext: vi.fn()
+}))
+
+vi.mock('@/public-renderers/scaffold', () => ({
+  renderPublicAotPage: vi.fn(() => null),
+  renderPublicAotShell: vi.fn(() => null)
+}))
+
 vi.mock('@/public-renderers/publicEntryCore', async () => {
   const actual = await vi.importActual<typeof import('@/public-renderers/publicEntryCore')>('@/public-renderers/publicEntryCore')
   return {
@@ -17,6 +26,42 @@ vi.mock('@/fsusui/markdown', () => ({
         : `<p class="markdown-renderer__text">${source}</p>`
     }
   }))
+}))
+
+vi.mock('@/components/home/FeaturedArticlesSection.vue', () => ({
+  default: { name: 'FeaturedArticlesSectionStub', render: () => null }
+}))
+
+vi.mock('@/components/home/HomeHotArticlesAside.vue', () => ({
+  default: { name: 'HomeHotArticlesAsideStub', render: () => null }
+}))
+
+vi.mock('@/components/home/HomeTextFirstRecommendations.vue', () => ({
+  default: { name: 'HomeTextFirstRecommendationsStub', render: () => null }
+}))
+
+vi.mock('@/components/public/pages/PublicAboutPageContent.vue', () => ({
+  default: { name: 'PublicAboutPageContentStub', render: () => null }
+}))
+
+vi.mock('@/components/public/pages/PublicArchivePageContent.vue', () => ({
+  default: { name: 'PublicArchivePageContentStub', render: () => null }
+}))
+
+vi.mock('@/components/public/pages/PublicArticleDetailPageContent.vue', () => ({
+  default: { name: 'PublicArticleDetailPageContentStub', render: () => null }
+}))
+
+vi.mock('@/components/public/pages/PublicFilterPageContent.vue', () => ({
+  default: { name: 'PublicFilterPageContentStub', render: () => null }
+}))
+
+vi.mock('@/components/public/pages/PublicHomePageContent.vue', () => ({
+  default: { name: 'PublicHomePageContentStub', render: () => null }
+}))
+
+vi.mock('@/components/ui/MarkdownRenderer.vue', () => ({
+  default: { name: 'MarkdownRendererStub', render: () => null }
 }))
 
 import { decodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'

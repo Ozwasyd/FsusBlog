@@ -10,6 +10,8 @@
   --fsus-dot-gray: #8e8e93;
   --fsus-border: #e4e4df;
   --fsus-scholarly-blue: #2a599c;
+  --fsus-backdrop-blur-soft: 0px;
+  --fsus-backdrop-saturate: 100%;
   --fsusblog-header-bg: color-mix(in srgb, var(--fsus-paper) 88%, var(--fsus-page));
   --fsusblog-header-border: color-mix(in srgb, var(--fsus-border) 82%, transparent);
   --el-bg-color: var(--fsusblog-header-bg);
@@ -96,6 +98,8 @@ html[data-theme-resolved='dark'] {
   --fsus-dot-gray: #a1a1aa;
   --fsus-border: #303036;
   --fsus-scholarly-blue: #7aa2e3;
+  --fsus-backdrop-blur-soft: 0px;
+  --fsus-backdrop-saturate: 100%;
   --fsusblog-header-bg: color-mix(in srgb, var(--fsus-paper) 92%, var(--fsus-page));
   --fsusblog-header-border: color-mix(in srgb, var(--fsus-border) 78%, transparent);
   --el-bg-color: var(--fsusblog-header-bg);

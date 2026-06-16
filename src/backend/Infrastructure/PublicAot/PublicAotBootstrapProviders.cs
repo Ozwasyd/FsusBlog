@@ -108,22 +108,19 @@ public sealed class PublicAotHomeBootstrapProvider(
         const int pageSize = 10;
         const int featuredSize = 3;
         const int hotSize = 5;
-        Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
-        Task<ArticleListPageReadModel> pageTask = articleService.GetPageListAsync(1, pageSize, null, null, false, cancellationToken: cancellationToken);
-        Task<List<FeaturedArticleSummaryDto>> featuredTask = articleService.GetFeaturedArticlesAsync(featuredSize, cancellationToken);
-        Task<List<PopularArticleSummaryDto>> hotTask = articleService.GetHotArticlesAsync(hotSize, cancellationToken);
-        await Task.WhenAll(seoTask, pageTask, featuredTask, hotTask);
+        PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
+        ArticleListPageReadModel page = await articleService.GetPageListAsync(1, pageSize, null, null, false, cancellationToken: cancellationToken);
+        List<FeaturedArticleSummaryDto> featuredArticles = await articleService.GetFeaturedArticlesAsync(featuredSize, cancellationToken);
+        List<PopularArticleSummaryDto> hotArticles = await articleService.GetHotArticlesAsync(hotSize, cancellationToken);
 
-        PublicAotSeoSnapshot seo = seoTask.Result;
-        ArticleListPageReadModel page = pageTask.Result;
         return Result<PublicPageSnapshot>.Success(new PublicHomePageSnapshot(
             seo,
             Page: 1,
             pageSize,
             page.Total,
             page.Items.Select(ToArticleSummarySnapshot).ToArray(),
-            featuredTask.Result.Select(ToFeaturedArticleSnapshot).ToArray(),
-            hotTask.Result.Select(ToHotArticleSnapshot).ToArray()));
+            featuredArticles.Select(ToFeaturedArticleSnapshot).ToArray(),
+            hotArticles.Select(ToHotArticleSnapshot).ToArray()));
     }
 }
 

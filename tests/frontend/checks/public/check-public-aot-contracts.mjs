@@ -175,8 +175,21 @@ function sendWorkerRequest(bundle, pageKind, options) {
 }
 
 async function assertBundleWorkerSmoke(bundle) {
+  const featuredArticle = {
+    id: 1,
+    title: 'Featured Article',
+    coverImageUrl: '/fixtures/acceptance-cover-primary.svg',
+    views: 42,
+    createTime: '2026-06-15T19:32:24.1570000Z',
+    category: { id: 1, name: 'Featured' }
+  }
+  const hotArticle = {
+    id: 2,
+    title: 'Hot Article',
+    views: 18
+  }
   const cases = [
-    { kind: 'Home', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', pageIndex: 1, pageSize: 10, total: 0, articles: [], featuredArticles: [], hotArticles: [] } },
+    { kind: 'Home', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', pageIndex: 1, pageSize: 10, total: 1, articles: [], featuredArticles: [featuredArticle], hotArticles: [hotArticle] } },
     { kind: 'About', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', content: 'About content' } },
     { kind: 'Archive', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', total: 0, articles: [] } },
     { kind: 'ArticleDetail', options: { id: 1, title: 'Article', bodyContent: '# Heading\n\nContent', summary: 'Summary', siteTitle: 'FsusBlog', siteDescription: 'desc' } },

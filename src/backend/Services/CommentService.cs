@@ -262,16 +262,22 @@ public partial class CommentService(
         string blockedToken = RegionLegalModerationService.SerializeRegions([normalizedViewerRegion]);
         bool conservativeUnknownViewer = normalizedViewerRegion == RegionCodes.Unknown;
 
-        var roots = await db.Queryable<Comment, User>((c, u) => c.UserId == u.Id)
+        var rootQuery = db.Queryable<Comment, User>((c, u) => c.UserId == u.Id)
             .Where((c, u) => c.ArticleId == articleId && c.ParentId == null)
             .Where((c, u) => c.ModerationStatus == CommentModerationStatus.Approved)
-            .Where((c, u) => !c.IsDeleted)
-            .Where((c, u) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
+            .Where((c, u) => !c.IsDeleted);
+
+        rootQuery = conservativeUnknownViewer
+            ? rootQuery.Where((c, u) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
                 .Where(rc => rc.CommentId == c.Id
-                    && (conservativeUnknownViewer
-                        ? rc.BlockedRegions != string.Empty
-                        : rc.BlockedRegions.Contains(blockedToken)))
+                    && rc.BlockedRegions != string.Empty)
                 .Any())
+            : rootQuery.Where((c, u) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
+                .Where(rc => rc.CommentId == c.Id
+                    && rc.BlockedRegions.Contains(blockedToken))
+                .Any());
+
+        var roots = await rootQuery
             .WhereIF(request.Cursor.HasValue, (c, u) => c.Id < request.Cursor!.Value)
             .OrderByDescending((c, u) => c.Id)
             .Take(request.Limit + 1)
@@ -334,34 +340,47 @@ public partial class CommentService(
         string blockedToken = RegionLegalModerationService.SerializeRegions([normalizedViewerRegion]);
         bool conservativeUnknownViewer = normalizedViewerRegion == RegionCodes.Unknown;
 
-        bool rootExists = await db.Queryable<Comment>()
+        var rootExistsQuery = db.Queryable<Comment>()
             .Where(c => c.Id == rootId && c.ArticleId == articleId && c.ParentId == null && c.ModerationStatus == CommentModerationStatus.Approved && !c.IsDeleted)
-            .Where(c => !SqlFunc.Subqueryable<CommentRegionCompliance>()
+            ;
+
+        rootExistsQuery = conservativeUnknownViewer
+            ? rootExistsQuery.Where(c => !SqlFunc.Subqueryable<CommentRegionCompliance>()
                 .Where(rc => rc.CommentId == c.Id
-                    && (conservativeUnknownViewer
-                        ? rc.BlockedRegions != string.Empty
-                        : rc.BlockedRegions.Contains(blockedToken)))
+                    && rc.BlockedRegions != string.Empty)
                 .Any())
+            : rootExistsQuery.Where(c => !SqlFunc.Subqueryable<CommentRegionCompliance>()
+                .Where(rc => rc.CommentId == c.Id
+                    && rc.BlockedRegions.Contains(blockedToken))
+                .Any());
+
+        bool rootExists = await rootExistsQuery
             .AnyAsync();
         if (!rootExists)
         {
             return new CursorResponse<CommentReplyItemDto> { Data = [], NextCursor = null, HasMore = false };
         }
 
-        var rows = await db.Queryable<Comment, User, User>((c, u, ru) => new object[]
+        var replyQuery = db.Queryable<Comment, User, User>((c, u, ru) => new object[]
             {
                 JoinType.Left, c.UserId == u.Id,
                 JoinType.Left, c.ReplyToUserId == ru.Id
             })
             .Where((c, u, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
             .Where((c, u, ru) => c.ModerationStatus == CommentModerationStatus.Approved)
-            .Where((c, u, ru) => !c.IsDeleted)
-            .Where((c, u, ru) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
+            .Where((c, u, ru) => !c.IsDeleted);
+
+        replyQuery = conservativeUnknownViewer
+            ? replyQuery.Where((c, u, ru) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
                 .Where(rc => rc.CommentId == c.Id
-                    && (conservativeUnknownViewer
-                        ? rc.BlockedRegions != string.Empty
-                        : rc.BlockedRegions.Contains(blockedToken)))
+                    && rc.BlockedRegions != string.Empty)
                 .Any())
+            : replyQuery.Where((c, u, ru) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
+                .Where(rc => rc.CommentId == c.Id
+                    && rc.BlockedRegions.Contains(blockedToken))
+                .Any());
+
+        var rows = await replyQuery
             .WhereIF(request.Cursor.HasValue, (c, u, ru) => c.Id > request.Cursor!.Value)
             .OrderBy((c, u, ru) => c.Id)
             .Take(request.Limit + 1)

@@ -12,7 +12,8 @@
 </template>
 
 <script setup lang="ts">
-import { useThemeRuntime, type ThemeMode } from '@/services/themeRuntime'
+import { onMounted } from 'vue'
+import { reconcileThemeRuntimeAfterHydration, useThemeRuntime, type ThemeMode } from '@/services/themeRuntime'
 
 type ThemeModeToggleLabels = {
   light?: string
@@ -36,6 +37,10 @@ const props = withDefaults(defineProps<{
 })
 
 const { mode, setThemeMode } = useThemeRuntime()
+
+onMounted(() => {
+  reconcileThemeRuntimeAfterHydration()
+})
 
 function handleThemeModeUpdate(value: ThemeMode): void {
   setThemeMode(value)

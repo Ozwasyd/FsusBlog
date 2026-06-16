@@ -50,6 +50,23 @@ function readResolvedThemeFromDom(): ResolvedTheme {
   return document.documentElement.dataset.themeResolved === 'dark' ? 'dark' : 'light'
 }
 
+function readDomThemeMode(): ThemeMode {
+  if (typeof document === 'undefined') {
+    return 'system'
+  }
+
+  return normalizeThemeMode(document.documentElement.dataset.themeMode, readStoredThemeMode())
+}
+
+function isHydratingPublicAotShell(): boolean {
+  if (typeof document === 'undefined') {
+    return false
+  }
+
+  const shell = document.querySelector<HTMLElement>('#fsus-aot-shell')
+  return Boolean(shell && !shell.dataset.publicHydrated)
+}
+
 function emitThemeChange(mode: ThemeMode, resolvedTheme: ResolvedTheme): void {
   if (typeof window === 'undefined') {
     return
@@ -95,8 +112,11 @@ function observeThemeRoot(): void {
 }
 
 export function readInitialThemeMode(): ThemeMode {
-  const root = typeof document !== 'undefined' ? document.documentElement : null
-  return normalizeThemeMode(root?.dataset.themeMode, readStoredThemeMode())
+  if (isHydratingPublicAotShell()) {
+    return 'system'
+  }
+
+  return readDomThemeMode()
 }
 
 export function ensureThemeRuntime(): void {
@@ -112,6 +132,11 @@ export function ensureThemeRuntime(): void {
 export function setThemeMode(mode: ThemeMode): void {
   ensureThemeRuntime()
   syncThemeRuntime(mode, true)
+}
+
+export function reconcileThemeRuntimeAfterHydration(): void {
+  ensureThemeRuntime()
+  syncThemeRuntime(readStoredThemeMode(), false)
 }
 
 function cycleThemeMode(): ThemeMode {

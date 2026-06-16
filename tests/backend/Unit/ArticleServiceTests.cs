@@ -37,6 +37,25 @@ public sealed class ArticleServiceTests
         Assert.Empty(ordered);
     }
 
+    [Fact]
+    public void GetHotArticlesAsync_FiltersSeedIdsByArticleIdColumn()
+    {
+        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Services", "ArticleService.cs"));
+        int methodStart = source.IndexOf(
+            "public async Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync",
+            StringComparison.Ordinal);
+        int methodEnd = source.IndexOf(
+            "public async Task<List<FeaturedArticleSummaryDto>> GetFeaturedArticlesAsync",
+            methodStart,
+            StringComparison.Ordinal);
+
+        Assert.True(methodStart >= 0 && methodEnd > methodStart, "GetHotArticlesAsync source block should be discoverable");
+        string method = source[methodStart..methodEnd];
+
+        Assert.Contains(".In(a => a.Id, ids)", method, StringComparison.Ordinal);
+        Assert.DoesNotContain(".In(ids)", method, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("/uploads/cover.webp", true)]
     [InlineData("  /uploads/cover.webp  ", true)]
@@ -89,6 +108,23 @@ public sealed class ArticleServiceTests
     {
         var method = typeof(ArticleService).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
         return (T)method.Invoke(null, args)!;
+    }
+
+    private static string FindRepoRoot()
+    {
+        DirectoryInfo? current = new(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            string candidate = Path.Combine(current.FullName, "src", "backend", "Services", "ArticleService.cs");
+            if (File.Exists(candidate))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        throw new InvalidOperationException("Repository root containing ArticleService.cs was not found.");
     }
 
     [Theory]

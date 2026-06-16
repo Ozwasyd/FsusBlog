@@ -78,11 +78,16 @@ public sealed class ParallelOperationsHotPathContractTests
     public void PublicAotBootstrapProviders_ParallelizeIndependentBootstrapInputs()
     {
         string source = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs");
+        string homeProvider = source[
+            source.IndexOf("public sealed class PublicAotHomeBootstrapProvider", StringComparison.Ordinal)..
+            source.IndexOf("public sealed class PublicAotArticleDetailBootstrapProvider", StringComparison.Ordinal)];
 
         Assert.Contains("Task<SeoConfigReadModel> seoTask", source, StringComparison.Ordinal);
         Assert.Contains("Task<SiteComplianceConfigReadModel> complianceTask", source, StringComparison.Ordinal);
         Assert.Contains("Task.WhenAll(seoTask, complianceTask)", source, StringComparison.Ordinal);
-        Assert.True(CountOccurrences(source, "Task.WhenAll") >= 5, "Expected AOT providers to fan out independent SEO/page/article/archive reads.");
+        Assert.DoesNotContain("Task.WhenAll", homeProvider, StringComparison.Ordinal);
+        Assert.Contains("List<PopularArticleSummaryDto> hotArticles = await articleService.GetHotArticlesAsync", homeProvider, StringComparison.Ordinal);
+        Assert.True(CountOccurrences(source, "Task.WhenAll") >= 4, "Expected AOT providers to fan out independent reads except Home article reads that share one DB scope.");
     }
 
     [Fact]

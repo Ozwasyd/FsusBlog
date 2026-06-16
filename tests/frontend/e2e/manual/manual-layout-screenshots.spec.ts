@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import type { Browser, Page, StorageState } from '@playwright/test'
@@ -298,6 +298,35 @@ function docsScreenshotPath(route: ManualRoute, viewport: ManualViewport, theme:
   return alias ? path.join(docsScreenshotRoot, alias) : null
 }
 
+async function pruneStaleDocsScreenshotAssets(): Promise<void> {
+  if (!writeDocsScreenshotAssets) {
+    return
+  }
+
+  const currentAliases = new Set<string>()
+  for (const viewport of viewports) {
+    for (const theme of themes) {
+      for (const routeSet of routeSets) {
+        const routes = viewport.routeFilter
+          ? routeSet.routes.filter(viewport.routeFilter)
+          : routeSet.routes
+        for (const route of routes) {
+          const docsPath = docsScreenshotPath(route, viewport, theme)
+          if (docsPath) {
+            currentAliases.add(path.basename(docsPath))
+          }
+        }
+      }
+    }
+  }
+
+  await mkdir(docsScreenshotRoot, { recursive: true })
+  const entries = await readdir(docsScreenshotRoot, { withFileTypes: true })
+  await Promise.all(entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.png') && !currentAliases.has(entry.name))
+    .map((entry) => rm(path.join(docsScreenshotRoot, entry.name), { force: true })))
+}
+
 function docsScreenshotAliasKey(routeName: string, viewportName: string, theme: ThemeMode): string {
   return `${routeName}|${viewportName}|${theme}`
 }
@@ -311,6 +340,7 @@ async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: 
   await page.goto(route.path, { waitUntil: 'domcontentloaded' })
   await waitForAppReady(page)
   await settlePage(page)
+  await waitForManualRouteContentReady(page, route)
 
   const expectedUrl = new URL(route.expectedUrl, 'http://127.0.0.1')
   await expect
@@ -325,6 +355,7 @@ async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: 
 
   await expect(page.locator('#app'), `${route.name} should render one app root`).toHaveCount(1)
   await assertManualThemeReadable(page, theme, route.name)
+  await assertThemeModeToggleStyled(page, route.name)
   if (strictLayoutAudit) {
     await assertResponsiveLayoutContract(page, `${route.name} ${viewport.name} ${theme}`)
   }
@@ -345,6 +376,41 @@ async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: 
     await mkdir(path.dirname(docsPath), { recursive: true })
     await writeFile(docsPath, screenshot)
   }
+}
+
+async function waitForManualRouteContentReady(page: Page, route: ManualRoute): Promise<void> {
+  if (route.name !== 'Home') {
+    return
+  }
+
+  await waitForHomeSecondaryContent(page)
+}
+
+async function waitForHomeSecondaryContent(page: Page): Promise<void> {
+  await page.waitForFunction(() => {
+    const hasHomeArticle = document.querySelectorAll('#fsus-home-main-column a[href^="/article/"]').length > 0
+    if (!hasHomeArticle) {
+      return true
+    }
+
+    const hasMainSecondary = Boolean(
+      document.querySelector('.featured-articles-section')
+      || document.querySelector('.home-text-first-recommendations')
+    )
+    if (!hasMainSecondary) {
+      return false
+    }
+
+    const asideHost = document.getElementById('fsus-home-hot-articles-slot')
+    if (!asideHost) {
+      return true
+    }
+
+    return Boolean(
+      document.querySelector('[data-dynamic-island="home-hot-articles"]')
+      || document.querySelector('[data-home-hot-articles-aside]')
+    )
+  }, undefined, { timeout: 15_000 })
 }
 
 async function assertManualThemeReadable(page: Page, mode: ThemeMode, label: string): Promise<void> {
@@ -385,6 +451,55 @@ async function assertManualThemeReadable(page: Page, mode: ThemeMode, label: str
   }
 }
 
+async function assertThemeModeToggleStyled(page: Page, label: string): Promise<void> {
+  const state = await page.evaluate(() => {
+    const toggle = document.querySelector('.el-theme-mode-toggle')
+    if (!toggle) {
+      return { present: false }
+    }
+
+    const input = toggle.querySelector<HTMLInputElement>('input[type="radio"]')
+    const buttonInner = toggle.querySelector<HTMLElement>('.el-radio-button__inner')
+    const checkedButtonInner = toggle.querySelector<HTMLElement>('.el-radio-button__original-radio:checked + .el-radio-button__inner')
+    const rootStyle = getComputedStyle(document.documentElement)
+    const inputStyle = input ? getComputedStyle(input) : null
+    const buttonStyle = buttonInner ? getComputedStyle(buttonInner) : null
+    const checkedButtonStyle = checkedButtonInner ? getComputedStyle(checkedButtonInner) : null
+
+    return {
+      present: true,
+      hasRadioButtonInner: Boolean(buttonInner),
+      rootBorderToken: rootStyle.getPropertyValue('--el-border').trim(),
+      rootPrimaryToken: rootStyle.getPropertyValue('--el-color-primary').trim(),
+      rootFillBlankToken: rootStyle.getPropertyValue('--el-fill-color-blank').trim(),
+      inputOpacity: inputStyle?.opacity ?? '',
+      inputPosition: inputStyle?.position ?? '',
+      inputZIndex: inputStyle?.zIndex ?? '',
+      buttonDisplay: buttonStyle?.display ?? '',
+      buttonPaddingInlineStart: buttonStyle?.paddingInlineStart ?? '',
+      checkedBackgroundColor: checkedButtonStyle?.backgroundColor ?? '',
+      checkedTextColor: checkedButtonStyle?.color ?? '',
+      text: toggle.textContent?.trim() ?? ''
+    }
+  })
+
+  if (!state.present) {
+    return
+  }
+
+  expect(state.hasRadioButtonInner, `${label} theme mode toggle should use FsusUI radio-button DOM`).toBe(true)
+  expect(state.rootBorderToken, `${label} theme mode toggle should load Element border token`).not.toBe('')
+  expect(state.rootPrimaryToken, `${label} theme mode toggle should load Element primary token`).not.toBe('')
+  expect(state.rootFillBlankToken, `${label} theme mode toggle should load Element fill token`).not.toBe('')
+  expect(state.inputOpacity, `${label} theme mode toggle native radio should be visually hidden`).toBe('0')
+  expect(state.inputPosition, `${label} theme mode toggle native radio should be removed from flow`).toBe('absolute')
+  expect(state.buttonDisplay, `${label} theme mode toggle segmented button should be styled`).toBe('inline-block')
+  expect(Number.parseFloat(state.buttonPaddingInlineStart), `${label} theme mode toggle segmented button should keep component padding`).toBeGreaterThanOrEqual(8)
+  expect(state.checkedBackgroundColor, `${label} theme mode toggle selected segment should have themed background`).not.toBe('')
+  expect(state.checkedBackgroundColor, `${label} theme mode toggle selected segment should not be transparent`).not.toBe('rgba(0, 0, 0, 0)')
+  expect(state.checkedTextColor, `${label} theme mode toggle selected segment should have themed text color`).not.toBe('')
+}
+
 // Manual-only capture harness. It does not compare baselines or run in release gates.
 // Route coverage is derived from the frontend router table so screenshot review follows the app surface.
 test.describe('manual layout screenshot capture', () => {
@@ -392,6 +507,8 @@ test.describe('manual layout screenshot capture', () => {
 
   test('captures every route for human layout review', async ({ browser }) => {
     test.setTimeout(1_800_000)
+
+    await pruneStaleDocsScreenshotAssets()
 
     const storageStates: Record<ManualRouteStorage, StorageState | undefined> = {
       anonymous: undefined,

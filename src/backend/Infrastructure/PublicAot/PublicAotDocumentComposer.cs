@@ -282,9 +282,8 @@ internal static class PublicAotDocumentComposer
         IReadOnlyList<string>? takeoverModulePreloads = null,
         IReadOnlyList<string>? takeoverStylesheets = null)
     {
-        string entryScriptSrc = string.IsNullOrWhiteSpace(entryScriptOverride)
-            ? TryExtractSpaEntryScriptSrc(template)
-            : entryScriptOverride;
+        string templateEntryScriptSrc = TryExtractSpaEntryScriptSrc(template);
+        string entryScriptSrc = ResolveDeferredSpaEntryScript(templateEntryScriptSrc, entryScriptOverride);
         if (string.IsNullOrWhiteSpace(entryScriptSrc))
         {
             return string.Empty;
@@ -536,18 +535,13 @@ internal static class PublicAotDocumentComposer
             int closeEnd = scriptEnd + "</script>".Length;
             string scriptTag = template[scriptIndex..closeEnd];
             bool isModuleScript = scriptTag.Contains("type=\"module\"", StringComparison.OrdinalIgnoreCase);
-            bool pointsToSpaEntry = scriptTag.Contains("src=\"/assets/", StringComparison.OrdinalIgnoreCase)
-                || scriptTag.Contains("src='/assets/", StringComparison.OrdinalIgnoreCase)
-                || scriptTag.Contains("src=\"assets/", StringComparison.OrdinalIgnoreCase)
-                || scriptTag.Contains("src='assets/", StringComparison.OrdinalIgnoreCase)
-                || scriptTag.Contains("src=\"/src/", StringComparison.OrdinalIgnoreCase)
-                || scriptTag.Contains("src='/src/", StringComparison.OrdinalIgnoreCase)
-                || scriptTag.Contains("src=\"src/", StringComparison.OrdinalIgnoreCase)
-                || scriptTag.Contains("src='src/", StringComparison.OrdinalIgnoreCase);
+            string src = ExtractAttributeValue(scriptTag, "src");
 
-            if (isModuleScript && pointsToSpaEntry)
+            if (isModuleScript && IsImmediateTemplateModuleScriptSrc(src))
             {
-                return template.Remove(scriptIndex, closeEnd - scriptIndex);
+                template = template.Remove(scriptIndex, closeEnd - scriptIndex);
+                scriptIndex = template.IndexOf("<script", scriptIndex, StringComparison.OrdinalIgnoreCase);
+                continue;
             }
 
             scriptIndex = template.IndexOf("<script", closeEnd, StringComparison.OrdinalIgnoreCase);
@@ -600,14 +594,9 @@ internal static class PublicAotDocumentComposer
             if (scriptTag.Contains("type=\"module\"", StringComparison.OrdinalIgnoreCase))
             {
                 string src = ExtractAttributeValue(scriptTag, "src");
-                if (!string.IsNullOrWhiteSpace(src) &&
-                    (src.StartsWith("/assets/", StringComparison.OrdinalIgnoreCase)
-                     || src.StartsWith("assets/", StringComparison.OrdinalIgnoreCase)
-                     || src.StartsWith("/src/", StringComparison.OrdinalIgnoreCase)
-                     || src.StartsWith("src/", StringComparison.OrdinalIgnoreCase)))
+                if (IsSpaEntryScriptSrc(src))
                 {
-                    if (src.StartsWith("/assets/index-", StringComparison.OrdinalIgnoreCase)
-                        || src.StartsWith("assets/index-", StringComparison.OrdinalIgnoreCase))
+                    if (IsViteProductionEntryScriptSrc(src))
                     {
                         return StableSpaEntryAlias;
                     }
@@ -620,6 +609,73 @@ internal static class PublicAotDocumentComposer
         }
 
         return string.Empty;
+    }
+
+    private static string ResolveDeferredSpaEntryScript(string templateEntryScriptSrc, string? entryScriptOverride)
+    {
+        if (IsDevelopmentSourceEntryScriptSrc(templateEntryScriptSrc))
+        {
+            return templateEntryScriptSrc;
+        }
+
+        return string.IsNullOrWhiteSpace(entryScriptOverride)
+            ? templateEntryScriptSrc
+            : entryScriptOverride;
+    }
+
+    private static bool IsImmediateTemplateModuleScriptSrc(string? src)
+        => IsSpaEntryScriptSrc(src) || IsPreThemeScriptSrc(src);
+
+    private static bool IsSpaEntryScriptSrc(string? src)
+    {
+        if (string.IsNullOrWhiteSpace(src))
+        {
+            return false;
+        }
+
+        return IsDevelopmentSourceEntryScriptSrc(src)
+            || src.Equals(StableSpaEntryAlias, StringComparison.OrdinalIgnoreCase)
+            || src.Equals(StableSpaEntryAlias.TrimStart('/'), StringComparison.OrdinalIgnoreCase)
+            || IsViteProductionEntryScriptSrc(src);
+    }
+
+    private static bool IsDevelopmentSourceEntryScriptSrc(string? src)
+    {
+        if (string.IsNullOrWhiteSpace(src))
+        {
+            return false;
+        }
+
+        string value = NormalizeAssetPath(src);
+        return value.Equals("/src/bootstrap/entry.ts", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("/src/main.ts", StringComparison.OrdinalIgnoreCase)
+            || value.EndsWith("/entry.ts", StringComparison.OrdinalIgnoreCase)
+            || value.EndsWith("/main.ts", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsPreThemeScriptSrc(string? src)
+    {
+        if (string.IsNullOrWhiteSpace(src))
+        {
+            return false;
+        }
+
+        string value = NormalizeAssetPath(src);
+        return value.Equals("/src/bootstrap/preTheme.ts", StringComparison.OrdinalIgnoreCase)
+            || value.EndsWith("/preTheme.ts", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsViteProductionEntryScriptSrc(string src)
+    {
+        string value = NormalizeAssetPath(src);
+        return value.Equals("/assets/index.js", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("/assets/index-", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeAssetPath(string src)
+    {
+        string value = src.Trim().Replace('\\', '/');
+        return value.StartsWith("/", StringComparison.Ordinal) ? value : "/" + value;
     }
 
     private static string BuildTitleSuffix(string title, string siteTitle)

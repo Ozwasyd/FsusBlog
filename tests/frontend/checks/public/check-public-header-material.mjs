@@ -80,6 +80,10 @@ async function installAuthFixture(context, authMode) {
 async function inspectHeader(page, width, route, theme, authMode) {
   await page.goto(route, { waitUntil: 'domcontentloaded', timeout: 15000 })
   await page.waitForSelector('.el-public-shell', { timeout: 10000 })
+  await page.waitForFunction(() => {
+    const shell = document.querySelector('#fsus-aot-shell')
+    return Boolean(shell && (!shell.getAttribute('data-public-hydration-kind') || shell.dataset.publicHydrated === 'true'))
+  }, undefined, { timeout: 10000 })
   await page.evaluate(() => {
     window.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }))
   })
@@ -90,6 +94,15 @@ async function inspectHeader(page, width, route, theme, authMode) {
       { timeout: 6000 }
     )
   }
+  await page.waitForFunction(
+    (expected) => {
+      const menuButton = document.querySelector('.el-theme-mode-toggle__menu-button')
+      return menuButton?.textContent?.trim() === expected.menuText
+        && menuButton?.getAttribute('aria-label') === expected.menuAria
+    },
+    { menuText: theme.menuText, menuAria: theme.menuAria },
+    { timeout: 6000 }
+  )
 
   const state = await page.evaluate(() => {
     const rootStyle = getComputedStyle(document.documentElement)

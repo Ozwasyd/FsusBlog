@@ -1,5 +1,44 @@
 /* src/assets/public-shell-critical.css */
 @import '@ozwasyd/element-plus/dist/public-shell-critical.css';
+@import '@ozwasyd/element-plus/theme-chalk/el-var.css';
+@import '@ozwasyd/element-plus/theme-chalk/el-radio-group.css';
+@import '@ozwasyd/element-plus/theme-chalk/el-radio-button.css';
+@import '@ozwasyd/element-plus/theme-chalk/el-theme-mode-toggle.css';
+
+:root {
+  --fsus-page: #f8f9f7;
+  --fsus-paper: #ffffff;
+  --fsus-ink: #0f0f11;
+  --fsus-border: #e4e4df;
+  --fsus-scholarly-blue: #2a599c;
+  --fsus-backdrop-blur-soft: 0px;
+  --fsus-backdrop-saturate: 100%;
+  --fsusblog-header-bg: color-mix(in srgb, var(--fsus-paper) 88%, var(--fsus-page));
+  --fsusblog-header-border: color-mix(in srgb, var(--fsus-border) 82%, transparent);
+  --fsusblog-page-bg: var(--fsus-page);
+  --fsusblog-text-primary: var(--fsus-ink);
+  --el-bg-color: var(--fsusblog-header-bg);
+  --el-bg-color-page: var(--fsus-page);
+  --el-border-color-lighter: var(--fsusblog-header-border);
+}
+
+html.dark,
+html[data-theme-resolved='dark'] {
+  --fsus-page: #09090b;
+  --fsus-paper: #121214;
+  --fsus-ink: #f0f0f4;
+  --fsus-border: #303036;
+  --fsus-scholarly-blue: #7aa2e3;
+  --fsus-backdrop-blur-soft: 0px;
+  --fsus-backdrop-saturate: 100%;
+  --fsusblog-header-bg: color-mix(in srgb, var(--fsus-paper) 92%, var(--fsus-page));
+  --fsusblog-header-border: color-mix(in srgb, var(--fsus-border) 78%, transparent);
+  --fsusblog-page-bg: var(--fsus-page);
+  --fsusblog-text-primary: var(--fsus-ink);
+  --el-bg-color: var(--fsusblog-header-bg);
+  --el-bg-color-page: var(--fsus-page);
+  --el-border-color-lighter: var(--fsusblog-header-border);
+}
 
 /* 公开页首访共用的布局基线（首屏关键路径） */
 #fsus-aot-shell {
@@ -32,6 +71,19 @@
 
 #fsus-aot-shell .public-article-shell {
   overflow-anchor: none;
+}
+
+#fsus-aot-shell .el-public-shell {
+  background: var(--el-bg-color-page);
+  color: var(--fsusblog-text-primary);
+}
+
+#fsus-aot-shell .el-public-shell__header {
+  border-bottom: 1px solid var(--fsusblog-header-border);
+  background: var(--fsusblog-header-bg);
+  box-shadow: none;
+  backdrop-filter: blur(var(--fsus-backdrop-blur-soft)) saturate(var(--fsus-backdrop-saturate));
+  -webkit-backdrop-filter: blur(var(--fsus-backdrop-blur-soft)) saturate(var(--fsus-backdrop-saturate));
 }
 
 /* 首屏接管稳定层：约束 header/main/footer 的最小尺寸，避免整页下推造成 CLS。 */

@@ -20,6 +20,9 @@ describe('publicRouteRegistry', () => {
     ])
     expect(getPublicSeoRouteNamesByKind('Archive')).toEqual(['Archive'])
     expect(getPublicSeoRouteNamesByKind('About')).toEqual(['About'])
+    expect(getPublicSeoRouteNamesByKind('Privacy')).toEqual(['Privacy'])
+    expect(getPublicSeoRouteNamesByKind('Guidelines')).toEqual(['Guidelines'])
+    expect(getPublicSeoRouteNamesByKind('Copyright')).toEqual(['Copyright'])
 
     expect(PUBLIC_SHELL_ONLY_ROUTE_NAMES).toEqual([PUBLIC_SEARCH_ROUTE_NAME])
     expect(PUBLIC_BLOG_CHILD_ROUTES.map((route) => route.name)).toEqual([
@@ -27,6 +30,9 @@ describe('publicRouteRegistry', () => {
       'ArticleDetail',
       'Archive',
       'About',
+      'Privacy',
+      'Guidelines',
+      'Copyright',
       PUBLIC_FILTER_ROUTE_NAMES.category,
       PUBLIC_FILTER_ROUTE_NAMES.tagById,
       PUBLIC_FILTER_ROUTE_NAMES.tag,

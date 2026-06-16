@@ -1,3 +1,4 @@
+using System.Data.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -35,24 +36,7 @@ public sealed class RelatedReadingService(
         }
 
         DateTime now = DateTime.UtcNow;
-        RelatedArticleRow? article = await db.Queryable<Article>()
-            .LeftJoin<ArticleBody>((candidate, body) => candidate.Id == body.ArticleId)
-            .Where((candidate, body) => candidate.Id == articleId
-                && !candidate.IsDeleted
-                && candidate.Status == ArticleStatus.Published
-                && (candidate.PublishedAt == null || candidate.PublishedAt <= now)
-                && (candidate.ScheduledPublishAt == null || candidate.ScheduledPublishAt <= now))
-            .Select((candidate, body) => new RelatedArticleRow
-            {
-                Id = candidate.Id,
-                Title = candidate.Title,
-                Summary = candidate.Summary,
-                CreateTime = candidate.CreateTime,
-                PublishedAt = candidate.PublishedAt,
-                CategoryId = candidate.CategoryId,
-                MarkdownContent = body.MarkdownContent
-            })
-            .FirstAsync(cancellationToken);
+        RelatedArticleRow? article = await LoadPublicArticleAsync(articleId, now, cancellationToken);
 
         if (article is null)
         {
@@ -114,6 +98,61 @@ public sealed class RelatedReadingService(
     {
         string? version = await cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", cancellationToken);
         return long.TryParse(version, out long parsed) ? parsed : 0;
+    }
+
+    private async Task<RelatedArticleRow?> LoadPublicArticleAsync(
+        int articleId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
+            SELECT
+                a.id AS "Id",
+                a.title AS "Title",
+                a.summary AS "Summary",
+                a.createtime AS "CreateTime",
+                a.published_at AS "PublishedAt",
+                a.categoryid AS "CategoryId",
+                b.markdown_content AS "MarkdownContent"
+            FROM article a
+            LEFT JOIN article_body b ON a.id = b.article_id
+            WHERE a.id = @ArticleId
+              AND a.isdeleted = false
+              AND a.status = @PublishedStatus
+              AND (a.published_at IS NULL OR a.published_at <= @Now)
+              AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
+            LIMIT 1;
+            """,
+            new[]
+            {
+                new SugarParameter("@ArticleId", articleId),
+                new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
+                new SugarParameter("@Now", now)
+            });
+
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        int fId = reader.GetOrdinal("Id");
+        int fTitle = reader.GetOrdinal("Title");
+        int fSummary = reader.GetOrdinal("Summary");
+        int fCreateTime = reader.GetOrdinal("CreateTime");
+        int fPublishedAt = reader.GetOrdinal("PublishedAt");
+        int fCategoryId = reader.GetOrdinal("CategoryId");
+        int fMarkdownContent = reader.GetOrdinal("MarkdownContent");
+
+        return new RelatedArticleRow
+        {
+            Id = reader.GetInt32(fId),
+            Title = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle),
+            Summary = reader.IsDBNull(fSummary) ? null : reader.GetString(fSummary),
+            CreateTime = reader.GetDateTime(fCreateTime),
+            PublishedAt = reader.IsDBNull(fPublishedAt) ? null : reader.GetDateTime(fPublishedAt),
+            CategoryId = reader.GetInt32(fCategoryId),
+            MarkdownContent = reader.IsDBNull(fMarkdownContent) ? null : reader.GetString(fMarkdownContent)
+        };
     }
 
     private async Task<Dictionary<int, HashSet<int>>> LoadTagMapAsync(int[] articleIds, CancellationToken cancellationToken)

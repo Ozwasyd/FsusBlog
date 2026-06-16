@@ -6,7 +6,7 @@
     :loading="loading"
     :is-error="isError"
     :spa-navigation="true"
-    :show-aside="false"
+    :show-aside="showHomeAside"
     @retry="loadArticles(true)"
     @navigate="navigateToArticle"
     @page-prev="handlePageChange(currentPage - 1)"
@@ -25,6 +25,9 @@
         :articles="hotArticles"
       />
     </template>
+    <template #aside>
+      <HomeHotArticlesAside :articles="hotArticles" />
+    </template>
   </PublicHomePageContent>
 </template>
 
@@ -32,6 +35,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import FeaturedArticlesSection from '@/components/home/FeaturedArticlesSection.vue'
+import HomeHotArticlesAside from '@/components/home/HomeHotArticlesAside.vue'
 import HomeTextFirstRecommendations from '@/components/home/HomeTextFirstRecommendations.vue'
 import PublicHomePageContent from '@/components/public/pages/PublicHomePageContent.vue'
 import { useHomeView } from '@/composables/useHomeView'
@@ -55,6 +59,7 @@ const {
 } = useHomeView()
 const router = useRouter()
 const spotlightArticles = computed(() => selectHomeSpotlightCandidates(featuredArticles.value))
+const showHomeAside = computed(() => hotArticles.value.length > 0)
 const homeSecondaryLayout = computed(() => resolveHomeSecondaryLayout({
   loading: featuredLoading.value,
   spotlightCandidates: spotlightArticles.value,

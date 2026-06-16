@@ -8,7 +8,9 @@ import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus'
 import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime'
 import { bootstrapFullApp } from '@/bootstrap/fullApp'
 import { AEDS_BINARY_MEDIA_TYPE } from '@/api/contracts'
+import { getMe, type CurrentUserSnapshot } from '@/api/auth'
 import { getPrefersReducedMotion, resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
+import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
 
 function isModifiedEvent(event: MouseEvent): boolean {
   return event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
@@ -389,6 +391,7 @@ let commentsActivationVersion = 0
 let publicTakeoverStarted = false
 let publicTakeoverCompleted = false
 let publicTakeoverPromise: Promise<void> | null = null
+let authResolutionVersion = 0
 let homeHotArticlesIslandModulePromise: Promise<typeof import('@/public-renderers/homeHotArticlesIsland')> | null = null
 let commentsIslandModulePromise: Promise<typeof import('@/public-renderers/commentsIsland')> | null = null
 
@@ -776,6 +779,45 @@ function scheduleDynamicIslands(payload: PublicHydrationPayload | null): void {
   }
 }
 
+function resolvePublicShellAuthState(user: CurrentUserSnapshot | null): { authLabel: string, authHref: string } {
+  const shellState = createPublicShellViewState({
+    isRuntimeAuthResolved: true,
+    isLoggedIn: Boolean(user),
+    isAdmin: user?.role === 'admin'
+  })
+
+  return {
+    authLabel: shellState.authLabel,
+    authHref: shellState.authHref
+  }
+}
+
+function applyPublicShellAuthState(authState: { authLabel: string, authHref: string }): void {
+  document.querySelectorAll<HTMLAnchorElement>('.el-public-shell__auth-link').forEach((link) => {
+    link.textContent = authState.authLabel
+    link.setAttribute('href', authState.authHref)
+  })
+}
+
+function refreshPublicShellAuthState(): void {
+  const version = ++authResolutionVersion
+  void getMe()
+    .then((user) => {
+      if (version !== authResolutionVersion || publicTakeoverStarted || publicTakeoverCompleted) {
+        return
+      }
+
+      applyPublicShellAuthState(resolvePublicShellAuthState(user))
+    })
+    .catch(() => {
+      if (version !== authResolutionVersion || publicTakeoverStarted || publicTakeoverCompleted) {
+        return
+      }
+
+      applyPublicShellAuthState(resolvePublicShellAuthState(null))
+    })
+}
+
 function getCurrentShell(): HTMLElement | null {
   return document.querySelector<HTMLElement>('#app > #fsus-aot-shell')
 }
@@ -993,6 +1035,7 @@ async function applyPublicNavigationDocument(
 
   hydratedPayload = payload
   await hydratePublicPage(payload)
+  refreshPublicShellAuthState()
   scheduleDynamicIslands(payload)
   clearPublicFirstPaintFlag()
 
@@ -1211,6 +1254,7 @@ async function hydratePublicShell(): Promise<void> {
   hydratedPayload = payload
   const startedAt = performance.now()
   await hydratePublicPage(payload)
+  refreshPublicShellAuthState()
   scheduleDynamicIslands(payload)
   const durationMs = Math.round(performance.now() - startedAt)
   emitRumMetric('hydration_time', {

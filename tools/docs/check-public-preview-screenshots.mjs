@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '../..')
@@ -17,6 +17,7 @@ const screenshots = [
   'security-console.png',
   'operations-status.png'
 ]
+const screenshotSet = new Set(screenshots)
 
 function read(path) {
   try {
@@ -72,15 +73,40 @@ for (const token of [
   includes('docs/assets/screenshots/README.md', gallery, token)
 }
 
+try {
+  const extraScreenshots = readdirSync(resolve(root, 'docs/assets/screenshots'), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.png') && !screenshotSet.has(entry.name))
+    .map((entry) => entry.name)
+  if (extraScreenshots.length > 0) {
+    errors.push(`docs/assets/screenshots contains stale PNG files: ${extraScreenshots.join(', ')}`)
+  }
+} catch {
+  errors.push('missing docs/assets/screenshots')
+}
+
 if (existsSync(resolve(root, 'tools/docs/generate-public-preview-screenshots.mjs'))) {
   errors.push('tools/docs/generate-public-preview-screenshots.mjs must not exist; use capture:manual-layout-screenshots')
+}
+
+const publicShellCritical = read('src/frontend/src/assets/public-shell-critical.css')
+for (const token of [
+  '@ozwasyd/element-plus/theme-chalk/el-var.css',
+  '@ozwasyd/element-plus/theme-chalk/el-radio-group.css',
+  '@ozwasyd/element-plus/theme-chalk/el-radio-button.css',
+  '@ozwasyd/element-plus/theme-chalk/el-theme-mode-toggle.css'
+]) {
+  includes('src/frontend/src/assets/public-shell-critical.css', publicShellCritical, token)
 }
 
 const manualCapture = read('tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts')
 for (const token of [
   'APP_ROUTE_RECORDS',
   'buildManualRoutesFromRouteRecords',
-  'materializeRoutePath'
+  'materializeRoutePath',
+  'assertThemeModeToggleStyled',
+  'waitForHomeSecondaryContent',
+  'pruneStaleDocsScreenshotAssets',
+  'data-home-hot-articles-aside'
 ]) {
   includes('tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts', manualCapture, token)
 }
@@ -92,6 +118,26 @@ for (const token of [
   if (manualCapture.includes(token)) {
     errors.push(`manual layout screenshot script must not use static route matrix helper: ${token}`)
   }
+}
+
+const pageAssemblies = read('src/frontend/src/public-renderers/pageAssemblies.ts')
+for (const token of [
+  'FeaturedArticlesSection',
+  'HomeHotArticlesAside',
+  'HomeTextFirstRecommendations',
+  'spotlightArticles.length > 0 && hotArticles.length > 0'
+]) {
+  includes('src/frontend/src/public-renderers/pageAssemblies.ts', pageAssemblies, token)
+}
+
+const publicEntryRegistry = read('src/frontend/src/public-renderers/publicEntryRegistry.ts')
+for (const token of [
+  'featuredArticles',
+  'hotArticles',
+  'normalizeFeaturedArticle',
+  'normalizeHotArticle'
+]) {
+  includes('src/frontend/src/public-renderers/publicEntryRegistry.ts', publicEntryRegistry, token)
 }
 
 const readme = read('README.md')

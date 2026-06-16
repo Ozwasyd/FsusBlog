@@ -10,6 +10,10 @@ const themeToggleSource = readFileSync(
   resolve(process.cwd(), 'src/components/ui/ThemeModeToggle.vue'),
   'utf8'
 )
+const themeRuntimeSource = readFileSync(
+  resolve(process.cwd(), 'src/services/themeRuntime.ts'),
+  'utf8'
+)
 
 describe('PublicBlogLayoutShell responsive header integration', () => {
   it('uses the FsusUI trigger mobile search model without duplicating the trigger', () => {
@@ -31,10 +35,23 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(shellSource).not.toContain('visibility="mobile" compact')
   })
 
+  it('keeps the header brand text equal to the configured site title', () => {
+    expect(shellSource).toContain('{{ siteTitleText }}')
+    expect(shellSource).not.toContain('{{ siteTitleText }}<span class="text-[var(--fsusblog-text-muted)]">.</span>')
+  })
+
   it('passes FsusUI theme toggle variant and labels through the Blog wrapper', () => {
     expect(themeToggleSource).toContain(':variant="variant"')
     expect(themeToggleSource).toContain(':labels="labels"')
     expect(themeToggleSource).toContain("variant?: 'segmented' | 'menu-button'")
     expect(themeToggleSource).toContain('labels?: ThemeModeToggleLabels')
+  })
+
+  it('keeps public AOT theme toggle hydration-safe before reconciling stored mode', () => {
+    expect(themeRuntimeSource).toContain('isHydratingPublicAotShell')
+    expect(themeRuntimeSource).toContain("return 'system'")
+    expect(themeRuntimeSource).toContain('reconcileThemeRuntimeAfterHydration')
+    expect(themeToggleSource).toContain('onMounted(() =>')
+    expect(themeToggleSource).toContain('reconcileThemeRuntimeAfterHydration()')
   })
 })

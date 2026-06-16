@@ -9,8 +9,11 @@ using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 
@@ -86,7 +89,8 @@ public readonly record struct PublicHtmlArtifact(
     ReadOnlyMemory<byte> Bytes,
     string ContentType,
     string ETag,
-    string CacheControl);
+    string CacheControl,
+    bool RequiresCspNonceMutation = false);
 
 public readonly record struct PublicHtmlRouteIndex(
     string RouteKey,
@@ -471,8 +475,10 @@ public static class PublicHotReadFastPathExtensions
         var store = app.ApplicationServices.GetRequiredService<PublicHotReadStore>();
         var options = app.ApplicationServices.GetRequiredService<IOptions<PublicHotReadOptions>>().Value;
         var counters = app.ApplicationServices.GetRequiredService<PublicHotReadCounters>();
+        var env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
+        bool isDevelopment = env.IsDevelopment();
 
-        return app.Use((ctx, next) => PublicHotReadFastPath.TryServeAsync(ctx, next, store, options, counters));
+        return app.Use((ctx, next) => PublicHotReadFastPath.TryServeAsync(ctx, next, store, options, counters, isDevelopment));
     }
 }
 
@@ -487,7 +493,6 @@ public static class PublicHotReadFastPath
     private const string BinaryContentType = "application/octet-stream";
     private const string HtmlMediaType = "text/html";
     private const string HtmlContentType = "text/html; charset=utf-8";
-    private const string StaticPublicCsp = "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:;";
     private static readonly Task Completed = Task.CompletedTask;
 
     public static Task TryServeAsync(
@@ -495,7 +500,8 @@ public static class PublicHotReadFastPath
         RequestDelegate next,
         PublicHotReadStore store,
         PublicHotReadOptions options,
-        PublicHotReadCounters counters)
+        PublicHotReadCounters counters,
+        bool isDevelopment = false)
     {
         if (!options.Enabled)
         {
@@ -589,8 +595,8 @@ public static class PublicHotReadFastPath
                 PublicHotReadRouteKind.ArticleList => ServeList(ctx, snapshot, counters, route.ListKey, options),
                 PublicHotReadRouteKind.ArticleHot => ServeList(ctx, snapshot, counters, route.ListKey, options),
                 PublicHotReadRouteKind.ArticleFeatured => ServeList(ctx, snapshot, counters, route.ListKey, options),
-                PublicHotReadRouteKind.ArticleHtml => ServeHtml(ctx, snapshot, counters, route.HtmlRouteKey, options),
-                PublicHotReadRouteKind.PublicHtml => ServePublicHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options),
+                PublicHotReadRouteKind.ArticleHtml => ServeHtml(ctx, snapshot, counters, route.HtmlRouteKey, options, isDevelopment),
+                PublicHotReadRouteKind.PublicHtml => ServePublicHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options, isDevelopment),
                 _ => WriteRejected(ctx, counters)
             };
         }
@@ -770,7 +776,8 @@ public static class PublicHotReadFastPath
         PublicHotReadSnapshot snapshot,
         PublicHotReadCounters counters,
         string routeKey,
-        PublicHotReadOptions options)
+        PublicHotReadOptions options,
+        bool isDevelopment)
     {
         if (!snapshot.TryGetHtml(routeKey, out PublicHtmlArtifact html))
         {
@@ -779,11 +786,16 @@ public static class PublicHotReadFastPath
         }
 
         counters.HtmlHit(html.Bytes.Length);
+        if (html.RequiresCspNonceMutation)
+        {
+            return ServeHtmlWithNonce(ctx, html, options, snapshot.Version, routeKey, isDevelopment);
+        }
+
         HttpResponse response = ctx.Response;
         response.StatusCode = StatusCodes.Status200OK;
         response.ContentType = string.IsNullOrWhiteSpace(html.ContentType) ? HtmlContentType : html.ContentType;
         response.ContentLength = html.Bytes.Length;
-        ApplyStaticPublicSecurityHeaders(response);
+        ApplyStaticPublicSecurityHeaders(response, isDevelopment);
         response.Headers["Cache-Control"] = string.IsNullOrWhiteSpace(html.CacheControl) ? "public,max-age=60" : html.CacheControl;
         response.Headers["Accept-Ranges"] = "none";
         if (!string.IsNullOrWhiteSpace(html.ETag))
@@ -807,7 +819,39 @@ public static class PublicHotReadFastPath
         return write.IsCompletedSuccessfully ? Completed : AwaitWrite(write);
     }
 
-    private static void ApplyStaticPublicSecurityHeaders(HttpResponse response)
+    private static Task ServeHtmlWithNonce(
+        HttpContext ctx,
+        PublicHtmlArtifact html,
+        PublicHotReadOptions options,
+        long snapshotVersion,
+        string routeKey,
+        bool isDevelopment)
+    {
+        string nonce = WebApplicationCompositionExtensions.EnsureCspNonce(ctx);
+        string source = Encoding.UTF8.GetString(html.Bytes.Span);
+        string rendered = WebApplicationCompositionExtensions.ApplyCspNonceToHtml(ctx, source);
+        byte[] bytes = Encoding.UTF8.GetBytes(rendered);
+        HttpResponse response = ctx.Response;
+        response.StatusCode = StatusCodes.Status200OK;
+        response.ContentType = string.IsNullOrWhiteSpace(html.ContentType) ? HtmlContentType : html.ContentType;
+        response.ContentLength = bytes.Length;
+        ApplyStaticPublicSecurityHeaders(response, isDevelopment, nonce);
+        response.Headers["Cache-Control"] = string.IsNullOrWhiteSpace(html.CacheControl) ? "public,max-age=60" : html.CacheControl;
+        response.Headers["Accept-Ranges"] = "none";
+        response.Headers.Remove("Content-Encoding");
+        response.Headers.Remove("ETag");
+        WriteDiagnosticHeaders(response, options, snapshotVersion, "html", routeKey);
+
+        if (HttpMethods.IsHead(ctx.Request.Method) || bytes.Length == 0)
+        {
+            return Completed;
+        }
+
+        ValueTask<FlushResult> write = response.BodyWriter.WriteAsync(bytes, ctx.RequestAborted);
+        return write.IsCompletedSuccessfully ? Completed : AwaitWrite(write);
+    }
+
+    private static void ApplyStaticPublicSecurityHeaders(HttpResponse response, bool isDevelopment, string? nonce = null)
     {
         response.Headers["X-Content-Type-Options"] = "nosniff";
         response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
@@ -816,7 +860,9 @@ public static class PublicHotReadFastPath
         response.Headers["Cross-Origin-Embedder-Policy"] = "credentialless";
         response.Headers["Cross-Origin-Opener-Policy"] = "same-origin";
         response.Headers["Cross-Origin-Resource-Policy"] = "same-origin";
-        response.Headers["Content-Security-Policy"] = StaticPublicCsp;
+        response.Headers["Content-Security-Policy"] = string.IsNullOrWhiteSpace(nonce)
+            ? WebApplicationCompositionExtensions.BuildStaticCsp(isDevelopment)
+            : WebApplicationCompositionExtensions.BuildHtmlCsp(isDevelopment, nonce);
     }
 
     private static Task ServePublicHtml(
@@ -825,7 +871,8 @@ public static class PublicHotReadFastPath
         PublicHotReadSnapshot snapshot,
         PublicHotReadCounters counters,
         string routeKey,
-        PublicHotReadOptions options)
+        PublicHotReadOptions options,
+        bool isDevelopment)
     {
         if (!snapshot.TryGetHtml(routeKey, out _))
         {
@@ -833,7 +880,7 @@ public static class PublicHotReadFastPath
             return next(ctx);
         }
 
-        return ServeHtml(ctx, snapshot, counters, routeKey, options);
+        return ServeHtml(ctx, snapshot, counters, routeKey, options, isDevelopment);
     }
 
     private static Task WriteBinaryFrame(
@@ -1919,7 +1966,22 @@ internal static class PublicHotReadHtmlArtifactFactory
         ValidateStaticHtml(html);
         byte[] bytes = Encoding.UTF8.GetBytes(html);
         string etag = CreateEtag(bytes);
-        return new PublicHtmlArtifact(bytes, "text/html; charset=utf-8", etag, cacheControl);
+        return new PublicHtmlArtifact(
+            bytes,
+            "text/html; charset=utf-8",
+            etag,
+            cacheControl,
+            PublicAotHtmlArtifactFactory.RequiresCspNonceMutation(html));
+    }
+
+    internal static PublicHtmlArtifact FromDocument(PublicAotHtmlArtifact document, string cacheControl)
+    {
+        return new PublicHtmlArtifact(
+            document.Utf8Bytes,
+            string.IsNullOrWhiteSpace(document.ContentType) ? "text/html; charset=utf-8" : document.ContentType,
+            document.ETag,
+            string.IsNullOrWhiteSpace(cacheControl) ? document.CacheControl : cacheControl,
+            document.RequiresCspNonceMutation);
     }
 
     private static string CreateEtag(ReadOnlySpan<byte> bytes)

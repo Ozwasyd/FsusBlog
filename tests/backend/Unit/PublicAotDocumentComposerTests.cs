@@ -119,6 +119,21 @@ public sealed class PublicAotDocumentComposerTests
     }
 
     [Fact]
+    public void BuildDeferredSpaBootScript_WithDevTemplate_PrefersSourceEntryOverProductionOverride()
+    {
+        string template = Template(
+            headMarkup: "<script type=\"module\" src=\"/src/bootstrap/preTheme.ts\"></script>",
+            spaScript: "<script type=\"module\" src=\"/src/bootstrap/entry.ts\"></script>");
+
+        string result = PublicAotDocumentComposer.BuildDeferredSpaBootScript(template, "/assets/fsus-spa-entry.js");
+
+        Assert.Contains("data-fsusblog-spa-entry=\"/src/bootstrap/entry.ts\"", result);
+        Assert.Contains("const entrySrc = \"/src/bootstrap/entry.ts\";", result);
+        Assert.DoesNotContain("/assets/fsus-spa-entry.js", result);
+        Assert.DoesNotContain("preTheme.ts", result);
+    }
+
+    [Fact]
     public void BuildDeferredSpaBootScript_WithTakeoverAssets_DefersPreloadsUntilIdleOrIntent()
     {
         string result = PublicAotDocumentComposer.BuildDeferredSpaBootScript(
@@ -186,6 +201,19 @@ public sealed class PublicAotDocumentComposerTests
         const string template = "<html><body><script type=\"module\" src=\"/assets/index.js\"></script></body></html>";
         string result = PublicAotDocumentComposer.PreparePublicDocumentTemplate(template);
         Assert.DoesNotContain("/assets/index.js", result);
+    }
+
+    [Fact]
+    public void PreparePublicDocumentTemplate_StripsDevPreThemeAndEntryScripts()
+    {
+        string template = Template(
+            headMarkup: "<script type=\"module\" src=\"/src/bootstrap/preTheme.ts\"></script>",
+            spaScript: "<script type=\"module\" src=\"/src/bootstrap/entry.ts\"></script>");
+
+        string result = PublicAotDocumentComposer.PreparePublicDocumentTemplate(template);
+
+        Assert.DoesNotContain("/src/bootstrap/preTheme.ts", result);
+        Assert.DoesNotContain("/src/bootstrap/entry.ts", result);
     }
 
     [Fact]
@@ -272,12 +300,14 @@ public sealed class PublicAotDocumentComposerTests
         string title = "Loading...",
         string bodyAttributes = "",
         string appMarkup = "<div id=\"app\"><!--fsus:aot:app--></div>",
+        string headMarkup = "",
         string spaScript = "")
         => $"""
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {headMarkup}
     <!--fsus:aot:head-start-->
     <title>{title}</title>
     <!--fsus:aot:head-end-->

@@ -50,6 +50,6 @@ public sealed class PublicAotCacheWriter(
         hotReadStore.PublishHtml(
             routeKey,
             pageId,
-            PublicHotReadHtmlArtifactFactory.FromHtml(html, "public,max-age=60"));
+            PublicHotReadHtmlArtifactFactory.FromDocument(document, "public,max-age=60"));
     }
 }

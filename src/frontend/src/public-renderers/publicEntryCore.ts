@@ -7,6 +7,7 @@ import { provideFsusUiAppContext } from '@/fsusui/appContext'
 import { getSharedPublicPageManifestEntry } from '@/public-renderers/generated/publicPageManifest'
 import type { PublicPageKind } from '@/public-renderers/publicRenderBase'
 import { renderPublicAotShell, type PublicAotPageAssembly } from '@/public-renderers/scaffold'
+import { registerPublicStaticRouterLink } from '@/public-renderers/publicStaticRouterLink'
 import { renderMarkdownWithFsusRuntime } from '@/fsusui/markdown'
 
 export const PUBLIC_RENDERER_VERSION = 'public-app-ssr@2026-06-03-fsusui-boundary-3'
@@ -138,6 +139,7 @@ export async function renderShell(
 
   const app = createSSRApp(Root)
   provideFsusUiAppContext(app)
+  registerPublicStaticRouterLink(app)
   return await renderToString(app)
 }
 

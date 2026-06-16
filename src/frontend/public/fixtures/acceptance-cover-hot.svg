@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" role="img" aria-label="Acceptance Hot Read Note">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fef3c7"/>
+      <stop offset="1" stop-color="#f8fafc"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="640" fill="url(#g)"/>
+  <rect x="80" y="80" width="800" height="480" rx="28" fill="#ffffff" opacity=".78"/>
+  <path d="M160 430 C280 330 348 384 442 292 C520 216 626 250 792 164 L792 488 L160 488 Z" fill="#b45309" opacity=".18"/>
+  <circle cx="760" cy="168" r="54" fill="#b45309" opacity=".24"/>
+  <rect x="152" y="146" width="148" height="18" rx="9" fill="#b45309"/>
+  <text x="152" y="236" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="46" font-weight="750">Acceptance Hot Read Note</text>
+  <text x="152" y="292" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="24">FsusBlog public fixture</text>
+</svg>

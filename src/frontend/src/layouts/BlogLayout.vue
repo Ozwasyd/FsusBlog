@@ -33,7 +33,7 @@ import { PUBLIC_SEARCH_ROUTE_NAME } from '@/public-renderers/publicRouteRegistry
 import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
 
 const userStore = useUserStore()
-const { siteStore, ensureSiteInfo } = useSessionBootstrap()
+const { siteStore, ensureSiteInfo, ensureUserInfo } = useSessionBootstrap()
 const router = useRouter()
 const route = useRoute()
 // Prevent auth-dependent UI from changing during hydration
@@ -45,6 +45,7 @@ onMounted(() => {
   // Site info should be fetched after hydration completes
   setTimeout(() => {
     void ensureSiteInfo()
+    void ensureUserInfo()
   }, 600)
 })
 

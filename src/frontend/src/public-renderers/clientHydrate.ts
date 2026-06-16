@@ -12,6 +12,7 @@ import {
 } from './hydrationIdentityGuard';
 import { normalizePublicHydrationPayload } from './publicPayloadNormalizer';
 import { createPublicHydrationRootComponent } from './publicHydrationRoot';
+import { registerPublicStaticRouterLink } from './publicStaticRouterLink';
 
 const APP_SELECTOR = '#app';
 const SHELL_SELECTOR = '#fsus-aot-shell';
@@ -53,6 +54,7 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
   if (!mountedPublicShellApp) {
     const app = createSSRApp(createPublicHydrationRootComponent(normalizedPayload));
     provideFsusUiAppContext(app);
+    registerPublicStaticRouterLink(app);
     app.mount(container, true);
     mountedPublicShellApp = app;
     await nextTick();
@@ -64,6 +66,7 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
     payload: normalizedPayload,
     guard
   });
+  shell.dataset.publicHydrated = 'true';
   markHydrationStep('hydrate:mounted');
 
   finishHydrationMetrics(metrics);

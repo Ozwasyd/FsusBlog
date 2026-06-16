@@ -1,6 +1,7 @@
 import { createCommentVNode, h } from 'vue'
 import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
 import FeaturedArticlesSection from '@/components/home/FeaturedArticlesSection.vue'
+import HomeHotArticlesAside from '@/components/home/HomeHotArticlesAside.vue'
 import HomeTextFirstRecommendations from '@/components/home/HomeTextFirstRecommendations.vue'
 import PublicAboutPageContent from '@/components/public/pages/PublicAboutPageContent.vue'
 import PublicArchivePageContent from '@/components/public/pages/PublicArchivePageContent.vue'
@@ -51,6 +52,15 @@ export function createPublicHomePageAssembly(input: {
 
         if (hotArticles.length > 0) {
           return h(HomeTextFirstRecommendations, {
+            articles: hotArticles
+          })
+        }
+
+        return createCommentVNode('v-if', true)
+      },
+      aside: () => {
+        if (hotArticles.length > 0) {
+          return h(HomeHotArticlesAside, {
             articles: hotArticles
           })
         }

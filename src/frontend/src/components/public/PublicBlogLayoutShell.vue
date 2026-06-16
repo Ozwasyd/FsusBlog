@@ -55,7 +55,7 @@
           />
         </span>
         <template v-else>
-          {{ siteTitleText }}<span class="text-[var(--fsusblog-text-muted)]">.</span>
+          {{ siteTitleText }}
         </template>
       </template>
 

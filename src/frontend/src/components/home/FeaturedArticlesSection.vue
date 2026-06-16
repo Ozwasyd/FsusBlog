@@ -139,7 +139,6 @@
 import { ArrowRight } from '@/fsusui/icons'
 import type { FeaturedArticleItem } from '@/api/article'
 import { themeTokens } from '@/ui-tokens/themeTokens'
-import { TimeUtils } from '@/utils/time'
 
 defineProps<{
   articles: FeaturedArticleItem[]
@@ -150,7 +149,8 @@ const focusRingClass = themeTokens.focusRing
 const articleHref = (id: number) => `/article/${id}`
 
 const formatTime = (isoString: string) => {
-  return TimeUtils.toSmartTime(isoString)
+  const normalized = String(isoString ?? '').trim()
+  return normalized.length >= 10 ? normalized.slice(0, 10) : '-'
 }
 </script>
 

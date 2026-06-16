@@ -845,7 +845,7 @@ public class ArticleService(
         DateTime now = DateTime.UtcNow;
         effectiveCt.ThrowIfCancellationRequested();
         var sqlObj = _db.Queryable<Article>()
-            .In(ids)
+            .In(a => a.Id, ids)
             .Where(a => !a.IsDeleted
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= now)
