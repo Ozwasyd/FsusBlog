@@ -1,13 +1,9 @@
-import { mkdir } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import type { Browser, Page, StorageState } from '@playwright/test'
-import {
-  buildAdminRoutes,
-  buildAnonymousRoutes,
-  buildUserRoutes,
-  type RouteCheck
-} from '../../support/playwright/routeAuditMatrix'
+import type { RouteRecordRaw } from 'vue-router'
+import { APP_ROUTE_RECORDS } from '../../../../src/frontend/src/router/index'
 import {
   DESKTOP_VIEWPORT,
   MOBILE_VIEWPORT,
@@ -24,11 +20,24 @@ import {
   userPassword,
   waitForAppReady
 } from '../../support/playwright/acceptance-shared'
-import { loadAuditFixtures } from '../../support/playwright/routeAuditFixtures'
+import { loadAuditFixtures, type PlaywrightAuditFixtures } from '../../support/playwright/routeAuditFixtures'
 
-type ManualRoute = RouteCheck & {
-  scope: 'anonymous' | 'user' | 'admin' | 'edge'
+type ManualRouteScope = 'anonymous' | 'user' | 'admin' | 'edge'
+type ManualRouteStorage = 'anonymous' | 'user' | 'admin'
+
+type ManualRoute = {
+  name: string
+  path: string
+  expectedUrl: string
+  scope: ManualRouteScope
   allowExpectedRuntimeNoise?: boolean
+}
+
+type FlattenedRouteRecord = {
+  name: string
+  path: string
+  meta: Record<string, unknown>
+  redirect: RouteRecordRaw['redirect']
 }
 
 type ManualViewport = Readonly<{
@@ -39,6 +48,9 @@ type ManualViewport = Readonly<{
 
 const fixtures = loadAuditFixtures()
 const themes: ThemeMode[] = ['light', 'dark']
+const strictRuntimeAudit = process.env.FSUSBLOG_MANUAL_SCREENSHOT_RUNTIME_AUDIT !== '0'
+const strictLayoutAudit = process.env.FSUSBLOG_MANUAL_SCREENSHOT_LAYOUT_AUDIT !== '0'
+const writeDocsScreenshotAssets = process.env.FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS === '1'
 
 const viewports: ManualViewport[] = [
   { name: 'desktop', size: DESKTOP_VIEWPORT },
@@ -50,53 +62,222 @@ const viewports: ManualViewport[] = [
   }
 ]
 
-const extremeSearchPath = `/search?q=${encodeURIComponent(
-  'markdown latex mermaid <script><script><script> very-long-query-for-layout-boundary 边界 搜索 FsusUI 1.4.1'
-)}&sort=recent`
-
 const routeSets: Array<{
-  scope: ManualRoute['scope']
-  storage: 'anonymous' | 'user' | 'admin'
+  scope: ManualRouteScope
+  storage: ManualRouteStorage
   routes: ManualRoute[]
-}> = [
-  {
-    scope: 'anonymous',
-    storage: 'anonymous',
-    routes: buildAnonymousRoutes(fixtures).map((route) => ({ ...route, scope: 'anonymous' }))
-  },
-  {
-    scope: 'user',
-    storage: 'user',
-    routes: buildUserRoutes().map((route) => ({ ...route, scope: 'user' }))
-  },
-  {
-    scope: 'admin',
-    storage: 'admin',
-    routes: buildAdminRoutes(fixtures).map((route) => ({ ...route, scope: 'admin' }))
-  },
-  {
-    scope: 'edge',
-    storage: 'anonymous',
-    routes: [
-      { name: 'edge-search-extreme', path: extremeSearchPath, expectedUrl: extremeSearchPath, scope: 'edge' },
-      {
-        name: 'edge-article-missing',
-        path: '/article/99999999',
-        expectedUrl: '/article/99999999',
-        scope: 'edge',
-        allowExpectedRuntimeNoise: true
-      },
-      { name: 'edge-tag-slug', path: '/tag/fsus-ui-1-4-0-edge', expectedUrl: '/tag/fsus-ui-1-4-0-edge', scope: 'edge' },
-      { name: 'edge-login-long-redirect', path: `/login?redirect=${encodeURIComponent('/user/manage/article/write?draft=edge-long-title')}`, expectedUrl: `/login?redirect=${encodeURIComponent('/user/manage/article/write?draft=edge-long-title')}`, scope: 'edge' },
-      { name: 'edge-not-found-deep', path: '/route/that/does/not/exist/with/a/very/long/path/segment', expectedUrl: '/route/that/does/not/exist/with/a/very/long/path/segment', scope: 'edge' }
-    ]
-  }
-]
+}> = buildManualRoutesFromRouteRecords(APP_ROUTE_RECORDS, fixtures)
 
 const screenshotRoot = path.resolve(
   process.env.FSUSBLOG_MANUAL_SCREENSHOT_DIR
     ?? path.resolve(process.cwd(), '../../.tmp/manual-layout-screenshots/current')
 )
+
+const docsScreenshotRoot = path.resolve(process.cwd(), '../../docs/assets/screenshots')
+const docsScreenshotAliases = new Map<string, string>([
+  [docsScreenshotAliasKey('Home', 'desktop', 'light'), 'public-home-light.png'],
+  [docsScreenshotAliasKey('ArticleDetail', 'desktop', 'light'), 'article-detail-light.png'],
+  [docsScreenshotAliasKey('ArticleDetail', 'mobile', 'light'), 'article-detail-mobile.png'],
+  [docsScreenshotAliasKey('Home', 'desktop', 'dark'), 'public-dark.png'],
+  [docsScreenshotAliasKey('ManageDashboard', 'desktop', 'light'), 'admin-dashboard.png'],
+  [docsScreenshotAliasKey('ManageWriteArticle', 'desktop', 'light'), 'article-editor.png'],
+  [docsScreenshotAliasKey('ManageModerationComments', 'desktop', 'light'), 'comment-moderation.png'],
+  [docsScreenshotAliasKey('ManageSecurityDashboard', 'desktop', 'light'), 'security-console.png'],
+  [docsScreenshotAliasKey('ManageOpsHealth', 'desktop', 'light'), 'operations-status.png']
+])
+
+function buildManualRoutesFromRouteRecords(
+  records: readonly RouteRecordRaw[],
+  routeFixtures: PlaywrightAuditFixtures
+): Array<{ scope: ManualRouteScope, storage: ManualRouteStorage, routes: ManualRoute[] }> {
+  const flattened = flattenRouteRecords(records)
+  const recordsByName = new Map(flattened.map((record) => [record.name, record]))
+  const grouped: Record<ManualRouteScope, ManualRoute[]> = {
+    anonymous: [],
+    user: [],
+    admin: [],
+    edge: []
+  }
+
+  for (const routeRecord of flattened) {
+    const pathValue = materializeRoutePath(routeRecord.name, routeRecord.path, routeFixtures)
+    const scope = classifyManualRoute(routeRecord)
+    grouped[scope].push({
+      name: routeRecord.name,
+      path: pathValue,
+      expectedUrl: resolveExpectedUrl(routeRecord, recordsByName, routeFixtures, pathValue),
+      scope,
+      allowExpectedRuntimeNoise: scope === 'edge'
+    })
+  }
+
+  return [
+    { scope: 'anonymous', storage: 'anonymous', routes: grouped.anonymous },
+    { scope: 'user', storage: 'user', routes: grouped.user },
+    { scope: 'admin', storage: 'admin', routes: grouped.admin },
+    { scope: 'edge', storage: 'anonymous', routes: grouped.edge }
+  ]
+}
+
+function flattenRouteRecords(
+  records: readonly RouteRecordRaw[],
+  parentPath = '',
+  parentMeta: Record<string, unknown> = {}
+): FlattenedRouteRecord[] {
+  const flattened: FlattenedRouteRecord[] = []
+
+  for (const record of records) {
+    const pathValue = joinRoutePath(parentPath, record.path)
+    const meta = { ...parentMeta, ...(record.meta ?? {}) }
+
+    if (record.name) {
+      flattened.push({
+        name: String(record.name),
+        path: pathValue,
+        meta,
+        redirect: record.redirect
+      })
+    }
+
+    if ('children' in record && Array.isArray(record.children)) {
+      flattened.push(...flattenRouteRecords(record.children, pathValue, meta))
+    }
+  }
+
+  return flattened
+}
+
+function joinRoutePath(parentPath: string, routePath: string): string {
+  if (routePath.startsWith('/')) {
+    return normalizeRoutePath(routePath)
+  }
+
+  if (!parentPath || parentPath === '/') {
+    return normalizeRoutePath(`/${routePath}`)
+  }
+
+  if (!routePath) {
+    return normalizeRoutePath(parentPath)
+  }
+
+  return normalizeRoutePath(`${parentPath.replace(/\/+$/u, '')}/${routePath}`)
+}
+
+function normalizeRoutePath(value: string): string {
+  const normalized = value.replace(/\/{2,}/gu, '/')
+  return normalized === '' ? '/' : normalized
+}
+
+function materializeRoutePath(
+  routeName: string,
+  pathPattern: string,
+  routeFixtures: PlaywrightAuditFixtures
+): string {
+  if (pathPattern.includes(':pathMatch')) {
+    return '/route/that/does/not/exist/with/a/very/long/path/segment'
+  }
+
+  let routePath = pathPattern.replace(/:id(?:\([^)]*\))?/gu, () => dynamicRouteId(routeName, pathPattern, routeFixtures))
+  if (routeName === 'Search') {
+    routePath = `${routePath}?q=${encodeURIComponent(routeFixtures.searchKeyword)}`
+  }
+
+  return routePath
+}
+
+function dynamicRouteId(routeName: string, pathPattern: string, routeFixtures: PlaywrightAuditFixtures): string {
+  if (routeName === 'ArticleDetail' || routeName === 'ManageEditArticle' || pathPattern.includes('/article/')) {
+    return routeFixtures.articleId
+  }
+
+  if (routeName === 'Category' || pathPattern.includes('/category/')) {
+    return routeFixtures.categoryId
+  }
+
+  if (routeName === 'Tag') {
+    return 'fsus-ui-1-4-0-edge'
+  }
+
+  if (routeName === 'TagById' || pathPattern.includes('/tag/')) {
+    return routeFixtures.tagId
+  }
+
+  return routeFixtures.articleId
+}
+
+function classifyManualRoute(record: FlattenedRouteRecord): ManualRouteScope {
+  if (record.name === 'NotFound' || record.path.includes(':pathMatch')) {
+    return 'edge'
+  }
+
+  const roles = Array.isArray(record.meta.roles)
+    ? record.meta.roles.map(String)
+    : []
+
+  if (record.path.startsWith('/user/manage') || roles.includes('admin')) {
+    return 'admin'
+  }
+
+  if (record.path.startsWith('/user') || record.meta.requiresAuth === true) {
+    return 'user'
+  }
+
+  return 'anonymous'
+}
+
+function resolveExpectedUrl(
+  record: FlattenedRouteRecord,
+  recordsByName: ReadonlyMap<string, FlattenedRouteRecord>,
+  routeFixtures: PlaywrightAuditFixtures,
+  fallbackUrl: string
+): string {
+  const redirect = record.redirect
+  if (!redirect || typeof redirect === 'function') {
+    return fallbackUrl
+  }
+
+  if (typeof redirect === 'string') {
+    return materializeRoutePath(record.name, redirect, routeFixtures)
+  }
+
+  if ('path' in redirect && typeof redirect.path === 'string') {
+    return `${materializeRoutePath(record.name, redirect.path, routeFixtures)}${stringifyQuery(redirect.query)}`
+  }
+
+  if ('name' in redirect && redirect.name) {
+    const target = recordsByName.get(String(redirect.name))
+    if (target) {
+      return `${materializeRoutePath(target.name, target.path, routeFixtures)}${stringifyQuery(redirect.query)}`
+    }
+  }
+
+  return fallbackUrl
+}
+
+function stringifyQuery(query: unknown): string {
+  if (!query || typeof query !== 'object') {
+    return ''
+  }
+
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item !== undefined && item !== null) {
+          params.append(key, String(item))
+        }
+      }
+      continue
+    }
+
+    if (value !== undefined && value !== null) {
+      params.set(key, String(value))
+    }
+  }
+
+  const queryString = params.toString()
+  return queryString ? `?${queryString}` : ''
+}
 
 function screenshotPath(route: ManualRoute, viewport: ManualViewport, theme: ThemeMode): string {
   return path.join(
@@ -106,6 +287,19 @@ function screenshotPath(route: ManualRoute, viewport: ManualViewport, theme: The
     route.scope,
     `${sanitizeFilename(route.name)}.png`
   )
+}
+
+function docsScreenshotPath(route: ManualRoute, viewport: ManualViewport, theme: ThemeMode): string | null {
+  if (!writeDocsScreenshotAssets) {
+    return null
+  }
+
+  const alias = docsScreenshotAliases.get(docsScreenshotAliasKey(route.name, viewport.name, theme))
+  return alias ? path.join(docsScreenshotRoot, alias) : null
+}
+
+function docsScreenshotAliasKey(routeName: string, viewportName: string, theme: ThemeMode): string {
+  return `${routeName}|${viewportName}|${theme}`
 }
 
 function sanitizeFilename(value: string): string {
@@ -118,26 +312,39 @@ async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: 
   await waitForAppReady(page)
   await settlePage(page)
 
+  const expectedUrl = new URL(route.expectedUrl, 'http://127.0.0.1')
   await expect
-    .poll(() => {
-      const current = new URL(page.url())
-      return `${current.pathname}${current.search}`
-    }, { message: `${route.name} should land on expected route before manual screenshot capture` })
-    .toBe(route.expectedUrl)
+    .poll(() => new URL(page.url()).pathname, { message: `${route.name} should land on expected route before manual screenshot capture` })
+    .toBe(expectedUrl.pathname)
+
+  if (expectedUrl.search) {
+    await expect
+      .poll(() => new URL(page.url()).search, { message: `${route.name} should preserve expected route query before manual screenshot capture` })
+      .toBe(expectedUrl.search)
+  }
 
   await expect(page.locator('#app'), `${route.name} should render one app root`).toHaveCount(1)
   await assertManualThemeReadable(page, theme, route.name)
-  await assertResponsiveLayoutContract(page, `${route.name} ${viewport.name} ${theme}`)
+  if (strictLayoutAudit) {
+    await assertResponsiveLayoutContract(page, `${route.name} ${viewport.name} ${theme}`)
+  }
   await freezeUiForScreenshot(page)
 
   const outputPath = screenshotPath(route, viewport, theme)
-  await mkdir(path.dirname(outputPath), { recursive: true })
-  await page.screenshot({
-    path: outputPath,
+  const docsPath = docsScreenshotPath(route, viewport, theme)
+  const screenshot = await page.screenshot({
     fullPage: true,
     animations: 'disabled',
     caret: 'hide'
   })
+
+  await mkdir(path.dirname(outputPath), { recursive: true })
+  await writeFile(outputPath, screenshot)
+
+  if (docsPath) {
+    await mkdir(path.dirname(docsPath), { recursive: true })
+    await writeFile(docsPath, screenshot)
+  }
 }
 
 async function assertManualThemeReadable(page: Page, mode: ThemeMode, label: string): Promise<void> {
@@ -179,12 +386,14 @@ async function assertManualThemeReadable(page: Page, mode: ThemeMode, label: str
 }
 
 // Manual-only capture harness. It does not compare baselines or run in release gates.
-// Custom FsusBlog wrapper: replace it with a FsusUI-provided route screenshot harness once FsusUI exposes one.
+// Route coverage is derived from the frontend router table so screenshot review follows the app surface.
 test.describe('manual layout screenshot capture', () => {
-  test.describe.configure({ mode: 'serial', timeout: 1_800_000 })
+  test.describe.configure({ mode: 'serial' })
 
   test('captures every route for human layout review', async ({ browser }) => {
-    const storageStates: Record<'anonymous' | 'user' | 'admin', StorageState | undefined> = {
+    test.setTimeout(1_800_000)
+
+    const storageStates: Record<ManualRouteStorage, StorageState | undefined> = {
       anonymous: undefined,
       user: await captureStorageState(browser, userName, userPassword, '/user/profile'),
       admin: await captureStorageState(browser, adminName, adminPassword, '/user/manage')
@@ -222,7 +431,7 @@ async function captureRouteSet(
       await captureRouteScreenshot(session.page, route, viewport, theme)
       // Manual boundary captures may intentionally render a missing-data state.
       // Keep the exception local so normal route screenshots still fail on runtime noise.
-      if (!route.allowExpectedRuntimeNoise) {
+      if (strictRuntimeAudit && !route.allowExpectedRuntimeNoise) {
         session.audit.assertCleanSince(start, `${route.name} ${viewport.name} ${theme}`)
       }
     }

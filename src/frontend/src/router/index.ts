@@ -72,7 +72,7 @@ function finishProgressNavigation(): void {
   }
 }
 
-const routes: RouteRecordRaw[] = [
+export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
   // --- 前台公共路由 ---
   {
     path: '/',
@@ -230,15 +230,16 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
 }
 
 export function createAppRouter(options: RouterFactoryOptions = {}): Router {
+  const baseUrl = import.meta.env?.BASE_URL ?? '/'
   const history = options.history ?? (
     options.ssr
-      ? createMemoryHistory(import.meta.env.BASE_URL)
-      : createWebHistory(import.meta.env.BASE_URL)
+      ? createMemoryHistory(baseUrl)
+      : createWebHistory(baseUrl)
   )
 
   const router = createRouter({
     history,
-    routes,
+    routes: APP_ROUTE_RECORDS,
     scrollBehavior: (to, _from, savedPosition) => {
       if (savedPosition) {
         return savedPosition

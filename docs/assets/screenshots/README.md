@@ -1,6 +1,6 @@
 # Public Preview Screenshots
 
-These screenshots are sanitized public-preview visual assets generated from deterministic safe sample content. They are intended to help external readers understand the product surface without exposing production data.
+These screenshots are sanitized public-preview visual assets captured from the live frontend route audit flow. They are intended to help external readers understand the current product surface without exposing production data.
 
 ## Gallery
 
@@ -18,7 +18,7 @@ These screenshots are sanitized public-preview visual assets generated from dete
 
 ## Safety Rules
 
-The screenshots use fictional sample content only:
+The screenshots come from the Playwright route audit fixtures and manual full-route screenshot capture, using local/demo content only:
 
 - no real production domains
 - no real ICP or public security registration numbers
@@ -35,8 +35,10 @@ The screenshots do not include a separate logo file, trademark artwork, generate
 
 ## Regeneration
 
-Regenerate the PNG files with:
+Regenerate the PNG files by running the manual route screenshot audit from the frontend workspace:
 
 ```bash
-node tools/docs/generate-public-preview-screenshots.mjs
+FSUSBLOG_MANUAL_SCREENSHOT_RUNTIME_AUDIT=0 FSUSBLOG_MANUAL_SCREENSHOT_LAYOUT_AUDIT=0 FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS=1 npm --prefix src/frontend run capture:manual-layout-screenshots
 ```
+
+The manual audit derives its coverage from the frontend router table. It writes full route screenshots under `FSUSBLOG_MANUAL_SCREENSHOT_DIR` or `.tmp/manual-layout-screenshots/current`, and copies the selected documentation aliases above into this directory when `FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS=1` is set. Leave the audit flags enabled for layout QA; set them to `0` only for capture-only documentation refreshes. This is the only screenshot capture path for these documentation assets.

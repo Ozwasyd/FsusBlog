@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '../..')
@@ -61,9 +61,37 @@ for (const token of [
   'no real production domains',
   'no real personal emails',
   'no real IP addresses',
-  'Brand And Asset Rights'
+  'Brand And Asset Rights',
+  'live frontend route audit flow',
+  'manual-layout-screenshots',
+  'capture:manual-layout-screenshots',
+  'frontend router table',
+  'FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS',
+  'FSUSBLOG_MANUAL_SCREENSHOT_LAYOUT_AUDIT'
 ]) {
   includes('docs/assets/screenshots/README.md', gallery, token)
+}
+
+if (existsSync(resolve(root, 'tools/docs/generate-public-preview-screenshots.mjs'))) {
+  errors.push('tools/docs/generate-public-preview-screenshots.mjs must not exist; use capture:manual-layout-screenshots')
+}
+
+const manualCapture = read('tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts')
+for (const token of [
+  'APP_ROUTE_RECORDS',
+  'buildManualRoutesFromRouteRecords',
+  'materializeRoutePath'
+]) {
+  includes('tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts', manualCapture, token)
+}
+for (const token of [
+  'buildAnonymousRoutes',
+  'buildUserRoutes',
+  'buildAdminRoutes'
+]) {
+  if (manualCapture.includes(token)) {
+    errors.push(`manual layout screenshot script must not use static route matrix helper: ${token}`)
+  }
 }
 
 const readme = read('README.md')
