@@ -2,9 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useSiteStore } from '@/store/site'
 
+const mockReadPublicHydrationPayload = vi.hoisted(() => vi.fn())
+
 vi.mock('@/api/system', () => ({
   getSiteConfig: vi.fn(),
   getSiteComplianceConfig: vi.fn()
+}))
+
+vi.mock('@/bootstrap/publicHydrationBootstrap', () => ({
+  readPublicHydrationPayload: mockReadPublicHydrationPayload
 }))
 
 import { getSiteComplianceConfig, getSiteConfig } from '@/api/system'
@@ -15,6 +21,7 @@ describe('useSiteStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    mockReadPublicHydrationPayload.mockReturnValue(null)
     mockGetSiteComplianceConfig.mockResolvedValue(null as never)
   })
 
@@ -50,6 +57,66 @@ describe('useSiteStore', () => {
     expect(store.isLoaded).toBe(true)
     expect(store.siteInfo.title).toBe('My Blog')
     expect(store.siteInfo.author).toBe('Alice')
+  })
+
+  it('normalizes compliance from the hydration payload before exposing shell state', () => {
+    mockReadPublicHydrationPayload.mockReturnValueOnce({
+      siteTitle: 'Seed',
+      compliance: {
+        enabled: true,
+        regionMode: 'mainland-cn',
+        copyrightOwner: ' Fsu ',
+        copyrightStartYear: '2021',
+        icpRecordNumber: ' ICP-1 ',
+        policeRecordNumber: ' Police-1 '
+      }
+    })
+
+    const store = useSiteStore()
+
+    expect(store.complianceInfo).toMatchObject({
+      enabled: true,
+      regionMode: 'mainland-cn',
+      copyrightOwner: 'Fsu',
+      copyrightStartYear: 2021,
+      icpRecordNumber: 'ICP-1',
+      icpRecordUrl: 'https://beian.miit.gov.cn/',
+      policeRecordNumber: 'Police-1',
+      policeRecordUrl: 'https://beian.mps.gov.cn/'
+    })
+  })
+
+  it('normalizes compliance from the public API before replacing hydration seed state', async () => {
+    mockGetSiteConfig.mockResolvedValueOnce({
+      title: 'My Blog',
+      description: 'Test',
+      keywords: 'test',
+      author: 'Alice',
+      ogImage: '',
+      baseUrl: 'https://example.com'
+    } as never)
+    mockGetSiteComplianceConfig.mockResolvedValueOnce({
+      enabled: true,
+      regionMode: 'unknown',
+      copyrightOwner: ' API Owner ',
+      copyrightStartYear: '0',
+      icpRecordNumber: ' ICP-2 ',
+      policeRecordNumber: ' Police-2 '
+    } as never)
+    const store = useSiteStore()
+
+    await store.fetchSiteInfo()
+
+    expect(store.complianceInfo).toMatchObject({
+      enabled: true,
+      regionMode: 'global',
+      copyrightOwner: 'API Owner',
+      copyrightStartYear: null,
+      icpRecordNumber: 'ICP-2',
+      icpRecordUrl: 'https://beian.miit.gov.cn/',
+      policeRecordNumber: 'Police-2',
+      policeRecordUrl: 'https://beian.mps.gov.cn/'
+    })
   })
 
   it('fetchSiteInfo does nothing if already loaded', async () => {
