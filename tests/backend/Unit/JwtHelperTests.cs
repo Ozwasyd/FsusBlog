@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -66,6 +67,7 @@ public sealed class JwtHelperTests
     [Fact]
     public void GenerateAccessToken_ContainsRoleClaim()
     {
+        using var _ = SetAnonymousIdentityMode(null);
         var helper = CreateHelper();
         string token = helper.GenerateAccessToken(TestUser(role: "admin"));
 
@@ -74,6 +76,22 @@ public sealed class JwtHelperTests
         var role = claims.FirstOrDefault(c => c.Type == ClaimTypes.Role || c.Type == "role");
         Assert.NotNull(role);
         Assert.Equal("admin", role.Value);
+    }
+
+    [Fact]
+    public void GenerateAccessToken_AnonymousIdentityMode_DoesNotGrantAdminFromSysUserRole()
+    {
+        using var _ = SetAnonymousIdentityMode("1");
+        var helper = CreateHelper();
+        var user = TestUser(role: "admin");
+        user.IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind;
+
+        string token = helper.GenerateAccessToken(user);
+
+        var claims = ParseClaims(token);
+        var role = claims.FirstOrDefault(c => c.Type == ClaimTypes.Role || c.Type == "role");
+        Assert.NotNull(role);
+        Assert.Equal(AnonymousIdentityRuntime.AuthenticatedRole, role.Value);
     }
 
     [Fact]
@@ -197,5 +215,24 @@ public sealed class JwtHelperTests
     {
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
         return jwt.Claims;
+    }
+
+    private static IDisposable SetAnonymousIdentityMode(string? value)
+        => new EnvironmentVariableScope(AnonymousIdentityRuntime.ModeEnvironmentVariable, value);
+
+    private sealed class EnvironmentVariableScope : IDisposable
+    {
+        private readonly string _name;
+        private readonly string? _previousValue;
+
+        public EnvironmentVariableScope(string name, string? value)
+        {
+            _name = name;
+            _previousValue = Environment.GetEnvironmentVariable(name);
+            Environment.SetEnvironmentVariable(name, value);
+        }
+
+        public void Dispose()
+            => Environment.SetEnvironmentVariable(_name, _previousValue);
     }
 }

@@ -1,4 +1,5 @@
-﻿using SqlSugar;
+﻿using FsusBlog.Server.Infrastructure.Auth;
+using SqlSugar;
 
 namespace FsusBlog.Server.Entities;
 
@@ -12,14 +13,35 @@ public class User
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
     public int Id { get; set; }
 
-    [SugarColumn(Length = 64)]
+    [SugarColumn(Length = 64, IsNullable = true)]
     public string Username { get; set; } = string.Empty;
 
-    [SugarColumn(Length = 100)]
+    [SugarColumn(Length = 100, IsNullable = true)]
     public string Password { get; set; } = string.Empty; // 实际生产中请存 Hash
 
     [SugarColumn(Length = 20)]
     public string Role { get; set; } = "guest"; // "admin" or "guest"
+
+    [SugarColumn(ColumnName = "public_handle", Length = 64, IsNullable = true)]
+    public string? PublicHandle { get; set; }
+
+    [SugarColumn(ColumnName = "identity_kind", Length = 32, DefaultValue = "'anonymous_account'")]
+    public string IdentityKind { get; set; } = AnonymousIdentityRuntime.AnonymousAccountKind;
+
+    [SugarColumn(ColumnName = "passkey_enabled", DefaultValue = "false")]
+    public bool PasskeyEnabled { get; set; }
+
+    [SugarColumn(ColumnName = "recovery_enabled", DefaultValue = "false")]
+    public bool RecoveryEnabled { get; set; }
+
+    [SugarColumn(ColumnName = "privacy_initialized_at", IsNullable = true)]
+    public DateTime? PrivacyInitializedAt { get; set; }
+
+    [SugarColumn(ColumnName = "anonymous_credential_level", Length = 32, DefaultValue = "'basic'")]
+    public string AnonymousCredentialLevel { get; set; } = "basic";
+
+    [SugarColumn(ColumnName = "anonymous_credential_status", Length = 32, DefaultValue = "'active'")]
+    public string AnonymousCredentialStatus { get; set; } = "active";
 
     /// <summary>
     /// 上次修改用户名的时间

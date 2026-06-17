@@ -50,3 +50,13 @@ Run the reset only against an isolated restored database first:
 5. Repeat the same guarded startup on the production cold-start database only after the rehearsal result is accepted.
 
 If `FSUSBLOG_CONFIRM_IDENTITY_RESET` is missing or has any other value, `LegacyIdentityColdStartResetOperation` fails before opening the destructive transaction. The operation keeps table structures in place for CodeFirst compatibility and deletes rows in dependency order: comment-derived rows, comments, user-bound messages, passkey credentials, sessions, then users. After the database transaction commits, it clears legacy user cache entries for blacklist/blocking, unread-message counts, and user-comment cursors. Rollback is backup based; do not run this operation without a fresh restore point.
+
+The anonymous account schema migration keeps `sys_user` but changes its meaning after reset:
+
+- `username` and `password` become nullable legacy compatibility columns.
+- `public_handle` is nullable and uniquely indexed when present.
+- `identity_kind` defaults to `anonymous_account`.
+- `passkey_enabled`, `recovery_enabled`, and `privacy_initialized_at` record whether the new non-password identity setup has been initialized.
+- `anonymous_credential_level` and `anonymous_credential_status` provide a compact projection point for later credential-policy work.
+
+When `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` is enabled, application code must not treat `username/password` or `role=admin` as authority sources for these rows.

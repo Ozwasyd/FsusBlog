@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.SchemaMigration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Runtime.CompilerServices;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests;
@@ -553,21 +554,14 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
               AND column_name = '{columnName}';
             """);
 
-    private static string ReadFixtureSql(string fileName)
+    private static string ReadFixtureSql(string fileName, [CallerFilePath] string sourceFile = "")
     {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            string candidate = Path.Combine(directory.FullName, "tests", "backend", "Fixtures", fileName);
-            if (File.Exists(candidate))
-            {
-                return File.ReadAllText(candidate);
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException($"Fixture SQL file was not found: {fileName}");
+        string repoRoot = Directory.GetParent(sourceFile)?.Parent?.Parent?.Parent?.FullName
+            ?? throw new InvalidOperationException("Unable to resolve repository root.");
+        string candidate = Path.Combine(repoRoot, "tests", "backend", "Fixtures", fileName);
+        return File.Exists(candidate)
+            ? File.ReadAllText(candidate)
+            : throw new FileNotFoundException($"Fixture SQL file was not found: {fileName}", candidate);
     }
 
     private static ServiceProvider BuildProvider(string connectionString)

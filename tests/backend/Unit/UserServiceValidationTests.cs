@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Linq.Expressions;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
@@ -122,6 +123,19 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    public async Task RegisterAsync_AnonymousIdentityMode_DisablesLegacyPasswordRegistration()
+    {
+        using var _ = SetAnonymousIdentityMode("1");
+        var svc = BuildService();
+        var dto = new RegisterDto { Username = "anonymous", Password = "validPass1!", ConfirmPassword = "validPass1!" };
+
+        var (success, message) = await svc.RegisterAsync(dto);
+
+        Assert.False(success);
+        Assert.Contains("anonymous identity", message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task RegisterAsync_ChineseUsername_PassesValidation_HitsDb()
     {
         var db = Substitute.For<ISqlSugarClient>();
@@ -151,6 +165,20 @@ public class UserServiceValidationTests
         var (success, message, user) = await svc.ValidateCredentialsAsync(dto, "127.0.0.1");
         Assert.False(success);
         Assert.Contains("用户名", message);
+        Assert.Null(user);
+    }
+
+    [Fact]
+    public async Task ValidateCredentials_AnonymousIdentityMode_DisablesLegacyPasswordLogin()
+    {
+        using var _ = SetAnonymousIdentityMode("1");
+        var svc = BuildService();
+        var dto = new LoginDto { Username = "legacy", Password = "validPass1!" };
+
+        var (success, message, user) = await svc.ValidateCredentialsAsync(dto, "127.0.0.1");
+
+        Assert.False(success);
+        Assert.Contains("anonymous identity", message, StringComparison.OrdinalIgnoreCase);
         Assert.Null(user);
     }
 
@@ -192,6 +220,35 @@ public class UserServiceValidationTests
         var (success, message) = await svc.UpdatePasswordAsync(1, dto);
         Assert.False(success);
         Assert.Contains("不一致", message);
+    }
+
+    [Fact]
+    public async Task UpdatePasswordAsync_AnonymousIdentityMode_DisablesLegacyPasswordChange()
+    {
+        using var _ = SetAnonymousIdentityMode("1");
+        var svc = BuildService();
+        var dto = new UpdatePasswordDto { OldPassword = "OldPass123!", NewPassword = "NewPass123!", ConfirmPassword = "NewPass123!" };
+
+        var (success, message) = await svc.UpdatePasswordAsync(1, dto);
+
+        Assert.False(success);
+        Assert.Contains("anonymous identity", message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AdminResetPasswordAsync_AnonymousIdentityMode_DisablesLegacyPasswordReset()
+    {
+        using var _ = SetAnonymousIdentityMode("1");
+        var svc = BuildService();
+
+        var (success, message) = await svc.AdminResetPasswordAsync(new AdminResetPwdDto
+        {
+            UserId = 1,
+            NewPassword = "NewPass123!"
+        });
+
+        Assert.False(success);
+        Assert.Contains("anonymous identity", message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -395,6 +452,25 @@ public class UserServiceValidationTests
     {
         var method = typeof(UserService).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
         return (T)method.Invoke(null, args)!;
+    }
+
+    private static IDisposable SetAnonymousIdentityMode(string? value)
+        => new EnvironmentVariableScope(AnonymousIdentityRuntime.ModeEnvironmentVariable, value);
+
+    private sealed class EnvironmentVariableScope : IDisposable
+    {
+        private readonly string _name;
+        private readonly string? _previousValue;
+
+        public EnvironmentVariableScope(string name, string? value)
+        {
+            _name = name;
+            _previousValue = Environment.GetEnvironmentVariable(name);
+            Environment.SetEnvironmentVariable(name, value);
+        }
+
+        public void Dispose()
+            => Environment.SetEnvironmentVariable(_name, _previousValue);
     }
 
     [Theory]

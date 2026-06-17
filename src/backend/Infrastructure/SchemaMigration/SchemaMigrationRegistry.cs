@@ -19,6 +19,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildUserSoftDeleteMigration(),
         BuildUserSessionFinalizeMigration(),
         BuildUserAuthSecurityHardeningMigration(),
+        BuildAnonymousIdentityAccountSchemaMigration(),
         BuildAuditLogMigration(),
         BuildAuditLogStructuredFieldsPreCodeFirstMigration(),
         BuildAuditLogStructuredFieldsMigration(),
@@ -624,6 +625,60 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new DropColumnStep("sys_user", "refreshtokenexpirytime"),
                 new DropColumnStep("sys_user", "refresh_token"),
                 new DropColumnStep("sys_user", "refresh_token_expiry_time")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAnonymousIdentityAccountSchemaMigration()
+        => new SchemaMigrationDescriptor(
+            "20260616-pre-anonymous-identity-account-schema",
+            "Reinterpret sys_user as an anonymous account container after destructive identity reset.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("sys_user", "public_handle", "varchar(64) NULL"),
+                new EnsureColumnStep("sys_user", "identity_kind", "varchar(32) NOT NULL DEFAULT ''anonymous_account''"),
+                new EnsureColumnStep("sys_user", "passkey_enabled", "boolean NOT NULL DEFAULT false"),
+                new EnsureColumnStep("sys_user", "recovery_enabled", "boolean NOT NULL DEFAULT false"),
+                new EnsureColumnStep("sys_user", "privacy_initialized_at", "timestamp NULL"),
+                new EnsureColumnStep("sys_user", "anonymous_credential_level", "varchar(32) NOT NULL DEFAULT ''basic''"),
+                new EnsureColumnStep("sys_user", "anonymous_credential_status", "varchar(32) NOT NULL DEFAULT ''active''"),
+                new RawSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'username'
+                        ) THEN
+                            ALTER TABLE sys_user ALTER COLUMN username DROP NOT NULL;
+                        END IF;
+
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'sys_user' AND column_name = 'password'
+                        ) THEN
+                            ALTER TABLE sys_user ALTER COLUMN password DROP NOT NULL;
+                        END IF;
+                    END $$;
+                    """),
+                new RawSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'sys_user'
+                        ) THEN
+                            UPDATE sys_user
+                            SET identity_kind = COALESCE(NULLIF(identity_kind, ''), 'anonymous_account'),
+                                passkey_enabled = COALESCE(passkey_enabled, false),
+                                recovery_enabled = COALESCE(recovery_enabled, false),
+                                anonymous_credential_level = COALESCE(NULLIF(anonymous_credential_level, ''), 'basic'),
+                                anonymous_credential_status = COALESCE(NULLIF(anonymous_credential_status, ''), 'active');
+                        END IF;
+                    END $$;
+                    """),
+                new CreateIndexStep(
+                    "idx_user_public_handle_unique",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_public_handle_unique ON sys_user(public_handle) WHERE public_handle IS NOT NULL;")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAuditLogMigration()

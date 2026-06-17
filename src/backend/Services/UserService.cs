@@ -1,6 +1,7 @@
 ﻿using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -65,6 +66,11 @@ public partial class UserService(
 
     public async Task<(bool Success, string Message)> RegisterAsync(RegisterDto dto)
     {
+        if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
+        {
+            return (false, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage);
+        }
+
         if (!IsPasswordLengthValid(dto.Password))
         {
             return (false, "密码长度必须在 8-128 位之间");
@@ -142,6 +148,11 @@ public partial class UserService(
 
     public async Task<(bool Success, string Message, User? User)> ValidateCredentialsAsync(LoginDto dto, string clientIp)
     {
+        if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
+        {
+            return (false, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage, null);
+        }
+
         clientIp = NormalizeClientIp(clientIp);
         string normalizedUsername = NormalizeUsername(dto.Username);
         if (normalizedUsername.Length == 0) return (false, "用户名不能为空", null);
@@ -220,6 +231,11 @@ public partial class UserService(
 
     public async Task<(bool Success, string Message)> UpdatePasswordAsync(int userId, UpdatePasswordDto dto)
     {
+        if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
+        {
+            return (false, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage);
+        }
+
         if (!IsPasswordLengthValid(dto.NewPassword))
         {
             return (false, "新密码长度必须在 8-128 位之间");
@@ -398,6 +414,11 @@ public partial class UserService(
 
     public async Task<(bool Success, string Message)> AdminResetPasswordAsync(AdminResetPwdDto dto)
     {
+        if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
+        {
+            return (false, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage);
+        }
+
         var user = await _db.Queryable<User>().InSingleAsync(dto.UserId);
         if (user == null) return (false, "用户不存在");
         if (!IsPasswordLengthValid(dto.NewPassword)) return (false, "新密码长度必须在 8-128 位之间");
@@ -668,7 +689,8 @@ public partial class UserService(
 
         if (user.MfaEnabled)
         {
-            if (string.IsNullOrWhiteSpace(password) || !BCrypt.Net.BCrypt.Verify(password, user.Password))
+            if (!AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()
+                && (string.IsNullOrWhiteSpace(password) || !BCrypt.Net.BCrypt.Verify(password, user.Password)))
             {
                 return (false, null, "MFA_REBIND_PASSWORD_REQUIRED");
             }
@@ -704,6 +726,11 @@ public partial class UserService(
 
     public async Task<(bool Success, string Message)> DeleteAccountAsync(int userId, DeleteAccountRequestDto dto)
     {
+        if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
+        {
+            return (false, AnonymousIdentityRuntime.LegacyPasswordDisabledMessage);
+        }
+
         if (!string.Equals(dto.ConfirmText?.Trim(), "DELETE", StringComparison.Ordinal))
         {
             return (false, "确认文本不匹配");
@@ -863,7 +890,8 @@ public partial class UserService(
             return (false, "用户不存在");
         }
 
-        if (!BCrypt.Net.BCrypt.Verify(password, user.Password))
+        if (!AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()
+            && !BCrypt.Net.BCrypt.Verify(password, user.Password))
         {
             return (false, "密码验证失败");
         }
@@ -903,7 +931,8 @@ public partial class UserService(
             return (false, null, "用户不存在");
         }
 
-        if (!BCrypt.Net.BCrypt.Verify(password, user.Password))
+        if (!AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()
+            && !BCrypt.Net.BCrypt.Verify(password, user.Password))
         {
             return (false, null, "密码验证失败");
         }

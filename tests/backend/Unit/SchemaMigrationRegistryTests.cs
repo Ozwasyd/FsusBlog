@@ -44,5 +44,28 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260518-pre-comment-moderation", migrationIds);
         Assert.Contains("20260610-post-comment-region-compliance", migrationIds);
         Assert.Contains("20260603-post-comment-public-hot-path-indexes", migrationIds);
+        Assert.Contains("20260616-pre-anonymous-identity-account-schema", migrationIds);
+    }
+
+    [Fact]
+    public void GetDescriptors_AnonymousIdentityAccountSchema_AddsExpectedColumns()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260616-pre-anonymous-identity-account-schema");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Contains("sys_user.public_handle", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ALTER TABLE sys_user ALTER COLUMN username DROP NOT NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ALTER TABLE sys_user ALTER COLUMN password DROP NOT NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.identity_kind", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("anonymous_account", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.passkey_enabled", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.recovery_enabled", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.privacy_initialized_at", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.anonymous_credential_level", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_user.anonymous_credential_status", fingerprint, StringComparison.Ordinal);
     }
 }
