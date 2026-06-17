@@ -772,6 +772,7 @@ public static class AuthoringEndpoints
             CommentModerationQueueResponse queue = await service.ListCommentModerationQueueAsync(resolvedStatus, limit ?? 50, cancellationToken);
             return Results.Ok(JsonApiResponse<CommentModerationQueueResponse>.Ok(queue));
         })
+        .RequireAdminPermission(AdminPermissions.CommentModerate)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/comments/moderation/bulk", async (
@@ -809,6 +810,7 @@ public static class AuthoringEndpoints
                 }), cancellationToken);
             return Results.Ok(JsonApiResponse<CommentModerationBulkResponse>.Ok(response));
         })
+        .RequireAdminPermission(AdminPermissions.CommentModerate)
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/comments/{commentId:long}/moderation", async (
@@ -846,6 +848,7 @@ public static class AuthoringEndpoints
                 ? Results.Ok(JsonApiResponse<object>.Ok(new { moderated }))
                 : Results.NotFound(JsonApiResponse<object>.Fail("comment_not_found"));
         })
+        .RequireAdminPermission(AdminPermissions.CommentModerate)
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/content/export", async (

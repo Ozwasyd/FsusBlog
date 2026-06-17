@@ -172,6 +172,93 @@ public sealed class EndpointPolicyContractTests
         Assert.DoesNotContain("BeginRegistrationAsync(user.Value.Id, user.Value.Username", handler, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CommentModerationEndpoints_RequireCommentModeratePermission()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "AuthoringEndpoints.cs");
+
+        string queue = ExtractBetween(
+            source,
+            "group.MapGet(\"/comments/moderation\"",
+            "group.MapPost(\"/comments/moderation/bulk\"");
+        string bulk = ExtractBetween(
+            source,
+            "group.MapPost(\"/comments/moderation/bulk\"",
+            "group.MapPost(\"/comments/{commentId:long}/moderation\"");
+        string single = ExtractBetween(
+            source,
+            "group.MapPost(\"/comments/{commentId:long}/moderation\"",
+            "group.MapGet(\"/content/export\"");
+
+        Assert.Contains(".RequireAdminPermission(AdminPermissions.CommentModerate)", queue, StringComparison.Ordinal);
+        Assert.DoesNotContain("RequireAdminSensitiveStepUpAsync", queue, StringComparison.Ordinal);
+        Assert.Contains(".RequireRateLimiting(\"fixed_ip\")", queue, StringComparison.Ordinal);
+
+        Assert.Contains(".RequireAdminPermission(AdminPermissions.CommentModerate)", bulk, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync", bulk, StringComparison.Ordinal);
+        Assert.Contains("AuditActionCatalog.CommentBulkModerated", bulk, StringComparison.Ordinal);
+        Assert.Contains(".RequireRateLimiting(\"fixed_ip\")", bulk, StringComparison.Ordinal);
+
+        Assert.Contains(".RequireAdminPermission(AdminPermissions.CommentModerate)", single, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync", single, StringComparison.Ordinal);
+        Assert.Contains("AuditActionCatalog.CommentModerated", single, StringComparison.Ordinal);
+        Assert.Contains(".RequireRateLimiting(\"fixed_ip\")", single, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CommentModerationAndAnonymousGovernancePermissions_DoNotReplaceEachOther()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "AuthoringEndpoints.cs");
+
+        string queue = ExtractBetween(
+            source,
+            "group.MapGet(\"/comments/moderation\"",
+            "group.MapPost(\"/comments/moderation/bulk\"");
+        string bulk = ExtractBetween(
+            source,
+            "group.MapPost(\"/comments/moderation/bulk\"",
+            "group.MapPost(\"/comments/{commentId:long}/moderation\"");
+        string single = ExtractBetween(
+            source,
+            "group.MapPost(\"/comments/{commentId:long}/moderation\"",
+            "group.MapGet(\"/content/export\"");
+        string nullifierBlock = ExtractBetween(
+            source,
+            "group.MapPost(\"/comments/moderation/nullifiers/block\"",
+            "group.MapPost(\"/comments/moderation/anonymous-credentials/{credentialId:long}/revoke\"");
+        string credentialRevoke = ExtractBetween(
+            source,
+            "group.MapPost(\"/comments/moderation/anonymous-credentials/{credentialId:long}/revoke\"",
+            "group.MapGet(\"/moderation/dictionaries\"");
+
+        foreach (string normalModerationRoute in new[] { queue, bulk, single })
+        {
+            Assert.Contains("AdminPermissions.CommentModerate", normalModerationRoute, StringComparison.Ordinal);
+            Assert.DoesNotContain("AdminPermissions.AnonymousCommentConfigure", normalModerationRoute, StringComparison.Ordinal);
+            Assert.DoesNotContain("AdminPermissions.AnonymousNullifierBlock", normalModerationRoute, StringComparison.Ordinal);
+            Assert.DoesNotContain("AdminPermissions.AnonymousCredentialRevoke", normalModerationRoute, StringComparison.Ordinal);
+            Assert.DoesNotContain("AdminPermissions.SystemConfig", normalModerationRoute, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("AdminPermissions.AnonymousNullifierBlock", nullifierBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("AdminPermissions.CommentModerate", nullifierBlock, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync", nullifierBlock, StringComparison.Ordinal);
+
+        Assert.Contains("AdminPermissions.AnonymousCredentialRevoke", credentialRevoke, StringComparison.Ordinal);
+        Assert.DoesNotContain("AdminPermissions.CommentModerate", credentialRevoke, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync", credentialRevoke, StringComparison.Ordinal);
+    }
+
     private static string ReadRepoFile(params string[] segments)
     {
         string relativePath = Path.Combine(segments);
