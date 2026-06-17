@@ -25,6 +25,26 @@ public sealed record AnonymousCommentPolicySnapshot(
         SupportedDisplayLanguages: DefaultDisplayLanguages);
 }
 
+public sealed record AnonymousCommentPolicyUpdateRequest(
+    bool? AnonymousCommentsEnabled,
+    bool? PublicCommentsEnabled,
+    bool? ZkAnonymousEnabled,
+    string? DefaultAuthorMode,
+    IReadOnlyList<string>? SupportedDisplayLanguages);
+
+public sealed record CommentAuthorModeDecision(
+    bool Allowed,
+    string EffectiveAuthorMode,
+    string Status,
+    string Message)
+{
+    public static CommentAuthorModeDecision Allow(string mode)
+        => new(true, mode, "allowed", "Author mode is allowed");
+
+    public static CommentAuthorModeDecision Reject(string mode, string status, string message)
+        => new(false, mode, status, message);
+}
+
 public sealed record ZkAnonymousPolicySnapshot(
     bool Enabled,
     bool VerifierConfigured,

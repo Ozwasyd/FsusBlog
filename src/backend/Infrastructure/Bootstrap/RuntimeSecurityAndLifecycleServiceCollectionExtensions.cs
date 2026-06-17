@@ -24,6 +24,9 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IRecoveryKeyService, RecoveryKeyService>();
         services.TryAddSingleton<IZkProofVerifier, DisabledZkProofVerifier>();
         services.AddScoped<IZkAnonymousProofService, ZkAnonymousProofService>();
+        services.AddSingleton<IAnonymousCommentPolicyService, AnonymousCommentPolicyService>();
+        services.AddScoped<IAnonymousCredentialService, AnonymousCredentialService>();
+        services.AddScoped<ICommentAnonymousNullifierService, CommentAnonymousNullifierService>();
         services.AddScoped<ITotpService, TotpService>();
         services.AddScoped<IMfaChallengeService, MfaChallengeService>();
         services.AddScoped<IAuthRiskService, AuthRiskService>();

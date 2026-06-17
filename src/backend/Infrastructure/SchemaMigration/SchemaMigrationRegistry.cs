@@ -22,6 +22,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAnonymousIdentityAccountSchemaMigration(),
         BuildAdminPrincipalPlaneMigration(),
         BuildAccountRecoveryKeyMigration(),
+        BuildAnonymousCommentGovernanceMigration(),
         BuildAuditLogMigration(),
         BuildAuditLogStructuredFieldsPreCodeFirstMigration(),
         BuildAuditLogStructuredFieldsMigration(),
@@ -811,6 +812,77 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_account_recovery_key_active_unique",
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_account_recovery_key_active_unique ON account_recovery_key(user_id) WHERE used_at IS NULL AND revoked_at IS NULL;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAnonymousCommentGovernanceMigration()
+        => new SchemaMigrationDescriptor(
+            "20260616-post-anonymous-comment-governance",
+            "Create anonymous comment policy, credential, and nullifier governance tables.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "anonymous_comment_policy",
+                    """
+                    CREATE TABLE IF NOT EXISTS anonymous_comment_policy (
+                        id integer PRIMARY KEY,
+                        anonymous_comments_enabled boolean NOT NULL DEFAULT true,
+                        public_comments_enabled boolean NOT NULL DEFAULT true,
+                        zk_anonymous_enabled boolean NOT NULL DEFAULT false,
+                        default_author_mode varchar(32) NOT NULL DEFAULT 'anonymous',
+                        supported_display_languages varchar(128) NOT NULL DEFAULT 'zh-CN,en',
+                        updated_at_utc timestamp NOT NULL DEFAULT now(),
+                        updated_by_admin_id bigint NULL
+                    );
+                    INSERT INTO anonymous_comment_policy (
+                        id,
+                        anonymous_comments_enabled,
+                        public_comments_enabled,
+                        zk_anonymous_enabled,
+                        default_author_mode,
+                        supported_display_languages,
+                        updated_at_utc
+                    )
+                    VALUES (1, true, true, false, 'anonymous', 'zh-CN,en', now())
+                    ON CONFLICT (id) DO NOTHING;
+                    """),
+                new EnsureTableStep(
+                    "anonymous_credential",
+                    """
+                    CREATE TABLE IF NOT EXISTS anonymous_credential (
+                        id bigserial PRIMARY KEY,
+                        user_id integer NULL,
+                        commitment_hash varchar(128) NOT NULL,
+                        credential_type varchar(32) NOT NULL DEFAULT 'account_bound',
+                        credential_level varchar(32) NOT NULL DEFAULT 'basic',
+                        status varchar(32) NOT NULL DEFAULT 'active',
+                        issued_at_utc timestamp NOT NULL DEFAULT now(),
+                        revoked_at_utc timestamp NULL,
+                        metadata_json text NOT NULL DEFAULT '{}'
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_anonymous_credential_user ON anonymous_credential(user_id);
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_commitment ON anonymous_credential(commitment_hash);
+                    CREATE INDEX IF NOT EXISTS idx_anonymous_credential_status ON anonymous_credential(status);
+                    """),
+                new EnsureTableStep(
+                    "comment_anonymous_nullifier",
+                    """
+                    CREATE TABLE IF NOT EXISTS comment_anonymous_nullifier (
+                        id bigserial PRIMARY KEY,
+                        nullifier_hash varchar(128) NOT NULL,
+                        scope varchar(128) NOT NULL,
+                        use_count integer NOT NULL DEFAULT 0,
+                        first_comment_id bigint NULL,
+                        last_comment_id bigint NULL,
+                        blocked boolean NOT NULL DEFAULT false,
+                        block_reason varchar(256) NULL,
+                        created_at_utc timestamp NOT NULL DEFAULT now(),
+                        updated_at_utc timestamp NOT NULL DEFAULT now()
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_comment_nullifier_scope ON comment_anonymous_nullifier(nullifier_hash, scope);
+                    CREATE INDEX IF NOT EXISTS idx_comment_nullifier_blocked ON comment_anonymous_nullifier(blocked);
+                    """)
             ]);
 
     private static ISchemaMigrationDescriptor BuildAuditLogMigration()
