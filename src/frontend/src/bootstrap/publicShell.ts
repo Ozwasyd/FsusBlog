@@ -18,6 +18,7 @@ import { AEDS_BINARY_MEDIA_TYPE } from '@/api/contracts'
 import { getMe, type CurrentUserSnapshot } from '@/api/auth'
 import { getPrefersReducedMotion, resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
 import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
+import { settlePublicNavigationMotionForShell } from '@/bootstrap/publicShellMotion'
 
 function isModifiedEvent(event: MouseEvent): boolean {
   return event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
@@ -998,7 +999,7 @@ async function applyPublicNavigationDocument(
 
   clearDynamicIslands()
   syncHeadFromDocument(targetDocument)
-  replacePublicShellForNavigation(currentShell, targetShell)
+  const nextShell = replacePublicShellForNavigation(currentShell, targetShell)
 
   replaceBinaryScript('fsus-aot-bootstrap', readBinaryTextById(targetDocument, 'fsus-aot-bootstrap'))
 
@@ -1007,6 +1008,7 @@ async function applyPublicNavigationDocument(
   refreshPublicShellAuthState()
   scheduleDynamicIslands(payload)
   clearPublicFirstPaintFlag()
+  settlePublicNavigationMotionForShell(nextShell)
 
   if (historyMode === 'push') {
     history.pushState({ __fsusPublicShell: true, scrollX: 0, scrollY: 0 }, '', href)
