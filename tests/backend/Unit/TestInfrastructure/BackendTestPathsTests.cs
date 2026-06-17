@@ -49,7 +49,9 @@ public sealed class BackendTestPathsTests
     [Fact]
     public void ResolveRepositoryRoot_FailureIncludesStartsAndAnchors()
     {
-        string invalidRoot = CreateTempDirectory();
+        string invalidRoot = Path.Combine(
+            Path.GetPathRoot(Path.GetTempPath()) ?? Path.DirectorySeparatorChar.ToString(),
+            $"fsus-missing-backend-test-root-{Guid.NewGuid():N}");
         string callerFile = Path.Combine(invalidRoot, "tests", "backend", "Unit", "Missing.cs");
         string appBase = Path.Combine(invalidRoot, "tests", "backend", "bin", "Debug", "net10.0");
 
@@ -73,6 +75,31 @@ public sealed class BackendTestPathsTests
         [
             "tests/backend/Unit/BackendTestGovernanceTests.cs",
             "tests/backend/Unit/BackendGoldenCatalogTests.cs"
+        ];
+
+        foreach (string sourcePath in sourcePaths)
+        {
+            string source = BackendTestPaths.ReadAllTextFromRoot(sourcePath);
+
+            Assert.Contains("FsusBlog.Server.Tests.TestInfrastructure", source, StringComparison.Ordinal);
+            Assert.Contains("BackendTestPaths.", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("FindRepoRoot", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("Unable to locate repository root", source, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void SourceReadingContractTests_UseSharedRepositoryRootHelper()
+    {
+        string[] sourcePaths =
+        [
+            "tests/backend/Unit/PublicAotRouteManifestTests.cs",
+            "tests/backend/Unit/PublicAotNodeWorkerScriptTests.cs",
+            "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+            "tests/backend/Unit/AedsProtocolCrossLanguageTests.cs",
+            "tests/backend/Unit/CoverageScriptContractTests.cs",
+            "tests/backend/Unit/HttpHotPathPerformanceContractTests.cs",
+            "tests/backend/Unit/EndpointPolicyContractTests.cs"
         ];
 
         foreach (string sourcePath in sourcePaths)

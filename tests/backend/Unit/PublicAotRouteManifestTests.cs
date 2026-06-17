@@ -1,7 +1,7 @@
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
-using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests;
 
@@ -56,11 +56,10 @@ public sealed class PublicAotRouteManifestTests
     [Fact]
     public void Source_ExposesInternalEndpointAndPublicVisibilityFilters()
     {
-        string repoRoot = FindRepoRoot();
-        string endpointSource = File.ReadAllText(Path.Combine(repoRoot, "src/backend/Modules/Endpoints/PublicAotEndpoints.cs"));
-        string providerSource = File.ReadAllText(Path.Combine(repoRoot, "src/backend/Infrastructure/PublicAot/PublicAotRouteManifest.cs"));
-        string invalidationSource = File.ReadAllText(Path.Combine(repoRoot, "src/backend/Infrastructure/PublicAot/PublicAotInvalidationService.cs"));
-        string diagnosticSource = File.ReadAllText(Path.Combine(repoRoot, "tools", "operations", "public-aot-health.mjs"));
+        string endpointSource = ReadRepoFile("src/backend/Modules/Endpoints/PublicAotEndpoints.cs");
+        string providerSource = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotRouteManifest.cs");
+        string invalidationSource = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotInvalidationService.cs");
+        string diagnosticSource = ReadRepoFile("tools/operations/public-aot-health.mjs");
 
         Assert.Contains("/internal/public-aot", endpointSource);
         Assert.Contains("/manifest", endpointSource);
@@ -80,26 +79,10 @@ public sealed class PublicAotRouteManifestTests
         Assert.Contains("X-Fsus-Public-Aot-Token", diagnosticSource);
     }
 
-    private static string FindRepoRoot([CallerFilePath] string sourceFile = "")
+    private static string ReadRepoFile(string relativePath)
     {
-        string current = Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
-                File.Exists(Path.Combine(current, "src", "backend", "Infrastructure", "PublicAot", "PublicAotRouteManifest.cs")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
+        string fullPath = BackendTestPaths.FromRoot(relativePath);
+        Assert.True(File.Exists(fullPath), $"{relativePath} must exist.");
+        return File.ReadAllText(fullPath);
     }
 }

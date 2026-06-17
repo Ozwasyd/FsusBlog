@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -18,7 +19,7 @@ public sealed class CoverageScriptContractTests
     [MemberData(nameof(CoverageScriptPaths))]
     public void CoverageScripts_ExistAndAreExecutable(string relativePath)
     {
-        string script = Path.Combine(FindRepoRoot(), relativePath);
+        string script = BackendTestPaths.FromRoot(relativePath);
 
         Assert.True(File.Exists(script), $"{relativePath} must exist.");
 
@@ -34,8 +35,9 @@ public sealed class CoverageScriptContractTests
     [MemberData(nameof(CoverageScriptPaths))]
     public void CoverageScripts_DryRunEmitsContractSchema(string relativePath)
     {
-        string root = FindRepoRoot();
-        string script = Path.Combine(root, relativePath);
+        string root = BackendTestPaths.RepositoryRoot;
+        string script = BackendTestPaths.FromRoot(relativePath);
+        Assert.True(File.Exists(script), $"{relativePath} must exist.");
         using Process process = new()
         {
             StartInfo = new ProcessStartInfo
@@ -65,11 +67,7 @@ public sealed class CoverageScriptContractTests
     [Fact]
     public void FrontendCoverageCollection_DefaultsLocalVitestThresholdsToArtifactOnly()
     {
-        string source = File.ReadAllText(Path.Combine(
-            FindRepoRoot(),
-            "tools",
-            "coverage",
-            "collect-frontend-coverage.sh"));
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "coverage", "collect-frontend-coverage.sh");
 
         Assert.Contains(
             "FSUSBLOG_FRONTEND_COVERAGE_LINE_THRESHOLD=\"${FSUSBLOG_FRONTEND_COVERAGE_LINE_THRESHOLD:-0}\"",
@@ -95,27 +93,5 @@ public sealed class CoverageScriptContractTests
         {
             yield return [script];
         }
-    }
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 }

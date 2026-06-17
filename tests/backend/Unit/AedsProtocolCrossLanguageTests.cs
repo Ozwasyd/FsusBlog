@@ -1,9 +1,9 @@
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared;
 using FsusBlog.Shared.Contracts.Envelopes;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -560,35 +560,23 @@ public sealed partial class AedsProtocolCrossLanguageTests
 
     private static string ReadFrontendFrameProtocolSource()
     {
-        string repoRoot = FindRepoRoot();
-        string framePath = Path.Combine(repoRoot, "src", "frontend", "wasm", "web", "protocol", "frame.ts");
-        return File.ReadAllText(framePath);
+        return ReadRepoFile("src/frontend/wasm/web/protocol/frame.ts");
     }
 
     private static byte[] ReadProtocolFixtureBytes(string fileName)
     {
-        string repoRoot = FindRepoRoot();
-        string fixturePath = Path.Combine(repoRoot, "tests", "fixtures", "protocol", fileName);
+        string relativePath = Path.Combine("tests", "fixtures", "protocol", fileName);
+        string fixturePath = BackendTestPaths.FromRoot(relativePath);
+        Assert.True(File.Exists(fixturePath), $"{relativePath} must exist.");
         string hex = Regex.Replace(File.ReadAllText(fixturePath), @"\s+", string.Empty);
         return Convert.FromHexString(hex);
     }
 
-    private static string FindRepoRoot([CallerFilePath] string sourceFilePath = "")
+    private static string ReadRepoFile(string relativePath)
     {
-        var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFilePath) ?? AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")) ||
-                File.Exists(Path.Combine(directory.FullName, "src", "frontend", "wasm", "web", "protocol", "frame.ts")) ||
-                Directory.Exists(Path.Combine(directory.FullName, ".git")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
+        string fullPath = BackendTestPaths.FromRoot(relativePath);
+        Assert.True(File.Exists(fullPath), $"{relativePath} must exist.");
+        return File.ReadAllText(fullPath);
     }
 
     [GeneratedRegex(@"export\s+(?:const|enum)\s+FrameType\s*(?:=\s*)?\{([^}]*)\}", RegexOptions.Singleline)]

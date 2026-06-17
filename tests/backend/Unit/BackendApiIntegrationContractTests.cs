@@ -1,6 +1,6 @@
-using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -10,13 +10,12 @@ public sealed partial class BackendApiIntegrationContractTests
     [Fact]
     public void BinaryEndpointFrameTypes_AreCoveredByAedsGoldenCatalog()
     {
-        string root = FindRepoRoot();
         var goldenFrames = ReadJson("tests/backend/Fixtures/aeds-golden-catalog.json")["frames"]!
             .AsArray()
             .Select(static node => node!["name"]!.GetValue<string>())
             .ToHashSet(StringComparer.Ordinal);
 
-        foreach (string path in Directory.EnumerateFiles(Path.Combine(root, "src/backend/Modules/Endpoints/Binary"), "*.cs"))
+        foreach (string path in Directory.EnumerateFiles(BackendTestPaths.FromRoot("src", "backend", "Modules", "Endpoints", "Binary"), "*.cs"))
         {
             string source = File.ReadAllText(path);
             foreach (Match match in AedsFrameTypeRegex().Matches(source))
@@ -38,7 +37,8 @@ public sealed partial class BackendApiIntegrationContractTests
 
         foreach (JsonObject endpoint in catalog["endpointFamilies"]!.AsArray().Select(static node => node!.AsObject()))
         {
-            Assert.True(File.Exists(Path.Combine(FindRepoRoot(), endpoint["path"]!.GetValue<string>())));
+            string relativePath = endpoint["path"]!.GetValue<string>();
+            Assert.True(File.Exists(BackendTestPaths.FromRoot(relativePath)), $"{relativePath} must exist.");
             JsonArray requirements = endpoint["requirements"]!.AsArray();
             Assert.NotEmpty(requirements);
             foreach (JsonNode? requirement in requirements)
@@ -51,7 +51,7 @@ public sealed partial class BackendApiIntegrationContractTests
     [Fact]
     public void BackendProfiles_AreRepresentedInTestMatrix()
     {
-        string matrix = File.ReadAllText(Path.Combine(FindRepoRoot(), "tests/matrix.yml"));
+        string matrix = ReadRepoFile("tests/matrix.yml");
         JsonArray profiles = ReadJson("tests/backend/Fixtures/backend-test-requirements.json")["profiles"]!.AsArray();
 
         foreach (JsonObject profile in profiles.Select(static node => node!.AsObject()))
@@ -67,10 +67,9 @@ public sealed partial class BackendApiIntegrationContractTests
     [Fact]
     public void BinaryAdminMutationFiles_RetainAuthorizationAndPowBoundaries()
     {
-        string root = FindRepoRoot();
-        string articles = File.ReadAllText(Path.Combine(root, "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs"));
-        string auth = File.ReadAllText(Path.Combine(root, "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs"));
-        string users = File.ReadAllText(Path.Combine(root, "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs"));
+        string articles = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs");
+        string auth = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+        string users = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs");
 
         Assert.Contains(".RequireAuthorization(policy => policy.RequireRole(\"admin\"))", articles, StringComparison.Ordinal);
         Assert.Contains("AddEndpointFilter<RequiresPowFilter>()", articles, StringComparison.Ordinal);
@@ -82,8 +81,7 @@ public sealed partial class BackendApiIntegrationContractTests
     [Fact]
     public void PublicRelatedReadingBinaryEndpoint_RetainsPublicReadBoundariesAndApiError()
     {
-        string root = FindRepoRoot();
-        string articles = File.ReadAllText(Path.Combine(root, "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs"));
+        string articles = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs");
 
         Assert.Contains("\"/article/{articleId:int}/related.aeds\"", articles, StringComparison.Ordinal);
         Assert.Contains("RelatedReadingService service", articles, StringComparison.Ordinal);
@@ -99,8 +97,7 @@ public sealed partial class BackendApiIntegrationContractTests
     [Fact]
     public void HumanReadProofBinaryEndpoints_RetainSecurityBoundariesAndApiError()
     {
-        string root = FindRepoRoot();
-        string readProof = File.ReadAllText(Path.Combine(root, "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.ReadProof.cs"));
+        string readProof = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.ReadProof.cs");
 
         Assert.Contains("\"/read-proof/challenge.aeds\"", readProof, StringComparison.Ordinal);
         Assert.Contains("\"/read-proof/submit.aeds\"", readProof, StringComparison.Ordinal);
@@ -122,23 +119,13 @@ public sealed partial class BackendApiIntegrationContractTests
     [GeneratedRegex(@"AedsFrameType\.([A-Za-z0-9_]+)", RegexOptions.CultureInvariant)]
     private static partial Regex AedsFrameTypeRegex();
 
-    private static JsonObject ReadJson(string path, [CallerFilePath] string sourceFilePath = "")
-        => JsonNode.Parse(File.ReadAllText(Path.Combine(FindRepoRoot(sourceFilePath), path)))!.AsObject();
+    private static JsonObject ReadJson(string path)
+        => BackendTestPaths.ReadJsonFromRoot(path);
 
-    private static string FindRepoRoot([CallerFilePath] string sourceFilePath = "")
+    private static string ReadRepoFile(string relativePath)
     {
-        var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFilePath) ?? AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")) ||
-                Directory.Exists(Path.Combine(directory.FullName, ".git")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
+        string fullPath = BackendTestPaths.FromRoot(relativePath);
+        Assert.True(File.Exists(fullPath), $"{relativePath} must exist.");
+        return File.ReadAllText(fullPath);
     }
 }

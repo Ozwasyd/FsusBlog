@@ -1,8 +1,8 @@
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
-using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests;
 
@@ -24,12 +24,10 @@ public sealed class PublicAotNodeWorkerScriptTests
     [Fact]
     public void ServerPublicSsrScript_ExposesLineProtocolWorkerCommands()
     {
-        string repoRoot = FindRepoRoot();
-        string rendererPath = Path.Combine(repoRoot, "src", "backend", "Infrastructure", "PublicAot", "PublicAotNodeSsrRenderer.cs");
-        string source = File.ReadAllText(rendererPath);
-        string coreScript = File.ReadAllText(Path.Combine(repoRoot, "src", "frontend", "scripts", "server-public-ssr.worker-core.mjs"));
-        string viteScript = File.ReadAllText(Path.Combine(repoRoot, "src", "frontend", "scripts", "server-public-ssr.vite.mjs"));
-        string bundleScript = File.ReadAllText(Path.Combine(repoRoot, "src", "frontend", "scripts", "server-public-ssr.bundle.mjs"));
+        string source = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotNodeSsrRenderer.cs");
+        string coreScript = ReadRepoFile("src/frontend/scripts/server-public-ssr.worker-core.mjs");
+        string viteScript = ReadRepoFile("src/frontend/scripts/server-public-ssr.vite.mjs");
+        string bundleScript = ReadRepoFile("src/frontend/scripts/server-public-ssr.bundle.mjs");
 
         Assert.Contains("--worker", source);
         Assert.Contains("server-public-ssr.vite.mjs", source);
@@ -103,27 +101,11 @@ public sealed class PublicAotNodeWorkerScriptTests
         Assert.Contains("public_aot_production_worker_must_use_prebuilt_bundle", status.Error);
     }
 
-    private static string FindRepoRoot([CallerFilePath] string sourceFile = "")
+    private static string ReadRepoFile(string relativePath)
     {
-        string current = Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
-                File.Exists(Path.Combine(current, "src", "backend", "Infrastructure", "PublicAot", "PublicAotNodeSsrRenderer.cs")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
+        string fullPath = BackendTestPaths.FromRoot(relativePath);
+        Assert.True(File.Exists(fullPath), $"{relativePath} must exist.");
+        return File.ReadAllText(fullPath);
     }
 
     private static IConfiguration CreateConfiguration(Dictionary<string, string?> values)

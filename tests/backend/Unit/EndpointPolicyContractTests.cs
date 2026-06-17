@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using System.Runtime.CompilerServices;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -173,7 +173,12 @@ public sealed class EndpointPolicyContractTests
     }
 
     private static string ReadRepoFile(params string[] segments)
-        => File.ReadAllText(Path.Combine([FindRepoRoot(), .. segments]));
+    {
+        string relativePath = Path.Combine(segments);
+        string fullPath = BackendTestPaths.FromRoot(segments);
+        Assert.True(File.Exists(fullPath), $"{relativePath} must exist.");
+        return File.ReadAllText(fullPath);
+    }
 
     private static string ExtractBetween(string source, string start, string end)
     {
@@ -182,33 +187,5 @@ public sealed class EndpointPolicyContractTests
         int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
         Assert.True(endIndex >= 0, $"Missing end marker: {end}");
         return source[startIndex..endIndex];
-    }
-
-    private static string FindRepoRoot([CallerFilePath] string sourceFilePath = "")
-    {
-        string? current = Path.GetDirectoryName(sourceFilePath);
-        if (string.IsNullOrWhiteSpace(current))
-        {
-            current = AppContext.BaseDirectory;
-        }
-
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
-                Directory.Exists(Path.Combine(current, ".git")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 }
