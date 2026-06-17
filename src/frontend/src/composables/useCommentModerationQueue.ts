@@ -32,6 +32,20 @@ export interface CommentModerationFilters {
 }
 
 export interface CommentModerationViewItem extends CommentModerationItemResponse {
+  actorDisplayName: string
+  authorModeLabel: string
+  displayLanguageLabel: string
+  anonymousScopeLabel: string
+  credentialLevelLabel: string
+  reputationBucketLabel: string
+  accountAgeBucketLabel: string
+  riskLabels: string[]
+  isAnonymousActor: boolean
+  isStrongAnonymous: boolean
+  hasAnonymousNullifier: boolean
+  hasAnonymousCredential: boolean
+  canBlockAnonymousNullifier: boolean
+  canRevokeAnonymousCredential: boolean
   statusLabel: string
   statusCode: string
   statusClass: string
@@ -210,6 +224,59 @@ function modelStatusText(status: string | null | undefined): string {
   return status ? labels[status.toLowerCase()] ?? status : '未记录'
 }
 
+function cleanText(value: string | number | null | undefined): string | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+  const text = String(value).trim()
+  return text.length > 0 ? text : null
+}
+
+type NormalizedAuthorMode = 'anonymous' | 'public' | 'zk_anonymous'
+
+function normalizeAuthorMode(item: CommentModerationItemResponse): NormalizedAuthorMode {
+  const rawMode = cleanText(item.authorMode)?.toLowerCase()
+  if (rawMode === 'public' || rawMode === 'zk_anonymous') {
+    return rawMode
+  }
+  if (rawMode === 'anonymous' || item.nullifierHash || item.anonymousCredentialId) {
+    return 'anonymous'
+  }
+  return 'public'
+}
+
+function authorModeText(mode: NormalizedAuthorMode): string {
+  if (mode === 'public') {
+    return '公开账号'
+  }
+  if (mode === 'zk_anonymous') {
+    return '强匿名'
+  }
+  return '匿名'
+}
+
+function displayLanguageText(language: string | null | undefined): string {
+  const value = cleanText(language)
+  if (value === 'zh-CN') {
+    return '展示语言：中文'
+  }
+  if (value === 'en') {
+    return 'Display language: English'
+  }
+  return value ? `展示语言：${value}` : '展示语言：未记录'
+}
+
+function localizedAnonymousDisplayName(language: string | null | undefined, strongAnonymous: boolean): string {
+  if (cleanText(language) === 'en') {
+    return strongAnonymous ? 'Strong anonymous commenter' : 'Anonymous commenter'
+  }
+  return strongAnonymous ? '强匿名评论者' : '匿名评论者'
+}
+
+function bucketText(label: string, value: string | null | undefined): string {
+  return `${label}：${cleanText(value) ?? '未记录'}`
+}
+
 function buildRecommendedAction(item: CommentModerationItemResponse): Pick<CommentModerationViewItem, 'recommendedStatus' | 'recommendedActionLabel' | 'recommendedActionReason'> {
   const modelLabel = item.modelLabel?.toLowerCase() ?? ''
   const modelConfidence = typeof item.modelConfidence === 'number' ? item.modelConfidence : 0
@@ -273,16 +340,51 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
   ]
   const recommendedAction = buildRecommendedAction(item)
   const firstModelSignal = item.modelSignals[0]
+  const authorMode = normalizeAuthorMode(item)
+  const isAnonymousActor = authorMode !== 'public'
+  const credentialLevel = cleanText(item.credentialLevel)
+  const isStrongAnonymous = authorMode === 'zk_anonymous' || credentialLevel?.toLowerCase() === 'strong'
+  const actorDisplayName = isAnonymousActor
+    ? cleanText(item.authorDisplayName) ?? localizedAnonymousDisplayName(item.displayLanguage, isStrongAnonymous)
+    : cleanText(item.userName) ?? (typeof item.userId === 'number' ? `用户 ${item.userId}` : '未署名用户')
+  const authorModeLabel = authorModeText(authorMode)
+  const anonymousScopeLabel = isAnonymousActor
+    ? bucketText('scope', item.anonymousScope)
+    : 'scope：公开账号'
+  const riskLabels = Array.isArray(item.riskLabels)
+    ? item.riskLabels.map(cleanText).filter((label): label is string => Boolean(label))
+    : []
+  const hasAnonymousNullifier = isAnonymousActor && Boolean(cleanText(item.nullifierHash))
+  const hasAnonymousCredential = isAnonymousActor && Boolean(cleanText(item.anonymousCredentialId))
+  const userLabel = isStrongAnonymous
+    ? `${authorModeLabel} / ${anonymousScopeLabel} / 不显示真实账号`
+    : isAnonymousActor
+      ? `${authorModeLabel} / ${anonymousScopeLabel}`
+      : `${actorDisplayName} / ${typeof item.userId === 'number' ? item.userId : '无账号 ID'}`
 
   return {
     ...item,
+    actorDisplayName,
+    authorModeLabel,
+    displayLanguageLabel: displayLanguageText(item.displayLanguage),
+    anonymousScopeLabel,
+    credentialLevelLabel: bucketText('credential', item.credentialLevel),
+    reputationBucketLabel: bucketText('声誉桶', item.reputationBucket),
+    accountAgeBucketLabel: bucketText('账号年龄桶', item.accountAgeBucket),
+    riskLabels,
+    isAnonymousActor,
+    isStrongAnonymous,
+    hasAnonymousNullifier,
+    hasAnonymousCredential,
+    canBlockAnonymousNullifier: hasAnonymousNullifier && item.canBlockAnonymousNullifier === true,
+    canRevokeAnonymousCredential: hasAnonymousCredential && item.canRevokeAnonymousCredential === true,
     statusLabel,
     statusCode,
     statusClass: commentModerationStatusClass(item.status),
     ...recommendedAction,
     createTimeText: TimeUtils.toFullLocalString(item.createTime),
     articleLabel: `${item.articleTitle} / ${item.articleId}`,
-    userLabel: `${item.userName} / ${item.userId}`,
+    userLabel,
     hitReasonLabels,
     regionSummary: `提交地区：${commentRegionLabel(item.submitRegion)}`,
     blockedRegionLabel,
@@ -377,7 +479,22 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
 
     return allItems.value.filter((item) => {
       if (keyword) {
-        const haystack = `${item.id} ${item.content} ${item.articleTitle} ${item.userName} ${item.reason ?? ''}`.toLowerCase()
+        const accountSearchText = item.isStrongAnonymous ? '' : `${item.userName ?? ''} ${item.userId ?? ''}`
+        const haystack = [
+          item.id,
+          item.content,
+          item.articleTitle,
+          item.actorDisplayName,
+          item.authorModeLabel,
+          item.displayLanguageLabel,
+          item.anonymousScopeLabel,
+          item.credentialLevelLabel,
+          item.reputationBucketLabel,
+          item.accountAgeBucketLabel,
+          item.riskLabels.join(' '),
+          accountSearchText,
+          item.reason ?? ''
+        ].join(' ').toLowerCase()
         if (!haystack.includes(keyword)) {
           return false
         }
@@ -391,7 +508,11 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
       }
 
       if (user) {
-        const userHaystack = `${item.userId} ${item.userName}`.toLowerCase()
+        const userHaystack = [
+          item.actorDisplayName,
+          item.userLabel,
+          item.isStrongAnonymous ? '' : `${item.userName ?? ''} ${item.userId ?? ''}`
+        ].join(' ').toLowerCase()
         if (!userHaystack.includes(user)) {
           return false
         }

@@ -489,8 +489,20 @@ export interface CommentModerationItemResponse {
   id: string
   articleId: number
   articleTitle: string
-  userId: number
-  userName: string
+  userId: number | null
+  userName: string | null
+  authorMode?: 'anonymous' | 'public' | 'zk_anonymous' | string | null
+  authorDisplayName?: string | null
+  displayLanguage?: 'zh-CN' | 'en' | string | null
+  anonymousScope?: string | null
+  credentialLevel?: string | null
+  reputationBucket?: string | null
+  accountAgeBucket?: string | null
+  riskLabels?: string[] | null
+  nullifierHash?: string | null
+  anonymousCredentialId?: string | null
+  canBlockAnonymousNullifier?: boolean | null
+  canRevokeAnonymousCredential?: boolean | null
   content: string
   createTime: string
   status: CommentModerationStatus
