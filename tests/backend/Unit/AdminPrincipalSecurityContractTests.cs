@@ -1,0 +1,135 @@
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+
+namespace FsusBlog.Server.Tests.Unit;
+
+public sealed class AdminPrincipalSecurityContractTests
+{
+    [Fact]
+    public void AdminPrincipalPlane_DefinesIndependentTablesAndMigration()
+    {
+        string entities = string.Join(
+            "\n",
+            BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/AdminPrincipal.cs"),
+            BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/AdminSession.cs"),
+            BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/AdminPasskeyCredential.cs"),
+            BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/AdminAuditLog.cs"));
+        string migrations = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
+
+        Assert.Contains("[SugarTable(\"admin_principal\")]", entities, StringComparison.Ordinal);
+        Assert.Contains("[SugarTable(\"admin_session\")]", entities, StringComparison.Ordinal);
+        Assert.Contains("[SugarTable(\"admin_passkey_credential\")]", entities, StringComparison.Ordinal);
+        Assert.Contains("[SugarTable(\"admin_audit_log\")]", entities, StringComparison.Ordinal);
+        Assert.Contains("BuildAdminPrincipalPlaneMigration()", migrations, StringComparison.Ordinal);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS admin_principal", migrations, StringComparison.Ordinal);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS admin_session", migrations, StringComparison.Ordinal);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS admin_passkey_credential", migrations, StringComparison.Ordinal);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS admin_audit_log", migrations, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AdminPrincipalPlane_UsesSeparateCookiesAndJwtClaims()
+    {
+        string cookies = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Auth/AuthCookieService.cs");
+        string jwt = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Helpers/JwtHelper.cs");
+        string claims = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Helpers/ClaimsPrincipalExtensions.cs");
+
+        Assert.Contains("__Host-AdminAccessToken", cookies, StringComparison.Ordinal);
+        Assert.Contains("__Host-AdminSessionId", cookies, StringComparison.Ordinal);
+        Assert.Contains("SetAdminSessionCookies", cookies, StringComparison.Ordinal);
+        Assert.Contains("TryReadAdminAccessToken", cookies, StringComparison.Ordinal);
+        Assert.Contains("GenerateAdminAccessToken", jwt, StringComparison.Ordinal);
+        Assert.Contains("admin_id", jwt, StringComparison.Ordinal);
+        Assert.Contains("admin_sid", jwt, StringComparison.Ordinal);
+        Assert.Contains("AdminPermissions.PermissionClaimType", jwt, StringComparison.Ordinal);
+        Assert.Contains("ShouldPreferAdminCookie", jwt, StringComparison.Ordinal);
+        Assert.Contains("TryGetAdminPrincipalId", claims, StringComparison.Ordinal);
+        Assert.Contains("GetAdminSessionId", claims, StringComparison.Ordinal);
+        Assert.Contains("HasAdminPermission", claims, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AdminPrincipalPlane_BootstrapIsGuardedAndPasskeyOnly()
+    {
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
+        string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+
+        Assert.Contains("FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN", service, StringComparison.Ordinal);
+        Assert.Contains("BeginBootstrapPasskeyRegistrationAsync", service, StringComparison.Ordinal);
+        Assert.Contains("CompleteBootstrapPasskeyRegistrationAsync", service, StringComparison.Ordinal);
+        Assert.Contains("BeginAdminAssertionAsync", service, StringComparison.Ordinal);
+        Assert.Contains("CompleteAdminAssertionAsync", service, StringComparison.Ordinal);
+        Assert.Contains("Root admin already exists", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("AdminPassword", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("VerifyPassword", service, StringComparison.Ordinal);
+        Assert.Contains("/auth/admin/bootstrap/passkey/begin", endpoints, StringComparison.Ordinal);
+        Assert.Contains("/auth/admin/bootstrap/passkey/complete", endpoints, StringComparison.Ordinal);
+        Assert.Contains("/auth/admin/login/passkey/begin", endpoints, StringComparison.Ordinal);
+        Assert.Contains("/auth/admin/login/passkey/complete", endpoints, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AdminPrincipalPlane_AuditAndPermissionsAreExplicit()
+    {
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
+        string auth = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Auth/AdminPermissions.cs");
+        string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+
+        foreach (string permission in AdminPermissions.All)
+        {
+            Assert.Contains(permission, auth, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("AdminAuditLog", service, StringComparison.Ordinal);
+        Assert.Contains("admin.bootstrap.completed", service, StringComparison.Ordinal);
+        Assert.Contains("admin.login.completed", service, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminPermission", endpoints, StringComparison.Ordinal);
+        Assert.Contains("AdminPermissions.AdminManage", endpoints, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnonymousIdentityRuntime_DoesNotGrantAdminFromLegacyUserRole()
+    {
+        string resolved = AnonymousIdentityRuntime.ResolveBackendRole("admin", AnonymousIdentityRuntime.AnonymousAccountKind, anonymousIdentityModeEnabled: true);
+
+        Assert.Equal(AnonymousIdentityRuntime.AuthenticatedRole, resolved);
+    }
+
+    [Fact]
+    public void AdminPrincipalCookie_IsOnlyPreferredForAdminAuthorizationMetadata()
+    {
+        var userContext = new DefaultHttpContext();
+        userContext.Request.Path = "/api/binary/auth/me";
+        userContext.SetEndpoint(new Endpoint(
+            static _ => Task.CompletedTask,
+            new EndpointMetadataCollection(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build()),
+            "user"));
+
+        Assert.False(JwtServiceExtensions.ShouldPreferAdminCookie(userContext));
+
+        var roleAdminContext = new DefaultHttpContext();
+        roleAdminContext.Request.Path = "/api/binary/admin/article";
+        roleAdminContext.SetEndpoint(new Endpoint(
+            static _ => Task.CompletedTask,
+            new EndpointMetadataCollection(new AuthorizationPolicyBuilder().RequireRole("admin").Build()),
+            "role-admin"));
+
+        Assert.True(JwtServiceExtensions.ShouldPreferAdminCookie(roleAdminContext));
+
+        var principalAdminContext = new DefaultHttpContext();
+        principalAdminContext.Request.Path = "/api/binary/auth/admin/me";
+        principalAdminContext.SetEndpoint(new Endpoint(
+            static _ => Task.CompletedTask,
+            new EndpointMetadataCollection(new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .RequireClaim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind)
+                .RequireClaim(AdminPermissions.PermissionClaimType, AdminPermissions.AdminManage)
+                .Build()),
+            "principal-admin"));
+
+        Assert.True(JwtServiceExtensions.ShouldPreferAdminCookie(principalAdminContext));
+    }
+}

@@ -109,6 +109,120 @@ public static partial class BinaryEndpoints
         .AddEndpointFilter<RequiresPowFilter>()
         .RequireNoStoreResponse();
 
+        group.MapPost("/auth/admin/bootstrap/passkey/begin", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAdminPrincipalService adminPrincipals,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            string bootstrapToken = ReadHeader(httpContext, AdminBootstrapTokenHeader);
+            string handle = ReadHeader(httpContext, AdminHandleHeader);
+            var (success, message, data) = await adminPrincipals.BeginBootstrapPasskeyRegistrationAsync(bootstrapToken, handle, cancellationToken);
+            return success && data != null
+                ? BinaryResults.Frame(aeds, AedsFrameType.PasskeyRegisterBegin, writer => PodBinaryCodec.WritePasskeyRegisterBegin(data.Options, writer))
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, message), aeds, StatusCodes.Status403Forbidden);
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/admin/bootstrap/passkey/complete", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAdminPrincipalService adminPrincipals,
+            IWebHostEnvironment env,
+            AuthCookieService authCookieService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.PasskeyRegisterCompleteRequest, cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            if (!PodBinaryCodec.TryDecodePasskeyRegisterCompleteRequest(payload.Payload, out var request) ||
+                string.IsNullOrWhiteSpace(request.SessionKey) ||
+                request.RawId.Length == 0 ||
+                request.ClientDataBytes.Length == 0 ||
+                request.AttestationObject.Length == 0)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "请求参数无效"), aeds);
+            }
+
+            string bootstrapToken = ReadHeader(httpContext, AdminBootstrapTokenHeader);
+            var result = await adminPrincipals.CompleteBootstrapPasskeyRegistrationAsync(
+                bootstrapToken,
+                request,
+                AdminAuthClientContext.From(httpContext),
+                cancellationToken);
+            if (!result.Success || result.Tokens is null)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, result.Message), aeds, StatusCodes.Status403Forbidden);
+            }
+
+            authCookieService.SetAdminSessionCookies(httpContext, env, result.Tokens.AccessToken, result.Tokens.SessionId, result.Tokens.IdleExpiresAtUtc);
+            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/admin/login/passkey/begin", static async Task<BinaryFrameResult> (
+            IAdminPrincipalService adminPrincipals,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var (success, message, data) = await adminPrincipals.BeginAdminAssertionAsync(cancellationToken);
+            return success && data != null
+                ? BinaryResults.Frame(aeds, AedsFrameType.PasskeyLoginBegin, writer => PodBinaryCodec.WritePasskeyLoginBegin(data.Options, writer))
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, message), aeds);
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/admin/login/passkey/complete", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAdminPrincipalService adminPrincipals,
+            IWebHostEnvironment env,
+            AuthCookieService authCookieService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.PasskeyLoginCompleteRequest, cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            if (!PodBinaryCodec.TryDecodePasskeyLoginCompleteRequest(payload.Payload, out var request) ||
+                string.IsNullOrWhiteSpace(request.ChallengeToken) ||
+                request.RawId.Length == 0 ||
+                request.ClientDataBytes.Length == 0 ||
+                request.AuthenticatorData.Length == 0 ||
+                request.Signature.Length == 0)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "请求参数无效"), aeds);
+            }
+
+            var result = await adminPrincipals.CompleteAdminAssertionAsync(request, AdminAuthClientContext.From(httpContext), cancellationToken);
+            if (!result.Success || result.Tokens is null)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, result.Message), aeds);
+            }
+
+            authCookieService.SetAdminSessionCookies(httpContext, env, result.Tokens.AccessToken, result.Tokens.SessionId, result.Tokens.IdleExpiresAtUtc);
+            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapGet("/auth/admin/me", static (IAedsEncoder aeds) =>
+            BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess))
+            .RequireAdminPermission(AdminPermissions.AdminManage)
+            .RequireNoStoreResponse();
+
         group.MapGet("/auth/me", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserAccountReader users,
@@ -1079,4 +1193,9 @@ public static partial class BinaryEndpoints
             string.Equals(error.Message, "RECOVERY_KEY_RATE_LIMITED", StringComparison.Ordinal)
                 ? StatusCodes.Status429TooManyRequests
                 : 0);
+
+    private static string ReadHeader(HttpContext httpContext, string name)
+        => httpContext.Request.Headers.TryGetValue(name, out var values)
+            ? values.ToString().Trim()
+            : string.Empty;
 }

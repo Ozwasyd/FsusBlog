@@ -33,6 +33,8 @@ public static partial class BinaryEndpoints
     private const string BinaryContentType = "application/octet-stream";
     private const string AdminSensitiveAction = "admin-sensitive";
     private const string MfaProofHeader = "X-Fsus-Mfa-Proof";
+    private const string AdminBootstrapTokenHeader = "X-Fsus-Admin-Bootstrap-Token";
+    private const string AdminHandleHeader = "X-Fsus-Admin-Handle";
     private const string UploadPartHeader = "X-Fsus-Upload-Part";
     private const string UploadOffsetHeader = "X-Fsus-Upload-Offset";
     private const string UploadPayloadHashHeader = "X-Fsus-Upload-Payload-Hash";

@@ -19,6 +19,7 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
             TimestampDriftTolerance = 300000,
         }));
         services.AddScoped<IPasskeyService, PasskeyService>();
+        services.AddScoped<IAdminPrincipalService, AdminPrincipalService>();
         services.AddScoped<IRecoveryKeyService, RecoveryKeyService>();
         services.AddScoped<ITotpService, TotpService>();
         services.AddScoped<IMfaChallengeService, MfaChallengeService>();

@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using System.Runtime.CompilerServices;
 using FsusBlog.Server.Infrastructure;
+using FsusBlog.Server.Infrastructure.Auth;
 
 namespace FsusBlog.Server.Infrastructure.Helpers;
 
@@ -40,6 +41,44 @@ public static class ClaimsPrincipalExtensions
     public static string? GetSessionId(this ClaimsPrincipal? user)
     {
         return user?.FindFirst("sid")?.Value;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryGetAdminPrincipalId(this ClaimsPrincipal? user, out long adminId)
+    {
+        adminId = 0;
+        string? value = user?.FindFirst("admin_id")?.Value;
+        return long.TryParse(value, out adminId) && adminId > 0;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string? GetAdminSessionId(this ClaimsPrincipal? user)
+    {
+        return user?.FindFirst("admin_sid")?.Value;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsAdminPrincipal(this ClaimsPrincipal? user)
+    {
+        return string.Equals(
+            user?.FindFirst("identity_kind")?.Value,
+            AnonymousIdentityRuntime.AdminPrincipalKind,
+            StringComparison.Ordinal);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsAdminStepUpVerified(this ClaimsPrincipal? user)
+    {
+        return user?.FindFirst("admin_step_up")?.Value == "1";
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool HasAdminPermission(this ClaimsPrincipal? user, string permission)
+    {
+        return !string.IsNullOrWhiteSpace(permission) &&
+            user?.Claims.Any(claim =>
+                claim.Type == AdminPermissions.PermissionClaimType &&
+                string.Equals(claim.Value, permission, StringComparison.Ordinal)) == true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

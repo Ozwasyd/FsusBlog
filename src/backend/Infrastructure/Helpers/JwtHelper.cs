@@ -1,6 +1,8 @@
 ﻿using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -24,6 +26,7 @@ public class JwtSettings
 public interface IJwtHelper
 {
     string GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false);
+    string GenerateAdminAccessToken(AdminPrincipal principal, AdminSession session, IReadOnlyCollection<string> permissions, bool stepUpVerified = false);
     string GenerateRefreshToken();
 }
 
@@ -68,6 +71,44 @@ public class JwtHelper : IJwtHelper
             claims.Add(new Claim("sid", sessionId));
         }
         claims.Add(new Claim("mfa", mfaVerified ? "1" : "0"));
+
+        var tokenDescriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(claims),
+            Expires = DateTime.UtcNow.AddMinutes(_settings.AccessTokenExpiresMinutes),
+            Issuer = _settings.Issuer,
+            Audience = _settings.Audience,
+            SigningCredentials = _credentials
+        };
+
+        var token = _tokenHandler.CreateToken(tokenDescriptor);
+        return _tokenHandler.WriteToken(token);
+    }
+
+    public string GenerateAdminAccessToken(
+        AdminPrincipal principal,
+        AdminSession session,
+        IReadOnlyCollection<string> permissions,
+        bool stepUpVerified = false)
+    {
+        var claims = new List<Claim>(10 + permissions.Count)
+        {
+            new(ClaimTypes.NameIdentifier, principal.Id.ToString()),
+            new(ClaimTypes.Name, principal.Handle),
+            new(ClaimTypes.Role, "admin"),
+            new("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
+            new("admin_id", principal.Id.ToString()),
+            new("admin_handle", principal.Handle),
+            new("admin_sid", session.SessionId),
+            new("sid", session.SessionId),
+            new("admin_step_up", stepUpVerified ? "1" : "0"),
+            new("mfa", stepUpVerified ? "1" : "0")
+        };
+
+        foreach (string permission in permissions.Where(static permission => !string.IsNullOrWhiteSpace(permission)).Distinct(StringComparer.Ordinal))
+        {
+            claims.Add(new Claim(AdminPermissions.PermissionClaimType, permission));
+        }
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
@@ -154,7 +195,12 @@ public static class JwtServiceExtensions
             {
                 OnMessageReceived = context =>
                 {
-                    if (context.Request.Cookies.TryGetValue("__Host-AccessToken", out var hostToken))
+                    if (ShouldPreferAdminCookie(context.HttpContext) &&
+                        AuthCookieService.TryReadAdminAccessToken(context.HttpContext, out string adminToken))
+                    {
+                        context.Token = adminToken;
+                    }
+                    else if (context.Request.Cookies.TryGetValue("__Host-AccessToken", out var hostToken))
                     {
                         context.Token = hostToken;
                     }
@@ -167,4 +213,55 @@ public static class JwtServiceExtensions
             };
         });
     }
+
+    internal static bool ShouldPreferAdminCookie(HttpContext httpContext)
+    {
+        Endpoint? endpoint = httpContext.GetEndpoint();
+        if (endpoint != null)
+        {
+            foreach (AuthorizationPolicy policy in endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>())
+            {
+                if (PolicyRequiresAdminPrincipal(policy) || PolicyRequiresAdminRole(policy))
+                {
+                    return true;
+                }
+            }
+
+            foreach (IAuthorizeData authorizeData in endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>())
+            {
+                if (ContainsAdminRole(authorizeData.Roles))
+                {
+                    return true;
+                }
+            }
+        }
+
+        PathString path = httpContext.Request.Path;
+        return path.StartsWithSegments("/api/binary/auth/admin/me", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWithSegments("/api/binary/admin", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWithSegments("/api/binary/author", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWithSegments("/api/binary/stats", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWithSegments("/api/binary/system/admin", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool PolicyRequiresAdminPrincipal(AuthorizationPolicy policy)
+        => policy.Requirements.OfType<ClaimsAuthorizationRequirement>().Any(static requirement =>
+            string.Equals(requirement.ClaimType, "identity_kind", StringComparison.Ordinal) &&
+                (requirement.AllowedValues == null ||
+                    requirement.AllowedValues.Contains(AnonymousIdentityRuntime.AdminPrincipalKind, StringComparer.Ordinal)) ||
+            string.Equals(requirement.ClaimType, AdminPermissions.PermissionClaimType, StringComparison.Ordinal));
+
+    private static bool PolicyRequiresAdminRole(AuthorizationPolicy policy)
+        => policy.Requirements.OfType<RolesAuthorizationRequirement>().Any(static requirement =>
+            ContainsAdminRole(requirement.AllowedRoles));
+
+    private static bool ContainsAdminRole(string? roles)
+        => !string.IsNullOrWhiteSpace(roles) &&
+            ContainsAdminRole(roles.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+
+    private static bool ContainsAdminRole(IEnumerable<string>? roles)
+        => roles != null &&
+            roles
+                .SelectMany(static value => value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                .Any(static role => string.Equals(role, "admin", StringComparison.Ordinal));
 }

@@ -858,6 +858,50 @@
         },
         {
           "method": "POST",
+          "path": "/auth/recovery-key/create",
+          "auth": "user",
+          "responseFrame": "RecoveryKeyCreateResponse",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/recovery-key/rotate",
+          "auth": "user",
+          "responseFrame": "RecoveryKeyCreateResponse",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/recovery-key/verify",
+          "auth": "anonymous",
+          "pow": true,
+          "requestFrame": "RecoveryKeyVerifyRequest",
+          "responseFrame": "RecoveryKeyVerifyResponse",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/recovery-key/passkey/register/begin",
+          "auth": "anonymous",
+          "requestFrame": "RecoveryKeySessionRequest",
+          "responseFrame": "PasskeyRegisterBegin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/recovery-key/passkey/register/complete",
+          "auth": "anonymous",
+          "requestFrame": "PasskeyRegisterCompleteRequest",
+          "responseFrame": "EmptySuccess",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "POST",
           "path": "/auth/passkey/register/begin",
           "auth": "user",
           "responseFrame": "PasskeyRegisterBegin"
@@ -900,6 +944,47 @@
           "auth": "user",
           "requestFrame": "PasskeyRenameRequest",
           "responseFrame": "EmptySuccess"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/admin/bootstrap/passkey/begin",
+          "auth": "anonymous",
+          "responseFrame": "PasskeyRegisterBegin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/admin/bootstrap/passkey/complete",
+          "auth": "anonymous",
+          "requestFrame": "PasskeyRegisterCompleteRequest",
+          "responseFrame": "EmptySuccess",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/admin/login/passkey/begin",
+          "auth": "anonymous",
+          "responseFrame": "PasskeyLoginBegin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/admin/login/passkey/complete",
+          "auth": "anonymous",
+          "requestFrame": "PasskeyLoginCompleteRequest",
+          "responseFrame": "EmptySuccess",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/admin/me",
+          "auth": "admin",
+          "responseFrame": "EmptySuccess",
+          "cache": "no-store"
         }
       ]
     },

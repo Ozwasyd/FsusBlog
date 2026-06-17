@@ -23,9 +23,12 @@ public static class AnonymousIdentityRuntime
         => ResolveBackendRole(user.Role, user.IdentityKind);
 
     public static string ResolveBackendRole(string? roleValue, string? identityKind)
+        => ResolveBackendRole(roleValue, identityKind, IsAnonymousIdentityModeEnabled());
+
+    internal static string ResolveBackendRole(string? roleValue, string? identityKind, bool anonymousIdentityModeEnabled)
     {
         string role = string.IsNullOrWhiteSpace(roleValue) ? GuestRole : roleValue.Trim().ToLowerInvariant();
-        if (!IsAnonymousIdentityModeEnabled())
+        if (!anonymousIdentityModeEnabled)
         {
             return role;
         }

@@ -56,6 +56,18 @@
 
 ---
 
+### Recovery Key
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| POST | `/api/binary/auth/recovery-key/create` | 🔑 🚦 📦 | 创建账户恢复密钥，明文只在响应中返回一次 |
+| POST | `/api/binary/auth/recovery-key/rotate` | 🔑 🚦 📦 | 轮换账户恢复密钥 |
+| POST | `/api/binary/auth/recovery-key/verify` | 🔓 🚦 📦 | 验证恢复密钥并返回短期 recovery session，需 PoW |
+| POST | `/api/binary/auth/recovery-key/passkey/register/begin` | 🔓 🚦 📦 | 使用 recovery session 开始绑定新 Passkey |
+| POST | `/api/binary/auth/recovery-key/passkey/register/complete` | 🔓 🚦 📦 | 使用 recovery session 完成新 Passkey 绑定 |
+
+---
+
 ## Passkey / WebAuthn — `/api/binary/auth/passkey`
 
 | 方法 | 路径 | 权限 | 说明 |
@@ -67,6 +79,18 @@
 | GET | `/api/binary/auth/passkey/credentials` | 🔑 | 获取已注册 Passkey 列表（最多 5 枚） |
 | DELETE | `/api/binary/auth/passkey/credentials/{id}` | 🔑 | 删除指定 Passkey |
 | PUT | `/api/binary/auth/passkey/credentials/{id}/name` | 🔑 | 重命名指定 Passkey |
+
+---
+
+## Admin principal / Passkey — `/api/binary/auth/admin`
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| POST | `/api/binary/auth/admin/bootstrap/passkey/begin` | 🔓 🚦 📦 | 首次 root admin Passkey 注册开始；必须带 `X-Fsus-Admin-Bootstrap-Token` 和 `X-Fsus-Admin-Handle` |
+| POST | `/api/binary/auth/admin/bootstrap/passkey/complete` | 🔓 🚦 📦 | 首次 root admin Passkey 注册完成；root admin 已存在后拒绝 |
+| POST | `/api/binary/auth/admin/login/passkey/begin` | 🔓 🚦 📦 | admin Passkey 登录开始 |
+| POST | `/api/binary/auth/admin/login/passkey/complete` | 🔓 🚦 📦 | admin Passkey 登录完成并写入独立 admin Cookie |
+| GET | `/api/binary/auth/admin/me` | 👑 📦 | admin principal 会话探测，需要 `admin.manage` permission |
 
 ---
 

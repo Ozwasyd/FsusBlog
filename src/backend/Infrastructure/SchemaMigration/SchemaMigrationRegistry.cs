@@ -20,6 +20,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildUserSessionFinalizeMigration(),
         BuildUserAuthSecurityHardeningMigration(),
         BuildAnonymousIdentityAccountSchemaMigration(),
+        BuildAdminPrincipalPlaneMigration(),
         BuildAccountRecoveryKeyMigration(),
         BuildAuditLogMigration(),
         BuildAuditLogStructuredFieldsPreCodeFirstMigration(),
@@ -626,6 +627,98 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new DropColumnStep("sys_user", "refreshtokenexpirytime"),
                 new DropColumnStep("sys_user", "refresh_token"),
                 new DropColumnStep("sys_user", "refresh_token_expiry_time")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAdminPrincipalPlaneMigration()
+        => new SchemaMigrationDescriptor(
+            "20260616-pre-admin-principal-plane",
+            "Create independent admin principal, session, passkey credential and audit-log tables.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "admin_principal",
+                    """
+                    CREATE TABLE IF NOT EXISTS admin_principal (
+                        id bigserial PRIMARY KEY,
+                        handle varchar(64) NOT NULL,
+                        displayname varchar(96) NULL,
+                        status varchar(32) NOT NULL DEFAULT 'active',
+                        isroot boolean NOT NULL DEFAULT false,
+                        permissions text NOT NULL DEFAULT '',
+                        createdatutc timestamp NOT NULL DEFAULT now(),
+                        lastloginatutc timestamp NULL,
+                        totpenabled boolean NOT NULL DEFAULT false,
+                        totpsecretencrypted text NULL,
+                        totpverifiedatutc timestamp NULL
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_admin_principal_handle ON admin_principal(handle);
+                    CREATE INDEX IF NOT EXISTS idx_admin_principal_status ON admin_principal(status);
+                    """),
+                new EnsureTableStep(
+                    "admin_session",
+                    """
+                    CREATE TABLE IF NOT EXISTS admin_session (
+                        sessionid varchar(64) PRIMARY KEY,
+                        adminprincipalid bigint NOT NULL,
+                        accesstokenhash varchar(128) NOT NULL,
+                        devicefingerprint varchar(128) NULL,
+                        lastip varchar(64) NULL,
+                        useragent varchar(512) NULL,
+                        createdatutc timestamp NOT NULL DEFAULT now(),
+                        lastseenatutc timestamp NULL,
+                        idleexpiresatutc timestamp NOT NULL,
+                        absoluteexpiresatutc timestamp NOT NULL,
+                        revokedatutc timestamp NULL,
+                        revokereason varchar(128) NULL,
+                        stepupverified boolean NOT NULL DEFAULT false
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_admin_session_principal ON admin_session(adminprincipalid);
+                    CREATE INDEX IF NOT EXISTS idx_admin_session_idle_expires ON admin_session(idleexpiresatutc DESC);
+                    """),
+                new EnsureTableStep(
+                    "admin_passkey_credential",
+                    """
+                    CREATE TABLE IF NOT EXISTS admin_passkey_credential (
+                        id bigserial PRIMARY KEY,
+                        adminprincipalid bigint NOT NULL,
+                        credentialid varchar(512) NOT NULL,
+                        userhandle varchar(128) NOT NULL,
+                        publickey text NOT NULL,
+                        signcount bigint NOT NULL DEFAULT 0,
+                        devicefriendlyname varchar(64) NULL,
+                        aaguid varchar(36) NOT NULL DEFAULT '',
+                        transports varchar(128) NULL,
+                        backupeligible boolean NOT NULL DEFAULT false,
+                        backupstate boolean NOT NULL DEFAULT false,
+                        createdatutc timestamp NOT NULL DEFAULT now(),
+                        lastusedatutc timestamp NULL
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_admin_passkey_cred_id ON admin_passkey_credential(credentialid);
+                    CREATE INDEX IF NOT EXISTS idx_admin_passkey_principal ON admin_passkey_credential(adminprincipalid);
+                    """),
+                new EnsureTableStep(
+                    "admin_audit_log",
+                    """
+                    CREATE TABLE IF NOT EXISTS admin_audit_log (
+                        id bigserial PRIMARY KEY,
+                        adminprincipalid bigint NULL,
+                        adminsessionid varchar(64) NULL,
+                        action varchar(96) NOT NULL,
+                        outcome varchar(32) NOT NULL,
+                        targettype varchar(64) NULL,
+                        targetid varchar(128) NULL,
+                        iphash varchar(64) NULL,
+                        useragenthash varchar(64) NULL,
+                        ishighimpact boolean NOT NULL DEFAULT false,
+                        metadatajson text NOT NULL DEFAULT '{}',
+                        occurredatutc timestamp NOT NULL DEFAULT now()
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_admin_audit_time ON admin_audit_log(occurredatutc DESC);
+                    CREATE INDEX IF NOT EXISTS idx_admin_audit_principal_time ON admin_audit_log(adminprincipalid, occurredatutc DESC);
+                    CREATE INDEX IF NOT EXISTS idx_admin_audit_action_time ON admin_audit_log(action, occurredatutc DESC);
+                    """)
             ]);
 
     private static ISchemaMigrationDescriptor BuildAnonymousIdentityAccountSchemaMigration()

@@ -14,6 +14,10 @@ public sealed class AuthCookieService
     private const string HostAccessTokenCookieName = "__Host-AccessToken";
     private const string HostRefreshTokenCookieName = "__Host-RefreshToken";
     private const string HostSessionIdCookieName = "__Host-SessionId";
+    private const string AdminAccessTokenCookieName = "AdminAccessToken";
+    private const string AdminSessionIdCookieName = "AdminSessionId";
+    private const string HostAdminAccessTokenCookieName = "__Host-AdminAccessToken";
+    private const string HostAdminSessionIdCookieName = "__Host-AdminSessionId";
     private readonly bool _allowInsecureTransportCookies;
 
     public AuthCookieService(IConfiguration configuration)
@@ -54,6 +58,19 @@ public sealed class AuthCookieService
         AppendAccessTokenCookie(context, accessCookieName, accessToken, baseOptions);
     }
 
+    public void SetAdminSessionCookies(HttpContext context, IWebHostEnvironment env, string accessToken, string sessionId, DateTime idleExpiresAt)
+    {
+        CookieOptions baseOptions = CreateBaseOptions(env);
+        string accessCookieName = baseOptions.Secure ? HostAdminAccessTokenCookieName : AdminAccessTokenCookieName;
+        string sessionCookieName = baseOptions.Secure ? HostAdminSessionIdCookieName : AdminSessionIdCookieName;
+
+        AppendAccessTokenCookie(context, accessCookieName, accessToken, baseOptions);
+        context.Response.Cookies.Append(sessionCookieName, sessionId, new CookieOptions(baseOptions)
+        {
+            Expires = idleExpiresAt
+        });
+    }
+
     private CookieOptions CreateBaseOptions(IWebHostEnvironment env)
     {
         bool secure = !env.IsDevelopment() || !_allowInsecureTransportCookies;
@@ -78,11 +95,15 @@ public sealed class AuthCookieService
         context.Response.Cookies.Delete(AccessTokenCookieName, options);
         context.Response.Cookies.Delete(RefreshTokenCookieName, options);
         context.Response.Cookies.Delete(SessionIdCookieName, options);
+        context.Response.Cookies.Delete(AdminAccessTokenCookieName, options);
+        context.Response.Cookies.Delete(AdminSessionIdCookieName, options);
 
         CookieOptions hostOptions = CreateHostPrefixedDeleteOptions();
         context.Response.Cookies.Delete(HostAccessTokenCookieName, hostOptions);
         context.Response.Cookies.Delete(HostRefreshTokenCookieName, hostOptions);
         context.Response.Cookies.Delete(HostSessionIdCookieName, hostOptions);
+        context.Response.Cookies.Delete(HostAdminAccessTokenCookieName, hostOptions);
+        context.Response.Cookies.Delete(HostAdminSessionIdCookieName, hostOptions);
     }
 
     private static CookieOptions CreateHostPrefixedDeleteOptions()
@@ -99,6 +120,12 @@ public sealed class AuthCookieService
 
     public string? ReadSessionId(HttpContext context)
         => ReadCookie(context, SessionIdCookieName, HostSessionIdCookieName);
+
+    public static bool TryReadAdminAccessToken(HttpContext context, out string token)
+    {
+        token = ReadCookie(context, AdminAccessTokenCookieName, HostAdminAccessTokenCookieName) ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(token);
+    }
 
     public static string? ResolveAccessTokenCookieName(bool isProduction)
         => isProduction ? HostAccessTokenCookieName : AccessTokenCookieName;
