@@ -1,16 +1,18 @@
-using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "GoldenContract")]
 public sealed class BackendGoldenCatalogTests
 {
+    private const string GoldenCatalogPath = "tests/backend/Fixtures/aeds-golden-catalog.json";
+
     [Fact]
     public void AedsGoldenCatalog_CoversEveryGeneratedFrameType()
     {
-        JsonArray frames = ReadJson("tests/backend/Fixtures/aeds-golden-catalog.json")["frames"]!.AsArray();
+        JsonArray frames = ReadGoldenCatalog()["frames"]!.AsArray();
         var byName = frames
             .Select(static node => node!.AsObject())
             .ToDictionary(
@@ -29,7 +31,7 @@ public sealed class BackendGoldenCatalogTests
     [Fact]
     public void AedsGoldenCatalog_HasNoDuplicateFrameNumbersOrFamilies()
     {
-        JsonArray frames = ReadJson("tests/backend/Fixtures/aeds-golden-catalog.json")["frames"]!.AsArray();
+        JsonArray frames = ReadGoldenCatalog()["frames"]!.AsArray();
         var values = new HashSet<int>();
         var names = new HashSet<string>(StringComparer.Ordinal);
 
@@ -44,33 +46,16 @@ public sealed class BackendGoldenCatalogTests
     [Fact]
     public void AedsGoldenCatalog_DefaultEvidencePathsExist()
     {
-        JsonArray evidence = ReadJson("tests/backend/Fixtures/aeds-golden-catalog.json")["defaultEvidence"]!.AsArray();
+        JsonArray evidence = ReadGoldenCatalog()["defaultEvidence"]!.AsArray();
 
         foreach (JsonNode? path in evidence)
         {
             Assert.True(
-                File.Exists(Path.Combine(FindRepoRoot(), path!.GetValue<string>())),
+                File.Exists(BackendTestPaths.FromRoot(path!.GetValue<string>())),
                 $"missing AEDS golden evidence path {path}");
         }
     }
 
-    private static JsonObject ReadJson(string path, [CallerFilePath] string sourceFilePath = "")
-        => JsonNode.Parse(File.ReadAllText(Path.Combine(FindRepoRoot(sourceFilePath), path)))!.AsObject();
-
-    private static string FindRepoRoot([CallerFilePath] string sourceFilePath = "")
-    {
-        var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFilePath) ?? AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")) ||
-                Directory.Exists(Path.Combine(directory.FullName, ".git")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
-    }
+    private static JsonObject ReadGoldenCatalog()
+        => BackendTestPaths.ReadJsonFromRoot(GoldenCatalogPath);
 }

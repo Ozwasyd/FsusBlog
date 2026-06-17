@@ -2,21 +2,15 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit.TestInfrastructure;
 
-public sealed class BackendTestPathsTests : IDisposable
+public sealed class BackendTestPathsTests
 {
-    private readonly string? _originalEnvironmentRoot =
-        Environment.GetEnvironmentVariable(BackendTestPaths.RepositoryRootEnvironmentVariable);
-
-    public void Dispose()
-        => Environment.SetEnvironmentVariable(BackendTestPaths.RepositoryRootEnvironmentVariable, _originalEnvironmentRoot);
-
     [Fact]
-    public void ResolveRepositoryRoot_UsesEnvironmentOverride()
+    public void ResolveRepositoryRootCore_UsesEnvironmentOverride()
     {
         string root = CreateRepositoryFixture();
-        Environment.SetEnvironmentVariable(BackendTestPaths.RepositoryRootEnvironmentVariable, root);
 
-        string resolved = BackendTestPaths.ResolveRepositoryRoot(
+        string resolved = BackendTestPaths.ResolveRepositoryRootCore(
+            environmentRoot: root,
             callerFilePath: Path.Combine(Path.GetTempPath(), "outside", "Test.cs"),
             appBaseDirectory: Path.Combine(Path.GetTempPath(), "outside", "bin"));
 
@@ -70,6 +64,26 @@ public sealed class BackendTestPathsTests : IDisposable
         Assert.Contains(Path.Combine("src", "backend"), error.Message, StringComparison.Ordinal);
         Assert.Contains(Path.Combine("tests", "backend"), error.Message, StringComparison.Ordinal);
         Assert.Contains(invalidRoot, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FixtureAndCatalogTests_UseSharedRepositoryRootHelper()
+    {
+        string[] sourcePaths =
+        [
+            "tests/backend/Unit/BackendTestGovernanceTests.cs",
+            "tests/backend/Unit/BackendGoldenCatalogTests.cs"
+        ];
+
+        foreach (string sourcePath in sourcePaths)
+        {
+            string source = BackendTestPaths.ReadAllTextFromRoot(sourcePath);
+
+            Assert.Contains("FsusBlog.Server.Tests.TestInfrastructure", source, StringComparison.Ordinal);
+            Assert.Contains("BackendTestPaths.", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("FindRepoRoot", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("Unable to locate repository root", source, StringComparison.Ordinal);
+        }
     }
 
     private static string CreateRepositoryFixture()

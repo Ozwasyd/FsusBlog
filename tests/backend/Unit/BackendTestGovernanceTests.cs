@@ -1,14 +1,17 @@
 using System.Text.Json.Nodes;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class BackendTestGovernanceTests
 {
+    private const string RequirementsFixturePath = "tests/backend/Fixtures/backend-test-requirements.json";
+
     [Fact]
     public void Issue40Profiles_HaveCommandsRequirementsAndEvidence()
     {
-        JsonArray profiles = ReadJson("tests/backend/Fixtures/backend-test-requirements.json")["profiles"]!.AsArray();
-        var requirementIds = ReadJson("tests/backend/Fixtures/backend-test-requirements.json")["requirements"]!
+        JsonArray profiles = ReadRequirementsFixture()["profiles"]!.AsArray();
+        var requirementIds = ReadRequirementsFixture()["requirements"]!
             .AsArray()
             .Select(static node => node!["id"]!.GetValue<string>())
             .ToHashSet(StringComparer.Ordinal);
@@ -35,7 +38,7 @@ public sealed class BackendTestGovernanceTests
     [Fact]
     public void Issue40Requirements_HaveEvidenceAndRiskTraceability()
     {
-        JsonArray requirements = ReadJson("tests/backend/Fixtures/backend-test-requirements.json")["requirements"]!.AsArray();
+        JsonArray requirements = ReadRequirementsFixture()["requirements"]!.AsArray();
         var ids = new HashSet<string>(StringComparer.Ordinal);
 
         Assert.True(requirements.Count >= 30);
@@ -53,15 +56,15 @@ public sealed class BackendTestGovernanceTests
     [Fact]
     public void EndpointFamilies_CoverEveryEndpointFile()
     {
-        string root = FindRepoRoot();
+        string root = BackendTestPaths.RepositoryRoot;
         var expected = Directory
-            .EnumerateFiles(Path.Combine(root, "src/backend/Modules/Endpoints"), "*.cs", SearchOption.AllDirectories)
+            .EnumerateFiles(BackendTestPaths.FromRoot("src", "backend", "Modules", "Endpoints"), "*.cs", SearchOption.AllDirectories)
             .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/'))
             .Where(static path => !path.EndsWith("Adapters.cs", StringComparison.Ordinal))
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-        var actual = ReadJson("tests/backend/Fixtures/backend-test-requirements.json")["endpointFamilies"]!
+        var actual = ReadRequirementsFixture()["endpointFamilies"]!
             .AsArray()
             .Select(static node => node!["path"]!.GetValue<string>())
             .Order(StringComparer.Ordinal)
@@ -73,37 +76,14 @@ public sealed class BackendTestGovernanceTests
     private static void AssertEvidencePathsExist(JsonArray paths)
     {
         Assert.NotEmpty(paths);
-        string root = FindRepoRoot();
         foreach (JsonNode? path in paths)
         {
             string relativePath = path!.GetValue<string>();
-            string fullPath = Path.Combine(root, relativePath);
+            string fullPath = BackendTestPaths.FromRoot(relativePath);
             Assert.True(File.Exists(fullPath) || Directory.Exists(fullPath), $"missing evidence path {relativePath}");
         }
     }
 
-    private static JsonObject ReadJson(string path)
-        => JsonNode.Parse(File.ReadAllText(Path.Combine(FindRepoRoot(), path)))!.AsObject();
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
-    }
+    private static JsonObject ReadRequirementsFixture()
+        => BackendTestPaths.ReadJsonFromRoot(RequirementsFixturePath);
 }
