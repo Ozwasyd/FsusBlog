@@ -6,6 +6,11 @@ import { fileURLToPath } from 'node:url'
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const requirementCatalogPath = 'tests/backend/Fixtures/backend-test-requirements.json'
 const aedsCatalogPath = 'tests/backend/Fixtures/aeds-golden-catalog.json'
+const pathGovernanceFixtureDirectory = 'tests/backend/Fixtures/backend-test-path-governance'
+const backendPathGovernanceAllowedFiles = new Set([
+  'tests/backend/Unit/TestInfrastructure/BackendTestPaths.cs',
+  'tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs'
+])
 const requirementCatalog = JSON.parse(readFileSync(resolve(root, requirementCatalogPath), 'utf8'))
 const aedsCatalog = JSON.parse(readFileSync(resolve(root, aedsCatalogPath), 'utf8'))
 const matrix = readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8')
@@ -39,12 +44,140 @@ function walk(dir, predicate, results = []) {
     const fullPath = join(dir, entry)
     const stats = statSync(fullPath)
     if (stats.isDirectory()) {
+      if (entry === 'bin' || entry === 'obj' || entry === 'node_modules' || entry === '.git') {
+        continue
+      }
       walk(fullPath, predicate, results)
     } else if (predicate(fullPath)) {
       results.push(fullPath)
     }
   }
   return results
+}
+
+function toRepoPath(path) {
+  return relative(root, path).replace(/\\/g, '/')
+}
+
+function lineNumberForIndex(source, index) {
+  return source.slice(0, Math.max(0, index)).split('\n').length
+}
+
+function addBackendPathViolation(violations, relativePath, rule, source, index, message) {
+  violations.push({
+    path: relativePath,
+    line: lineNumberForIndex(source, index),
+    rule,
+    message
+  })
+}
+
+function findRuleMatches(source, regex) {
+  const matches = []
+  regex.lastIndex = 0
+  let match
+  while ((match = regex.exec(source)) !== null) {
+    matches.push(match.index)
+  }
+  return matches
+}
+
+function scanBackendTestPathSource(relativePath, source) {
+  if (backendPathGovernanceAllowedFiles.has(relativePath)) {
+    return []
+  }
+
+  const violations = []
+  const literalRules = [
+    {
+      rule: 'private-repo-root-resolver',
+      regex: /\bprivate\s+static\s+[A-Za-z0-9_<>,.?[\]\s]+\s+Find(?:Repo|Repository)Root\s*\(/g,
+      message: 'use BackendTestPaths instead of a private repo-root resolver'
+    },
+    {
+      rule: 'low-context-repo-root-error',
+      regex: /["']Unable to locate repository root\.?["']/g,
+      message: 'use BackendTestPaths for consistent repository-root failure context'
+    },
+    {
+      rule: 'direct-slnx-root-marker',
+      regex: /["']FsusBlog\.slnx["']/g,
+      message: 'use BackendTestPaths instead of walking for FsusBlog.slnx'
+    }
+  ]
+
+  for (const { rule, regex, message } of literalRules) {
+    for (const index of findRuleMatches(source, regex)) {
+      addBackendPathViolation(violations, relativePath, rule, source, index, message)
+    }
+  }
+
+  const appContextIndex = source.search(/\bAppContext\.BaseDirectory\b/)
+  if (appContextIndex >= 0 && /\bDirectory\.GetParent\s*\(|\.Parent\b/.test(source)) {
+    addBackendPathViolation(
+      violations,
+      relativePath,
+      'appcontext-parent-traversal',
+      source,
+      appContextIndex,
+      'use BackendTestPaths instead of AppContext.BaseDirectory parent traversal'
+    )
+  }
+
+  return violations
+}
+
+function verifyBackendTestPathGovernanceFixtures() {
+  const positiveFixture = `${pathGovernanceFixtureDirectory}/shared-helper-usage.fixture.cs.txt`
+  const negativeFixture = `${pathGovernanceFixtureDirectory}/private-find-repo-root.fixture.cs.txt`
+
+  requireFile(positiveFixture)
+  requireFile(negativeFixture)
+
+  const positiveViolations = scanBackendTestPathSource(
+    positiveFixture,
+    readFileSync(resolve(root, positiveFixture), 'utf8')
+  )
+  if (positiveViolations.length > 0) {
+    fail(`backend-test-path-governance positive fixture emitted violations: ${positiveViolations.map(v => v.rule).join(', ')}`)
+  }
+
+  const negativeViolations = scanBackendTestPathSource(
+    negativeFixture,
+    readFileSync(resolve(root, negativeFixture), 'utf8')
+  )
+  const negativeRules = new Set(negativeViolations.map(violation => violation.rule))
+  for (const expectedRule of [
+    'private-repo-root-resolver',
+    'low-context-repo-root-error',
+    'direct-slnx-root-marker',
+    'appcontext-parent-traversal'
+  ]) {
+    if (!negativeRules.has(expectedRule)) {
+      fail(`backend-test-path-governance negative fixture did not trigger ${expectedRule}`)
+    }
+  }
+}
+
+function verifyBackendTestPathGovernance() {
+  verifyBackendTestPathGovernanceFixtures()
+
+  const backendTestFiles = walk(
+    resolve(root, 'tests/backend'),
+    path => path.endsWith('.cs')
+  )
+    .map(path => ({ fullPath: path, relativePath: toRepoPath(path) }))
+    .sort((left, right) => left.relativePath.localeCompare(right.relativePath))
+
+  for (const { fullPath, relativePath } of backendTestFiles) {
+    const source = readFileSync(fullPath, 'utf8')
+    for (const violation of scanBackendTestPathSource(relativePath, source)) {
+      fail(
+        `backend-test-path-governance ${violation.path}:${violation.line} ` +
+        `${violation.rule}: ${violation.message}`
+      )
+    }
+  }
 }
 
 function extractAedsEnumValues() {
@@ -207,6 +340,8 @@ for (const path of [
 ]) {
   requireFile(path)
 }
+
+verifyBackendTestPathGovernance()
 
 if (errors.length > 0) {
   for (const error of errors) {
