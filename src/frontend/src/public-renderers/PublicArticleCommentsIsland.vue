@@ -8,10 +8,10 @@
         v-for="comment in visibleComments"
         :key="comment.id"
         class="border-t border-[var(--fsusblog-panel-border)] pt-6 first:border-t-0 first:pt-0"
-        v-memo="[comment.id, comment.content, comment.repliesPreview.length]"
+        v-memo="[comment.id, comment.content, comment.author.displayName, comment.repliesPreview.length]"
       >
         <div class="flex items-center justify-between gap-6 mb-3">
-          <strong class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">{{ comment.userName }}</strong>
+          <strong class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">{{ comment.author.displayName }}</strong>
           <time class="text-[10px] tabular-nums normal-case text-[var(--fsusblog-text-muted)]">{{ comment.createTime }}</time>
         </div>
         <p class="text-sm leading-relaxed whitespace-pre-wrap text-[var(--fsusblog-text-secondary)]">{{ comment.content }}</p>
@@ -20,10 +20,10 @@
             v-for="reply in comment.repliesPreview"
             :key="reply.id"
             class="text-sm text-[var(--fsusblog-text-tertiary)]"
-            v-memo="[reply.id, reply.content]"
+            v-memo="[reply.id, reply.content, reply.author.displayName]"
           >
-            <strong class="text-[var(--fsusblog-text-secondary)]">{{ reply.userName }}</strong>
-            <span v-if="reply.replyToUserName"> 回复 @{{ reply.replyToUserName }}</span>
+            <strong class="text-[var(--fsusblog-text-secondary)]">{{ reply.author.displayName }}</strong>
+            <span v-if="reply.replyToAuthor"> 回复 @{{ reply.replyToAuthor?.displayName }}</span>
             ：{{ reply.content }}
           </div>
         </div>

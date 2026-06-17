@@ -44,12 +44,19 @@
       <template v-if="canRenderCommentsRuntime" #comments>
         <ArticleCommentComposer
           v-model="commentContent"
+          v-model:author-mode="commentAuthorMode"
+          v-model:public-send-confirmed="publicSendConfirmed"
+          v-model:display-language="commentDisplayLanguage"
           :is-logged-in="userStore.isLoggedIn"
           :is-banned="userStore.isBanned"
           :is-pow-calculating="powProvider.isCalculating.value"
           :is-submitting="submittingComment"
           :redirect-path="commentRedirectPath"
           :reply-target="replyTarget"
+          :anonymous-comments-enabled="anonymousCommentsEnabled"
+          :public-comments-enabled="publicCommentsEnabled"
+          :zk-anonymous-enabled="zkAnonymousEnabled"
+          :anonymous-scope="commentAnonymousScope"
           @submit="submitComment"
           @cancel-reply="clearReplyTarget"
         />
@@ -173,6 +180,13 @@ const {
   isError,
   articleRendererRef,
   commentContent,
+  commentAuthorMode,
+  publicSendConfirmed,
+  commentDisplayLanguage,
+  commentAnonymousScope,
+  anonymousCommentsEnabled,
+  publicCommentsEnabled,
+  zkAnonymousEnabled,
   submittingComment,
   threads,
   hasMore,

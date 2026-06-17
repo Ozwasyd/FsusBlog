@@ -1,5 +1,5 @@
 import type { ArticleListItemResponse, FeaturedArticleItem } from '@/api/article';
-import type { CommentReplyItem, CommentReplyPreviewItem, CommentThreadItem } from '@/api/comment';
+import { resolveCommentAuthorView, type CommentReplyItem, type CommentReplyPreviewItem, type CommentThreadItem } from '@/api/comment';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { BinaryReader, readBlobText, readFixedTextNullable, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64 } from './reader';
 import { COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE, COMMENT_THREAD_ITEM_POD_SIZE, FEATURED_ARTICLE_POD_SIZE, TAG_POD_SIZE } from './types';
@@ -9,7 +9,7 @@ type CategoryViewModel = ArticleListItemResponse['category'];
 
 type CommentCore = Pick<
   CommentReplyItem,
-  'id' | 'parentId' | 'rootId' | 'replyToUserId' | 'replyToCommentId' | 'depth' | 'isDeleted' | 'createTime' | 'userName' | 'replyToUserName' | 'content'
+  'id' | 'parentId' | 'rootId' | 'replyToUserId' | 'replyToCommentId' | 'depth' | 'isDeleted' | 'createTime' | 'author' | 'userName' | 'replyToUserName' | 'replyToAuthor' | 'content'
 >;
 
 function readTagPod(span: Uint8Array): TagViewModel {
@@ -60,6 +60,9 @@ export function readFeaturedArticleItem(reader: BinaryReader): FeaturedArticleIt
 }
 
 function readCommentCore(pod: Uint8Array, blob: Uint8Array): CommentCore {
+  const userName = readFixedUtf8(pod, 52, 64);
+  const replyToUserName = readFixedTextNullable(pod, 116, 64);
+
   return {
     id: String(readInt64Number(pod, 0)),
     parentId: readNullableId64(pod, 8),
@@ -69,8 +72,10 @@ function readCommentCore(pod: Uint8Array, blob: Uint8Array): CommentCore {
     depth: readInt32(pod, 36),
     isDeleted: (pod[40] ?? 0) === 1,
     createTime: readIsoDate64(pod, 44),
-    userName: readFixedUtf8(pod, 52, 64),
-    replyToUserName: readFixedTextNullable(pod, 116, 64),
+    author: resolveCommentAuthorView({ userName }),
+    userName,
+    replyToUserName,
+    replyToAuthor: replyToUserName ? resolveCommentAuthorView({ userName: replyToUserName }) : null,
     content: readBlobText(pod, blob, 180)
   };
 }
@@ -82,13 +87,17 @@ export function readReplyItem(pod: Uint8Array, blob: Uint8Array): CommentReplyIt
 function readReplyPreviewItemFromReader(reader: BinaryReader): CommentReplyPreviewItem {
   const pod = reader.readSpan(COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE);
   const blob = reader.readBlob();
+  const userName = readFixedUtf8(pod, 20, 64);
+  const replyToUserName = readFixedTextNullable(pod, 84, 64);
 
   return {
     id: String(readInt64Number(pod, 0)),
     isDeleted: (pod[8] ?? 0) === 1,
     createTime: readIsoDate64(pod, 12),
-    userName: readFixedUtf8(pod, 20, 64),
-    replyToUserName: readFixedTextNullable(pod, 84, 64),
+    author: resolveCommentAuthorView({ userName }),
+    userName,
+    replyToUserName,
+    replyToAuthor: replyToUserName ? resolveCommentAuthorView({ userName: replyToUserName }) : null,
     content: readBlobText(pod, blob, 148)
   };
 }
@@ -98,6 +107,7 @@ export function readThreadItemFromReader(reader: BinaryReader): CommentThreadIte
   const blob = reader.readBlob();
   const previewReplyCount = pod[193] ?? 0;
   const repliesPreview: CommentReplyPreviewItem[] = [];
+  const userName = readFixedUtf8(pod, 52, 64);
 
   for (let i = 0; i < previewReplyCount; i++) {
     repliesPreview.push(readReplyPreviewItemFromReader(reader));
@@ -107,7 +117,8 @@ export function readThreadItemFromReader(reader: BinaryReader): CommentThreadIte
     id: String(readInt64Number(pod, 0)),
     content: readBlobText(pod, blob, 180),
     createTime: readIsoDate64(pod, 44),
-    userName: readFixedUtf8(pod, 52, 64),
+    author: resolveCommentAuthorView({ userName }),
+    userName,
     rootId: String(readInt64Number(pod, 16)),
     isDeleted: (pod[40] ?? 0) === 1,
     replyCount: readInt32(pod, 188),

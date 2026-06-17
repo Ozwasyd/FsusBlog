@@ -74,6 +74,7 @@ describe('mapCommentCursorFromPodPayload', () => {
     expect(result.hasMore).toBe(true)
     expect(result.data).toHaveLength(1)
     expect(result.data[0].id).toBe('55')
+    expect(result.data[0].author.displayName).toBe('fixture compatibility')
   })
 })
 
@@ -141,6 +142,7 @@ describe('mapThreadReplyCursorFromPodPayload', () => {
     )
     const result = mapThreadReplyCursorFromPodPayload(payload)
     expect(result.data[0].rootId).toBe('42')
+    expect(result.data[0].author.displayName).toBe('fixture compatibility')
   })
 
   it('keeps existing rootId when non-zero', () => {

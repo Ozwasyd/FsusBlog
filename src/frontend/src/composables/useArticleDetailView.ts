@@ -2,7 +2,13 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getRelatedReading, type ArticleDetailResponse, type RelatedReadingResponse } from '@/api/article'
 import { toBootstrapArticleDetail } from '@/bootstrap/publicAotBootstrap'
-import { createComment, deleteComment } from '@/api/comment'
+import {
+  createCommentV2,
+  deleteComment,
+  type CommentAuthorMode,
+  type CommentAuthorView,
+  type CommentDisplayLanguage
+} from '@/api/comment'
 import { useUserStore } from '@/store/user'
 import { useArticleBinaryStore } from '@/store/article'
 import type MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
@@ -33,10 +39,12 @@ type CommentAddedSignalPayload = ArticleSignalPayload & {
     id: string
     content: string
     createTime: string
+    author?: CommentAuthorView | null
     userName: string
     parentId?: string | null
     rootId?: string | null
     replyToUserId?: number | null
+    replyToAuthor?: CommentAuthorView | null
     replyToCommentId?: string | null
     depth?: number
     isDeleted?: boolean
@@ -52,6 +60,7 @@ type CommentDeletedSignalPayload = ArticleSignalPayload & {
 type ReplyTarget = {
   id: string
   rootId: string
+  author: CommentAuthorView
   userName: string
   depth: number
 } | null
@@ -85,6 +94,12 @@ export function useArticleDetailView() {
 
   const articleRendererRef = ref<InstanceType<typeof MarkdownRenderer> | null>(null)
   const commentContent = ref('')
+  const commentAuthorMode = ref<CommentAuthorMode>('anonymous')
+  const publicSendConfirmed = ref(false)
+  const commentDisplayLanguage = ref<CommentDisplayLanguage>('zh-CN')
+  const anonymousCommentsEnabled = ref(true)
+  const publicCommentsEnabled = ref(true)
+  const zkAnonymousEnabled = ref(false)
   const submittingComment = ref(false)
   const replyTarget = ref<ReplyTarget>(null)
 
@@ -127,6 +142,7 @@ export function useArticleDetailView() {
   )
 
   const totalCommentCount = computed(() => threads.value.reduce((acc, item) => acc + 1 + item.replyCount, 0))
+  const commentAnonymousScope = computed(() => article.value ? `article:${article.value.id}` : 'article')
 
   const detailView = computed(() =>
     article.value
@@ -426,6 +442,18 @@ export function useArticleDetailView() {
     }
   }
 
+  const resolveCommentAuthorModeForPolicy = (): CommentAuthorMode => {
+    if (commentAuthorMode.value === 'anonymous' && anonymousCommentsEnabled.value) {
+      return 'anonymous'
+    }
+
+    if (commentAuthorMode.value === 'zk_anonymous' && zkAnonymousEnabled.value) {
+      return 'zk_anonymous'
+    }
+
+    return 'public'
+  }
+
   const submitComment = async (): Promise<void> => {
     if (!commentContent.value.trim() || !article.value) {
       return
@@ -440,6 +468,28 @@ export function useArticleDetailView() {
     if (submittingComment.value || powProvider.isCalculating.value) {
       return
     }
+
+    const selectedAuthorMode = resolveCommentAuthorModeForPolicy()
+    if (selectedAuthorMode === 'anonymous' && !anonymousCommentsEnabled.value) {
+      showErrorToast('匿名评论已被管理员关闭，当前只能公开发送。')
+      return
+    }
+
+    if (selectedAuthorMode === 'public' && !publicSendConfirmed.value) {
+      showErrorToast('公开发送前请先确认会展示你的公开身份。')
+      return
+    }
+
+    if (selectedAuthorMode === 'public' && !publicCommentsEnabled.value) {
+      showErrorToast('公开评论已被管理员关闭。')
+      return
+    }
+
+    if (selectedAuthorMode === 'zk_anonymous' && !zkAnonymousEnabled.value) {
+      showErrorToast('强匿名证明暂未启用。')
+      return
+    }
+
     submittingComment.value = true
 
     commentSubmitTask.cancel()
@@ -447,13 +497,17 @@ export function useArticleDetailView() {
     try {
       await commentSubmitTask.run(
         async (signal) =>
-          await createComment(
+          await createCommentV2(
             {
               articleId: article.value!.id,
               content: commentContent.value,
               parentId: replyTarget.value?.id ?? null,
               rootId: replyTarget.value?.rootId ?? null,
-              replyToCommentId: replyTarget.value?.id ?? null
+              replyToCommentId: replyTarget.value?.id ?? null,
+              authorMode: selectedAuthorMode,
+              publicSendExplicitlySelected: publicSendConfirmed.value,
+              anonymousScope: commentAnonymousScope.value,
+              displayLanguage: commentDisplayLanguage.value
             },
             { signal }
           )
@@ -462,6 +516,8 @@ export function useArticleDetailView() {
       if (lifecycle.isActive()) {
         toast.success('已提交审核')
         commentContent.value = ''
+        commentAuthorMode.value = anonymousCommentsEnabled.value ? 'anonymous' : 'public'
+        publicSendConfirmed.value = false
         clearReplyTarget()
       }
     } catch (error: unknown) {
@@ -476,7 +532,7 @@ export function useArticleDetailView() {
     }
   }
 
-  const setReplyTarget = (payload: { id: string; rootId: string; userName: string; depth: number }): void => {
+  const setReplyTarget = (payload: { id: string; rootId: string; author: CommentAuthorView; userName: string; depth: number }): void => {
     if (!userStore.isLoggedIn) {
       redirectToCommentLogin()
       return
@@ -631,6 +687,13 @@ export function useArticleDetailView() {
     isError,
     articleRendererRef,
     commentContent,
+    commentAuthorMode,
+    publicSendConfirmed,
+    commentDisplayLanguage,
+    commentAnonymousScope,
+    anonymousCommentsEnabled,
+    publicCommentsEnabled,
+    zkAnonymousEnabled,
     submittingComment,
     threads,
     hasMore,

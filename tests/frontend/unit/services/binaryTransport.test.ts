@@ -751,6 +751,13 @@ describe('binaryTransport ApiError mapping', () => {
         id: string;
         content: string;
         createTime: string;
+        author: {
+          mode: string;
+          displayName: string;
+          displayLanguage: string;
+          badge: string;
+          scopeLabel: string;
+        };
         userName: string;
         rootId: string;
         isDeleted: boolean;
@@ -760,8 +767,22 @@ describe('binaryTransport ApiError mapping', () => {
           id: string;
           content: string;
           createTime: string;
+          author: {
+            mode: string;
+            displayName: string;
+            displayLanguage: string;
+            badge: string;
+            scopeLabel: string;
+          };
           userName: string;
           replyToUserName: string | null;
+          replyToAuthor: {
+            mode: string;
+            displayName: string;
+            displayLanguage: string;
+            badge: string;
+            scopeLabel: string;
+          } | null;
           isDeleted: boolean;
         }>;
       }>;
@@ -776,6 +797,13 @@ describe('binaryTransport ApiError mapping', () => {
           id: '101',
           content: 'root comment',
           createTime: '2026-05-12T00:00:00.000Z',
+          author: {
+            mode: 'public',
+            displayName: 'alice',
+            displayLanguage: 'zh-CN',
+            badge: 'legacy',
+            scopeLabel: 'fixture compatibility'
+          },
           userName: 'alice',
           rootId: '101',
           isDeleted: false,
@@ -786,8 +814,22 @@ describe('binaryTransport ApiError mapping', () => {
               id: '202',
               content: 'preview reply',
               createTime: '2026-05-12T01:02:03.000Z',
+              author: {
+                mode: 'public',
+                displayName: 'bob',
+                displayLanguage: 'zh-CN',
+                badge: 'legacy',
+                scopeLabel: 'fixture compatibility'
+              },
               userName: 'bob',
               replyToUserName: 'alice',
+              replyToAuthor: {
+                mode: 'public',
+                displayName: 'alice',
+                displayLanguage: 'zh-CN',
+                badge: 'legacy',
+                scopeLabel: 'fixture compatibility'
+              },
               isDeleted: false
             }
           ]

@@ -108,8 +108,17 @@ export function createCommentComposerUiContract(redirectPath: string, state: {
   isPowCalculating: boolean
   isSubmitting: boolean
   hasContent: boolean
+  authorMode?: 'anonymous' | 'public' | 'zk_anonymous'
+  publicSendConfirmed?: boolean
+  anonymousCommentsEnabled?: boolean
+  publicCommentsEnabled?: boolean
+  zkAnonymousEnabled?: boolean
 }): CommentComposerUiContract {
-  const disabled = state.isBanned || state.isPowCalculating || state.isSubmitting || !state.hasContent
+  const authorMode = state.authorMode ?? 'anonymous'
+  const publicBlocked = authorMode === 'public' && (!state.publicCommentsEnabled || !state.publicSendConfirmed)
+  const anonymousBlocked = authorMode === 'anonymous' && state.anonymousCommentsEnabled === false
+  const zkBlocked = authorMode === 'zk_anonymous' && state.zkAnonymousEnabled !== true
+  const disabled = state.isBanned || state.isPowCalculating || state.isSubmitting || !state.hasContent || publicBlocked || anonymousBlocked || zkBlocked
 
   return {
     placeholder: state.isBanned ? '您已被封禁，仅限阅读。' : '在此写出你的评论 (Ctrl + Enter 发送)',

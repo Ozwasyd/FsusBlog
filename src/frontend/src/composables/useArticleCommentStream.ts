@@ -2,6 +2,8 @@ import { reactive, ref, shallowRef } from 'vue'
 import {
   getComments,
   getThreadReplies,
+  resolveCommentAuthorView,
+  type CommentAuthorView,
   type CommentReplyPreviewItem,
   type CommentThreadItem
 } from '@/api/comment'
@@ -20,10 +22,12 @@ type CommentPushLike = {
   id: string
   content: string
   createTime: string
+  author?: CommentAuthorView | null
   userName: string
   parentId?: string | null
   rootId?: string | null
   replyToUserId?: number | null
+  replyToAuthor?: CommentAuthorView | null
   replyToCommentId?: string | null
   depth?: number
   isDeleted?: boolean
@@ -232,6 +236,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
         id: incomingId,
         content: incoming.content,
         createTime: incoming.createTime,
+        author: resolveCommentAuthorView({ author: incoming.author ?? null, userName: incoming.userName }),
         userName: incoming.userName,
         rootId,
         isDeleted: incoming.isDeleted === true,
@@ -274,8 +279,10 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
       id: incomingId,
       content: incoming.content,
       createTime: incoming.createTime,
+      author: resolveCommentAuthorView({ author: incoming.author ?? null, userName: incoming.userName }),
       userName: incoming.userName,
       replyToUserName: null,
+      replyToAuthor: incoming.replyToAuthor ?? null,
       isDeleted: incoming.isDeleted === true
     }
 

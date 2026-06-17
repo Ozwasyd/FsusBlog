@@ -9,6 +9,17 @@ import { validateCommentContent } from '@/utils/contentFilter';
 // 1. 类型定义 (DTOs)
 // =================================================================================
 
+export type CommentAuthorMode = 'anonymous' | 'public' | 'zk_anonymous'
+export type CommentDisplayLanguage = 'zh-CN' | 'en'
+
+export interface CommentAuthorView {
+  mode: 'anonymous' | 'public' | 'zk_anonymous'
+  displayName: string
+  displayLanguage: 'zh-CN' | 'en'
+  badge?: string | null
+  scopeLabel?: string | null
+}
+
 /** * 发布评论所需的 DTO
  * 继承 PowRequest 以包含 nonce, salt 等字段
  */
@@ -19,10 +30,25 @@ export interface CommentDto extends PowRequest {
   rootId?: string | null
   replyToCommentId?: string | null
   replyToUserId?: number | null
-  authorMode?: 'anonymous' | 'pseudonymous' | 'public' | 'zk_anonymous' | null
+  authorMode?: CommentAuthorMode | 'pseudonymous' | null
   publicSendExplicitlySelected?: boolean | null
   anonymousScope?: string | null
   displayLanguage?: string | null
+  proofToken?: string | null
+  zkProof?: Uint8Array | number[] | null
+}
+
+export interface CommentCreateV2Dto extends PowRequest {
+  articleId: number
+  content: string
+  parentId?: string | null
+  rootId?: string | null
+  replyToCommentId?: string | null
+  replyToUserId?: number | null
+  authorMode: CommentAuthorMode
+  publicSendExplicitlySelected: boolean
+  anonymousScope?: string | null
+  displayLanguage: CommentDisplayLanguage
   proofToken?: string | null
   zkProof?: Uint8Array | number[] | null
 }
@@ -39,9 +65,11 @@ export interface CommentReplyItem {
   id: string // Snowflake ID 必须使用 string
   content: string
   createTime: string
+  author: CommentAuthorView
   userName: string
   replyToUserId?: number | null
   replyToUserName?: string | null
+  replyToAuthor?: CommentAuthorView | null
   parentId?: string | null
   rootId: string
   replyToCommentId?: string | null
@@ -53,6 +81,7 @@ export interface CommentThreadItem {
   id: string
   content: string
   createTime: string
+  author: CommentAuthorView
   userName: string
   rootId: string
   isDeleted: boolean
@@ -65,8 +94,10 @@ export interface CommentReplyPreviewItem {
   id: string
   content: string
   createTime: string
+  author: CommentAuthorView
   userName: string
   replyToUserName?: string | null
+  replyToAuthor?: CommentAuthorView | null
   isDeleted: boolean
 }
 
@@ -81,6 +112,31 @@ export interface UserCommentResponse {
   replyToUserName?: string | null
 }
 
+export function resolveCommentAuthorView(input: {
+  author?: CommentAuthorView | null
+  userName?: string | null
+  displayLanguage?: CommentDisplayLanguage | string | null
+}): CommentAuthorView {
+  const author = input.author
+  if (author?.displayName?.trim()) {
+    return {
+      ...author,
+      mode: normalizeCommentAuthorMode(author.mode),
+      displayName: author.displayName.trim(),
+      displayLanguage: normalizeCommentDisplayLanguage(author.displayLanguage)
+    }
+  }
+
+  const displayName = input.userName?.trim() || 'fixture compatibility'
+  return {
+    mode: 'public',
+    displayName,
+    displayLanguage: normalizeCommentDisplayLanguage(input.displayLanguage),
+    badge: 'legacy',
+    scopeLabel: 'fixture compatibility'
+  }
+}
+
 // =================================================================================
 // 2. 接口方法
 // =================================================================================
@@ -93,12 +149,27 @@ export interface UserCommentResponse {
  * 安全性保障：启用 requiresPow 策略，物理隔离垃圾评论攻击
  */
 export const createComment = (data: CommentDto, config?: ApiRequestConfig) => {
+  return sendCommentMutation(
+    data,
+    usesCommentCreateV2(data) ? FrameType.CommentCreateV2Request : FrameType.CommentCreateRequest,
+    config
+  )
+}
+
+export const createCommentV2 = (data: CommentCreateV2Dto, config?: ApiRequestConfig) => {
+  return sendCommentMutation(data, FrameType.CommentCreateV2Request, config)
+}
+
+function sendCommentMutation(
+  data: CommentDto | CommentCreateV2Dto,
+  frameType: FrameType.CommentCreateRequest | FrameType.CommentCreateV2Request,
+  config?: ApiRequestConfig
+) {
   const validation = validateCommentContent(data.content ?? '')
   if (!validation.isValid) {
     return Promise.reject(new Error(validation.message))
   }
 
-  const frameType = usesCommentCreateV2(data) ? FrameType.CommentCreateV2Request : FrameType.CommentCreateRequest
   const payload = frameType === FrameType.CommentCreateV2Request
     ? encodeCommentCreateV2Request(data)
     : encodeCommentCreateRequest(data)
@@ -212,7 +283,7 @@ function encodeCommentCreateRequest(data: CommentDto): Uint8Array {
   return bytes
 }
 
-export function encodeCommentCreateV2Request(data: CommentDto): Uint8Array {
+export function encodeCommentCreateV2Request(data: CommentDto | CommentCreateV2Dto): Uint8Array {
   const anonymousScope = encodeText(data.anonymousScope ?? '')
   const displayLanguage = encodeText(data.displayLanguage ?? '')
   const proofToken = encodeText(data.proofToken ?? '')
@@ -268,7 +339,7 @@ function writeBlobPart(bytes: Uint8Array, view: DataView, sliceOffset: number, b
   return offset + value.byteLength
 }
 
-function encodeCommentAuthorMode(mode: CommentDto['authorMode']): number {
+function encodeCommentAuthorMode(mode: CommentDto['authorMode'] | CommentCreateV2Dto['authorMode']): number {
   switch ((mode ?? 'anonymous').trim().toLowerCase().replace('-', '_')) {
     case 'pseudonymous':
       return 2
@@ -279,6 +350,15 @@ function encodeCommentAuthorMode(mode: CommentDto['authorMode']): number {
     default:
       return 1
   }
+}
+
+function normalizeCommentAuthorMode(mode: CommentAuthorView['mode'] | string | null | undefined): CommentAuthorMode {
+  const normalized = String(mode ?? 'anonymous').trim().toLowerCase().replace('-', '_')
+  return normalized === 'public' || normalized === 'zk_anonymous' ? normalized : 'anonymous'
+}
+
+function normalizeCommentDisplayLanguage(language: CommentDisplayLanguage | string | null | undefined): CommentDisplayLanguage {
+  return language === 'en' ? 'en' : 'zh-CN'
 }
 
 function parseOptionalId(value?: string | null): bigint | null {

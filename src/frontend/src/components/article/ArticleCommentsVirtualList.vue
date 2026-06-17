@@ -8,10 +8,10 @@
     >
       <div :class="commentDetailTokens.articleList.headerRoot">
         <div :class="commentDetailTokens.articleList.headerMeta">
-          <span :class="commentDetailTokens.articleList.authorName">{{ thread.userName }}</span>
+          <span :class="commentDetailTokens.articleList.authorName">{{ thread.author.displayName }}</span>
           <el-button
             link
-            @click="$emit('reply', { id: thread.id, rootId: thread.rootId, userName: thread.userName, depth: 0 })"
+            @click="$emit('reply', { id: thread.id, rootId: thread.rootId, author: thread.author, userName: thread.author.displayName, depth: 0 })"
           >
             {{ isLoggedIn ? '回复' : '登录后回复' }}
           </el-button>
@@ -43,12 +43,12 @@
           v-memo="[reply.id, reply.content, reply.canDelete]"
         >
           <div class="flex items-center gap-2 text-[11px] text-[var(--fsusblog-text-muted)]">
-            <strong class="text-[var(--fsusblog-text-secondary)]">{{ reply.userName }}</strong>
-            <span v-if="reply.replyToUserName">回复 @{{ reply.replyToUserName }}</span>
+            <strong class="text-[var(--fsusblog-text-secondary)]">{{ reply.author.displayName }}</strong>
+            <span v-if="reply.replyToAuthor">回复 @{{ reply.replyToAuthor?.displayName }}</span>
             <span>{{ reply.time.relativeTimeText }}</span>
             <el-button
               link
-              @click="$emit('reply', { id: reply.id, rootId: thread.rootId, userName: reply.userName, depth: 1 })"
+              @click="$emit('reply', { id: reply.id, rootId: thread.rootId, author: reply.author, userName: reply.author.displayName, depth: 1 })"
             >
               {{ isLoggedIn ? '回复' : '登录后回复' }}
             </el-button>
@@ -86,7 +86,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { CommentReplyPreviewItem, CommentThreadItem } from '@/api/comment'
+import type { CommentAuthorView, CommentReplyPreviewItem, CommentThreadItem } from '@/api/comment'
 import { commentDetailTokens, type CommentTimeContract } from '@/view-contracts/commentDetail'
 import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
 import { TimeUtils } from '@/utils/time'
@@ -94,6 +94,7 @@ import { TimeUtils } from '@/utils/time'
 type ReplyTargetPayload = {
   id: string
   rootId: string
+  author: CommentAuthorView
   userName: string
   depth: number
 }

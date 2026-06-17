@@ -8,10 +8,12 @@ vi.mock('@/services/binaryTransport', () => ({
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import {
   createComment,
+  createCommentV2,
   getComments,
   getThreadReplies,
   getMyComments,
-  deleteComment
+  deleteComment,
+  resolveCommentAuthorView
 } from '@/api/comment'
 import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
 
@@ -82,6 +84,47 @@ describe('comment API', () => {
     expect(readSliceText(payload, blob, 56)).toBe('proof-token')
     expect([...readSliceBytes(payload, blob, 64)]).toEqual([1, 2, 3, 4])
     expect(readSliceText(payload, blob, 72)).toBe('Hello anonymous mode')
+  })
+
+  it('createCommentV2 always sends public-send and author-mode fields', async () => {
+    await createCommentV2({
+      articleId: 10,
+      content: 'Public comment with explicit consent',
+      authorMode: 'public',
+      publicSendExplicitlySelected: true,
+      anonymousScope: 'article:10',
+      displayLanguage: 'en'
+    })
+
+    const body = mockBinary.mock.calls[0][0].requestOptions?.body as ArrayBuffer
+    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
+    const payload = readAedsPayload(body)
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+    expect(view.getInt32(0, true)).toBe(10)
+    expect(payload[12]).toBe(3)
+    expect(payload[13]).toBe(1)
+    const blob = payload.subarray(84)
+    expect(readSliceText(payload, blob, 40)).toBe('article:10')
+    expect(readSliceText(payload, blob, 48)).toBe('en')
+  })
+
+  it('resolves legacy usernames through CommentAuthorView compatibility', () => {
+    expect(resolveCommentAuthorView({ userName: 'Alice' })).toEqual({
+      mode: 'public',
+      displayName: 'Alice',
+      displayLanguage: 'zh-CN',
+      badge: 'legacy',
+      scopeLabel: 'fixture compatibility'
+    })
+    expect(resolveCommentAuthorView({
+      author: {
+        mode: 'anonymous',
+        displayName: '匿名用户 王明',
+        displayLanguage: 'zh-CN',
+        scopeLabel: '本文'
+      },
+      userName: 'Alice'
+    }).displayName).toBe('匿名用户 王明')
   })
 
   it('createComment rejects over-limit content before opening binary transport', async () => {
