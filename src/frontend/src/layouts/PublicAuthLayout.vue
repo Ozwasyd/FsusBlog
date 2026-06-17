@@ -61,6 +61,10 @@ const authAction = computed(() => {
     return { label: '登录', to: '/login' }
   }
 
+  if (route.name === 'Recover') {
+    return { label: '登录', to: '/login' }
+  }
+
   return { label: '注册', to: '/register' }
 })
 </script>

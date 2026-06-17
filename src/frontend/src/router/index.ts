@@ -108,6 +108,12 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
         name: 'Register',
         component: () => import('@/views/auth/Register.vue'),
         meta: { title: '注册', guestOnly: true }
+      },
+      {
+        path: 'recover',
+        name: 'Recover',
+        component: () => import('@/views/auth/Recover.vue'),
+        meta: { title: '恢复访问', guestOnly: true }
       }
     ]
   },
