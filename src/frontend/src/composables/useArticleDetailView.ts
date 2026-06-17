@@ -5,9 +5,11 @@ import { toBootstrapArticleDetail } from '@/bootstrap/publicAotBootstrap'
 import {
   createCommentV2,
   deleteComment,
+  getCommentPolicySnapshot,
   type CommentAuthorMode,
   type CommentAuthorView,
-  type CommentDisplayLanguage
+  type CommentDisplayLanguage,
+  type CommentPolicySnapshot
 } from '@/api/comment'
 import { useUserStore } from '@/store/user'
 import { useArticleBinaryStore } from '@/store/article'
@@ -90,6 +92,7 @@ export function useArticleDetailView() {
   const spaReady = ref(false)
   const articleLoadTask = useAbortableTask()
   const relatedLoadTask = useAbortableTask()
+  const commentPolicyTask = useAbortableTask()
   const commentSubmitTask = useAbortableTask()
 
   const articleRendererRef = ref<InstanceType<typeof MarkdownRenderer> | null>(null)
@@ -113,6 +116,7 @@ export function useArticleDetailView() {
       disposeCommentStream()
       articleLoadTask.cancel()
       relatedLoadTask.cancel()
+      commentPolicyTask.cancel()
       commentSubmitTask.cancel()
     }
   })
@@ -239,6 +243,48 @@ export function useArticleDetailView() {
     }
   }
 
+  const loadCommentPolicySnapshot = async (): Promise<void> => {
+    try {
+      const policy = await commentPolicyTask.run(
+        async (signal) => await getCommentPolicySnapshot({ signal })
+      )
+      if (lifecycle.isActive()) {
+        applyCommentPolicySnapshot(policy)
+      }
+    } catch (error: unknown) {
+      if (import.meta.env.DEV && !isAbortError(error) && lifecycle.isActive()) {
+        console.warn('[Comment] Policy snapshot failed:', error)
+      }
+    }
+  }
+
+  const applyCommentPolicySnapshot = (policy: CommentPolicySnapshot): void => {
+    anonymousCommentsEnabled.value = policy.anonymousCommentsEnabled
+    publicCommentsEnabled.value = policy.publicCommentsEnabled
+    zkAnonymousEnabled.value = policy.zkAnonymousEnabled
+    applySupportedCommentDisplayLanguage(policy.supportedDisplayLanguages)
+
+    if (
+      (commentAuthorMode.value === 'anonymous' && !anonymousCommentsEnabled.value) ||
+      (commentAuthorMode.value === 'public' && !publicCommentsEnabled.value) ||
+      (commentAuthorMode.value === 'zk_anonymous' && !zkAnonymousEnabled.value)
+    ) {
+      commentAuthorMode.value = anonymousCommentsEnabled.value ? 'anonymous' : 'public'
+    }
+
+    if (commentAuthorMode.value !== 'public') {
+      publicSendConfirmed.value = false
+    }
+  }
+
+  const applySupportedCommentDisplayLanguage = (languages: readonly string[]): void => {
+    if (languages.includes(commentDisplayLanguage.value)) {
+      return
+    }
+
+    commentDisplayLanguage.value = languages.includes('zh-CN') ? 'zh-CN' : 'en'
+  }
+
   const loadArticle = async (silent = false, loadComments = true, loadRelated = true): Promise<void> => {
     const id = resolveActiveRouteId()
     if (id === null) {
@@ -313,8 +359,14 @@ export function useArticleDetailView() {
     isError.value = false
     disposeCommentStream()
     relatedLoadTask.cancel()
+    commentPolicyTask.cancel()
     clearCommentState()
     clearReplyTarget()
+
+    await loadCommentPolicySnapshot()
+    if (!lifecycle.isActive() || initVersion !== routeInitVersion) {
+      return
+    }
 
     if (!canReuseHydratedBootstrap) {
       article.value = null

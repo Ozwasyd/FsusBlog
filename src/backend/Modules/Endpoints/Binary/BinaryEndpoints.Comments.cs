@@ -16,6 +16,7 @@ using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models;
+using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Models.Requests;
@@ -33,6 +34,19 @@ public static partial class BinaryEndpoints
 {
     private static void MapBinaryCommentEndpoints(IEndpointRouteBuilder group)
     {
+        group.MapGet("/comment/policy", static BinaryFrameResult (
+            IAnonymousCommentPolicyService policyService,
+            IAedsEncoder aeds) =>
+        {
+            CommentPolicySnapshotCoreModel snapshot = ToCommentPolicyCore(policyService.Current);
+            return BinaryResults.Frame(
+                aeds,
+                AedsFrameType.CommentPolicySnapshot,
+                writer => PodBinaryCodec.WriteCommentPolicySnapshot(snapshot, writer));
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read");
+
         group.MapPost("/comment", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             ICommentEndpointService commentService,
@@ -255,6 +269,14 @@ public static partial class BinaryEndpoints
         => !string.IsNullOrWhiteSpace(content)
             && content.Length <= CommentLimits.ContentMaxChars
             && Encoding.UTF8.GetByteCount(content) <= CommentLimits.ContentMaxUtf8Bytes;
+
+    private static CommentPolicySnapshotCoreModel ToCommentPolicyCore(AnonymousCommentPolicySnapshot snapshot)
+        => new(
+            snapshot.AnonymousCommentsEnabled,
+            snapshot.PublicCommentsEnabled,
+            snapshot.ZkAnonymousEnabled,
+            snapshot.DefaultAuthorMode,
+            snapshot.SupportedDisplayLanguages);
 
     private static byte[] EncodeCachedFrame(AedsFrameType frameType, Action<IBufferWriter<byte>> writePayload)
     {

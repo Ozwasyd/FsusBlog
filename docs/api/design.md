@@ -172,7 +172,7 @@ L0 artifact 的 `400` / `404` / `405` / `406` / `416` / `503` 负响应固定 `C
 
 AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行时只接受 AEDS v2 header；AEDS v1 frame、未知版本和错误 header length 直接拒绝，服务端和前端不保留 v1 fallback。未来 wire-level 破兼容必须先进入 `aeds-protocol.json`、`schemas-and-errors.md`、golden fixture、TypeScript/Worker/Wasm decoder 与负向 contract matrix。
 
-匿名身份与评论作者模式扩展使用新增 AEDS frame，而不是改写已发布 payload layout。`CommentCreateRequest` 只保留旧的 article/reply/content 请求语义；匿名 scope、public opt-in、语言提示、proof token 和 ZK placeholder 必须走 `CommentCreateV2Request`。评论 composer 必须先解码 `CommentPolicySnapshot`，以服务端策略决定 anonymous/public/ZK author mode，而不是在组件内硬编码默认策略。服务端写入时统一通过 `CommentActor` 解析作者，默认 anonymous，public/real-name 只在显式 opt-in 后写入 `public_handle`，匿名展示名由服务端按 posting language/region 生成。Passkey 和 Recovery Key 仍复用现有 frame，匿名身份不得新增平行 Passkey 协议栈。
+匿名身份与评论作者模式扩展使用新增 AEDS frame，而不是改写已发布 payload layout。`CommentCreateRequest` 只保留旧的 article/reply/content 请求语义；匿名 scope、public opt-in、语言提示、proof token 和 ZK placeholder 必须走 `CommentCreateV2Request`。评论 composer 必须先从 `GET /api/binary/comment/policy` 解码 `CommentPolicySnapshot`，以服务端策略决定 anonymous/public/ZK author mode，而不是在组件内硬编码默认策略。服务端写入时统一通过 `CommentActor` 解析作者，默认 anonymous，public/real-name 只在显式 opt-in 后写入 `public_handle`，匿名展示名由服务端按 posting language/region 生成。Passkey 和 Recovery Key 仍复用现有 frame，匿名身份不得新增平行 Passkey 协议栈。
 
 不视为 Breaking Change 的变更：
 - 新增响应字段（客户端应忽略未知字段）

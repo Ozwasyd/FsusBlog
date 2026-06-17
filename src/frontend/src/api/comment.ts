@@ -53,6 +53,14 @@ export interface CommentCreateV2Dto extends PowRequest {
   zkProof?: Uint8Array | number[] | null
 }
 
+export interface CommentPolicySnapshot {
+  anonymousCommentsEnabled: boolean
+  publicCommentsEnabled: boolean
+  zkAnonymousEnabled: boolean
+  defaultAuthorMode: CommentAuthorMode | 'pseudonymous'
+  supportedDisplayLanguages: string[]
+}
+
 /** 游标响应包装 */
 export interface CursorResponse<T> {
   data: T[]
@@ -159,6 +167,13 @@ export const createComment = (data: CommentDto, config?: ApiRequestConfig) => {
 export const createCommentV2 = (data: CommentCreateV2Dto, config?: ApiRequestConfig) => {
   return sendCommentMutation(data, FrameType.CommentCreateV2Request, config)
 }
+
+export const getCommentPolicySnapshot = (config?: ApiRequestConfig) =>
+  requestBinaryOnly<CommentPolicySnapshot>({
+    binaryUrl: '/api/binary/comment/policy',
+    frameType: FrameType.CommentPolicySnapshot,
+    signal: config?.signal as AbortSignal | undefined
+  })
 
 function sendCommentMutation(
   data: CommentDto | CommentCreateV2Dto,
