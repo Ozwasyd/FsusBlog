@@ -10,9 +10,9 @@
         v-if="isSeoShellRoute"
         :key="routeComponentKey"
       />
-      <transition v-else name="fade-fast" mode="out-in">
+      <FsusBlogRouteTransition v-else :name="fsusBlogMotionPresets.route">
         <component :is="Component" :key="routeComponentKey" />
-      </transition>
+      </FsusBlogRouteTransition>
     </router-view>
   </PublicBlogLayoutShell>
 </template>
@@ -26,6 +26,8 @@ import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap
 import { runtimeReady } from '@/bootstrap/runtimeGate'
 import { publicTakeoverPhaseState } from '@/bootstrap/publicTakeoverState'
 import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue'
+import FsusBlogRouteTransition from '@/components/ui/FsusBlogRouteTransition.vue'
+import { fsusBlogMotionPresets } from '@/fsusui/motion'
 import {
   isPublicSearchRouteName,
   isPublicSeoRouteName,
@@ -97,24 +99,3 @@ const handleSearchFocus = (): void => {
   window.dispatchEvent(new CustomEvent('fsus:public-shell:search-focus'))
 }
 </script>
-
-<style scoped>
-@reference "@/assets/main.css";
-
-.fade-fast-enter-active,
-.fade-fast-leave-active {
-  transition: opacity var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.fade-fast-enter-from,
-.fade-fast-leave-to {
-  opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .fade-fast-enter-active,
-  .fade-fast-leave-active {
-    transition: none;
-  }
-}
-</style>
