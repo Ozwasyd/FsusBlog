@@ -33,7 +33,7 @@
         class="mt-8"
         title="身份工作区"
         caption="所有页面都在现有 AccountLayout 内渲染，并使用 workspace context 的功能和策略快照。"
-        title-level="2"
+        :title-level="2"
       >
         <div class="identity-summary-list">
           <p>账户编号：{{ identityAccountSnapshot.accountId || '未同步' }}</p>
@@ -48,7 +48,7 @@
       v-else-if="isSection('UserIdentityPasskeys')"
       title="通行密钥设备"
       caption="Passkey 是匿名账号的主要登录方式；这里复用现有 Passkey client assets。"
-      title-level="2"
+      :title-level="2"
     >
       <div v-if="passkeyLoading" class="identity-loading-state">通行密钥加载中...</div>
       <div v-else-if="passkeyError" class="identity-error-state" role="alert">{{ passkeyError }}</div>
@@ -87,7 +87,7 @@
             <span>{{ credential.backupEligible ? '支持同步备份' : '仅本设备' }}</span>
           </template>
           <template #actions>
-            <el-button link type="danger" @click="confirmDeletePasskey(credential.id)">删除</el-button>
+              <el-button class="identity-touch-action" link type="danger" @click="confirmDeletePasskey(credential.id)">删除</el-button>
           </template>
         </ProfileResourceListItem>
       </ProfileResourceList>
@@ -112,7 +112,7 @@
       v-else-if="isSection('UserIdentityRecoveryKey')"
       title="Recovery Key"
       caption="Recovery Key 是账号恢复凭据，不是 TOTP recovery code；Recovery Key 只显示一次。"
-      title-level="2"
+      :title-level="2"
     >
       <div class="identity-copy-block">
         <p>创建或轮换后请立即保存。若 Recovery Key 丢失且没有可用通行密钥，账号可能无法恢复。</p>
@@ -143,7 +143,7 @@
       v-else-if="isSection('UserIdentityMfa')"
       title="TOTP step-up"
       caption="TOTP 是敏感操作 step-up，不是账号恢复方式；Recovery Key 才是账号恢复机制。"
-      title-level="2"
+      :title-level="2"
     >
       <div v-if="mfaLoading" class="identity-loading-state">二次验证状态加载中...</div>
       <div v-else-if="mfaError" class="identity-error-state" role="alert">{{ mfaError }}</div>
@@ -161,23 +161,23 @@
       v-else-if="isSection('UserIdentityAnonymous')"
       title="匿名身份"
       caption="匿名评论身份来自 workspace context 的功能和策略快照，不依赖用户名或密码假设。"
-      title-level="2"
+      :title-level="2"
     >
       <div class="identity-status-grid">
         <div class="identity-status-card">
           <span class="identity-status-label">匿名评论</span>
-          <strong>{{ workspaceContext.value.features.anonymousCommentsEnabled ? '已开放' : '已关闭' }}</strong>
+          <strong>{{ workspaceFeatures.anonymousCommentsEnabled ? '已开放' : '已关闭' }}</strong>
           <p>默认评论作者模式会在评论发布页单独确认。</p>
         </div>
         <div class="identity-status-card">
           <span class="identity-status-label">治理策略</span>
-          <strong>{{ workspaceContext.value.policies.anonymousCommentGovernanceAvailable ? '可治理' : '不可治理' }}</strong>
+          <strong>{{ workspacePolicies.anonymousCommentGovernanceAvailable ? '可治理' : '不可治理' }}</strong>
           <p>封禁与撤销由管理工作区处理。</p>
         </div>
         <div class="identity-status-card">
           <span class="identity-status-label">ZK 状态</span>
-          <strong>{{ workspaceContext.value.features.zkAnonymousEnabled ? '可用' : '未启用' }}</strong>
-          <p>{{ workspaceContext.value.policies.zkAnonymousConfigurable ? '配置入口可见' : '配置入口不可见' }}</p>
+          <strong>{{ workspaceFeatures.zkAnonymousEnabled ? '可用' : '未启用' }}</strong>
+          <p>{{ workspacePolicies.zkAnonymousConfigurable ? '配置入口可见' : '配置入口不可见' }}</p>
         </div>
       </div>
     </WorkbenchPanel>
@@ -186,7 +186,7 @@
       v-else-if="isSection('UserIdentityPublicProfile')"
       title="公开资料"
       caption="公开 handle 是可选项，只在你明确选择公开发送时使用。"
-      title-level="2"
+      :title-level="2"
     >
       <div class="space-y-5">
         <label for="public-handle-draft" class="block text-[12px] font-bold text-[var(--fsusblog-text-secondary)]">
@@ -202,7 +202,7 @@
           我理解公开资料只会在显式公开发送时展示
         </el-checkbox>
         <div class="identity-state-row">
-          <span>公开发送选项：{{ workspaceContext.value.features.publicSendOptionEnabled ? '可用' : '不可用' }}</span>
+          <span>公开发送选项：{{ workspaceFeatures.publicSendOptionEnabled ? '可用' : '不可用' }}</span>
           <span>当前草稿：{{ publicHandleDraft.trim() || '未设置' }}</span>
         </div>
       </div>
@@ -212,7 +212,7 @@
       v-else-if="isSection('UserIdentitySessions')"
       title="设备会话"
       caption="查看当前账号的活跃会话，并下线不再使用的设备。"
-      title-level="2"
+      :title-level="2"
     >
       <div v-if="sessionLoading" class="identity-loading-state">设备会话加载中...</div>
       <div v-else-if="sessionError" class="identity-error-state" role="alert">{{ sessionError }}</div>
@@ -242,6 +242,7 @@
             </template>
             <template #actions>
               <el-button
+                class="identity-touch-action"
                 v-if="!session.isCurrent"
                 link
                 type="danger"
@@ -266,7 +267,7 @@
       v-else-if="isSection('UserIdentityCommentRecords')"
       title="评论记录"
       caption="这里只描述可归因评论记录的边界，实际列表沿用现有评论记录页。"
-      title-level="2"
+      :title-level="2"
     >
       <div class="identity-copy-block">
         <p>强匿名评论不会出现在按账号查询的评论记录中；只有选择可归因或公开发送的评论才会进入账号侧记录。</p>
@@ -394,12 +395,14 @@ const currentRouteName = computed<IdentityRouteName>(() => {
 const sectionMeta = computed(() => sectionMetaByRoute[currentRouteName.value])
 const isSection = (name: IdentityRouteName): boolean => currentRouteName.value === name
 
+const workspaceFeatures = computed(() => workspaceContext.value.features)
+const workspacePolicies = computed(() => workspaceContext.value.policies)
 const currentSession = computed(() => sessions.value.find((session) => session.isCurrent) ?? null)
 const otherSessions = computed(() => sessions.value.filter((session) => !session.isCurrent))
 
 const identityAccountSnapshot = computed(() => {
-  const features = workspaceContext.value.features
-  const policies = workspaceContext.value.policies
+  const features = workspaceFeatures.value
+  const policies = workspacePolicies.value
   const user = userStore.userInfo
 
   return {
@@ -656,5 +659,12 @@ watch(currentRouteName, () => {
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 0.25rem;
+}
+
+.identity-touch-action {
+  min-width: 44px;
+  min-height: 36px;
+  justify-content: center;
+  padding-inline: 0.75rem;
 }
 </style>

@@ -49,6 +49,12 @@ describe('public hydration invariant guards', () => {
     expect(hydrationSmoke).toContain("toString('base64url')")
   })
 
+  it('keeps public hydration smoke settle window aligned with cold AOT workers', () => {
+    expect(hydrationSmoke).toContain(
+      "const aotSettleTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_PUBLIC_AOT_SETTLE_TIMEOUT_MS, 30000)"
+    )
+  })
+
   it('keeps the public hydration matrix tied to manifest route kinds and phase cells', () => {
     expect(refreshHydrationCheck).toContain('PUBLIC_PAGE_MANIFEST_FILE')
     expect(refreshHydrationCheck).toContain('assertScenarioCoverageAgainstPublicPageManifest')
@@ -63,6 +69,12 @@ describe('public hydration invariant guards', () => {
       expect(refreshHydrationCheck).toContain(assertion)
     }
     expect(refreshHydrationCheck).toContain('phaseResults')
+  })
+
+  it('keeps invalid article fallback from depending on networkidle', () => {
+    expect(refreshHydrationCheck).toContain("name: 'invalid-article-aot-fallback'")
+    expect(refreshHydrationCheck).toContain("directWaitUntil: 'domcontentloaded'")
+    expect(refreshHydrationCheck).toContain("route.directWaitUntil || 'networkidle'")
   })
 
   it('keeps public hydration clock, timezone, and locale drift covered', () => {

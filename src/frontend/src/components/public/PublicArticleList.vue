@@ -20,12 +20,15 @@
           :class="`${themeTokens.articleList.metaSeparator} hidden sm:inline`"
           aria-hidden="true"
         >/</span>
-        <UiTag
+        <span
           v-for="tag in item.tags"
           :key="tag.label"
-          :label="tag.label"
-          :hidden-on-mobile="tag.hiddenOnMobile"
-        />
+          :class="tag.hiddenOnMobile ? 'hidden sm:inline-flex' : 'inline-flex'"
+        >
+          <span class="public-article-tag el-tag el-tag--small el-tag--light">
+            {{ tag.label }}
+          </span>
+        </span>
       </div>
 
       <h2 :class="themeTokens.articleList.title">
@@ -81,7 +84,6 @@
 </template>
 
 <script setup lang="ts">
-import { UiTag } from '@/components/ui';
 import { themeTokens } from '@/ui-tokens/themeTokens';
 import { ArrowRight } from '@/fsusui/icons';
 import { fsusBlogMotionPresets, vMotion } from '@/fsusui/motion';

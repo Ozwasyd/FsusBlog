@@ -601,7 +601,7 @@ public static class PublicHotReadFastPath
             };
         }
 
-        return isPublicHtmlRoute ? next(ctx) : WriteRejected(ctx, counters);
+        return IsDynamicRelatedReadingPath(span) ? next(ctx) : WriteRejected(ctx, counters);
     }
 
     private static bool IsPublicHotReadPath(string path)
@@ -621,6 +621,20 @@ public static class PublicHotReadFastPath
 
     private static bool IsArticleHtmlPath(ReadOnlySpan<char> path)
         => path.StartsWith("/api/binary/article/html/", StringComparison.Ordinal);
+
+    private static bool IsDynamicRelatedReadingPath(ReadOnlySpan<char> path)
+    {
+        const string prefix = "/api/binary/article/";
+        ReadOnlySpan<char> suffix = "/related.aeds".AsSpan();
+        if (!path.StartsWith(prefix, StringComparison.Ordinal)
+            || !path.EndsWith(suffix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> articleId = path[prefix.Length..^suffix.Length];
+        return TryParsePositiveInt(articleId, out _);
+    }
 
     private static bool IsPublicHtmlCandidatePath(ReadOnlySpan<char> path)
     {

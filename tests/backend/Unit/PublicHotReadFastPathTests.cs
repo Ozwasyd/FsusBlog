@@ -589,6 +589,26 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
+    public async Task TryServeAsync_RelatedReadingRoute_PassesThroughToDynamicEndpoint()
+    {
+        var context = CreateContext("/api/binary/article/42/related.aeds");
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            CreateReadyEmptyStore(),
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.True(nextCalled);
+    }
+
+    [Fact]
     public void TryMatchArticleList_ParsesSegmentRoutes()
     {
         Assert.True(PublicHotReadFastPath.TryMatchArticleList("/api/binary/article/list/home/1/10.aeds", out PublicListKey home));

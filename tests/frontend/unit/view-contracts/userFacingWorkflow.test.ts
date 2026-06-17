@@ -77,6 +77,8 @@ describe('user facing workflow contract', () => {
     expect(articleDetail).toContain('加载更多评论')
     expect(publicArticleDetail).toContain('id="comments"')
     expect(publicArticleList).toContain('`阅读全文：${item.title}`')
+    expect(publicArticleList).toContain('public-article-tag el-tag el-tag--small el-tag--light')
+    expect(publicArticleList).not.toContain('<UiTag')
   })
 
   it('keeps article reading aids progressive and hash navigation stable', () => {

@@ -53,6 +53,8 @@ describe('useHumanReadProof', () => {
     vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
+    Reflect.deleteProperty(window, '__FSUSBLOG_DISABLE_HUMAN_READ_PROOF__')
+    delete document.documentElement.dataset.fsusDisableHumanReadProof
     document.body.innerHTML = ''
     observerCallback = null
   })
@@ -64,6 +66,22 @@ describe('useHumanReadProof', () => {
     await vi.advanceTimersByTimeAsync(5000)
     await flushPromises()
 
+    expect(requestHumanReadChallenge).not.toHaveBeenCalled()
+    expect(submitHumanReadProof).not.toHaveBeenCalled()
+  })
+
+  it('does not request a challenge when the screenshot harness suppresses human-read proof', async () => {
+    Object.defineProperty(window, '__FSUSBLOG_DISABLE_HUMAN_READ_PROOF__', {
+      configurable: true,
+      value: true
+    })
+
+    mountHarness()
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(5000)
+    await flushPromises()
+
+    expect(observerCallback).toBeNull()
     expect(requestHumanReadChallenge).not.toHaveBeenCalled()
     expect(submitHumanReadProof).not.toHaveBeenCalled()
   })

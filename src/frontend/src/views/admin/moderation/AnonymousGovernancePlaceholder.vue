@@ -8,7 +8,7 @@
     <WorkbenchPanel
       title="运行状态"
       :caption="section.caption"
-      title-level="2"
+      :title-level="2"
     >
       <div class="anonymous-governance-status-grid">
         <div v-for="signal in policySignals" :key="signal.label" class="anonymous-governance-signal">
@@ -22,7 +22,7 @@
     <WorkbenchPanel
       title="匿名评论策略"
       caption="需要 anonymous.comment.configure 权限；公开-only 模式只开放具名发送，不开放匿名主体。"
-      title-level="2"
+      :title-level="2"
     >
       <div class="anonymous-governance-controls">
         <label class="anonymous-governance-control">
@@ -73,105 +73,111 @@
     <WorkbenchPanel
       title="匿名风险概览"
       caption="展示 author mode、语言、scope、credential、声誉桶、账号年龄桶和风险标签；不提供从 nullifier 到账号的常规反查入口。"
-      title-level="2"
+      :title-level="2"
     >
-      <el-table :data="riskRows" row-key="subject" class="anonymous-governance-table">
-        <el-table-column label="主体" min-width="190">
-          <template #default="{ row }: { row: AnonymousRiskRow }">
-            <div class="anonymous-governance-subject">
-              <strong>{{ row.displayName }}</strong>
-              <span>{{ row.subject }}</span>
-            </div>
+      <div class="blog-scroll-x-safe anonymous-governance-table-scroll">
+        <el-table :data="riskRows" row-key="subject" class="anonymous-governance-table">
+          <el-table-column label="主体" min-width="190">
+            <template #default="{ row }: { row: AnonymousRiskRow }">
+              <div class="anonymous-governance-subject">
+                <strong>{{ row.displayName }}</strong>
+                <span>{{ row.subject }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="匿名信号" min-width="260">
+            <template #default="{ row }: { row: AnonymousRiskRow }">
+              <div class="anonymous-governance-tags">
+                <el-tag size="small" type="info">{{ row.authorMode }}</el-tag>
+                <el-tag size="small" type="info">{{ row.displayLanguage }}</el-tag>
+                <el-tag size="small" type="info">{{ row.scope }}</el-tag>
+                <el-tag size="small" type="info">{{ row.credential }}</el-tag>
+                <el-tag size="small" type="info">{{ row.reputation }}</el-tag>
+                <el-tag size="small" type="info">{{ row.accountAge }}</el-tag>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="风险标签" min-width="180">
+            <template #default="{ row }: { row: AnonymousRiskRow }">
+              <div class="anonymous-governance-tags">
+                <el-tag v-for="label in row.riskLabels" :key="label" size="small" type="warning">
+                  {{ label }}
+                </el-tag>
+              </div>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <AdminInlineEmptyState title="暂无匿名风险主体" description="匿名评论进入审核队列后会在这里汇总主体信号。" />
           </template>
-        </el-table-column>
-        <el-table-column label="匿名信号" min-width="260">
-          <template #default="{ row }: { row: AnonymousRiskRow }">
-            <div class="anonymous-governance-tags">
-              <el-tag size="small" type="info">{{ row.authorMode }}</el-tag>
-              <el-tag size="small" type="info">{{ row.displayLanguage }}</el-tag>
-              <el-tag size="small" type="info">{{ row.scope }}</el-tag>
-              <el-tag size="small" type="info">{{ row.credential }}</el-tag>
-              <el-tag size="small" type="info">{{ row.reputation }}</el-tag>
-              <el-tag size="small" type="info">{{ row.accountAge }}</el-tag>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="风险标签" min-width="180">
-          <template #default="{ row }: { row: AnonymousRiskRow }">
-            <div class="anonymous-governance-tags">
-              <el-tag v-for="label in row.riskLabels" :key="label" size="small" type="warning">
-                {{ label }}
-              </el-tag>
-            </div>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <AdminInlineEmptyState title="暂无匿名风险主体" description="匿名评论进入审核队列后会在这里汇总主体信号。" />
-        </template>
-      </el-table>
+        </el-table>
+      </div>
     </WorkbenchPanel>
 
     <WorkbenchPanel
       title="Nullifier 治理"
       caption="scope 内 hash 可被封禁；界面只展示治理状态，不暴露原文或账号身份。"
-      title-level="2"
+      :title-level="2"
     >
-      <el-table :data="nullifierRows" row-key="hash" class="anonymous-governance-table">
-        <el-table-column prop="scope" label="scope" min-width="160" />
-        <el-table-column prop="hash" label="Nullifier" min-width="220" />
-        <el-table-column prop="status" label="状态" min-width="120" />
-        <el-table-column label="操作" width="170" align="right">
-          <template #default="{ row }: { row: AnonymousNullifierRow }">
-            <el-button
-              type="danger"
-              plain
-              size="small"
-              :disabled="!canBlockAnonymousNullifier"
-              @click="previewNullifierBlock(row)"
-            >
-              封禁 Nullifier
-            </el-button>
+      <div class="blog-scroll-x-safe anonymous-governance-table-scroll">
+        <el-table :data="nullifierRows" row-key="hash" class="anonymous-governance-table">
+          <el-table-column prop="scope" label="scope" min-width="160" />
+          <el-table-column prop="hash" label="Nullifier" min-width="220" />
+          <el-table-column prop="status" label="状态" min-width="120" />
+          <el-table-column label="操作" width="170" align="right">
+            <template #default="{ row }: { row: AnonymousNullifierRow }">
+              <el-button
+                type="danger"
+                plain
+                size="small"
+                :disabled="!canBlockAnonymousNullifier"
+                @click="previewNullifierBlock(row)"
+              >
+                封禁 Nullifier
+              </el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <AdminInlineEmptyState title="暂无 Nullifier 记录" description="命中封禁或观察状态的匿名 nullifier 会显示在这里。" />
           </template>
-        </el-table-column>
-        <template #empty>
-          <AdminInlineEmptyState title="暂无 Nullifier 记录" description="命中封禁或观察状态的匿名 nullifier 会显示在这里。" />
-        </template>
-      </el-table>
+        </el-table>
+      </div>
     </WorkbenchPanel>
 
     <WorkbenchPanel
       title="匿名凭证"
       caption="credential 状态和撤销动作独立于普通账号资料；需要 anonymous.credential.revoke 权限。"
-      title-level="2"
+      :title-level="2"
     >
-      <el-table :data="credentialRows" row-key="id" class="anonymous-governance-table">
-        <el-table-column prop="id" label="credential" min-width="180" />
-        <el-table-column prop="level" label="level" min-width="120" />
-        <el-table-column prop="status" label="状态" min-width="120" />
-        <el-table-column prop="revocation" label="撤销状态" min-width="150" />
-        <el-table-column label="操作" width="170" align="right">
-          <template #default="{ row }: { row: AnonymousCredentialRow }">
-            <el-button
-              type="danger"
-              plain
-              size="small"
-              :disabled="!canRevokeAnonymousCredential"
-              @click="previewCredentialRevoke(row)"
-            >
-              撤销匿名凭证
-            </el-button>
+      <div class="blog-scroll-x-safe anonymous-governance-table-scroll">
+        <el-table :data="credentialRows" row-key="id" class="anonymous-governance-table">
+          <el-table-column prop="id" label="credential" min-width="180" />
+          <el-table-column prop="level" label="level" min-width="120" />
+          <el-table-column prop="status" label="状态" min-width="120" />
+          <el-table-column prop="revocation" label="撤销状态" min-width="150" />
+          <el-table-column label="操作" width="170" align="right">
+            <template #default="{ row }: { row: AnonymousCredentialRow }">
+              <el-button
+                type="danger"
+                plain
+                size="small"
+                :disabled="!canRevokeAnonymousCredential"
+                @click="previewCredentialRevoke(row)"
+              >
+                撤销匿名凭证
+              </el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <AdminInlineEmptyState title="暂无匿名凭证" description="匿名凭证状态和撤销记录会显示在这里。" />
           </template>
-        </el-table-column>
-        <template #empty>
-          <AdminInlineEmptyState title="暂无匿名凭证" description="匿名凭证状态和撤销记录会显示在这里。" />
-        </template>
-      </el-table>
+        </el-table>
+      </div>
     </WorkbenchPanel>
 
     <WorkbenchPanel
       title="ZK 匿名状态"
       caption="Verifier、public inputs 与 fail-closed 状态只服务匿名评论证明，不改变登录链路。"
-      title-level="2"
+      :title-level="2"
     >
       <div class="anonymous-governance-zk">
         <div v-for="item in zkStatusRows" :key="item.label" class="anonymous-governance-zk__row">
@@ -371,6 +377,13 @@ const previewCredentialRevoke = (row: AnonymousCredentialRow): void => {
 .anonymous-governance-placeholder {
   display: grid;
   gap: 1.25rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.anonymous-governance-placeholder > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .anonymous-governance-status-grid {
@@ -452,7 +465,14 @@ const previewCredentialRevoke = (row: AnonymousCredentialRow): void => {
 }
 
 .anonymous-governance-table {
+  min-width: 640px;
   width: 100%;
+}
+
+.anonymous-governance-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .anonymous-governance-subject {

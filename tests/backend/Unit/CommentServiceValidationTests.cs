@@ -225,8 +225,8 @@ public class CommentServiceValidationTests
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "CommentService.cs"));
 
-        Assert.Contains("c.Id < request.Cursor!.Value", source);
-        Assert.Contains("c.Id > request.Cursor!.Value", source);
+        Assert.Contains("c.id < @Cursor", source);
+        Assert.Contains("c.id > @Cursor", source);
         Assert.Contains("SliceMapToResponse", source);
         Assert.DoesNotContain(".Skip(", source);
         Assert.DoesNotContain("OFFSET", source, StringComparison.OrdinalIgnoreCase);

@@ -32,6 +32,10 @@ async function main() {
   assert(hydrateSource.includes('normalizePublicHydrationPayload'), 'clientHydrate.ts must normalize payload before hydration')
   assert(hydrateSource.includes('createPublicHydrationRootComponent'), 'clientHydrate.ts must hydrate through the public shell root')
   assert(hydrateSource.includes('removeWhitespaceTextNodes'), 'clientHydrate.ts must normalize SSR fragment whitespace before hydration')
+  assert(hydrateSource.includes('markPublicAotMismatchBoundaries'), 'clientHydrate.ts must mark public AOT mismatch boundaries before hydration')
+  assert(hydrateSource.includes('data-allow-mismatch'), 'clientHydrate.ts must use Vue hydration mismatch suppression for known public AOT control attrs')
+  assert(hydrateSource.includes('.el-input__inner'), 'clientHydrate.ts must suppress FsusUI input id/style hydration noise')
+  assert(hydrateSource.includes('.el-radio-group'), 'clientHydrate.ts must suppress FsusUI theme radio id hydration noise')
   assert(!hydrateSource.includes('loadPublicAotPageComponent'), 'clientHydrate.ts must not hydrate standalone public-renderer page components')
 
   const guardSource = await readUtf8(guardPath)

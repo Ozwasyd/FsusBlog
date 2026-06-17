@@ -175,14 +175,14 @@
                     @keyup.esc="passkeyEditingId = null"
                   />
                 </div>
-                <el-button link type="primary" @click="savePasskeyName(cred.id)">保存</el-button>
-                <el-button link @click="passkeyEditingId = null">取消</el-button>
+                <el-button class="profile-touch-action" link type="primary" @click="savePasskeyName(cred.id)">保存</el-button>
+                <el-button class="profile-touch-action" link @click="passkeyEditingId = null">取消</el-button>
               </div>
               <div v-else class="flex items-center gap-3">
                 <p class="truncate text-[14px] font-bold text-[var(--fsusblog-text-primary)]">
                   {{ cred.deviceFriendlyName || '未命名通行密钥' }}
                 </p>
-                <el-button link @click="startEditPasskeyName(cred)">编辑</el-button>
+                <el-button class="profile-touch-action" link @click="startEditPasskeyName(cred)">编辑</el-button>
               </div>
             </template>
             <template #meta>
@@ -196,6 +196,7 @@
             </template>
             <template #actions>
               <el-button
+                class="profile-touch-action"
                 link
                 type="danger"
                 @click="confirmDeletePasskey(cred.id)"
@@ -282,6 +283,7 @@
           </template>
           <template #actions>
             <el-button
+              class="profile-touch-action"
               link
               type="danger"
               @click="revokeSessionDevice(session.sessionId)"
@@ -607,5 +609,12 @@ onMounted(() => {
   color: var(--fsusblog-text-tertiary);
   font-size: 0.8125rem;
   line-height: 1.8;
+}
+
+.profile-touch-action {
+  min-width: 44px;
+  min-height: 36px;
+  justify-content: center;
+  padding-inline: 0.75rem;
 }
 </style>

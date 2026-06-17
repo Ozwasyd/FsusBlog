@@ -295,6 +295,37 @@ public sealed class PublicAotFileShellCacheTests
     }
 
     [Fact]
+    public async Task TryGetEntryAsync_LegacyBase64UrlHydrationSidecarHash_RestoresDocument()
+    {
+        using var temp = new TempDirectory();
+        byte[] sidecarBytes = [1, 2, 3, 4];
+        PublicAotHydrationSidecarReference sidecar = CreateLegacySidecarReference(sidecarBytes);
+        var entry = CreateEntry("public:aot:v2:doc:2:article:42") with
+        {
+            Value = CreateHtmlWithSidecar(sidecar),
+            HydrationSidecar = sidecar
+        };
+        string sidecarPath = Path.Combine(temp.WebRoot, sidecar.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(sidecarPath)!);
+        await File.WriteAllBytesAsync(sidecarPath, sidecarBytes);
+        string path = PublicAotFileShellCache.ResolveVersionedEntryPathForTests(
+            temp.WebRoot,
+            entry.CacheKey,
+            entry.FrontendAssetVersion,
+            entry.PageId);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllBytesAsync(path, PublicAotFileShellCache.SerializeEntryBytes(entry));
+
+        var cache = BuildCache(temp.Root, Environments.Production);
+
+        PublicAotCacheEntry? restored = await cache.TryGetEntryAsync(entry.CacheKey, entry.FrontendAssetVersion);
+
+        Assert.NotNull(restored);
+        Assert.Equal(entry.RouteKey, restored.RouteKey);
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
     public async Task TryGetEntryAsync_HonorsCancellationToken()
     {
         using var temp = new TempDirectory();
@@ -510,6 +541,16 @@ public sealed class PublicAotFileShellCacheTests
     private static PublicAotHydrationSidecarReference CreateSidecarReference(byte[]? bytes = null)
     {
         string hash = Convert.ToHexStringLower(SHA256.HashData(bytes ?? [1, 2, 3, 4]));
+        return new(
+            $"/aot-cache/payloads/{hash[..2]}/{hash}.aeds",
+            hash,
+            $"aot-cache/payloads/{hash[..2]}/{hash}.aeds");
+    }
+
+    private static PublicAotHydrationSidecarReference CreateLegacySidecarReference(byte[] bytes)
+    {
+        string base64Url = Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        string hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(base64Url)));
         return new(
             $"/aot-cache/payloads/{hash[..2]}/{hash}.aeds",
             hash,

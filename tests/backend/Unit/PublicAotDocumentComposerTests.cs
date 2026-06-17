@@ -235,6 +235,8 @@ public sealed class PublicAotDocumentComposerTests
         Assert.Contains("requestIdleCallback", result);
         Assert.Contains("window.addEventListener('pointerdown', onIntent", result);
         Assert.Contains("warmPreload();", result);
+        Assert.DoesNotContain("rel = 'preload'", result);
+        Assert.DoesNotContain("as = 'style'", result);
         Assert.DoesNotContain("window.requestAnimationFrame(() => {\n        warmPreload();", result);
     }
 

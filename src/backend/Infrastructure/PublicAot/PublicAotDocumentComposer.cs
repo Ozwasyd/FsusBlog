@@ -523,19 +523,6 @@ internal static class PublicAotDocumentComposer
           preload.dataset.fsusblogSpaPreload = 'deferred';
         }});
       }});
-      takeoverStylesheets.forEach((href) => {{
-        if (!href) {{
-          return;
-        }}
-
-        appendHeadLink('link[rel=""preload""][as=""style""][href=""' + href + '""]', (preload) => {{
-          preload.rel = 'preload';
-          preload.as = 'style';
-          preload.href = href;
-          preload.fetchPriority = 'low';
-          preload.dataset.fsusblogSpaPreload = 'deferred';
-        }});
-      }});
       mark('server-spa-preload');
     }};
 
@@ -872,7 +859,7 @@ internal static class PublicAotDocumentComposer
     internal static string BuildPayloadSidecarUrl(string payload)
     {
         string normalized = RequirePublicAotPayload(payload);
-        string hash = Sha256Hex(normalized);
+        string hash = Sha256Hex(DecodePayloadFrameBytes(normalized));
         return $"/aot-cache/payloads/{hash[..2]}/{hash}.aeds";
     }
 
@@ -922,8 +909,8 @@ internal static class PublicAotDocumentComposer
         }
     }
 
-    private static string Sha256Hex(string value)
-        => Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(value)));
+    private static string Sha256Hex(ReadOnlySpan<byte> value)
+        => Convert.ToHexStringLower(SHA256.HashData(value));
 
     private static string BuildJavaScriptStringArray(IReadOnlyList<string>? values)
     {

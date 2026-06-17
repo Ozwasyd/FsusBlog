@@ -9,6 +9,9 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { createFsusUiAliases, resolveFsusUiWasmDist, resolveLocalFsusUiRoot } from './scripts/fsusui-local'
 
+const FRONTEND_ROOT = fileURLToPath(new URL('./', import.meta.url))
+const REPO_ROOT = path.resolve(FRONTEND_ROOT, '../..')
+
 function resolveAdminManualChunk(id: string): string | undefined {
     if (
         id.includes('/src/views/admin/article/') ||
@@ -198,6 +201,43 @@ function createLocalFsusUiTransformExcludes(localFsusUiRoot: string | null): Reg
     ]
 }
 
+function tryRealpath(value: string): string | null {
+    try {
+        return fs.realpathSync(value)
+    } catch {
+        return null
+    }
+}
+
+function createServerFsAllow(localFsusUiRoot: string | null, fsusUiWasmDist: string): string[] {
+    const frontendNodeModules = path.resolve(FRONTEND_ROOT, 'node_modules')
+    const candidates = [
+        FRONTEND_ROOT,
+        REPO_ROOT,
+        frontendNodeModules,
+        tryRealpath(frontendNodeModules),
+        localFsusUiRoot,
+        localFsusUiRoot ? tryRealpath(localFsusUiRoot) : null,
+        fsusUiWasmDist,
+        tryRealpath(fsusUiWasmDist)
+    ]
+    const seen = new Set<string>()
+
+    return candidates.flatMap((candidate) => {
+        if (!candidate) {
+            return []
+        }
+
+        const resolved = path.resolve(candidate)
+        if (seen.has(resolved)) {
+            return []
+        }
+
+        seen.add(resolved)
+        return [resolved]
+    })
+}
+
 // Vite 8 在 dev 模式下会把 HMR 客户端注入到 module worker。
 // HMR 客户端的 CSS 热更新路径直接访问 document.querySelectorAll，
 // 但 Worker 全局作用域没有 document，导致 handleMessage 抛出 ReferenceError。
@@ -346,6 +386,7 @@ export default defineConfig(({ mode }) => {
     const fsusUiAliases = createFsusUiAliases(localFsusUiRoot)
     const fsusUiWasmDist = resolveFsusUiWasmDist(localFsusUiRoot)
     const localFsusUiTransformExcludes = createLocalFsusUiTransformExcludes(localFsusUiRoot)
+    const serverFsAllow = createServerFsAllow(localFsusUiRoot, fsusUiWasmDist)
 
     const publicSeoProxy: ProxyOptions = {
         target: apiBaseUrl,
@@ -566,16 +607,9 @@ export default defineConfig(({ mode }) => {
         server: {
             host: '0.0.0.0',
             port: 3000, // 前端运行端口
-            ...(localFsusUiRoot
-                ? {
-                    fs: {
-                        allow: [
-                            fileURLToPath(new URL('./', import.meta.url)),
-                            localFsusUiRoot
-                        ]
-                    }
-                }
-                : {}),
+            fs: {
+                allow: serverFsAllow
+            },
             proxy: {
                 ...(enablePublicShellProxy
                     ? {

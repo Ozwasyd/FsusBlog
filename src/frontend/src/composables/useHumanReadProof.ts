@@ -12,8 +12,21 @@ const RETRY_SUBMIT_DELAY_MS = 1000
 const READABLE_ROOT_VISIBLE_THRESHOLD = 0.25
 const CHALLENGE_REQUEST_DEFER_MS = 0
 
+function isHumanReadProofSuppressed(): boolean {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return false
+  }
+
+  const runtimeWindow = window as typeof window & {
+    __FSUSBLOG_DISABLE_HUMAN_READ_PROOF__?: boolean
+  }
+
+  return runtimeWindow.__FSUSBLOG_DISABLE_HUMAN_READ_PROOF__ === true
+    || document.documentElement.dataset.fsusDisableHumanReadProof === 'true'
+}
+
 export function useHumanReadProof(options: HumanReadProofOptions): void {
-  const enabled = computed(() => options.enabled?.value ?? true)
+  const enabled = computed(() => (options.enabled?.value ?? true) && !isHumanReadProofSuppressed())
   const visible = ref(false)
   const rootIntersecting = ref(false)
   const challenge = ref<HumanReadChallenge | null>(null)

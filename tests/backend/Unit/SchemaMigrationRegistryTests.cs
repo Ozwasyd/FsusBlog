@@ -1,4 +1,6 @@
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using NSubstitute;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests;
 
@@ -87,5 +89,41 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("revoked_at timestamp NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("idx_account_recovery_key_active_unique", fingerprint, StringComparison.Ordinal);
         Assert.DoesNotContain("mfa_recovery", fingerprint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task EnsureColumnStep_EscapesColumnDefinitionsInsideDynamicSql()
+    {
+        var step = new EnsureColumnStep("comment", "author_mode", "varchar(32) NOT NULL DEFAULT 'anonymous'");
+
+        string capturedSql = await CaptureEnsureColumnSqlAsync(step);
+
+        Assert.Contains("DEFAULT ''anonymous''", capturedSql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EnsureColumnStep_NormalizesLegacyPreEscapedColumnDefinitions()
+    {
+        var step = new EnsureColumnStep("sys_user", "identity_kind", "varchar(32) NOT NULL DEFAULT ''anonymous_account''");
+
+        string capturedSql = await CaptureEnsureColumnSqlAsync(step);
+
+        Assert.Contains("DEFAULT ''anonymous_account''", capturedSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("DEFAULT ''''anonymous_account''''", capturedSql, StringComparison.Ordinal);
+    }
+
+    private static async Task<string> CaptureEnsureColumnSqlAsync(EnsureColumnStep step)
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        string? capturedSql = null;
+        db.Ado.Returns(ado);
+        ado.ExecuteCommandAsync(Arg.Do<string>(sql => capturedSql = sql))
+            .Returns(Task.FromResult(1));
+
+        await step.ExecuteAsync(db, CancellationToken.None);
+
+        Assert.NotNull(capturedSql);
+        return capturedSql;
     }
 }

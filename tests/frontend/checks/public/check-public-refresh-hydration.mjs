@@ -157,6 +157,7 @@ const PUBLIC_SEO_SCENARIOS = [
     route: '/article/0',
     expectedKind: 'ArticleDetail',
     allowUnhydratedAotFallback: true,
+    directWaitUntil: 'domcontentloaded',
   },
 ]
 
@@ -1394,7 +1395,7 @@ async function runScenario(page, baseUrl, route) {
   }
 
   const direct = await runPhase('direct-first-load', async () => {
-    await page.goto(`${baseUrl}${route.route}`, { waitUntil: 'networkidle', timeout: 30000 })
+    await page.goto(`${baseUrl}${route.route}`, { waitUntil: route.directWaitUntil || 'networkidle', timeout: 30000 })
 
     if (route.expectSpaFallback) {
       return await assertFallbackRouteCell(page, route)

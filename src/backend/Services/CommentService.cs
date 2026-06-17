@@ -319,42 +319,7 @@ public partial class CommentService(
         int normalizedPreviewLimit = Math.Clamp(previewLimit, 1, 10);
 
         string normalizedViewerRegion = regionLegalModerationService.NormalizeRegion(viewerRegion);
-        string blockedToken = RegionLegalModerationService.SerializeRegions([normalizedViewerRegion]);
-        bool conservativeUnknownViewer = normalizedViewerRegion == RegionCodes.Unknown;
-
-        var rootQuery = db.Queryable<Comment, User>((c, u) => new object[]
-            {
-                JoinType.Left, c.UserId == u.Id
-            })
-            .Where((c, u) => c.ArticleId == articleId && c.ParentId == null)
-            .Where((c, u) => c.ModerationStatus == CommentModerationStatus.Approved)
-            .Where((c, u) => !c.IsDeleted);
-
-        rootQuery = conservativeUnknownViewer
-            ? rootQuery.Where((c, u) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
-                .Where(rc => rc.CommentId == c.Id
-                    && rc.BlockedRegions != string.Empty)
-                .Any())
-            : rootQuery.Where((c, u) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
-                .Where(rc => rc.CommentId == c.Id
-                    && rc.BlockedRegions.Contains(blockedToken))
-                .Any());
-
-        var roots = await rootQuery
-            .WhereIF(request.Cursor.HasValue, (c, u) => c.Id < request.Cursor!.Value)
-            .OrderByDescending((c, u) => c.Id)
-            .Take(request.Limit + 1)
-            .Select((c, u) => new ThreadRootRow
-            {
-                Id = c.Id,
-                ArticleId = c.ArticleId,
-                Content = c.Content,
-                CreateTime = c.CreateTime,
-                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
-                Depth = c.Depth,
-                IsDeleted = c.IsDeleted
-            })
-            .ToListAsync();
+        List<ThreadRootRow> roots = await QueryThreadRootsAsync(articleId, request, normalizedViewerRegion);
 
         int rootWindowCount = CursorPagination.WindowCount(roots, request.Limit);
         long[] rootIds = new long[rootWindowCount];
@@ -400,69 +365,13 @@ public partial class CommentService(
         }
 
         string normalizedViewerRegion = regionLegalModerationService.NormalizeRegion(viewerRegion);
-        string blockedToken = RegionLegalModerationService.SerializeRegions([normalizedViewerRegion]);
-        bool conservativeUnknownViewer = normalizedViewerRegion == RegionCodes.Unknown;
-
-        var rootExistsQuery = db.Queryable<Comment>()
-            .Where(c => c.Id == rootId && c.ArticleId == articleId && c.ParentId == null && c.ModerationStatus == CommentModerationStatus.Approved && !c.IsDeleted)
-            ;
-
-        rootExistsQuery = conservativeUnknownViewer
-            ? rootExistsQuery.Where(c => !SqlFunc.Subqueryable<CommentRegionCompliance>()
-                .Where(rc => rc.CommentId == c.Id
-                    && rc.BlockedRegions != string.Empty)
-                .Any())
-            : rootExistsQuery.Where(c => !SqlFunc.Subqueryable<CommentRegionCompliance>()
-                .Where(rc => rc.CommentId == c.Id
-                    && rc.BlockedRegions.Contains(blockedToken))
-                .Any());
-
-        bool rootExists = await rootExistsQuery
-            .AnyAsync();
+        bool rootExists = await QueryVisibleThreadRootExistsAsync(articleId, rootId, normalizedViewerRegion);
         if (!rootExists)
         {
             return new CursorResponse<CommentReplyItemDto> { Data = [], NextCursor = null, HasMore = false };
         }
 
-        var replyQuery = db.Queryable<Comment, User, Comment, User>((c, u, pc, ru) => new object[]
-            {
-                JoinType.Left, c.UserId == u.Id,
-                JoinType.Left, c.ReplyToCommentId == pc.Id,
-                JoinType.Left, pc.UserId == ru.Id
-            })
-            .Where((c, u, pc, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
-            .Where((c, u, pc, ru) => c.ModerationStatus == CommentModerationStatus.Approved)
-            .Where((c, u, pc, ru) => !c.IsDeleted);
-
-        replyQuery = conservativeUnknownViewer
-            ? replyQuery.Where((c, u, pc, ru) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
-                .Where(rc => rc.CommentId == c.Id
-                    && rc.BlockedRegions != string.Empty)
-                .Any())
-            : replyQuery.Where((c, u, pc, ru) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
-                .Where(rc => rc.CommentId == c.Id
-                    && rc.BlockedRegions.Contains(blockedToken))
-                .Any());
-
-        var rows = await replyQuery
-            .WhereIF(request.Cursor.HasValue, (c, u, pc, ru) => c.Id > request.Cursor!.Value)
-            .OrderBy((c, u, pc, ru) => c.Id)
-            .Take(request.Limit + 1)
-            .Select((c, u, pc, ru) => new ReplyRow
-            {
-                Id = c.Id,
-                ParentId = c.ParentId,
-                RootId = c.RootId,
-                ReplyToUserId = c.ReplyToUserId,
-                ReplyToCommentId = c.ReplyToCommentId,
-                Content = c.Content,
-                CreateTime = c.CreateTime,
-                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
-                ReplyToUserName = pc.AnonymousDisplayName ?? pc.PublicHandle ?? ru.Username,
-                Depth = c.Depth,
-                IsDeleted = c.IsDeleted
-            })
-            .ToListAsync();
+        List<ReplyRow> rows = await QueryThreadRepliesAsync(articleId, rootId, request, normalizedViewerRegion);
 
         return CursorPagination.SliceMapToResponse(rows, request.Limit, row => row.Id, MapReplyRow, CursorCodec);
     }
@@ -602,20 +511,218 @@ public partial class CommentService(
         return true;
     }
 
+    private async Task<List<ThreadRootRow>> QueryThreadRootsAsync(
+        int articleId,
+        CursorPageRequest<long> request,
+        string normalizedViewerRegion)
+    {
+        var sql = new StringBuilder("""
+SELECT
+    c.id AS "Id",
+    c.article_id AS "ArticleId",
+    c.content AS "Content",
+    c.create_time AS "CreateTime",
+    COALESCE(NULLIF(c.anonymous_display_name, ''), NULLIF(c.public_handle, ''), u.username, '') AS "UserName",
+    c.depth AS "Depth",
+    c.is_deleted AS "IsDeleted"
+FROM comment c
+LEFT JOIN sys_user u ON c.user_id = u.id
+WHERE c.article_id = @ArticleId
+  AND c.parent_id IS NULL
+  AND c.moderation_status = @Approved
+  AND c.is_deleted = false
+  AND NOT EXISTS (
+      SELECT 1
+      FROM comment_region_compliance crc
+      WHERE crc.comment_id = c.id
+        AND (
+            (@ConservativeUnknownViewer = true AND crc.blocked_regions <> '')
+            OR (@ConservativeUnknownViewer = false AND position(@BlockedToken in crc.blocked_regions) > 0)
+        )
+  )
+""");
+        List<SugarParameter> parameters = BuildPublicCommentReadParameters(articleId, normalizedViewerRegion);
+        parameters.Add(new SugarParameter("@Limit", request.Limit + 1));
+        if (request.Cursor.HasValue)
+        {
+            sql.AppendLine("  AND c.id < @Cursor");
+            parameters.Add(new SugarParameter("@Cursor", request.Cursor.Value));
+        }
+
+        sql.AppendLine("ORDER BY c.id DESC");
+        sql.AppendLine("LIMIT @Limit;");
+
+        var rows = new List<ThreadRootRow>(request.Limit + 1);
+        using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql.ToString(), parameters))
+        {
+            int fId = reader.GetOrdinal("Id");
+            int fArticleId = reader.GetOrdinal("ArticleId");
+            int fContent = reader.GetOrdinal("Content");
+            int fCreateTime = reader.GetOrdinal("CreateTime");
+            int fUserName = reader.GetOrdinal("UserName");
+            int fDepth = reader.GetOrdinal("Depth");
+            int fIsDeleted = reader.GetOrdinal("IsDeleted");
+
+            while (await reader.ReadAsync())
+            {
+                rows.Add(new ThreadRootRow
+                {
+                    Id = reader.GetInt64(fId),
+                    ArticleId = reader.GetInt32(fArticleId),
+                    Content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent),
+                    CreateTime = reader.GetDateTime(fCreateTime),
+                    UserName = reader.IsDBNull(fUserName) ? string.Empty : reader.GetString(fUserName),
+                    Depth = reader.IsDBNull(fDepth) ? 1 : reader.GetInt32(fDepth),
+                    IsDeleted = reader.GetBoolean(fIsDeleted)
+                });
+            }
+        }
+
+        return rows;
+    }
+
+    private async Task<bool> QueryVisibleThreadRootExistsAsync(
+        int articleId,
+        long rootId,
+        string normalizedViewerRegion)
+    {
+        const string sql = """
+SELECT 1
+FROM comment c
+WHERE c.id = @RootId
+  AND c.article_id = @ArticleId
+  AND c.parent_id IS NULL
+  AND c.moderation_status = @Approved
+  AND c.is_deleted = false
+  AND NOT EXISTS (
+      SELECT 1
+      FROM comment_region_compliance crc
+      WHERE crc.comment_id = c.id
+        AND (
+            (@ConservativeUnknownViewer = true AND crc.blocked_regions <> '')
+            OR (@ConservativeUnknownViewer = false AND position(@BlockedToken in crc.blocked_regions) > 0)
+        )
+  )
+LIMIT 1;
+""";
+        List<SugarParameter> parameters = BuildPublicCommentReadParameters(articleId, normalizedViewerRegion);
+        parameters.Add(new SugarParameter("@RootId", rootId));
+
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql, parameters);
+        return await reader.ReadAsync();
+    }
+
+    private async Task<List<ReplyRow>> QueryThreadRepliesAsync(
+        int articleId,
+        long rootId,
+        CursorPageRequest<long> request,
+        string normalizedViewerRegion)
+    {
+        var sql = new StringBuilder("""
+SELECT
+    c.id AS "Id",
+    c.parent_id AS "ParentId",
+    c.root_id AS "RootId",
+    c.reply_to_user_id AS "ReplyToUserId",
+    c.reply_to_comment_id AS "ReplyToCommentId",
+    c.content AS "Content",
+    c.create_time AS "CreateTime",
+    COALESCE(NULLIF(c.anonymous_display_name, ''), NULLIF(c.public_handle, ''), u.username, '') AS "UserName",
+    COALESCE(NULLIF(pc.anonymous_display_name, ''), NULLIF(pc.public_handle, ''), ru.username, '') AS "ReplyToUserName",
+    c.depth AS "Depth",
+    c.is_deleted AS "IsDeleted"
+FROM comment c
+LEFT JOIN sys_user u ON c.user_id = u.id
+LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id
+LEFT JOIN sys_user ru ON pc.user_id = ru.id
+WHERE c.article_id = @ArticleId
+  AND c.root_id = @RootId
+  AND c.parent_id IS NOT NULL
+  AND c.moderation_status = @Approved
+  AND c.is_deleted = false
+  AND NOT EXISTS (
+      SELECT 1
+      FROM comment_region_compliance crc
+      WHERE crc.comment_id = c.id
+        AND (
+            (@ConservativeUnknownViewer = true AND crc.blocked_regions <> '')
+            OR (@ConservativeUnknownViewer = false AND position(@BlockedToken in crc.blocked_regions) > 0)
+        )
+  )
+""");
+        List<SugarParameter> parameters = BuildPublicCommentReadParameters(articleId, normalizedViewerRegion);
+        parameters.Add(new SugarParameter("@RootId", rootId));
+        parameters.Add(new SugarParameter("@Limit", request.Limit + 1));
+        if (request.Cursor.HasValue)
+        {
+            sql.AppendLine("  AND c.id > @Cursor");
+            parameters.Add(new SugarParameter("@Cursor", request.Cursor.Value));
+        }
+
+        sql.AppendLine("ORDER BY c.id");
+        sql.AppendLine("LIMIT @Limit;");
+
+        var rows = new List<ReplyRow>(request.Limit + 1);
+        using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql.ToString(), parameters))
+        {
+            int fId = reader.GetOrdinal("Id");
+            int fParentId = reader.GetOrdinal("ParentId");
+            int fRootId = reader.GetOrdinal("RootId");
+            int fReplyToUserId = reader.GetOrdinal("ReplyToUserId");
+            int fReplyToCommentId = reader.GetOrdinal("ReplyToCommentId");
+            int fContent = reader.GetOrdinal("Content");
+            int fCreateTime = reader.GetOrdinal("CreateTime");
+            int fUserName = reader.GetOrdinal("UserName");
+            int fReplyToUserName = reader.GetOrdinal("ReplyToUserName");
+            int fDepth = reader.GetOrdinal("Depth");
+            int fIsDeleted = reader.GetOrdinal("IsDeleted");
+
+            while (await reader.ReadAsync())
+            {
+                rows.Add(new ReplyRow
+                {
+                    Id = reader.GetInt64(fId),
+                    ParentId = reader.IsDBNull(fParentId) ? null : reader.GetInt64(fParentId),
+                    RootId = reader.IsDBNull(fRootId) ? null : reader.GetInt64(fRootId),
+                    ReplyToUserId = reader.IsDBNull(fReplyToUserId) ? null : reader.GetInt32(fReplyToUserId),
+                    ReplyToCommentId = reader.IsDBNull(fReplyToCommentId) ? null : reader.GetInt64(fReplyToCommentId),
+                    Content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent),
+                    CreateTime = reader.GetDateTime(fCreateTime),
+                    UserName = reader.IsDBNull(fUserName) ? string.Empty : reader.GetString(fUserName),
+                    ReplyToUserName = reader.IsDBNull(fReplyToUserName) ? null : reader.GetString(fReplyToUserName),
+                    Depth = reader.IsDBNull(fDepth) ? 2 : reader.GetInt32(fDepth),
+                    IsDeleted = reader.GetBoolean(fIsDeleted)
+                });
+            }
+        }
+
+        return rows;
+    }
+
+    private static List<SugarParameter> BuildPublicCommentReadParameters(
+        int articleId,
+        string normalizedViewerRegion)
+        => new(4)
+        {
+            new("@ArticleId", articleId),
+            new("@Approved", (int)CommentModerationStatus.Approved),
+            new("@BlockedToken", RegionLegalModerationService.SerializeRegions([normalizedViewerRegion])),
+            new("@ConservativeUnknownViewer", normalizedViewerRegion == RegionCodes.Unknown)
+        };
+
     private async Task<List<CommentReplyPreviewItemDto>> QueryThreadRepliesPreviewAsync(int articleId, long rootId, int limit)
     {
-        var rows = await db.Queryable<Comment, User, Comment, User>((c, u, pc, ru) => new object[]
+        var rows = await db.Queryable<Comment, User, User>((c, u, ru) => new object[]
             {
                 JoinType.Left, c.UserId == u.Id,
-                JoinType.Left, c.ReplyToCommentId == pc.Id,
-                JoinType.Left, pc.UserId == ru.Id
+                JoinType.Left, c.ReplyToUserId == ru.Id
             })
-            .Where((c, u, pc, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
-            .Where((c, u, pc, ru) => c.ModerationStatus == CommentModerationStatus.Approved)
-            .Where((c, u, pc, ru) => !c.IsDeleted)
-            .OrderBy((c, u, pc, ru) => c.Id)
+            .Where((c, u, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
+            .Where((c, u, ru) => c.ModerationStatus == CommentModerationStatus.Approved)
+            .Where((c, u, ru) => !c.IsDeleted)
+            .OrderBy((c, u, ru) => c.Id)
             .Take(limit)
-            .Select((c, u, pc, ru) => new ReplyRow
+            .Select((c, u, ru) => new ReplyRow
             {
                 Id = c.Id,
                 ParentId = c.ParentId,
@@ -625,7 +732,7 @@ public partial class CommentService(
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
-                ReplyToUserName = pc.AnonymousDisplayName ?? pc.PublicHandle ?? ru.Username,
+                ReplyToUserName = ru.Username,
                 Depth = c.Depth,
                 IsDeleted = c.IsDeleted
             })

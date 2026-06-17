@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 const pkg = JSON.parse(readFileSync(resolve(root, 'src/frontend/package.json'), 'utf8'))
 const matrix = readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8')
-const testSh = readFileSync(resolve(root, 'tools/test.sh'), 'utf8')
+const legacyTestSh = readFileSync(resolve(root, 'tools/test/legacy-test.sh'), 'utf8')
+const viteConfig = readFileSync(resolve(root, 'src/frontend/vite.config.ts'), 'utf8')
 const errors = []
 
 function fail(message) {
@@ -23,6 +24,11 @@ function requireFile(path) {
   if (!existsSync(resolve(root, path))) {
     fail(`missing file ${path}`)
   }
+}
+
+function legacyFastGateRuns(script) {
+  return legacyTestSh.includes(`npm run ${script}`)
+    || legacyTestSh.includes(`run_vitest_script ${script}`)
 }
 
 const coverageProfiles = [
@@ -53,9 +59,31 @@ for (const script of [
   'check:frontend-perf-regression',
   'check:worker-contracts',
   'check:a11y:deep',
-  'check:frontend-test-governance'
+  'check:frontend-test-governance',
+  'prepare:playwright:fixtures',
+  'capture:manual-layout-screenshots'
 ]) {
   requireScript(script)
+}
+
+const manualScreenshotScript = pkg.scripts?.['capture:manual-layout-screenshots'] ?? ''
+if (!manualScreenshotScript.includes('prepare:playwright:fixtures')) {
+  fail('capture:manual-layout-screenshots must refresh Playwright fixtures before capture')
+}
+if (!manualScreenshotScript.includes('manual/manual-layout-screenshots.spec.ts')) {
+  fail('capture:manual-layout-screenshots must run the route-driven manual screenshot spec')
+}
+if (!manualScreenshotScript.includes('FSUSBLOG_DISABLE_HUMAN_READ_PROOF=1')) {
+  fail('capture:manual-layout-screenshots must suppress human-read proof side effects during screenshot capture')
+}
+if (
+  !viteConfig.includes('createServerFsAllow')
+  || !viteConfig.includes('fs.realpathSync')
+  || !viteConfig.includes("path.resolve(FRONTEND_ROOT, 'node_modules')")
+  || !viteConfig.includes('fsusUiWasmDist')
+  || !viteConfig.includes('tryRealpath(fsusUiWasmDist)')
+) {
+  fail('vite dev server fs allow must include real node_modules and local FsusUI wasm dist paths for manual screenshot assets')
 }
 
 for (const dir of ['tests/frontend/property', 'tests/frontend/model', 'tests/frontend/benchmarks']) {
@@ -63,20 +91,20 @@ for (const dir of ['tests/frontend/property', 'tests/frontend/model', 'tests/fro
 }
 
 for (const token of [
-  'npm run test:property',
-  'npm run check:frontend-state-machines',
-  'npm run check:worker-contracts',
-  'npm run check:frontend-perf-regression',
-  'npm run check:a11y:deep',
-  'npm run check:frontend-test-governance'
+  'test:property',
+  'check:frontend-state-machines',
+  'check:worker-contracts',
+  'check:frontend-perf-regression',
+  'check:a11y:deep',
+  'check:frontend-test-governance'
 ]) {
-  if (!testSh.includes(token)) {
+  if (!legacyFastGateRuns(token)) {
     fail(`fast gate does not run ${token}`)
   }
 }
 
-if (!matrix.includes('requirements:') || !matrix.includes('risk:') || !matrix.includes('coverage:')) {
-  fail('tests/matrix.yml lacks requirements/risk/coverage traceability fields')
+if (!matrix.includes('version: fsusblog-test-matrix-v2') || !matrix.includes('risk:') || !matrix.includes('coverage:')) {
+  fail('tests/matrix.yml lacks v2 version/risk/coverage traceability fields')
 }
 
 if (errors.length > 0) {

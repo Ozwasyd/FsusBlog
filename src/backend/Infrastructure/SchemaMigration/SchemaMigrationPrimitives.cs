@@ -83,7 +83,12 @@ public sealed record EnsureColumnStep(string TableName, string ColumnName, strin
     internal override string Fingerprint => $"{TableName}.{ColumnName}:{ColumnDefinition}";
 
     internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-        => db.Ado.ExecuteCommandAsync($"""
+    {
+        string normalizedColumnDefinition = NormalizeLegacyDynamicSqlLiteralEscapes(ColumnDefinition);
+        string alterColumnSql = SchemaMigrationSql.EscapeLiteral(
+            $"ALTER TABLE {SchemaMigrationSql.QuoteIdentifier(TableName)} ADD COLUMN IF NOT EXISTS {SchemaMigrationSql.QuoteIdentifier(ColumnName)} {normalizedColumnDefinition}");
+
+        return db.Ado.ExecuteCommandAsync($"""
             DO $$
             BEGIN
                 IF EXISTS (
@@ -91,10 +96,15 @@ public sealed record EnsureColumnStep(string TableName, string ColumnName, strin
                     WHERE table_schema = 'public'
                       AND table_name = '{SchemaMigrationSql.EscapeLiteral(TableName)}'
                 ) THEN
-                    EXECUTE 'ALTER TABLE {SchemaMigrationSql.QuoteIdentifier(TableName)} ADD COLUMN IF NOT EXISTS {SchemaMigrationSql.QuoteIdentifier(ColumnName)} {ColumnDefinition}';
+                    EXECUTE '{alterColumnSql}';
                 END IF;
             END $$;
             """);
+    }
+
+    private static string NormalizeLegacyDynamicSqlLiteralEscapes(string columnDefinition)
+        // Older descriptors pre-escaped default string literals for the EXECUTE wrapper.
+        => columnDefinition.Replace("''", "'", StringComparison.Ordinal);
 }
 
 public sealed record RenameTableStep(string OldTableName, string NewTableName) : SchemaMigrationStep

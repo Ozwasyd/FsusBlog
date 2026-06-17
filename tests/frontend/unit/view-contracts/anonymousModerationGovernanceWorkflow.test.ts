@@ -74,6 +74,8 @@ describe('anonymous moderation governance workflow contract', () => {
     expect(governance).toContain('Nullifier')
     expect(governance).toContain('credential')
     expect(governance).toContain('撤销')
+    expect(governance).toContain(':title-level="2"')
+    expect(governance).not.toMatch(/(^|\s)title-level="2"/u)
     expect(governance).not.toContain('reverseLookup')
   })
 })

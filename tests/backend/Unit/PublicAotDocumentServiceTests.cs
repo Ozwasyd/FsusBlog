@@ -12,6 +12,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Security.Cryptography;
 
 namespace FsusBlog.Server.Tests;
 
@@ -57,7 +58,12 @@ public sealed class PublicAotDocumentServiceTests
             string sidecarUrl = ExtractAttribute(html, "data-aeds-src");
             string sidecarPath = Path.Combine(root, "wwwroot", sidecarUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
             Assert.True(File.Exists(sidecarPath), sidecarPath);
-            Assert.Equal(PublicAotDocumentComposer.DecodePayloadFrameBytes(hydrationPayload), await File.ReadAllBytesAsync(sidecarPath));
+            byte[] expectedBytes = PublicAotDocumentComposer.DecodePayloadFrameBytes(hydrationPayload);
+            byte[] actualBytes = await File.ReadAllBytesAsync(sidecarPath);
+            Assert.Equal(expectedBytes, actualBytes);
+            Assert.Equal(
+                Convert.ToHexStringLower(SHA256.HashData(expectedBytes)),
+                Path.GetFileNameWithoutExtension(sidecarPath));
         }
         finally
         {

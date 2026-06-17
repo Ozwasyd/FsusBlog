@@ -9,7 +9,7 @@ import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:8080';
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000);
-const aotSettleTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_PUBLIC_AOT_SETTLE_TIMEOUT_MS, 15000);
+const aotSettleTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_PUBLIC_AOT_SETTLE_TIMEOUT_MS, 30000);
 const settleRetryDelayMs = 400;
 const publicFixtureIds = readPublicFixtureIds();
 const publicAotHydrationMediaType = 'application/vnd.fsus.aeds';

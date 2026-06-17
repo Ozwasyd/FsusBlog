@@ -50,73 +50,75 @@
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="filteredDictionaries" row-key="dictionaryId" :row-class-name="rowClassName">
-        <el-table-column label="词库 ID" min-width="230">
-          <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
-            <div class="font-semibold text-[var(--fsusblog-text-primary)]">{{ row.dictionaryId }}</div>
-            <div class="mt-1 text-[11px] text-[var(--fsusblog-text-muted)]">{{ row.source }} / {{ row.reviewedBy }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column label="作用范围" width="110" prop="scope" />
-        <el-table-column label="地区" width="130">
-          <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">{{ row.region ?? 'GLOBAL' }}</template>
-        </el-table-column>
-        <el-table-column label="分类" min-width="170" prop="category" />
-        <el-table-column label="版本" width="140" prop="version" />
-        <el-table-column label="证据策略" width="150">
-          <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
-            <el-tag :type="evidenceType(row.evidencePolicy)">{{ row.evidencePolicy }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="词条数" width="90" align="right" prop="termCount" />
-        <el-table-column label="状态" width="110">
-          <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
-            <el-tag :type="dictionaryStatusType(row)">{{ dictionaryStatus(row) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="校验值" min-width="180">
-          <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
-            <code class="block truncate text-[11px]">{{ row.checksum }}</code>
-          </template>
-        </el-table-column>
-        <el-table-column label="更新时间" width="170">
-          <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">{{ formatTime(row.updatedAtUtc) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="190" align="right" fixed="right">
-          <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
-            <el-button link type="primary" :icon="View" @click="openDetail(row)">详情</el-button>
-            <el-button
-              v-if="isDictionaryDisabled(row)"
-              link
-              type="success"
-              :icon="Check"
-              :loading="runtimeActionId === row.dictionaryId"
-              @click="setDictionaryEnabled(row, true)"
-            >
-              启用
-            </el-button>
-            <el-button
-              v-else
-              link
-              type="danger"
-              :icon="Close"
-              :loading="runtimeActionId === row.dictionaryId"
-              @click="setDictionaryEnabled(row, false)"
-            >
-              禁用
-            </el-button>
-            <el-button link :icon="CopyDocument" @click="copyChecksum(row)">复制校验值</el-button>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <AdminInlineEmptyState :title="dictionaryEmptyTitle" :description="dictionaryEmptyDescription">
-            <template #actions>
-              <el-button v-if="hasDictionaryFilters" link type="primary" @click="resetDictionaryFilters">清除筛选</el-button>
-              <el-button v-else link type="primary" :loading="loading" @click="loadSnapshot">刷新词库</el-button>
+      <div class="blog-scroll-x-safe moderation-dictionaries-table-scroll">
+        <el-table v-loading="loading" :data="filteredDictionaries" row-key="dictionaryId" :row-class-name="rowClassName">
+          <el-table-column label="词库 ID" min-width="230">
+            <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
+              <div class="font-semibold text-[var(--fsusblog-text-primary)]">{{ row.dictionaryId }}</div>
+              <div class="mt-1 text-[11px] text-[var(--fsusblog-text-muted)]">{{ row.source }} / {{ row.reviewedBy }}</div>
             </template>
-          </AdminInlineEmptyState>
-        </template>
-      </el-table>
+          </el-table-column>
+          <el-table-column label="作用范围" width="110" prop="scope" />
+          <el-table-column label="地区" width="130">
+            <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">{{ row.region ?? 'GLOBAL' }}</template>
+          </el-table-column>
+          <el-table-column label="分类" min-width="170" prop="category" />
+          <el-table-column label="版本" width="140" prop="version" />
+          <el-table-column label="证据策略" width="150">
+            <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
+              <el-tag :type="evidenceType(row.evidencePolicy)">{{ row.evidencePolicy }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="词条数" width="90" align="right" prop="termCount" />
+          <el-table-column label="状态" width="110">
+            <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
+              <el-tag :type="dictionaryStatusType(row)">{{ dictionaryStatus(row) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="校验值" min-width="180">
+            <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
+              <code class="block truncate text-[11px]">{{ row.checksum }}</code>
+            </template>
+          </el-table-column>
+          <el-table-column label="更新时间" width="170">
+            <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">{{ formatTime(row.updatedAtUtc) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="190" align="right" fixed="right">
+            <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
+              <el-button link type="primary" :icon="View" @click="openDetail(row)">详情</el-button>
+              <el-button
+                v-if="isDictionaryDisabled(row)"
+                link
+                type="success"
+                :icon="Check"
+                :loading="runtimeActionId === row.dictionaryId"
+                @click="setDictionaryEnabled(row, true)"
+              >
+                启用
+              </el-button>
+              <el-button
+                v-else
+                link
+                type="danger"
+                :icon="Close"
+                :loading="runtimeActionId === row.dictionaryId"
+                @click="setDictionaryEnabled(row, false)"
+              >
+                禁用
+              </el-button>
+              <el-button link :icon="CopyDocument" @click="copyChecksum(row)">复制校验值</el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <AdminInlineEmptyState :title="dictionaryEmptyTitle" :description="dictionaryEmptyDescription">
+              <template #actions>
+                <el-button v-if="hasDictionaryFilters" link type="primary" @click="resetDictionaryFilters">清除筛选</el-button>
+                <el-button v-else link type="primary" :loading="loading" @click="loadSnapshot">刷新词库</el-button>
+              </template>
+            </AdminInlineEmptyState>
+          </template>
+        </el-table>
+      </div>
     </section>
 
     <el-drawer v-model="detailVisible" title="词库元数据" size="min(92vw, 32rem)">
@@ -423,3 +425,10 @@ onMounted(() => {
   void loadSnapshot()
 })
 </script>
+
+<style scoped>
+.moderation-dictionaries-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+</style>

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -55,6 +56,17 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("IsRegionApprovalAllowed", authoringSource);
         Assert.Contains("RegionCanPublish", authoringSource);
         Assert.Contains("RegionLegalModerationService.DeserializeRegions", authoringSource);
+    }
+
+    [Fact]
+    public void CommentRegionCompliance_PublicReadFiltersAvoidUnsupportedSqlSugarStringComparison()
+    {
+        string serviceSource = ReadRepoFile("src/backend/Services/CommentService.cs");
+
+        Assert.DoesNotContain("rc.BlockedRegions != string.Empty", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("comment_region_compliance crc", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("crc.blocked_regions <> ''", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("position(@BlockedToken in crc.blocked_regions) > 0", serviceSource, StringComparison.Ordinal);
     }
 
     [Fact]
