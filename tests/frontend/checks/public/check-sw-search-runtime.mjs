@@ -6,7 +6,7 @@ import { resolve } from 'node:path'
 import { decodeSearchManifest } from '../../support/aeds-envelope.mjs'
 import { fetchWithTimeout, parseTimeoutMs, probeReachable } from '../../support/http.mjs'
 
-const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000'
+const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000)
 const clientRoot = process.cwd()
 const distRoot = resolve(clientRoot, 'dist')

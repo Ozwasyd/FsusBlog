@@ -25,7 +25,7 @@ function base64UrlToBytes(value: string): Uint8Array {
 describe('public seed readers', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
-    setCurrentUrl('http://127.0.0.1:5000/article/1')
+    setCurrentUrl('http://127.0.0.1:7568/article/1')
     ;(window as PublicSeedWindow).__FSUS_PUBLIC_AOT_BOOTSTRAP_RAW__ = null
     ;(window as PublicSeedWindow).__FSUS_PUBLIC_HYDRATION_RAW__ = null
   })
@@ -134,6 +134,50 @@ describe('public seed readers', () => {
     expect(payload?.routeKey).toBe('article:1')
   })
 
+  it('resolves global loader identity from the hydration seed before stale bootstrap data', async () => {
+    vi.resetModules()
+
+    document.body.innerHTML = `
+      <div id="global-loader" hidden aria-hidden="true">
+        <span data-fsus-loader-title></span>
+        <span data-fsus-loader-status>正在加载</span>
+      </div>
+    `
+
+    const bootstrap = document.createElement('script')
+    bootstrap.id = 'fsus-aot-bootstrap'
+    bootstrap.type = 'application/octet-stream'
+    bootstrap.textContent = encodePublicAotPayload({
+      kind: 'About',
+      pageKind: 'About',
+      routeKey: 'about',
+      siteTitle: 'Stale Bootstrap Blog'
+    })
+    document.body.appendChild(bootstrap)
+
+    const hydration = document.createElement('script')
+    hydration.id = 'fsus-aot-hydration-props'
+    hydration.type = 'application/octet-stream'
+    hydration.textContent = encodePublicAotPayload({
+      pageKind: 'About',
+      routeKey: 'about',
+      rendererVersion: 'test-renderer',
+      title: '关于',
+      siteTitle: 'Hydration Blog',
+      siteDescription: 'Hydration description'
+    })
+    document.body.appendChild(hydration)
+
+    const { showGlobalLoader } = await import('@/bootstrap/publicShellPrimitives')
+    showGlobalLoader()
+
+    expect(document.title).toBe('Hydration Blog')
+    expect(document.querySelector('[data-fsus-loader-title]')?.textContent).toBe('Hydration Blog')
+    expect(document.querySelector('[data-fsus-loader-status]')?.textContent).toBe('正在加载 Hydration Blog')
+    expect(document.querySelector<HTMLMetaElement>('meta[name="description"]')?.content).toBe('Hydration description')
+    expect((document.getElementById('global-loader') as HTMLElement | null)?.hidden).toBe(false)
+  })
+
   it('fetches hydration payloads from an AEDS sidecar marker before falling back to inline text', async () => {
     vi.resetModules()
 
@@ -171,7 +215,7 @@ describe('public seed readers', () => {
     const payload = await readPublicHydrationPayloadAsync()
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      'http://127.0.0.1:5000/aot-cache/payloads/aa/sidecar.aeds',
+      'http://127.0.0.1:7568/aot-cache/payloads/aa/sidecar.aeds',
       expect.objectContaining({
         credentials: 'same-origin',
         headers: {

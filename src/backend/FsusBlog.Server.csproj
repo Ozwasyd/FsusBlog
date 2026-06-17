@@ -58,6 +58,7 @@
 		<PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
 		<PackageReference Include="Fido2" Version="4.0.1" />
 		<PackageReference Include="IP2Location.IPGeolocation" Version="9.1.1" />
+		<PackageReference Include="MessagePack" Version="2.5.301" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.7" />

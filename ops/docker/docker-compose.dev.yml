@@ -22,11 +22,11 @@ services:
       - ../../:/workspace
       - ~/.aspnet/https:/https:ro
     working_dir: /workspace/src/backend
-    command: ["dotnet", "watch", "--non-interactive", "run", "--project", "FsusBlog.Server.csproj", "--urls", "http://0.0.0.0:5000"]
+    command: ["dotnet", "watch", "--non-interactive", "run", "--project", "FsusBlog.Server.csproj", "--urls", "http://0.0.0.0:7568"]
     extra_hosts:
       - host.docker.internal:host-gateway
     ports:
-      - "5000:5000"
+      - "7568:7568"
 
   # =========================================================================
   #[修改日期 2026-03-01]

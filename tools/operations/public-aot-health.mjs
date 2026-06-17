@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const baseUrl = (process.env.FSUSBLOG_BASE_URL ?? process.argv[2] ?? 'http://127.0.0.1:5000').replace(/\/+$/, '')
+const baseUrl = (process.env.FSUSBLOG_BASE_URL ?? process.argv[2] ?? 'http://127.0.0.1:7568').replace(/\/+$/, '')
 const token = process.env.FSUSBLOG_PUBLIC_AOT_TOKEN ?? process.env.FSUSBLOG_PUBLIC_AOT_MANIFEST_TOKEN ?? ''
 const url = `${baseUrl}/internal/public-aot/health`
 

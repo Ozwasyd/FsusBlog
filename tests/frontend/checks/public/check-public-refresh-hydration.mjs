@@ -15,7 +15,7 @@
  * Vue-owned subtree.
  *
  * Usage:
- *   FSUSBLOG_BASE_URL=http://127.0.0.1:5000 node ../../tests/frontend/checks/public/check-public-refresh-hydration.mjs
+ *   FSUSBLOG_BASE_URL=http://127.0.0.1:7568 node ../../tests/frontend/checks/public/check-public-refresh-hydration.mjs
  */
 import { createRequire } from 'node:module'
 import { dirname } from 'node:path'
@@ -1620,7 +1620,7 @@ async function buildPublicHydrationScenarios(baseUrl) {
 }
 
 async function main() {
-  const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000'
+  const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
   const viewports = [
     { name: 'desktop', width: 1440, height: 900 },
     { name: 'mobile', width: 390, height: 844 },

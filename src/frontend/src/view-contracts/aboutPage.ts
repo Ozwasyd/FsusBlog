@@ -8,13 +8,9 @@ export type AboutPageViewContract = Readonly<{
   body: Readonly<{
     content: string;
   }>;
-  footer: Readonly<{
-    siteTitle: string;
-  }>;
 }>;
 
 export function createAboutPageViewContract(options: {
-  siteTitle: string;
   currentYear: number;
   content: string;
   title?: string;
@@ -31,9 +27,6 @@ export function createAboutPageViewContract(options: {
     },
     body: {
       content: options.content
-    },
-    footer: {
-      siteTitle: options.siteTitle
     }
   };
 }

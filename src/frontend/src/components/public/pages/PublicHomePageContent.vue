@@ -55,11 +55,10 @@ import HomeArticleErrorState from '@/components/home/HomeArticleErrorState.vue'
 import HomeArticleEmptyState from '@/components/home/HomeArticleEmptyState.vue'
 import HomeFeedSurface from '@/components/public/HomeFeedSurface.vue'
 import PublicArticleList from '@/components/public/PublicArticleList.vue'
+import { usePublicSiteDescription, usePublicSiteTitle } from '@/public-renderers/publicSiteIdentityContext'
 import type { ArticleListViewContract } from '@/view-contracts/articleList'
 
 defineProps<{
-  siteTitleText: string
-  siteDescriptionText: string
   view: ArticleListViewContract
   loading?: boolean
   isError?: boolean
@@ -73,4 +72,7 @@ const emit = defineEmits<{
   (event: 'page-prev'): void
   (event: 'page-next'): void
 }>()
+
+const siteTitleText = usePublicSiteTitle()
+const siteDescriptionText = usePublicSiteDescription()
 </script>

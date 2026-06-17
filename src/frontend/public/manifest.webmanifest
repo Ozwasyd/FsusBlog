@@ -1,7 +1,7 @@
 {
-  "name": "站点",
-  "short_name": "站点",
-  "description": "技术博客与离线阅读支持。",
+  "name": "Fsu's Blog",
+  "short_name": "FsusBlog",
+  "description": "工程记录、性能实验、UI 系统与 FsusBlog 构建过程。",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

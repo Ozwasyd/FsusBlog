@@ -367,7 +367,7 @@ function applyDevelopmentSecurityHeaders() {
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd())
-    const apiBaseUrl = env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:5000'
+    const apiBaseUrl = env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:7568'
     const enableVueHydrationMismatchDetails = process.env.FSUSBLOG_VUE_HYDRATION_DETAILS === '1'
         || process.env.FSUSBLOG_VUE_HYDRATION_DETAILS?.toLowerCase() === 'true'
     const warnAsError = process.env.FSUSBLOG_VITE_WARN_AS_ERROR === '1'

@@ -29,7 +29,7 @@ import {
 } from './aeds-envelope.mjs';
 import { fetchWithTimeout, parseTimeoutMs } from './http.mjs';
 
-export const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000';
+export const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568';
 export const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000);
 const FRAME_AUTH_LOGIN_REQUEST = 43;
 const FRAME_AUTH_REGISTER_REQUEST = 44;

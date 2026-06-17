@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const baseUrl = process.env.FSUSBLOG_API_BASE_URL || process.env.PLAYWRIGHT_API_BASE_URL || 'http://127.0.0.1:5000'
+const baseUrl = process.env.FSUSBLOG_API_BASE_URL || process.env.PLAYWRIGHT_API_BASE_URL || 'http://127.0.0.1:7568'
 const email = `reader-${Date.now()}@example.invalid`
 const AEDS_MAGIC = 0x53444541
 const AEDS_VERSION = 2

@@ -49,7 +49,7 @@ src/frontend/
 - Node.js 20+，npm 10+
 - `GITHUB_PACKAGES_TOKEN` 环境变量（FsusUI 私有包授权）
 - Emscripten SDK（可选，仅需本地重新构建 Wasm 时）
-- 后端服务运行在 `http://127.0.0.1:5000`（`npm run dev:debug` 会自动代理）
+- 后端服务运行在 `http://127.0.0.1:7568`（`npm run dev:debug` 会自动代理）
 
 ## 安装
 
@@ -62,7 +62,7 @@ npm ci
 
 | 命令 | 说明 |
 |------|------|
-| `npm run dev:debug` | 启动开发服务器（端口 3000，HMR，代理到 5000） |
+| `npm run dev:debug` | 启动开发服务器（端口 3000，HMR，代理到 7568） |
 | `npm run build` | 生产 Release 构建（等同 `build:release`） |
 | `npm run preview` | 本地预览 Release 构建产物（端口 8080） |
 | `npm run build:wasm` | 重新编译 C++23 Wasm 解码器（需 Emscripten） |
@@ -89,7 +89,7 @@ npm run check:aot                     # AOT / Wasm 完整性
 npm run check:image-codec-wasm        # 图片编解码 Wasm 检查
 ```
 
-**运行时检查**（需启动完整调试栈 3000/5000）：
+**运行时检查**（需启动完整调试栈 3000/7568）：
 
 ```bash
 npm run check:notification-stream-runtime             # notification stream 连接弹性

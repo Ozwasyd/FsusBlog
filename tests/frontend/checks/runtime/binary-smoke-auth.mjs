@@ -2,7 +2,7 @@
 import { loginWithPow } from '../../support/auth-helpers.mjs';
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs';
 
-const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000';
+const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568';
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
 const userPassword = process.env.FSUSBLOG_USER_PASSWORD || 'BinaryUserPass123!';
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';

@@ -13,7 +13,7 @@ const repoRoot = path.resolve(__dirname, '../../..')
 const clientRoot = path.join(repoRoot, 'src', 'frontend')
 const publicFixtureDir = path.join(clientRoot, 'public', 'fixtures')
 
-const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000'
+const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
 const outputPath = process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE
   || path.join(clientRoot, '.playwright-fixtures.aeds')
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, defaultRequestTimeoutMs)

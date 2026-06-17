@@ -97,6 +97,7 @@ describe('publicEntryRegistry shared coverage', () => {
 
     expect(actualPageIds).toEqual(expectedPageIds)
     expect(renderShellMock.mock.calls.map(([kind]) => kind).sort()).toEqual(cases.map(({ kind }) => kind).sort())
+    expect(renderShellMock.mock.calls.every((call) => call[4]?.siteDescription === 'desc')).toBe(true)
 
     entries.forEach((result, index) => {
       const hydration = decodePublicAotPayload<{ pageKind?: string }>(result.entry.hydrationPropsPayload)
@@ -263,6 +264,7 @@ describe('publicEntryRegistry shared coverage', () => {
 
     expect(renderShellMock).toHaveBeenCalledTimes(1)
     expect(renderShellMock.mock.calls[0]?.[0].renderYear).toBe(2025)
+    expect(renderShellMock.mock.calls[0]?.[0].siteDescription).toBe('desc')
   })
 
   it('derives filter search-sort visibility from shared filter semantics', async () => {

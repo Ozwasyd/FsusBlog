@@ -50,12 +50,14 @@ describe('createPublicShellViewState', () => {
     const state = createPublicShellViewState({
       hydrationKind: 'Home',
       siteTitle: '  My Blog  ',
+      siteDescription: '  My description  ',
       renderYear: 2025
     })
 
     expect(state).toMatchObject({
       hydrationKind: 'Home',
       siteTitle: 'My Blog',
+      siteDescription: 'My description',
       renderYear: 2025,
       activeNav: 'home',
       authLabel: '登录',

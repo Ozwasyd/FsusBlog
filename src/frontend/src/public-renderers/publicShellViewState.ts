@@ -4,6 +4,7 @@ import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
 import { createPublicShellState, PUBLIC_SHELL_DEFAULTS, type PublicShellState } from '@/public-renderers/publicShellState'
 import {
   normalizePublicComplianceConfig,
+  normalizePublicSiteDescription,
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
 import type { SiteComplianceConfigPublic } from '@/api/system'
@@ -11,6 +12,7 @@ import type { SiteComplianceConfigPublic } from '@/api/system'
 export type PublicShellViewInput = Readonly<{
   hydrationKind?: PublicPageKind | null
   siteTitle?: string | null
+  siteDescription?: string | null
   siteLogoUrl?: string | null
   siteLogoDarkUrl?: string | null
   siteWordmarkUrl?: string | null
@@ -53,6 +55,7 @@ export function createPublicShellViewState(input: PublicShellViewInput = {}): Pu
   return createPublicShellState({
     hydrationKind,
     siteTitle: normalizePublicSiteTitle(input.siteTitle),
+    siteDescription: normalizePublicSiteDescription(input.siteDescription),
     siteLogoUrl: input.siteLogoUrl?.trim() || '',
     siteLogoDarkUrl: input.siteLogoDarkUrl?.trim() || '',
     siteWordmarkUrl: input.siteWordmarkUrl?.trim() || '',

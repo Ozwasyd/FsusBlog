@@ -18,8 +18,6 @@ import type { FilterPageViewContract } from '@/view-contracts/filterView'
 import { selectHomeSpotlightCandidates } from '@/view-contracts/homeSpotlight'
 
 export function createPublicHomePageAssembly(input: {
-  siteTitleText: string
-  siteDescriptionText: string
   view: ArticleListViewContract
   featuredArticles: readonly FeaturedArticleItem[]
   hotArticles: readonly PopularArticleSummaryResponse[]
@@ -33,8 +31,6 @@ export function createPublicHomePageAssembly(input: {
   return {
     component: PublicHomePageContent,
     props: {
-      siteTitleText: input.siteTitleText,
-      siteDescriptionText: input.siteDescriptionText,
       view: input.view,
       loading: false,
       isError: false,

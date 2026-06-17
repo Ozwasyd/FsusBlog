@@ -6,13 +6,51 @@ import {
   normalizePublicComplianceConfig,
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
+import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
+import { PUBLIC_SHELL_DEFAULTS } from '@/public-renderers/publicShellState'
 
 const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
 const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
 
 describe('public takeover site identity', () => {
+  const indexHtml = readRepoFile('src/frontend/index.html')
+  const publicShellPrimitives = readRepoFile('src/frontend/src/bootstrap/publicShellPrimitives.ts')
+  const webManifest = JSON.parse(readRepoFile('src/frontend/public/manifest.webmanifest')) as {
+    name: string
+    short_name: string
+    description: string
+  }
+
+  it('keeps frontend shell defaults aligned to the public site identity contract', () => {
+    expect(PUBLIC_SHELL_DEFAULTS.siteTitle).toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle)
+    expect(PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription).toBe('工程记录、性能实验、UI 系统与 FsusBlog 构建过程。')
+    expect(PUBLIC_SITE_IDENTITY_DEFAULTS.siteKeywords).toBe('.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog')
+    expect(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestName).toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle)
+    expect(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestShortName).toBe('FsusBlog')
+  })
+
+  it('keeps first-paint assets aligned to the public identity default', () => {
+    expect(indexHtml).toContain(`<title>${PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle}</title>`)
+    expect(indexHtml).toContain(`data-fsus-loader-title>${PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle}</span>`)
+    expect(indexHtml).toContain(`data-fsus-loader-status>正在加载 ${PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle}</span>`)
+    expect(indexHtml).not.toContain('>站点<')
+    expect(indexHtml).not.toContain('正在加载站点')
+
+    expect(webManifest.name).toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestName)
+    expect(webManifest.short_name).toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestShortName)
+    expect(webManifest.description).toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription)
+
+    expect(publicShellPrimitives).toContain('PUBLIC_SITE_IDENTITY_DEFAULTS')
+    expect(publicShellPrimitives).toContain('function readLoaderSiteIdentity')
+    expect(publicShellPrimitives).toContain('createDefaultLoaderIdentity')
+    expect(publicShellPrimitives).toContain('syncLoaderDocumentHead(identity)')
+    expect(publicShellPrimitives).toContain('document.title = identity.siteTitle')
+    expect(publicShellPrimitives).toContain("descriptionMeta.setAttribute('content', identity.siteDescription)")
+    expect(publicShellPrimitives).toContain('statusEl.textContent = `正在加载 ${title}`')
+  })
+
   it('normalizes site title and compliance through one shared contract', () => {
-    expect(normalizePublicSiteTitle('  ')).toBe('站点')
+    expect(normalizePublicSiteTitle('  ')).toBe("Fsu's Blog")
     expect(normalizePublicSiteTitle('  Fsu Blog  ')).toBe('Fsu Blog')
 
     const compliance = normalizePublicComplianceConfig({
@@ -68,7 +106,7 @@ describe('public takeover site identity', () => {
     })
 
     expect(seed).toMatchObject({
-      siteTitle: '站点',
+      siteTitle: "Fsu's Blog",
       siteDescription: 'seeded description',
       siteLogoUrl: '/logo-light.svg',
       siteLogoDarkUrl: '/logo-dark.svg',
@@ -79,6 +117,24 @@ describe('public takeover site identity', () => {
         copyrightOwner: 'Seed Owner'
       }
     })
+  })
+
+  it('keeps frontend and backend default SEO titles aligned', () => {
+    for (const path of [
+      'src/shared/Contracts/Outputs/ServerResponseContracts.cs',
+      'src/backend/Models/ReadModels/SystemReadModels.cs',
+      'src/backend/Models/Requests/SystemRequests.cs'
+    ]) {
+      const source = readRepoFile(path)
+      expect(source).toContain('PublicSiteIdentityDefaults.SiteTitle')
+      expect(source).toContain('PublicSiteIdentityDefaults.SiteDescription')
+      expect(source).toContain('PublicSiteIdentityDefaults.SiteKeywords')
+      expect(source).toContain('PublicSiteIdentityDefaults.ManifestName')
+      expect(source).toContain('PublicSiteIdentityDefaults.ManifestShortName')
+      expect(source).not.toContain("Fsus's Blog")
+      expect(source).not.toContain('= "FORWARD"')
+      expect(source).not.toContain('= "记录"')
+    }
   })
 })
 
@@ -95,13 +151,26 @@ describe('public takeover source contracts', () => {
     const blogLayout = readRepoFile('src/frontend/src/layouts/BlogLayout.vue')
 
     expect(blogLayout).toContain("publicTakeoverPhaseState.value !== 'hydrated'")
-    expect(blogLayout).toContain('siteTitle: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteTitle : siteStore.siteInfo.title')
-    expect(blogLayout).toContain('siteLogoUrl: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteLogoUrl : siteStore.siteInfo.siteLogoUrl')
-    expect(blogLayout).toContain('siteLogoDarkUrl: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteLogoDarkUrl : siteStore.siteInfo.siteLogoDarkUrl')
-    expect(blogLayout).toContain('siteWordmarkUrl: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteWordmarkUrl : siteStore.siteInfo.siteWordmarkUrl')
-    expect(blogLayout).toContain('compliance: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.compliance : siteStore.complianceInfo')
-    expect(blogLayout).toContain('renderYear: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.renderYear : runtimeRenderYear.value')
+    expect(blogLayout).toContain('const activeSiteIdentity = computed(() => createPublicSiteIdentity({')
+    expect(blogLayout).toContain('siteDescription: shouldUseTakeoverShellSeed.value ? takeoverShellSeed?.siteDescription : siteStore.siteInfo.description')
+    expect(blogLayout).toContain('siteTitle: activeSiteIdentity.value.siteTitle')
+    expect(blogLayout).toContain('siteDescription: activeSiteIdentity.value.siteDescription')
+    expect(blogLayout).toContain('siteLogoUrl: activeSiteIdentity.value.siteLogoUrl')
+    expect(blogLayout).toContain('siteLogoDarkUrl: activeSiteIdentity.value.siteLogoDarkUrl')
+    expect(blogLayout).toContain('siteWordmarkUrl: activeSiteIdentity.value.siteWordmarkUrl')
+    expect(blogLayout).toContain('compliance: activeSiteIdentity.value.compliance')
+    expect(blogLayout).toContain('renderYear: activeSiteIdentity.value.renderYear')
     expect(blogLayout.indexOf('setTimeout(() =>')).toBeLessThan(blogLayout.indexOf('void ensureSiteInfo()'))
+  })
+
+  it('syncs public document head from the same active site identity as the shell', () => {
+    const blogLayout = readRepoFile('src/frontend/src/layouts/BlogLayout.vue')
+
+    expect(blogLayout).toContain('const publicDocumentTitle = computed(() =>')
+    expect(blogLayout).toContain('activeSiteIdentity.value.siteTitle')
+    expect(blogLayout).toContain('document.title = publicDocumentTitle.value')
+    expect(blogLayout).toContain('activeSiteIdentity.value.siteDescription')
+    expect(blogLayout).not.toContain('document.title = siteStore.siteInfo.title')
   })
 
   it('keeps first public SPA route render on AOT-compatible navigation semantics', () => {

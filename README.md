@@ -148,7 +148,7 @@ cp .env.example .env
 | 项目 | 地址 / 说明 |
 |------|-------------|
 | Frontend | `http://127.0.0.1:3000` |
-| Backend | `http://127.0.0.1:5000` |
+| Backend | `http://127.0.0.1:7568` |
 | Demo admin | `demo-admin` / `ChangeMe123!` |
 | Demo data | [docs/development/demo-data.md](docs/development/demo-data.md) |
 | Troubleshooting | [docs/troubleshooting.md](docs/troubleshooting.md) |
@@ -180,7 +180,7 @@ export GITHUB_PACKAGES_TOKEN=your_github_packages_token
 
 ```bash
 docker compose -f deploy/dev/docker-compose.yml up -d postgres redis
-dotnet run --project src/backend/FsusBlog.Server.csproj --urls http://127.0.0.1:5000
+dotnet run --project src/backend/FsusBlog.Server.csproj --urls http://127.0.0.1:7568
 ```
 
 另开终端启动前端：
@@ -195,7 +195,7 @@ npm --prefix src/frontend run dev:debug
 | 地址 | 用途 |
 |------|------|
 | `http://127.0.0.1:3000` | Vite 前端开发壳（HMR） |
-| `http://127.0.0.1:5000` | ASP.NET Core API + 公开页（Debug） |
+| `http://127.0.0.1:7568` | ASP.NET Core API + 公开页（Debug） |
 | `http://127.0.0.1:8080` | Release Preview（生产构建测试） |
 
 ### Visual Studio 调试
@@ -222,7 +222,7 @@ dotnet publish src/backend/FsusBlog.Server.csproj -c Release /p:PublishClientAss
 |------|------|------|
 | `fast` | 前后端快速检查、静态治理与单元测试汇总 | 无 |
 | `coverage-gate` | backend/frontend coverage merge 与阈值，和 production 是 independent required check | 无 |
-| `integration` | 服务端集成测试 | Docker、3000/5000 |
+| `integration` | 服务端集成测试 | Docker、3000/7568 |
 | `ci` | fast + integration | 同上 |
 | `release` | 公开页 hydration / AOT / SEO | 8080 |
 | `acceptance` | 全量 Playwright E2E | 全部端口 |

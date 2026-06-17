@@ -17,7 +17,7 @@ const baseUrl = (
   process.env.PLAYWRIGHT_BASE_URL
   || process.env.FSUSBLOG_PUBLIC_BASE_URL
   || process.env.FSUSBLOG_BASE_URL
-  || 'http://127.0.0.1:5000'
+  || 'http://127.0.0.1:7568'
 ).replace(/\/+$/u, '')
 const publicFixtureIds = readPublicFixtureIds()
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH

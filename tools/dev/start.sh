@@ -16,7 +16,7 @@ Usage: tools/dev/start.sh [--seed-demo] [--no-install] [--cleanup]
 
 Starts the public-preview development stack:
   - PostgreSQL and Redis through deploy/dev/docker-compose.yml
-  - ASP.NET Core backend on http://127.0.0.1:5000
+  - ASP.NET Core backend on http://127.0.0.1:7568
   - Vite frontend on http://127.0.0.1:3000
 
 Options:
@@ -120,15 +120,15 @@ cleanup_children() {
 }
 trap cleanup_children EXIT INT TERM
 
-echo "[dev-start] starting backend on http://127.0.0.1:5000 ..."
-dotnet run --project "$BACKEND_PROJECT" --urls "http://127.0.0.1:5000" &
+echo "[dev-start] starting backend on http://127.0.0.1:7568 ..."
+dotnet run --project "$BACKEND_PROJECT" --no-launch-profile --urls "http://127.0.0.1:7568" &
 backend_pid=$!
 
 if command -v curl >/dev/null 2>&1; then
   echo "[dev-start] waiting for backend health..."
   backend_ready=0
   for _ in $(seq 1 90); do
-    if curl -fsS "http://127.0.0.1:5000/health/live" >/dev/null 2>&1; then
+    if curl -fsS "http://127.0.0.1:7568/health/live" >/dev/null 2>&1; then
       backend_ready=1
       break
     fi
@@ -139,7 +139,7 @@ if command -v curl >/dev/null 2>&1; then
     sleep 1
   done
   if [[ "$backend_ready" != "1" ]]; then
-    echo "[dev-start] backend health did not become ready at http://127.0.0.1:5000/health/live" >&2
+    echo "[dev-start] backend health did not become ready at http://127.0.0.1:7568/health/live" >&2
     exit 1
   fi
 else
@@ -158,7 +158,7 @@ frontend_pid=$!
 cat <<'READY'
 [dev-start] local stack is starting.
   Frontend: http://127.0.0.1:3000
-  Backend:  http://127.0.0.1:5000
+  Backend:  http://127.0.0.1:7568
   Cleanup:  ./tools/dev/start.sh --cleanup
 
 Press Ctrl+C to stop backend and frontend processes.

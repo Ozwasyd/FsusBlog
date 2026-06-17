@@ -86,18 +86,141 @@ html[data-theme-resolved='dark'] {
   -webkit-backdrop-filter: blur(var(--fsus-backdrop-blur-soft)) saturate(var(--fsus-backdrop-saturate));
 }
 
+/*
+ * FsusUI local-source compatibility:
+ * FsusBlog can render the newer public-shell DOM from the sibling FsusUI
+ * workspace while falling back to the packaged CSS dist. Keep the mobile
+ * header controls aligned when that dist does not yet include these rules.
+ */
+#fsus-aot-shell .el-public-shell__primary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  min-width: 0;
+}
+
+#fsus-aot-shell .el-public-shell__actions {
+  gap: 12px;
+}
+
+#fsus-aot-shell .el-public-shell__mobile-primary-actions {
+  display: none;
+  min-width: 0;
+}
+
+#fsus-aot-shell .el-public-shell__mobile-search-row {
+  display: none;
+  min-width: 0;
+  margin-top: 12px;
+}
+
+#fsus-aot-shell .el-public-shell__mobile-search-row.is-expanded {
+  display: block;
+}
+
+#fsus-aot-shell .el-public-shell__search--trigger {
+  width: 100%;
+}
+
+#fsus-aot-shell .el-public-shell__mobile-search-trigger,
+#fsus-aot-shell .el-theme-mode-toggle__menu-button {
+  min-height: 40px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--el-border-radius-small);
+  padding: 0 12px;
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+#fsus-aot-shell .el-theme-mode-toggle {
+  position: relative;
+}
+
+#fsus-aot-shell .el-theme-mode-toggle__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  min-width: 132px;
+  padding: 6px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-bg-color);
+  box-shadow: var(--el-box-shadow-light);
+  box-sizing: border-box;
+}
+
+#fsus-aot-shell .el-theme-mode-toggle__menu-item {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--el-text-color-regular);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: left;
+  white-space: nowrap;
+}
+
+#fsus-aot-shell .el-theme-mode-toggle__menu-item[aria-checked='true'] {
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-primary);
+}
+
+@media (max-width: 767px) {
+  #fsus-aot-shell .el-public-shell__inner {
+    padding-block: 20px;
+  }
+
+  #fsus-aot-shell .el-public-shell__primary-row {
+    align-items: center;
+  }
+
+  #fsus-aot-shell .el-public-shell__mobile-primary-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  #fsus-aot-shell .el-public-shell__mobile-toolbar {
+    display: block;
+    margin-top: 18px;
+  }
+
+  #fsus-aot-shell .el-public-shell__mobile-actions {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+}
+
 /* 首屏接管稳定层：约束 header/main/footer 的最小尺寸，避免整页下推造成 CLS。 */
-#fsus-aot-shell > header {
+#fsus-aot-shell > header,
+#fsus-aot-shell .el-public-shell__header {
   min-height: 3.25rem;
 }
 
 #top > main,
-#fsus-aot-shell > main {
+#fsus-aot-shell > main,
+#fsus-aot-shell .el-public-shell__main {
   min-height: 55vh;
 }
 
 #top > footer,
-#fsus-aot-shell > footer {
+#fsus-aot-shell > footer,
+#fsus-aot-shell .el-public-shell__footer {
   min-height: 6.5rem;
 }
 
@@ -106,6 +229,9 @@ html[data-theme-resolved='dark'] {
   #fsus-aot-shell > header,
   #fsus-aot-shell > main,
   #fsus-aot-shell > footer,
+  #fsus-aot-shell .el-public-shell__header,
+  #fsus-aot-shell .el-public-shell__main,
+  #fsus-aot-shell .el-public-shell__footer,
   #fsus-aot-shell .public-page-shell,
   #fsus-aot-shell .public-article-shell,
   #fsus-aot-shell .ui-article-card,

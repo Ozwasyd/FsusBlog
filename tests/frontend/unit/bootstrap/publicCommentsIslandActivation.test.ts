@@ -100,7 +100,7 @@ const homePayload = {
   }
 }
 
-function resetDocument(url = 'http://127.0.0.1:5000/article/101'): void {
+function resetDocument(url = 'http://127.0.0.1:7568/article/101'): void {
   window.location.href = url
   document.head.innerHTML = ''
   document.body.innerHTML = `
@@ -286,7 +286,7 @@ describe.sequential('public comments island activation', () => {
   })
 
   it('loads article comments immediately for direct #comments links', async () => {
-    resetDocument('http://127.0.0.1:5000/article/101#comments')
+    resetDocument('http://127.0.0.1:7568/article/101#comments')
 
     await bootstrapAndSettleInitialStyles()
 

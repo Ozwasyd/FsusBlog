@@ -118,6 +118,7 @@ export async function renderShell(
   page: PublicAotPageAssembly,
   compliance: SiteComplianceConfigPublic | null = null,
   brand: Readonly<{
+    siteDescription?: string | null
     siteLogoUrl?: string | null
     siteLogoDarkUrl?: string | null
     siteWordmarkUrl?: string | null
@@ -129,6 +130,7 @@ export async function renderShell(
       return renderPublicAotShell({
         kind,
         siteTitle,
+        siteDescription: brand.siteDescription ?? null,
         siteLogoUrl: brand.siteLogoUrl ?? null,
         siteLogoDarkUrl: brand.siteLogoDarkUrl ?? null,
         siteWordmarkUrl: brand.siteWordmarkUrl ?? null,

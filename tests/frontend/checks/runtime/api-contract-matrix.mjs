@@ -4,7 +4,7 @@ import { decodeApiErrorFrame, decodeAedsFrame, decodeKnownFrame } from '../../su
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs'
 import { extractBackendBinaryRoutes, loadProtocol } from '../support/crossStackMatrix.mjs'
 
-const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000'
+const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000)
 const materializePath = (path) => path
   .replaceAll('{page}', '1')

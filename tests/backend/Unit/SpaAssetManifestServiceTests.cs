@@ -47,7 +47,7 @@ public sealed class SpaAssetManifestServiceTests
             var env = new TestWebHostEnvironment(root, Environments.Development);
             var service = new SpaAssetManifestService(env, NullLogger<SpaAssetManifestService>.Instance);
             var context = new DefaultHttpContext();
-            context.Request.Host = new HostString("127.0.0.1:5000");
+            context.Request.Host = new HostString("127.0.0.1:7568");
             context.Request.Headers["X-Forwarded-Host"] = "127.0.0.1:3000";
 
             string version = service.GetFrontendAssetVersion(context);

@@ -148,7 +148,7 @@ add('backend-perf', 'backend-perf is documented as BenchmarkDotNet readiness, no
 
 add('ports', 'testing docs describe fixed local default ports with environment overrides', () => {
   const docs = read('docs/testing.md')
-  return docs.includes('默认固定本地端口') && docs.includes('3000/5000/8080/5432/6379') && !docs.includes('无硬编码端口')
+  return docs.includes('默认固定本地端口') && docs.includes('3000/7568/8080/5432/6379') && !docs.includes('无硬编码端口')
 })
 
 add('version-table', 'README major/minor lines avoid patch drift', () => {

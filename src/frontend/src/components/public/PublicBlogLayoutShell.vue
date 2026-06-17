@@ -11,7 +11,7 @@
     </a>
     <el-public-shell
       :hydration-kind="hydrationKind || undefined"
-      :brand="siteTitleText"
+      :brand="shellIdentity.siteTitle"
       :brand-href="PUBLIC_FIXED_PATHS.home"
       :nav-items="PUBLIC_NAV_ITEMS"
       :active-nav="activeNav"
@@ -36,7 +36,7 @@
           <img
             v-if="brandImageLight"
             :src="brandImageLight"
-            :alt="siteTitleText"
+            :alt="shellIdentity.siteTitle"
             class="public-brand-image public-brand-image--light"
             width="224"
             height="44"
@@ -46,7 +46,7 @@
           <img
             v-if="brandImageDark"
             :src="brandImageDark"
-            :alt="siteTitleText"
+            :alt="shellIdentity.siteTitle"
             class="public-brand-image public-brand-image--dark"
             width="224"
             height="44"
@@ -55,7 +55,7 @@
           />
         </span>
         <template v-else>
-          {{ siteTitleText }}
+          {{ shellIdentity.siteTitle }}
         </template>
       </template>
 
@@ -78,9 +78,9 @@
 
       <template #footer>
         <PublicComplianceFooter
-          :site-title="siteTitleText"
-          :compliance="compliance"
-          :render-year="renderYear"
+          :site-title="shellIdentity.siteTitle"
+          :compliance="shellIdentity.compliance"
+          :render-year="shellIdentity.renderYear"
         />
       </template>
     </el-public-shell>
@@ -92,12 +92,15 @@ import { computed, defineAsyncComponent, ref } from 'vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import PublicComplianceFooter from '@/components/public/PublicComplianceFooter.vue'
 import { PUBLIC_FIXED_PATHS, PUBLIC_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
-import type { PublicActiveNav } from '@/public-renderers/publicShellState'
+import { PUBLIC_SHELL_DEFAULTS, type PublicActiveNav } from '@/public-renderers/publicShellState'
+import { createPublicSiteIdentity, providePublicSiteIdentity } from '@/public-renderers/publicSiteIdentityContext'
+import { normalizePublicSiteDescription } from '@/public-renderers/publicSiteIdentity'
 import type { SiteComplianceConfigPublic } from '@/api/system'
 
 const SHELL_DEFAULTS = {
   hydrationKind: null,
-  siteTitle: '站点',
+  siteTitle: PUBLIC_SHELL_DEFAULTS.siteTitle,
+  siteDescription: PUBLIC_SHELL_DEFAULTS.siteDescription,
   activeNav: 'none',
   authLabel: '登录',
   authHref: '/login',
@@ -110,6 +113,7 @@ const SHELL_DEFAULTS = {
 } satisfies {
   hydrationKind: string | null
   siteTitle: string
+  siteDescription: string
   activeNav: PublicActiveNav
   authLabel: string
   authHref: string
@@ -124,6 +128,7 @@ const SHELL_DEFAULTS = {
 const props = withDefaults(defineProps<{
   hydrationKind?: string | null
   siteTitle?: string | null
+  siteDescription?: string | null
   siteLogoUrl?: string | null
   siteLogoDarkUrl?: string | null
   siteWordmarkUrl?: string | null
@@ -138,7 +143,8 @@ const props = withDefaults(defineProps<{
   renderYear?: number | null
 }>(), {
   hydrationKind: null,
-  siteTitle: '站点',
+  siteTitle: PUBLIC_SHELL_DEFAULTS.siteTitle,
+  siteDescription: PUBLIC_SHELL_DEFAULTS.siteDescription,
   siteLogoUrl: '',
   siteLogoDarkUrl: '',
   siteWordmarkUrl: '',
@@ -159,6 +165,7 @@ const emit = defineEmits<{
 }>()
 
 const siteTitleText = computed(() => props.siteTitle?.trim() || SHELL_DEFAULTS.siteTitle)
+const siteDescriptionText = computed(() => normalizePublicSiteDescription(props.siteDescription))
 const brandImageLight = computed(() => props.siteWordmarkUrl?.trim() || props.siteLogoUrl?.trim() || props.siteLogoDarkUrl?.trim() || '')
 const brandImageDark = computed(() => props.siteWordmarkUrl?.trim() || props.siteLogoDarkUrl?.trim() || props.siteLogoUrl?.trim() || '')
 const hasBrandImage = computed(() => Boolean(brandImageLight.value || brandImageDark.value))
@@ -178,6 +185,17 @@ const PUBLIC_NAV_ITEMS = [
   { key: 'archive', label: '归档', href: PUBLIC_FIXED_PATHS.archive },
   { key: 'about', label: '关于', href: PUBLIC_FIXED_PATHS.about }
 ]
+const shellIdentity = computed(() => createPublicSiteIdentity({
+  siteTitle: siteTitleText.value,
+  siteDescription: siteDescriptionText.value,
+  siteLogoUrl: props.siteLogoUrl ?? '',
+  siteLogoDarkUrl: props.siteLogoDarkUrl ?? '',
+  siteWordmarkUrl: props.siteWordmarkUrl ?? '',
+  compliance: compliance.value,
+  renderYear: props.renderYear ?? null
+}))
+
+providePublicSiteIdentity(shellIdentity)
 
 function handleSearchInput(value: string | number): void {
   searchQuery.value = String(value).trim()

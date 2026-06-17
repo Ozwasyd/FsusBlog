@@ -1,5 +1,5 @@
 <template>
-  <section class="blog-page-shell max-w-4xl mx-auto px-6 sm:px-12 min-h-screen">
+  <PublicReadingPageFrame as="section">
     <el-skeleton v-if="loading" animated aria-hidden="true">
       <template #template>
         <div class="py-24 space-y-16 sm:space-y-20">
@@ -17,8 +17,8 @@
       </template>
     </el-skeleton>
 
-    <div v-else class="relative pb-32 pt-16 sm:pt-24">
-      <header class="mb-16 border-b border-[var(--fsusblog-panel-border)] pb-10 sm:mb-20 sm:pb-12">
+    <div v-else class="relative">
+      <header class="mb-14 border-b border-[var(--fsusblog-panel-border)] pb-10 sm:mb-20 sm:pb-12">
         <h1 class="mb-6 text-3xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] sm:text-4xl">
           归档
         </h1>
@@ -42,7 +42,7 @@
         </nav>
       </header>
 
-      <div class="space-y-16 sm:space-y-20">
+      <div v-if="view.yearGroups.length > 0" class="space-y-16 pb-32 sm:space-y-20">
         <section
           v-for="yearGroup in view.yearGroups"
           :key="yearGroup.year"
@@ -97,16 +97,21 @@
         </section>
       </div>
 
-      <div v-if="view.yearGroups.length === 0" class="py-24 sm:py-32 md:py-48 text-center">
-        <p class="text-xs tabular-nums font-semibold text-[var(--fsusblog-text-subtle)] normal-case tracking-normal">
-          {{ view.emptyState.title }}
-        </p>
-      </div>
+      <PublicContentState
+        v-else
+        :title="view.emptyState.title"
+        description="发布后的内容会显示在这里。"
+        size="page"
+        role="status"
+        aria-live="polite"
+      />
     </div>
-  </section>
+  </PublicReadingPageFrame>
 </template>
 
 <script setup lang="ts">
+import PublicContentState from '@/components/public/PublicContentState.vue'
+import PublicReadingPageFrame from '@/components/public/PublicReadingPageFrame.vue'
 import type { ArchivePageViewContract } from '@/view-contracts/archive'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 

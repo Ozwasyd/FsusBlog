@@ -1,7 +1,5 @@
 <template>
   <PublicHomePageContent
-    :site-title-text="siteTitleText || initialSiteTitleText"
-    :site-description-text="initialSiteDescriptionText"
     :view="listView"
     :loading="loading"
     :is-error="isError"
@@ -45,9 +43,6 @@ import { buildPublicHomeRouteKey } from '@/public-renderers/publicRouteIdentity'
 import { resolveHomeSecondaryLayout, selectHomeSpotlightCandidates } from '@/view-contracts/homeSpotlight'
 
 const {
-  siteTitleText,
-  initialSiteTitleText,
-  initialSiteDescriptionText,
   listView,
   featuredArticles,
   hotArticles,

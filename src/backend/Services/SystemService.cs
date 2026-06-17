@@ -7,6 +7,7 @@ using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.NotificationStream;
+using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
 using System.Data.Common;
 using System.Runtime.InteropServices;
@@ -379,22 +380,22 @@ public partial class SystemService(
     {
         string title = TrimUtf8Bytes(dto.Title, 50);
         string author = TrimUtf8Bytes(dto.Author, 20);
-        string baseUrl = NormalizeHttpUrlOrDefault(dto.BaseUrl, "https://fsus.blog", 256).TrimEnd('/');
+        string baseUrl = NormalizeHttpUrlOrDefault(dto.BaseUrl, PublicSiteIdentityDefaults.SiteBaseUrl, 256).TrimEnd('/');
 
         return new SeoConfigReadModel
         {
-            Title = string.IsNullOrWhiteSpace(title) ? "Fsu's Blog" : title,
+            Title = string.IsNullOrWhiteSpace(title) ? PublicSiteIdentityDefaults.SiteTitle : title,
             Description = TrimText(dto.Description, 200),
             Keywords = TrimUtf8Bytes(dto.Keywords, 256),
-            Author = string.IsNullOrWhiteSpace(author) ? "Fsu" : author,
+            Author = string.IsNullOrWhiteSpace(author) ? PublicSiteIdentityDefaults.SiteAuthor : author,
             OgImage = NormalizeOptionalAssetUrl(dto.OgImage, 256),
-            BaseUrl = baseUrl.Length == 0 ? "https://fsus.blog" : baseUrl,
+            BaseUrl = baseUrl.Length == 0 ? PublicSiteIdentityDefaults.SiteBaseUrl : baseUrl,
             FaviconSvgUrl = NormalizeAssetUrlOrDefault(dto.FaviconSvgUrl, DefaultFaviconSvgUrl, 256),
             FaviconIcoUrl = NormalizeAssetUrlOrDefault(dto.FaviconIcoUrl, DefaultFaviconIcoUrl, 256),
             FaviconPngUrl = NormalizeOptionalAssetUrl(dto.FaviconPngUrl, 256),
             AppleTouchIconUrl = NormalizeAssetUrlOrDefault(dto.AppleTouchIconUrl, DefaultAppleTouchIconUrl, 256),
-            ManifestName = NormalizeManifestText(dto.ManifestName, string.IsNullOrWhiteSpace(title) ? "FsusBlog" : title, 128),
-            ManifestShortName = NormalizeManifestText(dto.ManifestShortName, "FsusBlog", 128),
+            ManifestName = NormalizeManifestText(dto.ManifestName, string.IsNullOrWhiteSpace(title) ? PublicSiteIdentityDefaults.ManifestName : title, 128),
+            ManifestShortName = NormalizeManifestText(dto.ManifestShortName, PublicSiteIdentityDefaults.ManifestShortName, 128),
             PwaIcon192Url = NormalizeAssetUrlOrDefault(dto.PwaIcon192Url, DefaultPwaIcon192Url, 256),
             PwaIcon512Url = NormalizeAssetUrlOrDefault(dto.PwaIcon512Url, DefaultPwaIcon512Url, 256),
             PwaMaskableIconUrl = NormalizeAssetUrlOrDefault(dto.PwaMaskableIconUrl, DefaultPwaMaskableIconUrl, 256),
@@ -624,18 +625,18 @@ public partial class SystemService(
 
         return NormalizeSeoConfig(new UpdateSeoConfigRequest
         {
-            Title = GetValue(configs, Key_Title, "Fsu's Blog"),
-            Description = GetValue(configs, Key_Desc, "工程记录、性能实验、UI 系统与 FsusBlog 构建过程。"),
-            Keywords = GetValue(configs, Key_Keywords, "C#, .NET, Vue"),
-            Author = GetValue(configs, Key_Author, "Fsu"),
+            Title = GetValue(configs, Key_Title, PublicSiteIdentityDefaults.SiteTitle),
+            Description = GetValue(configs, Key_Desc, PublicSiteIdentityDefaults.SiteDescription),
+            Keywords = GetValue(configs, Key_Keywords, PublicSiteIdentityDefaults.SiteKeywords),
+            Author = GetValue(configs, Key_Author, PublicSiteIdentityDefaults.SiteAuthor),
             OgImage = GetValue(configs, Key_OgImage, string.Empty),
-            BaseUrl = GetValue(configs, Key_BaseUrl, "https://fsus.blog"),
+            BaseUrl = GetValue(configs, Key_BaseUrl, PublicSiteIdentityDefaults.SiteBaseUrl),
             FaviconSvgUrl = GetValue(configs, Key_FaviconSvgUrl, DefaultFaviconSvgUrl),
             FaviconIcoUrl = GetValue(configs, Key_FaviconIcoUrl, DefaultFaviconIcoUrl),
             FaviconPngUrl = GetValue(configs, Key_FaviconPngUrl, string.Empty),
             AppleTouchIconUrl = GetValue(configs, Key_AppleTouchIconUrl, DefaultAppleTouchIconUrl),
-            ManifestName = GetValue(configs, Key_ManifestName, "FsusBlog"),
-            ManifestShortName = GetValue(configs, Key_ManifestShortName, "FsusBlog"),
+            ManifestName = GetValue(configs, Key_ManifestName, string.Empty),
+            ManifestShortName = GetValue(configs, Key_ManifestShortName, PublicSiteIdentityDefaults.ManifestShortName),
             PwaIcon192Url = GetValue(configs, Key_PwaIcon192Url, DefaultPwaIcon192Url),
             PwaIcon512Url = GetValue(configs, Key_PwaIcon512Url, DefaultPwaIcon512Url),
             PwaMaskableIconUrl = GetValue(configs, Key_PwaMaskableIconUrl, DefaultPwaMaskableIconUrl),

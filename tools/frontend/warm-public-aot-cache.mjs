@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url))
-const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000'
+const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
 const timeoutMs = Number(process.env.FSUSBLOG_HTTP_TIMEOUT_MS || 15000)
 const waitMs = Number(process.env.FSUSBLOG_PUBLIC_AOT_WAIT_MS || 15000)
 const manifestToken = process.env.FSUSBLOG_PUBLIC_AOT_MANIFEST_TOKEN || ''

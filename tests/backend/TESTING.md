@@ -39,7 +39,7 @@ On Windows, a manual override can use `$env:FSUSBLOG_REPO_ROOT = (Get-Location).
   - Must not require Docker or any running service.
 - `./tools/test.sh integration`
   - Runs server-side integration tests via `Category=Integration`.
-  - Then runs debug runtime checks that require `3000/5000`: auth session, API contract matrix, Binary parity, notification stream static/live, search, and binary smoke.
+  - Then runs debug runtime checks that require `3000/7568`: auth session, API contract matrix, Binary parity, notification stream static/live, search, and binary smoke.
 - `./tools/test.sh ci`
   - Runs `fast + integration`.
 - `./tools/test.sh coverage-gate`
@@ -94,7 +94,7 @@ On Windows, a manual override can use `$env:FSUSBLOG_REPO_ROOT = (Get-Location).
   - Runs lightweight public/API concurrency checks.
 - `./tools/test.sh production`
   - Production CI gate.
-  - Runs `fast`, bootstraps `3000/5000/8080` once, then runs `integration + release + acceptance + visual + security + resilience + load + backend-qps` against the shared environment.
+  - Runs `fast`, bootstraps `3000/7568/8080` once, then runs `integration + release + acceptance + visual + security + resilience + load + backend-qps` against the shared environment.
   - Allows schema-valid `collected-blocked` release evidence for external production handoff; this is not a final publish credential.
 - `./tools/test.sh release-final`
   - Final publish credential for manual release candidates.

@@ -67,7 +67,7 @@ npm run build:wasm
 
 - PostgreSQL（默认 `127.0.0.1:5432`）
 - Redis（默认 `127.0.0.1:6379`）
-- ASP.NET Core backend（`http://127.0.0.1:5000`）
+- ASP.NET Core backend（`http://127.0.0.1:7568`）
 - Vite frontend（`http://127.0.0.1:3000`）
 - 可选 deterministic fictional demo data（`--seed-demo`）
 
@@ -90,7 +90,7 @@ docker compose -f deploy/dev/docker-compose.yml up -d postgres redis
 随后启动 ASP.NET Core 后端：
 
 ```bash
-dotnet run --project src/backend/FsusBlog.Server.csproj --urls http://127.0.0.1:5000
+dotnet run --project src/backend/FsusBlog.Server.csproj --urls http://127.0.0.1:7568
 # 或通过 Visual Studio / Rider 的 "Debug / NativeServer" 配置启动
 ```
 
@@ -106,7 +106,7 @@ npm --prefix src/frontend run dev:debug      # Vite HMR，监听 0.0.0.0:3000
 | 地址 | 用途 |
 |------|------|
 | `http://127.0.0.1:3000` | Vite 前端开发壳（HMR） |
-| `http://127.0.0.1:5000` | ASP.NET Core API（Debug 本地运行） |
+| `http://127.0.0.1:7568` | ASP.NET Core API（Debug 本地运行） |
 | `http://127.0.0.1:8080` | 生产构建预览（Release 容器） |
 
 ---
@@ -144,8 +144,8 @@ Vite 通过 `vite.config.ts` 中的 `proxy` 配置将 `/api/` 和 `/health/` 请
 ```typescript
 // vite.config.ts（示意）
 proxy: {
-  '/api': { target: 'http://127.0.0.1:5000', changeOrigin: true },
-  '/health': { target: 'http://127.0.0.1:5000', changeOrigin: true },
+  '/api': { target: 'http://127.0.0.1:7568', changeOrigin: true },
+  '/health': { target: 'http://127.0.0.1:7568', changeOrigin: true },
 }
 ```
 
@@ -232,7 +232,7 @@ cache explosion、搜索索引陈旧和 hydration routeKey 漂移。`/user/profi
 
 - **后端断点**：使用 `Debug / NativeServer` 配置，直接在 C# 代码打断点
 - **Binary 解码调试**：在 `wasmDecode.worker.ts` 中设置 `debugMode = true`，Worker 会输出详细解码日志
-- **Notification stream 调试**：访问 `http://127.0.0.1:5000/api/notifications/stream` 观察 AEDS WebSocket 事件流
+- **Notification stream 调试**：访问 `http://127.0.0.1:7568/api/notifications/stream` 观察 AEDS WebSocket 事件流
 - **缓存调试**：L1 缓存在进程内，重启即清空；L2 Redis 缓存可通过 `redis-cli FLUSHDB` 清空
 
 ---

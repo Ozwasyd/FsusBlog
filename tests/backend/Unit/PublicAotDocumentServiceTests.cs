@@ -191,7 +191,7 @@ public sealed class PublicAotDocumentServiceTests
         try
         {
             var context = new DefaultHttpContext();
-            context.Request.Host = new HostString("127.0.0.1:5000");
+            context.Request.Host = new HostString("127.0.0.1:7568");
             context.Request.Headers["X-Forwarded-Host"] = "127.0.0.1:3000";
             var logger = new RecordingLogger<PublicAotDocumentService>();
             var service = new PublicAotDocumentService(

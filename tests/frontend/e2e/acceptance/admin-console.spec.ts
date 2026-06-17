@@ -28,7 +28,7 @@ import { readAedsResponse } from '../../support/aeds-envelope.mjs'
 
 const createdArticleTitle = `Acceptance Article ${Date.now()}`
 const articleCoverFixturePath = path.resolve(process.cwd(), '../../tests/frontend/fixtures/assets/article-cover-16x9.png')
-const acceptanceBackendUrl = process.env.FSUSBLOG_ACCEPTANCE_BACKEND_URL || 'http://127.0.0.1:5000'
+const acceptanceBackendUrl = process.env.FSUSBLOG_ACCEPTANCE_BACKEND_URL || 'http://127.0.0.1:7568'
 const execFileAsync = promisify(execFile)
 let adminStorageStatePromise: Promise<Awaited<ReturnType<typeof captureStorageState>>> | null = null
 

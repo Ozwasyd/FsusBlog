@@ -1,6 +1,6 @@
 import type { SiteComplianceConfigPublic } from '@/api/system'
 import type { PublicHydrationPayload } from '@/public-renderers/publicPayloadTypes'
-import { PUBLIC_SHELL_DEFAULTS } from '@/public-renderers/publicShellState'
+import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
 
 export type PublicTakeoverSeed = Readonly<{
   siteTitle: string
@@ -22,7 +22,11 @@ function numeric(value: unknown): number {
 }
 
 export function normalizePublicSiteTitle(value: unknown): string {
-  return text(value) || PUBLIC_SHELL_DEFAULTS.siteTitle
+  return text(value) || PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle
+}
+
+export function normalizePublicSiteDescription(value: unknown): string {
+  return text(value) || PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription
 }
 
 export function normalizePublicComplianceConfig(value: unknown): SiteComplianceConfigPublic | null {
@@ -59,7 +63,7 @@ export function createPublicTakeoverSeed(payload: PublicHydrationPayload | null 
   const compliance = normalizePublicComplianceConfig(payload.compliance)
   return Object.freeze({
     siteTitle: normalizePublicSiteTitle(payload.siteTitle ?? payload.title),
-    siteDescription: text(payload.siteDescription),
+    siteDescription: normalizePublicSiteDescription(payload.siteDescription),
     siteLogoUrl: text(payload.siteLogoUrl),
     siteLogoDarkUrl: text(payload.siteLogoDarkUrl),
     siteWordmarkUrl: text(payload.siteWordmarkUrl),

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const matrixFile = path.join(root, '.tmp/contracts/endpoint-depth-matrix.json')
 const outFile = path.join(root, '.tmp/release-evidence/endpoint-depth-summary.json')
-const baseUrl = (process.env.FSUSBLOG_BASE_URL || process.env.FSUSBLOG_DEBUG_BACKEND_URL || 'http://127.0.0.1:5000').replace(/\/$/, '')
+const baseUrl = (process.env.FSUSBLOG_BASE_URL || process.env.FSUSBLOG_DEBUG_BACKEND_URL || 'http://127.0.0.1:7568').replace(/\/$/, '')
 const maxCases = positiveInt(process.env.FSUSBLOG_ENDPOINT_DEPTH_RUNTIME_CASES, 48)
 const timeoutMs = positiveInt(process.env.FSUSBLOG_ENDPOINT_DEPTH_TIMEOUT_MS, 15000)
 

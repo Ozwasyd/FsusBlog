@@ -62,7 +62,7 @@
               <el-form v-loading="loadingSite" :model="siteForm" label-position="top" @submit.prevent novalidate>
                 <div class="grid grid-cols-1 gap-x-16 sm:grid-cols-2">
                   <el-form-item label="网站标题" required>
-                    <el-input v-model="siteForm.title" name="siteTitle" maxlength="50" show-word-limit placeholder="Fsus's Blog" :disabled="siteFormDisabled" />
+                    <el-input v-model="siteForm.title" name="siteTitle" maxlength="50" show-word-limit placeholder="Fsu's Blog" :disabled="siteFormDisabled" />
                   </el-form-item>
                   <el-form-item label="作者名称" required>
                     <el-input v-model="siteForm.author" name="siteAuthor" maxlength="20" placeholder="Fsu" :disabled="siteFormDisabled" />

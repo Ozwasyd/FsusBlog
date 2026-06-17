@@ -27,6 +27,9 @@ describe('useSiteStore', () => {
 
   it('has default siteInfo values', () => {
     const store = useSiteStore()
+    expect(store.siteInfo.title).toBe("Fsu's Blog")
+    expect(store.siteInfo.manifestName).toBe("Fsu's Blog")
+    expect(store.siteInfo.manifestShortName).toBe('FsusBlog')
     expect(store.siteInfo.author).toBe('Fsu')
     expect(store.siteInfo.description).toBe('工程记录、性能实验、UI 系统与 FsusBlog 构建过程。')
     expect(store.siteInfo.keywords).toBe('.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog')

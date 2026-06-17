@@ -7,8 +7,10 @@ import {
   type SiteComplianceConfigPublic
 } from '@/api/system'
 import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap'
+import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
 import {
   normalizePublicComplianceConfig,
+  normalizePublicSiteDescription,
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
 
@@ -17,8 +19,8 @@ export const DEFAULT_SITE_BRAND_CONFIG = {
   faviconIcoUrl: '/favicon.ico',
   faviconPngUrl: '',
   appleTouchIconUrl: '/apple-touch-icon.png',
-  manifestName: '站点',
-  manifestShortName: '站点',
+  manifestName: PUBLIC_SITE_IDENTITY_DEFAULTS.manifestName,
+  manifestShortName: PUBLIC_SITE_IDENTITY_DEFAULTS.manifestShortName,
   pwaIcon192Url: '/icons/icon-192.png',
   pwaIcon512Url: '/icons/icon-512.png',
   pwaMaskableIconUrl: '/icons/maskable-512.png',
@@ -33,8 +35,8 @@ export const DEFAULT_SITE_BRAND_CONFIG = {
   loginIconUrl: ''
 } as const
 
-const DEFAULT_SITE_DESCRIPTION = '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。'
-const DEFAULT_SITE_KEYWORDS = '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog'
+const DEFAULT_SITE_DESCRIPTION = PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription
+const DEFAULT_SITE_KEYWORDS = PUBLIC_SITE_IDENTITY_DEFAULTS.siteKeywords
 
 function resolveBaseUrl(): string {
   if (typeof window === 'undefined') {
@@ -50,9 +52,9 @@ export const useSiteStore = defineStore('site', () => {
 
   const siteInfo = shallowRef<SeoConfigPublic>({
     title: normalizePublicSiteTitle(payload?.siteTitle ?? payload?.title),
-    description: payload?.siteDescription || DEFAULT_SITE_DESCRIPTION,
+    description: normalizePublicSiteDescription(payload?.siteDescription),
     keywords: DEFAULT_SITE_KEYWORDS,
-    author: "Fsu",
+    author: PUBLIC_SITE_IDENTITY_DEFAULTS.siteAuthor,
     ogImage: "",
     baseUrl: payload?.baseUrl || resolveBaseUrl(),
     ...DEFAULT_SITE_BRAND_CONFIG,
@@ -101,7 +103,8 @@ export const useSiteStore = defineStore('site', () => {
           siteInfo.value = {
             ...DEFAULT_SITE_BRAND_CONFIG,
             ...res,
-            title: normalizePublicSiteTitle(res.title)
+            title: normalizePublicSiteTitle(res.title),
+            description: normalizePublicSiteDescription(res.description)
           }
         }
         if (compliance) {

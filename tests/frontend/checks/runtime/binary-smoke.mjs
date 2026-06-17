@@ -2,7 +2,7 @@
 import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs';
 import { decodeApiErrorFrame } from '../../support/aeds-envelope.mjs';
 
-const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000';
+const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568';
 const userToken = process.env.FSUSBLOG_USER_TOKEN || '';
 const adminToken = process.env.FSUSBLOG_ADMIN_TOKEN || '';
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000);

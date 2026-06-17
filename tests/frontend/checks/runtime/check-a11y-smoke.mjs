@@ -27,7 +27,7 @@ async function waitForApp(page) {
 }
 
 async function addSessionCookies(context, session) {
-  const backendHost = new URL(process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:5000').hostname;
+  const backendHost = new URL(process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568').hostname;
   await context.addCookies(Array.from(session.cookieMap.entries()).map(([name, value]) => {
     if (name.startsWith('__Host-')) {
       return {

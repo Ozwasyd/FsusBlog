@@ -6,11 +6,11 @@ describe('resolveNotificationStreamEndpointUrl', () => {
     const url = resolveNotificationStreamEndpointUrl(
       '/api/notifications/stream',
       'websocket',
-      'http://127.0.0.1:5000',
+      'http://127.0.0.1:7568',
       'http://127.0.0.1:3000'
     )
 
-    expect(url.toString()).toBe('ws://127.0.0.1:5000/api/notifications/stream')
+    expect(url.toString()).toBe('ws://127.0.0.1:7568/api/notifications/stream')
   })
 
   it('keeps preflight on HTTP and falls back to the current origin without configuration', () => {

@@ -4,6 +4,7 @@ import { useAppShellStore } from '@/store/appShell'
 import { useAdminStore } from '@/store/admin'
 import { useSiteStore } from '@/store/site'
 import { useUserStore } from '@/store/user'
+import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
 
 export function useSessionBootstrap() {
   const appShellStore = useAppShellStore()
@@ -11,7 +12,7 @@ export function useSessionBootstrap() {
   const siteStore = useSiteStore()
   const userStore = useUserStore()
 
-  const baseTitle = computed(() => siteStore.siteInfo.title || '站点')
+  const baseTitle = computed(() => siteStore.siteInfo.title || PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle)
 
   const needsBootstrap = (): boolean => {
     return !appShellStore.isReady || !userStore.isAuthChecked || !siteStore.isLoaded

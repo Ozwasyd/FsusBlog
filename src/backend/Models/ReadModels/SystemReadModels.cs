@@ -1,19 +1,21 @@
+using FsusBlog.Shared.Contracts.Outputs;
+
 namespace FsusBlog.Server.Models.ReadModels;
 
 public sealed record class SeoConfigReadModel
 {
-    public string Title { get; init; } = "Fsus's Blog";
-    public string Description { get; init; } = "FORWARD";
-    public string Keywords { get; init; } = "记录";
-    public string Author { get; init; } = "Fsu";
+    public string Title { get; init; } = PublicSiteIdentityDefaults.SiteTitle;
+    public string Description { get; init; } = PublicSiteIdentityDefaults.SiteDescription;
+    public string Keywords { get; init; } = PublicSiteIdentityDefaults.SiteKeywords;
+    public string Author { get; init; } = PublicSiteIdentityDefaults.SiteAuthor;
     public string OgImage { get; init; } = string.Empty;
-    public string BaseUrl { get; init; } = "https://blog.fsus.blog";
+    public string BaseUrl { get; init; } = PublicSiteIdentityDefaults.SiteBaseUrl;
     public string FaviconSvgUrl { get; init; } = "/favicon.svg";
     public string FaviconIcoUrl { get; init; } = "/favicon.ico";
     public string FaviconPngUrl { get; init; } = string.Empty;
     public string AppleTouchIconUrl { get; init; } = "/apple-touch-icon.png";
-    public string ManifestName { get; init; } = "FsusBlog";
-    public string ManifestShortName { get; init; } = "FsusBlog";
+    public string ManifestName { get; init; } = PublicSiteIdentityDefaults.ManifestName;
+    public string ManifestShortName { get; init; } = PublicSiteIdentityDefaults.ManifestShortName;
     public string PwaIcon192Url { get; init; } = "/icons/icon-192.png";
     public string PwaIcon512Url { get; init; } = "/icons/icon-512.png";
     public string PwaMaskableIconUrl { get; init; } = "/icons/maskable-512.png";

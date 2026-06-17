@@ -3,7 +3,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { getArticles, getFeaturedArticles, getHotArticles, type ArticleListItemResponse, type FeaturedArticleItem, type PopularArticleSummaryResponse } from '@/api/article'
 import { toBootstrapArticleListItem } from '@/bootstrap/publicAotBootstrap'
 import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
-import { useSiteStore } from '@/store/site'
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import { usePagedListState } from '@/composables/usePagedListState'
@@ -33,19 +32,11 @@ const parsePageQuery = (value: unknown): number => {
 export function useHomeView() {
   const route = useRoute()
   const router = useRouter()
-  const siteStore = useSiteStore()
   const notificationStreamStore = useNotificationStreamStore()
   const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Home')
   const initialHydrationView = initialHydrationPayload?.view ?? null
   const seedRenderTimeOptions = createPublicSeedRenderTimeOptions(initialHydrationPayload, initialBootstrap)
   const useSeedRenderTime = ref(Boolean(seedRenderTimeOptions))
-  const initialSiteTitleText = initialHydrationPayload?.siteTitle?.trim()
-    || initialBootstrap?.siteTitle?.trim()
-    || '站点'
-  const initialSiteDescriptionText = initialHydrationPayload?.siteDescription?.trim()
-    || initialBootstrap?.siteDescription?.trim()
-    || '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。'
-
   const initialFeaturedArticles = Array.isArray(initialHydrationPayload?.featuredArticles)
     ? [...initialHydrationPayload.featuredArticles]
     : Array.isArray(initialBootstrap?.featuredArticles)
@@ -80,9 +71,6 @@ export function useHomeView() {
     setPageTotal
   } = usePagedListState({ pageSize: 10 })
   const isError = computed(() => error.value !== null)
-  const siteTitleText = computed(() =>
-    siteStore.isLoaded ? siteStore.siteInfo.title : initialSiteTitleText
-  )
   const pageIndicatorText = computed(() => `${currentPage.value} / ${totalPages.value}`)
   const articles = computed<ArticleListCardViewContract[]>(() =>
     initialViewItems.value
@@ -459,10 +447,6 @@ export function useHomeView() {
   })
 
   return {
-    siteStore,
-    siteTitleText,
-    initialSiteTitleText,
-    initialSiteDescriptionText,
     listView,
     articles,
     featuredArticles,

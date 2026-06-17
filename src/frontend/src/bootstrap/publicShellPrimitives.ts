@@ -1,3 +1,10 @@
+import { decodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
+import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
+import {
+  normalizePublicSiteDescription,
+  normalizePublicSiteTitle
+} from '@/public-renderers/publicSiteIdentity'
+
 const PUBLIC_SEO_PATH_PATTERNS = [
   /^\/$/,
   /^\/archive\/?$/,
@@ -23,17 +30,77 @@ export function hasServerAotShell(root: Element | null): boolean {
   return root.querySelector('#fsus-aot-shell') instanceof HTMLElement
 }
 
-function readLoaderSiteTitle(): string | null {
+type PublicSeedSnapshotWindow = Window & typeof globalThis & {
+  __FSUS_PUBLIC_AOT_BOOTSTRAP_RAW__?: string | null
+  __FSUS_PUBLIC_HYDRATION_RAW__?: string | null
+}
+
+type LoaderSiteIdentity = Readonly<{
+  siteTitle: string
+  siteDescription: string
+}>
+
+function readSeedTextById(id: string): string | null {
+  const text = document.getElementById(id)?.textContent?.trim()
+  return text || null
+}
+
+function readWindowSeedText(key: keyof PublicSeedSnapshotWindow): string | null {
+  const raw = (window as PublicSeedSnapshotWindow)[key]
+  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null
+}
+
+function readSeedSiteIdentity(rawPayload: string | null): LoaderSiteIdentity | null {
+  if (!rawPayload) {
+    return null
+  }
+
   try {
-    const script = document.getElementById('fsus-aot-bootstrap')
-    const text = script?.textContent?.trim()
-    if (!text) return null
-    const parsed = decodePublicAotPayload<Record<string, unknown>>(text)
-    const title = parsed?.siteTitle
-    return typeof title === 'string' && title.trim() ? title.trim() : null
+    const parsed = decodePublicAotPayload<Record<string, unknown>>(rawPayload)
+    return {
+      siteTitle: normalizePublicSiteTitle(parsed?.siteTitle ?? parsed?.title),
+      siteDescription: normalizePublicSiteDescription(parsed?.siteDescription)
+    }
   } catch {
     return null
   }
+}
+
+function readLoaderSiteIdentity(): LoaderSiteIdentity | null {
+  const candidates = [
+    readSeedTextById('fsus-aot-hydration-props'),
+    readWindowSeedText('__FSUS_PUBLIC_HYDRATION_RAW__'),
+    readSeedTextById('fsus-aot-bootstrap'),
+    readWindowSeedText('__FSUS_PUBLIC_AOT_BOOTSTRAP_RAW__')
+  ]
+
+  for (const rawPayload of candidates) {
+    const identity = readSeedSiteIdentity(rawPayload)
+    if (identity) {
+      return identity
+    }
+  }
+
+  return null
+}
+
+function createDefaultLoaderIdentity(): LoaderSiteIdentity {
+  return {
+    siteTitle: PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle,
+    siteDescription: PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription
+  }
+}
+
+function syncLoaderDocumentHead(identity: LoaderSiteIdentity): void {
+  document.title = identity.siteTitle
+
+  let descriptionMeta = document.querySelector<HTMLMetaElement>('meta[name="description"]')
+  if (!descriptionMeta) {
+    descriptionMeta = document.createElement('meta')
+    descriptionMeta.setAttribute('name', 'description')
+    document.head.appendChild(descriptionMeta)
+  }
+  descriptionMeta.setAttribute('content', identity.siteDescription)
 }
 
 export function removeGlobalLoader(): void {
@@ -51,14 +118,19 @@ export function showGlobalLoader(): void {
     return
   }
 
-  const title = readLoaderSiteTitle()
-  if (title) {
-    const titleEl = loader.querySelector<HTMLElement>('[data-fsus-loader-title], .loader-title')
-    if (titleEl) {
-      titleEl.textContent = title
-    }
+  const identity = readLoaderSiteIdentity() ?? createDefaultLoaderIdentity()
+  const title = identity.siteTitle
+  syncLoaderDocumentHead(identity)
+
+  const titleEl = loader.querySelector<HTMLElement>('[data-fsus-loader-title], .loader-title')
+  if (titleEl) {
+    titleEl.textContent = title
+  }
+
+  const statusEl = loader.querySelector<HTMLElement>('[data-fsus-loader-status], .loader-text')
+  if (statusEl) {
+    statusEl.textContent = `正在加载 ${title}`
   }
 
   loader.hidden = false
 }
-import { decodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'

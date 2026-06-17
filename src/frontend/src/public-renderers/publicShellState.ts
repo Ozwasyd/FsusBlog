@@ -1,10 +1,12 @@
 import type { SiteComplianceConfigPublic } from '@/api/system'
+import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
 
 export type PublicActiveNav = 'home' | 'archive' | 'about' | 'none'
 
 export type PublicShellState = Readonly<{
   hydrationKind?: string | null
   siteTitle: string
+  siteDescription: string
   siteLogoUrl: string
   siteLogoDarkUrl: string
   siteWordmarkUrl: string
@@ -21,7 +23,8 @@ export type PublicShellState = Readonly<{
 
 export const PUBLIC_SHELL_DEFAULTS: PublicShellState = {
   hydrationKind: null,
-  siteTitle: '站点',
+  siteTitle: PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle,
+  siteDescription: PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription,
   siteLogoUrl: '',
   siteLogoDarkUrl: '',
   siteWordmarkUrl: '',

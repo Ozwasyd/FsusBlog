@@ -61,6 +61,7 @@ import {
 } from '@/public-renderers/publicRenderClock'
 import {
   normalizePublicComplianceConfig,
+  normalizePublicSiteDescription,
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
 import type { TimeRenderOptions } from '@/utils/time'
@@ -120,7 +121,7 @@ function requireArray(value: unknown, fieldName: string): unknown[] {
 
 function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: PublicEntryBuildOptions, routeKey: string): PublicEntryScope<K> {
   const siteTitle = normalizePublicSiteTitle(options.siteTitle)
-  const siteDescription = toText(options.siteDescription, '').trim()
+  const siteDescription = normalizePublicSiteDescription(options.siteDescription)
   const siteLogoUrl = toText(options.siteLogoUrl, '')
   const siteLogoDarkUrl = toText(options.siteLogoDarkUrl, '')
   const siteWordmarkUrl = toText(options.siteWordmarkUrl, '')
@@ -162,6 +163,7 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
     renderTimeOptions,
     baseModel,
     renderShell: async (page) => await renderShell(kind, siteTitle, page, compliance, {
+      siteDescription,
       siteLogoUrl,
       siteLogoDarkUrl,
       siteWordmarkUrl,
@@ -305,8 +307,6 @@ const homeEntryDefinition = definePublicEntry({
       hotArticles
     }
     const html = await scope.renderShell(createPublicHomePageAssembly({
-      siteTitleText: scope.siteTitle,
-      siteDescriptionText: scope.siteDescription,
       view,
       featuredArticles,
       hotArticles
@@ -382,7 +382,6 @@ function createStaticPageEntryDefinition<K extends Extract<PublicPageKind, 'Abou
       const title = toText(options.title, defaultTitle)
       const slug = toText(options.slug, getSharedPublicPageManifestEntry(kind).canonicalSlug)
       const view = createAboutPageViewContract({
-        siteTitle: scope.siteTitle,
         currentYear: scope.renderClock.renderYear,
         content,
         title

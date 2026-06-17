@@ -3,7 +3,7 @@
     <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
       <div class="min-w-0 space-y-3">
         <div class="text-[1.25rem] font-bold tracking-normal text-[var(--fsusblog-text-primary)]">
-          {{ siteTitleText }}<span class="text-[var(--fsusblog-text-muted)]">.</span>
+          {{ siteTitleText }}
         </div>
         <p class="leading-relaxed">
           ©<template v-if="copyrightYearText"> {{ copyrightYearText }}</template> {{ copyrightOwnerText }}。{{ copyrightNoticeText }}

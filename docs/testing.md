@@ -187,7 +187,7 @@ Public hydration matrix 由 `tests/frontend/checks/public/public-hydration-matri
 
 `public-hydration-smoke.mjs` 负责 sidecar 生命周期 smoke：新 AOT 页必须以 `sidecar-primary` 读取 `#fsus-aot-hydration-props[data-aeds-src]`，只有旧 artifact 允许记录 `inline-fallback`。它会 fetch raw `.aeds` bytes，校验 `application/vnd.fsus.aeds`、`public,max-age=31536000,immutable`，通过 Public AOT AEDS decoder 解码，并覆盖 Home、ArticleDetail、Archive、Filter、About、Privacy、Guidelines、Copyright。脚本写入 `.tmp/release-evidence/public-hydration-sidecar-summary.json`；release evidence 会语义校验 required page kinds、modeCounts 和 missing-sidecar canary。
 
-Public AOT SSR worker reliability 由 `PublicAotSsrRuntimeStateTests`、`PublicAotBackfillSchedulerTests`、`PublicAotShellServiceTests`、`PublicAotRouteManifestTests` 和 `PublicAotNodeWorkerScriptTests` 覆盖。测试必须证明 worker timeout / malformed renderer response 会进入分类 counters，连续 worker failure 打开 circuit breaker，cooldown 后 half-open probe 成功才关闭，重复 route failure 会 quarantine 单 route，breaker 打开时公开读仍返回 stale AOT 或 SPA fallback。运行时诊断可用 `FSUSBLOG_BASE_URL=http://127.0.0.1:5000 node tools/operations/public-aot-health.mjs` 拉取 `/internal/public-aot/health`；若配置 `PublicAot:ManifestToken`，同时设置 `FSUSBLOG_PUBLIC_AOT_TOKEN`。
+Public AOT SSR worker reliability 由 `PublicAotSsrRuntimeStateTests`、`PublicAotBackfillSchedulerTests`、`PublicAotShellServiceTests`、`PublicAotRouteManifestTests` 和 `PublicAotNodeWorkerScriptTests` 覆盖。测试必须证明 worker timeout / malformed renderer response 会进入分类 counters，连续 worker failure 打开 circuit breaker，cooldown 后 half-open probe 成功才关闭，重复 route failure 会 quarantine 单 route，breaker 打开时公开读仍返回 stale AOT 或 SPA fallback。运行时诊断可用 `FSUSBLOG_BASE_URL=http://127.0.0.1:7568 node tools/operations/public-aot-health.mjs` 拉取 `/internal/public-aot/health`；若配置 `PublicAot:ManifestToken`，同时设置 `FSUSBLOG_PUBLIC_AOT_TOKEN`。
 
 **Public hydration matrix 本地复现**：
 ```bash
@@ -202,7 +202,7 @@ Public AOT SSR worker reliability 由 `PublicAotSsrRuntimeStateTests`、`PublicA
 
 **触发时机**：发布分支、合并到 main 前
 
-**前置条件**：全部服务（前端 3000、后端 5000、Release 8080）可访问
+**前置条件**：全部服务（前端 3000、后端 7568、Release 8080）可访问
 
 **覆盖场景**：
 - `spa-routes` — SPA 所有路由跳转无白屏
@@ -463,7 +463,7 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 核心约定：
 
 1. **无状态污染**：每个集成测试用例使用独立的数据库事务，测试后回滚
-2. **默认固定本地端口**：当前本地 acceptance/bootstrap 默认使用 3000/5000/8080/5432/6379 与固定容器名前缀，可通过环境变量覆盖；在 #51 的动态端口与 namespace 完全落地前，不保证同机多套 acceptance 并行
+2. **默认固定本地端口**：当前本地 acceptance/bootstrap 默认使用 3000/7568/8080/5432/6379 与固定容器名前缀，可通过环境变量覆盖；在 #51 的动态端口与 namespace 完全落地前，不保证同机多套 acceptance 并行
 3. **无真实 IO 在单元测试中**：数据库、Redis、文件系统访问全部通过接口 Mock
 4. **测试隔离**：`fast` 层测试不依赖任何运行中的服务
 5. **失败即停**：CI 中任一层失败会阻断下游层；下游 skipped 会由 `production-summary` 归类为 downstream fan-out，不视为成功

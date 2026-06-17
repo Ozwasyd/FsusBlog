@@ -11,6 +11,7 @@ import type { PublicHydrationPayload } from '@/public-renderers/types'
 import { parsePositiveInt } from '@/public-renderers/publicRouteIdentity'
 import {
   normalizePublicComplianceConfig,
+  normalizePublicSiteDescription,
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
 
@@ -19,7 +20,7 @@ function getSiteTitle(payload: PublicHydrationPayload): string {
 }
 
 function getSiteDescription(payload: PublicHydrationPayload): string {
-  return payload.siteDescription?.trim() ?? ''
+  return normalizePublicSiteDescription(payload.siteDescription)
 }
 
 function requireHydrationView<T>(view: T | null | undefined, pageKind: string): T {
@@ -34,8 +35,6 @@ function createHydrationPageAssembly(payload: PublicHydrationPayload): PublicAot
   switch (payload.pageKind) {
     case 'Home':
       return createPublicHomePageAssembly({
-        siteTitleText: getSiteTitle(payload),
-        siteDescriptionText: getSiteDescription(payload),
         view: payload.view,
         featuredArticles: payload.featuredArticles,
         hotArticles: payload.hotArticles
@@ -83,6 +82,7 @@ export function createPublicHydrationRoot(payload: PublicHydrationPayload): VNod
   return renderPublicAotShell({
     kind: payload.pageKind,
     siteTitle: getSiteTitle(payload),
+    siteDescription: getSiteDescription(payload),
     siteLogoUrl: payload.siteLogoUrl ?? null,
     siteLogoDarkUrl: payload.siteLogoDarkUrl ?? null,
     siteWordmarkUrl: payload.siteWordmarkUrl ?? null,

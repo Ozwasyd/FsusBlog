@@ -246,7 +246,7 @@ export function useAdminSettingsPage() {
   const currentPageTarget = computed(() => pageTargets.find((item) => item.value === currentSlug.value) ?? pageTargets[0])
   const pageContentLength = computed(() => pageContent.value.trim().length)
   const siteSearchPreview = computed(() => ({
-    title: siteForm.title.trim() || "Fsus's Blog",
+    title: siteForm.title.trim() || "Fsu's Blog",
     url: normalizedBaseUrl.value || 'https://fsus.blog',
     description: siteForm.description.trim() || '站点描述将在这里显示。'
   }))

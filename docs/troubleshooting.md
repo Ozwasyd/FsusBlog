@@ -82,14 +82,14 @@ Relevant logs: backend console logs and `docker logs fsusblog-dev-redis`.
 
 Symptom: PostgreSQL, Redis, backend, or frontend cannot bind to a port.
 
-Likely cause: another local service is already using `5432`, `6379`, `5000`, or `3000`.
+Likely cause: another local service is already using `5432`, `6379`, `7568`, or `3000`.
 
 How to verify:
 
 ```bash
 lsof -i :5432
 lsof -i :6379
-lsof -i :5000
+lsof -i :7568
 lsof -i :3000
 ```
 
@@ -101,12 +101,12 @@ Relevant logs: terminal output from Docker, ASP.NET Core, or Vite.
 
 Symptom: the Vite page loads, but API calls fail with network errors or `502`.
 
-Likely cause: backend is not running on `http://127.0.0.1:5000` or Vite proxy configuration points at a different target.
+Likely cause: backend is not running on `http://127.0.0.1:7568` or Vite proxy configuration points at a different target.
 
 How to verify:
 
 ```bash
-curl -i http://127.0.0.1:5000/health/live
+curl -i http://127.0.0.1:7568/health/live
 ```
 
 Fix: start the backend with `./tools/dev/start.sh`, or update the local Vite proxy only for the current development environment.
@@ -139,7 +139,7 @@ Likely cause: the browser origin does not match `Fido2:ServerDomain` and `Fido2:
 How to verify:
 
 ```bash
-curl -s http://127.0.0.1:5000/health/live
+curl -s http://127.0.0.1:7568/health/live
 ```
 
 Then confirm the frontend is opened at `http://localhost:3000` or `http://127.0.0.1:3000`.

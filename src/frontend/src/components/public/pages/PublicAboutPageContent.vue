@@ -1,5 +1,5 @@
 <template>
-  <section v-if="loading" class="blog-page-shell max-w-3xl mx-auto px-5 sm:px-8 min-h-screen flex flex-col">
+  <PublicReadingPageFrame v-if="loading" as="section">
     <el-skeleton animated aria-hidden="true">
       <template #template>
         <div class="space-y-8 py-8">
@@ -19,9 +19,9 @@
         </div>
       </template>
     </el-skeleton>
-  </section>
+  </PublicReadingPageFrame>
 
-  <article v-else-if="!error" class="blog-page-shell max-w-3xl mx-auto px-5 sm:px-8 min-h-screen flex flex-col">
+  <PublicReadingPageFrame v-else-if="!error" as="article">
     <header class="mb-14 border-b border-[var(--fsusblog-panel-border)] pb-10 sm:mb-20 sm:pb-12">
       <h1 class="mb-6 text-3xl font-bold leading-[1.15] tracking-normal text-[var(--fsusblog-text-primary)] sm:text-4xl">
         {{ view.header.title }}
@@ -43,35 +43,35 @@
         {{ view.body.content }}
       </div>
     </slot>
+  </PublicReadingPageFrame>
 
-    <footer class="mt-20 sm:mt-32 mb-16 sm:mb-20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 border-t border-[var(--fsusblog-panel-border)] pt-12 sm:pt-16">
-      <span class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">
-        {{ view.footer.siteTitle }}
-      </span>
-    </footer>
-  </article>
-
-  <section v-else class="blog-page-shell max-w-3xl mx-auto px-5 sm:px-8 min-h-screen flex grow flex-col items-center justify-center py-24 sm:py-32">
-    <p class="text-xs tabular-nums font-medium normal-case text-[var(--fsusblog-text-muted)] mb-6">
-      内容连接中断
-    </p>
-    <el-button
-      type="primary"
-      @click="emit('retry')"
+  <PublicReadingPageFrame v-else as="section" align="center">
+    <PublicContentState
+      title="内容连接中断"
+      description="请稍后重试。"
+      tone="error"
+      size="page"
+      role="alert"
     >
-      重连
-    </el-button>
-    <el-button
-      class="mt-3"
-      tag="a"
-      href="/"
-    >
-      回到首页
-    </el-button>
-  </section>
+      <el-button
+        type="primary"
+        @click="emit('retry')"
+      >
+        重连
+      </el-button>
+      <el-button
+        tag="a"
+        href="/"
+      >
+        回到首页
+      </el-button>
+    </PublicContentState>
+  </PublicReadingPageFrame>
 </template>
 
 <script setup lang="ts">
+import PublicContentState from '@/components/public/PublicContentState.vue'
+import PublicReadingPageFrame from '@/components/public/PublicReadingPageFrame.vue'
 import type { AboutPageViewContract } from '@/view-contracts/aboutPage'
 
 defineProps<{
