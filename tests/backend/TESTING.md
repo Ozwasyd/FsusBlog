@@ -30,6 +30,10 @@ All test classes must live under `Unit/` or `Integration/`.
 
 ## Execution Contract
 
+Backend test wrappers export `FSUSBLOG_REPO_ROOT` to the repository root before invoking .NET tests.
+Treat it as an override for scripted/CI/IDE hosts, not a mandatory local step: direct `dotnet test tests/backend` still resolves the root through the shared `BackendTestPaths` fallback.
+On Windows, a manual override can use `$env:FSUSBLOG_REPO_ROOT = (Get-Location).Path` before running the equivalent `dotnet test` command.
+
 - `./tools/test.sh fast`
   - Runs only non-integration tests via `Category!=Integration`.
   - Must not require Docker or any running service.

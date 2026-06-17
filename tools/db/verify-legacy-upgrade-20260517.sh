@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export FSUSBLOG_REPO_ROOT="${FSUSBLOG_REPO_ROOT:-$ROOT_DIR}"
 DUMP_PATH="${FSUS_LEGACY_20260517_DUMP_GZ:-$ROOT_DIR/.tmp/db_blog_20260517000000fjyfe.sql.gz}"
 WORK_DIR="${FSUS_LEGACY_20260517_WORK_DIR:-$ROOT_DIR/.tmp/legacy-20260517-upgrade}"
 DECOMPRESSED_DUMP="$WORK_DIR/db_blog_20260517000000fjyfe.pgcustom"
