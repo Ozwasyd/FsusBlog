@@ -18,11 +18,11 @@
 }
 
 .account-page-header {
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
 }
 
 .account-page-header--compact {
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
 }
 
 .account-page-eyebrow {
@@ -35,20 +35,20 @@
 }
 
 .account-page-title {
-  max-width: 12ch;
+  max-width: 24ch;
   color: var(--fsusblog-text-primary);
-  font-size: clamp(2.1rem, 4vw, 3.8rem);
+  font-size: clamp(1.5rem, 2.4vw, 2.25rem);
   font-weight: 700;
-  line-height: 0.96;
+  line-height: 1.12;
   letter-spacing: 0;
 }
 
 .account-page-description {
-  margin-top: 1.25rem;
+  margin-top: 0.75rem;
   max-width: 42rem;
   color: var(--fsusblog-text-tertiary);
-  font-size: 0.95rem;
-  line-height: 1.9;
+  font-size: 0.875rem;
+  line-height: 1.7;
 }
 
 .account-section {
@@ -241,7 +241,7 @@
 
 @media (max-width: 1024px) {
   .account-page-header {
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
   }
 
   .account-page-description {
@@ -256,13 +256,13 @@
   }
 
   .account-page-header {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
   }
 
   .account-page-title {
     max-width: none;
-    font-size: clamp(1.9rem, 12vw, 2.7rem);
-    line-height: 1;
+    font-size: clamp(1.35rem, 8vw, 2rem);
+    line-height: 1.14;
   }
 
 }
