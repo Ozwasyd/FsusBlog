@@ -108,12 +108,12 @@ const navGroupTemplates: readonly Omit<AccountNavGroup, 'items'>[] = [
   { key: 'ops', label: '运维', helper: '运维健康、缓存诊断、数据巡检', area: 'manage' }
 ]
 
-export function getAccountNavGroups(isAdmin: boolean): AccountNavGroup[] {
+export function getAccountNavGroups(canManage: boolean): AccountNavGroup[] {
   return navGroupTemplates
-    .filter((group) => group.area === 'self' || isAdmin)
+    .filter((group) => group.area === 'self' || canManage)
     .map((group) => ({
       ...group,
-      items: accountNavItems.filter((item) => item.groupKey === group.key && (!item.adminOnly || isAdmin))
+      items: accountNavItems.filter((item) => item.groupKey === group.key && (!item.adminOnly || canManage))
     }))
     .filter((group) => group.items.length > 0)
 }

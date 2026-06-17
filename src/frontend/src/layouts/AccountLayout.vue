@@ -17,10 +17,10 @@
             <img
               v-if="adminBrandImageUrl"
               :src="adminBrandImageUrl"
-              :alt="siteStore.siteInfo.title"
+              :alt="brandTitle"
               class="h-8 max-w-[11rem] object-contain"
             />
-            <span v-else class="truncate">{{ siteStore.siteInfo.title }}</span>
+            <span v-else class="truncate">{{ brandTitle }}</span>
           </router-link>
         </div>
 
@@ -59,7 +59,7 @@
           <el-button
             circle
             :icon="Menu"
-            :aria-expanded="String(mobileNavOpen)"
+            :aria-expanded="mobileNavOpen"
             aria-controls="account-mobile-drawer"
             :aria-label="mobileNavButtonLabel"
             @click="toggleMobileNav"
@@ -166,7 +166,7 @@
                 <button
                   type="button"
                   class="account-mobile-nav-group-button"
-                  :aria-expanded="String(isMobileGroupExpanded(group.key))"
+                  :aria-expanded="isMobileGroupExpanded(group.key)"
                   @click="toggleMobileGroup(group.key)"
                 >
                   <span>{{ group.label }}</span>
@@ -224,14 +224,12 @@ import { useRoute } from 'vue-router'
 import { Close, Menu } from '@/fsusui/icons'
 import PolicyModal from '@/components/PolicyModal.vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
-import { accountAreaMeta, getAccountNavGroups, type AccountArea, type AccountContentMode, type AccountNavGroupKey, type AccountNavItem } from '@/layouts/accountNav'
-import { useSiteStore } from '@/store/site'
-import { useUserStore } from '@/store/user'
+import { getAccountNavGroups, type AccountArea, type AccountContentMode, type AccountNavGroupKey, type AccountNavItem } from '@/layouts/accountNav'
+import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext'
 import { showErrorToast } from '@/utils/errorPresentation'
 
 const route = useRoute()
-const siteStore = useSiteStore()
-const userStore = useUserStore()
+const workspaceContext = useAccountWorkspaceContext()
 
 const showPolicy = ref(false)
 const policyType = ref<'privacy' | 'guidelines'>('guidelines')
@@ -241,7 +239,7 @@ const openMobileGroupKey = ref<AccountNavGroupKey>('self')
 const mobileNavButtonLabel = computed(() => mobileNavOpen.value ? '关闭账户导航' : '打开账户导航')
 
 const currentArea = computed<AccountArea>(() =>
-  route.meta.accountArea === 'manage' ? 'manage' : 'self'
+  workspaceContext.value.surface
 )
 
 const currentContentMode = computed<AccountContentMode>(() => {
@@ -252,15 +250,10 @@ const currentContentMode = computed<AccountContentMode>(() => {
   return 'standard'
 })
 
-const areaMeta = computed(() => accountAreaMeta[currentArea.value])
-const adminBrandImageUrl = computed(() =>
-  siteStore.siteInfo.adminLogoUrl?.trim()
-  || siteStore.siteInfo.adminCollapsedIconUrl?.trim()
-  || siteStore.siteInfo.siteWordmarkUrl?.trim()
-  || siteStore.siteInfo.siteLogoUrl?.trim()
-  || ''
-)
-const navGroups = computed(() => getAccountNavGroups(userStore.isAdmin))
+const areaMeta = computed(() => workspaceContext.value.areaMeta)
+const brandTitle = computed(() => workspaceContext.value.brandTitle)
+const adminBrandImageUrl = computed(() => workspaceContext.value.brandImageUrl)
+const navGroups = computed(() => getAccountNavGroups(workspaceContext.value.canManage))
 const currentNavGroupKey = computed<AccountNavGroupKey>(() => {
   const activeGroup = navGroups.value.find((group) => group.items.some((item) => isNavItemActive(item)))
   return activeGroup?.key ?? (currentArea.value === 'manage' ? 'content' : 'self')
@@ -361,7 +354,7 @@ const handleLogout = async () => {
 
   isLoggingOut.value = true
   try {
-    await userStore.logout()
+    await workspaceContext.value.logout()
   } catch (error) {
     showErrorToast(error, '登出失败，请稍后重试')
   } finally {
