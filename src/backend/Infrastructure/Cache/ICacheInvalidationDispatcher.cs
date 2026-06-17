@@ -7,6 +7,7 @@ public interface ICacheInvalidationDispatcher
     Task InvalidateComplianceAsync(CancellationToken cancellationToken = default);
     Task InvalidateSystemPageAsync(string slug, CancellationToken cancellationToken = default);
     Task InvalidateCategoryTagAsync(CancellationToken cancellationToken = default);
+    Task InvalidateCommentPolicyAsync(CancellationToken cancellationToken = default);
     Task InvalidateCommentMutationAsync(CommentCacheInvalidationScope? scope = null, CancellationToken cancellationToken = default);
     Task InvalidateStatsAsync(CancellationToken cancellationToken = default);
     Task InvalidateArticleViewAsync(int articleId, CancellationToken cancellationToken = default);
@@ -176,6 +177,12 @@ public sealed class CacheInvalidationDispatcher(
             cancellationToken);
         await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.Tag, CacheTag.ArticleList);
         runtimeState?.Record("taxonomy", "category-tag");
+    }
+
+    public async Task InvalidateCommentPolicyAsync(CancellationToken cancellationToken = default)
+    {
+        await httpCacheInvalidator.InvalidateAsync(CacheTag.Comment);
+        runtimeState?.Record("comment_policy", "anonymous-comment-policy");
     }
 
     public async Task InvalidateCommentMutationAsync(CommentCacheInvalidationScope? scope = null, CancellationToken cancellationToken = default)

@@ -194,9 +194,12 @@ public static class AuthoringEndpoints
                 "管理员调整匿名评论策略",
                 TargetType: "anonymous_comment_policy",
                 TargetId: "current",
-                ReasonCode: request.DefaultAuthorMode,
+                ReasonCode: request.Reason ?? request.DefaultAuthorMode ?? snapshot.SnapshotHash,
                 Context: new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
+                    ["snapshotHash"] = snapshot.SnapshotHash,
+                    ["changedBy"] = snapshot.ChangedBy,
+                    ["reason"] = request.Reason ?? snapshot.Reason,
                     ["anonymousCommentsEnabled"] = snapshot.AnonymousCommentsEnabled,
                     ["publicCommentsEnabled"] = snapshot.PublicCommentsEnabled,
                     ["zkAnonymousEnabled"] = snapshot.ZkAnonymousEnabled,

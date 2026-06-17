@@ -23,6 +23,15 @@ public sealed class AnonymousCommentPolicy
     [SugarColumn(ColumnName = "supported_display_languages", Length = 128)]
     public string SupportedDisplayLanguages { get; set; } = "zh-CN,en";
 
+    [SugarColumn(ColumnName = "snapshot_hash", Length = 64)]
+    public string SnapshotHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "updated_reason", Length = 256, IsNullable = true)]
+    public string? UpdatedReason { get; set; }
+
+    [SugarColumn(ColumnName = "changed_by", Length = 64)]
+    public string ChangedBy { get; set; } = "system";
+
     [SugarColumn(ColumnName = "updated_at_utc")]
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
 

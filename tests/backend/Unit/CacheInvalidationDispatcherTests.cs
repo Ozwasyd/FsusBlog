@@ -118,6 +118,23 @@ public sealed class CacheInvalidationDispatcherTests
         await httpCacheInvalidator.DidNotReceive().InvalidateAsync(CacheTag.Comment);
     }
 
+    [Fact]
+    public async Task InvalidateCommentPolicyAsync_InvalidatesCommentPolicyBoundary()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
+        var runtimeState = new CacheInvalidationRuntimeState();
+        var sut = new CacheInvalidationDispatcher(cache, httpCacheInvalidator, runtimeState);
+
+        await sut.InvalidateCommentPolicyAsync();
+
+        await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.Comment);
+        await cache.DidNotReceiveWithAnyArgs().RemoveAsync(default!, default!, default);
+        await cache.DidNotReceiveWithAnyArgs().RemoveManyAsync(default!, default);
+        Assert.Equal("comment_policy", runtimeState.Snapshot().LastKind);
+        Assert.Equal("anonymous-comment-policy", runtimeState.Snapshot().LastDetail);
+    }
+
     private static bool HasKey(IReadOnlyList<CacheKeyIdentity> keys, CachePolicyId policyId, string identity)
         => keys.Any(key => key.PolicyId == policyId && key.Identity == identity);
 

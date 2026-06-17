@@ -833,6 +833,9 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         zk_anonymous_enabled boolean NOT NULL DEFAULT false,
                         default_author_mode varchar(32) NOT NULL DEFAULT 'anonymous',
                         supported_display_languages varchar(128) NOT NULL DEFAULT 'zh-CN,en',
+                        snapshot_hash varchar(64) NOT NULL DEFAULT '',
+                        updated_reason varchar(256) NULL,
+                        changed_by varchar(64) NOT NULL DEFAULT 'system',
                         updated_at_utc timestamp NOT NULL DEFAULT now(),
                         updated_by_admin_id bigint NULL
                     );
@@ -848,6 +851,9 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     VALUES (1, true, true, false, 'anonymous', 'zh-CN,en', now())
                     ON CONFLICT (id) DO NOTHING;
                     """),
+                new EnsureColumnStep("anonymous_comment_policy", "snapshot_hash", "varchar(64) NOT NULL DEFAULT ''"),
+                new EnsureColumnStep("anonymous_comment_policy", "updated_reason", "varchar(256) NULL"),
+                new EnsureColumnStep("anonymous_comment_policy", "changed_by", "varchar(64) NOT NULL DEFAULT 'system'"),
                 new EnsureTableStep(
                     "anonymous_credential",
                     """

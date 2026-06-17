@@ -15,6 +15,11 @@ public sealed record AnonymousCommentPolicySnapshot(
     string DefaultAuthorMode,
     IReadOnlyList<string> SupportedDisplayLanguages)
 {
+    public string SnapshotHash { get; init; } = string.Empty;
+    public string ChangedBy { get; init; } = "configuration";
+    public string? Reason { get; init; }
+    public DateTime UpdatedAtUtc { get; init; } = DateTime.UtcNow;
+
     public static readonly IReadOnlyList<string> DefaultDisplayLanguages = ["zh-CN", "en"];
 
     public static AnonymousCommentPolicySnapshot Default { get; } = new(
@@ -30,7 +35,8 @@ public sealed record AnonymousCommentPolicyUpdateRequest(
     bool? PublicCommentsEnabled,
     bool? ZkAnonymousEnabled,
     string? DefaultAuthorMode,
-    IReadOnlyList<string>? SupportedDisplayLanguages);
+    IReadOnlyList<string>? SupportedDisplayLanguages,
+    string? Reason = null);
 
 public sealed record CommentAuthorModeDecision(
     bool Allowed,
