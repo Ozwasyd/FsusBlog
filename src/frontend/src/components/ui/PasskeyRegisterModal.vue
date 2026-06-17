@@ -12,7 +12,7 @@
     <!-- 步骤 1：设备名称 -->
     <template v-if="step === 'name'">
       <p class="text-sm text-[var(--fsusblog-text-muted)] leading-relaxed mb-6">
-        通行密钥由设备安全芯片或生物识别保护，无需密码即可安全登录。
+        {{ recoverySessionToken ? 'Recovery Key 已验证，请为此账号绑定新的通行密钥。' : '通行密钥由设备安全芯片或生物识别保护，无需密码即可安全登录。' }}
       </p>
 
       <div>
@@ -35,7 +35,7 @@
     <!-- 步骤 2：MFA 验证（仅当用户已启用 TOTP 时） -->
     <template v-else-if="step === 'mfa'">
       <p class="text-sm text-[var(--fsusblog-text-muted)] leading-relaxed mb-6">
-        为保护账户安全，注册通行密钥需要先完成 MFA 验证。
+        为保护账户安全，注册通行密钥需要先完成可选 TOTP step-up 验证。TOTP 恢复码不是 Recovery Key。
       </p>
 
       <div class="space-y-4">
@@ -54,13 +54,13 @@
           />
         </div>
         <div>
-          <label for="passkey-register-recovery-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">恢复码（可选）</label>
+          <label for="passkey-register-recovery-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">TOTP 恢复码（可选）</label>
           <el-input
             id="passkey-register-recovery-code"
             v-model="mfaRecoveryCode"
             type="text"
             autocomplete="one-time-code"
-            placeholder="恢复码"
+            placeholder="TOTP 恢复码"
             :disabled="loading"
             @keyup.enter="onMfaVerify"
           />
@@ -127,7 +127,7 @@
 import { Check } from '@/fsusui/icons'
 import { computed, nextTick, ref, watch } from 'vue'
 import { startRegistration } from '@simplewebauthn/browser'
-import { passkeyRegisterBegin, passkeyRegisterComplete, startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import { beginRecoveryPasskeyRegistration, completeRecoveryPasskeyRegistration, passkeyRegisterBegin, passkeyRegisterComplete, startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
 
 type Step = 'name' | 'mfa' | 'ceremony' | 'success'
 
@@ -135,6 +135,8 @@ const props = withDefaults(defineProps<{
   visible: boolean
   /** 如果用户已启用 TOTP，需要先做 MFA 验证 */
   needsMfa?: boolean
+  /** Recovery Key 验证后签发的短会话，用于未登录恢复流程绑定新 Passkey */
+  recoverySessionToken?: string
 }>(), {
   needsMfa: false
 })
@@ -182,7 +184,7 @@ const handleClose = () => {
 }
 
 const onNameNext = async () => {
-  if (props.needsMfa) {
+  if (!props.recoverySessionToken && props.needsMfa) {
     step.value = 'mfa'
   } else {
     await runCeremony(undefined)
@@ -223,7 +225,9 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
   step.value = 'ceremony'
   try {
     // 1. 获取注册选项
-    const beginResp = await passkeyRegisterBegin()
+    const beginResp = props.recoverySessionToken
+      ? await beginRecoveryPasskeyRegistration(props.recoverySessionToken)
+      : await passkeyRegisterBegin()
     const sessionKey = (beginResp as any).sessionKey || (beginResp as any).SessionKey
     const options = (beginResp as any).options || (beginResp as any).Options
 
@@ -244,12 +248,21 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
     }
 
     // 3. 提交服务器
-    await passkeyRegisterComplete({
-      sessionKey,
-      attestation,
-      friendlyName: friendlyName.value.trim() || undefined,
-      mfaProofToken
-    })
+    if (props.recoverySessionToken) {
+      await completeRecoveryPasskeyRegistration({
+        recoverySessionToken: props.recoverySessionToken,
+        sessionKey,
+        attestation,
+        friendlyName: friendlyName.value.trim() || undefined
+      })
+    } else {
+      await passkeyRegisterComplete({
+        sessionKey,
+        attestation,
+        friendlyName: friendlyName.value.trim() || undefined,
+        mfaProofToken
+      })
+    }
 
     step.value = 'success'
   } catch (e: any) {

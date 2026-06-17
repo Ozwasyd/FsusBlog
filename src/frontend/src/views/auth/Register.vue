@@ -18,133 +18,158 @@
       >
         <header class="mb-8 sm:mb-10">
           <h1 id="register-title" class="text-3xl font-extrabold leading-tight text-[var(--fsusblog-text-primary)] sm:text-4xl">
-            注册账户
+            创建匿名账号
           </h1>
           <p class="mt-3 max-w-sm text-sm leading-7 text-[var(--fsusblog-text-secondary)]">
-            创建账户后即可参与评论与站内互动。
+            不绑定邮箱或手机号。请保存 Recovery Key，并绑定通行密钥后再离开。
           </p>
         </header>
 
-        <form class="space-y-6" novalidate @submit.prevent="handleRegister">
-          <div class="relative group">
-            <label
-              for="username"
-              class="mb-2 block text-xs font-semibold transition-colors"
-              :class="usernameLabelClass"
-            >
-              用户名
-            </label>
-            <el-input
-              id="username"
-              v-model="registerData.username"
-              name="username"
-              type="text"
-              placeholder="3-20位中文或英文字母"
-              :disabled="isProcessing"
-              required
-              aria-required="true"
-              :aria-invalid="Boolean(usernameHint)"
-              aria-describedby="username-hint"
-              autocomplete="username"
-              autofocus
-            />
-            <p
-              v-if="usernameHint"
-              id="username-hint"
-              aria-live="polite"
-              class="mt-2 text-xs font-semibold text-[var(--fsusblog-color-error)] animate-in fade-in slide-in-from-top-1"
-            >
-              {{ usernameHint }}
-            </p>
-          </div>
+        <div class="space-y-6">
+          <section
+            v-if="step === 'account'"
+            class="space-y-6"
+            aria-labelledby="anonymous-account-title"
+          >
+            <div>
+              <h2 id="anonymous-account-title" class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">
+                匿名账号
+              </h2>
+              <p class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
+                公开称呼可选；留空时系统会生成匿名称呼。TOTP MFA 可在账户设置中作为高级 step-up 开启，TOTP 恢复码不是 Recovery Key。
+              </p>
+            </div>
 
-          <div class="relative group">
-            <label
-              for="password"
-              class="mb-2 block text-xs font-semibold transition-colors"
-              :class="passwordLabelClass"
-            >
-              密码
-            </label>
-            <el-input
-              id="password"
-              v-model="registerData.password"
-              name="password"
-              type="password"
-              show-password
-              placeholder="8-128 个字符"
-              maxlength="128"
-              :disabled="isProcessing"
-              required
-              aria-required="true"
-              :aria-invalid="Boolean(passwordHint)"
-              aria-describedby="password-hint"
-              autocomplete="new-password"
-            />
-            <p
-              v-if="passwordHint"
-              id="password-hint"
-              aria-live="polite"
-              class="mt-2 text-xs font-semibold text-[var(--fsusblog-color-error)] animate-in fade-in slide-in-from-top-1"
-            >
-              {{ passwordHint }}
-            </p>
-          </div>
-
-          <div class="relative group">
-            <label
-              for="confirm-password"
-              class="mb-2 block text-xs font-semibold transition-colors"
-              :class="confirmPasswordLabelClass"
-            >
-              确认密码
-            </label>
-            <el-input
-              id="confirm-password"
-              v-model="registerData.confirmPassword"
-              name="confirmPassword"
-              type="password"
-              show-password
-              placeholder="再次输入你的密码"
-              maxlength="128"
-              :disabled="isProcessing"
-              required
-              aria-required="true"
-              :aria-invalid="Boolean(confirmPasswordHint)"
-              aria-describedby="confirm-password-hint"
-              autocomplete="new-password"
-            />
-            <p
-              v-if="confirmPasswordHint"
-              id="confirm-password-hint"
-              aria-live="polite"
-              class="mt-2 text-xs font-semibold text-[var(--fsusblog-color-error)] animate-in fade-in slide-in-from-top-1"
-            >
-              {{ confirmPasswordHint }}
-            </p>
-          </div>
-
-          <div class="pt-1">
-            <el-checkbox
-              id="agreement"
-              v-model="isAgreed"
-              name="agreement"
-              :disabled="isProcessing"
-              aria-required="true"
-            >
-              我已阅读并同意
-              <el-button
-                text
-                inline-action
-                class="register-guidelines-button"
-                type="primary"
-                size="large"
-                @click.stop.prevent="handleGuidelinesActivator"
+            <div class="relative group">
+              <label for="public-handle" class="mb-2 block text-xs font-semibold text-[var(--fsusblog-text-secondary)]">
+                公开称呼（可选）
+              </label>
+              <el-input
+                id="public-handle"
+                v-model="publicHandle"
+                name="publicHandle"
+                type="text"
+                placeholder="3-20 位中文或英文字母"
+                :disabled="isProcessing"
+                :aria-invalid="Boolean(publicHandleHint)"
+                aria-describedby="public-handle-hint"
+                autocomplete="username"
+                autofocus
+              />
+              <p
+                v-if="publicHandleHint"
+                id="public-handle-hint"
+                aria-live="polite"
+                class="mt-2 text-xs font-semibold text-[var(--fsusblog-color-error)] animate-in fade-in slide-in-from-top-1"
               >
-                站点使用规范
+                {{ publicHandleHint }}
+              </p>
+            </div>
+
+            <div class="pt-1">
+              <el-checkbox
+                id="agreement"
+                v-model="isAgreed"
+                name="agreement"
+                :disabled="isProcessing"
+                aria-required="true"
+              >
+                我已阅读并同意
+                <el-button
+                  text
+                  inline-action
+                  class="register-guidelines-button"
+                  type="primary"
+                  size="large"
+                  @click.stop.prevent="handleGuidelinesActivator"
+                >
+                  站点使用规范
+                </el-button>
+              </el-checkbox>
+            </div>
+
+            <div class="grid pt-4">
+              <el-button
+                type="primary"
+                :disabled="!canCreateAnonymousAccount"
+                :loading="loading"
+                :aria-disabled="!canCreateAnonymousAccount"
+                aria-describedby="register-error"
+                @click="createAnonymousAccount"
+              >
+                {{ submitButtonText }}
               </el-button>
-            </el-checkbox>
-          </div>
+            </div>
+          </section>
+
+          <section
+            v-if="step === 'recovery' || step === 'passkey'"
+            class="space-y-5"
+            aria-labelledby="recovery-key-title"
+          >
+            <div>
+              <h2 id="recovery-key-title" class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">
+                保存 Recovery Key
+              </h2>
+              <p class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
+                Recovery Key 只显示一次。若它丢失且没有可用通行密钥，账号可能无法恢复。
+              </p>
+            </div>
+
+            <div
+              class="rounded-[var(--fsus-radius-panel)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg-soft)] p-4"
+              aria-live="polite"
+            >
+              <p class="mb-2 text-[11px] font-semibold text-[var(--fsusblog-text-muted)]">
+                Recovery Key v{{ recoveryKeyVersion }}
+              </p>
+              <code class="block break-all font-mono text-sm leading-7 text-[var(--fsusblog-text-primary)]">
+                {{ recoveryKeyPlaintext }}
+              </code>
+              <p v-if="recoveryKeyCreatedAt" class="mt-2 text-[11px] text-[var(--fsusblog-text-muted)]">
+                生成时间：{{ recoveryKeyCreatedAt }}
+              </p>
+            </div>
+
+            <div class="grid gap-3">
+              <el-button :disabled="!recoveryKeyPlaintext" @click="copyRecoveryKey">
+                复制 Recovery Key
+              </el-button>
+              <el-checkbox
+                id="recovery-key-saved"
+                v-model="recoveryKeySaved"
+                :disabled="!recoveryKeyPlaintext"
+                aria-required="true"
+              >
+                我已保存 Recovery Key
+              </el-checkbox>
+              <el-button
+                type="primary"
+                :disabled="!canRegisterPasskey"
+                @click="openPasskeyRegistration"
+              >
+                注册通行密钥
+              </el-button>
+            </div>
+          </section>
+
+          <section
+            v-if="step === 'complete'"
+            class="space-y-5"
+            aria-labelledby="anonymous-complete-title"
+          >
+            <div class="rounded-[var(--fsus-radius-panel)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg-soft)] px-5 py-4">
+              <h2 id="anonymous-complete-title" class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">
+                通行密钥已绑定
+              </h2>
+              <p class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
+                后续登录请使用通行密钥；Recovery Key 仅用于账号恢复。
+              </p>
+            </div>
+            <el-button type="primary" @click="finishOnboarding">
+              进入账号中心
+            </el-button>
+          </section>
 
           <div
             v-if="localError"
@@ -155,20 +180,7 @@
           >
             {{ localError }}
           </div>
-
-          <div class="grid pt-4">
-            <el-button
-              type="primary"
-              native-type="submit"
-              :disabled="isProcessing || !isFormValid"
-              :loading="isProcessing"
-              :aria-disabled="isProcessing || !isFormValid"
-              aria-describedby="register-error"
-            >
-              {{ submitButtonText }}
-            </el-button>
-          </div>
-        </form>
+        </div>
 
         <footer class="mt-10 flex items-center justify-between border-t border-[var(--fsusblog-panel-border)] pt-6">
           <div class="flex flex-col gap-1">
@@ -185,13 +197,18 @@
     </main>
 
     <PolicyModal v-model:visible="showGuidelines" type="guidelines" />
+    <PasskeyRegisterModal
+      v-model:visible="passkeyModalVisible"
+      @success="onPasskeyRegistered"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useAuthRegister } from '@/composables/useAuthRegister'
+import { useAnonymousOnboarding } from '@/composables/useAnonymousOnboarding'
 import PolicyModal from '@/components/PolicyModal.vue'
+import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 
 const focusRingClass = themeTokens.focusRing
@@ -199,21 +216,28 @@ const focusRingClass = themeTokens.focusRing
 const {
   siteStore,
   localError,
+  publicHandle,
+  publicHandleHint,
   isAgreed,
   showGuidelines,
-  registerData,
+  loading,
+  step,
+  recoveryKeyPlaintext,
+  recoveryKeyVersion,
+  recoveryKeyCreatedAt,
+  recoveryKeySaved,
+  passkeyModalVisible,
   isProcessing,
-  usernameHint,
-  usernameLabelClass,
-  passwordHint,
-  passwordLabelClass,
-  confirmPasswordHint,
-  confirmPasswordLabelClass,
-  isFormValid,
+  canCreateAnonymousAccount,
+  canRegisterPasskey,
   submitButtonText,
   handleGuidelinesActivator,
-  handleRegister
-} = useAuthRegister()
+  createAnonymousAccount,
+  copyRecoveryKey,
+  openPasskeyRegistration,
+  onPasskeyRegistered,
+  finishOnboarding
+} = useAnonymousOnboarding()
 
 const loginBrandImageUrl = computed(() =>
   siteStore.siteInfo.loginLogoUrl?.trim()

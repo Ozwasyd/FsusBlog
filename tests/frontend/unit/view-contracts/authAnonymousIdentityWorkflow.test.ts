@@ -1,0 +1,73 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
+const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
+
+describe('anonymous identity auth workflow contract', () => {
+  const loginPage = readRepoFile('src/frontend/src/views/auth/Login.vue')
+  const registerPage = readRepoFile('src/frontend/src/views/auth/Register.vue')
+  const onboarding = readRepoFile('src/frontend/src/composables/useAnonymousOnboarding.ts')
+  const authApi = readRepoFile('src/frontend/src/api/auth.ts')
+  const authAdapter = readRepoFile('src/frontend/src/adapters/binary/authAdapter.ts')
+  const binaryIndex = readRepoFile('src/frontend/src/adapters/binary/index.ts')
+  const passkeyModal = readRepoFile('src/frontend/src/components/ui/PasskeyRegisterModal.vue')
+
+  it('makes passkey login primary and hides legacy password in anonymous identity mode', () => {
+    expect(loginPage).toContain('const anonymousIdentityMode = true')
+    expect(loginPage).toContain('v-if="anonymousIdentityMode && !requiresMfa"')
+    expect(loginPage).toContain('使用通行密钥登录')
+    expect(loginPage).toContain('Recovery Key')
+    expect(loginPage).toContain('handleRecoveryKeyVerify')
+    expect(loginPage).toContain('PasskeyRegisterModal')
+    expect(loginPage).toContain(':recovery-session-token="recoverySessionToken"')
+    expect(loginPage).toContain('v-else-if="!anonymousIdentityMode && !requiresMfa"')
+    expect(loginPage).not.toContain('可继续使用密码登录')
+    expect(loginPage).not.toContain('改用用户名密码登录')
+  })
+
+  it('replaces password registration with passkey-first anonymous onboarding', () => {
+    expect(registerPage).toContain('useAnonymousOnboarding')
+    expect(registerPage).toContain('PasskeyRegisterModal')
+    expect(registerPage).toContain('Recovery Key')
+    expect(registerPage).toContain('我已保存 Recovery Key')
+    expect(registerPage).toContain('TOTP 恢复码不是 Recovery Key')
+    expect(registerPage).toContain('createAnonymousAccount')
+    expect(registerPage).toContain('openPasskeyRegistration')
+    expect(registerPage).not.toContain('registerData.password')
+    expect(registerPage).not.toContain('confirm-password')
+    expect(registerPage).not.toContain('autocomplete="new-password"')
+  })
+
+  it('keeps recovery key plaintext in memory only and uses existing passkey assets', () => {
+    expect(onboarding).toContain('recoveryKeyPlaintext')
+    expect(onboarding).toContain('recoveryKeySaved')
+    expect(onboarding).toContain('createRecoveryKey')
+    expect(onboarding).toContain('register(')
+    expect(onboarding).toContain('usePasskeyManagement')
+    expect(onboarding).not.toContain('localStorage')
+    expect(onboarding).not.toContain('sessionStorage')
+    expect(onboarding).not.toContain('indexedDB')
+    expect(onboarding).not.toContain('console.')
+    expect(passkeyModal).toContain('recoverySessionToken?: string')
+    expect(passkeyModal).toContain('beginRecoveryPasskeyRegistration')
+    expect(passkeyModal).toContain('completeRecoveryPasskeyRegistration')
+  })
+
+  it('wires recovery key endpoints through AEDS frame adapters', () => {
+    expect(authApi).toContain('createRecoveryKey')
+    expect(authApi).toContain('rotateRecoveryKey')
+    expect(authApi).toContain('verifyRecoveryKey')
+    expect(authApi).toContain('beginRecoveryPasskeyRegistration')
+    expect(authApi).toContain('completeRecoveryPasskeyRegistration')
+    expect(authApi).toContain("binaryUrl: '/api/binary/auth/recovery-key/create'")
+    expect(authApi).toContain("binaryUrl: '/api/binary/auth/recovery-key/verify'")
+    expect(authApi).toContain('FrameType.RecoveryKeyVerifyRequest')
+    expect(authApi).toContain('FrameType.RecoveryKeySessionRequest')
+    expect(authAdapter).toContain('mapRecoveryKeyCreateResponseFromPayload')
+    expect(authAdapter).toContain('mapRecoveryKeyVerifyResponseFromPayload')
+    expect(binaryIndex).toContain('[FrameType.RecoveryKeyCreateResponse]: mapRecoveryKeyCreateResponseFromPayload')
+    expect(binaryIndex).toContain('[FrameType.RecoveryKeyVerifyResponse]: mapRecoveryKeyVerifyResponseFromPayload')
+  })
+})

@@ -15,7 +15,7 @@ vi.mock('@/api/index', () => ({
 }))
 
 import { requestBinaryOnly } from '@/services/binaryTransport'
-import { deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPowChallenge, listPasskeys, listSessions, login, logout, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, register, renamePasskey, revokeOtherSessions, revokeSession, startMfaChallenge, startMfaSetup, updatePassword, updateUsername, verifyMfaChallenge, verifyMfaSetup } from '@/api/auth'
+import { beginRecoveryPasskeyRegistration, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPowChallenge, listPasskeys, listSessions, login, logout, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, register, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePassword, updateUsername, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
 
@@ -219,6 +219,68 @@ describe('auth API binary base session flow', () => {
       binaryUrl: '/api/binary/auth/passkey/credentials/7/name',
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({ method: 'PUT', body: expect.any(ArrayBuffer) })
+    }))
+  })
+
+  it('Recovery Key methods use binary identity frames', async () => {
+    await createRecoveryKey()
+    await rotateRecoveryKey()
+    await verifyRecoveryKey({
+      userId: 42,
+      recoveryKey: 'frk_account_recovery_key',
+      revokeSessions: true,
+      revokePasskeys: true
+    })
+    await beginRecoveryPasskeyRegistration('recovery-session-token')
+    await completeRecoveryPasskeyRegistration({
+      recoverySessionToken: 'recovery-session-token',
+      sessionKey: 'session-1',
+      friendlyName: 'Recovered laptop',
+      attestation: {
+        id: 'credential-id',
+        rawId: 'AQID',
+        response: {
+          clientDataBytes: 'BAUG',
+          attestationObject: 'BwgJ',
+          transports: ['internal']
+        }
+      }
+    })
+
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/auth/recovery-key/create',
+      frameType: FrameType.RecoveryKeyCreateResponse,
+      requestOptions: expect.objectContaining({ method: 'POST' })
+    }))
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/auth/recovery-key/rotate',
+      frameType: FrameType.RecoveryKeyCreateResponse,
+      requestOptions: expect.objectContaining({ method: 'POST' })
+    }))
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/auth/recovery-key/verify',
+      frameType: FrameType.RecoveryKeyVerifyResponse,
+      requestOptions: expect.objectContaining({
+        method: 'POST',
+        requiresPow: true,
+        body: expect.any(ArrayBuffer)
+      })
+    }))
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/auth/recovery-key/passkey/register/begin',
+      frameType: FrameType.PasskeyRegisterBegin,
+      requestOptions: expect.objectContaining({
+        method: 'POST',
+        body: expect.any(ArrayBuffer)
+      })
+    }))
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryUrl: '/api/binary/auth/recovery-key/passkey/register/complete',
+      frameType: FrameType.EmptySuccess,
+      requestOptions: expect.objectContaining({
+        method: 'POST',
+        body: expect.any(ArrayBuffer)
+      })
     }))
   })
 })

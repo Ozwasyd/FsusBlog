@@ -74,6 +74,25 @@ export interface MfaChallengeResult {
   user: AuthIdentitySnapshot | null
 }
 
+export interface RecoveryKeyCreateResponse {
+  keyVersion: number
+  createdAt: string
+  recoveryKey: string
+}
+
+export interface RecoveryKeyVerifyRequest {
+  userId: number
+  recoveryKey: string
+  revokeSessions?: boolean
+  revokePasskeys?: boolean
+}
+
+export interface RecoveryKeyVerifyResponse {
+  userId: number
+  expiresAt: string
+  recoverySessionToken: string
+}
+
 export interface PowRequest {
   powSalt?: string
   powSignature?: string
@@ -378,6 +397,10 @@ export interface PasskeyRegisterCompleteRequest {
   mfaProofToken?: string
 }
 
+export interface RecoveryPasskeyRegisterCompleteRequest extends Omit<PasskeyRegisterCompleteRequest, 'mfaProofToken'> {
+  recoverySessionToken: string
+}
+
 export interface PasskeyLoginCompleteRequest {
   challengeToken: string
   assertion: any
@@ -400,6 +423,61 @@ export const passkeyRegisterComplete = (data: PasskeyRegisterCompleteRequest, co
     requestOptions: {
       method: 'POST',
       body: encodeAedsFrame(FrameType.PasskeyRegisterCompleteRequest, encodePasskeyRegisterCompleteRequest(data))
+    }
+  })
+
+export const createRecoveryKey = (config?: ApiRequestConfig) =>
+  requestBinaryOnly<RecoveryKeyCreateResponse>({
+    binaryUrl: '/api/binary/auth/recovery-key/create',
+    frameType: FrameType.RecoveryKeyCreateResponse,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: { method: 'POST' }
+  })
+
+export const rotateRecoveryKey = (config?: ApiRequestConfig) =>
+  requestBinaryOnly<RecoveryKeyCreateResponse>({
+    binaryUrl: '/api/binary/auth/recovery-key/rotate',
+    frameType: FrameType.RecoveryKeyCreateResponse,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: { method: 'POST' }
+  })
+
+export const verifyRecoveryKey = (data: RecoveryKeyVerifyRequest, config?: ApiRequestConfig) =>
+  requestBinaryOnly<RecoveryKeyVerifyResponse>({
+    binaryUrl: '/api/binary/auth/recovery-key/verify',
+    frameType: FrameType.RecoveryKeyVerifyResponse,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'POST',
+      requiresPow: true,
+      body: encodeAedsFrame(FrameType.RecoveryKeyVerifyRequest, encodeRecoveryKeyVerifyRequest(data))
+    }
+  })
+
+export const beginRecoveryPasskeyRegistration = (recoverySessionToken: string, config?: ApiRequestConfig) =>
+  requestBinaryOnly<PasskeyRegisterBeginResponse>({
+    binaryUrl: '/api/binary/auth/recovery-key/passkey/register/begin',
+    frameType: FrameType.PasskeyRegisterBegin,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'POST',
+      body: encodeAedsFrame(FrameType.RecoveryKeySessionRequest, encodeStringMutationRequest(recoverySessionToken))
+    }
+  })
+
+export const completeRecoveryPasskeyRegistration = (data: RecoveryPasskeyRegisterCompleteRequest, config?: ApiRequestConfig) =>
+  requestBinaryOnly<null>({
+    binaryUrl: '/api/binary/auth/recovery-key/passkey/register/complete',
+    frameType: FrameType.EmptySuccess,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'POST',
+      body: encodeAedsFrame(FrameType.PasskeyRegisterCompleteRequest, encodePasskeyRegisterCompleteRequest({
+        sessionKey: data.sessionKey,
+        attestation: data.attestation,
+        friendlyName: data.friendlyName,
+        mfaProofToken: data.recoverySessionToken
+      }))
     }
   })
 
@@ -509,6 +587,20 @@ function encodeMfaChallengeVerifyRequest(data: { challengeToken: string; code?: 
   writeSliceRef(view, 16, refs[2])
   writeSliceRef(view, 24, refs[3])
   view.setInt32(32, blobLength, true)
+  return bytes
+}
+
+function encodeRecoveryKeyVerifyRequest(data: RecoveryKeyVerifyRequest): Uint8Array {
+  const recoveryKey = textBytes(data.recoveryKey)
+  const bytes = new Uint8Array(20 + recoveryKey.byteLength)
+  const view = new DataView(bytes.buffer)
+  view.setInt32(0, data.userId, true)
+  bytes[4] = data.revokeSessions ? 1 : 0
+  bytes[5] = data.revokePasskeys ? 1 : 0
+  view.setUint16(6, 0, true)
+  writeSliceRef(view, 8, { offset: 0, length: recoveryKey.byteLength })
+  view.setInt32(16, recoveryKey.byteLength, true)
+  bytes.set(recoveryKey, 20)
   return bytes
 }
 

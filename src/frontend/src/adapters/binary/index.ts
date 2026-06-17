@@ -8,7 +8,7 @@ import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceCo
 import { mapCategoryListFromPayload, mapTagListFromPayload } from './taxonomyAdapter';
 import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from './uploadAdapter';
 import { mapAdminUserPageFromPayload } from './userAdapter';
-import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapMfaSetupVerifyFromPayload, mapPowChallengeFromPayload, mapUserSessionsFromPayload } from './authAdapter';
+import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapMfaSetupVerifyFromPayload, mapPowChallengeFromPayload, mapRecoveryKeyCreateResponseFromPayload, mapRecoveryKeyVerifyResponseFromPayload, mapUserSessionsFromPayload } from './authAdapter';
 import { mapConversationDetailFromPayload, mapConversationListFromPayload, mapConversationMessageFromPayload } from './messageAdapter';
 import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload } from './passkeyAdapter';
 import { mapHumanReadChallengeFromPayload, mapHumanReadSubmitFromPayload } from './readProofAdapter';
@@ -35,6 +35,8 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.MfaSetupVerify]: mapMfaSetupVerifyFromPayload,
   [FrameType.MfaProfile]: mapMfaProfileFromPayload,
   [FrameType.MfaChallengeResult]: mapMfaChallengeResultFromPayload,
+  [FrameType.RecoveryKeyCreateResponse]: mapRecoveryKeyCreateResponseFromPayload,
+  [FrameType.RecoveryKeyVerifyResponse]: mapRecoveryKeyVerifyResponseFromPayload,
   [FrameType.ConversationList]: mapConversationListFromPayload,
   [FrameType.ConversationDetail]: mapConversationDetailFromPayload,
   [FrameType.ConversationMessage]: mapConversationMessageFromPayload,

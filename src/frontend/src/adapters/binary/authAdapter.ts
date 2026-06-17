@@ -1,8 +1,8 @@
-import type { AuthLoginFlow, CurrentUserSnapshot, MfaChallengeResult, MfaProfile, MfaSetupStart, MfaSetupVerify, UserSessionSummary } from '@/api/auth';
+import type { AuthLoginFlow, CurrentUserSnapshot, MfaChallengeResult, MfaProfile, MfaSetupStart, MfaSetupVerify, RecoveryKeyCreateResponse, RecoveryKeyVerifyResponse, UserSessionSummary } from '@/api/auth';
 import { createAppError, AppErrorCode } from '@/utils/appError';
 import { BinaryReader, readByte, readFixedUtf8, readInt32, readIsoDate64, readSliceRef, readSliceText } from './reader';
 import { readArrayEnvelope } from './envelopeReaders';
-import { AUTH_LOGIN_FLOW_POD_SIZE, CURRENT_USER_SNAPSHOT_POD_SIZE, MFA_CHALLENGE_RESULT_POD_SIZE, MFA_PROFILE_POD_SIZE, MFA_RECOVERY_CODE_POD_SIZE, MFA_SETUP_START_POD_SIZE, MFA_SETUP_VERIFY_POD_SIZE, USER_SESSION_SUMMARY_POD_SIZE } from './types';
+import { AUTH_LOGIN_FLOW_POD_SIZE, CURRENT_USER_SNAPSHOT_POD_SIZE, MFA_CHALLENGE_RESULT_POD_SIZE, MFA_PROFILE_POD_SIZE, MFA_RECOVERY_CODE_POD_SIZE, MFA_SETUP_START_POD_SIZE, MFA_SETUP_VERIFY_POD_SIZE, RECOVERY_KEY_CREATE_RESPONSE_POD_SIZE, RECOVERY_KEY_VERIFY_RESPONSE_POD_SIZE, USER_SESSION_SUMMARY_POD_SIZE } from './types';
 
 export function mapAuthLoginFlowFromPayload(payload: Uint8Array): AuthLoginFlow {
   if (payload.byteLength !== AUTH_LOGIN_FLOW_POD_SIZE) {
@@ -123,6 +123,41 @@ export function mapMfaChallengeResultFromPayload(payload: Uint8Array): MfaChalle
       username: readFixedUtf8(payload, 8, 64),
       role: readFixedUtf8(payload, 72, 32)
     } : null
+  };
+}
+
+export function mapRecoveryKeyCreateResponseFromPayload(payload: Uint8Array): RecoveryKeyCreateResponse {
+  const reader = new BinaryReader(payload);
+  const pod = reader.readSpan(RECOVERY_KEY_CREATE_RESPONSE_POD_SIZE);
+  const blob = reader.readBlob();
+  const recoveryKey = readSliceText(blob, readSliceRef(pod, 16));
+
+  if (!recoveryKey || reader.remaining() !== 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'recovery_key_create_payload_invalid');
+  }
+
+  return {
+    keyVersion: readInt32(pod, 0),
+    createdAt: readIsoDate64(pod, 8),
+    recoveryKey
+  };
+}
+
+export function mapRecoveryKeyVerifyResponseFromPayload(payload: Uint8Array): RecoveryKeyVerifyResponse {
+  if (payload.byteLength !== RECOVERY_KEY_VERIFY_RESPONSE_POD_SIZE) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'recovery_key_verify_payload_invalid');
+  }
+
+  const userId = readInt32(payload, 0);
+  const recoverySessionToken = readFixedUtf8(payload, 16, 128);
+  if (userId <= 0 || !recoverySessionToken) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'recovery_key_verify_response_invalid');
+  }
+
+  return {
+    userId,
+    expiresAt: readIsoDate64(payload, 8),
+    recoverySessionToken
   };
 }
 
