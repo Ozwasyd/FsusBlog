@@ -98,3 +98,41 @@ public static class ZkProofVerificationStatuses
     public const string MissingProof = "missing_proof";
     public const string InvalidProof = "invalid_proof";
 }
+
+public sealed record CommentActor(
+    int? UserId,
+    string AuthorMode,
+    string? PublicHandle,
+    string? AnonymousHandle,
+    string DisplayName,
+    string DisplayLanguage,
+    string? AnonymousNullifierHash,
+    string? AnonymousScope,
+    string ModerationSubjectHash,
+    string CredentialLevel,
+    string ReputationBucket,
+    string AccountAgeBucket);
+
+public sealed record CommentActorResolveRequest(
+    int? UserId,
+    int ArticleId,
+    string? AuthorMode,
+    bool PublicSendExplicitlySelected,
+    string? AnonymousScope,
+    string? DisplayLanguage,
+    string? ProofToken,
+    byte[]? ZkProof,
+    string? SubmitRegion);
+
+public sealed record CommentActorResolveResult(
+    bool Allowed,
+    CommentActor? Actor,
+    string Status,
+    string Message)
+{
+    public static CommentActorResolveResult Allow(CommentActor actor)
+        => new(true, actor, "allowed", "Comment actor resolved");
+
+    public static CommentActorResolveResult Reject(string status, string message)
+        => new(false, null, status, message);
+}

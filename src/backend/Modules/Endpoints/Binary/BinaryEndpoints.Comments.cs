@@ -51,7 +51,7 @@ public static partial class BinaryEndpoints
             var payload = await ReadBinaryRequestPayloadAsync(
                 httpContext,
                 aeds,
-                AedsFrameType.CommentCreateRequest,
+                [AedsFrameType.CommentCreateRequest, AedsFrameType.CommentCreateV2Request],
                 cancellationToken,
                 CommentLimits.CreatePayloadMaxBytes);
             if (!payload.IsSuccess)
@@ -59,12 +59,22 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(payload.Error, aeds);
             }
 
-            if (!PodBinaryCodec.TryDecodeCommentCreateRequest(payload.Payload, out var request))
+            bool isV2Request = payload.FrameType == AedsFrameType.CommentCreateV2Request;
+            CommentCreateV2RequestCoreModel requestV2 = default;
+            CommentCreateRequestCoreModel requestLegacy = default;
+            if (isV2Request)
+            {
+                if (!PodBinaryCodec.TryDecodeCommentCreateV2Request(payload.Payload, out requestV2))
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "评论请求体非法"), aeds);
+                }
+            }
+            else if (!PodBinaryCodec.TryDecodeCommentCreateRequest(payload.Payload, out requestLegacy))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "评论请求体非法"), aeds);
             }
 
-            string content = request.Content?.Trim() ?? string.Empty;
+            string content = (isV2Request ? requestV2.Content : requestLegacy.Content)?.Trim() ?? string.Empty;
             if (!IsCommentContentWithinLimit(content))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"评论内容不能超过 {CommentLimits.ContentMaxChars} 字或 {CommentLimits.ContentMaxUtf8Bytes} 字节"), aeds);
@@ -77,9 +87,10 @@ public static partial class BinaryEndpoints
             }
 
             ClientRegionResolution submitRegion = regionResolver.Resolve(httpContext);
+            int articleId = isV2Request ? requestV2.ArticleId : requestLegacy.ArticleId;
             RegionModerationDecision regionDecision = regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
                 content,
-                request.ArticleId,
+                articleId,
                 userId,
                 submitRegion.Region,
                 submitRegion.Confidence,
@@ -92,18 +103,28 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, regionDecision.PublicReason), aeds);
             }
 
-            var dto = new CommentDto
+            bool success;
+            if (isV2Request)
             {
-                ArticleId = request.ArticleId,
-                Content = content,
-                ParentId = request.ParentId,
-                RootId = request.RootId,
-                ReplyToCommentId = request.ReplyToCommentId,
-                ReplyToUserId = request.ReplyToUserId,
-                RegionDecision = regionDecision
-            };
+                requestV2 = requestV2 with { Content = content };
+                success = await commentService.CreateCommentV2Async(userId, requestV2, regionDecision);
+            }
+            else
+            {
+                var dto = new CommentDto
+                {
+                    ArticleId = requestLegacy.ArticleId,
+                    Content = content,
+                    ParentId = requestLegacy.ParentId,
+                    RootId = requestLegacy.RootId,
+                    ReplyToCommentId = requestLegacy.ReplyToCommentId,
+                    ReplyToUserId = requestLegacy.ReplyToUserId,
+                    RegionDecision = regionDecision
+                };
 
-            bool success = await commentService.CreateCommentAsync(userId, dto);
+                success = await commentService.CreateCommentAsync(userId, dto);
+            }
+
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "发布失败：可能文章已关闭评论或数据异常"), aeds);

@@ -200,6 +200,17 @@ public sealed class ReadProofBinaryEndpointTests
             return Task.FromResult(payload);
         }
 
+        public Task<BinaryRequestPayload> ReadFrameAsync(
+            HttpContext httpContext,
+            IAedsEncoder aeds,
+            IReadOnlyCollection<AedsFrameType> expected,
+            CancellationToken cancellationToken,
+            int? maxFrameBytes = null)
+        {
+            Assert.Contains(expectedFrameType, expected);
+            return Task.FromResult(payload);
+        }
+
         public Task<NameMutationPayload> ReadNameMutationAsync(
             HttpContext httpContext,
             IAedsEncoder aeds,

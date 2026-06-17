@@ -23,6 +23,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAdminPrincipalPlaneMigration(),
         BuildAccountRecoveryKeyMigration(),
         BuildAnonymousCommentGovernanceMigration(),
+        BuildCommentActorMigration(),
         BuildAuditLogMigration(),
         BuildAuditLogStructuredFieldsPreCodeFirstMigration(),
         BuildAuditLogStructuredFieldsMigration(),
@@ -883,6 +884,50 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_comment_nullifier_scope ON comment_anonymous_nullifier(nullifier_hash, scope);
                     CREATE INDEX IF NOT EXISTS idx_comment_nullifier_blocked ON comment_anonymous_nullifier(blocked);
                     """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildCommentActorMigration()
+        => new SchemaMigrationDescriptor(
+            "20260617-post-comment-actor-anonymous-default",
+            "Allow anonymous comment actors and persist author display projections on comments.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new RawSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'comment'
+                              AND column_name = 'user_id'
+                              AND is_nullable = 'NO'
+                        ) THEN
+                            ALTER TABLE comment ALTER COLUMN user_id DROP NOT NULL;
+                        END IF;
+                    END $$;
+                    """),
+                new EnsureColumnStep("comment", "author_mode", "varchar(32) NOT NULL DEFAULT 'anonymous'"),
+                new EnsureColumnStep("comment", "public_handle", "varchar(64) NULL"),
+                new EnsureColumnStep("comment", "anonymous_handle", "varchar(64) NULL"),
+                new EnsureColumnStep("comment", "anonymous_display_name", "varchar(96) NULL"),
+                new EnsureColumnStep("comment", "anonymous_display_language", "varchar(16) NULL"),
+                new EnsureColumnStep("comment", "anonymous_nullifier_hash", "varchar(128) NULL"),
+                new EnsureColumnStep("comment", "anonymous_scope", "varchar(128) NULL"),
+                new EnsureColumnStep("comment", "moderation_subject_hash", "varchar(128) NULL"),
+                new EnsureColumnStep("comment", "credential_level", "varchar(32) NULL"),
+                new EnsureColumnStep("comment", "reputation_bucket", "varchar(32) NULL"),
+                new EnsureColumnStep("comment", "account_age_bucket", "varchar(32) NULL"),
+                new CreateIndexStep(
+                    "idx_comment_author_mode",
+                    "CREATE INDEX IF NOT EXISTS idx_comment_author_mode ON comment(author_mode);"),
+                new CreateIndexStep(
+                    "idx_comment_anonymous_scope",
+                    "CREATE INDEX IF NOT EXISTS idx_comment_anonymous_scope ON comment(anonymous_scope);"),
+                new CreateIndexStep(
+                    "idx_comment_moderation_subject_hash",
+                    "CREATE INDEX IF NOT EXISTS idx_comment_moderation_subject_hash ON comment(moderation_subject_hash);")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAuditLogMigration()

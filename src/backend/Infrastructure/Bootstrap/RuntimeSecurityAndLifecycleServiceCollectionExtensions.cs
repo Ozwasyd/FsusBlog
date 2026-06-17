@@ -27,6 +27,8 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddSingleton<IAnonymousCommentPolicyService, AnonymousCommentPolicyService>();
         services.AddScoped<IAnonymousCredentialService, AnonymousCredentialService>();
         services.AddScoped<ICommentAnonymousNullifierService, CommentAnonymousNullifierService>();
+        services.AddSingleton<ICommentAnonymousDisplayNameGenerator, CommentAnonymousDisplayNameGenerator>();
+        services.AddScoped<ICommentActorResolver, CommentActorResolver>();
         services.AddScoped<ITotpService, TotpService>();
         services.AddScoped<IMfaChallengeService, MfaChallengeService>();
         services.AddScoped<IAuthRiskService, AuthRiskService>();

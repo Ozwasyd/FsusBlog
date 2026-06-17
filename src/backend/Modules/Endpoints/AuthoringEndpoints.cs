@@ -1585,7 +1585,7 @@ public static class AuthoringEndpoints
             RegionModerationDecision nextDecision = regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
                 row.Content,
                 row.ArticleId,
-                row.UserId,
+                row.UserId ?? 0,
                 row.SubmitRegion,
                 row.SubmitRegionConfidence,
                 row.RegionProvider,
@@ -1724,7 +1724,7 @@ public static class AuthoringEndpoints
     {
         public long CommentId { get; init; }
         public int ArticleId { get; init; }
-        public int UserId { get; init; }
+        public int? UserId { get; init; }
         public string Content { get; init; } = string.Empty;
         public string SubmitRegion { get; init; } = RegionCodes.Unknown;
         public double SubmitRegionConfidence { get; init; }

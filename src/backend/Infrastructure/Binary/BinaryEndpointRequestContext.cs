@@ -7,6 +7,7 @@ namespace FsusBlog.Server.Infrastructure.Binary;
 internal interface IBinaryEndpointRequestContext
 {
     Task<BinaryRequestPayload> ReadFrameAsync(HttpContext httpContext, IAedsEncoder aeds, AedsFrameType expectedFrameType, CancellationToken cancellationToken, int? maxFrameBytes = null);
+    Task<BinaryRequestPayload> ReadFrameAsync(HttpContext httpContext, IAedsEncoder aeds, IReadOnlyCollection<AedsFrameType> expectedFrameTypes, CancellationToken cancellationToken, int? maxFrameBytes = null);
     Task<NameMutationPayload> ReadNameMutationAsync(HttpContext httpContext, IAedsEncoder aeds, AedsFrameType expectedFrameType, CancellationToken cancellationToken);
     string BuildArticleViewerIdentity(HttpContext context, int articleId);
     ValueTask<long> GetArticleListCacheVersionAsync(IUnifiedCache cache);
@@ -30,6 +31,14 @@ internal sealed class BinaryEndpointRequestContext(
         CancellationToken cancellationToken,
         int? maxFrameBytes = null)
         => binder.ReadFrameAsync(httpContext, aeds, expectedFrameType, cancellationToken, maxFrameBytes);
+
+    public Task<BinaryRequestPayload> ReadFrameAsync(
+        HttpContext httpContext,
+        IAedsEncoder aeds,
+        IReadOnlyCollection<AedsFrameType> expectedFrameTypes,
+        CancellationToken cancellationToken,
+        int? maxFrameBytes = null)
+        => binder.ReadFrameAsync(httpContext, aeds, expectedFrameTypes, cancellationToken, maxFrameBytes);
 
     public Task<NameMutationPayload> ReadNameMutationAsync(
         HttpContext httpContext,

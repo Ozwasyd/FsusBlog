@@ -402,7 +402,7 @@ public sealed class AuthoringWorkflowService(
                 ArticleId = c.ArticleId,
                 ArticleTitle = a.Title,
                 UserId = c.UserId,
-                UserName = u.Username,
+                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 Status = c.ModerationStatus,
@@ -692,7 +692,7 @@ public sealed class AuthoringWorkflowService(
             row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
             row.ArticleId,
             string.IsNullOrWhiteSpace(row.ArticleTitle) ? "未命名文章" : row.ArticleTitle,
-            row.UserId,
+            row.UserId ?? 0,
             string.IsNullOrWhiteSpace(row.UserName) ? "匿名用户" : row.UserName,
             row.Content,
             row.CreateTime,
@@ -807,11 +807,14 @@ public sealed class AuthoringWorkflowService(
             return 0;
         }
 
-        List<int> userIds = await db.Queryable<Comment>()
+        List<int?> userIds = await db.Queryable<Comment>()
             .Where(item => ids.Contains(item.Id))
             .Select(item => item.UserId)
             .ToListAsync(cancellationToken);
-        int[] uniqueUserIds = [.. userIds.Where(static id => id > 0).Distinct()];
+        int[] uniqueUserIds = [.. userIds
+            .Where(static id => id is > 0)
+            .Select(static id => id.GetValueOrDefault())
+            .Distinct()];
         if (uniqueUserIds.Length == 0)
         {
             return 0;
@@ -860,7 +863,7 @@ public sealed class AuthoringWorkflowService(
                 ArticleId = c.ArticleId,
                 ArticleTitle = a.Title,
                 UserId = c.UserId,
-                UserName = u.Username,
+                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 ParentId = c.ParentId,
@@ -896,7 +899,7 @@ public sealed class AuthoringWorkflowService(
                 ArticleId = c.ArticleId,
                 ArticleTitle = a.Title,
                 UserId = c.UserId,
-                UserName = u.Username,
+                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 ParentId = c.ParentId,
@@ -962,7 +965,9 @@ public sealed class AuthoringWorkflowService(
 
     private async Task NotifyApprovedReplyAsync(CommentModerationStateRow row)
     {
-        if (!row.ReplyToUserId.HasValue || row.ReplyToUserId.Value <= 0 || row.ReplyToUserId.Value == row.UserId)
+        if (!row.ReplyToUserId.HasValue ||
+            row.ReplyToUserId.Value <= 0 ||
+            (row.UserId.HasValue && row.ReplyToUserId.Value == row.UserId.Value))
         {
             return;
         }
@@ -1454,7 +1459,7 @@ public sealed class AuthoringWorkflowService(
         public long Id { get; set; }
         public int ArticleId { get; set; }
         public string? ArticleTitle { get; set; }
-        public int UserId { get; set; }
+        public int? UserId { get; set; }
         public string? UserName { get; set; }
         public string Content { get; set; } = string.Empty;
         public DateTime CreateTime { get; set; }
@@ -1480,7 +1485,7 @@ public sealed class AuthoringWorkflowService(
         public long Id { get; init; }
         public int ArticleId { get; init; }
         public string? ArticleTitle { get; init; }
-        public int UserId { get; init; }
+        public int? UserId { get; init; }
         public string? UserName { get; init; }
         public string Content { get; init; } = string.Empty;
         public DateTime CreateTime { get; init; }

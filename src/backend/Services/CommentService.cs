@@ -1,16 +1,19 @@
 using System.Data.Common;
 using System.Text;
 using System.Text.Json;
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services.Moderation;
+using FsusBlog.Server.Services.Security;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services;
@@ -22,7 +25,8 @@ public partial class CommentService(
     IMessageCommandService messageCommandService,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
     IRegionLegalModerationService regionLegalModerationService,
-    IAntiSpamModerationService? antiSpamModerationService = null) : ICommentService, ICommentEndpointService
+    IAntiSpamModerationService? antiSpamModerationService = null,
+    ICommentActorResolver? commentActorResolver = null) : ICommentService, ICommentEndpointService
 {
     private const int DefaultReplyPreviewLimit = 3;
     private const string DeletedPlaceholder = "该回复已删除";
@@ -62,14 +66,44 @@ public partial class CommentService(
             return false;
         }
 
-        string? actorUserName = await db.Queryable<User>()
-            .Where(u => u.Id == userId)
-            .Select(u => u.Username)
-            .FirstAsync();
-        if (string.IsNullOrWhiteSpace(actorUserName))
+        RegionModerationDecision regionDecision = dto.RegionDecision ?? regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
+            normalizedContent,
+            dto.ArticleId,
+            userId,
+            RegionCodes.Unknown,
+            0d,
+            "fallback",
+            null,
+            null,
+            DateTime.UtcNow));
+        if (!regionDecision.CanPublish)
         {
             return false;
         }
+
+        if (commentActorResolver is null)
+        {
+            return false;
+        }
+
+        CommentActorResolveResult actorResult = await commentActorResolver.ResolveAsync(
+            new CommentActorResolveRequest(
+                UserId: userId > 0 ? userId : null,
+                ArticleId: dto.ArticleId,
+                AuthorMode: dto.AuthorMode,
+                PublicSendExplicitlySelected: dto.PublicSendExplicitlySelected,
+                AnonymousScope: dto.AnonymousScope,
+                DisplayLanguage: dto.DisplayLanguage,
+                ProofToken: dto.ProofToken,
+                ZkProof: dto.ZkProof,
+                SubmitRegion: regionDecision.SubmitRegion),
+            CancellationToken.None);
+        if (!actorResult.Allowed || actorResult.Actor is null)
+        {
+            return false;
+        }
+
+        CommentActor actor = actorResult.Actor;
 
         bool hasReplyContext = !string.IsNullOrWhiteSpace(dto.ParentId)
             || !string.IsNullOrWhiteSpace(dto.RootId)
@@ -109,12 +143,12 @@ public partial class CommentService(
                 requestedReplyToCommentId = parsedReplyToCommentId;
             }
 
-            var parent = await db.Queryable<Comment, User>((c, u) => c.UserId == u.Id)
-                .Where((c, u) => c.Id == parsedParentId
+            var parent = await db.Queryable<Comment>()
+                .Where(c => c.Id == parsedParentId
                     && c.ArticleId == dto.ArticleId
                     && c.ModerationStatus == CommentModerationStatus.Approved
                     && !c.IsDeleted)
-                .Select((c, u) => new
+                .Select(c => new
                 {
                     c.Id,
                     c.ArticleId,
@@ -159,26 +193,22 @@ public partial class CommentService(
             depth = Math.Max(1, parent.Depth + 1);
         }
 
-        RegionModerationDecision regionDecision = dto.RegionDecision ?? regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
-            normalizedContent,
-            dto.ArticleId,
-            userId,
-            RegionCodes.Unknown,
-            0d,
-            "fallback",
-            null,
-            null,
-            DateTime.UtcNow));
-        if (!regionDecision.CanPublish)
-        {
-            return false;
-        }
-
         var comment = new Comment
         {
             ArticleId = dto.ArticleId,
             Content = normalizedContent,
-            UserId = userId,
+            UserId = actor.UserId,
+            AuthorMode = actor.AuthorMode,
+            PublicHandle = actor.PublicHandle,
+            AnonymousHandle = actor.AnonymousHandle,
+            AnonymousDisplayName = actor.DisplayName,
+            AnonymousDisplayLanguage = actor.DisplayLanguage,
+            AnonymousNullifierHash = actor.AnonymousNullifierHash,
+            AnonymousScope = actor.AnonymousScope,
+            ModerationSubjectHash = actor.ModerationSubjectHash,
+            CredentialLevel = actor.CredentialLevel,
+            ReputationBucket = actor.ReputationBucket,
+            AccountAgeBucket = actor.AccountAgeBucket,
             CreateTime = DateTime.UtcNow,
             ParentId = parentId,
             RootId = rootId,
@@ -218,7 +248,7 @@ public partial class CommentService(
                 new AntiSpamCommentModerationContext(
                     comment.Id,
                     comment.ArticleId,
-                    comment.UserId,
+                    comment.UserId ?? 0,
                     comment.Content,
                     comment.ParentId,
                     regionDecision.SubmitIpHash,
@@ -232,7 +262,7 @@ public partial class CommentService(
             new CommentCacheInvalidationScope(
                 ArticleId: comment.ArticleId,
                 RootId: comment.RootId ?? comment.Id,
-                UserId: userId,
+                UserId: actor.UserId,
                 PublicArticleChanged: false,
                 UserCommentsChanged: true));
 
@@ -244,6 +274,24 @@ public partial class CommentService(
 
         return true;
     }
+
+    public Task<bool> CreateCommentV2Async(int userId, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null)
+        => CreateCommentAsync(userId, new CommentDto
+        {
+            ArticleId = request.ArticleId,
+            Content = request.Content,
+            ParentId = request.ParentId,
+            RootId = request.RootId,
+            ReplyToCommentId = request.ReplyToCommentId,
+            ReplyToUserId = request.ReplyToUserId,
+            AuthorMode = request.AuthorMode,
+            PublicSendExplicitlySelected = request.PublicSendExplicitlySelected,
+            AnonymousScope = request.AnonymousScope,
+            DisplayLanguage = request.DisplayLanguage,
+            ProofToken = request.ProofToken,
+            ZkProof = request.ZkProof,
+            RegionDecision = regionDecision
+        });
 
     public async Task<CursorResponse<CommentThreadItemDto>> GetCommentThreadsByCursorAsync(
         int articleId,
@@ -262,7 +310,10 @@ public partial class CommentService(
         string blockedToken = RegionLegalModerationService.SerializeRegions([normalizedViewerRegion]);
         bool conservativeUnknownViewer = normalizedViewerRegion == RegionCodes.Unknown;
 
-        var rootQuery = db.Queryable<Comment, User>((c, u) => c.UserId == u.Id)
+        var rootQuery = db.Queryable<Comment, User>((c, u) => new object[]
+            {
+                JoinType.Left, c.UserId == u.Id
+            })
             .Where((c, u) => c.ArticleId == articleId && c.ParentId == null)
             .Where((c, u) => c.ModerationStatus == CommentModerationStatus.Approved)
             .Where((c, u) => !c.IsDeleted);
@@ -287,7 +338,7 @@ public partial class CommentService(
                 ArticleId = c.ArticleId,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
-                UserName = u.Username,
+                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
                 Depth = c.Depth,
                 IsDeleted = c.IsDeleted
             })
@@ -361,30 +412,31 @@ public partial class CommentService(
             return new CursorResponse<CommentReplyItemDto> { Data = [], NextCursor = null, HasMore = false };
         }
 
-        var replyQuery = db.Queryable<Comment, User, User>((c, u, ru) => new object[]
+        var replyQuery = db.Queryable<Comment, User, Comment, User>((c, u, pc, ru) => new object[]
             {
                 JoinType.Left, c.UserId == u.Id,
-                JoinType.Left, c.ReplyToUserId == ru.Id
+                JoinType.Left, c.ReplyToCommentId == pc.Id,
+                JoinType.Left, pc.UserId == ru.Id
             })
-            .Where((c, u, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
-            .Where((c, u, ru) => c.ModerationStatus == CommentModerationStatus.Approved)
-            .Where((c, u, ru) => !c.IsDeleted);
+            .Where((c, u, pc, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
+            .Where((c, u, pc, ru) => c.ModerationStatus == CommentModerationStatus.Approved)
+            .Where((c, u, pc, ru) => !c.IsDeleted);
 
         replyQuery = conservativeUnknownViewer
-            ? replyQuery.Where((c, u, ru) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
+            ? replyQuery.Where((c, u, pc, ru) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
                 .Where(rc => rc.CommentId == c.Id
                     && rc.BlockedRegions != string.Empty)
                 .Any())
-            : replyQuery.Where((c, u, ru) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
+            : replyQuery.Where((c, u, pc, ru) => !SqlFunc.Subqueryable<CommentRegionCompliance>()
                 .Where(rc => rc.CommentId == c.Id
                     && rc.BlockedRegions.Contains(blockedToken))
                 .Any());
 
         var rows = await replyQuery
-            .WhereIF(request.Cursor.HasValue, (c, u, ru) => c.Id > request.Cursor!.Value)
-            .OrderBy((c, u, ru) => c.Id)
+            .WhereIF(request.Cursor.HasValue, (c, u, pc, ru) => c.Id > request.Cursor!.Value)
+            .OrderBy((c, u, pc, ru) => c.Id)
             .Take(request.Limit + 1)
-            .Select((c, u, ru) => new ReplyRow
+            .Select((c, u, pc, ru) => new ReplyRow
             {
                 Id = c.Id,
                 ParentId = c.ParentId,
@@ -393,8 +445,8 @@ public partial class CommentService(
                 ReplyToCommentId = c.ReplyToCommentId,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
-                UserName = u.Username,
-                ReplyToUserName = ru.Username,
+                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
+                ReplyToUserName = pc.AnonymousDisplayName ?? pc.PublicHandle ?? ru.Username,
                 Depth = c.Depth,
                 IsDeleted = c.IsDeleted
             })
@@ -523,10 +575,10 @@ public partial class CommentService(
                 UserCommentsChanged: true));
         await messageService.PushCommentRemoveAsync(row.ArticleId, id, row.RootId ?? id, row.ParentId);
 
-        if (isAdmin && currentUserId != row.UserId)
+        if (isAdmin && row.UserId.HasValue && currentUserId != row.UserId.Value)
         {
             string commentSnippet = row.Content.Length > 20 ? row.Content[..20] : row.Content;
-            _ = NotifyDeletionAsync(row.UserId, row.ArticleTitle ?? "未知文章", commentSnippet, reason);
+            _ = NotifyDeletionAsync(row.UserId.Value, row.ArticleTitle ?? "未知文章", commentSnippet, reason);
         }
 
         logger.LogInformation("评论软删除成功 | CommentId: {CommentId} | Article: {ArticleId} | Root: {RootId} | Parent: {ParentId}",
@@ -540,17 +592,18 @@ public partial class CommentService(
 
     private async Task<List<CommentReplyPreviewItemDto>> QueryThreadRepliesPreviewAsync(int articleId, long rootId, int limit)
     {
-        var rows = await db.Queryable<Comment, User, User>((c, u, ru) => new object[]
+        var rows = await db.Queryable<Comment, User, Comment, User>((c, u, pc, ru) => new object[]
             {
                 JoinType.Left, c.UserId == u.Id,
-                JoinType.Left, c.ReplyToUserId == ru.Id
+                JoinType.Left, c.ReplyToCommentId == pc.Id,
+                JoinType.Left, pc.UserId == ru.Id
             })
-            .Where((c, u, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
-            .Where((c, u, ru) => c.ModerationStatus == CommentModerationStatus.Approved)
-            .Where((c, u, ru) => !c.IsDeleted)
-            .OrderBy((c, u, ru) => c.Id)
+            .Where((c, u, pc, ru) => c.ArticleId == articleId && c.RootId == rootId && c.ParentId != null)
+            .Where((c, u, pc, ru) => c.ModerationStatus == CommentModerationStatus.Approved)
+            .Where((c, u, pc, ru) => !c.IsDeleted)
+            .OrderBy((c, u, pc, ru) => c.Id)
             .Take(limit)
-            .Select((c, u, ru) => new ReplyRow
+            .Select((c, u, pc, ru) => new ReplyRow
             {
                 Id = c.Id,
                 ParentId = c.ParentId,
@@ -559,8 +612,8 @@ public partial class CommentService(
                 ReplyToCommentId = c.ReplyToCommentId,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
-                UserName = u.Username,
-                ReplyToUserName = ru.Username,
+                UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
+                ReplyToUserName = pc.AnonymousDisplayName ?? pc.PublicHandle ?? ru.Username,
                 Depth = c.Depth,
                 IsDeleted = c.IsDeleted
             })
@@ -602,14 +655,15 @@ FROM (
         c.reply_to_comment_id,
         c.content,
         c.create_time,
-        u.username AS user_name,
-        ru.username AS reply_to_user_name,
+        COALESCE(NULLIF(c.anonymous_display_name, ''), NULLIF(c.public_handle, ''), u.username, '') AS user_name,
+        COALESCE(NULLIF(pc.anonymous_display_name, ''), NULLIF(pc.public_handle, ''), ru.username, '') AS reply_to_user_name,
         c.depth,
         c.is_deleted,
         ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.id) AS rn
     FROM comment c
     LEFT JOIN sys_user u ON c.user_id = u.id
-    LEFT JOIN sys_user ru ON c.reply_to_user_id = ru.id
+    LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id
+    LEFT JOIN sys_user ru ON pc.user_id = ru.id
     WHERE c.article_id = @ArticleId
       AND c.root_id IS NOT NULL
       AND c.root_id IN (

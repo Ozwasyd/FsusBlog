@@ -16,6 +16,13 @@ internal interface IBinaryRequestBinder
         CancellationToken cancellationToken,
         int? maxFrameBytes = null);
 
+    Task<BinaryRequestPayload> ReadFrameAsync(
+        HttpContext httpContext,
+        IAedsEncoder aeds,
+        IReadOnlyCollection<AedsFrameType> expectedFrameTypes,
+        CancellationToken cancellationToken,
+        int? maxFrameBytes = null);
+
     Task<NameMutationPayload> ReadNameMutationAsync(
         HttpContext httpContext,
         IAedsEncoder aeds,
@@ -28,10 +35,18 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
     private const string BinaryContentType = "application/octet-stream";
     private const int MaxBinaryRequestFrameBytes = 8 * 1024 * 1024;
 
-    public async Task<BinaryRequestPayload> ReadFrameAsync(
+    public Task<BinaryRequestPayload> ReadFrameAsync(
         HttpContext httpContext,
         IAedsEncoder aeds,
         AedsFrameType expectedFrameType,
+        CancellationToken cancellationToken,
+        int? maxFrameBytes = null)
+        => ReadFrameAsync(httpContext, aeds, [expectedFrameType], cancellationToken, maxFrameBytes);
+
+    public async Task<BinaryRequestPayload> ReadFrameAsync(
+        HttpContext httpContext,
+        IAedsEncoder aeds,
+        IReadOnlyCollection<AedsFrameType> expectedFrameTypes,
         CancellationToken cancellationToken,
         int? maxFrameBytes = null)
     {
@@ -92,7 +107,8 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
             return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS request flags unsupported"));
         }
 
-        if (frameTypeRaw != (ushort)expectedFrameType)
+        AedsFrameType actualFrameType = (AedsFrameType)frameTypeRaw;
+        if (!IsExpectedFrameType(actualFrameType, expectedFrameTypes))
         {
             return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "请求帧类型不匹配"));
         }
@@ -111,7 +127,7 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
         if (payloadLength == 0)
         {
             return expectedPayloadCrc == AedsCrc16.Compute(ReadOnlySpan<byte>.Empty)
-                ? BinaryRequestPayload.Success(ReadOnlyMemory<byte>.Empty)
+                ? BinaryRequestPayload.Success(ReadOnlyMemory<byte>.Empty, actualFrameType)
                 : BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS payload crc mismatch"));
         }
 
@@ -133,7 +149,7 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
             return Task.CompletedTask;
         }, payloadBuffer);
 
-        return BinaryRequestPayload.Success(new ReadOnlyMemory<byte>(payloadBuffer, 0, (int)payloadLength));
+        return BinaryRequestPayload.Success(new ReadOnlyMemory<byte>(payloadBuffer, 0, (int)payloadLength), actualFrameType);
     }
 
     private static async Task<ErrorDetail> ReadPayloadAndValidateAsync(
@@ -253,6 +269,19 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
     private static bool IsBinaryContentType(string? contentType)
         => contentType?.StartsWith(BinaryContentType, StringComparison.OrdinalIgnoreCase) == true;
 
+    private static bool IsExpectedFrameType(AedsFrameType actualFrameType, IReadOnlyCollection<AedsFrameType> expectedFrameTypes)
+    {
+        foreach (AedsFrameType expectedFrameType in expectedFrameTypes)
+        {
+            if (actualFrameType == expectedFrameType)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static int NormalizeFrameLimit(int? maxFrameBytes)
     {
         if (maxFrameBytes is null or <= 0)
@@ -269,10 +298,10 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
             : $"{bytes} bytes";
 }
 
-internal readonly record struct BinaryRequestPayload(bool IsSuccess, ReadOnlyMemory<byte> Payload, ErrorDetail Error)
+internal readonly record struct BinaryRequestPayload(bool IsSuccess, ReadOnlyMemory<byte> Payload, ErrorDetail Error, AedsFrameType FrameType = AedsFrameType.Unknown)
 {
-    public static BinaryRequestPayload Success(ReadOnlyMemory<byte> payload)
-        => new(true, payload, ErrorDetail.None);
+    public static BinaryRequestPayload Success(ReadOnlyMemory<byte> payload, AedsFrameType frameType = AedsFrameType.Unknown)
+        => new(true, payload, ErrorDetail.None, frameType);
 
     public static BinaryRequestPayload Failure(ErrorDetail error)
         => new(false, ReadOnlyMemory<byte>.Empty, error);

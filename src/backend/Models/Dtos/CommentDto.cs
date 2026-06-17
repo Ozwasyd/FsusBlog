@@ -30,6 +30,12 @@ public sealed record class CommentDto : ICheckableContent
     public string? ReplyToCommentId { get; init; }
     public int? ReplyToUserId { get; init; }
     public RegionModerationDecision? RegionDecision { get; init; }
+    public string? AuthorMode { get; init; }
+    public bool PublicSendExplicitlySelected { get; init; }
+    public string? AnonymousScope { get; init; }
+    public string? DisplayLanguage { get; init; }
+    public string? ProofToken { get; init; }
+    public byte[]? ZkProof { get; init; }
 
     public string GetTextToCheck() => Content;
 }

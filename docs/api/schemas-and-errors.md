@@ -314,6 +314,10 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | `CommentCreateV2RequestPod` | 80 |
 | `CommentAuthorViewPod` | 36 |
 
+### 评论作者存储投影
+
+`comment.user_id` 允许为 `NULL`，匿名默认评论不再依赖真实用户外键展示作者。新增作者投影列包括 `author_mode`、`public_handle`、`anonymous_handle`、`anonymous_display_name`、`anonymous_display_language`、`anonymous_nullifier_hash`、`anonymous_scope`、`moderation_subject_hash`、`credential_level`、`reputation_bucket` 和 `account_age_bucket`。公开读取端优先输出 `anonymous_display_name` / `public_handle`，再兼容 legacy `sys_user.username`。
+
 ### 消息 POD
 
 | 类型 | 字节数 |
