@@ -147,4 +147,17 @@ describe('public route motion governance', () => {
     expect(settleIndex).toBeGreaterThan(replaceIndex)
     expect(publicShell.slice(initialHydrationStart, initialHydrationEnd)).not.toContain('settlePublicNavigationMotionForShell')
   })
+
+  it('pins public route motion rules in the static governance checker', () => {
+    const check = readRepoFile('tests/frontend/checks/static/check-motion-governance.mjs')
+
+    expect(check).toContain('src/frontend/src/layouts/BlogLayout.vue')
+    expect(check).toContain('name="fade-fast"')
+    expect(check).toContain('.fade-fast-')
+    expect(check).toContain('src/frontend/src/bootstrap/publicShellMotion.ts')
+    expect(check).toContain('settlePublicNavigationMotionForShell')
+    expect(check).toContain('activePublicRouteSettleMotion?.cancel()')
+    expect(check).toContain('#main-content, main')
+    expect(check).toContain('fsusBlogMotionPresets.route')
+  })
 })
