@@ -28,9 +28,7 @@ export interface AccountNavItem {
 }
 
 export interface AccountAreaMeta {
-  eyebrow: string
-  title: string
-  description: string
+  label: string
 }
 
 export interface AccountNavGroup {
@@ -43,14 +41,10 @@ export interface AccountNavGroup {
 
 export const accountAreaMeta: Record<AccountArea, AccountAreaMeta> = {
   self: {
-    eyebrow: '账户',
-    title: '个人空间',
-    description: '管理你的资料、评论与消息，不改变主站阅读体验。'
+    label: '账户'
   },
   manage: {
-    eyebrow: '管理',
-    title: '控制中心',
-    description: '维护内容、用户、评论审核、安全设置与系统配置。'
+    label: '管理'
   }
 }
 

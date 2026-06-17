@@ -70,20 +70,11 @@
 
     <div class="mx-auto flex w-full max-w-[var(--fsusblog-container-workbench)] flex-1 gap-5 px-4 py-5 sm:px-6 sm:py-8 lg:gap-10 lg:px-10">
       <aside class="hidden lg:block lg:w-[18rem] lg:shrink-0">
-        <div class="sticky top-24 space-y-12 pr-6">
-          <div class="space-y-5">
-            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-              {{ areaMeta.eyebrow }}
-            </div>
-            <p class="account-shell-area-title text-[2.25rem] font-bold leading-[0.9] tracking-normal text-[var(--fsusblog-text-primary)]">
-              {{ areaMeta.title }}
-            </p>
-            <p class="text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">
-              {{ areaMeta.description }}
-            </p>
-          </div>
-
+        <div class="sticky top-24 space-y-8 pr-6">
           <nav class="space-y-9" aria-label="账户导航">
+            <div class="account-sidebar-index-label">
+              {{ areaMeta.label }}导航
+            </div>
             <section
               v-for="group in navGroups"
               :key="group.key"
@@ -142,14 +133,9 @@
       :with-header="false"
     >
       <div id="account-mobile-drawer" class="flex h-full min-h-0 flex-col">
-        <div class="flex items-start justify-between gap-4 border-b border-[var(--fsusblog-panel-border)] pb-5">
-          <div>
-            <div class="text-xs font-semibold normal-case text-[var(--fsusblog-text-muted)]">
-              {{ areaMeta.eyebrow }}
-            </div>
-            <div class="mt-2 text-[1.75rem] font-bold leading-none">
-              {{ areaMeta.title }}
-            </div>
+        <div class="flex items-center justify-between gap-4 border-b border-[var(--fsusblog-panel-border)] pb-5">
+          <div class="text-sm font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">
+            {{ areaMeta.label }}导航
           </div>
           <el-button circle :icon="Close" aria-label="关闭导航" @click="closeMobileNav" />
         </div>
@@ -442,6 +428,14 @@ watch(mobileNavOpen, (open) => {
 
 .account-nav-link-active .account-nav-link-helper {
   @apply opacity-100;
+}
+
+.account-sidebar-index-label {
+  color: var(--fsusblog-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .account-nav-group-title {
