@@ -1,4 +1,5 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Responses;
 using FsusBlog.Server.Services.Security;
@@ -13,7 +14,11 @@ public readonly record struct UserAccountSnapshot(
     int Status,
     string? BanReason,
     bool MfaEnabled,
-    DateTime? DeletedAt);
+    DateTime? DeletedAt,
+    string? PublicHandle = null,
+    string IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+    bool PasskeyEnabled = false,
+    bool RecoveryEnabled = false);
 
 public readonly record struct SessionTokenResponseDto(
     string AccessToken,

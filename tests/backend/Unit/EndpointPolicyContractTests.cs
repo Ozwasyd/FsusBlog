@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -151,6 +152,26 @@ public sealed class EndpointPolicyContractTests
         Assert.DoesNotContain("user.Status == 1", assertionSource, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PasskeyRegistrationEndpoint_DoesNotPassLegacyUsernameToService()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "Binary",
+            "BinaryEndpoints.Auth.cs");
+
+        string handler = ExtractBetween(
+            source,
+            "group.MapPost(\"/auth/passkey/register/begin\"",
+            "group.MapPost(\"/auth/passkey/register/complete\"");
+
+        Assert.Contains("BeginRegistrationAsync(user.Value.Id, cancellationToken)", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("BeginRegistrationAsync(user.Value.Id, user.Value.Username", handler, StringComparison.Ordinal);
+    }
+
     private static string ReadRepoFile(params string[] segments)
         => File.ReadAllText(Path.Combine([FindRepoRoot(), .. segments]));
 
@@ -163,12 +184,18 @@ public sealed class EndpointPolicyContractTests
         return source[startIndex..endIndex];
     }
 
-    private static string FindRepoRoot()
+    private static string FindRepoRoot([CallerFilePath] string sourceFilePath = "")
     {
-        string current = AppContext.BaseDirectory;
+        string? current = Path.GetDirectoryName(sourceFilePath);
+        if (string.IsNullOrWhiteSpace(current))
+        {
+            current = AppContext.BaseDirectory;
+        }
+
         while (!string.IsNullOrWhiteSpace(current))
         {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
+            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
+                Directory.Exists(Path.Combine(current, ".git")))
             {
                 return current;
             }

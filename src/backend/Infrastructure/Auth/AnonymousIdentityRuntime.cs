@@ -20,14 +20,17 @@ public static class AnonymousIdentityRuntime
     }
 
     public static string ResolveBackendRole(User user)
+        => ResolveBackendRole(user.Role, user.IdentityKind);
+
+    public static string ResolveBackendRole(string? roleValue, string? identityKind)
     {
-        string role = string.IsNullOrWhiteSpace(user.Role) ? GuestRole : user.Role.Trim().ToLowerInvariant();
+        string role = string.IsNullOrWhiteSpace(roleValue) ? GuestRole : roleValue.Trim().ToLowerInvariant();
         if (!IsAnonymousIdentityModeEnabled())
         {
             return role;
         }
 
-        if (string.Equals(user.IdentityKind, AdminPrincipalKind, StringComparison.Ordinal))
+        if (string.Equals(identityKind, AdminPrincipalKind, StringComparison.Ordinal))
         {
             return role;
         }

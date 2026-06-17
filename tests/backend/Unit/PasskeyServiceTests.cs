@@ -1,5 +1,7 @@
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
+using System.Reflection;
 
 namespace FsusBlog.Server.Tests;
 
@@ -159,6 +161,65 @@ public sealed class PasskeyServiceTests
         string key = policy.BuildKey(string.Empty);
 
         Assert.Equal("fsus:sec:pk-reg:default", key);
+    }
+
+    // ─── Anonymous account metadata ──────────────────────────────────────────
+
+    [Fact]
+    public void BuildAnonymousSafeMetadata_WithoutPublicHandle_UsesInternalAccountLabel()
+    {
+        object metadata = InvokeMetadataBuilder(
+            userId: 42,
+            username: "legacy-alice",
+            publicHandle: null,
+            anonymousIdentityModeEnabled: true);
+
+        Assert.Equal("fsus-account-42", GetProperty<string>(metadata, "Name"));
+        Assert.Equal("fsus-account-42", GetProperty<string>(metadata, "DisplayName"));
+        Assert.Equal(BitConverter.GetBytes(42), GetProperty<byte[]>(metadata, "UserHandle"));
+    }
+
+    [Fact]
+    public void BuildAnonymousSafeMetadata_WithPublicHandle_UsesItOnlyForDisplayName()
+    {
+        object metadata = InvokeMetadataBuilder(
+            userId: 42,
+            username: "legacy-alice",
+            publicHandle: "  Alice Public  ",
+            anonymousIdentityModeEnabled: true);
+
+        Assert.Equal("fsus-account-42", GetProperty<string>(metadata, "Name"));
+        Assert.Equal("Alice Public", GetProperty<string>(metadata, "DisplayName"));
+    }
+
+    [Fact]
+    public void BuildAnonymousSafeMetadata_LegacyMode_PreservesExistingUsernameMetadata()
+    {
+        object metadata = InvokeMetadataBuilder(
+            userId: 42,
+            username: "legacy-alice",
+            publicHandle: "Alice Public",
+            anonymousIdentityModeEnabled: false);
+
+        Assert.Equal("legacy-alice", GetProperty<string>(metadata, "Name"));
+        Assert.Equal("legacy-alice", GetProperty<string>(metadata, "DisplayName"));
+    }
+
+    private static object InvokeMetadataBuilder(int userId, string username, string? publicHandle, bool anonymousIdentityModeEnabled)
+    {
+        MethodInfo? method = typeof(PasskeyService).GetMethod(
+            "BuildAnonymousSafeMetadataForTests",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+        return method.Invoke(null, [userId, username, publicHandle, anonymousIdentityModeEnabled])
+            ?? throw new InvalidOperationException("Metadata builder returned null.");
+    }
+
+    private static T GetProperty<T>(object source, string propertyName)
+    {
+        PropertyInfo? property = source.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
+        Assert.NotNull(property);
+        return Assert.IsType<T>(property.GetValue(source));
     }
 
     // ─── PasskeyCredentialSummaryDto — value semantics ─────────────────────────

@@ -138,7 +138,9 @@ Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再
 - 凭证类型：Discoverable Credential（resident key），支持无用户名流程（usernameless）
 - 库：Fido2 4.0.1
 - 上限：每用户最多 5 枚 Passkey
+- 匿名账号 metadata：`FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` 时，注册 begin 不再使用 legacy username；WebAuthn user handle 来自稳定内部 account id，`Name` 使用 `fsus-account-{id}`，`DisplayName` 只有在用户显式配置 `public_handle` 时才使用公开 handle。
 - 注册保护：已启用 MFA 的用户注册新 Passkey 须提供有效的 MFA proofToken
+- 删除保护：匿名账号不能删除最后一枚可用 Passkey，除非已启用 Recovery Key / recovery path；拒绝时返回 `CannotRemoveLastCredentialWithoutRecovery`，避免冷启动账号失去全部登录能力。
 - 传输契约：Passkey 注册/登录选项、attestation、assertion 与凭证管理均走 `/api/binary/auth/passkey/**`，请求与响应为 `application/octet-stream` AEDS frame；不再暴露文本字符串载荷
 - 服务端配置：
 

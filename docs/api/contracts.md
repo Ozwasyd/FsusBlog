@@ -95,6 +95,8 @@ payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/
 
 Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD，前端 adapter 将 POD 还原为浏览器 WebAuthn API 需要的选项对象；浏览器返回的 attestation/assertion 由前端编码为二进制 request POD。
 
+匿名身份模式下，`PasskeyRegisterBegin` 的 WebAuthn `user.id` 使用稳定的内部 account id 字节；`user.name` 使用 `fsus-account-{id}` 形式的非识别内部标签，`user.displayName` 仅在用户显式设置 `public_handle` 时使用公开 handle，否则同样使用内部标签。注册与 discoverable login 仍复用同一套 `passkey_credential` 表、challenge cache、sign-count 和 last-used 更新路径，不新增平行 Passkey 栈。匿名模式下删除最后一枚 Passkey 需要已启用 Recovery Key / recovery path；否则服务端返回 `409` + AEDS `ApiError`，错误消息为 `CannotRemoveLastCredentialWithoutRecovery`。
+
 | FrameType | POD | 端点 / 用途 |
 |-----------|-----|-------------|
 | `PasskeyRegisterBegin` (`63`) | `PasskeyRegisterBeginPod` | `POST /api/binary/auth/passkey/register/begin` |

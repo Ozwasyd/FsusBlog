@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class BinaryTransportHotPathContractTests
@@ -84,6 +86,7 @@ public sealed class BinaryTransportHotPathContractTests
         Assert.Contains("sessions.RefreshTokenWithExpiryAsync(oldRefreshToken, sessionId, cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("sessions.RevokeRefreshTokenAsync(refreshToken, cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("passkeyService.RemoveCredentialAsync(userId, id, cancellationToken)", authEndpoints, StringComparison.Ordinal);
+        Assert.Contains("removeResult.Success", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("passkeyService.RenameCredentialAsync(userId, id, name, cancellationToken)", authEndpoints, StringComparison.Ordinal);
         Assert.Contains("Task<AuthBinaryFlowResult> LoginAsync(AuthLoginRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)", authFacade, StringComparison.Ordinal);
         Assert.Contains("Task<AuthBinaryFlowResult> RegisterAsync(AuthRegisterRequestCoreModel request, AuthBinaryClientContext client, CancellationToken cancellationToken = default)", authFacade, StringComparison.Ordinal);
@@ -135,12 +138,18 @@ public sealed class BinaryTransportHotPathContractTests
         throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 
-    private static string FindRepoRoot()
+    private static string FindRepoRoot([CallerFilePath] string sourceFilePath = "")
     {
-        string current = AppContext.BaseDirectory;
+        string? current = Path.GetDirectoryName(sourceFilePath);
+        if (string.IsNullOrWhiteSpace(current))
+        {
+            current = AppContext.BaseDirectory;
+        }
+
         while (!string.IsNullOrWhiteSpace(current))
         {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
+            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
+                Directory.Exists(Path.Combine(current, ".git")))
             {
                 return current;
             }

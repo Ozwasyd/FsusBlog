@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AuthSecurityHardeningTests
@@ -66,10 +68,33 @@ public sealed class AuthSecurityHardeningTests
         string source = ReadSource("src/backend/Services/Security/PasskeyService.cs");
 
         Assert.Contains("UserVerificationRequirement.Required", source, StringComparison.Ordinal);
-        Assert.Contains("param.UserHandle is null || param.UserHandle.Length != sizeof(int)", source, StringComparison.Ordinal);
+        Assert.Contains("IsUserHandleOwnerOfCredential", source, StringComparison.Ordinal);
         Assert.Contains("通行密钥验证失败，请重试", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Console.WriteLine", source, StringComparison.Ordinal);
         Assert.DoesNotContain("ex.Message}", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PasskeyService_RegistrationUsesAnonymousSafeMetadataInAnonymousMode()
+    {
+        string source = ReadSource("src/backend/Services/Security/PasskeyService.cs");
+
+        Assert.Contains("BuildAnonymousSafeMetadata", source, StringComparison.Ordinal);
+        Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()", source, StringComparison.Ordinal);
+        Assert.Contains("PublicHandle", source, StringComparison.Ordinal);
+        Assert.Contains("RecoveryEnabled", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Name = username", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("DisplayName = username", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PasskeyCredentialRemoval_ProtectsLastCredentialInAnonymousMode()
+    {
+        string source = ReadSource("src/backend/Services/Security/PasskeyService.cs");
+
+        Assert.Contains("CannotRemoveLastCredentialWithoutRecovery", source, StringComparison.Ordinal);
+        Assert.Contains("RecoveryEnabled", source, StringComparison.Ordinal);
+        Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -85,15 +110,16 @@ public sealed class AuthSecurityHardeningTests
         Assert.Contains("ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })", router, StringComparison.Ordinal);
     }
 
-    private static string ReadSource(string relativePath)
-        => File.ReadAllText(Path.Combine(FindRepoRoot(), relativePath));
+    private static string ReadSource(string relativePath, [CallerFilePath] string sourceFilePath = "")
+        => File.ReadAllText(Path.Combine(FindRepoRoot(sourceFilePath), relativePath));
 
-    private static string FindRepoRoot()
+    private static string FindRepoRoot(string sourceFilePath)
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFilePath) ?? AppContext.BaseDirectory);
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")))
+            if (File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")) ||
+                Directory.Exists(Path.Combine(directory.FullName, ".git")))
             {
                 return directory.FullName;
             }

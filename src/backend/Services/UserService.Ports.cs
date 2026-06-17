@@ -29,7 +29,11 @@ public sealed class UserAccountReader(UserService users) : IUserAccountReader
             user.Status,
             user.BanReason,
             user.MfaEnabled,
-            user.DeletedAt);
+            user.DeletedAt,
+            user.PublicHandle,
+            user.IdentityKind,
+            user.PasskeyEnabled,
+            user.RecoveryEnabled);
 }
 
 public sealed class UserRegistrationService(UserService users) : IUserRegistrationService

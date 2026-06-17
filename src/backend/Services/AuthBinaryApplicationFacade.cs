@@ -1,5 +1,6 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
@@ -76,7 +77,10 @@ public sealed class AuthBinaryApplicationFacade(
             var risk = await loginWorkflow.EvaluateLoginRiskAsync(check.User.Value.Id, client.ClientIp, client.DeviceFingerprint, client.UserAgent, cancellationToken);
             var ticket = await mfaChallengeService.CreateLoginChallengeAsync(check.User.Value.Id, risk.RequiresMfa, request.RememberMe);
             var flow = new AuthLoginFlowDto(
-                new AuthIdentitySnapshotDto(check.User.Value.Id, check.User.Value.Username, check.User.Value.Role),
+                new AuthIdentitySnapshotDto(
+                    check.User.Value.Id,
+                    check.User.Value.Username,
+                    AnonymousIdentityRuntime.ResolveBackendRole(check.User.Value.Role, check.User.Value.IdentityKind)),
                 "mfa_required",
                 risk.RequiresMfa ? "risk" : "standard",
                 ticket.TicketId);
@@ -139,7 +143,10 @@ public sealed class AuthBinaryApplicationFacade(
         }
 
         var flow = new AuthLoginFlowDto(
-            new AuthIdentitySnapshotDto(login.User.Value.Id, login.User.Value.Username, login.User.Value.Role.ToLowerInvariant()),
+            new AuthIdentitySnapshotDto(
+                login.User.Value.Id,
+                login.User.Value.Username,
+                AnonymousIdentityRuntime.ResolveBackendRole(login.User.Value.Role, login.User.Value.IdentityKind)),
             "authenticated",
             null,
             null);

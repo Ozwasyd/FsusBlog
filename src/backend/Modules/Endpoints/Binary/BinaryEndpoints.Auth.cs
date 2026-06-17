@@ -676,7 +676,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "用户不存在"), aeds);
             }
 
-            var (success, message, data) = await passkeyService.BeginRegistrationAsync(user.Value.Id, user.Value.Username, cancellationToken);
+            var (success, message, data) = await passkeyService.BeginRegistrationAsync(user.Value.Id, cancellationToken);
             return success && data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.PasskeyRegisterBegin, writer => PodBinaryCodec.WritePasskeyRegisterBegin(data.Options, writer))
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
@@ -795,7 +795,10 @@ public static partial class BinaryEndpoints
                 login.Data.Value.RefreshToken,
                 login.Data.Value.RefreshTokenExpiresAt);
             var flow = new AuthLoginFlowDto(
-                new AuthIdentitySnapshotDto(login.User.Value.Id, login.User.Value.Username, login.User.Value.Role.ToLowerInvariant()),
+                new AuthIdentitySnapshotDto(
+                    login.User.Value.Id,
+                    login.User.Value.Username,
+                    AnonymousIdentityRuntime.ResolveBackendRole(login.User.Value.Role, login.User.Value.IdentityKind)),
                 "authenticated",
                 null,
                 null);
@@ -824,10 +827,13 @@ public static partial class BinaryEndpoints
             CancellationToken cancellationToken) =>
         {
             int userId = httpContext.GetUserId();
-            bool deleted = await passkeyService.RemoveCredentialAsync(userId, id, cancellationToken);
-            return deleted
+            PasskeyCredentialMutationResult removeResult = await passkeyService.RemoveCredentialAsync(userId, id, cancellationToken);
+            return removeResult.Success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "通行密钥不存在"), aeds);
+                : BinaryResults.FromError(
+                    ErrorDetail.Create(removeResult.NotFound ? ErrorCode.NotFound : ErrorCode.Validation, removeResult.Message),
+                    aeds,
+                    removeResult.NotFound ? 0 : StatusCodes.Status409Conflict);
         })
         .RequireAuthorization();
 

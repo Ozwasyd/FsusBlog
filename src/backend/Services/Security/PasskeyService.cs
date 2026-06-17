@@ -3,6 +3,7 @@ using Fido2NetLib.Objects;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using System.Buffers.Text;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -12,17 +13,24 @@ namespace FsusBlog.Server.Services.Security;
 
 public interface IPasskeyService
 {
-    Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int userId, string username, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int userId, CancellationToken cancellationToken = default);
     Task<(bool Success, string Message)> CompleteRegistrationAsync(int userId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAssertionAsync(CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int userId, CancellationToken cancellationToken = default);
-    Task<bool> RemoveCredentialAsync(int userId, int credId, CancellationToken cancellationToken = default);
+    Task<PasskeyCredentialMutationResult> RemoveCredentialAsync(int userId, int credId, CancellationToken cancellationToken = default);
     Task<bool> RenameCredentialAsync(int userId, int credId, string name, CancellationToken cancellationToken = default);
 }
 
 public sealed record PasskeyRegBeginData(PasskeyRegisterBeginCoreModel Options);
 public sealed record PasskeyAuthBeginData(PasskeyLoginBeginCoreModel Options);
+internal readonly record struct PasskeyAccountMetadata(string Name, string DisplayName, byte[] UserHandle);
+public readonly record struct PasskeyCredentialMutationResult(bool Success, string Message, bool NotFound)
+{
+    public static PasskeyCredentialMutationResult Succeeded(string message) => new(true, message, false);
+    public static PasskeyCredentialMutationResult Missing(string message) => new(false, message, true);
+    public static PasskeyCredentialMutationResult Rejected(string message) => new(false, message, false);
+}
 
 public sealed class PasskeyService(
     IFido2 fido2,
@@ -31,14 +39,21 @@ public sealed class PasskeyService(
     ILogger<PasskeyService> logger) : IPasskeyService
 {
     private const int MaxCredentialsPerUser = 5;
+    public const string CannotRemoveLastCredentialWithoutRecovery = "CannotRemoveLastCredentialWithoutRecovery";
 
     // ─────────────────────────────────────────────────────────────────────
     // Registration
     // ─────────────────────────────────────────────────────────────────────
 
-    public async Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int userId, string username, CancellationToken cancellationToken = default)
+    public async Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int userId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        User? user = await db.Queryable<User>().InSingleAsync(userId);
+        if (user is null || user.DeletedAt.HasValue || user.Status == 2)
+        {
+            return (false, "账户不存在或已注销", null);
+        }
+
         var existingCreds = await db.Queryable<PasskeyCredential>()
             .Where(c => c.UserId == userId)
             .Select(c => c.CredentialId)
@@ -54,11 +69,17 @@ public sealed class PasskeyService(
             .Select(id => new PublicKeyCredentialDescriptor(Base64Url.DecodeFromChars(id)))
             .ToList();
 
+        PasskeyAccountMetadata accountMetadata = BuildAnonymousSafeMetadata(
+            user.Id,
+            user.Username,
+            user.PublicHandle,
+            AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled());
+
         var fidoUser = new Fido2User
         {
-            Id = BitConverter.GetBytes(userId),
-            Name = username,
-            DisplayName = username
+            Id = accountMetadata.UserHandle,
+            Name = accountMetadata.Name,
+            DisplayName = accountMetadata.DisplayName
         };
 
         var authenticatorSelection = new AuthenticatorSelection
@@ -165,6 +186,11 @@ public sealed class PasskeyService(
         };
 
         await db.Insertable(credential).ExecuteCommandAsync();
+        await db.Updateable<User>()
+            .Where(u => u.Id == userId)
+            .SetColumns(u => u.PasskeyEnabled == true)
+            .ExecuteCommandAsync();
+
         return (true, "通行密钥注册成功");
     }
 
@@ -253,15 +279,7 @@ public sealed class PasskeyService(
                 StoredPublicKey = storedPublicKey,
                 StoredSignatureCounter = (uint)storedCred.SignCount,
                 IsUserHandleOwnerOfCredentialIdCallback = (param, ct) =>
-                {
-                    if (param.UserHandle is null || param.UserHandle.Length != sizeof(int))
-                    {
-                        return Task.FromResult(false);
-                    }
-
-                    int uid = BitConverter.ToInt32(param.UserHandle, 0);
-                    return Task.FromResult(uid == storedCred.UserId);
-                }
+                    Task.FromResult(IsUserHandleOwnerOfCredential(param.UserHandle, storedCred.UserId))
             });
         }
         catch (Exception ex)
@@ -387,6 +405,53 @@ public sealed class PasskeyService(
             ? string.Empty
             : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)))[..32];
 
+    internal static PasskeyAccountMetadata BuildAnonymousSafeMetadataForTests(
+        int userId,
+        string? username,
+        string? publicHandle,
+        bool anonymousIdentityModeEnabled)
+        => BuildAnonymousSafeMetadata(userId, username, publicHandle, anonymousIdentityModeEnabled);
+
+    private static PasskeyAccountMetadata BuildAnonymousSafeMetadata(
+        int userId,
+        string? username,
+        string? publicHandle,
+        bool anonymousIdentityModeEnabled)
+    {
+        byte[] userHandle = BitConverter.GetBytes(userId);
+        string internalAccountLabel = $"fsus-account-{userId}";
+        if (!anonymousIdentityModeEnabled)
+        {
+            string legacyName = NormalizeMetadataText(username, internalAccountLabel);
+            return new PasskeyAccountMetadata(legacyName, legacyName, userHandle);
+        }
+
+        string displayName = NormalizeMetadataText(publicHandle, internalAccountLabel);
+        return new PasskeyAccountMetadata(internalAccountLabel, displayName, userHandle);
+    }
+
+    private static bool IsUserHandleOwnerOfCredential(byte[]? userHandle, int userId)
+    {
+        if (userHandle is null)
+        {
+            return false;
+        }
+
+        byte[] expectedHandle = BitConverter.GetBytes(userId);
+        return userHandle.AsSpan().SequenceEqual(expectedHandle);
+    }
+
+    private static string NormalizeMetadataText(string? value, string fallback)
+    {
+        string trimmed = (value ?? string.Empty).Trim();
+        if (trimmed.Length == 0)
+        {
+            return fallback;
+        }
+
+        return trimmed.Length > 64 ? trimmed[..64] : trimmed;
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // Credential management
     // ─────────────────────────────────────────────────────────────────────
@@ -409,13 +474,54 @@ public sealed class PasskeyService(
             c.BackupState)).ToList();
     }
 
-    public async Task<bool> RemoveCredentialAsync(int userId, int credId, CancellationToken cancellationToken = default)
+    public async Task<PasskeyCredentialMutationResult> RemoveCredentialAsync(int userId, int credId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var credential = await db.Queryable<PasskeyCredential>()
+            .Where(c => c.Id == credId && c.UserId == userId)
+            .FirstAsync();
+        if (credential is null)
+        {
+            return PasskeyCredentialMutationResult.Missing("通行密钥不存在");
+        }
+
+        if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
+        {
+            User? user = await db.Queryable<User>().InSingleAsync(userId);
+            if (user is null || user.DeletedAt.HasValue || user.Status == 2)
+            {
+                return PasskeyCredentialMutationResult.Missing("用户不存在");
+            }
+
+            int usableCredentialCount = await db.Queryable<PasskeyCredential>()
+                .Where(c => c.UserId == userId)
+                .CountAsync();
+            if (usableCredentialCount <= 1 && !user.RecoveryEnabled)
+            {
+                return PasskeyCredentialMutationResult.Rejected(CannotRemoveLastCredentialWithoutRecovery);
+            }
+        }
+
         int deleted = await db.Deleteable<PasskeyCredential>()
             .Where(c => c.Id == credId && c.UserId == userId)
             .ExecuteCommandAsync();
-        return deleted > 0;
+        if (deleted <= 0)
+        {
+            return PasskeyCredentialMutationResult.Missing("通行密钥不存在");
+        }
+
+        int remaining = await db.Queryable<PasskeyCredential>()
+            .Where(c => c.UserId == userId)
+            .CountAsync();
+        if (remaining == 0)
+        {
+            await db.Updateable<User>()
+                .Where(u => u.Id == userId)
+                .SetColumns(u => u.PasskeyEnabled == false)
+                .ExecuteCommandAsync();
+        }
+
+        return PasskeyCredentialMutationResult.Succeeded("通行密钥已删除");
     }
 
     public async Task<bool> RenameCredentialAsync(int userId, int credId, string name, CancellationToken cancellationToken = default)

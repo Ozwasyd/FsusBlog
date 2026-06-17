@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using Microsoft.Extensions.Configuration;
@@ -23,7 +24,13 @@ public sealed class CoreRuntimeIntegrationTests
             AccessTokenExpiresMinutes = 10
         };
         var helper = new JwtHelper(Options.Create(settings));
-        var user = new User { Id = 42, Username = "integration-user", Role = "admin" };
+        var user = new User
+        {
+            Id = 42,
+            Username = "integration-user",
+            Role = "admin",
+            IdentityKind = AnonymousIdentityRuntime.AdminPrincipalKind
+        };
 
         string token = helper.GenerateAccessToken(user, "session-1", mfaVerified: true);
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
