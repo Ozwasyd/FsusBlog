@@ -60,7 +60,10 @@ public sealed class CommentCoreGateway(CommentService service, CommentCoreQueryC
             ArticleId = item.ArticleId,
             ArticleTitle = item.ArticleTitle,
             RootId = item.RootId,
-            ReplyToUserName = item.ReplyToUserName
+            ReplyToUserName = item.ReplyToUserName,
+            ModerationStatus = item.ModerationStatus,
+            IsDeleted = item.VisibilityReasonCode == "deleted_by_user_or_admin",
+            HasBlockedRegions = item.VisibilityReasonCode == "geo_limited"
         }), CursorCodec);
     }
 

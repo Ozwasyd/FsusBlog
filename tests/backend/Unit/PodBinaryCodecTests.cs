@@ -1643,11 +1643,45 @@ public class PodBinaryCodecCommentTests
         return new CommentQueryCoreModel(pod, id, content, createTime, user);
     }
 
-    private static UserCommentCoreModel MakeUserComment(long id = 1, string content = "my comment", string title = "Article A")
+    private static UserCommentCoreModel MakeUserComment(
+        long id = 1,
+        string content = "my comment",
+        string title = "Article A",
+        int moderationStatus = 1,
+        string moderationStatusLabel = "已公开",
+        string visibilityState = "public",
+        string visibilityReasonCode = "approved_public",
+        bool isPubliclyVisible = true)
     {
         var createTime = new DateTime(2024, 4, 5, 0, 0, 0, DateTimeKind.Utc);
-        var pod = PodProjector.ProjectUserComment(id, 99, createTime, content, title, null, null, out _);
-        return new UserCommentCoreModel(pod, id, content, createTime, 99, title, null, null);
+        var pod = PodProjector.ProjectUserComment(
+            id,
+            99,
+            createTime,
+            content,
+            title,
+            null,
+            null,
+            moderationStatus,
+            moderationStatusLabel,
+            visibilityState,
+            visibilityReasonCode,
+            isPubliclyVisible,
+            out _);
+        return new UserCommentCoreModel(
+            pod,
+            id,
+            content,
+            createTime,
+            99,
+            title,
+            null,
+            null,
+            moderationStatus,
+            moderationStatusLabel,
+            visibilityState,
+            visibilityReasonCode,
+            isPubliclyVisible);
     }
 
     [Fact]
@@ -1697,7 +1731,18 @@ public class PodBinaryCodecCommentTests
     [Fact]
     public void UserCommentCursor_WithItems_RoundTrip()
     {
-        var items = new[] { MakeUserComment(5, "content", "My Blog Post") };
+        var items = new[]
+        {
+            MakeUserComment(
+                5,
+                "content",
+                "My Blog Post",
+                moderationStatus: 2,
+                moderationStatusLabel: "未通过审核",
+                visibilityState: "rejected",
+                visibilityReasonCode: "rejected_by_moderation",
+                isPubliclyVisible: false)
+        };
         var cursor = new CoreCursorResult<UserCommentCoreModel>(items, null, false);
         byte[] encoded = PodBinaryCodec.EncodeUserCommentCursor(cursor);
         bool ok = PodBinaryCodec.TryDecodeUserCommentCursor(encoded, out var decoded);
@@ -1706,6 +1751,11 @@ public class PodBinaryCodecCommentTests
         Assert.Single(decoded.Data);
         Assert.Equal("content", decoded.Data[0].Content);
         Assert.Equal("My Blog Post", decoded.Data[0].ArticleTitle);
+        Assert.Equal(2, decoded.Data[0].ModerationStatus);
+        Assert.Equal("未通过审核", decoded.Data[0].ModerationStatusLabel);
+        Assert.Equal("rejected", decoded.Data[0].VisibilityState);
+        Assert.Equal("rejected_by_moderation", decoded.Data[0].VisibilityReasonCode);
+        Assert.False(decoded.Data[0].IsPubliclyVisible);
     }
 
     [Fact]

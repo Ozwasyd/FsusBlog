@@ -8,6 +8,18 @@ export interface CommentTimeContract {
   readonly fullLocalTimeText: string
 }
 
+export type UserCommentModerationTone = 'success' | 'warning' | 'danger' | 'info'
+
+export interface UserCommentModerationContract {
+  readonly status: number
+  readonly statusLabel: string
+  readonly visibilityState: string
+  readonly reasonCode: string
+  readonly reasonText: string
+  readonly tone: UserCommentModerationTone
+  readonly publiclyVisible: boolean
+}
+
 interface CommentArticleLinkContract {
   readonly id: number
   readonly title: string
@@ -22,6 +34,7 @@ export interface CommentThreadItemContract {
   readonly userName?: string
   readonly canDelete: boolean
   readonly article?: CommentArticleLinkContract
+  readonly moderation?: UserCommentModerationContract
 }
 
 export interface CommentComposerUiContract {
@@ -83,6 +96,11 @@ export function createUserCommentViewContract(comment: {
   createTime: string
   articleId: number
   articleTitle: string
+  moderationStatus: number
+  moderationStatusLabel: string
+  visibilityState: string
+  visibilityReasonCode: string
+  isPubliclyVisible: boolean
 }): CommentThreadItemContract {
   const articleTarget = createPublicArticleDetailNavigationTarget(comment.articleId)
   return {
@@ -99,7 +117,92 @@ export function createUserCommentViewContract(comment: {
       title: comment.articleTitle,
       route: articleTarget.route,
       ariaLabel: `查看文章《${comment.articleTitle}》`
-    }
+    },
+    moderation: createUserCommentModerationContract(comment)
+  }
+}
+
+function createUserCommentModerationContract(comment: {
+  moderationStatus: number
+  moderationStatusLabel: string
+  visibilityState: string
+  visibilityReasonCode: string
+  isPubliclyVisible: boolean
+}): UserCommentModerationContract {
+  const reasonCode = comment.visibilityReasonCode || 'pending_review'
+  return {
+    status: comment.moderationStatus,
+    statusLabel: comment.moderationStatusLabel || fallbackStatusLabel(reasonCode),
+    visibilityState: comment.visibilityState || fallbackVisibilityState(reasonCode),
+    reasonCode,
+    reasonText: reasonText(reasonCode),
+    tone: reasonTone(reasonCode),
+    publiclyVisible: comment.isPubliclyVisible
+  }
+}
+
+function fallbackStatusLabel(reasonCode: string): string {
+  switch (reasonCode) {
+    case 'approved_public':
+    case 'geo_limited':
+      return '已公开'
+    case 'hidden_by_moderation':
+      return '已隐藏'
+    case 'rejected_by_moderation':
+      return '未通过审核'
+    case 'deleted_by_user_or_admin':
+      return '已删除'
+    default:
+      return '待审核，仅自己可见'
+  }
+}
+
+function fallbackVisibilityState(reasonCode: string): string {
+  switch (reasonCode) {
+    case 'approved_public':
+      return 'public'
+    case 'geo_limited':
+      return 'limited'
+    case 'hidden_by_moderation':
+      return 'hidden'
+    case 'rejected_by_moderation':
+      return 'rejected'
+    case 'deleted_by_user_or_admin':
+      return 'deleted'
+    default:
+      return 'pending'
+  }
+}
+
+function reasonText(reasonCode: string): string {
+  switch (reasonCode) {
+    case 'approved_public':
+      return '其他读者可以看到这条评论。'
+    case 'geo_limited':
+      return '部分地区不可见。'
+    case 'hidden_by_moderation':
+      return '此评论当前不会公开显示。'
+    case 'rejected_by_moderation':
+      return '此评论未通过审核，不会公开显示。'
+    case 'deleted_by_user_or_admin':
+      return '评论已删除，不再公开显示。'
+    default:
+      return '等待审核通过后才会公开显示。'
+  }
+}
+
+function reasonTone(reasonCode: string): UserCommentModerationTone {
+  switch (reasonCode) {
+    case 'approved_public':
+      return 'success'
+    case 'pending_review':
+    case 'geo_limited':
+      return 'warning'
+    case 'hidden_by_moderation':
+    case 'rejected_by_moderation':
+      return 'danger'
+    default:
+      return 'info'
   }
 }
 

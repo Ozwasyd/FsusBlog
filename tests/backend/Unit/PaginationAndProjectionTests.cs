@@ -251,7 +251,15 @@ public class CursorInteropTests
 
 public class CommentProjectionTests
 {
-    private static UserCommentReadModel MakeModel(long id = 1, string content = "hello", string title = "T", long? rootId = null, string? replyTo = null)
+    private static UserCommentReadModel MakeModel(
+        long id = 1,
+        string content = "hello",
+        string title = "T",
+        long? rootId = null,
+        string? replyTo = null,
+        int moderationStatus = 1,
+        bool isDeleted = false,
+        bool hasBlockedRegions = false)
         => new()
         {
             Id = id,
@@ -260,7 +268,10 @@ public class CommentProjectionTests
             ArticleId = 7,
             ArticleTitle = title,
             RootId = rootId,
-            ReplyToUserName = replyTo
+            ReplyToUserName = replyTo,
+            ModerationStatus = moderationStatus,
+            IsDeleted = isDeleted,
+            HasBlockedRegions = hasBlockedRegions
         };
 
     [Fact]
@@ -277,6 +288,39 @@ public class CommentProjectionTests
         Assert.Equal("Alice", response.ReplyToUserName);
     }
 
+    [Theory]
+    [InlineData(0, false, false, "待审核，仅自己可见", "pending", "pending_review", false)]
+    [InlineData(1, false, false, "已公开", "public", "approved_public", true)]
+    [InlineData(1, false, true, "已公开", "limited", "geo_limited", true)]
+    [InlineData(2, false, false, "未通过审核", "rejected", "rejected_by_moderation", false)]
+    [InlineData(3, false, false, "已隐藏", "hidden", "hidden_by_moderation", false)]
+    [InlineData(1, true, false, "已删除", "deleted", "deleted_by_user_or_admin", false)]
+    public void ToResponse_MapsModerationVisibility(
+        int status,
+        bool isDeleted,
+        bool hasBlockedRegions,
+        string expectedLabel,
+        string expectedState,
+        string expectedReason,
+        bool expectedVisible)
+    {
+        var model = MakeModel(
+            content: isDeleted ? "评论已删除" : "visible content",
+            moderationStatus: status,
+            isDeleted: isDeleted,
+            hasBlockedRegions: hasBlockedRegions);
+
+        var response = CommentProjection.ToResponse(model);
+
+        Assert.Equal(status, response.ModerationStatus);
+        Assert.Equal(expectedLabel, response.ModerationStatusLabel);
+        Assert.Equal(expectedState, response.VisibilityState);
+        Assert.Equal(expectedReason, response.VisibilityReasonCode);
+        Assert.Equal(expectedVisible, response.IsPubliclyVisible);
+        Assert.DoesNotContain("internal", response.ModerationStatusLabel, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("rule", response.VisibilityReasonCode, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void ToCoreModel_MapsAllFields()
     {
@@ -286,6 +330,11 @@ public class CommentProjectionTests
         Assert.Equal(5L, core.Id);
         Assert.Equal("test", core.Content);
         Assert.Equal("Post B", core.ArticleTitle);
+        Assert.Equal(1, core.ModerationStatus);
+        Assert.Equal("已公开", core.ModerationStatusLabel);
+        Assert.Equal("public", core.VisibilityState);
+        Assert.Equal("approved_public", core.VisibilityReasonCode);
+        Assert.True(core.IsPubliclyVisible);
     }
 
     [Fact]

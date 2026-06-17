@@ -66,7 +66,12 @@ public readonly record struct UserCommentCoreModel(
     int ArticleId,
     string ArticleTitle,
     long? RootId,
-    string? ReplyToUserName);
+    string? ReplyToUserName,
+    int ModerationStatus,
+    string ModerationStatusLabel,
+    string VisibilityState,
+    string VisibilityReasonCode,
+    bool IsPubliclyVisible);
 
 public readonly record struct CommentCreateRequestCoreModel(
     int ArticleId,

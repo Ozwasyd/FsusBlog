@@ -32,6 +32,22 @@
           {{ item.content }}
         </p>
 
+        <div
+          v-if="item.moderation"
+          class="user-comment-moderation mt-3 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+        >
+          <el-tag
+            :type="item.moderation.tone"
+            size="small"
+            effect="light"
+          >
+            {{ item.moderation.statusLabel }}
+          </el-tag>
+          <span class="min-w-0 break-words text-xs font-medium leading-relaxed text-[var(--fsusblog-text-muted)]">
+            {{ item.moderation.reasonText }}
+          </span>
+        </div>
+
         <div class="flex justify-end">
           <el-button
             link

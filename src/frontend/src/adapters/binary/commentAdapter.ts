@@ -88,7 +88,12 @@ export function mapUserCommentCursorFromPodPayload(payload: Uint8Array): CursorR
         content: readBlobText(pod, blob, 20),
         articleTitle: readFixedUtf8(pod, 28, 256),
         rootId: readNullableId64(pod, 284),
-        replyToUserName: readFixedTextNullable(pod, 292, 64)
+        replyToUserName: readFixedTextNullable(pod, 292, 64),
+        moderationStatus: readInt32(pod, 356),
+        isPubliclyVisible: readByte(pod, 360) === 1,
+        visibilityState: readFixedUtf8(pod, 364, 32),
+        visibilityReasonCode: readFixedUtf8(pod, 396, 64),
+        moderationStatusLabel: readFixedUtf8(pod, 460, 64)
       };
     },
     'user_comment_cursor_count_invalid',

@@ -135,6 +135,11 @@ public static class PodProjector
         string articleTitle,
         long? rootId,
         string? replyToUserName,
+        int moderationStatus,
+        string moderationStatusLabel,
+        string visibilityState,
+        string visibilityReasonCode,
+        bool isPubliclyVisible,
         out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(256);
@@ -148,7 +153,12 @@ public static class PodProjector
             Content = contentSlice,
             ArticleTitle = PodUtf8Codec.ToFixed256(articleTitle),
             RootId = rootId ?? 0,
-            ReplyToUserName = PodUtf8Codec.ToFixed64(replyToUserName)
+            ReplyToUserName = PodUtf8Codec.ToFixed64(replyToUserName),
+            ModerationStatus = moderationStatus,
+            IsPubliclyVisible = isPubliclyVisible ? (byte)1 : (byte)0,
+            VisibilityState = PodUtf8Codec.ToFixed32(visibilityState),
+            VisibilityReasonCode = PodUtf8Codec.ToFixed64(visibilityReasonCode),
+            ModerationStatusLabel = PodUtf8Codec.ToFixed64(moderationStatusLabel)
         };
 
         payload = bytes.WrittenMemory;
@@ -413,6 +423,14 @@ public static class PodProjector
         public Utf8Fixed256 ArticleTitle;
         public long RootId;
         public Utf8Fixed64 ReplyToUserName;
+        public int ModerationStatus;
+        public byte IsPubliclyVisible;
+        public byte Reserved0;
+        public byte Reserved1;
+        public byte Reserved2;
+        public Utf8Fixed32 VisibilityState;
+        public Utf8Fixed64 VisibilityReasonCode;
+        public Utf8Fixed64 ModerationStatusLabel;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

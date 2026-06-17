@@ -534,21 +534,24 @@ public partial class CommentService(
             return new CursorResponse<UserCommentResponse> { Data = [], NextCursor = null, HasMore = false };
         }
 
-        var rows = await db.Queryable<Comment, Article, User>((c, a, ru) => new object[]
+        var rows = await db.Queryable<Comment, Article, User, CommentRegionCompliance>((c, a, ru, crc) => new object[]
             {
                 JoinType.Left, c.ArticleId == a.Id,
-                JoinType.Left, c.ReplyToUserId == ru.Id
+                JoinType.Left, c.ReplyToUserId == ru.Id,
+                JoinType.Left, c.Id == crc.CommentId
             })
-            .Where((c, a, ru) => c.UserId == userId && !a.IsDeleted)
-            .WhereIF(request.Cursor.HasValue, (c, a, ru) => c.Id < request.Cursor!.Value)
-            .OrderByDescending((c, a, ru) => c.Id)
+            .Where((c, a, ru, crc) => c.UserId == userId && !a.IsDeleted)
+            .WhereIF(request.Cursor.HasValue, (c, a, ru, crc) => c.Id < request.Cursor!.Value)
+            .OrderByDescending((c, a, ru, crc) => c.Id)
             .Take(request.Limit + 1)
-            .Select((c, a, ru) => new UserCommentRow
+            .Select((c, a, ru, crc) => new UserCommentRow
             {
                 Id = c.Id,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 IsDeleted = c.IsDeleted,
+                ModerationStatus = c.ModerationStatus,
+                BlockedRegions = crc.BlockedRegions,
                 RootId = c.RootId,
                 ArticleId = a.Id,
                 ArticleTitle = a.Title,
@@ -564,7 +567,10 @@ public partial class CommentService(
             ArticleId = item.ArticleId,
             ArticleTitle = item.ArticleTitle ?? string.Empty,
             RootId = item.RootId,
-            ReplyToUserName = item.ReplyToUserName
+            ReplyToUserName = item.ReplyToUserName,
+            ModerationStatus = (int)item.ModerationStatus,
+            IsDeleted = item.IsDeleted,
+            HasBlockedRegions = !string.IsNullOrWhiteSpace(item.BlockedRegions)
         }), CursorCodec);
     }
 
@@ -1149,6 +1155,8 @@ ORDER BY x.root_id, x.id;
         public string Content { get; init; } = string.Empty;
         public DateTime CreateTime { get; init; }
         public bool IsDeleted { get; init; }
+        public CommentModerationStatus ModerationStatus { get; init; } = CommentModerationStatus.Approved;
+        public string? BlockedRegions { get; init; }
         public long? RootId { get; init; }
         public int ArticleId { get; init; }
         public string? ArticleTitle { get; init; }

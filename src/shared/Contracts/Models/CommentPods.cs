@@ -23,6 +23,14 @@ public readonly struct UserCommentPod
     public readonly Utf8Fixed256 ArticleTitle;
     public readonly long RootId;
     public readonly Utf8Fixed64 ReplyToUserName;
+    public readonly int ModerationStatus;
+    public readonly byte IsPubliclyVisible;
+    public readonly byte Reserved0;
+    public readonly byte Reserved1;
+    public readonly byte Reserved2;
+    public readonly Utf8Fixed32 VisibilityState;
+    public readonly Utf8Fixed64 VisibilityReasonCode;
+    public readonly Utf8Fixed64 ModerationStatusLabel;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

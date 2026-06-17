@@ -171,11 +171,19 @@ public record struct UserCommentResponse
     public string ArticleTitle { get; init; }
     public long? RootId { get; init; }
     public string? ReplyToUserName { get; init; }
+    public int ModerationStatus { get; init; }
+    public string ModerationStatusLabel { get; init; }
+    public string VisibilityState { get; init; }
+    public string VisibilityReasonCode { get; init; }
+    public bool IsPubliclyVisible { get; init; }
 
     public UserCommentResponse()
     {
         Content = string.Empty;
         ArticleTitle = string.Empty;
+        ModerationStatusLabel = string.Empty;
+        VisibilityState = string.Empty;
+        VisibilityReasonCode = string.Empty;
     }
 }
 

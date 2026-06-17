@@ -15,6 +15,9 @@ function writeInt64(b: Uint8Array, off: number, v: bigint): void {
   let r = v & 0xffffffffffffffffn
   for (let i = 0; i < 8; i++) { b[off + i] = Number(r & 0xffn); r >>= 8n }
 }
+function writeByte(b: Uint8Array, off: number, v: number): void {
+  b[off] = v & 0xff
+}
 function writeUtf8(b: Uint8Array, off: number, t: string): void {
   b.set(new TextEncoder().encode(t), off)
 }
@@ -170,6 +173,8 @@ describe('mapUserCommentCursorFromPodPayload', () => {
   })
 
   it('reads a user comment entry', () => {
+    expect(USER_COMMENT_POD_SIZE).toBe(524)
+
     const pod = new Uint8Array(USER_COMMENT_POD_SIZE)
     writeInt64(pod, 0, 77n)       // id
     writeInt32(pod, 8, 5)          // articleId
@@ -182,6 +187,11 @@ describe('mapUserCommentCursorFromPodPayload', () => {
     // rootId at 284
     writeInt64(pod, 284, 77n)
     // replyToUserName at 292 (64 bytes) → leave empty → null
+    writeInt32(pod, 356, 2)         // moderationStatus = Rejected
+    writeByte(pod, 360, 0)          // isPubliclyVisible = false
+    writeUtf8(pod, 364, 'rejected')
+    writeUtf8(pod, 396, 'rejected_by_moderation')
+    writeUtf8(pod, 460, '未通过审核')
 
     const payload = buildPayload(
       int64Buf(0n), byteBuf(0), int32Buf(1),
@@ -197,5 +207,10 @@ describe('mapUserCommentCursorFromPodPayload', () => {
     expect(c.articleTitle).toBe('Article Title')
     expect(c.rootId).toBe('77')
     expect(c.replyToUserName).toBeNull()
+    expect(c.moderationStatus).toBe(2)
+    expect(c.isPubliclyVisible).toBe(false)
+    expect(c.visibilityState).toBe('rejected')
+    expect(c.visibilityReasonCode).toBe('rejected_by_moderation')
+    expect(c.moderationStatusLabel).toBe('未通过审核')
   })
 })

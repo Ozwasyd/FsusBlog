@@ -9,4 +9,7 @@ public sealed record class UserCommentReadModel
     public string ArticleTitle { get; init; } = string.Empty;
     public long? RootId { get; init; }
     public string? ReplyToUserName { get; init; }
+    public int ModerationStatus { get; init; } = 1;
+    public bool IsDeleted { get; init; }
+    public bool HasBlockedRegions { get; init; }
 }

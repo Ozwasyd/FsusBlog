@@ -70,6 +70,30 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    public void UserCommentHistory_ExposesModerationStatusWithoutInternalReasons()
+    {
+        string serviceSource = ReadRepoFile("src/backend/Services/CommentService.cs");
+        string projectionSource = ReadRepoFile("src/backend/Infrastructure/Projections/CommentProjection.cs");
+        string responseSource = ReadRepoFile("src/shared/Contracts/Outputs/ServerResponseContracts.cs");
+
+        string userCommentsBlock = serviceSource[
+            serviceSource.IndexOf("public async Task<CursorResponse<UserCommentResponse>> GetUserCommentsAsync", StringComparison.Ordinal)..
+            serviceSource.IndexOf("public async Task<bool> DeleteCommentAsync", StringComparison.Ordinal)];
+
+        Assert.Contains("ModerationStatus = c.ModerationStatus", userCommentsBlock, StringComparison.Ordinal);
+        Assert.Contains("HasBlockedRegions", userCommentsBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("ModerationReason", userCommentsBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("DecisionReason", userCommentsBlock, StringComparison.Ordinal);
+        Assert.DoesNotContain("RuleHitsJson", userCommentsBlock, StringComparison.Ordinal);
+
+        Assert.Contains("ModerationStatusLabel", projectionSource, StringComparison.Ordinal);
+        Assert.Contains("VisibilityReasonCode", projectionSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("ModerationReason", responseSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("DecisionReason", responseSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("RuleHitsJson", responseSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CommentModerationEndpoints_RequireRateLimitAndAdminSensitiveMfaProof()
     {
         string source = ReadRepoFile("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");

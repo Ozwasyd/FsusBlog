@@ -41,7 +41,12 @@ export function useUserCommentsPage() {
 
     return list.value.filter((item) => {
       if (keyword) {
-        const haystack = `${item.content} ${item.article?.title ?? ''}`.toLowerCase()
+        const haystack = [
+          item.content,
+          item.article?.title ?? '',
+          item.moderation?.statusLabel ?? '',
+          item.moderation?.reasonText ?? ''
+        ].join(' ').toLowerCase()
         if (!haystack.includes(keyword)) {
           return false
         }

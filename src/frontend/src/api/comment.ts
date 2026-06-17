@@ -118,6 +118,11 @@ export interface UserCommentResponse {
   articleTitle: string
   rootId?: string | null
   replyToUserName?: string | null
+  moderationStatus: number
+  moderationStatusLabel: string
+  visibilityState: string
+  visibilityReasonCode: string
+  isPubliclyVisible: boolean
 }
 
 export function resolveCommentAuthorView(input: {

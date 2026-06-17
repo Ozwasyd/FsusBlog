@@ -295,6 +295,11 @@ public static partial class PodBinaryCodec
                 item.ArticleTitle,
                 item.RootId,
                 item.ReplyToUserName,
+                item.ModerationStatus,
+                item.ModerationStatusLabel,
+                item.VisibilityState,
+                item.VisibilityReasonCode,
+                item.IsPubliclyVisible,
                 out ReadOnlyMemory<byte> payload);
             writer.WriteBytes(payload.Span);
         }
@@ -325,6 +330,9 @@ public static partial class PodBinaryCodec
             string articleTitle = PodUtf8Codec.FromFixed256(pod.ArticleTitle);
             DateTime createTime = PodTimeCodec.FromUnixMs(pod.CreateTimeUnixMs);
             string? replyToUserName = NormalizeNullableFixed(PodUtf8Codec.FromFixed64(pod.ReplyToUserName));
+            string visibilityState = PodUtf8Codec.FromFixed32(pod.VisibilityState);
+            string visibilityReasonCode = PodUtf8Codec.FromFixed64(pod.VisibilityReasonCode);
+            string moderationStatusLabel = PodUtf8Codec.FromFixed64(pod.ModerationStatusLabel);
             data.Add(new UserCommentCoreModel(
                 pod,
                 pod.Id,
@@ -333,7 +341,12 @@ public static partial class PodBinaryCodec
                 pod.ArticleId,
                 articleTitle,
                 pod.RootId == 0 ? null : pod.RootId,
-                replyToUserName));
+                replyToUserName,
+                pod.ModerationStatus,
+                moderationStatusLabel,
+                visibilityState,
+                visibilityReasonCode,
+                pod.IsPubliclyVisible == 1));
         }
 
         cursor = new CoreCursorResult<UserCommentCoreModel>(data, nextCursor == 0 ? null : nextCursor, hasMore == 1);

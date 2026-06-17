@@ -163,6 +163,11 @@ public class PodProjectorTests
             articleTitle: "Article Title",
             rootId: 50L,
             replyToUserName: "bob",
+            moderationStatus: 0,
+            moderationStatusLabel: "待审核，仅自己可见",
+            visibilityState: "pending",
+            visibilityReasonCode: "pending_review",
+            isPubliclyVisible: false,
             payload: out var payload);
 
         Assert.Equal(77L, pod.Id);
@@ -171,15 +176,27 @@ public class PodProjectorTests
         Assert.Equal("My comment", PodProjector.ReadSlice(pod.Content, payload.Span));
         Assert.Equal("Article Title", PodUtf8Codec.FromFixed256(pod.ArticleTitle));
         Assert.Equal("bob", PodUtf8Codec.FromFixed64(pod.ReplyToUserName));
+        Assert.Equal(0, pod.ModerationStatus);
+        Assert.Equal((byte)0, pod.IsPubliclyVisible);
+        Assert.Equal("pending", PodUtf8Codec.FromFixed32(pod.VisibilityState));
+        Assert.Equal("pending_review", PodUtf8Codec.FromFixed64(pod.VisibilityReasonCode));
+        Assert.Equal("待审核，仅自己可见", PodUtf8Codec.FromFixed64(pod.ModerationStatusLabel));
     }
 
     [Fact]
     public void ProjectUserComment_NullRootId_BecomesZero()
     {
         var pod = PodProjector.ProjectUserComment(
-            1L, 1, DateTime.UtcNow, "c", "t", rootId: null, replyToUserName: null, out _);
+            1L, 1, DateTime.UtcNow, "c", "t", rootId: null, replyToUserName: null,
+            moderationStatus: 1,
+            moderationStatusLabel: "已公开",
+            visibilityState: "public",
+            visibilityReasonCode: "approved_public",
+            isPubliclyVisible: true,
+            out _);
 
         Assert.Equal(0L, pod.RootId);
+        Assert.Equal((byte)1, pod.IsPubliclyVisible);
     }
 
     // ── ProjectCommentThreadItem ────────────────────────────────────────────
