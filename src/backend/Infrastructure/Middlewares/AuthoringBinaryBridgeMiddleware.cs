@@ -431,6 +431,10 @@ public sealed class AuthoringBinaryBridgeMiddleware
             return Found(null, AedsFrameType.CommentModerationQueue, out route);
         if (HttpMethods.IsPost(method) && segments is ["comments", "moderation", "bulk"])
             return Found(AedsFrameType.CommentModerationBulkRequest, AedsFrameType.CommentModerationBulkResponse, out route);
+        if (HttpMethods.IsPost(method) && segments is ["comments", "moderation", "nullifiers", "block"])
+            return Found(AedsFrameType.AnonymousGovernanceActionRequest, AedsFrameType.AnonymousGovernanceActionResponse, out route);
+        if (HttpMethods.IsPost(method) && segments is ["comments", "moderation", "anonymous-credentials", _, "revoke"])
+            return Found(AedsFrameType.AnonymousGovernanceActionRequest, AedsFrameType.AnonymousGovernanceActionResponse, out route);
         if (HttpMethods.IsPost(method) && segments is ["comments", _, "moderation"])
             return Found(AedsFrameType.CommentModerationRequest, AedsFrameType.CommentModerationResult, out route);
 

@@ -5,9 +5,11 @@ import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import {
   applyIntegrityFix,
+  blockAnonymousNullifier,
   getServerDraft,
   moderateComment,
   previewModerationEffectivePolicy,
+  revokeAnonymousCredential,
   saveServerDraft
 } from '@/api/authoring'
 import { FSUS_HEADERS } from '@/api/contracts'
@@ -122,6 +124,42 @@ describe('authoring API binary transport', () => {
     expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-2')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.CommentModerationRequest, {
       reason: 'reviewed'
+    })
+  })
+
+  it('blocks anonymous nullifiers through the authoring governance endpoint', async () => {
+    binaryMock.mockResolvedValue({ applied: true })
+
+    await expect(blockAnonymousNullifier({
+      nullifierHash: 'hash_abc',
+      scope: 'article:42',
+      reason: 'spam wave'
+    }, { mfaProofToken: 'proof-nullifier' })).resolves.toEqual({ applied: true })
+
+    const call = binaryMock.mock.calls[0]?.[0]
+    expect(call?.binaryUrl).toBe('/api/binary/author/comments/moderation/nullifiers/block')
+    expect(call?.frameType).toBe(FrameType.AnonymousGovernanceActionResponse)
+    expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-nullifier')
+    expectAedsJsonBody(call?.requestOptions?.body, FrameType.AnonymousGovernanceActionRequest, {
+      nullifierHash: 'hash_abc',
+      scope: 'article:42',
+      reason: 'spam wave'
+    })
+  })
+
+  it('revokes anonymous credentials through the authoring governance endpoint', async () => {
+    binaryMock.mockResolvedValue({ applied: true })
+
+    await expect(revokeAnonymousCredential('88001', {
+      reason: 'abuse confirmed'
+    }, { mfaProofToken: 'proof-credential' })).resolves.toEqual({ applied: true })
+
+    const call = binaryMock.mock.calls[0]?.[0]
+    expect(call?.binaryUrl).toBe('/api/binary/author/comments/moderation/anonymous-credentials/88001/revoke')
+    expect(call?.frameType).toBe(FrameType.AnonymousGovernanceActionResponse)
+    expect((call?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-credential')
+    expectAedsJsonBody(call?.requestOptions?.body, FrameType.AnonymousGovernanceActionRequest, {
+      reason: 'abuse confirmed'
     })
   })
 

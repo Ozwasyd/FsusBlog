@@ -1,12 +1,14 @@
 import { computed, ref } from 'vue'
 import {
   CommentModerationStatus,
+  blockAnonymousNullifier,
   moderateComment,
   moderateCommentsBulk,
+  revokeAnonymousCredential,
   type CommentModerationItemResponse
 } from '@/api/authoring'
 import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
-import { commentModerationStatusLabel } from '@/composables/useCommentModerationQueue'
+import { commentModerationStatusLabel, type CommentModerationViewItem } from '@/composables/useCommentModerationQueue'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 import { AppErrorCode, isAppError } from '@/utils/appError'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
@@ -21,6 +23,14 @@ function isBanEligibleStatus(status: CommentModerationStatus): boolean {
 function normalizeModerationReason(status: CommentModerationStatus, reason: string): string {
   const trimmed = reason.trim()
   return trimmed.length > 0 ? trimmed : commentModerationStatusLabel(status)
+}
+
+function cleanGovernanceValue(value: string | number | null | undefined): string | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+  const text = String(value).trim()
+  return text.length > 0 ? text : null
 }
 
 function moderationErrorMessage(error: unknown, fallback: string): string {
@@ -51,6 +61,44 @@ function moderationErrorMessage(error: unknown, fallback: string): string {
   }
   if (error.code === AppErrorCode.RateLimited || error.status === 429) {
     return '审核操作过于频繁，请稍后再试'
+  }
+  if (error.code === AppErrorCode.Unauthorized || error.status === 401) {
+    return '登录状态已失效，请重新登录'
+  }
+  return message
+}
+
+function anonymousGovernanceErrorMessage(error: unknown, fallback: string): string {
+  if (!isAppError(error)) {
+    if (error instanceof Error) {
+      if (error.message === 'MFA_CHALLENGE_CANCELLED') {
+        return '已取消管理员二次验证'
+      }
+      if (error.message === 'MFA_CHALLENGE_REQUIRED' || error.message === 'MFA_PROOF_REQUIRED') {
+        return '管理员验证已过期，请重新完成二次验证'
+      }
+      if (error.message === 'ANONYMOUS_GOVERNANCE_NOT_APPLIED') {
+        return '匿名治理动作未被应用，请刷新队列后重试'
+      }
+    }
+    return fallback
+  }
+
+  const message = error.message || fallback
+  if (message.includes('MFA_PROOF_REQUIRED') || message.includes('MFA_CHALLENGE_REQUIRED') || error.status === 428) {
+    return '管理员验证已过期，请重新完成二次验证'
+  }
+  if (error.code === AppErrorCode.Forbidden || error.status === 403) {
+    return '当前账号无权限执行匿名治理操作'
+  }
+  if (error.code === AppErrorCode.Conflict || error.status === 409) {
+    return '匿名治理对象状态已变化，请刷新队列'
+  }
+  if (error.code === AppErrorCode.NotFound || error.status === 404) {
+    return '匿名治理对象不存在或已失效，请刷新队列'
+  }
+  if (error.code === AppErrorCode.RateLimited || error.status === 429) {
+    return '匿名治理操作过于频繁，请稍后再试'
   }
   if (error.code === AppErrorCode.Unauthorized || error.status === 401) {
     return '登录状态已失效，请重新登录'
@@ -188,6 +236,117 @@ export function useCommentModerationActions() {
     }
   }
 
+  const requestGovernanceReason = async (
+    title: string,
+    confirmButtonText: string,
+    inputPlaceholder: string
+  ): Promise<string | null> => {
+    const reason = await promptText('输入处理原因', title, {
+      confirmButtonText,
+      cancelButtonText: '取消',
+      inputPlaceholder,
+      inputValidator: (value: string) => value.trim().length > 0 || '请输入处理原因'
+    })
+    return cleanGovernanceValue(reason)
+  }
+
+  const applyBlockAnonymousNullifier = async (
+    item: CommentModerationViewItem,
+    afterSuccess?: () => Promise<void> | void
+  ): Promise<boolean> => {
+    if (!item.canBlockAnonymousNullifier) {
+      showWarningToast('当前管理员没有封禁匿名 Nullifier 的权限')
+      return false
+    }
+
+    const nullifierHash = cleanGovernanceValue(item.nullifierHash)
+    const scope = cleanGovernanceValue(item.anonymousScope)
+    if (!nullifierHash || !scope) {
+      showWarningToast('当前匿名主体缺少可封禁的 Nullifier 信息')
+      return false
+    }
+
+    const reason = await requestGovernanceReason('封禁匿名 Nullifier', '封禁', '说明封禁原因')
+    if (!reason) {
+      return false
+    }
+
+    processingId.value = item.id
+    taskFeedback.begin('正在封禁匿名 Nullifier', `${item.actorDisplayName} / ${scope}`, item.id)
+    try {
+      const mfaProofToken = await ensureAdminSensitiveProof()
+      const result = await blockAnonymousNullifier({
+        nullifierHash,
+        scope,
+        reason
+      }, {
+        mfaProofToken
+      })
+      if (!result.applied) {
+        throw new Error('ANONYMOUS_GOVERNANCE_NOT_APPLIED')
+      }
+
+      taskFeedback.succeed('匿名 Nullifier 已封禁', `${item.actorDisplayName} / ${scope}`, item.id)
+      toast.success('匿名 Nullifier 已封禁')
+      await afterSuccess?.()
+      return true
+    } catch (error: unknown) {
+      const message = anonymousGovernanceErrorMessage(error, '匿名 Nullifier 封禁失败')
+      taskFeedback.fail('匿名 Nullifier 封禁失败', message, message, item.id)
+      showErrorToast(message, '匿名 Nullifier 封禁失败')
+      return false
+    } finally {
+      processingId.value = null
+    }
+  }
+
+  const applyRevokeAnonymousCredential = async (
+    item: CommentModerationViewItem,
+    afterSuccess?: () => Promise<void> | void
+  ): Promise<boolean> => {
+    if (!item.canRevokeAnonymousCredential) {
+      showWarningToast('当前管理员没有撤销匿名凭证的权限')
+      return false
+    }
+
+    const credentialId = cleanGovernanceValue(item.anonymousCredentialId)
+    if (!credentialId) {
+      showWarningToast('当前匿名主体缺少可撤销的匿名凭证信息')
+      return false
+    }
+
+    const reason = await requestGovernanceReason('撤销匿名凭证', '撤销', '说明撤销原因')
+    if (!reason) {
+      return false
+    }
+
+    processingId.value = item.id
+    taskFeedback.begin('正在撤销匿名凭证', `${item.actorDisplayName} / ${credentialId}`, item.id)
+    try {
+      const mfaProofToken = await ensureAdminSensitiveProof()
+      const result = await revokeAnonymousCredential(credentialId, {
+        reason
+      }, {
+        mfaProofToken
+      })
+      if (!result.applied) {
+        throw new Error('ANONYMOUS_GOVERNANCE_NOT_APPLIED')
+      }
+
+      taskFeedback.succeed('匿名凭证已撤销', `${item.actorDisplayName} / ${credentialId}`, item.id)
+      toast.success('匿名凭证已撤销')
+      await afterSuccess?.()
+      return true
+    } catch (error: unknown) {
+      const message = anonymousGovernanceErrorMessage(error, '匿名凭证撤销失败')
+      taskFeedback.fail('匿名凭证撤销失败', message, message, item.id)
+      showErrorToast(message, '匿名凭证撤销失败')
+      return false
+    } finally {
+      processingId.value = null
+    }
+  }
+
   return {
     selectedIds,
     actionReason,
@@ -201,6 +360,8 @@ export function useCommentModerationActions() {
     pruneSelection,
     ensureAdminSensitiveProof,
     applySingle,
-    applyBulk
+    applyBulk,
+    applyBlockAnonymousNullifier,
+    applyRevokeAnonymousCredential
   }
 }

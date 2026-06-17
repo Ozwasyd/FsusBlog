@@ -178,6 +178,8 @@
     { "name": "CommentPolicyUpdateRequest", "value": 165 },
     { "name": "CommentCreateV2Request", "value": 166 },
     { "name": "CommentAuthorView", "value": 167 },
+    { "name": "AnonymousGovernanceActionRequest", "value": 168 },
+    { "name": "AnonymousGovernanceActionResponse", "value": 169 },
     { "name": "EmptySuccess", "value": 240 },
     { "name": "MutationId", "value": 241 },
     { "name": "ApiError", "value": 251 }

@@ -551,6 +551,20 @@ export interface CommentModerationBulkResponse {
   bannedUsers: number
 }
 
+export interface AnonymousNullifierBlockRequest {
+  nullifierHash: string
+  scope: string
+  reason: string | null
+}
+
+export interface AnonymousCredentialRevokeRequest {
+  reason: string | null
+}
+
+export interface AnonymousGovernanceActionResponse {
+  applied: boolean
+}
+
 export interface ModerationOverviewResponse {
   pendingCount: number
   rejectedCount: number
@@ -1273,6 +1287,29 @@ export async function moderateCommentsBulk(
   return requestAuthoringBinary<CommentModerationBulkResponse>('/comments/moderation/bulk', FrameType.CommentModerationBulkResponse, config, {
     method: 'POST',
     requestFrame: FrameType.CommentModerationBulkRequest,
+    request
+  })
+}
+
+export async function blockAnonymousNullifier(
+  request: AnonymousNullifierBlockRequest,
+  config?: ApiRequestConfig
+): Promise<AnonymousGovernanceActionResponse> {
+  return requestAuthoringBinary<AnonymousGovernanceActionResponse>('/comments/moderation/nullifiers/block', FrameType.AnonymousGovernanceActionResponse, config, {
+    method: 'POST',
+    requestFrame: FrameType.AnonymousGovernanceActionRequest,
+    request
+  })
+}
+
+export async function revokeAnonymousCredential(
+  credentialId: string | number,
+  request: AnonymousCredentialRevokeRequest,
+  config?: ApiRequestConfig
+): Promise<AnonymousGovernanceActionResponse> {
+  return requestAuthoringBinary<AnonymousGovernanceActionResponse>(`/comments/moderation/anonymous-credentials/${encodeURIComponent(String(credentialId))}/revoke`, FrameType.AnonymousGovernanceActionResponse, config, {
+    method: 'POST',
+    requestFrame: FrameType.AnonymousGovernanceActionRequest,
     request
   })
 }

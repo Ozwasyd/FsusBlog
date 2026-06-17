@@ -174,6 +174,8 @@ public enum AedsFrameType : ushort
     CommentPolicyUpdateRequest = 165,
     CommentCreateV2Request = 166,
     CommentAuthorView = 167,
+    AnonymousGovernanceActionRequest = 168,
+    AnonymousGovernanceActionResponse = 169,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

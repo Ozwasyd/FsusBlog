@@ -85,6 +85,7 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.CommentModerationQueue]: mapAuthoringJsonFromPayload,
   [FrameType.CommentModerationBulkResponse]: mapAuthoringJsonFromPayload,
   [FrameType.CommentModerationResult]: mapAuthoringJsonFromPayload,
+  [FrameType.AnonymousGovernanceActionResponse]: mapAuthoringJsonFromPayload,
   [FrameType.ContentExport]: mapAuthoringJsonFromPayload,
   [FrameType.ContentBackupExport]: mapAuthoringJsonFromPayload,
   [FrameType.ContentImportResponse]: mapAuthoringJsonFromPayload,

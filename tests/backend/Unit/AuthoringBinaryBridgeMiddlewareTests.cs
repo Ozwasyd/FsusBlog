@@ -105,6 +105,20 @@ public sealed class AuthoringBinaryBridgeMiddlewareTests
             out var auditRoute));
         Assert.Null(auditRoute.RequestFrame);
         Assert.Equal(AedsFrameType.AuditTamperVerifyResponse, auditRoute.ResponseFrame);
+
+        Assert.True(AuthoringBinaryBridgeMiddleware.TryResolveRoute(
+            HttpMethods.Post,
+            new PathString("/comments/moderation/nullifiers/block"),
+            out var nullifierRoute));
+        Assert.Equal(AedsFrameType.AnonymousGovernanceActionRequest, nullifierRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.AnonymousGovernanceActionResponse, nullifierRoute.ResponseFrame);
+
+        Assert.True(AuthoringBinaryBridgeMiddleware.TryResolveRoute(
+            HttpMethods.Post,
+            new PathString("/comments/moderation/anonymous-credentials/88001/revoke"),
+            out var credentialRoute));
+        Assert.Equal(AedsFrameType.AnonymousGovernanceActionRequest, credentialRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.AnonymousGovernanceActionResponse, credentialRoute.ResponseFrame);
     }
 
     private static DefaultHttpContext CreateContext(string path, string method, byte[]? body = null)

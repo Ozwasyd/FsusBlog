@@ -174,6 +174,8 @@
     { "name": "CommentPolicyUpdateRequest", "value": 165, "family": "comment-policy-request" },
     { "name": "CommentCreateV2Request", "value": 166, "family": "comment-request" },
     { "name": "CommentAuthorView", "value": 167, "family": "comment-response" },
+    { "name": "AnonymousGovernanceActionRequest", "value": 168, "family": "anonymous-governance-request" },
+    { "name": "AnonymousGovernanceActionResponse", "value": 169, "family": "anonymous-governance-response" },
     { "name": "EmptySuccess", "value": 240, "family": "common-response" },
     { "name": "MutationId", "value": 241, "family": "common-response" },
     { "name": "ApiError", "value": 251, "family": "error-response" }

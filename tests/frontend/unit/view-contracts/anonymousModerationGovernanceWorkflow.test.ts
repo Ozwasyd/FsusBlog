@@ -11,6 +11,9 @@ describe('anonymous moderation governance workflow contract', () => {
   const queue = readRepoFile('src/frontend/src/components/admin/comment-moderation/CommentModerationQueue.vue')
   const queueComposable = readRepoFile('src/frontend/src/composables/useCommentModerationQueue.ts')
   const governance = readRepoFile('src/frontend/src/views/admin/moderation/AnonymousGovernancePlaceholder.vue')
+  const commentModerationPage = readRepoFile('src/frontend/src/views/admin/CommentModeration.vue')
+  const actionComposable = readRepoFile('src/frontend/src/composables/useCommentModerationActions.ts')
+  const authoringApi = readRepoFile('src/frontend/src/api/authoring.ts')
 
   it('keeps anonymous governance under the existing manage moderation shell', () => {
     expect(router).toContain("path: 'manage/moderation'")
@@ -56,6 +59,27 @@ describe('anonymous moderation governance workflow contract', () => {
     expect(queue).toContain('canRevokeAnonymousCredential')
     expect(queue).toContain('封禁 Nullifier')
     expect(queue).toContain('撤销匿名凭证')
+  })
+
+  it('connects anonymous governance actions to real API calls and queue refresh', () => {
+    expect(authoringApi).toContain('blockAnonymousNullifier')
+    expect(authoringApi).toContain('revokeAnonymousCredential')
+    expect(actionComposable).toContain('applyBlockAnonymousNullifier')
+    expect(actionComposable).toContain('applyRevokeAnonymousCredential')
+    expect(actionComposable).toContain('ensureAdminSensitiveProof')
+    expect(actionComposable).toContain('anonymousGovernanceErrorMessage')
+    expect(actionComposable).toContain('error.status === 403')
+    expect(actionComposable).toContain('error.status === 428')
+    expect(actionComposable).toContain('error.status === 404')
+    expect(actionComposable).toContain('error.status === 429')
+    expect(actionComposable).toContain('当前账号无权限执行匿名治理操作')
+    expect(actionComposable).toContain('匿名治理对象不存在或已失效，请刷新队列')
+    expect(actionComposable).toContain('匿名治理操作过于频繁，请稍后再试')
+    expect(commentModerationPage).toContain('applyBlockAnonymousNullifier(item, refreshAndPrune)')
+    expect(commentModerationPage).toContain('applyRevokeAnonymousCredential(item, refreshAndPrune)')
+    expect(commentModerationPage).not.toContain('Nullifier 封禁 API 尚未接入')
+    expect(commentModerationPage).not.toContain('匿名凭证撤销 API 尚未接入')
+    expect(governance).not.toContain('接口尚未接入')
   })
 
   it('surfaces policy, ZK, risk, nullifier, and credential governance controls', () => {

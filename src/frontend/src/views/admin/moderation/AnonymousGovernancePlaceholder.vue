@@ -360,7 +360,7 @@ const previewNullifierBlock = (row: AnonymousNullifierRow): void => {
     return
   }
 
-  showWarningToast(`Nullifier ${row.hash} 的封禁接口尚未接入；不会打开账号反查。`)
+  showWarningToast(`请在评论审核队列中选择真实匿名主体封禁 ${row.hash}；不会打开账号反查。`)
 }
 
 const previewCredentialRevoke = (row: AnonymousCredentialRow): void => {
@@ -369,7 +369,7 @@ const previewCredentialRevoke = (row: AnonymousCredentialRow): void => {
     return
   }
 
-  showWarningToast(`credential ${row.id} 的撤销接口尚未接入；不会打开账号反查。`)
+  showWarningToast(`请在评论审核队列中选择真实匿名主体撤销 credential ${row.id}；不会打开账号反查。`)
 }
 </script>
 

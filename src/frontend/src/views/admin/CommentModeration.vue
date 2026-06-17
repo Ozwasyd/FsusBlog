@@ -96,7 +96,6 @@ import {
   useCommentModerationQueue
 } from '@/composables/useCommentModerationQueue'
 import type { CommentModerationStatus } from '@/api/authoring'
-import { showWarningToast } from '@/utils/errorPresentation'
 
 withDefaults(defineProps<{
   embedded?: boolean
@@ -133,7 +132,9 @@ const {
   clearSelection,
   pruneSelection,
   applySingle,
-  applyBulk
+  applyBulk,
+  applyBlockAnonymousNullifier,
+  applyRevokeAnonymousCredential
 } = useCommentModerationActions()
 const {
   phase: taskFeedbackPhase,
@@ -191,21 +192,11 @@ const openDetail = (item: CommentModerationViewItem): void => {
 }
 
 const handleBlockAnonymousNullifier = (item: CommentModerationViewItem): void => {
-  if (!item.canBlockAnonymousNullifier) {
-    showWarningToast('当前管理员没有封禁匿名 Nullifier 的权限')
-    return
-  }
-
-  showWarningToast(`Nullifier 封禁 API 尚未接入；已保留 ${item.actorDisplayName} 的匿名治理动作，不提供账号反查。`)
+  void applyBlockAnonymousNullifier(item, refreshAndPrune)
 }
 
 const handleRevokeAnonymousCredential = (item: CommentModerationViewItem): void => {
-  if (!item.canRevokeAnonymousCredential) {
-    showWarningToast('当前管理员没有撤销匿名凭证的权限')
-    return
-  }
-
-  showWarningToast(`匿名凭证撤销 API 尚未接入；已保留 ${item.actorDisplayName} 的凭证治理动作，不提供账号反查。`)
+  void applyRevokeAnonymousCredential(item, refreshAndPrune)
 }
 
 watch(
