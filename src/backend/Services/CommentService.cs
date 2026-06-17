@@ -27,7 +27,8 @@ public partial class CommentService(
     IRegionLegalModerationService regionLegalModerationService,
     IAntiSpamModerationService? antiSpamModerationService = null,
     ICommentActorResolver? commentActorResolver = null,
-    IAnonymousCommentPolicyService? anonymousCommentPolicyService = null) : ICommentService, ICommentEndpointService
+    IAnonymousCommentPolicyService? anonymousCommentPolicyService = null,
+    ICommentAnonymousNullifierService? anonymousNullifierService = null) : ICommentService, ICommentEndpointService
 {
     private const int DefaultReplyPreviewLimit = 3;
     private const string DeletedPlaceholder = "该回复已删除";
@@ -105,6 +106,12 @@ public partial class CommentService(
         }
 
         CommentActor actor = actorResult.Actor;
+        bool enforceAnonymousNullifier = RequiresAnonymousNullifierEnforcement(actor);
+        if (enforceAnonymousNullifier && anonymousNullifierService is null)
+        {
+            logger.LogWarning("匿名评论 nullifier enforcement 未注册，拒绝评论写入 | Article: {ArticleId} | Scope: {Scope}", dto.ArticleId, actor.AnonymousScope);
+            return false;
+        }
 
         bool hasReplyContext = !string.IsNullOrWhiteSpace(dto.ParentId)
             || !string.IsNullOrWhiteSpace(dto.RootId)
@@ -228,6 +235,18 @@ public partial class CommentService(
         long generatedId = 0;
         var insertResult = await db.Ado.UseTranAsync(async () =>
         {
+            if (enforceAnonymousNullifier)
+            {
+                NullifierReservationResult reservation = await anonymousNullifierService!.CheckAndReserveAsync(
+                    actor.AnonymousNullifierHash!,
+                    actor.AnonymousScope!,
+                    CancellationToken.None);
+                if (!reservation.Allowed)
+                {
+                    throw new AnonymousNullifierRejectedException(reservation.Status, reservation.Message);
+                }
+            }
+
             generatedId = await db.Insertable(comment).ExecuteReturnSnowflakeIdAsync();
             if (generatedId <= 0)
             {
@@ -235,9 +254,34 @@ public partial class CommentService(
             }
 
             await db.Insertable(BuildRegionCompliance(generatedId, regionDecision)).ExecuteCommandAsync();
+
+            if (enforceAnonymousNullifier)
+            {
+                bool incremented = await anonymousNullifierService!.IncrementUsageAsync(
+                    actor.AnonymousNullifierHash!,
+                    actor.AnonymousScope!,
+                    generatedId,
+                    CancellationToken.None);
+                if (!incremented)
+                {
+                    throw new AnonymousNullifierRejectedException(
+                        "scope_limit_exceeded",
+                        "Anonymous nullifier usage could not be incremented.");
+                }
+            }
         });
         if (!insertResult.IsSuccess || generatedId <= 0)
         {
+            if (insertResult.ErrorException is AnonymousNullifierRejectedException rejected)
+            {
+                logger.LogInformation(
+                    "匿名评论 nullifier enforcement 拒绝写入 | Article: {ArticleId} | Scope: {Scope} | Status: {Status}",
+                    dto.ArticleId,
+                    actor.AnonymousScope,
+                    rejected.Status);
+                return false;
+            }
+
             logger.LogWarning(insertResult.ErrorException, "评论创建或地区合规记录写入失败 | Article: {ArticleId} | User: {UserId}", dto.ArticleId, userId);
             return false;
         }
@@ -285,6 +329,18 @@ public partial class CommentService(
             comment.ParentId);
 
         return true;
+    }
+
+    private static bool RequiresAnonymousNullifierEnforcement(CommentActor actor)
+        => !string.IsNullOrWhiteSpace(actor.AnonymousNullifierHash)
+            && !string.IsNullOrWhiteSpace(actor.AnonymousScope)
+            && (string.Equals(actor.AuthorMode, CommentAuthorModes.Anonymous, StringComparison.Ordinal)
+                || string.Equals(actor.AuthorMode, CommentAuthorModes.Pseudonymous, StringComparison.Ordinal)
+                || string.Equals(actor.AuthorMode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal));
+
+    private sealed class AnonymousNullifierRejectedException(string status, string message) : Exception(message)
+    {
+        public string Status { get; } = status;
     }
 
     public Task<bool> CreateCommentV2Async(int userId, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null)

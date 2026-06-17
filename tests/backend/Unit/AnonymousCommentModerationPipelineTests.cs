@@ -69,6 +69,32 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
+    public void CommentService_EnforcesAnonymousNullifierBeforeCommitAndIncrementsAfterInsert()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
+
+        Assert.Contains("ICommentAnonymousNullifierService", source, StringComparison.Ordinal);
+        Assert.Contains("RequiresAnonymousNullifierEnforcement(actor)", source, StringComparison.Ordinal);
+        Assert.Contains("CheckAndReserveAsync", source, StringComparison.Ordinal);
+        Assert.Contains("IncrementUsageAsync", source, StringComparison.Ordinal);
+        Assert.Contains("db.Ado.UseTranAsync(async () =>", source, StringComparison.Ordinal);
+        Assert.Contains("AnonymousNullifierRejectedException", source, StringComparison.Ordinal);
+        Assert.Contains("CommentAuthorModes.ZkAnonymous", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NullifierService_UsesAtomicReservationAndLimitAwareIncrement()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentAnonymousNullifierService.cs");
+
+        Assert.Contains("ON CONFLICT (nullifier_hash, scope) DO NOTHING", source, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", source, StringComparison.Ordinal);
+        Assert.Contains("n.UseCount < maxUseCount", source, StringComparison.Ordinal);
+        Assert.Contains("\"scope_limit_exceeded\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetAccount", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AdminModerationEndpoints_ExposeAnonymousGovernanceActionsWithSpecificPermissions()
     {
         string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
