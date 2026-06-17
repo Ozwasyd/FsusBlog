@@ -120,6 +120,8 @@ Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再
 
 **Recovery Key**：匿名账号的账户恢复使用独立 `account_recovery_key` 表，不复用 `sys_user.MfaRecoveryCodesHash` 或 TOTP recovery-code 语义。Create/rotate 只在 AEDS `RecoveryKeyCreateResponse` 中返回一次明文，服务端保存带 `RecoveryKeyPepper` 的 HMAC + PBKDF2-SHA256 哈希、key version 和 created/used/revoked timestamps。`/api/binary/auth/recovery-key/verify` 是匿名、`fixed_ip` 限流、PoW 和 no-store 端点；验证成功后 Recovery Key 立即标记 used，返回短期 recovery session token，用于 `/auth/recovery-key/passkey/register/begin|complete` 绑定新 Passkey。请求可选择撤销现有 sessions，并在新 Passkey 绑定成功后撤销旧 passkey credentials；不提供 email/phone fallback。
 
+**ZK strong-anonymous comment path**：ZK 只作为评论作者模式 `zk_anonymous` 的强匿名扩展点保留，不参与普通账号登录、Passkey 登录、admin Passkey 登录或 JWT/session 认证。默认 `IZkProofVerifier` 为 `DisabledZkProofVerifier`，`AnonymousIdentity:ZkAnonymousCommentsEnabled=false`；即使配置打开但没有真实 verifier，`IZkAnonymousProofService` 也返回 `verifier_unavailable` 并拒绝写评论。ZK proof 的 public inputs 预留 `action_context`、article/comment scope、nullifier、credential commitment/root 和 reputation bucket；缺失 proof、缺失 public inputs、verifier unavailable 或 invalid proof 都必须 fail closed，不写入评论。
+
 ---
 
 ## 多因素认证（MFA / TOTP）

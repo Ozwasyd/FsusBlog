@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Security;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
@@ -21,6 +22,8 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IPasskeyService, PasskeyService>();
         services.AddScoped<IAdminPrincipalService, AdminPrincipalService>();
         services.AddScoped<IRecoveryKeyService, RecoveryKeyService>();
+        services.TryAddSingleton<IZkProofVerifier, DisabledZkProofVerifier>();
+        services.AddScoped<IZkAnonymousProofService, ZkAnonymousProofService>();
         services.AddScoped<ITotpService, TotpService>();
         services.AddScoped<IMfaChallengeService, MfaChallengeService>();
         services.AddScoped<IAuthRiskService, AuthRiskService>();
