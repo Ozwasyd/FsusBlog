@@ -509,6 +509,8 @@ export interface CommentModerationItemResponse {
   reason: string | null
   moderatedByUserId: number | null
   moderatedAt: string | null
+  autoModerated: boolean
+  moderationActor: string
   hitReasons: string[]
   submitRegion: string | null
   submitRegionConfidence: number | null

@@ -70,19 +70,19 @@ public sealed class AntiSpamModerationService(
         "contract_mismatch"
     };
 
-    public async Task ScoreCommentAsync(AntiSpamCommentModerationContext context, CancellationToken cancellationToken = default)
+    public async Task<AntiSpamModerationResult?> ScoreCommentAsync(AntiSpamCommentModerationContext context, CancellationToken cancellationToken = default)
     {
         ModerationModelRuntimeSnapshot? runtimeModel = runtimeState?.CurrentModel;
         bool enabled = runtimeState?.IsModelEnabled ?? configuration.GetValue<bool>("Moderation:AntiSpamModel:Enabled");
         if (!enabled)
         {
-            return;
+            return null;
         }
 
         string provider = NormalizeProvider(runtimeModel?.Provider ?? configuration["Moderation:AntiSpamModel:Provider"]);
         if (provider == AntiSpamModerationProviders.None)
         {
-            return;
+            return null;
         }
 
         int timeoutMs = Math.Clamp(runtimeModel?.TimeoutMs ?? configuration.GetValue<int?>("Moderation:AntiSpamModel:TimeoutMs") ?? 800, 100, 10_000);
@@ -112,6 +112,8 @@ public sealed class AntiSpamModerationService(
         {
             logger.LogWarning(ex, "anti-spam moderation signal persistence failed open | CommentId: {CommentId}", context.CommentId);
         }
+
+        return result;
     }
 
     private async Task<AntiSpamModerationResult> ScoreWithProviderAsync(

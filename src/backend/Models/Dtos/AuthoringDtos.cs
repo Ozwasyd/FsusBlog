@@ -145,6 +145,8 @@ public sealed record class CommentModerationItemResponse(
     string? Reason,
     int? ModeratedByUserId,
     DateTime? ModeratedAt,
+    bool AutoModerated,
+    string ModerationActor,
     IReadOnlyList<string> HitReasons,
     string? SubmitRegion,
     double? SubmitRegionConfidence,

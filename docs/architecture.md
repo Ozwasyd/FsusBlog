@@ -78,7 +78,7 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 
 审核词库运行时由 `ModerationDictionaryService` 承载，注册在内容领域服务分组。它从 `configs/moderation/dictionaries/**` 和 `configs/moderation/region-policies/**` 构建 immutable snapshot；global 词库进入 `ContentFilterService` 硬拦截，地区策略组合进入 `RegionLegalModerationService` 计算 submit/viewer action、`blocked_regions` 和 replay diff。reload 失败时继续使用旧 snapshot，并通过审计通道写入 `dictionary_reload_failed` / `region_policy_reload_failed`。
 
-可选反垃圾模型由 `AntiSpamModerationService` 承载，默认 `Moderation:AntiSpamModel:Enabled=false`。评论创建成功并写入地区合规后，服务在短超时内调用 `none/mock/http-json/fsus-cli` provider selector；模型只写 `comment_moderation_signal` 风险信号，失败写 `timeout/unavailable/error/contract_invalid` signal 并 fail-open，不能覆盖硬词库、地区策略、`blocked_regions` 或管理员最终审核。
+可选反垃圾模型由 `AntiSpamModerationService` 承载，默认 `Moderation:AntiSpamModel:Enabled=false` 且处置模式为 `score-only`。评论创建成功并写入地区合规后，服务在短超时内调用 `none/mock/http-json/fsus-cli` provider selector；模型先写 `comment_moderation_signal` 风险信号，再由 `CommentModerationDispositionPolicy` 在显式配置的 `auto-low-risk-approve` / `auto-hide-high-risk` 模式下决定是否自动通过或隐藏。地区策略优先级高于模型：`RegionCanPublish=false`、`RegionRequiresManualReview=true` 或 `RegionHideUntilReviewed=true` 时模型不得自动通过；provider 失败写 `timeout/unavailable/error/contract_invalid` signal 并 fail-open。
 
 `BannedUserMiddleware` 是运行时封禁检查的唯一主实现；旧 `BannedUserFilter` 名称仅作为兼容别名保留，新增调用点必须使用 Middleware 命名。
 

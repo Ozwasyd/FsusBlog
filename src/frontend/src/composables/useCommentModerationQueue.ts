@@ -49,6 +49,7 @@ export interface CommentModerationViewItem extends CommentModerationItemResponse
   statusLabel: string
   statusCode: string
   statusClass: string
+  moderationActorLabel: string
   recommendedStatus: CommentModerationStatus
   recommendedActionLabel: string
   recommendedActionReason: string
@@ -232,6 +233,20 @@ function cleanText(value: string | number | null | undefined): string | null {
   return text.length > 0 ? text : null
 }
 
+function moderationActorText(item: CommentModerationItemResponse): string {
+  if (item.autoModerated || item.moderationActor === 'model') {
+    return '模型自动处置'
+  }
+  const actor = cleanText(item.moderationActor)
+  if (actor?.startsWith('admin:')) {
+    return `管理员 ${actor.slice('admin:'.length)}`
+  }
+  if (item.moderatedByUserId) {
+    return `管理员 ${item.moderatedByUserId}`
+  }
+  return '等待人工审核'
+}
+
 type NormalizedAuthorMode = 'anonymous' | 'public' | 'zk_anonymous'
 
 function normalizeAuthorMode(item: CommentModerationItemResponse): NormalizedAuthorMode {
@@ -381,6 +396,7 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
     statusLabel,
     statusCode,
     statusClass: commentModerationStatusClass(item.status),
+    moderationActorLabel: moderationActorText(item),
     ...recommendedAction,
     createTimeText: TimeUtils.toFullLocalString(item.createTime),
     articleLabel: `${item.articleTitle} / ${item.articleId}`,

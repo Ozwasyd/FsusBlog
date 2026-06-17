@@ -708,6 +708,8 @@ public sealed class AuthoringWorkflowService(
             row.Reason,
             row.ModeratedByUserId,
             row.ModeratedAt,
+            IsModelAutoModerated(row),
+            ResolveModerationActor(row),
             [.. DetectCommentHitReasons(row.Content, row.Reason)
                 .Concat(ParseCommaList(row.RegionRiskLabels).Select(static label => $"region:{label}"))
                 .Concat(row.ModelSignals.SelectMany(static signal => signal.RiskCategories.Select(static category => $"model:{category}")))
@@ -735,6 +737,24 @@ public sealed class AuthoringWorkflowService(
             row.CredentialLevel,
             row.ReputationBucket,
             row.AccountAgeBucket);
+    }
+
+    private static bool IsModelAutoModerated(CommentModerationQueueRow row)
+        => row.ModeratedByUserId is null
+            && row.ModeratedAt.HasValue
+            && !string.IsNullOrWhiteSpace(row.Reason)
+            && row.Reason.StartsWith("model_policy:", StringComparison.Ordinal);
+
+    private static string ResolveModerationActor(CommentModerationQueueRow row)
+    {
+        if (IsModelAutoModerated(row))
+        {
+            return "model";
+        }
+
+        return row.ModeratedByUserId.HasValue
+            ? $"admin:{row.ModeratedByUserId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+            : "human-review-pending";
     }
 
     internal IReadOnlyList<string> DetectCommentHitReasons(string? content, string? storedReason)

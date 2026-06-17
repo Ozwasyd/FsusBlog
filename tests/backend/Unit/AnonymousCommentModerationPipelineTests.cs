@@ -69,6 +69,23 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
+    public void CommentService_AppliesModelDispositionPolicyAndAuditsAutomaticActions()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
+        string services = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs");
+        string dto = BackendTestPaths.ReadAllTextFromRoot("src/backend/Models/Dtos/AuthoringDtos.cs");
+
+        Assert.Contains("ICommentModerationDispositionPolicy", source, StringComparison.Ordinal);
+        Assert.Contains("CommentModerationDisposition disposition = commentModerationDispositionPolicy.Decide", source, StringComparison.Ordinal);
+        Assert.Contains("ApplyAutomaticModerationDispositionAsync", source, StringComparison.Ordinal);
+        Assert.Contains("model_moderation_auto_disposition", source, StringComparison.Ordinal);
+        Assert.Contains("PublicArticleChanged: comment.ModerationStatus == CommentModerationStatus.Approved", source, StringComparison.Ordinal);
+        Assert.Contains("AddScoped<ICommentModerationDispositionPolicy, CommentModerationDispositionPolicy>", services, StringComparison.Ordinal);
+        Assert.Contains("AutoModerated", dto, StringComparison.Ordinal);
+        Assert.Contains("ModerationActor", dto, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CommentService_EnforcesAnonymousNullifierBeforeCommitAndIncrementsAfterInsert()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");

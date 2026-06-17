@@ -30,6 +30,9 @@
                 <span class="text-xs font-semibold normal-case tracking-normal" :class="(item as CommentModerationViewItem).statusClass">
                   {{ (item as CommentModerationViewItem).statusLabel }}
                 </span>
+                <el-tag v-if="(item as CommentModerationViewItem).autoModerated" size="small" type="success">
+                  {{ (item as CommentModerationViewItem).moderationActorLabel }}
+                </el-tag>
                 <el-tag size="small" :type="(item as CommentModerationViewItem).isStrongAnonymous ? 'warning' : 'info'">
                   {{ (item as CommentModerationViewItem).authorModeLabel }}
                 </el-tag>
@@ -66,6 +69,7 @@
                   <span>{{ (item as CommentModerationViewItem).regionConfidenceLabel }}</span>
                   <span>屏蔽：{{ (item as CommentModerationViewItem).blockedRegionLabel }}</span>
                   <span>{{ (item as CommentModerationViewItem).regionReviewLabel }}</span>
+                  <span>处置：{{ (item as CommentModerationViewItem).moderationActorLabel }}</span>
                 </div>
                 <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-[var(--fsusblog-text-muted)]">
                   <span>{{ (item as CommentModerationViewItem).modelSignalLabel }}</span>
@@ -192,6 +196,8 @@
               <template #default="{ row }: { row: CommentModerationViewItem }">
                 <span class="inline-flex flex-col items-center gap-1">
                   <span class="text-xs font-semibold normal-case tracking-normal" :class="row.statusClass">{{ row.statusLabel }}</span>
+                  <el-tag v-if="row.autoModerated" size="small" type="success">{{ row.moderationActorLabel }}</el-tag>
+                  <span v-else class="text-[11px] font-medium text-[var(--fsusblog-text-muted)]">{{ row.moderationActorLabel }}</span>
                 </span>
               </template>
             </el-table-column>

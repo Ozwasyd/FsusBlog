@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Pagination;
@@ -28,7 +29,9 @@ public partial class CommentService(
     IAntiSpamModerationService? antiSpamModerationService = null,
     ICommentActorResolver? commentActorResolver = null,
     IAnonymousCommentPolicyService? anonymousCommentPolicyService = null,
-    ICommentAnonymousNullifierService? anonymousNullifierService = null) : ICommentService, ICommentEndpointService
+    ICommentAnonymousNullifierService? anonymousNullifierService = null,
+    ICommentModerationDispositionPolicy? commentModerationDispositionPolicy = null,
+    AuditLogChannel? auditLogChannel = null) : ICommentService, ICommentEndpointService
 {
     private const int DefaultReplyPreviewLimit = 3;
     private const string DeletedPlaceholder = "该回复已删除";
@@ -290,7 +293,7 @@ public partial class CommentService(
         if (antiSpamModerationService is not null)
         {
             AnonymousCommentPolicySnapshot? policySnapshot = anonymousCommentPolicyService?.Current;
-            await antiSpamModerationService.ScoreCommentAsync(
+            AntiSpamModerationResult? modelResult = await antiSpamModerationService.ScoreCommentAsync(
                 new AntiSpamCommentModerationContext(
                     comment.Id,
                     comment.ArticleId,
@@ -312,6 +315,11 @@ public partial class CommentService(
                     regionDecision.PolicyVersion,
                     comment.CreateTime),
                 CancellationToken.None);
+            if (modelResult is not null && commentModerationDispositionPolicy is not null)
+            {
+                CommentModerationDisposition disposition = commentModerationDispositionPolicy.Decide(comment, regionDecision, modelResult);
+                await ApplyAutomaticModerationDispositionAsync(comment, disposition, CancellationToken.None);
+            }
         }
 
         await cacheInvalidationDispatcher.InvalidateCommentMutationAsync(
@@ -319,7 +327,7 @@ public partial class CommentService(
                 ArticleId: comment.ArticleId,
                 RootId: comment.RootId ?? comment.Id,
                 UserId: actor.UserId,
-                PublicArticleChanged: false,
+                PublicArticleChanged: comment.ModerationStatus == CommentModerationStatus.Approved,
                 UserCommentsChanged: true));
 
         logger.LogInformation("评论已进入审核队列 | Article: {ArticleId} | CommentId: {CommentId} | Root: {RootId} | Parent: {ParentId}",
@@ -341,6 +349,72 @@ public partial class CommentService(
     private sealed class AnonymousNullifierRejectedException(string status, string message) : Exception(message)
     {
         public string Status { get; } = status;
+    }
+
+    private async Task ApplyAutomaticModerationDispositionAsync(
+        Comment comment,
+        CommentModerationDisposition disposition,
+        CancellationToken cancellationToken)
+    {
+        if (!disposition.AutoApplied || disposition.NextStatus == comment.ModerationStatus)
+        {
+            return;
+        }
+
+        CommentModerationStatus previousStatus = comment.ModerationStatus;
+        DateTime moderatedAt = DateTime.UtcNow;
+        string reason = NormalizeNullable($"model_policy:{disposition.Reason}", 256) ?? disposition.Reason;
+        int affected = await db.Updateable<Comment>()
+            .SetColumns(c => new Comment
+            {
+                ModerationStatus = disposition.NextStatus,
+                ModerationReason = reason,
+                ModeratedByUserId = null,
+                ModeratedAt = moderatedAt
+            })
+            .Where(c => c.Id == comment.Id && !c.IsDeleted && c.ModerationStatus == previousStatus)
+            .ExecuteCommandAsync(cancellationToken);
+        if (affected <= 0)
+        {
+            logger.LogInformation(
+                "模型审核自动处置未应用，评论状态已变化 | CommentId: {CommentId} | Previous: {PreviousStatus} | Next: {NextStatus}",
+                comment.Id,
+                previousStatus,
+                disposition.NextStatus);
+            return;
+        }
+
+        comment.ModerationStatus = disposition.NextStatus;
+        comment.ModerationReason = reason;
+        comment.ModeratedByUserId = null;
+        comment.ModeratedAt = moderatedAt;
+        WriteAutomaticDispositionAudit(comment, disposition);
+    }
+
+    private void WriteAutomaticDispositionAudit(Comment comment, CommentModerationDisposition disposition)
+    {
+        if (auditLogChannel is null)
+        {
+            return;
+        }
+
+        string context = JsonSerializer.Serialize(disposition.AuditContext);
+        auditLogChannel.TryWrite(new AuditRecord(
+            AuditSourceCatalog.Comment,
+            AuditTypeCatalog.Business,
+            DateTime.UtcNow,
+            "model_moderation_auto_disposition",
+            Encoding.UTF8.GetBytes(context),
+            Action: "model_moderation_auto_disposition",
+            Outcome: AuditOutcomeCatalog.Success,
+            Severity: disposition.NextStatus == CommentModerationStatus.Hidden
+                ? AuditSeverityCatalog.Warning
+                : AuditSeverityCatalog.Info,
+            ActorType: AuditActorTypeCatalog.System,
+            TargetType: "comment",
+            TargetId: comment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ReasonCode: disposition.Reason,
+            ContextJson: context));
     }
 
     public Task<bool> CreateCommentV2Async(int userId, CommentCreateV2RequestCoreModel request, RegionModerationDecision? regionDecision = null)

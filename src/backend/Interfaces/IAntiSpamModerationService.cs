@@ -1,3 +1,4 @@
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Moderation;
 
 namespace FsusBlog.Server.Interfaces;
@@ -12,5 +13,13 @@ public interface IAntiSpamModerationScorer
 
 public interface IAntiSpamModerationService
 {
-    Task ScoreCommentAsync(AntiSpamCommentModerationContext context, CancellationToken cancellationToken = default);
+    Task<AntiSpamModerationResult?> ScoreCommentAsync(AntiSpamCommentModerationContext context, CancellationToken cancellationToken = default);
+}
+
+public interface ICommentModerationDispositionPolicy
+{
+    CommentModerationDisposition Decide(
+        Comment comment,
+        RegionModerationDecision regionDecision,
+        AntiSpamModerationResult modelResult);
 }
