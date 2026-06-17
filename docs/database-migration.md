@@ -36,3 +36,17 @@ The upgrade also moves legacy content and messaging structures:
 - `sys_visit_log` is extended into the human-read event source with `site_read` defaults.
 
 Rollback is backup based. Schema migrations are intentionally `non_compensable`; use the pre-migration site package or database dump if the isolated rehearsal or production startup check fails.
+
+## Anonymous Identity Cold-Start Reset
+
+The anonymous-identity cutover intentionally deletes legacy users and historical comments. It is not a data migration and it does not preserve old password login, old `role=admin` semantics, old MFA secrets, old refresh sessions, passkeys bound to legacy users, or historical comment threads.
+
+Run the reset only against an isolated restored database first:
+
+1. Create a full site backup and restore it to an isolated PostgreSQL database.
+2. Start the server once with `FSUSBLOG_CONFIRM_IDENTITY_RESET=DELETE_LEGACY_USERS`.
+3. Confirm `sys_user`, `sys_user_session`, `passkey_credential`, `comment`, `comment_region_compliance`, and `comment_moderation_signal` all contain zero rows.
+4. Confirm user-bound `msg_participant_state`, `msg_message`, and `msg_conversation` rows have been removed.
+5. Repeat the same guarded startup on the production cold-start database only after the rehearsal result is accepted.
+
+If `FSUSBLOG_CONFIRM_IDENTITY_RESET` is missing or has any other value, `LegacyIdentityColdStartResetOperation` fails before opening the destructive transaction. The operation keeps table structures in place for CodeFirst compatibility and deletes rows in dependency order: comment-derived rows, comments, user-bound messages, passkey credentials, sessions, then users. After the database transaction commits, it clears legacy user cache entries for blacklist/blocking, unread-message counts, and user-comment cursors. Rollback is backup based; do not run this operation without a fresh restore point.

@@ -112,6 +112,8 @@ Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再
 
 **生产启动保护**：如果 JWT 密钥与已知占位值相同，服务器拒绝启动，防止弱密钥上线。
 
+**Anonymous identity cold-start reset**：切换到匿名身份模型时，旧 `sys_user`、`sys_user_session`、legacy Passkey、MFA secret/recovery-code hash、refresh/session 记录、历史评论、`comment_region_compliance`、`comment_moderation_signal` 和旧用户绑定的消息状态会被故意删除，并在事务提交后清理旧用户的 blacklist/blocking、未读消息和用户评论游标缓存。该 reset 只在 `FSUSBLOG_CONFIRM_IDENTITY_RESET=DELETE_LEGACY_USERS` 时运行；缺少确认值会在 destructive SQL 前失败。旧密码登录和旧 `role=admin` 账户不迁移、不可继续使用，必须按新的匿名身份/admin bootstrap 流程重建。
+
 ---
 
 ## 多因素认证（MFA / TOTP）

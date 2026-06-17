@@ -30,6 +30,8 @@ internal static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddSingleton<ISchemaModelInspector, SchemaModelInspector>();
         services.AddSingleton<ISchemaMigrationLock, SchemaMigrationLock>();
         services.AddScoped<ISchemaMigrationRunner, SchemaMigrationRunner>();
+        services.AddScoped<LegacyIdentityColdStartResetOperation>();
+        services.AddScoped<ILegacyIdentityColdStartResetOperation>(sp => sp.GetRequiredService<LegacyIdentityColdStartResetOperation>());
         if (!OpenApiExportMode.IsEnabled(configuration))
         {
             services.AddHostedService<ProductionStartupValidationHostedService>();

@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
 using Microsoft.AspNetCore.Hosting;
@@ -92,6 +93,61 @@ public sealed class LifecycleHostedBootstrapServiceTests
         }
         finally
         {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_RunsLegacyIdentityReset_WhenConfirmationIsPresent()
+    {
+        string root = CreateTempRoot();
+        string? previousConfirmation = Environment.GetEnvironmentVariable(LegacyIdentityColdStartResetOperation.ConfirmationEnvironmentVariable);
+        Environment.SetEnvironmentVariable(
+            LegacyIdentityColdStartResetOperation.ConfirmationEnvironmentVariable,
+            LegacyIdentityColdStartResetOperation.RequiredConfirmation);
+        try
+        {
+            var runtimeState = new StartupRuntimeState();
+            ServiceProvider services = CreateServices(
+                out ISchemaMigrationRunner migrationRunner,
+                out ISearchIndexService searchIndexService,
+                out ICacheInitializer cacheInitializer);
+            var resetOperation = services.GetRequiredService<ILegacyIdentityColdStartResetOperation>();
+            resetOperation.RunFromEnvironmentAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(
+                new LegacyIdentityColdStartResetResult(
+                    UsersDeleted: 1,
+                    SessionsDeleted: 2,
+                    PasskeyCredentialsDeleted: 3,
+                    CommentsDeleted: 4,
+                    CommentRegionComplianceDeleted: 5,
+                    CommentModerationSignalsDeleted: 6,
+                    MessageParticipantStatesDeleted: 7,
+                    UserBoundMessagesDeleted: 8,
+                    UserBoundConversationsDeleted: 9)));
+
+            var service = new LifecycleHostedBootstrapService(
+                services,
+                new TestWebHostEnvironment(root),
+                runtimeState,
+                Options.Create(new LifecycleBootstrapOptions()),
+                Substitute.For<ILogger<LifecycleHostedBootstrapService>>());
+
+            await service.StartAsync(CancellationToken.None);
+
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["schemaMigration"].Status);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["legacyIdentityReset"].Status);
+            Assert.Equal("users:1;comments:4", runtimeState.GetStartupTasks()["legacyIdentityReset"].Detail);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["searchIndex"].Status);
+            await migrationRunner.Received(1).RunAsync(Arg.Any<CancellationToken>());
+            await resetOperation.Received(1).RunFromEnvironmentAsync(Arg.Any<CancellationToken>());
+            await searchIndexService.Received(1).BuildIndexAsync(Arg.Is<List<FsusBlog.Server.Entities.Article>>(items => items.Count == 0));
+            await cacheInitializer.Received(1).InitializeAsync();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(
+                LegacyIdentityColdStartResetOperation.ConfirmationEnvironmentVariable,
+                previousConfirmation);
             Directory.Delete(root, recursive: true);
         }
     }
@@ -307,8 +363,22 @@ public sealed class LifecycleHostedBootstrapServiceTests
         cacheInitializer.RollbackAsync(Arg.Any<CacheInitializationResult>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
+        var resetOperation = Substitute.For<ILegacyIdentityColdStartResetOperation>();
+        resetOperation.RunFromEnvironmentAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(
+            new LegacyIdentityColdStartResetResult(
+                UsersDeleted: 0,
+                SessionsDeleted: 0,
+                PasskeyCredentialsDeleted: 0,
+                CommentsDeleted: 0,
+                CommentRegionComplianceDeleted: 0,
+                CommentModerationSignalsDeleted: 0,
+                MessageParticipantStatesDeleted: 0,
+                UserBoundMessagesDeleted: 0,
+                UserBoundConversationsDeleted: 0)));
+
         var services = new ServiceCollection();
         services.AddSingleton(migrationRunner);
+        services.AddSingleton(resetOperation);
         services.AddSingleton(searchIndexService);
         services.AddSingleton(cacheInitializer);
         return services.BuildServiceProvider();

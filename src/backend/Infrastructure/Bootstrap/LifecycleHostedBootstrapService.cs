@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
 using Microsoft.Extensions.Options;
@@ -14,6 +15,7 @@ public sealed class LifecycleHostedBootstrapService(
     ILogger<LifecycleHostedBootstrapService> logger) : IHostedService
 {
     private const string SchemaMigrationTask = "schemaMigration";
+    private const string LegacyIdentityResetTask = "legacyIdentityReset";
     private const string SearchIndexTask = "searchIndex";
     private const string CacheInitializerTask = "cacheInitializer";
     private const string AotDiskCacheTask = "aotDiskCache";
@@ -70,6 +72,20 @@ public sealed class LifecycleHostedBootstrapService(
                 var migrationRunner = scopedServices.GetRequiredService<ISchemaMigrationRunner>();
                 await migrationRunner.RunAsync(cancellationToken);
                 return StartupTaskOutcome.Ok("non_compensable");
+            });
+
+        yield return new StartupTaskStep(
+            LegacyIdentityResetTask,
+            async cancellationToken =>
+            {
+                if (!LegacyIdentityColdStartResetOperation.IsRequestedFromEnvironment())
+                {
+                    return StartupTaskOutcome.Skipped("not_requested");
+                }
+
+                var resetOperation = scopedServices.GetRequiredService<ILegacyIdentityColdStartResetOperation>();
+                LegacyIdentityColdStartResetResult result = await resetOperation.RunFromEnvironmentAsync(cancellationToken);
+                return StartupTaskOutcome.Ok($"users:{result.UsersDeleted};comments:{result.CommentsDeleted}");
             });
 
         yield return new StartupTaskStep(
