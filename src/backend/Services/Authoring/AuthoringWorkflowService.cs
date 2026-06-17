@@ -403,6 +403,14 @@ public sealed class AuthoringWorkflowService(
                 ArticleTitle = a.Title,
                 UserId = c.UserId,
                 UserName = c.AnonymousDisplayName ?? c.PublicHandle ?? u.Username,
+                AuthorMode = c.AuthorMode,
+                AnonymousDisplayLanguage = c.AnonymousDisplayLanguage,
+                ModerationSubjectHash = c.ModerationSubjectHash,
+                AnonymousNullifierHash = c.AnonymousNullifierHash,
+                AnonymousScope = c.AnonymousScope,
+                CredentialLevel = c.CredentialLevel,
+                ReputationBucket = c.ReputationBucket,
+                AccountAgeBucket = c.AccountAgeBucket,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 Status = c.ModerationStatus,
@@ -718,7 +726,15 @@ public sealed class AuthoringWorkflowService(
             latestSignal?.Confidence,
             latestSignal?.PrimaryReason,
             latestSignal?.Provider,
-            latestSignal is not null && !string.Equals(latestSignal.Status, "ok", StringComparison.Ordinal));
+            latestSignal is not null && !string.Equals(latestSignal.Status, "ok", StringComparison.Ordinal),
+            row.AuthorMode,
+            row.AnonymousDisplayLanguage,
+            row.ModerationSubjectHash,
+            row.AnonymousNullifierHash,
+            row.AnonymousScope,
+            row.CredentialLevel,
+            row.ReputationBucket,
+            row.AccountAgeBucket);
     }
 
     internal IReadOnlyList<string> DetectCommentHitReasons(string? content, string? storedReason)
@@ -1461,6 +1477,14 @@ public sealed class AuthoringWorkflowService(
         public string? ArticleTitle { get; set; }
         public int? UserId { get; set; }
         public string? UserName { get; set; }
+        public string? AuthorMode { get; set; }
+        public string? AnonymousDisplayLanguage { get; set; }
+        public string? ModerationSubjectHash { get; set; }
+        public string? AnonymousNullifierHash { get; set; }
+        public string? AnonymousScope { get; set; }
+        public string? CredentialLevel { get; set; }
+        public string? ReputationBucket { get; set; }
+        public string? AccountAgeBucket { get; set; }
         public string Content { get; set; } = string.Empty;
         public DateTime CreateTime { get; set; }
         public CommentModerationStatus Status { get; set; }

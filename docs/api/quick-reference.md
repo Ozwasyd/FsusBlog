@@ -251,6 +251,10 @@
 | POST | `/api/binary/author/comments/moderation/bulk` | 👑 | 批量评论审核 |
 | POST | `/api/binary/author/comments/{commentId}/moderation` | 👑 | 评论审核 |
 | GET | `/api/binary/author/moderation/overview` | 👑 | 审核系统总览 |
+| GET | `/api/binary/author/moderation/anonymous-comment-policy` | 👑 | 读取匿名评论策略 |
+| PUT | `/api/binary/author/moderation/anonymous-comment-policy` | 👑🚦 MFA | 更新匿名评论策略 |
+| POST | `/api/binary/author/comments/moderation/nullifiers/block` | 👑🚦 MFA | 封禁匿名评论 nullifier |
+| POST | `/api/binary/author/comments/moderation/anonymous-credentials/{credentialId}/revoke` | 👑🚦 MFA | 撤销匿名凭证 |
 | GET | `/api/binary/author/moderation/dictionaries` | 👑 | 只读审核词库和地区策略 snapshot metadata |
 | POST | `/api/binary/author/moderation/dictionaries/reload` | 👑🚦 MFA | 手动 reload 审核词库和地区策略 snapshot |
 | POST | `/api/binary/author/moderation/dictionaries/rollback` | 👑🚦 MFA | 回滚到上一份成功加载的词库/地区策略 snapshot |

@@ -121,19 +121,37 @@ public sealed class AntiSpamModerationService(
         CancellationToken cancellationToken)
     {
         AntiSpamModerationRequest request = BuildRequest(context, runtimeModel);
-        return provider switch
+        AntiSpamModerationResult result = provider switch
         {
             AntiSpamModerationProviders.Mock => ScoreMock(request),
             AntiSpamModerationProviders.HttpJson => await ScoreHttpJsonAsync(request, runtimeModel, cancellationToken).ConfigureAwait(false),
             AntiSpamModerationProviders.FsusCli => BuildUnavailableResult(provider, "fsus_cli_provider_not_configured", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero, runtimeModel),
             _ => BuildUnavailableResult(provider, "model_provider_unknown", AntiSpamModerationStatuses.Unavailable, TimeSpan.Zero, runtimeModel)
         };
+        return result with { Metadata = MergeMetadata(request.Metadata, result.Metadata) };
     }
 
     private AntiSpamModerationRequest BuildRequest(AntiSpamCommentModerationContext context, ModerationModelRuntimeSnapshot? runtimeModel)
     {
         int maxChars = Math.Clamp(configuration.GetValue<int?>("Moderation:AntiSpamModel:MaxContentChars") ?? 2_000, 1, 20_000);
         string content = context.Content.Length <= maxChars ? context.Content : context.Content[..maxChars];
+        var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["source"] = "fsusblog",
+            ["comment_id"] = context.CommentId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["region_policy_version"] = context.RegionPolicyVersion ?? string.Empty
+        };
+        AddMetadata(metadata, "author_mode", context.AuthorMode);
+        AddMetadata(metadata, "anonymous_display_language", context.AnonymousDisplayLanguage);
+        AddMetadata(metadata, "moderation_subject_hash", context.ModerationSubjectHash);
+        AddMetadata(metadata, "anonymous_nullifier_hash", context.AnonymousNullifierHash);
+        AddMetadata(metadata, "anonymous_scope", context.AnonymousScope);
+        AddMetadata(metadata, "credential_level", context.CredentialLevel);
+        AddMetadata(metadata, "reputation_bucket", context.ReputationBucket);
+        AddMetadata(metadata, "account_age_bucket", context.AccountAgeBucket);
+        AddMetadata(metadata, "anonymous_comments_enabled", context.AnonymousCommentsEnabled);
+        AddMetadata(metadata, "zk_anonymous_enabled", context.ZkAnonymousEnabled);
+
         return new AntiSpamModerationRequest(
             $"comment:{context.CommentId.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
             content,
@@ -147,12 +165,39 @@ public sealed class AntiSpamModerationService(
             context.SubmittedAtUtc,
             context.RegionHint,
             runtimeModel?.ThresholdProfile ?? configuration["Moderation:AntiSpamModel:ThresholdProfile"],
-            new Dictionary<string, string>(StringComparer.Ordinal)
+            metadata);
+    }
+
+    private static void AddMetadata(IDictionary<string, string> metadata, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            metadata[key] = value.Trim();
+        }
+    }
+
+    private static void AddMetadata(IDictionary<string, string> metadata, string key, bool? value)
+    {
+        if (value.HasValue)
+        {
+            metadata[key] = value.Value ? "true" : "false";
+        }
+    }
+
+    private static IReadOnlyDictionary<string, string> MergeMetadata(
+        IReadOnlyDictionary<string, string> requestMetadata,
+        IReadOnlyDictionary<string, string> resultMetadata)
+    {
+        var merged = new Dictionary<string, string>(requestMetadata, StringComparer.Ordinal);
+        foreach ((string key, string value) in resultMetadata)
+        {
+            if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
             {
-                ["source"] = "fsusblog",
-                ["comment_id"] = context.CommentId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                ["region_policy_version"] = context.RegionPolicyVersion ?? string.Empty
-            });
+                merged[key] = value;
+            }
+        }
+
+        return merged;
     }
 
     private AntiSpamModerationResult ScoreMock(AntiSpamModerationRequest request)

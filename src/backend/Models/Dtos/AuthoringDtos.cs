@@ -159,7 +159,15 @@ public sealed record class CommentModerationItemResponse(
     double? ModelConfidence,
     string? ModelPrimaryReason,
     string? ModelProvider,
-    bool ModelUnavailable);
+    bool ModelUnavailable,
+    string? AuthorMode,
+    string? AnonymousDisplayLanguage,
+    string? ModerationSubjectHash,
+    string? AnonymousNullifierHash,
+    string? AnonymousScope,
+    string? CredentialLevel,
+    string? ReputationBucket,
+    string? AccountAgeBucket);
 
 public sealed record class CommentModerationQueueResponse(
     IReadOnlyList<CommentModerationItemResponse> Items,
@@ -174,6 +182,15 @@ public sealed record class CommentModerationBulkRequest(
     bool BanUsers = false);
 
 public sealed record class CommentModerationBulkResponse(int Updated, int BannedUsers);
+
+public sealed record class AnonymousNullifierBlockRequest(
+    string NullifierHash,
+    string Scope,
+    string? Reason);
+
+public sealed record class AnonymousCredentialRevokeRequest(string? Reason);
+
+public sealed record class AnonymousGovernanceActionResponse(bool Applied);
 
 public sealed record class ModerationOverviewResponse(
     int PendingCount,

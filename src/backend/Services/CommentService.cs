@@ -26,7 +26,8 @@ public partial class CommentService(
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
     IRegionLegalModerationService regionLegalModerationService,
     IAntiSpamModerationService? antiSpamModerationService = null,
-    ICommentActorResolver? commentActorResolver = null) : ICommentService, ICommentEndpointService
+    ICommentActorResolver? commentActorResolver = null,
+    IAnonymousCommentPolicyService? anonymousCommentPolicyService = null) : ICommentService, ICommentEndpointService
 {
     private const int DefaultReplyPreviewLimit = 3;
     private const string DeletedPlaceholder = "该回复已删除";
@@ -244,11 +245,22 @@ public partial class CommentService(
         comment.Id = generatedId;
         if (antiSpamModerationService is not null)
         {
+            AnonymousCommentPolicySnapshot? policySnapshot = anonymousCommentPolicyService?.Current;
             await antiSpamModerationService.ScoreCommentAsync(
                 new AntiSpamCommentModerationContext(
                     comment.Id,
                     comment.ArticleId,
-                    comment.UserId ?? 0,
+                    actor.UserId,
+                    actor.AuthorMode,
+                    actor.DisplayLanguage,
+                    actor.ModerationSubjectHash,
+                    actor.AnonymousNullifierHash,
+                    actor.AnonymousScope,
+                    actor.CredentialLevel,
+                    actor.ReputationBucket,
+                    actor.AccountAgeBucket,
+                    policySnapshot?.AnonymousCommentsEnabled,
+                    policySnapshot?.ZkAnonymousEnabled,
                     comment.Content,
                     comment.ParentId,
                     regionDecision.SubmitIpHash,

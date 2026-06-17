@@ -1,10 +1,12 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Authoring;
@@ -161,6 +163,126 @@ public static class AuthoringEndpoints
                 Math.Clamp(configuration.GetValue<int?>("Moderation:AntiSpamModel:TimeoutMs") ?? 800, 100, 10_000));
             return Results.Ok(JsonApiResponse<ModerationOverviewResponse>.Ok(response));
         });
+
+        group.MapGet("/moderation/anonymous-comment-policy", (
+            IAnonymousCommentPolicyService policyService) =>
+            Results.Ok(JsonApiResponse<AnonymousCommentPolicySnapshot>.Ok(policyService.Current)))
+        .RequireAdminPermission(AdminPermissions.AnonymousCommentConfigure)
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPut("/moderation/anonymous-comment-policy", async (
+            AnonymousCommentPolicyUpdateRequest request,
+            HttpContext context,
+            IMfaChallengeService mfaChallengeService,
+            IAnonymousCommentPolicyService policyService,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            AnonymousCommentPolicySnapshot snapshot = policyService.UpdatePolicy(request, context.GetUserId());
+            await auditEvents.RecordHighValueAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Audit,
+                AuditActionCatalog.AnonymousCommentPolicyUpdated,
+                AuditOutcomeCatalog.Success,
+                AuditSeverityCatalog.Warning,
+                "管理员调整匿名评论策略",
+                TargetType: "anonymous_comment_policy",
+                TargetId: "current",
+                ReasonCode: request.DefaultAuthorMode,
+                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["anonymousCommentsEnabled"] = snapshot.AnonymousCommentsEnabled,
+                    ["publicCommentsEnabled"] = snapshot.PublicCommentsEnabled,
+                    ["zkAnonymousEnabled"] = snapshot.ZkAnonymousEnabled,
+                    ["defaultAuthorMode"] = snapshot.DefaultAuthorMode,
+                    ["supportedDisplayLanguages"] = snapshot.SupportedDisplayLanguages
+                }), cancellationToken);
+            return Results.Ok(JsonApiResponse<AnonymousCommentPolicySnapshot>.Ok(snapshot));
+        })
+        .RequireAdminPermission(AdminPermissions.AnonymousCommentConfigure)
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/comments/moderation/nullifiers/block", async (
+            AnonymousNullifierBlockRequest request,
+            HttpContext context,
+            IMfaChallengeService mfaChallengeService,
+            ICommentAnonymousNullifierService nullifierService,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            string reason = string.IsNullOrWhiteSpace(request.Reason) ? "blocked_by_admin" : request.Reason.Trim();
+            bool applied = await nullifierService.BlockAsync(request.NullifierHash, request.Scope, reason, cancellationToken);
+            await auditEvents.RecordHighValueAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Audit,
+                AuditActionCatalog.AnonymousNullifierBlocked,
+                applied ? AuditOutcomeCatalog.Success : AuditOutcomeCatalog.Failure,
+                applied ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Error,
+                "管理员封禁匿名评论 nullifier",
+                TargetType: "comment_anonymous_nullifier",
+                TargetId: request.NullifierHash,
+                ReasonCode: reason,
+                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["scope"] = request.Scope,
+                    ["applied"] = applied
+                }), cancellationToken);
+            return applied
+                ? Results.Ok(JsonApiResponse<AnonymousGovernanceActionResponse>.Ok(new AnonymousGovernanceActionResponse(true)))
+                : Results.NotFound(JsonApiResponse<AnonymousGovernanceActionResponse>.Fail("anonymous_nullifier_not_found"));
+        })
+        .RequireAdminPermission(AdminPermissions.AnonymousNullifierBlock)
+        .RequireRateLimiting("fixed_ip");
+
+        group.MapPost("/comments/moderation/anonymous-credentials/{credentialId:long}/revoke", async (
+            long credentialId,
+            AnonymousCredentialRevokeRequest request,
+            HttpContext context,
+            IMfaChallengeService mfaChallengeService,
+            IAnonymousCredentialService credentialService,
+            IAuditEventService auditEvents,
+            CancellationToken cancellationToken) =>
+        {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, mfaChallengeService);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
+            bool revoked = await credentialService.RevokeAsync(credentialId, cancellationToken);
+            await auditEvents.RecordHighValueAsync(new AuditEvent(
+                AuditSourceCatalog.Admin,
+                AuditTypeCatalog.Audit,
+                AuditActionCatalog.AnonymousCredentialRevoked,
+                revoked ? AuditOutcomeCatalog.Success : AuditOutcomeCatalog.Failure,
+                revoked ? AuditSeverityCatalog.Warning : AuditSeverityCatalog.Error,
+                "管理员撤销匿名凭证",
+                TargetType: "anonymous_credential",
+                TargetId: credentialId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ReasonCode: request.Reason,
+                Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["credentialId"] = credentialId,
+                    ["revoked"] = revoked
+                }), cancellationToken);
+            return revoked
+                ? Results.Ok(JsonApiResponse<AnonymousGovernanceActionResponse>.Ok(new AnonymousGovernanceActionResponse(true)))
+                : Results.NotFound(JsonApiResponse<AnonymousGovernanceActionResponse>.Fail("anonymous_credential_not_found"));
+        })
+        .RequireAdminPermission(AdminPermissions.AnonymousCredentialRevoke)
+        .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/moderation/dictionaries", (IModerationDictionaryService dictionaryService) =>
             Results.Ok(JsonApiResponse<ModerationDictionaryRuntimeSnapshot>.Ok(dictionaryService.GetRuntimeSnapshot())));
