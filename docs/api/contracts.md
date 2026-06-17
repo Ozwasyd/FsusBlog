@@ -3,7 +3,7 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
-> 最近更新：2026-06-15 — 同步 Public AOT sentinel 具名列表与 design.md 的 AOT 公开页约定。
+> 最近更新：2026-06-17 — 同步匿名身份、评论策略和 CommentCreateV2 AEDS 契约。
 
 ---
 
@@ -132,6 +132,22 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 | `RecoveryKeyVerifyRequest` (`160`) | `RecoveryKeyVerifyRequestPod` | `POST /api/binary/auth/recovery-key/verify` 请求体；匿名、`fixed_ip` 限流、PoW、no-store |
 | `RecoveryKeyVerifyResponse` (`161`) | `RecoveryKeyVerifyResponsePod` | verify 成功后返回短期 recovery session token |
 | `RecoveryKeySessionRequest` (`162`) | `StringMutationRequestPod` | `POST /api/binary/auth/recovery-key/passkey/register/begin` 请求体；complete 复用 `PasskeyRegisterCompleteRequest.MfaProofToken` 传 recovery session token |
+
+### Anonymous identity and comment policy AEDS frames
+
+匿名身份不新增平行 Passkey 协议：注册、登录、credential list、rename、admin bootstrap 和 recovery bind 仍复用上面的 Passkey frame；账户恢复仍复用 `RecoveryKeyCreateResponse` / `RecoveryKeyVerifyRequest` / `RecoveryKeyVerifyResponse` / `RecoveryKeySessionRequest`。新增 frame 只覆盖账户快照、评论策略、CommentCreateV2 和作者展示投影。
+
+| FrameType | POD | 用途 |
+|-----------|-----|------|
+| `IdentityAccountSnapshot` (`163`) | `IdentityAccountSnapshotPod` + UTF-8 blob | account/internal id、nullable public handle、Passkey/Recovery/TOTP step-up 状态、anonymous credential status/level |
+| `CommentPolicySnapshot` (`164`) | `CommentPolicySnapshotPod` + UTF-8 blob | 评论 composer 渲染前读取：anonymous/public/ZK 开关、默认 author mode、支持语言 `zh-CN` / `en` |
+| `CommentPolicyUpdateRequest` (`165`) | `CommentPolicyUpdateRequestPod` + UTF-8 blob | admin 匿名评论策略 patch；bool 字段用 `Has*` flag 表示未设置 |
+| `CommentCreateV2Request` (`166`) | `CommentCreateV2RequestPod` + UTF-8/blob payload | 新评论创建请求，包含 article/reply 上下文、author mode、public opt-in、anonymous scope、语言提示、proof token、ZK proof placeholder 和 content |
+| `CommentAuthorView` (`167`) | `CommentAuthorViewPod` + UTF-8 blob | 评论读取侧作者投影：mode、display name、display language、badge/status/scope label、credential level |
+
+`CommentPolicySnapshot` 的 `DefaultAuthorMode` byte 映射为 `1=anonymous`、`2=pseudonymous`、`3=public`、`4=zk_anonymous`；`0` 只作为读端兼容值并解释为 `anonymous`。`SupportedDisplayLanguages` 使用换行分隔文本，当前只允许 `zh-CN` 与 `en`。前端 binary adapter 必须能在评论 composer 渲染前解码该 frame，不得从组件内硬编码策略。
+
+`CommentCreateV2Request` 是旧 `CommentCreateRequest` 的并行新 frame，不改变旧 `CommentCreateRequestPod` 布局。`AuthorMode` 使用同一 byte 映射；`PublicSendExplicitlySelected` 只在 public mode opt-in 时为 `1`；`AnonymousScope` 用于 nullifier/scope 绑定；`DisplayLanguage` 是展示语言提示；`ProofToken` 预留普通 proof token；`ZkProof` 是二进制 proof placeholder，默认 verifier 未启用时服务端仍 fail closed。ZK strong-anonymous 模式必须保留为 `zk_anonymous`，不能降级成普通 `anonymous`。
 
 ---
 
@@ -1186,7 +1202,7 @@ Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tag
 
 `AuthorAnalyticsResponse` 聚合单作者运营数据：文章状态计数、`totalHumanReadEvents`、`totalSearchableArticles`、`aotHitRate`、`averageDwellMs`、`readingCompletionRate`，以及 `topSearchKeywords`、`topSourceRoutes`、`notFoundHotspots`、`rumMetrics`、`rumPageTypes`、`rumAotSources`。阅读列表来自 `VisitLog.routeKey` 的匿名化公开路由读证明，不包含账号、email、token、cookie 或正文输入；AOT 命中率由真实阅读事件与 `Public AOT cache miss` 审计日志估算。RUM 列表来自匿名 `POST /api/binary/telemetry/rum` 写入的 `frontend_rum_metric`，只接受 `web_vital_lcp`、`web_vital_cls`、`navigation_timing`、`hydration_time`、`wasm_decode_timing`、`markdown_render_timing` 和低基数 `pageType/aotSource/value/duration` 字段。`accepted=false` 或 `rejectedCount>0` 表示部分/全部样本被丢弃但不向公开读链泄露校验细节；服务端只保存净化后的 `frontend_rum_metric` 行，不写入 `sys_audit_log`。
 
-评论创建默认进入 `CommentModerationStatus.Pending`，公开评论线程、回复预览和回复游标只返回 `Approved`；用户自己的评论历史仍可看到本人提交记录。创建请求的 AEDS frame 上限为 16 KiB，`content` 先 trim，再在内容过滤前校验 `<=1000` 字符且 UTF-8 `<=4096` bytes；目标文章必须是未删除、已发布且发布时间/定时发布时间已到达的公开文章。回复必须引用同文章、未删除、已通过的父评论和根评论。
+评论创建默认进入 `CommentModerationStatus.Pending`，公开评论线程、回复预览和回复游标只返回 `Approved`；用户自己的评论历史仍可看到本人提交记录。旧 `CommentCreateRequest` 只保留 article/reply/content 布局；匿名身份、public opt-in、language hint、proof token 和 ZK placeholder 必须使用 `CommentCreateV2Request`，不得塞回旧 frame。创建请求的 AEDS frame 上限为 16 KiB，`content` 先 trim，再在内容过滤前校验 `<=1000` 字符且 UTF-8 `<=4096` bytes；目标文章必须是未删除、已发布且发布时间/定时发布时间已到达的公开文章。回复必须引用同文章、未删除、已通过的父评论和根评论。
 
 `CommentModerationItemResponse.id` 使用字符串承载 Snowflake ID，避免前端整数精度损失；响应同时包含文章、用户、内容、状态、审核原因、审核人、审核时间、`hitReasons`、`submitRegion`、`submitRegionConfidence`、`blockedRegions`、`regionPolicyVersion`、`regionDecisionReason`、`regionCanPublish`、`regionRequiresManualReview`、`regionHideUntilReviewed`。启用可选反垃圾模型后，响应追加最新 `modelSignals` 及摘要字段 `modelLabel/modelConfidence/modelPrimaryReason/modelProvider/modelUnavailable`；这些字段只表示风险信号，不包含或代表最终审核动作。`hitReasons` 来自内容过滤器、HTML 风险、密集链接、重复刷屏、人工原因、地区风险标签和 `model:{category}`，用于解释敏感词/垃圾评论/地区策略/模型命中；管理端可按命中原因、blocked region、模型标签和 provider 做本地队列过滤。审核读取和写入受 `fixed_ip` 限流；单条与批量审核需要先调用 `/api/binary/auth/mfa/challenge/start` / `/api/binary/auth/mfa/challenge` 获取 action=`admin-sensitive` 的一次性 proof，并在 JSON 请求头传入 `X-Fsus-Mfa-Proof`。proof 缺失、过期或已被消费时返回 `428` + `MFA_PROOF_REQUIRED`，当前 admin 会话未 MFA verified 时返回 `403` + `MFA_REQUIRED`。
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   mapCommentCursorFromPodPayload,
+  mapCommentPolicySnapshotFromPayload,
   mapThreadReplyCursorFromPodPayload,
   mapUserCommentCursorFromPodPayload
 } from '@/adapters/binary/commentAdapter'
@@ -16,6 +17,9 @@ function writeInt64(b: Uint8Array, off: number, v: bigint): void {
 }
 function writeUtf8(b: Uint8Array, off: number, t: string): void {
   b.set(new TextEncoder().encode(t), off)
+}
+function writeSliceRef(b: Uint8Array, off: number, offset: number, length: number): void {
+  writeInt32(b, off, offset); writeInt32(b, off + 4, length)
 }
 
 // Build a payload from a list of typed chunks
@@ -70,6 +74,39 @@ describe('mapCommentCursorFromPodPayload', () => {
     expect(result.hasMore).toBe(true)
     expect(result.data).toHaveLength(1)
     expect(result.data[0].id).toBe('55')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// mapCommentPolicySnapshotFromPayload
+// ---------------------------------------------------------------------------
+describe('mapCommentPolicySnapshotFromPayload', () => {
+  it('decodes composer policy before rendering comment author controls', () => {
+    const pod = new Uint8Array(12)
+    pod[0] = 1 // anonymousCommentsEnabled
+    pod[1] = 1 // publicCommentsEnabled
+    pod[2] = 1 // zkAnonymousEnabled
+    pod[3] = 4 // defaultAuthorMode = zk_anonymous
+    writeSliceRef(pod, 4, 0, 8)
+
+    const result = mapCommentPolicySnapshotFromPayload(buildPayload(
+      pod,
+      blobBuf('zh-CN\nen')
+    ))
+
+    expect(result).toEqual({
+      anonymousCommentsEnabled: true,
+      publicCommentsEnabled: true,
+      zkAnonymousEnabled: true,
+      defaultAuthorMode: 'zk_anonymous',
+      supportedDisplayLanguages: ['zh-CN', 'en']
+    })
+  })
+
+  it('rejects invalid policy flag bytes', () => {
+    const pod = new Uint8Array(12)
+    pod[0] = 2
+    expect(() => mapCommentPolicySnapshotFromPayload(buildPayload(pod, blobBuf('')))).toThrow()
   })
 })
 

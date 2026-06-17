@@ -247,6 +247,11 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 160 | `RecoveryKeyVerifyRequest` | `RecoveryKeyVerifyRequestPod` | `POST /api/binary/auth/recovery-key/verify` 请求体 |
 | 161 | `RecoveryKeyVerifyResponse` | `RecoveryKeyVerifyResponsePod` | Recovery Key 验证成功响应 |
 | 162 | `RecoveryKeySessionRequest` | `StringMutationRequestPod` | Recovery session token 请求体；用于 Passkey recovery begin |
+| 163 | `IdentityAccountSnapshot` | `IdentityAccountSnapshotPod` | 匿名身份 account/internal id、public handle、Passkey/Recovery/TOTP/anonymous credential 状态 |
+| 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | 评论 composer 渲染前策略：anonymous/public/ZK 开关、默认 author mode、语言列表 |
+| 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | admin 匿名评论策略 patch 请求体 |
+| 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 新评论创建请求；包含匿名 scope、author mode、language hint、proof token/ZK proof placeholder |
+| 167 | `CommentAuthorView` | `CommentAuthorViewPod` | 评论作者展示投影；不依赖 `userName` 表示匿名显示名 |
 | 240 | `EmptySuccess` | `EmptySuccessPod` | 通用空成功响应 |
 | 241 | `MutationId` | `MutationIdPod` | 通用变更 ID 响应 |
 | 251 | `ApiError` | `ApiErrorPod` | 二进制错误响应 |
@@ -303,6 +308,11 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 类型 | 字节数 |
 |------|--------|
 | `CommentPod` | ~256 |
+| `CommentCreateRequestPod` | 44 |
+| `CommentPolicySnapshotPod` | 12 |
+| `CommentPolicyUpdateRequestPod` | 16 |
+| `CommentCreateV2RequestPod` | 80 |
+| `CommentAuthorViewPod` | 36 |
 
 ### 消息 POD
 
@@ -315,6 +325,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 类型 | 字节数 |
 |------|--------|
 | `UserPod` | ~256 |
+| `CurrentUserSnapshotPod` | 372 |
+| `IdentityAccountSnapshotPod` | 40 |
 
 ### 系统 POD
 

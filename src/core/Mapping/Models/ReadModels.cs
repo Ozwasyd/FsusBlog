@@ -76,6 +76,52 @@ public readonly record struct CommentCreateRequestCoreModel(
     string? ReplyToCommentId,
     int? ReplyToUserId);
 
+public readonly record struct IdentityAccountSnapshotCoreModel(
+    int AccountId,
+    int InternalUserId,
+    string? PublicHandle,
+    bool PasskeyEnabled,
+    bool RecoveryEnabled,
+    bool? TotpStepUpEnabled,
+    string? AnonymousCredentialStatus,
+    string? AnonymousCredentialLevel);
+
+public readonly record struct CommentPolicySnapshotCoreModel(
+    bool AnonymousCommentsEnabled,
+    bool PublicCommentsEnabled,
+    bool ZkAnonymousEnabled,
+    string DefaultAuthorMode,
+    IReadOnlyList<string> SupportedDisplayLanguages);
+
+public readonly record struct CommentPolicyUpdateRequestCoreModel(
+    bool? AnonymousCommentsEnabled,
+    bool? PublicCommentsEnabled,
+    bool? ZkAnonymousEnabled,
+    string? DefaultAuthorMode,
+    IReadOnlyList<string>? SupportedDisplayLanguages);
+
+public readonly record struct CommentCreateV2RequestCoreModel(
+    int ArticleId,
+    string Content,
+    string? ParentId,
+    string? RootId,
+    string? ReplyToCommentId,
+    int? ReplyToUserId,
+    string AuthorMode,
+    bool PublicSendExplicitlySelected,
+    string? AnonymousScope,
+    string? DisplayLanguage,
+    string? ProofToken,
+    byte[] ZkProof);
+
+public readonly record struct CommentAuthorViewCoreModel(
+    string Mode,
+    string DisplayName,
+    string DisplayLanguage,
+    string? Badge,
+    string? ScopeLabel,
+    string? CredentialLevel);
+
 public readonly record struct AdminChangeUserStatusRequestCoreModel(int UserId, int Status, string? Reason);
 
 public readonly record struct AdminResetUserPasswordRequestCoreModel(int UserId, string NewPassword);

@@ -97,6 +97,63 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    public static void WriteIdentityAccountSnapshot(IdentityAccountSnapshotCoreModel snapshot, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(128);
+        bool hasPublicHandle = !string.IsNullOrWhiteSpace(snapshot.PublicHandle);
+        bool hasAnonymousCredential = !string.IsNullOrWhiteSpace(snapshot.AnonymousCredentialStatus);
+        var mutable = new MutableIdentityAccountSnapshotPod
+        {
+            AccountId = snapshot.AccountId,
+            InternalUserId = snapshot.InternalUserId,
+            HasPublicHandle = hasPublicHandle ? (byte)1 : (byte)0,
+            PasskeyEnabled = snapshot.PasskeyEnabled ? (byte)1 : (byte)0,
+            RecoveryEnabled = snapshot.RecoveryEnabled ? (byte)1 : (byte)0,
+            HasTotpStepUpEnabled = snapshot.TotpStepUpEnabled.HasValue ? (byte)1 : (byte)0,
+            TotpStepUpEnabled = snapshot.TotpStepUpEnabled == true ? (byte)1 : (byte)0,
+            HasAnonymousCredential = hasAnonymousCredential ? (byte)1 : (byte)0,
+            Reserved0 = 0,
+            PublicHandle = PodUtf8Codec.AppendSlice(hasPublicHandle ? snapshot.PublicHandle : string.Empty, payload),
+            AnonymousCredentialStatus = PodUtf8Codec.AppendSlice(hasAnonymousCredential ? snapshot.AnonymousCredentialStatus : string.Empty, payload),
+            AnonymousCredentialLevel = PodUtf8Codec.AppendSlice(hasAnonymousCredential ? snapshot.AnonymousCredentialLevel ?? string.Empty : string.Empty, payload)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableIdentityAccountSnapshotPod, IdentityAccountSnapshotPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    public static byte[] EncodeIdentityAccountSnapshot(IdentityAccountSnapshotCoreModel snapshot)
+        => EncodeToArray(Marshal.SizeOf<IdentityAccountSnapshotPod>() + 128, writer => WriteIdentityAccountSnapshot(snapshot, writer));
+
+    public static bool TryDecodeIdentityAccountSnapshot(ReadOnlyMemory<byte> source, out IdentityAccountSnapshotCoreModel snapshot)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out IdentityAccountSnapshotPod pod) ||
+            pod.HasPublicHandle > 1 ||
+            pod.PasskeyEnabled > 1 ||
+            pod.RecoveryEnabled > 1 ||
+            pod.HasTotpStepUpEnabled > 1 ||
+            pod.TotpStepUpEnabled > 1 ||
+            pod.HasAnonymousCredential > 1 ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            snapshot = default;
+            return false;
+        }
+
+        snapshot = new IdentityAccountSnapshotCoreModel(
+            pod.AccountId,
+            pod.InternalUserId,
+            pod.HasPublicHandle == 1 ? PodProjector.ReadSlice(pod.PublicHandle, payload) : null,
+            pod.PasskeyEnabled == 1,
+            pod.RecoveryEnabled == 1,
+            pod.HasTotpStepUpEnabled == 1 ? pod.TotpStepUpEnabled == 1 : null,
+            pod.HasAnonymousCredential == 1 ? NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.AnonymousCredentialStatus, payload)) : null,
+            pod.HasAnonymousCredential == 1 ? NullUserFieldIfEmpty(PodProjector.ReadSlice(pod.AnonymousCredentialLevel, payload)) : null);
+        return reader.IsConsumed;
+    }
+
     public static void WriteUserSessions(IReadOnlyList<UserSessionSummaryDto> sessions, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -784,6 +841,23 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 Username;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 Role;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed256 BanReason;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableIdentityAccountSnapshotPod
+    {
+        public int AccountId;
+        public int InternalUserId;
+        public byte HasPublicHandle;
+        public byte PasskeyEnabled;
+        public byte RecoveryEnabled;
+        public byte HasTotpStepUpEnabled;
+        public byte TotpStepUpEnabled;
+        public byte HasAnonymousCredential;
+        public ushort Reserved0;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef PublicHandle;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AnonymousCredentialStatus;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AnonymousCredentialLevel;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

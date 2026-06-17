@@ -47,6 +47,23 @@ public readonly struct CurrentUserSnapshotPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct IdentityAccountSnapshotPod
+{
+    public readonly int AccountId;
+    public readonly int InternalUserId;
+    public readonly byte HasPublicHandle;
+    public readonly byte PasskeyEnabled;
+    public readonly byte RecoveryEnabled;
+    public readonly byte HasTotpStepUpEnabled;
+    public readonly byte TotpStepUpEnabled;
+    public readonly byte HasAnonymousCredential;
+    public readonly ushort Reserved0;
+    public readonly Utf8SliceRef PublicHandle;
+    public readonly Utf8SliceRef AnonymousCredentialStatus;
+    public readonly Utf8SliceRef AnonymousCredentialLevel;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UserSessionSummaryPod
 {
     public readonly long LastSeenAtUnixMs;

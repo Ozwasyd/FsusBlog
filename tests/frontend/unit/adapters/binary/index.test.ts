@@ -2,6 +2,42 @@ import { describe, it, expect } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { mapFramePayloadToViewModel } from '@/adapters/binary/index'
 
+function writeInt32(bytes: Uint8Array, offset: number, value: number): void {
+  bytes[offset] = value & 0xff
+  bytes[offset + 1] = (value >>> 8) & 0xff
+  bytes[offset + 2] = (value >>> 16) & 0xff
+  bytes[offset + 3] = (value >>> 24) & 0xff
+}
+
+function buildPayload(...parts: Uint8Array[]): Uint8Array {
+  const bytes = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0))
+  let offset = 0
+  for (const part of parts) {
+    bytes.set(part, offset)
+    offset += part.byteLength
+  }
+  return bytes
+}
+
+function blobBuf(text: string): Uint8Array {
+  const encoded = new TextEncoder().encode(text)
+  const header = new Uint8Array(4)
+  writeInt32(header, 0, encoded.byteLength)
+  return buildPayload(header, encoded)
+}
+
+function commentPolicyPayload(languages: string): Uint8Array {
+  const encodedLanguages = new TextEncoder().encode(languages)
+  const pod = new Uint8Array(12)
+  pod[0] = 1
+  pod[1] = 1
+  pod[2] = 1
+  pod[3] = 4
+  writeInt32(pod, 4, 0)
+  writeInt32(pod, 8, encodedLanguages.byteLength)
+  return buildPayload(pod, blobBuf(languages))
+}
+
 describe('mapFramePayloadToViewModel', () => {
   it('throws for unknown frame type', () => {
     expect(() => mapFramePayloadToViewModel(999 as FrameType, new Uint8Array(0))).toThrow()
@@ -98,6 +134,16 @@ describe('mapFramePayloadToViewModel', () => {
 
   it('calls mapper for CommentThreadReplyCursor (throws on empty payload, confirms routing)', () => {
     expect(() => mapFramePayloadToViewModel(FrameType.CommentThreadReplyCursor, new Uint8Array(0))).toThrow()
+  })
+
+  it('maps CommentPolicySnapshot for composer author-mode controls', () => {
+    expect(mapFramePayloadToViewModel(FrameType.CommentPolicySnapshot, commentPolicyPayload('zh-CN\nen'))).toEqual({
+      anonymousCommentsEnabled: true,
+      publicCommentsEnabled: true,
+      zkAnonymousEnabled: true,
+      defaultAuthorMode: 'zk_anonymous',
+      supportedDisplayLanguages: ['zh-CN', 'en']
+    })
   })
 
   it('calls mapper for AdminStats (throws on empty payload, confirms routing)', () => {

@@ -19,6 +19,12 @@ export interface CommentDto extends PowRequest {
   rootId?: string | null
   replyToCommentId?: string | null
   replyToUserId?: number | null
+  authorMode?: 'anonymous' | 'pseudonymous' | 'public' | 'zk_anonymous' | null
+  publicSendExplicitlySelected?: boolean | null
+  anonymousScope?: string | null
+  displayLanguage?: string | null
+  proofToken?: string | null
+  zkProof?: Uint8Array | number[] | null
 }
 
 /** 游标响应包装 */
@@ -92,6 +98,11 @@ export const createComment = (data: CommentDto, config?: ApiRequestConfig) => {
     return Promise.reject(new Error(validation.message))
   }
 
+  const frameType = usesCommentCreateV2(data) ? FrameType.CommentCreateV2Request : FrameType.CommentCreateRequest
+  const payload = frameType === FrameType.CommentCreateV2Request
+    ? encodeCommentCreateV2Request(data)
+    : encodeCommentCreateRequest(data)
+
   return requestBinaryOnly<null>({
     binaryUrl: '/api/binary/comment',
     frameType: FrameType.EmptySuccess,
@@ -99,7 +110,7 @@ export const createComment = (data: CommentDto, config?: ApiRequestConfig) => {
     requestOptions: {
       method: 'POST',
       requiresPow: true,
-      body: encodeAedsFrame(FrameType.CommentCreateRequest, encodeCommentCreateRequest(data))
+      body: encodeAedsFrame(frameType, payload)
     }
   })
 }
@@ -199,6 +210,75 @@ function encodeCommentCreateRequest(data: CommentDto): Uint8Array {
   view.setInt32(44, content.byteLength, true)
   bytes.set(content, 48)
   return bytes
+}
+
+export function encodeCommentCreateV2Request(data: CommentDto): Uint8Array {
+  const anonymousScope = encodeText(data.anonymousScope ?? '')
+  const displayLanguage = encodeText(data.displayLanguage ?? '')
+  const proofToken = encodeText(data.proofToken ?? '')
+  const zkProof = data.zkProof instanceof Uint8Array ? data.zkProof : new Uint8Array(data.zkProof ?? [])
+  const content = encodeText(data.content ?? '')
+  const blobLength = anonymousScope.byteLength + displayLanguage.byteLength + proofToken.byteLength + zkProof.byteLength + content.byteLength
+  const bytes = new Uint8Array(80 + 4 + blobLength)
+  const view = new DataView(bytes.buffer)
+  const parentId = parseOptionalId(data.parentId)
+  const rootId = parseOptionalId(data.rootId)
+  const replyToCommentId = parseOptionalId(data.replyToCommentId)
+
+  view.setInt32(0, data.articleId, true)
+  view.setInt32(4, data.replyToUserId ?? 0, true)
+  bytes[8] = parentId === null ? 0 : 1
+  bytes[9] = rootId === null ? 0 : 1
+  bytes[10] = replyToCommentId === null ? 0 : 1
+  bytes[11] = data.replyToUserId === null || data.replyToUserId === undefined ? 0 : 1
+  bytes[12] = encodeCommentAuthorMode(data.authorMode)
+  bytes[13] = data.publicSendExplicitlySelected ? 1 : 0
+  view.setUint16(14, 0, true)
+  view.setBigInt64(16, parentId ?? 0n, true)
+  view.setBigInt64(24, rootId ?? 0n, true)
+  view.setBigInt64(32, replyToCommentId ?? 0n, true)
+
+  let offset = 0
+  offset = writeBlobPart(bytes, view, 40, 84, offset, anonymousScope)
+  offset = writeBlobPart(bytes, view, 48, 84, offset, displayLanguage)
+  offset = writeBlobPart(bytes, view, 56, 84, offset, proofToken)
+  offset = writeBlobPart(bytes, view, 64, 84, offset, zkProof)
+  writeBlobPart(bytes, view, 72, 84, offset, content)
+  view.setInt32(80, blobLength, true)
+  return bytes
+}
+
+function usesCommentCreateV2(data: CommentDto): boolean {
+  return data.authorMode !== undefined ||
+    data.publicSendExplicitlySelected !== undefined ||
+    data.anonymousScope !== undefined ||
+    data.displayLanguage !== undefined ||
+    data.proofToken !== undefined ||
+    data.zkProof !== undefined
+}
+
+function encodeText(value: string): Uint8Array {
+  return new TextEncoder().encode(value)
+}
+
+function writeBlobPart(bytes: Uint8Array, view: DataView, sliceOffset: number, blobStart: number, offset: number, value: Uint8Array): number {
+  view.setInt32(sliceOffset, offset, true)
+  view.setInt32(sliceOffset + 4, value.byteLength, true)
+  bytes.set(value, blobStart + offset)
+  return offset + value.byteLength
+}
+
+function encodeCommentAuthorMode(mode: CommentDto['authorMode']): number {
+  switch ((mode ?? 'anonymous').trim().toLowerCase().replace('-', '_')) {
+    case 'pseudonymous':
+      return 2
+    case 'public':
+      return 3
+    case 'zk_anonymous':
+      return 4
+    default:
+      return 1
+  }
 }
 
 function parseOptionalId(value?: string | null): bigint | null {

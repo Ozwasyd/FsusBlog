@@ -1,4 +1,6 @@
 using System.Buffers;
+using System.Runtime.InteropServices;
+using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Codecs;
@@ -7,6 +9,7 @@ using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Core.Services.Implementations;
 using FsusBlog.Shared.Contracts.AuthSystem;
+using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
 using NSubstitute;
@@ -591,6 +594,86 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
+    public void AnonymousIdentityFrames_AreReservedAfterRecoveryKeyFrames()
+    {
+        Assert.Equal((ushort)159, (ushort)AedsFrameType.RecoveryKeyCreateResponse);
+        Assert.Equal((ushort)160, (ushort)AedsFrameType.RecoveryKeyVerifyRequest);
+        Assert.Equal((ushort)161, (ushort)AedsFrameType.RecoveryKeyVerifyResponse);
+        Assert.Equal((ushort)162, (ushort)AedsFrameType.RecoveryKeySessionRequest);
+        Assert.Equal((ushort)163, (ushort)AedsFrameType.IdentityAccountSnapshot);
+        Assert.Equal((ushort)164, (ushort)AedsFrameType.CommentPolicySnapshot);
+        Assert.Equal((ushort)165, (ushort)AedsFrameType.CommentPolicyUpdateRequest);
+        Assert.Equal((ushort)166, (ushort)AedsFrameType.CommentCreateV2Request);
+        Assert.Equal((ushort)167, (ushort)AedsFrameType.CommentAuthorView);
+    }
+
+    [Fact]
+    public void IdentityAccountSnapshot_RoundTrip_PreservesNullableHandleAndCredentialState()
+    {
+        var snapshot = new IdentityAccountSnapshotCoreModel(
+            AccountId: 42,
+            InternalUserId: 7,
+            PublicHandle: "alice",
+            PasskeyEnabled: true,
+            RecoveryEnabled: true,
+            TotpStepUpEnabled: false,
+            AnonymousCredentialStatus: "active",
+            AnonymousCredentialLevel: "strong_anonymous");
+
+        byte[] encoded = PodBinaryCodec.EncodeIdentityAccountSnapshot(snapshot);
+        bool ok = PodBinaryCodec.TryDecodeIdentityAccountSnapshot(encoded, out var decoded);
+
+        Assert.True(ok);
+        Assert.Equal(42, decoded.AccountId);
+        Assert.Equal(7, decoded.InternalUserId);
+        Assert.Equal("alice", decoded.PublicHandle);
+        Assert.True(decoded.PasskeyEnabled);
+        Assert.True(decoded.RecoveryEnabled);
+        Assert.False(decoded.TotpStepUpEnabled);
+        Assert.Equal("active", decoded.AnonymousCredentialStatus);
+        Assert.Equal("strong_anonymous", decoded.AnonymousCredentialLevel);
+
+        byte[] hiddenHandle = PodBinaryCodec.EncodeIdentityAccountSnapshot(snapshot with { PublicHandle = null, TotpStepUpEnabled = null });
+        Assert.True(PodBinaryCodec.TryDecodeIdentityAccountSnapshot(hiddenHandle, out var hiddenDecoded));
+        Assert.Null(hiddenDecoded.PublicHandle);
+        Assert.Null(hiddenDecoded.TotpStepUpEnabled);
+    }
+
+    [Fact]
+    public void CommentPolicySnapshotAndUpdate_RoundTrip_PreserveModesLanguagesAndPatchSemantics()
+    {
+        var snapshot = new CommentPolicySnapshotCoreModel(
+            AnonymousCommentsEnabled: true,
+            PublicCommentsEnabled: true,
+            ZkAnonymousEnabled: true,
+            DefaultAuthorMode: "zk_anonymous",
+            SupportedDisplayLanguages: ["zh-CN", "en"]);
+
+        byte[] snapshotEncoded = PodBinaryCodec.EncodeCommentPolicySnapshot(snapshot);
+        Assert.True(PodBinaryCodec.TryDecodeCommentPolicySnapshot(snapshotEncoded, out var snapshotDecoded));
+        Assert.True(snapshotDecoded.AnonymousCommentsEnabled);
+        Assert.True(snapshotDecoded.PublicCommentsEnabled);
+        Assert.True(snapshotDecoded.ZkAnonymousEnabled);
+        Assert.Equal("zk_anonymous", snapshotDecoded.DefaultAuthorMode);
+        Assert.Equal(["zh-CN", "en"], snapshotDecoded.SupportedDisplayLanguages);
+
+        var update = new CommentPolicyUpdateRequestCoreModel(
+            AnonymousCommentsEnabled: false,
+            PublicCommentsEnabled: null,
+            ZkAnonymousEnabled: true,
+            DefaultAuthorMode: "pseudonymous",
+            SupportedDisplayLanguages: ["en"]);
+
+        byte[] updateEncoded = PodBinaryCodec.EncodeCommentPolicyUpdateRequest(update);
+        Assert.True(PodBinaryCodec.TryDecodeCommentPolicyUpdateRequest(updateEncoded, out var updateDecoded));
+        Assert.False(updateDecoded.AnonymousCommentsEnabled);
+        Assert.Null(updateDecoded.PublicCommentsEnabled);
+        Assert.True(updateDecoded.ZkAnonymousEnabled);
+        Assert.Equal("pseudonymous", updateDecoded.DefaultAuthorMode);
+        Assert.Equal(["en"], updateDecoded.SupportedDisplayLanguages);
+    }
+
+    [Fact]
     public void PasskeyRegisterBegin_RoundTrip_PreservesOptions()
     {
         var value = new PasskeyRegisterBeginCoreModel
@@ -797,6 +880,67 @@ public class PodBinaryCodecTests
         Assert.Equal("90", decoded.RootId);
         Assert.Equal("80", decoded.ReplyToCommentId);
         Assert.Equal(7, decoded.ReplyToUserId);
+    }
+
+    [Fact]
+    public void CommentCreateV2Request_RoundTrip_PreservesAnonymousFieldsWithoutChangingLegacyLayout()
+    {
+        int legacySize = Marshal.SizeOf<CommentCreateRequestPod>();
+        var request = new CommentCreateV2RequestCoreModel(
+            ArticleId: 9,
+            Content: "Hello anonymous mode",
+            ParentId: "100",
+            RootId: "90",
+            ReplyToCommentId: "80",
+            ReplyToUserId: 7,
+            AuthorMode: "zk_anonymous",
+            PublicSendExplicitlySelected: false,
+            AnonymousScope: "article:9:root:90",
+            DisplayLanguage: "zh-CN",
+            ProofToken: "proof-token",
+            ZkProof: [1, 2, 3, 4]);
+
+        byte[] encoded = PodBinaryCodec.EncodeCommentCreateV2Request(request);
+        bool ok = PodBinaryCodec.TryDecodeCommentCreateV2Request(encoded, out var decoded);
+
+        Assert.True(ok);
+        Assert.Equal(9, decoded.ArticleId);
+        Assert.Equal("Hello anonymous mode", decoded.Content);
+        Assert.Equal("100", decoded.ParentId);
+        Assert.Equal("90", decoded.RootId);
+        Assert.Equal("80", decoded.ReplyToCommentId);
+        Assert.Equal(7, decoded.ReplyToUserId);
+        Assert.Equal("zk_anonymous", decoded.AuthorMode);
+        Assert.False(decoded.PublicSendExplicitlySelected);
+        Assert.Equal("article:9:root:90", decoded.AnonymousScope);
+        Assert.Equal("zh-CN", decoded.DisplayLanguage);
+        Assert.Equal("proof-token", decoded.ProofToken);
+        Assert.Equal([1, 2, 3, 4], decoded.ZkProof);
+        Assert.Equal(legacySize, Marshal.SizeOf<CommentCreateRequestPod>());
+        Assert.True(Marshal.SizeOf<CommentCreateV2RequestPod>() > legacySize);
+    }
+
+    [Fact]
+    public void CommentAuthorView_RoundTrip_PreservesLocalizedAnonymousProjection()
+    {
+        var author = new CommentAuthorViewCoreModel(
+            Mode: "zk_anonymous",
+            DisplayName: "Anonymous reader",
+            DisplayLanguage: "en",
+            Badge: "verified proof",
+            ScopeLabel: "article scope",
+            CredentialLevel: "strong_anonymous");
+
+        byte[] encoded = PodBinaryCodec.EncodeCommentAuthorView(author);
+        bool ok = PodBinaryCodec.TryDecodeCommentAuthorView(encoded, out var decoded);
+
+        Assert.True(ok);
+        Assert.Equal("zk_anonymous", decoded.Mode);
+        Assert.Equal("Anonymous reader", decoded.DisplayName);
+        Assert.Equal("en", decoded.DisplayLanguage);
+        Assert.Equal("verified proof", decoded.Badge);
+        Assert.Equal("article scope", decoded.ScopeLabel);
+        Assert.Equal("strong_anonymous", decoded.CredentialLevel);
     }
 
     private static ArticleDetailCoreModel MakeDetailItem(int id = 1, string title = "Detail", string content = "Hello content")

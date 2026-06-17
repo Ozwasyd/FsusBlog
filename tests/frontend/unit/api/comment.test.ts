@@ -26,6 +26,8 @@ describe('comment API', () => {
   it('createComment sends binary mutation frame', async () => {
     const dto = { articleId: 1, content: 'Hello', nonce: 'n', salt: 's', answer: 1 }
     await createComment(dto as never)
+    const body = mockBinary.mock.calls[0][0].requestOptions?.body as ArrayBuffer
+
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryUrl: '/api/binary/comment',
       frameType: FrameType.EmptySuccess,
@@ -35,6 +37,51 @@ describe('comment API', () => {
         body: expect.any(ArrayBuffer)
       })
     }))
+    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateRequest)
+  })
+
+  it('createComment uses CommentCreateV2 for anonymous author fields', async () => {
+    const dto = {
+      articleId: 9,
+      content: 'Hello anonymous mode',
+      parentId: '100',
+      rootId: '90',
+      replyToCommentId: '80',
+      replyToUserId: 7,
+      authorMode: 'zk_anonymous',
+      publicSendExplicitlySelected: false,
+      anonymousScope: 'article:9:root:90',
+      displayLanguage: 'zh-CN',
+      proofToken: 'proof-token',
+      zkProof: new Uint8Array([1, 2, 3, 4]),
+      nonce: 'n',
+      salt: 's',
+      answer: 1
+    }
+
+    await createComment(dto as never)
+
+    const body = mockBinary.mock.calls[0][0].requestOptions?.body as ArrayBuffer
+    expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
+    const payload = readAedsPayload(body)
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+    expect(view.getInt32(0, true)).toBe(9)
+    expect(view.getInt32(4, true)).toBe(7)
+    expect(payload[8]).toBe(1)
+    expect(payload[9]).toBe(1)
+    expect(payload[10]).toBe(1)
+    expect(payload[11]).toBe(1)
+    expect(payload[12]).toBe(4)
+    expect(payload[13]).toBe(0)
+    expect(view.getBigInt64(16, true)).toBe(100n)
+    expect(view.getBigInt64(24, true)).toBe(90n)
+    expect(view.getBigInt64(32, true)).toBe(80n)
+    const blob = payload.subarray(84)
+    expect(readSliceText(payload, blob, 40)).toBe('article:9:root:90')
+    expect(readSliceText(payload, blob, 48)).toBe('zh-CN')
+    expect(readSliceText(payload, blob, 56)).toBe('proof-token')
+    expect([...readSliceBytes(payload, blob, 64)]).toEqual([1, 2, 3, 4])
+    expect(readSliceText(payload, blob, 72)).toBe('Hello anonymous mode')
   })
 
   it('createComment rejects over-limit content before opening binary transport', async () => {
@@ -103,3 +150,24 @@ describe('comment API', () => {
     }))
   })
 })
+
+function readAedsFrameType(buffer: ArrayBuffer): number {
+  return new DataView(buffer).getUint16(8, true)
+}
+
+function readAedsPayload(buffer: ArrayBuffer): Uint8Array {
+  const bytes = new Uint8Array(buffer)
+  const length = new DataView(buffer).getUint32(10, true)
+  return bytes.subarray(16, 16 + length)
+}
+
+function readSliceBytes(payload: Uint8Array, blob: Uint8Array, sliceOffset: number): Uint8Array {
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  const offset = view.getInt32(sliceOffset, true)
+  const length = view.getInt32(sliceOffset + 4, true)
+  return blob.subarray(offset, offset + length)
+}
+
+function readSliceText(payload: Uint8Array, blob: Uint8Array, sliceOffset: number): string {
+  return new TextDecoder().decode(readSliceBytes(payload, blob, sliceOffset))
+}

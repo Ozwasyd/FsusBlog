@@ -54,6 +54,10 @@ public static class PodSizeCatalog
     public static readonly int CommentItemPod = PodContractValidation.SizeOf<CommentItemPod>();
     public static readonly int UserCommentPod = PodContractValidation.SizeOf<UserCommentPod>();
     public static readonly int CommentCreateRequestPod = PodContractValidation.SizeOf<CommentCreateRequestPod>();
+    public static readonly int CommentPolicySnapshotPod = PodContractValidation.SizeOf<CommentPolicySnapshotPod>();
+    public static readonly int CommentPolicyUpdateRequestPod = PodContractValidation.SizeOf<CommentPolicyUpdateRequestPod>();
+    public static readonly int CommentCreateV2RequestPod = PodContractValidation.SizeOf<CommentCreateV2RequestPod>();
+    public static readonly int CommentAuthorViewPod = PodContractValidation.SizeOf<CommentAuthorViewPod>();
     public static readonly int CommentThreadItemPod = PodContractValidation.SizeOf<CommentThreadItemPod>();
     public static readonly int CommentReplyItemPod = PodContractValidation.SizeOf<CommentReplyItemPod>();
     public static readonly int CommentThreadCursorPod = PodContractValidation.SizeOf<CommentThreadCursorPod>();
@@ -79,6 +83,7 @@ public static class PodSizeCatalog
     public static readonly int LoginResponsePod = PodContractValidation.SizeOf<LoginResponsePod>();
     public static readonly int AuthLoginFlowPod = PodContractValidation.SizeOf<AuthLoginFlowPod>();
     public static readonly int CurrentUserSnapshotPod = PodContractValidation.SizeOf<CurrentUserSnapshotPod>();
+    public static readonly int IdentityAccountSnapshotPod = PodContractValidation.SizeOf<IdentityAccountSnapshotPod>();
     public static readonly int AuthLoginRequestPod = PodContractValidation.SizeOf<AuthLoginRequestPod>();
     public static readonly int AuthRegisterRequestPod = PodContractValidation.SizeOf<AuthRegisterRequestPod>();
     public static readonly int AuthUpdatePasswordRequestPod = PodContractValidation.SizeOf<AuthUpdatePasswordRequestPod>();

@@ -187,6 +187,11 @@ public enum AedsFrameType : ushort
     RecoveryKeyVerifyRequest = 160,
     RecoveryKeyVerifyResponse = 161,
     RecoveryKeySessionRequest = 162,
+    IdentityAccountSnapshot = 163,
+    CommentPolicySnapshot = 164,
+    CommentPolicyUpdateRequest = 165,
+    CommentCreateV2Request = 166,
+    CommentAuthorView = 167,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

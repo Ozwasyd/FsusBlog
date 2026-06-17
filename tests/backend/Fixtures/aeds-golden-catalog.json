@@ -169,6 +169,11 @@
     { "name": "RecoveryKeyVerifyRequest", "value": 160, "family": "recovery-key-request" },
     { "name": "RecoveryKeyVerifyResponse", "value": 161, "family": "recovery-key-response" },
     { "name": "RecoveryKeySessionRequest", "value": 162, "family": "recovery-key-request" },
+    { "name": "IdentityAccountSnapshot", "value": 163, "family": "identity-response" },
+    { "name": "CommentPolicySnapshot", "value": 164, "family": "comment-policy-response" },
+    { "name": "CommentPolicyUpdateRequest", "value": 165, "family": "comment-policy-request" },
+    { "name": "CommentCreateV2Request", "value": 166, "family": "comment-request" },
+    { "name": "CommentAuthorView", "value": 167, "family": "comment-response" },
     { "name": "EmptySuccess", "value": 240, "family": "common-response" },
     { "name": "MutationId", "value": 241, "family": "common-response" },
     { "name": "ApiError", "value": 251, "family": "error-response" }
