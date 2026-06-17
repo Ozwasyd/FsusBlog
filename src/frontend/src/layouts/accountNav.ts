@@ -62,7 +62,7 @@ const accountNavItems: readonly AccountNavItem[] = [
   { label: 'Recovery Key', to: '/user/identity/recovery-key', helper: '账户恢复', area: 'self', groupKey: 'identity' },
   { label: '匿名身份', to: '/user/identity/anonymous', helper: '匿名评论身份', area: 'self', groupKey: 'identity', requiredFeature: 'anonymousCommentsEnabled' },
   { label: '公开资料', to: '/user/identity/public-profile', helper: '公开发送 opt-in', area: 'self', groupKey: 'identity', requiredFeature: 'publicSendOptionEnabled' },
-  { label: '评论记录', to: '/user/comments', helper: '历史互动', area: 'self', groupKey: 'identity' },
+  { label: '评论记录', to: '/user/identity/comment-records', helper: '可归因记录', area: 'self', groupKey: 'identity' },
   { label: '设备会话', to: '/user/identity/sessions', helper: '登录设备', area: 'self', groupKey: 'identity' },
   { label: '二次验证', to: '/user/identity/mfa', helper: 'TOTP step-up', area: 'self', groupKey: 'identity' },
   { label: '仪表盘', to: '/user/manage', helper: '今日待处理', area: 'manage', groupKey: 'content', adminOnly: true },
