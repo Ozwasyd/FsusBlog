@@ -7,66 +7,66 @@
       跳到主要内容
     </a>
 
-    <header class="sticky top-0 z-40 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
-      <div class="mx-auto flex h-16 max-w-[var(--fsusblog-container-workbench)] items-center justify-between gap-4 px-4 sm:h-[4.75rem] sm:px-6 lg:px-10">
-        <div class="flex min-w-0 items-center gap-4 sm:gap-6">
-          <router-link
-            to="/"
-            class="flex min-w-0 items-center gap-2 truncate text-lg font-bold transition-opacity hover:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)]"
-          >
-            <img
-              v-if="adminBrandImageUrl"
-              :src="adminBrandImageUrl"
-              :alt="brandTitle"
-              class="h-8 max-w-[11rem] object-contain"
-            />
-            <span v-else class="truncate">{{ brandTitle }}</span>
-          </router-link>
-        </div>
+    <SiteChromeHeaderAdapter
+      :site-title="workspaceContext.brandTitle"
+      :site-logo-url="workspaceContext.brandImages.siteLogoUrl"
+      :site-logo-dark-url="workspaceContext.brandImages.siteLogoDarkUrl"
+      :site-wordmark-url="workspaceContext.brandImages.siteWordmarkUrl"
+      :admin-logo-url="workspaceContext.brandImages.adminLogoUrl"
+      :admin-collapsed-icon-url="workspaceContext.brandImages.adminCollapsedIconUrl"
+      brand-context="account"
+      brand-link-class="account-header-brand"
+      max-width="var(--fsusblog-container-workbench)"
+      header-class="account-site-header"
+      inner-class="account-site-header__inner"
+      primary-row-class="account-site-header__primary-row"
+      desktop-actions-class="account-site-header__actions"
+      mobile-primary-actions-class="account-site-header__mobile-actions"
+      :show-desktop-theme-toggle="false"
+      :show-mobile-theme-toggle="false"
+    >
+      <template #desktop-actions>
+        <ThemeModeToggle />
 
-        <div class="hidden items-center gap-4 lg:flex">
-          <ThemeModeToggle />
+        <router-link to="/" class="account-header-link">
+          主站
+        </router-link>
 
-          <router-link to="/" class="account-header-link">
-            主站
-          </router-link>
+        <el-button
+          link
+          @click="openPolicy('guidelines')"
+        >
+          使用规范
+        </el-button>
 
-          <el-button
-            link
-            @click="openPolicy('guidelines')"
-          >
-            使用规范
-          </el-button>
+        <el-button
+          link
+          @click="openPolicy('privacy')"
+        >
+          隐私政策
+        </el-button>
 
-          <el-button
-            link
-            @click="openPolicy('privacy')"
-          >
-            隐私政策
-          </el-button>
+        <el-button
+          link
+          :disabled="isLoggingOut"
+          @click="handleLogout"
+        >
+          {{ isLoggingOut ? '登出中...' : '登出' }}
+        </el-button>
+      </template>
 
-          <el-button
-            link
-            :disabled="isLoggingOut"
-            @click="handleLogout"
-          >
-            {{ isLoggingOut ? '登出中...' : '登出' }}
-          </el-button>
-        </div>
-
-        <div class="flex items-center gap-3 lg:hidden">
-          <ThemeModeToggle />
-          <el-button
-            circle
-            :icon="Menu"
-            :aria-expanded="mobileNavOpen"
-            aria-controls="account-mobile-drawer"
-            :aria-label="mobileNavButtonLabel"
-            @click="toggleMobileNav"
-          />
-        </div>
-      </div>
-    </header>
+      <template #mobile-primary-actions>
+        <ThemeModeToggle />
+        <el-button
+          circle
+          :icon="Menu"
+          :aria-expanded="mobileNavOpen"
+          aria-controls="account-mobile-drawer"
+          :aria-label="mobileNavButtonLabel"
+          @click="toggleMobileNav"
+        />
+      </template>
+    </SiteChromeHeaderAdapter>
 
     <div class="mx-auto flex w-full max-w-[var(--fsusblog-container-workbench)] flex-1 gap-5 px-4 py-5 sm:px-6 sm:py-8 lg:gap-10 lg:px-10">
       <aside class="hidden lg:block lg:w-[18rem] lg:shrink-0">
@@ -223,6 +223,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Close, Menu } from '@/fsusui/icons'
 import PolicyModal from '@/components/PolicyModal.vue'
+import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import { getAccountNavGroups, type AccountArea, type AccountContentMode, type AccountNavGroupKey, type AccountNavItem } from '@/layouts/accountNav'
 import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext'
@@ -251,8 +252,6 @@ const currentContentMode = computed<AccountContentMode>(() => {
 })
 
 const areaMeta = computed(() => workspaceContext.value.areaMeta)
-const brandTitle = computed(() => workspaceContext.value.brandTitle)
-const adminBrandImageUrl = computed(() => workspaceContext.value.brandImageUrl)
 const navGroups = computed(() => getAccountNavGroups(workspaceContext.value))
 const currentNavGroupKey = computed<AccountNavGroupKey>(() => {
   const activeGroup = navGroups.value.find((group) => group.items.some((item) => isNavItemActive(item)))
@@ -383,6 +382,15 @@ watch(mobileNavOpen, (open) => {
 .account-header-link,
 .account-meta-link {
   @apply inline-flex items-center rounded-[var(--fsus-radius-control-small)] text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-40;
+}
+
+:deep(.account-header-brand) {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--fsusblog-text-primary);
+  text-decoration: none;
 }
 
 .account-skip-link:focus {

@@ -30,8 +30,16 @@ export interface AccountWorkspaceContext {
   policies: AccountWorkspacePolicies
   areaMeta: AccountAreaMeta
   brandTitle: string
-  brandImageUrl: string
+  brandImages: AccountWorkspaceBrandImages
   logout: () => Promise<void>
+}
+
+export interface AccountWorkspaceBrandImages {
+  adminLogoUrl?: string
+  adminCollapsedIconUrl?: string
+  siteWordmarkUrl?: string
+  siteLogoUrl?: string
+  siteLogoDarkUrl?: string
 }
 
 export function useAccountWorkspaceContext(): ComputedRef<AccountWorkspaceContext> {
@@ -59,21 +67,14 @@ export function useAccountWorkspaceContext(): ComputedRef<AccountWorkspaceContex
       },
       areaMeta: accountAreaMeta[surface as AccountArea],
       brandTitle: siteStore.siteInfo.title,
-      brandImageUrl: resolveBrandImageUrl(siteStore.siteInfo),
+      brandImages: {
+        adminLogoUrl: siteStore.siteInfo.adminLogoUrl,
+        adminCollapsedIconUrl: siteStore.siteInfo.adminCollapsedIconUrl,
+        siteWordmarkUrl: siteStore.siteInfo.siteWordmarkUrl,
+        siteLogoUrl: siteStore.siteInfo.siteLogoUrl,
+        siteLogoDarkUrl: siteStore.siteInfo.siteLogoDarkUrl
+      },
       logout
     }
   })
-}
-
-function resolveBrandImageUrl(siteInfo: {
-  adminLogoUrl?: string
-  adminCollapsedIconUrl?: string
-  siteWordmarkUrl?: string
-  siteLogoUrl?: string
-}): string {
-  return siteInfo.adminLogoUrl?.trim()
-    || siteInfo.adminCollapsedIconUrl?.trim()
-    || siteInfo.siteWordmarkUrl?.trim()
-    || siteInfo.siteLogoUrl?.trim()
-    || ''
 }
