@@ -4,37 +4,51 @@ import { describe, expect, it } from 'vitest'
 
 const shellSource = readFileSync(
   resolve(process.cwd(), 'src/components/public/PublicBlogLayoutShell.vue'),
-  'utf8'
+  'utf8',
 )
 const complianceFooterSource = readFileSync(
   resolve(process.cwd(), 'src/components/public/PublicComplianceFooter.vue'),
-  'utf8'
+  'utf8',
 )
 const blogLayoutSource = readFileSync(
   resolve(process.cwd(), 'src/layouts/BlogLayout.vue'),
-  'utf8'
+  'utf8',
 )
 const themeToggleSource = readFileSync(
   resolve(process.cwd(), 'src/components/ui/ThemeModeToggle.vue'),
-  'utf8'
+  'utf8',
 )
 const themeRuntimeSource = readFileSync(
   resolve(process.cwd(), 'src/services/themeRuntime.ts'),
-  'utf8'
+  'utf8',
 )
 const publicShellCriticalCss = readFileSync(
   resolve(process.cwd(), 'src/assets/public-shell-critical.css'),
-  'utf8'
+  'utf8',
 )
 
 describe('PublicBlogLayoutShell responsive header integration', () => {
   it('uses the FsusUI trigger mobile search model without duplicating the trigger', () => {
-    expect(shellSource).toContain('mobile-search-mode="trigger"')
-    expect(shellSource).toContain('mobile-search-trigger-label="搜索"')
-    expect(shellSource).toContain('mobile-search-cancel-label="取消"')
+    expect(shellSource).toContain('mobileSearchExpanded')
+    expect(shellSource).toContain('mobileSearchButtonLabel')
+    expect(shellSource).toContain('el-public-shell__mobile-search-trigger')
+    expect(shellSource).toContain(
+      "mobileSearchExpanded.value ? '取消' : '搜索'",
+    )
     expect(shellSource).toContain('<template #mobile-primary-actions>')
     expect(shellSource).not.toContain('<template #mobile-actions>')
     expect(shellSource).not.toContain('PublicMobileSearchTrigger')
+  })
+
+  it('composes the public header through the Blog site chrome adapter', () => {
+    expect(shellSource).toContain('SiteChromeHeaderAdapter')
+    expect(shellSource).toContain(':site-title="shellIdentity.siteTitle"')
+    expect(shellSource).toContain('brand-link-class="el-public-shell__brand"')
+    expect(shellSource).toContain(
+      'header-class="el-public-shell__header is-sticky"',
+    )
+    expect(shellSource).toContain('inner-class="el-public-shell__inner"')
+    expect(shellSource).not.toContain('<el-public-shell')
   })
 
   it('renders mobile theme mode as a localized menu button', () => {
@@ -48,18 +62,24 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
   })
 
   it('keeps the header brand text equal to the configured site title', () => {
-    expect(shellSource).toContain('{{ shellIdentity.siteTitle }}')
-    expect(shellSource).not.toContain('{{ siteTitleText }}<span class="text-[var(--fsusblog-text-muted)]">.</span>')
+    expect(shellSource).toContain(':site-title="shellIdentity.siteTitle"')
+    expect(shellSource).not.toContain(
+      '{{ siteTitleText }}<span class="text-[var(--fsusblog-text-muted)]">.</span>',
+    )
     expect(complianceFooterSource).toContain('{{ siteTitleText }}')
-    expect(complianceFooterSource).not.toContain('{{ siteTitleText }}<span class="text-[var(--fsusblog-text-muted)]">.</span>')
+    expect(complianceFooterSource).not.toContain(
+      '{{ siteTitleText }}<span class="text-[var(--fsusblog-text-muted)]">.</span>',
+    )
   })
 
   it('provides one public site identity from the shell to page content and footer', () => {
     expect(shellSource).toContain('createPublicSiteIdentity')
-    expect(shellSource).toContain('const shellIdentity = computed(() => createPublicSiteIdentity({')
+    expect(shellSource).toContain('const shellIdentity = computed(() =>')
+    expect(shellSource).toContain('createPublicSiteIdentity({')
     expect(shellSource).toContain('siteTitle: siteTitleText.value')
     expect(shellSource).toContain('siteDescription: siteDescriptionText.value')
     expect(shellSource).toContain('providePublicSiteIdentity(shellIdentity)')
+    expect(shellSource).toContain(':site-title="shellIdentity.siteTitle"')
     expect(shellSource).toContain(':site-title="shellIdentity.siteTitle"')
     expect(shellSource).toContain(':compliance="shellIdentity.compliance"')
     expect(shellSource).toContain(':render-year="shellIdentity.renderYear"')
@@ -79,23 +99,39 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
 
   it('keeps mobile public shell actions aligned when packaged FsusUI CSS lags local DOM', () => {
     expect(publicShellCriticalCss).toContain('.el-public-shell__primary-row')
-    expect(publicShellCriticalCss).toContain('grid-template-columns: minmax(0, 1fr) auto;')
-    expect(publicShellCriticalCss).toContain('.el-public-shell__mobile-primary-actions')
+    expect(publicShellCriticalCss).toContain(
+      'grid-template-columns: minmax(0, 1fr) auto;',
+    )
+    expect(publicShellCriticalCss).toContain(
+      '.el-public-shell__mobile-primary-actions',
+    )
     expect(publicShellCriticalCss).toContain('display: inline-flex;')
     expect(publicShellCriticalCss).toContain('gap: 8px;')
-    expect(publicShellCriticalCss).toContain('.el-public-shell__mobile-search-row')
+    expect(publicShellCriticalCss).toContain(
+      '.el-public-shell__mobile-search-row',
+    )
     expect(publicShellCriticalCss).toContain('margin-top: 12px;')
-    expect(publicShellCriticalCss).toContain('.el-public-shell__search--trigger')
+    expect(publicShellCriticalCss).toContain(
+      '.el-public-shell__search--trigger',
+    )
     expect(publicShellCriticalCss).toContain('width: 100%;')
-    expect(publicShellCriticalCss).toContain('.el-public-shell__mobile-search-trigger,')
-    expect(publicShellCriticalCss).toContain('.el-theme-mode-toggle__menu-button')
+    expect(publicShellCriticalCss).toContain(
+      '.el-public-shell__mobile-search-trigger,',
+    )
+    expect(publicShellCriticalCss).toContain(
+      '.el-theme-mode-toggle__menu-button',
+    )
     expect(publicShellCriticalCss).toContain('min-height: 40px;')
   })
 
   it('applies public main and footer minimum height rules to the current FsusUI shell DOM', () => {
-    expect(publicShellCriticalCss).toContain('#fsus-aot-shell .el-public-shell__main')
+    expect(publicShellCriticalCss).toContain(
+      '#fsus-aot-shell .el-public-shell__main',
+    )
     expect(publicShellCriticalCss).toContain('min-height: 55vh;')
-    expect(publicShellCriticalCss).toContain('#fsus-aot-shell .el-public-shell__footer')
+    expect(publicShellCriticalCss).toContain(
+      '#fsus-aot-shell .el-public-shell__footer',
+    )
     expect(publicShellCriticalCss).toContain('min-height: 6.5rem;')
   })
 
@@ -112,10 +148,16 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(complianceFooterSource).toContain('Number(props.renderYear)')
     expect(complianceFooterSource).toContain('Number.isInteger(renderYear)')
     expect(complianceFooterSource).not.toContain('new Date().getFullYear()')
-    expect(blogLayoutSource).toContain('const runtimeRenderYear = ref<number | null>')
-    expect(blogLayoutSource).toContain('runtimeRenderYear.value = new Date().getFullYear()')
+    expect(blogLayoutSource).toContain(
+      'const runtimeRenderYear = ref<number | null>',
+    )
+    expect(blogLayoutSource).toContain(
+      'runtimeRenderYear.value = new Date().getFullYear()',
+    )
     expect(blogLayoutSource.indexOf('onMounted(() =>')).toBeLessThan(
-      blogLayoutSource.indexOf('runtimeRenderYear.value = new Date().getFullYear()')
+      blogLayoutSource.indexOf(
+        'runtimeRenderYear.value = new Date().getFullYear()',
+      ),
     )
   })
 })
