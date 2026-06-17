@@ -1,17 +1,5 @@
 <template>
-  <div class="auth-page-shell min-h-screen w-full overflow-x-hidden">
-    <nav class="mx-auto flex h-16 w-full max-w-6xl items-center px-5 sm:h-20 sm:px-8">
-      <router-link
-        to="/"
-        class="flex min-w-0 items-center gap-2 rounded-[var(--fsus-radius-control)] text-lg font-bold text-[var(--fsusblog-text-primary)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
-        :class="focusRingClass"
-      >
-        <img v-if="loginBrandImageUrl" :src="loginBrandImageUrl" :alt="siteStore.siteInfo.title" class="h-9 max-w-[12rem] object-contain" />
-        <span v-else class="truncate">{{ siteStore.siteInfo.title }}</span>
-      </router-link>
-    </nav>
-
-    <main class="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-start px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16">
+  <div class="auth-page-content w-full max-w-md">
       <section
         class="w-full max-w-md"
         aria-labelledby="register-title"
@@ -194,7 +182,6 @@
           </router-link>
         </footer>
       </section>
-    </main>
 
     <PolicyModal v-model:visible="showGuidelines" type="guidelines" />
     <PasskeyRegisterModal
@@ -205,7 +192,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useAnonymousOnboarding } from '@/composables/useAnonymousOnboarding'
 import PolicyModal from '@/components/PolicyModal.vue'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
@@ -214,7 +200,6 @@ import { themeTokens } from '@/ui-tokens/themeTokens'
 const focusRingClass = themeTokens.focusRing
 
 const {
-  siteStore,
   localError,
   publicHandle,
   publicHandleHint,
@@ -238,23 +223,10 @@ const {
   onPasskeyRegistered,
   finishOnboarding
 } = useAnonymousOnboarding()
-
-const loginBrandImageUrl = computed(() =>
-  siteStore.siteInfo.loginLogoUrl?.trim()
-  || siteStore.siteInfo.loginIconUrl?.trim()
-  || siteStore.siteInfo.siteWordmarkUrl?.trim()
-  || siteStore.siteInfo.siteLogoUrl?.trim()
-  || ''
-)
 </script>
 
 <style scoped>
 @reference "@/assets/main.css";
-
-.auth-page-shell {
-  background: var(--fsusblog-page-bg);
-  color: var(--fsusblog-text-primary);
-}
 
 :deep(.register-guidelines-button.el-button) {
   min-height: 36px;

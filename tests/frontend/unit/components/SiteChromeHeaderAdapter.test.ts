@@ -34,39 +34,33 @@ describe('SiteChromeHeaderAdapter contract', () => {
   })
 
   it('centralizes brand image fallback order for all layouts', () => {
-    const lightFallbackStart = adapterSource.indexOf(
-      'const brandImageLight = computed',
-    )
-    const darkFallbackStart = adapterSource.indexOf(
-      'const brandImageDark = computed',
-    )
-    const hasBrandImageStart = adapterSource.indexOf('const hasBrandImage')
-
-    expect(lightFallbackStart).toBeGreaterThan(-1)
-    expect(darkFallbackStart).toBeGreaterThan(lightFallbackStart)
-    expect(hasBrandImageStart).toBeGreaterThan(darkFallbackStart)
-
-    const lightFallback = adapterSource.slice(
-      lightFallbackStart,
-      darkFallbackStart,
-    )
-    const darkFallback = adapterSource.slice(
-      darkFallbackStart,
-      hasBrandImageStart,
+    const publicLightStart = adapterSource.indexOf('const publicLight = [')
+    const publicDarkStart = adapterSource.indexOf('const publicDark = [')
+    const authStart = adapterSource.indexOf(
+      "if (props.brandContext === 'auth')",
     )
 
-    expect(lightFallback.indexOf('props.siteWordmarkUrl?.trim()')).toBeLessThan(
-      lightFallback.indexOf('props.siteLogoUrl?.trim()'),
+    expect(publicLightStart).toBeGreaterThan(-1)
+    expect(publicDarkStart).toBeGreaterThan(publicLightStart)
+    expect(authStart).toBeGreaterThan(publicDarkStart)
+
+    const publicLight = adapterSource.slice(publicLightStart, publicDarkStart)
+    const publicDark = adapterSource.slice(publicDarkStart, authStart)
+
+    expect(publicLight.indexOf('props.siteWordmarkUrl')).toBeLessThan(
+      publicLight.indexOf('props.siteLogoUrl'),
     )
-    expect(lightFallback.indexOf('props.siteLogoUrl?.trim()')).toBeLessThan(
-      lightFallback.indexOf('props.siteLogoDarkUrl?.trim()'),
+    expect(publicLight.indexOf('props.siteLogoUrl')).toBeLessThan(
+      publicLight.indexOf('props.siteLogoDarkUrl'),
     )
-    expect(darkFallback.indexOf('props.siteWordmarkUrl?.trim()')).toBeLessThan(
-      darkFallback.indexOf('props.siteLogoDarkUrl?.trim()'),
+    expect(publicDark.indexOf('props.siteWordmarkUrl')).toBeLessThan(
+      publicDark.indexOf('props.siteLogoDarkUrl'),
     )
-    expect(darkFallback.indexOf('props.siteLogoDarkUrl?.trim()')).toBeLessThan(
-      darkFallback.indexOf('props.siteLogoUrl?.trim()'),
+    expect(publicDark.indexOf('props.siteLogoDarkUrl')).toBeLessThan(
+      publicDark.indexOf('props.siteLogoUrl'),
     )
+    expect(adapterSource).toContain("if (props.brandContext === 'auth')")
+    expect(adapterSource).toContain("if (props.brandContext === 'account')")
     expect(adapterSource).toContain('site-chrome-header__brand-image--light')
     expect(adapterSource).toContain('site-chrome-header__brand-image--dark')
   })

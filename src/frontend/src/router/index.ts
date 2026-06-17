@@ -94,16 +94,22 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
   },
   // --- 认证路由 ---
   {
-    path: '/login',
-    name: 'Login',
-    component: () => import('@/views/auth/Login.vue'),
-    meta: { title: '登录', guestOnly: true }
-  },
-  {
-    path: '/register',
-    name: 'Register',
-    component: () => import('@/views/auth/Register.vue'),
-    meta: { title: '注册', guestOnly: true }
+    path: '/',
+    component: () => import('@/layouts/PublicAuthLayout.vue'),
+    children: [
+      {
+        path: 'login',
+        name: 'Login',
+        component: () => import('@/views/auth/Login.vue'),
+        meta: { title: '登录', guestOnly: true }
+      },
+      {
+        path: 'register',
+        name: 'Register',
+        component: () => import('@/views/auth/Register.vue'),
+        meta: { title: '注册', guestOnly: true }
+      }
+    ]
   },
   // --- 统一账户中心 ---
   {

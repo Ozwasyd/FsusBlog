@@ -117,6 +117,8 @@ export type SiteChromeThemeModeLabels = Readonly<{
   systemShort?: string
 }>
 
+export type SiteChromeBrandContext = 'public' | 'auth' | 'account'
+
 const PUBLIC_THEME_MODE_LABELS: SiteChromeThemeModeLabels = {
   light: '浅色',
   dark: '深色',
@@ -132,6 +134,11 @@ const props = withDefaults(
     siteLogoUrl?: string | null
     siteLogoDarkUrl?: string | null
     siteWordmarkUrl?: string | null
+    loginLogoUrl?: string | null
+    loginIconUrl?: string | null
+    adminLogoUrl?: string | null
+    adminCollapsedIconUrl?: string | null
+    brandContext?: SiteChromeBrandContext
     brandHref?: string
     brandLinkClass?: SiteChromeClassValue
     navItems?: SiteChromeNavItem[]
@@ -158,6 +165,11 @@ const props = withDefaults(
     siteLogoUrl: '',
     siteLogoDarkUrl: '',
     siteWordmarkUrl: '',
+    loginLogoUrl: '',
+    loginIconUrl: '',
+    adminLogoUrl: '',
+    adminCollapsedIconUrl: '',
+    brandContext: 'public',
     brandHref: '/',
     brandLinkClass: '',
     navItems: () => [],
@@ -186,20 +198,8 @@ const slots = useSlots()
 const siteTitleText = computed(
   () => props.siteTitle?.trim() || PUBLIC_SHELL_DEFAULTS.siteTitle,
 )
-const brandImageLight = computed(
-  () =>
-    props.siteWordmarkUrl?.trim() ||
-    props.siteLogoUrl?.trim() ||
-    props.siteLogoDarkUrl?.trim() ||
-    '',
-)
-const brandImageDark = computed(
-  () =>
-    props.siteWordmarkUrl?.trim() ||
-    props.siteLogoDarkUrl?.trim() ||
-    props.siteLogoUrl?.trim() ||
-    '',
-)
+const brandImageLight = computed(() => resolveBrandImage('light'))
+const brandImageDark = computed(() => resolveBrandImage('dark'))
 const hasBrandImage = computed(() =>
   Boolean(brandImageLight.value || brandImageDark.value),
 )
@@ -226,6 +226,41 @@ function navLinkClass(key: string): SiteChromeClassValue[] {
     { 'is-active': key === props.activeNav },
     key === props.activeNav ? props.activeNavLinkClass : '',
   ]
+}
+
+function firstPresent(...values: Array<string | null | undefined>): string {
+  return values.find((value) => value?.trim())?.trim() ?? ''
+}
+
+function resolveBrandImage(theme: 'light' | 'dark'): string {
+  const publicLight = [
+    props.siteWordmarkUrl,
+    props.siteLogoUrl,
+    props.siteLogoDarkUrl,
+  ]
+  const publicDark = [
+    props.siteWordmarkUrl,
+    props.siteLogoDarkUrl,
+    props.siteLogoUrl,
+  ]
+
+  if (props.brandContext === 'auth') {
+    return firstPresent(
+      props.loginLogoUrl,
+      props.loginIconUrl,
+      ...(theme === 'dark' ? publicDark : publicLight),
+    )
+  }
+
+  if (props.brandContext === 'account') {
+    return firstPresent(
+      props.adminLogoUrl,
+      props.adminCollapsedIconUrl,
+      ...(theme === 'dark' ? publicDark : publicLight),
+    )
+  }
+
+  return firstPresent(...(theme === 'dark' ? publicDark : publicLight))
 }
 </script>
 
