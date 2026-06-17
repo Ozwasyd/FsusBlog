@@ -1,6 +1,10 @@
 import { computed, type ComputedRef } from 'vue'
 import { useRoute } from 'vue-router'
-import { accountAreaMeta, type AccountArea, type AccountAreaMeta } from '@/layouts/accountNav'
+import {
+  accountAreaMeta,
+  type AccountArea,
+  type AccountAreaMeta,
+} from '@/layouts/accountNav'
 import { useSiteStore } from '@/store/site'
 import { useUserStore } from '@/store/user'
 
@@ -12,11 +16,17 @@ export interface AccountWorkspaceFeatures {
   publicSendOptionEnabled: boolean
 }
 
+export interface AccountWorkspacePolicies {
+  anonymousCommentGovernanceAvailable: boolean
+  zkAnonymousConfigurable: boolean
+}
+
 export interface AccountWorkspaceContext {
   surface: 'self' | 'manage'
   canManage: boolean
   permissions: readonly string[]
   features: AccountWorkspaceFeatures
+  policies: AccountWorkspacePolicies
   areaMeta: AccountAreaMeta
   brandTitle: string
   brandImageUrl: string
@@ -24,12 +34,28 @@ export interface AccountWorkspaceContext {
 }
 
 const SELF_PERMISSIONS: readonly string[] = Object.freeze([])
-const LEGACY_MANAGE_PERMISSIONS: readonly string[] = Object.freeze(['legacy.admin'])
+const LEGACY_MANAGE_PERMISSIONS: readonly string[] = Object.freeze([
+  'legacy.admin',
+  'article.write',
+  'article.publish',
+  'comment.moderate',
+  'anonymous.comment.configure',
+  'anonymous.nullifier.block',
+  'anonymous.credential.revoke',
+  'audit.read',
+  'system.config',
+  'admin.manage'
+])
 
 const DEFAULT_WORKSPACE_FEATURES: AccountWorkspaceFeatures = Object.freeze({
   anonymousCommentsEnabled: true,
   zkAnonymousEnabled: false,
   publicSendOptionEnabled: true
+})
+
+const DEFAULT_WORKSPACE_POLICIES: AccountWorkspacePolicies = Object.freeze({
+  anonymousCommentGovernanceAvailable: true,
+  zkAnonymousConfigurable: true
 })
 
 export function useAccountWorkspaceContext(): ComputedRef<AccountWorkspaceContext> {
@@ -50,6 +76,7 @@ export function useAccountWorkspaceContext(): ComputedRef<AccountWorkspaceContex
       canManage,
       permissions: canManage ? LEGACY_MANAGE_PERMISSIONS : SELF_PERMISSIONS,
       features: DEFAULT_WORKSPACE_FEATURES,
+      policies: DEFAULT_WORKSPACE_POLICIES,
       areaMeta: accountAreaMeta[surface as AccountArea],
       brandTitle: siteStore.siteInfo.title,
       brandImageUrl: resolveBrandImageUrl(siteStore.siteInfo),

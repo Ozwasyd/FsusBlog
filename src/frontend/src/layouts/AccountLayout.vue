@@ -253,7 +253,7 @@ const currentContentMode = computed<AccountContentMode>(() => {
 const areaMeta = computed(() => workspaceContext.value.areaMeta)
 const brandTitle = computed(() => workspaceContext.value.brandTitle)
 const adminBrandImageUrl = computed(() => workspaceContext.value.brandImageUrl)
-const navGroups = computed(() => getAccountNavGroups(workspaceContext.value.canManage))
+const navGroups = computed(() => getAccountNavGroups(workspaceContext.value))
 const currentNavGroupKey = computed<AccountNavGroupKey>(() => {
   const activeGroup = navGroups.value.find((group) => group.items.some((item) => isNavItemActive(item)))
   return activeGroup?.key ?? (currentArea.value === 'manage' ? 'content' : 'self')
