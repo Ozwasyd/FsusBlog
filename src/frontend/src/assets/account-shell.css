@@ -210,6 +210,20 @@
   max-width: var(--fsusblog-container-settings);
 }
 
+.admin-page-shell--list :where(.el-table) {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.admin-page-shell--list :where(.el-input, .el-select, .el-date-editor, .el-input-number) {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.admin-page-shell--list :where(.grid) > * {
+  min-width: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .account-shell .account-motion-enter {
     animation: none !important;

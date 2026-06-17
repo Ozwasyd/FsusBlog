@@ -28,7 +28,7 @@
     </WorkbenchPanel>
 
     <section class="border-t border-[var(--fsusblog-panel-border)]">
-      <div class="grid gap-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-4 py-4 lg:grid-cols-6">
+      <div class="audit-filter-grid grid gap-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-4 py-4 lg:grid-cols-6">
         <el-input v-model="filters.actor" clearable placeholder="操作者" aria-label="操作者" :prefix-icon="User" />
         <el-input v-model="filters.action" clearable placeholder="动作代码" aria-label="动作代码" :prefix-icon="Operation" />
         <el-input v-model="filters.targetType" clearable placeholder="目标类型" aria-label="目标类型" :prefix-icon="Aim" />
@@ -433,3 +433,26 @@ onMounted(() => {
   void loadAudit()
 })
 </script>
+
+<style scoped>
+.audit-filter-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.audit-filter-grid > * {
+  min-width: 0;
+}
+
+:deep(.audit-filter-grid .el-input),
+:deep(.audit-filter-grid .el-select),
+:deep(.audit-filter-grid .el-date-editor) {
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .audit-filter-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+</style>

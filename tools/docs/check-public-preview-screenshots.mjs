@@ -67,6 +67,11 @@ for (const token of [
   'manual-layout-screenshots',
   'capture:manual-layout-screenshots',
   'frontend router table',
+  'FSUSBLOG_MANUAL_SCREENSHOT_VIEWPORTS',
+  'FSUSBLOG_MANUAL_SCREENSHOT_THEMES',
+  'FSUSBLOG_MANUAL_SCREENSHOT_SCOPES',
+  'FSUSBLOG_MANUAL_SCREENSHOT_SHARD_NAME',
+  'FSUSBLOG_MANUAL_SCREENSHOT_DOCS_SHARD_NAME',
   'FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS',
   'FSUSBLOG_MANUAL_SCREENSHOT_LAYOUT_AUDIT'
 ]) {
@@ -103,7 +108,12 @@ for (const token of [
   'APP_ROUTE_RECORDS',
   'buildManualRoutesFromRouteRecords',
   'materializeRoutePath',
+  'ensureThemeApplied',
   'assertThemeModeToggleStyled',
+  'parseManualScreenshotFilter',
+  'filterManualScreenshotItems',
+  'manualScreenshotShardName',
+  'docsScreenshotWriterAllowed',
   'waitForHomeSecondaryContent',
   'pruneStaleDocsScreenshotAssets',
   'data-home-hot-articles-aside'
@@ -118,6 +128,17 @@ for (const token of [
   if (manualCapture.includes(token)) {
     errors.push(`manual layout screenshot script must not use static route matrix helper: ${token}`)
   }
+}
+
+const frontendPackage = read('src/frontend/package.json')
+for (const token of [
+  'capture:manual-layout-screenshots:desktop-light',
+  'capture:manual-layout-screenshots:mobile-light',
+  'FSUSBLOG_MANUAL_SCREENSHOT_VIEWPORTS=desktop',
+  'FSUSBLOG_MANUAL_SCREENSHOT_THEMES=light',
+  'FSUSBLOG_MANUAL_SCREENSHOT_SHARD_NAME=desktop-light'
+]) {
+  includes('src/frontend/package.json', frontendPackage, token)
 }
 
 const pageAssemblies = read('src/frontend/src/public-renderers/pageAssemblies.ts')

@@ -22,46 +22,48 @@
         </div>
       </div>
 
-      <el-table v-if="preview" v-loading="loading" :data="preview.items" row-key="commentId">
-        <el-table-column label="评论" width="110" prop="commentId" />
-        <el-table-column label="策略版本" min-width="240">
-          <template #default="{ row }: { row: ModerationReplayPreviewItemResponse }">
-            <div class="text-xs text-[var(--fsusblog-text-secondary)]">
-              <div>{{ row.previousPolicyVersion }}</div>
-              <div class="mt-1 text-[var(--fsusblog-text-muted)]">-> {{ row.nextPolicyVersion }}</div>
-            </div>
+      <div v-if="preview" class="blog-scroll-x-safe moderation-replay-table-scroll">
+        <el-table v-loading="loading" :data="preview.items" row-key="commentId">
+          <el-table-column label="评论" width="110" prop="commentId" />
+          <el-table-column label="策略版本" min-width="240">
+            <template #default="{ row }: { row: ModerationReplayPreviewItemResponse }">
+              <div class="text-xs text-[var(--fsusblog-text-secondary)]">
+                <div>{{ row.previousPolicyVersion }}</div>
+                <div class="mt-1 text-[var(--fsusblog-text-muted)]">-> {{ row.nextPolicyVersion }}</div>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="拦截地区" min-width="220">
+            <template #default="{ row }: { row: ModerationReplayPreviewItemResponse }">
+              <div class="flex flex-wrap gap-1">
+                <el-tag v-for="region in row.addedBlockedRegions" :key="`add-${region}`" size="small" type="danger">+ {{ region }}</el-tag>
+                <el-tag v-for="region in row.removedBlockedRegions" :key="`remove-${region}`" size="small" type="info">- {{ region }}</el-tag>
+                <span v-if="row.addedBlockedRegions.length + row.removedBlockedRegions.length === 0">-</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="风险标签" min-width="220">
+            <template #default="{ row }: { row: ModerationReplayPreviewItemResponse }">
+              <div class="flex flex-wrap gap-1">
+                <el-tag v-for="label in row.addedRiskLabels" :key="`add-${label}`" size="small" type="warning">+ {{ label }}</el-tag>
+                <el-tag v-for="label in row.removedRiskLabels" :key="`remove-${label}`" size="small" type="info">- {{ label }}</el-tag>
+                <span v-if="row.addedRiskLabels.length + row.removedRiskLabels.length === 0">-</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="可见性" width="140">
+            <template #default="{ row }: { row: ModerationReplayPreviewItemResponse }">
+              <el-tag :type="row.publicVisibilityChanged ? 'warning' : 'info'">{{ row.publicVisibilityChanged ? '已变化' : '未变化' }}</el-tag>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <AdminInlineEmptyState
+              title="预览暂无差异"
+              description="当前参数没有命中需要比较的评论，调整地区、策略版本或扫描数量后可重新生成预览。"
+            />
           </template>
-        </el-table-column>
-        <el-table-column label="拦截地区" min-width="220">
-          <template #default="{ row }: { row: ModerationReplayPreviewItemResponse }">
-            <div class="flex flex-wrap gap-1">
-              <el-tag v-for="region in row.addedBlockedRegions" :key="`add-${region}`" size="small" type="danger">+ {{ region }}</el-tag>
-              <el-tag v-for="region in row.removedBlockedRegions" :key="`remove-${region}`" size="small" type="info">- {{ region }}</el-tag>
-              <span v-if="row.addedBlockedRegions.length + row.removedBlockedRegions.length === 0">-</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="风险标签" min-width="220">
-          <template #default="{ row }: { row: ModerationReplayPreviewItemResponse }">
-            <div class="flex flex-wrap gap-1">
-              <el-tag v-for="label in row.addedRiskLabels" :key="`add-${label}`" size="small" type="warning">+ {{ label }}</el-tag>
-              <el-tag v-for="label in row.removedRiskLabels" :key="`remove-${label}`" size="small" type="info">- {{ label }}</el-tag>
-              <span v-if="row.addedRiskLabels.length + row.removedRiskLabels.length === 0">-</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="可见性" width="140">
-          <template #default="{ row }: { row: ModerationReplayPreviewItemResponse }">
-            <el-tag :type="row.publicVisibilityChanged ? 'warning' : 'info'">{{ row.publicVisibilityChanged ? '已变化' : '未变化' }}</el-tag>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <AdminInlineEmptyState
-            title="预览暂无差异"
-            description="当前参数没有命中需要比较的评论，调整地区、策略版本或扫描数量后可重新生成预览。"
-          />
-        </template>
-      </el-table>
+        </el-table>
+      </div>
       <AdminInlineEmptyState
         v-else
         title="尚未生成回放预览"
@@ -129,5 +131,10 @@ const runPreview = async (): Promise<void> => {
 <style scoped>
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.moderation-replay-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
 }
 </style>

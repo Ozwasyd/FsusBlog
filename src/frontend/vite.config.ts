@@ -266,8 +266,12 @@ function servePublicAotHydrationSidecars() {
             return
         }
 
-        const filePath = path.join(fileURLToPath(new URL('./dist/', import.meta.url)), pathname.slice(1))
-        if (!fs.existsSync(filePath)) {
+        const relativeSidecarPath = pathname.slice(1)
+        const filePath = [
+            path.join(fileURLToPath(new URL('./dist/', import.meta.url)), relativeSidecarPath),
+            path.join(fileURLToPath(new URL('../backend/wwwroot/', import.meta.url)), relativeSidecarPath)
+        ].find((candidatePath) => fs.existsSync(candidatePath))
+        if (!filePath) {
             next()
             return
         }

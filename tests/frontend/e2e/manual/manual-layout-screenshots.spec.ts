@@ -13,6 +13,7 @@ import {
   adminPassword,
   assertResponsiveLayoutContract,
   captureStorageState,
+  ensureThemeApplied,
   freezeUiForScreenshot,
   openThemedAuditedPage,
   settlePage,
@@ -51,6 +52,10 @@ const themes: ThemeMode[] = ['light', 'dark']
 const strictRuntimeAudit = process.env.FSUSBLOG_MANUAL_SCREENSHOT_RUNTIME_AUDIT !== '0'
 const strictLayoutAudit = process.env.FSUSBLOG_MANUAL_SCREENSHOT_LAYOUT_AUDIT !== '0'
 const writeDocsScreenshotAssets = process.env.FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS === '1'
+const manualScreenshotShardName = normalizeManualScreenshotShardName(process.env.FSUSBLOG_MANUAL_SCREENSHOT_SHARD_NAME)
+const docsScreenshotShardName = normalizeManualScreenshotShardName(process.env.FSUSBLOG_MANUAL_SCREENSHOT_DOCS_SHARD_NAME)
+const docsScreenshotWriterAllowed = writeDocsScreenshotAssets
+  && (!manualScreenshotShardName || manualScreenshotShardName === docsScreenshotShardName)
 
 const viewports: ManualViewport[] = [
   { name: 'desktop', size: DESKTOP_VIEWPORT },
@@ -61,17 +66,39 @@ const viewports: ManualViewport[] = [
     routeFilter: (route) => route.scope === 'edge'
   }
 ]
+const selectedViewports = filterManualScreenshotItems(
+  'viewport',
+  viewports,
+  (viewport) => viewport.name,
+  parseManualScreenshotFilter('FSUSBLOG_MANUAL_SCREENSHOT_VIEWPORTS', viewports.map((viewport) => viewport.name))
+)
+const selectedThemes = filterManualScreenshotItems(
+  'theme',
+  themes,
+  (theme) => theme,
+  parseManualScreenshotFilter('FSUSBLOG_MANUAL_SCREENSHOT_THEMES', themes)
+)
 
 const routeSets: Array<{
   scope: ManualRouteScope
   storage: ManualRouteStorage
   routes: ManualRoute[]
 }> = buildManualRoutesFromRouteRecords(APP_ROUTE_RECORDS, fixtures)
+assertManualRouteScopeInvariants(routeSets)
+const selectedRouteSets = filterManualScreenshotItems(
+  'scope',
+  routeSets,
+  (routeSet) => routeSet.scope,
+  parseManualScreenshotFilter('FSUSBLOG_MANUAL_SCREENSHOT_SCOPES', routeSets.map((routeSet) => routeSet.scope))
+)
 
-const screenshotRoot = path.resolve(
+const baseScreenshotRoot = path.resolve(
   process.env.FSUSBLOG_MANUAL_SCREENSHOT_DIR
     ?? path.resolve(process.cwd(), '../../.tmp/manual-layout-screenshots/current')
 )
+const screenshotRoot = manualScreenshotShardName && !process.env.FSUSBLOG_MANUAL_SCREENSHOT_DIR
+  ? path.join(baseScreenshotRoot, manualScreenshotShardName)
+  : baseScreenshotRoot
 
 const docsScreenshotRoot = path.resolve(process.cwd(), '../../docs/assets/screenshots')
 const docsScreenshotAliases = new Map<string, string>([
@@ -214,7 +241,7 @@ function classifyManualRoute(record: FlattenedRouteRecord): ManualRouteScope {
     ? record.meta.roles.map(String)
     : []
 
-  if (record.path.startsWith('/user/manage') || roles.includes('admin')) {
+  if (record.path.startsWith('/user/manage')) {
     return 'admin'
   }
 
@@ -222,7 +249,33 @@ function classifyManualRoute(record: FlattenedRouteRecord): ManualRouteScope {
     return 'user'
   }
 
+  if (roles.includes('admin')) {
+    return 'admin'
+  }
+
   return 'anonymous'
+}
+
+function assertManualRouteScopeInvariants(
+  manualRouteSets: ReadonlyArray<{ scope: ManualRouteScope, routes: readonly ManualRoute[] }>
+): void {
+  const adminRoutes = manualRouteSets.find((routeSet) => routeSet.scope === 'admin')?.routes ?? []
+  const userRoutes = manualRouteSets.find((routeSet) => routeSet.scope === 'user')?.routes ?? []
+  const selfServiceAdminRoutes = adminRoutes.filter(
+    (route) => route.path.startsWith('/user/') && !route.path.startsWith('/user/manage')
+  )
+
+  if (selfServiceAdminRoutes.length > 0) {
+    throw new Error(`Manual screenshot admin scope includes self-service user routes: ${
+      selfServiceAdminRoutes.map((route) => route.name).join(', ')
+    }`)
+  }
+
+  for (const routeName of ['UserProfile', 'UserComments', 'UserMessage']) {
+    if (!userRoutes.some((route) => route.name === routeName)) {
+      throw new Error(`Manual screenshot user scope is missing ${routeName}`)
+    }
+  }
 }
 
 function resolveExpectedUrl(
@@ -279,6 +332,47 @@ function stringifyQuery(query: unknown): string {
   return queryString ? `?${queryString}` : ''
 }
 
+function parseManualScreenshotFilter(envName: string, allowedValues: readonly string[]): Set<string> | null {
+  const raw = process.env[envName]?.trim()
+  if (!raw) {
+    return null
+  }
+
+  const allowed = new Set(allowedValues)
+  const values = new Set(raw.split(',')
+    .map((value) => value.trim())
+    .filter(Boolean))
+  const unknown = [...values].filter((value) => !allowed.has(value))
+  if (unknown.length > 0) {
+    throw new Error(`${envName} contains unsupported values: ${unknown.join(', ')}; allowed=${allowedValues.join(',')}`)
+  }
+
+  return values
+}
+
+function filterManualScreenshotItems<T>(
+  label: string,
+  items: readonly T[],
+  readName: (item: T) => string,
+  filter: ReadonlySet<string> | null
+): T[] {
+  if (!filter) {
+    return [...items]
+  }
+
+  const selected = items.filter((item) => filter.has(readName(item)))
+  if (selected.length === 0) {
+    throw new Error(`manual screenshot ${label} filter selected no items`)
+  }
+
+  return selected
+}
+
+function normalizeManualScreenshotShardName(raw: string | undefined): string | null {
+  const value = raw?.trim()
+  return value ? sanitizeFilename(value) : null
+}
+
 function screenshotPath(route: ManualRoute, viewport: ManualViewport, theme: ThemeMode): string {
   return path.join(
     screenshotRoot,
@@ -290,7 +384,7 @@ function screenshotPath(route: ManualRoute, viewport: ManualViewport, theme: The
 }
 
 function docsScreenshotPath(route: ManualRoute, viewport: ManualViewport, theme: ThemeMode): string | null {
-  if (!writeDocsScreenshotAssets) {
+  if (!docsScreenshotWriterAllowed) {
     return null
   }
 
@@ -299,14 +393,14 @@ function docsScreenshotPath(route: ManualRoute, viewport: ManualViewport, theme:
 }
 
 async function pruneStaleDocsScreenshotAssets(): Promise<void> {
-  if (!writeDocsScreenshotAssets) {
+  if (!docsScreenshotWriterAllowed) {
     return
   }
 
   const currentAliases = new Set<string>()
-  for (const viewport of viewports) {
-    for (const theme of themes) {
-      for (const routeSet of routeSets) {
+  for (const viewport of selectedViewports) {
+    for (const theme of selectedThemes) {
+      for (const routeSet of selectedRouteSets) {
         const routes = viewport.routeFilter
           ? routeSet.routes.filter(viewport.routeFilter)
           : routeSet.routes
@@ -341,6 +435,7 @@ async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: 
   await waitForAppReady(page)
   await settlePage(page)
   await waitForManualRouteContentReady(page, route)
+  await ensureThemeApplied(page, theme)
 
   const expectedUrl = new URL(route.expectedUrl, 'http://127.0.0.1')
   await expect
@@ -510,15 +605,9 @@ test.describe('manual layout screenshot capture', () => {
 
     await pruneStaleDocsScreenshotAssets()
 
-    const storageStates: Record<ManualRouteStorage, StorageState | undefined> = {
-      anonymous: undefined,
-      user: await captureStorageState(browser, userName, userPassword, '/user/profile'),
-      admin: await captureStorageState(browser, adminName, adminPassword, '/user/manage')
-    }
-
-    for (const viewport of viewports) {
-      for (const theme of themes) {
-        for (const routeSet of routeSets) {
+    for (const viewport of selectedViewports) {
+      for (const theme of selectedThemes) {
+        for (const routeSet of selectedRouteSets) {
           const routes = viewport.routeFilter
             ? routeSet.routes.filter(viewport.routeFilter)
             : routeSet.routes
@@ -526,12 +615,28 @@ test.describe('manual layout screenshot capture', () => {
             continue
           }
 
-          await captureRouteSet(browser, routes, storageStates[routeSet.storage], viewport, theme)
+          const storageState = await captureManualStorageState(browser, routeSet.storage)
+          await captureRouteSet(browser, routes, storageState, viewport, theme)
         }
       }
     }
   })
 })
+
+async function captureManualStorageState(
+  browser: Browser,
+  storage: ManualRouteStorage
+): Promise<StorageState | undefined> {
+  if (storage === 'anonymous') {
+    return undefined
+  }
+
+  if (storage === 'user') {
+    return await captureStorageState(browser, userName, userPassword, '/user/profile')
+  }
+
+  return await captureStorageState(browser, adminName, adminPassword, '/user/manage')
+}
 
 async function captureRouteSet(
   browser: Browser,

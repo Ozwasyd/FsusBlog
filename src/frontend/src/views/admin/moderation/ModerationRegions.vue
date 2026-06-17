@@ -10,40 +10,42 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadRegions">刷新</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="regions" row-key="regionCode" highlight-current-row @current-change="selectRegion">
-        <el-table-column label="地区" width="150" prop="regionCode" />
-        <el-table-column label="显示名称" min-width="170" prop="displayName" />
-        <el-table-column label="上级地区" width="130">
-          <template #default="{ row }: { row: ModerationRegionDefinition }">{{ row.parentRegion ?? '-' }}</template>
-        </el-table-column>
-        <el-table-column label="所属大区" width="160">
-          <template #default="{ row }: { row: ModerationRegionDefinition }">{{ row.primaryGroup ?? '-' }}</template>
-        </el-table-column>
-        <el-table-column label="策略模板" min-width="210">
-          <template #default="{ row }: { row: ModerationRegionDefinition }">{{ row.policyTemplate ?? '-' }}</template>
-        </el-table-column>
-        <el-table-column label="状态" width="120">
-          <template #default="{ row }: { row: ModerationRegionDefinition }">
-            <el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '已启用' : '已关闭' }}</el-tag>
+      <div class="blog-scroll-x-safe moderation-regions-table-scroll">
+        <el-table v-loading="loading" :data="regions" row-key="regionCode" highlight-current-row @current-change="selectRegion">
+          <el-table-column label="地区" width="150" prop="regionCode" />
+          <el-table-column label="显示名称" min-width="170" prop="displayName" />
+          <el-table-column label="上级地区" width="130">
+            <template #default="{ row }: { row: ModerationRegionDefinition }">{{ row.parentRegion ?? '-' }}</template>
+          </el-table-column>
+          <el-table-column label="所属大区" width="160">
+            <template #default="{ row }: { row: ModerationRegionDefinition }">{{ row.primaryGroup ?? '-' }}</template>
+          </el-table-column>
+          <el-table-column label="策略模板" min-width="210">
+            <template #default="{ row }: { row: ModerationRegionDefinition }">{{ row.policyTemplate ?? '-' }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="120">
+            <template #default="{ row }: { row: ModerationRegionDefinition }">
+              <el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '已启用' : '已关闭' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="来源类型" width="110">
+            <template #default="{ row }: { row: ModerationRegionDefinition }">
+              <el-tag :type="row.builtin ? 'info' : 'warning'">{{ row.builtin ? '内置' : '自定义' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="130" align="right" fixed="right">
+            <template #default="{ row }: { row: ModerationRegionDefinition }">
+              <el-button link type="primary" :icon="View" @click="loadPreview(row.regionCode)">预览</el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <AdminInlineEmptyState
+              title="暂无地区定义"
+              description="内置或自定义地区载入后，会在这里显示生效策略入口。"
+            />
           </template>
-        </el-table-column>
-        <el-table-column label="来源类型" width="110">
-          <template #default="{ row }: { row: ModerationRegionDefinition }">
-            <el-tag :type="row.builtin ? 'info' : 'warning'">{{ row.builtin ? '内置' : '自定义' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="130" align="right" fixed="right">
-          <template #default="{ row }: { row: ModerationRegionDefinition }">
-            <el-button link type="primary" :icon="View" @click="loadPreview(row.regionCode)">预览</el-button>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <AdminInlineEmptyState
-            title="暂无地区定义"
-            description="内置或自定义地区载入后，会在这里显示生效策略入口。"
-          />
-        </template>
-      </el-table>
+        </el-table>
+      </div>
     </section>
 
     <section class="grid gap-8 lg:grid-cols-[minmax(20rem,0.75fr)_minmax(0,1fr)]">
@@ -68,20 +70,22 @@
           </div>
           <el-tag v-for="warning in preview?.warnings ?? []" :key="warning" type="warning">{{ warning }}</el-tag>
         </div>
-        <el-table :data="preview?.rules ?? []" row-key="category">
-          <el-table-column label="分类" min-width="180" prop="category" />
-          <el-table-column label="提交动作" width="180" prop="submitAction" />
-          <el-table-column label="展示动作" width="190" prop="displayAction" />
-          <el-table-column label="来源" min-width="180">
-            <template #default="{ row }: { row: ModerationEffectivePolicyRule }">来源：{{ row.sourceType }}；ID：{{ row.sourceId }}</template>
-          </el-table-column>
-          <template #empty>
-            <AdminInlineEmptyState
-              :title="preview ? '暂无生效规则' : '选择地区查看生效规则'"
-              :description="preview ? '当前地区没有返回可展示的提交或展示动作规则。' : '选择左侧地区后显示继承链计算出的生效规则。'"
-            />
-          </template>
-        </el-table>
+        <div class="blog-scroll-x-safe moderation-regions-rules-scroll">
+          <el-table :data="preview?.rules ?? []" row-key="category">
+            <el-table-column label="分类" min-width="180" prop="category" />
+            <el-table-column label="提交动作" width="180" prop="submitAction" />
+            <el-table-column label="展示动作" width="190" prop="displayAction" />
+            <el-table-column label="来源" min-width="180">
+              <template #default="{ row }: { row: ModerationEffectivePolicyRule }">来源：{{ row.sourceType }}；ID：{{ row.sourceId }}</template>
+            </el-table-column>
+            <template #empty>
+              <AdminInlineEmptyState
+                :title="preview ? '暂无生效规则' : '选择地区查看生效规则'"
+                :description="preview ? '当前地区没有返回可展示的提交或展示动作规则。' : '选择左侧地区后显示继承链计算出的生效规则。'"
+              />
+            </template>
+          </el-table>
+        </div>
       </section>
     </section>
   </div>
@@ -136,3 +140,11 @@ onMounted(() => {
   void loadRegions()
 })
 </script>
+
+<style scoped>
+.moderation-regions-table-scroll,
+.moderation-regions-rules-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+</style>

@@ -136,6 +136,7 @@
               <el-button
                 text
                 inline-action
+                class="register-guidelines-button"
                 type="primary"
                 size="large"
                 @click.stop.prevent="handleGuidelinesActivator"
@@ -229,5 +230,10 @@ const loginBrandImageUrl = computed(() =>
 .auth-page-shell {
   background: var(--fsusblog-page-bg);
   color: var(--fsusblog-text-primary);
+}
+
+:deep(.register-guidelines-button.el-button) {
+  min-height: 36px;
+  align-items: center;
 }
 </style>

@@ -10,80 +10,82 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadPolicies">刷新</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="policies" row-key="region">
-        <el-table-column type="expand">
-          <template #default="{ row }: { row: RegionPolicySummaryResponse }">
-            <div class="grid gap-6 p-5 lg:grid-cols-2">
-              <section>
-                <div class="mb-3 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库</div>
-                <div class="flex flex-wrap gap-2">
-                  <el-tag v-for="dictionaryId in row.dictionaryIds" :key="dictionaryId" type="info">{{ dictionaryId }}</el-tag>
-                  <el-tag v-if="row.dictionaryIds.length === 0" type="danger">缺失</el-tag>
-                </div>
-              </section>
-              <section>
-                <div class="mb-3 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">关键检查</div>
-                <div class="divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]">
-                  <div v-for="check in row.criticalChecks" :key="check.code" class="flex flex-wrap items-center justify-between gap-3 p-3">
-                    <div>
-                      <div class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ check.label }}</div>
-                      <div class="mt-1 text-[11px] text-[var(--fsusblog-text-muted)]">{{ check.detail }}</div>
-                    </div>
-                    <el-tag :type="checkType(check.status)">{{ formatCheckStatus(check.status) }}</el-tag>
+      <div class="blog-scroll-x-safe moderation-policies-table-scroll">
+        <el-table v-loading="loading" :data="policies" row-key="region">
+          <el-table-column type="expand">
+            <template #default="{ row }: { row: RegionPolicySummaryResponse }">
+              <div class="grid gap-6 p-5 lg:grid-cols-2">
+                <section>
+                  <div class="mb-3 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库</div>
+                  <div class="flex flex-wrap gap-2">
+                    <el-tag v-for="dictionaryId in row.dictionaryIds" :key="dictionaryId" type="info">{{ dictionaryId }}</el-tag>
+                    <el-tag v-if="row.dictionaryIds.length === 0" type="danger">缺失</el-tag>
                   </div>
-                </div>
-              </section>
-            </div>
+                </section>
+                <section>
+                  <div class="mb-3 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">关键检查</div>
+                  <div class="divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]">
+                    <div v-for="check in row.criticalChecks" :key="check.code" class="flex flex-wrap items-center justify-between gap-3 p-3">
+                      <div>
+                        <div class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ check.label }}</div>
+                        <div class="mt-1 text-[11px] text-[var(--fsusblog-text-muted)]">{{ check.detail }}</div>
+                      </div>
+                      <el-tag :type="checkType(check.status)">{{ formatCheckStatus(check.status) }}</el-tag>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="地区" width="150" prop="region" />
+          <el-table-column label="继承来源" min-width="160">
+            <template #default="{ row }: { row: RegionPolicySummaryResponse }">
+              <span>{{ row.inherits.length ? row.inherits.join(', ') : '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="策略版本" min-width="190" prop="version" />
+          <el-table-column label="词库数" width="130" align="right">
+            <template #default="{ row }: { row: RegionPolicySummaryResponse }">{{ row.dictionaryIds.length }}</template>
+          </el-table-column>
+          <el-table-column label="规则数" width="90" align="right" prop="ruleCount" />
+          <el-table-column label="状态" width="130">
+            <template #default="{ row }: { row: RegionPolicySummaryResponse }">
+              <el-tag :type="policyStatusType(row)">{{ policyStatus(row) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="运行状态" width="190">
+            <template #default="{ row }: { row: RegionPolicySummaryResponse }">
+              <el-select v-model="regionStateDrafts[row.region]" size="small" aria-label="地区运行状态">
+                <el-option v-for="option in regionStateOptions" :key="option.value" :label="option.label" :value="option.value" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="120" align="right">
+            <template #default="{ row }: { row: RegionPolicySummaryResponse }">
+              <el-button
+                link
+                type="primary"
+                :icon="Connection"
+                :loading="runtimeActionRegion === row.region"
+                @click="saveRegionState(row)"
+              >
+                应用
+              </el-button>
+            </template>
+          </el-table-column>
+          <el-table-column label="校验值" min-width="180">
+            <template #default="{ row }: { row: RegionPolicySummaryResponse }">
+              <code class="block truncate text-[11px]">{{ row.checksum }}</code>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <AdminInlineEmptyState
+              title="暂无地区策略"
+              description="地区策略与词库组合结果载入后，会在这里显示运行状态和校验值。"
+            />
           </template>
-        </el-table-column>
-        <el-table-column label="地区" width="150" prop="region" />
-        <el-table-column label="继承来源" min-width="160">
-          <template #default="{ row }: { row: RegionPolicySummaryResponse }">
-            <span>{{ row.inherits.length ? row.inherits.join(', ') : '-' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="策略版本" min-width="190" prop="version" />
-        <el-table-column label="词库数" width="130" align="right">
-          <template #default="{ row }: { row: RegionPolicySummaryResponse }">{{ row.dictionaryIds.length }}</template>
-        </el-table-column>
-        <el-table-column label="规则数" width="90" align="right" prop="ruleCount" />
-        <el-table-column label="状态" width="130">
-          <template #default="{ row }: { row: RegionPolicySummaryResponse }">
-            <el-tag :type="policyStatusType(row)">{{ policyStatus(row) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="运行状态" width="190">
-          <template #default="{ row }: { row: RegionPolicySummaryResponse }">
-            <el-select v-model="regionStateDrafts[row.region]" size="small" aria-label="地区运行状态">
-              <el-option v-for="option in regionStateOptions" :key="option.value" :label="option.label" :value="option.value" />
-            </el-select>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="120" align="right">
-          <template #default="{ row }: { row: RegionPolicySummaryResponse }">
-            <el-button
-              link
-              type="primary"
-              :icon="Connection"
-              :loading="runtimeActionRegion === row.region"
-              @click="saveRegionState(row)"
-            >
-              应用
-            </el-button>
-          </template>
-        </el-table-column>
-        <el-table-column label="校验值" min-width="180">
-          <template #default="{ row }: { row: RegionPolicySummaryResponse }">
-            <code class="block truncate text-[11px]">{{ row.checksum }}</code>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <AdminInlineEmptyState
-            title="暂无地区策略"
-            description="地区策略与词库组合结果载入后，会在这里显示运行状态和校验值。"
-          />
-        </template>
-      </el-table>
+        </el-table>
+      </div>
     </section>
 
     <section v-if="mainlandPolicy" class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
@@ -260,3 +262,10 @@ onMounted(() => {
   void loadPolicies()
 })
 </script>
+
+<style scoped>
+.moderation-policies-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+</style>

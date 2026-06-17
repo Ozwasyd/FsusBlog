@@ -42,3 +42,28 @@ FSUSBLOG_MANUAL_SCREENSHOT_RUNTIME_AUDIT=0 FSUSBLOG_MANUAL_SCREENSHOT_LAYOUT_AUD
 ```
 
 The manual audit derives its coverage from the frontend router table. It writes full route screenshots under `FSUSBLOG_MANUAL_SCREENSHOT_DIR` or `.tmp/manual-layout-screenshots/current`, and copies the selected documentation aliases above into this directory when `FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS=1` is set. Leave the audit flags enabled for layout QA; set them to `0` only for capture-only documentation refreshes. This is the only screenshot capture path for these documentation assets.
+
+For targeted local review or CI matrix jobs, keep each Playwright shard at
+`--workers=1` and split the route matrix with deterministic filters:
+
+```bash
+FSUSBLOG_MANUAL_SCREENSHOT_VIEWPORTS=desktop \
+FSUSBLOG_MANUAL_SCREENSHOT_THEMES=light \
+FSUSBLOG_MANUAL_SCREENSHOT_SCOPES=anonymous,admin \
+FSUSBLOG_MANUAL_SCREENSHOT_SHARD_NAME=desktop-light-main \
+npm --prefix src/frontend run capture:manual-layout-screenshots
+```
+
+Supported `FSUSBLOG_MANUAL_SCREENSHOT_VIEWPORTS` values are `desktop`,
+`mobile`, and `narrow-mobile`; supported `FSUSBLOG_MANUAL_SCREENSHOT_THEMES`
+values are `light` and `dark`; supported `FSUSBLOG_MANUAL_SCREENSHOT_SCOPES`
+values are `anonymous`, `user`, `admin`, and `edge`. When
+`FSUSBLOG_MANUAL_SCREENSHOT_SHARD_NAME` is set and
+`FSUSBLOG_MANUAL_SCREENSHOT_DIR` is not set, output defaults to a shard-local
+folder under `.tmp/manual-layout-screenshots/current/<shard>`.
+
+Only one shard should write documentation assets. For sharded captures, set
+`FSUSBLOG_MANUAL_SCREENSHOT_DOCS_SHARD_NAME=<same shard name>` on the intended
+docs writer together with `FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS=1`.
+Other shards keep their PNGs in shard-local temp folders and do not mutate
+`docs/assets/screenshots`.

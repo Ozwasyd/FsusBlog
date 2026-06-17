@@ -167,6 +167,10 @@ export function attachRuntimeAudit(page: Page): RuntimeAudit {
     }
 
     const text = message.text().trim()
+    if (/^Failed to load resource: the server responded with a status of \d+/u.test(text)) {
+      return
+    }
+
     if (isIgnorableRuntimeMessage(text)) {
       return
     }
@@ -191,6 +195,21 @@ export function attachRuntimeAudit(page: Page): RuntimeAudit {
     }
 
     events.push(`requestfailed:${request.method()} ${requestUrl} ${failure}`)
+  })
+
+  page.on('response', (response) => {
+    const status = response.status()
+    if (status < 400) {
+      return
+    }
+
+    const request = response.request()
+    const requestUrl = response.url()
+    if (isIgnorableHttpResponse(requestUrl, status)) {
+      return
+    }
+
+    events.push(`response:${status}:${request.method()} ${requestUrl}`)
   })
 
   return {
@@ -219,6 +238,14 @@ function isIgnorableRequestFailure(url: string, failure: string): boolean {
   }
 
   return failure.includes('ERR_ABORTED') || failure.includes('ERR_NETWORK_CHANGED')
+}
+
+function isIgnorableHttpResponse(url: string, status: number): boolean {
+  if (url.includes('favicon.ico')) {
+    return true
+  }
+
+  return status === 401
 }
 
 export async function waitForAppReady(page: Page, timeout = APP_READY_TIMEOUT_MS): Promise<void> {
@@ -269,7 +296,31 @@ export async function openThemedAuditedPage(
   close: () => Promise<void>
 }> {
   const context = await browser.newContext(withAcceptanceContextOptions(storageState ? { storageState } : undefined))
-  await context.addInitScript((mode: ThemeMode) => {
+  await context.addInitScript((options: {
+    mode: ThemeMode
+    disableHumanReadProof: boolean
+  }) => {
+    const { mode, disableHumanReadProof } = options
+    if (disableHumanReadProof) {
+      const runtimeWindow = window as typeof window & {
+        __FSUSBLOG_DISABLE_HUMAN_READ_PROOF__?: boolean
+      }
+      runtimeWindow.__FSUSBLOG_DISABLE_HUMAN_READ_PROOF__ = true
+      const markHumanReadProofSuppressed = () => {
+        const root = document.documentElement
+        if (!root) {
+          return false
+        }
+
+        root.dataset.fsusDisableHumanReadProof = 'true'
+        return true
+      }
+
+      if (!markHumanReadProofSuppressed()) {
+        setTimeout(markHumanReadProofSuppressed, 0)
+      }
+    }
+
     try {
       localStorage.setItem('fsus:theme-mode', mode)
     } catch {
@@ -294,7 +345,10 @@ export async function openThemedAuditedPage(
     if (!applyTheme()) {
       setTimeout(applyTheme, 0)
     }
-  }, themeMode)
+  }, {
+    mode: themeMode,
+    disableHumanReadProof: process.env.FSUSBLOG_DISABLE_HUMAN_READ_PROOF === '1'
+  })
   const page = await context.newPage()
   const audit = attachRuntimeAudit(page)
 

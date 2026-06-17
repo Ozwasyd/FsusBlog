@@ -71,7 +71,7 @@
           description="删除或归档的文章会显示在这里。"
         >
           <template #actions>
-            <el-button link type="primary" :disabled="!canBackToList" @click="goToArticleList">返回文章列表</el-button>
+            <el-button class="article-trash-empty-action" link type="primary" :disabled="!canBackToList" @click="goToArticleList">返回文章列表</el-button>
           </template>
         </AdminInlineEmptyState>
       </div>
@@ -134,7 +134,7 @@
             <template #empty>
               <AdminInlineEmptyState title="回收站暂无下线稿件" description="删除或归档的文章会显示在这里。">
                 <template #actions>
-                  <el-button link type="primary" :disabled="!canBackToList" @click="goToArticleList">返回文章列表</el-button>
+                  <el-button class="article-trash-empty-action" link type="primary" :disabled="!canBackToList" @click="goToArticleList">返回文章列表</el-button>
                 </template>
               </AdminInlineEmptyState>
             </template>
@@ -215,6 +215,11 @@ const goToArticleList = async (): Promise<void> => {
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+:deep(.article-trash-empty-action.el-button) {
+  min-height: 36px;
+  align-items: center;
 }
 
 </style>
