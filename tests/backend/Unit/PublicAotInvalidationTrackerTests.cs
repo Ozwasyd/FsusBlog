@@ -6,7 +6,7 @@ using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Runtime.CompilerServices;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -142,34 +142,11 @@ public sealed class PublicAotInvalidationTrackerTests
     [Fact]
     public void TrackerSource_DoesNotRebuildUnscopedPagePrefix()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "PublicAot", "PublicAotInvalidationTracker.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "PublicAot", "PublicAotInvalidationTracker.cs"));
 
         Assert.DoesNotContain("CacheKeyBuilder.PublicAotDocument", source, StringComparison.Ordinal);
         Assert.Contains("GetCurrentVersion(string cacheKey, string pagePrefixKey)", source, StringComparison.Ordinal);
     }
-
-    private static string FindRepoRoot([CallerFilePath] string sourceFile = "")
-    {
-        string current = Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
-    }
-
     private sealed class RecordingAotCache : IPublicAotShellCache
     {
         public bool InvalidatedAll { get; private set; }

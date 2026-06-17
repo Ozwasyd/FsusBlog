@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -90,21 +91,5 @@ public sealed class PublicContentInvalidationFlowTests
     }
 
     private static string ReadRepoFile(string relativePath, [CallerFilePath] string sourceFile = "")
-        => File.ReadAllText(Path.Combine(FindRepoRoot(sourceFile), relativePath));
-
-    private static string FindRepoRoot(string sourceFile)
-    {
-        DirectoryInfo? current = new(Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new DirectoryNotFoundException("repo root not found");
-    }
+        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 }

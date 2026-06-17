@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using Microsoft.Extensions.Configuration;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -66,7 +67,7 @@ public sealed class FsusHostRuntimeTuningTests
     [Fact]
     public void DockerAndProjectFiles_UseConsistentThroughputReadyToRunProfile()
     {
-        string root = FindRepoRoot();
+        string root = BackendTestPaths.RepositoryRoot;
         string project = File.ReadAllText(Path.Combine(root, "src/backend/FsusBlog.Server.csproj"));
         string dockerfile = File.ReadAllText(Path.Combine(root, "ops/docker/FsusBlog.Server.Dockerfile"));
 
@@ -78,27 +79,11 @@ public sealed class FsusHostRuntimeTuningTests
     [Fact]
     public void Dockerfile_PinsVcpkgAndKeepsNpmOutOfRuntimeBase()
     {
-        string dockerfile = File.ReadAllText(Path.Combine(FindRepoRoot(), "ops/docker/FsusBlog.Server.Dockerfile"));
+        string dockerfile = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "ops/docker/FsusBlog.Server.Dockerfile"));
 
         Assert.Contains("ARG VCPKG_COMMIT=", dockerfile, StringComparison.Ordinal);
         Assert.Contains("git checkout \"${VCPKG_COMMIT}\"", dockerfile, StringComparison.Ordinal);
         Assert.Contains("apk add --no-cache icu-data-full icu-libs krb5-libs nodejs", dockerfile, StringComparison.Ordinal);
         Assert.DoesNotContain("icu-data-full icu-libs krb5-libs nodejs npm", dockerfile, StringComparison.Ordinal);
-    }
-
-    private static string FindRepoRoot()
-    {
-        DirectoryInfo? current = new(AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new DirectoryNotFoundException("repo root not found");
     }
 }

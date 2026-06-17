@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using StackExchange.Redis;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -146,7 +147,7 @@ public class NotificationStreamBoundaryTests
     [Fact]
     public void BacklogReplay_MissedGapRequiresCursorFloorProbe()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamBacklogStore.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamBacklogStore.cs"));
         string method = ExtractMethodBlock(source, "private async Task<RouteReplayRead> ReadRouteReplayAsync");
 
         Assert.Contains("cursorFloorTask", method, StringComparison.Ordinal);
@@ -157,7 +158,7 @@ public class NotificationStreamBoundaryTests
     [Fact]
     public void SessionService_SourceClosesSocketUnderSendGate()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamSessionService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamSessionService.cs"));
         string pump = ExtractMethodBlock(source, "private async Task PumpConnectionAsync");
         string close = ExtractMethodBlock(source, "private static async Task CloseSocketAsync");
 
@@ -184,29 +185,6 @@ public class NotificationStreamBoundaryTests
 
     private static StreamEntry StreamEntry(string id, byte[] payload)
         => new(id, [new NameValueEntry("f", payload)]);
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
-    }
-
     private static string ExtractMethodBlock(string source, string signature)
     {
         int start = source.IndexOf(signature, StringComparison.Ordinal);

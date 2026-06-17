@@ -1,3 +1,5 @@
+using FsusBlog.Server.Tests.TestInfrastructure;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityModerationHotPathContractTests
@@ -75,7 +77,7 @@ public sealed class SecurityModerationHotPathContractTests
     }
 
     private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(FindRepoRoot(), relativePath));
+        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 
     private static string ExtractBetween(string source, string startMarker, string endMarker)
     {
@@ -84,27 +86,5 @@ public sealed class SecurityModerationHotPathContractTests
         Assert.True(start >= 0, $"Missing start marker: {startMarker}");
         Assert.True(end > start, $"Missing end marker: {endMarker}");
         return source[start..end];
-    }
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 }

@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
 using StackExchange.Redis;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -73,7 +74,7 @@ public class ArticleServiceValidationTests
     [Fact]
     public void UpdateAsync_SourceChecksAffectedRowsBeforeDependentWrites()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
         int updateMethod = source.IndexOf("public async Task<bool> UpdateAsync", StringComparison.Ordinal);
         int deleteMethod = source.IndexOf("public async Task<bool> DeleteAsync", StringComparison.Ordinal);
         string method = source[updateMethod..deleteMethod];
@@ -94,7 +95,7 @@ public class ArticleServiceValidationTests
     [Fact]
     public void ArticleService_SourceUsesProcessWideLegacySchemaCapabilityCache()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
 
         Assert.Contains("private static int s_legacyArticleContentColumnState", source, StringComparison.Ordinal);
         Assert.Contains("Volatile.Read(ref s_legacyArticleContentColumnState)", source, StringComparison.Ordinal);
@@ -105,7 +106,7 @@ public class ArticleServiceValidationTests
     [Fact]
     public void IncreaseViewCountAsync_SourceChecksAffectedRowsBeforeRedisHotRanking()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
         int methodStart = source.IndexOf("public async ValueTask IncreaseViewCountAsync(int id, int count)", StringComparison.Ordinal);
         int nextMethod = source.IndexOf("public async Task<ArticleListPageReadModel>", StringComparison.Ordinal);
         string method = source[methodStart..nextMethod];
@@ -126,7 +127,7 @@ public class ArticleServiceValidationTests
     [Fact]
     public void ArticleMutations_SourceRecordsTransactionalOutboxEvents()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
 
         Assert.Contains("RecordArticleMutationOutboxAsync(id, \"created\")", source, StringComparison.Ordinal);
         Assert.Contains("RecordArticleMutationOutboxAsync(id, \"updated\")", source, StringComparison.Ordinal);
@@ -139,8 +140,8 @@ public class ArticleServiceValidationTests
     [Fact]
     public void SaveArticleRevisionAsync_SourceLocksArticleRowAndDefinesUniqueRevisionIndex()
     {
-        string articleService = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
-        string entities = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Entities/Article.cs"));
+        string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        string entities = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Entities/Article.cs"));
 
         Assert.Contains("FOR UPDATE", articleService, StringComparison.Ordinal);
         Assert.Contains("ux_article_revision_article_revision_no", entities, StringComparison.Ordinal);
@@ -149,7 +150,7 @@ public class ArticleServiceValidationTests
     [Fact]
     public void IncreaseViewCountsAsync_SourceUsesSingleValuesUpdateAndRedisBatch()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
         int methodStart = source.IndexOf("public async ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync", StringComparison.Ordinal);
         int nextMethod = source.IndexOf("public async Task<ArticleListPageReadModel>", StringComparison.Ordinal);
         string method = source[methodStart..nextMethod];
@@ -162,7 +163,7 @@ public class ArticleServiceValidationTests
     [Fact]
     public void LoadArticleListPageFromDbAsync_SourceUsesKeysetForPublicPagination()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/ArticleService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
         int methodStart = source.IndexOf("private async Task<ArticleListPageReadModel> LoadArticleListPageFromDbAsync", StringComparison.Ordinal);
         int nextMethod = source.IndexOf("private static string RewriteParameters", StringComparison.Ordinal);
         string methodBlock = source[methodStart..nextMethod];
@@ -180,26 +181,10 @@ public class ArticleServiceValidationTests
     [Fact]
     public void ArticleEntity_DefinesPublicListStatusTimeIndexes()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Entities/Article.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Entities/Article.cs"));
 
         Assert.Contains("idx_article_public_status_time", source, StringComparison.Ordinal);
         Assert.Contains("idx_article_public_category_status_time", source, StringComparison.Ordinal);
         Assert.Contains("nameof(Status), OrderByType.Asc, nameof(CreateTime), OrderByType.Desc", source, StringComparison.Ordinal);
-    }
-
-    private static string FindRepoRoot()
-    {
-        DirectoryInfo? current = new(AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new DirectoryNotFoundException("repo root not found");
     }
 }

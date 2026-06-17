@@ -1,11 +1,11 @@
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using NSubstitute;
-using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests;
 
@@ -130,20 +130,6 @@ public sealed class PublicAotBackfillSchedulerTests
         Assert.Null(keyScope.SessionId);
     }
 
-    private static string ReadSource(string relativePath, [CallerFilePath] string sourceFile = "")
-    {
-        var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            string path = Path.Combine(directory.FullName, relativePath);
-            if (File.Exists(path))
-            {
-                return File.ReadAllText(path);
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException($"Unable to locate {relativePath}.");
-    }
+    private static string ReadSource(string relativePath)
+        => BackendTestPaths.ReadAllTextFromRoot(relativePath);
 }

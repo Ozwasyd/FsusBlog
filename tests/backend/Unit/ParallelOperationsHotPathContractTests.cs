@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -144,7 +145,7 @@ public sealed class ParallelOperationsHotPathContractTests
     }
 
     private static string ReadRepoFile(string relativePath, [CallerFilePath] string sourceFile = "")
-        => File.ReadAllText(Path.Combine(FindRepoRoot(sourceFile), relativePath));
+        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 
     private static int CountOccurrences(string source, string value)
     {
@@ -190,27 +191,5 @@ public sealed class ParallelOperationsHotPathContractTests
         }
 
         throw new InvalidOperationException($"Unable to extract method body: {signature}");
-    }
-
-    private static string FindRepoRoot(string sourceFile)
-    {
-        string current = Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 }

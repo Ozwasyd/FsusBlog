@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -108,7 +108,7 @@ public sealed class BinaryTransportHotPathContractTests
     }
 
     private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(FindRepoRoot(), relativePath));
+        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 
     private static string ExtractMethodBlock(string source, string signature)
     {
@@ -136,33 +136,5 @@ public sealed class BinaryTransportHotPathContractTests
         }
 
         throw new InvalidOperationException($"Unable to extract method body: {signature}");
-    }
-
-    private static string FindRepoRoot([CallerFilePath] string sourceFilePath = "")
-    {
-        string? current = Path.GetDirectoryName(sourceFilePath);
-        if (string.IsNullOrWhiteSpace(current))
-        {
-            current = AppContext.BaseDirectory;
-        }
-
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
-                Directory.Exists(Path.Combine(current, ".git")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 }

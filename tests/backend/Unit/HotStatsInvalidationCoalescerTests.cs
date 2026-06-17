@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -78,28 +79,12 @@ public sealed class HotStatsInvalidationCoalescerTests
     [Fact]
     public void Source_VisitLogMarksDirtyInsteadOfDirectBroadInvalidation()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/VisitLog/VisitLogProcessorService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/VisitLog/VisitLogProcessorService.cs"));
 
         Assert.Contains("GetRequiredService<IHotStatsInvalidationCoalescer>()", source, StringComparison.Ordinal);
         Assert.Contains("MarkStatsDirty(\"visit-log-flush\")", source, StringComparison.Ordinal);
         Assert.Contains("MarkHotArticlesDirty(\"article-read-projection\")", source, StringComparison.Ordinal);
         Assert.DoesNotContain("InvalidateStatsAsync(token)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("InvalidateHotArticlesAsync(token)", source, StringComparison.Ordinal);
-    }
-
-    private static string FindRepoRoot()
-    {
-        DirectoryInfo? current = new(AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new DirectoryNotFoundException("repo root not found");
     }
 }

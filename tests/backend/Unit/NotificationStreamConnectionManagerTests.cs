@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -90,22 +91,12 @@ public sealed class NotificationStreamConnectionManagerTests
     }
 
     private static string ReadManagerSource()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            string root = directory.FullName;
-            string path = Path.Combine(root, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamConnectionManager.cs");
-            if (File.Exists(path))
-            {
-                return File.ReadAllText(path);
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate NotificationStreamConnectionManager.cs.");
-    }
+        => BackendTestPaths.ReadAllTextFromRoot(
+            "src",
+            "backend",
+            "Infrastructure",
+            "NotificationStream",
+            "NotificationStreamConnectionManager.cs");
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

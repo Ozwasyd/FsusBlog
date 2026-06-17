@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -75,7 +76,7 @@ public sealed class RecoveryKeyServiceTests
     }
 
     private static string ReadSource(string relativePath, [CallerFilePath] string sourceFilePath = "")
-        => File.ReadAllText(Path.Combine(FindRepoRoot(sourceFilePath), relativePath));
+        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 
     private static string ExtractBetween(string source, string start, string end)
     {
@@ -84,22 +85,5 @@ public sealed class RecoveryKeyServiceTests
         int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
         Assert.True(endIndex >= 0, $"Missing end marker: {end}");
         return source[startIndex..endIndex];
-    }
-
-    private static string FindRepoRoot(string sourceFilePath)
-    {
-        var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFilePath) ?? AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")) ||
-                Directory.Exists(Path.Combine(directory.FullName, ".git")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 }

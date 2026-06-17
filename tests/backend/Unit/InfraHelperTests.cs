@@ -9,6 +9,7 @@ using FsusBlog.Server.Infrastructure.Results;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -186,7 +187,7 @@ public class BackgroundWorkflowSourceTests
     [Fact]
     public void ContentFilterReload_SourceUsesSerializedQueueInsteadOfWatcherTaskRun()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/Security/ContentFilterService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/Security/ContentFilterService.cs"));
 
         Assert.Contains("Channel.CreateBounded<string>", source, StringComparison.Ordinal);
         Assert.Contains("ProcessReloadQueueAsync", source, StringComparison.Ordinal);
@@ -197,8 +198,8 @@ public class BackgroundWorkflowSourceTests
     [Fact]
     public void NotificationStreamPublish_SourceQueuesLocalFanoutAndBatchesMultiRouteBacklog()
     {
-        string publisher = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/NotificationStream/RedisNotificationStreamPublisher.cs"));
-        string backlog = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/NotificationStream/NotificationStreamBacklogStore.cs"));
+        string publisher = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/NotificationStream/RedisNotificationStreamPublisher.cs"));
+        string backlog = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/NotificationStream/NotificationStreamBacklogStore.cs"));
 
         Assert.Contains("NotificationStreamLocalFanoutQueue", publisher, StringComparison.Ordinal);
         Assert.Contains("TryEnqueue(frame, target)", publisher, StringComparison.Ordinal);
@@ -209,8 +210,8 @@ public class BackgroundWorkflowSourceTests
     [Fact]
     public void UploadSessionCleanup_SourceRunsInBackgroundWorker()
     {
-        string fileService = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/FileService.cs"));
-        string worker = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/Background/UploadSessionCleanupWorker.cs"));
+        string fileService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/FileService.cs"));
+        string worker = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/Background/UploadSessionCleanupWorker.cs"));
 
         Assert.DoesNotContain("await CleanupExpiredSessionsAsync(cancellationToken);", fileService, StringComparison.Ordinal);
         Assert.Contains("RequestUploadSessionCleanup()", fileService, StringComparison.Ordinal);
@@ -221,31 +222,15 @@ public class BackgroundWorkflowSourceTests
     [Fact]
     public void VisitProjectionAndPublicHot_SourceCoalesceBackgroundWork()
     {
-        string projection = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/VisitLog/ArticleViewProjectionService.cs"));
-        string repair = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/VisitLog/ArticleViewProjectionRepairWorker.cs"));
-        string publicHotQueue = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs"));
+        string projection = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/VisitLog/ArticleViewProjectionService.cs"));
+        string repair = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/VisitLog/ArticleViewProjectionRepairWorker.cs"));
+        string publicHotQueue = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs"));
 
         Assert.Contains("IncreaseViewCountsAsync", projection, StringComparison.Ordinal);
         Assert.Contains("MaxPerBatchViewInvalidations", projection, StringComparison.Ordinal);
         Assert.Contains("article-view-projection-batch", projection, StringComparison.Ordinal);
         Assert.Contains("ArticleViewProjectionRepairWorker", repair, StringComparison.Ordinal);
         Assert.Contains("ViewProjectionRefreshInterval", publicHotQueue, StringComparison.Ordinal);
-    }
-
-    private static string FindRepoRoot()
-    {
-        DirectoryInfo? current = new(AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new DirectoryNotFoundException("repo root not found");
     }
 }
 

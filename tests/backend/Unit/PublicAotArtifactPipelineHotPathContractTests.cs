@@ -5,6 +5,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Runtime.CompilerServices;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -134,7 +135,7 @@ public sealed class PublicAotArtifactPipelineHotPathContractTests
     }
 
     private static string ReadRepoFile(string relativePath, [CallerFilePath] string sourceFile = "")
-        => File.ReadAllText(Path.Combine(FindRepoRoot(sourceFile), relativePath));
+        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 
     private static string ExtractMethodBlock(string source, string signature)
     {
@@ -163,29 +164,6 @@ public sealed class PublicAotArtifactPipelineHotPathContractTests
 
         throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
-
-    private static string FindRepoRoot(string sourceFile)
-    {
-        string current = Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
-    }
-
     private sealed class TestWebHostEnvironment(string root) : IWebHostEnvironment
     {
         public string ApplicationName { get; set; } = nameof(PublicAotArtifactPipelineHotPathContractTests);

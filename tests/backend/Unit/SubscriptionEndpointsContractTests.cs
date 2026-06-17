@@ -1,3 +1,5 @@
+using FsusBlog.Server.Tests.TestInfrastructure;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SubscriptionEndpointsContractTests
@@ -5,7 +7,7 @@ public sealed class SubscriptionEndpointsContractTests
     [Fact]
     public void SubscribeAsync_UsesSinglePostgresUpsert()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Modules", "Endpoints", "SubscriptionEndpoints.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Modules", "Endpoints", "SubscriptionEndpoints.cs"));
         string method = ExtractMethodBlock(source, "public static async Task<SiteSubscriptionBinaryResponse?> SubscribeAsync");
 
         Assert.Contains("ON CONFLICT (email_hash) DO UPDATE", method, StringComparison.OrdinalIgnoreCase);
@@ -13,29 +15,6 @@ public sealed class SubscriptionEndpointsContractTests
         Assert.DoesNotContain("Insertable(new SiteSubscription", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Updateable(existing)", method, StringComparison.Ordinal);
     }
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
-    }
-
     private static string ExtractMethodBlock(string source, string signature)
     {
         int start = source.IndexOf(signature, StringComparison.Ordinal);

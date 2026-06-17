@@ -1,3 +1,5 @@
+using FsusBlog.Server.Tests.TestInfrastructure;
+
 namespace FsusBlog.Server.Tests;
 
 public sealed class OperationsReadinessContractTests
@@ -5,7 +7,7 @@ public sealed class OperationsReadinessContractTests
     [Fact]
     public void AuthoringEndpoints_ExposeOpsCacheAndIntegritySurfaces()
     {
-        string root = ResolveRepositoryRoot();
+        string root = BackendTestPaths.RepositoryRoot;
         string endpoints = File.ReadAllText(Path.Combine(root, "src/backend/Modules/Endpoints/AuthoringEndpoints.cs"));
         string router = File.ReadAllText(Path.Combine(root, "src/frontend/src/router/index.ts"));
         string nav = File.ReadAllText(Path.Combine(root, "src/frontend/src/layouts/accountNav.ts"));
@@ -28,7 +30,7 @@ public sealed class OperationsReadinessContractTests
     [Fact]
     public void BackupRestoreAndSupplyChainScripts_AreDocumentedAndExecutable()
     {
-        string root = ResolveRepositoryRoot();
+        string root = BackendTestPaths.RepositoryRoot;
         string operations = File.ReadAllText(Path.Combine(root, "docs/operations.md"));
         string security = File.ReadAllText(Path.Combine(root, "docs/security.md"));
 
@@ -49,7 +51,7 @@ public sealed class OperationsReadinessContractTests
     [Fact]
     public void PublicDistributionAndSearch_KeepNonPublicContentOut()
     {
-        string root = ResolveRepositoryRoot();
+        string root = BackendTestPaths.RepositoryRoot;
         string distribution = File.ReadAllText(Path.Combine(root, "src/backend/Services/Distribution/BlogDistributionService.cs"));
         string search = File.ReadAllText(Path.Combine(root, "src/backend/Services/SearchIndexService.cs"));
         string operationsService = File.ReadAllText(Path.Combine(root, "src/backend/Infrastructure/Operations/AdminOperationsService.cs"));
@@ -68,7 +70,7 @@ public sealed class OperationsReadinessContractTests
     [Fact]
     public void DangerousOperations_RequireDiffConfirmationMfaAndAudit()
     {
-        string root = ResolveRepositoryRoot();
+        string root = BackendTestPaths.RepositoryRoot;
         string operationsService = File.ReadAllText(Path.Combine(root, "src/backend/Infrastructure/Operations/AdminOperationsService.cs"));
         string endpoints = File.ReadAllText(Path.Combine(root, "src/backend/Modules/Endpoints/AuthoringEndpoints.cs"));
 
@@ -87,21 +89,5 @@ public sealed class OperationsReadinessContractTests
         Assert.True(File.Exists(path), $"{relativePath} missing");
         string firstLine = File.ReadLines(path).FirstOrDefault() ?? string.Empty;
         Assert.StartsWith("#!/usr/bin/env bash", firstLine, StringComparison.Ordinal);
-    }
-
-    private static string ResolveRepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Repository root not found.");
     }
 }

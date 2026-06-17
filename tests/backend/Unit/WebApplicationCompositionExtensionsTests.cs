@@ -14,6 +14,7 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -523,29 +524,6 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.True(string.IsNullOrEmpty(result.Response.Headers["ETag"].ToString()));
         Assert.True(string.IsNullOrEmpty(result.Response.Headers["Last-Modified"].ToString()));
     }
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
-    }
-
     private static string ReadCompositionSource([CallerFilePath] string callerFilePath = "")
     {
         string repoRoot = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(callerFilePath)!, "..", "..", ".."));

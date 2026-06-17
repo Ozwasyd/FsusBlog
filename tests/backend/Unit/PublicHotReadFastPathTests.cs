@@ -6,6 +6,7 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -994,7 +995,7 @@ public sealed class PublicHotReadFastPathTests
     [Fact]
     public void FastPathSource_DoesNotReferenceRequestScopedOrIoHotPathDependencies()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs"));
         string fastPathSource = source[
             source.IndexOf("public static class PublicHotReadFastPath", StringComparison.Ordinal)
             ..source.IndexOf("public readonly record struct PublicHotReadCounterSnapshot", StringComparison.Ordinal)];
@@ -1012,7 +1013,7 @@ public sealed class PublicHotReadFastPathTests
     [Fact]
     public void FastPathSource_UsesRouteClassifierInsteadOfMatcherChain()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs"));
         int start = source.IndexOf("public static Task TryServeAsync", StringComparison.Ordinal);
         int end = source.IndexOf("private static bool IsPublicHotReadPath", start, StringComparison.Ordinal);
         string tryServe = source[start..end];
@@ -1066,7 +1067,7 @@ public sealed class PublicHotReadFastPathTests
     [Fact]
     public void ProjectorSource_UsesDeterministicPublicListOrdering()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"));
 
         Assert.Contains("ORDER BY a.createtime DESC, a.id DESC", source, StringComparison.Ordinal);
     }
@@ -1146,21 +1147,5 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal("same-origin", context.Response.Headers["Cross-Origin-Opener-Policy"]);
         Assert.Equal("same-origin", context.Response.Headers["Cross-Origin-Resource-Policy"]);
         Assert.Contains("default-src 'self'", context.Response.Headers["Content-Security-Policy"].ToString(), StringComparison.Ordinal);
-    }
-
-    private static string FindRepoRoot()
-    {
-        DirectoryInfo? current = new(AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new DirectoryNotFoundException("repo root not found");
     }
 }

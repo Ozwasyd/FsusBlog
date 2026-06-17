@@ -1,3 +1,5 @@
+using FsusBlog.Server.Tests.TestInfrastructure;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AdminConsistencyContractTests
@@ -43,27 +45,5 @@ public sealed class AdminConsistencyContractTests
     }
 
     private static string ReadRepoFile(params string[] segments)
-        => File.ReadAllText(Path.Combine(FindRepoRoot(), Path.Combine(segments)));
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
-    }
+        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, Path.Combine(segments)));
 }

@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -112,7 +113,7 @@ public sealed class AuditPipelineHotPathContractTests
     }
 
     private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(FindRepoRoot(), relativePath));
+        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 
     private static string ExtractMethodBlock(string source, string signature)
     {
@@ -140,27 +141,5 @@ public sealed class AuditPipelineHotPathContractTests
         }
 
         throw new InvalidOperationException($"Unable to extract method body: {signature}");
-    }
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 }

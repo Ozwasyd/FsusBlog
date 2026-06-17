@@ -1,3 +1,5 @@
+using FsusBlog.Server.Tests.TestInfrastructure;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ModerationConsoleContractTests
@@ -73,21 +75,5 @@ public sealed class ModerationConsoleContractTests
     }
 
     private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(FindRepoRoot(), relativePath));
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            current = Directory.GetParent(current)?.FullName ?? string.Empty;
-        }
-
-        throw new InvalidOperationException("Repository root not found.");
-    }
+        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 }

@@ -1,4 +1,5 @@
 using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -50,21 +51,7 @@ public sealed class ScheduledPublishWorkerTests
     }
 
     private static string ReadSource(string relativePath)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            string path = Path.Combine(directory.FullName, relativePath);
-            if (File.Exists(path))
-            {
-                return File.ReadAllText(path);
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException($"Unable to locate {relativePath}.");
-    }
+        => BackendTestPaths.ReadAllTextFromRoot(relativePath);
 
     private static string Slice(string source, string startMarker, string endMarker)
     {

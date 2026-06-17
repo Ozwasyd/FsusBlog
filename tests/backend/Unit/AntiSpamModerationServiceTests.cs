@@ -1,4 +1,5 @@
 using FsusBlog.Server.Services.Moderation;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -65,34 +66,12 @@ public sealed class AntiSpamModerationServiceTests
     [Fact]
     public void SchemaMigrationRegistry_CreatesCommentModerationSignalTableAndIndexes()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs"));
 
         Assert.Contains("comment_moderation_signal", source);
         Assert.Contains("idx_comment_moderation_signal_comment_id", source);
         Assert.Contains("idx_comment_moderation_signal_label_confidence", source);
         Assert.Contains("idx_comment_moderation_signal_second_round", source);
         Assert.Contains("BuildCommentModerationSignalMigration()", source);
-    }
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 }

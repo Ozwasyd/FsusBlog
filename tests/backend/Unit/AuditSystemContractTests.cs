@@ -1,5 +1,6 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -40,7 +41,7 @@ public sealed class AuditSystemContractTests
     [Fact]
     public void SourceFiles_KeepRumSeparateAndExposeAuditConsole()
     {
-        string root = ResolveRepositoryRoot();
+        string root = BackendTestPaths.RepositoryRoot;
         string rumService = File.ReadAllText(Path.Combine(root, "src/backend/Services/Telemetry/RumTelemetryService.cs"));
         string authoringEndpoints = File.ReadAllText(Path.Combine(root, "src/backend/Modules/Endpoints/AuthoringEndpoints.cs"));
         string router = File.ReadAllText(Path.Combine(root, "src/frontend/src/router/index.ts"));
@@ -57,7 +58,7 @@ public sealed class AuditSystemContractTests
     [Fact]
     public void AuditVerify_SourceChecksPreviousRecordHash()
     {
-        string root = ResolveRepositoryRoot();
+        string root = BackendTestPaths.RepositoryRoot;
         string queryService = File.ReadAllText(Path.Combine(root, "src/backend/Infrastructure/Audit/AuditQueryService.cs"));
 
         Assert.Contains("VerifyWithChainAsync", queryService, StringComparison.Ordinal);
@@ -69,7 +70,7 @@ public sealed class AuditSystemContractTests
     [Fact]
     public void AuditFallbackWriter_SourceBatchesFallbackWrites()
     {
-        string root = ResolveRepositoryRoot();
+        string root = BackendTestPaths.RepositoryRoot;
         string fallbackWriter = File.ReadAllText(Path.Combine(root, "src/backend/Infrastructure/Audit/AuditFallbackWriter.cs"));
         string writeAsync = ExtractMethodBlock(fallbackWriter, "public async Task WriteAsync");
 
@@ -78,23 +79,6 @@ public sealed class AuditSystemContractTests
         Assert.DoesNotContain("File.AppendAllTextAsync", fallbackWriter, StringComparison.Ordinal);
         Assert.DoesNotContain("Directory.CreateDirectory", writeAsync, StringComparison.Ordinal);
     }
-
-    private static string ResolveRepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Repository root not found.");
-    }
-
     private static string ExtractMethodBlock(string source, string signature)
     {
         int start = source.IndexOf(signature, StringComparison.Ordinal);

@@ -2,6 +2,7 @@ using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -290,7 +291,7 @@ public sealed class ContentFilterServiceTests
     [Fact]
     public void ContentFilterService_DictionaryRetryDoesNotUseThreadSleep()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Services", "Security", "ContentFilterService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "Security", "ContentFilterService.cs"));
 
         Assert.DoesNotContain("Thread.Sleep", source, StringComparison.Ordinal);
         Assert.DoesNotContain(".GetAwaiter().GetResult()", source, StringComparison.Ordinal);
@@ -301,7 +302,7 @@ public sealed class ContentFilterServiceTests
     [Fact]
     public void ContentFilterService_UsesUnifiedTaggedAutomaton()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Services", "Security", "ContentFilterService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "Security", "ContentFilterService.cs"));
 
         Assert.DoesNotContain("_sensitiveSearch", source, StringComparison.Ordinal);
         Assert.DoesNotContain("_adSearch", source, StringComparison.Ordinal);
@@ -317,30 +318,6 @@ public sealed class ContentFilterServiceTests
         Directory.CreateDirectory(path);
         return path;
     }
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
-                File.Exists(Path.Combine(current, "src", "backend", "Services", "Security", "ContentFilterService.cs")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
-    }
-
     private sealed class TestWebHostEnvironment(string root) : IWebHostEnvironment
     {
         public string ApplicationName { get; set; } = nameof(ContentFilterServiceTests);

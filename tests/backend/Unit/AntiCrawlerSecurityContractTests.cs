@@ -1,8 +1,10 @@
+using FsusBlog.Server.Tests.TestInfrastructure;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AntiCrawlerSecurityContractTests
 {
-    private static readonly string RepoRoot = ResolveRepoRoot();
+    private static readonly string RepoRoot = BackendTestPaths.RepositoryRoot;
 
     [Fact]
     public void RateLimiter_UsesCrawlerAwarePartitionsAndRiskWrites()
@@ -139,20 +141,4 @@ public sealed class AntiCrawlerSecurityContractTests
 
     private static string Read(string relativePath)
         => File.ReadAllText(Path.Combine(RepoRoot, relativePath));
-
-    private static string ResolveRepoRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Unable to locate repository root.");
-    }
 }

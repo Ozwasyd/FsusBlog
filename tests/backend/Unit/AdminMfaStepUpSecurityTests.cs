@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -119,21 +120,5 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(FindRepoRoot(), relativePath));
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            current = Directory.GetParent(current)?.FullName ?? string.Empty;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
-    }
+        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 }

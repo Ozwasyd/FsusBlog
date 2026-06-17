@@ -8,6 +8,7 @@ using FsusBlog.Server.Services.Moderation;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -222,7 +223,7 @@ public class CommentServiceValidationTests
     [Fact]
     public void CommentCursorQueries_UseIndexedKeysetPredicates()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Services", "CommentService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "CommentService.cs"));
 
         Assert.Contains("c.Id < request.Cursor!.Value", source);
         Assert.Contains("c.Id > request.Cursor!.Value", source);
@@ -234,7 +235,7 @@ public class CommentServiceValidationTests
     [Fact]
     public void CommentThreadPreviewQuery_UsesSqlPerRootWindowLimit()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Services", "CommentService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "CommentService.cs"));
 
         Assert.Contains("ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.id)", source);
         Assert.Contains("WHERE x.rn <= @PreviewLimit", source);
@@ -250,30 +251,6 @@ public class CommentServiceValidationTests
         var method = typeof(CommentService).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
         return (T)method.Invoke(null, args)!;
     }
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
-                File.Exists(Path.Combine(current, "src", "backend", "Services", "CommentService.cs")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
-    }
-
     [Theory]
     [InlineData(null, "")]
     [InlineData("   ", "")]

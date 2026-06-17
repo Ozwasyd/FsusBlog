@@ -3,6 +3,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -40,7 +41,7 @@ public sealed class ArticleServiceTests
     [Fact]
     public void GetHotArticlesAsync_FiltersSeedIdsByArticleIdColumn()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Services", "ArticleService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "ArticleService.cs"));
         int methodStart = source.IndexOf(
             "public async Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync",
             StringComparison.Ordinal);
@@ -109,24 +110,6 @@ public sealed class ArticleServiceTests
         var method = typeof(ArticleService).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
         return (T)method.Invoke(null, args)!;
     }
-
-    private static string FindRepoRoot()
-    {
-        DirectoryInfo? current = new(AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            string candidate = Path.Combine(current.FullName, "src", "backend", "Services", "ArticleService.cs");
-            if (File.Exists(candidate))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new InvalidOperationException("Repository root containing ArticleService.cs was not found.");
-    }
-
     [Theory]
     [InlineData("  hello  ", 100, "hello")]
     [InlineData("hello", 3, "hel")]

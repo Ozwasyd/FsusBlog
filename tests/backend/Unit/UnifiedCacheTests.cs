@@ -4,6 +4,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using StackExchange.Redis;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -113,7 +114,7 @@ public sealed class UnifiedCacheTests
     [Fact]
     public void RemoveByPrefixMany_SourceGroupsByPolicyAndScansRegistryOnce()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/Cache/IUnifiedCache.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/IUnifiedCache.cs"));
 
         Assert.Contains("RemoveByPrefixManyAsync", source, StringComparison.Ordinal);
         Assert.Contains("prefixes.GroupBy(static item => item.PolicyId)", source, StringComparison.Ordinal);
@@ -126,7 +127,7 @@ public sealed class UnifiedCacheTests
     [Fact]
     public void RemoveByPrefix_SourceUsesPagedSetScanInsteadOfSetMembers()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/Cache/IUnifiedCache.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/IUnifiedCache.cs"));
 
         Assert.Contains(".SetScan(", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SetMembersAsync", source, StringComparison.Ordinal);
@@ -331,30 +332,13 @@ public sealed class UnifiedCacheTests
     [Fact]
     public void AcquireSingleFlightAsync_DoesNotUseMemoryCacheEvictionForSingleFlight()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "Cache", "IUnifiedCache.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Cache", "IUnifiedCache.cs"));
         string method = ExtractMethodBlock(source, "public async Task<IAsyncDisposable> AcquireSingleFlightAsync");
 
         Assert.DoesNotContain("memoryCache.GetOrCreate(lockKey", method, StringComparison.Ordinal);
         Assert.DoesNotContain("RegisterPostEvictionCallback", method, StringComparison.Ordinal);
         Assert.Contains("_singleFlightEntries.GetOrAdd", method, StringComparison.Ordinal);
     }
-
-    private static string FindRepoRoot()
-    {
-        DirectoryInfo? current = new(AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new DirectoryNotFoundException("repo root not found");
-    }
-
     private static string ExtractMethodBlock(string source, string signature)
     {
         int start = source.IndexOf(signature, StringComparison.Ordinal);

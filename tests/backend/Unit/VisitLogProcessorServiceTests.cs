@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.ObjectPool;
 using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -76,7 +77,7 @@ public sealed class VisitLogProcessorServiceTests
     [Fact]
     public void Source_DrainBatchUsesDeadlineWaitWithoutLinkedCancellationTokenSource()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/VisitLog/VisitLogProcessorService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/VisitLog/VisitLogProcessorService.cs"));
 
         Assert.Contains("ResolveFlushWindowRemaining", source, StringComparison.Ordinal);
         Assert.Contains("Task.WhenAny(readTask, delayTask)", source, StringComparison.Ordinal);
@@ -166,23 +167,6 @@ public sealed class VisitLogProcessorServiceTests
         Assert.False(matched);
         Assert.Equal(string.Empty, region);
     }
-
-    private static string FindRepoRoot()
-    {
-        DirectoryInfo? current = new(AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new DirectoryNotFoundException("repo root not found");
-    }
-
     private sealed class SequencedFaultPool : ObjectPool<Component>
     {
         public int GetCalls;

@@ -1,4 +1,5 @@
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -24,7 +25,7 @@ public sealed class StatsServiceRegionTests
     [Fact]
     public void LoadRegionStatsAsync_SourcePushesNormalizationAndTopNToSql()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/StatsService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/StatsService.cs"));
         int methodStart = source.IndexOf("private async Task<List<RegionStatItemDto>> LoadRegionStatsAsync", StringComparison.Ordinal);
         int nextMethod = source.IndexOf("internal static string NormalizeRegionForStats", StringComparison.Ordinal);
         string method = source[methodStart..nextMethod];
@@ -35,21 +36,5 @@ public sealed class StatsServiceRegionTests
         Assert.Contains("LIMIT 10", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Dictionary<string, int>", method, StringComparison.Ordinal);
         Assert.DoesNotContain("OrderByDescending(item => item.Value)", method, StringComparison.Ordinal);
-    }
-
-    private static string FindRepoRoot()
-    {
-        DirectoryInfo? current = new(AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new DirectoryNotFoundException("repo root not found");
     }
 }

@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Reflection;
 using System.Text;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -559,7 +560,7 @@ public sealed class SearchIndexServiceTests
     [Fact]
     public void SearchIndexService_SourceUsesBoundedTopKForwardIndexAndDfHistogram()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Services/SearchIndexService.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/SearchIndexService.cs"));
 
         Assert.Contains("PriorityQueue<SearchRuntimeCandidate", source, StringComparison.Ordinal);
         Assert.Contains("BuildForwardIndex(terms)", source, StringComparison.Ordinal);
@@ -675,21 +676,5 @@ public sealed class SearchIndexServiceTests
         h1 *= 0xc2b2ae35;
         h1 ^= h1 >> 16;
         return h1;
-    }
-
-    private static string FindRepoRoot()
-    {
-        DirectoryInfo? current = new(AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "FsusBlog.slnx")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new DirectoryNotFoundException("repo root not found");
     }
 }

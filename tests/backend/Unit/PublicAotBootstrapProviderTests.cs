@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -42,27 +43,5 @@ public sealed class PublicAotBootstrapProviderTests
     }
 
     private static string ReadProviderSource([CallerFilePath] string sourceFile = "")
-        => File.ReadAllText(Path.Combine(FindRepoRoot(sourceFile), "src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs"));
-
-    private static string FindRepoRoot(string sourceFile)
-    {
-        string current = Path.GetDirectoryName(sourceFile) ?? AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
-    }
+        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs"));
 }

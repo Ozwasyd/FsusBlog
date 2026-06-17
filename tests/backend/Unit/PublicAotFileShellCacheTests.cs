@@ -1,6 +1,5 @@
 using System.Text;
 using System.Buffers.Binary;
-using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -10,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using StackExchange.Redis;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -456,7 +456,7 @@ public sealed class PublicAotFileShellCacheTests
     [Fact]
     public void Source_UsesTrueAsyncReadAndHotPathMetrics()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs"));
 
         Assert.Contains("FileOptions.Asynchronous", source);
         Assert.Contains("ReadAsync", source);
@@ -477,7 +477,7 @@ public sealed class PublicAotFileShellCacheTests
         Assert.Contains("ApplyRemoteInvalidation", source);
         Assert.DoesNotContain("await RemoveAsync(value", source);
 
-        string observability = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/Observability/FsusObservability.cs"));
+        string observability = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Observability/FsusObservability.cs"));
         Assert.Contains("public_aot_invalidation_scope", observability);
         Assert.Contains("public_aot_invalidated_keys", observability);
         Assert.Contains("public_aot_deleted_files", observability);
@@ -485,7 +485,7 @@ public sealed class PublicAotFileShellCacheTests
         Assert.Contains("public_aot_publish_count", observability);
         Assert.Contains("public_aot_invalidation_duration_ms", observability);
 
-        string redisBackedCache = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/backend/Infrastructure/PublicAot/PublicAotShellCache.cs"));
+        string redisBackedCache = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicAot/PublicAotShellCache.cs"));
         Assert.Contains("RemoveManyAsync", redisBackedCache);
         Assert.DoesNotContain("await RemoveAsync(value", redisBackedCache);
     }
@@ -573,33 +573,6 @@ public sealed class PublicAotFileShellCacheTests
         HashSet<string> actual = values.Select(static value => value.ToString()).ToHashSet(StringComparer.Ordinal);
         return expected.All(actual.Contains);
     }
-
-    private static string FindRepoRoot([CallerFilePath] string sourceFile = "")
-    {
-        foreach (string start in new[] { Path.GetDirectoryName(sourceFile) ?? string.Empty, Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
-        {
-            string current = start;
-            while (!string.IsNullOrWhiteSpace(current))
-            {
-                if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
-                    File.Exists(Path.Combine(current, "src", "backend", "Infrastructure", "PublicAot", "PublicAotFileShellCache.cs")))
-                {
-                    return current;
-                }
-
-                DirectoryInfo? parent = Directory.GetParent(current);
-                if (parent is null)
-                {
-                    break;
-                }
-
-                current = parent.FullName;
-            }
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
-    }
-
     private sealed class TempDirectory : IDisposable
     {
         public string Root { get; } = Path.Combine(System.IO.Path.GetTempPath(), $"fsus-aot-file-cache-{Guid.NewGuid():N}");

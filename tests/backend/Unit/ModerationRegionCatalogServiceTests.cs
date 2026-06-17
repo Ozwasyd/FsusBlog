@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -160,7 +161,7 @@ public sealed class ModerationRegionCatalogServiceTests
         public static TestRoot FromRepoConfig()
         {
             string root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "fsus-moderation-region-tests", Guid.NewGuid().ToString("N"));
-            CopyDirectory(System.IO.Path.Combine(FindRepoRoot(), "configs", "moderation"), root);
+            CopyDirectory(System.IO.Path.Combine(BackendTestPaths.RepositoryRoot, "configs", "moderation"), root);
             return new TestRoot(root);
         }
 
@@ -184,28 +185,6 @@ public sealed class ModerationRegionCatalogServiceTests
             {
                 File.Copy(file, file.Replace(source, destination, StringComparison.Ordinal), overwrite: true);
             }
-        }
-
-        private static string FindRepoRoot()
-        {
-            string current = AppContext.BaseDirectory;
-            while (!string.IsNullOrWhiteSpace(current))
-            {
-                if (File.Exists(System.IO.Path.Combine(current, "FsusBlog.slnx")))
-                {
-                    return current;
-                }
-
-                DirectoryInfo? parent = Directory.GetParent(current);
-                if (parent is null)
-                {
-                    break;
-                }
-
-                current = parent.FullName;
-            }
-
-            throw new DirectoryNotFoundException("Unable to locate repository root.");
         }
     }
 

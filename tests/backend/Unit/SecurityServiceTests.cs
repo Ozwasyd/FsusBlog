@@ -3,6 +3,7 @@ using FsusBlog.Server.Services.Security;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Net;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -254,7 +255,7 @@ public class ModernAcAutomatonTests
     [Fact]
     public void ModernAcAutomaton_UsesCompactDoubleArrayTransitionsInHotScan()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "Helpers", "Security", "ModernAcAutomaton.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Helpers", "Security", "ModernAcAutomaton.cs"));
         int containsStart = source.IndexOf("public bool ContainsAny", StringComparison.Ordinal);
         int containsEnd = source.IndexOf("private static bool UseLegacyChildRangeAutomaton", containsStart, StringComparison.Ordinal);
         Assert.True(containsStart >= 0);
@@ -274,7 +275,7 @@ public class ModernAcAutomatonTests
     [Fact]
     public void ModernAcAutomaton_CompositeMatchingUsesInvertedIndexInHotScan()
     {
-        string source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "backend", "Infrastructure", "Helpers", "Security", "ModernAcAutomaton.cs"));
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Helpers", "Security", "ModernAcAutomaton.cs"));
         int containsStart = source.IndexOf("public bool ContainsAny", StringComparison.Ordinal);
         int containsEnd = source.IndexOf("private static bool UseLegacyChildRangeAutomaton", containsStart, StringComparison.Ordinal);
         Assert.True(containsStart >= 0);
@@ -305,28 +306,6 @@ public class ModernAcAutomatonTests
         }
 
         return false;
-    }
-
-    private static string FindRepoRoot()
-    {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
-            {
-                return current;
-            }
-
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Unable to locate repository root.");
     }
 }
 
