@@ -128,6 +128,34 @@ public readonly struct MfaChallengeVerifyRequestPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct RecoveryKeyCreateResponsePod
+{
+    public readonly int KeyVersion;
+    public readonly int Reserved0;
+    public readonly long CreatedAtUnixMs;
+    public readonly Utf8SliceRef RecoveryKey;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct RecoveryKeyVerifyRequestPod
+{
+    public readonly int UserId;
+    public readonly byte RevokeSessions;
+    public readonly byte RevokePasskeys;
+    public readonly ushort Reserved0;
+    public readonly Utf8SliceRef RecoveryKey;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct RecoveryKeyVerifyResponsePod
+{
+    public readonly int UserId;
+    public readonly int Reserved0;
+    public readonly long ExpiresAtUnixMs;
+    public readonly Utf8Fixed128 RecoverySessionToken;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AuthLoginRequestPod
 {
     public readonly byte RememberMe;

@@ -679,7 +679,8 @@ public partial class UserService(
         string issuer,
         string? password = null,
         string? code = null,
-        string? recoveryCode = null)
+        string? recoveryCode = null,
+        bool stepUpVerified = false)
     {
         var user = await _db.Queryable<User>().InSingleAsync(userId);
         if (user == null)
@@ -689,16 +690,25 @@ public partial class UserService(
 
         if (user.MfaEnabled)
         {
-            if (!AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()
-                && (string.IsNullOrWhiteSpace(password) || !BCrypt.Net.BCrypt.Verify(password, user.Password)))
+            bool anonymousIdentityMode = AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled();
+            if (anonymousIdentityMode)
+            {
+                if (!stepUpVerified)
+                {
+                    return (false, null, "MFA_REBIND_STEP_UP_REQUIRED");
+                }
+            }
+            else if (string.IsNullOrWhiteSpace(password) || !BCrypt.Net.BCrypt.Verify(password, user.Password))
             {
                 return (false, null, "MFA_REBIND_PASSWORD_REQUIRED");
             }
-
-            bool stepUpPassed = await VerifyMfaOrRecoveryCodeAsync(user, code, recoveryCode, persistRecoveryConsumption: true);
-            if (!stepUpPassed)
+            else
             {
-                return (false, null, "MFA_REBIND_STEP_UP_REQUIRED");
+                bool stepUpPassed = await VerifyMfaOrRecoveryCodeAsync(user, code, recoveryCode, persistRecoveryConsumption: true);
+                if (!stepUpPassed)
+                {
+                    return (false, null, "MFA_REBIND_STEP_UP_REQUIRED");
+                }
             }
         }
 
@@ -882,7 +892,7 @@ public partial class UserService(
         }, "MFA_ENABLED");
     }
 
-    public async Task<(bool Success, string Message)> DisableMfaAsync(int userId, string password, string? code, string? recoveryCode)
+    public async Task<(bool Success, string Message)> DisableMfaAsync(int userId, string password, string? code, string? recoveryCode, bool stepUpVerified = false)
     {
         var user = await _db.Queryable<User>().InSingleAsync(userId);
         if (user == null)
@@ -890,8 +900,8 @@ public partial class UserService(
             return (false, "用户不存在");
         }
 
-        if (!AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()
-            && !BCrypt.Net.BCrypt.Verify(password, user.Password))
+        bool anonymousIdentityMode = AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled();
+        if (!anonymousIdentityMode && !BCrypt.Net.BCrypt.Verify(password, user.Password))
         {
             return (false, "密码验证失败");
         }
@@ -901,10 +911,20 @@ public partial class UserService(
             return (true, "MFA_ALREADY_DISABLED");
         }
 
-        bool pass = await VerifyMfaOrRecoveryCodeAsync(user, code, recoveryCode, persistRecoveryConsumption: true);
-        if (!pass)
+        if (anonymousIdentityMode)
         {
-            return (false, "MFA_VERIFY_FAILED");
+            if (!stepUpVerified)
+            {
+                return (false, "MFA_STEP_UP_REQUIRED");
+            }
+        }
+        else
+        {
+            bool pass = await VerifyMfaOrRecoveryCodeAsync(user, code, recoveryCode, persistRecoveryConsumption: true);
+            if (!pass)
+            {
+                return (false, "MFA_VERIFY_FAILED");
+            }
         }
 
         await _db.Updateable<User>()
@@ -923,7 +943,8 @@ public partial class UserService(
         int userId,
         string password,
         string? code,
-        string? recoveryCode)
+        string? recoveryCode,
+        bool stepUpVerified = false)
     {
         var user = await _db.Queryable<User>().InSingleAsync(userId);
         if (user == null)
@@ -931,8 +952,8 @@ public partial class UserService(
             return (false, null, "用户不存在");
         }
 
-        if (!AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()
-            && !BCrypt.Net.BCrypt.Verify(password, user.Password))
+        bool anonymousIdentityMode = AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled();
+        if (!anonymousIdentityMode && !BCrypt.Net.BCrypt.Verify(password, user.Password))
         {
             return (false, null, "密码验证失败");
         }
@@ -942,10 +963,20 @@ public partial class UserService(
             return (false, null, "MFA_NOT_ENABLED");
         }
 
-        bool pass = await VerifyMfaOrRecoveryCodeAsync(user, code, recoveryCode, persistRecoveryConsumption: true);
-        if (!pass)
+        if (anonymousIdentityMode)
         {
-            return (false, null, "MFA_VERIFY_FAILED");
+            if (!stepUpVerified)
+            {
+                return (false, null, "MFA_STEP_UP_REQUIRED");
+            }
+        }
+        else
+        {
+            bool pass = await VerifyMfaOrRecoveryCodeAsync(user, code, recoveryCode, persistRecoveryConsumption: true);
+            if (!pass)
+            {
+                return (false, null, "MFA_VERIFY_FAILED");
+            }
         }
 
         var recoveryCodes = _totpService.GenerateRecoveryCodes(10);

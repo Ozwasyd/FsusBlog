@@ -132,6 +132,10 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `MfaPasswordProofRequest` payload: `MfaPasswordProofRequestPod` followed by blob payload for password/TOTP/recovery code.
 - `MfaChallengeStartRequest` payload: `StringMutationRequestPod` followed by blob payload for action.
 - `MfaChallengeVerifyRequest` payload: `MfaChallengeVerifyRequestPod` followed by blob payload for challenge token/action/TOTP/recovery code.
+- `RecoveryKeyCreateResponse` payload: `RecoveryKeyCreateResponsePod` followed by blob payload for the one-time plaintext account Recovery Key. The plaintext is returned only by create/rotate responses and is never persisted server-side.
+- `RecoveryKeyVerifyRequest` payload: `RecoveryKeyVerifyRequestPod` followed by blob payload for the account Recovery Key. It carries `UserId`, `RevokeSessions` and `RevokePasskeys` flags and is accepted only by the anonymous recovery verification endpoint.
+- `RecoveryKeyVerifyResponse` payload: `RecoveryKeyVerifyResponsePod` with a short-lived recovery session token used only to bind a new Passkey after successful Recovery Key verification.
+- `RecoveryKeySessionRequest` payload: `StringMutationRequestPod` followed by blob payload for that recovery session token. Passkey recovery completion reuses `PasskeyRegisterCompleteRequest` and carries the recovery session token in `MfaProofToken`; this is a Recovery Key step-up, not a TOTP MFA recovery-code path.
 - `ConversationCreateRequest` payload: `ConversationCreateRequestPod` followed by blob payload for subject/body.
 - `ConversationReplyRequest` payload: `StringMutationRequestPod` followed by blob payload for body.
 - `ConversationStatusRequest` payload: `ConversationStatusRequestPod` (`0=open`, `1=pending`, `2=closed`).

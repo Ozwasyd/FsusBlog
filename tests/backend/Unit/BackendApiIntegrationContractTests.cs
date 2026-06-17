@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
@@ -121,26 +122,21 @@ public sealed partial class BackendApiIntegrationContractTests
     [GeneratedRegex(@"AedsFrameType\.([A-Za-z0-9_]+)", RegexOptions.CultureInvariant)]
     private static partial Regex AedsFrameTypeRegex();
 
-    private static JsonObject ReadJson(string path)
-        => JsonNode.Parse(File.ReadAllText(Path.Combine(FindRepoRoot(), path)))!.AsObject();
+    private static JsonObject ReadJson(string path, [CallerFilePath] string sourceFilePath = "")
+        => JsonNode.Parse(File.ReadAllText(Path.Combine(FindRepoRoot(sourceFilePath), path)))!.AsObject();
 
-    private static string FindRepoRoot()
+    private static string FindRepoRoot([CallerFilePath] string sourceFilePath = "")
     {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
+        var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFilePath) ?? AppContext.BaseDirectory);
+        while (directory is not null)
         {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")))
+            if (File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")) ||
+                Directory.Exists(Path.Combine(directory.FullName, ".git")))
             {
-                return current;
+                return directory.FullName;
             }
 
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
+            directory = directory.Parent;
         }
 
         throw new DirectoryNotFoundException("Unable to locate repository root.");

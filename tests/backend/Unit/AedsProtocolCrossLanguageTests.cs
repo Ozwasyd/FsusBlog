@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -572,24 +573,19 @@ public sealed partial class AedsProtocolCrossLanguageTests
         return Convert.FromHexString(hex);
     }
 
-    private static string FindRepoRoot()
+    private static string FindRepoRoot([CallerFilePath] string sourceFilePath = "")
     {
-        string current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
+        var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFilePath) ?? AppContext.BaseDirectory);
+        while (directory is not null)
         {
-            if (File.Exists(Path.Combine(current, "FsusBlog.slnx")) ||
-                File.Exists(Path.Combine(current, "src", "frontend", "wasm", "web", "protocol", "frame.ts")))
+            if (File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")) ||
+                File.Exists(Path.Combine(directory.FullName, "src", "frontend", "wasm", "web", "protocol", "frame.ts")) ||
+                Directory.Exists(Path.Combine(directory.FullName, ".git")))
             {
-                return current;
+                return directory.FullName;
             }
 
-            DirectoryInfo? parent = Directory.GetParent(current);
-            if (parent is null)
-            {
-                break;
-            }
-
-            current = parent.FullName;
+            directory = directory.Parent;
         }
 
         throw new DirectoryNotFoundException("Unable to locate repository root.");

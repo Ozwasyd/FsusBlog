@@ -364,29 +364,45 @@ public static partial class BinaryEndpoints
             string? password = null;
             string? code = null;
             string? recoveryCode = null;
+            bool stepUpVerified = false;
             UserAccountSnapshot? account = await users.GetAccountByIdAsync(userId);
             if (account?.MfaEnabled == true)
             {
-                var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest, httpContext.RequestAborted);
-                if (!payload.IsSuccess)
+                if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
                 {
-                    return BinaryResults.FromError(payload.Error, aeds);
-                }
+                    if (!httpContext.User.IsMfaVerified())
+                    {
+                        return BinaryResults.FromError(
+                            ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
+                            aeds,
+                            StatusCodes.Status428PreconditionRequired);
+                    }
 
-                if (!PodBinaryCodec.TryDecodeMfaPasswordProofRequest(payload.Payload, out var proof) ||
-                    string.IsNullOrWhiteSpace(proof.Password))
+                    stepUpVerified = true;
+                }
+                else
                 {
-                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 重新绑定需要当前密码和验证码"), aeds, StatusCodes.Status428PreconditionRequired);
-                }
+                    var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest, httpContext.RequestAborted);
+                    if (!payload.IsSuccess)
+                    {
+                        return BinaryResults.FromError(payload.Error, aeds);
+                    }
 
-                password = proof.Password;
-                code = proof.Code;
-                recoveryCode = proof.RecoveryCode;
+                    if (!PodBinaryCodec.TryDecodeMfaPasswordProofRequest(payload.Payload, out var proof) ||
+                        string.IsNullOrWhiteSpace(proof.Password))
+                    {
+                        return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 重新绑定需要当前密码和验证码"), aeds, StatusCodes.Status428PreconditionRequired);
+                    }
+
+                    password = proof.Password;
+                    code = proof.Code;
+                    recoveryCode = proof.RecoveryCode;
+                }
             }
 
             var site = await systemService.GetSeoConfigAsync();
             string issuer = string.IsNullOrWhiteSpace(site.Title) ? "FsusBlog" : site.Title;
-            var result = await mfaCommands.StartMfaSetupAsync(userId, issuer, password, code, recoveryCode);
+            var result = await mfaCommands.StartMfaSetupAsync(userId, issuer, password, code, recoveryCode, stepUpVerified);
             return result.Success && result.Data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.MfaSetupStart, writer => PodBinaryCodec.WriteMfaSetupStart(result.Data.Value, writer))
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, StatusCodes.Status428PreconditionRequired);
@@ -440,19 +456,42 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest, cancellationToken);
-            if (!payload.IsSuccess)
+            string password = string.Empty;
+            string? code = null;
+            string? recoveryCode = null;
+            bool stepUpVerified = false;
+            if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
             {
-                return BinaryResults.FromError(payload.Error, aeds);
-            }
+                if (!httpContext.User.IsMfaVerified())
+                {
+                    return BinaryResults.FromError(
+                        ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
+                        aeds,
+                        StatusCodes.Status428PreconditionRequired);
+                }
 
-            if (!PodBinaryCodec.TryDecodeMfaPasswordProofRequest(payload.Payload, out var request))
+                stepUpVerified = true;
+            }
+            else
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 禁用请求体非法"), aeds);
+                var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest, cancellationToken);
+                if (!payload.IsSuccess)
+                {
+                    return BinaryResults.FromError(payload.Error, aeds);
+                }
+
+                if (!PodBinaryCodec.TryDecodeMfaPasswordProofRequest(payload.Payload, out var request))
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 禁用请求体非法"), aeds);
+                }
+
+                password = request.Password;
+                code = request.Code;
+                recoveryCode = request.RecoveryCode;
             }
 
             int userId = httpContext.GetUserId();
-            var result = await mfaCommands.DisableMfaAsync(userId, request.Password, request.Code, request.RecoveryCode);
+            var result = await mfaCommands.DisableMfaAsync(userId, password, code, recoveryCode, stepUpVerified);
             return result.Success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, StatusCodes.Status422UnprocessableEntity);
@@ -465,19 +504,42 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest, cancellationToken);
-            if (!payload.IsSuccess)
+            string password = string.Empty;
+            string? code = null;
+            string? recoveryCode = null;
+            bool stepUpVerified = false;
+            if (AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
             {
-                return BinaryResults.FromError(payload.Error, aeds);
-            }
+                if (!httpContext.User.IsMfaVerified())
+                {
+                    return BinaryResults.FromError(
+                        ErrorDetail.Create(ErrorCode.Forbidden, "ANONYMOUS_MFA_STEP_UP_REQUIRED"),
+                        aeds,
+                        StatusCodes.Status428PreconditionRequired);
+                }
 
-            if (!PodBinaryCodec.TryDecodeMfaPasswordProofRequest(payload.Payload, out var request))
+                stepUpVerified = true;
+            }
+            else
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 恢复码请求体非法"), aeds);
+                var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaPasswordProofRequest, cancellationToken);
+                if (!payload.IsSuccess)
+                {
+                    return BinaryResults.FromError(payload.Error, aeds);
+                }
+
+                if (!PodBinaryCodec.TryDecodeMfaPasswordProofRequest(payload.Payload, out var request))
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA 恢复码请求体非法"), aeds);
+                }
+
+                password = request.Password;
+                code = request.Code;
+                recoveryCode = request.RecoveryCode;
             }
 
             int userId = httpContext.GetUserId();
-            var result = await mfaCommands.RegenerateMfaRecoveryCodesAsync(userId, request.Password, request.Code, request.RecoveryCode);
+            var result = await mfaCommands.RegenerateMfaRecoveryCodesAsync(userId, password, code, recoveryCode, stepUpVerified);
             return result.Success && result.Data != null
                 ? BinaryResults.Frame(aeds, AedsFrameType.MfaSetupVerify, writer => PodBinaryCodec.WriteMfaSetupVerify(result.Data, writer))
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, result.Message), aeds, StatusCodes.Status422UnprocessableEntity);
@@ -660,6 +722,151 @@ public static partial class BinaryEndpoints
         })
         .RequireAuthorization()
         .AllowRestrictedAccountAction(RestrictedAccountAction.Logout)
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/recovery-key/create", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IRecoveryKeyService recoveryKeys,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            Result<RecoveryKeyCreateResponseCoreModel> result = await recoveryKeys.CreateAsync(httpContext.GetUserId(), cancellationToken);
+            return result.IsSuccess && result.Value is { } value
+                ? BinaryResults.Frame(aeds, AedsFrameType.RecoveryKeyCreateResponse, writer => PodBinaryCodec.WriteRecoveryKeyCreateResponse(value, writer))
+                : RecoveryKeyError(result.Error, aeds);
+        })
+        .RequireAuthorization()
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/recovery-key/rotate", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IRecoveryKeyService recoveryKeys,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            Result<RecoveryKeyCreateResponseCoreModel> result = await recoveryKeys.RotateAsync(httpContext.GetUserId(), cancellationToken);
+            return result.IsSuccess && result.Value is { } value
+                ? BinaryResults.Frame(aeds, AedsFrameType.RecoveryKeyCreateResponse, writer => PodBinaryCodec.WriteRecoveryKeyCreateResponse(value, writer))
+                : RecoveryKeyError(result.Error, aeds);
+        })
+        .RequireAuthorization()
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/recovery-key/verify", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IRecoveryKeyService recoveryKeys,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.RecoveryKeyVerifyRequest, cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            if (!PodBinaryCodec.TryDecodeRecoveryKeyVerifyRequest(payload.Payload, out var request) ||
+                request.UserId <= 0 ||
+                string.IsNullOrWhiteSpace(request.RecoveryKey))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "RECOVERY_KEY_REQUEST_INVALID"), aeds);
+            }
+
+            Result<RecoveryKeyVerifyResponseCoreModel> result = await recoveryKeys.VerifyAsync(
+                request,
+                httpContext.GetClientIp(),
+                httpContext.GetUserAgent(),
+                cancellationToken);
+            return result.IsSuccess && result.Value is { } value
+                ? BinaryResults.Frame(aeds, AedsFrameType.RecoveryKeyVerifyResponse, writer => PodBinaryCodec.WriteRecoveryKeyVerifyResponse(value, writer))
+                : RecoveryKeyError(result.Error, aeds);
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("fixed_ip")
+        .AddEndpointFilter<RequiresPowFilter>()
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/recovery-key/passkey/register/begin", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IRecoveryKeyService recoveryKeys,
+            IPasskeyService passkeyService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.RecoveryKeySessionRequest, cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            if (!PodBinaryCodec.TryDecodeStringMutationRequest(payload.Payload, out string recoverySessionToken) ||
+                string.IsNullOrWhiteSpace(recoverySessionToken))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "RECOVERY_SESSION_REQUIRED"), aeds);
+            }
+
+            Result<RecoveryKeySession> session = await recoveryKeys.GetRecoverySessionAsync(recoverySessionToken, cancellationToken);
+            if (!session.IsSuccess || session.Value is null)
+            {
+                return RecoveryKeyError(session.Error, aeds);
+            }
+
+            var (success, message, data) = await passkeyService.BeginRegistrationAsync(session.Value.UserId, cancellationToken);
+            return success && data != null
+                ? BinaryResults.Frame(aeds, AedsFrameType.PasskeyRegisterBegin, writer => PodBinaryCodec.WritePasskeyRegisterBegin(data.Options, writer))
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/recovery-key/passkey/register/complete", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IRecoveryKeyService recoveryKeys,
+            IPasskeyService passkeyService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.PasskeyRegisterCompleteRequest, cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            if (!PodBinaryCodec.TryDecodePasskeyRegisterCompleteRequest(payload.Payload, out var request) ||
+                string.IsNullOrWhiteSpace(request.SessionKey) ||
+                string.IsNullOrWhiteSpace(request.MfaProofToken) ||
+                request.RawId.Length == 0 ||
+                request.ClientDataBytes.Length == 0 ||
+                request.AttestationObject.Length == 0)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "请求参数无效"), aeds);
+            }
+
+            Result<RecoveryKeySession> session = await recoveryKeys.GetRecoverySessionAsync(request.MfaProofToken, cancellationToken);
+            if (!session.IsSuccess || session.Value is null)
+            {
+                return RecoveryKeyError(session.Error, aeds);
+            }
+
+            var (success, message) = await passkeyService.CompleteRegistrationAsync(session.Value.UserId, request, cancellationToken);
+            if (!success)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
+            }
+
+            Result<RecoveryKeySession> consumed = await recoveryKeys.ConsumeRecoverySessionAsync(request.MfaProofToken, cancellationToken);
+            if (!consumed.IsSuccess || consumed.Value is null)
+            {
+                return RecoveryKeyError(consumed.Error, aeds);
+            }
+
+            await recoveryKeys.ApplyPostPasskeyBindAsync(consumed.Value, cancellationToken);
+            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("fixed_ip")
         .RequireNoStoreResponse();
 
         group.MapPost("/auth/passkey/register/begin", static async Task<BinaryFrameResult> (
@@ -864,4 +1071,12 @@ public static partial class BinaryEndpoints
         })
         .RequireAuthorization();
     }
+
+    private static BinaryFrameResult RecoveryKeyError(in ErrorDetail error, IAedsEncoder aeds)
+        => BinaryResults.FromError(
+            error,
+            aeds,
+            string.Equals(error.Message, "RECOVERY_KEY_RATE_LIMITED", StringComparison.Ordinal)
+                ? StatusCodes.Status429TooManyRequests
+                : 0);
 }

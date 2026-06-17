@@ -106,6 +106,19 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 | `PasskeyLoginCompleteRequest` (`67`) | `PasskeyLoginCompleteRequestPod` | 登录完成请求体 |
 | `PasskeyRenameRequest` (`68`) | `StringMutationRequestPod` | 设备名更新请求体 |
 
+### Recovery Key AEDS frames
+
+Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery code。服务端只存储 `account_recovery_key.key_hash`、`key_version`、`created_at`、`used_at`、`revoked_at`，哈希使用服务端 `RecoveryKeyPepper` 加固；明文 Recovery Key 只在 create/rotate 响应中返回一次，不写数据库、日志、telemetry 或 browser storage。
+
+验证成功会把当前 Recovery Key 标记为 used，返回 10 分钟 recovery session token。该 token 只允许调用 recovery passkey begin/complete 端点绑定新 Passkey；如果 verify 请求设置 `revokeSessions`，服务端会撤销该账号现有会话；如果设置 `revokePasskeys`，新 Passkey 绑定完成后删除旧凭据。TOTP MFA recovery code 仍只用于 MFA bypass，不得作为账户恢复。
+
+| FrameType | POD | 端点 / 用途 |
+|-----------|-----|-------------|
+| `RecoveryKeyCreateResponse` (`159`) | `RecoveryKeyCreateResponsePod` | `POST /api/binary/auth/recovery-key/create` 和 `/rotate` 响应 |
+| `RecoveryKeyVerifyRequest` (`160`) | `RecoveryKeyVerifyRequestPod` | `POST /api/binary/auth/recovery-key/verify` 请求体；匿名、`fixed_ip` 限流、PoW、no-store |
+| `RecoveryKeyVerifyResponse` (`161`) | `RecoveryKeyVerifyResponsePod` | verify 成功后返回短期 recovery session token |
+| `RecoveryKeySessionRequest` (`162`) | `StringMutationRequestPod` | `POST /api/binary/auth/recovery-key/passkey/register/begin` 请求体；complete 复用 `PasskeyRegisterCompleteRequest.MfaProofToken` 传 recovery session token |
+
 ---
 
 ## 分页与游标信封

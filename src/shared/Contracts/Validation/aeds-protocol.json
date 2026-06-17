@@ -169,6 +169,10 @@
     { "name": "PowPolicySnapshot", "value": 156 },
     { "name": "SiteSubscriptionRequest", "value": 157 },
     { "name": "SiteSubscriptionResponse", "value": 158 },
+    { "name": "RecoveryKeyCreateResponse", "value": 159 },
+    { "name": "RecoveryKeyVerifyRequest", "value": 160 },
+    { "name": "RecoveryKeyVerifyResponse", "value": 161 },
+    { "name": "RecoveryKeySessionRequest", "value": 162 },
     { "name": "EmptySuccess", "value": 240 },
     { "name": "MutationId", "value": 241 },
     { "name": "ApiError", "value": 251 }

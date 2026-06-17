@@ -45,6 +45,7 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260610-post-comment-region-compliance", migrationIds);
         Assert.Contains("20260603-post-comment-public-hot-path-indexes", migrationIds);
         Assert.Contains("20260616-pre-anonymous-identity-account-schema", migrationIds);
+        Assert.Contains("20260616-post-account-recovery-key", migrationIds);
     }
 
     [Fact]
@@ -67,5 +68,24 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("sys_user.privacy_initialized_at", fingerprint, StringComparison.Ordinal);
         Assert.Contains("sys_user.anonymous_credential_level", fingerprint, StringComparison.Ordinal);
         Assert.Contains("sys_user.anonymous_credential_status", fingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetDescriptors_AccountRecoveryKey_CreatesIndependentRecoveryKeyTable()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260616-post-account-recovery-key");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Contains("account_recovery_key", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("key_hash text NOT NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("key_version integer NOT NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("used_at timestamp NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("revoked_at timestamp NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_account_recovery_key_active_unique", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("mfa_recovery", fingerprint, StringComparison.OrdinalIgnoreCase);
     }
 }

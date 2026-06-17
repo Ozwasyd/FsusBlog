@@ -39,5 +39,7 @@ public enum CachePolicyId
     CategoryFrame = 34,
     TagFrame = 35,
     AdminStatsFrame = 36,
-    SystemCompliance = 37
+    SystemCompliance = 37,
+    SecurityRecoveryKeyAttempt = 38,
+    SecurityRecoveryKeySession = 39
 }

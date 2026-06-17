@@ -177,8 +177,9 @@ public sealed class UserMfaCommandService(UserService users) : IUserMfaCommandSe
         string issuer,
         string? password = null,
         string? code = null,
-        string? recoveryCode = null)
-        => users.StartMfaSetupAsync(userId, issuer, password, code, recoveryCode);
+        string? recoveryCode = null,
+        bool stepUpVerified = false)
+        => users.StartMfaSetupAsync(userId, issuer, password, code, recoveryCode, stepUpVerified);
 
     public Task<MfaProfileDto?> GetMfaProfileAsync(int userId)
         => users.GetMfaProfileAsync(userId);
@@ -186,15 +187,16 @@ public sealed class UserMfaCommandService(UserService users) : IUserMfaCommandSe
     public Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> VerifyMfaSetupAsync(int userId, string code)
         => users.VerifyMfaSetupAsync(userId, code);
 
-    public Task<(bool Success, string Message)> DisableMfaAsync(int userId, string password, string? code, string? recoveryCode)
-        => users.DisableMfaAsync(userId, password, code, recoveryCode);
+    public Task<(bool Success, string Message)> DisableMfaAsync(int userId, string password, string? code, string? recoveryCode, bool stepUpVerified = false)
+        => users.DisableMfaAsync(userId, password, code, recoveryCode, stepUpVerified);
 
     public Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> RegenerateMfaRecoveryCodesAsync(
         int userId,
         string password,
         string? code,
-        string? recoveryCode)
-        => users.RegenerateMfaRecoveryCodesAsync(userId, password, code, recoveryCode);
+        string? recoveryCode,
+        bool stepUpVerified = false)
+        => users.RegenerateMfaRecoveryCodesAsync(userId, password, code, recoveryCode, stepUpVerified);
 }
 
 public sealed class UserAdminModerationService(UserService users) : IUserAdminModerationService

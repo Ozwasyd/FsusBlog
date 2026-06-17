@@ -33,6 +33,8 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             [CachePolicyId.ArticleViewLock] = new(CachePolicyId.ArticleViewLock, "sec", "article-view-lock", TimeSpan.Zero, TimeSpan.FromHours(1), null, null, true, 0d, false),
             [CachePolicyId.SecurityPasskeyRegChallenge] = new(CachePolicyId.SecurityPasskeyRegChallenge, "sec", "pk-reg", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
             [CachePolicyId.SecurityPasskeyAuthChallenge] = new(CachePolicyId.SecurityPasskeyAuthChallenge, "sec", "pk-auth", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
+            [CachePolicyId.SecurityRecoveryKeyAttempt] = new(CachePolicyId.SecurityRecoveryKeyAttempt, "sec", "rk-attempt", TimeSpan.Zero, TimeSpan.FromMinutes(10), null, null, true, 0d, false),
+            [CachePolicyId.SecurityRecoveryKeySession] = new(CachePolicyId.SecurityRecoveryKeySession, "sec", "rk-session", TimeSpan.Zero, TimeSpan.FromMinutes(10), null, null, true, 0d, false),
             [CachePolicyId.HumanReadProof] = new(CachePolicyId.HumanReadProof, "sec", "human-read-proof", TimeSpan.Zero, TimeSpan.FromDays(1), null, null, true, 0d, false),
             [CachePolicyId.SecurityPowProof] = new(CachePolicyId.SecurityPowProof, "sec", "pow-proof", TimeSpan.Zero, TimeSpan.FromMinutes(5), null, null, true, 0d, false),
             [CachePolicyId.ArticleListFrame] = new(CachePolicyId.ArticleListFrame, "blog", "article-list-frame", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.ArticleList, CacheTag.Category], false, 0.10d, false),

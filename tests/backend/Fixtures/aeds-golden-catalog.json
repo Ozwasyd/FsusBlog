@@ -165,6 +165,10 @@
     { "name": "PowPolicySnapshot", "value": 156, "family": "security-response" },
     { "name": "SiteSubscriptionRequest", "value": 157, "family": "subscription-request" },
     { "name": "SiteSubscriptionResponse", "value": 158, "family": "subscription-response" },
+    { "name": "RecoveryKeyCreateResponse", "value": 159, "family": "recovery-key-response" },
+    { "name": "RecoveryKeyVerifyRequest", "value": 160, "family": "recovery-key-request" },
+    { "name": "RecoveryKeyVerifyResponse", "value": 161, "family": "recovery-key-response" },
+    { "name": "RecoveryKeySessionRequest", "value": 162, "family": "recovery-key-request" },
     { "name": "EmptySuccess", "value": 240, "family": "common-response" },
     { "name": "MutationId", "value": 241, "family": "common-response" },
     { "name": "ApiError", "value": 251, "family": "error-response" }

@@ -183,6 +183,10 @@ public enum AedsFrameType : ushort
     PowPolicySnapshot = 156,
     SiteSubscriptionRequest = 157,
     SiteSubscriptionResponse = 158,
+    RecoveryKeyCreateResponse = 159,
+    RecoveryKeyVerifyRequest = 160,
+    RecoveryKeyVerifyResponse = 161,
+    RecoveryKeySessionRequest = 162,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

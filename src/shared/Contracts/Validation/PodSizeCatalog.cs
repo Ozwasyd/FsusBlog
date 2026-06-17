@@ -91,6 +91,9 @@ public static class PodSizeCatalog
     public static readonly int MfaChallengeResultPod = PodContractValidation.SizeOf<MfaChallengeResultPod>();
     public static readonly int MfaPasswordProofRequestPod = PodContractValidation.SizeOf<MfaPasswordProofRequestPod>();
     public static readonly int MfaChallengeVerifyRequestPod = PodContractValidation.SizeOf<MfaChallengeVerifyRequestPod>();
+    public static readonly int RecoveryKeyCreateResponsePod = PodContractValidation.SizeOf<RecoveryKeyCreateResponsePod>();
+    public static readonly int RecoveryKeyVerifyRequestPod = PodContractValidation.SizeOf<RecoveryKeyVerifyRequestPod>();
+    public static readonly int RecoveryKeyVerifyResponsePod = PodContractValidation.SizeOf<RecoveryKeyVerifyResponsePod>();
     public static readonly int UserListItemPod = PodContractValidation.SizeOf<UserListItemPod>();
     public static readonly int UserListPagePod = PodContractValidation.SizeOf<UserListPagePod>();
     public static readonly int AdminChangeUserStatusRequestPod = PodContractValidation.SizeOf<AdminChangeUserStatusRequestPod>();

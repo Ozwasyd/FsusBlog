@@ -92,6 +92,12 @@ public readonly record struct MfaPasswordProofRequestCoreModel(string Password, 
 
 public readonly record struct MfaChallengeVerifyRequestCoreModel(string ChallengeToken, string? Action, string? Code, string? RecoveryCode);
 
+public readonly record struct RecoveryKeyCreateResponseCoreModel(string RecoveryKey, int KeyVersion, DateTime CreatedAt);
+
+public readonly record struct RecoveryKeyVerifyRequestCoreModel(int UserId, string RecoveryKey, bool RevokeSessions, bool RevokePasskeys);
+
+public readonly record struct RecoveryKeyVerifyResponseCoreModel(int UserId, string RecoverySessionToken, DateTime ExpiresAt);
+
 public readonly record struct ConversationCreateRequestCoreModel(string Subject, string Body);
 
 public readonly record struct SystemMessageRequestCoreModel(long? TargetUserId, string Subject, string Body);

@@ -116,6 +116,8 @@ Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再
 
 **Anonymous identity mode**：设置 `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` 后，`sys_user` 只作为匿名账号容器使用，`public_handle` 与 `identity_kind=anonymous_account` 是展示/身份语义；`username/password` 仅为 legacy 兼容列且允许为空。该模式禁用旧密码注册、密码登录、改密、自助删号中的密码证明和管理员重置密码；TOTP 保留为可选 step-up，但旧 password proof 不再参与 TOTP rebind/disable/recovery-code regeneration。JWT 签发会把匿名账号的 `role=admin` 降级为 `authenticated`，因此 `sys_user.role=admin` 不再授予后端 admin authority；独立 admin principal 由后续 bootstrap/Passkey 流程提供。
 
+**Recovery Key**：匿名账号的账户恢复使用独立 `account_recovery_key` 表，不复用 `sys_user.MfaRecoveryCodesHash` 或 TOTP recovery-code 语义。Create/rotate 只在 AEDS `RecoveryKeyCreateResponse` 中返回一次明文，服务端保存带 `RecoveryKeyPepper` 的 HMAC + PBKDF2-SHA256 哈希、key version 和 created/used/revoked timestamps。`/api/binary/auth/recovery-key/verify` 是匿名、`fixed_ip` 限流、PoW 和 no-store 端点；验证成功后 Recovery Key 立即标记 used，返回短期 recovery session token，用于 `/auth/recovery-key/passkey/register/begin|complete` 绑定新 Passkey。请求可选择撤销现有 sessions，并在新 Passkey 绑定成功后撤销旧 passkey credentials；不提供 email/phone fallback。
+
 ---
 
 ## 多因素认证（MFA / TOTP）
@@ -127,6 +129,7 @@ Refresh Token 只以哈希形式保存在 `sys_user_session`；`sys_user` 不再
 - MFA challenge：`/api/binary/auth/mfa/challenge` 受 `fixed_ip` 限流保护，并对 ticket、user、IP 三个维度记录失败次数；达到阈值后消费 challenge，所有失败返回通用错误
 - MFA proof、PoW replay proof 等安全一次性 token 通过 `IUnifiedCache.ConsumeOnceAsync` 消费。该 primitive 必须先失效进程内 L1 cache，再执行 Redis `Condition.KeyExists + KeyDelete` transaction；调用方取消时不得继续创建 Redis transaction 或执行 registry unregister，避免 L2 已删除但 L1 仍可重放的进程内窗口。
 - 恢复码：启用 MFA 时生成一批 128-bit 分组恢复码，服务端保存 per-code salt + PBKDF2-SHA256 慢哈希；恢复码单次使用，耗尽后可通过 `/mfa/recovery/regenerate` 重新生成
+- MFA 恢复码不是账户 Recovery Key，不允许用于匿名账号恢复或 Passkey 重绑；匿名恢复只能走 Recovery Key + recovery session token。
 - 管理员兜底不暴露旧文本 MFA reset 端点；账户恢复必须走受控安全流程和已登记的 `/api/binary/**` 管理端能力。
 - Passkey 免 MFA：使用 Passkey 登录的用户视为已完成双因素，直接跳过 MFA 挑战
 

@@ -375,6 +375,105 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    public static void WriteRecoveryKeyCreateResponse(RecoveryKeyCreateResponseCoreModel response, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(128);
+        var mutable = new MutableRecoveryKeyCreateResponsePod
+        {
+            KeyVersion = response.KeyVersion,
+            Reserved0 = 0,
+            CreatedAtUnixMs = PodTimeCodec.ToUnixMs(response.CreatedAt),
+            RecoveryKey = PodUtf8Codec.AppendSlice(response.RecoveryKey, payload)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableRecoveryKeyCreateResponsePod, RecoveryKeyCreateResponsePod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    public static bool TryDecodeRecoveryKeyCreateResponse(ReadOnlyMemory<byte> source, out RecoveryKeyCreateResponseCoreModel response)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out RecoveryKeyCreateResponsePod pod) || pod.KeyVersion <= 0 || !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            response = default;
+            return false;
+        }
+
+        response = new RecoveryKeyCreateResponseCoreModel(
+            PodProjector.ReadSlice(pod.RecoveryKey, payload),
+            pod.KeyVersion,
+            PodTimeCodec.FromUnixMs(pod.CreatedAtUnixMs));
+        return reader.IsConsumed;
+    }
+
+    public static void WriteRecoveryKeyVerifyRequest(RecoveryKeyVerifyRequestCoreModel request, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(128);
+        var mutable = new MutableRecoveryKeyVerifyRequestPod
+        {
+            UserId = request.UserId,
+            RevokeSessions = request.RevokeSessions ? (byte)1 : (byte)0,
+            RevokePasskeys = request.RevokePasskeys ? (byte)1 : (byte)0,
+            Reserved0 = 0,
+            RecoveryKey = PodUtf8Codec.AppendSlice(request.RecoveryKey, payload)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableRecoveryKeyVerifyRequestPod, RecoveryKeyVerifyRequestPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    public static bool TryDecodeRecoveryKeyVerifyRequest(ReadOnlyMemory<byte> source, out RecoveryKeyVerifyRequestCoreModel request)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out RecoveryKeyVerifyRequestPod pod) ||
+            pod.RevokeSessions > 1 ||
+            pod.RevokePasskeys > 1 ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            request = default;
+            return false;
+        }
+
+        request = new RecoveryKeyVerifyRequestCoreModel(
+            pod.UserId,
+            PodProjector.ReadSlice(pod.RecoveryKey, payload),
+            pod.RevokeSessions == 1,
+            pod.RevokePasskeys == 1);
+        return reader.IsConsumed;
+    }
+
+    public static void WriteRecoveryKeyVerifyResponse(RecoveryKeyVerifyResponseCoreModel response, IBufferWriter<byte> destination)
+    {
+        var mutable = new MutableRecoveryKeyVerifyResponsePod
+        {
+            UserId = response.UserId,
+            Reserved0 = 0,
+            ExpiresAtUnixMs = PodTimeCodec.ToUnixMs(response.ExpiresAt),
+            RecoverySessionToken = PodUtf8Codec.ToFixed128(response.RecoverySessionToken)
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableRecoveryKeyVerifyResponsePod, RecoveryKeyVerifyResponsePod>(mutable));
+    }
+
+    public static bool TryDecodeRecoveryKeyVerifyResponse(ReadOnlyMemory<byte> source, out RecoveryKeyVerifyResponseCoreModel response)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out RecoveryKeyVerifyResponsePod pod) || pod.UserId <= 0)
+        {
+            response = default;
+            return false;
+        }
+
+        response = new RecoveryKeyVerifyResponseCoreModel(
+            pod.UserId,
+            PodUtf8Codec.FromFixed128(pod.RecoverySessionToken),
+            PodTimeCodec.FromUnixMs(pod.ExpiresAtUnixMs));
+        return reader.IsConsumed;
+    }
+
     public static void WriteAuthLoginRequest(AuthLoginRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(256);
@@ -766,6 +865,34 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Action;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Code;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RecoveryCode;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableRecoveryKeyCreateResponsePod
+    {
+        public int KeyVersion;
+        public int Reserved0;
+        public long CreatedAtUnixMs;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RecoveryKey;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableRecoveryKeyVerifyRequestPod
+    {
+        public int UserId;
+        public byte RevokeSessions;
+        public byte RevokePasskeys;
+        public ushort Reserved0;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RecoveryKey;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableRecoveryKeyVerifyResponsePod
+    {
+        public int UserId;
+        public int Reserved0;
+        public long ExpiresAtUnixMs;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed128 RecoverySessionToken;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

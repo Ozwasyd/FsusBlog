@@ -563,6 +563,34 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
+    public void RecoveryKeyPods_RoundTrip_PreserveFields()
+    {
+        var createdAt = new DateTime(2026, 6, 16, 12, 30, 45, 123, DateTimeKind.Utc);
+        var create = new RecoveryKeyCreateResponseCoreModel("frk_test-recovery-key", 3, createdAt);
+        byte[] createEncoded = EncodeWithWriter(writer => PodBinaryCodec.WriteRecoveryKeyCreateResponse(create, writer));
+        Assert.True(PodBinaryCodec.TryDecodeRecoveryKeyCreateResponse(createEncoded, out var createDecoded));
+        Assert.Equal("frk_test-recovery-key", createDecoded.RecoveryKey);
+        Assert.Equal(3, createDecoded.KeyVersion);
+        Assert.Equal(createdAt, createDecoded.CreatedAt);
+
+        var request = new RecoveryKeyVerifyRequestCoreModel(42, "frk_test-recovery-key", RevokeSessions: true, RevokePasskeys: true);
+        byte[] requestEncoded = EncodeWithWriter(writer => PodBinaryCodec.WriteRecoveryKeyVerifyRequest(request, writer));
+        Assert.True(PodBinaryCodec.TryDecodeRecoveryKeyVerifyRequest(requestEncoded, out var requestDecoded));
+        Assert.Equal(42, requestDecoded.UserId);
+        Assert.Equal("frk_test-recovery-key", requestDecoded.RecoveryKey);
+        Assert.True(requestDecoded.RevokeSessions);
+        Assert.True(requestDecoded.RevokePasskeys);
+
+        var expiresAt = createdAt.AddMinutes(10);
+        var response = new RecoveryKeyVerifyResponseCoreModel(42, "recovery-session-token", expiresAt);
+        byte[] responseEncoded = EncodeWithWriter(writer => PodBinaryCodec.WriteRecoveryKeyVerifyResponse(response, writer));
+        Assert.True(PodBinaryCodec.TryDecodeRecoveryKeyVerifyResponse(responseEncoded, out var responseDecoded));
+        Assert.Equal(42, responseDecoded.UserId);
+        Assert.Equal("recovery-session-token", responseDecoded.RecoverySessionToken);
+        Assert.Equal(expiresAt, responseDecoded.ExpiresAt);
+    }
+
+    [Fact]
     public void PasskeyRegisterBegin_RoundTrip_PreservesOptions()
     {
         var value = new PasskeyRegisterBeginCoreModel

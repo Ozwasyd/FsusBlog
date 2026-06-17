@@ -30,15 +30,17 @@ public interface IUserAuthService
         string issuer,
         string? password = null,
         string? code = null,
-        string? recoveryCode = null);
+        string? recoveryCode = null,
+        bool stepUpVerified = false);
     Task<MfaProfileDto?> GetMfaProfileAsync(int userId);
     Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> VerifyMfaSetupAsync(int userId, string code);
-    Task<(bool Success, string Message)> DisableMfaAsync(int userId, string password, string? code, string? recoveryCode);
+    Task<(bool Success, string Message)> DisableMfaAsync(int userId, string password, string? code, string? recoveryCode, bool stepUpVerified = false);
     Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> RegenerateMfaRecoveryCodesAsync(
         int userId,
         string password,
         string? code,
-        string? recoveryCode);
+        string? recoveryCode,
+        bool stepUpVerified = false);
     Task<bool> VerifyMfaOrRecoveryCodeAsync(User user, string? code, string? recoveryCode, bool persistRecoveryConsumption);
     Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent);
     Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId);
