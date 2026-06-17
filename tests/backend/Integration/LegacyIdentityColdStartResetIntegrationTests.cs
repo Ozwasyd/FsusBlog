@@ -135,11 +135,19 @@ public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaM
 
             INSERT INTO comment(
                 id, article_id, content, create_time, user_id, parent_id, root_id,
-                reply_to_user_id, reply_to_comment_id, depth, is_deleted, moderation_status
+                reply_to_user_id, reply_to_comment_id, depth, is_deleted, moderation_status,
+                author_mode, public_handle, anonymous_display_name, anonymous_display_language,
+                moderation_subject_hash, credential_level, reputation_bucket, account_age_bucket
             )
             VALUES
-                (1001, 9, 'legacy root', TIMESTAMP '2024-01-02 00:00:00', 42, NULL, NULL, NULL, NULL, 0, false, 1),
-                (1002, 9, 'legacy reply', TIMESTAMP '2024-01-02 00:01:00', 42, 1001, 1001, 42, 1001, 1, false, 1);
+                (
+                    1001, 9, 'legacy root', TIMESTAMP '2024-01-02 00:00:00', 42, NULL, NULL, NULL, NULL, 0, false, 1,
+                    'public', 'legacy-admin', 'legacy admin', 'en', 'legacy-subject-root', 'basic', 'legacy', 'known'
+                ),
+                (
+                    1002, 9, 'legacy reply', TIMESTAMP '2024-01-02 00:01:00', 42, 1001, 1001, 42, 1001, 1, false, 1,
+                    'public', 'legacy-admin', 'legacy admin', 'en', 'legacy-subject-reply', 'basic', 'legacy', 'known'
+                );
 
             INSERT INTO comment_region_compliance(
                 id, comment_id, submit_region, submit_region_confidence, region_provider,
