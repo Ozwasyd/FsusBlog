@@ -5,6 +5,7 @@ import {
   type AccountArea,
   type AccountAreaMeta,
 } from '@/layouts/accountNav'
+import { useAdminStore } from '@/store/admin'
 import { useSiteStore } from '@/store/site'
 import { useUserStore } from '@/store/user'
 
@@ -33,50 +34,29 @@ export interface AccountWorkspaceContext {
   logout: () => Promise<void>
 }
 
-const SELF_PERMISSIONS: readonly string[] = Object.freeze([])
-const LEGACY_MANAGE_PERMISSIONS: readonly string[] = Object.freeze([
-  'legacy.admin',
-  'article.write',
-  'article.publish',
-  'comment.moderate',
-  'anonymous.comment.configure',
-  'anonymous.nullifier.block',
-  'anonymous.credential.revoke',
-  'audit.read',
-  'system.config',
-  'admin.manage'
-])
-
-const DEFAULT_WORKSPACE_FEATURES: AccountWorkspaceFeatures = Object.freeze({
-  anonymousCommentsEnabled: true,
-  zkAnonymousEnabled: false,
-  publicSendOptionEnabled: true
-})
-
-const DEFAULT_WORKSPACE_POLICIES: AccountWorkspacePolicies = Object.freeze({
-  anonymousCommentGovernanceAvailable: true,
-  zkAnonymousConfigurable: true
-})
-
 export function useAccountWorkspaceContext(): ComputedRef<AccountWorkspaceContext> {
   const route = useRoute()
   const siteStore = useSiteStore()
   const userStore = useUserStore()
-
-  const logout = async (): Promise<void> => {
-    await userStore.logout()
-  }
+  const adminStore = useAdminStore()
 
   return computed(() => {
     const surface: AccountWorkspaceSurface = route.meta.accountArea === 'manage' ? 'manage' : 'self'
-    const canManage = userStore.isAdmin
+    const logout = surface === 'manage' ? adminStore.logout : userStore.logout
 
     return {
       surface,
-      canManage,
-      permissions: canManage ? LEGACY_MANAGE_PERMISSIONS : SELF_PERMISSIONS,
-      features: DEFAULT_WORKSPACE_FEATURES,
-      policies: DEFAULT_WORKSPACE_POLICIES,
+      canManage: adminStore.canManage,
+      permissions: adminStore.permissions,
+      features: {
+        anonymousCommentsEnabled: adminStore.anonymousCommentsEnabled,
+        zkAnonymousEnabled: adminStore.zkAnonymousEnabled,
+        publicSendOptionEnabled: adminStore.publicSendOptionEnabled
+      },
+      policies: {
+        anonymousCommentGovernanceAvailable: adminStore.anonymousCommentGovernanceAvailable,
+        zkAnonymousConfigurable: adminStore.zkAnonymousConfigurable
+      },
       areaMeta: accountAreaMeta[surface as AccountArea],
       brandTitle: siteStore.siteInfo.title,
       brandImageUrl: resolveBrandImageUrl(siteStore.siteInfo),

@@ -4,6 +4,7 @@ import {
   createWebHistory,
   type Router,
   type RouterHistory,
+  type RouteLocationNormalized,
   type RouteRecordRaw
 } from 'vue-router'
 import { resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
@@ -12,6 +13,7 @@ import { hasServerAotShell } from '@/bootstrap/publicShellPrimitives'
 import { isPublicSeoRouteName } from '@/public-renderers/publicPageModel'
 import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
 import { PUBLIC_BLOG_CHILD_ROUTES } from '@/public-renderers/publicRouteRegistry'
+import { useAdminStore } from '@/store/admin'
 
 type ProgressModule = typeof import('nprogress')
 const PROGRESS_DELAY_MS = 120
@@ -72,6 +74,17 @@ function finishProgressNavigation(): void {
   }
 }
 
+const manageMeta = (
+  title: string,
+  permissions: readonly string[],
+  accountContentMode: 'wide' | 'takeover' = 'wide'
+) => ({
+  title,
+  accountArea: 'manage' as const,
+  accountContentMode,
+  permissions
+})
+
 export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
   // --- 前台公共路由 ---
   {
@@ -109,57 +122,57 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
       { path: 'identity/sessions', name: 'UserIdentitySessions', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '设备会话', accountArea: 'self', accountContentMode: 'standard' } },
       { path: 'identity/mfa', name: 'UserIdentityMfa', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '二次验证', accountArea: 'self', accountContentMode: 'standard' } },
       { path: 'identity/comment-records', name: 'UserIdentityCommentRecords', component: () => import('@/views/user/IdentityCenter.vue'), meta: { title: '评论记录', accountArea: 'self', accountContentMode: 'standard' } },
-      { path: 'manage', name: 'ManageDashboard', component: () => import('@/views/admin/Dashboard.vue'), meta: { title: '仪表盘', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/article/write', name: 'ManageWriteArticle', component: () => import('@/views/admin/article/Write.vue'), meta: { title: '写文章', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/article/edit/:id', name: 'ManageEditArticle', component: () => import('@/views/admin/article/Write.vue'), meta: { title: '编辑文章', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/article/list', name: 'ManageArticleList', component: () => import('@/views/admin/article/List.vue'), meta: { title: '文章管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/article/trash', name: 'ManageArticleTrash', component: () => import('@/views/admin/article/Trash.vue'), meta: { title: '回收站', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
+      { path: 'manage', name: 'ManageDashboard', component: () => import('@/views/admin/Dashboard.vue'), meta: manageMeta('仪表盘', ['admin.manage']) },
+      { path: 'manage/article/write', name: 'ManageWriteArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta('写文章', ['article.write']) },
+      { path: 'manage/article/edit/:id', name: 'ManageEditArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta('编辑文章', ['article.write']) },
+      { path: 'manage/article/list', name: 'ManageArticleList', component: () => import('@/views/admin/article/List.vue'), meta: manageMeta('文章管理', ['article.write']) },
+      { path: 'manage/article/trash', name: 'ManageArticleTrash', component: () => import('@/views/admin/article/Trash.vue'), meta: manageMeta('回收站', ['article.write']) },
       {
         path: 'manage/security',
         name: 'ManageSecuritySystem',
         component: () => import('@/views/admin/security/SecurityLayout.vue'),
-        meta: { title: '安全系统', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' },
+        meta: manageMeta('安全系统', ['system.config']),
         children: [
-          { path: '', name: 'ManageSecurityDashboard', component: () => import('@/views/admin/security/SecurityDashboard.vue'), meta: { title: '安全系统', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'crawler', name: 'ManageSecurityCrawler', component: () => import('@/views/admin/security/SecurityCrawler.vue'), meta: { title: '反爬虫系统', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'pow', name: 'ManageSecurityPow', component: () => import('@/views/admin/security/SecurityPow.vue'), meta: { title: 'PoW 系统', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } }
+          { path: '', name: 'ManageSecurityDashboard', component: () => import('@/views/admin/security/SecurityDashboard.vue'), meta: manageMeta('安全系统', ['system.config']) },
+          { path: 'crawler', name: 'ManageSecurityCrawler', component: () => import('@/views/admin/security/SecurityCrawler.vue'), meta: manageMeta('反爬虫系统', ['system.config']) },
+          { path: 'pow', name: 'ManageSecurityPow', component: () => import('@/views/admin/security/SecurityPow.vue'), meta: manageMeta('PoW 系统', ['system.config']) }
         ]
       },
       {
         path: 'manage/moderation',
         name: 'ManageModerationSystem',
         component: () => import('@/views/admin/moderation/ModerationLayout.vue'),
-        meta: { title: '审核系统', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' },
+        meta: manageMeta('审核系统', ['comment.moderate']),
         children: [
-          { path: '', name: 'ManageModerationDashboard', component: () => import('@/views/admin/moderation/ModerationDashboard.vue'), meta: { title: '审核系统', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'comments', name: 'ManageModerationComments', component: () => import('@/views/admin/moderation/ModerationComments.vue'), meta: { title: '评论审核', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'dictionaries', name: 'ManageModerationDictionaries', component: () => import('@/views/admin/moderation/ModerationDictionaries.vue'), meta: { title: '词库管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'anonymous-policy', name: 'ManageAnonymousCommentPolicy', component: () => import('@/views/admin/moderation/AnonymousGovernancePlaceholder.vue'), meta: { title: '匿名评论策略', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'anonymous-risk', name: 'ManageAnonymousRisk', component: () => import('@/views/admin/moderation/AnonymousGovernancePlaceholder.vue'), meta: { title: '匿名风险', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'anonymous-credentials', name: 'ManageAnonymousCredentials', component: () => import('@/views/admin/moderation/AnonymousGovernancePlaceholder.vue'), meta: { title: '匿名凭证', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'nullifiers', name: 'ManageAnonymousNullifiers', component: () => import('@/views/admin/moderation/AnonymousGovernancePlaceholder.vue'), meta: { title: 'Nullifier 治理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'zk-anonymous', name: 'ManageZkAnonymousStatus', component: () => import('@/views/admin/moderation/AnonymousGovernancePlaceholder.vue'), meta: { title: 'ZK 匿名状态', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'policies', name: 'ManageModerationPolicies', component: () => import('@/views/admin/moderation/ModerationPolicies.vue'), meta: { title: '地区策略', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'regions', name: 'ManageModerationRegions', component: () => import('@/views/admin/moderation/ModerationRegions.vue'), meta: { title: '地区管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'region-groups', name: 'ManageModerationRegionGroups', component: () => import('@/views/admin/moderation/ModerationRegionGroups.vue'), meta: { title: '大区管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'policy-templates', name: 'ManageModerationPolicyTemplates', component: () => import('@/views/admin/moderation/ModerationPolicyTemplates.vue'), meta: { title: '策略模板', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'replay', name: 'ManageModerationReplay', component: () => import('@/views/admin/moderation/ModerationReplay.vue'), meta: { title: '策略回放', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'model', name: 'ManageModerationModel', component: () => import('@/views/admin/moderation/ModerationModel.vue'), meta: { title: '审核模型', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-          { path: 'audit', name: 'ManageModerationAudit', component: () => import('@/views/admin/moderation/ModerationAudit.vue'), meta: { title: '审核审计', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } }
+          { path: '', name: 'ManageModerationDashboard', component: () => import('@/views/admin/moderation/ModerationDashboard.vue'), meta: manageMeta('审核系统', ['comment.moderate']) },
+          { path: 'comments', name: 'ManageModerationComments', component: () => import('@/views/admin/moderation/ModerationComments.vue'), meta: manageMeta('评论审核', ['comment.moderate']) },
+          { path: 'dictionaries', name: 'ManageModerationDictionaries', component: () => import('@/views/admin/moderation/ModerationDictionaries.vue'), meta: manageMeta('词库管理', ['comment.moderate']) },
+          { path: 'anonymous-policy', name: 'ManageAnonymousCommentPolicy', component: () => import('@/views/admin/moderation/AnonymousGovernancePlaceholder.vue'), meta: manageMeta('匿名评论策略', ['anonymous.comment.configure']) },
+          { path: 'anonymous-risk', name: 'ManageAnonymousRisk', component: () => import('@/views/admin/moderation/AnonymousGovernancePlaceholder.vue'), meta: manageMeta('匿名风险', ['comment.moderate']) },
+          { path: 'anonymous-credentials', name: 'ManageAnonymousCredentials', component: () => import('@/views/admin/moderation/AnonymousGovernancePlaceholder.vue'), meta: manageMeta('匿名凭证', ['anonymous.credential.revoke']) },
+          { path: 'nullifiers', name: 'ManageAnonymousNullifiers', component: () => import('@/views/admin/moderation/AnonymousGovernancePlaceholder.vue'), meta: manageMeta('Nullifier 治理', ['anonymous.nullifier.block']) },
+          { path: 'zk-anonymous', name: 'ManageZkAnonymousStatus', component: () => import('@/views/admin/moderation/AnonymousGovernancePlaceholder.vue'), meta: manageMeta('ZK 匿名状态', ['anonymous.comment.configure']) },
+          { path: 'policies', name: 'ManageModerationPolicies', component: () => import('@/views/admin/moderation/ModerationPolicies.vue'), meta: manageMeta('地区策略', ['comment.moderate']) },
+          { path: 'regions', name: 'ManageModerationRegions', component: () => import('@/views/admin/moderation/ModerationRegions.vue'), meta: manageMeta('地区管理', ['comment.moderate']) },
+          { path: 'region-groups', name: 'ManageModerationRegionGroups', component: () => import('@/views/admin/moderation/ModerationRegionGroups.vue'), meta: manageMeta('大区管理', ['comment.moderate']) },
+          { path: 'policy-templates', name: 'ManageModerationPolicyTemplates', component: () => import('@/views/admin/moderation/ModerationPolicyTemplates.vue'), meta: manageMeta('策略模板', ['comment.moderate']) },
+          { path: 'replay', name: 'ManageModerationReplay', component: () => import('@/views/admin/moderation/ModerationReplay.vue'), meta: manageMeta('策略回放', ['comment.moderate']) },
+          { path: 'model', name: 'ManageModerationModel', component: () => import('@/views/admin/moderation/ModerationModel.vue'), meta: manageMeta('审核模型', ['comment.moderate']) },
+          { path: 'audit', name: 'ManageModerationAudit', component: () => import('@/views/admin/moderation/ModerationAudit.vue'), meta: manageMeta('审核审计', ['comment.moderate']) }
         ]
       },
-      { path: 'manage/comments', name: 'ManageCommentModeration', redirect: { name: 'ManageModerationComments' }, meta: { title: '评论审核', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/messages', name: 'ManageMessages', component: () => import('@/views/admin/MessageCenter.vue'), meta: { title: '站内信中心', roles: ['admin'], accountArea: 'manage', accountContentMode: 'takeover' } },
-      { path: 'manage/category', name: 'ManageCategory', component: () => import('@/views/admin/Category.vue'), meta: { title: '分类管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/tag', name: 'ManageTag', component: () => import('@/views/admin/Tag.vue'), meta: { title: '标签管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/assets', name: 'ManageAssets', component: () => import('@/views/admin/Assets.vue'), meta: { title: '资产库', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/content-tools', name: 'ManageContentTools', component: () => import('@/views/admin/ContentTools.vue'), meta: { title: '备份与迁移', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/audit', name: 'ManageAuditLog', component: () => import('@/views/admin/AuditLog.vue'), meta: { title: '审计日志', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/ops', name: 'ManageOpsHealth', component: () => import('@/views/admin/OpsHealth.vue'), meta: { title: '运维健康', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/cache', name: 'ManageCacheDiagnostics', component: () => import('@/views/admin/CacheDiagnostics.vue'), meta: { title: '缓存诊断', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/integrity', name: 'ManageIntegrity', component: () => import('@/views/admin/Integrity.vue'), meta: { title: '数据巡检', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/settings', name: 'ManageSettings', component: () => import('@/views/admin/Settings.vue'), meta: { title: '系统设置', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } },
-      { path: 'manage/users', name: 'ManageUsers', component: () => import('@/views/admin/UserManage.vue'), meta: { title: '用户管理', roles: ['admin'], accountArea: 'manage', accountContentMode: 'wide' } }
+      { path: 'manage/comments', name: 'ManageCommentModeration', redirect: { name: 'ManageModerationComments' }, meta: manageMeta('评论审核', ['comment.moderate']) },
+      { path: 'manage/messages', name: 'ManageMessages', component: () => import('@/views/admin/MessageCenter.vue'), meta: manageMeta('站内信中心', ['admin.manage'], 'takeover') },
+      { path: 'manage/category', name: 'ManageCategory', component: () => import('@/views/admin/Category.vue'), meta: manageMeta('分类管理', ['article.write']) },
+      { path: 'manage/tag', name: 'ManageTag', component: () => import('@/views/admin/Tag.vue'), meta: manageMeta('标签管理', ['article.write']) },
+      { path: 'manage/assets', name: 'ManageAssets', component: () => import('@/views/admin/Assets.vue'), meta: manageMeta('资产库', ['article.write']) },
+      { path: 'manage/content-tools', name: 'ManageContentTools', component: () => import('@/views/admin/ContentTools.vue'), meta: manageMeta('备份与迁移', ['system.config']) },
+      { path: 'manage/audit', name: 'ManageAuditLog', component: () => import('@/views/admin/AuditLog.vue'), meta: manageMeta('审计日志', ['audit.read']) },
+      { path: 'manage/ops', name: 'ManageOpsHealth', component: () => import('@/views/admin/OpsHealth.vue'), meta: manageMeta('运维健康', ['system.config']) },
+      { path: 'manage/cache', name: 'ManageCacheDiagnostics', component: () => import('@/views/admin/CacheDiagnostics.vue'), meta: manageMeta('缓存诊断', ['system.config']) },
+      { path: 'manage/integrity', name: 'ManageIntegrity', component: () => import('@/views/admin/Integrity.vue'), meta: manageMeta('数据巡检', ['system.config']) },
+      { path: 'manage/settings', name: 'ManageSettings', component: () => import('@/views/admin/Settings.vue'), meta: manageMeta('系统设置', ['system.config']) },
+      { path: 'manage/users', name: 'ManageUsers', component: () => import('@/views/admin/UserManage.vue'), meta: manageMeta('用户管理', ['admin.manage']) }
     ]
   },
   // --- 错误页 ---
@@ -172,10 +185,24 @@ type RouterFactoryOptions = Readonly<{
   ssr?: boolean
 }>
 
+function isManageAccountRoute(route: RouteLocationNormalized): boolean {
+  return route.path.startsWith('/user/manage')
+    || route.matched.some((record) => record.meta.accountArea === 'manage')
+}
+
+function readRouteRequiredPermissions(route: RouteLocationNormalized): string[] {
+  const value = route.meta.permissions
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : []
+}
+
 function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): void {
   router.beforeEach(async (to) => {
     const sessionBootstrap = useSessionBootstrap()
     const { userStore, siteStore } = sessionBootstrap
+    const adminStore = useAdminStore()
+    const manageRoute = isManageAccountRoute(to)
     const appRoot = typeof document !== 'undefined' ? document.getElementById('app') : null
     const shouldDeferPublicBootstrap =
       !options.ssr
@@ -194,36 +221,40 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       sessionBootstrap.syncDocumentTitle(to)
     }
 
-    if (!options.ssr && (to.path.startsWith('/user/manage') || Boolean(to.meta.roles))) {
-      await userStore.ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })
+    if (!options.ssr && (manageRoute || Boolean(to.meta.roles))) {
+      await sessionBootstrap.ensureUserInfoFresh({ maxAgeMs: 30_000, forceWhenUnknown: true })
     }
 
-    const { isLoggedIn, isAdmin, userInfo } = userStore
+    const { isLoggedIn, userInfo } = userStore
     const userRole = userInfo?.role || ''
 
     if (to.meta.guestOnly && isLoggedIn) {
-      return isAdmin ? '/user/manage' : ACCOUNT_ROUTE_PATHS.profile
+      return adminStore.canManage ? '/user/manage' : ACCOUNT_ROUTE_PATHS.profile
     }
 
     if (to.meta.requiresAuth) {
-      if (!isLoggedIn) {
+      if (!isLoggedIn && !adminStore.canManage) {
         return { path: '/login', query: { redirect: to.fullPath } }
       }
 
-      if (to.meta.roles) {
+      if (manageRoute) {
+        const requiredPermissions = readRouteRequiredPermissions(to)
+        const canAccessManageRoute = adminStore.canManage
+          && requiredPermissions.every((permission) => adminStore.hasPermission(permission))
+        if (!canAccessManageRoute) {
+          return '/403'
+        }
+      } else if (to.meta.roles) {
         const allowedRoles = to.meta.roles as string[]
 
         if (!allowedRoles.includes(userRole)) {
-          if (userRole === 'guest' && to.path.startsWith('/user/manage')) {
-            return ACCOUNT_ROUTE_PATHS.profile
-          }
           return '/403'
         }
       }
     }
 
     if (to.path === '/user') {
-      return isAdmin ? '/user/manage' : ACCOUNT_ROUTE_PATHS.profile
+      return adminStore.canManage ? '/user/manage' : ACCOUNT_ROUTE_PATHS.profile
     }
 
     return true

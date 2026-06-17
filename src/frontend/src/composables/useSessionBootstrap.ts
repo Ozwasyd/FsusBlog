@@ -1,11 +1,13 @@
 import { computed } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { useAppShellStore } from '@/store/appShell'
+import { useAdminStore } from '@/store/admin'
 import { useSiteStore } from '@/store/site'
 import { useUserStore } from '@/store/user'
 
 export function useSessionBootstrap() {
   const appShellStore = useAppShellStore()
+  const adminStore = useAdminStore()
   const siteStore = useSiteStore()
   const userStore = useUserStore()
 
@@ -25,11 +27,13 @@ export function useSessionBootstrap() {
 
   const ensureUserInfo = async (force = false): Promise<void> => {
     await userStore.fetchUserInfo(force)
+    await adminStore.ensureAdminSessionFresh(userStore.userInfo)
     appShellStore.syncAuthPhase()
   }
 
   const ensureUserInfoFresh = async (options?: { maxAgeMs?: number; forceWhenUnknown?: boolean }): Promise<void> => {
     await userStore.ensureUserInfoFresh(options)
+    await adminStore.ensureAdminSessionFresh(userStore.userInfo)
     appShellStore.syncAuthPhase()
   }
 
@@ -49,6 +53,7 @@ export function useSessionBootstrap() {
 
   return {
     appShellStore,
+    adminStore,
     siteStore,
     userStore,
     baseTitle,

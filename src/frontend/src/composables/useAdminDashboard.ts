@@ -21,7 +21,7 @@ const readCssToken = (tokenName: string, fallback: string): string => {
 export function useAdminDashboard() {
   const { loading, beginLoading, endLoading } = usePagedListState()
   const statsTask = useAbortableTask()
-  const { userStore, appShellStore, ensureUserInfo, syncAuthPhase } = useSessionBootstrap()
+  const { userStore, adminStore, ensureUserInfo, syncAuthPhase } = useSessionBootstrap()
 
   const regionChartRef = ref<HTMLElement>()
   const createEmptyDashboardView = (): AdminDashboardViewContract => ({
@@ -229,7 +229,7 @@ export function useAdminDashboard() {
       syncAuthPhase()
     }
 
-    if (!userStore.isLoggedIn || !userStore.isAdmin || appShellStore.authPhase !== 'authenticated') {
+    if (!adminStore.canManage) {
       hasFetched = false
       resetDashboardState()
       endLoading()
@@ -300,9 +300,9 @@ export function useAdminDashboard() {
   }
 
   watch(
-    () => [userStore.isAuthChecked, userStore.isLoggedIn, userStore.isAdmin, appShellStore.authPhase] as const,
-    ([isAuthChecked, isLoggedIn, isAdmin, authPhase]) => {
-      if (!isAuthChecked || !isLoggedIn || !isAdmin || authPhase !== 'authenticated') {
+    () => [userStore.isAuthChecked, adminStore.canManage] as const,
+    ([isAuthChecked, canManage]) => {
+      if (!isAuthChecked || !canManage) {
         hasFetched = false
         resetDashboardState()
         return
