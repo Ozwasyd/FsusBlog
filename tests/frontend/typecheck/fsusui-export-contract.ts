@@ -2,6 +2,7 @@ import {
   ElButton,
   ElEmptyState,
   ElMarkdownEditor,
+  ElSiteHeader,
   FsuMotion,
   runMotion,
   type EmptyStateProps,
@@ -9,10 +10,7 @@ import {
   type MarkdownEditorMode,
   type MotionPresetName,
 } from '@ozwasyd/element-plus'
-import {
-  themeModes,
-  type ThemeMode,
-} from '@ozwasyd/element-plus/theme'
+import { themeModes, type ThemeMode } from '@ozwasyd/element-plus/theme'
 
 import type { Component } from 'vue'
 
@@ -20,6 +18,7 @@ const componentExports: Component[] = [
   ElButton,
   ElEmptyState,
   ElMarkdownEditor,
+  ElSiteHeader,
   FsuMotion,
 ]
 
