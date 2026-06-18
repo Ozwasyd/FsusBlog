@@ -72,6 +72,8 @@ public static class FsusObservability
     private static readonly Counter<long> PublicAotInvalidatedKeyCounter = Meter.CreateCounter<long>("public_aot_invalidated_keys");
     private static readonly Counter<long> PublicAotDeletedFileCounter = Meter.CreateCounter<long>("public_aot_deleted_files");
     private static readonly Counter<long> PublicAotRegistryRemovedMemberCounter = Meter.CreateCounter<long>("public_aot_registry_removed_members");
+    private static readonly Counter<long> PublicAotRegistryCleanupCounter = Meter.CreateCounter<long>("public_aot_registry_cleanup_count");
+    private static readonly Counter<long> PublicAotRegistryDeletedKeyCounter = Meter.CreateCounter<long>("public_aot_registry_deleted_keys");
     private static readonly Counter<long> PublicAotPublishCounter = Meter.CreateCounter<long>("public_aot_publish_count");
     private static readonly Histogram<double> PublicAotInvalidationDuration = Meter.CreateHistogram<double>("public_aot_invalidation_duration_ms", "ms");
 
@@ -282,7 +284,9 @@ public static class FsusObservability
         long deletedFiles,
         long registryRemovedMembers,
         long publishCount,
-        TimeSpan elapsed)
+        TimeSpan elapsed,
+        string? registryCleanupStatus = null,
+        long registryDeletedKeys = 0)
     {
         PublicAotInvalidationScopeCounter.Add(Math.Max(0, scopes));
         PublicAotInvalidatedKeyCounter.Add(Math.Max(0, invalidatedKeys));
@@ -290,6 +294,12 @@ public static class FsusObservability
         PublicAotRegistryRemovedMemberCounter.Add(Math.Max(0, registryRemovedMembers));
         PublicAotPublishCounter.Add(Math.Max(0, publishCount));
         PublicAotInvalidationDuration.Record(elapsed.TotalMilliseconds);
+        if (!string.IsNullOrWhiteSpace(registryCleanupStatus))
+        {
+            TagList tags = CreateBaseTags("public_aot", "registry_cleanup", registryCleanupStatus);
+            PublicAotRegistryCleanupCounter.Add(1, tags);
+            PublicAotRegistryDeletedKeyCounter.Add(Math.Max(0, registryDeletedKeys), tags);
+        }
     }
 
     public static TimeSpan GetElapsed(long startTimestamp)

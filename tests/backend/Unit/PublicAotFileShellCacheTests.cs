@@ -470,6 +470,33 @@ public sealed class PublicAotFileShellCacheTests
     }
 
     [Fact]
+    public async Task InvalidateAllAsync_RecordsRegistryCleanupFailure_WhenRedisDeleteFails()
+    {
+        using CacheFixture fixture = BuildCacheFixture(Environments.Production);
+        var entry = CreateEntry("public:aot:v2:doc:2:article:42");
+        await fixture.Cache.SetAsync(entry);
+        fixture.Database.KeyDeleteAsync(Arg.Any<RedisKey[]>(), Arg.Any<CommandFlags>())
+            .Returns<Task<long>>(_ => throw new InvalidOperationException("registry delete failed"));
+
+        await fixture.Cache.InvalidateAllAsync();
+
+        PublicAotRecordedInvalidation? invalidation = fixture.Cache.LastInvalidationForTests;
+        Assert.NotNull(invalidation);
+        Assert.Equal("all", invalidation.Value.Scope);
+        Assert.Equal(PublicAotRegistryCleanupResult.FailedStatus, invalidation.Value.Stats.RegistryCleanupStatus);
+        Assert.Equal(0, invalidation.Value.Stats.RegistryDeletedKeys);
+        Assert.Contains("registry delete failed", invalidation.Value.Stats.RegistryCleanupError, StringComparison.Ordinal);
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, entry)));
+        await fixture.Database.Received(1).KeyDeleteAsync(
+            Arg.Is<RedisKey[]>(keys => keys.Length > 0 && keys.Contains((RedisKey)PublicAotCacheRegistry.GlobalRegistryKey)),
+            Arg.Any<CommandFlags>());
+        await fixture.Subscriber.Received(1).PublishAsync(
+            Arg.Any<RedisChannel>(),
+            Arg.Is<RedisValue>(payload => PayloadContains(payload, "\"type\":\"all\"")),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
     public void PublicAotInvalidationMessage_TryParse_AcceptsScopedAndLegacyPayloads()
     {
         Assert.True(PublicAotInvalidationMessage.TryParse(PublicAotInvalidationMessage.Prefix("prefix").ToPayload(), out PublicAotInvalidationMessage scoped));
@@ -513,8 +540,13 @@ public sealed class PublicAotFileShellCacheTests
         Assert.Contains("public_aot_invalidated_keys", observability);
         Assert.Contains("public_aot_deleted_files", observability);
         Assert.Contains("public_aot_registry_removed_members", observability);
+        Assert.Contains("public_aot_registry_cleanup_count", observability);
+        Assert.Contains("public_aot_registry_deleted_keys", observability);
         Assert.Contains("public_aot_publish_count", observability);
         Assert.Contains("public_aot_invalidation_duration_ms", observability);
+        Assert.Contains("RegistryCleanupStatus", source);
+        Assert.Contains("RegistryDeletedKeys", source);
+        Assert.Contains("PublicAotRegistryCleanupResult", source);
 
         string redisBackedCache = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicAot/PublicAotShellCache.cs"));
         Assert.Contains("RemoveManyAsync", redisBackedCache);

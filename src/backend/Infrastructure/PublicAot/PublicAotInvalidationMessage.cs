@@ -69,7 +69,10 @@ internal readonly record struct PublicAotBatchInvalidationStats(
     int InvalidatedKeys,
     int DeletedFiles,
     long RegistryRemovedMembers,
-    int PublishCount)
+    int PublishCount,
+    string? RegistryCleanupStatus = null,
+    long RegistryDeletedKeys = 0,
+    string? RegistryCleanupError = null)
 {
     public static PublicAotBatchInvalidationStats Empty => default;
 
@@ -78,8 +81,52 @@ internal readonly record struct PublicAotBatchInvalidationStats(
             InvalidatedKeys + other.InvalidatedKeys,
             DeletedFiles + other.DeletedFiles,
             RegistryRemovedMembers + other.RegistryRemovedMembers,
-            PublishCount + other.PublishCount);
+            PublishCount + other.PublishCount,
+            string.IsNullOrWhiteSpace(other.RegistryCleanupStatus) ? RegistryCleanupStatus : other.RegistryCleanupStatus,
+            RegistryDeletedKeys + other.RegistryDeletedKeys,
+            string.IsNullOrWhiteSpace(other.RegistryCleanupError) ? RegistryCleanupError : other.RegistryCleanupError);
 
     public PublicAotBatchInvalidationStats WithPublish()
-        => new(InvalidatedKeys, DeletedFiles, RegistryRemovedMembers, PublishCount + 1);
+        => new(
+            InvalidatedKeys,
+            DeletedFiles,
+            RegistryRemovedMembers,
+            PublishCount + 1,
+            RegistryCleanupStatus,
+            RegistryDeletedKeys,
+            RegistryCleanupError);
+
+    public PublicAotBatchInvalidationStats WithRegistryCleanup(PublicAotRegistryCleanupResult result)
+        => new(
+            InvalidatedKeys,
+            DeletedFiles,
+            RegistryRemovedMembers,
+            PublishCount,
+            result.Status,
+            result.DeletedKeys,
+            result.Error);
 }
+
+internal readonly record struct PublicAotRegistryCleanupResult(
+    string Status,
+    long DeletedKeys,
+    string? Error)
+{
+    public const string SuccessStatus = "success";
+    public const string SkippedStatus = "skipped";
+    public const string FailedStatus = "failed";
+
+    public static PublicAotRegistryCleanupResult Success(long deletedKeys)
+        => new(SuccessStatus, Math.Max(0, deletedKeys), null);
+
+    public static PublicAotRegistryCleanupResult Skipped()
+        => new(SkippedStatus, 0, null);
+
+    public static PublicAotRegistryCleanupResult Failed(string error)
+        => new(FailedStatus, 0, error);
+}
+
+internal readonly record struct PublicAotRecordedInvalidation(
+    string Scope,
+    PublicAotBatchInvalidationStats Stats,
+    TimeSpan Elapsed);

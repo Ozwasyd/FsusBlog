@@ -21,6 +21,9 @@ public sealed class PublicAotFileShellCache(
     private readonly string _cacheRoot = ResolveCacheRoot(env);
     private readonly ConcurrentDictionary<string, MemoryCacheEntry> _memoryCache = new(StringComparer.Ordinal);
     private long _memoryGeneration;
+    private PublicAotRecordedInvalidation? _lastInvalidation;
+
+    internal PublicAotRecordedInvalidation? LastInvalidationForTests => _lastInvalidation;
 
     public async Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
         => await TryGetEntryAsync(cacheKey, frontendAssetVersion: null, cancellationToken).ConfigureAwait(false);
@@ -138,20 +141,13 @@ public sealed class PublicAotFileShellCache(
             }
         }
 
-        await BoundaryExecutor.ExecuteAsync(
-            async () =>
-            {
-                RedisKey[] registryKeys = [.. PublicAotCacheRegistry.GetAllKnownRegistryKeys().Select(static key => (RedisKey)key)];
-                if (registryKeys.Length > 0)
-                {
-                    _ = await _db.KeyDeleteAsync(registryKeys).ConfigureAwait(false);
-                }
-            },
-            logger,
-            "public-aot-clear-registry");
+        PublicAotRegistryCleanupResult registryCleanup = await ClearRegistryAsync(cancellationToken).ConfigureAwait(false);
 
         await PublishInvalidationAsync(PublicAotInvalidationMessage.All()).ConfigureAwait(false);
-        RecordInvalidation("all", new PublicAotBatchInvalidationStats(0, deletedFiles, 0, 1), Stopwatch.GetElapsedTime(started));
+        RecordInvalidation(
+            "all",
+            new PublicAotBatchInvalidationStats(0, deletedFiles, 0, 1).WithRegistryCleanup(registryCleanup),
+            Stopwatch.GetElapsedTime(started));
     }
 
     private async Task<PublicAotCacheEntry?> TryReadCachedEntryAsync(
@@ -784,6 +780,31 @@ public sealed class PublicAotFileShellCache(
             $"public-aot-register:{cacheKey}");
     }
 
+    private async Task<PublicAotRegistryCleanupResult> ClearRegistryAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        RedisKey[] registryKeys = [.. PublicAotCacheRegistry.GetAllKnownRegistryKeys().Select(static key => (RedisKey)key)];
+        if (registryKeys.Length == 0)
+        {
+            return PublicAotRegistryCleanupResult.Skipped();
+        }
+
+        try
+        {
+            long deletedKeys = await _db.KeyDeleteAsync(registryKeys).ConfigureAwait(false);
+            return PublicAotRegistryCleanupResult.Success(deletedKeys);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "public-aot-clear-registry-failed {RegistryKeyCount}", registryKeys.Length);
+            return PublicAotRegistryCleanupResult.Failed(ex.Message);
+        }
+    }
+
     private async Task UnregisterKeyAsync(string cacheKey)
     {
         _ = await UnregisterKeysAsync([cacheKey]).ConfigureAwait(false);
@@ -921,16 +942,18 @@ public sealed class PublicAotFileShellCache(
             LogLevel.Debug);
     }
 
-    private static void RecordInvalidation(string scope, PublicAotBatchInvalidationStats stats, TimeSpan elapsed)
+    private void RecordInvalidation(string scope, PublicAotBatchInvalidationStats stats, TimeSpan elapsed)
     {
-        _ = scope;
+        _lastInvalidation = new PublicAotRecordedInvalidation(scope, stats, elapsed);
         FsusObservability.RecordPublicAotInvalidation(
             scopes: 1,
             stats.InvalidatedKeys,
             stats.DeletedFiles,
             stats.RegistryRemovedMembers,
             stats.PublishCount,
-            elapsed);
+            elapsed,
+            stats.RegistryCleanupStatus,
+            stats.RegistryDeletedKeys);
     }
 
     private sealed record MemoryCacheEntry(
