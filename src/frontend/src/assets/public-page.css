@@ -321,26 +321,30 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
   font-weight: 700;
 }
 
-/* fsus-allow-shell-material: Mobile bottom tab bar (FsusUI §8 Mobile Navigation Patterns + §6 opt-in glass material) */
-#fsus-aot-shell .el-public-shell__bottom-tab-bar {
-  position: fixed;
-  inset-inline: 0;
-  bottom: 0;
-  z-index: 30;
-  display: flex;
-  align-items: stretch;
-  min-height: 3.5rem;
-  background-color: color-mix(in srgb, var(--fsusblog-page-bg) 82%, transparent);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
-  backdrop-filter: blur(14px) saturate(150%);
-  border-top: 1px solid color-mix(in srgb, var(--fsusblog-panel-border) 50%, transparent);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-/* fsus-allow-shell-material: fallback guard for bottom tab bar glass support detection */
-@supports not (backdrop-filter: blur(1px)) {
+/* fsus-allow-shell-material: Mobile bottom tab bar (FsusUI §8 Mobile Navigation Patterns + §6 opt-in glass material)
+   Scoped to mobile via @media so that desktop nav (text-link + Scholarly Blue underline)
+   remains the primary navigation surface per FsusUI §1 Scope Boundary. */
+@media (max-width: 767px) {
   #fsus-aot-shell .el-public-shell__bottom-tab-bar {
-    background-color: var(--fsusblog-page-bg);
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    align-items: stretch;
+    min-height: 3.5rem;
+    background-color: color-mix(in srgb, var(--fsusblog-page-bg) 82%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    backdrop-filter: blur(14px) saturate(150%);
+    border-top: 1px solid color-mix(in srgb, var(--fsusblog-panel-border) 50%, transparent);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* fsus-allow-shell-material: fallback guard for bottom tab bar glass support detection */
+  @supports not (backdrop-filter: blur(1px)) {
+    #fsus-aot-shell .el-public-shell__bottom-tab-bar {
+      background-color: var(--fsusblog-page-bg);
+    }
   }
 }
 
