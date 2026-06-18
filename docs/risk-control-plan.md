@@ -56,6 +56,8 @@ RiskControl proof token 使用 `X-Fsus-Challenge-Proof` 传递，独立于 admin
 
 `Sha256PowChallengeProvider` 是第一个实际 provider，边界是复用旧 PoW 能力而不迁移 wire format：issue 生成 `sha256PowV1` assignment 和 `salt/difficulty/timestamp/signature` provider payload；verify 接受 legacy Base64 FPOW proof、复用 `IPowService` 与 `AdaptivePowGovernor`，并将成功、失败、重放类拒绝写入 challenge attempt。旧 `RequiresPowFilter` 和 `X-Fsus-Pow-Proof` header 仍作为兼容入口存在；统一 binary challenge endpoint 在 #469 单独完成。
 
+`RequiresRiskControlFilter` 是 enforcement baseline：读取 endpoint action / routeKey metadata，调用 `RiskDecisionService` 处理 allow / challenge / step-up / block / queue / throttle。challenge proof 使用 `X-Fsus-Challenge-Proof` 加 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 定位并消费绑定 claims；缺失或消费失败返回 428，block / throttle 返回 429，只有 proof consume 成功才进入业务 handler。旧 `RequiresPowFilter` 保持 legacy wrapper，避免一次性迁移现有 PoW endpoint。
+
 ## Ordered implementation units
 
 | Order | Unit | Issue | Acceptance boundary |

@@ -106,6 +106,8 @@ challenge provider 统一通过 `ISecurityChallengeProvider` 接入，wire kind 
 
 `sha256PowV1` provider 的 issue payload 只包含 legacy PoW challenge 必需字段：`salt`、`difficulty`、`timestamp`、`signature`。verify payload 必须包含 `proof`，其值为旧 `X-Fsus-Pow-Proof` 使用的 Base64 FPOW binary proof；服务端复用同一解析器、`IPowService.VerifyAsync` 和 `AdaptivePowGovernor` difficulty 裁决。该 provider 不引入公开 JSON fallback，不改变现有 FPOW wire format，也不删除 `GET /api/binary/auth/pow-challenge` 或 `X-Fsus-Pow-Proof` legacy 路径。
 
+受 `RequiresRiskControlFilter` 保护的 endpoint 必须具备 `RiskActionEndpointMetadata`，服务端用 action、routeKey、subjectHash、clientIpHash、deviceFpHash 和 policyVersion 消费统一 proof。客户端提交已签发 proof 时必须同时发送 `X-Fsus-Challenge-Proof`、`X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind`；缺 proof、proof 重放 / Redis miss、action 或 route mismatch、IP/device mismatch 均返回 428，block / throttle 类裁决返回 429。旧 `RequiresPowFilter` endpoint 仍使用 `X-Fsus-Pow-Proof`，不要求这些 RiskControl proof headers。
+
 | FrameType | 值 | POD | 用途 |
 |-----------|----|-----|------|
 | `SecurityChallengeAssignment` | 171 | `SecurityChallengeAssignmentPod` | 单个 challenge assignment |

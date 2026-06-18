@@ -60,6 +60,8 @@ RiskControl challenge provider 通过 `ISecurityChallengeProvider` 接入，不�
 
 `sha256PowV1` 由 `Sha256PowChallengeProvider` 提供，复用现有 `IPowService`、`AdaptivePowGovernor` 和 legacy FPOW 二进制 proof 解析逻辑。签发时 provider 返回统一 `SecurityChallengeAssignment`，并给后续 binary endpoint 提供 provider payload：`salt`、`difficulty`、`timestamp`、`signature`；持久化层只保存 payload hash，不保存原始 salt/signature 或 proof。验证时 provider 只接受 payload 中的 legacy Base64 FPOW proof，继续按客户端 IP 绑定、当前 difficulty、签名、过期时间和 Redis consume-once 规则校验；失败 attempt 写入 `security_challenge_attempt`。旧 `X-Fsus-Pow-Proof` / `RequiresPowFilter` 路径继续保留，统一 `/api/binary/security/challenge` 端点由后续 API issue 单独接入。
 
+`RequiresRiskControlFilter` 是新业务入口的统一 enforcement filter。endpoint 必须通过 `WithRiskAction(action, routeKey)` 或等价 metadata 声明 action / routeKey；filter 读取 `RiskDecisionService` 输出，`allow` 才进入业务 handler，`challenge` / `step-up` 必须携带 `X-Fsus-Challenge-Proof`、`X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 并由 `ISecurityChallengeProofService.ConsumeProofAsync` 一次性消费后才放行，缺失、重放或 action/route/IP/device mismatch 返回 428。`block`、`queue`、`throttle` 不进入业务 handler，返回 429 并写 `risk-control` 来源的拒绝事件。`RequiresPowFilter` 保持 legacy wrapper，只处理旧 `X-Fsus-Pow-Proof`。
+
 RiskControl 生产控制面按 `Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy` 演进；完整 tracking plan、子 issue 顺序与 binary-first 边界见 `docs/risk-control-plan.md`。
 
 管理后台新增 `/user/manage/security` 安全系统：
